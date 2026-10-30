@@ -123,6 +123,7 @@ int sd_dhcp6_client_add_option(sd_dhcp6_client *client, sd_dhcp6_option *v);
 int sd_dhcp6_client_stop(sd_dhcp6_client *client);
 int sd_dhcp6_client_start(sd_dhcp6_client *client);
 int sd_dhcp6_client_is_running(sd_dhcp6_client *client);
+int sd_dhcp6_client_send_renew(sd_dhcp6_client *client);
 int sd_dhcp6_client_attach_event(
                 sd_dhcp6_client *client,
                 sd_event *event,

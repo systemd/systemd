@@ -8,12 +8,24 @@ static SD_VARLINK_DEFINE_METHOD(Reboot);
 static SD_VARLINK_DEFINE_METHOD(Pause);
 static SD_VARLINK_DEFINE_METHOD(Resume);
 
+static SD_VARLINK_DEFINE_STRUCT_TYPE_FULL(
+                Memory,
+                SD_VARLINK_EXPERIMENTAL,
+                SD_VARLINK_FIELD_COMMENT("Memory size the machine was started with"),
+                SD_VARLINK_DEFINE_FIELD(configuredBytes, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Memory size last requested via SetMemory(), rounded up to the backend's granularity. Equals configuredBytes if never called or if the backend cannot resize memory"),
+                SD_VARLINK_DEFINE_FIELD(targetBytes, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Memory size the machine currently sees, as last reported by the backend. null if not yet known"),
+                SD_VARLINK_DEFINE_FIELD(actualBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_METHOD(
                 Describe,
                 SD_VARLINK_FIELD_COMMENT("True iff vCPUs are executing"),
                 SD_VARLINK_DEFINE_OUTPUT(running, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("Backend-specific state string (e.g. 'running', 'paused', 'shutdown'); 'unknown' if unavailable"),
-                SD_VARLINK_DEFINE_OUTPUT(status, SD_VARLINK_STRING, 0));
+                SD_VARLINK_DEFINE_OUTPUT(status, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Memory state of the machine. null if the backend has no notion of it"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(memory, Memory, SD_VARLINK_NULLABLE|SD_VARLINK_EXPERIMENTAL));
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 SubscribeEvents,
@@ -46,6 +58,12 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Identifier of the existing binding whose backing is being replaced (as supplied to AddStorage)"),
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0));
 
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                SetMemory,
+                SD_VARLINK_EXPERIMENTAL,
+                SD_VARLINK_FIELD_COMMENT("Requested memory size in bytes. The machine converges toward it asynchronously. Describe() reports progress"),
+                SD_VARLINK_DEFINE_INPUT(bytes, SD_VARLINK_INT, 0));
+
 static SD_VARLINK_DEFINE_ERROR(NotConnected);
 static SD_VARLINK_DEFINE_ERROR(NotSupported);
 static SD_VARLINK_DEFINE_ERROR(NoSuchStorage);
@@ -77,6 +95,10 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_RemoveStorage,
                 SD_VARLINK_SYMBOL_COMMENT("Replace the backing of a previously-attached storage volume in place"),
                 &vl_method_ReplaceStorage,
+                SD_VARLINK_SYMBOL_COMMENT("Resize the machine's memory. Backends without a resizing mechanism return NotSupported"),
+                &vl_method_SetMemory,
+                SD_VARLINK_SYMBOL_COMMENT("Memory state of a machine, all sizes in bytes"),
+                &vl_type_Memory,
                 SD_VARLINK_SYMBOL_COMMENT("The connection to the machine backend is not available"),
                 &vl_error_NotConnected,
                 SD_VARLINK_SYMBOL_COMMENT("The requested operation is not supported"),

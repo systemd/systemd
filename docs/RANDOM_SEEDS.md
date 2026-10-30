@@ -105,7 +105,7 @@ systemd itself requires random numbers as well, including for the following uses
   and thus the runtime context the service manager maintains can be neatly matched up with
   the log data a specific service invocation generated.
   systemd also initializes `/etc/machine-id` with a randomized UUID.
-  (systemd also makes use of the randomized "boot id" the kernel exposes in `/proc/sys/kernel/random boot_id`).
+  (systemd also makes use of the randomized "boot id" the kernel exposes in `/proc/sys/kernel/random/boot_id`).
   These UUIDs are exclusively Type 4 UUIDs, i.e. randomly generated ones.
 
 * systemd maintains various hash tables internally.

@@ -16,6 +16,7 @@
 #include "chattr-util.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "dissect-image.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
@@ -316,15 +317,22 @@ static int create_volume_dir(
         if (volume_fd < 0)
                 return volume_fd;
 
-        _cleanup_close_ int root_fd = xopenat_full(volume_fd, "root", O_CREAT|O_EXCL|O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW, xopen_flags, 0755);
-        if (root_fd < 0) {
-                r = root_fd;
-                goto fail;
-        }
+        _cleanup_close_ int root_fd = -EBADF;
+        if (arg_runtime_scope == RUNTIME_SCOPE_USER) {
+                r = mkdir_foreign_at_full(volume_fd, "root", 0755, xopen_flags, &root_fd);
+                if (r < 0)
+                        goto fail;
+        } else {
+                root_fd = xopenat_full(volume_fd, "root", O_CREAT|O_EXCL|O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW, xopen_flags, 0755);
+                if (root_fd < 0) {
+                        r = root_fd;
+                        goto fail;
+                }
 
-        r = RET_NERRNO(fchown(root_fd, FOREIGN_UID_MIN, FOREIGN_UID_MIN));
-        if (r < 0)
-                goto fail;
+                r = RET_NERRNO(fchown(root_fd, FOREIGN_UID_MIN, FOREIGN_UID_MIN));
+                if (r < 0)
+                        goto fail;
+        }
 
         r = rename_noreplace(storage_fd, tf, storage_fd, filename);
         if (r < 0)
@@ -333,11 +341,9 @@ static int create_volume_dir(
         return TAKE_FD(root_fd);
 
 fail:
-        if (root_fd >= 0) {
-                assert(volume_fd >= 0);
-                root_fd = safe_close(root_fd);
-                (void) unlinkat(volume_fd, "root", AT_REMOVEDIR);
-        }
+        /* mkdir_foreign_at_full() might have created "root/" even if we didn't get an fd back */
+        root_fd = safe_close(root_fd);
+        (void) unlinkat(volume_fd, "root", AT_REMOVEDIR);
 
         if (volume_fd >= 0) {
                 volume_fd = safe_close(volume_fd);
@@ -656,6 +662,16 @@ static int vl_method_acquire(
                 if (!uid_is_foreign(st.st_uid) ||
                     !gid_is_foreign(st.st_gid))
                         return log_debug_errno(SYNTHETIC_ERRNO(EPERM), "Storage directory not owned by foreign UID/GID range.");
+
+                if (arg_runtime_scope == RUNTIME_SCOPE_USER) {
+                        /* We cannot create a mount unprivileged, so just return the directory itself */
+                        r = fd_is_read_only_fs(real_fd);
+                        if (r < 0)
+                                return r;
+
+                        ro = r > 0 || p.read_only > 0;
+                        break;
+                }
 
                 /* Let's now generate a new mount for the directory tree, where propagation is disabled, and the
                  * flags are all set to good defaults */

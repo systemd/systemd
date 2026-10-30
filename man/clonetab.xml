@@ -5,7 +5,8 @@
 <!--
   SPDX-License-Identifier: LGPL-2.1-or-later
 -->
-<refentry id="clonetab" xmlns:xi="http://www.w3.org/2001/XInclude">
+<refentry id="clonetab" conditional="ENABLE_CLONESETUP"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>clonetab</title>

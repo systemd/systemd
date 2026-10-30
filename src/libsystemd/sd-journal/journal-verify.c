@@ -139,6 +139,26 @@ static int hash_payload(JournalFile *f, Object *o, uint64_t offset, const uint8_
         return 0;
 }
 
+static int verify_compression(JournalFile *f, Object *o, uint64_t p) {
+        Compression c;
+
+        assert(f);
+        assert(o);
+
+        c = COMPRESSION_FROM_OBJECT(o);
+        if (c < 0) {
+                error(p, "Object has multiple compression flags set (flags: 0x%x)", o->object.flags);
+                return -EBADMSG;
+        }
+
+        if (c != COMPRESSION_NONE && !(le32toh(f->header->incompatible_flags) & COMPRESSION_TO_HEADER_INCOMPATIBLE_FLAG(c))) {
+                error(p, "%s compressed object in file without %s compression", compression_to_string(c), compression_to_string(c));
+                return -EBADMSG;
+        }
+
+        return 0;
+}
+
 static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o) {
         assert(f);
         assert(offset);
@@ -383,59 +403,137 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
         return 0;
 }
 
-static int write_uint64(FILE *fp, uint64_t p) {
-        if (fwrite(&p, sizeof(p), 1, fp) != 1)
-                return -EIO;
+/* The offset lists take 8 bytes per data, entry and entry array object. For journal files up to this size
+ * (journald's default maximum file size) they are kept in memory, which takes at most a quarter of the file
+ * size, i.e. 32M, if the file consisted only of entry arrays with a single item, the smallest of these
+ * objects, and a few percent in practice. For larger files they are written to temporary files in /var/tmp/
+ * instead, so that the memory use does not grow with the file size. */
+#define OFFSET_ARRAY_IN_MEMORY_MAX_FILE_SIZE (128 * U64_MB)
+
+typedef struct OffsetArray {
+        uint64_t *items;
+        FILE *fp;
+        MMapFileDescriptor *cache_fd;
+        uint64_t n;
+} OffsetArray;
+
+static void offset_array_done(OffsetArray *a) {
+        assert(a);
+
+        a->items = mfree(a->items);
+        a->cache_fd = mmap_cache_fd_free(a->cache_fd);
+        a->fp = safe_fclose(a->fp);
+        a->n = 0;
+}
+
+static int offset_array_open_tmpfile(OffsetArray *a, MMapCache *m, const char *tmp_dir) {
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert(a);
+        assert(!a->fp);
+        assert(m);
+        assert(tmp_dir);
+
+        fd = open_tmpfile_unlinkable(tmp_dir, O_RDWR | O_CLOEXEC);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to create temporary file: %m");
+
+        r = mmap_cache_add_fd(m, fd, PROT_READ|PROT_WRITE, &a->cache_fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to cache temporary file: %m");
+
+        r = take_fdopen_unlocked(&fd, "w+", &a->fp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open temporary file stream: %m");
 
         return 0;
 }
 
-static int contains_uint64(MMapFileDescriptor *f, uint64_t n, uint64_t p) {
-        uint64_t a, b;
+static int offset_array_append(OffsetArray *a, uint64_t p) {
+        assert(a);
+
+        /* Objects are added in the order in which they are found in the file, hence the array is sorted,
+         * and looking an offset up is a bisection. */
+
+        if (a->fp) {
+                if (fwrite(&p, sizeof(p), 1, a->fp) != 1)
+                        return -EIO;
+        } else {
+                if (!GREEDY_REALLOC(a->items, a->n + 1))
+                        return log_oom();
+
+                a->items[a->n] = p;
+        }
+
+        a->n++;
+        return 0;
+}
+
+static int offset_array_flush(OffsetArray *a) {
+        assert(a);
+
+        if (a->fp && fflush(a->fp) != 0)
+                return log_error_errno(errno, "Failed to flush temporary file stream: %m");
+
+        return 0;
+}
+
+static int offset_array_contains(const OffsetArray *a, uint64_t p) {
         int r;
 
-        assert(f);
+        assert(a);
 
         /* Bisection ... */
 
-        a = 0; b = n;
-        while (a < b) {
-                uint64_t c, *z;
+        uint64_t lo = 0, hi = a->n;
 
-                c = (a + b) / 2;
+        if (!a->fp) {
+                while (lo < hi) {
+                        uint64_t c = lo + (hi - lo) / 2;
 
-                r = mmap_cache_fd_get(f, 0, false, c * sizeof(uint64_t), sizeof(uint64_t), NULL, (void **) &z);
+                        if (a->items[c] == p)
+                                return true;
+                        if (a->items[c] < p)
+                                lo = c + 1;
+                        else
+                                hi = c;
+                }
+
+                return false;
+        }
+
+        while (lo < hi) {
+                uint64_t c = lo + (hi - lo) / 2, *z;
+
+                r = mmap_cache_fd_get(a->cache_fd, 0, false, c * sizeof(uint64_t), sizeof(uint64_t), NULL, (void **) &z, /* ret_size= */ NULL);
                 if (r < 0)
                         return r;
 
                 if (*z == p)
-                        return 1;
-
-                if (a + 1 >= b)
-                        return 0;
-
-                if (p < *z)
-                        b = c;
+                        return true;
+                if (*z < p)
+                        lo = c + 1;
                 else
-                        a = c;
+                        hi = c;
         }
 
-        return 0;
+        return false;
 }
 
 static int verify_data(
                 JournalFile *f,
                 Object *o, uint64_t p,
-                MMapFileDescriptor *cache_entry_fd, uint64_t n_entries,
-                MMapFileDescriptor *cache_entry_array_fd, uint64_t n_entry_arrays) {
+                const OffsetArray *entries,
+                const OffsetArray *entry_arrays) {
 
         uint64_t i, n, a, last, q;
         int r;
 
         assert(f);
         assert(o);
-        assert(cache_entry_fd);
-        assert(cache_entry_array_fd);
+        assert(entries);
+        assert(entry_arrays);
 
         n = le64toh(o->data.n_entries);
         a = le64toh(o->data.entry_array_offset);
@@ -453,18 +551,18 @@ static int verify_data(
         assert(o->data.entry_offset);
 
         last = q = le64toh(o->data.entry_offset);
-        if (!contains_uint64(cache_entry_fd, n_entries, q)) {
+        r = offset_array_contains(entries, q);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 error(p, "Data object references invalid entry at "OFSfmt, q);
                 return -EBADMSG;
         }
 
-        r = journal_file_move_to_entry_by_offset(f, q, DIRECTION_DOWN, NULL, NULL);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                error(q, "Entry object doesn't exist in the main entry array");
-                return -EBADMSG;
-        }
+        /* We don't check here that the entry is also linked from the main entry array, because that's
+         * implied by the check above: verify_entry_array() ran before us, and checked that the main entry
+         * array is strictly sorted, has exactly as many items as there are entry objects in the file, and
+         * that each item is an entry object. Hence it contains every entry object. */
 
         i = 1;
         while (i < n) {
@@ -475,7 +573,10 @@ static int verify_data(
                         return -EBADMSG;
                 }
 
-                if (!contains_uint64(cache_entry_array_fd, n_entry_arrays, a)) {
+                r = offset_array_contains(entry_arrays, a);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
                         error(p, "Invalid array offset "OFSfmt, a);
                         return -EBADMSG;
                 }
@@ -500,23 +601,15 @@ static int verify_data(
                         }
                         last = q;
 
-                        if (!contains_uint64(cache_entry_fd, n_entries, q)) {
+                        r = offset_array_contains(entries, q);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
                                 error(p, "Data object references invalid entry at "OFSfmt, q);
                                 return -EBADMSG;
                         }
 
-                        r = journal_file_move_to_entry_by_offset(f, q, DIRECTION_DOWN, NULL, NULL);
-                        if (r < 0)
-                                return r;
-                        if (r == 0) {
-                                error(q, "Entry object doesn't exist in the main entry array");
-                                return -EBADMSG;
-                        }
-
-                        /* Pointer might have moved, reposition */
-                        r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
-                        if (r < 0)
-                                return r;
+                        /* No need to look the entry up in the main entry array either, see above. */
                 }
 
                 a = next;
@@ -527,9 +620,9 @@ static int verify_data(
 
 static int verify_data_hash_table(
                 JournalFile *f,
-                MMapFileDescriptor *cache_data_fd, uint64_t n_data,
-                MMapFileDescriptor *cache_entry_fd, uint64_t n_entries,
-                MMapFileDescriptor *cache_entry_array_fd, uint64_t n_entry_arrays,
+                const OffsetArray *data,
+                const OffsetArray *entries,
+                const OffsetArray *entry_arrays,
                 usec_t *last_usec,
                 bool show_progress) {
 
@@ -537,9 +630,9 @@ static int verify_data_hash_table(
         int r;
 
         assert(f);
-        assert(cache_data_fd);
-        assert(cache_entry_fd);
-        assert(cache_entry_array_fd);
+        assert(data);
+        assert(entries);
+        assert(entry_arrays);
         assert(last_usec);
 
         n = le64toh(f->header->data_hash_table_size) / sizeof(HashItem);
@@ -561,7 +654,10 @@ static int verify_data_hash_table(
                         Object *o;
                         uint64_t next;
 
-                        if (!contains_uint64(cache_data_fd, n_data, p)) {
+                        r = offset_array_contains(data, p);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
                                 error(p, "Invalid data object at hash entry %"PRIu64" of %"PRIu64, i, n);
                                 return -EBADMSG;
                         }
@@ -581,7 +677,7 @@ static int verify_data_hash_table(
                                 return -EBADMSG;
                         }
 
-                        r = verify_data(f, o, p, cache_entry_fd, n_entries, cache_entry_array_fd, n_entry_arrays);
+                        r = verify_data(f, o, p, entries, entry_arrays);
                         if (r < 0)
                                 return r;
 
@@ -636,7 +732,7 @@ static int data_object_in_hash_table(JournalFile *f, uint64_t hash, uint64_t p) 
 static int verify_entry(
                 JournalFile *f,
                 Object *o, uint64_t p,
-                MMapFileDescriptor *cache_data_fd, uint64_t n_data,
+                const OffsetArray *data,
                 bool last) {
 
         uint64_t i, n;
@@ -644,7 +740,7 @@ static int verify_entry(
 
         assert(f);
         assert(o);
-        assert(cache_data_fd);
+        assert(data);
 
         n = journal_file_entry_n_items(f, o);
         for (i = 0; i < n; i++) {
@@ -653,7 +749,10 @@ static int verify_entry(
 
                 q = journal_file_entry_item_object_offset(f, o, i);
 
-                if (!contains_uint64(cache_data_fd, n_data, q)) {
+                r = offset_array_contains(data, q);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
                         error(p, "Invalid data object of entry");
                         return -EBADMSG;
                 }
@@ -693,9 +792,9 @@ static int verify_entry(
 
 static int verify_entry_array(
                 JournalFile *f,
-                MMapFileDescriptor *cache_data_fd, uint64_t n_data,
-                MMapFileDescriptor *cache_entry_fd, uint64_t n_entries,
-                MMapFileDescriptor *cache_entry_array_fd, uint64_t n_entry_arrays,
+                const OffsetArray *data,
+                const OffsetArray *entries,
+                const OffsetArray *entry_arrays,
                 usec_t *last_usec,
                 bool show_progress) {
 
@@ -703,9 +802,9 @@ static int verify_entry_array(
         int r;
 
         assert(f);
-        assert(cache_data_fd);
-        assert(cache_entry_fd);
-        assert(cache_entry_array_fd);
+        assert(data);
+        assert(entries);
+        assert(entry_arrays);
         assert(last_usec);
 
         n = le64toh(f->header->n_entries);
@@ -722,7 +821,10 @@ static int verify_entry_array(
                         return -EBADMSG;
                 }
 
-                if (!contains_uint64(cache_entry_array_fd, n_entry_arrays, a)) {
+                r = offset_array_contains(entry_arrays, a);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
                         error(a, "Invalid array %"PRIu64" of %"PRIu64, i, n);
                         return -EBADMSG;
                 }
@@ -748,7 +850,10 @@ static int verify_entry_array(
                         }
                         last = p;
 
-                        if (!contains_uint64(cache_entry_fd, n_entries, p)) {
+                        r = offset_array_contains(entries, p);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
                                 error(a, "Invalid array entry at %"PRIu64" of %"PRIu64, i, n);
                                 return -EBADMSG;
                         }
@@ -757,7 +862,7 @@ static int verify_entry_array(
                         if (r < 0)
                                 return r;
 
-                        r = verify_entry(f, o, p, cache_data_fd, n_data, /* last= */ i + 1 == n);
+                        r = verify_entry(f, o, p, data, /* last= */ i + 1 == n);
                         if (r < 0)
                                 return r;
 
@@ -810,6 +915,164 @@ static int verify_hash_table(
         return 0;
 }
 
+typedef struct VerifyTagState {
+        uint64_t n_tags;
+        uint64_t last_tag_end;
+        uint64_t last_epoch;
+        usec_t last_tag_realtime, last_tag_realtime_end;
+        usec_t min_entry_realtime, max_entry_realtime, last_entry_realtime;
+} VerifyTagState;
+
+static int verify_tag_add_entry(VerifyTagState *s, bool sealed, uint64_t p, usec_t realtime) {
+        assert(s);
+
+        if (sealed && s->n_tags <= 0) {
+                error(p, "First entry before first tag");
+                return -EBADMSG;
+        }
+
+        if (realtime < s->last_tag_realtime) {
+                error(p,
+                      "Older entry after newer tag (%"PRIu64" < %"PRIu64")",
+                      realtime,
+                      s->last_tag_realtime);
+                return -EBADMSG;
+        }
+
+        s->min_entry_realtime = MIN(s->min_entry_realtime, realtime);
+        s->max_entry_realtime = MAX(s->max_entry_realtime, realtime);
+        s->last_entry_realtime = realtime;
+        return 0;
+}
+
+static int verify_tag(JournalFile *f, VerifyTagState *s, uint64_t p, Object **o) {
+        uint64_t seqnum, epoch;
+        int r;
+
+        assert(f);
+        assert(s);
+        assert(o);
+
+        if (!JOURNAL_HEADER_SEALED(f->header)) {
+                error(p, "Tag object in file without sealing");
+                return -EBADMSG;
+        }
+
+        seqnum = le64toh((*o)->tag.seqnum);
+        epoch = le64toh((*o)->tag.epoch);
+
+        if (seqnum != s->n_tags + 1) {
+                error(p,
+                      "Tag sequence number out of synchronization (%"PRIu64" != %"PRIu64")",
+                      seqnum,
+                      s->n_tags + 1);
+                return -EBADMSG;
+        }
+
+        if (JOURNAL_HEADER_SEALED_CONTINUOUS(f->header)) {
+                if (!(s->n_tags == 0 || (s->n_tags == 1 && epoch == s->last_epoch) || epoch == s->last_epoch + 1)) {
+                        error(p,
+                              "Epoch sequence not continuous (%"PRIu64" vs %"PRIu64")",
+                              epoch,
+                              s->last_epoch);
+                        return -EBADMSG;
+                }
+        } else if (epoch < s->last_epoch) {
+                error(p,
+                      "Epoch sequence out of synchronization (%"PRIu64" < %"PRIu64")",
+                      epoch,
+                      s->last_epoch);
+                return -EBADMSG;
+        }
+
+        if (journal_auth_supported()) {
+                uint8_t tag[TAG_LENGTH];
+                usec_t rt, rt_end;
+
+                CLEANUP_ERASE(tag);
+
+                debug(p, "Checking tag %"PRIu64"...", seqnum);
+
+                r = journal_file_auth_epoch_to_realtime_usec(f, epoch, &rt, &rt_end);
+                if (r < 0)
+                        return r;
+
+                /* rt_end is never 0, so this never triggers before the first entry. */
+                if (s->last_entry_realtime >= rt_end) {
+                        error(p,
+                              "tag/entry realtime timestamp out of synchronization (%"PRIu64" >= %"PRIu64")",
+                              s->last_entry_realtime,
+                              rt_end);
+                        return -EBADMSG;
+                }
+                if (s->max_entry_realtime >= rt_end) {
+                        error(p,
+                              "Entry realtime (%"PRIu64", %s) is too late with respect to tag (%"PRIu64", %s)",
+                              s->max_entry_realtime, FORMAT_TIMESTAMP(s->max_entry_realtime),
+                              rt_end, FORMAT_TIMESTAMP(rt_end));
+                        return -EBADMSG;
+                }
+                if (s->min_entry_realtime < rt) {
+                        error(p,
+                              "Entry realtime (%"PRIu64", %s) is too early with respect to tag (%"PRIu64", %s)",
+                              s->min_entry_realtime, FORMAT_TIMESTAMP(s->min_entry_realtime),
+                              rt, FORMAT_TIMESTAMP(rt));
+                        return -EBADMSG;
+                }
+                s->min_entry_realtime = USEC_INFINITY;
+
+                r = journal_file_auth_seek(f, epoch);
+                if (r < 0)
+                        return r;
+
+                r = journal_file_auth_start(f);
+                if (r < 0)
+                        return r;
+
+                if (s->n_tags == 0) {
+                        r = journal_file_auth_put_header(f);
+                        if (r < 0)
+                                return r;
+                }
+
+                for (uint64_t q = s->last_tag_end; q <= p;) {
+                        Object *object;
+
+                        r = journal_file_move_to_object(f, OBJECT_UNUSED, q, &object);
+                        if (r < 0)
+                                return r;
+
+                        r = journal_file_auth_put_object(f, OBJECT_UNUSED, object, q);
+                        if (r < 0)
+                                return r;
+
+                        q += ALIGN64(le64toh(object->object.size));
+                }
+
+                /* The traversal may have unmapped the tag. */
+                r = journal_file_move_to_object(f, OBJECT_TAG, p, o);
+                if (r < 0)
+                        return r;
+
+                r = journal_file_auth_end(f, tag);
+                if (r < 0)
+                        return r;
+
+                if (memcmp((*o)->tag.tag, tag, TAG_LENGTH) != 0) {
+                        error(p, "Tag failed verification");
+                        return -EBADMSG;
+                }
+
+                s->last_tag_realtime = rt;
+                s->last_tag_realtime_end = rt_end;
+        }
+
+        s->last_tag_end = p + ALIGN64(le64toh((*o)->object.size));
+        s->last_epoch = epoch;
+        s->n_tags++;
+        return 0;
+}
+
 int journal_file_verify(
                 JournalFile *f,
                 const char *key,
@@ -820,22 +1083,32 @@ int journal_file_verify(
 
         int r;
         Object *o;
-        uint64_t p = 0, last_tag = 0, last_epoch = 0, last_tag_realtime = 0, last_tag_realtime_end = 0;
-        uint64_t entry_seqnum = 0, entry_monotonic = 0, entry_realtime = 0;
-        usec_t min_entry_realtime = USEC_INFINITY, max_entry_realtime = 0;
+        uint64_t p = 0;
+        uint64_t entry_seqnum = 0, entry_monotonic = 0;
+        VerifyTagState tag = {
+                .min_entry_realtime = USEC_INFINITY,
+        };
         sd_id128_t entry_boot_id = {};  /* Unnecessary initialization to appease gcc */
         bool entry_seqnum_set = false, entry_monotonic_set = false, entry_realtime_set = false, found_main_entry_array = false;
-        uint64_t n_objects = 0, n_entries = 0, n_data = 0, n_fields = 0, n_data_hash_tables = 0, n_field_hash_tables = 0, n_entry_arrays = 0, n_tags = 0;
+        uint64_t n_objects = 0, n_entries = 0, n_data = 0, n_fields = 0, n_data_hash_tables = 0, n_field_hash_tables = 0, n_entry_arrays = 0;
         usec_t last_usec = 0;
-        _cleanup_close_ int data_fd = -EBADF, entry_fd = -EBADF, entry_array_fd = -EBADF;
-        _cleanup_fclose_ FILE *data_fp = NULL, *entry_fp = NULL, *entry_array_fp = NULL;
-        MMapFileDescriptor *cache_data_fd = NULL, *cache_entry_fd = NULL, *cache_entry_array_fd = NULL;
+        _cleanup_(offset_array_done) OffsetArray data = {}, entries = {}, entry_arrays = {};
+        OffsetArray *a;
         unsigned i;
         bool found_last = false;
-        const char *tmp_dir = NULL;
-        MMapCache *m;
 
         assert(f);
+
+        /* Header verification done on open is typically relaxed; verify it strictly here.
+         * The header verification requires the latest stat, let's first update the stat. */
+        r = journal_file_fstat(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to stat journal file: %m");
+
+        f->verifying = true;
+        r = journal_file_verify_header(f);
+        if (r < 0)
+                return log_error_errno(r, "Journal file header is broken: %m");
 
         if (key) {
                 r = journal_file_auth_load_key(f, key);
@@ -850,71 +1123,8 @@ int journal_file_verify(
                         log_notice("Journal file is sealed, but journal sealing support is disabled. Skipping seal verification.");
         }
 
-        r = var_tmp_dir(&tmp_dir);
-        if (r < 0) {
-                log_error_errno(r, "Failed to determine temporary directory: %m");
-                goto fail;
-        }
-
-        data_fd = open_tmpfile_unlinkable(tmp_dir, O_RDWR | O_CLOEXEC);
-        if (data_fd < 0) {
-                r = log_error_errno(data_fd, "Failed to create data file: %m");
-                goto fail;
-        }
-
-        entry_fd = open_tmpfile_unlinkable(tmp_dir, O_RDWR | O_CLOEXEC);
-        if (entry_fd < 0) {
-                r = log_error_errno(entry_fd, "Failed to create entry file: %m");
-                goto fail;
-        }
-
-        entry_array_fd = open_tmpfile_unlinkable(tmp_dir, O_RDWR | O_CLOEXEC);
-        if (entry_array_fd < 0) {
-                r = log_error_errno(entry_array_fd,
-                                    "Failed to create entry array file: %m");
-                goto fail;
-        }
-
-        m = mmap_cache_fd_cache(f->cache_fd);
-        r = mmap_cache_add_fd(m, data_fd, PROT_READ|PROT_WRITE, &cache_data_fd);
-        if (r < 0) {
-                log_error_errno(r, "Failed to cache data file: %m");
-                goto fail;
-        }
-
-        r = mmap_cache_add_fd(m, entry_fd, PROT_READ|PROT_WRITE, &cache_entry_fd);
-        if (r < 0) {
-                log_error_errno(r, "Failed to cache entry file: %m");
-                goto fail;
-        }
-
-        r = mmap_cache_add_fd(m, entry_array_fd, PROT_READ|PROT_WRITE, &cache_entry_array_fd);
-        if (r < 0) {
-                log_error_errno(r, "Failed to cache entry array file: %m");
-                goto fail;
-        }
-
-        r = take_fdopen_unlocked(&data_fd, "w+", &data_fp);
-        if (r < 0) {
-                log_error_errno(r, "Failed to open data file stream: %m");
-                goto fail;
-        }
-
-        r = take_fdopen_unlocked(&entry_fd, "w+", &entry_fp);
-        if (r < 0) {
-                log_error_errno(r, "Failed to open entry file stream: %m");
-                goto fail;
-        }
-
-        r = take_fdopen_unlocked(&entry_array_fd, "w+", &entry_array_fp);
-        if (r < 0) {
-                log_error_errno(r, "Failed to open entry array file stream: %m");
-                goto fail;
-        }
-
         if (le32toh(f->header->compatible_flags) & ~HEADER_COMPATIBLE_SUPPORTED) {
-                log_error("Cannot verify file with unknown extensions.");
-                r = -EOPNOTSUPP;
+                r = log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Cannot verify file with unknown extensions.");
                 goto fail;
         }
 
@@ -925,6 +1135,24 @@ int journal_file_verify(
                         goto fail;
                 }
 
+        if ((uint64_t) f->last_stat.st_size > OFFSET_ARRAY_IN_MEMORY_MAX_FILE_SIZE) {
+                const char *tmp_dir;
+                MMapCache *m;
+
+                r = var_tmp_dir(&tmp_dir);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to determine temporary directory: %m");
+                        goto fail;
+                }
+
+                m = mmap_cache_fd_cache(f->cache_fd);
+                FOREACH_ARGUMENT(a, &data, &entries, &entry_arrays) {
+                        r = offset_array_open_tmpfile(a, m, tmp_dir);
+                        if (r < 0)
+                                goto fail;
+                }
+        }
+
         if (JOURNAL_HEADER_SEALED(f->header) && !JOURNAL_HEADER_SEALED_CONTINUOUS(f->header))
                 warning(p,
                         "This log file was sealed with an old journald version where the sequence of seals might not be continuous. We cannot guarantee completeness.");
@@ -932,7 +1160,7 @@ int journal_file_verify(
         /* First iteration: we go through all objects, verify the
          * superficial structure, headers, hashes. */
 
-        p = le64toh(f->header->header_size);
+        p = tag.last_tag_end = le64toh(f->header->header_size);
         for (;;) {
                 /* Early exit if there are no objects in the file, at all */
                 if (le64toh(f->header->tail_object_offset) == 0)
@@ -964,36 +1192,14 @@ int journal_file_verify(
                         goto fail;
                 }
 
-                if (!!(o->object.flags & OBJECT_COMPRESSED_XZ) +
-                    !!(o->object.flags & OBJECT_COMPRESSED_LZ4) +
-                    !!(o->object.flags & OBJECT_COMPRESSED_ZSTD) > 1) {
-                        error(p, "Object has multiple compression flags set (flags: 0x%x)", o->object.flags);
-                        r = -EINVAL;
+                r = verify_compression(f, o, p);
+                if (r < 0)
                         goto fail;
-                }
-
-                if ((o->object.flags & OBJECT_COMPRESSED_XZ) && !JOURNAL_HEADER_COMPRESSED_XZ(f->header)) {
-                        error(p, "XZ compressed object in file without XZ compression");
-                        r = -EBADMSG;
-                        goto fail;
-                }
-
-                if ((o->object.flags & OBJECT_COMPRESSED_LZ4) && !JOURNAL_HEADER_COMPRESSED_LZ4(f->header)) {
-                        error(p, "LZ4 compressed object in file without LZ4 compression");
-                        r = -EBADMSG;
-                        goto fail;
-                }
-
-                if ((o->object.flags & OBJECT_COMPRESSED_ZSTD) && !JOURNAL_HEADER_COMPRESSED_ZSTD(f->header)) {
-                        error(p, "ZSTD compressed object in file without ZSTD compression");
-                        r = -EBADMSG;
-                        goto fail;
-                }
 
                 switch (o->object.type) {
 
                 case OBJECT_DATA:
-                        r = write_uint64(data_fp, p);
+                        r = offset_array_append(&data, p);
                         if (r < 0)
                                 goto fail;
 
@@ -1005,24 +1211,13 @@ int journal_file_verify(
                         break;
 
                 case OBJECT_ENTRY:
-                        if (JOURNAL_HEADER_SEALED(f->header) && n_tags <= 0) {
-                                error(p, "First entry before first tag");
-                                r = -EBADMSG;
-                                goto fail;
-                        }
-
-                        r = write_uint64(entry_fp, p);
+                        r = offset_array_append(&entries, p);
                         if (r < 0)
                                 goto fail;
 
-                        if (le64toh(o->entry.realtime) < last_tag_realtime) {
-                                error(p,
-                                      "Older entry after newer tag (%"PRIu64" < %"PRIu64")",
-                                      le64toh(o->entry.realtime),
-                                      last_tag_realtime);
-                                r = -EBADMSG;
+                        r = verify_tag_add_entry(&tag, JOURNAL_HEADER_SEALED(f->header), p, le64toh(o->entry.realtime));
+                        if (r < 0)
                                 goto fail;
-                        }
 
                         if (!entry_seqnum_set &&
                             le64toh(o->entry.seqnum) != le64toh(f->header->head_entry_seqnum)) {
@@ -1072,11 +1267,7 @@ int journal_file_verify(
                                 goto fail;
                         }
 
-                        entry_realtime = le64toh(o->entry.realtime);
                         entry_realtime_set = true;
-
-                        max_entry_realtime = MAX(max_entry_realtime, le64toh(o->entry.realtime));
-                        min_entry_realtime = MIN(min_entry_realtime, le64toh(o->entry.realtime));
 
                         n_entries++;
                         break;
@@ -1099,7 +1290,7 @@ int journal_file_verify(
                         break;
 
                 case OBJECT_ENTRY_ARRAY:
-                        r = write_uint64(entry_array_fp, p);
+                        r = offset_array_append(&entry_arrays, p);
                         if (r < 0)
                                 goto fail;
 
@@ -1117,135 +1308,10 @@ int journal_file_verify(
                         break;
 
                 case OBJECT_TAG:
-                        if (!JOURNAL_HEADER_SEALED(f->header)) {
-                                error(p, "Tag object in file without sealing");
-                                r = -EBADMSG;
+                        r = verify_tag(f, &tag, p, &o);
+                        if (r < 0)
                                 goto fail;
-                        }
 
-                        if (le64toh(o->tag.seqnum) != n_tags + 1) {
-                                error(p,
-                                      "Tag sequence number out of synchronization (%"PRIu64" != %"PRIu64")",
-                                      le64toh(o->tag.seqnum),
-                                      n_tags + 1);
-                                r = -EBADMSG;
-                                goto fail;
-                        }
-
-                        if (JOURNAL_HEADER_SEALED_CONTINUOUS(f->header)) {
-                                if (!(n_tags == 0 || (n_tags == 1 && le64toh(o->tag.epoch) == last_epoch)
-                                      || le64toh(o->tag.epoch) == last_epoch + 1)) {
-                                        error(p,
-                                              "Epoch sequence not continuous (%"PRIu64" vs %"PRIu64")",
-                                              le64toh(o->tag.epoch),
-                                              last_epoch);
-                                        r = -EBADMSG;
-                                        goto fail;
-                                }
-                        } else {
-                                if (le64toh(o->tag.epoch) < last_epoch) {
-                                        error(p,
-                                              "Epoch sequence out of synchronization (%"PRIu64" < %"PRIu64")",
-                                              le64toh(o->tag.epoch),
-                                              last_epoch);
-                                        r = -EBADMSG;
-                                        goto fail;
-                                }
-                        }
-
-                        if (JOURNAL_HEADER_SEALED(f->header) && journal_auth_supported()) {
-                                uint64_t q, rt, rt_end;
-
-                                debug(p, "Checking tag %"PRIu64"...", le64toh(o->tag.seqnum));
-
-                                r = journal_file_auth_epoch_to_realtime_usec(f, le64toh(o->tag.epoch), &rt, &rt_end);
-                                if (r < 0)
-                                        goto fail;
-
-                                if (entry_realtime_set && entry_realtime >= rt_end) {
-                                        error(p,
-                                              "tag/entry realtime timestamp out of synchronization (%"PRIu64" >= %"PRIu64")",
-                                              entry_realtime,
-                                              rt_end);
-                                        r = -EBADMSG;
-                                        goto fail;
-                                }
-                                if (max_entry_realtime >= rt_end) {
-                                        error(p,
-                                              "Entry realtime (%"PRIu64", %s) is too late with respect to tag (%"PRIu64", %s)",
-                                              max_entry_realtime, FORMAT_TIMESTAMP(max_entry_realtime),
-                                              rt_end, FORMAT_TIMESTAMP(rt_end));
-                                        r = -EBADMSG;
-                                        goto fail;
-                                }
-                                if (min_entry_realtime < rt) {
-                                        error(p,
-                                              "Entry realtime (%"PRIu64", %s) is too early with respect to tag (%"PRIu64", %s)",
-                                              min_entry_realtime, FORMAT_TIMESTAMP(min_entry_realtime),
-                                              rt, FORMAT_TIMESTAMP(rt));
-                                        r = -EBADMSG;
-                                        goto fail;
-                                }
-                                min_entry_realtime = USEC_INFINITY;
-
-                                /* OK, now we know the epoch. So let's now set
-                                 * it, and calculate the HMAC for everything
-                                 * since the last tag. */
-                                r = journal_file_auth_seek(f, le64toh(o->tag.epoch));
-                                if (r < 0)
-                                        goto fail;
-
-                                r = journal_file_auth_start(f);
-                                if (r < 0)
-                                        goto fail;
-
-                                if (last_tag == 0) {
-                                        r = journal_file_auth_put_header(f);
-                                        if (r < 0)
-                                                goto fail;
-
-                                        q = le64toh(f->header->header_size);
-                                } else
-                                        q = last_tag;
-
-                                while (q <= p) {
-                                        r = journal_file_move_to_object(f, OBJECT_UNUSED, q, &o);
-                                        if (r < 0)
-                                                goto fail;
-
-                                        r = journal_file_auth_put_object(f, OBJECT_UNUSED, o, q);
-                                        if (r < 0)
-                                                goto fail;
-
-                                        q = q + ALIGN64(le64toh(o->object.size));
-                                }
-
-                                /* Position might have changed, let's reposition things */
-                                r = journal_file_move_to_object(f, OBJECT_UNUSED, p, &o);
-                                if (r < 0)
-                                        goto fail;
-
-                                uint8_t tag[TAG_LENGTH];
-                                CLEANUP_ERASE(tag);
-
-                                r = journal_file_auth_end(f, tag);
-                                if (r < 0)
-                                        goto fail;
-
-                                if (memcmp(o->tag.tag, tag, TAG_LENGTH) != 0) {
-                                        error(p, "Tag failed verification");
-                                        r = -EBADMSG;
-                                        goto fail;
-                                }
-
-                                last_tag_realtime = rt;
-                                last_tag_realtime_end = rt_end;
-                        }
-
-                        last_tag = p + ALIGN64(le64toh(o->object.size));
-                        last_epoch = le64toh(o->tag.epoch);
-
-                        n_tags++;
                         break;
                 }
 
@@ -1304,10 +1370,10 @@ int journal_file_verify(
         }
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_tags) &&
-            n_tags != le64toh(f->header->n_tags)) {
+            tag.n_tags != le64toh(f->header->n_tags)) {
                 error(offsetof(Header, n_tags),
                       "Tag number mismatch (%"PRIu64" != %"PRIu64")",
-                      n_tags,
+                      tag.n_tags,
                       le64toh(f->header->n_tags));
                 r = -EBADMSG;
                 goto fail;
@@ -1351,28 +1417,19 @@ int journal_file_verify(
                 goto fail;
         }
 
-        if (entry_realtime_set && entry_realtime != le64toh(f->header->tail_entry_realtime)) {
+        if (entry_realtime_set && tag.last_entry_realtime != le64toh(f->header->tail_entry_realtime)) {
                 error(0,
                       "Invalid tail realtime timestamp (%"PRIu64" != %"PRIu64")",
-                      entry_realtime,
+                      tag.last_entry_realtime,
                       le64toh(f->header->tail_entry_realtime));
                 r = -EBADMSG;
                 goto fail;
         }
 
-        if (fflush(data_fp) != 0) {
-                r = log_error_errno(errno, "Failed to flush data file stream: %m");
-                goto fail;
-        }
-
-        if (fflush(entry_fp) != 0) {
-                r = log_error_errno(errno, "Failed to flush entry file stream: %m");
-                goto fail;
-        }
-
-        if (fflush(entry_array_fp) != 0) {
-                r = log_error_errno(errno, "Failed to flush entry array file stream: %m");
-                goto fail;
+        FOREACH_ARGUMENT(a, &data, &entries, &entry_arrays) {
+                r = offset_array_flush(a);
+                if (r < 0)
+                        goto fail;
         }
 
         /* Second iteration: we follow all objects referenced from the
@@ -1384,18 +1441,18 @@ int journal_file_verify(
          * referenced is consistent. */
 
         r = verify_entry_array(f,
-                               cache_data_fd, n_data,
-                               cache_entry_fd, n_entries,
-                               cache_entry_array_fd, n_entry_arrays,
+                               &data,
+                               &entries,
+                               &entry_arrays,
                                &last_usec,
                                show_progress);
         if (r < 0)
                 goto fail;
 
         r = verify_data_hash_table(f,
-                                   cache_data_fd, n_data,
-                                   cache_entry_fd, n_entries,
-                                   cache_entry_array_fd, n_entry_arrays,
+                                   &data,
+                                   &entries,
+                                   &entry_arrays,
                                    &last_usec,
                                    show_progress);
         if (r < 0)
@@ -1404,14 +1461,10 @@ int journal_file_verify(
         if (show_progress)
                 flush_progress();
 
-        mmap_cache_fd_free(cache_data_fd);
-        mmap_cache_fd_free(cache_entry_fd);
-        mmap_cache_fd_free(cache_entry_array_fd);
-
         if (ret_first_contained)
                 *ret_first_contained = le64toh(f->header->head_entry_realtime);
         if (ret_last_validated)
-                *ret_last_validated = last_tag_realtime_end;
+                *ret_last_validated = tag.last_tag_realtime_end;
         if (ret_last_contained)
                 *ret_last_contained = le64toh(f->header->tail_entry_realtime);
 
@@ -1426,15 +1479,6 @@ fail:
                   p,
                   (uint64_t) f->last_stat.st_size,
                   100U * p / (uint64_t) f->last_stat.st_size);
-
-        if (cache_data_fd)
-                mmap_cache_fd_free(cache_data_fd);
-
-        if (cache_entry_fd)
-                mmap_cache_fd_free(cache_entry_fd);
-
-        if (cache_entry_array_fd)
-                mmap_cache_fd_free(cache_entry_array_fd);
 
         return r;
 }

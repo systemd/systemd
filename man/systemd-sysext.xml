@@ -101,7 +101,11 @@
     <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     supports via its <option>--directory=</option>/<option>--image=</option> switches and those that the
     service manager supports via <option>RootDirectory=</option>/<option>RootImage=</option>. Similar to
-    them they may optionally carry Verity authentication information.</para>
+    them they may optionally carry Verity authentication information. LUKS encrypted extension images
+    carrying a TPM2 token (as enrolled via the <option>--tpm2-device=</option> option of
+    <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>)
+    are unlocked via the local TPM2 automatically, without any passphrase. This may be turned off via the
+    <varname>$SYSTEMD_DISSECT_TPM2_UNLOCK</varname> environment variable.</para>
 
     <para>System extensions are searched for in the directories
     <filename>/etc/extensions/</filename>, <filename>/run/extensions/</filename> and

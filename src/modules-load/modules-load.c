@@ -6,11 +6,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "sd-json.h"
-
 #include "alloc-util.h"
 #include "assert.h"
-#include "build.h"
 #include "conf-files.h"
 #include "constants.h"
 #include "cpu-set-util.h"
@@ -41,6 +38,7 @@ COMMAND(
         "Load statically configured kernel modules.",
         .argspec = "[CONFIGURATION FILE…]\0",
         .man_pages = "systemd-modules-load.service(8)\0",
+        .option_namespace = "common",
 );
 
 static int modules_list_append_suffix(OrderedSet **module_set, char *modp) {
@@ -339,30 +337,6 @@ static unsigned determine_num_worker_threads(unsigned n_modules) {
         return n_threads - 1U;
 }
 
-static int parse_argv(int argc, char *argv[], char ***ret_args) {
-        assert(argc >= 0);
-        assert(argv);
-        assert(ret_args);
-
-        OptionParser opts = { argc, argv };
-
-        FOREACH_OPTION_OR_RETURN(c, &opts)
-                switch (c) {
-
-                OPTION_COMMON_HELP:
-                        return command_print_help();
-
-                OPTION_COMMON_VERSION:
-                        return version();
-
-                OPTION_COMMON_INTROSPECT_CLI:
-                        return introspect_cli(SD_JSON_FORMAT_OFF);
-                }
-
-        *ret_args = option_parser_get_args(&opts);
-        return 1;
-}
-
 static int run(int argc, char *argv[]) {
         /* A OrderedSet instead of a plain Set is used here to make debug easier:
          * in case a race condition is observed during module probing, the threading
@@ -380,7 +354,7 @@ static int run(int argc, char *argv[]) {
         LIBKMOD_NOTE(required);
 
         char **args = NULL;
-        r = parse_argv(argc, argv, &args);
+        r = common_parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 

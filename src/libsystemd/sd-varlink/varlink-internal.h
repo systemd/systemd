@@ -15,6 +15,7 @@ typedef enum VarlinkState {
         VARLINK_IDLE_CLIENT,
         VARLINK_AWAITING_REPLY,
         VARLINK_AWAITING_REPLY_MORE,
+        VARLINK_AWAITING_REPLY_UPGRADE,
         VARLINK_CALLING,
         VARLINK_CALLED,
         VARLINK_COLLECTING,
@@ -55,6 +56,7 @@ typedef enum VarlinkState {
                VARLINK_IDLE_CLIENT,                     \
                VARLINK_AWAITING_REPLY,                  \
                VARLINK_AWAITING_REPLY_MORE,             \
+               VARLINK_AWAITING_REPLY_UPGRADE,          \
                VARLINK_CALLING,                         \
                VARLINK_CALLED,                          \
                VARLINK_COLLECTING,                      \

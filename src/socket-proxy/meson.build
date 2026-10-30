@@ -3,7 +3,6 @@
 executables += [
         libexec_template + {
                 'name' : 'systemd-socket-proxyd',
-                'public' : true,
                 'sources' : files('socket-proxyd.c'),
         },
 ]

@@ -31,8 +31,14 @@ _SD_BEGIN_DECLARATIONS;
  * format on-the-fly. Can also parse the textual format back to C structures. Validates the interface
  * definitions for internal consistency and validates JSON objects against the interface definitions. */
 
+/* Marks an interface, a symbol, or a field (including enum values) as experimental. This bit is reserved
+ * in sd_varlink_interface_flags_t, sd_varlink_symbol_flags_t and sd_varlink_field_flags_t alike, so that
+ * the same marker can be used in all three. */
+#define SD_VARLINK_EXPERIMENTAL (1 << 4)
+
 __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_interface_flags_t) {
-        _SD_VARLINK_INTERFACE_FLAGS_MAX     = (1 << 0) - 1,
+        _SD_VARLINK_INTERFACE_EXPERIMENTAL  = SD_VARLINK_EXPERIMENTAL, /* reserved, use SD_VARLINK_EXPERIMENTAL */
+        _SD_VARLINK_INTERFACE_FLAGS_MAX     = (1 << 5) - 1,
         _SD_VARLINK_INTERFACE_FLAGS_INVALID = -EINVAL,
         _SD_ENUM_FORCE_S64(SD_VARLINK_INTERFACE_FLAGS)
 } sd_varlink_interface_flags_t;
@@ -54,7 +60,8 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_symbol_flags_t) {
         SD_VARLINK_REQUIRES_MORE         = 1 << 1, /* Call requires "more" flag */
         SD_VARLINK_SUPPORTS_UPGRADE      = 1 << 2, /* Call supports "upgrade" flag */
         SD_VARLINK_REQUIRES_UPGRADE      = 1 << 3, /* Call requires "upgrade" flag */
-        _SD_VARLINK_SYMBOL_FLAGS_MAX     = (1 << 4) - 1,
+        _SD_VARLINK_SYMBOL_EXPERIMENTAL  = SD_VARLINK_EXPERIMENTAL, /* reserved, use SD_VARLINK_EXPERIMENTAL */
+        _SD_VARLINK_SYMBOL_FLAGS_MAX     = (1 << 5) - 1,
         _SD_VARLINK_SYMBOL_FLAGS_INVALID = -EINVAL,
         _SD_ENUM_FORCE_S64(SD_VARLINK_SYMBOL_FLAGS)
 } sd_varlink_symbol_flags_t;
@@ -90,7 +97,9 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_field_flags_t) {
         SD_VARLINK_ARRAY                = 1 << 0,
         SD_VARLINK_MAP                  = 1 << 1,
         SD_VARLINK_NULLABLE             = 1 << 2,
-        _SD_VARLINK_FIELD_FLAGS_MAX     = (1 << 3) - 1,
+        /* 1 << 3 is unused, so that SD_VARLINK_EXPERIMENTAL has the same value in all flag sets */
+        _SD_VARLINK_FIELD_EXPERIMENTAL  = SD_VARLINK_EXPERIMENTAL, /* reserved, use SD_VARLINK_EXPERIMENTAL */
+        _SD_VARLINK_FIELD_FLAGS_MAX     = (1 << 5) - 1,
         _SD_VARLINK_FIELD_FLAGS_INVALID = -EINVAL,
         _SD_ENUM_FORCE_S64(SD_VARLINK_FIELD_FLAGS)
 } sd_varlink_field_flags_t;
@@ -153,6 +162,9 @@ struct sd_varlink_interface {
 #define SD_VARLINK_DEFINE_ENUM_VALUE(_name)                             \
         { .name = #_name, .field_type = SD_VARLINK_ENUM_VALUE }
 
+#define SD_VARLINK_DEFINE_ENUM_VALUE_FULL(_name, _field_flags)          \
+        { .name = #_name, .field_type = SD_VARLINK_ENUM_VALUE, .field_flags = (_field_flags) }
+
 #define SD_VARLINK_FIELD_COMMENT(text)                                  \
         { .name = "" text, .field_type = _SD_VARLINK_FIELD_COMMENT }
 
@@ -169,7 +181,7 @@ struct sd_varlink_interface {
         const sd_varlink_symbol vl_method_ ## _name = {                 \
                 .name = #_name,                                         \
                 .symbol_type = SD_VARLINK_METHOD,                       \
-                .symbol_flags = _flags,                                 \
+                .symbol_flags = (_flags),                               \
                 .fields = { __VA_ARGS__ __VA_OPT__(,) {}},              \
         }
 
@@ -180,10 +192,26 @@ struct sd_varlink_interface {
                 .fields = { __VA_ARGS__ __VA_OPT__(,) {}},              \
         }
 
+#define SD_VARLINK_DEFINE_ERROR_FULL(_name, _flags, ...)                \
+        const sd_varlink_symbol vl_error_ ## _name = {                  \
+                .name = #_name,                                         \
+                .symbol_type = SD_VARLINK_ERROR,                        \
+                .symbol_flags = (_flags),                               \
+                .fields = { __VA_ARGS__ __VA_OPT__(,) {}},              \
+        }
+
 #define SD_VARLINK_DEFINE_STRUCT_TYPE(_name, ...)                       \
         const sd_varlink_symbol vl_type_ ## _name = {                   \
                 .name = #_name,                                         \
                 .symbol_type = SD_VARLINK_STRUCT_TYPE,                  \
+                .fields = { __VA_ARGS__ __VA_OPT__(,) {}},              \
+        }
+
+#define SD_VARLINK_DEFINE_STRUCT_TYPE_FULL(_name, _flags, ...)          \
+        const sd_varlink_symbol vl_type_ ## _name = {                   \
+                .name = #_name,                                         \
+                .symbol_type = SD_VARLINK_STRUCT_TYPE,                  \
+                .symbol_flags = (_flags),                               \
                 .fields = { __VA_ARGS__ __VA_OPT__(,) {}},              \
         }
 
@@ -194,9 +222,24 @@ struct sd_varlink_interface {
                 .fields = { __VA_ARGS__ __VA_OPT__(,) {}},              \
         }
 
+#define SD_VARLINK_DEFINE_ENUM_TYPE_FULL(_name, _flags, ...)            \
+        const sd_varlink_symbol vl_type_ ## _name = {                   \
+                .name = #_name,                                         \
+                .symbol_type = SD_VARLINK_ENUM_TYPE,                    \
+                .symbol_flags = (_flags),                               \
+                .fields = { __VA_ARGS__ __VA_OPT__(,) {}},              \
+        }
+
 #define SD_VARLINK_DEFINE_INTERFACE(_name, _full_name, ...)             \
         const sd_varlink_interface vl_interface_ ## _name = {           \
                 .name = (_full_name),                                   \
+                .symbols = { __VA_ARGS__ __VA_OPT__(,) NULL},           \
+        }
+
+#define SD_VARLINK_DEFINE_INTERFACE_FULL(_name, _full_name, _flags, ...) \
+        const sd_varlink_interface vl_interface_ ## _name = {           \
+                .name = (_full_name),                                   \
+                .interface_flags = (_flags),                            \
                 .symbols = { __VA_ARGS__ __VA_OPT__(,) NULL},           \
         }
 #endif

@@ -46,7 +46,25 @@ int namespace_open(
                 int *ret_userns_fd,
                 int *ret_root_fd);
 
-int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd);
+typedef enum NamespaceEnterFlags {
+        /* If root is not mapped in the user namespace, keep our UID/GID instead of failing. The caller must
+         * ensure that retaining its original identity is appropriate in that case. Entering still fails
+         * with -ENODATA if the namespace has no mappings at all yet, since root might still get mapped. */
+        NAMESPACE_ENTER_KEEP_UID_GID_IF_ROOT_UNMAPPED = 1 << 0,
+} NamespaceEnterFlags;
+
+/* If a user namespace is entered we become root in it, and fail if that's not possible. */
+int namespace_enter_full(
+                int pidns_fd,
+                int mntns_fd,
+                int netns_fd,
+                int userns_fd,
+                int root_fd,
+                NamespaceEnterFlags flags);
+
+static inline int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd) {
+        return namespace_enter_full(pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd, /* flags= */ 0);
+}
 
 int fd_is_namespace(int fd, NamespaceType type);
 int is_our_namespace(int fd, NamespaceType type);
@@ -88,6 +106,7 @@ int userns_enter_and_pin(int userns_fd, PidRef *ret);
 bool userns_supported(void);
 
 int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid);
+int userns_has_root_mapping(int userns_fd);
 
 int namespace_open_by_id(uint64_t ns_id);
 

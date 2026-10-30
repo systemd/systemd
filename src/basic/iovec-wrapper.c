@@ -232,8 +232,7 @@ int iovw_put_string_field_full(struct iovec_wrapper *iovw, bool replace, const c
                 FOREACH_ARRAY(iovec, iovw->iovec, iovw->count)
                         if (memory_startswith(iovec->iov_base, iovec->iov_len, field)) {
                                 iovec->iov_len = strlen(x);
-                                free_and_replace(iovec->iov_base, x);
-                                return 0;
+                                return free_and_replace(iovec->iov_base, x);
                         }
 
         r = iovw_put(iovw, x, strlen(x));

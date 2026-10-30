@@ -158,39 +158,53 @@ Manager* manager_free(Manager *manager) {
         hashmap_free(manager->locked_events_by_disk);
         sd_event_source_unref(manager->requeue_locked_events_timer_event_source);
 
-        safe_close(manager->inotify_fd);
-
         free(manager->worker_notify_socket_path);
 
         sd_device_monitor_unref(manager->monitor);
 
         sd_varlink_server_unref(manager->varlink_server);
 
-        sd_event_source_unref(manager->inotify_event);
+        /* udev watch */
+        sd_event_source_unref(manager->device_watch_event);
+        safe_close(manager->inotify_fd);
+        safe_close(manager->fanotify_fd);
+        safe_close(manager->dev_fd);
+
+        /* udev synth */
         set_free(manager->synthesize_change_child_event_sources);
         set_free(manager->synthesized_events);
         sd_event_source_unref(manager->synthesized_events_clear_event_source);
+
         sd_event_source_unref(manager->kill_workers_event);
         sd_event_unref(manager->event);
 
         free(manager->workers_cgroup);
+        strv_free(manager->device_trigger_args);
         return mfree(manager);
 }
 
 Manager* manager_new(void) {
-        Manager *manager;
+        int r;
 
-        manager = new(Manager, 1);
+        _cleanup_strv_free_ char **args = NULL;
+        r = device_build_default_trigger_args(/* with_timestamp= */ false, &args);
+        if (r < 0)
+                return NULL;
+
+        Manager *manager = new(Manager, 1);
         if (!manager)
                 return NULL;
 
         *manager = (Manager) {
                 .inotify_fd = -EBADF,
+                .fanotify_fd = -EBADF,
+                .dev_fd = -EBADF,
                 .config_by_udev_conf = UDEV_CONFIG_INIT,
                 .config_by_command = UDEV_CONFIG_INIT,
                 .config_by_kernel = UDEV_CONFIG_INIT,
                 .config_by_control = UDEV_CONFIG_INIT,
                 .config = UDEV_CONFIG_INIT,
+                .device_trigger_args = TAKE_PTR(args),
         };
 
         return manager;
@@ -258,9 +272,9 @@ void manager_exit(Manager *manager) {
         manager->varlink_server = sd_varlink_server_unref(manager->varlink_server);
         (void) manager_serialize_config(manager);
 
-        /* Disable the event source, but do not close the inotify fd here, as we may still receive
-         * notification messages about requests to add or remove inotify watches. */
-        manager->inotify_event = sd_event_source_disable_unref(manager->inotify_event);
+        /* Disable the event source for device watch. Any pending watch events will be processed after udevd
+         * is restarted. */
+        manager->device_watch_event = sd_event_source_disable_unref(manager->device_watch_event);
 
         /* Disable the device monitor but do not free device monitor, as it may be used when a worker failed,
          * and the manager needs to broadcast the kernel event assigned to the worker to libudev listeners.
@@ -539,6 +553,7 @@ static int worker_spawn(Manager *manager, Event *event) {
                         .rules = TAKE_PTR(manager->rules),
                         .config = manager->config,
                         .manager_pid = manager_pid,
+                        .fanotify_fd = manager->fanotify_fd,
                 };
 
                 if (manager->workers_cgroup) {
@@ -771,7 +786,7 @@ static int manager_requeue_locked_events(Manager *manager) {
 int manager_requeue_locked_events_by_device(Manager *manager, sd_device *dev) {
         int r;
 
-        /* When a new event for a block device is queued or we get an inotify event, assume that the
+        /* When a new event for a block device is queued or we get a device watch event, assume that the
          * device is not locked anymore. The assumption may not be true, but that should not cause any
          * issues, as in that case events will be requeued soon. */
 
@@ -1285,7 +1300,8 @@ static int on_post_exit(Manager *manager) {
 
         (void) manager_serialize_events(manager);
 
-        udev_watch_dump();
+        udev_watch_dump(manager);
+
         return sd_event_exit(manager->event, 0);
 }
 
@@ -1307,13 +1323,22 @@ static int on_post(sd_event_source *s, void *userdata) {
                 return 0;
         }
 
+        /* Check whether there are uevents not received yet. If so, we will soon receive them. Do not remove
+         * the queue file and do not kill workers. */
+        if (sd_event_source_get_pending(sd_device_monitor_get_event_source(manager->monitor)) != 0)
+                return 0;
+
+        /* We are currently synthesizing change uevents, hence new uevents may come soon. */
+        if (!set_isempty(manager->synthesize_change_child_event_sources))
+                return 0;
+
         (void) manager_unlink_queue_file(manager);
         (void) manager_reset_kill_workers_timer(manager);
 
         if (!hashmap_isempty(manager->workers))
                 return 0; /* There still exist idle workers. */
 
-        if (manager->workers_cgroup && set_isempty(manager->synthesize_change_child_event_sources))
+        if (manager->workers_cgroup)
                 /* cleanup possible left-over processes in the workers cgroup */
                 if (cg_kill_kernel_sigkill(manager->workers_cgroup, /* ret_n_pids_killed= */ NULL) == -EOPNOTSUPP)
                         (void) cg_kill(manager->workers_cgroup, SIGKILL, CGROUP_IGNORE_SELF, /* killed_pids= */ NULL, /* log_kill= */ NULL, /* userdata= */ NULL);
@@ -1374,9 +1399,20 @@ static int manager_setup_event(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create SIGHUP event source: %m");
 
-        r = sd_event_add_post(e, /* ret= */ NULL, on_post, manager);
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        r = sd_event_add_post(e, &s, on_post, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to create post event source: %m");
+
+        r = sd_event_source_set_priority(s, EVENT_PRIORITY_POST);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set priority to post event source: %m");
+
+        (void) sd_event_source_set_description(s, "post-event-source");
+
+        r = sd_event_source_set_floating(s, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set floating to post event source: %m");
 
         /* Eventually, we probably want to do more here on memory pressure, for example, kill idle workers immediately */
         r = sd_event_add_memory_pressure(e, /* ret= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);
@@ -1419,6 +1455,8 @@ static int manager_listen_fds(Manager *manager, int *ret_varlink_fd) {
                         r = manager_init_device_monitor(manager, fd);
                 else if (streq(names[i], "inotify"))
                         r = manager_init_inotify(manager, fd);
+                else if (streq(names[i], "fanotify"))
+                        r = manager_init_fanotify(manager, fd);
                 else if (streq(names[i], "config-serialization"))
                         r = manager_deserialize_config(manager, &fd);
                 else if (streq(names[i], "event-serialization"))
@@ -1484,7 +1522,7 @@ int manager_main(Manager *manager) {
         if (r < 0)
                 return r;
 
-        r = manager_start_inotify(manager);
+        r = manager_start_device_watch(manager);
         if (r < 0)
                 return r;
 

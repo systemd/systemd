@@ -34,11 +34,10 @@
     </cmdsynopsis>
   </refsynopsisdiv>
 
+  <xi:include href="experimental.xml" xpointer="component" />
+
   <refsect1>
     <title>Description</title>
-
-    <para>Note: this command is experimental for now. While it is likely to become a regular component of
-    systemd, it might still change in behaviour and interface.</para>
 
     <para><command>systemd-pcrlock</command> is a tool that may be used to analyze and predict TPM2 PCR
     measurements, and generate TPM2 access policies from the prediction which it stores in a TPM2 NV index
@@ -273,7 +272,7 @@
         currently enforced. This looks at the SecureBoot, PK, KEK, db, dbx, dbt, dbr EFI variables and
         predicts their measurements to PCR 7 ("secure-boot-policy") on the next boot.</para>
 
-        <para>Use <command>unlock-firmware-config</command> before applying SecureBoot policy updates. If
+        <para>Use <command>unlock-secureboot-policy</command> before applying SecureBoot policy updates. If
         the <filename>systemd-pcrlock-secureboot-policy.service</filename> unit is enabled it will
         automatically generate a pcrlock file from the policy discovered.</para>
 

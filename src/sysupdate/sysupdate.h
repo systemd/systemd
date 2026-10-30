@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sysupdate-component.h"
 #include "sysupdate-forward.h"
 #include "sysupdate-target.h"
 
@@ -33,12 +34,7 @@ typedef struct Context {
         LoopDevice *loop_device;
         char *mounted_dir;
 
-        char *component_description;
-        char **component_documentation;
-        bool component_enabled;
-
-        int component_suggest;
-        Condition *component_suggest_on;
+        Component component_info; /* Metadata about the component we operate on, if any */
 
         Transfer **transfers;
         size_t n_transfers;
@@ -47,6 +43,10 @@ typedef struct Context {
         size_t n_disabled_transfers;
 
         Hashmap *features; /* Defined features, keyed by ID */
+
+        Hashmap *provider_components; /* Components offered by component providers (and not defined in the file system), keyed by name */
+        bool provider_components_loaded;
+        char *component_provider; /* If the component we operate on came from a provider, the provider's socket name */
 
         UpdateSet **update_sets;
         size_t n_update_sets;
@@ -61,3 +61,5 @@ typedef struct Context {
 } Context;
 
 void context_done(Context *c);
+
+bool component_version_is_protected(const Context *c, const char *version);

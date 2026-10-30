@@ -20,7 +20,10 @@
 #include "path-util.h"
 #include "rm-rf.h"
 #include "socket-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "varlink-util.h"
 
@@ -393,7 +396,7 @@ TEST(chat) {
 
         ASSERT_OK(sd_varlink_attach_event(c, e, 0));
 
-        ASSERT_OK(sd_fiber_new(e, "client", client_fiber, (void*) sp, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "client", client_fiber, (void*) sp, &f));
 
         ASSERT_OK(sd_event_loop(e));
 
@@ -693,6 +696,181 @@ TEST(sentinel_oneway) {
         ASSERT_OK(sd_varlink_invoke(c, "io.test.Pong", /* parameters= */ NULL));
 
         ASSERT_OK(sd_event_loop(e));
+}
+
+typedef struct FdAssociationState {
+        int first_fd;
+        int second_fd;
+        unsigned n_messages;
+} FdAssociationState;
+
+static int method_fd_association_oneway(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        FdAssociationState *state = ASSERT_PTR(userdata);
+
+        ASSERT_TRUE(FLAGS_SET(flags, SD_VARLINK_METHOD_ONEWAY));
+        state->first_fd = sd_varlink_peek_fd(link, 0);
+        state->n_messages++;
+        return 0;
+}
+
+static int method_fd_association_receive(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        FdAssociationState *state = ASSERT_PTR(userdata);
+
+        state->second_fd = sd_varlink_peek_fd(link, 0);
+        if (state->second_fd >= 0)
+                test_fd(state->second_fd, "second-message", STRLEN("second-message"));
+        state->n_messages++;
+
+        /* Reply even when the FD is missing, so the assertions below report the association failure. */
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("received", state->second_fd >= 0));
+}
+
+static int reply_fd_association_done(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                const char *error_id,
+                sd_varlink_reply_flags_t flags,
+                void *userdata) {
+
+        ASSERT_NULL(error_id);
+        return sd_event_exit(sd_varlink_get_event(link), EXIT_SUCCESS);
+}
+
+static void run_fd_association_after_oneway(bool bounded) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *client = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_close_pair_ int sockets[2] = EBADF_PAIR;
+        _cleanup_close_ int fd = -EBADF;
+        FdAssociationState state = { .first_fd = -EBADF, .second_fd = -EBADF };
+
+        ASSERT_OK(sd_event_new(&event));
+        ASSERT_OK(sd_varlink_server_new(
+                        &server,
+                        SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT|SD_VARLINK_SERVER_INHERIT_USERDATA|
+                        (bounded ? SD_VARLINK_SERVER_UPGRADABLE : 0)));
+        sd_varlink_server_set_userdata(server, &state);
+        ASSERT_OK(sd_varlink_server_attach_event(server, event, 1));
+        ASSERT_OK(sd_varlink_server_bind_method_many(
+                        server,
+                        "io.test.OnewayPulse", method_fd_association_oneway,
+                        "io.test.DeliverFD", method_fd_association_receive));
+
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, sockets));
+        ASSERT_OK(sd_varlink_server_add_connection(server, sockets[0], /* ret= */ NULL));
+        TAKE_FD(sockets[0]);
+        ASSERT_OK(sd_varlink_connect_fd(&client, sockets[1]));
+        TAKE_FD(sockets[1]);
+        ASSERT_OK(sd_varlink_set_allow_fd_passing_output(client, true));
+        ASSERT_OK(sd_varlink_set_relative_timeout(client, 5 * USEC_PER_SEC));
+        ASSERT_OK(sd_varlink_attach_event(client, event, 0));
+        ASSERT_OK(sd_varlink_bind_reply(client, reply_fd_association_done));
+
+        /* Queue both messages before the server runs: only the second message owns the descriptor. */
+        ASSERT_OK(sd_varlink_send(client, "io.test.OnewayPulse", /* parameters= */ NULL));
+        ASSERT_OK(fd = memfd_new_and_seal_string("association", "second-message"));
+        ASSERT_OK_EQ(sd_varlink_push_dup_fd(client, fd), 0);
+        ASSERT_OK(sd_varlink_invoke(client, "io.test.DeliverFD", /* parameters= */ NULL));
+        ASSERT_OK(sd_varlink_flush(client));
+        ASSERT_OK(sd_event_loop(event));
+
+        log_info("Request FD association (bounded=%s): first=%d second=%d messages=%u",
+                 yes_no(bounded), state.first_fd, state.second_fd, state.n_messages);
+        ASSERT_EQ(state.n_messages, 2U);
+        ASSERT_ERROR(state.first_fd, ENXIO);
+        ASSERT_OK(state.second_fd);
+}
+
+TEST(fd_association_after_oneway_bounded) {
+        /* An upgradable server already uses boundary-limited reads; keep this as a diagnostic control. */
+        run_fd_association_after_oneway(true);
+}
+
+TEST(fd_association_after_oneway) {
+        run_fd_association_after_oneway(false);
+}
+
+static int method_fd_association_reply(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        _cleanup_close_ int fd = -EBADF;
+
+        ASSERT_TRUE(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
+        ASSERT_OK(sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_UNSIGNED("sequence", 0)));
+        ASSERT_OK(fd = memfd_new_and_seal_string("association", "second-message"));
+        ASSERT_OK_EQ(sd_varlink_push_dup_fd(link, fd), 0);
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_UNSIGNED("sequence", 1));
+}
+
+static int reply_fd_association_more(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                const char *error_id,
+                sd_varlink_reply_flags_t flags,
+                void *userdata) {
+
+        FdAssociationState *state = ASSERT_PTR(userdata);
+
+        ASSERT_NULL(error_id);
+        if (FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES)) {
+                ASSERT_EQ(state->n_messages, 0U);
+                state->first_fd = sd_varlink_peek_fd(link, 0);
+                state->n_messages++;
+                return 0;
+        }
+
+        ASSERT_EQ(state->n_messages, 1U);
+        state->second_fd = sd_varlink_peek_fd(link, 0);
+        if (state->second_fd >= 0)
+                test_fd(state->second_fd, "second-message", STRLEN("second-message"));
+        state->n_messages++;
+        return sd_event_exit(sd_varlink_get_event(link), EXIT_SUCCESS);
+}
+
+TEST(fd_association_after_continued_reply) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *client = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_close_pair_ int sockets[2] = EBADF_PAIR;
+        FdAssociationState state = { .first_fd = -EBADF, .second_fd = -EBADF };
+
+        ASSERT_OK(sd_event_new(&event));
+        ASSERT_OK(sd_varlink_server_new(&server, SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT));
+        ASSERT_OK(sd_varlink_server_attach_event(server, event, 0));
+        ASSERT_OK(sd_varlink_server_bind_method(
+                        server, "io.test.DeliverReplies", method_fd_association_reply));
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, sockets));
+        ASSERT_OK(sd_varlink_server_add_connection(server, sockets[0], /* ret= */ NULL));
+        TAKE_FD(sockets[0]);
+        ASSERT_OK(sd_varlink_connect_fd(&client, sockets[1]));
+        TAKE_FD(sockets[1]);
+        sd_varlink_set_userdata(client, &state);
+        ASSERT_OK(sd_varlink_set_allow_fd_passing_input(client, true));
+        ASSERT_OK(sd_varlink_set_relative_timeout(client, 5 * USEC_PER_SEC));
+        ASSERT_OK(sd_varlink_attach_event(client, event, 1));
+        ASSERT_OK(sd_varlink_bind_reply(client, reply_fd_association_more));
+        ASSERT_OK(sd_varlink_observe(client, "io.test.DeliverReplies", /* parameters= */ NULL));
+        ASSERT_OK(sd_varlink_flush(client));
+        ASSERT_OK(sd_event_loop(event));
+
+        log_info("Reply FD association: first=%d second=%d messages=%u",
+                 state.first_fd, state.second_fd, state.n_messages);
+        ASSERT_EQ(state.n_messages, 2U);
+        ASSERT_ERROR(state.first_fd, ENXIO);
+        ASSERT_OK(state.second_fd);
 }
 
 static int method_fiber_sentinel_error(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -1095,13 +1273,149 @@ TEST(upgrade) {
         ASSERT_OK(sd_varlink_server_listen_address(s, sp, 0600));
         ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
 
-        ASSERT_OK(sd_fiber_new(e, "upgrade-client", upgrade_client_fiber, (void*) sp, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "upgrade-client", upgrade_client_fiber, (void*) sp, &f));
 
         /* Run the event loop. Exits on idle once the client fiber completes and all server connections
          * have been torn down. */
         ASSERT_OK(sd_event_loop(e));
 
         ASSERT_OK(sd_future_result(f));
+}
+
+typedef struct AsyncUpgradeTest {
+        sd_event *event;
+        bool got_reply, got_upgrade, echo_done, got_error;
+        int input_fd, output_fd;
+} AsyncUpgradeTest;
+
+static int async_upgrade_echo_fiber(void *arg) {
+        AsyncUpgradeTest *t = ASSERT_PTR(arg);
+
+        /* Same exchange as in upgrade_client_fiber(), over the fds donated to the upgrade callback */
+        static const char msg[] = "Hello!";
+        ASSERT_OK(loop_write(t->output_fd, msg, strlen(msg)));
+        ASSERT_OK_ERRNO(shutdown(t->output_fd, SHUT_WR));
+
+        char buf[64] = {};
+        ssize_t n = ASSERT_OK(loop_read(t->input_fd, buf, strlen(msg), /* do_poll= */ true));
+        ASSERT_EQ((size_t) n, strlen(msg));
+        ASSERT_STREQ(buf, "!olleH");
+
+        t->input_fd = safe_close(t->input_fd);
+        t->output_fd = safe_close(t->output_fd);
+        t->echo_done = true;
+
+        ASSERT_OK(sd_event_exit(t->event, EXIT_SUCCESS));
+        return 0;
+}
+
+static int async_upgrade_on_reply(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
+        AsyncUpgradeTest *t = ASSERT_PTR(userdata);
+
+        ASSERT_FALSE(t->got_upgrade); /* the reply callback must run before the upgrade callback */
+        ASSERT_NULL(error_id);
+        ASSERT_FALSE(FLAGS_SET(flags, SD_VARLINK_REPLY_ERROR));
+        t->got_reply = true;
+        return 0;
+}
+
+static int async_upgrade_on_upgrade(sd_varlink *link, int input_fd, int output_fd, void *userdata) {
+        AsyncUpgradeTest *t = ASSERT_PTR(userdata);
+
+        ASSERT_TRUE(t->got_reply);
+        ASSERT_GE(input_fd, 0);
+        ASSERT_GE(output_fd, 0);
+        ASSERT_NE(input_fd, output_fd);
+        ASSERT_FALSE(sd_varlink_is_connected(link));
+
+        t->got_upgrade = true;
+        t->input_fd = input_fd;
+        t->output_fd = output_fd;
+
+        /* The raw I/O blocks, hence do it in a fiber so that the server can make progress */
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        ASSERT_OK(sd_fiber_new(t->event, "async-upgrade-echo", async_upgrade_echo_fiber, t, &f));
+        ASSERT_OK(sd_fiber_set_floating(f, true));
+        return 0;
+}
+
+static int async_upgrade_on_error_reply(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
+        AsyncUpgradeTest *t = ASSERT_PTR(userdata);
+
+        ASSERT_STREQ(error_id, SD_VARLINK_ERROR_METHOD_NOT_FOUND);
+        ASSERT_TRUE(FLAGS_SET(flags, SD_VARLINK_REPLY_ERROR));
+        t->got_error = true;
+        return 0;
+}
+
+static int async_upgrade_on_unexpected_upgrade(sd_varlink *link, int input_fd, int output_fd, void *userdata) {
+        safe_close(input_fd);
+        safe_close(output_fd);
+        assert_not_reached();
+}
+
+TEST(upgrade_async) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        const char *sp;
+
+        ASSERT_OK(mkdtemp_malloc("/tmp/varlink-test-XXXXXX", &tmpdir));
+        sp = strjoina(tmpdir, "/socket");
+
+        ASSERT_OK(sd_event_new(&e));
+
+        ASSERT_OK(sd_varlink_server_new(&s, SD_VARLINK_SERVER_UPGRADABLE));
+        ASSERT_OK(sd_varlink_server_set_description(s, "upgrade-server"));
+        ASSERT_OK(varlink_server_bind_fiber(s, "io.test.Upgrade", method_upgrade));
+        ASSERT_OK(sd_varlink_server_listen_address(s, sp, 0600));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+
+        /* First a client whose upgrade request is answered with an error: the connection must stay usable */
+        AsyncUpgradeTest t2 = { .event = e, .input_fd = -EBADF, .output_fd = -EBADF };
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c2 = NULL;
+        ASSERT_OK(sd_varlink_connect_address(&c2, sp));
+        ASSERT_OK(sd_varlink_set_description(c2, "async-upgrade-error-client"));
+        ASSERT_OK(sd_varlink_attach_event(c2, e, 0));
+        sd_varlink_set_userdata(c2, &t2);
+        ASSERT_OK(sd_varlink_bind_reply(c2, async_upgrade_on_error_reply));
+        ASSERT_OK(sd_varlink_bind_upgrade(c2, async_upgrade_on_unexpected_upgrade));
+        ASSERT_OK(sd_varlink_invoke_and_upgrade(c2, "io.test.NoSuchMethod", /* parameters= */ NULL));
+
+        while (!t2.got_error)
+                ASSERT_OK(sd_event_run(e, UINT64_MAX));
+
+        ASSERT_TRUE(sd_varlink_is_connected(c2));
+        ASSERT_OK_POSITIVE(sd_varlink_is_idle(c2));
+
+        /* After the refused upgrade regular calls work again */
+        t2.got_error = false;
+        ASSERT_OK(sd_varlink_invoke(c2, "io.test.NoSuchMethod", /* parameters= */ NULL));
+        while (!t2.got_error)
+                ASSERT_OK(sd_event_run(e, UINT64_MAX));
+        ASSERT_TRUE(sd_varlink_is_connected(c2));
+
+        /* Now a client driven entirely by the event loop whose upgrade is accepted */
+        AsyncUpgradeTest t = { .event = e, .input_fd = -EBADF, .output_fd = -EBADF };
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        ASSERT_OK(sd_varlink_connect_address(&c, sp));
+        ASSERT_OK(sd_varlink_set_description(c, "async-upgrade-client"));
+        ASSERT_OK(sd_varlink_attach_event(c, e, 0));
+        sd_varlink_set_userdata(c, &t);
+        ASSERT_OK(sd_varlink_bind_reply(c, async_upgrade_on_reply));
+        ASSERT_OK(sd_varlink_bind_upgrade(c, async_upgrade_on_upgrade));
+        ASSERT_OK(sd_varlink_invoke_and_upgrade(c, "io.test.Upgrade", /* parameters= */ NULL));
+
+        /* No other calls may be pipelined behind an upgrade request */
+        ASSERT_ERROR(sd_varlink_invoke(c, "io.test.Upgrade", /* parameters= */ NULL), EBUSY);
+        ASSERT_ERROR(sd_varlink_invoke_and_upgrade(c, "io.test.Upgrade", /* parameters= */ NULL), EBUSY);
+
+        ASSERT_OK(sd_event_loop(e));
+
+        ASSERT_TRUE(t.got_reply);
+        ASSERT_TRUE(t.got_upgrade);
+        ASSERT_TRUE(t.echo_done);
+        ASSERT_FALSE(sd_varlink_is_connected(c));
 }
 
 static int upgrade_pipelining_client_fiber(void *arg) {
@@ -1170,7 +1484,7 @@ TEST(upgrade_pipelining) {
         ASSERT_OK(sd_varlink_server_listen_address(s, sp, 0600));
         ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
 
-        ASSERT_OK(sd_fiber_new(e, "upgrade-pipelining-client", upgrade_pipelining_client_fiber, (void*) sp, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "upgrade-pipelining-client", upgrade_pipelining_client_fiber, (void*) sp, &f));
 
         ASSERT_OK(sd_event_loop(e));
 
@@ -1210,7 +1524,7 @@ static int respond_upgrade_callback(sd_varlink *link, int input_fd, int output_f
         respond_upgrade_input_fd = input_fd;
         respond_upgrade_output_fd = output_fd;
 
-        ASSERT_OK(sd_fiber_new(e, "respond-upgrade-io", respond_upgrade_io_fiber, /* userdata= */ NULL, /* destroy= */ NULL, /* ret= */ NULL));
+        ASSERT_OK(sd_fiber_new(e, "respond-upgrade-io", respond_upgrade_io_fiber, /* userdata= */ NULL, /* ret= */ NULL));
 
         return 0;
 }
@@ -1291,7 +1605,7 @@ TEST(respond_upgrade) {
         ASSERT_OK(sd_varlink_server_listen_address(s, sp, 0600));
         ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
 
-        ASSERT_OK(sd_fiber_new(e, "respond-upgrade-client", respond_upgrade_client_fiber, (void*) sp, /* destroy= */ NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "respond-upgrade-client", respond_upgrade_client_fiber, (void*) sp, &f));
 
         ASSERT_OK(sd_event_loop(e));
 
@@ -1338,6 +1652,20 @@ static int execute_dir_client_fiber(void *arg) {
                                      a->reply_count), (ssize_t) a->n_servers);
         ASSERT_EQ(*a->reply_count, a->n_servers);
 
+        /* Sockets that have a live listener must be counted as contacted, not as offline. */
+        _cleanup_strv_free_ char **offline = NULL;
+        ASSERT_OK_EQ(varlink_execute_directory_full(
+                                     a->tmpdir,
+                                     "io.test.ExecDirPing",
+                                     /* parameters= */ NULL,
+                                     /* more= */ false,
+                                     /* timeout_usec= */ USEC_INFINITY,
+                                     execute_dir_reply,
+                                     a->reply_count,
+                                     &offline), (ssize_t) a->n_servers);
+        ASSERT_TRUE(strv_isempty(offline));
+        ASSERT_EQ(*a->reply_count, 2 * a->n_servers);
+
         /* Calling the helper against a non-existent directory must fail. */
         _cleanup_free_ char *nope = NULL;
         ASSERT_OK(asprintf(&nope, "%s/does-not-exist", a->tmpdir));
@@ -1363,6 +1691,33 @@ static int execute_dir_client_fiber(void *arg) {
                                        /* timeout_usec= */ USEC_INFINITY,
                                        execute_dir_reply,
                                        a->reply_count));
+        ASSERT_EQ(*a->reply_count, count_before);
+
+        ASSERT_OK_ZERO(varlink_execute_directory_full(
+                                       empty,
+                                       "io.test.ExecDirPing",
+                                       /* parameters= */ NULL,
+                                       /* more= */ false,
+                                       /* timeout_usec= */ USEC_INFINITY,
+                                       execute_dir_reply,
+                                       a->reply_count,
+                                       &offline));
+        ASSERT_TRUE(strv_isempty(offline));
+
+        /* A socket inode nobody listens on must not be counted as contacted, but as offline. */
+        _cleanup_free_ char *dead = ASSERT_PTR(path_join(empty, "dead"));
+        ASSERT_OK_ERRNO(mknod(dead, S_IFSOCK|0600, 0));
+
+        ASSERT_OK_ZERO(varlink_execute_directory_full(
+                                       empty,
+                                       "io.test.ExecDirPing",
+                                       /* parameters= */ NULL,
+                                       /* more= */ false,
+                                       /* timeout_usec= */ USEC_INFINITY,
+                                       execute_dir_reply,
+                                       a->reply_count,
+                                       &offline));
+        ASSERT_TRUE(strv_equal(offline, STRV_MAKE("dead")));
         ASSERT_EQ(*a->reply_count, count_before);
 
         ASSERT_OK(sd_event_exit(sd_fiber_get_event(), EXIT_SUCCESS));
@@ -1400,7 +1755,7 @@ TEST(execute_directory) {
                 .n_servers = ELEMENTSOF(names),
                 .reply_count = &reply_count,
         };
-        ASSERT_OK(sd_fiber_new(e, "execute-dir-client", execute_dir_client_fiber, &args, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "execute-dir-client", execute_dir_client_fiber, &args, &f));
 
         ASSERT_OK(sd_event_loop(e));
 

@@ -13,7 +13,6 @@ executables += [
         },
         executable_template + {
                 'name' : 'timedatectl',
-                'public' : true,
                 'conditions' : ['ENABLE_TIMEDATECTL'],
                 'sources' : files('timedatectl.c'),
                 'dependencies' : libm,

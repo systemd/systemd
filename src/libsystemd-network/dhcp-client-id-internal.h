@@ -57,4 +57,8 @@ static inline bool client_id_data_size_is_valid(size_t size) {
 void client_id_hash_func(const sd_dhcp_client_id *client_id, struct siphash *state);
 int client_id_compare_func(const sd_dhcp_client_id *a, const sd_dhcp_client_id *b);
 
+static inline bool client_id_equal(const sd_dhcp_client_id *a, const sd_dhcp_client_id *b) {
+        return client_id_compare_func(a, b) == 0;
+}
+
 int json_dispatch_client_id(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);

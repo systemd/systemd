@@ -125,8 +125,6 @@ static void test_journal_flush_one(int argc, char *argv[]) {
         }
         ASSERT_OK_ZERO(r);
 
-        sd_journal_set_data_threshold(j, 0);
-
         n = 0;
         limit = slow_tests_enabled() ? 10000 : 1000;
         SD_JOURNAL_FOREACH(j) {
@@ -173,7 +171,7 @@ static void test_journal_flush_one(int argc, char *argv[]) {
                 Object *o;
 
                 r = journal_file_move_to_object(j->current_file, OBJECT_UNUSED, q, &o);
-                ASSERT_TRUE(IN_SET(r, -EBADMSG, -EADDRNOTAVAIL));
+                ASSERT_TRUE(ERRNO_IS_NEG_JOURNAL_CORRUPTION(r));
         }
 
         /* Archive and offline file. */

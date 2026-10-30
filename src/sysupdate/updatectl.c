@@ -351,6 +351,8 @@ typedef struct DescribeParams {
         bool partial;
         bool pending;
         bool obsolete;
+        bool too_new;
+        bool candidate;
         bool protected;
         bool incomplete;
 } DescribeParams;
@@ -388,6 +390,8 @@ static int parse_describe(sd_bus_message *reply, Version *ret) {
                 { "partial",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, partial),       0 },
                 { "pending",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, pending),       0 },
                 { "obsolete",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, obsolete),      0 },
+                { "tooNew",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, too_new),       0 },
+                { "candidate",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, candidate),     0 },
                 { "protected",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, protected),     0 },
                 { "incomplete",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, incomplete),    0 },
                 { "changelogUrls", SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,    offsetof(DescribeParams, v.changelog),   0 },
@@ -407,6 +411,8 @@ static int parse_describe(sd_bus_message *reply, Version *ret) {
         SET_FLAG(p.v.flags, UPDATE_PARTIAL, p.partial);
         SET_FLAG(p.v.flags, UPDATE_PENDING, p.pending);
         SET_FLAG(p.v.flags, UPDATE_OBSOLETE, p.obsolete);
+        SET_FLAG(p.v.flags, UPDATE_TOO_NEW, p.too_new);
+        SET_FLAG(p.v.flags, UPDATE_CANDIDATE, p.candidate);
         SET_FLAG(p.v.flags, UPDATE_PROTECTED, p.protected);
         SET_FLAG(p.v.flags, UPDATE_INCOMPLETE, p.incomplete);
 
@@ -451,7 +457,7 @@ static int list_versions_finished(sd_bus_message *reply, void *userdata, sd_bus_
                            TABLE_STRING,    version_link ?: v.version,
                            TABLE_SET_COLOR, color,
                            TABLE_SET_URL,   strv_isempty(v.changelog) ? NULL : v.changelog[0],
-                           TABLE_STRING,    update_set_flags_to_string(v.flags),
+                           TABLE_STRING,    FORMAT_UPDATE_SET_FLAGS(v.flags),
                            TABLE_SET_COLOR, color);
         if (r < 0)
                 return table_log_add_error(r);
@@ -572,7 +578,7 @@ static int describe(sd_bus *bus, const char *target_path, const char *version) {
                ansi_normal(),
                v.version,
                color,
-               update_set_flags_to_string(v.flags),
+               FORMAT_UPDATE_SET_FLAGS(v.flags),
                ansi_normal());
 
         STRV_FOREACH(url, v.changelog) {
@@ -1391,7 +1397,7 @@ typedef struct Feature {
         bool enabled;
         int suggested;
         char **documentation;
-        char *appstream;
+        char **appstream_urls;
         char **transfers;
 } Feature;
 
@@ -1405,7 +1411,7 @@ static void feature_done(Feature *f) {
         f->id = mfree(f->id);
         f->description = mfree(f->description);
         f->documentation = strv_free(f->documentation);
-        f->appstream = mfree(f->appstream);
+        f->appstream_urls = strv_free(f->appstream_urls);
         f->transfers = strv_free(f->transfers);
 }
 
@@ -1423,7 +1429,7 @@ static int describe_feature(sd_bus *bus, const char *feature, Feature *ret) {
                 { "enabled",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,  offsetof(Feature, enabled),       SD_JSON_MANDATORY },
                 { "suggested",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(Feature, suggested),     SD_JSON_NULLABLE  },
                 { "documentation", SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Feature, documentation), SD_JSON_NULLABLE  },
-                { "appStream",     SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,   offsetof(Feature, appstream),     SD_JSON_NULLABLE  },
+                { "appStream",     SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Feature, appstream_urls), SD_JSON_NULLABLE  },
                 { "transfers",     SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,     offsetof(Feature, transfers),     SD_JSON_NULLABLE  },
                 {}
         };
@@ -1566,11 +1572,10 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                         return table_log_add_error(r);
         }
 
-        if (f.appstream) {
+        if (!strv_isempty(f.appstream_urls)) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "AppStream",
-                                   TABLE_STRING, f.appstream,
-                                   TABLE_SET_URL, f.appstream);
+                                   TABLE_STRV_WRAPPED, f.appstream_urls);
                 if (r < 0)
                         return table_log_add_error(r);
         }

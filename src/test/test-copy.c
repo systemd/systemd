@@ -19,6 +19,8 @@
 #include "hexdecoct.h"
 #include "io-util.h"
 #include "log.h"
+#include "memfd-util.h"
+#include "memory-util.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
@@ -465,7 +467,13 @@ static void test_copy_bytes_regular_file_one(const char *src, uint64_t max_bytes
                 /* Make sure the file is now higher than max_bytes */
                 assert_se(ftruncate(fd2, max_bytes + 1) == 0);
 
-        r = copy_bytes(fd2, fd3, max_bytes, COPY_SEEK0_SOURCE);
+        r = copy_bytes_offset(
+                        fd2,
+                        /* foffset= */ &(uint64_t) { 0 },
+                        fd3,
+                        /* toffset= */ NULL,
+                        max_bytes,
+                        /* copy_flags= */ 0);
         if (max_bytes == UINT64_MAX)
                 assert_se(r == 0);
         else
@@ -488,6 +496,195 @@ TEST(copy_bytes_regular_file) {
         test_copy_bytes_regular_file_one(saved_argv[0], UINT64_MAX);
         test_copy_bytes_regular_file_one(saved_argv[0], 1000); /* smaller than copy buffer size */
         test_copy_bytes_regular_file_one(saved_argv[0], 32000); /* larger than copy buffer size */
+}
+
+TEST(copy_bytes_offset) {
+        _cleanup_close_pair_ int pipe_fds[2] = EBADF_PAIR;
+        _cleanup_close_ int src = -EBADF, dst = -EBADF;
+        uint64_t foffset, toffset;
+        char buf[16];
+
+        src = ASSERT_OK(open_tmpfile_unlinkable(NULL, O_RDWR|O_CLOEXEC));
+        dst = ASSERT_OK(open_tmpfile_unlinkable(NULL, O_RDWR|O_CLOEXEC));
+        ASSERT_OK(loop_write(src, "0123456789abcdef", 16));
+        ASSERT_OK(loop_write(dst, "XXXXXXXXXXXXXXXX", 16));
+        ASSERT_OK_EQ_ERRNO(lseek(src, 1, SEEK_SET), (off_t) 1);
+        ASSERT_OK_EQ_ERRNO(lseek(dst, 2, SEEK_SET), (off_t) 2);
+
+        foffset = 2;
+        toffset = 4;
+        ASSERT_OK_EQ(copy_bytes_offset(src, &foffset, dst, &toffset, /* max_bytes= */ 6, /* copy_flags= */ 0), 1);
+        ASSERT_EQ(foffset, 8U);
+        ASSERT_EQ(toffset, 10U);
+        ASSERT_OK_EQ_ERRNO(pread(dst, buf, sizeof(buf), 0), (ssize_t) sizeof(buf));
+        ASSERT_EQ(memcmp(buf, "XXXX234567XXXXXX", sizeof(buf)), 0);
+        ASSERT_OK_EQ_ERRNO(lseek(src, 0, SEEK_CUR), (off_t) 1);
+        ASSERT_OK_EQ_ERRNO(lseek(dst, 0, SEEK_CUR), (off_t) 2);
+
+        foffset = 2;
+        toffset = 4;
+        ASSERT_OK_EQ(copy_bytes_offset(src, &foffset, dst, &toffset, /* max_bytes= */ 6, COPY_HOLES), 1);
+        ASSERT_EQ(foffset, 8U);
+        ASSERT_EQ(toffset, 10U);
+        ASSERT_OK_EQ_ERRNO(lseek(src, 0, SEEK_CUR), (off_t) 1);
+        ASSERT_OK_EQ_ERRNO(lseek(dst, 0, SEEK_CUR), (off_t) 2);
+
+        foffset = 0;
+        toffset = 3;
+        ASSERT_OK_EQ(copy_bytes_offset(src, &foffset, dst, &toffset, /* max_bytes= */ 2, COPY_TRUNCATE), 1);
+        ASSERT_OK_EQ_ERRNO(pread(dst, buf, sizeof(buf), 0), (ssize_t) 5);
+        ASSERT_EQ(memcmp(buf, "XXX01", 5), 0);
+        ASSERT_OK_EQ_ERRNO(lseek(dst, 0, SEEK_CUR), (off_t) 2);
+
+        /* copy_file_range() refuses pipes. Copying into a pipe tests sendfile() with a source offset. */
+        ASSERT_OK_ERRNO(pipe2(pipe_fds, O_CLOEXEC));
+        foffset = 10;
+        ASSERT_OK_ZERO(copy_bytes_offset(
+                                       src,
+                                       &foffset,
+                                       pipe_fds[1],
+                                       /* toffset= */ NULL,
+                                       /* max_bytes= */ UINT64_MAX,
+                                       /* copy_flags= */ 0));
+        ASSERT_EQ(foffset, 16U);
+        ASSERT_OK_EQ_ERRNO(read(pipe_fds[0], buf, sizeof(buf)), (ssize_t) 6);
+        ASSERT_EQ(memcmp(buf, "abcdef", 6), 0);
+        ASSERT_OK_EQ_ERRNO(lseek(src, 0, SEEK_CUR), (off_t) 1);
+
+        /* Copying from a pipe tests the fallback to read() and pwrite(). */
+        ASSERT_OK(loop_write(pipe_fds[1], "hello", 5));
+        pipe_fds[1] = safe_close(pipe_fds[1]);
+        toffset = 1;
+        ASSERT_OK_ZERO(copy_bytes_offset(
+                                       pipe_fds[0],
+                                       /* foffset= */ NULL,
+                                       dst,
+                                       &toffset,
+                                       /* max_bytes= */ UINT64_MAX,
+                                       /* copy_flags= */ 0));
+        ASSERT_EQ(toffset, 6U);
+        ASSERT_OK_EQ_ERRNO(pread(dst, buf, sizeof(buf), 0), (ssize_t) 6);
+        ASSERT_EQ(memcmp(buf, "Xhello", 6), 0);
+        ASSERT_OK_EQ_ERRNO(lseek(dst, 0, SEEK_CUR), (off_t) 2);
+}
+
+TEST(copy_bytes_offset_reflink) {
+        _cleanup_close_ int src = -EBADF, dst = -EBADF;
+        _cleanup_free_ char *buf = NULL;
+        uint64_t foffset, toffset;
+        const size_t bs = 4096;
+
+        /* Offsets that are aligned to the block size allow copy_bytes_offset() to reflink on file systems that
+         * support it, such as btrfs. */
+        src = ASSERT_OK(open_tmpfile_unlinkable("/var/tmp", O_RDWR|O_CLOEXEC));
+        dst = ASSERT_OK(open_tmpfile_unlinkable("/var/tmp", O_RDWR|O_CLOEXEC));
+        buf = ASSERT_NOT_NULL(malloc(3 * bs));
+        memset(buf, 'a', bs);
+        memset(buf + bs, 'b', bs);
+        memset(buf + 2 * bs, 'c', bs);
+        ASSERT_OK(loop_write(src, buf, 3 * bs));
+        memset(buf, 'X', 3 * bs);
+        ASSERT_OK(loop_write(dst, buf, 3 * bs));
+        ASSERT_OK_EQ_ERRNO(lseek(src, 5, SEEK_SET), (off_t) 5);
+        ASSERT_OK_EQ_ERRNO(lseek(dst, 7, SEEK_SET), (off_t) 7);
+
+        foffset = bs;
+        toffset = 2 * bs;
+        ASSERT_OK_EQ(copy_bytes_offset(src, &foffset, dst, &toffset, /* max_bytes= */ bs, /* copy_flags= */ 0), 1);
+        ASSERT_EQ(foffset, 2 * bs);
+        ASSERT_EQ(toffset, 3 * bs);
+
+        foffset = bs;
+        toffset = 0;
+        ASSERT_OK_ZERO(copy_bytes_offset(
+                                       src,
+                                       &foffset,
+                                       dst,
+                                       &toffset,
+                                       /* max_bytes= */ UINT64_MAX,
+                                       /* copy_flags= */ 0));
+        ASSERT_EQ(foffset, 3 * bs);
+        ASSERT_EQ(toffset, 2 * bs);
+
+        ASSERT_OK_EQ_ERRNO(pread(dst, buf, 3 * bs, 0), (ssize_t) (3 * bs));
+        ASSERT_TRUE(memeqbyte('b', buf, bs));
+        ASSERT_TRUE(memeqbyte('c', buf + bs, bs));
+        ASSERT_TRUE(memeqbyte('b', buf + 2 * bs, bs));
+        ASSERT_OK_EQ_ERRNO(lseek(src, 0, SEEK_CUR), (off_t) 5);
+        ASSERT_OK_EQ_ERRNO(lseek(dst, 0, SEEK_CUR), (off_t) 7);
+}
+
+TEST_RET(copy_bytes_offset_holes) {
+        _cleanup_close_ int src = -EBADF, dst = -EBADF;
+        _cleanup_free_ char *buf = NULL;
+        uint64_t foffset = 0, toffset;
+        struct stat st;
+        int r;
+
+        src = ASSERT_OK(open_tmpfile_unlinkable("/var/tmp", O_RDWR|O_CLOEXEC));
+        dst = ASSERT_OK(open_tmpfile_unlinkable("/var/tmp", O_RDWR|O_CLOEXEC));
+
+        r = RET_NERRNO(fallocate(dst, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, 0, 1));
+        if (ERRNO_IS_NOT_SUPPORTED(r))
+                return log_tests_skipped("Filesystem doesn't support hole punching");
+        ASSERT_OK(r);
+
+        ASSERT_OK_ERRNO(fstat(src, &st));
+        size_t bs = st.st_blksize;
+        buf = ASSERT_NOT_NULL(malloc(5 * bs));
+
+        memset(buf, 'D', bs);
+        ASSERT_OK(pwrite_full(src, buf, bs, bs));
+        ASSERT_OK_ERRNO(ftruncate(src, 3 * bs));
+        memset(buf, 'X', 5 * bs);
+        ASSERT_OK(pwrite_full(dst, buf, 5 * bs, 0));
+        ASSERT_OK_EQ_ERRNO(lseek(src, 5, SEEK_SET), (off_t) 5);
+        ASSERT_OK_EQ_ERRNO(lseek(dst, 7, SEEK_SET), (off_t) 7);
+
+        /* The target offset is not aligned to the block size, so the copy can't be a reflink, and
+         * create_hole() punches the holes into the target. */
+        toffset = bs + 1;
+        ASSERT_OK_ZERO(copy_bytes_offset(src, &foffset, dst, &toffset, /* max_bytes= */ UINT64_MAX, COPY_HOLES));
+        ASSERT_EQ(foffset, 3 * bs);
+        ASSERT_EQ(toffset, 4 * bs + 1);
+
+        ASSERT_OK_EQ_ERRNO(pread(dst, buf, 5 * bs, 0), (ssize_t) (5 * bs));
+        ASSERT_TRUE(memeqbyte('X', buf, bs + 1));
+        ASSERT_TRUE(memeqzero(buf + bs + 1, bs));
+        ASSERT_TRUE(memeqbyte('D', buf + 2 * bs + 1, bs));
+        ASSERT_TRUE(memeqzero(buf + 3 * bs + 1, bs));
+        ASSERT_TRUE(memeqbyte('X', buf + 4 * bs + 1, bs - 1));
+        ASSERT_OK_EQ_ERRNO(lseek(src, 0, SEEK_CUR), (off_t) 5);
+        ASSERT_OK_EQ_ERRNO(lseek(dst, 0, SEEK_CUR), (off_t) 7);
+
+        return 0;
+}
+
+TEST_RET(copy_bytes_offset_overflow) {
+        _cleanup_close_ int src = -EBADF, dst = -EBADF;
+        uint64_t foffset = 0, toffset = INT64_MAX - 8;
+        char buf[8];
+        ssize_t n;
+
+        /* A memfd allows file sizes up to INT64_MAX, so data can be written right below that offset. */
+        src = ASSERT_OK(memfd_new("src"));
+        dst = ASSERT_OK(memfd_new("dst"));
+        ASSERT_OK(loop_write(src, "0123456789abcdef", 16));
+
+        n = pwrite(dst, "X", 1, toffset);
+        if (n < 0 && errno == EFBIG)
+                return log_tests_skipped("The file system doesn't allow files of INT64_MAX bytes");
+        ASSERT_OK_EQ_ERRNO(n, (ssize_t) 1);
+
+        /* toffset plus max_bytes is larger than INT64_MAX. A write beyond INT64_MAX fails with EFBIG, so the
+         * copy has to stop at INT64_MAX. */
+        ASSERT_OK_EQ(copy_bytes_offset(src, &foffset, dst, &toffset, /* max_bytes= */ 16, /* copy_flags= */ 0), 1);
+        ASSERT_EQ(foffset, 8U);
+        ASSERT_EQ(toffset, (uint64_t) INT64_MAX);
+        ASSERT_OK_EQ_ERRNO(pread(dst, buf, sizeof(buf), INT64_MAX - 8), (ssize_t) sizeof(buf));
+        ASSERT_EQ(memcmp(buf, "01234567", sizeof(buf)), 0);
+
+        return 0;
 }
 
 TEST(copy_atomic) {
@@ -557,7 +754,13 @@ TEST_RET(copy_holes) {
         /* Only ftruncate() can create holes at the end of a file. */
         assert_se(ftruncate(fd, 3 * blksz) >= 0);
 
-        assert_se(copy_bytes(fd, fd_copy, UINT64_MAX, COPY_SEEK0_SOURCE|COPY_HOLES) >= 0);
+        assert_se(copy_bytes_offset(
+                                  fd,
+                                  /* foffset= */ &(uint64_t) { 0 },
+                                  fd_copy,
+                                  /* toffset= */ NULL,
+                                  /* max_bytes= */ UINT64_MAX,
+                                  COPY_HOLES) >= 0);
 
         /* Test that the hole starts at the beginning of the file. */
         assert_se(lseek(fd_copy, 0, SEEK_HOLE) == 0);
@@ -622,19 +825,37 @@ TEST_RET(copy_holes_with_gaps) {
 
         /* Copy to the middle of the second hole */
         assert_se(ftruncate(fd_copy, 0) >= 0);
-        assert_se(copy_bytes(fd, fd_copy, 4 * blksz, COPY_SEEK0_SOURCE|COPY_SEEK0_TARGET|COPY_HOLES) >= 0);
+        assert_se(copy_bytes_offset(
+                                  fd,
+                                  /* foffset= */ &(uint64_t) { 0 },
+                                  fd_copy,
+                                  /* toffset= */ &(uint64_t) { 0 },
+                                  /* max_bytes= */ 4 * blksz,
+                                  COPY_HOLES) >= 0);
         ASSERT_OK_ERRNO(fstat(fd_copy, &st));
         assert_se(st.st_size == 4 * blksz);
 
         /* Copy to the end of the second hole */
         assert_se(ftruncate(fd_copy, 0) >= 0);
-        assert_se(copy_bytes(fd, fd_copy, 5 * blksz, COPY_SEEK0_SOURCE|COPY_SEEK0_TARGET|COPY_HOLES) >= 0);
+        assert_se(copy_bytes_offset(
+                                  fd,
+                                  /* foffset= */ &(uint64_t) { 0 },
+                                  fd_copy,
+                                  /* toffset= */ &(uint64_t) { 0 },
+                                  /* max_bytes= */ 5 * blksz,
+                                  COPY_HOLES) >= 0);
         ASSERT_OK_ERRNO(fstat(fd_copy, &st));
         assert_se(st.st_size == 5 * blksz);
 
         /* Copy everything */
         assert_se(ftruncate(fd_copy, 0) >= 0);
-        assert_se(copy_bytes(fd, fd_copy, UINT64_MAX, COPY_SEEK0_SOURCE|COPY_SEEK0_TARGET|COPY_HOLES) >= 0);
+        assert_se(copy_bytes_offset(
+                                  fd,
+                                  /* foffset= */ &(uint64_t) { 0 },
+                                  fd_copy,
+                                  /* toffset= */ &(uint64_t) { 0 },
+                                  /* max_bytes= */ UINT64_MAX,
+                                  COPY_HOLES) >= 0);
         ASSERT_OK_ERRNO(fstat(fd_copy, &st));
         assert_se(st.st_size == 6 * blksz);
 

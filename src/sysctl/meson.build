@@ -3,7 +3,6 @@
 executables += [
         libexec_template + {
                 'name' : 'systemd-sysctl',
-                'public' : true,
                 'sources' : files('sysctl.c'),
         },
 ]

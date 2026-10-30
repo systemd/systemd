@@ -99,7 +99,9 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(fd),
                 SD_VARLINK_DEFINE_ENUM_VALUE(file),
                 SD_VARLINK_DEFINE_ENUM_VALUE(append),
-                SD_VARLINK_DEFINE_ENUM_VALUE(truncate));
+                SD_VARLINK_DEFINE_ENUM_VALUE(truncate),
+                SD_VARLINK_DEFINE_ENUM_VALUE(broker),
+                SD_VARLINK_DEFINE_ENUM_VALUE(broker_log));
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
                 CGroupPressureWatch,

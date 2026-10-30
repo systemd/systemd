@@ -707,7 +707,7 @@ static int dns_stub_send_failure(
         return dns_stub_send(m, l, s, p, reply);
 }
 
-static int dns_stub_patch_bypass_reply_packet(
+int dns_stub_patch_bypass_reply_packet(
                 DnsPacket **ret,       /* Where to place the patched packet */
                 DnsPacket *original,   /* The packet to patch */
                 DnsPacket *request,    /* The packet the patched packet shall look like a reply to */
@@ -748,7 +748,10 @@ static int dns_stub_patch_bypass_reply_packet(
          * set the TC bit if our reply is larger than what the client supports, and truncate. */
         if (c->size > dns_packet_payload_size_max(request)) {
                 log_debug("Artificially truncating stub response, as advertised size of client is smaller than upstream one.");
-                dns_packet_truncate(c, dns_packet_payload_size_max(request));
+                r = dns_packet_truncate_rrs(c, dns_packet_payload_size_max(request),
+                                            /* reserve_opt= */ !!request->opt);
+                if (r < 0)
+                        return r;
                 DNS_PACKET_HEADER(c)->flags = htobe16(be16toh(DNS_PACKET_HEADER(c)->flags) | DNS_PACKET_FLAG_TC);
         }
 

@@ -1137,6 +1137,51 @@ bool has_cpu_with_flag(const char *flag) {
 #endif
 }
 
+int cpu_known_features(char ***ret) {
+        assert(ret);
+
+#if defined(__i386__) || defined(__x86_64__)
+        static const struct {
+                const struct cpuid_table_entry *table;
+                size_t n_entries;
+        } tables[] = {
+                { leaf1_edx,  ELEMENTSOF(leaf1_edx),  },
+                { leaf1_ecx,  ELEMENTSOF(leaf1_ecx),  },
+                { leaf7_ebx,  ELEMENTSOF(leaf7_ebx),  },
+                { leaf81_ecx, ELEMENTSOF(leaf81_ecx), },
+                { leaf81_edx, ELEMENTSOF(leaf81_edx), },
+                { leaf87_edx, ELEMENTSOF(leaf87_edx), },
+        };
+#elif defined(__aarch64__)
+        static const struct {
+                const struct hwcap_table_entry *table;
+                size_t n_entries;
+        } tables[] = {
+                { hwcap,  ELEMENTSOF(hwcap),  },
+                { hwcap2, ELEMENTSOF(hwcap2), },
+                { hwcap3, ELEMENTSOF(hwcap3), },
+        };
+#endif
+
+#if defined(__i386__) || defined(__x86_64__) || defined(__aarch64__)
+        _cleanup_strv_free_ char **features = NULL;
+        size_t n = 0;
+        int r;
+
+        FOREACH_ELEMENT(table, tables)
+                FOREACH_ARRAY(i, table->table, table->n_entries) {
+                        r = strv_extend_with_size(&features, &n, i->name);
+                        if (r < 0)
+                                return r;
+                }
+
+        *ret = TAKE_PTR(features);
+#else
+        *ret = NULL;
+#endif
+        return 0;
+}
+
 static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_NONE]            = "none",
         [VIRTUALIZATION_KVM]             = "kvm",

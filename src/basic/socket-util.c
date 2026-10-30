@@ -5,6 +5,7 @@
 #include <linux/if_arp.h>
 #include <linux/if_ether.h>
 #include <linux/if_infiniband.h>
+#include <linux/pidfd.h>
 #include <linux/pkt_sched.h>
 #include <mqueue.h>
 #include <net/if.h>
@@ -942,13 +943,15 @@ int getpeergroups(int fd, gid_t **ret) {
         return (int) n;
 }
 
-int getpeerpidfd(int fd) {
+int getpeerpidfd_full(int fd, unsigned flags) {
         socklen_t n = sizeof(int);
         int pidfd = -EBADF;
 
         assert(fd >= 0);
+        assert((flags & ~PIDFD_THREAD) == 0);
 
-        if (getsockopt(fd, SOL_SOCKET, SO_PEERPIDFD, &pidfd, &n) < 0)
+        int opt = FLAGS_SET(flags, PIDFD_THREAD) ? SO_PEERPIDFD_THREAD : SO_PEERPIDFD;
+        if (getsockopt(fd, SOL_SOCKET, opt, &pidfd, &n) < 0)
                 return -errno;
 
         if (n != sizeof(int))

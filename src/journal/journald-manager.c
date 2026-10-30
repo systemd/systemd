@@ -37,8 +37,10 @@
 #include "journald-audit.h"
 #include "journald-config.h"
 #include "journald-context.h"
+#include "journald-counters.h"
 #include "journald-kmsg.h"
 #include "journald-manager.h"
+#include "journald-metrics.h"
 #include "journald-native.h"
 #include "journald-rate-limit.h"
 #include "journald-socket.h"
@@ -274,6 +276,7 @@ static int manager_open_journal(
                 int open_flags,
                 bool seal,
                 JournalMetrics *metrics,
+                const sd_id128_t *seqnum_id,
                 JournalFile **ret) {
 
         _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
@@ -297,9 +300,10 @@ static int manager_open_journal(
                                 m->config.compress.threshold_bytes,
                                 metrics,
                                 m->mmap,
+                                seqnum_id,
                                 &f);
         else
-                r = journal_file_open(
+                r = journal_file_open_full(
                                 /* fd= */ -EBADF,
                                 fname,
                                 open_flags,
@@ -309,6 +313,7 @@ static int manager_open_journal(
                                 metrics,
                                 m->mmap,
                                 /* template= */ NULL,
+                                seqnum_id,
                                 &f);
         if (r < 0)
                 return r;
@@ -371,6 +376,12 @@ static int manager_system_journal_open(
 
                 (void) mkdir(m->system_storage.path, 0755);
 
+                /* manager_flush_to_var() runs after the system journal is opened if the runtime journal
+                 * is open. It resets the sequence number data and copies the entries of the runtime journal
+                 * with new sequence numbers. The copies must not use the sequence number ID of the runtime
+                 * journal. A new system journal therefore uses its file ID as sequence number ID. */
+                bool flush = m->runtime_journal && !m->namespace;
+
                 fn = strjoina(m->system_storage.path, "/system.journal");
                 r = manager_open_journal(
                                 m,
@@ -379,6 +390,7 @@ static int manager_system_journal_open(
                                 O_RDWR|O_CREAT,
                                 m->config.seal,
                                 &m->system_storage.metrics,
+                                flush ? NULL : &m->seqnum->id,
                                 &m->system_journal);
                 if (r >= 0) {
                         manager_add_acls(m->system_journal, 0);
@@ -421,6 +433,7 @@ static int manager_system_journal_open(
                                         O_RDWR|O_CREAT,
                                         /* seal= */ false,
                                         &m->runtime_storage.metrics,
+                                        &m->seqnum->id,
                                         &m->runtime_journal);
                         if (r < 0)
                                 return log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
@@ -437,6 +450,7 @@ static int manager_system_journal_open(
                                         O_RDWR,
                                         /* seal= */ false,
                                         &m->runtime_storage.metrics,
+                                        &m->seqnum->id,
                                         &m->runtime_journal);
                         if (r < 0) {
                                 if (r != -ENOENT)
@@ -489,6 +503,7 @@ static int manager_find_user_journal(Manager *m, uid_t uid, JournalFile **ret) {
                         O_RDWR|O_CREAT,
                         m->config.seal,
                         &m->system_storage.metrics,
+                        &m->seqnum->id,
                         &f);
         if (r < 0)
                 return r;
@@ -562,7 +577,13 @@ static int manager_do_rotate(
 
         log_debug("Rotating journal file %s.", (*f)->path);
 
-        r = journal_file_rotate(f, m->mmap, manager_get_file_flags(m, seal), m->config.compress.threshold_bytes, m->deferred_closes);
+        r = journal_file_rotate(
+                        f,
+                        m->mmap,
+                        manager_get_file_flags(m, seal),
+                        m->config.compress.threshold_bytes,
+                        &m->seqnum->id,
+                        m->deferred_closes);
         if (r < 0) {
                 if (*f)
                         return log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT,
@@ -1342,8 +1363,6 @@ int manager_flush_to_var(Manager *m, bool require_flag_file) {
                 goto finish;
         }
 
-        sd_journal_set_data_threshold(j, 0);
-
         SD_JOURNAL_FOREACH(j) {
                 Object *o = NULL;
                 JournalFile *f;
@@ -2095,25 +2114,16 @@ int manager_map_seqnum_file(
         if (fd < 0)
                 return -errno;
 
-        r = posix_fallocate_loop(fd, 0, size);
+        r = posix_fallocate_loop(fd, /* offset= */ 0, size);
         if (r < 0)
                 return r;
 
-        p = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+        p = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, /* offset= */ 0);
         if (p == MAP_FAILED)
                 return -errno;
 
         *ret = p;
         return 0;
-}
-
-void manager_unmap_seqnum_file(void *p, size_t size) {
-        assert(size > 0);
-
-        if (!p)
-                return;
-
-        assert_se(munmap(p, size) >= 0);
 }
 
 int manager_unlink_seqnum_file(Manager *m, const char *fname) {
@@ -2341,7 +2351,7 @@ int manager_new(Manager **ret) {
 int manager_init(Manager *m) {
         const char *native_socket, *syslog_socket, *stdout_socket, *varlink_socket, *e;
         _cleanup_fdset_free_ FDSet *fds = NULL;
-        int n, r, varlink_fd = -EBADF;
+        int n, r, varlink_fd = -EBADF, metrics_fd = -EBADF;
         bool no_sockets;
 
         assert(m);
@@ -2357,6 +2367,8 @@ int manager_init(Manager *m) {
                 return log_oom();
 
         (void) mkdir_p(m->runtime_directory, 0755);
+
+        (void) manager_map_counters(m);
 
         m->user_journals = ordered_hashmap_new(&journal_file_hash_ops_offline_close);
         if (!m->user_journals)
@@ -2416,6 +2428,13 @@ int manager_init(Manager *m) {
                                                        "Too many varlink sockets passed.");
 
                         varlink_fd = fd;
+                } else if (sd_is_socket_unix(fd, SOCK_STREAM, 1, JOURNALD_METRICS_SOCKET, 0) > 0) {
+
+                        if (metrics_fd >= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Too many metrics varlink sockets passed.");
+
+                        metrics_fd = fd;
                 } else if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
 
                         if (m->audit_fd >= 0)
@@ -2480,6 +2499,10 @@ int manager_init(Manager *m) {
                 log_info("Collecting audit messages is disabled.");
 
         r = manager_open_varlink(m, varlink_socket, varlink_fd);
+        if (r < 0)
+                return r;
+
+        r = manager_open_metrics(m, metrics_fd);
         if (r < 0)
                 return r;
 
@@ -2574,6 +2597,7 @@ Manager* manager_free(Manager *m) {
         ordered_hashmap_free(m->user_journals);
 
         sd_varlink_server_unref(m->varlink_server);
+        sd_varlink_server_unref(m->metrics_varlink_server);
 
         sd_event_source_unref(m->syslog_event_source);
         sd_event_source_unref(m->native_event_source);
@@ -2603,8 +2627,9 @@ Manager* manager_free(Manager *m) {
 
         ordered_hashmap_free(m->ratelimit_groups_by_id);
 
-        manager_unmap_seqnum_file(m->seqnum, sizeof(*m->seqnum));
-        manager_close_kernel_seqnum(m);
+        m->seqnum = munmap_safe(m->seqnum, sizeof(*m->seqnum));
+        m->kernel_seqnum = munmap_safe(m->kernel_seqnum, sizeof(*m->kernel_seqnum));
+        m->counters = munmap_safe(m->counters, sizeof(*m->counters));
 
         free(m->buffer);
         free(m->cgroup_root);

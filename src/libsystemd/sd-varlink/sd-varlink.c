@@ -51,6 +51,7 @@ static const char* const varlink_state_table[_VARLINK_STATE_MAX] = {
         [VARLINK_IDLE_CLIENT]               = "idle-client",
         [VARLINK_AWAITING_REPLY]            = "awaiting-reply",
         [VARLINK_AWAITING_REPLY_MORE]       = "awaiting-reply-more",
+        [VARLINK_AWAITING_REPLY_UPGRADE]    = "awaiting-reply-upgrade",
         [VARLINK_CALLING]                   = "calling",
         [VARLINK_CALLED]                    = "called",
         [VARLINK_COLLECTING]                = "collecting",
@@ -104,7 +105,7 @@ static JsonStreamPhase varlink_phase(void *userdata) {
 
         /* Client side reading a reply with the per-call deadline in force. */
         if (IN_SET(v->state,
-                   VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE,
+                   VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_AWAITING_REPLY_UPGRADE,
                    VARLINK_CALLING, VARLINK_COLLECTING) &&
             !v->current)
                 return JSON_STREAM_PHASE_AWAITING_REPLY;
@@ -736,7 +737,7 @@ static int varlink_write(sd_varlink *v) {
 static int varlink_read(sd_varlink *v) {
         assert(v);
 
-        if (!IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_CALLING, VARLINK_COLLECTING, VARLINK_IDLE_SERVER))
+        if (!IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_AWAITING_REPLY_UPGRADE, VARLINK_CALLING, VARLINK_COLLECTING, VARLINK_IDLE_SERVER))
                 return 0;
         if (v->current)
                 return 0;
@@ -824,22 +825,30 @@ static int varlink_dispatch_disconnect(sd_varlink *v) {
         return 1;
 }
 
-static int varlink_sanitize_incoming_parameters(sd_json_variant **v) {
+static int varlink_normalize_incoming_parameters(sd_json_variant **framing, sd_json_variant **params) {
         int r;
-        assert(v);
 
-        /* Convert NULL or JSON null to empty object for method handlers (backward compatibility) */
-        if (!*v || sd_json_variant_is_null(*v)) {
+        /* UAPI.20 specifies that receivers of Varlink messages MUST treat "parameters" identically no matter
+         * if it is missing, explicitly null, or an empty object. Here, we choose to normalize "parameters"
+         * to an empty object if it is missing or null, which makes sd_varlink behave predictably (i.e.
+         * sd_varlink_call and similar never return write NULL to ret_parameters if they return r >= 0) */
+
+        assert(params);
+
+        if (!*params || sd_json_variant_is_null(*params)) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *empty = NULL;
                 r = sd_json_variant_new_object(&empty, NULL, 0);
                 if (r < 0)
                         return r;
-                return json_variant_unref_and_replace(*v, empty);
-        }
 
-        /* Ensure we have an object */
-        if (!sd_json_variant_is_object(*v))
-                return -EINVAL;
+                if (framing) {
+                        r = sd_json_variant_set_field(framing, "parameters", empty);
+                        if (r < 0)
+                                return r;
+                }
+
+                return json_variant_unref_and_replace(*params, empty);
+        }
 
         return 0;
 }
@@ -853,7 +862,7 @@ static int varlink_dispatch_reply(sd_varlink *v) {
 
         assert(v);
 
-        if (!IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_CALLING, VARLINK_COLLECTING))
+        if (!IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_AWAITING_REPLY_UPGRADE, VARLINK_CALLING, VARLINK_COLLECTING))
                 return 0;
         if (!v->current)
                 return 0;
@@ -903,13 +912,15 @@ static int varlink_dispatch_reply(sd_varlink *v) {
         if (error && FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES))
                 goto invalid;
 
-        r = varlink_sanitize_incoming_parameters(&parameters);
+        r = varlink_normalize_incoming_parameters(&v->current, &parameters);
         if (r < 0)
                 goto invalid;
 
         v->current_reply_flags = flags;
 
-        if (IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE)) {
+        if (IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_AWAITING_REPLY_UPGRADE)) {
+                bool upgrade = v->state == VARLINK_AWAITING_REPLY_UPGRADE;
+
                 varlink_set_state(v, VARLINK_PROCESSING_REPLY);
 
                 if (v->reply_callback) {
@@ -922,6 +933,24 @@ static int varlink_dispatch_reply(sd_varlink *v) {
 
                 if (v->state == VARLINK_PROCESSING_REPLY) {
                         assert(v->n_pending > 0);
+
+                        if (upgrade) {
+                                assert(v->n_pending == 1);
+                                v->n_pending--;
+
+                                if (error) {
+                                        /* The server refused the upgrade, hence the connection stays in the
+                                         * Varlink protocol and can be used further. */
+                                        json_stream_set_flags(&v->stream, JSON_STREAM_BOUNDED_READS, false);
+                                        varlink_set_state(v, VARLINK_IDLE_CLIENT);
+                                } else
+                                        /* The server accepted the upgrade. The fds are handed to the upgrade
+                                         * callback on the next dispatch, see varlink_dispatch_upgrade(), so
+                                         * that we don't invoke two callbacks in one go. */
+                                        varlink_set_state(v, VARLINK_UPGRADING);
+
+                                return 1;
+                        }
 
                         if (!FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES))
                                 v->n_pending--;
@@ -1164,8 +1193,12 @@ static int varlink_dispatch_fiber(sd_varlink *v, const char *method, sd_varlink_
                 .callback = callback,
         };
 
-        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        r = sd_fiber_new(v->server->event, method, varlink_fiber_entry, d, varlink_fiber_data_destroy, &f);
+        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
+        r = sd_fiber_new(v->server->event, method, varlink_fiber_entry, d, &f);
+        if (r < 0)
+                return r;
+
+        r = sd_fiber_set_destroy_callback(f, varlink_fiber_data_destroy);
         if (r < 0)
                 return r;
 
@@ -1189,6 +1222,8 @@ static int varlink_dispatch_fiber(sd_varlink *v, const char *method, sd_varlink_
         if (r < 0)
                 return r;
 
+        /* Floating self-ref keeps the fiber alive; release our local ref without cancelling. */
+        f = sd_future_unref(f);
         return 0;
 }
 
@@ -1269,7 +1304,7 @@ static int varlink_dispatch_method(sd_varlink *v) {
         if (!method)
                 goto invalid;
 
-        r = varlink_sanitize_incoming_parameters(&parameters);
+        r = varlink_normalize_incoming_parameters(NULL, &parameters);
         if (r < 0)
                 goto fail;
 
@@ -1490,6 +1525,10 @@ static int varlink_dispatch_upgrade(sd_varlink *v) {
         int r;
 
         assert(v);
+
+        /* Completes a protocol upgrade, both for servers (after sd_varlink_respond_and_upgrade()) and
+         * clients (after the reply to sd_varlink_invoke_and_upgrade() arrived): hands the connection's fds
+         * to the upgrade callback, once everything has been written out. */
 
         if (v->state != VARLINK_UPGRADING)
                 return 0;
@@ -1949,6 +1988,64 @@ _public_ int sd_varlink_invokeb(sd_varlink *v, const char *method, ...) {
         return sd_varlink_invoke(v, method, parameters);
 }
 
+_public_ int sd_varlink_invoke_and_upgrade(sd_varlink *v, const char *method, sd_json_variant *parameters) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(method, -EINVAL);
+
+        if (v->state == VARLINK_DISCONNECTED)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
+
+        /* Unlike for regular method calls we do not allow pipelining here: once the reply arrives the
+         * connection leaves the Varlink protocol, hence no other calls may be pending. */
+        if (v->state != VARLINK_IDLE_CLIENT)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
+
+        assert(v->n_pending == 0); /* n_pending can't be > 0 if we are in VARLINK_IDLE_CLIENT state */
+
+        r = sd_json_buildo(
+                        &m,
+                        SD_JSON_BUILD_PAIR_STRING("method", method),
+                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("upgrade", true));
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        /* Make sure we don't consume any data of the upgraded protocol that might follow the reply */
+        json_stream_set_flags(&v->stream, JSON_STREAM_BOUNDED_READS, true);
+
+        r = varlink_enqueue(v, m);
+        if (r < 0) {
+                json_stream_set_flags(&v->stream, JSON_STREAM_BOUNDED_READS, false);
+                return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
+        }
+
+        varlink_set_state(v, VARLINK_AWAITING_REPLY_UPGRADE);
+        v->n_pending++;
+        json_stream_mark_activity(&v->stream);
+
+        return 0;
+}
+
+_public_ int sd_varlink_invoke_and_upgradeb(sd_varlink *v, const char *method, ...) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        va_list ap;
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(method, -EINVAL);
+
+        va_start(ap, method);
+        r = sd_json_buildv(&parameters, ap);
+        va_end(ap);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        return sd_varlink_invoke_and_upgrade(v, method, parameters);
+}
+
 _public_ int sd_varlink_observe(sd_varlink *v, const char *method, sd_json_variant *parameters) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
         int r;
@@ -2354,15 +2451,6 @@ _public_ int sd_varlink_collect_full(
 
                         if (sd_json_variant_elements(collected) >= VARLINK_COLLECT_MAX)
                                 return varlink_log_errno(v, SYNTHETIC_ERRNO(E2BIG), "Number of reply messages grew too large (%zu) while collecting.", sd_json_variant_elements(collected));
-
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *empty = NULL;
-                        if (!p) {
-                                r = sd_json_variant_new_array(&empty, /* array= */ NULL, /* n= */ 0);
-                                if (r < 0)
-                                        return r;
-
-                                p = empty;
-                        }
 
                         r = sd_json_variant_append_array(&collected, p);
                         if (r < 0)
@@ -4269,16 +4357,17 @@ _public_ int sd_varlink_error_to_errno(const char *error, sd_json_variant *param
                 const char *error;
                 int value;
         } table[] = {
-                { SD_VARLINK_ERROR_DISCONNECTED,           -ECONNRESET    },
-                { SD_VARLINK_ERROR_TIMEOUT,                -ETIMEDOUT     },
-                { SD_VARLINK_ERROR_PROTOCOL,               -EPROTO        },
-                { SD_VARLINK_ERROR_INTERFACE_NOT_FOUND,    -EADDRNOTAVAIL },
-                { SD_VARLINK_ERROR_METHOD_NOT_FOUND,       -ENXIO         },
-                { SD_VARLINK_ERROR_METHOD_NOT_IMPLEMENTED, -ENOTTY        },
-                { SD_VARLINK_ERROR_INVALID_PARAMETER,      -EINVAL        },
-                { SD_VARLINK_ERROR_PERMISSION_DENIED,      -EACCES        },
-                { SD_VARLINK_ERROR_EXPECTED_MORE,          -EBADE         },
-                { SD_VARLINK_ERROR_EXPECTED_UPGRADE,       -EPROTOTYPE    },
+                { SD_VARLINK_ERROR_DISCONNECTED,            -ECONNRESET    },
+                { SD_VARLINK_ERROR_TIMEOUT,                 -ETIMEDOUT     },
+                { SD_VARLINK_ERROR_PROTOCOL,                -EPROTO        },
+                { SD_VARLINK_ERROR_OPERATION_NOT_SUPPORTED, -EOPNOTSUPP    },
+                { SD_VARLINK_ERROR_INTERFACE_NOT_FOUND,     -EADDRNOTAVAIL },
+                { SD_VARLINK_ERROR_METHOD_NOT_FOUND,        -ENXIO         },
+                { SD_VARLINK_ERROR_METHOD_NOT_IMPLEMENTED,  -ENOTTY        },
+                { SD_VARLINK_ERROR_INVALID_PARAMETER,       -EINVAL        },
+                { SD_VARLINK_ERROR_PERMISSION_DENIED,       -EACCES        },
+                { SD_VARLINK_ERROR_EXPECTED_MORE,           -EBADE         },
+                { SD_VARLINK_ERROR_EXPECTED_UPGRADE,        -EPROTOTYPE    },
         };
 
         int r;

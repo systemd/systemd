@@ -3,6 +3,9 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 # Rotation/flush test, see https://github.com/systemd/systemd/issues/19895
 journalctl --relinquish-var
 [[ "$(systemd-detect-virt -v)" == "qemu" ]] && ITERATIONS=10 || ITERATIONS=50
@@ -116,6 +119,33 @@ journalctl --sync
 [[ -n "$(journalctl -b -q -u verbose-success.service -T bash)" ]]
 [[ -z "$(journalctl -b -q -u verbose-success.service -T bash -T '(bash)' -T systemd -T '(systemd)')" ]]
 
+# Globs in -t/-T are matched against the identifiers present in the journal. Note that -T is only
+# honoured by the "short" output family, hence no -o cat below.
+GLOB_ID="globtest$RANDOM"
+echo "glob one" | systemd-cat -t "${GLOB_ID}-one"
+echo "glob two" | systemd-cat -t "${GLOB_ID}-two"
+echo "glob other" | systemd-cat -t "other-$GLOB_ID"
+journalctl --sync
+[[ "$(journalctl -b -q -o cat -t "$GLOB_ID-*" | sort | tr '\n' ' ')" == "glob one glob two " ]]
+# An exact identifier keeps working alongside a glob
+[[ "$(journalctl -b -q -o cat -t "${GLOB_ID}-one" -t "$GLOB_ID-tw*" | sort | tr '\n' ' ')" == "glob one glob two " ]]
+# Globs also work for the exclusion side
+assert_in "${GLOB_ID}-one" "$(journalctl -b -q -t "$GLOB_ID-*" -T "$GLOB_ID-two")"
+assert_not_in "${GLOB_ID}-two" "$(journalctl -b -q -t "$GLOB_ID-*" -T "$GLOB_ID-two")"
+assert_in "other-$GLOB_ID" "$(journalctl -b -q -t "*$GLOB_ID*" -T "$GLOB_ID-*")"
+assert_not_in "${GLOB_ID}-one" "$(journalctl -b -q -t "*$GLOB_ID*" -T "$GLOB_ID-*")"
+# An identifier that contains glob characters itself is still selectable and excludable literally
+echo "glob bracket" | systemd-cat -t "${GLOB_ID}[1]"
+journalctl --sync
+assert_eq "$(SYSTEMD_LOG_LEVEL=debug journalctl -b -q -o cat -t "${GLOB_ID}[1]")" "glob bracket"
+output=$(SYSTEMD_LOG_LEVEL=debug journalctl -b -q -o short -t "*$GLOB_ID*" -T "${GLOB_ID}[1]")
+assert_in "glob one" "$output"
+assert_not_in "glob bracket" "$output"
+# A glob matching nothing is an error rather than showing everything ...
+(! journalctl -b -q -t "this-identifier-should-not-exist-*")
+# ... but an exclusion glob matching nothing simply excludes nothing
+assert_in "${GLOB_ID}-one" "$(journalctl -b -q -t "$GLOB_ID-one" -T "this-identifier-should-not-exist-*")"
+
 # Exercise the matching machinery
 SYSTEMD_LOG_LEVEL=debug journalctl -b -n 1 /dev/null /dev/zero /dev/null /dev/null /dev/null
 journalctl -b -n 1 /bin/true /bin/false
@@ -198,6 +228,32 @@ journalctl --list-catalog
 [[ "$(journalctl --list-catalog | wc -l)" -gt 1 ]]
 [[ "$(journalctl --list-catalog f77379a8490b408bbe5f6940505a777b | wc -l)" -eq 1 ]]
 [[ "$(journalctl --dump-catalog | wc -l)" -gt "$(journalctl --dump-catalog f77379a8490b408bbe5f6940505a777b | wc -l)" ]]
+
+# sd_journal_send() passes an entry to journald as a sealed memfd if the entry doesn't fit into a datagram.
+# The maximum datagram size depends on the socket send buffer of the host. Python sends the memfd directly,
+# so that journald always receives a memfd.
+ID="$(systemd-id128 new)"
+{ echo -n "HUGE="; head -c $((4 * 1024 * 1024)) /dev/zero | tr '\0' x; echo; } >/tmp/expected
+python3 - "$ID" /tmp/expected <<'EOF'
+import fcntl, os, socket, sys
+
+with open(sys.argv[2], "rb") as f:
+    huge = f.read()
+
+fd = os.memfd_create("journal-huge", os.MFD_ALLOW_SEALING)
+with open(fd, "wb", closefd=False) as f:
+    f.write(f"MESSAGE=Huge field attached\nSYSLOG_IDENTIFIER={sys.argv[1]}\n".encode() + huge)
+fcntl.fcntl(fd, fcntl.F_ADD_SEALS,
+            fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_GROW | fcntl.F_SEAL_WRITE | fcntl.F_SEAL_SEAL)
+
+with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as sock:
+    sock.connect("/run/systemd/journal/socket")
+    socket.send_fds(sock, [], [fd])
+EOF
+journalctl --sync
+journalctl -b -o export -t "$ID" --output-fields=HUGE | grep -a '^HUGE=' >/tmp/output
+cmp /tmp/expected /tmp/output
+rm -f /tmp/expected /tmp/output
 
 # Add new tests before here, the journald restarts below
 # may make tests flappy.

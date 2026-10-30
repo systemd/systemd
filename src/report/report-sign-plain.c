@@ -7,7 +7,6 @@
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
-#include "build.h"
 #include "crypto-util.h"
 #include "dlopen-note.h"
 #include "errno-util.h"
@@ -18,12 +17,10 @@
 #include "json-util.h"
 #include "lock-util.h"
 #include "log.h"
-#include "main-func.h"
 #include "metrics.h"
+#include "report-server.h"
 #include "stat-util.h"
 #include "tmpfile-util.h"
-#include "varlink-io.systemd.Metrics.h"
-#include "varlink-io.systemd.Report.Signer.h"
 #include "varlink-util.h"
 #include "verbs.h"
 
@@ -31,7 +28,12 @@ COMMAND(
         "systemd-report-sign-plain\0",
         "Sign system reports with a local software key.",
         .man_pages = "systemd-report-sign-plain@.service(8)\0",
+        .option_namespace = "common",
 );
+
+/* No server-wide access restriction: the metrics interface is meant to be reachable unprivileged,
+ * while the signing method enforces root access on its own (see vl_method_sign()). */
+const sd_varlink_server_flags_t report_server_flags = 0;
 
 #define REPORT_SIGN_PLAIN_DIR         "/var/lib/systemd/report.sign.plain"
 #define REPORT_SIGN_PLAIN_PRIVATE_KEY "local.private"
@@ -305,89 +307,20 @@ static int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *paramet
         return metrics_method_describe(metric_family_table, link, parameters, flags, userdata);
 }
 
-static int vl_server(void) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *vs = NULL;
+int report_server_setup(sd_varlink_server *server) {
         int r;
+
+        LIBCRYPTO_NOTE(required);
 
         r = dlopen_libcrypto(LOG_ERR);
         if (r < 0)
                 return r;
 
-        /* No server-wide access restriction: the metrics interface is meant to be reachable unprivileged,
-         * while the signing method enforces root access on its own (see vl_method_sign()). */
-        r = varlink_server_new(&vs, /* flags= */ 0, /* userdata= */ NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate Varlink server: %m");
-
         /* We serve two interfaces off the same server: the signing API and a metrics provider that exposes our
          * public key. Either is reachable regardless of which socket the connection arrived on. */
-        r = sd_varlink_server_add_interface_many(
-                        vs,
-                        &vl_interface_io_systemd_Report_Signer,
-                        &vl_interface_io_systemd_Metrics);
+        r = report_server_add_signer_interface(server, vl_method_sign);
         if (r < 0)
-                return log_error_errno(r, "Failed to add Varlink interfaces: %m");
-
-        r = sd_varlink_server_bind_method_many(
-                        vs,
-                        "io.systemd.Report.Signer.Sign", vl_method_sign,
-                        "io.systemd.Metrics.List",       vl_method_list_metrics,
-                        "io.systemd.Metrics.Describe",   vl_method_describe_metrics);
-        if (r < 0)
-                return log_error_errno(r, "Failed to bind Varlink methods: %m");
-
-        r = sd_varlink_server_loop_auto(vs);
-        if (r < 0)
-                return log_error_errno(r, "Failed to run Varlink event loop: %m");
-
-        return 0;
-}
-
-static int parse_argv(int argc, char *argv[]) {
-        int r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        OptionParser opts = { argc, argv };
-
-        FOREACH_OPTION_OR_RETURN(c, &opts)
-                switch (c) {
-                OPTION_COMMON_HELP:
-                        return command_print_help();
-
-                OPTION_COMMON_VERSION:
-                        return version();
-
-                OPTION_COMMON_INTROSPECT_CLI:
-                        return introspect_cli(SD_JSON_FORMAT_OFF);
-                }
-
-        if (option_parser_get_n_args(&opts) > 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program takes no arguments.");
-
-        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
-        if (r < 0)
-                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
-        if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program can only run as a Varlink service.");
-        return 1;
-}
-
-static int run(int argc, char *argv[]) {
-        int r;
-
-        LIBCRYPTO_NOTE(required);
-
-        log_setup();
-
-        r = parse_argv(argc, argv);
-        if (r <= 0)
                 return r;
 
-        return vl_server();
+        return report_server_add_metrics_interface(server, vl_method_list_metrics, vl_method_describe_metrics);
 }
-
-DEFINE_MAIN_FUNCTION(run);

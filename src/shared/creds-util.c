@@ -1362,7 +1362,7 @@ int decrypt_credential_and_warn(
 
         /* Relevant error codes:
          *
-         *   -EBADMSG      → Corrupted file
+         *   -EBADMSG      → Corrupted file, or unparsable PCR signature file
          *   -EOPNOTSUPP   → Unsupported file type (could be: requires TPM but we have no TPM)
          *   -EHOSTDOWN    → Need PCR signature file, but couldn't find it
          *   -EHWPOISON    → Attempt to unlock with NULL key and either CREDENTIAL_ALLOW_REFUSE is on, or CREDENTIAL_ALLOW_NULL is off, but the system has a TPM and SecureBoot is on
@@ -1386,6 +1386,8 @@ int decrypt_credential_and_warn(
                 r = tpm2_load_pcr_signature(tpm2_signature_path, &signature_json);
                 if (r == -ENOENT)
                         return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN), "Couldn't find PCR signature file: %m");
+                if (r == -EBADMSG)
+                        return log_error_errno(r, "PCR signature file is malformed.");
                 if (r < 0)
                         return log_error_errno(r, "Failed to load PCR signature: %m");
         }
@@ -1443,7 +1445,7 @@ int decrypt_credential_and_warn(
                 struct tpm2_public_key_credential_header *z_pubkey = NULL;
                 struct tpm2_pinned_srk_credential_header *z_srk = NULL;
 
-                if (!TPM2_PCR_MASK_VALID(t->pcr_mask))
+                if (!TPM2_PCR_MASK_VALID(le64toh(t->pcr_mask)))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "TPM2 PCR mask out of range.");
                 if (!tpm2_hash_alg_to_string(le16toh(t->pcr_bank)))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "TPM2 PCR bank invalid or not supported");
@@ -1534,6 +1536,8 @@ int decrypt_credential_and_warn(
                         return log_error_errno(r, "TPM key integrity check failed. Key most likely does not belong to this TPM.");
                 if (r == -EADDRNOTAVAIL)
                         return log_error_errno(r, "NV index referenced by key is missing, unwritten, or unusable, it could be for another system.");
+                if (r == -EUCLEAN)
+                        return log_error_errno(r, "PCR values kept changing while unsealing the TPM2 secret, giving up. Something on this system extends a PCR continuously.");
                 if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))
                         return log_error_errno(r, "TPM policy does not match current system state. Either system has been tampered with or policy out-of-date: %m");
                 if (r < 0)
@@ -1985,7 +1989,8 @@ static const CredentialsVarlinkError credentials_varlink_error_table[] = {
         { "io.systemd.Credentials.NullKeyNotAllowed",      EHWPOISON,    "The key was encrypted with a null key, but that's not allowed during decryption." },
         { "io.systemd.Credentials.KeyBelongsToOtherTPM",   EREMOTE,      "The TPM integrity check for this key failed, key probably belongs to another TPM, or was corrupted." },
         { "io.systemd.Credentials.TPMInDictionaryLockout", ENOLCK,       "The TPM is in dictionary lockout mode, cannot operate." },
-        { "io.systemd.Credentials.UnexpectedPCRState" ,    EUCLEAN,      "Unexpected TPM PCR state of the system." },
+        { "io.systemd.Credentials.UnexpectedPCRState",     EPERM,        "Unexpected TPM PCR state of the system." },
+        { "io.systemd.Credentials.PCRsKeptChanging",       EUCLEAN,      "PCR values kept changing while unsealing the TPM2 secret, something on this system extends a PCR continuously." },
         { "io.systemd.Credentials.NVIndexUnusable",        EADDRNOTAVAIL, "The NV index referenced by the key is missing, unwritten, or unusable, it could be for another system." },
 };
 

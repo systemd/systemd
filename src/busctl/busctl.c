@@ -2108,7 +2108,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         arg_legend = false;
                         break;
 
-                OPTION('l', "full", NULL, "Do not ellipsize output"):
+                OPTION_COMMON_FULL:
                         arg_full = true;
                         break;
 

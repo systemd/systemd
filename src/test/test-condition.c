@@ -3,6 +3,7 @@
 #include <gnu/libc-version.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 #include <sys/utsname.h>
 #include <unistd.h>
 
@@ -27,11 +28,13 @@
 #include "libaudit-util.h"
 #include "limits-util.h"
 #include "log.h"
+#include "mkdir.h"
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "path-util.h"
 #include "psi-util.h"
 #include "rm-rf.h"
+#include "runtime-scope.h"
 #include "selinux-util.h"
 #include "smack-util.h"
 #include "stdio-util.h"
@@ -50,69 +53,69 @@ TEST(condition_test_list) {
 
         ASSERT_OK(arch = uname_architecture());
 
-        ASSERT_OK_POSITIVE(condition_test_list(NULL, environ, NULL, NULL, NULL));
+        ASSERT_OK_POSITIVE(condition_test_list(NULL, environ, RUNTIME_SCOPE_SYSTEM, NULL, NULL, NULL));
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", false, false)));
-        ASSERT_ERROR(condition_test_list(condition, environ, NULL, NULL, NULL), EINVAL);
+        ASSERT_ERROR(condition_test_list(condition, environ, RUNTIME_SCOPE_SYSTEM, NULL, NULL, NULL), EINVAL);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", true, false)));
         ASSERT_NOT_NULL((sibling = condition_new(CONDITION_ARCHITECTURE, architecture_to_string(arch), true, false)));
         LIST_APPEND(conditions, condition, sibling);
-        ASSERT_OK_POSITIVE(condition_test_list(condition, environ, NULL, NULL, NULL));
+        ASSERT_OK_POSITIVE(condition_test_list(condition, environ, RUNTIME_SCOPE_SYSTEM, NULL, NULL, NULL));
         condition_free_list(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_ARCHITECTURE, architecture_to_string(arch), true, false)));
         ASSERT_NOT_NULL((sibling = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", true, false)));
         LIST_APPEND(conditions, condition, sibling);
-        ASSERT_OK_POSITIVE(condition_test_list(condition, environ, NULL, NULL, NULL));
+        ASSERT_OK_POSITIVE(condition_test_list(condition, environ, RUNTIME_SCOPE_SYSTEM, NULL, NULL, NULL));
         condition_free_list(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", true, false)));
-        ASSERT_ERROR(condition_test_list(condition, environ, NULL, NULL, NULL), EINVAL);
+        ASSERT_ERROR(condition_test_list(condition, environ, RUNTIME_SCOPE_SYSTEM, NULL, NULL, NULL), EINVAL);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", true, false)));
         ASSERT_NOT_NULL((sibling = condition_new(CONDITION_PATH_EXISTS, "/thiscertainlywontexist", false, false)));
         LIST_APPEND(conditions, condition, sibling);
-        ASSERT_OK_ZERO(condition_test_list(condition, environ, NULL, NULL, NULL));
+        ASSERT_OK_ZERO(condition_test_list(condition, environ, RUNTIME_SCOPE_SYSTEM, NULL, NULL, NULL));
         condition_free_list(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", true, false)));
         ASSERT_NOT_NULL((sibling = condition_new(CONDITION_PATH_EXISTS, "/bin/sh", false, false)));
         LIST_APPEND(conditions, condition, sibling);
-        ASSERT_ERROR(condition_test_list(condition, environ, NULL, NULL, NULL), EINVAL);
+        ASSERT_ERROR(condition_test_list(condition, environ, RUNTIME_SCOPE_SYSTEM, NULL, NULL, NULL), EINVAL);
         condition_free_list(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_EXISTS, "/thiscertainlywontexist", false, false)));
         ASSERT_NOT_NULL((sibling = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", false, false)));
         LIST_APPEND(conditions, condition, sibling);
-        ASSERT_OK_ZERO(condition_test_list(condition, environ, NULL, NULL, NULL));
+        ASSERT_OK_ZERO(condition_test_list(condition, environ, RUNTIME_SCOPE_SYSTEM, NULL, NULL, NULL));
         condition_free_list(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", false, false)));
         ASSERT_NOT_NULL((sibling = condition_new(CONDITION_PATH_EXISTS, "/thiscertainlywontexist", false, false)));
         LIST_APPEND(conditions, condition, sibling);
-        ASSERT_OK_ZERO(condition_test_list(condition, environ, NULL, NULL, NULL));
+        ASSERT_OK_ZERO(condition_test_list(condition, environ, RUNTIME_SCOPE_SYSTEM, NULL, NULL, NULL));
         condition_free_list(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_EXISTS, "/bin/sh", false, false)));
         ASSERT_NOT_NULL((sibling = condition_new(CONDITION_ARCHITECTURE, architecture_to_string(arch), false, false)));
         LIST_APPEND(conditions, condition, sibling);
-        ASSERT_OK_POSITIVE(condition_test_list(condition, environ, NULL, NULL, NULL));
+        ASSERT_OK_POSITIVE(condition_test_list(condition, environ, RUNTIME_SCOPE_SYSTEM, NULL, NULL, NULL));
         condition_free_list(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", false, false)));
         ASSERT_NOT_NULL((sibling = condition_new(CONDITION_ARCHITECTURE, architecture_to_string(arch), true, false)));
         LIST_APPEND(conditions, condition, sibling);
-        ASSERT_ERROR(condition_test_list(condition, environ, NULL, NULL, NULL), EINVAL);
+        ASSERT_ERROR(condition_test_list(condition, environ, RUNTIME_SCOPE_SYSTEM, NULL, NULL, NULL), EINVAL);
         condition_free_list(condition);
 
         other_arch = arch == ARCHITECTURE_X86_64 ? ARCHITECTURE_X86 : ARCHITECTURE_X86_64;
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", false, false)));
         ASSERT_NOT_NULL((sibling = condition_new(CONDITION_ARCHITECTURE, architecture_to_string(other_arch), true, false)));
         LIST_APPEND(conditions, condition, sibling);
-        ASSERT_OK_ZERO(condition_test_list(condition, environ, NULL, NULL, NULL));
+        ASSERT_OK_ZERO(condition_test_list(condition, environ, RUNTIME_SCOPE_SYSTEM, NULL, NULL, NULL));
         condition_free_list(condition);
 }
 
@@ -120,81 +123,81 @@ TEST(condition_test_path) {
         Condition *condition;
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_EXISTS, "/bin/sh", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_EXISTS, "/bin/s?", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_EXISTS_GLOB, "/bin/s?", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_EXISTS_GLOB, "/bin/s?", false, true)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_EXISTS, "/thiscertainlywontexist", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_EXISTS, "/thiscertainlywontexist", false, true)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_IS_DIRECTORY, "/bin", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_DIRECTORY_NOT_EMPTY, "/bin", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FILE_NOT_EMPTY, "/bin/sh", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FILE_IS_EXECUTABLE, "/bin/sh", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FILE_IS_EXECUTABLE, "/etc/passwd", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_IS_MOUNT_POINT, "/proc", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_IS_MOUNT_POINT, "/", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_IS_MOUNT_POINT, "/bin", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_IS_READ_WRITE, "/tmp", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_IS_ENCRYPTED, "/sys", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         if (access("/run/dbus/system_bus_socket", F_OK) >= 0) {
                 ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_IS_SOCKET, "/run/dbus/system_bus_socket", false, false)));
-                ASSERT_OK_POSITIVE(condition_test(condition, environ));
+                ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
                 condition_free(condition);
         }
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_IS_SOCKET, "/sys", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_IS_SYMBOLIC_LINK, "/dev/stdout", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 }
 
@@ -202,11 +205,11 @@ TEST(condition_test_control_group_hierarchy) {
         Condition *condition;
 
         ASSERT_NOT_NULL(condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, "v1", false, false));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL(condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, "v2", false, false));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 }
 
@@ -220,11 +223,11 @@ TEST(condition_test_control_group_controller) {
 
         /* Invalid controllers are ignored */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, "thisisnotarealcontroller", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, "thisisnotarealcontroller", false, true)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_OK(cg_mask_supported(&system_mask));
@@ -236,20 +239,20 @@ TEST(condition_test_control_group_controller) {
                 if (system_mask & CGROUP_CONTROLLER_TO_MASK(controller)) {
                         log_info("this controller is available");
                         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, false)));
-                        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+                        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
                         condition_free(condition);
 
                         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, true)));
-                        ASSERT_OK_ZERO(condition_test(condition, environ));
+                        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
                         condition_free(condition);
                 } else {
                         log_info("this controller is unavailable");
                         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, false)));
-                        ASSERT_OK_ZERO(condition_test(condition, environ));
+                        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
                         condition_free(condition);
 
                         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, true)));
-                        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+                        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
                         condition_free(condition);
                 }
         }
@@ -258,11 +261,11 @@ TEST(condition_test_control_group_controller) {
         ASSERT_OK(cg_mask_to_string(system_mask, &controller_name));
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, strempty(controller_name), false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, strempty(controller_name), false, true)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 }
 
@@ -270,15 +273,15 @@ TEST(condition_test_ac_power) {
         Condition *condition;
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_AC_POWER, "true", false, false)));
-        ASSERT_OK_EQ(condition_test(condition, environ), on_ac_power());
+        ASSERT_OK_EQ(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), on_ac_power());
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_AC_POWER, "false", false, false)));
-        ASSERT_OK_NE(condition_test(condition, environ), on_ac_power());
+        ASSERT_OK_NE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), on_ac_power());
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_AC_POWER, "false", false, true)));
-        ASSERT_OK_EQ(condition_test(condition, environ), on_ac_power());
+        ASSERT_OK_EQ(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), on_ac_power());
         condition_free(condition);
 }
 
@@ -294,15 +297,15 @@ TEST(condition_test_host) {
         ASSERT_OK(r);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_HOST, SD_ID128_TO_STRING(id), false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_HOST, "garbage value jjjjjjjjjjjjjj", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_HOST, SD_ID128_TO_STRING(id), false, true)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((hostname = gethostname_malloc()));
@@ -312,7 +315,7 @@ TEST(condition_test_host) {
                 return (void) log_notice("hostname is an id128, skipping test");
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_HOST, hostname, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 }
 
@@ -323,29 +326,29 @@ TEST(condition_test_fraction) {
         /* The 0%/100% boundaries are deterministic and short-circuit before the machine ID is even
          * read, so these run everywhere. */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FRACTION, "0%", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FRACTION, "100%", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* A tag does not change the boundary behaviour. */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FRACTION, "sometag 0%", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FRACTION, "sometag 100%", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* Negation flips the boundaries. */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FRACTION, "100%", /* trigger= */ false, /* negate= */ true)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FRACTION, "0%", /* trigger= */ false, /* negate= */ true)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* Malformed values must propagate an error rather than silently passing or failing. */
@@ -358,7 +361,7 @@ TEST(condition_test_fraction) {
                        "tag 30% extra",     /* trailing garbage */
                        "a b 30%") {         /* unquoted multi-word tag → trailing garbage */
                 ASSERT_NOT_NULL((condition = condition_new(CONDITION_FRACTION, bad, /* trigger= */ false, /* negate= */ false)));
-                ASSERT_FAIL(condition_test(condition, environ));
+                ASSERT_FAIL(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
                 condition_free(condition);
         }
 
@@ -384,7 +387,7 @@ TEST(condition_test_fraction) {
                         xsprintf(param, "tag-%u %u%%", i, *pct);
 
                         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FRACTION, param, /* trigger= */ false, /* negate= */ false)));
-                        r = ASSERT_OK(condition_test(condition, environ));
+                        r = ASSERT_OK(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
                         match += r > 0;
                         condition_free(condition);
                 }
@@ -404,15 +407,15 @@ TEST(condition_test_architecture) {
         ASSERT_NOT_NULL((sa = architecture_to_string(a)));
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_ARCHITECTURE, sa, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_ARCHITECTURE, "garbage value", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_ARCHITECTURE, sa, false, true)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 }
 
@@ -421,12 +424,12 @@ TEST(condition_test_firmware) {
 
         /* Empty parameter */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* uefi parameter */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "uefi", false, false)));
-        ASSERT_OK_EQ(condition_test(condition, environ), is_efi_boot());
+        ASSERT_OK_EQ(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), is_efi_boot());
         condition_free(condition);
 }
 
@@ -438,13 +441,13 @@ TEST(condition_test_firmware_device_tree) {
         is_device_tree_system = access("/sys/firmware/devicetree/", F_OK) == 0;
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "device-tree", false, false)));
-        ASSERT_OK_EQ(condition_test(condition, environ), is_device_tree_system);
+        ASSERT_OK_EQ(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), is_device_tree_system);
         condition_free(condition);
 
         /* device-tree-compatible parameter */
         if (!is_device_tree_system) {
                 ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "device-tree-compatible()", false, false)));
-                ASSERT_OK_ZERO(condition_test(condition, environ));
+                ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
                 condition_free(condition);
         } else {
                 _cleanup_free_ char *dtcompat = NULL;
@@ -456,9 +459,9 @@ TEST(condition_test_firmware_device_tree) {
                 if (r < 0) {
                         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "device-tree-compatible()", false, false)));
                         if (r == -ENOENT)
-                                ASSERT_OK_ZERO(condition_test(condition, environ));
+                                ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
                         else
-                                ASSERT_FAIL(condition_test(condition, environ));
+                                ASSERT_FAIL(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
                         condition_free(condition);
                         return;
                 }
@@ -470,7 +473,7 @@ TEST(condition_test_firmware_device_tree) {
 
                         ASSERT_NOT_NULL((expression = strjoin("device-tree-compatible(", *c, ")")));
                         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, expression, false, false)));
-                        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+                        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
                         condition_free(condition);
                 }
         }
@@ -484,32 +487,32 @@ TEST(condition_test_firmware_smbios) {
         /* smbios-field parameter */
         /* Test some malformed smbios-field arguments */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field()", false, false)));
-        ASSERT_ERROR(condition_test(condition, environ), EINVAL);
+        ASSERT_ERROR(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), EINVAL);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed)", false, false)));
-        ASSERT_ERROR(condition_test(condition, environ), EINVAL);
+        ASSERT_ERROR(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), EINVAL);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed", false, false)));
-        ASSERT_ERROR(condition_test(condition, environ), EINVAL);
+        ASSERT_ERROR(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), EINVAL);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed=)", false, false)));
-        ASSERT_ERROR(condition_test(condition, environ), EINVAL);
+        ASSERT_ERROR(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), EINVAL);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(malformed=)", false, false)));
-        ASSERT_ERROR(condition_test(condition, environ), EINVAL);
+        ASSERT_ERROR(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), EINVAL);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(not_existing=nothing garbage)", false, false)));
-        ASSERT_ERROR(condition_test(condition, environ), EINVAL);
+        ASSERT_ERROR(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), EINVAL);
         condition_free(condition);
 
         /* Test not existing SMBIOS field */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, "smbios-field(not_existing=nothing)", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* Test with bios_vendor, if available */
@@ -525,27 +528,27 @@ TEST(condition_test_firmware_smbios) {
         /* Test equality / inequality using fnmatch() */
         expression = strjoina("smbios-field(bios_vendor $= ", quote,  bios_vendor, quote, ")");
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, expression, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         expression = strjoina("smbios-field(bios_vendor$=", quote, bios_vendor, quote, ")");
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, expression, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         expression = strjoina("smbios-field(bios_vendor !$= ", quote, bios_vendor, quote, ")");
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, expression, false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         expression = strjoina("smbios-field(bios_vendor!$=", quote, bios_vendor, quote, ")");
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, expression, false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         expression = strjoina("smbios-field(bios_vendor $= ", quote,  bios_vendor, "*", quote, ")");
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, expression, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* Test version comparison with bios_version, if available */
@@ -560,32 +563,32 @@ TEST(condition_test_firmware_smbios) {
 
         expression = strjoina("smbios-field(bios_version = ", quote, bios_version, quote, ")");
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, expression, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         expression = strjoina("smbios-field(bios_version != ", quote, bios_version, quote, ")");
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, expression, false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         expression = strjoina("smbios-field(bios_version <= ", quote, bios_version, quote, ")");
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, expression, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         expression = strjoina("smbios-field(bios_version >= ", quote, bios_version, quote, ")");
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, expression, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         expression = strjoina("smbios-field(bios_version < ", quote, bios_version, ".1", quote, ")");
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, expression, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         expression = strjoina("smbios-field(bios_version > ", quote, bios_version, ".1", quote, ")");
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_FIRMWARE, expression, false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 }
 
@@ -594,14 +597,14 @@ TEST(condition_test_kernel_command_line) {
         int r;
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_KERNEL_COMMAND_LINE, "thisreallyshouldntbeonthekernelcommandline", false, false)));
-        r = condition_test(condition, environ);
+        r = condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM);
         if (ERRNO_IS_PRIVILEGE(r))
                 return;
         ASSERT_OK_ZERO(r);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_KERNEL_COMMAND_LINE, "andthis=neither", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 }
 
@@ -611,115 +614,115 @@ TEST(condition_test_kernel_version) {
         const char *v;
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "*thisreallyshouldntbeinthekernelversion*", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "*", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* An artificially empty condition. It evaluates to true, but normally
          * such condition cannot be created, because the condition list is reset instead. */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_OK_ERRNO(uname(&u));
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, u.release, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         strshorten(u.release, 4);
         strcpy(strchr(u.release, 0), "*");
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, u.release, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* 0.1.2 would be a very very very old kernel */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "> 0.1.2", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, ">0.1.2", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "'>0.1.2' '<9.0.0'", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "> 0.1.2 < 9.0.0", false, false)));
-        ASSERT_ERROR(condition_test(condition, environ), EINVAL);
+        ASSERT_ERROR(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), EINVAL);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, ">", false, false)));
-        ASSERT_ERROR(condition_test(condition, environ), EINVAL);
+        ASSERT_ERROR(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), EINVAL);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, ">= 0.1.2", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "< 0.1.2", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "<= 0.1.2", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "= 0.1.2", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* 4711.8.15 is a very very very future kernel */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "< 4711.8.15", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "<= 4711.8.15", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "= 4711.8.15", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "> 4711.8.15", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, " >= 4711.8.15", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_OK_ERRNO(uname(&u));
 
         v = strjoina(">=", u.release);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         v = strjoina("=  ", u.release);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         v = strjoina("<=", u.release);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         v = strjoina("> ", u.release);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         v = strjoina("<   ", u.release);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 }
 
@@ -729,145 +732,145 @@ TEST(condition_test_version) {
         char ver[8];
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "systemd *thisreallyshouldntbeinthesystemdversion*", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "systemd *", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* An artificially empty condition. It evaluates to true, but normally
          * such condition cannot be created, because the condition list is reset instead. */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* 42 would be a very very very old systemd release */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "systemd > 42", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "systemd>42", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "systemd '>42' '<9000'", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "systemd > 42 < 9000", false, false)));
-        ASSERT_ERROR(condition_test(condition, environ), EINVAL);
+        ASSERT_ERROR(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), EINVAL);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "systemd>", false, false)));
-        ASSERT_ERROR(condition_test(condition, environ), EINVAL);
+        ASSERT_ERROR(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), EINVAL);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "systemd >= 42", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "systemd < 42", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "systemd <= 42", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "systemd = 42", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* 9000 is a very very very future systemd release */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "systemd < 9000", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "systemd <= 9000", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "systemd = 9000", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "systemd > 9000", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "systemd >= 9000", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         xsprintf(ver, "%d", PROJECT_VERSION);
 
         v = strjoina("systemd>=", ver);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         v = strjoina("systemd =  ", ver);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         v = strjoina("systemd<=", ver);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         v = strjoina("systemd > ", ver);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         v = strjoina("systemd  <   ", ver);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* Test glibc version */
         bool has = !isempty(gnu_get_libc_version());
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc > 1", false, false)));
-        ASSERT_OK_EQ(condition_test(condition, environ), has);
+        ASSERT_OK_EQ(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), has);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc < 2", false, false)));
-        ASSERT_OK_EQ(condition_test(condition, environ), !has);
+        ASSERT_OK_EQ(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), !has);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc < 9999", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc > 9999", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         v = strjoina("glibc = ", gnu_get_libc_version());
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
         if (has)
-                ASSERT_OK_POSITIVE(condition_test(condition, environ));
+                ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         else
-                ASSERT_ERROR(condition_test(condition, environ), EINVAL);
+                ASSERT_ERROR(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), EINVAL);
         condition_free(condition);
 
         v = strjoina("glibc != ", gnu_get_libc_version());
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
         if (has)
-                ASSERT_OK_ZERO(condition_test(condition, environ));
+                ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         else
-                ASSERT_ERROR(condition_test(condition, environ), EINVAL);
+                ASSERT_ERROR(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), EINVAL);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc $= ?*", false, false)));
-        ASSERT_OK_EQ(condition_test(condition, environ), has);
+        ASSERT_OK_EQ(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), has);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc !$= ?*", false, false)));
-        ASSERT_OK_EQ(condition_test(condition, environ), !has);
+        ASSERT_OK_EQ(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), !has);
         condition_free(condition);
 }
 
@@ -882,13 +885,16 @@ TEST(condition_test_credential) {
         ASSERT_OK_ERRNO(unsetenv("CREDENTIALS_DIRECTORY"));
         ASSERT_OK_ERRNO(unsetenv("ENCRYPTED_CREDENTIALS_DIRECTORY"));
 
+        /* Without a scope, only the credential directories from the environment are checked, which keeps
+         * this independent of the host's credential stores. Those are covered by the next test. */
+
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CREDENTIAL, "definitelymissing", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, _RUNTIME_SCOPE_INVALID));
         condition_free(condition);
 
         /* invalid */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CREDENTIAL, "..", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, _RUNTIME_SCOPE_INVALID));
         condition_free(condition);
 
         ASSERT_OK(mkdtemp_malloc(NULL, &n1));
@@ -898,24 +904,138 @@ TEST(condition_test_credential) {
         ASSERT_OK_ERRNO(setenv("ENCRYPTED_CREDENTIALS_DIRECTORY", n2, /* overwrite= */ true));
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CREDENTIAL, "stillmissing", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, _RUNTIME_SCOPE_INVALID));
         condition_free(condition);
 
         ASSERT_NOT_NULL((j = path_join(n1, "existing")));
         ASSERT_OK(touch(j));
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CREDENTIAL, "existing", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, _RUNTIME_SCOPE_INVALID));
         condition_free(condition);
         free(j);
 
         ASSERT_NOT_NULL((j = path_join(n2, "existing-encrypted")));
         ASSERT_OK(touch(j));
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CREDENTIAL, "existing-encrypted", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, _RUNTIME_SCOPE_INVALID));
         condition_free(condition);
 
         ASSERT_OK(set_unset_env("CREDENTIALS_DIRECTORY", d1, /* overwrite= */ true));
         ASSERT_OK(set_unset_env("ENCRYPTED_CREDENTIALS_DIRECTORY", d2, /* overwrite= */ true));
+}
+
+TEST(condition_test_credential_store) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_free_ char *saved = NULL, *j = NULL;
+        Condition *condition;
+
+        /* The user scope credential stores are below $XDG_CONFIG_HOME, which we can redirect */
+        ASSERT_OK(free_and_strdup(&saved, getenv("XDG_CONFIG_HOME")));
+        ASSERT_OK(mkdtemp_malloc(NULL, &t));
+        ASSERT_OK_ERRNO(setenv("XDG_CONFIG_HOME", t, /* overwrite= */ true));
+
+        ASSERT_NOT_NULL((j = path_join(t, "credstore", "instore")));
+        ASSERT_OK(mkdir_parents(j, 0700));
+        ASSERT_OK(touch(j));
+        j = mfree(j);
+
+        ASSERT_NOT_NULL((j = path_join(t, "credstore.encrypted", "instore-encrypted")));
+        ASSERT_OK(mkdir_parents(j, 0700));
+        ASSERT_OK(touch(j));
+
+        FOREACH_STRING(name, "instore", "instore-encrypted") {
+                ASSERT_NOT_NULL((condition = condition_new(CONDITION_CREDENTIAL, name, /* trigger= */ false, /* negate= */ false)));
+                ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_USER));
+                /* without a service manager scope, the credential stores are not searched */
+                ASSERT_OK_ZERO(condition_test(condition, environ, _RUNTIME_SCOPE_INVALID));
+                condition_free(condition);
+        }
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CREDENTIAL, "notinstore", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_USER));
+        condition_free(condition);
+
+        ASSERT_OK(set_unset_env("XDG_CONFIG_HOME", saved, /* overwrite= */ true));
+}
+
+TEST(condition_test_credential_store_error) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_free_ char *saved_config = NULL, *saved_runtime = NULL, *config = NULL, *j = NULL;
+        Condition *condition;
+
+        /* A broken credential store must not hide a match in a later one. $XDG_CONFIG_HOME/credstore is
+         * searched before $XDG_RUNTIME_DIR/credstore; make the former a file, so that it fails with ENOTDIR
+         * (unlike EACCES, this also works as root). */
+        ASSERT_OK(free_and_strdup(&saved_config, getenv("XDG_CONFIG_HOME")));
+        ASSERT_OK(free_and_strdup(&saved_runtime, getenv("XDG_RUNTIME_DIR")));
+        ASSERT_OK(mkdtemp_malloc(NULL, &t));
+        ASSERT_NOT_NULL((config = path_join(t, "config")));
+        ASSERT_OK_ERRNO(setenv("XDG_CONFIG_HOME", config, /* overwrite= */ true));
+        ASSERT_OK_ERRNO(setenv("XDG_RUNTIME_DIR", t, /* overwrite= */ true));
+
+        ASSERT_NOT_NULL((j = path_join(config, "credstore")));
+        ASSERT_OK(mkdir_parents(j, 0700));
+        ASSERT_OK(touch(j));
+        j = mfree(j);
+
+        ASSERT_NOT_NULL((j = path_join(t, "credstore", "inruntime")));
+        ASSERT_OK(mkdir_parents(j, 0700));
+        ASSERT_OK(touch(j));
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CREDENTIAL, "inruntime", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_USER));
+        condition_free(condition);
+
+        /* if it is not found anywhere, the error is reported */
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CREDENTIAL, "nowhere", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_ERROR(condition_test(condition, environ, RUNTIME_SCOPE_USER), ENOTDIR);
+        condition_free(condition);
+
+        ASSERT_OK(set_unset_env("XDG_CONFIG_HOME", saved_config, /* overwrite= */ true));
+        ASSERT_OK(set_unset_env("XDG_RUNTIME_DIR", saved_runtime, /* overwrite= */ true));
+}
+
+TEST(condition_test_credential_store_inaccessible) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_free_ char *saved_config = NULL, *saved_creds = NULL, *store = NULL, *own = NULL, *j = NULL;
+        Condition *condition;
+
+        if (geteuid() == 0)
+                return (void) log_tests_skipped("root can access any directory");
+
+        /* Credentials in a credential store that the caller cannot access are just invisible, while an
+         * inaccessible own credentials directory is still an error. */
+        ASSERT_OK(free_and_strdup(&saved_config, getenv("XDG_CONFIG_HOME")));
+        ASSERT_OK(free_and_strdup(&saved_creds, getenv("CREDENTIALS_DIRECTORY")));
+        ASSERT_OK(mkdtemp_malloc(NULL, &t));
+        ASSERT_OK_ERRNO(setenv("XDG_CONFIG_HOME", t, /* overwrite= */ true));
+        ASSERT_OK_ERRNO(unsetenv("CREDENTIALS_DIRECTORY"));
+
+        ASSERT_NOT_NULL((store = path_join(t, "credstore")));
+        ASSERT_NOT_NULL((j = path_join(store, "hidden")));
+        ASSERT_OK(mkdir_parents(j, 0700));
+        ASSERT_OK(touch(j));
+        ASSERT_OK_ERRNO(chmod(store, 0000));
+
+        FOREACH_STRING(name, "hidden", "nowhere") {
+                ASSERT_NOT_NULL((condition = condition_new(CONDITION_CREDENTIAL, name, /* trigger= */ false, /* negate= */ false)));
+                ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_USER));
+                condition_free(condition);
+        }
+
+        ASSERT_NOT_NULL((own = path_join(t, "own")));
+        ASSERT_OK_ERRNO(mkdir(own, 0000));
+        ASSERT_OK_ERRNO(setenv("CREDENTIALS_DIRECTORY", own, /* overwrite= */ true));
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_CREDENTIAL, "nowhere", /* trigger= */ false, /* negate= */ false)));
+        ASSERT_ERROR(condition_test(condition, environ, RUNTIME_SCOPE_USER), EACCES);
+        condition_free(condition);
+
+        /* let the cleanup remove everything */
+        ASSERT_OK_ERRNO(chmod(store, 0700));
+        ASSERT_OK_ERRNO(chmod(own, 0700));
+
+        ASSERT_OK(set_unset_env("XDG_CONFIG_HOME", saved_config, /* overwrite= */ true));
+        ASSERT_OK(set_unset_env("CREDENTIALS_DIRECTORY", saved_creds, /* overwrite= */ true));
 }
 
 TEST(condition_test_cpufeature) {
@@ -924,47 +1044,47 @@ TEST(condition_test_cpufeature) {
         switch (uname_architecture()) {
         case ARCHITECTURE_X86:
                 ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "fpu", false, false)));
-                ASSERT_OK_POSITIVE(condition_test(condition, environ));
+                ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
                 condition_free(condition);
 
                 ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "x86.fpu", false, false)));
-                ASSERT_OK_POSITIVE(condition_test(condition, environ));
+                ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
                 condition_free(condition);
 
                 ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "bogus.fpu", false, false)));
-                ASSERT_OK_ZERO(condition_test(condition, environ));
+                ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
                 condition_free(condition);
                 break;
         case ARCHITECTURE_X86_64:
                 ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "fpu", false, false)));
-                ASSERT_OK_POSITIVE(condition_test(condition, environ));
+                ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
                 condition_free(condition);
 
                 ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "x86-64.fpu", false, false)));
-                ASSERT_OK_POSITIVE(condition_test(condition, environ));
+                ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
                 condition_free(condition);
 
                 ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "bogus.fpu", false, false)));
-                ASSERT_OK_ZERO(condition_test(condition, environ));
+                ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
                 condition_free(condition);
                 break;
         case ARCHITECTURE_ARM64: {
                 int expected = native_architecture() == ARCHITECTURE_ARM64;
 
                 ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "fp", false, false)));
-                ASSERT_OK_EQ(condition_test(condition, environ), expected);
+                ASSERT_OK_EQ(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), expected);
                 condition_free(condition);
 
                 ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "asimd", false, false)));
-                ASSERT_OK_EQ(condition_test(condition, environ), expected);
+                ASSERT_OK_EQ(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), expected);
                 condition_free(condition);
 
                 ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "arm64.asimd", false, false)));
-                ASSERT_OK_EQ(condition_test(condition, environ), expected);
+                ASSERT_OK_EQ(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), expected);
                 condition_free(condition);
 
                 ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "bogus.asimd", false, false)));
-                ASSERT_OK_ZERO(condition_test(condition, environ));
+                ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
                 condition_free(condition);
                 break;
         }
@@ -973,15 +1093,15 @@ TEST(condition_test_cpufeature) {
         }
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "bogus.featurethatshouldnotexist", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "somecpufeaturethatreallydoesntmakesense", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_FEATURE, "a", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 }
 
@@ -989,39 +1109,39 @@ TEST(condition_test_security) {
         Condition *condition;
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_SECURITY, "garbage oifdsjfoidsjoj", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_SECURITY, "selinux", false, true)));
-        ASSERT_OK_NE(condition_test(condition, environ), mac_selinux_use());
+        ASSERT_OK_NE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), mac_selinux_use());
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_SECURITY, "apparmor", false, false)));
-        ASSERT_OK_EQ(condition_test(condition, environ), mac_apparmor_use());
+        ASSERT_OK_EQ(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), mac_apparmor_use());
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_SECURITY, "tomoyo", false, false)));
-        ASSERT_OK_EQ(condition_test(condition, environ), mac_tomoyo_use());
+        ASSERT_OK_EQ(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), mac_tomoyo_use());
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_SECURITY, "ima", false, false)));
-        ASSERT_OK_EQ(condition_test(condition, environ), use_ima());
+        ASSERT_OK_EQ(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), use_ima());
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_SECURITY, "smack", false, false)));
-        ASSERT_OK_EQ(condition_test(condition, environ), mac_smack_use());
+        ASSERT_OK_EQ(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), mac_smack_use());
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_SECURITY, "audit", false, false)));
-        ASSERT_OK_EQ(condition_test(condition, environ), use_audit());
+        ASSERT_OK_EQ(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), use_audit());
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_SECURITY, "uefi-secureboot", false, false)));
-        ASSERT_OK_EQ(condition_test(condition, environ), is_efi_secure_boot());
+        ASSERT_OK_EQ(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), is_efi_secure_boot());
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_SECURITY, "cvm", false, false)));
-        ASSERT_OK_EQ(condition_test(condition, environ),
+        ASSERT_OK_EQ(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM),
                      (detect_confidential_virtualization() != CONFIDENTIAL_VIRTUALIZATION_NONE));
         condition_free(condition);
 }
@@ -1045,7 +1165,7 @@ TEST(condition_test_virtualization) {
         int r;
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VIRTUALIZATION, "garbage oifdsjfoidsjoj", false, false)));
-        r = condition_test(condition, environ);
+        r = condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM);
         if (ERRNO_IS_PRIVILEGE(r))
                 return;
         log_info("ConditionVirtualization=garbage → %i", r);
@@ -1053,19 +1173,19 @@ TEST(condition_test_virtualization) {
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VIRTUALIZATION, "container", false, false)));
-        r = condition_test(condition, environ);
+        r = condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM);
         log_info("ConditionVirtualization=container → %i", r);
         ASSERT_OK_EQ(r, !!detect_container());
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VIRTUALIZATION, "vm", false, false)));
-        r = condition_test(condition, environ);
+        r = condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM);
         log_info("ConditionVirtualization=vm → %i", r);
         ASSERT_OK_EQ(r, (detect_vm() && !detect_container()));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VIRTUALIZATION, "private-users", false, false)));
-        r = condition_test(condition, environ);
+        r = condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM);
         log_info("ConditionVirtualization=private-users → %i", r);
         ASSERT_OK_EQ(r, !!running_in_userns());
         condition_free(condition);
@@ -1086,7 +1206,7 @@ TEST(condition_test_virtualization) {
                        "vm_other\0") {
 
                 ASSERT_NOT_NULL((condition = condition_new(CONDITION_VIRTUALIZATION, virt, false, false)));
-                r = condition_test(condition, environ);
+                r = condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM);
                 log_info("ConditionVirtualization=%s → %i", virt, r);
                 ASSERT_OK(r);
                 condition_free(condition);
@@ -1100,14 +1220,14 @@ TEST(condition_test_user) {
         int r;
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_USER, "garbage oifdsjfoidsjoj", false, false)));
-        r = condition_test(condition, environ);
+        r = condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM);
         log_info("ConditionUser=garbage → %i", r);
         ASSERT_OK_ZERO(r);
         condition_free(condition);
 
         ASSERT_OK_POSITIVE(asprintf(&uid, "%"PRIu32, UINT32_C(0xFFFF)));
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_USER, uid, false, false)));
-        r = condition_test(condition, environ);
+        r = condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM);
         log_info("ConditionUser=%s → %i", uid, r);
         ASSERT_OK_ZERO(r);
         condition_free(condition);
@@ -1115,7 +1235,7 @@ TEST(condition_test_user) {
 
         ASSERT_OK_POSITIVE(asprintf(&uid, "%u", (unsigned)getuid()));
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_USER, uid, false, false)));
-        r = condition_test(condition, environ);
+        r = condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM);
         log_info("ConditionUser=%s → %i", uid, r);
         ASSERT_OK_POSITIVE(r);
         condition_free(condition);
@@ -1123,7 +1243,7 @@ TEST(condition_test_user) {
 
         ASSERT_OK_POSITIVE(asprintf(&uid, "%u", (unsigned)getuid()+1));
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_USER, uid, false, false)));
-        r = condition_test(condition, environ);
+        r = condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM);
         log_info("ConditionUser=%s → %i", uid, r);
         ASSERT_OK_ZERO(r);
         condition_free(condition);
@@ -1131,7 +1251,7 @@ TEST(condition_test_user) {
 
         ASSERT_NOT_NULL((username = getusername_malloc()));
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_USER, username, false, false)));
-        r = condition_test(condition, environ);
+        r = condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM);
         log_info("ConditionUser=%s → %i", username, r);
         ASSERT_OK_POSITIVE(r);
         condition_free(condition);
@@ -1139,13 +1259,13 @@ TEST(condition_test_user) {
 
         username = (char*)(geteuid() == 0 ? NOBODY_USER_NAME : "root");
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_USER, username, false, false)));
-        r = condition_test(condition, environ);
+        r = condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM);
         log_info("ConditionUser=%s → %i", username, r);
         ASSERT_OK_ZERO(r);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_USER, "@system", false, false)));
-        r = condition_test(condition, environ);
+        r = condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM);
         log_info("ConditionUser=@system → %i", r);
         if (uid_is_system(getuid()) || uid_is_system(geteuid()))
                 ASSERT_OK_POSITIVE(r);
@@ -1163,14 +1283,14 @@ TEST(condition_test_group) {
 
         xsprintf(gid, "%u", UINT32_C(0xFFFF));
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_GROUP, gid, false, false)));
-        r = condition_test(condition, environ);
+        r = condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM);
         log_info("ConditionGroup=%s → %i", gid, r);
         ASSERT_OK_ZERO(r);
         condition_free(condition);
 
         xsprintf(gid, "%u", getgid());
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_GROUP, gid, false, false)));
-        r = condition_test(condition, environ);
+        r = condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM);
         log_info("ConditionGroup=%s → %i", gid, r);
         ASSERT_OK_POSITIVE(r);
         condition_free(condition);
@@ -1188,7 +1308,7 @@ TEST(condition_test_group) {
 
                 xsprintf(gid, "%u", gids[i]);
                 ASSERT_NOT_NULL((condition = condition_new(CONDITION_GROUP, gid, false, false)));
-                r = condition_test(condition, environ);
+                r = condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM);
                 log_info("ConditionGroup=%s → %i", gid, r);
                 ASSERT_OK_POSITIVE(r);
                 condition_free(condition);
@@ -1199,7 +1319,7 @@ TEST(condition_test_group) {
                         return; /* Debian package build in chroot, groupnames won't match, skip */
 
                 ASSERT_NOT_NULL((condition = condition_new(CONDITION_GROUP, name, false, false)));
-                r = condition_test(condition, environ);
+                r = condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM);
                 log_info("ConditionGroup=%s → %i", name, r);
                 ASSERT_OK_POSITIVE(r);
                 condition_free(condition);
@@ -1208,7 +1328,7 @@ TEST(condition_test_group) {
 
         xsprintf(gid, "%u", max_gid + 1);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_GROUP, gid, false, false)));
-        r = condition_test(condition, environ);
+        r = condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM);
         log_info("ConditionGroup=%s → %i", gid, r);
         ASSERT_OK_ZERO(r);
         condition_free(condition);
@@ -1222,7 +1342,7 @@ TEST(condition_test_group) {
 
         const char *groupname = getegid() == 0 ? NOBODY_GROUP_NAME : "root";
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_GROUP, groupname, false, false)));
-        r = condition_test(condition, environ);
+        r = condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM);
         log_info("ConditionGroup=%s → %i", groupname, r);
         ASSERT_OK_ZERO(r);
         condition_free(condition);
@@ -1235,7 +1355,7 @@ static void test_condition_test_cpus_one(const char *s, bool result) {
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPUS, s, false, false)));
 
-        ASSERT_OK_EQ(condition_test(condition, environ), result);
+        ASSERT_OK_EQ(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), result);
         condition_free(condition);
 }
 
@@ -1291,7 +1411,7 @@ static void test_condition_test_memory_one(const char *s, bool result) {
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MEMORY, s, false, false)));
 
-        ASSERT_OK_EQ(condition_test(condition, environ), result);
+        ASSERT_OK_EQ(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), result);
         condition_free(condition);
 }
 
@@ -1368,7 +1488,7 @@ static void test_condition_test_environment_one(const char *s, bool result) {
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_ENVIRONMENT, s, false, false)));
 
-        ASSERT_OK_EQ(condition_test(condition, environ), result);
+        ASSERT_OK_EQ(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), result);
         condition_free(condition);
 }
 
@@ -1398,57 +1518,57 @@ TEST(condition_test_os_release) {
                 return;
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, "_THISHOPEFULLYWONTEXIST=01234 56789", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, "WRONG FORMAT", false, false)));
-        ASSERT_ERROR(condition_test(condition, environ), EINVAL);
+        ASSERT_ERROR(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), EINVAL);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, "WRONG!<>=FORMAT", false, false)));
-        ASSERT_ERROR(condition_test(condition, environ), EINVAL);
+        ASSERT_ERROR(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), EINVAL);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, "WRONG FORMAT=", false, false)));
-        ASSERT_ERROR(condition_test(condition, environ), EINVAL);
+        ASSERT_ERROR(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), EINVAL);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, "WRONG =FORMAT", false, false)));
-        ASSERT_ERROR(condition_test(condition, environ), EINVAL);
+        ASSERT_ERROR(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), EINVAL);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, "WRONG = FORMAT", false, false)));
-        ASSERT_ERROR(condition_test(condition, environ), EINVAL);
+        ASSERT_ERROR(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), EINVAL);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, "WRONGFORMAT=   ", false, false)));
-        ASSERT_ERROR(condition_test(condition, environ), EINVAL);
+        ASSERT_ERROR(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), EINVAL);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, "WRO NG=FORMAT", false, false)));
-        ASSERT_ERROR(condition_test(condition, environ), EINVAL);
+        ASSERT_ERROR(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM), EINVAL);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, "", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* Test shell style globs */
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, "ID_LIKE$=*THISHOPEFULLYWONTEXIST*", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, "ID_THISHOPEFULLYWONTEXIST$=*rhel*", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, "ID_LIKE!$=*THISHOPEFULLYWONTEXIST*", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, "ID_THISHOPEFULLYWONTEXIST!$=*rhel*", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* load_os_release_pairs() removes quotes, we have to add them back,
@@ -1457,23 +1577,23 @@ TEST(condition_test_os_release) {
         const char *quote = strchr(os_release_pairs[1], ' ') ? "\"" : "";
         key_value_pair = strjoina(os_release_pairs[0], "=", quote, os_release_pairs[1], quote);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         key_value_pair = strjoina(os_release_pairs[0], "!=", quote, os_release_pairs[1], quote);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* Test fnmatch() operators */
         key_value_pair = strjoina(os_release_pairs[0], "$=", quote, os_release_pairs[1], quote);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         key_value_pair = strjoina(os_release_pairs[0], "!$=", quote, os_release_pairs[1], quote);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* Some distros (eg: Arch) do not set VERSION_ID */
@@ -1482,57 +1602,57 @@ TEST(condition_test_os_release) {
 
         key_value_pair = strjoina("VERSION_ID", "=", version_id);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         key_value_pair = strjoina("VERSION_ID", "!=", version_id);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         key_value_pair = strjoina("VERSION_ID", "<=", version_id);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         key_value_pair = strjoina("VERSION_ID", ">=", version_id);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         key_value_pair = strjoina("VERSION_ID", "<", version_id, ".1");
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         key_value_pair = strjoina("VERSION_ID", ">", version_id, ".1");
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         key_value_pair = strjoina("VERSION_ID", "=", version_id, " ", os_release_pairs[0], "=", quote, os_release_pairs[1], quote);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         key_value_pair = strjoina("VERSION_ID", "!=", version_id, " ", os_release_pairs[0], "=", quote, os_release_pairs[1], quote);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         key_value_pair = strjoina("VERSION_ID", "=", version_id, " ", os_release_pairs[0], "!=", quote, os_release_pairs[1], quote);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         key_value_pair = strjoina("VERSION_ID", "!=", version_id, " ", os_release_pairs[0], "!=", quote, os_release_pairs[1], quote);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         key_value_pair = strjoina("VERSION_ID", "<", version_id, ".1", " ", os_release_pairs[0], "=", quote, os_release_pairs[1], quote);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_OS_RELEASE, key_value_pair, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 }
 
@@ -1556,44 +1676,44 @@ TEST(condition_test_machine_tag) {
 
         /* Exact match */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "webserver", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* Glob match */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "front*", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* No match */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "database", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* Negation matches when the tag is absent, ... */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "database", /* trigger= */ false, /* negate= */ true)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* ... and does not match when the tag is present */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "webserver", /* trigger= */ false, /* negate= */ true)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* Invalid tags in the file are ignored (matching the Tags D-Bus property) */
         ASSERT_OK(write_string_file(f, "TAGS=\"in valid:good\"\n",
                                     WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE));
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "in valid", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "good", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* No tags configured at all → never matches */
         ASSERT_OK(write_string_file(f, "PRETTY_HOSTNAME=\"x\"\n",
                                     WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE));
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "webserver", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* Key/value (parameterized) tags */
@@ -1602,61 +1722,61 @@ TEST(condition_test_machine_tag) {
 
         /* Exact match of a key/value tag */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "role=webserver", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* Glob on the value */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "role=web*", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* Glob on the key */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "*=prod", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* A bare key does not match an assignment (the "=" is part of the tag) */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "role", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* Right key, wrong value → no match */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "role=database", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* A plain (non-parameterized) tag still matches alongside key/value tags */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "berlin", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* Negation against a key/value tag */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "role=database", /* trigger= */ false, /* negate= */ true)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "role=webserver", /* trigger= */ false, /* negate= */ true)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
-        /* Conflicting values for the same key: graceful parsing keeps the first (lexicographically smallest)
-         * value and drops the rest, so only "env=prod" remains visible. */
+        /* Conflicting values for the same key: graceful parsing keeps the last value and drops the rest,
+         * so only "env=prod" remains visible. */
         ASSERT_OK(write_string_file(f, "TAGS=\"env=staging:env=prod\"\n",
                                     WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE));
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "env=prod", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "env=staging", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         /* Invalid key/value tags in the file are ignored, valid ones still match */
         ASSERT_OK(write_string_file(f, "TAGS=\"bad-=x:role=good\"\n",
                                     WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE));
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "bad-=x", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MACHINE_TAG, "role=good", /* trigger= */ false, /* negate= */ false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_OK(set_unset_env("SYSTEMD_ETC_MACHINE_INFO", saved, /* overwrite= */ true));
@@ -1670,83 +1790,83 @@ TEST(condition_test_psi) {
                 return (void) log_notice("Pressure Stall Information (PSI) is not supported, skipping %s", __func__);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MEMORY_PRESSURE, "", false, false)));
-        ASSERT_FAIL(condition_test(condition, environ));
+        ASSERT_FAIL(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_PRESSURE, "sbarabau", false, false)));
-        ASSERT_FAIL(condition_test(condition, environ));
+        ASSERT_FAIL(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MEMORY_PRESSURE, "10%sbarabau", false, false)));
-        ASSERT_FAIL(condition_test(condition, environ));
+        ASSERT_FAIL(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_PRESSURE, "10% sbarabau", false, false)));
-        ASSERT_FAIL(condition_test(condition, environ));
+        ASSERT_FAIL(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_PRESSURE, "-10", false, false)));
-        ASSERT_FAIL(condition_test(condition, environ));
+        ASSERT_FAIL(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_PRESSURE, "10%/10min", false, false)));
-        ASSERT_FAIL(condition_test(condition, environ));
+        ASSERT_FAIL(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_PRESSURE, "10min/10%", false, false)));
-        ASSERT_FAIL(condition_test(condition, environ));
+        ASSERT_FAIL(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_PRESSURE, "10% 5min", false, false)));
-        ASSERT_FAIL(condition_test(condition, environ));
+        ASSERT_FAIL(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_PRESSURE, "/5min", false, false)));
-        ASSERT_FAIL(condition_test(condition, environ));
+        ASSERT_FAIL(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_IO_PRESSURE, "10s /   ", false, false)));
-        ASSERT_FAIL(condition_test(condition, environ));
+        ASSERT_FAIL(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MEMORY_PRESSURE, "100%", false, false)));
-        ASSERT_OK(condition_test(condition, environ));
+        ASSERT_OK(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MEMORY_PRESSURE, "0%", false, false)));
-        ASSERT_OK(condition_test(condition, environ));
+        ASSERT_OK(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MEMORY_PRESSURE, "0.0%", false, false)));
-        ASSERT_OK(condition_test(condition, environ));
+        ASSERT_OK(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_PRESSURE, "100%", false, false)));
-        ASSERT_OK(condition_test(condition, environ));
+        ASSERT_OK(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_PRESSURE, "0%", false, false)));
-        ASSERT_OK(condition_test(condition, environ));
+        ASSERT_OK(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_PRESSURE, "0.0%", false, false)));
-        ASSERT_OK(condition_test(condition, environ));
+        ASSERT_OK(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_PRESSURE, "0.01%", false, false)));
-        ASSERT_OK(condition_test(condition, environ));
+        ASSERT_OK(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_PRESSURE, "0.0%/10sec", false, false)));
-        ASSERT_OK(condition_test(condition, environ));
+        ASSERT_OK(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_PRESSURE, "100.0% / 1min", false, false)));
-        ASSERT_OK(condition_test(condition, environ));
+        ASSERT_OK(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_IO_PRESSURE, "50.0% / 1min", false, false)));
-        ASSERT_OK(condition_test(condition, environ));
+        ASSERT_OK(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         if (cg_is_available() <= 0)
@@ -1762,27 +1882,27 @@ TEST(condition_test_psi) {
                 return (void) log_notice("Requires the cgroup CPU controller, skipping %s", __func__);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MEMORY_PRESSURE, " : / ", false, false)));
-        ASSERT_FAIL(condition_test(condition, environ));
+        ASSERT_FAIL(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_PRESSURE, "hopefullythisisnotarealone.slice:100% / 10sec", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_POSITIVE(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPU_PRESSURE, "-.slice:100.0% / 1min", false, false)));
-        ASSERT_OK(condition_test(condition, environ));
+        ASSERT_OK(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MEMORY_PRESSURE, "-.slice:0.0%/5min", false, false)));
-        ASSERT_OK(condition_test(condition, environ));
+        ASSERT_OK(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MEMORY_PRESSURE, "-.slice:100.0%", false, false)));
-        ASSERT_OK(condition_test(condition, environ));
+        ASSERT_OK(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_IO_PRESSURE, "-.slice:0.0%", false, false)));
-        ASSERT_OK(condition_test(condition, environ));
+        ASSERT_OK(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 }
 
@@ -1791,11 +1911,11 @@ TEST(condition_test_kernel_module_loaded) {
         int r;
 
         condition = ASSERT_NOT_NULL(condition_new(CONDITION_KERNEL_MODULE_LOADED, "", /* trigger= */ false, /* negate= */ false));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         condition = ASSERT_NOT_NULL(condition_new(CONDITION_KERNEL_MODULE_LOADED, "..", /* trigger= */ false, /* negate= */ false));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 
         if (access("/sys/module/", F_OK) < 0)
@@ -1803,7 +1923,7 @@ TEST(condition_test_kernel_module_loaded) {
 
         FOREACH_STRING(m, "random", "vfat", "fat", "cec", "binfmt_misc", "binfmt-misc") {
                 condition = ASSERT_NOT_NULL(condition_new(CONDITION_KERNEL_MODULE_LOADED, m, /* trigger= */ false, /* negate= */ false));
-                r = condition_test(condition, environ);
+                r = condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM);
                 ASSERT_OK(r);
                 condition_free(condition);
 
@@ -1811,7 +1931,7 @@ TEST(condition_test_kernel_module_loaded) {
         }
 
         condition = ASSERT_NOT_NULL(condition_new(CONDITION_KERNEL_MODULE_LOADED, "idefinitelydontexist", /* trigger= */ false, /* negate= */ false));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_ZERO(condition_test(condition, environ, RUNTIME_SCOPE_SYSTEM));
         condition_free(condition);
 }
 

@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=veth-peer
+
+[Network]
+IPv6AcceptRA=no
+Address=10.1.1.1/24
+DHCPServer=yes
+
+[DHCPServer]
+PoolOffset=0
+PoolSize=20
+
+[DHCPServerStaticLease]
+ClientIdentifier=duid
+IAID=0x12345678
+DUIDType=vendor
+DUIDRawData=00:00:ab:11
+Address=10.1.1.201
+
+# The client identifier sent by the client has priority over its hardware address.
+[DHCPServerStaticLease]
+MACAddress=12:34:56:78:9a:bc
+Address=10.1.1.202

@@ -33,7 +33,6 @@ struct DnssdDiscoveredService {
         int ifindex;
         usec_t until;
         DnsRecordTTLState rr_ttl_state;
-        DnsQuery *query;
         LIST_FIELDS(DnssdDiscoveredService, dns_services);
 };
 
@@ -52,10 +51,7 @@ struct DnsServiceBrowser {
         LIST_HEAD(DnssdDiscoveredService, dns_services);
 };
 
-DnsServiceBrowser *dns_service_browser_free(DnsServiceBrowser *sb);
-void dns_remove_service(DnsServiceBrowser *sb, DnssdDiscoveredService *service);
-DnssdDiscoveredService *dns_service_free(DnssdDiscoveredService *service);
-
+void dns_service_browser_detach(DnsServiceBrowser *sb);
 DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsServiceBrowser, dns_service_browser);
 DECLARE_TRIVIAL_REF_UNREF_FUNC(DnssdDiscoveredService, dnssd_discovered_service);
 
@@ -75,9 +71,6 @@ int mdns_answer_contains_service(
                 DnsServiceBrowser *sb,
                 DnsAnswer *answer,
                 DnssdDiscoveredService *service);
-int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int owner_family);
-int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_family, int ifindex, usec_t until);
-int mdns_service_update(DnssdDiscoveredService *service, DnsResourceRecord *rr, usec_t t, usec_t until);
 int mdns_browser_revisit_cache(DnsServiceBrowser *sb, int owner_family);
 int dns_subscribe_browse_service(
                 Manager *m,

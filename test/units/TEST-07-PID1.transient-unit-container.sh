@@ -188,7 +188,9 @@ file_write_cleanup() {
     # Remove all the mounts and directories we created
     # These variables reset to empty arrays when the subprocess concludes.
     umount "${CLEANUP_MOUNTS[@]}"
-    rm -rf "${CLEANUP_PATHS[@]}"
+    rm -rf --one-file-system "${CLEANUP_PATHS[@]}"
+
+    set -e
 }
 
 run_testcases

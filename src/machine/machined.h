@@ -40,6 +40,7 @@ typedef struct Manager {
 } Manager;
 
 int manager_add_machine(Manager *m, const char *name, Machine **ret);
+int manager_get_unit_by_pidref(Manager *m, const PidRef *pidref, char **ret_unit, char **ret_subgroup);
 int manager_get_machine_by_pidref(Manager *m, const PidRef *pidref, Machine **ret);
 
 int match_reloading(sd_bus_message *message, void *userdata, sd_bus_error *error);

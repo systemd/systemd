@@ -43,6 +43,11 @@ units = [
           'conditions' : ['ENABLE_PORTABLED'],
           'symlinks' : ['dbus-org.freedesktop.portable1.service'],
         },
+        { 'file' : 'systemd-ptybrokerd.service.in' },
+        {
+          'file' : 'systemd-ptybrokerd.socket',
+          'symlinks' : ['sockets.target.wants/'],
+        },
         { 'file' : 'paths.target' },
         { 'file' : 'printer.target' },
         { 'file' : 'session.slice' },
@@ -63,10 +68,12 @@ units = [
         },
         {
           'file' : 'systemd-storage-fs.socket',
+          'conditions' : ['ENABLE_STORAGE'],
           'symlinks' : ['sockets.target.wants/']
         },
         {
           'file' : 'systemd-storage-fs@.service.in',
+          'conditions' : ['ENABLE_STORAGE'],
         },
         { 'file' : 'systemd-tmpfiles-clean.service' },
         { 'file' : 'systemd-tmpfiles-clean.timer' },

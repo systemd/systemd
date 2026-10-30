@@ -26,13 +26,17 @@
 #include "string-util.h"
 #include "unaligned.h"
 
-static uint64_t rotate_left(uint64_t x, uint8_t b) {
+/* The round is small enough that it is worth inlining at every call site, but large enough that gcc's
+ * -O2 inlining budget declines to do so on its own, leaving a call/ret and a reload of the state around
+ * six rounds of ~14 ALU ops. clang inlines it either way, and the SipHash reference implementation this
+ * file is derived from inlines the round manually, by writing it as a macro. */
+static inline _always_inline_ uint64_t rotate_left(uint64_t x, uint8_t b) {
         assert(b < 64);
 
         return (x << b) | (x >> (64 - b));
 }
 
-static void sipround(struct siphash *state) {
+static inline _always_inline_ void sipround(struct siphash *state) {
         assert(state);
 
         state->v0 += state->v1;
@@ -51,7 +55,7 @@ static void sipround(struct siphash *state) {
         state->v2 = rotate_left(state->v2, 32);
 }
 
-void siphash24_init(struct siphash *state, const uint8_t k[static 16]) {
+static inline _always_inline_ void siphash24_init_inline(struct siphash *state, const uint8_t k[static 16]) {
         uint64_t k0, k1;
 
         assert(state);
@@ -71,7 +75,16 @@ void siphash24_init(struct siphash *state, const uint8_t k[static 16]) {
         };
 }
 
-void siphash24_compress(const void *_in, size_t inlen, struct siphash *state) {
+void siphash24_init(struct siphash *state, const uint8_t k[static 16]) {
+        siphash24_init_inline(state, k);
+}
+
+/* The input is read through a byte pointer, which may alias *state. Without restrict, gcc stores the
+ * state back to memory after every block. */
+static inline _always_inline_ void siphash24_compress_inline(
+                const void *restrict _in,
+                size_t inlen,
+                struct siphash *restrict state) {
 
         const uint8_t *in = ASSERT_PTR(_in);
         const uint8_t *end = in + inlen;
@@ -153,6 +166,10 @@ void siphash24_compress(const void *_in, size_t inlen, struct siphash *state) {
         }
 }
 
+void siphash24_compress(const void *in, size_t inlen, struct siphash *state) {
+        siphash24_compress_inline(in, inlen, state);
+}
+
 void siphash24_compress_string(const char *in, struct siphash *state) {
         siphash24_compress_safe(in, strlen_ptr(in), state);
 }
@@ -167,7 +184,7 @@ void siphash24_compress_iovec(const struct iovec *iov, struct siphash *state) {
         siphash24_compress(iov->iov_base, iov->iov_len, state);
 }
 
-uint64_t siphash24_finalize(struct siphash *state) {
+static inline _always_inline_ uint64_t siphash24_finalize_inline(struct siphash *state) {
         uint64_t b;
 
         assert(state);
@@ -203,16 +220,51 @@ uint64_t siphash24_finalize(struct siphash *state) {
         return state->v0 ^ state->v1 ^ state->v2  ^ state->v3;
 }
 
+uint64_t siphash24_finalize(struct siphash *state) {
+        return siphash24_finalize_inline(state);
+}
+
 uint64_t siphash24(const void *in, size_t inlen, const uint8_t k[static 16]) {
         struct siphash state;
 
         assert(in);
         assert(k);
 
-        siphash24_init(&state, k);
-        siphash24_compress(in, inlen, &state);
+        /* Calls to the exported functions go through the PLT and keep the state in memory. */
+        siphash24_init_inline(&state, k);
+        siphash24_compress_inline(in, inlen, &state);
 
-        return siphash24_finalize(&state);
+        return siphash24_finalize_inline(&state);
+}
+
+uint64_t siphash24_uint64(uint64_t in, const uint8_t k[static 16]) {
+        uint64_t b = UINT64_C(8) << 56;
+        struct siphash state;
+
+        assert(k);
+
+        /* This returns the same value as siphash24() over the 8 byte little-endian encoding of in. It
+         * does not buffer partial input like siphash24_compress(), so gcc keeps the state in registers. */
+
+        siphash24_init_inline(&state, k);
+
+        state.v3 ^= in;
+        sipround(&state);
+        sipround(&state);
+        state.v0 ^= in;
+
+        state.v3 ^= b;
+        sipround(&state);
+        sipround(&state);
+        state.v0 ^= b;
+
+        state.v2 ^= 0xff;
+        sipround(&state);
+        sipround(&state);
+        sipround(&state);
+        sipround(&state);
+
+        return state.v0 ^ state.v1 ^ state.v2 ^ state.v3;
 }
 
 uint64_t siphash24_string(const char *s, const uint8_t k[static 16]) {

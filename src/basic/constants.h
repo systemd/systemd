@@ -70,6 +70,8 @@
 #define VARLINK_DIR_OOMD_PREKILL_HOOK "/run/systemd/oomd.prekill.hook/"
 /* Directory whose sockets receive io.systemd.SysUpdate.Notify() after a successful sysupdate run */
 #define VARLINK_DIR_SYSUPDATE_NOTIFY_HOOK "/run/systemd/sysupdate/notify/"
+/* Directory whose sockets systemd-sysupdate queries via io.systemd.SysUpdate.Provider for component definitions */
+#define VARLINK_DIR_SYSUPDATE_PROVIDER "/run/systemd/sysupdate/provider/"
 
 /* Recommended baseline - see README for details */
 #define KERNEL_BASELINE_VERSION "5.14"

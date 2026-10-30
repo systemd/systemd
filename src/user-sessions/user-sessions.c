@@ -8,18 +8,38 @@
 #include "log.h"
 #include "main-func.h"
 #include "reboot-util.h"
-#include "string-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-user-sessions\0",
+        "Permit user logins after boot, prohibit them at shutdown.",
+        .man_pages = "systemd-user-sessions.service(8)\0",
+        .option_namespace = "common",
+);
+
+/* We only touch /run/nologin. See create_shutdown_run_nologin_or_warn() for details. */
+
+VERB_NOARG(verb_start, "start", "Permit user logins");
+static int verb_start(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return unlink_or_warn("/run/nologin");
+}
+
+VERB_NOARG(verb_stop, "stop", "Prohibit user logins");
+static int verb_stop(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return create_shutdown_run_nologin_or_warn();
+}
 
 static int run(int argc, char *argv[]) {
         int r;
 
         LIBSELINUX_NOTE(recommended);
 
-        if (argc != 2)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program requires one argument.");
-
         log_setup();
+
+        char **args = NULL;
+        r = common_parse_argv(argc, argv, &args);
+        if (r <= 0)
+                return r;
 
         umask(0022);
 
@@ -27,14 +47,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        /* We only touch /run/nologin. See create_shutdown_run_nologin_or_warn() for details. */
-
-        if (streq(argv[1], "start"))
-                return unlink_or_warn("/run/nologin");
-        if (streq(argv[1], "stop"))
-                return create_shutdown_run_nologin_or_warn();
-
-        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb '%s'.", argv[1]);
+        return dispatch_verb(args, /* userdata= */ NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

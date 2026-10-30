@@ -49,7 +49,7 @@ static void message_free_part(sd_bus_message *m, BusMessageBodyPart *part) {
         } else if (part->munmap_this)
                 /* We don't erase sensitive data here, since the data is memory mapped from someone else, and
                  * we just don't know if it's OK to write to it */
-                munmap(part->mmap_begin, part->mapped);
+                munmap_safe(part->mmap_begin, part->mapped);
         else {
                 /* Erase this if that is requested. Since this is regular memory we know we can write it. */
                 if (m->sensitive)
@@ -2204,13 +2204,13 @@ _public_ int sd_bus_message_append_array_memfd(
         assert_return(!m->sealed, -EPERM);
         assert_return(!m->poisoned, -ESTALE);
 
-        r = memfd_set_sealed(memfd);
+        r = memfd_set_sealed_gracefully(memfd);
         if (r < 0)
                 return r;
 
         copy_fd = fcntl(memfd, F_DUPFD_CLOEXEC, 3);
         if (copy_fd < 0)
-                return copy_fd;
+                return -errno;
 
         r = memfd_get_size(memfd, &real_size);
         if (r < 0)
@@ -2218,7 +2218,7 @@ _public_ int sd_bus_message_append_array_memfd(
 
         if (offset == 0 && size == UINT64_MAX)
                 size = real_size;
-        else if (offset + size > real_size)
+        else if (size > real_size || offset > real_size - size)
                 return -EMSGSIZE;
 
         align = bus_type_get_alignment(type);
@@ -2231,6 +2231,9 @@ _public_ int sd_bus_message_append_array_memfd(
                 return -EINVAL;
 
         if (size % sz != 0)
+                return -EINVAL;
+
+        if (size == 0)
                 return -EINVAL;
 
         if (size > (uint64_t) UINT32_MAX)
@@ -2248,11 +2251,13 @@ _public_ int sd_bus_message_append_array_memfd(
         if (!part)
                 return -ENOMEM;
 
-        part->memfd = copy_fd;
+        if (m->body_size > UINT32_MAX - size)
+                return -EMSGSIZE;
+
+        part->memfd = TAKE_FD(copy_fd);
         part->memfd_offset = offset;
         part->sealed = true;
         part->size = size;
-        copy_fd = -EBADF;
 
         m->body_size += size;
         message_extend_containers(m, size);
@@ -2279,13 +2284,13 @@ _public_ int sd_bus_message_append_string_memfd(
         assert_return(!m->sealed, -EPERM);
         assert_return(!m->poisoned, -ESTALE);
 
-        r = memfd_set_sealed(memfd);
+        r = memfd_set_sealed_gracefully(memfd);
         if (r < 0)
                 return r;
 
-        copy_fd = fcntl(memfd, FD_CLOEXEC, 3);
+        copy_fd = fcntl(memfd, F_DUPFD_CLOEXEC, 3);
         if (copy_fd < 0)
-                return copy_fd;
+                return -errno;
 
         r = memfd_get_size(memfd, &real_size);
         if (r < 0)
@@ -2293,7 +2298,7 @@ _public_ int sd_bus_message_append_string_memfd(
 
         if (offset == 0 && size == UINT64_MAX)
                 size = real_size;
-        else if (offset + size > real_size)
+        else if (size > real_size || offset > real_size - size)
                 return -EMSGSIZE;
 
         /* We require this to be NUL terminated */
@@ -2333,11 +2338,13 @@ _public_ int sd_bus_message_append_string_memfd(
         if (!part)
                 return -ENOMEM;
 
-        part->memfd = copy_fd;
+        if (m->body_size > UINT32_MAX - size)
+                return -EMSGSIZE;
+
+        part->memfd = TAKE_FD(copy_fd);
         part->memfd_offset = offset;
         part->sealed = true;
         part->size = size;
-        copy_fd = -EBADF;
 
         m->body_size += size;
         message_extend_containers(m, size);
@@ -2528,11 +2535,10 @@ void bus_body_part_unmap(BusMessageBodyPart *part) {
         if (!part->munmap_this)
                 return;
 
-        assert_se(munmap(part->mmap_begin, part->mapped) == 0);
-
-        part->mmap_begin = NULL;
-        part->data = NULL;
+        part->mmap_begin = munmap_safe(part->mmap_begin, part->mapped);
         part->mapped = 0;
+
+        part->data = NULL;
         part->munmap_this = false;
 
         return;

@@ -176,6 +176,7 @@ void enroll_context_done(EnrollContext *c) {
         c->unlock_tpm2_device = mfree(c->unlock_tpm2_device);
         c->unlock_password = erase_and_free(c->unlock_password);
         c->passphrase = erase_and_free(c->passphrase);
+        c->recovery_key = erase_and_free(c->recovery_key);
         c->fido2_device = mfree(c->fido2_device);
         c->fido2_salt_file = mfree(c->fido2_salt_file);
         c->fido2_pin = erase_and_free(c->fido2_pin);
@@ -237,7 +238,7 @@ static int resolve_default_node(const char *path, char **ret) {
         return strdup_to(ret, dp);
 }
 
-static int determine_default_node(void) {
+int determine_default_node(char **ret_node) {
         int r;
 
         /* If no device is specified we'll default to the backing device of /var/.
@@ -262,6 +263,8 @@ static int determine_default_node(void) {
         const char *candidates[2];
         size_t n_candidates = 0;
 
+        assert(ret_node);
+
         if (in_initrd()) {
                 candidates[n_candidates++] = "/sysroot/var";
                 candidates[n_candidates++] = "/sysroot";
@@ -269,9 +272,9 @@ static int determine_default_node(void) {
                 candidates[n_candidates++] = "/var";
 
         FOREACH_ARRAY(path, candidates, n_candidates) {
-                r = resolve_default_node(*path, &arg_node);
+                r = resolve_default_node(*path, ret_node);
                 if (r >= 0) {
-                        log_info("No device specified, defaulting to '%s' (backing %s).", arg_node, *path);
+                        log_info("No device specified, defaulting to '%s' (backing %s).", *ret_node, *path);
                         return 0;
                 }
         }
@@ -776,7 +779,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg)
                 r = parse_path_argument(arg, false, &arg_node);
         else if (!wipe_requested())
-                r = determine_default_node();
+                r = determine_default_node(&arg_node);
         else
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Wiping requested and no block device node specified, refusing.");

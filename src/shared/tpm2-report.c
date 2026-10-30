@@ -6,6 +6,7 @@
 #include "crypto-util.h"
 #include "json-util.h"
 #include "log.h"
+#include "memory-util.h"
 #include "sd-json.h"
 #include "sd-varlink.h"
 #include "string-table.h"
@@ -17,22 +18,40 @@ void tpm2_report_options_done(Tpm2ReportOptions *opts) {
         assert(opts);
 
         opts->nv_pcrs = strv_free(opts->nv_pcrs);
+        opts->tpm_props = mfree(opts->tpm_props);
+        opts->n_tpm_props = 0;
+        opts->auth_policies = mfree(opts->auth_policies);
+        opts->n_auth_policies = 0;
+        opts->certify_key = tpm2_handle_free(opts->certify_key);
+        opts->certify_key_public = mfree(opts->certify_key_public);
 }
 
 static const char* const tpm2_report_component_type_table[_TPM2_REPORT_TYPE_MAX] = {
-        [TPM2_REPORT_TYPE_PCR]           = "pcr",
-        [TPM2_REPORT_TYPE_NVPCR]         = "nvpcr",
-        [TPM2_REPORT_TYPE_SESSION_AUDIT] = "session-audit",
+        [TPM2_REPORT_TYPE_PCR]                     = "pcr",
+        [TPM2_REPORT_TYPE_NVPCR]                   = "nvpcr",
+        [TPM2_REPORT_TYPE_KEY_CERTIFICATION]       = "key-certification",
+        [TPM2_REPORT_TYPE_CAPABILITY_TPM_PROPERTY] = "capability-tpm-property",
+        [TPM2_REPORT_TYPE_CAPABILITY_AUTH_POLICY]  = "capability-auth-policy",
+        [TPM2_REPORT_TYPE_SESSION_AUDIT]           = "session-audit",
 };
 DEFINE_STRING_TABLE_LOOKUP(tpm2_report_component_type, Tpm2ReportComponentType);
 
 static void tpm2_report_component_done(Tpm2ReportComponent *c) {
         assert(c);
 
+        c->pcr_values = mfree(c->pcr_values);
+        c->n_pcr_values = 0;
+
         c->nv_pcr_name = mfree(c->nv_pcr_name);
         c->nv_public = mfree(c->nv_public);
 
         c->authenticated_data = mfree(c->authenticated_data);
+
+        c->key_public = mfree(c->key_public);
+
+        c->property = mfree(c->property);
+
+        c->auth_policy = mfree(c->auth_policy);
 
         c->attestation = mfree(c->attestation);
         sym_Esys_Free(c->signature);
@@ -141,8 +160,14 @@ static int tpm2_generate_report_try(
                 Tpm2Context *c,
                 const Tpm2Handle *key,
                 const TPML_PCR_SELECTION *pcrs,
-                NvPCRReportRequest *nv_pcrs,
+                const NvPCRReportRequest *nv_pcrs,
                 size_t n_nv_pcrs,
+                const TPM2_PT *tpm_props,
+                size_t n_tpm_props,
+                const TPM2_HANDLE *auth_policies,
+                size_t n_auth_policies,
+                const Tpm2Handle *certify_key,
+                const TPMT_PUBLIC *certify_key_public,
                 const TPM2B_DATA *external_data,
                 sd_json_variant **ret_event_log,
                 Tpm2ReportComponent **ret_components,
@@ -153,16 +178,28 @@ static int tpm2_generate_report_try(
         assert(c);
         assert(pcrs);
         assert(nv_pcrs);
+        assert(!certify_key == !certify_key_public);
         assert(ret_event_log);
         assert(ret_components);
         assert(ret_n_components);
 
-        /* This generates a PCR quote and a NV certification per NvPCR index, all inside an audit session.
-         * Audit session exclusivity provides evidence that the sequence of attestations reflects a single
-         * and consistent snapshot of the machine's state. */
+        /* This generates a PCR quote, a NV certification per NvPCR index and (optionally) a certification
+         * of a key, all inside an audit session. Audit session exclusivity provides evidence that the
+         * sequence of attestations reflects a single and consistent snapshot of the machine's state. */
+
+        /* Read the PCR values first, outside of the audit session. This makes it easier for a verifier
+         * to reconstruct the audit digest from the report. We need to make sure that the values read
+         * here are consistent with the digest in the quote we obtain later. */
+        _cleanup_free_ Tpm2PCRValue *pcr_values = NULL;
+        size_t n_pcr_values;
+        r = tpm2_pcr_read(c, pcrs, &pcr_values, &n_pcr_values);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read PCR values: %m");
+
+        const TPMI_ALG_HASH audit_session_alg = TPM2_ALG_SHA256;
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *audit_session = NULL;
-        r = tpm2_make_exclusive_audit_session(c, &audit_session);
+        r = tpm2_make_exclusive_audit_session(c, audit_session_alg, &audit_session);
         if (r < 0)
                 return r;
 
@@ -185,10 +222,43 @@ static int tpm2_generate_report_try(
         if (r < 0)
                 return r;
 
+        if (quoted->type != TPM2_ST_ATTEST_QUOTE)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Unexpected quote attestation tag 0x%" PRIx16, quoted->type);
+
+        /* Crosscheck the PCR values we read outside of the audit session against the digest in the quote.
+         * A mismatch means the PCRs were extended in between, so ask the caller to retry. */
+        _cleanup_free_ TPM2B_DIGEST *quoted_pcr_digests = NULL;
+        size_t n_quoted_pcr_digests;
+        r = tpm2_pcr_values_to_digests_for_selection(
+                        &quoted->attested.quote.pcrSelect,
+                        pcr_values,
+                        n_pcr_values,
+                        &quoted_pcr_digests,
+                        &n_quoted_pcr_digests);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to order PCR values according to the quoted PCR selection: %m");
+
+        TPM2B_DIGEST pcr_digest = {};
+        r = tpm2_digest_many_digests(
+                        quote_signature->signature.any.hashAlg,
+                        &pcr_digest,
+                        quoted_pcr_digests,
+                        n_quoted_pcr_digests,
+                        /* extend= */ false);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to digest PCR values: %m");
+
+        if (memcmp_nn(pcr_digest.buffer, pcr_digest.size,
+                      quoted->attested.quote.pcrDigest.buffer, quoted->attested.quote.pcrDigest.size) != 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "PCR values changed whilst obtaining the TPM quote");
+
         if (!GREEDY_REALLOC(components, n_components + 1))
                 return log_oom_debug();
         components[n_components++] = (Tpm2ReportComponent) {
                 .type = TPM2_REPORT_TYPE_PCR,
+                .pcr_values = TAKE_PTR(pcr_values),
+                .n_pcr_values = n_pcr_values,
                 .attestation = TAKE_PTR(quoted),
                 .signature = TAKE_PTR(quote_signature),
         };
@@ -243,6 +313,64 @@ static int tpm2_generate_report_try(
                 };
         }
 
+        /* Certify the key, if we have been asked to. The certification proves that the key resides in the
+         * same TPM as the signing key, which allows a verifier to seal secrets to it (as it is the case for
+         * the SRK, which systemd-cryptenroll and systemd-repart accept via --tpm2-device-key=) knowing that
+         * only this TPM can unseal them. Like the quote it carries no qualifying data, the audit session
+         * binds it to the report. */
+        _cleanup_free_ TPMS_ATTEST *certify_info = NULL;
+        _cleanup_(Esys_Freep) TPMT_SIGNATURE *certify_signature = NULL;
+        if (certify_key) {
+                r = tpm2_certify(
+                                c,
+                                /* object_session= */ NULL,
+                                /* sign_session= */ NULL,
+                                audit_session,
+                                certify_key,
+                                key,
+                                /* qualifying_data= */ NULL,
+                                &certify_info,
+                                &certify_signature);
+                if (r == -EACCES)
+                        /* The key cannot be authorized with a password session, as it has adminWithPolicy
+                         * set or an auth value we don't know. The failed command did not touch the audit
+                         * session, hence just leave the component out, the report is useful without it. */
+                        log_debug_errno(r, "Cannot authorize the key to certify, generating report without certification: %m");
+                else if (r < 0)
+                        return log_debug_errno(r, "Failed to fetch TPM certification for key");
+        }
+
+        if (certify_info) {
+                if (certify_info->type != TPM2_ST_ATTEST_CERTIFY)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Unexpected key certification attestation tag 0x%" PRIx16, certify_info->type);
+
+                /* Cross-check that the name the TPM certified is the one of the public area we are going
+                 * to report, so that the two cannot go out of sync. */
+                TPM2B_NAME name;
+                r = tpm2_calculate_pubkey_name(certify_key_public, &name);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to calculate name of certified key: %m");
+
+                if (memcmp_nn(name.name, name.size,
+                              certify_info->attested.certify.name.name, certify_info->attested.certify.name.size) != 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Certified key name does not match the public area of the key");
+
+                _cleanup_free_ TPMT_PUBLIC *key_public = newdup(TPMT_PUBLIC, certify_key_public, 1);
+                if (!key_public)
+                        return log_oom_debug();
+
+                if (!GREEDY_REALLOC(components, n_components + 1))
+                        return log_oom_debug();
+                components[n_components++] = (Tpm2ReportComponent) {
+                        .type = TPM2_REPORT_TYPE_KEY_CERTIFICATION,
+                        .key_public = TAKE_PTR(key_public),
+                        .attestation = TAKE_PTR(certify_info),
+                        .signature = TAKE_PTR(certify_signature),
+                };
+        }
+
         /* Read the event log before checking the audit session below. As tpm2_pcr_extend_bytes and
          * tpm2_nvpcr_extend_bytes touch the log after performing a TPM measurement, this ensures that we
          * get a log that is consistent with the previously obtained TPM quote and NV certifications. If
@@ -285,6 +413,55 @@ static int tpm2_generate_report_try(
                         return log_debug_errno(r, "Failed to allocate empty event log array: %m");
         }
 
+        FOREACH_ARRAY(prop, tpm_props, n_tpm_props) {
+                uint32_t value;
+                r = tpm2_get_capability_property(c, audit_session, *prop, &value);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to fetch TPM property 0x%08" PRIx32 ": %m", *prop);
+
+                _cleanup_free_ TPMS_TAGGED_PROPERTY *tp = new(TPMS_TAGGED_PROPERTY, 1);
+                if (!tp)
+                        return log_oom_debug();
+                *tp = (TPMS_TAGGED_PROPERTY) {
+                        .property = *prop,
+                        .value = value,
+                };
+
+                if (!GREEDY_REALLOC(components, n_components + 1))
+                        return log_oom_debug();
+                components[n_components++] = (Tpm2ReportComponent) {
+                        .type = TPM2_REPORT_TYPE_CAPABILITY_TPM_PROPERTY,
+                        .more_caps = r > 0,
+                        .property = TAKE_PTR(tp),
+                };
+        }
+
+        FOREACH_ARRAY(handle, auth_policies, n_auth_policies) {
+                TPMT_HA policy;
+                r = tpm2_get_capability_auth_policy(c, audit_session, *handle, &policy);
+                if (r == -ENXIO) {
+                        /* TPMs older than v1.38 don't support TPM_CAP_AUTH_POLICIES. */
+                        log_debug("Not including authorization policies in report as TPM_CAP_AUTH_POLICIES is not supported by the TPM.");
+                        break;
+                }
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to fetch auth policy for TPM handle 0x%08" PRIx32 ": %m", *handle);
+
+                _cleanup_free_ TPMS_TAGGED_POLICY *tp = new0(TPMS_TAGGED_POLICY, 1);
+                if (!tp)
+                        return log_oom_debug();
+                tp->handle = *handle;
+                tp->policyHash = policy;
+
+                if (!GREEDY_REALLOC(components, n_components + 1))
+                        return log_oom_debug();
+                components[n_components++] = (Tpm2ReportComponent) {
+                        .type = TPM2_REPORT_TYPE_CAPABILITY_AUTH_POLICY,
+                        .more_caps = r > 0,
+                        .auth_policy = TAKE_PTR(tp),
+                };
+        }
+
         _cleanup_free_ TPMS_ATTEST *audit_info = NULL;
         _cleanup_(Esys_Freep) TPMT_SIGNATURE *audit_signature = NULL;
         r = tpm2_get_session_audit_digest(
@@ -309,6 +486,7 @@ static int tpm2_generate_report_try(
                 return log_oom_debug();
         components[n_components++] = (Tpm2ReportComponent) {
                 .type = TPM2_REPORT_TYPE_SESSION_AUDIT,
+                .session_audit_hash_alg = audit_session_alg,
                 .attestation = TAKE_PTR(audit_info),
                 .signature = TAKE_PTR(audit_signature),
         };
@@ -336,6 +514,7 @@ int tpm2_generate_report(
 
         assert(c);
         assert(options);
+        assert(!options->certify_key == !options->certify_key_public);
 
         log_debug("Generating TPM report.");
 
@@ -439,11 +618,15 @@ int tpm2_generate_report(
                                 key,
                                 &pcrs,
                                 nv_pcrs, n_nv_pcrs,
+                                options->tpm_props, options->n_tpm_props,
+                                options->auth_policies, options->n_auth_policies,
+                                options->certify_key,
+                                options->certify_key_public,
                                 external_data,
                                 &event_log,
                                 &components, &n_components);
                 if (r == -EBUSY && i > 0) {
-                        log_debug("Audit session lost exclusivity, retrying.");
+                        log_debug("TPM state changed while generating report, retrying.");
                         continue;
                 }
                 if (r < 0)

@@ -25,6 +25,15 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-pstore\0",
+        "Archive the contents of the persistent storage (pstore).",
+        .argspec = "[SOURCE-DIR ARCHIVE-DIR]\0",
+        .man_pages = "systemd-pstore.service(8)\0",
+        .option_namespace = "common",
+);
 
 /* Command line argument handling */
 typedef enum PStoreStorage {
@@ -314,10 +323,16 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        if (argc == 3) {
-                arg_sourcedir = argv[1];
-                arg_archivedir = argv[2];
-        } else if (argc > 1)
+        char **args = NULL;
+        r = common_parse_argv(argc, argv, &args);
+        if (r <= 0)
+                return r;
+
+        size_t n_args = strv_length(args);
+        if (n_args == 2) {
+                arg_sourcedir = args[0];
+                arg_archivedir = args[1];
+        } else if (n_args > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "This program takes zero or two arguments.");
 

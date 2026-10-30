@@ -63,7 +63,11 @@ fi
 TRIES_FILE="${KERNEL_INSTALL_CONF_ROOT:-/etc/kernel}/tries"
 
 if [ -f "$TRIES_FILE" ]; then
-    read -r TRIES <"$TRIES_FILE"
+    # 'read' fails if it hits the end of the file before a newline, even though it assigned TRIES, so
+    # ignore its exit status and check the value below. Clear TRIES first, so that an inherited value is
+    # not used if opening the file fails.
+    TRIES=
+    read -r TRIES <"$TRIES_FILE" || :
     if ! echo "$TRIES" | grep -q '^[0-9][0-9]*$'; then
         echo "$TRIES_FILE does not contain an integer." >&2
         exit 1

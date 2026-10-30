@@ -4954,6 +4954,13 @@ static int redirect_bus_mgr(void) {
         return 0;
 }
 
+COMMAND(
+        "systemd-home-fallback-shell\0",
+        "Activate the home directory of the invoking user, then run the user's shell.",
+        .argspec = "[SHELL-ARGUMENT…]\0",
+        .option_namespace = "common",
+);
+
 static bool is_fallback_shell(const char *p) {
         const char *q;
 
@@ -4986,14 +4993,21 @@ static int fallback_shell(int argc, char *argv[]) {
         /* So here's the deal: if users log into a system via ssh, and their homed-managed home directory
          * wasn't activated yet, SSH will permit the access but the home directory isn't actually available
          * yet. SSH doesn't allow us to ask authentication questions from the PAM session stack, and doesn't
-         * run the PAM authentication stack (because it authenticates via its own key management, after
-         * all). So here's our way to support this: homectl can be invoked as a multi-call binary under the
-         * name "systemd-home-fallback-shell". If so, it will chainload a login shell, but first try to
-         * unlock the home directory of the user it is invoked as. systemd-homed will then override the shell
-         * listed in user records whose home directory is not activated yet with this pseudo-shell. Net
-         * effect: one SSH auth succeeds this pseudo shell gets invoked, which will unlock the homedir
-         * (possibly asking for a passphrase) and then chainload the regular shell. Once the login is
-         * complete the user record will look like any other. */
+         * run the PAM authentication stack (because it authenticates via its own key management, after all).
+         * So here's our way to support this: homectl can be invoked as a multi-call binary under the name
+         * "systemd-home-fallback-shell". If so, it will chainload a login shell, but first try to unlock the
+         * home directory of the user it is invoked as. systemd-homed will then override the shell listed in
+         * user records whose home directory is not activated yet with this pseudo-shell. Net effect: once
+         * SSH auth succeeds this pseudo shell gets invoked, which will unlock the homedir (possibly asking
+         * for a passphrase) and then chainload the regular shell. Once the login is complete the user record
+         * will look like any other. */
+
+        /* Everything on the command line is meant for the real shell, in particular "-c COMMAND" as
+         * passed by sshd, hence unknown options must not be rejected. The common options are handled
+         * only if nothing else is on the command line. */
+        r = common_parse_argv_passthrough(argc, argv);
+        if (r <= 0)
+                return r;
 
         r = acquire_bus(&bus);
         if (r < 0)

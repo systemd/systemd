@@ -48,6 +48,7 @@ static char *arg_listen_https = NULL;
 static char **arg_files = NULL;
 static bool arg_compress = true;
 static bool arg_seal = false;
+static bool arg_add_client_certificate_subject = false;
 static int http_socket = -1, https_socket = -1;
 static char **arg_gnutls_log = NULL;
 
@@ -249,6 +250,12 @@ static int request_meta(void **connection_cls, int fd, char *_hostname) {
         _cleanup_(source_freep) RemoteSource *source = source_new(fd, true, TAKE_PTR(hostname), writer);
         if (!source)
                 return log_oom();
+
+        if (journal_remote_server_global->add_client_certificate_subject && journal_remote_server_global->check_trust) {
+                source->client_certificate_subject = strjoin(REMOTE_CERTIFICATE_SUBJECT_FIELD, source->importer.name);
+                if (!source->client_certificate_subject)
+                        return log_oom();
+        }
 
         log_debug("Added RemoteSource as connection metadata %p", source);
 
@@ -628,14 +635,17 @@ static int dispatch_http_event(sd_event_source *event,
                                uint32_t revents,
                                void *userdata) {
         MHDDaemonWrapper *d = ASSERT_PTR(userdata);
+        RemoteServer *s = ASSERT_PTR(journal_remote_server_global);
         int r;
         MHD_UNSIGNED_LONG_LONG timeout = ULLONG_MAX;
 
         r = sym_MHD_run(d->daemon);
-        if (r == MHD_NO)
-                // FIXME: unregister daemon
+        if (r == MHD_NO) {
+                s->active--;
+                hashmap_remove(s->daemons, &d->fd);
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "MHD_run failed!");
+        }
         if (sym_MHD_get_timeout(d->daemon, &timeout) == MHD_NO)
                 timeout = ULLONG_MAX;
 
@@ -849,6 +859,7 @@ static int parse_config(void) {
                 { "Remote",  "MaxFiles",               config_parse_uint64,           0, &arg_n_max_files },
                 { "Remote",  "KeepFree",               config_parse_iec_uint64,       0, &arg_keep_free   },
                 { "Remote",  "Compression",            config_parse_compression,      0, &arg_compression },
+                { "Remote",  "AddClientCertificateSubject", config_parse_bool,         0, &arg_add_client_certificate_subject },
                 {}
         };
 
@@ -1183,6 +1194,11 @@ static int run(int argc, char **argv) {
 
                 s.check_trust = !arg_trust_all;
         }
+
+        s.add_client_certificate_subject = arg_add_client_certificate_subject;
+        if (s.add_client_certificate_subject && !s.check_trust)
+                log_notice("Client certificate verification is unavailable or disabled; "
+                           "removing incoming certificate subjects without adding a verified subject.");
 
         journal_reset_metrics(&s.metrics);
         s.metrics.max_use = arg_max_use;

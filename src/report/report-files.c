@@ -11,11 +11,24 @@
 #include "log.h"
 #include "metrics.h"
 #include "path-util.h"
-#include "report-files.h"
+#include "report-server.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
 #include "varlink-idl-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-report-files\0",
+        "Report the contents of files as system report metrics.",
+        .man_pages = "systemd-report-files@.service(8)\0",
+        .option_namespace = "common",
+);
+
+const sd_varlink_server_flags_t report_server_flags = 0;
+
+#define METRIC_IO_SYSTEMD_FILES_PREFIX "io.systemd.Files."
 
 /* Upper bounds, to protect against pathologically large directories or files. */
 #define REPORT_FILES_MAX 1024U
@@ -68,13 +81,38 @@ static int file_metric_generate(const MetricFamily *mf, sd_varlink *link, void *
                 if (!path)
                         return log_oom();
 
+                /* Mirror what conf_files_list_strv() does when building the metric list: skip entries that
+                 * cannot be resolved or are not regular files, and stop at a mask, which hides the entries in
+                 * all later directories. The mask check is repeated here since the directories may have
+                 * changed since the list was built. */
                 _cleanup_free_ char *resolved = NULL;
-                _cleanup_close_ int fd = chase_and_open(path, /* root= */ NULL, CHASE_MUST_BE_REGULAR, O_RDONLY|O_CLOEXEC, &resolved);
-                if (fd == -ENOENT) /* Not in this directory (or dangling symlink): try the next one. */
+                _cleanup_close_ int pfd = -EBADF;
+                r = chase(path, /* root= */ NULL, /* flags= */ 0, &resolved, &pfd);
+                if (r == -ENOENT)
                         continue;
-                if (fd < 0) {
-                        log_warning_errno(fd, "Failed to open '%s', skipping: %m", path);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to resolve '%s', ignoring: %m", path);
+                        continue;
+                }
+
+                struct stat st;
+                if (fstat(pfd, &st) < 0) {
+                        log_warning_errno(errno, "Failed to stat '%s', ignoring: %m", path);
+                        continue;
+                }
+
+                if (stat_may_be_dev_null(&st)) {
+                        log_debug("File for metric '%s' is masked, skipping.", mf->name);
                         return 0;
+                }
+
+                if (!S_ISREG(st.st_mode))
+                        continue;
+
+                _cleanup_close_ int fd = fd_reopen(pfd, O_RDONLY|O_CLOEXEC);
+                if (fd < 0) {
+                        log_warning_errno(fd, "Failed to open '%s', ignoring: %m", path);
+                        continue;
                 }
 
                 r = read_full_file_full(
@@ -120,7 +158,12 @@ static int build_file_metrics(MetricFamily **ret) {
 
         /* Enumerate the files to report across all our directories, deduplicated by name. The entry name is
          * used as the metric field name. */
-        r = conf_files_list_strv(&files, /* suffix= */ NULL, /* root= */ NULL, CONF_FILES_REGULAR, report_files_dirs);
+        r = conf_files_list_strv(
+                        &files,
+                        /* suffix= */ NULL,
+                        /* root= */ NULL,
+                        CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED_BY_SYMLINK,
+                        report_files_dirs);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate report files: %m");
 
@@ -170,7 +213,7 @@ static int build_file_metrics(MetricFamily **ret) {
         return 0;
 }
 
-int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+static int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         int r;
 
         _cleanup_(metric_family_array_freep) MetricFamily *families = NULL;
@@ -181,7 +224,7 @@ int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_var
         return metrics_method_list(families, link, parameters, flags, /* userdata= */ NULL);
 }
 
-int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+static int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         int r;
 
         _cleanup_(metric_family_array_freep) MetricFamily *families = NULL;
@@ -190,4 +233,8 @@ int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd
                 return r;
 
         return metrics_method_describe(families, link, parameters, flags, /* userdata= */ NULL);
+}
+
+int report_server_setup(sd_varlink_server *server) {
+        return report_server_add_metrics_interface(server, vl_method_list_metrics, vl_method_describe_metrics);
 }

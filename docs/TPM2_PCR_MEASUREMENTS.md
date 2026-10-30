@@ -53,9 +53,10 @@ the NV index handle space.
 
 The NV index range to use for this is configurable at build time, so that
 downstreams have some flexibility to change this if they want. This uses the
-0x01d10200 NV index as base by default. To abstract the actual nvindex number
-away there's a naming concept, so that nvindexes are referenced by name string
-rather than number.
+0x01d10200 NV index as base by default (see [TPM NV Index Assignments by
+systemd](/TPM2_NVINDEX_ASSIGNMENTS) for the NV index ranges systemd uses). To
+abstract the actual nvindex number away there's a naming concept, so that
+nvindexes are referenced by name string rather than number.
 
 NvPCRs are defined in little JSON snippets in `/usr/lib/nvpcr/*.nvpcr`, that
 match up index number and name, as well as pick a hash algorithm. The recognized
@@ -105,6 +106,20 @@ detected via changes to other PCRs, and recreating a NvPCR with a different writ
 policy or different attributes that permit initialization during runtime can be
 detected because the name of the NV index will not match the name that was
 previously measured to PCR 9.
+
+If the booted UKI carries no PCR public key, or no signed PCR policy with the
+`initrd` policy reference for it, the branch for the first write is instead a
+`TPM2_PolicyPCR` assertion bound to the value of the kernel boot PCR (11) at the
+time the NvPCR is initialized. This fallback is only used in the initrd, where
+PCR 11 has a value that can no longer be reached once the initrd has been left.
+The same considerations as above apply, but the name of the NvPCR then depends
+on the value of PCR 11 in the initrd, and hence changes whenever the UKI changes.
+A verifier has to calculate the expected name from the expected value of PCR 11
+in the initrd (e.g. as calculated by `systemd-measure calculate
+--phase=enter-initrd`). This is hence only useful where that value can be
+predicted. Note that on systems that are not booted via a UKI, PCR 11 does not
+cover the kernel and initrd, and the name of the NvPCR hence does not depend on
+them.
 
 ## PCR Measurements Made by `systemd-boot` (UEFI)
 
@@ -402,5 +417,5 @@ about activated Verity images before they are activated.
 → **Measured hash** covers the string `verity:`, followed by the Verity device
 name, followed by `:`, followed by a hexadecimal formatted string indicating
 the root hash of the Verity image, followed by `:`, followed by a comma
-separatec list of PKCS#7 signature key's serial (formatted in hexadecimal), `/`, and
+separated list of PKCS#7 signature key's serial (formatted in hexadecimal), `/`, and
 key issuer (formatted in Base64).

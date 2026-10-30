@@ -2,13 +2,11 @@
 
 #include <sys/socket.h>         /* IWYU pragma: keep */
 
-#include "sd-json.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "battery-util.h"
-#include "build.h"
 #include "fd-util.h"
 #include "glyph-util.h"
 #include "log.h"
@@ -30,6 +28,7 @@ COMMAND(
         "systemd-battery-check\0",
         "Check battery level to see whether there's enough charge.",
         .man_pages = "systemd-battery-check(8)\0",
+        .option_namespace = "common",
 );
 
 static int plymouth_send_message(const char *mode, const char *message) {
@@ -56,32 +55,6 @@ static int plymouth_send_message(const char *mode, const char *message) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        assert(argc >= 0);
-        assert(argv);
-
-        OptionParser opts = { argc, argv };
-
-        FOREACH_OPTION_OR_RETURN(c, &opts)
-                switch (c) {
-
-                OPTION_COMMON_HELP:
-                        return command_print_help();
-
-                OPTION_COMMON_VERSION:
-                        return version();
-
-                OPTION_COMMON_INTROSPECT_CLI:
-                        return introspect_cli(SD_JSON_FORMAT_OFF);
-                }
-
-        if (option_parser_get_n_args(&opts) != 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s takes no argument.",
-                                       program_invocation_short_name);
-        return 1;
-}
-
 static int run(int argc, char *argv[]) {
         _cleanup_free_ char *plymouth_message = NULL;
         _cleanup_close_ int fd = -EBADF;
@@ -89,7 +62,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 0, /* ret_args= */ NULL);
         if (r <= 0)
                 return r;
 

@@ -39,6 +39,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
+#include "verbs.h"
 #include "virt.h"
 #include "volatile-util.h"
 
@@ -92,6 +93,20 @@ STATIC_DESTRUCTOR_REGISTER(arg_usr_fstype, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_options, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_hash, freep);
 STATIC_ARRAY_DESTRUCTOR_REGISTER(arg_mounts, arg_n_mounts, mount_array_free);
+
+COMMAND(
+        "systemd-fstab-generator\0",
+        "Generate mount, swap, and automount units from /etc/fstab.",
+        .argspec = GENERATOR_ARGSPEC,
+        .man_pages = "systemd-fstab-generator(8)\0",
+        .option_namespace = "common",
+);
+COMMAND(
+        "systemd-sysroot-fstab-check\0",
+        "Optionally call daemon-reload based on contents of /sysroot/etc/fstab.",
+        .man_pages = "systemd-fstab-generator(8)\0",
+        .option_namespace = "common",
+);
 
 static void mount_done(Mount *m) {
         assert(m);
@@ -341,6 +356,7 @@ static int write_dependency(
                 const char *where,
                 const char *opts,
                 const char *filter,
+                const char *suffix,
                 const char* const *unit_settings) {
 
         _cleanup_strv_free_ char **unit_names = NULL;
@@ -360,7 +376,9 @@ static int write_dependency(
         STRV_FOREACH(s, unit_names) {
                 _cleanup_free_ char *mangled = NULL;
 
-                r = unit_name_mangle_with_suffix(*s, "as dependency", 0, ".mount", &mangled);
+                r = suffix ?
+                        unit_name_mangle_with_suffix(*s, "as dependency", 0, suffix, &mangled) :
+                        unit_name_mangle(*s, 0, &mangled);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate dependency unit name for '%s': %m", where);
 
@@ -376,22 +394,24 @@ static int write_dependency(
 
 static int write_after(FILE *f, const char *where, const char *opts) {
         return write_dependency(f, where, opts,
-                                "x-systemd.after\0", STRV_MAKE_CONST("After"));
+                                "x-systemd.after\0", /* suffix= */ ".mount", STRV_MAKE_CONST("After"));
 }
 
 static int write_requires_after(FILE *f, const char *where, const char *opts) {
         return write_dependency(f, where, opts,
-                                "x-systemd.requires\0", STRV_MAKE_CONST("Requires", "After"));
+                                "x-systemd.requires\0", /* suffix= */ ".mount",
+                                STRV_MAKE_CONST("Requires", "After"));
 }
 
 static int write_wants_after(FILE *f, const char *where, const char *opts) {
         return write_dependency(f, where, opts,
-                                "x-systemd.wants\0", STRV_MAKE_CONST("Wants", "After"));
+                                "x-systemd.wants\0", /* suffix= */ ".mount",
+                                STRV_MAKE_CONST("Wants", "After"));
 }
 
 static int write_before(FILE *f, const char *where, const char *opts) {
         return write_dependency(f, where, opts,
-                                "x-systemd.before\0", STRV_MAKE_CONST("Before"));
+                                "x-systemd.before\0", /* suffix= */ ".mount", STRV_MAKE_CONST("Before"));
 }
 
 static int write_mounts_for(
@@ -426,6 +446,11 @@ static int write_mounts_for(
         return 0;
 }
 
+static int write_on_failure(FILE *f, const char *where, const char *opts) {
+        return write_dependency(f, where, opts,
+                                "x-systemd.onfailure\0", /* suffix= */ NULL, STRV_MAKE_CONST("OnFailure"));
+}
+
 static int write_extra_dependencies(FILE *f, const char *where, const char *opts) {
         int r;
 
@@ -457,6 +482,10 @@ static int write_extra_dependencies(FILE *f, const char *where, const char *opts
 
         r = write_mounts_for(f, where, opts,
                              "x-systemd.wants-mounts-for\0", "WantsMountsFor");
+        if (r < 0)
+                return r;
+
+        r = write_on_failure(f, where, opts);
         if (r < 0)
                 return r;
 
@@ -889,7 +918,9 @@ static int canonicalize_mount_path(const char *path, const char *type, bool pref
 
         // FIXME: when chase() learns to chase non-existent paths, use this here and drop the prefixing with
         // /sysroot on error below.
-        r = chase(path, prefix_sysroot ? "/sysroot" : NULL, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &p, NULL);
+        r = chase(path, prefix_sysroot ? "/sysroot" : NULL,
+                  CHASE_PREFIX_ROOT | CHASE_NONEXISTENT | CHASE_NO_SYNC,
+                  &p, NULL);
         if (r < 0) {
                 log_debug_errno(r, "Failed to chase '%s', using as-is: %m", path);
 
@@ -1671,13 +1702,12 @@ static int determine_usr(void) {
         return determine_device(&arg_usr_what, NULL, &arg_usr_options, arg_usr_hash, "usr");
 }
 
-/* If arg_sysroot_check is false, run as generator in the usual fashion.
- * If it is true, check /sysroot/etc/fstab for any units that we'd want to mount
- * in the initrd, and call daemon-reload. We will get reinvoked as a generator,
- * with /sysroot/etc/fstab available, and then we can write additional units based
- * on that file. */
-static int run_generator(void) {
+/* Run as generator in the usual fashion. Executed when arg_sysroot_check is false. */
+static int generator_impl(const char *dest, const char *dest_early, const char *dest_late) {
         int r;
+
+        arg_dest = dest;
+        arg_dest_late = dest_late;
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
         if (r < 0)
@@ -1685,15 +1715,6 @@ static int run_generator(void) {
 
         (void) determine_root();
         (void) determine_usr();
-
-        if (arg_sysroot_check) {
-                r = parse_fstab(/* prefix_sysroot= */ true);
-                if (r == 0)
-                        log_debug("Nothing interesting found, not doing daemon-reload.");
-                if (r > 0)
-                        r = do_daemon_reload();
-                return r;
-        }
 
         r = 0;
 
@@ -1729,6 +1750,37 @@ static int run_generator(void) {
         return r;
 }
 
+/* Check /sysroot/etc/fstab for any units that we'd want to mount in the initrd, and call
+ * daemon-reload. We will get reinvoked as a generator, with /sysroot/etc/fstab available,
+ * and then we can write additional units based on that file. */
+static int run_check(int argc, char **argv) {
+        int r;
+
+        log_setup();
+
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 0, /* ret_args= */ NULL);
+        if (r <= 0)
+                return r;
+
+        if (!in_initrd())
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program is only useful in the initrd.");
+
+        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
+
+        (void) determine_root();
+        (void) determine_usr();
+
+        r = parse_fstab(/* prefix_sysroot= */ true);
+        if (r == 0)
+                log_debug("Nothing interesting found, not doing daemon-reload.");
+        if (r > 0)
+                r = do_daemon_reload();
+        return r;
+}
+
 static int run(int argc, char **argv) {
         LIBCRYPTO_NOTE(suggested);
         LIBMOUNT_NOTE(recommended);
@@ -1736,30 +1788,13 @@ static int run(int argc, char **argv) {
         TPM2_NOTE(suggested);
 
         arg_sysroot_check = invoked_as(argv, "systemd-sysroot-fstab-check");
+        if (arg_sysroot_check)
+                /* Run in systemd-sysroot-fstab-check mode */
+                return run_check(argc, argv);
 
-        if (arg_sysroot_check) {
-                /* Run as in systemd-sysroot-fstab-check mode */
-                log_setup();
-
-                if (strv_length(argv) > 1)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "This program takes no arguments.");
-                if (!in_initrd())
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "This program is only useful in the initrd.");
-        } else {
-                /* Run in generator mode */
-                log_setup_generator();
-
-                if (!IN_SET(strv_length(argv), 2, 4))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "This program takes one or three arguments.");
-
-                arg_dest = ASSERT_PTR(argv[1]);
-                arg_dest_late = ASSERT_PTR(argv[argc > 3 ? 3 : 1]);
-        }
-
-        return run_generator();
+        /* Run in generator mode */
+        log_setup_generator();
+        return generator_main(argc, argv, generator_impl);
 }
 
 DEFINE_MAIN_FUNCTION(run);

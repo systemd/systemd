@@ -98,8 +98,7 @@ static Window* window_unlink(Window *w) {
 
         MMapCache *m = mmap_cache_fd_cache(w->fd);
 
-        if (w->ptr)
-                munmap(w->ptr, w->size);
+        w->ptr = munmap_safe(w->ptr, w->size);
 
         if (FLAGS_SET(w->flags, WINDOW_IN_UNUSED)) {
                 if (m->last_unused == w)
@@ -327,7 +326,7 @@ static int add_mmap(
 
         w = window_add(f, offset, size, d);
         if (!w) {
-                (void) munmap(d, size);
+                munmap_safe(d, size);
                 return -ENOMEM;
         }
 
@@ -342,9 +341,10 @@ int mmap_cache_fd_get(
                 uint64_t offset,
                 size_t size,
                 struct stat *st,
-                void **ret) {
+                void **ret,
+                size_t *ret_size) {
 
-        MMapCache *m = mmap_cache_fd_cache(f);
+        MMapCache *m = ASSERT_PTR(ASSERT_PTR(f)->cache);
         Window *w;
         int r;
 
@@ -355,11 +355,12 @@ int mmap_cache_fd_get(
         if (f->sigbus)
                 return -EIO;
 
-        /* Check whether the current category is the right one already */
-        if (window_matches(m->windows_by_category[c], f, offset, size)) {
+        /* Check whether the window of the category covers the range already. Such a window does not have
+         * to be attached again. */
+        w = m->windows_by_category[c];
+        if (window_matches(w, f, offset, size)) {
                 m->n_category_cache_hit++;
-                w = m->windows_by_category[c];
-                goto found;
+                goto done;
         }
 
         /* Drop the reference to the window, since it's unnecessary now */
@@ -381,11 +382,14 @@ int mmap_cache_fd_get(
                 return r;
 
 found:
+        category_attach_window(m, c, w);
+done:
         if (keep_always)
                 w->flags |= WINDOW_KEEP_ALWAYS;
 
-        category_attach_window(m, c, w);
         *ret = (uint8_t*) w->ptr + (offset - w->offset);
+        if (ret_size)
+                *ret_size = w->offset + w->size - offset;
         return 0;
 }
 

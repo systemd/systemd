@@ -18,6 +18,15 @@
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-veritysetup-generator\0",
+        "Generate units for verity protected block devices.",
+        .argspec = GENERATOR_ARGSPEC,
+        .man_pages = "systemd-veritysetup-generator(8)\0",
+        .option_namespace = "common",
+);
 
 static const char *arg_dest = NULL;
 static bool arg_enabled = true;

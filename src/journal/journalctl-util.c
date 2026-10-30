@@ -128,7 +128,7 @@ int journal_acquire_boot(sd_journal *j) {
         return 1;
 }
 
-int get_possible_units(
+int get_possible_field_values(
                 sd_journal *j,
                 const char *fields,
                 char * const *patterns,
@@ -163,10 +163,12 @@ int get_possible_units(
                                 return -ENOMEM;
 
                         size_t i;
-                        if (!strv_fnmatch_full(patterns, u, FNM_NOESCAPE, &i))
+                        /* Unlike unit names, values such as SYSLOG_IDENTIFIER= may legitimately contain
+                         * '*', '?' or '[', so an exact match must count too. */
+                        if (!strv_fnmatch_full(patterns, u, FNM_NOESCAPE, &i) && !strv_contains(patterns, u))
                                 continue;
 
-                        log_debug("Matched %s with pattern %s=%s", u, field, patterns[i]);
+                        log_debug("Matched %s with pattern %s=%s", u, field, i == SIZE_MAX ? u : patterns[i]);
                         r = set_ensure_consume(&found, &string_hash_ops_free, TAKE_PTR(u));
                         if (r < 0)
                                 return r;
@@ -215,7 +217,7 @@ int acquire_unit(sd_journal *j, const char *option_name, const char **ret_unit, 
         if (string_is_glob(u)) {
                 _cleanup_set_free_ Set *s = NULL;
 
-                r = get_possible_units(j, type == LOG_SYSTEM_UNIT_INVOCATION_ID ? SYSTEM_UNITS : USER_UNITS,
+                r = get_possible_field_values(j, type == LOG_SYSTEM_UNIT_INVOCATION_ID ? SYSTEM_UNITS : USER_UNITS,
                                        STRV_MAKE(u), &s);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get matching unit '%s' from journal: %m", u);

@@ -4,6 +4,15 @@
 #include "generator.h"
 #include "log.h"
 #include "special.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-factory-reset-generator\0",
+        "Pull in factory-reset-now.target when a factory reset was requested.",
+        .argspec = GENERATOR_ARGSPEC,
+        .man_pages = "systemd-factory-reset-generator(8)\0",
+        .option_namespace = "common",
+);
 
 /* This generator pulls factory-reset-now.target into the initial transaction the kernel command line's
  * systemd.factor_reset= variable, or the FactoryResetRequest EFI variable say so. */

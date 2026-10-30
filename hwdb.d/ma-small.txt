@@ -8555,6 +8555,18 @@ B89000-B89FFF     (base 16)		Aineas
 				Tokyo    103-0002
 				JP
 
+8C-1F-64   (hex)		Aditec GmbH
+B4E000-B4EFFF     (base 16)		Aditec GmbH
+				Talweg 17
+				Offenau  Baden-Wuerttemberg  74254
+				DE
+
+8C-1F-64   (hex)		Peter Huber Kaeltemaschinenbau SE
+7E4000-7E4FFF     (base 16)		Peter Huber Kaeltemaschinenbau SE
+				Werner-von-Siemens-Str. 1
+				Offenburg  BW  77656
+				DE
+
 8C-1F-64   (hex)		Tesla Subsea Inc.
 B70000-B70FFF     (base 16)		Tesla Subsea Inc.
 				16300 Katy Freeway Suite 270
@@ -8567,17 +8579,11 @@ B70000-B70FFF     (base 16)		Tesla Subsea Inc.
 				Hüttlingen    73460
 				DE
 
-8C-1F-64   (hex)		Aditec GmbH
-B4E000-B4EFFF     (base 16)		Aditec GmbH
-				Talweg 17
-				Offenau  Baden-Wuerttemberg  74254
-				DE
-
-8C-1F-64   (hex)		Peter Huber Kaeltemaschinenbau SE
-7E4000-7E4FFF     (base 16)		Peter Huber Kaeltemaschinenbau SE
-				Werner-von-Siemens-Str. 1
-				Offenburg  BW  77656
-				DE
+8C-1F-64   (hex)		WHOI-AComms
+40B000-40BFFF     (base 16)		WHOI-AComms
+				266 Woods Hole Rd MS18
+				Woods Hole  MA  02543
+				US
 
 8C-1F-64   (hex)		Jacobs Technology, Inc.
 A98000-A98FFF     (base 16)		Jacobs Technology, Inc.
@@ -25922,6 +25928,36 @@ D75000-D75FFF     (base 16)		Falling Edge Technology Ltd
 				RIBARROJA DEL TURIA  VALENCIA  46390
 				ES
 
+8C-1F-64   (hex)		Dynamic Intelligences Co., Ltd.
+CD5000-CD5FFF     (base 16)		Dynamic Intelligences Co., Ltd.
+				No.45, Lanjhou St., Jhongli Dist
+				Taoyuan  Taiwan  32088
+				TW
+
+8C-1F-64   (hex)		Potter Electric Signal Company
+AA2000-AA2FFF     (base 16)		Potter Electric Signal Company
+				5757 Phantom Drive
+				Hazelwood  MO  63042
+				US
+
+8C-1F-64   (hex)		Marco R. Napoleone
+C30000-C30FFF     (base 16)		Marco R. Napoleone
+				Via Don Minzoni 38
+				Bussero  ITALY  20041
+				IT
+
+8C-1F-64   (hex)		Adit Innovation Private Limited
+3BE000-3BEFFF     (base 16)		Adit Innovation Private Limited
+				D-405 Abhishek-1 Complex Opp. Haripura Bus Stand, Asarwa, Ahmedabad
+				Ahmedabad  Gujarat  380016
+				IN
+
+8C-1F-64   (hex)		iPronics
+173000-173FFF     (base 16)		iPronics
+				No. 1, Creation 3rd Rd
+				Hsinchu    30077
+				TW
+
 8C-1F-64   (hex)		Flow Power
 82B000-82BFFF     (base 16)		Flow Power
 				Suite 2, Level 3, 18 - 20 York St
@@ -34526,6 +34562,18 @@ FB8000-FB8FFF     (base 16)		Abbott Diagnostics Technologies AS
 				Warszawa     04-205
 				PL
 
+8C-1F-64   (hex)		Mega Endustri Kontrol Sis.Tic.San.A.S
+F58000-F58FFF     (base 16)		Mega Endustri Kontrol Sis.Tic.San.A.S
+				Yaşamkent Mahallesi 3206. Sokak No:3 Çankaya/ANKARA
+				ANKARA    06810
+				TR
+
+8C-1F-64   (hex)		Suzhou Deyi Automotive Electronics Co., Ltd.
+F7E000-F7EFFF     (base 16)		Suzhou Deyi Automotive Electronics Co., Ltd.
+				Room 408, Building 3, Songqiao Advanced Intelligent Manufacturing Industrial Park,  No. 39 Anzhi Street,   Suzhou Industrial Park, Jiangsu
+				Suzhou  Jiangsu  215200
+				CN
+
 8C-1F-64   (hex)		Mobileye
 D63000-D63FFF     (base 16)		Mobileye
 				13 Hartom st.
@@ -43022,8 +43070,20 @@ B12000-B12FFF     (base 16)		Hongtai Intelligent Technology
 				 Binhu District  Wuxi City  000000
 				CN
 
+8C-1F-64   (hex)		Goodtech Worldwide LTD ,,mobitel''
+FAF000-FAFFFF     (base 16)		Goodtech Worldwide LTD ,,mobitel''
+				20-22 Wenlock Road
+				LONDON  London  N1 7GU
+				GB
+
 8C-1F-64   (hex)		Benchmark Electronics BV
 087000-087FFF     (base 16)		Benchmark Electronics BV
 				Lelyweg 10
 				Almelo  Overijssel  7602 EA
 				NL
+
+8C-1F-64   (hex)		Ascon Tecnologic S.r.l.
+DA2000-DA2FFF     (base 16)		Ascon Tecnologic S.r.l.
+				via Indipendenza, 56
+				Vigevano  PV  27029
+				IT

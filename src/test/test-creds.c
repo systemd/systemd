@@ -503,4 +503,41 @@ TEST(mime_type_matches) {
         }
 }
 
+TEST(credentials_varlink_error) {
+        /* The errno lookup answers with the first row that matches, so two rows sharing an errno would make
+         * one of them unreachable, and the error the client is told would silently be the wrong one. */
+
+        static const char* const ids[] = {
+                "io.systemd.Credentials.BadFormat",
+                "io.systemd.Credentials.NameMismatch",
+                "io.systemd.Credentials.TimeMismatch",
+                "io.systemd.Credentials.NoSuchUser",
+                "io.systemd.Credentials.BadScope",
+                "io.systemd.Credentials.CantFindPCRSignature",
+                "io.systemd.Credentials.NullKeyNotAllowed",
+                "io.systemd.Credentials.KeyBelongsToOtherTPM",
+                "io.systemd.Credentials.TPMInDictionaryLockout",
+                "io.systemd.Credentials.UnexpectedPCRState",
+                "io.systemd.Credentials.PCRsKeptChanging",
+                "io.systemd.Credentials.NVIndexUnusable",
+        };
+
+        FOREACH_ELEMENT(id, ids) {
+                const CredentialsVarlinkError *e = ASSERT_PTR(credentials_varlink_error_by_id(*id));
+
+                ASSERT_NOT_NULL(e->msg);
+                ASSERT_STREQ(ASSERT_PTR(credentials_varlink_error_by_errno(e->errnum))->id, *id);
+                ASSERT_PTR_EQ(credentials_varlink_error_by_errno(-e->errnum), e);
+        }
+
+        /* The two errnos the PCR diagnosis hangs on */
+        ASSERT_STREQ(ASSERT_PTR(credentials_varlink_error_by_errno(EPERM))->id,
+                     "io.systemd.Credentials.UnexpectedPCRState");
+        ASSERT_STREQ(ASSERT_PTR(credentials_varlink_error_by_errno(EUCLEAN))->id,
+                     "io.systemd.Credentials.PCRsKeptChanging");
+
+        ASSERT_NULL(credentials_varlink_error_by_id("io.systemd.Credentials.NoSuchError"));
+        ASSERT_NULL(credentials_varlink_error_by_errno(EDOM));
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);

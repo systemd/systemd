@@ -13,7 +13,9 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(socket),
                 SD_VARLINK_DEFINE_ENUM_VALUE(fd),
                 SD_VARLINK_DEFINE_ENUM_VALUE(data),
-                SD_VARLINK_DEFINE_ENUM_VALUE(file));
+                SD_VARLINK_DEFINE_ENUM_VALUE(file),
+                SD_VARLINK_DEFINE_ENUM_VALUE(broker),
+                SD_VARLINK_DEFINE_ENUM_VALUE(broker_log));
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
                 ExecUtmpMode,
@@ -188,8 +190,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 CGroupTasksMax,
                 SD_VARLINK_FIELD_COMMENT("The maximum amount of tasks"),
                 SD_VARLINK_DEFINE_FIELD(value, SD_VARLINK_INT, 0),
-                SD_VARLINK_FIELD_COMMENT("The scaling factor"),
-                SD_VARLINK_DEFINE_FIELD(scale, SD_VARLINK_INT, 0));
+                SD_VARLINK_FIELD_COMMENT("The scaling factor. If non-zero, the limit is value/scale of the system's maximum number of tasks. Zero or null means value is an absolute task count"),
+                SD_VARLINK_DEFINE_FIELD(scale, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 CGroupIODeviceWeight,
@@ -296,31 +298,43 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 /* Memory Accounting and Control
                  * https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#Memory%20Accounting%20and%20Control */
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#MemoryAccounting="),
-                SD_VARLINK_DEFINE_FIELD(MemoryAccounting, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(MemoryAccounting, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#MemoryMin=bytes,%20MemoryLow=bytes"),
                 SD_VARLINK_DEFINE_FIELD(MemoryMin, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Relative form of MemoryMin, as a fraction of physical memory, normalized so that 1.0 means 100%. Input only: resolved to absolute bytes, output always uses the absolute form; the two forms may not be combined."),
+                SD_VARLINK_DEFINE_FIELD(MemoryMinScale, SD_VARLINK_FLOAT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#MemoryMin=bytes,%20MemoryLow=bytes"),
                 SD_VARLINK_DEFINE_FIELD(MemoryLow, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Relative form of MemoryLow, as a fraction of physical memory, normalized so that 1.0 means 100%. Input only: resolved to absolute bytes, output always uses the absolute form; the two forms may not be combined."),
+                SD_VARLINK_DEFINE_FIELD(MemoryLowScale, SD_VARLINK_FLOAT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#MemoryMin=bytes,%20MemoryLow=bytes"),
                 SD_VARLINK_DEFINE_FIELD(StartupMemoryLow, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#MemoryHigh=bytes"),
                 SD_VARLINK_DEFINE_FIELD(MemoryHigh, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Relative form of MemoryHigh, as a fraction of physical memory, normalized so that 1.0 means 100%. Input only: resolved to absolute bytes, output always uses the absolute form; the two forms may not be combined."),
+                SD_VARLINK_DEFINE_FIELD(MemoryHighScale, SD_VARLINK_FLOAT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#MemoryHigh=bytes"),
                 SD_VARLINK_DEFINE_FIELD(StartupMemoryHigh, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#MemoryMax=bytes"),
                 SD_VARLINK_DEFINE_FIELD(MemoryMax, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Relative form of MemoryMax, as a fraction of physical memory, normalized so that 1.0 means 100%. Input only: resolved to absolute bytes, output always uses the absolute form; the two forms may not be combined."),
+                SD_VARLINK_DEFINE_FIELD(MemoryMaxScale, SD_VARLINK_FLOAT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#MemoryMax=bytes"),
                 SD_VARLINK_DEFINE_FIELD(StartupMemoryMax, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#MemorySwapMax=bytes"),
                 SD_VARLINK_DEFINE_FIELD(MemorySwapMax, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Relative form of MemorySwapMax, as a fraction of physical memory, normalized so that 1.0 means 100%. Input only: resolved to absolute bytes, output always uses the absolute form; the two forms may not be combined."),
+                SD_VARLINK_DEFINE_FIELD(MemorySwapMaxScale, SD_VARLINK_FLOAT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#MemorySwapMax=bytes"),
                 SD_VARLINK_DEFINE_FIELD(StartupMemorySwapMax, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#MemoryZSwapMax=bytes"),
                 SD_VARLINK_DEFINE_FIELD(MemoryZSwapMax, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Relative form of MemoryZSwapMax, as a fraction of physical memory, normalized so that 1.0 means 100%. Input only: resolved to absolute bytes, output always uses the absolute form; the two forms may not be combined."),
+                SD_VARLINK_DEFINE_FIELD(MemoryZSwapMaxScale, SD_VARLINK_FLOAT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#MemoryZSwapMax=bytes"),
                 SD_VARLINK_DEFINE_FIELD(StartupMemoryZSwapMax, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#MemoryZSwapWriteback="),
-                SD_VARLINK_DEFINE_FIELD(MemoryZSwapWriteback, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(MemoryZSwapWriteback, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#AllowedMemoryNodes="),
                 SD_VARLINK_DEFINE_FIELD(AllowedMemoryNodes, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#AllowedMemoryNodes="),
@@ -329,14 +343,16 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 /* Process Accounting and Control
                  * https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#Process%20Accounting%20and%20Control */
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#TasksAccounting="),
-                SD_VARLINK_DEFINE_FIELD(TasksAccounting, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(TasksAccounting, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#TasksMax=N"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(TasksMax, CGroupTasksMax, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Relative form of TasksMax, as a fraction of the system maximum, normalized so that 1.0 means 100%. Input only: resolved into TasksMax, which always carries the result; the two forms may not be combined."),
+                SD_VARLINK_DEFINE_FIELD(TasksMaxScale, SD_VARLINK_FLOAT, SD_VARLINK_NULLABLE),
 
                 /* IO Accounting and Control
                  * https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#IO%20Accounting%20and%20Control */
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#IOAccounting="),
-                SD_VARLINK_DEFINE_FIELD(IOAccounting, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(IOAccounting, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#IOWeight=weight"),
                 SD_VARLINK_DEFINE_FIELD(IOWeight, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#IOWeight=weight"),
@@ -357,7 +373,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 /* Network Accounting and Control
                  * https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#Network%20Accounting%20and%20Control */
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#IPAccounting="),
-                SD_VARLINK_DEFINE_FIELD(IPAccounting, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(IPAccounting, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#IPAddressAllow=ADDRESS%5B/PREFIXLENGTH%5D%E2%80%A6"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(IPAddressAllow, CGroupAddressPrefix, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#IPAddressAllow=ADDRESS%5B/PREFIXLENGTH%5D%E2%80%A6"),
@@ -387,12 +403,12 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#DeviceAllow="),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(DeviceAllow, CGroupDeviceAllow, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#DevicePolicy=auto%7Cclosed%7Cstrict"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(DevicePolicy, CGroupDevicePolicy, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(DevicePolicy, CGroupDevicePolicy, SD_VARLINK_NULLABLE),
 
                 /* Control Group Management
                  * https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#Control%20Group%20Management */
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#Delegate="),
-                SD_VARLINK_DEFINE_FIELD(Delegate, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(Delegate, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#DelegateSubgroup="),
                 SD_VARLINK_DEFINE_FIELD(DelegateSubgroup, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#DisableControllers="),
@@ -403,33 +419,33 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 /* Memory Pressure Control
                  * https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#Memory%20Pressure%20Control */
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#ManagedOOMSwap=auto%7Ckill"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ManagedOOMSwap, ManagedOOMMode, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ManagedOOMSwap, ManagedOOMMode, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#ManagedOOMSwap=auto%7Ckill"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ManagedOOMMemoryPressure, ManagedOOMMode, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ManagedOOMMemoryPressure, ManagedOOMMode, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#ManagedOOMMemoryPressureLimit="),
                 SD_VARLINK_DEFINE_FIELD(ManagedOOMMemoryPressureLimit, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#ManagedOOMMemoryPressureDurationSec="),
                 SD_VARLINK_DEFINE_FIELD(ManagedOOMMemoryPressureDurationUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#ManagedOOMPreference=none%7Cavoid%7Comit"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ManagedOOMPreference, ManagedOOMPreference, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ManagedOOMPreference, ManagedOOMPreference, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#OOMRules="),
                 SD_VARLINK_DEFINE_FIELD(OOMRules, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#MemoryPressureWatch="),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(MemoryPressureWatch, CGroupPressureWatch, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(MemoryPressureWatch, CGroupPressureWatch, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#MemoryPressureThresholdSec="),
                 SD_VARLINK_DEFINE_FIELD(MemoryPressureThresholdUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#CPUPressureWatch="),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(CPUPressureWatch, CGroupPressureWatch, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(CPUPressureWatch, CGroupPressureWatch, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#CPUPressureThresholdSec="),
                 SD_VARLINK_DEFINE_FIELD(CPUPressureThresholdUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#IOPressureWatch="),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(IOPressureWatch, CGroupPressureWatch, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(IOPressureWatch, CGroupPressureWatch, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#IOPressureThresholdSec="),
                 SD_VARLINK_DEFINE_FIELD(IOPressureThresholdUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
 
                 /* Others */
                 SD_VARLINK_FIELD_COMMENT("Reflects whether to forward coredumps for processes that crash within this cgroup"),
-                SD_VARLINK_DEFINE_FIELD(CoredumpReceive, SD_VARLINK_BOOL, 0));
+                SD_VARLINK_DEFINE_FIELD(CoredumpReceive, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
 /* ExecContext */
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
@@ -1042,7 +1058,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.scope.html#RuntimeRandomizedExtraSec="),
                 SD_VARLINK_DEFINE_FIELD(RuntimeRandomizedExtraUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.scope.html#TimeoutStopSec="),
-                SD_VARLINK_DEFINE_FIELD(TimeoutStopUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD(TimeoutStopUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Array of processes to move into the new scope. Required at unit creation time via StartTransient()."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(PIDs, ProcessId, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
                 ScopeResult,
@@ -1569,11 +1587,11 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The parameter passed to the condition"),
                 SD_VARLINK_DEFINE_FIELD(parameter, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
-/* UnitContext is used both as input to StartTransient (subset settable at creation time: ID,
- * Description, CollectMode, Service, and the Exec subset {WorkingDirectory, Environment, SetCredential,
- * SetCredentialEncrypted}) and as output from List/StartTransient (full unit configuration). Fields
- * that are not settable at creation time are rejected with PropertyNotSupported when supplied as
- * input. */
+/* UnitContext is used both as input to StartTransient (subset settable at creation time: ID, Description,
+ * CollectMode, Service, Kill (currently KillMode and SendSIGHUP only), and the Exec and CGroup subsets
+ * listed in exec_properties[] in src/core/varlink-unit.c and cgroup_properties[] in
+ * src/core/varlink-cgroup.c) and as output from List/StartTransient (full unit configuration). Fields that
+ * are not settable at creation time are rejected with PropertyNotSupported when supplied as input. */
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 UnitContext,
                 SD_VARLINK_FIELD_COMMENT("The unit type"),
@@ -1855,13 +1873,13 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("If not empty, the field contains the name of another unit that this unit follows in state"),
                 SD_VARLINK_DEFINE_FIELD(Following, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Reflects whether the configuration file of this unit has been loaded"),
-                SD_VARLINK_DEFINE_FIELD(LoadState, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(LoadState, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Reflects whether the unit is currently active or not"),
-                SD_VARLINK_DEFINE_FIELD(ActiveState, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(ActiveState, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Reflects whether the unit is currently frozen or not"),
-                SD_VARLINK_DEFINE_FIELD(FreezerState, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(FreezerState, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Reflect more fine-grained state that is unit-type-specific"),
-                SD_VARLINK_DEFINE_FIELD(SubState, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(SubState, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Reflects the install state of the unit file"),
                 SD_VARLINK_DEFINE_FIELD(UnitFileState, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Timestamp when the firmware first began execution"),
@@ -1875,27 +1893,27 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Timestamp when the unit exited inactive state"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(InactiveExitTimestamp, Timestamp, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Reflects whether the unit can be started or not"),
-                SD_VARLINK_DEFINE_FIELD(CanStart, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(CanStart, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("Reflects whether the unit can be stopped or not"),
-                SD_VARLINK_DEFINE_FIELD(CanStop, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(CanStop, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("Reflects whether the unit can be reloaded or not"),
-                SD_VARLINK_DEFINE_FIELD(CanReload, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(CanReload, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("Reflects whether the unit may be started in isolation mode"),
-                SD_VARLINK_DEFINE_FIELD(CanIsolate, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(CanIsolate, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("Returns which unit resources can be cleaned up"),
                 SD_VARLINK_DEFINE_FIELD(CanClean, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Whether the unit supports the freeze operation"),
-                SD_VARLINK_DEFINE_FIELD(CanFreeze, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(CanFreeze, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("Whether the unit supports live mounting"),
-                SD_VARLINK_DEFINE_FIELD(CanLiveMount, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(CanLiveMount, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("The job ID of the job currently scheduled or being executed for this unit, if there is any."),
                 SD_VARLINK_DEFINE_FIELD(JobId, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Whether the configuration file this unit is loaded from (i.e. FragmentPath or SourcePath) has changed since the configuration was read and hence whether a configuration reload is recommended"),
-                SD_VARLINK_DEFINE_FIELD(NeedDaemonReload, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(NeedDaemonReload, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("Condition result of the last time the configured conditions of this unit were checked"),
-                SD_VARLINK_DEFINE_FIELD(ConditionResult, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(ConditionResult, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("Assert result of the last time the configured asserts of this unit were checked"),
-                SD_VARLINK_DEFINE_FIELD(AssertResult, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(AssertResult, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("The last time the configured conditions of the unit have been checked"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(ConditionTimestamp, Timestamp, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The last time the configured asserts of the unit have been checked"),
@@ -1925,6 +1943,15 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The timer runtime of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Timer, TimerRuntime, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                UnitProperties,
+                /* For future use once the setters are implemented:
+                 * SD_VARLINK_DEFINE_FIELD(Description, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                 * SD_VARLINK_DEFINE_FIELD_BY_TYPE(CGroup, CGroupProperties, SD_VARLINK_NULLABLE),
+                 */
+                SD_VARLINK_FIELD_COMMENT("Replace markers, or use '+'/'-' prefixes to add/remove them. An empty array clears all markers."),
+                SD_VARLINK_DEFINE_FIELD(Markers, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 List,
                 SD_VARLINK_SUPPORTS_MORE,
@@ -1941,6 +1968,26 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("Runtime information of the unit"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(runtime, UnitRuntime, 0));
 
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                EnqueueJob,
+                SD_VARLINK_SUPPORTS_MORE,
+                SD_VARLINK_FIELD_COMMENT("Unit names. Jobs are enqueued atomically. Multiple names require 'more' and receive one reply per job. Merged jobs may yield fewer replies; correlate by the unit name in each job."),
+                SD_VARLINK_DEFINE_INPUT(names, SD_VARLINK_STRING, SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("The job type to enqueue."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(jobType, JobType, 0),
+                SD_VARLINK_FIELD_COMMENT("Job mode. Defaults to replace."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(mode, JobMode, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true, stream job state change notifications. Defaults to false. Requires 'more' and a single unit name."),
+                SD_VARLINK_DEFINE_INPUT(notifyJobChanges, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true, stream unit runtime notifications on state changes. Defaults to false. Requires 'more' and a single unit name."),
+                SD_VARLINK_DEFINE_INPUT(notifyUnitChanges, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Unit context. Set in the final reply."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(context, UnitContext, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Unit runtime state. Set in the final reply and in intermediate streaming notifications when notifyUnitChanges is true."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(runtime, UnitRuntime, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The job that was enqueued. Always set in the final streaming reply; also included in intermediate streaming notifications when notifyJobChanges is true."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(job, Job, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_ERROR(
                 NoSuchUnit,
                 SD_VARLINK_DEFINE_FIELD(parameter, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
@@ -1956,6 +2003,8 @@ static SD_VARLINK_DEFINE_ERROR(
 static SD_VARLINK_DEFINE_ERROR(UnitExists);
 static SD_VARLINK_DEFINE_ERROR(UnitTypeNotSupported);
 static SD_VARLINK_DEFINE_ERROR(BadUnitSetting);
+static SD_VARLINK_DEFINE_ERROR(AlreadyBeingWatched);
+static SD_VARLINK_DEFINE_ERROR(ProcessIdUnknown);
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 StartTransient,
@@ -1979,16 +2028,18 @@ static SD_VARLINK_DEFINE_METHOD(
                 SetProperties,
                 SD_VARLINK_FIELD_COMMENT("The name of the unit to operate on."),
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
-                SD_VARLINK_FIELD_COMMENT("Whether to apply the change ephemerally or persistently."),
+                SD_VARLINK_FIELD_COMMENT("Whether to apply the change ephemerally or persistently. Currently only true is supported."),
                 SD_VARLINK_DEFINE_INPUT(runtime, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("The runtime properties to set."),
-                SD_VARLINK_DEFINE_INPUT_BY_TYPE(properties, UnitRuntime, 0));
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(properties, UnitProperties, 0));
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Unit,
                 "io.systemd.Unit",
                 SD_VARLINK_SYMBOL_COMMENT("List units"),
                 &vl_method_List,
+                SD_VARLINK_SYMBOL_COMMENT("Enqueue jobs for one or more units"),
+                &vl_method_EnqueueJob,
                 SD_VARLINK_SYMBOL_COMMENT("Set unit properties"),
                 &vl_method_SetProperties,
                 SD_VARLINK_SYMBOL_COMMENT("Create a transient unit and start it"),
@@ -2000,6 +2051,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_UnitContext,
                 SD_VARLINK_SYMBOL_COMMENT("An object to represent a unit's runtime information"),
                 &vl_type_UnitRuntime,
+                SD_VARLINK_SYMBOL_COMMENT("Configuration and mutable runtime state that can be changed on an existing unit"),
+                &vl_type_UnitProperties,
                 SD_VARLINK_SYMBOL_COMMENT("A timestamp object consisting of both CLOCK_REALTIME and CLOCK_MONOTONIC timestamps"),
                 &vl_type_Timestamp,
                 SD_VARLINK_SYMBOL_COMMENT("An object to represent a unit's activation details"),
@@ -2159,4 +2212,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("This unit type does not support transient units"),
                 &vl_error_UnitTypeNotSupported,
                 SD_VARLINK_SYMBOL_COMMENT("The unit file content contains invalid settings"),
-                &vl_error_BadUnitSetting);
+                &vl_error_BadUnitSetting,
+                SD_VARLINK_SYMBOL_COMMENT("The job or unit is already being watched by another streaming connection"),
+                &vl_error_AlreadyBeingWatched,
+                SD_VARLINK_SYMBOL_COMMENT("The specified process could not be found"),
+                &vl_error_ProcessIdUnknown);

@@ -309,6 +309,66 @@ systemctl stop systemd-journal-upload
 systemctl stop systemd-journal-remote.{socket,service}
 rm -rf /var/log/journal/remote/*
 rm /run/systemd/journal-upload.conf.d/99-test.conf
+
+# Reuse the trusted HTTPS receiver to check attribution and replacement of supplied fields.
+max_fields="$(getconf IOV_MAX)"
+for setting in '' yes; do
+    if [[ -n "$setting" ]]; then
+        echo "AddClientCertificateSubject=$setting" >>/run/systemd/journal-remote.conf.d/99-test.conf
+    fi
+    {
+        printf '%s\n' '__REALTIME_TIMESTAMP=1700000000000000' '__MONOTONIC_TIMESTAMP=1000000' \
+            '_BOOT_ID=0123456789abcdef0123456789abcdef' 'MESSAGE=field-limit-test'
+        for ((i = 2; i < max_fields; i++)); do
+            printf 'FIELD_%s=value\n' "$i"
+        done
+        printf '\n'
+        printf '%s\n\n' '_REMOTE_CERTIFICATE_SUBJECT=CN=forged-only'
+        printf '%s\n' '__REALTIME_TIMESTAMP=1700000000000000' '__MONOTONIC_TIMESTAMP=1000000' \
+            '_BOOT_ID=0123456789abcdef0123456789abcdef' \
+            '_REMOTE_CERTIFICATE_SUBJECT=CN=forged-one' 'MESSAGE=certificate-subject-test' \
+            '_REMOTE_CERTIFICATE_SUBJECT=CN=forged-two' '_HOSTNAME=sender-claimed-host'
+        printf '_REMOTE_CERTIFICATE_SUBJECT\n\x03\0\0\0\0\0\0\0a\0b\n\n'
+    } >/run/systemd/remote-pki/subject.export
+    systemctl restart systemd-journal-remote.socket
+    for _ in 1 2; do
+        curl --silent --show-error --fail --max-time 15 \
+            --cacert /run/systemd/remote-pki/ca.crt \
+            --cert /run/systemd/remote-pki/client.crt \
+            --key /run/systemd/remote-pki/client.key \
+            --header 'Content-Type: application/vnd.fdo.journal' \
+            --data-binary @/run/systemd/remote-pki/subject.export https://localhost:19532/upload
+    done
+    expected_entries=6
+    expected='["CN=forged-one","CN=forged-two",[97,0,98]]'
+    if [[ "$setting" == yes ]]; then
+        expected_entries=4
+        expected=null
+        if /usr/lib/systemd/systemd-journal-remote --version | grep -F +GNUTLS >/dev/null; then
+            expected='"C=CZ,L=Brno,O=Foo,OU=Bar,CN=Test Client"'
+        fi
+    fi
+    journalctl --directory=/var/log/journal/remote -o json --all |
+        jq -se --argjson expected "$expected" --argjson count "$expected_entries" '
+            length == $count and ([.[] | select(.MESSAGE == "certificate-subject-test")] |
+            length == 2 and all(.[];
+                ._REMOTE_CERTIFICATE_SUBJECT == $expected and ._HOSTNAME == "sender-claimed-host"))'
+    systemctl stop systemd-journal-remote.{socket,service}
+    rm -rf /var/log/journal/remote/*
+
+    /usr/lib/systemd/systemd-journal-remote --split-mode=none \
+        --output=/run/systemd/remote-pki/import.journal /run/systemd/remote-pki/subject.export
+    expected_entries=3
+    if [[ "$setting" == yes ]]; then
+        expected_entries=2
+        expected=null
+    fi
+    journalctl --file='/run/systemd/remote-pki/import*.journal' -o json --all |
+        jq -se --argjson expected "$expected" --argjson count "$expected_entries" 'length == $count and
+            ([.[] | select(.MESSAGE == "certificate-subject-test")] | length == 1 and
+            .[0]._REMOTE_CERTIFICATE_SUBJECT == $expected and .[0]._HOSTNAME == "sender-claimed-host")'
+    rm /run/systemd/remote-pki/import*.journal
+done
 rm /run/systemd/journal-remote.conf.d/99-test.conf
 
 DOS_DIR="$(mktemp -d)"

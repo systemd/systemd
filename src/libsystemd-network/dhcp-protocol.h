@@ -116,4 +116,4 @@ typedef enum DHCPState {
         _DHCP_STATE_INVALID                     = -EINVAL,
 } DHCPState;
 
-DECLARE_STRING_TABLE_LOOKUP_TO_STRING(dhcp_state, DHCPState);
+DECLARE_STRING_TABLE_LOOKUP(dhcp_state, DHCPState);

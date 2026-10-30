@@ -1315,7 +1315,7 @@ void reset_cached_pid(void) {
 
 pid_t getpid_cached(void) {
         static bool installed = false;
-        pid_t current_value = CACHED_PID_UNSET;
+        pid_t current_value;
 
         /* getpid_cached() is much like getpid(), but caches the value in local memory, to avoid having to invoke a
          * system call each time. This restores glibc behaviour from before 2.24, when getpid() was unconditionally
@@ -1326,6 +1326,13 @@ pid_t getpid_cached(void) {
          * https://sourceware.org/git/gitweb.cgi?p=glibc.git;h=c579f48edba88380635ab98cb612030e3ed8691e
          */
 
+        /* The compare-and-exchange below is a locked read-modify-write even when it fails. Almost all calls
+         * find the PID cached, hence check for it with a plain load first. */
+        current_value = __atomic_load_n(&cached_pid, __ATOMIC_RELAXED);
+        if (current_value > 0)
+                return current_value;
+
+        current_value = CACHED_PID_UNSET;
         (void) __atomic_compare_exchange_n(
                         &cached_pid,
                         &current_value,
@@ -1802,6 +1809,7 @@ int namespace_fork_full(
                 int netns_fd,
                 int userns_fd,
                 int root_fd,
+                NamespaceEnterFlags namespace_flags,
                 PidRef *ret) {
 
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref_outer = PIDREF_NULL;
@@ -1847,7 +1855,7 @@ int namespace_fork_full(
 
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
-                r = namespace_enter(pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd);
+                r = namespace_enter_full(pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd, namespace_flags);
                 if (r < 0) {
                         log_full_errno(prio, r, "Failed to join namespace: %m");
                         report_errno_and_exit(errno_pipe_fd[1], r);
@@ -1905,6 +1913,22 @@ int namespace_fork_full(
                 pidref_done(&pidref_outer); /* disarm sigkill_wait */
 
         return 1;
+}
+
+int namespace_fork(
+                const char *outer_name,
+                const char *inner_name,
+                ForkFlags flags,
+                int pidns_fd,
+                int mntns_fd,
+                int netns_fd,
+                int userns_fd,
+                int root_fd,
+                PidRef *ret) {
+
+        return namespace_fork_full(outer_name, inner_name, /* except_fds= */ NULL, /* n_except_fds= */ 0, flags,
+                                   pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd,
+                                   /* namespace_flags= */ 0, ret);
 }
 
 bool oom_score_adjust_is_valid(int oa) {

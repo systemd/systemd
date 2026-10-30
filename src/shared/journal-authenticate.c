@@ -41,7 +41,7 @@ static JournalAuthContext* journal_auth_free(JournalAuthContext *c) {
                 return NULL;
 
         if (c->fss_file)
-                munmap(c->fss_file, c->fss_mmap_size);
+                munmap_safe(c->fss_file, c->fss_mmap_size);
         else
                 iovec_done_erase(&c->fsprg_state);
 
@@ -60,12 +60,7 @@ static JournalAuthContext* journal_auth_free(JournalAuthContext *c) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(JournalAuthContext*, journal_auth_free);
 
 static void* fssheader_free(FSSHeader *p) {
-        /* mmap() returns MAP_FAILED on error and sets the errno */
-        if (!p || p == MAP_FAILED)
-                return NULL;
-
-        assert_se(munmap(p, PAGE_ALIGN(sizeof(FSSHeader))) >= 0);
-        return NULL;
+        return munmap_safe(p, PAGE_ALIGN(sizeof(FSSHeader)));
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(FSSHeader*, fssheader_free);
@@ -473,25 +468,29 @@ static int journal_auth_append_tag(JournalAuthContext *c, JournalFile *f) {
         if (r < 0)
                 return r;
 
+        /* Opening a file only checks that n_tags is not larger than n_objects. A corrupted file can still
+         * have n_tags set to UINT64_MAX, and the sequence number of the next tag would wrap around to 0. */
+        uint64_t n_tags = le64toh(f->header->n_tags);
+        if (n_tags == UINT64_MAX)
+                return -EBADMSG;
+
         Object *o;
-        uint64_t p;
+        uint64_t p, epoch, seqnum = n_tags + 1;
+
         r = journal_file_append_object(f, OBJECT_TAG, sizeof(struct TagObject), &o, &p);
         if (r < 0)
                 return r;
 
-        uint64_t seqnum = le64toh(f->header->n_tags) + 1;
         f->header->n_tags = htole64(seqnum);
 
-        o->tag.seqnum = htole64(seqnum);
-
-        uint64_t epoch;
         r = fsprg_get_epoch(&c->fsprg_state, &epoch);
         if (r < 0)
                 return r;
+
+        o->tag.seqnum = htole64(seqnum);
         o->tag.epoch = htole64(epoch);
 
-        log_debug("Writing tag %"PRIu64" for epoch %"PRIu64"",
-                  le64toh(o->tag.seqnum), epoch);
+        log_debug("Writing tag %"PRIu64" for epoch %"PRIu64"", seqnum, epoch);
 
         /* Add the tag object itself, so that we can protect its
          * header. This will exclude the actual hash value in it */

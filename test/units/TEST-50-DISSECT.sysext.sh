@@ -11,7 +11,7 @@ FSTYPE=$(stat --file-system --format "%T" /usr)
 
 shopt -s nullglob
 
-# shellcheck disable=SC2317
+# shellcheck disable=SC2317,SC2329
 at_exit() {
     set +ex
 
@@ -97,20 +97,15 @@ prepare_root() {
     prepend_trap "cleanup_os_release ${root@Q}"
 }
 
+# shellcheck disable=SC2317,SC2329
 cleanup_os_release() {
-    # shellcheck disable=SC2317 # It is not unreachable, used in a trap couple lines above.
     local root=${1:-}
 
-    # shellcheck disable=SC2317 # It is not unreachable, used in a trap couple lines above.
     rm -f "$root/usr/lib/os-release"
-    # shellcheck disable=SC2317 # It is not unreachable, used in a trap couple lines above.
     if [[ -e $root/usr/lib/os-release.orig ]]; then
-        # shellcheck disable=SC2317 # It is not unreachable, used in a trap couple lines above.
         mv "$root/usr/lib/os-release.orig" "$root/usr/lib/os-release"
     fi
-    # shellcheck disable=SC2317 # It is not unreachable, used in a trap couple lines above.
     if [[ -e $root/etc/os-release.orig ]]; then
-        # shellcheck disable=SC2317 # It is not unreachable, used in a trap couple lines above.
         mv "$root/etc/os-release.orig" "$root/etc/os-release"
     fi
 }
@@ -157,6 +152,26 @@ prepare_extension_image_with_matching_id_like() {
     ext_release="$ext_dir/usr/lib/extension-release.d/extension-release.$name"
     mkdir -p "${ext_release%/*}"
     echo "ID=test_alike" >"$ext_release"
+    mkdir -p "$ext_dir/$hierarchy"
+    touch "$ext_dir$hierarchy/preexisting-file-in-extension-image"
+
+    prepend_trap "rm -rf ${ext_dir@Q}"
+}
+
+prepare_extension_image_with_image_id() {
+    local root=${1:-}
+    local hierarchy=${2:?}
+    local image_id=${3:?}
+    local ext_dir ext_release name
+
+    name="test-extension-image-id"
+    ext_dir="$root/var/lib/extensions/$name"
+    ext_release="$ext_dir/usr/lib/extension-release.d/extension-release.$name"
+    mkdir -p "${ext_release%/*}"
+    {
+        echo "ID=testtest"
+        echo "IMAGE_ID=$image_id"
+    } >"$ext_release"
     mkdir -p "$ext_dir/$hierarchy"
     touch "$ext_dir$hierarchy/preexisting-file-in-extension-image"
 
@@ -1249,6 +1264,112 @@ extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
 
 run_systemd_sysext "$fake_root" unmerge
 extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+)
+
+
+( init_trap
+: "Check if merging an extension with matching IMAGE_ID succeeds"
+fake_root=${roots_dir:+"$roots_dir/matching-image-id"}
+hierarchy=/opt
+
+prepare_root "$fake_root" "$hierarchy"
+echo "IMAGE_ID=testimage" >>"$fake_root/usr/lib/os-release"
+prepare_extension_image_with_image_id "$fake_root" "$hierarchy" "testimage"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+)
+
+
+( init_trap
+: "Check if merging an extension with mismatched IMAGE_ID fails"
+fake_root=${roots_dir:+"$roots_dir/mismatched-image-id"}
+hierarchy=/opt
+
+prepare_root "$fake_root" "$hierarchy"
+echo "IMAGE_ID=testimage" >>"$fake_root/usr/lib/os-release"
+prepare_extension_image_with_image_id "$fake_root" "$hierarchy" "otherid"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_status_json "$fake_root" "$hierarchy" '[]'
+)
+
+
+( init_trap
+: "Check if merging an extension with IMAGE_ID fails when host has no IMAGE_ID"
+fake_root=${roots_dir:+"$roots_dir/image-id-no-host"}
+hierarchy=/opt
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image_with_image_id "$fake_root" "$hierarchy" "testimage"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_status_json "$fake_root" "$hierarchy" '[]'
+)
+
+
+( init_trap
+: "Check if merging an extension with matching IMAGE_ID and IMAGE_VERSION succeeds"
+fake_root=${roots_dir:+"$roots_dir/matching-image-version"}
+hierarchy=/opt
+
+prepare_root "$fake_root" "$hierarchy"
+echo -e "IMAGE_ID=testimage\nIMAGE_VERSION=1.0" >>"$fake_root/usr/lib/os-release"
+
+name="test-extension-image-version"
+ext_dir="$fake_root/var/lib/extensions/$name"
+ext_release="$ext_dir/usr/lib/extension-release.d/extension-release.$name"
+mkdir -p "${ext_release%/*}"
+{
+    echo "ID=testtest"
+    echo "IMAGE_ID=testimage"
+    echo "IMAGE_VERSION=1.0"
+} >"$ext_release"
+mkdir -p "$ext_dir/$hierarchy"
+touch "$ext_dir$hierarchy/preexisting-file-in-extension-image"
+prepend_trap "rm -rf ${ext_dir@Q}"
+
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+)
+
+
+( init_trap
+: "Check if merging an extension with matching IMAGE_ID but mismatched IMAGE_VERSION fails"
+fake_root=${roots_dir:+"$roots_dir/mismatched-image-version"}
+hierarchy=/opt
+
+prepare_root "$fake_root" "$hierarchy"
+echo -e "IMAGE_ID=testimage\nIMAGE_VERSION=1.0" >>"$fake_root/usr/lib/os-release"
+
+name="test-extension-image-version"
+ext_dir="$fake_root/var/lib/extensions/$name"
+ext_release="$ext_dir/usr/lib/extension-release.d/extension-release.$name"
+mkdir -p "${ext_release%/*}"
+{
+    echo "ID=testtest"
+    echo "IMAGE_ID=testimage"
+    echo "IMAGE_VERSION=2.0"
+} >"$ext_release"
+mkdir -p "$ext_dir/$hierarchy"
+touch "$ext_dir$hierarchy/preexisting-file-in-extension-image"
+prepend_trap "rm -rf ${ext_dir@Q}"
+
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_status_json "$fake_root" "$hierarchy" '[]'
 )
 
 

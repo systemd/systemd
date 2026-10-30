@@ -514,8 +514,12 @@ typedef struct Manager {
         int restrict_fsaccess_link_fds[_RESTRICT_FILESYSTEM_ACCESS_LINK_MAX];
         int restrict_fsaccess_bss_map_fd;
 
-        /* Whether the ptrace seccomp filter is installed in this process; it survives execve() */
+        /* Whether the ptrace and personality seccomp filters are installed in this process; they survive
+         * execve() */
         bool restrict_fsaccess_ptrace_filter;
+        bool restrict_fsaccess_personality_filter;
+        /* The link FDs came from an older version, whose .bss layout differs from ours. */
+        bool restrict_fsaccess_foreign_bss;
 
         /* Allow users to configure a rate limit for Reload()/Reexecute() operations */
         RateLimit reload_reexec_ratelimit;
@@ -537,7 +541,7 @@ typedef struct Manager {
         unsigned soft_reboots_count;
 
         /* When LUO is enabled we can count consecutive kexec reboots. */
-        unsigned kexecs_count;
+        unsigned kexec_count;
 
         /* The number of successfully completed configuration reloads. */
         uint64_t reload_count;

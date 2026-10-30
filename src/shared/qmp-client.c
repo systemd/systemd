@@ -829,16 +829,11 @@ typedef struct QmpFuture {
         char *error_desc;
 } QmpFuture;
 
-static void* qmp_future_alloc(void) {
-        return new0(QmpFuture, 1);
-}
-
 static void qmp_future_free(sd_future *f) {
         QmpFuture *qf = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
         qmp_slot_unref(qf->slot);
         sd_json_variant_unref(qf->result);
         free(qf->error_desc);
-        free(qf);
 }
 
 static int qmp_future_cancel(sd_future *f) {
@@ -852,7 +847,7 @@ static int qmp_future_cancel(sd_future *f) {
 
 static const sd_future_ops qmp_call_future_ops = {
         .size = sizeof(sd_future_ops),
-        .alloc = qmp_future_alloc,
+        .private_size = sizeof(QmpFuture),
         .free = qmp_future_free,
         .cancel = qmp_future_cancel,
 };
@@ -908,9 +903,10 @@ int qmp_client_call_future(
         assert(c);
         assert(command);
         assert(ret);
+        assert_return(qmp_client_get_event(c), -ENOPKG);
 
-        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        r = sd_future_new(&qmp_call_future_ops, &f);
+        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
+        r = sd_future_new(qmp_client_get_event(c), &qmp_call_future_ops, &f);
         if (r < 0)
                 return r;
 
@@ -924,30 +920,32 @@ int qmp_client_call_future(
         return 0;
 }
 
-/* Extract the reply from a resolved qmp_client_call_future(). Returns 1 on success (with
- * *ret_result a fresh reference the caller unrefs), -EIO on a QMP-level error (with the detail
- * description copied into *ret_error_desc when the caller passed one to receive it), and the
- * future's negative resume errno when no reply landed at all (transport failure / cancellation).
- */
+/* future_get_qmp_reply() returns the future's result if that is negative. A QMP-level error resolves the
+ * future with -EIO, and its description is copied into *reterr_error_desc if the caller passed one.
+ * Otherwise it returns 1 with a new reference to the result in *ret_result. As with sd_future_result(),
+ * the future has to be resolved. */
 int future_get_qmp_reply(sd_future *f, sd_json_variant **ret_result, char **reterr_error_desc) {
+        int r;
+
         assert(f);
         assert(sd_future_get_ops(f) == &qmp_call_future_ops);
-        assert(sd_future_state(f) == SD_FUTURE_RESOLVED);
+
+        assert_return(sd_future_state(f) == SD_FUTURE_RESOLVED, -EBUSY);
 
         QmpFuture *qf = ASSERT_PTR(sd_future_get_private(f));
 
-        /* No reply at all: transport failure or cancellation — surface the future result. */
-        if (!qf->result && !qf->error_desc)
-                return sd_future_result(f);
-
-        if (qf->error_desc) {
-                if (reterr_error_desc) {
+        r = sd_future_result(f);
+        if (r < 0) {
+                /* A QMP-level error carries its description on top of the -EIO result; a transport
+                 * failure or cancellation has no reply at all. */
+                if (qf->error_desc && reterr_error_desc) {
                         char *desc = strdup(qf->error_desc);
                         if (!desc)
                                 return -ENOMEM;
                         *reterr_error_desc = desc;
                 }
-                return -EIO;
+
+                return r;
         }
 
         if (reterr_error_desc)
@@ -976,16 +974,12 @@ static int qmp_client_call_suspend(
         if (r < 0)
                 return r;
 
-        r = sd_fiber_suspend();
-
-        /* If the future isn't resolved, the suspend was interrupted before a reply arrived (fiber
-         * cancelled, fiber-wide SD_FIBER_TIMEOUT scope expired, …). There's no reply to extract,
-         * so surface the resume error directly. When the future is resolved, future_get_qmp_reply()
-         * already encodes success (1), QMP-level error (-EIO with the desc captured if asked for),
-         * and no-reply (negative future result) — pass it through. */
-        if (sd_future_state(call) != SD_FUTURE_RESOLVED)
+        r = sd_fiber_await(call);
+        if (r < 0)
                 return r;
 
+        /* future_get_qmp_reply() encodes success (1), QMP-level error (-EIO with the desc captured if
+         * asked for), and no-reply (negative future result) — pass it through. */
         return future_get_qmp_reply(call, ret_result, ret_error_desc);
 }
 
@@ -1060,6 +1054,27 @@ int qmp_client_call(
                 *reterr_error_desc = NULL;
 
         return 1;
+}
+
+int qmp_client_call_and_log(
+                QmpClient *c,
+                const char *command,
+                QmpClientArgs *args,
+                sd_json_variant **ret_result) {
+
+        _cleanup_free_ char *desc = NULL;
+        int r;
+
+        assert(c);
+        assert(command);
+
+        r = qmp_client_call(c, command, args, ret_result, &desc);
+        if (r == -EIO && desc)
+                return log_error_errno(r, "QMP command %s failed: %s", command, desc);
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue QMP command %s: %m", command);
+
+        return 0;
 }
 
 void qmp_client_bind_event(QmpClient *c, qmp_event_callback_t callback, void *userdata) {

@@ -176,6 +176,9 @@
         specified, lists all methods of all interfaces implemented by the service, otherwise just the methods
         in the specified interfaces.</para>
 
+        <para>If standard output and standard error are connected to a terminal, methods that are marked as
+        experimental are highlighted and suffixed with <literal>(experimental)</literal>.</para>
+
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
@@ -200,6 +203,10 @@
 
         <para>The reply parameters are written as JSON objects to STDOUT.</para>
 
+        <para>If standard error is connected to a terminal and <option>--quiet</option> is not specified,
+        the interface description is queried first, and a notice is shown if the method is marked as
+        experimental.</para>
+
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
 
@@ -221,6 +228,9 @@
         Because each connection is handled by a forked child process, the service unit can apply systemd's
         sandboxing options (such as <varname>ProtectSystem=</varname>, etc.) and does not operate in the
         caller's environment.</para>
+
+        <para>Use <option>--polkit-action=</option> to require polkit authorization of the client before the
+        connection is upgraded.</para>
 
         <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>
@@ -446,6 +456,21 @@
           opened in read-only mode.</para>
 
           <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--polkit-action=<replaceable>ACTION</replaceable></option></term>
+
+        <listitem>
+          <para>When used with <command>serve</command>: before upgrading a connection, verify via polkit
+          that the client is authorized for the specified polkit action ID. The client's identity is taken
+          from the peer credentials of the connection. Clients running as root or as the same user as the
+          server are always authorized. If authorization is denied, the method call fails with
+          <constant>org.varlink.service.PermissionDenied</constant> and no command is executed. If polkit
+          support is not available, all other clients are denied.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
         </listitem>
       </varlistentry>
 

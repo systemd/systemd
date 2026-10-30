@@ -132,6 +132,27 @@ EFI_STATUS efivar_get_uint64_str16(const EFI_GUID *vendor, const char16_t *name,
         return EFI_SUCCESS;
 }
 
+EFI_STATUS efivar_get_boolean_str16(const EFI_GUID *vendor, const char16_t *name, bool *ret) {
+        EFI_STATUS err;
+
+        assert(vendor);
+        assert(name);
+
+        _cleanup_free_ char16_t *val = NULL;
+        err = efivar_get_str16(vendor, name, &val);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        _cleanup_free_ char *val8 = xstr16_to_ascii(val);
+        bool b;
+        if (!parse_boolean(val8, &b))
+                return EFI_INVALID_PARAMETER;
+
+        if (ret)
+                *ret = b;
+        return EFI_SUCCESS;
+}
+
 EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const char16_t *name, uint32_t *ret) {
         _cleanup_free_ uint8_t *buf = NULL;
         size_t size;

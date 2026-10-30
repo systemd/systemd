@@ -17,7 +17,17 @@
 #include "path-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
+#include "verbs.h"
 #include "volatile-util.h"
+
+COMMAND(
+        "systemd-volatile-root\0",
+        "Make the root file system volatile.",
+        .argspec = "[MODE [DIRECTORY]]\0",
+        .man_pages = "systemd-volatile-root.service(8)\0",
+        .option_namespace = "common",
+);
 
 static int make_volatile(const char *path) {
         _cleanup_free_ char *old_usr = NULL;
@@ -127,24 +137,25 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        if (argc > 3)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Too many arguments. Expected directory and mode.");
+        char **args = NULL;
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 2, &args);
+        if (r <= 0)
+                return r;
 
         r = query_volatile_mode(&m);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine volatile mode from kernel command line: %m");
-        if (r == 0 && argc >= 2) {
+        if (r == 0 && args[0]) {
                 /* The kernel command line always wins. However if nothing was set there, the argument passed here wins instead. */
-                m = volatile_mode_from_string(argv[1]);
+                m = volatile_mode_from_string(args[0]);
                 if (m < 0)
-                        return log_error_errno(m, "Couldn't parse volatile mode: %s", argv[1]);
+                        return log_error_errno(m, "Couldn't parse volatile mode: %s", args[0]);
         }
 
-        if (argc < 3)
+        if (strv_length(args) < 2)
                 path = "/sysroot";
         else {
-                path = argv[2];
+                path = args[1];
 
                 if (isempty(path))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

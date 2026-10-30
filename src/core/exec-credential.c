@@ -1255,10 +1255,14 @@ int unit_refresh_credentials(Unit *u) {
                         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, tunnel_fds) < 0)
                                 return log_error_errno(errno, "Failed to allocate socket pair: %m");
 
+                        /* User units with PrivateUsers=self only map the user manager's own identity. Keep it
+                         * in that case, but still become root when a managed UID/GID range is mapped. */
                         r = namespace_fork_full("(sd-creds-ns)", "(sd-creds-ns-inner)",
                                                 (int[]) { tunnel_fds[1] }, 1,
                                                 FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG,
                                                 pidns_fd, mntns_fd, /* netns_fd = */ -EBADF, userns_fd, root_fd,
+                                                MANAGER_IS_USER(u->manager) ?
+                                                NAMESPACE_ENTER_KEEP_UID_GID_IF_ROOT_UNMAPPED : 0,
                                                 &child);
                         if (r < 0)
                                 return log_full_errno(ERRNO_IS_NEG_PRIVILEGE(r) ? LOG_WARNING : LOG_ERR, r,

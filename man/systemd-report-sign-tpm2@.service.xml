@@ -3,8 +3,9 @@
   "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-report-sign-tpm2_.service" conditional='HAVE_OPENSSL HAVE_TPM2'
-          xmlns:xi="http://www.w3.org/2001/XInclude">
+<refentry id="systemd-report-sign-tpm2_.service"
+          xmlns:xi="http://www.w3.org/2001/XInclude"
+          conditional='ENABLE_REPORT HAVE_OPENSSL HAVE_TPM2'>
 
   <refentryinfo>
     <title>systemd-report-sign-tpm2@.service</title>
@@ -44,26 +45,61 @@
     TPM2 device to generate a set of signed attestations that also bind the report digest passed to it,
     together providing a verifier with evidence about the state of the system that produced the report.</para>
 
-    <para>The returned report consists of several signed components, each carrying a JSON encoded
-    attestation structure and its corresponding signature. The signature is provided as a JSON encoded
-    <constant>TPMT_SIGNATURE</constant> structure and in PEM encoded form. The signed component types are:</para>
+    <para>The returned report consists of several components. Some of these carry a JSON encoded attestation
+    structure (<constant>TPMS_ATTEST</constant>) and its corresponding signature. The signature is provided as
+    a JSON encoded <constant>TPMT_SIGNATURE</constant> structure and in PEM encoded form. The components are:</para>
 
     <itemizedlist>
-      <listitem><para>A PCR quote, generated with <constant>TPM2_Quote</constant></para></listitem>
+      <listitem><para>A PCR quote, generated with <constant>TPM2_Quote</constant>. This contains the JSON
+      encoded attestation and the corresponding signature.</para></listitem>
 
       <listitem><para>One attestation per NvPCR, generated with <constant>TPM2_NV_Certify</constant>. Each
-      component also includes the readable name of the NvPCR, the NV index public area (as a JSON encoded
+      of these contain the JSON encoded attestation structure and its signature. In addition to this, each
+      one also includes the readable name of the NvPCR, the NV index public area (as a JSON encoded
       <constant>TPMS_NV_PUBLIC</constant> structure), and a JSON blob of authenticated data (the NvPCR name
       and priority) that is digested and supplied as the qualifying data to the certify command.</para></listitem>
 
+      <listitem><para>A certification of the TPM's storage root key (SRK), generated with
+      <constant>TPM2_Certify</constant>. This contains the JSON encoded attestation and the corresponding
+      signature. The component also includes the public area of the SRK, as a JSON encoded
+      <constant>TPMT_PUBLIC</constant> structure. Marshalled into a <constant>TPM2B_PUBLIC</constant>
+      structure, this is the format accepted by the <option>--tpm2-device-key=</option> switch of
+      <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      and <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+      The certification proves to a verifier that the SRK resides in the same TPM as the attestation key,
+      so that secrets sealed to it, sealing to which requires no access to the TPM, can only be unsealed by
+      the reporting system. As <constant>TPM2_Clear</constant> replaces the SRK, a certification of the same
+      SRK in a later report is also evidence that the TPM has not been cleared in between. If no SRK exists
+      yet, one is created and persisted at the usual handle, which requires the authorization value of the
+      TPM's owner hierarchy to be empty. If the SRK cannot be acquired, or the object at its handle cannot
+      be authorized with an empty password, the report is generated without this component. The same applies
+      if the object lacks the <constant>noDA</constant> attribute, as a failed authorization attempt would
+      then count towards the TPM's dictionary attack protection. Checking that the attributes of the
+      certified key are those of a storage key that cannot leave the TPM is up to the verifier.</para></listitem>
+
+      <listitem><para>One component per reported TPM property, generated with <constant>TPM2_GetCapability</constant>.
+      Each of these contain the property and its value as a JSON encoded <constant>TPMS_TAGGED_PROPERTY</constant>
+      structure, as well as a boolean indicating the value of the <constant>moreData</constant> parameter returned
+      from the TPM. These components contain no signature of their own, but the response is included in the
+      audit session digest.</para></listitem>
+
+      <listitem><para>One component per reported TPM permanent handle authorization policy, generated with
+      <constant>TPM2_GetCapability</constant>. Each of these contain the handle, the policy digest algorithm,
+      and the policy digest (if the algorithm is not NULL) as a JSON encoded <constant>TPMS_TAGGED_POLICY</constant>
+      structure, as well as a boolean indicating the value of the <constant>moreData</constant> parameter
+      returned from the TPM. These components contain no signature of their own, but the response is included
+      in the audit session digest. Note that these components are omitted on TPMs that don't support
+      <constant>TPM_CAP_AUTH_POLICIES</constant>.</para></listitem>
+
       <listitem><para>An audit session attestation, generated with
       <constant>TPM2_GetSessionAuditDigest</constant>. This is always the last component. The report digest
-      passed in via Varlink is supplied as its qualifying data.</para></listitem>
+      passed in via Varlink is supplied as its qualifying data. All other components are generated using this
+      audit session.</para></listitem>
     </itemizedlist>
 
     <para>The report additionally includes the measurement event log, and the public area of the signing key.
     The public area is provided as a JSON encoded <constant>TPMT_PUBLIC</constant> structure, and in PEM
-    encooded form.</para>
+    encoded form.</para>
 
     <para>The preceding components are all executed under the audit session, and the report is only generated
     if that session remains exclusive throughout. Because the audit session attestation records whether the
@@ -71,9 +107,12 @@
     single, consistent snapshot of the system, with no other TPM commands interleaved while it was
     generated.</para>
 
-    <para>The set of attested PCRs and NvPCRs is currently fixed. It covers all firmware PCRs except PCR 6,
-    all other S-RTM PCRs except the IMA PCR (which is not useful without the IMA log), and all defined
-    NvPCRs.</para>
+    <para>The set of attested PCRs, NvPCRs, TPM properties and permanent handle authorization policies is
+    currently fixed. It covers all firmware PCRs except PCR 6, all other S-RTM PCRs except the IMA PCR (which is
+    not useful without the IMA log), all defined NvPCRs, the TPM_PT_PERMANENT, TPM_PT_MAX_AUTH_FAIL,
+    TPM_PT_LOCKOUT_INTERVAL and TPM_PT_LOCKOUT_RECOVERY TPM properties, and the authorization policies for the
+    storage, endorsement and lockout hierarchies. Note that authorization policies are omitted on TPMs that
+    don't support <constant>TPM_CAP_AUTH_POLICIES</constant></para>
   </refsect1>
 
   <refsect1>

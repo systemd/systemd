@@ -30,7 +30,6 @@ common_deps = [
 executables += [
         libexec_template + {
                 'name' : 'systemd-journal-gatewayd',
-                'public' : true,
                 'conditions' : [
                         'ENABLE_REMOTE',
                         'HAVE_MICROHTTPD',
@@ -40,7 +39,6 @@ executables += [
         },
         libexec_template + {
                 'name' : 'systemd-journal-remote',
-                'public' : true,
                 # We always build systemd-journal-remote regardless of ENABLE_REMOTE because we have to build
                 # fuzz-journal-remote even when --auto-features=disabled (see tools/oss-fuzz.sh for why).
                 # Instead, we make sure we don't install it when the remote feature is disabled.
@@ -51,7 +49,6 @@ executables += [
         },
         libexec_template + {
                 'name' : 'systemd-journal-upload',
-                'public' : true,
                 'conditions' : [
                         'ENABLE_REMOTE',
                         'HAVE_LIBCURL',

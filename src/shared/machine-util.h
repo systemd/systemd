@@ -25,11 +25,14 @@ DECLARE_STRING_TABLE_LOOKUP(disk_type, DiskType);
 DECLARE_STRING_TABLE_LOOKUP(block_driver, DiskType);
 DECLARE_STRING_TABLE_LOOKUP(qemu_device_driver, DiskType);
 
-/* Parse "[FORMAT:][DISKTYPE:]PATH"; *format and *disk_type are in-out. */
+bool disk_type_is_read_only(DiskType dt);
+
+/* Parse "[FORMAT:][DISKTYPE:][ro:]PATH"; *format, *disk_type, and *read_only are in-out. */
 int parse_disk_spec(
                 const char *arg,
                 ImageFormat *format,
                 DiskType *disk_type,
+                bool *read_only,
                 char **ret_path);
 
 typedef enum ReadOnlyMode {

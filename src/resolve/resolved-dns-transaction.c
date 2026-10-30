@@ -849,6 +849,14 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
         if (FLAGS_SET(t->query_flags, SD_RESOLVED_NO_VALIDATE) && t->scope->dnssec_mode != DNSSEC_NO)
                 return;
 
+        /* Same if the reply could not be validated merely because the query went out without DO (e.g. a
+         * bypass query without DO, or one sent while the server was degraded): later lookups may send DO
+         * and validate again, and nothing guarantees that the cache gets flushed before they do. */
+        if (t->server &&
+            t->answer_dnssec_result == DNSSEC_INCOMPATIBLE_SERVER &&
+            dns_server_dnssec_supported(t->server))
+                return;
+
         /* Packet from localhost? */
         if (!t->scope->manager->cache_from_localhost &&
             in_addr_is_localhost(t->received->family, &t->received->sender) != 0)
@@ -1022,7 +1030,8 @@ static void dns_transaction_process_dnssec(DnsTransaction *t) {
                 return;
         }
 
-        if (t->answer_dnssec_result == DNSSEC_INCOMPATIBLE_SERVER)
+        /* Don't blame the server if the query merely went out below DO, it may support DNSSEC just fine. */
+        if (t->answer_dnssec_result == DNSSEC_INCOMPATIBLE_SERVER && !dns_server_dnssec_supported(t->server))
                 dns_server_warn_downgrade(t->server);
 
         dns_transaction_cache_answer(t);
@@ -1597,6 +1606,17 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
                 case DNS_PROTOCOL_DNS:
                         assert(t->server);
                         dns_server_packet_lost(t->server, t->stream ? IPPROTO_TCP : IPPROTO_UDP, t->current_feature_level);
+
+                        /* If the server's feature level changed meanwhile (packet loss degraded it, or the
+                         * grace period ended), the retry goes out at a different level, possibly with or
+                         * without DO. Use a new connection and ID for it, like
+                         * dns_transaction_maybe_restart() does, so that a late reply to an earlier attempt
+                         * cannot pass for a reply to the retry. Close the connection first, while t->sent
+                         * still refers to the packet that may be queued on it. */
+                        if (t->current_feature_level != dns_server_possible_feature_level(t->server)) {
+                                dns_transaction_close_connection(t, /* use_graveyard= */ true);
+                                dns_transaction_shuffle_id(t);
+                        }
                         break;
 
                 case DNS_PROTOCOL_LLMNR:
@@ -2448,10 +2468,25 @@ static bool dns_transaction_dnssec_supported(DnsTransaction *t) {
         if (!t->server)
                 return true;
 
-        /* Note that we do not check the feature level actually used for the transaction but instead the feature level
-         * the server is known to support currently, as the transaction feature level might be lower than what the
-         * server actually supports, since we might have downgraded this transaction's feature level because we got a
-         * SERVFAIL earlier and wanted to check whether downgrading fixes it. */
+        /* Same if the answer came from the cache on a retry: server and feature level are then stale. */
+        if (t->answer_source != DNS_TRANSACTION_NETWORK)
+                return true;
+
+        /* A query sent below DO cannot get RRSIGs back, whatever the server is capable of, e.g. after
+         * packet loss degraded the server or a SERVFAIL clamped this transaction. Validating it can only
+         * fail, so treat it like a reply from a server without DNSSEC. Except in strict mode, where
+         * unsigned data is only an error if it needed signing (negative trust anchors, insecure
+         * delegations), so leave that to validation, as dns_server_dnssec_supported() does.
+         *
+         * A bypass query goes out as the client built it, hence it's the client's DO bit that counts there,
+         * not the feature level. Note that we cannot look at t->sent for this: dns_packet_do() only works on
+         * extracted packets, and we never extract the packets we send. (If the client's packet has
+         * trailing garbage, extraction drops its OPT RR, so we see no DO here even if the copy we send
+         * carries it.) */
+        if (t->scope->dnssec_mode != DNSSEC_YES &&
+            !(t->bypass ? dns_packet_do(t->bypass) :
+                          DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(t->current_feature_level)))
+                return false;
 
         return dns_server_dnssec_supported(t->server);
 }
@@ -3639,9 +3674,11 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                 return 0;
 
         if (!dns_transaction_dnssec_supported_full(t)) {
-                /* The server does not support DNSSEC, or doesn't augment responses with RRSIGs. */
+                /* The server does not support DNSSEC, or doesn't augment responses with RRSIGs, or this
+                 * query or an auxiliary one went out without DO. */
                 t->answer_dnssec_result = DNSSEC_INCOMPATIBLE_SERVER;
-                log_debug("Not validating response for %" PRIu16 ", used server feature level does not support DNSSEC.", t->id);
+                log_debug("Not validating response for %" PRIu16 ", the server does not support DNSSEC, or the "
+                          "query or an auxiliary one was sent without DO.", t->id);
                 return 0;
         }
 

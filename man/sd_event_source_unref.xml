@@ -78,11 +78,11 @@
     <para><function>sd_event_source_ref()</function> may be used to increase by one the internal reference
     counter of the event source object specified as <parameter>source</parameter>.</para>
 
-    <para><function>sd_event_source_unref()</function>,
-    <function>sd_bus_creds_unrefp()</function> and
-    <function>sd_bus_creds_ref()</function> execute no operation if
-    the passed event source object is
-    <constant>NULL</constant>.</para>
+    <para><function>sd_event_source_ref()</function> and
+    <function>sd_event_source_unref()</function> execute no operation if the passed event source
+    object is <constant>NULL</constant>. <function>sd_event_source_unrefp()</function> will first
+    dereference its argument, which must not be <constant>NULL</constant>, and will execute no
+    operation if <emphasis>that</emphasis> is <constant>NULL</constant>.</para>
 
     <para>Note that event source objects stay alive and may be dispatched as long as they have a reference
     counter greater than zero. In order to drop a reference of an event source and make sure the associated

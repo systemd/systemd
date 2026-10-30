@@ -553,6 +553,114 @@ $imgs/zzz8 : start=     6422488, size=      131072, type=4D21B016-B534-45C2-A9FB
     losetup -d "$loop"
 }
 
+testcase_empty_force_block_device() {
+    local defs imgs loop before partition_fd
+
+    if systemd-detect-virt --quiet --container; then
+        echo "Skipping block device overwrite tests in container."
+        return
+    fi
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    # Repart enforces a 32M minimum for ext4, even if SizeMaxBytes= is smaller.
+    tee "$defs/10-data.conf" <<EOF
+[Partition]
+Type=linux-generic
+Label=original
+Format=ext4
+SizeMinBytes=32M
+SizeMaxBytes=32M
+EOF
+
+    tee "$defs/20-extra.conf" <<EOF
+[Partition]
+Type=linux-generic
+Label=extra
+SizeMinBytes=32M
+SizeMaxBytes=32M
+EOF
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --empty=create \
+                   --size=128M \
+                   --dry-run=no \
+                   "$imgs/force.img"
+
+    loop="$(losetup --partscan --show --find "$imgs/force.img")"
+    # shellcheck disable=SC2064
+    trap "losetup -d '$loop'; rm -rf '$defs' '$imgs'" RETURN ERR
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop:?}p1" "${loop:?}p2"
+
+    # Test dry run mode
+    before="$(sfdisk -d "$loop")"
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --empty=force \
+                   --discard=no \
+                   --dry-run=yes \
+                   "$loop"
+
+    assert_eq "$(sfdisk -d "$loop")" "$before"
+    assert_eq "$(blockdev --getsize64 "${loop}p1")" "$((32 * 1024 * 1024))"
+    assert_eq "$(blockdev --getsize64 "${loop}p2")" "$((32 * 1024 * 1024))"
+
+    # An open partition prevents the initial BLKRRPART, but must not prevent an offline overwrite.
+    if [[ "$OFFLINE" == yes ]]; then
+        exec {partition_fd}<"${loop}p2"
+    fi
+
+    # Recreating even the same layout must not collide with the old kernel partition devices.
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --empty=force \
+                   --discard=no \
+                   --dry-run=no \
+                   "$loop" 2>&1 | tee "$imgs/recreate.log"
+
+    if [[ "$OFFLINE" == yes ]]; then
+        exec {partition_fd}<&-
+        if built_with_musl; then
+            grep -F "Failed to reread partition table after wiping, ignoring: Resource busy" "$imgs/recreate.log"
+        else
+            grep -F "Failed to reread partition table after wiping, ignoring: Device or resource busy" "$imgs/recreate.log"
+        fi
+    fi
+
+    assert_eq "$(grep -Fc 'Informing kernel about changed partitions...' "$imgs/recreate.log")" 1
+
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop}p1" "${loop}p2"
+    assert_eq "$(sfdisk -d "$loop")" "$before"
+    assert_eq "$(blkid -p -s TYPE -o value "${loop}p1")" ext4
+    assert_eq "$(blkid -p -s LABEL -o value "${loop}p1")" original
+
+    # Also replace the layout with a partition overlapping both old partitions.
+    rm "$defs/20-extra.conf"
+    sed -i -e 's/Label=original/Label=replacement/' -e 's/32M/64M/g' "$defs/10-data.conf"
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --empty=force \
+                   --discard=no \
+                   --dry-run=no \
+                   "$loop"
+
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop}p1"
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --removed --settle "${loop}p2"
+    assert_eq "$(blockdev --getsize64 "${loop}p1")" "$((64 * 1024 * 1024))"
+    assert_eq "$(blkid -p -s TYPE -o value "${loop}p1")" ext4
+    assert_eq "$(blkid -p -s LABEL -o value "${loop}p1")" replacement
+    assert_not_in "${loop}p2 :" "$(sfdisk -d "$loop")"
+}
+
 testcase_copy_from_grain_padding() {
     local defs imgs output
 
@@ -713,6 +821,46 @@ EOF
     assert_in "$imgs/auto1 : start=        4096, size=       20480, type=${esp_guid}," "$output"
     assert_in "$imgs/auto2 : start=       24576, size=       20480, type=${usr_guid}," "$output"
     assert_in "$imgs/auto3 : start=       45056, size=       20480, type=${root_guid}," "$output"
+}
+
+testcase_size_auto_foreign_partitions() {
+    local defs imgs output
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** Adding a partition with --size=auto to an image with foreign partitions ***"
+
+    # --size=auto reloads the partition table, which must not lose the UUID and label of the existing
+    # partitions that have no definition.
+    truncate -s 12M "$imgs/foreign.img"
+    sfdisk "$imgs/foreign.img" <<EOF
+label: gpt
+size=10M, type=${esp_guid}, uuid=${root_uuid2}, name="foreign",
+EOF
+
+    tee "$defs/usr.conf" <<EOF
+[Partition]
+Type=usr
+Label=new
+SizeMinBytes=10M
+SizeMaxBytes=10M
+EOF
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --size=auto \
+                   --dry-run=no \
+                   "$imgs/foreign.img"
+
+    output=$(sfdisk --dump "$imgs/foreign.img")
+
+    assert_in "$imgs/foreign.img1 : start=        2048, size=       20480, type=${esp_guid}, uuid=${root_uuid2}, name=\"foreign\"" "$output"
+    assert_in "$imgs/foreign.img2 : start=       22528, size=       20480, type=${usr_guid}, uuid=${usr_uuid}, name=\"new\"" "$output"
 }
 
 testcase_dropin() {
@@ -1559,8 +1707,8 @@ EOF
 testcase_verity_encrypt() {
     local defs imgs output loop drh hrh part_size dm_devno verity_dep
 
-    if ( . /etc/os-release && [[ "$ID" == "postmarketos" ]] ); then
-        echo "Skipping verity+encrypt test on postmarketOS."
+    if ( . /etc/os-release && [[ "${ID_LIKE:-}" == "alpine" ]] ); then
+        echo "Skipping verity+encrypt test on Alpine/Nura."
         return
     fi
 
@@ -2940,6 +3088,192 @@ EOF
     losetup -d "$loop"
 }
 
+testcase_encrypt_add_token() {
+    local defs imgs loop token_json metadata_json metadata_b64
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** testcase for EncryptAddToken= (plain type name, no extra data) ***"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=ext4
+Encrypt=key-file
+EncryptAddToken=test-dummy-token
+EOF
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=100M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline=no \
+                   "$imgs/enctoken-plain.img"
+
+    loop="$(losetup -P --show --find "$imgs/enctoken-plain.img")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'; losetup -d '$loop'" RETURN
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop:?}p1"
+
+    cryptsetup luksDump "${loop}p1" | grep "test-dummy-token" >/dev/null
+
+    token_json="$(cryptsetup token export --token-id 0 "${loop}p1")"
+    echo "$token_json" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+assert d['type'] == 'test-dummy-token', 'Wrong token type: {}'.format(d['type'])
+assert '0' in d.get('keyslots', []), 'keyslot 0 not referenced by token: {}'.format(d)
+"
+
+    losetup -d "$loop"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    echo "*** testcase for EncryptAddToken= (type + extra data via :data: base64) ***"
+
+    rm -f "$defs/root.conf"
+
+    # Build base64-encoded JSON for the extra metadata (no type/keyslots)
+    metadata_json='{"trustee.kbs.url":"http://kbs-service:8080"}'
+    metadata_b64="$(echo -n "$metadata_json" | base64 -w0)"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=ext4
+Encrypt=key-file
+EncryptAddToken=test-dummy-token:data:${metadata_b64}
+EOF
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=100M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline=no \
+                   "$imgs/enctoken-data.img"
+
+    loop="$(losetup -P --show --find "$imgs/enctoken-data.img")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'; losetup -d '$loop'" RETURN
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop:?}p1"
+
+    cryptsetup luksDump "${loop}p1" | grep "test-dummy-token" >/dev/null
+
+    token_json="$(cryptsetup token export --token-id 0 "${loop}p1")"
+    echo "$token_json" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+assert d['type'] == 'test-dummy-token', 'Wrong token type: {}'.format(d['type'])
+assert d.get('trustee.kbs.url') == 'http://kbs-service:8080', 'Extra field not preserved: {}'.format(d)
+assert '0' in d.get('keyslots', []), 'keyslot 0 not referenced by token: {}'.format(d)
+"
+
+    losetup -d "$loop"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    echo "*** testcase for EncryptAddToken= (type + extra data via :file:) ***"
+
+    rm -f "$defs/root.conf"
+
+    echo -n '{"trustee.kbs.url":"http://kbs-service:9090"}' > "$imgs/token-meta.json"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=ext4
+Encrypt=key-file
+EncryptAddToken=test-dummy-token:file:${imgs}/token-meta.json
+EOF
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=100M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline=no \
+                   "$imgs/enctoken-file.img"
+
+    loop="$(losetup -P --show --find "$imgs/enctoken-file.img")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'; losetup -d '$loop'" RETURN
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop:?}p1"
+
+    token_json="$(cryptsetup token export --token-id 0 "${loop}p1")"
+    echo "$token_json" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+assert d['type'] == 'test-dummy-token', 'Wrong token type: {}'.format(d['type'])
+assert d.get('trustee.kbs.url') == 'http://kbs-service:9090', 'Extra field from file not preserved: {}'.format(d)
+assert '0' in d.get('keyslots', []), 'keyslot 0 not referenced by token: {}'.format(d)
+"
+
+    losetup -d "$loop"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    echo "*** testcase for EncryptAddToken= (multiple tokens on one partition) ***"
+
+    rm -f "$defs/root.conf"
+
+    metadata_b64="$(echo -n '{"extra-key":"extra-val"}' | base64 -w0)"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=ext4
+Encrypt=key-file
+EncryptAddToken=first-token
+EncryptAddToken=second-token:data:${metadata_b64}
+EOF
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=100M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline=no \
+                   "$imgs/enctoken-multi.img"
+
+    loop="$(losetup -P --show --find "$imgs/enctoken-multi.img")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'; losetup -d '$loop'" RETURN
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop:?}p1"
+
+    # Both tokens should appear in luksDump
+    cryptsetup luksDump "${loop}p1" | grep "first-token" >/dev/null
+    cryptsetup luksDump "${loop}p1" | grep "second-token" >/dev/null
+
+    # Verify each token individually
+    cryptsetup token export --token-id 0 "${loop}p1" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+assert d['type'] == 'first-token', 'Wrong first token type: {}'.format(d['type'])
+assert '0' in d.get('keyslots', []), 'keyslot not in first token: {}'.format(d)
+"
+    cryptsetup token export --token-id 1 "${loop}p1" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+assert d['type'] == 'second-token', 'Wrong second token type: {}'.format(d['type'])
+assert d.get('extra-key') == 'extra-val', 'Extra field missing in second token: {}'.format(d)
+assert '0' in d.get('keyslots', []), 'keyslot not in second token: {}'.format(d)
+"
+
+    losetup -d "$loop"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+}
+
 testcase_fstab_crypttab_in_repart() {
     local defs imgs root volume
 
@@ -3151,7 +3485,7 @@ EOF
     assert_eq "$(findmnt "${btrfs_mntpoint_plain}" -o SOURCE -n)" "${loop}p1"
     dm_btrfs_encrypted="$(findmnt "${btrfs_mntpoint_encrypted}" -o SOURCE -n)"
     if [[ "$dm_btrfs_encrypted" != "/dev/mapper/btrfs-replace-encrypted" ]]; then
-        # When libdevmapper is built without UDEV_SYNC_SUPPORT (e.g. on Alpine/postmarketOS),
+        # When libdevmapper is built without UDEV_SYNC_SUPPORT (e.g. on Alpine/Nura),
         # it creates a device node under /dev/mapper/ instead of relying on udev to create a symlink.
         # In this case, verify that both device nodes refer to the same underlying device.
         assert_eq "$(stat -c %Hr:%Lr "$dm_btrfs_encrypted")" "$(stat -c %Hr:%Lr /dev/mapper/btrfs-replace-encrypted)"

@@ -39,7 +39,7 @@ systemd_homework_sources = files(
 homed_gperf_c = custom_target(
         input : 'homed-gperf.gperf',
         output : 'homed-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf_cmdline, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 generated_sources += [homed_gperf_c]
 systemd_homed_sources += [homed_gperf_c]
@@ -84,7 +84,6 @@ executables += [
         },
         executable_template + {
                 'name' : 'homectl',
-                'public' : true,
                 'sources' : homectl_sources,
                 'export' : homectl_export_sources,
                 'import' : ['systemd-homed'],
@@ -92,6 +91,9 @@ executables += [
                         libfido2_cflags,
                         libopenssl_cflags,
                         libp11kit_cflags,
+                ],
+                'symlinks' : [
+                        { 'name' : 'systemd-home-fallback-shell' },
                 ],
         },
         test_template + {
@@ -110,7 +112,7 @@ modules += [
                 'name' : 'pam_systemd_home',
                 'conditions' : ['HAVE_PAM'],
                 'sources' : pam_systemd_home_sources,
-                'version-script' : meson.current_source_dir() / 'pam_systemd_home.sym',
+                'version-script' : 'src/home/pam_systemd_home.sym',
         },
 ]
 
@@ -125,7 +127,3 @@ if install_sysconfdir_samples
         install_data('homed.conf',
                      install_dir : pkgconfigfiledir)
 endif
-
-install_symlink('systemd-home-fallback-shell',
-                pointing_to : 'homectl',
-                install_dir : bindir)

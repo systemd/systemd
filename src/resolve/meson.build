@@ -46,17 +46,17 @@ systemd_resolved_export_sources = files(
 resolved_gperf_c = custom_target(
         input : 'resolved-gperf.gperf',
         output : 'resolved-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf_cmdline, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 resolved_dnssd_gperf_c = custom_target(
         input : 'resolved-dnssd-gperf.gperf',
         output : 'resolved-dnssd-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf_cmdline, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 resolved_dns_delegate_gperf_c = custom_target(
         input : 'resolved-dns-delegate-gperf.gperf',
         output : 'resolved-dns-delegate-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf_cmdline, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 generated_sources += [resolved_gperf_c, resolved_dnssd_gperf_c, resolved_dns_delegate_gperf_c]
 systemd_resolved_export_sources += [resolved_gperf_c, resolved_dnssd_gperf_c, resolved_dns_delegate_gperf_c]
@@ -86,12 +86,16 @@ executables += [
         },
         executable_template + resolve_common_template + {
                 'name' : 'resolvectl',
-                'public' : true,
                 'sources' : files(
                         'resolvconf-compat.c',
                         'resolvectl.c',
                 ),
                 'import' : ['systemd-resolved'],
+                'symlinks' : [
+                        { 'name' : 'resolvconf', 'install_dir' : sbindir },
+                        # for backwards compatibility after rename
+                        { 'name' : 'systemd-resolve' },
+                ],
         },
         resolve_test_template + {
                 'sources' : files('test-resolve-tables.c'),
@@ -121,6 +125,9 @@ executables += [
                 'sources' : files('test-dns-question.c'),
         },
         resolve_test_template + {
+                'sources' : files('test-mdns-announce.c'),
+        },
+        resolve_test_template + {
                 'sources' : files('test-resolved-etc-hosts.c'),
         },
         resolve_test_template + {
@@ -142,6 +149,14 @@ executables += [
                 'conditions' : ['HAVE_OPENSSL'],
         },
         resolve_test_template + {
+                'sources' : files('test-dnssec-mldsa.c'),
+                'conditions' : ['HAVE_OPENSSL'],
+        },
+        resolve_test_template + {
+                'sources' : files('test-dns-scope.c'),
+                'link_args' : ['-Wl,--wrap=sendmsg', '-Wl,--wrap=__sendmsg64'],
+        },
+        resolve_test_template + {
                 'sources' : files('test-dns-search-domain.c'),
         },
         resolve_test_template + {
@@ -155,6 +170,16 @@ executables += [
         },
         resolve_test_template + {
                 'sources' : files('test-dns-query.c'),
+        },
+        resolve_test_template + {
+                'sources' : files('test-dns-server.c'),
+        },
+        resolve_test_template + {
+                'sources' : files('test-dns-stub.c'),
+        },
+        resolve_test_template + {
+                'sources' : files('test-dns-transaction.c'),
+                'conditions' : ['HAVE_OPENSSL'],
         },
         resolve_test_template + {
                 'sources' : files('test-resolved-stream.c'),
@@ -182,15 +207,6 @@ install_data('org.freedesktop.resolve1.policy',
              install_dir : polkitpolicydir)
 install_data('resolv.conf',
                 install_dir : libexecdir)
-
-install_symlink('resolvconf',
-                pointing_to : sbin_to_bin + 'resolvectl',
-                install_dir : sbindir)
-
-# symlink for backwards compatibility after rename
-install_symlink('systemd-resolve',
-                pointing_to : 'resolvectl',
-                install_dir : bindir)
 
 custom_target(
         input : 'resolved.conf.in',

@@ -16,6 +16,7 @@ typedef struct GenericNetlinkFamily {
         sd_netlink *genl;
 
         const NLAPolicySet *policy_set;
+        bool policy_set_indexed_by_command;
 
         uint16_t id; /* a.k.a nlmsg_type */
         char *name;
@@ -87,6 +88,7 @@ static int genl_family_new_unsupported(
 
         *f = (GenericNetlinkFamily) {
                 .policy_set = policy_set,
+                .policy_set_indexed_by_command = genl_family_is_indexed_by_command(family_name),
         };
 
         f->name = strdup(family_name);
@@ -126,6 +128,7 @@ static int genl_family_new(
 
         *f = (GenericNetlinkFamily) {
                 .policy_set = policy_set,
+                .policy_set_indexed_by_command = genl_family_is_indexed_by_command(expected_family_name),
         };
 
         r = sd_genl_message_get_family_name(nl, message, &family_name);
@@ -227,6 +230,12 @@ static const NLAPolicySet *genl_family_get_policy_set(const GenericNetlinkFamily
         return genl_get_policy_set_by_name(family->name);
 }
 
+static size_t genl_family_get_header_size(const GenericNetlinkFamily *family) {
+        assert(family);
+
+        return sizeof(struct genlmsghdr) + family->additional_header_size;
+}
+
 static int genl_message_new(
                 sd_netlink *nl,
                 const GenericNetlinkFamily *family,
@@ -246,8 +255,14 @@ static int genl_message_new(
         if (!policy_set)
                 return -EOPNOTSUPP;
 
+        if (family->policy_set_indexed_by_command) {
+                policy_set = policy_set_get_policy_set(policy_set, cmd);
+                if (!policy_set)
+                        return -EOPNOTSUPP;
+        }
+
         r = message_new_full(nl, family->id, NLM_F_REQUEST | NLM_F_ACK, policy_set,
-                             sizeof(struct genlmsghdr) + family->additional_header_size, &m);
+                             genl_family_get_header_size(family), &m);
         if (r < 0)
                 return r;
 
@@ -364,6 +379,12 @@ int genl_get_policy_set_and_header_size(
         if (r < 0)
                 return r;
 
+        /* For families whose policy sets are indexed by command, the kernel to userspace commands are
+         * numbered separately from the userspace to kernel commands and the two overlap. Parsing replies
+         * and notifications of such families is not supported yet. */
+        if (f->policy_set_indexed_by_command)
+                return -EOPNOTSUPP;
+
         if (ret_policy_set) {
                 const NLAPolicySet *p;
 
@@ -374,7 +395,7 @@ int genl_get_policy_set_and_header_size(
                 *ret_policy_set = p;
         }
         if (ret_header_size)
-                *ret_header_size = sizeof(struct genlmsghdr) + f->additional_header_size;
+                *ret_header_size = genl_family_get_header_size(f);
         return 0;
 }
 
@@ -417,9 +438,9 @@ int sd_genl_message_get_family_name(sd_netlink *nl, sd_netlink_message *m, const
 }
 
 int sd_genl_message_get_command(sd_netlink *nl, sd_netlink_message *m, uint8_t *ret) {
+        const GenericNetlinkFamily *family;
         struct genlmsghdr *h;
         uint16_t nlmsg_type;
-        size_t size;
         int r;
 
         assert_return(nl, -EINVAL);
@@ -433,11 +454,11 @@ int sd_genl_message_get_command(sd_netlink *nl, sd_netlink_message *m, uint8_t *
         if (r < 0)
                 return r;
 
-        r = genl_get_policy_set_and_header_size(nl, nlmsg_type, NULL, &size);
+        r = genl_family_get_by_id(nl, nlmsg_type, &family);
         if (r < 0)
                 return r;
 
-        if (m->hdr->nlmsg_len < NLMSG_LENGTH(size))
+        if (m->hdr->nlmsg_len < NLMSG_LENGTH(genl_family_get_header_size(family)))
                 return -EBADMSG;
 
         h = NLMSG_DATA(m->hdr);

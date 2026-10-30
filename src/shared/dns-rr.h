@@ -34,6 +34,7 @@ enum {
         DNSSEC_ALGORITHM_ECDSAP384SHA384 = 14, /* RFC 6605 */
         DNSSEC_ALGORITHM_ED25519 = 15,         /* RFC 8080 */
         DNSSEC_ALGORITHM_ED448 = 16,           /* RFC 8080 */
+        DNSSEC_ALGORITHM_MLDSA44 = 18,         /* draft-westerbaan-dnssec-mldsa */
         DNSSEC_ALGORITHM_INDIRECT = 252,
         DNSSEC_ALGORITHM_PRIVATEDNS,
         DNSSEC_ALGORITHM_PRIVATEOID,

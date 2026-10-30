@@ -33,10 +33,16 @@ int acquire_tpm2_key(
                 const Argon2IdParameters *argon2id_params,
                 struct iovec *ret_decrypted_key);
 
+int cryptsetup_tpm2_unlock_auto(
+                struct crypt_device *cd,
+                int *ret_keyslot,
+                char **ret_passphrase);
+
 int find_tpm2_auto_data(
                 struct crypt_device *cd,
                 uint32_t search_pcr_mask,
                 int start_token,
+                int log_level,
                 uint32_t *ret_hash_pcr_mask,
                 uint16_t *ret_pcr_bank,
                 struct iovec *ret_pubkey,

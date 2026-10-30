@@ -25,6 +25,7 @@
 #include "procfs-util.h"
 #include "selinux-util.h"
 #include "set.h"
+#include "special.h"
 #include "string-util.h"
 #include "syslog-util.h"
 #include "time-util.h"
@@ -286,9 +287,10 @@ static int client_context_read_cgroup(Manager *m, ClientContext *c, const char *
         /* Try to acquire the current cgroup path */
         r = cg_pid_get_path_shifted(c->pid, m->cgroup_root, &t);
         if (r < 0 || empty_or_root(t)) {
-                /* We use the unit ID passed in as fallback if we have nothing cached yet and cg_pid_get_path_shifted()
-                 * failed or process is running in a root cgroup. Zombie processes are automatically migrated to root cgroup
-                 * on cgroup v1 and we want to be able to map log messages from them too. */
+                /* We use the unit ID passed in as fallback if cg_pid_get_path_shifted() failed (e.g. because
+                 * the process already exited by the time we process the stdout stream it connected to us) or
+                 * the process is running in a root cgroup. Zombie processes are automatically migrated to root
+                 * cgroup on cgroup v1 and we want to be able to map log messages from them too. */
                 if (unit_id && !c->unit) {
                         c->unit = strdup(unit_id);
                         if (c->unit)
@@ -539,6 +541,19 @@ static void client_context_really_refresh(
         if (timestamp == USEC_INFINITY)
                 timestamp = now(CLOCK_MONOTONIC);
 
+        /* If the caller tells us about a unit (i.e. the one a stdout stream was opened for, which is always
+         * a system unit), but we have the process cached as part of PID 1's own cgroup, then the cached data
+         * is stale: on kernels lacking CLONE_INTO_CGROUP sd-executor logs a few messages while still in
+         * init.scope, and only then attaches itself to the unit's cgroup and connects stdout/stderr to
+         * us. Flush out everything we know in that case, so that we don't keep sd-executor's identity or
+         * init.scope's per-unit settings around. If the process is still around we'll reacquire everything
+         * below, and if it already exited we'll at least use the stream's unit ID as fallback. Note that we
+         * do not do this if the cached data refers to any other unit, since processes of a unit might very
+         * well have been migrated elsewhere (e.g. into a session scope) while still writing to the stream
+         * they inherited. */
+        if (unit_id && streq_ptr(c->unit, SPECIAL_INIT_SCOPE) && !streq(unit_id, SPECIAL_INIT_SCOPE))
+                client_context_reset(m, c);
+
         client_context_read_uid_gid(c, ucred);
         client_context_read_basic(c);
         (void) client_context_read_label(c, label);
@@ -598,6 +613,14 @@ void client_context_maybe_refresh(
                 goto refresh;
 
         if (label && !streq_ptr(label, c->label))
+                goto refresh;
+
+        /* If the unit the caller told us about (i.e. the one a stdout stream was opened for) doesn't match
+         * the cached data, then the process likely was moved to a different cgroup since we cached it. This
+         * happens in particular for sd-executor on kernels lacking CLONE_INTO_CGROUP: it logs a few messages
+         * while still in the service manager's cgroup, and then attaches itself to the unit's cgroup before
+         * connecting stdout/stderr to us. */
+        if (unit_id && !streq_ptr(unit_id, c->unit) && !streq_ptr(unit_id, c->user_unit))
                 goto refresh;
 
         return;

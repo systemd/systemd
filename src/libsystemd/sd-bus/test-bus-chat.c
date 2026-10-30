@@ -645,9 +645,9 @@ TEST(chat) {
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
-        ASSERT_OK(sd_fiber_new(e, "client-1", client1, NULL, /* destroy= */ NULL, &f_client1));
-        ASSERT_OK(sd_fiber_new(e, "client-2", client2, NULL, /* destroy= */ NULL, &f_client2));
-        ASSERT_OK(sd_fiber_new(e, "server", server, bus, /* destroy= */ NULL, &f_server));
+        ASSERT_OK(sd_fiber_new(e, "client-1", client1, NULL, &f_client1));
+        ASSERT_OK(sd_fiber_new(e, "client-2", client2, NULL, &f_client2));
+        ASSERT_OK(sd_fiber_new(e, "server", server, bus, &f_server));
 
         ASSERT_OK(sd_event_loop(e));
 

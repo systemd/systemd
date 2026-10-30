@@ -25,6 +25,7 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "hostname-setup.h"
 #include "initrd-util.h"
 #include "iovec-util.h"
 #include "mount-util.h"
@@ -33,6 +34,8 @@
 #include "networkd-address.h"
 #include "networkd-address-label.h"
 #include "networkd-address-pool.h"
+#include "networkd-dhcp4.h"
+#include "networkd-dhcp6.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-manager-bus.h"
@@ -568,6 +571,66 @@ static int manager_set_keep_configuration(Manager *m) {
         return 0;
 }
 
+static int on_hostname_change(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        _cleanup_free_ char *hostname = NULL;
+        Manager *m = ASSERT_PTR(userdata);
+        Link *link;
+
+        /* Pollers are woken up when the hostname is changed in any UTS namespace, hence check if ours
+         * has actually changed. */
+        hostname = gethostname_malloc();
+        if (!hostname) {
+                log_oom_warning();
+                return 0;
+        }
+
+        if (streq_ptr(hostname, m->kernel_hostname))
+                return 0;
+
+        log_debug("System hostname changed to '%s', updating hostname in DHCP clients.", hostname);
+
+        free_and_replace(m->kernel_hostname, hostname);
+
+        HASHMAP_FOREACH(link, m->links_by_index) {
+                (void) dhcp4_update_hostname(link);
+                (void) dhcp6_update_hostname(link);
+        }
+
+        return 0;
+}
+
+static int manager_watch_hostname(Manager *m) {
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert(m);
+
+        /* The kernel wakes up pollers of this file when the hostname is changed. */
+        fd = open("/proc/sys/kernel/hostname", O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (fd < 0) {
+                log_warning_errno(errno, "Failed to open /proc/sys/kernel/hostname, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_event_add_io(m->event, &m->hostname_event_source, fd, /* events= */ 0, on_hostname_change, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add hostname event source: %m");
+
+        r = sd_event_source_set_io_fd_own(m->hostname_event_source, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to pass ownership of hostname file descriptor to event source: %m");
+
+        TAKE_FD(fd);
+
+        (void) sd_event_source_set_description(m->hostname_event_source, "hostname");
+
+        m->kernel_hostname = gethostname_malloc();
+        if (!m->kernel_hostname)
+                return log_oom();
+
+        return 0;
+}
+
 int manager_setup(Manager *m) {
         _cleanup_close_ int rtnl_fd = -EBADF, varlink_fd = -EBADF, varlink_metrics_fd = -EBADF, resolve_hook_fd = -EBADF;
         int r;
@@ -629,6 +692,10 @@ int manager_setup(Manager *m) {
                 return r;
 
         r = manager_connect_udev(m);
+        if (r < 0)
+                return r;
+
+        r = manager_watch_hostname(m);
         if (r < 0)
                 return r;
 
@@ -777,6 +844,7 @@ Manager* manager_free(Manager *m) {
         m->address_labels_by_section = hashmap_free(m->address_labels_by_section);
 
         sd_event_source_unref(m->speed_meter_event_source);
+        sd_event_source_unref(m->hostname_event_source);
         sd_event_unref(m->event);
 
         sd_device_monitor_unref(m->device_monitor);
@@ -790,6 +858,7 @@ Manager* manager_free(Manager *m) {
 
         free(m->dynamic_timezone);
         free(m->dynamic_hostname);
+        free(m->kernel_hostname);
 
         safe_close(m->ethtool_fd);
         safe_close(m->persistent_storage_fd);

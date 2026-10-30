@@ -34,7 +34,6 @@ executables += [
         },
         executable_template + {
                 'name' : 'localectl',
-                'public' : true,
                 'sources' : files('localectl.c'),
         },
         test_template + {

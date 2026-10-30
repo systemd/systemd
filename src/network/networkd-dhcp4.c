@@ -272,6 +272,10 @@ static int dhcp4_remove_address_and_routes(Link *link, bool only_marked) {
                 RET_GATHER(ret, address_remove_and_cancel(address, link));
         }
 
+        if (!only_marked)
+                /* Also drop pending requests when the lease is lost or the client is stopped. */
+                RET_GATHER(ret, link_drop_requests(link, NETWORK_CONFIG_SOURCE_DHCP4));
+
         return ret;
 }
 
@@ -510,7 +514,9 @@ static int dhcp4_request_route_auto(
                 route->nexthop.gw = IN_ADDR_NULL;
                 route->prefsrc = IN_ADDR_NULL;
 
-        } else if (in4_addr_equal(&route->dst.in, &address)) {
+        } else if (route->dst_prefixlen == 32 && in4_addr_equal(&route->dst.in, &address)) {
+                /* The destination is masked, hence a larger network also compares equal when the acquired
+                 * address has no host bits set, e.g. the lower address of a /31. See RFC 3021. */
                 if (in4_addr_is_set(gw))
                         log_link_debug(link, "DHCP: requested route destination "IPV4_ADDRESS_FMT_STR"/%u is equivalent to the acquired address, "
                                        "ignoring gateway address "IPV4_ADDRESS_FMT_STR,
@@ -1306,10 +1312,12 @@ static int dhcp4_set_hostname(Link *link) {
         }
 
         r = sd_dhcp_client_set_hostname(link->dhcp_client, hn);
-        if (r == -EINVAL && hostname)
-                /* Ignore error when the machine's hostname is not suitable to send in DHCP packet. */
+        if (r == -EINVAL && hostname) {
+                /* Ignore error when the machine's hostname is not suitable to send in DHCP packet, but
+                 * do not keep sending the previous hostname. */
                 log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set hostname from kernel hostname, ignoring: %m");
-        else if (r < 0)
+                (void) sd_dhcp_client_set_hostname(link->dhcp_client, NULL);
+        } else if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set hostname: %m");
 
         return 0;
@@ -1723,6 +1731,60 @@ int dhcp4_update_mac(Link *link) {
                 if (r < 0)
                         return r;
         }
+
+        return 0;
+}
+
+static bool dhcp4_hostname_is_from_lease(Link *link) {
+        _cleanup_free_ char *hostname = NULL;
+        const char *dhcpname;
+
+        assert(link);
+        assert(link->manager);
+
+        if (!link->dhcp_lease)
+                return false;
+
+        if (sd_dhcp_lease_get_hostname(link->dhcp_lease, &dhcpname) < 0)
+                return false;
+
+        /* An overlong hostname in the lease is shortened when it is set as the system hostname. */
+        if (shorten_overlong(dhcpname, &hostname) < 0)
+                return false;
+
+        return streq_ptr(link->manager->kernel_hostname, hostname);
+}
+
+int dhcp4_update_hostname(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (!link->dhcp_client || !link->network)
+                return 0;
+
+        /* No hostname is sent when disabled or anonymized, and an explicitly configured one does not
+         * follow the system hostname. */
+        if (!link->network->dhcp_send_hostname ||
+            !link->network->dhcp_send_hostname_updates ||
+            link->network->dhcp_anonymize ||
+            link->network->dhcp_hostname)
+                return 0;
+
+        r = dhcp4_set_hostname(link);
+        if (r < 0)
+                return r;
+
+        /* If the hostname was set from the current lease, the server already knows it. The new hostname
+         * will be sent on the next renewal. */
+        if (dhcp4_hostname_is_from_lease(link))
+                return 0;
+
+        /* Send the new hostname to the server now, rather than on the next renewal. If the client is not
+         * bound yet, this does nothing, and the new hostname will be sent in the next message anyway. */
+        r = sd_dhcp_client_send_renew(link->dhcp_client);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to renew lease after hostname change: %m");
 
         return 0;
 }

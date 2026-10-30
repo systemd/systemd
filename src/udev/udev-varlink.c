@@ -182,9 +182,9 @@ int manager_start_varlink_server(Manager *manager, int fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
-        /* This needs to be after the inotify and uevent handling, to make sure that the ping is send back
+        /* This needs to be after the device watch and uevent handling, to make sure that the ping is send back
          * after fully processing the pending uevents (including the synthetic ones we may create due to
-         * inotify events). */
+         * device watch events). */
         r = sd_varlink_server_attach_event(v, manager->event, EVENT_PRIORITY_VARLINK);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach Varlink connection to event loop: %m");

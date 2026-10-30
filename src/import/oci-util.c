@@ -16,6 +16,7 @@
 #include "parse-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 
 bool oci_image_is_valid(const char *n) {
         bool slash = true;
@@ -77,7 +78,7 @@ int oci_registry_is_valid(const char *n) {
 }
 
 bool oci_tag_is_valid(const char *n) {
-        if (!n)
+        if (!n || isempty(n))
                 return false;
 
         /* As per https://github.com/opencontainers/distribution-spec/blob/main/spec.md, accept the following regex:
@@ -89,7 +90,7 @@ bool oci_tag_is_valid(const char *n) {
                 return false;
 
         size_t l = strspn(n + 1, ALPHANUMERICAL "._-");
-        if (l > 126)
+        if (l > 127)
                 return false;
         if (n[1+l] != 0)
                 return false;
@@ -108,7 +109,11 @@ int oci_ref_parse(
         assert(ref);
 
         _cleanup_free_ char *without_tag = NULL, *tag = NULL;
-        const char *t = strrchr(ref, ':');
+
+        /* Look for the tag separator only after the last "/", so that we don't mistake the port number of a
+         * registry for a tag, e.g. so that "quay.io:443/fedora/fedora" is parsed correctly. */
+        const char *slash = strrchr(ref, '/');
+        const char *t = strrchr(slash ?: ref, ':');
         if (t) {
                 tag = strdup(t + 1);
                 if (!tag)
@@ -320,6 +325,27 @@ char* oci_digest_string(const struct iovec *iovec) {
                 return NULL;
 
         return strjoin("sha256:", h);
+}
+
+/* Docker's "Image Manifest V2, Schema 2" format, which the OCI image format was standardized from, has the
+ * same structure as the OCI image index, image manifest, image configuration and gzip compressed layers,
+ * just with different media types. Many registries still serve images in that format, hence accept both.
+ * Docker's older schema 1 manifests are a different format, and are not supported. */
+
+bool oci_media_type_is_index(const char *t) {
+        return STRPTR_IN_SET(t, OCI_MEDIA_TYPES_INDEX);
+}
+
+bool oci_media_type_is_manifest(const char *t) {
+        return STRPTR_IN_SET(t, OCI_MEDIA_TYPES_MANIFEST);
+}
+
+bool oci_media_type_is_config(const char *t) {
+        return STRPTR_IN_SET(t, OCI_MEDIA_TYPES_CONFIG);
+}
+
+bool oci_media_type_is_layer(const char *t) {
+        return STRPTR_IN_SET(t, OCI_MEDIA_TYPES_LAYER);
 }
 
 int oci_make_manifest_url(

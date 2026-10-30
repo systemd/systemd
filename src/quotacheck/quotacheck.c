@@ -10,6 +10,15 @@
 #include "process-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-quotacheck\0",
+        "Check file system quotas.",
+        .argspec = "[PATH]\0",
+        .man_pages = "systemd-quotacheck@.service(8)\0",
+        .option_namespace = "common",
+);
 
 typedef enum QuotaCheckMode {
         QUOTA_CHECK_AUTO,
@@ -69,9 +78,10 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        if (argc > 2)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program expects one or no arguments.");
+        char **args = NULL;
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 1, &args);
+        if (r <= 0)
+                return r;
 
         umask(0022);
 
@@ -97,8 +107,8 @@ static int run(int argc, char *argv[]) {
         }
 
         _cleanup_free_ char *path = NULL;
-        if (argc == 2) {
-                path = strdup(argv[1]);
+        if (args[0]) {
+                path = strdup(args[0]);
                 if (!path)
                         return log_oom();
         }

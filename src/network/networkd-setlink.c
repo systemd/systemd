@@ -741,7 +741,16 @@ int link_request_to_set_addrgen_mode(Link *link) {
         int r;
 
         assert(link);
-        assert(link->network);
+
+        if (!link->network)
+                return 0;
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return 0;
+
+        /* CAN devices do not support IPv6. */
+        if (link->iftype == ARPHRD_CAN)
+                return 0;
 
         if (!socket_ipv6_is_supported())
                 return 0;

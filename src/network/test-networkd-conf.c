@@ -4,6 +4,7 @@
 #include "hexdecoct.h"
 #include "net-condition.h"
 #include "networkd-address.h"
+#include "networkd-dhcp-server-static-lease.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-route.h"
@@ -236,6 +237,117 @@ TEST(config_parse_address) {
         test_config_parse_address_one("::1/128", AF_INET6, 1, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 128);
         test_config_parse_address_one("::1/129", AF_INET6, 0, NULL, 0);
         test_config_parse_address_one("::1/-1", AF_INET6, 0, NULL, 0);
+}
+
+static void test_config_parse_dhcp_static_lease_one(
+                const char *hwaddr,
+                const char *client_identifier,
+                const char *iaid,
+                const char *duid_type,
+                const char *duid_rawdata,
+                const void *expected,
+                size_t expected_size) {
+
+        static const struct {
+                const char *lvalue;
+                DHCPStaticLeaseConfParser ltype;
+        } settings[] = {
+                { "ClientIdentifier", DHCP_STATIC_LEASE_CLIENT_IDENTIFIER },
+                { "IAID",             DHCP_STATIC_LEASE_IAID              },
+                { "DUIDType",         DHCP_STATIC_LEASE_DUID_TYPE         },
+                { "DUIDRawData",      DHCP_STATIC_LEASE_DUID_RAW_DATA     },
+        };
+        const char *values[] = { client_identifier, iaid, duid_type, duid_rawdata };
+        _cleanup_(manager_freep) Manager *manager = NULL;
+        _cleanup_(network_unrefp) Network *network = NULL;
+        DHCPStaticLease *lease;
+
+        assert_cc(ELEMENTSOF(settings) == ELEMENTSOF(values));
+
+        log_debug("/* %s(MACAddress=%s, ClientIdentifier=%s, IAID=%s, DUIDType=%s, DUIDRawData=%s) */",
+                  __func__, strnull(hwaddr), strnull(client_identifier), strnull(iaid),
+                  strnull(duid_type), strnull(duid_rawdata));
+
+        ASSERT_OK(manager_new(&manager, /* test_mode= */ true));
+        ASSERT_NOT_NULL(network = new0(Network, 1));
+        network->n_ref = 1;
+        network->manager = manager;
+        ASSERT_NOT_NULL(network->filename = strdup("hogehoge.network"));
+
+        ASSERT_OK_ZERO(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", 0, "*",
+                                                  &network->match.ifname, network));
+        ASSERT_OK_ZERO(config_parse_dhcp_static_lease_address(
+                                       "network", "filename", 1, "section", 1,
+                                       "Address", 0, "10.1.1.2", NULL, network));
+        if (hwaddr)
+                ASSERT_OK_ZERO(config_parse_dhcp_static_lease_hwaddr(
+                                               "network", "filename", 1, "section", 1,
+                                               "MACAddress", 0, hwaddr, NULL, network));
+        FOREACH_ELEMENT(setting, settings) {
+                const char *v = values[setting - settings];
+
+                if (v)
+                        ASSERT_OK_ZERO(config_parse_dhcp_static_lease_section(
+                                                       "network", "filename", 1, "section", 1,
+                                                       setting->lvalue, setting->ltype, v, NULL, network));
+        }
+        ASSERT_OK(network_verify(network));
+
+        if (!expected) {
+                ASSERT_TRUE(hashmap_isempty(network->dhcp_static_leases_by_section));
+                return;
+        }
+
+        ASSERT_EQ(hashmap_size(network->dhcp_static_leases_by_section), 1u);
+        ASSERT_NOT_NULL(lease = hashmap_first(network->dhcp_static_leases_by_section));
+        ASSERT_EQ(lease->client_id.size, expected_size);
+        ASSERT_EQ(memcmp(lease->client_id.raw, expected, expected_size), 0);
+}
+
+TEST(config_parse_dhcp_static_lease) {
+        static const uint8_t by_hwaddr[] = { 0x01, 0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc };
+        static const uint8_t by_iaid_duid[] = {
+                0xff,                   /* type: IAID and DUID */
+                0x12, 0x34, 0x56, 0x78, /* IAID */
+                0x00, 0x02,             /* DUID type: vendor */
+                0x00, 0x00, 0xab, 0x11, /* DUID data */
+        };
+        static const uint8_t by_iaid_duid_numeric_type[] = {
+                0xff,                   /* type: IAID and DUID */
+                0x00, 0x00, 0x00, 0x01, /* IAID */
+                0x12, 0x34,             /* DUID type: 0x1234 */
+                0xab,                   /* DUID data */
+        };
+
+        /* ClientIdentifier=mac, the default */
+        test_config_parse_dhcp_static_lease_one("12:34:56:78:9a:bc", NULL, NULL, NULL, NULL,
+                                                by_hwaddr, sizeof(by_hwaddr));
+        test_config_parse_dhcp_static_lease_one("12:34:56:78:9a:bc", "mac", NULL, NULL, NULL,
+                                                by_hwaddr, sizeof(by_hwaddr));
+        test_config_parse_dhcp_static_lease_one("12:34:56:78:9a:bc", "mac", "0x12345678", "vendor", "00:00:ab:11",
+                                                by_hwaddr, sizeof(by_hwaddr));
+        test_config_parse_dhcp_static_lease_one(NULL, NULL, NULL, NULL, NULL, NULL, 0);
+        test_config_parse_dhcp_static_lease_one(NULL, "mac", "0x12345678", "vendor", "00:00:ab:11", NULL, 0);
+
+        /* ClientIdentifier=duid, MACAddress= is ignored */
+        test_config_parse_dhcp_static_lease_one(NULL, "duid", "0x12345678", "vendor", "00:00:ab:11",
+                                                by_iaid_duid, sizeof(by_iaid_duid));
+        test_config_parse_dhcp_static_lease_one("12:34:56:78:9a:bc", "duid", "0x12345678", "vendor", "00:00:AB:11",
+                                                by_iaid_duid, sizeof(by_iaid_duid));
+        test_config_parse_dhcp_static_lease_one(NULL, "duid", "1", "4660", "ab",
+                                                by_iaid_duid_numeric_type, sizeof(by_iaid_duid_numeric_type));
+
+        /* ClientIdentifier=duid without IAID=, DUIDType=, or DUIDRawData= */
+        test_config_parse_dhcp_static_lease_one("12:34:56:78:9a:bc", "duid", NULL, "vendor", "00:00:ab:11", NULL, 0);
+        test_config_parse_dhcp_static_lease_one("12:34:56:78:9a:bc", "duid", "0x12345678", NULL, "00:00:ab:11", NULL, 0);
+        test_config_parse_dhcp_static_lease_one("12:34:56:78:9a:bc", "duid", "0x12345678", "vendor", NULL, NULL, 0);
+
+        /* Invalid values make the section dropped */
+        test_config_parse_dhcp_static_lease_one("12:34:56:78:9a:bc", "duid", "-1", "vendor", "00:00:ab:11", NULL, 0);
+        test_config_parse_dhcp_static_lease_one("12:34:56:78:9a:bc", "duid", "0x12345678", "hoge", "00:00:ab:11", NULL, 0);
+        test_config_parse_dhcp_static_lease_one("12:34:56:78:9a:bc", "duid", "0x12345678", "vendor", "00:xy", NULL, 0);
+        test_config_parse_dhcp_static_lease_one("12:34:56:78:9a:bc", "hoge", "0x12345678", "vendor", "00:00:ab:11", NULL, 0);
+        test_config_parse_dhcp_static_lease_one("12:34:56:78:9a:bc", "mac", NULL, "hoge", NULL, NULL, 0);
 }
 
 TEST(config_parse_match_ifnames) {

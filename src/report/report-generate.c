@@ -2,7 +2,10 @@
 
 #include "sd-json.h"
 
+#include "iovec-util.h"
+#include "json-util.h"
 #include "log.h"
+#include "random-util.h"
 #include "report.h"
 #include "report-generate.h"
 #include "report-sign.h"
@@ -16,11 +19,19 @@ int context_build_report(Context *context, sd_json_variant **ret) {
         assert(context);
         assert(ret);
 
+        /* Generate a unique ID for the report. */
+        uint8_t report_id[32];
+        r = crypto_random_bytes(report_id, sizeof(report_id));
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate report ID: %m");
+
         usec_t ts = now(CLOCK_REALTIME);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *report = NULL;
         r = sd_json_buildo(&report,
                            SD_JSON_BUILD_PAIR_STRING("mediaType", "application/vnd.io.systemd.report"),
+                           SD_JSON_BUILD_PAIR_BASE64("reportID", report_id, sizeof(report_id)),
+                           SD_JSON_BUILD_PAIR_CONDITION(iovec_is_set(context->nonce), "nonce", JSON_BUILD_IOVEC_BASE64(context->nonce)),
                            SD_JSON_BUILD_PAIR("timestamp",
                                               SD_JSON_BUILD_STRING(FORMAT_TIMESTAMP_STYLE(ts, TIMESTAMP_UTC))),
                            SD_JSON_BUILD_PAIR("metrics",

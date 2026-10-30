@@ -111,4 +111,21 @@ TEST(secure_bits_mix) {
         }
 }
 
+TEST(secure_bits_keep_locked) {
+        int locked = (1 << SECURE_EXEC_RESTRICT_FILE) | (1 << SECURE_EXEC_RESTRICT_FILE_LOCKED);
+
+        /* Nothing locked, the wanted bits win. */
+        ASSERT_EQ(secure_bits_keep_locked(0, 1 << SECURE_NOROOT), 1 << SECURE_NOROOT);
+        ASSERT_EQ(secure_bits_keep_locked(1 << SECURE_NOROOT, 0), 0);
+
+        /* A locked pair stays as it is, everything else follows the wanted bits. */
+        ASSERT_EQ(secure_bits_keep_locked(locked, 0), locked);
+        ASSERT_EQ(secure_bits_keep_locked(locked, 1 << SECURE_EXEC_DENY_INTERACTIVE),
+                  locked | (1 << SECURE_EXEC_DENY_INTERACTIVE));
+        ASSERT_EQ(secure_bits_keep_locked(locked | (1 << SECURE_KEEP_CAPS), 1 << SECURE_EXEC_RESTRICT_FILE), locked);
+
+        /* A lock on a cleared bit keeps it cleared. */
+        ASSERT_EQ(secure_bits_keep_locked(1 << SECURE_NOROOT_LOCKED, 1 << SECURE_NOROOT), 1 << SECURE_NOROOT_LOCKED);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);

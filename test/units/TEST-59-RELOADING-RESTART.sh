@@ -116,13 +116,13 @@ set -o pipefail
 EXIT_STATUS=88
 LEAVE=0
 
-function reload() {
+reload() {
     systemd-notify --reloading --status="Adding 11 to exit status"
     EXIT_STATUS=\$((EXIT_STATUS + 11))
     systemd-notify --ready --status="Back running"
 }
 
-function leave() {
+leave() {
     systemd-notify --stopping --status="Adding 7 to exit status"
     EXIT_STATUS=\$((EXIT_STATUS + 7))
     LEAVE=1

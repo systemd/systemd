@@ -69,6 +69,7 @@ typedef struct Manager {
         OrderedHashmap *user_journals;
 
         SeqnumData *seqnum;
+        JournalCounters *counters;
 
         char *buffer;
 
@@ -120,6 +121,7 @@ typedef struct Manager {
         ClientContext *pid1_context; /* the context of PID 1 */
 
         sd_varlink_server *varlink_server;
+        sd_varlink_server *metrics_varlink_server;
 
         /* timestamp of most recently processed log messages from each source (CLOCK_REALTIME for the first
          * two, CLOCK_BOOTTIME for the other) */
@@ -191,5 +193,4 @@ int manager_start_or_stop_idle_timer(Manager *m);
 void manager_reopen_journals(Manager *m, const JournalConfig *old);
 
 int manager_map_seqnum_file(Manager *m, const char *fname, size_t size, void **ret);
-void manager_unmap_seqnum_file(void *p, size_t size);
 int manager_unlink_seqnum_file(Manager *m, const char *fname);

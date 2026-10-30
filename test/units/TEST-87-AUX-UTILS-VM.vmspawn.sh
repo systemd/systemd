@@ -98,8 +98,7 @@ echo "controlAddress exposed in Machine.List"
 # Exercise the MachineInstance varlink interface directly via varlinkctl.
 # Look up the varlink address from machined. Do this BEFORE machinectl poweroff since poweroff
 # is destructive (either kills the machine via signal or sends ACPI shutdown).
-VARLINK_ADDR=$(varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List "{\"name\":\"$MACHINE\"}" | jq -r '.controlAddress')
-assert_neq "$VARLINK_ADDR" "null"
+VARLINK_ADDR=$(machine_control_address "$MACHINE")
 
 # Describe should reflect a running VM
 STATUS=$(varlinkctl call "$VARLINK_ADDR" io.systemd.MachineInstance.Describe '{}')
@@ -199,9 +198,7 @@ for i in $(seq 1 5); do
 
     wait_for_machine "$STRESS_MACHINE" "$STRESS_PID" "$WORKDIR/vmspawn-stress.log"
 
-    STRESS_ADDR=$(varlinkctl call /run/systemd/machine/io.systemd.Machine \
-        io.systemd.Machine.List "{\"name\":\"$STRESS_MACHINE\"}" | jq -r '.controlAddress')
-    assert_neq "$STRESS_ADDR" "null"
+    STRESS_ADDR=$(machine_control_address "$STRESS_MACHINE")
 
     # Rapid pause/resume/describe cycles
     for _ in $(seq 1 3); do
@@ -230,9 +227,7 @@ systemd-vmspawn \
 VMSPAWN_PID=$!
 
 wait_for_machine "$MACHINE" "$VMSPAWN_PID" "$WORKDIR/vmspawn.log"
-VARLINK_ADDR=$(varlinkctl call /run/systemd/machine/io.systemd.Machine \
-    io.systemd.Machine.List "{\"name\":\"$MACHINE\"}" | jq -r '.controlAddress')
-assert_neq "$VARLINK_ADDR" "null"
+VARLINK_ADDR=$(machine_control_address "$MACHINE")
 
 # --- Parallel multi-machine dispatch tests ---
 # Launch a second VM to test machinectl operating on multiple machines simultaneously.
@@ -255,9 +250,7 @@ VMSPAWN2_PID=$!
 wait_for_machine "$MACHINE2" "$VMSPAWN2_PID" "$WORKDIR/vmspawn2.log"
 echo "Second machine '$MACHINE2' registered"
 
-VARLINK_ADDR2=$(varlinkctl call /run/systemd/machine/io.systemd.Machine \
-    io.systemd.Machine.List "{\"name\":\"$MACHINE2\"}" | jq -r '.controlAddress')
-assert_neq "$VARLINK_ADDR2" "null"
+VARLINK_ADDR2=$(machine_control_address "$MACHINE2")
 
 # Parallel pause: both machines at once
 machinectl pause "$MACHINE" "$MACHINE2"
@@ -291,5 +284,23 @@ echo "Parallel terminate succeeded, both VMs gone"
 timeout 10 bash -c "while kill -0 '$VMSPAWN_PID' 2>/dev/null; do sleep .5; done"
 timeout 10 bash -c "while kill -0 '$VMSPAWN2_PID' 2>/dev/null; do sleep .5; done"
 echo "Both vmspawn processes exited"
+
+# --- QEMU startup failure ---
+# With a console PTY, vmspawn must still show QEMU's own error when QEMU refuses to start.
+if SYSTEMD_VMSPAWN_QEMU_EXTRA="-device does-not-exist" timeout 30 systemd-vmspawn \
+    --directory="$WORKDIR/root" \
+    --linux="$KERNEL" \
+    --tpm=no \
+    --console=read-only \
+    &>"$WORKDIR/vmspawn-qemu-error.log"; then
+    echo "vmspawn unexpectedly succeeded with an unknown QEMU device"
+    exit 1
+fi
+if ! grep "'does-not-exist' is not a valid device model name" "$WORKDIR/vmspawn-qemu-error.log"; then
+    echo "Full vmspawn log:"
+    cat "$WORKDIR/vmspawn-qemu-error.log"
+    exit 1
+fi
+echo "QEMU's error is shown when it fails to start"
 
 echo "All vmspawn QMP-varlink bridge tests passed"

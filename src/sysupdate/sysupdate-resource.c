@@ -26,6 +26,7 @@
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "sha256.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "string-table.h"
@@ -465,16 +466,10 @@ static int process_magic_file(
         if (!e)
                 return 0;
 
-        /* SHA256 hash of an empty file */
-        static const uint8_t expected_hash[] = {
-                0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f, 0xb9, 0x24,
-                0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55,
-        };
-
         /* Even if we ignore if people have non-empty files for this file, let's nonetheless warn about it,
          * so that people fix it. After all we want to retain liberty to maybe one day place some useful data
          * inside it */
-        if (!iovec_equal(&IOVEC_MAKE(expected_hash, sizeof(expected_hash)), hash))
+        if (!iovec_equal(&IOVEC_MAKE(SHA256_EMPTY, SHA256_DIGEST_SIZE), hash)) /* Expect the hash of an empty file */
                 log_warning("Hash of best before marker file '%s' has unexpected value, proceeding anyway.", fn);
 
         usec_t best_before;
@@ -840,11 +835,9 @@ int resource_resolve_path(
                 if (S_ISBLK(st.st_mode) && root)
                         return log_error_errno(SYNTHETIC_ERRNO(EPERM), "When using --root= or --image= access to device nodes is prohibited.");
 
-                if (S_ISREG(st.st_mode) || S_ISBLK(st.st_mode)) {
+                if (S_ISREG(st.st_mode) || S_ISBLK(st.st_mode))
                         /* Not a directory, hence no need to find backing block device for the path */
-                        free_and_replace(rr->path, resolved);
-                        return 0;
-                }
+                        return free_and_replace(rr->path, resolved);
 
                 if (!S_ISDIR(st.st_mode))
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR), "Target path '%s' does not refer to regular file, directory or block device, refusing.",  rr->path);
@@ -897,8 +890,7 @@ int resource_resolve_path(
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve '%s' (relative to '%s'): %m", rr->path, relative_to);
 
-                free_and_replace(rr->path, resolved);
-                return 0;
+                return free_and_replace(rr->path, resolved);
         } else
                 return 0; /* Otherwise assume there's nothing to resolve */
 

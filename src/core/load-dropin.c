@@ -42,8 +42,8 @@ static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suff
 
                 if (null_or_empty_path(*p) > 0) {
                         /* an error usually means an invalid symlink, which is not a mask */
-                        log_unit_debug(u, "%s dependency on %s is masked by %s, ignoring.",
-                                       unit_dependency_to_string(dependency), entry, *p);
+                        log_unit_debug(u, "%s dependency is masked by %s, ignoring.",
+                                       unit_dependency_to_string(dependency), *p);
                         continue;
                 }
 

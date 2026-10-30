@@ -196,6 +196,7 @@ int cg_path_get_user_slice(const char *path, char **ret_slice);
 
 int cg_shift_path(const char *cgroup, const char *cached_root, const char **ret_shifted);
 int cg_pid_get_path_shifted(pid_t pid, const char *cached_root, char **ret_cgroup);
+int cg_pidref_get_path_shifted(const PidRef *pidref, const char *cached_root, char **ret_cgroup);
 
 int cg_pid_get_session(pid_t pid, char **ret_session);
 int cg_pidref_get_session(const PidRef *pidref, char **ret);

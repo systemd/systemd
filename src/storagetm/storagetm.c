@@ -88,7 +88,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("list-devices", NULL,
                             "List candidate block devices to operate on"):
-                        r = blockdev_list(BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_IGNORE_ZRAM, /* ret_devices= */ NULL, /* ret_n_devices= */ NULL);
+                        r = blockdev_list(BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_IGNORE_RAMDISK,
+                                          /* ret_devices= */ NULL, /* ret_n_devices= */ NULL);
                         if (r < 0)
                                 return r;
 
@@ -912,7 +913,7 @@ static int device_added(Context *c, sd_device *device) {
 
         log_device_debug(device, "new block device '%s'", sysname);
 
-        if (STARTSWITH_SET(sysname, "loop", "zram")) /* Ignore some devices */
+        if (STARTSWITH_SET(sysname, "loop", "ram", "zram")) /* Ignore some devices */
                 return 0;
 
         const char *devname;

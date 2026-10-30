@@ -65,6 +65,7 @@
 #include "image-policy.h"
 #include "in-addr-util.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "libmount-util.h"
 #include "log.h"
 #include "loop-util.h"
@@ -105,6 +106,7 @@
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
+#include "ptybroker-client.h"
 #include "ptyfwd.h"
 #include "random-util.h"
 #include "raw-clone.h"
@@ -1059,16 +1061,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("system-call-filter", "LIST|~LIST",
                             "Permit/prohibit specific system calls"): {
-                        bool negative;
-                        const char *items;
-
-                        negative = opts.arg[0] == '~';
-                        items = negative ? opts.arg + 1 : opts.arg;
+                        bool negative = opts.arg[0] == '~';
+                        const char *items = negative ? opts.arg + 1 : opts.arg;
 
                         for (;;) {
                                 _cleanup_free_ char *word = NULL;
 
-                                r = extract_first_word(&items, &word, NULL, 0);
+                                r = extract_first_word(&items, &word, /* separators= */ WHITESPACE ",", 0);
                                 if (r == 0)
                                         break;
                                 if (r == -ENOMEM)
@@ -1625,8 +1624,7 @@ static int split_boot_parameters(void) {
                         return log_oom();
         }
 
-        strv_free_and_replace(arg_parameters, kept);
-        return 0;
+        return strv_free_and_replace(arg_parameters, kept);
 }
 
 static int verify_network_interfaces_initialized(void) {
@@ -2912,8 +2910,8 @@ static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo
 
         if (pidref_is_set(pid))
                 if (pidref_kill(pid, arg_kill_signal) >= 0) {
-                        log_info("Trying to halt container by sending %s to container PID 1. Send SIGTERM again to trigger immediate termination.",
-                                 signal_to_string(si->ssi_signo));
+                        log_info("Trying to halt container by sending SIG%s to container PID 1. Send SIG%s again to trigger immediate termination.",
+                                 signal_to_string(arg_kill_signal), signal_to_string(si->ssi_signo));
                         sd_event_source_set_userdata(s, NULL);
                         sd_notify(/* unset_environment= */ false, NOTIFY_STOPPING_MESSAGE);
                         return 0;
@@ -3877,6 +3875,7 @@ static DissectImageFlags determine_dissect_image_flags(void) {
                 (arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK|DISSECT_IMAGE_GROWFS) |
                 DISSECT_IMAGE_ALLOW_USERSPACE_VERITY |
                 DISSECT_IMAGE_VERITY_SHARE |
+                DISSECT_IMAGE_TPM2_UNLOCK |
                 (arg_console_mode == CONSOLE_INTERACTIVE && arg_ask_password ? DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH : 0) |
                 ((arg_userns_ownership == USER_NAMESPACE_OWNERSHIP_FOREIGN) ? DISSECT_IMAGE_FOREIGN_UID :
                  (arg_userns_ownership != USER_NAMESPACE_OWNERSHIP_AUTO) ? DISSECT_IMAGE_IDENTITY_UID : 0);
@@ -4756,6 +4755,73 @@ static int ptyfwd_hotkey(PTYForward *f, char c, void *userdata) {
         return 0;
 }
 
+static int merge_settings_credentials(Settings *settings, const char *path) {
+        _cleanup_(machine_credential_context_done) MachineCredentialContext credentials = {};
+        int r;
+
+        assert(settings);
+        assert(path);
+
+        if (settings->credentials.n_credentials == 0 && strv_isempty(settings->load_credentials))
+                return 0;
+
+        /* Only allow LoadCredential= in trusted files */
+        char **load_credentials = settings->load_credentials;
+        if (!arg_settings_trusted && !strv_isempty(load_credentials)) {
+                log_warning("Ignoring LoadCredential= settings, file %s is not trusted.", path);
+                load_credentials = NULL;
+        }
+
+        STRV_FOREACH_PAIR(id, source, load_credentials) {
+                _cleanup_(iovec_done_erase) struct iovec iov = {};
+
+                r = machine_credential_read(*source, &iov);
+                if (r < 0) {
+                        /* As in unit files, a missing credential is not fatal if it would have been
+                         * inherited from our own credentials, or if SetCredential= provides a fallback for
+                         * it. The source is either an absolute path or a credential name. */
+                        bool inherited = !path_is_absolute(*source);
+                        bool fallback = machine_credential_find(&settings->credentials, *id) != NULL;
+                        bool missing = r == -ENOENT || (inherited && r == -ENXIO);
+
+                        if (missing && inherited) {
+                                log_full(fallback ? LOG_DEBUG : LOG_INFO,
+                                         "Credential '%s' was not passed to systemd-nspawn, %s credential '%s'.",
+                                         *source, fallback ? "using SetCredential= fallback for" : "skipping", *id);
+                                continue;
+                        }
+                        if (missing && fallback) {
+                                log_debug_errno(r, "Couldn't read credential '%s' from '%s', using SetCredential= fallback: %m",
+                                                *id, *source);
+                                continue;
+                        }
+
+                        return log_error_errno(r, "Failed to read credential '%s' from '%s': %m", *id, *source);
+                }
+
+                r = machine_credential_add(&credentials, *id, iov.iov_base, iov.iov_len);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add credential '%s': %m", *id);
+        }
+
+        /* LoadCredential= takes precedence, SetCredential= only acts as fallback. */
+        FOREACH_ARRAY(cred, settings->credentials.credentials, settings->credentials.n_credentials) {
+                if (machine_credential_find(&credentials, cred->id))
+                        continue;
+
+                r = machine_credential_add(&credentials, cred->id, cred->data, cred->size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add credential '%s': %m", cred->id);
+        }
+
+        if (credentials.n_credentials > 0 || !strv_isempty(load_credentials)) {
+                machine_credential_context_done(&arg_credentials);
+                arg_credentials = TAKE_STRUCT(credentials);
+        }
+
+        return 0;
+}
+
 static int merge_settings(Settings *settings, const char *path) {
         int rl;
 
@@ -5099,6 +5165,14 @@ static int merge_settings(Settings *settings, const char *path) {
             (settings->restrict_address_families || settings->restrict_address_families_is_allowlist)) {
                 set_free_and_replace(arg_restrict_address_families, settings->restrict_address_families);
                 arg_restrict_address_families_is_allowlist = settings->restrict_address_families_is_allowlist;
+        }
+
+        if (!FLAGS_SET(arg_settings_mask, SETTING_CREDENTIALS)) {
+                int r;
+
+                r = merge_settings_credentials(settings, path);
+                if (r < 0)
+                        return r;
         }
 
         /* The following properties can only be set through the OCI settings logic, not from the command line, hence we
@@ -5814,7 +5888,7 @@ static int run_container(
         }
 
         _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
-        if (IN_SET(arg_console_mode, CONSOLE_INTERACTIVE, CONSOLE_READ_ONLY) && !terminal_is_dumb()) {
+        if (IN_SET(arg_console_mode, CONSOLE_INTERACTIVE, CONSOLE_READ_ONLY, CONSOLE_BROKER, CONSOLE_BROKER_LOG) && !terminal_is_dumb()) {
                 r = osc_context_open_container(arg_machine, /* ret_seq= */ NULL, &osc_context_id);
                 if (r < 0)
                         return r;
@@ -5829,6 +5903,40 @@ static int run_container(
                 if (fd < 0)
                         return log_error_errno(fd, "Failed to receive master pty from the inner child: %m");
 
+                if (IN_SET(arg_console_mode, CONSOLE_BROKER, CONSOLE_BROKER_LOG)) {
+                        _cleanup_close_ int monitor_fd = -EBADF;
+                        _cleanup_free_ char *pty_name = NULL;
+
+                        /* Hand the console pty frontend (the "master" side, allocated by the inner child
+                         * inside the container's namespace) to ptybrokerd, which takes over its output. We do
+                         * not pass a backend path: it would refer to the container's private /dev/pts and thus
+                         * be meaningless on the host. In return we get a monitor connection which — like the
+                         * frontend fd in the interactive case — we forward the local terminal to. */
+
+                        /* The broker's operations are gated by polkit, hence make sure an authentication
+                         * agent is around in case we need to authenticate interactively. */
+                        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
+                        r = pty_broker_enroll_pty(
+                                        arg_runtime_scope,
+                                        fd,
+                                        arg_console_mode == CONSOLE_BROKER_LOG ? "log" : "null",
+                                        /* name= */ NULL,
+                                        /* ignore_hangup= */ true, /* getty in the container calls vhangup() on the console */
+                                        arg_ask_password,
+                                        &monitor_fd,
+                                        &pty_name);
+                        if (r < 0)
+                                return r;
+
+                        if (!arg_quiet)
+                                log_info("Broker registered console pseudo TTY under name '%s'.", pty_name);
+
+                        /* From here on the monitor connection is our forwarder "master"; drop the frontend fd,
+                         * the broker owns it now. */
+                        close_and_replace(fd, monitor_fd);
+                }
+
                 switch (arg_console_mode) {
 
                 case CONSOLE_READ_ONLY:
@@ -5836,6 +5944,8 @@ static int run_container(
 
                         _fallthrough_;
 
+                case CONSOLE_BROKER:
+                case CONSOLE_BROKER_LOG:
                 case CONSOLE_INTERACTIVE:
                         flags |= PTY_FORWARD_IGNORE_VHANGUP;
 
@@ -6114,6 +6224,7 @@ static int run(int argc, char *argv[]) {
         LIBMOUNT_NOTE(recommended);
         LIBSECCOMP_NOTE(recommended);
         LIBSELINUX_NOTE(recommended);
+        TPM2_NOTE(suggested);
         (void) dlopen_cryptsetup(LOG_DEBUG);
         (void) dlopen_libacl(LOG_DEBUG);
         (void) dlopen_libblkid(LOG_DEBUG);
@@ -6473,7 +6584,7 @@ static int run(int argc, char *argv[]) {
                                         &arg_verity_settings,
                                         arg_image, NULL, NULL);
                         if (r < 0) {
-                                log_error_errno(r, "Failed to read verity artefacts for %s: %m", arg_image);
+                                log_error_errno(r, "Failed to read verity artifacts for %s: %m", arg_image);
                                 goto finish;
                         }
 
@@ -6633,7 +6744,7 @@ static int run(int argc, char *argv[]) {
                 log_info("%s %sSpawning container %s on %s.%s",
                          glyph(GLYPH_LIGHT_SHADE), ansi_grey(), arg_machine, u ?: t, ansi_normal());
 
-                if (arg_console_mode == CONSOLE_INTERACTIVE)
+                if (IN_SET(arg_console_mode, CONSOLE_INTERACTIVE, CONSOLE_BROKER, CONSOLE_BROKER_LOG))
                         log_info("%s %sPress %sCtrl-]%s three times within 1s to kill container; two times followed by %sr%s\n"
                                  "%s %sto reboot container; two times followed by %sp%s to poweroff container.%s",
                                  glyph(GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_highlight(), ansi_normal(),
@@ -6700,7 +6811,7 @@ static int run(int argc, char *argv[]) {
 
                 r = machine_credential_add(&arg_credentials, "journal.forward_to_socket", NSPAWN_JOURNAL_SOCKET_PATH, SIZE_MAX);
                 if (r == -EEXIST) {
-                        log_error_errno(r, "Credential 'journal.forward_to_socket' already set via --set-credential=, refusing --forward-journal=.");
+                        log_error_errno(r, "Credential 'journal.forward_to_socket' already set via --set-credential= or SetCredential=, refusing --forward-journal=.");
                         goto finish;
                 }
                 if (r < 0) {

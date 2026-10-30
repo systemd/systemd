@@ -50,6 +50,13 @@
 #include "user-util.h"
 #include "varlink-io.systemd.MountFileSystem.h"
 #include "varlink-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-mountwork\0",
+        "Mount disk images on behalf of systemd-mountfsd.",
+        .option_namespace = "common",
+);
 
 #define ITERATIONS_MAX 64U
 #define RUNTIME_MAX_USEC (5 * USEC_PER_MINUTE)
@@ -410,6 +417,11 @@ static int vl_method_mount_image(
         if (r != 0)
                 return r;
 
+        uid_t peer_uid;
+        r = sd_varlink_get_peer_uid(link, &peer_uid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get client UID: %m");
+
         /* Verity data and roothash have to be either both set, or both unset. The sig can be set only if
          * the roothash is set. */
         if ((p.verity_data_fd_idx != UINT_MAX) != (p.verity_root_hash.iov_len > 0))
@@ -535,6 +547,7 @@ static int vl_method_mount_image(
                 DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES |
                 (p.verity_sharing ? DISSECT_IMAGE_VERITY_SHARE : 0) |
+                (peer_uid != 0 ? DISSECT_IMAGE_VERITY_SHARE_SAME_FILE : 0) |
                 /* Maybe the image is a bare filesystem. Note that this requires privileges, as it is
                  * classified by the policy as an 'unprotected' image and will be refused otherwise. */
                 DISSECT_IMAGE_NO_PARTITION_TABLE |
@@ -773,7 +786,7 @@ static int vl_method_mount_image(
         return sd_varlink_replybo(
                         link,
                         SD_JSON_BUILD_PAIR_VARIANT("partitions", aj),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("singleFileSystem", di->single_file_system),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("singleFileSystem", di->partition_table_type == PARTITION_BARE),
                         SD_JSON_BUILD_PAIR_STRING("imagePolicy", ps),
                         SD_JSON_BUILD_PAIR_UNSIGNED("imageSize", di->image_size),
                         SD_JSON_BUILD_PAIR_UNSIGNED("sectorSize", di->sector_size),
@@ -1330,9 +1343,9 @@ static int vl_method_make_directory(
                 void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "parentFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,        offsetof(MakeDirectoryParameters, parent_fd_idx), SD_JSON_MANDATORY },
-                { "name",                 SD_JSON_VARIANT_STRING,        json_dispatch_const_filename, offsetof(MakeDirectoryParameters, name),          SD_JSON_MANDATORY },
-                { "mode",                 _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode,    offsetof(MakeDirectoryParameters, mode),          SD_JSON_STRICT    },
+                { "parentFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,        offsetof(MakeDirectoryParameters, parent_fd_idx), SD_JSON_MANDATORY                },
+                { "name",                 SD_JSON_VARIANT_STRING,        json_dispatch_const_filename, offsetof(MakeDirectoryParameters, name),          SD_JSON_MANDATORY|SD_JSON_STRICT },
+                { "mode",                 _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode,    offsetof(MakeDirectoryParameters, mode),          SD_JSON_STRICT                   },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
@@ -1494,8 +1507,15 @@ static int run(int argc, char *argv[]) {
         LIBCRYPTO_NOTE(suggested);
         LIBCRYPTSETUP_NOTE(suggested);
         LIBMOUNT_NOTE(recommended);
+        TPM2_NOTE(suggested);
 
         log_setup();
+
+        /* The daemon passes a dummy argument to reserve space in argv[] for rename_process(), ignore it. */
+        char **args = NULL;
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 1, &args);
+        if (r <= 0)
+                return r;
 
         m = sd_listen_fds(false);
         if (m < 0)

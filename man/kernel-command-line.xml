@@ -794,6 +794,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.efivars_allow_clear=</varname></term>
+
+        <listitem><para>Controls whether to allow erasing of the boot loader's EFI variables, implemented by
+        <citerefentry><refentrytitle>systemd-efivars-clear.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.tpm2_allow_clear=</varname></term>
 
         <listitem><para>Controls whether to allow clearing of the TPM chip, implemented by

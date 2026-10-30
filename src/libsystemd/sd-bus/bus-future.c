@@ -3,25 +3,21 @@
 #include "sd-bus.h"
 #include "sd-future.h"
 
-#include "alloc-util.h"
+#include "bus-error.h"
 #include "bus-future.h"
 #include "bus-internal.h"
 #include "bus-message.h"
+#include "log.h"
 
 typedef struct BusFuture {
         sd_bus_slot *slot;
         sd_bus_message *reply;
 } BusFuture;
 
-static void* bus_future_alloc(void) {
-        return new0(BusFuture, 1);
-}
-
 static void bus_future_free(sd_future *f) {
         BusFuture *bf = ASSERT_PTR(sd_future_get_private(f));
         sd_bus_slot_unref(bf->slot);
         sd_bus_message_unref(bf->reply);
-        free(bf);
 }
 
 static int bus_future_cancel(sd_future *f) {
@@ -33,7 +29,7 @@ static int bus_future_cancel(sd_future *f) {
 
 static const sd_future_ops bus_future_ops = {
         .size = sizeof(sd_future_ops),
-        .alloc = bus_future_alloc,
+        .private_size = sizeof(BusFuture),
         .free = bus_future_free,
         .cancel = bus_future_cancel,
 };
@@ -48,8 +44,7 @@ static int bus_future_handler(sd_bus_message *m, void *userdata, sd_bus_error *r
          * resolution value alone. The reply itself is always stashed in bf->reply so
          * future_get_bus_reply() can hand back the detailed sd_bus_error (name + message) on
          * top of the bare errno. Cancellation surfaces as -ECANCELED via bus_future_cancel(),
-         * with bf->reply left NULL — callers can distinguish "got an error reply" from "no reply
-         * will arrive" by whether future_get_bus_reply() can produce a message. */
+         * with bf->reply left NULL. */
         bf->slot = sd_bus_slot_unref(bf->slot);
         bf->reply = sd_bus_message_ref(m);
 
@@ -63,9 +58,10 @@ int bus_call_future(sd_bus *bus, sd_bus_message *m, uint64_t usec, sd_future **r
         assert(bus);
         assert(m);
         assert(ret);
+        assert_return(bus->event, -ENOPKG);
 
-        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        r = sd_future_new(&bus_future_ops, &f);
+        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
+        r = sd_future_new(sd_bus_get_event(bus), &bus_future_ops, &f);
         if (r < 0)
                 return r;
 
@@ -81,16 +77,23 @@ int bus_call_future(sd_bus *bus, sd_bus_message *m, uint64_t usec, sd_future **r
 
 int future_get_bus_reply(sd_future *f, sd_bus_error *reterr_error, sd_bus_message **ret_reply) {
         BusFuture *bf = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
-        sd_bus_message *reply = ASSERT_PTR(bf->reply);
+        int r;
 
         assert(sd_future_get_ops(f) == &bus_future_ops);
-        assert(sd_future_state(f) == SD_FUTURE_RESOLVED);
 
-        if (sd_bus_message_is_method_error(reply, NULL)) {
-                if (reterr_error)
-                        return sd_bus_error_copy(reterr_error, sd_bus_message_get_error(reply));
-                return -sd_bus_message_get_errno(reply);
+        assert_return(sd_future_state(f) == SD_FUTURE_RESOLVED, -EBUSY);
+
+        r = sd_future_result(f);
+        if (r < 0) {
+                /* An error reply carries its name and message on top of the bare errno; a cancelled
+                 * call has no reply at all. */
+                if (bf->reply && reterr_error)
+                        return sd_bus_error_copy(reterr_error, sd_bus_message_get_error(bf->reply));
+
+                return sd_bus_error_set_errno(reterr_error, r);
         }
+
+        sd_bus_message *reply = ASSERT_PTR(bf->reply);
 
         if (reply->n_fds > 0 && !sd_bus_message_get_bus(reply)->accept_fd)
                 return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INCONSISTENT_MESSAGE,
@@ -102,6 +105,136 @@ int future_get_bus_reply(sd_future *f, sd_bus_error *reterr_error, sd_bus_messag
                 *ret_reply = sd_bus_message_ref(reply);
 
         return 1;
+}
+
+static void bus_signal_channel_item_destroy(void *p) {
+        sd_bus_message_unref(p);
+}
+
+static void bus_signal_channel_slot_destroy(void *p) {
+        sd_bus_slot_unref(p);
+}
+
+static int bus_signal_channel_handler(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
+        sd_channel *c = ASSERT_PTR(userdata);
+        int r;
+
+        /* sd-bus only keeps `m` alive while the callback runs, so the channel needs its own reference.
+         * Under SD_CHANNEL_OVERFLOW_DROP_LATEST, a successful push on a full channel unrefs the item right
+         * away. A reference taken after the push would then be taken on a freed message. */
+        r = sd_channel_try_push(c, sd_bus_message_ref(m));
+        if (r < 0) {
+                sd_bus_message_unref(m);
+
+                if (r == -ENOBUFS)
+                        log_debug("Bus signal channel full, dropping signal.");
+                else
+                        log_debug_errno(r, "Failed to enqueue bus signal, dropping: %m");
+        }
+
+        return 0;
+}
+
+static int bus_signal_channel_install_handler(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
+        sd_channel *c = ASSERT_PTR(userdata);
+        const sd_bus_error *e;
+        int r;
+
+        e = sd_bus_message_get_error(m);
+        if (!e)
+                return 0;
+
+        r = sd_bus_error_get_errno(e);
+        log_debug_errno(r, "Failed to install match for bus signal channel: %s", bus_error_message(e, r));
+
+        (void) sd_channel_close(c);
+        return 0;
+}
+
+static int bus_signal_channel_attach_match(
+                sd_bus *bus,
+                sd_channel *c,
+                const char *sender,
+                const char *path,
+                const char *interface,
+                const char *member) {
+
+        int r;
+
+        assert(bus);
+        assert(c);
+
+        /* The match callback gets the channel pointer without a reference. The channel releases the match
+         * slot when it is closed or freed, so the callback never runs with a freed channel. */
+        _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
+        r = sd_bus_match_signal_async(bus, &slot, sender, path, interface, member,
+                                      bus_signal_channel_handler,
+                                      bus_signal_channel_install_handler,
+                                      c);
+        if (r < 0)
+                return r;
+
+        r = sd_channel_set_slot(c, slot, bus_signal_channel_slot_destroy);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(slot);
+        return 0;
+}
+
+int bus_signal_channel_new(
+                sd_bus *bus,
+                const char *sender,
+                const char *path,
+                const char *interface,
+                const char *member,
+                size_t capacity,
+                sd_channel **ret) {
+
+        int r;
+
+        assert(bus);
+        assert(ret);
+        assert_return(bus->event, -ENOPKG);
+
+        _cleanup_(sd_channel_unrefp) sd_channel *c = NULL;
+        r = sd_channel_new(sd_bus_get_event(bus), capacity, SD_CHANNEL_OVERFLOW_WAIT, bus_signal_channel_item_destroy, &c);
+        if (r < 0)
+                return r;
+
+        r = bus_signal_channel_attach_match(bus, c, sender, path, interface, member);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(c);
+        return 0;
+}
+
+int bus_signal_channel_new_conflated(
+                sd_bus *bus,
+                const char *sender,
+                const char *path,
+                const char *interface,
+                const char *member,
+                sd_channel **ret) {
+
+        int r;
+
+        assert(bus);
+        assert(ret);
+        assert_return(bus->event, -ENOPKG);
+
+        _cleanup_(sd_channel_unrefp) sd_channel *c = NULL;
+        r = sd_channel_new_conflated(sd_bus_get_event(bus), bus_signal_channel_item_destroy, &c);
+        if (r < 0)
+                return r;
+
+        r = bus_signal_channel_attach_match(bus, c, sender, path, interface, member);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(c);
+        return 0;
 }
 
 int bus_call_suspend(
@@ -122,14 +255,10 @@ int bus_call_suspend(
         if (r < 0)
                 return sd_bus_error_set_errno(reterr_error, r);
 
-        r = sd_fiber_suspend();
-
-        /* If the future isn't resolved, the suspend was interrupted before a reply arrived (fiber
-         * cancelled, fiber-wide SD_FIBER_TIMEOUT scope expired, …). There's no reply to extract,
-         * so surface the resume error directly. When the future is resolved, future_get_bus_reply()
-         * recovers either the reply or the detailed sd_bus_error from the error reply. */
-        if (sd_future_state(f) != SD_FUTURE_RESOLVED)
+        r = sd_fiber_await(f);
+        if (r < 0)
                 return sd_bus_error_set_errno(reterr_error, r);
 
+        /* Recovers either the reply or the detailed sd_bus_error from the error reply. */
         return future_get_bus_reply(f, reterr_error, ret_reply);
 }

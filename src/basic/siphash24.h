@@ -42,4 +42,6 @@ uint64_t siphash24_finalize(struct siphash *state);
 
 uint64_t siphash24(const void *in, size_t inlen, const uint8_t k[static 16]);
 
+uint64_t siphash24_uint64(uint64_t in, const uint8_t k[static 16]);
+
 uint64_t siphash24_string(const char *s, const uint8_t k[static 16]);

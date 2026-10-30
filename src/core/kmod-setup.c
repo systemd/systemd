@@ -6,10 +6,13 @@
 #include "capability-util.h"
 #include "efi-api.h"
 #include "fileio.h"
+#include "glob-util.h"
 #include "kmod-setup.h"
 #include "log.h"
 #include "module-util.h"
+#include "proc-cmdline.h"
 #include "recurse-dir.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "virt.h"
@@ -152,10 +155,64 @@ static bool has_virtio_pci(void) {
         return has_virtio_pci_feature("virtio-pci", STRV_MAKE("pci:v00001AF4d"));
 }
 
+static bool has_virtio_bus_device(void) {
+        int r;
+
+        if (detect_vm() == VIRTUALIZATION_NONE)
+                return false;
+
+        /* Only lists devices that a virtio transport has already registered. */
+        r = dir_is_empty("/sys/bus/virtio/devices", /* ignore_hidden_or_backup= */ false);
+        if (r < 0 && r != -ENOENT)
+                log_debug_errno(r, "Failed to determine whether host has virtio devices, ignoring: %m");
+
+        return r == 0;
+}
+
+static bool has_virtio_mmio(void) {
+        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_free_ char *device = NULL;
+        int r;
+
+        if (detect_vm() == VIRTUALIZATION_NONE)
+                return false;
+
+        r = proc_cmdline_get_key("virtio_mmio.device", /* flags= */ 0, &device);
+        if (r < 0)
+                log_debug_errno(r,
+                                "Failed to read virtio-mmio device from kernel command line, ignoring: %m");
+        else if (r > 0)
+                return true;
+
+        r = safe_glob("/sys/bus/platform/devices/*/modalias", /* flags= */ 0, &paths);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_debug_errno(r, "Failed to enumerate platform devices, ignoring: %m");
+                return false;
+        }
+
+        STRV_FOREACH(p, paths) {
+                _cleanup_free_ char *alias = NULL;
+
+                r = read_one_line_file(*p, &alias);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to read %s, ignoring: %m", *p);
+                        continue;
+                }
+
+                if (strv_fnmatch(STRV_MAKE(
+                                        "acpi*:LNRO0005:*",
+                                        "of:N*T*Cvirtio,mmio",
+                                        "of:N*T*Cvirtio,mmioC*"),
+                                alias))
+                        return true;
+        }
+
+        return false;
+}
+
 static bool may_have_virtio(void) {
-        /* FIXME: strictly speaking, other virtio features, e.g. vsock, are independent of the virtio PCI
-         * or CCW device. */
-        return has_virtio_pci() || has_virtio_ccw();
+        return has_virtio_bus_device() || has_virtio_pci() || has_virtio_ccw() || has_virtio_mmio();
 }
 
 static bool in_qemu(void) {
@@ -215,6 +272,7 @@ int kmod_setup(void) {
                 { "virtiofs",                   "/sys/module/virtiofs",         false, false, may_have_virtio           },
                 { "virtio_pci",                 "/sys/module/virtio_pci",       false, false, has_virtio_pci            },
                 { "virtio_ccw",                 "/sys/module/virtio_ccw",       false, false, has_virtio_ccw            },
+                { "virtio_mmio",                "/sys/module/virtio_mmio",      false, false, has_virtio_mmio           },
 
                 /* qemu_fw_cfg would be loaded by udev later, but we want to import credentials from it super early */
                 { "qemu_fw_cfg",                "/sys/firmware/qemu_fw_cfg",    false, false, in_qemu                   },

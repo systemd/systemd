@@ -17,6 +17,7 @@ int journal_file_open_reliably(
                 uint64_t compress_threshold_bytes,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
+                const sd_id128_t *seqnum_id,
                 JournalFile **ret);
 
 JournalFile* journal_file_initiate_close(JournalFile *f, Set *deferred_closes);
@@ -25,6 +26,7 @@ int journal_file_rotate(
                 MMapCache *mmap_cache,
                 JournalFileFlags file_flags,
                 uint64_t compress_threshold_bytes,
+                const sd_id128_t *seqnum_id,
                 Set *deferred_closes);
 
 extern const struct hash_ops journal_file_hash_ops_offline_close;

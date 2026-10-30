@@ -145,11 +145,7 @@ int allocate_scope(
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        return bus_wait_for_jobs_one(
-                        w,
-                        object,
-                        BUS_WAIT_JOBS_LOG_ERROR,
-                        /* extra_args= */ NULL);
+        return bus_wait_for_jobs_one(w, object, BUS_WAIT_JOBS_LOG_ERROR);
 }
 
 int terminate_scope(sd_bus *bus, const char *scope) {

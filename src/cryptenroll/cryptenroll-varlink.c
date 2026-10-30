@@ -15,6 +15,7 @@
 #include "json-util.h"
 #include "libfido2-util.h"
 #include "path-util.h"
+#include "recovery-key.h"
 #include "string-util.h"
 #include "varlink-io.systemd.CryptEnroll.h"
 #include "varlink-util.h"
@@ -47,6 +48,7 @@ typedef struct MethodEnrollParameters {
         char *unlock_fido2_device;
         char *unlock_tpm2_device;
         char *password;
+        char *recovery_key;
         char *fido2_device;
         char *fido2_pin;
         int fido2_with_client_pin;
@@ -65,6 +67,7 @@ static void method_enroll_parameters_done(MethodEnrollParameters *p) {
         free(p->unlock_fido2_device);
         free(p->unlock_tpm2_device);
         erase_and_free(p->password);
+        erase_and_free(p->recovery_key);
         free(p->fido2_device);
         erase_and_free(p->fido2_pin);
         sd_json_variant_unref(p->wipe_slots);
@@ -155,7 +158,7 @@ static int vl_method_enroll(
                 void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "node",                      SD_JSON_VARIANT_STRING,        json_dispatch_path,        offsetof(MethodEnrollParameters, node),                          SD_JSON_MANDATORY|SD_JSON_STRICT },
+                { "node",                      SD_JSON_VARIANT_STRING,        json_dispatch_path,        offsetof(MethodEnrollParameters, node),                          SD_JSON_NULLABLE|SD_JSON_STRICT },
                 { "mechanism",                 SD_JSON_VARIANT_STRING,        json_dispatch_enroll_type, offsetof(MethodEnrollParameters, mechanism),                     SD_JSON_MANDATORY },
                 { "unlockPassword",            SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,   offsetof(MethodEnrollParameters, unlock_password),               SD_JSON_NULLABLE },
                 { "unlockKeyFile",             SD_JSON_VARIANT_STRING,        json_dispatch_path,        offsetof(MethodEnrollParameters, unlock_keyfile),                SD_JSON_NULLABLE|SD_JSON_STRICT },
@@ -163,6 +166,7 @@ static int vl_method_enroll(
                 { "unlockFido2Device",         SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,   offsetof(MethodEnrollParameters, unlock_fido2_device),           SD_JSON_NULLABLE },
                 { "unlockTpm2Device",          SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,   offsetof(MethodEnrollParameters, unlock_tpm2_device),            SD_JSON_NULLABLE },
                 { "password",                  SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,   offsetof(MethodEnrollParameters, password),                      SD_JSON_NULLABLE },
+                { "recoveryKey",               SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,   offsetof(MethodEnrollParameters, recovery_key),                  SD_JSON_NULLABLE },
                 { "fido2Device",               SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,   offsetof(MethodEnrollParameters, fido2_device),                  SD_JSON_NULLABLE },
                 { "fido2Pin",                  SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,   offsetof(MethodEnrollParameters, fido2_pin),                     SD_JSON_NULLABLE },
                 { "fido2WithClientPin",        SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate, offsetof(MethodEnrollParameters, fido2_with_client_pin),         SD_JSON_NULLABLE },
@@ -211,7 +215,13 @@ static int vl_method_enroll(
         c.enroll_type = p.mechanism;
         c.unlock_type = _UNLOCK_TYPE_INVALID;
 
-        if (strdup_to(&c.node, p.node) < 0)
+        if (!p.node) {
+                r = determine_default_node(&c.node);
+                if (r == -ENXIO)
+                        return sd_varlink_error_invalid_parameter_name(link, "node");
+                if (r < 0)
+                        return r;
+        } else if (strdup_to(&c.node, p.node) < 0)
                 return -ENOMEM;
 
         if (p.unlock_password) {
@@ -288,6 +298,20 @@ static int vl_method_enroll(
                 break;
 
         case ENROLL_RECOVERY:
+                if (p.recovery_key) {
+                        _cleanup_(erase_and_freep) char *mangled = NULL;
+
+                        r = normalize_recovery_key(p.recovery_key, &mangled);
+                        if (r == -EINVAL) /* Not properly formatted, rejecting */
+                                return sd_varlink_error_invalid_parameter_name(link, "recoveryKey");
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to normalize recovery key: %m");
+                        if (!streq(p.recovery_key, mangled))
+                                return sd_varlink_error_invalid_parameter_name(link, "recoveryKey");
+
+                        c.recovery_key = TAKE_PTR(p.recovery_key);
+                        c.recovery_key_size = strlen(c.recovery_key);
+                }
                 break;
 
         case ENROLL_FIDO2:
@@ -395,7 +419,8 @@ static int vl_method_list_slots(
                 void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "node", SD_JSON_VARIANT_STRING, json_dispatch_const_path, 0, SD_JSON_MANDATORY|SD_JSON_STRICT },
+                { "node", SD_JSON_VARIANT_STRING, json_dispatch_const_path, 0, SD_JSON_NULLABLE|SD_JSON_STRICT },
+                VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
 
@@ -404,6 +429,7 @@ static int vl_method_list_slots(
         _cleanup_free_ EnrolledSlot *slots = NULL;
         const char *node = NULL;
         size_t n_slots;
+        Hashmap **polkit_registry = ASSERT_PTR(userdata);
         int r;
 
         assert(link);
@@ -415,10 +441,24 @@ static int vl_method_list_slots(
         if (r != 0)
                 return r;
 
-        /* NB: No polkit authentication here for now, given this is read access only. */
+        r = varlink_verify_polkit_async(
+                        link,
+                        /* bus= */ NULL,
+                        "io.systemd.cryptenroll.list-slots",
+                        /* details= */ NULL,
+                        polkit_registry);
+        if (r <= 0)
+                return r;
 
         c.interactive = false;
-        if (strdup_to(&c.node, node) < 0)
+
+        if (!node) {
+                r = determine_default_node(&c.node);
+                if (r == -ENXIO)
+                        return sd_varlink_error_invalid_parameter_name(link, "node");
+                if (r < 0)
+                        return r;
+        } else if (strdup_to(&c.node, node) < 0)
                 return -ENOMEM;
 
         r = dlopen_cryptsetup(LOG_DEBUG);
@@ -450,6 +490,36 @@ static int vl_method_list_slots(
         return sd_varlink_reply(link, NULL);
 }
 
+static int vl_method_make_recovery_key(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        _cleanup_(erase_and_freep) char *recovery_key = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *rk = NULL;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        r = make_recovery_key(&recovery_key);
+        if (r < 0)
+                return r;
+
+        r = sd_json_variant_new_string(&rk, recovery_key);
+        if (r < 0)
+                return r;
+
+        sd_json_variant_sensitive(rk);
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("recoveryKey", rk));
+}
+
 int cryptenroll_varlink_server(void) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
         _cleanup_hashmap_free_ Hashmap *polkit_registry = NULL;
@@ -457,7 +527,7 @@ int cryptenroll_varlink_server(void) {
 
         r = varlink_server_new(
                         &varlink_server,
-                        SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_MYSELF_ONLY|SD_VARLINK_SERVER_INPUT_SENSITIVE|SD_VARLINK_SERVER_INHERIT_USERDATA|SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT|SD_VARLINK_SERVER_HANDLE_SIGINT|SD_VARLINK_SERVER_HANDLE_SIGTERM,
+                        SD_VARLINK_SERVER_INPUT_SENSITIVE|SD_VARLINK_SERVER_INHERIT_USERDATA|SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT|SD_VARLINK_SERVER_HANDLE_SIGINT|SD_VARLINK_SERVER_HANDLE_SIGTERM,
                         &polkit_registry);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");
@@ -468,8 +538,9 @@ int cryptenroll_varlink_server(void) {
 
         r = sd_varlink_server_bind_method_many(
                         varlink_server,
-                        "io.systemd.CryptEnroll.Enroll",    vl_method_enroll,
-                        "io.systemd.CryptEnroll.ListSlots", vl_method_list_slots);
+                        "io.systemd.CryptEnroll.Enroll",          vl_method_enroll,
+                        "io.systemd.CryptEnroll.ListSlots",       vl_method_list_slots,
+                        "io.systemd.CryptEnroll.MakeRecoveryKey", vl_method_make_recovery_key);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink methods: %m");
 

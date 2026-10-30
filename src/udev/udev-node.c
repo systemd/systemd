@@ -7,6 +7,7 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "chase.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "devnum-util.h"
@@ -423,22 +424,21 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
                 return log_device_debug_errno(dev, r, "Failed to update stack directory for '%s': %m", slink);
 
         if (!add) {
-                _cleanup_free_ char *target = NULL;
-
                 /* Especially on 'remove' event, the device ID obtained by node_get_current() may not be
                  * reliable, as the device node and/or device number may be reused. Hence, let's read the
                  * devlink here and if it points to our device node, then we need to update the devlink. If
                  * it points to another device node, then it is already owned by another device, hence we
                  * should not touch it and keep it as is. */
 
-                r = readlink_malloc(slink, &target);
+                _cleanup_free_ char *target = NULL;
+                struct stat st;
+                r = chase_and_stat(slink, /* root= */ NULL, /* chase_flags= */ 0, &target, &st);
                 if (r < 0) {
                         if (r != -ENOENT)
-                                log_device_debug_errno(dev, r, "Failed to read symbolic link '%s', ignoring: %m", slink);
+                                log_device_debug_errno(dev, r, "Failed to chase and stat '%s', ignoring: %m", slink);
 
-                        /* The devlink does not exist. Let's find the most suitable owner, and create the
-                         * devlink. This is typically not necessary and does nothing, but for safety in the
-                         * case that the devlink is removed manually. */
+                        /* The devlink or its target device does not exist. Let's find the most suitable
+                         * owner, and create or update the devlink. */
                         return link_search_and_update(dev, slink, dirfd, add);
                 }
 
@@ -455,15 +455,6 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
 
                 if (!path_startswith(target, "/dev/")) {
                         log_device_debug(dev, "Symbolic link '%s' points to '%s' which is outside of '/dev/', updating it.", slink, target);
-                        return link_search_and_update(dev, slink, dirfd, add);
-                }
-
-                struct stat st;
-                if (lstat(target, &st) < 0) {
-                        if (errno != ENOENT)
-                                log_device_debug_errno(dev, errno, "Failed to stat '%s', ignoring: %m", target);
-
-                        /* The current target device is also already removed? Let's update. */
                         return link_search_and_update(dev, slink, dirfd, add);
                 }
 

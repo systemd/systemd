@@ -74,7 +74,7 @@ static int parse_argv(int argc, char *argv[]) {
                          * the short option does not. */
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "echo", "yes|no|masked",
                                   "Control whether to show password while typing"): {}
-                OPTION('e', "echo", NULL, "Equivalent to --echo=yes"):
+                OPTION_SHORT('e', NULL, "Equivalent to --echo[=yes]"):
                         if (!opts.arg) {
                                 /* Short option -e is used, or no argument to long option --echo= */
                                 arg_flags |= ASK_PASSWORD_ECHO;

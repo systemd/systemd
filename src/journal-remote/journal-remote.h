@@ -5,6 +5,8 @@
 #include "journal-remote-parse.h"
 #include "journal-remote-write.h"
 
+#define REMOTE_CERTIFICATE_SUBJECT_FIELD "_REMOTE_CERTIFICATE_SUBJECT="
+
 typedef struct RemoteServer {
         RemoteSource **sources;
         size_t active;
@@ -22,6 +24,7 @@ typedef struct RemoteServer {
         JournalWriteSplitMode split_mode;
         JournalFileFlags file_flags;
         bool check_trust;
+        bool add_client_certificate_subject;
         JournalMetrics metrics;
 } RemoteServer;
 extern RemoteServer *journal_remote_server_global;

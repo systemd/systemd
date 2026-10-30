@@ -27,6 +27,8 @@ typedef enum OptionFlags {
         OPTION_GROUP_MARKER        = 1U << 4,  /* Fake option entry to separate groups */
         OPTION_HELP_ENTRY          = 1U << 5,  /* Fake option entry to insert an additional help line */
         OPTION_HELP_ENTRY_VERBATIM = 1U << 6,  /* Same, but use the long_code in the first column as written */
+        OPTION_EXPERIMENTAL        = 1U << 7,  /* Experimental option that requires opt-in; marked as such in
+                                                * --help and --introspect-cli output */
 } OptionFlags;
 
 /* Note: the alignment attribute must match the one applied to each variable via _alignptr_ in
@@ -101,13 +103,16 @@ assert_cc(sizeof(Option) % sizeof(void*) == 0);
 
 #define OPTION_COMMON_INTROSPECT_CLI                                    \
         /* This option is internal-only for now and not shown in --help */ \
-        OPTION_LONG("introspect-cli", NULL, /* help= */ NULL)
+        OPTION_LONG_FLAGS(OPTION_EXPERIMENTAL, "introspect-cli", NULL, /* help= */ NULL)
 
 #define OPTION_COMMON_NO_PAGER                                          \
         OPTION_LONG("no-pager", NULL, "Do not start a pager")
 
 #define OPTION_COMMON_NO_LEGEND                                         \
         OPTION_LONG("no-legend", NULL, "Do not show headers and footers")
+
+#define OPTION_COMMON_FULL                                              \
+        OPTION('l', "full", NULL, "Do not ellipsize output")
 
 #define OPTION_COMMON_LOG_LEVEL                                         \
         OPTION_LONG("log-level", "LEVEL",                               \
@@ -185,9 +190,13 @@ assert_cc(sizeof(Option) % sizeof(void*) == 0);
         OPTION('N', "resolve-names", "MODE",                            \
                "When to resolve users and groups (early, late, or never)")
 
-/* This is magically mapped to the beginning and end of the section */
-extern const Option __start_SYSTEMD_OPTIONS[];
-extern const Option __stop_SYSTEMD_OPTIONS[];
+/* This is magically mapped to the beginning and end of the section. The linker only defines the
+ * symbols if the binary has such a section, i.e. if it defines at least one option. They are weak so
+ * that a program without options of its own (see common_parse_argv() in verbs.h) still links, with
+ * both resolving to NULL, and hidden so that the references are never bound to the section of
+ * libsystemd-shared instead. */
+extern const Option _weak_ _hidden_ __start_SYSTEMD_OPTIONS[];
+extern const Option _weak_ _hidden_ __stop_SYSTEMD_OPTIONS[];
 
 typedef enum OptionParserMode {
         /* The default mode. This is the implicit default and doesn't have to be specified. */
@@ -271,10 +280,12 @@ char* option_parser_get_arg(const OptionParser *state, size_t i);
 
 char* option_get_synopsis(const Option *opt, const char *joiner, bool show_metavar);
 
-const Option* options_find_namespace(
+bool options_find_namespace(
                 const Option options[],
                 const Option options_end[],
-                const char *namespace);
+                const char *namespace,
+                const Option **ret_start,
+                const Option **ret_end);
 
 int options_get_help_table_group(
                 const Option options[],

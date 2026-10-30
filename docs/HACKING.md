@@ -86,6 +86,184 @@ The following sections contain advanced topics on how to speed up development or
 streamline debugging. Feel free to read them if you're interested but they're
 not required to write basic patches.
 
+## Writing programs in Rust
+
+Programs may also be written in Rust. Like the C programs, they use
+`libsystemd-shared-<nnn>.so`, through the `systemd_shared` crate in
+`src/rust/systemd-shared/`. This crate wraps the `systemd_shared_sys` crate,
+which is generated from the C headers at build time.
+
+Rust support is optional. It requires rustc 1.85, bindgen 0.71.1 (with a
+libclang it can load) and meson 1.4.0 or newer. With the default `-Drust=auto`,
+Rust support is turned off if the toolchain is missing or too old, while
+`-Drust=enabled` makes the build fail instead. The mkosi build images and tools
+trees contain the toolchain, so the easiest way to work on Rust code is:
+
+```sh
+$ mkosi -f box -- meson setup -Drust=enabled build
+```
+
+Outside of mkosi, install the toolchain from your distribution:
+
+```sh
+apt install rustc bindgen rustfmt rust-clippy   # Debian 13
+dnf install rust bindgen-cli rustfmt clippy     # Fedora
+pacman -S rust rust-bindgen                     # Arch Linux
+zypper install rust rust-bindgen                # openSUSE Tumbleweed
+```
+
+A program written in Rust is declared in `meson.build` just like a C program,
+with the crate root as its source:
+
+```meson
+if have_rust
+        executables += [
+                rust_executable_template + {
+                        'sources' : files('systemd-foo.rs'),
+                        'install_dir' : libexecdir,
+                        'conditions' : ['ENABLE_FOO'],
+                },
+        ]
+endif
+```
+
+It uses the same command line framework as the C programs (see `verbs.h` and
+`options.h`), so it looks very similar to one:
+
+```rust
+#![no_std]
+#![no_main]
+
+use core::ffi::{c_int, c_void};
+use core::ptr;
+use core::sync::atomic::Ordering;
+
+use systemd_shared::prelude::*;
+use systemd_shared::sys;
+
+static ARG_PAGER_FLAGS: AtomicPagerFlags = AtomicPagerFlags::new(0);
+
+verbs! {
+    COMMAND {
+        names: "systemd-foo\0",
+        abstract_: "Frob the foo.",
+        man_pages: "systemd-foo.1\0",
+        pager_flags: ARG_PAGER_FLAGS,
+    },
+    VERB_DEFAULT_NOARG(verb_status, "status", "Show the status"),
+    VERB(verb_show, "show", "NAME…\0", 2, VERB_ANY, 0, "Show some names"),
+    VERB_COMMON_HELP_AUTO(),
+}
+
+fn verb_status(args: Argv<'_>, _data: usize, _userdata: *mut c_void) -> Result<c_int> { … }
+fn verb_show(args: Argv<'_>, _data: usize, _userdata: *mut c_void) -> Result<c_int> { … }
+
+fn parse_argv(opts: &mut OptionParser<'_>) -> Result<c_int> {
+    foreach_option! { opts,
+        OPTION_COMMON_HELP => return command_print_help!(),
+        OPTION_COMMON_VERSION => return version(),
+        OPTION_COMMON_NO_PAGER => ARG_PAGER_FLAGS.fetch_or(sys::PAGER_DISABLE, Ordering::Relaxed),
+        OPTION('v', "verbose", None, "Print more") => …,
+        OPTION('f', "frob", "VALUE", "Set the frob value") => … opts.arg() …,
+        OPTION_COMMON_INTROSPECT_CLI => return introspect_cli!(sys::SD_JSON_FORMAT_OFF),
+    }
+    Ok(1)
+}
+
+fn run(argv: Argv<'_>) -> Result<()> {
+    let mut opts = OptionParser::new(argv);
+    if parse_argv(&mut opts)? <= 0 {
+        return Ok(());
+    }
+    // SAFETY: the verbs take no userdata.
+    unsafe { dispatch_verb!(opts.args(), ptr::null_mut()) }.map(|_| ())
+}
+
+define_main!(run);
+```
+
+`verbs!` and `foreach_option!` put the same entries into the same linker
+sections as `COMMAND()`, `VERB()` and `OPTION()` do in C, and from there on the
+C code in libsystemd-shared handles the command line. `define_main!()` is
+`DEFINE_MAIN_FUNCTION()`. `#![no_main]` is needed because the C `main()` has to
+see the real `argv`. `test/test-cli-parity.sh` runs `src/test/test-cli-c.c` and
+`src/test/test-cli-rust.rs`, which declare the same command, with forty sets of
+arguments and compares output and exit status.
+
+The helpers of `src/basic/`, `src/shared/` and the `sd-*.h` headers that Rust
+code uses, as well as the libc and kernel constants used by systemd, are
+available as `systemd_shared::sys::<C name>`.
+`src/rust/systemd-shared/bindings.h` lists the headers; a wrapper that needs
+another one adds it there. Static inline helpers work too, bindgen generates C
+wrappers for them. The `HAVE_*` and `ENABLE_*` conditions of
+`config.h` are available as cfgs, i.e. `#[cfg(HAVE_OPENSSL)]` corresponds to
+`#if HAVE_OPENSSL`.
+
+Programs whose name starts with `test-` are registered as unit tests, and run on
+the test runner of the C tests: `define_test_main!()` is the equivalent of
+`DEFINE_TEST_MAIN()`. Use `'type' : 'manual'` to build a test without running
+it. Installed programs are subject to the `--help` and `--version` checks of the
+dist test suite like the C ones. `src/test/test-rust-shared.rs` and
+`src/test/test-cli-rust.rs` are good examples to start from.
+
+Some things to keep in mind:
+
+- There is no Rust standard library. All Rust code is `#![no_std]`, only the
+  `core` and `libc` crates are permitted, and cargo is not used (see
+  [Coding Style](/CODING_STYLE)). libc's functions and constants come from
+  `systemd_shared::sys`, generated from the same headers the C code uses. The
+  `alloc` crate is out too, like in the kernel: its collections abort when
+  memory runs out. `systemd_shared` has `Box` and `Vec` instead, which allocate
+  with `malloc()` like the C code and return an error, a panic handler that
+  logs and aborts, and `print!()` and `println!()` on C's `stdout`. A program
+  that pulls in std or alloc does not link: std brings a second panic handler
+  and there is no global allocator.
+
+- Keys, passphrases and other secrets go into `Vec<u8, Erasing>` or
+  `Box<T, Erasing>`, whose memory is erased before it is freed or moved, like
+  `erase_and_free()` does in C.
+
+- Everything from systemd stays in the shared library, so a program written in
+  Rust is not much bigger than its C equivalent. Stripped release builds:
+  `test-cli-rust` is 29 KB, 24 KB with `-Db_lto=true`, `test-cli-c` is 16 KB.
+
+- Optional libraries are loaded at runtime with the `dlopen_*()` helpers of
+  libsystemd-shared, like in C. Declare such dependencies with
+  `libcrypto_note!()`, `libkmod_note!()` or `elf_note_dlopen!()`, so that
+  they are recorded in the `.note.dlopen` section of the program, where
+  packaging tools pick them up.
+
+- Rust programs are covered by `test-link-abi` too, so they may not use glibc
+  symbols that are newer than the baseline the C programs are held to.
+
+- Programs are built with `-C panic=abort` and with overflow checks enabled. A
+  panic is logged at `LOG_CRIT` together with its location, and then aborts the
+  program, like a failed `assert()`.
+
+- The source locations reported by `file!()` and `#[track_caller]` are relative
+  to the source root, like `PROJECT_FILE` in C, so that `CODE_FILE=` in the
+  journal matches.
+
+- rustc has no stable equivalent of `-fcf-protection`, so Rust programs do not
+  carry the IBT and SHSTK markers that the C programs carry.
+
+- Sanitizer and coverage builds only instrument the C code, and fuzzers are
+  written in C.
+
+- The lint set is defined in `meson.build` (`rust_args`) and enforced by the
+  build. Like for C, `--werror` turns rustc warnings into errors.
+
+- `meson test -C build --suite rust` runs the Rust test programs, and
+  `meson test -C build --suite dist` includes the rustfmt check and
+  `test-link-abi`. `ninja -C build clippy` runs clippy, and
+  `ninja -C build rustdoc` builds the documentation of the crates. meson writes
+  a `rust-project.json` for rust-analyzer into the build directory. clippy looks
+  for `.clippy.toml` in the current directory, so set `CLIPPY_CONF_DIR` to the
+  source root if the build directory is located elsewhere.
+
+- The CI builds the Rust code with the newest toolchain (on Fedora rawhide) and
+  with the oldest supported one (on Debian 13).
+
 ## Building the OS image without a tools tree
 
 By default, `mkosi` will first build a tools tree and use it build the image and

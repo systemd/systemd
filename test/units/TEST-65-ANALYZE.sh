@@ -491,6 +491,19 @@ systemd-analyze verify /tmp/multi-exec-start.service
 echo 'ExecStart=command-should-not-exist' >>/tmp/multi-exec-start.service
 (! systemd-analyze verify /tmp/multi-exec-start.service)
 
+# test that a missing man binary is reported as such, and that --man=no skips the check.
+cat <<EOF >/tmp/man-documentation.service
+[Unit]
+Documentation=man:systemd(1)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/true
+EOF
+(! env PATH=/nonexistent "$(command -v systemd-analyze)" verify /tmp/man-documentation.service 2>/tmp/man-documentation.log)
+grep "man may not be installed" /tmp/man-documentation.log >/dev/null
+env PATH=/nonexistent "$(command -v systemd-analyze)" verify --man=no /tmp/man-documentation.service
+
 # Prevent regression from #20233 where systemd-analyze will return nonzero exit codes on warnings
 
 # Unit file with warning "Unknown key name 'foo' in section 'Unit', ignoring"
@@ -1040,7 +1053,7 @@ fi
 systemd-analyze --threshold=90 security systemd-journald.service
 
 # issue 23663
-check() {(
+check() (
     set +x
     output=$(systemd-analyze security --offline="${2?}" "${3?}" | grep -F 'SystemCallFilter=')
     assert_in "System call ${1?} list" "$output"
@@ -1055,7 +1068,7 @@ check() {(
     assert_in "[+✓] SystemCallFilter=~@debug" "$output"
     assert_in "[+✓] SystemCallFilter=~@cpu-emulation" "$output"
     assert_in "[-✗] SystemCallFilter=~@clock" "$output"
-)}
+)
 
 export -n SYSTEMD_LOG_LEVEL
 
@@ -1125,6 +1138,16 @@ systemd-analyze architectures x86-64
 systemd-analyze architectures native
 systemd-analyze architectures uname
 
+if systemd-analyze --no-legend architectures native | grep -E '^(x86|x86-64|arm64|arm64-be)[[:space:]]' >/dev/null; then
+    rc=0
+else
+    rc=1
+fi
+assert_rc "$rc" systemd-analyze cpu-features
+assert_rc "$rc" systemd-analyze cpu-features --json=pretty
+assert_rc "$rc" systemd-analyze cpu-features foo hoge fpu fp
+assert_rc "$rc" systemd-analyze cpu-features --json=pretty foo hoge fpu fp avx
+
 systemd-analyze smbios11
 systemd-analyze smbios11 -q
 
@@ -1133,9 +1156,9 @@ if test -f /sys/class/dmi/id/board_vendor && ! systemd-detect-virt --container ;
     systemd-analyze chid --json=pretty
 fi
 
-systemd-analyze condition --instance=tmp --unit=systemd-growfs@.service
-systemd-analyze verify --instance=tmp --man=no systemd-growfs@.service
-systemd-analyze security --instance=tmp systemd-growfs@.service
+systemd-analyze condition --instance=tmp --unit=user@.service
+systemd-analyze verify --instance=tmp --man=no user@.service
+systemd-analyze security --instance=tmp user@.service
 
 systemd-analyze has-tpm2 ||:
 if systemd-analyze has-tpm2 -q ; then

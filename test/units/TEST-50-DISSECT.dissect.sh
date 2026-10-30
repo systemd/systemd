@@ -11,7 +11,7 @@ set -o pipefail
 
 . /etc/os-release
 if [[ "${ID_LIKE:-}" == alpine ]]; then
-    # Alpine/postmarketOS builds libdevmapper and so on without systemd support, and seems to not wait for
+    # Alpine/Nura builds libdevmapper and so on without systemd support, and seems to not wait for
     # uevents for dm-X devices being processed by systemd-udevd. That causes a significant issue in
     # dissect-image.c especially when multiple dm-X devices are activated/deactivated in parallel.
     exit 0
@@ -103,6 +103,49 @@ dmsetup ls | grep "$(basename "$d")" >/dev/null
 umount -R "$IMAGE_DIR/mount"
 timeout 60 bash -c "while test -e $d; do sleep 0.1; done"
 ( ! dmsetup ls | grep "$(basename "$d")") >/dev/null
+
+# A signature that can't be validated only prevents activation if the image policy allows "signed" but not
+# "verity". Userspace validation only parses the signature if a certificate is installed. Without one, it
+# reports a mismatch instead of failing on the garbage signature. The test image usually contains
+# /usr/lib/verity.d/mkosi.crt, but we install a certificate in /run/verity.d/ to be sure.
+mkdir -p /run/verity.d
+cp /usr/share/mkosi.crt /run/verity.d/test-50-mkosi.crt
+openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=test-50-unknown \
+            -keyout /tmp/test-50-unknown.key -out /tmp/test-50-unknown.crt
+openssl smime -sign -nocerts -noattr -binary \
+              -in "$MINIMAL_IMAGE.roothash" \
+              -inkey /tmp/test-50-unknown.key \
+              -signer /tmp/test-50-unknown.crt \
+              -outform der \
+              -out /tmp/test-50-unknown.p7s
+head -c 64 /dev/urandom >/tmp/test-50-garbage.p7s
+# The kernel validated the signature of a shared device, so a mount without a signature reuses the device, even if
+# the policy requires a signature.
+if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
+    mkdir -p /tmp/test-50-validated-mnt /tmp/test-50-reuse-mnt
+    SYSTEMD_VERITY_SHARING=1 systemd-dissect --mount --image-policy=root=signed \
+                                             "$MINIMAL_IMAGE.raw" /tmp/test-50-validated-mnt
+    SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 \
+        systemd-dissect --mount --image-policy=root=signed "$MINIMAL_IMAGE.raw" /tmp/test-50-reuse-mnt
+    test "$(findmnt -n -o MAJ:MIN /tmp/test-50-reuse-mnt)" = "$(findmnt -n -o MAJ:MIN /tmp/test-50-validated-mnt)"
+    systemd-dissect --umount /tmp/test-50-reuse-mnt
+    systemd-dissect --umount /tmp/test-50-validated-mnt
+    rmdir /tmp/test-50-validated-mnt /tmp/test-50-reuse-mnt
+fi
+for sig in /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s; do
+    SYSTEMD_VERITY_SHARING=0 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" \
+                                             --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                                             --root-hash-sig="$sig" >/dev/null
+    SYSTEMD_VERITY_SHARING=0 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" \
+                                             --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                                             --root-hash-sig="$sig" \
+                                             --image-policy=root=verity+signed >/dev/null
+    (! SYSTEMD_VERITY_SHARING=0 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" \
+                                                --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                                                --root-hash-sig="$sig" \
+                                                --image-policy=root=signed >/dev/null)
+done
+rm /run/verity.d/test-50-mkosi.crt /tmp/test-50-unknown.key /tmp/test-50-unknown.crt /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s
 
 # Test BindLogSockets=
 systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" mountpoint /run/systemd/journal/socket
@@ -211,12 +254,43 @@ systemd-dissect --validate "$MINIMAL_IMAGE.gpt" --image-policy=root=verity:swap=
 systemd-dissect --validate "$MINIMAL_IMAGE.gpt" --image-policy=root=signed
 (! systemd-dissect --validate "$MINIMAL_IMAGE.gpt" --image-policy=root=signed:root-verity-sig=unused+absent)
 (! systemd-dissect --validate "$MINIMAL_IMAGE.gpt" --image-policy=root=signed:root-verity=unused+absent)
+
+# Without a root hash, Verity can't be set up, so a policy that requires Verity must refuse the image instead
+# of mounting the data partition directly.
+SYSTEMD_DISSECT_VERITY_EMBEDDED=0 SYSTEMD_DISSECT_VERITY_GUESS=0 systemd-dissect --mtree "$MINIMAL_IMAGE.gpt" >/dev/null
+(! SYSTEMD_DISSECT_VERITY_EMBEDDED=0 SYSTEMD_DISSECT_VERITY_GUESS=0 systemd-dissect --mtree "$MINIMAL_IMAGE.gpt" --image-policy=root=verity >/dev/null)
+(! SYSTEMD_DISSECT_VERITY_EMBEDDED=0 SYSTEMD_DISSECT_VERITY_GUESS=0 systemd-dissect --mtree "$MINIMAL_IMAGE.gpt" --image-policy=root=signed >/dev/null)
+
 systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=verity
 systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=verity:usr-verity-sig=unused+absent
 (! systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=verity:usr-verity=unused+absent)
 systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=signed
 (! systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=signed:usr-verity-sig=unused+absent)
 (! systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=signed:usr-verity=unused+absent)
+
+# A signature partition that can't be parsed is ignored, unless the image policy requires a signature.
+cp "$MINIMAL_IMAGE.gpt" /tmp/test-50-badsig.gpt
+loop="$(losetup --show -P -f /tmp/test-50-badsig.gpt)"
+udevadm wait --timeout=60 --settle --initialized=no "${loop}p3"
+printf 'garbage' | udevadm lock --timeout=60 --device="${loop}p3" dd of="${loop}p3" conv=notrunc
+losetup -d "$loop"
+udevadm settle --timeout=60
+systemd-dissect --mtree /tmp/test-50-badsig.gpt >/dev/null
+systemd-dissect --mtree /tmp/test-50-badsig.gpt --root-hash="$MINIMAL_IMAGE_ROOTHASH" >/dev/null
+(! systemd-dissect --mtree /tmp/test-50-badsig.gpt --image-policy=root=signed >/dev/null)
+(! systemd-dissect --mtree /tmp/test-50-badsig.gpt --root-hash="$MINIMAL_IMAGE_ROOTHASH" --image-policy=root=signed >/dev/null)
+(! SYSTEMD_DISSECT_VERITY_GUESS=0 systemd-dissect --mtree /tmp/test-50-badsig.gpt --image-policy=root=signed >/dev/null)
+# With a root hash, the signature partition is ignored and counts as absent. "verity+signed" allows that.
+systemd-dissect --mtree /tmp/test-50-badsig.gpt --root-hash="$MINIMAL_IMAGE_ROOTHASH" --image-policy=root=verity+signed >/dev/null
+# Set up a shared Verity device for the same root hash without a signature. A policy that requires a
+# signature must not reuse it.
+mkdir -p /tmp/test-50-badsig-mnt
+SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 \
+    systemd-dissect --mount --image-policy=root=verity+signed "$MINIMAL_IMAGE.raw" /tmp/test-50-badsig-mnt
+(! SYSTEMD_VERITY_SHARING=1 systemd-dissect --mtree /tmp/test-50-badsig.gpt --image-policy=root=signed >/dev/null)
+systemd-dissect --umount /tmp/test-50-badsig-mnt
+rmdir /tmp/test-50-badsig-mnt
+rm /tmp/test-50-badsig.gpt
 
 # Test RootImagePolicy= unit file setting
 systemd-run --wait -P \
@@ -1066,6 +1140,18 @@ test ! -e "/dev/disk/by-loop-ref/$name"
 systemd-dissect --detach "$MINIMAL_IMAGE.raw"
 (! systemd-dissect --detach "$MINIMAL_IMAGE.raw")
 
+# --attach --relax also works on images that do not qualify as DDI, e.g. an entirely blank one
+BLANK_IMAGE="$(mktemp /var/tmp/blankXXX.raw)"
+truncate -s 16M "$BLANK_IMAGE"
+(! systemd-dissect --attach "$BLANK_IMAGE")
+LOOP="$(systemd-dissect --attach --relax "$BLANK_IMAGE")"
+test -b "$LOOP"
+systemd-dissect --detach "$LOOP"
+rm -f "$BLANK_IMAGE"
+
+# --relax makes no sense for the other verbs
+(! systemd-dissect --relax "$MINIMAL_IMAGE.raw")
+
 # check for confext functionality
 mkdir -p /run/confexts/test/etc/extension-release.d
 echo "ID=_any" >/run/confexts/test/etc/extension-release.d/extension-release.test
@@ -1133,6 +1219,76 @@ EOF
 }
 
 test_sysupdate_notify_confext_mutable
+
+cleanup_sysupdate_notify_confext_before_sysext() {
+    local notify_socket_was_active="$1"
+
+    if [[ "$notify_socket_was_active" == "yes" ]]; then
+        systemctl restart systemd-sysupdate-notify-sysext.socket || :
+    else
+        systemctl stop systemd-sysupdate-notify-sysext.socket || :
+    fi
+
+    systemctl stop test-order-foo.service || :
+    systemd-sysext unmerge || :
+    systemd-confext unmerge || :
+    rm -rf /run/extensions/test-order /run/confexts/test-order
+    rm -f /run/test-order-marker
+}
+
+test_sysupdate_notify_confext_before_sysext() {
+    local notify_socket_was_active=no
+
+    if systemctl is-active --quiet systemd-sysupdate-notify-sysext.socket; then
+        notify_socket_was_active=yes
+    fi
+
+    trap 'cleanup_sysupdate_notify_confext_before_sysext "$notify_socket_was_active"' RETURN ERR
+
+    # Check that the sysupdate notification refresh merges confexts before sysexts, same order as for unit
+    # startup at boot. The confext ships a drop-in for a whole prefix of units, meaning it can't know what
+    # units to restart through EXTENSION_RESTART_UNITS= if it would be merged after the sysext that defines
+    # the unit affected by the drop-in. Only if the confext is merged first the unit picks up the drop-in.
+    # This is just one example the general scenario when a confext has to create state before a sysext's
+    # service is started and the confext does not know what sysext's services would be affected.
+    mkdir -p /run/confexts/test-order/etc/extension-release.d /run/confexts/test-order/etc/systemd/system/test-order-.service.d
+    cat >/run/confexts/test-order/etc/extension-release.d/extension-release.test-order <<EOF
+ID=_any
+ARCHITECTURE=_any
+EXTENSION_RELOAD_MANAGER=1
+EOF
+    cat >/run/confexts/test-order/etc/systemd/system/test-order-.service.d/10-marker.conf <<EOF
+[Service]
+Environment=MARKER=from-confext
+EOF
+
+    mkdir -p /run/extensions/test-order/usr/lib/extension-release.d /run/extensions/test-order/usr/lib/systemd/system
+    cat >/run/extensions/test-order/usr/lib/extension-release.d/extension-release.test-order <<EOF
+ID=_any
+ARCHITECTURE=_any
+EXTENSION_RELOAD_MANAGER=1
+EXTENSION_RESTART_UNITS=test-order-foo.service
+EOF
+    cat >/run/extensions/test-order/usr/lib/systemd/system/test-order-foo.service <<'EOF'
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=sh -c 'echo "${MARKER:-unset}" >/run/test-order-marker'
+EOF
+
+    systemctl start systemd-sysupdate-notify-sysext.socket
+    varlinkctl call /run/systemd/sysupdate/notify/io.systemd.sysext io.systemd.SysUpdate.Notify.OnCompletedUpdate '{}'
+
+    test -f /etc/systemd/system/test-order-.service.d/10-marker.conf
+    test -f /usr/lib/systemd/system/test-order-foo.service
+    systemctl --quiet is-active test-order-foo.service
+    grep -F "from-confext" /run/test-order-marker >/dev/null
+
+    trap - RETURN ERR
+    cleanup_sysupdate_notify_confext_before_sysext "$notify_socket_was_active"
+}
+
+test_sysupdate_notify_confext_before_sysext
 
 unsquashfs -force -no-xattrs -d /tmp/img "$MINIMAL_IMAGE.raw"
 systemd-run --unit=test-root-ephemeral \

@@ -795,6 +795,105 @@ TEST(init_reboot) {
         ASSERT_OK(sd_event_loop(sd_dhcp_client_get_event(client)));
 }
 
+static const char *hostname_new = "fugafuga.example.com";
+
+static int hostname_change_io_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        sd_dhcp_client *client = ASSERT_PTR(userdata);
+        static unsigned count = 0;
+
+        count++;
+        log_debug("%s: count=%u", __func__, count);
+
+        switch (count) {
+        case 1: {
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *request = NULL;
+                receive_message(fd, /* raw= */ true, /* check_xid= */ true, client, &request);
+
+                verify_request(request, DHCP_DISCOVER);
+
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *reply = NULL;
+                create_reply(client, request, DHCP_OFFER, &reply);
+
+                send_message(fd, /* raw= */ true, client, reply);
+                break;
+        }
+        case 2: {
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *request = NULL;
+                receive_message(fd, /* raw= */ true, /* check_xid= */ true, client, &request);
+
+                /* REQUEST (selecting) */
+                verify_request(request, DHCP_REQUEST);
+
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *reply = NULL;
+                create_reply(client, request, DHCP_ACK, &reply);
+
+                send_message(fd, /* raw= */ true, client, reply);
+                break;
+        }
+        case 3: {
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *request = NULL;
+                receive_message(fd, /* raw= */ false, /* check_xid= */ true, client, &request);
+
+                /* REQUEST (renewing) must carry the hostname set while the client was running. */
+                verify_header(request);
+                verify_basic_options(request, DHCP_REQUEST);
+                verify_request_client_address(request, /* header= */ true);
+
+                _cleanup_free_ char *str = NULL;
+                ASSERT_OK(dhcp_message_get_option_hostname(request, &str));
+                ASSERT_STREQ(str, hostname_new);
+
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *reply = NULL;
+                create_reply(client, request, DHCP_ACK, &reply);
+
+                send_message(fd, /* raw= */ false, client, reply);
+                break;
+        }
+        default:
+                assert_not_reached();
+        }
+
+        return 0;
+}
+
+static int hostname_change_client_handler(sd_dhcp_client *client, int event, void *userdata) {
+        sd_event *e = ASSERT_PTR(userdata);
+        static unsigned count = 0;
+
+        count++;
+        log_debug("%s: count=%u, event=%i", __func__, count, event);
+
+        switch (count) {
+        case 1:
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_SELECTING);
+                verify_reply(client, DHCP_STATE_SELECTING);
+                break;
+        case 2:
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_IP_ACQUIRE);
+                verify_reply(client, DHCP_STATE_BOUND);
+                /* change the hostname of the running client, then renew the lease. */
+                ASSERT_OK(sd_dhcp_client_set_hostname(client, hostname_new));
+                ASSERT_OK(sd_dhcp_client_send_renew(client));
+                break;
+        case 3:
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_RENEW);
+                verify_reply(client, DHCP_STATE_BOUND);
+                ASSERT_OK(sd_event_exit(e, 0));
+                break;
+        default:
+                assert_not_reached();
+        }
+
+        return 0;
+}
+
+TEST(hostname_change) {
+        _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
+        setup(hostname_change_io_handler, hostname_change_client_handler, &client);
+        ASSERT_OK(sd_dhcp_client_start(client));
+        ASSERT_OK(sd_event_loop(sd_dhcp_client_get_event(client)));
+}
+
 static int bootp_io_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         sd_dhcp_client *client = ASSERT_PTR(userdata);
         static unsigned count = 0;

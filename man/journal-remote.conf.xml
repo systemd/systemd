@@ -101,6 +101,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>AddClientCertificateSubject=</varname></term>
+
+        <listitem><para>Takes a boolean. If enabled, records the verified HTTPS client's full certificate
+        subject in <varname>_REMOTE_CERTIFICATE_SUBJECT=</varname>. All incoming copies of this field are
+        removed, including from non-HTTPS inputs and imported files. Without a verified client certificate,
+        the field is omitted. Certificate verification and connection acceptance are unchanged.
+        Defaults to no, leaving incoming fields unchanged.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MaxUse=</varname></term>
         <term><varname>KeepFree=</varname></term>
         <term><varname>MaxFileSize=</varname></term>

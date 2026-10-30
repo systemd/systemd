@@ -32,6 +32,8 @@
     </cmdsynopsis>
   </refsynopsisdiv>
 
+  <xi:include href="experimental.xml" xpointer="component" />
+
   <refsect1>
     <title>Description</title>
     <para><command>systemd-vmspawn</command> may be used to start a virtual machine from an OS image. In many ways it is similar to <citerefentry>
@@ -109,9 +111,24 @@
           <term><option>--ephemeral</option></term>
 
           <listitem><para>If specified, the VM is run with a temporary snapshot of its file system that is removed
-          immediately when the VM terminates. Only works with <option>--image=</option> currently.
+          immediately when the VM terminates.</para>
 
-          Note that <option>--ephemeral</option> will not work with <option>--extra-drive=</option>.</para>
+          <para>For <option>--directory=</option> the snapshot is a btrfs snapshot of the directory, or a
+          copy of it if the file system does not support snapshots, made next to the directory, or inside
+          it if it is a mount point.</para>
+
+          <para>For <option>--image=</option> the snapshot is an unnamed temporary file in the directory of
+          the image, after following symlinks. If the image is a block device or a deleted file,
+          <command>systemd-vmspawn</command> creates the file in either <filename>/var/tmp/</filename> or the
+          path <varname>$TMPDIR</varname>, <varname>$TEMP</varname> or <varname>$TMP</varname> are set to.
+          <command>systemd-vmspawn</command> uses the same directory if it cannot create the file next to the
+          image, for example because the directory of the image is read-only.
+          Everything the VM writes to its root disk is stored in this
+          file until the VM terminates. The VM can therefore fill up the file system that contains the
+          file.</para>
+
+          <para>Drives added via <option>--extra-drive=</option> are not snapshotted, so in combination with
+          <option>--ephemeral</option> they have to be read-only.</para>
 
           <xi:include href="version-info.xml" xpointer="v260"/></listitem>
         </varlistentry>
@@ -200,6 +217,17 @@
           upper limit. The number of hotplug slots can optionally be specified after a second colon
           and defaults to 1.</para>
 
+          <para>Unless confidential computing is enabled, a virtio-balloon device is attached to the
+          virtual machine. Free page reporting is enabled on it, so memory the guest frees is returned
+          to the host. The guest's memory may be shrunk and grown again at runtime, up to
+          <replaceable>BYTES</replaceable>, via the <function>SetMemory()</function> method of the
+          <literal>io.systemd.MachineInstance</literal> Varlink interface on the machine's control
+          socket. <function>Describe()</function> reports the requested and the current size. Resizing
+          is asynchronous, the guest may follow only partially, and it is permitted to deflate the
+          balloon on its own when it runs out of memory. The requested size persists across guest
+          reboots: a freshly booted guest inflates its balloon to it again.
+          <xi:include href="version-info.xml" xpointer="v263"/></para>
+
           <xi:include href="version-info.xml" xpointer="v255"/>
           </listitem>
         </varlistentry>
@@ -276,6 +304,11 @@
           definition is copied and used. Cannot be used together with <option>--coco=</option>, as
           confidential computing firmware is stateless.</para>
 
+          <para>Firmware with the <literal>host-uefi-vars</literal> feature does not keep its variables in
+          NVRAM, but in a JSON file mediated by QEMU. For such firmware, the template and an existing state
+          file (see <option>--efi-nvram-state=</option>) must be in that JSON format. Some Secure Boot
+          capable firmware is available only in this form.</para>
+
           <xi:include href="version-info.xml" xpointer="v261"/></listitem>
         </varlistentry>
 
@@ -286,10 +319,12 @@
           system path to a regular file to persistently place the state in. If the file is missing it is
           created as needed. If set to the special string <literal>auto</literal> a persistent path is
           automatically derived from the VM image path or directory path, with the
-          <literal>.efinvramstate</literal> suffix appended. If set to the special string
-          <literal>off</literal> the EFI variable NVRAM state is only maintained transiently and flushed out
-          when the VM shuts down. Defaults to <literal>auto</literal>. An explicit path cannot be used
-          together with <option>--coco=</option>, as confidential computing firmware is stateless.</para>
+          <literal>.efinvramstate</literal> suffix appended, or <literal>.efivarstate.json</literal> for
+          <literal>host-uefi-vars</literal> firmware (see <option>--efi-nvram-template=</option>). If
+          set to the special string <literal>off</literal> the EFI variable NVRAM state is only maintained
+          transiently and flushed out when the VM shuts down. Defaults to <literal>auto</literal>. An
+          explicit path cannot be used together with <option>--coco=</option>, as confidential computing
+          firmware is stateless.</para>
 
           <para>If <option>--ephemeral</option> is specified, <literal>auto</literal> behaves like
           <literal>off</literal>.</para>
@@ -355,8 +390,7 @@
         <varlistentry>
           <term><option>--coco=</option></term>
 
-          <listitem><para>Caveat: This feature is experimental, and is likely to be changed (or removed in
-          its current form) in a future version of systemd.</para>
+          <listitem><xi:include href="experimental.xml" xpointer="feature" />
 
           <para>Configures whether to run the guest as a confidential VM. Takes one of
           <literal>no</literal>, <literal>sev-snp</literal> or <literal>tdx</literal>. Defaults to
@@ -628,7 +662,8 @@
           argument — in which case the specified path will be mounted from the host to the same path in the virtual machine, or
           a colon-separated pair of paths — in which case the first specified path is the source in the host, and the
           second path is the destination in the virtual machine. If the source path is not absolute, it is resolved
-          relative to the current working directory. The <option>--bind-ro=</option> option creates read-only bind mounts.
+          relative to the current working directory. The destination path must be absolute and must not contain
+          <literal>..</literal> components. The <option>--bind-ro=</option> option creates read-only bind mounts.
           Backslash escapes are interpreted, so <literal>\:</literal> may be used to embed colons in either path.
           This option may be specified multiple times for creating multiple independent bind mount points.</para>
 
@@ -636,14 +671,17 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--extra-drive=[<replaceable>FORMAT</replaceable>:][<replaceable>DISKTYPE</replaceable>:]<replaceable>PATH</replaceable></option></term>
+          <term><option>--extra-drive=[<replaceable>FORMAT</replaceable>:][<replaceable>DISKTYPE</replaceable>:][ro:]<replaceable>PATH</replaceable></option></term>
 
           <listitem><para>Takes a disk image or block device on the host and supplies it to the virtual
           machine as another drive. Optionally, the image format and/or disk type can be specified by prefixing
-          the path with their values separated by colons. The format and disk type prefixes can appear in any
-          order. The format defaults to <literal>raw</literal> and the disk type defaults to the value of
-          <option>--image-disk-type=</option> (which itself defaults to <literal>virtio-blk</literal>).
-          Note that <literal>qcow2</literal> is only supported for regular files, not block devices.</para>
+          the path with their values separated by colons, and the <literal>ro</literal> prefix makes the drive
+          read-only. The prefixes can appear in any order. The format defaults to <literal>raw</literal> and
+          the disk type defaults to the value of <option>--image-disk-type=</option> (which itself defaults
+          to <literal>virtio-blk</literal>). The disk type <literal>scsi-cd</literal> is always read-only, and
+          <literal>nvme</literal> cannot be read-only.
+          Note that <literal>qcow2</literal> is only supported for regular files, not block devices.
+          With <option>--ephemeral</option>, only read-only drives are allowed.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>
@@ -844,13 +882,27 @@
 
           <listitem><para>Configures how to set up the console of the VM. Takes one of
           <literal>interactive</literal>, <literal>read-only</literal>, <literal>native</literal>,
-          <literal>gui</literal>, <literal>headless</literal>. Defaults to <literal>interactive</literal>.
+          <literal>gui</literal>, <literal>headless</literal>, <literal>broker</literal> or
+          <literal>broker-log</literal>. Defaults to <literal>interactive</literal>.
           <literal>interactive</literal> provides an interactive terminal interface to the VM.
           <literal>read-only</literal> is similar, but is strictly read-only, i.e. does not accept any input
           from the user. <literal>native</literal> also provides a TTY-based interface, but uses qemu native
           implementation (which means the qemu monitor is available). <literal>gui</literal> shows the qemu
           graphical UI. <literal>headless</literal> runs the VM without any console, which is useful for
           automated or scripted usage.</para>
+
+          <para>With <literal>broker</literal> and <literal>broker-log</literal> the pseudo TTY for the VM
+          console is not allocated locally, but acquired from
+          <citerefentry><refentrytitle>systemd-ptybrokerd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+          In both cases the broker retains the frontend (i.e. the "master") side of the pseudo TTY, while the
+          VM console is connected to the acquired backend (i.e. the "slave") side; the local terminal is
+          forwarded to the broker, providing an interactive interface equivalent to
+          <literal>interactive</literal>. With <literal>broker</literal> the frontend output is discarded
+          unless it is monitored, with <literal>broker-log</literal> it is additionally written to the logs by
+          <filename>systemd-ptybrokerd.service</filename>. The name the broker registers the pseudo TTY under
+          is shown at startup; it may be used to monitor or hang up the console via
+          <citerefentry><refentrytitle>ptyctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. The
+          <literal>broker</literal> and <literal>broker-log</literal> modes were added in version 262.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>
@@ -863,8 +915,9 @@
           <literal>virtio</literal> uses a virtio-serial device, which appears as
           <filename>/dev/hvc0</filename> in the VM. <literal>serial</literal> uses a regular serial port,
           which appears as <filename>/dev/ttyS0</filename> (or <filename>/dev/ttyAMA0</filename> on ARM) in the VM. This option only has an effect in
-          <option>--console=interactive</option>, <option>--console=read-only</option>, and
-          <option>--console=native</option> modes.</para>
+          <option>--console=interactive</option>, <option>--console=read-only</option>,
+          <option>--console=native</option>, <option>--console=broker</option>, and
+          <option>--console=broker-log</option> modes.</para>
 
           <xi:include href="version-info.xml" xpointer="v261"/></listitem>
         </varlistentry>

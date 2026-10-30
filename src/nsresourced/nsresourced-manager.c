@@ -135,6 +135,16 @@ int manager_new(Manager **ret) {
         return 0;
 }
 
+#if HAVE_VMLINUX_H
+static void manager_unload_bpf(Manager *m) {
+        assert(m);
+
+        m->userns_restrict_bpf_ring_buffer_event_source = sd_event_source_disable_unref(m->userns_restrict_bpf_ring_buffer_event_source);
+        m->userns_restrict_bpf_ring_buffer = bpf_ring_buffer_free(m->userns_restrict_bpf_ring_buffer);
+        m->userns_restrict_bpf = userns_restrict_bpf_free(m->userns_restrict_bpf);
+}
+#endif
+
 Manager* manager_free(Manager *m) {
         if (!m)
                 return NULL;
@@ -147,9 +157,7 @@ Manager* manager_free(Manager *m) {
         safe_close(m->listen_fd);
 
 #if HAVE_VMLINUX_H
-        sd_event_source_disable_unref(m->userns_restrict_bpf_ring_buffer_event_source);
-        bpf_ring_buffer_free(m->userns_restrict_bpf_ring_buffer);
-        userns_restrict_bpf_free(m->userns_restrict_bpf);
+        manager_unload_bpf(m);
 #endif
 
         safe_close(m->registry_fd);
@@ -651,19 +659,21 @@ static int manager_setup_bpf(Manager *m) {
 
 /* Puts the programs loaded by manager_setup_bpf() in effect. Deliberately separate, so that the maps are
  * already seeded from the registry by the time the first hook runs. */
-static int manager_attach_bpf(Manager *m) {
+static void manager_attach_bpf(Manager *m) {
         int r;
 
         assert(m);
 
         if (!m->userns_restrict_bpf) /* Setup failed earlier, and we already told the user. */
-                return 0;
+                return;
 
+        /* Some kernels can load BPF-LSM programs but not attach them, e.g. arm64 before 7.2. Handle this
+         * like a failed setup. */
         r = userns_restrict_attach(m->userns_restrict_bpf, /* pin= */ true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to attach BPF programs: %m");
-
-        return 0;
+        if (r < 0) {
+                log_notice_errno(r, "Proceeding with user namespace interfaces disabled.");
+                manager_unload_bpf(m);
+        }
 }
 #else
 static int manager_setup_bpf(Manager *m) {
@@ -671,8 +681,7 @@ static int manager_setup_bpf(Manager *m) {
         return 0;
 }
 
-static int manager_attach_bpf(Manager *m) {
-        return 0;
+static void manager_attach_bpf(Manager *m) {
 }
 #endif
 
@@ -759,9 +768,7 @@ int manager_startup(Manager *m) {
         /* The maps now describe every namespace we are responsible for, so the policy can go into
          * effect. Until this point the previous version's programs, if any, were still attached and
          * enforcing, so no namespace was ever left unguarded. */
-        r = manager_attach_bpf(m);
-        if (r < 0)
-                return r;
+        manager_attach_bpf(m);
 
         r = manager_make_listen_socket(m);
         if (r < 0)

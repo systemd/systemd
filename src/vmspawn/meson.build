@@ -9,19 +9,19 @@ vmspawn_sources = files(
         'vmspawn-bind-volume.c',
         'vmspawn-qmp.c',
         'vmspawn-varlink.c',
-        'vmspawn-settings.c',
         'vmspawn-scope.c',
-        'vmspawn-mount.c',
+        'vmspawn-memory.c',
 )
 vmspawn_export_sources = files(
+        'vmspawn-mount.c',
         'vmspawn-util.c',
         'vmspawn-qemu-config.c',
+        'vmspawn-settings.c',
 )
 
 executables += [
         executable_template + {
                 'name' : 'systemd-vmspawn',
-                'public' : true,
                 'sources' : vmspawn_sources,
                 'export' : vmspawn_export_sources,
         },
@@ -30,7 +30,15 @@ executables += [
                 'import' : ['systemd-vmspawn'],
         },
         test_template + {
+                'sources' : files('test-vmspawn-mount.c'),
+                'import' : ['systemd-vmspawn'],
+        },
+        test_template + {
                 'sources' : files('test-vmspawn-qemu-config.c'),
+                'import' : ['systemd-vmspawn'],
+        },
+        test_template + {
+                'sources' : files('test-vmspawn-tables.c'),
                 'import' : ['systemd-vmspawn'],
         },
 ]

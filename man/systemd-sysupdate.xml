@@ -227,8 +227,11 @@
 
         <listitem><para>Lists components that can be updated. This enumerates the
         <filename>/etc/sysupdate.*.d/</filename>, <filename>/run/sysupdate.*.d/</filename> and
-        <filename>/usr/lib/sysupdate.*.d/</filename> directories that contain transfer files. This command is
-        useful to list possible parameters for <option>--component=</option> (see below).</para>
+        <filename>/usr/lib/sysupdate.*.d/</filename> directories that contain transfer files, as well as
+        the components offered by component providers (see
+        <citerefentry><refentrytitle>sysupdate.components</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        This command is useful to list possible parameters for <option>--component=</option> (see
+        below).</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
@@ -295,7 +298,9 @@
         <filename>/run/sysupdate.<replaceable>component</replaceable>.d/*.conf</filename> and
         <filename>/usr/lib/sysupdate.<replaceable>component</replaceable>.d/*.conf</filename>, each time with
         the <filename><replaceable>component</replaceable></filename> string replaced with the specified
-        component name.</para>
+        component name. If none of these directories exist, the definition of the component is acquired from
+        the component providers, see
+        <citerefentry><refentrytitle>sysupdate.components</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
         <para>Use the <command>components</command> command to list available components to update. This enumerates
         the directories matching this naming rule.</para>
@@ -467,6 +472,25 @@
         has since been modified, disabled or removed. Defaults to off.</para>
 
         <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--loop=</option></term>
+
+        <listitem><para>Takes a positive integer. When used in combination with the <command>update</command>
+        command, the update logic is run repeatedly, until either an iteration installs nothing, or the
+        specified number of iterations has been reached. Each iteration re-reads all definition files (and
+        re-enumerates components, if <option>--component-all</option> is used). This is useful if
+        installing an update can make further updates available, for example because the update ships new
+        or changed transfer files or components, or because a system extension it installs contains such
+        files. Reaching the iteration limit while updates are still being installed is not considered a
+        failure. If not specified, defaults to 1, i.e. a single iteration is run. If combined with
+        <option>--reboot</option>, the reboot is requested only once, after the last iteration. May not be
+        used with <command>acquire</command>.</para>
+
+        <para><filename>systemd-sysupdate-update.service</filename> runs with <option>--loop=16</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
       <varlistentry>

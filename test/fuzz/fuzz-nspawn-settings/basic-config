@@ -4,6 +4,12 @@ ProcessTwo=off
 Ephemeral=yes
 Parameters=/sbin/init -x=1
 Environment=THIS=that
+SetCredential=firstboot.locale:C.UTF-8
+SetCredential=binary:a\x00b
+LoadCredential=passwd.hashed-password.root:/etc/credstore/root-password
+LoadCredential=from-service:from-service
+SetCredential=firstboot.locale:de_DE.UTF-8
+LoadCredential=from-service:/etc/credstore/from-service
 User=user
 WorkingDirectory=/cwd
 PivotRoot=/newroot

@@ -89,6 +89,11 @@
       dependencies of type <varname>After=</varname> on
       <filename>systemd-journald.socket</filename>.</para></listitem>
 
+      <listitem><para>Units whose standard input, output or error output is connected to a pseudo TTY
+      allocated by the PTY broker (i.e. <option>broker</option> or <option>broker-log</option>, see below)
+      automatically acquire dependencies of type <varname>After=</varname> and <varname>Wants=</varname> on
+      <filename>systemd-ptybrokerd.socket</filename>.</para></listitem>
+
       <listitem><para>Units using <varname>LogNamespace=</varname> will automatically gain ordering and
       requirement dependencies on the two socket units associated with
       <filename>systemd-journald@.service</filename> instances.</para></listitem>
@@ -298,12 +303,16 @@
 
         <listitem><para>Takes a PKCS7 signature of the <varname>RootHash=</varname> option as a path to a
         DER-encoded signature file, or as an ASCII base64 string encoding of a DER-encoded signature prefixed
-        by <literal>base64:</literal>. The dm-verity volume will only be opened if the signature of the root
-        hash is valid and signed by a public key present in the kernel keyring. If this option is not
-        specified, but a file with the <filename>.roothash.p7s</filename> suffix is found next to the image
-        file, bearing otherwise the same name (except if the image has the <filename>.raw</filename> suffix,
-        in which case the signature file must not have it in its name), the signature is read from it and
-        automatically used.</para>
+        by <literal>base64:</literal>. The signature is validated against the public keys in the kernel
+        keyring and the certificates in <filename>/etc/verity.d/</filename>. If neither validates the
+        signature, the dm-verity volume is only opened if <varname>RootImagePolicy=</varname> allows
+        <option>verity</option> for the root partition, which the default policy does. To require a valid
+        signature, set <varname>RootImagePolicy=</varname> to a policy that allows <option>signed</option>
+        but not <option>verity</option> for the root partition. If this option is not specified, but a file
+        with the <filename>.roothash.p7s</filename> suffix is found next to the image file, bearing otherwise
+        the same name (except if the image has the <filename>.raw</filename> suffix, in which case the
+        signature file must not have it in its name), the signature is read from it and automatically
+        used.</para>
 
         <para>If the disk image contains a separate <filename>/usr/</filename> partition it may also be
         Verity protected, in which case the signature for the root hash may configured via a
@@ -959,7 +968,10 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <option>exec-deny-interactive</option>, and <option>exec-deny-interactive-locked</option>.
         This option may appear more than once, in which case the secure bits are
         ORed. If the empty string is assigned to this option, the bits are reset to 0. This does not affect commands
-        prefixed with <literal>+</literal>. See <citerefentry
+        prefixed with <literal>+</literal>. Bits set for the service manager itself, see
+        <varname>SecureBits=</varname> in
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        are inherited and cannot be cleared here, the listed bits are added to them. See <citerefentry
         project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         and <ulink url="https://docs.kernel.org/userspace-api/check_exec.html">Executability check</ulink> for
         details.</para></listitem>
@@ -1084,6 +1096,10 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <varname>TasksMax=</varname> (see <citerefentry><refentrytitle>systemd.resource-control</refentrytitle>
         <manvolnum>5</manvolnum></citerefentry>) is typically a better choice than <varname>LimitNPROC=</varname>.
         </para>
+
+        <para>These settings, including the defaults described below, do not affect commands prefixed with
+        <literal>+</literal>. Such commands inherit the resource limits of the service manager itself, which may be
+        different.</para>
 
         <para>Resource limits not configured explicitly for a unit default to the value configured in the various
         <varname>DefaultLimitCPU=</varname>, <varname>DefaultLimitFSIZE=</varname>, … options available in
@@ -1671,6 +1687,14 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         are set up, the directory will be read only if at least one is configured to be read only. To pass a
         flag without a destination symlink, the second parameter can be empty, for example:
         <programlisting>ConfigurationDirectory=foo::ro</programlisting></para>
+
+        <para>Because <literal>:</literal> separates the parameters, a directory name that contains a
+        literal colon must have it escaped as <literal>\:</literal>. Note that when these settings are
+        instead passed over D-Bus to create a transient unit, for example with
+        <command>systemd-run --property=</command>, the value is unescaped once more by the client, so a
+        literal colon requires <literal>\\:</literal> in the value received by the client after shell
+        quoting. For example:
+        <programlisting>systemd-run --property='ConfigurationDirectory=foo\\:bar' /usr/bin/true</programlisting></para>
 
         <para>The directories defined by these options are always created under the standard paths used by systemd
         (<filename>/var/</filename>, <filename>/run/</filename>, <filename>/etc/</filename>, …). If the service needs
@@ -2452,13 +2476,14 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <term><varname>RestrictAddressFamilies=</varname></term>
 
         <listitem><para>Restricts the set of socket address families accessible to the processes of this
-        unit. Takes <literal>none</literal>, or a space-separated list of address family names to
+        unit. Takes <literal>none</literal>, or a comma- or space-separated list of address family names to
         allow-list, such as <constant>AF_UNIX</constant>, <constant>AF_INET</constant> or
         <constant>AF_INET6</constant>, see
         <citerefentry project='man-pages'><refentrytitle>address_families</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        for all possible options. When <literal>none</literal> is specified, then all address
-        families will be denied. When prefixed with <literal>~</literal> the listed address
-        families will be applied as deny list, otherwise as allow list.</para>
+        for all possible options. The names can be specified with or without the <literal>AF_</literal>
+        prefix. When <literal>none</literal> is specified, then all address families will be denied. When
+        prefixed with <literal>~</literal> the listed address families will be applied as deny list,
+        otherwise as allow list.</para>
 
         <para>By default, no restrictions apply, all address families are accessible to processes. If
         assigned the empty string, any previous address family restriction changes are undone. This setting
@@ -2495,11 +2520,12 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       <varlistentry>
         <term><varname>RestrictFileSystems=</varname></term>
 
-        <listitem><para>Restricts the set of filesystems processes of this unit can open files on. Takes a space-separated
-        list of filesystem names. Any filesystem listed is made accessible to the unit's processes, access to filesystem
-        types not listed is prohibited (allow-listing). If the first character of the list is <literal>~</literal>, the
-        effect is inverted: access to the filesystems listed is prohibited (deny-listing). If the empty string is assigned,
-        access to filesystems is not restricted.</para>
+        <listitem><para>Restricts the set of filesystems processes of this unit can open files on. Takes a
+        comma- or space-separated list of filesystem names. Any filesystem listed is made accessible to the
+        unit's processes, access to filesystem types not listed is prohibited (allow-listing). If the first
+        character of the list is <literal>~</literal>, the effect is inverted: access to the filesystems listed
+        is prohibited (deny-listing). If the empty string is assigned, access to filesystems is not
+        restricted.</para>
 
         <para>If you specify both types of this option (i.e. allow-listing and deny-listing), the first encountered will take
         precedence and will dictate the default action (allow access to the filesystem or deny it). Then the next occurrences
@@ -2799,7 +2825,10 @@ RestrictNamespaces=~cgroup net</programlisting>
         for details about these scheduling policies. Realtime scheduling policies may be used to monopolize CPU
         time for longer periods of time, and may hence be used to lock up or otherwise trigger Denial-of-Service
         situations on the system. It is hence recommended to restrict access to realtime scheduling to the few programs
-        that actually require them. Defaults to off.</para>
+        that actually require them. Note that the scheduling policy passed to
+        <citerefentry project='man-pages'><refentrytitle>sched_setattr</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        cannot be inspected by the system call filter, hence that system call is refused altogether, including
+        for non-realtime uses. Defaults to off.</para>
 
         <xi:include href="version-info.xml" xpointer="v231"/></listitem>
       </varlistentry>
@@ -2924,9 +2953,9 @@ RestrictNamespaces=~cgroup net</programlisting>
       <varlistentry>
         <term><varname>SystemCallFilter=</varname></term>
 
-        <listitem><para>Takes a space-separated list of system call names or system call groups. If this
-        setting is used, system calls executed by the unit processes except for the listed ones will result
-        in the system call being denied (allow-listing). If the first character of the list is
+        <listitem><para>Takes a comma- or space-separated list of system call names or system call groups. If
+        this setting is used, system calls executed by the unit processes except for the listed ones will
+        result in the system call being denied (allow-listing). If the first character of the list is
         <literal>~</literal>, the effect is inverted: only the listed system calls will be denied
         (deny-listing). This option may be specified more than once, in which case the filter masks are
         merged. If the empty string is assigned, the filter is reset, all prior assignments will have no
@@ -3196,8 +3225,8 @@ SystemCallErrorNumber=EPERM</programlisting>
       <varlistentry>
         <term><varname>SystemCallLog=</varname></term>
 
-        <listitem><para>Takes a space-separated list of system call names. If this setting is used, all
-        system calls executed by the unit processes for the listed ones will be logged. If the first
+        <listitem><para>Takes a comma- or space-separated list of system call names. If this setting is used,
+        all system calls executed by the unit processes for the listed ones will be logged. If the first
         character of the list is <literal>~</literal>, the effect is inverted: all system calls except the
         listed system calls will be logged. This feature makes use of the Secure Computing Mode 2 interfaces
         of the kernel ('seccomp filtering') and is useful for auditing or setting up a minimal sandboxing
@@ -3391,8 +3420,9 @@ SystemCallErrorNumber=EPERM</programlisting>
 
         <listitem><para>Controls where file descriptor 0 (STDIN) of the executed processes is connected to. Takes one
         of <option>null</option>, <option>tty</option>, <option>tty-force</option>, <option>tty-fail</option>,
-        <option>data</option>, <option>file:<replaceable>path</replaceable></option>, <option>socket</option> or
-        <option>fd:<replaceable>name</replaceable></option>.</para>
+        <option>data</option>, <option>file:<replaceable>path</replaceable></option>, <option>socket</option>,
+        <option>fd:<replaceable>name</replaceable></option>, <option>broker</option> or
+        <option>broker-log</option>.</para>
 
         <para>If <option>null</option> is selected, standard input will be connected to <filename>/dev/null</filename>,
         i.e. all read attempts by the process will result in immediate EOF.</para>
@@ -3444,6 +3474,22 @@ SystemCallErrorNumber=EPERM</programlisting>
         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more
         details about named file descriptors and their ordering.</para>
 
+        <para>The <option>broker</option> and <option>broker-log</option> options connect standard input to a
+        pseudo TTY allocated on the fly by
+        <citerefentry><refentrytitle>systemd-ptybrokerd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>. The
+        broker allocates the pseudo TTY pair and retains its frontend (i.e. the "master" side), while the
+        backend (i.e. the "slave" side) is installed as the executed process' standard input, and the process
+        becomes the controlling process of the terminal. Unlike <option>tty</option> this does not require a
+        physical terminal device to be configured via <varname>TTYPath=</varname>, and hence works even in
+        contexts where no console is available, for example fully headless systems. With <option>broker</option>
+        anything the process writes to the terminal is discarded, while with <option>broker-log</option> the
+        output is additionally forwarded to the logs. The terminal type and dimensions of the allocated pseudo
+        TTY (as exposed via <varname>$TERM</varname>, <varname>$COLORTERM</varname>, <varname>$NO_COLOR</varname>
+        and the terminal window size) are derived from the unit's <varname>Environment=</varname> and
+        <varname>TTYColumns=</varname>/<varname>TTYRows=</varname> settings. When one of these options is used the
+        unit gains implicit <varname>After=</varname> and <varname>Wants=</varname> dependencies on
+        <filename>systemd-ptybrokerd.socket</filename>.</para>
+
         <para>This setting defaults to <option>null</option>, unless
         <varname>StandardInputText=</varname>/<varname>StandardInputData=</varname> are set, in which case it
         defaults to <option>data</option>.</para></listitem>
@@ -3457,7 +3503,8 @@ SystemCallErrorNumber=EPERM</programlisting>
         <option>journal</option>, <option>kmsg</option>, <option>journal+console</option>,
         <option>kmsg+console</option>, <option>file:<replaceable>path</replaceable></option>,
         <option>append:<replaceable>path</replaceable></option>, <option>truncate:<replaceable>path</replaceable></option>,
-        <option>socket</option> or <option>fd:<replaceable>name</replaceable></option>.</para>
+        <option>socket</option>, <option>fd:<replaceable>name</replaceable></option>, <option>broker</option> or
+        <option>broker-log</option>.</para>
 
         <para><option>inherit</option> duplicates the file descriptor of standard input for standard output.</para>
 
@@ -3540,6 +3587,19 @@ SystemCallErrorNumber=EPERM</programlisting>
         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for more details about named descriptors and their ordering.</para>
 
+        <para>The <option>broker</option> and <option>broker-log</option> options connect standard output to a
+        pseudo TTY allocated on the fly by
+        <citerefentry><refentrytitle>systemd-ptybrokerd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        with the same semantics as described for <varname>StandardInput=</varname> above. (Note however that
+        the process becomes the controlling process of the allocated terminal only if standard <emphasis>input</emphasis>
+        is connected to it, too.) With
+        <option>broker</option> the terminal output is discarded, with <option>broker-log</option> it is
+        forwarded to the logs. This is useful to provide a process with a fully featured terminal on its
+        standard output even on systems that have no physical console, without having to allocate and manage
+        the pseudo TTY manually. When one of these options is used the unit gains implicit
+        <varname>After=</varname> and <varname>Wants=</varname> dependencies on
+        <filename>systemd-ptybrokerd.socket</filename>.</para>
+
         <para>If the standard output (or error output, see below) of a unit is connected to the journal or
         the kernel log buffer, the unit will implicitly gain a dependency of type <varname>After=</varname>
         on <filename>systemd-journald.socket</filename> (also see the "Implicit Dependencies" section
@@ -3550,7 +3610,8 @@ SystemCallErrorNumber=EPERM</programlisting>
         >&amp;2</command> instead, which is mostly equivalent and avoids this pitfall.</para>
 
         <para>If <varname>StandardInput=</varname> is set to one of <option>tty</option>, <option>tty-force</option>,
-        <option>tty-fail</option>, <option>socket</option>, or <option>fd:<replaceable>name</replaceable></option>, this
+        <option>tty-fail</option>, <option>socket</option>, <option>fd:<replaceable>name</replaceable></option>,
+        <option>broker</option>, or <option>broker-log</option>, this
         setting defaults to <option>inherit</option>.</para>
 
         <para>In other cases, this setting defaults to the value set with <varname>DefaultStandardOutput=</varname> in
@@ -4203,11 +4264,12 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <term><varname>$PATH</varname></term>
 
           <listitem><para>Colon-separated list of directories to use when launching
-          executables. <command>systemd</command> uses a fixed value of
+          executables. <command>systemd</command> uses a built-in value of
           <literal><filename>/usr/local/sbin</filename>:<filename>/usr/local/bin</filename>:<filename>/usr/sbin</filename>:<filename>/usr/bin</filename></literal>
           in the system manager. In case of the user manager, a different path may be configured by the
-          distribution. It is recommended to not rely on the order of entries, and have only one program
-          with a given name in <varname>$PATH</varname>.</para>
+          distribution. The distribution may also add other paths to the end of this list for both the
+          system and the user manager. It is recommended to not rely on the order of entries, and have only
+          one program with a given name in <varname>$PATH</varname>.</para>
 
           <xi:include href="version-info.xml" xpointer="v208"/></listitem>
         </varlistentry>

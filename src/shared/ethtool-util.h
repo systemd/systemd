@@ -142,6 +142,8 @@ typedef struct netdev_coalesce_param {
         u32_opt tx_coalesce_usecs_high;
         u32_opt tx_max_coalesced_frames_high;
         u32_opt rate_sample_interval;
+        u32_opt rx_cqe_frames;
+        u32_opt rx_cqe_nsecs;
 } netdev_coalesce_param;
 
 int ethtool_get_driver(int *ethtool_fd, const char *ifname, char **ret);
@@ -164,6 +166,10 @@ int ethtool_set_link_settings(
 int ethtool_set_channels(int *ethtool_fd, const char *ifname, const netdev_channels *channels);
 int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int autoneg);
 int ethtool_set_nic_coalesce_settings(int *ethtool_fd, const char *ifname, const netdev_coalesce_param *coalesce);
+int ethtool_set_nic_cqe_coalesce_settings(
+                sd_netlink **genl,
+                int ifindex,
+                const netdev_coalesce_param *coalesce);
 int ethtool_set_eee_settings(
                 int *ethtool_fd,
                 const char *ifname,

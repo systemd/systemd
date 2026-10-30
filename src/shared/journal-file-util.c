@@ -295,6 +295,37 @@ static bool journal_file_set_offline_try_restart(JournalFile *f) {
         }
 }
 
+static int journal_file_start_offline_thread(JournalFile *f, void* (*func)(void*)) {
+        sigset_t ss, saved_ss;
+        int r, k;
+
+        assert(f);
+        assert(func);
+
+        assert_se(sigfillset(&ss) >= 0);
+        /* Don't block SIGBUS since the offlining thread accesses a memory mapped file.
+         * Asynchronous SIGBUS signals can safely be handled by either thread. */
+        assert_se(sigdelset(&ss, SIGBUS) >= 0);
+
+        r = pthread_sigmask(SIG_BLOCK, &ss, &saved_ss);
+        if (r > 0) {
+                f->offline_state = OFFLINE_JOINED;
+                return -r;
+        }
+
+        r = pthread_create(&f->offline_thread, NULL, func, f);
+
+        k = pthread_sigmask(SIG_SETMASK, &saved_ss, NULL);
+        if (r > 0) {
+                f->offline_state = OFFLINE_JOINED;
+                return -r;
+        }
+        if (k > 0)
+                return -k;
+
+        return 0;
+}
+
 /* Sets a journal offline.
  *
  * If wait is false then an offline is dispatched in a separate thread for a
@@ -368,27 +399,9 @@ int journal_file_set_offline(JournalFile *f, bool wait) {
                 f->offline_state = OFFLINE_JOINED;
 
         } else {
-                sigset_t ss, saved_ss;
-                int k;
-
-                assert_se(sigfillset(&ss) >= 0);
-                /* Don't block SIGBUS since the offlining thread accesses a memory mapped file.
-                 * Asynchronous SIGBUS signals can safely be handled by either thread. */
-                assert_se(sigdelset(&ss, SIGBUS) >= 0);
-
-                r = pthread_sigmask(SIG_BLOCK, &ss, &saved_ss);
-                if (r > 0)
-                        return -r;
-
-                r = pthread_create(&f->offline_thread, NULL, journal_file_set_offline_thread, f);
-
-                k = pthread_sigmask(SIG_SETMASK, &saved_ss, NULL);
-                if (r > 0) {
-                        f->offline_state = OFFLINE_JOINED;
-                        return -r;
-                }
-                if (k > 0)
-                        return -k;
+                r = journal_file_start_offline_thread(f, journal_file_set_offline_thread);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -447,6 +460,7 @@ int journal_file_rotate(
                 MMapCache *mmap_cache,
                 JournalFileFlags file_flags,
                 uint64_t compress_threshold_bytes,
+                const sd_id128_t *seqnum_id,
                 Set *deferred_closes) {
 
         _cleanup_free_ char *path = NULL;
@@ -466,7 +480,7 @@ int journal_file_rotate(
 
         set_clear(deferred_closes);
 
-        r = journal_file_open(
+        r = journal_file_open_full(
                         /* fd= */ -EBADF,
                         path,
                         (*f)->open_flags,
@@ -476,6 +490,7 @@ int journal_file_rotate(
                         /* metrics= */ NULL,
                         mmap_cache,
                         /* template= */ *f,
+                        seqnum_id,
                         &new_file);
 
         journal_file_initiate_close(*f, deferred_closes);
@@ -492,12 +507,13 @@ int journal_file_open_reliably(
                 uint64_t compress_threshold_bytes,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
+                const sd_id128_t *seqnum_id,
                 JournalFile **ret) {
 
         _cleanup_(journal_file_offline_closep) JournalFile *old_file = NULL;
         int r;
 
-        r = journal_file_open(
+        r = journal_file_open_full(
                         /* fd= */ -EBADF,
                         fname,
                         open_flags,
@@ -507,6 +523,7 @@ int journal_file_open_reliably(
                         metrics,
                         mmap_cache,
                         /* template= */ NULL,
+                        seqnum_id,
                         ret);
         if (!IN_SET(r,
                     -EBADMSG,           /* Corrupted */
@@ -545,8 +562,8 @@ int journal_file_open_reliably(
         if (r < 0)
                 return r;
 
-        return journal_file_open(-EBADF, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
-                                 mmap_cache, /* template= */ old_file, ret);
+        return journal_file_open_full(-EBADF, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
+                                      mmap_cache, /* template= */ old_file, seqnum_id, ret);
 }
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(

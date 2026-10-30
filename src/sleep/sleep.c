@@ -20,7 +20,6 @@
 #include "battery-capacity.h"
 #include "battery-util.h"
 #include "blockdev-util.h"
-#include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-unit-util.h"
@@ -49,6 +48,7 @@ COMMAND(
         "systemd-sleep\0",
         "Suspend the system, hibernate the system, or both.",
         .man_pages = "systemd-suspend.service(8)\0",
+        .option_namespace = "common",
 );
 
 #if ENABLE_EFI
@@ -688,30 +688,6 @@ static int verb_operate(int argc, char *argv[], uintptr_t data, void *userdata) 
         return r;
 }
 
-static int parse_argv(int argc, char *argv[], char ***ret_args) {
-        assert(argc >= 0);
-        assert(argv);
-        assert(ret_args);
-
-        OptionParser opts = { argc, argv };
-
-        FOREACH_OPTION_OR_RETURN(c, &opts)
-                switch (c) {
-
-                OPTION_COMMON_HELP:
-                        return command_print_help();
-
-                OPTION_COMMON_VERSION:
-                        return version();
-
-                OPTION_COMMON_INTROSPECT_CLI:
-                        return introspect_cli(SD_JSON_FORMAT_OFF);
-                }
-
-        *ret_args = option_parser_get_args(&opts);
-        return 1;
-}
-
 static int run(int argc, char *argv[]) {
         _cleanup_(sleep_config_freep) SleepConfig *sleep_config = NULL;
         char **args = NULL;
@@ -719,7 +695,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv, &args);
+        r = common_parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 

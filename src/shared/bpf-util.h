@@ -46,6 +46,7 @@ extern DLSYM_PROTOTYPE(bpf_map__name);
 extern DLSYM_PROTOTYPE(bpf_map__set_inner_map_fd);
 extern DLSYM_PROTOTYPE(bpf_map__set_max_entries);
 extern DLSYM_PROTOTYPE(bpf_map__set_pin_path);
+extern DLSYM_PROTOTYPE(bpf_map__set_type);
 extern DLSYM_PROTOTYPE(bpf_map_create);
 extern DLSYM_PROTOTYPE(bpf_map_delete_elem);
 extern DLSYM_PROTOTYPE(bpf_map_get_fd_by_id);

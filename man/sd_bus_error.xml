@@ -238,7 +238,7 @@
     due to lack of memory, in which case an <constant>SD_BUS_ERROR_NO_MEMORY</constant> error is set instead,
     and <constant>-ENOMEM</constant> is returned.</para>
 
-    <para><function>sd_bus_error_set_errnof()</function> and <function>sd_bus_error_set_errnof()</function>
+    <para><function>sd_bus_error_set_errnof()</function> and <function>sd_bus_error_set_errnofv()</function>
     are similar to <function>sd_bus_error_set_errno()</function>, but in addition to
     <parameter>error</parameter>, take a <citerefentry
     project='man-pages'><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry> format

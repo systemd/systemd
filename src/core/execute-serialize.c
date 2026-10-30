@@ -1872,7 +1872,7 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                 FOREACH_ARRAY(i, c->directories[dt].items, c->directories[dt].n_items) {
                         _cleanup_free_ char *path_escaped = NULL;
 
-                        path_escaped = shell_escape(i->path, ":\"");
+                        path_escaped = xescape(i->path, ":\"");
                         if (!path_escaped)
                                 return log_oom_debug();
 
@@ -1888,7 +1888,7 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                         STRV_FOREACH(d, i->symlinks) {
                                 _cleanup_free_ char *link_escaped = NULL;
 
-                                link_escaped = shell_escape(*d, ":\"");
+                                link_escaped = xescape(*d, ":\"");
                                 if (!link_escaped)
                                         return log_oom_debug();
 

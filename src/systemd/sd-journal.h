@@ -81,6 +81,12 @@ enum {
         SD_JOURNAL_INVALIDATE
 };
 
+/* Flags for reading data */
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_journal_data_flags_t) {
+        SD_JOURNAL_DATA_SKIP_FIELD = 1 << 0,
+        _SD_ENUM_FORCE_S64(JOURNAL_DATA_FLAGS)
+} sd_journal_data_flags_t;
+
 int sd_journal_open(sd_journal **ret, int flags);
 int sd_journal_open_namespace(sd_journal **ret, const char *name_space, int flags);
 int sd_journal_open_directory(sd_journal **ret, const char *path, int flags);
@@ -105,6 +111,7 @@ int sd_journal_set_data_threshold(sd_journal *j, size_t sz);
 int sd_journal_get_data_threshold(sd_journal *j, size_t *sz);
 
 int sd_journal_get_data(sd_journal *j, const char *field, const void **ret_data, size_t *ret_size);
+int sd_journal_get_data_to_fd(sd_journal *j, const char *field, sd_journal_data_flags_t flags, int fd, size_t *ret_size);
 int sd_journal_enumerate_data(sd_journal *j, const void **ret_data, size_t *ret_size);
 int sd_journal_enumerate_available_data(sd_journal *j, const void **ret_data, size_t *ret_size);
 void sd_journal_restart_data(sd_journal *j);

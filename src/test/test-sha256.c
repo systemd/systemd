@@ -29,7 +29,7 @@ static void test_sha256_one(const char *key, const char *expect) {
                         sha256_process_string(str + i, &ctx);
                         sha256_finish_ctx(&ctx, result + j);
 
-                        hex_result = hexmem(result + j, SHA256_DIGEST_SIZE);
+                        hex_result = ASSERT_NOT_NULL(hexmem(result + j, SHA256_DIGEST_SIZE));
                         ASSERT_STREQ(hex_result, expect);
                 }
         }
@@ -44,6 +44,8 @@ TEST(sha256) {
                         "ce7225683653be3b74861c5a4323b6baf3c3ceb361413ca99e3a5b52c04411bd");
         test_sha256_one("0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
                         "9cfe7faff7054298ca87557e15a10262de8d3eee77827417fbdfea1c41b9ec23");
+
+        ASSERT_EQ(memcmp(SHA256_EMPTY, SHA256_DIRECT("", 0), SHA256_DIGEST_SIZE), 0);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

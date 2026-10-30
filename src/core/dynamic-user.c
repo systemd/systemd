@@ -14,6 +14,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "hashmap.h"
+#include "io-util.h"
 #include "iovec-util.h"
 #include "lock-util.h"
 #include "manager.h"
@@ -186,7 +187,7 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                 char lock_path[STRLEN("/run/systemd/dynamic-uid/") + DECIMAL_STR_MAX(uid_t) + 1];
                 _cleanup_close_ int lock_fd = -EBADF;
                 uid_t candidate;
-                ssize_t l;
+                uint64_t written;
 
                 if (--n_tries <= 0) /* Give up retrying eventually */
                         return -EBUSY;
@@ -268,18 +269,17 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                 }
 
                 /* Let's store the user name in the lock file, so that we can use it for looking up the username for a UID */
-                l = pwritev(lock_fd,
-                            (struct iovec[2]) {
-                                    IOVEC_MAKE_STRING(name),
-                                    IOVEC_MAKE((char[1]) { '\n' }, 1),
-                            }, 2, 0);
-                if (l < 0) {
-                        r = -errno;
+                r = pwritev_full(lock_fd,
+                                 (struct iovec[2]) {
+                                         IOVEC_MAKE_STRING(name),
+                                         IOVEC_MAKE((char[1]) { '\n' }, 1),
+                                 }, 2, 0, &written);
+                if (r < 0) {
                         (void) unlink(lock_path);
                         return r;
                 }
 
-                (void) ftruncate(lock_fd, l);
+                (void) ftruncate(lock_fd, written);
 
                 *ret_uid = candidate;
                 return TAKE_FD(lock_fd);

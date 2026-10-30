@@ -71,8 +71,10 @@ sd_device_sources = files(
 ############################################################
 
 sd_future_sources = files(
+        'sd-future/channel.c',
         'sd-future/fiber-io.c',
         'sd-future/fiber.c',
+        'sd-future/future-group.c',
         'sd-future/sd-future.c',
 )
 
@@ -109,6 +111,7 @@ sd_path_sources = files(
 
 sd_netlink_sources = files(
         'sd-netlink/netlink-genl.c',
+        'sd-netlink/netlink-message-genl-ethtool.c',
         'sd-netlink/netlink-message-nfnl.c',
         'sd-netlink/netlink-message-rtnl.c',
         'sd-netlink/netlink-message.c',
@@ -159,10 +162,8 @@ libsystemd_static = static_library(
                         userspace],
         build_by_default : false)
 
-libsystemd_dir_path = meson.current_source_dir()
-
 libsystemd_sym = files('libsystemd.sym')
-libsystemd_sym_path = libsystemd_dir_path / 'libsystemd.sym'
+libsystemd_sym_path = relative_source_path / 'src/libsystemd/libsystemd.sym'
 
 static_libsystemd = get_option('static-libsystemd')
 static_libsystemd_pic = static_libsystemd == 'true' or static_libsystemd == 'pic'
@@ -186,13 +187,14 @@ simple_tests += files(
         'sd-device/test-device-util.c',
         'sd-device/test-sd-device-monitor.c',
         'sd-event/test-event-future.c',
+        'sd-future/test-channel.c',
         'sd-future/test-fiber.c',
         'sd-future/test-fiber-io.c',
         'sd-future/test-fiber-ops.c',
+        'sd-future/test-future-group.c',
         'sd-hwdb/test-sd-hwdb.c',
         'sd-id128/test-id128.c',
         'sd-journal/test-catalog.c',
-        'sd-journal/test-journal-file.c',
         'sd-journal/test-journal-flush.c',
         'sd-journal/test-journal-init.c',
         'sd-journal/test-journal-interleaving.c',
@@ -265,7 +267,15 @@ libsystemd_tests += [
                 'timeout' : 360,
         },
         {
+                'sources' : files('sd-journal/test-journal-file.c'),
+                'export' : files('sd-journal/journal-test-util.c'),
+        },
+        {
                 'sources' : files('sd-journal/test-journal-append.c'),
+                'type' : 'manual',
+        },
+        {
+                'sources' : files('sd-journal/test-journal-benchmark.c'),
                 'type' : 'manual',
         },
         {
@@ -302,4 +312,5 @@ simple_fuzzers += files(
         'sd-bus/fuzz-bus-match.c',
         'sd-bus/fuzz-bus-message.c',
         'sd-hwdb/fuzz-hwdb.c',
+        'sd-journal/fuzz-journal-file.c',
 )

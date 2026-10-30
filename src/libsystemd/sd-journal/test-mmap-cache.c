@@ -14,6 +14,7 @@ int main(int argc, char *argv[]) {
         char px[] = "/tmp/testmmapXXXXXXX", py[] = "/tmp/testmmapYXXXXXX", pz[] = "/tmp/testmmapZXXXXXX";
         MMapCache *m;
         void *p, *q;
+        size_t sp, sq;
 
         test_setup_logging(LOG_DEBUG);
 
@@ -30,21 +31,26 @@ int main(int argc, char *argv[]) {
         ASSERT_OK(z = mkostemp_safe(pz));
         (void) unlink(pz);
 
-        ASSERT_OK(mmap_cache_fd_get(fx, 0, false, 1, 2, NULL, &p));
+        ASSERT_OK(mmap_cache_fd_get(fx, 0, false, 1, 2, NULL, &p, &sp));
+        ASSERT_GE(sp, 2U);
 
-        ASSERT_OK(mmap_cache_fd_get(fx, 0, false, 2, 2, NULL, &q));
+        ASSERT_OK(mmap_cache_fd_get(fx, 0, false, 2, 2, NULL, &q, &sq));
 
         ASSERT_PTR_EQ((uint8_t*) p + 1, (uint8_t*) q);
+        ASSERT_EQ(sq, sp - 1);
 
-        ASSERT_OK(mmap_cache_fd_get(fx, 1, false, 3, 2, NULL, &q));
+        ASSERT_OK(mmap_cache_fd_get(fx, 1, false, 3, 2, NULL, &q, &sq));
 
         ASSERT_PTR_EQ((uint8_t*) p + 2, (uint8_t*) q);
+        ASSERT_EQ(sq, sp - 2);
 
-        ASSERT_OK(mmap_cache_fd_get(fx, 0, false, 16ULL*1024ULL*1024ULL, 2, NULL, &p));
+        ASSERT_OK(mmap_cache_fd_get(fx, 0, false, 16ULL*1024ULL*1024ULL, 2, NULL, &p, &sp));
+        ASSERT_GE(sp, 2U);
 
-        ASSERT_OK(mmap_cache_fd_get(fx, 1, false, 16ULL*1024ULL*1024ULL+1, 2, NULL, &q));
+        ASSERT_OK(mmap_cache_fd_get(fx, 1, false, 16ULL*1024ULL*1024ULL+1, 2, NULL, &q, &sq));
 
         ASSERT_PTR_EQ((uint8_t*) p + 1, (uint8_t*) q);
+        ASSERT_EQ(sq, sp - 1);
 
         mmap_cache_fd_free(fx);
         mmap_cache_unref(m);

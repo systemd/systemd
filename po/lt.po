@@ -3,12 +3,13 @@
 # Moo, 2018. #zanata
 # mooo <hazap@hotmail.com>, 2023, 2024, 2026.
 # Justinas Kairys <j.kairys@proton.me>, 2025, 2026.
+# Marija Grineviciute <marijagrine@protonmail.com>, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-08-26 10:57+0100\n"
-"PO-Revision-Date: 2026-08-02 00:06+0000\n"
-"Last-Translator: mooo <hazap@hotmail.com>\n"
+"PO-Revision-Date: 2026-10-28 18:18+0000\n"
+"Last-Translator: Marija Grineviciute <marijagrine@protonmail.com>\n"
 "Language-Team: Lithuanian <https://translate.fedoraproject.org/projects/"
 "systemd/main/lt/>\n"
 "Language: lt\n"
@@ -18,7 +19,7 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n % 10 == 1 && (n % 100 < 11 || n % 100 > "
 "19)) ? 0 : ((n % 10 >= 2 && n % 10 <= 9 && (n % 100 < 11 || n % 100 > 19)) ? "
 "1 : 2);\n"
-"X-Generator: Weblate 2026.7.1\n"
+"X-Generator: Weblate 2026.10.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -156,14 +157,12 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
-msgstr ""
+msgstr "Tvarkyti namų aplanko pasirašymo raktus"
 
 #: src/home/org.freedesktop.home1.policy:94
-#, fuzzy
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr ""
-"Norint tvarkyti sistemos tarnybas ar kitus įtaisus, reikia nustatyti "
-"tapatybę."
+"Norint tvarkyti namų aplanko pasirašymo raktus reikia nustatyti tapatybę."
 
 #: src/home/pam_systemd_home.c:328
 #, c-format

@@ -55,11 +55,15 @@ int action_verify(void) {
                 usec_t first = 0, validated = 0, last = 0;
 
                 r = journal_file_verify(f, arg_verify_key, &first, &validated, &last, /* show_progress= */ !arg_quiet);
+                if (r == -EIDRM) {
+                        log_debug_errno(r, "Journal file '%s' has been removed while we are verifying it, ignoring the file.", f->path);
+                        continue;
+                }
                 if (r == -EKEYREJECTED)
                         /* If the key was invalid give up right-away. */
                         return r;
                 if (r == -ENOKEY)
-                        log_notice_errno(r, "Journal file %s has sealing enabled but verification key has not been passed using --verify-key=.", f->path);
+                        log_notice_errno(r, "Journal file '%s' has sealing enabled but verification key has not been passed using --verify-key=.", f->path);
                 if (r < 0) {
                         RET_GATHER(ret, log_warning_errno(r, "FAIL: %s: %m", f->path));
                         continue;
@@ -199,10 +203,6 @@ int action_list_fields(void) {
 
         if (!journal_boot_has_effect(j))
                 return 0;
-
-        r = sd_journal_set_data_threshold(j, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to unset data size threshold: %m");
 
         r = sd_journal_query_unique(j, arg_field);
         if (r < 0)

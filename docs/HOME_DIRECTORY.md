@@ -133,7 +133,7 @@ maliciously formatted file systems; there's a good chance that file system
 images can be used as attack vectors, exploiting the kernel.
 Thus it is necessary to validate the home directory image *before* mounting it and establishing a minimal level of trust.
 Since the user record data is cryptographically signed and user records not signed with a recognized private
-key are not accepted, a minimal level of trust between the system and the homedirectory image is established.
+key are not accepted, a minimal level of trust between the system and the home directory image is established.
 
 Rationale for storing the home directory one level below to root directory of
 the contained file system:

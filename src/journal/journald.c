@@ -19,6 +19,15 @@
 #include "string-util.h"
 #include "terminal-util.h"
 #include "time-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-journald\0",
+        "Collect and store log messages.",
+        .argspec = "[NAMESPACE]\0",
+        .man_pages = "systemd-journald.service(8)\0",
+        .option_namespace = "common",
+);
 
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
@@ -32,10 +41,12 @@ static int run(int argc, char *argv[]) {
         LIBPCRE2_NOTE(suggested);
         LIBSELINUX_NOTE(recommended);
 
-        if (argc > 2)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes one or no arguments.");
+        char **args = NULL;
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 1, &args);
+        if (r <= 0)
+                return r;
 
-        namespace = argc > 1 ? empty_to_null(argv[1]) : NULL;
+        namespace = empty_to_null(args[0]);
 
         log_set_facility(LOG_SYSLOG);
 

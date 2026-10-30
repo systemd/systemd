@@ -7,6 +7,7 @@
 #include "hashmap.h"
 #include "networkd-dhcp-server-static-lease.h"
 #include "networkd-network.h"
+#include "parse-util.h"
 #include "string-util.h"
 
 static DHCPStaticLease* dhcp_static_lease_free(DHCPStaticLease *static_lease) {
@@ -17,7 +18,6 @@ static DHCPStaticLease* dhcp_static_lease_free(DHCPStaticLease *static_lease) {
                 hashmap_remove(static_lease->network->dhcp_static_leases_by_section, static_lease->section);
 
         config_section_free(static_lease->section);
-        free(static_lease->client_id);
         free(static_lease->hostname);
         return mfree(static_lease);
 }
@@ -34,9 +34,14 @@ static int dhcp_static_lease_new(DHCPStaticLease **ret) {
 
         assert(ret);
 
-        p = new0(DHCPStaticLease, 1);
+        p = new(DHCPStaticLease, 1);
         if (!p)
                 return -ENOMEM;
+
+        *p = (DHCPStaticLease) {
+                .client_identifier = DHCP_CLIENT_ID_MAC,
+                .duid.type = _DUID_TYPE_INVALID,
+        };
 
         *ret = TAKE_PTR(p);
         return 0;
@@ -78,6 +83,8 @@ static int lease_new_static(Network *network, const char *filename, unsigned sec
 }
 
 static int static_lease_verify(DHCPStaticLease *static_lease) {
+        int r;
+
         if (section_is_invalid(static_lease->section))
                 return -EINVAL;
 
@@ -89,13 +96,47 @@ static int static_lease_verify(DHCPStaticLease *static_lease) {
 
         /* TODO: check that the address is in the pool. */
 
-        if (static_lease->client_id_size == 0 || !static_lease->client_id)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: DHCP static lease without MACAddress= field configured. "
-                                         "Ignoring [DHCPServerStaticLease] section from line %u.",
-                                         static_lease->section->filename, static_lease->section->line);
+        switch (static_lease->client_identifier) {
+        case DHCP_CLIENT_ID_MAC:
+                if (ether_addr_is_null(&static_lease->hw_addr))
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "%s: DHCP static lease without MACAddress= field configured. "
+                                                 "Ignoring [DHCPServerStaticLease] section from line %u.",
+                                                 static_lease->section->filename, static_lease->section->line);
 
-        assert(static_lease->client_id_size == ETH_ALEN + 1);
+                /* set client id type to 1: Ethernet Link-Layer (RFC 2132) */
+                r = sd_dhcp_client_id_set(&static_lease->client_id, 1, &static_lease->hw_addr, ETH_ALEN);
+                break;
+
+        case DHCP_CLIENT_ID_DUID: {
+                sd_dhcp_duid duid = {};
+
+                /* MACAddress= is ignored here, as the client identifier does not contain it. */
+
+                if (!static_lease->iaid_set ||
+                    static_lease->duid.type < 0 ||
+                    static_lease->duid.raw_data_len == 0)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "%s: DHCP static lease with ClientIdentifier=duid requires IAID=, "
+                                                 "DUIDType=, and DUIDRawData= fields configured. "
+                                                 "Ignoring [DHCPServerStaticLease] section from line %u.",
+                                                 static_lease->section->filename, static_lease->section->line);
+
+                r = sd_dhcp_duid_set(&duid, static_lease->duid.type,
+                                     static_lease->duid.raw_data, static_lease->duid.raw_data_len);
+                if (r >= 0)
+                        r = sd_dhcp_client_id_set_iaid_duid(&static_lease->client_id, static_lease->iaid, &duid);
+                break;
+        }
+
+        default:
+                assert_not_reached();
+        }
+        if (r < 0)
+                return log_warning_errno(r,
+                                         "%s: Failed to set client ID of DHCP static lease. "
+                                         "Ignoring [DHCPServerStaticLease] section from line %u: %m",
+                                         static_lease->section->filename, static_lease->section->line);
 
         return 0;
 }
@@ -174,7 +215,6 @@ int config_parse_dhcp_static_lease_hwaddr(
         _cleanup_(dhcp_static_lease_free_or_set_invalidp) DHCPStaticLease *lease = NULL;
         Network *network = ASSERT_PTR(userdata);
         struct ether_addr hwaddr;
-        uint8_t *c;
         int r;
 
         assert(filename);
@@ -186,8 +226,7 @@ int config_parse_dhcp_static_lease_hwaddr(
                 return log_oom();
 
         if (isempty(rvalue)) {
-                lease->client_id = mfree(lease->client_id);
-                lease->client_id_size = 0;
+                lease->hw_addr = ETHER_ADDR_NULL;
                 TAKE_PTR(lease);
                 return 0;
         }
@@ -204,16 +243,76 @@ int config_parse_dhcp_static_lease_hwaddr(
                 return 0;
         }
 
-        c = new(uint8_t, ETH_ALEN + 1);
-        if (!c)
+        lease->hw_addr = hwaddr;
+
+        TAKE_PTR(lease);
+        return 0;
+}
+
+static int config_parse_dhcp_static_lease_iaid(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        DHCPStaticLease *lease = ASSERT_PTR(userdata);
+        int r;
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                lease->iaid = 0;
+                lease->iaid_set = false;
+                return 1;
+        }
+
+        r = safe_atou32(rvalue, &lease->iaid);
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+        lease->iaid_set = true;
+        return 1;
+}
+
+int config_parse_dhcp_static_lease_section(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        static const ConfigSectionParser table[_DHCP_STATIC_LEASE_CONF_PARSER_MAX] = {
+                [DHCP_STATIC_LEASE_CLIENT_IDENTIFIER] = { .parser = config_parse_dhcp_client_identifier, .ltype = 0,    .offset = offsetof(DHCPStaticLease, client_identifier), },
+                [DHCP_STATIC_LEASE_IAID]              = { .parser = config_parse_dhcp_static_lease_iaid, .ltype = 0,    .offset = 0,                                            },
+                [DHCP_STATIC_LEASE_DUID_TYPE]         = { .parser = config_parse_duid_type,              .ltype = true, .offset = offsetof(DHCPStaticLease, duid),              },
+                [DHCP_STATIC_LEASE_DUID_RAW_DATA]     = { .parser = config_parse_duid_rawdata,           .ltype = true, .offset = offsetof(DHCPStaticLease, duid),              },
+        };
+
+        _cleanup_(dhcp_static_lease_free_or_set_invalidp) DHCPStaticLease *lease = NULL;
+        Network *network = ASSERT_PTR(userdata);
+        int r;
+
+        assert(filename);
+
+        r = lease_new_static(network, filename, section_line, &lease);
+        if (r < 0)
                 return log_oom();
 
-        /* set client id type to 1: Ethernet Link-Layer (RFC 2132) */
-        c[0] = 0x01;
-        memcpy(c + 1, &hwaddr, ETH_ALEN);
-
-        free_and_replace(lease->client_id, c);
-        lease->client_id_size = ETH_ALEN + 1;
+        r = config_section_parse(table, ELEMENTSOF(table),
+                                 unit, filename, line, section, section_line, lvalue, ltype, rvalue, lease);
+        if (r <= 0)
+                return r;
 
         TAKE_PTR(lease);
         return 0;

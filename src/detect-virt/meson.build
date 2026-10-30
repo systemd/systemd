@@ -3,7 +3,6 @@
 executables += [
         executable_template + {
                 'name' : 'systemd-detect-virt',
-                'public' : true,
                 'sources' : files('detect-virt.c'),
         },
 ]

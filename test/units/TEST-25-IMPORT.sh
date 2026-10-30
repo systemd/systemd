@@ -167,4 +167,138 @@ machinectl remove scratch5
 test ! -f /var/lib/machines/scratch5
 (! machinectl image-status scratch5)
 
+# → Now, let's test explicit compression selection and verification of the decoded data ← #
+
+IMPORT=/usr/lib/systemd/systemd-import
+PULL=/usr/lib/systemd/systemd-pull
+COMPDIR=/var/tmp/compression
+rm -rf "$COMPDIR"
+mkdir -p "$COMPDIR/root"
+
+# Start with a fixed header, so that the random data cannot accidentally begin with a compression magic
+{ echo "systemd-import-test"; dd if=/dev/urandom bs=4096 count=64 status=none; } >"$COMPDIR/payload.raw"
+PAYLOAD_HASH="$(sha256sum "$COMPDIR/payload.raw" | cut -d' ' -f1)"
+WRONG_HASH=0000000000000000000000000000000000000000000000000000000000000000
+
+# Invalid arguments are refused
+(! "$IMPORT" raw --compression=foobar --direct "$COMPDIR/payload.raw" "$COMPDIR/out.raw")
+(! "$IMPORT" raw --verify-decoded=abcd --direct "$COMPDIR/payload.raw" "$COMPDIR/out.raw")
+(! "$PULL" raw --compression=foobar --verify=no --direct "file://$COMPDIR/payload.raw" "$COMPDIR/out.raw")
+(! "$PULL" raw --verify-decoded=abcd --verify=no --direct "file://$COMPDIR/payload.raw" "$COMPDIR/out.raw")
+(! "$PULL" oci --verify-decoded="$PAYLOAD_HASH" foo/bar)
+(! "$PULL" oci --compression=gzip foo/bar)
+test ! -e "$COMPDIR/out.raw"
+
+# Uncompressed input, with "none" and "auto", with and without (empty, i.e. reset) decoded digest
+for c in none auto; do
+    "$IMPORT" raw --compression="$c" --verify-decoded="$PAYLOAD_HASH" --direct "$COMPDIR/payload.raw" "$COMPDIR/out.raw"
+    cmp "$COMPDIR/payload.raw" "$COMPDIR/out.raw"
+    rm "$COMPDIR/out.raw"
+    "$IMPORT" raw --compression="$c" --verify-decoded="$WRONG_HASH" --verify-decoded= --direct "$COMPDIR/payload.raw" "$COMPDIR/out.raw"
+    cmp "$COMPDIR/payload.raw" "$COMPDIR/out.raw"
+    rm "$COMPDIR/out.raw"
+    "$PULL" raw --compression="$c" --verify=no --verify-decoded="$PAYLOAD_HASH" --direct "file://$COMPDIR/payload.raw" "$COMPDIR/out.raw"
+    cmp "$COMPDIR/payload.raw" "$COMPDIR/out.raw"
+    rm "$COMPDIR/out.raw"
+done
+
+for c in gzip xz zstd bzip2 lz4; do
+    if ! command -v "$c" >/dev/null; then
+        echo "$c not available, skipping."
+        continue
+    fi
+
+    case "$c" in
+        gzip)  ext=gz;  other=xz ;;
+        xz)    ext=xz;  other=gzip ;;
+        zstd)  ext=zst; other=gzip ;;
+        bzip2) ext=bz2; other=gzip ;;
+        lz4)   ext=lz4; other=gzip ;;
+    esac
+
+    # Skip algorithms the tools have not been built with
+    if ! "$IMPORT" --compression="$c" --help >/dev/null; then
+        echo "$c not supported by systemd-import, skipping."
+        continue
+    fi
+
+    "$c" -q -c "$COMPDIR/payload.raw" >"$COMPDIR/payload.raw.$ext"
+    ENCODED_HASH="$(sha256sum "$COMPDIR/payload.raw.$ext" | cut -d' ' -f1)"
+
+    # Autodetection and the explicitly specified algorithm both decompress the data
+    for m in auto "$c"; do
+        "$IMPORT" raw --compression="$m" --direct "$COMPDIR/payload.raw.$ext" "$COMPDIR/out.raw"
+        cmp "$COMPDIR/payload.raw" "$COMPDIR/out.raw"
+        rm "$COMPDIR/out.raw"
+
+        "$PULL" raw --compression="$m" --verify=no --direct "file://$COMPDIR/payload.raw.$ext" "$COMPDIR/out.raw"
+        cmp "$COMPDIR/payload.raw" "$COMPDIR/out.raw"
+        rm "$COMPDIR/out.raw"
+    done
+
+    # With "none" no decompression takes place, the data is taken as is
+    "$IMPORT" raw --compression=none --direct "$COMPDIR/payload.raw.$ext" "$COMPDIR/out.raw"
+    cmp "$COMPDIR/payload.raw.$ext" "$COMPDIR/out.raw"
+    rm "$COMPDIR/out.raw"
+    "$PULL" raw --compression=none --verify=no --direct "file://$COMPDIR/payload.raw.$ext" "$COMPDIR/out.raw"
+    cmp "$COMPDIR/payload.raw.$ext" "$COMPDIR/out.raw"
+    rm "$COMPDIR/out.raw"
+
+    # If a different algorithm is specified, it is strictly used, and hence decoding fails
+    (! "$IMPORT" raw --compression="$other" --direct "$COMPDIR/payload.raw.$ext" "$COMPDIR/out.raw")
+    rm -f "$COMPDIR/out.raw"
+    (! "$PULL" raw --compression="$other" --verify=no --direct "file://$COMPDIR/payload.raw.$ext" "$COMPDIR/out.raw")
+    rm -f "$COMPDIR/out.raw"
+
+    # --verify-decoded= checks the decompressed data, not the data as downloaded
+    "$IMPORT" raw --image-root="$COMPDIR/root" --compression="$c" --verify-decoded="$PAYLOAD_HASH" "$COMPDIR/payload.raw.$ext" good
+    cmp "$COMPDIR/payload.raw" "$COMPDIR/root/good.raw"
+    rm "$COMPDIR/root/good.raw"
+    (! "$IMPORT" raw --image-root="$COMPDIR/root" --verify-decoded="$ENCODED_HASH" "$COMPDIR/payload.raw.$ext" bad)
+    test ! -e "$COMPDIR/root/bad.raw"
+    (! "$IMPORT" raw --image-root="$COMPDIR/root" --verify-decoded="$WRONG_HASH" "$COMPDIR/payload.raw.$ext" bad)
+    test ! -e "$COMPDIR/root/bad.raw"
+    # … unless no decompression takes place, in which case the encoded and decoded data are the same
+    "$IMPORT" raw --image-root="$COMPDIR/root" --compression=none --verify-decoded="$ENCODED_HASH" "$COMPDIR/payload.raw.$ext" good
+    cmp "$COMPDIR/payload.raw.$ext" "$COMPDIR/root/good.raw"
+    rm "$COMPDIR/root/good.raw"
+
+    # systemd-pull's --verify= covers the downloaded data, --verify-decoded= the decompressed data
+    "$PULL" raw --image-root="$COMPDIR/root" --keep-download=no --settings=no --roothash=no --roothash-signature=no --verity=no \
+            --compression="$c" --verify="$ENCODED_HASH" --verify-decoded="$PAYLOAD_HASH" "file://$COMPDIR/payload.raw.$ext" good
+    cmp "$COMPDIR/payload.raw" "$COMPDIR/root/good.raw"
+    rm "$COMPDIR/root/good.raw"
+    (! "$PULL" raw --image-root="$COMPDIR/root" --keep-download=no --settings=no --roothash=no --roothash-signature=no --verity=no \
+               --verify="$ENCODED_HASH" --verify-decoded="$ENCODED_HASH" "file://$COMPDIR/payload.raw.$ext" bad)
+    test ! -e "$COMPDIR/root/bad.raw"
+    (! "$PULL" raw --image-root="$COMPDIR/root" --keep-download=no --settings=no --roothash=no --roothash-signature=no --verity=no \
+               --verify=no --verify-decoded="$WRONG_HASH" "file://$COMPDIR/payload.raw.$ext" bad)
+    test ! -e "$COMPDIR/root/bad.raw"
+done
+
+# The same for tarballs, where the decoded digest covers the uncompressed tar stream
+mkdir -p "$COMPDIR/tree/adirectory"
+echo "waldo" >"$COMPDIR/tree/adirectory/afile"
+tar cf "$COMPDIR/tree.tar" -C "$COMPDIR/tree" .
+TAR_HASH="$(sha256sum "$COMPDIR/tree.tar" | cut -d' ' -f1)"
+gzip -c "$COMPDIR/tree.tar" >"$COMPDIR/tree.tar.gz"
+
+"$IMPORT" tar --image-root="$COMPDIR/root" --compression=gzip --verify-decoded="$TAR_HASH" "$COMPDIR/tree.tar.gz" good
+diff -r "$COMPDIR/tree" "$COMPDIR/root/good"
+rm -rf "$COMPDIR/root/good"
+(! "$IMPORT" tar --image-root="$COMPDIR/root" --compression=xz "$COMPDIR/tree.tar.gz" bad)
+test ! -e "$COMPDIR/root/bad"
+(! "$IMPORT" tar --image-root="$COMPDIR/root" --verify-decoded="$WRONG_HASH" "$COMPDIR/tree.tar.gz" bad)
+test ! -e "$COMPDIR/root/bad"
+
+"$PULL" tar --image-root="$COMPDIR/root" --keep-download=no --settings=no --verify=no --compression=gzip --verify-decoded="$TAR_HASH" "file://$COMPDIR/tree.tar.gz" good
+diff -r "$COMPDIR/tree" "$COMPDIR/root/good"
+rm -rf "$COMPDIR/root/good"
+(! "$PULL" tar --image-root="$COMPDIR/root" --keep-download=no --settings=no --verify=no --compression=xz "file://$COMPDIR/tree.tar.gz" bad)
+test ! -e "$COMPDIR/root/bad"
+(! "$PULL" tar --image-root="$COMPDIR/root" --keep-download=no --settings=no --verify=no --verify-decoded="$WRONG_HASH" "file://$COMPDIR/tree.tar.gz" bad)
+test ! -e "$COMPDIR/root/bad"
+
+rm -rf "$COMPDIR"
+
 touch /testok

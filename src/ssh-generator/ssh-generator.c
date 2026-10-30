@@ -21,7 +21,16 @@
 #include "ssh-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "verbs.h"
 #include "virt.h"
+
+COMMAND(
+        "systemd-ssh-generator\0",
+        "Bind a socket-activated SSH server to local AF_VSOCK and AF_UNIX sockets.",
+        .argspec = GENERATOR_ARGSPEC,
+        .man_pages = "systemd-ssh-generator(8)\0",
+        .option_namespace = "common",
+);
 
 /* A small generator binding potentially five or more SSH sockets:
  *
@@ -250,8 +259,12 @@ static int add_vsock_socket(
         if (r < 0)
                 return r;
 
-        log_debug("Binding SSH to AF_VSOCK vsock::22.\n"
-                  "→ connect via 'ssh vsock/%u' from host", local_cid);
+        if (VSOCK_CID_IS_REGULAR(local_cid))
+                log_debug("Binding SSH to AF_VSOCK vsock::22.\n"
+                          "→ connect via 'ssh vsock/%u' from host", local_cid);
+        else
+                log_debug("Binding SSH to AF_VSOCK vsock::22.");
+
         return 0;
 }
 

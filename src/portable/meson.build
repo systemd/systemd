@@ -27,7 +27,6 @@ executables += [
         },
         executable_template + {
                 'name' : 'portablectl',
-                'public' : true,
                 'sources' : files('portablectl.c'),
                 'install' : get_option('link-portabled-shared') ? 'yes' : 'static',
         },

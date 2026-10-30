@@ -702,8 +702,7 @@ static int dispatch_pkcs11_uri_array(const char *name, sd_json_variant *variant,
                 }
         }
 
-        strv_free_and_replace(*l, z);
-        return 0;
+        return strv_free_and_replace(*l, z);
 }
 
 static int dispatch_pkcs11_key_data(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -808,10 +807,8 @@ static int dispatch_fido2_hmac_credential(const char *name, sd_json_variant *var
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to decode FIDO2 credential ID: %m");
 
-        free_and_replace(k->id, b);
         k->size = l;
-
-        return 0;
+        return free_and_replace(k->id, b);
 }
 
 static int dispatch_fido2_hmac_credential_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -1134,8 +1131,7 @@ static int dispatch_blob_manifest(const char *name, sd_json_variant *variant, sd
                 TAKE_PTR(hash);
         }
 
-        hashmap_free_and_replace(*ret, manifest);
-        return 0;
+        return hashmap_free_and_replace(*ret, manifest);
 }
 
 int per_machine_id_match(sd_json_variant *ids, sd_json_dispatch_flags_t flags) {

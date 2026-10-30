@@ -18,11 +18,13 @@
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "pidfd-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "uid-range.h"
 #include "unaligned.h"
 #include "user-util.h"
@@ -230,7 +232,14 @@ int namespace_open(
         return pidref_namespace_open(&pidref, ret_pidns_fd, ret_mntns_fd, ret_netns_fd, ret_userns_fd, ret_root_fd);
 }
 
-int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd) {
+int namespace_enter_full(
+                int pidns_fd,
+                int mntns_fd,
+                int netns_fd,
+                int userns_fd,
+                int root_fd,
+                NamespaceEnterFlags flags) {
+
         int r;
 
         /* Block dlopen() now, to avoid us inadvertently loading shared library from another namespace */
@@ -274,6 +283,15 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
                         userns_fd = -EBADF;
         }
 
+        /* Determine this before joining anything, as /proc might not be available afterwards. */
+        bool keep_uid_gid = false;
+        if (userns_fd >= 0 && FLAGS_SET(flags, NAMESPACE_ENTER_KEEP_UID_GID_IF_ROOT_UNMAPPED)) {
+                r = userns_has_root_mapping(userns_fd);
+                if (r < 0)
+                        return r;
+                keep_uid_gid = r == 0;
+        }
+
         r = have_effective_cap(CAP_SYS_ADMIN);
         if (r < 0)
                 return r;
@@ -284,15 +302,16 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
                 /* If we don't have CAP_SYS_ADMIN in our own user namespace, our best bet is to enter the
                  * user namespace first (if we got one) to get CAP_SYS_ADMIN within the child user namespace,
                  * and then hope the other namespaces are owned by the child user namespace. If they aren't,
-                 * we'll just get an EPERM later on when trying to setns() to them. */
+                 * we'll just get an EPERM later on when trying to setns() to them. If there's no namespace
+                 * left to join, there's nothing to need privileges for. */
 
-                if (userns_fd < 0)
+                if (userns_fd >= 0) {
+                        if (setns(userns_fd, CLONE_NEWUSER) < 0)
+                                return -errno;
+                } else if (pidns_fd >= 0 || mntns_fd >= 0 || netns_fd >= 0 || root_fd >= 0)
                         return log_debug_errno(
                                         SYNTHETIC_ERRNO(EPERM),
                                         "Need CAP_SYS_ADMIN or a child user namespace to enter namespaces.");
-
-                if (setns(userns_fd, CLONE_NEWUSER) < 0)
-                        return -errno;
         }
 
         if (pidns_fd >= 0)
@@ -319,13 +338,26 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
                         return -errno;
         }
 
-        if (userns_fd >= 0) {
-                /* Try to become root in the user namespace but don't error out if we can't, since it's not
-                 * uncommon to have user namespaces without a root user in them. */
-                r = reset_uid_gid();
-                if (r < 0)
-                        log_debug_errno(r, "Unable to drop auxiliary groups or reset UID/GID, ignoring: %m");
-        }
+        if (userns_fd < 0)
+                return 0;
+
+        /* Drop supplementary groups where possible. setgroups() may be denied, either via
+         * /proc/self/setgroups or by policy (e.g. a BPF LSM), in which case there's nothing we can do
+         * about them. */
+        r = maybe_setgroups(/* size= */ 0, /* list= */ NULL);
+        if (r < 0)
+                log_debug_errno(r, "Unable to drop supplementary groups, ignoring: %m");
+
+        if (keep_uid_gid)
+                return 0;
+
+        /* Joining a user namespace preserves the underlying UID/GID. Require becoming root to succeed, as
+         * otherwise we'd continue running with our original identity inside the namespace. */
+        if (setresgid(0, 0, 0) < 0)
+                return log_debug_errno(errno, "Failed to become root group in user namespace: %m");
+
+        if (setresuid(0, 0, 0) < 0)
+                return log_debug_errno(errno, "Failed to become root in user namespace: %m");
 
         return 0;
 }
@@ -346,8 +378,29 @@ int fd_is_namespace(int fd, NamespaceType type) {
                 return true;
 
         int clone_flag = ioctl(fd, NS_GET_NSTYPE);
-        if (clone_flag < 0)
-                return -errno;
+        if (clone_flag < 0) {
+                if (errno != ENOTTY)
+                        return -errno;
+
+                // FIXME: This compatibility code path shall be removed once kernel 6.3
+                //        becomes the new minimal baseline
+                /* Before Linux 6.3, nsfs ioctls lack 32-bit compat support on 64-bit kernels.
+                 * The nsfs link name also identifies the type, e.g. "mnt:[4026531841]". */
+                _cleanup_free_ char *path = NULL;
+                r = fd_get_path(fd, &path);
+                if (r < 0)
+                        return r;
+
+                /* Bind-mounted namespaces expose their mount path instead of the nsfs link name. */
+                if (path_is_absolute(path))
+                        return -ENOTTY;
+
+                const char *p = startswith(path, namespace_info[type].proc_name);
+                if (!p)
+                        return false;
+
+                return startswith(p, ":[") != NULL;
+        }
 
         NamespaceType found_type = clone_flag_to_namespace_type(clone_flag);
         if (found_type < 0)
@@ -363,16 +416,24 @@ int is_our_namespace(int fd, NamespaceType type) {
         assert(type >= 0 && type < _NAMESPACE_TYPE_MAX);
 
         r = fd_is_namespace(fd, type);
-        if (r < 0)
+        /* If neither the ioctl nor the nsfs link name identifies the type, we can still recognize our own
+         * namespace by inode. */
+        if (r < 0 && r != -ENOTTY)
                 return r;
         if (r == 0) /* Not a namespace or not of the right type? */
                 return -EUCLEAN;
+
+        bool type_verified = r > 0;
 
         _cleanup_close_ int our_ns = namespace_open_by_type(type);
         if (our_ns < 0)
                 return our_ns;
 
-        return fd_inode_same(fd, our_ns);
+        r = fd_inode_same(fd, our_ns);
+        if (r == 0 && !type_verified)
+                return -ENOTTY;
+
+        return r;
 }
 
 int are_our_namespaces(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd) {
@@ -829,6 +890,36 @@ int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid) {
                 *ret_gid = gid;
 
         return 0;
+}
+
+int userns_has_root_mapping(int userns_fd) {
+        _cleanup_(uid_range_freep) UIDRange *uid_range = NULL, *gid_range = NULL;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        int r;
+
+        assert(userns_fd >= 0);
+
+        r = userns_enter_and_pin(userns_fd, &pidref);
+        if (r < 0)
+                return r;
+
+        const char *p = procfs_file_alloca(pidref.pid, "uid_map");
+        r = uid_range_load_userns(p, UID_RANGE_USERNS_INSIDE, &uid_range);
+        if (r < 0)
+                return r;
+
+        p = procfs_file_alloca(pidref.pid, "gid_map");
+        r = uid_range_load_userns(p, GID_RANGE_USERNS_INSIDE, &gid_range);
+        if (r < 0)
+                return r;
+
+        /* The maps can be written only once. While they are empty the namespace is still being set up and
+         * root might yet get mapped, so refuse to answer rather than guess. */
+        if (uid_range_is_empty(uid_range) || uid_range_is_empty(gid_range))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENODATA),
+                                       "User namespace has no UID/GID mapping yet.");
+
+        return uid_range_contains(uid_range, 0) && uid_range_contains(gid_range, 0);
 }
 
 int process_is_owned_by_uid(const PidRef *pidref, uid_t uid) {

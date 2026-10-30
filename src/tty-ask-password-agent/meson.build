@@ -3,7 +3,6 @@
 executables += [
         executable_template + {
                 'name' : 'systemd-tty-ask-password-agent',
-                'public' : true,
                 'sources' : files('tty-ask-password-agent.c'),
         },
 ]

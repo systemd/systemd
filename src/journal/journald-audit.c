@@ -12,6 +12,7 @@
 #include "iovec-util.h"
 #include "journal-internal.h"
 #include "journald-audit.h"
+#include "journald-counters.h"
 #include "journald-manager.h"
 #include "log.h"
 #include "log-ratelimit.h"
@@ -406,6 +407,8 @@ void process_audit_string(Manager *m, int type, const char *data, size_t size) {
         z = n;
 
         map_all_fields(p, map_fields_kernel, "_AUDIT_FIELD_", true, iovec, &n, n + N_IOVEC_AUDIT_FIELDS);
+
+        manager_count_message(m, JOURNAL_TRANSPORT_AUDIT, LOG_NOTICE);
 
         manager_dispatch_message(m, iovec, n, ELEMENTSOF(iovec), NULL,
                                  TIMEVAL_STORE((usec_t) seconds * USEC_PER_SEC + (usec_t) msec * USEC_PER_MSEC),

@@ -19,6 +19,14 @@
 #include "pidref.h"
 #include "process-util.h"
 #include "signal-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-remount-fs\0",
+        "Remount the root and kernel file systems according to /etc/fstab.",
+        .man_pages = "systemd-remount-fs.service(8)\0",
+        .option_namespace = "common",
+);
 
 /* Goes through /etc/fstab and remounts all API file systems, applying options that are in /etc/fstab that
  * systemd might not have respected. */
@@ -127,9 +135,9 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        if (argc > 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program takes no arguments.");
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 0, /* ret_args= */ NULL);
+        if (r <= 0)
+                return r;
 
         umask(0022);
 

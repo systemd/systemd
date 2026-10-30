@@ -3,7 +3,6 @@
 executables += [
         executable_template + {
                 'name' : 'systemd-mute-console',
-                'public' : true,
                 'sources' : files('mute-console.c'),
         },
 ]

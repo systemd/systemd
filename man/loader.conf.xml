@@ -435,8 +435,7 @@ sbvarsign --attr "${attr}" --key KEK.key --cert KEK.pem --output db.auth db db.e
       <varlistentry>
         <term>reboot-for-bitlocker</term>
 
-        <listitem><para>Caveat: This feature is experimental, and is likely to be changed (or removed in its
-        current form) in a future version of systemd.</para>
+        <listitem><xi:include href="experimental.xml" xpointer="feature" />
 
         <para>Work around BitLocker requiring a recovery key when the boot loader was updated (disabled by
         default).</para>

@@ -115,12 +115,16 @@ executables += [
                 'sources' : files('test-lldp-rx.c'),
         },
         network_test_template + {
-                'sources' : files('test-ndisc-ra.c'),
+                'sources' : files('test-ndisc-option.c'),
                 'export' : files('icmp6-test-util.c'),
         },
         network_test_template + {
+                'sources' : files('test-ndisc-ra.c'),
+                'import' : ['test-ndisc-option'],
+        },
+        network_test_template + {
                 'sources' : files('test-ndisc-rs.c'),
-                'import' : ['test-ndisc-ra'],
+                'import' : ['test-ndisc-option'],
         },
         network_test_template + {
                 'sources' : files('test-ndisc-send.c'),
@@ -146,6 +150,6 @@ executables += [
         },
         network_fuzz_template + {
                 'sources' : files('fuzz-ndisc-rs.c'),
-                'import' : ['test-ndisc-ra'],
+                'import' : ['test-ndisc-option'],
         },
 ]

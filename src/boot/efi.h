@@ -409,7 +409,10 @@ typedef struct {
                         uint32_t *Attributes,
                         size_t *DataSize,
                         void *Data);
-        void *GetNextVariableName;
+        EFI_STATUS (EFIAPI *GetNextVariableName)(
+                        size_t *VariableNameSize,
+                        char16_t *VariableName,
+                        EFI_GUID *VendorGuid);
         EFI_STATUS (EFIAPI *SetVariable)(
                         char16_t *VariableName,
                         EFI_GUID *VendorGuid,

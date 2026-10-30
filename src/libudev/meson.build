@@ -20,9 +20,10 @@ libudev_includes = [include_directories('.'), includes]
 libudev_dir_path = meson.current_source_dir()
 
 libudev_sym = files('libudev.sym')
-libudev_sym_path = libudev_dir_path / 'libudev.sym'
+libudev_sym_path = relative_source_path / 'src/libudev/libudev.sym'
 
 install_headers('libudev.h')
+libudev_h = files('libudev.h')
 libudev_h_path = libudev_dir_path / 'libudev.h'
 
 libudev_basic = static_library(

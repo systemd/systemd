@@ -886,11 +886,9 @@ static int cgroup_log_xattr_apply(Unit *u) {
 }
 
 static void cgroup_invocation_id_xattr_apply(Unit *u) {
-        bool b;
-
         assert(u);
 
-        b = !sd_id128_is_null(u->invocation_id);
+        bool b = unit_has_invocation_id(u);
         FOREACH_STRING(xn, "trusted.invocation_id", "user.invocation_id") {
                 if (b)
                         unit_set_xattr_graceful(u, xn, SD_ID128_TO_STRING(u->invocation_id), 32);

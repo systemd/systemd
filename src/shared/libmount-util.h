@@ -16,6 +16,7 @@
 
 extern DLSYM_PROTOTYPE(mnt_free_iter);
 extern DLSYM_PROTOTYPE(mnt_free_table);
+extern DLSYM_PROTOTYPE(mnt_fs_get_devno);
 extern DLSYM_PROTOTYPE(mnt_fs_get_fs_options);
 extern DLSYM_PROTOTYPE(mnt_fs_get_fstype);
 extern DLSYM_PROTOTYPE(mnt_fs_get_id);

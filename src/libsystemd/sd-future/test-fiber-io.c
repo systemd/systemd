@@ -47,7 +47,7 @@ TEST(fiber_io_basic) {
         PipeIOContext ctx = { .pipefd = pipefd };
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "pipe-read", pipe_read_fiber, &ctx, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "pipe-read", pipe_read_fiber, &ctx, &f));
 
         /* Write data to the pipe */
         ASSERT_OK_EQ_ERRNO(write(pipefd[1], "hello", 5), 5);
@@ -106,9 +106,9 @@ TEST(fiber_io_read_write) {
          * available. The write fiber will run second, write data to the pipe, causing the read fiber to get
          * resumed. */
         _cleanup_(sd_future_unrefp) sd_future *fr = NULL, *fw = NULL;
-        ASSERT_OK(sd_fiber_new(e, "pipe-read", pipe_read_order_fiber, &ctx, NULL, &fr));
+        ASSERT_OK(sd_fiber_new(e, "pipe-read", pipe_read_order_fiber, &ctx, &fr));
         ASSERT_OK(sd_future_set_priority(fr, 0));
-        ASSERT_OK(sd_fiber_new(e, "pipe-write", pipe_write_order_fiber, &ctx, NULL, &fw));
+        ASSERT_OK(sd_fiber_new(e, "pipe-write", pipe_write_order_fiber, &ctx, &fw));
         ASSERT_OK(sd_future_set_priority(fw, 1));
 
         /* Run the scheduler - should process the I/O */
@@ -152,7 +152,7 @@ TEST(fiber_io_concurrent) {
                 ASSERT_OK_ERRNO(pipe2(pipes[i], O_CLOEXEC | O_NONBLOCK));
                 args[i][0] = pipes[i][0];
                 args[i][1] = 'A' + i;
-                ASSERT_OK(sd_fiber_new(e, "concurrent-read", concurrent_read_fiber, args[i], NULL, &fibers[i]));
+                ASSERT_OK(sd_fiber_new(e, "concurrent-read", concurrent_read_fiber, args[i], &fibers[i]));
         }
 
         /* Write data in reverse order */
@@ -189,7 +189,7 @@ TEST(fiber_io_cancel) {
         ASSERT_OK_ERRNO(pipe2(pipefd, O_CLOEXEC | O_NONBLOCK));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "blocking-read", blocking_read_fiber, INT_TO_PTR(pipefd[0]), NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "blocking-read", blocking_read_fiber, INT_TO_PTR(pipefd[0]), &f));
 
         /* Run once - fiber will suspend on read */
         ASSERT_OK_POSITIVE(sd_event_run(e, 0));
@@ -204,6 +204,35 @@ TEST(fiber_io_cancel) {
 
         /* Should be cancelled */
         ASSERT_ERROR(sd_future_result(f), ECANCELED);
+}
+
+static int interrupted_read_fiber(void *userdata) {
+        int fd = PTR_TO_INT(userdata);
+        char c;
+
+        /* The data is ready, so the read would complete without suspending. The queued cancellation
+         * must still make the read fail. The data must stay in the pipe. */
+        ASSERT_OK(sd_fiber_resume(sd_fiber_get_current(), -ECANCELED));
+        ASSERT_ERROR(sd_fiber_read(fd, &c, 1), ECANCELED);
+
+        ASSERT_OK_EQ(sd_fiber_read(fd, &c, 1), 1);
+        ASSERT_EQ(c, 'x');
+        return 0;
+}
+
+TEST(fiber_io_interrupted) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+
+        _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(pipe2(pipefd, O_CLOEXEC | O_NONBLOCK));
+        ASSERT_OK_EQ_ERRNO(write(pipefd[1], "x", 1), 1);
+
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        ASSERT_OK(sd_fiber_new(e, "interrupted-read", interrupted_read_fiber, INT_TO_PTR(pipefd[0]), &f));
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_OK_ZERO(sd_future_result(f));
 }
 
 TEST(fiber_io_fallback) {
@@ -272,9 +301,9 @@ TEST(fiber_io_readv_writev) {
          * available. The write fiber will run second, write data to the pipe, causing the read fiber to get
          * resumed. */
         _cleanup_(sd_future_unrefp) sd_future *fr = NULL, *fw = NULL;
-        ASSERT_OK(sd_fiber_new(e, "pipe-readv", pipe_readv_order_fiber, &ctx, NULL, &fr));
+        ASSERT_OK(sd_fiber_new(e, "pipe-readv", pipe_readv_order_fiber, &ctx, &fr));
         ASSERT_OK(sd_future_set_priority(fr, 0));
-        ASSERT_OK(sd_fiber_new(e, "pipe-writev", pipe_writev_order_fiber, &ctx, NULL, &fw));
+        ASSERT_OK(sd_fiber_new(e, "pipe-writev", pipe_writev_order_fiber, &ctx, &fw));
         ASSERT_OK(sd_future_set_priority(fw, 1));
 
         /* Run the scheduler - should process the I/O */
@@ -323,7 +352,7 @@ TEST(fiber_io_readv_concurrent) {
                 args[i][0] = pipes[i][0];
                 args[i][1] = 'A' + i;
                 args[i][2] = 'a' + i;
-                ASSERT_OK(sd_fiber_new(e, "concurrent-readv", concurrent_readv_fiber, args[i], NULL, &fibers[i]));
+                ASSERT_OK(sd_fiber_new(e, "concurrent-readv", concurrent_readv_fiber, args[i], &fibers[i]));
         }
 
         /* Write data in reverse order */
@@ -391,9 +420,9 @@ TEST(fiber_io_recv_send) {
 
         /* Higher priority for the recv fiber, which will run first and suspend */
         _cleanup_(sd_future_unrefp) sd_future *fs = NULL, *fr = NULL;
-        ASSERT_OK(sd_fiber_new(e, "socket-recv", socket_recv_order_fiber, &ctx, NULL, &fr));
+        ASSERT_OK(sd_fiber_new(e, "socket-recv", socket_recv_order_fiber, &ctx, &fr));
         ASSERT_OK(sd_future_set_priority(fr, 0));
-        ASSERT_OK(sd_fiber_new(e, "socket-send", socket_send_order_fiber, &ctx, NULL, &fs));
+        ASSERT_OK(sd_fiber_new(e, "socket-send", socket_send_order_fiber, &ctx, &fs));
         ASSERT_OK(sd_future_set_priority(fs, 1));
 
         ASSERT_OK(sd_event_loop(e));
@@ -437,7 +466,7 @@ TEST(fiber_io_recv_peek) {
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, sockfd));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "socket-recv-peek", socket_recv_peek_fiber, INT_TO_PTR(sockfd[1]), NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "socket-recv-peek", socket_recv_peek_fiber, INT_TO_PTR(sockfd[1]), &f));
 
         /* Write data to the socket */
         ASSERT_OK_EQ_ERRNO(write(sockfd[0], "peek", 4), 4);
@@ -478,7 +507,7 @@ TEST(fiber_io_connect) {
 
         /* Create fiber to connect */
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "socket-connect", socket_connect_fiber, &addr, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "socket-connect", socket_connect_fiber, &addr, &f));
 
         /* Run the event loop - connection should complete */
         ASSERT_OK(sd_event_loop(e));
@@ -531,9 +560,9 @@ TEST(fiber_io_recvmsg_sendmsg) {
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, sockfd));
 
         _cleanup_(sd_future_unrefp) sd_future *fs = NULL, *fr = NULL;
-        ASSERT_OK(sd_fiber_new(e, "socket-recvmsg", socket_recvmsg_fiber, INT_TO_PTR(sockfd[1]), NULL, &fr));
+        ASSERT_OK(sd_fiber_new(e, "socket-recvmsg", socket_recvmsg_fiber, INT_TO_PTR(sockfd[1]), &fr));
         ASSERT_OK(sd_future_set_priority(fr, 1));
-        ASSERT_OK(sd_fiber_new(e, "socket-sendmsg", socket_sendmsg_fiber, INT_TO_PTR(sockfd[0]), NULL, &fs));
+        ASSERT_OK(sd_fiber_new(e, "socket-sendmsg", socket_sendmsg_fiber, INT_TO_PTR(sockfd[0]), &fs));
         ASSERT_OK(sd_future_set_priority(fs, 0));
 
         ASSERT_OK(sd_event_loop(e));
@@ -576,9 +605,9 @@ TEST(fiber_io_recvfrom_sendto) {
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, sockfd));
 
         _cleanup_(sd_future_unrefp) sd_future *fs = NULL, *fr = NULL;
-        ASSERT_OK(sd_fiber_new(e, "socket-recvfrom", socket_recvfrom_fiber, INT_TO_PTR(sockfd[1]), NULL, &fr));
+        ASSERT_OK(sd_fiber_new(e, "socket-recvfrom", socket_recvfrom_fiber, INT_TO_PTR(sockfd[1]), &fr));
         ASSERT_OK(sd_future_set_priority(fr, 1));
-        ASSERT_OK(sd_fiber_new(e, "socket-sendto", socket_sendto_fiber, INT_TO_PTR(sockfd[0]), NULL, &fs));
+        ASSERT_OK(sd_fiber_new(e, "socket-sendto", socket_sendto_fiber, INT_TO_PTR(sockfd[0]), &fs));
         ASSERT_OK(sd_future_set_priority(fs, 0));
 
         ASSERT_OK(sd_event_loop(e));
@@ -673,9 +702,9 @@ TEST(fiber_io_sendmsg_recvmsg_fd) {
 
         _cleanup_(sd_future_unrefp) sd_future *fs = NULL, *fr = NULL;
         int args[2] = { sockfd[0], test_fd };
-        ASSERT_OK(sd_fiber_new(e, "socket-recvmsg-fd", socket_recvmsg_fd_fiber, INT_TO_PTR(sockfd[1]), NULL, &fr));
+        ASSERT_OK(sd_fiber_new(e, "socket-recvmsg-fd", socket_recvmsg_fd_fiber, INT_TO_PTR(sockfd[1]), &fr));
         ASSERT_OK(sd_future_set_priority(fr, 1));
-        ASSERT_OK(sd_fiber_new(e, "socket-sendmsg-fd", socket_sendmsg_fd_fiber, args, NULL, &fs));
+        ASSERT_OK(sd_fiber_new(e, "socket-sendmsg-fd", socket_sendmsg_fd_fiber, args, &fs));
         ASSERT_OK(sd_future_set_priority(fs, 0));
 
         ASSERT_OK(sd_event_loop(e));
@@ -715,7 +744,7 @@ TEST(fiber_io_socket_cancel) {
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, sockfd));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "blocking-recv", blocking_recv_fiber, INT_TO_PTR(sockfd[0]), NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "blocking-recv", blocking_recv_fiber, INT_TO_PTR(sockfd[0]), &f));
 
         /* Run once - fiber will suspend on recv */
         ASSERT_OK_POSITIVE(sd_event_run(e, 0));
@@ -765,7 +794,7 @@ TEST(fiber_io_accept_basic) {
 
         /* Create fiber to accept connection */
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "accept", accept_fiber, INT_TO_PTR(listen_fd), NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "accept", accept_fiber, INT_TO_PTR(listen_fd), &f));
 
         /* Connect from outside fiber context */
         _cleanup_close_ int connect_fd = -EBADF;
@@ -818,7 +847,7 @@ TEST(fiber_io_accept_multiple) {
 
         /* Create fiber to accept multiple connections */
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "accept-multiple", accept_multiple_fiber, INT_TO_PTR(listen_fd), NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "accept-multiple", accept_multiple_fiber, INT_TO_PTR(listen_fd), &f));
 
         /* Connect multiple times */
         int connect_fds[3] = { -EBADF, -EBADF, -EBADF };
@@ -878,7 +907,7 @@ TEST(fiber_io_accept_and_read) {
 
         /* Create fiber to accept and read */
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "accept-and-read", accept_and_read_fiber, INT_TO_PTR(listen_fd), NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "accept-and-read", accept_and_read_fiber, INT_TO_PTR(listen_fd), &f));
 
         /* Connect and send data */
         _cleanup_close_ int connect_fd = -EBADF;
@@ -925,7 +954,7 @@ TEST(fiber_poll_immediate) {
         ASSERT_OK_EQ_ERRNO(write(pipefd[1], "X", 1), 1);
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "poll-immediate", poll_immediate_fiber, pipefd, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "poll-immediate", poll_immediate_fiber, pipefd, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK(sd_future_result(f));
@@ -963,7 +992,7 @@ TEST(fiber_poll) {
         ASSERT_OK_ERRNO(pipe2(pipefd, O_CLOEXEC | O_NONBLOCK));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "poll-suspend", poll_fiber, pipefd, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "poll-suspend", poll_fiber, pipefd, &f));
 
         /* Run once - fiber will suspend on poll */
         ASSERT_OK_POSITIVE(sd_event_run(e, 0));
@@ -1017,7 +1046,7 @@ TEST(fiber_poll_multiple) {
                 ASSERT_OK_ERRNO(pipe2(pipes[i], O_CLOEXEC | O_NONBLOCK));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "poll-multiple", poll_multiple_fiber, pipes, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "poll-multiple", poll_multiple_fiber, pipes, &f));
 
         /* Run once - fiber will suspend waiting for data */
         ASSERT_OK_POSITIVE(sd_event_run(e, 0));
@@ -1065,7 +1094,7 @@ TEST(fiber_poll_pollout) {
         ASSERT_OK_ERRNO(pipe2(pipefd, O_CLOEXEC | O_NONBLOCK));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "poll-pollout", poll_pollout_fiber, pipefd, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "poll-pollout", poll_pollout_fiber, pipefd, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK(sd_future_result(f));
@@ -1105,10 +1134,84 @@ TEST(fiber_poll_timeout) {
         ASSERT_OK_ERRNO(pipe2(pipefd, O_CLOEXEC | O_NONBLOCK));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "poll-timeout", poll_timeout_fiber, pipefd, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "poll-timeout", poll_timeout_fiber, pipefd, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK(sd_future_result(f));
+}
+
+typedef struct PollInterruptState {
+        int fd;
+        bool timeout;
+} PollInterruptState;
+
+static int poll_interrupt_fiber(void *userdata) {
+        PollInterruptState *s = ASSERT_PTR(userdata);
+        struct pollfd pfd = { .fd = s->fd, .events = POLLIN };
+
+        {
+                SD_FIBER_TIMEOUT(s->timeout ? 0 : USEC_INFINITY);
+                ASSERT_EQ(sd_fiber_ppoll(&pfd, 1, /* timeout= */ NULL, /* sigmask= */ NULL),
+                          s->timeout ? -ETIME : -ECANCELED);
+                ASSERT_EQ(pfd.revents, 0);
+        }
+
+        ASSERT_OK_ZERO(sd_fiber_yield());
+        return 0;
+}
+
+TEST(fiber_poll_interrupted) {
+        bool timeout;
+
+        FOREACH_ARGUMENT(timeout, false, true) {
+                _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+                _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+                _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
+
+                ASSERT_OK_ERRNO(pipe2(pipefd, O_CLOEXEC | O_NONBLOCK));
+                ASSERT_OK(sd_event_new(&e));
+                ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+                PollInterruptState s = { .fd = pipefd[0], .timeout = timeout };
+                ASSERT_OK(sd_fiber_new(e, "poll-interrupt", poll_interrupt_fiber, &s, &f));
+                ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+                if (!timeout)
+                        ASSERT_OK(sd_future_cancel(f));
+                ASSERT_OK(sd_event_loop(e));
+                ASSERT_OK_ZERO(sd_future_result(f));
+        }
+}
+
+static int poll_timeout_ready_fiber(void *userdata) {
+        int fd = PTR_TO_FD(userdata);
+        struct pollfd pfd = { .fd = fd, .events = POLLIN };
+
+        ASSERT_OK_EQ(sd_fiber_ppoll(&pfd, 1, /* timeout= */ NULL, /* sigmask= */ NULL), 1);
+        ASSERT_TRUE(FLAGS_SET(pfd.revents, POLLIN));
+
+        /* The fd was ready when the fiber woke up, so the next suspension point reports the timeout. */
+        ASSERT_ERROR(sd_fiber_interrupted(), ETIME);
+        return 0;
+}
+
+TEST(fiber_poll_timeout_while_ready) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
+
+        ASSERT_OK_ERRNO(pipe2(pipefd, O_CLOEXEC | O_NONBLOCK));
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(sd_fiber_new(e, "poll-timeout-ready", poll_timeout_ready_fiber, FD_TO_PTR(pipefd[0]), &f));
+        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+
+        /* The fd becomes ready together with the timeout. The event loop runs the woken fiber before it
+         * polls the fd again. The wait of the fiber therefore returns -ETIME, and sd_fiber_ppoll() then
+         * finds the fd ready. */
+        ASSERT_OK_EQ_ERRNO(write(pipefd[1], "x", 1), 1);
+        ASSERT_OK(sd_fiber_resume(f, -ETIME));
+
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_OK_ZERO(sd_future_result(f));
 }
 
 /* Test: poll with zero timeout (should not block) */
@@ -1152,7 +1255,7 @@ TEST(fiber_poll_zero_timeout) {
         ASSERT_OK_ERRNO(pipe2(pipefd, O_CLOEXEC | O_NONBLOCK));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "poll-zero-timeout", poll_zero_timeout_fiber, pipefd, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "poll-zero-timeout", poll_zero_timeout_fiber, pipefd, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK(sd_future_result(f));
@@ -1169,7 +1272,7 @@ TEST(fiber_poll_zero_fds) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "poll-zero-fds", poll_zero_fds_fiber, NULL, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "poll-zero-fds", poll_zero_fds_fiber, NULL, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK_EQ(sd_future_result(f), 0);
@@ -1186,10 +1289,33 @@ TEST(fiber_poll_zero_fds_no_timeout) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "poll-zero-fds-no-timeout", poll_zero_fds_no_timeout_fiber, NULL, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "poll-zero-fds-no-timeout", poll_zero_fds_no_timeout_fiber, NULL, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_ERROR(sd_future_result(f), EINVAL);
+}
+
+static int poll_all_entries_skipped_fiber(void *userdata) {
+        int *pipefd = ASSERT_PTR(userdata);
+        struct pollfd negative = { .fd = -EBADF, .events = POLLIN };
+        struct pollfd no_events = { .fd = pipefd[0] };
+
+        ASSERT_ERROR(sd_fiber_ppoll(&negative, 1, /* timeout= */ NULL, /* sigmask= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_fiber_ppoll(&no_events, 1, /* timeout= */ NULL, /* sigmask= */ NULL), EINVAL);
+        return 0;
+}
+
+TEST(fiber_poll_all_entries_skipped) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
+
+        ASSERT_OK_ERRNO(pipe2(pipefd, O_NONBLOCK | O_CLOEXEC));
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(sd_fiber_new(e, "poll-all-skipped", poll_all_entries_skipped_fiber, pipefd, &f));
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_OK_ZERO(sd_future_result(f));
 }
 
 /* Test: poll with negative fd (should be ignored) */
@@ -1228,7 +1354,7 @@ TEST(fiber_poll_negative_fd) {
         ASSERT_OK_EQ_ERRNO(write(pipefd[1], "N", 1), 1);
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "poll-negative-fd", poll_negative_fd_fiber, pipefd, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "poll-negative-fd", poll_negative_fd_fiber, pipefd, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK(sd_future_result(f));
@@ -1275,7 +1401,7 @@ TEST(fiber_io_same_fd_multiple_fibers) {
         for (size_t i = 0; i < ELEMENTSOF(fibers); i++) {
                 args[i].pipefd = pipefd[0];
                 args[i].counter = &counter;
-                ASSERT_OK(sd_fiber_new(e, "shared-fd-read", shared_fd_read_fiber, &args[i], NULL, &fibers[i]));
+                ASSERT_OK(sd_fiber_new(e, "shared-fd-read", shared_fd_read_fiber, &args[i], &fibers[i]));
         }
 
         /* All fibers should suspend waiting for data */
@@ -1326,7 +1452,7 @@ TEST(fiber_io_blocking_fd_preserved) {
         ASSERT_OK_EQ_ERRNO(write(pipefd[1], "blocking", 8), 8);
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "blocking-fd-preserve", blocking_fd_preserve_fiber, pipefd, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "blocking-fd-preserve", blocking_fd_preserve_fiber, pipefd, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK(sd_future_result(f));
@@ -1379,7 +1505,7 @@ TEST(fiber_io_connect_blocking) {
         ASSERT_OK(listen(listen_fd, 1));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "connect-blocking", socket_connect_blocking_fiber, &addr, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "connect-blocking", socket_connect_blocking_fiber, &addr, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK(sd_future_result(f));

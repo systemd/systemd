@@ -13,6 +13,7 @@
 #include "json-util.h"
 #include "login-util.h"
 #include "logind.h"
+#include "logind-counters.h"
 #include "logind-dbus.h"
 #include "logind-inhibit.h"
 #include "logind-seat.h"
@@ -368,6 +369,8 @@ static int vl_method_create_session(sd_varlink *link, sd_json_variant *parameter
         r = session_start(session, /* properties= */ NULL, /* error= */ NULL);
         if (r < 0)
                 goto fail;
+
+        session_count_started(session);
 
         session->create_link = sd_varlink_ref(link);
 

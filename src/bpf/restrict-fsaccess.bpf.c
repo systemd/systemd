@@ -16,11 +16,16 @@
  *                              dm-verity signals signature validity
  *   - bdev_free_security hook: removes devices from the map on teardown
  *   - bprm_check_security:    blocks execve() from untrusted sources
+ *   - bprm_creds_for_exec:    answers execveat(AT_EXECVE_CHECK) queries,
+ *                              which never reach bprm_check_security
  *   - mmap_file:              blocks PROT_EXEC mmap from untrusted sources, and
  *                              any writable+executable (W^X-violating) mapping
  *   - file_mprotect:          blocks writable+executable mprotect, and making
  *                              executable a mapping from an untrusted source or
  *                              one that was modified through copy-on-write
+ *   - mmap_addr:              blocks new mappings and heap growth of tasks
+ *                              with READ_IMPLIES_EXEC, which brk() would make
+ *                              executable
  *
  * On kernels providing the bpf_real_data_inode() kfunc (v7.2+), files on
  * union filesystems (overlayfs) are resolved to the layer hosting their
@@ -46,6 +51,7 @@
 #define PROT_EXEC          0x4
 #define VM_EXEC            0x00000004
 #define PTRACE_MODE_ATTACH 0x02
+#define READ_IMPLIES_EXEC  0x0400000
 
 /* ---- Maps ---- */
 
@@ -72,7 +78,7 @@ volatile __u32 protected_map_id_verity;
 volatile __u32 protected_map_id_bss;
 
 /* Must equal _RESTRICT_FILESYSTEM_ACCESS_LINK_MAX in bpf-restrict-fsaccess.h — update when adding programs */
-#define NUM_PROTECTED_OBJS 9 /* 5 enforcement + 4 guard (bpf, bpf_map, bpf_prog, ptrace) */
+#define NUM_PROTECTED_OBJS 11 /* 7 enforcement + 4 guard (bpf, bpf_map, bpf_prog, ptrace) */
 volatile __u32 protected_prog_ids[NUM_PROTECTED_OBJS];
 volatile __u32 protected_link_ids[NUM_PROTECTED_OBJS];
 
@@ -215,6 +221,27 @@ int BPF_PROG(restrict_fsaccess_bprm_check, struct linux_binprm *bprm)
         return check_trusted_file(bprm->file);
 }
 
+/* Flavor with the one field we need, so the object also builds against a
+ * vmlinux.h older than v6.14. */
+struct linux_binprm___is_check {
+        unsigned int is_check:1;
+} __attribute__((preserve_access_index));
+
+/* execveat(AT_EXECVE_CHECK) returns right after this hook, so
+ * bprm_check_security never sees the file. Real execs stay with
+ * bprm_check_security, which also covers interpreters. */
+SEC("lsm.s/bprm_creds_for_exec")
+int BPF_PROG(restrict_fsaccess_bprm_creds_for_exec, struct linux_binprm *bprm)
+{
+        struct linux_binprm___is_check *b = (void *) bprm;
+
+        /* Without the field the kernel has no AT_EXECVE_CHECK either. */
+        if (!bpf_core_field_exists(b->is_check) || !BPF_CORE_READ_BITFIELD(b, is_check))
+                return 0;
+
+        return check_trusted_file(bprm->file);
+}
+
 /* Covers more than plain mmap(): binfmt_elf maps the PT_INTERP interpreter
  * via vm_mmap(), so ld.so is only ever checked here, not by
  * bprm_check_security. */
@@ -283,6 +310,18 @@ int BPF_PROG(restrict_fsaccess_file_mprotect, struct vm_area_struct *vma,
                 return -EPERM;
 
         return check_trusted_vm_file(file);
+}
+
+/* brk() passes through no other hook we can attach to. With READ_IMPLIES_EXEC
+ * set it grows the heap writable and executable, so such tasks get no new
+ * mappings at all. */
+SEC("lsm/mmap_addr")
+int BPF_PROG(restrict_fsaccess_mmap_addr, unsigned long addr)
+{
+        if (bpf_get_current_task_btf()->personality & READ_IMPLIES_EXEC)
+                return -EPERM;
+
+        return 0;
 }
 
 /* ---- PID1 ptrace protection ----

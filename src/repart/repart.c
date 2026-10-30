@@ -105,6 +105,9 @@
 /* To do LUKS2 offline encryption, we need to keep some extra free space at the end of the partition. */
 #define LUKS2_METADATA_KEEP_FREE (LUKS2_METADATA_SIZE*2ULL)
 
+/* The LUKS2 binary header reserves 48 bytes for the label, including the trailing NUL byte */
+#define LUKS2_LABEL_MAX 47U
+
 /* LUKS2 default volume key size (no integrity). */
 #define VOLUME_KEY_SIZE (512ULL/8ULL)
 
@@ -350,6 +353,11 @@ typedef struct PartitionEncryptedVolume {
         bool fixate_volume_key;
 } PartitionEncryptedVolume;
 
+typedef struct PartitionEncryptAddToken {
+        char *type;                /* token type name, always set */
+        sd_json_variant *data;     /* extra fields (excluding type/keyslots), may be NULL */
+} PartitionEncryptAddToken;
+
 static PartitionEncryptedVolume* partition_encrypted_volume_free(PartitionEncryptedVolume *c) {
         if (!c)
                 return NULL;
@@ -359,6 +367,19 @@ static PartitionEncryptedVolume* partition_encrypted_volume_free(PartitionEncryp
         free(c->options);
 
         return mfree(c);
+}
+
+static void partition_encrypt_add_token_done(PartitionEncryptAddToken *t) {
+        assert(t);
+        free(t->type);
+        sd_json_variant_unref(t->data);
+}
+
+static void partition_encrypt_add_token_free_many(PartitionEncryptAddToken *tokens, size_t n) {
+        assert(tokens || n == 0);
+        FOREACH_ARRAY(t, tokens, n)
+                partition_encrypt_add_token_done(t);
+        free(tokens);
 }
 
 typedef struct CopyFiles {
@@ -545,6 +566,8 @@ typedef struct Partition {
         size_t n_mountpoints;
 
         PartitionEncryptedVolume *encrypted_volume;
+        PartitionEncryptAddToken *encrypt_add_tokens;
+        size_t n_encrypt_add_tokens;
 
         unsigned last_percent;
         RateLimit progress_ratelimit;
@@ -873,6 +896,7 @@ static Partition* partition_free(Partition *p) {
         p->n_mountpoints = 0;
 
         partition_encrypted_volume_free(p->encrypted_volume);
+        partition_encrypt_add_token_free_many(p->encrypt_add_tokens, p->n_encrypt_add_tokens);
 
         partition_unlink_supplement(p);
 
@@ -933,6 +957,9 @@ static void partition_foreignize(Partition *p) {
         p->n_mountpoints = 0;
 
         p->encrypted_volume = partition_encrypted_volume_free(p->encrypted_volume);
+        partition_encrypt_add_token_free_many(p->encrypt_add_tokens, p->n_encrypt_add_tokens);
+        p->encrypt_add_tokens = NULL;
+        p->n_encrypt_add_tokens = 0;
 
         partition_unlink_supplement(p);
 }
@@ -1913,35 +1940,61 @@ static int config_parse_label(
         /* Nota bene: the empty label is a totally valid one. Let's hence not follow our usual rule of
          * assigning the empty string to reset to default here, but really accept it as label to set. */
 
-        r = specifier_printf(rvalue, GPT_LABEL_MAX, system_and_tmp_specifier_table, arg_root, NULL, &resolved);
+        /* No length limit here: GPT limits labels in UTF-16 code units, not bytes, which
+         * gpt_label_is_valid() checks below. */
+        r = specifier_printf(rvalue, SIZE_MAX, system_and_tmp_specifier_table, arg_root, /* userdata= */ NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to expand specifiers in Label=, ignoring: %s", rvalue);
+                           "Failed to expand specifiers in %s=, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
 
-        if (!utf8_is_valid(resolved)) {
+        if (!gpt_label_is_valid(resolved)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Partition label not valid UTF-8, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        r = gpt_partition_label_valid(resolved);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to check if string is valid as GPT partition label, ignoring: \"%s\" (from \"%s\")",
-                           resolved, rvalue);
-                return 0;
-        }
-        if (!r) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Partition label too long for GPT table, ignoring: \"%s\" (from \"%s\")",
+                           "Partition label not valid UTF-8, contains control characters, or too long for GPT table, ignoring: \"%s\" (from \"%s\")",
                            resolved, rvalue);
                 return 0;
         }
 
-        free_and_replace(*label, resolved);
-        return 0;
+        return free_and_replace(*label, resolved);
+}
+
+static int config_parse_volume_label(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *resolved = NULL;
+        char **label = ASSERT_PTR(data);
+        int r;
+
+        assert(rvalue);
+
+        /* Like config_parse_label(), but for the LUKS2 superblock label, which is limited in bytes, not
+         * UTF-16 code units. Again, the empty label is a valid one. */
+
+        r = specifier_printf(rvalue, LUKS2_LABEL_MAX, system_and_tmp_specifier_table, arg_root, /* userdata= */ NULL, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to expand specifiers in %s=, or result too long for LUKS2 superblock, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (!string_is_safe(resolved, STRING_ALLOW_EMPTY|STRING_ALLOW_BACKSLASHES|STRING_ALLOW_QUOTES|STRING_ALLOW_GLOBS)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Volume label not valid UTF-8 or contains control characters, ignoring: \"%s\" (from \"%s\")",
+                           resolved, rvalue);
+                return 0;
+        }
+
+        return free_and_replace(*label, resolved);
 }
 
 static int config_parse_weight(
@@ -2694,7 +2747,7 @@ static int config_parse_encrypted_volume(
         int r;
 
         if (isempty(rvalue)) {
-                p->encrypted_volume = mfree(p->encrypted_volume);
+                p->encrypted_volume = partition_encrypted_volume_free(p->encrypted_volume);
                 return 0;
         }
 
@@ -2756,6 +2809,139 @@ static int config_parse_encrypted_volume(
                 .keyfile = TAKE_PTR(keyfile),
                 .options = TAKE_PTR(options),
                 .fixate_volume_key = fixate_volume_key,
+        };
+
+        return 0;
+}
+
+static int config_parse_encrypt_add_token(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Partition *p = ASSERT_PTR(data);
+        int r;
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                partition_encrypt_add_token_free_many(p->encrypt_add_tokens, p->n_encrypt_add_tokens);
+                p->encrypt_add_tokens = NULL;
+                p->n_encrypt_add_tokens = 0;
+                return 0;
+        }
+
+        /* Syntax: EncryptAddToken=<type>[:<source>:<value>]
+         *   where source is "file" (path) or "data" (base64-encoded JSON).
+         * The token type name is always supplied explicitly and stored separately.
+         * Extra metadata may be supplied as:
+         *   :file:/path/to/metadata.json   — read JSON from file
+         *   :data:<base64>                 — inline base64-encoded JSON
+         */
+
+        _cleanup_free_ char *type = NULL, *source = NULL;
+        const char *q = rvalue;
+
+        /* Extract only type and source; leave the rest of q as the value verbatim.
+         * This allows ':' in the value (e.g. file paths containing colons). */
+        r = extract_many_words(&q, ":", EXTRACT_DONT_COALESCE_SEPARATORS, &type, &source);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
+                return log_syntax(unit, LOG_ERR, filename, line, r,
+                                  "Failed to parse %s=: %s", lvalue, rvalue);
+        if (r < 1)
+                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "%s= requires at least a token type name.", lvalue);
+
+        /* Validate the type name: it becomes the suffix of libcryptsetup-token-<type>.so, so it must
+         * be a valid filename component — no slashes, no '.' or '..' path traversal. */
+        if (isempty(type) || dot_or_dot_dot(type) || !filename_part_is_valid(type))
+                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Invalid token type name in %s= (must be a valid filename component): %s", lvalue, type);
+
+        /* Refuse the token type names systemd own cryptsetup token plugins use */
+        if (STR_IN_SET(type, "systemd-tpm2", "systemd-fido2", "systemd-pkcs11", "systemd-recovery"))
+                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Token type name in %s= is reserved for systemd's own use: %s", lvalue, type);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *extra = NULL;
+
+        if (source) {
+                /* EXTRACT_DONT_COALESCE_SEPARATORS yields an empty-string source for inputs like
+                 * 'type:' (trailing colon) or 'type::value' (double colon) — reject explicitly. */
+                if (isempty(source))
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "Empty source in %s=, expected 'file' or 'data': %s", lvalue, rvalue);
+                /* Value is the remainder of the input after source, so ':' in it is preserved. */
+                if (isempty(q))
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "%s= source '%s' requires a value.", lvalue, source);
+
+                _cleanup_free_ char *json_text = NULL;
+
+                if (streq(source, "file")) {
+                        if (!path_is_absolute(q))
+                                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                                  "Path in %s= is not absolute: %s", lvalue, q);
+
+                        /* Load JSON from a file; cap at 64K — token metadata is tiny */
+                        r = read_full_file_full(
+                                        AT_FDCWD, q,
+                                        /* offset= */ UINT64_MAX,
+                                        /* size= */ 64 * 1024,
+                                        READ_FULL_FILE_FAIL_WHEN_LARGER | READ_FULL_FILE_VERIFY_REGULAR,
+                                        /* bind_name= */ NULL,
+                                        &json_text, /* ret_size= */ NULL);
+                        if (r < 0)
+                                return log_syntax(unit, LOG_ERR, filename, line, r,
+                                                  "Failed to read token data file '%s': %m", q);
+                } else if (streq(source, "data")) {
+                        /* Decode base64-encoded JSON */
+                        _cleanup_free_ void *decoded = NULL;
+                        size_t decoded_size = 0;
+                        r = unbase64mem(q, &decoded, &decoded_size);
+                        if (r < 0)
+                                return log_syntax(unit, LOG_ERR, filename, line, r,
+                                                  "Failed to decode base64 token data in %s=: %m", lvalue);
+                        /* JSON cannot contain raw NUL bytes; reject early rather than silently truncating */
+                        if (memchr(decoded, '\0', decoded_size))
+                                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                                  "Base64-decoded token data in %s= contains embedded NUL bytes.", lvalue);
+                        json_text = strndup(decoded, decoded_size);
+                        if (!json_text)
+                                return log_oom();
+                } else
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "Unknown source '%s' in %s=, expected 'file' or 'data'.", source, lvalue);
+
+                r = sd_json_parse(json_text, SD_JSON_PARSE_MUST_BE_OBJECT, &extra, NULL, NULL);
+                if (r < 0)
+                        return log_syntax(unit, LOG_ERR, filename, line, r,
+                                          "Token data in %s= is not a valid JSON object: %m", lvalue);
+
+                /* Reject any pre-set "type" or "keyslots" — we manage those */
+                if (sd_json_variant_by_key(extra, "type"))
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "Token data in %s= must not contain a \"type\" field (set by the type name argument).", lvalue);
+                if (sd_json_variant_by_key(extra, "keyslots"))
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "Token data in %s= must not contain a \"keyslots\" field (set automatically).", lvalue);
+        }
+
+        if (!GREEDY_REALLOC(p->encrypt_add_tokens, p->n_encrypt_add_tokens + 1))
+                return log_oom();
+
+        p->encrypt_add_tokens[p->n_encrypt_add_tokens++] = (PartitionEncryptAddToken) {
+                .type = TAKE_PTR(type),
+                .data = TAKE_PTR(extra),
         };
 
         return 0;
@@ -2963,7 +3149,7 @@ static int partition_read_definition(
         ConfigTableItem table[] = {
                 { "Partition", "Type",                     config_parse_type,              0,                                  &p->type                    },
                 { "Partition", "Label",                    config_parse_label,             0,                                  &p->new_label               },
-                { "Partition", "VolumeLabel",              config_parse_label,             0,                                  &p->new_volume_label        },
+                { "Partition", "VolumeLabel",              config_parse_volume_label,      0,                                  &p->new_volume_label        },
                 { "Partition", "UUID",                     config_parse_uuid,              0,                                  p                           },
                 { "Partition", "Priority",                 config_parse_int32,             0,                                  &p->priority                },
                 { "Partition", "Weight",                   config_parse_weight,            0,                                  &p->weight                  },
@@ -2995,6 +3181,7 @@ static int partition_read_definition(
                 { "Partition", "VerityHashBlockSizeBytes", config_parse_block_size,        0,                                  &p->verity_hash_block_size  },
                 { "Partition", "MountPoint",               config_parse_mountpoint,        0,                                  p                           },
                 { "Partition", "EncryptedVolume",          config_parse_encrypted_volume,  0,                                  p                           },
+                { "Partition", "EncryptAddToken",          config_parse_encrypt_add_token, 0,                                  p                           },
                 { "Partition", "TPM2PCRs",                 config_parse_tpm2_pcrs,         0,                                  p                           },
                 { "Partition", "KeyFile",                  config_parse_key_file,          0,                                  p                           },
                 { "Partition", "Integrity",                config_parse_integrity,         0,                                  &p->integrity               },
@@ -3207,6 +3394,10 @@ static int partition_read_definition(
         if (p->encrypt == ENCRYPT_OFF && p->encrypt_kdf >= 0)
                 log_syntax(NULL, LOG_WARNING, path, 1, 0,
                            "EncryptKDF= has no effect with Encrypt=off.");
+
+        if (p->n_encrypt_add_tokens > 0 && p->encrypt == ENCRYPT_OFF)
+                log_syntax(NULL, LOG_WARNING, path, 1, 0,
+                           "EncryptAddToken= has no effect with Encrypt=off.");
 
         if (p->encrypt != ENCRYPT_OFF && p->integrity == INTEGRITY_INLINE && p->discard > 0)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
@@ -3740,39 +3931,6 @@ static int context_read_definitions(Context *context) {
         return 0;
 }
 
-static int fdisk_ask_cb(struct fdisk_context *c, struct fdisk_ask *ask, void *data) {
-        _cleanup_free_ char *ids = NULL;
-        int r;
-
-        if (sym_fdisk_ask_get_type(ask) != FDISK_ASKTYPE_STRING)
-                return -EINVAL;
-
-        ids = new(char, SD_ID128_UUID_STRING_MAX);
-        if (!ids)
-                return -ENOMEM;
-
-        r = sym_fdisk_ask_string_set_result(ask, sd_id128_to_uuid_string(*(sd_id128_t*) data, ids));
-        if (r < 0)
-                return r;
-
-        TAKE_PTR(ids);
-        return 0;
-}
-
-static int fdisk_set_disklabel_id_by_uuid(struct fdisk_context *c, sd_id128_t id) {
-        int r;
-
-        r = sym_fdisk_set_ask(c, fdisk_ask_cb, &id);
-        if (r < 0)
-                return r;
-
-        r = sym_fdisk_set_disklabel_id(c);
-        if (r < 0)
-                return r;
-
-        return sym_fdisk_set_ask(c, NULL, NULL);
-}
-
 static int derive_uuid(sd_id128_t base, const char *token, sd_id128_t *ret) {
         union {
                 uint8_t md[SHA256_DIGEST_SIZE];
@@ -3819,7 +3977,6 @@ static int context_load_partition_table(Context *context) {
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
         uint64_t left_boundary = UINT64_MAX, first_lba, last_lba, nsectors;
-        _cleanup_free_ char *disk_uuid_string = NULL;
         bool from_scratch = false;
         sd_id128_t disk_uuid;
         size_t n_partitions;
@@ -3997,28 +4154,26 @@ static int context_load_partition_table(Context *context) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire disk GPT uuid: %m");
 
-                r = fdisk_set_disklabel_id_by_uuid(c, disk_uuid);
+                r = fdisk_set_disklabel_id_as_id128(c, disk_uuid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set GPT disk label: %m");
 
                 goto add_initial_free_area;
         }
 
-        r = sym_fdisk_get_disklabel_id(c, &disk_uuid_string);
+        r = fdisk_get_disklabel_id_as_id128(c, &disk_uuid);
         if (r < 0)
                 return log_error_errno(r, "Failed to get current GPT disk label UUID: %m");
 
-        r = id128_from_string_nonzero(disk_uuid_string, &disk_uuid);
-        if (r == -ENXIO) {
+        if (sd_id128_is_null(disk_uuid)) {
                 r = derive_uuid(context->seed, "disk-uuid", &disk_uuid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire disk GPT uuid: %m");
 
-                r = sym_fdisk_set_disklabel_id(c);
+                r = fdisk_set_disklabel_id_as_id128(c, disk_uuid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set GPT disk label: %m");
-        } else if (r < 0)
-                return log_error_errno(r, "Failed to parse current GPT disk label UUID: %m");
+        }
 
         r = sym_fdisk_get_partitions(c, &t);
         if (r < 0)
@@ -4129,6 +4284,14 @@ static int context_load_partition_table(Context *context) {
                         np->offset = start;
                         np->partno = partno;
                         np->current_label = TAKE_PTR(label_copy);
+
+                        /* Never touch foreign partitions: keep their UUID and label. Set here rather than in
+                         * context_acquire_partition_uuids_and_labels(), as --size=auto reloads the partition
+                         * table after that ran, which recreates the foreign partitions. */
+                        np->new_uuid = id;
+                        r = strdup_to(&np->new_label, np->current_label);
+                        if (r < 0)
+                                return log_oom();
 
                         np->current_partition = p;
                         sym_fdisk_ref_partition(p);
@@ -4311,20 +4474,31 @@ static int volume_label(const Partition *p, char **ret) {
         assert(p);
         assert(ret);
 
-        if (p->new_volume_label)
-                return strdup_to(ret, p->new_volume_label);
+        if (p->new_volume_label) {
+                if (strdup_to(ret, p->new_volume_label) < 0)
+                        return log_oom();
+
+                return 0;
+        }
 
         const char *e = partition_label(p);
         if (!e)
-                return -ENODATA;
+                return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "Partition has no label, cannot generate volume label.");
 
         /* Let's prefix "luks-" for the label string used for LUKS superblocks. We do this so that the
          * /dev/disk/by-label/ symlink to the LUKS volume and the file system inside it do not clash */
-        char *j = strjoin("luks-", e);
+        _cleanup_free_ char *j = strjoin("luks-", e);
         if (!j)
-                return -ENOMEM;
+                return log_oom();
 
-        *ret = j;
+        /* GPT labels are limited in UTF-16 code units, hence a label with multibyte characters might be
+         * longer in UTF-8 than what fits into the LUKS2 superblock. */
+        if (strlen(j) > LUKS2_LABEL_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(ENAMETOOLONG),
+                                       "Volume label '%s' derived from partition label exceeds LUKS2 limit of %u bytes, please set VolumeLabel= explicitly.",
+                                       j, LUKS2_LABEL_MAX);
+
+        *ret = TAKE_PTR(j);
         return 0;
 }
 
@@ -5431,7 +5605,13 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
                                                "Partition %" PRIu64 "'s contents (%s) don't fit in the partition (%s).",
                                                p->partno, FORMAT_BYTES(st.st_size), FORMAT_BYTES(p->new_size));
 
-                r = copy_bytes(t->fd, whole_fd, UINT64_MAX, COPY_HOLES|COPY_FSYNC|COPY_SEEK0_SOURCE);
+                r = copy_bytes_offset(
+                                t->fd,
+                                /* foffset= */ &(uint64_t) { 0 },
+                                whole_fd,
+                                /* toffset= */ NULL,
+                                /* max_bytes= */ UINT64_MAX,
+                                COPY_HOLES|COPY_FSYNC);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy bytes to partition: %m");
         } else {
@@ -5475,6 +5655,39 @@ static size_t dmcrypt_proper_key_size(Partition *p) {
         }
 }
 
+#if HAVE_LIBCRYPTSETUP
+static int partition_add_tokens_for_keyslot(Partition *p, struct crypt_device *cd, int keyslot) {
+        int r;
+
+        assert(p);
+        assert(cd);
+
+        char keyslot_str[DECIMAL_STR_MAX(int)];
+        xsprintf(keyslot_str, "%i", keyslot);
+
+        FOREACH_ARRAY(t, p->encrypt_add_tokens, p->n_encrypt_add_tokens) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                /* Start with extra data if any (NULL-safe), then inject type and keyslots.
+                 * merge_objectbo handles a blank/NULL *v by replacing it with the merged object,
+                 * so this works whether or not t->data is set. */
+                v = sd_json_variant_ref(t->data);
+                r = sd_json_variant_merge_objectbo(&v,
+                                SD_JSON_BUILD_PAIR_STRING("type", t->type),
+                                SD_JSON_BUILD_PAIR("keyslots",
+                                        SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_str))));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build LUKS2 token JSON for type '%s': %m", t->type);
+
+                r = cryptsetup_add_token_json(cd, v);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add LUKS2 token '%s' to header: %m", t->type);
+        }
+
+        return 0;
+}
+#endif
+
 static int partition_encrypt(Context *context, Partition *p, PartitionTarget *target, bool offline, bool temporary) {
 #if HAVE_LIBCRYPTSETUP
 #if HAVE_TPM2
@@ -5501,7 +5714,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
         _cleanup_free_ char *vl = NULL;
         r = volume_label(p, &vl);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate volume label: %m");
+                return r;
 
         const char *node = partition_target_path(target);
         struct crypt_params_luks2 luks_params = {
@@ -5679,8 +5892,14 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 if (r < 0)
                         return log_error_errno(r, "Failed to add LUKS2 key: %m");
 
+                int key_file_keyslot = r;
+
                 passphrase = strempty(iovec_key->iov_base);
                 passphrase_size = iovec_key->iov_len;
+
+                r = partition_add_tokens_for_keyslot(p, cd, key_file_keyslot);
+                if (r < 0)
+                        return r;
         }
 
         if (IN_SET(p->encrypt, ENCRYPT_TPM2, ENCRYPT_KEY_FILE_TPM2)) {
@@ -5886,6 +6105,14 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 if (r < 0)
                         return log_error_errno(r, "Failed to add TPM2 JSON token to LUKS2 header: %m");
 
+                /* For key-file+tpm2 the custom tokens were already bound to the key-file keyslot
+                 * above; only bind them to the TPM2 keyslot in pure TPM2 mode. */
+                if (p->encrypt == ENCRYPT_TPM2) {
+                        r = partition_add_tokens_for_keyslot(p, cd, keyslot);
+                        if (r < 0)
+                                return r;
+                }
+
                 passphrase = base64_encoded;
                 passphrase_size = strlen(base64_encoded);
 #else
@@ -5944,12 +6171,19 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 _cleanup_free_ DecryptedPartitionTarget *t = NULL;
                 _cleanup_close_ int dev_fd = -1;
 
+                /* A temporary activation only lives while the new partition is being set up, before the
+                 * partition table is written: if that is interrupted, the partition has to be created
+                 * again anyway. So skip the dm-integrity journal, which writes all data twice, as
+                 * cryptsetup luksFormat does for its wipe. A non-temporary activation (block device
+                 * replacement) stays in use after we are done, so keep the journal for it. */
                 r = sym_crypt_activate_by_volume_key(
                                 cd,
                                 dm_name,
                                 NULL,
                                 /* volume_key_size= */ volume_key_size,
-                                (allow_discards ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0) | CRYPT_ACTIVATE_PRIVATE);
+                                (allow_discards ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0) |
+                                (temporary && p->integrity == INTEGRITY_INLINE ? CRYPT_ACTIVATE_NO_JOURNAL : 0) |
+                                CRYPT_ACTIVATE_PRIVATE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to activate LUKS superblock: %m");
 
@@ -6303,10 +6537,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         if (r < 0)
                 return log_error_errno(r, "Failed to pad string to %s", FORMAT_BYTES(p->new_size));
 
-        if (lseek(whole_fd, p->offset, SEEK_SET) < 0)
-                return log_error_errno(errno, "Failed to seek to partition %s offset: %m", strna(hint));
-
-        r = loop_write(whole_fd, text, p->new_size);
+        r = pwrite_full(whole_fd, text, p->new_size, p->offset);
         if (r < 0)
                 return log_error_errno(r, "Failed to write verity signature to partition %s: %m", strna(hint));
 
@@ -6415,13 +6646,9 @@ static int context_copy_blocks(Context *context) {
                 if (p->copy_blocks_offset == UINT64_MAX)
                         log_info("Copying in '%s' (%s) on block level into future partition %" PRIu64 ".",
                                  p->copy_blocks_path, FORMAT_BYTES(p->copy_blocks_size), p->partno);
-                else {
+                else
                         log_info("Copying in '%s' @ %" PRIu64 " (%s) on block level into future partition %" PRIu64 ".",
                                  p->copy_blocks_path, p->copy_blocks_offset, FORMAT_BYTES(p->copy_blocks_size), p->partno);
-
-                        if (lseek(p->copy_blocks_fd, p->copy_blocks_offset, SEEK_SET) < 0)
-                                return log_error_errno(errno, "Failed to seek to copy blocks offset in %s: %m", p->copy_blocks_path);
-                }
 
                 /* We call copy_bytes_full() instead of copy_file_range() directly, because copy_file_range()
                  * needs to be called with a size limit to allow for progress updates. But we don't want that
@@ -6431,7 +6658,9 @@ static int context_copy_blocks(Context *context) {
                  * clone, and then falls back to copying in chunks. */
                 r = copy_bytes_full(
                                 p->copy_blocks_fd,
+                                /* foffset= */ p->copy_blocks_offset == UINT64_MAX ? NULL : &(uint64_t) { p->copy_blocks_offset },
                                 partition_target_fd(t),
+                                /* toffset= */ NULL,
                                 p->copy_blocks_size,
                                 /* copy_flags= */ 0,
                                 /* ret_remains= */ NULL,
@@ -7863,18 +8092,9 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
         LIST_FOREACH(partitions, p, context->partitions) {
                 sd_id128_t uuid;
 
-                /* Never touch foreign partitions */
-                if (PARTITION_IS_FOREIGN(p)) {
-                        p->new_uuid = p->current_uuid;
-
-                        if (p->current_label) {
-                                r = free_and_strdup_warn(&p->new_label, strempty(p->current_label));
-                                if (r < 0)
-                                        return r;
-                        }
-
+                /* Never touch foreign partitions, their UUID and label are set when loading them. */
+                if (PARTITION_IS_FOREIGN(p))
                         continue;
-                }
 
                 (void) context_notify(context, PROGRESS_ACQUIRING_PARTITION_LABELS, p->definition_path, UINT_MAX);
 
@@ -8384,16 +8604,16 @@ static int write_primary_descriptor(
         iso9660_datetime_zero(&desc.volume_expiration_date);
         iso9660_datetime_zero(&desc.volume_effective_date);
 
-        ssize_t s = pwrite(fd, &desc, sizeof(desc), ISO9660_PRIMARY_DESCRIPTOR*ISO9660_BLOCK_SIZE);
-        if (s < 0)
-                return log_error_errno(errno, "Failed to write ISO9660 primary descriptor: %m");
-        if (s != sizeof(desc))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to fully write ISO9660 primary descriptor");
+        r = pwrite_full(fd, &desc, sizeof(desc), ISO9660_PRIMARY_DESCRIPTOR*ISO9660_BLOCK_SIZE);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write ISO9660 primary descriptor: %m");
 
         return 0;
 }
 
 static int write_eltorito_descriptor(int fd, uint32_t catalog_sector) {
+        int r;
+
         assert(fd >= 0);
 
         struct iso9660_eltorito_descriptor desc = {
@@ -8408,16 +8628,16 @@ static int write_eltorito_descriptor(int fd, uint32_t catalog_sector) {
 
         strncpy(desc.boot_system_identifier, "EL TORITO SPECIFICATION", sizeof(desc.boot_system_identifier));
 
-        ssize_t s = pwrite(fd, &desc, sizeof(desc), ISO9660_ELTORITO_DESCRIPTOR*ISO9660_BLOCK_SIZE);
-        if (s < 0)
-                return log_error_errno(errno, "Failed to write ISO9660 El-Torito descriptor: %m");
-        if (s != sizeof(desc))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to fully write ISO9660 El-Torito descriptor");
+        r = pwrite_full(fd, &desc, sizeof(desc), ISO9660_ELTORITO_DESCRIPTOR*ISO9660_BLOCK_SIZE);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write ISO9660 El-Torito descriptor: %m");
 
         return 0;
 }
 
 static int write_terminal_descriptor(int fd) {
+        int r;
+
         assert(fd >= 0);
 
         struct iso9660_terminal_descriptor desc = {
@@ -8429,11 +8649,9 @@ static int write_terminal_descriptor(int fd) {
 
         iso9660_set_const_string(desc.header.identifier, sizeof(desc.header.identifier), "CD001", /* allow_a_chars= */ true);
 
-        ssize_t s = pwrite(fd, &desc, sizeof(desc), ISO9660_TERMINAL_DESCRIPTOR*ISO9660_BLOCK_SIZE);
-        if (s < 0)
-                return log_error_errno(errno, "Failed to write ISO9660 terminal descriptor: %m");
-        if (s != sizeof(desc))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to fully write ISO9660 terminal descriptor");
+        r = pwrite_full(fd, &desc, sizeof(desc), ISO9660_TERMINAL_DESCRIPTOR*ISO9660_BLOCK_SIZE);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write ISO9660 terminal descriptor: %m");
 
         return 0;
 }
@@ -8451,6 +8669,8 @@ static uint16_t calculate_validation_entry_checksum(const void *p, size_t size) 
 }
 
 static int write_boot_catalog(int fd, uint32_t load_block) {
+        int r;
+
         assert(fd >= 0);
 
         struct el_torito_validation_entry ve = {
@@ -8486,11 +8706,9 @@ static int write_boot_catalog(int fd, uint32_t load_block) {
         p = mempcpy(p, &sh, sizeof(sh));
         assert((size_t) (p - sector) <= sizeof(sector));
 
-        ssize_t s = pwrite(fd, &sector, sizeof(sector), ISO9660_BOOT_CATALOG*ISO9660_BLOCK_SIZE);
-        if (s < 0)
-                return log_error_errno(errno, "Failed to write El-Torito boot catalog: %m");
-        if (s != sizeof(sector))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to fully write El-Torito boot catalog");
+        r = pwrite_full(fd, &sector, sizeof(sector), ISO9660_BOOT_CATALOG*ISO9660_BLOCK_SIZE);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write El-Torito boot catalog: %m");
 
         return 0;
 }
@@ -8549,11 +8767,9 @@ static int write_directories(
         p = mempcpy(p, &parent, sizeof(parent));
         assert((size_t) (p - sector) <= sizeof(sector));
 
-        ssize_t s = pwrite(fd, &sector, sizeof(sector), ISO9660_ROOT_DIRECTORY*ISO9660_BLOCK_SIZE);
-        if (s < 0)
-                return log_error_errno(errno, "Failed to write ISO9660 root directory: %m");
-        if (s != sizeof(sector))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to fully write ISO9660 root directory");
+        r = pwrite_full(fd, &sector, sizeof(sector), ISO9660_ROOT_DIRECTORY*ISO9660_BLOCK_SIZE);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write ISO9660 root directory: %m");
 
         return 0;
 }
@@ -8663,7 +8879,7 @@ static int context_partscan(Context *context) {
                 log_info("Informing kernel about changed partitions...");
                 (void) context_notify(context, PROGRESS_REREADING_TABLE, /* object= */ NULL, UINT_MAX);
 
-                r = reread_partition_table_fd(sym_fdisk_get_devfd(context->fdisk_context), /* flags= */ 0);
+                r = reread_partition_table_fd(sym_fdisk_get_devfd(context->fdisk_context), /* flags= */ 0, /* args= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to reread partition table: %m");
         } else
@@ -8700,6 +8916,12 @@ static int context_write_partition_table(Context *context) {
                         return r;
 
                 log_info("Wiped block device.");
+
+                /* Wiping the partition table does not remove the kernel partition devices, do a rescan now
+                 * to avoid -EBUSY later. */
+                r = reread_partition_table_fd(sym_fdisk_get_devfd(context->fdisk_context), /* flags= */ 0, /* args= */ NULL);
+                if (r < 0 && !IN_SET(r, -ENOTBLK, -ENOTTY))
+                        log_warning_errno(r, "Failed to reread partition table after wiping, ignoring: %m");
 
                 if (arg_discard) {
                         r = context_discard_range(context, 0, context->total);
@@ -10483,7 +10705,7 @@ static int parse_argv(int argc, char *argv[]) {
                         r = blockdev_list(
                                         BLOCKDEV_LIST_SHOW_SYMLINKS|
                                         BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING|
-                                        BLOCKDEV_LIST_IGNORE_ZRAM|
+                                        BLOCKDEV_LIST_IGNORE_RAMDISK|
                                         BLOCKDEV_LIST_IGNORE_READ_ONLY,
                                         /* ret_devices= */ NULL,
                                         /* ret_n_devices= */ NULL);

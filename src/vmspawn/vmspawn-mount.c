@@ -58,7 +58,7 @@ int runtime_mount_parse(RuntimeMountContext *ctx, const char *s, bool read_only)
         if (!mount.target)
                 return -ENOMEM;
 
-        if (!path_is_absolute(mount.target))
+        if (!path_is_absolute(mount.target) || !path_is_safe(mount.target))
                 return -EINVAL;
 
         if (!GREEDY_REALLOC(ctx->mounts, ctx->n_mounts + 1))

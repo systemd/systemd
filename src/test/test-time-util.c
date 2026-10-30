@@ -759,6 +759,13 @@ static bool timezone_equal(usec_t today, usec_t target) {
         return streq(sz, tz);
 }
 
+/* On the day DST ends 00:00:00 may exist twice (e.g. Atlantic/Azores: 00:59:59 +00 -> 00:00:00 -01), and
+ * mktime() with tm_isdst=-1 returns the first instant on musl but the second on glibc. */
+static bool midnight_is_unambiguous(usec_t midnight) {
+        return timezone_equal(midnight, midnight - USEC_PER_HOUR) &&
+                timezone_equal(midnight, midnight + USEC_PER_HOUR);
+}
+
 static void test_parse_timestamp_impl(const char *tz) {
         usec_t today, today2, now_usec;
 
@@ -1024,9 +1031,11 @@ static void test_parse_timestamp_impl(const char *tz) {
                 test_parse_timestamp_one("00:00:01.001", 0, today + USEC_PER_SEC + 1000);
                 test_parse_timestamp_one("00:00:01.0010", 0, today + USEC_PER_SEC + 1000);
 
-                if (timezone_equal(today, today + USEC_PER_DAY) && time_is_zero(today + USEC_PER_DAY))
+                if (timezone_equal(today, today + USEC_PER_DAY) && time_is_zero(today + USEC_PER_DAY) &&
+                    midnight_is_unambiguous(today + USEC_PER_DAY))
                         test_parse_timestamp_one("tomorrow", 0, today + USEC_PER_DAY);
-                if (timezone_equal(today, today - USEC_PER_DAY) && time_is_zero(today - USEC_PER_DAY))
+                if (timezone_equal(today, today - USEC_PER_DAY) && time_is_zero(today - USEC_PER_DAY) &&
+                    midnight_is_unambiguous(today - USEC_PER_DAY))
                         test_parse_timestamp_one("yesterday", 0, today - USEC_PER_DAY);
         }
 

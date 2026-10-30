@@ -76,7 +76,14 @@ int nsresource_connect(sd_varlink **ret) {
         return 0;
 }
 
-int nsresource_allocate_userns_full(sd_varlink *vl, const char *name, uint64_t size, uint64_t delegate_container_ranges) {
+static int allocate_userns(
+                sd_varlink *vl,
+                const char *name,
+                bool self,
+                uint64_t size,
+                uint64_t delegate_container_ranges,
+                bool map_foreign) {
+
         _cleanup_close_ int userns_fd = -EBADF;
         _cleanup_free_ char *_name = NULL;
         const char *error_id;
@@ -122,7 +129,10 @@ int nsresource_allocate_userns_full(sd_varlink *vl, const char *name, uint64_t s
                         SD_JSON_BUILD_PAIR_BOOLEAN("mangleName", true),
                         SD_JSON_BUILD_PAIR_UNSIGNED("size", size),
                         SD_JSON_BUILD_PAIR_UNSIGNED("userNamespaceFileDescriptor", userns_fd_idx),
-                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("delegateContainerRanges", delegate_container_ranges));
+                        SD_JSON_BUILD_PAIR_CONDITION(self, "type", SD_JSON_BUILD_STRING("self")),
+                        SD_JSON_BUILD_PAIR_CONDITION(self, "target", SD_JSON_BUILD_UNSIGNED(0)),
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("delegateContainerRanges", delegate_container_ranges),
+                        SD_JSON_BUILD_PAIR_CONDITION(map_foreign, "mapForeign", SD_JSON_BUILD_BOOLEAN(true)));
         if (r < 0)
                 return log_debug_errno(r, "Failed to call AllocateUserRange() varlink call: %m");
         if (streq_ptr(error_id, "io.systemd.NamespaceResource.UserNamespaceInterfaceNotSupported"))
@@ -131,6 +141,17 @@ int nsresource_allocate_userns_full(sd_varlink *vl, const char *name, uint64_t s
                 return log_debug_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to allocate user namespace with %" PRIu64 " users: %s", size, error_id);
 
         return TAKE_FD(userns_fd);
+}
+
+int nsresource_allocate_userns_full(sd_varlink *vl, const char *name, uint64_t size, uint64_t delegate_container_ranges) {
+        return allocate_userns(vl, name, /* self= */ false, size, delegate_container_ranges, /* map_foreign= */ false);
+}
+
+int nsresource_allocate_userns_self(sd_varlink *vl, const char *name, bool map_foreign) {
+        /* Allocates a user namespace that maps the caller's UID/GID to root, and optionally the foreign UID
+         * range 1:1. Joining it gives the caller privileges over its own inodes and (if requested) over
+         * foreign UID range owned inodes. */
+        return allocate_userns(vl, name, /* self= */ true, NSRESOURCE_UIDS_1, /* delegate_container_ranges= */ 0, map_foreign);
 }
 
 int nsresource_register_userns(sd_varlink *vl, const char *name, int userns_fd) {

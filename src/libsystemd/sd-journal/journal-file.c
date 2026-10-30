@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #include "sd-event.h"
+#include "sd-journal.h"
 
 #include "alloc-util.h"
 #include "chattr-util.h"
@@ -21,6 +22,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "id128-util.h"
+#include "io-util.h"
 #include "journal-authenticate-internal.h"
 #include "journal-def.h"
 #include "journal-file.h"
@@ -79,7 +81,7 @@
 #define HEADER_SIZE_MIN ALIGN64(offsetof(Header, n_data))
 
 /* How many entries to keep in the entry array chain cache at max */
-#define CHAIN_CACHE_MAX 20
+#define CHAIN_CACHE_MAX 64
 
 /* How much to increase the journal file size at once each time we allocate something new. */
 #define FILE_SIZE_INCREASE (8 * U64_MB)                  /* 8MB */
@@ -390,12 +392,13 @@ static Compression compression_requested(void) {
 static int journal_file_init_header(
                 JournalFile *f,
                 JournalFileFlags file_flags,
-                JournalFile *template) {
+                JournalFile *template,
+                const sd_id128_t *seqnum_id) {
 
-        ssize_t k;
         int r;
 
         assert(f);
+        POINTER_MAY_BE_NULL(seqnum_id);
 
         /* Try to load the FSPRG state, and if we can't, then just don't do sealing */
         bool seal = FLAGS_SET(file_flags, JOURNAL_SEAL) && journal_file_auth_load(f) >= 0;
@@ -423,19 +426,19 @@ static int journal_file_init_header(
                 return r; /* If we have no valid machine ID (test environment?), let's simply leave the
                            * machine ID field all zeroes. */
 
-        if (template) {
-                h.seqnum_id = template->header->seqnum_id;
+        if (template)
                 h.tail_entry_seqnum = template->header->tail_entry_seqnum;
-        } else
+
+        /* The sequence number ID of the caller takes precedence over the one of the template. The first
+         * entry appended to an empty file also replaces the ID in the header with the one of the caller. */
+        if (seqnum_id && !sd_id128_is_null(*seqnum_id))
+                h.seqnum_id = *seqnum_id;
+        else if (template)
+                h.seqnum_id = template->header->seqnum_id;
+        else
                 h.seqnum_id = h.file_id;
 
-        k = pwrite(f->fd, &h, sizeof(h), 0);
-        if (k < 0)
-                return -errno;
-        if (k != sizeof(h))
-                return -EIO;
-
-        return 0;
+        return pwrite_full(f->fd, &h, sizeof(h), 0);
 }
 
 static int journal_file_refresh_header(JournalFile *f) {
@@ -540,11 +543,34 @@ static bool hash_table_is_valid(uint64_t offset, uint64_t size, uint64_t header_
         return true;
 }
 
-static int journal_file_verify_header(JournalFile *f) {
-        uint64_t arena_size, header_size;
+static int journal_file_verify_machine_id(JournalFile *f) {
+        sd_id128_t machine_id;
+        int r;
+
+        assert(f);
+
+        r = sd_id128_get_machine(&machine_id);
+        if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r)) /* Gracefully handle the machine ID not being initialized yet */
+                machine_id = SD_ID128_NULL;
+        else if (r < 0)
+                return r;
+
+        if (!sd_id128_equal(machine_id, f->header->machine_id))
+                return log_debug_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
+                                       "Trying to open journal file from different host for writing, refusing.");
+
+        return 0;
+}
+
+int journal_file_verify_header(JournalFile *f) {
+        int r;
 
         assert(f);
         assert(f->header);
+
+        /* EBADMSG: corrupted
+         * ENODATA: truncated
+         * EPROTONOSUPPORT: uses an unsupported feature */
 
         if (memcmp(f->header->signature, HEADER_SIGNATURE, 8) != 0)
                 return -EBADMSG;
@@ -558,46 +584,80 @@ static int journal_file_verify_header(JournalFile *f) {
         if (journal_file_writable(f) && warn_wrong_flags(f, true))
                 return -EPROTONOSUPPORT;
 
-        if (f->header->state >= _STATE_MAX)
+        uint8_t state = READ_NOW(f->header->state);
+        if (state >= _STATE_MAX)
                 return -EBADMSG;
 
-        header_size = le64toh(READ_NOW(f->header->header_size));
+        uint64_t header_size = le64toh(READ_NOW(f->header->header_size));
 
         /* The first addition was n_data, so check that we are at least this large */
         if (header_size < HEADER_SIZE_MIN)
                 return -EBADMSG;
 
-        /* When open for writing we refuse to open files with a mismatch of the header size, i.e. writing to
-         * files implementing older or new header structures. */
-        if (journal_file_writable(f) && header_size != sizeof(Header))
-                return -EPROTONOSUPPORT;
+        if (journal_file_writable(f)) {
+                r = journal_file_verify_machine_id(f);
+                if (r < 0)
+                        return r;
 
-        /* Don't write to journal files without the new boot ID update behavior guarantee. */
-        if (journal_file_writable(f) && !JOURNAL_HEADER_TAIL_ENTRY_BOOT_ID(f->header))
-                return -EPROTONOSUPPORT;
+                switch (state) {
+                case STATE_OFFLINE:
+                        break; /* expected */
+                case STATE_ONLINE:
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBUSY),
+                                               "Journal file %s is already online. Assuming unclean closing.",
+                                               f->path);
+                case STATE_ARCHIVED:
+                        return -ESHUTDOWN; /* Already archived */
+                default:
+                        assert_not_reached();
+                }
+
+                if (f->header->field_hash_table_size == 0 || f->header->data_hash_table_size == 0)
+                        return -EBADMSG;
+
+                /* When open for writing we refuse to open files with a mismatch of the header size, i.e. writing to
+                 * files implementing older or new header structures. */
+                if (header_size != sizeof(Header))
+                        return -EPROTONOSUPPORT;
+
+                /* Don't write to journal files without the new boot ID update behavior guarantee. */
+                if (!JOURNAL_HEADER_TAIL_ENTRY_BOOT_ID(f->header))
+                        return -EPROTONOSUPPORT;
+        }
 
         if (JOURNAL_HEADER_SEALED(f->header) && !JOURNAL_HEADER_CONTAINS(f->header, n_entry_arrays))
                 return -EBADMSG;
 
-        arena_size = le64toh(READ_NOW(f->header->arena_size));
-
-        if (UINT64_MAX - header_size < arena_size)
-                return -ENODATA;
+        /* On write, we should not append any new entries on broken file, so verify the header strictly.
+         * Also, do so when we are verifying the journal file by journal_file_verify(), but only when the
+         * file is already archived. Non-archived files may be updated while we are verifying, hence some
+         * header values may be inconsistent. */
+        bool strict = journal_file_writable(f) || (f->verifying && state == STATE_ARCHIVED);
 
         uint64_t file_size = (uint64_t) f->last_stat.st_size;
 
+        /* Read these header values in the reverse order on write:
+         * 1. arena_size is updated first when allocating space for a new object,
+         * 2. tail_object_offset is updated after the object is written,
+         * 3. entry_array_offset is set when the object is an entry array object. */
+        uint64_t entry_array_offset = le64toh(READ_NOW(f->header->entry_array_offset));
+        uint64_t tail_object_offset = le64toh(READ_NOW(f->header->tail_object_offset));
+        uint64_t arena_size = le64toh(READ_NOW(f->header->arena_size));
+
+        if (UINT64_MAX - header_size < arena_size)
+                return -EBADMSG;
+
         /* Probably an unclean shutdown where the header was written, but the arena data was not. On write we
          * should ask the caller to rotate, but on read, we can still work it out with bounds checks. */
-        bool truncated = false;
         if (header_size + arena_size > file_size) {
-                if (journal_file_writable(f))
+                if (strict)
                         return -ENODATA;
 
                 /* This shouldn't happen given file_size is page aligned via fallocate(), but just in case
                  * things are _really_ messed up... */
                 uint64_t available = ALIGN_DOWN_U64(file_size, sizeof(uint64_t));
                 if (header_size > available || available - header_size < offsetof(ObjectHeader, payload))
-                        return -ENODATA;
+                        return -EBADMSG;
 
                 log_debug("Journal file %s claims a %" PRIu64 " byte arena but is only %" PRIu64
                           " bytes on disk, clamping for recovery.",
@@ -605,37 +665,34 @@ static int journal_file_verify_header(JournalFile *f) {
                           arena_size,
                           file_size);
                 arena_size = available - header_size;
-                truncated = true;
+                tail_object_offset = MIN(tail_object_offset, available - offsetof(ObjectHeader, payload));
         }
 
-        uint64_t tail_object_offset = le64toh(f->header->tail_object_offset);
-        if (truncated)
-                /* The tail may be in the lost region, so cap it at the last possible object header start. */
-                tail_object_offset = MIN(
-                                tail_object_offset,
-                                header_size + arena_size - offsetof(ObjectHeader, payload));
-        if (!offset_is_valid(tail_object_offset, header_size, UINT64_MAX))
-                return -ENODATA;
-        if (header_size + arena_size < tail_object_offset)
-                return -ENODATA;
-        if (header_size + arena_size - tail_object_offset < offsetof(ObjectHeader, payload))
-                return -ENODATA;
+        if (!offset_is_valid(tail_object_offset, header_size, header_size + arena_size - offsetof(ObjectHeader, payload)))
+                return -EBADMSG;
 
         if (!hash_table_is_valid(le64toh(f->header->data_hash_table_offset),
                                  le64toh(f->header->data_hash_table_size),
                                  header_size, arena_size, tail_object_offset))
-                return -ENODATA;
+                return -EBADMSG;
 
         if (!hash_table_is_valid(le64toh(f->header->field_hash_table_offset),
                                  le64toh(f->header->field_hash_table_size),
                                  header_size, arena_size, tail_object_offset))
-                return -ENODATA;
+                return -EBADMSG;
 
-        uint64_t entry_array_offset = le64toh(f->header->entry_array_offset);
         if (!offset_is_valid(entry_array_offset, header_size, tail_object_offset))
-                return -ENODATA;
+                return -EBADMSG;
 
-        if (!truncated && JOURNAL_HEADER_CONTAINS(f->header, tail_entry_array_offset)) {
+        /* When the file is opened for reading, we skip the verifications below.
+         * a) Even if it is corrupted, still there may be some data readable with some methods. Let's try to
+         *    extract what we can instead of rejecting the entire file.
+         * b) The file may be concurrently written by e.g., journald, and any tail offsets and/or counters
+         *    may be temporarily inconsistent. */
+        if (!strict)
+                return 0;
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_array_offset)) {
                 uint32_t offset = le32toh(f->header->tail_entry_array_offset);
                 uint32_t n = le32toh(f->header->tail_entry_array_n_entries);
 
@@ -652,7 +709,7 @@ static int journal_file_verify_header(JournalFile *f) {
                         return -ENODATA;
         }
 
-        if (!truncated && JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset)) {
+        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset)) {
                 uint64_t offset = le64toh(f->header->tail_entry_offset);
 
                 if (!offset_is_valid(offset, header_size, tail_object_offset))
@@ -684,7 +741,7 @@ static int journal_file_verify_header(JournalFile *f) {
 
         /* Verify number of objects */
         uint64_t n_objects = le64toh(f->header->n_objects);
-        if (!truncated && n_objects > arena_size / offsetof(ObjectHeader, payload))
+        if (n_objects > arena_size / offsetof(ObjectHeader, payload))
                 return -ENODATA;
 
         uint64_t n_entries = le64toh(f->header->n_entries);
@@ -711,38 +768,6 @@ static int journal_file_verify_header(JournalFile *f) {
             le32toh(f->header->tail_entry_array_n_entries) > n_entries)
                 return -ENODATA;
 
-        if (journal_file_writable(f)) {
-                sd_id128_t machine_id;
-                uint8_t state;
-                int r;
-
-                r = sd_id128_get_machine(&machine_id);
-                if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r)) /* Gracefully handle the machine ID not being initialized yet */
-                        machine_id = SD_ID128_NULL;
-                else if (r < 0)
-                        return r;
-
-                if (!sd_id128_equal(machine_id, f->header->machine_id))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
-                                               "Trying to open journal file from different host for writing, refusing.");
-
-                state = f->header->state;
-
-                if (state == STATE_ARCHIVED)
-                        return -ESHUTDOWN; /* Already archived */
-                if (state == STATE_ONLINE)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBUSY),
-                                               "Journal file %s is already online. Assuming unclean closing.",
-                                               f->path);
-                if (state != STATE_OFFLINE)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBUSY),
-                                               "Journal file %s has unknown state %i.",
-                                               f->path, state);
-
-                if (f->header->field_hash_table_size == 0 || f->header->data_hash_table_size == 0)
-                        return -EBADMSG;
-        }
-
         return 0;
 }
 
@@ -766,6 +791,28 @@ int journal_file_fstat(JournalFile *f) {
         r = stat_verify_linked(&f->last_stat);
         if (r < 0)
                 return r;
+
+        return 0;
+}
+
+static int journal_file_check_keep_free(JournalFile *f, uint64_t old_size, uint64_t new_size) {
+        struct statvfs svfs;
+        uint64_t available;
+
+        assert(f);
+
+        if (new_size <= old_size || new_size <= f->metrics.min_size || f->metrics.keep_free == 0)
+                return 0;
+
+        if (fstatvfs(f->fd, &svfs) < 0) {
+                log_debug_errno(errno, "Failed to determine free disk space for journal file '%s', ignoring: %m",
+                                f->path);
+                return 0;
+        }
+
+        available = LESS_BY(u64_multiply_safe(svfs.f_bfree, svfs.f_bsize), f->metrics.keep_free);
+        if (new_size - old_size > available)
+                return -E2BIG;
 
         return 0;
 }
@@ -818,18 +865,9 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         if (JOURNAL_HEADER_COMPACT(f->header) && new_size > UINT32_MAX)
                 return -E2BIG;
 
-        if (new_size > f->metrics.min_size && f->metrics.keep_free > 0) {
-                struct statvfs svfs;
-
-                if (fstatvfs(f->fd, &svfs) >= 0) {
-                        uint64_t available;
-
-                        available = LESS_BY(u64_multiply_safe(svfs.f_bfree, svfs.f_bsize), f->metrics.keep_free);
-
-                        if (new_size - old_size > available)
-                                return -E2BIG;
-                }
-        }
+        r = journal_file_check_keep_free(f, old_size, new_size);
+        if (r < 0)
+                return r;
 
         /* Increase by larger blocks at once */
         new_size = ROUND_UP(new_size, FILE_SIZE_INCREASE);
@@ -848,14 +886,16 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         return journal_file_fstat(f);
 }
 
-static int journal_file_move_to(
+static int journal_file_move_to_full(
                 JournalFile *f,
                 ObjectType type,
                 bool keep_always,
                 uint64_t offset,
                 uint64_t size,
-                void **ret) {
+                void **ret,
+                uint64_t *ret_size) {
 
+        size_t window_size;
         int r;
 
         assert(f);
@@ -884,7 +924,27 @@ static int journal_file_move_to(
                         return -EADDRNOTAVAIL;
         }
 
-        return mmap_cache_fd_get(f->cache_fd, type_to_category(type), keep_always, offset, size, &f->last_stat, ret);
+        r = mmap_cache_fd_get(f->cache_fd, type_to_category(type), keep_always, offset, size, &f->last_stat, ret, &window_size);
+        if (r < 0)
+                return r;
+
+        /* The window is rounded up to whole pages, and may extend beyond the end of the file, which must not
+         * be accessed */
+        if (ret_size)
+                *ret_size = MIN((uint64_t) window_size, (uint64_t) f->last_stat.st_size - offset);
+
+        return 0;
+}
+
+static int journal_file_move_to(
+                JournalFile *f,
+                ObjectType type,
+                bool keep_always,
+                uint64_t offset,
+                uint64_t size,
+                void **ret) {
+
+        return journal_file_move_to_full(f, type, keep_always, offset, size, ret, /* ret_size= */ NULL);
 }
 
 static uint64_t minimum_header_size(JournalFile *f, Object *o) {
@@ -951,6 +1011,35 @@ static int check_object_header(JournalFile *f, Object *o, ObjectType type, uint6
         return 0;
 }
 
+static int journal_file_check_entry_header(Object *o, uint64_t offset) {
+        assert(o);
+
+        if (le64toh(o->entry.seqnum) <= 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Invalid entry seqnum: %" PRIx64 ": %" PRIu64,
+                                       le64toh(o->entry.seqnum),
+                                       offset);
+
+        if (!VALID_REALTIME(le64toh(o->entry.realtime)))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Invalid entry realtime timestamp: %" PRIu64 ": %" PRIu64,
+                                       le64toh(o->entry.realtime),
+                                       offset);
+
+        if (!VALID_MONOTONIC(le64toh(o->entry.monotonic)))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Invalid entry monotonic timestamp: %" PRIu64 ": %" PRIu64,
+                                       le64toh(o->entry.monotonic),
+                                       offset);
+
+        if (sd_id128_is_null(o->entry.boot_id))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Invalid object entry with an empty boot ID: %" PRIu64,
+                                       offset);
+
+        return 0;
+}
+
 /* Lightweight object checks. We want this to be fast, so that we won't
  * slowdown every journal_file_move_to_object() call too much. */
 static int check_object(JournalFile *f, Object *o, uint64_t offset) {
@@ -985,6 +1074,21 @@ static int check_object(JournalFile *f, Object *o, uint64_t offset) {
                                                le64toh(o->data.entry_array_offset),
                                                offset);
 
+                /* Objects are only ever appended, hence a hash chain has to move strictly forward. */
+                if (le64toh(o->data.next_hash_offset) > 0 && le64toh(o->data.next_hash_offset) <= offset)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Invalid data object next_hash_offset: %" PRIu64 ": %" PRIu64,
+                                               le64toh(o->data.next_hash_offset),
+                                               offset);
+
+                /* New data objects are prepended to the list of their field, hence that list has to move
+                 * strictly backward. */
+                if (le64toh(o->data.next_field_offset) >= offset)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Invalid data object next_field_offset: %" PRIu64 ": %" PRIu64,
+                                               le64toh(o->data.next_field_offset),
+                                               offset);
+
                 break;
 
         case OBJECT_FIELD:
@@ -1001,6 +1105,12 @@ static int check_object(JournalFile *f, Object *o, uint64_t offset) {
                                                "Invalid offset, next_hash_offset=" OFSfmt ", head_data_offset=" OFSfmt ": %" PRIu64,
                                                le64toh(o->field.next_hash_offset),
                                                le64toh(o->field.head_data_offset),
+                                               offset);
+
+                if (le64toh(o->field.next_hash_offset) > 0 && le64toh(o->field.next_hash_offset) <= offset)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Invalid field object next_hash_offset: %" PRIu64 ": %" PRIu64,
+                                               le64toh(o->field.next_hash_offset),
                                                offset);
                 break;
 
@@ -1022,30 +1132,7 @@ static int check_object(JournalFile *f, Object *o, uint64_t offset) {
                                                (sz - offsetof(Object, entry.items)) / journal_file_entry_item_size(f),
                                                offset);
 
-                if (le64toh(o->entry.seqnum) <= 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "Invalid entry seqnum: %" PRIx64 ": %" PRIu64,
-                                               le64toh(o->entry.seqnum),
-                                               offset);
-
-                if (!VALID_REALTIME(le64toh(o->entry.realtime)))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "Invalid entry realtime timestamp: %" PRIu64 ": %" PRIu64,
-                                               le64toh(o->entry.realtime),
-                                               offset);
-
-                if (!VALID_MONOTONIC(le64toh(o->entry.monotonic)))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "Invalid entry monotonic timestamp: %" PRIu64 ": %" PRIu64,
-                                               le64toh(o->entry.monotonic),
-                                               offset);
-
-                if (sd_id128_is_null(o->entry.boot_id))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "Invalid object entry with an empty boot ID: %" PRIu64,
-                                               offset);
-
-                break;
+                return journal_file_check_entry_header(o, offset);
         }
 
         case OBJECT_DATA_HASH_TABLE:
@@ -1106,8 +1193,9 @@ static int check_object(JournalFile *f, Object *o, uint64_t offset) {
 }
 
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret) {
-        int r;
+        uint64_t size, available;
         Object *o;
+        int r;
 
         assert(f);
 
@@ -1129,7 +1217,7 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
                                        journal_object_type_to_string(type),
                                        offset);
 
-        r = journal_file_move_to(f, type, false, offset, offsetof(ObjectHeader, payload), (void**) &o);
+        r = journal_file_move_to_full(f, type, false, offset, offsetof(ObjectHeader, payload), (void**) &o, &available);
         if (r < 0)
                 return r;
 
@@ -1137,13 +1225,17 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
         if (r < 0)
                 return r;
 
-        r = journal_file_move_to(f, type, false, offset, le64toh(READ_NOW(o->object.size)), (void**) &o);
-        if (r < 0)
-                return r;
+        /* Usually the window of the header contains the whole object, which then needs no second lookup */
+        size = le64toh(READ_NOW(o->object.size));
+        if (size > available) {
+                r = journal_file_move_to(f, type, false, offset, size, (void**) &o);
+                if (r < 0)
+                        return r;
 
-        r = check_object_header(f, o, type, offset);
-        if (r < 0)
-                return r;
+                r = check_object_header(f, o, type, offset);
+                if (r < 0)
+                        return r;
+        }
 
         r = check_object(f, o, offset);
         if (r < 0)
@@ -1221,6 +1313,21 @@ static uint64_t inc_seqnum(uint64_t seqnum) {
         return 1; /* skip over UINT64_MAX and 0 when we run out of seqnums and start again */
 }
 
+static uint64_t journal_file_next_seqnum(JournalFile *f, const uint64_t *seqnum) {
+        uint64_t next_seqnum;
+
+        assert(f);
+        assert(f->header);
+
+        next_seqnum = inc_seqnum(le64toh(f->header->tail_entry_seqnum));
+
+        /* If an external seqnum counter was passed, use the maximum of both */
+        if (seqnum)
+                next_seqnum = MAX(inc_seqnum(*seqnum), next_seqnum);
+
+        return next_seqnum;
+}
+
 static uint64_t journal_file_entry_seqnum(
                 JournalFile *f,
                 uint64_t *seqnum) {
@@ -1230,14 +1337,12 @@ static uint64_t journal_file_entry_seqnum(
         assert(f);
         assert(f->header);
 
-        /* Picks a new sequence number for the entry we are about to add and returns it. */
+        /* Picks the sequence number of the next entry and returns it. If an external seqnum counter was
+         * passed, it is updated too. */
 
-        next_seqnum = inc_seqnum(le64toh(f->header->tail_entry_seqnum));
-
-        /* If an external seqnum counter was passed, we update both the local and the external one, and set
-         * it to the maximum of both */
+        next_seqnum = journal_file_next_seqnum(f, seqnum);
         if (seqnum)
-                *seqnum = next_seqnum = MAX(inc_seqnum(*seqnum), next_seqnum);
+                *seqnum = next_seqnum;
 
         f->header->tail_entry_seqnum = htole64(next_seqnum);
 
@@ -1298,7 +1403,6 @@ int journal_file_append_object(
 
 static int journal_file_setup_data_hash_table(JournalFile *f) {
         uint64_t s, p;
-        Object *o;
         int r;
 
         assert(f);
@@ -1314,14 +1418,20 @@ static int journal_file_setup_data_hash_table(JournalFile *f) {
 
         log_debug("Reserving %"PRIu64" entries in data hash table.", s);
 
+        /* We deliberately don't zero the hash table items: the table is placed in a newly created file, in
+         * space that was just allocated via posix_fallocate() and hence reads as zeroes anyway. Writing the
+         * zeroes through the memory map would not only write out the whole table once for no reason: the
+         * sequential write faults would also make the kernel's mmap readahead instantiate most of the table
+         * in large folios, on file systems that support them. And since write faults on shared file mappings
+         * dirty the whole folio, each later update of a single hash bucket would then cause the whole folio
+         * to be written back. See #40262. */
+
         r = journal_file_append_object(f,
                                        OBJECT_DATA_HASH_TABLE,
                                        offsetof(Object, hash_table.items) + s * sizeof(HashItem),
-                                       &o, &p);
+                                       /* ret_object= */ NULL, &p);
         if (r < 0)
                 return r;
-
-        memzero(o->hash_table.items, s * sizeof(HashItem));
 
         f->header->data_hash_table_offset = htole64(p + offsetof(Object, hash_table.items));
         f->header->data_hash_table_size = htole64(s * sizeof(HashItem));
@@ -1331,7 +1441,6 @@ static int journal_file_setup_data_hash_table(JournalFile *f) {
 
 static int journal_file_setup_field_hash_table(JournalFile *f) {
         uint64_t s, p;
-        Object *o;
         int r;
 
         assert(f);
@@ -1343,14 +1452,13 @@ static int journal_file_setup_field_hash_table(JournalFile *f) {
         s = DEFAULT_FIELD_HASH_TABLE_SIZE;
         log_debug("Reserving %"PRIu64" entries in field hash table.", s);
 
+        /* No need to zero the items, see journal_file_setup_data_hash_table(). */
         r = journal_file_append_object(f,
                                        OBJECT_FIELD_HASH_TABLE,
                                        offsetof(Object, hash_table.items) + s * sizeof(HashItem),
-                                       &o, &p);
+                                       /* ret_object= */ NULL, &p);
         if (r < 0)
                 return r;
-
-        memzero(o->hash_table.items, s * sizeof(HashItem));
 
         f->header->field_hash_table_offset = htole64(p + offsetof(Object, hash_table.items));
         f->header->field_hash_table_size = htole64(s * sizeof(HashItem));
@@ -1541,7 +1649,7 @@ static bool chain_tail_lost(JournalFile *f, int r, uint64_t offset, ObjectType t
         assert(f);
 
         /* Only accept truncation when reading. On writing it's not possible to know how to safely proceed. */
-        if (journal_file_writable(f) || !IN_SET(r, -EBADMSG, -EADDRNOTAVAIL))
+        if (journal_file_writable(f) || !ERRNO_IS_NEG_JOURNAL_CORRUPTION(r))
                 return false;
 
         log_debug_errno(r, "Failed to read %s at offset %" PRIu64 " of %s, treating it as the end of the chain: %m",
@@ -1549,7 +1657,7 @@ static bool chain_tail_lost(JournalFile *f, int r, uint64_t offset, ObjectType t
         return true;
 }
 
-int journal_file_find_field_object_with_hash(
+static int journal_file_find_field_object_with_hash(
                 JournalFile *f,
                 const void *field,
                 uint64_t size,
@@ -1652,7 +1760,7 @@ int journal_file_find_field_object(
                         ret_object, ret_offset);
 }
 
-int journal_file_find_data_object_with_hash(
+static int journal_file_find_data_object_with_hash(
                 JournalFile *f,
                 const void *data,
                 uint64_t size,
@@ -1697,7 +1805,7 @@ int journal_file_find_data_object_with_hash(
                 if (le64toh(o->data.hash) != hash)
                         goto next;
 
-                r = journal_file_data_payload(f, o, p, NULL, 0, 0, &d, &rsize);
+                r = journal_file_data_payload(f, o, p, /* field= */ NULL, /* field_length= */ 0, &d, &rsize);
                 if (r < 0)
                         return r;
                 assert(r > 0); /* journal_file_data_payload() always returns > 0 if no field is provided. */
@@ -1965,11 +2073,16 @@ static int maybe_decompress_payload(
                 Compression compression,
                 const char *field,
                 size_t field_length,
-                size_t data_threshold,
+                sd_journal_data_flags_t flags,
+                int fd,
                 const void **ret_data,
                 size_t *ret_size) {
 
+        int r;
+
         assert(f);
+        assert(!field == (field_length == 0)); /* These must be specified together. */
+        assert(fd < 0 || !ret_data); /* fd and ret_data cannot be specified together. */
 
         /* We can't read objects larger than 4G on a 32-bit machine */
 #if __SIZEOF_SIZE_T__ == 4
@@ -1977,14 +2090,16 @@ static int maybe_decompress_payload(
                 return -E2BIG;
 #endif
 
+        size_t skip = FLAGS_SET(flags, SD_JOURNAL_DATA_SKIP_FIELD) && field_length > 0 ? field_length + 1 : 0;
+
         if (compression != COMPRESSION_NONE) {
 #if HAVE_COMPRESSION
                 size_t rsize;
-                int r;
 
                 if (field) {
-                        r = decompress_startswith_journal(compression, payload, size, &f->compress_buffer, field,
-                                                  field_length, '=');
+                        r = decompress_startswith_journal(
+                                        compression, payload, size, &f->compress_buffer,
+                                        field, field_length, '=');
                         if (r < 0)
                                 return log_debug_errno(r,
                                                        "Cannot decompress %s object of length %" PRIu64 ": %m",
@@ -1999,18 +2114,31 @@ static int maybe_decompress_payload(
                         }
 
                         /* Caller only wants to check field existence, skip full decompression */
-                        if (!ret_data && !ret_size)
+                        if (fd < 0 && !ret_data && !ret_size)
                                 return 1;
                 }
 
-                r = decompress_blob_journal(compression, payload, size, &f->compress_buffer, &rsize, DATA_SIZE_MAX);
-                if (r < 0)
-                        return r;
+                if (fd >= 0) {
+                        r = decompress_blob_to_fd_journal(
+                                        compression, payload, size, fd,
+                                        DATA_SIZE_MAX, skip, ret_size);
+                        if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r))
+                                /* The caller journal_get_data() ignores these errors. Let's use a different
+                                 * error code in that case. Otherwise, junk data may be prepended to the
+                                 * beginning even on success. */
+                                return -EIO;
+                        if (r < 0)
+                                return r;
+                } else {
+                        r = decompress_blob_journal(compression, payload, size, &f->compress_buffer, &rsize, DATA_SIZE_MAX);
+                        if (r < 0)
+                                return r;
 
-                if (ret_data)
-                        *ret_data = f->compress_buffer;
-                if (ret_size)
-                        *ret_size = rsize;
+                        if (ret_data)
+                                *ret_data = (uint8_t*) f->compress_buffer + skip;
+                        if (ret_size)
+                                *ret_size = rsize - skip;
+                }
 #else
                 return -EPROTONOSUPPORT;
 #endif
@@ -2023,6 +2151,15 @@ static int maybe_decompress_payload(
                         return 0;
                 }
 
+                payload += skip;
+                size -= skip;
+
+                if (fd >= 0) {
+                        r = loop_write(fd, payload, size);
+                        if (r < 0)
+                                return r;
+                }
+
                 if (ret_data)
                         *ret_data = payload;
                 if (ret_size)
@@ -2032,13 +2169,14 @@ static int maybe_decompress_payload(
         return 1;
 }
 
-int journal_file_data_payload(
+int journal_file_data_payload_full(
                 JournalFile *f,
                 Object *o,
                 uint64_t offset,
                 const char *field,
                 size_t field_length,
-                size_t data_threshold,
+                sd_journal_data_flags_t flags,
+                int fd,
                 const void **ret_data,
                 size_t *ret_size) {
 
@@ -2048,6 +2186,7 @@ int journal_file_data_payload(
 
         assert(f);
         assert(!field == (field_length == 0)); /* These must be specified together. */
+        assert(fd < 0 || !ret_data); /* fd and ret_data cannot be specified together. */
 
         if (!o) {
                 r = journal_file_move_to_object(f, OBJECT_DATA, offset, &o);
@@ -2065,8 +2204,36 @@ int journal_file_data_payload(
         if (c < 0)
                 return -EPROTONOSUPPORT;
 
-        return maybe_decompress_payload(f, journal_file_data_payload_field(f, o), size, c, field,
-                                        field_length, data_threshold, ret_data, ret_size);
+        return maybe_decompress_payload(
+                        f, journal_file_data_payload_field(f, o), size, c, field, field_length,
+                        flags, fd, ret_data, ret_size);
+}
+
+int journal_file_data_payload_pinned(
+                JournalFile *f,
+                uint64_t offset,
+                const char *field,
+                size_t field_length,
+                const void **ret_data,
+                size_t *ret_size) {
+
+        Object *o;
+        int r;
+
+        /* Callers look up the payload in other files afterwards. Data objects of all files share one window
+         * per category, hence pin the window, so that the payload stays mapped. */
+
+        r = journal_file_move_to_object(f, OBJECT_DATA, offset, &o);
+        if (r < 0)
+                return r;
+
+        r = journal_file_pin_object(f, o);
+        if (r < 0)
+                return r;
+
+        return journal_file_data_payload(
+                        f, o, offset, field, field_length,
+                        ret_data, ret_size);
 }
 
 uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) {
@@ -2083,6 +2250,51 @@ uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) {
                 return 0;
 
         return (sz - offsetof(Object, entry.items)) / journal_file_entry_item_size(f);
+}
+
+int journal_file_entry_n_fields(JournalFile *f, Object *o, uint64_t offset, uint64_t *ret) {
+        assert(f);
+        assert(o);
+        assert(ret);
+
+        if (o->object.type != OBJECT_ENTRY)
+                return -EBADMSG;
+
+        *ret = journal_file_entry_n_items(f, o);
+        return 0;
+}
+
+int journal_file_entry_field_payload_full(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                uint64_t i,
+                const char *field,
+                size_t field_length,
+                sd_journal_data_flags_t flags,
+                int fd,
+                const void **ret_data,
+                size_t *ret_size) {
+
+        uint64_t n;
+        int r;
+
+        assert(f);
+        assert(o);
+
+        r = journal_file_entry_n_fields(f, o, offset, &n);
+        if (r < 0)
+                return r;
+        if (i >= n)
+                return -EADDRNOTAVAIL;
+
+        return journal_file_data_payload_full(
+                        f,
+                        /* o= */ NULL,
+                        journal_file_entry_item_object_offset(f, o, i),
+                        field, field_length,
+                        flags, fd,
+                        ret_data, ret_size);
 }
 
 uint64_t journal_file_entry_array_n_items(JournalFile *f, Object *o) {
@@ -2340,6 +2552,45 @@ static void write_entry_item(JournalFile *f, Object *o, uint64_t i, const EntryI
         }
 }
 
+static int journal_file_check_entry_order(JournalFile *f, const dual_timestamp *ts, const sd_id128_t *boot_id) {
+        assert(f);
+        assert(f->header);
+        assert(ts);
+        assert(boot_id);
+
+        if (!f->strict_order)
+                return 0;
+
+        /* If requested be stricter with ordering in this journal file, to make searching via
+         * bisection fully deterministic. This is an optional feature, so that if desired journal
+         * files can be written where the ordering is not strictly enforced (in which case bisection
+         * will yield *a* result, but not the *only* result, when searching for points in
+         * time). Strict ordering mode is enabled when journald originally writes the files, but
+         * might not necessarily be if other tools (the remoting tools for example) write journal
+         * files from combined sources.
+         *
+         * Typically, if any of the errors generated here are seen journald will just rotate the
+         * journal files and start anew. */
+
+        if (ts->realtime < le64toh(f->header->tail_entry_realtime))
+                return log_debug_errno(SYNTHETIC_ERRNO(EREMCHG),
+                                       "Realtime timestamp %" PRIu64 " smaller than previous realtime "
+                                       "timestamp %" PRIu64 ", refusing entry.",
+                                       ts->realtime, le64toh(f->header->tail_entry_realtime));
+
+        if (sd_id128_equal(*boot_id, f->header->tail_entry_boot_id) &&
+            ts->monotonic < le64toh(f->header->tail_entry_monotonic))
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(ENOTNAM),
+                                "Monotonic timestamp %" PRIu64
+                                " smaller than previous monotonic timestamp %" PRIu64
+                                " while having the same boot ID, refusing entry.",
+                                ts->monotonic,
+                                le64toh(f->header->tail_entry_monotonic));
+
+        return 0;
+}
+
 static int journal_file_append_entry_internal(
                 JournalFile *f,
                 const dual_timestamp *ts,
@@ -2365,34 +2616,9 @@ static int journal_file_append_entry_internal(
         assert(!sd_id128_is_null(*boot_id));
         assert(items || n_items == 0);
 
-        if (f->strict_order) {
-                /* If requested be stricter with ordering in this journal file, to make searching via
-                 * bisection fully deterministic. This is an optional feature, so that if desired journal
-                 * files can be written where the ordering is not strictly enforced (in which case bisection
-                 * will yield *a* result, but not the *only* result, when searching for points in
-                 * time). Strict ordering mode is enabled when journald originally writes the files, but
-                 * might not necessarily be if other tools (the remoting tools for example) write journal
-                 * files from combined sources.
-                 *
-                 * Typically, if any of the errors generated here are seen journald will just rotate the
-                 * journal files and start anew. */
-
-                if (ts->realtime < le64toh(f->header->tail_entry_realtime))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EREMCHG),
-                                               "Realtime timestamp %" PRIu64 " smaller than previous realtime "
-                                               "timestamp %" PRIu64 ", refusing entry.",
-                                               ts->realtime, le64toh(f->header->tail_entry_realtime));
-
-                if (sd_id128_equal(*boot_id, f->header->tail_entry_boot_id) &&
-                    ts->monotonic < le64toh(f->header->tail_entry_monotonic))
-                        return log_debug_errno(
-                                        SYNTHETIC_ERRNO(ENOTNAM),
-                                        "Monotonic timestamp %" PRIu64
-                                        " smaller than previous monotonic timestamp %" PRIu64
-                                        " while having the same boot ID, refusing entry.",
-                                        ts->monotonic,
-                                        le64toh(f->header->tail_entry_monotonic));
-        }
+        r = journal_file_check_entry_order(f, ts, boot_id);
+        if (r < 0)
+                return r;
 
         if (seqnum_id) {
                 /* Settle the passed in sequence number ID */
@@ -2838,7 +3064,7 @@ static int generic_array_get(
 
         while (a > 0) {
                 r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
-                if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+                if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                         /* If there's corruption and we're going downwards, let's pretend we reached the
                          * final entry in the entry array chain. */
 
@@ -2911,7 +3137,7 @@ static int generic_array_get(
 
                                 return 1;
                         }
-                        if (!IN_SET(r, -EADDRNOTAVAIL, -EBADMSG))
+                        if (!ERRNO_IS_NEG_JOURNAL_CORRUPTION(r))
                                 return r;
 
                         /* OK, so this entry is borked. Most likely some entry didn't get synced to
@@ -2971,7 +3197,7 @@ static int generic_array_bisect_step(
                 r = -EBADMSG;
         else
                 r = test_object(f, p, needle);
-        if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+        if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                 log_debug_errno(r, "Encountered invalid entry while bisecting, cutting algorithm short.");
 
                 if (i == *left) {
@@ -3077,7 +3303,7 @@ static int generic_array_bisect(
                  * check that first. */
 
                 r = test_object(f, ci->begin, needle);
-                if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL))
+                if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r))
                         log_debug_errno(r, "Cached entry is corrupted, ignoring: %m");
                 else if (r < 0)
                         return r;
@@ -3675,7 +3901,7 @@ int journal_file_move_to_entry_for_data(
                 r = journal_file_move_to_object(f, OBJECT_ENTRY, extra, ret_object);
                 if (r >= 0)
                         goto use_extra;
-                if (!IN_SET(r, -EADDRNOTAVAIL, -EBADMSG))
+                if (!ERRNO_IS_NEG_JOURNAL_CORRUPTION(r))
                         return r;
         }
 
@@ -3687,7 +3913,7 @@ int journal_file_move_to_entry_for_data(
                                       direction == DIRECTION_DOWN ? 0 : n - 1,
                                       direction,
                                       ret_object, ret_offset);
-                if (!IN_SET(r, 0, -EADDRNOTAVAIL, -EBADMSG))
+                if (r != 0 && !ERRNO_IS_NEG_JOURNAL_CORRUPTION(r))
                         return r; /* found or critical error. */
         }
 
@@ -3729,7 +3955,7 @@ int journal_file_move_to_entry_by_offset_for_data(
                         ret, ret_offset);
 }
 
-int journal_file_move_to_entry_by_monotonic_for_data(
+static int journal_file_move_to_entry_by_monotonic_for_data(
                 JournalFile *f,
                 Object *d,
                 sd_id128_t boot_id,
@@ -3825,7 +4051,7 @@ int journal_file_move_to_entry_by_seqnum_for_data(
                         ret_object, ret_offset);
 }
 
-int journal_file_move_to_entry_by_realtime_for_data(
+static int journal_file_move_to_entry_by_realtime_for_data(
                 JournalFile *f,
                 Object *d,
                 uint64_t realtime,
@@ -3845,6 +4071,43 @@ int journal_file_move_to_entry_by_realtime_for_data(
                         test_object_realtime,
                         direction,
                         ret, ret_offset);
+}
+
+int journal_file_seek_for_match(
+                JournalFile *f,
+                const void *data,
+                uint64_t size,
+                JournalSeek where,
+                sd_id128_t boot_id,
+                uint64_t needle,
+                direction_t direction,
+                Object **ret_object,
+                uint64_t *ret_offset) {
+
+        Object *d;
+        int r;
+
+        assert(f);
+        assert(data || size == 0);
+
+        r = journal_file_find_data_object(f, data, size, &d, NULL);
+        if (r <= 0)
+                return r;
+
+        switch (where) {
+        case JOURNAL_SEEK_FIRST:
+                return journal_file_move_to_entry_for_data(f, d, direction, ret_object, ret_offset);
+        case JOURNAL_SEEK_OFFSET:
+                return journal_file_move_to_entry_by_offset_for_data(f, d, needle, direction, ret_object, ret_offset);
+        case JOURNAL_SEEK_SEQNUM:
+                return journal_file_move_to_entry_by_seqnum_for_data(f, d, needle, direction, ret_object, ret_offset);
+        case JOURNAL_SEEK_REALTIME:
+                return journal_file_move_to_entry_by_realtime_for_data(f, d, needle, direction, ret_object, ret_offset);
+        case JOURNAL_SEEK_MONOTONIC:
+                return journal_file_move_to_entry_by_monotonic_for_data(f, d, boot_id, needle, direction, ret_object, ret_offset);
+        default:
+                assert_not_reached();
+        }
 }
 
 void journal_file_dump(JournalFile *f) {
@@ -4127,7 +4390,7 @@ static void journal_default_metrics(JournalMetrics *m, int fd, bool compact) {
                   m->n_max_files);
 }
 
-int journal_file_open(
+int journal_file_open_full(
                 int fd,
                 const char *fname,
                 int open_flags,
@@ -4137,6 +4400,7 @@ int journal_file_open(
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
                 JournalFile *template,
+                const sd_id128_t *seqnum_id,
                 JournalFile **ret) {
 
         bool newly_created = false;
@@ -4232,7 +4496,7 @@ int journal_file_open(
                  * solely on mtime/atime/ctime of the file. */
                 (void) fd_setcrtime(f->fd, 0);
 
-                r = journal_file_init_header(f, file_flags, template);
+                r = journal_file_init_header(f, file_flags, template, seqnum_id);
                 if (r < 0)
                         goto fail;
 
@@ -4246,7 +4510,7 @@ int journal_file_open(
                 goto fail;
         }
 
-        r = mmap_cache_fd_get(f->cache_fd, MMAP_CACHE_CATEGORY_HEADER, true, 0, PAGE_ALIGN(sizeof(Header)), &f->last_stat, &h);
+        r = mmap_cache_fd_get(f->cache_fd, MMAP_CACHE_CATEGORY_HEADER, true, 0, PAGE_ALIGN(sizeof(Header)), &f->last_stat, &h, /* ret_size= */ NULL);
         if (r == -EINVAL) {
                 /* Some file systems (jffs2 or p9fs) don't support mmap() properly (or only read-only
                  * mmap()), and return EINVAL in that case. Let's propagate that as a more recognizable error
@@ -4485,7 +4749,9 @@ int journal_file_copy_entry(
         };
         boot_id = o->entry.boot_id;
 
-        n = journal_file_entry_n_items(from, o);
+        r = journal_file_entry_n_fields(from, o, p, &n);
+        if (r < 0)
+                return r;
         if (n == 0)
                 return 0;
 
@@ -4500,14 +4766,16 @@ int journal_file_copy_entry(
         }
 
         for (uint64_t i = 0; i < n; i++) {
-                uint64_t h, q;
+                uint64_t h;
                 const void *data;
                 size_t l;
                 Object *u;
 
-                q = journal_file_entry_item_object_offset(from, o, i);
-                r = journal_file_data_payload(from, NULL, q, NULL, 0, 0, &data, &l);
-                if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
+                r = journal_file_entry_field_payload(
+                                from, o, p, i,
+                                /* field= */ NULL, /* field_length= */ 0,
+                                &data, &l);
+                if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                         log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", i);
                         continue;
                 }

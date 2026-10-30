@@ -15,6 +15,7 @@ units = [
         { 'file' : 'capsule.slice' },
         {
           'file' : 'clonesetup.target',
+          'conditions' : ['ENABLE_CLONESETUP'],
           'symlinks' : ['sysinit.target.wants/'],
         },
         { 'file' : 'console-getty.service.in' },
@@ -65,7 +66,7 @@ units = [
         },
         {
           'file' : 'systemd-battery-check.service.in',
-          'conditions' : ['ENABLE_INITRD'],
+          'conditions' : ['ENABLE_BATTERY_CHECK', 'ENABLE_INITRD'],
           'symlinks' : ['initrd.target.wants/'],
         },
         {
@@ -116,11 +117,11 @@ units = [
         },
         {
           'file' : 'integritysetup-pre.target',
-          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+          'conditions' : ['ENABLE_INTEGRITYSETUP'],
         },
         {
           'file' : 'integritysetup.target',
-          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+          'conditions' : ['ENABLE_INTEGRITYSETUP'],
           'symlinks' : ['sysinit.target.wants/'],
         },
         { 'file' : 'kexec.target' },
@@ -199,12 +200,12 @@ units = [
         { 'file' : 'remote-fs.target' },
         {
           'file' : 'remote-integritysetup.target',
-          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+          'conditions' : ['ENABLE_INTEGRITYSETUP'],
           'symlinks' : ['initrd-root-device.target.wants/'],
         },
         {
           'file' : 'remote-veritysetup.target',
-          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+          'conditions' : ['ENABLE_VERITYSETUP'],
           'symlinks' : ['initrd-root-device.target.wants/'],
         },
         { 'file' : 'rescue.service.in' },
@@ -216,7 +217,10 @@ units = [
         { 'file' : 'serial-getty@.service.in' },
         { 'file' : 'shutdown.target' },
         { 'file' : 'sigpwr.target' },
-        { 'file' : 'sleep.target' },
+        {
+          'file' : 'sleep.target',
+          'conditions' : ['ENABLE_SLEEP'],
+        },
         { 'file' : 'slices.target' },
         { 'file' : 'smartcard.target' },
         { 'file' : 'sockets.target' },
@@ -227,7 +231,10 @@ units = [
           'file' : 'suspend-then-hibernate.target',
           'conditions' : ['ENABLE_HIBERNATE'],
         },
-        { 'file' : 'suspend.target' },
+        {
+          'file' : 'suspend.target',
+          'conditions' : ['ENABLE_SLEEP'],
+        },
         { 'file' : 'swap.target' },
         {
           'file' : 'sys-fs-fuse-connections.mount',
@@ -256,7 +263,7 @@ units = [
         {
           'file' : 'system-systemd-veritysetup.slice',
           'name' : 'system-systemd\\x2dveritysetup.slice',
-          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+          'conditions' : ['ENABLE_VERITYSETUP'],
         },
         { 'file' : 'system-update-cleanup.service' },
         { 'file' : 'system-update-pre.target' },
@@ -369,6 +376,10 @@ units = [
           'conditions' : ['HAVE_LIBCRYPTSETUP', 'ENABLE_INITRD'],
           'symlinks' : ['initrd.target.wants/'],
         },
+        {
+          'file' : 'systemd-efivars-clear.service.in',
+          'conditions' : ['ENABLE_BOOTLOADER'],
+        },
         { 'file' : 'systemd-exit.service' },
         { 'file' : 'systemd-factory-reset@.service.in' },
         {
@@ -388,8 +399,14 @@ units = [
         },
         { 'file' : 'systemd-fsck-root.service.in' },
         { 'file' : 'systemd-fsck@.service.in' },
-        { 'file' : 'systemd-growfs-root.service.in' },
-        { 'file' : 'systemd-growfs@.service.in' },
+        {
+          'file' : 'systemd-growfs-root.service.in',
+          'conditions' : ['ENABLE_GROWFS'],
+        },
+        {
+          'file' : 'systemd-growfs@.service.in',
+          'conditions' : ['ENABLE_GROWFS'],
+        },
         { 'file' : 'systemd-halt.service' },
         {
           'file' : 'systemd-hibernate-clear.service.in',
@@ -519,6 +536,7 @@ units = [
           'file' : 'systemd-journald-dev-log.socket',
           'symlinks' : ['sockets.target.wants/'],
         },
+        { 'file' : 'systemd-journald-metrics.socket' },
         { 'file' : 'systemd-journald-sync@.service' },
         { 'file' : 'systemd-journald-varlink@.socket' },
         {
@@ -533,9 +551,18 @@ units = [
         { 'file' : 'systemd-journald@.socket' },
         { 'file' : 'systemd-kexec.service' },
         {
+          'file' : 'systemd-keyring-setup.service.in',
+          'conditions' : ['HAVE_OPENSSL', 'HAVE_RUST'],
+          'symlinks' : ['sysinit.target.wants/'],
+        },
+        {
           'file' : 'systemd-localed.service.in',
           'conditions' : ['ENABLE_LOCALED'],
           'symlinks' : ['dbus-org.freedesktop.locale1.service'],
+        },
+        {
+          'file': 'systemd-logind-metrics.socket',
+          'conditions': ['ENABLE_LOGIND'],
         },
         {
           'file': 'systemd-logind-varlink.socket',
@@ -686,10 +713,22 @@ units = [
           'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
           'symlinks' : ['sysinit.target.wants/'],
         },
-        { 'file' : 'systemd-report.socket' },
-        { 'file' : 'systemd-report@.service.in' },
-        { 'file' : 'systemd-report-basic.socket' },
-        { 'file' : 'systemd-report-basic@.service.in' },
+        {
+          'file' : 'systemd-report.socket',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report@.service.in',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report-basic.socket',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report-basic@.service.in',
+          'conditions' : ['ENABLE_REPORT'],
+        },
         {
           'file' : 'systemd-tpm2-clear.service.in',
           'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
@@ -763,6 +802,8 @@ units = [
           'file' : 'systemd-pstore.service.in',
           'conditions' : ['ENABLE_PSTORE'],
         },
+        { 'file' : 'systemd-ptybrokerd.service.in' },
+        { 'file' : 'systemd-ptybrokerd.socket' },
         {
           'file' : 'systemd-quotacheck@.service.in',
           'conditions' : ['ENABLE_QUOTACHECK'],
@@ -792,28 +833,86 @@ units = [
           'file' : 'systemd-repart@.service',
           'conditions' : ['ENABLE_REPART'],
         },
-        { 'file' : 'systemd-report-cgroup.socket' },
-        { 'file' : 'systemd-report-cgroup@.service.in' },
-        { 'file' : 'systemd-report-files.socket' },
-        { 'file' : 'systemd-report-files@.service.in' },
+        {
+          'file' : 'systemd-report-cgroup.socket',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report-cgroup@.service.in',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report-diskhealth.socket',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report-diskhealth@.service.in',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report-diskspace.socket',
+          'conditions' : ['ENABLE_REPORT', 'HAVE_LIBMOUNT'],
+        },
+        {
+          'file' : 'systemd-report-diskspace@.service.in',
+          'conditions' : ['ENABLE_REPORT', 'HAVE_LIBMOUNT'],
+        },
+        {
+          'file' : 'systemd-report-files.socket',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report-files@.service.in',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report-geoip.socket',
+          'conditions' : ['ENABLE_REPORT', 'HAVE_LIBCURL'],
+        },
+        {
+          'file' : 'systemd-report-geoip@.service.in',
+          'conditions' : ['ENABLE_REPORT', 'HAVE_LIBCURL'],
+        },
+        {
+          'file' : 'systemd-report-hwmon.socket',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report-hwmon@.service.in',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report-netstat.socket',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report-netstat@.service.in',
+          'conditions' : ['ENABLE_REPORT'],
+        },
         {
           'file' : 'systemd-report-sign-plain.socket',
-          'conditions' : ['HAVE_OPENSSL'],
+          'conditions' : ['ENABLE_REPORT', 'HAVE_OPENSSL'],
         },
         {
           'file' : 'systemd-report-sign-plain@.service.in',
-          'conditions' : ['HAVE_OPENSSL'],
+          'conditions' : ['ENABLE_REPORT', 'HAVE_OPENSSL'],
         },
         {
           'file' : 'systemd-report-sign-tpm2.socket',
-          'conditions' : ['HAVE_OPENSSL','HAVE_TPM2'],
+          'conditions' : ['ENABLE_REPORT', 'HAVE_OPENSSL', 'HAVE_TPM2'],
         },
         {
           'file' : 'systemd-report-sign-tpm2@.service.in',
-          'conditions' : ['HAVE_OPENSSL', 'HAVE_TPM2'],
+          'conditions' : ['ENABLE_REPORT', 'HAVE_OPENSSL', 'HAVE_TPM2'],
         },
-        { 'file' : 'systemd-report-sign-tsm.socket' },
-        { 'file' : 'systemd-report-sign-tsm@.service.in' },
+        {
+          'file' : 'systemd-report-sign-tsm.socket',
+          'conditions' : ['ENABLE_REPORT'],
+        },
+        {
+          'file' : 'systemd-report-sign-tsm@.service.in',
+          'conditions' : ['ENABLE_REPORT'],
+        },
         {
           'file' : 'systemd-resolved.service.in',
           'conditions' : ['ENABLE_RESOLVE'],
@@ -839,7 +938,10 @@ units = [
           'file' : 'systemd-suspend-then-hibernate.service.in',
           'conditions' : ['ENABLE_HIBERNATE'],
         },
-        { 'file' : 'systemd-suspend.service.in' },
+        {
+          'file' : 'systemd-suspend.service.in',
+          'conditions' : ['ENABLE_SLEEP'],
+        },
         {
           'file' : 'systemd-sysctl.service.in',
           'symlinks' : ['sysinit.target.wants/'],
@@ -931,17 +1033,21 @@ units = [
         },
         {
           'file' : 'systemd-storage-block.socket',
+          'conditions' : ['ENABLE_STORAGE'],
           'symlinks' : ['sockets.target.wants/']
         },
         {
           'file' : 'systemd-storage-block@.service.in',
+          'conditions' : ['ENABLE_STORAGE'],
         },
         {
           'file' : 'systemd-storage-fs.socket',
+          'conditions' : ['ENABLE_STORAGE'],
           'symlinks' : ['sockets.target.wants/']
         },
         {
           'file' : 'systemd-storage-fs@.service.in',
+          'conditions' : ['ENABLE_STORAGE'],
         },
         {
           'file' : 'systemd-storagetm.service.in',
@@ -1060,7 +1166,16 @@ units = [
         },
         {
           'file' : 'systemd-validatefs@.service.in',
-          'conditions' : ['HAVE_BLKID'],
+          'conditions' : ['ENABLE_VALIDATEFS'],
+        },
+        {
+          'file' : 'systemd-varlink-monitord.socket',
+          'conditions' : ['ENABLE_VARLINK_MONITORD', 'HAVE_VMLINUX_H'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
+          'file' : 'systemd-varlink-monitord@.service.in',
+          'conditions' : ['ENABLE_VARLINK_MONITORD', 'HAVE_VMLINUX_H'],
         },
         {
           'file' : 'systemd-vconsole-setup.service.in',
@@ -1090,11 +1205,11 @@ units = [
         },
         {
           'file' : 'veritysetup-pre.target',
-          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+          'conditions' : ['ENABLE_VERITYSETUP'],
         },
         {
           'file' : 'veritysetup.target',
-          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+          'conditions' : ['ENABLE_VERITYSETUP'],
           'symlinks' : ['sysinit.target.wants/'],
         },
 ]

@@ -10,9 +10,9 @@
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fileio.h"
-#include "log.h"
 #include "generator.h"
 #include "initrd-util.h"
+#include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
@@ -22,6 +22,15 @@
 #include "strv.h"
 #include "unit-file.h"
 #include "unit-name.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-debug-generator\0",
+        "Enable a runtime debug shell and mask specific units at boot.",
+        .argspec = GENERATOR_ARGSPEC,
+        .man_pages = "systemd-debug-generator(8)\0",
+        .option_namespace = "common",
+);
 
 static const char *arg_dest = NULL;
 static char *arg_default_unit = NULL;

@@ -40,6 +40,7 @@
 #include "logind-session.h"
 #include "logind.h"
 #include "logind-action.h"
+#include "logind-counters.h"
 #include "logind-dbus.h"
 #include "logind-polkit.h"
 #include "logind-seat.h"
@@ -1247,6 +1248,9 @@ static int manager_create_session_by_bus(
         r = session_start(session, message, error);
         if (r < 0)
                 goto fail;
+
+        session_count_started(session);
+
         r = sd_bus_message_exit_container(message);
         if (r < 0)
                 goto fail;
@@ -1719,7 +1723,7 @@ static int trigger_device(Manager *m, sd_device *parent) {
         }
 
         FOREACH_DEVICE(e, d) {
-                r = sd_device_trigger(d, SD_DEVICE_CHANGE);
+                r = device_trigger_with_timestamp(d, SD_DEVICE_CHANGE, m->device_trigger_args, /* ret_uuid= */ NULL);
                 if (r < 0)
                         log_device_debug_errno(d, r, "Failed to trigger device, ignoring: %m");
         }

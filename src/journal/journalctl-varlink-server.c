@@ -251,9 +251,12 @@ int vl_method_get_entries(sd_varlink *link, sd_json_variant *parameters, sd_varl
 
         uint64_t n = p.limit == 0 ? 100 : p.limit;
 
-        r = sd_journal_previous_skip(j, n + 1);
+        /* move to exactly the oldest entry to send */
+        r = sd_journal_previous_skip(j, n);
         if (r < 0)
                 return r;
+
+        bool need_next = r == 0;
 
         /* no sentinel in follow mode: an empty backlog is fine, the stream simply stays open */
         if (!p.follow) {
@@ -264,11 +267,14 @@ int vl_method_get_entries(sd_varlink *link, sd_json_variant *parameters, sd_varl
 
         uint64_t n_sent = 0;
         for (uint64_t i = 0; i < n; i++) {
-                r = sd_journal_next(j);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        break;
+                if (need_next) {
+                        r = sd_journal_next(j);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+                }
+                need_next = true;
 
                 r = entry_to_json_and_send(j, link, p.follow);
                 if (r < 0)

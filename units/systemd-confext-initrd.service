@@ -28,6 +28,8 @@ Conflicts=initrd-switch-root.target
 Before=initrd-switch-root.target
 Wants=modprobe@loop.service modprobe@dm_mod.service
 After=modprobe@loop.service modprobe@dm_mod.service
+# Extension images might be LUKS encrypted and sealed to the local TPM2, but ordering after tpm2.target here
+# would be a cycle with the software TPM fallback, hence systemd-tpm2-generator adds it where possible
 
 [Service]
 Type=oneshot

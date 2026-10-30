@@ -15,7 +15,6 @@ systemd_cryptsetup_sources = files(
 executables += [
         executable_template + {
                 'name' : 'systemd-cryptsetup',
-                'public' : true,
                 'sources' : systemd_cryptsetup_sources,
                 'dependencies' : [
                         libcryptsetup_cflags,
@@ -24,6 +23,10 @@ executables += [
                         libopenssl_cflags,
                         libp11kit_cflags,
                         tpm2_cflags,
+                ],
+                'symlinks' : [
+                        # symlink for backwards compatibility after rename
+                        { 'name' : 'systemd-cryptsetup', 'install_dir' : libexecdir },
                 ],
         },
         generator_template + {
@@ -34,8 +37,3 @@ executables += [
                 ],
         },
 ]
-
-# symlink for backwards compatibility after rename
-install_symlink('systemd-cryptsetup',
-                pointing_to : libexecdir_to_bin / 'systemd-cryptsetup',
-                install_dir : libexecdir)

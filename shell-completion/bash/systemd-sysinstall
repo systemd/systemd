@@ -32,8 +32,9 @@ _systemd_sysinstall() {
     local comps
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
     local -A OPTS=(
-        [STANDALONE]='-h --help --version'
-        [ARG]='--welcome
+        [STANDALONE]='-h --help --version --device-auto'
+        [ARG]='--device-auto-timeout
+               --welcome
                --chrome
                --erase
                --confirm
@@ -68,7 +69,7 @@ _systemd_sysinstall() {
                 comps=$(compgen -A file -- "$cur")
                 compopt -o filenames
                 ;;
-            --set-credential)
+            --set-credential|--device-auto-timeout)
                 comps=''
                 ;;
         esac

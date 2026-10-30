@@ -193,6 +193,7 @@ int pull_make_auxiliary_job(
                 int (*strip_suffixes)(const char *name, char **ret),
                 const char *suffix,
                 ImportVerify verify,
+                sd_event *event,
                 CurlGlue *glue,
                 PullJobOpenDisk on_open_disk,
                 PullJobFinished on_finished,
@@ -206,7 +207,7 @@ int pull_make_auxiliary_job(
         assert(ret);
         assert(url);
         assert(strip_suffixes);
-        assert(glue);
+        assert(event);
 
         r = import_url_last_component(url, &last_component);
         if (r < 0)
@@ -222,7 +223,7 @@ int pull_make_auxiliary_job(
         if (r < 0)
                 return r;
 
-        r = pull_job_new(&job, auxiliary_url, glue, userdata);
+        r = pull_job_new(&job, auxiliary_url, event, glue, userdata);
         if (r < 0)
                 return r;
 
@@ -270,6 +271,7 @@ int pull_make_verification_jobs(
                 PullJob **ret_signature_job,
                 ImportVerify verify,
                 const char *url,
+                sd_event *event,
                 CurlGlue *glue,
                 PullJobFinished on_finished,
                 void *userdata) {
@@ -283,7 +285,7 @@ int pull_make_verification_jobs(
         assert(verify == _IMPORT_VERIFY_INVALID || verify < _IMPORT_VERIFY_MAX);
         assert(verify == _IMPORT_VERIFY_INVALID || verify >= 0);
         assert(url);
-        assert(glue);
+        assert(event);
 
         /* If verification is turned off, or if the checksum to validate is already specified we don't need
          * to download a checksum file or signature, hence shortcut things */
@@ -315,7 +317,7 @@ int pull_make_verification_jobs(
                 if (r < 0)
                         return r;
 
-                r = pull_job_new(&checksum_job, checksum_url, glue, userdata);
+                r = pull_job_new(&checksum_job, checksum_url, event, glue, userdata);
                 if (r < 0)
                         return r;
 
@@ -338,7 +340,7 @@ int pull_make_verification_jobs(
                 if (r < 0)
                         return r;
 
-                r = pull_job_new(&signature_job, signature_url, glue, userdata);
+                r = pull_job_new(&signature_job, signature_url, event, glue, userdata);
                 if (r < 0)
                         return r;
 

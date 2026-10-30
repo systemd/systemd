@@ -33,11 +33,12 @@ TEST(escape_qemu_value) {
 }
 
 typedef enum TestMapping {
-        MAPPING_FLASH_SPLIT,     /* pflash executable + NVRAM template */
-        MAPPING_FLASH_STATELESS, /* read-only pflash, no NVRAM */
-        MAPPING_FLASH_COMBINED,  /* read-write pflash with the variable store inside the executable */
-        MAPPING_MEMORY,          /* mapped into memory, loaded via -bios */
-        MAPPING_KERNEL,          /* loaded like a Linux kernel */
+        MAPPING_FLASH_SPLIT,      /* pflash executable + NVRAM template */
+        MAPPING_FLASH_STATELESS,  /* read-only pflash, no NVRAM */
+        MAPPING_FLASH_COMBINED,   /* read-write pflash with the variable store inside the executable */
+        MAPPING_MEMORY,           /* mapped into memory, loaded via -bios */
+        MAPPING_MEMORY_UEFI_VARS, /* mapped into memory, with a template for QEMU's UEFI variable store */
+        MAPPING_KERNEL,           /* loaded like a Linux kernel */
 } TestMapping;
 
 static void write_descriptor(
@@ -58,13 +59,16 @@ static void write_descriptor(
                 ASSERT_OK(native_arch_as_qemu(&arch));
 
         bool flash = IN_SET(mapping, MAPPING_FLASH_SPLIT, MAPPING_FLASH_STATELESS, MAPPING_FLASH_COMBINED);
+        bool memory = IN_SET(mapping, MAPPING_MEMORY, MAPPING_MEMORY_UEFI_VARS);
 
         ASSERT_OK(sd_json_buildo(&v,
                         SD_JSON_BUILD_PAIR_STRING("description", name),
                         SD_JSON_BUILD_PAIR_STRV("interface-types", STRV_MAKE(interface_type ?: "uefi")),
                         SD_JSON_BUILD_PAIR("mapping", SD_JSON_BUILD_OBJECT(
-                                SD_JSON_BUILD_PAIR_STRING("device", flash ? "flash" : mapping == MAPPING_MEMORY ? "memory" : "kernel"),
+                                SD_JSON_BUILD_PAIR_STRING("device", flash ? "flash" : memory ? "memory" : "kernel"),
                                 SD_JSON_BUILD_PAIR_CONDITION(!flash, "filename", SD_JSON_BUILD_STRING(executable)),
+                                SD_JSON_BUILD_PAIR_CONDITION(mapping == MAPPING_MEMORY_UEFI_VARS, "uefi-vars", SD_JSON_BUILD_OBJECT(
+                                        SD_JSON_BUILD_PAIR_STRING("template", "/test/vars.json"))),
                                 SD_JSON_BUILD_PAIR_CONDITION(mapping == MAPPING_FLASH_STATELESS, "mode", SD_JSON_BUILD_STRING("stateless")),
                                 SD_JSON_BUILD_PAIR_CONDITION(mapping == MAPPING_FLASH_COMBINED, "mode", SD_JSON_BUILD_STRING("combined")),
                                 SD_JSON_BUILD_PAIR_CONDITION(mapping == MAPPING_FLASH_SPLIT, "nvram-template", SD_JSON_BUILD_OBJECT(
@@ -165,6 +169,39 @@ TEST(find_ovmf_config) {
         ASSERT_STREQ(ovmf_config_format(config), "raw");
         ASSERT_TRUE(ovmf_config_is_stateless(config));
         config = ovmf_config_free(config);
+
+        /* Unless it expects QEMU to provide the UEFI variable store, which also applies to stateless flash. */
+        write_descriptor(dir, "00-h-memory.json", "/test/h-memory.fd", "raw", NULL, NULL, NULL, MAPPING_MEMORY_UEFI_VARS, STRV_MAKE("vmspawn-test-h", "host-uefi-vars"));
+        write_descriptor(dir, "10-h-flash.json", "/test/h-flash.fd", "raw", NULL, NULL, NULL, MAPPING_FLASH_STATELESS, STRV_MAKE("vmspawn-test-h", "host-uefi-vars"));
+
+        check_find(STRV_MAKE("vmspawn-test-h"), /* exclude= */ NULL, FIND_OVMF_STATELESS, /* expect_path= */ NULL, /* ret= */ NULL);
+
+        _cleanup_free_ char *h = NULL;
+        ASSERT_NOT_NULL(h = path_join(dir, "00-h-memory.json"));
+        ASSERT_OK(load_ovmf_config(h, &config));
+        ASSERT_STREQ(config->path, "/test/h-memory.fd");
+        ASSERT_STREQ(config->uefi_vars_template, "/test/vars.json");
+        ASSERT_NULL(config->vars);
+        ASSERT_FALSE(ovmf_config_is_stateless(config));
+        config = ovmf_config_free(config);
+
+        /* Without FIND_OVMF_STATELESS, the host-uefi-vars firmware above is selected like firmware with an
+         * NVRAM template on supported architectures, if it has a template for the variable store. */
+        if (QEMU_UEFI_VARS_DEVICE) {
+                check_find(STRV_MAKE("vmspawn-test-h"), /* exclude= */ NULL, /* flags= */ 0, "/test/h-memory.fd", &config);
+                ASSERT_TRUE(ovmf_config_has_host_uefi_vars(config));
+                config = ovmf_config_free(config);
+        } else
+                check_find(STRV_MAKE("vmspawn-test-h"), /* exclude= */ NULL, /* flags= */ 0, /* expect_path= */ NULL, /* ret= */ NULL);
+
+        /* Without a template for the variable store it is skipped, both memory-mapped and as stateless
+         * flash, so only the last descriptor matches. */
+        write_descriptor(dir, "00-i-memory.json", "/test/i-memory.fd", "raw", NULL, NULL, NULL, MAPPING_MEMORY, STRV_MAKE("vmspawn-test-i", "host-uefi-vars"));
+        write_descriptor(dir, "05-i-flash.json", "/test/i-flash.fd", "raw", NULL, NULL, NULL, MAPPING_FLASH_STATELESS, STRV_MAKE("vmspawn-test-i", "host-uefi-vars"));
+        write_descriptor(dir, "10-i-memory-vars.json", "/test/i-memory-vars.fd", "raw", NULL, NULL, NULL, MAPPING_MEMORY_UEFI_VARS, STRV_MAKE("vmspawn-test-i", "host-uefi-vars"));
+
+        check_find(STRV_MAKE("vmspawn-test-i"), /* exclude= */ NULL, /* flags= */ 0,
+                   QEMU_UEFI_VARS_DEVICE ? "/test/i-memory-vars.fd" : NULL, /* ret= */ NULL);
 
         /* Combined-mode flash firmware carries a writable variable store inside the executable, it must not be treated as stateless. */
         write_descriptor(dir, "00-f-combined.json", "/test/f-combined.fd", "raw", NULL, NULL, NULL, MAPPING_FLASH_COMBINED, STRV_MAKE("vmspawn-test-f"));

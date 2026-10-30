@@ -133,7 +133,7 @@ int journal_add_unit_matches(
         if (!strv_isempty(patterns)) {
                 _cleanup_set_free_ Set *units = NULL;
 
-                r = get_possible_units(j, SYSTEM_UNITS_FULL, patterns, &units);
+                r = get_possible_field_values(j, SYSTEM_UNITS_FULL, patterns, &units);
                 if (r < 0)
                         return r;
 
@@ -176,7 +176,7 @@ int journal_add_unit_matches(
         if (!strv_isempty(patterns)) {
                 _cleanup_set_free_ Set *units = NULL;
 
-                r = get_possible_units(j, USER_UNITS_FULL, patterns, &units);
+                r = get_possible_field_values(j, USER_UNITS_FULL, patterns, &units);
                 if (r < 0)
                         return r;
 
@@ -217,6 +217,8 @@ static int add_units(sd_journal *j) {
 }
 
 static int add_syslog_identifier(sd_journal *j) {
+        _cleanup_strv_free_ char **patterns = NULL;
+        bool added = false;
         int r;
 
         assert(j);
@@ -225,26 +227,83 @@ static int add_syslog_identifier(sd_journal *j) {
                 return 0;
 
         STRV_FOREACH(i, arg_syslog_identifier) {
+                if (string_is_glob(*i)) {
+                        r = strv_extend(&patterns, *i);
+                        if (r < 0)
+                                return r;
+                        continue;
+                }
+
                 r = journal_add_match_pair(j, "SYSLOG_IDENTIFIER", *i);
                 if (r < 0)
                         return r;
                 r = sd_journal_add_disjunction(j);
                 if (r < 0)
                         return r;
+                added = true;
         }
+
+        if (!strv_isempty(patterns)) {
+                _cleanup_set_free_ Set *identifiers = NULL;
+
+                r = get_possible_field_values(j, "SYSLOG_IDENTIFIER\0", patterns, &identifiers);
+                if (r < 0)
+                        return r;
+
+                const char *id;
+                SET_FOREACH(id, identifiers) {
+                        r = journal_add_match_pair(j, "SYSLOG_IDENTIFIER", id);
+                        if (r < 0)
+                                return r;
+                        r = sd_journal_add_disjunction(j);
+                        if (r < 0)
+                                return r;
+                        added = true;
+                }
+        }
+
+        /* Complain if the user asked for identifiers but nothing whatsoever was found, since otherwise
+         * everything would be matched. Same as for --unit=. */
+        if (!added)
+                return -ENODATA;
 
         return sd_journal_add_conjunction(j);
 }
 
 static int add_exclude_identifier(sd_journal *j) {
+        _cleanup_strv_free_ char **patterns = NULL;
         _cleanup_set_free_ Set *excludes = NULL;
         int r;
 
         assert(j);
 
-        r = set_put_strdupv(&excludes, arg_exclude_identifier);
-        if (r < 0)
-                return r;
+        STRV_FOREACH(i, arg_exclude_identifier) {
+                if (string_is_glob(*i)) {
+                        r = strv_extend(&patterns, *i);
+                        if (r < 0)
+                                return r;
+                        continue;
+                }
+
+                r = set_put_strdup(&excludes, *i);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!strv_isempty(patterns)) {
+                _cleanup_set_free_ Set *found = NULL;
+
+                r = get_possible_field_values(j, "SYSLOG_IDENTIFIER\0", patterns, &found);
+                if (r < 0)
+                        return r;
+
+                const char *id;
+                SET_FOREACH(id, found) {
+                        r = set_put_strdup(&excludes, id);
+                        if (r < 0)
+                                return r;
+                }
+        }
 
         return set_free_and_replace(j->exclude_syslog_identifiers, excludes);
 }

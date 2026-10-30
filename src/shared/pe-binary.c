@@ -50,6 +50,15 @@ const IMAGE_DATA_DIRECTORY* pe_header_get_data_directory(
         return PE_HEADER_OPTIONAL_FIELD(h, DataDirectory) + i;
 }
 
+bool pe_header_is_signed(const PeHeader *h) {
+        assert(h);
+
+        const IMAGE_DATA_DIRECTORY *certificate_table =
+                pe_header_get_data_directory(h, IMAGE_DATA_DIRECTORY_INDEX_CERTIFICATION_TABLE);
+
+        return certificate_table && le32toh(certificate_table->VirtualAddress) != 0;
+}
+
 const IMAGE_SECTION_HEADER* pe_section_table_find(
                 const IMAGE_SECTION_HEADER *sections,
                 size_t n_sections,
@@ -220,6 +229,27 @@ int pe_load_sections(
         return 0;
 }
 
+int pe_load_headers_and_sections(int fd, PeHeader **ret_pe_header, IMAGE_SECTION_HEADER **ret_sections) {
+        _cleanup_free_ IMAGE_DOS_HEADER *dos_header = NULL;
+        _cleanup_free_ PeHeader *pe_header = NULL;
+        int r;
+
+        assert(fd >= 0);
+
+        r = pe_load_headers(fd, &dos_header, &pe_header);
+        if (r < 0)
+                return r;
+
+        r = pe_load_sections(fd, dos_header, pe_header, ret_sections);
+        if (r < 0)
+                return r;
+
+        if (ret_pe_header)
+                *ret_pe_header = TAKE_PTR(pe_header);
+
+        return 0;
+}
+
 int pe_read_section_data(
                 int fd,
                 const IMAGE_SECTION_HEADER *section,
@@ -230,7 +260,10 @@ int pe_read_section_data(
         assert(fd >= 0);
         assert(section);
 
-        size_t n = le32toh(section->VirtualSize);
+        /* SizeOfRawData includes padding up to the file alignment. VirtualSize is larger than
+         * SizeOfRawData when the section ends with zero-initialized data. The file does not contain
+         * that data. Reading VirtualSize bytes would return bytes of the next section instead. */
+        size_t n = MIN(le32toh(section->VirtualSize), le32toh(section->SizeOfRawData));
         if (n > MIN(max_size, (size_t) SSIZE_MAX))
                 return -EBADMSG;
 
@@ -284,6 +317,56 @@ int pe_read_section_data_by_name(
                 return -ENXIO;
 
         return pe_read_section_data(fd, section, max_size, ret, ret_size);
+}
+
+int pe_checksum(int fd, uint32_t *ret) {
+        _cleanup_free_ IMAGE_DOS_HEADER *dos_header = NULL;
+        _cleanup_free_ PeHeader *pe_header = NULL;
+        struct stat st;
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        if (fstat(fd, &st) < 0)
+                return log_debug_errno(errno, "Failed to stat file: %m");
+
+        r = pe_load_headers(fd, &dos_header, &pe_header);
+        if (r < 0)
+                return r;
+
+        uint32_t checksum = 0, checksum_offset = le32toh(dos_header->e_lfanew) + offsetof(PeHeader, optional.CheckSum);
+        size_t off = 0;
+        for (;;) {
+                uint16_t buf[32*1024];
+
+                ssize_t n = pread(fd, buf, sizeof(buf), off);
+                if (n == 0)
+                        break;
+                if (n < 0)
+                        return log_debug_errno(errno, "Failed to read from PE file: %m");
+                if (n % sizeof(uint16_t) != 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Short read from PE file");
+
+                for (size_t i = 0; i < (size_t) n / 2; i++) {
+                        size_t pos = off + i * sizeof(uint16_t);
+                        if (pos >= checksum_offset && pos < checksum_offset + sizeof(pe_header->optional.CheckSum))
+                                continue;
+
+                        uint16_t val = le16toh(buf[i]);
+
+                        checksum += val;
+                        checksum = (checksum >> 16) + (checksum & 0xffff);
+                }
+
+                off += n;
+        }
+
+        checksum = (checksum >> 16) + (checksum & 0xffff);
+        checksum += off;
+
+        *ret = checksum;
+        return 0;
 }
 
 bool pe_is_uki(const PeHeader *pe_header, const IMAGE_SECTION_HEADER *sections) {
@@ -486,56 +569,6 @@ int pe_hash(int fd,
         *ret_hash = TAKE_PTR(hash);
         *ret_hash_size = hash_size;
 
-        return 0;
-}
-
-int pe_checksum(int fd, uint32_t *ret) {
-        _cleanup_free_ IMAGE_DOS_HEADER *dos_header = NULL;
-        _cleanup_free_ PeHeader *pe_header = NULL;
-        struct stat st;
-        int r;
-
-        assert(fd >= 0);
-        assert(ret);
-
-        if (fstat(fd, &st) < 0)
-                return log_debug_errno(errno, "Failed to stat file: %m");
-
-        r = pe_load_headers(fd, &dos_header, &pe_header);
-        if (r < 0)
-                return r;
-
-        uint32_t checksum = 0, checksum_offset = le32toh(dos_header->e_lfanew) + offsetof(PeHeader, optional.CheckSum);
-        size_t off = 0;
-        for (;;) {
-                uint16_t buf[32*1024];
-
-                ssize_t n = pread(fd, buf, sizeof(buf), off);
-                if (n == 0)
-                        break;
-                if (n < 0)
-                        return log_debug_errno(errno, "Failed to read from PE file: %m");
-                if (n % sizeof(uint16_t) != 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Short read from PE file");
-
-                for (size_t i = 0; i < (size_t) n / 2; i++) {
-                        size_t pos = off + i * sizeof(uint16_t);
-                        if (pos >= checksum_offset && pos < checksum_offset + sizeof(pe_header->optional.CheckSum))
-                                continue;
-
-                        uint16_t val = le16toh(buf[i]);
-
-                        checksum += val;
-                        checksum = (checksum >> 16) + (checksum & 0xffff);
-                }
-
-                off += n;
-        }
-
-        checksum = (checksum >> 16) + (checksum & 0xffff);
-        checksum += off;
-
-        *ret = checksum;
         return 0;
 }
 

@@ -21,6 +21,9 @@ ConditionPathExists=/etc/initrd-release
 ConditionKernelCommandLine=!rd.systemd.sysext=0
 
 DefaultDependencies=no
+After=systemd-confext-initrd.service
+# Extension images might be LUKS encrypted and sealed to the local TPM2, but ordering after tpm2.target here
+# would be a cycle with the software TPM fallback, hence systemd-tpm2-generator adds it where possible
 Before=local-fs-pre.target cryptsetup-pre.target systemd-tmpfiles-setup.service
 Wants=local-fs-pre.target cryptsetup-pre.target
 Conflicts=initrd-switch-root.target

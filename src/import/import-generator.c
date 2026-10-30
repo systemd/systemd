@@ -22,7 +22,16 @@
 #include "specifier.h"
 #include "string-util.h"
 #include "unit-name.h"
+#include "verbs.h"
 #include "web-util.h"
+
+COMMAND(
+        "systemd-import-generator\0",
+        "Download disk images at boot.",
+        .argspec = GENERATOR_ARGSPEC,
+        .man_pages = "systemd-import-generator(8)\0",
+        .option_namespace = "common",
+);
 
 typedef struct Transfer {
         ImageClass class;

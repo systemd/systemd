@@ -20,7 +20,16 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit-name.h"
+#include "verbs.h"
 #include "virt.h"
+
+COMMAND(
+        "systemd-getty-generator\0",
+        "Enable getty instances on the console and serial consoles.",
+        .argspec = GENERATOR_ARGSPEC,
+        .man_pages = "systemd-getty-generator(8)\0",
+        .option_namespace = "common",
+);
 
 typedef enum {
         GETTY_SOURCE_NONE       = 0,

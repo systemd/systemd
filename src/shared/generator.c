@@ -21,9 +21,11 @@
 #include "special.h"
 #include "specifier.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
 #include "unit-name.h"
+#include "verbs.h"
 
 static int symlink_unless_exists(const char *target, const char *linkpath) {
         (void) mkdir_parents(linkpath, 0755);
@@ -1097,6 +1099,36 @@ bool generator_soft_rebooted(void) {
         }
 
         return (cached = (u > 0));
+}
+
+int _generator_main(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const Option options[],
+                const Option options_end[],
+                int argc, char *argv[],
+                generator_main_func_t impl) {
+        int r;
+
+        assert(argc >= 0);
+        assert(argv);
+        assert(impl);
+
+        char **args = NULL;
+        r = _common_parse_argv(verbs, verbs_end, options, options_end, argc, argv,
+                               OPTION_PARSER_NORMAL,
+                               /* min_args= */ 0, /* max_args= */ SIZE_MAX, &args);
+        if (r <= 0)
+                return r;
+
+        /* The count is checked here rather than through min_args/max_args so that every wrong count
+         * is reported with the same message. */
+        size_t n = strv_length(args);
+        if (!IN_SET(n, 1, 3))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program takes one or three arguments.");
+
+        return impl(args[0], args[n == 3 ? 1 : 0], args[n == 3 ? 2 : 0]);
 }
 
 GptAutoRoot parse_gpt_auto_root(const char *switch_name, const char *value) {

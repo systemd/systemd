@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "sd-journal.h"
@@ -23,7 +24,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
         _cleanup_(unlink_and_freep) char *name = NULL;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        _cleanup_(journal_remote_server_destroy) RemoteServer s = {};
+        _cleanup_(journal_remote_server_destroy) RemoteServer s = {
+                .add_client_certificate_subject = size % 3 != 0,
+        };
         int fdin, r;
 
         if (outside_size_range(size, 3, 65536))
@@ -52,6 +55,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         ASSERT_OK_POSITIVE(journal_remote_add_source(&s, fdin, (char*) "fuzz-data", false));
         TAKE_FD(fdin_close);
+
+        if (size % 3 == 2)
+                assert_se(s.sources[fdin]->client_certificate_subject = strdup(REMOTE_CERTIFICATE_SUBJECT_FIELD "CN=fuzz"));
 
         while (s.active)
                 ASSERT_OK(journal_remote_handle_raw_source(NULL, fdin, 0, &s));

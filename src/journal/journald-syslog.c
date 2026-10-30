@@ -15,6 +15,7 @@
 #include "journald-client.h"
 #include "journald-console.h"
 #include "journald-context.h"
+#include "journald-counters.h"
 #include "journald-kmsg.h"
 #include "journald-manager.h"
 #include "journald-syslog.h"
@@ -398,6 +399,9 @@ void manager_process_syslog_message(
         store_raw = msg != buf || strlen(msg) != raw_len;
 
         syslog_parse_priority(&msg, &priority, true);
+
+        /* Count before any filtering or rate limiting */
+        manager_count_message(m, JOURNAL_TRANSPORT_SYSLOG, priority);
 
         if (!client_context_test_priority(context, priority))
                 return;

@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "sd-device.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -99,6 +100,7 @@ int tpm2_pcr_bank_from_efi_active_legacy(uint32_t active_banks, uint16_t *ret) {
 }
 
 #if HAVE_TPM2
+static DLSYM_PROTOTYPE(Esys_Certify) = NULL;
 static DLSYM_PROTOTYPE(Esys_ContextLoad) = NULL;
 static DLSYM_PROTOTYPE(Esys_ContextSave) = NULL;
 static DLSYM_PROTOTYPE(Esys_Create) = NULL;
@@ -186,6 +188,7 @@ static int dlopen_tpm2_esys(int log_level) {
 
         r = dlopen_many_sym_or_warn(
                         &libtss2_esys_dl, "libtss2-esys.so.0", log_level,
+                        DLSYM_ARG(Esys_Certify),
                         DLSYM_ARG(Esys_ContextLoad),
                         DLSYM_ARG(Esys_ContextSave),
                         DLSYM_ARG(Esys_Create),
@@ -355,6 +358,20 @@ static void tpm2b_sensitive_data_erase_and_esys_freep(TPM2B_SENSITIVE_DATA **p) 
         sym_Esys_Free(*p);
 }
 
+static bool tpm2_is_audit_session(Tpm2Context *c, const Tpm2Handle *session) {
+        TPMA_SESSION flags = 0;
+        TSS2_RC rc;
+
+        assert(c);
+        assert(session);
+
+        rc = sym_Esys_TRSess_GetAttributes(c->esys_context, session->esys_handle, &flags);
+        if (rc != TSS2_RC_SUCCESS)
+                return false;
+
+        return flags & TPMA_SESSION_AUDIT;
+}
+
 /* Get a specific TPM capability (or capabilities).
  *
  * Returns 0 if there are no more capability properties of the requested type, or 1 if there are more, or < 0
@@ -372,6 +389,7 @@ static void tpm2b_sensitive_data_erase_and_esys_freep(TPM2B_SENSITIVE_DATA **p) 
  * details. */
 static int tpm2_get_capability(
                 Tpm2Context *c,
+                const Tpm2Handle *audit_session,
                 TPM2_CAP capability,
                 uint32_t property,
                 uint32_t count,
@@ -386,9 +404,13 @@ static int tpm2_get_capability(
         log_debug("Getting TPM2 capability 0x%04" PRIx32 " property 0x%04" PRIx32 " count %" PRIu32 ".",
                   capability, property, count);
 
+        if (audit_session && !tpm2_is_audit_session(c, audit_session))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Supplied session handle is not an audit session.");
+
         rc = sym_Esys_GetCapability(
                         c->esys_context,
-                        ESYS_TR_NONE,
+                        audit_session ? audit_session->esys_handle : ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         capability,
@@ -396,10 +418,14 @@ static int tpm2_get_capability(
                         count,
                         &more,
                         &capabilities);
-        if (rc == TPM2_RC_VALUE)
+        if (rc == TPM2_RC_EXCLUSIVE)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBUSY),
+                                       "Failed to get TPM2 capability 0x%04" PRIx32 " property 0x%04" PRIx32 ": audit session required exclusivity",
+                                       capability, property);
+        /* A TPM2_RC_VALUE for the first command parameter means the TPM doesn't know the requested capability. */
+        if (rc == (TPM2_RC_VALUE|TPM2_RC_P|TPM2_RC_1))
                 return log_debug_errno(SYNTHETIC_ERRNO(ENXIO),
-                                       "Requested TPM2 capability 0x%04" PRIx32 " property 0x%04" PRIx32 " apparently doesn't exist: %s",
-                                       capability, property, sym_Tss2_RC_Decode(rc));
+                                       "Requested TPM2 capability 0x%04" PRIx32 " is not supported", capability);
         if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to get TPM2 capability 0x%04" PRIx32 " property 0x%04" PRIx32 ": %s",
@@ -413,25 +439,6 @@ static int tpm2_get_capability(
                 *ret_capability_data = capabilities->data;
 
         return more == TPM2_YES;
-}
-
-static int tpm2_get_capability_property(Tpm2Context *c, uint32_t property, uint32_t *ret_value) {
-        int r;
-
-        assert(c);
-        assert(ret_value);
-
-        TPMU_CAPABILITIES capabilities = {};
-        r = tpm2_get_capability(c, TPM2_CAP_TPM_PROPERTIES, property, 1, &capabilities);
-        if (r < 0)
-                return r;
-
-        if (capabilities.tpmProperties.count == 0 ||
-            capabilities.tpmProperties.tpmProperty[0].property != property)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "TPM property 0x%04" PRIx32 " does not exist", property);
-
-        *ret_value = capabilities.tpmProperties.tpmProperty[0].value;
-        return 0;
 }
 
 int tpm2_vendor_info_to_modalias(const Tpm2VendorInfo *info, char **ret) {
@@ -502,6 +509,7 @@ int tpm2_get_vendor_info(
         TPMU_CAPABILITIES capabilities = {};
         r = tpm2_get_capability(
                         c,
+                        /* audit_session= */ NULL,
                         TPM2_CAP_TPM_PROPERTIES,
                         TPM2_PT_FAMILY_INDICATOR,
                         TPM2_PT_FIRMWARE_VERSION_2 - TPM2_PT_FAMILY_INDICATOR + 1, /* get all relevant fields at once */
@@ -579,6 +587,48 @@ int tpm2_get_vendor_info(
         return 0;
 }
 
+/* Fetch a single TPM property. Returns 1 if the TPM has further properties to report after this one
+ * (i.e. TPM2_GetCapability() set moreData), 0 otherwise. */
+int tpm2_get_capability_property(Tpm2Context *c, const Tpm2Handle *audit_session, TPM2_PT property, uint32_t *ret) {
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        TPMU_CAPABILITIES capabilities = {};
+        r = tpm2_get_capability(c, audit_session, TPM2_CAP_TPM_PROPERTIES, property, 1, &capabilities);
+        if (r < 0)
+                return r;
+
+        if (capabilities.tpmProperties.count == 0 ||
+            capabilities.tpmProperties.tpmProperty[0].property != property)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "TPM property 0x%08" PRIx32 " does not exist", property);
+
+        *ret = capabilities.tpmProperties.tpmProperty[0].value;
+        return r;
+}
+
+/* Fetch the authorization policy of a single permanent handle. Returns 1 if the TPM has further policies
+ * to report after this one (i.e. TPM2_GetCapability() set moreData), 0 otherwise. */
+int tpm2_get_capability_auth_policy(Tpm2Context *c, const Tpm2Handle *audit_session, TPM2_HANDLE handle, TPMT_HA *ret) {
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        TPMU_CAPABILITIES capabilities = {};
+        r = tpm2_get_capability(c, audit_session, TPM2_CAP_AUTH_POLICIES, handle, 1, &capabilities);
+        if (r < 0)
+                return r;
+
+        if (capabilities.authPolicies.count == 0 ||
+            capabilities.authPolicies.policies[0].handle != handle)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Auth policy for TPM handle 0x%08" PRIx32 " does not exist", handle);
+
+        *ret = capabilities.authPolicies.policies[0].policyHash;
+        return r;
+}
+
 #define TPMA_CC_TO_TPM2_CC(cca) (((cca) & TPMA_CC_COMMANDINDEX_MASK) >> TPMA_CC_COMMANDINDEX_SHIFT)
 
 /* The TCG reference library spec (part 2) doesn't guarantee a minimum size for the
@@ -603,6 +653,7 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
         for (;;) {
                 r = tpm2_get_capability(
                                 c,
+                                /* audit_session= */ NULL,
                                 TPM2_CAP_ALGS,
                                 (uint32_t) current_alg, /* The spec states to cast TPM2_ALG_ID to uint32_t. */
                                 TPM2_MAX_CAP_ALGS,
@@ -636,6 +687,7 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
         for (;;) {
                 r = tpm2_get_capability(
                                 c,
+                                /* audit_session= */ NULL,
                                 TPM2_CAP_COMMANDS,
                                 current_cc,
                                 TPM2_MAX_CAP_CC,
@@ -669,6 +721,7 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
         for (;;) {
                 r = tpm2_get_capability(
                                 c,
+                                /* audit_session= */ NULL,
                                 TPM2_CAP_ECC_CURVES,
                                 current_ecc_curve,
                                 TPM2_MAX_ECC_CURVES,
@@ -704,6 +757,7 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
          * safely assume the TPM PCR allocation will not change while we are using it. */
         r = tpm2_get_capability(
                         c,
+                        /* audit_session= */ NULL,
                         TPM2_CAP_PCRS,
                         /* property= */ 0,
                         /* count= */ 1,
@@ -724,7 +778,11 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
          * certificate with a RSA public key. */
         uint32_t max_nv_buffer_size = 0;
 
-        r = tpm2_get_capability_property(c, TPM2_PT_NV_BUFFER_MAX, &max_nv_buffer_size);
+        r = tpm2_get_capability_property(
+                        c,
+                        /* audit_session= */ NULL,
+                        TPM2_PT_NV_BUFFER_MAX,
+                        &max_nv_buffer_size);
         if (r == -ENOENT) {
                 log_debug("TPM bug: didn't report a value for TPM_PT_NV_BUFFER_MAX; using %"PRIu32".", FALLBACK_MAX_NV_BUFFER_SIZE);
                 max_nv_buffer_size = FALLBACK_MAX_NV_BUFFER_SIZE;
@@ -808,7 +866,11 @@ int tpm2_max_data_size(Tpm2Context *c) {
         assert(c);
 
         uint32_t max_digest_size = 0;
-        r = tpm2_get_capability_property(c, TPM2_PT_MAX_DIGEST, &max_digest_size);
+        r = tpm2_get_capability_property(
+                        c,
+                        /* audit_session= */ NULL,
+                        TPM2_PT_MAX_DIGEST,
+                        &max_digest_size);
         if (r < 0)
                 return r;
 
@@ -848,7 +910,13 @@ static int tpm2_get_capability_handles(
 
         while (max > 0) {
                 TPMU_CAPABILITIES capability;
-                r = tpm2_get_capability(c, TPM2_CAP_HANDLES, current, (uint32_t) max, &capability);
+                r = tpm2_get_capability(
+                                c,
+                                /* audit_session= */ NULL,
+                                TPM2_CAP_HANDLES,
+                                current,
+                                (uint32_t) max,
+                                &capability);
                 if (r < 0)
                         return r;
 
@@ -1842,7 +1910,6 @@ int tpm2_get_best_attestation_key_template(Tpm2Context *c, TPMT_PUBLIC *ret) {
                                 TPMA_OBJECT_FIXEDPARENT |
                                 TPMA_OBJECT_SENSITIVEDATAORIGIN |
                                 TPMA_OBJECT_USERWITHAUTH |
-                                TPMA_OBJECT_ADMINWITHPOLICY |
                                 TPMA_OBJECT_RESTRICTED |
                                 TPMA_OBJECT_SIGN_ENCRYPT,
                         .parameters.asymDetail = {
@@ -3183,6 +3250,51 @@ int tpm2_tpml_pcr_selection_from_pcr_values(
         return 0;
 }
 
+/* Convert a set of PCR values into the ordered list of digests described by the supplied PCR selection,
+ * ie. the order in which the TPM digests them. */
+int tpm2_pcr_values_to_digests_for_selection(
+                const TPML_PCR_SELECTION *selection,
+                const Tpm2PCRValue *pcr_values,
+                size_t n_pcr_values,
+                TPM2B_DIGEST **ret_values,
+                size_t *ret_n_values) {
+
+        _cleanup_free_ TPM2B_DIGEST *values = NULL;
+        size_t n_values = 0;
+
+        assert(selection);
+        assert(pcr_values || n_pcr_values == 0);
+        assert(ret_values);
+        assert(ret_n_values);
+
+        FOREACH_PCR_IN_TPML_PCR_SELECTION(pcr, s, selection) {
+                unsigned pcr_index = (unsigned) pcr;
+                const Tpm2PCRValue *found = NULL;
+
+                FOREACH_ARRAY(v, pcr_values, n_pcr_values)
+                        if (v->index == pcr_index && v->hash == s->hash) {
+                                found = v;
+                                break;
+                        }
+
+                if (!found)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
+                                               "Missing PCR value for hash 0x%" PRIx16 " index %u.", s->hash, pcr_index);
+
+                if (!tpm2_pcr_value_valid(found) || found->value.size == 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "PCR value for hash 0x%" PRIx16 " index %u is not valid.", s->hash, pcr_index);
+
+                if (!GREEDY_REALLOC_APPEND(values, n_values, &found->value, 1))
+                        return log_oom_debug();
+        }
+
+        *ret_values = TAKE_PTR(values);
+        *ret_n_values = n_values;
+
+        return 0;
+}
+
 /* Count the number of different hash algorithms for all the entries. */
 int tpm2_pcr_values_hash_count(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, size_t *ret_count) {
         TPML_PCR_SELECTION selection;
@@ -4290,17 +4402,49 @@ int tpm2_digest_iovec_to_data(TPMI_ALG_HASH alg, const struct iovec *digest, TPM
         return tpm2_digest_buf_to_data(alg, digest->iov_base, digest->iov_len, ret);
 }
 
+#if HAVE_OPENSSL
+/* Look up the OpenSSL name and digest size of a TPM hash algorithm, and check that the digest fits in a
+ * TPM2B_DIGEST. */
+static int tpm2_digest_alg_lookup(TPMI_ALG_HASH alg, const char **ret_alg_name, size_t *ret_digest_size) {
+        int r;
+
+        assert(ret_digest_size);
+
+        const char *alg_name = tpm2_hash_alg_to_string(alg);
+        if (!alg_name)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Hash algorithm not supported: 0x%x", alg);
+
+        size_t digest_size;
+        r = openssl_digest_size(alg_name, &digest_size);
+        if (r < 0)
+                return r;
+
+        if (digest_size > sizeof_field(TPM2B_DIGEST, buffer))
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Digest size %zu of hash algorithm 0x%x too large for TPM2B_DIGEST",
+                                       digest_size, alg);
+
+        if (ret_alg_name)
+                *ret_alg_name = alg_name;
+        *ret_digest_size = digest_size;
+        return 0;
+}
+#endif
+
 /* Hash data into the digest.
  *
  * If 'extend' is true, the hashing operation starts with the existing digest hash (and the digest is
  * required to have a hash and its size must be correct). If 'extend' is false, the digest size is
  * initialized to the correct size for 'alg' and the hashing operation does not include any existing digest
- * hash. If 'extend' is false and no data is provided, the digest is initialized to a zero digest.
+ * hash.
  *
  * On success, the digest hash will be updated with the hashing operation result and the digest size will be
- * correct for 'alg'.
+ * correct for 'alg'. If 'extend' is false and no data is provided, the digest hash will be updated with the
+ * digest of an empty buffer.
  *
- * This currently only provides SHA256, so 'alg' must be TPM2_ALG_SHA256. */
+ * Any hash algorithm known to both tpm2_hash_alg_to_string() and OpenSSL may be used. Without OpenSSL,
+ * only SHA256 is available. */
 int tpm2_digest_many(
                 TPMI_ALG_HASH alg,
                 TPM2B_DIGEST *digest,
@@ -4308,21 +4452,58 @@ int tpm2_digest_many(
                 size_t n_data,
                 bool extend) {
 
-        struct sha256_ctx ctx;
-
         assert(digest);
         assert(data || n_data == 0);
+
+#if HAVE_OPENSSL
+        const char *alg_name;
+        size_t digest_size;
+        int r;
+
+        r = tpm2_digest_alg_lookup(alg, &alg_name, &digest_size);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ struct iovec *iovecs = NULL;
+        if (extend) {
+                if (digest->size != digest_size)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Digest size %" PRIu16 ", require %zu", digest->size, digest_size);
+
+                iovecs = new(struct iovec, n_data + 1);
+                if (!iovecs)
+                        return log_oom_debug();
+
+                iovecs[0] = IOVEC_MAKE(digest->buffer, digest->size);
+                memcpy_safe(iovecs + 1, data, n_data * sizeof(struct iovec));
+
+                data = iovecs;
+                n_data++;
+        }
+
+        _cleanup_(erase_and_freep) void *hash = NULL;
+        r = openssl_digest_many(alg_name, data, n_data, &hash, /* ret_digest_size= */ NULL);
+        if (r < 0)
+                return r;
+
+        *digest = (TPM2B_DIGEST) {
+                .size = digest_size,
+        };
+        memcpy(digest->buffer, hash, digest_size);
+
+        return 0;
+#else /* HAVE_OPENSSL */
+        struct sha256_ctx ctx;
 
         if (alg != TPM2_ALG_SHA256)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Hash algorithm not supported: 0x%x", alg);
 
         if (extend && digest->size != SHA256_DIGEST_SIZE)
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Digest size 0x%x, require 0x%x",
-                                       digest->size, (unsigned)SHA256_DIGEST_SIZE);
+                                       digest->size, (unsigned) SHA256_DIGEST_SIZE);
 
-        /* Since we're hardcoding SHA256 (for now), we can check this at compile time. */
         assert_cc(sizeof(digest->buffer) >= SHA256_DIGEST_SIZE);
 
         CLEANUP_ERASE(ctx);
@@ -4335,8 +4516,6 @@ int tpm2_digest_many(
                 *digest = (TPM2B_DIGEST) {
                         .size = SHA256_DIGEST_SIZE,
                 };
-                if (n_data == 0) /* If not extending and no data, return zero hash */
-                        return 0;
         }
 
         FOREACH_ARRAY(d, data, n_data)
@@ -4345,6 +4524,7 @@ int tpm2_digest_many(
         sha256_finish_ctx(&ctx, digest->buffer);
 
         return 0;
+#endif
 }
 
 /* Same as tpm2_digest_many() but data is contained in TPM2B_DIGEST[]. The digests may be any size digests. */
@@ -4367,6 +4547,37 @@ int tpm2_digest_many_digests(
                 iovecs[i] = IOVEC_MAKE((void*) data[i].buffer, data[i].size);
 
         return tpm2_digest_many(alg, digest, iovecs, n_data, extend);
+}
+
+/* Zero initialize a digest buffer.
+ *
+ * Any hash algorithm known to both tpm2_hash_alg_to_string() and OpenSSL may be used. Without OpenSSL,
+ * only SHA256 is available. */
+int tpm2_digest_init(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest) {
+#if HAVE_OPENSSL
+        size_t digest_size;
+        int r;
+
+        r = tpm2_digest_alg_lookup(alg, /* ret_alg_name= */ NULL, &digest_size);
+        if (r < 0)
+                return r;
+
+        *digest = (TPM2B_DIGEST) {
+                .size = digest_size,
+        };
+        return 0;
+#else
+        if (alg != TPM2_ALG_SHA256)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Hash algorithm not supported: 0x%x", alg);
+
+        assert_cc(sizeof(digest->buffer) >= SHA256_DIGEST_SIZE);
+
+        *digest = (TPM2B_DIGEST) {
+                .size = SHA256_DIGEST_SIZE,
+        };
+        return 0;
+#endif
 }
 
 /* This hashes the provided pin into a digest value, but also verifies that the final byte is not 0, because
@@ -4525,21 +4736,7 @@ int tpm2_make_encryption_session(
         return 0;
 }
 
-static bool tpm2_is_audit_session(Tpm2Context *c, const Tpm2Handle *session) {
-        TPMA_SESSION flags = 0;
-        TSS2_RC rc;
-
-        assert(c);
-        assert(session);
-
-        rc = sym_Esys_TRSess_GetAttributes(c->esys_context, session->esys_handle, &flags);
-        if (rc != TSS2_RC_SUCCESS)
-                return false;
-
-        return flags & TPMA_SESSION_AUDIT;
-}
-
-int tpm2_make_exclusive_audit_session(Tpm2Context *c, Tpm2Handle **ret_session) {
+int tpm2_make_exclusive_audit_session(Tpm2Context *c, TPMI_ALG_HASH hash, Tpm2Handle **ret_session) {
         TSS2_RC rc;
         int r;
 
@@ -4547,6 +4744,11 @@ int tpm2_make_exclusive_audit_session(Tpm2Context *c, Tpm2Handle **ret_session) 
         assert(ret_session);
 
         log_debug("Starting HMAC exclusive audit session.");
+
+        /* The caller can specify a hash algorithm, but we only support SHA-256 for now. */
+        if (hash != TPM2_ALG_SHA256)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unsupported hash algorithm for audit session: only SHA-256 is supported");
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
         r = tpm2_handle_new(c, &session);
@@ -4563,7 +4765,7 @@ int tpm2_make_exclusive_audit_session(Tpm2Context *c, Tpm2Handle **ret_session) 
                         /* nonceCaller= */ NULL,
                         TPM2_SE_HMAC,
                         &SESSION_TEMPLATE_SYM_NULL,
-                        TPM2_ALG_SHA256,
+                        hash,
                         &session->esys_handle);
         if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
@@ -4646,8 +4848,13 @@ static int find_signature(
         const char *k;
         int r;
 
+        assert(pcr_selection);
+        assert(policy || !ret_signature);
+        assert(!ret_signature || ret_signature_size);
+
         /* Searches for a signature blob in the specified JSON object. Search keys are PCR bank, PCR mask,
-         * public key, and policy digest. */
+         * public key, policy reference and policy digest. If 'policy' is NULL, matches any policy digest.
+         * If 'ret_signature' is NULL, only checks whether a matching entry exists. */
 
         if (!sd_json_variant_is_object(v))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature is not a JSON object.");
@@ -4717,17 +4924,22 @@ static int find_signature(
                 if (!polj)
                         continue;
 
-                r = sd_json_variant_unhex(polj, &polj_data, &polj_size);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to decode policy hash JSON data: %m");
+                if (policy) {
+                        r = sd_json_variant_unhex(polj, &polj_data, &polj_size);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to decode policy hash JSON data: %m");
 
-                if (memcmp_nn(policy, policy_size, polj_data, polj_size) != 0)
-                        continue;
+                        if (memcmp_nn(policy, policy_size, polj_data, polj_size) != 0)
+                                continue;
+                }
 
                 /* This entry matches all our expectations, now return the signature included in it */
                 sigj = sd_json_variant_by_key(i, "sig");
                 if (!sigj)
                         continue;
+
+                if (!ret_signature)
+                        return 0;
 
                 return sd_json_variant_unbase64(sigj, ret_signature, ret_signature_size);
         }
@@ -7197,13 +7409,17 @@ int tpm2_unseal(Tpm2Context *c,
          *   -ENOLCK          → TPM is in dictionary lockout mode
          *   -EREMCHG         → submitted policy doesn't match NV index stored policy (in case of PolicyAuthorizeNV)
          *   -ENOANO          → none of the PolicyOR branches of a policy matched current state
-         *   -EUCLEAN         → PCR state doesn't match expectations
+         *   -EUCLEAN         → a PCR kept being extended while we were unsealing
          *   -EPERM           → stored policy does not match TPM state
          *   -ENOTRECOVERABLE → all other kinds of TPM errors
          *   -EILSEQ          → bad PIN
          *
-         * Of these all four of EREMCHG, ENOANO, EUCLEAN, EPERM can all mean that PCR state is not matching
-         * expectations. */
+         * Of these EREMCHG, ENOANO and EPERM mean that PCR state is not matching expectations. EUCLEAN on
+         * the other hand says nothing about the correctness of the policy: it means the TPM's global PCR
+         * update counter kept moving while we built the policy or unsealed, i.e. something on this system
+         * extends a PCR continuously (the usual suspect is PCR 10 when IMA is enabled directly, or
+         * indirectly via secure boot). We make at most RETRY_UNSEAL_MAX + 1 attempts before reporting
+         * it. */
 
         TSS2_RC rc;
         int r;
@@ -7361,7 +7577,10 @@ int tpm2_unseal(Tpm2Context *c,
                                         !!pin,
                                         (shard == 1 || !iovec_is_set(pubkey)) ? pcrlock_policy : NULL,
                                         &policy_digest);
-                        if (r == -EUCLEAN && i > 0) {
+                        if (r == -EUCLEAN) {
+                                if (i == 0)
+                                        return log_debug_errno(r, "PCR values kept changing while building the TPM2 policy, giving up after %u unsealing attempts.", RETRY_UNSEAL_MAX + 1);
+
                                 log_debug("A PCR value changed during the TPM2 policy session, restarting HMAC key unsealing (%u tries left).", i);
                                 retry = true;
                                 break;
@@ -7403,7 +7622,11 @@ int tpm2_unseal(Tpm2Context *c,
                                         encryption_session->esys_handle, /* use HMAC session to enable parameter encryption */
                                         ESYS_TR_NONE,
                                         &unsealed);
-                        if (rc == TPM2_RC_PCR_CHANGED && i > 0) {
+                        if (rc == TPM2_RC_PCR_CHANGED) {
+                                if (i == 0)
+                                        return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                                               "PCR values kept changing while unsealing, giving up after %u unsealing attempts.", RETRY_UNSEAL_MAX + 1);
+
                                 log_debug("A PCR value changed during the TPM2 policy session, restarting HMAC key unsealing (%u tries left).", i);
                                 retry = true;
                                 break;
@@ -7427,9 +7650,9 @@ int tpm2_unseal(Tpm2Context *c,
         return 0;
 }
 
-static TPM2_HANDLE generate_random_nv_index(void) {
-        return TPM2_NV_INDEX_UNASSIGNED_FIRST +
-                (TPM2_HANDLE) random_u64_range(TPM2_NV_INDEX_UNASSIGNED_LAST - TPM2_NV_INDEX_UNASSIGNED_FIRST + 1);
+static TPM2_HANDLE generate_random_pcrlock_nv_index(void) {
+        return TPM2_NV_INDEX_PCRLOCK_FIRST +
+                (TPM2_HANDLE) random_u64_range(TPM2_NV_INDEX_PCRLOCK_LAST - TPM2_NV_INDEX_PCRLOCK_FIRST + 1);
 }
 
 int tpm2_define_policy_nv_index(
@@ -7463,7 +7686,7 @@ int tpm2_define_policy_nv_index(
                 if (requested_nv_index != 0)
                         nv_index = requested_nv_index;
                 else
-                        nv_index = generate_random_nv_index();
+                        nv_index = generate_random_pcrlock_nv_index();
 
                 TPM2B_NV_PUBLIC public_info = {
                         .size = sizeof_field(TPM2B_NV_PUBLIC, nvPublic),
@@ -7574,33 +7797,23 @@ int tpm2_write_policy_nv_index(
 }
 
 #if HAVE_OPENSSL
-/* Calculates the write policy of a NvPCR, which is TPM2_PolicyAuthorize OR TPM2_PolicyNvWritten(true),
- * where the authorized policy is bound to the supplied public key and policy ref. Returns the overall write
- * policy, and optionally, the PolicyAuthorize branch digest (which the extend path needs later on in order
- * to reconstruct the PolicyOR). */
+/* Calculates the write policy of a NvPCR, which is 'init_policy' OR TPM2_PolicyNvWritten(true).
+ * Returns the overall write policy. */
 static int tpm2_nvpcr_calculate_write_policy(
-                const TPM2B_PUBLIC *public,
-                const char *pubkey_policy_ref,
-                TPM2B_DIGEST *ret_authorize_policy,
+                const TPM2B_DIGEST *init_policy,
                 TPM2B_DIGEST *ret_write_policy) {
 
         int r;
 
-        assert(public);
+        assert(init_policy);
+        assert(init_policy->size == SHA256_DIGEST_SIZE);
         assert(ret_write_policy);
 
-        TPM2B_NONCE policy_ref;
-        tpm2_make_policy_ref(pubkey_policy_ref, &policy_ref);
-
-        /* Branch order matters here and must match the reconstruction in tpm2_nvpcr_open_write_session. */
+        /* Branch order matters here and must match the reconstruction in tpm2_nvpcr_policy_or_written(). */
         TPM2B_DIGEST branches[2] = {
-                TPM2B_DIGEST_MAKE(NULL, SHA256_DIGEST_SIZE), /* PolicyAuthorize branch */
+                *init_policy,                                /* Init branch */
                 TPM2B_DIGEST_MAKE(NULL, SHA256_DIGEST_SIZE), /* PolicyNvWritten branch */
         };
-
-        r = tpm2_calculate_policy_authorize(public, &policy_ref, &branches[0]);
-        if (r < 0)
-                return r;
 
         r = tpm2_calculate_policy_nv_written(/* written_set= */ true, &branches[1]);
         if (r < 0)
@@ -7611,8 +7824,6 @@ static int tpm2_nvpcr_calculate_write_policy(
         if (r < 0)
                 return r;
 
-        if (ret_authorize_policy)
-                *ret_authorize_policy = branches[0];
         *ret_write_policy = write_policy;
         return 0;
 }
@@ -7651,7 +7862,7 @@ int tpm2_define_data_nv_index(
                 if (requested_nv_index != 0)
                         nv_index = requested_nv_index;
                 else
-                        nv_index = generate_random_nv_index();
+                        nv_index = generate_random_pcrlock_nv_index();
 
                 TPM2B_NV_PUBLIC public_info = {
                         .size = sizeof_field(TPM2B_NV_PUBLIC, nvPublic),
@@ -7783,12 +7994,13 @@ static int tpm2_reuse_or_redefine_nvpcr_nv_index(
                         &nv_public_real,
                         &nv_name_real,
                         &handle);
-        if (r <= 0)
-                return log_debug_errno(r < 0 ? r : SYNTHETIC_ERRNO(ENOENT),
-                                       "Failed to acquire handle to NV index 0x%" PRIx32 ".", nv_index);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire handle to NV index 0x%" PRIx32 ": %m", nv_index);
+        if (r == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "NV index 0x%" PRIx32 " does not exist yet.", nv_index);
 
         /* Check if the existing index has the same name as the one we're trying to define. We expect
-         * this on any system where this NvPCR was created with the current pubkey on a previous
+         * this on any system where this NvPCR was created with the same init policy on a previous
          * boot, and it should always be uninitialized (ie, TPMA_NV_WRITTEN unset) at this point. */
         TPM2B_NAME nv_name_expected;
         r = tpm2_calculate_nv_index_name(&nv_public_info->nvPublic, &nv_name_expected);
@@ -7813,11 +8025,12 @@ static int tpm2_reuse_or_redefine_nvpcr_nv_index(
                                        "free sufficient space to allocate the NvPCR.", nv_index);
 
         /* Check if the existing index looks like it might have been a NvPCR - it might have a
-         * policy that's different because the signing key for the PolicyAuthorize assertion changed,
-         * or it might be an old style NvPCR. In this case, we'll undefine it and create a new one.
-         * This handles updates from old style NvPCRs, and rotation of the authorized policy signing
-         * key. We just check the attributes here - we know that the nvIndex is the same, and the
-         * dataSize for a valid extend index matches the size of nameAlg so we don't need to check that. */
+         * policy that's different because its init policy changed (the signing key for the
+         * PolicyAuthorize assertion was rotated, the PCR value bound by a PolicyPCR init policy changed,
+         * or the init policy switched between the two), or it might be an old style NvPCR. In this case,
+         * we'll undefine it and create a new one. We just check the attributes here - we know that the
+         * nvIndex is the same, and the dataSize for a valid extend index matches the size of nameAlg so
+         * we don't need to check that. */
         const TPMA_NV old_expected_attrs =
                 TPMA_NV_CLEAR_STCLEAR |
                 TPMA_NV_OWNERWRITE |
@@ -7870,31 +8083,34 @@ static int tpm2_reuse_or_redefine_nvpcr_nv_index(
         return 1;
 }
 
+/* Flag files marking that the TPM's NV index space was found exhausted in this boot, separately for orderly
+ * and non-orderly NvPCRs. */
+#define NVPCR_SPACE_EXHAUSTED_FLAG_ORDERLY "/run/systemd/tpm2-nv-space-exhausted-orderly"
+#define NVPCR_SPACE_EXHAUSTED_FLAG_NON_ORDERLY "/run/systemd/tpm2-nv-space-exhausted-non-orderly"
+
 static int tpm2_define_nvpcr_nv_index(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
                 TPM2_HANDLE nv_index,
                 TPMI_ALG_HASH algorithm,
-                const TPM2B_PUBLIC *public,
-                const char *pubkey_policy_ref,
+                const TPM2B_DIGEST *init_policy,
                 bool orderly,
-                TPM2B_DIGEST *ret_authorize_policy,
                 Tpm2Handle **ret_nv_handle) {
 
         TSS2_RC rc;
         int r;
 
         assert(c);
-        assert(public);
+        assert(init_policy);
 
         /* Allocates an nvindex to use as a "fake" PCR. We call these "NvPCR" in our codebase. The index is
          * created to require a policy for writing, so that the first write (which sets TPMA_NV_WRITTEN)
-         * requires a signed PolicyAuthorize authorization, while all subsequent writes can be performed using
-         * a PolicyNvWritten(true) branch without any further authorization. The intention here is that a
-         * NvPCR can only be defined and initialized for as long as the authorized policy can be satisfied
-         * (ie, during an early boot phase). Once the authorized policy can no longer be satisfied (ie, after
-         * the early boot has ended), it is no longer possible to redefine and initialize the same NvPCR in
-         * order to spoof its measurements. */
+         * requires 'init_policy' to be satisfied, while all subsequent writes can be performed using a
+         * PolicyNvWritten(true) branch without any further authorization. The intention here is that a
+         * NvPCR can only be defined and initialized for as long as 'init_policy' can be satisfied (ie,
+         * during an early boot phase). Once it can no longer be satisfied (ie, after the early boot has
+         * ended), it is no longer possible to redefine and initialize the same NvPCR in order to spoof its
+         * measurements. */
 
         log_debug("Allocating NvPCR index 0x%" PRIx32 ".", nv_index);
 
@@ -7913,14 +8129,13 @@ static int tpm2_define_nvpcr_nv_index(
          * file in /run/, with a separate file for orderly and non-orderly NvPCRs, since the two draw on
          * different TPM resources (RAM-backed vs. NVRAM-backed). */
         const char *exhausted_flag = orderly ?
-                "/run/systemd/tpm2-nv-space-exhausted-orderly" :
-                "/run/systemd/tpm2-nv-space-exhausted-non-orderly";
+                NVPCR_SPACE_EXHAUSTED_FLAG_ORDERLY :
+                NVPCR_SPACE_EXHAUSTED_FLAG_NON_ORDERLY;
 
-        /* Calculate the write policy, which is TPM2_PolicyAuthorize() OR TPM2_PolicyNvWritten(true). The
-         * PolicyAuthorize() branch is used for the first write, but we need to retain the digest of that so
-         * that we can reconstruct the digests used for the TPM2_PolicyOR() assertion on subsequent writes. */
-        TPM2B_DIGEST authorize_policy, write_policy;
-        r = tpm2_nvpcr_calculate_write_policy(public, pubkey_policy_ref, &authorize_policy, &write_policy);
+        /* Calculate the write policy, which is init_policy OR TPM2_PolicyNvWritten(true). The init_policy
+         * branch is used for the first write and can only be satisfied during early boot. */
+        TPM2B_DIGEST write_policy;
+        r = tpm2_nvpcr_calculate_write_policy(init_policy, &write_policy);
         if (r < 0)
                 return r;
 
@@ -7953,8 +8168,6 @@ static int tpm2_define_nvpcr_nv_index(
 
                 log_debug("NV index 0x%" PRIx32 " successfully %s for NvPCR.", nv_index, r == 0 ? "reused" : "reallocated");
 
-                if (ret_authorize_policy)
-                        *ret_authorize_policy = authorize_policy;
                 if (ret_nv_handle)
                         *ret_nv_handle = TAKE_PTR(handle);
 
@@ -7963,6 +8176,31 @@ static int tpm2_define_nvpcr_nv_index(
 
         if (errno != ENOENT)
                 log_debug_errno(errno, "Failed to check whether %s exists, assuming it does not: %m", exhausted_flag);
+
+        /* NvPCRs persist across boots, so the index usually exists already. Check for that first, instead
+         * of relying on TPM2_NV_DefineSpace() failing with TPM2_RC_NV_DEFINED, which the TSS logs as an
+         * error. */
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        r = tpm2_reuse_or_redefine_nvpcr_nv_index(c, session, /* exhausted= */ false, nv_index, &public_info, &handle);
+        if (r == -ENOBUFS) {
+                /* Remember that we ran out of NV index space for this orderly mode, so that we don't keep
+                 * retrying the (doomed) allocation until reboot. */
+                r = touch(exhausted_flag);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to create %s flag file, ignoring: %m", exhausted_flag);
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS),
+                                        "NV index space on TPM exhausted, cannot re-allocate NvPCR.");
+        }
+        if (r >= 0) {
+                log_debug("NV index 0x%" PRIx32 " successfully %s for NvPCR.", nv_index, r == 0 ? "reused" : "reallocated");
+
+                if (ret_nv_handle)
+                        *ret_nv_handle = TAKE_PTR(handle);
+
+                return r;
+        }
+        if (r != -ENOENT)
+                return r;
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *new_handle = NULL;
         r = tpm2_handle_new(c, &new_handle);
@@ -7989,44 +8227,30 @@ static int tpm2_define_nvpcr_nv_index(
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS),
                                         "NV index space on TPM exhausted, cannot allocate NvPCR.");
         }
-        if (rc == TSS2_RC_SUCCESS) {
-                log_debug("NV index 0x%" PRIx32 " successfully allocated for NvPCR.", nv_index);
+        if (rc == TPM2_RC_NV_DEFINED) {
+                /* Someone else defined the index after we checked for it above, which is possible as the
+                 * measurement log lock is only taken best-effort. Treat it like we found it above. */
+                log_debug("NV index 0x%" PRIx32 " was defined concurrently, checking it again.", nv_index);
 
-                if (ret_authorize_policy)
-                        *ret_authorize_policy = authorize_policy;
+                r = tpm2_reuse_or_redefine_nvpcr_nv_index(c, session, /* exhausted= */ false, nv_index, &public_info, &handle);
+                if (r < 0)
+                        return r;
+
                 if (ret_nv_handle)
-                        *ret_nv_handle = TAKE_PTR(new_handle);
+                        *ret_nv_handle = TAKE_PTR(handle);
 
-                return 1;
+                return r;
         }
-        if (rc != TPM2_RC_NV_DEFINED)
+        if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                         "Failed to allocate NV index: %s", sym_Tss2_RC_Decode(rc));
 
-        log_debug("NV index 0x%" PRIx32 " already registered.", nv_index);
+        log_debug("NV index 0x%" PRIx32 " successfully allocated for NvPCR.", nv_index);
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
-        r = tpm2_reuse_or_redefine_nvpcr_nv_index(c, session, /* exhausted= */ false, nv_index, &public_info, &handle);
-        if (r == -ENOBUFS) {
-                /* Remember that we ran out of NV index space for this orderly mode, so that we don't keep
-                 * retrying the (doomed) allocation until reboot. */
-                r = touch(exhausted_flag);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to create %s flag file, ignoring: %m", exhausted_flag);
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS),
-                                        "NV index space on TPM exhausted, cannot re-allocate NvPCR.");
-        }
-        if (r < 0)
-                return r;
-
-        log_debug("NV index 0x%" PRIx32 " successfully %s for NvPCR.", nv_index, r == 0 ? "reused" : "reallocated");
-
-        if (ret_authorize_policy)
-                *ret_authorize_policy = authorize_policy;
         if (ret_nv_handle)
-                *ret_nv_handle = TAKE_PTR(handle);
+                *ret_nv_handle = TAKE_PTR(new_handle);
 
-        return r;
+        return 1;
 }
 
 static int tpm2_extend_nvpcr_nv_index(
@@ -8760,7 +8984,7 @@ static int nvpcr_data_load(const char *name, NvPCRData *ret) {
         _cleanup_fclose_ FILE *f = NULL;
         r = search_and_fopen_nulstr(fname, "re", /* root= */ NULL, CONF_PATHS_NULSTR("nvpcr"), &f, &path);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to open NvPCR definition '%s': %m", fname);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         r = sd_json_parse_file(
@@ -8878,9 +9102,9 @@ static int tpm2_nvpcr_load_pcr_public_key(
         return 0;
 }
 
-/* Reads the stored PolicyAuthorize branch digest of a previously initialized NvPCR. This is written by
+/* Reads the stored init policy digest of a previously initialized NvPCR. This is written by
  * tpm2_nvpcr_initialize() and is needed to reconstruct the TPM2_PolicyOR for runtime extends. */
-static int tpm2_nvpcr_read_authorize_policy(const char *name, TPM2B_DIGEST *ret) {
+static int tpm2_nvpcr_read_init_policy(const char *name, TPM2B_DIGEST *ret) {
         int r;
 
         assert(name);
@@ -8893,82 +9117,161 @@ static int tpm2_nvpcr_read_authorize_policy(const char *name, TPM2B_DIGEST *ret)
         if (r == -ENOENT)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENETDOWN), "NvPCR '%s' not initialized yet, refusing.", name);
         if (r < 0)
-                return log_debug_errno(r, "Failed to read NvPCR authorize policy '%s': %m", fname);
+                return log_debug_errno(r, "Failed to read NvPCR init policy '%s': %m", fname);
 
         _cleanup_free_ void *d = NULL;
         size_t d_size;
         r = unhexmem(strstrip(h), &d, &d_size);
         if (r < 0)
-                return log_debug_errno(r, "Failed to decode NvPCR authorize policy from '%s': %m", fname);
+                return log_debug_errno(r, "Failed to decode NvPCR init policy from '%s': %m", fname);
         if (d_size != SHA256_DIGEST_SIZE)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "NvPCR authorize policy in '%s' has unexpected size.", fname);
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "NvPCR init policy in '%s' has unexpected size.", fname);
 
         *ret = TPM2B_DIGEST_MAKE(d, d_size);
         return 0;
 }
 
-/* Opens and executes a policy session that satisfies an NvPCR's write policy, leaving it ready for a
- * subsequent extend. If 'signature_json' is provided, the PolicyAuthorize branch is used (for the
- * initializing write that sets TPMA_NV_WRITTEN); otherwise the PolicyNvWritten(true) branch is used (for
- * all later writes). */
-static int tpm2_nvpcr_open_write_session(
+/* The kind of policy guarding the initializing write to an NvPCR. */
+typedef enum NvPCRInitPolicyType {
+        NVPCR_INIT_POLICY_SIGNED,
+        NVPCR_INIT_POLICY_PCR,
+        _NVPCR_INIT_POLICY_MAX,
+        _NVPCR_INIT_POLICY_INVALID = -EINVAL,
+} NvPCRInitPolicyType;
+
+/* Policy reference for the PolicyAuthorize assertion that guards the first write to an NvPCR. */
+#define NVPCR_INIT_POLICY_REF "initrd"
+
+/* PCR mask for the policy that guards the first write to an NvPCR. */
+#define NVPCR_INIT_PCRMASK (UINT32_C(1) << TPM2_PCR_KERNEL_BOOT)
+
+/* The init policy of an NvPCR, i.e. the branch of its write policy that guards the initializing write,
+ * together with everything needed to satisfy it. */
+typedef struct NvPCRInitPolicy {
+        NvPCRInitPolicyType type;
+        TPM2B_DIGEST digest;
+        TPML_PCR_SELECTION pcr_selection;
+
+        /* type NVPCR_INIT_POLICY_SIGNED only */
+        TPM2B_PUBLIC public;
+        struct iovec fingerprint;
+        sd_json_variant *signature_json;
+} NvPCRInitPolicy;
+
+static void nvpcr_init_policy_done(NvPCRInitPolicy *p) {
+        assert(p);
+
+        iovec_done(&p->fingerprint);
+        p->signature_json = sd_json_variant_unref(p->signature_json);
+}
+
+/* Completes the write policy of an NvPCR in 'session' by submitting PolicyOR('init_policy',
+ * PolicyNvWritten(true)). 'session' must already satisfy one of the two branches. */
+static int tpm2_nvpcr_policy_or_written(
                 Tpm2Context *c,
-                const TPM2B_PUBLIC *public,
-                const char *pubkey_policy_ref,
-                uint32_t pubkey_pcr_mask,
-                const struct iovec *fingerprint,
-                sd_json_variant *signature_json,
-                const TPM2B_DIGEST *authorize_policy,
-                Tpm2Handle **ret_session) {
+                const Tpm2Handle *session,
+                const TPM2B_DIGEST *init_policy) {
 
         int r;
 
         assert(c);
-        assert(authorize_policy);
-        assert(ret_session);
-
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
-        r = tpm2_make_policy_session(c, /* primary= */ NULL, /* encryption_session= */ NULL, &session);
-        if (r < 0)
-                return r;
-
-        if (signature_json) {
-                assert(public);
-                assert(fingerprint);
-
-                /* Initializing write: satisfy the PolicyAuthorize branch using the signed PCR policy. */
-                TPML_PCR_SELECTION pcr_selection;
-                tpm2_tpml_pcr_selection_from_mask(pubkey_pcr_mask, TPM2_ALG_SHA256, &pcr_selection);
-
-                r = tpm2_policy_authorize(
-                                c,
-                                session,
-                                &pcr_selection,
-                                public,
-                                pubkey_policy_ref,
-                                fingerprint->iov_base, fingerprint->iov_len,
-                                signature_json,
-                                /* ret_policy_digest= */ NULL);
-                if (r < 0)
-                        return r;
-        } else {
-                /* Subsequent write: the NvPCR is already written, so the PolicyNvWritten(true) branch can be
-                 * satisfied without any authorization. */
-                r = tpm2_policy_nv_written(c, session, /* written_set= */ true, /* ret_policy_digest= */ NULL);
-                if (r < 0)
-                        return r;
-        }
+        assert(session);
+        assert(init_policy);
 
         /* Branch order must match tpm2_nvpcr_calculate_write_policy(). */
         TPM2B_DIGEST branches[2] = {
-                *authorize_policy,
+                *init_policy,                                /* Init branch */
                 TPM2B_DIGEST_MAKE(NULL, SHA256_DIGEST_SIZE), /* PolicyNvWritten branch */
         };
         r = tpm2_calculate_policy_nv_written(/* written_set= */ true, &branches[1]);
         if (r < 0)
                 return r;
 
-        r = tpm2_policy_or(c, session, branches, ELEMENTSOF(branches), /* ret_policy_digest= */ NULL);
+        return tpm2_policy_or(c, session, branches, ELEMENTSOF(branches), /* ret_policy_digest= */ NULL);
+}
+
+/* Opens a policy session that satisfies the init branch of an NvPCR's write policy, for the initializing
+ * write that sets TPMA_NV_WRITTEN. */
+static int tpm2_nvpcr_open_init_session(
+                Tpm2Context *c,
+                const NvPCRInitPolicy *init,
+                Tpm2Handle **ret_session) {
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
+        TPML_PCR_SELECTION pcr_selection;
+        int r;
+
+        assert(c);
+        assert(init);
+        assert(ret_session);
+
+        r = tpm2_make_policy_session(c, /* primary= */ NULL, /* encryption_session= */ NULL, &session);
+        if (r < 0)
+                return r;
+
+        switch (init->type) {
+        case NVPCR_INIT_POLICY_SIGNED:
+                assert(iovec_is_set(&init->fingerprint));
+                assert(init->signature_json);
+
+                /* tpm2_policy_authorize() takes a non-const selection. */
+                pcr_selection = init->pcr_selection;
+
+                /* Satisfy the PolicyAuthorize branch using the signed PCR policy. */
+                r = tpm2_policy_authorize(
+                                c,
+                                session,
+                                &pcr_selection,
+                                &init->public,
+                                NVPCR_INIT_POLICY_REF,
+                                init->fingerprint.iov_base, init->fingerprint.iov_len,
+                                init->signature_json,
+                                /* ret_policy_digest= */ NULL);
+                break;
+
+        case NVPCR_INIT_POLICY_PCR:
+                /* Satisfy the PolicyPCR branch with the current PCR values. */
+                r = tpm2_policy_pcr(c, session, &init->pcr_selection, /* ret_policy_digest= */ NULL);
+                break;
+
+        default:
+                assert_not_reached();
+        }
+        if (r < 0)
+                return r;
+
+        r = tpm2_nvpcr_policy_or_written(c, session, &init->digest);
+        if (r < 0)
+                return r;
+
+        *ret_session = TAKE_PTR(session);
+        return 0;
+}
+
+/* Opens a policy session that satisfies the PolicyNvWritten(true) branch of an NvPCR's write policy, for all
+ * writes after the initializing one. 'init_policy' is the digest of the init branch, needed for the
+ * PolicyOR. */
+static int tpm2_nvpcr_open_extend_session(
+                Tpm2Context *c,
+                const TPM2B_DIGEST *init_policy,
+                Tpm2Handle **ret_session) {
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
+        int r;
+
+        assert(c);
+        assert(init_policy);
+        assert(ret_session);
+
+        r = tpm2_make_policy_session(c, /* primary= */ NULL, /* encryption_session= */ NULL, &session);
+        if (r < 0)
+                return r;
+
+        r = tpm2_policy_nv_written(c, session, /* written_set= */ true, /* ret_policy_digest= */ NULL);
+        if (r < 0)
+                return r;
+
+        r = tpm2_nvpcr_policy_or_written(c, session, init_policy);
         if (r < 0)
                 return r;
 
@@ -9008,10 +9311,10 @@ static int nvpcr_extend_bytes(
          * and our measurement and change either */
         log_fd = tpm2_userspace_log_open();
 
-        /* Read the stored PolicyAuthorize branch digest. Its presence also tells us this NvPCR has been
+        /* Read the stored init policy digest. Its presence also tells us this NvPCR has been
          * initialized; we need it to reconstruct the TPM2_PolicyOR below. */
-        TPM2B_DIGEST authorize_policy;
-        r = tpm2_nvpcr_read_authorize_policy(name, &authorize_policy);
+        TPM2B_DIGEST init_policy;
+        r = tpm2_nvpcr_read_init_policy(name, &init_policy);
         if (r < 0)
                 return r;
 
@@ -9058,15 +9361,7 @@ static int nvpcr_extend_bytes(
         /* Open a policy session that satisfies the write policy via the PolicyNvWritten(true) branch
          * (the index was already written during initialization). */
         _cleanup_(tpm2_handle_freep) Tpm2Handle *policy_session = NULL;
-        r = tpm2_nvpcr_open_write_session(
-                        c,
-                        /* public= */ NULL,
-                        /* pubkey_policy_ref= */ NULL,
-                        /* pubkey_pcr_mask= */ 0,
-                        /* fingerprint= */ NULL,
-                        /* signature_json= */ NULL,
-                        &authorize_policy,
-                        &policy_session);
+        r = tpm2_nvpcr_open_extend_session(c, &init_policy, &policy_session);
         if (r < 0)
                 return r;
 
@@ -9102,30 +9397,6 @@ static int nvpcr_extend_bytes(
 #else /* HAVE_OPENSSL */
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
 #endif
-}
-
-int tpm2_nvpcr_extend_bytes(
-                Tpm2Context *c,
-                const Tpm2Handle *session,
-                const char *name,
-                const struct iovec *data,
-                const struct iovec *secret,
-                Tpm2UserspaceEventType event_type,
-                const char *description) {
-
-        int r;
-
-        r = nvpcr_extend_bytes(c, session, name, data, secret, event_type, description);
-        if (r != -ENETDOWN)
-                return r;
-
-        /* The NvPCR isn't initialized yet, i.e. systemd-tpm2-setup hasn't run.
-         * Initialize it now and extend again. */
-        r = tpm2_nvpcr_initialize(c, session, name);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to initialize NvPCR '%s': %m", name);
-
-        return nvpcr_extend_bytes(c, session, name, data, secret, event_type, description);
 }
 
 #if HAVE_OPENSSL
@@ -9166,14 +9437,173 @@ static int tpm2_context_can_nvindex(Tpm2Context *c) {
 }
 #endif
 
-/* Policy reference for the PolicyAuthorize assertion that guards the first write to an NvPCR. */
-#define NVPCR_INIT_POLICY_REF "initrd"
+int tpm2_nvpcr_extend_bytes(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                const char *name,
+                const struct iovec *data,
+                const struct iovec *secret,
+                Tpm2UserspaceEventType event_type,
+                const char *description) {
 
-/* PCR mask for the policy that guards the first write to an NvPCR, via the signed policy and PolicyAuthorize. */
-#define NVPCR_PUBKEY_PCRMASK (UINT32_C(1) << TPM2_PCR_KERNEL_BOOT)
+        int r;
+
+        r = nvpcr_extend_bytes(c, session, name, data, secret, event_type, description);
+        if (r != -ENETDOWN)
+                return r;
+
+        /* The NvPCR isn't initialized yet, i.e. systemd-tpm2-setup hasn't run.
+         * Initialize it now and extend again. This can only run in the initrd. */
+        if (!in_initrd()) {
+                /* systemd-tpm2-setup skips NvPCRs if the TPM doesn't support them or ran out of NV index
+                 * space, report these cases the same way instead of as a missing initialization. */
+#if HAVE_OPENSSL
+                if (tpm2_context_can_nvindex(c) == 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "TPM2 device does not support NvPCRs, NvPCR '%s' is not initialized.", name);
+
+                if (access(NVPCR_SPACE_EXHAUSTED_FLAG_ORDERLY, F_OK) >= 0 ||
+                    access(NVPCR_SPACE_EXHAUSTED_FLAG_NON_ORDERLY, F_OK) >= 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS),
+                                               "TPM NV index space was exhausted in this boot, NvPCR '%s' is not initialized.", name);
+#endif
+
+                return log_debug_errno(r, "NvPCR is not initialized and lazy initialization is only available in the initrd, refusing.");
+        }
+
+        r = tpm2_nvpcr_initialize(c, session, name);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to initialize NvPCR '%s': %m", name);
+
+        return nvpcr_extend_bytes(c, session, name, data, secret, event_type, description);
+}
 
 /* The maximum number of times to try initializing a NvPCR before failing if PCR values change under our feet. */
 #define RETRY_NVPCR_INIT_MAX 30u
+
+#if HAVE_OPENSSL
+/* Calculate the init policy for an NvPCR protected by a signed PCR policy:
+ * PolicyAuthorize is bound to 'public' and the "initrd" policy reference. */
+static int tpm2_nvpcr_calculate_signed_init_policy(
+                const TPM2B_PUBLIC *public,
+                TPM2B_DIGEST *ret) {
+
+        TPM2B_NONCE policy_ref;
+        TPM2B_DIGEST init_policy;
+        int r;
+
+        assert(public);
+        assert(ret);
+
+        tpm2_make_policy_ref(NVPCR_INIT_POLICY_REF, &policy_ref);
+
+        init_policy = TPM2B_DIGEST_MAKE(NULL, SHA256_DIGEST_SIZE);
+        r = tpm2_calculate_policy_authorize(public, &policy_ref, &init_policy);
+        if (r < 0)
+                return r;
+
+        *ret = init_policy;
+        return 0;
+}
+
+/* Calculates the init policy for an NvPCR protected by the current PCR values:
+ * PolicyPCR over 'sel' with the values read from the TPM now. */
+static int tpm2_nvpcr_calculate_pcr_init_policy(
+                Tpm2Context *c,
+                const TPML_PCR_SELECTION *sel,
+                TPM2B_DIGEST *ret) {
+
+        _cleanup_free_ Tpm2PCRValue *values = NULL;
+        size_t n;
+        TPM2B_DIGEST init_policy;
+        int r;
+
+        assert(c);
+        assert(sel);
+        assert(ret);
+
+        r = tpm2_pcr_read(c, sel, &values, &n);
+        if (r < 0)
+                return r;
+        if (n != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "TPM returned no value for the selected PCR, cannot calculate NvPCR init policy.");
+
+        init_policy = TPM2B_DIGEST_MAKE(NULL, SHA256_DIGEST_SIZE);
+
+        r = tpm2_calculate_policy_pcr(values, n, &init_policy);
+        if (r < 0)
+                return r;
+
+        tpm2_log_debug_pcr_value(&values[0], "PCR value for NvPCR init policy");
+        *ret = init_policy;
+        return 0;
+}
+
+/* Loads the signed init policy of NvPCR 'name' from the booted UKI. Returns -ENOKEY if no PCR public key,
+ * signature file, or "initrd" signature for the key is available, in which case 'ret' is left untouched. */
+static int tpm2_nvpcr_load_signed_init_policy(
+                const char *name,
+                const TPML_PCR_SELECTION *pcr_selection,
+                NvPCRInitPolicy *ret) {
+
+        _cleanup_(nvpcr_init_policy_done) NvPCRInitPolicy p = {
+                .type = NVPCR_INIT_POLICY_SIGNED,
+        };
+        int r;
+
+        assert(name);
+        assert(pcr_selection);
+        assert(ret);
+
+        p.pcr_selection = *pcr_selection;
+
+        /* Load the PCR public key. Its signatures authorize the initializing write to the NvPCR via the
+         * PolicyAuthorize branch of the write policy. */
+        r = tpm2_nvpcr_load_pcr_public_key(/* path= */ NULL, &p.public, &p.fingerprint);
+        if (r == -ENOENT)
+                /* Avoid failing systemd-tpm2-setup if there is no PCR public key attached to the UKI. */
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOKEY),
+                                       "No PCR public key available, cannot initialize NvPCR '%s'.", name);
+        if (r < 0)
+                return r;
+
+        /* Load the signed PCR policy, which authorizes the initializing write. */
+        r = tpm2_load_pcr_signature(/* path= */ NULL, &p.signature_json);
+        if (r == -ENOENT)
+                /* Avoid failing systemd-tpm2-setup if there are no PCR signatures attached to the UKI. */
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOKEY),
+                                       "No signed PCR policy available, cannot initialize NvPCR '%s'.", name);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to load PCR signature for NvPCR initialization: %m");
+
+        /* Check that there's a signed policy for the initializing write at all before we allocate anything
+         * on the TPM. This avoids failing systemd-tpm2-setup if there are no policies signed for the "initrd"
+         * policy reference. We don't check the policy digest here: if there is a matching policy but it doesn't
+         * match the current PCR state, or its signature is invalid, then that's a real error which we
+         * want to report below. */
+        r = find_signature(
+                        p.signature_json,
+                        &p.pcr_selection,
+                        p.fingerprint.iov_base, p.fingerprint.iov_len,
+                        NVPCR_INIT_POLICY_REF,
+                        /* policy= */ NULL, /* policy_size= */ 0,
+                        /* ret_signature= */ NULL, /* ret_signature_size= */ NULL);
+        if (r == -ENOSTR)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOKEY),
+                                       "No signed PCR policy with reference '%s' available, cannot initialize NvPCR '%s'.",
+                                       NVPCR_INIT_POLICY_REF, name);
+        if (r < 0)
+                return r;
+
+        r = tpm2_nvpcr_calculate_signed_init_policy(&p.public, &p.digest);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_STRUCT(p);
+        return 0;
+}
+#endif
 
 int tpm2_nvpcr_initialize(
                 Tpm2Context *c,
@@ -9213,13 +9643,18 @@ int tpm2_nvpcr_initialize(
                 return 0;
         }
 
+        /* Both kinds of init policy can only be satisfied while PCR 11 is in its initrd state. */
+        if (!in_initrd())
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
+                                       "NvPCR '%s' can only be initialized in the initrd, refusing.", name);
+
         r = dlopen_libcrypto(LOG_DEBUG);
         if (r < 0)
                 return r;
 
-        /* XXX: As NvPCRs use a write policy with PolicyAuthorize, the name algorithm and signed policy
-         * algorithm must match. Currently, signed policies are restricted to SHA256, so reject anything else
-         * for now. This can only be relaxed when:
+        /* XXX: The init policy of a NvPCR (the signed policy for PolicyAuthorize, the PCR digest for
+         * PolicyPCR) must use the name algorithm of the NV index. Currently, both are restricted to SHA256,
+         * so reject anything else for now. This can only be relaxed when:
          * - The various tpm2_calculate_policy_* and tpm2_digest_* functions support more than SHA256.
          * - Signed policies have a new policy algorithm field in the JSON metadata.
          * - systemd-measure has a new argument to select the policy algorithm.
@@ -9241,50 +9676,57 @@ int tpm2_nvpcr_initialize(
         if ((size_t) digest_size > sizeof_field(TPM2B_MAX_NV_BUFFER, buffer))
                 return log_debug_errno(SYNTHETIC_ERRNO(E2BIG), "Hash function result too large for TPM, refusing.");
 
-        /* Load the PCR public key. Its signatures authorize the initializing write to the NvPCR via the
-         * PolicyAuthorize branch of the write policy. */
-        TPM2B_PUBLIC public;
-        _cleanup_(iovec_done) struct iovec fingerprint = {};
-        r = tpm2_nvpcr_load_pcr_public_key(/* path= */ NULL, &public, &fingerprint);
+        _cleanup_(nvpcr_init_policy_done) NvPCRInitPolicy init = {};
+        TPML_PCR_SELECTION pcr_selection;
+
+        tpm2_tpml_pcr_selection_from_mask(NVPCR_INIT_PCRMASK, TPM2_ALG_SHA256, &pcr_selection);
+
+        /* Prefer the signed init policy from the booted UKI. Without one, fall back to a PolicyPCR bound to
+         * the current PCR value, which is only reachable in the initrd (see above). */
+        r = tpm2_nvpcr_load_signed_init_policy(name, &pcr_selection, &init);
+        if (r == -ENOKEY) {
+                log_debug_errno(r, "No signed init policy for NvPCR '%s', falling back to PCR policy.", name);
+                init = (NvPCRInitPolicy) {
+                        .type = NVPCR_INIT_POLICY_PCR,
+                        .pcr_selection = pcr_selection,
+                };
+                r = tpm2_nvpcr_calculate_pcr_init_policy(c, &pcr_selection, &init.digest);
+        }
         if (r < 0)
                 return r;
 
-        TPM2B_DIGEST authorize_policy;
         _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
         r = tpm2_define_nvpcr_nv_index(
                         c,
                         session,
                         p.nv_index,
                         p.algorithm,
-                        &public,
-                        NVPCR_INIT_POLICY_REF,
+                        &init.digest,
                         p.orderly,
-                        &authorize_policy,
                         &nv_handle);
         if (r < 0)
                 return r;
 
         log_debug("Successfully acquired handle to NV index 0x%" PRIx32 ".", p.nv_index);
 
-        /* Load the signed PCR policy, which authorizes the initializing write. */
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *signature_json = NULL;
-        r = tpm2_load_pcr_signature(/* path= */ NULL, &signature_json);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to load PCR signature for NvPCR initialization: %m");
-
         bool reset_marker;
         for (unsigned i = RETRY_NVPCR_INIT_MAX;; i--) {
                 /* Open a policy session to perform the initializing write. */
                 _cleanup_(tpm2_handle_freep) Tpm2Handle *policy_session = NULL;
-                r = tpm2_nvpcr_open_write_session(
-                                c,
-                                &public,
-                                NVPCR_INIT_POLICY_REF,
-                                NVPCR_PUBKEY_PCRMASK,
-                                &fingerprint,
-                                signature_json,
-                                &authorize_policy,
-                                &policy_session);
+                r = tpm2_nvpcr_open_init_session(c, &init, &policy_session);
+                if (r == -ENOANO && init.type == NVPCR_INIT_POLICY_PCR)
+                        /* The index is bound to the old PCR value, so retrying can't help. The next attempt
+                         * redefines it. */
+                        return log_debug_errno(r,
+                                               "PCR %i changed since the init policy of NvPCR '%s' was calculated, refusing initialization.",
+                                               TPM2_PCR_KERNEL_BOOT, name);
+                if (r == -EUCLEAN) {
+                        /* A PCR was extended while we submitted the policy, so this session is unusable.
+                         * Same situation as below, just observed while building the policy rather than
+                         * while writing. */
+                        if (i > 0)
+                                continue;
+                }
                 if (r < 0)
                         return r;
 
@@ -9315,9 +9757,9 @@ int tpm2_nvpcr_initialize(
                 break;
         }
 
-        /* Persist the PolicyAuthorize branch digest. The extend path needs it to reconstruct the
+        /* Persist the init policy digest. The extend path needs it to reconstruct the
          * TPM2_PolicyOR, and its presence doubles as an indication that this NvPCR is initialized. */
-        _cleanup_free_ char *h = hexmem(authorize_policy.buffer, authorize_policy.size);
+        _cleanup_free_ char *h = hexmem(init.digest.buffer, init.digest.size);
         if (!h)
                 return log_oom_debug();
 
@@ -9825,15 +10267,10 @@ int tpm2_policy_super_pcr(
                                 session,
                                 &pcr_selection,
                                 &current_policy_digest);
-                if (r == -EUCLEAN) {
-                        _cleanup_free_ char *j = NULL;
-
-                        for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++)
-                                if (single_value_pcrs & (UINT32_C(1) << pcr))
-                                        (void) strextendf_with_separator(&j, ", ", "%" PRIu32, pcr);
-
-                        return log_error_errno(r, "Combined value for PCR(s) %s encoded in policy does not match the current TPM state. Either the system has been tampered with or the provided policy is incorrect.", strna(j));
-                }
+                /* -EUCLEAN means some PCR got extended while we were submitting the policy. That's
+                 * transient, so only log at debug level and let the caller restart the session. */
+                if (r == -EUCLEAN)
+                        return log_debug_errno(r, "PCR state changed while submitting the combined PolicyPCR expression, session needs to be restarted.");
                 if (r < 0)
                         return log_error_errno(r, "Failed to submit PCR policy to TPM: %m");
 
@@ -9865,7 +10302,7 @@ int tpm2_policy_super_pcr(
                                 &pcr_selection,
                                 &current_policy_digest);
                 if (r == -EUCLEAN)
-                        return log_error_errno(r, "Value for PCR %" PRIu32 " encoded in policy does not match the current TPM state. Either the system has been tampered with or the provided policy is incorrect.", pcr);
+                        return log_debug_errno(r, "PCR state changed while submitting the PolicyPCR expression for PCR %" PRIu32 ", session needs to be restarted.", pcr);
                 if (r < 0)
                         return log_error_errno(r, "Failed to submit PCR policy to TPM: %m");
 
@@ -10392,7 +10829,7 @@ int tpm2_tpmt_public_to_pem(const TPMT_PUBLIC *public, char **ret) {
 #endif
 }
 
-static const char* tpm2_hash_alg_to_string_tss2(TPMI_ALG_HASH alg) {
+const char* tpm2_hash_alg_to_string_tss2(TPMI_ALG_HASH alg) {
         /* Note that this is different to tpm2_hash_alg_to_string because it
          * returns a string that aligns with those produced by TSS2 and compatible
          * with the TCG TSS2 JSON format. The JSON format is actually not case
@@ -10407,6 +10844,8 @@ static const char* tpm2_hash_alg_to_string_tss2(TPMI_ALG_HASH alg) {
                 return "SHA384";
         case TPM2_ALG_SHA512:
                 return "SHA512";
+        case TPM2_ALG_NULL:
+                return "NULL";
         default:
                 log_debug("Unknown hash algorithm id 0x%" PRIx16, alg);
                 return NULL;
@@ -10490,6 +10929,8 @@ static const char* tpm2_st_attest_to_string(TPMI_ST_ATTEST attest) {
                 return "ATTEST_SESSION_AUDIT";
         case TPM2_ST_ATTEST_QUOTE:
                 return "ATTEST_QUOTE";
+        case TPM2_ST_ATTEST_CERTIFY:
+                return "ATTEST_CERTIFY";
         default:
                 log_debug("Unknown attestation type 0x%" PRIx16, attest);
                 return NULL;
@@ -10602,6 +11043,12 @@ static int tpm2_tpms_attest_to_json(const TPMS_ATTEST *attest, sd_json_variant *
                                 SD_JSON_BUILD_PAIR_HEX("pcrDigest", attest->attested.quote.pcrDigest.buffer, attest->attested.quote.pcrDigest.size));
                 break;
         }
+        case TPM2_ST_ATTEST_CERTIFY:
+                r = sd_json_buildo(
+                                &av,
+                                SD_JSON_BUILD_PAIR_HEX("name", attest->attested.certify.name.name, attest->attested.certify.name.size),
+                                SD_JSON_BUILD_PAIR_HEX("qualifiedName", attest->attested.certify.qualifiedName.name, attest->attested.certify.qualifiedName.size));
+                break;
         default:
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Unknown attestation type id 0x%" PRIx16, attest->type);
@@ -10775,9 +11222,57 @@ static int tpm2_tpmt_asym_scheme_to_json(const TPMT_ASYM_SCHEME *scheme, sd_json
         return 0;
 }
 
+/* Convert the symmetric parameters of an asymmetric object to JSON, in a format compatible with the TCG
+ * TSS2 JSON data format, and which is compatible with the TSS2 implementation. Signing keys carry no
+ * symmetric algorithm, storage keys (such as the SRK) carry AES in CFB mode. The TSS2 JSON format spells
+ * algorithm names in upper case (though it parses them case-insensitively), our string tables in lower
+ * case, hence convert. */
+static int tpm2_tpmt_sym_def_object_to_json(const TPMT_SYM_DEF_OBJECT *symmetric, sd_json_variant **ret) {
+        int r;
+
+        assert(symmetric);
+        assert(ret);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+        if (symmetric->algorithm == TPM2_ALG_NULL) {
+                r = sd_json_buildo(&v, SD_JSON_BUILD_PAIR_STRING("algorithm", "NULL"));
+                if (r < 0)
+                        return r;
+
+                *ret = TAKE_PTR(v);
+                return 0;
+        }
+
+        const char *a = tpm2_sym_alg_to_string(symmetric->algorithm);
+        if (!a)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unsupported object symmetric algorithm 0x%" PRIx16, symmetric->algorithm);
+
+        const char *m = tpm2_sym_mode_to_string(symmetric->mode.sym);
+        if (!m)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unsupported object symmetric mode 0x%" PRIx16, symmetric->mode.sym);
+
+        _cleanup_free_ char *alg = strdup(a), *mode = strdup(m);
+        if (!alg || !mode)
+                return log_oom_debug();
+
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_STRING("algorithm", ascii_strupper(alg)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("keyBits", symmetric->keyBits.sym),
+                        SD_JSON_BUILD_PAIR_STRING("mode", ascii_strupper(mode)));
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
 /* Convert a TPM public key to JSON, in a format compatible with the TCG TSS2 JSON data format, and which
- * is compatible with the TSS2 implementation. This only supports restricted asymmetric signing keys with
- * the signing scheme RSASSA, RSAPSS or ECDSA.
+ * is compatible with the TSS2 implementation. This only supports asymmetric keys with the signing scheme
+ * RSASSA, RSAPSS, ECDSA or no scheme at all, i.e. restricted signing keys and storage keys.
  *
  * See https://trustedcomputinggroup.org/wp-content/uploads/TSS_JSON_Policy_v0p7_r08_pub.pdf */
 int tpm2_tpmt_public_to_json(const TPMT_PUBLIC *public, sd_json_variant **ret) {
@@ -10790,13 +11285,10 @@ int tpm2_tpmt_public_to_json(const TPMT_PUBLIC *public, sd_json_variant **ret) {
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Unsupported object type 0x%" PRIx16, public->type);
 
-        /* We're currently only serializing restricted signing keys which never have a symmetric algorithm,
-         * so to avoid implementing the JSON encoding for this, just reject anything with a symmetric
-         * algorithm. */
-        if (public->parameters.asymDetail.symmetric.algorithm != TPM2_ALG_NULL)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Unsupported object symmetric algorithm 0x%" PRIx16,
-                                       public->parameters.asymDetail.symmetric.algorithm);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *symv = NULL;
+        r = tpm2_tpmt_sym_def_object_to_json(&public->parameters.asymDetail.symmetric, &symv);
+        if (r < 0)
+                return r;
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *sv = NULL;
         r = tpm2_tpmt_asym_scheme_to_json(&public->parameters.asymDetail.scheme, &sv);
@@ -10809,8 +11301,7 @@ int tpm2_tpmt_public_to_json(const TPMT_PUBLIC *public, sd_json_variant **ret) {
         case TPM2_ALG_RSA:
                 r = sd_json_buildo(
                                 &pv,
-                                SD_JSON_BUILD_PAIR_OBJECT("symmetric",
-                                                          SD_JSON_BUILD_PAIR_STRING("algorithm", "NULL")),
+                                SD_JSON_BUILD_PAIR_VARIANT("symmetric", symv),
                                 SD_JSON_BUILD_PAIR_VARIANT("scheme", sv),
                                 SD_JSON_BUILD_PAIR_UNSIGNED("keyBits", public->parameters.rsaDetail.keyBits),
                                 SD_JSON_BUILD_PAIR_UNSIGNED("exponent", public->parameters.rsaDetail.exponent));
@@ -10825,8 +11316,7 @@ int tpm2_tpmt_public_to_json(const TPMT_PUBLIC *public, sd_json_variant **ret) {
 
                 r = sd_json_buildo(
                                 &pv,
-                                SD_JSON_BUILD_PAIR_OBJECT("symmetric",
-                                                          SD_JSON_BUILD_PAIR_STRING("algorithm", "NULL")),
+                                SD_JSON_BUILD_PAIR_VARIANT("symmetric", symv),
                                 SD_JSON_BUILD_PAIR_VARIANT("scheme", sv),
                                 SD_JSON_BUILD_PAIR_STRING("curveID", tpm2_ecc_curve_to_string(public->parameters.eccDetail.curveID)),
                                 SD_JSON_BUILD_PAIR_OBJECT("kdf",
@@ -10901,6 +11391,126 @@ int tpm2_tpms_nv_public_to_json(const TPMS_NV_PUBLIC *nv_public, sd_json_variant
 
         *ret = TAKE_PTR(v);
         return 0;
+}
+
+int tpm2_pcr_value_to_json(const Tpm2PCRValue *pcr_value, sd_json_variant **ret) {
+        assert(pcr_value);
+        assert(ret);
+
+        return sd_json_buildo(
+                ret,
+                SD_JSON_BUILD_PAIR_UNSIGNED("pcr", pcr_value->index),
+                SD_JSON_BUILD_PAIR_STRING("hashAlg", tpm2_hash_alg_to_string_tss2(pcr_value->hash)),
+                SD_JSON_BUILD_PAIR_HEX("digest", pcr_value->value.buffer, pcr_value->value.size));
+}
+
+/* Convert a TPM property to JSON, in a way that is compatible with the TCG TSS2 JSON data
+ * format, and which is compatible with the TSS2 implementation. These are converted to a string
+ * with the TPM2_PT_ prefix dropped, or a plain base-10 integer for properties that aren't
+ * implemented.
+ *
+ * See https://trustedcomputinggroup.org/wp-content/uploads/TSS_JSON_Policy_v0p7_r08_pub.pdf */
+static int tpm2_tpm_pt_to_json(TPM2_PT prop, sd_json_variant **ret) {
+        assert(ret);
+
+        const char *s = NULL;
+        switch (prop) {
+        case TPM2_PT_PERMANENT:
+                s = "PERMANENT";
+                break;
+        case TPM2_PT_MAX_AUTH_FAIL:
+                s = "MAX_AUTH_FAIL";
+                break;
+        case TPM2_PT_LOCKOUT_INTERVAL:
+                s = "LOCKOUT_INTERVAL";
+                break;
+        case TPM2_PT_LOCKOUT_RECOVERY:
+                s = "LOCKOUT_RECOVERY";
+                break;
+        }
+
+        if (s)
+                return sd_json_variant_new_string(ret, s);
+        return sd_json_variant_new_unsigned(ret, prop);
+}
+
+/* Convert a tagged property to JSON, in a format compatible with the TCG TSS2 JSON data format, and
+ * which is compatible with the TSS2 implementation.
+ *
+ * See https://trustedcomputinggroup.org/wp-content/uploads/TSS_JSON_Policy_v0p7_r08_pub.pdf */
+int tpm2_tpms_tagged_property_to_json(const TPMS_TAGGED_PROPERTY *property, sd_json_variant **ret) {
+        int r;
+
+        assert(property);
+        assert(ret);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *prop = NULL;
+        r = tpm2_tpm_pt_to_json(property->property, &prop);
+        if (r < 0)
+                return r;
+
+        return sd_json_buildo(
+                ret,
+                SD_JSON_BUILD_PAIR_VARIANT("property", prop),
+                SD_JSON_BUILD_PAIR_UNSIGNED("value", property->value));
+}
+
+static int tpm2_tpmt_ha_to_json(const TPMT_HA *ha, sd_json_variant **ret) {
+        assert(ha);
+        assert(ret);
+
+        const uint8_t *digest;
+        size_t digest_len;
+        switch (ha->hashAlg) {
+        case TPM2_ALG_SHA1:
+                digest = ha->digest.sha1;
+                digest_len = sizeof(ha->digest.sha1);
+                break;
+        case TPM2_ALG_SHA256:
+                digest = ha->digest.sha256;
+                digest_len = sizeof(ha->digest.sha256);
+                break;
+        case TPM2_ALG_SHA384:
+                digest = ha->digest.sha384;
+                digest_len = sizeof(ha->digest.sha384);
+                break;
+        case TPM2_ALG_SHA512:
+                digest = ha->digest.sha512;
+                digest_len = sizeof(ha->digest.sha512);
+                break;
+        case TPM2_ALG_NULL:
+                digest = NULL;
+                digest_len = 0;
+                break;
+        default:
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unsupported hash algorithm id 0x%" PRIx16, ha->hashAlg);
+        }
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("hashAlg", tpm2_hash_alg_to_string_tss2(ha->hashAlg)),
+                        SD_JSON_BUILD_PAIR_CONDITION(digest != NULL, "digest", SD_JSON_BUILD_HEX(digest, digest_len)));
+}
+
+/* Convert a tagged policy to JSON, in a format compatible with the TCG TSS2 JSON data format, and
+ * which is compatible with the TSS2 implementation.
+ *
+ * See https://trustedcomputinggroup.org/wp-content/uploads/TSS_JSON_Policy_v0p7_r08_pub.pdf */
+int tpm2_tpms_tagged_policy_to_json(const TPMS_TAGGED_POLICY *policy, sd_json_variant **ret) {
+        int r;
+
+        assert(policy);
+        assert(ret);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *policy_hash = NULL;
+        r = tpm2_tpmt_ha_to_json(&policy->policyHash, &policy_hash);
+        if (r < 0)
+                return r;
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_UNSIGNED("handle", policy->handle),
+                        SD_JSON_BUILD_PAIR_VARIANT("policyHash", policy_hash));
 }
 
 static const TPMT_SIG_SCHEME SIG_SCHEME_TEMPLATE_NULL = {
@@ -11021,6 +11631,82 @@ int tpm2_nv_certify(
         if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to obtain TPM attestation for NV index: %s", sym_Tss2_RC_Decode(rc));
+
+        if (ret_certify_info) {
+                _cleanup_free_ TPMS_ATTEST *certify_info_decoded = new0(TPMS_ATTEST, 1);
+                if (!certify_info_decoded)
+                        return log_oom_debug();
+                r = tpm2_unmarshal_attestation(certify_info->attestationData, certify_info->size, certify_info_decoded);
+                if (r < 0)
+                        return r;
+
+                *ret_certify_info = TAKE_PTR(certify_info_decoded);
+        }
+        if (ret_signature)
+                *ret_signature = TAKE_PTR(signature);
+
+        return 0;
+}
+
+int tpm2_certify(
+                Tpm2Context *c,
+                const Tpm2Handle *object_session,
+                const Tpm2Handle *sign_session,
+                const Tpm2Handle *audit_session,
+                const Tpm2Handle *object,
+                const Tpm2Handle *sign_key,
+                const TPM2B_DATA *qualifying_data,
+                TPMS_ATTEST **ret_certify_info,
+                TPMT_SIGNATURE **ret_signature) {
+
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(object);
+
+        /* Certifies that the object is loaded into the TPM, by signing its name with the specified signing
+         * key, via TPM2_Certify. This proves to a verifier of the signature that the object (typically a
+         * storage key such as the SRK) resides in the same TPM as the signing key (typically an attestation
+         * key). Without a signing key the TPM returns the attestation unsigned, which is still useful inside
+         * an audit session. */
+
+        log_debug("Fetching TPM attestation for object.");
+
+        if (audit_session && !tpm2_is_audit_session(c, audit_session))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Supplied session handle is not an audit session.");
+
+        _cleanup_(Esys_Freep) TPM2B_ATTEST *certify_info = NULL;
+        _cleanup_(Esys_Freep) TPMT_SIGNATURE *signature = NULL;
+        rc = sym_Esys_Certify(
+                        c->esys_context,
+                        object->esys_handle,
+                        sign_key ? sign_key->esys_handle : ESYS_TR_RH_NULL,
+                        object_session ? object_session->esys_handle : ESYS_TR_PASSWORD,
+                        sign_session ? sign_session->esys_handle : ESYS_TR_PASSWORD,
+                        audit_session ? audit_session->esys_handle : ESYS_TR_NONE,
+                        qualifying_data,
+                        &SIG_SCHEME_TEMPLATE_NULL,
+                        &certify_info,
+                        ret_signature ? &signature : NULL);
+        if (rc == TPM2_RC_EXCLUSIVE)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBUSY),
+                                       "Failed to obtain TPM attestation for object: audit session required exclusivity");
+        /* The object is authorized in the ADMIN role, for which a password session is only acceptable if
+         * adminWithPolicy is clear, and the password has to match the object's auth value (the TPM reports
+         * a mismatch as TPM2_RC_BAD_AUTH or TPM2_RC_AUTH_FAIL, depending on whether noDA is set). Report
+         * all of these as -EACCES, so that callers can skip the certification of an object they cannot
+         * authorize rather than fail altogether. A failed command does not touch the audit session. */
+        if (IN_SET(rc,
+                   TPM2_RC_AUTH_TYPE,
+                   TPM2_RC_BAD_AUTH|TPM2_RC_S|TPM2_RC_1,
+                   TPM2_RC_AUTH_FAIL|TPM2_RC_S|TPM2_RC_1))
+                return log_debug_errno(SYNTHETIC_ERRNO(EACCES),
+                                       "Failed to obtain TPM attestation for object: cannot authorize object: %s", sym_Tss2_RC_Decode(rc));
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to obtain TPM attestation for object: %s", sym_Tss2_RC_Decode(rc));
 
         if (ret_certify_info) {
                 _cleanup_free_ TPMS_ATTEST *certify_info_decoded = new0(TPMS_ATTEST, 1);
@@ -11552,6 +12238,8 @@ int tpm2_parse_luks2_json(
                 const char *s = sd_json_variant_string(w);
                 if (!s)
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Public key policy reference is not a string.");
+                if (!iovec_is_set(&pubkey))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Public key policy reference set, but no public key included in JSON data, refusing.");
                 pubkey_ref = strdup(s);
                 if (!pubkey_ref)
                         return log_oom_debug();
@@ -12025,8 +12713,16 @@ int tpm2_load_pcr_signature(const char *path, sd_json_variant **ret) {
                 return log_debug_errno(r, "Failed to find TPM PCR signature file '%s': %m", path);
 
         r = sd_json_parse_file(f, discovered_path, 0, ret, NULL, NULL);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to parse TPM PCR signature JSON object '%s': %m", discovered_path);
+        if (r == -ENOMEM)
+                return log_oom_debug();
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse TPM PCR signature JSON object '%s': %m", discovered_path);
+
+                /* Don't propagate the parser's errno: it reports a string that is not valid UTF-8 as
+                 * -EUCLEAN, and to our callers that errno means "a PCR kept being extended". Report a
+                 * malformed file as such instead, whichever way it is malformed. */
+                return -EBADMSG;
+        }
 
         return 0;
 }

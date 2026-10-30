@@ -13,7 +13,7 @@ typedef struct FiberOps {
         ssize_t (*read)(int fd, void *buf, size_t count);
         ssize_t (*write)(int fd, const void *buf, size_t count);
         sd_future* (*timeout)(uint64_t timeout);
-        sd_future* (*cancel_wait_unref)(sd_future *f);
+        sd_future* (*timeout_unref)(sd_future *timer);
 } FiberOps;
 
 bool fiber_ops_is_set(void);
@@ -26,9 +26,9 @@ ssize_t fiber_ops_write(int fd, const void *buf, size_t count);
 /* Mirror of SD_FIBER_TIMEOUT() for code under src/basic that doesn't include sd-future.h: dispatches
  * through FiberOps so the actual sd_fiber_timeout() implementation lives in libsystemd. */
 sd_future* fiber_ops_timeout(uint64_t timeout);
-sd_future* fiber_ops_cancel_wait_unref(sd_future *f);
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_future*, fiber_ops_cancel_wait_unref);
+sd_future* fiber_ops_timeout_unref(sd_future *timer);
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_future*, fiber_ops_timeout_unref);
 
 #define FIBER_OPS_TIMEOUT(timeout) _FIBER_OPS_TIMEOUT(UNIQ, (timeout))
 #define _FIBER_OPS_TIMEOUT(uniq, timeout)                                                                                               \
-        _unused_ _cleanup_(fiber_ops_cancel_wait_unrefp) sd_future *UNIQ_T(_fot_, uniq) = fiber_ops_timeout(timeout)
+        _unused_ _cleanup_(fiber_ops_timeout_unrefp) sd_future *UNIQ_T(_fot_, uniq) = fiber_ops_timeout(timeout)

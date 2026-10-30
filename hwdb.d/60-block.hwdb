@@ -1,0 +1,44 @@
+# This file is part of systemd.
+#
+# Properties for block devices, imported by 61-block-hwdb.rules for every
+# whole disk.
+#
+# Match string format:
+# block::name:<model>:fwrev:<firmware revision>:
+#
+# <model> is ID_MODEL_FROM_DATABASE if set and ID_MODEL otherwise.
+# <firmware revision> is ID_REVISION.
+#
+# To add local entries, create a new file
+#   /etc/udev/hwdb.d/61-block-local.hwdb
+# and add your rules there. To load the new rules execute (as root):
+#   systemd-hwdb update
+#   udevadm trigger --action=add /dev/…
+#
+# If your changes are generally applicable, send them as a pull request to
+#   https://github.com/systemd/systemd
+# or create a bug report on https://github.com/systemd/systemd/issues and
+# include your new rules, a description of the device, and the output of
+#   udevadm info
+# for the device.
+#
+# Allowed properties are:
+#    ID_BLOCK_IO_TIMEOUT_MS=####|max
+#
+# ID_BLOCK_IO_TIMEOUT_MS sets the request timeout of the block device queue
+# (queue/io_timeout in sysfs) in milliseconds, when the disk is added. The value
+# must be between 1 and 4294967295. "max" sets the largest value the kernel
+# accepts.
+
+# Sort by brand, model
+
+#########################################
+# Amazon
+#########################################
+
+# I/O on EBS volumes can take longer than the default NVMe timeout of 30s. The
+# NVMe driver then fails the I/O, and the file system on the volume can get
+# remounted read-only. AWS recommends setting the timeout to the largest value:
+# https://docs.aws.amazon.com/ebs/latest/userguide/timeout-nvme-ebs-volumes.html
+block::name:Amazon Elastic Block Store:*
+ ID_BLOCK_IO_TIMEOUT_MS=max

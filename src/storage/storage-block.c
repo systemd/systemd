@@ -7,7 +7,6 @@
 #include "sd-varlink.h"
 
 #include "blockdev-list.h"
-#include "build.h"
 #include "bus-polkit.h"
 #include "device-private.h"
 #include "device-util.h"
@@ -28,6 +27,7 @@ COMMAND(
         "systemd-storage-block\0",
         "Expose local block devices as storage volumes.",
         .man_pages = "systemd-storage-block(8)\0",
+        .option_namespace = "common",
 );
 
 static int block_device_pick_name(
@@ -386,36 +386,12 @@ static int vl_server(void) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        assert(argc >= 0);
-        assert(argv);
-
-        OptionParser opts = { argc, argv };
-        FOREACH_OPTION_OR_RETURN(c, &opts)
-                switch (c) {
-
-                OPTION_COMMON_HELP:
-                        return command_print_help();
-
-                OPTION_COMMON_VERSION:
-                        return version();
-
-                OPTION_COMMON_INTROSPECT_CLI:
-                        return introspect_cli(SD_JSON_FORMAT_OFF);
-                }
-
-        if (option_parser_get_n_args(&opts) > 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
-
-        return 1;
-}
-
 static int run(int argc, char* argv[]) {
         int r;
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 0, /* ret_args= */ NULL);
         if (r <= 0)
                 return r;
 

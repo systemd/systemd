@@ -280,8 +280,12 @@ static int run(int argc, char *argv[]) {
                 /* Ignore SIGINT and allow the forked process to receive it */
                 (void) ignore_signals(SIGINT);
 
+                if (!arg_mode)
+                        arg_mode = "block";
+
                 if (!arg_what)
-                        arg_what = "idle:sleep:shutdown";
+                        /* logind only accepts delay locks for sleep and shutdown. */
+                        arg_what = streq(arg_mode, "delay") ? "sleep:shutdown" : "idle:sleep:shutdown";
 
                 if (!arg_who) {
                         w = strv_join(args, " ");
@@ -293,9 +297,6 @@ static int run(int argc, char *argv[]) {
 
                 if (!arg_why)
                         arg_why = "Unknown reason";
-
-                if (!arg_mode)
-                        arg_mode = "block";
 
                 fd = inhibit(bus, &error);
                 if (fd < 0)

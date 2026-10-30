@@ -206,8 +206,8 @@ static int socket_bind_install_impl(Unit *u) {
                 return log_unit_error_errno(u, r, "bpf-socket-bind: Failed to link '%s' cgroup-bpf program: %m",
                                             sym_bpf_program__name(obj->progs.sd_bind6));
 
-        crt->ipv4_socket_bind_link = TAKE_PTR(ipv4);
-        crt->ipv6_socket_bind_link = TAKE_PTR(ipv6);
+        free_and_replace_full(crt->ipv4_socket_bind_link, ipv4, bpf_link_free);
+        free_and_replace_full(crt->ipv6_socket_bind_link, ipv6, bpf_link_free);
 
         return 0;
 }

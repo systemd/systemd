@@ -52,8 +52,10 @@ int bus_job_method_cancel(sd_bus_message *message, void *userdata, sd_bus_error 
         if (r < 0)
                 return r;
 
-        /* Access is granted to the job owner */
-        if (!sd_bus_track_contains(j->bus_track, sd_bus_message_get_sender(message))) {
+        /* Access is granted to the job owner. Only clients on the API bus are tracked, messages on the
+         * private bus have no sender. */
+        if (sd_bus_message_get_bus(message) != j->manager->api_bus ||
+            !sd_bus_track_contains(j->bus_track, sd_bus_message_get_sender(message))) {
 
                 /* And for everybody else consult polkit */
                 r = bus_verify_manage_units_async(j->manager, message, reterr_error);

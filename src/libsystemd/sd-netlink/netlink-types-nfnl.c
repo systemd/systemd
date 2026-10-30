@@ -153,11 +153,14 @@ static const NLAPolicy nfnl_nft_setelem_list_policies[] = {
 DEFINE_POLICY_SET(nfnl_nft_setelem_list);
 
 static const NLAPolicy nfnl_subsys_nft_policies[] = {
-        [NFT_MSG_DELTABLE]   = BUILD_POLICY_NESTED_WITH_SIZE(nfnl_nft_table,        sizeof(struct nfgenmsg)),
         [NFT_MSG_NEWTABLE]   = BUILD_POLICY_NESTED_WITH_SIZE(nfnl_nft_table,        sizeof(struct nfgenmsg)),
+        [NFT_MSG_DELTABLE]   = BUILD_POLICY_NESTED_WITH_SIZE(nfnl_nft_table,        sizeof(struct nfgenmsg)),
         [NFT_MSG_NEWCHAIN]   = BUILD_POLICY_NESTED_WITH_SIZE(nfnl_nft_chain,        sizeof(struct nfgenmsg)),
+        [NFT_MSG_DELCHAIN]   = BUILD_POLICY_NESTED_WITH_SIZE(nfnl_nft_chain,        sizeof(struct nfgenmsg)),
         [NFT_MSG_NEWRULE]    = BUILD_POLICY_NESTED_WITH_SIZE(nfnl_nft_rule,         sizeof(struct nfgenmsg)),
+        [NFT_MSG_DELRULE]    = BUILD_POLICY_NESTED_WITH_SIZE(nfnl_nft_rule,         sizeof(struct nfgenmsg)),
         [NFT_MSG_NEWSET]     = BUILD_POLICY_NESTED_WITH_SIZE(nfnl_nft_set,          sizeof(struct nfgenmsg)),
+        [NFT_MSG_DELSET]     = BUILD_POLICY_NESTED_WITH_SIZE(nfnl_nft_set,          sizeof(struct nfgenmsg)),
         [NFT_MSG_NEWSETELEM] = BUILD_POLICY_NESTED_WITH_SIZE(nfnl_nft_setelem_list, sizeof(struct nfgenmsg)),
         [NFT_MSG_DELSETELEM] = BUILD_POLICY_NESTED_WITH_SIZE(nfnl_nft_setelem_list, sizeof(struct nfgenmsg)),
 };

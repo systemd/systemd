@@ -3,7 +3,8 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
-<refentry id="systemd-measure" xmlns:xi="http://www.w3.org/2001/XInclude" conditional='HAVE_TPM2 HAVE_BLKID HAVE_OPENSSL'>
+<refentry id="systemd-measure" xmlns:xi="http://www.w3.org/2001/XInclude"
+          conditional='ENABLE_MEASURE'>
 
   <refentryinfo>
     <title>systemd-measure</title>
@@ -26,11 +27,10 @@
     </cmdsynopsis>
   </refsynopsisdiv>
 
+  <xi:include href="experimental.xml" xpointer="component" />
+
   <refsect1>
     <title>Description</title>
-
-    <para>Note: this command is experimental for now. While it is likely to become a regular component of
-    systemd, it might still change in behaviour and interface.</para>
 
     <para><command>systemd-measure</command> is a tool that may be used to pre-calculate and sign the
     expected TPM2 PCR 11 values that should be seen when a Linux <ulink

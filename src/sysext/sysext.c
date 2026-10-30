@@ -651,7 +651,7 @@ static int dispatch_unit_method(sd_bus *bus, BusWaitForJobs *w, Set *units, cons
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = bus_wait_for_jobs_one(w, job, BUS_WAIT_JOBS_LOG_ERROR, /* extra_args= */ NULL);
+                r = bus_wait_for_jobs_one(w, job, BUS_WAIT_JOBS_LOG_ERROR);
                 if (r < 0)
                         log_warning_errno(r, "Failed to wait for %s job of unit '%s', ignoring: %m", m, unit);
         }
@@ -1964,6 +1964,7 @@ static int merge_subprocess(
 
         _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_id_like = NULL,
                         *host_os_release_version_id = NULL, *host_os_release_api_level = NULL,
+                        *host_os_release_image_id = NULL, *host_os_release_image_version = NULL,
                         *filename = NULL, *old_origin_content = NULL,
                         *extensions_origin_content = NULL, *root_resolved = NULL;
         _cleanup_strv_free_ char **extensions = NULL, **extensions_v = NULL, **paths = NULL;
@@ -2009,7 +2010,9 @@ static int merge_subprocess(
                         "ID", &host_os_release_id,
                         "ID_LIKE", &host_os_release_id_like,
                         "VERSION_ID", &host_os_release_version_id,
-                        image_class_info[c->image_class].level_env, &host_os_release_api_level);
+                        image_class_info[c->image_class].level_env, &host_os_release_api_level,
+                        "IMAGE_ID", &host_os_release_image_id,
+                        "IMAGE_VERSION", &host_os_release_image_version);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire 'os-release' data of OS tree '%s': %m", empty_to_root(c->root));
         if (isempty(host_os_release_id))
@@ -2068,7 +2071,8 @@ static int merge_subprocess(
                                 DISSECT_IMAGE_USR_NO_ROOT |
                                 DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                                 DISSECT_IMAGE_PIN_PARTITION_DEVICES |
-                                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY;
+                                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY |
+                                DISSECT_IMAGE_TPM2_UNLOCK;
 
                         r = verity_settings_load(&verity_settings, img->path, NULL, NULL);
                         if (r < 0)
@@ -2167,6 +2171,8 @@ static int merge_subprocess(
                                         host_os_release_id_like,
                                         host_os_release_version_id,
                                         host_os_release_api_level,
+                                        host_os_release_image_id,
+                                        host_os_release_image_version,
                                         is_initrd ? "initrd" : "system",
                                         image_extension_release(img, c->image_class),
                                         c->image_class);
@@ -2651,7 +2657,7 @@ static int image_discover_and_read_metadata(const Context *c, Hashmap **ret_imag
                 return log_error_errno(r, "Failed to discover images: %m");
 
         HASHMAP_FOREACH(img, images) {
-                r = image_read_metadata(img, c->root, image_class_info[c->image_class].default_image_policy, RUNTIME_SCOPE_SYSTEM);
+                r = image_read_metadata(img, c->root, image_class_info[c->image_class].default_image_policy, RUNTIME_SCOPE_SYSTEM, DISSECT_IMAGE_TPM2_UNLOCK);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read metadata for image %s: %m", img->name);
         }
@@ -3030,12 +3036,13 @@ static int vl_method_on_completed_update(sd_varlink *link, sd_json_variant *para
         /* Triggered by systemd-sysupdate after an update completed. We deliberately ignore all parameters
          * (we don't even dispatch them). This method is reached through the sysext socket, but a single
          * notification refreshes both image classes, so freshly downloaded sysexts and confexts are both
-         * picked up, equivalent to "systemd-sysext refresh" plus "systemd-confext refresh". We attempt both
-         * classes and only fail afterwards, so a problem with one does not prevent refreshing the other. */
+         * picked up, equivalent to "systemd-confext refresh" plus "systemd-sysext refresh", in the same order
+         * as at boot. We attempt both classes and only fail afterwards, so a problem with one does not
+         * prevent refreshing the other. */
 
         r = 0;
-        RET_GATHER(r, refresh_class(IMAGE_SYSEXT));
         RET_GATHER(r, refresh_class(IMAGE_CONFEXT));
+        RET_GATHER(r, refresh_class(IMAGE_SYSEXT));
         if (r < 0)
                 return r;
 
@@ -3248,6 +3255,7 @@ static int run(int argc, char *argv[]) {
         LIBCRYPTSETUP_NOTE(recommended);
         LIBMOUNT_NOTE(required);
         LIBSELINUX_NOTE(recommended);
+        TPM2_NOTE(suggested);
 
         log_setup();
 

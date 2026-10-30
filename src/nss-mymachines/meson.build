@@ -5,6 +5,6 @@ modules += [
                 'name' : 'nss_mymachines',
                 'conditions' : ['ENABLE_NSS_MYMACHINES'],
                 'sources' : files('nss-mymachines.c'),
-                'version-script' : meson.current_source_dir() / 'nss-mymachines.sym',
+                'version-script' : 'src/nss-mymachines/nss-mymachines.sym',
         },
 ]

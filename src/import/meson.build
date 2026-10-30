@@ -24,7 +24,6 @@ executables += [
         },
         libexec_template + {
                 'name' : 'systemd-pull',
-                'public' : true,
                 'sources' : files(
                         'pull.c',
                         'pull-common.c',
@@ -41,7 +40,6 @@ executables += [
         },
         libexec_template + {
                 'name' : 'systemd-import',
-                'public' : true,
                 'sources' : files(
                         'import.c',
                         'import-raw.c',
@@ -51,7 +49,6 @@ executables += [
         },
         libexec_template + {
                 'name' : 'systemd-import-fs',
-                'public' : true,
                 'sources' : files(
                         'import-fs.c',
                 ),
@@ -59,7 +56,6 @@ executables += [
         },
         libexec_template + {
                 'name' : 'systemd-export',
-                'public' : true,
                 'sources' : files(
                         'export.c',
                         'export-tar.c',
@@ -69,7 +65,6 @@ executables += [
         },
         executable_template + {
                 'name' : 'importctl',
-                'public' : true,
                 'sources' : files('importctl.c'),
                 'import' : ['systemd-importd'],
         },

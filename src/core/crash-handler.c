@@ -175,7 +175,7 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
                 else if (pid == 0) {
                         (void) setsid();
                         (void) terminal_vhangup("/dev/console");
-                        (void) make_console_stdio();
+                        (void) make_console_stdio(/* switch_to_text= */ true);
                         (void) rlimit_nofile_safe();
                         (void) execle("/bin/sh", "/bin/sh", NULL, environ);
 

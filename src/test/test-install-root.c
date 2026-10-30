@@ -10,6 +10,7 @@
 #include "path-util.h"
 #include "rm-rf.h"
 #include "special.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
@@ -776,6 +777,23 @@ TEST(revert) {
         ASSERT_STREQ(changes[1].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
+
+        /* Reverting only removes a unit file in /etc/ if there's another copy to fall back to, either below
+         * /usr/ or written by a generator. Check that a generated copy counts too, when --root= is specified. */
+        p = strjoina(root, "/run/systemd/generator/zz.service");
+        ASSERT_OK(write_string_file(p, "# Empty\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755));
+
+        p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/zz.service");
+        ASSERT_OK(write_string_file(p, "# Empty override\n", WRITE_STRING_FILE_CREATE));
+
+        ASSERT_OK(unit_file_revert(RUNTIME_SCOPE_SYSTEM, root, STRV_MAKE("zz.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1u);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_UNLINK);
+        ASSERT_STREQ(changes[0].path, p);
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        ASSERT_OK_ERRNO(unlink(strjoina(root, "/run/systemd/generator/zz.service")));
 }
 
 TEST(preset_order) {
@@ -1129,6 +1147,48 @@ TEST(preset_multiple_instances) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@bartest.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
 
         install_changes_free(changes, n_changes);
+}
+
+TEST(preset_scope) {
+        const char *unit, *preset, *link;
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+
+        /* %U can't be resolved in the global scope, since there's no user to resolve it to. Make sure
+         * presetting in the global scope fails because of that, instead of resolving specifiers in the
+         * system scope (where %U is 0) and creating a target-0.target.wants/ symlink. Check both
+         * unit_file_preset() and unit_file_preset_all(), they set up their install contexts separately. */
+
+        unit = strjoina(root, "/usr/lib/systemd/user/scoped.service");
+        ASSERT_OK(mkdir_parents(unit, 0755));
+        ASSERT_OK(write_string_file(unit,
+                                    "[Install]\n"
+                                    "WantedBy=target-%U.target\n", WRITE_STRING_FILE_CREATE));
+
+        preset = strjoina(root, "/usr/lib/systemd/user-preset/50-scoped.preset");
+        ASSERT_OK(mkdir_parents(preset, 0755));
+        ASSERT_OK(write_string_file(preset, "enable scoped.service\n", WRITE_STRING_FILE_CREATE));
+
+        ASSERT_ERROR(unit_file_preset(RUNTIME_SCOPE_GLOBAL, 0, root, STRV_MAKE("scoped.service"),
+                                      UNIT_FILE_PRESET_FULL, &changes, &n_changes), EUNATCH);
+        ASSERT_EQ(n_changes, 1u);
+        ASSERT_EQ(changes[0].type, -EUNATCH);
+        ASSERT_STREQ(changes[0].path, "target-%U.target");
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        link = strjoina(root, USER_CONFIG_UNIT_DIR"/target-0.target.wants/scoped.service");
+        ASSERT_ERROR(is_symlink(link), ENOENT);
+
+        ASSERT_ERROR(unit_file_preset_all(RUNTIME_SCOPE_GLOBAL, 0, root, UNIT_FILE_PRESET_FULL,
+                                          &changes, &n_changes), EUNATCH);
+        ASSERT_EQ(n_changes, 1u);
+        ASSERT_EQ(changes[0].type, -EUNATCH);
+        ASSERT_STREQ(changes[0].path, "target-%U.target");
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        ASSERT_ERROR(is_symlink(link), ENOENT);
 }
 
 static void verify_one(

@@ -411,6 +411,7 @@ int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         { EFI_LOADER_FEATURE_TPM2_ACTIVE_PCR_BANKS,   "Loader reports active TPM2 PCR banks"    },
                         { EFI_LOADER_FEATURE_KEYBOARD_LAYOUT,         "Loader reports firmware keyboard layout" },
                         { EFI_LOADER_FEATURE_SMBIOS_MEASURED,         "Loader measures SMBIOS information"      },
+                        { EFI_LOADER_FEATURE_FACTORY_RESET_VARIABLES, "Loader erases EFI variables on request"  },
                 };
                 static const struct {
                         uint64_t flag;
@@ -621,11 +622,11 @@ int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         if (!p)
                                 return log_oom();
 
-                        r = access(p, F_OK);
-                        if (r < 0 && errno != ENOENT)
+                        k = access(p, F_OK);
+                        if (k < 0 && errno != ENOENT)
                                 printf("       Exists: Can't access %s (%m)\n", p);
                         else
-                                printf("       Exists: %s\n", yes_no(r >= 0));
+                                printf("       Exists: %s\n", yes_no(k >= 0));
                 }
 
                 printf("\n");

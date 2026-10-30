@@ -123,6 +123,7 @@ static inline int seccomp_restrict_realtime(void) {
 }
 int seccomp_memory_deny_write_execute(void);
 int seccomp_restrict_ptrace(void);
+int seccomp_restrict_read_implies_exec(void);
 int seccomp_lock_personality(unsigned long personality);
 int seccomp_protect_hostname(void);
 int seccomp_restrict_suid_sgid(void);
@@ -168,6 +169,10 @@ static inline bool is_seccomp_available(void) {
 }
 
 static inline int seccomp_restrict_ptrace(void) {
+        return -EOPNOTSUPP;
+}
+
+static inline int seccomp_restrict_read_implies_exec(void) {
         return -EOPNOTSUPP;
 }
 

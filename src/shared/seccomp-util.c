@@ -8,6 +8,7 @@
 #include <linux/seccomp.h>
 #include <sched.h>
 #include <sys/mman.h>
+#include <sys/personality.h>
 #include <sys/prctl.h> /* IWYU pragma: keep */
 #include <sys/ptrace.h>
 #include <sys/shm.h>
@@ -19,6 +20,7 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "bitfield.h"
 #include "env-util.h"
 #include "errno-list.h"
 #include "log.h"
@@ -1429,13 +1431,14 @@ int seccomp_restrict_namespaces(unsigned long retain) {
                                         0);
                 else
                         /* Otherwise, block only the invocations with the appropriate flags in the loop
-                         * below, but also the special invocation with a zero flags argument, right here. */
+                         * below, but also the special invocation with a zero flags argument, right here. The
+                         * kernel takes nstype as an int and truncates it to 32 bits, hence only compare those. */
                         r = sym_seccomp_rule_add_exact(
                                         seccomp,
                                         SCMP_ACT_ERRNO(EPERM),
                                         SCMP_SYS(setns),
                                         1,
-                                        SCMP_A1(SCMP_CMP_EQ, 0));
+                                        SCMP_A1(SCMP_CMP_MASKED_EQ, UINT32_MAX, 0));
                 if (r < 0) {
                         log_debug_errno(r, "Failed to add setns() rule for architecture %s, skipping: %m",
                                         seccomp_arch_to_string(arch));
@@ -1751,7 +1754,9 @@ int seccomp_restrict_address_families(Set *address_families, bool allow_list) {
                         void *af;
 
                         /* If this is a deny list, then generate one rule for each address family that are
-                         * then combined in OR checks. */
+                         * then combined in OR checks. The kernel takes the domain as an int, i.e. it
+                         * truncates the 64-bit register to its low 32 bits, hence only compare those. A plain
+                         * equality check could be bypassed by setting any of the upper bits. */
 
                         SET_FOREACH(af, address_families) {
                                 r = sym_seccomp_rule_add_exact(
@@ -1759,7 +1764,7 @@ int seccomp_restrict_address_families(Set *address_families, bool allow_list) {
                                                 SCMP_ACT_ERRNO(EAFNOSUPPORT),
                                                 SCMP_SYS(socket),
                                                 1,
-                                                SCMP_A0(SCMP_CMP_EQ, PTR_TO_INT(af)));
+                                                SCMP_A0(SCMP_CMP_MASKED_EQ, UINT32_MAX, (uint32_t) PTR_TO_INT(af)));
                                 if (r < 0)
                                         break;
                         }
@@ -1854,6 +1859,18 @@ int seccomp_restrict_realtime_full(int error_code) {
                                         seccomp_arch_to_string(arch));
                         continue;
                 }
+
+                /* sched_setattr() can switch to SCHED_FIFO/SCHED_RR and is the only way to get
+                 * SCHED_DEADLINE, but the policy is in a struct passed by pointer, which seccomp cannot
+                 * inspect. Hence refuse the call altogether. */
+                r = sym_seccomp_rule_add_exact(
+                                seccomp,
+                                SCMP_ACT_ERRNO(error_code),
+                                SCMP_SYS(sched_setattr),
+                                0);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to add sched_setattr() rule for %s, ignoring: %m",
+                                        seccomp_arch_to_string(arch));
 
                 r = sym_seccomp_load(seccomp);
                 if (ERRNO_IS_NEG_SECCOMP_FATAL(r))
@@ -2187,6 +2204,48 @@ int seccomp_restrict_ptrace(void) {
                                 return log_debug_errno(r, "Failed to apply ptrace restrictions for architecture %s: %m",
                                                        seccomp_arch_to_string(arch));
                         log_debug_errno(r, "Failed to apply ptrace restrictions for architecture %s, skipping: %m",
+                                        seccomp_arch_to_string(arch));
+                }
+        }
+
+        return 0;
+}
+
+/* Refuse to set READ_IMPLIES_EXEC, under which brk() maps the heap executable without passing through the
+ * mmap_file or file_mprotect hooks. The kernel only looks at the lower 32 bits and treats all of them set as
+ * a query, so refuse every other value with the flag. A rule may compare an argument only once, hence one
+ * rule per other bit: the flag set and that bit clear. Like seccomp_restrict_ptrace(), only fail for the
+ * native architecture or if no filter can be installed at all. */
+int seccomp_restrict_read_implies_exec(void) {
+        uint32_t arch;
+        int r;
+
+        r = dlopen_libseccomp(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        SECCOMP_FOREACH_LOCAL_ARCH(arch) {
+                _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
+
+                r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ALLOW);
+                if (r < 0)
+                        return r;
+
+                BIT_FOREACH(bit, UINT32_MAX & ~READ_IMPLIES_EXEC) {
+                        r = add_seccomp_syscall_filter(
+                                        seccomp, arch, SCMP_SYS(personality), 1,
+                                        SCMP_A0(SCMP_CMP_MASKED_EQ, READ_IMPLIES_EXEC | INDEX_TO_MASK(uint32_t, bit),
+                                                READ_IMPLIES_EXEC));
+                        if (r < 0)
+                                return r;
+                }
+
+                r = sym_seccomp_load(seccomp);
+                if (r < 0) {
+                        if (ERRNO_IS_NEG_SECCOMP_FATAL(r) || arch == sym_seccomp_arch_native())
+                                return log_debug_errno(r, "Failed to restrict personality() for architecture %s: %m",
+                                                       seccomp_arch_to_string(arch));
+                        log_debug_errno(r, "Failed to restrict personality() for architecture %s, skipping: %m",
                                         seccomp_arch_to_string(arch));
                 }
         }

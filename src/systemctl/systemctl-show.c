@@ -15,6 +15,7 @@
 #include "cgroup-show.h"
 #include "cpu-set-util.h"
 #include "errno-util.h"
+#include "escape.h"
 #include "exec-util.h"
 #include "exit-status.h"
 #include "format-util.h"
@@ -643,7 +644,8 @@ static void print_status_info(
                 if (endswith(p->name, "Ex"))
                         continue;
 
-                argv = strv_join(p->argv, " ");
+                if (!strv_isempty(p->argv))
+                        argv = quote_command_line(p->argv, SHELL_ESCAPE_EMPTY);
                 printf("    Process: "PID_FMT" %s=%s ", p->pid, p->name, strna(argv));
 
                 good = is_clean_exit(p->code, p->status, EXIT_CLEAN_DAEMON, NULL);
@@ -2100,7 +2102,9 @@ static int print_property(
                                 return bus_log_parse_error(r);
 
                         return 1;
-                } else if (STR_IN_SET(name, "StateDirectorySymlink", "RuntimeDirectorySymlink", "CacheDirectorySymlink", "LogsDirectorySymlink")) {
+                } else if (STR_IN_SET(name,
+                                      "StateDirectorySymlink", "RuntimeDirectorySymlink", "CacheDirectorySymlink",
+                                      "LogsDirectorySymlink", "ConfigurationDirectorySymlink")) {
                         const char *a, *p;
                         uint64_t symlink_flags;
 
@@ -2108,8 +2112,16 @@ static int print_property(
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        while ((r = sd_bus_message_read(m, "(sst)", &a, &p, &symlink_flags)) > 0)
-                                bus_print_property_valuef(name, expected_value, flags, "%s:%s", a, p);
+                        while ((r = sd_bus_message_read(m, "(sst)", &a, &p, &symlink_flags)) > 0) {
+                                const char *flags_string = exec_directory_flags_to_string(symlink_flags);
+                                if (flags_string)
+                                        bus_print_property_valuef(name, expected_value, flags, "%s:%s%s%s", a, p,
+                                                                  isempty(flags_string) ? "" : ":", flags_string);
+                                else
+                                        /* Preserve unknown bits from a newer manager without aborting the dump. */
+                                        bus_print_property_valuef(name, expected_value, flags, "%s:%s:%" PRIu64,
+                                                                  a, p, symlink_flags);
+                        }
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -2355,15 +2367,14 @@ static int show_one(
 
         log_debug("Showing one %s", path);
 
-        r = bus_map_all_properties(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        path,
-                        show_mode == SYSTEMCTL_SHOW_STATUS ? status_map : property_map,
-                        BUS_MAP_BOOLEAN_AS_BOOL,
-                        &error,
-                        &reply,
-                        &info);
+        r = bus_get_all_properties(bus, "org.freedesktop.systemd1", path, &error, &reply);
+        if (r >= 0 && (show_mode != SYSTEMCTL_SHOW_PROPERTIES || DEBUG_LOGGING))
+                r = bus_message_map_all_properties(
+                                reply,
+                                show_mode == SYSTEMCTL_SHOW_STATUS ? status_map : property_map,
+                                BUS_MAP_BOOLEAN_AS_BOOL,
+                                &error,
+                                &info);
         if (r < 0)
                 return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
 

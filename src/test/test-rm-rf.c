@@ -1,12 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <dirent.h>
+#include <fcntl.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 #include "capability-util.h"
+#include "fd-util.h"
+#include "fs-util.h"
 #include "process-util.h"
 #include "rm-rf.h"
+#include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 
@@ -133,6 +140,34 @@ TEST(rm_rf_dangling_symlink) {
         ASSERT_OK_ERRNO(symlink("missing", link));
         ASSERT_OK(rm_rf(link, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_MISSING_OK));
         ASSERT_ERROR_ERRNO(lstat(link, &(struct stat) {}), ENOENT);
+}
+
+TEST(rm_rf_children_rewind) {
+        _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
+        _cleanup_close_ int fd = -EBADF;
+
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-rm-rf-rewind.XXXXXXX", &d));
+        fd = ASSERT_OK_ERRNO(open(d, O_RDONLY|O_DIRECTORY|O_CLOEXEC));
+
+        /* Exclude the directory from automatic aging by systemd-tmpfiles, as per
+         * https://systemd.io/TEMPORARY_DIRECTORIES */
+        ASSERT_OK_ERRNO(flock(fd, LOCK_EX));
+
+        ASSERT_OK_ERRNO(mkdirat(fd, "subdir", 0755));
+        FOREACH_STRING(f, "a", "b", "c", "subdir/d") {
+                _cleanup_free_ char *p = ASSERT_NOT_NULL(strjoin(d, "/", f));
+                ASSERT_OK(touch_file(p, /* parents= */ false, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID));
+        }
+
+        /* Read the directory to its end via a duplicate fd, which shares the file offset with the original */
+        int dup_fd = ASSERT_OK_ERRNO(fcntl(fd, F_DUPFD_CLOEXEC, 3));
+        _cleanup_closedir_ DIR *dir = ASSERT_NOT_NULL(fdopendir(dup_fd));
+        while (readdir(dir))
+                ;
+        dir = safe_closedir(dir);
+
+        ASSERT_OK(rm_rf_children(TAKE_FD(fd), REMOVE_PHYSICAL|REMOVE_REWIND, /* root_dev= */ NULL));
+        ASSERT_GT(dir_is_empty_at(AT_FDCWD, d, /* ignore_hidden_or_backup= */ false), 0);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

@@ -12,8 +12,9 @@
 #include "format-util.h"
 #include "log.h"
 #include "signal-util.h"
+#include "strv.h"
 
-int coredump_kernel_helper(int argc, char *argv[]) {
+int coredump_kernel_helper(char **metadata) {
         _cleanup_(coredump_context_done) CoredumpContext context = COREDUMP_CONTEXT_NULL;
         int r;
 
@@ -37,7 +38,7 @@ int coredump_kernel_helper(int argc, char *argv[]) {
         log_debug("Processing coredump received from the kernel...");
 
         /* Collect all process metadata passed by the kernel through argv[] */
-        r = coredump_context_parse_from_argv(&context, argc - 1, argv + 1);
+        r = coredump_context_parse_from_argv(&context, (int) strv_length(metadata), metadata);
         if (r < 0)
                 return r;
 

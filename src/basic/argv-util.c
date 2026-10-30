@@ -9,6 +9,7 @@
 #include "capability-util.h"
 #include "errno-util.h"
 #include "log.h"
+#include "memory-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -123,7 +124,7 @@ static int update_argv(const char name[], size_t l) {
                         r = prctl_safe(PR_SET_MM, PR_SET_MM_ARG_END, (unsigned long) nn + l + 1, 0, 0);
                         if (r < 0) {
                                 log_debug_errno(r, "PR_SET_MM_ARG_END hack failed, proceeding without: %m");
-                                (void) munmap(nn, nn_size);
+                                munmap_safe(nn, nn_size);
                                 return r;
                         }
 
@@ -139,8 +140,7 @@ static int update_argv(const char name[], size_t l) {
                                 log_debug_errno(r, "PR_SET_MM_ARG_END failed, proceeding without: %m");
                 }
 
-                if (mm)
-                        (void) munmap(mm, mm_size);
+                munmap_safe(mm, mm_size);
 
                 mm = nn;
                 mm_size = nn_size;

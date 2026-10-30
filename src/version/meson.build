@@ -7,6 +7,8 @@ version_h = custom_target('version',
         output : 'version.h',
         capture : true,
         command : [
+                env,
+                'bash',
                 vcs_tag_sh,
                 '@INPUT@',
                 get_option('mode'),

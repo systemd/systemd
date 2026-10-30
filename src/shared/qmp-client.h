@@ -3,12 +3,6 @@
 
 #include "forward.h"
 
-typedef int (*qmp_event_callback_t)(
-                QmpClient *client,
-                const char *event,
-                sd_json_variant *data,
-                void *userdata);
-
 typedef void (*qmp_disconnect_callback_t)(
                 QmpClient *client,
                 void *userdata);
@@ -74,6 +68,12 @@ int qmp_client_call(
                 QmpClientArgs *args,
                 sd_json_variant **ret_result,
                 char **reterr_error_desc);
+
+int qmp_client_call_and_log(
+                QmpClient *client,
+                const char *command,
+                QmpClientArgs *args,
+                sd_json_variant **ret_result);
 
 int qmp_client_call_future(
                 QmpClient *client,

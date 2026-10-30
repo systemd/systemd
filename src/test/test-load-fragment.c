@@ -99,6 +99,41 @@ static void count_syntax_warnings(_unused_ const char *unit, int level, void *us
                 (*n_syntax_warnings)++;
 }
 
+TEST(exec_command_new) {
+        _cleanup_(exec_command_freep) ExecCommand *c = NULL;
+        _cleanup_strv_free_ char **argv = NULL;
+        char **original_argv;
+
+        ASSERT_OK(exec_command_new("/bin///true", /* argv_consume= */ NULL, EXEC_COMMAND_IGNORE_FAILURE, &c));
+        ASSERT_STREQ(c->path, "/bin/true");
+        ASSERT_STREQ(c->argv[0], "/bin/true");
+        ASSERT_EQ(strv_length(c->argv), 1U);
+        ASSERT_EQ(c->flags, EXEC_COMMAND_IGNORE_FAILURE);
+        c = exec_command_free(c);
+
+        ASSERT_NOT_NULL(argv = strv_new("-custom", "echo hello"));
+        original_argv = argv;
+        ASSERT_OK(exec_command_new("true", TAKE_PTR(argv), 0, &c));
+        ASSERT_PTR_EQ(c->argv, original_argv);
+        ASSERT_STREQ(c->path, "true");
+        ASSERT_STREQ(c->argv[0], "-custom");
+        ASSERT_STREQ(c->argv[1], "echo hello");
+        c = exec_command_free(c);
+
+        ASSERT_NOT_NULL(argv = strv_new("-custom", "echo hello"));
+        original_argv = argv;
+        ASSERT_OK(exec_command_new("ignored/path", TAKE_PTR(argv), EXEC_COMMAND_VIA_SHELL, &c));
+        ASSERT_PTR_EQ(c->argv, original_argv);
+        ASSERT_STREQ(c->path, "/bin/sh");
+        ASSERT_STREQ(c->argv[0], "-sh");
+        ASSERT_STREQ(c->argv[1], "echo hello");
+        c = exec_command_free(c);
+
+        ASSERT_OK(exec_command_new("", /* argv_consume= */ NULL, EXEC_COMMAND_VIA_SHELL, &c));
+        ASSERT_STREQ(c->argv[0], "sh");
+        ASSERT_EQ(strv_length(c->argv), 1U);
+}
+
 TEST(config_parse_exec) {
         /* int config_parse_exec(
                  const char *unit,

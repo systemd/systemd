@@ -745,7 +745,7 @@ static int verb_get_or_set_location(int argc, char *argv[], uintptr_t _data, voi
                            set_simple_string(userdata, "location", "SetLocation", argv[1]);
 }
 
-VERB(verb_get_or_set_tags, "tags", "[TAG …]\0", VERB_ANY, VERB_ANY, 0, "Get/set machine tags for host");
+VERB(verb_get_or_set_tags, "tags", "[TAG…]\0", VERB_ANY, VERB_ANY, 0, "Get/set machine tags for host");
 static int verb_get_or_set_tags(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);

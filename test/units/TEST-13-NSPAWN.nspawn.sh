@@ -115,12 +115,14 @@ testcase_sanity() {
     systemd-nspawn --register=no \
                    --directory="$root" \
                    --volatile \
+                   --restrict-address-families=unix,inet \
                    bash -xec 'test -e /usr/has-usr; touch /usr/read-only && exit 1; touch /nope'
     test ! -e "$root/nope"
     test ! -e "$root/usr/read-only"
     systemd-nspawn --register=no \
                    --directory="$root" \
                    --volatile=yes \
+                   --restrict-address-families='unix inet' \
                    bash -xec 'test -e /usr/has-usr; touch /usr/read-only && exit 1; touch /nope'
     test ! -e "$root/nope"
     test ! -e "$root/usr/read-only"
@@ -128,6 +130,7 @@ testcase_sanity() {
     systemd-nspawn --register=no \
                    --directory="$root" \
                    --volatile=state \
+                   --restrict-address-families=unix,inet,inet6 \
                    bash -xec 'test -e /usr/has-usr; mountpoint /var; touch /read-only && exit 1; touch /var/nope'
     test ! -e "$root/read-only"
     test ! -e "$root/var/nope"
@@ -399,6 +402,31 @@ EOF
     (! systemd-nspawn --rlimit==)
 }
 
+testcase_restrict_address_families() {
+    local root
+
+    root="$(mktemp -u -d /var/lib/machines/TEST-13-NSPAWN.restrict-af.XXX)"
+    create_dummy_container "$root"
+
+    # ip(8) needs an AF_NETLINK socket, so it must fail when netlink is not allowed...
+    (! systemd-nspawn --register=no --directory="$root" --restrict-address-families=unix,inet ip link show lo)
+    (! systemd-nspawn --register=no --directory="$root" --restrict-address-families='AF_UNIX AF_INET' ip link show lo)
+    (! systemd-nspawn --register=no --directory="$root" --restrict-address-families=~netlink ip link show lo)
+    (! systemd-nspawn --register=no --directory="$root" --restrict-address-families=none ip link show lo)
+    # ...and work when it is, however the list is spelled.
+    systemd-nspawn --register=no --directory="$root" --restrict-address-families=unix,inet,netlink ip link show lo
+    systemd-nspawn --register=no --directory="$root" --restrict-address-families='unix inet AF_NETLINK' ip link show lo
+    systemd-nspawn --register=no --directory="$root" --restrict-address-families=~packet ip link show lo
+    systemd-nspawn --register=no --directory="$root" --restrict-address-families=none true
+    # Repeated options are combined.
+    systemd-nspawn --register=no --directory="$root" \
+                   --restrict-address-families=unix,inet \
+                   --restrict-address-families=netlink \
+                   ip link show lo
+
+    rm -fr "$root"
+}
+
 testcase_check_default_inaccessible_paths() {
     local root container inaccessible_paths path exp
 
@@ -410,7 +438,7 @@ testcase_check_default_inaccessible_paths() {
         "/proc/timer_list"
     )
 
-    # /proc/kcore may not exist on some kernels, e.g. Alpine/postmarketOS.
+    # /proc/kcore may not exist on some kernels, e.g. Alpine/Nura.
     if [[ -e /proc/kcore ]]; then
         inaccessible_paths+=(
             "/proc/kcore"
@@ -610,6 +638,119 @@ EOF
     done
 
     rm -fr "$root" "/run/systemd/nspawn/$container.nspawn"
+}
+
+testcase_nspawn_settings_credentials() {
+    local root container
+
+    mkdir -p /run/systemd/nspawn
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.nspawn-settings-credentials.XXX)"
+    container="$(basename "$root")"
+    create_dummy_container "$root"
+    rm -f "/etc/systemd/nspawn/$container.nspawn"
+    echo "foo bar" >/tmp/cred.path
+    rm -f /tmp/cred.missing
+
+    # Settings files in /run/systemd/nspawn/ are trusted, hence may load credentials from the host
+    cat >"/run/systemd/nspawn/$container.nspawn" <<EOF
+[Exec]
+SetCredential=cred.reset:nope
+SetCredential=
+LoadCredential=cred.load-reset:/tmp/cred.path
+LoadCredential=
+SetCredential=cred.set:hello world
+SetCredential=cred.escaped:a\\nb
+SetCredential=cred.replaced:old
+SetCredential=cred.replaced:new
+LoadCredential=cred.path:/tmp/cred.missing
+LoadCredential=cred.path:/tmp/cred.path
+LoadCredential=cred.load-wins:/tmp/cred.path
+SetCredential=cred.load-wins:fallback
+SetCredential=cred.fallback:fallback
+LoadCredential=cred.fallback:/tmp/cred.missing
+LoadCredential=cred.inherited:svc.cred
+LoadCredential=cred.inherited-missing:svc.missing
+LoadCredential=cred.inherited-fallback:svc.missing
+SetCredential=cred.inherited-fallback:fallback
+SetCredential=cred.no-separator
+LoadCredential=cred.no-separator
+SetCredential=cred/invalid:value
+LoadCredential=cred/invalid:/tmp/cred.path
+LoadCredential=cred.relative:tmp/cred.path
+LoadCredential=cred.unnormalized:/tmp/../tmp/cred.path
+
+[Files]
+${COVERAGE_BUILD_DIR:+"Bind=$COVERAGE_BUILD_DIR"}
+EOF
+    cat >"$root/creds.sh" <<\EOF
+#!/usr/bin/env bash
+set -ex
+
+[[ "$CREDENTIALS_DIRECTORY" == /run/host/credentials ]]
+[[ "$(</run/host/credentials/cred.set)" == "hello world" ]]
+[[ "$(</run/host/credentials/cred.escaped)" == $'a\nb' ]]
+[[ "$(</run/host/credentials/cred.replaced)" == new ]]
+[[ "$(</run/host/credentials/cred.path)" == "foo bar" ]]
+[[ "$(</run/host/credentials/cred.load-wins)" == "foo bar" ]]
+[[ "$(</run/host/credentials/cred.fallback)" == fallback ]]
+[[ ! -e /run/host/credentials/cred.reset ]]
+[[ ! -e /run/host/credentials/cred.load-reset ]]
+# Invalid assignments are ignored
+[[ ! -e /run/host/credentials/cred.no-separator ]]
+[[ ! -e /run/host/credentials/cred.relative ]]
+[[ ! -e /run/host/credentials/cred.unnormalized ]]
+[[ ! -e /run/host/credentials/cred ]]
+if [[ -n "${EXPECTED_INHERITED:-}" ]]; then
+    [[ "$(</run/host/credentials/cred.inherited)" == "$EXPECTED_INHERITED" ]]
+else
+    [[ ! -e /run/host/credentials/cred.inherited ]]
+fi
+EOF
+    # A credential to be inherited from systemd-nspawn is skipped if it wasn't passed to it...
+    systemd-nspawn --register=no --directory="$root" bash /creds.sh
+
+    # ... and passed on if it was
+    systemd-run --wait \
+                -p SetCredential=svc.cred:from-service \
+                systemd-nspawn --register=no \
+                               --directory="$root" \
+                               --setenv=EXPECTED_INHERITED=from-service \
+                               bash /creds.sh
+
+    # Credentials on the command line take precedence over all credential settings
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --set-credential=cred.cmdline:yes \
+                   bash -xec 'test -e /run/host/credentials/cred.cmdline; test ! -e /run/host/credentials/cred.set'
+
+    # ... unless --settings=override is used, in which case the settings replace the command line ones
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --settings=override \
+                   --set-credential=cred.set:cmdline \
+                   --set-credential=cred.cmdline:yes \
+                   bash -xec '[[ "$(</run/host/credentials/cred.set)" == "hello world" ]]; test ! -e /run/host/credentials/cred.cmdline'
+
+    # A settings file next to the image isn't trusted, so it may not load credentials from the host, and
+    # SetCredential= is used instead. Bind= is ignored in untrusted files too, hence pass the coverage
+    # directory on the command line.
+    mv "/run/systemd/nspawn/$container.nspawn" "/var/lib/machines/$container.nspawn"
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   ${COVERAGE_BUILD_DIR:+--bind="$COVERAGE_BUILD_DIR"} \
+                   bash -xec '[[ "$(</run/host/credentials/cred.load-wins)" == fallback ]]; test ! -e /run/host/credentials/cred.path'
+
+    # A missing credential file is fatal if there is no fallback
+    cat >"/run/systemd/nspawn/$container.nspawn" <<EOF
+[Exec]
+LoadCredential=cred.missing:/tmp/cred.missing
+
+[Files]
+${COVERAGE_BUILD_DIR:+"Bind=$COVERAGE_BUILD_DIR"}
+EOF
+    (! systemd-nspawn --register=no --directory="$root" true)
+
+    rm -fr "$root" "/run/systemd/nspawn/$container.nspawn" "/var/lib/machines/$container.nspawn" /tmp/cred.path
 }
 
 bind_user_cleanup() {

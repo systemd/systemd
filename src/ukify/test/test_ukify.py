@@ -16,11 +16,13 @@
 
 import base64
 import glob
+import io
 import json
 import os
 import pathlib
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -86,6 +88,73 @@ def test_round_up():
     assert ukify.round_up(4097) == 8192
 
 
+@pytest.mark.parametrize('frames', [1, 2, 3])
+def test_zstd_frames(tmp_path, frames):
+    zstd = pytest.importorskip('compression.zstd')
+    payload = b'first half' * 100 + b'second half' * 100
+    if frames == 1:
+        compressed = zstd.compress(payload)
+    else:
+        compressed = zstd.compress(payload[:1000])
+        if frames == 3:
+            compressed += struct.pack('<II', 0x184D2A50, 4) + b'skip'
+        compressed += zstd.compress(payload[1000:])
+
+    path = tmp_path / 'kernel.zst'
+    path.write_bytes(compressed)
+    assert ukify.maybe_decompress(path) == payload
+
+
+@pytest.mark.parametrize('frames', [1, 2, 3])
+def test_zboot_zstd_frames(frames):
+    zstd = pytest.importorskip('compression.zstd')
+    payload = b'first half' * 100 + b'second half' * 100
+    if frames == 1:
+        compressed = zstd.compress(payload)
+    else:
+        compressed = zstd.compress(payload[:1000])
+        if frames == 3:
+            compressed += struct.pack('<II', 0x184D2A50, 4) + b'skip'
+        compressed += zstd.compress(payload[1000:])
+
+    header = bytearray(32)
+    struct.pack_into('<II', header, 8, len(header), len(compressed))
+    header[0x18:0x1D] = b'zstd\0'
+    # The kernel build appends a size word outside the declared compressed payload.
+    kernel = io.BytesIO(header + compressed + struct.pack('<I', len(payload)))
+    assert ukify.get_zboot_kernel(kernel) == payload
+
+
+@pytest.mark.parametrize('tail', ['truncated', 'junk'])
+def test_zstd_invalid_tail(tmp_path, tail):
+    zstd = pytest.importorskip('compression.zstd')
+    compressed = zstd.compress(b'first')
+    if tail == 'truncated':
+        compressed += zstd.compress(b'second')[:-1]
+    else:
+        compressed += b'junk'
+    path = tmp_path / 'kernel.zst'
+    path.write_bytes(compressed)
+    with pytest.raises(zstd.ZstdError):
+        ukify.maybe_decompress(path)
+
+
+@pytest.mark.parametrize('tail', ['truncated', 'junk'])
+def test_zboot_zstd_invalid_tail(tail):
+    zstd = pytest.importorskip('compression.zstd')
+    compressed = zstd.compress(b'first')
+    if tail == 'truncated':
+        compressed += zstd.compress(b'second')[:-1]
+    else:
+        compressed += b'junk'
+    header = bytearray(32)
+    struct.pack_into('<II', header, 8, len(header), len(compressed))
+    header[0x18:0x1D] = b'zstd\0'
+    kernel = io.BytesIO(header + compressed)
+    with pytest.raises(zstd.ZstdError):
+        ukify.get_zboot_kernel(kernel)
+
+
 def test_namespace_creation():
     ns = ukify.create_parser().parse_args(())
     assert ns.linux is None
@@ -115,7 +184,7 @@ def test_apply_config(tmp_path):
         Uname = 1.2.3
         EFIArch=arm
         Stub = some/path4
-        PCRBanks = sha512,sha1
+        PCRBanks = sha512, sha1,
         SigningEngine = engine1
         SecureBootPrivateKey = some/path5
         SecureBootCertificate = some/path6
@@ -124,7 +193,7 @@ def test_apply_config(tmp_path):
         [PCRSignature:NAME]
         PCRPrivateKey = some/path7
         PCRPublicKey = some/path8
-        Phases = {':'.join(ukify.KNOWN_PHASES)}
+        Phases = enter-initrd, {':'.join(ukify.KNOWN_PHASES)},
         '''
         )
     )
@@ -155,7 +224,9 @@ def test_apply_config(tmp_path):
     assert ns._groups == ['NAME']
     assert ns.pcr_private_keys == ['some/path7']
     assert ns.pcr_public_keys == ['some/path8']
-    assert ns.phase_path_groups == [['enter-initrd:leave-initrd:sysinit:ready:shutdown:final']]
+    assert ns.phase_path_groups == [
+        ['enter-initrd', 'enter-initrd:leave-initrd:sysinit:ready:shutdown:final']
+    ]
 
     ukify.finalize_options(ns)
 
@@ -180,7 +251,9 @@ def test_apply_config(tmp_path):
     assert ns._groups == ['NAME']
     assert ns.pcr_private_keys == ['some/path7']
     assert ns.pcr_public_keys == ['some/path8']
-    assert ns.phase_path_groups == [['enter-initrd:leave-initrd:sysinit:ready:shutdown:final']]
+    assert ns.phase_path_groups == [
+        ['enter-initrd', 'enter-initrd:leave-initrd:sysinit:ready:shutdown:final']
+    ]
 
 
 def test_parse_args_minimal():
@@ -343,6 +416,26 @@ def test_parse_sections():
     assert opts.sections[1].content == pathlib.Path('FILE')
     assert opts.sections[1].tmpfile is None
     assert opts.sections[1].measure is False
+
+
+def test_parse_output_sections():
+    sec = ukify.Section.parse_output('.cmdline:text')
+    assert sec.name == '.cmdline'
+    assert sec.output_mode == 'text'
+    assert sec.content is None
+
+    sec = ukify.Section.parse_output('.linux:binary@out dir/a:b')
+    assert sec.name == '.linux'
+    assert sec.output_mode == 'binary'
+    assert sec.content == pathlib.Path('out dir/a:b')
+
+
+@pytest.mark.parametrize(
+    'spec', ['.cmdline:textjunk', '.linux:binarybad', '.cmdline:text@', '.cmdline:text\n']
+)
+def test_parse_output_invalid(spec):
+    with pytest.raises(ValueError, match='Cannot parse section spec'):
+        ukify.Section.parse_output(spec)
 
 
 def test_config_priority(tmp_path):
@@ -851,6 +944,34 @@ def test_inspect_json_profiles(tmp_path, capsys):
     shutil.rmtree(tmp_path)
 
 
+def test_parse_efifw_dir(tmp_path):
+    fwdir = tmp_path / 'fw0'
+    fwdir.mkdir()
+    payload = b'EFIFW0'
+    (fwdir / 'firmware.bin').write_bytes(payload)
+
+    fwname = fwdir.name.encode() + b'\0'
+
+    comp = (ukify.FWHEADERMAGIC, ukify.EFIFW_HEADER_SIZE, len(fwname), len(payload))
+    blob = ukify.parse_efifw_dir(fwdir)
+    assert comp == struct.unpack_from('<IIII', blob[: ukify.EFIFW_HEADER_SIZE])
+    assert (fwname + payload) == blob[ukify.EFIFW_HEADER_SIZE :]
+
+
+# The aa64 directory contains several files for one device and strings that several devices share.
+@pytest.mark.parametrize('subdir', ['test', 'aa64'])
+def test_parse_hwid_dir(subdir):
+    # test-chid-match only checks the .hwids data that generate-hwids-section.py generates. If ukify
+    # generates different data, systemd-stub can fail to find the device in the .hwids section of a UKI.
+    bootdir = pathlib.Path(__file__).parent / '../../boot'
+    hwiddir = bootdir / 'hwids' / subdir
+    out = subprocess.check_output(
+        [sys.executable, bootdir / 'generate-hwids-section.py', hwiddir], text=True
+    )
+    expected = bytes(int(b, 16) for b in re.findall(r'0x([0-9A-F]{2}),', out))
+    assert ukify.parse_hwid_dir(hwiddir) == expected
+
+
 def test_inspect_json_alternative_set_sections(tmp_path, capsys):
     # '.dtbauto' and '.efifw' are alternative-sets (one entry per hardware variant): every occurrence
     # must be preserved, and they are always reported as a list, even for a single entry. The two are
@@ -1203,6 +1324,97 @@ def test_pcr_signing_initrd_pcrs(kernel_initrd, tmp_path, policy_digest):
         assert all('sig' in policy for policy in policies)
 
     shutil.rmtree(tmp_path)
+
+
+@pytest.mark.parametrize(
+    'options',
+    [
+        ['--pcr-private-key=shared', '--pcr-public-key=shared'],
+        ['--pcr-private-key=shared', '--pcr-public-key=sub/../shared'],
+        ['--secureboot-private-key=shared', '--secureboot-certificate=shared'],
+        [
+            '--pcr-private-key=shared',
+            '--pcr-private-key=shared',
+            '--pcr-public-key=first',
+            '--pcr-public-key=second',
+        ],
+        [
+            '--pcr-private-key=first',
+            '--pcr-private-key=second',
+            '--pcr-public-key=shared',
+            '--pcr-public-key=shared',
+        ],
+        [
+            '--pcr-private-key=first',
+            '--pcr-private-key=shared',
+            '--pcr-public-key=shared',
+            '--pcr-public-key=second',
+        ],
+        [
+            '--secureboot-private-key=shared',
+            '--secureboot-certificate=cert',
+            '--pcr-private-key=shared',
+            '--pcr-public-key=public',
+        ],
+        [
+            '--secureboot-private-key=private',
+            '--secureboot-certificate=shared',
+            '--pcr-private-key=pcr',
+            '--pcr-public-key=shared',
+        ],
+        [
+            '--secureboot-private-key=private',
+            '--secureboot-certificate=public',
+            '--pcr-private-key=private',
+            '--pcr-public-key=public',
+        ],
+    ],
+)
+def test_genkey_conflicting_outputs(tmp_path, monkeypatch, options):
+    (tmp_path / 'sub').mkdir()
+    args = ['ukify', 'genkey', '--config=/dev/null']
+    for option in options:
+        key, path = option.split('=')
+        args.append(f'{key}={tmp_path / path}')
+
+    monkeypatch.setattr(sys, 'argv', args)
+    with pytest.raises(ValueError, match='Conflicting key output path'):
+        ukify.main()
+    assert list(tmp_path.rglob('*')) == [tmp_path / 'sub']
+
+
+@pytest.mark.parametrize('alias', ['', 'sub/..'])
+def test_genkey_repeated_pair(tmp_path, monkeypatch, alias):
+    serialization = pytest.importorskip('cryptography.hazmat.primitives.serialization')
+    (tmp_path / 'sub').mkdir()
+    private, public = tmp_path / 'private.pem', tmp_path / 'public.pem'
+    opts = ukify.parse_args(
+        [
+            'genkey',
+            '--config=/dev/null',
+            f'--pcr-private-key={private}',
+            f'--pcr-public-key={public}',
+            f'--pcr-private-key={tmp_path / alias / "private.pem"}',
+            f'--pcr-public-key={tmp_path / alias / "public.pem"}',
+            '--sign-initrd-pcrs',
+        ]
+    )
+    ukify.check_cert_and_keys_nonexistent(opts)
+
+    generate = ukify.generate_priv_pub_key_pair
+    calls = []
+
+    def generate_once():
+        calls.append(True)
+        return generate()
+
+    monkeypatch.setattr(ukify, 'generate_priv_pub_key_pair', generate_once)
+    ukify.generate_keys(opts)
+
+    assert len(calls) == 1
+    priv = serialization.load_pem_private_key(private.read_bytes(), password=None)
+    pub = serialization.load_pem_public_key(public.read_bytes())
+    assert priv.public_key().public_numbers() == pub.public_numbers()
 
 
 def test_key_cert_generation(tmp_path):

@@ -53,6 +53,22 @@ if command -v userdbctl >/dev/null; then
     varlinkctl call --oneway /run/systemd/userdb/io.systemd.Multiplexer io.systemd.UserDatabase.GetMemberships '{ "service" : "io.systemd.Multiplexer" }'
     (! varlinkctl call --oneway /run/systemd/userdb/io.systemd.Multiplexer io.systemd.UserDatabase.GetMemberships '{ "service" : "io.systemd.Multiplexer" }' | grep .)
 
+    mkdir -p /run/userdb
+    membership=/run/userdb/test-74-member:test-74-group.membership
+    touch "$membership"
+    trap 'rm -f "$membership"' EXIT
+    member_reply="$(varlinkctl call -j /run/systemd/userdb/io.systemd.Multiplexer \
+        io.systemd.UserDatabase.GetMemberships \
+        '{"userName":"test-74-member","groupName":"test-74-group","service":"io.systemd.Multiplexer"}')"
+    test "$(jq -r .userName <<<"$member_reply")" = test-74-member
+    test "$(jq -r .groupName <<<"$member_reply")" = test-74-group
+    nonmember_reply="$(varlinkctl call --graceful=io.systemd.UserDatabase.NoRecordFound -j \
+        /run/systemd/userdb/io.systemd.Multiplexer \
+        io.systemd.UserDatabase.GetMemberships \
+        '{"userName":"test-74-nonmember","groupName":"test-74-group","service":"io.systemd.Multiplexer"}' 2>&1)"
+    grep "returned expected error: io.systemd.UserDatabase.NoRecordFound" <<<"$nonmember_reply" >/dev/null
+    rm "$membership"
+
     if command -v openssl >/dev/null && command -v groupadd >/dev/null; then
         group=haldo
         salt=waldo
@@ -103,7 +119,7 @@ rm_rf_sshbindir() {
     rm -rf "$SSHBINDIR"
 }
 
-trap rm_rf_sshbindir EXIT
+trap 'rm -f "${membership:-}"; rm_rf_sshbindir' EXIT
 
 # Create a fake "ssh" binary that validates everything works as expected if invoked for the "ssh-unix:" Varlink transport
 cat >"$SSHBINDIR"/ssh <<'EOF'
@@ -363,6 +379,97 @@ result="$(varlinkctl call --upgrade "unix:$SERVE_SOCKET" io.systemd.Compress.Dec
 echo "$result" | grep "untrusted data decompressed safely" >/dev/null
 kill "$SERVE_PID" 2>/dev/null || true
 wait "$SERVE_PID" 2>/dev/null || true
+rm -f "$SERVE_SOCKET"
+
+# Test 3: interactive use with a (blocking) tty as stdin. The reply has to arrive while stdin is still
+# open, i.e. forwarding must not get stuck reading from the tty after the first line. Only then is stdin
+# closed, which ends the session.
+SERVE_PID=$(systemd-notify --fork -- \
+                           systemd-socket-activate -l "$SERVE_SOCKET" -- \
+                                   varlinkctl serve io.systemd.test.Reverse -- sh -c 'head -n1 | rev')
+TTY_INPUT="$(dirname "$SERVE_SOCKET")/tty-input"
+TTY_OUTPUT="$(dirname "$SERVE_SOCKET")/tty-output"
+mkfifo "$TTY_INPUT"
+timeout 30 script -qec "varlinkctl call --upgrade unix:$SERVE_SOCKET io.systemd.test.Reverse {}" /dev/null \
+        <"$TTY_INPUT" >"$TTY_OUTPUT" &
+CALL_PID=$!
+exec 3>"$TTY_INPUT"
+echo "via tty" >&3
+timeout 30 bash -c "until grep 'ytt aiv' '$TTY_OUTPUT' >/dev/null; do sleep .1; done"
+exec 3>&-
+wait "$CALL_PID"
+kill "$SERVE_PID" 2>/dev/null || true
+wait "$SERVE_PID" 2>/dev/null || true
+rm -f "$SERVE_SOCKET" "$TTY_INPUT" "$TTY_OUTPUT"
+
+# Test 3: --polkit-action=: root passes without a polkit round trip, an unprivileged user is denied
+# because no policy grants the (nonexistent) action.
+chmod 755 "$(dirname "$SERVE_SOCKET")"
+SERVE_PID=$(systemd-notify --fork -- \
+                           systemd-socket-activate -l "$SERVE_SOCKET" -- \
+                                   varlinkctl serve --polkit-action=io.systemd.test.serve io.systemd.test.Reverse rev)
+chmod 666 "$SERVE_SOCKET"
+result="$(echo "hello world" | varlinkctl call --upgrade "unix:$SERVE_SOCKET" io.systemd.test.Reverse '{}')"
+echo "$result" | grep "dlrow olleh" >/dev/null
+result="$( (! echo "hello world" | run0 -u testuser varlinkctl call --upgrade "unix:$SERVE_SOCKET" io.systemd.test.Reverse '{}' 2>&1) )"
+echo "$result" | grep "PermissionDenied" >/dev/null
+(! echo "$result" | grep "dlrow olleh" >/dev/null)
+# --polkit-action= is rejected for verbs other than serve (introspect would otherwise succeed here)
+varlinkctl introspect "unix:$SERVE_SOCKET" io.systemd.test >/dev/null
+(! varlinkctl introspect --polkit-action=io.systemd.test.serve "unix:$SERVE_SOCKET" io.systemd.test)
+kill "$SERVE_PID" 2>/dev/null || true
+wait "$SERVE_PID" 2>/dev/null || true
+
+# Test 4: --polkit-action= with an action that a polkit rule grants to testuser: the unprivileged client
+# is authorized asynchronously (polkit reply, re-dispatch) and the connection is upgraded. Polkit only
+# evaluates registered action IDs, so borrow one from hostnamed; the rule is scoped to testuser.
+# Varlink polkit checks only send a pidfd subject, which needs kernel >= 6.5 and polkit >= 124.
+if [[ -f /usr/share/dbus-1/system-services/org.freedesktop.PolicyKit1.service ]] &&
+   [[ -f /usr/share/polkit-1/actions/org.freedesktop.hostname1.policy ]] &&
+   systemd-analyze compare-versions "$(uname -r)" ge 6.5 &&
+   systemd-analyze compare-versions "$(pkcheck --version | awk '{print $3}')" ge 124; then
+    POLKIT_TEST_ACTION=org.freedesktop.hostname1.get-hardware-serial
+    mkdir -p /etc/polkit-1/rules.d
+    cat >/etc/polkit-1/rules.d/varlinkctl-serve-test.rules <<EOF
+polkit.addRule(function(action, subject) {
+    if (action.id == "$POLKIT_TEST_ACTION" && subject.user == "testuser") {
+        return polkit.Result.YES;
+    }
+});
+EOF
+    systemctl try-reload-or-restart polkit.service
+
+    SERVE_PID=$(systemd-notify --fork -- \
+                               systemd-socket-activate -l "$SERVE_SOCKET" -- \
+                                       varlinkctl serve --polkit-action="$POLKIT_TEST_ACTION" io.systemd.test.Reverse rev)
+    chmod 666 "$SERVE_SOCKET"
+    result="$(echo "hello world" | run0 -u testuser varlinkctl call --upgrade "unix:$SERVE_SOCKET" io.systemd.test.Reverse '{}')"
+    echo "$result" | grep "dlrow olleh" >/dev/null
+    kill "$SERVE_PID" 2>/dev/null || true
+    wait "$SERVE_PID" 2>/dev/null || true
+
+    rm -f /etc/polkit-1/rules.d/varlinkctl-serve-test.rules
+    systemctl try-reload-or-restart polkit.service
+fi
+
+# Verify consistent handling of omitted/null/empty parameters
+check_output_is_empty_object() {
+    REPLY="$1"
+    # This is a "Varlink server" that reads the incoming call, discards it, and
+    # directly sends the contents of $REPLY as the reply. This lets us exercise
+    # sd-varlink's client-side parsing of the Varlink call/reply framing
+    # shellcheck disable=SC2016
+    SERVE_PID=$(systemd-notify --fork -- \
+        systemd-socket-activate -l "$SERVE_SOCKET" --inetd -a -- \
+            bash -c 'read -r -d "" _; printf "%s\0" "$0"' "$REPLY")
+    varlinkctl call "unix:$SERVE_SOCKET" com.example.Test '{}' | grep "^{}$"
+    varlinkctl --exec call "unix:$SERVE_SOCKET" com.example.Test '{}' -- grep "^{}$"
+    kill "$SERVE_PID" 2>/dev/null || true
+    wait "$SERVE_PID" 2>/dev/null || true
+}
+check_output_is_empty_object '{}'
+check_output_is_empty_object '{"parameters": null}'
+check_output_is_empty_object '{"parameters": {}}'
 
 rm -f "$SERVE_SOCKET"
 rm -rf "$(dirname "$SERVE_SOCKET")" "$SERVE_TMPDIR"

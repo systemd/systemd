@@ -2288,6 +2288,7 @@ static int run(int argc, char *argv[]) {
         LIBCRYPTO_NOTE(suggested);
         LIBMOUNT_NOTE(recommended);
         LIBSELINUX_NOTE(recommended);
+        TPM2_NOTE(suggested);
 
         char **args = NULL;
         r = parse_argv(argc, argv, &args);

@@ -284,18 +284,22 @@ static void free_todo_entries(TodoEntry **todos) {
 }
 
 int rm_rf_children(
-                int fd,
+                int _fd,
                 RemoveFlags flags,
                 const struct stat *root_dev) {
 
+        _cleanup_close_ int fd = TAKE_FD(_fd); /* always close */
         struct stat st;
 
         assert(fd >= 0);
 
+        if (FLAGS_SET(flags, REMOVE_REWIND) && lseek(fd, 0, SEEK_SET) < 0)
+                return -errno;
+
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        return rm_rf_children_impl(fd, flags, root_dev, st.st_mode);
+        return rm_rf_children_impl(TAKE_FD(fd), flags, root_dev, st.st_mode);
 }
 
 static int rm_rf_children_impl(
@@ -311,6 +315,8 @@ static int rm_rf_children_impl(
 
         /* Return the first error we run into, but nevertheless try to go on.
          * The passed fd is closed in all cases, including on failure. */
+
+        assert(fd >= 0);
 
         for (;;) {  /* This loop corresponds to the directory nesting level. */
                 _cleanup_closedir_ DIR *d = NULL;
@@ -379,7 +385,7 @@ static int rm_rf_children_impl(
 
                         is_dir = de->d_type == DT_UNKNOWN ? -1 : de->d_type == DT_DIR;
 
-                        r = rm_rf_inner_child(fd, de->d_name, is_dir, flags, root_dev, false);
+                        r = rm_rf_inner_child(fd, de->d_name, is_dir, flags, root_dev, /* allow_recursion= */ false);
                         if (r == -EISDIR) {
                                 /* Push the current working state onto the todo list */
 
@@ -536,7 +542,7 @@ int rm_rf_child(int fd, const char *name, RemoveFlags flags) {
         if (FLAGS_SET(flags, REMOVE_ONLY_DIRECTORIES|REMOVE_SUBVOLUME))
                 return -EINVAL;
 
-        return rm_rf_inner_child(fd, name, -1, flags, NULL, true);
+        return rm_rf_inner_child(fd, name, /* is_dir= */ -1, flags, /* root_dev= */ NULL, /* allow_recursion= */ true);
 }
 
 const char* rm_rf_safe(const char *p) {

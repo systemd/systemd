@@ -131,6 +131,16 @@ if want_tests != 'false'
                 link_abi_targets += exe
         endforeach
 
+        if have_rust
+                test('test-cli-parity',
+                     files('test-cli-parity.sh'),
+                     args : [executables_by_name['test-cli-c'].full_path(),
+                             executables_by_name['test-cli-rust'].full_path()],
+                     depends : [executables_by_name['test-cli-c'], executables_by_name['test-cli-rust']],
+                     env : test_env,
+                     suite : 'rust')
+        endif
+
         if conf.get('BUILD_MODE_DEVELOPER') == 1
                 test('test-link-abi',
                      files('test-link-abi.py'),
@@ -139,6 +149,37 @@ if want_tests != 'false'
                      suite : 'dist',
                      timeout : 120)
         endif
+endif
+
+############################################################
+
+if want_tests != 'false'
+        # ukify is a Python script and the mount helpers implement the mount(8) interface, so they
+        # cannot be introspected. systemd does not list its init alias among its names, and the
+        # .standalone variants would not find their own name in the output either.
+        introspect_cli_exclude = [
+                'ukify',
+                'mount.ddi',
+                'mount.mstack',
+                'mount.storage',
+                'init',
+        ]
+
+        introspect_cli_programs = []
+        foreach exec : install_programs
+                name = fs.name(exec.full_path())
+                if name in introspect_cli_exclude or name.endswith('.standalone')
+                        continue
+                endif
+                introspect_cli_programs += exec
+        endforeach
+
+        test('test-introspect-cli',
+             files('test-introspect-cli.sh'),
+             args : introspect_cli_programs,
+             depends : introspect_cli_programs,
+             suite : 'dist',
+             timeout : 300)
 endif
 
 ############################################################
@@ -234,13 +275,18 @@ if want_tests != 'false' and conf.get('HAVE_DMI') == 1
         udev_dmi_memory_id_test = files('udev-dmi-memory-id-test.sh')
         exe = executables_by_name.get('dmi_memory_id')
 
-        if git.found() and fs.is_dir(meson.project_source_root() / '.git')
+        # In a git worktree, .git is a file that contains the path of the repository. git fails when the
+        # repository isn't at the path in .git, for example in a container that only mounts the worktree.
+        use_git = git.found() and fs.exists(meson.project_source_root() / '.git')
+        if use_git
                 out = run_command(
                         env, '-u', 'GIT_WORK_TREE',
                         git, '--git-dir=@0@/.git'.format(meson.project_source_root()),
                         'ls-files', ':/test/dmidecode-dumps/*.bin',
-                        check: true)
-        else
+                        check: false)
+                use_git = out.returncode() == 0
+        endif
+        if not use_git
                 out = run_command(
                         sh, '-c', 'cd "$1"; echo test/dmidecode-dumps/*.bin', '_', meson.project_source_root(),
                         check: true)
@@ -267,6 +313,10 @@ if want_tests != 'false' and conf.get('ENABLE_KERNEL_INSTALL') == 1
         if want_ukify and boot_stubs.length() > 0
                 args += [ukify.full_path(), ukify_install.full_path(), test_ukify_install_py, boot_stubs[0]]
                 deps += [ukify, ukify_install, boot_stubs[0]]
+        endif
+        # test-kernel-install.sh runs $PROJECT_BUILD_ROOT/bootctl if it exists.
+        if 'bootctl' in executables_by_name
+                deps += [executables_by_name.get('bootctl')]
         endif
 
         test('test-kernel-install',

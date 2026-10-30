@@ -1036,6 +1036,21 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>friendly-name=</option></term>
+
+        <listitem><para>Takes a string that overrides the automatically generated description of this device,
+        which is displayed when the user is prompted for its passphrase or PKCS#11 token PIN and in some log
+        messages. The name must be no more than 100 bytes. Invalid names are ignored. (A warning is logged,
+        and the automatically generated description is used instead.)</para>
+
+        <para>Note that the name cannot contain whitespace, because fields in <filename>/etc/crypttab</filename>
+        are whitespace-delimited.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para>At early boot and when the system manager configuration is

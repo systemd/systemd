@@ -75,8 +75,8 @@
         <term><varname>quotacheck.mode</varname></term>
 
         <listitem>
-          <para>The contents of the credential is parsed as same as the kernel command line option with the
-          same name. See above for more details.</para>
+          <para>The contents of the credential are parsed in the same way as the kernel command line option
+          of the same name. See above for more details.</para>
 
           <xi:include href="version-info.xml" xpointer="v258"/>
         </listitem>

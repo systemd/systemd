@@ -27,5 +27,3 @@ ExecStart={{LIBEXECDIR}}/systemd-tpm2-setup --graceful
 SuccessExitStatus=PROTOCOL
 # The tool returns EX_UNAVAILABLE if some key functionality (e.g. NvPCR) support is not available in the TPM device.
 SuccessExitStatus=UNAVAILABLE
-# The tool returns EX_CANTCREAT if the NV index space is exhausted.
-SuccessExitStatus=CANTCREAT

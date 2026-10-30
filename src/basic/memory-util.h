@@ -2,6 +2,7 @@
 #pragma once
 
 #include <string.h>
+#include <sys/mman.h> /* IWYU pragma: export */
 
 #include "forward.h"
 
@@ -98,3 +99,16 @@ static inline void erase_and_freep(void *p) {
 static inline void erase_char(char *p) {
         explicit_bzero_safe(p, sizeof(char));
 }
+
+#define munmap_safe(p, sz) _munmap_safe(UNIQ_T(P, UNIQ), (p), UNIQ_T(SZ, UNIQ), (sz))
+#define _munmap_safe(_p, p, _sz, sz)                                    \
+        ({                                                              \
+                typeof(p) _p = (p);                                     \
+                if (_p && _p != MAP_FAILED) {                           \
+                        size_t _sz = (sz);                              \
+                        assert(_sz > 0);                                \
+                        assert(_sz != SIZE_MAX); /* catch PAGE_ALIGN() overflows */ \
+                        assert_se(munmap(_p, _sz) >= 0);                \
+                }                                                       \
+                (typeof(p)) NULL;                                       \
+        })

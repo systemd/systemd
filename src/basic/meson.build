@@ -5,6 +5,7 @@ basic_sources = files(
         'af-list.c',
         'alloc-util.c',
         'ansi-color.c',
+        'ansi-seq.c',
         'architecture.c',
         'argv-util.c',
         'arphrd-util.c',
@@ -35,6 +36,7 @@ basic_sources = files(
         'escape.c',
         'ether-addr-util.c',
         'extract-word.c',
+        'fanotify-util.c',
         'fd-util.c',
         'fiber-ops.c',
         'fileio.c',
@@ -119,6 +121,7 @@ basic_sources = files(
         'user-util.c',
         'utf8.c',
         'virt.c',
+        'web-util.c',
         'xattr-util.c',
 )
 
@@ -155,13 +158,13 @@ foreach item : [
                 gperf_file = custom_target(
                         input : list_txt,
                         output : '@0@-from-name.gperf'.format(item[0]),
-                        command : [generate_gperfs, item[0], item[2], '@INPUT@'] + item[3],
+                        command : [python, generate_gperfs, item[0], item[2], '@INPUT@'] + item[3],
                         capture : true)
 
                 target = custom_target(
                         input : gperf_file,
                         output : '@0@-from-name.inc'.format(item[0]),
-                        command : [gperf,
+                        command : [gperf_cmdline,
                                 '-L', 'ANSI-C', '-t', '--ignore-case',
                                 '-N', 'lookup_@0@'.format(item[0]),
                                 '-H', 'hash_@0@_name'.format(item[0]),
@@ -181,7 +184,8 @@ basic_sources += generated_gperf_headers
 filesystem_sets_py = files('filesystem-sets.py')
 filesystem_sets_c = custom_target(
         output : 'filesystem-sets.c',
-        command : [filesystem_sets_py,
+        command : [python,
+                   filesystem_sets_py,
                    'fs-type-to-string',
                    'filesystem-sets',
                    'fs-in-group'],
@@ -189,14 +193,15 @@ filesystem_sets_c = custom_target(
 
 filesystems_gperf_gperf = custom_target(
         output : 'filesystems-gperf.gperf',
-        command : [filesystem_sets_py,
+        command : [python,
+                   filesystem_sets_py,
                    'gperf'],
         capture : true)
 
 filesystems_gperf_h = custom_target(
         input : filesystems_gperf_gperf,
         output : 'filesystems-gperf.h',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf_cmdline, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 generated_sources += [filesystem_sets_c, filesystems_gperf_gperf, filesystems_gperf_h]
 basic_sources += [filesystem_sets_c, filesystems_gperf_h]

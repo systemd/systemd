@@ -18,9 +18,9 @@
 #include "chase.h"
 #include "color-util.h"
 #include "conf-files.h"
-#include "copy.h"
 #include "creds-util.h"
 #include "crypto-util.h"
+#include "data-fd-util.h"
 #include "dlopen-note.h"
 #include "efi-api.h"
 #include "efivars.h"
@@ -56,7 +56,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "tmpfile-util.h"
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
 #include "unaligned.h"
@@ -108,6 +107,7 @@ COMMAND(
         "Manage a TPM2 PCR lock.",
         .man_pages = "systemd-pcrlock(8)\0",
         .pager_flags = &arg_pager_flags,
+        .flags = COMMAND_EXPERIMENTAL,
 );
 
 #define PCRLOCK_SECUREBOOT_POLICY_PATH      "/var/lib/pcrlock.d/240-secureboot-policy.pcrlock.d/generated.pcrlock"
@@ -123,6 +123,10 @@ COMMAND(
 #define PCRLOCK_ROOT_FILE_SYSTEM_PATH       "/var/lib/pcrlock.d/830-root-file-system.pcrlock"
 #define PCRLOCK_FILE_SYSTEM_PATH_PREFIX     "/var/lib/pcrlock.d/840-file-system-"
 #define PCRLOCK_PE_INPUT_MAX                (2U * U64_GB)
+
+/* Maximum number of retries when PCR values keep changing while we submit the policy for, or unseal, the
+ * recovery PIN */
+#define PCRLOCK_RETRY_UNSEAL_MAX            16U
 
 /* The default set of PCRs to lock to */
 #define DEFAULT_PCR_MASK                                     \
@@ -354,9 +358,7 @@ static EventLog* event_log_free(EventLog *el) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(EventLog*, event_log_free);
 
 static EventLogRecord* event_log_record_new(EventLog *el) {
-        EventLogRecord *record;
-
-        record = new(EventLogRecord, 1);
+        EventLogRecord *record = new(EventLogRecord, 1);
         if (!record)
                 return NULL;
 
@@ -375,15 +377,12 @@ static EventLogRecord* event_log_record_new(EventLog *el) {
 static int event_log_add_record(
                 EventLog *el,
                 EventLogRecord **ret) {
-
-        _cleanup_(event_log_record_freep) EventLogRecord *record = NULL;
-
         assert(el);
 
         if (!GREEDY_REALLOC(el->records, el->n_records+1))
                 return -ENOMEM;
 
-        record = event_log_record_new(el);
+        EventLogRecord *record = event_log_record_new(el);
         if (!record)
                 return -ENOMEM;
 
@@ -391,8 +390,6 @@ static int event_log_add_record(
 
         if (ret)
                 *ret = record;
-
-        TAKE_PTR(record);
 
         return 0;
 }
@@ -934,7 +931,40 @@ static int event_log_add_algorithms_from_record(EventLog *el, EventLogRecord *re
         return 0;
 }
 
-static int event_log_load_firmware(EventLog *el) {
+static int event_log_add_firmware_record(
+                EventLog *el,
+                const char *source,
+                uint32_t pcr,
+                uint32_t event_type,
+                const void *payload,
+                size_t payload_size,
+                EventLogRecord **ret) {
+
+        EventLogRecord *record;
+        int r;
+
+        assert(el);
+        assert(source);
+        assert(payload || payload_size == 0);
+        assert(ret);
+
+        r = event_log_add_record(el, &record);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add record to event log: %m");
+
+        record->pcr = pcr;
+        record->source = source;
+        record->firmware_event_type = event_type;
+        record->firmware_payload = memdup(payload, payload_size);
+        if (!record->firmware_payload)
+                return log_oom();
+        record->firmware_payload_size = payload_size;
+
+        *ret = record;
+        return 0;
+}
+
+static int event_log_load_firmware(EventLog *el, bool keep_no_action) {
         const TCG_EfiSpecIdEventAlgorithmSize *algorithms;
         size_t bufsize = 0, n_algorithms = 0, left = 0;
         _cleanup_free_ void *buf = NULL;
@@ -963,6 +993,23 @@ static int event_log_load_firmware(EventLog *el) {
         r = validate_firmware_header(buf, bufsize, &algorithms, &n_algorithms, &event, &left);
         if (r < 0)
                 return r;
+
+        if (keep_no_action) {
+                /* The log header is an EV_NO_ACTION event (the Spec ID event), which carries the version
+                 * of the TCG PC Client Platform Firmware Profile Specification the log follows. Retain it if
+                 * requested. Note that unlike all other events it is in the legacy event format, and hence
+                 * comes with a single (all-zero) SHA1 digest. */
+                const TCG_PCClientPCREvent *h = buf;
+                EventLogRecord *record;
+
+                r = event_log_add_firmware_record(el, path, h->pcrIndex, h->eventType, h->event, h->eventDataSize, &record);
+                if (r < 0)
+                        return r;
+
+                r = event_log_record_add_bank(record, TPM2_ALG_SHA1, h->digest, sizeof(h->digest), /* ret= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add bank to event log record: %m");
+        }
 
         for (const TCG_PCR_EVENT2 *next_event = NULL;; event = next_event) {
                 EventLogRecord *record = NULL;
@@ -993,10 +1040,13 @@ static int event_log_load_firmware(EventLog *el) {
                         el->startup_locality = ((const uint8_t*) payload)[sizeof("StartupLocality")];
                         el->startup_locality_found = true;
                         log_debug("Found StartupLocality event: %u", el->startup_locality);
-                        continue;
                 }
 
-                if (event->eventType == EV_NO_ACTION) { /* Ignore pseudo events, that don't result in a measurement */
+                /* Ignore pseudo events that don't result in a measurement, unless we are asked to keep
+                 * them. They carry information that may be useful to consumers of the event log (e.g.
+                 * verifiers of TPM2 reports), such as the StartupLocality event, which determines the
+                 * initial value of PCR 0. */
+                if (event->eventType == EV_NO_ACTION && !keep_no_action) {
                         log_debug("Skipping NO_ACTION event.");
                         continue;
                 }
@@ -1006,17 +1056,9 @@ static int event_log_load_firmware(EventLog *el) {
                         continue;
                 }
 
-                r = event_log_add_record(el, &record);
+                r = event_log_add_firmware_record(el, path, event->pcrIndex, event->eventType, payload, payload_size, &record);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add record to event log: %m");
-
-                record->pcr = event->pcrIndex;
-                record->source = path;
-                record->firmware_event_type = event->eventType;
-                record->firmware_payload = memdup(payload, payload_size);
-                if (!record->firmware_payload)
-                        return log_oom();
-                record->firmware_payload_size = payload_size;
+                        return r;
 
                 const void *ha, *ha_next = NULL;
                 ha = (const uint8_t*) event + offsetof(TCG_PCR_EVENT2, digests.digests);
@@ -1303,12 +1345,12 @@ static EventLog *event_log_new(void) {
         return TAKE_PTR(el);
 }
 
-static int event_log_load(EventLog *el) {
+static int event_log_load(EventLog *el, bool keep_fw_no_action) {
         int r;
 
         assert(el);
 
-        r = event_log_load_firmware(el);
+        r = event_log_load_firmware(el, keep_fw_no_action);
         if (r < 0)
                 return r;
 
@@ -2567,7 +2609,7 @@ static int event_log_load_and_process(EventLog **ret) {
         if (r < 0)
                 return r;
 
-        r = event_log_load(el);
+        r = event_log_load(el, /* keep_fw_no_action= */ false);
         if (r < 0)
                 return r;
 
@@ -2728,7 +2770,7 @@ static int verb_show_cel(int argc, char *argv[], uintptr_t _data, void *userdata
         if (!el)
                 return log_oom();
 
-        r = event_log_load(el);
+        r = event_log_load(el, /* keep_fw_no_action= */ true);
         if (r < 0)
                 return r;
 
@@ -3849,6 +3891,16 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
                                         policy_session,
                                         &old_policy.prediction,
                                         old_policy.algorithm);
+                        if (r == -EUCLEAN) {
+                                if (attempt >= PCRLOCK_RETRY_UNSEAL_MAX)
+                                        return log_error_errno(r,
+                                                               "PCR values kept changing while submitting the policy, giving up after %u attempts. "
+                                                               "Something on this system extends a PCR continuously.",
+                                                               attempt + 1);
+
+                                log_debug("Trying again (attempt %u), as PCR values changed while submitting the policy.", attempt + 1);
+                                continue;
+                        }
                         if (r < 0)
                                 return r;
 
@@ -3868,12 +3920,12 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
                                         policy_session,
                                         encryption_session,
                                         &secret);
-                        if (r < 0 && (r != -ESTALE || attempt >= 16))
+                        if (r < 0 && (r != -ESTALE || attempt >= PCRLOCK_RETRY_UNSEAL_MAX))
                                 return log_error_errno(r, "Failed to unseal PIN: %m");
                         if (r == 0)
                                 break;
 
-                        log_debug("Trying again (attempt %u), as PCR values changed during unlock attempt.", attempt+1);
+                        log_debug("Trying again (attempt %u), as PCR values changed during unlock attempt.", attempt + 1);
                 }
 
                 if (secret.iov_len > sizeof_field(TPM2B_AUTH, buffer))
@@ -4317,7 +4369,7 @@ static int lock_firmware(bool is_code) {
         if (r < 0)
                 return r;
 
-        r = event_log_load(el);
+        r = event_log_load(el, /* keep_fw_no_action= */ false);
         if (r < 0)
                 return r;
 
@@ -4665,7 +4717,7 @@ static int lock_secureboot_authority(void) {
         if (r < 0)
                 return r;
 
-        r = event_log_load(el);
+        r = event_log_load(el, /* keep_fw_no_action= */ false);
         if (r < 0)
                 return r;
 
@@ -4854,62 +4906,20 @@ static int verb_unlock_gpt(int argc, char *argv[], uintptr_t _data, void *userda
         return unlink_pcrlock(PCRLOCK_GPT_PATH);
 }
 
-static int pe_stdin_too_large(void) {
-        return log_error_errno(SYNTHETIC_ERRNO(EFBIG),
-                               "PE/UKI binary from stdin is larger than the maximum supported size of %s.",
-                               FORMAT_BYTES(PCRLOCK_PE_INPUT_MAX));
-}
-
-static int acquire_stdin_pe_fd(void) {
-        _cleanup_close_ int fd = -EBADF;
-        const char *td;
-        struct stat st;
-        int r;
-
-        if (fstat(STDIN_FILENO, &st) < 0)
-                return log_error_errno(errno, "Failed to stat stdin: %m");
-
-        if (S_ISREG(st.st_mode)) {
-                if ((uint64_t) st.st_size > PCRLOCK_PE_INPUT_MAX)
-                        return pe_stdin_too_large();
-
-                /* Regular stdin is already seekable. Keep it directly to avoid copying large redirected
-                 * PE/UKI files before hashing them. The size check above is a fast-path guard; a file that
-                 * grows concurrently is still hashed stream-wise with bounded memory use. */
-                fd = fcntl(STDIN_FILENO, F_DUPFD_CLOEXEC, 3);
-                if (fd < 0)
-                        return log_error_errno(errno, "Failed to duplicate stdin: %m");
-
-                return TAKE_FD(fd);
-        }
-
-        r = var_tmp_dir(&td);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine temporary directory: %m");
-
-        fd = open_tmpfile_unlinkable(td, O_RDWR|O_CLOEXEC);
-        if (fd < 0)
-                return log_error_errno(fd, "Failed to create temporary file for PE binary: %m");
-
-        r = copy_bytes(STDIN_FILENO, fd, PCRLOCK_PE_INPUT_MAX + 1, /* copy_flags= */ 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to copy PE binary from stdin to temporary file: %m");
-        if (r > 0)
-                return pe_stdin_too_large();
-
-        return TAKE_FD(fd);
-}
-
 static int acquire_pe_fd(const char *path) {
-        if (path) {
-                int fd = open(path, O_RDONLY|O_CLOEXEC);
-                if (fd < 0)
-                        return log_error_errno(errno, "Failed to open '%s': %m", path);
+        int fd;
 
-                return fd;
-        }
+        if (path)
+                fd = open_seekable_data_fd(AT_FDCWD, path, PCRLOCK_PE_INPUT_MAX);
+        else
+                fd = seekable_data_fd(STDIN_FILENO, PCRLOCK_PE_INPUT_MAX);
+        if (fd == -EFBIG)
+                return log_error_errno(fd, "PE/UKI binary %s is larger than the maximum supported size of %s.",
+                                       path ?: "from stdin", FORMAT_BYTES(PCRLOCK_PE_INPUT_MAX));
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open %s: %m", path ?: "stdin");
 
-        return acquire_stdin_pe_fd();
+        return fd;
 }
 
 VERB(verb_lock_pe, "lock-pe", "[BINARY]\0", VERB_ANY, 2, 0,
@@ -5549,7 +5559,7 @@ static int vl_method_read_event_log(sd_varlink *link, sd_json_variant *parameter
         if (!el)
                 return log_oom();
 
-        r = event_log_load(el);
+        r = event_log_load(el, /* keep_fw_no_action= */ true);
         if (r < 0)
                 return r;
 

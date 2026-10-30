@@ -33,6 +33,15 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "vconsole-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-vconsole-setup\0",
+        "Configure the virtual consoles.",
+        .argspec = "[TTY]\0",
+        .man_pages = "systemd-vconsole-setup.service(8)\0",
+        .option_namespace = "common",
+);
 
 typedef struct Context {
         char *keymap;
@@ -444,6 +453,17 @@ static int font_load_and_wait(int fd, const char *vc, Context *c) {
                 return 0; /* Report that we skipped this */
         }
 
+        /* The kernel refuses to operate on the font of a vc in KD_GRAPHICS (e.g. an explicitly specified vc
+         * running a splash screen), hence skip the font setup like setup_remaining_vcs() does.
+         * verify_source_vc() already warned about this at notice level. */
+        r = verify_vc_display_mode(fd);
+        if (r == -EBUSY) {
+                log_debug_errno(r, "Virtual console %s is not in KD_TEXT, skipping font setup.", vc);
+                return 0; /* Report that we skipped this */
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to check display mode of '%s': %m", vc);
+
         /* May be called on the dummy console (e.g. during keymap setup with fbcon deferred takeover). Font
          * changes are not supported here and will fail. */
         r = verify_vc_support_font(fd);
@@ -726,13 +746,19 @@ static int run(int argc, char **argv) {
         _cleanup_close_ int fd = -EBADF, lock_fd = -EBADF;
         bool utf8;
         unsigned idx = 0;
+        int r;
 
         log_setup();
 
+        char **args = NULL;
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 1, &args);
+        if (r <= 0)
+                return r;
+
         umask(0022);
 
-        if (argv[1]) {
-                fd = verify_source_vc(&vc, argv[1]);
+        if (args[0]) {
+                fd = verify_source_vc(&vc, args[0]);
                 if (fd < 0)
                         return fd;
         } else {

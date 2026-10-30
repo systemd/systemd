@@ -571,18 +571,12 @@ static int output_short(
         assert(previous_display_ts);
         assert(previous_boot_id);
 
-        /* Set the threshold to one bigger than the actual print threshold, so that if the line is actually
-         * longer than what we're willing to print, ellipsization will occur. This way we won't output a
-         * misleading line without any indication of truncation.
-         */
-        (void) sd_journal_set_data_threshold(j, flags & (OUTPUT_SHOW_ALL|OUTPUT_FULL_WIDTH) ? 0 : PRINT_CHAR_THRESHOLD + 1);
-
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
                 r = parse_fieldv(data, length, fields, ELEMENTSOF(fields));
                 if (r < 0)
                         return r;
         }
-        if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+        if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                 log_debug_errno(r, "Skipping message we can't read: %m");
                 return 0;
         }
@@ -802,10 +796,8 @@ static int output_verbose(
         assert(f);
         assert(j);
 
-        (void) sd_journal_set_data_threshold(j, 0);
-
         r = get_display_realtime(j, &usec);
-        if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+        if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                 log_debug_errno(r, "Unable to read realtime timestamp from entry, assuming bad or partially written entry: %m");
                 return 0;
         }
@@ -929,10 +921,8 @@ static int output_export(
 
         assert(j);
 
-        (void) sd_journal_set_data_threshold(j, 0);
-
         r = sd_journal_get_cursor(j, &cursor);
-        if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+        if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                 log_debug_errno(r, "Unable to determine cursor of entry, assuming bad or partially written entry: %m");
                 return 0;
         }
@@ -1017,7 +1007,7 @@ static int output_export(
 
                 fputc('\n', f);
         }
-        if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
+        if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                 log_debug_errno(r, "Skipping message we can't read: %m");
                 return 0;
         }
@@ -1216,10 +1206,8 @@ int journal_entry_to_json(
         assert(j);
         assert(ret);
 
-        (void) sd_journal_set_data_threshold(j, flags & OUTPUT_SHOW_ALL ? 0 : JSON_THRESHOLD);
-
         r = sd_journal_get_cursor(j, &cursor);
-        if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+        if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                 corrupted_what = "cursor";
                 goto corrupted_skip;
         }
@@ -1254,6 +1242,12 @@ int journal_entry_to_json(
         if (!h)
                 return log_oom();
 
+        /* A typical entry has around twenty fields and this hashmap is built fresh for each one, so
+         * size it up front rather than rehashing repeatedly while filling it. */
+        r = hashmap_reserve(h, 32);
+        if (r < 0)
+                return log_oom();
+
         r = update_json_data(h, flags, "__CURSOR", cursor, SIZE_MAX);
         if (r < 0)
                 return r;
@@ -1286,7 +1280,7 @@ int journal_entry_to_json(
                 size_t size;
 
                 r = sd_journal_enumerate_data(j, &data, &size);
-                if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+                if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                         log_debug_errno(r, "Skipping message we can't read: %m");
                         return 0;
                 }
@@ -1369,7 +1363,7 @@ static int output_cat_field(
                 get_log_colors(prio, &color_on, &color_off, &highlight_on);
 
         r = sd_journal_get_data(j, field, &data, &l);
-        if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+        if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                 log_debug_errno(r, "Skipping message we can't read: %m");
                 return 0;
         }
@@ -1426,8 +1420,6 @@ static int output_cat(
         assert(j);
         assert(f);
 
-        (void) sd_journal_set_data_threshold(j, 0);
-
         if (FLAGS_SET(flags, OUTPUT_COLOR)) {
                 const void *data;
                 size_t l;
@@ -1435,7 +1427,7 @@ static int output_cat(
                 /* Determine priority of this entry, so that we can color it nicely */
 
                 r = sd_journal_get_data(j, "PRIORITY", &data, &l);
-                if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+                if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r)) {
                         log_debug_errno(r, "Skipping message we can't read: %m");
                         return 0;
                 }

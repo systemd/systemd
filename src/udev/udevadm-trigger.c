@@ -84,6 +84,11 @@ static int exec_list(
 
         assert(e);
 
+        _cleanup_strv_free_ char **args = NULL;
+        r = device_build_default_trigger_args(/* with_timestamp= */ true, &args);
+        if (r < 0)
+                return log_oom();
+
         sd_device *d;
         FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
 
@@ -101,7 +106,7 @@ static int exec_list(
                         continue;
 
                 sd_id128_t id;
-                r = sd_device_trigger_with_uuid(d, action, &id);
+                r = sd_device_trigger_with_args(d, action, args, &id);
                 if (r < 0) {
                         /* ENOENT may be returned when a device does not have /uevent or is already
                          * removed. Hence, this is logged at debug level and ignored.
@@ -142,7 +147,8 @@ static int exec_list(
                                 RET_GATHER(ret, r);
                         continue;
                 } else
-                        log_device_debug(d, "Triggered device with action '%s'.", action_str);
+                        log_device_debug(d, "Triggered '%s': ACTION=%s, UUID=%s",
+                                         syspath, action_str, SD_ID128_TO_UUID_STRING(id));
 
                 /* If the user asked for it, write event UUID to stdout */
                 if (arg_uuid)

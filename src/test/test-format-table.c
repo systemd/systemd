@@ -8,9 +8,13 @@
 #include "env-util.h"
 #include "format-table.h"
 #include "json-util.h"
+#include "locale-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "tests.h"
 #include "time-util.h"
+#include "utf8.h"
 
 TEST(issue_9549) {
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -33,6 +37,89 @@ TEST(issue_9549) {
         ASSERT_STREQ(formatted,
                      "NAME  TYPE RO  USAGE CREATED                    MODIFIED\n"
                      "foooo raw  no 673.6M Wed 2018-07-11 00:10:33 J… Wed 2018-07-11 00:16:00 JST\n");
+}
+
+TEST(invalid_utf8_cell) {
+        /* A cell that is not valid UTF-8 must be refused the same way whatever the column width is.
+         * The width was previously determined with a more permissive decoder than the one ellipsize()
+         * uses, so a surrogate, overlong, noncharacter or obsolete five byte sequence was measured as
+         * if it were fine, and then failed inside ellipsize() as a bogus -ENOMEM, but only once the
+         * column happened to be narrow enough to require truncation. The widths below deliberately go
+         * past the width of the whole table, so that the last iterations are ones where no truncation
+         * is needed at all: those are the ones where the old code did not fail but printed the invalid
+         * sequence to the terminal instead. */
+
+        FOREACH_STRING(x,
+                       "\xed\xa0\x80",          /* UTF-16 surrogate */
+                       "\xc0\xaf",              /* overlong '/' */
+                       "\xef\xb7\x90",          /* noncharacter U+FDD0 */
+                       "\xf8\x88\x80\x80\x80")  /* obsolete five byte form */
+                for (size_t w = 8; w <= 64; w += 8) {
+                        _cleanup_(table_unrefp) Table *table = NULL;
+                        _cleanup_free_ char *formatted = NULL, *cell = NULL;
+
+                        ASSERT_NOT_NULL((table = table_new("name", "value")));
+                        ASSERT_NOT_NULL((cell = strjoin("aaaaaaaaaaaaaaaa", x, "aaaaaaaaaaaaaaaa")));
+                        ASSERT_OK(table_add_many(table,
+                                                 TABLE_STRING, cell,
+                                                 TABLE_STRING, "second"));
+                        table_set_width(table, w);
+
+                        ASSERT_ERROR(table_format(table, &formatted), EINVAL);
+                }
+}
+
+TEST(tab_in_cell) {
+        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_free_ char *formatted = NULL;
+
+        /* A tab takes up eight character cells, so the padding align_string_mem() adds has to be
+         * computed with unichar_console_width() too, or the column comes out too wide.
+         *
+         * Note that unichar_console_width() charges a tab a flat eight cells, while a terminal
+         * advances to the next multiple of eight instead. The two only agree if the tab itself starts
+         * on a multiple of eight, hence the eight characters in front of it here: that way the
+         * expected output below is what a terminal really renders, too. */
+
+        ASSERT_NOT_NULL((table = table_new("name", "value")));
+        ASSERT_OK(table_add_many(table,
+                                 TABLE_STRING, "aaaaaaaa\tb",
+                                 TABLE_STRING, "1",
+                                 TABLE_STRING, "wide enough to pad the tab cell",
+                                 TABLE_STRING, "2"));
+
+        table_set_width(table, 40);
+        ASSERT_OK(table_format(table, &formatted));
+
+        printf("%s\n", formatted);
+        ASSERT_STREQ(formatted,
+                     "NAME                             VALUE\n"
+                     "aaaaaaaa\tb                1\n"
+                     "wide enough to pad the tab cell  2\n");
+
+        /* And the case the two passes have to agree on: a cell whose tab makes it the widest one in
+         * its column, in a table pinned narrower than that. The cell drives the requested column width
+         * and is then handed to ellipsize(), which used to believe the tab was a single cell and so
+         * returned something that still overflowed the column it had just been asked to fit into. */
+
+        _cleanup_(table_unrefp) Table *narrow = NULL;
+        _cleanup_free_ char *narrow_formatted = NULL;
+        _cleanup_strv_free_ char **lines = NULL;
+
+        ASSERT_NOT_NULL((narrow = table_new("name", "value")));
+        ASSERT_OK(table_add_many(narrow,
+                                 TABLE_STRING, "aaaaaaaa\tbbbbbbbb",
+                                 TABLE_STRING, "1",
+                                 TABLE_STRING, "short",
+                                 TABLE_STRING, "2"));
+
+        table_set_width(narrow, 20);
+        ASSERT_OK(table_format(narrow, &narrow_formatted));
+
+        printf("%s\n", narrow_formatted);
+        ASSERT_NOT_NULL((lines = strv_split_newlines(narrow_formatted)));
+        STRV_FOREACH(l, lines)
+                ASSERT_LE(utf8_console_width(*l), (size_t) 20);
 }
 
 TEST(multiline) {
@@ -824,6 +911,100 @@ TEST(unsigned_integers) {
         sd_json_variant_dump(b, SD_JSON_FORMAT_NEWLINE, stdout, NULL);
 
         ASSERT_TRUE(sd_json_variant_equal(a, b));
+}
+
+TEST(doubles) {
+        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_free_ char *formatted = NULL, *sorted = NULL;
+
+        ASSERT_NOT_NULL((t = table_new("name", "value")));
+        table_set_width(t, 0);
+
+        /* Two decimals unless set otherwise. Later rows of a column inherit the setting. */
+        ASSERT_OK(table_add_many(t,
+                                 TABLE_STRING, "a",
+                                 TABLE_DOUBLE, 0.5));
+        ASSERT_OK(table_add_many(t,
+                                 TABLE_STRING, "b",
+                                 TABLE_DOUBLE, 917.974,
+                                 TABLE_SET_DECIMALS, 1U));
+        ASSERT_OK(table_add_many(t,
+                                 TABLE_STRING, "c",
+                                 TABLE_DOUBLE, -3.0));
+        ASSERT_OK(table_add_many(t,
+                                 TABLE_STRING, "d",
+                                 TABLE_DOUBLE, 20534.4,
+                                 TABLE_SET_DECIMALS, 0U));
+
+        ASSERT_OK(table_format(t, &formatted));
+        printf("%s\n", formatted);
+
+        ASSERT_STREQ(formatted,
+                     "NAME VALUE\n"
+                     "a    0.50\n"
+                     "b    918.0\n"
+                     "c    -3.0\n"
+                     "d    20534\n");
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL, *b = NULL;
+        ASSERT_OK(table_to_json(t, &a));
+
+        ASSERT_OK(sd_json_build(&b,
+                                SD_JSON_BUILD_ARRAY(
+                                  SD_JSON_BUILD_OBJECT(
+                                    SD_JSON_BUILD_PAIR_STRING("name", "a"),
+                                    SD_JSON_BUILD_PAIR_REAL("value", 0.5)),
+                                  SD_JSON_BUILD_OBJECT(
+                                    SD_JSON_BUILD_PAIR_STRING("name", "b"),
+                                    SD_JSON_BUILD_PAIR_REAL("value", 917.974)),
+                                  SD_JSON_BUILD_OBJECT(
+                                    SD_JSON_BUILD_PAIR_STRING("name", "c"),
+                                    SD_JSON_BUILD_PAIR_REAL("value", -3.0)),
+                                  SD_JSON_BUILD_OBJECT(
+                                    SD_JSON_BUILD_PAIR_STRING("name", "d"),
+                                    SD_JSON_BUILD_PAIR_REAL("value", 20534.4)))));
+
+        ASSERT_TRUE(sd_json_variant_equal(a, b));
+
+        /* Sorting compares the values, not their text */
+        ASSERT_OK(table_set_sort(t, (size_t) 1));
+        ASSERT_OK(table_format(t, &sorted));
+        printf("%s\n", sorted);
+
+        ASSERT_STREQ(sorted,
+                     "NAME VALUE\n"
+                     "c    -3.0\n"
+                     "a    0.50\n"
+                     "b    918.0\n"
+                     "d    20534\n");
+}
+
+TEST(doubles_locale) {
+        _cleanup_(freelocalep) locale_t loc = (locale_t) 0;
+        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_free_ char *formatted = NULL;
+        locale_t old_loc;
+
+        /* The decimal separator must not depend on LC_NUMERIC */
+        loc = newlocale(LC_NUMERIC_MASK, "de_DE.UTF-8", (locale_t) 0);
+        if (loc == (locale_t) 0)
+                return (void) log_tests_skipped("de_DE.UTF-8 locale not available");
+
+        ASSERT_NOT_NULL((t = table_new("name", "value")));
+        table_set_width(t, 0);
+
+        ASSERT_OK(table_add_many(t,
+                                 TABLE_STRING, "a",
+                                 TABLE_DOUBLE, 0.5));
+
+        old_loc = uselocale(loc);
+        ASSERT_OK(table_format(t, &formatted));
+        (void) uselocale(old_loc);
+        printf("%s\n", formatted);
+
+        ASSERT_STREQ(formatted,
+                     "NAME VALUE\n"
+                     "a    0.50\n");
 }
 
 TEST(vertical) {

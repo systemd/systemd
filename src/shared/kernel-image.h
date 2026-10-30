@@ -14,6 +14,12 @@ typedef enum KernelImageType {
 
 DECLARE_STRING_TABLE_LOOKUP_TO_STRING(kernel_image_type, KernelImageType);
 
+int inspect_kernel_fd(
+                int fd,
+                KernelImageType *ret_type,
+                char **ret_cmdline,
+                char **ret_uname,
+                char **ret_pretty_name);
 int inspect_kernel_full(
                 int dir_fd,
                 const char *filename,
@@ -21,6 +27,12 @@ int inspect_kernel_full(
                 char **ret_cmdline,
                 char **ret_uname,
                 char **ret_pretty_name);
+
+int kernel_decompress(int fd, int *ret_fd);
+int kernel_uname_from_x86_boot_header(int fd, char **ret);
+int kernel_uname_from_elf_note(int fd, char **ret);
+int kernel_uname_from_banner(int fd, char **ret);
+int kernel_find_uname(int fd, char **ret);
 
 static inline int inspect_kernel(
                 int dir_fd,

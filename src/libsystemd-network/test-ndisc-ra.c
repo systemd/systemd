@@ -73,84 +73,84 @@ static const char *test_dnssl[] = { "lab.intra",
 TEST(radv) {
         sd_radv *ra;
 
-        assert_se(sd_radv_new(&ra) >= 0);
-        assert_se(ra);
+        ASSERT_OK(sd_radv_new(&ra));
+        ASSERT_NOT_NULL(ra);
 
-        ASSERT_RETURN_EXPECTED_SE(sd_radv_set_ifindex(NULL, 0) < 0);
-        ASSERT_RETURN_EXPECTED_SE(sd_radv_set_ifindex(ra, 0) < 0);
-        ASSERT_RETURN_EXPECTED_SE(sd_radv_set_ifindex(ra, -1) < 0);
-        ASSERT_RETURN_EXPECTED_SE(sd_radv_set_ifindex(ra, -2) < 0);
-        assert_se(sd_radv_set_ifindex(ra, 42) >= 0);
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_radv_set_ifindex(NULL, 0), EINVAL));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_radv_set_ifindex(ra, 0), EINVAL));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_radv_set_ifindex(ra, -1), EINVAL));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_radv_set_ifindex(ra, -2), EINVAL));
+        ASSERT_OK(sd_radv_set_ifindex(ra, 42));
 
         /* header */
-        ASSERT_RETURN_EXPECTED_SE(sd_radv_set_hop_limit(NULL, 0) < 0);
-        assert_se(sd_radv_set_hop_limit(ra, 0) >= 0);
-        assert_se(sd_radv_set_hop_limit(ra, ~0) >= 0);
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_radv_set_hop_limit(NULL, 0), EINVAL));
+        ASSERT_OK(sd_radv_set_hop_limit(ra, 0));
+        ASSERT_OK(sd_radv_set_hop_limit(ra, ~0));
 
-        ASSERT_RETURN_EXPECTED_SE(sd_radv_set_router_lifetime(NULL, 0) < 0);
-        assert_se(sd_radv_set_router_lifetime(ra, 0) >= 0);
-        assert_se(sd_radv_set_router_lifetime(ra, USEC_INFINITY) < 0);
-        assert_se(sd_radv_set_router_lifetime(ra, USEC_PER_YEAR) < 0);
-        assert_se(sd_radv_set_router_lifetime(ra, 300 * USEC_PER_SEC) >= 0);
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_radv_set_router_lifetime(NULL, 0), EINVAL));
+        ASSERT_OK(sd_radv_set_router_lifetime(ra, 0));
+        ASSERT_ERROR(sd_radv_set_router_lifetime(ra, USEC_INFINITY), EINVAL);
+        ASSERT_ERROR(sd_radv_set_router_lifetime(ra, USEC_PER_YEAR), EINVAL);
+        ASSERT_OK(sd_radv_set_router_lifetime(ra, 300 * USEC_PER_SEC));
 
-        ASSERT_RETURN_EXPECTED_SE(sd_radv_set_preference(NULL, 0) < 0);
-        assert_se(sd_radv_set_preference(ra, SD_NDISC_PREFERENCE_LOW) >= 0);
-        assert_se(sd_radv_set_preference(ra, SD_NDISC_PREFERENCE_MEDIUM) >= 0);
-        assert_se(sd_radv_set_preference(ra, SD_NDISC_PREFERENCE_HIGH) >= 0);
-        ASSERT_RETURN_EXPECTED_SE(sd_radv_set_preference(ra, ~0) < 0);
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_radv_set_preference(NULL, 0), EINVAL));
+        ASSERT_OK(sd_radv_set_preference(ra, SD_NDISC_PREFERENCE_LOW));
+        ASSERT_OK(sd_radv_set_preference(ra, SD_NDISC_PREFERENCE_MEDIUM));
+        ASSERT_OK(sd_radv_set_preference(ra, SD_NDISC_PREFERENCE_HIGH));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_radv_set_preference(ra, ~0), EINVAL));
 
-        ASSERT_RETURN_EXPECTED_SE(sd_radv_set_managed_information(NULL, true) < 0);
-        assert_se(sd_radv_set_managed_information(ra, true) >= 0);
-        assert_se(sd_radv_set_managed_information(ra, false) >= 0);
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_radv_set_managed_information(NULL, true), EINVAL));
+        ASSERT_OK(sd_radv_set_managed_information(ra, true));
+        ASSERT_OK(sd_radv_set_managed_information(ra, false));
 
-        ASSERT_RETURN_EXPECTED_SE(sd_radv_set_other_information(NULL, true) < 0);
-        assert_se(sd_radv_set_other_information(ra, true) >= 0);
-        assert_se(sd_radv_set_other_information(ra, false) >= 0);
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_radv_set_other_information(NULL, true), EINVAL));
+        ASSERT_OK(sd_radv_set_other_information(ra, true));
+        ASSERT_OK(sd_radv_set_other_information(ra, false));
 
-        ASSERT_RETURN_EXPECTED_SE(sd_radv_set_reachable_time(NULL, 10 * USEC_PER_MSEC) < 0);
-        assert_se(sd_radv_set_reachable_time(ra, 10 * USEC_PER_MSEC) >= 0);
-        assert_se(sd_radv_set_reachable_time(ra, 0) >= 0);
-        assert_se(sd_radv_set_reachable_time(ra, USEC_INFINITY) >= 0);
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_radv_set_reachable_time(NULL, 10 * USEC_PER_MSEC), EINVAL));
+        ASSERT_OK(sd_radv_set_reachable_time(ra, 10 * USEC_PER_MSEC));
+        ASSERT_OK(sd_radv_set_reachable_time(ra, 0));
+        ASSERT_OK(sd_radv_set_reachable_time(ra, USEC_INFINITY));
 
-        ASSERT_RETURN_EXPECTED_SE(sd_radv_set_retransmit(NULL, 10 * USEC_PER_MSEC) < 0);
-        assert_se(sd_radv_set_retransmit(ra, 10 * USEC_PER_MSEC) >= 0);
-        assert_se(sd_radv_set_retransmit(ra, 0) >= 0);
-        assert_se(sd_radv_set_retransmit(ra, USEC_INFINITY) >= 0);
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_radv_set_retransmit(NULL, 10 * USEC_PER_MSEC), EINVAL));
+        ASSERT_OK(sd_radv_set_retransmit(ra, 10 * USEC_PER_MSEC));
+        ASSERT_OK(sd_radv_set_retransmit(ra, 0));
+        ASSERT_OK(sd_radv_set_retransmit(ra, USEC_INFINITY));
 
         /* options */
-        ASSERT_RETURN_EXPECTED_SE(sd_radv_set_mac(NULL, NULL) < 0);
-        ASSERT_RETURN_EXPECTED_SE(sd_radv_set_mac(ra, NULL) >= 0);
-        assert_se(sd_radv_set_mac(ra, &mac_addr) >= 0);
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_radv_set_mac(NULL, NULL), EINVAL));
+        ASSERT_OK(sd_radv_set_mac(ra, NULL));
+        ASSERT_OK(sd_radv_set_mac(ra, &mac_addr));
         sd_radv_unset_mac(ra);
 
-        ASSERT_RETURN_EXPECTED_SE(sd_radv_set_mtu(NULL, 0) < 0);
-        ASSERT_RETURN_EXPECTED_SE(sd_radv_set_mtu(ra, 0) < 0);
-        ASSERT_RETURN_EXPECTED_SE(sd_radv_set_mtu(ra, 1279) < 0);
-        assert_se(sd_radv_set_mtu(ra, 1280) >= 0);
-        assert_se(sd_radv_set_mtu(ra, 9999) >= 0);
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_radv_set_mtu(NULL, 0), EINVAL));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_radv_set_mtu(ra, 0), EINVAL));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_radv_set_mtu(ra, 1279), EINVAL));
+        ASSERT_OK(sd_radv_set_mtu(ra, 1280));
+        ASSERT_OK(sd_radv_set_mtu(ra, 9999));
         sd_radv_unset_mtu(ra);
 
-        ASSERT_RETURN_EXPECTED_SE(sd_radv_add_rdnss(NULL, 0, NULL, 0, 0) < 0);
-        ASSERT_RETURN_EXPECTED_SE(sd_radv_add_rdnss(ra, 0, NULL, 0, 0) < 0);
-        assert_se(sd_radv_add_rdnss(ra, 0, &test_rdnss, 600 * USEC_PER_SEC, USEC_INFINITY) < 0);
-        assert_se(sd_radv_add_rdnss(ra, 1, &test_rdnss, 600 * USEC_PER_SEC, USEC_INFINITY) >= 0);
-        assert_se(sd_radv_add_rdnss(ra, 1, &test_rdnss, 0, 0) >= 0);
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_radv_add_rdnss(NULL, 0, NULL, 0, 0), EINVAL));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_radv_add_rdnss(ra, 0, NULL, 0, 0), EINVAL));
+        ASSERT_ERROR(sd_radv_add_rdnss(ra, 0, &test_rdnss, 600 * USEC_PER_SEC, USEC_INFINITY), EINVAL);
+        ASSERT_OK(sd_radv_add_rdnss(ra, 1, &test_rdnss, 600 * USEC_PER_SEC, USEC_INFINITY));
+        ASSERT_OK(sd_radv_add_rdnss(ra, 1, &test_rdnss, 0, 0));
         sd_radv_clear_rdnss(ra);
 
-        ASSERT_RETURN_EXPECTED_SE(sd_radv_add_dnssl(NULL, NULL, 0, 0) < 0);
-        assert_se(sd_radv_add_dnssl(ra, NULL, 0, 0) < 0);
-        assert_se(sd_radv_add_dnssl(ra, NULL, 600 * USEC_PER_SEC, USEC_INFINITY) < 0);
-        assert_se(sd_radv_add_dnssl(ra, (char**) test_dnssl, 600 * USEC_PER_SEC, USEC_INFINITY) >= 0);
-        assert_se(sd_radv_add_dnssl(ra, (char**) test_dnssl, 0, 0) >= 0);
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_radv_add_dnssl(NULL, NULL, 0, 0), EINVAL));
+        ASSERT_ERROR(sd_radv_add_dnssl(ra, NULL, 0, 0), EINVAL);
+        ASSERT_ERROR(sd_radv_add_dnssl(ra, NULL, 600 * USEC_PER_SEC, USEC_INFINITY), EINVAL);
+        ASSERT_OK(sd_radv_add_dnssl(ra, (char**) test_dnssl, 600 * USEC_PER_SEC, USEC_INFINITY));
+        ASSERT_OK(sd_radv_add_dnssl(ra, (char**) test_dnssl, 0, 0));
         sd_radv_clear_dnssl(ra);
 
-        ASSERT_RETURN_EXPECTED_SE(sd_radv_set_home_agent(NULL, 0, 0, 0) < 0);
-        assert_se(sd_radv_set_home_agent(ra, 0, 0, 0) >= 0);
-        assert_se(sd_radv_set_home_agent(ra, 10, 300 * USEC_PER_SEC, USEC_INFINITY) >= 0);
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_radv_set_home_agent(NULL, 0, 0, 0), EINVAL));
+        ASSERT_OK(sd_radv_set_home_agent(ra, 0, 0, 0));
+        ASSERT_OK(sd_radv_set_home_agent(ra, 10, 300 * USEC_PER_SEC, USEC_INFINITY));
         sd_radv_unset_home_agent(ra);
 
         ra = sd_radv_unref(ra);
-        assert_se(!ra);
+        ASSERT_NULL(ra);
 }
 
 static void dump_message(const uint8_t *buf, size_t len) {
@@ -214,11 +214,11 @@ static void verify_message(const uint8_t *buf, size_t len) {
                         case 6 ... 7: /* router lifetime */
                         case 8 ... 11: /* reachable time */
                         case 12 ... 15: /* retrans timer */
-                                assert_se(buf[i] == 0);
+                                ASSERT_EQ(buf[i], 0);
                                 continue;
                         }
 
-                assert_se(buf[i] == advertisement[i]);
+                ASSERT_EQ(buf[i], advertisement[i]);
         }
 }
 
@@ -227,21 +227,20 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
         _cleanup_free_ uint8_t *buf = NULL;
         ssize_t buflen;
 
-        buflen = next_datagram_size_fd(fd);
-        assert_se(buflen >= 0);
-        assert_se(buf = new0(uint8_t, buflen));
+        buflen = ASSERT_OK(next_datagram_size_fd(fd));
+        ASSERT_NOT_NULL((buf = new0(uint8_t, buflen)));
 
-        assert_se(read(fd, buf, buflen) == buflen);
+        ASSERT_OK_EQ_ERRNO(read(fd, buf, buflen), buflen);
 
         dump_message(buf, buflen);
         verify_message(buf, buflen);
 
         if (test_stopped) {
-                assert_se(sd_event_exit(sd_radv_get_event(ra), 0) >= 0);
+                ASSERT_OK(sd_event_exit(sd_radv_get_event(ra), 0));
                 return 0;
         }
 
-        assert_se(sd_radv_stop(ra) >= 0);
+        ASSERT_OK(sd_radv_stop(ra));
         test_stopped = true;
         return 0;
 }
@@ -256,25 +255,25 @@ TEST(ra_ifindex_mismatch) {
         _cleanup_(sd_radv_unrefp) sd_radv *ra = NULL;
         ssize_t buflen;
 
-        assert_se(socketpair(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) >= 0);
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd));
 
-        assert_se(sd_event_new(&e) >= 0);
-        assert_se(sd_radv_new(&ra) >= 0);
-        assert_se(sd_radv_attach_event(ra, e, 0) >= 0);
-        assert_se(sd_radv_set_ifindex(ra, 42) >= 0);
-        assert_se(sd_radv_start(ra) >= 0);
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_radv_new(&ra));
+        ASSERT_OK(sd_radv_attach_event(ra, e, 0));
+        ASSERT_OK(sd_radv_set_ifindex(ra, 42));
+        ASSERT_OK(sd_radv_start(ra));
 
-        assert_se(sd_event_run(e, UINT64_MAX) >= 0);
-        assert_se((buflen = next_datagram_size_fd(test_fd[0])) >= 0);
-        assert_se(buf = new(uint8_t, buflen));
-        assert_se(read(test_fd[0], buf, buflen) == buflen);
+        ASSERT_OK(sd_event_run(e, UINT64_MAX));
+        buflen = ASSERT_OK(next_datagram_size_fd(test_fd[0]));
+        ASSERT_NOT_NULL((buf = new(uint8_t, buflen)));
+        ASSERT_OK_EQ_ERRNO(read(test_fd[0], buf, buflen), buflen);
 
         test_ifindex = 43;
-        assert_se(write(test_fd[0], &rs, sizeof(rs)) == sizeof(rs));
-        assert_se(sd_event_run(e, UINT64_MAX) >= 0);
-        assert_se(next_datagram_size_fd(test_fd[0]) == -EAGAIN);
+        ASSERT_OK_EQ_ERRNO(write(test_fd[0], &rs, sizeof(rs)), (ssize_t) sizeof(rs));
+        ASSERT_OK(sd_event_run(e, UINT64_MAX));
+        ASSERT_ERROR(next_datagram_size_fd(test_fd[0]), EAGAIN);
 
-        assert_se(sd_radv_stop(ra) >= 0);
+        ASSERT_OK(sd_radv_stop(ra));
         test_fd[0] = safe_close(test_fd[0]);
 }
 
@@ -282,58 +281,61 @@ TEST(ra) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *recv_router_advertisement = NULL;
         _cleanup_(sd_radv_unrefp) sd_radv *ra = NULL;
+        int r;
 
-        assert_se(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) >= 0);
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd));
 
-        assert_se(sd_event_new(&e) >= 0);
+        ASSERT_OK(sd_event_new(&e));
 
-        assert_se(sd_radv_new(&ra) >= 0);
-        assert_se(ra);
+        ASSERT_OK(sd_radv_new(&ra));
+        ASSERT_NOT_NULL(ra);
 
-        assert_se(sd_radv_attach_event(ra, e, 0) >= 0);
+        ASSERT_OK(sd_radv_attach_event(ra, e, 0));
 
-        assert_se(sd_radv_set_ifindex(ra, 42) >= 0);
-        assert_se(sd_radv_set_router_lifetime(ra, 180 * USEC_PER_SEC) >= 0);
-        assert_se(sd_radv_set_hop_limit(ra, 64) >= 0);
-        assert_se(sd_radv_set_managed_information(ra, true) >= 0);
-        assert_se(sd_radv_set_other_information(ra, true) >= 0);
-        assert_se(sd_radv_set_mac(ra, &mac_addr) >= 0);
-        assert_se(sd_radv_add_rdnss(ra, 1, &test_rdnss, 60 * USEC_PER_SEC, USEC_INFINITY) >= 0);
-        assert_se(sd_radv_add_dnssl(ra, (char**) test_dnssl, 60 * USEC_PER_SEC, USEC_INFINITY) >= 0);
+        ASSERT_OK(sd_radv_set_ifindex(ra, 42));
+        ASSERT_OK(sd_radv_set_router_lifetime(ra, 180 * USEC_PER_SEC));
+        ASSERT_OK(sd_radv_set_hop_limit(ra, 64));
+        ASSERT_OK(sd_radv_set_managed_information(ra, true));
+        ASSERT_OK(sd_radv_set_other_information(ra, true));
+        ASSERT_OK(sd_radv_set_mac(ra, &mac_addr));
+        ASSERT_OK(sd_radv_add_rdnss(ra, 1, &test_rdnss, 60 * USEC_PER_SEC, USEC_INFINITY));
+        ASSERT_OK(sd_radv_add_dnssl(ra, (char**) test_dnssl, 60 * USEC_PER_SEC, USEC_INFINITY));
 
         FOREACH_ARRAY(p, prefix, ELEMENTSOF(prefix)) {
+                usec_t valid = p->valid > 0 ? p->valid * USEC_PER_SEC : RADV_DEFAULT_VALID_LIFETIME_USEC;
+                usec_t preferred = p->preferred > 0 ? p->preferred * USEC_PER_SEC :
+                                                      RADV_DEFAULT_PREFERRED_LIFETIME_USEC;
+
                 printf("Test prefix %s\n", IN6_ADDR_PREFIX_TO_STRING(&p->address, p->prefixlen));
-                assert_se((sd_radv_add_prefix(
-                                ra,
-                                &p->address,
-                                p->prefixlen,
-                                ND_OPT_PI_FLAG_ONLINK | ND_OPT_PI_FLAG_AUTO,
-                                p->valid > 0 ? p->valid * USEC_PER_SEC : RADV_DEFAULT_VALID_LIFETIME_USEC,
-                                p->preferred > 0 ? p->preferred * USEC_PER_SEC : RADV_DEFAULT_PREFERRED_LIFETIME_USEC,
-                                USEC_INFINITY,
-                                USEC_INFINITY) >= 0) == p->successful);
-                /* If the previous sd_radv_add_prefix() succeeds, then also the second call should also succeed. */
-                assert_se((sd_radv_add_prefix(
-                                ra,
-                                &p->address,
-                                p->prefixlen,
-                                ND_OPT_PI_FLAG_ONLINK | ND_OPT_PI_FLAG_AUTO,
-                                p->valid > 0 ? p->valid * USEC_PER_SEC : RADV_DEFAULT_VALID_LIFETIME_USEC,
-                                p->preferred > 0 ? p->preferred * USEC_PER_SEC : RADV_DEFAULT_PREFERRED_LIFETIME_USEC,
-                                USEC_INFINITY,
-                                USEC_INFINITY) >= 0) == p->successful);
+
+                /* If the first call succeeds, then the second call for the same prefix succeeds too. */
+                for (unsigned i = 0; i < 2; i++) {
+                        r = sd_radv_add_prefix(
+                                        ra,
+                                        &p->address,
+                                        p->prefixlen,
+                                        ND_OPT_PI_FLAG_ONLINK | ND_OPT_PI_FLAG_AUTO,
+                                        valid,
+                                        preferred,
+                                        USEC_INFINITY,
+                                        USEC_INFINITY);
+                        if (p->successful)
+                                ASSERT_OK(r);
+                        else
+                                ASSERT_ERROR(r, EEXIST);
+                }
         }
 
-        assert_se(sd_event_add_io(e, &recv_router_advertisement, test_fd[0], EPOLLIN, radv_recv, ra) >= 0);
-        assert_se(sd_event_source_set_io_fd_own(recv_router_advertisement, true) >= 0);
+        ASSERT_OK(sd_event_add_io(e, &recv_router_advertisement, test_fd[0], EPOLLIN, radv_recv, ra));
+        ASSERT_OK(sd_event_source_set_io_fd_own(recv_router_advertisement, true));
 
-        assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
+        ASSERT_OK(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
                                              30 * USEC_PER_SEC, 0,
-                                             NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
+                                             NULL, INT_TO_PTR(-ETIMEDOUT)));
 
-        assert_se(sd_radv_start(ra) >= 0);
+        ASSERT_OK(sd_radv_start(ra));
 
-        assert_se(sd_event_loop(e) >= 0);
+        ASSERT_OK(sd_event_loop(e));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

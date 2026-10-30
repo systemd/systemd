@@ -17,7 +17,7 @@ timesyncd_export_sources = files(
 timesyncd_gperf_c = custom_target(
         input : 'timesyncd-gperf.gperf',
         output : 'timesyncd-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf_cmdline, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 generated_sources += timesyncd_gperf_c
 timesyncd_export_sources += timesyncd_gperf_c

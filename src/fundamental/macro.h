@@ -76,6 +76,7 @@
 #define _align_(x) __attribute__((__aligned__(x)))
 #define _alignas_(x) __attribute__((__aligned__(alignof(x))))
 #define _alignptr_ __attribute__((__aligned__(sizeof(void *))))
+#define _always_inline_ __attribute__((__always_inline__))
 #define _cleanup_(x) __attribute__((__cleanup__(x)))
 #define _const_ __attribute__((__const__))
 #define _deprecated_ __attribute__((__deprecated__))

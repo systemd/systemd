@@ -32,6 +32,7 @@ int bus_set_address_capsule_bus(sd_bus *bus, const char *capsule, int *ret_pin_f
 
 int bus_connect_system_systemd(sd_bus **ret);
 int bus_connect_user_systemd(sd_bus **ret);
+int bus_connect_user_systemd_by_uid(uid_t uid, const char *description, sd_bus **ret);
 int bus_connect_capsule_systemd(const char *capsule, sd_bus **ret);
 int bus_connect_capsule_bus(const char *capsule, sd_bus **ret);
 

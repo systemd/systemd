@@ -224,9 +224,6 @@ assert_timedated_signal() {
 
     for _ in {0..9}; do
         if journalctl "${args[@]}" --grep .; then
-            # Make the found entry in the archived journal, to avoid the following failure:
-            # Journal file /run/log/journal/.../system.journal is truncated, ignoring file.
-            journalctl --rotate
             [[ "$(journalctl "${args[@]}" -o cat | jq -r '.payload.data[1].NTP.data')" == "$value" ]];
             return 0
         fi
@@ -320,9 +317,6 @@ assert_timesyncd_signal() {
 
     for _ in {0..9}; do
         if journalctl "${args[@]}" --grep .; then
-            # Make the found entry in the archived journal, to avoid the following failure:
-            # Journal file /run/log/journal/.../system.journal is truncated, ignoring file.
-            journalctl --rotate
             [[ "$(journalctl "${args[@]}" -o cat | jq -r ".payload.data[1].$property.data | join(\" \")")" == "$value" ]];
             return 0
         fi
@@ -423,7 +417,7 @@ EOF
 }
 
 teardown_timesyncd_resolve() {
-    set +eu
+    set +e
 
     systemctl start systemd-resolved-varlink.socket
     systemctl start systemd-resolved.service
@@ -431,6 +425,8 @@ teardown_timesyncd_resolve() {
     rm -rf /run/systemd/system/systemd-timesyncd.service.d
     systemctl daemon-reload
     systemctl stop systemd-timesyncd
+
+    set -e
 }
 
 testcase_timesyncd_resolve() {
@@ -481,12 +477,14 @@ EOF
 }
 
 teardown_timedated_alternate_paths() {
-    set +eu
+    set +e
 
     rm -rf /run/systemd/system/systemd-timedated.service.d
     rm -rf /run/alternate-path
     systemctl daemon-reload
     systemctl restart systemd-timedated
+
+    set -e
 }
 
 testcase_timedated_alternate_paths() {

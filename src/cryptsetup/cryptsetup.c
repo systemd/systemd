@@ -10,7 +10,6 @@
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
-#include "build.h"
 #include "cryptsetup-fido2.h"
 #include "cryptsetup-keyfile.h"
 #include "cryptsetup-pkcs11.h"
@@ -124,6 +123,7 @@ static char *arg_link_keyring = NULL;
 static char *arg_link_key_type = NULL;
 static char *arg_link_key_description = NULL;
 static char *arg_fixate_volume_key = NULL;
+static char *arg_friendly_name = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_cipher, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
@@ -141,11 +141,13 @@ STATIC_DESTRUCTOR_REGISTER(arg_link_keyring, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_link_key_type, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_link_key_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fixate_volume_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_friendly_name, freep);
 
 COMMAND(
         "systemd-cryptsetup\0",
         "Attach or detach an encrypted block device.",
         .man_pages = "systemd-cryptsetup(8)\0",
+        .option_namespace = "common",
 );
 
 static const char* const passphrase_type_table[_PASSPHRASE_TYPE_MAX] = {
@@ -209,20 +211,25 @@ static int parse_one_option(const char *option) {
                 arg_key_size = key_size / 8;
 
         } else if ((val = startswith(option, "sector-size="))) {
+                unsigned sector_size;
 
-                r = safe_atou(val, &arg_sector_size);
+                r = safe_atou(val, &sector_size);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
                         return 0;
                 }
 
-                if (arg_sector_size % 2) {
-                        log_warning("sector-size= not a multiple of 2, ignoring.");
+                if (!ISPOWEROF2(sector_size)) {
+                        log_warning("sector-size= not a power of 2, ignoring.");
                         return 0;
                 }
 
-                if (arg_sector_size < CRYPT_SECTOR_SIZE || arg_sector_size > CRYPT_MAX_SECTOR_SIZE)
+                if (sector_size < CRYPT_SECTOR_SIZE || sector_size > CRYPT_MAX_SECTOR_SIZE) {
                         log_warning("sector-size= is outside of %u and %u, ignoring.", CRYPT_SECTOR_SIZE, CRYPT_MAX_SECTOR_SIZE);
+                        return 0;
+                }
+
+                arg_sector_size = sector_size;
 
         } else if ((val = startswith(option, "key-slot=")) ||
                    (val = startswith(option, "keyslot="))) {
@@ -642,6 +649,27 @@ static int parse_one_option(const char *option) {
                 if (r < 0)
                         return log_oom();
 
+        } else if ((val = startswith(option, "friendly-name="))) {
+
+                if (isempty(val)) {
+                        arg_friendly_name = mfree(arg_friendly_name);
+                        return 0;
+                }
+
+                /* Longest prompt with this name is "PIN has been entered incorrectly previously..." in
+                 * pkcs11_token_login (in src/shared/pkcs11-util.c), which also includes the token label
+                 * (up to 32 bytes), so cap the friendly name at 100 bytes to ensure that the prompt isn't
+                 * too big for a Plymouth message (see plymouth_build_password_packet in
+                 * src/shared/plymouth-util.c). */
+                if (!string_is_safe(val, STRING_ALLOW_GLOBS) || strlen(val) > 100) {
+                        log_warning("Invalid friendly-name= option \"%s\", ignoring.", val);
+                        return 0;
+                }
+
+                r = free_and_strdup(&arg_friendly_name, val);
+                if (r < 0)
+                        return log_oom();
+
         } else if (!streq(option, "x-initrd.attach"))
                 log_warning("Encountered unknown /etc/crypttab option '%s', ignoring.", option);
 
@@ -776,6 +804,9 @@ static char *friendly_disk_name(const char *src, const char *vol) {
 
         assert(src);
         assert(vol);
+
+        if (arg_friendly_name)
+                return strdup(arg_friendly_name);
 
         description = disk_description(src);
         mount_point = disk_mount_point(vol);
@@ -2041,6 +2072,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 cd,
                                                 arg_tpm2_pcr_mask, /* if != UINT32_MAX we'll only look for tokens with this PCR mask */
                                                 token, /* search for the token with this index, or any later index than this */
+                                                LOG_ERR,
                                                 &hash_pcr_mask,
                                                 &pcr_bank,
                                                 &pubkey,
@@ -2380,30 +2412,6 @@ static int attach_luks_or_plain_or_bitlk(
 }
 
 VERB_COMMON_HELP_AUTO_HIDDEN();
-
-static int parse_argv(int argc, char *argv[], char ***ret_args) {
-        assert(argc >= 0);
-        assert(argv);
-        assert(ret_args);
-
-        OptionParser opts = { argc, argv };
-
-        FOREACH_OPTION_OR_RETURN(c, &opts)
-                switch (c) {
-
-                OPTION_COMMON_HELP:
-                        return command_print_help();
-
-                OPTION_COMMON_VERSION:
-                        return version();
-
-                OPTION_COMMON_INTROSPECT_CLI:
-                        return introspect_cli(SD_JSON_FORMAT_OFF);
-                }
-
-        *ret_args = option_parser_get_args(&opts);
-        return 1;
-}
 
 static uint32_t determine_flags(void) {
         uint32_t flags = 0;
@@ -2775,7 +2783,7 @@ static int run(int argc, char *argv[]) {
         umask(0022);
 
         char **args = NULL;
-        r = parse_argv(argc, argv, &args);
+        r = common_parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 

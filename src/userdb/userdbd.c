@@ -9,6 +9,14 @@
 #include "log.h"
 #include "main-func.h"
 #include "userdbd-manager.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-userdbd\0",
+        "Multiplex JSON user and group record queries.",
+        .man_pages = "systemd-userdbd.service(8)\0",
+        .option_namespace = "common",
+);
 
 /* This service offers two Varlink services, both implementing io.systemd.UserDatabase:
  *
@@ -32,8 +40,9 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (argc != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 0, /* ret_args= */ NULL);
+        if (r <= 0)
+                return r;
 
         if (setenv("SYSTEMD_BYPASS_USERDB", "io.systemd.NameServiceSwitch:io.systemd.Multiplexer:io.systemd.DropIn", 1) < 0)
                 return log_error_errno(errno, "Failed to set $SYSTEMD_BYPASS_USERDB: %m");

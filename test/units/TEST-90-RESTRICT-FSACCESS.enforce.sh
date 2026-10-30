@@ -132,7 +132,8 @@ trap at_exit EXIT
 # ------ Preconditions: helper "check" must agree with the cmdline ------
 # "check" runs the same gates as PID1: BPF LSM, require_signatures,
 # proc_mem.force_override=never on the cmdline plus a /proc/self/mem self-probe
-# verifying the kernel honours it, and the ptrace seccomp filter.
+# verifying the kernel honours it, and the ptrace and personality seccomp
+# filters.
 # SYSTEMD_PROC_CMDLINE overrides what the helper considers the kernel command
 # line; the gates run before any BPF program is loaded, so the rejections
 # below are cheap and attach nothing.
@@ -174,6 +175,20 @@ echo "/proc/self/mem rewrite of executable page refused: OK"
 expect_probe 1 "PTRACE_POKETEXT/PTRACE_POKEDATA" poketext
 echo "PTRACE_POKETEXT/PTRACE_POKEDATA refused by seccomp filter: OK"
 
+# ------ Test: the personality seccomp filter refuses READ_IMPLIES_EXEC ------
+# With the flag set brk() extends the heap writable and executable without
+# passing through any of the BPF hooks. The helper installs the same filter
+# PID1 uses; the probe only counts as a denial if the flag could be set before.
+
+expect_probe 1 "personality(READ_IMPLIES_EXEC)" read-implies-exec
+echo "personality(READ_IMPLIES_EXEC) refused by seccomp filter: OK"
+
+# ------ Baseline: brk() with READ_IMPLIES_EXEC works WITHOUT our BPF ------
+# Processes outside PID 1's seccomp filter can still have the flag. Only the
+# mmap_addr hook sees brk() then, see the test after attaching.
+
+expect_probe 0 "brk() with READ_IMPLIES_EXEC before attach" brk-read-implies-exec
+
 # ------ Baseline: W^X probes succeed WITHOUT our BPF ------
 # Another LSM (e.g. SELinux execmem/execmod) may deny these on its own, which
 # the helper reports as exit 3 (refused with an errno other than EPERM). A
@@ -198,6 +213,30 @@ for probe in mmap-wx mprotect-cow-exec mprotect-wx mprotect-exec; do
     esac
 done
 
+# ------ Baseline: the kernel answers AT_EXECVE_CHECK at all ------
+# The flag exists since Linux 6.14. Another LSM may deny it on its own (exit
+# 3), a denial with BPF attached would then prove nothing. Skip either way.
+
+EXECVE_CHECK=1
+if systemd-analyze compare-versions "$(uname -r)" lt 6.14; then
+    echo "Kernel $(uname -r) predates AT_EXECVE_CHECK (Linux 6.14), skipping those tests" >&2
+    EXECVE_CHECK=0
+else
+    rc=0
+    "$HELPER" execve-check /usr/bin/true || rc=$?
+    case "$rc" in
+        0) ;;
+        3)
+            echo "WARNING: AT_EXECVE_CHECK denied BEFORE BPF attach by another LSM, skipping those tests" >&2
+            EXECVE_CHECK=0
+            ;;
+        *)
+            echo "ERROR: execve-check failed BEFORE BPF attach (rc=$rc)!" >&2
+            exit 1
+            ;;
+    esac
+fi
+
 # ------ Baseline: verify tmpfs exec works WITHOUT our BPF ------
 #
 # Keep the destination basename as "true": on systems shipping uutils-coreutils
@@ -217,6 +256,9 @@ if ! /tmp/restrict-fsaccess-baseline/true 2>/dev/null; then
     exit 77
 fi
 echo "Baseline: tmpfs exec works without BPF"
+if [[ "$EXECVE_CHECK" == 1 ]]; then
+    expect_probe 0 "AT_EXECVE_CHECK on tmpfs before attach" execve-check /tmp/restrict-fsaccess-baseline/true
+fi
 umount /tmp/restrict-fsaccess-baseline; rm -rf /tmp/restrict-fsaccess-baseline
 
 # ------ Attach BPF with rootfs trusted ------
@@ -284,6 +326,24 @@ echo "Anonymous PROT_EXEC mmap blocked: OK"
 expect_probe 1 "mprotect PROT_EXEC on tmpfs file" mprotect-exec /tmp/restrict-fsaccess-test/testfile
 echo "mprotect PROT_EXEC from tmpfs blocked: OK"
 
+# ------ Test: brk() with READ_IMPLIES_EXEC is blocked (mmap_addr hook) ------
+# brk() reports the refusal as ENOMEM, which is what the probe expects.
+
+expect_probe 1 "brk() with READ_IMPLIES_EXEC" brk-read-implies-exec
+echo "brk() with READ_IMPLIES_EXEC blocked: OK"
+
+# ------ Test: AT_EXECVE_CHECK gets the execve() verdict (bprm_creds_for_exec hook) ------
+# The check returns before the binfmt handlers run, only the
+# bprm_creds_for_exec program sees it.
+
+if [[ "$EXECVE_CHECK" == 1 ]]; then
+    expect_probe 1 "AT_EXECVE_CHECK on tmpfs" execve-check /tmp/restrict-fsaccess-test/true
+    expect_probe 0 "AT_EXECVE_CHECK on rootfs" execve-check /usr/bin/true
+    # A file without the x bit is refused by the kernel (EACCES) before our program runs.
+    expect_probe 3 "AT_EXECVE_CHECK on a non-executable file" execve-check /tmp/restrict-fsaccess-test/testfile
+    echo "AT_EXECVE_CHECK answered like execve(): OK"
+fi
+
 # ------ Test: W^X on a trusted file (mmap_file + file_mprotect hooks) ------
 # /usr/bin/true lives on the trusted rootfs, so a denial here is due to the
 # W^X rules, not provenance.
@@ -350,6 +410,9 @@ if command -v bpftool >/dev/null 2>&1; then
         if [[ "$KERNEL_HAS_REAL_DATA_INODE" == 1 ]]; then
             # Resolution follows the data to the signed verity lower layer
             "$OVL/merged/bin/bash" -c 'exit 0'
+            if [[ "$EXECVE_CHECK" == 1 ]]; then
+                expect_probe 0 "AT_EXECVE_CHECK through overlay" execve-check "$OVL/merged/bin/bash"
+            fi
             echo "Execution through overlay from signed verity lower: OK"
 
             # A file created in the (tmpfs) upper layer is untrusted.
@@ -360,6 +423,9 @@ if command -v bpftool >/dev/null 2>&1; then
                 echo "ERROR: Execution of upper-layer file should have been blocked!" >&2
                 exit 1
             fi
+            if [[ "$EXECVE_CHECK" == 1 ]]; then
+                expect_probe 1 "AT_EXECVE_CHECK on an upper-layer file" execve-check "$OVL/merged/true"
+            fi
             echo "Execution from overlay upper layer blocked: OK"
 
             # Copy-up moves the data to the untrusted upper layer
@@ -368,6 +434,9 @@ if command -v bpftool >/dev/null 2>&1; then
                 echo "ERROR: Execution of copied-up file should have been blocked!" >&2
                 exit 1
             fi
+            if [[ "$EXECVE_CHECK" == 1 ]]; then
+                expect_probe 1 "AT_EXECVE_CHECK on a copied-up file" execve-check "$OVL/merged/bin/bash"
+            fi
             echo "Execution of copied-up file blocked: OK"
         else
             # Without the kfunc all the program sees is the overlay's
@@ -375,6 +444,9 @@ if command -v bpftool >/dev/null 2>&1; then
             if "$OVL/merged/bin/bash" -c 'exit 0' 2>/dev/null; then
                 echo "ERROR: Execution through overlay should have been blocked without bpf_real_data_inode!" >&2
                 exit 1
+            fi
+            if [[ "$EXECVE_CHECK" == 1 ]]; then
+                expect_probe 1 "AT_EXECVE_CHECK through overlay without bpf_real_data_inode" execve-check "$OVL/merged/bin/bash"
             fi
             echo "Execution through overlay blocked (no bpf_real_data_inode): OK"
         fi
@@ -497,8 +569,14 @@ echo "Helper killed, BPF programs detached synchronously"
 
 if [[ -x /tmp/restrict-fsaccess-test/true ]]; then
     /tmp/restrict-fsaccess-test/true
+    if [[ "$EXECVE_CHECK" == 1 ]]; then
+        expect_probe 0 "AT_EXECVE_CHECK on tmpfs after detach" execve-check /tmp/restrict-fsaccess-test/true
+    fi
     echo "Execution from tmpfs after detach: OK"
 fi
+
+expect_probe 0 "brk() with READ_IMPLIES_EXEC after detach" brk-read-implies-exec
+echo "brk() with READ_IMPLIES_EXEC after detach: OK"
 
 umount /tmp/restrict-fsaccess-test 2>/dev/null || true
 rm -rf /tmp/restrict-fsaccess-test

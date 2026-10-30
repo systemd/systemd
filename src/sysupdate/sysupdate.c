@@ -9,9 +9,7 @@
 
 #include "build.h"
 #include "bus-polkit.h"
-#include "condition.h"
 #include "conf-files.h"
-#include "conf-parser.h"
 #include "constants.h"
 #include "discover-image.h"
 #include "dissect-image.h"
@@ -44,9 +42,10 @@
 #include "strv.h"
 #include "sysupdate.h"
 #include "sysupdate-cleanup.h"
-#include "sysupdate-config.h"
+#include "sysupdate-component.h"
 #include "sysupdate-feature.h"
 #include "sysupdate-instance.h"
+#include "sysupdate-provider.h"
 #include "sysupdate-target.h"
 #include "sysupdate-transfer.h"
 #include "sysupdate-update-set.h"
@@ -73,6 +72,7 @@ static ImagePolicy *arg_image_policy = NULL;
 static bool arg_offline = false;
 static char *arg_transfer_source = NULL;
 static bool arg_varlink = false;
+static unsigned arg_loop = 1;
 
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -86,18 +86,19 @@ COMMAND(
         "Update OS images.",
         .man_pages = "systemd-sysupdate(8)\0",
         .pager_flags = &arg_pager_flags,
+        .flags = COMMAND_EXPERIMENTAL,
 );
 
 #define CONTEXT_NULL                                              \
         (Context) {                                               \
-                .component_enabled = true,                        \
+                .component_info = COMPONENT_NULL,                 \
                 .sync = true,                                     \
                 .instances_max = UINT64_MAX,                      \
                 .verify = -1,                                     \
+                .offline = true,                                  \
                 .cleanup = -1,                                    \
                 .installdb_fd = -EBADF,                           \
                 .target_identifier.class = _TARGET_CLASS_INVALID, \
-                .component_suggest = -1,                          \
         }
 
 void context_done(Context *c) {
@@ -117,6 +118,8 @@ void context_done(Context *c) {
         c->n_disabled_transfers = 0;
 
         c->features = hashmap_free(c->features);
+        c->provider_components = hashmap_free(c->provider_components);
+        c->component_provider = mfree(c->component_provider);
 
         FOREACH_ARRAY(us, c->update_sets, c->n_update_sets)
                 update_set_free(*us);
@@ -131,13 +134,11 @@ void context_done(Context *c) {
         c->root = mfree(c->root);
         c->image = mfree(c->image);
         c->component = mfree(c->component);
-        c->component_description = mfree(c->component_description);
-        c->component_documentation = strv_free(c->component_documentation);
+        component_done(&c->component_info);
         c->image_policy = image_policy_free(c->image_policy);
         c->transfer_source = mfree(c->transfer_source);
 
         target_identifier_done(&c->target_identifier);
-        condition_free_list(c->component_suggest_on);
 }
 
 static int context_from_cmdline(Context *ret) {
@@ -179,12 +180,12 @@ static int context_from_cmdline(Context *ret) {
         return 0;
 }
 
-static int context_from_base_with_component(const Context *base, const char *component, Context *ret) {
+static int context_from_base(const Context *base, Context *ret) {
         assert(base);
-        assert(component);
         assert(ret);
 
-        /* Copies the specified context, but changes the component to the specified one */
+        /* Copies the parameters of the specified context, but none of the loaded state. This is useful to
+         * start over, for example because an update installed new definition files. */
 
         _cleanup_(context_done) Context context = CONTEXT_NULL;
 
@@ -194,12 +195,19 @@ static int context_from_base_with_component(const Context *base, const char *com
         context.verify = base->verify;
         context.offline = base->offline;
         context.cleanup = base->cleanup;
+        context.component_select = base->component_select;
         context.feature_select = base->feature_select;
+
+        if (strdup_to(&context.definitions, base->definitions) < 0)
+                return log_oom();
 
         if (strdup_to(&context.root, base->root) < 0)
                 return log_oom();
 
         if (strdup_to(&context.image, base->image) < 0)
+                return log_oom();
+
+        if (strdup_to(&context.component, base->component) < 0)
                 return log_oom();
 
         if (strdup_to(&context.transfer_source, base->transfer_source) < 0)
@@ -211,14 +219,36 @@ static int context_from_base_with_component(const Context *base, const char *com
                         return log_oom();
         }
 
-        if (strdup_to(&context.component, component) < 0)
-                return log_oom();
+        /* If the base context has an image mounted, keep a reference to its loopback device, since the
+         * device node is needed to resolve partition targets. We do not take over .mounted_dir however,
+         * since the base context is responsible for unmounting it, and is expected to outlive us. */
+        context.loop_device = loop_device_ref(base->loop_device);
 
-        /* NB: we do not copy .loop_device/.mounted_dir here, since that's for lifetime tracking only, and
-         * not needed for access (we only need to copy .root/.image) for that. Under the assumption that the
-         * contexts initialized via context_from_base_with_component() have a shorter lifetime than the
-         * contexts they are copied from we don't bother with lifetime tracking of the loopback device/mount
-         * point here. */
+        *ret = TAKE_GENERIC(context, Context, CONTEXT_NULL);
+        return 0;
+}
+
+static int context_from_base_with_component(const Context *base, const char *component, Context *ret) {
+        int r;
+
+        assert(base);
+        assert(component);
+        assert(ret);
+
+        /* Copies the specified context, but changes the component to the specified one */
+
+        _cleanup_(context_done) Context context = CONTEXT_NULL;
+        r = context_from_base(base, &context);
+        if (r < 0)
+                return r;
+
+        /* The new context is about the specified component only, hence neither inherit the definitions
+         * directory override nor the component selection mode */
+        context.definitions = mfree(context.definitions);
+        context.component_select = SELECT_EXPLICIT;
+
+        if (free_and_strdup(&context.component, component) < 0)
+                return log_oom();
 
         *ret = TAKE_GENERIC(context, Context, CONTEXT_NULL);
         return 0;
@@ -242,8 +272,6 @@ static void server_done(Server *s) {
         s->polkit_registry = hashmap_free(s->polkit_registry);
         s->system_bus = sd_bus_flush_close_unref(s->system_bus);
 }
-
-static DEFINE_POINTER_ARRAY_FREE_FUNC(Transfer*, transfer_free);
 
 static int read_features(
                 Context *c,
@@ -288,6 +316,25 @@ static int read_features(
         return 0;
 }
 
+static int context_add_transfer(Context *c, Transfer *t) {
+        Transfer **appended;
+
+        assert(c);
+        assert(t);
+
+        /* Adds the transfer to the context, sorting it into the enabled or disabled list. Consumes the
+         * transfer on success. */
+
+        if (t->enabled)
+                appended = GREEDY_REALLOC_APPEND(c->transfers, c->n_transfers, &t, 1);
+        else
+                appended = GREEDY_REALLOC_APPEND(c->disabled_transfers, c->n_disabled_transfers, &t, 1);
+        if (!appended)
+                return log_oom();
+
+        return 0;
+}
+
 static int read_transfers(
                 Context *c,
                 const char **dirs,
@@ -295,13 +342,10 @@ static int read_transfers(
                 const char *node) {
 
         ConfFile **files = NULL;
-        Transfer **transfers = NULL, **disabled = NULL;
-        size_t n_files = 0, n_transfers = 0, n_disabled = 0;
+        size_t n_files = 0;
         int r;
 
         CLEANUP_ARRAY(files, n_files, conf_file_free_array);
-        CLEANUP_ARRAY(transfers, n_transfers, transfer_free_array);
-        CLEANUP_ARRAY(disabled, n_disabled, transfer_free_array);
 
         assert(c);
         assert(dirs);
@@ -315,7 +359,6 @@ static int read_transfers(
 
         FOREACH_ARRAY(i, files, n_files) {
                 _cleanup_(transfer_freep) Transfer *t = NULL;
-                Transfer **appended;
                 ConfFile *e = *i;
 
                 t = transfer_new(c);
@@ -330,68 +373,103 @@ static int read_transfers(
                 if (r < 0)
                         return r;
 
-                if (t->enabled)
-                        appended = GREEDY_REALLOC_APPEND(transfers, n_transfers, &t, 1);
-                else
-                        appended = GREEDY_REALLOC_APPEND(disabled, n_disabled, &t, 1);
-                if (!appended)
-                        return log_oom();
+                r = context_add_transfer(c, t);
+                if (r < 0)
+                        return r;
                 TAKE_PTR(t);
         }
 
-        c->transfers = TAKE_PTR(transfers);
-        c->n_transfers = n_transfers;
-        c->disabled_transfers = TAKE_PTR(disabled);
-        c->n_disabled_transfers = n_disabled;
         return 0;
 }
 
-static int read_component(Context *c) {
+static bool context_operates_on_host(const Context *c) {
+        assert(c);
+
+        /* Component providers describe the running system, hence only consult them if we operate on the
+         * host, and not when an explicit definitions directory was specified. */
+        return !c->root && !c->image && !c->definitions;
+}
+
+static int context_read_definitions_from_provider(Context *c, const char *node) {
         int r;
 
+        assert(c);
+        assert(c->component);
+
+        /* Acquires the definition of the component we operate on from a component provider, the equivalent
+         * of read_component(), read_features() and read_transfers() for the file system. Returns 0 if no
+         * provider offers the component, > 0 if the definition was loaded. */
+
+        _cleanup_free_ char *provider = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *target = NULL, *features = NULL, *transfers = NULL;
+        r = provider_describe_component(c->component, &provider, &target, &features, &transfers);
+        if (r == -ENOENT) {
+                log_debug("No component provider offers component '%s'.", c->component);
+                return 0;
+        }
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *origin = path_join(VARLINK_DIR_SYSUPDATE_PROVIDER, provider);
+        if (!origin)
+                return log_oom();
+
+        r = component_from_json(&c->component_info, target, origin);
+        if (r < 0)
+                return r;
+
+        sd_json_variant *e;
+        JSON_VARIANT_ARRAY_FOREACH(e, features) {
+                _cleanup_(feature_unrefp) Feature *f = feature_new();
+                if (!f)
+                        return log_oom();
+
+                r = feature_from_json(f, e, origin);
+                if (r < 0)
+                        return r;
+
+                r = hashmap_ensure_put(&c->features, &feature_hash_ops, f->id, f);
+                if (r == -EEXIST)
+                        return log_error_errno(r, "Feature '%s' of component '%s' defined more than once by provider '%s', refusing.", f->id, c->component, provider);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to insert feature '%s' into map: %m", f->id);
+
+                TAKE_PTR(f);
+        }
+
+        JSON_VARIANT_ARRAY_FOREACH(e, transfers) {
+                _cleanup_(transfer_freep) Transfer *t = transfer_new(c);
+                if (!t)
+                        return log_oom();
+
+                r = transfer_from_json(t, e, origin, c->features);
+                if (r < 0)
+                        return r;
+
+                r = transfer_resolve_paths(t, c->root, node);
+                if (r < 0)
+                        return r;
+
+                r = context_add_transfer(c, t);
+                if (r < 0)
+                        return r;
+                TAKE_PTR(t);
+        }
+
+        log_debug("Loaded definition of component '%s' from provider '%s'.", c->component, provider);
+
+        c->component_provider = TAKE_PTR(provider);
+        return 1;
+}
+
+static int read_component(Context *c) {
         assert(c);
 
         /* Read a component description file, but only if we actually operate on a component */
         if (c->definitions || !c->component)
                 return 0;
 
-        _cleanup_free_ char *j = strjoin("sysupdate.", c->component, ".component");
-        if (!j)
-                return log_oom();
-
-        ConfigTableItem table[] = {
-                { "Component", "Description",                config_parse_string,              0,                             &c->component_description   },
-                { "Component", "Documentation",              config_parse_url_specifiers_many, 0,                             &c->component_documentation },
-                { "Component", "Enabled",                    config_parse_bool,                0,                             &c->component_enabled       },
-                { "Component", "Suggest",                    config_parse_tristate,            0,                             &c->component_suggest       },
-                { "Component", "SuggestOnArchitecture",      config_parse_condition,           CONDITION_ARCHITECTURE,        &c->component_suggest_on    },
-                { "Component", "SuggestOnFirmware",          config_parse_condition,           CONDITION_FIRMWARE,            &c->component_suggest_on    },
-                { "Component", "SuggestOnVirtualization",    config_parse_condition,           CONDITION_VIRTUALIZATION,      &c->component_suggest_on    },
-                { "Component", "SuggestOnHost",              config_parse_condition,           CONDITION_HOST,                &c->component_suggest_on    },
-                { "Component", "SuggestOnFraction",          config_parse_condition,           CONDITION_FRACTION,            &c->component_suggest_on    },
-                { "Component", "SuggestOnKernelCommandLine", config_parse_condition,           CONDITION_KERNEL_COMMAND_LINE, &c->component_suggest_on    },
-                { "Component", "SuggestOnVersion",           config_parse_condition,           CONDITION_VERSION,             &c->component_suggest_on    },
-                { "Component", "SuggestOnCredential",        config_parse_condition,           CONDITION_CREDENTIAL,          &c->component_suggest_on    },
-                { "Component", "SuggestOnSecurity",          config_parse_condition,           CONDITION_SECURITY,            &c->component_suggest_on    },
-                { "Component", "SuggestOnOSRelease",         config_parse_condition,           CONDITION_OS_RELEASE,          &c->component_suggest_on    },
-                { "Component", "SuggestOnMachineTag",        config_parse_condition,           CONDITION_MACHINE_TAG,         &c->component_suggest_on    },
-                {}
-        };
-
-        r = config_parse_standard_file_with_dropins_full(
-                        c->root,
-                        /* root_fd= */ -EBADF,
-                        j,
-                        "Component\0",
-                        config_item_table_lookup, table,
-                        CONFIG_PARSE_WARN,
-                        /* userdata= */ (void *) c->root,
-                        /* ret_stats_by_path= */ NULL,
-                        /* ret_dropin_files= */ NULL);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return component_read_definition(&c->component_info, c->component, c->root);
 }
 
 typedef enum ReadDefinitionsFlags {
@@ -433,6 +511,7 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
         r = read_component(c);
         if (r < 0)
                 return r;
+        bool component_file_found = r > 0;
 
         r = read_features(c, (const char**) dirs);
         if (r < 0)
@@ -452,6 +531,17 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
                         log_warning("As of v257, transfer definitions should have the '.transfer' extension.");
         }
 
+        /* If the file system defines nothing for the component (i.e. we loaded neither a component file
+         * nor any feature or transfer definitions above), ask the component providers. */
+        if (c->component && context_operates_on_host(c) &&
+            !component_file_found &&
+            hashmap_isempty(c->features) &&
+            c->n_transfers + c->n_disabled_transfers == 0) {
+                r = context_read_definitions_from_provider(c, node);
+                if (r < 0)
+                        return r;
+        }
+
         if (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ANY_TRANSFERS) &&
             c->n_transfers + (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ENABLED_TRANSFERS) ? 0 : c->n_disabled_transfers) == 0) {
                 if (c->component)
@@ -463,7 +553,7 @@ static int context_read_definitions(Context *c, const char* node, ReadDefinition
                                        "No transfer definitions found.");
         }
 
-        if (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ENABLED_COMPONENT) && !c->component_enabled)
+        if (FLAGS_SET(flags, READ_DEFINITIONS_REQUIRES_ENABLED_COMPONENT) && c->component_info.enabled == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN), "Component is disabled.");
 
         return 0;
@@ -481,7 +571,7 @@ static int context_load_installed_instances(Context *c) {
 
                 r = resource_load_instances(
                                 &t->target,
-                                c->verify >= 0 ? c->verify : t->verify,
+                                c->verify >= 0 ? c->verify : t->verify != 0,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -492,7 +582,7 @@ static int context_load_installed_instances(Context *c) {
 
                 r = resource_load_instances(
                                 &t->target,
-                                c->verify >= 0 ? c->verify : t->verify,
+                                c->verify >= 0 ? c->verify : t->verify != 0,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
@@ -513,13 +603,70 @@ static int context_load_available_instances(Context *c) {
 
                 r = resource_load_instances(
                                 &t->source,
-                                c->verify >= 0 ? c->verify : t->verify,
+                                c->verify >= 0 ? c->verify : t->verify != 0,
                                 &c->web_cache);
                 if (r < 0)
                         return r;
         }
 
         return 0;
+}
+
+static const char* component_min_version(const Context *c) {
+        const char *v;
+
+        assert(c);
+
+        /* Returns the effective minimum version of the component we operate on, i.e. the highest of the
+         * minimum versions configured for the component itself and for all of its enabled transfers: a
+         * version older than any of them is obsolete for the component as a whole. */
+
+        v = c->component_info.min_version;
+
+        FOREACH_ARRAY(tr, c->transfers, c->n_transfers) {
+                const Transfer *t = *tr;
+
+                if (t->min_version && (!v || strverscmp_improved(t->min_version, v) > 0))
+                        v = t->min_version;
+        }
+
+        return v;
+}
+
+static const char* component_max_version(const Context *c) {
+        const char *v;
+
+        assert(c);
+
+        /* Likewise, the effective maximum version: the lowest of the maximum versions configured for the
+         * component itself and for all of its enabled transfers. */
+
+        v = c->component_info.max_version;
+
+        FOREACH_ARRAY(tr, c->transfers, c->n_transfers) {
+                const Transfer *t = *tr;
+
+                if (t->max_version && (!v || strverscmp_improved(t->max_version, v) < 0))
+                        v = t->max_version;
+        }
+
+        return v;
+}
+
+bool component_version_is_protected(const Context *c, const char *version) {
+        assert(c);
+        assert(version);
+
+        /* A version is protected if the component we operate on or any of its enabled transfers lists it */
+
+        if (strv_contains(c->component_info.protected_versions, version))
+                return true;
+
+        FOREACH_ARRAY(tr, c->transfers, c->n_transfers)
+                if (strv_contains((*tr)->protected_versions, version))
+                        return true;
+
+        return false;
 }
 
 static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags) {
@@ -529,6 +676,14 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
 
         assert(c);
         assert(IN_SET(flags, UPDATE_AVAILABLE, UPDATE_INSTALLED));
+
+        /* Versions are visited from newest to oldest below, hence the first eligible available version we
+         * encounter is the newest one, and becomes the candidate. Start afresh in each pass, the rules at
+         * the end of this function reinstate a pending/partial installation as candidate if nothing better
+         * is available. */
+        c->candidate = NULL;
+
+        const char *min_version = component_min_version(c), *max_version = component_max_version(c);
 
         for (;;) {
                 _cleanup_free_ Instance **cursor_instances = NULL;
@@ -615,12 +770,6 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
 
                         cursor_instances[k] = match;
 
-                        if (t->min_version && strverscmp_improved(t->min_version, cursor) > 0)
-                                extra_flags |= UPDATE_OBSOLETE;
-
-                        if (strv_contains(t->protected_versions, cursor))
-                                extra_flags |= UPDATE_PROTECTED;
-
                         /* Partial or pending updates by definition are not incomplete, they’re
                          * partial/pending instead. While an individual Instance cannot be both partial and
                          * pending, an UpdateSet as a whole can contain both partial and pending instances. */
@@ -632,6 +781,15 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
                         if (match && match->is_pending)
                                 extra_flags = (extra_flags | UPDATE_PENDING) & ~UPDATE_INCOMPLETE;
                 }
+
+                if (min_version && strverscmp_improved(min_version, cursor) > 0)
+                        extra_flags |= UPDATE_OBSOLETE;
+
+                if (max_version && strverscmp_improved(cursor, max_version) > 0)
+                        extra_flags |= UPDATE_TOO_NEW;
+
+                if (component_version_is_protected(c, cursor))
+                        extra_flags |= UPDATE_PROTECTED;
 
                 r = free_and_strdup_warn(&boundary, cursor);
                 if (r < 0)
@@ -668,11 +826,12 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
 
                         u->flags |= flags | extra_flags;
 
-                        /* If this is the newest installed version, that is incomplete and just became marked
-                         * as available, and if there is no other candidate available, we promote this to be
-                         * the candidate. Ignore partial or pending status on the update set. */
-                        if (FLAGS_SET(u->flags, UPDATE_NEWEST|UPDATE_INSTALLED|UPDATE_INCOMPLETE|UPDATE_AVAILABLE) &&
-                            !c->candidate && !FLAGS_SET(u->flags, UPDATE_OBSOLETE))
+                        /* If this is an installed version that is incomplete and just became marked as
+                         * available, and if there is no newer candidate available, we promote this to be the
+                         * candidate. Ignore partial or pending status on the update set. */
+                        if (!c->candidate &&
+                            FLAGS_SET(u->flags, UPDATE_INSTALLED|UPDATE_INCOMPLETE|UPDATE_AVAILABLE) &&
+                            (u->flags & (UPDATE_OBSOLETE|UPDATE_TOO_NEW)) == 0)
                                 c->candidate = u;
 
                         skip = true;
@@ -706,9 +865,10 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
                 if ((us->flags & (UPDATE_NEWEST|UPDATE_INSTALLED)) == (UPDATE_NEWEST|UPDATE_INSTALLED))
                         c->newest_installed = us;
 
-                /* Remember which is the newest non-obsolete, available (and not installed) version, which we declare the "candidate".
-                 * It may be partial or pending. */
-                if ((us->flags & (UPDATE_NEWEST|UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_OBSOLETE)) == (UPDATE_NEWEST|UPDATE_AVAILABLE))
+                /* Remember which is the newest available (and not installed) version that is neither obsolete
+                 * nor too new, which we declare the "candidate". It may be partial or pending. */
+                if (!c->candidate &&
+                    (us->flags & (UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_OBSOLETE|UPDATE_TOO_NEW)) == UPDATE_AVAILABLE)
                         c->candidate = us;
         }
 
@@ -726,19 +886,21 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
         return 0;
 }
 
-static int context_discover_update_sets(Context *c) {
+static int context_discover_update_sets(Context *c, bool log_progress) {
         int r;
 
         assert(c);
 
-        log_info("Determining installed update sets%s", glyph(GLYPH_ELLIPSIS));
+        if (log_progress)
+                log_info("Determining installed update sets%s", glyph(GLYPH_ELLIPSIS));
 
         r = context_discover_update_sets_by_flag(c, UPDATE_INSTALLED);
         if (r < 0)
                 return r;
 
         if (!c->offline) {
-                log_info("Determining available update sets%s", glyph(GLYPH_ELLIPSIS));
+                if (log_progress)
+                        log_info("Determining available update sets%s", glyph(GLYPH_ELLIPSIS));
 
                 r = context_discover_update_sets_by_flag(c, UPDATE_AVAILABLE);
                 if (r < 0)
@@ -746,6 +908,11 @@ static int context_discover_update_sets(Context *c) {
         }
 
         typesafe_qsort(c->update_sets, c->n_update_sets, update_set_cmp);
+
+        /* Now that the selection is final, mark the candidate, so that the flags tell the whole story */
+        if (c->candidate)
+                c->candidate->flags |= UPDATE_CANDIDATE;
+
         return 0;
 }
 
@@ -778,7 +945,7 @@ static int context_show_table(Context *c) {
                                    TABLE_SET_COLOR, color,
                                    TABLE_STRING,    glyph_check_mark_space(FLAGS_SET(us->flags, UPDATE_AVAILABLE)),
                                    TABLE_SET_COLOR, color,
-                                   TABLE_STRING,    update_set_flags_to_string(us->flags),
+                                   TABLE_STRING,    FORMAT_UPDATE_SET_FLAGS(us->flags),
                                    TABLE_SET_COLOR, color);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -1010,15 +1177,17 @@ static int context_show_version(Context *c, const char *version) {
                        "Installed: %s%s%s%s%s%s%s\n"
                        "Available: %s%s\n"
                        "Protected: %s%s%s\n"
-                       " Obsolete: %s%s%s\n",
+                       " Obsolete: %s%s%s\n"
+                       "  Too new: %s%s%s\n",
                        strempty(update_set_flags_to_color(us->flags)), update_set_flags_to_glyph(us->flags), ansi_normal(), us->version,
-                       strempty(update_set_flags_to_color(us->flags)), update_set_flags_to_string(us->flags), ansi_normal(),
+                       strempty(update_set_flags_to_color(us->flags)), FORMAT_UPDATE_SET_FLAGS(us->flags), ansi_normal(),
                        yes_no(us->flags & UPDATE_INSTALLED), FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_NEWEST) ? " (newest)" : "",
                        FLAGS_SET(us->flags, UPDATE_INCOMPLETE) ? ansi_highlight_yellow() : "", FLAGS_SET(us->flags, UPDATE_INCOMPLETE) ? " (incomplete)" : "", ansi_normal(),
                        FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PENDING) ? " (pending)" : "", FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PARTIAL) ? " (partial)" : "",
                        yes_no(us->flags & UPDATE_AVAILABLE), (us->flags & (UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_NEWEST)) == (UPDATE_AVAILABLE|UPDATE_NEWEST) ? " (newest)" : "",
                        FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED) ? ansi_highlight() : "", yes_no(FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED)), ansi_normal(),
-                       us->flags & UPDATE_OBSOLETE ? ansi_highlight_red() : "", yes_no(us->flags & UPDATE_OBSOLETE), ansi_normal());
+                       us->flags & UPDATE_OBSOLETE ? ansi_highlight_red() : "", yes_no(us->flags & UPDATE_OBSOLETE), ansi_normal(),
+                       us->flags & UPDATE_TOO_NEW ? ansi_highlight_red() : "", yes_no(us->flags & UPDATE_TOO_NEW), ansi_normal());
 
                 STRV_FOREACH(url, changelog_urls) {
                         _cleanup_free_ char *changelog_link = NULL;
@@ -1044,6 +1213,8 @@ static int context_show_version(Context *c, const char *version) {
                                           SD_JSON_BUILD_PAIR_BOOLEAN("partial", FLAGS_SET(us->flags, UPDATE_PARTIAL)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("pending", FLAGS_SET(us->flags, UPDATE_PENDING)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("obsolete", FLAGS_SET(us->flags, UPDATE_OBSOLETE)),
+                                          SD_JSON_BUILD_PAIR_BOOLEAN("tooNew", FLAGS_SET(us->flags, UPDATE_TOO_NEW)),
+                                          SD_JSON_BUILD_PAIR_BOOLEAN("candidate", FLAGS_SET(us->flags, UPDATE_CANDIDATE)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("protected", FLAGS_SET(us->flags, UPDATE_PROTECTED)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("incomplete", FLAGS_SET(us->flags, UPDATE_INCOMPLETE)),
                                           SD_JSON_BUILD_PAIR_STRV("changelogUrls", changelog_urls),
@@ -1223,7 +1394,7 @@ static int context_load_online(
                         return r;
         }
 
-        r = context_discover_update_sets(context);
+        r = context_discover_update_sets(context, /* log_progress= */ true);
         if (r < 0)
                 return r;
 
@@ -1235,6 +1406,7 @@ static bool image_type_can_sysupdate(ImageType image_type) {
         return IN_SET(image_type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME, IMAGE_RAW, IMAGE_BLOCK);
 }
 
+/* Assumes validation of the image has already been done */
 static int context_load_paths_from_image(Context *context, Image *image) {
         assert(context);
         assert(image);
@@ -1280,21 +1452,151 @@ static int target_identifier_compare_func(const TargetIdentifier *x, const Targe
         return strcmp(x->name, y->name);
 }
 
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(target_identifier_hash_ops,
-                                              TargetIdentifier, target_identifier_hash_func, target_identifier_compare_func,
-                                              TargetIdentifier, target_identifier_free);
+/* This is basically a presentational struct to collect together all the data for the
+ * user-visible Target type in varlink/D-Bus. The data comes from Transfers and UpdateSets. */
+typedef struct Target {
+        TargetIdentifier identifier;
 
-static int enumerate_image_class(RuntimeScope runtime_scope, TargetClass class, Set **targets) {
+        char *current_version;
+        bool current_version_is_pending;
+        char **all_versions;
+        char **appstream_urls;
+} Target;
+
+static void target_done(Target *t) {
+        assert(t);
+
+        target_identifier_done(&t->identifier);
+        t->current_version = mfree(t->current_version);
+        t->all_versions = strv_free(t->all_versions);
+        t->appstream_urls = strv_free(t->appstream_urls);
+}
+
+static Target *target_free(Target *t) {
+        if (!t)
+                return NULL;
+
+        target_done(t);
+        return mfree(t);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Target*, target_free);
+
+static int target_new(TargetClass class, const char *name, Target **ret) {
+        _cleanup_(target_freep) Target *t = NULL;
+
+        assert(name);
+        assert(ret);
+
+        t = new(Target, 1);
+        if (!t)
+                return -ENOMEM;
+
+        *t = (Target) {
+                .identifier = {
+                        .class = class,
+                        .name = strdup(name),
+                },
+        };
+
+        if (!t->identifier.name)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(t);
+        return 0;
+}
+
+static void target_hash_func(const Target *t, struct siphash *state) {
+        assert(t);
+
+        target_identifier_hash_func(&t->identifier, state);
+}
+
+static int target_compare_func(const Target *x, const Target *y) {
+        assert(x);
+        assert(y);
+
+        return target_identifier_compare_func(&x->identifier, &y->identifier);
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(target_hash_ops,
+                                              Target, target_hash_func, target_compare_func,
+                                              Target, target_free);
+
+/* Needs context_load_online() to have been called on `context`, or context_load_offline()
+ * plus context_discover_update_sets(). */
+static int context_build_target(Context *context, TargetClass class, const char *name, Target **ret) {
+        _cleanup_(target_freep) Target *t = NULL;
+        _cleanup_strv_free_ char **versions = NULL, **appstream_urls = NULL;
+        const char *current = NULL;
+        bool current_is_pending = false;
+        int r;
+
+        assert(context);
+        assert(class >= 0);
+        assert(name);
+
+        FOREACH_ARRAY(update_set, context->update_sets, context->n_update_sets) {
+                UpdateSet *us = *update_set;
+
+                if (FLAGS_SET(us->flags, UPDATE_INSTALLED) &&
+                    FLAGS_SET(us->flags, UPDATE_NEWEST)) {
+                        current = us->version;
+                        current_is_pending = FLAGS_SET(us->flags, UPDATE_PENDING);
+                }
+
+                r = strv_extend(&versions, us->version);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        r = target_new(class, name, &t);
+        if (r < 0)
+                return log_oom();
+
+        if (current) {
+                t->current_version = strdup(current);
+                if (!t->current_version)
+                        return log_oom();
+        }
+
+        t->current_version_is_pending = current_is_pending;
+        t->all_versions = TAKE_PTR(versions);
+
+        FOREACH_ARRAY(tr, context->transfers, context->n_transfers)
+                STRV_FOREACH(appstream_url, (*tr)->appstream) {
+                        /* Avoid duplicates */
+                        if (strv_contains(appstream_urls, *appstream_url))
+                                continue;
+
+                        r = strv_extend(&appstream_urls, *appstream_url);
+                        if (r < 0)
+                                return log_oom();
+                }
+
+        t->appstream_urls = TAKE_PTR(appstream_urls);
+
+        if (ret)
+                *ret = TAKE_PTR(t);
+
+        return 0;
+}
+
+static int enumerate_image_class(Context *context, RuntimeScope runtime_scope, TargetClass class, Set **targets) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         Image *image;
         int r;
+
+        assert(context);
+        assert(runtime_scope >= 0 && runtime_scope < _RUNTIME_SCOPE_MAX && runtime_scope != RUNTIME_SCOPE_GLOBAL);
+        assert(class >= 0 && class < _TARGET_CLASS_MAX);
 
         r = image_discover(runtime_scope, (ImageClass) class, NULL, &images);
         if (r < 0)
                 return r;
 
         HASHMAP_FOREACH(image, images) {
-                _cleanup_(target_identifier_freep) TargetIdentifier *t = NULL;
+                _cleanup_(target_freep) Target *t = NULL;
                 bool have = false;
                 _cleanup_(context_done) Context image_context = CONTEXT_NULL;
 
@@ -1308,28 +1610,49 @@ static int enumerate_image_class(RuntimeScope runtime_scope, TargetClass class, 
                 if (r < 0)
                         return r;
 
+                image_context.verify = context->verify;
+                image_context.offline = true;
+
+                if (context->image_policy) {
+                        image_context.image_policy = image_policy_copy(context->image_policy);
+                        if (!image_context.image_policy)
+                                return log_oom();
+                }
+
                 /* Load the components in a separate Context specific to the given Image before
                  * committing to loading that state to the main Context. */
                 r = context_load_offline(
                                 &image_context,
                                 PROCESS_IMAGE_READ_ONLY,
                                 /* read_definitions_flags= */ 0);
-                if (r < 0)
+                if (r == -ENOMEM)
                         return r;
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to load broken image ‘%s’, skipping it: %m", image->path);
+                        continue;
+                }
 
                 r = context_list_components(&image_context, /* ret_component_names= */ NULL, &have);
-                if (r < 0)
+                if (r == -ENOMEM)
                         return r;
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to list components in broken image ‘%s’, skipping it: %m", image->path);
+                        continue;
+                }
                 if (!have) {
                         log_debug("Skipping %s because it has no default component", image->path);
                         continue;
                 }
 
-                r = target_identifier_new(class, image->name, &t);
+                r = context_discover_update_sets(&image_context, /* log_progress= */ false);
                 if (r < 0)
                         return r;
 
-                r = set_ensure_consume(targets, &target_identifier_hash_ops, TAKE_PTR(t));
+                r = context_build_target(&image_context, class, image->name, &t);
+                if (r < 0)
+                        return r;
+
+                r = set_ensure_consume(targets, &target_hash_ops, TAKE_PTR(t));
                 if (r < 0)
                         return r;
         }
@@ -1349,25 +1672,49 @@ static int context_enumerate_components(Context *context, Set **targets) {
                 return r;
 
         if (have_default_component) {
-                _cleanup_(target_identifier_freep) TargetIdentifier *t = NULL;
+                _cleanup_(target_freep) Target *t = NULL;
 
-                r = target_identifier_new(TARGET_HOST, "host", &t);
+                r = context_build_target(context, TARGET_HOST, "host", &t);
                 if (r < 0)
                         return r;
 
-                r = set_ensure_consume(targets, &target_identifier_hash_ops, TAKE_PTR(t));
+                r = set_ensure_consume(targets, &target_hash_ops, TAKE_PTR(t));
                 if (r < 0)
                         return r;
         }
 
         STRV_FOREACH(component, component_names) {
-                _cleanup_(target_identifier_freep) TargetIdentifier *t = NULL;
+                _cleanup_(target_freep) Target *t = NULL;
+                _cleanup_(context_done) Context component_context = CONTEXT_NULL;
 
-                r = target_identifier_new(TARGET_COMPONENT, *component, &t);
+                r = context_from_base_with_component(context, *component, &component_context);
                 if (r < 0)
                         return r;
 
-                r = set_ensure_consume(targets, &target_identifier_hash_ops, TAKE_PTR(t));
+                component_context.offline = true;
+
+                /* Load the component in a separate Context specific to its sysupdate.$component.d
+                 * directory. */
+                r = context_load_offline(
+                                &component_context,
+                                PROCESS_IMAGE_READ_ONLY,
+                                /* read_definitions_flags= */ 0);
+                if (r == -ENOMEM)
+                        return r;
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to load broken component ‘%s’, skipping it: %m", *component);
+                        continue;
+                }
+
+                r = context_discover_update_sets(&component_context, /* log_progress= */ false);
+                if (r < 0)
+                        return r;
+
+                r = context_build_target(&component_context, TARGET_COMPONENT, *component, &t);
+                if (r < 0)
+                        return r;
+
+                r = set_ensure_consume(targets, &target_hash_ops, TAKE_PTR(t));
                 if (r < 0)
                         return r;
         }
@@ -1387,7 +1734,7 @@ static int context_enumerate_targets(Context *context, Set **targets) {
         assert(context);
 
         FOREACH_ARRAY(class, discoverable_classes, ELEMENTSOF(discoverable_classes)) {
-                r = enumerate_image_class(RUNTIME_SCOPE_SYSTEM, *class, targets);
+                r = enumerate_image_class(context, RUNTIME_SCOPE_SYSTEM, *class, targets);
                 if (r < 0)
                         return r;
         }
@@ -1439,6 +1786,15 @@ static int context_load_paths_from_target(Context *context) {
                         r = context_load_paths_from_image(&image_context, image);
                         if (r < 0)
                                 return r;
+
+                        image_context.verify = context->verify;
+                        image_context.offline = true;
+
+                        if (context->image_policy) {
+                                image_context.image_policy = image_policy_copy(context->image_policy);
+                                if (!image_context.image_policy)
+                                        return log_oom();
+                        }
 
                         /* Load the components in a separate Context specific to the given Image before
                          * committing to loading that state to the main Context. */
@@ -1596,6 +1952,8 @@ static int context_acquire(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected update '%s' is not available, refusing.", us->version);
         if (FLAGS_SET(us->flags, UPDATE_OBSOLETE))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected update '%s' is obsolete, refusing.", us->version);
+        if (FLAGS_SET(us->flags, UPDATE_TOO_NEW))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected update '%s' is newer than permitted, refusing.", us->version);
 
         if (!FLAGS_SET(us->flags, UPDATE_NEWEST))
                 log_notice("Selected update '%s' is not the newest, proceeding anyway.", us->version);
@@ -1706,6 +2064,8 @@ static int context_process_partial_and_pending(
 
         if (FLAGS_SET(us->flags, UPDATE_OBSOLETE))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected update '%s' is obsolete, refusing.", us->version);
+        if (FLAGS_SET(us->flags, UPDATE_TOO_NEW))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected update '%s' is newer than permitted, refusing.", us->version);
 
         if (!FLAGS_SET(us->flags, UPDATE_NEWEST))
                 log_notice("Selected update '%s' is not the newest, proceeding anyway.", us->version);
@@ -1946,7 +2306,6 @@ VERB(verb_list, "list", "[VERSION]\0", VERB_ANY, 2, VERB_DEFAULT,
      "Show installed and available versions");
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(context_done) Context context = CONTEXT_NULL;
-        _cleanup_strv_free_ char **appstream_urls = NULL;
         const char *version;
         int r;
 
@@ -1976,38 +2335,19 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return context_show_table(&context);
         else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
-                _cleanup_strv_free_ char **versions = NULL;
-                const char *current = NULL;
-                bool current_is_pending = false;
+                _cleanup_(target_freep) Target *target = NULL;
 
-                FOREACH_ARRAY(update_set, context.update_sets, context.n_update_sets) {
-                        UpdateSet *us = *update_set;
+                /* We’re just using this to get the versions and appstream URLs, so the class
+                 * and name don’t matter, which means we can avoid trying to rebuild them from
+                 * the command line context. Arbitrarily choose the host. */
+                r = context_build_target(&context, TARGET_HOST, "host", &target);
+                if (r < 0)
+                        return r;
 
-                        if (FLAGS_SET(us->flags, UPDATE_INSTALLED) &&
-                            FLAGS_SET(us->flags, UPDATE_NEWEST)) {
-                                current = us->version;
-                                current_is_pending = FLAGS_SET(us->flags, UPDATE_PENDING);
-                        }
-
-                        r = strv_extend(&versions, us->version);
-                        if (r < 0)
-                                return log_oom();
-                }
-
-                FOREACH_ARRAY(tr, context.transfers, context.n_transfers)
-                        STRV_FOREACH(appstream_url, (*tr)->appstream) {
-                                /* Avoid duplicates */
-                                if (strv_contains(appstream_urls, *appstream_url))
-                                        continue;
-
-                                r = strv_extend(&appstream_urls, *appstream_url);
-                                if (r < 0)
-                                        return log_oom();
-                        }
-
-                r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRING(current_is_pending ? "current+pending" : "current", current),
-                                          SD_JSON_BUILD_PAIR_STRV("all", versions),
-                                          SD_JSON_BUILD_PAIR_STRV("appstreamUrls", appstream_urls));
+                r = sd_json_buildo(&json,
+                                   SD_JSON_BUILD_PAIR_STRING(target->current_version_is_pending ? "current+pending" : "current", target->current_version),
+                                   SD_JSON_BUILD_PAIR_STRV("all", target->all_versions),
+                                   SD_JSON_BUILD_PAIR_STRV("appStream", target->appstream_urls));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
@@ -2290,6 +2630,11 @@ static int context_enable_feature(
                 return 0;
         }
 
+        if (c->component_provider)
+                return log_error_errno(SYNTHETIC_ERRNO(EROFS),
+                                       "Component '%s' is provided by '%s', cannot change the enablement state of its features from the file system.",
+                                       c->component, c->component_provider);
+
         _cleanup_free_ char *dropin_dir = NULL;
         r = make_dropin_dir(c, &dropin_dir);
         if (r < 0)
@@ -2406,6 +2751,12 @@ static int verb_enable_feature(int argc, char *argv[], uintptr_t _data, void *us
                                 continue;
                         }
 
+                        if (cc.component_provider) {
+                                log_notice("Component '%s' is provided by '%s', skipping since the enablement state of its features cannot be changed from the file system.",
+                                           *name, cc.component_provider);
+                                continue;
+                        }
+
                         RET_GATHER(ret, context_enable_feature(&cc, argv[0], enable, features));
                 }
 
@@ -2437,12 +2788,15 @@ static int feature_to_json(Context *context, const Feature *f, sd_json_variant *
                                 "Failed to determine whether feature '%s' is suggested, omitting field: %m",
                                 f->id);
 
+        /* FIXME: Long term we’d like to support an array of AppStream URLs, but currently the D-Bus interface
+         * doesn’t support that and neither do the internals of sysupdate. So just expose 0 or 1 URLs for now. */
+
         r = sd_json_variant_merge_objectbo(
                         &v,
                         SD_JSON_BUILD_PAIR_STRING("id", f->id),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("description", f->description),
                         JSON_BUILD_PAIR_STRV_NON_EMPTY("documentation", f->documentation),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("appStream", f->appstream),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("appStream", STRV_MAKE(f->appstream)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("enabled", f->enabled),
                         SD_JSON_BUILD_PAIR_CONDITION(suggested >= 0, "suggested", SD_JSON_BUILD_BOOLEAN(suggested > 0)),
                         JSON_BUILD_PAIR_STRV_NON_EMPTY("transfers", transfers));
@@ -2622,13 +2976,22 @@ static int context_update(
                 Context *c,
                 const char *version,
                 const char *booted_version,
-                UpdateActionFlags action_flags) {
+                UpdateActionFlags action_flags,
+                bool *installed,
+                bool *reboot_needed) {
 
         UpdateSet *applied = NULL;
-        bool installed = false;
+        bool updated = false;
         int r, ret = 0;
 
         assert(c);
+        assert(installed);
+        assert(reboot_needed);
+
+        /* Sets *installed to true if an update was installed, even if a later step (e.g. the installdb
+         * cleanup) failed. Doesn't reboot on its own, but sets *reboot_needed to true if --reboot is
+         * requested and the installed version warrants a reboot. It never resets *installed or
+         * *reboot_needed to false, so that they can be accumulated over multiple calls. */
 
         r = context_load_online(
                         c,
@@ -2655,13 +3018,14 @@ static int context_update(
                         if (r < 0)
                                 return r;
 
-                        installed = r > 0;
+                        if (r > 0)
+                                updated = *installed = true;
                 }
 
                 /* context_install() returns > 0 (and emits a notification) only if it actually applied an update. If
                  * nothing was applied but SYSTEMD_SYSUPDATE_FORCE_NOTIFY=1 is set, still notify subscribers (without a
                  * resource list), so e.g. a kernel/policy refresh can be triggered unconditionally. */
-                if (FLAGS_SET(action_flags, UPDATE_ACTION_INSTALL) && !installed) {
+                if (FLAGS_SET(action_flags, UPDATE_ACTION_INSTALL) && !updated) {
                         int f = secure_getenv_bool("SYSTEMD_SYSUPDATE_FORCE_NOTIFY");
                         if (f < 0 && f != -ENXIO)
                                 log_debug_errno(f, "Failed to parse $SYSTEMD_SYSUPDATE_FORCE_NOTIFY, ignoring: %m");
@@ -2673,26 +3037,110 @@ static int context_update(
         if (c->cleanup > 0)
                 RET_GATHER(ret, installdb_cleanup_component(c));
 
-        if (installed) {
+        if (updated && c->reboot) {
                 /* We installed something, yay */
 
-                if (c->reboot) {
-                        assert(applied);
-                        assert(booted_version);
+                assert(applied);
+                assert(booted_version);
 
-                        if (strverscmp_improved(applied->version, booted_version) > 0) {
-                                log_notice("Newly installed version is newer than booted version, rebooting.");
-                                RET_GATHER(ret, reboot_now());
-                        } else if (strverscmp_improved(applied->version, booted_version) == 0 &&
-                                   FLAGS_SET(applied->flags, UPDATE_INCOMPLETE)) {
-                                log_notice("Currently booted version was incomplete and has been repaired, rebooting.");
-                                RET_GATHER(ret, reboot_now());
-                        } else
-                                log_info("Booted version is newer or identical to newly installed version, not rebooting.");
-                }
+                if (strverscmp_improved(applied->version, booted_version) > 0) {
+                        log_notice("Newly installed version is newer than booted version, reboot needed.");
+                        *reboot_needed = true;
+                } else if (strverscmp_improved(applied->version, booted_version) == 0 &&
+                           FLAGS_SET(applied->flags, UPDATE_INCOMPLETE)) {
+                        log_notice("Currently booted version was incomplete and has been repaired, reboot needed.");
+                        *reboot_needed = true;
+                } else
+                        log_info("Booted version is newer or identical to newly installed version, no reboot needed.");
         }
 
         return ret;
+}
+
+static int context_update_iteration(
+                Context *context,
+                const char *version,
+                const char *booted_version,
+                UpdateActionFlags action_flags,
+                bool *reboot_needed,
+                int *error) {
+
+        bool installed = false;
+        int r;
+
+        assert(context);
+        assert(reboot_needed);
+        assert(error);
+
+        /* Runs a single update iteration on the selected component(s). Returns > 0 if anything was
+         * installed, 0 if not, < 0 on a failure that shall abort the update logic. Failures of individual
+         * components with FailureAction=continue are not returned, but merged into *error, so that the
+         * caller can return them at the very end. */
+
+        switch (context->component_select) {
+
+        case SELECT_EXPLICIT:
+                r = context_update(context, version, booted_version, action_flags, &installed, reboot_needed);
+                if (r < 0)
+                        return r;
+
+                return installed;
+
+        case SELECT_ALL: {
+                /* Update the default, component-less installation first (if any). Running it before the
+                 * enumeration below also ensures the image (if any) is mounted and context->root is set, so
+                 * that we enumerate the components inside the image rather than on the host. A missing
+                 * default installation (ENOENT) is not an error in this mode. */
+                r = context_update(context, version, booted_version, action_flags, &installed, reboot_needed);
+                if (r < 0 && r != -ENOENT)
+                        RET_GATHER(*error, r);
+
+                _cleanup_strv_free_ char **component_names = NULL;
+                r = context_list_components(context, &component_names, /* ret_has_default_component= */ NULL);
+                if (r < 0)
+                        return r;
+
+                STRV_FOREACH(name, component_names) {
+                        _cleanup_(context_done) Context cc = CONTEXT_NULL;
+
+                        r = context_from_base_with_component(context, *name, &cc);
+                        if (r < 0) {
+                                RET_GATHER(*error, r);
+                                continue;
+                        }
+
+                        bool component_installed = false;
+                        r = context_update(&cc, version, booted_version, action_flags, &component_installed, reboot_needed);
+                        if (r == -EHOSTDOWN) /* Component disabled → skip it in the "all" case. */
+                                continue;
+                        if (r < 0) {
+                                /* context_update() already logged about the failure */
+                                if (cc.component_info.failure_action == COMPONENT_FAILURE_FAIL)
+                                        return log_debug_errno(r, "Failed to update component '%s', aborting: %m", *name);
+
+                                log_debug_errno(r, "Failed to update component '%s', continuing with next component: %m", *name);
+                                RET_GATHER(*error, r);
+                        }
+                        if (component_installed) {
+                                installed = true;
+
+                                if (cc.component_info.success_action == COMPONENT_SUCCESS_RESTART) {
+                                        /* The component asked us to start from the beginning after it
+                                         * has been updated successfully, for example because it makes
+                                         * new transfer files available. Hence, finish this iteration
+                                         * early, and skip the remaining components. */
+                                        log_info("Component '%s' updated successfully, finishing update iteration early.", *name);
+                                        break;
+                                }
+                        }
+                }
+
+                return installed;
+        }
+
+        default:
+                assert_not_reached();
+        }
 }
 
 static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flags) {
@@ -2716,6 +3164,11 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                       "The --instances-max= argument must be >= 2 while updating");
 
+        /* Only installing updates can make new updates available (e.g. because new definitions have been
+         * installed), hence looping makes no sense if we only acquire. */
+        if (arg_loop > 1 && !FLAGS_SET(action_flags, UPDATE_ACTION_INSTALL))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --loop= switch is not supported for '%s'.", argv[0]);
+
         _cleanup_free_ char *booted_version = NULL;
         if (context.reboot) {
                 /* We already checked in parse_argv() that --component=/--component-all/--component-suggested
@@ -2732,50 +3185,55 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
                         return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "/etc/os-release lacks IMAGE_VERSION field.");
         }
 
-        switch (context.component_select) {
+        bool reboot_needed = false;
+        int ret = 0;
 
-        case SELECT_EXPLICIT:
-                return context_update(&context, version, booted_version, action_flags);
+        for (unsigned iteration = 1;; iteration++) {
+                _cleanup_(context_done) Context copy = CONTEXT_NULL;
+                Context *c;
 
-        case SELECT_ALL: {
-                int ret = 0;
-
-                /* Update the default, component-less installation first (if any). Running it before the
-                 * enumeration below also ensures the image (if any) is mounted and context.root is set, so
-                 * that we enumerate the components inside the image rather than on the host. A missing
-                 * default installation (ENOENT) is not an error in this mode. */
-                r = context_update(&context, version, booted_version, action_flags);
-                if (r != -ENOENT)
-                        RET_GATHER(ret, r);
-
-                _cleanup_strv_free_ char **component_names = NULL;
-                r = context_list_components(&context, &component_names, /* ret_has_default_component= */ NULL);
-                if (r < 0) {
-                        RET_GATHER(ret, r);
-                        return ret;
-                }
-
-                STRV_FOREACH(name, component_names) {
-                        _cleanup_(context_done) Context cc = CONTEXT_NULL;
-
-                        r = context_from_base_with_component(&context, *name, &cc);
+                if (iteration == 1)
+                        /* The first iteration operates on the original context, so that the image (if any)
+                         * is mounted there, and remains mounted for all later iterations. */
+                        c = &context;
+                else {
+                        /* Start from scratch in later iterations, so that we pick up any new or changed
+                         * definitions (and components) the previous iteration installed. */
+                        r = context_from_base(&context, &copy);
                         if (r < 0) {
                                 RET_GATHER(ret, r);
-                                continue;
+                                break;
                         }
 
-                        r = context_update(&cc, version, booted_version, action_flags);
-                        if (r == -EHOSTDOWN) /* Component disabled → skip it in the "all" case. */
-                                continue;
-                        RET_GATHER(ret, r);
+                        c = &copy;
                 }
 
-                return ret;
+                if (arg_loop > 1)
+                        log_debug("Starting update iteration %u of at most %u.", iteration, arg_loop);
+
+                r = context_update_iteration(c, version, booted_version, action_flags, &reboot_needed, &ret);
+                if (r < 0) {
+                        RET_GATHER(ret, r);
+                        break;
+                }
+                if (r == 0) {
+                        if (iteration > 1)
+                                log_info("No further updates installed, stable state reached after %u iterations.", iteration);
+                        break;
+                }
+                if (iteration >= arg_loop) {
+                        if (arg_loop > 1)
+                                log_notice("Maximum number of update iterations (%u) reached, not looking for further updates.", arg_loop);
+                        break;
+                }
         }
 
-        default:
-                assert_not_reached();
+        if (reboot_needed) {
+                log_notice("Rebooting.");
+                RET_GATHER(ret, reboot_now());
         }
+
+        return ret;
 }
 
 VERB(verb_update, "update", "[VERSION]\0", VERB_ANY, 2, 0,
@@ -2878,6 +3336,12 @@ static int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata)
                                         &component_context,
                                         /* process_image_flags= */ 0,
                                         /* read_definitions_flags= */ 0);
+                        if (r == -EHOSTUNREACH) {
+                                /* We cannot tell whether the component still exists, hence better not
+                                 * clean up after it, but continue with the other components. */
+                                RET_GATHER(ret, r);
+                                continue;
+                        }
                         if (r < 0)
                                 return r;
 
@@ -2970,6 +3434,33 @@ static int context_list_components(Context *context, char ***ret_component_names
         if (r < 0)
                 return r;
 
+        if (ret_component_names && context_operates_on_host(context)) {
+                ProviderComponent *pc;
+
+                /* Also ask the component providers, but only once per context */
+                if (!context->provider_components_loaded) {
+                        r = provider_list_components(&context->provider_components);
+                        if (r < 0)
+                                return r;
+
+                        context->provider_components_loaded = true;
+
+                        /* Components defined in the file system take precedence over those offered by providers */
+                        HASHMAP_FOREACH(pc, context->provider_components)
+                                if (strv_contains(z, pc->name)) {
+                                        log_debug("Component '%s' is defined in the file system, ignoring the definition offered by provider '%s'.",
+                                                  pc->name, pc->provider);
+                                        provider_component_free(hashmap_remove(context->provider_components, pc->name));
+                                }
+                }
+
+                HASHMAP_FOREACH(pc, context->provider_components)
+                        if (strv_extend(&z, pc->name) < 0)
+                                return log_oom();
+
+                strv_sort(z);
+        }
+
         if (ret_component_names)
                 *ret_component_names = TAKE_PTR(z);
 
@@ -2991,13 +3482,99 @@ static int context_component_is_suggested(Context *c) {
         if (!c->component)
                 return -ENOTTY;
 
-        if (c->component_suggest >= 0)
-                return c->component_suggest;
+        return component_is_suggested(&c->component_info);
+}
 
-        if (!c->component_suggest_on) /* no condition → false */
-                return false;
+static int context_component_to_json(Context *base, const char *name, sd_json_variant **ret, char **ret_provider) {
+        _cleanup_(context_done) Context cc = CONTEXT_NULL;
+        int r;
 
-        return condition_test_list(c->component_suggest_on, environ, suggest_on_type_to_string, /* logger= */ NULL, /* userdata= */ NULL);
+        assert(base);
+        assert(name);
+        assert(ret);
+
+        /* Loads the specified component in a sub-context of the specified base context, and serializes its
+         * metadata. If the component fails to load, returns 0 with the result set to NULL. Optionally, also
+         * returns the name of the provider the component was loaded from, if any. */
+
+        r = context_from_base_with_component(base, name, &cc);
+        if (r < 0)
+                return r;
+
+        r = context_load_offline(
+                        &cc,
+                        /* process_image_flags= */ 0,
+                        /* read_definitions_flags= */ 0);
+        if (r == -ENOMEM)
+                return r;
+        if (r < 0) {
+                log_debug_errno(r, "Failed to load component '%s', not reporting its metadata: %m", name);
+                *ret = NULL;
+                if (ret_provider)
+                        *ret_provider = NULL;
+                return 0;
+        }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = component_to_json(&cc.component_info, &v);
+        if (r < 0)
+                return r;
+
+        r = strdup_to_full(ret_provider, cc.component_provider);
+        if (r < 0)
+                return log_oom();
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int context_components_to_json(Context *base, char **component_names, sd_json_variant **ret, sd_json_variant **ret_providers) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL, *providers = NULL;
+        int r;
+
+        assert(base);
+        assert(ret);
+
+        /* Serializes the metadata of each of the specified components into an array, each object carrying
+         * the component's name. Components that fail to load are skipped. Optionally, also returns an object
+         * mapping the names of the components loaded from a provider to the provider's name. */
+
+        STRV_FOREACH(i, component_names) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_free_ char *provider = NULL;
+
+                r = context_component_to_json(base, *i, &v, &provider);
+                if (r < 0)
+                        return r;
+                if (!v)
+                        continue;
+
+                r = sd_json_variant_set_field_string(&v, "name", *i);
+                if (r < 0)
+                        return log_oom();
+
+                r = sd_json_variant_append_array(&l, v);
+                if (r < 0)
+                        return log_oom();
+
+                if (provider) {
+                        r = sd_json_variant_set_field_string(&providers, *i, provider);
+                        if (r < 0)
+                                return log_oom();
+                }
+        }
+
+        if (!l) {
+                r = sd_json_variant_new_array(&l, NULL, 0);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        if (ret_providers)
+                *ret_providers = TAKE_PTR(providers);
+
+        *ret = TAKE_PTR(l);
+        return 0;
 }
 
 VERB_NOARG(verb_components, "components",
@@ -3079,8 +3656,8 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
 
                         r = table_add_many(
                                         t,
-                                        TABLE_BOOLEAN_CHECKMARK, cc.component_enabled,
-                                        TABLE_SET_COLOR, ansi_highlight_green_red(cc.component_enabled));
+                                        TABLE_BOOLEAN_CHECKMARK, cc.component_info.enabled != 0,
+                                        TABLE_SET_COLOR, ansi_highlight_green_red(cc.component_info.enabled != 0));
                         if (r < 0)
                                 return table_log_add_error(r);
 
@@ -3095,19 +3672,25 @@ static int verb_components(int argc, char *argv[], uintptr_t _data, void *userda
                         r = table_add_many(
                                         t,
                                         TABLE_STRING, *i,
-                                        TABLE_STRING, cc.component_description,
-                                        TABLE_STRV_WRAPPED, cc.component_documentation);
+                                        TABLE_STRING, cc.component_info.description,
+                                        TABLE_STRV_WRAPPED, cc.component_info.documentation);
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
 
                 return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
         } else {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL, *details = NULL, *providers = NULL;
+
+                r = context_components_to_json(&context, component_names, &details, &providers);
+                if (r < 0)
+                        return r;
 
                 r = sd_json_buildo(&json,
                                    SD_JSON_BUILD_PAIR_BOOLEAN("default", has_default_component),
-                                   SD_JSON_BUILD_PAIR_STRV("components", component_names));
+                                   SD_JSON_BUILD_PAIR_STRV("components", component_names),
+                                   SD_JSON_BUILD_PAIR_VARIANT("details", details),
+                                   JSON_BUILD_PAIR_VARIANT_NON_NULL("providers", providers));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
@@ -3147,25 +3730,53 @@ static int vl_method_list_targets(sd_varlink *link, sd_json_variant *parameters,
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL;
 
+        r = context_discover_update_sets(&context, /* log_progress= */ false);
+        if (r < 0)
+                return r;
+
         r = context_enumerate_targets(&context, &targets);
         if (r < 0)
                 return r;
 
         /* Sort to ensure consistent ordering */
         size_t n;
-        _cleanup_free_ TargetIdentifier **sorted = NULL;
+        _cleanup_free_ Target **sorted = NULL;
         r = set_dump_sorted(targets, (void***) &sorted, &n);
         if (r < 0)
                 return log_oom();
 
         FOREACH_ARRAY(p, sorted, n) {
-                TargetIdentifier *target_identifier = *p;
-                const char *name = (target_identifier->class != TARGET_HOST) ? target_identifier->name : NULL;
+                Target *target = *p;
+                const char *name = (target->identifier.class != TARGET_HOST) ? target->identifier.name : NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *tj = NULL;
 
-                r = sd_json_variant_append_arraybo(&l,
+                r = sd_json_buildo(&tj,
                                 SD_JSON_BUILD_PAIR_OBJECT("id",
-                                                JSON_BUILD_PAIR_ENUM("class", target_class_to_string(target_identifier->class)),
-                                                SD_JSON_BUILD_PAIR_STRING("name", name)));
+                                                JSON_BUILD_PAIR_ENUM("class", target_class_to_string(target->identifier.class)),
+                                                SD_JSON_BUILD_PAIR_STRING("name", name)),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("currentVersion", target->current_version),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("currentVersionIsPending", target->current_version_is_pending),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("allVersions", target->all_versions),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("appStream", target->appstream_urls));
+                if (r < 0)
+                        return r;
+
+                /* For components, also report their metadata, as further fields of the target object */
+                if (target->identifier.class == TARGET_COMPONENT) {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *component = NULL;
+
+                        r = context_component_to_json(&context, name, &component, /* ret_provider= */ NULL);
+                        if (r < 0)
+                                return r;
+
+                        if (component) {
+                                r = sd_json_variant_merge_object(&tj, component);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+
+                r = sd_json_variant_append_array(&l, tj);
                 if (r < 0)
                         return r;
         }
@@ -3234,19 +3845,39 @@ static int verb_enable_component(int argc, char *argv[], uintptr_t _data, void *
         if (r < 0)
                 return r;
 
-        _cleanup_strv_free_ char **suggested = NULL;
+        _cleanup_strv_free_ char **selected = NULL;
 
         switch (context.component_select) {
 
         case SELECT_EXPLICIT:
-                STRV_FOREACH(name, arguments)
+                STRV_FOREACH(name, arguments) {
                         if (!strv_contains(component_names, *name))
                                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Component not found: %s", *name);
+
+                        ProviderComponent *pc = hashmap_get(context.provider_components, *name);
+                        if (pc)
+                                return log_error_errno(SYNTHETIC_ERRNO(EROFS),
+                                                       "Component '%s' is provided by '%s', cannot change its enablement state from the file system.",
+                                                       *name, pc->provider);
+                }
                 break;
 
         case SELECT_ALL:
                 assert(!arguments);
-                arguments = component_names;
+
+                STRV_FOREACH(name, component_names) {
+                        ProviderComponent *pc = hashmap_get(context.provider_components, *name);
+                        if (pc) {
+                                log_notice("Component '%s' is provided by '%s', skipping since its enablement state cannot be changed from the file system.",
+                                           *name, pc->provider);
+                                continue;
+                        }
+
+                        if (strv_extend(&selected, *name) < 0)
+                                return log_oom();
+                }
+
+                arguments = selected;
                 break;
 
         case SELECT_SUGGESTED:
@@ -3275,13 +3906,19 @@ static int verb_enable_component(int argc, char *argv[], uintptr_t _data, void *
                                 continue;
                         }
 
+                        if (cc.component_provider) {
+                                log_notice("Component '%s' is provided by '%s', skipping since its enablement state cannot be changed from the file system.",
+                                           *name, cc.component_provider);
+                                continue;
+                        }
+
                         log_info("%s '%s'.", enable ? "Enabling" : "Disabling", *name);
 
-                        if (strv_extend(&suggested, *name) < 0)
+                        if (strv_extend(&selected, *name) < 0)
                                 return log_oom();
                 }
 
-                arguments = suggested;
+                arguments = selected;
                 break;
 
         default:
@@ -3451,6 +4088,16 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         arg_offline = true;
                         break;
 
+                OPTION_LONG("loop", "N",
+                            "Repeat update until no further updates are installed, at most N times"):
+                        r = safe_atou(opts.arg, &arg_loop);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --loop= parameter: %s", opts.arg);
+                        if (arg_loop == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The --loop= parameter must be greater than zero.");
+
+                        break;
+
                 OPTION_LONG("cleanup", "BOOL", "Clean up orphaned files after completing update"): {
                         bool b;
 
@@ -3551,9 +4198,7 @@ static int run(int argc, char *argv[]) {
         LIBFDISK_NOTE(recommended);
         LIBMOUNT_NOTE(recommended);
         LIBSELINUX_NOTE(recommended);
-        LIBTSS2_ESYS_NOTE(suggested);
-        LIBTSS2_MU_NOTE(suggested);
-        LIBTSS2_RC_NOTE(suggested);
+        TPM2_NOTE(suggested);
 
         log_setup();
 

@@ -25,6 +25,14 @@
 #include "string-util.h"
 #include "time-util.h"
 #include "udev-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-rfkill\0",
+        "Load and save the RF kill switch state.",
+        .man_pages = "systemd-rfkill.service(8)\0",
+        .option_namespace = "common",
+);
 
 /* Note that any write is delayed until exit and the rfkill state will not be
  * stored for rfkill indices that disappear after a change. */
@@ -271,10 +279,11 @@ static int run(int argc, char *argv[]) {
         bool ready = false;
         int r, n;
 
-        if (argc > 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program requires no arguments.");
-
         log_setup();
+
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 0, /* ret_args= */ NULL);
+        if (r <= 0)
+                return r;
 
         umask(0022);
 

@@ -104,5 +104,18 @@ TEST(short_hashes) {
         }
 }
 
+TEST(uint64) {
+        const uint8_t key[16] = { 0x22, 0x24, 0x41, 0x22, 0x55, 0x77, 0x88, 0x07,
+                                  0x23, 0x09, 0x23, 0x14, 0x0c, 0x33, 0x0e, 0x0f};
+        uint64_t x = 0;
+
+        for (unsigned i = 0; i < 1000; i++) {
+                uint64_t le = htole64(x);
+
+                ASSERT_EQ(siphash24_uint64(x, key), siphash24(&le, sizeof(le), key));
+                x = x * UINT64_C(6364136223846793005) + UINT64_C(1442695040888963407);
+        }
+}
+
 /* see https://131002.net/siphash/siphash.pdf, Appendix A */
 DEFINE_TEST_MAIN(LOG_INFO);

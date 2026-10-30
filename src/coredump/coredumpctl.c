@@ -44,7 +44,8 @@ const char *arg_directory = NULL;
 char **arg_file = NULL;
 sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 PagerFlags arg_pager_flags = 0;
-int arg_legend = true;
+bool arg_legend = true;
+bool arg_full = false;
 size_t arg_rows_max = SIZE_MAX;
 const char *arg_output = NULL;
 bool arg_reverse = false;
@@ -93,6 +94,10 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
 
                 OPTION_COMMON_NO_LEGEND:
                         arg_legend = false;
+                        break;
+
+                OPTION_COMMON_FULL:
+                        arg_full = true;
                         break;
 
                 OPTION_LONG("debugger", "DEBUGGER", "Use the given debugger"):
@@ -295,6 +300,7 @@ static int run(int argc, char *argv[]) {
         LIBCRYPTO_NOTE(suggested);
         LIBCRYPTSETUP_NOTE(suggested);
         LIBMOUNT_NOTE(recommended);
+        TPM2_NOTE(suggested);
 
         setlocale(LC_ALL, "");
         log_setup();

@@ -28,7 +28,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 19. [FINAL] Create an empty -stable branch: `git push systemd origin/main:refs/heads/v${version}-stable`.
 20. [FINAL] Edit in the new -stable branch `.obs/workflows.yml`, changing `project` from `system:systemd` to `system:systemd:stable` and the branch from `main` to `v${version}-stable`. This should be backported to older active stable branches too.
 21. [FINAL] Build and upload the documentation (on the -stable branch): `ninja -C build doc-sync`
-22. [FINAL] Create a new `ci/v${version}-stable` branch for deb package builds on https://salsa.debian.org/systemd-team/systemd
+22. [FINAL] Create a new `ci/v${version}-stable` branch for deb package builds on https://github.com/systemd/systemd-deb
 23. [FINAL] Switch `.semaphore/semaphore-runner.sh` and `mkosi/mkosi.pkgenv/mkosi.conf.d/debian-ubuntu.conf`
     to the new `ci/v${version}-stable` branch on the -stable branch
 24. [FINAL] Switch `versionrewrite-pattern` and `versionrewrite-replacement` to release mode in https://build.opensuse.org/projects/system:systemd/packages/systemd/files/_service?expand=1

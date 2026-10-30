@@ -32,7 +32,7 @@ coredumpctl_sources = files(
 coredump_gperf_c = custom_target(
         input : 'coredump-gperf.gperf',
         output : 'coredump-gperf.c',
-        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+        command : [gperf_cmdline, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 generated_sources += coredump_gperf_c
 systemd_coredump_sources += coredump_gperf_c
@@ -56,7 +56,6 @@ executables += [
         },
         executable_template + {
                 'name' : 'coredumpctl',
-                'public' : true,
                 'sources' : coredumpctl_sources,
                 'link_with' : [libshared],
                 'dependencies' : common_dependencies,

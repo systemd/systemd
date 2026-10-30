@@ -118,14 +118,19 @@ typedef struct sd_varlink_interface sd_varlink_interface;
 typedef int (*sd_varlink_method_t)(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
 
 typedef struct sd_journal sd_journal;
+enum ENUM_TYPE_S64(sd_journal_data_flags_t);
+typedef enum sd_journal_data_flags_t sd_journal_data_flags_t;
 
 typedef struct sd_resolve sd_resolve;
 typedef struct sd_resolve_query sd_resolve_query;
 
 typedef struct sd_hwdb sd_hwdb;
 
+typedef struct sd_channel sd_channel;
 typedef struct sd_future sd_future;
+typedef struct sd_future_slot sd_future_slot;
 
-typedef int (*sd_future_func_t)(sd_future *f);
+typedef int (*sd_future_func_t)(sd_future *f, void *userdata);
 typedef int (*sd_fiber_func_t)(void *userdata);
+typedef _sd_destroy_t sd_channel_destroy_t;
 typedef _sd_destroy_t sd_fiber_destroy_t;

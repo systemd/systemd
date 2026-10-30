@@ -7,7 +7,6 @@ endif
 executables += [
         libexec_template + {
                 'name' : 'systemd-imdsd',
-                'public' : true,
                 'sources' : files('imdsd.c'),
                 'export' : files('imds-util.c'),
                 'dependencies' : [
@@ -16,7 +15,6 @@ executables += [
         },
         libexec_template + {
                 'name' : 'systemd-imds',
-                'public' : true,
                 'sources' : files(
                         'imds-tool.c',
                         'imds-tool-metrics.c'),

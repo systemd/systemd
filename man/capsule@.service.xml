@@ -77,7 +77,7 @@
     for example with the <option>--what=all</option> switch.</para>
 
     <para>The <filename>capsule@.service</filename> unit invokes a <command>systemd --user</command>
-    service manager process. This means unit files are looked for according to the sames rules as for regular user
+    service manager process. This means unit files are looked for according to the same rules as for regular user
     service managers, for example in
     <filename>/var/lib/capsules/<replaceable>NAME</replaceable>/.config/systemd/user/</filename>.</para>
 

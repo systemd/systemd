@@ -8,6 +8,7 @@
 # - io_uring retry callbacks (if QEMU lacks io_uring support)
 # - Multiple device_add commands
 # - blockdev-create job watching with deferred continuation (ephemeral)
+# - read-only extra drives with --ephemeral
 set -eux
 set -o pipefail
 
@@ -53,7 +54,7 @@ WORKDIR="$(mktemp -d)"
 
 at_exit() {
     set +e
-    for m in "${MACHINE_MULTI:-}" "${MACHINE_EPHEMERAL:-}" "${MACHINE_GROW:-}"; do
+    for m in "${MACHINE_MULTI:-}" "${MACHINE_EPHEMERAL:-}" "${MACHINE_GROW:-}" "${MACHINE_RO:-}" "${MACHINE_FW:-}"; do
         [[ -n "$m" ]] || continue
         if machinectl status "$m" &>/dev/null; then
             machinectl terminate "$m" 2>/dev/null
@@ -63,9 +64,36 @@ at_exit() {
     [[ -n "${VMSPAWN_MULTI_PID:-}" ]] && kill "$VMSPAWN_MULTI_PID" 2>/dev/null && wait "$VMSPAWN_MULTI_PID" 2>/dev/null
     [[ -n "${VMSPAWN_EPHEMERAL_PID:-}" ]] && kill "$VMSPAWN_EPHEMERAL_PID" 2>/dev/null && wait "$VMSPAWN_EPHEMERAL_PID" 2>/dev/null
     [[ -n "${VMSPAWN_GROW_PID:-}" ]] && kill "$VMSPAWN_GROW_PID" 2>/dev/null && wait "$VMSPAWN_GROW_PID" 2>/dev/null
+    [[ -n "${VMSPAWN_RO_PID:-}" ]] && kill "$VMSPAWN_RO_PID" 2>/dev/null && wait "$VMSPAWN_RO_PID" 2>/dev/null
+    [[ -n "${VMSPAWN_FW_PID:-}" ]] && kill "$VMSPAWN_FW_PID" 2>/dev/null && wait "$VMSPAWN_FW_PID" 2>/dev/null
+    mountpoint -q "$WORKDIR/ro" && umount "$WORKDIR/ro"
     rm -rf "$WORKDIR"
 }
 trap at_exit EXIT
+
+# Prints the path of QEMU's fd for the ephemeral overlay of the given machine, if the overlay is in the given
+# directory. The overlay is unlinked, so QEMU's fd is the only way to reach it. vmspawn registers QEMU itself
+# as the machine leader, so machined knows its PID.
+find_overlay_fd() {
+    local machine="${1:?}" dir="${2:?}" pid fd target
+
+    pid="$(varlinkctl call /run/systemd/machine/io.systemd.Machine \
+        io.systemd.Machine.List "{\"name\":\"$machine\"}" | jq -r '.leader.pid')"
+
+    for fd in /proc/"$pid"/fd/*; do
+        target="$(readlink "$fd" 2>/dev/null)" || continue
+        # The overlay is an O_TMPFILE. On file systems without O_TMPFILE, vmspawn creates a named
+        # temporary file instead and unlinks it right away.
+        if [[ "$target" == "$dir"/#*" (deleted)" || "$target" == "$dir"/systemd-tmp-*" (deleted)" ]]; then
+            echo "$fd"
+            return 0
+        fi
+    done
+
+    echo "No ephemeral overlay in $dir found among the fds of QEMU:" >&2
+    ls -l /proc/"$pid"/fd >&2
+    return 1
+}
 
 # Create a minimal root filesystem directory, then bake it into a raw ext4 image.
 # The guest doesn't need to fully boot — 'sleep infinity' keeps QEMU alive for QMP testing.
@@ -90,7 +118,8 @@ truncate -s 32M "$WORKDIR/extra2.raw"
 # three device_add commands — all pipelined without waiting for responses.
 
 MACHINE_MULTI="test-vmspawn-drives-$$"
-systemd-vmspawn \
+# Debug logging shows QEMU's replies to the feature probes, see the node name check below.
+SYSTEMD_LOG_LEVEL=debug systemd-vmspawn \
     --machine="$MACHINE_MULTI" \
     --ram=256M \
     --image="$WORKDIR/root.raw" \
@@ -107,9 +136,7 @@ wait_for_machine "$MACHINE_MULTI" "$VMSPAWN_MULTI_PID" "$WORKDIR/vmspawn-multi.l
 echo "Multi-drive machine '$MACHINE_MULTI' registered with machined"
 
 # Verify varlink control address is present and the VM is running
-VARLINK_ADDR=$(varlinkctl call /run/systemd/machine/io.systemd.Machine \
-    io.systemd.Machine.List "{\"name\":\"$MACHINE_MULTI\"}" | jq -r '.controlAddress')
-assert_neq "$VARLINK_ADDR" "null"
+VARLINK_ADDR=$(machine_control_address "$MACHINE_MULTI")
 
 STATUS=$(varlinkctl call "$VARLINK_ADDR" io.systemd.MachineInstance.Describe '{}')
 echo "$STATUS" | jq -e '.running == true'
@@ -123,6 +150,15 @@ if grep -E '(add-fd|blockdev-add|blockdev-create|device_add|getfd|netdev_add|cha
 fi
 echo "No QMP device setup errors in log"
 
+# Probe failures are expected and only logged at debug level, but a rejected node name
+# makes a probe fail regardless of QEMU's features.
+if grep -a 'Invalid node-name' "$WORKDIR/vmspawn-multi.log"; then
+    echo "Full vmspawn log:"
+    cat "$WORKDIR/vmspawn-multi.log"
+    exit 1
+fi
+echo "QEMU accepted all node names"
+
 machinectl terminate "$MACHINE_MULTI"
 timeout 10 bash -c "while machinectl status '$MACHINE_MULTI' &>/dev/null; do sleep .5; done"
 timeout 10 bash -c "while kill -0 '$VMSPAWN_MULTI_PID' 2>/dev/null; do sleep .5; done"
@@ -134,13 +170,18 @@ echo "Multi-drive VM terminated cleanly"
 # background job, JOB_STATUS_CHANGE events are watched, and when the job
 # concludes the deferred continuation fires blockdev-add (overlay format) +
 # device_add. If any step fails, the root drive is never attached and the kernel
-# panics — vmspawn exits without registering.
+# panics — vmspawn exits without registering. The image is in a read-only
+# directory, so the overlay has to be created in $TMPDIR instead.
+
+mkdir "$WORKDIR/ro" "$WORKDIR/large-tmp"
+ln "$WORKDIR/root.raw" "$WORKDIR/ro/root.raw"
+mount --bind -o ro "$WORKDIR/ro" "$WORKDIR/ro"
 
 MACHINE_EPHEMERAL="test-vmspawn-ephemeral-$$"
-systemd-vmspawn \
+TMPDIR="$WORKDIR/large-tmp" SYSTEMD_LOG_LEVEL=debug systemd-vmspawn \
     --machine="$MACHINE_EPHEMERAL" \
     --ram=256M \
-    --image="$WORKDIR/root.raw" \
+    --image="$WORKDIR/ro/root.raw" \
     --ephemeral \
     --linux="$KERNEL" \
     --tpm=no \
@@ -152,9 +193,7 @@ VMSPAWN_EPHEMERAL_PID=$!
 wait_for_machine "$MACHINE_EPHEMERAL" "$VMSPAWN_EPHEMERAL_PID" "$WORKDIR/vmspawn-ephemeral.log"
 echo "Ephemeral machine '$MACHINE_EPHEMERAL' registered with machined"
 
-VARLINK_ADDR_E=$(varlinkctl call /run/systemd/machine/io.systemd.Machine \
-    io.systemd.Machine.List "{\"name\":\"$MACHINE_EPHEMERAL\"}" | jq -r '.controlAddress')
-assert_neq "$VARLINK_ADDR_E" "null"
+VARLINK_ADDR_E=$(machine_control_address "$MACHINE_EPHEMERAL")
 
 STATUS_E=$(varlinkctl call "$VARLINK_ADDR_E" io.systemd.MachineInstance.Describe '{}')
 echo "$STATUS_E" | jq -e '.running == true'
@@ -167,6 +206,32 @@ if grep -E '(add-fd|blockdev-add|blockdev-create|device_add|getfd|netdev_add|cha
 fi
 echo "No QMP device setup errors in ephemeral log"
 
+OVERLAY="$(find_overlay_fd "$MACHINE_EPHEMERAL" "$WORKDIR/large-tmp")"
+echo "Ephemeral overlay was created in \$TMPDIR and is QEMU fd ${OVERLAY##*/}"
+
+# The continuation's device_add must happen before the VM gets resumed.
+if ! DISK_ADD_LINE="$(grep -a -n -m1 '"execute":"device_add".*"id":"vmspawn-0-disk"' "$WORKDIR/vmspawn-ephemeral.log" | cut -d: -f1)" ||
+   ! CONT_LINE="$(grep -a -n -m1 '"execute":"cont"' "$WORKDIR/vmspawn-ephemeral.log" | cut -d: -f1)" ||
+   (( DISK_ADD_LINE > CONT_LINE )); then
+    echo "Ephemeral boot disk was not added before resuming the VM. Full vmspawn log:"
+    cat "$WORKDIR/vmspawn-ephemeral.log"
+    exit 1
+fi
+echo "Ephemeral boot disk was added before resuming the VM"
+
+# Architectures with PCIe root ports (ARCHITECTURE_NEEDS_PCIE_ROOT_PORTS) also need a machine
+# reset in between, which must have happened (RESET event received) before the VM gets resumed.
+if [[ "$(uname -m)" =~ ^(x86_64|i[3-6]86|aarch64|arm.*|riscv64|loongarch64)$ ]]; then
+    if ! RESET_LINE="$(grep -a -n -m1 '"execute":"system_reset"' "$WORKDIR/vmspawn-ephemeral.log" | cut -d: -f1)" ||
+       ! RESET_EVENT_LINE="$(grep -a -n -m1 'Received message: .*"event":"RESET"' "$WORKDIR/vmspawn-ephemeral.log" | cut -d: -f1)" ||
+       (( DISK_ADD_LINE > RESET_LINE || RESET_LINE > RESET_EVENT_LINE || RESET_EVENT_LINE > CONT_LINE )); then
+        echo "Machine was not reset between adding the ephemeral boot disk and resuming the VM. Full vmspawn log:"
+        cat "$WORKDIR/vmspawn-ephemeral.log"
+        exit 1
+    fi
+    echo "Machine was reset between adding the ephemeral boot disk and resuming the VM"
+fi
+
 machinectl terminate "$MACHINE_EPHEMERAL"
 timeout 10 bash -c "while machinectl status '$MACHINE_EPHEMERAL' &>/dev/null; do sleep .5; done"
 timeout 10 bash -c "while kill -0 '$VMSPAWN_EPHEMERAL_PID' 2>/dev/null; do sleep .5; done"
@@ -175,7 +240,11 @@ echo "Ephemeral VM terminated cleanly"
 # --- Test 3: Ephemeral overlay grown with --grow-image= ---
 # In ephemeral mode the requested size has to land on the qcow2 overlay. The
 # image passed to --image= is opened read-only and has to come out of the run
-# at its original size.
+# at its original size. The image is passed through a symlink in another
+# directory, and the overlay has to be created next to the symlink target.
+
+mkdir "$WORKDIR/links"
+ln -s "$WORKDIR/root.raw" "$WORKDIR/links/root.raw"
 
 MACHINE_GROW="test-vmspawn-grow-$$"
 GROW_SIZE=$((512 * 1024 * 1024))
@@ -184,7 +253,7 @@ IMAGE_SIZE="$(stat -c %s "$WORKDIR/root.raw")"
 systemd-vmspawn \
     --machine="$MACHINE_GROW" \
     --ram=256M \
-    --image="$WORKDIR/root.raw" \
+    --image="$WORKDIR/links/root.raw" \
     --ephemeral \
     --grow-image="$GROW_SIZE" \
     --linux="$KERNEL" \
@@ -200,21 +269,8 @@ echo "Grown ephemeral machine '$MACHINE_GROW' registered with machined"
 assert_eq "$(stat -c %s "$WORKDIR/root.raw")" "$IMAGE_SIZE"
 echo "Image passed to --image= was left at its original size"
 
-# The overlay is unlinked, so QEMU's fd is the only way to reach it. vmspawn
-# registers QEMU itself as the machine leader, so machined knows its PID.
-QEMU_PID="$(varlinkctl call /run/systemd/machine/io.systemd.Machine \
-    io.systemd.Machine.List "{\"name\":\"$MACHINE_GROW\"}" | jq -r '.leader.pid')"
-
-OVERLAY=""
-for fd in /proc/"$QEMU_PID"/fd/*; do
-    target="$(readlink "$fd" 2>/dev/null)" || continue
-    # O_TMPFILE in the runtime directory, or the memfd fallback.
-    [[ "$target" == */vmspawn/"$MACHINE_GROW"/#* || "$target" == /memfd:vmspawn-overlay* ]] || continue
-    OVERLAY="$fd"
-    break
-done
-assert_neq "$OVERLAY" ""
-echo "Ephemeral overlay is QEMU fd ${OVERLAY##*/}"
+OVERLAY="$(find_overlay_fd "$MACHINE_GROW" "$WORKDIR")"
+echo "Ephemeral overlay was created next to the image and is QEMU fd ${OVERLAY##*/}"
 
 # qcow2 header: the magic, followed by the virtual size as a big endian u64 at
 # offset 24. Read it out of the header directly, qemu-img may not be installed.
@@ -226,5 +282,139 @@ machinectl terminate "$MACHINE_GROW"
 timeout 10 bash -c "while machinectl status '$MACHINE_GROW' &>/dev/null; do sleep .5; done"
 timeout 10 bash -c "while kill -0 '$VMSPAWN_GROW_PID' 2>/dev/null; do sleep .5; done"
 echo "Grown ephemeral VM terminated cleanly"
+
+# --- Test 4: Read-only NVMe extra drive ---
+# QEMU does not tell the guest that an NVMe drive is read-only, so this is refused.
+
+# Both with an explicit nvme: prefix and with nvme inherited from --image-disk-type=.
+for image_disk_type in virtio-blk nvme; do
+    if [[ "$image_disk_type" == nvme ]]; then
+        spec="ro:$WORKDIR/extra1.raw"
+    else
+        spec="nvme:ro:$WORKDIR/extra1.raw"
+    fi
+    if timeout 30 systemd-vmspawn \
+        --image="$WORKDIR/root.raw" \
+        --image-disk-type="$image_disk_type" \
+        --extra-drive="$spec" \
+        --linux="$KERNEL" \
+        --tpm=no \
+        --console=headless \
+        &>"$WORKDIR/vmspawn-nvme-ro.log"; then
+        echo "vmspawn unexpectedly accepted --image-disk-type=$image_disk_type --extra-drive=$spec"
+        exit 1
+    fi
+    if ! grep "Read-only --extra-drive= is not supported with disk type nvme: '$WORKDIR/extra1.raw'\." "$WORKDIR/vmspawn-nvme-ro.log"; then
+        echo "Full vmspawn log:"
+        cat "$WORKDIR/vmspawn-nvme-ro.log"
+        exit 1
+    fi
+done
+echo "Read-only NVMe extra drive is refused"
+
+# --- Test 5: Ephemeral with read-only extra drives ---
+# Extra drives get no overlay, so --ephemeral accepts them only if they are
+# read-only.
+
+MACHINE_RO="test-vmspawn-ephemeral-ro-$$"
+SYSTEMD_LOG_LEVEL=debug systemd-vmspawn \
+    --machine="$MACHINE_RO" \
+    --ram=256M \
+    --image="$WORKDIR/root.raw" \
+    --ephemeral \
+    --extra-drive="scsi-cd:$WORKDIR/extra1.raw" \
+    --extra-drive="ro:$WORKDIR/extra2.raw" \
+    --linux="$KERNEL" \
+    --tpm=no \
+    --console=headless \
+    root=/dev/vda rw \
+    &>"$WORKDIR/vmspawn-ro.log" &
+VMSPAWN_RO_PID=$!
+
+wait_for_machine "$MACHINE_RO" "$VMSPAWN_RO_PID" "$WORKDIR/vmspawn-ro.log"
+echo "Ephemeral machine '$MACHINE_RO' with read-only extra drives registered with machined"
+
+# The root drive is vmspawn-0, the extra drives vmspawn-1 and vmspawn-2.
+if grep -E '(add-fd|blockdev-add|blockdev-create|device_add|getfd|netdev_add|chardev-add) failed:' "$WORKDIR/vmspawn-ro.log" ||
+   ! grep '"execute":"blockdev-add","arguments":{"node-name":"vmspawn-1-storage",.*"read-only":true' "$WORKDIR/vmspawn-ro.log" ||
+   ! grep '"execute":"blockdev-add","arguments":{"node-name":"vmspawn-2-storage",.*"read-only":true' "$WORKDIR/vmspawn-ro.log"; then
+    echo "Full vmspawn log:"
+    cat "$WORKDIR/vmspawn-ro.log"
+    exit 1
+fi
+echo "Extra drives were added read-only"
+
+machinectl terminate "$MACHINE_RO"
+timeout 10 bash -c "while machinectl status '$MACHINE_RO' &>/dev/null; do sleep .5; done"
+timeout 10 bash -c "while kill -0 '$VMSPAWN_RO_PID' 2>/dev/null; do sleep .5; done"
+echo "Ephemeral VM with read-only extra drives terminated cleanly"
+
+# Writable extra drives, with the disk type inherited or explicit, are still refused.
+for disk_type in "" virtio-blk virtio-scsi nvme; do
+    spec="${disk_type:+$disk_type:}$WORKDIR/extra1.raw"
+    if timeout 30 systemd-vmspawn \
+        --image="$WORKDIR/root.raw" \
+        --ephemeral \
+        --extra-drive="$spec" \
+        --linux="$KERNEL" \
+        --tpm=no \
+        --console=headless \
+        &>"$WORKDIR/vmspawn-rw.log"; then
+        echo "vmspawn unexpectedly accepted --ephemeral with --extra-drive=$spec"
+        exit 1
+    fi
+    if ! grep "only supports read-only --extra-drive=.*'$WORKDIR/extra1.raw' with disk type ${disk_type:-virtio-blk}\." "$WORKDIR/vmspawn-rw.log"; then
+        echo "Full vmspawn log:"
+        cat "$WORKDIR/vmspawn-rw.log"
+        exit 1
+    fi
+done
+echo "Writable extra drives are refused with --ephemeral"
+
+# --- Test 6: Boot-time drives are visible to the firmware ---
+# vmspawn adds boot-time drives via QMP device_add, which QEMU treats as a PCIe
+# hotplug. The firmware must still see them as present and powered. The disk doesn't
+# need to be bootable: EDK2 creates a "UEFI Misc Device" boot option for every disk it
+# finds and tries it. Afterwards the firmware may start other boot options such as the
+# UEFI shell, so don't wait for it to give up with "No bootable option".
+
+if ! [[ "$(uname -m)" =~ ^(x86_64|aarch64)$ ]]; then
+    echo "No EDK2 firmware with native PCIe hotplug on $(uname -m), skipping firmware drive test"
+elif ! systemd-vmspawn --firmware=describe &>/dev/null; then
+    # Tests 1 to 3 boot with --linux, which works without UEFI firmware.
+    echo "No UEFI firmware found, skipping firmware drive test"
+else
+    # aarch64 'virt' uses native PCIe hotplug. On x86_64, q35 defaults to ACPI hotplug,
+    # which hides the problem, so force native hotplug there.
+    FW_QEMU_EXTRA=""
+    if [[ "$(uname -m)" == x86_64 ]]; then
+        FW_QEMU_EXTRA="-global ICH9-LPC.acpi-pci-hotplug-with-bridge-support=off"
+    fi
+
+    MACHINE_FW="test-vmspawn-fw-$$"
+    SYSTEMD_VMSPAWN_QEMU_EXTRA="$FW_QEMU_EXTRA" SYSTEMD_LOG_LEVEL=debug systemd-vmspawn \
+        --machine="$MACHINE_FW" \
+        --ram=256M \
+        --image="$WORKDIR/root.raw" \
+        --tpm=no \
+        --console=read-only \
+        &>"$WORKDIR/vmspawn-fw.log" &
+    VMSPAWN_FW_PID=$!
+
+    wait_for_machine "$MACHINE_FW" "$VMSPAWN_FW_PID" "$WORKDIR/vmspawn-fw.log"
+    # Secure Boot OVMF with SMM under nested virtualization is slow: in CI it took 45s just to bring
+    # up the console, so give the firmware plenty of time to get to BDS.
+    if ! timeout 300 bash -c "until grep -a -E >/dev/null 'BdsDxe: (loading|failed to load) Boot[0-9A-F]{4} \"UEFI Misc Device\"' '$WORKDIR/vmspawn-fw.log'; do sleep .5; done"; then
+        echo "Firmware did not see the boot-time drive. Full vmspawn log:"
+        cat "$WORKDIR/vmspawn-fw.log"
+        exit 1
+    fi
+    echo "Firmware found the boot-time drive"
+
+    machinectl terminate "$MACHINE_FW"
+    timeout 10 bash -c "while machinectl status '$MACHINE_FW' &>/dev/null; do sleep .5; done"
+    timeout 10 bash -c "while kill -0 '$VMSPAWN_FW_PID' 2>/dev/null; do sleep .5; done"
+    echo "Firmware drive VM terminated cleanly"
+fi
 
 echo "All vmspawn drive setup tests passed"

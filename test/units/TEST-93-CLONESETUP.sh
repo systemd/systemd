@@ -4,10 +4,15 @@ set -eux
 set -o pipefail
 set -E
 
+CLONESETUP_BIN=/usr/lib/systemd/systemd-clonesetup
+if [[ ! -x "$CLONESETUP_BIN" ]]; then
+    echo "systemd-clonesetup is not installed, skipping test." >/skipped
+    exit 77
+fi
+
 # shellcheck source=test/units/test-control.sh
 . "$(dirname "$0")"/test-control.sh
 
-CLONESETUP_BIN=/usr/lib/systemd/systemd-clonesetup
 # Test clonesetup generator and systemd-clonesetup
 # Disable pager usage so interactive/manual runs do not block in `less`.
 export SYSTEMD_PAGER=cat

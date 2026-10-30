@@ -8,6 +8,7 @@ typedef struct ExtraDrive {
         char *path;
         ImageFormat format;
         DiskType disk_type;
+        bool read_only;
 } ExtraDrive;
 
 typedef struct ExtraDriveContext {
@@ -23,6 +24,8 @@ typedef enum ConsoleMode {
         CONSOLE_NATIVE,         /* qemu's native TTY handling */
         CONSOLE_GUI,            /* qemu's graphical UI */
         CONSOLE_HEADLESS,       /* no console */
+        CONSOLE_BROKER,         /* acquire a PTY from ptybrokerd, frontend output is discarded/monitored */
+        CONSOLE_BROKER_LOG,     /* acquire a PTY from ptybrokerd, frontend output is written to the logs */
         _CONSOLE_MODE_MAX,
         _CONSOLE_MODE_INVALID = -EINVAL,
 } ConsoleMode;
@@ -44,8 +47,8 @@ typedef enum Firmware {
 
 typedef enum ConfidentialComputing {
         COCO_NO,
-        COCO_AMD_SEV_SNP,
-        COCO_INTEL_TDX,
+        COCO_SEV_SNP,
+        COCO_TDX,
         _COCO_MAX,
         _COCO_INVALID = -EINVAL,
 } ConfidentialComputing;

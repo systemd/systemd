@@ -14,6 +14,14 @@
 #include "main-func.h"
 #include "string-util.h"
 #include "strv.h"
+#include "verbs.h"
+
+COMMAND(
+        "30-systemd-environment-d-generator\0",
+        "Load variables specified by environment.d.",
+        .man_pages = "systemd-environment-d-generator(8)\0",
+        .option_namespace = "common",
+);
 
 static int environment_dirs(char ***ret) {
         _cleanup_strv_free_ char **dirs = NULL;
@@ -91,8 +99,9 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        if (argc > 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 0, /* ret_args= */ NULL);
+        if (r <= 0)
+                return r;
 
         r = load_and_print();
         if (r < 0)

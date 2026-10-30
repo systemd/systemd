@@ -98,6 +98,7 @@
 #include "rlimit-util.h"
 #include "rm-rf.h"
 #include "seccomp-util.h"
+#include "securebits-util.h"
 #include "selinux-setup.h"
 #include "selinux-util.h"
 #include "serialize.h"
@@ -166,6 +167,7 @@ static char **arg_manager_environment;
 static uint64_t arg_capability_bounding_set;
 static bool arg_no_new_privs;
 static int arg_protect_system;
+static int arg_secure_bits;
 static RestrictFileSystemAccess arg_restrict_filesystem_access;
 static nsec_t arg_timer_slack_nsec;
 static Set* arg_syscall_archs;
@@ -856,6 +858,7 @@ static int parse_config_file(void) {
                 { "Manager", "NoNewPrivileges",                   config_parse_bool,                  0,                        &arg_no_new_privs                                      },
                 { "Manager", "ProtectSystem",                     config_parse_protect_system_pid1,   0,                        &arg_protect_system                                    },
                 { "Manager", "RestrictFileSystemAccess",         config_parse_restrict_filesystem_access, 0,                   &arg_restrict_filesystem_access                         },
+                { "Manager", "SecureBits",                        config_parse_exec_secure_bits,      0,                        &arg_secure_bits                                       },
 #if HAVE_SECCOMP
                 { "Manager", "SystemCallArchitectures",           config_parse_syscall_archs,         0,                        &arg_syscall_archs                                     },
 #else
@@ -2015,6 +2018,39 @@ static void initialize_core_pattern(bool skip_setup) {
                                   arg_early_core_pattern);
 }
 
+/* Kernels before 6.14 don't know the exec- bits and refuse them with EPERM. */
+static const char* secure_bits_error_hint(int r) {
+        const int exec_bits = SECBIT_EXEC_RESTRICT_FILE | SECBIT_EXEC_RESTRICT_FILE_LOCKED |
+                              SECBIT_EXEC_DENY_INTERACTIVE | SECBIT_EXEC_DENY_INTERACTIVE_LOCKED;
+
+        return r == -EPERM && (arg_secure_bits & exec_bits) ? " (the exec- bits need kernel v6.14 or newer)" : "";
+}
+
+static int apply_secure_bits(void) {
+        int current, bits;
+
+        if (arg_secure_bits < 0)
+                return 0;
+
+        current = prctl_safe(PR_GET_SECUREBITS, 0, 0, 0, 0);
+        if (current < 0)
+                return current;
+
+        /* Pairs that are locked already cannot be changed anymore. */
+        bits = secure_bits_keep_locked(current, arg_secure_bits);
+        if (bits != arg_secure_bits) {
+                _cleanup_free_ char *s = NULL;
+
+                (void) secure_bits_to_string_alloc(bits, &s);
+                log_notice("Some configured secure bits are locked differently already, applying \"%s\" instead.", strempty(s));
+        }
+
+        if (bits == current)
+                return 0;
+
+        return prctl_safe(PR_SET_SECUREBITS, bits, 0, 0, 0);
+}
+
 static void apply_protect_system(bool skip_setup) {
         int r;
 
@@ -2331,7 +2367,7 @@ static int do_reexecute(
                 log_warning_errno(r, "Failed to move /run/systemd/ to /run/systemd.pre-switch-root/, ignoring: %m");
 
         /* Reopen the console */
-        (void) make_console_stdio();
+        (void) make_console_stdio(/* switch_to_text= */ true);
 
         i = 1;         /* Leave args[0] empty for now. */
         for (int j = 1; j <= argc; j++)
@@ -2437,6 +2473,11 @@ static int invoke_main_loop(
 
                         update_cpu_affinity(false);
                         update_numa_policy(false);
+
+                        r = apply_secure_bits();
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to set secure bits%s, ignoring: %m",
+                                                  secure_bits_error_hint(r));
 
                         if (saved_log_level >= 0)
                                 manager_override_log_level(m, saved_log_level);
@@ -2669,6 +2710,14 @@ static int initialize_runtime(
 
         update_cpu_affinity(skip_setup);
         update_numa_policy(skip_setup);
+
+        r = apply_secure_bits();
+        if (r < 0) {
+                *ret_error_message = "Failed to set secure bits";
+                return log_struct_errno(LOG_EMERG, r,
+                                        LOG_MESSAGE("Failed to set secure bits%s: %m", secure_bits_error_hint(r)),
+                                        LOG_MESSAGE_ID(SD_MESSAGE_CORE_SECURE_BITS_STR));
+        }
 
         switch (arg_runtime_scope) {
 
@@ -3016,6 +3065,7 @@ static void reset_arguments(void) {
         arg_capability_bounding_set = CAP_MASK_ALL;
         arg_no_new_privs = false;
         arg_protect_system = -1;
+        arg_secure_bits = -1;
         arg_restrict_filesystem_access = RESTRICT_FILESYSTEM_ACCESS_NO;
         arg_timer_slack_nsec = NSEC_INFINITY;
 
@@ -3523,8 +3573,7 @@ static int save_env(void) {
         if (!l)
                 return log_oom();
 
-        strv_free_and_replace(saved_env, l);
-        return 0;
+        return strv_free_and_replace(saved_env, l);
 }
 
 static int run_systemd(int argc, char *argv[]) {

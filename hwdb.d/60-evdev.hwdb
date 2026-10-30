@@ -75,6 +75,11 @@ evdev:input:b0003v08CAp0020*
  EVDEV_ABS_00=::20
  EVDEV_ABS_01=::20
 
+# APT-USB-3 (sold as Trust TB-3100), 200x150 mm active area
+evdev:input:b0003v08CAp0021*
+ EVDEV_ABS_00=::15
+ EVDEV_ABS_01=::15
+
 # AIPTEK Media Tablet Ultimate (detected as Waltop International Corp. Batteryless Tablet)
 evdev:input:b0003v172Fp0503*
  EVDEV_ABS_00=::160
@@ -1022,6 +1027,24 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnTOSHIBA:pnSATELLITER830:*
 evdev:input:b0003v2179p0004*
  EVDEV_ABS_00=::234
  EVDEV_ABS_01=::328
+
+#########################################
+# VEIKK
+#########################################
+
+# VEIKK A15 Pro
+evdev:input:b0003v2FEBp0006*
+ EVDEV_ABS_00=::129
+ EVDEV_ABS_01=::215
+
+#########################################
+# ViewSonic
+#########################################
+
+# ViewSonic WoodPad 7 PF0730-E0WW
+evdev:input:b0003v0543pE667*
+ EVDEV_ABS_00=::103
+ EVDEV_ABS_01=::105
 
 #########################################
 # Waltop

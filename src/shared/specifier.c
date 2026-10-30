@@ -304,7 +304,7 @@ int specifier_group_name(char specifier, const void *data, const char *root, con
         assert(ret);
 
         if (scope == RUNTIME_SCOPE_GLOBAL)
-                return -EINVAL;
+                return -EUNATCH;
 
         t = gid_to_name(scope == RUNTIME_SCOPE_USER ? getgid() : 0);
         if (!t)
@@ -321,7 +321,7 @@ int specifier_group_id(char specifier, const void *data, const char *root, const
         assert(ret);
 
         if (scope == RUNTIME_SCOPE_GLOBAL)
-                return -EINVAL;
+                return -EUNATCH;
 
         gid = scope == RUNTIME_SCOPE_USER ? getgid() : 0;
 
@@ -339,7 +339,7 @@ int specifier_user_name(char specifier, const void *data, const char *root, cons
         assert(ret);
 
         if (scope == RUNTIME_SCOPE_GLOBAL)
-                return -EINVAL;
+                return -EUNATCH;
 
         uid = scope == RUNTIME_SCOPE_USER ? getuid() : 0;
 
@@ -365,7 +365,7 @@ int specifier_user_id(char specifier, const void *data, const char *root, const 
         assert(ret);
 
         if (scope == RUNTIME_SCOPE_GLOBAL)
-                return -EINVAL;
+                return -EUNATCH;
 
         uid = scope == RUNTIME_SCOPE_USER ? getuid() : 0;
 

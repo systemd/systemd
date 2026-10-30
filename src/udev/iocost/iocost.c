@@ -3,10 +3,8 @@
 #include <stdio.h>
 
 #include "sd-device.h"
-#include "sd-json.h"
 
 #include "alloc-util.h"
-#include "build.h"
 #include "cgroup-util.h"
 #include "conf-parser.h"
 #include "device-util.h"
@@ -24,6 +22,7 @@ COMMAND(
         "iocost\0",
         "Set up iocost model and qos solutions for block devices.",
         .man_pages = "iocost.conf(5)\0",
+        .option_namespace = "common",
 );
 
 static int parse_config(void) {
@@ -56,30 +55,6 @@ static int parse_config(void) {
 }
 
 VERB_COMMON_HELP_AUTO_HIDDEN();
-
-static int parse_argv(int argc, char *argv[], char ***remaining_args) {
-        assert(argc >= 0);
-        assert(argv);
-        assert(remaining_args);
-
-        OptionParser opts = { argc, argv };
-
-        FOREACH_OPTION_OR_RETURN(c, &opts)
-                switch (c) {
-
-                OPTION_COMMON_HELP:
-                        return command_print_help();
-
-                OPTION_COMMON_VERSION:
-                        return version();
-
-                OPTION_COMMON_INTROSPECT_CLI:
-                        return introspect_cli(SD_JSON_FORMAT_OFF);
-                }
-
-        *remaining_args = option_parser_get_args(&opts);
-        return 1;
-}
 
 static int get_known_solutions(sd_device *device, int log_level, char ***ret_solutions, const char **ret_selected) {
         _cleanup_free_ char **s = NULL;
@@ -281,7 +256,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv, &args);
+        r = common_parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 

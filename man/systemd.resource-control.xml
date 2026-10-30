@@ -992,11 +992,11 @@ SocketBindDeny=any
         <term><varname>RestrictNetworkInterfaces=</varname></term>
 
         <listitem>
-          <para>Takes a list of space-separated network interface names. This option restricts the network
-          interfaces that processes of this unit can use. By default, processes can only use the network interfaces
-          listed (allow-list). If the first character of the rule is <literal>~</literal>, the effect is inverted:
-          the processes can only use network interfaces not listed (deny-list).
-          </para>
+          <para>Takes a comma- or space-separated list of network interface names. This option restricts the
+          network interfaces that processes of this unit can use. By default, processes can only use the network
+          interfaces listed (allow-list). If the first character of the rule is <literal>~</literal>, the effect is
+          inverted: the processes can only use network interfaces not listed (deny-list). Note: to specify
+          an interface with a comma in the name, use quotes.</para>
 
           <para>This option can appear multiple times, in which case the network interface names are merged. If the
           empty string is assigned the set is reset, all prior assignments will have not effect.
@@ -1011,6 +1011,7 @@ SocketBindDeny=any
           <para>The loopback interface ("lo") is not treated in any special way, you have to configure it explicitly
           in the unit file.
           </para>
+
           <para>Example 1: allow-list
           <programlisting>
 RestrictNetworkInterfaces=eth1

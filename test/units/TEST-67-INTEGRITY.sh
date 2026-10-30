@@ -2,6 +2,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -euxo pipefail
 
+if [[ ! -x /usr/lib/systemd/systemd-integritysetup ]]; then
+    echo "systemd-integritysetup is not installed, skipping test." >/skipped
+    exit 77
+fi
+
 DM_NAME="integrity_test"
 DM_NODE="/dev/mapper/${DM_NAME}"
 DM_SERVICE="systemd-integritysetup@${DM_NAME}.service"
@@ -129,7 +134,7 @@ for a in crc32c crc32 xxhash64 sha1 sha256; do
     modprobe -q "crypto-$a" || :
 
     # Some algorithms are not supported on certain platforms (e.g. crc32 is
-    # missing on Alpine/postmarketOS). Skip them at runtime to avoid spurious
+    # missing on Alpine/Nura). Skip them at runtime to avoid spurious
     # failures.
     if ! grep -q -E "^name\s+: $a\$" /proc/crypto; then
         echo "Algorithm '$a' is not supported on this system, skipping."

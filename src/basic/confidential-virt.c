@@ -230,15 +230,13 @@ static ConfidentialVirtualization detect_confidential_virtualization_impl(void) 
 }
 #elif defined(__aarch64__)
 static ConfidentialVirtualization detect_confidential_virtualization_impl(void) {
-        int r;
+        if (access("/sys/firmware/cca/realm_guest", F_OK) == 0)
+                return CONFIDENTIAL_VIRTUALIZATION_CCA;
 
-        r = RET_NERRNO(access("/sys/devices/platform/arm-cca-dev", F_OK));
-        if (r < 0) {
-                log_debug_errno(r, "Unable to check /sys/devices/platform/arm-cca-dev: %m");
-                return CONFIDENTIAL_VIRTUALIZATION_NONE;
-        }
+        if (access("/sys/devices/platform/arm-cca-dev", F_OK) == 0)
+                return CONFIDENTIAL_VIRTUALIZATION_CCA;
 
-        return CONFIDENTIAL_VIRTUALIZATION_CCA;
+        return CONFIDENTIAL_VIRTUALIZATION_NONE;
 }
 #else /* ! x86_64 */
 static ConfidentialVirtualization detect_confidential_virtualization_impl(void) {

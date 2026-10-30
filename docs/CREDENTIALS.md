@@ -503,7 +503,7 @@ systemd-nspawn -i test.raw  \
 ```
 
 This boots the specified disk image as `systemd-nspawn` container, and passes
-the root password `mysecret`and default locale `C.UTF-8` to use to it. This
+the root password `mysecret` and the default locale `C.UTF-8` to it. This
 data is then propagated by default to `systemd-sysusers.service` and
 `systemd-firstboot.service`, where it is applied. (Note that these services
 will only do so if these settings in `/etc/` are so far unset, i.e. they only
@@ -588,3 +588,5 @@ These directories are hence a great place to store credentials to load on the sy
 Sometimes it makes sense to conditionalize system services and invoke them only
 if the right system credential is passed to the system.
 Use the `ConditionCredential=` and `AssertCredential=` unit file settings for that.
+Like `ImportCredential=`, they also search the credential store directories described above,
+so a credential placed in e.g. `/run/credstore/` by an initrd or cloud provisioning tool also counts.

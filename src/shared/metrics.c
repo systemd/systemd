@@ -161,14 +161,7 @@ static int metric_build_send(
         assert(link);
         assert(value);
 
-        if (fields) {
-                assert(sd_json_variant_is_object(fields));
-
-                _unused_ const char *k;
-                _unused_ sd_json_variant *e;
-                JSON_VARIANT_OBJECT_FOREACH(k, e, fields)
-                        assert(sd_json_variant_is_string(e));
-        }
+        assert(!fields || sd_json_variant_is_object(fields));
 
         return sd_varlink_replybo(
                         link,

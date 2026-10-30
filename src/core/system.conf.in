@@ -42,6 +42,7 @@
 #NoNewPrivileges=no
 #ProtectSystem=auto
 #RestrictFileSystemAccess=no
+#SecureBits=
 #SystemCallArchitectures=
 #TimerSlackNSec=
 #StatusUnitFormat={{STATUS_UNIT_FORMAT_DEFAULT_STR}}

@@ -7,13 +7,10 @@ name: "Pull Request Labeler"
 on:
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review, closed]
-    paths-ignore:
-      - '.github/labeler.yml'
-      - '.github/workflows/labeler.yml'
   # Allow testing changes made to the labeler configuration
   pull_request:
     paths:
-      - '.github/labeler.yml'
+      - '.github/labeler.json'
       - '.github/workflows/labeler.yml'
   issue_comment:
     types: [created]
@@ -28,6 +25,13 @@ jobs:
     permissions:
       pull-requests: write
 
+    env:
+      # The pull_request trigger is only there to check a change to the
+      # configuration against the head copy, so it never writes: a fork gets a
+      # read-only token whatever the permissions above say, and pull_request_target
+      # runs for the same pull request, so the two would fight over the labels.
+      SELF_TEST: ${{ github.event_name == 'pull_request' }}
+
     steps:
     - name: Repository checkout
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -35,52 +39,223 @@ jobs:
       with:
         persist-credentials: false
 
-    - name: Label PR based on policy in labeler.yml
-      uses: actions/labeler@c5dadc2a45784a4b6adfcd20fea3465da3a5f904
+    - name: Label PR based on policy in labeler.json
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
       if: startsWith(github.event_name, 'pull_request') && github.base_ref == 'main' && github.event.action != 'closed'
       with:
-        repo-token: "${{ secrets.GITHUB_TOKEN }}"
-        configuration-path: .github/labeler.yml
-        sync-labels: false
+        script: |
+          const fs = require("fs");
+
+          const CONFIG = ".github/labeler.json";
+
+          /* A pattern is a literal path in which "*" stands for any run of
+           * characters, "/" included. That makes "src/home*" cover everything
+           * below src/home/ and "*meson.build" every meson.build in the tree,
+           * which is what the patterns were always meant to say. */
+          const compile = (glob) =>
+            new RegExp(`^${glob.split("*").map(p => p.replace(/[.^$+|?()[\]{}\\]/g, "\\$&")).join(".*")}$`);
+
+          /* The pull_request trigger checks the branch out so that changes to
+           * the configuration can be tested. pull_request_target does not, so
+           * read the base repository's copy through the API instead. */
+          let raw;
+          if (context.eventName == "pull_request") {
+            raw = fs.readFileSync(CONFIG, "utf8");
+          } else {
+            const content = await github.rest.repos.getContent({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              path: CONFIG,
+            });
+            raw = Buffer.from(content.data.content, "base64").toString();
+          }
+
+          const config = JSON.parse(raw);
+
+          const changed = (await github.paginate(github.rest.pulls.listFiles, {
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: context.issue.number,
+          })).map(f => f.filename);
+
+          const matched = Object.entries(config.labels)
+            .filter(([, globs]) => globs.map(compile).some(re => changed.some(f => re.test(f))))
+            .map(([label]) => label);
+
+          const response = await github.rest.issues.listLabelsOnIssue({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+          });
+
+          const present = new Set(response.data.map(l => l.name));
+
+          /* A pull request touching half the tree matches so many labels that
+           * none of them say anything about it, so say that much instead. The
+           * count is of everything that matched rather than of what is missing,
+           * so that a rerun on the same pull request decides the same way. */
+          const tooMany = matched.length > config["max-labels"];
+          const wanted = tooMany ? [config["too-many-labels"]] : matched;
+
+          /* The two outcomes exclude each other, so a push that crosses the limit
+           * in either direction has to take the other one's labels back off. */
+          const labels = wanted.filter(l => !present.has(l));
+          const stale = (tooMany ? matched : [config["too-many-labels"]])
+            .filter(l => present.has(l));
+
+          if (labels.length == 0 && stale.length == 0) {
+            core.info("Labels are already up to date");
+          } else if (process.env.SELF_TEST == "true") {
+            core.info(`Would add ${labels.join(", ") || "nothing"} and remove ` +
+                      `${stale.join(", ") || "nothing"}`);
+          } else {
+            if (labels.length > 0) {
+              /* addLabels() only ever adds, so labels set by another workflow
+               * between the calls above and this one survive. */
+              await github.rest.issues.addLabels({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                labels: labels,
+              });
+            }
+
+            for (const label of stale) {
+              try {
+                await github.rest.issues.removeLabel({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label,
+                });
+              } catch (error) {
+                /* Somebody else removed it first. */
+                if (error.status !== 404) {
+                  throw error;
+                }
+              }
+            }
+          }
 
     - name: Set or remove labels based on systemd development workflow
       uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
-      if: startsWith(github.event_name, 'pull_request') && github.event.action != 'closed' && !github.event.pull_request.draft
+      if: startsWith(github.event_name, 'pull_request') && github.event.action != 'closed' && !github.event.pull_request.draft && env.SELF_TEST != 'true'
       with:
         script: |
+          /* Never read the full label set and write it back: other workflows
+           * label the same pull request concurrently and setLabels() would
+           * clobber whatever they added in the meantime. Only ever add or
+           * remove the individual labels this step owns. */
+          const removeLabel = async (name) => {
+            try {
+              await github.rest.issues.removeLabel({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: name,
+              });
+            } catch (error) {
+              /* Somebody else removed it first. */
+              if (error.status !== 404) {
+                throw error;
+              }
+            }
+          };
+
           response = await github.rest.issues.listLabelsOnIssue({
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
           });
 
-          original = new Set(response.data.map(l => l.name));
-          labels = new Set(original);
+          labels = new Set(response.data.map(l => l.name));
 
           good_to_merge = new Set([
             "good-to-merge/waiting-for-ci 👍",
             "good-to-merge/after-next-release",
             "good-to-merge/with-minor-suggestions",
             "good-to-merge/waiting-for-reporter-feedback 👍",
+            "good-to-merge/trust-me-bro 👊",
           ]);
 
-          if (Array.from(labels).filter(l => good_to_merge.has(l)).length == 0) {
-            labels.add("please-review");
+          /* A README.md that still carries the AI review notice has not been
+           * looked at by its author yet, so nobody else should review it. */
+          const readme = await github.rest.repos.getContent({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            path: "README.md",
+            ref: context.payload.pull_request.head.sha,
+          });
+          const unreviewed = Buffer.from(readme.data.content, "base64").toString()
+            .includes("Remove this line to confirm you've reviewed this PR before submitting.");
+
+          if (unreviewed) {
+            /* Only GraphQL can do this. The author marks the PR ready again once
+             * the notice is gone, which triggers the labeling below. */
+            await github.graphql(`
+              mutation($id: ID!) {
+                convertPullRequestToDraft(input: { pullRequestId: $id }) {
+                  pullRequest { isDraft }
+                }
+              }
+            `, { id: context.payload.pull_request.node_id });
+          } else if (!Array.from(good_to_merge).some(l => labels.has(l)) && !labels.has("please-review")) {
+            await github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ["please-review"],
+            });
           }
 
           for (const label of ["reviewed/needs-rework 🔨",
                                "ci-fails/needs-rework 🔥",
                                "ci-failure-appears-unrelated",
                                "needs-rebase"]) {
-            labels.delete(label);
+            if (labels.has(label)) {
+              await removeLabel(label);
+            }
           }
 
-          if (labels.size != original.size || Array.from(labels).some(l => !original.has(l))) {
-            await github.rest.issues.setLabels({
+    - name: Label PR based on author's GitHub org membership
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+      if: startsWith(github.event_name, 'pull_request') && github.event.action != 'closed'
+      with:
+        script: |
+          const orgLabels = {
+            "amutable": "downstream/amutable",
+          };
+
+          const author = context.payload.pull_request.user.login;
+
+          const labels = [];
+          for (const [org, label] of Object.entries(orgLabels)) {
+            /* The workflow token is not a member of these organizations, so
+             * GitHub only reveals public memberships to it. Members have to
+             * make their membership public to get the label. */
+            try {
+              await github.rest.orgs.checkPublicMembershipForUser({
+                org: org,
+                username: author,
+              });
+              labels.push(label);
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+            }
+          }
+
+          if (labels.length == 0) {
+            core.info(`${author} is not a public member of any listed organization`);
+          } else if (process.env.SELF_TEST == "true") {
+            core.info(`Would add ${labels.join(", ")}`);
+          } else {
+            await github.rest.issues.addLabels({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              labels: Array.from(labels),
+              labels: labels,
             });
           }
 
@@ -107,8 +282,7 @@ jobs:
             repo: context.repo.repo,
           });
 
-          original = new Set(response.data.map(l => l.name));
-          labels = new Set(original);
+          labels = new Set(response.data.map(l => l.name));
 
           for (const label of ["please-review",
                                "reviewed/needs-rework 🔨",
@@ -118,19 +292,27 @@ jobs:
                                "good-to-merge/after-next-release",
                                "good-to-merge/with-minor-suggestions",
                                "good-to-merge/waiting-for-reporter-feedback 👍",
+                               "good-to-merge/trust-me-bro 👊",
                                "needs-discussion 🤔",
                                "needs-reporter-feedback ❓",
                                "dont-merge 💣",
                                "squash-on-merge",
                                "quick-review 🏃‍♂️"]) {
-            labels.delete(label);
-          }
+            if (!labels.has(label)) {
+              continue;
+            }
 
-          if (labels.size != original.size || Array.from(labels).some(l => !original.has(l))) {
-            await github.rest.issues.setLabels({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: Array.from(labels),
-            });
+            try {
+              await github.rest.issues.removeLabel({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: label,
+              });
+            } catch (error) {
+              /* Somebody else removed it first. */
+              if (error.status !== 404) {
+                throw error;
+              }
+            }
           }

@@ -2,8 +2,10 @@
 
 #include <fcntl.h>
 #include <grp.h>
+#include <linux/pidfd.h>
 #include <linux/pkt_sched.h>
 #include <netinet/ip.h>
+#include <pthread.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -15,6 +17,7 @@
 #include "iovec-util.h"
 #include "log.h"
 #include "path-util.h"
+#include "pidfd-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "random-util.h"
@@ -501,6 +504,75 @@ TEST(getpeerpidref) {
         ASSERT_TRUE(!pidref_equal(&pidref_self, &pidref_pid1));
         ASSERT_TRUE(!pidref_equal(&pidref1, &pidref_pid1));
         ASSERT_TRUE(!pidref_equal(&pidref0, &pidref_pid1));
+}
+
+typedef struct SocketpairThread {
+        int sync_fd;
+        int *fd;
+        pid_t tid;
+} SocketpairThread;
+
+static void* socketpair_thread(void *p) {
+        SocketpairThread *t = ASSERT_PTR(p);
+        char x;
+
+        t->tid = gettid();
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, t->fd));
+
+        /* let main thread know the socket pair exists */
+        ASSERT_OK_EQ_ERRNO(write(t->sync_fd, &(const char) { 'x' }, 1), 1);
+
+        /* stay alive until the main thread is done looking at us */
+        ASSERT_OK_EQ_ERRNO(read(t->sync_fd, &x, 1), 1);
+        return NULL;
+}
+
+TEST(getpeerpidfd_thread) {
+        _cleanup_close_pair_ int sync_fd[2] = EBADF_PAIR, fd[2] = EBADF_PAIR;
+        SocketpairThread t = { .fd = fd };
+        pthread_t thread;
+        char x;
+        int r;
+
+        /* Make some doorbells for chatting with the child thread */
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, sync_fd));
+        t.sync_fd = sync_fd[0];
+
+        _cleanup_close_ int pidfd = getpeerpidfd(sync_fd[0]);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(pidfd))
+                return (void) log_tests_skipped_errno(pidfd, "SO_PEERPIDFD not supported");
+        ASSERT_OK(pidfd);
+
+        /* Have the child thread start to fill out its info and create its own socketpair */
+        ASSERT_EQ(pthread_create(&thread, NULL, &socketpair_thread, &t), 0);
+        ASSERT_OK_EQ_ERRNO(read(sync_fd[1], &x, 1), 1);
+        ASSERT_NE(t.tid, getpid_cached());
+
+        /* Make sure SO_PEERPIDFD returns the thread-group leader still on the child's socketpair */
+        _cleanup_(pidref_done) PidRef leader = PIDREF_NULL, self = PIDREF_NULL;
+        r = ASSERT_OK(getpeerpidfd(fd[0]));
+        ASSERT_OK(pidref_set_pidfd_consume(&leader, r));
+        ASSERT_OK(pidref_set_self(&self));
+        ASSERT_TRUE(pidref_equal(&leader, &self));
+
+        /* Make sure SO_PEERPIDFD_THREAD is returning the thread id on the child's socketpair */
+        _cleanup_(pidref_done) PidRef tidref = PIDREF_NULL;
+        r = getpeerpidfd_full(fd[0], PIDFD_THREAD);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                log_tests_skipped_errno(r, "SO_PEERPIDFD_THREAD not supported");
+        else {
+                ASSERT_OK(r);
+                ASSERT_OK(pidref_set_pidfd_consume(&tidref, r));
+                ASSERT_EQ(tidref.pid, t.tid);
+
+                /* Confirm that the pidfd still shows us as the tgid field */
+                struct pidfd_info info = { .mask = PIDFD_INFO_PID };
+                ASSERT_OK(pidfd_get_info(tidref.fd, &info));
+                ASSERT_EQ((pid_t) info.tgid, getpid_cached());
+        }
+
+        ASSERT_OK_EQ_ERRNO(write(sync_fd[1], &(const char) { 'x' }, 1), 1);
+        ASSERT_EQ(pthread_join(thread, NULL), 0);
 }
 
 TEST(tos_to_priority) {

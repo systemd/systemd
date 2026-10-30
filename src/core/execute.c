@@ -70,7 +70,7 @@
 const char* exec_context_tty_path(const ExecContext *context) {
         assert(context);
 
-        if (context->stdio_as_fds)
+        if (context->stdio_as_fds || exec_context_has_broker(context))
                 return NULL;
 
         if (context->tty_path)
@@ -1078,7 +1078,12 @@ static bool exec_context_may_touch_tty(const ExecContext *ec) {
 
 bool exec_context_may_touch_console(const ExecContext *ec) {
 
+        /* PTYs acquired from ptybrokerd are terminals (hence exec_context_may_touch_tty() may return true),
+         * but they never refer to the physical console, so exclude them here. Note that
+         * tty_may_match_dev_console() would otherwise return true for them, as exec_context_tty_path()
+         * reports no path. */
         return exec_context_may_touch_tty(ec) &&
+               !exec_context_has_broker(ec) &&
                tty_may_match_dev_console(exec_context_tty_path(ec));
 }
 
@@ -2303,6 +2308,44 @@ void exec_command_dump_list(ExecCommand *c, FILE *f, const char *prefix) {
                 exec_command_dump(i, f, prefix);
 }
 
+int exec_command_new(
+                const char *path,
+                char **argv_consume,
+                ExecCommandFlags flags,
+                ExecCommand **ret) {
+
+        _cleanup_strv_free_ char **argv = argv_consume;
+        _cleanup_(exec_command_freep) ExecCommand *c = NULL;
+        bool via_shell = FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL);
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        c = new0(ExecCommand, 1);
+        if (!c)
+                return -ENOMEM;
+
+        r = path_simplify_alloc(via_shell ? _PATH_BSHELL : path, &c->path);
+        if (r < 0)
+                return r;
+
+        if (strv_isempty(argv)) {
+                r = strv_extend(&argv, via_shell ? "sh" : c->path);
+                if (r < 0)
+                        return r;
+        } else if (via_shell) {
+                r = free_and_strdup(&argv[0], argv[0][0] == '-' ? "-sh" : "sh");
+                if (r < 0)
+                        return r;
+        }
+
+        c->argv = TAKE_PTR(argv);
+        c->flags = flags;
+        *ret = TAKE_PTR(c);
+        return 0;
+}
+
 void exec_command_append_list(ExecCommand **l, ExecCommand *e) {
         ExecCommand *end;
 
@@ -2315,6 +2358,56 @@ void exec_command_append_list(ExecCommand **l, ExecCommand *e) {
                 LIST_INSERT_AFTER(command, *l, end, e);
         } else
                 *l = e;
+}
+
+int exec_command_to_setting(const ExecCommand *c, char **ret) {
+        _cleanup_free_ char *exec_chars = NULL, *a = NULL, *s = NULL;
+        UnitWriteFlags esc_flags;
+        bool via_shell;
+
+        assert(c);
+        assert(c->path);
+        assert(!strv_isempty(c->argv));
+        assert(ret);
+
+        /* Formats the command the way it appears on the right-hand side of an ExecStart= (or similar)
+         * assignment in a unit file, i.e. the prefix characters encoding the flags, followed by the
+         * (escaped) command line. This is the inverse of the ExecStart= parser in load-fragment.c, and used
+         * when writing transient unit files. */
+
+        esc_flags = UNIT_ESCAPE_SPECIFIERS |
+                (FLAGS_SET(c->flags, EXEC_COMMAND_NO_ENV_EXPAND) ? UNIT_ESCAPE_EXEC_SYNTAX : UNIT_ESCAPE_EXEC_SYNTAX_ENV);
+        via_shell = FLAGS_SET(c->flags, EXEC_COMMAND_VIA_SHELL);
+
+        exec_chars = exec_command_flags_to_exec_chars(c->flags);
+        if (!exec_chars)
+                return -ENOMEM;
+
+        /* For via-shell commands argv[0] is always "sh" or "-sh", which is implied by the "|" prefix
+         * (plus "@" for the login shell case), hence skip it. */
+        a = unit_concat_strv(via_shell ? strv_skip(c->argv, 1) : c->argv, esc_flags);
+        if (!a)
+                return -ENOMEM;
+
+        /* If argv[0] matches the path the path is implied, too. Note that we use streq() instead of
+         * path_equal() here as argv[0] can be arbitrary and may not be a path. */
+        if (via_shell || streq(c->path, c->argv[0]))
+                s = strjoin(exec_chars, via_shell && c->argv[0][0] == '-' ? "@" : "", a);
+        else {
+                _cleanup_free_ char *t = NULL;
+                const char *p;
+
+                p = unit_escape_setting(c->path, esc_flags, &t);
+                if (!p)
+                        return -ENOMEM;
+
+                s = strjoin(exec_chars, "@", p, " ", a);
+        }
+        if (!s)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(s);
+        return 0;
 }
 
 int exec_command_set(ExecCommand *c, const char *path, ...) {
@@ -3147,14 +3240,16 @@ ExecCleanMask exec_clean_mask_from_string(const char *s) {
 }
 
 static const char* const exec_input_table[_EXEC_INPUT_MAX] = {
-        [EXEC_INPUT_NULL]      = "null",
-        [EXEC_INPUT_TTY]       = "tty",
-        [EXEC_INPUT_TTY_FORCE] = "tty-force",
-        [EXEC_INPUT_TTY_FAIL]  = "tty-fail",
-        [EXEC_INPUT_SOCKET]    = "socket",
-        [EXEC_INPUT_NAMED_FD]  = "fd",
-        [EXEC_INPUT_DATA]      = "data",
-        [EXEC_INPUT_FILE]      = "file",
+        [EXEC_INPUT_NULL]       = "null",
+        [EXEC_INPUT_TTY]        = "tty",
+        [EXEC_INPUT_TTY_FORCE]  = "tty-force",
+        [EXEC_INPUT_TTY_FAIL]   = "tty-fail",
+        [EXEC_INPUT_SOCKET]     = "socket",
+        [EXEC_INPUT_NAMED_FD]   = "fd",
+        [EXEC_INPUT_DATA]       = "data",
+        [EXEC_INPUT_FILE]       = "file",
+        [EXEC_INPUT_BROKER]     = "broker",
+        [EXEC_INPUT_BROKER_LOG] = "broker-log",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_input, ExecInput);
@@ -3172,6 +3267,8 @@ static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
         [EXEC_OUTPUT_FILE]                = "file",
         [EXEC_OUTPUT_FILE_APPEND]         = "append",
         [EXEC_OUTPUT_FILE_TRUNCATE]       = "truncate",
+        [EXEC_OUTPUT_BROKER]              = "broker",
+        [EXEC_OUTPUT_BROKER_LOG]          = "broker-log",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_output, ExecOutput);
@@ -3192,17 +3289,6 @@ static const char* const exec_preserve_mode_table[_EXEC_PRESERVE_MODE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(exec_preserve_mode, ExecPreserveMode, EXEC_PRESERVE_YES);
-
-/* This table maps ExecDirectoryType to the symlink setting it is configured with in the unit */
-static const char* const exec_directory_type_symlink_table[_EXEC_DIRECTORY_TYPE_MAX] = {
-        [EXEC_DIRECTORY_RUNTIME]       = "RuntimeDirectorySymlink",
-        [EXEC_DIRECTORY_STATE]         = "StateDirectorySymlink",
-        [EXEC_DIRECTORY_CACHE]         = "CacheDirectorySymlink",
-        [EXEC_DIRECTORY_LOGS]          = "LogsDirectorySymlink",
-        [EXEC_DIRECTORY_CONFIGURATION] = "ConfigurationDirectorySymlink",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(exec_directory_type_symlink, ExecDirectoryType);
 
 static const char* const exec_directory_type_mode_table[_EXEC_DIRECTORY_TYPE_MAX] = {
         [EXEC_DIRECTORY_RUNTIME]       = "RuntimeDirectoryMode",

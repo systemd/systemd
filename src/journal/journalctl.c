@@ -1012,6 +1012,7 @@ static int run(int argc, char *argv[]) {
         LIBMOUNT_NOTE(recommended);
         LIBPCRE2_NOTE(suggested);
         LIBQRENCODE_NOTE(suggested);
+        TPM2_NOTE(suggested);
 
         setlocale(LC_ALL, "");
         log_setup();

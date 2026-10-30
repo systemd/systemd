@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
+#include <sys/statfs.h>
+
 #include "sd-device.h"
 #include "sd-event.h"
 
@@ -10,24 +12,27 @@
 #include "udev-config.h"
 #include "udev-forward.h"
 
-/* This should have a higher priority than the device monitor and inotify watch, to make device monitor and
- * inotify event source stopped as soon as possible when the signal is received. Otherwise, we may continue
- * receive events that needs to be serialized anyway. */
-#define EVENT_PRIORITY_SIGTERM        (SD_EVENT_PRIORITY_NORMAL - 6)
-/* This must have a higher priority than the inotify event source, to make 'remove' uevent received earlier
- * than IN_IGNORED inotify event. */
-#define EVENT_PRIORITY_DEVICE_MONITOR (SD_EVENT_PRIORITY_NORMAL - 5)
-/* This must have a higher priority than the worker notification, to make IN_IGNORED event received earlier
- * than notifications about requests of adding/removing inotify watches. */
-#define EVENT_PRIORITY_INOTIFY_WATCH  (SD_EVENT_PRIORITY_NORMAL - 4)
+/* This should have a higher priority than the device monitor and device watch, to make them stopped as soon
+ * as possible when the signal is received. Otherwise, we may continue receive events that needs to be
+ * serialized anyway. */
+#define EVENT_PRIORITY_SIGTERM        (SD_EVENT_PRIORITY_NORMAL - 7)
+/* This must have a higher priority than the worker notification, to make device watch events received
+ * earlier than worker notifications. */
+#define EVENT_PRIORITY_DEVICE_WATCH   (SD_EVENT_PRIORITY_NORMAL - 6)
 /* This must have a higher priority than the worker exit event, to make notifications about completions of
  * processing events received before exit. */
-#define EVENT_PRIORITY_WORKER_NOTIFY  (SD_EVENT_PRIORITY_NORMAL - 3)
+#define EVENT_PRIORITY_WORKER_NOTIFY  (SD_EVENT_PRIORITY_NORMAL - 5)
 /* This should have a higher priority than timer events about killing long running worker processes or idle
  * worker processes. */
-#define EVENT_PRIORITY_WORKER_EXIT    (SD_EVENT_PRIORITY_NORMAL - 2)
-/* As said in the above, this should have a lower proority than the exit event source. */
-#define EVENT_PRIORITY_WORKER_TIMER   (SD_EVENT_PRIORITY_NORMAL - 1)
+#define EVENT_PRIORITY_WORKER_EXIT    (SD_EVENT_PRIORITY_NORMAL - 4)
+/* As mentioned above, this should have a lower priority than the exit event source. */
+#define EVENT_PRIORITY_WORKER_TIMER   (SD_EVENT_PRIORITY_NORMAL - 3)
+/* This must have a higher priority than the device monitor to prevent uevent floods from starving
+ * event_queue_start(), but lower than worker event sources to observe worker completions first. */
+#define EVENT_PRIORITY_POST           (SD_EVENT_PRIORITY_NORMAL - 2)
+/* This must have a lower priority than the worker event source and post event source. Otherwise, flood of
+ * uevents delays worker sigchld events or notifications, and workers will not continue to process events. */
+#define EVENT_PRIORITY_DEVICE_MONITOR (SD_EVENT_PRIORITY_NORMAL - 1)
 /* This should have a lower priority than most event sources, but let's process earlier than varlink and the
  * legacy control socket. */
 #define EVENT_PRIORITY_SIGHUP         (SD_EVENT_PRIORITY_NORMAL + 1)
@@ -53,7 +58,12 @@ typedef struct Manager {
 
         /* used by udev-watch */
         int inotify_fd;
-        sd_event_source *inotify_event;
+        int fanotify_fd;
+        int dev_fd;
+        struct statfs dev_statfs;
+        sd_event_source *device_watch_event;
+
+        /* used by udev-synth */
         Set *synthesize_change_child_event_sources;
         Set *synthesized_events;
         sd_event_source *synthesized_events_clear_event_source;
@@ -71,6 +81,8 @@ typedef struct Manager {
         UdevConfig config_by_kernel;
         UdevConfig config_by_control;
         UdevConfig config;
+
+        char **device_trigger_args;
 
         bool queue_file_created;
         bool stop_exec_queue;

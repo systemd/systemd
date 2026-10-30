@@ -41,6 +41,7 @@
 #include "nsresource.h"
 #include "os-util.h"
 #include "path-lookup.h"
+#include "path-util.h"
 #include "pidref.h"
 #include "portable.h"
 #include "portable-util.h"
@@ -593,6 +594,7 @@ static int portable_extract_by_path(
                         DISSECT_IMAGE_USR_NO_ROOT |
                         DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                         DISSECT_IMAGE_PIN_PARTITION_DEVICES |
+                        DISSECT_IMAGE_VERITY_SHARE |
                         DISSECT_IMAGE_ALLOW_USERSPACE_VERITY;
 
                 if (path_is_extension)
@@ -811,7 +813,8 @@ static int extract_image_and_extensions(
                 ImagePolicy **ret_pinned_ext_image_policy,
                 sd_bus_error *error) {
 
-        _cleanup_free_ char *id = NULL, *id_like = NULL, *version_id = NULL, *sysext_level = NULL, *confext_level = NULL;
+        _cleanup_free_ char *id = NULL, *id_like = NULL, *version_id = NULL, *sysext_level = NULL, *confext_level = NULL,
+                        *image_id = NULL, *image_version = NULL;
         _cleanup_(image_policy_freep) ImagePolicy *pinned_root_image_policy = NULL, *pinned_ext_image_policy = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
         _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
@@ -924,6 +927,8 @@ static int extract_image_and_extensions(
                                 "VERSION_ID", &version_id,
                                 "SYSEXT_LEVEL", &sysext_level,
                                 "CONFEXT_LEVEL", &confext_level,
+                                "IMAGE_ID", &image_id,
+                                "IMAGE_VERSION", &image_version,
                                 "PORTABLE_PREFIXES", &prefixes,
                                 "PORTABLE_SCOPE", &portable_scope_str);
                 if (r < 0)
@@ -1009,9 +1014,9 @@ static int extract_image_and_extensions(
                         return r;
 
                 if (validate_extension) {
-                        r = extension_release_validate(ext->path, id, id_like, version_id, sysext_level, "portable", extension_release, IMAGE_SYSEXT);
+                        r = extension_release_validate(ext->path, id, id_like, version_id, sysext_level, image_id, image_version, "portable", extension_release, IMAGE_SYSEXT);
                         if (r < 0)
-                                r = extension_release_validate(ext->path, id, id_like, version_id, confext_level, "portable", extension_release, IMAGE_CONFEXT);
+                                r = extension_release_validate(ext->path, id, id_like, version_id, confext_level, image_id, image_version, "portable", extension_release, IMAGE_CONFEXT);
 
                         if (r == 0)
                                 return sd_bus_error_set_errnof(error, ESTALE, "Image %s extension-release metadata does not match the root's", ext->path);
@@ -1605,9 +1610,9 @@ static int install_profile_dropin(
         r = find_portable_profile(scope, profile, m->name, &from);
         if (r < 0) {
                 if (r != -ENOENT)
-                        return log_debug_errno(errno, "Profile '%s' is not accessible: %m", profile);
+                        return log_debug_errno(r, "Profile '%s' is not accessible: %m", profile);
 
-                log_debug_errno(errno, "Skipping link to profile '%s', as it does not exist: %m", profile);
+                log_debug_errno(r, "Skipping link to profile '%s', as it does not exist: %m", profile);
                 return 0;
         }
 
@@ -1872,7 +1877,7 @@ static int install_image(
                                 tree_fd = TAKE_FD(fd);
 
                         _cleanup_close_ int directory_fd = -EBADF;
-                        r = mountfsd_make_directory(mountfsd_link, target, MODE_INVALID, /* flags= */ 0, &directory_fd);
+                        r = mkdir_foreign(target, MODE_INVALID, &directory_fd);
                         if (r < 0)
                                 return r;
 
@@ -2054,6 +2059,10 @@ int portable_attach(
         int r;
 
         assert(scope < _RUNTIME_SCOPE_MAX);
+
+        r = portable_profile_validate(scope, profile, error);
+        if (r < 0)
+                return r;
 
         r = extract_image_and_extensions(
                         scope,
@@ -2658,6 +2667,36 @@ int portable_get_profiles(RuntimeScope scope, char ***ret) {
                 return r;
 
         return conf_files_list_strv(ret, NULL, NULL, CONF_FILES_DIRECTORY|CONF_FILES_BASENAME|CONF_FILES_FILTER_MASKED, (const char* const*) dirs);
+}
+
+int portable_profile_validate(RuntimeScope scope, const char *profile, sd_bus_error *reterr_error) {
+        _cleanup_strv_free_ char **profiles = NULL;
+        int r;
+
+        assert(scope < _RUNTIME_SCOPE_MAX);
+
+        if (!filename_is_valid(profile))
+                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Profile name '%s' is not valid.", profile);
+
+        r = portable_get_profiles(scope, &profiles);
+        if (r < 0)
+                return sd_bus_error_set_errnof(reterr_error, r, "Failed to enumerate portable profiles: %m");
+
+        if (strv_contains(profiles, profile))
+                return 0;
+
+        _cleanup_free_ char *joined = strv_join(profiles, ", ");
+        if (!joined)
+                return -ENOMEM;
+
+        return sd_bus_error_setf(
+                        reterr_error,
+                        SD_BUS_ERROR_INVALID_ARGS,
+                        "Profile '%s' does not exist, refusing.%s%s%s",
+                        profile,
+                        isempty(joined) ? "" : " (Available profiles are: ",
+                        strempty(joined),
+                        isempty(joined) ? "" : ")");
 }
 
 static const char* const portable_change_type_table[_PORTABLE_CHANGE_TYPE_MAX] = {

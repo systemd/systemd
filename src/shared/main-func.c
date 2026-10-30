@@ -85,8 +85,7 @@ int run_main_fiber(int argc, char *argv[], main_fiber_func_t func) {
 
         /* Fire-and-forget: the loop unwinds the fiber through its exit event source, and a suspended
          * fiber is one we couldn't drop a reference to anyway. */
-        r = sd_fiber_new(event, program_invocation_short_name, main_fiber_trampoline, &ctx,
-                         /* destroy= */ NULL, /* ret= */ NULL);
+        r = sd_fiber_new(event, program_invocation_short_name, main_fiber_trampoline, &ctx, /* ret= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to spawn main fiber: %m");
 

@@ -58,6 +58,7 @@ static const Specifier link_specifier_table[] = {
 struct LinkConfigContext {
         LIST_HEAD(LinkConfig, configs);
         int ethtool_fd;
+        sd_netlink *genl;
         Hashmap *stats_by_path;
 };
 
@@ -106,6 +107,7 @@ LinkConfigContext *link_config_ctx_free(LinkConfigContext *ctx) {
                 return NULL;
 
         safe_close(ctx->ethtool_fd);
+        sd_netlink_unref(ctx->genl);
         link_configs_free(ctx);
         return mfree(ctx);
 }
@@ -488,13 +490,14 @@ int link_get_config(LinkConfigContext *ctx, Link *link) {
         return -ENOENT;
 }
 
-static int link_apply_ethtool_settings(Link *link, int *ethtool_fd) {
+static int link_apply_ethtool_settings(Link *link, int *ethtool_fd, sd_netlink **genl) {
         LinkConfig *config = ASSERT_PTR(ASSERT_PTR(link)->config);
         const char *name = ASSERT_PTR(link->ifname);
         int r;
 
         assert(link->event);
         assert(ethtool_fd);
+        assert(genl);
 
         if (link->event->event_mode != EVENT_UDEV_WORKER) {
                 log_link_debug(link, "Running in test mode, skipping application of ethtool settings.");
@@ -557,6 +560,10 @@ static int link_apply_ethtool_settings(Link *link, int *ethtool_fd) {
         r = ethtool_set_nic_coalesce_settings(ethtool_fd, name, &config->coalesce);
         if (r < 0)
                 log_link_warning_errno(link, r, "Could not set coalesce settings, ignoring: %m");
+
+        r = ethtool_set_nic_cqe_coalesce_settings(genl, link->ifindex, &config->coalesce);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Could not set CQE coalesce settings, ignoring: %m");
 
         r = ethtool_set_eee_settings(ethtool_fd, name, config->eee_enabled, config->eee_tx_lpi_enabled, config->eee_tx_lpi_timer_usec, config->eee_advertise[0]);
         if (r < 0)
@@ -1769,7 +1776,7 @@ int link_apply_config(LinkConfigContext *ctx, Link *link) {
         assert(ctx);
         assert(link);
 
-        r = link_apply_ethtool_settings(link, &ctx->ethtool_fd);
+        r = link_apply_ethtool_settings(link, &ctx->ethtool_fd, &ctx->genl);
         if (r < 0)
                 return r;
 

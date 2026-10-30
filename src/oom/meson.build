@@ -24,7 +24,6 @@ executables += [
         },
         executable_template + {
                 'name' : 'oomctl',
-                'public' : true,
                 'sources' : files('oomctl.c'),
         },
         test_template + {

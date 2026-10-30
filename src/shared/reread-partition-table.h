@@ -8,5 +8,5 @@ typedef enum RereadPartitionTableFlags {
         REREADPT_BSD_LOCK     = 1 << 1, /* Take a BSD lock on the device around the rescan operation */
 } RereadPartitionTableFlags;
 
-int reread_partition_table_fd(int fd, RereadPartitionTableFlags flags);
-int reread_partition_table(sd_device *dev, RereadPartitionTableFlags flags);
+int reread_partition_table_fd(int fd, RereadPartitionTableFlags flags, char * const *args);
+int reread_partition_table(sd_device *dev, RereadPartitionTableFlags flags, char * const *args);

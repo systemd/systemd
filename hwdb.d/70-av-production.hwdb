@@ -254,6 +254,21 @@ usb:v17CCp2420*
  ID_AV_PRODUCTION_CONTROLLER=1
 
 ####################
+# PCPanel
+####################
+# PCPanel Mini
+usb:v0483pA3C4*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# PCPanel Pro
+usb:v0483pA3C5*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+# PCPanel RGB
+usb:v04D8pEB52*
+ ID_AV_PRODUCTION_CONTROLLER=1
+
+####################
 # Pioneer
 ####################
 # CDJ 2000 NXS 2

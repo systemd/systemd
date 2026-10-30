@@ -294,7 +294,7 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
                         extra_args);
 }
 
-int bus_wait_for_jobs(BusWaitForJobs *d, WaitJobsFlags flags, const char* const* extra_args) {
+int bus_wait_for_jobs_full(BusWaitForJobs *d, WaitJobsFlags flags, const char* const* extra_args) {
         int r = 0;
 
         assert(d);
@@ -303,6 +303,10 @@ int bus_wait_for_jobs(BusWaitForJobs *d, WaitJobsFlags flags, const char* const*
                 int q;
 
                 q = bus_process_wait(d->bus);
+                /* A fiber that waits for jobs gets -ETIME when its SD_FIBER_TIMEOUT() scope expires, and
+                 * -ECANCELED when the fiber is cancelled. The caller reports both errors. */
+                if (IN_SET(q, -ETIME, -ECANCELED))
+                        return q;
                 if (q < 0)
                         return log_error_errno(q, "Failed to wait for response: %m");
 
@@ -328,12 +332,12 @@ int bus_wait_for_jobs_add(BusWaitForJobs *d, const char *path) {
         return set_put_strdup(&d->jobs, path);
 }
 
-int bus_wait_for_jobs_one(BusWaitForJobs *d, const char *path, WaitJobsFlags flags, const char* const* extra_args) {
+int bus_wait_for_jobs_one_full(BusWaitForJobs *d, const char *path, WaitJobsFlags flags, const char* const* extra_args) {
         int r;
 
         r = bus_wait_for_jobs_add(d, path);
         if (r < 0)
                 return log_oom();
 
-        return bus_wait_for_jobs(d, flags, extra_args);
+        return bus_wait_for_jobs_full(d, flags, extra_args);
 }

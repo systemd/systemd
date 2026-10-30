@@ -40,6 +40,8 @@ const char* const restrict_fsaccess_link_names[_RESTRICT_FILESYSTEM_ACCESS_LINK_
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_MAP_GUARD]     = "restrict-fsaccess-bpf-map-guard-link",
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_PROG_GUARD]    = "restrict-fsaccess-bpf-prog-guard-link",
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD]         = "restrict-fsaccess-bpf-guard-link",
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CREDS_FOR_EXEC] = "restrict-fsaccess-bprm-creds-for-exec-link",
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_MMAP_ADDR]         = "restrict-fsaccess-mmap-addr-link",
 };
 
 #if BPF_FRAMEWORK && HAVE_LSM_INTEGRITY_TYPE
@@ -61,6 +63,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(struct restrict_fsaccess_bpf *, restrict_fsaccess_bp
  * mmaps the .bss map and clears this field via a single store. */
 #define INITRAMFS_S_DEV_OFF                                            \
         offsetof(typeof_field(struct restrict_fsaccess_bpf, bss[0]), initramfs_s_dev)
+/* The .bss layout grows with the programs, so its size tells a previous version's programs from ours. */
+#define RESTRICT_FSACCESS_BSS_SIZE sizeof(typeof_field(struct restrict_fsaccess_bpf, bss[0]))
 /* The single aligned 32-bit store in restrict_fsaccess_clear_initramfs_trust()
  * is only atomic if the field is 4-byte aligned. */
 assert_cc(INITRAMFS_S_DEV_OFF % sizeof(uint32_t) == 0);
@@ -68,6 +72,11 @@ assert_cc(INITRAMFS_S_DEV_OFF % sizeof(uint32_t) == 0);
  * width so widening initramfs_s_dev fails the build instead of silently
  * clearing only the low bytes. */
 assert_cc(sizeof_field(typeof_field(struct restrict_fsaccess_bpf, bss[0]), initramfs_s_dev) == sizeof(uint32_t));
+/* NUM_PROTECTED_OBJS in the BPF program must match the link list. */
+assert_cc(sizeof_field(typeof_field(struct restrict_fsaccess_bpf, bss[0]), protected_prog_ids) ==
+          _RESTRICT_FILESYSTEM_ACCESS_LINK_MAX * sizeof(uint32_t));
+assert_cc(sizeof_field(typeof_field(struct restrict_fsaccess_bpf, bss[0]), protected_link_ids) ==
+          _RESTRICT_FILESYSTEM_ACCESS_LINK_MAX * sizeof(uint32_t));
 
 /* Build the skeleton links array indexed by the link enum.
  * For BDEV_SETINTEGRITY, use whichever variant was loaded (full or compat).
@@ -84,6 +93,8 @@ assert_cc(sizeof_field(typeof_field(struct restrict_fsaccess_bpf, bss[0]), initr
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_MAP_GUARD]     = (obj)->links.restrict_fsaccess_bpf_map_guard,              \
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_PROG_GUARD]    = (obj)->links.restrict_fsaccess_bpf_prog_guard,             \
         [RESTRICT_FILESYSTEM_ACCESS_LINK_BPF_GUARD]         = (obj)->links.restrict_fsaccess_bpf_guard,                  \
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CREDS_FOR_EXEC] = (obj)->links.restrict_fsaccess_bprm_creds_for_exec,      \
+        [RESTRICT_FILESYSTEM_ACCESS_LINK_MMAP_ADDR]         = (obj)->links.restrict_fsaccess_mmap_addr,                  \
 }
 
 static bool dm_verity_require_signatures(void) {
@@ -139,7 +150,7 @@ static int proc_mem_can_force_override(void) {
                 r = n > 0 ? 1 : -EIO; /* Nothing written and no error is not a refusal, fail closed. */
 
 finish:
-        (void) munmap(p, page_size());
+        munmap_safe(p, page_size());
         return r;
 }
 
@@ -219,6 +230,27 @@ static int restrict_fsaccess_install_ptrace_filter(Manager *m) {
                 return log_error_errno(r, "bpf-restrict-fsaccess: Failed to install the ptrace() seccomp filter: %m");
 
         m->restrict_fsaccess_ptrace_filter = true;
+        return 0;
+}
+
+/* Like the ptrace filter this one survives execve(). */
+static int restrict_fsaccess_install_personality_filter(Manager *m) {
+        int r;
+
+        assert(m);
+
+        if (m->restrict_fsaccess_personality_filter)
+                return 0;
+
+        r = seccomp_restrict_read_implies_exec();
+        if (r == -EOPNOTSUPP)
+                return log_error_errno(r, "bpf-restrict-fsaccess: seccomp support is not available, cannot refuse "
+                                       "READ_IMPLIES_EXEC.");
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-fsaccess: Failed to install the personality() seccomp "
+                                       "filter: %m");
+
+        m->restrict_fsaccess_personality_filter = true;
         return 0;
 }
 
@@ -340,25 +372,28 @@ int bpf_restrict_fsaccess_prepare(struct restrict_fsaccess_bpf **ret) {
         }
 }
 
-/* Partial deserialization (some FDs but not all) is fatal: continuing
- * would leave enforcement incomplete. */
+/* Returns the number of deserialized link FDs. Links are only ever appended, so the set has to be a prefix
+ * of ours. Whether it is complete depends on the version that serialized it, see
+ * restrict_fsaccess_validate_deserialized_fds(). */
 static int restrict_fsaccess_have_deserialized_fds(Manager *m) {
-        size_t count = 0;
+        size_t n = 0;
 
         assert(m);
 
-        FOREACH_ELEMENT(fd, m->restrict_fsaccess_link_fds)
-                if (*fd >= 0)
-                        count++;
+        FOREACH_ELEMENT(fd, m->restrict_fsaccess_link_fds) {
+                size_t idx = fd - m->restrict_fsaccess_link_fds;
 
-        if (count == 0)
-                return 0;
-        if (count == ELEMENTSOF(m->restrict_fsaccess_link_fds))
-                return 1;
+                if (*fd < 0)
+                        continue;
 
-        return log_error_errno(SYNTHETIC_ERRNO(EBADFD),
-                               "bpf-restrict-fsaccess: Only %zu of %zu link FDs deserialized, refusing to continue with partial enforcement.",
-                               count, ELEMENTSOF(m->restrict_fsaccess_link_fds));
+                if (idx != n)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADFD),
+                                               "bpf-restrict-fsaccess: Link FD for %s deserialized, but not those of the programs before it, refusing to continue with partial enforcement.",
+                                               restrict_fsaccess_link_names[idx]);
+                n++;
+        }
+
+        return n;
 }
 
 /* Close the initramfs trust window after switch_root by clearing initramfs_s_dev
@@ -388,17 +423,25 @@ static int restrict_fsaccess_clear_initramfs_trust(int bss_map_fd) {
         return 0;
 }
 
-static int bpf_get_map_id(int fd, uint32_t *ret_id) {
-        struct bpf_map_info info = {};
-        uint32_t len = sizeof(info);
-        int r;
+static int bpf_get_map_info(int fd, struct bpf_map_info *ret) {
+        uint32_t len = sizeof(struct bpf_map_info);
 
         if (fd < 0)
                 return -EBADF;
 
+        assert(ret);
+
+        *ret = (struct bpf_map_info) {};
+        return sym_bpf_obj_get_info_by_fd(fd, ret, &len);
+}
+
+static int bpf_get_map_id(int fd, uint32_t *ret_id) {
+        struct bpf_map_info info;
+        int r;
+
         assert(ret_id);
 
-        r = sym_bpf_obj_get_info_by_fd(fd, &info, &len);
+        r = bpf_get_map_info(fd, &info);
         if (r < 0)
                 return r;
 
@@ -441,9 +484,16 @@ int bpf_restrict_fsaccess_populate_guard(struct restrict_fsaccess_bpf *obj) {
         if (r < 0)
                 return log_error_errno(r, "bpf-restrict-fsaccess: Failed to get verity_devices map ID: %m");
 
-        r = bpf_get_map_id(sym_bpf_map__fd(obj->maps.bss), &obj->bss->protected_map_id_bss);
+        struct bpf_map_info bss_info;
+        r = bpf_get_map_info(sym_bpf_map__fd(obj->maps.bss), &bss_info);
         if (r < 0)
                 return log_error_errno(r, "bpf-restrict-fsaccess: Failed to get .bss map ID: %m");
+        /* Reexec tells versions apart by this size, so it must be the skeleton's. */
+        if (bss_info.value_size != RESTRICT_FSACCESS_BSS_SIZE)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "bpf-restrict-fsaccess: .bss map is %" PRIu32 " bytes, the skeleton says %zu.",
+                                       bss_info.value_size, RESTRICT_FSACCESS_BSS_SIZE);
+        obj->bss->protected_map_id_bss = bss_info.id;
 
         /* Link and program IDs (each link knows its associated program) */
         FOREACH_ELEMENT(link, links) {
@@ -470,12 +520,25 @@ int bpf_restrict_fsaccess_populate_guard(struct restrict_fsaccess_bpf *obj) {
         return 0;
 }
 
+/* The .bss sizes of the versions before us and how many links they serialized. Each link has a slot in
+ * both ID arrays, so the size tells them apart. */
+static const struct {
+        uint32_t bss_size;
+        size_t n_links;
+} restrict_fsaccess_previous_versions[] = {
+        { 84, RESTRICT_FILESYSTEM_ACCESS_LINK_BPRM_CREDS_FOR_EXEC }, /* v261, v262 */
+        { 92, RESTRICT_FILESYSTEM_ACCESS_LINK_MMAP_ADDR },           /* up to bprm_creds_for_exec */
+};
+
 /* Validate that deserialized FDs actually reference our LSM BPF links. A
  * corrupted serialization file could leave FDs pointing at arbitrary kernel
  * objects; a stale FD could point at a BPF link of an entirely different type
  * (e.g. kprobe-multi). Verify both link type and attach type so a substituted
- * FD that happens to be a BPF link still fails the check. */
-static int restrict_fsaccess_validate_deserialized_fds(Manager *m) {
+ * FD that happens to be a BPF link still fails the check. Links an older
+ * PID 1 didn't have are absent. */
+static int restrict_fsaccess_validate_deserialized_fds(Manager *m, size_t n_links) {
+        struct bpf_map_info bss_info;
+        size_t expected;
         int r;
 
         assert(m);
@@ -490,6 +553,9 @@ static int restrict_fsaccess_validate_deserialized_fds(Manager *m) {
                 uint32_t len = sizeof(info);
                 const char *name = restrict_fsaccess_link_names[fd - m->restrict_fsaccess_link_fds];
 
+                if (*fd < 0)
+                        continue;
+
                 r = sym_bpf_obj_get_info_by_fd(*fd, &info, &len);
                 if (r < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
@@ -502,14 +568,31 @@ static int restrict_fsaccess_validate_deserialized_fds(Manager *m) {
                                                name, info.type, info.tracing.attach_type);
         }
 
-        if (m->restrict_fsaccess_bss_map_fd >= 0) {
-                uint32_t id;
+        if (m->restrict_fsaccess_bss_map_fd < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADF),
+                                       "bpf-restrict-fsaccess: No .bss map FD deserialized along with the link FDs, aborting.");
 
-                r = bpf_get_map_id(m->restrict_fsaccess_bss_map_fd, &id);
-                if (r < 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "bpf-restrict-fsaccess: Deserialized FD for .bss map is not a valid BPF map, aborting.");
+        r = bpf_get_map_info(m->restrict_fsaccess_bss_map_fd, &bss_info);
+        if (r < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "bpf-restrict-fsaccess: Deserialized FD for .bss map is not a valid BPF map, aborting.");
+
+        expected = _RESTRICT_FILESYSTEM_ACCESS_LINK_MAX;
+        m->restrict_fsaccess_foreign_bss = bss_info.value_size != RESTRICT_FSACCESS_BSS_SIZE;
+        if (m->restrict_fsaccess_foreign_bss) {
+                expected = 0;
+                FOREACH_ELEMENT(v, restrict_fsaccess_previous_versions)
+                        if (v->bss_size == bss_info.value_size)
+                                expected = v->n_links;
+                if (expected == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADFD),
+                                               "bpf-restrict-fsaccess: Deserialized .bss map of %" PRIu32 " bytes matches no known version, refusing to continue.",
+                                               bss_info.value_size);
         }
+        if (n_links != expected)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADFD),
+                                       "bpf-restrict-fsaccess: %zu link FDs deserialized, but the programs' version has %zu, refusing to continue with partial enforcement.",
+                                       n_links, expected);
 
         return 0;
 }
@@ -527,24 +610,41 @@ int bpf_restrict_fsaccess_setup(Manager *m) {
         if (r < 0)
                 return r;
         if (r > 0) {
-                log_info("bpf-restrict-fsaccess: Recovered link FDs from previous exec, programs still attached.");
+                size_t n_links = r;
 
-                r = restrict_fsaccess_validate_deserialized_fds(m);
+                r = restrict_fsaccess_validate_deserialized_fds(m, n_links);
                 if (r < 0)
                         return r;
+
+                if (m->restrict_fsaccess_foreign_bss) {
+                        _cleanup_free_ char *missing = NULL;
+
+                        for (size_t i = n_links; i < _RESTRICT_FILESYSTEM_ACCESS_LINK_MAX; i++)
+                                (void) strextend_with_separator(&missing, ", ", restrict_fsaccess_link_names[i]);
+
+                        /* With an older systemd in the initrd this happens on every boot. */
+                        log_warning("bpf-restrict-fsaccess: Recovered the link FDs of an older version, %s stay detached "
+                                    "until a boot where this version starts first, i.e. without an initrd or with one of this version.",
+                                    strna(missing));
+                } else
+                        log_info("bpf-restrict-fsaccess: Recovered link FDs from previous exec, programs still attached.");
+
                 if (m->switching_root) {
-                        if (m->restrict_fsaccess_bss_map_fd < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EBADF),
-                                                       "bpf-restrict-fsaccess: Cannot clear initramfs trust after switch_root.");
-                        r = restrict_fsaccess_clear_initramfs_trust(m->restrict_fsaccess_bss_map_fd);
-                        if (r < 0)
-                                return r;
+                        /* The previous PID 1 cleared this before switching root, and its .bss is not ours to write to. */
+                        if (m->restrict_fsaccess_foreign_bss)
+                                log_debug("bpf-restrict-fsaccess: Not touching the .bss of a previous version's programs.");
+                        else {
+                                r = restrict_fsaccess_clear_initramfs_trust(m->restrict_fsaccess_bss_map_fd);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
 
-                /* A v261 PID 1 neither checked this nor installed the filter. Enforcement is active already,
-                 * so only complain. */
+                /* A v261 PID 1 neither checked this nor installed the filters, and an older PID 1 may lack
+                 * the personality filter. Enforcement is active already, so only complain. */
                 (void) restrict_fsaccess_check_proc_mem();
                 (void) restrict_fsaccess_install_ptrace_filter(m);
+                (void) restrict_fsaccess_install_personality_filter(m);
 
                 return 0;
         }
@@ -554,6 +654,10 @@ int bpf_restrict_fsaccess_setup(Manager *m) {
                 return r;
 
         r = restrict_fsaccess_install_ptrace_filter(m);
+        if (r < 0)
+                return r;
+
+        r = restrict_fsaccess_install_personality_filter(m);
         if (r < 0)
                 return r;
 
@@ -646,6 +750,10 @@ int bpf_restrict_fsaccess_close_initramfs_trust(Manager *m) {
         if (!in_initrd() || m->restrict_fsaccess_bss_map_fd < 0)
                 return 0;
 
+        if (m->restrict_fsaccess_foreign_bss)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADF),
+                                       "bpf-restrict-fsaccess: Cannot close the initramfs trust window of a previous version's programs, refusing to switch root.");
+
         return restrict_fsaccess_clear_initramfs_trust(m->restrict_fsaccess_bss_map_fd);
 }
 
@@ -659,8 +767,13 @@ int bpf_restrict_fsaccess_serialize(Manager *m, FILE *f, FDSet *fds) {
         if (!MANAGER_IS_SYSTEM(m))
                 return 0;
 
-        /* Process state, not policy state: the filter outlives the setting being turned off. */
+        /* Process state, not policy state: the filters outlive the setting being turned off. */
         r = serialize_bool_elide(f, "restrict-fsaccess-ptrace-filter", m->restrict_fsaccess_ptrace_filter);
+        if (r < 0)
+                return r;
+
+        r = serialize_bool_elide(f, "restrict-fsaccess-personality-filter",
+                                 m->restrict_fsaccess_personality_filter);
         if (r < 0)
                 return r;
 

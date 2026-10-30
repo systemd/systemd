@@ -833,7 +833,7 @@ static int verb_start_machine(int argc, char *argv[], uintptr_t _data, void *use
                         return log_oom();
         }
 
-        r = bus_wait_for_jobs(w, arg_quiet, NULL);
+        r = bus_wait_for_jobs(w, arg_quiet);
         if (r < 0)
                 return r;
 
@@ -2455,7 +2455,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_all = true;
                         break;
 
-                OPTION('l', "full", NULL, "Do not ellipsize output"):
+                OPTION_COMMON_FULL:
                         arg_full = true;
                         break;
 

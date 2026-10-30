@@ -51,6 +51,9 @@ assert_cc(sizeof(DnsPacketHeader) == 12);
 /* With EDNS0 we can use larger packets, default to 1232, which is what is commonly used */
 #define DNS_PACKET_UNICAST_SIZE_LARGE_MAX 1232u
 
+/* Maximum number of compression pointers we are willing to follow while decoding a single name */
+#define DNS_COMPRESSION_JUMPS_MAX 256U
+
 typedef struct DnsPacket {
         unsigned n_ref;
         DnsProtocol protocol;
@@ -157,6 +160,7 @@ void dns_packet_set_flags(DnsPacket *p, bool dnssec_checking_disabled, bool trun
 
 DnsPacket *dns_packet_ref(DnsPacket *p);
 DnsPacket *dns_packet_unref(DnsPacket *p);
+void dns_packet_unref_array(DnsPacket **array, size_t n);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsPacket*, dns_packet_unref);
 
@@ -193,6 +197,7 @@ int dns_packet_patch_ttls(DnsPacket *p, usec_t timestamp);
 
 void dns_packet_truncate(DnsPacket *p, size_t sz);
 int dns_packet_truncate_opt(DnsPacket *p);
+int dns_packet_truncate_rrs(DnsPacket *p, size_t max_size, bool reserve_opt);
 
 int dns_packet_read(DnsPacket *p, size_t sz, const void **ret, size_t *start);
 int dns_packet_read_blob(DnsPacket *p, void *d, size_t sz, size_t *start);

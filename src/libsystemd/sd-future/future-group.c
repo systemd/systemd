@@ -1,0 +1,387 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <stdarg.h>
+
+#include "sd-future.h"
+
+#include "alloc-util.h"
+#include "errno-util.h"
+#include "macro.h"
+
+typedef enum FutureGroupFlags {
+        FUTURE_GROUP_PRIORITY_SET   = 1 << 0,
+        FUTURE_GROUP_FINALIZING     = 1 << 1,
+        FUTURE_GROUP_SEALED         = 1 << 2,
+        /* FUTURE_GROUP_CANCELLING is set while future_group_cancel_children() runs. The cancel callback of a
+         * child can cancel the group again. Without the flag, future_group_cancel_children() would then call
+         * itself until the stack overflows. */
+        FUTURE_GROUP_CANCELLING     = 1 << 3,
+        FUTURE_GROUP_CHILDREN_ADDED = 1 << 4,
+} FutureGroupFlags;
+
+typedef struct FutureGroup {
+        uint64_t policy;
+        FutureGroupFlags flags;
+
+        int64_t priority;
+
+        sd_future_slot **slots;
+        size_t n_slots;
+
+        sd_future *parent;
+        sd_future_slot *parent_slot;
+
+        int result;
+
+        int first_error;
+} FutureGroup;
+
+static void future_group_free(sd_future *f) {
+        FutureGroup *fg = ASSERT_PTR(sd_future_get_private(f));
+
+        sd_future_slot_unref(fg->parent_slot);
+        FOREACH_ARRAY(slot_p, fg->slots, fg->n_slots)
+                sd_future_slot_unref(*slot_p);
+        free(fg->slots);
+}
+
+static int future_group_parent_resolved(sd_future *parent, void *userdata) {
+        FutureGroup *fg = ASSERT_PTR(userdata);
+        fg->parent = NULL;
+        fg->parent_slot = sd_future_slot_unref(fg->parent_slot);
+        return 0;
+}
+
+static int future_group_check(sd_future *g);
+
+static int future_group_cancel_children(sd_future *g) {
+        FutureGroup *fg = ASSERT_PTR(sd_future_get_private(g));
+        int r = 0;
+
+        if (FLAGS_SET(fg->flags, FUTURE_GROUP_CANCELLING))
+                return 0;
+
+        /* A child stays in the group if cancelling it fails or is not supported, and the group keeps
+         * waiting for the child to resolve. The child itself has to resolve eventually. Otherwise the
+         * group never resolves. */
+        fg->flags |= FUTURE_GROUP_CANCELLING;
+        FOREACH_ARRAY(slot_p, fg->slots, fg->n_slots) {
+                sd_future *child = sd_future_slot_get_future(*slot_p);
+                if (sd_future_state(child) == SD_FUTURE_PENDING)
+                        RET_GATHER(r, sd_future_cancel(child));
+        }
+        fg->flags &= ~FUTURE_GROUP_CANCELLING;
+
+        return r;
+}
+
+static int future_group_finalize(sd_future *g, int result, bool propagate_error) {
+        FutureGroup *fg = ASSERT_PTR(sd_future_get_private(g));
+        int r = 0;
+
+        /* The first outcome is final. A later call, such as a repeated sd_future_cancel(), cancels the
+         * children again. Some children only resolve after repeated cancellation. Without the repeated
+         * cancellation, sd_future_cancel_wait_unref() on the group would wait forever for such a child. */
+        if (!FLAGS_SET(fg->flags, FUTURE_GROUP_FINALIZING)) {
+                fg->flags |= FUTURE_GROUP_FINALIZING;
+                fg->result = result;
+        }
+
+        RET_GATHER(r, future_group_cancel_children(g));
+
+        /* If a child error selects the outcome and IGNORE_ERRORS is not set, cancel the parent fiber. The
+         * parent then sees the failure even if it does not await the group yet. A parent that awaits the
+         * group reads the error from the group after the wait. Cancelling that parent would make the wait
+         * return -ECANCELED instead. Explicit cancellation of the group never cancels the parent. */
+        if (propagate_error && result < 0 &&
+            !FLAGS_SET(fg->policy, SD_FUTURE_GROUP_IGNORE_ERRORS) &&
+            fg->parent &&
+            fg->parent != sd_fiber_get_current() &&
+            sd_fiber_get_awaiting(fg->parent) != g)
+                RET_GATHER(r, sd_future_cancel(fg->parent));
+
+        RET_GATHER(r, future_group_check(g));
+        return r;
+}
+
+static int future_group_check(sd_future *g) {
+        FutureGroup *fg = ASSERT_PTR(sd_future_get_private(g));
+
+        if (sd_future_state(g) == SD_FUTURE_RESOLVED)
+                return 0;
+
+        if (FLAGS_SET(fg->flags, FUTURE_GROUP_FINALIZING)) {
+                /* The group only resolves after every child has resolved. Code that runs when the group
+                 * resolves then sees every child in the RESOLVED state. */
+                FOREACH_ARRAY(slot_p, fg->slots, fg->n_slots)
+                        if (sd_future_state(sd_future_slot_get_future(*slot_p)) != SD_FUTURE_RESOLVED)
+                                return 0;
+                return sd_future_resolve(g, fg->result);
+        }
+
+        bool wait_any = FLAGS_SET(fg->policy, SD_FUTURE_GROUP_WAIT_ANY);
+        bool ignore_errors = FLAGS_SET(fg->policy, SD_FUTURE_GROUP_IGNORE_ERRORS);
+
+        /* A child can resolve before the group handles the error of another child. Under WAIT_ANY, the
+         * success of that child selects the outcome. */
+        if (wait_any)
+                FOREACH_ARRAY(slot_p, fg->slots, fg->n_slots) {
+                        sd_future *child = sd_future_slot_get_future(*slot_p);
+
+                        if (sd_future_state(child) == SD_FUTURE_RESOLVED && sd_future_result(child) >= 0)
+                                return future_group_finalize(g, sd_future_result(child), /* propagate_error= */ true);
+                }
+
+        if (!ignore_errors && fg->first_error != 0)
+                return future_group_finalize(g, fg->first_error, /* propagate_error= */ true);
+
+        /* The owner can add more children until it seals the group. */
+        if (!FLAGS_SET(fg->flags, FUTURE_GROUP_SEALED) || fg->n_slots > 0)
+                return 0;
+
+        /* A WAIT_ANY group that never had a child resolves with -ECHILD, like waitid() does when there
+         * are no children. -ECHILD must not cancel the parent fiber. A child error can only reach this
+         * point with IGNORE_ERRORS, and IGNORE_ERRORS never cancels the parent either. */
+        return future_group_finalize(
+                        g,
+                        fg->first_error ?: (wait_any ? -ECHILD : 0),
+                        /* propagate_error= */ false);
+}
+
+static int future_group_cancel(sd_future *f) {
+        return future_group_finalize(f, -ECANCELED, /* propagate_error= */ false);
+}
+
+static int future_group_set_child_priority(sd_future *child, int64_t priority) {
+        int r;
+
+        r = sd_future_set_priority(child, priority);
+        /* sd_future_set_priority() fails with -EOPNOTSUPP for a child without priority support, and
+         * with -ESTALE for a child that has already resolved. */
+        if (r < 0 && !IN_SET(r, -EOPNOTSUPP, -ESTALE))
+                return r;
+
+        return 0;
+}
+
+static int future_group_set_priority(sd_future *f, int64_t priority) {
+        FutureGroup *fg = ASSERT_PTR(sd_future_get_private(f));
+        int r = 0;
+
+        FOREACH_ARRAY(slot_p, fg->slots, fg->n_slots)
+                RET_GATHER(r, future_group_set_child_priority(sd_future_slot_get_future(*slot_p), priority));
+        if (r < 0)
+                return r;
+
+        fg->priority = priority;
+        fg->flags |= FUTURE_GROUP_PRIORITY_SET;
+        return 0;
+}
+
+static const sd_future_ops future_group_ops = {
+        .size = sizeof(sd_future_ops),
+        .private_size = sizeof(FutureGroup),
+        .free = future_group_free,
+        .cancel = future_group_cancel,
+        .set_priority = future_group_set_priority,
+};
+
+int sd_future_group_new(sd_event *e, sd_future **ret) {
+        int r;
+
+        assert_return(e, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        _cleanup_(sd_future_cancel_unrefp) sd_future *g = NULL;
+        r = sd_future_new(e, &future_group_ops, &g);
+        if (r < 0)
+                return r;
+
+        sd_future *parent = sd_fiber_get_current();
+        if (parent && sd_future_get_event(parent) == sd_future_get_event(g)) {
+                FutureGroup *fg = sd_future_get_private(g);
+                r = sd_future_add_callback(parent, &fg->parent_slot, future_group_parent_resolved, fg);
+                if (r < 0)
+                        return r;
+                fg->parent = parent;
+        }
+
+        *ret = TAKE_PTR(g);
+        return 0;
+}
+
+size_t sd_future_group_size(sd_future *f) {
+        if (!f)
+                return 0;
+
+        assert_return(sd_future_get_ops(f) == &future_group_ops, 0);
+
+        FutureGroup *fg = sd_future_get_private(f);
+        return fg->n_slots;
+}
+
+int sd_future_group_set_policy(sd_future *f, uint64_t policy) {
+        assert_return(f, -EINVAL);
+        assert_return(sd_future_get_ops(f) == &future_group_ops, -EINVAL);
+        assert_return(sd_future_state(f) == SD_FUTURE_PENDING, -ESTALE);
+        assert_return((policy & ~(uint64_t) _SD_FUTURE_GROUP_POLICY_MASK) == 0, -EINVAL);
+
+        /* The group handles the result of each child according to the policy. A new policy would not
+         * apply to the results that the group already handled. Only a group that never had a child
+         * therefore accepts a new policy. */
+        FutureGroup *fg = sd_future_get_private(f);
+        assert_return(!FLAGS_SET(fg->flags, FUTURE_GROUP_CHILDREN_ADDED), -ESTALE);
+
+        fg->policy = policy;
+        return 0;
+}
+
+static void future_group_remove_child(FutureGroup *fg, sd_future *child) {
+        size_t n = 0;
+
+        assert(fg);
+        assert(child);
+
+        /* A child that was added more than once has one slot per add. Remove every slot of the child, so
+         * that the group handles the child once. slot_dispatch_handler() allows a callback to free its own
+         * slot. It also holds a reference on the child until the callback returns, so freeing the slots
+         * never frees the child. */
+        FOREACH_ARRAY(slot_p, fg->slots, fg->n_slots) {
+                if (sd_future_slot_get_future(*slot_p) == child)
+                        sd_future_slot_unref(*slot_p);
+                else
+                        fg->slots[n++] = *slot_p;
+        }
+
+        fg->n_slots = n;
+}
+
+static int group_child_resolved(sd_future *child, void *userdata) {
+        sd_future *g = ASSERT_PTR(userdata);
+        FutureGroup *fg = ASSERT_PTR(sd_future_get_private(g));
+        int cr = sd_future_result(child);
+
+        future_group_remove_child(fg, child);
+
+        if (FLAGS_SET(fg->flags, FUTURE_GROUP_FINALIZING))
+                return future_group_check(g);
+
+        if (cr >= 0 && FLAGS_SET(fg->policy, SD_FUTURE_GROUP_WAIT_ANY))
+                return future_group_finalize(g, cr, /* propagate_error= */ true);
+
+        if (cr < 0 && fg->first_error == 0)
+                fg->first_error = cr;
+
+        return future_group_check(g);
+}
+
+int sd_future_group_add(sd_future *f, sd_future *child) {
+        int r;
+
+        assert_return(f, -EINVAL);
+        assert_return(child, -EINVAL);
+        assert_return(sd_future_get_ops(f) == &future_group_ops, -EINVAL);
+        assert_return(sd_future_state(f) == SD_FUTURE_PENDING, -ESTALE);
+        /* A group that contains itself would wait for itself and never resolve. */
+        assert_return(child != f, -EINVAL);
+
+        /* The callbacks of a child run on the event loop of the child, so the group has to use the same
+         * event loop. */
+        assert_return(sd_future_get_event(child) == sd_future_get_event(f), -EINVAL);
+
+        FutureGroup *fg = sd_future_get_private(f);
+        /* A finalizing group has already cancelled its children. A child added now would not be
+         * cancelled, and the group could wait for it forever. */
+        assert_return(!FLAGS_SET(fg->flags, FUTURE_GROUP_FINALIZING), -ESTALE);
+        assert_return(!FLAGS_SET(fg->flags, FUTURE_GROUP_SEALED), -ESTALE);
+
+        if (!GREEDY_REALLOC(fg->slots, fg->n_slots + 1))
+                return -ENOMEM;
+
+        _cleanup_(sd_future_slot_unrefp) sd_future_slot *slot = NULL;
+        r = sd_future_add_callback(child, &slot, group_child_resolved, f);
+        if (r < 0)
+                return r;
+
+        if (FLAGS_SET(fg->flags, FUTURE_GROUP_PRIORITY_SET)) {
+                r = future_group_set_child_priority(child, fg->priority);
+                if (r < 0)
+                        return r;
+        }
+
+        fg->slots[fg->n_slots++] = TAKE_PTR(slot);
+        fg->flags |= FUTURE_GROUP_CHILDREN_ADDED;
+
+        return 0;
+}
+
+int sd_future_group_spawn(sd_future *g, const char *name, sd_fiber_func_t func, void *userdata, sd_future **ret) {
+        int r;
+
+        assert_return(g, -EINVAL);
+        assert_return(sd_future_get_ops(g) == &future_group_ops, -EINVAL);
+
+        _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
+        r = sd_fiber_new(sd_future_get_event(g), name, func, userdata, &f);
+        if (r < 0)
+                return r;
+
+        r = sd_future_group_add(g, f);
+        if (r < 0)
+                return r;
+
+        /* sd_future_group_add() took its own reference. The cleanup of f would cancel the fiber, so hand
+         * our reference to the caller or drop it with sd_future_unref(). */
+        if (ret)
+                *ret = TAKE_PTR(f);
+        else
+                f = sd_future_unref(f);
+
+        return 0;
+}
+
+int sd_future_group_add_many_internal(sd_future *f, ...) {
+        assert_return(f, -EINVAL);
+        assert_return(sd_future_get_ops(f) == &future_group_ops, -EINVAL);
+
+        FutureGroup *fg = sd_future_get_private(f);
+        size_t before = fg->n_slots;
+        bool children_added = FLAGS_SET(fg->flags, FUTURE_GROUP_CHILDREN_ADDED);
+        int r = 0;
+
+        va_list ap;
+        va_start(ap, f);
+        for (;;) {
+                sd_future *child = va_arg(ap, sd_future*);
+                if (!child)
+                        break;
+
+                r = sd_future_group_add(f, child);
+                if (r < 0)
+                        break;
+        }
+        va_end(ap);
+
+        if (r < 0) {
+                /* sd_future_group_add() never runs callbacks, so the group cannot start finalizing during
+                 * this call. Remove only the children that this call added. */
+                while (fg->n_slots > before) {
+                        sd_future_slot_unref(fg->slots[--fg->n_slots]);
+                        fg->slots[fg->n_slots] = NULL;
+                }
+
+                SET_FLAG(fg->flags, FUTURE_GROUP_CHILDREN_ADDED, children_added);
+        }
+
+        return r;
+}
+
+int sd_future_group_seal(sd_future *f) {
+        assert_return(f, -EINVAL);
+        assert_return(sd_future_get_ops(f) == &future_group_ops, -EINVAL);
+
+        FutureGroup *fg = sd_future_get_private(f);
+        fg->flags |= FUTURE_GROUP_SEALED;
+
+        return future_group_check(f);
+}

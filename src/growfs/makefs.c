@@ -13,6 +13,15 @@
 #include "main-func.h"
 #include "mkfs-util.h"
 #include "path-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-makefs\0",
+        "Create a file system on an empty device.",
+        .argspec = "TYPE DEVICE\0",
+        .man_pages = "systemd-makefs@.service(8)\0",
+        .option_namespace = "common",
+);
 
 static int run(int argc, char *argv[]) {
         _cleanup_free_ char *device = NULL, *fstype = NULL, *detected = NULL, *label = NULL;
@@ -26,16 +35,17 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        if (argc != 3)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program expects two arguments.");
+        char **args = NULL;
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 2, /* max_args= */ 2, &args);
+        if (r <= 0)
+                return r;
 
         /* type and device must be copied because makefs calls safe_fork, which clears argv[] */
-        fstype = strdup(argv[1]);
+        fstype = strdup(args[0]);
         if (!fstype)
                 return log_oom();
 
-        device = strdup(argv[2]);
+        device = strdup(args[1]);
         if (!device)
                 return log_oom();
 

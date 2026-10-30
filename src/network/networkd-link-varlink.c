@@ -6,6 +6,7 @@
 #include "bus-polkit.h"
 #include "json-util.h"
 #include "networkd-dhcp4.h"
+#include "networkd-dhcp6.h"
 #include "networkd-json.h"
 #include "networkd-link.h"
 #include "networkd-link-varlink.h"
@@ -153,6 +154,10 @@ int vl_method_link_renew(sd_varlink *vlink, sd_json_variant *parameters, sd_varl
         r = dhcp4_renew(link);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to renew DHCPv4 lease: %m");
+
+        r = dhcp6_renew(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to renew DHCPv6 lease: %m");
 
         return sd_varlink_reply(vlink, NULL);
 }

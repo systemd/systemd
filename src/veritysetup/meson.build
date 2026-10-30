@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-if conf.get('HAVE_LIBCRYPTSETUP') != 1
+if conf.get('ENABLE_VERITYSETUP') != 1
         subdir_done()
 endif
 

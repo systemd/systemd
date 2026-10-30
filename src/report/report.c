@@ -9,7 +9,10 @@
 #include "chase.h"
 #include "dirent-util.h"
 #include "dlopen-note.h"
+#include "errno-util.h"
 #include "format-table.h"
+#include "hexdecoct.h"
+#include "iovec-util.h"
 #include "json-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -33,7 +36,8 @@
 #include "verbs.h"
 #include "web-util.h"
 
-#define METRICS_MAX 4096U
+/* We limit per source, with the METRICS_LINKS_MAX this gives us a global cap too */
+#define METRICS_PER_SOURCE_MAX 16384U
 #define METRICS_LINKS_MAX 128U
 #define TIMEOUT_USEC (30 * USEC_PER_SEC) /* 30 seconds */
 
@@ -48,24 +52,29 @@ char *arg_trust = NULL;
 char **arg_extra_headers = NULL;
 usec_t arg_network_timeout_usec = TIMEOUT_USEC;
 ReportSignMode arg_sign_mode = REPORT_SIGN_NO;
+static struct iovec arg_nonce = {};
 
 STATIC_DESTRUCTOR_REGISTER(arg_url, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cert, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_trust, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_extra_headers, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_nonce, iovec_done);
 
 COMMAND(
         "systemd-report\0",
         "Acquire metrics from local sources.",
         .man_pages = "systemd-report(1)\0",
         .pager_flags = &arg_pager_flags,
+        .flags = COMMAND_EXPERIMENTAL,
 );
 
 typedef struct LinkInfo {
         Context *context;
         sd_varlink *link;
         char *name;
+        size_t n_metrics;
+        bool logged_metrics_per_source_max_reached;
 } LinkInfo;
 
 static LinkInfo* link_info_free(LinkInfo *li) {
@@ -254,7 +263,13 @@ static int on_query_reply(
                 goto finish;
         }
 
-        if (context->n_metrics >= METRICS_MAX) {
+        if (li->n_metrics >= METRICS_PER_SOURCE_MAX) {
+                if (!li->logged_metrics_per_source_max_reached) {
+                        li->logged_metrics_per_source_max_reached = true;
+                        log_warning("Reached limit of %u metrics, dropping further metrics from '%s'.",
+                                    METRICS_PER_SOURCE_MAX, li->name);
+                }
+
                 context->n_skipped_metrics++;
                 goto finish;
         }
@@ -272,6 +287,7 @@ static int on_query_reply(
                 return log_oom();
 
         context->metrics[context->n_metrics++] = sd_json_variant_ref(parameters);
+        li->n_metrics++;
 
 finish:
         if (!FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES)) {
@@ -675,6 +691,9 @@ static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) 
                 .action = action,
         };
 
+        if (iovec_is_set(&arg_nonce))
+                context.nonce = &arg_nonce;
+
         r = parse_metrics_matches(argv + 1, &context.matches);
         if (r < 0)
                 return r;
@@ -716,19 +735,22 @@ static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) 
                         return r;
         }
 
+        r = 0;
+
         if (context.n_skipped_sources > 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EUCLEAN),
-                                         "Too many metrics sources, only %zu sources contacted, %zu sources skipped.",
-                                         context.n_contacted_sources, context.n_skipped_sources);
+                RET_GATHER(r, log_warning_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                                "Too many metrics sources, only %zu sources contacted, %zu sources skipped.",
+                                                context.n_contacted_sources, context.n_skipped_sources));
         if (context.n_invalid_metrics > 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EUCLEAN),
-                                         "%zu metrics are not valid.",
-                                         context.n_invalid_metrics);
+                RET_GATHER(r, log_warning_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                                "%zu metrics are not valid.",
+                                                context.n_invalid_metrics));
         if (context.n_skipped_metrics > 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EUCLEAN),
-                                         "Too many metrics, only %zu metrics collected, %zu metrics skipped.",
-                                         context.n_metrics, context.n_skipped_metrics);
-        return 0;
+                RET_GATHER(r, log_warning_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                                "Too many metrics, only %zu metrics collected, %zu metrics skipped.",
+                                                context.n_metrics, context.n_skipped_metrics));
+
+        return r;
 }
 
 VERB_NOARG(verb_list_sources, "list-sources", "Show list of known metrics sources");
@@ -803,10 +825,12 @@ static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_report_sign_varlink_mode, ReportS
 typedef struct GenerateParameters {
         char **matches;
         ReportSignMode sign_mode;
+        struct iovec nonce;
 } GenerateParameters;
 
 static void generate_parameters_done(GenerateParameters *p) {
         strv_free(p->matches);
+        iovec_done(&p->nonce);
 }
 
 static int vl_method_generate_internal(
@@ -830,6 +854,7 @@ static int vl_method_generate_internal(
         static const sd_json_dispatch_field dispatch_table_signed[] = {
                 { "matches", SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_strv,                  voffsetof(p, matches),   SD_JSON_NULLABLE },
                 { "mode",    SD_JSON_VARIANT_STRING, json_dispatch_report_sign_varlink_mode, voffsetof(p, sign_mode), SD_JSON_NULLABLE },
+                { "nonce",   SD_JSON_VARIANT_STRING, json_dispatch_unbase64_iovec,           voffsetof(p, nonce),     SD_JSON_NULLABLE },
                 {}
         };
 
@@ -848,6 +873,9 @@ static int vl_method_generate_internal(
         r = sd_event_new(&context.event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
+
+        if (iovec_is_set(&p.nonce))
+                context.nonce = &p.nonce;
 
         r = context_collect_metrics(&context);
         if (r < 0)
@@ -1022,6 +1050,23 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         if (arg_sign_mode < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse --sign= mode '%s'.", opts.arg);
                         break;
+
+                OPTION_LONG("nonce", "NONCE",
+                            "Provide a nonce to include in the report, in Base64"): {
+
+                        _cleanup_(iovec_done) struct iovec nonce = {};
+
+                        r = unbase64mem(opts.arg, &nonce.iov_base, &nonce.iov_len);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to decode nonce: %m");
+
+                        iovec_done(&arg_nonce);
+
+                        if (iovec_is_set(&nonce))
+                                arg_nonce = TAKE_STRUCT(nonce);
+
+                        break;
+                }
 
                 OPTION_COMMON_INTROSPECT_CLI:
                         return introspect_cli(arg_json_format_flags);

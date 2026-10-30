@@ -20,6 +20,7 @@
 #include "random-util.h"
 #include "set.h"
 #include "siphash24.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -62,6 +63,7 @@ OvmfConfig* ovmf_config_free(OvmfConfig *config) {
         free(config->format);
         free(config->vars);
         free(config->vars_format);
+        free(config->uefi_vars_template);
         free(config->device);
         free(config->mode);
         strv_free(config->features);
@@ -75,24 +77,34 @@ bool ovmf_config_has_feature(const OvmfConfig *config, const char *feature) {
         return strv_contains(config->features, feature);
 }
 
-static bool firmware_is_stateless(const char *device, const char *mode) {
-        /* Memory-mapped firmware (loaded via -bios) carries no NVRAM. For flash, only mode "stateless"
-         * is stateless: an absent mode means "split" (executable plus NVRAM template), and "combined"
-         * images carry the variable store inside the (writable) executable. */
+static bool firmware_is_stateless(const char *device, const char *mode, char * const *features) {
+        /* QEMU provides the variable store, which is host state. */
+        if (strv_contains(features, "host-uefi-vars"))
+                return false;
 
+        /* Otherwise, memory-mapped firmware (loaded via -bios) carries no NVRAM. */
         if (streq_ptr(device, "memory"))
                 return true;
 
+        /* Only mode "stateless" is stateless: an absent mode means "split" (executable plus NVRAM template),
+         * and "combined" images carry the variable store inside the (writable) executable. */
         return streq_ptr(device, "flash") && streq_ptr(mode, "stateless");
 }
 
 bool ovmf_config_is_stateless(const OvmfConfig *config) {
         assert(config);
 
-        return firmware_is_stateless(config->device, config->mode);
+        return firmware_is_stateless(config->device, config->mode, config->features);
 }
 
 DEFINE_STRING_TABLE_LOOKUP(network_stack, NetworkStack);
+
+char* format_qemu_fdset_path(char buf[static QEMU_FDSET_PATH_MAX], QemuFdset fdset) {
+        assert(buf);
+        assert(fdset >= 0 && fdset < _QEMU_FDSET_MAX);
+        assert_se(snprintf_ok(buf, QEMU_FDSET_PATH_MAX, "/dev/fdset/%i", fdset));
+        return buf;
+}
 
 int qemu_check_kvm_support(void) {
         if (access("/dev/kvm", F_OK) >= 0)
@@ -167,6 +179,7 @@ typedef struct FirmwareData {
         char *firmware_format;
         char *vars;
         char *vars_format;
+        char *uefi_vars_template;
         char *device;
         char *mode;
         FirmwareTarget **targets;
@@ -203,6 +216,7 @@ static FirmwareData* firmware_data_free(FirmwareData *fwd) {
         free(fwd->firmware_format);
         free(fwd->vars);
         free(fwd->vars_format);
+        free(fwd->uefi_vars_template);
         free(fwd->device);
         free(fwd->mode);
         firmware_target_free_many(fwd->targets, fwd->n_targets);
@@ -231,6 +245,15 @@ static int firmware_nvram_template(const char *name, sd_json_variant *v, sd_json
         return sd_json_dispatch(v, table, flags, userdata);
 }
 
+static int firmware_uefi_vars(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field table[] = {
+                { "template", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(FirmwareData, uefi_vars_template), SD_JSON_MANDATORY },
+                {}
+        };
+
+        return sd_json_dispatch(v, table, flags, userdata);
+}
+
 static int firmware_mapping(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field table_flash[] = {
                 { "device",         SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(FirmwareData, device), SD_JSON_MANDATORY },
@@ -240,8 +263,9 @@ static int firmware_mapping(const char *name, sd_json_variant *v, sd_json_dispat
                 {}
         };
         static const sd_json_dispatch_field table_memory[] = {
-                { "device",   SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(FirmwareData, device),   SD_JSON_MANDATORY },
-                { "filename", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(FirmwareData, firmware), SD_JSON_MANDATORY },
+                { "device",    SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(FirmwareData, device),   SD_JSON_MANDATORY },
+                { "filename",  SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(FirmwareData, firmware), SD_JSON_MANDATORY },
+                { "uefi-vars", SD_JSON_VARIANT_OBJECT, firmware_uefi_vars,      0,                                0                 },
                 {}
         };
 
@@ -447,6 +471,7 @@ static int ovmf_config_make(FirmwareData *fwd, OvmfConfig **ret) {
                 .format = TAKE_PTR(fwd->firmware_format),
                 .vars = TAKE_PTR(fwd->vars),
                 .vars_format = TAKE_PTR(fwd->vars_format),
+                .uefi_vars_template = TAKE_PTR(fwd->uefi_vars_template),
                 .device = TAKE_PTR(fwd->device),
                 .mode = TAKE_PTR(fwd->mode),
                 .features = TAKE_PTR(fwd->features),
@@ -510,8 +535,17 @@ int find_ovmf_config(
                 }
 
                 if (FLAGS_SET(flags, FIND_OVMF_STATELESS)) {
-                        if (!firmware_is_stateless(fwd->device, fwd->mode)) {
+                        if (!firmware_is_stateless(fwd->device, fwd->mode, fwd->features)) {
                                 log_debug("Skipping %s, firmware is not stateless.", *file);
+                                continue;
+                        }
+                } else if (strv_contains(fwd->features, "host-uefi-vars")) {
+                        if (!QEMU_UEFI_VARS_DEVICE) {
+                                log_debug("Skipping %s, QEMU has no host-side UEFI variable store on this architecture.", *file);
+                                continue;
+                        }
+                        if (!fwd->uefi_vars_template) {
+                                log_debug("Skipping %s, firmware does not have a UEFI variable store template.", *file);
                                 continue;
                         }
                 } else if (!fwd->vars) {

@@ -9,6 +9,7 @@
 #include "event-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "io-util.h"
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -479,7 +480,7 @@ static int delete_self_handler(sd_event_source *s, const struct inotify_event *e
 
 static void test_inotify_one(unsigned n_create_events) {
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
-        sd_event_source *a = NULL, *b = NULL, *c = NULL, *d = NULL;
+        sd_event_source *a = NULL, *b = NULL, *c = NULL;
         struct inotify_context context = {
                 .n_create_events = n_create_events,
         };
@@ -514,7 +515,7 @@ static void test_inotify_one(unsigned n_create_events) {
 
         q = strjoina(p, "/sub");
         ASSERT_OK(touch(q));
-        ASSERT_OK(sd_event_add_inotify(e, &d, q, IN_DELETE_SELF, delete_self_handler, &context));
+        ASSERT_OK(sd_event_add_inotify(e, /* ret= */ NULL, q, IN_DELETE_SELF, delete_self_handler, &context));
 
         for (i = 0; i < n_create_events; i++) {
                 char buf[DECIMAL_STR_MAX(unsigned)+1];
@@ -533,7 +534,6 @@ static void test_inotify_one(unsigned n_create_events) {
         sd_event_source_unref(a);
         sd_event_source_unref(b);
         sd_event_source_unref(c);
-        sd_event_source_unref(d);
 
         sd_event_unref(e);
 }
@@ -865,12 +865,13 @@ TEST(fork) {
 TEST(sd_event_source_set_io_fd) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_close_pair_ int pfd_a[2] = EBADF_PAIR, pfd_b[2] = EBADF_PAIR;
+        _cleanup_close_pair_ int pfd_a[2] = EBADF_PAIR, pfd_b[2] = EBADF_PAIR, pfd_c[2] = EBADF_PAIR;
 
         ASSERT_OK(sd_event_default(&e));
 
         ASSERT_OK_ERRNO(pipe2(pfd_a, O_CLOEXEC));
         ASSERT_OK_ERRNO(pipe2(pfd_b, O_CLOEXEC));
+        ASSERT_OK_ERRNO(pipe2(pfd_c, O_CLOEXEC));
 
         ASSERT_OK(sd_event_add_io(e, &s, pfd_a[0], EPOLLIN, NULL, INT_TO_PTR(-ENOANO)));
         ASSERT_OK(sd_event_source_set_io_fd_own(s, true));
@@ -878,6 +879,14 @@ TEST(sd_event_source_set_io_fd) {
 
         ASSERT_OK(sd_event_source_set_io_fd(s, pfd_b[0]));
         TAKE_FD(pfd_b[0]);
+
+        /* Closing the fd behind the source's back drops its registration along with it. Swapping it out
+         * afterwards must still work, even though there is nothing left to unregister. */
+        ASSERT_OK(sd_event_source_set_io_fd_own(s, false));
+        ASSERT_OK_ERRNO(close(sd_event_source_get_io_fd(s)));
+        ASSERT_OK(sd_event_source_set_io_fd(s, pfd_c[0]));
+        ASSERT_OK(sd_event_source_set_io_fd_own(s, true));
+        TAKE_FD(pfd_c[0]);
 }
 
 static int hup_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -983,6 +992,67 @@ TEST(defer_add_post) {
 
         /* Now the post handler should have been dispatched */
         ASSERT_TRUE(dispatched_post);
+}
+
+static unsigned expire_drain_count = 0;
+static int expire_drain_callback(sd_event_source *s, void *userdata) {
+        expire_drain_count++;
+
+        /* Consume the readiness, so that leaving the ratelimit doesn't generate a new epoll event */
+        ASSERT_OK(flush_fd(sd_event_source_get_io_fd(s)));
+
+        return 0;
+}
+
+TEST(ratelimit_expire_with_pending) {
+        _cleanup_close_pair_ int p[2] = EBADF_PAIR;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *io = NULL, *defer = NULL;
+        unsigned count = 0;
+        bool dispatched = false;
+
+        ASSERT_OK(sd_event_default(&e));
+        ASSERT_OK_ERRNO(pipe2(p, O_CLOEXEC|O_NONBLOCK));
+
+        ASSERT_OK(sd_event_add_io(e, &io, p[0], EPOLLIN, ratelimit_io_handler, &count));
+        ASSERT_OK(sd_event_source_set_ratelimit(io, 1 * USEC_PER_SEC, 1));
+        ASSERT_OK(sd_event_source_set_ratelimit_expire_callback(io, expire_drain_callback));
+
+        ASSERT_OK_EQ_ERRNO(write(p[1], "x", 1), 1);
+
+        /* The first dispatch opens the ratelimit window, the second one hits the burst limit. */
+        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_source_is_ratelimited(io));
+
+        /* Arm the CLOCK_BOOTTIME timer for the end of the ratelimit window, and let it elapse. */
+        ASSERT_OK_ZERO(sd_event_run(e, 0));
+        ASSERT_OK(usleep_safe(1100 * USEC_PER_MSEC));
+
+        /* Now have an event source pending only in userspace, which never makes the epoll fd readable. */
+        ASSERT_OK(sd_event_add_defer(e, &defer, defer_post_handler, &dispatched));
+
+        /* sd_event_prepare() will see the pending defer source, and its sd_event_wait() call will run the
+         * ratelimit expiry callback. It must not report "nothing pending" afterwards, as otherwise callers
+         * like sd_event_run() would block indefinitely in epoll_wait(). */
+        ASSERT_OK_POSITIVE(sd_event_prepare(e));
+        ASSERT_EQ(expire_drain_count, 1U);
+        ASSERT_EQ(count, 1U);
+        ASSERT_OK_ZERO(sd_event_source_is_ratelimited(io));
+
+        /* No other callback is dispatched in the same iteration as the ratelimit expiry callback. */
+        ASSERT_OK_POSITIVE(sd_event_dispatch(e));
+        ASSERT_EQ(count, 1U);
+        ASSERT_FALSE(dispatched);
+
+        /* The IO event that hit the ratelimit stayed pending and is delivered first, then the defer source. */
+        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_EQ(count, 2U);
+        ASSERT_FALSE(dispatched);
+
+        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_TRUE(dispatched);
+        ASSERT_EQ(expire_drain_count, 1U);
 }
 
 static int child_handler_wnowait(sd_event_source *s, const siginfo_t *si, void *userdata) {

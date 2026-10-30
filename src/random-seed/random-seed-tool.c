@@ -8,10 +8,8 @@
 #include <unistd.h>
 
 #include "sd-id128.h"
-#include "sd-json.h"
 
 #include "alloc-util.h"
-#include "build.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
@@ -47,6 +45,7 @@ COMMAND(
         "systemd-random-seed\0",
         "Load and save the system random seed at boot and shutdown.",
         .man_pages = "systemd-random-seed(8)\0",
+        .option_namespace = "common",
 );
 
 static CreditEntropy may_credit(int seed_fd) {
@@ -311,33 +310,6 @@ static int verb_set_action(int argc, char *argv[], uintptr_t data, void *userdat
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        assert(argc >= 0);
-        assert(argv);
-
-        OptionParser opts = { argc, argv };
-        int r;
-
-        FOREACH_OPTION_OR_RETURN(c, &opts)
-                switch (c) {
-
-                OPTION_COMMON_HELP:
-                        return command_print_help();
-
-                OPTION_COMMON_VERSION:
-                        return version();
-
-                OPTION_COMMON_INTROSPECT_CLI:
-                        return introspect_cli(SD_JSON_FORMAT_OFF);
-                }
-
-        r = dispatch_verb(option_parser_get_args(&opts), NULL);
-        if (r < 0)
-                return r;
-
-        return 1;
-}
-
 static int run(int argc, char *argv[]) {
         _cleanup_free_ struct sha256_ctx *hash_state = NULL;
         _cleanup_close_ int seed_fd = -EBADF, random_fd = -EBADF;
@@ -347,8 +319,13 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = common_parse_argv(argc, argv, &args);
         if (r <= 0)
+                return r;
+
+        r = dispatch_verb(args, /* userdata= */ NULL);
+        if (r < 0)
                 return r;
 
         umask(0022);

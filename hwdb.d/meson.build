@@ -22,6 +22,7 @@ hwdb_files_test = files(
         '40-imds.hwdb',
         '60-autosuspend.hwdb',
         '60-autosuspend-fingerprint-reader.hwdb',
+        '60-block.hwdb',
         '60-evdev.hwdb',
         '60-input-id.hwdb',
         '60-keyboard.hwdb',
@@ -49,7 +50,7 @@ hwdb_files_test = files(
 if conf.get('ENABLE_HWDB') == 1
         auto_suspend_rules = custom_target(
                 output : '60-autosuspend-chromiumos.hwdb',
-                command : make_autosuspend_rules_py,
+                command : [python, make_autosuspend_rules_py],
                 capture : true,
                 install : true,
                 install_dir: udevhwdbdir,

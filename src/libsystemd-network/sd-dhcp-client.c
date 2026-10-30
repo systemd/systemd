@@ -386,7 +386,9 @@ int sd_dhcp_client_set_hostname(
                 const char *hostname) {
 
         assert_return(client, -EINVAL);
-        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
+
+        /* The hostname is only used when building messages, hence it can be changed while the client is
+         * running. The new hostname will be sent in the next message, e.g. on renewal. */
 
         /* Make sure hostnames qualify as DNS and as Linux hostnames */
         if (hostname &&
