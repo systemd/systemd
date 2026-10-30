@@ -59,58 +59,60 @@ TEST(parse_syscall_and_errno) {
 
         CHECK_SECCOMP(/* refuse_container= */ false);
 
-        assert_se(parse_syscall_and_errno("uname:EILSEQ", &n, &e) >= 0);
+        ASSERT_OK(parse_syscall_and_errno("uname:EILSEQ", &n, &e));
         ASSERT_STREQ(n, "uname");
-        assert_se(e == errno_from_name("EILSEQ") && e >= 0);
+        ASSERT_EQ(e, errno_from_name("EILSEQ"));
+        ASSERT_GE(e, 0);
         n = mfree(n);
 
-        assert_se(parse_syscall_and_errno("uname:EINVAL", &n, &e) >= 0);
+        ASSERT_OK(parse_syscall_and_errno("uname:EINVAL", &n, &e));
         ASSERT_STREQ(n, "uname");
-        assert_se(e == errno_from_name("EINVAL") && e >= 0);
+        ASSERT_EQ(e, errno_from_name("EINVAL"));
+        ASSERT_GE(e, 0);
         n = mfree(n);
 
-        assert_se(parse_syscall_and_errno("@sync:4095", &n, &e) >= 0);
+        ASSERT_OK(parse_syscall_and_errno("@sync:4095", &n, &e));
         ASSERT_STREQ(n, "@sync");
-        assert_se(e == 4095);
+        ASSERT_EQ(e, 4095);
         n = mfree(n);
 
         /* If errno is omitted, then e is set to -1 */
-        assert_se(parse_syscall_and_errno("mount", &n, &e) >= 0);
+        ASSERT_OK(parse_syscall_and_errno("mount", &n, &e));
         ASSERT_STREQ(n, "mount");
-        assert_se(e == -1);
+        ASSERT_EQ(e, -1);
         n = mfree(n);
 
         /* parse_syscall_and_errno() does not check the syscall name is valid or not. */
-        assert_se(parse_syscall_and_errno("hoge:255", &n, &e) >= 0);
+        ASSERT_OK(parse_syscall_and_errno("hoge:255", &n, &e));
         ASSERT_STREQ(n, "hoge");
-        assert_se(e == 255);
+        ASSERT_EQ(e, 255);
         n = mfree(n);
 
         /* 0 is also a valid errno. */
-        assert_se(parse_syscall_and_errno("hoge:0", &n, &e) >= 0);
+        ASSERT_OK(parse_syscall_and_errno("hoge:0", &n, &e));
         ASSERT_STREQ(n, "hoge");
-        assert_se(e == 0);
+        ASSERT_EQ(e, 0);
         n = mfree(n);
 
-        assert_se(parse_syscall_and_errno("hoge:kill", &n, &e) >= 0);
+        ASSERT_OK(parse_syscall_and_errno("hoge:kill", &n, &e));
         ASSERT_STREQ(n, "hoge");
-        assert_se(e == SECCOMP_ERROR_NUMBER_KILL);
+        ASSERT_EQ(e, SECCOMP_ERROR_NUMBER_KILL);
         n = mfree(n);
 
         /* The function checks the syscall name is empty or not. */
-        assert_se(parse_syscall_and_errno("", &n, &e) == -EINVAL);
-        assert_se(parse_syscall_and_errno(":255", &n, &e) == -EINVAL);
+        ASSERT_ERROR(parse_syscall_and_errno("", &n, &e), EINVAL);
+        ASSERT_ERROR(parse_syscall_and_errno(":255", &n, &e), EINVAL);
 
         /* errno must be a valid errno name or number between 0 and ERRNO_MAX == 4095, or "kill" */
-        assert_se(parse_syscall_and_errno("hoge:4096", &n, &e) == -ERANGE);
-        assert_se(parse_syscall_and_errno("hoge:-3", &n, &e) == -ERANGE);
-        assert_se(parse_syscall_and_errno("hoge:12.3", &n, &e) == -EINVAL);
-        assert_se(parse_syscall_and_errno("hoge:123junk", &n, &e) == -EINVAL);
-        assert_se(parse_syscall_and_errno("hoge:junk123", &n, &e) == -EINVAL);
-        assert_se(parse_syscall_and_errno("hoge:255:EILSEQ", &n, &e) == -EINVAL);
-        assert_se(parse_syscall_and_errno("hoge:-EINVAL", &n, &e) == -EINVAL);
-        assert_se(parse_syscall_and_errno("hoge:EINVALaaa", &n, &e) == -EINVAL);
-        assert_se(parse_syscall_and_errno("hoge:", &n, &e) == -EINVAL);
+        ASSERT_ERROR(parse_syscall_and_errno("hoge:4096", &n, &e), ERANGE);
+        ASSERT_ERROR(parse_syscall_and_errno("hoge:-3", &n, &e), ERANGE);
+        ASSERT_ERROR(parse_syscall_and_errno("hoge:12.3", &n, &e), EINVAL);
+        ASSERT_ERROR(parse_syscall_and_errno("hoge:123junk", &n, &e), EINVAL);
+        ASSERT_ERROR(parse_syscall_and_errno("hoge:junk123", &n, &e), EINVAL);
+        ASSERT_ERROR(parse_syscall_and_errno("hoge:255:EILSEQ", &n, &e), EINVAL);
+        ASSERT_ERROR(parse_syscall_and_errno("hoge:-EINVAL", &n, &e), EINVAL);
+        ASSERT_ERROR(parse_syscall_and_errno("hoge:EINVALaaa", &n, &e), EINVAL);
+        ASSERT_ERROR(parse_syscall_and_errno("hoge:", &n, &e), EINVAL);
 }
 
 TEST(seccomp_arch_to_string) {
@@ -120,11 +122,10 @@ TEST(seccomp_arch_to_string) {
         CHECK_SECCOMP(/* refuse_container= */ false);
 
         a = sym_seccomp_arch_native();
-        assert_se(a > 0);
-        name = seccomp_arch_to_string(a);
-        assert_se(name);
-        assert_se(seccomp_arch_from_string(name, &b) >= 0);
-        assert_se(a == b);
+        ASSERT_GT(a, 0U);
+        name = ASSERT_NOT_NULL(seccomp_arch_to_string(a));
+        ASSERT_OK(seccomp_arch_from_string(name, &b));
+        ASSERT_EQ(a, b);
 }
 
 TEST(architecture_table) {
@@ -158,7 +159,7 @@ TEST(architecture_table) {
                        "s390x\0") {
                 uint32_t c;
 
-                assert_se(seccomp_arch_from_string(n, &c) >= 0);
+                ASSERT_OK(seccomp_arch_from_string(n, &c));
                 n2 = seccomp_arch_to_string(c);
                 log_info("seccomp-arch: %s → 0x%"PRIx32" → %s", n, c, n2);
                 ASSERT_STREQ(n, n2);
@@ -166,14 +167,14 @@ TEST(architecture_table) {
 }
 
 TEST(syscall_filter_set_find) {
-        assert_se(!syscall_filter_set_find(/* name= */ NULL));
-        assert_se(!syscall_filter_set_find(""));
-        assert_se(!syscall_filter_set_find("quux"));
-        assert_se(!syscall_filter_set_find("@quux"));
+        ASSERT_NULL(syscall_filter_set_find(/* name= */ NULL));
+        ASSERT_NULL(syscall_filter_set_find(""));
+        ASSERT_NULL(syscall_filter_set_find("quux"));
+        ASSERT_NULL(syscall_filter_set_find("@quux"));
 
-        assert_se(syscall_filter_set_find("@clock") == syscall_filter_sets + SYSCALL_FILTER_SET_CLOCK);
-        assert_se(syscall_filter_set_find("@default") == syscall_filter_sets + SYSCALL_FILTER_SET_DEFAULT);
-        assert_se(syscall_filter_set_find("@raw-io") == syscall_filter_sets + SYSCALL_FILTER_SET_RAW_IO);
+        ASSERT_PTR_EQ(syscall_filter_set_find("@clock"), syscall_filter_sets + SYSCALL_FILTER_SET_CLOCK);
+        ASSERT_PTR_EQ(syscall_filter_set_find("@default"), syscall_filter_sets + SYSCALL_FILTER_SET_DEFAULT);
+        ASSERT_PTR_EQ(syscall_filter_set_find("@raw-io"), syscall_filter_sets + SYSCALL_FILTER_SET_RAW_IO);
 }
 
 TEST(filter_sets) {
@@ -217,9 +218,9 @@ TEST(filter_sets) {
                         /* Test the sycall filter with one random system call */
                         fd = eventfd(0, EFD_NONBLOCK|EFD_CLOEXEC);
                         if (IN_SET(i, SYSCALL_FILTER_SET_IO_EVENT, SYSCALL_FILTER_SET_DEFAULT))
-                                assert_se(fd < 0 && errno == EUCLEAN);
+                                ASSERT_ERROR_ERRNO(fd, EUCLEAN);
                         else {
-                                assert_se(fd >= 0);
+                                ASSERT_OK_ERRNO(fd);
                                 safe_close(fd);
                         }
 
@@ -230,31 +231,30 @@ TEST(filter_sets) {
 
 TEST(filter_sets_ordered) {
         /* Ensure "@default" always remains at the beginning of the list */
-        assert_se(SYSCALL_FILTER_SET_DEFAULT == 0);
+        ASSERT_EQ(SYSCALL_FILTER_SET_DEFAULT, 0);
         ASSERT_STREQ(syscall_filter_sets[0].name, "@default");
 
         /* Ensure "@known" always remains at the end of the list */
-        assert_se(SYSCALL_FILTER_SET_KNOWN == _SYSCALL_FILTER_SET_MAX - 1);
+        ASSERT_EQ(SYSCALL_FILTER_SET_KNOWN, _SYSCALL_FILTER_SET_MAX - 1);
         ASSERT_STREQ(syscall_filter_sets[SYSCALL_FILTER_SET_KNOWN].name, "@known");
 
         for (size_t i = 0; i < _SYSCALL_FILTER_SET_MAX; i++) {
                 const char *p = NULL;
 
                 /* Make sure each group has a description */
-                assert_se(!isempty(syscall_filter_sets[0].help));
+                ASSERT_FALSE(isempty(syscall_filter_sets[0].help));
 
                 /* Make sure the groups are ordered alphabetically, except for the first and last entries */
-                assert_se(i < 2 || i == _SYSCALL_FILTER_SET_MAX - 1 ||
-                          strcmp(syscall_filter_sets[i-1].name, syscall_filter_sets[i].name) < 0);
+                ASSERT_TRUE(i < 2 || i == _SYSCALL_FILTER_SET_MAX - 1 ||
+                            strcmp(syscall_filter_sets[i-1].name, syscall_filter_sets[i].name) < 0);
 
                 NULSTR_FOREACH(k, syscall_filter_sets[i].value) {
-
                         /* Ensure each syscall list is in itself ordered, but groups before names */
-                        assert_se(!p ||
-                                  (*p == '@' && *k != '@') ||
-                                  (((*p == '@' && *k == '@') ||
-                                    (*p != '@' && *k != '@')) &&
-                                   strcmp(p, k) < 0));
+                        ASSERT_TRUE(!p ||
+                                    (*p == '@' && *k != '@') ||
+                                    (((*p == '@' && *k == '@') ||
+                                      (*p != '@' && *k != '@')) &&
+                                     strcmp(p, k) < 0));
 
                         p = k;
                 }
@@ -269,87 +269,82 @@ TEST(restrict_namespace) {
         if (!have_namespaces())
                 return (void) log_tests_skipped("Testing without namespaces");
 
-        assert_se(namespace_flags_to_string(/* flags= */ 0, &s) == 0 && isempty(s));
+        ASSERT_OK_ZERO(namespace_flags_to_string(/* flags= */ 0, &s));
+        ASSERT_TRUE(isempty(s));
         s = mfree(s);
-        assert_se(namespace_flags_to_string(CLONE_NEWNS, &s) == 0 && streq(s, "mnt"));
+        ASSERT_OK_ZERO(namespace_flags_to_string(CLONE_NEWNS, &s));
+        ASSERT_STREQ(s, "mnt");
         s = mfree(s);
-        assert_se(namespace_flags_to_string(CLONE_NEWNS|CLONE_NEWIPC, &s) == 0 && streq(s, "ipc mnt"));
+        ASSERT_OK_ZERO(namespace_flags_to_string(CLONE_NEWNS|CLONE_NEWIPC, &s));
+        ASSERT_STREQ(s, "ipc mnt");
         s = mfree(s);
-        assert_se(namespace_flags_to_string(CLONE_NEWCGROUP, &s) == 0 && streq(s, "cgroup"));
-        s = mfree(s);
-
-        assert_se(namespace_flags_from_string("mnt", &ul) == 0 && ul == CLONE_NEWNS);
-        assert_se(namespace_flags_from_string(/* name= */ NULL, &ul) == 0 && ul == 0);
-        assert_se(namespace_flags_from_string("", &ul) == 0 && ul == 0);
-        assert_se(namespace_flags_from_string("uts", &ul) == 0 && ul == CLONE_NEWUTS);
-        assert_se(namespace_flags_from_string("mnt uts ipc", &ul) == 0 && ul == (CLONE_NEWNS|CLONE_NEWUTS|CLONE_NEWIPC));
-
-        assert_se(namespace_flags_to_string(CLONE_NEWUTS, &s) == 0 && streq(s, "uts"));
-        assert_se(namespace_flags_from_string(s, &ul) == 0 && ul == CLONE_NEWUTS);
-        s = mfree(s);
-        assert_se(namespace_flags_from_string("ipc", &ul) == 0 && ul == CLONE_NEWIPC);
-        assert_se(namespace_flags_to_string(ul, &s) == 0 && streq(s, "ipc"));
+        ASSERT_OK_ZERO(namespace_flags_to_string(CLONE_NEWCGROUP, &s));
+        ASSERT_STREQ(s, "cgroup");
         s = mfree(s);
 
-        assert_se(namespace_flags_to_string(NAMESPACE_FLAGS_ALL, &s) == 0);
+        ASSERT_OK_ZERO(namespace_flags_from_string("mnt", &ul));
+        ASSERT_EQ(ul, (unsigned long) CLONE_NEWNS);
+        ASSERT_OK_ZERO(namespace_flags_from_string(/* name= */ NULL, &ul));
+        ASSERT_EQ(ul, 0U);
+        ASSERT_OK_ZERO(namespace_flags_from_string("", &ul));
+        ASSERT_EQ(ul, 0U);
+        ASSERT_OK_ZERO(namespace_flags_from_string("uts", &ul));
+        ASSERT_EQ(ul, (unsigned long) CLONE_NEWUTS);
+        ASSERT_OK_ZERO(namespace_flags_from_string("mnt uts ipc", &ul));
+        ASSERT_EQ(ul, (unsigned long) (CLONE_NEWNS|CLONE_NEWUTS|CLONE_NEWIPC));
+
+        ASSERT_OK_ZERO(namespace_flags_to_string(CLONE_NEWUTS, &s));
+        ASSERT_STREQ(s, "uts");
+        ASSERT_OK_ZERO(namespace_flags_from_string(s, &ul));
+        ASSERT_EQ(ul, (unsigned long) CLONE_NEWUTS);
+        s = mfree(s);
+        ASSERT_OK_ZERO(namespace_flags_from_string("ipc", &ul));
+        ASSERT_EQ(ul, (unsigned long) CLONE_NEWIPC);
+        ASSERT_OK_ZERO(namespace_flags_to_string(ul, &s));
+        ASSERT_STREQ(s, "ipc");
+        s = mfree(s);
+
+        ASSERT_OK_ZERO(namespace_flags_to_string(NAMESPACE_FLAGS_ALL, &s));
         ASSERT_STREQ(s, "cgroup ipc net mnt pid user uts time");
-        assert_se(namespace_flags_from_string(s, &ul) == 0 && ul == NAMESPACE_FLAGS_ALL);
+        ASSERT_OK_ZERO(namespace_flags_from_string(s, &ul));
+        ASSERT_EQ(ul, NAMESPACE_FLAGS_ALL);
         s = mfree(s);
 
         CHECK_SECCOMP(/* skip_container= */ false);
 
         r = ASSERT_OK(pidref_safe_fork("(restrict-namespace)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
         if (r == 0) {
+                ASSERT_OK(seccomp_restrict_namespaces(CLONE_NEWNS|CLONE_NEWNET));
 
-                assert_se(seccomp_restrict_namespaces(CLONE_NEWNS|CLONE_NEWNET) >= 0);
-
-                assert_se(unshare(CLONE_NEWNS) == 0);
-                assert_se(unshare(CLONE_NEWNET) == 0);
-                assert_se(unshare(CLONE_NEWUTS) == -1);
-                assert_se(errno == EPERM);
-                assert_se(unshare(CLONE_NEWIPC) == -1);
-                assert_se(errno == EPERM);
-                assert_se(unshare(CLONE_NEWNET|CLONE_NEWUTS) == -1);
-                assert_se(errno == EPERM);
+                ASSERT_OK_ZERO_ERRNO(unshare(CLONE_NEWNS));
+                ASSERT_OK_ZERO_ERRNO(unshare(CLONE_NEWNET));
+                ASSERT_ERROR_ERRNO(unshare(CLONE_NEWUTS), EPERM);
+                ASSERT_ERROR_ERRNO(unshare(CLONE_NEWIPC), EPERM);
+                ASSERT_ERROR_ERRNO(unshare(CLONE_NEWNET|CLONE_NEWUTS), EPERM);
 
                 /* We use fd 0 (stdin) here, which of course will fail with EINVAL on setns(). Except of course our
                  * seccomp filter worked, and hits first and makes it return EPERM */
-                assert_se(setns(0, CLONE_NEWNS) == -1);
-                assert_se(errno == EINVAL);
-                assert_se(setns(0, CLONE_NEWNET) == -1);
-                assert_se(errno == EINVAL);
-                assert_se(setns(0, CLONE_NEWUTS) == -1);
-                assert_se(errno == EPERM);
-                assert_se(setns(0, CLONE_NEWIPC) == -1);
-                assert_se(errno == EPERM);
-                assert_se(setns(0, CLONE_NEWNET|CLONE_NEWUTS) == -1);
-                assert_se(errno == EPERM);
-                assert_se(setns(0, 0) == -1);
-                assert_se(errno == EPERM);
+                ASSERT_ERROR_ERRNO(setns(0, CLONE_NEWNS), EINVAL);
+                ASSERT_ERROR_ERRNO(setns(0, CLONE_NEWNET), EINVAL);
+                ASSERT_ERROR_ERRNO(setns(0, CLONE_NEWUTS), EPERM);
+                ASSERT_ERROR_ERRNO(setns(0, CLONE_NEWIPC), EPERM);
+                ASSERT_ERROR_ERRNO(setns(0, CLONE_NEWNET|CLONE_NEWUTS), EPERM);
+                ASSERT_ERROR_ERRNO(setns(0, 0), EPERM);
 
                 /* The kernel truncates nstype to 32 bits, make sure setting upper bits doesn't bypass the filter */
-                if (sizeof(long) == 8) {
-                        assert_se(syscall(__NR_setns, 0, (unsigned long) (UINT64_C(1) << 32)) == -1);
-                        assert_se(errno == EPERM);
-                }
+                if (sizeof(long) == 8)
+                        ASSERT_ERROR_ERRNO(syscall(__NR_setns, 0, (unsigned long) (UINT64_C(1) << 32)),
+                                           EPERM);
 
-                pid_t pid = raw_clone(CLONE_NEWNS);
-                assert_se(pid >= 0);
+                pid_t pid = ASSERT_OK_ERRNO(raw_clone(CLONE_NEWNS));
                 if (pid == 0)
                         _exit(EXIT_SUCCESS);
-                pid = raw_clone(CLONE_NEWNET);
-                assert_se(pid >= 0);
+                pid = ASSERT_OK_ERRNO(raw_clone(CLONE_NEWNET));
                 if (pid == 0)
                         _exit(EXIT_SUCCESS);
-                pid = raw_clone(CLONE_NEWUTS);
-                assert_se(pid < 0);
-                assert_se(errno == EPERM);
-                pid = raw_clone(CLONE_NEWIPC);
-                assert_se(pid < 0);
-                assert_se(errno == EPERM);
-                pid = raw_clone(CLONE_NEWNET|CLONE_NEWUTS);
-                assert_se(pid < 0);
-                assert_se(errno == EPERM);
+                ASSERT_ERROR_ERRNO(raw_clone(CLONE_NEWUTS), EPERM);
+                ASSERT_ERROR_ERRNO(raw_clone(CLONE_NEWIPC), EPERM);
+                ASSERT_ERROR_ERRNO(raw_clone(CLONE_NEWNET|CLONE_NEWUTS), EPERM);
 
                 _exit(EXIT_SUCCESS);
         }
@@ -362,18 +357,18 @@ TEST(protect_sysctl) {
         CHECK_SECCOMP(/* skip_container= */ true);
 
         _cleanup_free_ char *seccomp = NULL;
-        assert_se(get_proc_field("/proc/self/status", "Seccomp", &seccomp) == 0);
+        ASSERT_OK_ZERO(get_proc_field("/proc/self/status", "Seccomp", &seccomp));
         if (!streq(seccomp, "0"))
                 log_warning("Warning: seccomp filter detected, results may be unreliable for %s", __func__);
 
         r = ASSERT_OK(pidref_safe_fork("(protect-sysctl)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
         if (r == 0) {
 #if defined __NR__sysctl && __NR__sysctl >= 0
-                assert_se(syscall(__NR__sysctl, NULL) < 0);
-                assert_se(IN_SET(errno, EFAULT, ENOSYS));
+                ASSERT_FAIL(syscall(__NR__sysctl, NULL));
+                ASSERT_TRUE(IN_SET(errno, EFAULT, ENOSYS));
 #endif
 
-                assert_se(seccomp_protect_sysctl() >= 0);
+                ASSERT_OK(seccomp_protect_sysctl());
 
 #if HAVE_VALGRIND_VALGRIND_H
                 if (RUNNING_ON_VALGRIND) {
@@ -383,8 +378,7 @@ TEST(protect_sysctl) {
 #endif
 
 #if defined __NR__sysctl && __NR__sysctl >= 0
-                assert_se(syscall(__NR__sysctl, 0, 0, 0) < 0);
-                assert_se(errno == EPERM);
+                ASSERT_ERROR_ERRNO(syscall(__NR__sysctl, 0, 0, 0), EPERM);
 #endif
 
                 _exit(EXIT_SUCCESS);
@@ -400,15 +394,13 @@ TEST(protect_syslog) {
         r = ASSERT_OK(pidref_safe_fork("(protect-syslog)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
         if (r == 0) {
 #if defined __NR_syslog && __NR_syslog >= 0
-                assert_se(syscall(__NR_syslog, -1, NULL, 0) < 0);
-                assert_se(errno == EINVAL);
+                ASSERT_ERROR_ERRNO(syscall(__NR_syslog, -1, NULL, 0), EINVAL);
 #endif
 
-                assert_se(seccomp_protect_syslog() >= 0);
+                ASSERT_OK(seccomp_protect_syslog());
 
 #if defined __NR_syslog && __NR_syslog >= 0
-                assert_se(syscall(__NR_syslog, 0, 0, 0) < 0);
-                assert_se(errno == EPERM);
+                ASSERT_ERROR_ERRNO(syscall(__NR_syslog, 0, 0, 0), EPERM);
 #endif
 
                 _exit(EXIT_SUCCESS);
@@ -425,80 +417,67 @@ TEST(restrict_address_families) {
                 int fd;
                 Set *s;
 
-                fd = socket(AF_INET, SOCK_DGRAM, 0);
-                assert_se(fd >= 0);
+                fd = ASSERT_OK_ERRNO(socket(AF_INET, SOCK_DGRAM, 0));
                 safe_close(fd);
 
-                fd = socket(AF_UNIX, SOCK_DGRAM, 0);
-                assert_se(fd >= 0);
+                fd = ASSERT_OK_ERRNO(socket(AF_UNIX, SOCK_DGRAM, 0));
                 safe_close(fd);
 
-                fd = socket(AF_NETLINK, SOCK_DGRAM, 0);
-                assert_se(fd >= 0);
+                fd = ASSERT_OK_ERRNO(socket(AF_NETLINK, SOCK_DGRAM, 0));
                 safe_close(fd);
 
-                assert_se(s = set_new(/* hash_ops= */ NULL));
+                ASSERT_NOT_NULL(s = set_new(/* hash_ops= */ NULL));
                 ASSERT_OK(set_put(s, INT_TO_PTR(AF_UNIX)));
 
-                assert_se(seccomp_restrict_address_families(s, /* allow_list= */ false) >= 0);
+                ASSERT_OK(seccomp_restrict_address_families(s, /* allow_list= */ false));
 
-                fd = socket(AF_INET, SOCK_DGRAM, 0);
-                assert_se(fd >= 0);
+                fd = ASSERT_OK_ERRNO(socket(AF_INET, SOCK_DGRAM, 0));
                 safe_close(fd);
 
                 fd = socket(AF_UNIX, SOCK_DGRAM, 0);
 #if SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN
-                assert_se(fd >= 0);
+                ASSERT_OK_ERRNO(fd);
                 safe_close(fd);
 #else
-                assert_se(fd < 0);
-                assert_se(errno == EAFNOSUPPORT);
+                ASSERT_ERROR_ERRNO(fd, EAFNOSUPPORT);
 
                 /* The kernel truncates the domain to 32 bits, make sure setting upper bits doesn't bypass the filter */
-                if (sizeof(long) == 8) {
-                        fd = syscall(__NR_socket, UINT64_C(1) << 32 | AF_UNIX, SOCK_DGRAM, 0);
-                        assert_se(fd < 0);
-                        assert_se(errno == EAFNOSUPPORT);
-                }
+                if (sizeof(long) == 8)
+                        ASSERT_ERROR_ERRNO(syscall(__NR_socket, UINT64_C(1) << 32 | AF_UNIX, SOCK_DGRAM, 0),
+                                           EAFNOSUPPORT);
 #endif
 
-                fd = socket(AF_NETLINK, SOCK_DGRAM, 0);
-                assert_se(fd >= 0);
+                fd = ASSERT_OK_ERRNO(socket(AF_NETLINK, SOCK_DGRAM, 0));
                 safe_close(fd);
 
                 set_clear(s);
 
                 ASSERT_OK(set_put(s, INT_TO_PTR(AF_INET)));
 
-                assert_se(seccomp_restrict_address_families(s, /* allow_list= */ true) >= 0);
+                ASSERT_OK(seccomp_restrict_address_families(s, /* allow_list= */ true));
 
-                fd = socket(AF_INET, SOCK_DGRAM, 0);
-                assert_se(fd >= 0);
+                fd = ASSERT_OK_ERRNO(socket(AF_INET, SOCK_DGRAM, 0));
                 safe_close(fd);
 
                 fd = socket(AF_UNIX, SOCK_DGRAM, 0);
 #if SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN
-                assert_se(fd >= 0);
+                ASSERT_OK_ERRNO(fd);
                 safe_close(fd);
 #else
-                assert_se(fd < 0);
-                assert_se(errno == EAFNOSUPPORT);
+                ASSERT_ERROR_ERRNO(fd, EAFNOSUPPORT);
 
                 /* Same as above, the allow list must not be bypassed by setting upper bits either */
-                if (sizeof(long) == 8) {
-                        fd = syscall(__NR_socket, UINT64_C(1) << 32 | AF_UNIX, SOCK_DGRAM, 0);
-                        assert_se(fd < 0);
-                        assert_se(errno == EAFNOSUPPORT);
-                }
+                if (sizeof(long) == 8)
+                        ASSERT_ERROR_ERRNO(syscall(__NR_socket, UINT64_C(1) << 32 | AF_UNIX, SOCK_DGRAM, 0),
+                                           EAFNOSUPPORT);
 #endif
 
                 fd = socket(AF_NETLINK, SOCK_DGRAM, 0);
 #if SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN
-                assert_se(fd >= 0);
+                ASSERT_OK_ERRNO(fd);
                 safe_close(fd);
 #else
-                assert_se(fd < 0);
-                assert_se(errno == EAFNOSUPPORT);
+                ASSERT_ERROR_ERRNO(fd, EAFNOSUPPORT);
 #endif
 
                 _exit(EXIT_SUCCESS);
@@ -530,20 +509,18 @@ TEST(restrict_realtime) {
                         assert(errno == EPERM);
                 }
 
-                assert_se(sched_setscheduler(0, SCHED_IDLE, &(struct sched_param) { .sched_priority = 0 }) >= 0);
-                assert_se(sched_setscheduler(0, SCHED_BATCH, &(struct sched_param) { .sched_priority = 0 }) >= 0);
-                assert_se(sched_setscheduler(0, SCHED_OTHER, &(struct sched_param) {}) >= 0);
+                ASSERT_OK_ERRNO(sched_setscheduler(0, SCHED_IDLE, &(struct sched_param) { .sched_priority = 0 }));
+                ASSERT_OK_ERRNO(sched_setscheduler(0, SCHED_BATCH, &(struct sched_param) { .sched_priority = 0 }));
+                ASSERT_OK_ERRNO(sched_setscheduler(0, SCHED_OTHER, &(struct sched_param) {}));
 
-                assert_se(seccomp_restrict_realtime_full(ENOANO) >= 0);
+                ASSERT_OK(seccomp_restrict_realtime_full(ENOANO));
 
-                assert_se(sched_setscheduler(0, SCHED_IDLE, &(struct sched_param) { .sched_priority = 0 }) >= 0);
-                assert_se(sched_setscheduler(0, SCHED_BATCH, &(struct sched_param) { .sched_priority = 0 }) >= 0);
-                assert_se(sched_setscheduler(0, SCHED_OTHER, &(struct sched_param) {}) >= 0);
+                ASSERT_OK_ERRNO(sched_setscheduler(0, SCHED_IDLE, &(struct sched_param) { .sched_priority = 0 }));
+                ASSERT_OK_ERRNO(sched_setscheduler(0, SCHED_BATCH, &(struct sched_param) { .sched_priority = 0 }));
+                ASSERT_OK_ERRNO(sched_setscheduler(0, SCHED_OTHER, &(struct sched_param) {}));
 
-                assert_se(sched_setscheduler(0, SCHED_FIFO, &(struct sched_param) { .sched_priority = 1 }) < 0);
-                assert_se(errno == ENOANO);
-                assert_se(sched_setscheduler(0, SCHED_RR, &(struct sched_param) { .sched_priority = 1 }) < 0);
-                assert_se(errno == ENOANO);
+                ASSERT_ERROR_ERRNO(sched_setscheduler(0, SCHED_FIFO, &(struct sched_param) { .sched_priority = 1 }), ENOANO);
+                ASSERT_ERROR_ERRNO(sched_setscheduler(0, SCHED_RR, &(struct sched_param) { .sched_priority = 1 }), ENOANO);
 
                 /* sched_setattr() is refused entirely, as its policy argument cannot be filtered on */
                 struct sched_attr attr = {
@@ -551,8 +528,7 @@ TEST(restrict_realtime) {
                         .sched_policy = SCHED_FIFO,
                         .sched_priority = 1,
                 };
-                assert_se(sched_setattr(0, &attr, 0) < 0);
-                assert_se(errno == ENOANO);
+                ASSERT_ERROR_ERRNO(sched_setattr(0, &attr, 0), ENOANO);
 
                 attr = (struct sched_attr) {
                         .size = sizeof(attr),
@@ -561,15 +537,13 @@ TEST(restrict_realtime) {
                         .sched_deadline = 10000000,
                         .sched_period = 10000000,
                 };
-                assert_se(sched_setattr(0, &attr, 0) < 0);
-                assert_se(errno == ENOANO);
+                ASSERT_ERROR_ERRNO(sched_setattr(0, &attr, 0), ENOANO);
 
                 attr = (struct sched_attr) {
                         .size = sizeof(attr),
                         .sched_policy = SCHED_OTHER,
                 };
-                assert_se(sched_setattr(0, &attr, 0) < 0);
-                assert_se(errno == ENOANO);
+                ASSERT_ERROR_ERRNO(sched_setattr(0, &attr, 0), ENOANO);
 
                 _exit(EXIT_SUCCESS);
         }
@@ -596,18 +570,18 @@ TEST(memory_deny_write_execute_mmap) {
                 void *p;
 
                 p = mmap(NULL, page_size(), PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-                assert_se(p != MAP_FAILED);
+                ASSERT_TRUE(p != MAP_FAILED);
                 munmap_safe(p, page_size());
 
                 p = mmap(NULL, page_size(), PROT_WRITE|PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-                assert_se(p != MAP_FAILED);
+                ASSERT_TRUE(p != MAP_FAILED);
                 munmap_safe(p, page_size());
 
-                assert_se(seccomp_memory_deny_write_execute() >= 0);
+                ASSERT_OK(seccomp_memory_deny_write_execute());
 
                 p = mmap(NULL, page_size(), PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
 #if defined(__x86_64__) || defined(__i386__) || defined(__powerpc64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch_lp64)
-                assert_se(p == MAP_FAILED);
+                ASSERT_PTR_EQ(p, MAP_FAILED);
 #  ifdef __GLIBC__
                 ASSERT_EQ(errno, EPERM);
 #  else
@@ -619,7 +593,7 @@ TEST(memory_deny_write_execute_mmap) {
                 munmap_safe(p, page_size());
 
                 p = mmap(NULL, page_size(), PROT_WRITE|PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-                assert_se(p != MAP_FAILED);
+                ASSERT_TRUE(p != MAP_FAILED);
                 munmap_safe(p, page_size());
 
                 _exit(EXIT_SUCCESS);
@@ -651,8 +625,7 @@ TEST(memory_deny_write_execute_shmat) {
         return;
 #endif
 
-        shmid = shmget(IPC_PRIVATE, page_size(), 0);
-        assert_se(shmid >= 0);
+        shmid = ASSERT_OK_ERRNO(shmget(IPC_PRIVATE, page_size(), 0));
 
         r = ASSERT_OK(pidref_safe_fork("(memory-deny-write-execute)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
         if (r == 0) {
@@ -663,29 +636,29 @@ TEST(memory_deny_write_execute_shmat) {
                         log_tests_skipped_errno(errno, "shmat() is already disabled");
                         _exit(EXIT_SUCCESS);
                 }
-                assert_se(shmdt(p) == 0);
+                ASSERT_OK_ZERO_ERRNO(shmdt(p));
 
                 p = shmat(shmid, NULL, SHM_EXEC);
-                assert_se(p != MAP_FAILED);
-                assert_se(shmdt(p) == 0);
+                ASSERT_TRUE(p != MAP_FAILED);
+                ASSERT_OK_ZERO_ERRNO(shmdt(p));
 
-                assert_se(seccomp_memory_deny_write_execute() >= 0);
+                ASSERT_OK(seccomp_memory_deny_write_execute());
 
                 p = shmat(shmid, NULL, SHM_EXEC);
                 log_debug_errno(p == MAP_FAILED ? errno : 0, "shmat(SHM_EXEC): %m");
 #if defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch_lp64)
-                assert_se(p == MAP_FAILED);
-                assert_se(errno == EPERM);
+                ASSERT_PTR_EQ(p, MAP_FAILED);
+                ASSERT_EQ(errno, EPERM);
 #endif
                 /* Depending on kernel, libseccomp, and glibc versions, other architectures
                  * might fail or not. Let's not assert success. */
                 if (p != MAP_FAILED)
-                        assert_se(shmdt(p) == 0);
+                        ASSERT_OK_ZERO_ERRNO(shmdt(p));
 
                 p = shmat(shmid, NULL, 0);
                 log_debug_errno(p == MAP_FAILED ? errno : 0, "shmat(0): %m");
-                assert_se(p != MAP_FAILED);
-                assert_se(shmdt(p) == 0);
+                ASSERT_TRUE(p != MAP_FAILED);
+                ASSERT_OK_ZERO_ERRNO(shmdt(p));
 
                 _exit(EXIT_SUCCESS);
         }
@@ -801,19 +774,19 @@ TEST(restrict_archs) {
         if (r == 0) {
                 _cleanup_set_free_ Set *s = NULL;
 
-                assert_se(access("/", F_OK) >= 0);
+                ASSERT_OK_ERRNO(access("/", F_OK));
 
-                assert_se(s = set_new(/* hash_ops= */ NULL));
+                ASSERT_NOT_NULL(s = set_new(/* hash_ops= */ NULL));
 
 #ifdef __x86_64__
                 ASSERT_OK(set_put(s, UINT32_TO_PTR(SCMP_ARCH_X86+1)));
 #endif
-                assert_se(seccomp_restrict_archs(s) >= 0);
+                ASSERT_OK(seccomp_restrict_archs(s));
 
-                assert_se(access("/", F_OK) >= 0);
-                assert_se(seccomp_restrict_archs(/* archs= */ NULL) >= 0);
+                ASSERT_OK_ERRNO(access("/", F_OK));
+                ASSERT_OK(seccomp_restrict_archs(/* archs= */ NULL));
 
-                assert_se(access("/", F_OK) >= 0);
+                ASSERT_OK_ERRNO(access("/", F_OK));
 
                 _exit(EXIT_SUCCESS);
         }
@@ -828,94 +801,88 @@ TEST(load_syscall_filter_set_raw) {
         if (r == 0) {
                 _cleanup_hashmap_free_ Hashmap *s = NULL;
 
-                assert_se(access("/", F_OK) >= 0);
-                assert_se(poll(NULL, 0, 0) == 0);
+                ASSERT_OK_ERRNO(access("/", F_OK));
+                ASSERT_OK_ZERO_ERRNO(poll(NULL, 0, 0));
 
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, /* filter= */ NULL, SCMP_ACT_KILL_PROCESS, /* log_missing= */ true) >= 0);
-                assert_se(access("/", F_OK) >= 0);
-                assert_se(poll(NULL, 0, 0) == 0);
+                ASSERT_OK(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, /* filter= */ NULL, SCMP_ACT_KILL_PROCESS, /* log_missing= */ true));
+                ASSERT_OK_ERRNO(access("/", F_OK));
+                ASSERT_OK_ZERO_ERRNO(poll(NULL, 0, 0));
 
-                assert_se(s = hashmap_new(/* hash_ops= */ NULL));
+                ASSERT_NOT_NULL(s = hashmap_new(/* hash_ops= */ NULL));
 #if defined __NR_access && __NR_access >= 0
-                assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_access + 1), INT_TO_PTR(-1)) >= 0);
+                ASSERT_OK(hashmap_put(s, UINT32_TO_PTR(__NR_access + 1), INT_TO_PTR(-1)));
                 log_debug("has access()");
 #endif
 #if defined __NR_faccessat && __NR_faccessat >= 0
-                assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_faccessat + 1), INT_TO_PTR(-1)) >= 0);
+                ASSERT_OK(hashmap_put(s, UINT32_TO_PTR(__NR_faccessat + 1), INT_TO_PTR(-1)));
                 log_debug("has faccessat()");
 #endif
 #if defined __NR_faccessat2 && __NR_faccessat2 >= 0
-                assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_faccessat2 + 1), INT_TO_PTR(-1)) >= 0);
+                ASSERT_OK(hashmap_put(s, UINT32_TO_PTR(__NR_faccessat2 + 1), INT_TO_PTR(-1)));
                 log_debug("has faccessat2()");
 #endif
 
-                assert_se(!hashmap_isempty(s));
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN), /* log_missing= */ true) >= 0);
+                ASSERT_FALSE(hashmap_isempty(s));
+                ASSERT_OK(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN), /* log_missing= */ true));
 
-                assert_se(access("/", F_OK) < 0);
-                assert_se(errno == EUCLEAN);
+                ASSERT_ERROR_ERRNO(access("/", F_OK), EUCLEAN);
 
-                assert_se(poll(NULL, 0, 0) == 0);
+                ASSERT_OK_ZERO_ERRNO(poll(NULL, 0, 0));
 
                 hashmap_clear(s);
 #if defined __NR_access && __NR_access >= 0
-                assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_access + 1), INT_TO_PTR(EILSEQ)) >= 0);
+                ASSERT_OK(hashmap_put(s, UINT32_TO_PTR(__NR_access + 1), INT_TO_PTR(EILSEQ)));
 #endif
 #if defined __NR_faccessat && __NR_faccessat >= 0
-                assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_faccessat + 1), INT_TO_PTR(EILSEQ)) >= 0);
+                ASSERT_OK(hashmap_put(s, UINT32_TO_PTR(__NR_faccessat + 1), INT_TO_PTR(EILSEQ)));
 #endif
 #if defined __NR_faccessat2 && __NR_faccessat2 >= 0
-                assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_faccessat2 + 1), INT_TO_PTR(EILSEQ)) >= 0);
+                ASSERT_OK(hashmap_put(s, UINT32_TO_PTR(__NR_faccessat2 + 1), INT_TO_PTR(EILSEQ)));
 #endif
 
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN), /* log_missing= */ true) >= 0);
+                ASSERT_OK(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN), /* log_missing= */ true));
 
-                assert_se(access("/", F_OK) < 0);
-                assert_se(errno == EILSEQ);
+                ASSERT_ERROR_ERRNO(access("/", F_OK), EILSEQ);
 
-                assert_se(poll(NULL, 0, 0) == 0);
+                ASSERT_OK_ZERO_ERRNO(poll(NULL, 0, 0));
 
                 hashmap_clear(s);
 #if defined __NR_poll && __NR_poll >= 0
-                assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_poll + 1), INT_TO_PTR(-1)) >= 0);
+                ASSERT_OK(hashmap_put(s, UINT32_TO_PTR(__NR_poll + 1), INT_TO_PTR(-1)));
                 log_debug("has poll()");
 #endif
 #if defined __NR_ppoll && __NR_ppoll >= 0
-                assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_ppoll + 1), INT_TO_PTR(-1)) >= 0);
+                ASSERT_OK(hashmap_put(s, UINT32_TO_PTR(__NR_ppoll + 1), INT_TO_PTR(-1)));
                 log_debug("has ppoll()");
 #endif
 #if defined __NR_ppoll_time64 && __NR_ppoll_time64 >= 0
-                assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_ppoll_time64 + 1), INT_TO_PTR(-1)) >= 0);
+                ASSERT_OK(hashmap_put(s, UINT32_TO_PTR(__NR_ppoll_time64 + 1), INT_TO_PTR(-1)));
                 log_debug("has ppoll_time64()");
 #endif
 
-                assert_se(!hashmap_isempty(s));
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUNATCH), /* log_missing= */ true) >= 0);
+                ASSERT_FALSE(hashmap_isempty(s));
+                ASSERT_OK(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUNATCH), /* log_missing= */ true));
 
-                assert_se(access("/", F_OK) < 0);
-                assert_se(errno == EILSEQ);
+                ASSERT_ERROR_ERRNO(access("/", F_OK), EILSEQ);
 
-                assert_se(poll(NULL, 0, 0) < 0);
-                assert_se(errno == EUNATCH);
+                ASSERT_ERROR_ERRNO(poll(NULL, 0, 0), EUNATCH);
 
                 hashmap_clear(s);
 #if defined __NR_poll && __NR_poll >= 0
-                assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_poll + 1), INT_TO_PTR(EILSEQ)) >= 0);
+                ASSERT_OK(hashmap_put(s, UINT32_TO_PTR(__NR_poll + 1), INT_TO_PTR(EILSEQ)));
 #endif
 #if defined __NR_ppoll && __NR_ppoll >= 0
-                assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_ppoll + 1), INT_TO_PTR(EILSEQ)) >= 0);
+                ASSERT_OK(hashmap_put(s, UINT32_TO_PTR(__NR_ppoll + 1), INT_TO_PTR(EILSEQ)));
 #endif
 #if defined __NR_ppoll_time64 && __NR_ppoll_time64 >= 0
-                assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_ppoll_time64 + 1), INT_TO_PTR(EILSEQ)) >= 0);
+                ASSERT_OK(hashmap_put(s, UINT32_TO_PTR(__NR_ppoll_time64 + 1), INT_TO_PTR(EILSEQ)));
 #endif
 
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUNATCH), /* log_missing= */ true) >= 0);
+                ASSERT_OK(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUNATCH), /* log_missing= */ true));
 
-                assert_se(access("/", F_OK) < 0);
-                assert_se(errno == EILSEQ);
+                ASSERT_ERROR_ERRNO(access("/", F_OK), EILSEQ);
 
-                assert_se(poll(NULL, 0, 0) < 0);
-                assert_se(errno == EILSEQ);
+                ASSERT_ERROR_ERRNO(poll(NULL, 0, 0), EILSEQ);
 
                 _exit(EXIT_SUCCESS);
         }
@@ -932,37 +899,36 @@ TEST(native_syscalls_filtered) {
                 _cleanup_hashmap_free_ Hashmap *s = NULL;
 
                 /* Passing "native" or an empty set is equivalent, just do both here. */
-                assert_se(arch_s = set_new(/* hash_ops= */ NULL));
-                assert_se(seccomp_restrict_archs(arch_s) >= 0);
+                ASSERT_NOT_NULL(arch_s = set_new(/* hash_ops= */ NULL));
+                ASSERT_OK(seccomp_restrict_archs(arch_s));
                 ASSERT_OK(set_put(arch_s, (void*) SCMP_ARCH_NATIVE));
-                assert_se(seccomp_restrict_archs(arch_s) >= 0);
+                ASSERT_OK(seccomp_restrict_archs(arch_s));
 
-                assert_se(access("/", F_OK) >= 0);
-                assert_se(poll(NULL, 0, 0) == 0);
+                ASSERT_OK_ERRNO(access("/", F_OK));
+                ASSERT_OK_ZERO_ERRNO(poll(NULL, 0, 0));
 
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, /* filter= */ NULL, SCMP_ACT_KILL_PROCESS, /* log_missing= */ true) >= 0);
-                assert_se(access("/", F_OK) >= 0);
-                assert_se(poll(NULL, 0, 0) == 0);
+                ASSERT_OK(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, /* filter= */ NULL, SCMP_ACT_KILL_PROCESS, /* log_missing= */ true));
+                ASSERT_OK_ERRNO(access("/", F_OK));
+                ASSERT_OK_ZERO_ERRNO(poll(NULL, 0, 0));
 
-                assert_se(s = hashmap_new(/* hash_ops= */ NULL));
+                ASSERT_NOT_NULL(s = hashmap_new(/* hash_ops= */ NULL));
 #if defined __NR_access && __NR_access >= 0
-                assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_access + 1), INT_TO_PTR(-1)) >= 0);
+                ASSERT_OK(hashmap_put(s, UINT32_TO_PTR(__NR_access + 1), INT_TO_PTR(-1)));
                 log_debug("has access()");
 #endif
 #if defined __NR_faccessat && __NR_faccessat >= 0
-                assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_faccessat + 1), INT_TO_PTR(-1)) >= 0);
+                ASSERT_OK(hashmap_put(s, UINT32_TO_PTR(__NR_faccessat + 1), INT_TO_PTR(-1)));
                 log_debug("has faccessat()");
 #endif
 #if defined __NR_faccessat2 && __NR_faccessat2 >= 0
-                assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_faccessat2 + 1), INT_TO_PTR(-1)) >= 0);
+                ASSERT_OK(hashmap_put(s, UINT32_TO_PTR(__NR_faccessat2 + 1), INT_TO_PTR(-1)));
                 log_debug("has faccessat2()");
 #endif
 
-                assert_se(!hashmap_isempty(s));
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN), /* log_missing= */ true) >= 0);
+                ASSERT_FALSE(hashmap_isempty(s));
+                ASSERT_OK(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN), /* log_missing= */ true));
 
-                assert_se(access("/", F_OK) < 0);
-                assert_se(errno == EUCLEAN);
+                ASSERT_ERROR_ERRNO(access("/", F_OK), EUCLEAN);
 
                 _exit(EXIT_SUCCESS);
         }
@@ -988,7 +954,7 @@ TEST(lock_personality) {
 
         CHECK_SECCOMP(/* skip_container= */ false);
 
-        assert_se(opinionated_personality(&current_opinionated) >= 0);
+        ASSERT_OK(opinionated_personality(&current_opinionated));
 
         log_info("current personality=0x%lX", (unsigned long) safe_personality(PERSONALITY_INVALID));
         log_info("current opinionated personality=0x%lX", current_opinionated);
@@ -997,33 +963,33 @@ TEST(lock_personality) {
         if (r == 0) {
                 unsigned long current;
 
-                assert_se(seccomp_lock_personality(current_opinionated) >= 0);
+                ASSERT_OK(seccomp_lock_personality(current_opinionated));
 
                 current = safe_personality(current_opinionated);
-                assert_se((current & OPINIONATED_PERSONALITY_MASK) == current_opinionated);
+                ASSERT_EQ(current & OPINIONATED_PERSONALITY_MASK, current_opinionated);
 
                 /* Note, we also test that safe_personality() works correctly, by checking whether errno is properly
                  * set, in addition to the return value */
                 errno = 0;
-                assert_se(safe_personality(PER_LINUX | MMAP_PAGE_ZERO) == -EPERM);
-                assert_se(errno == EPERM);
+                ASSERT_ERROR(safe_personality(PER_LINUX | MMAP_PAGE_ZERO), EPERM);
+                ASSERT_EQ(errno, EPERM);
 
                 if (!FLAGS_SET(current, ADDR_NO_RANDOMIZE))
-                        assert_se(safe_personality(PER_LINUX | ADDR_NO_RANDOMIZE) == -EPERM);
-                assert_se(safe_personality(PER_LINUX | ADDR_COMPAT_LAYOUT) == -EPERM);
-                assert_se(safe_personality(PER_LINUX | READ_IMPLIES_EXEC) == -EPERM);
-                assert_se(safe_personality(PER_LINUX_32BIT) == -EPERM);
-                assert_se(safe_personality(PER_SVR4) == -EPERM);
-                assert_se(safe_personality(PER_BSD) == -EPERM);
-                assert_se(safe_personality(current_opinionated == PER_LINUX ? PER_LINUX32 : PER_LINUX) == -EPERM);
-                assert_se(safe_personality(PER_LINUX32_3GB) == -EPERM);
-                assert_se(safe_personality(PER_UW7) == -EPERM);
-                assert_se(safe_personality(0x42) == -EPERM);
+                        ASSERT_ERROR(safe_personality(PER_LINUX | ADDR_NO_RANDOMIZE), EPERM);
+                ASSERT_ERROR(safe_personality(PER_LINUX | ADDR_COMPAT_LAYOUT), EPERM);
+                ASSERT_ERROR(safe_personality(PER_LINUX | READ_IMPLIES_EXEC), EPERM);
+                ASSERT_ERROR(safe_personality(PER_LINUX_32BIT), EPERM);
+                ASSERT_ERROR(safe_personality(PER_SVR4), EPERM);
+                ASSERT_ERROR(safe_personality(PER_BSD), EPERM);
+                ASSERT_ERROR(safe_personality(current_opinionated == PER_LINUX ? PER_LINUX32 : PER_LINUX), EPERM);
+                ASSERT_ERROR(safe_personality(PER_LINUX32_3GB), EPERM);
+                ASSERT_ERROR(safe_personality(PER_UW7), EPERM);
+                ASSERT_ERROR(safe_personality(0x42), EPERM);
 
                 assert_personality_locked(current_opinionated);
 
                 current = safe_personality(current_opinionated);
-                assert_se((current & OPINIONATED_PERSONALITY_MASK) == current_opinionated);
+                ASSERT_EQ(current & OPINIONATED_PERSONALITY_MASK, current_opinionated);
                 _exit(EXIT_SUCCESS);
         }
 
@@ -1059,7 +1025,7 @@ static int try_fchmodat2(int dirfd, const char *path, mode_t mode, int flags) {
          * SYS_fchmodat2 is defined. Otherwise, let's just fall back to the glibc fchmodat() call. */
 
         /* Not supported by fchmodat() */
-        assert_se(!FLAGS_SET(flags, AT_EMPTY_PATH));
+        ASSERT_FALSE(FLAGS_SET(flags, AT_EMPTY_PATH));
 
         r = RET_NERRNO(fchmodat2(dirfd, path, mode, flags));
         if (r != -ENOSYS)
@@ -1080,185 +1046,184 @@ TEST(restrict_suid_sgid) {
                 int fd = -EBADF, k = -EBADF;
                 const char *z;
 
-                fd = mkostemp_safe(path);
-                assert_se(fd >= 0);
+                fd = ASSERT_OK(mkostemp_safe(path));
 
-                assert_se(mkdtemp(dir));
+                ASSERT_NOT_NULL(mkdtemp(dir));
                 z = strjoina(dir, "/test");
 
-                assert_se(chmod(path, 0755 | S_ISUID) >= 0);
-                assert_se(chmod(path, 0755 | S_ISGID) >= 0);
-                assert_se(chmod(path, 0755 | S_ISGID | S_ISUID) >= 0);
-                assert_se(chmod(path, 0755) >= 0);
+                ASSERT_OK_ERRNO(chmod(path, 0755 | S_ISUID));
+                ASSERT_OK_ERRNO(chmod(path, 0755 | S_ISGID));
+                ASSERT_OK_ERRNO(chmod(path, 0755 | S_ISGID | S_ISUID));
+                ASSERT_OK_ERRNO(chmod(path, 0755));
 
-                assert_se(fchmod(fd, 0755 | S_ISUID) >= 0);
-                assert_se(fchmod(fd, 0755 | S_ISGID) >= 0);
-                assert_se(fchmod(fd, 0755 | S_ISGID | S_ISUID) >= 0);
-                assert_se(fchmod(fd, 0755) >= 0);
+                ASSERT_OK_ERRNO(fchmod(fd, 0755 | S_ISUID));
+                ASSERT_OK_ERRNO(fchmod(fd, 0755 | S_ISGID));
+                ASSERT_OK_ERRNO(fchmod(fd, 0755 | S_ISGID | S_ISUID));
+                ASSERT_OK_ERRNO(fchmod(fd, 0755));
 
-                assert_se(fchmodat(AT_FDCWD, path, 0755 | S_ISUID, 0) >= 0);
-                assert_se(fchmodat(AT_FDCWD, path, 0755 | S_ISGID, 0) >= 0);
-                assert_se(fchmodat(AT_FDCWD, path, 0755 | S_ISGID | S_ISUID, 0) >= 0);
-                assert_se(fchmodat(AT_FDCWD, path, 0755, 0) >= 0);
+                ASSERT_OK_ERRNO(fchmodat(AT_FDCWD, path, 0755 | S_ISUID, 0));
+                ASSERT_OK_ERRNO(fchmodat(AT_FDCWD, path, 0755 | S_ISGID, 0));
+                ASSERT_OK_ERRNO(fchmodat(AT_FDCWD, path, 0755 | S_ISGID | S_ISUID, 0));
+                ASSERT_OK_ERRNO(fchmodat(AT_FDCWD, path, 0755, 0));
 
-                assert_se(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISUID, /* flags= */ 0) >= 0);
-                assert_se(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISGID, /* flags= */ 0) >= 0);
-                assert_se(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISGID | S_ISUID, /* flags= */ 0) >= 0);
-                assert_se(try_fchmodat2(AT_FDCWD, path, 0755, /* flags= */ 0) >= 0);
+                ASSERT_OK(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISUID, /* flags= */ 0));
+                ASSERT_OK(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISGID, /* flags= */ 0));
+                ASSERT_OK(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISGID | S_ISUID, /* flags= */ 0));
+                ASSERT_OK(try_fchmodat2(AT_FDCWD, path, 0755, /* flags= */ 0));
 
                 k = real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK_ERRNO(unlink(z));
 
                 k = real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISGID);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK_ERRNO(unlink(z));
 
                 k = real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID | S_ISGID);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK_ERRNO(unlink(z));
 
                 k = real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK_ERRNO(unlink(z));
 
                 k = creat(z, 0644 | S_ISUID);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK_ERRNO(unlink(z));
 
                 k = creat(z, 0644 | S_ISGID);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK_ERRNO(unlink(z));
 
                 k = creat(z, 0644 | S_ISUID | S_ISGID);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK_ERRNO(unlink(z));
 
                 k = creat(z, 0644);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK_ERRNO(unlink(z));
 
                 k = openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK_ERRNO(unlink(z));
 
                 k = openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISGID);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK_ERRNO(unlink(z));
 
                 k = openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID | S_ISGID);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK_ERRNO(unlink(z));
 
                 k = openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK_ERRNO(unlink(z));
 
-                assert_se(mkdir(z, 0755 | S_ISUID) >= 0);
-                assert_se(rmdir(z) >= 0);
-                assert_se(mkdir(z, 0755 | S_ISGID) >= 0);
-                assert_se(rmdir(z) >= 0);
-                assert_se(mkdir(z, 0755 | S_ISUID | S_ISGID) >= 0);
-                assert_se(rmdir(z) >= 0);
-                assert_se(mkdir(z, 0755) >= 0);
-                assert_se(rmdir(z) >= 0);
+                ASSERT_OK_ERRNO(mkdir(z, 0755 | S_ISUID));
+                ASSERT_OK_ERRNO(rmdir(z));
+                ASSERT_OK_ERRNO(mkdir(z, 0755 | S_ISGID));
+                ASSERT_OK_ERRNO(rmdir(z));
+                ASSERT_OK_ERRNO(mkdir(z, 0755 | S_ISUID | S_ISGID));
+                ASSERT_OK_ERRNO(rmdir(z));
+                ASSERT_OK_ERRNO(mkdir(z, 0755));
+                ASSERT_OK_ERRNO(rmdir(z));
 
-                assert_se(mkdirat(AT_FDCWD, z, 0755 | S_ISUID) >= 0);
-                assert_se(rmdir(z) >= 0);
-                assert_se(mkdirat(AT_FDCWD, z, 0755 | S_ISGID) >= 0);
-                assert_se(rmdir(z) >= 0);
-                assert_se(mkdirat(AT_FDCWD, z, 0755 | S_ISUID | S_ISGID) >= 0);
-                assert_se(rmdir(z) >= 0);
-                assert_se(mkdirat(AT_FDCWD, z, 0755) >= 0);
-                assert_se(rmdir(z) >= 0);
+                ASSERT_OK_ERRNO(mkdirat(AT_FDCWD, z, 0755 | S_ISUID));
+                ASSERT_OK_ERRNO(rmdir(z));
+                ASSERT_OK_ERRNO(mkdirat(AT_FDCWD, z, 0755 | S_ISGID));
+                ASSERT_OK_ERRNO(rmdir(z));
+                ASSERT_OK_ERRNO(mkdirat(AT_FDCWD, z, 0755 | S_ISUID | S_ISGID));
+                ASSERT_OK_ERRNO(rmdir(z));
+                ASSERT_OK_ERRNO(mkdirat(AT_FDCWD, z, 0755));
+                ASSERT_OK_ERRNO(rmdir(z));
 
-                assert_se(mknod(z, S_IFREG | 0755 | S_ISUID, 0) >= 0);
-                assert_se(unlink(z) >= 0);
-                assert_se(mknod(z, S_IFREG | 0755 | S_ISGID, 0) >= 0);
-                assert_se(unlink(z) >= 0);
-                assert_se(mknod(z, S_IFREG | 0755 | S_ISUID | S_ISGID, 0) >= 0);
-                assert_se(unlink(z) >= 0);
-                assert_se(mknod(z, S_IFREG | 0755, 0) >= 0);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK_ERRNO(mknod(z, S_IFREG | 0755 | S_ISUID, 0));
+                ASSERT_OK_ERRNO(unlink(z));
+                ASSERT_OK_ERRNO(mknod(z, S_IFREG | 0755 | S_ISGID, 0));
+                ASSERT_OK_ERRNO(unlink(z));
+                ASSERT_OK_ERRNO(mknod(z, S_IFREG | 0755 | S_ISUID | S_ISGID, 0));
+                ASSERT_OK_ERRNO(unlink(z));
+                ASSERT_OK_ERRNO(mknod(z, S_IFREG | 0755, 0));
+                ASSERT_OK_ERRNO(unlink(z));
 
-                assert_se(mknodat(AT_FDCWD, z, S_IFREG | 0755 | S_ISUID, 0) >= 0);
-                assert_se(unlink(z) >= 0);
-                assert_se(mknodat(AT_FDCWD, z, S_IFREG | 0755 | S_ISGID, 0) >= 0);
-                assert_se(unlink(z) >= 0);
-                assert_se(mknodat(AT_FDCWD, z, S_IFREG | 0755 | S_ISUID | S_ISGID, 0) >= 0);
-                assert_se(unlink(z) >= 0);
-                assert_se(mknodat(AT_FDCWD, z, S_IFREG | 0755, 0) >= 0);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK_ERRNO(mknodat(AT_FDCWD, z, S_IFREG | 0755 | S_ISUID, 0));
+                ASSERT_OK_ERRNO(unlink(z));
+                ASSERT_OK_ERRNO(mknodat(AT_FDCWD, z, S_IFREG | 0755 | S_ISGID, 0));
+                ASSERT_OK_ERRNO(unlink(z));
+                ASSERT_OK_ERRNO(mknodat(AT_FDCWD, z, S_IFREG | 0755 | S_ISUID | S_ISGID, 0));
+                ASSERT_OK_ERRNO(unlink(z));
+                ASSERT_OK_ERRNO(mknodat(AT_FDCWD, z, S_IFREG | 0755, 0));
+                ASSERT_OK_ERRNO(unlink(z));
 
-                assert_se(seccomp_restrict_suid_sgid() >= 0);
+                ASSERT_OK(seccomp_restrict_suid_sgid());
 
-                assert_se(chmod(path, 0775 | S_ISUID) < 0 && errno == EPERM);
-                assert_se(chmod(path, 0775 | S_ISGID) < 0  && errno == EPERM);
-                assert_se(chmod(path, 0775 | S_ISGID | S_ISUID) < 0  && errno == EPERM);
-                assert_se(chmod(path, 0775) >= 0);
+                ASSERT_ERROR_ERRNO(chmod(path, 0775 | S_ISUID), EPERM);
+                ASSERT_ERROR_ERRNO(chmod(path, 0775 | S_ISGID), EPERM);
+                ASSERT_ERROR_ERRNO(chmod(path, 0775 | S_ISGID | S_ISUID), EPERM);
+                ASSERT_OK_ERRNO(chmod(path, 0775));
 
-                assert_se(fchmod(fd, 0775 | S_ISUID) < 0 && errno == EPERM);
-                assert_se(fchmod(fd, 0775 | S_ISGID) < 0  && errno == EPERM);
-                assert_se(fchmod(fd, 0775 | S_ISGID | S_ISUID) < 0  && errno == EPERM);
-                assert_se(fchmod(fd, 0775) >= 0);
+                ASSERT_ERROR_ERRNO(fchmod(fd, 0775 | S_ISUID), EPERM);
+                ASSERT_ERROR_ERRNO(fchmod(fd, 0775 | S_ISGID), EPERM);
+                ASSERT_ERROR_ERRNO(fchmod(fd, 0775 | S_ISGID | S_ISUID), EPERM);
+                ASSERT_OK_ERRNO(fchmod(fd, 0775));
 
-                assert_se(fchmodat(AT_FDCWD, path, 0755 | S_ISUID, 0) < 0 && errno == EPERM);
-                assert_se(fchmodat(AT_FDCWD, path, 0755 | S_ISGID, 0) < 0 && errno == EPERM);
-                assert_se(fchmodat(AT_FDCWD, path, 0755 | S_ISGID | S_ISUID, 0) < 0 && errno == EPERM);
-                assert_se(fchmodat(AT_FDCWD, path, 0755, 0) >= 0);
+                ASSERT_ERROR_ERRNO(fchmodat(AT_FDCWD, path, 0755 | S_ISUID, 0), EPERM);
+                ASSERT_ERROR_ERRNO(fchmodat(AT_FDCWD, path, 0755 | S_ISGID, 0), EPERM);
+                ASSERT_ERROR_ERRNO(fchmodat(AT_FDCWD, path, 0755 | S_ISGID | S_ISUID, 0), EPERM);
+                ASSERT_OK_ERRNO(fchmodat(AT_FDCWD, path, 0755, 0));
 
-                assert_se(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISUID, /* flags= */ 0) < 0 && errno == EPERM);
-                assert_se(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISGID, /* flags= */ 0) < 0 && errno == EPERM);
-                assert_se(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISGID | S_ISUID, /* flags= */ 0) < 0 && errno == EPERM);
-                assert_se(try_fchmodat2(AT_FDCWD, path, 0755, /* flags= */ 0) >= 0);
+                ASSERT_ERROR(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISUID, /* flags= */ 0), EPERM);
+                ASSERT_ERROR(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISGID, /* flags= */ 0), EPERM);
+                ASSERT_ERROR(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISGID | S_ISUID, /* flags= */ 0), EPERM);
+                ASSERT_OK(try_fchmodat2(AT_FDCWD, path, 0755, /* flags= */ 0));
 
-                assert_se(real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID) < 0 && errno == EPERM);
-                assert_se(real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISGID) < 0 && errno == EPERM);
-                assert_se(real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID | S_ISGID) < 0 && errno == EPERM);
+                ASSERT_ERROR_ERRNO(real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID), EPERM);
+                ASSERT_ERROR_ERRNO(real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISGID), EPERM);
+                ASSERT_ERROR_ERRNO(real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID | S_ISGID), EPERM);
                 k = real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK_ERRNO(unlink(z));
 
-                assert_se(creat(z, 0644 | S_ISUID) < 0 && errno == EPERM);
-                assert_se(creat(z, 0644 | S_ISGID) < 0 && errno == EPERM);
-                assert_se(creat(z, 0644 | S_ISUID | S_ISGID) < 0 && errno == EPERM);
+                ASSERT_ERROR_ERRNO(creat(z, 0644 | S_ISUID), EPERM);
+                ASSERT_ERROR_ERRNO(creat(z, 0644 | S_ISGID), EPERM);
+                ASSERT_ERROR_ERRNO(creat(z, 0644 | S_ISUID | S_ISGID), EPERM);
                 k = creat(z, 0644);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK_ERRNO(unlink(z));
 
-                assert_se(openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID) < 0 && errno == EPERM);
-                assert_se(openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISGID) < 0 && errno == EPERM);
-                assert_se(openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID | S_ISGID) < 0 && errno == EPERM);
+                ASSERT_ERROR_ERRNO(openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID), EPERM);
+                ASSERT_ERROR_ERRNO(openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISGID), EPERM);
+                ASSERT_ERROR_ERRNO(openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID | S_ISGID), EPERM);
                 k = openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK_ERRNO(unlink(z));
 
-                assert_se(mkdir(z, 0755 | S_ISUID) < 0 && errno == EPERM);
-                assert_se(mkdir(z, 0755 | S_ISGID) < 0 && errno == EPERM);
-                assert_se(mkdir(z, 0755 | S_ISUID | S_ISGID) < 0 && errno == EPERM);
-                assert_se(mkdir(z, 0755) >= 0);
-                assert_se(rmdir(z) >= 0);
+                ASSERT_ERROR_ERRNO(mkdir(z, 0755 | S_ISUID), EPERM);
+                ASSERT_ERROR_ERRNO(mkdir(z, 0755 | S_ISGID), EPERM);
+                ASSERT_ERROR_ERRNO(mkdir(z, 0755 | S_ISUID | S_ISGID), EPERM);
+                ASSERT_OK_ERRNO(mkdir(z, 0755));
+                ASSERT_OK_ERRNO(rmdir(z));
 
-                assert_se(mkdirat(AT_FDCWD, z, 0755 | S_ISUID) < 0 && errno == EPERM);
-                assert_se(mkdirat(AT_FDCWD, z, 0755 | S_ISGID) < 0 && errno == EPERM);
-                assert_se(mkdirat(AT_FDCWD, z, 0755 | S_ISUID | S_ISGID) < 0 && errno == EPERM);
-                assert_se(mkdirat(AT_FDCWD, z, 0755) >= 0);
-                assert_se(rmdir(z) >= 0);
+                ASSERT_ERROR_ERRNO(mkdirat(AT_FDCWD, z, 0755 | S_ISUID), EPERM);
+                ASSERT_ERROR_ERRNO(mkdirat(AT_FDCWD, z, 0755 | S_ISGID), EPERM);
+                ASSERT_ERROR_ERRNO(mkdirat(AT_FDCWD, z, 0755 | S_ISUID | S_ISGID), EPERM);
+                ASSERT_OK_ERRNO(mkdirat(AT_FDCWD, z, 0755));
+                ASSERT_OK_ERRNO(rmdir(z));
 
-                assert_se(mknod(z, S_IFREG | 0755 | S_ISUID, 0) < 0 && errno == EPERM);
-                assert_se(mknod(z, S_IFREG | 0755 | S_ISGID, 0) < 0 && errno == EPERM);
-                assert_se(mknod(z, S_IFREG | 0755 | S_ISUID | S_ISGID, 0) < 0 && errno == EPERM);
-                assert_se(mknod(z, S_IFREG | 0755, 0) >= 0);
-                assert_se(unlink(z) >= 0);
+                ASSERT_ERROR_ERRNO(mknod(z, S_IFREG | 0755 | S_ISUID, 0), EPERM);
+                ASSERT_ERROR_ERRNO(mknod(z, S_IFREG | 0755 | S_ISGID, 0), EPERM);
+                ASSERT_ERROR_ERRNO(mknod(z, S_IFREG | 0755 | S_ISUID | S_ISGID, 0), EPERM);
+                ASSERT_OK_ERRNO(mknod(z, S_IFREG | 0755, 0));
+                ASSERT_OK_ERRNO(unlink(z));
 
-                assert_se(mknodat(AT_FDCWD, z, S_IFREG | 0755 | S_ISUID, 0) < 0 && errno == EPERM);
-                assert_se(mknodat(AT_FDCWD, z, S_IFREG | 0755 | S_ISGID, 0) < 0 && errno == EPERM);
-                assert_se(mknodat(AT_FDCWD, z, S_IFREG | 0755 | S_ISUID | S_ISGID, 0) < 0 && errno == EPERM);
-                assert_se(mknodat(AT_FDCWD, z, S_IFREG | 0755, 0) >= 0);
-                assert_se(unlink(z) >= 0);
+                ASSERT_ERROR_ERRNO(mknodat(AT_FDCWD, z, S_IFREG | 0755 | S_ISUID, 0), EPERM);
+                ASSERT_ERROR_ERRNO(mknodat(AT_FDCWD, z, S_IFREG | 0755 | S_ISGID, 0), EPERM);
+                ASSERT_ERROR_ERRNO(mknodat(AT_FDCWD, z, S_IFREG | 0755 | S_ISUID | S_ISGID, 0), EPERM);
+                ASSERT_OK_ERRNO(mknodat(AT_FDCWD, z, S_IFREG | 0755, 0));
+                ASSERT_OK_ERRNO(unlink(z));
 
-                assert_se(unlink(path) >= 0);
-                assert_se(rm_rf(dir, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+                ASSERT_OK_ERRNO(unlink(path));
+                ASSERT_OK(rm_rf(dir, REMOVE_ROOT|REMOVE_PHYSICAL));
 
                 _exit(EXIT_SUCCESS);
         }
