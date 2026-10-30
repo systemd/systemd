@@ -144,6 +144,7 @@ int pull_job_restart(PullJob *j, const char *new_url) {
         iovec_done(&j->payload);
         j->written_compressed = 0;
         j->written_uncompressed = 0;
+        j->decoded_total = 0;
         j->content_length = UINT64_MAX;
         j->etag = mfree(j->etag);
         j->etag_exists = false;
@@ -190,6 +191,29 @@ static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata)
 
         assert(p);
         assert(sz > 0);
+
+        /* Only pass on the requested range of the decoded data, i.e. skip over everything before it and
+         * drop everything after it. Note that the dropped data is still covered by the checksum of the
+         * download, as that is calculated from the encoded data. */
+        if (j->decoded_total > UINT64_MAX - sz)
+                return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "File too large, overflow");
+
+        uint64_t pos = j->decoded_total;
+        j->decoded_total += sz;
+
+        if (j->decoded_total <= j->source_offset)
+                return 0;
+        if (pos < j->source_offset) {
+                p = (const uint8_t*) p + (j->source_offset - pos);
+                sz -= j->source_offset - pos;
+        }
+
+        if (j->source_size != UINT64_MAX) {
+                if (j->written_uncompressed >= j->source_size)
+                        return 0;
+
+                sz = MIN(sz, j->source_size - j->written_uncompressed);
+        }
 
         if (j->written_uncompressed > UINT64_MAX - sz)
                 return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "File too large, overflow");
@@ -374,6 +398,10 @@ static int pull_job_complete(PullJob *j) {
         r = decompressor_push(j->compress, /* data= */ NULL, /* size= */ 0, pull_job_write_uncompressed, j);
         if (r < 0)
                 return pull_job_finish(j, r);
+
+        if (j->decoded_total < j->source_offset ||
+            (j->source_size != UINT64_MAX && j->written_uncompressed < j->source_size))
+                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Decoded data of %s ends before the requested range does, refusing.", pull_job_description(j)));
 
         uint64_t cl = pull_job_content_length_effective(j);
         if (cl != UINT64_MAX &&
@@ -860,6 +888,7 @@ int pull_job_new(
                 .uncompressed_max = 64LLU * 1024LLU * 1024LLU * 1024LLU, /* 64GB safety limit */
                 .url = TAKE_PTR(u),
                 .offset = UINT64_MAX,
+                .source_size = UINT64_MAX,
                 .sync = true,
                 .expected_content_length = UINT64_MAX,
         };

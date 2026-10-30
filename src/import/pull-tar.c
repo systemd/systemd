@@ -693,6 +693,8 @@ int tar_pull_start(
                 TarPull *p,
                 const char *url,
                 const char *local,
+                uint64_t source_offset,
+                uint64_t source_size,
                 Compression compression,
                 ImportFlags flags,
                 ImportVerify verify,
@@ -709,6 +711,7 @@ int tar_pull_start(
         assert(!(flags & ~IMPORT_PULL_FLAGS_MASK_TAR));
         assert(!(flags & IMPORT_PULL_SETTINGS) || !(flags & IMPORT_DIRECT));
         assert(!(flags & IMPORT_PULL_SETTINGS) || !iovec_is_set(checksum));
+        assert((source_offset == 0 && source_size == UINT64_MAX) || FLAGS_SET(flags, IMPORT_DIRECT));
 
         if (!http_url_is_valid(url) && !file_url_is_valid(url) && !provider_url_is_valid(url))
                 return -EINVAL;
@@ -742,6 +745,8 @@ int tar_pull_start(
         p->tar_job->on_finished = tar_pull_job_on_finished;
         p->tar_job->on_open_disk = tar_pull_job_on_open_disk_tar;
         p->tar_job->compression = compression;
+        p->tar_job->source_offset = source_offset;
+        p->tar_job->source_size = source_size;
         import_digest_init(&p->tar_job->decoded_digest, decoded_checksum);
 
         if (iovec_is_set(checksum)) {
