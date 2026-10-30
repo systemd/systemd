@@ -304,6 +304,75 @@ cat "$FSTAB"
 SYSTEMD_FSTAB="$FSTAB" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
 check_fstab_mount_units FSTAB_GENERAL_ROOT "$OUT_DIR"
 
+: "fstab-generator: network mounts with symlinks and active mount points"
+TMP_NET=$(mktemp --tmpdir --directory "test-fstab-net.XXXXXXXXXX")
+trap 'umount "$TMP_NET/real" /sysroot/test-fstab-initrd/real 2>/dev/null || :; rm -rf "$TMP_NET" /sysroot/test-fstab-initrd; [[ -n "${SYSROOT_CREATED:-}" ]] && rmdir /sysroot 2>/dev/null || :; at_exit' EXIT
+mkdir -p "$TMP_NET/real" "$TMP_NET/real2"
+ln -s "real" "$TMP_NET/link"
+ln -s "$TMP_NET/real" "$TMP_NET/abslink"
+ln -s "real2" "$TMP_NET/link2"
+
+REAL_UNIT="$(systemd-escape --suffix=mount --path "$TMP_NET/real")"
+REAL2_UNIT="$(systemd-escape --suffix=mount --path "$TMP_NET/real2")"
+
+if mount -t tmpfs tmpfs "$TMP_NET/real" 2>/dev/null; then
+    # 1. Direct active mount point fast path
+    printf "%s\n" "server:/export  $TMP_NET/real  nfs  _netdev,defaults 0 0" >"$FSTAB"
+    SYSTEMD_FSTAB="$FSTAB" run_and_list "$GENERATOR_BIN" "$OUT_DIR" >"$TMP_NET/run.log" 2>&1
+    grep -qF "'$TMP_NET/real' is an active mount point in mountinfo, using without chasing." "$TMP_NET/run.log"
+    grep -qE "^Where=$TMP_NET/real$" "$OUT_DIR/normal/$REAL_UNIT"
+
+    # 2. Relative symlink to active mount point fast path
+    printf "%s\n" "server:/export  $TMP_NET/link  nfs  _netdev,defaults 0 0" >"$FSTAB"
+    SYSTEMD_FSTAB="$FSTAB" run_and_list "$GENERATOR_BIN" "$OUT_DIR" >"$TMP_NET/run.log" 2>&1
+    grep -qF "Symlink target '$TMP_NET/real' is an active mount point in mountinfo, using without chasing." "$TMP_NET/run.log"
+    grep -qE "^Where=$TMP_NET/real$" "$OUT_DIR/normal/$REAL_UNIT"
+
+    # 3. Absolute symlink to active mount point fast path
+    printf "%s\n" "server:/export  $TMP_NET/abslink  nfs  _netdev,defaults 0 0" >"$FSTAB"
+    SYSTEMD_FSTAB="$FSTAB" run_and_list "$GENERATOR_BIN" "$OUT_DIR" >"$TMP_NET/run.log" 2>&1
+    grep -qF "Symlink target '$TMP_NET/real' is an active mount point in mountinfo, using without chasing." "$TMP_NET/run.log"
+    grep -qE "^Where=$TMP_NET/real$" "$OUT_DIR/normal/$REAL_UNIT"
+
+    # 4. Network root mount point fast path
+    printf "%s\n" "server:/export  /  nfs  _netdev,defaults 0 0" >"$FSTAB"
+    SYSTEMD_FSTAB="$FSTAB" run_and_list "$GENERATOR_BIN" "$OUT_DIR" >"$TMP_NET/run.log" 2>&1
+    grep -qF "'/' is an active mount point in mountinfo, using without chasing." "$TMP_NET/run.log"
+    grep -qE "^Where=/$" "$OUT_DIR/normal/-.mount"
+
+    # 5. Non-network filesystem on active mount point does not use network fast path
+    printf "%s\n" "tmpfs  $TMP_NET/real  tmpfs  defaults 0 0" >"$FSTAB"
+    SYSTEMD_FSTAB="$FSTAB" run_and_list "$GENERATOR_BIN" "$OUT_DIR" >"$TMP_NET/run.log" 2>&1
+    (! grep -qF "using without chasing" "$TMP_NET/run.log")
+    grep -qE "^Where=$TMP_NET/real$" "$OUT_DIR/normal/$REAL_UNIT"
+
+    # 6. Unmounted network target with symlink falls back to chase()
+    printf "%s\n" "server:/export  $TMP_NET/link2  nfs  _netdev,defaults 0 0" >"$FSTAB"
+    SYSTEMD_FSTAB="$FSTAB" run_and_list "$GENERATOR_BIN" "$OUT_DIR" >"$TMP_NET/run.log" 2>&1
+    (! grep -qF "using without chasing" "$TMP_NET/run.log")
+    grep -qE "^Where=$TMP_NET/real2$" "$OUT_DIR/normal/$REAL2_UNIT"
+
+    # 7. Absolute symlink to active mount point in initrd mode (prefix_sysroot)
+    [[ -d /sysroot ]] || SYSROOT_CREATED=1
+    if mkdir -p /sysroot/test-fstab-initrd/real 2>/dev/null; then
+        ln -sf "/test-fstab-initrd/real" /sysroot/test-fstab-initrd/abslink
+        if mount -t tmpfs tmpfs /sysroot/test-fstab-initrd/real 2>/dev/null; then
+            INITRD_UNIT="$(systemd-escape --suffix=mount --path "/sysroot/test-fstab-initrd/real")"
+            printf "%s\n" "server:/export  /test-fstab-initrd/abslink  nfs  _netdev,x-initrd.mount 0 0" >"$FSTAB"
+            SYSTEMD_IN_INITRD=1 SYSTEMD_SYSROOT_FSTAB="$FSTAB" SYSTEMD_FSTAB=/dev/null run_and_list "$GENERATOR_BIN" "$OUT_DIR" >"$TMP_NET/run.log" 2>&1
+            grep -qF "Symlink target '/sysroot/test-fstab-initrd/real' is an active mount point in mountinfo, using without chasing." "$TMP_NET/run.log"
+            grep -qE "^Where=/sysroot/test-fstab-initrd/real$" "$OUT_DIR/normal/$INITRD_UNIT"
+            umount /sysroot/test-fstab-initrd/real
+        fi
+        rm -rf /sysroot/test-fstab-initrd
+        [[ -n "${SYSROOT_CREATED:-}" ]] && rmdir /sysroot 2>/dev/null || :
+    fi
+
+    umount "$TMP_NET/real"
+fi
+trap at_exit EXIT
+rm -rf "$TMP_NET"
+
 # Skip the rest when running in a container, as it makes little sense to check
 # initrd-related stuff there and fstab-generator might have a bit strange
 # behavior during certain tests, like https://github.com/systemd/systemd/issues/27156
