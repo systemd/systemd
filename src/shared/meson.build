@@ -97,6 +97,7 @@ shared_sources = files(
         'gpt.c',
         'group-record.c',
         'hibernate-util.c',
+        'host-properties.c',
         'hostname-setup.c',
         'hwdb-util.c',
         'id128-print.c',
@@ -141,6 +142,7 @@ shared_sources = files(
         'machine-util.c',
         'macvlan-util.c',
         'main-func.c',
+        'manifest-util.c',
         'metrics.c',
         'microhttpd-util.c',
         'mkdir.c',
@@ -217,6 +219,7 @@ shared_sources = files(
         'tomoyo-util.c',
         'tpm2-util.c',
         'tpm2-event-log.c',
+        'uapi16-manifest.c',
         'udev-util.c',
         'unit-file.c',
         'unit-result.c',
@@ -288,6 +291,7 @@ shared_sources = files(
         'wall.c',
         'watchdog.c',
         'wifi-util.c',
+        'xattr-match.c',
         'xml.c',
 )
 
