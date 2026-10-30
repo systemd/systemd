@@ -6085,7 +6085,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 hash_pcr_mask,
                                 hash_pcr_bank,
                                 &pubkey,
-                                arg_tpm2_public_key_policyref,
+                                iovec_is_set(&pubkey) ? arg_tpm2_public_key_policyref : NULL,
                                 arg_tpm2_public_key_pcr_mask,
                                 /* primary_alg= */ 0,
                                 blobs,
