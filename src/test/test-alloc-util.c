@@ -12,12 +12,12 @@ TEST(alloca) {
         char *t;
 
         t = alloca_align(17, 512);
-        assert_se(!((uintptr_t)t & 0xff));
+        ASSERT_FALSE((uintptr_t)t & 0xff);
         memzero(t, 17);
 
         t = alloca0_align(997, 1024);
-        assert_se(!((uintptr_t)t & 0x1ff));
-        assert_se(!memcmp(t, zero, 997));
+        ASSERT_FALSE((uintptr_t)t & 0x1ff);
+        ASSERT_EQ(memcmp(t, zero, 997), 0);
 }
 
 TEST(GREEDY_REALLOC) {
@@ -27,30 +27,30 @@ TEST(GREEDY_REALLOC) {
         /* Give valgrind a chance to verify our realloc() operations */
 
         for (i = 0; i < 20480; i++) {
-                assert_se(GREEDY_REALLOC(a, i + 1));
-                assert_se(MALLOC_ELEMENTSOF(a) >= i + 1);
-                assert_se(MALLOC_SIZEOF_SAFE(a) >= (i + 1) * sizeof(int));
+                ASSERT_NOT_NULL(GREEDY_REALLOC(a, i + 1));
+                ASSERT_GE(MALLOC_ELEMENTSOF(a), i + 1);
+                ASSERT_GE(MALLOC_SIZEOF_SAFE(a), (i + 1) * sizeof(int));
                 a[i] = (int) i;
-                assert_se(GREEDY_REALLOC(a, i / 2));
-                assert_se(MALLOC_ELEMENTSOF(a) >= i / 2);
-                assert_se(MALLOC_SIZEOF_SAFE(a) >= (i / 2) * sizeof(int));
+                ASSERT_NOT_NULL(GREEDY_REALLOC(a, i / 2));
+                ASSERT_GE(MALLOC_ELEMENTSOF(a), i / 2);
+                ASSERT_GE(MALLOC_SIZEOF_SAFE(a), (i / 2) * sizeof(int));
         }
 
         for (j = 0; j < i / 2; j++)
-                assert_se(a[j] == (int) j);
+                ASSERT_EQ(a[j], (int) j);
 
         for (i = 30; i < 20480; i += 7) {
-                assert_se(GREEDY_REALLOC(b, i + 1));
-                assert_se(MALLOC_ELEMENTSOF(b) >= i + 1);
-                assert_se(MALLOC_SIZEOF_SAFE(b) >= (i + 1) * sizeof(int));
+                ASSERT_NOT_NULL(GREEDY_REALLOC(b, i + 1));
+                ASSERT_GE(MALLOC_ELEMENTSOF(b), i + 1);
+                ASSERT_GE(MALLOC_SIZEOF_SAFE(b), (i + 1) * sizeof(int));
                 b[i] = (int) i;
-                assert_se(GREEDY_REALLOC(b, i / 2));
-                assert_se(MALLOC_ELEMENTSOF(b) >= i / 2);
-                assert_se(MALLOC_SIZEOF_SAFE(b) >= (i / 2) * sizeof(int));
+                ASSERT_NOT_NULL(GREEDY_REALLOC(b, i / 2));
+                ASSERT_GE(MALLOC_ELEMENTSOF(b), i / 2);
+                ASSERT_GE(MALLOC_SIZEOF_SAFE(b), (i / 2) * sizeof(int));
         }
 
         for (j = 30; j < i / 2; j += 7)
-                assert_se(b[j] == (int) j);
+                ASSERT_EQ(b[j], (int) j);
 
         size_t n_from = 10;
         int from[n_from];
@@ -60,36 +60,36 @@ TEST(GREEDY_REALLOC) {
 
                 _cleanup_free_ int *before = NULL;
                 size_t n_before = 0;
-                assert_se(GREEDY_REALLOC_APPEND(before, n_before, c, n_c));
-                assert_se(before);
-                assert_se(n_before == n_c);
-                assert_se(memcmp_safe(c, before, n_c) == 0);
+                ASSERT_NOT_NULL(GREEDY_REALLOC_APPEND(before, n_before, c, n_c));
+                ASSERT_NOT_NULL(before);
+                ASSERT_EQ(n_before, n_c);
+                ASSERT_EQ(memcmp_safe(c, before, n_c), 0);
 
-                assert_se(GREEDY_REALLOC_APPEND(c, n_c, from, n_from));
-                assert_se(n_c == n_before + n_from);
-                assert_se(MALLOC_ELEMENTSOF(c) >= n_c);
-                assert_se(MALLOC_SIZEOF_SAFE(c) >= n_c * sizeof(int));
-                assert_se(memcmp_safe(c, before, n_before) == 0);
-                assert_se(memcmp_safe(&c[n_before], from, n_from) == 0);
+                ASSERT_NOT_NULL(GREEDY_REALLOC_APPEND(c, n_c, from, n_from));
+                ASSERT_EQ(n_c, n_before + n_from);
+                ASSERT_GE(MALLOC_ELEMENTSOF(c), n_c);
+                ASSERT_GE(MALLOC_SIZEOF_SAFE(c), n_c * sizeof(int));
+                ASSERT_EQ(memcmp_safe(c, before, n_before), 0);
+                ASSERT_EQ(memcmp_safe(&c[n_before], from, n_from), 0);
 
                 before = mfree(before);
-                assert_se(!before);
+                ASSERT_NULL(before);
                 n_before = 0;
-                assert_se(GREEDY_REALLOC_APPEND(before, n_before, c, n_c));
-                assert_se(before);
-                assert_se(n_before == n_c);
-                assert_se(memcmp_safe(c, before, n_c) == 0);
+                ASSERT_NOT_NULL(GREEDY_REALLOC_APPEND(before, n_before, c, n_c));
+                ASSERT_NOT_NULL(before);
+                ASSERT_EQ(n_before, n_c);
+                ASSERT_EQ(memcmp_safe(c, before, n_c), 0);
 
-                assert_se(GREEDY_REALLOC_APPEND(c, n_c, NULL, 0));
-                assert_se(c);
-                assert_se(n_c == n_before);
-                assert_se(MALLOC_ELEMENTSOF(c) >= n_c);
-                assert_se(MALLOC_SIZEOF_SAFE(c) >= n_c * sizeof(int));
-                assert_se(memcmp_safe(c, before, n_c) == 0);
+                ASSERT_NOT_NULL(GREEDY_REALLOC_APPEND(c, n_c, NULL, 0));
+                ASSERT_NOT_NULL(c);
+                ASSERT_EQ(n_c, n_before);
+                ASSERT_GE(MALLOC_ELEMENTSOF(c), n_c);
+                ASSERT_GE(MALLOC_SIZEOF_SAFE(c), n_c * sizeof(int));
+                ASSERT_EQ(memcmp_safe(c, before, n_c), 0);
         }
 
         for (j = 0; j < i * n_from; j++)
-                assert_se(c[j] == (int) j);
+                ASSERT_EQ(c[j], (int) j);
 }
 
 TEST(memdup_multiply_and_greedy_realloc) {
@@ -98,33 +98,32 @@ TEST(memdup_multiply_and_greedy_realloc) {
         size_t i;
         int *p;
 
-        dup = memdup_suffix0_multiply(org, 3, sizeof(int));
-        assert_se(dup);
-        assert_se(dup[0] == 1);
-        assert_se(dup[1] == 2);
-        assert_se(dup[2] == 3);
-        assert_se(((uint8_t*) dup)[sizeof(int) * 3] == 0);
+        dup = ASSERT_NOT_NULL(memdup_suffix0_multiply(org, 3, sizeof(int)));
+        ASSERT_EQ(dup[0], 1);
+        ASSERT_EQ(dup[1], 2);
+        ASSERT_EQ(dup[2], 3);
+        ASSERT_EQ(((uint8_t*) dup)[sizeof(int) * 3], 0);
         free(dup);
 
         dup = memdup_multiply(org, 3, sizeof(int));
-        assert_se(dup);
-        assert_se(dup[0] == 1);
-        assert_se(dup[1] == 2);
-        assert_se(dup[2] == 3);
+        ASSERT_NOT_NULL(dup);
+        ASSERT_EQ(dup[0], 1);
+        ASSERT_EQ(dup[1], 2);
+        ASSERT_EQ(dup[2], 3);
 
         memzero(dup + 3, MALLOC_SIZEOF_SAFE(dup) - sizeof(int) * 3);
 
         p = dup;
-        assert_se(GREEDY_REALLOC0(dup, 2) == p);
+        ASSERT_PTR_EQ(GREEDY_REALLOC0(dup, 2), p);
 
         p = GREEDY_REALLOC0(dup, 10);
-        assert_se(p == dup);
-        assert_se(MALLOC_ELEMENTSOF(p) >= 10);
-        assert_se(p[0] == 1);
-        assert_se(p[1] == 2);
-        assert_se(p[2] == 3);
+        ASSERT_PTR_EQ(p, dup);
+        ASSERT_GE(MALLOC_ELEMENTSOF(p), 10U);
+        ASSERT_EQ(p[0], 1);
+        ASSERT_EQ(p[1], 2);
+        ASSERT_EQ(p[2], 3);
         for (i = 3; i < MALLOC_ELEMENTSOF(p); i++)
-                assert_se(p[i] == 0);
+                ASSERT_EQ(p[i], 0);
 }
 
 TEST(bool_assign) {
@@ -138,28 +137,28 @@ TEST(bool_assign) {
         g = cp;    /* cast from pointer */
         h = NULL;  /* cast from pointer */
 
-        assert_se(b);
-        assert_se(c);
-        assert_se(d);
-        assert_se(e);
-        assert_se(!f);
-        assert_se(g);
-        assert_se(!h);
+        ASSERT_TRUE(b);
+        ASSERT_TRUE(c);
+        ASSERT_TRUE(d);
+        ASSERT_TRUE(e);
+        ASSERT_FALSE(f);
+        ASSERT_TRUE(g);
+        ASSERT_FALSE(h);
 }
 
 static int cleanup_counter = 0;
 
 static void cleanup1(void *a) {
         log_info("%s(%p)", __func__, a);
-        assert_se(++cleanup_counter == *(int*) a);
+        ASSERT_EQ(++cleanup_counter, *(int*) a);
 }
 static void cleanup2(void *a) {
         log_info("%s(%p)", __func__, a);
-        assert_se(++cleanup_counter == *(int*) a);
+        ASSERT_EQ(++cleanup_counter, *(int*) a);
 }
 static void cleanup3(void *a) {
         log_info("%s(%p)", __func__, a);
-        assert_se(++cleanup_counter == *(int*) a);
+        ASSERT_EQ(++cleanup_counter, *(int*) a);
 }
 
 TEST(cleanup_order) {
@@ -178,16 +177,17 @@ TEST(auto_erase_memory) {
         /* print address of p2, else e.g. clang-11 will optimize it out */
         log_debug("p1: %p p2: %p", &p1, &p2);
 
-        assert_se(p1 = new(uint8_t, 4703)); /* use prime size, to ensure that there will be free space at the
-                                             * end of the allocation, since malloc() enforces alignment */
-        assert_se(p2 = new(uint8_t, 4703));
+        /* use prime size, to ensure that there will be free space at the end of the allocation, since
+         * malloc() enforces alignment */
+        ASSERT_NOT_NULL(p1 = new(uint8_t, 4703));
+        ASSERT_NOT_NULL(p2 = new(uint8_t, 4703));
 
-        assert_se(crypto_random_bytes(p1, 4703) == 0);
+        ASSERT_OK_ZERO(crypto_random_bytes(p1, 4703));
 
         /* before we exit the scope, do something with this data, so that the compiler won't optimize this away */
         memcpy(p2, p1, 4703);
         for (size_t i = 0; i < 4703; i++)
-                assert_se(p1[i] == p2[i]);
+                ASSERT_EQ(p1[i], p2[i]);
 }
 
 #define TEST_SIZES(f, n)                                                \
@@ -196,10 +196,10 @@ TEST(auto_erase_memory) {
                           n * sizeof(*f),                               \
                           malloc_usable_size(f),                        \
                           __builtin_object_size(f, 0));                 \
-                assert_se(MALLOC_ELEMENTSOF(f) >= n);                   \
-                assert_se(MALLOC_SIZEOF_SAFE(f) >= sizeof(*f) * n);     \
-                assert_se(malloc_usable_size(f) >= sizeof(*f) * n);     \
-                assert_se(__builtin_object_size(f, 0) >= sizeof(*f) * n); \
+                ASSERT_GE(MALLOC_ELEMENTSOF(f), n);                     \
+                ASSERT_GE(MALLOC_SIZEOF_SAFE(f), sizeof(*f) * n);       \
+                ASSERT_GE(malloc_usable_size(f), sizeof(*f) * n);       \
+                ASSERT_GE(__builtin_object_size(f, 0), sizeof(*f) * n); \
         } while (false)
 
 TEST(malloc_size_safe) {
@@ -207,14 +207,14 @@ TEST(malloc_size_safe) {
         size_t n = 4711;
 
         /* Let's check the macros and built-ins work on NULL and return the expected values */
-        assert_se(MALLOC_ELEMENTSOF((float*) NULL) == 0);
-        assert_se(MALLOC_SIZEOF_SAFE((float*) NULL) == 0);
-        assert_se(malloc_usable_size(NULL) == 0); /* as per man page, this is safe and defined */
-        assert_se(__builtin_object_size(NULL, 0) == SIZE_MAX); /* as per docs SIZE_MAX is returned for pointers where the size isn't known */
+        ASSERT_EQ(MALLOC_ELEMENTSOF((float*) NULL), 0U);
+        ASSERT_EQ(MALLOC_SIZEOF_SAFE((float*) NULL), 0U);
+        ASSERT_EQ(malloc_usable_size(NULL), 0U); /* as per man page, this is safe and defined */
+        ASSERT_EQ(__builtin_object_size(NULL, 0), SIZE_MAX); /* as per docs SIZE_MAX is returned for pointers where the size isn't known */
 
         /* Then, let's try these macros once with constant size values, so that __builtin_object_size()
          * definitely can work (as long as -O2 is used when compiling) */
-        assert_se(f = new(uint32_t, n));
+        ASSERT_NOT_NULL(f = new(uint32_t, n));
         TEST_SIZES(f, n);
 
         /* Finally, let's use some dynamically sized allocations, to make sure this doesn't deteriorate */
@@ -223,7 +223,7 @@ TEST(malloc_size_safe) {
                 size_t m;
 
                 m = random_u64_range(16*1024);
-                assert_se(g = new(uint64_t, m));
+                ASSERT_NOT_NULL(g = new(uint64_t, m));
                 TEST_SIZES(g, m);
         }
 }
