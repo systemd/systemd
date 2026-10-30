@@ -747,6 +747,8 @@ int tar_pull_start(
         p->tar_job->compression = compression;
         p->tar_job->source_offset = source_offset;
         p->tar_job->source_size = source_size;
+        /* Only a download that is not verified as a whole may be acquired partially */
+        p->tar_job->allow_range_request = verify == IMPORT_VERIFY_NO && !iovec_is_set(checksum);
         import_digest_init(&p->tar_job->decoded_digest, decoded_checksum);
 
         if (iovec_is_set(checksum)) {

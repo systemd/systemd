@@ -873,6 +873,8 @@ int raw_pull_start(
         p->raw_job->zero_fill = FLAGS_SET(flags, IMPORT_ZERO_FILL);
         p->raw_job->source_offset = source_offset;
         p->raw_job->source_size = source_size;
+        /* Only a download that is not verified as a whole may be acquired partially */
+        p->raw_job->allow_range_request = verify == IMPORT_VERIFY_NO && !iovec_is_set(checksum);
 
         /* A previously downloaded image is neither keyed by the compression algorithm nor was it
          * necessarily verified against the decoded digest, hence don't reuse it if either is requested. */
