@@ -2127,6 +2127,10 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
+        r = serialize_bool_elide(f, "exec-context-tty-exit-status", c->tty_exit_status);
+        if (r < 0)
+                return r;
+
         r = serialize_item_format(f, "exec-context-tty-rows", "%u", c->tty_rows);
         if (r < 0)
                 return r;
@@ -3189,6 +3193,11 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                         c->tty_vt_disallocate = r;
+                } else if ((val = startswith(l, "exec-context-tty-exit-status="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->tty_exit_status = r;
                 } else if ((val = startswith(l, "exec-context-tty-rows="))) {
                         r = safe_atou(val, &c->tty_rows);
                         if (r < 0)
