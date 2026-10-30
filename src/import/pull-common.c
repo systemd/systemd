@@ -632,9 +632,9 @@ static int verify_gpg(
         if (r == 0) {
                 /* Child */
 
-                execvp("gpg2", cmd);
-                execvp("gpg", cmd);
-                log_error_errno(errno, "Failed to execute gpg: %m");
+                (void) execvp_safe("gpg2", cmd);
+                r = execvp_safe("gpg", cmd);
+                log_error_errno(r, "Failed to execute gpg: %m");
                 _exit(EXIT_FAILURE);
         }
 

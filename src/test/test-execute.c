@@ -741,7 +741,7 @@ static int find_libraries(const char *exec, char ***ret) {
                         &pidref);
         ASSERT_OK(r);
         if (r == 0) {
-                execlp("ldd", "ldd", exec, NULL);
+                (void) execvp_safe("ldd", STRV_MAKE("ldd", exec));
                 _exit(EXIT_FAILURE);
         }
 
