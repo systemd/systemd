@@ -2070,8 +2070,17 @@ int dissected_image_new_from_existing_verity(
         if (!root_fstype_string)
                 return -ENOPKG;
 
+        /* We don't query the existing device, so we don't know whether the kernel validated a signature for
+         * it. We only know that the device is protected by verity. If the image policy requires a signature,
+         * we dissect the image the full way, which checks the device before it reuses it. */
+        PartitionPolicyFlags root_flags = image_policy_get_exhaustively(image_policy, PARTITION_ROOT);
+        if (root_flags < 0)
+                return root_flags;
+        if (!FLAGS_SET(root_flags, PARTITION_POLICY_VERITY))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOPKG), "Image policy requires a signature, skipping verity shortcut.");
+
         if (verity_settings_data_covers(verity, PARTITION_ROOT))
-                found_flags = iovec_is_set(&verity->root_hash_sig) ? PARTITION_POLICY_SIGNED : PARTITION_POLICY_VERITY;
+                found_flags = PARTITION_POLICY_VERITY;
         else
                 found_flags = encrypted ? PARTITION_POLICY_ENCRYPTED : PARTITION_POLICY_UNPROTECTED;
 
@@ -3327,6 +3336,7 @@ static int verity_can_reuse(
                 const char *name,
                 DissectImageFlags flags,
                 PartitionPolicyFlags policy_flags,
+                bool reuse_unvalidated,
                 struct crypt_device **ret_cd) {
 
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
@@ -3347,10 +3357,13 @@ static int verity_can_reuse(
         if (r < 0)
                 return log_debug_errno(r, "Error opening verity device, crypt_get_verity_info failed: %m");
 
-        if (FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE_SAME_FILE)) {
+        /* The root hash does not prove that the caller can read the existing device's backing file. A device
+         * without a validated signature can also come from a copy of the image that another user can modify.
+         * Reads from such a device fail if that user modifies the copy, so we only reuse it if it uses our
+         * backing file. */
+        if (FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE_SAME_FILE) || reuse_unvalidated) {
                 _cleanup_(loop_device_unrefp) LoopDevice *existing_loop = NULL;
 
-                /* The root hash does not prove that the caller can read the existing device's backing file. */
                 if (!loop || !crypt_params.data_device)
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot determine backing file of verity device.");
 
@@ -3388,14 +3401,27 @@ static int verity_can_reuse(
         if (!iovec_equal(&verity->root_hash, &root_hash_existing))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but root hashes are different.");
 
-        /* If the policy requires a signature, reusing a device that the kernel set up without a validated
-         * signature would bypass the policy. If we have a signature and the policy allows "signed", we set
-         * up our own device instead. The kernel then validates our signature and records the validation on
-         * the device. LSMs such as IPE check the recorded validation, for example to only run programs from
-         * verity devices with a validated signature. */
-        if (!FLAGS_SET(crypt_params.flags, CRYPT_VERITY_ROOT_HASH_SIGNATURE) &&
-            (!FLAGS_SET(policy_flags, PARTITION_POLICY_VERITY) || verity_use_signature(verity, policy_flags)))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but without a validated signature.");
+        if (!FLAGS_SET(crypt_params.flags, CRYPT_VERITY_ROOT_HASH_SIGNATURE)) {
+                bool use_signature = verity_use_signature(verity, policy_flags);
+
+                /* If the policy requires a signature and we can't use ours, reusing the device would bypass
+                 * the policy. */
+                if (!FLAGS_SET(policy_flags, PARTITION_POLICY_VERITY) && !use_signature)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but without a validated signature.");
+
+                /* If we have a signature, we first try to set up our own device with a unique name, so that
+                 * the kernel validates our signature and records the validation on the device. LSMs such as
+                 * IPE check the recorded validation, for example to only run programs from verity devices
+                 * with a validated signature. We return -ENOKEY, and verity_partition() then tries to set up
+                 * such a device. Without sharing, the existing device already has the unique name, so we
+                 * refuse it. */
+                if (use_signature && !reuse_unvalidated) {
+                        if (!FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but without a validated signature.");
+
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOKEY), "Verity device %s already exists without a validated signature.", name);
+                }
+        }
 
         *ret_cd = TAKE_PTR(cd);
         return 0;
@@ -3519,6 +3545,12 @@ static int validate_signature_userspace(const VeritySettings *verity, const char
 #endif
 }
 
+static bool verity_device_exists(const char *name) {
+        assert(name);
+
+        return sym_crypt_status(/* cd= */ NULL, name) != CRYPT_INACTIVE;
+}
+
 static int do_crypt_activate_verity(
                 struct crypt_device *cd,
                 const char *root,
@@ -3554,17 +3586,9 @@ static int do_crypt_activate_verity(
 
                 log_debug_errno(r, "Validation of dm-verity signature failed via the kernel, trying userspace validation instead: %m");
 
-                /* Let's mangle ENOKEY → EDESTADDRREQ, so that we return a clear, recognizable error if
-                 * there's a signature we don't recognize, that is distinct from the LUKS/encryption
-                 * -ENOKEY, which means "password required, but I have none". */
-                if (r == -ENOKEY)
-                        r = -EDESTADDRREQ;
-
                 /* So this didn't work via the kernel, then let's try userspace validation instead. If that
                  * works we'll try to activate without telling the kernel the signature. */
 
-                /* Preferably propagate the original kernel error, so that the fallback logic can work,
-                 * as the device-mapper is finicky around concurrent activations of the same volume */
                 k = validate_signature_userspace(verity, root, flags);
                 if (k == -ENOMEM)
                         return k;
@@ -3574,9 +3598,16 @@ static int do_crypt_activate_verity(
                         log_debug("Activation of signed Verity volume worked neither via the kernel nor in userspace.");
 
                         /* If the policy allows "verity" as well as "signed", the signature is optional and
-                         * we activate the volume by its root hash. */
+                         * we activate the volume by its root hash. Otherwise we return -EDESTADDRREQ, the
+                         * error that callers recognize as a signature that no trusted key validates. We
+                         * never return libcryptsetup's -ENOKEY, because callers read -ENOKEY as "password
+                         * required, but I have none". libcryptsetup returns -EBUSY both if the kernel
+                         * rejects the signature and if another process activates the same volume at the same
+                         * time. It only returns -EEXIST if another process activated the volume. In that case
+                         * we return -EEXIST, so that verity_partition() checks whether it can use the device,
+                         * or tries again if the device is gone by now. */
                         if (!FLAGS_SET(policy_flags, PARTITION_POLICY_VERITY))
-                                return r < 0 ? r : -EDESTADDRREQ;
+                                return r == -EEXIST || verity_device_exists(name) ? -EEXIST : -EDESTADDRREQ;
 
                         log_debug("Activation of signed Verity volume without validating signature is permitted by policy. Continuing.");
                         measure_signature = false;
@@ -3640,11 +3671,13 @@ static int verity_partition(
                 const VeritySettings *verity,
                 DissectImageFlags flags,
                 PartitionPolicyFlags policy_flags,
+                bool reuse_unvalidated,
                 DecryptedImage *d) {
 
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_free_ char *node = NULL, *name = NULL;
         _cleanup_close_ int mount_node_fd = -EBADF;
+        bool unvalidated_device = false;
         int r;
 
         assert(di);
@@ -3757,7 +3790,11 @@ static int verity_partition(
                 if (!restore_deferred_remove)
                         return log_oom_debug();
 
-                r = verity_can_reuse(di->loop, verity, name, flags, policy_flags, &existing_cd);
+                r = verity_can_reuse(di->loop, verity, name, flags, policy_flags, reuse_unvalidated, &existing_cd);
+                if (r == -ENOKEY && !reuse_unvalidated) {
+                        unvalidated_device = true;
+                        break;
+                }
                 /* Same as above, -EINVAL can randomly happen when it actually means -EEXIST */
                 if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                         break;
@@ -3817,6 +3854,53 @@ static int verity_partition(
                  */
                 sym_crypt_free(cd);
                 cd = NULL;
+
+                if (unvalidated_device) {
+                        /* The existing device has no validated signature, but we have a signature. We only
+                         * set up a device with a unique name if the kernel validates our signature for it.
+                         * Without "verity" in the policy and without userspace validation, the activation
+                         * fails with -EDESTADDRREQ if the kernel doesn't validate the signature. */
+                        r = verity_partition(
+                                        di,
+                                        designator,
+                                        m,
+                                        v,
+                                        root,
+                                        verity,
+                                        flags & ~(DISSECT_IMAGE_VERITY_SHARE|DISSECT_IMAGE_ALLOW_USERSPACE_VERITY),
+                                        policy_flags & ~PARTITION_POLICY_VERITY,
+                                        /* reuse_unvalidated= */ false,
+                                        d);
+                        if (r != -EDESTADDRREQ)
+                                return r;
+
+                        /* The kernel can't validate our signature, so a device that we set up ourselves
+                         * wouldn't have a validated signature either. If the policy requires a signature, we
+                         * can only reuse the existing device if userspace validates our signature. */
+                        if (!FLAGS_SET(policy_flags, PARTITION_POLICY_VERITY)) {
+                                r = validate_signature_userspace(verity, root, flags);
+                                if (r == -ENOMEM)
+                                        return r;
+                                if (r <= 0)
+                                        return log_debug_errno(SYNTHETIC_ERRNO(EDESTADDRREQ),
+                                                               "Neither the kernel nor userspace validated the signature for verity device %s, refusing.",
+                                                               name);
+                        }
+
+                        log_debug("The kernel can't validate our signature, reusing verity device %s without a validated signature.", name);
+                        return verity_partition(
+                                        di,
+                                        designator,
+                                        m,
+                                        v,
+                                        root,
+                                        verity,
+                                        flags,
+                                        policy_flags,
+                                        /* reuse_unvalidated= */ true,
+                                        d);
+                }
+
                 return verity_partition(
                                 di,
                                 designator,
@@ -3826,6 +3910,7 @@ static int verity_partition(
                                 verity,
                                 flags & ~DISSECT_IMAGE_VERITY_SHARE,
                                 policy_flags,
+                                /* reuse_unvalidated= */ false,
                                 d);
         }
 
@@ -3912,7 +3997,7 @@ int dissected_image_decrypt(
          *      -ENOKEY       → dm-crypt: there's something to decrypt but no decryption key was supplied (or
          *                      TPM2 unlocking was requested via DISSECT_IMAGE_TPM2_UNLOCK, but didn't succeed)
          *      -EKEYREJECTED → dm-crypt: Passed key was not correct
-         *      -EDESTADDRREQ → dm-verity: there's something to setup but no signature was supplied
+         *      -EDESTADDRREQ → dm-verity: the image policy requires a signature that no trusted key validates
          *      -EBUSY        → dm-verity: Generic Verity error (kernel is not very explanatory)
          *      -ERFKILL      → image policy not compatible with request
          *      -EEXIST       → DM device already exists under the specified name
@@ -3954,7 +4039,7 @@ int dissected_image_decrypt(
                  * the verity device. */
                 k = partition_verity_hash_of(i);
                 if (k >= 0) {
-                        r = verity_partition(m, i, p, m->partitions + k, root, verity, flags, fl, d);
+                        r = verity_partition(m, i, p, m->partitions + k, root, verity, flags, fl, /* reuse_unvalidated= */ false, d);
                         if (r < 0)
                                 goto fail;
                 }
