@@ -53,3 +53,4 @@
 #StopIdleSessionSec=infinity
 #DesignatedMaintenanceTime=
 #WallMessages=yes
+#LongPressDurationSec=5s
