@@ -24,27 +24,25 @@ static void test_resolve_one(const char *name) {
 
         r = name_to_uid_offline(arg_root, name, &uid, &uid_cache);
         log_info_errno(r, "name_to_uid_offline: %s → "UID_FMT": %m", name, uid);
-        assert_se(relaxed || r == 0);
+        ASSERT_TRUE(relaxed || r == 0);
 
         r = name_to_uid_offline(arg_root, name, &uid, &uid_cache);
         log_info_errno(r, "name_to_uid_offline: %s → "UID_FMT": %m", name, uid);
-        assert_se(relaxed || r == 0);
+        ASSERT_TRUE(relaxed || r == 0);
 
         r = name_to_gid_offline(arg_root, name, &gid, &gid_cache);
         log_info_errno(r, "name_to_gid_offline: %s → "GID_FMT": %m", name, gid);
-        assert_se(relaxed || r == 0);
+        ASSERT_TRUE(relaxed || r == 0);
 
         r = name_to_gid_offline(arg_root, name, &gid, &gid_cache);
         log_info_errno(r, "name_to_gid_offline: %s → "GID_FMT": %m", name, gid);
-        assert_se(relaxed || r == 0);
+        ASSERT_TRUE(relaxed || r == 0);
 }
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
-        assert_se(argc >= 0);
-        assert_se(argv);
-        assert_se(ret_args);
+        ASSERT_GE(argc, 0);
 
-        OptionParser opts = { argc, argv };
+        OptionParser opts = { argc, ASSERT_PTR(argv) };
 
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
@@ -54,7 +52,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
                 }
 
-        *ret_args = option_parser_get_args(&opts);
+        *ASSERT_PTR(ret_args) = option_parser_get_args(&opts);
         return 0;
 }
 
