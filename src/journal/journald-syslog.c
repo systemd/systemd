@@ -419,6 +419,11 @@ void manager_process_syslog_message(
         if (client_context_check_keep_log(context, msg, strlen(msg)) <= 0)
                 return;
 
+        /* Rate limit before forwarding, so a flooding service cannot overwhelm the
+         * syslog/kmsg/console/wall consumers while journald's own storage stays limited. */
+        if (!manager_message_ratelimit_allowed(m, context, priority))
+                return;
+
         if (m->config.forward_to_syslog)
                 forward_syslog_raw(m, priority, buf, raw_len, ucred, tv);
 
@@ -487,7 +492,7 @@ void manager_process_syslog_message(
                 iovec[n++] = IOVEC_MAKE(msg_raw, hlen + raw_len);
         }
 
-        manager_dispatch_message(m, iovec, n, mm, context, tv, priority, 0);
+        manager_dispatch_message(m, iovec, n, mm, context, tv, priority, 0, /* check_ratelimit= */ false);
 }
 
 int manager_open_syslog_socket(Manager *m, const char *syslog_socket) {
