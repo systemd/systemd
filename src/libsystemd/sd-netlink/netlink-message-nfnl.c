@@ -46,7 +46,7 @@ int sd_nfnl_message_new(sd_netlink *nfnl, sd_netlink_message **ret, int nfproto,
         return 0;
 }
 
-static int nfnl_message_set_res_id(sd_netlink_message *m, uint16_t res_id) {
+static void nfnl_message_set_res_id(sd_netlink_message *m, uint16_t res_id) {
         struct nfgenmsg *nfgen;
 
         assert(m);
@@ -55,7 +55,6 @@ static int nfnl_message_set_res_id(sd_netlink_message *m, uint16_t res_id) {
         nfgen = NLMSG_DATA(m->hdr);
         nfgen->res_id = htobe16(res_id);
 
-        return 0;
 }
 
 static int nfnl_message_get_subsys(sd_netlink_message *m, uint16_t *ret) {
@@ -85,9 +84,7 @@ static int nfnl_message_new_batch(sd_netlink *nfnl, sd_netlink_message **ret, ui
         if (r < 0)
                 return r;
 
-        r = nfnl_message_set_res_id(m, subsys);
-        if (r < 0)
-                return r;
+        nfnl_message_set_res_id(m, subsys);
 
         *ret = TAKE_PTR(m);
         return 0;

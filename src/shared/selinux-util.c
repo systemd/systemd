@@ -313,12 +313,11 @@ int mac_selinux_init_lazy(void) {
 }
 
 #if HAVE_SELINUX
-static int mac_selinux_reload(int seqno) {
+static void mac_selinux_reload(int seqno) {
         log_debug("SELinux reload %d", seqno);
 
         (void) open_label_db();
 
-        return 0;
 }
 #endif
 

@@ -2375,7 +2375,7 @@ _public_ int sd_bus_message_append_strv(sd_bus_message *m, char **l) {
         return sd_bus_message_close_container(m);
 }
 
-static int bus_message_close_header(sd_bus_message *m) {
+static void bus_message_close_header(sd_bus_message *m) {
         assert(m);
 
         /* The actual user data is finished now, we just complete the variant and struct now. Remember
@@ -2385,7 +2385,6 @@ static int bus_message_close_header(sd_bus_message *m) {
         m->header->fields_size = m->fields_size;
         m->header->body_size = m->body_size;
 
-        return 0;
 }
 
 _public_ int sd_bus_message_seal(sd_bus_message *m, uint64_t cookie, uint64_t timeout_usec) {
@@ -2428,9 +2427,7 @@ _public_ int sd_bus_message_seal(sd_bus_message *m, uint64_t cookie, uint64_t ti
                         return r;
         }
 
-        r = bus_message_close_header(m);
-        if (r < 0)
-                return r;
+        bus_message_close_header(m);
 
         m->header->serial = (uint32_t) cookie;
 

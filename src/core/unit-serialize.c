@@ -23,11 +23,11 @@
 /* Make sure out values fit in the bitfield. */
 assert_cc(_UNIT_MARKER_MAX <= sizeof(((Unit){}).markers) * 8);
 
-static int serialize_markers(FILE *f, unsigned markers) {
+static void serialize_markers(FILE *f, unsigned markers) {
         assert(f);
 
         if (markers == 0)
-                return 0;
+                return;
 
         bool space = false;
 
@@ -35,7 +35,6 @@ static int serialize_markers(FILE *f, unsigned markers) {
         BIT_FOREACH(m, markers)
                 fputs_with_separator(f, unit_marker_to_string(m), /* separator= */ NULL, &space);
         fputc('\n', f);
-        return 0;
 }
 
 static int deserialize_markers(Unit *u, const char *value) {
@@ -128,7 +127,7 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
 
         (void) serialize_item(f, "freezer-state", freezer_state_to_string(u->freezer_state));
 
-        (void) serialize_markers(f, u->markers);
+        serialize_markers(f, u->markers);
 
         bus_track_serialize(u->bus_track, f, "ref");
 

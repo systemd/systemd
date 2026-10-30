@@ -128,7 +128,7 @@ static int context_read_efi(Context *c) {
         return 0;
 }
 
-static int context_read_creds(Context *c) {
+static void context_read_creds(Context *c) {
         _cleanup_(context_done) Context v = CONTEXT_NULL;
         _cleanup_free_ char *font_scale = NULL;
         int r;
@@ -154,7 +154,6 @@ static int context_read_creds(Context *c) {
         }
 
         context_merge_config(c, &v, NULL);
-        return 0;
 }
 
 static int context_read_env(Context *c) {
@@ -234,7 +233,7 @@ static void context_load_config(Context *c) {
         (void) context_read_efi(c);
 
         /* Load data from credentials */
-        (void) context_read_creds(c);
+        context_read_creds(c);
 
         /* Load data from configuration file */
         (void) context_read_env(c);
