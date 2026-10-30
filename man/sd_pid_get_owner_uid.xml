@@ -349,10 +349,10 @@
     <function>sd_peer_get_user_slice()</function>,
     <function>sd_peer_get_cgroup()</function>,
     <function>sd_peer_get_unit_cgroup()</function>, and
-    <function>sd_peer_get_user_unit_cgroup()</function> calls operate similarly to their PID counterparts, but
-    accept a connected <constant>AF_UNIX</constant> socket and retrieve information about the connected peer
-    process. Note that these fields are retrieved via <filename>/proc/</filename>, and hence are not suitable for
-    authorization purposes, as they are subject to races.</para>
+    <function>sd_peer_get_user_unit_cgroup()</function> calls operate similarly to their PIDFD counterparts,
+    but accept a connected <constant>AF_UNIX</constant> socket and retrieve information about the connected
+    peer process. On kernels that support <constant>PIDFD</constant>, these calls are not subject to recycle
+    race conditions.</para>
   </refsect1>
 
   <refsect1>
