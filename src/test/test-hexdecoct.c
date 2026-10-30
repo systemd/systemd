@@ -7,67 +7,67 @@
 #include "tests.h"
 
 TEST(hexchar) {
-        assert_se(hexchar(0xa) == 'a');
-        assert_se(hexchar(0x0) == '0');
+        ASSERT_EQ(hexchar(0xa), 'a');
+        ASSERT_EQ(hexchar(0x0), '0');
 }
 
 TEST(unhexchar) {
-        assert_se(unhexchar('a') == 0xA);
-        assert_se(unhexchar('A') == 0xA);
-        assert_se(unhexchar('0') == 0x0);
+        ASSERT_OK_EQ(unhexchar('a'), 0xA);
+        ASSERT_OK_EQ(unhexchar('A'), 0xA);
+        ASSERT_OK_EQ(unhexchar('0'), 0);
 }
 
 TEST(base32hexchar) {
-        assert_se(base32hexchar(0) == '0');
-        assert_se(base32hexchar(9) == '9');
-        assert_se(base32hexchar(10) == 'A');
-        assert_se(base32hexchar(31) == 'V');
+        ASSERT_EQ(base32hexchar(0), '0');
+        ASSERT_EQ(base32hexchar(9), '9');
+        ASSERT_EQ(base32hexchar(10), 'A');
+        ASSERT_EQ(base32hexchar(31), 'V');
 }
 
 TEST(unbase32hexchar) {
-        assert_se(unbase32hexchar('0') == 0);
-        assert_se(unbase32hexchar('9') == 9);
-        assert_se(unbase32hexchar('A') == 10);
-        assert_se(unbase32hexchar('V') == 31);
-        assert_se(unbase32hexchar('=') == -EINVAL);
+        ASSERT_OK_EQ(unbase32hexchar('0'), 0);
+        ASSERT_OK_EQ(unbase32hexchar('9'), 9);
+        ASSERT_OK_EQ(unbase32hexchar('A'), 10);
+        ASSERT_OK_EQ(unbase32hexchar('V'), 31);
+        ASSERT_ERROR(unbase32hexchar('='), EINVAL);
 }
 
 TEST(base64char) {
-        assert_se(base64char(0) == 'A');
-        assert_se(base64char(26) == 'a');
-        assert_se(base64char(63) == '/');
+        ASSERT_EQ(base64char(0), 'A');
+        ASSERT_EQ(base64char(26), 'a');
+        ASSERT_EQ(base64char(63), '/');
 }
 
 TEST(unbase64char) {
-        assert_se(unbase64char('A') == 0);
-        assert_se(unbase64char('Z') == 25);
-        assert_se(unbase64char('a') == 26);
-        assert_se(unbase64char('z') == 51);
-        assert_se(unbase64char('0') == 52);
-        assert_se(unbase64char('9') == 61);
-        assert_se(unbase64char('+') == 62);
-        assert_se(unbase64char('/') == 63);
-        assert_se(unbase64char('=') == -EINVAL);
+        ASSERT_OK_EQ(unbase64char('A'), 0);
+        ASSERT_OK_EQ(unbase64char('Z'), 25);
+        ASSERT_OK_EQ(unbase64char('a'), 26);
+        ASSERT_OK_EQ(unbase64char('z'), 51);
+        ASSERT_OK_EQ(unbase64char('0'), 52);
+        ASSERT_OK_EQ(unbase64char('9'), 61);
+        ASSERT_OK_EQ(unbase64char('+'), 62);
+        ASSERT_OK_EQ(unbase64char('/'), 63);
+        ASSERT_ERROR(unbase64char('='), EINVAL);
 }
 
 TEST(octchar) {
-        assert_se(octchar(00) == '0');
-        assert_se(octchar(07) == '7');
+        ASSERT_EQ(octchar(00), '0');
+        ASSERT_EQ(octchar(07), '7');
 }
 
 TEST(unoctchar) {
-        assert_se(unoctchar('0') == 00);
-        assert_se(unoctchar('7') == 07);
+        ASSERT_OK_EQ(unoctchar('0'), 0);
+        ASSERT_OK_EQ(unoctchar('7'), 07);
 }
 
 TEST(decchar) {
-        assert_se(decchar(0) == '0');
-        assert_se(decchar(9) == '9');
+        ASSERT_EQ(decchar(0), '0');
+        ASSERT_EQ(decchar(9), '9');
 }
 
 TEST(undecchar) {
-        assert_se(undecchar('0') == 0);
-        assert_se(undecchar('9') == 9);
+        ASSERT_OK_EQ(undecchar('0'), 0);
+        ASSERT_OK_EQ(undecchar('9'), 9);
 }
 
 static void test_hexmem_one(const char *in, const char *expected) {
@@ -75,12 +75,12 @@ static void test_hexmem_one(const char *in, const char *expected) {
         _cleanup_free_ void *mem = NULL;
         size_t len;
 
-        assert_se(result = hexmem(in, strlen_ptr(in)));
+        ASSERT_NOT_NULL(result = hexmem(in, strlen_ptr(in)));
         log_debug("hexmem(\"%s\") → \"%s\" (expected: \"%s\")", strnull(in), result, expected);
         ASSERT_STREQ(result, expected);
 
-        assert_se(unhexmem(result, &mem, &len) >= 0);
-        assert_se(memcmp_safe(mem, in, len) == 0);
+        ASSERT_OK(unhexmem(result, &mem, &len));
+        ASSERT_EQ(memcmp_safe(mem, in, len), 0);
 }
 
 TEST(hexmem) {
@@ -94,14 +94,14 @@ static void test_unhexmem_one(const char *s, size_t l, int retval) {
         _cleanup_free_ void *mem = NULL;
         size_t len;
 
-        assert_se(unhexmem_full(s, l, /* secure= */ false, &mem, &len) == retval);
+        ASSERT_EQ(unhexmem_full(s, l, /* secure= */ false, &mem, &len), retval);
         if (retval == 0) {
                 char *answer;
 
                 if (l == SIZE_MAX)
                         l = strlen(s);
 
-                assert_se(hex = hexmem(mem, len));
+                ASSERT_NOT_NULL(hex = hexmem(mem, len));
                 answer = strndupa_safe(strempty(s), l);
                 ASSERT_STREQ(delete_chars(answer, WHITESPACE), hex);
         }
@@ -129,73 +129,59 @@ TEST(unhexmem) {
 TEST(base32hexmem) {
         char *b32;
 
-        b32 = base32hexmem("", STRLEN(""), /* padding= */ true);
-        assert_se(b32);
+        b32 = ASSERT_NOT_NULL(base32hexmem("", STRLEN(""), /* padding= */ true));
         ASSERT_STREQ(b32, "");
         free(b32);
 
-        b32 = base32hexmem("f", STRLEN("f"), /* padding= */ true);
-        assert_se(b32);
+        b32 = ASSERT_NOT_NULL(base32hexmem("f", STRLEN("f"), /* padding= */ true));
         ASSERT_STREQ(b32, "CO======");
         free(b32);
 
-        b32 = base32hexmem("fo", STRLEN("fo"), /* padding= */ true);
-        assert_se(b32);
+        b32 = ASSERT_NOT_NULL(base32hexmem("fo", STRLEN("fo"), /* padding= */ true));
         ASSERT_STREQ(b32, "CPNG====");
         free(b32);
 
-        b32 = base32hexmem("foo", STRLEN("foo"), /* padding= */ true);
-        assert_se(b32);
+        b32 = ASSERT_NOT_NULL(base32hexmem("foo", STRLEN("foo"), /* padding= */ true));
         ASSERT_STREQ(b32, "CPNMU===");
         free(b32);
 
-        b32 = base32hexmem("foob", STRLEN("foob"), /* padding= */ true);
-        assert_se(b32);
+        b32 = ASSERT_NOT_NULL(base32hexmem("foob", STRLEN("foob"), /* padding= */ true));
         ASSERT_STREQ(b32, "CPNMUOG=");
         free(b32);
 
-        b32 = base32hexmem("fooba", STRLEN("fooba"), /* padding= */ true);
-        assert_se(b32);
+        b32 = ASSERT_NOT_NULL(base32hexmem("fooba", STRLEN("fooba"), /* padding= */ true));
         ASSERT_STREQ(b32, "CPNMUOJ1");
         free(b32);
 
-        b32 = base32hexmem("foobar", STRLEN("foobar"), /* padding= */ true);
-        assert_se(b32);
+        b32 = ASSERT_NOT_NULL(base32hexmem("foobar", STRLEN("foobar"), /* padding= */ true));
         ASSERT_STREQ(b32, "CPNMUOJ1E8======");
         free(b32);
 
-        b32 = base32hexmem("", STRLEN(""), /* padding= */ false);
-        assert_se(b32);
+        b32 = ASSERT_NOT_NULL(base32hexmem("", STRLEN(""), /* padding= */ false));
         ASSERT_STREQ(b32, "");
         free(b32);
 
-        b32 = base32hexmem("f", STRLEN("f"), /* padding= */ false);
-        assert_se(b32);
+        b32 = ASSERT_NOT_NULL(base32hexmem("f", STRLEN("f"), /* padding= */ false));
         ASSERT_STREQ(b32, "CO");
         free(b32);
 
-        b32 = base32hexmem("fo", STRLEN("fo"), /* padding= */ false);
-        assert_se(b32);
+        b32 = ASSERT_NOT_NULL(base32hexmem("fo", STRLEN("fo"), /* padding= */ false));
         ASSERT_STREQ(b32, "CPNG");
         free(b32);
 
-        b32 = base32hexmem("foo", STRLEN("foo"), /* padding= */ false);
-        assert_se(b32);
+        b32 = ASSERT_NOT_NULL(base32hexmem("foo", STRLEN("foo"), /* padding= */ false));
         ASSERT_STREQ(b32, "CPNMU");
         free(b32);
 
-        b32 = base32hexmem("foob", STRLEN("foob"), /* padding= */ false);
-        assert_se(b32);
+        b32 = ASSERT_NOT_NULL(base32hexmem("foob", STRLEN("foob"), /* padding= */ false));
         ASSERT_STREQ(b32, "CPNMUOG");
         free(b32);
 
-        b32 = base32hexmem("fooba", STRLEN("fooba"), /* padding= */ false);
-        assert_se(b32);
+        b32 = ASSERT_NOT_NULL(base32hexmem("fooba", STRLEN("fooba"), /* padding= */ false));
         ASSERT_STREQ(b32, "CPNMUOJ1");
         free(b32);
 
-        b32 = base32hexmem("foobar", STRLEN("foobar"), /* padding= */ false);
-        assert_se(b32);
+        b32 = ASSERT_NOT_NULL(base32hexmem("foobar", STRLEN("foobar"), /* padding= */ false));
         ASSERT_STREQ(b32, "CPNMUOJ1E8");
         free(b32);
 }
@@ -204,7 +190,7 @@ static void test_unbase32hexmem_one(const char *hex, bool padding, int retval, c
         _cleanup_free_ void *mem = NULL;
         size_t len;
 
-        assert_se(unbase32hexmem(hex, SIZE_MAX, padding, &mem, &len) == retval);
+        ASSERT_EQ(unbase32hexmem(hex, SIZE_MAX, padding, &mem, &len), retval);
         if (retval == 0) {
                 char *str;
 
@@ -264,31 +250,31 @@ TEST(unbase32hexmem) {
 TEST(base64mem) {
         char *b64;
 
-        assert_se(base64mem("", STRLEN(""), &b64) == 0);
+        ASSERT_OK_EQ(base64mem("", STRLEN(""), &b64), 0);
         ASSERT_STREQ(b64, "");
         free(b64);
 
-        assert_se(base64mem("f", STRLEN("f"), &b64) == 4);
+        ASSERT_OK_EQ(base64mem("f", STRLEN("f"), &b64), 4);
         ASSERT_STREQ(b64, "Zg==");
         free(b64);
 
-        assert_se(base64mem("fo", STRLEN("fo"), &b64) == 4);
+        ASSERT_OK_EQ(base64mem("fo", STRLEN("fo"), &b64), 4);
         ASSERT_STREQ(b64, "Zm8=");
         free(b64);
 
-        assert_se(base64mem("foo", STRLEN("foo"), &b64) == 4);
+        ASSERT_OK_EQ(base64mem("foo", STRLEN("foo"), &b64), 4);
         ASSERT_STREQ(b64, "Zm9v");
         free(b64);
 
-        assert_se(base64mem("foob", STRLEN("foob"), &b64) == 8);
+        ASSERT_OK_EQ(base64mem("foob", STRLEN("foob"), &b64), 8);
         ASSERT_STREQ(b64, "Zm9vYg==");
         free(b64);
 
-        assert_se(base64mem("fooba", STRLEN("fooba"), &b64) == 8);
+        ASSERT_OK_EQ(base64mem("fooba", STRLEN("fooba"), &b64), 8);
         ASSERT_STREQ(b64, "Zm9vYmE=");
         free(b64);
 
-        assert_se(base64mem("foobar", STRLEN("foobar"), &b64) == 8);
+        ASSERT_OK_EQ(base64mem("foobar", STRLEN("foobar"), &b64), 8);
         ASSERT_STREQ(b64, "Zm9vYmFy");
         free(b64);
 }
@@ -310,34 +296,32 @@ TEST(base64mem_linebreak) {
                 /* Break at various different columns */
                 m = 1 + random_u64_range(n + 5);
 
-                l = base64mem_full(data, n, m, &encoded);
-                assert_se(l >= 0);
-                assert_se(encoded);
-                assert_se((size_t) l == strlen(encoded));
+                l = ASSERT_OK(base64mem_full(data, n, m, &encoded));
+                ASSERT_NOT_NULL(encoded);
+                ASSERT_EQ((size_t) l, strlen(encoded));
 
-                assert_se(unbase64mem(encoded, &decoded, &decoded_size) >= 0);
-                assert_se(decoded_size == n);
-                assert_se(memcmp(data, decoded, n) == 0);
+                ASSERT_OK(unbase64mem(encoded, &decoded, &decoded_size));
+                ASSERT_EQ(decoded_size, n);
+                ASSERT_EQ(memcmp(data, decoded, n), 0);
 
                 /* Also try in secure mode */
                 decoded = mfree(decoded);
                 decoded_size = 0;
-                assert_se(unbase64mem_full(encoded, SIZE_MAX, /* secure= */ true, &decoded, &decoded_size) >= 0);
-                assert_se(decoded_size == n);
-                assert_se(memcmp(data, decoded, n) == 0);
+                ASSERT_OK(unbase64mem_full(encoded, SIZE_MAX, /* secure= */ true, &decoded, &decoded_size));
+                ASSERT_EQ(decoded_size, n);
+                ASSERT_EQ(memcmp(data, decoded, n), 0);
 
                 for (size_t j = 0; j < (size_t) l; j++)
-                        assert_se((encoded[j] == '\n') == (j % (m + 1) == m));
+                        ASSERT_EQ(encoded[j] == '\n', j % (m + 1) == m);
         }
 }
 
 static void test_base64_append_one(char **buf, size_t *len, const char *in, const char *expected) {
         ssize_t new_len;
 
-        new_len = base64_append(buf, *len, in, strlen_ptr(in), 8, 12);
-        assert_se(new_len >= 0);
+        new_len = ASSERT_OK(base64_append(buf, *len, in, strlen_ptr(in), 8, 12));
         log_debug("base64_append_one(\"%s\")\nresult:\n%s\nexpected:\n%s", in, strnull(*buf), strnull(expected));
-        assert_se((size_t) new_len == strlen_ptr(*buf));
+        ASSERT_EQ((size_t) new_len, strlen_ptr(*buf));
         ASSERT_STREQ(*buf, expected);
         *len = new_len;
 }
@@ -376,7 +360,7 @@ TEST(base64_append) {
                                "        Zm9v\n"
                                "        YmFy");
 
-        assert_se(free_and_strdup(&buf, "hogehogehogehoge") >= 0);
+        ASSERT_OK(free_and_strdup(&buf, "hogehogehogehoge"));
         len = strlen(buf);
 
         test_base64_append_one(&buf, &len, "",
@@ -421,7 +405,7 @@ TEST(base64_append) {
                                "        Zm9v\n"
                                "        YmFy");
 
-        assert_se(free_and_strdup(&buf, "hogehogehogehoge") >= 0);
+        ASSERT_OK(free_and_strdup(&buf, "hogehogehogehoge"));
         len = strlen(buf);
 
         test_base64_append_one(&buf, &len, "foobarfoobarfoobarfoobar",
@@ -435,7 +419,7 @@ TEST(base64_append) {
                                "        Zm9v\n"
                                "        YmFy");
 
-        assert_se(free_and_strdup(&buf, "aaa") >= 0);
+        ASSERT_OK(free_and_strdup(&buf, "aaa"));
         len = strlen(buf);
 
         test_base64_append_one(&buf, &len, "foobarfoobarfoobarfoobar",
@@ -449,22 +433,22 @@ static void test_unbase64mem_one(const char *input, const char *output, int ret)
         _cleanup_free_ void *buffer = NULL;
         size_t size = 0;
 
-        assert_se(unbase64mem(input, &buffer, &size) == ret);
+        ASSERT_EQ(unbase64mem(input, &buffer, &size), ret);
         if (ret >= 0) {
-                assert_se(size == strlen(output));
-                assert_se(memcmp(buffer, output, size) == 0);
-                assert_se(((char*) buffer)[size] == 0);
+                ASSERT_EQ(size, strlen(output));
+                ASSERT_EQ(memcmp(buffer, output, size), 0);
+                ASSERT_EQ(((char*) buffer)[size], 0);
         }
 
         /* also try in secure mode */
         buffer = mfree(buffer);
         size = 0;
 
-        assert_se(unbase64mem_full(input, SIZE_MAX, /* secure= */ true, &buffer, &size) == ret);
+        ASSERT_EQ(unbase64mem_full(input, SIZE_MAX, /* secure= */ true, &buffer, &size), ret);
         if (ret >= 0) {
-                assert_se(size == strlen(output));
-                assert_se(memcmp(buffer, output, size) == 0);
-                assert_se(((char*) buffer)[size] == 0);
+                ASSERT_EQ(size, strlen(output));
+                ASSERT_EQ(memcmp(buffer, output, size), 0);
+                ASSERT_EQ(((char*) buffer)[size], 0);
         }
 }
 
@@ -534,13 +518,13 @@ TEST(base64withwithouturl) {
         size_t size;
 
         /* This is regular base64 */
-        assert_se(unbase64mem("zKFyIq7aZn4EpuCCmpcF9jPgD8JFE1g/xfT0Mas8X4M0WycyigRsQ4IH4yysufus0AORQsuk3oeGhRC7t1tLyKD0Ih0VcYedv5+p8e6itqrIwzecu98+rNyUVDhWBzS0PMwxEw==", &buffer, &size) >= 0);
-        assert_se(memcmp_nn(plaintext, sizeof(plaintext), buffer, size) == 0);
+        ASSERT_OK(unbase64mem("zKFyIq7aZn4EpuCCmpcF9jPgD8JFE1g/xfT0Mas8X4M0WycyigRsQ4IH4yysufus0AORQsuk3oeGhRC7t1tLyKD0Ih0VcYedv5+p8e6itqrIwzecu98+rNyUVDhWBzS0PMwxEw==", &buffer, &size));
+        ASSERT_EQ(memcmp_nn(plaintext, sizeof(plaintext), buffer, size), 0);
         buffer = mfree(buffer);
 
         /* This is the same but in base64url */
-        assert_se(unbase64mem("zKFyIq7aZn4EpuCCmpcF9jPgD8JFE1g_xfT0Mas8X4M0WycyigRsQ4IH4yysufus0AORQsuk3oeGhRC7t1tLyKD0Ih0VcYedv5-p8e6itqrIwzecu98-rNyUVDhWBzS0PMwxEw==", &buffer, &size) >= 0);
-        assert_se(memcmp_nn(plaintext, sizeof(plaintext), buffer, size) == 0);
+        ASSERT_OK(unbase64mem("zKFyIq7aZn4EpuCCmpcF9jPgD8JFE1g_xfT0Mas8X4M0WycyigRsQ4IH4yysufus0AORQsuk3oeGhRC7t1tLyKD0Ih0VcYedv5-p8e6itqrIwzecu98-rNyUVDhWBzS0PMwxEw==", &buffer, &size));
+        ASSERT_EQ(memcmp_nn(plaintext, sizeof(plaintext), buffer, size), 0);
 
         /* Hint: use xxd -i to generate the static C array from some data, and basenc --base64 + basenc
          * --base64url to generate the correctly encoded base64 strings */
