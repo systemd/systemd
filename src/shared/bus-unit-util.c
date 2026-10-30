@@ -2617,6 +2617,7 @@ static const BusProperty execute_properties[] = {
         { "TTYVHangup",                            bus_append_parse_boolean                      },
         { "TTYReset",                              bus_append_parse_boolean                      },
         { "TTYVTDisallocate",                      bus_append_parse_boolean                      },
+        { "TTYExitStatus",                         bus_append_parse_boolean                      },
         { "PrivateDevices",                        bus_append_parse_boolean                      },
         { "PrivateNetwork",                        bus_append_parse_boolean                      },
         { "PrivateMounts",                         bus_append_parse_boolean                      },
