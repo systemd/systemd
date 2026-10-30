@@ -87,16 +87,16 @@ static void router_dump(sd_ndisc_router *rt) {
         uint8_t preference;
         int r;
 
-        assert_se(rt);
+        ASSERT_NOT_NULL(rt);
 
         log_info("--");
-        assert_se(sd_ndisc_router_get_sender_address(rt, &addr) >= 0);
+        ASSERT_OK(sd_ndisc_router_get_sender_address(rt, &addr));
         log_info("Sender: %s", IN6_ADDR_TO_STRING(&addr));
 
-        assert_se(sd_ndisc_router_get_timestamp(rt, CLOCK_REALTIME, &t) >= 0);
+        ASSERT_OK(sd_ndisc_router_get_timestamp(rt, CLOCK_REALTIME, &t));
         log_info("Timestamp: %s", FORMAT_TIMESTAMP(t));
 
-        assert_se(sd_ndisc_router_get_timestamp(rt, CLOCK_MONOTONIC, &t) >= 0);
+        ASSERT_OK(sd_ndisc_router_get_timestamp(rt, CLOCK_MONOTONIC, &t));
         log_info("Monotonic: %" PRIu64, t);
 
         if (sd_ndisc_router_get_hop_limit(rt, &hop_limit) < 0)
@@ -104,22 +104,22 @@ static void router_dump(sd_ndisc_router *rt) {
         else
                 log_info("Hop limit: %u", hop_limit);
 
-        assert_se(sd_ndisc_router_get_flags(rt, &flags) >= 0);
+        ASSERT_OK(sd_ndisc_router_get_flags(rt, &flags));
         ASSERT_EQ(flags & UINT64_C(0x00ffffffffffff00), UINT64_C(0x0066554433221100));
         log_info("Flags: <%s|%s>",
                  flags & ND_RA_FLAG_OTHER ? "OTHER" : "",
                  flags & ND_RA_FLAG_MANAGED ? "MANAGED" : "");
 
-        assert_se(sd_ndisc_router_get_preference(rt, &preference) >= 0);
+        ASSERT_OK(sd_ndisc_router_get_preference(rt, &preference));
         log_info("Preference: %s",
                  preference == SD_NDISC_PREFERENCE_LOW ? "low" :
                  preference == SD_NDISC_PREFERENCE_HIGH ? "high" : "medium");
 
-        assert_se(sd_ndisc_router_get_lifetime(rt, &lifetime) >= 0);
-        assert_se(sd_ndisc_router_get_lifetime_timestamp(rt, CLOCK_REALTIME, &t) >= 0);
+        ASSERT_OK(sd_ndisc_router_get_lifetime(rt, &lifetime));
+        ASSERT_OK(sd_ndisc_router_get_lifetime_timestamp(rt, CLOCK_REALTIME, &t));
         log_info("Lifetime: %s (%s)", FORMAT_TIMESPAN(lifetime, USEC_PER_SEC), FORMAT_TIMESTAMP(t));
 
-        assert_se(sd_ndisc_router_get_retransmission_time(rt, &retrans_time) >= 0);
+        ASSERT_OK(sd_ndisc_router_get_retransmission_time(rt, &retrans_time));
         log_info("Retransmission Time: %s", FORMAT_TIMESPAN(retrans_time, USEC_PER_SEC));
 
         if (sd_ndisc_router_get_mtu(rt, &mtu) < 0)
@@ -131,12 +131,12 @@ static void router_dump(sd_ndisc_router *rt) {
         for (;;) {
                 uint8_t type;
 
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 if (r == 0)
                         break;
 
-                assert_se(sd_ndisc_router_option_get_type(rt, &type) >= 0);
+                ASSERT_OK(sd_ndisc_router_option_get_type(rt, &type));
 
                 log_info(">> Option %u", type);
 
@@ -148,9 +148,9 @@ static void router_dump(sd_ndisc_router *rt) {
                         const uint8_t *p;
                         size_t n;
 
-                        assert_se(sd_ndisc_router_option_get_raw(rt, &p, &n) >= 0);
-                        assert_se(n > 2);
-                        assert_se(c = hexmem(p + 2, n - 2));
+                        ASSERT_OK(sd_ndisc_router_option_get_raw(rt, &p, &n));
+                        ASSERT_GT(n, 2U);
+                        ASSERT_NOT_NULL(c = hexmem(p + 2, n - 2));
 
                         log_info("Address: %s", c);
                         break;
@@ -160,23 +160,23 @@ static void router_dump(sd_ndisc_router *rt) {
                         uint8_t prefix_len, pfl;
                         struct in6_addr a;
 
-                        assert_se(sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime) >= 0);
-                        assert_se(sd_ndisc_router_prefix_get_valid_lifetime_timestamp(rt, CLOCK_REALTIME, &t) >= 0);
+                        ASSERT_OK(sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime));
+                        ASSERT_OK(sd_ndisc_router_prefix_get_valid_lifetime_timestamp(rt, CLOCK_REALTIME, &t));
                         log_info("Valid Lifetime: %s (%s)", FORMAT_TIMESPAN(lifetime, USEC_PER_SEC), FORMAT_TIMESTAMP(t));
 
-                        assert_se(sd_ndisc_router_prefix_get_preferred_lifetime(rt, &lifetime) >= 0);
-                        assert_se(sd_ndisc_router_prefix_get_preferred_lifetime_timestamp(rt, CLOCK_REALTIME, &t) >= 0);
+                        ASSERT_OK(sd_ndisc_router_prefix_get_preferred_lifetime(rt, &lifetime));
+                        ASSERT_OK(sd_ndisc_router_prefix_get_preferred_lifetime_timestamp(rt, CLOCK_REALTIME, &t));
                         log_info("Preferred Lifetime: %s (%s)", FORMAT_TIMESPAN(lifetime, USEC_PER_SEC), FORMAT_TIMESTAMP(t));
 
-                        assert_se(sd_ndisc_router_prefix_get_flags(rt, &pfl) >= 0);
+                        ASSERT_OK(sd_ndisc_router_prefix_get_flags(rt, &pfl));
                         log_info("Flags: <%s|%s>",
                                  pfl & ND_OPT_PI_FLAG_ONLINK ? "ONLINK" : "",
                                  pfl & ND_OPT_PI_FLAG_AUTO ? "AUTO" : "");
 
-                        assert_se(sd_ndisc_router_prefix_get_prefixlen(rt, &prefix_len) >= 0);
+                        ASSERT_OK(sd_ndisc_router_prefix_get_prefixlen(rt, &prefix_len));
                         log_info("Prefix Length: %u", prefix_len);
 
-                        assert_se(sd_ndisc_router_prefix_get_address(rt, &a) >= 0);
+                        ASSERT_OK(sd_ndisc_router_prefix_get_address(rt, &a));
                         log_info("Prefix: %s", IN6_ADDR_TO_STRING(&a));
 
                         break;
@@ -186,14 +186,13 @@ static void router_dump(sd_ndisc_router *rt) {
                         const struct in6_addr *a;
                         int n, i;
 
-                        n = sd_ndisc_router_rdnss_get_addresses(rt, &a);
-                        assert_se(n > 0);
+                        n = ASSERT_OK_POSITIVE(sd_ndisc_router_rdnss_get_addresses(rt, &a));
 
                         for (i = 0; i < n; i++)
                                 log_info("DNS: %s", IN6_ADDR_TO_STRING(a + i));
 
-                        assert_se(sd_ndisc_router_rdnss_get_lifetime(rt, &lifetime) >= 0);
-                        assert_se(sd_ndisc_router_rdnss_get_lifetime_timestamp(rt, CLOCK_REALTIME, &t) >= 0);
+                        ASSERT_OK(sd_ndisc_router_rdnss_get_lifetime(rt, &lifetime));
+                        ASSERT_OK(sd_ndisc_router_rdnss_get_lifetime_timestamp(rt, CLOCK_REALTIME, &t));
                         log_info("Lifetime: %s (%s)", FORMAT_TIMESPAN(lifetime, USEC_PER_SEC), FORMAT_TIMESTAMP(t));
                         break;
                 }
@@ -201,13 +200,13 @@ static void router_dump(sd_ndisc_router *rt) {
                 case SD_NDISC_OPTION_DNSSL: {
                         char **l;
 
-                        assert_se(sd_ndisc_router_dnssl_get_domains(rt, &l) >= 0);
+                        ASSERT_OK(sd_ndisc_router_dnssl_get_domains(rt, &l));
 
                         STRV_FOREACH(s, l)
                                 log_info("Domain: %s", *s);
 
-                        assert_se(sd_ndisc_router_dnssl_get_lifetime(rt, &lifetime) >= 0);
-                        assert_se(sd_ndisc_router_dnssl_get_lifetime_timestamp(rt, CLOCK_REALTIME, &t) >= 0);
+                        ASSERT_OK(sd_ndisc_router_dnssl_get_lifetime(rt, &lifetime));
+                        ASSERT_OK(sd_ndisc_router_dnssl_get_lifetime_timestamp(rt, CLOCK_REALTIME, &t));
                         log_info("Lifetime: %s (%s)", FORMAT_TIMESPAN(lifetime, USEC_PER_SEC), FORMAT_TIMESTAMP(t));
                         break;
                 }}
@@ -242,8 +241,8 @@ static int send_ra(uint8_t flags) {
 
         advertisement[5] = flags;
 
-        assert_se(write(test_fd[1], advertisement, sizeof(advertisement)) ==
-                  sizeof(advertisement));
+        ASSERT_OK_EQ_ERRNO(write(test_fd[1], advertisement, sizeof(advertisement)),
+                           (ssize_t) sizeof(advertisement));
 
         log_debug("%s: Sent RA with flag 0x%02x", __func__, flags);
 
@@ -262,7 +261,7 @@ static void test_callback_ra(sd_ndisc *nd, sd_ndisc_event_t event, void *message
         };
         uint64_t flags;
 
-        assert_se(nd);
+        ASSERT_NOT_NULL(nd);
 
         if (event != SD_NDISC_EVENT_ROUTER)
                 return;
@@ -271,7 +270,7 @@ static void test_callback_ra(sd_ndisc *nd, sd_ndisc_event_t event, void *message
 
         router_dump(rt);
 
-        assert_se(sd_ndisc_router_get_flags(rt, &flags) >= 0);
+        ASSERT_OK(sd_ndisc_router_get_flags(rt, &flags));
         ASSERT_EQ(flags & 0xff, flags_array[idx]);
         idx++;
 
@@ -309,7 +308,7 @@ static int on_recv_rs_exit(sd_event_source *s, int fd, uint32_t revents, void *u
 
 static int on_recv_rs(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
-        assert_se(icmp6_packet_receive(fd, &packet) >= 0);
+        ASSERT_OK(icmp6_packet_receive(fd, &packet));
 
         return send_ra(/* flags= */ 0);
 }
@@ -319,19 +318,19 @@ TEST(rs_ifindex_mismatch) {
         _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
         unsigned count = 0;
 
-        assert_se(sd_event_new(&e) >= 0);
-        assert_se(sd_ndisc_new(&nd) >= 0);
-        assert_se(sd_ndisc_attach_event(nd, e, /* priority= */ 0) >= 0);
-        assert_se(sd_ndisc_set_ifindex(nd, 42) >= 0);
-        assert_se(sd_ndisc_set_callback(nd, test_callback_count, &count) >= 0);
-        assert_se(sd_ndisc_start(nd) >= 0);
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_ndisc_new(&nd));
+        ASSERT_OK(sd_ndisc_attach_event(nd, e, /* priority= */ 0));
+        ASSERT_OK(sd_ndisc_set_ifindex(nd, 42));
+        ASSERT_OK(sd_ndisc_set_callback(nd, test_callback_count, &count));
+        ASSERT_OK(sd_ndisc_start(nd));
 
         test_ifindex = 43;
         send_ra(/* flags= */ 0);
-        assert_se(sd_event_run(e, UINT64_MAX) >= 0);
-        assert_se(count == 0);
+        ASSERT_OK(sd_event_run(e, UINT64_MAX));
+        ASSERT_EQ(count, 0U);
 
-        assert_se(sd_ndisc_stop(nd) >= 0);
+        ASSERT_OK(sd_ndisc_stop(nd));
         test_fd[1] = safe_close(test_fd[1]);
 }
 
@@ -373,33 +372,33 @@ TEST(rs) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
 
-        assert_se(sd_event_new(&e) >= 0);
+        ASSERT_OK(sd_event_new(&e));
 
-        assert_se(sd_ndisc_new(&nd) >= 0);
-        assert_se(nd);
+        ASSERT_OK(sd_ndisc_new(&nd));
+        ASSERT_NOT_NULL(nd);
 
-        assert_se(sd_ndisc_attach_event(nd, e, /* priority= */ 0) >= 0);
+        ASSERT_OK(sd_ndisc_attach_event(nd, e, /* priority= */ 0));
 
-        assert_se(sd_ndisc_set_ifindex(nd, 42) >= 0);
-        assert_se(sd_ndisc_set_mac(nd, &mac_addr) >= 0);
-        assert_se(sd_ndisc_set_callback(nd, test_callback_ra, e) >= 0);
+        ASSERT_OK(sd_ndisc_set_ifindex(nd, 42));
+        ASSERT_OK(sd_ndisc_set_mac(nd, &mac_addr));
+        ASSERT_OK(sd_ndisc_set_callback(nd, test_callback_ra, e));
 
-        assert_se(sd_event_add_time_relative(e, /* ret= */ NULL, CLOCK_BOOTTIME,
+        ASSERT_OK(sd_event_add_time_relative(e, /* ret= */ NULL, CLOCK_BOOTTIME,
                                              30 * USEC_PER_SEC, /* accuracy= */ 0,
-                                             /* callback= */ NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
+                                             /* callback= */ NULL, INT_TO_PTR(-ETIMEDOUT)));
 
-        assert_se(sd_ndisc_stop(nd) >= 0);
-        assert_se(sd_ndisc_start(nd) >= 0);
-        assert_se(sd_ndisc_start(nd) >= 0);
-        assert_se(sd_ndisc_stop(nd) >= 0);
+        ASSERT_OK(sd_ndisc_stop(nd));
+        ASSERT_OK(sd_ndisc_start(nd));
+        ASSERT_OK(sd_ndisc_start(nd));
+        ASSERT_OK(sd_ndisc_stop(nd));
         test_fd[1] = safe_close(test_fd[1]);
 
-        assert_se(sd_ndisc_start(nd) >= 0);
+        ASSERT_OK(sd_ndisc_start(nd));
 
-        assert_se(sd_event_add_io(e, &s, test_fd[1], EPOLLIN, on_recv_rs, nd) >= 0);
-        assert_se(sd_event_source_set_io_fd_own(s, /* own= */ true) >= 0);
+        ASSERT_OK(sd_event_add_io(e, &s, test_fd[1], EPOLLIN, on_recv_rs, nd));
+        ASSERT_OK(sd_event_source_set_io_fd_own(s, /* own= */ true));
 
-        assert_se(sd_event_loop(e) >= 0);
+        ASSERT_OK(sd_event_loop(e));
 
         test_fd[1] = -EBADF;
 }
@@ -441,8 +440,8 @@ static int send_ra_invalid_domain(uint8_t flags) {
 
         advertisement[5] = flags;
 
-        assert_se(write(test_fd[1], advertisement, sizeof(advertisement)) ==
-                  sizeof(advertisement));
+        ASSERT_OK_EQ_ERRNO(write(test_fd[1], advertisement, sizeof(advertisement)),
+                           (ssize_t) sizeof(advertisement));
 
         log_debug("%s: Sent RA with flag 0x%02x", __func__, flags);
 
@@ -451,7 +450,7 @@ static int send_ra_invalid_domain(uint8_t flags) {
 
 static int on_recv_rs_invalid_domain(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
-        assert_se(icmp6_packet_receive(fd, &packet) >= 0);
+        ASSERT_OK(icmp6_packet_receive(fd, &packet));
 
         return send_ra_invalid_domain(/* flags= */ 0);
 }
@@ -461,27 +460,27 @@ TEST(invalid_domain) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
 
-        assert_se(sd_event_new(&e) >= 0);
+        ASSERT_OK(sd_event_new(&e));
 
-        assert_se(sd_ndisc_new(&nd) >= 0);
-        assert_se(nd);
+        ASSERT_OK(sd_ndisc_new(&nd));
+        ASSERT_NOT_NULL(nd);
 
-        assert_se(sd_ndisc_attach_event(nd, e, /* priority= */ 0) >= 0);
+        ASSERT_OK(sd_ndisc_attach_event(nd, e, /* priority= */ 0));
 
-        assert_se(sd_ndisc_set_ifindex(nd, 42) >= 0);
-        assert_se(sd_ndisc_set_mac(nd, &mac_addr) >= 0);
-        assert_se(sd_ndisc_set_callback(nd, test_callback_ra, e) >= 0);
+        ASSERT_OK(sd_ndisc_set_ifindex(nd, 42));
+        ASSERT_OK(sd_ndisc_set_mac(nd, &mac_addr));
+        ASSERT_OK(sd_ndisc_set_callback(nd, test_callback_ra, e));
 
-        assert_se(sd_event_add_time_relative(e, /* ret= */ NULL, CLOCK_BOOTTIME,
+        ASSERT_OK(sd_event_add_time_relative(e, /* ret= */ NULL, CLOCK_BOOTTIME,
                                              30 * USEC_PER_SEC, /* accuracy= */ 0,
-                                             /* callback= */ NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
+                                             /* callback= */ NULL, INT_TO_PTR(-ETIMEDOUT)));
 
-        assert_se(sd_ndisc_start(nd) >= 0);
+        ASSERT_OK(sd_ndisc_start(nd));
 
-        assert_se(sd_event_add_io(e, &s, test_fd[1], EPOLLIN, on_recv_rs_invalid_domain, nd) >= 0);
-        assert_se(sd_event_source_set_io_fd_own(s, /* own= */ true) >= 0);
+        ASSERT_OK(sd_event_add_io(e, &s, test_fd[1], EPOLLIN, on_recv_rs_invalid_domain, nd));
+        ASSERT_OK(sd_event_source_set_io_fd_own(s, /* own= */ true));
 
-        assert_se(sd_event_loop(e) >= 0);
+        ASSERT_OK(sd_event_loop(e));
 
         test_fd[1] = -EBADF;
 }
@@ -490,21 +489,21 @@ static void neighbor_dump(sd_ndisc_neighbor *na) {
         struct in6_addr addr;
         uint32_t flags;
 
-        assert_se(na);
+        ASSERT_NOT_NULL(na);
 
         log_info("--");
-        assert_se(sd_ndisc_neighbor_get_sender_address(na, &addr) >= 0);
+        ASSERT_OK(sd_ndisc_neighbor_get_sender_address(na, &addr));
         log_info("Sender: %s", IN6_ADDR_TO_STRING(&addr));
 
-        assert_se(sd_ndisc_neighbor_get_flags(na, &flags) >= 0);
+        ASSERT_OK(sd_ndisc_neighbor_get_flags(na, &flags));
         log_info("Flags: Router:%s, Solicited:%s, Override: %s",
                  yes_no(flags & ND_NA_FLAG_ROUTER),
                  yes_no(flags & ND_NA_FLAG_SOLICITED),
                  yes_no(flags & ND_NA_FLAG_OVERRIDE));
 
-        assert_se(sd_ndisc_neighbor_is_router(na) == FLAGS_SET(flags, ND_NA_FLAG_ROUTER));
-        assert_se(sd_ndisc_neighbor_is_solicited(na) == FLAGS_SET(flags, ND_NA_FLAG_SOLICITED));
-        assert_se(sd_ndisc_neighbor_is_override(na) == FLAGS_SET(flags, ND_NA_FLAG_OVERRIDE));
+        ASSERT_EQ(sd_ndisc_neighbor_is_router(na), FLAGS_SET(flags, ND_NA_FLAG_ROUTER));
+        ASSERT_EQ(sd_ndisc_neighbor_is_solicited(na), FLAGS_SET(flags, ND_NA_FLAG_SOLICITED));
+        ASSERT_EQ(sd_ndisc_neighbor_is_override(na), FLAGS_SET(flags, ND_NA_FLAG_OVERRIDE));
 }
 
 static int send_na(uint32_t flags) {
@@ -519,7 +518,8 @@ static int send_na(uint32_t flags) {
 
         ((struct nd_neighbor_advert*) advertisement)->nd_na_flags_reserved = flags;
 
-        assert_se(write(test_fd[1], advertisement, sizeof(advertisement)) == sizeof(advertisement));
+        ASSERT_OK_EQ_ERRNO(write(test_fd[1], advertisement, sizeof(advertisement)),
+                           (ssize_t) sizeof(advertisement));
 
         log_debug("%s: Sent NA with flag 0x%02x", __func__, flags);
 
@@ -538,7 +538,7 @@ static void test_callback_na(sd_ndisc *nd, sd_ndisc_event_t event, void *message
         };
         uint32_t flags;
 
-        assert_se(nd);
+        ASSERT_NOT_NULL(nd);
 
         if (event != SD_NDISC_EVENT_NEIGHBOR)
                 return;
@@ -547,8 +547,8 @@ static void test_callback_na(sd_ndisc *nd, sd_ndisc_event_t event, void *message
 
         neighbor_dump(rt);
 
-        assert_se(sd_ndisc_neighbor_get_flags(rt, &flags) >= 0);
-        assert_se(flags == flags_array[idx]);
+        ASSERT_OK(sd_ndisc_neighbor_get_flags(rt, &flags));
+        ASSERT_EQ(flags, flags_array[idx]);
         idx++;
 
         log_debug("%s: Got event 0x%02" PRIx32, __func__, flags);
@@ -564,7 +564,7 @@ static void test_callback_na(sd_ndisc *nd, sd_ndisc_event_t event, void *message
 
 static int on_recv_rs_na(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
-        assert_se(icmp6_packet_receive(fd, &packet) >= 0);
+        ASSERT_OK(icmp6_packet_receive(fd, &packet));
 
         return send_na(/* flags= */ 0);
 }
@@ -574,27 +574,27 @@ TEST(na) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
 
-        assert_se(sd_event_new(&e) >= 0);
+        ASSERT_OK(sd_event_new(&e));
 
-        assert_se(sd_ndisc_new(&nd) >= 0);
-        assert_se(nd);
+        ASSERT_OK(sd_ndisc_new(&nd));
+        ASSERT_NOT_NULL(nd);
 
-        assert_se(sd_ndisc_attach_event(nd, e, /* priority= */ 0) >= 0);
+        ASSERT_OK(sd_ndisc_attach_event(nd, e, /* priority= */ 0));
 
-        assert_se(sd_ndisc_set_ifindex(nd, 42) >= 0);
-        assert_se(sd_ndisc_set_mac(nd, &mac_addr) >= 0);
-        assert_se(sd_ndisc_set_callback(nd, test_callback_na, e) >= 0);
+        ASSERT_OK(sd_ndisc_set_ifindex(nd, 42));
+        ASSERT_OK(sd_ndisc_set_mac(nd, &mac_addr));
+        ASSERT_OK(sd_ndisc_set_callback(nd, test_callback_na, e));
 
-        assert_se(sd_event_add_time_relative(e, /* ret= */ NULL, CLOCK_BOOTTIME,
+        ASSERT_OK(sd_event_add_time_relative(e, /* ret= */ NULL, CLOCK_BOOTTIME,
                                              30 * USEC_PER_SEC, /* accuracy= */ 0,
-                                             /* callback= */ NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
+                                             /* callback= */ NULL, INT_TO_PTR(-ETIMEDOUT)));
 
-        assert_se(sd_ndisc_start(nd) >= 0);
+        ASSERT_OK(sd_ndisc_start(nd));
 
-        assert_se(sd_event_add_io(e, &s, test_fd[1], EPOLLIN, on_recv_rs_na, nd) >= 0);
-        assert_se(sd_event_source_set_io_fd_own(s, /* own= */ true) >= 0);
+        ASSERT_OK(sd_event_add_io(e, &s, test_fd[1], EPOLLIN, on_recv_rs_na, nd));
+        ASSERT_OK(sd_event_source_set_io_fd_own(s, /* own= */ true));
 
-        assert_se(sd_event_loop(e) >= 0);
+        ASSERT_OK(sd_event_loop(e));
 
         test_fd[1] = -EBADF;
 }
@@ -606,7 +606,7 @@ static int on_recv_rs_timeout(sd_event_source *s, int fd, uint32_t revents, void
         static usec_t last = 0;
         usec_t min, max;
 
-        assert_se(icmp6_packet_receive(fd, &packet) >= 0);
+        ASSERT_OK(icmp6_packet_receive(fd, &packet));
 
         if (++count >= 20)
                 sd_event_exit(nd->event, /* code= */ 0);
@@ -638,12 +638,12 @@ static int on_recv_rs_timeout(sd_event_source *s, int fd, uint32_t revents, void
                  FORMAT_TIMESPAN(nd->retransmit_time, USEC_PER_MSEC),
                  FORMAT_TIMESPAN(max, USEC_PER_MSEC));
 
-        assert_se(min <= nd->retransmit_time);
-        assert_se(max >= nd->retransmit_time);
+        ASSERT_LE(min, nd->retransmit_time);
+        ASSERT_GE(max, nd->retransmit_time);
 
         last = nd->retransmit_time;
 
-        assert_se(sd_event_source_set_time(nd->timeout_event_source, /* usec= */ 0) >= 0);
+        ASSERT_OK(sd_event_source_set_time(nd->timeout_event_source, /* usec= */ 0));
 
         return 0;
 }
@@ -653,26 +653,26 @@ TEST(timeout) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
 
-        assert_se(sd_event_new(&e) >= 0);
+        ASSERT_OK(sd_event_new(&e));
 
-        assert_se(sd_ndisc_new(&nd) >= 0);
-        assert_se(nd);
+        ASSERT_OK(sd_ndisc_new(&nd));
+        ASSERT_NOT_NULL(nd);
 
-        assert_se(sd_ndisc_attach_event(nd, e, /* priority= */ 0) >= 0);
+        ASSERT_OK(sd_ndisc_attach_event(nd, e, /* priority= */ 0));
 
-        assert_se(sd_ndisc_set_ifindex(nd, 42) >= 0);
-        assert_se(sd_ndisc_set_mac(nd, &mac_addr) >= 0);
+        ASSERT_OK(sd_ndisc_set_ifindex(nd, 42));
+        ASSERT_OK(sd_ndisc_set_mac(nd, &mac_addr));
 
-        assert_se(sd_event_add_time_relative(e, /* ret= */ NULL, CLOCK_BOOTTIME,
+        ASSERT_OK(sd_event_add_time_relative(e, /* ret= */ NULL, CLOCK_BOOTTIME,
                                              30 * USEC_PER_SEC, /* accuracy= */ 0,
-                                             /* callback= */ NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
+                                             /* callback= */ NULL, INT_TO_PTR(-ETIMEDOUT)));
 
-        assert_se(sd_ndisc_start(nd) >= 0);
+        ASSERT_OK(sd_ndisc_start(nd));
 
-        assert_se(sd_event_add_io(e, &s, test_fd[1], EPOLLIN, on_recv_rs_timeout, nd) >= 0);
-        assert_se(sd_event_source_set_io_fd_own(s, /* own= */ true) >= 0);
+        ASSERT_OK(sd_event_add_io(e, &s, test_fd[1], EPOLLIN, on_recv_rs_timeout, nd));
+        ASSERT_OK(sd_event_source_set_io_fd_own(s, /* own= */ true));
 
-        assert_se(sd_event_loop(e) >= 0);
+        ASSERT_OK(sd_event_loop(e));
 
         test_fd[1] = -EBADF;
 }
