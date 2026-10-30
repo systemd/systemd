@@ -2,19 +2,22 @@
 
 #include "alloc-util.h"
 #include "recovery-key.h"
-#include "string-util.h"
 #include "tests.h"
 
 static void test_normalize_recovery_key(const char *t, const char *expected) {
         _cleanup_free_ char *z = NULL;
         int r;
 
-        assert_se(t);
+        ASSERT_NOT_NULL(t);
 
         r = normalize_recovery_key(t, &z);
-        assert_se(expected ?
-                  (r >= 0 && streq(z, expected)) :
-                  (r == -EINVAL && z == NULL));
+        if (expected) {
+                ASSERT_OK(r);
+                ASSERT_STREQ(z, expected);
+        } else {
+                ASSERT_ERROR(r, EINVAL);
+                ASSERT_NULL(z);
+        }
 }
 
 TEST(normalize_recovery_key_all) {
