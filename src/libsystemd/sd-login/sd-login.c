@@ -436,55 +436,55 @@ _public_ int sd_peer_get_unit(int fd, char **ret_unit) {
 }
 
 _public_ int sd_peer_get_user_unit(int fd, char **ret_unit) {
-        struct ucred ucred;
         int r;
 
         assert_return(fd >= 0, -EBADF);
 
-        r = getpeercred(fd, &ucred);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = getpeerpidref(fd, &pidref);
         if (r < 0)
                 return r;
 
-        return cg_pid_get_user_unit(ucred.pid, ret_unit);
+        return cg_pidref_get_user_unit(&pidref, ret_unit);
 }
 
 _public_ int sd_peer_get_machine_name(int fd, char **ret_machine) {
-        struct ucred ucred;
         int r;
 
         assert_return(fd >= 0, -EBADF);
 
-        r = getpeercred(fd, &ucred);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = getpeerpidref(fd, &pidref);
         if (r < 0)
                 return r;
 
-        return cg_pid_get_machine_name(ucred.pid, ret_machine);
+        return cg_pidref_get_machine_name(&pidref, ret_machine);
 }
 
 _public_ int sd_peer_get_slice(int fd, char **ret_slice) {
-        struct ucred ucred;
         int r;
 
         assert_return(fd >= 0, -EBADF);
 
-        r = getpeercred(fd, &ucred);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = getpeerpidref(fd, &pidref);
         if (r < 0)
                 return r;
 
-        return cg_pid_get_slice(ucred.pid, ret_slice);
+        return cg_pidref_get_slice(&pidref, ret_slice);
 }
 
 _public_ int sd_peer_get_user_slice(int fd, char **ret_slice) {
-        struct ucred ucred;
         int r;
 
         assert_return(fd >= 0, -EBADF);
 
-        r = getpeercred(fd, &ucred);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = getpeerpidref(fd, &pidref);
         if (r < 0)
                 return r;
 
-        return cg_pid_get_user_slice(ucred.pid, ret_slice);
+        return cg_pidref_get_user_slice(&pidref, ret_slice);
 }
 
 _public_ int sd_peer_get_cgroup(int fd, char **ret_cgroup) {

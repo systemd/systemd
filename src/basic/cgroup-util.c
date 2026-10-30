@@ -1209,6 +1209,28 @@ int cg_pid_get_machine_name(pid_t pid, char **ret_machine) {
         return cg_path_get_machine_name(cgroup, ret_machine);
 }
 
+int cg_pidref_get_machine_name(const PidRef *pidref, char **ret_machine) {
+        int r;
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+
+        _cleanup_free_ char *machine = NULL;
+        r = cg_pid_get_machine_name(pidref->pid, &machine);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pidref);
+        if (r < 0)
+                return r;
+
+        if (ret_machine)
+                *ret_machine = TAKE_PTR(machine);
+        return 0;
+}
+
 int cg_path_get_session(const char *path, char **ret_session) {
         _cleanup_free_ char *unit = NULL;
         char *start, *end;
@@ -1371,6 +1393,28 @@ int cg_pid_get_slice(pid_t pid, char **ret_slice) {
         return cg_path_get_slice(cgroup, ret_slice);
 }
 
+int cg_pidref_get_slice(const PidRef *pidref, char **ret_slice) {
+        int r;
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+
+        _cleanup_free_ char *slice = NULL;
+        r = cg_pid_get_slice(pidref->pid, &slice);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pidref);
+        if (r < 0)
+                return r;
+
+        if (ret_slice)
+                *ret_slice = TAKE_PTR(slice);
+        return 0;
+}
+
 int cg_path_get_user_slice(const char *p, char **ret_slice) {
         const char *t;
         assert(p);
@@ -1393,6 +1437,28 @@ int cg_pid_get_user_slice(pid_t pid, char **ret_slice) {
                 return r;
 
         return cg_path_get_user_slice(cgroup, ret_slice);
+}
+
+int cg_pidref_get_user_slice(const PidRef *pidref, char **ret_slice) {
+        int r;
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+
+        _cleanup_free_ char *slice = NULL;
+        r = cg_pid_get_user_slice(pidref->pid, &slice);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pidref);
+        if (r < 0)
+                return r;
+
+        if (ret_slice)
+                *ret_slice = TAKE_PTR(slice);
+        return 0;
 }
 
 bool cg_needs_escape(const char *p) {
