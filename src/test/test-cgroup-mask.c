@@ -9,7 +9,7 @@
 
 #define ASSERT_CGROUP_MASK(got, expected) \
         log_cgroup_mask(got, expected); \
-        assert_se(got == expected)
+        ASSERT_EQ(got, (CGroupMask) (expected))
 
 static void log_cgroup_mask(CGroupMask got, CGroupMask expected) {
         _cleanup_free_ char *e_store = NULL, *g_store = NULL;
@@ -34,14 +34,14 @@ TEST_RET(cgroup_mask, .sd_booted = true) {
         _cleanup_free_ char *unit_dir = NULL;
         ASSERT_OK(get_testdata_dir("test-cgroup-mask", &unit_dir));
         ASSERT_OK(setenv_unit_path(unit_dir));
-        assert_se(runtime_dir = setup_fake_runtime_dir());
+        ASSERT_NOT_NULL(runtime_dir = setup_fake_runtime_dir());
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m);
         if (IN_SET(r, -EPERM, -EACCES)) {
                 log_error_errno(r, "manager_new: %m");
                 return log_tests_skipped("cannot create manager");
         }
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         /* Turn off all kinds of default accounting, so that we can
          * verify the masks resulting of our configuration and nothing
@@ -51,7 +51,7 @@ TEST_RET(cgroup_mask, .sd_booted = true) {
                 m->defaults.tasks_accounting = false;
         m->defaults.tasks_max = CGROUP_TASKS_MAX_UNSET;
 
-        assert_se(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL) >= 0);
+        ASSERT_OK(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
 
         /* Load units and verify hierarchy. */
         ASSERT_OK(manager_load_startable_unit_or_warn(m, "parent.slice", /* path= */ NULL, LOG_ERR, &parent));
@@ -61,13 +61,13 @@ TEST_RET(cgroup_mask, .sd_booted = true) {
         ASSERT_OK(manager_load_startable_unit_or_warn(m, "parent-deep.slice", /* path= */ NULL, LOG_ERR, &parent_deep));
         ASSERT_OK(manager_load_startable_unit_or_warn(m, "nomem.slice", /* path= */ NULL, LOG_ERR, &nomem_parent));
         ASSERT_OK(manager_load_startable_unit_or_warn(m, "nomemleaf.service", /* path= */ NULL, LOG_ERR, &nomem_leaf));
-        assert_se(UNIT_GET_SLICE(son) == parent);
-        assert_se(UNIT_GET_SLICE(daughter) == parent);
-        assert_se(UNIT_GET_SLICE(parent_deep) == parent);
-        assert_se(UNIT_GET_SLICE(grandchild) == parent_deep);
-        assert_se(UNIT_GET_SLICE(nomem_leaf) == nomem_parent);
+        ASSERT_PTR_EQ(UNIT_GET_SLICE(son), parent);
+        ASSERT_PTR_EQ(UNIT_GET_SLICE(daughter), parent);
+        ASSERT_PTR_EQ(UNIT_GET_SLICE(parent_deep), parent);
+        ASSERT_PTR_EQ(UNIT_GET_SLICE(grandchild), parent_deep);
+        ASSERT_PTR_EQ(UNIT_GET_SLICE(nomem_leaf), nomem_parent);
         root = UNIT_GET_SLICE(parent);
-        assert_se(UNIT_GET_SLICE(nomem_parent) == root);
+        ASSERT_PTR_EQ(UNIT_GET_SLICE(nomem_parent), root);
 
         /* Verify per-unit cgroups settings. */
         ASSERT_CGROUP_MASK(unit_get_own_mask(son), CGROUP_MASK_CPU);
@@ -124,7 +124,7 @@ TEST_RET(cgroup_mask, .sd_booted = true) {
 static void test_cg_mask_to_string_one(CGroupMask mask, const char *t) {
         _cleanup_free_ char *b = NULL;
 
-        assert_se(cg_mask_to_string(mask, &b) >= 0);
+        ASSERT_OK(cg_mask_to_string(mask, &b));
         ASSERT_STREQ(b, t);
 }
 
@@ -154,8 +154,8 @@ TEST(cgroup_device_permissions) {
         for (CGroupDevicePermissions p = 0; p < _CGROUP_DEVICE_PERMISSIONS_MAX; p++) {
                 const char *s;
 
-                assert_se(s = cgroup_device_permissions_to_string(p));
-                assert_se(cgroup_device_permissions_from_string(s) == p);
+                ASSERT_NOT_NULL(s = cgroup_device_permissions_to_string(p));
+                ASSERT_EQ(cgroup_device_permissions_from_string(s), p);
         }
 
         cgroup_device_permissions_test_normalize("", "");
@@ -165,10 +165,10 @@ TEST(cgroup_device_permissions) {
         cgroup_device_permissions_test_normalize("mmmmmmmmmmmmmm", "m");
         cgroup_device_permissions_test_normalize("mmmmrrrrmmmwwmwmwmwmwmrmrmr", "rwm");
 
-        assert_se(cgroup_device_permissions_from_string(NULL) == -EINVAL);
-        assert_se(cgroup_device_permissions_from_string("rwq") == -EINVAL);
-        assert_se(cgroup_device_permissions_from_string("RW") == -EINVAL);
-        assert_se(cgroup_device_permissions_from_string("") == 0);
+        ASSERT_ERROR(cgroup_device_permissions_from_string(NULL), EINVAL);
+        ASSERT_ERROR(cgroup_device_permissions_from_string("rwq"), EINVAL);
+        ASSERT_ERROR(cgroup_device_permissions_from_string("RW"), EINVAL);
+        ASSERT_EQ(cgroup_device_permissions_from_string(""), 0);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
