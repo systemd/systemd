@@ -6,6 +6,7 @@
 #include <linux/if_arp.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <unistd.h>
 
 #include "sd-netlink.h"
 #include "sd-resolve.h"
@@ -14,6 +15,7 @@
 #include "conf-parser.h"
 #include "creds-util.h"
 #include "dns-domain.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "extract-word.h"
 #include "fileio.h"
@@ -1086,15 +1088,22 @@ static void wireguard_done(NetDev *netdev) {
         set_free(w->routes);
 }
 
-static int wireguard_read_key_file(const char *filename, uint8_t dest[static WG_KEY_LEN]) {
+static int wireguard_read_key_file(NetDev *netdev, const char *filename, uint8_t dest[static WG_KEY_LEN]) {
         _cleanup_(erase_and_freep) char *key = NULL;
         size_t key_len;
         int r;
+
+        assert(netdev);
 
         if (!filename)
                 return 0;
 
         assert(dest);
+
+        /* Verification must neither read key material nor block on what the path turns out to be, e.g. a
+         * FIFO or a socket, but the file must be there and accessible. */
+        if (netdev->manager->test_mode)
+                return RET_NERRNO(access(filename, R_OK));
 
         r = read_full_file_full(
                         AT_FDCWD, filename, UINT64_MAX, WG_KEY_LEN,
@@ -1121,7 +1130,7 @@ static int wireguard_peer_verify(WireguardPeer *peer) {
         if (section_is_invalid(peer->section))
                 return -EINVAL;
 
-        r = wireguard_read_key_file(peer->public_key_file, peer->public_key);
+        r = wireguard_read_key_file(netdev, peer->public_key_file, peer->public_key);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r,
                                               "%s: Failed to read public key from '%s'. "
@@ -1129,13 +1138,14 @@ static int wireguard_peer_verify(WireguardPeer *peer) {
                                               peer->section->filename, peer->public_key_file,
                                               peer->section->line);
 
-        if (eqzero(peer->public_key))
+        /* In test mode the key file is not read, see wireguard_read_key_file(), so having one is enough. */
+        if (eqzero(peer->public_key) && !(netdev->manager->test_mode && peer->public_key_file))
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "%s: WireGuardPeer section without PublicKey= configured. "
                                               "Ignoring [WireGuardPeer] section from line %u.",
                                               peer->section->filename, peer->section->line);
 
-        r = wireguard_read_key_file(peer->preshared_key_file, peer->preshared_key);
+        r = wireguard_read_key_file(netdev, peer->preshared_key_file, peer->preshared_key);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r,
                                               "%s: Failed to read preshared key from '%s'. "
@@ -1199,13 +1209,15 @@ static int wireguard_verify(NetDev *netdev, const char *filename) {
         Wireguard *w = WIREGUARD(netdev);
         int r;
 
-        r = wireguard_read_key_file(w->private_key_file, w->private_key);
+        r = wireguard_read_key_file(netdev, w->private_key_file, w->private_key);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r,
                                               "Failed to read private key from '%s', ignoring network device: %m",
                                               w->private_key_file);
 
-        if (eqzero(w->private_key)) {
+        /* In test mode the key file is not read, see wireguard_read_key_file(), and credentials are not
+         * consulted either. */
+        if (eqzero(w->private_key) && !netdev->manager->test_mode) {
                 r = wireguard_read_default_key_cred(netdev, filename);
                 if (r < 0)
                         return r;
