@@ -18,7 +18,7 @@
 
   <refnamediv>
     <refname>systemd-mute-console</refname>
-    <refname>systemd-mute-console@.service</refname>
+    <refname>systemd-mute-console.service</refname>
     <refname>systemd-mute-console.socket</refname>
     <refpurpose>Temporarily mute kernel log output and service manager status output to the system console</refpurpose>
   </refnamediv>
@@ -29,7 +29,7 @@
       <arg choice="opt" rep="repeat">OPTIONS</arg>
     </cmdsynopsis>
 
-    <para><filename>systemd-mute-console@.service</filename></para>
+    <para><filename>systemd-mute-console.service</filename></para>
     <para><filename>systemd-mute-console.socket</filename></para>
   </refsynopsisdiv>
 
@@ -45,7 +45,9 @@
     <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     <literal>READY=1</literal> notification once that is completed. On <constant>SIGINT</constant> or
     <constant>SIGTERM</constant> output is unmuted again. Alternatively it can be invoked via Varlink
-    IPC.</para>
+    IPC, in which case output stays muted for as long as the client keeps the connection open. Multiple
+    clients may hold the mute at the same time; output is unmuted again when the last one
+    disconnects.</para>
   </refsect1>
 
   <refsect1>
