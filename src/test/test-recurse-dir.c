@@ -29,7 +29,7 @@ static int nftw_cb(
 
         case FTW_F:
                 log_debug("ftw found %s", fpath);
-                assert_se(strv_extend(&list_nftw, fpath) >= 0);
+                ASSERT_OK(strv_extend(&list_nftw, fpath));
                 break;
 
         case FTW_SL:
@@ -38,7 +38,7 @@ static int nftw_cb(
 
         case FTW_D:
                 log_debug("ftw entering %s", fpath);
-                assert_se(strv_extendf(&list_nftw, "%s/", fpath) >= 0);
+                ASSERT_OK(strv_extendf(&list_nftw, "%s/", fpath));
                 break;
 
         case FTW_DNR:
@@ -69,26 +69,26 @@ static int recurse_dir_callback(
 
         char ***l = userdata;
 
-        assert_se(path);
-        assert_se(de);
+        ASSERT_NOT_NULL(path);
+        ASSERT_NOT_NULL(de);
 
         switch (event) {
 
         case RECURSE_DIR_ENTRY:
-                assert_se(!IN_SET(de->d_type, DT_UNKNOWN, DT_DIR));
+                ASSERT_FALSE(IN_SET(de->d_type, DT_UNKNOWN, DT_DIR));
 
                 log_debug("found %s%s", path,
                           de->d_type == DT_LNK ? ", ignoring." : "");
 
                 if (de->d_type != DT_LNK)
-                        assert_se(strv_extend(l, path) >= 0);
+                        ASSERT_OK(strv_extend(l, path));
                 break;
 
         case RECURSE_DIR_ENTER:
-                assert_se(de->d_type == DT_DIR);
+                ASSERT_EQ(de->d_type, DT_DIR);
 
                 log_debug("entering %s", path);
-                assert_se(strv_extendf(l, "%s/", path) >= 0);
+                ASSERT_OK(strv_extendf(l, "%s/", path));
                 break;
 
         case RECURSE_DIR_LEAVE:
@@ -206,7 +206,7 @@ int main(int argc, char *argv[]) {
         fd = open(p, O_DIRECTORY|O_CLOEXEC);
         if (fd < 0 && errno == ENOENT)
                 return log_tests_skipped_errno(errno, "Couldn't open directory %s", p);
-        assert_se(fd >= 0);
+        ASSERT_OK_ERRNO(fd);
 
         /* If the test directory is on an overlayfs then files and their directory may return different
          * st_dev in stat results, which confuses nftw into thinking they're on different filesystems and
@@ -219,11 +219,11 @@ int main(int argc, char *argv[]) {
          * https://github.com/systemd/systemd/issues/29603), so ignore them to avoid bogus errors. */
 
         t1 = now(CLOCK_MONOTONIC);
-        assert_se(recurse_dir(fd, p, /* statx_mask= */ 0, UINT_MAX, RECURSE_DIR_SORT|RECURSE_DIR_ENSURE_TYPE|RECURSE_DIR_SAME_MOUNT, recurse_dir_callback, &list_recurse_dir) >= 0);
+        ASSERT_OK(recurse_dir(fd, p, /* statx_mask= */ 0, UINT_MAX, RECURSE_DIR_SORT|RECURSE_DIR_ENSURE_TYPE|RECURSE_DIR_SAME_MOUNT, recurse_dir_callback, &list_recurse_dir));
         t2 = now(CLOCK_MONOTONIC);
 
         t3 = now(CLOCK_MONOTONIC);
-        assert_se(nftw(p, nftw_cb, 64, FTW_PHYS|FTW_MOUNT) >= 0);
+        ASSERT_OK_ERRNO(nftw(p, nftw_cb, 64, FTW_PHYS|FTW_MOUNT));
         t4 = now(CLOCK_MONOTONIC);
 
         log_info("recurse_dir(): %s – nftw(): %s", FORMAT_TIMESPAN(t2 - t1, 1), FORMAT_TIMESPAN(t4 - t3, 1));
