@@ -11,12 +11,12 @@ static void test_manual_introspection_one(const sd_bus_vtable vtable[]) {
 
         log_info("/* %s */", __func__);
 
-        assert_se(introspect_begin(&intro, /* trusted= */ false) >= 0);
+        ASSERT_OK(introspect_begin(&intro, /* trusted= */ false));
 
-        assert_se(introspect_write_interface(&intro, "org.foo", vtable) >= 0);
+        ASSERT_OK(introspect_write_interface(&intro, "org.foo", vtable));
         /* write again to check if output looks OK for a different interface */
-        assert_se(introspect_write_interface(&intro, "org.foo.bar", vtable) >= 0);
-        assert_se(introspect_finish(&intro, &s) == 0);
+        ASSERT_OK(introspect_write_interface(&intro, "org.foo.bar", vtable));
+        ASSERT_OK_ZERO(introspect_finish(&intro, &s));
 
         fputs(s, stdout);
         fputs("\n", stdout);
