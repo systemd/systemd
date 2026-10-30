@@ -38,7 +38,7 @@ static int spawn_getent(const char *database, const char *key, PidRef *ret) {
                 return r;
         }
         if (r == 0) {
-                execlp("getent", "getent", database, key, NULL);
+                (void) execvp_safe("getent", STRV_MAKE("getent", database, key));
                 _exit(EXIT_FAILURE);
         }
 

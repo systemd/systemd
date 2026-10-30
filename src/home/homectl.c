@@ -2264,8 +2264,8 @@ static int verb_with_home(int argc, char *argv[], uintptr_t _data, void *userdat
                         _exit(255);
                 }
 
-                execvp(cmdline[0], cmdline);
-                log_error_errno(errno, "Failed to execute %s: %m", cmdline[0]);
+                r = execvp_safe(cmdline[0], cmdline);
+                log_error_errno(r, "Failed to execute %s: %m", cmdline[0]);
                 _exit(255);
         }
 

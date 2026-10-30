@@ -249,8 +249,8 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to create new session: %m");
 
-                (void) execvp(l[0], l);
-                log_error_errno(errno, "Failed to execute %s: %m", l[0]);
+                r = execvp_safe(l[0], l);
+                log_error_errno(r, "Failed to execute %s: %m", l[0]);
                 _exit(EXIT_FAILURE);
         }
 
