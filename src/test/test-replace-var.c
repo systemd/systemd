@@ -13,7 +13,7 @@ static char *lookup(const char *variable, void *userdata) {
 TEST(replace_var) {
         char *r;
 
-        assert_se(r = replace_var("@@@foobar@xyz@HALLO@foobar@test@@testtest@TEST@...@@@", lookup, /* userdata= */ NULL));
+        ASSERT_NOT_NULL(r = replace_var("@@@foobar@xyz@HALLO@foobar@test@@testtest@TEST@...@@@", lookup, /* userdata= */ NULL));
         puts(r);
         ASSERT_STREQ(r, "@@@foobar@xyz<<<HALLO>>>foobar@test@@testtest<<<TEST>>>...@@@");
         free(r);
@@ -22,7 +22,7 @@ TEST(replace_var) {
 TEST(strreplace) {
         char *r;
 
-        assert_se(r = strreplace("XYZFFFFXYZFFFFXYZ", "XYZ", "ABC"));
+        ASSERT_NOT_NULL(r = strreplace("XYZFFFFXYZFFFFXYZ", "XYZ", "ABC"));
         puts(r);
         ASSERT_STREQ(r, "ABCFFFFABCFFFFABC");
         free(r);
