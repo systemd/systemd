@@ -122,10 +122,7 @@ int bpf_restrict_fs_update(const Set *filesystems, uint64_t cgroup_id, int outer
 
                 log_debug("bpf-restrict-fs: Restricting filesystem access to '%s'", fs);
 
-                for (int i = 0; i < FILESYSTEM_MAGIC_MAX; i++) {
-                        if (magic[i] == 0)
-                                break;
-
+                for (size_t i = 0; magic[i] != 0; i++) {
                         /* The map key is uint32_t but statfs_f_type_t may be 64-bit, pass a truncated copy
                          * to avoid breaking on big endian arches. */
                         uint32_t key = magic[i];
