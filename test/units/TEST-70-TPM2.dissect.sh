@@ -172,7 +172,7 @@ Encrypt=tpm2
 EOF
 
 # Use --tpm2-public-key-pcrs= and --tpm2-pcrlock= to suppress auto-loading of the system PCR public key or
-# pcrlock policy
+# pcrlock policy. Without a PCR public key, the policy reference has nothing to apply to and must be ignored.
 systemd-repart --definitions="$WORKDIR/defs" \
                --empty=create \
                --size=80M \
@@ -180,6 +180,7 @@ systemd-repart --definitions="$WORKDIR/defs" \
                --offline=no \
                --tpm2-device=auto \
                --tpm2-public-key-pcrs= \
+               --tpm2-public-key-policyref=foo \
                --tpm2-pcrlock= \
                --tpm2-pcrs= \
                "$IMAGE_REPART"
