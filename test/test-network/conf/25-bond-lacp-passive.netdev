@@ -1,0 +1,7 @@
+[NetDev]
+Name=bond96
+Kind=bond
+
+[Bond]
+Mode=802.3ad
+LACPActive=no
