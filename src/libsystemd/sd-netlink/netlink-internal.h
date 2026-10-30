@@ -7,6 +7,7 @@
 #include "forward.h"
 #include "list.h"
 #include "netlink-types.h"
+#include "time-util.h"
 
 #define NETLINK_DEFAULT_TIMEOUT_USEC ((usec_t) (25 * USEC_PER_SEC))
 
@@ -82,6 +83,21 @@ typedef struct sd_netlink {
 
         bool processing:1;
 
+        /* When set, the individual messages of a multi-part (dump) message are dispatched to the user one
+         * by one as they arrive, instead of being chained together and only delivered once the
+         * NLMSG_DONE message that terminates the dump has been received. This allows users to process
+         * (and stop reading) a dump early, e.g. by simply destroying the connection. Internal
+         * sd-netlink feature, do not use outside of systemd.
+         *
+         * When a dump is abandoned early, the kernel is only told to stop it when the socket is
+         * closed, so the mode is intended for use on dedicated sockets only, i.e. sockets that no
+         * other code reads from or writes to. In particular, sd_netlink_call(),
+         * sd_netlink_call_async() and sd_netlink_read() refuse to operate on such a socket (the
+         * messages of a dump are never registered by serial, so a reply could not be matched up
+         * anyway); send the dump request with sd_netlink_send() and read the messages with
+         * sd_netlink_wait()/sd_netlink_process() instead. */
+        bool partial_dispatch:1;
+
         uint32_t serial;
         Hashmap *ignored_serials;
 
@@ -151,6 +167,11 @@ void message_seal(sd_netlink_message *m);
 
 int netlink_open_family(sd_netlink **ret, int family);
 bool netlink_pid_changed(sd_netlink *nl);
+int netlink_set_partial_dispatch(sd_netlink *nl, bool enable);
+
+/* Like sd_netlink_wait(), but reports a poll time-out explicitly (as -ETIMEDOUT), and returns
+ * immediately if a message is already queued. See the implementation for the limitations. */
+int netlink_wait_for_message(sd_netlink *nl, uint64_t timeout_usec);
 
 int socket_bind(sd_netlink *nl);
 int socket_broadcast_group_ref(sd_netlink *nl, unsigned group);

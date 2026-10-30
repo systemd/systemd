@@ -294,6 +294,24 @@ static int netlink_queue_partially_received_message(sd_netlink *nl, sd_netlink_m
         return 0;
 }
 
+static int netlink_queue_direct_message(sd_netlink *nl, sd_netlink_message *m) {
+        int r;
+
+        assert(nl);
+        assert(m);
+
+        if (ordered_set_size(nl->rqueue) >= NETLINK_RQUEUE_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS),
+                                       "sd-netlink: exhausted the read queue size (%d)", NETLINK_RQUEUE_MAX);
+
+        r = ordered_set_ensure_put(&nl->rqueue, &netlink_message_hash_ops, m);
+        if (r < 0)
+                return r;
+
+        sd_netlink_message_ref(m);
+        return 0;
+}
+
 static int parse_message_one(sd_netlink *nl, uint32_t group, const struct nlmsghdr *hdr, sd_netlink_message **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         size_t size;
@@ -392,6 +410,23 @@ int socket_read_message(sd_netlink *nl) {
                         continue;
 
                 if (hdr->nlmsg_flags & NLM_F_MULTI) {
+                        if (nl->partial_dispatch) {
+                                /* Dispatch the messages of the dump one by one. They all share the sequence
+                                 * number of the request that triggered the dump, and hence cannot be
+                                 * registered in rqueue_by_serial. That is what sd_netlink_call(),
+                                 * sd_netlink_call_async() and sd_netlink_read() look at, so they
+                                 * cannot be used in partial dispatch mode (they return -EOPNOTSUPP);
+                                 * the messages are only retrievable via sd_netlink_process(). Note
+                                 * that the terminating NLMSG_DONE message is dispatched like the
+                                 * others, so the user can tell when the dump ended. */
+                                r = netlink_queue_direct_message(nl, m);
+                                if (r < 0)
+                                        return r;
+                                if (hdr->nlmsg_type == NLMSG_DONE)
+                                        done = true;
+                                continue;
+                        }
+
                         if (hdr->nlmsg_type == NLMSG_DONE) {
                                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *existing = NULL;
 
