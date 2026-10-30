@@ -503,7 +503,7 @@ impl<T, A: Allocator> Vec<T, A> {
 
     /// Drops all elements, keeping the allocation.
     pub fn clear(&mut self) {
-        self.truncate(0);
+        self.truncate(/* len= */ 0);
     }
 
     /// The elements.

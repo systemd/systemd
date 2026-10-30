@@ -365,7 +365,7 @@ pub fn __command_print_help(
             options.start.cast(),
             options.stop.cast(),
             name.map_or(ptr::null(), CStr::as_ptr),
-            ptr::null(),
+            /* footer_ansi_seq= */ ptr::null(),
         )
     })
 }
