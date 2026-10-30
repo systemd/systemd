@@ -134,6 +134,9 @@ CHANGES WITH 263 in spe:
 
         Changes in the system and service manager:
 
+        * LockPersonality= no longer refuses querying the personality with
+          personality(0xffffffff).
+
         * RestrictFileSystemAccess= now answers execveat() queries carrying
           the AT_EXECVE_CHECK flag (Linux 6.14 or newer) with the verdict a
           real execution of the file would get, so that script interpreters
