@@ -11,8 +11,10 @@
 #include "ask-password-api.h"
 #include "crypto-util.h"
 #include "errno-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
 #include "iovec-util.h"
@@ -420,6 +422,107 @@ TEST(manifest_mtree) {
         manifest_context_done(&c);
         context_init(&c, MANIFEST_FORMAT_MTREE);
         ASSERT_ERROR(verify_buffer(&c, tfd, buf, size), EOPNOTSUPP);
+}
+
+static void assert_mtree_keyword(const char *manifest, const char *line_prefix, const char *keyword, const char *value) {
+        _cleanup_free_ char *line = NULL, *escaped = NULL, *needle = NULL;
+        const char *p, *eol;
+
+        /* Checks that the line of the specified entry carries the keyword with the specified value, or does
+         * not carry the keyword at all if value is NULL. */
+
+        ASSERT_NOT_NULL(p = strstr(manifest, line_prefix));
+        ASSERT_NOT_NULL(eol = strchr(p, '\n'));
+        ASSERT_NOT_NULL(line = strndup(p, eol - p));
+
+        if (!value) {
+                ASSERT_NOT_NULL(needle = strjoin(" ", keyword, "="));
+                ASSERT_NULL(strstr(line, needle));
+                return;
+        }
+
+        ASSERT_NOT_NULL(escaped = xescape(value, WHITESPACE COMMENTS));
+        ASSERT_NOT_NULL(needle = strjoin(" ", keyword, "=", escaped));
+
+        /* Match the whole value, i.e. make sure it is followed by a separator or the end of the line */
+        ASSERT_NOT_NULL(p = strstr(line, needle));
+        ASSERT_TRUE(IN_SET(p[strlen(needle)], ' ', 0));
+}
+
+TEST(manifest_mtree_names) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+
+        ASSERT_OK(tfd = make_tree(&t));
+
+        /* All inodes of the tree are owned by the calling user. uid_to_name()/gid_to_name() fall back to the
+         * numeric ID if it is unresolvable, in which case manifest-util omits the name instead. */
+        _cleanup_free_ char *user_name = NULL, *group_name = NULL;
+        ASSERT_NOT_NULL(user_name = uid_to_name(getuid()));
+        ASSERT_NOT_NULL(group_name = gid_to_name(getgid()));
+        const char *expected_user_name = parse_uid(user_name, NULL) < 0 ? user_name : NULL,
+                *expected_group_name = parse_gid(group_name, NULL) < 0 ? group_name : NULL;
+
+        /* Names are not included by default */
+        _cleanup_free_ char *buf = NULL;
+        size_t size;
+        _cleanup_(manifest_context_done) ManifestContext c;
+        context_init(&c, MANIFEST_FORMAT_MTREE);
+        ASSERT_OK(generate(&c, tfd, &buf, &size));
+        assert_mtree_keyword(buf, "./regular.txt ", "uname", NULL);
+        assert_mtree_keyword(buf, "./regular.txt ", "gname", NULL);
+
+        /* Ask for the names only: they must be resolved even though the numeric IDs are not requested, and
+         * the latter must not be included. */
+        _cleanup_free_ char *buf2 = NULL;
+        size_t size2;
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_MTREE);
+        c.fields = MANIFEST_FIELD_USER_NAME|MANIFEST_FIELD_GROUP_NAME;
+        ASSERT_OK(generate(&c, tfd, &buf2, &size2));
+        if (expected_user_name && expected_group_name)
+                ASSERT_EQ(c.n_metadata_omitted, 0U);
+        else
+                ASSERT_GT(c.n_metadata_omitted, 0U);
+
+        FOREACH_STRING(prefix, "./ ", "./regular.txt ", "./subdir/ ", "./subdir/nested.txt ", "./symlink ", "./fifo ", "./hardlink_b ") {
+                assert_mtree_keyword(buf2, prefix, "uname", expected_user_name);
+                assert_mtree_keyword(buf2, prefix, "gname", expected_group_name);
+                assert_mtree_keyword(buf2, prefix, "uid", NULL);
+                assert_mtree_keyword(buf2, prefix, "gid", NULL);
+        }
+
+        /* Each name may be requested individually, and is combined with the numeric ID if that is requested
+         * too */
+        _cleanup_free_ char *buf3 = NULL, *uid_str = NULL, *gid_str = NULL;
+        size_t size3;
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_MTREE);
+        c.fields = MANIFEST_FIELD_UID|MANIFEST_FIELD_USER_NAME|MANIFEST_FIELD_GID;
+        ASSERT_OK(generate(&c, tfd, &buf3, &size3));
+        ASSERT_OK(asprintf(&uid_str, UID_FMT, getuid()));
+        ASSERT_OK(asprintf(&gid_str, GID_FMT, getgid()));
+        assert_mtree_keyword(buf3, "./regular.txt ", "uid", uid_str);
+        assert_mtree_keyword(buf3, "./regular.txt ", "gid", gid_str);
+        assert_mtree_keyword(buf3, "./regular.txt ", "uname", expected_user_name);
+        assert_mtree_keyword(buf3, "./regular.txt ", "gname", NULL);
+
+        _cleanup_free_ char *buf4 = NULL;
+        size_t size4;
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_MTREE);
+        c.fields = MANIFEST_FIELD_GROUP_NAME;
+        ASSERT_OK(generate(&c, tfd, &buf4, &size4));
+        assert_mtree_keyword(buf4, "./regular.txt ", "uid", NULL);
+        assert_mtree_keyword(buf4, "./regular.txt ", "gid", NULL);
+        assert_mtree_keyword(buf4, "./regular.txt ", "uname", NULL);
+        assert_mtree_keyword(buf4, "./regular.txt ", "gname", expected_group_name);
+
+        /* Verification of mtree manifests is not supported, regardless of the fields */
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_MTREE);
+        c.fields = MANIFEST_FIELD_USER_NAME|MANIFEST_FIELD_GROUP_NAME;
+        ASSERT_ERROR(verify_buffer(&c, tfd, buf2, size2), EOPNOTSUPP);
 }
 
 static sd_json_variant* find_object(const char *manifest, const char *name) {
