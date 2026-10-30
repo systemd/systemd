@@ -185,7 +185,8 @@ int cg_path_get_unit_full(const char *path, char **ret_unit, char **ret_subgroup
 static inline int cg_path_get_unit(const char *path, char **ret_unit) {
         return cg_path_get_unit_full(path, ret_unit, NULL);
 }
-int cg_path_get_unit_path(const char *path, char **ret_unit);
+int cg_path_get_unit_path(const char *path, char **ret_path);
+int cg_path_get_user_unit_path(const char *path, char **ret_path);
 int cg_path_get_user_unit_full(const char *path, char **ret_unit, char **ret_subgroup);
 static inline int cg_path_get_user_unit(const char *path, char **ret_unit) {
         return cg_path_get_user_unit_full(path, ret_unit, NULL);
@@ -206,21 +207,28 @@ int cg_pid_get_unit_full(pid_t pid, char **ret_unit, char **ret_subgroup);
 static inline int cg_pid_get_unit(pid_t pid, char **ret_unit) {
         return cg_pid_get_unit_full(pid, ret_unit, NULL);
 }
+int cg_pid_get_unit_path(pid_t pid, char **ret_path);
 int cg_pidref_get_unit_full(const PidRef *pidref, char **ret_unit, char **ret_subgroup);
 static inline int cg_pidref_get_unit(const PidRef *pidref, char **ret_unit) {
         return cg_pidref_get_unit_full(pidref, ret_unit, NULL);
 }
+int cg_pidref_get_unit_path(const PidRef *pidref, char **ret_path);
 int cg_pid_get_user_unit_full(pid_t pid, char **ret_unit, char **ret_subgroup);
 static inline int cg_pid_get_user_unit(pid_t pid, char **ret_unit) {
         return cg_pid_get_user_unit_full(pid, ret_unit, NULL);
 }
+int cg_pid_get_user_unit_path(pid_t pid, char **ret_path);
 int cg_pidref_get_user_unit_full(const PidRef *pidref, char **ret_unit, char **ret_subgroup);
 static inline int cg_pidref_get_user_unit(const PidRef *pidref, char **ret_unit) {
         return cg_pidref_get_user_unit_full(pidref, ret_unit, NULL);
 }
+int cg_pidref_get_user_unit_path(const PidRef *pidref, char **ret_path);
 int cg_pid_get_machine_name(pid_t pid, char **ret_machine);
+int cg_pidref_get_machine_name(const PidRef *pidref, char **ret_machine);
 int cg_pid_get_slice(pid_t pid, char **ret_slice);
+int cg_pidref_get_slice(const PidRef *pidref, char **ret_slice);
 int cg_pid_get_user_slice(pid_t pid, char **ret_slice);
+int cg_pidref_get_user_slice(const PidRef *pidref, char **ret_slice);
 
 int cg_path_decode_unit(const char *cgroup, char **ret_unit);
 
