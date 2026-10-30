@@ -62,6 +62,12 @@ typedef struct PullJob {
         uint64_t source_size;
         uint64_t decoded_total;
 
+        /* Whether we may ask an HTTP server for just the source range (i.e. if the data is not encoded and
+         * the download needs not be verified as a whole), whether we did, and whether the server complied */
+        bool allow_range_request;
+        bool range_requested;
+        bool range_applied;
+
         uint64_t uncompressed_max;
         uint64_t compressed_max;
 
