@@ -31,6 +31,66 @@
  * single unshare(). They'd stay attached next to ours, hence get rid of them. */
 #define OBSOLETE_LINK_PREFIX "/sys/fs/bpf/systemd/userns-restrict"
 
+#if HAVE_VMLINUX_H
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct btf*, sym_btf__free, NULL);
+
+static bool inode_hooks_supported(void) {
+        _cleanup_(sym_btf__freep) struct btf *btf = NULL;
+        int idmap_id;
+
+        if (!sym_btf__load_vmlinux_btf || !sym_btf__find_by_name_kind ||
+            !sym_btf__type_by_id || !sym_btf__free)
+                return false;
+
+        btf = sym_btf__load_vmlinux_btf();
+        if (bpf_get_error_translated(btf) < 0)
+                return false;
+
+        idmap_id = sym_btf__find_by_name_kind(btf, "mnt_idmap", BTF_KIND_STRUCT);
+        if (idmap_id <= 0)
+                return false;
+
+        FOREACH_STRING(name,
+                       "bpf_lsm_inode_create",
+                       "bpf_lsm_inode_link",
+                       "bpf_lsm_inode_symlink",
+                       "bpf_lsm_inode_mkdir",
+                       "bpf_lsm_inode_mknod",
+                       "bpf_lsm_inode_setattr") {
+                const struct btf_type *type;
+                int id;
+
+                id = sym_btf__find_by_name_kind(btf, name, BTF_KIND_FUNC);
+                if (id <= 0)
+                        return false;
+
+                type = sym_btf__type_by_id(btf, id);
+                if (!type)
+                        return false;
+
+                type = sym_btf__type_by_id(btf, type->type);
+                if (!type || !btf_is_func_proto(type) || btf_vlen(type) == 0)
+                        return false;
+
+                type = sym_btf__type_by_id(btf, btf_params(type)[0].type);
+                if (!type || !btf_is_ptr(type) || type->type != (uint32_t) idmap_id)
+                        return false;
+        }
+
+        return true;
+}
+
+static bool program_enabled(const char *name, bool inode_hooks) {
+        if (startswith(name, "userns_restrict_inode_"))
+                return inode_hooks;
+
+        if (startswith(name, "userns_restrict_path_") || streq(name, "userns_restrict_sb_kern_mount"))
+                return !inode_hooks;
+
+        return true;
+}
+#endif
+
 struct userns_restrict_bpf *userns_restrict_bpf_free(struct userns_restrict_bpf *obj) {
 #if HAVE_VMLINUX_H
         userns_restrict_bpf__destroy(obj); /* this call is fine with NULL */
@@ -68,6 +128,17 @@ int userns_restrict_install(
         obj = userns_restrict_bpf__open();
         if (!obj)
                 return log_error_errno(errno, "Failed to open userns_restrict BPF object: %m");
+
+        bool inode_hooks = inode_hooks_supported();
+        log_debug("Using %s hooks to restrict user namespace writes.", inode_hooks ? "inode" : "path");
+
+        for (int i = 0; i < obj->skeleton->prog_cnt; i++) {
+                struct bpf_prog_skeleton *ps = obj->skeleton->progs + i;
+
+                r = sym_bpf_program__set_autoload(*ps->prog, program_enabled(ps->name, inode_hooks));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to select user namespace restriction BPF program: %m");
+        }
 
         if (pin) {
                 struct bpf_map *map;
@@ -160,6 +231,9 @@ int userns_restrict_attach(struct userns_restrict_bpf *obj, bool pin) {
                 bool linked = false;
                 const char *e;
 
+                if (sym_bpf_program__fd(*ps->prog) < 0)
+                        continue;
+
                 e = startswith(ps->name, "userns_restrict_");
                 assert(e);
 
@@ -210,8 +284,34 @@ int userns_restrict_attach(struct userns_restrict_bpf *obj, bool pin) {
         /* Only now that our own programs enforce the policy, drop the ones the previous version left
          * pinned. Removing their links detaches them, so doing this any earlier would hand the namespaces
          * that predate an upgrade a stretch with no policy attached at all. */
-        if (pin)
+        if (pin) {
+                for (int i = 0; i < obj->skeleton->prog_cnt; i++) {
+                        struct bpf_prog_skeleton *ps = obj->skeleton->progs + i;
+                        _cleanup_free_ char *fn = NULL;
+                        const char *e;
+
+                        if (sym_bpf_program__fd(*ps->prog) >= 0)
+                                continue;
+
+                        e = startswith(ps->name, "userns_restrict_");
+                        assert(e);
+
+                        fn = path_join(PROGRAM_LINK_PREFIX, e);
+                        if (!fn) {
+                                log_warning_errno(SYNTHETIC_ERRNO(ENOMEM), "Failed to allocate unused BPF link path, ignoring: %m");
+                                continue;
+                        }
+
+                        if (unlink(fn) < 0 && errno != ENOENT)
+                                log_warning_errno(errno, "Failed to unpin unused user namespace restriction program '%s', ignoring: %m", fn);
+                }
+
+                /* A pinned inode_permission program keeps denying unlink() and rename() after a restart. */
+                if (unlink(PROGRAM_LINK_PREFIX "/inode_permission") < 0 && errno != ENOENT)
+                        log_warning_errno(errno, "Failed to unpin obsolete inode permission program, ignoring: %m");
+
                 (void) rm_rf(OBSOLETE_LINK_PREFIX, REMOVE_PHYSICAL);
+        }
 
         return 0;
 #else
