@@ -299,6 +299,53 @@ test ! -e "$COMPDIR/root/bad"
 (! "$PULL" tar --image-root="$COMPDIR/root" --keep-download=no --settings=no --verify=no --verify-decoded="$WRONG_HASH" "file://$COMPDIR/tree.tar.gz" bad)
 test ! -e "$COMPDIR/root/bad"
 
+# → systemd-pull can extract a range of the decoded data ← #
+
+PAYLOAD_SIZE="$(stat -c %s "$COMPDIR/payload.raw")"
+dd if="$COMPDIR/payload.raw" of="$COMPDIR/slice.raw" iflag=skip_bytes,count_bytes skip=1000 count=5000 status=none
+dd if="$COMPDIR/payload.raw" of="$COMPDIR/tail.raw" iflag=skip_bytes skip=1000 status=none
+dd if="$COMPDIR/payload.raw" of="$COMPDIR/head.raw" iflag=count_bytes count=5000 status=none
+dd if="$COMPDIR/payload.raw" of="$COMPDIR/end.raw" iflag=skip_bytes skip=$((PAYLOAD_SIZE - 10)) status=none
+SLICE_HASH="$(sha256sum "$COMPDIR/slice.raw" | cut -d' ' -f1)"
+
+# --verify-decoded= covers just the range
+"$PULL" raw --verify=no --direct --source-offset=1000 --source-size=5000 --verify-decoded="$SLICE_HASH" "file://$COMPDIR/payload.raw" "$COMPDIR/out.raw"
+cmp "$COMPDIR/slice.raw" "$COMPDIR/out.raw"
+rm "$COMPDIR/out.raw"
+(! "$PULL" raw --verify=no --direct --source-offset=1000 --source-size=5000 --verify-decoded="$PAYLOAD_HASH" "file://$COMPDIR/payload.raw" "$COMPDIR/out.raw")
+rm -f "$COMPDIR/out.raw"
+
+# Without a size the range extends to the end, without an offset it starts at the beginning
+"$PULL" raw --verify=no --direct --source-offset=1000 "file://$COMPDIR/payload.raw" "$COMPDIR/out.raw"
+cmp "$COMPDIR/tail.raw" "$COMPDIR/out.raw"
+rm "$COMPDIR/out.raw"
+"$PULL" raw --verify=no --direct --source-size=5000 "file://$COMPDIR/payload.raw" "$COMPDIR/out.raw"
+cmp "$COMPDIR/head.raw" "$COMPDIR/out.raw"
+rm "$COMPDIR/out.raw"
+
+# A range ending right at the end of the data is fine, one extending beyond it is refused
+"$PULL" raw --verify=no --direct --source-offset=$((PAYLOAD_SIZE - 10)) --source-size=10 "file://$COMPDIR/payload.raw" "$COMPDIR/out.raw"
+cmp "$COMPDIR/end.raw" "$COMPDIR/out.raw"
+rm "$COMPDIR/out.raw"
+(! "$PULL" raw --verify=no --direct --source-offset=$((PAYLOAD_SIZE - 10)) --source-size=11 "file://$COMPDIR/payload.raw" "$COMPDIR/out.raw")
+rm -f "$COMPDIR/out.raw"
+(! "$PULL" raw --verify=no --direct --source-offset=$((PAYLOAD_SIZE + 1)) "file://$COMPDIR/payload.raw" "$COMPDIR/out.raw")
+rm -f "$COMPDIR/out.raw"
+
+# The range refers to the decoded data, hence works the same for compressed downloads
+if command -v gzip >/dev/null; then
+    gzip -c "$COMPDIR/payload.raw" >"$COMPDIR/payload-range.raw.gz"
+    "$PULL" raw --verify=no --direct --compression=gzip --source-offset=1000 --source-size=5000 --verify-decoded="$SLICE_HASH" "file://$COMPDIR/payload-range.raw.gz" "$COMPDIR/out.raw"
+    cmp "$COMPDIR/slice.raw" "$COMPDIR/out.raw"
+    rm "$COMPDIR/out.raw"
+fi
+
+# Ranges are only supported in --direct mode, and must not overflow
+(! "$PULL" raw --image-root="$COMPDIR/root" --verify=no --source-offset=1000 "file://$COMPDIR/payload.raw" bad)
+test ! -e "$COMPDIR/root/bad.raw"
+(! "$PULL" raw --verify=no --direct --source-offset=18446744073709551615 --source-size=2 "file://$COMPDIR/payload.raw" "$COMPDIR/out.raw")
+test ! -e "$COMPDIR/out.raw"
+
 rm -rf "$COMPDIR"
 
 touch /testok
