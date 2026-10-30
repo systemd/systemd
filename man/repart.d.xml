@@ -1073,6 +1073,23 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>TPM2PublicKeyPolicyRef=</varname></term>
+
+        <listitem><para>Configures the policy reference to bind the signed PCR policy to for LUKS2 volumes
+        configured with the <varname>Encrypt=tpm2</varname> setting in partition files. Takes the same
+        parameter as the <option>--tpm2-public-key-policyref=</option> option of
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        and has the same effect on partitions where TPM2 enrollment is requested. For example, set it to
+        <literal>initrd</literal> to only allow unlocking the partition from the initrd, given the PCR
+        signatures for that policy reference were created with <option>--sign-initrd-pcrs</option> of
+        <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry>. The
+        setting has no effect if no PCR public key is used. This option will be overridden by the global
+        <option>--tpm2-public-key-policyref=</option> option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>KeyFile=</varname></term>
 
         <listitem><para>Takes a file system path. This path must be absolute, otherwise the option is ignored.

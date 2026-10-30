@@ -535,6 +535,7 @@ typedef struct Partition {
         struct iovec key;
         Tpm2PCRValue *tpm2_hash_pcr_values;
         size_t tpm2_n_hash_pcr_values;
+        char *tpm2_public_key_policyref;
         IntegrityMode integrity;
         IntegrityAlg integrity_alg;
         EncryptKDF encrypt_kdf;
@@ -879,6 +880,7 @@ static Partition* partition_free(Partition *p) {
         ordered_hashmap_free(p->subvolumes);
         free(p->default_subvolume);
         free(p->tpm2_hash_pcr_values);
+        free(p->tpm2_public_key_policyref);
         free(p->verity_match_key);
         free(p->compression);
         free(p->compression_level);
@@ -927,6 +929,7 @@ static void partition_foreignize(Partition *p) {
         p->subvolumes = ordered_hashmap_free(p->subvolumes);
         p->default_subvolume = mfree(p->default_subvolume);
         p->tpm2_hash_pcr_values = mfree(p->tpm2_hash_pcr_values);
+        p->tpm2_public_key_policyref = mfree(p->tpm2_public_key_policyref);
         p->verity_match_key = mfree(p->verity_match_key);
         p->compression = mfree(p->compression);
         p->compression_level = mfree(p->compression_level);
@@ -3183,6 +3186,7 @@ static int partition_read_definition(
                 { "Partition", "EncryptedVolume",          config_parse_encrypted_volume,  0,                                  p                           },
                 { "Partition", "EncryptAddToken",          config_parse_encrypt_add_token, 0,                                  p                           },
                 { "Partition", "TPM2PCRs",                 config_parse_tpm2_pcrs,         0,                                  p                           },
+                { "Partition", "TPM2PublicKeyPolicyRef",   config_parse_string,            CONFIG_PARSE_STRING_SAFE,           &p->tpm2_public_key_policyref },
                 { "Partition", "KeyFile",                  config_parse_key_file,          0,                                  p                           },
                 { "Partition", "Integrity",                config_parse_integrity,         0,                                  &p->integrity               },
                 { "Partition", "IntegrityAlgorithm",       config_parse_integrity_alg,     0,                                  &p->integrity_alg           },
@@ -5937,6 +5941,9 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 return log_error_errno(r, "Could not convert public key to TPM2B_PUBLIC: %m");
                 }
 
+                /* A policy reference only applies to a signed PCR policy, hence ignore it without one. */
+                const char *pubkey_policy_ref = iovec_is_set(&pubkey) ? arg_tpm2_public_key_policyref ?: p->tpm2_public_key_policyref : NULL;
+
                 _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy pcrlock_policy = {};
                 if (arg_tpm2_pcrlock) {
                         r = tpm2_pcrlock_policy_load(arg_tpm2_pcrlock, &pcrlock_policy);
@@ -5996,7 +6003,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 pcr_values,
                                 n_pcr_values,
                                 iovec_is_set(&pubkey) ? &public : NULL,
-                                iovec_is_set(&pubkey) ? arg_tpm2_public_key_policyref : NULL,
+                                pubkey_policy_ref,
                                 /* use_pin= */ false,
                                 arg_tpm2_pcrlock && !iovec_is_set(&pubkey) ? &pcrlock_policy : NULL,
                                 policy_hash + 0);
@@ -6085,7 +6092,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 hash_pcr_mask,
                                 hash_pcr_bank,
                                 &pubkey,
-                                iovec_is_set(&pubkey) ? arg_tpm2_public_key_policyref : NULL,
+                                pubkey_policy_ref,
                                 arg_tpm2_public_key_pcr_mask,
                                 /* primary_alg= */ 0,
                                 blobs,
