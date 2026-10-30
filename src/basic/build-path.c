@@ -244,7 +244,14 @@ int invoke_callout_binary(const char *path, char *const argv[]) {
         if (find_build_dir_binary(fn, &np) >= 0)
                 execv(np, argv);
 
-        execvp(path, argv);
+        /* Don't use execvp() here: on ENOEXEC it retries the binary via /bin/sh, so a truncated or otherwise
+         * broken binary would "successfully" run as an empty shell script instead of failing. */
+        _cleanup_free_ char *resolved = NULL;
+        r = find_executable(path, &resolved);
+        if (r < 0)
+                return r;
+
+        execv(resolved, argv);
         return -errno;
 }
 
