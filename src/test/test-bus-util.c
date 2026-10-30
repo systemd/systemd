@@ -38,7 +38,7 @@ TEST(destroy_callback) {
         ASSERT_EQ(sd_bus_slot_set_destroy_callback(slot, destroy_callback), 0);
         ASSERT_EQ(sd_bus_slot_get_destroy_callback(slot, /* ret= */ NULL), 1);
         ASSERT_EQ(sd_bus_slot_get_destroy_callback(slot, &t), 1);
-        assert_se(t == destroy_callback);
+        ASSERT_PTR_EQ(t, destroy_callback);
 
         /* Force cleanup so we can look at n_called */
         ASSERT_EQ(n_called, 0);
