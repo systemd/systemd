@@ -81,6 +81,7 @@ int sd_dhcp6_lease_get_sip_addrs(sd_dhcp6_lease *lease, const struct in6_addr **
 int sd_dhcp6_lease_get_sip_domains(sd_dhcp6_lease *lease, char ***ret);
 int sd_dhcp6_lease_get_fqdn(sd_dhcp6_lease *lease, const char **ret);
 int sd_dhcp6_lease_get_captive_portal(sd_dhcp6_lease *lease, const char **ret);
+int sd_dhcp6_lease_get_timezone(sd_dhcp6_lease *lease, const char **ret);
 int sd_dhcp6_lease_get_vendor_options(sd_dhcp6_lease *lease, sd_dhcp6_option ***ret);
 
 _SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp6_lease);
