@@ -63,6 +63,7 @@ option('nologin-path', type : 'string', description : 'path to nologin')
 option('quotacheck-path', type : 'string', description : 'path to quotacheck')
 option('quotaon-path', type : 'string', description : 'path to quotaon')
 option('setfont-path', type : 'string', description : 'path to setfont')
+option('sftp-server-path', type : 'string', description : 'path to the SFTP server binary')
 option('sulogin-path', type : 'string', description : 'path to sulogin')
 option('swapoff-path', type : 'string', description : 'path to swapoff')
 option('swapon-path', type : 'string', description : 'path to swapon')
@@ -286,6 +287,8 @@ option('validatefs', type : 'feature',
        description : 'install systemd-validatefs and associated files')
 option('varlink-monitord', type : 'boolean',
        description : 'install the systemd-varlink-monitord daemon')
+option('varlink-sftp', type : 'boolean', value : false,
+       description : 'install the varlink-sftp sockets and services')
 option('vconsole', type : 'boolean',
        description : 'support for vconsole configuration')
 option('veritysetup', type : 'feature',
