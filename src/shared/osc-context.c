@@ -9,6 +9,7 @@
 #include "osc-context.h"
 #include "pidfd-util.h"
 #include "process-util.h"
+#include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -281,13 +282,15 @@ int osc_context_open_session(const char *user, const char *session_id, char **re
         return osc_context_outro(TAKE_PTR(seq), id, ret_seq, ret_context_id);
 }
 
-int osc_context_open_service(const char *unit, sd_id128_t invocation_id, char **ret_seq) {
+int osc_context_open_service_full(const char *unit, sd_id128_t invocation_id, sd_id128_t context_id, char **ret_seq) {
         int r;
 
-        sd_id128_t id = SD_ID128_NULL;
-        r = osc_context_id_from_invocation_id(invocation_id, &id);
-        if (r < 0)
-                return r;
+        sd_id128_t id = context_id;
+        if (sd_id128_is_null(id)) {
+                r = osc_context_id_from_invocation_id(invocation_id, &id);
+                if (r < 0)
+                        return r;
+        }
 
         _cleanup_free_ char *seq = NULL;
         r = osc_context_intro_raw(id, &seq);
@@ -311,6 +314,12 @@ int osc_context_open_service(const char *unit, sd_id128_t invocation_id, char **
 }
 
 int osc_context_close(sd_id128_t id, char **ret_seq) {
+        return osc_context_close_full(id, /* code= */ 0, /* status= */ 0, ret_seq);
+}
+
+int osc_context_close_full(sd_id128_t id, int code, int status, char **ret_seq) {
+
+        /* 'code' and 'status' are as in siginfo_t, a code of 0 means unknown and omits the exit fields */
 
         if (sd_id128_is_null(id)) {
                 /* nil uuid: no session opened */
@@ -323,7 +332,25 @@ int osc_context_close(sd_id128_t id, char **ret_seq) {
                 osc_context_default_id(&id);
 
         _cleanup_free_ char *seq = NULL;
-        if (asprintf(&seq, ANSI_OSC "3008;end=" SD_ID128_FORMAT_STR ANSI_ST, SD_ID128_FORMAT_VAL(id)) < 0)
+        if (asprintf(&seq, ANSI_OSC "3008;end=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(id)) < 0)
+                return -ENOMEM;
+
+        if (code == CLD_EXITED) {
+                if (strextendf(&seq, ";exit=%s;status=%i", status == 0 ? "success" : "failure", status) < 0)
+                        return -ENOMEM;
+        } else if (IN_SET(code, CLD_KILLED, CLD_DUMPED)) {
+                /* The spec only distinguishes an interrupt from a crash. SIGTERM and SIGHUP are how the
+                 * service manager and a closing terminal end a process on purpose, hence not a crash. */
+                if (strextendf(&seq, ";exit=%s", IN_SET(status, SIGINT, SIGTERM, SIGHUP) ? "interrupt" : "crash") < 0)
+                        return -ENOMEM;
+
+                /* signal_to_string() drops the "SIG" prefix, the spec wants it */
+                const char *s = signal_to_string(status);
+                if (s && strextendf(&seq, ";signal=SIG%s", s) < 0)
+                        return -ENOMEM;
+        }
+
+        if (!strextend(&seq, ANSI_ST))
                 return -ENOMEM;
 
         return osc_context_outro(TAKE_PTR(seq), SD_ID128_NULL, ret_seq, /* ret_context_id= */ NULL);
