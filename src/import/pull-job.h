@@ -56,6 +56,12 @@ typedef struct PullJob {
         uint64_t written_uncompressed;
         uint64_t offset;
 
+        /* The range of the decoded data to write out (anything before and after it is dropped), and the
+         * number of decoded bytes seen so far, including the dropped ones */
+        uint64_t source_offset;
+        uint64_t source_size;
+        uint64_t decoded_total;
+
         uint64_t uncompressed_max;
         uint64_t compressed_max;
 
