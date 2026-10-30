@@ -9,17 +9,14 @@
 #include "path-util.h"
 #include "rm-rf.h"
 #include "set.h"
-#include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "vmspawn-util.h"
 
-#define _ESCAPE_QEMU_VALUE_CHECK(str, correct, varname) \
-        do {                                            \
-                _cleanup_free_ char* varname = NULL;    \
-                varname = escape_qemu_value(str);       \
-                assert(varname);                        \
-                assert_se(streq(varname, correct));     \
+#define _ESCAPE_QEMU_VALUE_CHECK(str, correct, varname)                                 \
+        do {                                                                            \
+                _cleanup_free_ char* varname = ASSERT_NOT_NULL(escape_qemu_value(str)); \
+                ASSERT_STREQ(varname, correct);                                         \
         } while (0)
 
 #define ESCAPE_QEMU_VALUE_CHECK(str, correct) \
