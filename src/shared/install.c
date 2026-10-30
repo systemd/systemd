@@ -249,26 +249,29 @@ static int path_is_runtime(const LookupPaths *lp, const char *path, bool check_p
                            lp->runtime_control);
 }
 
-static int path_is_vendor_or_generator(const LookupPaths *lp, const char *path) {
-        const char *rpath;
-        int r;
-
+static int path_is_vendor(const LookupPaths *lp, const char *path) {
         assert(lp);
         assert(path);
 
-        rpath = skip_root(lp->root_dir, path);
+        const char *rpath = skip_root(lp->root_dir, path);
         if (!rpath)
                 return 0;
 
-        if (path_startswith(rpath, "/usr"))
-                return true;
+        return PATH_IN_SET(rpath,
+                           "/usr/local/lib/systemd/system",
+                           SYSTEM_DATA_UNIT_DIR,
+                           "/usr/lib/systemd/system");
+}
+
+static int path_is_vendor_or_generator(const LookupPaths *lp, const char *path) {
+        int r;
 
         /* The lookup paths are root prefixed, so we have to pass in a root prefixed path. */
         r = path_is_generator(lp, path);
         if (r != 0)
                 return r;
 
-        return path_equal(rpath, SYSTEM_DATA_UNIT_DIR);
+        return path_is_vendor(lp, path);
 }
 
 static const char* config_path_from_flags(const LookupPaths *lp, UnitFileFlags flags) {
@@ -1062,6 +1065,12 @@ static int find_symlinks_in_scope(
 
                         /* look for global enablement of user units */
                         if (scope == RUNTIME_SCOPE_USER && path_is_user_config_dir(*p)) {
+                                *state = UNIT_FILE_ENABLED;
+                                return 1;
+                        }
+
+                        /* look enablement via vendor paths */
+                        if (scope == RUNTIME_SCOPE_SYSTEM && path_is_vendor(lp, *p)) {
                                 *state = UNIT_FILE_ENABLED;
                                 return 1;
                         }
