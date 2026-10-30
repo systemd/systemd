@@ -213,7 +213,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(manager_load_unit(m, "unit-with-multiple-dashes.service", NULL, NULL, &unit_with_multiple_dashes) >= 0);
 
-        assert_se(strv_equal(unit_with_multiple_dashes->documentation, STRV_MAKE("man:test", "man:override2", "man:override3")));
+        ASSERT_STRV_EQ(unit_with_multiple_dashes->documentation, STRV_MAKE("man:test", "man:override2", "man:override3"));
         ASSERT_STREQ(unit_with_multiple_dashes->description, "override4");
 
         /* Now merge a synthetic unit into the existing one */

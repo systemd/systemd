@@ -181,7 +181,7 @@ TEST(write_and_load_env_file) {
                 ASSERT_STREQ(from_shell, v);
 
                 assert_se(load_env_file(NULL, p, &l) >= 0);
-                assert_se(strv_equal(l, STRV_MAKE(j)));
+                ASSERT_STRV_EQ(l, STRV_MAKE(j));
 
                 assert_se(parse_env_file(NULL, p, "TEST", &w) >= 0);
                 ASSERT_STREQ(w, v);

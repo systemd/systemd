@@ -139,7 +139,7 @@ TEST(strv_env_assignf) {
 
         assert_se(strv_env_assignf(&a, "c", "xxx%iyyy", 5) > 0);
         assert_se(strv_length(a) == 2);
-        assert_se(strv_equal(a, STRV_MAKE("a=a", "c=xxx5yyy")));
+        ASSERT_STRV_EQ(a, STRV_MAKE("a=a", "c=xxx5yyy"));
         assert_se(strv_env_assignf(&a, "c", NULL) == 0);
 
         assert_se(strv_env_assignf(&a, "b", "b") > 0);
@@ -348,22 +348,22 @@ TEST(replace_env_argv_bad) {
 
         assert_se(replace_env_argv((char**) line, (char**) env, &replaced, &unset, &bad) >= 0);
 
-        assert_se(strv_equal(replaced, STRV_MAKE(
-                                             "BAR",
-                                             "BAR",
-                                             "ABAR BARB",
-                                             "ab",
-                                             "xy",
-                                             "zzz",
-                                             "piffpiff")));
+        ASSERT_STRV_EQ(replaced, STRV_MAKE(
+                                       "BAR",
+                                       "BAR",
+                                       "ABAR BARB",
+                                       "ab",
+                                       "xy",
+                                       "zzz",
+                                       "piffpiff"));
 
-        assert_se(strv_equal(unset, STRV_MAKE(
-                                             "UNSET1",
-                                             "UNSET2",
-                                             "UNSET3")));
-        assert_se(strv_equal(bad, STRV_MAKE("",
-                                            "%",
-                                            "~")));
+        ASSERT_STRV_EQ(unset, STRV_MAKE(
+                                       "UNSET1",
+                                       "UNSET2",
+                                       "UNSET3"));
+        ASSERT_STRV_EQ(bad, STRV_MAKE("",
+                                      "%",
+                                      "~"));
 }
 
 TEST(env_clean) {
@@ -587,7 +587,7 @@ TEST(strv_env_get_merged) {
         ASSERT_OK(strv_env_get_merged(NULL, &m));
         ASSERT_NULL(m);
         ASSERT_OK(strv_env_get_merged(l, &m));
-        ASSERT_TRUE(strv_equal(m, expected));
+        ASSERT_STRV_EQ(m, expected);
 }
 
 TEST(replace_env_argv_unterminated) {
@@ -607,11 +607,11 @@ TEST(replace_env_argv_unterminated) {
 
         /* Trailing bare unset variable after an expanded one. */
         ASSERT_OK(replace_env_argv(STRV_MAKE("$FOO", "$THIS_IS_UNSET"), STRV_MAKE("FOO=BAR"), &c, NULL, NULL));
-        ASSERT_TRUE(strv_equal(c, STRV_MAKE("BAR")));
+        ASSERT_STRV_EQ(c, STRV_MAKE("BAR"));
 
         /* Trailing bare unset variable after a literal word. */
         ASSERT_OK(replace_env_argv(STRV_MAKE("hello", "$THIS_IS_UNSET"), STRV_MAKE("FOO=BAR"), &d, NULL, NULL));
-        ASSERT_TRUE(strv_equal(d, STRV_MAKE("hello")));
+        ASSERT_STRV_EQ(d, STRV_MAKE("hello"));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
