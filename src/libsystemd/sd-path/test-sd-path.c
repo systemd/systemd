@@ -15,18 +15,18 @@ TEST(sd_path_lookup) {
                 r = sd_path_lookup(i, /* suffix= */ NULL, &t);
                 if (i == SD_PATH_USER_RUNTIME && r == -ENXIO)
                         continue;
-                assert_se(r == 0);
-                assert_se(t);
+                ASSERT_OK_ZERO(r);
+                ASSERT_NOT_NULL(t);
                 log_info("%02"PRIu64": \"%s\"", i, t);
 
-                assert_se(sd_path_lookup(i, "suffix", &s) == 0);
-                assert_se(s);
+                ASSERT_OK_ZERO(sd_path_lookup(i, "suffix", &s));
+                ASSERT_NOT_NULL(s);
                 log_info("%02"PRIu64": \"%s\"", i, s);
-                assert_se(endswith(s, "/suffix"));
+                ASSERT_NOT_NULL(endswith(s, "/suffix"));
         }
 
         char *tt;
-        assert_se(sd_path_lookup(_SD_PATH_MAX, /* suffix= */ NULL, &tt) == -EOPNOTSUPP);
+        ASSERT_ERROR(sd_path_lookup(_SD_PATH_MAX, /* suffix= */ NULL, &tt), EOPNOTSUPP);
 }
 
 TEST(sd_path_lookup_strv) {
@@ -37,23 +37,23 @@ TEST(sd_path_lookup_strv) {
                 r = sd_path_lookup_strv(i, /* suffix= */ NULL, &t);
                 if (i == SD_PATH_USER_RUNTIME && r == -ENXIO)
                         continue;
-                assert_se(r == 0);
-                assert_se(t);
+                ASSERT_OK_ZERO(r);
+                ASSERT_NOT_NULL(t);
                 log_info("%02"PRIu64":", i);
                 STRV_FOREACH(item, t)
                         log_debug("  %s", *item);
 
-                assert_se(sd_path_lookup_strv(i, "suffix", &s) == 0);
-                assert_se(s);
+                ASSERT_OK_ZERO(sd_path_lookup_strv(i, "suffix", &s));
+                ASSERT_NOT_NULL(s);
                 log_info("%02"PRIu64":", i);
                 STRV_FOREACH(item, s) {
-                        assert_se(endswith(*item, "/suffix"));
+                        ASSERT_NOT_NULL(endswith(*item, "/suffix"));
                         log_debug("  %s", *item);
                 }
         }
 
         char *tt;
-        assert_se(sd_path_lookup(_SD_PATH_MAX, /* suffix= */ NULL, &tt) == -EOPNOTSUPP);
+        ASSERT_ERROR(sd_path_lookup(_SD_PATH_MAX, /* suffix= */ NULL, &tt), EOPNOTSUPP);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
