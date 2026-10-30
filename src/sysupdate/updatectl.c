@@ -1480,6 +1480,8 @@ static int list_features(sd_bus *bus) {
         if (!table)
                 return log_oom();
 
+        (void) table_set_sort(table, 1);
+
         r = sd_bus_call_method(bus,
                                bus_sysupdate_mgr->destination,
                                SYSUPDATE_HOST_PATH,
