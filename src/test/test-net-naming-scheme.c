@@ -12,18 +12,18 @@ assert_cc(_DEFAULT_NET_NAMING_SCHEME >= 0);
 
 TEST(default_net_naming_scheme) {
         const NamingScheme *n;
-        assert_se(n = naming_scheme_from_name(DEFAULT_NET_NAMING_SCHEME));
+        ASSERT_NOT_NULL(n = naming_scheme_from_name(DEFAULT_NET_NAMING_SCHEME));
         log_info("default → %s", n->name);
 
-        assert_se(naming_scheme_from_name(n->name) == n);
+        ASSERT_PTR_EQ(naming_scheme_from_name(n->name), n);
 }
 
 TEST(naming_scheme_conversions) {
         const NamingScheme *n;
-        assert_se(n = naming_scheme_from_name("latest"));
+        ASSERT_NOT_NULL(n = naming_scheme_from_name("latest"));
         log_info("latest → %s", n->name);
 
-        assert_se(n = naming_scheme_from_name("v238"));
+        ASSERT_NOT_NULL(n = naming_scheme_from_name("v238"));
         ASSERT_STREQ(n->name, "v238");
 }
 
