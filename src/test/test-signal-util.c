@@ -15,36 +15,36 @@ TEST(rt_signals) {
 
         /* We use signals SIGRTMIN+0 to SIGRTMIN+29 unconditionally. SIGRTMIN+30 can be used only when
          * built with glibc. */
-        assert_se(SIGRTMAX - SIGRTMIN >= 29);
+        ASSERT_GE(SIGRTMAX - SIGRTMIN, 29);
 }
 
 static void test_signal_to_string_one(int val) {
         const char *p;
 
-        assert_se(p = signal_to_string(val));
+        ASSERT_NOT_NULL(p = signal_to_string(val));
 
-        assert_se(signal_from_string(p) == val);
+        ASSERT_EQ(signal_from_string(p), val);
 
         p = strjoina("SIG", p);
-        assert_se(signal_from_string(p) == val);
+        ASSERT_EQ(signal_from_string(p), val);
 }
 
 static void test_signal_from_string_one(const char *s, int val) {
         const char *p;
 
-        assert_se(signal_from_string(s) == val);
+        ASSERT_EQ(signal_from_string(s), val);
 
         p = strjoina("SIG", s);
-        assert_se(signal_from_string(p) == val);
+        ASSERT_EQ(signal_from_string(p), val);
 }
 
 static void test_signal_from_string_number(const char *s, int val) {
         const char *p;
 
-        assert_se(signal_from_string(s) == val);
+        ASSERT_EQ(signal_from_string(s), val);
 
         p = strjoina("SIG", s);
-        assert_se(signal_from_string(p) == -EINVAL);
+        ASSERT_ERROR(signal_from_string(p), EINVAL);
 }
 
 TEST(signal_from_string) {
@@ -104,81 +104,81 @@ TEST(signal_from_string) {
 }
 
 TEST(signal_code_to_string) {
-        assert_se(streq_ptr(signal_code_to_string(SIGSEGV, SEGV_MAPERR), "SEGV_MAPERR"));
-        assert_se(streq_ptr(signal_code_to_string(SIGILL, ILL_ILLOPC), "ILL_ILLOPC"));
-        assert_se(streq_ptr(signal_code_to_string(SIGCHLD, CLD_CONTINUED), "CLD_CONTINUED"));
-        assert_se(streq_ptr(signal_code_to_string(SIGABRT, SI_TKILL), "SI_TKILL"));
-        assert_se(streq_ptr(signal_code_to_string(SIGABRT, SI_USER), "SI_USER"));
-        assert_se(streq_ptr(signal_code_to_string(SIGABRT, SI_KERNEL), "SI_KERNEL"));
-        assert_se(streq_ptr(signal_code_to_string(SIGSYS, SYS_SECCOMP), "SYS_SECCOMP"));
-        assert_se(signal_code_to_string(SIGABRT, 99) == NULL);
+        ASSERT_STREQ(signal_code_to_string(SIGSEGV, SEGV_MAPERR), "SEGV_MAPERR");
+        ASSERT_STREQ(signal_code_to_string(SIGILL, ILL_ILLOPC), "ILL_ILLOPC");
+        ASSERT_STREQ(signal_code_to_string(SIGCHLD, CLD_CONTINUED), "CLD_CONTINUED");
+        ASSERT_STREQ(signal_code_to_string(SIGABRT, SI_TKILL), "SI_TKILL");
+        ASSERT_STREQ(signal_code_to_string(SIGABRT, SI_USER), "SI_USER");
+        ASSERT_STREQ(signal_code_to_string(SIGABRT, SI_KERNEL), "SI_KERNEL");
+        ASSERT_STREQ(signal_code_to_string(SIGSYS, SYS_SECCOMP), "SYS_SECCOMP");
+        ASSERT_NULL(signal_code_to_string(SIGABRT, 99));
 }
 
 TEST(block_signals) {
-        assert_se(signal_is_blocked(SIGUSR1) == 0);
-        assert_se(signal_is_blocked(SIGALRM) == 0);
-        assert_se(signal_is_blocked(SIGVTALRM) == 0);
+        ASSERT_OK_ZERO(signal_is_blocked(SIGUSR1));
+        ASSERT_OK_ZERO(signal_is_blocked(SIGALRM));
+        ASSERT_OK_ZERO(signal_is_blocked(SIGVTALRM));
 
         {
                 BLOCK_SIGNALS(SIGUSR1, SIGVTALRM);
 
-                assert_se(signal_is_blocked(SIGUSR1) > 0);
-                assert_se(signal_is_blocked(SIGALRM) == 0);
-                assert_se(signal_is_blocked(SIGVTALRM) > 0);
+                ASSERT_OK_POSITIVE(signal_is_blocked(SIGUSR1));
+                ASSERT_OK_ZERO(signal_is_blocked(SIGALRM));
+                ASSERT_OK_POSITIVE(signal_is_blocked(SIGVTALRM));
         }
 
-        assert_se(signal_is_blocked(SIGUSR1) == 0);
-        assert_se(signal_is_blocked(SIGALRM) == 0);
-        assert_se(signal_is_blocked(SIGVTALRM) == 0);
+        ASSERT_OK_ZERO(signal_is_blocked(SIGUSR1));
+        ASSERT_OK_ZERO(signal_is_blocked(SIGALRM));
+        ASSERT_OK_ZERO(signal_is_blocked(SIGVTALRM));
 }
 
 TEST(ignore_signals) {
-        assert_se(ignore_signals(SIGINT) >= 0);
-        assert_se(kill(getpid_cached(), SIGINT) >= 0);
-        assert_se(ignore_signals(SIGUSR1, SIGUSR2, SIGTERM, SIGPIPE) >= 0);
-        assert_se(kill(getpid_cached(), SIGUSR1) >= 0);
-        assert_se(kill(getpid_cached(), SIGUSR2) >= 0);
-        assert_se(kill(getpid_cached(), SIGTERM) >= 0);
-        assert_se(kill(getpid_cached(), SIGPIPE) >= 0);
-        assert_se(default_signals(SIGINT, SIGUSR1, SIGUSR2, SIGTERM, SIGPIPE) >= 0);
+        ASSERT_OK(ignore_signals(SIGINT));
+        ASSERT_OK_ERRNO(kill(getpid_cached(), SIGINT));
+        ASSERT_OK(ignore_signals(SIGUSR1, SIGUSR2, SIGTERM, SIGPIPE));
+        ASSERT_OK_ERRNO(kill(getpid_cached(), SIGUSR1));
+        ASSERT_OK_ERRNO(kill(getpid_cached(), SIGUSR2));
+        ASSERT_OK_ERRNO(kill(getpid_cached(), SIGTERM));
+        ASSERT_OK_ERRNO(kill(getpid_cached(), SIGPIPE));
+        ASSERT_OK(default_signals(SIGINT, SIGUSR1, SIGUSR2, SIGTERM, SIGPIPE));
 }
 
 TEST(pop_pending_signal) {
 
-        assert_se(signal_is_blocked(SIGUSR1) == 0);
-        assert_se(signal_is_blocked(SIGUSR2) == 0);
-        assert_se(pop_pending_signal(SIGUSR1) == 0);
-        assert_se(pop_pending_signal(SIGUSR2) == 0);
+        ASSERT_OK_ZERO(signal_is_blocked(SIGUSR1));
+        ASSERT_OK_ZERO(signal_is_blocked(SIGUSR2));
+        ASSERT_OK_ZERO(pop_pending_signal(SIGUSR1));
+        ASSERT_OK_ZERO(pop_pending_signal(SIGUSR2));
 
         {
                 BLOCK_SIGNALS(SIGUSR1, SIGUSR2);
 
-                assert_se(signal_is_blocked(SIGUSR1) > 0);
-                assert_se(signal_is_blocked(SIGUSR2) > 0);
+                ASSERT_OK_POSITIVE(signal_is_blocked(SIGUSR1));
+                ASSERT_OK_POSITIVE(signal_is_blocked(SIGUSR2));
 
-                assert_se(pop_pending_signal(SIGUSR1) == 0);
-                assert_se(pop_pending_signal(SIGUSR2) == 0);
+                ASSERT_OK_ZERO(pop_pending_signal(SIGUSR1));
+                ASSERT_OK_ZERO(pop_pending_signal(SIGUSR2));
 
-                assert_se(raise(SIGUSR1) >= 0);
+                ASSERT_OK_ERRNO(raise(SIGUSR1));
 
-                assert_se(pop_pending_signal(SIGUSR2) == 0);
-                assert_se(pop_pending_signal(SIGUSR1) == SIGUSR1);
-                assert_se(pop_pending_signal(SIGUSR1) == 0);
+                ASSERT_OK_ZERO(pop_pending_signal(SIGUSR2));
+                ASSERT_EQ(pop_pending_signal(SIGUSR1), SIGUSR1);
+                ASSERT_OK_ZERO(pop_pending_signal(SIGUSR1));
 
-                assert_se(raise(SIGUSR1) >= 0);
-                assert_se(raise(SIGUSR2) >= 0);
+                ASSERT_OK_ERRNO(raise(SIGUSR1));
+                ASSERT_OK_ERRNO(raise(SIGUSR2));
 
                 assert_cc(SIGUSR1 < SIGUSR2);
 
-                assert_se(pop_pending_signal(SIGUSR1, SIGUSR2) == SIGUSR1);
-                assert_se(pop_pending_signal(SIGUSR1, SIGUSR2) == SIGUSR2);
-                assert_se(pop_pending_signal(SIGUSR1, SIGUSR2) == 0);
+                ASSERT_EQ(pop_pending_signal(SIGUSR1, SIGUSR2), SIGUSR1);
+                ASSERT_EQ(pop_pending_signal(SIGUSR1, SIGUSR2), SIGUSR2);
+                ASSERT_OK_ZERO(pop_pending_signal(SIGUSR1, SIGUSR2));
         }
 
-        assert_se(signal_is_blocked(SIGUSR1) == 0);
-        assert_se(signal_is_blocked(SIGUSR2) == 0);
-        assert_se(pop_pending_signal(SIGUSR1) == 0);
-        assert_se(pop_pending_signal(SIGUSR2) == 0);
+        ASSERT_OK_ZERO(signal_is_blocked(SIGUSR1));
+        ASSERT_OK_ZERO(signal_is_blocked(SIGUSR2));
+        ASSERT_OK_ZERO(pop_pending_signal(SIGUSR1));
+        ASSERT_OK_ZERO(pop_pending_signal(SIGUSR2));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
