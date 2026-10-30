@@ -403,6 +403,25 @@ TEST(option_status) {
         ASSERT_NULL(ia);
 }
 
+TEST(lease_timezone) {
+        _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
+        const char *str;
+
+        ASSERT_OK(dhcp6_lease_new(&lease));
+
+        /* "UTC" in the main test messages bypasses the tzfile check in
+         * verify_timezone(); exercise the validation with invalid inputs. */
+        ASSERT_ERROR(dhcp6_lease_set_timezone(lease, (const uint8_t *) "", 0), EINVAL);
+        ASSERT_ERROR(dhcp6_lease_set_timezone(lease, (const uint8_t *) "UTC\0", 4), EINVAL);
+        ASSERT_ERROR(dhcp6_lease_set_timezone(lease, (const uint8_t *) "/etc/passwd", 11), EINVAL);
+        ASSERT_ERROR(dhcp6_lease_set_timezone(lease, (const uint8_t *) "../passwd", 9), EINVAL);
+        ASSERT_ERROR(sd_dhcp6_lease_get_timezone(lease, &str), ENODATA);
+
+        ASSERT_OK(dhcp6_lease_set_timezone(lease, (const uint8_t *) "UTC", 3));
+        ASSERT_OK(sd_dhcp6_lease_get_timezone(lease, &str));
+        ASSERT_STREQ(str, "UTC");
+}
+
 TEST(client_parse_message_issue_22099) {
         static const uint8_t msg[] = {
                 /* Message type */
@@ -782,6 +801,9 @@ static const uint8_t msg_reply[] = {
         /* Client FQDN */
         0x00, SD_DHCP6_OPTION_CLIENT_FQDN, 0x00, 0x13,
         0x01, 0x06, 'c', 'l', 'i', 'e', 'n', 't', 0x03, 'l', 'a', 'b', 0x05, 'i', 'n', 't', 'r', 'a', 0x00,
+        /* Time Zone (TZ Database name) */
+        0x00, SD_DHCP6_OPTION_TZDB_TIMEZONE, 0x00, 0x03,
+        'U', 'T', 'C',
         /* Vendor specific options */
         0x00, SD_DHCP6_OPTION_VENDOR_OPTS, 0x00, 0x09,
         0x00, 0x00, 0x00, 0x20, 0x00, 0xf7, 0x00, 0x01, VENDOR_SUBOPTION_BYTES,
@@ -871,6 +893,9 @@ static const uint8_t msg_advertise[] = {
         /* Client FQDN */
         0x00, SD_DHCP6_OPTION_CLIENT_FQDN, 0x00, 0x13,
         0x01, 0x06, 'c', 'l', 'i', 'e', 'n', 't', 0x03, 'l', 'a', 'b', 0x05, 'i', 'n', 't', 'r', 'a', 0x00,
+        /* Time Zone (TZ Database name) */
+        0x00, SD_DHCP6_OPTION_TZDB_TIMEZONE, 0x00, 0x03,
+        'U', 'T', 'C',
         /* Vendor specific options */
         0x00, SD_DHCP6_OPTION_VENDOR_OPTS, 0x00, 0x09,
         0x00, 0x00, 0x00, 0x20, 0x00, 0xf7, 0x00, 0x01, VENDOR_SUBOPTION_BYTES,
@@ -969,6 +994,9 @@ static void test_lease_common(sd_dhcp6_client *client) {
 
         ASSERT_OK(sd_dhcp6_lease_get_fqdn(lease, &str));
         ASSERT_STREQ(str, "client.lab.intra");
+
+        ASSERT_OK(sd_dhcp6_lease_get_timezone(lease, &str));
+        ASSERT_STREQ(str, "UTC");
 
         ASSERT_OK_EQ(sd_dhcp6_lease_get_dns(lease, &addrs), 2);
         ASSERT_TRUE(in6_addr_equal(&addrs[0], &dns1));

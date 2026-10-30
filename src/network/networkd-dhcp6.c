@@ -311,6 +311,29 @@ static int dhcp6_request_hostname(Link *link) {
         return 0;
 }
 
+static int dhcp6_request_timezone(Link *link) {
+        const char *tz;
+        int r;
+
+        assert(link);
+        assert(link->network);
+
+        if (!link->network->dhcp6_use_timezone)
+                return 0;
+
+        r = sd_dhcp6_lease_get_timezone(link->dhcp6_lease, &tz);
+        if (r == -ENODATA)
+                return 0;
+        if (r < 0)
+                return r;
+
+        r = manager_set_timezone(link->manager, tz);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to set timezone to '%s', ignoring: %m", tz);
+
+        return 0;
+}
+
 static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
         _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease_old = NULL;
         sd_dhcp6_lease *lease;
@@ -326,6 +349,10 @@ static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
         link->dhcp6_lease = sd_dhcp6_lease_ref(lease);
 
         r = dhcp6_request_hostname(link);
+        if (r < 0)
+                return r;
+
+        r = dhcp6_request_timezone(link);
         if (r < 0)
                 return r;
 
@@ -369,6 +396,10 @@ static int dhcp6_lease_information_acquired(sd_dhcp6_client *client, Link *link)
                 return log_link_error_errno(link, r, "Failed to get DHCPv6 lease: %m");
 
         unref_and_replace_new_ref(link->dhcp6_lease, lease, sd_dhcp6_lease_ref, sd_dhcp6_lease_unref);
+
+        r = dhcp6_request_timezone(link);
+        if (r < 0)
+                return r;
 
         link_dirty(link);
         return 0;
@@ -688,6 +719,12 @@ static int dhcp6_configure(Link *link) {
                 r = sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_CAPTIVE_PORTAL);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to request captive portal: %m");
+        }
+
+        if (link->network->dhcp6_use_timezone) {
+                r = sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_TZDB_TIMEZONE);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to request timezone: %m");
         }
 
         if (link_get_use_ntp(link, NETWORK_CONFIG_SOURCE_DHCP6)) {
