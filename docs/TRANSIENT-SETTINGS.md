@@ -186,6 +186,7 @@ All execution-related settings are available for transient units.
 ✓ TTYVTDisallocate=
 ✓ TTYRows=
 ✓ TTYColumns=
+✓ TTYExitStatus=
 ✓ SyslogIdentifier=
 ✓ SyslogFacility=
 ✓ SyslogLevel=
