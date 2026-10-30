@@ -493,9 +493,6 @@ static int dump_files(Hashmap *fh, const char *root, ConfFilesFlags flags, ConfF
 
         CLEANUP_ARRAY(files, n_files, conf_file_free_array);
 
-        assert(ret_files);
-        assert(ret_n_files);
-
         /* The entries in the array given by hashmap_dump_sorted() are still owned by the hashmap. */
         r = hashmap_dump_sorted(fh, (void***) &files, &n_files);
         if (r < 0)
@@ -512,8 +509,10 @@ static int dump_files(Hashmap *fh, const char *root, ConfFilesFlags flags, ConfF
                                 return r;
                 }
 
-        *ret_files = TAKE_PTR(files);
-        *ret_n_files = n_files;
+        if (ret_files)
+                *ret_files = TAKE_PTR(files);
+        if (ret_n_files)
+                *ret_n_files = n_files;
         return 0;
 }
 
@@ -723,9 +722,6 @@ int conf_files_list_strv_full(
         _cleanup_free_ char *root_abs = NULL;
         _cleanup_strv_free_ char **dirs_abs = NULL;
         int r;
-
-        assert(ret_files);
-        assert(ret_n_files);
 
         r = prepare_dirs(root, flags, (char**) dirs, &root_abs, &rfd, &dirs_abs);
         if (r < 0)
