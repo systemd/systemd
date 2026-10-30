@@ -173,7 +173,7 @@ static void test_common_parse_argv_mode_one(
                                      mode, min_args, max_args, max_args > 0 ? &args : NULL),
                   expected);
         if (expected > 0 && max_args > 0)
-                ASSERT_TRUE(strv_equal(args, expected_args));
+                ASSERT_STRV_EQ(args, expected_args);
         else
                 ASSERT_NULL(args);
 }
@@ -345,7 +345,7 @@ static void test_common_parse_argv_passthrough_one(char **argv, int expected) {
 
         /* A command line which is passed on must be unchanged. */
         if (expected > 0)
-                ASSERT_TRUE(strv_equal(argv, copy));
+                ASSERT_STRV_EQ(argv, copy);
 }
 
 TEST(common_parse_argv_passthrough) {

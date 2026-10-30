@@ -359,7 +359,7 @@ TEST(introspect_on_path) {
         }
 
         strv_sort(expected);
-        assert_se(strv_equal(l, expected));
+        ASSERT_STRV_EQ(l, expected);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

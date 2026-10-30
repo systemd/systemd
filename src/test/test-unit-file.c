@@ -120,7 +120,7 @@ static bool test_unit_file_remove_from_name_map_trail(const LookupPaths *lp, siz
         ASSERT_OK_POSITIVE(unit_file_build_name_map(lp, &cache_timestamp_hash, &unit_ids, &unit_names, &path_cache));
 
         ASSERT_STREQ(hashmap_get(unit_ids, name), path);
-        ASSERT_TRUE(strv_equal(hashmap_get(unit_names, name), STRV_MAKE(name)));
+        ASSERT_STRV_EQ(hashmap_get(unit_names, name), STRV_MAKE(name));
         ASSERT_TRUE(set_contains(path_cache, path));
 
         ASSERT_OK_ERRNO(unlink(path));

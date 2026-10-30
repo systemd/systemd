@@ -131,7 +131,7 @@ TEST(serialize_strv) {
                 assert_se(deserialize_strv(t, &strv2) >= 0);
         }
 
-        assert_se(strv_equal(strv, strv2));
+        ASSERT_STRV_EQ(strv, strv2);
 }
 
 TEST(deserialize_environment) {
@@ -142,7 +142,7 @@ TEST(deserialize_environment) {
         assert_se(deserialize_environment("B=2", &env) >= 0);
         assert_se(deserialize_environment("FOO%%=a\\177b\\nc\\td e", &env) >= 0);
 
-        assert_se(strv_equal(env, STRV_MAKE("A=1", "B=2", "FOO%%=a\177b\nc\td e")));
+        ASSERT_STRV_EQ(env, STRV_MAKE("A=1", "B=2", "FOO%%=a\177b\nc\td e"));
 
         assert_se(deserialize_environment("foo\\", &env) < 0);
         assert_se(deserialize_environment("bar\\_baz", &env) < 0);
@@ -187,7 +187,7 @@ TEST(serialize_environment) {
         }
         assert_se(feof(f));
 
-        assert_se(strv_equal(env, env2));
+        ASSERT_STRV_EQ(env, env2);
 }
 
 TEST(serialize_item_hexmem) {

@@ -68,29 +68,29 @@ TEST(voa_os_identifiers) {
 
         /* No os-release at all yields the documented default */
         ASSERT_OK_ZERO(voa_os_identifiers(root_fd, &l));
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("linux")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("linux"));
         l = strv_free(l);
 
         write_os_release(root, "/usr/lib/os-release", "ID=testos\nVERSION_ID=1\nIMAGE_ID=img\n");
         ASSERT_OK_ZERO(voa_os_identifiers(root_fd, &l));
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("testos:1::img", "testos")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("testos:1::img", "testos"));
         l = strv_free(l);
 
         write_os_release(root, "/usr/lib/os-release",
                          "ID=testos\nVERSION_ID=1\nVARIANT_ID=server\nIMAGE_ID=img\nIMAGE_VERSION=2\n");
         ASSERT_OK_ZERO(voa_os_identifiers(root_fd, &l));
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("testos:1:server:img:2", "testos")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("testos:1:server:img:2", "testos"));
         l = strv_free(l);
 
         write_os_release(root, "/usr/lib/os-release", "ID=testos\n");
         ASSERT_OK_ZERO(voa_os_identifiers(root_fd, &l));
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("testos")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("testos"));
         l = strv_free(l);
 
         /* /etc/os-release wins over /usr/lib/os-release, the initrd's own file decides there */
         write_os_release(root, "/etc/os-release", "ID=etcos\n");
         ASSERT_OK_ZERO(voa_os_identifiers(root_fd, &l));
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("etcos")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("etcos"));
         l = strv_free(l);
         _cleanup_free_ char *etc = ASSERT_NOT_NULL(path_join(root, "/etc/os-release"));
         ASSERT_OK_ERRNO(unlink(etc));
@@ -98,7 +98,7 @@ TEST(voa_os_identifiers) {
         /* os-release permits characters VOA does not: the exact identifier is unusable then */
         write_os_release(root, "/usr/lib/os-release", "ID=testos\nVERSION_ID=1~rc1\n");
         ASSERT_OK_POSITIVE(voa_os_identifiers(root_fd, &l));
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("testos")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("testos"));
         l = strv_free(l);
 
         /* Each part fits a file name, joined they do not: the exact identifier is unusable then too */
@@ -106,12 +106,12 @@ TEST(voa_os_identifiers) {
         _cleanup_free_ char *contents = ASSERT_NOT_NULL(strjoin("ID=testos\nVERSION_ID=", version, "\n"));
         write_os_release(root, "/usr/lib/os-release", contents);
         ASSERT_OK_POSITIVE(voa_os_identifiers(root_fd, &l));
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("testos")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("testos"));
         l = strv_free(l);
 
         write_os_release(root, "/usr/lib/os-release", "NAME=Test\n");
         ASSERT_OK_ZERO(voa_os_identifiers(root_fd, &l));
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("linux")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("linux"));
         l = strv_free(l);
 
         write_os_release(root, "/usr/lib/os-release", "ID=\"Test OS\"\n");
@@ -213,16 +213,16 @@ TEST(voa_list_verifiers) {
 
         ASSERT_OK(voa_list_verifiers(root_fd, &lookup, VOA_WARN, &files, &n));
         l = file_paths(files, n);
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE(
-                                   "/etc/voa/testos" X509_DIR "a-certificate.pem",
-                                   "/etc/voa/testos" X509_DIR "g-certificate.pem",
-                                   "/etc/voa/testos" X509_DIR "i-certificate.pem",
-                                   "/run/voa/testos" X509_DIR "i-certificate.pem",
-                                   "/usr/local/share/voa/testos" X509_DIR "d-certificate.pem",
-                                   "/usr/share/voa/testos" X509_DIR "a-certificate.pem",
-                                   "/usr/share/voa/testos" X509_DIR "d-certificate.pem",
-                                   "/usr/share/voa/testos" X509_DIR "f-certificate.pem",
-                                   "/usr/share/voa/testos" X509_DIR "g-certificate.pem")));
+        ASSERT_STRV_EQ(l, STRV_MAKE(
+                           "/etc/voa/testos" X509_DIR "a-certificate.pem",
+                           "/etc/voa/testos" X509_DIR "g-certificate.pem",
+                           "/etc/voa/testos" X509_DIR "i-certificate.pem",
+                           "/run/voa/testos" X509_DIR "i-certificate.pem",
+                           "/usr/local/share/voa/testos" X509_DIR "d-certificate.pem",
+                           "/usr/share/voa/testos" X509_DIR "a-certificate.pem",
+                           "/usr/share/voa/testos" X509_DIR "d-certificate.pem",
+                           "/usr/share/voa/testos" X509_DIR "f-certificate.pem",
+                           "/usr/share/voa/testos" X509_DIR "g-certificate.pem"));
         l = strv_free(l);
         files = files_free(files, &n);
 
@@ -231,7 +231,7 @@ TEST(voa_list_verifiers) {
         lookup.context = "ctx";
         ASSERT_OK(voa_list_verifiers(root_fd, &lookup, VOA_WARN, &files, &n));
         l = file_paths(files, n);
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("/etc/voa/testos/image/ctx/x509/m-certificate.pem")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("/etc/voa/testos/image/ctx/x509/m-certificate.pem"));
         l = strv_free(l);
         files = files_free(files, &n);
         lookup.context = "default";
@@ -241,8 +241,8 @@ TEST(voa_list_verifiers) {
         lookup.mode = VOA_MODE_TRUST_ANCHOR;
         ASSERT_OK(voa_list_verifiers(root_fd, &lookup, VOA_WARN, &files, &n));
         l = file_paths(files, n);
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("/usr/share/voa/testos/trust-anchor-image/default/x509/"
-                                            "ca-certificate.pem")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("/usr/share/voa/testos/trust-anchor-image/default/x509/"
+                                    "ca-certificate.pem"));
         l = strv_free(l);
         files = files_free(files, &n);
         lookup.mode = VOA_MODE_ARTIFACT_VERIFIER;
@@ -263,12 +263,12 @@ TEST(voa_list_verifiers) {
         lookup.os = STRV_MAKE("testos2", "testos3", "testos5", "testos6");
         ASSERT_OK(voa_list_verifiers(root_fd, &lookup, VOA_WARN, &files, &n));
         l = file_paths(files, n);
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE(
-                                   "/etc/voa/testos2" X509_DIR "v-certificate.pem",
-                                   "/usr/share/voa/testos2" X509_DIR "z-certificate.pem",
-                                   "/etc/voa/testos3" X509_DIR "w-certificate.pem",
-                                   "/usr/share/voa/testos3" X509_DIR "w-certificate.pem",
-                                   "/usr/share/voa/testos6" X509_DIR "o-certificate.pem")));
+        ASSERT_STRV_EQ(l, STRV_MAKE(
+                           "/etc/voa/testos2" X509_DIR "v-certificate.pem",
+                           "/usr/share/voa/testos2" X509_DIR "z-certificate.pem",
+                           "/etc/voa/testos3" X509_DIR "w-certificate.pem",
+                           "/usr/share/voa/testos3" X509_DIR "w-certificate.pem",
+                           "/usr/share/voa/testos6" X509_DIR "o-certificate.pem"));
         l = strv_free(l);
         files = files_free(files, &n);
 
@@ -330,8 +330,8 @@ TEST(voa_list_verifiers_symlinked_load_path_parent) {
 
         ASSERT_OK(voa_list_verifiers(root_fd, &lookup, VOA_WARN, &files, &n));
         l = file_paths(files, n);
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("/etc/voa/testos" X509_DIR "a-certificate.pem",
-                                            "/usr/local/share/voa/testos" X509_DIR "a-certificate.pem")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("/etc/voa/testos" X509_DIR "a-certificate.pem",
+                                    "/usr/local/share/voa/testos" X509_DIR "a-certificate.pem"));
         ASSERT_TRUE(path_equal(skip_leading_slash(files[0]->resolved_path),
                                "var/usrlocal/share/voa/testos" X509_DIR "a-certificate.pem"));
         files = files_free(files, &n);
@@ -367,9 +367,9 @@ TEST(voa_list_verifiers_mode) {
 
         ASSERT_OK(voa_list_verifiers(root_fd, &lookup, VOA_WARN, &files, &n));
         l = file_paths(files, n);
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("/etc/voa/testos" X509_DIR "a-certificate.pem",
-                                            "/run/voa/testos" X509_DIR "b-certificate.pem",
-                                            "/usr/share/voa/testos" X509_DIR "c-certificate.pem")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("/etc/voa/testos" X509_DIR "a-certificate.pem",
+                                    "/run/voa/testos" X509_DIR "b-certificate.pem",
+                                    "/usr/share/voa/testos" X509_DIR "c-certificate.pem"));
         l = strv_free(l);
         files = files_free(files, &n);
 
@@ -382,8 +382,8 @@ TEST(voa_list_verifiers_mode) {
                 set_mode(root, p, endswith(p, ".pem") ? 0666 : 0777);
                 ASSERT_OK(voa_list_verifiers(root_fd, &lookup, VOA_WARN, &files, &n));
                 l = file_paths(files, n);
-                ASSERT_TRUE(strv_equal(l, STRV_MAKE("/etc/voa/testos" X509_DIR "a-certificate.pem",
-                                                    "/usr/share/voa/testos" X509_DIR "c-certificate.pem")));
+                ASSERT_STRV_EQ(l, STRV_MAKE("/etc/voa/testos" X509_DIR "a-certificate.pem",
+                                            "/usr/share/voa/testos" X509_DIR "c-certificate.pem"));
                 l = strv_free(l);
                 files = files_free(files, &n);
                 set_mode(root, p, endswith(p, ".pem") ? 0644 : 0755);
@@ -393,8 +393,8 @@ TEST(voa_list_verifiers_mode) {
         set_mode(root, "/run/voa/testos" X509_DIR "b-certificate.pem", 0755);
         ASSERT_OK(voa_list_verifiers(root_fd, &lookup, VOA_WARN, &files, &n));
         l = file_paths(files, n);
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("/etc/voa/testos" X509_DIR "a-certificate.pem",
-                                            "/usr/share/voa/testos" X509_DIR "c-certificate.pem")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("/etc/voa/testos" X509_DIR "a-certificate.pem",
+                                    "/usr/share/voa/testos" X509_DIR "c-certificate.pem"));
         l = strv_free(l);
         files = files_free(files, &n);
 

@@ -1204,7 +1204,7 @@ TEST(config_parse_service_refresh_on_reload) {
         ASSERT_OK(r);
         ASSERT_EQ(flags, SERVICE_RELOAD_EXTENSIONS);
         ASSERT_OK(service_refresh_on_reload_to_strv(flags, &l));
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("extensions")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("extensions"));
 
         l = strv_free(l);
 
@@ -1212,7 +1212,7 @@ TEST(config_parse_service_refresh_on_reload) {
         ASSERT_OK(r);
         ASSERT_EQ(flags, SERVICE_RELOAD_EXTENSIONS|SERVICE_RELOAD_CREDENTIALS);
         ASSERT_OK(service_refresh_on_reload_to_strv(flags, &l));
-        ASSERT_TRUE(strv_equal(l, STRV_MAKE("extensions", "credentials")));
+        ASSERT_STRV_EQ(l, STRV_MAKE("extensions", "credentials"));
 
         ASSERT_ERROR(service_refresh_on_reload_from_string_many("hoge", &flags), EINVAL);
 

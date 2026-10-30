@@ -221,7 +221,7 @@ TEST(mdns_announcement_packetize_splits_at_max_size) {
         ASSERT_EQ(DNS_PACKET_ANCOUNT(packets[2]), 1u);
 
         _cleanup_strv_free_ char **names = check_and_free_packets(packets, n_packets);
-        ASSERT_TRUE(strv_equal(names, STRV_MAKE("small0", "small1", "small2", "small3", "small4")));
+        ASSERT_STRV_EQ(names, STRV_MAKE("small0", "small1", "small2", "small3", "small4"));
 }
 
 TEST(mdns_announcement_packetize_oversized_rr_within_fragmented_ceiling) {
@@ -259,11 +259,11 @@ TEST(mdns_announcement_packetize_oversized_rr_within_fragmented_ceiling) {
         ASSERT_EQ(packets[1]->size, DNS_PACKET_HEADER_SIZE + big_sz);
 
         _cleanup_strv_free_ char **names = check_and_free_packets(packets, n_packets);
-        ASSERT_TRUE(strv_equal(names,
-                               STRV_MAKE("small0",
-                                         "small1",
-                                         "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-                                         "small2")));
+        ASSERT_STRV_EQ(names,
+                       STRV_MAKE("small0",
+                                 "small1",
+                                 "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                                 "small2"));
 }
 
 TEST(mdns_announcement_packetize_skips_rr_beyond_fragmented_ceiling) {
@@ -300,7 +300,7 @@ TEST(mdns_announcement_packetize_skips_rr_beyond_fragmented_ceiling) {
 
         /* The giant is gone; its neighbours went out intact and in order. */
         _cleanup_strv_free_ char **names = check_and_free_packets(packets, n_packets);
-        ASSERT_TRUE(strv_equal(names, STRV_MAKE("small0", "small1")));
+        ASSERT_STRV_EQ(names, STRV_MAKE("small0", "small1"));
 }
 
 /* The packet a failed fragmented retry leaves behind must not be reused for the records that follow:
@@ -345,7 +345,7 @@ TEST(mdns_announcement_packetize_drops_the_widened_packet_of_a_failed_retry) {
         ASSERT_EQ(DNS_PACKET_ANCOUNT(packets[1]), 1u);
 
         _cleanup_strv_free_ char **names = check_and_free_packets(packets, n_packets);
-        ASSERT_TRUE(strv_equal(names, STRV_MAKE("small0", "small1", "small2")));
+        ASSERT_STRV_EQ(names, STRV_MAKE("small0", "small1", "small2"));
 }
 
 /* A bound derived from a real but tiny MTU, too small for any record to fit: each record then goes
@@ -374,7 +374,7 @@ TEST(mdns_announcement_packetize_bound_too_small_for_any_record) {
         }
 
         _cleanup_strv_free_ char **names = check_and_free_packets(packets, n_packets);
-        ASSERT_TRUE(strv_equal(names, STRV_MAKE("small0", "small1", "small2")));
+        ASSERT_STRV_EQ(names, STRV_MAKE("small0", "small1", "small2"));
 }
 
 /* The fragmented retry reached without a preceding seal: when the oversized record is the *first*
@@ -418,7 +418,7 @@ TEST(mdns_announcement_packetize_oversized_rr_first) {
         ASSERT_EQ(DNS_PACKET_ANCOUNT(packets[1]), 2u);
 
         _cleanup_strv_free_ char **names = check_and_free_packets(packets, n_packets);
-        ASSERT_TRUE(strv_equal(names, STRV_MAKE(dns_resource_key_name(giant->key), "small0", "small1")));
+        ASSERT_STRV_EQ(names, STRV_MAKE(dns_resource_key_name(giant->key), "small0", "small1"));
 }
 
 /* Nothing emittable at all. The skip must not leave a half-built packet to be sealed with an ancount
@@ -532,7 +532,7 @@ TEST(mdns_announcement_packetize_skips_rr_that_cannot_be_encoded) {
         ASSERT_EQ(DNS_PACKET_ANCOUNT(packets[0]), 2u);
 
         _cleanup_strv_free_ char **names = check_and_free_packets(packets, n_packets);
-        ASSERT_TRUE(strv_equal(names, STRV_MAKE("small0", "small1")));
+        ASSERT_STRV_EQ(names, STRV_MAKE("small0", "small1"));
 }
 
 /* DNS-SD names all share a suffix, and the compression map is per packet: one carried across a
@@ -567,12 +567,12 @@ TEST(mdns_announcement_packetize_compresses_within_a_packet_only) {
         ASSERT_LT(packets[1]->size, DNS_PACKET_HEADER_SIZE + 2 * sz);
 
         _cleanup_strv_free_ char **names = check_and_free_packets(packets, n_packets);
-        ASSERT_TRUE(strv_equal(names,
-                               STRV_MAKE("svc0._x._udp.local",
-                                         "svc1._x._udp.local",
-                                         "svc2._x._udp.local",
-                                         "svc3._x._udp.local",
-                                         "svc4._x._udp.local")));
+        ASSERT_STRV_EQ(names,
+                       STRV_MAKE("svc0._x._udp.local",
+                                 "svc1._x._udp.local",
+                                 "svc2._x._udp.local",
+                                 "svc3._x._udp.local",
+                                 "svc4._x._udp.local"));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG)
