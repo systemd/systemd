@@ -10,6 +10,7 @@
 #include "common-signal.h"
 #include "env-util.h"
 #include "event-util.h"
+#include "exit-status.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "log.h"
@@ -43,6 +44,14 @@ static int on_worker_exit(sd_event_source *s, const siginfo_t *si, void *userdat
         sd_event_source_disable_unref(s);
 
         if (si->si_code == CLD_EXITED) {
+                if (si->si_status == EXIT_EXEC) {
+                        /* The worker binary cannot be executed, respawning it would just fail the same way
+                         * over and over again. Let's give up. */
+                        log_error("Worker " PID_FMT " failed to execute worker binary, exiting.", si->si_pid);
+                        sd_event_exit(m->event, EXIT_FAILURE);
+                        return 0;
+                }
+
                 if (si->si_status == EXIT_SUCCESS)
                         log_debug("Worker " PID_FMT " exited successfully.", si->si_pid);
                 else
@@ -194,7 +203,7 @@ static int start_one_worker(Manager *m) {
 
                 r = invoke_callout_binary(SYSTEMD_MOUNTWORK_PATH, STRV_MAKE("systemd-mountwork", "xxxxxxxxxxxxxxxx")); /* With some extra space rename_process() can make use of */
                 log_error_errno(r, "Failed to start worker process: %m");
-                _exit(EXIT_FAILURE);
+                _exit(EXIT_EXEC);
         }
 
         r = event_add_child_pidref(m->event, &source, &pidref, WEXITED, on_worker_exit, m);
