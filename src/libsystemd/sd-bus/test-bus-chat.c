@@ -502,7 +502,7 @@ finish:
 
 static ino_t get_inode(int fd) {
         struct stat st;
-        assert_se(fstat(fd, &st) >= 0);
+        ASSERT_OK_ERRNO(fstat(fd, &st));
         return st.st_ino;
 }
 
