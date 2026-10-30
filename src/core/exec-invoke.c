@@ -3961,6 +3961,7 @@ static int pin_rootfs(
                               context->root_image,
                               pick_filter_image_raw,
                               ELEMENTSOF(pick_filter_image_raw),
+                              /* match_root= */ NULL,
                               PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                               &result);
                 if (r < 0) {
@@ -4003,6 +4004,7 @@ static int pin_rootfs(
                               context->root_directory,
                               pick_filter_image_dir,
                               ELEMENTSOF(pick_filter_image_dir),
+                              /* match_root= */ NULL,
                               PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                               &result);
                 if (r < 0) {
@@ -4033,6 +4035,7 @@ static int pin_rootfs(
                               context->root_mstack,
                               pick_filter_image_mstack,
                               /* n_filters= */ 1,
+                              /* match_root= */ NULL,
                               PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                               &result);
                 if (r < 0) {

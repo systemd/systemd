@@ -2,6 +2,7 @@
 
 #include <unistd.h>
 
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -10,6 +11,7 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "vpick.h"
+#include "xattr-util.h"
 
 TEST(path_pick) {
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
@@ -48,7 +50,7 @@ TEST(path_pick) {
         };
 
         if (IN_SET(native_architecture(), ARCHITECTURE_X86, ARCHITECTURE_X86_64)) {
-                ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE|PICK_TRIES, &result));
+                ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* match_root= */ NULL, PICK_ARCHITECTURE|PICK_TRIES, &result));
                 ASSERT_TRUE(S_ISREG(result.st.st_mode));
                 ASSERT_STREQ(result.version, "99");
                 ASSERT_EQ(result.architecture, ARCHITECTURE_X86);
@@ -58,7 +60,7 @@ TEST(path_pick) {
         }
 
         filter.architecture = ARCHITECTURE_X86_64;
-        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE|PICK_TRIES, &result));
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* match_root= */ NULL, PICK_ARCHITECTURE|PICK_TRIES, &result));
         ASSERT_TRUE(S_ISREG(result.st.st_mode));
         ASSERT_STREQ(result.version, "55");
         ASSERT_EQ(result.architecture, ARCHITECTURE_X86_64);
@@ -66,7 +68,7 @@ TEST(path_pick) {
         pick_result_done(&result);
 
         filter.architecture = ARCHITECTURE_IA64;
-        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE|PICK_TRIES, &result));
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* match_root= */ NULL, PICK_ARCHITECTURE|PICK_TRIES, &result));
         ASSERT_TRUE(S_ISREG(result.st.st_mode));
         ASSERT_STREQ(result.version, "5");
         ASSERT_EQ(result.architecture, ARCHITECTURE_IA64);
@@ -75,7 +77,7 @@ TEST(path_pick) {
 
         filter.architecture = _ARCHITECTURE_INVALID;
         filter.version = "5";
-        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE|PICK_TRIES, &result));
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* match_root= */ NULL, PICK_ARCHITECTURE|PICK_TRIES, &result));
         ASSERT_TRUE(S_ISREG(result.st.st_mode));
         ASSERT_STREQ(result.version, "5");
         if (native_architecture() != ARCHITECTURE_IA64) {
@@ -85,7 +87,7 @@ TEST(path_pick) {
         pick_result_done(&result);
 
         filter.architecture = ARCHITECTURE_IA64;
-        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE|PICK_TRIES, &result));
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* match_root= */ NULL, PICK_ARCHITECTURE|PICK_TRIES, &result));
         ASSERT_TRUE(S_ISREG(result.st.st_mode));
         ASSERT_STREQ(result.version, "5");
         ASSERT_EQ(result.architecture, ARCHITECTURE_IA64);
@@ -93,7 +95,7 @@ TEST(path_pick) {
         pick_result_done(&result);
 
         filter.architecture = ARCHITECTURE_CRIS;
-        ASSERT_OK_ZERO(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE|PICK_TRIES, &result));
+        ASSERT_OK_ZERO(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* match_root= */ NULL, PICK_ARCHITECTURE|PICK_TRIES, &result));
         ASSERT_EQ(result.st.st_mode, MODE_INVALID);
         ASSERT_NULL(result.version);
         ASSERT_LT(result.architecture, 0);
@@ -104,7 +106,7 @@ TEST(path_pick) {
         filter.architecture = _ARCHITECTURE_INVALID;
         filter.version = NULL;
         if (IN_SET(native_architecture(), ARCHITECTURE_X86_64, ARCHITECTURE_X86)) {
-                ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE|PICK_TRIES, &result));
+                ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* match_root= */ NULL, PICK_ARCHITECTURE|PICK_TRIES, &result));
                 ASSERT_TRUE(S_ISREG(result.st.st_mode));
                 ASSERT_STREQ(result.version, "55");
 
@@ -123,7 +125,7 @@ TEST(path_pick) {
         pp = ASSERT_NOT_NULL(path_join(p, "foo.v/foo___.raw"));
 
         if (IN_SET(native_architecture(), ARCHITECTURE_X86, ARCHITECTURE_X86_64)) {
-                ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE|PICK_TRIES, &result));
+                ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* match_root= */ NULL, PICK_ARCHITECTURE|PICK_TRIES, &result));
                 ASSERT_TRUE(S_ISREG(result.st.st_mode));
                 ASSERT_STREQ(result.version, "55");
                 ASSERT_EQ(result.architecture, native_architecture());
@@ -137,10 +139,10 @@ TEST(path_pick) {
         pp = ASSERT_NOT_NULL(path_join(p, "foo.v/foo_5.raw"));
 
         filter.type_mask = UINT32_C(1) << DT_DIR;
-        ASSERT_OK_ZERO(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE|PICK_TRIES, &result));
+        ASSERT_OK_ZERO(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* match_root= */ NULL, PICK_ARCHITECTURE|PICK_TRIES, &result));
 
         filter.type_mask = UINT32_C(1) << DT_REG;
-        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE|PICK_TRIES, &result));
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* match_root= */ NULL, PICK_ARCHITECTURE|PICK_TRIES, &result));
         ASSERT_TRUE(S_ISREG(result.st.st_mode));
         ASSERT_NULL(result.version);
         ASSERT_EQ(result.architecture, _ARCHITECTURE_INVALID);
@@ -153,7 +155,7 @@ TEST(path_pick) {
         filter.architecture = ARCHITECTURE_S390;
         filter.basename = "quux";
 
-        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, PICK_ARCHITECTURE|PICK_TRIES, &result));
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* match_root= */ NULL, PICK_ARCHITECTURE|PICK_TRIES, &result));
         ASSERT_TRUE(S_ISREG(result.st.st_mode));
         ASSERT_STREQ(result.version, "2");
         ASSERT_EQ(result.tries_left, 4U);
@@ -209,7 +211,7 @@ TEST(pick_filter_image_any) {
         _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
 
         /* Test pick_filter_image_any: should pick the highest version, which is the directory test_5 */
-        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_any, ELEMENTSOF(pick_filter_image_any), PICK_ARCHITECTURE, &result));
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_any, ELEMENTSOF(pick_filter_image_any), /* match_root= */ NULL, PICK_ARCHITECTURE, &result));
         ASSERT_TRUE(S_ISDIR(result.st.st_mode));
         ASSERT_STREQ(result.version, "5");
         ASSERT_TRUE(endswith(result.path, "/test_5"));
@@ -219,14 +221,14 @@ TEST(pick_filter_image_any) {
         ASSERT_OK(unlinkat(sub_dfd, "test_4", AT_REMOVEDIR));
         ASSERT_OK(unlinkat(sub_dfd, "test_5", AT_REMOVEDIR));
 
-        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_any, ELEMENTSOF(pick_filter_image_any), PICK_ARCHITECTURE, &result));
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_any, ELEMENTSOF(pick_filter_image_any), /* match_root= */ NULL, PICK_ARCHITECTURE, &result));
         ASSERT_TRUE(S_ISREG(result.st.st_mode));
         ASSERT_STREQ(result.version, "3");
         ASSERT_TRUE(endswith(result.path, "/test_3.raw"));
         pick_result_done(&result);
 
         /* Verify that pick_filter_image_raw only matches .raw files */
-        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_raw, ELEMENTSOF(pick_filter_image_raw), PICK_ARCHITECTURE, &result));
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_raw, ELEMENTSOF(pick_filter_image_raw), /* match_root= */ NULL, PICK_ARCHITECTURE, &result));
         ASSERT_TRUE(S_ISREG(result.st.st_mode));
         ASSERT_STREQ(result.version, "3");
         ASSERT_TRUE(endswith(result.path, "/test_3.raw"));
@@ -239,12 +241,12 @@ TEST(pick_filter_image_any) {
         ASSERT_OK(unlinkat(sub_dfd, "test_3.raw", 0));
 
         /* Now only test_10.txt, test_11.img, and test_12 remain - none should match */
-        ASSERT_OK_ZERO(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_any, ELEMENTSOF(pick_filter_image_any), PICK_ARCHITECTURE, &result));
+        ASSERT_OK_ZERO(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_any, ELEMENTSOF(pick_filter_image_any), /* match_root= */ NULL, PICK_ARCHITECTURE, &result));
 
         /* But if we add a directory, it should be picked */
         ASSERT_OK(mkdirat(sub_dfd, "test_6", 0755));
 
-        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_any, ELEMENTSOF(pick_filter_image_any), PICK_ARCHITECTURE, &result));
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_any, ELEMENTSOF(pick_filter_image_any), /* match_root= */ NULL, PICK_ARCHITECTURE, &result));
         ASSERT_TRUE(S_ISDIR(result.st.st_mode));
         ASSERT_STREQ(result.version, "6");
         ASSERT_TRUE(endswith(result.path, "/test_6"));
@@ -263,7 +265,7 @@ TEST(pick_filter_image_any) {
 
         pick_result_done(&result);
 
-        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_dir, ELEMENTSOF(pick_filter_image_dir), PICK_ARCHITECTURE, &result));
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_dir, ELEMENTSOF(pick_filter_image_dir), /* match_root= */ NULL, PICK_ARCHITECTURE, &result));
         ASSERT_TRUE(S_ISDIR(result.st.st_mode));
         ASSERT_STREQ(result.version, "2");
         ASSERT_TRUE(endswith(result.path, "/myimage_2"));
@@ -273,7 +275,7 @@ TEST(pick_filter_image_any) {
         ASSERT_OK(unlinkat(sub_dfd, "myimage_1", AT_REMOVEDIR));
         ASSERT_OK(unlinkat(sub_dfd, "myimage_2", AT_REMOVEDIR));
 
-        ASSERT_OK_ZERO(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_dir, ELEMENTSOF(pick_filter_image_dir), PICK_ARCHITECTURE, &result));
+        ASSERT_OK_ZERO(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_dir, ELEMENTSOF(pick_filter_image_dir), /* match_root= */ NULL, PICK_ARCHITECTURE, &result));
 }
 
 TEST(path_pick_resolve) {
@@ -294,26 +296,26 @@ TEST(path_pick_resolve) {
         _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
 
         /* Test without PICK_RESOLVE - should return the symlink path */
-        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_any, ELEMENTSOF(pick_filter_image_any), PICK_ARCHITECTURE, &result));
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_any, ELEMENTSOF(pick_filter_image_any), /* match_root= */ NULL, PICK_ARCHITECTURE, &result));
         ASSERT_STREQ(result.version, "2");
         ASSERT_TRUE(endswith(result.path, "/resolve_2.raw"));
         pick_result_done(&result);
 
         /* Test with PICK_RESOLVE - should return the resolved (target) path */
-        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_any, ELEMENTSOF(pick_filter_image_any), PICK_ARCHITECTURE|PICK_RESOLVE, &result));
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_any, ELEMENTSOF(pick_filter_image_any), /* match_root= */ NULL, PICK_ARCHITECTURE|PICK_RESOLVE, &result));
         ASSERT_STREQ(result.version, "2");
         ASSERT_TRUE(endswith(result.path, "/target_file.raw"));
         pick_result_done(&result);
 
         /* Test pick_filter_image_dir without PICK_RESOLVE */
-        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_dir, ELEMENTSOF(pick_filter_image_dir), PICK_ARCHITECTURE, &result));
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_dir, ELEMENTSOF(pick_filter_image_dir), /* match_root= */ NULL, PICK_ARCHITECTURE, &result));
         ASSERT_TRUE(S_ISDIR(result.st.st_mode));
         ASSERT_STREQ(result.version, "1");
         ASSERT_TRUE(endswith(result.path, "/resolve_1"));
         pick_result_done(&result);
 
         /* Test pick_filter_image_dir with PICK_RESOLVE */
-        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_dir, ELEMENTSOF(pick_filter_image_dir), PICK_ARCHITECTURE|PICK_RESOLVE, &result));
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_dir, ELEMENTSOF(pick_filter_image_dir), /* match_root= */ NULL, PICK_ARCHITECTURE|PICK_RESOLVE, &result));
         ASSERT_TRUE(S_ISDIR(result.st.st_mode));
         ASSERT_STREQ(result.version, "1");
         ASSERT_TRUE(endswith(result.path, "/target_dir"));
@@ -323,12 +325,12 @@ TEST(path_pick_resolve) {
         ASSERT_OK(symlinkat("target_file.raw", dfd, "intermediate_link.raw"));
         ASSERT_OK(symlinkat("../intermediate_link.raw", sub_dfd, "resolve_3.raw"));
 
-        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_raw, ELEMENTSOF(pick_filter_image_raw), PICK_ARCHITECTURE, &result));
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_raw, ELEMENTSOF(pick_filter_image_raw), /* match_root= */ NULL, PICK_ARCHITECTURE, &result));
         ASSERT_STREQ(result.version, "3");
         ASSERT_TRUE(endswith(result.path, "/resolve_3.raw"));
         pick_result_done(&result);
 
-        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_raw, ELEMENTSOF(pick_filter_image_raw), PICK_ARCHITECTURE|PICK_RESOLVE, &result));
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, pick_filter_image_raw, ELEMENTSOF(pick_filter_image_raw), /* match_root= */ NULL, PICK_ARCHITECTURE|PICK_RESOLVE, &result));
         ASSERT_STREQ(result.version, "3");
         /* The chain should be fully resolved to target_file.raw */
         ASSERT_TRUE(endswith(result.path, "/target_file.raw"));
@@ -402,6 +404,57 @@ TEST(pick_result_compare) {
         ASSERT_LT(pick_result_compare(&a, &b, PICK_TRIES), 0); /* b wins due to tries left */
         a.tries_left = b.tries_left = UINT_MAX;
         a.version = b.version = NULL;
+}
+
+TEST(path_pick_xattr_match) {
+        _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
+        _cleanup_close_ int dfd = -EBADF, sub_dfd = -EBADF;
+        int r;
+
+        dfd = ASSERT_OK(mkdtemp_open(NULL, O_DIRECTORY|O_CLOEXEC, &p));
+        sub_dfd = ASSERT_OK(open_mkdir_at(dfd, "foo.v", O_CLOEXEC, 0777));
+
+        ASSERT_OK(write_string_file_at(sub_dfd, "foo_1.raw", "1", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file_at(sub_dfd, "foo_2.raw", "2", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file_at(sub_dfd, "foo_3.raw", "3", WRITE_STRING_FILE_CREATE));
+
+        /* The newest one is restricted to a machine ID no system has, the second newest to any hostname */
+        r = xsetxattr_strv(sub_dfd, "foo_3.raw", /* at_flags= */ 0, "user.uapi.match_machine_id", STRV_MAKE("00000000000000000000000000000000"));
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return (void) log_tests_skipped_errno(r, "User extended attributes not supported");
+        ASSERT_OK(r);
+        ASSERT_OK(xsetxattr_strv(sub_dfd, "foo_2.raw", /* at_flags= */ 0, "user.uapi.match_hostname", STRV_MAKE("*")));
+
+        _cleanup_free_ char *pp = ASSERT_NOT_NULL(path_join(p, "foo.v"));
+        _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+        PickFilter filter = {
+                .architecture = _ARCHITECTURE_INVALID,
+                .suffix = ".raw",
+        };
+
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* match_root= */ NULL, PICK_ARCHITECTURE|PICK_TRIES, &result));
+        ASSERT_STREQ(result.version, "2");
+        pick_result_done(&result);
+
+        /* Also when the version is fully specified */
+        filter.version = "3";
+        ASSERT_OK_ZERO(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* match_root= */ NULL, /* flags= */ 0, &result));
+        filter.version = NULL;
+
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* match_root= */ NULL, PICK_ARCHITECTURE|PICK_TRIES|PICK_IGNORE_XATTR_MATCH, &result));
+        ASSERT_STREQ(result.version, "3");
+        pick_result_done(&result);
+
+        /* An invalid extended attribute disqualifies an entry too */
+        ASSERT_OK(xsetxattr_strv(sub_dfd, "foo_2.raw", /* at_flags= */ 0, "user.uapi.match_hostname", STRV_MAKE("")));
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* match_root= */ NULL, PICK_ARCHITECTURE|PICK_TRIES, &result));
+        ASSERT_STREQ(result.version, "1");
+        pick_result_done(&result);
+
+        /* A path that doesn't make use of .v/ is taken literally */
+        _cleanup_free_ char *literal = ASSERT_NOT_NULL(path_join(p, "foo.v/foo_3.raw"));
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, AT_FDCWD, literal, &filter, /* n_filters= */ 1, /* match_root= */ NULL, PICK_ARCHITECTURE|PICK_TRIES, &result));
+        ASSERT_TRUE(endswith(result.path, "/foo_3.raw"));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
