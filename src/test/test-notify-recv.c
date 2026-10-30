@@ -52,6 +52,9 @@ static int on_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata)
         } else if (strv_contains(l, "SECOND_MESSAGE=1")) {
                 ASSERT_STREQ(l[0], "SECOND_MESSAGE=1");
                 ASSERT_STREQ(l[1], "ADDITIONAL_DATA=hoge");
+                ASSERT_STREQ(l[2], "FDSTOREWIPE=quux\\*");
+                ASSERT_STREQ(l[3], "FDNAME=path\\name\\");
+                ASSERT_NULL(l[4]);
                 ASSERT_EQ(++c->data, 2u);
                 ASSERT_NOT_NULL(fds);
                 ASSERT_EQ(fdset_size(fds), 2u);
@@ -103,7 +106,8 @@ TEST(notify_socket_prepare) {
                 ASSERT_OK_POSITIVE(
                         sd_pid_notify_with_fds(
                                 /* pid= */ 0, /* unset_environment= */ false,
-                                "SECOND_MESSAGE=1\nADDITIONAL_DATA=hoge", (int[]) { fd1, fd2 }, 2));
+                                "SECOND_MESSAGE=1\nADDITIONAL_DATA=hoge\nFDSTOREWIPE=quux\\*\nFDNAME=path\\name\\",
+                                (int[]) { fd1, fd2 }, 2));
                 _exit(EXIT_SUCCESS);
         }
 

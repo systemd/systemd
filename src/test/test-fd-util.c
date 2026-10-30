@@ -19,8 +19,45 @@
 #include "rm-rf.h"
 #include "serialize.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
+
+TEST(fdname_is_valid) {
+        static const struct {
+                const char *value;
+                bool name_valid;
+                bool glob_valid;
+        } cases[] = {
+                { NULL,           false, false },
+                { "",             true,  false },
+                { "1",            true,  true  },
+                { "*",            true,  true  },
+                { "test-?",       true,  true  },
+                { "test-[ab]",    true,  true  },
+                { "[[:digit:]]",  false, true  },
+                { "test-\\*",     true,  true  },
+                { "test:name",    false, true  },
+                { "test name",    true,  true  },
+                { "test\tname",   false, false },
+                { "test\nname",   false, false },
+                { "test\177name", false, false },
+                { "test\200name", false, false },
+        };
+
+        FOREACH_ELEMENT(c, cases) {
+                ASSERT_EQ(fdname_is_valid(c->value), c->name_valid);
+                ASSERT_EQ(fdname_glob_is_valid(c->value), c->glob_valid);
+        }
+
+        _cleanup_free_ char *long_name = strrep("x", FDNAME_MAX + 1);
+        ASSERT_NOT_NULL(long_name);
+        ASSERT_FALSE(fdname_is_valid(long_name));
+        ASSERT_FALSE(fdname_glob_is_valid(long_name));
+        long_name[FDNAME_MAX] = 0;
+        ASSERT_TRUE(fdname_is_valid(long_name));
+        ASSERT_TRUE(fdname_glob_is_valid(long_name));
+}
 
 TEST(close_many) {
         int fds[3];

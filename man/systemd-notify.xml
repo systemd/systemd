@@ -241,6 +241,24 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--fdstore-wipe<optional>=<replaceable>GLOB</replaceable></optional></option></term>
+
+        <listitem><para>Remove all file descriptors from the service's file descriptor store when no argument
+        is specified. Otherwise, remove only file descriptors whose names match the specified case-sensitive
+        shell-style glob. An empty pattern is invalid. The argument must be attached to the option with
+        <literal>=</literal> and should be quoted to prevent expansion by the invoking shell. For example,
+        <literal>--fdstore-wipe='connection-*'</literal> removes all descriptors whose names start with
+        <literal>connection-</literal>.</para>
+
+        <para>This is equivalent to sending <literal>FDSTOREWIPE=</literal> with the specified pattern
+        (or <literal>*</literal> when omitted) via
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        This option may not be combined with <option>--fd=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--fork</option></term>
 
         <listitem><para>Instead of sending a notification message, fork off a command line and wait until a

@@ -6,6 +6,7 @@
 #include "async.h"
 #include "constants.h"
 #include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "log.h"
@@ -245,8 +246,10 @@ int notify_recv_with_fds_strv(
                 return r;
 
         if (ret_list) {
-                char **l = strv_split_newlines(text);
-                if (!l) {
+                char **l;
+
+                r = strv_split_newlines_full(&l, text, EXTRACT_RETAIN_ESCAPE);
+                if (r < 0) {
                         log_oom_warning();
                         return -EAGAIN;
                 }
