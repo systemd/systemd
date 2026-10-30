@@ -167,9 +167,7 @@ static void vl_on_disconnect(sd_varlink_server *s, sd_varlink *link, void *userd
         }
 
         Manager *m = ASSERT_PTR(sd_varlink_server_get_userdata(s));
-        DnsServiceBrowser *sb = hashmap_get(m->dns_service_browsers, link);
-        if (sb)
-                dns_service_browser_detach(sb);
+        dns_unsubscribe_browse_service(m, link);
 }
 
 static void vl_on_notification_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata) {
