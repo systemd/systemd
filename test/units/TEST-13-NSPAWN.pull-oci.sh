@@ -134,6 +134,9 @@ run0 -u testuser systemd-nspawn -q --pipe -M ocicombo /sbin/init | grep luftikus
 
 run0 -u testuser --pipe systemd-run -q --unit=fimpel --user -p PrivateUsers=managed -p RootMStack=/home/testuser/.local/state/machines/ocicombo.mstack --pipe /sbin/init | grep luftikus >/dev/null
 
+# With PrivatePIDs=yes, the process that calls mountfsd is not the one that connected to it
+test "$(run0 -u testuser --pipe systemd-run -q --unit=fimpel-pidns --user -p PrivateUsers=managed -p PrivatePIDs=yes -p RootMStack=/home/testuser/.local/state/machines/ocicombo.mstack --pipe readlink /proc/self)" = 1
+
 run0 -u testuser machinectl list-images -a --user
 
 # The same image in Docker's "Image Manifest V2, Schema 2" format, which uses different media types for the
