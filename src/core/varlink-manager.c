@@ -319,6 +319,10 @@ int vl_method_reexecute_manager(sd_varlink *link, sd_json_variant *parameters, s
                 return sd_varlink_error(link, VARLINK_ERROR_MANAGER_RATE_LIMIT_REACHED, NULL);
         }
 
+        r = manager_reexecute_canary();
+        if (r < 0)
+                return sd_varlink_error_errno(link, r);
+
         /* We don't send a reply back here, the client should just wait for us disconnecting. */
 
         manager->objective = MANAGER_REEXECUTE;

@@ -1332,6 +1332,11 @@
           libselinux, and exit. Libraries for features disabled at build time are skipped. The exit status is
           zero if all libraries could be loaded, and 5 otherwise.</para>
 
+          <para>Before reexecuting itself (see <command>systemctl daemon-reexec</command>), the service
+          manager runs the binary it is about to execute with <option>--test-dlopen</option>,
+          and refuses the reexecution if that fails, so that the running instance is not replaced by one that
+          cannot work properly.</para>
+
           <xi:include href="version-info.xml" xpointer="v263"/></listitem>
         </varlistentry>
 

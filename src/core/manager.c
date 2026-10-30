@@ -110,6 +110,9 @@
 #define JOBS_IN_PROGRESS_PERIOD_USEC (USEC_PER_SEC / 3)
 #define JOBS_IN_PROGRESS_PERIOD_DIVISOR 3
 
+/* The event loop is blocked while the canary runs, which normally takes a few milliseconds. */
+#define REEXECUTE_CANARY_TIMEOUT_USEC (10*USEC_PER_SEC)
+
 /* If there are more than 1K bus messages queue across our API and direct buses, then let's not add more on top until
  * the queue gets more empty. */
 #define MANAGER_BUS_BUSY_THRESHOLD 1024LU
@@ -3335,7 +3338,8 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
         case SIGTERM:
                 if (MANAGER_IS_SYSTEM(m)) {
                         /* This is for compatibility with the original sysvinit */
-                        m->objective = MANAGER_REEXECUTE;
+                        if (manager_reexecute_canary() >= 0)
+                                m->objective = MANAGER_REEXECUTE;
                         break;
                 }
 
@@ -3514,7 +3518,8 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         break;
 
                 case 25:
-                        m->objective = MANAGER_REEXECUTE;
+                        if (manager_reexecute_canary() >= 0)
+                                m->objective = MANAGER_REEXECUTE;
                         break;
 
                 case 26:
@@ -5517,6 +5522,103 @@ ManagerTimestamp manager_timestamp_initrd_mangle(ManagerTimestamp s) {
             s <= MANAGER_TIMESTAMP_UNITS_LOAD_FINISH)
                 return s - MANAGER_TIMESTAMP_SECURITY_START + MANAGER_TIMESTAMP_INITRD_SECURITY_START;
         return s;
+}
+
+int manager_execute_self(const char **args) {
+        _cleanup_free_ char *our_exe = NULL;
+        int r;
+
+        assert(args);
+
+        /* Executes the service manager binary for reexecution, with args[1] and following as arguments.
+         * Shared between the actual reexecution and its canary, so that both pick the same binary. Only
+         * returns on failure. */
+
+        args[0] = SYSTEMD_BINARY_PATH;
+        r = RET_NERRNO(execv(args[0], (char* const*) args));
+
+        /* If the binary is missing, try with our current executable too. This way things continue to work
+         * if the binary is installed into a non-default location. Note that we don't use chase here, the
+         * symlink the kernel gives is good enough. */
+        if (r == -ENOENT) {
+                int k;
+
+                k = readlink_malloc("/proc/self/exe", &our_exe);
+                if (k < 0)
+                        log_warning_errno(k, "Failed to read /proc/self/exe: %m");
+                else if (endswith(our_exe, " (deleted)"))
+                        log_info("The current binary (/proc/self/exe) has been deleted.");
+                else {
+                        log_info_errno(r, "Failed to execute our own binary %s, trying /proc/self/exe: %m", args[0]);
+                        args[0] = "/proc/self/exe";
+                        r = RET_NERRNO(execv(args[0], (char* const*) args));
+                }
+        }
+
+        return log_error_errno(r, "Failed to execute our own binary %s: %m", args[0]);
+}
+
+int manager_reexecute_canary(void) {
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        siginfo_t si = {};
+        int r;
+
+        /* Before reexecuting, check that the binary we are about to execute is able to load the shared
+         * libraries without which the new instance would come up crippled, or not at all. If it isn't,
+         * refuse, so that the current instance keeps running. */
+
+        r = pidref_safe_fork("(sd-canary)",
+                             FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_RLIMIT_NOFILE_SAFE|FORK_REOPEN_LOG|FORK_LOG,
+                             &pidref);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                const char *args[] = { NULL, "--test-dlopen", NULL };
+
+                /* Child: log wherever we log, so that missing libraries show up next to our messages. */
+                (void) setenv("SYSTEMD_LOG_TARGET", log_target_to_string(log_get_target()), /* overwrite= */ true);
+
+                (void) manager_execute_self(args);
+                _exit(EXIT_EXEC);
+        }
+
+        r = pidref_wait_for_terminate_full(&pidref, REEXECUTE_CANARY_TIMEOUT_USEC, &si);
+        if (r == -ETIMEDOUT)
+                return log_error_errno(r, "Reexecution canary did not finish in time, refusing reexecution.");
+        if (r < 0)
+                return log_error_errno(r, "Failed to wait for reexecution canary, refusing reexecution: %m");
+
+        pidref_done(&pidref); /* Already reaped. */
+
+        if (si.si_code != CLD_EXITED)
+                return log_error_errno(SYNTHETIC_ERRNO(EPROTO),
+                                       "Reexecution canary was terminated by signal %s, refusing reexecution.",
+                                       signal_to_string(si.si_status));
+
+        switch (si.si_status) {
+
+        case EXIT_SUCCESS:
+                return 0;
+
+        case EXIT_FAILURE:
+                /* Versions predating --test-dlopen fail with a generic error on the unknown option. This is
+                 * the downgrade case, in which there is nothing we can check, hence proceed as before. */
+                log_notice("Service manager binary does not support --test-dlopen, reexecuting without checking for shared libraries.");
+                return 0;
+
+        case EXIT_NOTINSTALLED:
+                return log_error_errno(SYNTHETIC_ERRNO(ELIBACC),
+                                       "Service manager binary cannot load fundamental shared libraries, refusing reexecution.");
+
+        default: {
+                /* E.g. EXIT_EXEC if there is no binary we could execute, or 127 if the dynamic loader cannot
+                 * resolve a hard library dependency. In both cases actually reexecuting would be fatal. */
+                const char *name = exit_status_to_string(si.si_status, EXIT_STATUS_FULL);
+
+                return log_error_errno(SYNTHETIC_ERRNO(EPROTO),
+                                       "Reexecution canary failed with exit status %i%s%s, refusing reexecution.",
+                                       si.si_status, name ? "/" : "", strempty(name));
+        }}
 }
 
 int manager_allocate_idle_pipe(Manager *m) {

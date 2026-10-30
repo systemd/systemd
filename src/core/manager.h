@@ -729,6 +729,9 @@ void manager_log_caller(Manager *manager, PidRef *caller, const char *method);
 
 int manager_allocate_idle_pipe(Manager *m);
 
+int manager_execute_self(const char **args);
+int manager_reexecute_canary(void);
+
 int update_first_boot_file(bool b);
 
 void unit_defaults_init(UnitDefaults *defaults, RuntimeScope scope);
