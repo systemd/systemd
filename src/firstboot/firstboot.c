@@ -1426,6 +1426,9 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_COMMON_VERSION:
                         return version();
 
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
+
                 OPTION_LONG("root", "PATH", "Operate on an alternate filesystem root"):
                         r = parse_path_argument(opts.arg, true, &arg_root);
                         if (r < 0)
@@ -1443,6 +1446,36 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_LONG("force", NULL, "Overwrite existing files"):
+                        arg_force = true;
+                        break;
+
+                OPTION_LONG("welcome", "BOOL", "Whether to show the welcome text"):
+                        r = parse_boolean_argument("--welcome=", opts.arg, &arg_welcome);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("chrome", "BOOL",
+                            "Whether to show a color bar at top and bottom of terminal"):
+                        r = parse_boolean_argument("--chrome=", opts.arg, &arg_chrome);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("mute-console", "BOOL",
+                            "Whether to disallow kernel/PID 1 writes to the console while running"):
+                        r = parse_boolean_argument("--mute-console=", opts.arg, &arg_mute_console);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("reset", NULL, "Remove existing files"):
+                        arg_reset = true;
+                        break;
+
+                OPTION_GROUP("Settings"): {}
 
                 OPTION_LONG("locale", "LOCALE", "Set primary locale (LANG=)"):
                         r = free_and_strdup_warn(&arg_locale, opts.arg);
@@ -1548,6 +1581,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                OPTION_LONG("delete-root-password", NULL, "Delete root password"):
+                        arg_delete_root_password = true;
+                        break;
+
+                OPTION_GROUP("Prompting"): {}
+
                 OPTION_LONG("prompt-locale", NULL, "Prompt the user for locale settings"):
                         arg_prompt_locale = true;
                         break;
@@ -1584,6 +1623,8 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_prompt_keymap_auto = false;
                         break;
 
+                OPTION_GROUP("Copying from Host"): {}
+
                 OPTION_LONG("copy-locale", NULL, "Copy locale from host"):
                         arg_copy_locale = true;
                         break;
@@ -1608,41 +1649,6 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_copy_locale = arg_copy_keymap = arg_copy_timezone = arg_copy_root_password =
                                 arg_copy_root_shell = true;
                         break;
-
-                OPTION_LONG("force", NULL, "Overwrite existing files"):
-                        arg_force = true;
-                        break;
-
-                OPTION_LONG("delete-root-password", NULL, "Delete root password"):
-                        arg_delete_root_password = true;
-                        break;
-
-                OPTION_LONG("welcome", "BOOL", "Whether to show the welcome text"):
-                        r = parse_boolean_argument("--welcome=", opts.arg, &arg_welcome);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                OPTION_LONG("chrome", "BOOL",
-                            "Whether to show a color bar at top and bottom of terminal"):
-                        r = parse_boolean_argument("--chrome=", opts.arg, &arg_chrome);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                OPTION_LONG("mute-console", "BOOL",
-                            "Whether to disallow kernel/PID 1 writes to the console while running"):
-                        r = parse_boolean_argument("--mute-console=", opts.arg, &arg_mute_console);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                OPTION_LONG("reset", NULL, "Remove existing files"):
-                        arg_reset = true;
-                        break;
-
-                OPTION_COMMON_INTROSPECT_CLI:
-                        return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
         if (arg_delete_root_password && (arg_copy_root_password || arg_root_password || arg_prompt_root_password))
