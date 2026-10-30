@@ -63,6 +63,7 @@ void varlink_propagate_bad_field(const char *bad_field, const char *child_bad_fi
 }
 
 int varlink_propagate_bad_field_errno(int errnum, const char *bad_field, const char *child_bad_field, char **reterr_bad_field) {
+        errnum = -abs(errnum);
         assert(errnum < 0);
 
         /* don't allocate more mem if ENOMEM */
