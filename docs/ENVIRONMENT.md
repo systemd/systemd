@@ -578,9 +578,6 @@ disk images with `--image=` or similar:
   prevents activation if the image policy allows `signed` but not `verity`, see
   `systemd.image-policy(7)`.
 
-* `$SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC=sec` — takes a timespan, which controls
-  the timeout waiting for the image to be configured. Defaults to 100 msec.
-
 * `$SYSTEMD_DISSECT_FILE_SYSTEMS=` — takes a colon-separated list of file
   systems that may be mounted for automatically dissected disk images. If not
   specified defaults to something like: `ext4:btrfs:xfs:vfat:erofs:squashfs`

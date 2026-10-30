@@ -87,6 +87,81 @@ fi
 systemd-dissect --umount "$IMAGE_DIR/mount"
 systemd-dissect --umount "$IMAGE_DIR/mount2"
 
+# A shared verity device is reused even if its symlink in /dev/mapper/ doesn't exist, for example because udev
+# hasn't processed the device yet. If the kernel can't validate the signature of the image, a device without a
+# validated signature isn't reused for an image with a signature, so we ignore the signature.
+SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 systemd-dissect --mount "$MINIMAL_IMAGE.raw" "$IMAGE_DIR/mount"
+udevadm wait --timeout=60 --settle "/dev/mapper/$MINIMAL_IMAGE_ROOTHASH-verity"
+rm "/dev/mapper/$MINIMAL_IMAGE_ROOTHASH-verity"
+SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 systemd-dissect --mount "$MINIMAL_IMAGE.raw" "$IMAGE_DIR/mount2"
+test "$(findmnt -n -o MAJ:MIN "$IMAGE_DIR/mount2")" = "$(findmnt -n -o MAJ:MIN "$IMAGE_DIR/mount")"
+systemd-dissect --umount "$IMAGE_DIR/mount"
+systemd-dissect --umount "$IMAGE_DIR/mount2"
+
+# Verity devices also work if /dev isn't a devtmpfs and udev doesn't run, for example in a container.
+# libdevmapper then creates /dev/mapper/control and the nodes in /dev/mapper/ itself. DM_DISABLE_UDEV=1
+# makes libdevmapper behave as if udev doesn't run. The tmpfs on /dev only contains /dev/null, /dev/random,
+# /dev/urandom and the nodes of the two loop devices.
+data_loop="$(losetup --show -f -r "$MINIMAL_IMAGE.raw")"
+hash_loop="$(losetup --show -f -r "$MINIMAL_IMAGE.verity")"
+udevadm wait --timeout=60 --settle "$data_loop" "$hash_loop"
+unshare --mount bash -euxc '
+    data_devnum="$(stat -c "%t %T" "$1")"
+    hash_devnum="$(stat -c "%t %T" "$2")"
+    mount -t tmpfs tmpfs /dev
+    mknod /dev/null c 1 3
+    mknod /dev/random c 1 8
+    mknod /dev/urandom c 1 9
+    read -r major minor <<<"$data_devnum"
+    mknod "$1" b "$((16#$major))" "$((16#$minor))"
+    read -r major minor <<<"$hash_devnum"
+    mknod "$2" b "$((16#$major))" "$((16#$minor))"
+    DM_DISABLE_UDEV=1 SYSTEMD_VERITY_SHARING=1 \
+        systemd-dissect --mtree "$1" --root-hash="$MINIMAL_IMAGE_ROOTHASH" --verity-data="$2" >/dev/null
+' bash "$data_loop" "$hash_loop"
+losetup -d "$data_loop" "$hash_loop"
+
+# The hex encoding of a SHA-512 root hash doesn't fit in the name of a shared verity device, so the device
+# isn't shared.
+veritysetup format --hash=sha512 "$MINIMAL_IMAGE.raw" /tmp/test-50-sha512.verity \
+                   --root-hash-file /tmp/test-50-sha512.roothash
+SYSTEMD_VERITY_SHARING=1 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" \
+                                         --root-hash="$(</tmp/test-50-sha512.roothash)" \
+                                         --verity-data=/tmp/test-50-sha512.verity 2>&1 >/dev/null | \
+    grep -F "Root hash is too long for the name of a shared verity device" >/dev/null
+rm /tmp/test-50-sha512.verity /tmp/test-50-sha512.roothash
+
+# The tests below set up the shared verity device of $MINIMAL_IMAGE themselves. A device left over from an
+# earlier test can still exist, for example until its deferred removal finished. We look it up with dmsetup,
+# since some tests remove its symlink in /dev/mapper/.
+wait_for_shared_verity_device_removal() {
+    timeout 60 bash -c "while dmsetup info $MINIMAL_IMAGE_ROOTHASH-verity &>/dev/null; do sleep .1; done"
+}
+
+# libcryptsetup before 2.7.4 opens the data device of a verity device exclusively, even with
+# CRYPT_ACTIVATE_SHARED. With such a version, setting up a verity device on a block device that another verity
+# device already maps fails.
+if systemd-analyze compare-versions "$(cryptsetup --version | cut -d' ' -f2)" ge 2.7.4; then
+    VERITY_SHARED_DATA_DEVICE=1
+else
+    VERITY_SHARED_DATA_DEVICE=0
+fi
+
+# A shared verity device can be set up on a block device that another verity device already maps. If the shared
+# device from an earlier test still exists, systemd-dissect reuses it instead of setting up a device on the
+# block device.
+if [[ "$VERITY_SHARED_DATA_DEVICE" -eq 1 ]]; then
+    wait_for_shared_verity_device_removal
+    loop="$(losetup --show -f -r "$MINIMAL_IMAGE.raw")"
+    udevadm wait --timeout=60 --settle "$loop"
+    veritysetup open "$loop" test-50-other "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE_ROOTHASH"
+    SYSTEMD_VERITY_SHARING=1 systemd-dissect --mtree "$loop" \
+                                             --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                                             --verity-data="$MINIMAL_IMAGE.verity" >/dev/null
+    veritysetup close test-50-other
+    losetup -d "$loop"
+fi
+
 # Ensure the deferred close flag is set up correctly and we don't leak verity devices
 # when sharing is disabled
 # The devices are named 'loopXYZ-verity' when sharing is disabled
@@ -103,6 +178,29 @@ dmsetup ls | grep "$(basename "$d")" >/dev/null
 umount -R "$IMAGE_DIR/mount"
 timeout 60 bash -c "while test -e $d; do sleep 0.1; done"
 ( ! dmsetup ls | grep "$(basename "$d")") >/dev/null
+
+# A process that reuses a verity device leaves the device alone when it's done. Only the process that activated
+# the device requests its removal. veritysetup didn't request deferred removal of the device, so the device must
+# not have deferred removal set after systemd-dissect exits.
+wait_for_shared_verity_device_removal
+veritysetup open "$MINIMAL_IMAGE.raw" "$MINIMAL_IMAGE_ROOTHASH-verity" "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE_ROOTHASH"
+SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" >/dev/null
+dmsetup info "$MINIMAL_IMAGE_ROOTHASH-verity" >/tmp/test-50-info
+(! grep -F "DEFERRED REMOVE" /tmp/test-50-info)
+rm /tmp/test-50-info
+veritysetup close "$MINIMAL_IMAGE_ROOTHASH-verity"
+
+# A process that activates a verity device requests deferred removal of the device as soon as it opened it, so
+# the device is removed even if the process gets killed. systemd-nspawn keeps the image until it exits and never
+# relinquishes it. Without the request after the open, the device only gets deferred removal set when
+# systemd-nspawn exits normally.
+wait_for_shared_verity_device_removal
+systemd-run --unit=test-50-nspawn.service \
+            systemd-nspawn --pipe --register=no --keep-unit --image="$MINIMAL_IMAGE.raw" --read-only sleep infinity
+timeout 60 bash -c "until dmsetup info $MINIMAL_IMAGE_ROOTHASH-verity 2>/dev/null | grep -F 'DEFERRED REMOVE' >/dev/null; do sleep .1; done"
+systemctl kill --signal=SIGKILL test-50-nspawn.service
+wait_for_shared_verity_device_removal
+systemctl reset-failed test-50-nspawn.service
 
 # A signature that can't be validated only prevents activation if the image policy allows "signed" but not
 # "verity". Userspace validation only parses the signature if a certificate is installed. Without one, it
@@ -145,7 +243,95 @@ for sig in /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s; do
                                                 --root-hash-sig="$sig" \
                                                 --image-policy=root=signed >/dev/null)
 done
+# A process that can't reuse an existing verity device leaves the device alone. Here, the process can't reuse
+# the device because the device was activated without the signature that the process has.
+wait_for_shared_verity_device_removal
+veritysetup open "$MINIMAL_IMAGE.raw" "$MINIMAL_IMAGE_ROOTHASH-verity" "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE_ROOTHASH"
+SYSTEMD_VERITY_SHARING=1 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" \
+                                         --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                                         --root-hash-sig=/tmp/test-50-unknown.p7s \
+                                         --image-policy=root=verity+signed >/dev/null
+veritysetup status "$MINIMAL_IMAGE_ROOTHASH-verity" >/dev/null
+veritysetup close "$MINIMAL_IMAGE_ROOTHASH-verity"
+# If we can't reuse a shared verity device, we activate a device with a unique name on the same data device
+# instead.
+if [[ "$VERITY_SHARED_DATA_DEVICE" -eq 1 ]]; then
+    loop="$(losetup --show -f -r "$MINIMAL_IMAGE.raw")"
+    udevadm wait --timeout=60 --settle "$loop"
+    veritysetup open "$loop" "$MINIMAL_IMAGE_ROOTHASH-verity" "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE_ROOTHASH"
+    SYSTEMD_VERITY_SHARING=1 systemd-dissect --mtree "$loop" \
+                                             --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                                             --root-hash-sig=/tmp/test-50-unknown.p7s \
+                                             --verity-data="$MINIMAL_IMAGE.verity" \
+                                             --image-policy=root=verity+signed >/dev/null
+    veritysetup close "$MINIMAL_IMAGE_ROOTHASH-verity"
+    losetup -d "$loop"
+fi
 rm /run/verity.d/test-50-mkosi.crt /tmp/test-50-unknown.key /tmp/test-50-unknown.crt /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s
+
+# systemd-dissect calls io.systemd.PCRExtend.Extend() right after it activated a verity device, before it
+# opens the device. run_with_blocked_pcrextend() runs a command in a mount namespace with a fake
+# io.systemd.PCRExtend service. The service creates /tmp/test-50-race/connected when it gets a call. It keeps the
+# connection open until /tmp/test-50-race/go exists and then closes it without a reply.
+run_with_blocked_pcrextend() {
+    unshare --mount bash -euxc '
+        mount -t tmpfs tmpfs /run/systemd
+        socat UNIX-LISTEN:/run/systemd/io.systemd.PCRExtend,fork \
+              SYSTEM:"touch /tmp/test-50-race/connected; while test ! -e /tmp/test-50-race/go; do sleep .1; done" &
+        socat_pid=$!
+        trap "kill $socat_pid" EXIT
+        timeout 60 bash -c "until test -S /run/systemd/io.systemd.PCRExtend; do sleep .1; done"
+        "$@"
+    ' bash "$@"
+}
+
+# A process that activated a shared verity device only uses the device if the device maps its own data device.
+# Before the process opens the device, another process can remove it and set up a different device with the
+# same name.
+if systemctl --version | grep -F -- "+TPM2" >/dev/null; then
+    mkdir -p /tmp/test-50-race/root
+    echo other >/tmp/test-50-race/root/other
+    mksquashfs /tmp/test-50-race/root /tmp/test-50-race/other.raw -noappend
+    veritysetup format /tmp/test-50-race/other.raw /tmp/test-50-race/other.verity \
+                       --root-hash-file /tmp/test-50-race/other.roothash
+    wait_for_shared_verity_device_removal
+    run_with_blocked_pcrextend env SYSTEMD_VERITY_SHARING=1 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" \
+                               >/tmp/test-50-race/mtree &
+    pid=$!
+    timeout 60 bash -c "until test -e /tmp/test-50-race/connected; do sleep .1; done"
+    veritysetup close "$MINIMAL_IMAGE_ROOTHASH-verity"
+    veritysetup open /tmp/test-50-race/other.raw "$MINIMAL_IMAGE_ROOTHASH-verity" /tmp/test-50-race/other.verity \
+                     "$(</tmp/test-50-race/other.roothash)"
+    touch /tmp/test-50-race/go
+    wait "$pid"
+    grep -E '^\./usr/lib/os-release ' /tmp/test-50-race/mtree >/dev/null
+    veritysetup close "$MINIMAL_IMAGE_ROOTHASH-verity"
+    rm -rf /tmp/test-50-race
+fi
+
+# If the kernel validated the signature of a verity device that a process activated, the process only uses the
+# device if the device still has a validated signature. Before the process opens the device, another process can
+# replace it with a device on the same data device without a signature. The process then sets up a device with a
+# unique name on the data device that the replacement maps. That only works if VERITY_SHARED_DATA_DEVICE is 1.
+if [[ "$VERITY_SIG_SUPPORTED" -eq 1 && "$VERITY_SHARED_DATA_DEVICE" -eq 1 ]] &&
+   systemctl --version | grep -F -- "+TPM2" >/dev/null; then
+    mkdir -p /tmp/test-50-race/mnt
+    wait_for_shared_verity_device_removal
+    run_with_blocked_pcrextend bash -euxc '
+        SYSTEMD_VERITY_SHARING=1 systemd-dissect --mount "$1" /tmp/test-50-race/mnt
+        findmnt -n -o MAJ:MIN /tmp/test-50-race/mnt
+    ' bash "$MINIMAL_IMAGE.raw" >/tmp/test-50-race/majmin &
+    pid=$!
+    timeout 60 bash -c "until test -e /tmp/test-50-race/connected; do sleep .1; done"
+    data_device="$(veritysetup status "$MINIMAL_IMAGE_ROOTHASH-verity" | awk '$1 == "data" && $2 == "device:" { print $3 }')"
+    veritysetup close "$MINIMAL_IMAGE_ROOTHASH-verity"
+    veritysetup open "$data_device" "$MINIMAL_IMAGE_ROOTHASH-verity" "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE_ROOTHASH"
+    touch /tmp/test-50-race/go
+    wait "$pid"
+    test "$(</tmp/test-50-race/majmin)" != "$(dmsetup info -c --noheadings -o major,minor "$MINIMAL_IMAGE_ROOTHASH-verity")"
+    veritysetup close "$MINIMAL_IMAGE_ROOTHASH-verity"
+    rm -rf /tmp/test-50-race
+fi
 
 # Test BindLogSockets=
 systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" mountpoint /run/systemd/journal/socket
@@ -657,6 +843,48 @@ umount -R /tmp/img
 umount -R /tmp/ext
 veritysetup close "$(cat "$MINIMAL_IMAGE.roothash")-verity" ||:
 veritysetup close "$(cat "$VDIR/${VBASE}_0.roothash")-verity" ||:
+
+# The RootImage= shortcut in dissected_image_new_from_existing_verity() also finds a verity device whose symlink in
+# /dev/mapper/ doesn't exist, for example because udev hasn't processed the device yet.
+wait_for_shared_verity_device_removal
+veritysetup open "$MINIMAL_IMAGE.raw" "$MINIMAL_IMAGE_ROOTHASH-verity" "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE_ROOTHASH"
+udevadm wait --timeout=60 --settle "/dev/mapper/$MINIMAL_IMAGE_ROOTHASH-verity"
+rm "/dev/mapper/$MINIMAL_IMAGE_ROOTHASH-verity"
+systemd-run --wait --unit=test-50-verity-shortcut.service \
+            -p RootImage="$MINIMAL_IMAGE.raw" \
+            -p RootImagePolicy=root=squashfs \
+            true
+journalctl --sync
+journalctl -u test-50-verity-shortcut.service | grep -F 'Reusing pre-existing verity-protected root image' >/dev/null
+# The mount namespace of the service can keep the device open for a moment after systemd-run returns. A close
+# without --deferred fails in that case.
+veritysetup close --deferred "$MINIMAL_IMAGE_ROOTHASH-verity"
+
+# The shortcut doesn't use a verity device whose table isn't active yet, for example because another process
+# sets up the device. The kernel already created the device node of such a device, but all I/O on it fails.
+wait_for_shared_verity_device_removal
+veritysetup open "$MINIMAL_IMAGE.raw" test-50-table "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE_ROOTHASH"
+dmsetup create --readonly --notable "$MINIMAL_IMAGE_ROOTHASH-verity"
+dmsetup table test-50-table | dmsetup load --readonly "$MINIMAL_IMAGE_ROOTHASH-verity"
+systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p RootImagePolicy=root=squashfs true
+dmsetup remove "$MINIMAL_IMAGE_ROOTHASH-verity"
+veritysetup close test-50-table
+
+# The shortcut only treats a device that another process set up as signed if the kernel validated its signature.
+# A unit whose image policy requires a signature sets up a device of its own instead of using a device that
+# veritysetup set up without a signature.
+if [[ "$VERITY_SIG_SUPPORTED" -eq 1 ]]; then
+    wait_for_shared_verity_device_removal
+    veritysetup open "$MINIMAL_IMAGE.raw" "$MINIMAL_IMAGE_ROOTHASH-verity" "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE_ROOTHASH"
+    systemd-run --wait -P \
+                -p RootImage="$MINIMAL_IMAGE.raw" \
+                -p RootImagePolicy=root=signed+squashfs \
+                cat /proc/self/mountinfo >/tmp/test-50-mountinfo
+    test "$(awk '$5 == "/" { print $3 }' /tmp/test-50-mountinfo)" != \
+         "$(dmsetup info -c --noheadings -o major,minor "$MINIMAL_IMAGE_ROOTHASH-verity")"
+    rm /tmp/test-50-mountinfo
+    veritysetup close "$MINIMAL_IMAGE_ROOTHASH-verity"
+fi
 
 rm -rf "$VDIR" "$EMPTY_VDIR"
 

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fnmatch.h>
+#include <linux/dm-ioctl.h>
 #include <linux/loop.h>
 #include <sys/file.h>
 #include <sys/mount.h>
@@ -74,7 +75,6 @@
 #include "strv.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
-#include "udev-util.h"
 #include "user-util.h"
 #include "validatefs-util.h"
 #include "varlink-util.h"
@@ -2023,6 +2023,41 @@ static bool verity_use_signature(const VeritySettings *verity, PartitionPolicyFl
 
         return r != 0;
 }
+
+static int verity_device_matches(const char *name, const char *data_node, bool require_signature) {
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        struct crypt_params_verity crypt_params = {};
+        struct stat st_data, st_existing;
+        int r;
+
+        assert(name);
+
+        r = sym_crypt_init_by_name(&cd, name);
+        if (r < 0)
+                return r;
+
+        cryptsetup_enable_logging(cd);
+
+        r = sym_crypt_get_verity_info(cd, &crypt_params);
+        if (r < 0)
+                return r;
+
+        if (require_signature && !FLAGS_SET(crypt_params.flags, CRYPT_VERITY_ROOT_HASH_SIGNATURE))
+                return false;
+
+        if (!data_node)
+                return true;
+
+        if (!crypt_params.data_device)
+                return false;
+
+        if (stat(data_node, &st_data) < 0)
+                return -errno;
+        if (stat(crypt_params.data_device, &st_existing) < 0)
+                return -errno;
+
+        return S_ISBLK(st_existing.st_mode) && st_existing.st_rdev == st_data.st_rdev;
+}
 #endif
 
 int dissected_image_new_from_existing_verity(
@@ -2040,7 +2075,7 @@ int dissected_image_new_from_existing_verity(
 
 #if HAVE_BLKID
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
-        _cleanup_free_ char *node = NULL, *root_hash_encoded = NULL, *root_fstype_string = NULL;
+        _cleanup_free_ char *node = NULL, *name = NULL, *root_hash_encoded = NULL, *root_fstype_string = NULL;
         _cleanup_close_ int mount_node_fd = -EBADF;
         PartitionPolicyFlags found_flags;
         bool encrypted = false;
@@ -2079,17 +2114,44 @@ int dissected_image_new_from_existing_verity(
         if (!root_hash_encoded)
                 return -ENOMEM;
 
-        node = strjoin("/dev/mapper/", root_hash_encoded, "-verity");
-        if (!node)
+        name = strjoin(root_hash_encoded, "-verity");
+        if (!name)
                 return -ENOMEM;
 
         r = dissected_image_new(src, &dissected_image);
         if (r < 0)
                 return r;
 
-        mount_node_fd = open_partition(node, /* is_partition= */ false, /* loop= */ NULL);
+        /* We open the device by its device number, so we don't depend on udev having created the symlink in
+         * /dev/mapper/. */
+        mount_node_fd = dm_open(name, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY, &node);
         if (mount_node_fd < 0)
                 return mount_node_fd;
+
+        if (found_flags == PARTITION_POLICY_SIGNED) {
+                /* Another process set up the device. If the kernel didn't validate a signature for the
+                 * device, the device is only protected by verity, whether or not we have a signature. If
+                 * the image policy requires a signature, verity_partition() sets up a device of our own
+                 * and the kernel validates our signature for it. */
+#if HAVE_LIBCRYPTSETUP
+                r = dlopen_cryptsetup(LOG_DEBUG);
+                if (r >= 0)
+                        r = verity_device_matches(name, /* data_node= */ NULL, /* require_signature= */ true);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to check the signature of verity device %s, assuming it has none: %m", name);
+#else
+                r = 0;
+#endif
+                if (r <= 0) {
+                        PartitionPolicyFlags policy_flags = image_policy_get_exhaustively(image_policy, PARTITION_ROOT);
+                        if (policy_flags < 0)
+                                return policy_flags;
+                        if (!FLAGS_SET(policy_flags, PARTITION_POLICY_VERITY))
+                                return -ENOPKG;
+
+                        found_flags = PARTITION_POLICY_VERITY;
+                }
+        }
 
         r = dissect_image_from_unpartitioned(
                         node,
@@ -3169,7 +3231,6 @@ static int make_dm_name_and_node(
         assert(base);
         assert(suffix);
         assert(ret_name);
-        assert(ret_node);
 
         _cleanup_free_ char *name = NULL;
         if (diskseq != 0)
@@ -3180,14 +3241,18 @@ static int make_dm_name_and_node(
                 return -ENOMEM;
         if (!filename_is_valid(name))
                 return -EINVAL;
+        if (strlen(name) >= DM_NAME_LEN)
+                return -ENAMETOOLONG;
 
-        _cleanup_free_ char *node = path_join(sym_crypt_get_dir(), name);
-        if (!node)
-                return -ENOMEM;
+        if (ret_node) {
+                char *node = path_join(sym_crypt_get_dir(), name);
+                if (!node)
+                        return -ENOMEM;
+
+                *ret_node = node;
+        }
 
         *ret_name = TAKE_PTR(name);
-        *ret_node = TAKE_PTR(node);
-
         return 0;
 }
 
@@ -3401,15 +3466,6 @@ static int verity_can_reuse(
         return 0;
 }
 
-static char* dm_deferred_remove_clean(char *name) {
-        if (!name)
-                return NULL;
-
-        (void) sym_crypt_deactivate_by_name(NULL, name, CRYPT_DEACTIVATE_DEFERRED);
-        return mfree(name);
-}
-DEFINE_TRIVIAL_CLEANUP_FUNC(char *, dm_deferred_remove_clean);
-
 static int validate_signature_userspace(const VeritySettings *verity, const char *root, DissectImageFlags flags) {
         int r;
 
@@ -3533,7 +3589,13 @@ static int do_crypt_activate_verity(
         assert(name);
         assert(verity);
 
-        bool measure_signature;
+        /* libcryptsetup 2.7.4 and newer don't open the data device exclusively with CRYPT_ACTIVATE_SHARED.
+         * Several processes can then activate verity devices on the same data device at the same time. We
+         * can also activate a device with a unique name on a data device that a shared device maps, if we
+         * can't reuse the shared device. Older versions ignore the flag for verity devices. */
+        uint32_t activate_flags = CRYPT_ACTIVATE_READONLY|CRYPT_ACTIVATE_SHARED;
+
+        bool measure_signature, kernel_signature = false;
         if (verity_use_signature(verity, policy_flags)) {
                 int k;
 
@@ -3545,10 +3607,10 @@ static int do_crypt_activate_verity(
                                 verity->root_hash.iov_len,
                                 verity->root_hash_sig.iov_base,
                                 verity->root_hash_sig.iov_len,
-                                CRYPT_ACTIVATE_READONLY);
+                                activate_flags);
                 if (r >= 0) {
                         log_debug("Verity activation via kernel signature logic worked.");
-                        measure_signature = true;
+                        measure_signature = kernel_signature = true;
                         goto done;
                 }
 
@@ -3595,7 +3657,7 @@ static int do_crypt_activate_verity(
                         name,
                         verity->root_hash.iov_base,
                         verity->root_hash.iov_len,
-                        CRYPT_ACTIVATE_READONLY);
+                        activate_flags);
         if (r < 0)
                 return log_debug_errno(r, "Activation of Verity via root hash failed: %m");
 
@@ -3606,29 +3668,8 @@ done:
                         name,
                         &verity->root_hash,
                         measure_signature ? &verity->root_hash_sig : NULL);
-        return 0;
-}
 
-static usec_t verity_timeout(void) {
-        usec_t t = 100 * USEC_PER_MSEC;
-        const char *e;
-        int r;
-
-        /* On slower machines, like non-KVM vm, setting up device may take a long time.
-         * Let's make the timeout configurable. */
-
-        e = getenv("SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC");
-        if (!e)
-                return t;
-
-        r = parse_sec(e, &t);
-        if (r < 0)
-                log_debug_errno(r,
-                                "Failed to parse timeout specified in $SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC, "
-                                "using the default timeout (%s).",
-                                FORMAT_TIMESPAN(t, USEC_PER_MSEC));
-
-        return t;
+        return kernel_signature;
 }
 
 static int verity_partition(
@@ -3684,11 +3725,21 @@ static int verity_partition(
                 if (!root_hash_encoded)
                         return -ENOMEM;
 
-                r = make_dm_name_and_node(root_hash_encoded, /* diskseq= */ 0, "-verity", &name, &node);
-        } else
-                r = make_dm_name_and_node_from_node(m->node, dissected_image_diskseq(di), "-verity", &name, &node);
-        if (r < 0)
-                return r;
+                r = make_dm_name_and_node(root_hash_encoded, /* diskseq= */ 0, "-verity", &name, /* ret_node= */ NULL);
+                if (r == -ENAMETOOLONG) {
+                        /* The hex encoding of a root hash longer than 60 bytes, for example a SHA-512 one,
+                         * doesn't fit in a device-mapper name. */
+                        log_debug("Root hash is too long for the name of a shared verity device, not sharing the verity device.");
+                        flags &= ~DISSECT_IMAGE_VERITY_SHARE;
+                } else if (r < 0)
+                        return r;
+        }
+
+        if (!FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE)) {
+                r = make_dm_name_and_node_from_node(m->node, dissected_image_diskseq(di), "-verity", &name, /* ret_node= */ NULL);
+                if (r < 0)
+                        return r;
+        }
 
         r = sym_crypt_init(&cd, verity->data_path ?: v->node);
         if (r < 0)
@@ -3711,26 +3762,28 @@ static int verity_partition(
          * In case of ENODEV/ENOENT, which can happen if another process is activating at the exact same time,
          * retry a few times before giving up. */
         for (unsigned i = 0; i < N_DEVICE_NODE_LIST_ATTEMPTS; i++) {
-                _cleanup_(dm_deferred_remove_cleanp) char *restore_deferred_remove = NULL;
                 _cleanup_(crypt_freep) struct crypt_device *existing_cd = NULL;
+                _cleanup_free_ char *devname = NULL;
                 _cleanup_close_ int fd = -EBADF;
+                bool kernel_signature = false;
 
                 /* First, check if the device already exists. */
-                fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
-                if (fd < 0 && !ERRNO_IS_DEVICE_ABSENT(errno))
-                        return log_debug_errno(errno, "Failed to open verity device %s: %m", node);
-                if (fd >= 0)
-                        goto check; /* The device already exists. Let's check it. */
-
-                /* The symlink to the device node does not exist yet. Assume not activated, and let's activate it. */
-                r = do_crypt_activate_verity(cd, root, name, verity, flags, policy_flags);
+                r = dm_get_devnum(name, /* ret= */ NULL);
                 if (r >= 0)
+                        goto check; /* The device already exists. Let's check it. */
+                if (r != -ENXIO)
+                        return log_debug_errno(r, "Failed to look up verity device %s: %m", name);
+
+                /* The device doesn't exist yet, let's activate it. */
+                r = do_crypt_activate_verity(cd, root, name, verity, flags, policy_flags);
+                if (r >= 0) {
+                        kernel_signature = r > 0;
                         goto try_open; /* The device is activated. Let's open it. */
-                /* libdevmapper can return EINVAL when the device is already in the activation stage.
-                 * There's no way to distinguish this situation from a genuine error due to invalid
-                 * parameters, so immediately fall back to activating the device with a unique name.
-                 * Improvements in libcrypsetup can ensure this never happens:
-                 * https://gitlab.com/cryptsetup/cryptsetup/-/merge_requests/96 */
+                }
+                /* libcryptsetup before 2.7.4 opens the data device exclusively. The activation can then
+                 * fail with -EINVAL if another process activates a device on the same data device at the
+                 * same time. We can't tell that apart from invalid parameters, so we fall back to
+                 * activating the device with a unique name. */
                 if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                         break;
                 /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again if
@@ -3740,25 +3793,25 @@ static int verity_partition(
                 if (!IN_SET(r,
                             -EEXIST, /* Volume has already been opened and ready to be used. */
                             -EBUSY   /* Volume is being opened but not ready, crypt_init_by_name() can fetch details. */))
-                        return log_debug_errno(r, "Failed to activate verity device %s: %m", node);
+                        return log_debug_errno(r, "Failed to activate verity device %s: %m", name);
 
         check:
-                /* To avoid races, disable automatic removal on umount while setting up the new device. Restore it on failure. */
-                r = dm_deferred_remove_cancel(name);
-                /* -EBUSY and -ENXIO: the device has already been removed or being removed. We cannot
-                 * use the device, try to open again. See target_message() in drivers/md/dm-ioctl.c
-                 * and dm_cancel_deferred_remove() in drivers/md/dm.c */
-                if (IN_SET(r, -EBUSY, -ENXIO))
+                /* We open the device before we check it. The device can't be removed while we keep it open,
+                 * so the check applies to the device that we use. If another process requested deferred
+                 * removal of the device, the kernel removes the device only after the last user closed
+                 * it. */
+                fd = dm_open(name, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY, &devname);
+                /* While another process sets up the device, the device can lack a device node or an active
+                 * table. While another process removes the device, the kernel refuses to open it. */
+                if (ERRNO_IS_NEG_DEVICE_ABSENT(fd))
                         goto try_again;
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to disable automated deferred removal for verity device %s: %m", node);
-
-                restore_deferred_remove = strdup(name);
-                if (!restore_deferred_remove)
-                        return log_oom_debug();
+                if (fd < 0)
+                        return log_debug_errno(fd, "Failed to open verity device %s: %m", name);
 
                 r = verity_can_reuse(di->loop, verity, name, flags, policy_flags, &existing_cd);
-                /* Same as above, -EINVAL can randomly happen when it actually means -EEXIST */
+                /* verity_can_reuse() returns -EINVAL if we can't use the existing device, for example because
+                 * its root hash differs or the image policy requires a signature that the device lacks. We
+                 * then activate a device with a unique name instead. */
                 if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                         break;
                 if (IN_SET(r,
@@ -3767,48 +3820,58 @@ static int verity_partition(
                            -ENODEV  /* Volume is being opened but not ready, crypt_init_by_name() would fail, try to open again. */ ))
                         goto try_again;
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to check if existing verity device %s can be reused: %m", node);
-
-                if (fd < 0) {
-                        /* devmapper might say that the device exists, but the devlink might not yet have been
-                         * created. Check and wait for the udev event in that case. */
-                        r = device_wait_for_devlink(node, "block", verity_timeout(), NULL);
-                        /* Fallback to activation with a unique device if it's taking too long */
-                        if (r == -ETIMEDOUT && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
-                                break;
-                        if (r < 0)
-                                return log_debug_errno(r, "Failed to wait device node symlink %s: %m", node);
-                }
+                        return log_debug_errno(r, "Failed to check if existing verity device %s can be reused: %m", name);
 
         try_open:
                 if (fd < 0) {
-                        /* Now, the device is activated and devlink is created. Let's open it. */
-                        fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
-                        if (fd < 0) {
-                                if (!ERRNO_IS_DEVICE_ABSENT(errno))
-                                        return log_debug_errno(errno, "Failed to open verity device %s: %m", node);
+                        /* We open the device by its device number, so we don't have to wait until udev
+                         * creates the symlink in /dev/mapper/. */
+                        fd = dm_open(name, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY, &devname);
+                        if (ERRNO_IS_NEG_DEVICE_ABSENT(fd))
+                                goto try_again; /* Another process removed the device already. */
+                        if (fd < 0)
+                                return log_debug_errno(fd, "Failed to open verity device %s: %m", name);
 
-                                /* The device has already been removed?? */
+                        /* We request deferred removal of a device that we activated as soon as we opened it.
+                         * The kernel then removes the device after its last user closed it, even if we fail or
+                         * get killed before the image is relinquished. If another process replaced our device
+                         * before we opened it, we request deferred removal of that device instead. */
+                        r = sym_crypt_deactivate_by_name(NULL, name, CRYPT_DEACTIVATE_DEFERRED);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to request deferred removal of verity device %s: %m", name);
+
+                        /* Another process can remove the device that we activated before we open it. A
+                         * third process can then activate a device with the same name. verity_can_reuse()
+                         * didn't check that device, so we only use it if it maps our data device. If the
+                         * kernel validated the signature of our device, the device must have a validated
+                         * signature too. Otherwise, we would bypass an image policy that requires a
+                         * signature. If the device passes both checks, we can't tell it apart from our own
+                         * device and treat it as ours. */
+                        r = verity_device_matches(name, m->node, kernel_signature);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to check verity device %s: %m", name);
+                        if (r == 0) {
+                                log_debug("Verity device %s isn't the device that we activated, another process replaced it.", name);
                                 goto try_again;
                         }
                 }
 
-                /* Everything looks good and we'll be able to mount the device, so deferred remove will be re-enabled at that point. */
-                restore_deferred_remove = mfree(restore_deferred_remove);
-
                 mount_node_fd = TAKE_FD(fd);
+                free_and_replace(node, devname);
                 if (existing_cd)
                         crypt_free_and_replace(cd, existing_cd);
 
                 goto success;
 
         try_again:
-                /* Device is being removed by another process. Let's wait for a while. */
+                /* Another process is setting up or removing the device. Let's wait for a while. */
                 (void) usleep_safe(2 * USEC_PER_MSEC);
         }
 
         /* All trials failed or a conflicting verity device exists. Let's try to activate with a unique name. */
         if (FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE)) {
+                log_debug("Can't use shared verity device %s, activating a verity device with a unique name instead.", name);
+
                 /* Before trying to activate with unique name, we need to free crypt_device object.
                  * Otherwise, we get error from libcryptsetup like the following:
                  * ------
@@ -3835,6 +3898,10 @@ success:
         d->decrypted[d->n_decrypted++] = (DecryptedPartition) {
                 .name = TAKE_PTR(name),
                 .device = TAKE_PTR(cd),
+                /* We already requested deferred removal of a device that we activated. The process that
+                 * activated a device that we reuse requests its removal itself. So we never deactivate the
+                 * device ourselves. */
+                .relinquished = true,
         };
 
         free_and_replace(m->decrypted_node, node);
