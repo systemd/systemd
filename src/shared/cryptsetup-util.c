@@ -29,6 +29,7 @@ DLSYM_PROTOTYPE(crypt_get_cipher_mode) = NULL;
 DLSYM_PROTOTYPE(crypt_get_data_offset) = NULL;
 DLSYM_PROTOTYPE(crypt_get_device_name) = NULL;
 DLSYM_PROTOTYPE(crypt_get_dir) = NULL;
+DLSYM_PROTOTYPE(crypt_get_pbkdf_type_params) = NULL;
 DLSYM_PROTOTYPE(crypt_get_type) = NULL;
 DLSYM_PROTOTYPE(crypt_get_uuid) = NULL;
 DLSYM_PROTOTYPE(crypt_get_verity_info) = NULL;
@@ -298,6 +299,7 @@ int dlopen_cryptsetup(int log_level) {
                         DLSYM_ARG(crypt_get_data_offset),
                         DLSYM_ARG(crypt_get_device_name),
                         DLSYM_ARG(crypt_get_dir),
+                        DLSYM_ARG(crypt_get_pbkdf_type_params),
                         DLSYM_ARG(crypt_get_type),
                         DLSYM_ARG(crypt_get_uuid),
                         DLSYM_ARG(crypt_get_verity_info),

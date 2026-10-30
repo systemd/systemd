@@ -5808,17 +5808,16 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                          * (e.g. kdump with crashkernel=512MB). */
                         r = cryptsetup_set_minimal_pbkdf(cd);
                 } else {
-                        /* For argon2id or pbkdf2, set the type and let libcryptsetup benchmark
-                         * and determine the parameters. */
-                        static const struct crypt_pbkdf_type argon2id_pbkdf = {
-                                .type = "argon2id",
-                        };
-                        static const struct crypt_pbkdf_type pbkdf2_pbkdf = {
-                                .type = "pbkdf2",
-                        };
+                        assert(IN_SET(p->encrypt_kdf, ENCRYPT_KDF_ARGON2ID, ENCRYPT_KDF_PBKDF2));
 
-                        r = sym_crypt_set_pbkdf_type(cd, p->encrypt_kdf == ENCRYPT_KDF_ARGON2ID ?
-                                                     &argon2id_pbkdf : &pbkdf2_pbkdf);
+                        /* Use libcryptsetup's full defaults, including the benchmark target and hash. */
+                        const char *kdf = p->encrypt_kdf == ENCRYPT_KDF_ARGON2ID ? CRYPT_KDF_ARGON2ID : CRYPT_KDF_PBKDF2;
+                        const struct crypt_pbkdf_type *pbkdf = sym_crypt_get_pbkdf_type_params(kdf);
+                        if (!pbkdf)
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                       "Failed to get default parameters for KDF type '%s'.", kdf);
+
+                        r = sym_crypt_set_pbkdf_type(cd, pbkdf);
                 }
                 if (r < 0)
                         return log_error_errno(r, "Failed to set KDF type: %m");
