@@ -838,10 +838,6 @@ message(f'gperf len type is @gperf_len_type@')
 conf.set('GPERF_LEN_TYPE', gperf_len_type,
          description : 'The type of gperf "len" parameter')
 
-# The default gperf search leaves most slots of a large hash table empty, and every empty slot takes up space
-# in the binary. More search iterations make the large tables about 25% smaller.
-gperf_cmdline = [gperf, '--multiple-iterations=10']
-
 #####################################################################
 
 foreach header : [
@@ -2000,6 +1996,15 @@ config_h = configure_file(
 userspace_c_args += ['-include', 'config.h']
 
 jinja2_cmdline = [python, meson_render_jinja2_py, config_h]
+
+# The default gperf search leaves most slots of a large hash table empty, and every empty slot takes up space
+# in the binary. More search iterations make the large tables about 25% smaller. With --duplicates, gperf
+# no longer requires a collision-free hash function: the keyword table then holds only the keywords, and a
+# separate lookup table of 8- or 16-bit indices, one per hash slot, maps hash values to entries. An empty
+# slot costs one or two bytes instead of a whole keyword entry, which makes the large tables about four
+# times smaller again. But gperf then also accepts a keyword that appears twice and only warns about it on
+# stderr, so the wrapper turns any output on stderr into an error.
+gperf_cmdline = [python, meson_gperf_py, gperf, '--multiple-iterations=10', '--duplicates']
 
 userspace = declare_dependency(
         compile_args : userspace_c_args,

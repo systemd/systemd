@@ -14,7 +14,7 @@ int fs_type_from_string(const char *name, const statfs_f_type_t **ret) {
         if (!fs_magic)
                 return -EINVAL;
 
-        *ret = fs_magic->magic;
+        *ret = filesystem_magics + fs_magic->magic_index;
         return 0;
 }
 

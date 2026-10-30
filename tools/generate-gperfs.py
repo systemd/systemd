@@ -13,18 +13,15 @@ if __name__ == '__main__':
         sys.exit(f'Usage: {sys.argv[0]} name prefix file [includes...]')
 
     name, prefix, file, *includes = sys.argv[1:]
-    includes = [f'#include {i}' for i in includes]
+    includes = (f'#include {i}' for i in includes)
 
-    # Older versions of python don't allow backslashes
-    # in f-strings so use chr(10) for newlines and chr(92)
-    # for backslashes instead as a workaround.
     print(f'''\
 %{{
-_Pragma("GCC diagnostic ignored {chr(92)}"-Wimplicit-fallthrough{chr(92)}"")
+_Pragma("GCC diagnostic ignored \\"-Wimplicit-fallthrough\\"")
 #if __GNUC__ >= 15
-_Pragma("GCC diagnostic ignored {chr(92)}"-Wzero-as-null-pointer-constant{chr(92)}"")
+_Pragma("GCC diagnostic ignored \\"-Wzero-as-null-pointer-constant\\"")
 #endif
-{chr(10).join(includes)}
+{'\n'.join(includes)}
 %}}''')
     print(f'''\
 struct {name}_name {{ const char* name; int id; }};
