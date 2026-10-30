@@ -319,7 +319,7 @@ fn load_certificate(k: &mut Keyring, f: &ConfFile, mode: VoaMode) -> Result<bool
         .and_then(|fd| {
             fileio::read_full_file_full(
                 fd,
-                None,
+                /* filename= */ None,
                 u64::MAX,
                 CERTIFICATE_SIZE_MAX,
                 READ_FULL_FILE_FAIL_WHEN_LARGER | READ_FULL_FILE_VERIFY_REGULAR,
@@ -430,8 +430,8 @@ fn collect_certificates(k: &mut Keyring, root: BorrowedFd<'_>, os: &Strv) -> Res
 /// /sys/module/<module>/ below root.
 fn open_module_dir(root: BorrowedFd<'_>, module: &CStr) -> Result<OwnedFd> {
     let flags = (sys::O_PATH | sys::O_DIRECTORY | sys::O_CLOEXEC) as c_int;
-    let modules = chase::openat(root, root, c"/sys/module", 0, flags)?;
-    chase::openat(root, modules.as_fd(), module, 0, flags)
+    let modules = chase::openat(root, root, c"/sys/module", /* flags= */ 0, flags)?;
+    chase::openat(root, modules.as_fd(), module, /* flags= */ 0, flags)
 }
 
 /// Returns true if the keyring exists and may be provisioned, false if there is nothing to do.
@@ -451,7 +451,7 @@ fn locate_keyring(
             // the required keyring exists.
             module_loaded = open_module_dir(root, module).is_ok();
         } else if let Some(kmod) = kmod {
-            let _ = kmod.load_and_warn(module, false);
+            let _ = kmod.load_and_warn(module, /* verbose= */ false);
         }
     }
 
@@ -461,7 +461,7 @@ fn locate_keyring(
             Errno::EINVAL => Errno::ENOKEY,
             e => e,
         }),
-        None => keyring::find_by_name_at(root, k.spec.name, 0),
+        None => keyring::find_by_name_at(root, k.spec.name, /* owner= */ 0),
     };
     k.serial = match r {
         Ok(serial) => serial,
@@ -536,7 +536,14 @@ fn check_unsealed(k: &mut Keyring, root: BorrowedFd<'_>) -> bool {
     };
 
     let unsealed = open_module_dir(root, param)
-        .and_then(|d| chase::open_parent_at(root, d.as_fd(), c"parameters/keyring_unsealed", 0))
+        .and_then(|d| {
+            chase::open_parent_at(
+                root,
+                d.as_fd(),
+                c"parameters/keyring_unsealed",
+                /* flags= */ 0,
+            )
+        })
         .and_then(|(dir, name)| fileio::read_boolean_file_at(dir.as_fd(), &name));
     let unsealed = match unsealed {
         Ok(unsealed) => unsealed,
@@ -651,7 +658,7 @@ fn enroll_certificates(k: &mut Keyring) {
             continue;
         }
 
-        let serial = match keyring::add_asymmetric(k.serial, None, &c.der) {
+        let serial = match keyring::add_asymmetric(k.serial, /* description= */ None, &c.der) {
             Ok(serial) => serial,
             Err(Errno::EPERM) => {
                 // Sealed by the kernel at boot. Nothing can be added, but the mask can still be dropped.
@@ -799,8 +806,15 @@ fn seal_keyring(k: &mut Keyring, root: BorrowedFd<'_>) -> Result<()> {
 
     // Unloading a kernel module may destroy the keyring and circumvent the security model. Warn about that.
     if let Some(module) = k.spec.module {
-        let loadable = open_module_dir(root, module)
-            .and_then(|d| chase::accessat(root, d.as_fd(), c"refcnt", 0, sys::F_OK as c_int));
+        let loadable = open_module_dir(root, module).and_then(|d| {
+            chase::accessat(
+                root,
+                d.as_fd(),
+                c"refcnt",
+                /* flags= */ 0,
+                sys::F_OK as c_int,
+            )
+        });
         if loadable.is_ok() {
             log_warning!(
                 "Keyring {} belongs to the loadable {} module: unloading the module may discard the keyring and its seal, and reloading it creates one that can be provisioned again. Build {} into the kernel to keep the enrolled set for the lifetime of the kernel.",
@@ -1008,7 +1022,7 @@ fn materialize_credentials(
             );
             continue;
         };
-        if !voa::identifier_is_valid(name, false) {
+        if !voa::identifier_is_valid(name, /* allow_colon= */ false) {
             log_warning!(
                 "Ignoring credential '{}', the name must consist of lowercase letters, digits, '.', '_' and '-'.",
                 display(cn)
@@ -1205,7 +1219,7 @@ fn run(argv: Argv<'_>) -> Result<c_int> {
         t.print_with_pager(
             args.json_format_flags,
             ARG_PAGER_FLAGS.load(Ordering::Relaxed),
-            true,
+            /* show_header= */ true,
         )?;
     }
 
