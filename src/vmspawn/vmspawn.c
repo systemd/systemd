@@ -1870,8 +1870,8 @@ static int start_virtiofsd(
                         _exit(EXIT_FAILURE);
                 }
 
-                invoke_callout_binary(argv[0], argv);
-                log_error_errno(errno, "Failed to execute '%s': %m", argv[0]);
+                r = invoke_callout_binary(argv[0], argv);
+                log_error_errno(r, "Failed to execute '%s': %m", argv[0]);
                 _exit(EXIT_FAILURE);
         }
 
