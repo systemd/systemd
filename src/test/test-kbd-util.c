@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
 
         STRV_FOREACH(m, maps) {
                 log_info("Found keymap: %s", *m);
-                assert_se(keymap_exists(*m) > 0);
+                ASSERT_OK_POSITIVE(keymap_exists(*m));
         }
 
         return 0;
