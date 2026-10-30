@@ -18,8 +18,8 @@ static int test_ref_unref(void) {
                 return log_tests_skipped("Failed to connect to bus");
 
         /* Create a message and enqueue it (this shouldn't send it though as the connection setup is not complete yet) */
-        assert_se(sd_bus_message_new_method_call(bus, &m, "foo.bar", "/foo", "quux.quux", "waldo") >= 0);
-        assert_se(sd_bus_send(bus, m, /* ret_cookie= */ NULL) >= 0);
+        ASSERT_OK(sd_bus_message_new_method_call(bus, &m, "foo.bar", "/foo", "quux.quux", "waldo"));
+        ASSERT_OK(sd_bus_send(bus, m, /* ret_cookie= */ NULL));
 
         /* Let's now unref the message first and the bus second. */
         m = sd_bus_message_unref(m);
@@ -32,8 +32,8 @@ static int test_ref_unref(void) {
         if (r < 0)
                 return log_tests_skipped("Failed to connect to bus");
 
-        assert_se(sd_bus_message_new_method_call(bus, &m, "foo.bar", "/foo", "quux.quux", "waldo") >= 0);
-        assert_se(sd_bus_send(bus, m, /* ret_cookie= */ NULL) >= 0);
+        ASSERT_OK(sd_bus_message_new_method_call(bus, &m, "foo.bar", "/foo", "quux.quux", "waldo"));
+        ASSERT_OK(sd_bus_send(bus, m, /* ret_cookie= */ NULL));
 
         /* Let's now unref things in the opposite order */
         bus = sd_bus_unref(bus);
