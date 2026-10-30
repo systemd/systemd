@@ -551,19 +551,14 @@ int same_fd(int a, int b) {
         return fa == fb;
 }
 
-bool fdname_is_valid(const char *s) {
+static bool fdname_is_valid_full(const char *s, bool glob) {
         const char *p;
 
-        /* Validates a name for $LISTEN_FDNAMES. We basically allow
-         * everything ASCII that's not a control character. Also, as
-         * special exception the ":" character is not allowed, as we
-         * use that as field separator in $LISTEN_FDNAMES.
-         *
-         * Note that the empty string is explicitly allowed
-         * here. However, we limit the length of the names to 255
-         * characters. */
+        /* Names and globs allow printable ASCII, up to 255 characters. Names may be empty but cannot
+         * contain ':' (the $LISTEN_FDNAMES separator). Globs must be non-empty and allow ':' for character
+         * classes such as [[:digit:]]. */
 
-        if (!s)
+        if (!s || (glob && !*s))
                 return false;
 
         for (p = s; *p; p++) {
@@ -571,11 +566,19 @@ bool fdname_is_valid(const char *s) {
                         return false;
                 if (*p >= 127)
                         return false;
-                if (*p == ':')
+                if (*p == ':' && !glob)
                         return false;
         }
 
         return p - s <= FDNAME_MAX;
+}
+
+bool fdname_is_valid(const char *s) {
+        return fdname_is_valid_full(s, /* glob= */ false);
+}
+
+bool fdname_glob_is_valid(const char *s) {
+        return fdname_is_valid_full(s, /* glob= */ true);
 }
 
 int fd_get_path(int fd, char **ret) {
