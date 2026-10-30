@@ -42,9 +42,10 @@ The following exceptions apply:
  * the src/include/uapi/linux/bpf_insn.h header is copied from the Linux kernel
    source tree and is licensed under either **BSD-2-Clause** or **GPL-2.0-only**,
    and thus is included in the systemd build under the BSD-2-Clause license.
- * The src/include/uapi/linux/wireguard.h header is copied from the Linux kernel
-   source tree and is licensed under either **MIT** or **GPL-2.0 WITH Linux-syscall-note**,
-   and thus is included in the systemd build under the MIT license.
+ * The src/include/uapi/linux/wireguard.h header from the Linux kernel source tree
+   and src/include/override/linux/amneziawg.h header from the AmneziaWG source tree
+   are licensed under either **MIT** or **GPL-2.0 WITH Linux-syscall-note**,
+   and thus are included in the systemd build under the MIT license.
  * the following sources are licensed under the **MIT** license (in case of our
    scripts, to facilitate copying and reuse of those helpers to other projects):
    - hwdb.d/parse_hwdb.py
