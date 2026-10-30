@@ -7,12 +7,12 @@ TEST(network_config_state_to_string_alloc) {
         for (unsigned i = 1; i <= NETWORK_CONFIG_STATE_REMOVING; i <<= 1) {
                 _cleanup_free_ char *x;
 
-                assert_se(network_config_state_to_string_alloc(i, &x) == 0);
+                ASSERT_OK_ZERO(network_config_state_to_string_alloc(i, &x));
                 log_debug("%u → %s", i, x);
         }
 
         _cleanup_free_ char *x;
-        assert_se(network_config_state_to_string_alloc(~0u, &x) == 0);
+        ASSERT_OK_ZERO(network_config_state_to_string_alloc(~0u, &x));
         log_debug("%u → %s", ~0u, x);
 };
 
