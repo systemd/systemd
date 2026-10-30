@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/amneziawg.h>
 #include <linux/batman_adv.h>
 #include <linux/ethtool_netlink_generated.h>
 #include <linux/fou.h>
@@ -302,8 +303,56 @@ static const NLAPolicy genl_wireguard_policies[] = {
         [WGDEVICE_A_PEERS]       = BUILD_POLICY_NESTED(genl_wireguard_peer),
 };
 
+/***************** genl amneziawg type systems *****************/
+static const NLAPolicy genl_amneziawg_peer_policies[] = {
+        [AWGPEER_A_PUBLIC_KEY]                    = BUILD_POLICY_WITH_SIZE(BINARY, AWG_KEY_LEN),
+        [AWGPEER_A_FLAGS]                         = BUILD_POLICY(U32),
+        [AWGPEER_A_PRESHARED_KEY]                 = BUILD_POLICY_WITH_SIZE(BINARY, AWG_KEY_LEN),
+        [AWGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL] = BUILD_POLICY(U32),
+        [AWGPEER_A_ENDPOINT]                      = BUILD_POLICY(SOCKADDR),
+        [AWGPEER_A_ALLOWEDIPS]                    = BUILD_POLICY_NESTED(genl_wireguard_allowedip),
+};
+
+DEFINE_POLICY_SET(genl_amneziawg_peer);
+
+static const NLAPolicy genl_amneziawg_policies[]       = {
+        [AWGDEVICE_A_IFINDEX]                          = BUILD_POLICY(U32),
+        [AWGDEVICE_A_IFNAME]                           = BUILD_POLICY_WITH_SIZE(STRING, IFNAMSIZ-1),
+        [AWGDEVICE_A_FLAGS]                            = BUILD_POLICY(U32),
+        [AWGDEVICE_A_PRIVATE_KEY]                      = BUILD_POLICY_WITH_SIZE(BINARY, AWG_KEY_LEN),
+        [AWGDEVICE_A_LISTEN_PORT]                      = BUILD_POLICY(U16),
+        [AWGDEVICE_A_FWMARK]                           = BUILD_POLICY(U32),
+        [AWGDEVICE_A_PEERS]                            = BUILD_POLICY_NESTED(genl_amneziawg_peer),
+        [AWGDEVICE_A_JC]                               = BUILD_POLICY(U16),
+        [AWGDEVICE_A_JMIN]                             = BUILD_POLICY(U16),
+        [AWGDEVICE_A_JMAX]                             = BUILD_POLICY(U16),
+        [AWGDEVICE_A_S1]                               = BUILD_POLICY(U16),
+        [AWGDEVICE_A_S2]                               = BUILD_POLICY(U16),
+        [AWGDEVICE_A_H1]                               = BUILD_POLICY(U64),
+        [AWGDEVICE_A_H2]                               = BUILD_POLICY(U64),
+        [AWGDEVICE_A_H3]                               = BUILD_POLICY(U64),
+        [AWGDEVICE_A_H4]                               = BUILD_POLICY(U64),
+        [AWGDEVICE_A_S3]                               = BUILD_POLICY(U16),
+        [AWGDEVICE_A_S4]                               = BUILD_POLICY(U16),
+        [AWGDEVICE_A_I1]                               = BUILD_POLICY(STRING),
+        [AWGDEVICE_A_I2]                               = BUILD_POLICY(STRING),
+        [AWGDEVICE_A_I3]                               = BUILD_POLICY(STRING),
+        [AWGDEVICE_A_I4]                               = BUILD_POLICY(STRING),
+        [AWGDEVICE_A_I5]                               = BUILD_POLICY(STRING),
+        [AWGDEVICE_A_HEADER_PROTECTION_KEY]            = BUILD_POLICY_WITH_SIZE(BINARY, AWG_KEY_LEN),
+        [AWGDEVICE_A_CONTENT_PADDING_ADDITION]         = BUILD_POLICY(U32),
+        [AWGDEVICE_A_REKEY_AFTER_TIME]                 = BUILD_POLICY(U32),
+        [AWGDEVICE_A_REKEY_TIMEOUT]                    = BUILD_POLICY(U32),
+        [AWGDEVICE_A_REJECT_AFTER_TIME]                = BUILD_POLICY(U32),
+        [AWGDEVICE_A_KEEPALIVE_TIMEOUT]                = BUILD_POLICY(U32),
+        [AWGDEVICE_A_MAX_HANDSHAKE_ATTEMPTS]           = BUILD_POLICY(U32),
+        [AWGDEVICE_A_RANDOM_TRAILERS]                  = BUILD_POLICY(U8),
+        [AWGDEVICE_A_DISABLE_COOKIES]                  = BUILD_POLICY(U8),
+};
+
 /***************** genl families *****************/
 static const NLAPolicySetUnionElement genl_policy_set_union_elements[] = {
+        BUILD_UNION_ELEMENT_BY_STRING(AWG_GENL_NAME,                genl_amneziawg),
         BUILD_UNION_ELEMENT_BY_STRING(CTRL_GENL_NAME,               genl_ctrl),
         BUILD_UNION_ELEMENT_BY_STRING(BATADV_NL_NAME,               genl_batadv),
         BUILD_UNION_ELEMENT_BY_STRING(ETHTOOL_GENL_NAME,            genl_ethtool),

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/amneziawg.h>
 #include <linux/genetlink.h>
 
 #include "sd-netlink.h"
@@ -12,7 +13,7 @@
 #include "netlink-types.h"
 #include "string-util.h"
 
-typedef struct GenericNetlinkFamily {
+struct GenericNetlinkFamily {
         sd_netlink *genl;
 
         const NLAPolicySet *policy_set;
@@ -23,7 +24,7 @@ typedef struct GenericNetlinkFamily {
         uint32_t version;
         uint32_t additional_header_size;
         Hashmap *multicast_group_by_name;
-} GenericNetlinkFamily;
+};
 
 static const GenericNetlinkFamily nlctrl_static = {
         .id = GENL_ID_CTRL,
@@ -104,7 +105,7 @@ static int genl_family_new_unsupported(
         return 0;
 }
 
-static int genl_family_new(
+int genl_family_new(
                 sd_netlink *nl,
                 const char *expected_family_name,
                 const NLAPolicySet *policy_set,
@@ -159,6 +160,12 @@ static int genl_family_new(
         r = sd_netlink_message_read_u32(message, CTRL_ATTR_VERSION, &f->version);
         if (r < 0)
                 return r;
+
+        /* Our AmneziaWG policies describe only this UAPI version. */
+        if (streq(f->name, AWG_GENL_NAME) && f->version != AWG_GENL_VERSION)
+                return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT),
+                                       "sd-netlink: Unsupported AmneziaWG generic netlink version %"PRIu32" (expected %d).",
+                                       f->version, AWG_GENL_VERSION);
 
         r = sd_netlink_message_read_u32(message, CTRL_ATTR_HDRSIZE, &f->additional_header_size);
         if (r < 0)

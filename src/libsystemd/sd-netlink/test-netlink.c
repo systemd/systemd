@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/amneziawg.h>
 #include <linux/ethtool_netlink_generated.h>
 #include <linux/fou.h>
 #include <linux/genetlink.h>
@@ -18,6 +19,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "hashmap.h"
 #include "missing-network.h"
 #include "netlink-genl.h"
 #include "netlink-internal.h"
@@ -25,6 +27,7 @@
 #include "netlink-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "tests.h"
 #include "time-util.h"
@@ -452,6 +455,75 @@ TEST(sd_netlink_message_get_errno) {
 
         ASSERT_OK(message_new_synthetic_error(rtnl, -ETIMEDOUT, 1, &m));
         ASSERT_ERROR(sd_netlink_message_get_errno(m), ETIMEDOUT);
+}
+
+TEST(genl_amneziawg_version) {
+        uint32_t version;
+
+        FOREACH_ARGUMENT(version, 0U, 1U, 2U, AWG_GENL_VERSION, 4U, 259U, UINT32_MAX) {
+                _cleanup_(sd_netlink_unrefp) sd_netlink *genl = NULL;
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *reply = NULL, *message = NULL;
+                const GenericNetlinkFamily *family = NULL;
+                int r;
+
+                ASSERT_OK(sd_genl_socket_open(&genl));
+                ASSERT_OK(sd_genl_message_new(genl, CTRL_GENL_NAME, CTRL_CMD_NEWFAMILY, &reply));
+                ASSERT_OK(sd_netlink_message_append_u16(reply, CTRL_ATTR_FAMILY_ID, GENL_ID_CTRL + 1));
+                ASSERT_OK(sd_netlink_message_append_string(reply, CTRL_ATTR_FAMILY_NAME, AWG_GENL_NAME));
+                ASSERT_OK(sd_netlink_message_append_u32(reply, CTRL_ATTR_VERSION, version));
+                ASSERT_OK(sd_netlink_message_append_u32(reply, CTRL_ATTR_HDRSIZE, /* data= */ 0));
+                ASSERT_OK(sd_netlink_message_rewind(reply, genl));
+
+                /* Exercise discovery without requiring the optional AmneziaWG kernel module. */
+                r = genl_family_new(genl, AWG_GENL_NAME, genl_get_policy_set_by_name(AWG_GENL_NAME), reply, &family);
+                if (version != AWG_GENL_VERSION) {
+                        ASSERT_ERROR(r, EPROTONOSUPPORT);
+                        ASSERT_NULL(family);
+                        ASSERT_FALSE(hashmap_contains(genl->genl_family_by_name, AWG_GENL_NAME));
+                        continue;
+                }
+
+                ASSERT_OK(r);
+                ASSERT_NOT_NULL(family);
+                ASSERT_OK(sd_genl_message_new(genl, AWG_GENL_NAME, AWG_CMD_SET_DEVICE, &message));
+                ASSERT_EQ(((struct genlmsghdr*) NLMSG_DATA(message->hdr))->version, AWG_GENL_VERSION);
+        }
+}
+
+TEST(message_large_genl_attribute) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *genl = NULL, *rtnl = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_free_ char *signature = NULL, *bytes = NULL;
+        struct rtattr *attribute;
+
+        ASSERT_NOT_NULL((bytes = strrep("00", 4096)));
+        ASSERT_NOT_NULL((signature = strjoin("<b 0x", bytes, ">")));
+        ASSERT_OK(sd_genl_socket_open(&genl));
+        /* Serialization must not require the optional AmneziaWG kernel module. */
+        ASSERT_OK(message_new_full(genl, NLMSG_MIN_TYPE, NLM_F_REQUEST,
+                                   genl_get_policy_set_by_name(AWG_GENL_NAME), sizeof(struct genlmsghdr), &m));
+        ASSERT_OK(sd_netlink_message_append_string(m, AWGDEVICE_A_IFNAME, "awg99"));
+        ASSERT_OK(sd_netlink_message_append_string(m, AWGDEVICE_A_I1, signature));
+
+        attribute = (struct rtattr*) ((uint8_t*) m->hdr + NLMSG_SPACE(sizeof(struct genlmsghdr)));
+        attribute = (struct rtattr*) ((uint8_t*) attribute + RTA_ALIGN(attribute->rta_len));
+        ASSERT_EQ(attribute->rta_type, AWGDEVICE_A_I1);
+        ASSERT_EQ(RTA_PAYLOAD(attribute), strlen(signature) + 1);
+        ASSERT_STREQ(RTA_DATA(attribute), signature);
+
+        /* The existing size limit still applies to routing messages. */
+        m = sd_netlink_message_unref(m);
+        ASSERT_OK(sd_netlink_open(&rtnl));
+        ASSERT_OK(sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, /* ifindex= */ 0));
+        ASSERT_ERROR(sd_netlink_message_append_data(m, IFLA_IFALIAS, signature, strlen(signature) + 1), ENOBUFS);
+
+        /* The 16-bit attribute length must not wrap when a value is too large. */
+        m = sd_netlink_message_unref(m);
+        ASSERT_OK(message_new_full(genl, NLMSG_MIN_TYPE, NLM_F_REQUEST,
+                                   genl_get_policy_set_by_name(AWG_GENL_NAME), sizeof(struct genlmsghdr), &m));
+        bytes = mfree(bytes);
+        ASSERT_NOT_NULL((bytes = strrep("x", UINT16_MAX)));
+        ASSERT_ERROR(sd_netlink_message_append_data(m, AWGDEVICE_A_HEADER_PROTECTION_KEY, bytes, UINT16_MAX), ENOBUFS);
 }
 
 TEST(message_array) {
