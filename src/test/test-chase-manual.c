@@ -88,9 +88,9 @@ static int run(int argc, char **argv) {
                 else {
                         log_info("→ %s", p);
                         if (arg_open)
-                                assert_se(fd >= 0);
+                                ASSERT_OK(fd);
                         else
-                                assert_se(fd == -EBADF);
+                                ASSERT_EQ(fd, -EBADF);
                 }
         }
 
