@@ -5303,7 +5303,8 @@ static void prepare_terminal(
 
         (void) exec_context_apply_tty_size(context, STDIN_FILENO, STDOUT_FILENO, /* tty_path= */ NULL);
 
-        if (use_ansi)
+        /* Send open context too in TTYExitStatus= so that it can be closed with the exit status. */
+        if (use_ansi || context->tty_exit_status)
                 (void) osc_context_open_service(p->unit_id, p->invocation_id, /* ret_seq= */ NULL);
 }
 
@@ -5611,7 +5612,7 @@ int exec_invoke(
          * will fix this. Note that we pass a NULL invocation ID here – as exec_context_tty_reset() expects
          * the invocation ID associated with the OSC 3008 context ID to close. But we don't want to close any
          * OSC 3008 context here, and opening a fresh OSC 3008 context happens a bit further down. */
-        exec_context_tty_reset(context, params, /* invocation_id= */ SD_ID128_NULL);
+        exec_context_tty_reset(context, params, /* exec_status= */ NULL, /* invocation_id= */ SD_ID128_NULL);
 
         if (params->shall_confirm_spawn && exec_context_shall_confirm_spawn(context)) {
                 _cleanup_free_ char *cmdline = NULL;

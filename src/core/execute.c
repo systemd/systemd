@@ -125,7 +125,7 @@ int exec_context_apply_tty_size(
 }
 
 /* Closes the OSC 3008 context of the invocation on 'fd'. */
-static void write_osc_close(int fd, sd_id128_t invocation_id) {
+static void write_osc_close(int fd, sd_id128_t invocation_id, const ExecStatus *exec_status) {
         int r;
 
         assert(fd >= 0);
@@ -139,7 +139,11 @@ static void write_osc_close(int fd, sd_id128_t invocation_id) {
                 return (void) log_debug_errno(r, "Failed to derive context ID from invocation ID, ignoring: %m");
 
         _cleanup_free_ char *seq = NULL;
-        r = osc_context_close(context_id, &seq);
+        r = osc_context_close_full(
+                        context_id,
+                        exec_status ? exec_status->code : 0,
+                        exec_status ? exec_status->status : 0,
+                        &seq);
         if (r < 0)
                 return (void) log_debug_errno(r, "Failed to acquire OSC close sequence, ignoring: %m");
 
@@ -148,7 +152,7 @@ static void write_osc_close(int fd, sd_id128_t invocation_id) {
                 log_debug_errno(r, "Failed to write OSC close sequence, ignoring: %m");
 }
 
-void exec_context_tty_reset(const ExecContext *context, const ExecParameters *parameters, sd_id128_t invocation_id) {
+void exec_context_tty_reset(const ExecContext *context, const ExecParameters *parameters, const ExecStatus *exec_status, sd_id128_t invocation_id) {
         _cleanup_close_ int _fd = -EBADF, lock_fd = -EBADF;
         int fd, r;
 
@@ -191,8 +195,9 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *pa
         if (r < 0)
                 log_debug_errno(r, "Failed to configure TTY dimensions, ignoring: %m");
 
-        if (exec_context_shall_ansi_seq_reset(context))
-                write_osc_close(fd, invocation_id);
+        /* The executor opens the context in either case, and the exit status is opt-in */
+        if (exec_context_shall_ansi_seq_reset(context) || context->tty_exit_status)
+                write_osc_close(fd, invocation_id, context->tty_exit_status ? exec_status : NULL);
 
         if (context->tty_vhangup)
                 (void) terminal_vhangup_fd(fd);
@@ -1437,6 +1442,8 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         prefix, c->tty_rows,
                         prefix, c->tty_cols);
 
+        fprintf(f, "%sTTYExitStatus: %s\n", prefix, yes_no(c->tty_exit_status));
+
         if (IN_SET(c->std_output,
                    EXEC_OUTPUT_KMSG,
                    EXEC_OUTPUT_JOURNAL,
@@ -1778,7 +1785,22 @@ void exec_context_free_log_extra_fields(ExecContext *c) {
         c->n_log_extra_fields = 0;
 }
 
-void exec_context_revert_tty(ExecContext *c, sd_id128_t invocation_id) {
+static void exec_context_write_tty_exit_status(int stdout_fd, const ExecStatus *exec_status, sd_id128_t invocation_id) {
+        assert(stdout_fd >= 0);
+
+        if (!isatty_safe(stdout_fd))
+                return;
+
+        /* Reopen so that O_NONBLOCK does not leak into the shared file description, and a reader that is
+         * gone or stalled cannot block us. In that case the sequence is lost like the rest of the output. */
+        _cleanup_close_ int fd = fd_reopen(stdout_fd, O_WRONLY|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        if (fd < 0)
+                return (void) log_debug_errno(fd, "Failed to reopen passed TTY, ignoring: %m");
+
+        write_osc_close(fd, invocation_id, exec_status);
+}
+
+void exec_context_revert_tty(ExecContext *c, int stdout_fd, const ExecStatus *exec_status, sd_id128_t invocation_id) {
         _cleanup_close_ int fd = -EBADF;
         const char *path;
         struct stat st;
@@ -1787,7 +1809,11 @@ void exec_context_revert_tty(ExecContext *c, sd_id128_t invocation_id) {
         assert(c);
 
         /* First, reset the TTY (possibly kicking everybody else from the TTY) */
-        exec_context_tty_reset(c, /* parameters= */ NULL, invocation_id);
+        exec_context_tty_reset(c, /* parameters= */ NULL, exec_status, invocation_id);
+
+        /* A TTY passed in as fd is owned by whoever passed it, hence it is not reset, only its context closed */
+        if (c->tty_exit_status && stdout_fd >= 0)
+                exec_context_write_tty_exit_status(stdout_fd, exec_status, invocation_id);
 
         /* And then undo what chown_terminal() did earlier. Note that we only do this if we have a path
          * configured. If the TTY was passed to us as file descriptor we assume the TTY is opened and managed

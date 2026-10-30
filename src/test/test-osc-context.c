@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <signal.h>
+
 #include "hexdecoct.h"
 #include "osc-context.h"
 #include "tests.h"
@@ -82,6 +84,40 @@ TEST(osc) {
 
         ASSERT_OK(osc_context_id_from_invocation_id(invocation_id, &id));
         ASSERT_OK(osc_context_close(id, &seq));
+        hexdump(/* f= */ NULL, seq, SIZE_MAX);
+        seq = mfree(seq);
+}
+
+TEST(osc_close_full) {
+        _cleanup_free_ char *seq = NULL;
+        sd_id128_t id;
+
+        ASSERT_OK(sd_id128_randomize(&id));
+
+        /* No exit information: same as the plain close */
+        ASSERT_OK(osc_context_close_full(id, /* code= */ 0, /* status= */ 0, &seq));
+        ASSERT_NOT_NULL(strstr(seq, "3008;end="));
+        ASSERT_NULL(strstr(seq, ";exit="));
+        seq = mfree(seq);
+
+        ASSERT_OK(osc_context_close_full(id, CLD_EXITED, 0, &seq));
+        ASSERT_NOT_NULL(strstr(seq, ";exit=success;status=0\x1b\\"));
+        seq = mfree(seq);
+
+        ASSERT_OK(osc_context_close_full(id, CLD_EXITED, 3, &seq));
+        ASSERT_NOT_NULL(strstr(seq, ";exit=failure;status=3\x1b\\"));
+        seq = mfree(seq);
+
+        ASSERT_OK(osc_context_close_full(id, CLD_KILLED, SIGINT, &seq));
+        ASSERT_NOT_NULL(strstr(seq, ";exit=interrupt;signal=SIGINT\x1b\\"));
+        seq = mfree(seq);
+
+        ASSERT_OK(osc_context_close_full(id, CLD_KILLED, SIGTERM, &seq));
+        ASSERT_NOT_NULL(strstr(seq, ";exit=interrupt;signal=SIGTERM\x1b\\"));
+        seq = mfree(seq);
+
+        ASSERT_OK(osc_context_close_full(id, CLD_DUMPED, SIGSEGV, &seq));
+        ASSERT_NOT_NULL(strstr(seq, ";exit=crash;signal=SIGSEGV\x1b\\"));
         hexdump(/* f= */ NULL, seq, SIZE_MAX);
         seq = mfree(seq);
 }

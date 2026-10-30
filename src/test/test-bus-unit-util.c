@@ -494,6 +494,7 @@ TEST(execute_properties) {
                         "TTYVHangup=true",
                         "TTYReset=true",
                         "TTYVTDisallocate=true",
+                        "TTYExitStatus=true",
                         "PrivateDevices=true",
                         "PrivateNetwork=true",
                         "PrivateMounts=true",
