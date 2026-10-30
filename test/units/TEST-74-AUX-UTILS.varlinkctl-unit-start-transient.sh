@@ -132,6 +132,27 @@ testcase_dispatch_validation() {
         "context.Exec.WorkingDirectory.path"
 }
 
+testcase_authorization() {
+    setup
+
+    local result
+
+    # Polkit's pidfd subjects require kernel >= 6.5 and polkit >= 124.
+    if [[ -f /usr/share/dbus-1/system-services/org.freedesktop.PolicyKit1.service ]] &&
+       { ! systemd-analyze compare-versions "$(uname -r)" ge 6.5 ||
+         ! systemd-analyze compare-versions "$(pkcheck --version | awk '{print $3}')" ge 124; }; then
+        echo "Skipping authorization test: Polkit pidfd subjects are not supported"
+        return 0
+    fi
+
+    # Authorization must happen before the PID dispatcher rejects the malformed PID.
+    result="$( (! run0 -u testuser varlinkctl --no-ask-password call \
+        "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+        '{"context":{"ID":"varlink-transient-unauthorized.scope","Scope":{"PIDs":[{"pid":-1}]}}}' 2>&1) )"
+    grep -F -e 'org.varlink.service.PermissionDenied' \
+            -e 'io.systemd.InteractiveAuthenticationRequired' <<<"$result"
+}
+
 testcase_notifications() {
     setup
 
@@ -629,11 +650,18 @@ testcase_file_descriptors() {
 testcase_scope() {
     setup
 
+    local scope_child
+
     # Starting a transient scope
     defer_transient_cleanup varlink-transient-scope.scope
     sleep infinity &
     scope_child="$!"
     CHILD_PIDS+=("$scope_child")
+
+    expect_invalid_parameter \
+        '{"context":{"ID":"varlink-transient-scope.scope","Scope":{"PIDs":[{"pid":'"${scope_child}"'},{"pid":-1}]}}}' \
+        "context.Scope.PIDs"
+
     varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
         "{\"context\":{\"ID\":\"varlink-transient-scope.scope\",\"Scope\":{\"PIDs\":[{\"pid\":${scope_child}}],\"OOMPolicy\":\"kill\", \"TimeoutStopUSec\":12000000}}}"
     timeout 30 bash -c 'until systemctl is-active varlink-transient-scope.scope; do sleep 0.5; done'
@@ -646,6 +674,12 @@ testcase_scope() {
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-badpid.scope","Scope":{"PIDs":[{"pid": 1}]}}}' \
         "context.Scope.PIDs"
+
+    # Test automatic pidref resolution from pid: 0 to the Varlink caller.
+    defer_transient_cleanup varlink-transient-peer.scope
+    varlinkctl call --more "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+        '{"context":{"ID":"varlink-transient-peer.scope","Scope":{"PIDs":[{"pid":0}]}},"notifyJobChanges":true}' \
+        | jq --seq --slurp -e 'any(.[]; .job.Result == "done")' >/dev/null
 }
 
 testcase_dependencies() {
