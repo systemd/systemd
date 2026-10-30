@@ -2872,9 +2872,9 @@ static int can_mount_proc(void) {
         return 1;
 }
 
-static int setup_private_pids(const ExecContext *c, ExecParameters *p) {
+static int setup_private_pids(const ExecContext *c, ExecParameters *p, int *ret_keep_parent_fd /* may be NULL */) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
+        _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR, keep_parent_pipe[2] = EBADF_PAIR;
         ssize_t n;
         int r, q;
 
@@ -2892,6 +2892,12 @@ static int setup_private_pids(const ExecContext *c, ExecParameters *p) {
         if (pipe2(errno_pipe, O_CLOEXEC) < 0)
                 return log_debug_errno(errno, "Failed to create pipe for communicating with parent process: %m");
 
+        /* The parent opened connections to mountfsd and nsresourced, so those services will lookup
+         * information through the parent process. So the parent needs to stick around until the child is
+         * done. The parent waits until the child closes the fd returned in ret_keep_parent_fd. */
+        if (ret_keep_parent_fd && pipe2(keep_parent_pipe, O_CLOEXEC) < 0)
+                return log_debug_errno(errno, "Failed to create pipe for waiting for child process: %m");
+
         /* Set FORK_DETACH to immediately re-parent the child process to the invoking manager process. */
         r = pidref_safe_fork("(sd-pidns-child)", FORK_NEW_PIDNS|FORK_DETACH, &pidref);
         if (r < 0)
@@ -2908,14 +2914,27 @@ static int setup_private_pids(const ExecContext *c, ExecParameters *p) {
                                 &IOVEC_MAKE(&pidref.pid, sizeof(pidref.pid)),
                                 /* iovlen= */ 1,
                                 /* flags= */ 0);
-                /* Send error code to child process. */
+                /* Send error code to child process. Close the pipe right away so that the child doesn't
+                 * block in read() if the write failed, as we might wait for the child below. */
                 (void) write(errno_pipe[1], &q, sizeof(q));
+                errno_pipe[1] = safe_close(errno_pipe[1]);
+
+                if (ret_keep_parent_fd) {
+                        keep_parent_pipe[1] = safe_close(keep_parent_pipe[1]);
+                        for (;;) {
+                                r = fd_wait_for_event(keep_parent_pipe[0], POLLHUP, USEC_INFINITY);
+                                if (r != -EINTR)
+                                        break;
+                        }
+                }
+
                 /* Exit here so we only go through the destructors in exec_invoke only once - in the child - as
                  * some destructors have external effects. The main codepaths continue in the child process. */
                 _exit(q < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
 
         errno_pipe[1] = safe_close(errno_pipe[1]);
+        keep_parent_pipe[0] = safe_close(keep_parent_pipe[0]);
         p->pidref_transport_fd = safe_close(p->pidref_transport_fd);
 
         /* Try to read an error code from the parent. Note a child process cannot wait for the parent so we always
@@ -2927,6 +2946,9 @@ static int setup_private_pids(const ExecContext *c, ExecParameters *p) {
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to read enough bytes from pipe with parent process");
         if (r < 0)
                 return log_debug_errno(r, "Failed to send child pidref to manager: %m");
+
+        if (ret_keep_parent_fd)
+                *ret_keep_parent_fd = TAKE_FD(keep_parent_pipe[1]);
 
         /* NOTE! This function returns in the child process only. */
         return r;
@@ -4937,6 +4959,7 @@ static int setup_delegated_namespaces(
                 int bpffs_socket_fd,
                 int bpffs_errno_pipe,
                 sd_varlink *mountfsd_link, /* may be NULL */
+                int *keep_parent_fd,
                 int *reterr_exit_status) {
 
         int r;
@@ -4955,6 +4978,7 @@ static int setup_delegated_namespaces(
         assert(pressure_path);
         assert(command);
         assert(bpffs_pidref);
+        assert(keep_parent_fd);
         assert(reterr_exit_status);
 
         if (exec_needs_network_namespace(context) &&
@@ -5040,7 +5064,7 @@ static int setup_delegated_namespaces(
                         }
                 }
 
-                r = setup_private_pids(context, params);
+                r = setup_private_pids(context, params, mountfsd_link ? keep_parent_fd : NULL);
                 if (r < 0) {
                         *reterr_exit_status = EXIT_NAMESPACE;
                         return log_error_errno(r, "Failed to set up pid namespace: %m");
@@ -6123,6 +6147,7 @@ int exec_invoke(
         }
 
         _cleanup_(sd_varlink_unrefp) sd_varlink *mountfsd_link = NULL, *nsresource_link = NULL;
+        _cleanup_close_ int keep_parent_fd = -EBADF;
         if (needs_sandboxing &&
             exec_context_get_effective_private_users(context, params) == PRIVATE_USERS_MANAGED) {
 
@@ -6395,6 +6420,7 @@ int exec_invoke(
                         bpffs_socket_fd,
                         bpffs_errno_pipe,
                         mountfsd_link,
+                        &keep_parent_fd,
                         exit_status);
         if (r < 0)
                 return r;
@@ -6496,6 +6522,7 @@ int exec_invoke(
                         bpffs_socket_fd,
                         bpffs_errno_pipe,
                         mountfsd_link,
+                        &keep_parent_fd,
                         exit_status);
         if (r < 0)
                 return r;
@@ -6503,6 +6530,8 @@ int exec_invoke(
         /* We are done now with the nsresourced/mountfsd shenanigans, let's close the connections */
         nsresource_link = sd_varlink_unref(nsresource_link);
         mountfsd_link = sd_varlink_unref(mountfsd_link);
+        /* With PrivatePIDs=, this releases the parent process that set up the connections */
+        keep_parent_fd = safe_close(keep_parent_fd);
 
         /* We don't need the pinned rootfs anymore at this point. Close the fds now, so that they are
          * definitely gone before we do our fd rearrangements below. */
