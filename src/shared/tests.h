@@ -11,6 +11,7 @@
 #include "signal-util.h"                /* IWYU pragma: keep */
 #include "stdio-util.h"
 #include "string-util.h"                /* IWYU pragma: keep */
+#include "strv.h"                       /* IWYU pragma: keep */
 
 static inline void log_set_assert_return_is_criticalp(bool *p) {
         log_set_assert_return_is_critical(*p);
@@ -79,6 +80,9 @@ bool userns_has_single_user(void);
 bool can_memlock(void);
 
 int define_hex_ptr_internal(const char *hex, void **name, size_t *name_len);
+
+/* Formats a strv as ["a", "b"] for assertion messages. */
+char* strv_join_quoted_internal(char * const *l);
 
 /* Define void* buffer and size_t length variables from a hex string. */
 #define DEFINE_HEX_PTR(name, hex)                                       \
@@ -513,6 +517,21 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
                 if (!strneq_ptr(_expr1, _expr2, _n))                                                            \
                         log_test_failed("Expected \"%s == %s\", got \"%s != %s\" (first %zu characters)",       \
                                         #expr1, #expr2, strnull(_expr1), strnull(_expr2), _n);                  \
+        })
+#endif
+
+#ifdef __COVERITY__
+#  define ASSERT_STRV_EQ(expr1, expr2) __coverity_check__(strv_equal((expr1), (expr2)))
+#else
+#  define ASSERT_STRV_EQ(expr1, expr2)                                                                          \
+        ({                                                                                                      \
+                char * const *_expr1 = (expr1), * const *_expr2 = (expr2);                                      \
+                if (!strv_equal(_expr1, _expr2)) {                                                              \
+                        _cleanup_free_ char *_str1 = strv_join_quoted_internal(_expr1),                         \
+                                            *_str2 = strv_join_quoted_internal(_expr2);                         \
+                        log_test_failed("Expected \"%s == %s\", got %s != %s",                                  \
+                                        #expr1, #expr2, strnull(_str1), strnull(_str2));                        \
+                }                                                                                               \
         })
 #endif
 

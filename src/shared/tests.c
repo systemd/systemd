@@ -336,6 +336,17 @@ int enter_cgroup_root(char **ret_cgroup) {
         return enter_cgroup(ret_cgroup, false);
 }
 
+char* strv_join_quoted_internal(char * const *l) {
+        if (strv_isempty(l))
+                return strdup("[]");
+
+        _cleanup_free_ char *j = strv_join(l, "\", \"");
+        if (!j)
+                return NULL;
+
+        return strjoin("[\"", j, "\"]");
+}
+
 int define_hex_ptr_internal(const char *hex, void **name, size_t *name_len) {
         return unhexmem_full(hex, strlen_ptr(hex), false, name, name_len);
 }
