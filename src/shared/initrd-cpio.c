@@ -9,6 +9,7 @@
 #include "fs-util.h"
 #include "initrd-cpio.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "log.h"
 #include "machine-credential.h"
 #include "memory-util.h"
@@ -117,13 +118,11 @@ static void append_cpio_trailer(FILE *f) {
         fwrite(trailer, 1, sizeof trailer, f);
 }
 
-int initrd_cpio_credentials_to_tempfile(
+int initrd_cpio_credentials_to_memory(
                 const MachineCredentialContext *creds,
-                char **ret_path) {
+                struct iovec *ret) {
 
         _cleanup_(memstream_done) MemStream m = {};
-        _cleanup_(unlink_and_freep) char *path = NULL;
-        _cleanup_close_ int fd = -EBADF;
         _cleanup_(erase_and_freep) char *buf = NULL; /* holds plaintext credential bytes; scrub on free */
         size_t buf_size = 0;
         uint32_t inode = 1;
@@ -131,12 +130,7 @@ int initrd_cpio_credentials_to_tempfile(
         int r;
 
         assert(creds);
-        assert(ret_path);
-
-        if (creds->n_credentials == 0) {
-                *ret_path = NULL;
-                return 0;
-        }
+        assert(ret);
 
         f = memstream_init(&m);
         if (!f)
@@ -168,6 +162,31 @@ int initrd_cpio_credentials_to_tempfile(
         if (r < 0)
                 return log_error_errno(r, "Failed to finalize credentials cpio: %m");
 
+        *ret = IOVEC_MAKE(TAKE_PTR(buf), buf_size);
+        return 0;
+}
+
+int initrd_cpio_credentials_to_tempfile(
+                const MachineCredentialContext *creds,
+                char **ret_path) {
+
+        _cleanup_(unlink_and_freep) char *path = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(iovec_done_erase) struct iovec cpio = {}; /* holds plaintext credential bytes; scrub on free */
+        int r;
+
+        assert(creds);
+        assert(ret_path);
+
+        if (creds->n_credentials == 0) {
+                *ret_path = NULL;
+                return 0;
+        }
+
+        r = initrd_cpio_credentials_to_memory(creds, &cpio);
+        if (r < 0)
+                return r;
+
         r = tempfn_random_child(NULL, "credentials-cpio", &path);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate temp file name: %m");
@@ -176,7 +195,7 @@ int initrd_cpio_credentials_to_tempfile(
         if (fd < 0)
                 return log_error_errno(errno, "Failed to create temp file %s: %m", path);
 
-        r = loop_write(fd, buf, buf_size);
+        r = loop_write(fd, cpio.iov_base, cpio.iov_len);
         if (r < 0)
                 return log_error_errno(r, "Failed to write credentials cpio: %m");
 

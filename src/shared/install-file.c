@@ -338,3 +338,24 @@ usec_t source_date_epoch_or_now(void) {
 
         return now(CLOCK_REALTIME);
 }
+
+int source_date_epoch_seconds(char **ret) {
+        usec_t epoch;
+
+        assert(ret);
+
+        /* $SOURCE_DATE_EPOCH in seconds as *we* read it, or NULL if we have none. Tools we call parse the
+         * variable themselves, so without this they would act on values we reject (unparsable, overflowing),
+         * read differently (octal 017), or that secure_getenv() declines to look at under AT_SECURE. */
+
+        epoch = parse_source_date_epoch();
+        if (epoch == USEC_INFINITY) {
+                *ret = NULL;
+                return 0;
+        }
+
+        if (asprintf(ret, USEC_FMT, epoch / USEC_PER_SEC) < 0)
+                return -ENOMEM;
+
+        return 1;
+}

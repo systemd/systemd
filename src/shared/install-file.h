@@ -15,4 +15,5 @@ typedef enum InstallFileFlags {
 int install_file(int source_atfd, const char *source_name, int target_atfd, const char *target_name, InstallFileFlags flags);
 
 usec_t parse_source_date_epoch(void);
+int source_date_epoch_seconds(char **ret);
 usec_t source_date_epoch_or_now(void);
