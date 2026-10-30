@@ -3804,6 +3804,21 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
         return sd_bus_reply_method_return(message, "h", fifo_fd);
 }
 
+static int bus_property_get_kill_exclude_users(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *reterr_error) {
+
+        Manager *m = ASSERT_PTR(userdata);
+
+        /* NULL represents the default, i.e. only root is excluded. */
+        return sd_bus_message_append_strv(reply, m->kill_exclude_users ?: STRV_MAKE("root"));
+}
+
 static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -3812,7 +3827,7 @@ static const sd_bus_vtable manager_vtable[] = {
 
         SD_BUS_PROPERTY("NAutoVTs", "u", NULL, offsetof(Manager, n_autovts), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KillOnlyUsers", "as", NULL, offsetof(Manager, kill_only_users), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("KillExcludeUsers", "as", NULL, offsetof(Manager, kill_exclude_users), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("KillExcludeUsers", "as", bus_property_get_kill_exclude_users, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KillUserProcesses", "b", bus_property_get_bool, offsetof(Manager, kill_user_processes), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RebootParameter", "s", property_get_reboot_parameter, 0, 0),
         SD_BUS_PROPERTY("RebootToFirmwareSetup", "b", property_get_reboot_to_firmware_setup, 0, 0),
