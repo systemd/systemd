@@ -254,7 +254,7 @@ TEST(pidref_wait_for_terminate_timeout) {
         /* Test successful termination within timeout */
         ASSERT_OK(pidref_safe_fork("(test-pidref-wait-timeout)", FORK_DEATHSIG_SIGKILL|FORK_FREEZE, &pidref));
 
-        assert_se(pidref_kill(&pidref, SIGKILL) >= 0);
+        ASSERT_OK(pidref_kill(&pidref, SIGKILL));
         ASSERT_OK(pidref_wait_for_terminate_full(&pidref, 5 * USEC_PER_SEC, &si));
         ASSERT_EQ(si.si_signo, SIGCHLD);
 
