@@ -9,6 +9,7 @@
 #include "iovec-util.h"
 #include "json-util.h"
 #include "ordered-set.h"
+#include "resolve-util.h"
 #include "resolve-varlink-util.h"
 #include "set.h"
 #include "string-util.h"
@@ -434,6 +435,9 @@ static int dispatch_dns_server_array(const char *name, sd_json_variant *variant,
         _cleanup_ordered_set_free_ OrderedSet *dns_servers = NULL;
         sd_json_variant *v;
         int r;
+
+        if (sd_json_variant_elements(variant) > LINK_DNS_SERVERS_MAX)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(E2BIG), "Too many DNS servers for one link.");
 
         JSON_VARIANT_ARRAY_FOREACH(v, variant) {
                 _cleanup_(dns_server_freep) DNSServer *s = NULL;
