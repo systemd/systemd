@@ -49,6 +49,20 @@
 
     <para>The TPM NVRAM storage is placed on the EFI System Partition as it needs to be accessible during
     very early boot-up, in particular before the root file system is decrypted and mounted.</para>
+
+    <para>If <varname>systemd.tpm2_measured_os=1</varname> is set on the kernel command line (see
+    <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>),
+    <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> hands
+    over the measurements it would have made without a TPM in <filename>/.extra/tpm2-event-log</filename>.
+    In the initrd, this service replays them into the software TPM via
+    <command>systemd-tpm2-swtpm --replay</command> before it is considered started, so that the PCRs
+    <command>systemd-stub</command> measures into, in particular PCR 11, end up with the same values as with
+    a hardware TPM. Signed PCR policies for the UKI then work with the software TPM, too. Measurements of the
+    firmware, the boot loader and the kernel are not available for replay, hence the other PCRs differ from
+    those of a hardware TPM, and so does PCR 12 if the boot loader measured a kernel command line into it,
+    see <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+    After the transition to the host, the PCR values are retained through the state saved when the service
+    stops in the initrd.</para>
   </refsect1>
 
   <refsect1>

@@ -17,4 +17,5 @@ C /run/systemd/stub/boot-secret 0400 root root - /.extra/boot-secret
 {% if ENABLE_TPM %}
 C /run/systemd/tpm2-pcr-signature.json 0444 root root - /.extra/tpm2-pcr-signature.json
 C /run/systemd/tpm2-pcr-public-key.pem 0444 root root - /.extra/tpm2-pcr-public-key.pem
+C /run/systemd/stub/tpm2-event-log 0444 root root - /.extra/tpm2-event-log
 {% endif %}

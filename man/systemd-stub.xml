@@ -823,6 +823,29 @@
 
         <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><filename>/.extra/tpm2-event-log</filename></term>
+        <listitem><para>If no TPM is available and the final kernel command line contains
+        <varname>systemd.tpm2_measured_os=1</varname>, this file contains the measurements that
+        <command>systemd-stub</command> would have made into PCRs 11, 12 and 13, i.e., those of the UKI
+        sections, of the kernel command line, of credentials and of system and configuration extensions. The
+        file consists of records in the format of the TCG crypto agile event log
+        (<literal>TCG_PCR_EVENT2</literal>), each carrying a single SHA-256 digest. If the software TPM
+        fallback is used, these measurements are replayed into the software TPM by
+        <citerefentry><refentrytitle>systemd-tpm2-swtpm.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        so that these PCRs, in particular PCR 11, match the values of a hardware TPM, and signed PCR policies
+        can be used. Measurements of the firmware, the boot loader and the kernel are not included, hence the
+        other PCRs differ from those of a hardware TPM. The SMBIOS data that <command>systemd-stub</command>
+        normally measures into PCR 1 is not included either, as PCR 1 is otherwise owned by the firmware.
+        PCR 12 differs, too, if the boot loader passed a kernel command line to the UKI, as
+        <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        measures it into PCR 12 as well. This is the case when the command line was edited in the boot menu,
+        when a profile other than the default one is selected, or when a boot loader entry specifies a
+        command line.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
     </variablelist>
 
     <para>Note that all these files are located in the <literal>tmpfs</literal> file system the kernel sets

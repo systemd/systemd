@@ -1,12 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <poll.h>
+#include <sys/inotify.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
+#include "build.h"
 #include "chase.h"
 #include "dlopen-note.h"
+#include "efi-loader.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -16,6 +21,8 @@
 #include "hexdecoct.h"
 #include "hmac.h"
 #include "initrd-util.h"
+#include "inotify-util.h"
+#include "io-util.h"
 #include "iovec-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -26,16 +33,54 @@
 #include "string-util.h"
 #include "strv.h"
 #include "swtpm-util.h"
+#include "time-util.h"
+#include "tpm2-event-log.h"
+#include "tpm2-pcr.h"
+#include "tpm2-util.h"
+#include "unaligned.h"
+#include "utf8.h"
 #include "verbs.h"
 
 COMMAND(
         "systemd-tpm2-swtpm\0",
         "Provide a fallback software TPM.",
         .man_pages = "systemd-tpm2-swtpm.service(8)\0",
-        .option_namespace = "common",
 );
 
 #define BOOT_SECRET_SIZE 32U
+#define REPLAY_DEVICE_TIMEOUT_USEC (30 * USEC_PER_SEC)
+#define REPLAY_LOG_SIZE_MAX (4U * 1024U * 1024U)
+
+static bool arg_replay = false;
+
+static int parse_argv(int argc, char *argv[]) {
+        assert(argc >= 0);
+        assert(argv);
+
+        OptionParser opts = { argc, argv };
+
+        FOREACH_OPTION_OR_RETURN(c, &opts)
+                switch (c) {
+
+                OPTION_COMMON_HELP:
+                        return command_print_help();
+
+                OPTION_COMMON_VERSION:
+                        return version();
+
+                OPTION_LONG("replay", NULL, "Replay the measurements handed over by systemd-stub"):
+                        arg_replay = true;
+                        break;
+
+                OPTION_COMMON_INTROSPECT_CLI:
+                        return introspect_cli(SD_JSON_FORMAT_OFF);
+                }
+
+        if (option_parser_get_n_args(&opts) != 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program expects no arguments.");
+
+        return 1;
+}
 
 static int load_boot_secret(struct iovec *ret) {
         _cleanup_(iovec_done_erase) struct iovec buf = {};
@@ -151,16 +196,175 @@ static int setup_swtpm(const char *state_dir, int state_fd, const char *secret) 
         return manufacture_swtpm(state_dir, secret);
 }
 
+static int wait_for_tpm2_device(char **ret) {
+        usec_t deadline = usec_add(now(CLOCK_MONOTONIC), REPLAY_DEVICE_TIMEOUT_USEC);
+        int r;
+
+        assert(ret);
+
+        /* We signal readiness before chain-loading swtpm, hence its vTPM device might not exist yet. Thus,
+         * wait for the device node to show up in /dev. This can go away once swtpm signals readiness itself
+         * after creating the device, see the FIXME in run(). */
+
+        _cleanup_close_ int inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
+        if (inotify_fd < 0)
+                return log_error_errno(errno, "Failed to allocate inotify fd: %m");
+
+        r = inotify_add_watch_and_warn(inotify_fd, "/dev", IN_CREATE|IN_ONLYDIR);
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                _cleanup_free_ char *device = NULL;
+
+                /* The sysfs entry shows up before the device node, hence check for both */
+                r = tpm2_find_device_auto(&device);
+                if (r >= 0 && access(device, F_OK) >= 0) {
+                        *ret = TAKE_PTR(device);
+                        return 0;
+                }
+                if (r < 0 && r != -ENODEV)
+                        return log_error_errno(r, "Failed to find the software TPM device: %m");
+
+                usec_t n = now(CLOCK_MONOTONIC);
+                if (n >= deadline)
+                        return log_error_errno(SYNTHETIC_ERRNO(ETIMEDOUT), "Timed out waiting for the software TPM device.");
+
+                r = fd_wait_for_event(inotify_fd, POLLIN, usec_sub_unsigned(deadline, n));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to wait for the software TPM device: %m");
+
+                (void) flush_fd(inotify_fd);
+        }
+}
+
+static int replay_stub_event_log(void) {
+        int r;
+
+        /* Without a TPM systemd-stub couldn't measure the UKI, and if systemd.tpm2_measured_os=1 is set, it
+         * instead hands over the measurements it would have made as TCG_PCR_EVENT2 records with a single
+         * SHA-256 digest. Extend them into the software TPM, so that the PCRs systemd-stub measures into, in
+         * particular PCR 11, end up like with a hardware TPM. This must happen before anything else uses the
+         * TPM, hence it's done before the service is considered started. In the host the PCRs are restored
+         * from the volatile state saved at the end of the initrd. */
+
+        if (!in_initrd()) {
+                log_debug("Not running in the initrd, the measurements of systemd-stub were already replayed.");
+                return 0;
+        }
+
+        /* This is opt-in, like the recording in systemd-stub. Without a firmware TPM, this is only
+         * enabled through systemd.tpm2_measured_os=1. */
+        if (efi_measured_os(LOG_DEBUG) <= 0) {
+                log_debug("OS measurements are not enabled, not replaying the measurements of systemd-stub.");
+                return 0;
+        }
+
+        _cleanup_free_ char *data = NULL;
+        size_t size;
+        r = read_full_file_full(
+                        AT_FDCWD,
+                        "/.extra/tpm2-event-log",
+                        UINT64_MAX,
+                        REPLAY_LOG_SIZE_MAX,
+                        READ_FULL_FILE_VERIFY_REGULAR|READ_FULL_FILE_FAIL_WHEN_LARGER,
+                        /* bind_name= */ NULL,
+                        &data,
+                        &size);
+        if (r == -ENOENT) {
+                /* PCR 11 won't reach the signed values then, hence binding to them will fail later */
+                log_warning("OS measurements are enabled, but systemd-stub handed over no measurements, "
+                            "proceeding without replaying them. Is systemd-stub too old?");
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read event log of systemd-stub: %m");
+
+        _cleanup_free_ char *device = NULL;
+        r = wait_for_tpm2_device(&device);
+        if (r < 0)
+                return r;
+
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+        r = tpm2_context_new_or_warn(device, &c);
+        if (r < 0)
+                return r;
+
+        /* Each record carries a single SHA-256 digest, followed by the event size */
+        const size_t digest_offset =
+                offsetof(TCG_PCR_EVENT2, digests.digests) + offsetof(packed_TPMT_HA, digest);
+        const size_t header_size = digest_offset + SHA256_DIGEST_SIZE + sizeof(uint32_t);
+
+        size_t n = 0;
+        for (const uint8_t *p = (const uint8_t*) data, *e = p + size; p < e; n++) {
+                if ((size_t) (e - p) < header_size)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Truncated record in event log of systemd-stub.");
+
+                const TCG_PCR_EVENT2 *record = (const TCG_PCR_EVENT2*) p;
+                const uint8_t *digest = p + digest_offset;
+                uint32_t pcr_index = record->pcrIndex;
+                uint32_t event_type = record->eventType;
+                uint32_t event_size = unaligned_read_ne32(digest + SHA256_DIGEST_SIZE);
+                p += header_size;
+
+                /* systemd-stub only records the PCRs owned by the OS, refuse to touch any others */
+                if (!IN_SET(pcr_index, TPM2_PCR_KERNEL_BOOT, TPM2_PCR_KERNEL_CONFIG, TPM2_PCR_SYSEXTS))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Unexpected PCR %" PRIu32 " in event log of systemd-stub.", pcr_index);
+                if (record->digests.count != 1 || record->digests.digests[0].hashAlg != TPM2_ALG_SHA256)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Unexpected digests in event log of systemd-stub.");
+                if (event_size > (size_t) (e - p))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Truncated event in event log of systemd-stub.");
+
+                const uint8_t *event = p;
+                p += event_size;
+
+                /* The event data is the UTF-16 description, prefixed by the tag for tagged events */
+                if (event_type == EV_EVENT_TAG) {
+                        const TCG_PCClientTaggedEvent *tag = (const TCG_PCClientTaggedEvent*) event;
+                        const size_t tag_size = offsetof(TCG_PCClientTaggedEvent, taggedEventData);
+
+                        if (event_size < tag_size || tag->taggedEventDataSize != event_size - tag_size)
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Invalid tagged event in event log of systemd-stub.");
+
+                        event = tag->taggedEventData;
+                        event_size = tag->taggedEventDataSize;
+                } else if (event_type != EV_IPL)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Unexpected event type 0x%" PRIx32 " in event log of systemd-stub.", event_type);
+
+                _cleanup_free_ char *description = utf16_to_utf8((const char16_t*) (const void*) event, event_size);
+                if (!description)
+                        return log_oom();
+
+                TPML_DIGEST_VALUES values = {
+                        .count = 1,
+                        .digests[0].hashAlg = TPM2_ALG_SHA256,
+                };
+                memcpy(values.digests[0].digest.sha256, digest, SHA256_DIGEST_SIZE);
+
+                r = tpm2_pcr_extend_digests(c, pcr_index, &values, _TPM2_USERSPACE_EVENT_TYPE_INVALID, description);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to replay measurement '%s' into PCR %" PRIu32 ": %m", description, pcr_index);
+        }
+
+        log_info("Replayed %zu measurements of systemd-stub into the software TPM.", n);
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         int r;
 
         LIBBLKID_NOTE(recommended);
+        LIBCRYPTO_NOTE(suggested);
+        TPM2_NOTE(suggested);
 
         log_setup();
 
-        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 0, /* ret_args= */ NULL);
+        r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (arg_replay)
+                return replay_stub_event_log();
 
         _cleanup_free_ char *runtime_dir = NULL;
         r = runtime_directory(RUNTIME_SCOPE_SYSTEM, "systemd/swtpm", &runtime_dir);

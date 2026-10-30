@@ -197,6 +197,7 @@ typedef enum Tpm2UserspaceEventType {
 DECLARE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);
 
 int tpm2_pcr_extend_bytes(Tpm2Context *c, char **banks, unsigned pcr_index, const struct iovec *data, const struct iovec *secret, Tpm2UserspaceEventType event_type, const char *description);
+int tpm2_pcr_extend_digests(Tpm2Context *c, unsigned pcr_index, const TPML_DIGEST_VALUES *values, Tpm2UserspaceEventType event_type, const char *description);
 
 /* Default allocation priority for NvPCRs that do not specify one explicitly. Lower values are more
  * important and are allocated first when the TPM's NV index space is constrained. */

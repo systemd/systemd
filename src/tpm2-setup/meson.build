@@ -35,6 +35,10 @@ executables += [
                         'HAVE_OPENSSL',
                         'HAVE_TPM2',
                 ],
+                'dependencies' : [
+                        libopenssl_cflags,
+                        tpm2_cflags,
+                ],
         },
         generator_template + {
                 'name' : 'systemd-tpm2-generator',
