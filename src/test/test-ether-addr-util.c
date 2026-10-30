@@ -8,28 +8,28 @@ TEST(ether_addr_helpers) {
         struct ether_addr a;
 
         a = ETHER_ADDR_NULL;
-        assert_se(ether_addr_is_null(&a));
-        assert_se(!ether_addr_is_broadcast(&a));
-        assert_se(!ether_addr_is_multicast(&a));
-        assert_se(ether_addr_is_unicast(&a));
-        assert_se(!ether_addr_is_local(&a));
-        assert_se(ether_addr_is_global(&a));
+        ASSERT_TRUE(ether_addr_is_null(&a));
+        ASSERT_FALSE(ether_addr_is_broadcast(&a));
+        ASSERT_FALSE(ether_addr_is_multicast(&a));
+        ASSERT_TRUE(ether_addr_is_unicast(&a));
+        ASSERT_FALSE(ether_addr_is_local(&a));
+        ASSERT_TRUE(ether_addr_is_global(&a));
 
         memset(a.ether_addr_octet, 0xff, sizeof(a));
-        assert_se(!ether_addr_is_null(&a));
-        assert_se(ether_addr_is_broadcast(&a));
-        assert_se(ether_addr_is_multicast(&a));
-        assert_se(!ether_addr_is_unicast(&a));
-        assert_se(ether_addr_is_local(&a));
-        assert_se(!ether_addr_is_global(&a));
+        ASSERT_FALSE(ether_addr_is_null(&a));
+        ASSERT_TRUE(ether_addr_is_broadcast(&a));
+        ASSERT_TRUE(ether_addr_is_multicast(&a));
+        ASSERT_FALSE(ether_addr_is_unicast(&a));
+        ASSERT_TRUE(ether_addr_is_local(&a));
+        ASSERT_FALSE(ether_addr_is_global(&a));
 
         a = (struct ether_addr) { { 0x01, 0x23, 0x34, 0x56, 0x78, 0x9a } };
-        assert_se(!ether_addr_is_null(&a));
-        assert_se(!ether_addr_is_broadcast(&a));
-        assert_se(ether_addr_is_multicast(&a));
-        assert_se(!ether_addr_is_unicast(&a));
-        assert_se(!ether_addr_is_local(&a));
-        assert_se(ether_addr_is_global(&a));
+        ASSERT_FALSE(ether_addr_is_null(&a));
+        ASSERT_FALSE(ether_addr_is_broadcast(&a));
+        ASSERT_TRUE(ether_addr_is_multicast(&a));
+        ASSERT_FALSE(ether_addr_is_unicast(&a));
+        ASSERT_FALSE(ether_addr_is_local(&a));
+        ASSERT_TRUE(ether_addr_is_global(&a));
 }
 
 #define INFINIBAD_ADDR_1 ((const struct hw_addr_data){ .length = 20, .infiniband = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20} })
@@ -68,10 +68,10 @@ static void test_parse_hw_addr_full_one(const char *in, size_t expected_len, con
         r = parse_hw_addr_full(in, expected_len, &h);
         log_debug_errno(r, "parse_hw_addr(\"%s\", len=%zu) → \"%s\" (expected: \"%s\") : %d/%m",
                         in, expected_len, r >= 0 ? HW_ADDR_TO_STR(&h) : "n/a", strna(expected), r);
-        assert_se((r >= 0) == !!expected);
+        ASSERT_EQ(r >= 0, !!expected);
         if (r >= 0) {
                 if (!IN_SET(expected_len, 0, SIZE_MAX))
-                        assert_se(h.length == expected_len);
+                        ASSERT_EQ(h.length, expected_len);
                 ASSERT_STREQ(HW_ADDR_TO_STR(&h), expected);
         }
 }
