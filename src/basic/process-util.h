@@ -240,6 +240,9 @@ int get_process_threads(pid_t pid);
 int is_reaper_process(void);
 int make_reaper_process(bool b);
 
+int execvpe_safe(const char *file, char * const *argv, char * const *envp);
+int execvp_safe(const char *file, char * const *argv);
+
 int posix_spawn_wrapper(
                 const char *path,
                 char * const *argv,
