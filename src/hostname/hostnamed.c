@@ -464,11 +464,13 @@ static int get_hardware_serial(Context *c, char **ret) {
         assert(c);
         assert(ret);
 
-        FOREACH_STRING(attr, "product_serial", "board_serial") {
-                r = get_dmi_sysattr(c, attr, ret);
-                if (r >= 0 || !ERRNO_IS_NEG_DEVICE_ABSENT(r))
-                        return r;
-        }
+        /* 60-dmi-id.rules picks the DMI serial number to report: the product serial number
+         * (DMI type 1) is preferred, unless hwdb flags it as rubbish, in which case the baseboard
+         * serial number (DMI type 2) is used instead. If both are rubbish (or the system lacks
+         * DMI), fall through to the device tree serial number. */
+        r = get_dmi_property(c, "ID_SERIAL", ret);
+        if (r >= 0 || !ERRNO_IS_NEG_DEVICE_ABSENT(r))
+                return r;
 
         return get_device_tree_sysattr(c, "serial-number", ret);
 }
