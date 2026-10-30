@@ -9,7 +9,7 @@ TEST(is_fido_security_token_desc__fido) {
                 0x08, 0x95, 0x40, 0x81, 0x02, 0x09, 0x21, 0x15, 0x00, 0x26, 0xff, 0x00, 0x75, 0x08, 0x95,
                 0x40, 0x91, 0x02, 0xc0,
         };
-        assert_se(is_fido_security_token_desc(FIDO_HID_DESC_1, sizeof(FIDO_HID_DESC_1)) > 0);
+        ASSERT_OK_POSITIVE(is_fido_security_token_desc(FIDO_HID_DESC_1, sizeof(FIDO_HID_DESC_1)));
 
         static const uint8_t FIDO_HID_DESC_2[] = {
                 0x05, 0x01, 0x09, 0x06, 0xa1, 0x01, 0x05, 0x07, 0x19, 0xe0, 0x29, 0xe7, 0x15, 0x00, 0x25,
@@ -21,7 +21,7 @@ TEST(is_fido_security_token_desc__fido) {
                 0x08, 0x95, 0x40, 0x81, 0x02, 0x09, 0x21, 0x15, 0x00, 0x26, 0xff, 0x00, 0x75, 0x08, 0x95,
                 0x40, 0x91, 0x02, 0xc0,
         };
-        assert_se(is_fido_security_token_desc(FIDO_HID_DESC_2, sizeof(FIDO_HID_DESC_2)) > 0);
+        ASSERT_OK_POSITIVE(is_fido_security_token_desc(FIDO_HID_DESC_2, sizeof(FIDO_HID_DESC_2)));
 }
 
 TEST(is_fido_security_token_desc__non_fido) {
@@ -31,7 +31,7 @@ TEST(is_fido_security_token_desc__non_fido) {
                 0x08, 0x95, 0x40, 0x81, 0x02, 0x09, 0x21, 0x15, 0x00, 0x26, 0xff, 0x00, 0x75, 0x08, 0x95,
                 0x40, 0x91, 0x02, 0xc0,
         };
-        assert_se(is_fido_security_token_desc(NON_FIDO_HID_DESC_1, sizeof(NON_FIDO_HID_DESC_1)) == 0);
+        ASSERT_OK_EQ(is_fido_security_token_desc(NON_FIDO_HID_DESC_1, sizeof(NON_FIDO_HID_DESC_1)), 0);
 
         /* Wrong usage */
         static const uint8_t NON_FIDO_HID_DESC_2[] = {
@@ -39,7 +39,7 @@ TEST(is_fido_security_token_desc__non_fido) {
                 0x08, 0x95, 0x40, 0x81, 0x02, 0x09, 0x21, 0x15, 0x00, 0x26, 0xff, 0x00, 0x75, 0x08, 0x95,
                 0x40, 0x91, 0x02, 0xc0,
         };
-        assert_se(is_fido_security_token_desc(NON_FIDO_HID_DESC_2, sizeof(NON_FIDO_HID_DESC_2)) == 0);
+        ASSERT_OK_EQ(is_fido_security_token_desc(NON_FIDO_HID_DESC_2, sizeof(NON_FIDO_HID_DESC_2)), 0);
 
         static const uint8_t NON_FIDO_HID_DESC_3[] = {
                 0x05, 0x01, 0x09, 0x06, 0xa1, 0x01, 0x05, 0x07, 0x19, 0xe0, 0x29, 0xe7, 0x15, 0x00, 0x25,
@@ -48,29 +48,29 @@ TEST(is_fido_security_token_desc__non_fido) {
                 0x01, 0x95, 0x06, 0x75, 0x08, 0x15, 0x00, 0x25, 0x65, 0x05, 0x07, 0x19, 0x00, 0x29, 0x65,
                 0x81, 0x00, 0x09, 0x03, 0x75, 0x08, 0x95, 0x08, 0xb1, 0x02, 0xc0,
         };
-        assert_se(is_fido_security_token_desc(NON_FIDO_HID_DESC_3, sizeof(NON_FIDO_HID_DESC_3)) == 0);
+        ASSERT_OK_EQ(is_fido_security_token_desc(NON_FIDO_HID_DESC_3, sizeof(NON_FIDO_HID_DESC_3)), 0);
 }
 
 TEST(is_fido_security_token_desc__invalid) {
         /* Size coded on 1 byte, but no byte given */
         static const uint8_t INVALID_HID_DESC_1[] = { 0x01 };
-        assert_se(is_fido_security_token_desc(INVALID_HID_DESC_1, sizeof(INVALID_HID_DESC_1)) < 0);
+        ASSERT_FAIL(is_fido_security_token_desc(INVALID_HID_DESC_1, sizeof(INVALID_HID_DESC_1)));
 
         /* Size coded on 2 bytes, but only 1 byte given */
         static const uint8_t INVALID_HID_DESC_2[] = { 0x02, 0x01 };
-        assert_se(is_fido_security_token_desc(INVALID_HID_DESC_2, sizeof(INVALID_HID_DESC_2)) < 0);
+        ASSERT_FAIL(is_fido_security_token_desc(INVALID_HID_DESC_2, sizeof(INVALID_HID_DESC_2)));
 
         /* Size coded on 4 bytes, but only 3 bytes given */
         static const uint8_t INVALID_HID_DESC_3[] = { 0x03, 0x01, 0x02, 0x03 };
-        assert_se(is_fido_security_token_desc(INVALID_HID_DESC_3, sizeof(INVALID_HID_DESC_3)) < 0);
+        ASSERT_FAIL(is_fido_security_token_desc(INVALID_HID_DESC_3, sizeof(INVALID_HID_DESC_3)));
 
         /* Long item without a size byte */
         static const uint8_t INVALID_HID_DESC_4[] = { 0xfe };
-        assert_se(is_fido_security_token_desc(INVALID_HID_DESC_4, sizeof(INVALID_HID_DESC_4)) < 0);
+        ASSERT_FAIL(is_fido_security_token_desc(INVALID_HID_DESC_4, sizeof(INVALID_HID_DESC_4)));
 
         /* Usage pages are coded on at most 2 bytes */
         static const uint8_t INVALID_HID_DESC_5[] = { 0x07, 0x01, 0x02, 0x03, 0x04 };
-        assert_se(is_fido_security_token_desc(INVALID_HID_DESC_5, sizeof(INVALID_HID_DESC_5)) < 0);
+        ASSERT_FAIL(is_fido_security_token_desc(INVALID_HID_DESC_5, sizeof(INVALID_HID_DESC_5)));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
