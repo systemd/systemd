@@ -913,6 +913,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(TTYColumns, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#TTYVTDisallocate="),
                 SD_VARLINK_DEFINE_FIELD(TTYVTDisallocate, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#TTYExitStatus="),
+                SD_VARLINK_DEFINE_FIELD(TTYExitStatus, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
 
                 /* Credentials
                  * https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Credentials */

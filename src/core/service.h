@@ -256,6 +256,8 @@ typedef struct Service {
         int stdout_fd;
         int stderr_fd;
 
+        sd_id128_t osc_context_id;
+
         /* File descriptor received from RootDirectoryFileDescriptor= */
         int root_directory_fd;
 
