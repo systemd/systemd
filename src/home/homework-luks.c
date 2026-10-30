@@ -247,9 +247,9 @@ static int run_fsck(const char *node, const char *fstype) {
                 return r;
         if (r == 0) {
                 /* Child */
-                execlp("fsck", "fsck", "-aTl", node, NULL);
+                r = execvp_safe("fsck", STRV_MAKE("fsck", "-aTl", node));
                 log_open();
-                log_error_errno(errno, "Failed to execute fsck: %m");
+                log_error_errno(r, "Failed to execute fsck: %m");
                 _exit(FSCK_OPERATIONAL_ERROR);
         }
 
@@ -2712,9 +2712,9 @@ static int ext4_offline_resize_fs(
                 return r;
         if (r == 0) {
                 /* Child */
-                execlp("e2fsck", "e2fsck", "-fp", setup->dm_node, NULL);
+                r = execvp_safe("e2fsck", STRV_MAKE("e2fsck", "-fp", setup->dm_node));
                 log_open();
-                log_error_errno(errno, "Failed to execute e2fsck: %m");
+                log_error_errno(r, "Failed to execute e2fsck: %m");
                 _exit(EXIT_FAILURE);
         }
 
@@ -2745,9 +2745,9 @@ static int ext4_offline_resize_fs(
                 return r;
         if (r == 0) {
                 /* Child */
-                execlp("resize2fs", "resize2fs", setup->dm_node, size_str, NULL);
+                r = execvp_safe("resize2fs", STRV_MAKE("resize2fs", setup->dm_node, size_str));
                 log_open();
-                log_error_errno(errno, "Failed to execute resize2fs: %m");
+                log_error_errno(r, "Failed to execute resize2fs: %m");
                 _exit(EXIT_FAILURE);
         }
 

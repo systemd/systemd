@@ -155,8 +155,8 @@ static int spawn_child(const char *child, char **argv) {
 
         /* In the child */
         if (r == 0) {
-                execvp(child, argv);
-                log_error_errno(errno, "Failed to exec child %s: %m", child);
+                r = execvp_safe(child, argv);
+                log_error_errno(r, "Failed to exec child %s: %m", child);
                 _exit(EXIT_FAILURE);
         }
 

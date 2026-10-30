@@ -204,7 +204,8 @@ TEST(physical_offset) {
                         FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG|FORK_WAIT,
                         /* ret= */ NULL));
         if (r == 0) {
-                execlp(btrfs_progs, "btrfs", "filesystem", "mkswapfile", "-s", "1m", path, NULL);
+                (void) execvp_safe(btrfs_progs,
+                                   STRV_MAKE("btrfs", "filesystem", "mkswapfile", "-s", "1m", path));
                 _exit(EXIT_FAILURE);
         }
 
@@ -235,7 +236,8 @@ TEST(physical_offset) {
                                   &inspect);
         ASSERT_OK(r);
         if (r == 0) {
-                execlp(btrfs_progs, "btrfs", "inspect-internal", "map-swapfile", "-r", path, NULL);
+                (void) execvp_safe(btrfs_progs,
+                                   STRV_MAKE("btrfs", "inspect-internal", "map-swapfile", "-r", path));
                 _exit(EXIT_FAILURE);
         }
         pipe_fds[1] = safe_close(pipe_fds[1]);

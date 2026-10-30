@@ -217,8 +217,8 @@ void pager_open(PagerFlags flags) {
                                 _exit(EXIT_FAILURE);
                         }
 
-                        execvp(pager_args[0], pager_args);
-                        log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                        r = execvp_safe(pager_args[0], pager_args);
+                        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                        "Failed to execute '%s', using fallback pagers: %m", pager_args[0]);
                 }
 
@@ -239,8 +239,8 @@ void pager_open(PagerFlags flags) {
                         }
 
                         if (i < ELEMENTSOF(pagers) - 1) {
-                                execlp(pagers[i], pagers[i], NULL);
-                                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                                r = execvp_safe(pagers[i], STRV_MAKE(pagers[i]));
+                                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                                "Failed to execute '%s', will try '%s' next: %m", pagers[i], pagers[i+1]);
                         } else {
                                 /* Close pipe to signal the parent to start sending data */
@@ -330,8 +330,8 @@ int show_man_page(const char *desc, bool null_stdio) {
                 return r;
         if (r == 0) {
                 /* Child */
-                execvp(args[0], (char**) args);
-                log_error_errno(errno, "Failed to execute man: %m");
+                r = execvp_safe(args[0], (char**) args);
+                log_error_errno(r, "Failed to execute man: %m");
                 _exit(EXIT_FAILURE);
         }
 
