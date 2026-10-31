@@ -82,6 +82,10 @@
  * LUKS2 envelope. (As measured on cryptsetup 2.4.1) */
 #define GPT_LUKS2_OVERHEAD UINT64_C(18874368)
 
+/* homectl's --disk-size=max sets the largest size that is not UINT64_MAX, which means "unset". Both say that what's
+ * available shall be used. */
+#define USER_DISK_SIZE_LARGEST (UINT64_MAX - 1)
+
 static int resize_image_loop(UserRecord *h, HomeSetup *setup, uint64_t old_image_size, uint64_t new_image_size, uint64_t *ret_image_size);
 
 int run_mark_dirty(int fd, bool b) {
@@ -2326,7 +2330,7 @@ int home_create_luks(
                 if (r < 0)
                         return log_error_errno(r, "Failed to read block device size: %m");
 
-                if (h->disk_size == UINT64_MAX) {
+                if (h->disk_size >= USER_DISK_SIZE_LARGEST) {
 
                         /* If a relative disk size is requested, apply it relative to the block device size */
                         if (h->disk_size_relative < UINT32_MAX)
@@ -3387,7 +3391,7 @@ int home_resize_luks(
                 } else {
                         uint64_t new_partition_size_rounded = DISK_SIZE_ROUND_DOWN(h->disk_size);
 
-                        if (h->disk_size == UINT64_MAX && partition) {
+                        if (h->disk_size >= USER_DISK_SIZE_LARGEST && partition) {
                                 r = get_maximum_partition_size(image_fd, partition, &new_partition_size_rounded);
                                 if (r < 0)
                                         return r;
