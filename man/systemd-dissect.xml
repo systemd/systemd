@@ -510,7 +510,7 @@
         <term><option>--discard=</option></term>
 
         <listitem><para>Takes one of <literal>disabled</literal>, <literal>loop</literal>,
-        <literal>all</literal>, <literal>crypto</literal>. If <literal>disabled</literal> the image is
+        <literal>all</literal>, <literal>crypt</literal>. If <literal>disabled</literal> the image is
         accessed with empty block discarding turned off. If <literal>loop</literal> discarding is enabled if
         operating on a regular file. If <literal>crypt</literal> discarding is enabled even on encrypted file
         systems. If <literal>all</literal> discarding is unconditionally enabled.</para>

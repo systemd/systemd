@@ -1,0 +1,123 @@
+#compdef systemd-dissect
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+local curcontext=$curcontext state state_descr line expl ret=1
+local -A opt_args
+
+# --with stops option parsing: the image path follows, then the command line to run
+local -i with=${words[(i)--with]}
+# A single "--" directly after --with is skipped by the parser
+[[ $words[with+1] == -- ]] && (( with + 1 < CURRENT )) && (( with++ ))
+if (( with < CURRENT )); then
+    if (( CURRENT == with + 1 )); then
+        _files
+    else
+        words=( "${(@)words[with+2,-1]}" )
+        (( CURRENT -= with + 1 ))
+        _normal
+    fi
+    return
+fi
+
+(( $+functions[_systemd-dissect_signature] )) ||
+_systemd-dissect_signature() {
+    _alternative \
+        'base64:base64-encoded signature:{compadd -S "" -- base64:}' \
+        'files:signature file:_files'
+}
+
+(( $+functions[_systemd-dissect_has] )) ||
+_systemd-dissect_has() {
+    local o
+    for o in "$@"; do
+        (( ${+opt_args[$o]} )) && return 0
+    done
+    return 1
+}
+
+# All commands are mutually exclusive
+local cmds='(-m --mount -M -u --umount -U --attach --detach -l --list --mtree --sha256sums --uapi16 --with -x --copy-from -a --copy-to --make-archive --discover --validate --shift)'
+
+_arguments -C -s \
+    '(- *)'{-h,--help}'[Show help]' \
+    '(- *)--version[Show package version]' \
+    '--no-pager[Do not pipe output into a pager]' \
+    '--no-legend[Do not show headers and footers]' \
+    '--mkdir[Make mount directory before mounting, if missing]' \
+    '--rmdir[Remove mount directory after unmounting]' \
+    '(-r --read-only)'{-r,--read-only}'[Mount read-only]' \
+    '--discard=[Choose discard mode]:mode:(disabled loop all crypt)' \
+    '--in-memory[Copy image into memory]' \
+    '(--usr-hash --usr-hash-sig)--root-hash=[Specify root hash for verity]:hash' \
+    '(--root-hash --root-hash-sig)--usr-hash=[Specify root hash for verity of the usr partition]:hash' \
+    '(--usr-hash --usr-hash-sig)--root-hash-sig=[Specify signature of root hash for verity]:signature:_systemd-dissect_signature' \
+    '(--root-hash --root-hash-sig)--usr-hash-sig=[Specify signature of root hash for verity of the usr partition]:signature:_systemd-dissect_signature' \
+    '--verity-data=[Specify data file with hash tree for verity]:path:_files' \
+    '--fsck=[Run fsck before mounting]:bool:(yes no)' \
+    '--growfs=[Grow file system to partition size, if marked]:bool:(yes no)' \
+    '--json=[Output as JSON]:mode:(pretty short off)' \
+    '(--loop-ref-auto)--loop-ref=[Set reference string for loopback device]:name' \
+    '(--loop-ref)--loop-ref-auto[Derive reference string from image file name]' \
+    '--relax[Skip DDI validation, attach image as it is]' \
+    '--image-policy=[Specify image dissection policy]:policy' \
+    '--image-filter=[Specify image dissection filter]:filter' \
+    '--mtree-hash=[Whether to include SHA256 hash in the mtree output]:bool:(yes no)' \
+    '--system[Discover system images]' \
+    '--user[Discover user images]' \
+    '--all[Show hidden images too]' \
+    '(-q --quiet)'{-q,--quiet}'[Suppress output of chosen loopback block device]' \
+    '--copy-ownership=[Whether to copy ownership when copying files]:bool:(yes no auto)' \
+    "$cmds"{-m,--mount}'[Mount the image to the specified directory]' \
+    "$cmds"'-M[Shortcut for --mount --mkdir]' \
+    "$cmds"{-u,--umount}'[Unmount the image from the specified directory]' \
+    "$cmds"'-U[Shortcut for --umount --rmdir]' \
+    "$cmds"'--attach[Attach the disk image to a loopback block device]' \
+    "$cmds"'--detach[Detach a loopback block device again]' \
+    "$cmds"{-l,--list}'[List all the files and directories of the specified OS image]' \
+    "$cmds"'--mtree[Show BSD mtree manifest of OS image]' \
+    "$cmds"'--sha256sums[Show SHA256SUMS manifest of OS image]' \
+    "$cmds"'--uapi16[Show UAPI.16 manifest of OS image]' \
+    "$cmds"'--with[Mount, run command, unmount]' \
+    "$cmds"{-x,--copy-from}'[Copy files from image to host]' \
+    "$cmds"{-a,--copy-to}'[Copy files from host to image]' \
+    "$cmds"'--make-archive[Convert the DDI to an archive file]' \
+    "${cmds%)} *)"'--discover[Discover DDIs in well known directories]' \
+    "$cmds"'--validate[Validate image and image policy]' \
+    "$cmds"'--shift[Shift UID range to selected base]' \
+    '*: :->args' && ret=0
+
+[[ $state == args ]] || return ret
+
+# Index of the positional argument being completed
+local -i pos=${#line}
+
+if _systemd-dissect_has -u --umount -U; then
+    (( pos == 1 )) && _directories && ret=0
+elif _systemd-dissect_has -m --mount -M; then
+    case $pos in
+        1) _files && ret=0 ;;
+        2) _directories && ret=0 ;;
+    esac
+elif _systemd-dissect_has -x --copy-from; then
+    case $pos in
+        1) _files && ret=0 ;;
+        2) _message 'source path in image' ;;
+        3) _files && ret=0 ;;
+    esac
+elif _systemd-dissect_has -a --copy-to; then
+    case $pos in
+        1|2) _files && ret=0 ;;
+        3) _message 'destination path in image' ;;
+    esac
+elif _systemd-dissect_has --make-archive; then
+    (( pos <= 2 )) && _files && ret=0
+elif _systemd-dissect_has --shift; then
+    case $pos in
+        1) _files && ret=0 ;;
+        2) _wanted uid-base expl 'UID base' compadd foreign 0 && ret=0 ;;
+    esac
+else
+    (( pos == 1 )) && _files && ret=0
+fi
+
+return ret
