@@ -105,7 +105,7 @@ _udevadm() {
         [VERIFY_ARG]='-N --resolve-names --root'
         [CAT_STANDALONE]='--tldr --config'
         [CAT_ARG]='--root'
-        [WAIT]='-t --timeout --initialized=no --removed --settle'
+        [WAIT]='-t --timeout --initialized=no --removed --settle --notify'
         [LOCK]='-t --timeout -d --device -b --backing -p --print'
     )
 
