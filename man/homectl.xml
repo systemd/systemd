@@ -853,10 +853,12 @@
         available disk space of the backing file system. If specified as <literal>min</literal> assigns the
         minimal disk space permitted by the constraints of the backing file system and other limits, when
         specified as <literal>max</literal> assigns the maximum disk space available. If the LUKS2 backend is
-        used this configures the size of the loopback file and file system contained therein. For the other
-        storage backends configures disk quota using the filesystem's native quota logic, if available. If
-        not specified, defaults to 85% of the available disk space for the LUKS2 backend and to no quota for
-        the others.</para>
+        used this configures the size of the loopback file and file system contained therein. If the home
+        area is placed directly on a block device such as a partition or LVM volume, all of the device is
+        used, any other size is refused, and the home area is not shrunk on logout. For the other storage
+        backends configures disk quota using the filesystem's native quota logic, if available. If not
+        specified, defaults to 85% of the available disk space for the LUKS2 backend and to no quota for the
+        others. On block devices, the default is to use all of the device.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
@@ -975,6 +977,19 @@
         example a USB stick) pass the path to the block device here. Specifying the path to a directory here
         when using LUKS2 storage is not allowed. Similar, specifying the path to a regular file or device
         node is not allowed if any of the other storage backends are used.</para>
+
+        <para>If a whole disk is specified it will be repartitioned, and all data on it is lost. If a device
+        that the kernel doesn't scan for partitions is specified, such as a partition or an LVM volume, then
+        the LUKS2 volume is placed directly on it, without a partition table. Such a device is only accepted
+        if it is not in use and if nothing is found on it. Use
+        <citerefentry project='man-pages'><refentrytitle>wipefs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        first if its contents shall be destroyed, which also applies if the device is reused after
+        <command>homectl remove</command>, as that leaves block devices untouched. If a partition on a disk
+        with a GPT partition table is used, its type is set to the type for user home directories, and its
+        name to the user name, while the rest of the partition table is left alone. This way it is
+        automatically discovered if the disk is connected to another system, and also on the same system
+        after <command>homectl remove</command>, until it is wiped. This is not available for other devices,
+        such as LVM volumes. Support for these devices was added in version 263.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
