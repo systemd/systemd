@@ -588,11 +588,16 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>The exit status of the unit is propagated: 0 is returned if the unit terminated
             successfully, the exit status of the unit's main process if it failed with a non-zero exit code,
             255 if it was terminated by a signal without dumping core, and a non-zero value otherwise (for
-            example if it dumped core, timed out, or was terminated via the watchdog logic).</para>
+            example if it dumped core, timed out, or was terminated via the watchdog logic). If the timeout
+            specified with <option>--timeout=</option> elapses before the unit terminates, 124 is returned.
+            Note that this cannot be distinguished from a unit whose main process exited with status
+            124.</para>
 
             <para>Note that while waiting, the unit is referenced with the service manager (so that its final
             state remains queryable after it terminated), which requires privileges, similarly to the other
             unit lifecycle commands.</para>
+
+            <para>Use <option>--timeout=</option> to limit how long to wait for the unit to terminate.</para>
 
             <para>If invoked as the main process of a service with <varname>Type=notify</varname>, a
             <literal>READY=1</literal> notification is sent once the command is fully subscribed to the unit's
@@ -2494,6 +2499,21 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           this will wait forever if any given unit never terminates.</para>
 
           <xi:include href="version-info.xml" xpointer="v232"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--timeout=</option><replaceable>SEC</replaceable></term>
+
+        <listitem>
+          <para>When used with <command>wait</command>, specifies the maximum time to wait for the unit to
+          terminate. Takes a time span, see
+          <citerefentry project='man-pages'><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+          for details on the syntax. If the unit has not terminated when the timeout elapses,
+          <command>systemctl</command> gives up waiting and exits with status 124. By default, no timeout is
+          applied.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
         </listitem>
       </varlistentry>
 
