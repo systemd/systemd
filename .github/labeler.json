@@ -1,6 +1,16 @@
 {
   "max-labels": 5,
   "too-many-labels": "tree-wide",
+  "generic-labels": [
+    "build-system",
+    "ci",
+    "documentation",
+    "l10n 🌍",
+    "shell completion",
+    "tests",
+    "units",
+    "util-lib"
+  ],
   "labels": {
     "analyze": ["src/analyze/*"],
     "apparmor": ["*apparmor*"],
@@ -10,13 +20,12 @@
     "binfmt": ["*binfmt*"],
     "bsod": ["*bsod*"],
     "btrfs": ["*btrfs*"],
-    "build-system": ["meson_options.txt", "*meson.build"],
+    "build-system": ["meson.build", "meson_options.txt", "tools/meson*"],
     "busctl": ["*busctl*"],
     "catalog": ["catalog/*"],
     "cgls": ["*cgls*"],
     "cgroups": [
       "src/basic/cgroup*",
-      "src/cgroups-agent/*",
       "src/core/cgroup*",
       "src/shared/cgroup*"
     ],
@@ -68,7 +77,6 @@
     "locale": ["*locale*"],
     "login": ["src/login/*", "*sd-login*/*"],
     "machine": ["src/machine/*", "units/*machine*"],
-    "meson": ["meson_options.txt", "*meson.build"],
     "mkosi": ["*mkosi*"],
     "modules-load": ["*modules-load*", "modprobe.d/*"],
     "mount": ["src/basic/*mount*", "src/core/*mount*", "src/mount/*", "src/shared/*mount*"],
@@ -84,6 +92,7 @@
     "nspawn": ["*nspawn*"],
     "nsresource": ["*nsresource*"],
     "nss-myhostname": ["*nss-myhostname*"],
+    "pid1": ["src/core/*"],
     "portable": ["src/portable/*"],
     "pstore": ["*pstore*"],
     "random-seed": ["*random-seed*"],
@@ -130,8 +139,7 @@
       "src/fuzz/*",
       "test/*",
       "*test-*",
-      "*test_*",
-      ".github/workflows/*"
+      "*test_*"
     ],
     "timedate": ["*timedate*"],
     "timesync": ["*timesync*"],
@@ -144,7 +152,13 @@
     "userdb": ["*userdb*"],
     "util-lib": ["src/fundamental/*", "src/basic/*", "src/shared/*"],
     "utmp/wtmp": ["*utmp*"],
-    "varlink": ["src/varlink/*", "src/libsystemd/sd-varlink/*", "src/systemd/sd-varlink*"],
+    "varlink": [
+      "*varlink-monitor*",
+      "*varlinkctl*",
+      "src/bpf/monitor-varlink*",
+      "src/libsystemd/sd-varlink/*",
+      "src/systemd/sd-varlink*"
+    ],
     "vconsole": ["*vconsole*"],
     "veritysetup": ["*veritysetup*"],
     "vmspawn": ["*vmspawn*"],
