@@ -23,6 +23,7 @@
 #include "chattr-util.h"
 #include "crypto-util.h"
 #include "cryptsetup-util.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "dissect-image.h"
 #include "env-util.h"
@@ -35,6 +36,7 @@
 #include "fs-util.h"
 #include "fsck-util.h"
 #include "glyph-util.h"
+#include "gpt.h"
 #include "home-util.h"
 #include "homework.h"
 #include "homework-blob.h"
@@ -64,6 +66,7 @@
 #include "user-record-util.h"
 #include "user-record.h"
 #include "user-util.h"
+#include "utf8.h"
 
 /* Round down to the nearest 1 MiB size. Given that most tools generally align partitions to 1 MiB boundaries, let's align our
  * partitions to that too. In the worst case we'll waste 1 MiB per partition that way, but I think I can live
@@ -2063,6 +2066,204 @@ static int validate_unused_block_device(int fd, const char *path) {
 #endif
 }
 
+static int find_partition_entry(
+                struct fdisk_context *c,
+                sd_device *dev,
+                const char *path,
+                uint64_t *ret_partno) {
+
+        _cleanup_(fdisk_unref_partitionp) struct fdisk_partition *p = NULL;
+        uint64_t start, size, fdisk_sector_size;
+        unsigned nr;
+        int r;
+
+        assert(c);
+        assert(dev);
+        assert(path);
+        assert(ret_partno);
+
+        /* Finds the entry of a partition block device in the partition table of its whole disk. Returns
+         * zero if that's not a GPT partition table, and refuses tables we shouldn't be writing back. */
+
+        if (!sym_fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT)) {
+                log_debug("Partition '%s' is not on a GPT disk, leaving partition table alone.", path);
+                return 0;
+        }
+
+        /* If one of the two copies of a GPT is damaged libfdisk repairs it in memory right when loading it, and
+         * then considers it changed. That's a decision we shouldn't make on a disk we don't own. */
+        r = sym_fdisk_verify_disklabel(c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to verify partition table of whole disk of '%s': %m", path);
+        if (r > 0 || sym_fdisk_label_is_changed(sym_fdisk_get_label(c, /* name= */ NULL)))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Partition table of whole disk of '%s' is damaged, refusing. Please repair it first.", path);
+
+        r = device_get_sysattr_unsigned(dev, "partition", &nr);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine partition number of '%s': %m", path);
+        if (nr == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid partition number of '%s'.", path);
+
+        /* These two are in units of 512 bytes, regardless of the sector size */
+        r = device_get_sysattr_u64(dev, "start", &start);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine start of partition '%s': %m", path);
+
+        r = device_get_sysattr_u64(dev, "size", &size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine size of partition '%s': %m", path);
+
+        if (start > UINT64_MAX / 512U || size > UINT64_MAX / 512U)
+                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Partition '%s' out of range.", path);
+
+        r = sym_fdisk_get_partition(c, nr - 1, &p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read partition table entry of '%s': %m", path);
+
+        fdisk_sector_size = sym_fdisk_get_sector_size(c);
+        assert(fdisk_sector_size > 0);
+
+        /* If what's on disk and what the kernel thinks disagree, then we can't know if we would be changing
+         * the right entry. */
+        if (sym_fdisk_partition_is_used(p) <= 0 ||
+            sym_fdisk_partition_has_start(p) <= 0 ||
+            sym_fdisk_partition_has_size(p) <= 0 ||
+            sym_fdisk_partition_get_start(p) * fdisk_sector_size != start * 512U ||
+            sym_fdisk_partition_get_size(p) * fdisk_sector_size != size * 512U)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Partition table of whole disk of '%s' doesn't match what the kernel uses for it, refusing.", path);
+
+        *ret_partno = nr - 1;
+        return 1;
+}
+
+static int open_partition_entry(
+                int fd,
+                int whole_fd,
+                const char *path,
+                bool read_only,
+                struct fdisk_context **ret_context,
+                uint64_t *ret_partno) {
+
+        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        int r;
+
+        assert(fd >= 0);
+        assert(whole_fd >= 0);
+        assert(path);
+        assert(ret_context);
+        assert(ret_partno);
+
+        /* Returns zero if there's no GPT entry for this device, as for an LVM volume, or a partition on another
+         * kind of partition table. */
+
+        r = block_device_new_from_fd(fd, /* flags= */ 0, &dev);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire device object for '%s': %m", path);
+
+        r = device_is_devtype(dev, "partition");
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine device type of '%s': %m", path);
+        if (r == 0)
+                return 0;
+
+        r = fdisk_new_context_at(whole_fd, /* path= */ NULL, read_only, /* sector_size= */ UINT32_MAX, &c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read partition table of whole disk of '%s': %m", path);
+
+        r = find_partition_entry(c, dev, path, ret_partno);
+        if (r <= 0)
+                return r;
+
+        *ret_context = TAKE_PTR(c);
+        return 1;
+}
+
+static int validate_partition_entry(int fd, int whole_fd, const char *path, const char *label) {
+        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
+        _cleanup_free_ char16_t *label16 = NULL;
+        uint64_t partno;
+        int r;
+
+        assert(label);
+
+        /* Checks that tag_partition_entry() will be able to do its work, before we overwrite anything. This
+         * must not keep the table open for writing: libfdisk then opens the whole disk with O_EXCL if it can,
+         * and we wouldn't be able to set up LUKS on the partition. */
+
+        r = open_partition_entry(fd, whole_fd, path, /* read_only= */ true, &c, &partno);
+        if (r <= 0)
+                return r;
+
+        /* libfdisk would silently truncate this, and then we'd not find the home by its name anymore. */
+        label16 = utf8_to_utf16(label, SIZE_MAX);
+        if (!label16)
+                return log_oom();
+
+        if (char16_strlen(label16) > GPT_LABEL_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(ENAMETOOLONG),
+                                       "User name '%s' is too long for a GPT partition name, refusing.", label);
+
+        return 0;
+}
+
+static int tag_partition_entry(int fd, int whole_fd, const char *path, const char *label) {
+        _cleanup_(fdisk_unref_partitionp) struct fdisk_partition *p = NULL;
+        _cleanup_(fdisk_unref_parttypep) struct fdisk_parttype *t = NULL;
+        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
+        uint64_t partno;
+        int r;
+
+        assert(label);
+
+        /* Make the partition follow the format described in HOME_DIRECTORY.md: this is how homes are discovered
+         * when the disk is plugged in, and it keeps systemd-gpt-auto-generator from mistaking a partition of type
+         * "Linux home" as /home/ of the whole system. The other entries and the location of this one aren't
+         * changed, and hence the kernel's idea of the partitions stays valid. */
+
+        r = open_partition_entry(fd, whole_fd, path, /* read_only= */ false, &c, &partno);
+        if (r <= 0)
+                return r;
+
+        t = sym_fdisk_new_parttype();
+        if (!t)
+                return log_oom();
+
+        r = sym_fdisk_parttype_set_typestr(t, SD_GPT_USER_HOME_STR);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize partition type: %m");
+
+        p = sym_fdisk_new_partition();
+        if (!p)
+                return log_oom();
+
+        r = sym_fdisk_partition_set_type(p, t);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set partition type: %m");
+
+        r = sym_fdisk_partition_set_name(p, label);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set partition name: %m");
+
+        /* Only the properties we set are changed by this */
+        r = sym_fdisk_set_partition(c, partno, p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to update partition table entry of '%s': %m", path);
+
+        r = sym_fdisk_write_disklabel(c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write partition table of whole disk of '%s': %m", path);
+
+        log_info("Updating partition table entry of %s completed.", path);
+
+        /* This doesn't change partitions with the same geometry, hence it's fine if others are in use. */
+        (void) reread_partition_table_fd(whole_fd, REREADPT_FORCE_UEVENT, /* args= */ NULL);
+
+        return 0;
+}
+
 static int make_partition_table(
                 int fd,
                 uint32_t sector_size,
@@ -2455,11 +2656,15 @@ int home_create_luks(
                          * the main block device, never the partition, see https://systemd.io/BLOCK_DEVICE_LOCKING.
                          * We take it first, so that nothing that follows the rules can change the device
                          * between us checking that it is empty and formatting it. */
-                        lock_fd = lock_whole_block_device(st.st_rdev, O_RDONLY, LOCK_EX);
+                        lock_fd = lock_whole_block_device(st.st_rdev, O_RDWR, LOCK_EX);
                         if (lock_fd < 0)
                                 return log_error_errno(lock_fd, "Failed to lock whole block device of %s: %m", ip);
 
                         r = validate_unused_block_device(setup->image_fd, ip);
+                        if (r < 0)
+                                return r;
+
+                        r = validate_partition_entry(setup->image_fd, lock_fd, ip, user_record_user_name_and_realm(h));
                         if (r < 0)
                                 return r;
 
@@ -2669,6 +2874,12 @@ int home_create_luks(
 
         log_info("Formatting file system completed.");
 
+        if (naked) {
+                r = tag_partition_entry(setup->image_fd, lock_fd, ip, user_record_user_name_and_realm(h));
+                if (r < 0)
+                        return r;
+        }
+
         /* The signatures on the device have been written now, there's no reason to keep udev from looking at the
          * rest of the disk any longer. */
         lock_fd = safe_close(lock_fd);
@@ -2766,6 +2977,7 @@ int home_create_luks(
                 /* No partition table to reread, but make sure udev finds the LUKS volume. Not all device types
                  * are watched by udev for being closed after writing. */
                 (void) reread_partition_table_fd(setup->image_fd, REREADPT_FORCE_UEVENT, /* args= */ NULL);
+
         else if (disk_uuid_path)
                 /* Reread partition table if this is a block device */
                 (void) reread_partition_table_fd(setup->image_fd, /* flags= */ 0, /* args= */ NULL);
