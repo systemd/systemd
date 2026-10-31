@@ -279,8 +279,9 @@
         <term>beep</term>
 
         <listitem><para>Takes a boolean argument. If timeout enabled beep every second, otherwise beep n
-        times when n-th entry in boot menu is selected (default disabled). Currently, only x86 is supported,
-        where it uses the PC speaker.</para>
+        times when the n-th row in the boot menu is selected (default disabled). Rows are counted as
+        displayed, so the <literal>More (<replaceable>title</replaceable>) &gt;</literal> row that opens a
+        submenu counts as a row too. Currently, only x86 is supported, where it uses the PC speaker.</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
