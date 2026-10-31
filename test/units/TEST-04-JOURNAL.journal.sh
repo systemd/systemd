@@ -8,6 +8,9 @@ set -o pipefail
 
 # Rotation/flush test, see https://github.com/systemd/systemd/issues/19895
 journalctl --relinquish-var
+for parameters in '{}' '{"fileDescriptorStore": null}' '{"fileDescriptorStore": false}'; do
+    varlinkctl call /run/systemd/journal/io.systemd.journal io.systemd.Journal.RelinquishVar "$parameters"
+done
 [[ "$(systemd-detect-virt -v)" == "qemu" ]] && ITERATIONS=10 || ITERATIONS=50
 for ((i = 0; i < ITERATIONS; i++)); do
     dd if=/dev/urandom bs=1M count=1 | base64 | systemd-cat
