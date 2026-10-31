@@ -1081,6 +1081,12 @@ static int event_log_load_firmware(EventLog *el, bool keep_no_action) {
 
                         ha_next = (const uint8_t*) ha + offsetof(TPMT_HA, digest) + algorithms[j].digestSize;
 
+                        /* validate_firmware_event() sized the digest list from the algorithms in the log
+                         * header, but a record may name the same algorithm more than once, hence make sure
+                         * we never walk past the part of the record that was checked. */
+                        if ((const uint8_t*) ha_next > (const uint8_t*) payload - sizeof(uint32_t))
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Digests in event log record exceed size advertised by log header.");
+
                         if (!tpm2_hash_alg_to_string(hash_alg))
                                 continue;
 
