@@ -890,6 +890,7 @@ Unit* unit_free(Unit *u) {
 
         free(u->description);
         strv_free(u->documentation);
+        hashmap_free(u->tags);
         free(u->fragment_path);
         free(u->source_path);
         strv_free(u->dropin_paths);
@@ -1694,6 +1695,24 @@ static int unit_validate_on_termination_job_modes(Unit *u) {
         return 0;
 }
 
+static int unit_validate(Unit *u) {
+        int r;
+
+        assert(u);
+
+        r = unit_validate_on_termination_job_modes(u);
+        if (r < 0)
+                return r;
+
+        if (u->job_running_timeout != USEC_INFINITY && u->job_running_timeout > u->job_timeout)
+                log_unit_warning(u, "JobRunningTimeoutSec= is greater than JobTimeoutSec=, it has no effect.");
+
+        if (u->survive_final_kill_signal && !MANAGER_IS_SYSTEM(u->manager))
+                log_unit_warning(u, "SurviveFinalKillSignal= is only supported in the system manager, ignoring.");
+
+        return 0;
+}
+
 int unit_load(Unit *u) {
         int r;
 
@@ -1747,12 +1766,9 @@ int unit_load(Unit *u) {
                 if (r < 0)
                         goto fail;
 
-                r = unit_validate_on_termination_job_modes(u);
+                r = unit_validate(u);
                 if (r < 0)
                         goto fail;
-
-                if (u->job_running_timeout != USEC_INFINITY && u->job_running_timeout > u->job_timeout)
-                        log_unit_warning(u, "JobRunningTimeoutSec= is greater than JobTimeoutSec=, it has no effect.");
 
                 /* We finished loading, let's ensure our parents recalculate the members mask */
                 unit_invalidate_cgroup_members_masks(u);
@@ -7322,4 +7338,37 @@ unsigned unit_normalize_markers(unsigned existing_markers, unsigned new_markers)
                 CLEAR_BIT(markers, UNIT_MARKER_NEEDS_START);
 
         return markers;
+}
+
+int unit_set_tag(Unit *u, const char *name, const char *value) {
+        int r;
+
+        assert(u);
+        assert(name);
+
+        _cleanup_free_ char *name_owned = strdup(name);
+        if (!name_owned)
+                return -ENOMEM;
+
+        _cleanup_free_ char *value_owned = NULL;
+        if (!isempty(value)) {
+                value_owned = strdup(value);
+                if (!value_owned)
+                        return -ENOMEM;
+        }
+
+        _cleanup_free_ char *old_name = NULL, *old_value = NULL;
+        old_value = hashmap_remove2(u->tags, name, (void**) &old_name);
+
+        if (!old_name && hashmap_size(u->tags) >= UNIT_TAGS_MAX)
+                return -E2BIG;
+
+        r = hashmap_ensure_put(&u->tags, &string_hash_ops_free_free, name_owned, value_owned);
+        assert(r != -EEXIST);
+        if (r < 0)
+                return r;
+        TAKE_PTR(name_owned);
+        TAKE_PTR(value_owned);
+
+        return 0;
 }

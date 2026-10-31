@@ -1238,7 +1238,9 @@ TEST(unit_properties) {
                         "Markers=manual",
                         "Markers=needs-reload",
                         "Markers=manual needs-reload",
-
+                        "Tags=foo.bar=baz",
+                        "Tags=foo bar baz",
+                        "Tags=foo bar.baz=qux hello=world abc",
 
                         "Requires=a.service b.service",
                         "Requisite=a.service b.service",
