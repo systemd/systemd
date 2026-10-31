@@ -88,27 +88,16 @@ Button* button_new(Manager *m, const char *name) {
         return b;
 }
 
-static void stop_long_press(Button *b, sd_event_source **e) {
-        assert(b);
-        assert(e);
-
-        /* The long press timers are Manager-scoped but armed with the Button that started the
-         * press as userdata (see start_long_press()). Cancel the one this Button owns before it is
-         * freed. */
-        if (*e && sd_event_source_get_userdata(*e) == b)
-                *e = sd_event_source_unref(*e);
-}
-
 Button *button_free(Button *b) {
         if (!b)
                 return NULL;
 
         hashmap_remove(b->manager->buttons, b->name);
 
-        stop_long_press(b, &b->manager->power_key_long_press_event_source);
-        stop_long_press(b, &b->manager->reboot_key_long_press_event_source);
-        stop_long_press(b, &b->manager->suspend_key_long_press_event_source);
-        stop_long_press(b, &b->manager->hibernate_key_long_press_event_source);
+        sd_event_source_unref(b->power_key_long_press_event_source);
+        sd_event_source_unref(b->reboot_key_long_press_event_source);
+        sd_event_source_unref(b->suspend_key_long_press_event_source);
+        sd_event_source_unref(b->hibernate_key_long_press_event_source);
 
         sd_event_source_unref(b->io_event_source);
         sd_event_source_unref(b->check_event_source);
@@ -186,7 +175,7 @@ static int long_press_of_power_key_handler(sd_event_source *e, uint64_t usec, vo
 
         assert(e);
 
-        m->power_key_long_press_event_source = sd_event_source_unref(m->power_key_long_press_event_source);
+        b->power_key_long_press_event_source = sd_event_source_unref(b->power_key_long_press_event_source);
 
         log_struct(LOG_INFO,
                    LOG_MESSAGE("Power key pressed long."),
@@ -202,7 +191,7 @@ static int long_press_of_reboot_key_handler(sd_event_source *e, uint64_t usec, v
 
         assert(e);
 
-        m->reboot_key_long_press_event_source = sd_event_source_unref(m->reboot_key_long_press_event_source);
+        b->reboot_key_long_press_event_source = sd_event_source_unref(b->reboot_key_long_press_event_source);
 
         log_struct(LOG_INFO,
                    LOG_MESSAGE("Reboot key pressed long."),
@@ -218,7 +207,7 @@ static int long_press_of_suspend_key_handler(sd_event_source *e, uint64_t usec, 
 
         assert(e);
 
-        m->suspend_key_long_press_event_source = sd_event_source_unref(m->suspend_key_long_press_event_source);
+        b->suspend_key_long_press_event_source = sd_event_source_unref(b->suspend_key_long_press_event_source);
 
         log_struct(LOG_INFO,
                    LOG_MESSAGE("Suspend key pressed long."),
@@ -234,7 +223,7 @@ static int long_press_of_hibernate_key_handler(sd_event_source *e, uint64_t usec
 
         assert(e);
 
-        m->hibernate_key_long_press_event_source = sd_event_source_unref(m->hibernate_key_long_press_event_source);
+        b->hibernate_key_long_press_event_source = sd_event_source_unref(b->hibernate_key_long_press_event_source);
 
         log_struct(LOG_INFO,
                    LOG_MESSAGE("Hibernate key pressed long."),
@@ -287,7 +276,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                 case KEY_POWER2:
                         if (b->manager->handle_power_key_long_press != HANDLE_IGNORE && b->manager->handle_power_key_long_press != b->manager->handle_power_key) {
                                 log_debug("Power key pressed. Further action depends on the key press duration.");
-                                start_long_press(b, &b->manager->power_key_long_press_event_source, long_press_of_power_key_handler);
+                                start_long_press(b, &b->power_key_long_press_event_source, long_press_of_power_key_handler);
                         } else {
                                 log_struct(LOG_INFO,
                                            LOG_MESSAGE("Power key pressed short."),
@@ -304,7 +293,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                 case KEY_RESTART:
                         if (b->manager->handle_reboot_key_long_press != HANDLE_IGNORE && b->manager->handle_reboot_key_long_press != b->manager->handle_reboot_key) {
                                 log_debug("Reboot key pressed. Further action depends on the key press duration.");
-                                start_long_press(b, &b->manager->reboot_key_long_press_event_source, long_press_of_reboot_key_handler);
+                                start_long_press(b, &b->reboot_key_long_press_event_source, long_press_of_reboot_key_handler);
                         } else {
                                 log_struct(LOG_INFO,
                                            LOG_MESSAGE("Reboot key pressed short."),
@@ -322,7 +311,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                 case KEY_SLEEP:
                         if (b->manager->handle_suspend_key_long_press != HANDLE_IGNORE && b->manager->handle_suspend_key_long_press != b->manager->handle_suspend_key) {
                                 log_debug("Suspend key pressed. Further action depends on the key press duration.");
-                                start_long_press(b, &b->manager->suspend_key_long_press_event_source, long_press_of_suspend_key_handler);
+                                start_long_press(b, &b->suspend_key_long_press_event_source, long_press_of_suspend_key_handler);
                         } else {
                                 log_struct(LOG_INFO,
                                            LOG_MESSAGE("Suspend key pressed short."),
@@ -334,7 +323,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                 case KEY_SUSPEND:
                         if (b->manager->handle_hibernate_key_long_press != HANDLE_IGNORE && b->manager->handle_hibernate_key_long_press != b->manager->handle_hibernate_key) {
                                 log_debug("Hibernate key pressed. Further action depends on the key press duration.");
-                                start_long_press(b, &b->manager->hibernate_key_long_press_event_source, long_press_of_hibernate_key_handler);
+                                start_long_press(b, &b->hibernate_key_long_press_event_source, long_press_of_hibernate_key_handler);
                         } else {
                                 log_struct(LOG_INFO,
                                            LOG_MESSAGE("Hibernate key pressed short."),
@@ -365,7 +354,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
 
                 case KEY_POWER:
                 case KEY_POWER2:
-                        if (b->manager->power_key_long_press_event_source) {
+                        if (b->power_key_long_press_event_source) {
                                 /* Long press event timer is still pending and key release
                                    event happened.  This means that key press duration was
                                    insufficient to trigger a long press event
@@ -374,42 +363,42 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                                            LOG_MESSAGE("Power key pressed short."),
                                            LOG_MESSAGE_ID(SD_MESSAGE_POWER_KEY_STR));
 
-                                b->manager->power_key_long_press_event_source = sd_event_source_unref(b->manager->power_key_long_press_event_source);
+                                b->power_key_long_press_event_source = sd_event_source_unref(b->power_key_long_press_event_source);
 
                                 manager_handle_action(b->manager, INHIBIT_HANDLE_POWER_KEY, b->manager->handle_power_key, b->manager->power_key_ignore_inhibited, /* is_edge= */ true, b->seat);
                         }
                         break;
 
                 case KEY_RESTART:
-                        if (b->manager->reboot_key_long_press_event_source) {
+                        if (b->reboot_key_long_press_event_source) {
                                 log_struct(LOG_INFO,
                                            LOG_MESSAGE("Reboot key pressed short."),
                                            LOG_MESSAGE_ID(SD_MESSAGE_REBOOT_KEY_STR));
 
-                                b->manager->reboot_key_long_press_event_source = sd_event_source_unref(b->manager->reboot_key_long_press_event_source);
+                                b->reboot_key_long_press_event_source = sd_event_source_unref(b->reboot_key_long_press_event_source);
 
                                 manager_handle_action(b->manager, INHIBIT_HANDLE_REBOOT_KEY, b->manager->handle_reboot_key, b->manager->reboot_key_ignore_inhibited, /* is_edge= */ true, b->seat);
                         }
                         break;
 
                 case KEY_SLEEP:
-                        if (b->manager->suspend_key_long_press_event_source) {
+                        if (b->suspend_key_long_press_event_source) {
                                 log_struct(LOG_INFO,
                                            LOG_MESSAGE("Suspend key pressed short."),
                                            LOG_MESSAGE_ID(SD_MESSAGE_SUSPEND_KEY_STR));
 
-                                b->manager->suspend_key_long_press_event_source = sd_event_source_unref(b->manager->suspend_key_long_press_event_source);
+                                b->suspend_key_long_press_event_source = sd_event_source_unref(b->suspend_key_long_press_event_source);
 
                                 manager_handle_action(b->manager, INHIBIT_HANDLE_SUSPEND_KEY, b->manager->handle_suspend_key, b->manager->suspend_key_ignore_inhibited, /* is_edge= */ true, b->seat);
                         }
                         break;
                 case KEY_SUSPEND:
-                        if (b->manager->hibernate_key_long_press_event_source) {
+                        if (b->hibernate_key_long_press_event_source) {
                                 log_struct(LOG_INFO,
                                            LOG_MESSAGE("Hibernate key pressed short."),
                                            LOG_MESSAGE_ID(SD_MESSAGE_HIBERNATE_KEY_STR));
 
-                                b->manager->hibernate_key_long_press_event_source = sd_event_source_unref(b->manager->hibernate_key_long_press_event_source);
+                                b->hibernate_key_long_press_event_source = sd_event_source_unref(b->hibernate_key_long_press_event_source);
 
                                 manager_handle_action(b->manager, INHIBIT_HANDLE_HIBERNATE_KEY, b->manager->handle_hibernate_key, b->manager->hibernate_key_ignore_inhibited, /* is_edge= */ true, b->seat);
                         }

@@ -35,40 +35,47 @@ static int dummy_time_handler(sd_event_source *s, uint64_t usec, void *userdata)
         return 0;
 }
 
-/* Verify that button_free() cancels the Manager-scoped long-press timer the Button armed, and at the same
- * time leaves a timer armed by a different Button alone. */
+static void event_source_destroyed(void *userdata) {
+        bool *destroyed = userdata;
+
+        *destroyed = true;
+}
+
+/* Verify that each Button owns its long-press timers, and freeing one Button does not affect another's. */
 static void test_button_free_cancels_long_press(void) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(hashmap_freep) Hashmap *buttons = NULL;
-        _cleanup_free_ Manager *m = NULL;
+        _cleanup_free_ Manager *m = new0(Manager, 1);
         Button *b, *b2;
+        bool b_timer_destroyed = false;
 
-        assert_se(m = new0(Manager, 1));
-        assert_se(sd_event_new(&e) >= 0);
-        assert_se(buttons = hashmap_new(&string_hash_ops));
+        ASSERT_NOT_NULL(m);
+        ASSERT_OK(sd_event_new(&e));
+        buttons = hashmap_new(&string_hash_ops);
+        ASSERT_NOT_NULL(buttons);
         m->event = e;
         m->buttons = buttons;
 
-        assert_se(b = button_new(m, "test-button"));
-        assert_se(b2 = button_new(m, "other-button"));
+        b = button_new(m, "test-button");
+        ASSERT_NOT_NULL(b);
+        b2 = button_new(m, "other-button");
+        ASSERT_NOT_NULL(b2);
 
-        /* Arm a long-press timer owned by b, exactly as start_long_press() does: the source lives in
-         * a Manager-scoped field and carries the Button as userdata. */
-        assert_se(sd_event_add_time_relative(e, &m->power_key_long_press_event_source, CLOCK_MONOTONIC,
-                                             10 * USEC_PER_SEC, /* accuracy= */ 0, dummy_time_handler, b) >= 0);
-        /* ... and another one owned by b2. */
-        assert_se(sd_event_add_time_relative(e, &m->reboot_key_long_press_event_source, CLOCK_MONOTONIC,
-                                             10 * USEC_PER_SEC, /* accuracy= */ 0, dummy_time_handler, b2) >= 0);
+        /* Arm a power-key timer for each Button and track destruction of the first timer. */
+        ASSERT_OK(sd_event_add_time_relative(e, &b->power_key_long_press_event_source, CLOCK_MONOTONIC,
+                                             10 * USEC_PER_SEC, /* accuracy= */ 0, dummy_time_handler, &b_timer_destroyed));
+        ASSERT_OK(sd_event_source_set_destroy_callback(b->power_key_long_press_event_source, event_source_destroyed));
+        ASSERT_OK(sd_event_add_time_relative(e, &b2->power_key_long_press_event_source, CLOCK_MONOTONIC,
+                                             10 * USEC_PER_SEC, /* accuracy= */ 0, dummy_time_handler, b2));
 
         /* Freeing b must cancel the timer b armed. */
         button_free(b);
-        assert_se(!m->power_key_long_press_event_source);
+        ASSERT_TRUE(b_timer_destroyed);
 
         /* ... but freeing b must not touch a timer owned by another Button. */
-        assert_se(m->reboot_key_long_press_event_source);
+        ASSERT_NOT_NULL(b2->power_key_long_press_event_source);
 
         button_free(b2);
-        assert_se(!m->reboot_key_long_press_event_source);
 }
 
 /* Verify that seat_free() does not leave itself on the GC queue when draining a device re-queues it:
