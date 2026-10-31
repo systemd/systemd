@@ -129,8 +129,7 @@
       "src/fuzz/*",
       "test/*",
       "*test-*",
-      "*test_*",
-      ".github/workflows/*"
+      "*test_*"
     ],
     "timedate": ["*timedate*"],
     "timesync": ["*timesync*"],
