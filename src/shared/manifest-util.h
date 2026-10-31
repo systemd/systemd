@@ -4,7 +4,7 @@
 #include "sd-json.h"
 
 #include "forward.h"
-#include "sha256.h"
+#include "uapi16-manifest.h"
 
 /* Generic helpers for generating (and verifying) file manifests of directory trees, in various formats. */
 
@@ -39,9 +39,21 @@ typedef enum ManifestField {
         _MANIFEST_FIELD_INVALID   = -EINVAL,
 } ManifestField;
 
+/* The hash algorithm to use for MANIFEST_FIELD_HASH. Only the mtree format supports anything but SHA256. */
+typedef enum ManifestHash {
+        MANIFEST_HASH_SHA256,
+        MANIFEST_HASH_SHA512,
+        _MANIFEST_HASH_MAX,
+        _MANIFEST_HASH_INVALID = -EINVAL,
+} ManifestHash;
+
+/* The digest size of the largest hash algorithm we support (i.e. SHA512) */
+#define MANIFEST_HASH_SIZE_MAX 64U
+
 typedef struct ManifestContext {
         ManifestFormat format;
         ManifestField fields;
+        ManifestHash hash;
         FILE *output;           /* not owned */
         bool color;
 
@@ -51,6 +63,14 @@ typedef struct ManifestContext {
         /* Of the above, how many were skipped because the format does not list inodes of their type by
          * design (i.e. anything but regular files in SHA256SUMS). This is expected, hence not a failure. */
         uint64_t n_skipped_expected;
+
+        /* Track how many times we omitted some metadata of an inode we did serialize, because we couldn't
+         * read it or it is not representable in this manifest format */
+        uint64_t n_metadata_omitted;
+
+        /* Set once the top-level inode is covered by the manifest (for formats that do not list the
+         * top-level inode itself, once we enumerated it) */
+        bool top_level_covered;
 
         /* Caches of resolved user/group names, keyed by UID/GID, "" if not resolvable */
         Hashmap *user_names;
@@ -62,12 +82,22 @@ typedef struct ManifestContext {
         uint64_t counter;
 
         sd_json_format_flags_t json_format_flags;
+
+        /* Signing (generation) and signature verification (verification), UAPI.16 only */
+        X509 *certificate;                        /* Not owned. Used for signing */
+        X509 *const *certificates;                /* Not owned. If set a signature by one of these is required */
+        size_t n_certificates;
+        EVP_PKEY *private_key;                    /* Not owned. If set the manifest is signed with it (PKCS#7) */
+        Uapi16Signer *signer;                     /* Allocated on demand by manifest_make() */
+
+        uint64_t n_errors;                        /* Number of mismatches found so far */
 } ManifestContext;
 
 #define MANIFEST_CONTEXT_NULL                              \
         (const ManifestContext) {                          \
                 .format = _MANIFEST_FORMAT_INVALID,        \
                 .fields = _MANIFEST_FIELD_DEFAULT,         \
+                .hash = MANIFEST_HASH_SHA256,              \
                 .db_fd = -EBADF,                           \
                 .json_format_flags = SD_JSON_FORMAT_OFF,   \
         }
@@ -86,11 +116,29 @@ ManifestField manifest_field_from_string(const char *s) _pure_;
 int manifest_fields_from_string(const char *s, ManifestField *fields);
 int manifest_fields_to_string(ManifestField f, char **ret);
 
+const char* manifest_hash_to_string(ManifestHash i) _const_;
+ManifestHash manifest_hash_from_string(const char *s) _pure_;
+size_t manifest_hash_size(ManifestHash h) _const_;
+
 /* Generates a manifest of the directory tree the specified fd refers to, in the format and with the fields
  * configured in the context. */
 int manifest_make(ManifestContext *c, int dir_fd);
 
+/* Parses the next entry of a SHA256SUMS-style file (i.e. the output of sha256sum(1) and friends) from the
+ * specified stream. Call this repeatedly on the same stream to iterate through all entries. Returns > 0 and
+ * the file name and digest of the entry, or 0 on EOF in which case the returned file name is NULL and the
+ * digest empty. The file names returned are unescaped, validated to be relative and normalized, and never
+ * empty. *line_nr is increased by one for each line read, and is used in log messages; initialize it to
+ * zero before the first call. */
+int manifest_parse_sums(FILE *f, size_t *line_nr, char **ret_filename, struct iovec *ret_digest);
+
+/* Verifies the directory tree the specified fd refers to against the manifest read from the specified
+ * stream. The manifest is processed entry by entry, and never loaded into memory as a whole. Every mismatch is
+ * logged and counted, and once the whole manifest is processed -EBADMSG is returned if there was at least
+ * one. Only the list, sha256sums and uapi16 formats are supported. */
+int manifest_verify(ManifestContext *c, int dir_fd, FILE *f);
+
 /* Calculates the hash of the file the specified fd refers to, with the algorithm configured in the context.
- * The fd may be an O_PATH fd. Flushes the output stream first, so that users get an idea where we are when
- * hashing takes a while. */
-int manifest_context_hash_fd(ManifestContext *c, int inode_fd, uint8_t ret[static SHA256_DIGEST_SIZE]);
+ * The digest written to the buffer is manifest_hash_size(c->hash) bytes long. The fd may be an O_PATH fd.
+ * Flushes the output stream first, so that users get an idea where we are when hashing takes a while. */
+int manifest_context_hash_fd(ManifestContext *c, int inode_fd, uint8_t ret[static MANIFEST_HASH_SIZE_MAX]);
