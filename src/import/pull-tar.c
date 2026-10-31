@@ -468,6 +468,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
 
                 clear_progress_bar(/* prefix= */ NULL);
                 r = pull_verify(p->verify,
+                                p->flags,
                                 p->tar_job,
                                 p->checksum_job,
                                 p->signature_job,
@@ -765,6 +766,7 @@ int tar_pull_start(
                         &p->checksum_job,
                         &p->signature_job,
                         verify,
+                        flags,
                         url,
                         p->event,
                         p->glue,
