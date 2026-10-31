@@ -2565,7 +2565,7 @@ int home_create_luks(
 
         /* Sync everything to disk before we move things into place under the final name. */
         if (fsync(setup->image_fd) < 0)
-                return log_error_errno(r, "Failed to synchronize image to disk: %m");
+                return log_error_errno(errno, "Failed to synchronize image to disk: %m");
 
         if (disk_uuid_path)
                 /* Reread partition table if this is a block device */
