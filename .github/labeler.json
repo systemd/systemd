@@ -141,7 +141,13 @@
     "userdb": ["*userdb*"],
     "util-lib": ["src/fundamental/*", "src/basic/*", "src/shared/*"],
     "utmp/wtmp": ["*utmp*"],
-    "varlink": ["src/varlink/*", "src/libsystemd/sd-varlink/*", "src/systemd/sd-varlink*"],
+    "varlink": [
+      "*varlink-monitor*",
+      "*varlinkctl*",
+      "src/bpf/monitor-varlink*",
+      "src/libsystemd/sd-varlink/*",
+      "src/systemd/sd-varlink*"
+    ],
     "vconsole": ["*vconsole*"],
     "veritysetup": ["*veritysetup*"],
     "vmspawn": ["*vmspawn*"],
