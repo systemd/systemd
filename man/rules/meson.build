@@ -1169,6 +1169,7 @@ manpages = [
    'systemd-makefs',
    'systemd-mkswap@.service'],
   'ENABLE_GROWFS'],
+ ['systemd-manifest', '1', [], ''],
  ['systemd-measure', '1', [], 'ENABLE_MEASURE'],
  ['systemd-modules-load.service', '8', ['systemd-modules-load'], 'HAVE_KMOD'],
  ['systemd-mount', '1', ['systemd-umount'], ''],
