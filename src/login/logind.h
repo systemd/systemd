@@ -119,11 +119,6 @@ typedef struct Manager {
         usec_t holdoff_timeout_usec;
         sd_event_source *lid_switch_ignore_event_source;
 
-        sd_event_source *power_key_long_press_event_source;
-        sd_event_source *reboot_key_long_press_event_source;
-        sd_event_source *suspend_key_long_press_event_source;
-        sd_event_source *hibernate_key_long_press_event_source;
-
         uint64_t runtime_dir_size;
         uint64_t runtime_dir_inodes;
         uint64_t sessions_max;
