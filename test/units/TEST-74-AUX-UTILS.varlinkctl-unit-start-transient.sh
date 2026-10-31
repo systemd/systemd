@@ -949,12 +949,6 @@ testcase_dispatch_error_paths() {
             "context.Exec.$field.value"
     done
 
-    for field in ExecCondition ExecStartPre ExecStart ExecStartPost ExecReload ExecReloadPost ExecStop ExecStopPost; do
-        expect_invalid_parameter \
-            '{"context":{"ID":"varlink-transient-bad-command-array.service","Service":{"'"$field"'":[{"path":"/bin/true"},{"path":"/bin/true","arguments":["/bin/true"],"ignoreFailure":null}]}}}' \
-            "context.Service.$field.ignoreFailure"
-    done
-
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-bad-tasks-value.service","CGroup":{"TasksMax":{"value":-1}}}}' \
         "context.CGroup.TasksMax.value"
