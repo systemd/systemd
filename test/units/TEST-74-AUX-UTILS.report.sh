@@ -122,13 +122,32 @@ systemctl status fake-report-server
 
 "$REPORT" upload --url=http://localhost:8089/
 
-# Test HTTPS upload with generated TLS certificates
-openssl req -x509 -newkey rsa:2048 -keyout "$CERTDIR/server.key" -out "$CERTDIR/server.crt" \
-    -days 1 -nodes -subj "/CN=localhost" 2>/dev/null
+# Test HTTPS upload with generated TLS certificates.
+# Build a basic CA and sign a cert for the server. The client will
+# use the CA cert as a trust anchor.
+openssl req -x509 -newkey rsa:2048 -keyout "$CERTDIR/ca.key" -out "$CERTDIR/ca.crt" \
+    -days 1 -nodes -subj "/CN=systemd-report test CA" \
+    -addext "basicConstraints=critical,CA:TRUE" \
+    -addext "keyUsage=critical,keyCertSign,cRLSign" 2>/dev/null
+
+cat >"$CERTDIR/server.ext" <<EOF
+basicConstraints=critical,CA:FALSE
+keyUsage=critical,digitalSignature,keyEncipherment
+extendedKeyUsage=serverAuth
+subjectAltName=DNS:localhost,IP:127.0.0.1
+EOF
+
+openssl req -newkey rsa:2048 -keyout "$CERTDIR/server.key" -out "$CERTDIR/server.csr" \
+    -nodes -subj "/CN=localhost" 2>/dev/null
+openssl x509 -req -in "$CERTDIR/server.csr" -CA "$CERTDIR/ca.crt" -CAkey "$CERTDIR/ca.key" \
+    -CAcreateserial -days 1 -extfile "$CERTDIR/server.ext" \
+    -out "$CERTDIR/server.crt" 2>/dev/null
+
+cat "$CERTDIR/server.crt" "$CERTDIR/ca.crt" >"$CERTDIR/server-chain.crt"
 
 systemd-run -p Type=notify --unit=fake-report-server-tls \
-    "$FAKE_SERVER" --cert="$CERTDIR/server.crt" --key="$CERTDIR/server.key" --port=8090
+    "$FAKE_SERVER" --cert="$CERTDIR/server-chain.crt" --key="$CERTDIR/server.key" --port=8090
 systemctl status fake-report-server-tls
 
-"$REPORT" upload --url=https://localhost:8090/ --key=- --trust="$CERTDIR/server.crt" \
+"$REPORT" upload --url=https://localhost:8090/ --key=- --trust="$CERTDIR/ca.crt" \
           --extra-header='Authorization: Bearer magic string'
