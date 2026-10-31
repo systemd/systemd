@@ -836,6 +836,7 @@ static int extract_image_and_extensions(
                               name_or_path,
                               pick_filter_image_any,
                               ELEMENTSOF(pick_filter_image_any),
+                              /* match_root= */ NULL,
                               PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                               &result);
                 if (r < 0)
@@ -876,6 +877,7 @@ static int extract_image_and_extensions(
                                               *p,
                                               pick_filter_image_any,
                                               ELEMENTSOF(pick_filter_image_any),
+                                              /* match_root= */ NULL,
                                               PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                                               &ext_result);
                                 if (r < 0)
@@ -2224,6 +2226,7 @@ static int marker_matches_images(const char *marker, const char *name_or_path, c
                                       *image_name_or_path,
                                       pick_filter_image_any,
                                       ELEMENTSOF(pick_filter_image_any),
+                                      /* match_root= */ NULL,
                                       PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                                       &result);
                         if (r < 0 && r != -ENOENT)

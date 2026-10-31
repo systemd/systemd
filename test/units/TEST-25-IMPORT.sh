@@ -299,6 +299,200 @@ test ! -e "$COMPDIR/root/bad"
 (! "$PULL" tar --image-root="$COMPDIR/root" --keep-download=no --settings=no --verify=no --verify-decoded="$WRONG_HASH" "file://$COMPDIR/tree.tar.gz" bad)
 test ! -e "$COMPDIR/root/bad"
 
+# → systemd-pull can extract a range of the decoded data ← #
+
+PAYLOAD_SIZE="$(stat -c %s "$COMPDIR/payload.raw")"
+dd if="$COMPDIR/payload.raw" of="$COMPDIR/slice.raw" iflag=skip_bytes,count_bytes skip=1000 count=5000 status=none
+dd if="$COMPDIR/payload.raw" of="$COMPDIR/tail.raw" iflag=skip_bytes skip=1000 status=none
+dd if="$COMPDIR/payload.raw" of="$COMPDIR/head.raw" iflag=count_bytes count=5000 status=none
+dd if="$COMPDIR/payload.raw" of="$COMPDIR/end.raw" iflag=skip_bytes skip=$((PAYLOAD_SIZE - 10)) status=none
+SLICE_HASH="$(sha256sum "$COMPDIR/slice.raw" | cut -d' ' -f1)"
+
+# --verify-decoded= covers just the range
+"$PULL" raw --verify=no --direct --source-offset=1000 --source-size=5000 --verify-decoded="$SLICE_HASH" "file://$COMPDIR/payload.raw" "$COMPDIR/out.raw"
+cmp "$COMPDIR/slice.raw" "$COMPDIR/out.raw"
+rm "$COMPDIR/out.raw"
+(! "$PULL" raw --verify=no --direct --source-offset=1000 --source-size=5000 --verify-decoded="$PAYLOAD_HASH" "file://$COMPDIR/payload.raw" "$COMPDIR/out.raw")
+rm -f "$COMPDIR/out.raw"
+
+# Without a size the range extends to the end, without an offset it starts at the beginning
+"$PULL" raw --verify=no --direct --source-offset=1000 "file://$COMPDIR/payload.raw" "$COMPDIR/out.raw"
+cmp "$COMPDIR/tail.raw" "$COMPDIR/out.raw"
+rm "$COMPDIR/out.raw"
+"$PULL" raw --verify=no --direct --source-size=5000 "file://$COMPDIR/payload.raw" "$COMPDIR/out.raw"
+cmp "$COMPDIR/head.raw" "$COMPDIR/out.raw"
+rm "$COMPDIR/out.raw"
+
+# A range ending right at the end of the data is fine, one extending beyond it is refused
+"$PULL" raw --verify=no --direct --source-offset=$((PAYLOAD_SIZE - 10)) --source-size=10 "file://$COMPDIR/payload.raw" "$COMPDIR/out.raw"
+cmp "$COMPDIR/end.raw" "$COMPDIR/out.raw"
+rm "$COMPDIR/out.raw"
+(! "$PULL" raw --verify=no --direct --source-offset=$((PAYLOAD_SIZE - 10)) --source-size=11 "file://$COMPDIR/payload.raw" "$COMPDIR/out.raw")
+rm -f "$COMPDIR/out.raw"
+(! "$PULL" raw --verify=no --direct --source-offset=$((PAYLOAD_SIZE + 1)) "file://$COMPDIR/payload.raw" "$COMPDIR/out.raw")
+rm -f "$COMPDIR/out.raw"
+
+# The range refers to the decoded data, hence works the same for compressed downloads
+if command -v gzip >/dev/null; then
+    gzip -c "$COMPDIR/payload.raw" >"$COMPDIR/payload-range.raw.gz"
+    "$PULL" raw --verify=no --direct --compression=gzip --source-offset=1000 --source-size=5000 --verify-decoded="$SLICE_HASH" "file://$COMPDIR/payload-range.raw.gz" "$COMPDIR/out.raw"
+    cmp "$COMPDIR/slice.raw" "$COMPDIR/out.raw"
+    rm "$COMPDIR/out.raw"
+fi
+
+# Ranges are only supported in --direct mode, and must not overflow
+(! "$PULL" raw --image-root="$COMPDIR/root" --verify=no --source-offset=1000 "file://$COMPDIR/payload.raw" bad)
+test ! -e "$COMPDIR/root/bad.raw"
+(! "$PULL" raw --verify=no --direct --source-offset=18446744073709551615 --source-size=2 "file://$COMPDIR/payload.raw" "$COMPDIR/out.raw")
+test ! -e "$COMPDIR/out.raw"
+
+# → For unencoded data systemd-pull asks HTTP servers for just the range, and cuts it out itself if they
+#   do not honour the request ← #
+
+# A minimal HTTP server, where the first path component selects how range requests are handled: "honour"
+# returns the requested range, "ignore" always the whole file, and "bogus" a range at the wrong offset. Each
+# request is logged with its "Range:" header.
+RANGE_LOG="$COMPDIR/range.log"
+cat >"$COMPDIR/range-server.py" <<'EOF'
+import http.server, os, re, sys
+
+port, root, log = int(sys.argv[1]), sys.argv[2], sys.argv[3]
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        mode, _, name = self.path.lstrip('/').partition('/')
+        rng = self.headers.get('Range')
+        with open(log, 'a') as f:
+            print(mode, name, rng or '-', file=f)
+
+        try:
+            with open(os.path.join(root, os.path.basename(name)), 'rb') as f:
+                data = f.read()
+        except FileNotFoundError:
+            self.send_error(404)
+            return
+
+        m = re.fullmatch(r'bytes=(\d+)-(\d*)', rng or '')
+        if mode == 'ignore' or not m:
+            self.send_response(200)
+            chunk = data
+        else:
+            start = int(m.group(1))
+            end = int(m.group(2)) if m.group(2) else len(data) - 1
+            chunk = data[start:end + 1]
+            if mode == 'bogus':
+                start += 1
+            self.send_response(206)
+            self.send_header('Content-Range', f'bytes {start}-{start + len(chunk) - 1}/{len(data)}')
+        self.send_header('Content-Length', str(len(chunk)))
+        self.end_headers()
+        self.wfile.write(chunk)
+
+http.server.HTTPServer(('127.0.0.1', port), Handler).serve_forever()
+EOF
+systemd-run --unit=test-25-range-server -p Type=exec python3 "$COMPDIR/range-server.py" 8025 "$COMPDIR" "$RANGE_LOG"
+timeout 30 bash -c 'until curl -sf -o /dev/null http://127.0.0.1:8025/ignore/head.raw; do sleep .5; done'
+URL=http://127.0.0.1:8025
+
+for mode in honour ignore; do
+    : >"$RANGE_LOG"
+    "$PULL" raw --verify=no --compression=none --direct --source-offset=1000 --source-size=5000 --verify-decoded="$SLICE_HASH" "$URL/$mode/payload.raw" "$COMPDIR/out.raw"
+    cmp "$COMPDIR/slice.raw" "$COMPDIR/out.raw"
+    rm "$COMPDIR/out.raw"
+    grep -x "$mode payload.raw bytes=1000-5999" "$RANGE_LOG" >/dev/null
+
+    : >"$RANGE_LOG"
+    "$PULL" raw --verify=no --compression=none --direct --source-offset=1000 "$URL/$mode/payload.raw" "$COMPDIR/out.raw"
+    cmp "$COMPDIR/tail.raw" "$COMPDIR/out.raw"
+    rm "$COMPDIR/out.raw"
+    grep -x "$mode payload.raw bytes=1000-" "$RANGE_LOG" >/dev/null
+done
+
+# A range starting elsewhere than requested is refused
+(! "$PULL" raw --verify=no --compression=none --direct --source-offset=1000 --source-size=5000 "$URL/bogus/payload.raw" "$COMPDIR/out.raw")
+rm -f "$COMPDIR/out.raw"
+
+# No range is requested if the data might be encoded, or if the download is verified as a whole
+: >"$RANGE_LOG"
+"$PULL" raw --verify=no --direct --source-offset=1000 --source-size=5000 "$URL/honour/payload.raw" "$COMPDIR/out.raw"
+cmp "$COMPDIR/slice.raw" "$COMPDIR/out.raw"
+rm "$COMPDIR/out.raw"
+"$PULL" raw --verify="$PAYLOAD_HASH" --compression=none --direct --source-offset=1000 --source-size=5000 "$URL/honour/payload.raw" "$COMPDIR/out.raw"
+cmp "$COMPDIR/slice.raw" "$COMPDIR/out.raw"
+rm "$COMPDIR/out.raw"
+(! grep -v -x "honour payload.raw -" "$RANGE_LOG")
+
+systemctl stop test-25-range-server
+
+# → systemd-pull verifies downloads against UAPI.16 manifests, which are tried before *.sha256/SHA256SUMS ← #
+
+SRV="$COMPDIR/srv"
+mkdir -p "$SRV" "$COMPDIR/other"
+cp "$COMPDIR/payload.raw" "$SRV/payload.raw"
+systemd-manifest make "$SRV" >"$COMPDIR/Uapi16Manifest"
+mv "$COMPDIR/Uapi16Manifest" "$SRV/Uapi16Manifest"
+# A wrong SHA256SUMS file next to it is not consulted, as the manifest takes precedence
+echo "$WRONG_HASH  payload.raw" >"$SRV/SHA256SUMS"
+"$PULL" raw --verify=checksum --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw"
+cmp "$COMPDIR/payload.raw" "$COMPDIR/out.raw"
+rm "$COMPDIR/out.raw"
+
+# A manifest describing different contents is refused
+echo "something else" >"$COMPDIR/other/payload.raw"
+systemd-manifest make "$COMPDIR/other" >"$SRV/Uapi16Manifest"
+(! "$PULL" raw --verify=checksum --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw")
+rm -f "$COMPDIR/out.raw"
+
+# Without a manifest SHA256SUMS is used
+rm "$SRV/Uapi16Manifest"
+(! "$PULL" raw --verify=checksum --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw")
+rm -f "$COMPDIR/out.raw"
+(cd "$SRV" && sha256sum payload.raw >SHA256SUMS)
+"$PULL" raw --verify=checksum --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw"
+rm "$COMPDIR/out.raw"
+
+# The inline signature of the manifest is verified against the certificates in the VOA hierarchy (role
+# "manifest", context "import"), no detached gpg signature is needed
+if command -v openssl >/dev/null; then
+    VOA_OS="$(. /etc/os-release; echo "${ID:-linux}")"
+    VOA_DIR="/run/voa/$VOA_OS/manifest/import/x509"
+    openssl req -x509 -newkey rsa:2048 -nodes -keyout "$COMPDIR/good.key" -out "$COMPDIR/good.crt" -subj /CN=good -days 2 2>/dev/null
+    openssl req -x509 -newkey rsa:2048 -nodes -keyout "$COMPDIR/other.key" -out "$COMPDIR/other.crt" -subj /CN=other -days 2 2>/dev/null
+    rm "$SRV/SHA256SUMS"
+    systemd-manifest make --private-key="$COMPDIR/good.key" --certificate="$COMPDIR/good.crt" "$SRV" >"$COMPDIR/Uapi16Manifest"
+    mv "$COMPDIR/Uapi16Manifest" "$SRV/Uapi16Manifest"
+
+    # No certificates installed
+    (! "$PULL" raw --verify=signature --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw")
+    rm -f "$COMPDIR/out.raw"
+
+    # The wrong certificate
+    mkdir -p "$VOA_DIR"
+    cp "$COMPDIR/other.crt" "$VOA_DIR/test-25-certificate.pem"
+    (! "$PULL" raw --verify=signature --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw")
+    rm -f "$COMPDIR/out.raw"
+
+    # The right certificate
+    cp "$COMPDIR/good.crt" "$VOA_DIR/test-25-certificate.pem"
+    "$PULL" raw --verify=signature --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw"
+    cmp "$COMPDIR/payload.raw" "$COMPDIR/out.raw"
+    rm "$COMPDIR/out.raw"
+
+    # A manifest that is the main download is verified via its own inline signature
+    "$PULL" raw --verify=signature --direct "file://$SRV/Uapi16Manifest" "$COMPDIR/out.manifest"
+    rm "$COMPDIR/out.manifest"
+
+    # An unsigned manifest is refused if signatures are verified, but fine for checksum verification
+    systemd-manifest make "$SRV" >"$COMPDIR/Uapi16Manifest"
+    mv "$COMPDIR/Uapi16Manifest" "$SRV/Uapi16Manifest"
+    (! "$PULL" raw --verify=signature --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw")
+    rm -f "$COMPDIR/out.raw"
+    "$PULL" raw --verify=checksum --direct "file://$SRV/payload.raw" "$COMPDIR/out.raw"
+    rm "$COMPDIR/out.raw"
+
+    rm -r "/run/voa/$VOA_OS/manifest/import"
+fi
+
 rm -rf "$COMPDIR"
 
 touch /testok

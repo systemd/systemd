@@ -436,6 +436,15 @@ static void tar_pull_job_on_finished(PullJob *j) {
         /* This is invoked if either the download completed successfully, or the download was skipped because
          * we already have the etag. */
 
+        /* Only now we know whether we need the detached signature file */
+        if (j == p->checksum_job) {
+                r = pull_signature_job_begin(p->checksum_job, &p->signature_job);
+                if (r < 0) {
+                        r = log_error_errno(r, "Failed to start signature job: %m");
+                        goto finish;
+                }
+        }
+
         if (!tar_pull_is_done(p))
                 return;
 
@@ -693,6 +702,8 @@ int tar_pull_start(
                 TarPull *p,
                 const char *url,
                 const char *local,
+                uint64_t source_offset,
+                uint64_t source_size,
                 Compression compression,
                 ImportFlags flags,
                 ImportVerify verify,
@@ -709,6 +720,7 @@ int tar_pull_start(
         assert(!(flags & ~IMPORT_PULL_FLAGS_MASK_TAR));
         assert(!(flags & IMPORT_PULL_SETTINGS) || !(flags & IMPORT_DIRECT));
         assert(!(flags & IMPORT_PULL_SETTINGS) || !iovec_is_set(checksum));
+        assert((source_offset == 0 && source_size == UINT64_MAX) || FLAGS_SET(flags, IMPORT_DIRECT));
 
         if (!http_url_is_valid(url) && !file_url_is_valid(url) && !provider_url_is_valid(url))
                 return -EINVAL;
@@ -742,6 +754,10 @@ int tar_pull_start(
         p->tar_job->on_finished = tar_pull_job_on_finished;
         p->tar_job->on_open_disk = tar_pull_job_on_open_disk_tar;
         p->tar_job->compression = compression;
+        p->tar_job->source_offset = source_offset;
+        p->tar_job->source_size = source_size;
+        /* Only a download that is not verified as a whole may be acquired partially */
+        p->tar_job->allow_range_request = verify == IMPORT_VERIFY_NO && !iovec_is_set(checksum);
         import_digest_init(&p->tar_job->decoded_digest, decoded_checksum);
 
         if (iovec_is_set(checksum)) {
@@ -802,6 +818,10 @@ int tar_pull_start(
 
                 j->on_progress = tar_pull_job_on_progress;
                 j->sync = FLAGS_SET(flags, IMPORT_SYNC);
+
+                /* The signature job is started once the checksum job finished, see tar_pull_job_on_finished() */
+                if (j == p->signature_job && p->checksum_job)
+                        continue;
 
                 r = pull_job_begin(j);
                 if (r < 0)

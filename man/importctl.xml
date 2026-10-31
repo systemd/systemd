@@ -114,17 +114,25 @@
         URL, with its suffix removed.</para>
 
         <para>The image is verified before it is made available, unless <option>--verify=no</option> is
-        specified.  Verification is done either via a file with the name of the image and the
-        suffix <filename>.sha256</filename> and a detached <filename>.sha256.asc</filename> or
-        <filename>.sha256.gpg</filename> signature or via separate <filename>SHA256SUMS</filename> and
-        <filename>SHA256SUMS.asc</filename> or <filename>SHA256SUMS.gpg</filename> files.  The signature
-        files need to be made available on the same web server, under the same URL as the
-        <filename>.tar</filename> file. With
+        specified.  Verification is done via a <ulink
+        url="https://uapi-group.org/specifications/specs/file_manifest/">UAPI.16 File Manifest</ulink> file
+        <filename>Uapi16Manifest</filename>, which is tried first, or, if that does not exist, either via a
+        file with the name of the image and the suffix <filename>.sha256</filename> and a detached
+        <filename>.sha256.asc</filename> or <filename>.sha256.gpg</filename> signature or via separate
+        <filename>SHA256SUMS</filename> and <filename>SHA256SUMS.asc</filename> or
+        <filename>SHA256SUMS.gpg</filename> files.  These files need to be made available on the same web
+        server, under the same URL as the <filename>.tar</filename> file. With
         <option>--verify=checksum</option>, only the SHA256 checksum for the file is verified, based on the
-        <filename>.sha256</filename> suffixed file or the <filename>SHA256SUMS</filename> file.  With
-        <option>--verify=signature</option>, the sha checksum file is first verified with the detached GPG
-        signature of <filename>.sha256</filename> or <filename>SHA256SUMS</filename>.  The public key for
-        this verification step needs to be available in the system keyring consisting of
+        manifest, the <filename>.sha256</filename> suffixed file or the <filename>SHA256SUMS</filename>
+        file.  With <option>--verify=signature</option>, the checksum file is first verified with its
+        signature. UAPI.16 manifests carry an inline PKCS#7 signature, which is verified against the X.509
+        certificates found in the <ulink url="https://uapi-group.org/specifications/specs/file_hierarchy_for_the_verification_of_os_artifacts/">UAPI.11
+        Verification of OS Artifacts</ulink> hierarchy, for the role <literal>manifest</literal> and the
+        context <literal>import</literal> (for example
+        <filename>/etc/voa/<replaceable>os</replaceable>/manifest/import/x509/*-certificate.pem</filename>).
+        For the other formats the detached GPG signature of <filename>.sha256</filename> or
+        <filename>SHA256SUMS</filename> is verified. The public key for this verification step needs to be
+        available in the system keyring consisting of
         <filename>/usr/lib/systemd/import-pubring.pgp</filename> and the local keyring in
         <filename>/etc/systemd/import-pubring.pgp</filename> (or, if that does not exist,
         <filename>/etc/systemd/import-pubring.gpg</filename>).</para>
@@ -318,8 +326,10 @@
         <literal>signature</literal>.  If <literal>no</literal>, no verification is done. If
         <literal>checksum</literal> is specified, the download is checked for integrity after the transfer is
         complete, but no signatures are verified. If <literal>signature</literal> is specified, the checksum
-        is verified and the image's signature is checked against a local keyring of trustable vendors, in
-        combination with the vendor keyring in <filename>/usr/lib/systemd/import-pubring.pgp</filename>.
+        is verified and the image's signature is checked: the inline signature of a UAPI.16 manifest against
+        the certificates in the VOA hierarchy, and the detached GPG signature of other checksum files against
+        a local keyring of trustable vendors, in combination with the vendor keyring in
+        <filename>/usr/lib/systemd/import-pubring.pgp</filename> (see <command>pull-tar</command> above).
         It is strongly recommended to set this option to <literal>signature</literal> if the server and
         protocol support this. Defaults to <literal>signature</literal>.</para>
 
