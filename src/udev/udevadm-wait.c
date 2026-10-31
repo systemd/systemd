@@ -7,6 +7,7 @@
 #include "sd-json.h"
 
 #include "build.h"
+#include "daemon-util.h"
 #include "device-monitor-private.h"
 #include "device-util.h"
 #include "event-util.h"
@@ -380,10 +381,6 @@ int verb_wait_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
                                                "Specified path \"%s\" does not start with \"/dev/\" or \"/sys/\".", *p);
         }
 
-        /* Check before configuring event sources, as devices may be already initialized. */
-        if (check())
-                return 0;
-
         r = sd_event_default(&event);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize sd-event: %m");
@@ -423,7 +420,10 @@ int verb_wait_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         return log_error_errno(r, "Failed to set up periodic timer: %m");
         }
 
-        /* Check before entering the event loop, as devices may be initialized during setting up event sources. */
+        _unused_ _cleanup_(notify_on_cleanup) const char *notify_message =
+                notify_start(NOTIFY_READY_MESSAGE, NOTIFY_STOPPING_MESSAGE);
+
+        /* Check before entering the event loop, as devices may be already initialized. */
         if (check())
                 return 0;
 
