@@ -1071,7 +1071,14 @@ int loop_device_open(
                         return lock_fd;
         }
 
-        if (ioctl(fd, LOOP_GET_STATUS64, &info) >= 0) {
+        /* Device-mapper forwards ioctls to the underlying device for targets such as dm-verity. On a verity
+         * device that maps a loop device, LOOP_GET_STATUS64 returns the status of that loop device. LOOP_CLR_FD
+         * on the verity device clears the loop device, although the verity device still uses it. So we only
+         * query the loop status of loop devices. */
+        r = device_sysname_startswith(dev, "loop");
+        if (r < 0)
+                return r;
+        if (r > 0 && ioctl(fd, LOOP_GET_STATUS64, &info) >= 0) {
 #if HAVE_VALGRIND_MEMCHECK_H
                 /* Valgrind currently doesn't know LOOP_GET_STATUS64. Remove this once it does */
                 VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
