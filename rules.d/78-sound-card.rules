@@ -39,6 +39,8 @@ ENV{SOUND_INITIALIZED}="1"
 
 IMPORT{builtin}="hwdb"
 SUBSYSTEMS=="usb", IMPORT{builtin}="usb_id"
+SUBSYSTEMS=="usb", ENV{ID_USB_INTERFACES}=="?*", \
+  IMPORT{builtin}="hwdb 'usb-interface:v$env{ID_USB_VENDOR_ID}p$env{ID_USB_MODEL_ID}$env{ID_USB_INTERFACES}'"
 SUBSYSTEMS=="usb", GOTO="skip_pci"
 
 SUBSYSTEMS=="firewire", ATTRS{guid}=="?*", \
@@ -68,14 +70,14 @@ IMPORT{builtin}="path_id"
 # in sync with those defined for PulseAudio's src/pulse/proplist.h
 # PA_PROP_DEVICE_FORM_FACTOR, PA_PROP_DEVICE_CLASS properties.
 
+# Already set by e.g. hwdb.
+ENV{SOUND_FORM_FACTOR}=="?*", GOTO="sound_end"
+
 # If the first PCM device of this card has the pcm class 'modem', then the card is a modem
 ATTR{pcmC%nD0p/pcm_class}=="modem", ENV{SOUND_CLASS}="modem", GOTO="sound_end"
 
 # Identify cards on the internal PCI bus as internal
 SUBSYSTEMS=="pci", DEVPATH=="*/0000:00:??.?/sound/*", ENV{SOUND_FORM_FACTOR}="internal", GOTO="sound_end"
-
-# Devices that also support Image/Video interfaces are most likely webcams
-SUBSYSTEMS=="usb", ENV{ID_USB_INTERFACES}=="*:0e????:*", ENV{SOUND_FORM_FACTOR}="webcam", GOTO="sound_end"
 
 # Matching on the model strings is a bit ugly, I admit
 ENV{ID_MODEL}=="*[Ss]peaker*", ENV{SOUND_FORM_FACTOR}="speaker", GOTO="sound_end"

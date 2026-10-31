@@ -29,6 +29,9 @@
 #   Specify the protocol used to interact with a debug appliance, see
 #   70-debug-appliance.hwdb
 #   ID_DEBUG_APPLIANCE=?*
+#
+#   Specify the form factor of the sound card of a device
+#   SOUND_FORM_FACTOR=webcam
 
 # USB3 Vision devices exposing the device control interface
 usb-interface:v*p*:ef0500:*
@@ -63,3 +66,7 @@ usb-interface:v*p*:dc0201:*
 usb-interface:v*p*:ff4201:*
 usb-interface:v*p*:ff4203:*
  ID_DEBUG_APPLIANCE=android
+
+# Devices that also support Image/Video interfaces are most likely webcams
+usb-interface:v*p*:0e????:*
+ SOUND_FORM_FACTOR=webcam
