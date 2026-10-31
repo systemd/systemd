@@ -228,6 +228,23 @@ there. The `systemctl reboot --boot-loader-entry=…` and `systemctl reboot
 `LoaderConfigTimeoutOneShot`, `LoaderEntries`, `LoaderEntryOneShot`
 variables.
 
+## Passing Addons to the Stub
+
+The boot loader may pass PE addons (`*.addon.efi`) specific to the selected boot
+loader entry (for example configured via `extra` lines in Type #1 entries)
+to the stub of the Unified Kernel Image it starts.  Each addon is installed on its
+own handle as a `LoadFile2` protocol object, together with a device path consisting
+of a vendor media node with the GUID `703430c9-7b7f-4ada-b647-6c0eeb8ba48f`, followed
+by a file path node with the file name of the addon (without any directory
+components), for example:
+
+    VenMedia(703430c9-7b7f-4ada-b647-6c0eeb8ba48f)/foo.addon.efi
+
+The stub finds all `LoadFile2` handles with such a device path,
+and loads the addons in the order of their file names.
+If several addons have the same file name, only the first one is loaded.
+The boot loader should uninstall them if the started image returns.
+
 ## Boot Loader Entry Identifiers
 
 While boot loader entries may be named relatively freely,
