@@ -58,4 +58,7 @@ unsigned dns_cache_size(DnsCache *cache);
 
 int dns_cache_export_shared_to_packet(DnsCache *cache, DnsPacket *p, usec_t ts, unsigned max_rr);
 
-bool dns_cache_expiry_in_one_second(DnsCache *c, usec_t t);
+/* Eviction time (DnsCacheItem.until) of the earliest-expiring entry, USEC_INFINITY for an empty
+ * cache. Not the TTL expiry: with StaleRetentionSec= set the two differ by that window, and it is
+ * until_valid that governs whether a lookup may still serve the entry. */
+usec_t dns_cache_next_expiry(DnsCache *c);
