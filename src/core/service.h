@@ -256,6 +256,10 @@ typedef struct Service {
         int stdout_fd;
         int stderr_fd;
 
+        /* Only the TTY owner may learn this, never the service: keep it out of dumps and bus/varlink
+         * properties */
+        sd_id128_t osc_context_id;
+
         /* File descriptor received from RootDirectoryFileDescriptor= */
         int root_directory_fd;
 

@@ -5303,8 +5303,9 @@ static void prepare_terminal(
 
         (void) exec_context_apply_tty_size(context, STDIN_FILENO, STDOUT_FILENO, /* tty_path= */ NULL);
 
-        if (use_ansi)
-                (void) osc_context_open_service(p->unit_id, p->invocation_id, /* ret_seq= */ NULL);
+        /* Send open context too in TTYExitStatus= so that it can be closed with the exit status. */
+        if (use_ansi || context->tty_exit_status)
+                (void) osc_context_open_service_full(p->unit_id, p->invocation_id, p->osc_context_id, /* ret_seq= */ NULL);
 }
 
 static int setup_term_environment(const ExecContext *context, char ***env) {
@@ -5608,10 +5609,9 @@ int exec_invoke(
          * disallocate the VT), to get rid of any prior uses of the device. Note that we do not keep any fd
          * open here, hence some of the settings made here might vanish again, depending on the TTY driver
          * used. A 2nd ("constructive") initialization after we opened the input/output fds we actually want
-         * will fix this. Note that we pass a NULL invocation ID here – as exec_context_tty_reset() expects
-         * the invocation ID associated with the OSC 3008 context ID to close. But we don't want to close any
-         * OSC 3008 context here, and opening a fresh OSC 3008 context happens a bit further down. */
-        exec_context_tty_reset(context, params, /* invocation_id= */ SD_ID128_NULL);
+         * will fix this. Note that we pass a NULL OSC 3008 context ID here, as we don't want to close any
+         * context here, and opening a fresh one happens a bit further down. */
+        exec_context_tty_reset(context, params, /* exec_status= */ NULL, /* osc_context_id= */ SD_ID128_NULL);
 
         if (params->shall_confirm_spawn && exec_context_shall_confirm_spawn(context)) {
                 _cleanup_free_ char *cmdline = NULL;

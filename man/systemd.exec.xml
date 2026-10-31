@@ -3927,6 +3927,21 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         and scrollback buffer is cleared. If the terminal device is of any other type of TTY an attempt is
         made to clear the screen via ANSI sequences. Defaults to <literal>no</literal>.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>TTYExitStatus=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If enabled, the service manager reports how the main
+        process of the service ended on the terminal connected to the service's standard output, as part of
+        the end record of the OSC 3008 terminal context sequence that it closes for the service. The context
+        is opened when the service starts, even if <varname>TTYReset=</varname> is disabled. This allows a
+        program that passed a pseudo terminal to the service as file descriptors to learn the exit status
+        in-band, without consulting the journal or the service manager. The context is then identified by a
+        random ID instead of one derived from the invocation ID, which the service itself knows, so that the
+        service cannot forge the end record. Defaults to <literal>no</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

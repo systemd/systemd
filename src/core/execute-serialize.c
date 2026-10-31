@@ -1245,6 +1245,10 @@ static int exec_parameters_serialize(const ExecParameters *p, const ExecContext 
         if (r < 0)
                 return r;
 
+        r = serialize_id128(f, "exec-parameters-osc-context-id", p->osc_context_id);
+        if (r < 0)
+                return r;
+
         r = serialize_bool_elide(f, "exec-parameters-debug-invocation", p->debug_invocation);
         if (r < 0)
                 return r;
@@ -1519,6 +1523,10 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                                 return r;
 
                         sd_id128_to_string(p->invocation_id, p->invocation_id_string);
+                } else if ((val = startswith(l, "exec-parameters-osc-context-id="))) {
+                        r = sd_id128_from_string(val, &p->osc_context_id);
+                        if (r < 0)
+                                return r;
                 } else if ((val = startswith(l, "exec-parameters-debug-invocation="))) {
                         r = parse_boolean(val);
                         if (r < 0)
@@ -2124,6 +2132,10 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                 return r;
 
         r = serialize_bool_elide(f, "exec-context-tty-vt-disallocate", c->tty_vt_disallocate);
+        if (r < 0)
+                return r;
+
+        r = serialize_bool_elide(f, "exec-context-tty-exit-status", c->tty_exit_status);
         if (r < 0)
                 return r;
 
@@ -3189,6 +3201,11 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                         c->tty_vt_disallocate = r;
+                } else if ((val = startswith(l, "exec-context-tty-exit-status="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->tty_exit_status = r;
                 } else if ((val = startswith(l, "exec-context-tty-rows="))) {
                         r = safe_atou(val, &c->tty_rows);
                         if (r < 0)

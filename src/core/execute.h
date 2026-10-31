@@ -262,6 +262,7 @@ typedef struct ExecContext {
         bool tty_reset;
         bool tty_vhangup;
         bool tty_vt_disallocate;
+        bool tty_exit_status;
 
         unsigned tty_rows;
         unsigned tty_cols;
@@ -471,6 +472,8 @@ typedef struct ExecParameters {
         char *unit_id;
         sd_id128_t invocation_id;
         char invocation_id_string[SD_ID128_STRING_MAX];
+        /* Secret from the service, see Service.osc_context_id: must not end up in its environment */
+        sd_id128_t osc_context_id;
 
         bool debug_invocation;
         bool selinux_context_net;
@@ -598,14 +601,14 @@ bool exec_context_get_effective_bind_log_sockets(const ExecContext *c);
 
 void exec_context_free_log_extra_fields(ExecContext *c);
 
-void exec_context_revert_tty(ExecContext *c, sd_id128_t invocation_id);
+void exec_context_revert_tty(ExecContext *c, int stdout_fd, const ExecStatus *exec_status, sd_id128_t invocation_id, sd_id128_t osc_context_id);
 
 int exec_context_get_clean_directories(ExecContext *c, char **prefix, ExecCleanMask mask, char ***ret);
 int exec_context_get_clean_mask(ExecContext *c, ExecCleanMask *ret);
 
 const char* exec_context_tty_path(const ExecContext *context);
 int exec_context_apply_tty_size(const ExecContext *context, int input_fd, int output_fd, const char *tty_path);
-void exec_context_tty_reset(const ExecContext *context, const ExecParameters *parameters, sd_id128_t invocation_id);
+void exec_context_tty_reset(const ExecContext *context, const ExecParameters *parameters, const ExecStatus *exec_status, sd_id128_t osc_context_id);
 
 uint64_t exec_context_get_rlimit(const ExecContext *c, const char *name);
 int exec_context_get_oom_score_adjust(const ExecContext *c);

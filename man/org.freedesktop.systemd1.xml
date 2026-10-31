@@ -3400,6 +3400,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b TTYVTDisallocate = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b TTYExitStatus = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly q TTYRows = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly q TTYColumns = ...;
@@ -4062,6 +4064,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property TTYVHangup is not documented!-->
 
     <!--property TTYVTDisallocate is not documented!-->
+
+    <!--property TTYExitStatus is not documented!-->
 
     <!--property TTYRows is not documented!-->
 
@@ -4792,6 +4796,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="TTYVHangup"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TTYVTDisallocate"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="TTYExitStatus"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TTYRows"/>
 
@@ -5721,6 +5727,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b TTYVTDisallocate = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b TTYExitStatus = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly q TTYRows = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly q TTYColumns = ...;
@@ -6395,6 +6403,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property TTYVHangup is not documented!-->
 
     <!--property TTYVTDisallocate is not documented!-->
+
+    <!--property TTYExitStatus is not documented!-->
 
     <!--property TTYRows is not documented!-->
 
@@ -7101,6 +7111,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="TTYVHangup"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TTYVTDisallocate"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="TTYExitStatus"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TTYRows"/>
 
@@ -7849,6 +7861,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b TTYVTDisallocate = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b TTYExitStatus = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly q TTYRows = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly q TTYColumns = ...;
@@ -8447,6 +8461,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property TTYVHangup is not documented!-->
 
     <!--property TTYVTDisallocate is not documented!-->
+
+    <!--property TTYExitStatus is not documented!-->
 
     <!--property TTYRows is not documented!-->
 
@@ -9055,6 +9071,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="TTYVHangup"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TTYVTDisallocate"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="TTYExitStatus"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TTYRows"/>
 
@@ -9925,6 +9943,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b TTYVTDisallocate = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b TTYExitStatus = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly q TTYRows = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly q TTYColumns = ...;
@@ -10505,6 +10525,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property TTYVHangup is not documented!-->
 
     <!--property TTYVTDisallocate is not documented!-->
+
+    <!--property TTYExitStatus is not documented!-->
 
     <!--property TTYRows is not documented!-->
 
@@ -11095,6 +11117,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="TTYVHangup"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TTYVTDisallocate"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="TTYExitStatus"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TTYRows"/>
 
@@ -13030,7 +13054,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>OOMRules</varname> were added in version 261.</para>
       <para><varname>LUOSession</varname> was added in version 262.</para>
       <para><varname>RestartRandomizedDelayUSec</varname> was added in version 262.</para>
-      <para><varname>ConfigurationDirectorySymlink</varname> was added in version 263.</para>
+      <para><varname>ConfigurationDirectorySymlink</varname> and
+      <varname>TTYExitStatus</varname> were added in version 263.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -13110,7 +13135,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>XAttrEntryPoint</varname>,
       <varname>XAttrListen</varname>, and
       <varname>XAttrAccept</varname> were added in version 262.</para>
-      <para><varname>ConfigurationDirectorySymlink</varname> was added in version 263.</para>
+      <para><varname>ConfigurationDirectorySymlink</varname> and
+      <varname>TTYExitStatus</varname> were added in version 263.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -13182,7 +13208,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>IOPressureWatch</varname>,
       <varname>CPUSetPartition</varname>, and
       <varname>OOMRules</varname> were added in version 261.</para>
-      <para><varname>ConfigurationDirectorySymlink</varname> was added in version 263.</para>
+      <para><varname>ConfigurationDirectorySymlink</varname> and
+      <varname>TTYExitStatus</varname> were added in version 263.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -13252,7 +13279,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>IOPressureWatch</varname>,
       <varname>CPUSetPartition</varname>, and
       <varname>OOMRules</varname> were added in version 261.</para>
-      <para><varname>ConfigurationDirectorySymlink</varname> was added in version 263.</para>
+      <para><varname>ConfigurationDirectorySymlink</varname> and
+      <varname>TTYExitStatus</varname> were added in version 263.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>
