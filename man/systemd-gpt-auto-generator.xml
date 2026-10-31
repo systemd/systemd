@@ -318,6 +318,21 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>mount.cryptsetup.interactive_recovery=</varname></term>
+
+        <listitem><para>This option takes an optional boolean argument, and defaults to yes.
+        Interactive recovery includes prompting for a recovery key in case of a decryption failure through
+        other means, such as a TPM2 obtained key.</para>
+
+        <para>If disabled, generated cryptsetup units behave the same except that decryption failures make
+        the cryptsetup unit failure. (see <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
+        Cryptsetup will not prompt the user for recovery passphrases and performs now recovery attempt.
+        A corresponding <literal>systemd-cryptsetup-failure@.target</literal> will be met instead.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.image_policy=</varname></term>
 
         <listitem><para>Takes an image dissection policy string as argument (as per
