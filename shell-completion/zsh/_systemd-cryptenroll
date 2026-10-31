@@ -22,6 +22,13 @@ _systemd-cryptenroll_tpm2_device() {
         'devices:TPM2 device:_files -g "/dev/tpmrm*(-c)"'
 }
 
+(( $+functions[_systemd-cryptenroll_pkcs11_token_uri] )) ||
+_systemd-cryptenroll_pkcs11_token_uri() {
+    _alternative \
+        "special:special:($*)" \
+        'uris:PKCS#11 URI:(pkcs11:)'
+}
+
 (( $+functions[_systemd-cryptenroll_wipe_slot] )) ||
 _systemd-cryptenroll_wipe_slot() {
     _values -s , 'slot' all empty password recovery pkcs11 fido2 tpm2
@@ -33,7 +40,7 @@ _systemd-cryptenroll_prompt_suppress() {
 }
 
 # Unlock methods are mutually exclusive with each other
-local unlock='--unlock-empty --unlock-key-file --unlock-fido2-device --unlock-tpm2-device --unlock-headless'
+local unlock='--unlock-empty --unlock-key-file --unlock-fido2-device --unlock-tpm2-device --unlock-pkcs11-token-uri --unlock-headless'
 # Enrollment operations are mutually exclusive with each other
 local enroll='--password --recovery-key --pkcs11-token-uri --fido2-device --tpm2-device --tpm2-device-key --firstboot'
 
@@ -51,6 +58,7 @@ _arguments -s \
     "($unlock)--unlock-key-file=[Use a file to unlock the volume]:key file:_files" \
     "($unlock)--unlock-fido2-device=[Use a FIDO2 device to unlock the volume]:FIDO2 device:_systemd-cryptenroll_fido2_device auto" \
     "($unlock)--unlock-tpm2-device=[Use a TPM2 device to unlock the volume]:TPM2 device:_systemd-cryptenroll_tpm2_device auto" \
+    "($unlock)--unlock-pkcs11-token-uri=[Use a PKCS#11 token to unlock the volume]:PKCS#11 token URI:_systemd-cryptenroll_pkcs11_token_uri auto" \
     "($unlock)--unlock-headless[Try the 'headless' unlock mechanisms in turn]" \
     "($enroll)--password[Enroll a user-supplied password]" \
     "($enroll)--recovery-key[Enroll a recovery key]" \

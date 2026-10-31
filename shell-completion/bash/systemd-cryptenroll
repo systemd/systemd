@@ -48,6 +48,7 @@ _systemd_cryptenroll() {
         [ARG]='--unlock-key-file
                --unlock-fido2-device
                --unlock-tpm2-device
+               --unlock-pkcs11-token-uri
                --prompt-suppress
                --chrome
                --mute-console
@@ -88,6 +89,9 @@ _systemd_cryptenroll() {
                 ;;
             --unlock-tpm2-device)
                 comps="auto $(__get_tpm2_devices)"
+                ;;
+            --unlock-pkcs11-token-uri)
+                comps='auto pkcs11:'
                 ;;
             --pkcs11-token-uri)
                 comps='auto list pkcs11:'
