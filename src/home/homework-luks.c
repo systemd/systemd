@@ -2366,6 +2366,9 @@ int home_create_luks(
                 log_info("Allocating image file completed.");
         }
 
+        if (fstat(setup->image_fd, &st) < 0)
+                return log_error_errno(errno, "Failed to fstat home image: %m");
+
         if (h->luks_sector_size == UINT64_MAX) {
                 /* If sector size is not specified, select UINT32_MAX, i.e. auto-probe */
                 image_sector_size = UINT32_MAX;
@@ -2392,9 +2395,6 @@ int home_create_luks(
                 return r;
 
         log_info("Writing of partition table completed.");
-
-        if (fstat(setup->image_fd, &st) < 0)
-                return log_error_errno(errno, "Failed to fstat home image: %m");
 
         /* Ensure we don't create a loop device over block device as it leads to huge overhead for discard operations
          * if the device does not support discard_zeroes_data */
