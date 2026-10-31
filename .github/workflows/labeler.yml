@@ -90,17 +90,27 @@ jobs:
 
           const present = new Set(response.data.map(l => l.name));
 
+          /* Generic labels such as documentation or tests come with almost any
+           * change and say nothing about which part of the tree it touches, so
+           * they neither count towards the limit nor give way to it. */
+          const generic = new Set(config["generic-labels"]);
+          const specific = matched.filter(l => !generic.has(l));
+
           /* A pull request touching half the tree matches so many labels that
            * none of them say anything about it, so say that much instead. The
-           * count is of everything that matched rather than of what is missing,
-           * so that a rerun on the same pull request decides the same way. */
-          const tooMany = matched.length > config["max-labels"];
-          const wanted = tooMany ? [config["too-many-labels"]] : matched;
+           * count is of every specific label that matched rather than of what
+           * is missing, so that a rerun on the same pull request decides the
+           * same way. */
+          const tooMany = specific.length > config["max-labels"];
+          const wanted = tooMany ?
+            [config["too-many-labels"], ...matched.filter(l => generic.has(l))] :
+            matched;
 
-          /* The two outcomes exclude each other, so a push that crosses the limit
-           * in either direction has to take the other one's labels back off. */
+          /* The specific labels and the too-many label exclude each other, so a
+           * push that crosses the limit in either direction has to take the
+           * other one's labels back off. Generic labels stay either way. */
           const labels = wanted.filter(l => !present.has(l));
-          const stale = (tooMany ? matched : [config["too-many-labels"]])
+          const stale = (tooMany ? specific : [config["too-many-labels"]])
             .filter(l => present.has(l));
 
           if (labels.length == 0 && stale.length == 0) {

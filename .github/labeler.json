@@ -1,6 +1,16 @@
 {
   "max-labels": 5,
   "too-many-labels": "tree-wide",
+  "generic-labels": [
+    "build-system",
+    "ci",
+    "documentation",
+    "l10n 🌍",
+    "shell completion",
+    "tests",
+    "units",
+    "util-lib"
+  ],
   "labels": {
     "analyze": ["src/analyze/*"],
     "apparmor": ["*apparmor*"],
