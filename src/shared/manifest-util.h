@@ -124,6 +124,15 @@ size_t manifest_hash_size(ManifestHash h) _const_;
  * configured in the context. */
 int manifest_make(ManifestContext *c, int dir_fd);
 
+/* Low-level UAPI.16 stream writer, for callers that generate the objects themselves rather than via
+ * manifest_make(): manifest_uapi16_begin() prepares the context (and the signer, if a private key is
+ * configured), manifest_uapi16_write_object() sorts one object, feeds it to the signer and writes it, and
+ * manifest_uapi16_end() writes the signature object (if signing) and the trailer, and flushes the
+ * output. The first object written must be the header object, carrying the "mediaType" field. */
+int manifest_uapi16_begin(ManifestContext *c);
+int manifest_uapi16_write_object(ManifestContext *c, sd_json_variant *j);
+int manifest_uapi16_end(ManifestContext *c);
+
 /* Parses the next entry of a SHA256SUMS-style file (i.e. the output of sha256sum(1) and friends) from the
  * specified stream. Call this repeatedly on the same stream to iterate through all entries. Returns > 0 and
  * the file name and digest of the entry, or 0 on EOF in which case the returned file name is NULL and the
