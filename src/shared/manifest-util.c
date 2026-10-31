@@ -644,23 +644,32 @@ static int manifest_mtree_item(
         return RECURSE_DIR_CONTINUE;
 }
 
-static int uapi16_manifest_write_object(ManifestContext *c, sd_json_variant *j) {
+static int manifest_uapi16_write_object_full(ManifestContext *c, sd_json_variant *j, bool sign) {
         int r;
 
         assert(c);
+        assert(c->format == MANIFEST_FORMAT_UAPI16);
+        assert(c->output);
         assert(j);
 
-        /* Writes one file object to the output. If we are signing, the object is formatted a second time
-         * without any color sequences, and that rendering (which is what a consumer reading from a file or
-         * pipe sees) is what the signature covers. The colored rendering is for humans only. */
+        /* Writes one object to the output. If we are signing (and 'sign' is true), the object is formatted
+         * a second time without any color sequences, and that rendering (which is what a consumer reading
+         * from a file or pipe sees) is what the signature covers. The colored rendering is for humans
+         * only. */
+
+        /* The specification recommends sorting fields alphabetically, recursively */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *n = sd_json_variant_ref(j);
+        r = sd_json_variant_normalize(&n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to sort JSON object: %m");
 
         sd_json_format_flags_t flags = c->json_format_flags | SD_JSON_FORMAT_SEQ | SD_JSON_FORMAT_FLUSH;
 
-        if (c->signer) {
+        if (sign && c->signer) {
                 sd_json_format_flags_t nocolor_flags = flags & ~(SD_JSON_FORMAT_COLOR|SD_JSON_FORMAT_COLOR_AUTO);
 
                 _cleanup_free_ char *text = NULL;
-                r = sd_json_variant_format(j, nocolor_flags, &text);
+                r = sd_json_variant_format(n, nocolor_flags, &text);
                 if (r < 0)
                         return log_error_errno(r, "Failed to format JSON object: %m");
 
@@ -680,7 +689,7 @@ static int uapi16_manifest_write_object(ManifestContext *c, sd_json_variant *j) 
         }
 
         r = sd_json_variant_dump(
-                        j,
+                        n,
                         flags,
                         c->output,
                         /* prefix= */ NULL);
@@ -688,6 +697,10 @@ static int uapi16_manifest_write_object(ManifestContext *c, sd_json_variant *j) 
                 return log_error_errno(r, "Failed to write JSON output: %m");
 
         return 0;
+}
+
+int manifest_uapi16_write_object(ManifestContext *c, sd_json_variant *j) {
+        return manifest_uapi16_write_object_full(c, j, /* sign= */ true);
 }
 
 static unsigned manifest_uapi16_fields_to_statx(ManifestField fields) {
@@ -1130,12 +1143,7 @@ static int manifest_uapi16_item(
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON object: %m");
 
-        /* The specification recommends sorting fields alphabetically, recursively */
-        r = sd_json_variant_normalize(&j);
-        if (r < 0)
-                return log_error_errno(r, "Failed to sort JSON object: %m");
-
-        r = uapi16_manifest_write_object(c, j);
+        r = manifest_uapi16_write_object(c, j);
         if (r < 0)
                 return r;
 
@@ -1275,11 +1283,10 @@ static int manifest_context_check_hash(ManifestContext *c) {
 #endif
 }
 
-int manifest_make(ManifestContext *c, int dir_fd) {
+static int manifest_context_setup(ManifestContext *c) {
         int r;
 
         assert(c);
-        assert(dir_fd >= 0);
 
         if (!c->output)
                 c->output = stdout;
@@ -1296,20 +1303,81 @@ int manifest_make(ManifestContext *c, int dir_fd) {
         if ((c->json_format_flags & (SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_PRETTY)) == SD_JSON_FORMAT_PRETTY_AUTO)
                 c->json_format_flags = (c->json_format_flags & ~SD_JSON_FORMAT_PRETTY_AUTO) | (on_tty() ? SD_JSON_FORMAT_PRETTY : SD_JSON_FORMAT_NEWLINE);
 
-        r = manifest_context_check_hash(c);
-        if (r < 0)
-                return r;
-
         if (c->private_key) {
                 if (c->format != MANIFEST_FORMAT_UAPI16)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Signing is only supported for UAPI.16 manifests.");
                 if (!c->certificate)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Signing requires a certificate.");
 
+                assert(!c->signer);
+
                 r = uapi16_signer_new(c->certificate, c->private_key, &c->signer);
                 if (r < 0)
                         return r;
         }
+
+        return 0;
+}
+
+int manifest_uapi16_begin(ManifestContext *c) {
+        assert(c);
+        assert(c->format == MANIFEST_FORMAT_UAPI16);
+
+        return manifest_context_setup(c);
+}
+
+int manifest_uapi16_end(ManifestContext *c) {
+        int r;
+
+        assert(c);
+        assert(c->format == MANIFEST_FORMAT_UAPI16);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        if (c->signer) {
+                r = uapi16_signer_finish(c->signer, &j);
+                if (r < 0)
+                        return r;
+
+                /* The signature object is appended as one more record, which is not covered by the
+                 * signature itself. Its leading record separator is by construction the first byte not
+                 * covered by the signature. */
+                r = manifest_uapi16_write_object_full(c, j, /* sign= */ false);
+                if (r < 0)
+                        return r;
+
+                j = sd_json_variant_unref(j);
+        }
+
+        r = sd_json_buildo(
+                        &j,
+                        SD_JSON_BUILD_PAIR("mediaType", JSON_BUILD_CONST_STRING(UAPI16_TRAILER_MEDIA_TYPE)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON object: %m");
+
+        r = manifest_uapi16_write_object_full(c, j, /* sign= */ false);
+        if (r < 0)
+                return r;
+
+        r = fflush_and_check(c->output);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write manifest: %m");
+
+        return 0;
+}
+
+int manifest_make(ManifestContext *c, int dir_fd) {
+        int r;
+
+        assert(c);
+        assert(dir_fd >= 0);
+
+        r = manifest_context_check_hash(c);
+        if (r < 0)
+                return r;
+
+        r = manifest_context_setup(c);
+        if (r < 0)
+                return r;
 
         recurse_dir_func_t item_callback = NULL;
         unsigned statx_mask = 0;
@@ -1356,33 +1424,8 @@ int manifest_make(ManifestContext *c, int dir_fd) {
         if (IN_SET(c->format, MANIFEST_FORMAT_LIST, MANIFEST_FORMAT_SHA256SUMS))
                 c->top_level_covered = true;
 
-        if (c->format == MANIFEST_FORMAT_UAPI16) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
-
-                if (c->signer) {
-                        r = uapi16_signer_finish(c->signer, &j);
-                        if (r < 0)
-                                return r;
-
-                        /* The signature object is appended as one more record. Its leading record separator is by
-                         * construction the first byte not covered by the signature. */
-                        r = sd_json_variant_dump(j, c->json_format_flags | SD_JSON_FORMAT_SEQ, c->output, /* prefix= */ NULL);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to write signature object: %m");
-
-                        j = sd_json_variant_unref(j);
-                }
-
-                r = sd_json_buildo(
-                                &j,
-                                SD_JSON_BUILD_PAIR("mediaType", JSON_BUILD_CONST_STRING(UAPI16_TRAILER_MEDIA_TYPE)));
-                if (r < 0)
-                        return log_error_errno(r, "Failed to build JSON object: %m");
-
-                r = sd_json_variant_dump(j, c->json_format_flags | SD_JSON_FORMAT_SEQ, c->output, /* prefix= */ NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to write JSON output: %m");
-        }
+        if (c->format == MANIFEST_FORMAT_UAPI16)
+                return manifest_uapi16_end(c);
 
         r = fflush_and_check(c->output);
         if (r < 0)
