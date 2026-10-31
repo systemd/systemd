@@ -16,6 +16,7 @@
 
 #include "devnum-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "hexdecoct.h"
 #include "log.h"
 #include "random-util.h"
@@ -767,9 +768,9 @@ int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname) {
         struct stat statbuf;
         int r;
 
-        _cleanup_close_ int fd = open(devname, O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOCTTY);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, devname, O_RDONLY | O_NONBLOCK | O_NOCTTY);
         if (fd < 0)
-                return log_debug_errno(errno, "scsi_id: cannot open %s: %m", devname);
+                return log_debug_errno(fd, "scsi_id: cannot open %s: %m", devname);
 
         if (fstat(fd, &statbuf) < 0)
                 return log_debug_errno(errno, "scsi_id: cannot stat %s: %m", devname);
@@ -800,8 +801,8 @@ int scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname,
 
         memzero(dev_scsi->serial, len);
         for (cnt = 20; cnt > 0; cnt--) {
-                fd = open(devname, O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOCTTY);
-                if (fd >= 0 || errno != EBUSY)
+                fd = xopenat(AT_FDCWD, devname, O_RDONLY | O_NONBLOCK | O_NOCTTY);
+                if (fd >= 0 || fd != -EBUSY)
                         break;
 
                 usleep_safe(200U*USEC_PER_MSEC + random_u64_range(100U*USEC_PER_MSEC));

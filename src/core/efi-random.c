@@ -7,16 +7,17 @@
 #include "efi-random.h"
 #include "efivars.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "log.h"
 
 void lock_down_efi_variables(void) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        fd = open(EFIVAR_PATH(EFI_LOADER_VARIABLE_STR("LoaderSystemToken")), O_RDONLY|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, EFIVAR_PATH(EFI_LOADER_VARIABLE_STR("LoaderSystemToken")), O_RDONLY);
         if (fd < 0) {
-                if (errno != ENOENT)
-                        log_warning_errno(errno, "Unable to open LoaderSystemToken EFI variable, ignoring: %m");
+                if (fd != -ENOENT)
+                        log_warning_errno(fd, "Unable to open LoaderSystemToken EFI variable, ignoring: %m");
                 return;
         }
 

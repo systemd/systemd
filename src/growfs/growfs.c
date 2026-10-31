@@ -16,6 +16,7 @@
 #include "dlopen-note.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mountpoint-util.h"
@@ -189,9 +190,9 @@ static int run(int argc, char *argv[]) {
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "\"%s\" is not a mount point.", arg_target);
 
-        mountfd = open(arg_target, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        mountfd = xopenat(AT_FDCWD, arg_target, O_RDONLY|O_DIRECTORY);
         if (mountfd < 0)
-                return log_error_errno(errno, "Failed to open \"%s\": %m", arg_target);
+                return log_error_errno(mountfd, "Failed to open \"%s\": %m", arg_target);
 
         r = get_block_device_fd(mountfd, &devno);
         if (r == -EUCLEAN)

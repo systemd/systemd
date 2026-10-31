@@ -872,7 +872,7 @@ int pseudo_tty_vhangup(PseudoTTY *pty) {
         if (r < 0)
                 return log_error_errno(r, "Failed to fork off vhangup() child: %m");
         if (r == 0) {
-                _cleanup_close_ int fd = fd_reopen(pin_fd, O_RDWR|O_CLOEXEC|O_NOCTTY);
+                _cleanup_close_ int fd = fd_reopen(pin_fd, O_RDWR|O_NOCTTY);
                 if (fd < 0)
                         goto child_fail;
 

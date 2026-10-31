@@ -27,6 +27,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "inotify-util.h"
 #include "io-util.h"
 #include "main-func.h"
@@ -125,9 +126,9 @@ static bool wall_tty_match(const char *path, bool is_local, void *userdata) {
                 return true;
         }
 
-        _cleanup_close_ int fd = open(p, O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, p, O_WRONLY|O_NONBLOCK|O_NOCTTY);
         if (fd < 0) {
-                log_debug_errno(errno, "Failed to open the wall pipe for TTY '%s', not restricting wall: %m", path);
+                log_debug_errno(fd, "Failed to open the wall pipe for TTY '%s', not restricting wall: %m", path);
                 return 1;
         }
 
@@ -311,9 +312,9 @@ static int wall_tty_block(void) {
         (void) mkdir_parents_label(p, 0700);
         (void) mkfifo(p, 0600);
 
-        fd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        fd = xopenat(AT_FDCWD, p, O_RDONLY|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
-                return log_debug_errno(errno, "Failed to open %s: %m", p);
+                return log_debug_errno(fd, "Failed to open %s: %m", p);
 
         return fd;
 }
