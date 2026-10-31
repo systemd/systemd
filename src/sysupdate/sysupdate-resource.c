@@ -43,6 +43,7 @@ void resource_destroy(Resource *rr) {
         assert(rr);
 
         free(rr->path);
+        free(rr->manifest_path);
         strv_free(rr->patterns);
 
         for (size_t i = 0; i < rr->n_instances; i++)
@@ -361,33 +362,51 @@ static int resource_load_from_blockdev(Resource *rr) {
         return 0;
 }
 
-static int download_manifest(
-                const char *url,
-                bool verify_signature,
-                char **ret_buffer,
-                size_t *ret_size) {
-
-        _cleanup_free_ char *buffer = NULL, *suffixed_url = NULL;
-        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
-        _cleanup_fclose_ FILE *manifest = NULL;
-        size_t size = 0;
+static int resource_manifest_url(Resource *rr, char **ret) {
         int r;
 
-        assert(url);
-        assert(ret_buffer);
-        assert(ret_size);
+        assert(rr);
+        assert(rr->manifest_format == MANIFEST_FORMAT_SHA256SUMS);
+        assert(ret);
 
-        /* Download a SHA256SUMS file as manifest */
+        /* Returns the URL to acquire the manifest from: either the one explicitly configured, or the
+         * default file name for the manifest format, below the resource's URL. */
 
-        r = import_url_append_component(url, "SHA256SUMS", &suffixed_url);
+        if (rr->manifest_path) {
+                r = strdup_to(ret, rr->manifest_path);
+                if (r < 0)
+                        return log_oom();
+
+                return 0;
+        }
+
+        r = import_url_append_component(rr->path, "SHA256SUMS", ret);
         if (r < 0)
                 return log_error_errno(r, "Failed to append SHA256SUMS to URL: %m");
 
+        return 0;
+}
+
+static int download_manifest(
+                ManifestFormat manifest_format,
+                const char *manifest_url,
+                bool verify_signature,
+                struct iovec *ret) {
+
+        int r;
+
+        assert(manifest_format == MANIFEST_FORMAT_SHA256SUMS);
+        assert(manifest_url);
+        assert(ret);
+
+        /* Download a SHA256SUMS file as manifest */
+
+        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
         if (pipe2(pfd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to allocate pipe: %m");
 
         log_info("%s Acquiring manifest file %s%s", glyph(GLYPH_DOWNLOAD),
-                 suffixed_url, glyph(GLYPH_ELLIPSIS));
+                 manifest_url, glyph(GLYPH_ELLIPSIS));
 
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
@@ -406,7 +425,7 @@ static int download_manifest(
                         "raw",
                         "--direct",                        /* just download the specified URL, don't download anything else */
                         "--verify", verify_signature ? "signature" : "no", /* verify the manifest file */
-                        suffixed_url,
+                        manifest_url,
                         "-",                               /* write to stdout */
                         NULL
                 };
@@ -423,13 +442,13 @@ static int download_manifest(
          * us as it runs. We thus need to check the return value of the process *before* parsing, to be
          * reasonably safe. */
 
-        manifest = fdopen(pfd[0], "r");
-        if (!manifest)
-                return log_error_errno(errno, "Failed to allocate FILE object for manifest file: %m");
+        _cleanup_fclose_ FILE *manifest = NULL;
+        r = take_fdopen_unlocked(pfd+0, "r", &manifest);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate FILE object for manifest file: %m");
 
-        TAKE_FD(pfd[0]);
-
-        r = read_full_stream(manifest, &buffer, &size);
+        _cleanup_(iovec_done) struct iovec buffer = {};
+        r = read_full_stream(manifest, (char**) &buffer.iov_base, &buffer.iov_len);
         if (r < 0)
                 return log_error_errno(r, "Failed to read manifest file from child: %m");
 
@@ -441,13 +460,26 @@ static int download_manifest(
         if (r != 0)
                 return -EPROTO;
 
-        *ret_buffer = TAKE_PTR(buffer);
-        *ret_size = size;
-
+        *ret = TAKE_STRUCT(buffer);
         return 0;
 }
 
-static int process_magic_file(
+static bool verify_freshness(void) {
+        static int cache = -1;
+        int r;
+
+        if (cache >= 0)
+                return cache;
+
+        r = secure_getenv_bool("SYSTEMD_SYSUPDATE_VERIFY_FRESHNESS");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_SYSUPDATE_VERIFY_FRESHNESS, ignoring: %m");
+
+        return (cache = r != 0);
+}
+
+static int sha256sums_process_magic_file(
+                size_t line_nr,
                 const char *fn,
                 const struct iovec *hash) {
 
@@ -455,6 +487,14 @@ static int process_magic_file(
 
         assert(fn);
         assert(iovec_is_set(hash));
+
+        /* Magic files can't be in subdirectories */
+        if (is_path(fn)) {
+                if (startswith(last_path_component(fn), "BEST-BEFORE-"))
+                        log_warning("Ignoring best-before marker '%s' in subdirectory at manifest line %zu.", fn, line_nr);
+
+                return 0;
+        }
 
         /* Validates "BEST-BEFORE-*" magic files we find in SHA256SUMS manifests. For now we ignore the
          * contents of such files (which might change one day), and only look at the file name.
@@ -483,11 +523,7 @@ static int process_magic_file(
         if (best_before < nw) {
                 /* We are past the best before date! Yikes! */
 
-                r = secure_getenv_bool("SYSTEMD_SYSUPDATE_VERIFY_FRESHNESS");
-                if (r < 0 && r != -ENXIO)
-                        log_debug_errno(r, "Failed to parse $SYSTEMD_SYSUPDATE_VERIFY_FRESHNESS, ignoring: %m");
-
-                if (r == 0) {
+                if (!verify_freshness()) {
                         log_warning("Best before marker indicates out-of-date file list, but told to ignore this, hence ignoring (%s < %s).",
                                     FORMAT_TIMESTAMP(best_before), FORMAT_TIMESTAMP(nw));
                         return 1; /* we processed this line, don't use for pattern matching */
@@ -503,52 +539,24 @@ static int process_magic_file(
         return 1; /* we processed this line, don't use for pattern matching */
 }
 
-static int resource_load_from_web(
+static int sha256sums_process(
                 Resource *rr,
-                bool verify,
-                Hashmap **web_cache) {
+                const struct iovec *manifest) {
 
-        size_t manifest_size = 0, left = 0;
-        _cleanup_free_ char *buf = NULL;
-        const char *manifest, *p;
-        size_t line_nr = 1;
-        WebCacheItem *ci;
         int r;
 
         assert(rr);
-        POINTER_MAY_BE_NULL(web_cache);
+        assert(manifest);
 
-        ci = web_cache ? web_cache_get_item(*web_cache, rr->path, verify) : NULL;
-        if (ci) {
-                log_debug("Manifest web cache hit for %s.", rr->path);
-
-                manifest = (char*) ci->data;
-                manifest_size = ci->size;
-        } else {
-                log_debug("Manifest web cache miss for %s.", rr->path);
-
-                r = download_manifest(rr->path, verify, &buf, &manifest_size);
-                if (r < 0)
-                        return r;
-
-                manifest = buf;
-        }
-
-        if (memchr(manifest, 0, manifest_size))
+        if (memchr(manifest->iov_base, 0, manifest->iov_len))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Manifest file has embedded NUL byte, refusing.");
-        if (!utf8_is_valid_n(manifest, manifest_size))
+        if (!utf8_is_valid_n(manifest->iov_base, manifest->iov_len))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Manifest file is not valid UTF-8, refusing.");
 
-        p = manifest;
-        left = manifest_size;
+        const char *p = manifest->iov_base;
+        size_t left = manifest->iov_len;
 
-        while (left > 0) {
-                _cleanup_(instance_metadata_destroy) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
-                _cleanup_(iovec_done) struct iovec h = {};
-                _cleanup_free_ char *fn = NULL;
-                Instance *instance;
-                const char *e;
-
+        for (size_t line_nr = 1; left > 0; line_nr ++) {
                 /* 64 character hash + separator + filename + newline */
                 if (left < 67)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Corrupt manifest at line %zu, refusing.", line_nr);
@@ -556,6 +564,7 @@ static int resource_load_from_web(
                 if (p[0] == '\\')
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "File names with escapes not supported in manifest at line %zu, refusing.", line_nr);
 
+                _cleanup_(iovec_done) struct iovec h = {};
                 r = unhexmem_full(p, 64, /* secure= */ false, &h.iov_base, &h.iov_len);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse digest at manifest line %zu, refusing.", line_nr);
@@ -575,13 +584,13 @@ static int resource_load_from_web(
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing binary/text input marker at manifest line %zu, refusing.", line_nr);
                 p++, left--;
 
-                e = memchr(p, '\n', left);
+                const char *e = memchr(p, '\n', left);
                 if (!e)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Truncated manifest file at line %zu, refusing.", line_nr);
                 if (e == p)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Empty filename specified at manifest line %zu, refusing.", line_nr);
 
-                fn = strndup(p, e - p);
+                _cleanup_free_ char *fn = strndup(p, e - p);
                 if (!fn)
                         return log_oom();
 
@@ -594,60 +603,91 @@ static int resource_load_from_web(
                 if (string_has_cc(fn, /* ok= */ NULL))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Filename contains control characters at manifest line %zu, refusing.", line_nr);
 
-                /* Magic files can't be in subdirectories */
-                if (strchr(fn, '/') && startswith(last_path_component(fn), "BEST-BEFORE-"))
-                        log_warning("Ignoring best-before marker '%s' in subdirectory at manifest line %zu.", fn, line_nr);
-
-                r = process_magic_file(fn, &h);
-                if (r < 0)
-                        return r;
-                if (r == 0) {
-                        /* Pattern matching against the full manifest entry. A pattern with the glob
-                         * directory prefix matches against the basename only which pattern_match_many
-                         * handles. */
-                        r = pattern_match_many(rr->patterns, fn, &extracted_fields);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to match pattern: %m");
-                        if (IN_SET(r, PATTERN_MATCH_YES, PATTERN_MATCH_YES_AND_RETRY)) {
-                                _cleanup_free_ char *path = NULL;
-
-                                r = import_url_append_component(rr->path, fn, &path);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to build instance URL: %m");
-
-                                r = resource_add_instance(rr, path, &extracted_fields, &instance);
-                                if (r < 0)
-                                        return r;
-
-                                assert(h.iov_len == sizeof(instance->metadata.sha256sum));
-
-                                if (instance->metadata.sha256sum_set) {
-                                        if (memcmp(instance->metadata.sha256sum, h.iov_base, h.iov_len) != 0)
-                                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "SHA256 sum parsed from filename and manifest don't match at line %zu, refusing.", line_nr);
-                                } else {
-                                        memcpy(instance->metadata.sha256sum, h.iov_base, h.iov_len);
-                                        instance->metadata.sha256sum_set = true;
-                                }
-
-                                /* Web resources can only be a source, not a target, so
-                                 * can never be partial or pending. */
-                                instance->is_partial = false;
-                                instance->is_pending = false;
-                        }
-                }
-
                 left -= (e - p) + 1;
                 p = e + 1;
 
-                line_nr++;
+                r = sha256sums_process_magic_file(line_nr, fn, &h);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        continue;
+
+                /* If this isn't a magic file, then do the pattern matching */
+                _cleanup_(instance_metadata_destroy) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
+                r = pattern_match_many(rr->patterns, fn, &extracted_fields);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to match pattern: %m");
+                if (!IN_SET(r, PATTERN_MATCH_YES, PATTERN_MATCH_YES_AND_RETRY))
+                        continue;
+
+                _cleanup_free_ char *path = NULL;
+                r = import_url_append_component(rr->path, fn, &path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build instance URL: %m");
+
+                Instance *instance;
+                r = resource_add_instance(rr, path, &extracted_fields, &instance);
+                if (r < 0)
+                        return r;
+
+                assert(h.iov_len == sizeof(instance->metadata.sha256sum));
+
+                if (instance->metadata.sha256sum_set) {
+                        if (memcmp(instance->metadata.sha256sum, h.iov_base, h.iov_len) != 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "SHA256 sum parsed from filename and manifest don't match at line %zu, refusing.", line_nr);
+                } else {
+                        memcpy(instance->metadata.sha256sum, h.iov_base, h.iov_len);
+                        instance->metadata.sha256sum_set = true;
+                }
         }
 
-        if (!ci && web_cache) {
-                r = web_cache_add_item(web_cache, rr->path, verify, manifest, manifest_size);
+        return 0;
+}
+
+static int resource_load_from_web(
+                Resource *rr,
+                bool verify,
+                Hashmap **web_cache) {
+
+        _cleanup_(iovec_done) struct iovec buf = {};
+        struct iovec manifest = {};
+        int r;
+
+        assert(rr);
+        POINTER_MAY_BE_NULL(web_cache);
+
+        /* Key the cache by the URL of the manifest itself, not the one of the resource, as the former
+         * depends on ManifestPath= too. */
+        _cleanup_free_ char *manifest_url = NULL;
+        r = resource_manifest_url(rr, &manifest_url);
+        if (r < 0)
+                return r;
+
+        WebCacheItem *ci = web_cache ? web_cache_get_item(*web_cache, manifest_url, verify) : NULL;
+        if (ci) {
+                log_debug("Manifest web cache hit for %s.", manifest_url);
+
+                manifest = IOVEC_MAKE(ci->data, ci->size);
+        } else {
+                log_debug("Manifest web cache miss for %s.", manifest_url);
+
+                r = download_manifest(rr->manifest_format, manifest_url, verify, &buf);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to add manifest '%s' to cache, ignoring: %m", rr->path);
+                        return r;
+
+                manifest = buf;
+        }
+
+        r = sha256sums_process(rr, &manifest);
+        if (r < 0)
+                return r;
+
+        if (!ci && web_cache) {
+                r = web_cache_add_item(web_cache, manifest_url, verify, manifest.iov_base, manifest.iov_len);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to add manifest '%s' to cache, ignoring: %m", manifest_url);
                 else
-                        log_debug("Added manifest '%s' to cache.", rr->path);
+                        log_debug("Added manifest '%s' to cache.", manifest_url);
         }
 
         return 0;
