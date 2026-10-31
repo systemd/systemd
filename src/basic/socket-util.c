@@ -1276,6 +1276,11 @@ size_t sockaddr_ll_len(const struct sockaddr_ll *sa) {
         if (be16toh(sa->sll_hatype) == ARPHRD_INFINIBAND)
                 mac_len = MAX(mac_len, (size_t) INFINIBAND_ALEN);
 
+        /* The kernel ignores sll_hatype when sending, and only requires the address length to cover
+         * sll_halen bytes. Hence also honor sll_halen, so that a sockaddr filled with a long address
+         * but without a hardware type is sized correctly. */
+        mac_len = MAX(mac_len, (size_t) sa->sll_halen);
+
         return offsetof(struct sockaddr_ll, sll_addr) + mac_len;
 }
 
