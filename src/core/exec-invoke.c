@@ -2872,9 +2872,9 @@ static int can_mount_proc(void) {
         return 1;
 }
 
-static int setup_private_pids(const ExecContext *c, ExecParameters *p) {
+static int setup_private_pids(const ExecContext *c, ExecParameters *p, bool keep_parent) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
+        _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR, exec_pipe[2] = EBADF_PAIR;
         ssize_t n;
         int r, q;
 
@@ -2891,6 +2891,13 @@ static int setup_private_pids(const ExecContext *c, ExecParameters *p) {
          * failed to send child pidref to the manager. */
         if (pipe2(errno_pipe, O_CLOEXEC) < 0)
                 return log_debug_errno(errno, "Failed to create pipe for communicating with parent process: %m");
+
+        /* The parent opened connections to mountfsd and nsresourced, so those services will lookup
+         * information such as UID and mount namespace through the parent process. So the parent needs to
+         * stick around until the child is done.
+         */
+        if (keep_parent && pipe2(exec_pipe, O_CLOEXEC) < 0)
+                return log_debug_errno(errno, "Failed to create pipe for waiting for child process: %m");
 
         /* Set FORK_DETACH to immediately re-parent the child process to the invoking manager process. */
         r = pidref_safe_fork("(sd-pidns-child)", FORK_NEW_PIDNS|FORK_DETACH, &pidref);
@@ -2910,12 +2917,25 @@ static int setup_private_pids(const ExecContext *c, ExecParameters *p) {
                                 /* flags= */ 0);
                 /* Send error code to child process. */
                 (void) write(errno_pipe[1], &q, sizeof(q));
+
+                if (keep_parent) {
+                        exec_pipe[1] = safe_close(exec_pipe[1]);
+                        for (;;) {
+                                r = fd_wait_for_event(exec_pipe[0], POLLHUP, USEC_INFINITY);
+                                if (r != -EINTR)
+                                        break;
+                        }
+                }
+
                 /* Exit here so we only go through the destructors in exec_invoke only once - in the child - as
                  * some destructors have external effects. The main codepaths continue in the child process. */
                 _exit(q < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
 
         errno_pipe[1] = safe_close(errno_pipe[1]);
+        exec_pipe[0] = safe_close(exec_pipe[0]);
+        /* Keep our end open until we execute the payload, or exit. */
+        TAKE_FD(exec_pipe[1]);
         p->pidref_transport_fd = safe_close(p->pidref_transport_fd);
 
         /* Try to read an error code from the parent. Note a child process cannot wait for the parent so we always
@@ -5040,7 +5060,7 @@ static int setup_delegated_namespaces(
                         }
                 }
 
-                r = setup_private_pids(context, params);
+                r = setup_private_pids(context, params, /* keep_parent= */ !!mountfsd_link);
                 if (r < 0) {
                         *reterr_exit_status = EXIT_NAMESPACE;
                         return log_error_errno(r, "Failed to set up pid namespace: %m");
