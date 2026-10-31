@@ -68,7 +68,6 @@
     "locale": ["*locale*"],
     "login": ["src/login/*", "*sd-login*/*"],
     "machine": ["src/machine/*", "units/*machine*"],
-    "meson": ["meson_options.txt", "*meson.build"],
     "mkosi": ["*mkosi*"],
     "modules-load": ["*modules-load*", "modprobe.d/*"],
     "mount": ["src/basic/*mount*", "src/core/*mount*", "src/mount/*", "src/shared/*mount*"],
