@@ -84,7 +84,7 @@ static void test_capability_set_to_strv_one(uint64_t m, char **l) {
         _cleanup_strv_free_ char **b = NULL;
 
         assert_se(capability_set_to_strv(m, &b) >= 0);
-        assert_se(strv_equal(l, b));
+        ASSERT_STRV_EQ(l, b);
 }
 
 TEST(capability_set_to_strv) {

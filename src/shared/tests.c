@@ -19,6 +19,7 @@
 #include "env-file.h"
 #include "env-util.h"
 #include "errno-util.h"
+#include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fs-util.h"
@@ -334,6 +335,25 @@ int enter_cgroup_subroot(char **ret_cgroup) {
 
 int enter_cgroup_root(char **ret_cgroup) {
         return enter_cgroup(ret_cgroup, /* enter_subroot= */ false);
+}
+
+char* strv_join_quoted(char * const *l) {
+        _cleanup_free_ char *j = NULL;
+
+        STRV_FOREACH(s, l) {
+                _cleanup_free_ char *e = cescape(*s);
+                if (!e)
+                        return NULL;
+
+                _cleanup_free_ char *q = strjoin("\"", e, "\"");
+                if (!q)
+                        return NULL;
+
+                if (!strextend_with_separator(&j, ", ", q))
+                        return NULL;
+        }
+
+        return strjoin("[", strempty(j), "]");
 }
 
 int define_hex_ptr_internal(const char *hex, void **name, size_t *name_len) {
