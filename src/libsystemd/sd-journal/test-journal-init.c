@@ -44,8 +44,8 @@ int main(int argc, char *argv[]) {
                 r = pidref_safe_fork("(journal-fork-test)", FORK_WAIT|FORK_LOG, /* ret= */ NULL);
                 if (r == 0) {
                         ASSERT_NOT_NULL(j);
-                        ASSERT_RETURN_EXPECTED_SE(sd_journal_get_realtime_usec(j, /* ret= */ NULL) == -ECHILD);
-                        ASSERT_RETURN_EXPECTED_SE(sd_journal_seek_tail(j) == -ECHILD);
+                        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_journal_get_realtime_usec(j, /* ret= */ NULL), ECHILD));
+                        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_journal_seek_tail(j), ECHILD));
                         ASSERT_EQ(j->current_location.type, (LocationType) LOCATION_HEAD);
                         sd_journal_close(j);
                         _exit(EXIT_SUCCESS);
