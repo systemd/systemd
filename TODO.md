@@ -157,8 +157,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - make vpick assessment counting work
 
-- sysext: condition confext/sysext on machine tags, too
-
 - sysupdate: add health check logic, revert updates if fail
 
 - confext/sysext: add policy file concept: json files that encode for relevant
@@ -1229,9 +1227,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - **importd/importctl:**
   - complete varlink interface
   - download images into .v/ dirs
-
-- importd: support image signature verification with PKCS#7 + OpenBSD signify
-  logic, as alternative to crummy gpg
 
 - In .socket units, add ConnectStream=, ConnectDatagram=,
   ConnectSequentialPacket= that create a socket, and then *connect to* rather than

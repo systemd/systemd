@@ -56,6 +56,18 @@ typedef struct PullJob {
         uint64_t written_uncompressed;
         uint64_t offset;
 
+        /* The range of the decoded data to write out (anything before and after it is dropped), and the
+         * number of decoded bytes seen so far, including the dropped ones */
+        uint64_t source_offset;
+        uint64_t source_size;
+        uint64_t decoded_total;
+
+        /* Whether we may ask an HTTP server for just the source range (i.e. if the data is not encoded and
+         * the download needs not be verified as a whole), whether we did, and whether the server complied */
+        bool allow_range_request;
+        bool range_requested;
+        bool range_applied;
+
         uint64_t uncompressed_max;
         uint64_t compressed_max;
 
@@ -79,6 +91,10 @@ typedef struct PullJob {
 
         bool calc_checksum;
         EVP_MD_CTX *checksum_ctx;
+
+        /* For checksum jobs: the file name of the download to verify, to derive the names of alternative
+         * checksum files to try from */
+        char *main_filename;
 
         struct iovec checksum;
         struct iovec expected_checksum;

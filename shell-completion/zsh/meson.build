@@ -54,6 +54,7 @@ foreach item : [
         ['_systemd-hwdb',             'ENABLE_HWDB'],
         ['_systemd-id128',            ''],
         ['_systemd-inhibit',          'ENABLE_LOGIND'],
+        ['_systemd-manifest',         ''],
         ['_systemd-nspawn',           ''],
         ['_systemd-path',             ''],
         ['_systemd-pty-forward',      ''],
