@@ -29,6 +29,9 @@
 #   Specify the protocol used to interact with a debug appliance, see
 #   70-debug-appliance.hwdb
 #   ID_DEBUG_APPLIANCE=?*
+#
+#   Specify if a device has a video interface, e.g. a webcam
+#   ID_VIDEO=0|1
 
 # USB3 Vision devices exposing the device control interface
 usb-interface:v*p*:ef0500:*
@@ -63,3 +66,7 @@ usb-interface:v*p*:dc0201:*
 usb-interface:v*p*:ff4201:*
 usb-interface:v*p*:ff4203:*
  ID_DEBUG_APPLIANCE=android
+
+# Devices exposing a video interface, e.g. webcams (interface class 0e)
+usb-interface:v*p*:0e????:*
+ ID_VIDEO=1
