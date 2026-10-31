@@ -1363,4 +1363,397 @@ EOF
     homectl remove idgrouptest2
 }
 
+RAW_USER=rawhome
+RAW_PASSWORD=xEhErW0ndafV4s
+RAW_IMAGE=/var/tmp/TEST-46-rawhome.img
+RAW_MOUNT=/var/tmp/TEST-46-rawhome.mnt
+RAW_LINEAR=TEST-46-rawhome-linear
+RAW_HOLDER=TEST-46-rawhome-holder
+RAW_LOOP=
+
+raw_cleanup() (
+    set +e
+
+    if homectl inspect "$RAW_USER" 2>/dev/null | grep -F 'State: active' >/dev/null; then
+        homectl deactivate "$RAW_USER" 2>/dev/null
+        wait_for_state "$RAW_USER" inactive 2>/dev/null
+    fi
+    homectl remove "$RAW_USER" 2>/dev/null
+
+    umount "$RAW_MOUNT" 2>/dev/null
+    rmdir "$RAW_MOUNT" 2>/dev/null
+    dmsetup remove "$RAW_LINEAR" 2>/dev/null
+    dmsetup remove "$RAW_HOLDER" 2>/dev/null
+    [[ -n "$RAW_LOOP" ]] && losetup -d "$RAW_LOOP"
+    rm -f "$RAW_IMAGE"
+
+    # A removed home on a block device is discovered again, until the device is gone
+    udevadm settle --timeout=30
+    timeout 1m bash -c "while homectl inspect '$RAW_USER' >/dev/null 2>&1; do sleep 1; done"
+    return 0
+)
+
+raw_supported() {
+    local tool
+
+    # All of this needs real block devices, and udev to manage them
+    if systemd-detect-virt --container >/dev/null || [[ ! -e /dev/loop-control ]]; then
+        echo "No block device support, skipping."
+        return 1
+    fi
+
+    for tool in sfdisk dmsetup cryptsetup mkfs.ext4 wipefs; do
+        if ! command -v "$tool" >/dev/null; then
+            echo "$tool not available, skipping."
+            return 1
+        fi
+    done
+
+    trap raw_cleanup ERR EXIT
+}
+
+raw_setup_loop() {
+    truncate -s 1G "$RAW_IMAGE"
+    RAW_LOOP="$(losetup --show --find --partscan "$RAW_IMAGE")"
+    # udev only rescans a device for partitions when it's closed after writing if it has started watching it
+    udevadm settle --timeout=30
+}
+
+# Partition table with the partition to use in the middle, with something to preserve on either side
+raw_setup_disk() {
+    raw_setup_loop
+
+    sfdisk "$RAW_LOOP" <<EOF
+label: gpt
+size=64M, name=first, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4
+size=600M, name=middle, type=933AC7E1-2EB4-4F13-B844-0E14E2AEF915
+size=64M, name=last, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4
+EOF
+    udevadm settle --timeout=30
+
+    mkfs.ext4 -q "${RAW_LOOP}p1"
+    mkfs.ext4 -q "${RAW_LOOP}p3"
+    mkdir -p "$RAW_MOUNT"
+    mount "${RAW_LOOP}p1" "$RAW_MOUNT"
+}
+
+raw_setup_linear() {
+    raw_setup_loop
+    dmsetup create "$RAW_LINEAR" --table "0 $((600*1024*2)) linear $RAW_LOOP 0"
+    udevadm settle --timeout=30
+}
+
+raw_grow_linear() {
+    dmsetup suspend "$RAW_LINEAR"
+    dmsetup reload "$RAW_LINEAR" --table "0 $((${1:?}*1024*2)) linear $RAW_LOOP 0"
+    dmsetup resume "$RAW_LINEAR"
+    udevadm settle --timeout=30
+}
+
+raw_create() {
+    NEWPASSWORD="$RAW_PASSWORD" homectl create "$RAW_USER" \
+        --storage=luks \
+        --luks-pbkdf-type=pbkdf2 \
+        --luks-pbkdf-time-cost=1ms \
+        --rate-limit-interval=1s \
+        --rate-limit-burst=1000 \
+        "$@"
+}
+
+raw_activate() {
+    PASSWORD="$RAW_PASSWORD" homectl activate "$RAW_USER"
+    wait_for_state "$RAW_USER" active
+}
+
+raw_deactivate() {
+    homectl deactivate "$RAW_USER"
+    wait_for_state "$RAW_USER" inactive
+}
+
+raw_resize() {
+    PASSWORD="$RAW_PASSWORD" homectl resize "$RAW_USER" "${1:?}"
+}
+
+raw_write_marker() {
+    raw_activate
+    echo foo >"/home/$RAW_USER/marker"
+    raw_deactivate
+}
+
+# Activates the home, and checks its data is there, and that it uses the specified size in MiB, including the
+# LUKS header of 16 MiB
+raw_check_size() {
+    raw_activate
+    grep foo "/home/$RAW_USER/marker" >/dev/null
+    [[ "$(blockdev --getsize64 "/dev/mapper/home-$RAW_USER")" -eq $(((${1:?} - 16) * 1024 * 1024)) ]]
+    raw_deactivate
+}
+
+raw_dump() {
+    # Everything but the type and name of the partition we are operating on has to stay the same
+    sfdisk --dump "$RAW_LOOP" | sed -E "\\,^${RAW_LOOP}p2 ,{s/, type=[^,]*//;s/, name=\"[^\"]*\"//}"
+}
+
+# Checks there's nothing between the LUKS volume and the device, in particular no loopback device
+raw_check_home() {
+    local device="${1:?}" mapping
+
+    raw_write_marker
+    raw_activate
+    grep foo "/home/$RAW_USER/marker" >/dev/null
+    mapping="$(basename "$(readlink -f "/dev/mapper/home-$RAW_USER")")"
+    [[ "$(ls "/sys/class/block/$mapping/slaves")" == "$(basename "$(readlink -f "$device")")" ]]
+    homectl inspect --json=short "$RAW_USER" | jq -e '.binding | to_entries[0].value | (.imagePath | startswith("/dev/disk/by-uuid/")) and (has("partitionUuid") | not)' >/dev/null
+    raw_deactivate
+}
+
+raw_check_refused() {
+    local device="${1:?}" before
+
+    udevadm settle --timeout=30
+    before="$(sha256sum "$device")"
+    (! raw_create --image-path="$device")
+    (! homectl inspect "$RAW_USER" >/dev/null 2>&1)
+    [[ "$(sha256sum "$device")" == "$before" ]]
+}
+
+raw_test_partition() {
+    local fstype="${1:?}" dump checksum
+
+    raw_setup_disk
+    dump="$(raw_dump)"
+    checksum="$(sha256sum "${RAW_LOOP}p3")"
+
+    raw_create --image-path="${RAW_LOOP}p2" --fs-type="$fstype" --auto-resize-mode=off
+    raw_check_home "${RAW_LOOP}p2"
+
+    # Only the two properties of the entry may have changed, and udev has to know about them
+    [[ "$(sfdisk --part-type "$RAW_LOOP" 2)" == 773f91ef-66d4-49b5-bd83-d683bf40ad16 ]]
+    [[ "$(sfdisk --part-label "$RAW_LOOP" 2)" == "$RAW_USER" ]]
+    [[ "$(raw_dump)" == "$dump" ]]
+    [[ "$(sha256sum "${RAW_LOOP}p3")" == "$checksum" ]]
+    udevadm settle --timeout=30
+    udevadm info --query=property "${RAW_LOOP}p2" | grep -F "ID_PART_ENTRY_NAME=$RAW_USER" >/dev/null
+
+    # Without the record the home needs to be found by looking at the partition only
+    systemctl stop systemd-homed.service
+    rm -f "/var/lib/systemd/home/$RAW_USER.identity"
+    systemctl start systemd-homed.service
+    wait_for_exist "$RAW_USER"
+    raw_activate
+    grep foo "/home/$RAW_USER/marker" >/dev/null
+    raw_deactivate
+
+    # Removal leaves the device alone, hence the home is found again, until it is explicitly wiped
+    homectl remove "$RAW_USER"
+    wait_for_exist "$RAW_USER"
+    (! raw_create --image-path="${RAW_LOOP}p2")
+    wipefs --all "${RAW_LOOP}p2"
+    timeout 2m bash -c "while homectl inspect '$RAW_USER' >/dev/null 2>&1; do sleep 1; done"
+    raw_create --image-path="${RAW_LOOP}p2" --fs-type="$fstype" --auto-resize-mode=off
+    raw_check_home "${RAW_LOOP}p2"
+
+    raw_cleanup
+    RAW_LOOP=
+}
+
+testcase_raw_partition() {
+    local fstype
+
+    raw_supported || return 0
+
+    for fstype in ext4 btrfs xfs; do
+        command -v "mkfs.$fstype" >/dev/null && raw_test_partition "$fstype"
+    done
+
+    # The sector size of LUKS is unrelated to the one of the device, and doesn't need a loopback device
+    raw_setup_disk
+    raw_create --image-path="${RAW_LOOP}p2" --fs-type=ext4 --auto-resize-mode=off --luks-sector-size=4096
+    raw_check_home "${RAW_LOOP}p2"
+}
+
+testcase_raw_resize() {
+    local fstype dump checksum old_size
+
+    raw_supported || return 0
+
+    for fstype in ext4 btrfs; do
+        command -v "mkfs.$fstype" >/dev/null || continue
+
+        raw_setup_disk
+        dump="$(raw_dump)"
+        checksum="$(sha256sum "${RAW_LOOP}p3")"
+
+        # These homes always use all of the device
+        (! raw_create --image-path="${RAW_LOOP}p2" --fs-type="$fstype" --disk-size=400M)
+        (! raw_create --image-path="${RAW_LOOP}p2" --fs-type="$fstype" --disk-size=50%)
+
+        # The default mode doesn't shrink them on logout
+        raw_create --image-path="${RAW_LOOP}p2" --fs-type="$fstype"
+        raw_write_marker
+        raw_check_size 600
+
+        (! raw_resize 400M)
+        (! raw_resize 601M)
+        raw_resize max
+        raw_check_size 600
+
+        # In all of this, the partition itself wasn't changed
+        [[ "$(blockdev --getsize64 "${RAW_LOOP}p2")" -eq $((600*1024*1024)) ]]
+        [[ "$(raw_dump)" == "$dump" ]]
+        [[ "$(sha256sum "${RAW_LOOP}p3")" == "$checksum" ]]
+
+        raw_cleanup
+        RAW_LOOP=
+    done
+
+    command -v mkfs.btrfs >/dev/null || return 0
+
+    # The envelope is what a home discovered on another machine has, without knowing the UUID of the partition.
+    # A partition alone on a GPT disk looks the same. Both need to grow again after being shrunk on logout.
+    raw_setup_loop
+    raw_create --image-path="$RAW_LOOP" --fs-type=btrfs
+    udevadm settle --timeout=30
+    raw_write_marker
+    udevadm settle --timeout=30
+    old_size="$(blockdev --getsize64 "${RAW_LOOP}p1")"
+    [[ "$old_size" -lt $((500*1024*1024)) ]]
+
+    systemctl stop systemd-homed.service
+    rm -f "/var/lib/systemd/home/$RAW_USER.identity"
+    systemctl start systemd-homed.service
+    wait_for_exist "$RAW_USER"
+
+    raw_activate
+    grep foo "/home/$RAW_USER/marker" >/dev/null
+    [[ "$(blockdev --getsize64 "${RAW_LOOP}p1")" -gt $((500*1024*1024)) ]]
+    raw_deactivate
+
+    raw_cleanup
+    RAW_LOOP=
+
+    raw_setup_loop
+    printf 'label: gpt\ntype=0FC63DAF-8483-4772-8E79-3D69D8477DE4\n' | sfdisk --quiet "$RAW_LOOP"
+    udevadm settle --timeout=30
+    raw_create --image-path="${RAW_LOOP}p1" --fs-type=btrfs
+    udevadm settle --timeout=30
+    raw_write_marker
+    udevadm settle --timeout=30
+    [[ "$(blockdev --getsize64 "${RAW_LOOP}p1")" -lt $((500*1024*1024)) ]]
+    raw_activate
+    grep foo "/home/$RAW_USER/marker" >/dev/null
+    [[ "$(blockdev --getsize64 "${RAW_LOOP}p1")" -gt $((500*1024*1024)) ]]
+    raw_deactivate
+}
+
+testcase_raw_validation() {
+    local part
+
+    raw_supported || return 0
+
+    raw_setup_disk
+    part="${RAW_LOOP}p2"
+
+    # File system
+    mkfs.ext4 -q "$part"
+    raw_check_refused "$part"
+
+    # File system that is in use
+    mkdir -p "$RAW_MOUNT.2"
+    mount "$part" "$RAW_MOUNT.2"
+    (! raw_create --image-path="$part")
+    umount "$RAW_MOUNT.2"
+    rmdir "$RAW_MOUNT.2"
+
+    # Signatures of two different things. Which of them libblkid reports doesn't matter.
+    printf 'SWAPSPACE2' | dd of="$part" bs=1 seek=$((4096 - 10)) conv=notrunc status=none
+    raw_check_refused "$part"
+    wipefs --all "$part"
+
+    # LUKS
+    printf '%s' "$RAW_PASSWORD" | cryptsetup luksFormat --batch-mode --type=luks2 --pbkdf=pbkdf2 --pbkdf-force-iterations=1000 "$part" -
+    raw_check_refused "$part"
+    wipefs --all "$part"
+
+    # Partition table
+    printf 'label: gpt\nsize=1M\n' | sfdisk --quiet "$part"
+    raw_check_refused "$part"
+    wipefs --all --force "$part"
+
+    # Nothing to be found, but there's a holder
+    dmsetup create "$RAW_HOLDER" --table "0 2048 linear $part 0"
+    (! raw_create --image-path="$part")
+    dmsetup remove "$RAW_HOLDER"
+    udevadm settle --timeout=30
+
+    # A name that doesn't fit into a partition table entry fails before anything is written
+    (! NEWPASSWORD="$RAW_PASSWORD" homectl create rawhome-with-a-very-long-name@this-realm-does-not-fit-either \
+         --storage=luks --image-path="$part" --luks-pbkdf-type=pbkdf2 --luks-pbkdf-time-cost=1ms)
+    [[ "$(blkid --output=value --match-tag=TYPE "$part" || :)" == "" ]]
+
+    # A damaged partition table isn't touched. The backup header is in the last sector.
+    dd if=/dev/zero of="$RAW_LOOP" bs=512 seek=$(($(blockdev --getsz "$RAW_LOOP") - 1)) count=1 conv=notrunc status=none
+    (! raw_create --image-path="$part")
+    [[ "$(blkid --output=value --match-tag=TYPE "$part" || :)" == "" ]]
+
+    # And after dealing with these problems an empty device works
+    sfdisk --dump "$RAW_LOOP" | sfdisk --no-reread --no-tell-kernel --force --quiet "$RAW_LOOP"
+    udevadm settle --timeout=30
+    raw_create --image-path="$part" --fs-type=ext4 --auto-resize-mode=off
+    raw_check_home "$part"
+}
+
+testcase_raw_linear() {
+    local fstype
+
+    raw_supported || return 0
+
+    # Something like an LVM volume. The kernel doesn't look for partitions on these.
+    for fstype in ext4 btrfs; do
+        command -v "mkfs.$fstype" >/dev/null || continue
+
+        raw_setup_linear
+        raw_create --image-path="/dev/mapper/$RAW_LINEAR" --fs-type="$fstype" --auto-resize-mode=off --disk-size=max
+        raw_check_home "/dev/mapper/$RAW_LINEAR"
+        (! sfdisk --dump "$RAW_LOOP" >/dev/null 2>&1)
+
+        raw_grow_linear 800
+        raw_resize max
+        raw_check_size 800
+
+        # With auto-grow this has to happen by itself
+        if [[ "$fstype" == btrfs ]]; then
+            PASSWORD="$RAW_PASSWORD" homectl update "$RAW_USER" --auto-resize-mode=grow --disk-size=max
+            wait_for_state "$RAW_USER" inactive
+            raw_grow_linear 900
+            raw_check_size 900
+        fi
+
+        raw_cleanup
+        RAW_LOOP=
+    done
+}
+
+testcase_raw_whole_disk() {
+    local old_size
+
+    raw_supported || return 0
+
+    # A device that can have partitions still gets the GPT envelope, which we can then resize
+    raw_setup_loop
+    raw_create --image-path="$RAW_LOOP" --fs-type=ext4 --auto-resize-mode=off
+    [[ "$(sfdisk --part-label "$RAW_LOOP" 1)" == "$RAW_USER" ]]
+    homectl inspect --json=short "$RAW_USER" | jq -e '.binding | to_entries[0].value | has("partitionUuid")' >/dev/null
+    raw_write_marker
+
+    old_size="$(blockdev --getsize64 "${RAW_LOOP}p1")"
+    raw_resize 500M
+    udevadm settle --timeout=30
+    [[ "$(blockdev --getsize64 "${RAW_LOOP}p1")" -lt "$old_size" ]]
+
+    raw_activate
+    grep foo "/home/$RAW_USER/marker" >/dev/null
+    raw_deactivate
+}
+
 run_testcases
