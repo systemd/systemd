@@ -573,6 +573,7 @@ _sys_arguments=(
     '--when=[Schedule halt/power-off/reboot/kexec action after a certain timestamp]:timestamp:(show cancel auto)'
     '--kernel-cmdline[Append to the kernel command line when loading]:cmdline:'
     '--kernel-cmdline-reuse[Reuse the current kernel command line when loading the kexec kernel]'
+    '--timeout=[Maximum time to wait for units]:timeout:'
 )
 _arguments -s "$_sys_arguments[@]" \
     '*::systemctl command:_systemctl_commands'
