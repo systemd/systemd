@@ -995,6 +995,43 @@ rm "$CONFIGDIR/01-tiny-url.transfer"
 rm "$WORKDIR/source/tiny-v1.bin"
 rm "$WORKDIR/source/SHA256SUMS"
 
+# ManifestPath= allows serving the manifest from a different location than the payload files, which are
+# still acquired relative to Path=
+MP="$WORKDIR/manifest-path"
+rm -rf "$MP"
+mkdir -p "$MP/definitions" "$MP/bad-definitions" "$MP/payload" "$MP/manifests" "$MP/target"
+head -c 1000 /dev/urandom >"$MP/payload/mp-v1.bin"
+(cd "$MP/payload" && sha256sum mp-v1.bin >"$MP/manifests/SHA256SUMS")
+cat >"$MP/definitions/01-mp.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$MP/payload
+ManifestFormat=sha256sums
+ManifestPath=file://$MP/manifests/SHA256SUMS
+MatchPattern=mp-@v.bin
+
+[Target]
+Type=regular-file
+Path=$MP/target
+MatchPattern=mp-@v.bin
+InstancesMax=2
+EOF
+"$SYSUPDATE" --definitions="$MP/definitions" --verify=no update
+cmp "$MP/payload/mp-v1.bin" "$MP/target/mp-v1.bin"
+# Without ManifestPath= (or with it reset to empty) the manifest is looked for next to the payload, where
+# there is none
+sed 's|^ManifestPath=.*|&\nManifestPath=|' "$MP/definitions/01-mp.transfer" >"$MP/bad-definitions/01-mp.transfer"
+(! "$SYSUPDATE" --definitions="$MP/bad-definitions" --verify=no check-new)
+# Only SHA256SUMS manifests are supported for now
+sed 's|^ManifestFormat=.*|ManifestFormat=uapi16|' "$MP/definitions/01-mp.transfer" >"$MP/bad-definitions/01-mp.transfer"
+(! "$SYSUPDATE" --definitions="$MP/bad-definitions" --verify=no list) |& grep -F "Manifest format 'uapi16' not supported" >/dev/null
+# ManifestPath= must be a URL, and is only supported for URL sources
+sed 's|^ManifestPath=.*|ManifestPath=/foo/SHA256SUMS|' "$MP/definitions/01-mp.transfer" >"$MP/bad-definitions/01-mp.transfer"
+(! "$SYSUPDATE" --definitions="$MP/bad-definitions" --verify=no list) |& grep -F "Manifest path is not a valid" >/dev/null
+sed -e 's|^Type=url-file|Type=regular-file|' -e "s|^Path=file://|Path=|" "$MP/definitions/01-mp.transfer" >"$MP/bad-definitions/01-mp.transfer"
+(! "$SYSUPDATE" --definitions="$MP/bad-definitions" --verify=no list) |& grep -F "ManifestPath= is only supported for URL sources" >/dev/null
+rm -rf "$MP"
+
 # Check that malformed manifest hashes are rejected without aborting.
 rm -rf "$WORKDIR/malformed-manifest"
 mkdir -p "$WORKDIR/malformed-manifest/definitions" "$WORKDIR/malformed-manifest/source" "$WORKDIR/malformed-manifest/target"
@@ -2997,6 +3034,33 @@ provider_resources_signed() {
         --output "$RES/pool/SHA256SUMS.gpg" "$RES/pool/SHA256SUMS"
     SYSTEMD_OPENPGP_KEYRING="$keyring" "$SYSUPDATE" --definitions="$RPDEFS" update
     cmp "$RES/pool/res-v4.bin" "$RPTARGET/res-v4.bin"
+
+    # A signed manifest served via ManifestPath= from a different location is verified with the
+    # detached signature next to it
+    local mp="$WORKDIR/rp-manifest-path"
+    mkdir -p "$mp/manifests" "$mp/definitions" "$mp/target"
+    cp "$RES/pool/SHA256SUMS" "$RES/pool/SHA256SUMS.gpg" "$mp/manifests/"
+    cat >"$mp/definitions/01-mp.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$RES/pool
+ManifestPath=file://$mp/manifests/SHA256SUMS
+MatchPattern=res-@v.bin
+
+[Target]
+Type=regular-file
+Path=$mp/target
+MatchPattern=res-@v.bin
+InstancesMax=2
+EOF
+    SYSTEMD_OPENPGP_KEYRING="$keyring" "$SYSUPDATE" --definitions="$mp/definitions" update
+    cmp "$RES/pool/res-v4.bin" "$mp/target/res-v4.bin"
+    # ... and refused if the signature is missing there
+    rm -r "$mp/target" "$mp/manifests/SHA256SUMS.gpg"
+    mkdir "$mp/target"
+    (! SYSTEMD_OPENPGP_KEYRING="$keyring" "$SYSUPDATE" --definitions="$mp/definitions" update)
+    test ! -e "$mp/target/res-v4.bin"
+    rm -rf "$mp"
 
     gpgconf --homedir "$gpghome" --kill all 2>/dev/null || :
     RPTEST_GPGHOME=""
