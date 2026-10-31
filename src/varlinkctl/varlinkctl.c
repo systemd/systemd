@@ -749,12 +749,9 @@ static int notice_if_method_experimental(sd_varlink **vl, const char *url, const
         if (arg_quiet || !isatty_safe(STDERR_FILENO))
                 return 0;
 
-        /* The method name has been validated by the caller, hence it contains a dot */
-        name = ASSERT_PTR(strrchr(method, '.'));
-
-        interface = strndup(method, name - method);
-        if (!interface)
-                return log_oom();
+        r = varlink_split_qualified_symbol_name(method, &interface, &name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to split method name '%s': %m", method);
 
         if (streq(interface, "org.varlink.service"))
                 return 0;
@@ -790,7 +787,7 @@ static int notice_if_method_experimental(sd_varlink **vl, const char *url, const
                 return 0;
         }
 
-        symbol = varlink_idl_find_symbol(vi, SD_VARLINK_METHOD, name + 1);
+        symbol = varlink_idl_find_symbol(vi, SD_VARLINK_METHOD, name);
         if (!symbol)
                 return 0;
 
@@ -1517,24 +1514,25 @@ static int varlink_server_add_interface_from_method(sd_varlink_server *s, const 
         assert(method);
         assert(ret_interface);
 
-        const char *dot = strrchr(method, '.');
-        assert(dot);
+        _cleanup_free_ char *interface_name = NULL;
+        const char *name;
+        int r;
 
-        _cleanup_free_ char *interface_name = strndup(method, dot - method);
-        if (!interface_name)
-                return log_oom();
+        r = varlink_split_qualified_symbol_name(method, &interface_name, &name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to split method name '%s': %m", method);
 
         /* Note that we do not need to put the upgrade flag comment here, it is added automatically
          * by varlink_idl_format_symbol() because of the SD_VARLINK_REQUIRES_UPGRADE flag. */
         _cleanup_free_ char *idl_text = strjoin(
                         "interface ", interface_name, "\n"
                         "\n"
-                        "method ", dot + 1, " () -> ()\n");
+                        "method ", name, " () -> ()\n");
         if (!idl_text)
                 return log_oom();
 
         _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *iface = NULL;
-        int r = sd_varlink_idl_parse(idl_text, /* reterr_line= */ NULL, /* reterr_column= */ NULL, &iface);
+        r = sd_varlink_idl_parse(idl_text, /* reterr_line= */ NULL, /* reterr_column= */ NULL, &iface);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse IDL for method '%s': %m", method);
 

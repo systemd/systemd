@@ -1609,26 +1609,51 @@ static bool varlink_idl_comment_is_valid(const char *comment) {
         return utf8_is_valid(comment);
 }
 
-int varlink_idl_qualified_symbol_name_is_valid(const char *name) {
+int varlink_split_qualified_symbol_name(const char *symbol, char **ret_interface, const char **ret_name) {
         const char *dot;
+
+        /* Splits a qualified symbol name (i.e. interface name, followed by a dot, followed by a symbol name)
+         * into the interface name (allocated) and the unqualified symbol name (pointing into the passed
+         * string). Returns -EINVAL if the symbol name is not valid. Both return parameters may be NULL, in
+         * which case the symbol name is only validated. */
+
+        if (!symbol)
+                return -EINVAL;
+
+        dot = strrchr(symbol, '.');
+        if (!dot)
+                return -EINVAL;
+
+        if (!varlink_idl_symbol_name_is_valid(dot + 1))
+                return -EINVAL;
+
+        _cleanup_free_ char *interface = strndup(symbol, dot - symbol);
+        if (!interface)
+                return -ENOMEM;
+
+        if (!varlink_idl_interface_name_is_valid(interface))
+                return -EINVAL;
+
+        if (ret_interface)
+                *ret_interface = TAKE_PTR(interface);
+        if (ret_name)
+                *ret_name = dot + 1;
+
+        return 0;
+}
+
+int varlink_idl_qualified_symbol_name_is_valid(const char *name) {
+        int r;
 
         /* Validates a qualified symbol name (i.e. interface name, followed by a dot, followed by a symbol name) */
 
-        if (!name)
+        r = varlink_split_qualified_symbol_name(name, /* ret_interface= */ NULL, /* ret_name= */ NULL);
+        if (r == -EINVAL)
                 return false;
+        if (r < 0)
+                return r;
 
-        dot = strrchr(name, '.');
-        if (!dot)
-                return false;
-
-        if (!varlink_idl_symbol_name_is_valid(dot + 1))
-                return false;
-
-        _cleanup_free_ char *iface = strndup(name, dot - name);
-        if (!iface)
-                return -ENOMEM;
-
-        return varlink_idl_interface_name_is_valid(iface);
+        return true;
 }
 
 static int varlink_idl_symbol_consistent(const sd_varlink_interface *interface, const sd_varlink_symbol *symbol, bool experimental, int level);

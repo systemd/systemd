@@ -676,6 +676,33 @@ TEST(qualified_symbol_name_is_valid) {
         assert_se(varlink_idl_qualified_symbol_name_is_valid("xxx.xxx.0foo") == 0);
 }
 
+TEST(split_qualified_symbol_name) {
+        _cleanup_free_ char *interface = NULL;
+        const char *name = NULL;
+
+        ASSERT_OK(varlink_split_qualified_symbol_name("io.systemd.Foo.Bar", &interface, &name));
+        ASSERT_STREQ(interface, "io.systemd.Foo");
+        ASSERT_STREQ(name, "Bar");
+
+        interface = mfree(interface);
+        ASSERT_OK(varlink_split_qualified_symbol_name("xxx.Xxx", &interface, /* ret_name= */ NULL));
+        ASSERT_STREQ(interface, "xxx");
+
+        ASSERT_OK(varlink_split_qualified_symbol_name(
+                                  "org.varlink.service.GetInfo",
+                                  /* ret_interface= */ NULL,
+                                  &name));
+        ASSERT_STREQ(name, "GetInfo");
+
+        ASSERT_ERROR(varlink_split_qualified_symbol_name(/* symbol= */ NULL, NULL, NULL), EINVAL);
+        ASSERT_ERROR(varlink_split_qualified_symbol_name("", NULL, NULL), EINVAL);
+        ASSERT_ERROR(varlink_split_qualified_symbol_name("Foo", NULL, NULL), EINVAL);
+        ASSERT_ERROR(varlink_split_qualified_symbol_name("xxx.xxx", NULL, NULL), EINVAL);
+        ASSERT_ERROR(varlink_split_qualified_symbol_name(".Foo", NULL, NULL), EINVAL);
+        ASSERT_ERROR(varlink_split_qualified_symbol_name("xxx.xxx.0foo", NULL, NULL), EINVAL);
+        ASSERT_ERROR(varlink_split_qualified_symbol_name("xxx..Foo", NULL, NULL), EINVAL);
+}
+
 TEST(validate_json) {
 
         _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *parsed = NULL;
