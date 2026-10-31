@@ -228,7 +228,8 @@
           away from it, or did not move for five seconds. Resizing is asynchronous, the guest may follow
           only partially, and it is permitted to deflate the balloon on its own when it runs out of
           memory. The requested size persists across guest reboots: a freshly booted guest inflates its
-          balloon to it again.
+          balloon to it again. The guest also reports memory statistics through the balloon device
+          periodically, which <function>Describe()</function> returns as well.
           <xi:include href="version-info.xml" xpointer="v263"/></para>
 
           <xi:include href="version-info.xml" xpointer="v255"/>
