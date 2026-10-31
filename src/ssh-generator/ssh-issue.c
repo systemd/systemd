@@ -14,12 +14,12 @@
 #include "mkdir.h"
 #include "parse-argument.h"
 #include "socket-util.h"
-#include "ssh-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "verbs.h"
 #include "virt.h"
+#include "vsock-util.h"
 
 static char *arg_issue_path = NULL;
 static bool arg_issue_stdout = false;

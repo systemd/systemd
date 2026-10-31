@@ -17,6 +17,7 @@ systemd_machined_export_sources = files(
         'machined-core.c',
         'machined-dbus.c',
         'machined-resolve-hook.c',
+        'machined-ssh-agent.c',
         'machined-varlink.c',
         'operation.c',
 )
