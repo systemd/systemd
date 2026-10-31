@@ -1372,10 +1372,7 @@ int home_setup_luks(
                                 return log_error_errno(r, "Failed to open loopback device %s: %m", n);
                 }
 
-                if (ioctl(setup->loop->fd, LOOP_GET_STATUS64, &info) < 0) {
-                        if (!IN_SET(errno, ENOTTY, EINVAL))
-                                return log_error_errno(errno, "Failed to get block device metrics of %s: %m", n);
-
+                if (setup->loop->nr < 0) { /* Not a loopback device */
                         if (fstat(setup->loop->fd, &st) < 0)
                                 return log_error_errno(errno, "Failed to stat block device %s: %m", n);
                         assert(S_ISBLK(st.st_mode));
@@ -1386,6 +1383,8 @@ int home_setup_luks(
 
                         size = setup->loop->device_size;
                 } else {
+                        if (ioctl(setup->loop->fd, LOOP_GET_STATUS64, &info) < 0)
+                                return log_error_errno(errno, "Failed to get block device metrics of %s: %m", n);
 #if HAVE_VALGRIND_MEMCHECK_H
                         VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
 #endif
