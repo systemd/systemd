@@ -86,6 +86,45 @@ int plymouth_send_msg(const char *text, bool pause_spinner) {
         return 0;
 }
 
+static bool console_fallback = false;
+
+void plymouth_set_console_fallback(bool b) {
+        console_fallback = b;
+}
+
+int plymouth_show_message(const char *text) {
+        _cleanup_close_ int fd = -EBADF;
+
+        assert(text);
+
+        /* Shows a message that asks the user to do something, e.g. to plug in or touch a security token,
+         * via plymouth. If plymouth doesn't show it and the console fallback is enabled, the message is
+         * written to the console instead: services that enable it log to the journal only, so the user
+         * would not see the request otherwise. Returns > 0 if plymouth shows the message, in which case
+         * the caller should hide it again with plymouth_hide_message() once it is obsolete. */
+
+        if (strlen(text) < UCHAR_MAX && plymouth_send_msg(text, /* pause_spinner= */ true) >= 0)
+                return 1;
+
+        if (!console_fallback)
+                return 0;
+
+        fd = open("/dev/console", O_WRONLY|O_NOCTTY|O_NONBLOCK|O_CLOEXEC);
+        if (fd < 0)
+                return log_debug_errno(errno, "Failed to open /dev/console, ignoring: %m");
+
+        if (dprintf(fd, "%s\n", text) < 0)
+                return log_debug_errno(errno, "Failed to write to /dev/console, ignoring: %m");
+
+        return 0;
+}
+
+void plymouth_hide_message(void) {
+        /* In theory 'm' should hide a message, but it doesn't work (long standing issue).
+         * As a workaround, sending a single NUL byte hides the previous messages. */
+        (void) plymouth_send_msg("", /* pause_spinner= */ false);
+}
+
 int plymouth_hide_splash(void) {
         int r;
 

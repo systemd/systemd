@@ -70,6 +70,19 @@ PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-public-key= --
 systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1
 systemd-cryptsetup detach test-volume
 
+# A bogus tpm2-fido2= value is warned about and ignored, so the plain TPM2 slot still unlocks
+systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,tpm2-fido2=garbage,headless=1
+systemd-cryptsetup detach test-volume
+
+# tpm2-fido2=no is a no-op on a plain TPM2 enrollment, and must not pull in FIDO2 auto-discovery
+systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,tpm2-fido2=no,headless=1
+systemd-cryptsetup detach test-volume
+
+# Whether a FIDO2 token is required is recorded in the LUKS2 token, not in this option: turning it on for a
+# slot that carries no FIDO2 binding changes nothing
+systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,tpm2-fido2=yes,headless=1
+systemd-cryptsetup detach test-volume
+
 # Check with wrong PCR
 tpm2_pcrextend 7:sha256=0000000000000000000000000000000000000000000000000000000000000000
 (! systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1)
