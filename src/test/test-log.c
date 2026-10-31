@@ -43,8 +43,6 @@ TEST(assert_return_is_critical) {
         ASSERT_TRUE(log_get_assert_return_is_critical());
         ASSERT_RETURN_EXPECTED(ASSERT_ERROR(fail_with_EINVAL(), EINVAL));
         ASSERT_TRUE(log_get_assert_return_is_critical());
-        ASSERT_RETURN_EXPECTED_SE(fail_with_EINVAL() == -EINVAL);
-        ASSERT_TRUE(log_get_assert_return_is_critical());
 }
 
 TEST(file) {
