@@ -3342,6 +3342,7 @@ static void export_loader_variables(
                 EFI_LOADER_FEATURE_SMBIOS_MEASURED |
                 EFI_LOADER_FEATURE_FACTORY_RESET_VARIABLES |
                 (fwupdate_available ? EFI_LOADER_FEATURE_FIRMWARE_UPDATE : 0) |
+                EFI_LOADER_FEATURE_ENTRY_ADDONS |
                 0;
 
         assert(loaded_image);

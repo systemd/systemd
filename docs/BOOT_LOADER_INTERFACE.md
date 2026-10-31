@@ -149,6 +149,8 @@ Variables will be listed below using the Linux efivarfs naming,
                 EFI variable `LoaderPcrSMBIOS-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`.
   * `1 << 22` → The boot loader honours `LoaderFactoryResetVariables` when set.
   * `1 << 23` → The boot loader supports installing firmware update capsules prepared by fwupd.
+  * `1 << 24` → The boot loader passes the addons of the selected entry to the started Unified Kernel Image,
+                see below.
 
 * The EFI variable `LoaderFactoryResetVariables-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
   contains a boolean, formatted as a NUL-terminated UTF-16 string
