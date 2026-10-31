@@ -10,7 +10,7 @@
     "binfmt": ["*binfmt*"],
     "bsod": ["*bsod*"],
     "btrfs": ["*btrfs*"],
-    "build-system": ["meson_options.txt", "*meson.build"],
+    "build-system": ["meson.build", "meson_options.txt", "tools/meson*"],
     "busctl": ["*busctl*"],
     "catalog": ["catalog/*"],
     "cgls": ["*cgls*"],
