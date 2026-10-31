@@ -1,0 +1,98 @@
+#compdef systemd-repart
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+(( $+functions[_systemd-repart_architectures] )) ||
+_systemd-repart_architectures() {
+    local -a _architectures
+    _architectures=( ${${(f)"$(_call_program architectures systemd-analyze --quiet --no-pager --no-legend architectures 2>/dev/null)"}%% *} )
+    _describe -t architectures 'architecture' _architectures
+}
+
+(( $+functions[_systemd-repart_partition_types] )) ||
+_systemd-repart_partition_types() {
+    _values -s , 'partition type' \
+        root usr home srv esp xbootldr swap tmp var linux-generic \
+        root-verity usr-verity root-verity-sig usr-verity-sig
+}
+
+(( $+functions[_systemd-repart_manifest_fields] )) ||
+_systemd-repart_manifest_fields() {
+    local -a _fields _all
+    _fields=(mode uid gid size hash symlink device hardlink mtime user-xattr user-name group-name)
+    _all=( $_fields ${_fields/#/+} ${_fields/#/-} all default none )
+    _values -s , 'field' $_all
+}
+
+(( $+functions[_systemd-repart_tpm2_device] )) ||
+_systemd-repart_tpm2_device() {
+    _alternative \
+        'special:special:(auto list)' \
+        'devices:TPM2 device:_files -g "/dev/tpmrm*(-c)"'
+}
+
+_arguments \
+    '(- *)'{-h,--help}'[Show help text]' \
+    '(- *)--version[Show package version]' \
+    '--no-pager[Do not pipe output into a pager]' \
+    '--no-legend[Do not show headers and footers]' \
+    '(--dry-run)-n[Run dry-run operation]' \
+    '(-n)--dry-run=[Whether to run dry-run operation]:boolean:(yes no)' \
+    '--empty=[How to handle empty disks lacking partition tables]:mode:(refuse allow require force create)' \
+    '--offline=[Whether to build the image offline]:boolean:(yes no)' \
+    '--discard=[Whether to discard backing blocks for new partitions]:boolean:(yes no)' \
+    '--cow=[Whether to enable copy-on-write for newly created image files]:mode:(yes no auto)' \
+    '--sector-size=[Set the logical sector size for the image]:size' \
+    '--grain-size=[Set the grain size for partition alignment]:bytes' \
+    '--architecture=[Set the generic architecture for the image]:architecture:_systemd-repart_architectures' \
+    '--size=[Grow loopback file to specified size]:bytes' \
+    '--seed=[128-bit seed UUID to derive all UUIDs from]:UUID' \
+    '--split=[Whether to generate split artifacts]:boolean:(yes no)' \
+    '--pretty=[Whether to show pretty summary before doing changes]:boolean:(yes no)' \
+    '--json=[Generate JSON output]:format:(pretty short off)' \
+    '--factory-reset=[Whether to remove data partitions before recreating them]:boolean:(yes no)' \
+    '--can-factory-reset[Test whether factory reset is defined]' \
+    '--root=[Operate relative to root path]:root path:_directories' \
+    '--image=[Operate relative to image file]:image file:_files' \
+    '--image-policy=[Specify disk image dissection policy]:policy' \
+    '--definitions=[Find partition definitions in specified directory]:directory:_directories' \
+    '--list-devices[List candidate block devices to operate on]' \
+    '--private-key=[Private key to use when generating verity roothash signatures]:private key:_files' \
+    '--private-key-source=[How to use the private key]:source:(file provider: engine:)' \
+    '--certificate=[PEM certificate to use when generating verity roothash signatures]:certificate:_files' \
+    '--certificate-source=[How to interpret the certificate]:source:(file provider:)' \
+    '--join-signature=[Specify root hash and PKCS#7 signature of root hash for verity]:HASH\:SIG' \
+    '--key-file=[Key to use when encrypting partitions]:key file:_files' \
+    '--tpm2-device=[Path to TPM2 device node to use]:TPM2 device:_systemd-repart_tpm2_device' \
+    '--tpm2-device-key=[Enroll a TPM2 device using its public key]:public key file:_files' \
+    '--tpm2-seal-key-handle=[Specify handle of key to use for sealing]:handle' \
+    '--tpm2-pcrs=[TPM2 PCR indexes to use for TPM2 enrollment]:PCRs' \
+    '--tpm2-public-key=[Enroll signed TPM2 PCR policy against PEM public key]:public key file:_files' \
+    '--tpm2-public-key-policyref=[Enroll signed TPM2 PCR policy with the specified policy reference]:policy reference' \
+    '--tpm2-public-key-pcrs=[Enroll signed TPM2 PCR policy for specified TPM2 PCRs]:PCRs' \
+    '--tpm2-pcrlock=[Specify pcrlock policy to lock against]:pcrlock policy file:_files' \
+    '--include-partitions=[Ignore partitions not of the specified types]:partition types:_systemd-repart_partition_types' \
+    '--exclude-partitions=[Ignore partitions of the specified types]:partition types:_systemd-repart_partition_types' \
+    "--defer-partitions=[Take partitions of the specified types into account but don't populate them yet]:partition types:_systemd-repart_partition_types" \
+    '--defer-partitions-empty=[Defer all partitions marked for formatting as empty]:boolean:(yes no)' \
+    '--defer-partitions-factory-reset=[Defer all partitions marked for factory reset]:boolean:(yes no)' \
+    '(-s --copy-source)'{-s+,--copy-source=}'[Specify the primary source tree to copy files from]:directory:_directories' \
+    '--copy-from=[Copy partitions from the given image]:image file:_files' \
+    '(-S -C -P)--make-ddi=[Create a DDI of the given type]:type:(sysext confext portable)' \
+    '(--make-ddi -C -P)-S[Same as --make-ddi=sysext, make a system extension]' \
+    '(--make-ddi -S -P)-C[Same as --make-ddi=confext, make a configuration extension]' \
+    '(--make-ddi -S -C)-P[Same as --make-ddi=portable, make a portable service]' \
+    '--append-fstab=[How to join the content of a pre-existing fstab with the generated one]:mode:(no auto replace)' \
+    '--generate-fstab=[Write fstab configuration to the given path]:fstab file:_files' \
+    '--generate-crypttab=[Write crypttab configuration to the given path]:crypttab file:_files' \
+    '--el-torito=[Whether to add a boot catalog to boot the ESP]:boolean:(yes no)' \
+    '--el-torito-system=[Set the system identifier in the ISO9660 descriptor]:identifier' \
+    '--el-torito-volume=[Set the volume identifier in the ISO9660 descriptor]:identifier' \
+    '--el-torito-publisher=[Set the publisher identifier in the ISO9660 descriptor]:identifier' \
+    '--manifest=[Whether to generate UAPI.16 manifests of populated partitions]:boolean:(yes no)' \
+    '--manifest-gpt=[Whether to generate a UAPI.16 manifest of the partition table]:boolean:(yes no)' \
+    '--manifest-fields=[Fields to include in manifests of populated partitions]:fields:_systemd-repart_manifest_fields' \
+    '--manifest-private-key=[Private key to sign generated manifests with]:private key:_files' \
+    '--manifest-private-key-source=[How to use the private key]:source:(file provider: engine:)' \
+    '--manifest-certificate=[PEM certificate to sign generated manifests with]:certificate:_files' \
+    '--manifest-certificate-source=[How to interpret the certificate]:source:(file provider:)' \
+    '1::device or image file:_files'
