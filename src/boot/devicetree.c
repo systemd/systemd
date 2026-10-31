@@ -106,8 +106,9 @@ EFI_STATUS devicetree_install(struct devicetree_state *state, EFI_FILE *root_dir
                         MAKE_GUID_PTR(EFI_DTB_TABLE), PHYSICAL_ADDRESS_TO_POINTER(state->addr));
 }
 
-static const char* devicetree_get_compatible(const void *dtb) {
-        if ((uintptr_t) dtb % alignof(FdtHeader) != 0)
+static const char* devicetree_get_compatible(const void *dtb, size_t dtb_size) {
+        if ((uintptr_t) dtb % alignof(FdtHeader) != 0 ||
+            dtb_size < sizeof(FdtHeader))
                 return NULL;
 
         const FdtHeader *dt_header = ASSERT_PTR(dtb);
@@ -122,7 +123,8 @@ static const char* devicetree_get_compatible(const void *dtb) {
         uint32_t strings_size = be32toh(dt_header->size_dt_strings);
         uint32_t end;
 
-        if (PTR_TO_SIZE(dtb) > SIZE_MAX - dt_size)
+        if (dt_size < sizeof(FdtHeader) || dt_size > dtb_size ||
+            PTR_TO_SIZE(dtb) > SIZE_MAX - dt_size)
                 return NULL;
 
         if (!ADD_SAFE(&end, strings_off, strings_size) || end > dt_size)
@@ -157,8 +159,9 @@ static const char* devicetree_get_compatible(const void *dtb) {
                         name_off = be32toh(cursor[++i]);
                         len_words = DIV_ROUND_UP(len, sizeof(uint32_t));
 
-                        if (ADD_SAFE(&s, name_off, STRLEN("compatible")) &&
-                            s < strings_size && streq8(strings_block + name_off, "compatible")) {
+                        if (ADD_SAFE(&s, name_off, sizeof("compatible")) &&
+                            s <= strings_size &&
+                            memcmp(strings_block + name_off, "compatible", sizeof("compatible")) == 0) {
                                 const char *c = (const char *) &cursor[++i];
                                 if (len == 0 || i + len_words > size_words || c[len - 1] != '\0')
                                         c = NULL;
@@ -202,7 +205,8 @@ EFI_STATUS devicetree_match(const void *uki_dtb, size_t uki_dtb_length) {
         if (!fw_dtb)
                 return EFI_UNSUPPORTED;
 
-        const char *fw_compat = devicetree_get_compatible(fw_dtb);
+        /* The firmware DTB table has no externally known length. */
+        const char *fw_compat = devicetree_get_compatible(fw_dtb, SIZE_MAX);
         if (!fw_compat)
                 return EFI_UNSUPPORTED;
 
@@ -222,7 +226,7 @@ EFI_STATUS devicetree_match_by_compatible(const void *uki_dtb, size_t uki_dtb_le
         if (!compat)
                 return EFI_INVALID_PARAMETER;
 
-        const char *dt_compat = devicetree_get_compatible(uki_dtb);
+        const char *dt_compat = devicetree_get_compatible(uki_dtb, uki_dtb_length);
         if (!dt_compat)
                 return EFI_INVALID_PARAMETER;
 
