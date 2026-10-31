@@ -16,7 +16,6 @@
     "cgls": ["*cgls*"],
     "cgroups": [
       "src/basic/cgroup*",
-      "src/cgroups-agent/*",
       "src/core/cgroup*",
       "src/shared/cgroup*"
     ],
