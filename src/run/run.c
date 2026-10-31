@@ -1647,6 +1647,7 @@ typedef struct RunContext {
         char *unit;
         char *bus_path;
         char *start_job;
+        bool ptyfwd_pending;
         int pty_fd;
 
         /* Bus objects */
@@ -1769,6 +1770,23 @@ static int run_context_check_started(RunContext *c) {
         int r;
 
         assert(c);
+
+        if (c->ptyfwd_pending) {
+                c->ptyfwd_pending = false;
+
+                /* The ptybroker doesn't return the start job, so use the unit's current job as a proxy. */
+                if (c->job) {
+                        c->start_job = strdup(c->job);
+                        if (!c->start_job)
+                                return log_oom();
+                } else {
+                        r = run_context_setup_ptyfwd(c);
+                        if (r < 0) {
+                                (void) sd_event_exit(c->event, EXIT_FAILURE);
+                                return r;
+                        }
+                }
+        }
 
         if (!c->start_job)
                 return 0; /* Already started? */
@@ -2545,6 +2563,8 @@ static int start_via_ptybroker(void) {
         if (!c.unit)
                 /* Without a unit to wait for, exit immediately when our pty monitor dies */
                 arg_wait = false;
+        else if (arg_pty_late)
+                c.ptyfwd_pending = true;
 
         _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
         if (arg_exec_user && !terminal_is_dumb()) {
@@ -2555,9 +2575,11 @@ static int start_via_ptybroker(void) {
 
         (void) sd_event_set_signal_exit(c.event, true);
 
-        r = run_context_setup_ptyfwd(&c);
-        if (r < 0)
-                return r;
+        if (!c.ptyfwd_pending) {
+                r = run_context_setup_ptyfwd(&c);
+                if (r < 0)
+                        return r;
+        }
 
         if (bus) {
                 r = run_context_attach_bus(&c, bus);

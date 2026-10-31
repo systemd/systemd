@@ -33,6 +33,6 @@ exit 7
 SHELLEOF
 chmod +x /tmp/pty96-run0-shell
 
-script -qec 'run0 --setenv=SHELL=/tmp/pty96-run0-shell' /dev/null </dev/null || RC=$?
+script -qec 'run0 --pty-late --setenv=SHELL=/tmp/pty96-run0-shell' /dev/null </dev/null || RC=$?
 [[ "${RC:-0}" == 7 ]]
 test -e /tmp/pty96-run0-ok
