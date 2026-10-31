@@ -66,6 +66,20 @@ mv "$MINIMAL_IMAGE.fooverity" "$MINIMAL_IMAGE.verity"
 mv "$MINIMAL_IMAGE.foohash" "$MINIMAL_IMAGE.roothash"
 
 mkdir -p "$IMAGE_DIR/mount" "$IMAGE_DIR/mount2"
+# systemd-dissect --umount of one mount of a shared verity device leaves the loop devices under the verity device
+# alone, since another mount still uses the verity device.
+SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 systemd-dissect --mount "$MINIMAL_IMAGE.raw" "$IMAGE_DIR/mount"
+SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 systemd-dissect --mount "$MINIMAL_IMAGE.raw" "$IMAGE_DIR/mount2"
+test "$(findmnt -n -o MAJ:MIN "$IMAGE_DIR/mount2")" = "$(findmnt -n -o MAJ:MIN "$IMAGE_DIR/mount")"
+systemd-dissect --umount "$IMAGE_DIR/mount2"
+for loop in $(dmsetup deps -o blkdevname "$MINIMAL_IMAGE_ROOTHASH-verity" | grep -o 'loop[0-9]*'); do
+    blockdev --getsize64 "/dev/$loop" >/dev/null
+done
+systemd-dissect --umount "$IMAGE_DIR/mount"
+# The kernel removes the verity device some time after the last mount is gone. The next test mounts the image with
+# a signature and checks that the kernel validated it. That check fails if the test reuses the device set up
+# here without a signature.
+timeout 60 bash -c 'while dmsetup info "$1" &>/dev/null; do sleep 0.1; done' bash "$MINIMAL_IMAGE_ROOTHASH-verity"
 SYSTEMD_VERITY_SHARING=1 systemd-dissect --mount "$MINIMAL_IMAGE.raw" "$IMAGE_DIR/mount"
 grep -q -F -f "$OS_RELEASE" "$IMAGE_DIR/mount/usr/lib/os-release"
 grep -q -F -f "$OS_RELEASE" "$IMAGE_DIR/mount/etc/os-release"

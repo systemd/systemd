@@ -6,6 +6,7 @@
 
 #include <fcntl.h>
 #include <linux/loop.h>
+#include <linux/major.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -1045,7 +1046,7 @@ int loop_device_open(
 
         _cleanup_close_ int fd = -EBADF, lock_fd = -EBADF;
         _cleanup_free_ char *node = NULL, *backing_file = NULL;
-        dev_t devnum, backing_devno = 0;
+        dev_t devnum, whole_devnum, backing_devno = 0;
         struct loop_info64 info;
         ino_t backing_inode = 0;
         uint64_t diskseq = 0;
@@ -1071,7 +1072,21 @@ int loop_device_open(
                         return lock_fd;
         }
 
-        if (ioctl(fd, LOOP_GET_STATUS64, &info) >= 0) {
+        r = sd_device_get_devnum(dev, &devnum);
+        if (r < 0)
+                return r;
+
+        /* Device-mapper forwards ioctls to the underlying device for targets such as dm-verity. On a verity
+         * device that maps a loop device, LOOP_GET_STATUS64 returns the status of that loop device. LOOP_CLR_FD
+         * on the verity device clears the loop device, although the verity device still uses it. So we only
+         * query the loop status of loop devices and their partitions. The partitions of a loop device don't
+         * have the loop major number, they have the extended major number 259. So we check the major number of
+         * the whole disk. */
+        r = block_get_whole_disk(devnum, &whole_devnum);
+        if (r < 0)
+                return r;
+
+        if (major(whole_devnum) == LOOP_MAJOR && ioctl(fd, LOOP_GET_STATUS64, &info) >= 0) {
 #if HAVE_VALGRIND_MEMCHECK_H
                 /* Valgrind currently doesn't know LOOP_GET_STATUS64. Remove this once it does */
                 VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
@@ -1099,10 +1114,6 @@ int loop_device_open(
 
         uint64_t device_size;
         r = blockdev_get_device_size(fd, &device_size);
-        if (r < 0)
-                return r;
-
-        r = sd_device_get_devnum(dev, &devnum);
         if (r < 0)
                 return r;
 
