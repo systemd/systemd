@@ -425,6 +425,16 @@ typedef struct UserRecord {
         sd_json_variant *json;
 } UserRecord;
 
+/* Sentinel for "fill the entire available disk". We use UINT64_MAX-1 instead of UINT64_MAX because the
+ * latter is already used elsewhere in UserRecord as the generic "unknown/not set" value. */
+#define USER_DISK_SIZE_FILL_MARKER (UINT64_MAX-1)
+
+static inline bool user_record_disk_size_is_fill(const UserRecord *h) {
+        assert(h);
+
+        return h->disk_size == USER_DISK_SIZE_FILL_MARKER;
+}
+
 UserRecord* user_record_new(void);
 DECLARE_TRIVIAL_REF_UNREF_FUNC(UserRecord, user_record);
 
