@@ -5,6 +5,7 @@
 #include "cgroup.h"
 #include "fd-util.h"
 #include "fdset.h"
+#include "fs-util.h"
 #include "unit.h"
 
 #if BPF_FRAMEWORK
@@ -190,9 +191,9 @@ static int socket_bind_install_impl(Unit *u) {
         if (r < 0)
                 return log_unit_error_errno(u, r, "bpf-socket-bind: Failed to load BPF object: %m");
 
-        cgroup_fd = open(cgroup_path, O_RDONLY | O_CLOEXEC, 0);
+        cgroup_fd = xopenat(AT_FDCWD, cgroup_path, O_RDONLY);
         if (cgroup_fd < 0)
-                return log_unit_error_errno(u, errno, "bpf-socket-bind: Failed to open cgroup %s for reading: %m", cgroup_path);
+                return log_unit_error_errno(u, cgroup_fd, "bpf-socket-bind: Failed to open cgroup %s for reading: %m", cgroup_path);
 
         ipv4 = sym_bpf_program__attach_cgroup(obj->progs.sd_bind4, cgroup_fd);
         r = bpf_get_error_translated(ipv4);

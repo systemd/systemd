@@ -59,7 +59,7 @@ int btrfs_subvol_make(int dir_fd, const char *path) {
         if (r < 0 && r != -EDESTADDRREQ) /* Propagate error, unless only a filename was specified, which is OK */
                 return r;
 
-        fd = xopenat(dir_fd, parent ?: ".", O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+        fd = xopenat(dir_fd, parent ?: ".", O_DIRECTORY|O_RDONLY);
         if (fd < 0)
                 return fd;
 

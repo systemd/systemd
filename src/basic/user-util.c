@@ -17,6 +17,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "lock-util.h"
 #include "log.h"
 #include "mkdir.h"
@@ -197,7 +198,7 @@ const char* default_root_shell_at(int rfd) {
 const char* default_root_shell(const char *root) {
         _cleanup_close_ int rfd = -EBADF;
 
-        rfd = open(empty_to_root(root), O_CLOEXEC | O_DIRECTORY | O_PATH);
+        rfd = xopenat(AT_FDCWD, empty_to_root(root), O_DIRECTORY | O_PATH);
         if (rfd < 0)
                 return "/bin/sh";
 
@@ -704,9 +705,9 @@ int take_etc_passwd_lock(const char *root) {
 
         (void) mkdir_parents(path, 0755);
 
-        _cleanup_close_ int fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
+        _cleanup_close_ int fd = xopenat_full(AT_FDCWD, path, O_WRONLY|O_CREAT|O_NOCTTY|O_NOFOLLOW, /* xopen_flags= */ 0, 0600);
         if (fd < 0)
-                return log_debug_errno(errno, "Cannot open %s: %m", path);
+                return log_debug_errno(fd, "Cannot open %s: %m", path);
 
         r = unposix_lock(fd, LOCK_EX);
         if (r < 0)
