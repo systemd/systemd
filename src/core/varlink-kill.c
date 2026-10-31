@@ -61,8 +61,8 @@ int transient_kill_context_dispatch(
                 char **reterr_bad_field) {
 
         static const sd_json_dispatch_field kill_dispatch[] = {
-                { "KillMode",   SD_JSON_VARIANT_STRING,  dispatch_kill_mode,        offsetof(TransientKillContextParameters, kill_mode),   0 },
-                { "SendSIGHUP", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(TransientKillContextParameters, send_sighup), 0 },
+                { "KillMode",   SD_JSON_VARIANT_STRING,  dispatch_kill_mode,        offsetof(TransientKillContextParameters, kill_mode),   SD_JSON_NULLABLE },
+                { "SendSIGHUP", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(TransientKillContextParameters, send_sighup), SD_JSON_NULLABLE },
                 {}
         };
 
@@ -70,6 +70,11 @@ int transient_kill_context_dispatch(
         int r;
 
         assert(ret);
+
+        if (sd_json_variant_is_null(variant)) {
+                *ret = NULL;
+                return 0;
+        }
 
         _cleanup_(transient_kill_context_parameters_freep) TransientKillContextParameters *p = NULL;
         p = new(TransientKillContextParameters, 1);
