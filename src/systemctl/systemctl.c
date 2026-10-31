@@ -92,6 +92,7 @@ bool arg_marked = false;
 const char *arg_drop_in = NULL;
 ImagePolicy *arg_image_policy = NULL;
 char *arg_kill_subgroup = NULL;
+usec_t arg_timeout_usec = USEC_INFINITY;
 
 STATIC_DESTRUCTOR_REGISTER(arg_types, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_states, strv_freep);
@@ -808,6 +809,12 @@ static int systemctl_parse_argv(int argc, char *argv[], int log_level_shift, cha
 
                 OPTION_LONG("stdin", NULL, "Read new contents of edited file from stdin"):
                         arg_stdin = true;
+                        break;
+
+                OPTION_LONG("timeout", "SEC", "Maximum time to wait for units"):
+                        r = parse_sec(opts.arg, &arg_timeout_usec);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --timeout= argument '%s': %m", opts.arg);
                         break;
 
                 /* Compatibility-only options, not shown in --help. */
