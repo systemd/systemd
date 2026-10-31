@@ -7,6 +7,7 @@
 #include "forward.h"
 #include "log.h"
 #include "log-assert-critical.h"
+#include "path-util.h"                  /* IWYU pragma: keep */
 #include "static-destruct.h"            /* IWYU pragma: keep */
 #include "signal-util.h"                /* IWYU pragma: keep */
 #include "stdio-util.h"
