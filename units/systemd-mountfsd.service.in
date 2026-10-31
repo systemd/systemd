@@ -40,8 +40,6 @@ RestrictSUIDSGID=yes
 #SystemCallErrorNumber=EPERM
 #SystemCallFilter=@system-service @mount
 Type=notify
-NotifyAccess=all
-FileDescriptorStoreMax=4096
 {{SERVICE_WATCHDOG}}
 
 [Install]
