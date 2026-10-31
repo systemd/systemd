@@ -321,7 +321,7 @@ TEST(chase) {
 
                 ASSERT_OK(pfd);
 
-                fd = fd_reopen(pfd, O_RDONLY|O_CLOEXEC);
+                fd = fd_reopen(pfd, O_RDONLY);
                 ASSERT_OK(fd);
                 safe_close(pfd);
 
@@ -424,14 +424,14 @@ TEST(chase_and_open) {
         /* Test chase_and_open() with various CHASE_PARENT / CHASE_EXTRACT_FILENAME combinations. */
 
         /* No CHASE_PARENT, no CHASE_EXTRACT_FILENAME, with ret_path — opens the target, returns full path. */
-        fd = ASSERT_OK(chase_and_open("/usr/lib", /* root= */ NULL, /* chase_flags= */ 0, O_PATH|O_DIRECTORY|O_CLOEXEC, &result));
+        fd = ASSERT_OK(chase_and_open("/usr/lib", /* root= */ NULL, /* chase_flags= */ 0, O_PATH|O_DIRECTORY, &result));
         ASSERT_OK(fd_verify_directory(fd));
         ASSERT_STREQ(result, "/usr/lib");
         fd = safe_close(fd);
         result = mfree(result);
 
         /* CHASE_PARENT with ret_path — opens parent dir, returns full path including final component. */
-        fd = ASSERT_OK(chase_and_open("/usr/lib", /* root= */ NULL, CHASE_PARENT, O_PATH|O_DIRECTORY|O_CLOEXEC, &result));
+        fd = ASSERT_OK(chase_and_open("/usr/lib", /* root= */ NULL, CHASE_PARENT, O_PATH|O_DIRECTORY, &result));
         ASSERT_OK(fd_verify_directory(fd));
         ASSERT_OK_ERRNO(faccessat(fd, "lib", F_OK, 0));
         ASSERT_STREQ(result, "/usr/lib");
@@ -439,10 +439,17 @@ TEST(chase_and_open) {
         result = mfree(result);
 
         /* O_CREAT on the parent opened with CHASE_PARENT */
-        ASSERT_ERROR(chase_and_open("/usr/lib", /* root= */ NULL, CHASE_PARENT, O_RDONLY|O_CREAT|O_CLOEXEC, /* ret_path= */ NULL), EISDIR);
+        ASSERT_ERROR(chase_and_open("/usr/lib", /* root= */ NULL, CHASE_PARENT, O_RDONLY|O_CREAT, /* ret_path= */ NULL), EISDIR);
+
+        /* An empty path on the shortcut reopens the cwd and refuses O_CREAT, like the full chase */
+        fd = ASSERT_OK(chase_and_open("", /* root= */ NULL, /* chase_flags= */ 0, O_RDONLY|O_DIRECTORY, /* ret_path= */ NULL));
+        ASSERT_OK_POSITIVE(inode_same_at(AT_FDCWD, ".", fd, /* fileb= */ NULL, AT_EMPTY_PATH));
+        fd = safe_close(fd);
+        ASSERT_ERROR(chase_and_open("", /* root= */ NULL, /* chase_flags= */ 0, O_RDONLY|O_CREAT, /* ret_path= */ NULL), EISDIR);
+        ASSERT_ERROR(chase_and_openat(XAT_FDROOT, AT_FDCWD, "", /* chase_flags= */ 0, O_RDONLY|O_CREAT, /* ret_path= */ NULL), EISDIR);
 
         /* CHASE_PARENT|CHASE_EXTRACT_FILENAME — opens parent dir, returns just the filename. */
-        fd = ASSERT_OK(chase_and_open("/usr/lib", /* root= */ NULL, CHASE_PARENT|CHASE_EXTRACT_FILENAME, O_PATH|O_DIRECTORY|O_CLOEXEC, &result));
+        fd = ASSERT_OK(chase_and_open("/usr/lib", /* root= */ NULL, CHASE_PARENT|CHASE_EXTRACT_FILENAME, O_PATH|O_DIRECTORY, &result));
         ASSERT_OK(fd_verify_directory(fd));
         ASSERT_OK_ERRNO(faccessat(fd, "lib", F_OK, 0));
         ASSERT_STREQ(result, "lib");
@@ -450,7 +457,7 @@ TEST(chase_and_open) {
         result = mfree(result);
 
         /* CHASE_EXTRACT_FILENAME only — opens the target itself, returns just the filename. */
-        fd = ASSERT_OK(chase_and_open("/usr/lib", /* root= */ NULL, CHASE_EXTRACT_FILENAME, O_PATH|O_DIRECTORY|O_CLOEXEC, &result));
+        fd = ASSERT_OK(chase_and_open("/usr/lib", /* root= */ NULL, CHASE_EXTRACT_FILENAME, O_PATH|O_DIRECTORY, &result));
         ASSERT_OK(fd_verify_directory(fd));
         ASSERT_STREQ(result, "lib");
         fd = safe_close(fd);
@@ -458,14 +465,14 @@ TEST(chase_and_open) {
 
         /* CHASE_EXTRACT_FILENAME on a regular file (regression test for a bug where chase_and_open()
          * reopened the parent directory instead of the target file). */
-        fd = ASSERT_OK(chase_and_open("/etc/os-release", /* root= */ NULL, CHASE_EXTRACT_FILENAME, O_PATH|O_CLOEXEC, &result));
+        fd = ASSERT_OK(chase_and_open("/etc/os-release", /* root= */ NULL, CHASE_EXTRACT_FILENAME, O_PATH, &result));
         ASSERT_STREQ(result, "os-release");
         ASSERT_OK(fd_verify_regular(fd));
         fd = safe_close(fd);
         result = mfree(result);
 
         /* CHASE_PARENT through a symlink — symlink is followed, parent of the target is opened. */
-        fd = ASSERT_OK(chase_and_open("/etc/os-release", /* root= */ NULL, CHASE_PARENT, O_PATH|O_DIRECTORY|O_CLOEXEC, &result));
+        fd = ASSERT_OK(chase_and_open("/etc/os-release", /* root= */ NULL, CHASE_PARENT, O_PATH|O_DIRECTORY, &result));
         ASSERT_OK(fd_verify_directory(fd));
         ASSERT_NOT_NULL(result);
         fd = safe_close(fd);
@@ -473,7 +480,7 @@ TEST(chase_and_open) {
 
         /* CHASE_PARENT|CHASE_NOFOLLOW through a symlink — symlink is NOT followed, parent of the
          * symlink is opened. */
-        fd = ASSERT_OK(chase_and_open("/etc/os-release", /* root= */ NULL, CHASE_PARENT|CHASE_NOFOLLOW, O_PATH|O_DIRECTORY|O_CLOEXEC, &result));
+        fd = ASSERT_OK(chase_and_open("/etc/os-release", /* root= */ NULL, CHASE_PARENT|CHASE_NOFOLLOW, O_PATH|O_DIRECTORY, &result));
         ASSERT_OK(fd_verify_directory(fd));
         ASSERT_OK_ERRNO(faccessat(fd, "os-release", F_OK, AT_SYMLINK_NOFOLLOW));
         ASSERT_STREQ(result, "/etc/os-release");
@@ -482,7 +489,7 @@ TEST(chase_and_open) {
 
         /* CHASE_PARENT|CHASE_NOFOLLOW|CHASE_EXTRACT_FILENAME through a symlink — parent of the symlink
          * is opened, returns just the symlink name. */
-        fd = ASSERT_OK(chase_and_open("/etc/os-release", /* root= */ NULL, CHASE_PARENT|CHASE_NOFOLLOW|CHASE_EXTRACT_FILENAME, O_PATH|O_DIRECTORY|O_CLOEXEC, &result));
+        fd = ASSERT_OK(chase_and_open("/etc/os-release", /* root= */ NULL, CHASE_PARENT|CHASE_NOFOLLOW|CHASE_EXTRACT_FILENAME, O_PATH|O_DIRECTORY, &result));
         ASSERT_OK(fd_verify_directory(fd));
         ASSERT_OK_ERRNO(faccessat(fd, "os-release", F_OK, AT_SYMLINK_NOFOLLOW));
         ASSERT_STREQ(result, "os-release");
@@ -501,7 +508,7 @@ TEST(chase_and_open) {
         ASSERT_OK_ERRNO(symlinkat("/", tfd, "to_root"));
 
         _cleanup_free_ char *link_path = ASSERT_NOT_NULL(path_join(tmpdir, "to_root"));
-        fd = ASSERT_OK(chase_and_open(link_path, tmpdir, /* chase_flags= */ 0, O_PATH|O_DIRECTORY|O_CLOEXEC, &result));
+        fd = ASSERT_OK(chase_and_open(link_path, tmpdir, /* chase_flags= */ 0, O_PATH|O_DIRECTORY, &result));
         ASSERT_OK(fd_verify_directory(fd));
         ASSERT_PATH_EQ(result, tmpdir);
         fd = safe_close(fd);
@@ -664,7 +671,7 @@ TEST(chaseat) {
 
         /* Test CHASE_PARENT */
 
-        fd = ASSERT_OK(open_mkdir_at(tfd, "chase", O_CLOEXEC, 0755));
+        fd = ASSERT_OK(open_mkdir_at(tfd, "chase", /* flags= */ 0, 0755));
         ASSERT_OK_ERRNO(symlinkat("/def", fd, "parent"));
         fd = safe_close(fd);
 
@@ -752,22 +759,22 @@ TEST(chaseat) {
 
         /* Test chase_and_openat() */
 
-        fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, "o/p/e/n/f/i/l/e", CHASE_MKDIR_0755, O_CREAT|O_EXCL|O_CLOEXEC, /* ret_path= */ NULL));
+        fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, "o/p/e/n/f/i/l/e", CHASE_MKDIR_0755, O_CREAT|O_EXCL, /* ret_path= */ NULL));
         ASSERT_OK(fd_verify_regular(fd));
         fd = safe_close(fd);
 
-        fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, "o/p/e/n/d/i/r", CHASE_MKDIR_0755, O_DIRECTORY|O_CREAT|O_EXCL|O_CLOEXEC, /* ret_path= */ NULL));
+        fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, "o/p/e/n/d/i/r", CHASE_MKDIR_0755, O_DIRECTORY|O_CREAT|O_EXCL, /* ret_path= */ NULL));
         ASSERT_OK(fd_verify_directory(fd));
         fd = safe_close(fd);
 
-        fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, /* path= */ NULL, CHASE_PARENT|CHASE_EXTRACT_FILENAME, O_PATH|O_DIRECTORY|O_CLOEXEC, &result));
+        fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, /* path= */ NULL, CHASE_PARENT|CHASE_EXTRACT_FILENAME, O_PATH|O_DIRECTORY, &result));
         ASSERT_STREQ(result, ".");
         fd = safe_close(fd);
         result = mfree(result);
 
         /* Test chase_and_openat() with CHASE_MKDIR_0755|CHASE_PARENT — opens parent dir */
 
-        fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, "mkopen/p/a/r/file.txt", CHASE_MKDIR_0755|CHASE_PARENT, O_RDONLY|O_CLOEXEC, /* ret_path= */ NULL));
+        fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, "mkopen/p/a/r/file.txt", CHASE_MKDIR_0755|CHASE_PARENT, O_RDONLY, /* ret_path= */ NULL));
         ASSERT_OK(fd_verify_directory(fd));
         ASSERT_OK(faccessat(tfd, "mkopen/p/a/r", F_OK, 0));
         ASSERT_ERROR(RET_NERRNO(faccessat(tfd, "mkopen/p/a/r/file.txt", F_OK, 0)), ENOENT);
@@ -775,28 +782,28 @@ TEST(chaseat) {
 
         /* Test chase_and_openat() with CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY + O_CREAT — creates and opens target dir */
 
-        fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, "mkopen/d/i/r/target", CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, O_CREAT|O_RDONLY|O_CLOEXEC, /* ret_path= */ NULL));
+        fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, "mkopen/d/i/r/target", CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, O_CREAT|O_RDONLY, /* ret_path= */ NULL));
         ASSERT_OK(fd_verify_directory(fd));
         ASSERT_OK(faccessat(tfd, "mkopen/d/i/r/target", F_OK, 0));
         fd = safe_close(fd);
 
         /* O_CREAT on the directory itself: the parent opened with CHASE_PARENT, or a symlink to the root */
-        ASSERT_ERROR(chase_and_openat(tfd, tfd, "mkopen/d/i/r/target", CHASE_PARENT, O_CREAT|O_RDONLY|O_CLOEXEC, /* ret_path= */ NULL), EISDIR);
+        ASSERT_ERROR(chase_and_openat(tfd, tfd, "mkopen/d/i/r/target", CHASE_PARENT, O_CREAT|O_RDONLY, /* ret_path= */ NULL), EISDIR);
         ASSERT_OK_ERRNO(symlinkat("/", tfd, "mkopen/toroot"));
-        ASSERT_ERROR(chase_and_openat(tfd, tfd, "mkopen/toroot", /* chase_flags= */ 0, O_CREAT|O_RDONLY|O_CLOEXEC, /* ret_path= */ NULL), EISDIR);
-        ASSERT_ERROR(chase_and_openat(tfd, tfd, "mkopen/toroot", CHASE_PARENT, O_CREAT|O_RDONLY|O_CLOEXEC, /* ret_path= */ NULL), EISDIR);
+        ASSERT_ERROR(chase_and_openat(tfd, tfd, "mkopen/toroot", /* chase_flags= */ 0, O_CREAT|O_RDONLY, /* ret_path= */ NULL), EISDIR);
+        ASSERT_ERROR(chase_and_openat(tfd, tfd, "mkopen/toroot", CHASE_PARENT, O_CREAT|O_RDONLY, /* ret_path= */ NULL), EISDIR);
 
         /* Test chase_and_openat() with various CHASE_PARENT / CHASE_EXTRACT_FILENAME combinations */
 
         /* No CHASE_PARENT, no CHASE_EXTRACT_FILENAME, with ret_path — opens the target, returns full path. */
-        fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, "o/p/e/n/d/i/r", /* chase_flags= */ 0, O_PATH|O_DIRECTORY|O_CLOEXEC, &result));
+        fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, "o/p/e/n/d/i/r", /* chase_flags= */ 0, O_PATH|O_DIRECTORY, &result));
         ASSERT_OK(fd_verify_directory(fd));
         ASSERT_STREQ(result, "o/p/e/n/d/i/r");
         fd = safe_close(fd);
         result = mfree(result);
 
         /* CHASE_PARENT with ret_path — opens parent dir, returns full path including final component. */
-        fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, "o/p/e/n/d/i/r", CHASE_PARENT, O_PATH|O_DIRECTORY|O_CLOEXEC, &result));
+        fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, "o/p/e/n/d/i/r", CHASE_PARENT, O_PATH|O_DIRECTORY, &result));
         ASSERT_OK(fd_verify_directory(fd));
         ASSERT_OK_ERRNO(faccessat(fd, "r", F_OK, 0));
         ASSERT_STREQ(result, "o/p/e/n/d/i/r");
@@ -805,7 +812,7 @@ TEST(chaseat) {
 
         /* CHASE_PARENT|CHASE_EXTRACT_FILENAME with a real multi-component path — opens parent dir,
          * returns just the filename. */
-        fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, "o/p/e/n/d/i/r", CHASE_PARENT|CHASE_EXTRACT_FILENAME, O_PATH|O_DIRECTORY|O_CLOEXEC, &result));
+        fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, "o/p/e/n/d/i/r", CHASE_PARENT|CHASE_EXTRACT_FILENAME, O_PATH|O_DIRECTORY, &result));
         ASSERT_OK(fd_verify_directory(fd));
         ASSERT_OK_ERRNO(faccessat(fd, "r", F_OK, 0));
         ASSERT_STREQ(result, "r");
@@ -814,7 +821,7 @@ TEST(chaseat) {
 
         /* CHASE_EXTRACT_FILENAME only (without CHASE_PARENT) — opens the target itself, returns just
          * the filename. */
-        fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, "o/p/e/n/d/i/r", CHASE_EXTRACT_FILENAME, O_PATH|O_DIRECTORY|O_CLOEXEC, &result));
+        fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, tfd, "o/p/e/n/d/i/r", CHASE_EXTRACT_FILENAME, O_PATH|O_DIRECTORY, &result));
         ASSERT_OK(fd_verify_directory(fd));
         ASSERT_STREQ(result, "r");
         fd = safe_close(fd);
@@ -822,7 +829,7 @@ TEST(chaseat) {
 
         /* CHASE_PARENT through a symlink — the symlink is followed, parent of the target is opened.
          * "chase/parent" where parent→/def: resolves to /def, parent is the root dir. */
-        fd = ASSERT_OK(chase_and_openat(tfd, tfd, "chase/parent", CHASE_PARENT, O_PATH|O_DIRECTORY|O_CLOEXEC, &result));
+        fd = ASSERT_OK(chase_and_openat(tfd, tfd, "chase/parent", CHASE_PARENT, O_PATH|O_DIRECTORY, &result));
         ASSERT_OK(fd_verify_directory(fd));
         ASSERT_OK_ERRNO(faccessat(fd, "def", F_OK, 0));
         ASSERT_STREQ(result, "def");
@@ -831,7 +838,7 @@ TEST(chaseat) {
 
         /* CHASE_PARENT|CHASE_EXTRACT_FILENAME through a symlink — parent of the target is opened,
          * returns just the target filename. */
-        fd = ASSERT_OK(chase_and_openat(tfd, tfd, "chase/parent", CHASE_PARENT|CHASE_EXTRACT_FILENAME, O_PATH|O_DIRECTORY|O_CLOEXEC, &result));
+        fd = ASSERT_OK(chase_and_openat(tfd, tfd, "chase/parent", CHASE_PARENT|CHASE_EXTRACT_FILENAME, O_PATH|O_DIRECTORY, &result));
         ASSERT_OK(fd_verify_directory(fd));
         ASSERT_OK_ERRNO(faccessat(fd, "def", F_OK, 0));
         ASSERT_STREQ(result, "def");
@@ -840,7 +847,7 @@ TEST(chaseat) {
 
         /* CHASE_PARENT|CHASE_NOFOLLOW through a symlink — the symlink is NOT followed, parent of the
          * symlink is opened. */
-        fd = ASSERT_OK(chase_and_openat(tfd, tfd, "chase/parent", CHASE_PARENT|CHASE_NOFOLLOW, O_PATH|O_DIRECTORY|O_CLOEXEC, &result));
+        fd = ASSERT_OK(chase_and_openat(tfd, tfd, "chase/parent", CHASE_PARENT|CHASE_NOFOLLOW, O_PATH|O_DIRECTORY, &result));
         ASSERT_OK(fd_verify_directory(fd));
         ASSERT_OK_ERRNO(faccessat(fd, "parent", F_OK, AT_SYMLINK_NOFOLLOW));
         ASSERT_STREQ(result, "chase/parent");
@@ -849,7 +856,7 @@ TEST(chaseat) {
 
         /* CHASE_PARENT|CHASE_NOFOLLOW|CHASE_EXTRACT_FILENAME through a symlink — parent of the symlink
          * is opened, returns just the symlink name. */
-        fd = ASSERT_OK(chase_and_openat(tfd, tfd, "chase/parent", CHASE_PARENT|CHASE_NOFOLLOW|CHASE_EXTRACT_FILENAME, O_PATH|O_DIRECTORY|O_CLOEXEC, &result));
+        fd = ASSERT_OK(chase_and_openat(tfd, tfd, "chase/parent", CHASE_PARENT|CHASE_NOFOLLOW|CHASE_EXTRACT_FILENAME, O_PATH|O_DIRECTORY, &result));
         ASSERT_OK(fd_verify_directory(fd));
         ASSERT_OK_ERRNO(faccessat(fd, "parent", F_OK, AT_SYMLINK_NOFOLLOW));
         ASSERT_STREQ(result, "parent");
@@ -1185,14 +1192,14 @@ TEST(chase_mode) {
         ASSERT_OK(chaseat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, /* ret_path= */ NULL, /* ret_fd= */ NULL));
         ASSERT_OK(chaseat(tfd, tfd, "a/l", CHASE_MAX_MODE, /* ret_path= */ NULL, /* ret_fd= */ NULL));
         ASSERT_OK(chase("a/b/f", t, CHASE_PREFIX_ROOT|CHASE_MAX_MODE, /* ret_path= */ NULL, /* ret_fd= */ NULL));
-        ASSERT_OK(fd = chase_and_openat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, O_RDONLY|O_CLOEXEC,
+        ASSERT_OK(fd = chase_and_openat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, O_RDONLY,
                                         /* ret_path= */ NULL));
         fd = safe_close(fd);
 
         /* A directory writable by others fails */
         ASSERT_OK_ERRNO(chmod(b, 0777));
         ASSERT_ERROR(chaseat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOLINK);
-        ASSERT_ERROR(chase_and_openat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, O_RDONLY|O_CLOEXEC, /* ret_path= */ NULL),
+        ASSERT_ERROR(chase_and_openat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, O_RDONLY, /* ret_path= */ NULL),
                      ENOLINK);
         ASSERT_OK_ERRNO(chmod(b, 0757));
         ASSERT_ERROR(chaseat(tfd, tfd, "a/b/f", CHASE_MAX_MODE, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOLINK);
@@ -1280,6 +1287,30 @@ TEST(chase_mode) {
         ASSERT_ERROR(chaseat(tfd, bfd, "../al", CHASE_MAX_MODE, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOLINK);
         ASSERT_OK_ERRNO(chmod(t, 0755));
         ASSERT_OK(chaseat(tfd, bfd, "../al", CHASE_MAX_MODE, /* ret_path= */ NULL, /* ret_fd= */ NULL));
+}
+
+TEST(chase_and_open_cloexec) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+        int fl;
+
+        ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "dir", 0755));
+
+        /* O_CLOEXEC is implied, whether requested or not, on the shortcut and on the full chase */
+        ASSERT_OK(fd = chase_and_open(t, /* root= */ NULL, /* chase_flags= */ 0, O_DIRECTORY, /* ret_path= */ NULL));
+        ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
+        fd = safe_close(fd);
+
+        ASSERT_OK(fd = chase_and_open(t, /* root= */ NULL, CHASE_PROHIBIT_SYMLINKS, O_DIRECTORY, /* ret_path= */ NULL));
+        ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
+        fd = safe_close(fd);
+
+        ASSERT_OK(fd = chase_and_openat(tfd, tfd, "dir", /* chase_flags= */ 0, O_DIRECTORY, /* ret_path= */ NULL));
+        ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
 }
 
 static int intro(void) {

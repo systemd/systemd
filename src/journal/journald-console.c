@@ -92,7 +92,7 @@ void manager_forward_console(
          * but minimizes the time window the kernel might end up killing journald due to SAK). It also makes things
          * easier for us so that we don't have to recover from hangups and suchlike triggered on the console. */
 
-        fd = open_terminal(tty, O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal(tty, O_WRONLY|O_NOCTTY);
         if (fd < 0) {
                 log_debug_errno(fd, "Failed to open %s for logging: %m", tty);
                 return;

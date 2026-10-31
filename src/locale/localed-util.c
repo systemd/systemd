@@ -7,7 +7,6 @@
 
 #include "alloc-util.h"
 #include "env-file.h"
-#include "errno-util.h"
 #include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -155,7 +154,7 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
                 c->vc_cache = sd_bus_message_ref(m);
         }
 
-        _cleanup_close_ int fd = RET_NERRNO(open(etc_vconsole_conf(), O_CLOEXEC | O_PATH));
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, etc_vconsole_conf(), O_PATH);
         if (fd == -ENOENT) {
                 c->vc_stat = (struct stat) {};
                 vc_context_clear(&c->vc);
@@ -214,7 +213,7 @@ int x11_read_data(Context *c, sd_bus_message *m) {
                 c->x11_cache = sd_bus_message_ref(m);
         }
 
-        _cleanup_close_ int fd = RET_NERRNO(open("/etc/X11/xorg.conf.d/00-keyboard.conf", O_CLOEXEC | O_PATH));
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, "/etc/X11/xorg.conf.d/00-keyboard.conf", O_PATH);
         if (fd == -ENOENT) {
                 c->x11_stat = (struct stat) {};
                 x11_context_clear(&c->x11_from_xorg);

@@ -11,6 +11,7 @@
 #include "alloc-util.h"
 #include "async.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "log.h"
 #include "logind.h"
@@ -592,9 +593,9 @@ int button_open(Button *b) {
 
         p = strjoina("/dev/input/", b->name);
 
-        fd = open(p, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+        fd = xopenat(AT_FDCWD, p, O_RDWR|O_NOCTTY|O_NONBLOCK);
         if (fd < 0)
-                return log_warning_errno(errno, "Failed to open %s: %m", p);
+                return log_warning_errno(fd, "Failed to open %s: %m", p);
 
         r = button_suitable(fd);
         if (r < 0)

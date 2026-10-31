@@ -16,6 +16,7 @@
 #include "devnum-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "list.h"
 #include "shutdown.h"
 #include "string-util.h"
@@ -130,14 +131,14 @@ static int delete_md(RaidDevice *m) {
         assert(major(m->devnum) != 0);
         assert(m->path);
 
-        fd = open(m->path, O_RDONLY|O_CLOEXEC|O_EXCL);
+        fd = xopenat(AT_FDCWD, m->path, O_RDONLY|O_EXCL);
         if (fd < 0) {
-                if (ERRNO_IS_DEVICE_ABSENT(errno)) {
-                        log_debug_errno(errno, "Tried to open MD device '%s', but device disappeared by now, ignoring: %m", m->path);
+                if (ERRNO_IS_DEVICE_ABSENT(fd)) {
+                        log_debug_errno(fd, "Tried to open MD device '%s', but device disappeared by now, ignoring: %m", m->path);
                         return 0;
                 }
 
-                return log_debug_errno(errno, "Failed to open MD device '%s': %m", m->path);
+                return log_debug_errno(fd, "Failed to open MD device '%s': %m", m->path);
         }
 
         (void) sync_with_progress(fd);
