@@ -466,13 +466,27 @@ EOF
     (! systemd-nspawn --oci-bundle="$OCI" bash -c 'echo hello')
 done
 
-# Invalid OCI bundle version
-cat >"$OCI/config.json" <<EOF
+# OCI bundle version compatibility
+for version in 1.0.0 1.1.0 1.3.0; do
+    cat >"$OCI/config.json" <<EOF
 {
-    "ociVersion" : "6.6.6",
+    "ociVersion" : "$version",
     "root" : {
             "path" : "rootfs"
     }
 }
 EOF
-(! systemd-nspawn --oci-bundle="$OCI" bash -c 'echo hello')
+    systemd-nspawn --oci-bundle="$OCI" bash -c 'echo hello'
+done
+
+for version in 2.0.0 6.6.6 1 1.0 1.0.0.1 1.0.0. " 1.1.0" "+1.1.0" 01.1.0 0x1.1.0 1.x.0; do
+    cat >"$OCI/config.json" <<EOF
+{
+    "ociVersion" : "$version",
+    "root" : {
+            "path" : "rootfs"
+    }
+}
+EOF
+    (! systemd-nspawn --oci-bundle="$OCI" bash -c 'echo hello')
+done
