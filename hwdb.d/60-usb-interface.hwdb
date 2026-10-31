@@ -21,6 +21,10 @@
 #
 #   Specify if a device is a smartcard reader
 #   ID_SMARTCARD_READER=0|1
+#
+#   Specify if a device is a PTP/MTP protocol device, e.g. a camera or a
+#   portable media player
+#   ID_PTP_MTP=0|1
 
 # USB3 Vision devices exposing the device control interface
 usb-interface:v*p*:ef0500:*
@@ -34,3 +38,7 @@ usb-interface:v*p*:0701??:*
 # Smartcard readers (interface class 0b, CCID)
 usb-interface:v*p*:0b????:*
  ID_SMARTCARD_READER=1
+
+# PTP/MTP protocol devices, cameras, portable media players
+usb-interface:v*p*:060101:*
+ ID_PTP_MTP=1
