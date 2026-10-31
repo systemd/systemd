@@ -39,6 +39,8 @@ ENV{SOUND_INITIALIZED}="1"
 
 IMPORT{builtin}="hwdb"
 SUBSYSTEMS=="usb", IMPORT{builtin}="usb_id"
+SUBSYSTEMS=="usb", ENV{ID_USB_INTERFACES}=="?*", \
+  IMPORT{builtin}="hwdb --filter=ID_VIDEO 'usb-interface:v$env{ID_USB_VENDOR_ID}p$env{ID_USB_MODEL_ID}$env{ID_USB_INTERFACES}'"
 SUBSYSTEMS=="usb", GOTO="skip_pci"
 
 SUBSYSTEMS=="firewire", ATTRS{guid}=="?*", \
@@ -75,7 +77,7 @@ ATTR{pcmC%nD0p/pcm_class}=="modem", ENV{SOUND_CLASS}="modem", GOTO="sound_end"
 SUBSYSTEMS=="pci", DEVPATH=="*/0000:00:??.?/sound/*", ENV{SOUND_FORM_FACTOR}="internal", GOTO="sound_end"
 
 # Devices that also support Image/Video interfaces are most likely webcams
-SUBSYSTEMS=="usb", ENV{ID_USB_INTERFACES}=="*:0e????:*", ENV{SOUND_FORM_FACTOR}="webcam", GOTO="sound_end"
+ENV{ID_VIDEO}=="1", ENV{SOUND_FORM_FACTOR}="webcam", GOTO="sound_end"
 
 # Matching on the model strings is a bit ugly, I admit
 ENV{ID_MODEL}=="*[Ss]peaker*", ENV{SOUND_FORM_FACTOR}="speaker", GOTO="sound_end"
