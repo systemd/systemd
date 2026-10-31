@@ -61,7 +61,7 @@ SUBSYSTEM=="misc", KERNEL=="kvm", TAG+="uaccess"
 {% endif %}
 
 # smart-card readers
-ENV{ID_SMARTCARD_READER}=="?*", TAG+="uaccess"
+ENV{ID_SMARTCARD_READER}=="1", TAG+="uaccess"
 
 # (USB) authentication devices
 ENV{ID_SECURITY_TOKEN}=="?*", TAG+="uaccess"

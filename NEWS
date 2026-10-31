@@ -150,6 +150,15 @@ CHANGES WITH 263 in spe:
           adds rustc >= 1.85, bindgen >= 0.71.1 and meson >= 1.4.0 as
           optional build dependencies.
 
+        * The ID_SMARTCARD_READER udev property for USB smartcard (CCID)
+          readers is now set through the udev hwdb instead of by a udev rule
+          that directly matches the USB interfaces. If a smartcard reader is
+          already used in the initrd, e.g. by systemd-cryptsetup to activate
+          encrypted host disks, the initrd must now include hwdb.bin.
+          Otherwise, the reader does not get the property and
+          systemd-cryptsetup may not find the device, so the activation may no
+          longer work.
+
         Changes in the system and service manager:
 
         * LockPersonality= no longer refuses querying the personality with
