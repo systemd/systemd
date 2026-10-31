@@ -2002,6 +2002,74 @@ static int luks_format(
         return 0;
 }
 
+static int validate_unused_block_device(int fd, const char *path) {
+        _cleanup_close_ int excl_fd = -EBADF;
+
+        assert(fd >= 0);
+        assert(path);
+
+        /* Formatting is going to destroy whatever is on the device. For a whole disk the user asked for that
+         * by giving us the disk, but a partition or LVM volume is easily mistyped, and might be something
+         * that is in use right now. An O_EXCL open fails if the device is mounted, used for swap, or has
+         * holders such as a device mapper device. The fd can't be kept around, as device mapper needs to
+         * claim the device later. */
+
+        excl_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK|O_EXCL);
+        if (excl_fd == -EBUSY)
+                return log_error_errno(SYNTHETIC_ERRNO(EUSERS),
+                                       "Block device '%s' is in use (mounted, used for swap, or has holders), refusing.", path);
+        if (excl_fd < 0)
+                return log_error_errno(excl_fd, "Failed to open block device '%s' exclusively: %m", path);
+
+#if HAVE_BLKID
+        _cleanup_(blkid_free_probep) blkid_probe b = NULL;
+        const char *value = NULL;
+        int r;
+
+        r = dlopen_libblkid(LOG_ERR);
+        if (r < 0)
+                return r;
+
+        b = sym_blkid_new_probe();
+        if (!b)
+                return log_oom();
+
+        errno = 0;
+        r = sym_blkid_probe_set_device(b, fd, /* off= */ 0, /* size= */ 0);
+        if (r != 0)
+                return log_error_errno(errno_or_else(EIO), "Failed to set up probing of block device '%s': %m", path);
+
+        (void) sym_blkid_probe_enable_superblocks(b, 1);
+        /* Also find superblocks with a bad checksum: they might be damaged, but that's no reason to overwrite them */
+        (void) sym_blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE|BLKID_SUBLKS_BADCSUM);
+        (void) sym_blkid_probe_enable_partitions(b, 1);
+        (void) sym_blkid_probe_set_partitions_flags(b, BLKID_PARTS_FORCE_GPT);
+
+        errno = 0;
+        r = sym_blkid_do_safeprobe(b);
+        if (r == _BLKID_SAFEPROBE_ERROR)
+                return log_error_errno(errno_or_else(EIO), "Failed to probe block device '%s' for existing data, refusing: %m", path);
+        if (r == _BLKID_SAFEPROBE_AMBIGUOUS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTEMPTY),
+                                       "Block device '%s' contains conflicting signatures of existing data, refusing. "
+                                       "Use wipefs(8) on it first if its contents shall be destroyed.", path);
+        if (r == _BLKID_SAFEPROBE_NOT_FOUND)
+                return 0;
+
+        assert(r == _BLKID_SAFEPROBE_FOUND);
+
+        if (sym_blkid_probe_lookup_value(b, "TYPE", &value, /* len= */ NULL) < 0)
+                (void) sym_blkid_probe_lookup_value(b, "PTTYPE", &value, /* len= */ NULL);
+
+        return log_error_errno(SYNTHETIC_ERRNO(ENOTEMPTY),
+                               "Block device '%s' contains existing data of type '%s', refusing. "
+                               "Use wipefs(8) on it first if its contents shall be destroyed.", path, strna(value));
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "Cannot check block device '%s' for existing data without libblkid support, refusing.", path);
+#endif
+}
+
 static int make_partition_table(
                 int fd,
                 uint32_t sector_size,
@@ -2392,6 +2460,15 @@ int home_create_luks(
                                 return log_error_errno(errno, "Failed to check whether %s exists: %m", sysfs);
                 } else
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Operating on partitions is currently not supported, sorry. Please specify a top-level block device.");
+
+                r = blockdev_partscan_enabled_fd(setup->image_fd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine whether block device '%s' supports partitions: %m", ip);
+                if (r == 0) {
+                        r = validate_unused_block_device(setup->image_fd, ip);
+                        if (r < 0)
+                                return r;
+                }
 
                 if (flock(setup->image_fd, LOCK_EX) < 0) /* make sure udev doesn't read from it while we operate on the device */
                         return log_error_errno(errno, "Failed to lock block device %s: %m", ip);
