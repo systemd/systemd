@@ -135,6 +135,7 @@ int fd_validate(int fd);
 int same_fd(int a, int b);
 
 bool fdname_is_valid(const char *s);
+bool fdname_glob_is_valid(const char *s);
 
 int fd_get_path(int fd, char **ret);
 

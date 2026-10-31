@@ -225,6 +225,13 @@ int sd_is_mq(int fd, const char *path);
                   descriptor store, identified by the name specified
                   in FDNAME=, see below.
 
+     FDSTOREWIPE=...
+                  Remove file descriptors whose names match the specified
+                  shell glob from the file descriptor store. Set to "*"
+                  to remove all entries. Empty patterns are invalid.
+                  Other file descriptor store commands in the same
+                  message are ignored.
+
      FDNAME=      A name to assign to new file descriptors stored in the
                   file descriptor store, or the name of the file descriptors
                   to remove in case of FDSTOREREMOVE=1.
