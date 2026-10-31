@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "alloc-util.h"
 #include "condition.h"
 #include "log.h"
@@ -149,6 +151,47 @@ static const char* const suggest_on_type_table[_CONDITION_TYPE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(suggest_on_type, ConditionType);
+
+static const char* const enable_on_type_table[_CONDITION_TYPE_MAX] = {
+        [CONDITION_ARCHITECTURE]        = "EnableOnArchitecture",
+        [CONDITION_FIRMWARE]            = "EnableOnFirmware",
+        [CONDITION_VIRTUALIZATION]      = "EnableOnVirtualization",
+        [CONDITION_HOST]                = "EnableOnHost",
+        [CONDITION_FRACTION]            = "EnableOnFraction",
+        [CONDITION_KERNEL_COMMAND_LINE] = "EnableOnKernelCommandLine",
+        [CONDITION_VERSION]             = "EnableOnVersion",
+        [CONDITION_CREDENTIAL]          = "EnableOnCredential",
+        [CONDITION_SECURITY]            = "EnableOnSecurity",
+        [CONDITION_OS_RELEASE]          = "EnableOnOSRelease",
+        [CONDITION_MACHINE_TAG]         = "EnableOnMachineTag",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(enable_on_type, ConditionType);
+
+int config_resolve_enabled(int enabled, Condition *enable_on, bool default_enabled, const char *name) {
+        int r;
+
+        /* An explicit Enabled= setting takes precedence over the EnableOn…= conditions. */
+        if (enabled >= 0)
+                return enabled;
+
+        if (!enable_on)
+                return default_enabled;
+
+        /* TODO: This evaluates the conditions against the running host even with --root= or --image=.
+         * The same applies to the SuggestOn…= conditions. */
+
+        /* Fail instead of assuming disabled, since vacuuming would then remove all instances. Don't pass on
+         * the error as is, because callers give some errors a special meaning (e.g. -ENOENT means that no
+         * transfers are defined, after which the cleanup logic removes all recorded resources). */
+        r = condition_test_list(enable_on, environ, enable_on_type_to_string, /* logger= */ NULL, /* userdata= */ NULL);
+        if (r < 0) {
+                log_error_errno(r, "Failed to evaluate EnableOn…= conditions of '%s': %m", name);
+                return -EINVAL;
+        }
+
+        return r;
+}
 
 int config_parse_url_specifiers_many(
                 const char *unit,
