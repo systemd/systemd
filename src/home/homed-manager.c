@@ -1262,8 +1262,20 @@ static int manager_on_device(sd_device_monitor *monitor, sd_device *d, void *use
                         manager_revalidate_image(m, h);
                 else
                         manager_enqueue_gc(m, /* focus= */ NULL);
-        } else
+        } else {
+                const char *sysfs;
+
+                /* The device might still exist, but with something else on it than the home directory we
+                 * discovered there, for example after wipefs(8). Do this first, so that the device isn't
+                 * considered taken if there's a new home directory on it. */
+                if (sd_device_get_syspath(d, &sysfs) >= 0) {
+                        Home *h = hashmap_get(m->homes_by_sysfs, sysfs);
+                        if (h)
+                                manager_revalidate_image(m, h);
+                }
+
                 (void) manager_add_device(m, d);
+        }
 
         (void) bus_manager_emit_auto_login_changed(m);
         return 0;
