@@ -154,6 +154,10 @@ static int on_qmp_describe_complete(
         const char *status = status_v && sd_json_variant_is_string(status_v) ?
                 sd_json_variant_string(status_v) : "unknown";
 
+        r = vmspawn_memory_enable_stats(bridge->memory);
+        if (r < 0)
+                log_debug_errno(r, "Failed to enable memory stats, ignoring: %m");
+
         r = vmspawn_memory_build_json(bridge->memory, &memory_v);
         if (r < 0)
                 return sd_varlink_error_errno(link, r);
