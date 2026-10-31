@@ -92,6 +92,7 @@
     "nspawn": ["*nspawn*"],
     "nsresource": ["*nsresource*"],
     "nss-myhostname": ["*nss-myhostname*"],
+    "pid1": ["src/core/*"],
     "portable": ["src/portable/*"],
     "pstore": ["*pstore*"],
     "random-seed": ["*random-seed*"],
