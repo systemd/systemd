@@ -24,7 +24,6 @@
 #include "crypto-util.h"
 #include "cryptsetup-util.h"
 #include "device-util.h"
-#include "devnum-util.h"
 #include "dissect-image.h"
 #include "env-util.h"
 #include "errno-util.h"
@@ -2355,11 +2354,12 @@ int home_create_luks(
         uint64_t encrypted_size, image_sector_size, luks_sector_size,
                 host_size = 0, partition_offset = 0, partition_size = 0; /* Unnecessary initialization to appease gcc */
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
-        sd_id128_t partition_uuid, fs_uuid, luks_uuid, disk_uuid;
-        _cleanup_close_ int mount_fd = -EBADF;
+        sd_id128_t partition_uuid = SD_ID128_NULL, fs_uuid, luks_uuid, disk_uuid;
+        _cleanup_close_ int mount_fd = -EBADF, lock_fd = -EBADF;
         const char *fstype, *ip;
         struct statfs sfs;
         struct stat st;
+        bool naked = false;
         int r;
         _cleanup_strv_free_ char **extra_mkfs_options = NULL;
 
@@ -2401,13 +2401,6 @@ int home_create_luks(
                 fstype = "ext4";
         }
 
-        if (sd_id128_is_null(h->partition_uuid)) {
-                r = sd_id128_randomize(&partition_uuid);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to acquire partition UUID: %m");
-        } else
-                partition_uuid = h->partition_uuid;
-
         if (sd_id128_is_null(h->luks_uuid)) {
                 r = sd_id128_randomize(&luks_uuid);
                 if (r < 0)
@@ -2434,7 +2427,6 @@ int home_create_luks(
                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Device mapper device %s already exists, refusing.", setup->dm_node);
 
         if (path_startswith(ip, "/dev/")) {
-                _cleanup_free_ char *sysfs = NULL;
                 uint64_t block_device_size;
 
                 /* Let's place the home directory on a real device, i.e. a USB stick or such */
@@ -2447,24 +2439,31 @@ int home_create_luks(
                 if (r < 0)
                         return log_error_errno(r, "Device is not a block device, refusing.");
 
-                if (asprintf(&sysfs, "/sys/dev/block/" DEVNUM_FORMAT_STR "/partition", DEVNUM_FORMAT_VAL(st.st_rdev)) < 0)
-                        return log_oom();
-                if (access(sysfs, F_OK) < 0) {
-                        if (errno != ENOENT)
-                                return log_error_errno(errno, "Failed to check whether %s exists: %m", sysfs);
-                } else
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Operating on partitions is currently not supported, sorry. Please specify a top-level block device.");
-
+                /* A partition table is only of use on devices where the kernel will find the partitions in it.
+                 * That's not the case for a partition or an LVM volume, hence place LUKS directly on these. */
                 r = blockdev_partscan_enabled_fd(setup->image_fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine whether block device '%s' supports partitions: %m", ip);
-                if (r == 0) {
+                naked = r == 0;
+
+                if (naked) {
+                        if (!sd_id128_is_null(h->partition_uuid))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Partition UUID specified, but block device '%s' won't carry a partition of ours, refusing.", ip);
+
+                        /* Make sure udev doesn't read from it while we operate on the device. This lock is about
+                         * the main block device, never the partition, see https://systemd.io/BLOCK_DEVICE_LOCKING.
+                         * We take it first, so that nothing that follows the rules can change the device
+                         * between us checking that it is empty and formatting it. */
+                        lock_fd = lock_whole_block_device(st.st_rdev, O_RDONLY, LOCK_EX);
+                        if (lock_fd < 0)
+                                return log_error_errno(lock_fd, "Failed to lock whole block device of %s: %m", ip);
+
                         r = validate_unused_block_device(setup->image_fd, ip);
                         if (r < 0)
                                 return r;
-                }
 
-                if (flock(setup->image_fd, LOCK_EX) < 0) /* make sure udev doesn't read from it while we operate on the device */
+                } else if (flock(setup->image_fd, LOCK_EX) < 0) /* make sure udev doesn't read from it while we operate on the device */
                         return log_error_errno(errno, "Failed to lock block device %s: %m", ip);
 
                 r = blockdev_get_device_size(setup->image_fd, &block_device_size);
@@ -2481,9 +2480,14 @@ int home_create_luks(
                                 host_size = block_device_size; /* Otherwise, take the full device */
 
                 } else if (h->disk_size > block_device_size)
-                        return log_error_errno(SYNTHETIC_ERRNO(EMSGSIZE), "Selected disk size larger than backing block device, refusing.");
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOSPC), "Selected disk size larger than backing block device, refusing.");
                 else
                         host_size = DISK_SIZE_ROUND_DOWN(h->disk_size);
+
+                if (naked && host_size < DISK_SIZE_ROUND_DOWN(block_device_size))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTTY),
+                                               "Home uses all of block device '%s' of size %s, a smaller size is not supported.",
+                                               ip, FORMAT_BYTES(block_device_size));
 
                 if (!supported_fs_size(fstype, LESS_BY(host_size, GPT_LUKS2_OVERHEAD)))
                         return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
@@ -2551,25 +2555,41 @@ int home_create_luks(
                 } else
                         image_sector_size = luks_sector_size = user_record_luks_sector_size(h);
         }
-        r = make_partition_table(
-                        setup->image_fd,
-                        image_sector_size,
-                        user_record_user_name_and_realm(h),
-                        partition_uuid,
-                        &partition_offset,
-                        &partition_size,
-                        &disk_uuid);
-        if (r < 0)
-                return r;
 
-        log_info("Writing of partition table completed.");
+        if (!naked) {
+                if (sd_id128_is_null(h->partition_uuid)) {
+                        r = sd_id128_randomize(&partition_uuid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to acquire partition UUID: %m");
+                } else
+                        partition_uuid = h->partition_uuid;
+
+                r = make_partition_table(
+                                setup->image_fd,
+                                image_sector_size,
+                                user_record_user_name_and_realm(h),
+                                partition_uuid,
+                                &partition_offset,
+                                &partition_size,
+                                &disk_uuid);
+                if (r < 0)
+                        return r;
+
+                log_info("Writing of partition table completed.");
+        }
 
         if (fstat(setup->image_fd, &st) < 0)
                 return log_error_errno(errno, "Failed to fstat home image: %m");
 
         /* Ensure we don't create a loop device over block device as it leads to huge overhead for discard operations
          * if the device does not support discard_zeroes_data */
-        if (S_ISBLK(st.st_mode)) {
+        if (naked) {
+                /* We hold the lock on the whole block device already, don't take another one here. */
+                r = loop_device_open_from_fd(setup->image_fd, O_RDWR, LOCK_UN, &setup->loop);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open block device %s: %m", ip);
+
+        } else if (S_ISBLK(st.st_mode)) {
                 _cleanup_free_ char *partition_path = NULL;
                 assert(!sd_id128_is_null(partition_uuid));
                 if (asprintf(&partition_path, "/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(partition_uuid)) < 0)
@@ -2648,6 +2668,10 @@ int home_create_luks(
                 return r;
 
         log_info("Formatting file system completed.");
+
+        /* The signatures on the device have been written now, there's no reason to keep udev from looking at the
+         * rest of the disk any longer. */
+        lock_fd = safe_close(lock_fd);
 
         r = home_unshare_and_mount(setup->dm_node, fstype, user_record_luks_discard(h), user_record_mount_flags(h), h->luks_extra_mount_options);
         if (r < 0)
@@ -2738,7 +2762,11 @@ int home_create_luks(
         if (fsync(setup->image_fd) < 0)
                 return log_error_errno(r, "Failed to synchronize image to disk: %m");
 
-        if (disk_uuid_path)
+        if (naked)
+                /* No partition table to reread, but make sure udev finds the LUKS volume. Not all device types
+                 * are watched by udev for being closed after writing. */
+                (void) reread_partition_table_fd(setup->image_fd, REREADPT_FORCE_UEVENT, /* args= */ NULL);
+        else if (disk_uuid_path)
                 /* Reread partition table if this is a block device */
                 (void) reread_partition_table_fd(setup->image_fd, /* flags= */ 0, /* args= */ NULL);
         else {
@@ -2768,7 +2796,8 @@ int home_create_luks(
 
         print_size_summary(host_size, encrypted_size, &sfs);
 
-        log_debug("GPT + LUKS2 overhead is %" PRIu64 " (expected %" PRIu64 ")", host_size - encrypted_size, GPT_LUKS2_OVERHEAD);
+        if (!naked)
+                log_debug("GPT + LUKS2 overhead is %" PRIu64 " (expected %" PRIu64 ")", host_size - encrypted_size, GPT_LUKS2_OVERHEAD);
 
         *ret_home = TAKE_PTR(new_home);
         return 0;
