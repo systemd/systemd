@@ -7,6 +7,7 @@
 #include "sd-json.h"
 
 #include "build.h"
+#include "daemon-util.h"
 #include "device-monitor-private.h"
 #include "device-util.h"
 #include "event-util.h"
@@ -15,6 +16,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "static-destruct.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -35,6 +37,7 @@ static WaitUntil arg_wait_until = WAIT_UNTIL_INITIALIZED;
 static usec_t arg_timeout_usec = USEC_INFINITY;
 static bool arg_removed = false;
 static bool arg_settle = false;
+static bool arg_notify = false;
 static char **arg_devices = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_devices, strv_freep);
@@ -340,6 +343,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_settle = true;
                         break;
 
+                OPTION_LONG("notify", NULL, "Send notifications to service manager"):
+                        arg_notify = true;
+                        break;
+
                 OPTION_COMMON_INTROSPECT_CLI:
                         return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
@@ -380,9 +387,31 @@ int verb_wait_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
                                                "Specified path \"%s\" does not start with \"/dev/\" or \"/sys/\".", *p);
         }
 
+        _cleanup_free_ char *notify_message_start = NULL, *notify_message_stop = NULL, *notify_message_fail = NULL;
+        if (arg_notify) {
+                notify_message_start = asprintf_safe(
+                                "READY=1\n"
+                                "STATUS=Waiting for devices to be %s...",
+                                wait_until_to_string(arg_wait_until));
+                notify_message_stop = asprintf_safe(
+                                "STOPPING=1\n"
+                                "STATUS=All devices are %s.",
+                                wait_until_to_string(arg_wait_until));
+                notify_message_fail = asprintf_safe(
+                                "STATUS=Failed to wait for devices to be %s.",
+                                wait_until_to_string(arg_wait_until));
+                if (!notify_message_start || !notify_message_stop || !notify_message_fail)
+                        return log_oom();
+        }
+
         /* Check before configuring event sources, as devices may be already initialized. */
-        if (check())
+        if (check()) {
+                if (arg_notify) {
+                        (void) sd_notify(/* unset_environment= */ false, notify_message_start);
+                        (void) sd_notify(/* unset_environment= */ false, notify_message_stop);
+                }
                 return 0;
+        }
 
         r = sd_event_default(&event);
         if (r < 0)
@@ -423,9 +452,13 @@ int verb_wait_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         return log_error_errno(r, "Failed to set up periodic timer: %m");
         }
 
+        _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
+        if (arg_notify)
+                notify_message = notify_start(notify_message_start, notify_message_fail);
+
         /* Check before entering the event loop, as devices may be initialized during setting up event sources. */
         if (check())
-                return 0;
+                goto success;
 
         r = sd_event_loop(event);
         if (r == -ETIMEDOUT)
@@ -434,5 +467,7 @@ int verb_wait_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Event loop failed: %m");
 
+success:
+        notify_message = notify_message_stop;
         return 0;
 }
