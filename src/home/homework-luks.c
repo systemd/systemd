@@ -1452,6 +1452,9 @@ int home_setup_luks(
                                 O_RDWR,
                                 offset,
                                 size,
+                                /* Block devices are used as they are, never with a loopback device on top: the
+                                 * sector size of the LUKS volume is independent of the one of the device below. */
+                                S_ISBLK(st.st_mode) ? 0 :
                                 h->luks_sector_size == UINT64_MAX ? UINT32_MAX : user_record_luks_sector_size(h), /* if sector size is not specified, select UINT32_MAX, i.e. auto-probe */
                                 /* loop_flags= */ 0,
                                 LOCK_UN,
