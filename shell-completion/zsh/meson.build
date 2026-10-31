@@ -50,6 +50,7 @@ foreach item : [
         ['_systemd-analyze',          ''],
         ['_systemd-cryptenroll',      'HAVE_LIBCRYPTSETUP'],
         ['_systemd-delta',            ''],
+        ['_systemd-dissect',          'HAVE_BLKID'],
         ['_systemd-hwdb',             'ENABLE_HWDB'],
         ['_systemd-id128',            ''],
         ['_systemd-inhibit',          'ENABLE_LOGIND'],
