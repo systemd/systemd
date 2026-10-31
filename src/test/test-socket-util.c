@@ -2,6 +2,9 @@
 
 #include <fcntl.h>
 #include <grp.h>
+#include <linux/if_arp.h>
+#include <linux/if_ether.h>
+#include <linux/if_infiniband.h>
 #include <linux/pidfd.h>
 #include <linux/pkt_sched.h>
 #include <netinet/ip.h>
@@ -137,6 +140,31 @@ TEST(sockaddr_un_len) {
 
         ASSERT_EQ(sockaddr_un_len(&fs), offsetof(struct sockaddr_un, sun_path) + strlen(fs.sun_path) + 1);
         ASSERT_EQ(sockaddr_un_len(&abstract), offsetof(struct sockaddr_un, sun_path) + 1 + strlen(abstract.sun_path + 1));
+}
+
+TEST(sockaddr_ll_len) {
+        union sockaddr_union sa = {
+                .ll.sll_family = AF_PACKET,
+        };
+
+        /* Without any hardware type or address length, the plain structure size is used. */
+        ASSERT_EQ(sockaddr_ll_len(&sa.ll), sizeof(struct sockaddr_ll));
+
+        /* An Ethernet address fits into sll_addr. */
+        sa.ll.sll_hatype = htobe16(ARPHRD_ETHER);
+        sa.ll.sll_halen = ETH_ALEN;
+        ASSERT_EQ(sockaddr_ll_len(&sa.ll), sizeof(struct sockaddr_ll));
+
+        /* An InfiniBand address runs over sll_addr, and the length must cover it. */
+        sa.ll.sll_hatype = htobe16(ARPHRD_INFINIBAND);
+        sa.ll.sll_halen = INFINIBAND_ALEN;
+        ASSERT_EQ(sockaddr_ll_len(&sa.ll), offsetof(struct sockaddr_ll, sll_addr) + INFINIBAND_ALEN);
+
+        /* The kernel only looks at sll_halen when sending, hence the length must follow it even when
+         * the hardware type is not set. */
+        sa.ll.sll_hatype = 0;
+        ASSERT_EQ(sockaddr_ll_len(&sa.ll), offsetof(struct sockaddr_ll, sll_addr) + INFINIBAND_ALEN);
+        ASSERT_LE(sockaddr_ll_len(&sa.ll), sizeof(sa.ll_buffer));
 }
 
 TEST(in_addr_is_multicast) {
