@@ -1130,6 +1130,19 @@ TEST(strv_extend_join) {
         ASSERT_STREQ(v[1], "ABC=QER");
 }
 
+TEST(STRV_EMPTY) {
+        char **a = (char*[]) { NULL };   /* a != NULL, a[0] == NULL: empty strv  */
+        char **b = (char**)  { NULL };   /* b == NULL: no array at all           */
+        char **c = STRV_EMPTY;
+
+        ASSERT_NOT_NULL(a);
+        ASSERT_NULL(b);
+        ASSERT_NOT_NULL(c);
+
+        ASSERT_NULL(a[0]);
+        ASSERT_NULL(c[0]);
+}
+
 TEST(strv_copy_n) {
         char **x = STRV_MAKE("a", "b", "c", "d", "e");
         _cleanup_strv_free_ char **l = NULL;
@@ -1139,7 +1152,7 @@ TEST(strv_copy_n) {
         strv_free(l);
 
         l = strv_copy_n(x, 0);
-        ASSERT_STRV_EQ(l, (char**) { NULL });
+        ASSERT_STRV_EQ(l, STRV_EMPTY);
         strv_free(l);
 
         l = strv_copy_n(x, 1);
