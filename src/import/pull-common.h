@@ -36,6 +36,7 @@ int pull_make_verification_jobs(
                 PullJob **ret_checksum_job,
                 PullJob **ret_signature_job,
                 ImportVerify verify,
+                ImportFlags flags,
                 const char *url,
                 sd_event *event,
                 CurlGlue *glue,
@@ -44,6 +45,7 @@ int pull_make_verification_jobs(
 
 int pull_verify(
                 ImportVerify verify,
+                ImportFlags flags,
                 PullJob *main_job,
                 PullJob *checksum_job,
                 PullJob *signature_job,
@@ -77,4 +79,4 @@ int pull_job_restart_with_signature(PullJob *job, char **ret);
 
 bool pull_validate_local(const char *name, ImportFlags flags);
 
-int pull_url_needs_checksum(const char *url);
+int pull_url_needs_checksum(const char *url, ImportFlags flags);

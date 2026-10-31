@@ -158,6 +158,9 @@ static int verb_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (!local && FLAGS_SET(arg_import_flags, IMPORT_DIRECT))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Pulling tar images to STDOUT is not supported.");
 
+        if (arg_import_flags & (IMPORT_PULL_CHECKSUM_FILE_YES|IMPORT_PULL_CHECKSUM_FILE_NO))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--checksum-file= is not supported for tar images.");
+
         r = normalize_local(local, url, &normalized);
         if (r < 0)
                 return r;
@@ -280,6 +283,8 @@ static int verb_oci(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         if (arg_compression >= 0 || iovec_is_set(&arg_decoded_checksum))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--compression= and --verify-decoded= are not supported for OCI images.");
+        if (arg_import_flags & (IMPORT_PULL_CHECKSUM_FILE_YES|IMPORT_PULL_CHECKSUM_FILE_NO))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--checksum-file= is not supported for OCI images.");
 
         _cleanup_free_ char *image = NULL;
         r = oci_ref_parse(ref, /* ret_registry= */ NULL, &image, /* ret_tag= */ NULL);
@@ -436,6 +441,20 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                         SET_FLAG(arg_import_flags, IMPORT_PULL_VERITY, r);
                         break;
+
+                OPTION_LONG("checksum-file", "BOOL|auto",
+                            "Whether the downloaded file is a checksum file, verified via a detached "
+                            "signature only (default: auto, i.e. decide by its name)"): {
+                        int b;
+
+                        r = parse_tristate_argument_with_auto("--checksum-file=", opts.arg, &b);
+                        if (r < 0)
+                                return r;
+
+                        SET_FLAG(arg_import_flags, IMPORT_PULL_CHECKSUM_FILE_YES, b > 0);
+                        SET_FLAG(arg_import_flags, IMPORT_PULL_CHECKSUM_FILE_NO, b == 0);
+                        break;
+                }
 
                 OPTION_LONG("read-only", NULL, "Create a read-only image"):
                         arg_import_flags |= IMPORT_READ_ONLY;

@@ -236,8 +236,16 @@ int pull_make_auxiliary_job(
         return 0;
 }
 
-static bool is_checksum_file(const char *fn) {
-        /* Returns true if the specified filename refers to a checksum file we grok */
+static bool is_checksum_file(const char *fn, ImportFlags flags) {
+        /* Returns true if the specified filename refers to a checksum file we grok. If the caller told us
+         * explicitly whether it is one, we follow that, otherwise we decide based on the name. */
+
+        assert(!FLAGS_SET(flags, IMPORT_PULL_CHECKSUM_FILE_YES|IMPORT_PULL_CHECKSUM_FILE_NO));
+
+        if (FLAGS_SET(flags, IMPORT_PULL_CHECKSUM_FILE_YES))
+                return true;
+        if (FLAGS_SET(flags, IMPORT_PULL_CHECKSUM_FILE_NO))
+                return false;
 
         if (!fn)
                 return false;
@@ -266,10 +274,42 @@ static SignatureStyle signature_style_from_filename(const char *fn) {
         return _SIGNATURE_STYLE_INVALID;
 }
 
+static int pull_job_restart_with_signature_asc(PullJob *j, char **ret) {
+        _cleanup_free_ char *last = NULL;
+        int r;
+
+        assert(j);
+        assert(ret);
+
+        /* PullJobNotFound handler for the detached signature of a checksum file that is the main download:
+         * after "<checksum file>.gpg" try "<checksum file>.asc", then give up. */
+
+        r = import_url_last_component(j->url, &last);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract filename from URL '%s': %m", j->url);
+
+        char *ext = endswith(last, ".gpg");
+        if (!ext) { /* Nothing to do anymore */
+                *ret = NULL;
+                return 0;
+        }
+
+        log_debug("Got 404 for '%s', now trying to get .asc signature instead.", j->url);
+
+        strcpy(ext, ".asc");
+
+        r = import_url_change_last_component(j->url, last, ret);
+        if (r < 0)
+                return log_error_errno(r, "Failed to replace .gpg suffix: %m");
+
+        return 1;
+}
+
 int pull_make_verification_jobs(
                 PullJob **ret_checksum_job,
                 PullJob **ret_signature_job,
                 ImportVerify verify,
+                ImportFlags flags,
                 const char *url,
                 sd_event *event,
                 CurlGlue *glue,
@@ -296,13 +336,20 @@ int pull_make_verification_jobs(
         }
 
         r = import_url_last_component(url, &fn);
-        if (r < 0 && r != -EADDRNOTAVAIL) /* EADDRNOTAVAIL means there was no last component, which is OK for
-                                           * us, we'll just assume it's not a checksum/signature file */
+        if (r == -EADDRNOTAVAIL) {
+                /* EADDRNOTAVAIL means there was no last component, which is OK for us, we'll just assume it's
+                 * not a checksum/signature file. Unless we are told it is a checksum file, in which case we
+                 * need the name to derive the signature file name from. */
+                if (FLAGS_SET(flags, IMPORT_PULL_CHECKSUM_FILE_YES))
+                        return r;
+        } else if (r < 0)
                 return r;
+
+        bool checksum_file = is_checksum_file(fn, flags);
 
         /* Acquire the checksum file if verification or signature verification is requested and the main file
          * to acquire isn't a checksum or signature file anyway */
-        if (verify != IMPORT_VERIFY_NO && !is_checksum_file(fn) && signature_style_from_filename(fn) < 0) {
+        if (!checksum_file && signature_style_from_filename(fn) < 0) {
                 _cleanup_free_ char *checksum_url = NULL;
                 const char *suffixed = NULL;
 
@@ -328,12 +375,23 @@ int pull_make_verification_jobs(
 
         if (verify == IMPORT_VERIFY_SIGNATURE && signature_style_from_filename(fn) < 0) {
                 _cleanup_free_ char *signature_url = NULL;
-                const char *suffixed = NULL;
+                PullJobNotFound on_not_found;
+                const char *suffixed;
 
-                if (fn)
-                        suffixed = strjoina(fn, ".sha256.asc"); /* Start with the suse-style checksum (if there's a base filename) */
-                else
-                        suffixed = "SHA256SUMS.gpg";
+                if (checksum_file) {
+                        /* If the main download is a checksum file itself, then its detached signature is
+                         * named after it, with a .gpg or .asc suffix (in that order). */
+                        assert(fn);
+                        suffixed = strjoina(fn, ".gpg");
+                        on_not_found = pull_job_restart_with_signature_asc;
+                } else {
+                        if (fn)
+                                suffixed = strjoina(fn, ".sha256.asc"); /* Start with the suse-style checksum (if there's a base filename) */
+                        else
+                                suffixed = "SHA256SUMS.gpg";
+
+                        on_not_found = pull_job_restart_with_signature;
+                }
 
                 /* Queue job for the signature file for the image. */
                 r = import_url_change_last_component(url, suffixed, &signature_url);
@@ -346,7 +404,7 @@ int pull_make_verification_jobs(
 
                 signature_job->on_finished = on_finished;
                 signature_job->uncompressed_max = signature_job->compressed_max = 1ULL * 1024ULL * 1024ULL;
-                signature_job->on_not_found = pull_job_restart_with_signature;
+                signature_job->on_not_found = on_not_found;
         }
 
         *ret_checksum_job = TAKE_PTR(checksum_job);
@@ -354,7 +412,7 @@ int pull_make_verification_jobs(
         return 0;
 }
 
-static int verify_one(PullJob *checksum_job, PullJob *job) {
+static int verify_one(PullJob *checksum_job, PullJob *job, ImportFlags flags) {
         _cleanup_free_ char *fn = NULL;
         int r;
 
@@ -384,7 +442,8 @@ static int verify_one(PullJob *checksum_job, PullJob *job) {
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "Cannot verify checksum, could not determine server-side file name.");
 
-        if (is_checksum_file(fn) || signature_style_from_filename(fn) >= 0) /* We cannot verify checksum files or signature files with a checksum file */
+        if (is_checksum_file(fn, flags) || signature_style_from_filename(fn) >= 0 || /* We cannot verify checksum files or signature files with a checksum file */
+            streq(job->url, checksum_job->url))                                     /* … nor any file with itself */
                 return log_error_errno(SYNTHETIC_ERRNO(ELOOP),
                                        "Cannot verify checksum/signature files via themselves.");
 
@@ -610,6 +669,7 @@ finish:
 }
 
 int pull_verify(ImportVerify verify,
+                ImportFlags flags,
                 PullJob *main_job,
                 PullJob *checksum_job,
                 PullJob *signature_job,
@@ -639,7 +699,7 @@ int pull_verify(ImportVerify verify,
                 return log_error_errno(SYNTHETIC_ERRNO(ELOOP),
                                        "Main download is a signature file, can't verify it.");
 
-        if (is_checksum_file(fn)) {
+        if (is_checksum_file(fn, flags)) {
                 log_debug("Main download is a checksum file, can't validate its checksum with itself, skipping.");
                 verify_job = main_job;
         } else {
@@ -652,9 +712,15 @@ int pull_verify(ImportVerify verify,
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Checksum is empty, cannot verify.");
 
+                /* Whether the main download is a checksum file might have been specified explicitly, but
+                 * the auxiliary files are always classified by their name. */
+                r = verify_one(checksum_job, main_job, flags);
+                if (r < 0)
+                        return r;
+
                 PullJob *j;
-                FOREACH_ARGUMENT(j, main_job, settings_job, roothash_job, roothash_signature_job, verity_job) {
-                        r = verify_one(checksum_job, j);
+                FOREACH_ARGUMENT(j, settings_job, roothash_job, roothash_signature_job, verity_job) {
+                        r = verify_one(checksum_job, j, /* flags= */ 0);
                         if (r < 0)
                                 return r;
                 }
@@ -821,7 +887,7 @@ bool pull_validate_local(const char *name, ImportFlags flags) {
         return image_name_is_valid(name);
 }
 
-int pull_url_needs_checksum(const char *url) {
+int pull_url_needs_checksum(const char *url, ImportFlags flags) {
         _cleanup_free_ char *fn = NULL;
         int r;
 
@@ -835,5 +901,5 @@ int pull_url_needs_checksum(const char *url) {
         if (r < 0)
                 return r;
 
-        return !is_checksum_file(fn) && signature_style_from_filename(fn) < 0;
+        return !is_checksum_file(fn, flags) && signature_style_from_filename(fn) < 0;
 }
