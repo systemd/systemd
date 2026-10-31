@@ -16,6 +16,16 @@ TEST(manager_parse_string) {
         assert_se(manager_new(&m) == 0);
 
         assert_se(!m->fallback_set);
+        assert_se(manager_parse_server_string(m, SERVER_FALLBACK, "invalid..") == 0);
+        assert_se(!m->fallback_set);
+        assert_se(!m->fallback_servers);
+        assert_se(manager_parse_fallback_string(m, "time.fallback.example") == 0);
+        assert_se(m->fallback_set);
+        assert_se(m->fallback_servers);
+        assert_se(streq(m->fallback_servers->string, "time.fallback.example"));
+
+        manager_flush_server_names(m, SERVER_FALLBACK);
+        m->fallback_set = false;
         assert_se(manager_parse_server_string(m, SERVER_FALLBACK, NTP_SERVERS) == 0);
         assert_se(m->fallback_set);
         assert_se(manager_parse_fallback_string(m, NTP_SERVERS) == 0);
