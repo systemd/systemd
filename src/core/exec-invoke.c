@@ -5072,8 +5072,18 @@ static int setup_delegated_namespaces(
                                 &error_path);
                 if (r < 0) {
                         *reterr_exit_status = EXIT_NAMESPACE;
-                        return log_error_errno(r, "Failed to set up mount namespacing%s%s: %m",
-                                               error_path ? ": " : "", strempty(error_path));
+                        if (r == -ENOENT && error_path)
+                                return log_error_errno(r,
+                                                       "Required path '%s' not found while mounting (if "
+                                                       "configured in a setting such as InaccessiblePaths= "
+                                                       "or BindPaths=, prefix with '-' to make it optional)",
+                                                       error_path);
+                        if (error_path)
+                                return log_error_errno(r,
+                                                       "Failed to set up mount namespacing, "
+                                                       "while processing '%s': %m",
+                                                       error_path);
+                        return log_error_errno(r, "Failed to set up mount namespacing: %m");
                 }
 
                 log_debug("Set up %smount namespace", delegate ? "delegated " : "");
