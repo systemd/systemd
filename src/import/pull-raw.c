@@ -552,6 +552,7 @@ static void raw_pull_job_on_finished(PullJob *j) {
                 raw_pull_report_progress(p, RAW_VERIFYING);
 
                 r = pull_verify(p->verify,
+                                p->flags,
                                 p->raw_job,
                                 p->checksum_job,
                                 p->signature_job,
@@ -854,7 +855,7 @@ int raw_pull_start(
                 /* Calculate checksum of the main download unless the users asks for a SHA256SUM file or its
                  * signature, which we let gpg verify instead. */
 
-                r = pull_url_needs_checksum(url);
+                r = pull_url_needs_checksum(url, flags);
                 if (r < 0)
                         return r;
 
@@ -881,6 +882,7 @@ int raw_pull_start(
                         &p->checksum_job,
                         &p->signature_job,
                         verify,
+                        flags,
                         url,
                         p->event,
                         p->glue,

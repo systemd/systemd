@@ -301,4 +301,84 @@ test ! -e "$COMPDIR/root/bad"
 
 rm -rf "$COMPDIR"
 
+# → Now, let's test --checksum-file=, i.e. whether the downloaded file is treated as checksum file ← #
+
+CFDIR=/var/tmp/checksum-file
+rm -rf "$CFDIR"
+mkdir -p "$CFDIR"
+
+pull_cf() {
+    # Downloads the specified file from $CFDIR with checksum verification, in the specified --checksum-file= mode
+    local fn="${1:?}" mode="${2:?}"
+
+    rm -f "$CFDIR/out"
+    if [[ "$mode" == default ]]; then
+        "$PULL" raw --verify=checksum --direct "file://$CFDIR/$fn" "$CFDIR/out" || return
+    else
+        "$PULL" raw --verify=checksum --checksum-file="$mode" --direct "file://$CFDIR/$fn" "$CFDIR/out" || return
+    fi
+    cmp "$CFDIR/$fn" "$CFDIR/out"
+}
+
+# Invalid arguments are refused, and so is the switch for tar and OCI images
+(! "$PULL" raw --verify=no --checksum-file=foobar --direct "file://$CFDIR/foo" "$CFDIR/out")
+(! "$PULL" tar --verify=no --checksum-file=yes "file://$CFDIR/foo.tar" foo) |& grep -F "not supported for tar images" >/dev/null
+(! "$PULL" tar --verify=no --checksum-file=no "file://$CFDIR/foo.tar" foo) |& grep -F "not supported for tar images" >/dev/null
+(! "$PULL" oci --checksum-file=yes foo/bar) |& grep -F "not supported for OCI images" >/dev/null
+(! "$PULL" oci --checksum-file=no foo/bar) |& grep -F "not supported for OCI images" >/dev/null
+test ! -e "$CFDIR/out"
+
+# A file whose name doesn't suggest it is a checksum file, which hence needs a checksum file covering it,
+# unless we are told it is a checksum file itself
+dd if=/dev/urandom of="$CFDIR/data.manifest" bs=1024 count=4 status=none
+for m in default auto no; do
+    (! pull_cf data.manifest "$m")
+done
+pull_cf data.manifest yes
+# … with a matching checksum file it's accepted in all modes
+(cd "$CFDIR" && sha256sum data.manifest >SHA256SUMS)
+for m in default auto no yes; do
+    pull_cf data.manifest "$m"
+done
+# … with a non-matching checksum file it's refused, unless it's not checked against it at all
+echo "0000000000000000000000000000000000000000000000000000000000000000  data.manifest" >"$CFDIR/SHA256SUMS"
+for m in default auto no; do
+    (! pull_cf data.manifest "$m")
+done
+pull_cf data.manifest yes
+rm "$CFDIR/SHA256SUMS"
+
+# A file whose name suggests it is a checksum file, which hence is not checked against a checksum file,
+# unless we are told it is not a checksum file
+(cd "$CFDIR" && sha256sum data.manifest >data.sha256)
+for m in default auto yes; do
+    pull_cf data.sha256 "$m"
+done
+(! pull_cf data.sha256 no)
+# … with a matching checksum file (both the suse-style and ubuntu-style name) it's accepted in all modes
+(cd "$CFDIR" && sha256sum data.sha256 >data.sha256.sha256)
+for m in default auto no yes; do
+    pull_cf data.sha256 "$m"
+done
+mv "$CFDIR/data.sha256.sha256" "$CFDIR/SHA256SUMS"
+for m in default auto no yes; do
+    pull_cf data.sha256 "$m"
+done
+# … with a non-matching checksum file it's only refused if we are told it is not a checksum file
+echo "0000000000000000000000000000000000000000000000000000000000000000  data.sha256" >"$CFDIR/SHA256SUMS"
+for m in default auto yes; do
+    pull_cf data.sha256 "$m"
+done
+(! pull_cf data.sha256 no)
+
+# SHA256SUMS is a checksum file by its name. If we are told it is not, it'd have to be verified against
+# itself, which is refused.
+(cd "$CFDIR" && sha256sum data.manifest >SHA256SUMS)
+for m in default auto yes; do
+    pull_cf SHA256SUMS "$m"
+done
+(! pull_cf SHA256SUMS no) |& grep -F "Cannot verify checksum/signature files via themselves" >/dev/null
+
+rm -rf "$CFDIR"
+
 touch /testok
