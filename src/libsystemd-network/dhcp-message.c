@@ -1786,6 +1786,9 @@ int dhcp_message_send_raw(
                 .ll.sll_halen = dst_hw_addr->length,
         };
 
+        /* sll_addr only holds 8 bytes, longer addresses (e.g. the 20 bytes of InfiniBand) overflow into
+         * sockaddr_union's ll_buffer member, which is sized for that. sockaddr_ll_len() takes sll_halen into
+         * account, so the length passed to the kernel covers the whole address. */
         memcpy_safe(sa.ll.sll_addr, dst_hw_addr->bytes, dst_hw_addr->length);
 
         struct msghdr mh = {
