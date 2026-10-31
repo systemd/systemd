@@ -802,7 +802,7 @@ static int dispatch_transient_context_postauth(const char *name, sd_json_variant
                 { "Description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,   offsetof(StartTransientContextParameters, description),  0                 },
                 { "CollectMode", SD_JSON_VARIANT_STRING, dispatch_collect_mode,           offsetof(StartTransientContextParameters, collect_mode), 0                 },
                 { "Exec",        SD_JSON_VARIANT_OBJECT, dispatch_transient_exec_context, 0,                                                       SD_JSON_NULLABLE  },
-                { "Kill",        SD_JSON_VARIANT_OBJECT, dispatch_transient_kill,         0,                                                       0                 },
+                { "Kill",        SD_JSON_VARIANT_OBJECT, dispatch_transient_kill,         0,                                                       SD_JSON_NULLABLE  },
                 { "Service",     SD_JSON_VARIANT_OBJECT, dispatch_transient_service,      0,                                                       0                 },
                 { "Scope",       SD_JSON_VARIANT_OBJECT, dispatch_transient_scope,        0,                                                       0                 },
                 { "CGroup",      SD_JSON_VARIANT_OBJECT, dispatch_transient_cgroup,       0,                                                       SD_JSON_NULLABLE  },
