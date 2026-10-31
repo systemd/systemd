@@ -1181,7 +1181,7 @@ static int manager_listen_notify(Manager *m) {
 
 static int manager_add_device(Manager *m, sd_device *d) {
         _cleanup_free_ char *user_name = NULL, *realm = NULL, *node = NULL;
-        const char *tabletype, *parttype, *partname, *partuuid, *sysfs;
+        const char *tabletype, *parttype, *partname, *fstype, *partuuid, *sysfs;
         sd_id128_t id;
         int r;
 
@@ -1222,6 +1222,15 @@ static int manager_add_device(Manager *m, sd_device *d) {
                 return log_warning_errno(r, "Found partition with correct partition type but a non-parsable partition name '%s', ignoring.", partname);
         if (r < 0)
                 return log_error_errno(r, "Failed to validate partition name '%s': %m", partname);
+
+        /* A partition keeps its type and name if it is put to some other use after a home directory was removed */
+        r = sd_device_get_property_value(d, "ID_FS_TYPE", &fstype);
+        if (r < 0 && r != -ENOENT)
+                return log_warning_errno(r, "Failed to acquire ID_FS_TYPE device property, ignoring: %m");
+        if (r == -ENOENT || !streq(fstype, "crypto_LUKS")) {
+                log_debug("Found partition (%s) with correct partition type but no LUKS volume, ignoring.", sysfs);
+                return 0;
+        }
 
         r = sd_device_get_property_value(d, "ID_FS_UUID", &partuuid);
         if (r < 0)
