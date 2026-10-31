@@ -17,6 +17,7 @@
 #include "networkd-link-varlink.h"
 #include "networkd-manager.h"
 #include "networkd-manager-varlink.h"
+#include "set.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "varlink-io.systemd.Network.h"
@@ -108,17 +109,12 @@ static int link_append_lldp_neighbors(Link *link, sd_json_variant *v, sd_json_va
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_array(v), "Neighbors", SD_JSON_BUILD_VARIANT(v)));
 }
 
-static int vl_method_get_lldp_neighbors(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, Manager *manager) {
+static int manager_build_lldp_neighbors_by_interface_json(Manager *manager, Link *link, sd_json_variant **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
-        Link *link = NULL;
         int r;
 
-        assert(vlink);
         assert(manager);
-
-        r = dispatch_link(vlink, parameters, manager, /* flags= */ 0, &link);
-        if (r != 0)
-                return r;
+        assert(ret);
 
         if (link) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
@@ -132,29 +128,148 @@ static int vl_method_get_lldp_neighbors(sd_varlink *vlink, sd_json_variant *para
                 r = link_append_lldp_neighbors(link, v, &array);
                 if (r < 0)
                         return r;
-        } else
-                HASHMAP_FOREACH(link, manager->links_by_index) {
+        } else {
+                _cleanup_free_ Link **links = NULL;
+                size_t n_links = 0;
+
+                r = hashmap_dump_sorted(manager->links_by_index, (void***) &links, &n_links);
+                if (r < 0)
+                        return r;
+
+                FOREACH_ARRAY(l, links, n_links) {
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
-                        if (!link->lldp_rx)
+                        if (!(*l)->lldp_rx)
                                 continue;
 
-                        r = lldp_rx_build_neighbors_json(link->lldp_rx, &v);
+                        r = lldp_rx_build_neighbors_json((*l)->lldp_rx, &v);
                         if (r < 0)
                                 return r;
 
                         if (sd_json_variant_is_blank_array(v))
                                 continue;
 
-                        r = link_append_lldp_neighbors(link, v, &array);
+                        r = link_append_lldp_neighbors(*l, v, &array);
                         if (r < 0)
                                 return r;
                 }
+        }
 
-        return sd_varlink_replybo(
-                        vlink,
-                        SD_JSON_BUILD_PAIR_CONDITION(sd_json_variant_is_blank_array(array), "Neighbors", SD_JSON_BUILD_EMPTY_ARRAY),
-                        SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_array(array), "Neighbors", SD_JSON_BUILD_VARIANT(array)));
+        if (!array) {
+                r = sd_json_variant_new_array(&array, /* array= */ NULL, /* n= */ 0);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(array);
+        return 0;
+}
+
+static int vl_method_get_lldp_neighbors(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        Manager *manager = ASSERT_PTR(userdata);
+        Link *link = NULL;
+        int r;
+
+        assert(vlink);
+
+        r = dispatch_link(vlink, parameters, manager, /* flags= */ 0, &link);
+        if (r != 0)
+                return r;
+
+        r = manager_build_lldp_neighbors_by_interface_json(manager, link, &array);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_replybo(vlink, SD_JSON_BUILD_PAIR_VARIANT("Neighbors", array));
+}
+
+static int vl_method_subscribe_lldp_neighbors(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        Manager *manager = ASSERT_PTR(userdata);
+        Link *link = NULL;
+        int r;
+
+        assert(vlink);
+        assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
+
+        r = dispatch_link(vlink, parameters, manager, /* flags= */ 0, &link);
+        if (r != 0)
+                return r;
+
+        r = manager_build_lldp_neighbors_by_interface_json(manager, link, &array);
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_notifybo(vlink, SD_JSON_BUILD_PAIR_VARIANT("Neighbors", array));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to send initial LLDP neighbors to subscriber: %m");
+
+        r = set_ensure_put(
+                        link ? &link->lldp_neighbors_subscriptions : &manager->lldp_neighbors_subscriptions,
+                        &varlink_hash_ops,
+                        vlink);
+        if (r < 0)
+                return r;
+        sd_varlink_ref(vlink);
+
+        return 0;
+}
+
+static void notify_lldp_neighbors(Manager *m, Link *link, Set *subscriptions) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        int r;
+
+        assert(m);
+
+        if (set_isempty(subscriptions))
+                return;
+
+        r = manager_build_lldp_neighbors_by_interface_json(m, link, &array);
+        if (r < 0)
+                return (void) log_link_warning_errno(link, r, "Failed to build LLDP neighbors JSON, ignoring: %m");
+
+        r = varlink_many_notifybo(subscriptions, SD_JSON_BUILD_PAIR_VARIANT("Neighbors", array));
+        if (r < 0)
+                log_link_debug_errno(link, r, "Failed to notify LLDP neighbors subscribers, ignoring: %m");
+}
+
+void link_varlink_notify_lldp_neighbors(Link *link, bool unfiltered) {
+        Manager *m = ASSERT_PTR(ASSERT_PTR(link)->manager);
+
+        if (unfiltered)
+                notify_lldp_neighbors(m, /* link= */ NULL, m->lldp_neighbors_subscriptions);
+
+        notify_lldp_neighbors(m, link, link->lldp_neighbors_subscriptions);
+}
+
+void link_varlink_drop_lldp_neighbors_subscriptions(Link *link) {
+        _cleanup_set_free_ Set *subscriptions = NULL;
+        int r;
+
+        assert(link);
+
+        /* The error reply completes the calls, hence the connections must not get any further notifications,
+         * e.g. from link_lldp_rx_free() which link_drop() calls right after this. */
+        subscriptions = TAKE_PTR(link->lldp_neighbors_subscriptions);
+
+        r = varlink_many_error(subscriptions, "io.systemd.Network.InterfaceRemoved", /* parameters= */ NULL);
+        if (r < 0)
+                log_link_debug_errno(link, r, "Failed to terminate LLDP neighbors subscriptions, ignoring: %m");
+}
+
+static void vl_on_disconnect(sd_varlink_server *s, sd_varlink *vlink, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        Link *link;
+
+        assert(vlink);
+
+        if (set_remove(m->lldp_neighbors_subscriptions, vlink))
+                sd_varlink_unref(vlink);
+
+        HASHMAP_FOREACH(link, m->links_by_index)
+                if (set_remove(link->lldp_neighbors_subscriptions, vlink))
+                        sd_varlink_unref(vlink);
 }
 
 static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -316,25 +431,30 @@ int manager_varlink_init(Manager *m, int fd) {
 
         r = sd_varlink_server_bind_method_many(
                         s,
-                        "io.systemd.Network.Describe",             vl_method_describe,
-                        "io.systemd.Network.GetStates",            vl_method_get_states,
-                        "io.systemd.Network.GetNamespaceId",       vl_method_get_namespace_id,
-                        "io.systemd.Network.GetLLDPNeighbors",     vl_method_get_lldp_neighbors,
-                        "io.systemd.Network.Reload",               vl_method_reload,
-                        "io.systemd.Network.SetPersistentStorage", vl_method_set_persistent_storage,
-                        "io.systemd.Network.Link.Describe",        vl_method_link_describe,
-                        "io.systemd.Network.Link.Up",              vl_method_link_up,
-                        "io.systemd.Network.Link.Down",            vl_method_link_down,
-                        "io.systemd.Network.Link.Renew",           vl_method_link_renew,
-                        "io.systemd.Network.Link.ForceRenew",      vl_method_link_force_renew,
-                        "io.systemd.Network.Link.Reconfigure",     vl_method_link_reconfigure,
-                        "io.systemd.service.Ping",                 varlink_method_ping,
-                        "io.systemd.service.Reload",               vl_method_reload,
-                        "io.systemd.service.SetLogLevel",          varlink_method_set_log_level,
-                        "io.systemd.service.GetLogLevel",          varlink_method_get_log_level,
-                        "io.systemd.service.GetEnvironment",       varlink_method_get_environment);
+                        "io.systemd.Network.Describe",               vl_method_describe,
+                        "io.systemd.Network.GetStates",              vl_method_get_states,
+                        "io.systemd.Network.GetNamespaceId",         vl_method_get_namespace_id,
+                        "io.systemd.Network.GetLLDPNeighbors",       vl_method_get_lldp_neighbors,
+                        "io.systemd.Network.SubscribeLLDPNeighbors", vl_method_subscribe_lldp_neighbors,
+                        "io.systemd.Network.Reload",                 vl_method_reload,
+                        "io.systemd.Network.SetPersistentStorage",   vl_method_set_persistent_storage,
+                        "io.systemd.Network.Link.Describe",          vl_method_link_describe,
+                        "io.systemd.Network.Link.Up",                vl_method_link_up,
+                        "io.systemd.Network.Link.Down",              vl_method_link_down,
+                        "io.systemd.Network.Link.Renew",             vl_method_link_renew,
+                        "io.systemd.Network.Link.ForceRenew",        vl_method_link_force_renew,
+                        "io.systemd.Network.Link.Reconfigure",       vl_method_link_reconfigure,
+                        "io.systemd.service.Ping",                   varlink_method_ping,
+                        "io.systemd.service.Reload",                 vl_method_reload,
+                        "io.systemd.service.SetLogLevel",            varlink_method_set_log_level,
+                        "io.systemd.service.GetLogLevel",            varlink_method_get_log_level,
+                        "io.systemd.service.GetEnvironment",         varlink_method_get_environment);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
+
+        r = sd_varlink_server_bind_disconnect(s, vl_on_disconnect);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register varlink disconnect handler: %m");
 
         if (fd < 0)
                 r = sd_varlink_server_listen_address(s, "/run/systemd/netif/io.systemd.Network", /* mode= */ 0666);

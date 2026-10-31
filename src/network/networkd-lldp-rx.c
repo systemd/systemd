@@ -9,6 +9,7 @@
 #include "networkd-link.h"
 #include "networkd-lldp-rx.h"
 #include "networkd-manager.h"
+#include "networkd-manager-varlink.h"
 #include "networkd-network.h"
 #include "string-table.h"
 #include "strv.h"
@@ -58,6 +59,54 @@ static void lldp_rx_handler(sd_lldp_rx *lldp_rx, sd_lldp_rx_event_t event, sd_ll
                 if (r < 0)
                         log_link_warning_errno(link, r, "Failed to restart LLDP transmission: %m");
         }
+
+        /* A refresh only restarts the TTL timer of an unchanged neighbor, nothing to report. */
+        if (event != SD_LLDP_RX_EVENT_REFRESHED)
+                link_varlink_notify_lldp_neighbors(link, /* unfiltered= */ true);
+}
+
+static bool link_has_lldp_neighbors(Link *link) {
+        assert(link);
+
+        return link->lldp_rx && sd_lldp_rx_get_n_neighbors(link->lldp_rx) > 0;
+}
+
+/* Unlike when a neighbor expires, stopping or freeing the LLDP receiver drops all neighbors without
+ * triggering any event, hence the following two functions notify subscribers explicitly. */
+
+int link_lldp_rx_stop(Link *link) {
+        int r;
+
+        assert(link);
+
+        bool notify = link_has_lldp_neighbors(link);
+
+        r = sd_lldp_rx_stop(link->lldp_rx);
+        if (r < 0)
+                return r;
+
+        if (notify)
+                link_varlink_notify_lldp_neighbors(link, /* unfiltered= */ true);
+
+        return r;
+}
+
+void link_lldp_rx_free(Link *link) {
+        assert(link);
+
+        bool notify = link_has_lldp_neighbors(link);
+
+        link->lldp_rx = sd_lldp_rx_unref(link->lldp_rx);
+
+        if (notify)
+                link_varlink_notify_lldp_neighbors(link, /* unfiltered= */ true);
+}
+
+void link_lldp_rx_notify_names_changed(Link *link) {
+        assert(link);
+
+        /* Without neighbors, only the subscribers filtering by this interface have it listed. */
+        link_varlink_notify_lldp_neighbors(link, /* unfiltered= */ link_has_lldp_neighbors(link));
 }
 
 int link_lldp_rx_configure(Link *link) {

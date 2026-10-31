@@ -798,6 +798,8 @@ Manager* manager_free(Manager *m) {
 
         m->new_wlan_ifindices = set_free(m->new_wlan_ifindices);
 
+        m->lldp_neighbors_subscriptions = set_free(m->lldp_neighbors_subscriptions);
+
         m->dirty_links = set_free(m->dirty_links);
         m->links_by_name = hashmap_free(m->links_by_name);
         m->links_by_hw_addr = hashmap_free(m->links_by_hw_addr);
