@@ -562,7 +562,7 @@ int verb_start(int argc, char *argv[], uintptr_t _data, void *userdata) {
         }
 
         if (arg_wait) {
-                r = bus_wait_for_units_run(wu);
+                r = bus_wait_for_units_run(wu, /* timeout_usec= */ USEC_INFINITY);
                 if (r < 0)
                         return log_error_errno(r, "Failed to wait for units: %m");
                 if (r == BUS_WAIT_FAILURE && ret == EXIT_SUCCESS)

@@ -11,6 +11,7 @@
 #include "hashmap.h"
 #include "log.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "unit-def.h"
 #include "unit-result.h"
 
@@ -1011,10 +1012,13 @@ int bus_wait_for_units_add_unit(
         return 1;
 }
 
-int bus_wait_for_units_run(BusWaitForUnits *d) {
+int bus_wait_for_units_run(BusWaitForUnits *d, usec_t timeout_usec) {
         int r;
 
         assert(d);
+
+        if (timeout_usec != USEC_INFINITY)
+                timeout_usec = usec_add(timeout_usec, now(CLOCK_MONOTONIC));
 
         while (d->state == BUS_WAIT_RUNNING) {
 
@@ -1024,9 +1028,17 @@ int bus_wait_for_units_run(BusWaitForUnits *d) {
                 if (r > 0)
                         continue;
 
-                r = sd_bus_wait(d->bus, UINT64_MAX);
+                usec_t t;
+                if (timeout_usec != USEC_INFINITY)
+                        t = usec_sub_unsigned(timeout_usec, now(CLOCK_MONOTONIC));
+                else
+                        t = USEC_INFINITY;
+
+                r = sd_bus_wait(d->bus, t);
                 if (r < 0)
                         return r;
+                if (r == 0 && timeout_usec != USEC_INFINITY)
+                        return -ETIME;
         }
 
         return d->state;

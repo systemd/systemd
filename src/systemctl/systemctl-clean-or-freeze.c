@@ -95,7 +95,7 @@ int verb_clean_or_freeze(int argc, char *argv[], uintptr_t _data, void *userdata
                 }
         }
 
-        r = bus_wait_for_units_run(w);
+        r = bus_wait_for_units_run(w, /* timeout_usec= */ USEC_INFINITY);
         if (r < 0)
                 return log_error_errno(r, "Failed to wait for units: %m");
         if (r == BUS_WAIT_FAILURE)
