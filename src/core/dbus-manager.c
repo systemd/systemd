@@ -1734,6 +1734,12 @@ static int method_reexecute(sd_bus_message *message, void *userdata, sd_bus_erro
                                         "Reexecute() request rejected due to rate limit.");
         }
 
+        r = manager_reexecute_canary();
+        if (r < 0)
+                return sd_bus_error_set(reterr_error,
+                                        SD_BUS_ERROR_FAILED,
+                                        "Reexecute() request rejected, the service manager binary failed its pre-flight check, see logs for details.");
+
         /* We don't send a reply back here, the client should
          * just wait for us disconnecting. */
 
