@@ -61,7 +61,7 @@ SUBSYSTEM=="sound", KERNEL=="controlC*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="so
 
 SUBSYSTEM=="printer", TAG+="systemd", ENV{SYSTEMD_WANTS}+="printer.target", ENV{SYSTEMD_USER_WANTS}+="printer.target"
 SUBSYSTEM=="usb", KERNEL=="lp*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="printer.target", ENV{SYSTEMD_USER_WANTS}+="printer.target"
-SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="*:0701??:*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="printer.target", ENV{SYSTEMD_USER_WANTS}+="printer.target"
+ENV{ID_PRINTER}=="1", TAG+="systemd", ENV{SYSTEMD_WANTS}+="printer.target", ENV{SYSTEMD_USER_WANTS}+="printer.target"
 
 SUBSYSTEM=="udc", TAG+="systemd", ENV{SYSTEMD_WANTS}+="usb-gadget.target"
 
