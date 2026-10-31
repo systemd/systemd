@@ -45,7 +45,16 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
         int n = 0, r;
 
         /* Try to umount everything recursively below a directory. Also, take care of stacked mounts, and
-         * keep unmounting them until they are gone. */
+         * keep unmounting them until they are gone.
+         *
+         * Each pass unmounts everything it can from a single snapshot of the mount table, and we only
+         * re-parse the table for another pass if the previous one made progress. Mounts that could not be
+         * unmounted yet (e.g. because a child of theirs was still around) are retried on the next pass.
+         *
+         * Note that an unmount can invalidate later entries of the snapshot: with MNT_DETACH a parent takes
+         * its children along, and their old paths then resolve through whatever the parent was covering,
+         * possibly via symlinks and hence to some other mount outside of the prefix or on the keep list.
+         * Hence verify that a path still refers to the mount we read from the table before unmounting it. */
 
         f = fopen("/proc/self/mountinfo", "re"); /* Pin the file, in case we unmount /proc/ as part of the logic here */
         if (!f)
@@ -64,6 +73,7 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
                         bool shall_keep = false;
                         struct libmnt_fs *fs;
                         const char *path;
+                        int mnt_id;
 
                         r = sym_mnt_table_next_fs(table, iter, &fs);
                         if (r == 1)
@@ -93,6 +103,16 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
                                 continue;
                         }
 
+                        r = path_get_mnt_id(path, &mnt_id);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to get mount ID of %s, ignoring: %m", path);
+                                continue;
+                        }
+                        if (mnt_id != sym_mnt_fs_get_id(fs)) {
+                                log_debug("Not unmounting %s, path no longer refers to mount ID %i.", path, sym_mnt_fs_get_id(fs));
+                                continue;
+                        }
+
                         if (umount2(path, flags | UMOUNT_NOFOLLOW) < 0) {
                                 log_debug_errno(errno, "Failed to umount %s, ignoring: %m", path);
                                 continue;
@@ -102,8 +122,6 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
 
                         again = true;
                         n++;
-
-                        break;
                 }
 
                 if (!again)
