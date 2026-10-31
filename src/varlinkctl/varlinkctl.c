@@ -718,8 +718,8 @@ static int exec_with_listen_fds(char **exec_cmdline, int *fds, size_t n_fds) {
 
         log_debug("Executing: %s", j);
 
-        execvp(exec_cmdline[0], exec_cmdline);
-        return log_error_errno(errno, "Failed to execute '%s': %m", j);
+        r = execvp_safe(exec_cmdline[0], exec_cmdline);
+        return log_error_errno(r, "Failed to execute '%s': %m", j);
 }
 
 static int notice_if_method_experimental(sd_varlink **vl, const char *url, const char *method) {
@@ -1611,8 +1611,8 @@ static int method_serve_upgrade(sd_varlink *link, sd_json_variant *parameters, s
         if (r < 0)
                 return r;
         if (r == 0) {
-                execvp(cmdline_copy[0], cmdline_copy);
-                log_error_errno(errno, "Failed to execute '%s': %m", cmdline_copy[0]);
+                r = execvp_safe(cmdline_copy[0], cmdline_copy);
+                log_error_errno(r, "Failed to execute '%s': %m", cmdline_copy[0]);
                 _exit(EXIT_FAILURE);
         }
 

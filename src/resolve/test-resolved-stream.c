@@ -153,9 +153,9 @@ static void *tls_dns_server(void *p) {
                         &openssl_pidref));
         if (r == 0) {
                 /* Child */
-                execlp("openssl", "openssl", "s_server", "-accept", bind_str,
-                       "-key", key_path, "-cert", cert_path,
-                       "-quiet", "-naccept", "1", NULL);
+                (void) execvp_safe("openssl", STRV_MAKE("openssl", "s_server", "-accept", bind_str,
+                                                        "-key", key_path, "-cert", cert_path,
+                                                        "-quiet", "-naccept", "1"));
                 log_error("exec failed, is something wrong with the 'openssl' command?");
                 _exit(EXIT_FAILURE);
         } else {

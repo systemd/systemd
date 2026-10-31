@@ -296,8 +296,8 @@ _public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, cha
                         }
                 }
 
-                execvp(command, argv);
-                log_debug_errno(errno, "Failed to invoke process '%s': %m", command);
+                r = execvp_safe(command, argv);
+                log_debug_errno(r, "Failed to invoke process '%s': %m", command);
                 _exit(EXIT_FAILURE);
         }
 
@@ -385,8 +385,8 @@ static int varlink_connect_ssh_unix(sd_varlink **ret, const char *where) {
         if (r == 0) {
                 /* Child */
 
-                execlp(ssh, "ssh", "-W", p, h, NULL);
-                log_debug_errno(errno, "Failed to invoke %s: %m", ssh);
+                r = execvp_safe(ssh, STRV_MAKE("ssh", "-W", p, h));
+                log_debug_errno(r, "Failed to invoke %s: %m", ssh);
                 _exit(EXIT_FAILURE);
         }
 
@@ -472,8 +472,8 @@ static int varlink_connect_ssh_exec(sd_varlink **ret, const char *where) {
                 return log_debug_errno(r, "Failed to spawn process: %m");
         if (r == 0) {
                 /* Child */
-                execvp(ssh, full_cmdline);
-                log_debug_errno(errno, "Failed to invoke %s: %m", j);
+                r = execvp_safe(ssh, full_cmdline);
+                log_debug_errno(r, "Failed to invoke %s: %m", j);
                 _exit(EXIT_FAILURE);
         }
 

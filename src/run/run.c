@@ -51,6 +51,7 @@
 #include "pidref.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
+#include "process-util.h"
 #include "ptybroker-client.h"
 #include "ptyfwd.h"
 #include "run-polkit.h"
@@ -2788,9 +2789,9 @@ static int start_transient_scope(sd_bus *bus) {
                 }
         }
 
-        execvpe(arg_cmdline[0], arg_cmdline, env);
+        r = execvpe_safe(arg_cmdline[0], arg_cmdline, env);
 
-        return log_error_errno(errno, "Failed to execute: %m");
+        return log_error_errno(r, "Failed to execute: %m");
 }
 
 static int make_transient_trigger_unit(

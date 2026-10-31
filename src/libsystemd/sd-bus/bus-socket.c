@@ -1212,9 +1212,9 @@ int bus_socket_exec(sd_bus *b) {
                 /* Child */
 
                 if (b->exec_argv)
-                        execvp(b->exec_path, b->exec_argv);
+                        (void) execvp_safe(b->exec_path, b->exec_argv);
                 else
-                        execvp(b->exec_path, STRV_MAKE(b->exec_path));
+                        (void) execvp_safe(b->exec_path, STRV_MAKE(b->exec_path));
 
                 _exit(EXIT_FAILURE);
         }
