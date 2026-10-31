@@ -261,9 +261,10 @@
 
       <para>Addon files are sorted, loaded, and measured into TPM PCR 12 (if a TPM is present) and appended
       to the kernel command line. UKI command line options are listed first, then options from addons in
-      <filename>/loader/addons/*.addon.efi</filename>, and finally UKI-specific addons. Device tree blobs are
-      loaded and measured following the same algorithm. Microcode addons are passed to the kernel in inverse
-      order (UKI specific addons, global addons, UKI embedded section). This is because the microcode update
+      <filename>/loader/addons/*.addon.efi</filename>, then UKI-specific addons, and finally boot entry
+      specific addons (see below). Device tree blobs are loaded and measured following the same algorithm.
+      Microcode addons are passed to the kernel in inverse order (boot entry specific addons, UKI specific
+      addons, global addons, UKI embedded section). This is because the microcode update
       driver stops on the first matching filename. Addons are always loaded in the same order based on
       the filename, so that, given the same set of addons, the same set of measurements can be expected in
       PCR12. However, note that the filename is not protected by the PE signature, and as such an attacker
@@ -284,6 +285,15 @@
       <literal>.initrd</literal>, and <literal>.ucode</literal> sections are parsed from them.
       This is supposed to be used to pass additional command line parameters, DeviceTree blobs, initrds,
       and microcode updates to the kernel, regardless of the kernel version being booted.</para></listitem>
+
+      <listitem><para>Finally, addons listed in the <varname>LoaderEntryAddons</varname> EFI variable (see
+      below) are loaded, verified and parsed the same way. This variable is set by the boot loader, for
+      example by
+      <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+      <filename>*.addon.efi</filename> files configured in UAPI.1 Type #1 <literal>extra</literal> lines. This
+      allows passing addons that are specific to a boot entry, so that the same UKI may be shared between
+      multiple boot entries with different addons. These addons are loaded in the order they are listed in
+      the variable, and not sorted by filename.</para></listitem>
     </itemizedlist>
 
     <para>These mechanisms may be used to parameterize and extend trusted (i.e. signed), immutable initrd
@@ -541,6 +551,18 @@
         partitions on the same disk automatically.</para>
 
         <xi:include href="version-info.xml" xpointer="v224"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderEntryAddons</varname></term>
+
+        <listitem><para>A list of paths to addon PE binaries (<filename>*.addon.efi</filename>) specific to
+        the boot entry being booted, each individually NUL terminated. The paths are relative to the root of
+        the file system the unified kernel image is loaded from. Set by the boot loader (volatile) and read by
+        <command>systemd-stub</command>, which loads the listed addons after the global and UKI-specific ones,
+        see above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
       <varlistentry>
