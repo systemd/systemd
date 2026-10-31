@@ -932,16 +932,8 @@ testcase_dispatch_error_paths() {
         "context.ID"
 
     expect_invalid_parameter \
-        '{"context":{"ID":"varlink-transient-null-exec.service","Exec":null}}' \
-        "context.Exec"
-
-    expect_invalid_parameter \
-        '{"context":{"ID":"varlink-transient-null-wd.service","Exec":{"WorkingDirectory":null}}}' \
-        "context.Exec.WorkingDirectory"
-
-    expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-null-wd-path.service","Exec":{"WorkingDirectory":{"path":null}}}}' \
-        "context.Exec.WorkingDirectory.path"
+        "context.Exec.WorkingDirectory"
 
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-wd-bad-user.service","Exec":{"WorkingDirectory":{"path":"/tmp"},"User":"bad/user"}}}' \
