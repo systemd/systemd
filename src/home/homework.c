@@ -2181,6 +2181,8 @@ static int verb_operation(int argc, char *argv[], uintptr_t data, void *userdata
          * EKEYREVOKED     → user record has not suitable hashed password or pkcs#11 entry, we cannot authenticate
          * EADDRINUSE      → home image is already used elsewhere (lock taken)
          * ENETUNREACH     → backing storage is currently not (image is ENOENT, or AF_UNIX socket to connect to is ENOENT)
+         * ENOTEMPTY       → backing storage is not empty, refusing to overwrite it
+         * EUSERS          → backing storage is in use, refusing to overwrite it
          */
 
         switch (operation) {

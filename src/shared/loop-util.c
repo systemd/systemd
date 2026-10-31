@@ -1071,7 +1071,13 @@ int loop_device_open(
                         return lock_fd;
         }
 
-        if (ioctl(fd, LOOP_GET_STATUS64, &info) >= 0) {
+        /* The kernel passes the LOOP_* ioctls on partition devices on to the loop device they belong to. A
+         * partition is not a loop device though, and we must not end up reconfiguring the whole device. */
+        r = device_is_devtype(dev, "partition");
+        if (r < 0)
+                return r;
+
+        if (r == 0 && ioctl(fd, LOOP_GET_STATUS64, &info) >= 0) {
 #if HAVE_VALGRIND_MEMCHECK_H
                 /* Valgrind currently doesn't know LOOP_GET_STATUS64. Remove this once it does */
                 VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
