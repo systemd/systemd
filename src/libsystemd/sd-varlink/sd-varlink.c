@@ -1846,6 +1846,7 @@ static void varlink_detach_server(sd_varlink *v, bool connected) {
          * before we release the references, let's call the disconnection callback if it is defined. */
 
         saved_server = TAKE_PTR(v->server);
+        LIST_REMOVE(connections, saved_server->connections, v);
 
         if (saved_server->disconnect_callback && connected)
                 saved_server->disconnect_callback(saved_server, v, saved_server->userdata);
@@ -3352,6 +3353,8 @@ static sd_varlink_server* varlink_server_destroy(sd_varlink_server *s) {
         if (!s)
                 return NULL;
 
+        assert(!s->connections);
+
         sd_varlink_server_shutdown(s);
 
         while ((m = hashmap_steal_first_key(s->methods)))
@@ -3526,6 +3529,7 @@ _public_ int sd_varlink_server_add_connection_pair(
          * reference on the connection is left dangling. It will be dropped when the connection is closed,
          * which happens in varlink_close(), including in the event loop quit callback. */
         v->server = sd_varlink_server_ref(server);
+        LIST_PREPEND(connections, server->connections, v);
         sd_varlink_ref(v);
 
         if (ucred_acquired)

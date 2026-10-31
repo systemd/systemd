@@ -376,7 +376,7 @@ static int acquire_broker_terminal(
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         r = pty_broker_connect(params->runtime_scope, &vl);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to connect to ptybrokerd: %m");
 
         /* We receive the backend file descriptor in the method reply, hence we need to allow fd passing on
          * input. We never send any fds ourselves, so output fd passing stays off. */

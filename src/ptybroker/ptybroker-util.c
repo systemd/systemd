@@ -3,6 +3,7 @@
 #include <sys/ioctl.h>
 
 #include "json-util.h"
+#include "ptybroker-client.h"
 #include "ptybroker-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
@@ -18,7 +19,7 @@ bool pseudo_tty_description_valid(const char *s) {
         if (!string_is_safe(s, STRING_ALLOW_QUOTES|STRING_ALLOW_BACKSLASHES|STRING_ALLOW_GLOBS))
                 return false;
 
-        return strlen(s) < 256;
+        return strlen(s) <= PTY_BROKER_DESCRIPTION_MAX;
 }
 
 bool pseudo_tty_tag_valid(const char *s) {

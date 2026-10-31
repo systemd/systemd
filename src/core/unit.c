@@ -67,6 +67,8 @@
 #include "unit-name.h"
 #include "user-util.h"
 #include "varlink.h"
+#include "varlink-unit.h"
+#include "varlink-util.h"
 
 /* Thresholds for logging at INFO level about resource consumption */
 #define MENTIONWORTHY_CPU_NSEC     (1 * NSEC_PER_SEC)
@@ -450,7 +452,7 @@ bool unit_may_gc(Unit *u) {
         if (u->in_dbus_queue)
                 return false;
 
-        if (sd_bus_track_count(u->bus_track) > 0)
+        if (sd_bus_track_count(u->bus_track) > 0 || !set_isempty(u->varlink_refs))
                 return false;
 
         state = unit_active_state(u);
@@ -793,8 +795,15 @@ Unit* unit_free(Unit *u) {
 
         u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
         u->bus_track = sd_bus_track_unref(u->bus_track);
+        if (!MANAGER_IS_RELOADING(u->manager)) {
+                sd_varlink *link;
+                while ((link = set_steal_first(u->varlink_refs)))
+                        sd_varlink_close_unref(link);
+        }
+        u->varlink_refs = set_free(u->varlink_refs);
         u->varlink_unit_change = sd_varlink_unref(u->varlink_unit_change);
         u->deserialized_refs = strv_free(u->deserialized_refs);
+        u->deserialized_varlink_refs = strv_free(u->deserialized_varlink_refs);
         u->pending_freezer_invocation = sd_bus_message_unref(u->pending_freezer_invocation);
 
         unit_free_mounts_for(u);
@@ -1184,6 +1193,16 @@ int unit_merge(Unit *u, Unit *other) {
         if (r < 0)
                 return r;
 
+        if (!set_isempty(other->varlink_refs)) {
+                r = set_ensure_allocated(&u->varlink_refs, &varlink_hash_ops);
+                if (r < 0)
+                        return r;
+
+                r = set_reserve(u->varlink_refs, set_size(other->varlink_refs));
+                if (r < 0)
+                        return r;
+        }
+
         /* Redirect all references */
         while (other->refs_by_target)
                 unit_ref_set(other->refs_by_target, other->refs_by_target->source, u);
@@ -1195,6 +1214,10 @@ int unit_merge(Unit *u, Unit *other) {
         r = unit_merge_names(u, other);
         if (r < 0)
                 return r;
+
+        if (!set_isempty(other->varlink_refs))
+                assert_se(set_move(u->varlink_refs, other->varlink_refs) >= 0);
+        other->varlink_refs = set_free(other->varlink_refs);
 
         UnitLoadState saved_load_state = other->load_state;
 
@@ -3852,6 +3875,11 @@ int unit_coldplug(Unit *u) {
                 RET_GATHER(r, bus_unit_track_add_name(u, *i));
 
         u->deserialized_refs = strv_free(u->deserialized_refs);
+
+        STRV_FOREACH(i, u->deserialized_varlink_refs)
+                RET_GATHER(r, unit_add_varlink_ref_by_id(u, *i));
+
+        u->deserialized_varlink_refs = strv_free(u->deserialized_varlink_refs);
 
         if (UNIT_VTABLE(u)->coldplug)
                 RET_GATHER(r, UNIT_VTABLE(u)->coldplug(u));
