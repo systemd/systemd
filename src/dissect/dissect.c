@@ -227,7 +227,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_flags |= DISSECT_IMAGE_READ_ONLY;
                         break;
 
-                OPTION_LONG("discard", "MODE", "Choose discard mode (disabled, loop, all, crypto)"): {
+                OPTION_LONG("discard", "MODE", "Choose discard mode (disabled, loop, all, crypt)"): {
                         DissectImageFlags flags;
 
                         if (streq(opts.arg, "disabled"))
