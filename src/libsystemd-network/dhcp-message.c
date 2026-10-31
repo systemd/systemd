@@ -1370,7 +1370,12 @@ static int dhcp_message_verify_header(
         if (header->hlen > sizeof_field(DHCPMessageHeader, chaddr))
                 return -EBADMSG;
 
-        if (hw_addr && memcmp_nn(header->chaddr, header->hlen, hw_addr->bytes, hw_addr->length) != 0)
+        if (arp_type == ARPHRD_INFINIBAND) {
+                /* RFC 4390: hlen must be 0 and chaddr zeroed, the link-layer address is never carried in the header.
+                   Being a bit more lenient here by only checking hlen. */
+                if (header->hlen != 0)
+                        return -EBADMSG;
+        } else if (hw_addr && memcmp_nn(header->chaddr, header->hlen, hw_addr->bytes, hw_addr->length) != 0)
                 return -EBADMSG;
 
         return 0;
