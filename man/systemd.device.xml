@@ -60,6 +60,11 @@
     corresponding device generates a <literal>changed</literal> event.
     Other units can use <varname>ReloadPropagatedFrom=</varname> to react
     to that event.</para>
+
+    <para>To order a unit with respect to a device unit, use
+    <literal>Before=</literal> / <literal>After=</literal> and
+    <literal>Wants=</literal> / <literal>Requires=</literal> / <literal>BindsTo=</literal>,
+    but not <literal>Requisite=</literal>.</para>
   </refsect1>
 
   <refsect1>
