@@ -523,6 +523,13 @@ const CpioTarget cpio_target_global_credentials = {
         .tpm_pcr = TPM2_PCR_KERNEL_CONFIG,
 };
 
+const CpioTarget cpio_target_system_credentials = {
+        .directory = ".extra/system_credentials",
+        .dir_mode = 0500,
+        .access_mode = 0400,
+        .tpm_pcr = UINT32_MAX, /* the stub measures the source data itself */
+};
+
 const CpioTarget cpio_target_sysext = {
         .directory = ".extra/sysext",
         .dir_mode = 0555,
