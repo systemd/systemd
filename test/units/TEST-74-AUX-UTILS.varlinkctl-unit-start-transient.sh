@@ -973,11 +973,10 @@ testcase_dispatch_error_paths() {
             "context.Exec.$field.value"
     done
 
-    for field in ExecCondition ExecStartPre ExecStart ExecStartPost ExecReload ExecReloadPost ExecStop ExecStopPost; do
-        expect_invalid_parameter \
-            '{"context":{"ID":"varlink-transient-bad-command-array.service","Service":{"'"$field"'":[{"path":"/bin/true"},{"path":"/bin/true","arguments":["/bin/true"],"ignoreFailure":null}]}}}' \
-            "context.Service.$field.ignoreFailure"
-    done
+    # Duplicate fields pass IDL validation but fail dispatch after the argument vectors are allocated.
+    expect_invalid_parameter \
+        '{"context":{"ID":"varlink-transient-bad-command-array.service","Service":{"ExecStart":[{"path":"/bin/true","arguments":["/bin/true"]},{"path":"/bin/true","arguments":["/bin/true"],"ignoreFailure":false,"ignoreFailure":true}]}}}' \
+        "context.Service.ExecStart.ignoreFailure"
 
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-bad-tasks-value.service","CGroup":{"TasksMax":{"value":-1}}}}' \
