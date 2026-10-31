@@ -9,9 +9,11 @@
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-wait-for-units.h"
+#include "event-util.h"
 #include "hashmap.h"
 #include "log.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "unit-def.h"
 #include "unit-result.h"
 
@@ -1033,7 +1035,16 @@ int bus_wait_for_units_add_unit(
         return 1;
 }
 
-int bus_wait_for_units_run(BusWaitForUnits *d) {
+static int on_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
+        BusWaitForUnits *d = ASSERT_PTR(userdata);
+
+        bus_wait_for_units_clear(d);
+        bus_wait_for_units_unsubscribe(d);
+
+        return sd_event_exit(sd_event_source_get_event(s), -ETIME);
+}
+
+int bus_wait_for_units_run(BusWaitForUnits *d, usec_t timeout_usec) {
         int r;
 
         assert(d);
@@ -1052,6 +1063,23 @@ int bus_wait_for_units_run(BusWaitForUnits *d) {
         r = sd_event_new(&event);
         if (r < 0)
                 return r;
+
+        if (timeout_usec != USEC_INFINITY) {
+                _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+
+                r = sd_event_add_time_relative(
+                                event, &s,
+                                CLOCK_MONOTONIC, timeout_usec, /* accuracy= */ 0,
+                                on_timeout, d);
+                if (r < 0)
+                        return r;
+
+                (void) sd_event_source_set_description(s, "bus-wait-for-units-timer");
+
+                r = sd_event_source_set_floating(s, true);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_bus_attach_event(d->bus, event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)

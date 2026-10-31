@@ -96,7 +96,7 @@ int verb_wait(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (arg_verbose)
                 (void) journal_fork(arg_runtime_scope, STRV_MAKE(name), arg_output, &journal_pid);
 
-        r = bus_wait_for_units_run(w);
+        r = bus_wait_for_units_run(w, /* timeout_usec= */ USEC_INFINITY);
         if (r < 0)
                 return log_error_errno(r, "Failed to wait for unit %s: %m", name);
 
