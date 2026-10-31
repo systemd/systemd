@@ -3700,6 +3700,392 @@ EOF
     assert_eq "$after" "$before"
 }
 
+testcase_fixed_offset() {
+    local defs imgs output before after
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** FixedOffsetBytes= on a new disk lowers the first LBA and places the partition exactly ***"
+
+    tee "$defs/01-boot.conf" <<EOF
+[Partition]
+Type=linux-generic
+FixedOffsetBytes=36K
+SizeMinBytes=1M
+SizeMaxBytes=1M
+EOF
+
+    tee "$defs/02-root.conf" <<EOF
+[Partition]
+Type=root-${architecture}
+SizeMinBytes=10M
+EOF
+
+    truncate -s 64M "$imgs/fixed.img"
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --empty=require \
+                   "$imgs/fixed.img"
+
+    output=$(sfdisk --dump "$imgs/fixed.img")
+
+    assert_in "first-lba: 72" "$output"
+    # The fixed offset is not rounded to the grain size, and the root partition gets the rest
+    assert_in "$imgs/fixed.img1 : start=          72, size=        2048, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4," "$output"
+    assert_in "$imgs/fixed.img2 : start=        2120, size=      128912, type=${root_guid}," "$output"
+
+    echo "*** A second run does not change anything ***"
+
+    before="$output"
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   "$imgs/fixed.img"
+    after=$(sfdisk --dump "$imgs/fixed.img")
+    assert_eq "$after" "$before"
+
+    echo "*** Space around fixed offset partitions is available to other partitions ***"
+
+    rm "$defs/02-root.conf" "$imgs/fixed.img"
+
+    tee "$defs/02-home.conf" <<EOF
+[Partition]
+Type=home
+SizeMinBytes=1M
+SizeMaxBytes=1M
+EOF
+
+    tee "$defs/03-fixed2.conf" <<EOF
+[Partition]
+Type=linux-generic
+FixedOffsetBytes=8M
+SizeMinBytes=1M
+SizeMaxBytes=1M
+EOF
+
+    truncate -s 64M "$imgs/fixed.img"
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --empty=require \
+                   "$imgs/fixed.img"
+
+    output=$(sfdisk --dump "$imgs/fixed.img")
+
+    assert_in "$imgs/fixed.img1 : start=          72, size=        2048, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4," "$output"
+    # The home partition is placed right behind the first fixed offset partition
+    assert_in "$imgs/fixed.img2 : start=        2120, size=        2048, type=933AC7E1-2EB4-4F13-B844-0E14E2AEF915," "$output"
+    assert_in "$imgs/fixed.img3 : start=       16384, size=        2048, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4," "$output"
+
+    echo "*** The size of a fixed offset partition follows SizeMinBytes= and SizeMaxBytes= ***"
+
+    rm "$defs/02-home.conf" "$defs/03-fixed2.conf" "$imgs/fixed.img"
+
+    tee "$defs/01-boot.conf" <<EOF
+[Partition]
+Type=linux-generic
+FixedOffsetBytes=3M
+SizeMinBytes=1M
+SizeMaxBytes=2M
+EOF
+
+    truncate -s 64M "$imgs/fixed.img"
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --empty=require \
+                   "$imgs/fixed.img"
+
+    output=$(sfdisk --dump "$imgs/fixed.img")
+
+    assert_in "first-lba: 2048" "$output"
+    assert_in "$imgs/fixed.img1 : start=        6144, size=        4096, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4," "$output"
+
+    echo "*** CopyBlocks= into a fixed offset partition below the default first LBA ***"
+
+    rm "$imgs/fixed.img"
+    head -c 3M /dev/urandom >"$imgs/blob"
+
+    tee "$defs/01-boot.conf" <<EOF
+[Partition]
+Type=linux-generic
+FixedOffsetBytes=32K
+SizeMinBytes=3M
+SizeMaxBytes=3M
+CopyBlocks=$imgs/blob
+EOF
+
+    truncate -s 64M "$imgs/fixed.img"
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --empty=require \
+                   "$imgs/fixed.img"
+
+    output=$(sfdisk --dump "$imgs/fixed.img")
+
+    assert_in "first-lba: 64" "$output"
+    assert_in "$imgs/fixed.img1 : start=          64, size=        6144, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4," "$output"
+    dd if="$imgs/fixed.img" bs=512 skip=64 count=6144 status=none | cmp - "$imgs/blob"
+
+    echo "*** A fixed offset that is not aligned to the grain size, and the partitions behind it ***"
+
+    rm "$imgs/fixed.img"
+
+    tee "$defs/01-boot.conf" <<EOF
+[Partition]
+Type=linux-generic
+FixedOffsetBytes=33K
+SizeMinBytes=1M
+SizeMaxBytes=1M
+EOF
+
+    tee "$defs/02-root.conf" <<EOF
+[Partition]
+Type=root-${architecture}
+SizeMinBytes=10M
+EOF
+
+    truncate -s 64M "$imgs/fixed.img"
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --empty=require \
+                   "$imgs/fixed.img"
+
+    output=$(sfdisk --dump "$imgs/fixed.img")
+
+    assert_in "first-lba: 66" "$output"
+    assert_in "$imgs/fixed.img1 : start=          66, size=        2048, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4," "$output"
+    # The partition behind the unaligned one starts on the grain again
+    assert_in "$imgs/fixed.img2 : start=        2120, size=      128912, type=${root_guid}," "$output"
+
+    # The unaligned partition must not make a second run fail
+    before="$output"
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   "$imgs/fixed.img"
+    after=$(sfdisk --dump "$imgs/fixed.img")
+    assert_eq "$after" "$before"
+
+    rm "$defs/02-root.conf" "$imgs/fixed.img"
+
+    echo "*** FixedOffsetBytes= together with --size=auto ***"
+
+    tee "$defs/01-boot.conf" <<EOF
+[Partition]
+Type=linux-generic
+FixedOffsetBytes=8M
+SizeMinBytes=1M
+SizeMaxBytes=1M
+EOF
+
+    tee "$defs/02-root.conf" <<EOF
+[Partition]
+Type=root-${architecture}
+SizeMinBytes=10M
+SizeMaxBytes=10M
+EOF
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --empty=create \
+                   --size=auto \
+                   "$imgs/fixed.img"
+
+    output=$(sfdisk --dump "$imgs/fixed.img")
+
+    assert_in "$imgs/fixed.img1 : start=       16384, size=        2048, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4," "$output"
+    assert_in "$imgs/fixed.img2 : start=       18432, size=       20480, type=${root_guid}," "$output"
+
+    rm "$defs/02-root.conf" "$imgs/fixed.img"
+
+    echo "*** --size=auto grows an existing image to hold a fixed offset partition ***"
+
+    tee "$defs/01-boot.conf" <<EOF
+[Partition]
+Type=linux-generic
+FixedOffsetBytes=20M
+SizeMinBytes=1M
+SizeMaxBytes=1M
+EOF
+
+    truncate -s 8M "$imgs/fixed.img"
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --empty=allow \
+                   --size=auto \
+                   "$imgs/fixed.img"
+
+    output=$(sfdisk --dump "$imgs/fixed.img")
+
+    assert_in "$imgs/fixed.img1 : start=       40960, size=        2048, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4," "$output"
+
+    # Without --size=auto there is no room for the partition
+    truncate -s 8M "$imgs/fixed2.img"
+    (! systemd-repart --offline="$OFFLINE" --definitions="$defs" --seed="$seed" --dry-run=yes \
+                      --empty=allow "$imgs/fixed2.img")
+    rm "$imgs/fixed.img" "$imgs/fixed2.img" "$defs/01-boot.conf"
+
+    # Restore the definition used by the following test cases
+    tee "$defs/01-boot.conf" <<EOF
+[Partition]
+Type=linux-generic
+FixedOffsetBytes=2M
+SizeMinBytes=1M
+SizeMaxBytes=1M
+EOF
+
+    echo "*** A fixed offset partition is placed in front of existing partitions ***"
+
+    rm -f "$imgs/fixed.img" "$imgs/blob"
+
+    tee "$defs/01-boot.conf" <<EOF
+[Partition]
+Type=linux-generic
+FixedOffsetBytes=2M
+SizeMinBytes=1M
+SizeMaxBytes=1M
+EOF
+
+    truncate -s 64M "$imgs/fixed.img"
+    sfdisk "$imgs/fixed.img" <<EOF
+label: gpt
+start=8192, size=2048, type=home
+EOF
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   "$imgs/fixed.img"
+
+    output=$(sfdisk --dump "$imgs/fixed.img")
+
+    assert_in "$imgs/fixed.img1 : start=        8192, size=        2048," "$output"
+    assert_in "$imgs/fixed.img2 : start=        4096, size=        2048, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4," "$output"
+
+    echo "*** Fixed offsets that cannot be honoured are refused ***"
+
+    rm "$imgs/fixed.img"
+
+    # Not a multiple of the sector size
+    tee "$defs/01-boot.conf" <<EOF
+[Partition]
+Type=linux-generic
+FixedOffsetBytes=100
+EOF
+    (! systemd-repart --offline="$OFFLINE" --definitions="$defs" --seed="$seed" --dry-run=yes \
+                      --empty=create --size=64M "$imgs/refused.img")
+
+    # Zero
+    tee "$defs/01-boot.conf" <<EOF
+[Partition]
+Type=linux-generic
+FixedOffsetBytes=0
+EOF
+    (! systemd-repart --offline="$OFFLINE" --definitions="$defs" --seed="$seed" --dry-run=yes \
+                      --empty=create --size=64M "$imgs/refused.img")
+
+    # Inside the GPT header and partition entry array
+    tee "$defs/01-boot.conf" <<EOF
+[Partition]
+Type=linux-generic
+FixedOffsetBytes=512
+EOF
+    (! systemd-repart --offline="$OFFLINE" --definitions="$defs" --seed="$seed" --dry-run=yes \
+                      --empty=create --size=64M "$imgs/refused.img")
+
+    # Beyond the end of the disk
+    tee "$defs/01-boot.conf" <<EOF
+[Partition]
+Type=linux-generic
+FixedOffsetBytes=1G
+SizeMinBytes=1M
+EOF
+    (! systemd-repart --offline="$OFFLINE" --definitions="$defs" --seed="$seed" --dry-run=yes \
+                      --empty=create --size=64M "$imgs/refused.img")
+
+    # Overlapping fixed offset partitions
+    tee "$defs/01-boot.conf" <<EOF
+[Partition]
+Type=linux-generic
+FixedOffsetBytes=1M
+SizeMinBytes=5M
+SizeMaxBytes=5M
+EOF
+    tee "$defs/02-other.conf" <<EOF
+[Partition]
+Type=home
+FixedOffsetBytes=2M
+SizeMinBytes=1M
+SizeMaxBytes=1M
+EOF
+    (! systemd-repart --offline="$OFFLINE" --definitions="$defs" --seed="$seed" --dry-run=yes \
+                      --empty=create --size=64M "$imgs/refused.img")
+    rm "$defs/02-other.conf"
+
+    # Below the first usable LBA of an existing partition table
+    tee "$defs/01-boot.conf" <<EOF
+[Partition]
+Type=linux-generic
+FixedOffsetBytes=36K
+SizeMinBytes=1M
+SizeMaxBytes=1M
+EOF
+    truncate -s 64M "$imgs/refused.img"
+    sfdisk "$imgs/refused.img" <<EOF
+label: gpt
+start=2048, size=2048, type=home
+EOF
+    (! systemd-repart --offline="$OFFLINE" --definitions="$defs" --seed="$seed" --dry-run=yes \
+                      "$imgs/refused.img")
+    rm "$imgs/refused.img"
+
+    echo "*** Unsupported combinations are refused ***"
+
+    tee "$defs/01-boot.conf" <<EOF
+[Partition]
+Type=linux-generic
+FixedOffsetBytes=1M
+Priority=1
+EOF
+    (! systemd-repart --offline="$OFFLINE" --definitions="$defs" --seed="$seed" --dry-run=yes \
+                      --empty=create --size=64M "$imgs/refused.img")
+
+    tee "$defs/01-boot.conf" <<EOF
+[Partition]
+Type=root-${architecture}
+FixedOffsetBytes=1M
+SizeMinBytes=1M
+SizeMaxBytes=1M
+EOF
+    tee "$defs/02-verity-sig.conf" <<EOF
+[Partition]
+Type=root-${architecture}-verity-sig
+SupplementFor=01-boot
+EOF
+    (! systemd-repart --offline="$OFFLINE" --definitions="$defs" --seed="$seed" --dry-run=yes \
+                      --empty=create --size=64M "$imgs/refused.img")
+}
+
 OFFLINE="yes"
 run_testcases
 
