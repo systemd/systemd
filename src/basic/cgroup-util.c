@@ -765,21 +765,37 @@ int cg_pidref_get_path_shifted(const PidRef *pidref, const char *root, char **re
         return strdup_to(ret_cgroup, c);
 }
 
-int cg_path_decode_unit(const char *cgroup, char **ret_unit) {
+static const char* skip_unit(const char *cgroup) {
         assert(cgroup);
 
         size_t n = strcspn(cgroup, "/");
         if (n < 3)
-                return -ENXIO;
+                return NULL;
 
         char *c = strndupa_safe(cgroup, n);
         c = cg_unescape(c);
 
         if (!unit_name_is_valid(c, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
+                return NULL;
+
+        return cgroup + n;
+}
+
+int cg_path_decode_unit(const char *cgroup, char **ret_unit) {
+        assert(cgroup);
+
+        const char *end = skip_unit(cgroup);
+        if (!end)
                 return -ENXIO;
 
-        if (ret_unit)
-                return strdup_to(ret_unit, c);
+        if (ret_unit) {
+                const char *start = cg_unescape(cgroup);
+                _cleanup_free_ char *unit = strndup(start, end - start);
+                if (!unit)
+                        return -ENOMEM;
+
+                *ret_unit = TAKE_PTR(unit);
+        }
 
         return 0;
 }
@@ -855,25 +871,24 @@ int cg_path_get_unit_full(const char *path, char **ret_unit, char **ret_subgroup
         return 0;
 }
 
-int cg_path_get_unit_path(const char *path, char **ret) {
-        _cleanup_free_ char *path_copy = NULL;
-        char *unit_name;
+static const char* skip_unit_path(const char *cgroup) {
+        const char *end = skip_slices(cgroup);
+        return skip_unit(end);
+}
 
+int cg_path_get_unit_path(const char *path, char **ret_path) {
         assert(path);
-        assert(ret);
+        assert(ret_path);
 
-        path_copy = strdup(path);
-        if (!path_copy)
-                return -ENOMEM;
-
-        unit_name = (char*) skip_slices(path_copy);
-        unit_name[strcspn(unit_name, "/")] = 0;
-
-        if (!unit_name_is_valid(cg_unescape(unit_name), UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
+        const char *end = skip_unit_path(path);
+        if (!end)
                 return -ENXIO;
 
-        *ret = TAKE_PTR(path_copy);
+        _cleanup_free_ char *unit_path = strndup(path, end - path);
+        if (!unit_path)
+                return -ENOMEM;
 
+        *ret_path = TAKE_PTR(unit_path);
         return 0;
 }
 
@@ -886,6 +901,34 @@ int cg_pid_get_unit_full(pid_t pid, char **ret_unit, char **ret_subgroup) {
                 return r;
 
         return cg_path_get_unit_full(cgroup, ret_unit, ret_subgroup);
+}
+
+int cg_pid_get_unit_path(pid_t pid, char **ret_path) {
+        int r;
+
+        assert(pid >= 0);
+        assert(ret_path);
+
+        _cleanup_free_ char *cgroup = NULL;
+        r = cg_pid_get_path(pid, &cgroup);
+        if (r < 0)
+                return r;
+
+        const char *end;
+        r = cg_shift_path(cgroup, NULL, &end);
+        if (r < 0)
+                return r;
+
+        end = skip_unit_path(end);
+        if (!end)
+                return -ENXIO;
+
+        _cleanup_free_ char *unit_path = strndup(cgroup, end - cgroup);
+        if (!unit_path)
+                return -ENOMEM;
+
+        *ret_path = TAKE_PTR(unit_path);
+        return 0;
 }
 
 int cg_pidref_get_unit_full(const PidRef *pidref, char **ret_unit, char **ret_subgroup) {
@@ -909,6 +952,28 @@ int cg_pidref_get_unit_full(const PidRef *pidref, char **ret_unit, char **ret_su
                 *ret_unit = TAKE_PTR(unit);
         if (ret_subgroup)
                 *ret_subgroup = TAKE_PTR(subgroup);
+        return 0;
+}
+
+int cg_pidref_get_unit_path(const PidRef *pidref, char **ret_path) {
+        int r;
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+
+        _cleanup_free_ char *unit_path = NULL;
+        r = cg_pid_get_unit_path(pidref->pid, &unit_path);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pidref);
+        if (r < 0)
+                return r;
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(unit_path);
         return 0;
 }
 
@@ -1011,6 +1076,30 @@ int cg_path_get_user_unit_full(const char *path, char **ret_unit, char **ret_sub
         return cg_path_get_unit_full(t, ret_unit, ret_subgroup);
 }
 
+static const char* skip_user_unit_path(const char *cgroup) {
+        const char *end = skip_user_prefix(cgroup);
+        if (!end)
+                return NULL;
+
+        return skip_unit_path(end);
+}
+
+int cg_path_get_user_unit_path(const char *path, char **ret_path) {
+        assert(path);
+        assert(ret_path);
+
+        const char *end = skip_user_unit_path(path);
+        if (!end)
+                return -ENXIO;
+
+        _cleanup_free_ char *unit_path = strndup(path, end - path);
+        if (!unit_path)
+                return -ENOMEM;
+
+        *ret_path = TAKE_PTR(unit_path);
+        return 0;
+}
+
 int cg_pid_get_user_unit_full(pid_t pid, char **ret_unit, char **ret_subgroup) {
         int r;
 
@@ -1020,6 +1109,34 @@ int cg_pid_get_user_unit_full(pid_t pid, char **ret_unit, char **ret_subgroup) {
                 return r;
 
         return cg_path_get_user_unit_full(cgroup, ret_unit, ret_subgroup);
+}
+
+int cg_pid_get_user_unit_path(pid_t pid, char **ret_path) {
+        int r;
+
+        assert(pid >= 0);
+        assert(ret_path);
+
+        _cleanup_free_ char *cgroup = NULL;
+        r = cg_pid_get_path(pid, &cgroup);
+        if (r < 0)
+                return r;
+
+        const char *end;
+        r = cg_shift_path(cgroup, NULL, &end);
+        if (r < 0)
+                return r;
+
+        end = skip_user_unit_path(end);
+        if (!end)
+                return -ENXIO;
+
+        _cleanup_free_ char *unit_path = strndup(cgroup, end - cgroup);
+        if (!unit_path)
+                return -ENOMEM;
+
+        *ret_path = TAKE_PTR(unit_path);
+        return 0;
 }
 
 int cg_pidref_get_user_unit_full(const PidRef *pidref, char **ret_unit, char **ret_subgroup) {
@@ -1046,6 +1163,28 @@ int cg_pidref_get_user_unit_full(const PidRef *pidref, char **ret_unit, char **r
         return 0;
 }
 
+int cg_pidref_get_user_unit_path(const PidRef *pidref, char **ret_path) {
+        int r;
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+
+        _cleanup_free_ char *unit_path = NULL;
+        r = cg_pid_get_user_unit_path(pidref->pid, &unit_path);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pidref);
+        if (r < 0)
+                return r;
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(unit_path);
+        return 0;
+}
+
 int cg_path_get_machine_name(const char *path, char **ret_machine) {
         _cleanup_free_ char *u = NULL;
         const char *sl;
@@ -1068,6 +1207,28 @@ int cg_pid_get_machine_name(pid_t pid, char **ret_machine) {
                 return r;
 
         return cg_path_get_machine_name(cgroup, ret_machine);
+}
+
+int cg_pidref_get_machine_name(const PidRef *pidref, char **ret_machine) {
+        int r;
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+
+        _cleanup_free_ char *machine = NULL;
+        r = cg_pid_get_machine_name(pidref->pid, &machine);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pidref);
+        if (r < 0)
+                return r;
+
+        if (ret_machine)
+                *ret_machine = TAKE_PTR(machine);
+        return 0;
 }
 
 int cg_path_get_session(const char *path, char **ret_session) {
@@ -1232,6 +1393,28 @@ int cg_pid_get_slice(pid_t pid, char **ret_slice) {
         return cg_path_get_slice(cgroup, ret_slice);
 }
 
+int cg_pidref_get_slice(const PidRef *pidref, char **ret_slice) {
+        int r;
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+
+        _cleanup_free_ char *slice = NULL;
+        r = cg_pid_get_slice(pidref->pid, &slice);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pidref);
+        if (r < 0)
+                return r;
+
+        if (ret_slice)
+                *ret_slice = TAKE_PTR(slice);
+        return 0;
+}
+
 int cg_path_get_user_slice(const char *p, char **ret_slice) {
         const char *t;
         assert(p);
@@ -1254,6 +1437,28 @@ int cg_pid_get_user_slice(pid_t pid, char **ret_slice) {
                 return r;
 
         return cg_path_get_user_slice(cgroup, ret_slice);
+}
+
+int cg_pidref_get_user_slice(const PidRef *pidref, char **ret_slice) {
+        int r;
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+
+        _cleanup_free_ char *slice = NULL;
+        r = cg_pid_get_user_slice(pidref->pid, &slice);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pidref);
+        if (r < 0)
+                return r;
+
+        if (ret_slice)
+                *ret_slice = TAKE_PTR(slice);
+        return 0;
 }
 
 bool cg_needs_escape(const char *p) {
