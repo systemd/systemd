@@ -1273,6 +1273,38 @@ static int open_image_file(
         return TAKE_FD(image_fd);
 }
 
+static int block_device_get_partition_offset(dev_t devno, uint64_t *ret) {
+        char p[SYS_BLOCK_PATH_MAX("/start")];
+        _cleanup_free_ char *s = NULL;
+        uint64_t sectors;
+        int r;
+
+        assert(ret);
+
+        /* Returns where a partition block device is located on its whole disk, and zero for all other block
+         * devices. The kernel reports this in units of 512 bytes, regardless of the sector size. */
+
+        xsprintf_sys_block_path(p, "/start", devno);
+
+        r = read_virtual_file(p, DECIMAL_STR_MAX(uint64_t) + 1, &s, /* ret_size= */ NULL);
+        if (r == -ENOENT) {
+                *ret = 0;
+                return 0;
+        }
+        if (r < 0)
+                return r;
+
+        r = safe_atou64(strstrip(s), &sectors);
+        if (r < 0)
+                return r;
+
+        if (sectors > UINT64_MAX / 512U)
+                return -E2BIG;
+
+        *ret = sectors * 512U;
+        return 0;
+}
+
 int home_setup_luks(
                 UserRecord *h,
                 HomeSetupFlags flags,
@@ -1341,42 +1373,16 @@ int home_setup_luks(
                 }
 
                 if (ioctl(setup->loop->fd, LOOP_GET_STATUS64, &info) < 0) {
-                        _cleanup_free_ char *sysfs = NULL;
-
                         if (!IN_SET(errno, ENOTTY, EINVAL))
                                 return log_error_errno(errno, "Failed to get block device metrics of %s: %m", n);
 
                         if (fstat(setup->loop->fd, &st) < 0)
-                                return log_error_errno(r, "Failed to stat block device %s: %m", n);
+                                return log_error_errno(errno, "Failed to stat block device %s: %m", n);
                         assert(S_ISBLK(st.st_mode));
 
-                        if (asprintf(&sysfs, "/sys/dev/block/" DEVNUM_FORMAT_STR "/partition", DEVNUM_FORMAT_VAL(st.st_rdev)) < 0)
-                                return log_oom();
-
-                        if (access(sysfs, F_OK) < 0) {
-                                if (errno != ENOENT)
-                                        return log_error_errno(errno, "Failed to determine whether %s exists: %m", sysfs);
-
-                                offset = 0;
-                        } else {
-                                _cleanup_free_ char *buffer = NULL;
-
-                                if (asprintf(&sysfs, "/sys/dev/block/" DEVNUM_FORMAT_STR "/start", DEVNUM_FORMAT_VAL(st.st_rdev)) < 0)
-                                        return log_oom();
-
-                                r = read_one_line_file(sysfs, &buffer);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to read partition start offset: %m");
-
-                                r = safe_atou64(buffer, &offset);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse partition start offset: %m");
-
-                                if (offset > UINT64_MAX / 512U)
-                                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "Offset too large for 64 byte range, refusing.");
-
-                                offset *= 512U;
-                        }
+                        r = block_device_get_partition_offset(st.st_rdev, &offset);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine partition start offset of %s: %m", n);
 
                         size = setup->loop->device_size;
                 } else {
@@ -1458,6 +1464,18 @@ int home_setup_luks(
                         return log_error_errno(r, "Failed to allocate loopback context: %m");
 
                 log_info("Setting up loopback device %s completed.", setup->loop->node ?: ip);
+
+                /* luks_validate() looked at the block device as such and hence reports an offset of zero and
+                 * no size for it. What we report to our callers shall be the location on the whole disk
+                 * though, exactly as in the already activated case above, as otherwise resizing the home
+                 * while it is inactive would not find the partition. */
+                if (S_ISBLK(st.st_mode)) {
+                        r = block_device_get_partition_offset(st.st_rdev, &offset);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine partition start offset of %s: %m", ip);
+
+                        size = setup->loop->device_size;
+                }
 
                 r = luks_setup(h,
                                setup->loop->node ?: ip,
