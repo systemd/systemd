@@ -391,6 +391,44 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>FixedOffsetBytes=</varname></term>
+
+        <listitem><para>Pins this partition to an explicit byte offset from the beginning of the disk. Takes
+        a size in bytes, with the usual K, M, G, T, … suffixes (to the base of 1024). When set, newly
+        created partitions are placed exactly at the specified offset rather than being automatically
+        positioned after previous partitions. The setting only governs the placement of newly created
+        partitions: if the partition already exists on disk at a different offset it is left untouched and
+        a warning is emitted. The offset must be non-zero and a multiple of the device sector size.
+        Assigning an empty string resets the setting, so that the partition is placed automatically
+        again.</para>
+
+        <para>This setting is primarily intended for embedded platforms where a bootloader image must reside
+        at a specific sector offset that precedes the normal first usable LBA of a GPT partition table.
+        When creating a new partition table from scratch and the configured offset is below the default
+        first usable LBA, <command>systemd-repart</command> automatically lowers the GPT first LBA to
+        accommodate it. On existing partition tables the first usable LBA is not modified; an offset below
+        the first usable LBA of the existing partition table is refused. Offsets that fall into the GPT
+        header or the partition entry array at the beginning of the disk are refused as well.</para>
+
+        <para>Partitions with a fixed offset are allocated before all other partitions, from the same free
+        space as them. Only their position is fixed: their size is determined like for any other partition,
+        i.e. it is bounded by <varname>SizeMinBytes=</varname> and <varname>SizeMaxBytes=</varname> and
+        weighted by <varname>Weight=</varname>. Any space that remains between a fixed-offset partition and
+        the next fixed-offset or existing partition may hence be used for other partitions, or for growing
+        the partition. To keep the size of the partition exact, set <varname>SizeMinBytes=</varname> and
+        <varname>SizeMaxBytes=</varname> to the same value. The offset of the partition is not rounded to
+        the grain size, see <option>--grain-size=</option> in
+        <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        which continues to apply to all other partitions. New partitions with a fixed offset must be placed
+        in the free space in front of the first existing partition, or on an empty disk, and must not
+        overlap with each other. A partition with a fixed offset cannot be combined with
+        <varname>Priority=</varname> or <varname>SupplementFor=</varname>, and cannot be the target of
+        <varname>SupplementFor=</varname> of another partition.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>CopyBlocks=</varname></term>
 
         <listitem><para>Takes a path to a regular file, block device node, char device node or directory, or
