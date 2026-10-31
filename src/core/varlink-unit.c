@@ -805,7 +805,7 @@ static int dispatch_transient_context_postauth(const char *name, sd_json_variant
                 { "Kill",        SD_JSON_VARIANT_OBJECT, dispatch_transient_kill,         0,                                                       0                 },
                 { "Service",     SD_JSON_VARIANT_OBJECT, dispatch_transient_service,      0,                                                       0                 },
                 { "Scope",       SD_JSON_VARIANT_OBJECT, dispatch_transient_scope,        0,                                                       0                 },
-                { "CGroup",      SD_JSON_VARIANT_OBJECT, dispatch_transient_cgroup,       0,                                                       0                 },
+                { "CGroup",      SD_JSON_VARIANT_OBJECT, dispatch_transient_cgroup,       0,                                                       SD_JSON_NULLABLE  },
         };
         /* Build dispatch table only once, it's constant. */
         static sd_json_dispatch_field context_dispatch[ELEMENTSOF(base_context_dispatch) + _UNIT_DEPENDENCY_MAX + 1] = {};
