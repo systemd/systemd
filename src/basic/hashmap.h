@@ -306,6 +306,14 @@ static inline char** ordered_hashmap_get_strv(OrderedHashmap *h) {
         return _hashmap_get_strv(HASHMAP_BASE(h));
 }
 
+char** _hashmap_values_to_strv(HashmapBase *h);
+static inline char** hashmap_values_to_strv(Hashmap *h) {
+        return _hashmap_values_to_strv(HASHMAP_BASE(h));
+}
+static inline char** ordered_hashmap_values_to_strv(OrderedHashmap *h) {
+        return _hashmap_values_to_strv(HASHMAP_BASE(h));
+}
+
 int _hashmap_dump_sorted(HashmapBase *h, void ***ret, size_t *ret_n);
 static inline int hashmap_dump_sorted(Hashmap *h, void ***ret, size_t *ret_n) {
         return _hashmap_dump_sorted(HASHMAP_BASE(h), ret, ret_n);

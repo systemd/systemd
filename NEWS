@@ -46,6 +46,24 @@ CHANGES WITH 263 in spe:
           of source:destination. Unknown flags are shown numerically so newer
           manager properties can still be displayed.
 
+        * The Varlink method io.systemd.Hostname.SetTags has been extedended to
+          allow globs and now applies the 'remove' list before the 'add' list.
+          Previously, both lists were only allowed to contain literal tag
+          specifications. That meant that there was little reason to include
+          the same item in both lists, and the item would always be removed
+          from the result. Now, if the same literal tag is present in both
+          lists, it'll be present in the result.
+
+          The change also applies to 'hostnamectl tags +… -…', which uses this
+          API internally.
+
+          The goal of the change in ordering is to allow the 'remove' list to
+          clear all tags from a specific namespace, before new values are
+          added. For example, to replace any assignments of 'org.ns.item='
+          with 'value':
+
+            hostnamectl tags -- '-org.ns.item=*' '+org.ns.item=value'
+
         * For unprivileged clients, systemd-mountfsd shares Verity devices only
           between mounts of the same backing image file.
 

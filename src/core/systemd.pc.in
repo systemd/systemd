@@ -84,6 +84,8 @@ sysctldir=${sysctl_dir}
 binfmt_dir=${prefix}/lib/binfmt.d
 binfmtdir=${binfmt_dir}
 
+machine_tags_dir=${prefix}/lib/machine-tags.d
+
 modules_load_dir=${prefix}/lib/modules-load.d
 modulesloaddir=${modules_load_dir}
 

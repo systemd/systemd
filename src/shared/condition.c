@@ -44,6 +44,7 @@
 #include "limits-util.h"
 #include "list.h"
 #include "log.h"
+#include "machine-tags.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "os-util.h"

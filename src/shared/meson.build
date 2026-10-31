@@ -137,6 +137,7 @@ shared_sources = files(
         'machine-credential.c',
         'machine-id-setup.c',
         'machine-register.c',
+        'machine-tags.c',
         'machine-util.c',
         'macvlan-util.c',
         'main-func.c',
