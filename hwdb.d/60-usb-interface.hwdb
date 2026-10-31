@@ -18,6 +18,9 @@
 #
 #   Specify if a device is a printer
 #   ID_PRINTER=0|1
+#
+#   Specify if a device is a smartcard reader
+#   ID_SMARTCARD_READER=0|1
 
 # USB3 Vision devices exposing the device control interface
 usb-interface:v*p*:ef0500:*
@@ -27,3 +30,7 @@ usb-interface:v*p*:ef0500:*
 # Printers (interface class 07, subclass 01)
 usb-interface:v*p*:0701??:*
  ID_PRINTER=1
+
+# Smartcard readers (interface class 0b, CCID)
+usb-interface:v*p*:0b????:*
+ ID_SMARTCARD_READER=1

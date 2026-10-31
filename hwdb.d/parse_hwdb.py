@@ -222,6 +222,7 @@ def property_grammar():
         ('ID_LINK_DIR', Word(alphanums + '-_')),
         ('ID_USB3_VISION', zero_one),
         ('ID_PRINTER', zero_one),
+        ('ID_SMARTCARD_READER', zero_one),
         ('POINTINGSTICK_SENSITIVITY', INTEGER),
         ('ID_INTEGRATION', Or(('internal', 'external'))),
         ('ID_INPUT_TOUCHPAD_INTEGRATION', Or(('internal', 'external'))),
