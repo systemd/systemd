@@ -1309,6 +1309,76 @@ static int block_device_get_partition_offset(dev_t devno, uint64_t *ret) {
         return 0;
 }
 
+static int block_device_is_only_gpt_partition(dev_t devno) {
+        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
+        _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        dev_t whole;
+        int r;
+
+        r = dlopen_fdisk(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        r = block_get_whole_disk(devno, &whole);
+        if (r <= 0)
+                return r;
+
+        fd = device_open_from_devnum(S_IFBLK, whole, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK, /* ret_devname= */ NULL);
+        if (fd < 0)
+                return fd;
+
+        r = fdisk_new_context_at(fd, /* path= */ NULL, /* read_only= */ true, /* sector_size= */ UINT32_MAX, &c);
+        if (r < 0)
+                return r;
+
+        if (!sym_fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
+                return false;
+
+        r = sym_fdisk_get_partitions(c, &t);
+        if (r < 0)
+                return r;
+
+        return sym_fdisk_table_get_nents(t) == 1;
+}
+
+static bool home_owns_partition_table(const UserRecord *h, dev_t devno) {
+        int r;
+
+        assert(h);
+
+        /* A partition block device might be in the GPT envelope described in HOME_DIRECTORY.md, or in a
+         * partition table shared with other partitions, which we have no business touching. Homes created
+         * on a whole disk know the UUID of their partition. Homes discovered on another machine don't, but
+         * there an envelope is recognized by what it is: the only partition on a GPT disk. */
+
+        if (!sd_id128_is_null(h->partition_uuid))
+                return true;
+
+        r = block_device_is_only_gpt_partition(devno);
+        if (r < 0)
+                log_debug_errno(r, "Failed to look at partition table of whole disk, assuming it's not ours: %m");
+
+        return r > 0;
+}
+
+static int home_get_block_device_offset(const UserRecord *h, dev_t devno, uint64_t *ret) {
+        int r;
+
+        assert(h);
+        assert(ret);
+
+        r = block_device_get_partition_offset(devno, ret);
+        if (r < 0)
+                return r;
+
+        /* From now on this device is treated like one that has no partitions at all */
+        if (*ret > 0 && !home_owns_partition_table(h, devno))
+                *ret = 0;
+
+        return 0;
+}
+
 int home_setup_luks(
                 UserRecord *h,
                 HomeSetupFlags flags,
@@ -1381,7 +1451,7 @@ int home_setup_luks(
                                 return log_error_errno(errno, "Failed to stat block device %s: %m", n);
                         assert(S_ISBLK(st.st_mode));
 
-                        r = block_device_get_partition_offset(st.st_rdev, &offset);
+                        r = home_get_block_device_offset(h, st.st_rdev, &offset);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to determine partition start offset of %s: %m", n);
 
@@ -1476,7 +1546,7 @@ int home_setup_luks(
                  * though, exactly as in the already activated case above, as otherwise resizing the home
                  * while it is inactive would not find the partition. */
                 if (S_ISBLK(st.st_mode)) {
-                        r = block_device_get_partition_offset(st.st_rdev, &offset);
+                        r = home_get_block_device_offset(h, st.st_rdev, &offset);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to determine partition start offset of %s: %m", ip);
 
@@ -3211,6 +3281,66 @@ static int resize_image_loop(
         return 0;
 }
 
+static int home_resize_naked_luks(
+                UserRecord *h,
+                HomeSetupFlags flags,
+                HomeSetup *setup,
+                uint64_t device_size) {
+
+        uint64_t encrypted_size;
+        int r;
+
+        assert(h);
+        assert(setup);
+        assert(setup->root_fd >= 0);
+
+        /* A home on a device without a partition of ours always uses all of the device: LUKS maps everything
+         * on activation, nothing else would remember a smaller size, and nothing else could use the space
+         * that is freed anyway. All that's left to do is to follow the device if it has grown. */
+
+        if (FLAGS_SET(flags, HOME_SETUP_RESIZE_MINIMIZE)) {
+                log_info("Home uses a whole block device, not shrinking it.");
+                return 0;
+        }
+
+        /* Auto-grow looks at a size in the record that might have come along from elsewhere, or that the
+         * device doesn't match anymore. That's no reason to fail activation. */
+        if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SHRINK) && h->disk_size < USER_DISK_SIZE_LARGEST) {
+                if (h->disk_size > device_size)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
+                                               "Selected disk size %s larger than backing block device of size %s, refusing.",
+                                               FORMAT_BYTES(h->disk_size), FORMAT_BYTES(device_size));
+                if (h->disk_size < DISK_SIZE_ROUND_DOWN(device_size))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTTY),
+                                               "Home uses all of its block device of size %s, a smaller size is not supported. Resize the device instead.",
+                                               FORMAT_BYTES(device_size));
+        }
+
+        /* libcryptsetup interprets zero as "all of the device" */
+        r = sym_crypt_resize(setup->crypt_device, setup->dm_name, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to grow LUKS device: %m");
+
+        r = block_get_size_by_path(setup->dm_node, &encrypted_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine size of LUKS device: %m");
+
+        /* This does nothing if the file system fills the LUKS device already */
+        r = resize_fs(setup->root_fd, encrypted_size, /* ret_size= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to grow file system: %m");
+
+        log_info("File system now uses all of LUKS device of size %s.", FORMAT_BYTES(encrypted_size));
+
+        if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_UNDO)) {
+                r = home_setup_done(setup);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int home_resize_luks(
                 UserRecord *h,
                 HomeSetupFlags flags,
@@ -3268,7 +3398,7 @@ int home_resize_luks(
                 r = block_get_whole_disk(st.st_rdev, &parent);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire whole block device for %s: %m", ip);
-                if (r > 0) {
+                if (r > 0 && home_owns_partition_table(h, st.st_rdev)) {
                         /* If we shall resize a file system on a partition device, then let's figure out the
                          * whole disk device and operate on that instead, since we need to rewrite the
                          * partition table to resize the partition. */
@@ -3284,7 +3414,7 @@ int home_resize_luks(
                         if (fstat(image_fd, &st) < 0)
                                 return log_error_errno(errno, "Failed to stat whole block device %s: %m", whole_disk);
                 } else
-                        log_info("Operating on whole block device %s.", ip);
+                        log_info("Operating on block device %s itself.", ip);
 
                 r = blockdev_get_device_size(image_fd, &old_image_size);
                 if (r < 0)
@@ -3345,6 +3475,9 @@ int home_resize_luks(
                 return r;
 
         log_info("offset = %" PRIu64 ", size = %" PRIu64 ", image = %" PRIu64, setup->partition_offset, setup->partition_size, old_image_size);
+
+        if (S_ISBLK(st.st_mode) && setup->partition_offset == 0)
+                return home_resize_naked_luks(h, flags, setup, old_image_size);
 
         if ((UINT64_MAX - setup->partition_offset) < setup->partition_size ||
             setup->partition_offset + setup->partition_size > old_image_size)
