@@ -1178,6 +1178,7 @@ struct cpu_data {
         uint64_t weight;
         uint64_t quota;
         uint64_t period;
+        bool quota_unlimited;
         CPUSet cpu_set;
 };
 
@@ -1195,13 +1196,40 @@ static int oci_cgroup_cpu_shares(const char *name, sd_json_variant *v, sd_json_d
 }
 
 static int oci_cgroup_cpu_quota(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
-        uint64_t k, *u = ASSERT_PTR(userdata);
+        struct cpu_data *data = ASSERT_PTR(userdata);
+        uint64_t k;
+        int r;
 
-        k = sd_json_variant_unsigned(v);
-        if (k <= 0 || k >= UINT64_MAX)
-                return json_log(v, flags, SYNTHETIC_ERRNO(ERANGE), "period/quota value out of range.");
+        if (sd_json_variant_is_negative(v)) {
+                data->quota_unlimited = true;
+                return 0;
+        }
 
-        *u = k;
+        r = sd_json_dispatch_uint64(name, v, flags, &k);
+        if (r < 0)
+                return r;
+
+        if (k == 0 || k > UINT64_MAX / USEC_PER_SEC)
+                return json_log(v, flags, SYNTHETIC_ERRNO(ERANGE), "quota value out of range.");
+
+        data->quota_unlimited = false;
+        data->quota = k;
+        return 0;
+}
+
+static int oci_cgroup_cpu_period(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
+        uint64_t *p = ASSERT_PTR(userdata);
+        uint64_t k;
+        int r;
+
+        r = sd_json_dispatch_uint64(name, v, flags, &k);
+        if (r < 0)
+                return r;
+
+        if (k == 0 || k >= UINT64_MAX)
+                return json_log(v, flags, SYNTHETIC_ERRNO(ERANGE), "period value out of range.");
+
+        *p = k;
         return 0;
 }
 
@@ -1224,8 +1252,8 @@ static int oci_cgroup_cpu(const char *name, sd_json_variant *v, sd_json_dispatch
 
         static const sd_json_dispatch_field table[] = {
                 { "shares",          SD_JSON_VARIANT_UNSIGNED, oci_cgroup_cpu_shares, offsetof(struct cpu_data, weight), 0 },
-                { "quota",           SD_JSON_VARIANT_UNSIGNED, oci_cgroup_cpu_quota,  offsetof(struct cpu_data, quota),  0 },
-                { "period",          SD_JSON_VARIANT_UNSIGNED, oci_cgroup_cpu_quota,  offsetof(struct cpu_data, period), 0 },
+                { "quota",           SD_JSON_VARIANT_INTEGER,  oci_cgroup_cpu_quota,  0,                                 0 },
+                { "period",          SD_JSON_VARIANT_UNSIGNED, oci_cgroup_cpu_period, offsetof(struct cpu_data, period), 0 },
                 { "realtimeRuntime", SD_JSON_VARIANT_UNSIGNED, oci_unsupported,       0,                                 0 },
                 { "realtimePeriod",  SD_JSON_VARIANT_UNSIGNED, oci_unsupported,       0,                                 0 },
                 { "cpus",            SD_JSON_VARIANT_STRING,   oci_cgroup_cpu_cpus,   0,                                 0 },
@@ -1273,7 +1301,7 @@ static int oci_cgroup_cpu(const char *name, sd_json_variant *v, sd_json_dispatch
                 if (r < 0)
                         return bus_log_create_error(r);
 
-        } else if ((data.quota != UINT64_MAX) != (data.period != UINT64_MAX))
+        } else if (!data.quota_unlimited && (data.quota != UINT64_MAX) != (data.period != UINT64_MAX))
                 return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
                                 "CPU quota and period not used together.");
 
