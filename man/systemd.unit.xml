@@ -2507,6 +2507,13 @@
           </row>
           <xi:include href="standard-specifiers.xml" xpointer="D"/>
           <row>
+            <entry><literal>%e</literal></entry>
+            <entry>XDG app ID</entry>
+            <entry>This is the app id parsed out of the unit name, for units that follow the naming convention
+            as described at <ulink url="https://systemd.io/DESKTOP_ENVIRONMENTS/">Desktop Environments</ulink>.
+            Empty for units that don't follow the convention, or in case of the system manager.</entry>
+          </row>
+          <row>
             <entry><literal>%E</literal></entry>
             <entry>Configuration directory root</entry>
             <entry>This is either <filename>/etc/</filename> (for the system manager) or the path <literal>$XDG_CONFIG_HOME</literal> resolves to (for user managers).</entry>
