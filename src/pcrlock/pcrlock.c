@@ -21,6 +21,7 @@
 #include "creds-util.h"
 #include "crypto-util.h"
 #include "data-fd-util.h"
+#include "device-private.h"
 #include "dlopen-note.h"
 #include "efi-api.h"
 #include "efivars.h"
@@ -4805,7 +4806,7 @@ static int verb_lock_gpt(int argc, char *argv[], uintptr_t _data, void *userdata
         if (r < 0)
                 return log_error_errno(r, "Failed to determine root block device: %m");
 
-        fd = sd_device_open(d, O_CLOEXEC|O_RDONLY|O_NOCTTY);
+        fd = device_open(d, O_RDONLY|O_NOCTTY);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open root block device: %m");
 

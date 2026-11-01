@@ -255,7 +255,7 @@ static int loop_configure(
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get devnum: %m");
 
-        fd = sd_device_open(dev, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
+        fd = device_open(dev, O_NONBLOCK|O_NOCTTY|open_flags);
         if (fd < 0)
                 return log_device_debug_errno(dev, fd, "Failed to open device: %m");
 
@@ -1063,7 +1063,7 @@ int loop_device_open(
          * here, instead of keeping just a dup() clone of it around, since we want to ensure that the
          * O_DIRECT flag of the handle we keep is off, we have our own file index, and have the right
          * read/write mode in effect. */
-        fd = sd_device_open(dev, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
+        fd = device_open(dev, O_NONBLOCK|O_NOCTTY|open_flags);
         if (fd < 0)
                 return fd;
 
@@ -1236,7 +1236,7 @@ static int resize_partition(int partition_fd, uint64_t offset, uint64_t size) {
         if (r < 0)
                 return r;
 
-        whole_fd = r = device_open_from_devnum(S_IFBLK, devno, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, /* ret_devname= */ NULL);
+        whole_fd = r = device_open_from_devnum(S_IFBLK, devno, O_RDWR|O_NONBLOCK|O_NOCTTY, /* ret_devname= */ NULL);
         if (r < 0)
                 return r;
 

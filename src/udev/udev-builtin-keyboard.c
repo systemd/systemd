@@ -202,7 +202,7 @@ static int builtin_keyboard(UdevEvent *event, int argc, char *argv[]) {
                         }
 
                         if (fd < 0) {
-                                fd = sd_device_open(dev, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+                                fd = device_open(dev, O_RDWR|O_NONBLOCK|O_NOCTTY);
                                 if (fd < 0) {
                                         bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(fd);
                                         log_device_full_errno(dev, ignore ? LOG_DEBUG : LOG_WARNING, fd,
@@ -224,7 +224,7 @@ static int builtin_keyboard(UdevEvent *event, int argc, char *argv[]) {
                         }
 
                         if (fd < 0) {
-                                fd = sd_device_open(dev, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+                                fd = device_open(dev, O_RDWR|O_NONBLOCK|O_NOCTTY);
                                 if (fd < 0) {
                                         bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(fd);
                                         log_device_full_errno(dev, ignore ? LOG_DEBUG : LOG_WARNING, fd,
