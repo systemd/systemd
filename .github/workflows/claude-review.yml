@@ -289,13 +289,13 @@ jobs:
             git fetch origin "$PREVIOUS_HEAD" || echo "Previous head ${PREVIOUS_HEAD} is not fetchable, reviewing the full diff."
           fi
 
-      # The model's knowledge of the kernel and glibc can be wrong or out of date.
-      # The review agents therefore check kernel and glibc details in the cloned
-      # source trees. A review without a source tree is still useful, so a failed
-      # clone does not fail the job. git clones into a temporary directory first.
-      # If the timeout kills git, the final directory does not exist, and the
-      # agents are not told about it.
-      - name: Clone the Linux kernel and glibc
+      # The model's knowledge of the kernel, glibc, and musl can be wrong or out of
+      # date. The review agents therefore check kernel and libc details in the
+      # cloned source trees. A review without a source tree is still useful, so a
+      # failed clone does not fail the job. git clones into a temporary directory
+      # first. If the timeout kills git, the final directory does not exist, and
+      # the agents are not told about it.
+      - name: Clone the Linux kernel, glibc, and musl
         continue-on-error: true
         timeout-minutes: 10
         run: |
@@ -305,13 +305,17 @@ jobs:
               mv "$dir.tmp" "$dir" &&
               git -C "$dir" log -1 --format="Cloned $name at %H (%s)"
           }
+          pids=()
           clone linux https://github.com/torvalds/linux.git &
-          linux=$!
+          pids+=($!)
           clone glibc https://sourceware.org/git/glibc.git &
-          glibc=$!
+          pids+=($!)
+          clone musl https://git.musl-libc.org/git/musl &
+          pids+=($!)
           status=0
-          wait "$linux" || status=1
-          wait "$glibc" || status=1
+          for pid in "${pids[@]}"; do
+            wait "$pid" || status=1
+          done
           exit "$status"
 
       - name: Download PR context
@@ -528,6 +532,16 @@ jobs:
           depends on glibc behavior, such as system call wrappers, NSS, dlopen, or errno values, check
           the glibc source there instead of relying on memory. The libc.abilist files list the glibc
           version that added each symbol."
+          fi
+
+          musl="$RUNNER_TEMP/claude-review/musl"
+          if [[ -d "$musl" ]]; then
+            context+="
+
+          A shallow clone of the latest musl is at ${musl}. It has no history. systemd also builds
+          against musl with -Dlibc=musl, and musl behaves differently from glibc in places. When a
+          finding depends on libc behavior, check the musl source there as well. The WHATSNEW file
+          lists the changes in each musl release."
           fi
 
           previous=""
