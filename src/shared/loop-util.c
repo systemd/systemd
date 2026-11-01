@@ -1247,6 +1247,7 @@ static int resize_partition(int partition_fd, uint64_t offset, uint64_t size) {
 
 int loop_device_refresh_size(LoopDevice *d, uint64_t offset, uint64_t size) {
         struct loop_info64 info;
+        int r;
 
         assert(d);
         assert(d->fd >= 0);
@@ -1257,7 +1258,13 @@ int loop_device_refresh_size(LoopDevice *d, uint64_t offset, uint64_t size) {
          *
          * If either offset or size is UINT64_MAX we won't change that parameter. */
 
-        if (d->nr < 0) /* not a loopback device */
+        /* The kernel passes the LOOP_* ioctls on a partition on to the loop device it belongs to, hence nr
+         * is set for partitions of loop devices too. We must not reconfigure the whole device for them. */
+        r = device_is_devtype(d->dev, "partition");
+        if (r < 0)
+                return r;
+
+        if (r > 0 || d->nr < 0) /* not a loopback device */
                 return resize_partition(d->fd, offset, size);
 
         if (ioctl(d->fd, LOOP_GET_STATUS64, &info) < 0)
