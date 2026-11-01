@@ -676,8 +676,8 @@ static int vl_method_mount_image(
                                 use_policy,
                                 dissect_flags);
                 if (r == -EDESTADDRREQ) {
-                        /* new dm-verity userspace returns ENOKEY if the dm-verity signature key is not in
-                         * key chain which we mangle to EDESTADDRREQ. That's great. */
+                        /* dissected_image_decrypt() returns EDESTADDRREQ if neither the kernel nor userspace
+                         * validates the dm-verity signature. */
 
                         if (!polkit_have_untrusted_action) {
                                  log_debug("Missing verity key in kernel and userspace. Trying a stronger polkit authentication before continuing.");
