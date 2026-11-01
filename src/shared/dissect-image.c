@@ -2334,9 +2334,9 @@ static int run_fsck(int node_fd, const char *fstype) {
                 return log_debug_errno(r, "Failed to fork off fsck: %m");
         if (r == 0) {
                 /* Child */
-                execlp("fsck", "fsck", "-aT", FORMAT_PROC_FD_PATH(node_fd), NULL);
+                r = execvp_safe("fsck", STRV_MAKE("fsck", "-aT", FORMAT_PROC_FD_PATH(node_fd)));
                 log_open();
-                log_debug_errno(errno, "Failed to execl() fsck: %m");
+                log_debug_errno(r, "Failed to execute fsck: %m");
                 _exit(FSCK_OPERATIONAL_ERROR);
         }
 

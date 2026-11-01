@@ -182,9 +182,9 @@ static int found_override(const char *top, const char *bottom) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                execlp("diff", "diff", "-us", "--", bottom, top, NULL);
+                r = execvp_safe("diff", STRV_MAKE("diff", "-us", "--", bottom, top));
                 log_open();
-                log_error_errno(errno, "Failed to execute diff: %m");
+                log_error_errno(r, "Failed to execute diff: %m");
                 _exit(EXIT_FAILURE);
         }
 
