@@ -1,0 +1,131 @@
+# shellcheck shell=bash
+# systemd-repart(8) completion                      -*- shell-script -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
+
+__contains_word() {
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
+}
+
+__get_partition_types() {
+    echo 'root usr home srv esp xbootldr swap tmp var linux-generic
+          root-verity usr-verity root-verity-sig usr-verity-sig'
+}
+
+_systemd_repart() {
+    local comps
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local -A OPTS=(
+        [STANDALONE]='-h --help --version --no-pager --no-legend -n --can-factory-reset --list-devices
+                      -S -C -P'
+        [ARG]='--dry-run --empty --offline --discard --cow --sector-size --grain-size --architecture
+               --size --seed --split --pretty --json --factory-reset --root --image --image-policy
+               --definitions --private-key --private-key-source --certificate --certificate-source
+               --join-signature --key-file --tpm2-device --tpm2-device-key --tpm2-seal-key-handle
+               --tpm2-pcrs --tpm2-public-key --tpm2-public-key-policyref --tpm2-public-key-pcrs
+               --tpm2-pcrlock --include-partitions --exclude-partitions --defer-partitions
+               --defer-partitions-empty --defer-partitions-factory-reset -s --copy-source --copy-from
+               --make-ddi --append-fstab --generate-fstab --generate-crypttab --el-torito
+               --el-torito-system --el-torito-volume --el-torito-publisher --manifest --manifest-gpt
+               --manifest-fields --manifest-private-key --manifest-private-key-source
+               --manifest-certificate --manifest-certificate-source'
+    )
+
+    _init_completion || return
+
+    if __contains_word "$prev" ${OPTS[ARG]}; then
+        case $prev in
+            --dry-run|--offline|--discard|--split|--pretty|--factory-reset|--defer-partitions-empty|\
+            --defer-partitions-factory-reset|--el-torito|--manifest|--manifest-gpt)
+                comps='yes no'
+                ;;
+            --cow)
+                comps='yes no auto'
+                ;;
+            --empty)
+                comps='refuse allow require force create'
+                ;;
+            --json)
+                comps='pretty short off'
+                ;;
+            --architecture)
+                comps=$(systemd-analyze --quiet --no-pager --no-legend architectures 2>/dev/null |
+                            { while read -r a b; do echo " $a"; done; })
+                ;;
+            --root|--definitions|-s|--copy-source)
+                comps=$(compgen -A directory -- "$cur")
+                compopt -o filenames
+                ;;
+            --image|--private-key|--certificate|--key-file|--tpm2-device-key|--tpm2-public-key|\
+            --tpm2-pcrlock|--copy-from|--generate-fstab|--generate-crypttab|--manifest-private-key|\
+            --manifest-certificate|--join-signature)
+                comps=$(compgen -A file -- "$cur")
+                compopt -o filenames
+                ;;
+            --private-key-source|--manifest-private-key-source)
+                comps='file provider: engine:'
+                compopt -o nospace
+                ;;
+            --certificate-source|--manifest-certificate-source)
+                comps='file provider:'
+                compopt -o nospace
+                ;;
+            --tpm2-device)
+                comps="auto list $(compgen -G '/dev/tpmrm*')"
+                ;;
+            --include-partitions|--exclude-partitions|--defer-partitions)
+                comps=$(__get_partition_types)
+                ;;
+            --make-ddi)
+                comps='sysext confext portable'
+                ;;
+            --append-fstab)
+                comps='no auto replace'
+                ;;
+            --manifest-fields)
+                local f
+                comps=''
+                for f in mode uid gid size hash symlink device hardlink mtime user-xattr user-name group-name; do
+                    comps+=" $f +$f -$f"
+                done
+                comps+=' all default none'
+                ;;
+            *)
+                comps=''
+                ;;
+        esac
+        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+        return 0
+    fi
+
+    if [[ "$cur" = -* ]]; then
+        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+        return 0
+    fi
+
+    # The device node or image file to operate on
+    comps=$(compgen -A file -- "$cur")
+    compopt -o filenames
+
+    COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+    return 0
+}
+
+complete -F _systemd_repart systemd-repart
