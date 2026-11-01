@@ -4096,8 +4096,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         flag4: str,
         ip4_null_16: str,
         ip4_null_24: str,
+        ip4_null_32: str,
         ip6_null_73: str,
         ip6_null_74: str,
+        ip6_null_128: str,
     ):
         output = check_output('ip address show dev dummy98')
         print(output)
@@ -4163,8 +4165,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         prefix24 = ip4_null_24[: -len('.1')]
         self.assertIn(f'inet {ip4_null_16}/16 brd {prefix16}.255.255 scope global subnet16', output)
         self.assertIn(f'inet {ip4_null_24}/24 brd {prefix24}.255 scope global subnet24', output)
+        self.assertIn(f'inet {ip4_null_32}/32 scope global host32', output)
         self.assertIn(f'inet6 {ip6_null_73}/73 scope global', output)
         self.assertIn(f'inet6 {ip6_null_74}/74 scope global', output)
+        self.assertIn(f'inet6 {ip6_null_128}/128 scope global', output)
 
         # invalid sections
         self.assertNotIn('10.4.4.1', output)
@@ -4199,11 +4203,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             elif i['label'] == 'subnet24':
                 ip4_null_24 = i['local']
             elif i['label'] == 'host32':
-                ip4_null_32 = i
+                ip4_null_32 = i['local']
         self.assertTrue(ip4_null_16.endswith('.0.1'))
         self.assertTrue(ip4_null_24.endswith('.1'))
         self.assertIsNotNone(ip4_null_32)
-        self.assertEqual(ip4_null_32['prefixlen'], 32)
 
         ip6_null_73 = None
         ip6_null_74 = None
@@ -4215,7 +4218,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             elif i['prefixlen'] == 74:
                 ip6_null_74 = i['local']
             elif i['prefixlen'] == 128 and i['local'].startswith('fd'):
-                ip6_null_128 = i
+                ip6_null_128 = i['local']
         self.assertTrue(ip6_null_73.endswith(':1'))
         self.assertTrue(ip6_null_74.endswith(':1'))
         self.assertIsNotNone(ip6_null_128)
@@ -4246,8 +4249,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             flag4=' home mngtmpaddr',
             ip4_null_16=ip4_null_16,
             ip4_null_24=ip4_null_24,
+            ip4_null_32=ip4_null_32,
             ip6_null_73=ip6_null_73,
             ip6_null_74=ip6_null_74,
+            ip6_null_128=ip6_null_128,
         )
         # nft set
         self.check_nftset('addr4', r'10\.10\.1\.1')
@@ -4285,8 +4290,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             flag4=' noprefixroute',
             ip4_null_16=ip4_null_16,
             ip4_null_24=ip4_null_24,
+            ip4_null_32=ip4_null_32,
             ip6_null_73=ip6_null_73,
             ip6_null_74=ip6_null_74,
+            ip6_null_128=ip6_null_128,
         )
 
         networkctl_reconfigure('dummy98')
@@ -4317,8 +4324,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             flag4=' noprefixroute',
             ip4_null_16=ip4_null_16,
             ip4_null_24=ip4_null_24,
+            ip4_null_32=ip4_null_32,
             ip6_null_73=ip6_null_73,
             ip6_null_74=ip6_null_74,
+            ip6_null_128=ip6_null_128,
         )
 
         # Tests for #20891.
@@ -4359,8 +4368,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             flag4=' noprefixroute',
             ip4_null_16=ip4_null_16,
             ip4_null_24=ip4_null_24,
+            ip4_null_32=ip4_null_32,
             ip6_null_73=ip6_null_73,
             ip6_null_74=ip6_null_74,
+            ip6_null_128=ip6_null_128,
         )
 
         # test for ENOBUFS issue #17012 (with reload)
