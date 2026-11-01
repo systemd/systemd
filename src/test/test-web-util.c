@@ -54,4 +54,62 @@ TEST(provider_url_parse) {
         test_provider_url_parse_one("provider:/run/foobar/waldo", /* socket= */ NULL, /* resource= */ NULL);
 }
 
+TEST(parse_content_range) {
+        uint64_t start, end, total;
+
+        ASSERT_OK(parse_content_range("bytes 0-9/10", &start, &end, &total));
+        ASSERT_EQ(start, 0U);
+        ASSERT_EQ(end, 9U);
+        ASSERT_EQ(total, 10U);
+
+        ASSERT_OK(parse_content_range("bytes 1000-5999/262164", &start, &end, &total));
+        ASSERT_EQ(start, 1000U);
+        ASSERT_EQ(end, 5999U);
+        ASSERT_EQ(total, 262164U);
+
+        /* Single byte ranges, case insensitive unit, unknown total */
+        ASSERT_OK(parse_content_range("Bytes 7-7/*", &start, &end, &total));
+        ASSERT_EQ(start, 7U);
+        ASSERT_EQ(end, 7U);
+        ASSERT_EQ(total, UINT64_MAX);
+
+        ASSERT_OK(parse_content_range("bytes 0-18446744073709551613/18446744073709551614", &start, &end, &total));
+        ASSERT_EQ(start, 0U);
+        ASSERT_EQ(end, UINT64_MAX - 2);
+        ASSERT_EQ(total, UINT64_MAX - 1);
+
+        /* All return parameters are optional */
+        ASSERT_OK(parse_content_range("bytes 0-9/10", /* ret_start= */ NULL, /* ret_end= */ NULL, /* ret_total= */ NULL));
+        start = end = 0;
+        ASSERT_OK(parse_content_range("bytes 3-4/*", &start, &end, /* ret_total= */ NULL));
+        ASSERT_EQ(start, 3U);
+        ASSERT_EQ(end, 4U);
+        ASSERT_ERROR(parse_content_range("bytes 5-4/10", /* ret_start= */ NULL, /* ret_end= */ NULL, /* ret_total= */ NULL), EINVAL);
+
+        /* End before start, or beyond the total */
+        ASSERT_ERROR(parse_content_range("bytes 5-4/10", &start, &end, &total), EINVAL);
+        ASSERT_ERROR(parse_content_range("bytes 0-10/10", &start, &end, &total), EINVAL);
+        ASSERT_ERROR(parse_content_range("bytes 0-0/0", &start, &end, &total), EINVAL);
+
+        /* The unsatisfied range form of 416 responses, other units, and malformed values */
+        ASSERT_ERROR(parse_content_range("bytes */10", &start, &end, &total), EINVAL);
+        ASSERT_ERROR(parse_content_range("items 0-1/2", &start, &end, &total), EINVAL);
+        ASSERT_ERROR(parse_content_range("bytes", &start, &end, &total), EINVAL);
+        ASSERT_ERROR(parse_content_range("bytes ", &start, &end, &total), EINVAL);
+        ASSERT_ERROR(parse_content_range("bytes 0-1", &start, &end, &total), EINVAL);
+        ASSERT_ERROR(parse_content_range("bytes 0-1/", &start, &end, &total), EINVAL);
+        ASSERT_ERROR(parse_content_range("bytes -1/2", &start, &end, &total), EINVAL);
+        ASSERT_ERROR(parse_content_range("bytes 0-/2", &start, &end, &total), EINVAL);
+        ASSERT_ERROR(parse_content_range("bytes 0-1/2x", &start, &end, &total), EINVAL);
+        ASSERT_ERROR(parse_content_range("bytes 0-1/**", &start, &end, &total), EINVAL);
+        ASSERT_ERROR(parse_content_range("bytes  0-1/2", &start, &end, &total), EINVAL);
+        ASSERT_ERROR(parse_content_range("bytes +0-1/2", &start, &end, &total), EINVAL);
+        ASSERT_ERROR(parse_content_range("bytes 0-1/-2", &start, &end, &total), EINVAL);
+        ASSERT_ERROR(parse_content_range("bytes 0-1/2 ", &start, &end, &total), EINVAL);
+
+        /* Overflow */
+        ASSERT_ERROR(parse_content_range("bytes 0-18446744073709551616/*", &start, &end, &total), ERANGE);
+        ASSERT_ERROR(parse_content_range("bytes 0-1/18446744073709551616", &start, &end, &total), ERANGE);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);

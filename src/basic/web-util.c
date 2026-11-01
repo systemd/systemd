@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -123,4 +124,73 @@ bool http_etag_is_valid(const char *etag) {
                 return false;
 
         return true;
+}
+
+int parse_content_range(const char *s, uint64_t *ret_start, uint64_t *ret_end, uint64_t *ret_total) {
+        uint64_t start, end, total;
+        int r;
+
+        assert(s);
+
+        /* Parses the value of a "Content-Range:" header of a 206 response, i.e. "bytes START-END/TOTAL"
+         * (RFC 9110, section 14.4). Only the "bytes" unit is supported. TOTAL may be "*" if the server
+         * doesn't know it, in which case UINT64_MAX is returned for it. The unsatisfied-range form of 416
+         * responses (where the range is replaced by an asterisk) is refused. All return parameters are
+         * optional. */
+
+        const char *p = startswith_no_case(s, "bytes ");
+        if (!p)
+                return -EINVAL;
+
+        size_t n = strspn(p, DIGITS);
+        if (n == 0 || p[n] != '-')
+                return -EINVAL;
+
+        _cleanup_free_ char *a = strndup(p, n);
+        if (!a)
+                return -ENOMEM;
+
+        p += n + 1;
+        n = strspn(p, DIGITS);
+        if (n == 0 || p[n] != '/')
+                return -EINVAL;
+
+        _cleanup_free_ char *b = strndup(p, n);
+        if (!b)
+                return -ENOMEM;
+
+        p += n + 1;
+
+        r = safe_atou64(a, &start);
+        if (r < 0)
+                return r;
+
+        r = safe_atou64(b, &end);
+        if (r < 0)
+                return r;
+
+        if (end < start)
+                return -EINVAL;
+
+        if (streq(p, "*"))
+                total = UINT64_MAX;
+        else {
+                if (isempty(p) || !in_charset(p, DIGITS))
+                        return -EINVAL;
+
+                r = safe_atou64(p, &total);
+                if (r < 0)
+                        return r;
+
+                if (end >= total)
+                        return -EINVAL;
+        }
+
+        if (ret_start)
+                *ret_start = start;
+        if (ret_end)
+                *ret_end = end;
+        if (ret_total)
+                *ret_total = total;
+        return 0;
 }
