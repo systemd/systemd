@@ -23,8 +23,8 @@
 #include "chattr-util.h"
 #include "crypto-util.h"
 #include "cryptsetup-util.h"
+#include "device-private.h"
 #include "device-util.h"
-#include "devnum-util.h"
 #include "dissect-image.h"
 #include "env-util.h"
 #include "errno-util.h"
@@ -36,6 +36,7 @@
 #include "fs-util.h"
 #include "fsck-util.h"
 #include "glyph-util.h"
+#include "gpt.h"
 #include "home-util.h"
 #include "homework.h"
 #include "homework-blob.h"
@@ -81,6 +82,10 @@
 /* How much larger will the image on disk be than the fs inside it, i.e. the space we pay for the GPT and
  * LUKS2 envelope. (As measured on cryptsetup 2.4.1) */
 #define GPT_LUKS2_OVERHEAD UINT64_C(18874368)
+
+/* homectl's --disk-size=max sets the largest size that is not UINT64_MAX, which means "unset". Both say that what's
+ * available shall be used. */
+#define USER_DISK_SIZE_LARGEST (UINT64_MAX - 1)
 
 static int resize_image_loop(UserRecord *h, HomeSetup *setup, uint64_t old_image_size, uint64_t new_image_size, uint64_t *ret_image_size);
 
@@ -1273,6 +1278,108 @@ static int open_image_file(
         return TAKE_FD(image_fd);
 }
 
+static int block_device_get_partition_offset(dev_t devno, uint64_t *ret) {
+        char p[SYS_BLOCK_PATH_MAX("/start")];
+        _cleanup_free_ char *s = NULL;
+        uint64_t sectors;
+        int r;
+
+        assert(ret);
+
+        /* Returns where a partition block device is located on its whole disk, and zero for all other block
+         * devices. The kernel reports this in units of 512 bytes, regardless of the sector size. */
+
+        xsprintf_sys_block_path(p, "/start", devno);
+
+        r = read_virtual_file(p, DECIMAL_STR_MAX(uint64_t) + 1, &s, /* ret_size= */ NULL);
+        if (r == -ENOENT) {
+                *ret = 0;
+                return 0;
+        }
+        if (r < 0)
+                return r;
+
+        r = safe_atou64(strstrip(s), &sectors);
+        if (r < 0)
+                return r;
+
+        if (sectors > UINT64_MAX / 512U)
+                return -E2BIG;
+
+        *ret = sectors * 512U;
+        return 0;
+}
+
+static int block_device_is_only_gpt_partition(dev_t devno) {
+        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
+        _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        dev_t whole;
+        int r;
+
+        r = dlopen_fdisk(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        r = block_get_whole_disk(devno, &whole);
+        if (r <= 0)
+                return r;
+
+        fd = device_open_from_devnum(S_IFBLK, whole, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK, /* ret_devname= */ NULL);
+        if (fd < 0)
+                return fd;
+
+        r = fdisk_new_context_at(fd, /* path= */ NULL, /* read_only= */ true, /* sector_size= */ UINT32_MAX, &c);
+        if (r < 0)
+                return r;
+
+        if (!sym_fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
+                return false;
+
+        r = sym_fdisk_get_partitions(c, &t);
+        if (r < 0)
+                return r;
+
+        return sym_fdisk_table_get_nents(t) == 1;
+}
+
+static bool home_owns_partition_table(const UserRecord *h, dev_t devno) {
+        int r;
+
+        assert(h);
+
+        /* A partition block device might be in the GPT envelope described in HOME_DIRECTORY.md, or in a
+         * partition table shared with other partitions, which we have no business touching. Homes created
+         * on a whole disk know the UUID of their partition. Homes discovered on another machine don't, but
+         * there an envelope is recognized by what it is: the only partition on a GPT disk. */
+
+        if (!sd_id128_is_null(h->partition_uuid))
+                return true;
+
+        r = block_device_is_only_gpt_partition(devno);
+        if (r < 0)
+                log_debug_errno(r, "Failed to look at partition table of whole disk, assuming it's not ours: %m");
+
+        return r > 0;
+}
+
+static int home_get_block_device_offset(const UserRecord *h, dev_t devno, uint64_t *ret) {
+        int r;
+
+        assert(h);
+        assert(ret);
+
+        r = block_device_get_partition_offset(devno, ret);
+        if (r < 0)
+                return r;
+
+        /* From now on this device is treated like one that has no partitions at all */
+        if (*ret > 0 && !home_owns_partition_table(h, devno))
+                *ret = 0;
+
+        return 0;
+}
+
 int home_setup_luks(
                 UserRecord *h,
                 HomeSetupFlags flags,
@@ -1340,46 +1447,25 @@ int home_setup_luks(
                                 return log_error_errno(r, "Failed to open loopback device %s: %m", n);
                 }
 
-                if (ioctl(setup->loop->fd, LOOP_GET_STATUS64, &info) < 0) {
-                        _cleanup_free_ char *sysfs = NULL;
+                /* The kernel passes the LOOP_* ioctls on a partition on to the loop device it belongs to, hence
+                 * nr is set for partitions of loop devices too. We want the metrics of the partition though. */
+                r = device_is_devtype(setup->loop->dev, "partition");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine device type of %s: %m", n);
 
-                        if (!IN_SET(errno, ENOTTY, EINVAL))
-                                return log_error_errno(errno, "Failed to get block device metrics of %s: %m", n);
-
+                if (r > 0 || setup->loop->nr < 0) { /* Not a loopback device */
                         if (fstat(setup->loop->fd, &st) < 0)
-                                return log_error_errno(r, "Failed to stat block device %s: %m", n);
+                                return log_error_errno(errno, "Failed to stat block device %s: %m", n);
                         assert(S_ISBLK(st.st_mode));
 
-                        if (asprintf(&sysfs, "/sys/dev/block/" DEVNUM_FORMAT_STR "/partition", DEVNUM_FORMAT_VAL(st.st_rdev)) < 0)
-                                return log_oom();
-
-                        if (access(sysfs, F_OK) < 0) {
-                                if (errno != ENOENT)
-                                        return log_error_errno(errno, "Failed to determine whether %s exists: %m", sysfs);
-
-                                offset = 0;
-                        } else {
-                                _cleanup_free_ char *buffer = NULL;
-
-                                if (asprintf(&sysfs, "/sys/dev/block/" DEVNUM_FORMAT_STR "/start", DEVNUM_FORMAT_VAL(st.st_rdev)) < 0)
-                                        return log_oom();
-
-                                r = read_one_line_file(sysfs, &buffer);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to read partition start offset: %m");
-
-                                r = safe_atou64(buffer, &offset);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse partition start offset: %m");
-
-                                if (offset > UINT64_MAX / 512U)
-                                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "Offset too large for 64 byte range, refusing.");
-
-                                offset *= 512U;
-                        }
+                        r = home_get_block_device_offset(h, st.st_rdev, &offset);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine partition start offset of %s: %m", n);
 
                         size = setup->loop->device_size;
                 } else {
+                        if (ioctl(setup->loop->fd, LOOP_GET_STATUS64, &info) < 0)
+                                return log_error_errno(errno, "Failed to get block device metrics of %s: %m", n);
 #if HAVE_VALGRIND_MEMCHECK_H
                         VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
 #endif
@@ -1446,6 +1532,9 @@ int home_setup_luks(
                                 O_RDWR,
                                 offset,
                                 size,
+                                /* Block devices are used as they are, never with a loopback device on top: the
+                                 * sector size of the LUKS volume is independent of the one of the device below. */
+                                S_ISBLK(st.st_mode) ? 0 :
                                 h->luks_sector_size == UINT64_MAX ? UINT32_MAX : user_record_luks_sector_size(h), /* if sector size is not specified, select UINT32_MAX, i.e. auto-probe */
                                 /* loop_flags= */ 0,
                                 LOCK_UN,
@@ -1458,6 +1547,18 @@ int home_setup_luks(
                         return log_error_errno(r, "Failed to allocate loopback context: %m");
 
                 log_info("Setting up loopback device %s completed.", setup->loop->node ?: ip);
+
+                /* luks_validate() looked at the block device as such and hence reports an offset of zero and
+                 * no size for it. What we report to our callers shall be the location on the whole disk
+                 * though, exactly as in the already activated case above, as otherwise resizing the home
+                 * while it is inactive would not find the partition. */
+                if (S_ISBLK(st.st_mode)) {
+                        r = home_get_block_device_offset(h, st.st_rdev, &offset);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine partition start offset of %s: %m", ip);
+
+                        size = setup->loop->device_size;
+                }
 
                 r = luks_setup(h,
                                setup->loop->node ?: ip,
@@ -1902,6 +2003,281 @@ static int luks_format(
         return 0;
 }
 
+static int validate_unused_block_device(int fd, const char *path) {
+        _cleanup_close_ int excl_fd = -EBADF;
+
+        assert(fd >= 0);
+        assert(path);
+
+        /* Formatting is going to destroy whatever is on the device. For a whole disk the user asked for that
+         * by giving us the disk, but a partition or LVM volume is easily mistyped, and might be something
+         * that is in use right now. An O_EXCL open fails if the device is mounted, used for swap, or has
+         * holders such as a device mapper device. The fd can't be kept around, as device mapper needs to
+         * claim the device later. */
+
+        excl_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK|O_EXCL);
+        if (excl_fd == -EBUSY)
+                return log_error_errno(SYNTHETIC_ERRNO(EUSERS),
+                                       "Block device '%s' is in use (mounted, used for swap, or has holders), refusing.", path);
+        if (excl_fd < 0)
+                return log_error_errno(excl_fd, "Failed to open block device '%s' exclusively: %m", path);
+
+#if HAVE_BLKID
+        _cleanup_(blkid_free_probep) blkid_probe b = NULL;
+        const char *value = NULL;
+        int r;
+
+        r = dlopen_libblkid(LOG_ERR);
+        if (r < 0)
+                return r;
+
+        b = sym_blkid_new_probe();
+        if (!b)
+                return log_oom();
+
+        errno = 0;
+        r = sym_blkid_probe_set_device(b, fd, /* off= */ 0, /* size= */ 0);
+        if (r != 0)
+                return log_error_errno(errno_or_else(EIO), "Failed to set up probing of block device '%s': %m", path);
+
+        (void) sym_blkid_probe_enable_superblocks(b, 1);
+        /* Also find superblocks with a bad checksum: they might be damaged, but that's no reason to overwrite them */
+        (void) sym_blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE|BLKID_SUBLKS_BADCSUM);
+        (void) sym_blkid_probe_enable_partitions(b, 1);
+        (void) sym_blkid_probe_set_partitions_flags(b, BLKID_PARTS_FORCE_GPT);
+
+        errno = 0;
+        r = sym_blkid_do_safeprobe(b);
+        if (r == _BLKID_SAFEPROBE_ERROR)
+                return log_error_errno(errno_or_else(EIO), "Failed to probe block device '%s' for existing data, refusing: %m", path);
+        if (r == _BLKID_SAFEPROBE_AMBIGUOUS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTEMPTY),
+                                       "Block device '%s' contains conflicting signatures of existing data, refusing. "
+                                       "Use wipefs(8) on it first if its contents shall be destroyed.", path);
+        if (r == _BLKID_SAFEPROBE_NOT_FOUND)
+                return 0;
+
+        assert(r == _BLKID_SAFEPROBE_FOUND);
+
+        if (sym_blkid_probe_lookup_value(b, "TYPE", &value, /* len= */ NULL) < 0)
+                (void) sym_blkid_probe_lookup_value(b, "PTTYPE", &value, /* len= */ NULL);
+
+        return log_error_errno(SYNTHETIC_ERRNO(ENOTEMPTY),
+                               "Block device '%s' contains existing data of type '%s', refusing. "
+                               "Use wipefs(8) on it first if its contents shall be destroyed.", path, strna(value));
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "Cannot check block device '%s' for existing data without libblkid support, refusing.", path);
+#endif
+}
+
+static int find_partition_entry(
+                struct fdisk_context *c,
+                sd_device *dev,
+                const char *path,
+                uint64_t *ret_partno) {
+
+        _cleanup_(fdisk_unref_partitionp) struct fdisk_partition *p = NULL;
+        uint64_t start, size, fdisk_sector_size;
+        unsigned nr;
+        int r;
+
+        assert(c);
+        assert(dev);
+        assert(path);
+        assert(ret_partno);
+
+        /* Finds the entry of a partition block device in the partition table of its whole disk. Returns
+         * zero if that's not a GPT partition table, and refuses tables we shouldn't be writing back. */
+
+        if (!sym_fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT)) {
+                log_debug("Partition '%s' is not on a GPT disk, leaving partition table alone.", path);
+                return 0;
+        }
+
+        /* If one of the two copies of a GPT is damaged libfdisk repairs it in memory right when loading it, and
+         * then considers it changed. That's a decision we shouldn't make on a disk we don't own. */
+        r = sym_fdisk_verify_disklabel(c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to verify partition table of whole disk of '%s': %m", path);
+        if (r > 0 || sym_fdisk_label_is_changed(sym_fdisk_get_label(c, /* name= */ NULL)))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Partition table of whole disk of '%s' is damaged, refusing. Please repair it first.", path);
+
+        r = device_get_sysattr_unsigned(dev, "partition", &nr);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine partition number of '%s': %m", path);
+        if (nr == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid partition number of '%s'.", path);
+
+        /* These two are in units of 512 bytes, regardless of the sector size */
+        r = device_get_sysattr_u64(dev, "start", &start);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine start of partition '%s': %m", path);
+
+        r = device_get_sysattr_u64(dev, "size", &size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine size of partition '%s': %m", path);
+
+        if (start > UINT64_MAX / 512U || size > UINT64_MAX / 512U)
+                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Partition '%s' out of range.", path);
+
+        r = sym_fdisk_get_partition(c, nr - 1, &p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read partition table entry of '%s': %m", path);
+
+        fdisk_sector_size = sym_fdisk_get_sector_size(c);
+        assert(fdisk_sector_size > 0);
+
+        /* If what's on disk and what the kernel thinks disagree, then we can't know if we would be changing
+         * the right entry. */
+        if (sym_fdisk_partition_is_used(p) <= 0 ||
+            sym_fdisk_partition_has_start(p) <= 0 ||
+            sym_fdisk_partition_has_size(p) <= 0 ||
+            sym_fdisk_partition_get_start(p) * fdisk_sector_size != start * 512U ||
+            sym_fdisk_partition_get_size(p) * fdisk_sector_size != size * 512U)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Partition table of whole disk of '%s' doesn't match what the kernel uses for it, refusing.", path);
+
+        *ret_partno = nr - 1;
+        return 1;
+}
+
+static int open_partition_entry(
+                int fd,
+                int whole_fd,
+                const char *path,
+                bool read_only,
+                struct fdisk_context **ret_context,
+                uint64_t *ret_partno) {
+
+        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        int r;
+
+        assert(fd >= 0);
+        assert(whole_fd >= 0);
+        assert(path);
+        assert(ret_context);
+        assert(ret_partno);
+
+        /* Returns zero if there's no GPT entry for this device, as for an LVM volume, or a partition on another
+         * kind of partition table. */
+
+        r = block_device_new_from_fd(fd, /* flags= */ 0, &dev);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire device object for '%s': %m", path);
+
+        r = device_is_devtype(dev, "partition");
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine device type of '%s': %m", path);
+        if (r == 0)
+                return 0;
+
+        r = fdisk_new_context_at(whole_fd, /* path= */ NULL, read_only, /* sector_size= */ UINT32_MAX, &c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read partition table of whole disk of '%s': %m", path);
+
+        r = find_partition_entry(c, dev, path, ret_partno);
+        if (r <= 0)
+                return r;
+
+        *ret_context = TAKE_PTR(c);
+        return 1;
+}
+
+static int validate_partition_entry(int fd, int whole_fd, const char *path, const char *label) {
+        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
+        uint64_t partno;
+        int r;
+
+        assert(label);
+
+        /* Checks that tag_partition_entry() will be able to do its work, before we overwrite anything. This
+         * must not keep the table open for writing: libfdisk then opens the whole disk with O_EXCL if it can,
+         * and we wouldn't be able to set up LUKS on the partition. */
+
+        r = open_partition_entry(fd, whole_fd, path, /* read_only= */ true, &c, &partno);
+        if (r <= 0)
+                return r;
+
+        /* libfdisk would silently truncate this, and then we'd not find the home by its name anymore. */
+        if (!gpt_label_is_valid(label))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "User name '%s' is not suitable as GPT partition name, refusing.", label);
+
+        return 0;
+}
+
+static void trigger_change_uevent(int fd) {
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        int r;
+
+        r = block_device_new_from_fd(fd, /* flags= */ 0, &d);
+        if (r >= 0)
+                r = sd_device_trigger(d, SD_DEVICE_CHANGE);
+        if (r < 0)
+                log_debug_errno(r, "Failed to trigger 'change' uevent, ignoring: %m");
+}
+
+static int tag_partition_entry(int fd, int whole_fd, const char *path, const char *label) {
+        _cleanup_(fdisk_unref_partitionp) struct fdisk_partition *p = NULL;
+        _cleanup_(fdisk_unref_parttypep) struct fdisk_parttype *t = NULL;
+        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
+        uint64_t partno;
+        int r;
+
+        assert(label);
+
+        /* Make the partition follow the format described in HOME_DIRECTORY.md: this is how homes are discovered
+         * when the disk is plugged in, and it keeps systemd-gpt-auto-generator from mistaking a partition of type
+         * "Linux home" as /home/ of the whole system. The other entries and the location of this one aren't
+         * changed, and hence the kernel's idea of the partitions stays valid. */
+
+        r = open_partition_entry(fd, whole_fd, path, /* read_only= */ false, &c, &partno);
+        if (r <= 0)
+                return r;
+
+        t = sym_fdisk_new_parttype();
+        if (!t)
+                return log_oom();
+
+        r = sym_fdisk_parttype_set_typestr(t, SD_GPT_USER_HOME_STR);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize partition type: %m");
+
+        p = sym_fdisk_new_partition();
+        if (!p)
+                return log_oom();
+
+        r = sym_fdisk_partition_set_type(p, t);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set partition type: %m");
+
+        r = sym_fdisk_partition_set_name(p, label);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set partition name: %m");
+
+        /* Only the properties we set are changed by this */
+        r = sym_fdisk_set_partition(c, partno, p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to update partition table entry of '%s': %m", path);
+
+        r = sym_fdisk_write_disklabel(c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write partition table of whole disk of '%s': %m", path);
+
+        log_info("Updating partition table entry of %s completed.", path);
+
+        /* Only the type and name changed, which is of no interest to the kernel, but udev has to find out. It
+         * rescans the disk when libfdisk closes it, as after any tool writing a partition table, but it only
+         * watches some kinds of disks, so don't rely on that. */
+        trigger_change_uevent(whole_fd);
+        trigger_change_uevent(fd);
+
+        return 0;
+}
+
 static int make_partition_table(
                 int fd,
                 uint32_t sector_size,
@@ -2193,11 +2569,12 @@ int home_create_luks(
         uint64_t encrypted_size, image_sector_size, luks_sector_size,
                 host_size = 0, partition_offset = 0, partition_size = 0; /* Unnecessary initialization to appease gcc */
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
-        sd_id128_t partition_uuid, fs_uuid, luks_uuid, disk_uuid;
-        _cleanup_close_ int mount_fd = -EBADF;
+        sd_id128_t partition_uuid = SD_ID128_NULL, fs_uuid, luks_uuid, disk_uuid;
+        _cleanup_close_ int mount_fd = -EBADF, lock_fd = -EBADF;
         const char *fstype, *ip;
         struct statfs sfs;
         struct stat st;
+        bool naked = false;
         int r;
         _cleanup_strv_free_ char **extra_mkfs_options = NULL;
 
@@ -2239,13 +2616,6 @@ int home_create_luks(
                 fstype = "ext4";
         }
 
-        if (sd_id128_is_null(h->partition_uuid)) {
-                r = sd_id128_randomize(&partition_uuid);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to acquire partition UUID: %m");
-        } else
-                partition_uuid = h->partition_uuid;
-
         if (sd_id128_is_null(h->luks_uuid)) {
                 r = sd_id128_randomize(&luks_uuid);
                 if (r < 0)
@@ -2272,7 +2642,6 @@ int home_create_luks(
                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Device mapper device %s already exists, refusing.", setup->dm_node);
 
         if (path_startswith(ip, "/dev/")) {
-                _cleanup_free_ char *sysfs = NULL;
                 uint64_t block_device_size;
 
                 /* Let's place the home directory on a real device, i.e. a USB stick or such */
@@ -2285,22 +2654,43 @@ int home_create_luks(
                 if (r < 0)
                         return log_error_errno(r, "Device is not a block device, refusing.");
 
-                if (asprintf(&sysfs, "/sys/dev/block/" DEVNUM_FORMAT_STR "/partition", DEVNUM_FORMAT_VAL(st.st_rdev)) < 0)
-                        return log_oom();
-                if (access(sysfs, F_OK) < 0) {
-                        if (errno != ENOENT)
-                                return log_error_errno(errno, "Failed to check whether %s exists: %m", sysfs);
-                } else
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Operating on partitions is currently not supported, sorry. Please specify a top-level block device.");
+                /* A partition table is only of use on devices where the kernel will find the partitions in it.
+                 * That's not the case for a partition or an LVM volume, hence place LUKS directly on these. */
+                r = blockdev_partscan_enabled_fd(setup->image_fd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine whether block device '%s' supports partitions: %m", ip);
+                naked = r == 0;
 
-                if (flock(setup->image_fd, LOCK_EX) < 0) /* make sure udev doesn't read from it while we operate on the device */
+                if (naked) {
+                        if (!sd_id128_is_null(h->partition_uuid))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Partition UUID specified, but block device '%s' won't carry a partition of ours, refusing.", ip);
+
+                        /* Make sure udev doesn't read from it while we operate on the device. This lock is about
+                         * the main block device, never the partition, see https://systemd.io/BLOCK_DEVICE_LOCKING.
+                         * We take it first, so that nothing that follows the rules can change the device
+                         * between us checking that it is empty and formatting it. Don't open it for writing:
+                         * closing it would then make udev rescan the disk, even if we end up not changing it. */
+                        lock_fd = lock_whole_block_device(st.st_rdev, O_RDONLY, LOCK_EX);
+                        if (lock_fd < 0)
+                                return log_error_errno(lock_fd, "Failed to lock whole block device of %s: %m", ip);
+
+                        r = validate_unused_block_device(setup->image_fd, ip);
+                        if (r < 0)
+                                return r;
+
+                        r = validate_partition_entry(setup->image_fd, lock_fd, ip, user_record_user_name_and_realm(h));
+                        if (r < 0)
+                                return r;
+
+                } else if (flock(setup->image_fd, LOCK_EX) < 0) /* make sure udev doesn't read from it while we operate on the device */
                         return log_error_errno(errno, "Failed to lock block device %s: %m", ip);
 
                 r = blockdev_get_device_size(setup->image_fd, &block_device_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read block device size: %m");
 
-                if (h->disk_size == UINT64_MAX) {
+                if (h->disk_size >= USER_DISK_SIZE_LARGEST) {
 
                         /* If a relative disk size is requested, apply it relative to the block device size */
                         if (h->disk_size_relative < UINT32_MAX)
@@ -2310,9 +2700,14 @@ int home_create_luks(
                                 host_size = block_device_size; /* Otherwise, take the full device */
 
                 } else if (h->disk_size > block_device_size)
-                        return log_error_errno(SYNTHETIC_ERRNO(EMSGSIZE), "Selected disk size larger than backing block device, refusing.");
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOSPC), "Selected disk size larger than backing block device, refusing.");
                 else
                         host_size = DISK_SIZE_ROUND_DOWN(h->disk_size);
+
+                if (naked && host_size < DISK_SIZE_ROUND_DOWN(block_device_size))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTTY),
+                                               "Home uses all of block device '%s' of size %s, a smaller size is not supported.",
+                                               ip, FORMAT_BYTES(block_device_size));
 
                 if (!supported_fs_size(fstype, LESS_BY(host_size, GPT_LUKS2_OVERHEAD)))
                         return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
@@ -2380,25 +2775,41 @@ int home_create_luks(
                 } else
                         image_sector_size = luks_sector_size = user_record_luks_sector_size(h);
         }
-        r = make_partition_table(
-                        setup->image_fd,
-                        image_sector_size,
-                        user_record_user_name_and_realm(h),
-                        partition_uuid,
-                        &partition_offset,
-                        &partition_size,
-                        &disk_uuid);
-        if (r < 0)
-                return r;
 
-        log_info("Writing of partition table completed.");
+        if (!naked) {
+                if (sd_id128_is_null(h->partition_uuid)) {
+                        r = sd_id128_randomize(&partition_uuid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to acquire partition UUID: %m");
+                } else
+                        partition_uuid = h->partition_uuid;
+
+                r = make_partition_table(
+                                setup->image_fd,
+                                image_sector_size,
+                                user_record_user_name_and_realm(h),
+                                partition_uuid,
+                                &partition_offset,
+                                &partition_size,
+                                &disk_uuid);
+                if (r < 0)
+                        return r;
+
+                log_info("Writing of partition table completed.");
+        }
 
         if (fstat(setup->image_fd, &st) < 0)
                 return log_error_errno(errno, "Failed to fstat home image: %m");
 
         /* Ensure we don't create a loop device over block device as it leads to huge overhead for discard operations
          * if the device does not support discard_zeroes_data */
-        if (S_ISBLK(st.st_mode)) {
+        if (naked) {
+                /* We hold the lock on the whole block device already, don't take another one here. */
+                r = loop_device_open_from_fd(setup->image_fd, O_RDWR, LOCK_UN, &setup->loop);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open block device %s: %m", ip);
+
+        } else if (S_ISBLK(st.st_mode)) {
                 _cleanup_free_ char *partition_path = NULL;
                 assert(!sd_id128_is_null(partition_uuid));
                 if (asprintf(&partition_path, "/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(partition_uuid)) < 0)
@@ -2477,6 +2888,16 @@ int home_create_luks(
                 return r;
 
         log_info("Formatting file system completed.");
+
+        if (naked) {
+                r = tag_partition_entry(setup->image_fd, lock_fd, ip, user_record_user_name_and_realm(h));
+                if (r < 0)
+                        return r;
+        }
+
+        /* The signatures on the device have been written now, there's no reason to keep udev from looking at the
+         * rest of the disk any longer. */
+        lock_fd = safe_close(lock_fd);
 
         r = home_unshare_and_mount(setup->dm_node, fstype, user_record_luks_discard(h), user_record_mount_flags(h), h->luks_extra_mount_options);
         if (r < 0)
@@ -2567,7 +2988,12 @@ int home_create_luks(
         if (fsync(setup->image_fd) < 0)
                 return log_error_errno(r, "Failed to synchronize image to disk: %m");
 
-        if (disk_uuid_path)
+        if (naked)
+                /* No partition table to reread, but make sure udev finds the LUKS volume. Not all device types
+                 * are watched by udev for being closed after writing. */
+                (void) reread_partition_table_fd(setup->image_fd, REREADPT_FORCE_UEVENT, /* args= */ NULL);
+
+        else if (disk_uuid_path)
                 /* Reread partition table if this is a block device */
                 (void) reread_partition_table_fd(setup->image_fd, /* flags= */ 0, /* args= */ NULL);
         else {
@@ -2597,7 +3023,8 @@ int home_create_luks(
 
         print_size_summary(host_size, encrypted_size, &sfs);
 
-        log_debug("GPT + LUKS2 overhead is %" PRIu64 " (expected %" PRIu64 ")", host_size - encrypted_size, GPT_LUKS2_OVERHEAD);
+        if (!naked)
+                log_debug("GPT + LUKS2 overhead is %" PRIu64 " (expected %" PRIu64 ")", host_size - encrypted_size, GPT_LUKS2_OVERHEAD);
 
         *ret_home = TAKE_PTR(new_home);
         return 0;
@@ -3187,6 +3614,107 @@ static int resize_image_loop(
         return 0;
 }
 
+static int home_resize_naked_luks(
+                UserRecord *h,
+                HomeSetupFlags flags,
+                HomeSetup *setup,
+                uint64_t device_size,
+                uint64_t *ret_fs_size) {
+
+        uint64_t encrypted_size;
+        int r;
+
+        assert(h);
+        assert(setup);
+        assert(setup->root_fd >= 0);
+        assert(ret_fs_size);
+
+        /* A home on a device without a partition of ours always uses all of the device: LUKS maps everything
+         * on activation, nothing else would remember a smaller size, and nothing else could use the space
+         * that is freed anyway. All that's left to do is to follow the device if it has grown. */
+
+        /* Auto-grow looks at a size in the record that might have come along from elsewhere, or that the
+         * device doesn't match anymore. That's no reason to fail activation. */
+        if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SHRINK) && h->disk_size < USER_DISK_SIZE_LARGEST) {
+                if (h->disk_size > device_size)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
+                                               "Selected disk size %s larger than backing block device of size %s, refusing.",
+                                               FORMAT_BYTES(h->disk_size), FORMAT_BYTES(device_size));
+                if (h->disk_size < DISK_SIZE_ROUND_DOWN(device_size))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTTY),
+                                               "Home uses all of its block device of size %s, a smaller size is not supported. Resize the device instead.",
+                                               FORMAT_BYTES(device_size));
+        }
+
+        /* libcryptsetup interprets zero as "all of the device" */
+        r = sym_crypt_resize(setup->crypt_device, setup->dm_name, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to grow LUKS device: %m");
+
+        r = block_get_size_by_path(setup->dm_node, &encrypted_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine size of LUKS device: %m");
+
+        /* This does nothing if the file system fills the LUKS device already */
+        r = resize_fs(setup->root_fd, encrypted_size, /* ret_size= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to grow file system: %m");
+
+        log_info("File system now uses all of LUKS device of size %s.", FORMAT_BYTES(encrypted_size));
+
+        *ret_fs_size = encrypted_size;
+        return 0;
+}
+
+static int home_resize_luks_finish(
+                UserRecord *h,
+                HomeSetupFlags flags,
+                HomeSetup *setup,
+                UserRecord *header_home,
+                UserRecord *new_home,
+                uint64_t image_size,
+                uint64_t fs_size,
+                UserRecord **ret_home) {
+
+        struct statfs sfs;
+        int r;
+
+        assert(h);
+        assert(setup);
+
+        if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES)) {
+                r = home_store_header_identity_luks(new_home, setup, header_home);
+                if (r < 0)
+                        return r;
+
+                r = home_extend_embedded_identity(new_home, h, setup);
+                if (r < 0)
+                        return r;
+        }
+
+        if (user_record_luks_discard(h))
+                (void) run_fitrim(setup->root_fd);
+
+        r = home_sync_and_statfs(setup->root_fd, &sfs);
+        if (r < 0)
+                return r;
+
+        if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_UNDO)) {
+                r = home_setup_done(setup);
+                if (r < 0)
+                        return r;
+        }
+
+        log_info("Resizing completed.");
+
+        print_size_summary(image_size, fs_size, &sfs);
+
+        if (ret_home)
+                *ret_home = user_record_ref(new_home);
+
+        return 0;
+}
+
 int home_resize_luks(
                 UserRecord *h,
                 HomeSetupFlags flags,
@@ -3204,7 +3732,6 @@ int home_resize_luks(
         int r, resize_type, image_fd = -EBADF, reconciled = USER_RECONCILE_IDENTICAL;
         sd_id128_t disk_uuid;
         const char *ip, *ipo;
-        struct statfs sfs;
         struct stat st;
         enum {
                 INTENTION_DONT_KNOW = 0,    /* These happen to match the return codes of CMP() */
@@ -3244,7 +3771,7 @@ int home_resize_luks(
                 r = block_get_whole_disk(st.st_rdev, &parent);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire whole block device for %s: %m", ip);
-                if (r > 0) {
+                if (r > 0 && home_owns_partition_table(h, st.st_rdev)) {
                         /* If we shall resize a file system on a partition device, then let's figure out the
                          * whole disk device and operate on that instead, since we need to rewrite the
                          * partition table to resize the partition. */
@@ -3260,7 +3787,7 @@ int home_resize_luks(
                         if (fstat(image_fd, &st) < 0)
                                 return log_error_errno(errno, "Failed to stat whole block device %s: %m", whole_disk);
                 } else
-                        log_info("Operating on whole block device %s.", ip);
+                        log_info("Operating on block device %s itself.", ip);
 
                 r = blockdev_get_device_size(image_fd, &old_image_size);
                 if (r < 0)
@@ -3322,6 +3849,31 @@ int home_resize_luks(
 
         log_info("offset = %" PRIu64 ", size = %" PRIu64 ", image = %" PRIu64, setup->partition_offset, setup->partition_size, old_image_size);
 
+        if (S_ISBLK(st.st_mode) && setup->partition_offset == 0) {
+                if (FLAGS_SET(flags, HOME_SETUP_RESIZE_MINIMIZE)) {
+                        log_info("Home uses a whole block device, not shrinking it.");
+                        return 0;
+                }
+
+                r = home_resize_naked_luks(h, flags, setup, old_image_size, &new_fs_size);
+                if (r < 0)
+                        return r;
+
+                /* Auto-grow runs on every activation, which trims and syncs the file system by itself. */
+                if (FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES))
+                        return 0;
+
+                r = home_store_embedded_identity(new_home, setup->root_fd, embedded_home);
+                if (r < 0)
+                        return r;
+
+                r = home_reconcile_blob_dirs(new_home, setup->root_fd, reconciled);
+                if (r < 0)
+                        return r;
+
+                return home_resize_luks_finish(h, flags, setup, header_home, new_home, old_image_size, new_fs_size, ret_home);
+        }
+
         if ((UINT64_MAX - setup->partition_offset) < setup->partition_size ||
             setup->partition_offset + setup->partition_size > old_image_size)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Old partition doesn't fit in backing storage, refusing.");
@@ -3361,7 +3913,7 @@ int home_resize_luks(
                 } else {
                         uint64_t new_partition_size_rounded = DISK_SIZE_ROUND_DOWN(h->disk_size);
 
-                        if (h->disk_size == UINT64_MAX && partition) {
+                        if (h->disk_size >= USER_DISK_SIZE_LARGEST && partition) {
                                 r = get_maximum_partition_size(image_fd, partition, &new_partition_size_rounded);
                                 if (r < 0)
                                         return r;
@@ -3628,37 +4180,7 @@ int home_resize_luks(
                 }
         }
 
-        if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES)) {
-                r = home_store_header_identity_luks(new_home, setup, header_home);
-                if (r < 0)
-                        return r;
-
-                r = home_extend_embedded_identity(new_home, h, setup);
-                if (r < 0)
-                        return r;
-        }
-
-        if (user_record_luks_discard(h))
-                (void) run_fitrim(setup->root_fd);
-
-        r = home_sync_and_statfs(setup->root_fd, &sfs);
-        if (r < 0)
-                return r;
-
-        if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_UNDO)) {
-                r = home_setup_done(setup);
-                if (r < 0)
-                        return r;
-        }
-
-        log_info("Resizing completed.");
-
-        print_size_summary(new_image_size, new_fs_size, &sfs);
-
-        if (ret_home)
-                *ret_home = TAKE_PTR(new_home);
-
-        return 0;
+        return home_resize_luks_finish(h, flags, setup, header_home, new_home, new_image_size, new_fs_size, ret_home);
 }
 
 int home_passwd_luks(

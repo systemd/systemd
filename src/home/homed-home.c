@@ -697,6 +697,10 @@ static int convert_worker_errno(Home *h, int e, sd_bus_error *error) {
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_IN_USE, "Home %s is currently being used elsewhere.", h->user_name);
         case -ENETUNREACH:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_ABSENT, "Backing storage for %s currently absent.", h->user_name);
+        case -ENOTEMPTY:
+                return sd_bus_error_setf(error, SD_BUS_ERROR_FILE_EXISTS, "Backing storage for %s is not empty, refusing to overwrite it. See the logs for details.", h->user_name);
+        case -EUSERS:
+                return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "Backing storage for %s is currently in use, refusing to overwrite it. See the logs for details.", h->user_name);
         }
 
         return 0;

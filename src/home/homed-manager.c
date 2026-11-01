@@ -1181,7 +1181,7 @@ static int manager_listen_notify(Manager *m) {
 
 static int manager_add_device(Manager *m, sd_device *d) {
         _cleanup_free_ char *user_name = NULL, *realm = NULL, *node = NULL;
-        const char *tabletype, *parttype, *partname, *partuuid, *sysfs;
+        const char *tabletype, *parttype, *partname, *fstype, *partuuid, *sysfs;
         sd_id128_t id;
         int r;
 
@@ -1223,6 +1223,15 @@ static int manager_add_device(Manager *m, sd_device *d) {
         if (r < 0)
                 return log_error_errno(r, "Failed to validate partition name '%s': %m", partname);
 
+        /* A partition keeps its type and name if it is put to some other use after a home directory was removed */
+        r = sd_device_get_property_value(d, "ID_FS_TYPE", &fstype);
+        if (r < 0 && r != -ENOENT)
+                return log_warning_errno(r, "Failed to acquire ID_FS_TYPE device property, ignoring: %m");
+        if (r == -ENOENT || !streq(fstype, "crypto_LUKS")) {
+                log_debug("Found partition (%s) with correct partition type but no LUKS volume, ignoring.", sysfs);
+                return 0;
+        }
+
         r = sd_device_get_property_value(d, "ID_FS_UUID", &partuuid);
         if (r < 0)
                 return log_warning_errno(r, "Failed to acquire ID_FS_UUID device property, ignoring: %m");
@@ -1262,8 +1271,20 @@ static int manager_on_device(sd_device_monitor *monitor, sd_device *d, void *use
                         manager_revalidate_image(m, h);
                 else
                         manager_enqueue_gc(m, /* focus= */ NULL);
-        } else
+        } else {
+                const char *sysfs;
+
+                /* The device might still exist, but with something else on it than the home directory we
+                 * discovered there, for example after wipefs(8). Do this first, so that the device isn't
+                 * considered taken if there's a new home directory on it. */
+                if (sd_device_get_syspath(d, &sysfs) >= 0) {
+                        Home *h = hashmap_get(m->homes_by_sysfs, sysfs);
+                        if (h)
+                                manager_revalidate_image(m, h);
+                }
+
                 (void) manager_add_device(m, d);
+        }
 
         (void) bus_manager_emit_auto_login_changed(m);
         return 0;
