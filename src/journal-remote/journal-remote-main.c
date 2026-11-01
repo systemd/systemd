@@ -53,6 +53,7 @@ static int http_socket = -1, https_socket = -1;
 static char **arg_gnutls_log = NULL;
 
 static JournalWriteSplitMode arg_split_mode = _JOURNAL_WRITE_SPLIT_INVALID;
+static JournalSplitName arg_split_name = _JOURNAL_SPLIT_NAME_INVALID;
 static char *arg_output = NULL;
 
 static char *arg_key = NULL;
@@ -99,6 +100,14 @@ static const char* const journal_write_split_mode_table[_JOURNAL_WRITE_SPLIT_MAX
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(journal_write_split_mode, JournalWriteSplitMode);
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_write_split_mode, journal_write_split_mode, JournalWriteSplitMode);
+
+static const char* const journal_split_name_table[_JOURNAL_SPLIT_NAME_MAX] = {
+        [JOURNAL_SPLIT_NAME_FULL]   = "full",
+        [JOURNAL_SPLIT_NAME_COMMON] = "common",
+        [JOURNAL_SPLIT_NAME_HOST]   = "host",
+};
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(journal_split_name, JournalSplitName);
+static DEFINE_CONFIG_PARSE_ENUM(config_parse_split_name, journal_split_name, JournalSplitName);
 
 #if HAVE_MICROHTTPD
 
@@ -451,9 +460,32 @@ static mhd_result request_handler(
         }
 
         if (journal_remote_server_global->check_trust) {
-                r = check_permissions(connection, &code, &hostname);
-                if (r < 0)
-                        return code;
+                switch (arg_split_name) {
+                case JOURNAL_SPLIT_NAME_HOST:
+                        r = check_permissions(connection, &code, NULL, false);
+                        if (r < 0)
+                                return code;
+
+                        r = getpeername_pretty(fd, false, &hostname);
+                        if (r < 0)
+                                return mhd_respond(connection, MHD_HTTP_INTERNAL_SERVER_ERROR,
+                                                   "Cannot check remote hostname.");
+                        break;
+
+                case JOURNAL_SPLIT_NAME_FULL:
+                        r = check_permissions(connection, &code, &hostname, false);
+                        if (r < 0)
+                                return code;
+                        break;
+
+                case JOURNAL_SPLIT_NAME_COMMON:
+                        r = check_permissions(connection, &code, &hostname, true);
+                        if (r < 0)
+                                return code;
+                        break;
+
+                default: assert_not_reached();
+                }
         } else {
                 r = getpeername_pretty(fd, /* include_port= */ false, &hostname);
                 if (r < 0)
@@ -851,6 +883,7 @@ static int parse_config(void) {
         const ConfigTableItem items[] = {
                 { "Remote",  "Seal",                   config_parse_bool,             0, &arg_seal        },
                 { "Remote",  "SplitMode",              config_parse_write_split_mode, 0, &arg_split_mode  },
+                { "Remote",  "SplitName",              config_parse_split_name,       0, &arg_split_name  },
                 { "Remote",  "ServerKeyFile",          config_parse_path,             0, &arg_key         },
                 { "Remote",  "ServerCertificateFile",  config_parse_path,             0, &arg_cert        },
                 { "Remote",  "TrustedCertificateFile", config_parse_path_or_ignore,   0, &arg_trust       },
@@ -889,7 +922,7 @@ static int parse_config(void) {
 
 static int parse_argv(int argc, char *argv[]) {
         int r;
-        bool type_a, type_b;
+        bool type_a, type_b, type_c;
 
         assert(argc >= 0);
         assert(argv);
@@ -986,6 +1019,12 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_split_mode = journal_write_split_mode_from_string(opts.arg);
                         if (arg_split_mode == _JOURNAL_WRITE_SPLIT_INVALID)
                                 return log_error_errno(arg_split_mode, "Invalid split mode: %s", opts.arg);
+                        break;
+
+                OPTION_LONG("split-name", "host|full|common", "Naming convention for output files"):
+                        arg_split_name = journal_split_name_from_string(opts.arg);
+                        if (arg_split_name == _JOURNAL_SPLIT_NAME_INVALID)
+                                return log_error_errno(arg_split_name, "Invalid split name: %s", opts.arg);
                         break;
 
                 OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "compress", "BOOL",
@@ -1096,8 +1135,28 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_trust = mfree(arg_trust);
         }
 
-        log_debug("Full config: SplitMode=%s Key=%s Cert=%s Trust=%s",
+        type_c = arg_listen_https || https_socket >= 0;
+
+        if (arg_split_name == _JOURNAL_SPLIT_NAME_INVALID) {
+                if (type_c && !arg_trust_all)
+                        arg_split_name = JOURNAL_SPLIT_NAME_FULL;
+                else
+                        arg_split_name = JOURNAL_SPLIT_NAME_HOST;
+        }
+
+        if (arg_split_name != JOURNAL_SPLIT_NAME_HOST && !type_c)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "For SplitName=%s, HTTPS listener must be enabled.",
+                                       journal_split_name_to_string(arg_split_name));
+
+        if (arg_split_name != JOURNAL_SPLIT_NAME_HOST && type_c && arg_trust_all)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "For SplitName=%s, client certificate checking must be enabled.",
+                                       journal_split_name_to_string(arg_split_name));
+
+        log_debug("Full config: SplitMode=%s SplitName=%s Key=%s Cert=%s Trust=%s",
                   journal_write_split_mode_to_string(arg_split_mode),
+                  journal_split_name_to_string(arg_split_name),
                   strna(arg_key),
                   strna(arg_cert),
                   strna(arg_trust));
