@@ -118,6 +118,25 @@ testcase_basic() {
     echo "$unsupported_service" | grep -F "context.Service.Restart"
 }
 
+testcase_nullable() {
+    setup
+
+    local fragment
+
+    defer_transient_cleanup varlink-transient-null.service
+    varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+        '{"context":{"ID":"varlink-transient-null.service","Exec":{"WorkingDirectory":null},"Kill":{"KillMode":null},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStartPre":null,"ExecStart":[{"path":"/bin/true","ignoreFailure":null}]}},"mode":null}'
+    timeout 10 bash -c 'until systemctl is-active varlink-transient-null.service; do sleep 0.5; done'
+    fragment=$(systemctl show -P FragmentPath varlink-transient-null.service)
+    test -r "$fragment"
+    (! grep -E '^(WorkingDirectory|KillMode|ExecStartPre)=' "$fragment")
+
+    defer_transient_cleanup varlink-transient-null.slice
+    varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+        '{"context":{"ID":"varlink-transient-null.slice","Exec":null,"Kill":null,"Service":null,"Scope":null,"CGroup":null}}' \
+        | jq -e '.context.ID == "varlink-transient-null.slice" and .job.Id'
+}
+
 testcase_dispatch_validation() {
     setup
 
