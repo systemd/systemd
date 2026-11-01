@@ -2667,7 +2667,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                                 _root_mount_fd = open_tree_attr_with_fallback(
                                                 p->rootfs->directory_fd,
                                                 "",
-                                                OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH|AT_RECURSIVE,
+                                                OPEN_TREE_CLONE|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH|AT_RECURSIVE,
                                                 &(struct mount_attr) {
                                                         /* We just remounted / as slave, but that didn't affect the detached
                                                          * mount that we just mounted, so remount that one as slave recursive
