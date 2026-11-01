@@ -45,7 +45,20 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
         int n = 0, r;
 
         /* Try to umount everything recursively below a directory. Also, take care of stacked mounts, and
-         * keep unmounting them until they are gone. */
+         * keep unmounting them until they are gone.
+         *
+         * Each pass unmounts everything it can from a single snapshot of the mount table, and we only
+         * re-parse the table for another pass if the previous one made progress. Mounts that could not be
+         * unmounted yet (e.g. because a child of theirs was still around) are retried on the next pass.
+         *
+         * Note that an unmount can invalidate later entries of the snapshot: with MNT_DETACH a parent takes
+         * its children along, and their old paths then resolve through whatever the parent was covering,
+         * possibly via symlinks and hence to some other mount outside of the prefix or on the keep list.
+         * Hence verify that a path still refers to the mount we read from the table before unmounting it,
+         * and if anything looks off after we unmounted something, start over with a fresh snapshot. A
+         * snapshot without unmounts of ours can be trusted, hence there we move on to the next entry instead
+         * (so that one stuck mount doesn't keep us from unmounting the others), and if the check itself fails
+         * we try to unmount anyway, since that might work even if we cannot look at the mount. */
 
         f = fopen("/proc/self/mountinfo", "re"); /* Pin the file, in case we unmount /proc/ as part of the logic here */
         if (!f)
@@ -93,8 +106,16 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
                                 continue;
                         }
 
+                        r = libmount_fs_id_matches_path(fs, path);
+                        if (r <= 0 && again)
+                                break;
+                        if (r == 0)
+                                continue;
+
                         if (umount2(path, flags | UMOUNT_NOFOLLOW) < 0) {
                                 log_debug_errno(errno, "Failed to umount %s, ignoring: %m", path);
+                                if (again)
+                                        break;
                                 continue;
                         }
 
@@ -102,8 +123,6 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
 
                         again = true;
                         n++;
-
-                        break;
                 }
 
                 if (!again)
