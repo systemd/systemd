@@ -304,7 +304,7 @@ int machine_get_addresses(Machine *machine, struct local_address **ret_addresses
                 if (r < 0)
                         return log_debug_errno(r, "Failed to open namespace: %m");
 
-                if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
+                if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
                         return log_debug_errno(errno, "Failed to call socketpair(): %m");
 
                 r = namespace_fork("(sd-addrns)",
@@ -415,7 +415,7 @@ int machine_get_os_release(Machine *machine, char ***ret_os_release) {
                 if (r < 0)
                         return log_debug_errno(r, "Failed to open namespace: %m");
 
-                if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
+                if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
                         return log_debug_errno(errno, "Failed to call socketpair(): %m");
 
                 r = namespace_fork("(sd-osrelns)",

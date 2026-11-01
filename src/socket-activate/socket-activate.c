@@ -284,7 +284,7 @@ static int do_accept(char * const *argv, int fd) {
         _cleanup_free_ char *local = NULL, *peer = NULL;
         _cleanup_close_ int fd_accepted = -EBADF;
 
-        fd_accepted = accept4(fd, NULL, NULL, 0);
+        fd_accepted = accept4(fd, NULL, NULL, SOCK_CLOEXEC);
         if (fd_accepted < 0) {
                 if (ERRNO_IS_ACCEPT_AGAIN(errno))
                         return 0;

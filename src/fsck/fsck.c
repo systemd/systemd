@@ -266,7 +266,7 @@ static int fsck_progress_socket(void) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         if (fd < 0)
                 return log_warning_errno(errno, "socket(): %m");
 
@@ -382,7 +382,7 @@ static int run(int argc, char *argv[]) {
         console = fopen("/dev/console", "we");
         if (console &&
             show_progress &&
-            pipe(progress_pipe) < 0)
+            pipe2(progress_pipe, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "pipe(): %m");
 
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
@@ -437,6 +437,16 @@ static int run(int argc, char *argv[]) {
 
                 cmdline[i++] = device;
                 cmdline[i++] = NULL;
+
+                /* fsck writes its progress to the fd passed with -C */
+                int progress_fd = progress_socket >= 0 ? progress_socket : progress_pipe[1];
+                if (progress_fd >= 0) {
+                        r = fd_cloexec(progress_fd, /* cloexec= */ false);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to disable O_CLOEXEC for progress fd: %m");
+                                _exit(FSCK_OPERATIONAL_ERROR);
+                        }
+                }
 
                 execvp(cmdline[0], (char**) cmdline);
                 _exit(FSCK_OPERATIONAL_ERROR);
