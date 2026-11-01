@@ -214,7 +214,6 @@ int memfd_clone_fd(int fd, const char *name, int mode) {
         exec = st.st_mode & 0111;
 
         mfd = memfd_create_wrapper(name,
-                                   MFD_CLOEXEC |
                                    (ro ? MFD_ALLOW_SEALING : 0) |
                                    (exec ? MFD_EXEC : MFD_NOEXEC_SEAL));
         if (mfd < 0)
