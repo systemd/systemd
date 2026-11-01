@@ -66,6 +66,20 @@ mv "$MINIMAL_IMAGE.fooverity" "$MINIMAL_IMAGE.verity"
 mv "$MINIMAL_IMAGE.foohash" "$MINIMAL_IMAGE.roothash"
 
 mkdir -p "$IMAGE_DIR/mount" "$IMAGE_DIR/mount2"
+# systemd-dissect --umount of one mount of a shared verity device leaves the loop devices under the verity device
+# alone, since another mount still uses the verity device.
+SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 systemd-dissect --mount "$MINIMAL_IMAGE.raw" "$IMAGE_DIR/mount"
+SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 systemd-dissect --mount "$MINIMAL_IMAGE.raw" "$IMAGE_DIR/mount2"
+test "$(findmnt -n -o MAJ:MIN "$IMAGE_DIR/mount2")" = "$(findmnt -n -o MAJ:MIN "$IMAGE_DIR/mount")"
+systemd-dissect --umount "$IMAGE_DIR/mount2"
+for loop in $(dmsetup deps -o blkdevname "$MINIMAL_IMAGE_ROOTHASH-verity" | grep -o 'loop[0-9]*'); do
+    blockdev --getsize64 "/dev/$loop" >/dev/null
+done
+systemd-dissect --umount "$IMAGE_DIR/mount"
+# The kernel removes the verity device some time after the last mount is gone. The next test mounts the image with
+# a signature and checks that the kernel validated it. That check fails if the test reuses the device set up
+# here without a signature.
+timeout 60 bash -c 'while dmsetup info "$1" &>/dev/null; do sleep 0.1; done' bash "$MINIMAL_IMAGE_ROOTHASH-verity"
 SYSTEMD_VERITY_SHARING=1 systemd-dissect --mount "$MINIMAL_IMAGE.raw" "$IMAGE_DIR/mount"
 grep -q -F -f "$OS_RELEASE" "$IMAGE_DIR/mount/usr/lib/os-release"
 grep -q -F -f "$OS_RELEASE" "$IMAGE_DIR/mount/etc/os-release"
@@ -140,11 +154,99 @@ for sig in /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s; do
                                              --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
                                              --root-hash-sig="$sig" \
                                              --image-policy=root=verity+signed >/dev/null
+    # Every signature that no trusted key validates is reported the same way, whether the kernel has no key for
+    # it or rejects it for another reason, for example because it is garbage.
     (! SYSTEMD_VERITY_SHARING=0 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" \
                                                 --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
                                                 --root-hash-sig="$sig" \
-                                                --image-policy=root=signed >/dev/null)
+                                                --image-policy=root=signed 2>&1 >/dev/null) |
+        grep -F "Image lacks recognized signature." >/dev/null
 done
+# A service whose policy requires a signature fails if no trusted key validates its signature, instead of
+# reusing a shared Verity device that was set up without a signature. Once a certificate for the signature is
+# installed, the service works.
+mkdir -p /tmp/test-50-unsigned-mnt
+timeout 60 bash -c 'while dmsetup info "$1" &>/dev/null; do sleep 0.1; done' bash "$MINIMAL_IMAGE_ROOTHASH-verity"
+SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 \
+    systemd-dissect --mount --image-policy=root=verity+signed "$MINIMAL_IMAGE.raw" /tmp/test-50-unsigned-mnt
+(! systemd-run --wait -P \
+               -p RootImage="$MINIMAL_IMAGE.raw" \
+               -p RootHashSignature=/tmp/test-50-unknown.p7s \
+               -p RootImagePolicy=root=signed+squashfs \
+               true)
+cp /tmp/test-50-unknown.crt /run/verity.d/test-50-unknown.crt
+systemd-run --wait -P \
+            -p RootImage="$MINIMAL_IMAGE.raw" \
+            -p RootHashSignature=/tmp/test-50-unknown.p7s \
+            -p RootImagePolicy=root=signed+squashfs \
+            true
+# If only userspace validates our signature, a device that we set up ourselves wouldn't have a validated
+# signature either, so we reuse the shared device, even if the policy requires a signature.
+mkdir -p /tmp/test-50-signed-mnt
+for policy in root=verity+signed root=signed; do
+    SYSTEMD_VERITY_SHARING=1 systemd-dissect --mount --image-policy="$policy" \
+                                             --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                                             --root-hash-sig=/tmp/test-50-unknown.p7s \
+                                             "$MINIMAL_IMAGE.raw" /tmp/test-50-signed-mnt
+    test "$(findmnt -n -o MAJ:MIN /tmp/test-50-signed-mnt)" = "$(findmnt -n -o MAJ:MIN /tmp/test-50-unsigned-mnt)"
+    systemd-dissect --umount /tmp/test-50-signed-mnt
+done
+loop="$(losetup --find --show --read-only "$MINIMAL_IMAGE.raw")"
+name="${loop##*/}"
+if [ -e "/sys/class/block/$name/diskseq" ]; then
+    name+="-$(cat "/sys/class/block/$name/diskseq")"
+fi
+name+="-verity"
+veritysetup open "$loop" "$name" "$MINIMAL_IMAGE.verity" --root-hash-file "$MINIMAL_IMAGE.roothash"
+mkdir -p /var/tmp/test-50-noshare-mnt
+mount -o ro "/dev/mapper/$name" /var/tmp/test-50-noshare-mnt
+SYSTEMD_VERITY_SHARING=0 systemd-dissect --mtree "$loop" \
+                                      --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                                      --verity-data="$MINIMAL_IMAGE.verity" \
+                                      --image-policy=root=verity >/dev/null
+for policy in root=verity+signed root=signed; do
+    (! SYSTEMD_VERITY_SHARING=0 systemd-dissect --mtree "$loop" \
+                                             --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                                             --root-hash-sig=/tmp/test-50-unknown.p7s \
+                                             --verity-data="$MINIMAL_IMAGE.verity" \
+                                             --image-policy="$policy" >/dev/null)
+done
+dmsetup remove --deferred "$name"
+umount /var/tmp/test-50-noshare-mnt
+rmdir /var/tmp/test-50-noshare-mnt
+losetup --detach "$loop"
+# We only reuse a device without a validated signature if it uses our backing file. The owner of another copy of
+# the image can modify that copy.
+systemd-dissect --umount /tmp/test-50-unsigned-mnt
+timeout 60 bash -c 'while dmsetup info "$1" &>/dev/null; do sleep 0.1; done' bash "$MINIMAL_IMAGE_ROOTHASH-verity"
+cp "$MINIMAL_IMAGE.raw" /tmp/test-50-copy.raw
+SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 \
+    systemd-dissect --mount --image-policy=root=verity+signed \
+                    --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                    --verity-data="$MINIMAL_IMAGE.verity" \
+                    /tmp/test-50-copy.raw /tmp/test-50-unsigned-mnt
+SYSTEMD_VERITY_SHARING=1 systemd-dissect --mount --image-policy=root=signed \
+                                         --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                                         --root-hash-sig=/tmp/test-50-unknown.p7s \
+                                         "$MINIMAL_IMAGE.raw" /tmp/test-50-signed-mnt
+test "$(findmnt -n -o MAJ:MIN /tmp/test-50-signed-mnt)" != "$(findmnt -n -o MAJ:MIN /tmp/test-50-unsigned-mnt)"
+systemd-dissect --umount /tmp/test-50-signed-mnt
+systemd-dissect --umount /tmp/test-50-unsigned-mnt
+rm /tmp/test-50-copy.raw
+timeout 60 bash -c 'while dmsetup info "$1" &>/dev/null; do sleep 0.1; done' bash "$MINIMAL_IMAGE_ROOTHASH-verity"
+SYSTEMD_VERITY_SHARING=1 SYSTEMD_DISSECT_VERITY_SIGNATURE=0 \
+    systemd-dissect --mount --image-policy=root=verity+signed "$MINIMAL_IMAGE.raw" /tmp/test-50-unsigned-mnt
+rm /run/verity.d/test-50-unknown.crt
+# If the kernel validates our signature, we set up our own device instead.
+if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
+    SYSTEMD_VERITY_SHARING=1 systemd-dissect --mount --image-policy=root=verity+signed \
+                                             "$MINIMAL_IMAGE.raw" /tmp/test-50-signed-mnt
+    test "$(findmnt -n -o MAJ:MIN /tmp/test-50-signed-mnt)" != "$(findmnt -n -o MAJ:MIN /tmp/test-50-unsigned-mnt)"
+    systemd-dissect --umount /tmp/test-50-signed-mnt
+fi
+rmdir /tmp/test-50-signed-mnt
+systemd-dissect --umount /tmp/test-50-unsigned-mnt
+rmdir /tmp/test-50-unsigned-mnt
 rm /run/verity.d/test-50-mkosi.crt /tmp/test-50-unknown.key /tmp/test-50-unknown.crt /tmp/test-50-unknown.p7s /tmp/test-50-garbage.p7s
 
 # Test BindLogSockets=
@@ -1005,6 +1107,52 @@ timeout -v 30 journalctl --since "$since" -n all --follow | grep -m 8 -F 'Reusin
 systemctl stop testservice-50m.service
 umount /tmp/img
 umount /tmp/ext
+veritysetup close "$(cat "$MINIMAL_IMAGE.roothash")-verity" ||:
+veritysetup close "$(cat /tmp/app0.roothash)-verity" ||:
+# The shortcut doesn't check whether the kernel validated a signature for an existing device. A unit whose image
+# policy requires a signature doesn't take the shortcut, while a unit whose image policy allows "verity" does.
+# veritysetup sets up the devices without a signature. We look for the messages in the journal of each unit,
+# since the shell trace of this script contains the messages too.
+for image in "$MINIMAL_IMAGE" /tmp/app0; do
+    name="$(cat "$image.roothash")-verity"
+    timeout 60 bash -c 'while dmsetup info "$1" &>/dev/null; do sleep 0.1; done' bash "$name"
+    veritysetup open "$image.raw" "$name" "$image.verity" --root-hash-file "$image.roothash"
+done
+mount -o ro "/dev/mapper/$(cat "$MINIMAL_IMAGE.roothash")-verity" /tmp/img
+mount -o ro "/dev/mapper/$(cat /tmp/app0.roothash)-verity" /tmp/ext
+if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
+    systemd-run --wait -P --unit=test-50-shortcut-signed.service \
+                -p RootImage="$MINIMAL_IMAGE.raw" \
+                -p RootImagePolicy=root=signed+squashfs \
+                -p ExtensionImages=/tmp/app0.raw \
+                -p ExtensionImagePolicy=root=signed+squashfs \
+                -p TemporaryFileSystem=/var/lib \
+                -p MountImages=/tmp/app0.raw:/var/lib/app \
+                -p MountImagePolicy=root=signed+squashfs \
+                cat /opt/script0.sh
+    journalctl --sync
+    journalctl -u test-50-shortcut-signed.service >/tmp/test-50-shortcut.log
+    test "$(grep -cF 'Image policy requires a signature, skipping verity shortcut.' /tmp/test-50-shortcut.log)" -ge 3
+    (! grep -F 'Reusing pre-existing verity-protected' /tmp/test-50-shortcut.log)
+fi
+systemd-run --wait -P --unit=test-50-shortcut-verity.service \
+            -p RootImage="$MINIMAL_IMAGE.raw" \
+            -p RootImagePolicy=root=verity+squashfs \
+            -p ExtensionImages=/tmp/app0.raw \
+            -p ExtensionImagePolicy=root=verity+squashfs \
+            -p TemporaryFileSystem=/var/lib \
+            -p MountImages=/tmp/app0.raw:/var/lib/app \
+            -p MountImagePolicy=root=verity+squashfs \
+            cat /opt/script0.sh
+journalctl --sync
+journalctl -u test-50-shortcut-verity.service >/tmp/test-50-shortcut.log
+grep -F 'Reusing pre-existing verity-protected root image' /tmp/test-50-shortcut.log >/dev/null
+test "$(grep -cF 'Reusing pre-existing verity-protected image' /tmp/test-50-shortcut.log)" -ge 2
+rm /tmp/test-50-shortcut.log
+umount /tmp/img
+umount /tmp/ext
+# A unit that checks a device but can't reuse it requests deferred removal of the device, so the devices can be
+# gone already.
 veritysetup close "$(cat "$MINIMAL_IMAGE.roothash")-verity" ||:
 veritysetup close "$(cat /tmp/app0.roothash)-verity" ||:
 
