@@ -7,7 +7,7 @@
 static void test_import_url_last_component_one(const char *input, const char *output, int ret) {
         _cleanup_free_ char *s = NULL;
 
-        assert_se(import_url_last_component(input, &s) == ret);
+        ASSERT_EQ(import_url_last_component(input, &s), ret);
         ASSERT_STREQ(output, s);
 }
 
@@ -39,7 +39,7 @@ TEST(import_url_last_component) {
 static void test_import_url_change_suffix_one(const char *input, size_t n, const char *suffix, const char *output, int ret) {
         _cleanup_free_ char *s = NULL;
 
-        assert_se(import_url_change_suffix(input, n, suffix, &s) == ret);
+        ASSERT_EQ(import_url_change_suffix(input, n, suffix, &s), ret);
         ASSERT_STREQ(output, s);
 }
 

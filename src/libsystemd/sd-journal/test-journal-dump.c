@@ -6,13 +6,13 @@
 #include "main-func.h"
 #include "pager.h"
 #include "strv.h"
+#include "tests.h"
 
 static int run(int argc, char *argv[]) {
         int r = 0;
         unsigned n = 0;
 
-        _cleanup_(mmap_cache_unrefp) MMapCache *m = mmap_cache_new();
-        assert_se(m);
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = ASSERT_NOT_NULL(mmap_cache_new());
 
         pager_open(/* flags= */ 0);
 

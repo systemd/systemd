@@ -21,27 +21,27 @@ TEST(unsigned) {
 
         srand(0);
 
-        assert_se(q = prioq_new(trivial_compare_func));
+        ASSERT_NOT_NULL(q = prioq_new(trivial_compare_func));
 
         FOREACH_ELEMENT(i, buffer) {
                 u = (unsigned) rand();
                 *i = u;
-                assert_se(prioq_put(q, UINT_TO_PTR(u), /* idx= */ NULL) >= 0);
+                ASSERT_OK(prioq_put(q, UINT_TO_PTR(u), /* idx= */ NULL));
 
                 n = prioq_size(q);
-                assert_se(prioq_remove(q, UINT_TO_PTR(u), &n) == 0);
+                ASSERT_OK_EQ(prioq_remove(q, UINT_TO_PTR(u), &n), 0);
         }
 
         typesafe_qsort(buffer, ELEMENTSOF(buffer), unsigned_compare);
 
         for (unsigned i = 0; i < ELEMENTSOF(buffer); i++) {
-                assert_se(prioq_size(q) == ELEMENTSOF(buffer) - i);
+                ASSERT_EQ(prioq_size(q), ELEMENTSOF(buffer) - i);
 
                 u = PTR_TO_UINT(prioq_pop(q));
-                assert_se(buffer[i] == u);
+                ASSERT_EQ(buffer[i], u);
         }
 
-        assert_se(prioq_isempty(q));
+        ASSERT_TRUE(prioq_isempty(q));
 }
 
 struct test {
@@ -67,8 +67,8 @@ TEST(struct) {
 
         srand(0);
 
-        assert_se(q = prioq_new((compare_func_t) test_compare));
-        assert_se(s = set_new(&test_hash_ops));
+        ASSERT_NOT_NULL(q = prioq_new((compare_func_t) test_compare));
+        ASSERT_NOT_NULL(s = set_new(&test_hash_ops));
 
         ASSERT_NULL(prioq_peek(q));
         ASSERT_NULL(prioq_peek_by_index(q, /* idx= */ 0));
@@ -76,48 +76,48 @@ TEST(struct) {
         ASSERT_NULL(prioq_peek_by_index(q, UINT_MAX));
 
         for (i = 0; i < SET_SIZE; i++) {
-                assert_se(t = new0(struct test, 1));
+                ASSERT_NOT_NULL(t = new0(struct test, 1));
                 t->value = (unsigned) rand();
 
-                assert_se(prioq_put(q, t, &t->idx) >= 0);
+                ASSERT_OK(prioq_put(q, t, &t->idx));
 
                 if (i % 4 == 0)
-                        assert_se(set_consume(s, t) >= 0);
+                        ASSERT_OK(set_consume(s, t));
         }
 
         for (i = 0; i < SET_SIZE; i++)
-                assert_se(prioq_peek_by_index(q, i));
+                ASSERT_NOT_NULL(prioq_peek_by_index(q, i));
         ASSERT_NULL(prioq_peek_by_index(q, SET_SIZE));
 
         unsigned count = 0;
         PRIOQ_FOREACH_ITEM(q, t) {
-                assert_se(t);
+                ASSERT_NOT_NULL(t);
                 count++;
         }
-        assert_se(count == SET_SIZE);
+        ASSERT_EQ(count, (unsigned) SET_SIZE);
 
         while ((t = set_steal_first(s))) {
-                assert_se(prioq_remove(q, t, &t->idx) == 1);
-                assert_se(prioq_remove(q, t, &t->idx) == 0);
-                assert_se(prioq_remove(q, t, /* idx= */ NULL) == 0);
+                ASSERT_OK_EQ(prioq_remove(q, t, &t->idx), 1);
+                ASSERT_OK_EQ(prioq_remove(q, t, &t->idx), 0);
+                ASSERT_OK_EQ(prioq_remove(q, t, /* idx= */ NULL), 0);
 
                 free(t);
         }
 
         for (i = 0; i < SET_SIZE * 3 / 4; i++) {
-                assert_se(prioq_size(q) == (SET_SIZE * 3 / 4) - i);
+                ASSERT_EQ(prioq_size(q), (SET_SIZE * 3 / 4) - i);
 
-                assert_se(t = prioq_pop(q));
-                assert_se(prioq_remove(q, t, &t->idx) == 0);
-                assert_se(prioq_remove(q, t, /* idx= */ NULL) == 0);
-                assert_se(previous <= t->value);
+                ASSERT_NOT_NULL(t = prioq_pop(q));
+                ASSERT_OK_EQ(prioq_remove(q, t, &t->idx), 0);
+                ASSERT_OK_EQ(prioq_remove(q, t, /* idx= */ NULL), 0);
+                ASSERT_LE(previous, t->value);
 
                 previous = t->value;
                 free(t);
         }
 
-        assert_se(prioq_isempty(q));
-        assert_se(set_isempty(s));
+        ASSERT_TRUE(prioq_isempty(q));
+        ASSERT_TRUE(set_isempty(s));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

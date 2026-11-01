@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
         test_event_spawn_cat(/* with_pidfd= */ true, 5);
         test_event_spawn_cat(/* with_pidfd= */ false, 5);
 
-        assert_se(path_make_absolute_cwd(argv[0], &self) >= 0);
+        ASSERT_OK(path_make_absolute_cwd(argv[0], &self));
         path_simplify(self);
 
         test_event_spawn_self(self, "test1", /* with_pidfd= */ true);

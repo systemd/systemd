@@ -13,7 +13,7 @@ TEST(fetch_batteries_capacity_by_name) {
         _cleanup_hashmap_free_ Hashmap *capacity = NULL;
         int r;
 
-        assert_se(fetch_batteries_capacity_by_name(&capacity) >= 0);
+        ASSERT_OK(fetch_batteries_capacity_by_name(&capacity));
         log_debug("fetch_batteries_capacity_by_name: %u entries", hashmap_size(capacity));
 
         const char *name;
@@ -30,7 +30,7 @@ TEST(fetch_batteries_capacity_by_name) {
                         sleep(1);
 
                 r = get_total_suspend_interval(capacity, &interval);
-                assert_se(r >= 0 || r == -ENOENT);
+                ASSERT_OK_OR(r, -ENOENT);
                 log_info("%d: get_total_suspend_interval: %s", i,
                          r < 0 ? STRERROR(r) : FORMAT_TIMESPAN(interval, USEC_PER_SEC));
         }

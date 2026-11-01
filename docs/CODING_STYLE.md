@@ -1177,9 +1177,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - Use `ASSERT_OK_ERRNO()` and similar macros instead of `ASSERT_OK()` when
   calling glibc APIs that return the error in `errno`.
 
-- When modifying existing tests, please convert the test to use the new assertion
-  macros from `tests.h` if it is not already using those.
-
 ## Integration Tests
 
 - Never use `grep -q` in a pipeline, use `grep >/dev/null` instead. The former

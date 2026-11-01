@@ -16,54 +16,57 @@
 static int obj;
 
 static int parse_item(const char *key, const char *value, void *data) {
-        assert_se(key);
-        assert_se(data == &obj);
+        ASSERT_NOT_NULL(key);
+        ASSERT_PTR_EQ(data, &obj);
 
         log_info("kernel cmdline option <%s> = <%s>", key, strna(value));
         return 0;
 }
 
 TEST(proc_cmdline_parse) {
-        assert_se(proc_cmdline_parse(parse_item, &obj, PROC_CMDLINE_STRIP_RD_PREFIX) >= 0);
+        ASSERT_OK(proc_cmdline_parse(parse_item, &obj, PROC_CMDLINE_STRIP_RD_PREFIX));
 }
 
 TEST(proc_cmdline_override) {
         _cleanup_free_ char *line = NULL, *value = NULL;
         _cleanup_strv_free_ char **args = NULL;
 
-        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\"") == 0);
+        ASSERT_OK_ZERO_ERRNO(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\""));
 
         /* First test if the overrides for /proc/cmdline still work */
-        assert_se(proc_cmdline(&line) >= 0);
+        ASSERT_OK(proc_cmdline(&line));
         ASSERT_STREQ(line, "foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\"");
         line = mfree(line);
-        assert_se(proc_cmdline_strv(&args) >= 0);
+        ASSERT_OK(proc_cmdline_strv(&args));
         ASSERT_STRV_EQ(args, STRV_MAKE("foo_bar=quux", "wuff-piep=tuet", "zumm", "some_arg_with_space=foo bar", "and_one_more=zzz aaa"));
         args = strv_free(args);
 
         /* Test if parsing makes uses of the override */
-        assert_se(proc_cmdline_get_key("foo_bar", /* flags= */ 0, &value) > 0 && streq_ptr(value, "quux"));
+        ASSERT_OK_POSITIVE(proc_cmdline_get_key("foo_bar", /* flags= */ 0, &value));
+        ASSERT_STREQ(value, "quux");
         value = mfree(value);
 
-        assert_se(proc_cmdline_get_key("some_arg_with_space", /* flags= */ 0, &value) > 0 && streq_ptr(value, "foo bar"));
+        ASSERT_OK_POSITIVE(proc_cmdline_get_key("some_arg_with_space", /* flags= */ 0, &value));
+        ASSERT_STREQ(value, "foo bar");
         value = mfree(value);
 
-        assert_se(proc_cmdline_get_key("and_one_more", /* flags= */ 0, &value) > 0 && streq_ptr(value, "zzz aaa"));
+        ASSERT_OK_POSITIVE(proc_cmdline_get_key("and_one_more", /* flags= */ 0, &value));
+        ASSERT_STREQ(value, "zzz aaa");
         value = mfree(value);
 
-        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=hoge") == 0);
+        ASSERT_OK_ZERO_ERRNO(putenv((char*) "SYSTEMD_PROC_CMDLINE=hoge"));
 
-        assert_se(proc_cmdline(&line) >= 0);
+        ASSERT_OK(proc_cmdline(&line));
         ASSERT_STREQ(line, "hoge");
         line = mfree(line);
-        assert_se(proc_cmdline_strv(&args) >= 0);
+        ASSERT_OK(proc_cmdline_strv(&args));
         ASSERT_STRV_EQ(args, STRV_MAKE("hoge"));
         args = strv_free(args);
 }
 
 static int parse_item_given(const char *key, const char *value, void *data) {
-        assert_se(key);
-        assert_se(data);
+        ASSERT_NOT_NULL(key);
+        ASSERT_NOT_NULL(data);
 
         bool *strip = data;
 
@@ -77,9 +80,9 @@ static int parse_item_given(const char *key, const char *value, void *data) {
         else if (proc_cmdline_key_streq(key, "miepf"))
                 ASSERT_STREQ(value, "uuu");
         else if (in_initrd() && *strip && proc_cmdline_key_streq(key, "zumm"))
-                assert_se(!value);
+                ASSERT_NULL(value);
         else if (in_initrd() && !*strip && proc_cmdline_key_streq(key, "rd.zumm"))
-                assert_se(!value);
+                ASSERT_NULL(value);
         else
                 assert_not_reached();
 
@@ -93,15 +96,15 @@ static void test_proc_cmdline_given_one(bool flip_initrd) {
                 in_initrd_force(!in_initrd());
 
         bool t = true, f = false;
-        assert_se(proc_cmdline_parse(parse_item_given, &t, PROC_CMDLINE_STRIP_RD_PREFIX) >= 0);
-        assert_se(proc_cmdline_parse(parse_item_given, &f, /* flags= */ 0) >= 0);
+        ASSERT_OK(proc_cmdline_parse(parse_item_given, &t, PROC_CMDLINE_STRIP_RD_PREFIX));
+        ASSERT_OK(proc_cmdline_parse(parse_item_given, &f, /* flags= */ 0));
 
         if (flip_initrd)
                 in_initrd_force(!in_initrd());
 }
 
 TEST(proc_cmdline_given) {
-        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=\"tuet \" rd.zumm space='x y z' miepf=\"uuu\"") == 0);
+        ASSERT_OK_ZERO_ERRNO(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=\"tuet \" rd.zumm space='x y z' miepf=\"uuu\""));
 
         test_proc_cmdline_given_one(/* flip_initrd= */ false);
         /* Repeat the same thing, but now flip our ininitrdness */
@@ -111,135 +114,165 @@ TEST(proc_cmdline_given) {
 TEST(proc_cmdline_get_key) {
         _cleanup_free_ char *value = NULL;
 
-        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm-ghh spaaace='ö ü ß' ticks=\"''\"\n\nkkk=uuu\n\n\n") == 0);
+        ASSERT_OK_ZERO_ERRNO(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm-ghh spaaace='ö ü ß' ticks=\"''\"\n\nkkk=uuu\n\n\n"));
 
-        assert_se(proc_cmdline_get_key("", /* flags= */ 0, &value) == -EINVAL);
-        assert_se(proc_cmdline_get_key("abc", /* flags= */ 0, /* ret_value= */ NULL) == 0);
-        assert_se(proc_cmdline_get_key("abc", /* flags= */ 0, &value) == 0 && value == NULL);
-        assert_se(proc_cmdline_get_key("abc", PROC_CMDLINE_VALUE_OPTIONAL, &value) == 0 && value == NULL);
+        ASSERT_ERROR(proc_cmdline_get_key("", /* flags= */ 0, &value), EINVAL);
+        ASSERT_OK_EQ(proc_cmdline_get_key("abc", /* flags= */ 0, /* ret_value= */ NULL), 0);
+        ASSERT_OK_EQ(proc_cmdline_get_key("abc", /* flags= */ 0, &value), 0);
+        ASSERT_NULL(value);
+        ASSERT_OK_EQ(proc_cmdline_get_key("abc", PROC_CMDLINE_VALUE_OPTIONAL, &value), 0);
+        ASSERT_NULL(value);
 
-        assert_se(proc_cmdline_get_key("foo_bar", /* flags= */ 0, &value) > 0 && streq_ptr(value, "quux"));
+        ASSERT_OK_POSITIVE(proc_cmdline_get_key("foo_bar", /* flags= */ 0, &value));
+        ASSERT_STREQ(value, "quux");
         value = mfree(value);
-        assert_se(proc_cmdline_get_key("foo_bar", PROC_CMDLINE_VALUE_OPTIONAL, &value) > 0 && streq_ptr(value, "quux"));
+        ASSERT_OK_POSITIVE(proc_cmdline_get_key("foo_bar", PROC_CMDLINE_VALUE_OPTIONAL, &value));
+        ASSERT_STREQ(value, "quux");
         value = mfree(value);
-        assert_se(proc_cmdline_get_key("foo_bar", /* flags= */ 0, /* ret_value= */ NULL) == 0);
-        assert_se(proc_cmdline_get_key("foo-bar", /* flags= */ 0, &value) > 0 && streq_ptr(value, "quux"));
+        ASSERT_OK_EQ(proc_cmdline_get_key("foo_bar", /* flags= */ 0, /* ret_value= */ NULL), 0);
+        ASSERT_OK_POSITIVE(proc_cmdline_get_key("foo-bar", /* flags= */ 0, &value));
+        ASSERT_STREQ(value, "quux");
         value = mfree(value);
-        assert_se(proc_cmdline_get_key("foo-bar", PROC_CMDLINE_VALUE_OPTIONAL, &value) > 0 && streq_ptr(value, "quux"));
+        ASSERT_OK_POSITIVE(proc_cmdline_get_key("foo-bar", PROC_CMDLINE_VALUE_OPTIONAL, &value));
+        ASSERT_STREQ(value, "quux");
         value = mfree(value);
-        assert_se(proc_cmdline_get_key("foo-bar", /* flags= */ 0, /* ret_value= */ NULL) == 0);
-        assert_se(proc_cmdline_get_key("foo-bar", PROC_CMDLINE_VALUE_OPTIONAL, /* ret_value= */ NULL) == -EINVAL);
+        ASSERT_OK_EQ(proc_cmdline_get_key("foo-bar", /* flags= */ 0, /* ret_value= */ NULL), 0);
+        ASSERT_ERROR(proc_cmdline_get_key("foo-bar", PROC_CMDLINE_VALUE_OPTIONAL, /* ret_value= */ NULL), EINVAL);
 
-        assert_se(proc_cmdline_get_key("wuff-piep", /* flags= */ 0, &value) > 0 && streq_ptr(value, "tuet"));
+        ASSERT_OK_POSITIVE(proc_cmdline_get_key("wuff-piep", /* flags= */ 0, &value));
+        ASSERT_STREQ(value, "tuet");
         value = mfree(value);
-        assert_se(proc_cmdline_get_key("wuff-piep", PROC_CMDLINE_VALUE_OPTIONAL, &value) > 0 && streq_ptr(value, "tuet"));
+        ASSERT_OK_POSITIVE(proc_cmdline_get_key("wuff-piep", PROC_CMDLINE_VALUE_OPTIONAL, &value));
+        ASSERT_STREQ(value, "tuet");
         value = mfree(value);
-        assert_se(proc_cmdline_get_key("wuff_piep", /* flags= */ 0, &value) > 0 && streq_ptr(value, "tuet"));
+        ASSERT_OK_POSITIVE(proc_cmdline_get_key("wuff_piep", /* flags= */ 0, &value));
+        ASSERT_STREQ(value, "tuet");
         value = mfree(value);
-        assert_se(proc_cmdline_get_key("wuff_piep", PROC_CMDLINE_VALUE_OPTIONAL, &value) > 0 && streq_ptr(value, "tuet"));
+        ASSERT_OK_POSITIVE(proc_cmdline_get_key("wuff_piep", PROC_CMDLINE_VALUE_OPTIONAL, &value));
+        ASSERT_STREQ(value, "tuet");
         value = mfree(value);
-        assert_se(proc_cmdline_get_key("wuff_piep", /* flags= */ 0, /* ret_value= */ NULL) == 0);
-        assert_se(proc_cmdline_get_key("wuff_piep", PROC_CMDLINE_VALUE_OPTIONAL, /* ret_value= */ NULL) == -EINVAL);
+        ASSERT_OK_EQ(proc_cmdline_get_key("wuff_piep", /* flags= */ 0, /* ret_value= */ NULL), 0);
+        ASSERT_ERROR(proc_cmdline_get_key("wuff_piep", PROC_CMDLINE_VALUE_OPTIONAL, /* ret_value= */ NULL), EINVAL);
 
-        assert_se(proc_cmdline_get_key("zumm-ghh", /* flags= */ 0, &value) == 0 && value == NULL);
-        assert_se(proc_cmdline_get_key("zumm-ghh", PROC_CMDLINE_VALUE_OPTIONAL, &value) > 0 && value == NULL);
-        assert_se(proc_cmdline_get_key("zumm-ghh", /* flags= */ 0, /* ret_value= */ NULL) > 0);
-        assert_se(proc_cmdline_get_key("zumm_ghh", /* flags= */ 0, &value) == 0 && value == NULL);
-        assert_se(proc_cmdline_get_key("zumm_ghh", PROC_CMDLINE_VALUE_OPTIONAL, &value) > 0 && value == NULL);
-        assert_se(proc_cmdline_get_key("zumm_ghh", /* flags= */ 0, /* ret_value= */ NULL) > 0);
+        ASSERT_OK_EQ(proc_cmdline_get_key("zumm-ghh", /* flags= */ 0, &value), 0);
+        ASSERT_NULL(value);
+        ASSERT_OK_POSITIVE(proc_cmdline_get_key("zumm-ghh", PROC_CMDLINE_VALUE_OPTIONAL, &value));
+        ASSERT_NULL(value);
+        ASSERT_OK_POSITIVE(proc_cmdline_get_key("zumm-ghh", /* flags= */ 0, /* ret_value= */ NULL));
+        ASSERT_OK_EQ(proc_cmdline_get_key("zumm_ghh", /* flags= */ 0, &value), 0);
+        ASSERT_NULL(value);
+        ASSERT_OK_POSITIVE(proc_cmdline_get_key("zumm_ghh", PROC_CMDLINE_VALUE_OPTIONAL, &value));
+        ASSERT_NULL(value);
+        ASSERT_OK_POSITIVE(proc_cmdline_get_key("zumm_ghh", /* flags= */ 0, /* ret_value= */ NULL));
 
-        assert_se(proc_cmdline_get_key("spaaace", /* flags= */ 0, &value) > 0 && streq_ptr(value, "ö ü ß"));
+        ASSERT_OK_POSITIVE(proc_cmdline_get_key("spaaace", /* flags= */ 0, &value));
+        ASSERT_STREQ(value, "ö ü ß");
         value = mfree(value);
 
-        assert_se(proc_cmdline_get_key("ticks", /* flags= */ 0, &value) > 0 && streq_ptr(value, "''"));
+        ASSERT_OK_POSITIVE(proc_cmdline_get_key("ticks", /* flags= */ 0, &value));
+        ASSERT_STREQ(value, "''");
         value = mfree(value);
 
-        assert_se(proc_cmdline_get_key("kkk", /* flags= */ 0, &value) > 0 && streq_ptr(value, "uuu"));
+        ASSERT_OK_POSITIVE(proc_cmdline_get_key("kkk", /* flags= */ 0, &value));
+        ASSERT_STREQ(value, "uuu");
 }
 
 TEST(proc_cmdline_get_bool) {
         bool value = false;
 
-        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar bar-waldo=1 x_y-z=0 quux=miep\nda=yes\nthe=1") == 0);
+        ASSERT_OK_ZERO_ERRNO(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar bar-waldo=1 x_y-z=0 quux=miep\nda=yes\nthe=1"));
 
-        assert_se(proc_cmdline_get_bool("", /* flags= */ 0, &value) == -EINVAL);
-        assert_se(proc_cmdline_get_bool("abc", /* flags= */ 0, &value) == 0 && value == false);
-        assert_se(proc_cmdline_get_bool("unspecified", PROC_CMDLINE_TRUE_WHEN_MISSING, &value) == 0 && value == true);
-        assert_se(proc_cmdline_get_bool("foo_bar", /* flags= */ 0, &value) > 0 && value == true);
-        assert_se(proc_cmdline_get_bool("foo-bar", /* flags= */ 0, &value) > 0 && value == true);
-        assert_se(proc_cmdline_get_bool("bar-waldo", /* flags= */ 0, &value) > 0 && value == true);
-        assert_se(proc_cmdline_get_bool("bar_waldo", /* flags= */ 0, &value) > 0 && value == true);
-        assert_se(proc_cmdline_get_bool("x_y-z", /* flags= */ 0, &value) > 0 && value == false);
-        assert_se(proc_cmdline_get_bool("x-y-z", /* flags= */ 0, &value) > 0 && value == false);
-        assert_se(proc_cmdline_get_bool("x-y_z", /* flags= */ 0, &value) > 0 && value == false);
-        assert_se(proc_cmdline_get_bool("x_y_z", /* flags= */ 0, &value) > 0 && value == false);
-        assert_se(proc_cmdline_get_bool("quux", /* flags= */ 0, &value) == -EINVAL && value == false);
-        assert_se(proc_cmdline_get_bool("da", /* flags= */ 0, &value) > 0 && value == true);
-        assert_se(proc_cmdline_get_bool("the", /* flags= */ 0, &value) > 0 && value == true);
+        ASSERT_ERROR(proc_cmdline_get_bool("", /* flags= */ 0, &value), EINVAL);
+        ASSERT_OK_EQ(proc_cmdline_get_bool("abc", /* flags= */ 0, &value), 0);
+        ASSERT_FALSE(value);
+        ASSERT_OK_EQ(proc_cmdline_get_bool("unspecified", PROC_CMDLINE_TRUE_WHEN_MISSING, &value), 0);
+        ASSERT_TRUE(value);
+        ASSERT_OK_POSITIVE(proc_cmdline_get_bool("foo_bar", /* flags= */ 0, &value));
+        ASSERT_TRUE(value);
+        ASSERT_OK_POSITIVE(proc_cmdline_get_bool("foo-bar", /* flags= */ 0, &value));
+        ASSERT_TRUE(value);
+        ASSERT_OK_POSITIVE(proc_cmdline_get_bool("bar-waldo", /* flags= */ 0, &value));
+        ASSERT_TRUE(value);
+        ASSERT_OK_POSITIVE(proc_cmdline_get_bool("bar_waldo", /* flags= */ 0, &value));
+        ASSERT_TRUE(value);
+        ASSERT_OK_POSITIVE(proc_cmdline_get_bool("x_y-z", /* flags= */ 0, &value));
+        ASSERT_FALSE(value);
+        ASSERT_OK_POSITIVE(proc_cmdline_get_bool("x-y-z", /* flags= */ 0, &value));
+        ASSERT_FALSE(value);
+        ASSERT_OK_POSITIVE(proc_cmdline_get_bool("x-y_z", /* flags= */ 0, &value));
+        ASSERT_FALSE(value);
+        ASSERT_OK_POSITIVE(proc_cmdline_get_bool("x_y_z", /* flags= */ 0, &value));
+        ASSERT_FALSE(value);
+        ASSERT_ERROR(proc_cmdline_get_bool("quux", /* flags= */ 0, &value), EINVAL);
+        ASSERT_FALSE(value);
+        ASSERT_OK_POSITIVE(proc_cmdline_get_bool("da", /* flags= */ 0, &value));
+        ASSERT_TRUE(value);
+        ASSERT_OK_POSITIVE(proc_cmdline_get_bool("the", /* flags= */ 0, &value));
+        ASSERT_TRUE(value);
 }
 
 TEST(proc_cmdline_get_key_many) {
         _cleanup_free_ char *value1 = NULL, *value2 = NULL, *value3 = NULL, *value4 = NULL, *value5 = NULL, *value6 = NULL, *value7 = NULL;
 
-        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm SPACE='one two' doubleticks=\" aaa aaa \"\n\nzummm='\n'\n") == 0);
+        ASSERT_OK_ZERO_ERRNO(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm SPACE='one two' doubleticks=\" aaa aaa \"\n\nzummm='\n'\n"));
 
-        assert_se(proc_cmdline_get_key_many(0,
-                                            "wuff-piep", &value3,
-                                            "foo_bar", &value1,
-                                            "idontexist", &value2,
-                                            "zumm", &value4,
-                                            "SPACE", &value5,
-                                            "doubleticks", &value6,
-                                            "zummm", &value7) == 5);
+        ASSERT_OK_EQ(proc_cmdline_get_key_many(0,
+                                               "wuff-piep", &value3,
+                                               "foo_bar", &value1,
+                                               "idontexist", &value2,
+                                               "zumm", &value4,
+                                               "SPACE", &value5,
+                                               "doubleticks", &value6,
+                                               "zummm", &value7), 5);
 
         ASSERT_STREQ(value1, "quux");
-        assert_se(!value2);
+        ASSERT_NULL(value2);
         ASSERT_STREQ(value3, "tuet");
-        assert_se(!value4);
+        ASSERT_NULL(value4);
         ASSERT_STREQ(value5, "one two");
         ASSERT_STREQ(value6, " aaa aaa ");
         ASSERT_STREQ(value7, "\n");
 }
 
 TEST(proc_cmdline_key_streq) {
-        assert_se(proc_cmdline_key_streq("", ""));
-        assert_se(proc_cmdline_key_streq("a", "a"));
-        assert_se(!proc_cmdline_key_streq("", "a"));
-        assert_se(!proc_cmdline_key_streq("a", ""));
-        assert_se(proc_cmdline_key_streq("a", "a"));
-        assert_se(!proc_cmdline_key_streq("a", "b"));
-        assert_se(proc_cmdline_key_streq("x-y-z", "x-y-z"));
-        assert_se(proc_cmdline_key_streq("x-y-z", "x_y_z"));
-        assert_se(proc_cmdline_key_streq("x-y-z", "x-y_z"));
-        assert_se(proc_cmdline_key_streq("x-y-z", "x_y-z"));
-        assert_se(proc_cmdline_key_streq("x_y-z", "x-y_z"));
-        assert_se(!proc_cmdline_key_streq("x_y-z", "x-z_z"));
+        ASSERT_TRUE(proc_cmdline_key_streq("", ""));
+        ASSERT_TRUE(proc_cmdline_key_streq("a", "a"));
+        ASSERT_FALSE(proc_cmdline_key_streq("", "a"));
+        ASSERT_FALSE(proc_cmdline_key_streq("a", ""));
+        ASSERT_TRUE(proc_cmdline_key_streq("a", "a"));
+        ASSERT_FALSE(proc_cmdline_key_streq("a", "b"));
+        ASSERT_TRUE(proc_cmdline_key_streq("x-y-z", "x-y-z"));
+        ASSERT_TRUE(proc_cmdline_key_streq("x-y-z", "x_y_z"));
+        ASSERT_TRUE(proc_cmdline_key_streq("x-y-z", "x-y_z"));
+        ASSERT_TRUE(proc_cmdline_key_streq("x-y-z", "x_y-z"));
+        ASSERT_TRUE(proc_cmdline_key_streq("x_y-z", "x-y_z"));
+        ASSERT_FALSE(proc_cmdline_key_streq("x_y-z", "x-z_z"));
 }
 
 TEST(proc_cmdline_key_startswith) {
-        assert_se(proc_cmdline_key_startswith("", ""));
-        assert_se(proc_cmdline_key_startswith("x", ""));
-        assert_se(!proc_cmdline_key_startswith("", "x"));
-        assert_se(proc_cmdline_key_startswith("x", "x"));
-        assert_se(!proc_cmdline_key_startswith("x", "y"));
-        assert_se(!proc_cmdline_key_startswith("foo-bar", "quux"));
-        assert_se(proc_cmdline_key_startswith("foo-bar", "foo"));
-        assert_se(proc_cmdline_key_startswith("foo-bar", "foo-bar"));
-        assert_se(proc_cmdline_key_startswith("foo-bar", "foo_bar"));
-        assert_se(proc_cmdline_key_startswith("foo-bar", "foo_"));
-        assert_se(!proc_cmdline_key_startswith("foo-bar", "foo_xx"));
+        ASSERT_NOT_NULL(proc_cmdline_key_startswith("", ""));
+        ASSERT_NOT_NULL(proc_cmdline_key_startswith("x", ""));
+        ASSERT_NULL(proc_cmdline_key_startswith("", "x"));
+        ASSERT_NOT_NULL(proc_cmdline_key_startswith("x", "x"));
+        ASSERT_NULL(proc_cmdline_key_startswith("x", "y"));
+        ASSERT_NULL(proc_cmdline_key_startswith("foo-bar", "quux"));
+        ASSERT_NOT_NULL(proc_cmdline_key_startswith("foo-bar", "foo"));
+        ASSERT_NOT_NULL(proc_cmdline_key_startswith("foo-bar", "foo-bar"));
+        ASSERT_NOT_NULL(proc_cmdline_key_startswith("foo-bar", "foo_bar"));
+        ASSERT_NOT_NULL(proc_cmdline_key_startswith("foo-bar", "foo_"));
+        ASSERT_NULL(proc_cmdline_key_startswith("foo-bar", "foo_xx"));
 }
 
-#define test_proc_cmdline_filter_pid1_args_one(nulstr, expected)        \
-        ({                                                              \
-                _cleanup_strv_free_ char **a = NULL, **b = NULL;        \
-                const char s[] = (nulstr);                              \
-                                                                        \
-                /* This emulates pid_get_cmdline_strv(). */         \
-                assert_se(a = strv_parse_nulstr_full(s, ELEMENTSOF(s),  \
-                                                     /* drop_trailing_nuls= */ true)); \
-                assert_se(proc_cmdline_filter_pid1_args(a, &b) >= 0);   \
-                ASSERT_STRV_EQ(b, expected);                            \
+#define test_proc_cmdline_filter_pid1_args_one(nulstr, expected)                             \
+        ({                                                                                   \
+                _cleanup_strv_free_ char **a = NULL, **b = NULL;                             \
+                const char s[] = (nulstr);                                                   \
+                                                                                             \
+                /* This emulates pid_get_cmdline_strv(). */                                  \
+                ASSERT_NOT_NULL(a = strv_parse_nulstr_full(s, ELEMENTSOF(s),                 \
+                                                           /* drop_trailing_nuls= */ true)); \
+                ASSERT_OK(proc_cmdline_filter_pid1_args(a, &b));                             \
+                ASSERT_STRV_EQ(b, expected);                                                 \
         })
 
 TEST(proc_cmdline_filter_pid1_args) {

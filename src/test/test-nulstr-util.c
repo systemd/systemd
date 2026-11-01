@@ -10,8 +10,7 @@ TEST(strv_split_nulstr) {
         _cleanup_strv_free_ char **l = NULL;
         const char nulstr[] = "str0\0str1\0str2\0str3\0";
 
-        l = strv_split_nulstr(nulstr);
-        assert_se(l);
+        l = ASSERT_NOT_NULL(strv_split_nulstr(nulstr));
 
         ASSERT_STREQ(l[0], "str0");
         ASSERT_STREQ(l[1], "str1");
@@ -19,14 +18,14 @@ TEST(strv_split_nulstr) {
         ASSERT_STREQ(l[3], "str3");
 }
 
-#define strv_parse_nulstr_full_one(s, n, e0, e1)                        \
-        ({                                                              \
-                _cleanup_strv_free_ char **v0 = NULL, **v1 = NULL;      \
-                                                                        \
-                assert_se(v0 = strv_parse_nulstr_full(s, n, false));    \
-                ASSERT_STRV_EQ(v0, e0);                                 \
-                assert_se(v1 = strv_parse_nulstr_full(s, n, true));     \
-                ASSERT_STRV_EQ(v1, e1);                                 \
+#define strv_parse_nulstr_full_one(s, n, e0, e1)                           \
+        ({                                                                 \
+                _cleanup_strv_free_ char **v0 = NULL, **v1 = NULL;         \
+                                                                           \
+                ASSERT_NOT_NULL(v0 = strv_parse_nulstr_full(s, n, false)); \
+                ASSERT_STRV_EQ(v0, e0);                                    \
+                ASSERT_NOT_NULL(v1 = strv_parse_nulstr_full(s, n, true));  \
+                ASSERT_STRV_EQ(v1, e1);                                    \
         })
 
 TEST(strv_parse_nulstr_full) {
@@ -89,16 +88,16 @@ static void test_strv_make_nulstr_one(char **l) {
 
         log_info("/* %s */", __func__);
 
-        assert_se(strv_make_nulstr(l, &b, &n) >= 0);
-        assert_se(q = strv_parse_nulstr(b, n));
+        ASSERT_OK(strv_make_nulstr(l, &b, &n));
+        ASSERT_NOT_NULL(q = strv_parse_nulstr(b, n));
         ASSERT_STRV_EQ(l, q);
 
-        assert_se(strv_make_nulstr(q, &c, &m) >= 0);
-        assert_se(memcmp_nn(b, n, c, m) == 0);
+        ASSERT_OK(strv_make_nulstr(q, &c, &m));
+        ASSERT_EQ(memcmp_nn(b, n, c, m), 0);
 
         NULSTR_FOREACH(s, b)
                 ASSERT_STREQ(s, l[i++]);
-        assert_se(i == strv_length(l));
+        ASSERT_EQ(i, strv_length(l));
 }
 
 TEST(strv_make_nulstr) {
@@ -112,17 +111,15 @@ TEST(strv_make_nulstr) {
 TEST(set_make_nulstr) {
         _cleanup_set_free_ Set *set = NULL;
         size_t len = 0;
-        int r;
 
         {
                 /* Unallocated and empty set. */
                 static const char expect[] = { 0x00, 0x00 };
                 _cleanup_free_ char *nulstr = NULL;
 
-                r = set_make_nulstr(set, &nulstr, &len);
-                assert_se(r == 0);
-                assert_se(len == 0);
-                assert_se(memcmp(expect, nulstr, len + 2) == 0);
+                ASSERT_OK_ZERO(set_make_nulstr(set, &nulstr, &len));
+                ASSERT_EQ(len, 0U);
+                ASSERT_EQ(memcmp(expect, nulstr, len + 2), 0);
         }
 
         {
@@ -130,13 +127,11 @@ TEST(set_make_nulstr) {
                 static const char expect[] = { 0x00, 0x00 };
                 _cleanup_free_ char *nulstr = NULL;
 
-                set = set_new(&string_hash_ops_free);
-                assert_se(set);
+                set = ASSERT_NOT_NULL(set_new(&string_hash_ops_free));
 
-                r = set_make_nulstr(set, &nulstr, &len);
-                assert_se(r == 0);
-                assert_se(len == 0);
-                assert_se(memcmp(expect, nulstr, len + 2) == 0);
+                ASSERT_OK_ZERO(set_make_nulstr(set, &nulstr, &len));
+                ASSERT_EQ(len, 0U);
+                ASSERT_EQ(memcmp(expect, nulstr, len + 2), 0);
         }
 
         {
@@ -144,12 +139,11 @@ TEST(set_make_nulstr) {
                 static const char expect[] = { 'a', 'a', 'a', 0x00, 0x00 };
                 _cleanup_free_ char *nulstr = NULL;
 
-                assert_se(set_put_strdup(&set, "aaa") >= 0);
+                ASSERT_OK(set_put_strdup(&set, "aaa"));
 
-                r = set_make_nulstr(set, &nulstr, &len);
-                assert_se(r == 0);
-                assert_se(len == 4);
-                assert_se(memcmp(expect, nulstr, len + 1) == 0);
+                ASSERT_OK_ZERO(set_make_nulstr(set, &nulstr, &len));
+                ASSERT_EQ(len, 4U);
+                ASSERT_EQ(memcmp(expect, nulstr, len + 1), 0);
         }
 }
 
@@ -158,9 +152,9 @@ static void test_strv_make_nulstr_binary_one(char **l, const char *b, size_t n) 
         _cleanup_free_ char *a = NULL;
         size_t m;
 
-        assert_se(strv_make_nulstr(l, &a, &m) >= 0);
-        assert_se(memcmp_nn(a, m, b, n) == 0);
-        assert_se(z = strv_parse_nulstr(a, m));
+        ASSERT_OK(strv_make_nulstr(l, &a, &m));
+        ASSERT_EQ(memcmp_nn(a, m, b, n), 0);
+        ASSERT_NOT_NULL(z = strv_parse_nulstr(a, m));
         ASSERT_STRV_EQ(l, z);
 }
 

@@ -12,15 +12,15 @@ TEST(unichar_iswide) {
         for (const char *narrow = "abX_…ąęµ!" "😼😿🙀😸😻"; *narrow; narrow += r) {
                 r = utf8_encoded_to_unichar(narrow, &c);
                 bool w = unichar_iswide(c);
-                assert_se(r > 0);
-                assert_se(!w);
+                ASSERT_OK_POSITIVE(r);
+                ASSERT_FALSE(w);
         }
 
         for (const char *wide = "🐱／￥"; *wide; wide += r) {
                 r = utf8_encoded_to_unichar(wide, &c);
                 bool w = unichar_iswide(c);
-                assert_se(r > 0);
-                assert_se(w);
+                ASSERT_OK_POSITIVE(r);
+                ASSERT_TRUE(w);
         }
 }
 

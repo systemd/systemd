@@ -56,7 +56,7 @@ static void _test_next(int line, const char *input, const char *new_tz, usec_t a
         if (!isempty(new_tz) && !strchr(new_tz, ','))
                 new_tz = strjoina(":", new_tz);
 
-        assert_se(set_unset_env("TZ", new_tz, /* overwrite= */ true) == 0);
+        ASSERT_OK_ZERO(set_unset_env("TZ", new_tz, /* overwrite= */ true));
         tzset();
 
         ASSERT_OK(calendar_spec_from_string(input, &c));
@@ -66,10 +66,11 @@ static void _test_next(int line, const char *input, const char *new_tz, usec_t a
         u = after;
         r = calendar_spec_next_usec(c, after, &u);
         log_info("At: %s", r < 0 ? STRERROR(r) : FORMAT_TIMESTAMP_STYLE(u, TIMESTAMP_US));
-        if (expect != USEC_INFINITY)
-                assert_se(r >= 0 && u == expect);
-        else
-                assert_se(r == -ENOENT);
+        if (expect != USEC_INFINITY) {
+                ASSERT_OK(r);
+                ASSERT_EQ(u, expect);
+        } else
+                ASSERT_ERROR(r, ENOENT);
 }
 #define test_next(input, new_tz, after, expect) _test_next(__LINE__, input,new_tz,after,expect)
 
@@ -83,14 +84,14 @@ TEST(timestamp) {
 
         x = now(CLOCK_REALTIME);
 
-        assert_se(format_timestamp_style(buf, sizeof buf, x, TIMESTAMP_US));
+        ASSERT_NOT_NULL(format_timestamp_style(buf, sizeof buf, x, TIMESTAMP_US));
         log_info("%s", buf);
         ASSERT_OK(calendar_spec_from_string(buf, &c));
         ASSERT_OK(calendar_spec_to_string(c, &t));
         log_info("%s", t);
 
         ASSERT_OK(parse_timestamp(t, &y));
-        assert_se(y == x);
+        ASSERT_EQ(y, x);
 }
 
 TEST(hourly_bug_4031) {
@@ -105,13 +106,13 @@ TEST(hourly_bug_4031) {
         log_info("Now: %s (%"PRIu64")", FORMAT_TIMESTAMP_STYLE(n, TIMESTAMP_US), n);
         log_info("Next hourly: %s (%"PRIu64")", r < 0 ? STRERROR(r) : FORMAT_TIMESTAMP_STYLE(u, TIMESTAMP_US), u);
 
-        assert_se((r = calendar_spec_next_usec(c, u, &w)) >= 0);
+        r = ASSERT_OK(calendar_spec_next_usec(c, u, &w));
         log_info("Next hourly: %s (%"PRIu64")", r < 0 ? STRERROR(r) : FORMAT_TIMESTAMP_STYLE(w, TIMESTAMP_US), w);
 
-        assert_se(n < u);
-        assert_se(u <= n + USEC_PER_HOUR);
-        assert_se(u < w);
-        assert_se(w <= u + USEC_PER_HOUR);
+        ASSERT_LT(n, u);
+        ASSERT_LE(u, n + USEC_PER_HOUR);
+        ASSERT_LT(u, w);
+        ASSERT_LE(w, u + USEC_PER_HOUR);
 }
 
 TEST(calendar_spec_one) {
@@ -231,41 +232,40 @@ TEST(calendar_spec_next) {
 TEST(calendar_spec_from_string) {
         CalendarSpec *c;
 
-        assert_se(calendar_spec_from_string("test", &c) == -EINVAL);
-        assert_se(calendar_spec_from_string(" utc", &c) == -EINVAL);
-        assert_se(calendar_spec_from_string("    ", &c) == -EINVAL);
-        assert_se(calendar_spec_from_string("", &c) == -EINVAL);
-        assert_se(calendar_spec_from_string("7", &c) == -EINVAL);
-        assert_se(calendar_spec_from_string("121212:1:2", &c) == -EINVAL);
-        assert_se(calendar_spec_from_string("2000-03-05.23 00:00:00", &c) == -EINVAL);
-        assert_se(calendar_spec_from_string("2000-03-05 00:00.1:00", &c) == -EINVAL);
-        assert_se(calendar_spec_from_string("00:00:00/0.00000001", &c) == -ERANGE);
-        assert_se(calendar_spec_from_string("00:00:00.0..00.9", &c) == -EINVAL);
-        assert_se(calendar_spec_from_string("2016~11-22", &c) == -EINVAL);
-        assert_se(calendar_spec_from_string("*-*~5/5", &c) == -EINVAL);
-        assert_se(calendar_spec_from_string("Monday.. 12:00", &c) == -EINVAL);
-        assert_se(calendar_spec_from_string("Monday..", &c) == -EINVAL);
-        assert_se(calendar_spec_from_string("-00:+00/-5", &c) == -EINVAL);
-        assert_se(calendar_spec_from_string("00:+00/-5", &c) == -EINVAL);
-        assert_se(calendar_spec_from_string("2016- 11- 24 12: 30: 00", &c) == -EINVAL);
-        assert_se(calendar_spec_from_string("*~29", &c) == -EINVAL);
-        assert_se(calendar_spec_from_string("*~16..31", &c) == -EINVAL);
-        assert_se(calendar_spec_from_string("12..1/2-*", &c) == -EINVAL);
-        assert_se(calendar_spec_from_string("20/4:00", &c) == -EINVAL);
-        assert_se(calendar_spec_from_string("00:00/60", &c) == -EINVAL);
-        assert_se(calendar_spec_from_string("00:00:2300", &c) == -ERANGE);
-        assert_se(calendar_spec_from_string("00:00:18446744073709551615", &c) == -ERANGE);
-        assert_se(calendar_spec_from_string("@88588582097858858", &c) == -ERANGE);
-        assert_se(calendar_spec_from_string("*:4,30:*,5", &c) == -EINVAL);
-        assert_se(calendar_spec_from_string("*:4,30:5,*", &c) == -EINVAL);
-        assert_se(calendar_spec_from_string("*:4,30:*\n", &c) == -EINVAL);
+        ASSERT_ERROR(calendar_spec_from_string("test", &c), EINVAL);
+        ASSERT_ERROR(calendar_spec_from_string(" utc", &c), EINVAL);
+        ASSERT_ERROR(calendar_spec_from_string("    ", &c), EINVAL);
+        ASSERT_ERROR(calendar_spec_from_string("", &c), EINVAL);
+        ASSERT_ERROR(calendar_spec_from_string("7", &c), EINVAL);
+        ASSERT_ERROR(calendar_spec_from_string("121212:1:2", &c), EINVAL);
+        ASSERT_ERROR(calendar_spec_from_string("2000-03-05.23 00:00:00", &c), EINVAL);
+        ASSERT_ERROR(calendar_spec_from_string("2000-03-05 00:00.1:00", &c), EINVAL);
+        ASSERT_ERROR(calendar_spec_from_string("00:00:00/0.00000001", &c), ERANGE);
+        ASSERT_ERROR(calendar_spec_from_string("00:00:00.0..00.9", &c), EINVAL);
+        ASSERT_ERROR(calendar_spec_from_string("2016~11-22", &c), EINVAL);
+        ASSERT_ERROR(calendar_spec_from_string("*-*~5/5", &c), EINVAL);
+        ASSERT_ERROR(calendar_spec_from_string("Monday.. 12:00", &c), EINVAL);
+        ASSERT_ERROR(calendar_spec_from_string("Monday..", &c), EINVAL);
+        ASSERT_ERROR(calendar_spec_from_string("-00:+00/-5", &c), EINVAL);
+        ASSERT_ERROR(calendar_spec_from_string("00:+00/-5", &c), EINVAL);
+        ASSERT_ERROR(calendar_spec_from_string("2016- 11- 24 12: 30: 00", &c), EINVAL);
+        ASSERT_ERROR(calendar_spec_from_string("*~29", &c), EINVAL);
+        ASSERT_ERROR(calendar_spec_from_string("*~16..31", &c), EINVAL);
+        ASSERT_ERROR(calendar_spec_from_string("12..1/2-*", &c), EINVAL);
+        ASSERT_ERROR(calendar_spec_from_string("20/4:00", &c), EINVAL);
+        ASSERT_ERROR(calendar_spec_from_string("00:00/60", &c), EINVAL);
+        ASSERT_ERROR(calendar_spec_from_string("00:00:2300", &c), ERANGE);
+        ASSERT_ERROR(calendar_spec_from_string("00:00:18446744073709551615", &c), ERANGE);
+        ASSERT_ERROR(calendar_spec_from_string("@88588582097858858", &c), ERANGE);
+        ASSERT_ERROR(calendar_spec_from_string("*:4,30:*,5", &c), EINVAL);
+        ASSERT_ERROR(calendar_spec_from_string("*:4,30:5,*", &c), EINVAL);
+        ASSERT_ERROR(calendar_spec_from_string("*:4,30:*\n", &c), EINVAL);
 }
 
 /* Fork a child with stderr redirected to a memfd, invoke calendar_spec_from_string_full()
  * with warn=true, wait, then return the memfd rewound to 0. */
 static int run_in_child_capture_stderr(const char *spec) {
-        _cleanup_close_ int memfd = memfd_new("calendarspec-warn-test");
-        assert_se(memfd >= 0);
+        _cleanup_close_ int memfd = ASSERT_OK(memfd_new("calendarspec-warn-test"));
 
         int r = pidref_safe_fork_full(
                         "(calendarspec-warn)",
@@ -273,7 +273,7 @@ static int run_in_child_capture_stderr(const char *spec) {
                         /* except_fds= */ NULL, /* n_except_fds= */ 0,
                         FORK_WAIT|FORK_LOG|FORK_REARRANGE_STDIO,
                         /* ret= */ NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 /* log.c may have inherited a console fd that no longer points at stderr. */
@@ -288,7 +288,7 @@ static int run_in_child_capture_stderr(const char *spec) {
                 _exit(0);
         }
 
-        assert_se(lseek(memfd, 0, SEEK_SET) == 0);
+        ASSERT_OK_ZERO_ERRNO(lseek(memfd, 0, SEEK_SET));
         return TAKE_FD(memfd);
 }
 
@@ -299,13 +299,12 @@ TEST(calendar_spec_weekday_conflict) {
         /* Case 1: conflicting weekday — warning must be emitted */
         {
                 _cleanup_close_ int fd = run_in_child_capture_stderr("Thu 2027-01-01");
-                n = loop_read(fd, buf, sizeof(buf) - 1, /* do_poll= */ false);
-                assert_se(n > 0);
+                n = ASSERT_OK_POSITIVE(loop_read(fd, buf, sizeof(buf) - 1, /* do_poll= */ false));
                 buf[n] = '\0';
                 /* Check date, weekday text and warning phrase are present. */
-                assert_se(strstr(buf, "2027-01-01"));
-                assert_se(strstr(buf, "which is a Fri"));
-                assert_se(strstr(buf, "will never elapse"));
+                ASSERT_NOT_NULL(strstr(buf, "2027-01-01"));
+                ASSERT_NOT_NULL(strstr(buf, "which is a Fri"));
+                ASSERT_NOT_NULL(strstr(buf, "will never elapse"));
         }
 
         /* Case 2: correct weekday — no warning */
@@ -313,10 +312,10 @@ TEST(calendar_spec_weekday_conflict) {
                 _cleanup_close_ int fd = run_in_child_capture_stderr("Fri 2027-01-01");
                 n = loop_read(fd, buf, sizeof(buf) - 1, /* do_poll= */ false);
                 /* Ensure child wrote PARSE_OK. */
-                assert_se(n >= 0);
+                ASSERT_OK(n);
                 buf[MAX(n, (ssize_t)0)] = '\0';
-                assert_se(strstr(buf, "PARSE_OK"));
-                assert_se(!strstr(buf, "will never elapse"));
+                ASSERT_NOT_NULL(strstr(buf, "PARSE_OK"));
+                ASSERT_NULL(strstr(buf, "will never elapse"));
         }
 
         /* Case 3: wildcard date — no static conflict, no warning */
@@ -324,10 +323,10 @@ TEST(calendar_spec_weekday_conflict) {
                 _cleanup_close_ int fd = run_in_child_capture_stderr("Thu *-*-*");
                 n = loop_read(fd, buf, sizeof(buf) - 1, /* do_poll= */ false);
                 /* Ensure child wrote PARSE_OK. */
-                assert_se(n >= 0);
+                ASSERT_OK(n);
                 buf[MAX(n, (ssize_t)0)] = '\0';
-                assert_se(strstr(buf, "PARSE_OK"));
-                assert_se(!strstr(buf, "will never elapse"));
+                ASSERT_NOT_NULL(strstr(buf, "PARSE_OK"));
+                ASSERT_NULL(strstr(buf, "will never elapse"));
         }
 }
 

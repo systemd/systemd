@@ -16,15 +16,15 @@ static void test_one_address(sd_bus *b,
 
         r = bus_set_address_system_remote(b, host);
         log_info("\"%s\" → %d, \"%s\"", host, r, strna(r >= 0 ? b->address : NULL));
-        assert_se(r == result);
+        ASSERT_EQ(r, result);
         if (r >= 0)
-                assert_se(streq_ptr(b->address, expected));
+                ASSERT_STREQ(b->address, expected);
 }
 
 TEST(bus_set_address_system_remote) {
         _cleanup_(sd_bus_unrefp) sd_bus *b = NULL;
 
-        assert_se(sd_bus_new(&b) >= 0);
+        ASSERT_OK(sd_bus_new(&b));
         if (!strv_isempty(saved_argv + 1)) {
                 STRV_FOREACH(a, saved_argv + 1)
                         test_one_address(b, *a, /* result= */ 0, /* expected= */ NULL);

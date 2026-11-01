@@ -27,11 +27,11 @@ static void test_path_is_encrypted_one(const char *p, int expect) {
                  * ELOOP might happen if the mount point is a symlink, as seen with under
                  * some rpm-ostree distros */
                 return;
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         log_info("%s encrypted: %s", p, yes_no(r));
 
-        assert_se(expect < 0 || ((r > 0) == (expect > 0)));
+        ASSERT_TRUE(expect < 0 || ((r > 0) == (expect > 0)));
 }
 
 TEST(path_is_encrypted) {
@@ -53,9 +53,9 @@ TEST(partscan_enabled) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         int r;
 
-        assert_se(sd_device_enumerator_new(&e) >= 0);
-        assert_se(sd_device_enumerator_allow_uninitialized(e) >= 0);
-        assert_se(sd_device_enumerator_add_match_subsystem(e, "block", /* match= */ true) >= 0);
+        ASSERT_OK(sd_device_enumerator_new(&e));
+        ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", /* match= */ true));
 
         FOREACH_DEVICE(e, dev) {
                 _cleanup_close_ int fd = -EBADF;

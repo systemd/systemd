@@ -33,31 +33,31 @@ int main(int argc, char *argv[]) {
 
         sigbus_install();
 
-        assert_se(sigbus_pop(&addr) == 0);
+        ASSERT_OK_EQ(sigbus_pop(&addr), 0);
 
-        assert_se((fd = mkostemp(template, O_RDWR|O_CREAT|O_EXCL)) >= 0);
-        assert_se(unlink(template) >= 0);
-        assert_se(posix_fallocate_loop(fd, /* offset= */ 0, page_size() * 8) >= 0); /* NOLINT (posix-return) */
+        fd = ASSERT_OK_ERRNO(mkostemp(template, O_RDWR|O_CREAT|O_EXCL));
+        ASSERT_OK_ERRNO(unlink(template));
+        ASSERT_OK(posix_fallocate_loop(fd, /* offset= */ 0, page_size() * 8)); /* NOLINT (posix-return) */
 
         p = mmap(NULL, page_size() * 16, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
-        assert_se(p != MAP_FAILED);
+        ASSERT_TRUE(p != MAP_FAILED);
 
-        assert_se(sigbus_pop(&addr) == 0);
+        ASSERT_OK_EQ(sigbus_pop(&addr), 0);
 
         p[0] = 0xFF;
-        assert_se(sigbus_pop(&addr) == 0);
+        ASSERT_OK_EQ(sigbus_pop(&addr), 0);
 
         p[page_size()] = 0xFF;
-        assert_se(sigbus_pop(&addr) == 0);
+        ASSERT_OK_EQ(sigbus_pop(&addr), 0);
 
         p[page_size()*8] = 0xFF;
         p[page_size()*8+1] = 0xFF;
         p[page_size()*10] = 0xFF;
-        assert_se(sigbus_pop(&addr) > 0);
-        assert_se(addr == p + page_size() * 8);
-        assert_se(sigbus_pop(&addr) > 0);
-        assert_se(addr == p + page_size() * 10);
-        assert_se(sigbus_pop(&addr) == 0);
+        ASSERT_OK_POSITIVE(sigbus_pop(&addr));
+        ASSERT_PTR_EQ(addr, p + page_size() * 8);
+        ASSERT_OK_POSITIVE(sigbus_pop(&addr));
+        ASSERT_PTR_EQ(addr, p + page_size() * 10);
+        ASSERT_OK_EQ(sigbus_pop(&addr), 0);
 
         sigbus_reset();
 }

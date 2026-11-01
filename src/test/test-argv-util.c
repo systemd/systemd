@@ -19,9 +19,9 @@ static void test_rename_process_now(const char *p, int ret) {
         log_info("/* %s(%s) */", __func__, p);
 
         r = rename_process(p);
-        assert_se(r == ret ||
-                  (ret == 0 && r >= 0) ||
-                  (ret > 0 && r > 0));
+        ASSERT_TRUE(r == ret ||
+                    (ret == 0 && r >= 0) ||
+                    (ret > 0 && r > 0));
 
         log_debug_errno(r, "rename_process(%s): %m", p);
 
@@ -34,14 +34,13 @@ static void test_rename_process_now(const char *p, int ret) {
                 return;
 #endif
 
-        assert_se(pid_get_comm(/* pid= */ 0, &comm) >= 0);
+        ASSERT_OK(pid_get_comm(/* pid= */ 0, &comm));
         log_debug("comm = <%s>", comm);
-        assert_se(strneq(comm, p, TASK_COMM_LEN-1));
+        ASSERT_STRNEQ(comm, p, TASK_COMM_LEN-1);
         /* We expect comm to be at most 16 bytes (TASK_COMM_LEN). The kernel may raise this limit in the
          * future. We'd only check the initial part, at least until we recompile, but this will still pass. */
 
-        r = pid_get_cmdline(/* pid= */ 0, SIZE_MAX, /* flags= */ 0, &cmdline);
-        assert_se(r >= 0);
+        r = ASSERT_OK(pid_get_cmdline(/* pid= */ 0, SIZE_MAX, /* flags= */ 0, &cmdline));
         /* we cannot expect cmdline to be renamed properly without privileges */
         if (geteuid() == 0) {
                 if (r == 0 && detect_container() > 0)
@@ -51,8 +50,8 @@ static void test_rename_process_now(const char *p, int ret) {
 
                         bool skip = cmdline[0] == '"'; /* A shortcut to check if the string is quoted */
 
-                        assert_se(strneq(cmdline + skip, p, strlen("test-process-util")));
-                        assert_se(startswith(cmdline + skip, p));
+                        ASSERT_STRNEQ(cmdline + skip, p, strlen("test-process-util"));
+                        ASSERT_NOT_NULL(startswith(cmdline + skip, p));
                 }
         } else
                 log_info("cmdline = <%s> (not verified)", cmdline);

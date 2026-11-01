@@ -14,42 +14,38 @@ TEST(fdset_new_fill) {
         log_close();
         log_set_open_when_needed(true);
 
-        fd = open("/dev/null", O_CLOEXEC|O_RDONLY);
-        assert_se(fd >= 0);
+        fd = ASSERT_OK_ERRNO(open("/dev/null", O_CLOEXEC|O_RDONLY));
 
-        assert_se(fdset_new_fill(/* filter_cloexec= */ -1, &fdset) >= 0);
-        assert_se(fdset_contains(fdset, fd));
+        ASSERT_OK(fdset_new_fill(/* filter_cloexec= */ -1, &fdset));
+        ASSERT_TRUE(fdset_contains(fdset, fd));
         fdset = fdset_free(fdset);
-        assert_se(fd_validate(fd) == -EBADF);
+        ASSERT_ERROR(fd_validate(fd), EBADF);
 
-        fd = open("/dev/null", O_CLOEXEC|O_RDONLY);
-        assert_se(fd >= 0);
+        fd = ASSERT_OK_ERRNO(open("/dev/null", O_CLOEXEC|O_RDONLY));
 
-        assert_se(fdset_new_fill(/* filter_cloexec= */ 0, &fdset) >= 0);
-        assert_se(!fdset_contains(fdset, fd));
+        ASSERT_OK(fdset_new_fill(/* filter_cloexec= */ 0, &fdset));
+        ASSERT_FALSE(fdset_contains(fdset, fd));
         fdset = fdset_free(fdset);
-        assert_se(fd_validate(fd) >= 0);
+        ASSERT_OK(fd_validate(fd));
 
-        assert_se(fdset_new_fill(/* filter_cloexec= */ 1, &fdset) >= 0);
-        assert_se(fdset_contains(fdset, fd));
+        ASSERT_OK(fdset_new_fill(/* filter_cloexec= */ 1, &fdset));
+        ASSERT_TRUE(fdset_contains(fdset, fd));
         fdset = fdset_free(fdset);
-        assert_se(fd_validate(fd) == -EBADF);
+        ASSERT_ERROR(fd_validate(fd), EBADF);
 
-        fd = open("/dev/null", O_RDONLY);
-        assert_se(fd >= 0);
+        fd = ASSERT_OK_ERRNO(open("/dev/null", O_RDONLY));
 
-        assert_se(fdset_new_fill(/* filter_cloexec= */ 1, &fdset) >= 0);
-        assert_se(!fdset_contains(fdset, fd));
+        ASSERT_OK(fdset_new_fill(/* filter_cloexec= */ 1, &fdset));
+        ASSERT_FALSE(fdset_contains(fdset, fd));
         fdset = fdset_free(fdset);
-        assert_se(fd_validate(fd) >= 0);
+        ASSERT_OK(fd_validate(fd));
 
-        assert_se(fdset_new_fill(/* filter_cloexec= */ 0, &fdset) >= 0);
-        assert_se(fdset_contains(fdset, fd));
-        flags = fcntl(fd, F_GETFD);
-        assert_se(flags >= 0);
-        assert_se(FLAGS_SET(flags, FD_CLOEXEC));
+        ASSERT_OK(fdset_new_fill(/* filter_cloexec= */ 0, &fdset));
+        ASSERT_TRUE(fdset_contains(fdset, fd));
+        flags = ASSERT_OK_ERRNO(fcntl(fd, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(flags, FD_CLOEXEC));
         fdset = fdset_free(fdset);
-        assert_se(fd_validate(fd) == -EBADF);
+        ASSERT_ERROR(fd_validate(fd), EBADF);
 
         log_open();
 }
@@ -60,15 +56,14 @@ TEST(fdset_put_dup) {
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fdset_put_dup.XXXXXX";
 
-        fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
+        fd = ASSERT_OK(mkostemp_safe(name));
 
-        fdset = fdset_new();
-        assert_se(fdset);
+        fdset = ASSERT_NOT_NULL(fdset_new());
         copyfd = fdset_put_dup(fdset, fd);
-        assert_se(copyfd >= 0 && copyfd != fd);
-        assert_se(fdset_contains(fdset, copyfd));
-        assert_se(!fdset_contains(fdset, fd));
+        ASSERT_OK(copyfd);
+        ASSERT_NE(copyfd, fd);
+        ASSERT_TRUE(fdset_contains(fdset, copyfd));
+        ASSERT_FALSE(fdset_contains(fdset, fd));
 }
 
 TEST(fdset_cloexec) {
@@ -77,22 +72,18 @@ TEST(fdset_cloexec) {
         int flags = -1;
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fdset_cloexec.XXXXXX";
 
-        fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
+        fd = ASSERT_OK(mkostemp_safe(name));
 
-        fdset = fdset_new();
-        assert_se(fdset);
-        assert_se(fdset_put(fdset, fd));
+        fdset = ASSERT_NOT_NULL(fdset_new());
+        ASSERT_OK_POSITIVE(fdset_put(fdset, fd));
 
-        assert_se(fdset_cloexec(fdset, false) >= 0);
-        flags = fcntl(fd, F_GETFD);
-        assert_se(flags >= 0);
-        assert_se(!(flags & FD_CLOEXEC));
+        ASSERT_OK(fdset_cloexec(fdset, false));
+        flags = ASSERT_OK_ERRNO(fcntl(fd, F_GETFD));
+        ASSERT_FALSE(flags & FD_CLOEXEC);
 
-        assert_se(fdset_cloexec(fdset, true) >= 0);
-        flags = fcntl(fd, F_GETFD);
-        assert_se(flags >= 0);
-        assert_se(flags & FD_CLOEXEC);
+        ASSERT_OK(fdset_cloexec(fdset, true));
+        flags = ASSERT_OK_ERRNO(fcntl(fd, F_GETFD));
+        ASSERT_TRUE(flags & FD_CLOEXEC);
 }
 
 TEST(fdset_close_others) {
@@ -100,26 +91,23 @@ TEST(fdset_close_others) {
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fdset_close_others.XXXXXX";
 
-        fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
+        fd = ASSERT_OK(mkostemp_safe(name));
 
-        fdset = fdset_new();
-        assert_se(fdset);
-        copyfd = fdset_put_dup(fdset, fd);
-        assert_se(copyfd >= 0);
+        fdset = ASSERT_NOT_NULL(fdset_new());
+        copyfd = ASSERT_OK(fdset_put_dup(fdset, fd));
 
         /* fdset_close_others() will close any logging file descriptors as well, so close them beforehand
          * and reopen them again afterwards. */
         log_close();
-        assert_se(fdset_close_others(fdset) >= 0);
+        ASSERT_OK(fdset_close_others(fdset));
 
-        assert_se(fd_validate(fd) == -EBADF);
+        ASSERT_ERROR(fd_validate(fd), EBADF);
 
         /* Open log again after checking that fd is invalid, since reopening the log might make fd a valid
          * file descriptor again. */
         (void) log_open();
 
-        assert_se(fd_validate(copyfd) >= 0);
+        ASSERT_OK(fd_validate(copyfd));
 }
 
 TEST(fdset_remove) {
@@ -127,16 +115,14 @@ TEST(fdset_remove) {
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fdset_remove.XXXXXX";
 
-        fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
+        fd = ASSERT_OK(mkostemp_safe(name));
 
-        fdset = fdset_new();
-        assert_se(fdset);
-        assert_se(fdset_put(fdset, fd) >= 0);
-        assert_se(fdset_remove(fdset, fd) >= 0);
-        assert_se(!fdset_contains(fdset, fd));
+        fdset = ASSERT_NOT_NULL(fdset_new());
+        ASSERT_OK(fdset_put(fdset, fd));
+        ASSERT_OK(fdset_remove(fdset, fd));
+        ASSERT_FALSE(fdset_contains(fdset, fd));
 
-        assert_se(fd_validate(fd) >= 0);
+        ASSERT_OK(fd_validate(fd));
 }
 
 TEST(fdset_iterate) {
@@ -146,20 +132,18 @@ TEST(fdset_iterate) {
         int c = 0;
         int a;
 
-        fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
+        fd = ASSERT_OK(mkostemp_safe(name));
 
-        fdset = fdset_new();
-        assert_se(fdset);
-        assert_se(fdset_put(fdset, fd) >= 0);
-        assert_se(fdset_put(fdset, fd) >= 0);
-        assert_se(fdset_put(fdset, fd) >= 0);
+        fdset = ASSERT_NOT_NULL(fdset_new());
+        ASSERT_OK(fdset_put(fdset, fd));
+        ASSERT_OK(fdset_put(fdset, fd));
+        ASSERT_OK(fdset_put(fdset, fd));
 
         FDSET_FOREACH(a, fdset) {
                 c++;
-                assert_se(a == fd);
+                ASSERT_EQ(a, fd);
         }
-        assert_se(c == 1);
+        ASSERT_EQ(c, 1);
 }
 
 TEST(fdset_isempty) {
@@ -167,15 +151,13 @@ TEST(fdset_isempty) {
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fdset_isempty.XXXXXX";
 
-        fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
+        fd = ASSERT_OK(mkostemp_safe(name));
 
-        fdset = fdset_new();
-        assert_se(fdset);
+        fdset = ASSERT_NOT_NULL(fdset_new());
 
-        assert_se(fdset_isempty(fdset));
-        assert_se(fdset_put(fdset, fd) >= 0);
-        assert_se(!fdset_isempty(fdset));
+        ASSERT_TRUE(fdset_isempty(fdset));
+        ASSERT_OK(fdset_put(fdset, fd));
+        ASSERT_FALSE(fdset_isempty(fdset));
 }
 
 TEST(fdset_steal_first) {
@@ -183,29 +165,27 @@ TEST(fdset_steal_first) {
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fdset_steal_first.XXXXXX";
 
-        fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
+        fd = ASSERT_OK(mkostemp_safe(name));
 
-        fdset = fdset_new();
-        assert_se(fdset);
+        fdset = ASSERT_NOT_NULL(fdset_new());
 
-        assert_se(fdset_steal_first(fdset) < 0);
-        assert_se(fdset_put(fdset, fd) >= 0);
-        assert_se(fdset_steal_first(fdset) == fd);
-        assert_se(fdset_steal_first(fdset) < 0);
-        assert_se(fdset_put(fdset, fd) >= 0);
+        ASSERT_FAIL(fdset_steal_first(fdset));
+        ASSERT_OK(fdset_put(fdset, fd));
+        ASSERT_OK_EQ(fdset_steal_first(fdset), fd);
+        ASSERT_FAIL(fdset_steal_first(fdset));
+        ASSERT_OK(fdset_put(fdset, fd));
 }
 
 TEST(fdset_new_array) {
         int fds[] = {10, 11, 12, 13};
         _cleanup_fdset_free_ FDSet *fdset = NULL;
 
-        assert_se(fdset_new_array(&fdset, fds, 4) >= 0);
-        assert_se(fdset_size(fdset) == 4);
-        assert_se(fdset_contains(fdset, 10));
-        assert_se(fdset_contains(fdset, 11));
-        assert_se(fdset_contains(fdset, 12));
-        assert_se(fdset_contains(fdset, 13));
+        ASSERT_OK(fdset_new_array(&fdset, fds, 4));
+        ASSERT_EQ(fdset_size(fdset), 4U);
+        ASSERT_TRUE(fdset_contains(fdset, 10));
+        ASSERT_TRUE(fdset_contains(fdset, 11));
+        ASSERT_TRUE(fdset_contains(fdset, 12));
+        ASSERT_TRUE(fdset_contains(fdset, 13));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
