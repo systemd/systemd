@@ -18,7 +18,7 @@ TEST(errno_name_no_fallback) {
                                  * This is not an error. */
                                 ASSERT_STREQ(mapped, errno_names[i]);
 
-                        assert_se(errno_from_name(errno_names[i]) == (int) i);
+                        ASSERT_EQ(errno_from_name(errno_names[i]), (int) i);
                 }
 
 #ifdef ECANCELLED

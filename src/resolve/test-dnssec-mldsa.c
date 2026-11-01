@@ -17,9 +17,9 @@ static void* load_base64_test_vector(const char *name, size_t *ret_size) {
         assert(name);
         assert(ret_size);
 
-        assert_se(get_testdata_dir(name, &path) >= 0);
-        assert_se(read_full_file(path, &encoded, /* ret_size= */ NULL) >= 0);
-        assert_se(unbase64mem(encoded, &decoded, ret_size) >= 0);
+        ASSERT_OK(get_testdata_dir(name, &path));
+        ASSERT_OK(read_full_file(path, &encoded, /* ret_size= */ NULL));
+        ASSERT_OK(unbase64mem(encoded, &decoded, ret_size));
 
         return decoded;
 }
@@ -39,20 +39,21 @@ static void mldsa44_fixture_new(
         assert(ret_answer);
 
         /* Deterministic example from Section 6 of draft-westerbaan-dnssec-mldsa-04. */
-        assert_se(dnskey = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "example.com."));
+        ASSERT_NOT_NULL(dnskey = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY,
+                                                              "example.com."));
         dnskey->dnskey.flags = 257;
         dnskey->dnskey.protocol = 3;
         dnskey->dnskey.algorithm = DNSSEC_ALGORITHM_MLDSA44;
         dnskey->dnskey.key = load_base64_test_vector(
                         "test-resolve/mldsa44-dnskey.b64", &dnskey->dnskey.key_size);
-        assert_se(dnskey->dnskey.key_size == 1312);
+        ASSERT_EQ(dnskey->dnskey.key_size, 1312U);
 
-        assert_se(mx = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_MX, "example.com."));
+        ASSERT_NOT_NULL(mx = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_MX, "example.com."));
         mx->ttl = 3600;
         mx->mx.priority = 10;
-        assert_se(mx->mx.exchange = strdup("mail.example.com."));
+        ASSERT_NOT_NULL(mx->mx.exchange = strdup("mail.example.com."));
 
-        assert_se(rrsig = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "example.com."));
+        ASSERT_NOT_NULL(rrsig = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "example.com."));
         rrsig->ttl = 3600;
         rrsig->rrsig.type_covered = DNS_TYPE_MX;
         rrsig->rrsig.algorithm = DNSSEC_ALGORITHM_MLDSA44;
@@ -61,17 +62,17 @@ static void mldsa44_fixture_new(
         rrsig->rrsig.expiration = 1440021600;
         rrsig->rrsig.inception = 1438207200;
         rrsig->rrsig.key_tag = 59829;
-        assert_se(rrsig->rrsig.signer = strdup("example.com."));
+        ASSERT_NOT_NULL(rrsig->rrsig.signer = strdup("example.com."));
         rrsig->rrsig.signature = load_base64_test_vector(
                         "test-resolve/mldsa44-rrsig.b64", &rrsig->rrsig.signature_size);
-        assert_se(rrsig->rrsig.signature_size == 2420);
+        ASSERT_EQ(rrsig->rrsig.signature_size, 2420U);
 
-        assert_se(dnssec_keytag(dnskey, /* mask_revoke= */ false) == rrsig->rrsig.key_tag);
-        assert_se(dnssec_key_match_rrsig(mx->key, rrsig) > 0);
-        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false) > 0);
+        ASSERT_EQ(dnssec_keytag(dnskey, /* mask_revoke= */ false), rrsig->rrsig.key_tag);
+        ASSERT_OK_POSITIVE(dnssec_key_match_rrsig(mx->key, rrsig));
+        ASSERT_OK_POSITIVE(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false));
 
-        assert_se(answer = dns_answer_new(1));
-        assert_se(dns_answer_add(answer, mx, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL) >= 0);
+        ASSERT_NOT_NULL(answer = dns_answer_new(1));
+        ASSERT_OK(dns_answer_add(answer, mx, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
 
         *ret_mx = TAKE_PTR(mx);
         *ret_rrsig = TAKE_PTR(rrsig);

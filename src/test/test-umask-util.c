@@ -14,44 +14,44 @@ int main(int argc, char *argv[]) {
 
         n = 0;
         WITH_UMASK(0123) {
-                assert_se(umask(000) == 0123);
+                ASSERT_EQ(umask(000), 0123U);
                 n++;
 
-                assert_se(get_process_umask(/* pid= */ 0, &t) == 0);
-                assert_se(t == 000);
+                ASSERT_OK_ZERO(get_process_umask(/* pid= */ 0, &t));
+                ASSERT_EQ(t, 000U);
         }
 
-        assert_se(n == 1);
-        assert_se(umask(u) == 0111);
+        ASSERT_EQ(n, 1U);
+        ASSERT_EQ(umask(u), 0111U);
 
-        assert_se(get_process_umask(getpid_cached(), &t) == 0);
-        assert_se(t == u);
+        ASSERT_OK_ZERO(get_process_umask(getpid_cached(), &t));
+        ASSERT_EQ(t, u);
 
         WITH_UMASK(0135) {
-                assert_se(umask(000) == 0135);
+                ASSERT_EQ(umask(000), 0135U);
                 n++;
 
-                assert_se(get_process_umask(/* pid= */ 0, &t) == 0);
-                assert_se(t == 000);
+                ASSERT_OK_ZERO(get_process_umask(/* pid= */ 0, &t));
+                ASSERT_EQ(t, 000U);
         }
 
-        assert_se(n == 2);
-        assert_se(umask(0111) == u);
+        ASSERT_EQ(n, 2U);
+        ASSERT_EQ(umask(0111), u);
 
-        assert_se(get_process_umask(/* pid= */ 0, &t) == 0);
-        assert_se(t == 0111);
+        ASSERT_OK_ZERO(get_process_umask(/* pid= */ 0, &t));
+        ASSERT_EQ(t, 0111U);
 
         WITH_UMASK(0315) {
-                assert_se(umask(000) == 0315);
+                ASSERT_EQ(umask(000), 0315U);
                 n++;
                 break;
         }
 
-        assert_se(n == 3);
-        assert_se(umask(u) == 0111);
+        ASSERT_EQ(n, 3U);
+        ASSERT_EQ(umask(u), 0111U);
 
-        assert_se(get_process_umask(/* pid= */ 0, &t) == 0);
-        assert_se(t == u);
+        ASSERT_OK_ZERO(get_process_umask(/* pid= */ 0, &t));
+        ASSERT_EQ(t, u);
 
         return EXIT_SUCCESS;
 }

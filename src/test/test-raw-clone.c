@@ -13,28 +13,28 @@ TEST(raw_clone) {
 
         parent = getpid();
         log_info("before clone: getpid()→"PID_FMT, parent);
-        assert_se(getpid() == parent);
+        ASSERT_EQ(getpid(), parent);
 
-        pid = raw_clone(/* flags= */ 0);
-        assert_se(pid >= 0);
+        pid = ASSERT_OK_ERRNO(raw_clone(/* flags= */ 0));
 
         pid2 = getpid();
         log_info("raw_clone: "PID_FMT" getpid()→"PID_FMT" getpid()→"PID_FMT,
                  pid, getpid(), pid2);
         if (pid == 0) {
-                assert_se(pid2 != parent);
+                ASSERT_NE(pid2, parent);
                 _exit(EXIT_SUCCESS);
         } else {
                 int status;
 
-                assert_se(pid2 == parent);
+                ASSERT_EQ(pid2, parent);
                 waitpid(pid, &status, __WCLONE);
-                assert_se(WIFEXITED(status) && WEXITSTATUS(status) == EXIT_SUCCESS);
+                ASSERT_TRUE(WIFEXITED(status));
+                ASSERT_EQ(WEXITSTATUS(status), EXIT_SUCCESS);
         }
 
         errno = 0;
-        assert_se(raw_clone(CLONE_FS|CLONE_NEWNS) == -1);
-        assert_se(errno == EINVAL || ERRNO_IS_PRIVILEGE(errno)); /* Certain container environments prohibit namespaces to us, don't fail in that case */
+        ASSERT_EQ(raw_clone(CLONE_FS|CLONE_NEWNS), -1);
+        ASSERT_TRUE(errno == EINVAL || ERRNO_IS_PRIVILEGE(errno)); /* Certain container environments prohibit namespaces to us, don't fail in that case */
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

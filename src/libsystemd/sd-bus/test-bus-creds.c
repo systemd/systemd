@@ -18,7 +18,7 @@ int main(int argc, char *argv[]) {
 
         r = sd_bus_creds_new_from_pid(&creds, /* pid= */ 0, _SD_BUS_CREDS_ALL);
         log_full_errno(r < 0 ? LOG_ERR : LOG_DEBUG, r, "sd_bus_creds_new_from_pid: %m");
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         bus_creds_dump(creds, NULL, /* terse= */ true);
 
@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
 
         r = sd_bus_creds_new_from_pid(&creds, 1, _SD_BUS_CREDS_ALL);
         if (!ERRNO_IS_NEG_PRIVILEGE(r)) {
-                assert_se(r >= 0);
+                ASSERT_OK(r);
                 putchar('\n');
                 bus_creds_dump(creds, NULL, /* terse= */ true);
         }
@@ -40,11 +40,11 @@ int main(int argc, char *argv[]) {
         else {
                 const char *unique;
 
-                assert_se(sd_bus_get_unique_name(bus, &unique) >= 0);
+                ASSERT_OK(sd_bus_get_unique_name(bus, &unique));
 
                 r = sd_bus_get_name_creds(bus, unique, _SD_BUS_CREDS_ALL, &creds);
                 log_full_errno(r < 0 ? LOG_ERR : LOG_DEBUG, r, "sd_bus_get_name_creds: %m");
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 putchar('\n');
                 bus_creds_dump(creds, NULL, /* terse= */ true);

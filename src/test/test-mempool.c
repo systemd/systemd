@@ -16,13 +16,13 @@ TEST(mempool_trim) {
         struct element *a[NN];
         size_t n_freed = 0;
 
-        assert_se(!test_mempool.first_pool);
-        assert_se(!test_mempool.freelist);
+        ASSERT_NULL(test_mempool.first_pool);
+        ASSERT_NULL(test_mempool.freelist);
 
         mempool_trim(&test_mempool);
 
         for (size_t i = 0; i < NN; i++) {
-                assert_se(a[i] = mempool_alloc_tile(&test_mempool));
+                ASSERT_NOT_NULL(a[i] = mempool_alloc_tile(&test_mempool));
                 a[i]->value = i;
         }
 
@@ -32,7 +32,7 @@ TEST(mempool_trim) {
         size_t x = 0;
         for (size_t i = 0; i < NN/3; i++) {
                 x = (x + random_u64()) % ELEMENTSOF(a);
-                assert_se(!a[x] || a[x]->value == x);
+                ASSERT_TRUE(!a[x] || a[x]->value == x);
 
                 if (a[x])
                         n_freed++;
@@ -44,7 +44,7 @@ TEST(mempool_trim) {
 
         /* free definitely at least one third */
         for (size_t i = 2; i < NN; i += 3) {
-                assert_se(!a[i] || a[i]->value == i);
+                ASSERT_TRUE(!a[i] || a[i]->value == i);
                 if (a[i])
                         n_freed++;
                 a[i] = mempool_free_tile(&test_mempool, a[i]);
@@ -55,7 +55,7 @@ TEST(mempool_trim) {
         /* Allocate another set of tiles, which will fill up the free list and allocate some new tiles */
         struct element *b[NN];
         for (size_t i = 0; i < NN; i++) {
-                assert_se(b[i] = mempool_alloc_tile(&test_mempool));
+                ASSERT_NOT_NULL(b[i] = mempool_alloc_tile(&test_mempool));
                 b[i]->value = ~(uint64_t) i;
         }
 
@@ -64,7 +64,7 @@ TEST(mempool_trim) {
         /* free everything from the original set */
 
         for (size_t i = 0; i < NN; i += 1) {
-                assert_se(!a[i] || a[i]->value == i);
+                ASSERT_TRUE(!a[i] || a[i]->value == i);
                 if (a[i])
                         n_freed++;
                 a[i] = mempool_free_tile(&test_mempool, a[i]);
@@ -75,18 +75,18 @@ TEST(mempool_trim) {
         /* and now everything from the second set too */
 
         for (size_t i = 0; i < NN; i += 1) {
-                assert_se(!b[i] || b[i]->value == ~(uint64_t) i);
+                ASSERT_TRUE(!b[i] || b[i]->value == ~(uint64_t) i);
                 if (b[i])
                         n_freed++;
                 b[i] = mempool_free_tile(&test_mempool, b[i]);
         }
 
-        assert_se(n_freed == NN * 2);
+        ASSERT_EQ(n_freed, NN * 2U);
 
         mempool_trim(&test_mempool);
 
-        assert_se(!test_mempool.first_pool);
-        assert_se(!test_mempool.freelist);
+        ASSERT_NULL(test_mempool.first_pool);
+        ASSERT_NULL(test_mempool.freelist);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

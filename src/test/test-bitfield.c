@@ -5,13 +5,13 @@
 
 #define TEST_BITS(bits, v, ...)                                         \
         ({                                                              \
-                assert_se((!!BITS_SET(bits, ##__VA_ARGS__)) == v);     \
-                assert_se((!!BITS_SET(~(bits), ##__VA_ARGS__)) == !v); \
+                ASSERT_EQ(!!BITS_SET(bits, ##__VA_ARGS__), v);          \
+                ASSERT_EQ(!!BITS_SET(~(bits), ##__VA_ARGS__), !v);      \
         })
 #define TEST_BIT(bits, v, i)                                            \
         ({                                                              \
-                assert_se((!!BIT_SET(bits, i)) == v);                   \
-                assert_se((!!BIT_SET(~(bits), i)) == !v);               \
+                ASSERT_EQ(!!BIT_SET(bits, i), v);                       \
+                ASSERT_EQ(!!BIT_SET(~(bits), i), !v);                   \
                 TEST_BITS(bits, v, i);                                  \
         })
 
@@ -34,7 +34,7 @@ TEST(bits) {
         uint8_t expected8 = 0;
         BIT_FOREACH(i, 0x81)
                 expected8 |= UINT8_C(1) << i;
-        assert_se(expected8 == 0x81);
+        ASSERT_EQ(expected8, 0x81U);
         uint8_t u8 = 0x91;
         TEST_BIT_SET(u8, 4);
         TEST_BITS_SET(u8, 0, 4, 7);
@@ -56,22 +56,22 @@ TEST(bits) {
         expected8 = 0;
         BIT_FOREACH(i, u8)
                 expected8 |= UINT8_C(1) << i;
-        assert_se(expected8 == u8);
+        ASSERT_EQ(expected8, u8);
         u8 = 0;
         TEST_BITS_CLEAR(u8, 0, 1, 2, 3, 4, 5, 6, 7);
         BIT_FOREACH(i, u8)
-                assert_se(0);
+                assert_not_reached();
         u8 = ~u8;
         TEST_BITS_SET(u8, 0, 1, 2, 3, 4, 5, 6, 7);
         count = 0;
         BIT_FOREACH(i, u8)
                 count++;
-        assert_se(count == 8);
+        ASSERT_EQ(count, 8);
         uint8_t _u8 = u8;
         SET_BITS(u8);
-        assert_se(_u8 == u8);
+        ASSERT_EQ(_u8, u8);
         CLEAR_BITS(u8);
-        assert_se(_u8 == u8);
+        ASSERT_EQ(_u8, u8);
 
         /* Test uint16_t */
         TEST_BIT_SET(0x1f81, 10);
@@ -81,7 +81,7 @@ TEST(bits) {
         uint16_t expected16 = 0;
         BIT_FOREACH(i, 0x1f81)
                 expected16 |= UINT16_C(1) << i;
-        assert_se(expected16 == 0x1f81);
+        ASSERT_EQ(expected16, 0x1f81U);
         uint16_t u16 = 0xf060;
         TEST_BIT_SET(u16, 12);
         TEST_BITS_SET(u16, 5, 6, 12, 13, 14, 15);
@@ -96,22 +96,22 @@ TEST(bits) {
         expected16 = 0;
         BIT_FOREACH(i, u16)
                 expected16 |= UINT16_C(1) << i;
-        assert_se(expected16 == u16);
+        ASSERT_EQ(expected16, u16);
         u16 = 0;
         TEST_BITS_CLEAR(u16, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
         BIT_FOREACH(i, u16)
-                assert_se(0);
+                assert_not_reached();
         u16 = ~u16;
         TEST_BITS_SET(u16, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
         count = 0;
         BIT_FOREACH(i, u16)
                 count++;
-        assert_se(count == 16);
+        ASSERT_EQ(count, 16);
         uint16_t _u16 = u16;
         SET_BITS(u16);
-        assert_se(_u16 == u16);
+        ASSERT_EQ(_u16, u16);
         CLEAR_BITS(u16);
-        assert_se(_u16 == u16);
+        ASSERT_EQ(_u16, u16);
 
         /* Test uint32_t */
         TEST_BIT_SET(0x80224f10, 11);
@@ -121,7 +121,7 @@ TEST(bits) {
         uint32_t expected32 = 0;
         BIT_FOREACH(i, 0x80224f10)
                 expected32 |= UINT32_C(1) << i;
-        assert_se(expected32 == 0x80224f10);
+        ASSERT_EQ(expected32, 0x80224f10U);
         uint32_t u32 = 0x605e0388;
         TEST_BIT_SET(u32, 3);
         TEST_BIT_SET(u32, 30);
@@ -138,22 +138,22 @@ TEST(bits) {
         expected32 = 0;
         BIT_FOREACH(i, u32)
                 expected32 |= UINT32_C(1) << i;
-        assert_se(expected32 == u32);
+        ASSERT_EQ(expected32, u32);
         u32 = 0;
         TEST_BITS_CLEAR(u32, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31);
         BIT_FOREACH(i, u32)
-                assert_se(0);
+                assert_not_reached();
         u32 = ~u32;
         TEST_BITS_SET(u32, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31);
         count = 0;
         BIT_FOREACH(i, u32)
                 count++;
-        assert_se(count == 32);
+        ASSERT_EQ(count, 32);
         uint32_t _u32 = u32;
         SET_BITS(u32);
-        assert_se(_u32 == u32);
+        ASSERT_EQ(_u32, u32);
         CLEAR_BITS(u32);
-        assert_se(_u32 == u32);
+        ASSERT_EQ(_u32, u32);
 
         /* Test uint64_t */
         TEST_BIT_SET(0x18ba1400f4857460, 60);
@@ -164,7 +164,7 @@ TEST(bits) {
         uint64_t expected64 = 0;
         BIT_FOREACH(i, 0x18ba1400f4857460)
                 expected64 |= UINT64_C(1) << i;
-        assert_se(expected64 == 0x18ba1400f4857460);
+        ASSERT_EQ(expected64, 0x18ba1400f4857460U);
         uint64_t u64 = 0xa90e2d8507a65739;
         TEST_BIT_SET(u64, 0);
         TEST_BIT_SET(u64, 63);
@@ -192,22 +192,22 @@ TEST(bits) {
         expected64 = 0;
         BIT_FOREACH(i, u64)
                 expected64 |= UINT64_C(1) << i;
-        assert_se(expected64 == u64);
+        ASSERT_EQ(expected64, u64);
         u64 = 0;
         TEST_BITS_CLEAR(u64, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63);
         BIT_FOREACH(i, u64)
-                assert_se(0);
+                assert_not_reached();
         u64 = ~u64;
         TEST_BITS_SET(u64, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63);
         count = 0;
         BIT_FOREACH(i, u64)
                 count++;
-        assert_se(count == 64);
+        ASSERT_EQ(count, 64);
         uint64_t _u64 = u64;
         SET_BITS(u64);
-        assert_se(_u64 == u64);
+        ASSERT_EQ(_u64, u64);
         CLEAR_BITS(u64);
-        assert_se(_u64 == u64);
+        ASSERT_EQ(_u64, u64);
 
         /* Verify these use cases are constant-folded. */
 #if !defined(__clang__) || (__clang_major__ >= 13)

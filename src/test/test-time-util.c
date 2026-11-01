@@ -21,183 +21,183 @@ static void set_timezone(const char *tz) {
 TEST(parse_sec) {
         usec_t u;
 
-        assert_se(parse_sec("5s", &u) >= 0);
-        assert_se(u == 5 * USEC_PER_SEC);
-        assert_se(parse_sec("5s500ms", &u) >= 0);
-        assert_se(u == 5 * USEC_PER_SEC + 500 * USEC_PER_MSEC);
-        assert_se(parse_sec(" 5s 500ms  ", &u) >= 0);
-        assert_se(u == 5 * USEC_PER_SEC + 500 * USEC_PER_MSEC);
-        assert_se(parse_sec(" 5.5s  ", &u) >= 0);
-        assert_se(u == 5 * USEC_PER_SEC + 500 * USEC_PER_MSEC);
-        assert_se(parse_sec(" 5.5s 0.5ms ", &u) >= 0);
-        assert_se(u == 5 * USEC_PER_SEC + 500 * USEC_PER_MSEC + 500);
-        assert_se(parse_sec(" .22s ", &u) >= 0);
-        assert_se(u == 220 * USEC_PER_MSEC);
-        assert_se(parse_sec(" .50y ", &u) >= 0);
-        assert_se(u == USEC_PER_YEAR / 2);
-        assert_se(parse_sec("2.5", &u) >= 0);
-        assert_se(u == 2500 * USEC_PER_MSEC);
-        assert_se(parse_sec(".7", &u) >= 0);
-        assert_se(u == 700 * USEC_PER_MSEC);
-        assert_se(parse_sec("23us", &u) >= 0);
-        assert_se(u == 23);
-        assert_se(parse_sec("23μs", &u) >= 0); /* greek small letter mu */
-        assert_se(u == 23);
-        assert_se(parse_sec("23µs", &u) >= 0); /* micro symbol */
-        assert_se(u == 23);
-        assert_se(parse_sec("infinity", &u) >= 0);
-        assert_se(u == USEC_INFINITY);
-        assert_se(parse_sec(" infinity ", &u) >= 0);
-        assert_se(u == USEC_INFINITY);
-        assert_se(parse_sec("+3.1s", &u) >= 0);
-        assert_se(u == 3100 * USEC_PER_MSEC);
-        assert_se(parse_sec("3.1s.2", &u) >= 0);
-        assert_se(u == 3300 * USEC_PER_MSEC);
-        assert_se(parse_sec("3.1 .2", &u) >= 0);
-        assert_se(u == 3300 * USEC_PER_MSEC);
-        assert_se(parse_sec("3.1 sec .2 sec", &u) >= 0);
-        assert_se(u == 3300 * USEC_PER_MSEC);
-        assert_se(parse_sec("3.1 sec 1.2 sec", &u) >= 0);
-        assert_se(u == 4300 * USEC_PER_MSEC);
+        ASSERT_OK(parse_sec("5s", &u));
+        ASSERT_EQ(u, 5 * USEC_PER_SEC);
+        ASSERT_OK(parse_sec("5s500ms", &u));
+        ASSERT_EQ(u, 5 * USEC_PER_SEC + 500 * USEC_PER_MSEC);
+        ASSERT_OK(parse_sec(" 5s 500ms  ", &u));
+        ASSERT_EQ(u, 5 * USEC_PER_SEC + 500 * USEC_PER_MSEC);
+        ASSERT_OK(parse_sec(" 5.5s  ", &u));
+        ASSERT_EQ(u, 5 * USEC_PER_SEC + 500 * USEC_PER_MSEC);
+        ASSERT_OK(parse_sec(" 5.5s 0.5ms ", &u));
+        ASSERT_EQ(u, 5 * USEC_PER_SEC + 500 * USEC_PER_MSEC + 500);
+        ASSERT_OK(parse_sec(" .22s ", &u));
+        ASSERT_EQ(u, 220 * USEC_PER_MSEC);
+        ASSERT_OK(parse_sec(" .50y ", &u));
+        ASSERT_EQ(u, USEC_PER_YEAR / 2);
+        ASSERT_OK(parse_sec("2.5", &u));
+        ASSERT_EQ(u, 2500 * USEC_PER_MSEC);
+        ASSERT_OK(parse_sec(".7", &u));
+        ASSERT_EQ(u, 700 * USEC_PER_MSEC);
+        ASSERT_OK(parse_sec("23us", &u));
+        ASSERT_EQ(u, 23U);
+        ASSERT_OK(parse_sec("23μs", &u)); /* greek small letter mu */
+        ASSERT_EQ(u, 23U);
+        ASSERT_OK(parse_sec("23µs", &u)); /* micro symbol */
+        ASSERT_EQ(u, 23U);
+        ASSERT_OK(parse_sec("infinity", &u));
+        ASSERT_EQ(u, USEC_INFINITY);
+        ASSERT_OK(parse_sec(" infinity ", &u));
+        ASSERT_EQ(u, USEC_INFINITY);
+        ASSERT_OK(parse_sec("+3.1s", &u));
+        ASSERT_EQ(u, 3100 * USEC_PER_MSEC);
+        ASSERT_OK(parse_sec("3.1s.2", &u));
+        ASSERT_EQ(u, 3300 * USEC_PER_MSEC);
+        ASSERT_OK(parse_sec("3.1 .2", &u));
+        ASSERT_EQ(u, 3300 * USEC_PER_MSEC);
+        ASSERT_OK(parse_sec("3.1 sec .2 sec", &u));
+        ASSERT_EQ(u, 3300 * USEC_PER_MSEC);
+        ASSERT_OK(parse_sec("3.1 sec 1.2 sec", &u));
+        ASSERT_EQ(u, 4300 * USEC_PER_MSEC);
 
-        assert_se(parse_sec(" xyz ", &u) < 0);
-        assert_se(parse_sec("", &u) < 0);
-        assert_se(parse_sec(" . ", &u) < 0);
-        assert_se(parse_sec(" 5. ", &u) < 0);
-        assert_se(parse_sec(".s ", &u) < 0);
-        assert_se(parse_sec("-5s ", &u) < 0);
-        assert_se(parse_sec("-0.3s ", &u) < 0);
-        assert_se(parse_sec("-0.0s ", &u) < 0);
-        assert_se(parse_sec("-0.-0s ", &u) < 0);
-        assert_se(parse_sec("0.-0s ", &u) < 0);
-        assert_se(parse_sec("3.-0s ", &u) < 0);
-        assert_se(parse_sec(" infinity .7", &u) < 0);
-        assert_se(parse_sec(".3 infinity", &u) < 0);
-        assert_se(parse_sec("3.+1s", &u) < 0);
-        assert_se(parse_sec("3. 1s", &u) < 0);
-        assert_se(parse_sec("3.s", &u) < 0);
-        assert_se(parse_sec("12.34.56", &u) < 0);
-        assert_se(parse_sec("12..34", &u) < 0);
-        assert_se(parse_sec("..1234", &u) < 0);
-        assert_se(parse_sec("1234..", &u) < 0);
+        ASSERT_FAIL(parse_sec(" xyz ", &u));
+        ASSERT_FAIL(parse_sec("", &u));
+        ASSERT_FAIL(parse_sec(" . ", &u));
+        ASSERT_FAIL(parse_sec(" 5. ", &u));
+        ASSERT_FAIL(parse_sec(".s ", &u));
+        ASSERT_FAIL(parse_sec("-5s ", &u));
+        ASSERT_FAIL(parse_sec("-0.3s ", &u));
+        ASSERT_FAIL(parse_sec("-0.0s ", &u));
+        ASSERT_FAIL(parse_sec("-0.-0s ", &u));
+        ASSERT_FAIL(parse_sec("0.-0s ", &u));
+        ASSERT_FAIL(parse_sec("3.-0s ", &u));
+        ASSERT_FAIL(parse_sec(" infinity .7", &u));
+        ASSERT_FAIL(parse_sec(".3 infinity", &u));
+        ASSERT_FAIL(parse_sec("3.+1s", &u));
+        ASSERT_FAIL(parse_sec("3. 1s", &u));
+        ASSERT_FAIL(parse_sec("3.s", &u));
+        ASSERT_FAIL(parse_sec("12.34.56", &u));
+        ASSERT_FAIL(parse_sec("12..34", &u));
+        ASSERT_FAIL(parse_sec("..1234", &u));
+        ASSERT_FAIL(parse_sec("1234..", &u));
 }
 
 TEST(parse_sec_fix_0) {
         usec_t u;
 
-        assert_se(parse_sec_fix_0("5s", &u) >= 0);
-        assert_se(u == 5 * USEC_PER_SEC);
-        assert_se(parse_sec_fix_0("0s", &u) >= 0);
-        assert_se(u == USEC_INFINITY);
-        assert_se(parse_sec_fix_0("0", &u) >= 0);
-        assert_se(u == USEC_INFINITY);
-        assert_se(parse_sec_fix_0(" 0", &u) >= 0);
-        assert_se(u == USEC_INFINITY);
+        ASSERT_OK(parse_sec_fix_0("5s", &u));
+        ASSERT_EQ(u, 5 * USEC_PER_SEC);
+        ASSERT_OK(parse_sec_fix_0("0s", &u));
+        ASSERT_EQ(u, USEC_INFINITY);
+        ASSERT_OK(parse_sec_fix_0("0", &u));
+        ASSERT_EQ(u, USEC_INFINITY);
+        ASSERT_OK(parse_sec_fix_0(" 0", &u));
+        ASSERT_EQ(u, USEC_INFINITY);
 }
 
 TEST(parse_sec_def_infinity) {
         usec_t u;
 
-        assert_se(parse_sec_def_infinity("5s", &u) >= 0);
-        assert_se(u == 5 * USEC_PER_SEC);
-        assert_se(parse_sec_def_infinity("", &u) >= 0);
-        assert_se(u == USEC_INFINITY);
-        assert_se(parse_sec_def_infinity("     ", &u) >= 0);
-        assert_se(u == USEC_INFINITY);
-        assert_se(parse_sec_def_infinity("0s", &u) >= 0);
-        assert_se(u == 0);
-        assert_se(parse_sec_def_infinity("0", &u) >= 0);
-        assert_se(u == 0);
-        assert_se(parse_sec_def_infinity(" 0", &u) >= 0);
-        assert_se(u == 0);
-        assert_se(parse_sec_def_infinity("-5s", &u) < 0);
+        ASSERT_OK(parse_sec_def_infinity("5s", &u));
+        ASSERT_EQ(u, 5 * USEC_PER_SEC);
+        ASSERT_OK(parse_sec_def_infinity("", &u));
+        ASSERT_EQ(u, USEC_INFINITY);
+        ASSERT_OK(parse_sec_def_infinity("     ", &u));
+        ASSERT_EQ(u, USEC_INFINITY);
+        ASSERT_OK(parse_sec_def_infinity("0s", &u));
+        ASSERT_EQ(u, 0U);
+        ASSERT_OK(parse_sec_def_infinity("0", &u));
+        ASSERT_EQ(u, 0U);
+        ASSERT_OK(parse_sec_def_infinity(" 0", &u));
+        ASSERT_EQ(u, 0U);
+        ASSERT_FAIL(parse_sec_def_infinity("-5s", &u));
 }
 
 TEST(parse_time) {
         usec_t u;
 
-        assert_se(parse_time("5", &u, 1) >= 0);
-        assert_se(u == 5);
+        ASSERT_OK(parse_time("5", &u, 1));
+        ASSERT_EQ(u, 5U);
 
-        assert_se(parse_time("5", &u, USEC_PER_MSEC) >= 0);
-        assert_se(u == 5 * USEC_PER_MSEC);
+        ASSERT_OK(parse_time("5", &u, USEC_PER_MSEC));
+        ASSERT_EQ(u, 5 * USEC_PER_MSEC);
 
-        assert_se(parse_time("5", &u, USEC_PER_SEC) >= 0);
-        assert_se(u == 5 * USEC_PER_SEC);
+        ASSERT_OK(parse_time("5", &u, USEC_PER_SEC));
+        ASSERT_EQ(u, 5 * USEC_PER_SEC);
 
-        assert_se(parse_time("5s", &u, 1) >= 0);
-        assert_se(u == 5 * USEC_PER_SEC);
+        ASSERT_OK(parse_time("5s", &u, 1));
+        ASSERT_EQ(u, 5 * USEC_PER_SEC);
 
-        assert_se(parse_time("5s", &u, USEC_PER_SEC) >= 0);
-        assert_se(u == 5 * USEC_PER_SEC);
+        ASSERT_OK(parse_time("5s", &u, USEC_PER_SEC));
+        ASSERT_EQ(u, 5 * USEC_PER_SEC);
 
-        assert_se(parse_time("5s", &u, USEC_PER_MSEC) >= 0);
-        assert_se(u == 5 * USEC_PER_SEC);
+        ASSERT_OK(parse_time("5s", &u, USEC_PER_MSEC));
+        ASSERT_EQ(u, 5 * USEC_PER_SEC);
 
-        assert_se(parse_time("11111111111111y", &u, 1) == -ERANGE);
-        assert_se(parse_time("1.1111111111111y", &u, 1) >= 0);
+        ASSERT_ERROR(parse_time("11111111111111y", &u, 1), ERANGE);
+        ASSERT_OK(parse_time("1.1111111111111y", &u, 1));
 }
 
 TEST(parse_nsec) {
         nsec_t u;
 
-        assert_se(parse_nsec("5s", &u) >= 0);
-        assert_se(u == 5 * NSEC_PER_SEC);
-        assert_se(parse_nsec("5s500ms", &u) >= 0);
-        assert_se(u == 5 * NSEC_PER_SEC + 500 * NSEC_PER_MSEC);
-        assert_se(parse_nsec(" 5s 500ms  ", &u) >= 0);
-        assert_se(u == 5 * NSEC_PER_SEC + 500 * NSEC_PER_MSEC);
-        assert_se(parse_nsec(" 5.5s  ", &u) >= 0);
-        assert_se(u == 5 * NSEC_PER_SEC + 500 * NSEC_PER_MSEC);
-        assert_se(parse_nsec(" 5.5s 0.5ms ", &u) >= 0);
-        assert_se(u == 5 * NSEC_PER_SEC + 500 * NSEC_PER_MSEC + 500 * NSEC_PER_USEC);
-        assert_se(parse_nsec(" .22s ", &u) >= 0);
-        assert_se(u == 220 * NSEC_PER_MSEC);
-        assert_se(parse_nsec(" .50y ", &u) >= 0);
-        assert_se(u == NSEC_PER_YEAR / 2);
-        assert_se(parse_nsec("2.5", &u) >= 0);
-        assert_se(u == 2);
-        assert_se(parse_nsec(".7", &u) >= 0);
-        assert_se(u == 0);
-        assert_se(parse_nsec("infinity", &u) >= 0);
-        assert_se(u == NSEC_INFINITY);
-        assert_se(parse_nsec(" infinity ", &u) >= 0);
-        assert_se(u == NSEC_INFINITY);
-        assert_se(parse_nsec("+3.1s", &u) >= 0);
-        assert_se(u == 3100 * NSEC_PER_MSEC);
-        assert_se(parse_nsec("3.1s.2", &u) >= 0);
-        assert_se(u == 3100 * NSEC_PER_MSEC);
-        assert_se(parse_nsec("3.1 .2s", &u) >= 0);
-        assert_se(u == 200 * NSEC_PER_MSEC + 3);
-        assert_se(parse_nsec("3.1 sec .2 sec", &u) >= 0);
-        assert_se(u == 3300 * NSEC_PER_MSEC);
-        assert_se(parse_nsec("3.1 sec 1.2 sec", &u) >= 0);
-        assert_se(u == 4300 * NSEC_PER_MSEC);
+        ASSERT_OK(parse_nsec("5s", &u));
+        ASSERT_EQ(u, 5 * NSEC_PER_SEC);
+        ASSERT_OK(parse_nsec("5s500ms", &u));
+        ASSERT_EQ(u, 5 * NSEC_PER_SEC + 500 * NSEC_PER_MSEC);
+        ASSERT_OK(parse_nsec(" 5s 500ms  ", &u));
+        ASSERT_EQ(u, 5 * NSEC_PER_SEC + 500 * NSEC_PER_MSEC);
+        ASSERT_OK(parse_nsec(" 5.5s  ", &u));
+        ASSERT_EQ(u, 5 * NSEC_PER_SEC + 500 * NSEC_PER_MSEC);
+        ASSERT_OK(parse_nsec(" 5.5s 0.5ms ", &u));
+        ASSERT_EQ(u, 5 * NSEC_PER_SEC + 500 * NSEC_PER_MSEC + 500 * NSEC_PER_USEC);
+        ASSERT_OK(parse_nsec(" .22s ", &u));
+        ASSERT_EQ(u, 220 * NSEC_PER_MSEC);
+        ASSERT_OK(parse_nsec(" .50y ", &u));
+        ASSERT_EQ(u, NSEC_PER_YEAR / 2);
+        ASSERT_OK(parse_nsec("2.5", &u));
+        ASSERT_EQ(u, 2U);
+        ASSERT_OK(parse_nsec(".7", &u));
+        ASSERT_EQ(u, 0U);
+        ASSERT_OK(parse_nsec("infinity", &u));
+        ASSERT_EQ(u, NSEC_INFINITY);
+        ASSERT_OK(parse_nsec(" infinity ", &u));
+        ASSERT_EQ(u, NSEC_INFINITY);
+        ASSERT_OK(parse_nsec("+3.1s", &u));
+        ASSERT_EQ(u, 3100 * NSEC_PER_MSEC);
+        ASSERT_OK(parse_nsec("3.1s.2", &u));
+        ASSERT_EQ(u, 3100 * NSEC_PER_MSEC);
+        ASSERT_OK(parse_nsec("3.1 .2s", &u));
+        ASSERT_EQ(u, 200 * NSEC_PER_MSEC + 3);
+        ASSERT_OK(parse_nsec("3.1 sec .2 sec", &u));
+        ASSERT_EQ(u, 3300 * NSEC_PER_MSEC);
+        ASSERT_OK(parse_nsec("3.1 sec 1.2 sec", &u));
+        ASSERT_EQ(u, 4300 * NSEC_PER_MSEC);
 
-        assert_se(parse_nsec(" xyz ", &u) < 0);
-        assert_se(parse_nsec("", &u) < 0);
-        assert_se(parse_nsec(" . ", &u) < 0);
-        assert_se(parse_nsec(" 5. ", &u) < 0);
-        assert_se(parse_nsec(".s ", &u) < 0);
-        assert_se(parse_nsec(" infinity .7", &u) < 0);
-        assert_se(parse_nsec(".3 infinity", &u) < 0);
-        assert_se(parse_nsec("-5s ", &u) < 0);
-        assert_se(parse_nsec("-0.3s ", &u) < 0);
-        assert_se(parse_nsec("-0.0s ", &u) < 0);
-        assert_se(parse_nsec("-0.-0s ", &u) < 0);
-        assert_se(parse_nsec("0.-0s ", &u) < 0);
-        assert_se(parse_nsec("3.-0s ", &u) < 0);
-        assert_se(parse_nsec(" infinity .7", &u) < 0);
-        assert_se(parse_nsec(".3 infinity", &u) < 0);
-        assert_se(parse_nsec("3.+1s", &u) < 0);
-        assert_se(parse_nsec("3. 1s", &u) < 0);
-        assert_se(parse_nsec("3.s", &u) < 0);
-        assert_se(parse_nsec("12.34.56", &u) < 0);
-        assert_se(parse_nsec("12..34", &u) < 0);
-        assert_se(parse_nsec("..1234", &u) < 0);
-        assert_se(parse_nsec("1234..", &u) < 0);
-        assert_se(parse_nsec("1111111111111y", &u) == -ERANGE);
-        assert_se(parse_nsec("1.111111111111y", &u) >= 0);
+        ASSERT_FAIL(parse_nsec(" xyz ", &u));
+        ASSERT_FAIL(parse_nsec("", &u));
+        ASSERT_FAIL(parse_nsec(" . ", &u));
+        ASSERT_FAIL(parse_nsec(" 5. ", &u));
+        ASSERT_FAIL(parse_nsec(".s ", &u));
+        ASSERT_FAIL(parse_nsec(" infinity .7", &u));
+        ASSERT_FAIL(parse_nsec(".3 infinity", &u));
+        ASSERT_FAIL(parse_nsec("-5s ", &u));
+        ASSERT_FAIL(parse_nsec("-0.3s ", &u));
+        ASSERT_FAIL(parse_nsec("-0.0s ", &u));
+        ASSERT_FAIL(parse_nsec("-0.-0s ", &u));
+        ASSERT_FAIL(parse_nsec("0.-0s ", &u));
+        ASSERT_FAIL(parse_nsec("3.-0s ", &u));
+        ASSERT_FAIL(parse_nsec(" infinity .7", &u));
+        ASSERT_FAIL(parse_nsec(".3 infinity", &u));
+        ASSERT_FAIL(parse_nsec("3.+1s", &u));
+        ASSERT_FAIL(parse_nsec("3. 1s", &u));
+        ASSERT_FAIL(parse_nsec("3.s", &u));
+        ASSERT_FAIL(parse_nsec("12.34.56", &u));
+        ASSERT_FAIL(parse_nsec("12..34", &u));
+        ASSERT_FAIL(parse_nsec("..1234", &u));
+        ASSERT_FAIL(parse_nsec("1234..", &u));
+        ASSERT_ERROR(parse_nsec("1111111111111y", &u), ERANGE);
+        ASSERT_OK(parse_nsec("1.111111111111y", &u));
 }
 
 static void test_format_timespan_one(usec_t x, usec_t accuracy) {
@@ -207,16 +207,16 @@ static void test_format_timespan_one(usec_t x, usec_t accuracy) {
 
         log_debug(USEC_FMT"     (at accuracy "USEC_FMT")", x, accuracy);
 
-        assert_se(t = format_timespan(l, sizeof l, x, accuracy));
+        ASSERT_NOT_NULL(t = format_timespan(l, sizeof l, x, accuracy));
         log_debug(" = <%s>", t);
 
-        assert_se(parse_sec(t, &y) >= 0);
+        ASSERT_OK(parse_sec(t, &y));
         log_debug(" = "USEC_FMT, y);
 
         if (accuracy <= 0)
                 accuracy = 1;
 
-        assert_se(x / accuracy == y / accuracy);
+        ASSERT_EQ(x / accuracy, y / accuracy);
 }
 
 static void test_format_timespan_accuracy(usec_t accuracy) {
@@ -253,96 +253,95 @@ TEST(format_timespan) {
 
         /* See issue #23928. */
         _cleanup_free_ char *buf = NULL;
-        assert_se(buf = new(char, 5));
-        assert_se(buf == format_timespan(buf, 5, 100005, 1000));
+        ASSERT_NOT_NULL(buf = new(char, 5));
+        ASSERT_PTR_EQ(buf, format_timespan(buf, 5, 100005, 1000));
 }
 
 TEST(verify_timezone) {
-        assert_se(verify_timezone("Europe/Berlin", LOG_DEBUG) == 0);
-        assert_se(verify_timezone("Australia/Sydney", LOG_DEBUG) == 0);
-        assert_se(verify_timezone("Europe/Do not exist", LOG_DEBUG) == -EINVAL);
-        assert_se(verify_timezone("Europe/DoNotExist", LOG_DEBUG) == -ENOENT);
-        assert_se(verify_timezone("/DoNotExist", LOG_DEBUG) == -EINVAL);
-        assert_se(verify_timezone("DoNotExist/", LOG_DEBUG) == -EINVAL);
+        ASSERT_OK_ZERO(verify_timezone("Europe/Berlin", LOG_DEBUG));
+        ASSERT_OK_ZERO(verify_timezone("Australia/Sydney", LOG_DEBUG));
+        ASSERT_ERROR(verify_timezone("Europe/Do not exist", LOG_DEBUG), EINVAL);
+        ASSERT_ERROR(verify_timezone("Europe/DoNotExist", LOG_DEBUG), ENOENT);
+        ASSERT_ERROR(verify_timezone("/DoNotExist", LOG_DEBUG), EINVAL);
+        ASSERT_ERROR(verify_timezone("DoNotExist/", LOG_DEBUG), EINVAL);
 }
 
 TEST(timezone_is_valid) {
-        assert_se(timezone_is_valid("Europe/Berlin", LOG_ERR));
-        assert_se(timezone_is_valid("Australia/Sydney", LOG_ERR));
-        assert_se(!timezone_is_valid("Europe/Do not exist", LOG_ERR));
+        ASSERT_TRUE(timezone_is_valid("Europe/Berlin", LOG_ERR));
+        ASSERT_TRUE(timezone_is_valid("Australia/Sydney", LOG_ERR));
+        ASSERT_FALSE(timezone_is_valid("Europe/Do not exist", LOG_ERR));
 }
 
 TEST(get_timezones) {
         _cleanup_strv_free_ char **zones = NULL;
         int r;
 
-        r = get_timezones(&zones);
-        assert_se(r == 0);
+        ASSERT_OK_ZERO(get_timezones(&zones));
 
         STRV_FOREACH(zone, zones) {
                 r = verify_timezone(*zone, LOG_ERR);
                 log_debug_errno(r, "verify_timezone(\"%s\"): %m", *zone);
-                assert_se(r >= 0 || r == -ENOENT);
+                ASSERT_OK_OR(r, -ENOENT);
         }
 }
 
 TEST(usec_add) {
-        assert_se(usec_add(0, 0) == 0);
-        assert_se(usec_add(1, 4) == 5);
-        assert_se(usec_add(USEC_INFINITY, 5) == USEC_INFINITY);
-        assert_se(usec_add(5, USEC_INFINITY) == USEC_INFINITY);
-        assert_se(usec_add(USEC_INFINITY-5, 2) == USEC_INFINITY-3);
-        assert_se(usec_add(USEC_INFINITY-2, 2) == USEC_INFINITY);
-        assert_se(usec_add(USEC_INFINITY-1, 2) == USEC_INFINITY);
-        assert_se(usec_add(USEC_INFINITY, 2) == USEC_INFINITY);
+        ASSERT_EQ(usec_add(0, 0), 0U);
+        ASSERT_EQ(usec_add(1, 4), 5U);
+        ASSERT_EQ(usec_add(USEC_INFINITY, 5), USEC_INFINITY);
+        ASSERT_EQ(usec_add(5, USEC_INFINITY), USEC_INFINITY);
+        ASSERT_EQ(usec_add(USEC_INFINITY-5, 2), USEC_INFINITY-3);
+        ASSERT_EQ(usec_add(USEC_INFINITY-2, 2), USEC_INFINITY);
+        ASSERT_EQ(usec_add(USEC_INFINITY-1, 2), USEC_INFINITY);
+        ASSERT_EQ(usec_add(USEC_INFINITY, 2), USEC_INFINITY);
 }
 
 TEST(usec_sub_unsigned) {
-        assert_se(usec_sub_unsigned(/* timestamp= */ 0, /* delta= */ 0) == 0);
-        assert_se(usec_sub_unsigned(/* timestamp= */ 0, 2) == 0);
-        assert_se(usec_sub_unsigned(/* timestamp= */ 0, USEC_INFINITY) == 0);
-        assert_se(usec_sub_unsigned(1, /* delta= */ 0) == 1);
-        assert_se(usec_sub_unsigned(1, 1) == 0);
-        assert_se(usec_sub_unsigned(1, 2) == 0);
-        assert_se(usec_sub_unsigned(1, 3) == 0);
-        assert_se(usec_sub_unsigned(1, USEC_INFINITY) == 0);
-        assert_se(usec_sub_unsigned(USEC_INFINITY-1, /* delta= */ 0) == USEC_INFINITY-1);
-        assert_se(usec_sub_unsigned(USEC_INFINITY-1, 1) == USEC_INFINITY-2);
-        assert_se(usec_sub_unsigned(USEC_INFINITY-1, 2) == USEC_INFINITY-3);
-        assert_se(usec_sub_unsigned(USEC_INFINITY-1, USEC_INFINITY-2) == 1);
-        assert_se(usec_sub_unsigned(USEC_INFINITY-1, USEC_INFINITY-1) == 0);
-        assert_se(usec_sub_unsigned(USEC_INFINITY-1, USEC_INFINITY) == 0);
-        assert_se(usec_sub_unsigned(USEC_INFINITY, /* delta= */ 0) == USEC_INFINITY);
-        assert_se(usec_sub_unsigned(USEC_INFINITY, 1) == USEC_INFINITY);
-        assert_se(usec_sub_unsigned(USEC_INFINITY, 2) == USEC_INFINITY);
-        assert_se(usec_sub_unsigned(USEC_INFINITY, USEC_INFINITY) == USEC_INFINITY);
+        ASSERT_EQ(usec_sub_unsigned(/* timestamp= */ 0, /* delta= */ 0), 0U);
+        ASSERT_EQ(usec_sub_unsigned(/* timestamp= */ 0, 2), 0U);
+        ASSERT_EQ(usec_sub_unsigned(/* timestamp= */ 0, USEC_INFINITY), 0U);
+        ASSERT_EQ(usec_sub_unsigned(1, /* delta= */ 0), 1U);
+        ASSERT_EQ(usec_sub_unsigned(1, 1), 0U);
+        ASSERT_EQ(usec_sub_unsigned(1, 2), 0U);
+        ASSERT_EQ(usec_sub_unsigned(1, 3), 0U);
+        ASSERT_EQ(usec_sub_unsigned(1, USEC_INFINITY), 0U);
+        ASSERT_EQ(usec_sub_unsigned(USEC_INFINITY-1, /* delta= */ 0), USEC_INFINITY-1);
+        ASSERT_EQ(usec_sub_unsigned(USEC_INFINITY-1, 1), USEC_INFINITY-2);
+        ASSERT_EQ(usec_sub_unsigned(USEC_INFINITY-1, 2), USEC_INFINITY-3);
+        ASSERT_EQ(usec_sub_unsigned(USEC_INFINITY-1, USEC_INFINITY-2), 1U);
+        ASSERT_EQ(usec_sub_unsigned(USEC_INFINITY-1, USEC_INFINITY-1), 0U);
+        ASSERT_EQ(usec_sub_unsigned(USEC_INFINITY-1, USEC_INFINITY), 0U);
+        ASSERT_EQ(usec_sub_unsigned(USEC_INFINITY, /* delta= */ 0), USEC_INFINITY);
+        ASSERT_EQ(usec_sub_unsigned(USEC_INFINITY, 1), USEC_INFINITY);
+        ASSERT_EQ(usec_sub_unsigned(USEC_INFINITY, 2), USEC_INFINITY);
+        ASSERT_EQ(usec_sub_unsigned(USEC_INFINITY, USEC_INFINITY), USEC_INFINITY);
 }
 
 TEST(usec_sub_signed) {
-        assert_se(usec_sub_signed(/* timestamp= */ 0, /* delta= */ 0) == 0);
-        assert_se(usec_sub_signed(4, 1) == 3);
-        assert_se(usec_sub_signed(4, 4) == 0);
-        assert_se(usec_sub_signed(4, 5) == 0);
+        ASSERT_EQ(usec_sub_signed(/* timestamp= */ 0, /* delta= */ 0), 0U);
+        ASSERT_EQ(usec_sub_signed(4, 1), 3U);
+        ASSERT_EQ(usec_sub_signed(4, 4), 0U);
+        ASSERT_EQ(usec_sub_signed(4, 5), 0U);
 
-        assert_se(usec_sub_signed(USEC_INFINITY-3, -3) == USEC_INFINITY);
-        assert_se(usec_sub_signed(USEC_INFINITY-3, -4) == USEC_INFINITY);
-        assert_se(usec_sub_signed(USEC_INFINITY-3, -5) == USEC_INFINITY);
-        assert_se(usec_sub_signed(USEC_INFINITY, 5) == USEC_INFINITY);
+        ASSERT_EQ(usec_sub_signed(USEC_INFINITY-3, -3), USEC_INFINITY);
+        ASSERT_EQ(usec_sub_signed(USEC_INFINITY-3, -4), USEC_INFINITY);
+        ASSERT_EQ(usec_sub_signed(USEC_INFINITY-3, -5), USEC_INFINITY);
+        ASSERT_EQ(usec_sub_signed(USEC_INFINITY, 5), USEC_INFINITY);
 
-        assert_se(usec_sub_signed(/* timestamp= */ 0, INT64_MAX) == 0);
-        assert_se(usec_sub_signed(/* timestamp= */ 0, -INT64_MAX) == INT64_MAX);
-        assert_se(usec_sub_signed(/* timestamp= */ 0, INT64_MIN) == (usec_t) INT64_MAX + 1);
-        assert_se(usec_sub_signed(/* timestamp= */ 0, -(INT64_MIN+1)) == 0);
+        ASSERT_EQ(usec_sub_signed(/* timestamp= */ 0, INT64_MAX), 0U);
+        ASSERT_EQ(usec_sub_signed(/* timestamp= */ 0, -INT64_MAX), (usec_t) INT64_MAX);
+        ASSERT_EQ(usec_sub_signed(/* timestamp= */ 0, INT64_MIN), (usec_t) INT64_MAX + 1);
+        ASSERT_EQ(usec_sub_signed(/* timestamp= */ 0, -(INT64_MIN+1)), 0U);
 
-        assert_se(usec_sub_signed(USEC_INFINITY, INT64_MAX) == USEC_INFINITY);
-        assert_se(usec_sub_signed(USEC_INFINITY, -INT64_MAX) == USEC_INFINITY);
-        assert_se(usec_sub_signed(USEC_INFINITY, INT64_MIN) == USEC_INFINITY);
-        assert_se(usec_sub_signed(USEC_INFINITY, -(INT64_MIN+1)) == USEC_INFINITY);
+        ASSERT_EQ(usec_sub_signed(USEC_INFINITY, INT64_MAX), USEC_INFINITY);
+        ASSERT_EQ(usec_sub_signed(USEC_INFINITY, -INT64_MAX), USEC_INFINITY);
+        ASSERT_EQ(usec_sub_signed(USEC_INFINITY, INT64_MIN), USEC_INFINITY);
+        ASSERT_EQ(usec_sub_signed(USEC_INFINITY, -(INT64_MIN+1)), USEC_INFINITY);
 
-        assert_se(usec_sub_signed(USEC_INFINITY-1, INT64_MAX) == USEC_INFINITY-1-INT64_MAX);
-        assert_se(usec_sub_signed(USEC_INFINITY-1, -INT64_MAX) == USEC_INFINITY);
-        assert_se(usec_sub_signed(USEC_INFINITY-1, INT64_MIN) == USEC_INFINITY);
-        assert_se(usec_sub_signed(USEC_INFINITY-1, -(INT64_MIN+1)) == USEC_INFINITY-1-((usec_t) (-(INT64_MIN+1))));
+        ASSERT_EQ(usec_sub_signed(USEC_INFINITY-1, INT64_MAX), USEC_INFINITY-1-INT64_MAX);
+        ASSERT_EQ(usec_sub_signed(USEC_INFINITY-1, -INT64_MAX), USEC_INFINITY);
+        ASSERT_EQ(usec_sub_signed(USEC_INFINITY-1, INT64_MIN), USEC_INFINITY);
+        ASSERT_EQ(usec_sub_signed(USEC_INFINITY-1, -(INT64_MIN+1)), USEC_INFINITY-1-((usec_t) (-(INT64_MIN+1))));
 }
 
 TEST(format_timestamp) {
@@ -352,47 +351,48 @@ TEST(format_timestamp) {
 
                 x = random_u64_range(USEC_TIMESTAMP_FORMATTABLE_MAX - USEC_PER_SEC) + USEC_PER_SEC;
 
-                assert_se(format_timestamp(buf, sizeof(buf), x));
+                ASSERT_NOT_NULL(format_timestamp(buf, sizeof(buf), x));
                 log_debug("%s", buf);
-                assert_se(parse_timestamp(buf, &y) >= 0);
-                assert_se(x / USEC_PER_SEC == y / USEC_PER_SEC);
+                ASSERT_OK(parse_timestamp(buf, &y));
+                ASSERT_EQ(x / USEC_PER_SEC, y / USEC_PER_SEC);
 
-                assert_se(format_timestamp_style(buf, sizeof(buf), x, TIMESTAMP_UNIX));
+                ASSERT_NOT_NULL(format_timestamp_style(buf, sizeof(buf), x, TIMESTAMP_UNIX));
                 log_debug("%s", buf);
-                assert_se(parse_timestamp(buf, &y) >= 0);
-                assert_se(x / USEC_PER_SEC == y / USEC_PER_SEC);
+                ASSERT_OK(parse_timestamp(buf, &y));
+                ASSERT_EQ(x / USEC_PER_SEC, y / USEC_PER_SEC);
 
-                assert_se(format_timestamp_style(buf, sizeof(buf), x, TIMESTAMP_UTC));
+                ASSERT_NOT_NULL(format_timestamp_style(buf, sizeof(buf), x, TIMESTAMP_UTC));
                 log_debug("%s", buf);
-                assert_se(parse_timestamp(buf, &y) >= 0);
-                assert_se(x / USEC_PER_SEC == y / USEC_PER_SEC);
+                ASSERT_OK(parse_timestamp(buf, &y));
+                ASSERT_EQ(x / USEC_PER_SEC, y / USEC_PER_SEC);
 
-                assert_se(format_timestamp_style(buf, sizeof(buf), x, TIMESTAMP_US));
+                ASSERT_NOT_NULL(format_timestamp_style(buf, sizeof(buf), x, TIMESTAMP_US));
                 log_debug("%s", buf);
-                assert_se(parse_timestamp(buf, &y) >= 0);
-                assert_se(x == y);
+                ASSERT_OK(parse_timestamp(buf, &y));
+                ASSERT_EQ(x, y);
 
-                assert_se(format_timestamp_style(buf, sizeof(buf), x, TIMESTAMP_US_UTC));
+                ASSERT_NOT_NULL(format_timestamp_style(buf, sizeof(buf), x, TIMESTAMP_US_UTC));
                 log_debug("%s", buf);
-                assert_se(parse_timestamp(buf, &y) >= 0);
-                assert_se(x == y);
+                ASSERT_OK(parse_timestamp(buf, &y));
+                ASSERT_EQ(x, y);
 
                 if (x > 2 * USEC_PER_DAY) {
-                        assert_se(format_timestamp_style(buf, sizeof(buf), x, TIMESTAMP_DATE));
+                        ASSERT_NOT_NULL(format_timestamp_style(buf, sizeof(buf), x, TIMESTAMP_DATE));
                         log_debug("%s", buf);
-                        assert_se(parse_timestamp(buf, &y) >= 0);
-                        assert_se(y > usec_sub_unsigned(x, 2 * USEC_PER_DAY) && y < usec_add(x, 2 * USEC_PER_DAY));
+                        ASSERT_OK(parse_timestamp(buf, &y));
+                        ASSERT_GT(y, usec_sub_unsigned(x, 2 * USEC_PER_DAY));
+                        ASSERT_LT(y, usec_add(x, 2 * USEC_PER_DAY));
                 }
 
-                assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+                ASSERT_NOT_NULL(format_timestamp_relative(buf, sizeof(buf), x));
                 log_debug("%s", buf);
-                assert_se(parse_timestamp(buf, &y) >= 0);
+                ASSERT_OK(parse_timestamp(buf, &y));
 
                 /* The two calls above will run with a slightly different local time. Make sure we are in the same
                  * range however, but give enough leeway that this is unlikely to explode. And of course,
                  * format_timestamp_relative() scales the accuracy with the distance from the current time up to one
                  * month, cover for that too. */
-                assert_se(y > x ? y - x : x - y <= USEC_PER_MONTH + USEC_PER_DAY);
+                ASSERT_LE(y > x ? y - x : x - y, USEC_PER_MONTH + USEC_PER_DAY);
         }
 }
 
@@ -513,7 +513,7 @@ TEST(FORMAT_TIMESTAMP_with_tz) {
         if (!slow_tests_enabled())
                 return (void) log_tests_skipped("slow tests are disabled");
 
-        assert_se(get_timezones(&timezones) >= 0);
+        ASSERT_OK(get_timezones(&timezones));
         STRV_FOREACH(tz, timezones)
                 test_format_timestamp_with_tz_one(*tz);
 }
@@ -524,69 +524,69 @@ TEST(format_timestamp_relative_full) {
 
         /* Years and months */
         x = now(CLOCK_REALTIME) - (1*USEC_PER_YEAR + 1*USEC_PER_MONTH);
-        assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, /* implicit_left= */ true));
+        ASSERT_NOT_NULL(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, /* implicit_left= */ true));
         log_debug("%s", buf);
         ASSERT_STREQ(buf, "1 year 1 month ago");
 
         x = now(CLOCK_MONOTONIC) + (1*USEC_PER_YEAR + 1.5*USEC_PER_MONTH);
-        assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_MONOTONIC, /* implicit_left= */ false));
+        ASSERT_NOT_NULL(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_MONOTONIC, /* implicit_left= */ false));
         log_debug("%s", buf);
         ASSERT_STREQ(buf, "1 year 1 month left");
 
         x = now(CLOCK_REALTIME) - (1*USEC_PER_YEAR + 2*USEC_PER_MONTH);
-        assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, /* implicit_left= */ true));
+        ASSERT_NOT_NULL(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, /* implicit_left= */ true));
         log_debug("%s", buf);
         ASSERT_STREQ(buf, "1 year 2 months ago");
 
         x = now(CLOCK_REALTIME) - (2*USEC_PER_YEAR + 1*USEC_PER_MONTH);
-        assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, /* implicit_left= */ true));
+        ASSERT_NOT_NULL(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, /* implicit_left= */ true));
         log_debug("%s", buf);
         ASSERT_STREQ(buf, "2 years 1 month ago");
 
         x = now(CLOCK_REALTIME) - (2*USEC_PER_YEAR + 2*USEC_PER_MONTH);
-        assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, /* implicit_left= */ true));
+        ASSERT_NOT_NULL(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, /* implicit_left= */ true));
         log_debug("%s", buf);
         ASSERT_STREQ(buf, "2 years 2 months ago");
 
         /* Months and days */
         x = now(CLOCK_REALTIME) - (1*USEC_PER_MONTH + 1*USEC_PER_DAY);
-        assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, /* implicit_left= */ true));
+        ASSERT_NOT_NULL(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, /* implicit_left= */ true));
         log_debug("%s", buf);
         ASSERT_STREQ(buf, "1 month 1 day ago");
 
         x = now(CLOCK_REALTIME) - (1*USEC_PER_MONTH + 2*USEC_PER_DAY);
-        assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, /* implicit_left= */ true));
+        ASSERT_NOT_NULL(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, /* implicit_left= */ true));
         log_debug("%s", buf);
         ASSERT_STREQ(buf, "1 month 2 days ago");
 
         x = now(CLOCK_REALTIME) - (2*USEC_PER_MONTH + 1*USEC_PER_DAY);
-        assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, /* implicit_left= */ true));
+        ASSERT_NOT_NULL(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, /* implicit_left= */ true));
         log_debug("%s", buf);
         ASSERT_STREQ(buf, "2 months 1 day ago");
 
         x = now(CLOCK_REALTIME) - (2*USEC_PER_MONTH + 2*USEC_PER_DAY);
-        assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, /* implicit_left= */ true));
+        ASSERT_NOT_NULL(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, /* implicit_left= */ true));
         log_debug("%s", buf);
         ASSERT_STREQ(buf, "2 months 2 days ago");
 
         /* Weeks and days */
         x = now(CLOCK_REALTIME) - (1*USEC_PER_WEEK + 1*USEC_PER_DAY);
-        assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, /* implicit_left= */ true));
+        ASSERT_NOT_NULL(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, /* implicit_left= */ true));
         log_debug("%s", buf);
         ASSERT_STREQ(buf, "1 week 1 day ago");
 
         x = now(CLOCK_REALTIME) - (1*USEC_PER_WEEK + 2*USEC_PER_DAY);
-        assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, /* implicit_left= */ true));
+        ASSERT_NOT_NULL(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, /* implicit_left= */ true));
         log_debug("%s", buf);
         ASSERT_STREQ(buf, "1 week 2 days ago");
 
         x = now(CLOCK_REALTIME) - (2*USEC_PER_WEEK + 1*USEC_PER_DAY);
-        assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, /* implicit_left= */ true));
+        ASSERT_NOT_NULL(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, /* implicit_left= */ true));
         log_debug("%s", buf);
         ASSERT_STREQ(buf, "2 weeks 1 day ago");
 
         x = now(CLOCK_REALTIME) - (2*USEC_PER_WEEK + 2*USEC_PER_DAY);
-        assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, /* implicit_left= */ true));
+        ASSERT_NOT_NULL(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, /* implicit_left= */ true));
         log_debug("%s", buf);
         ASSERT_STREQ(buf, "2 weeks 2 days ago");
 }
@@ -601,64 +601,64 @@ TEST(format_timestamp_relative) {
 
         /* Years and months */
         x = now(CLOCK_REALTIME) - (1*USEC_PER_YEAR + 1*USEC_PER_MONTH);
-        assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+        ASSERT_NOT_NULL(format_timestamp_relative(buf, sizeof(buf), x));
         log_debug("%s", buf);
         ASSERT_STREQ(buf, "1 year 1 month ago");
 
         x = now(CLOCK_REALTIME) - (1*USEC_PER_YEAR + 2*USEC_PER_MONTH);
-        assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+        ASSERT_NOT_NULL(format_timestamp_relative(buf, sizeof(buf), x));
         log_debug("%s", buf);
         ASSERT_STREQ(buf, "1 year 2 months ago");
 
         x = now(CLOCK_REALTIME) - (2*USEC_PER_YEAR + 1*USEC_PER_MONTH);
-        assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+        ASSERT_NOT_NULL(format_timestamp_relative(buf, sizeof(buf), x));
         log_debug("%s", buf);
         ASSERT_STREQ(buf, "2 years 1 month ago");
 
         x = now(CLOCK_REALTIME) - (2*USEC_PER_YEAR + 2*USEC_PER_MONTH);
-        assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+        ASSERT_NOT_NULL(format_timestamp_relative(buf, sizeof(buf), x));
         log_debug("%s", buf);
         ASSERT_STREQ(buf, "2 years 2 months ago");
 
         /* Months and days */
         x = now(CLOCK_REALTIME) - (1*USEC_PER_MONTH + 1*USEC_PER_DAY);
-        assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+        ASSERT_NOT_NULL(format_timestamp_relative(buf, sizeof(buf), x));
         log_debug("%s", buf);
         ASSERT_STREQ(buf, "1 month 1 day ago");
 
         x = now(CLOCK_REALTIME) - (1*USEC_PER_MONTH + 2*USEC_PER_DAY);
-        assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+        ASSERT_NOT_NULL(format_timestamp_relative(buf, sizeof(buf), x));
         log_debug("%s", buf);
         ASSERT_STREQ(buf, "1 month 2 days ago");
 
         x = now(CLOCK_REALTIME) - (2*USEC_PER_MONTH + 1*USEC_PER_DAY);
-        assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+        ASSERT_NOT_NULL(format_timestamp_relative(buf, sizeof(buf), x));
         log_debug("%s", buf);
         ASSERT_STREQ(buf, "2 months 1 day ago");
 
         x = now(CLOCK_REALTIME) - (2*USEC_PER_MONTH + 2*USEC_PER_DAY);
-        assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+        ASSERT_NOT_NULL(format_timestamp_relative(buf, sizeof(buf), x));
         log_debug("%s", buf);
         ASSERT_STREQ(buf, "2 months 2 days ago");
 
         /* Weeks and days */
         x = now(CLOCK_REALTIME) - (1*USEC_PER_WEEK + 1*USEC_PER_DAY);
-        assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+        ASSERT_NOT_NULL(format_timestamp_relative(buf, sizeof(buf), x));
         log_debug("%s", buf);
         ASSERT_STREQ(buf, "1 week 1 day ago");
 
         x = now(CLOCK_REALTIME) - (1*USEC_PER_WEEK + 2*USEC_PER_DAY);
-        assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+        ASSERT_NOT_NULL(format_timestamp_relative(buf, sizeof(buf), x));
         log_debug("%s", buf);
         ASSERT_STREQ(buf, "1 week 2 days ago");
 
         x = now(CLOCK_REALTIME) - (2*USEC_PER_WEEK + 1*USEC_PER_DAY);
-        assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+        ASSERT_NOT_NULL(format_timestamp_relative(buf, sizeof(buf), x));
         log_debug("%s", buf);
         ASSERT_STREQ(buf, "2 weeks 1 day ago");
 
         x = now(CLOCK_REALTIME) - (2*USEC_PER_WEEK + 2*USEC_PER_DAY);
-        assert_se(format_timestamp_relative(buf, sizeof(buf), x));
+        ASSERT_NOT_NULL(format_timestamp_relative(buf, sizeof(buf), x));
         log_debug("%s", buf);
         ASSERT_STREQ(buf, "2 weeks 2 days ago");
 }
@@ -736,9 +736,9 @@ static void test_parse_timestamp_one(const char *str, usec_t max_diff, usec_t ex
 
         r = parse_timestamp(str, &usec);
         log_debug("/* %s(%s): max_diff="USEC_FMT", expected="USEC_FMT", result="USEC_FMT" */", __func__, str, max_diff, expected, usec);
-        assert_se(r >= 0);
-        assert_se(usec >= expected);
-        assert_se(usec_sub_unsigned(usec, expected) <= max_diff);
+        ASSERT_OK(r);
+        ASSERT_GE(usec, expected);
+        ASSERT_LE(usec_sub_unsigned(usec, expected), max_diff);
 }
 
 static bool time_is_zero(usec_t usec) {
@@ -753,8 +753,8 @@ static bool timezone_equal(usec_t today, usec_t target) {
 
         s = FORMAT_TIMESTAMP(today);
         t = FORMAT_TIMESTAMP(target);
-        assert_se(sz = strrchr(s, ' '));
-        assert_se(tz = strrchr(t, ' '));
+        ASSERT_NOT_NULL(sz = strrchr(s, ' '));
+        ASSERT_NOT_NULL(tz = strrchr(t, ' '));
         log_debug("%s("USEC_FMT", "USEC_FMT") -> %s, %s", __func__, today, target, s, t);
         return streq(sz, tz);
 }
@@ -771,8 +771,8 @@ static void test_parse_timestamp_impl(const char *tz) {
 
         /* Invalid: Ensure that systemctl reboot --when=show and --when=cancel
          * will not result in ambiguities */
-        assert_se(parse_timestamp("show", /* ret= */ NULL) == -EINVAL);
-        assert_se(parse_timestamp("cancel", /* ret= */ NULL) == -EINVAL);
+        ASSERT_ERROR(parse_timestamp("show", /* ret= */ NULL), EINVAL);
+        ASSERT_ERROR(parse_timestamp("cancel", /* ret= */ NULL), EINVAL);
 
         /* UTC */
         test_parse_timestamp_one("Thu 1970-01-01 00:01 UTC", /* max_diff= */ 0, USEC_PER_MINUTE);
@@ -801,7 +801,7 @@ static void test_parse_timestamp_impl(const char *tz) {
         test_parse_timestamp_one("1996-12-20T00:39:57Z", /* max_diff= */ 0, 851042397 * USEC_PER_SEC + 000000);
         test_parse_timestamp_one("1990-12-31T23:59:60Z", /* max_diff= */ 0, 662688000 * USEC_PER_SEC + 000000);
         test_parse_timestamp_one("1990-12-31T15:59:60-08:00", /* max_diff= */ 0, 662688000 * USEC_PER_SEC + 000000);
-        assert_se(parse_timestamp("1937-01-01T12:00:27.87+00:20", /* ret= */ NULL) == -ERANGE); /* we don't support pre-epoch timestamps */
+        ASSERT_ERROR(parse_timestamp("1937-01-01T12:00:27.87+00:20", /* ret= */ NULL), ERANGE); /* we don't support pre-epoch timestamps */
         /* We accept timestamps without seconds as well */
         test_parse_timestamp_one("1996-12-20T00:39Z", /* max_diff= */ 0, (851042397 - 57) * USEC_PER_SEC + 000000);
         test_parse_timestamp_one("1990-12-31T15:59-08:00", /* max_diff= */ 0, (662688000-60) * USEC_PER_SEC + 000000);
@@ -811,12 +811,12 @@ static void test_parse_timestamp_impl(const char *tz) {
         test_parse_timestamp_one("Thu 1970-01-01T00:01Z", /* max_diff= */ 0, USEC_PER_MINUTE);
         test_parse_timestamp_one("Thu 1970-01-01T00:00:01Z", /* max_diff= */ 0, USEC_PER_SEC);
         /* RFC3339-style timezones can be welded to all formats */
-        assert_se(parse_timestamp("today UTC", &today) == 0);
-        assert_se(parse_timestamp("todayZ", &today2) == 0);
-        assert_se(today == today2);
-        assert_se(parse_timestamp("today +0200", &today) == 0);
-        assert_se(parse_timestamp("today+02:00", &today2) == 0);
-        assert_se(today == today2);
+        ASSERT_OK_ZERO(parse_timestamp("today UTC", &today));
+        ASSERT_OK_ZERO(parse_timestamp("todayZ", &today2));
+        ASSERT_EQ(today, today2);
+        ASSERT_OK_ZERO(parse_timestamp("today +0200", &today));
+        ASSERT_OK_ZERO(parse_timestamp("today+02:00", &today2));
+        ASSERT_EQ(today, today2);
 
         /* https://ijmacd.github.io/rfc3339-iso8601/ */
         test_parse_timestamp_one("2023-09-06 12:49:27-00:00", /* max_diff= */ 0, 1694004567 * USEC_PER_SEC + 000000);
@@ -1024,7 +1024,7 @@ static void test_parse_timestamp_impl(const char *tz) {
         test_parse_timestamp_one("69-12-31 18:00:01.0010 -06:00", /* max_diff= */ 0, USEC_PER_SEC + 1000);
 
         /* without date */
-        assert_se(parse_timestamp("today", &today) == 0);
+        ASSERT_OK_ZERO(parse_timestamp("today", &today));
         if (time_is_zero(today)) {
                 test_parse_timestamp_one("00:01", /* max_diff= */ 0, today + USEC_PER_MINUTE);
                 test_parse_timestamp_one("00:00:01", /* max_diff= */ 0, today + USEC_PER_SEC);
@@ -1048,7 +1048,7 @@ static void test_parse_timestamp_impl(const char *tz) {
         }
 
         /* relative */
-        assert_se(parse_timestamp("now", &now_usec) == 0);
+        ASSERT_OK_ZERO(parse_timestamp("now", &now_usec));
         test_parse_timestamp_one("+5hours", USEC_PER_MINUTE, now_usec + 5 * USEC_PER_HOUR);
         if (now_usec >= 10 * USEC_PER_DAY)
                 test_parse_timestamp_one("-10days", USEC_PER_MINUTE, now_usec - 10 * USEC_PER_DAY);
@@ -1079,46 +1079,38 @@ TEST(parse_timestamp_with_tz) {
         if (!slow_tests_enabled())
                 return (void) log_tests_skipped("slow tests are disabled");
 
-        assert_se(get_timezones(&timezones) >= 0);
+        ASSERT_OK(get_timezones(&timezones));
         STRV_FOREACH(tz, timezones)
                 test_parse_timestamp_with_tz_one(*tz);
 }
 
 TEST(deserialize_dual_timestamp) {
-        int r;
         dual_timestamp t;
 
-        r = deserialize_dual_timestamp("1234 5678", &t);
-        assert_se(r == 0);
-        assert_se(t.realtime == 1234);
-        assert_se(t.monotonic == 5678);
+        ASSERT_OK_ZERO(deserialize_dual_timestamp("1234 5678", &t));
+        ASSERT_EQ(t.realtime, 1234U);
+        ASSERT_EQ(t.monotonic, 5678U);
 
-        r = deserialize_dual_timestamp("1234x 5678", &t);
-        assert_se(r == -EINVAL);
+        ASSERT_ERROR(deserialize_dual_timestamp("1234x 5678", &t), EINVAL);
 
-        r = deserialize_dual_timestamp("1234 5678y", &t);
-        assert_se(r == -EINVAL);
+        ASSERT_ERROR(deserialize_dual_timestamp("1234 5678y", &t), EINVAL);
 
-        r = deserialize_dual_timestamp("-1234 5678", &t);
-        assert_se(r == -EINVAL);
+        ASSERT_ERROR(deserialize_dual_timestamp("-1234 5678", &t), EINVAL);
 
-        r = deserialize_dual_timestamp("1234 -5678", &t);
-        assert_se(r == -EINVAL);
+        ASSERT_ERROR(deserialize_dual_timestamp("1234 -5678", &t), EINVAL);
 
         /* Check that output wasn't modified. */
-        assert_se(t.realtime == 1234);
-        assert_se(t.monotonic == 5678);
+        ASSERT_EQ(t.realtime, 1234U);
+        ASSERT_EQ(t.monotonic, 5678U);
 
-        r = deserialize_dual_timestamp("+123 567", &t);
-        assert_se(r == 0);
-        assert_se(t.realtime == 123);
-        assert_se(t.monotonic == 567);
+        ASSERT_OK_ZERO(deserialize_dual_timestamp("+123 567", &t));
+        ASSERT_EQ(t.realtime, 123U);
+        ASSERT_EQ(t.monotonic, 567U);
 
         /* Check that we get "infinity" on overflow. */
-        r = deserialize_dual_timestamp("18446744073709551617 0", &t);
-        assert_se(r == 0);
-        assert_se(t.realtime == USEC_INFINITY);
-        assert_se(t.monotonic == 0);
+        ASSERT_OK_ZERO(deserialize_dual_timestamp("18446744073709551617 0", &t));
+        ASSERT_EQ(t.realtime, USEC_INFINITY);
+        ASSERT_EQ(t.monotonic, 0U);
 }
 
 static void assert_similar(usec_t a, usec_t b) {
@@ -1129,7 +1121,7 @@ static void assert_similar(usec_t a, usec_t b) {
         else
                 d = b - a;
 
-        assert_se(d < 10*USEC_PER_SEC);
+        ASSERT_LT(d, 10*USEC_PER_SEC);
 }
 
 TEST(usec_shift_clock) {
@@ -1139,21 +1131,21 @@ TEST(usec_shift_clock) {
         mn = now(CLOCK_MONOTONIC);
         bt = now(CLOCK_BOOTTIME);
 
-        assert_se(usec_shift_clock(USEC_INFINITY, CLOCK_REALTIME, CLOCK_MONOTONIC) == USEC_INFINITY);
+        ASSERT_EQ(usec_shift_clock(USEC_INFINITY, CLOCK_REALTIME, CLOCK_MONOTONIC), USEC_INFINITY);
 
         /* Silence static analyzers */
         assert_cc(9 * USEC_PER_HOUR <= USEC_INFINITY);
         assert_similar(usec_shift_clock(rt + USEC_PER_HOUR, CLOCK_REALTIME, CLOCK_MONOTONIC), mn + USEC_PER_HOUR);
         assert_similar(usec_shift_clock(rt + 2*USEC_PER_HOUR, CLOCK_REALTIME, CLOCK_BOOTTIME), bt + 2*USEC_PER_HOUR);
-        assert_se(usec_shift_clock(rt + 3*USEC_PER_HOUR, CLOCK_REALTIME, CLOCK_REALTIME_ALARM) == rt + 3*USEC_PER_HOUR);
+        ASSERT_EQ(usec_shift_clock(rt + 3*USEC_PER_HOUR, CLOCK_REALTIME, CLOCK_REALTIME_ALARM), rt + 3*USEC_PER_HOUR);
 
         assert_similar(usec_shift_clock(mn + 4*USEC_PER_HOUR, CLOCK_MONOTONIC, CLOCK_REALTIME_ALARM), rt + 4*USEC_PER_HOUR);
         assert_similar(usec_shift_clock(mn + 5*USEC_PER_HOUR, CLOCK_MONOTONIC, CLOCK_BOOTTIME), bt + 5*USEC_PER_HOUR);
-        assert_se(usec_shift_clock(mn + 6*USEC_PER_HOUR, CLOCK_MONOTONIC, CLOCK_MONOTONIC) == mn + 6*USEC_PER_HOUR);
+        ASSERT_EQ(usec_shift_clock(mn + 6*USEC_PER_HOUR, CLOCK_MONOTONIC, CLOCK_MONOTONIC), mn + 6*USEC_PER_HOUR);
 
         assert_similar(usec_shift_clock(bt + 7*USEC_PER_HOUR, CLOCK_BOOTTIME, CLOCK_MONOTONIC), mn + 7*USEC_PER_HOUR);
         assert_similar(usec_shift_clock(bt + 8*USEC_PER_HOUR, CLOCK_BOOTTIME, CLOCK_REALTIME_ALARM), rt + 8*USEC_PER_HOUR);
-        assert_se(usec_shift_clock(bt + 9*USEC_PER_HOUR, CLOCK_BOOTTIME, CLOCK_BOOTTIME) == bt + 9*USEC_PER_HOUR);
+        ASSERT_EQ(usec_shift_clock(bt + 9*USEC_PER_HOUR, CLOCK_BOOTTIME, CLOCK_BOOTTIME), bt + 9*USEC_PER_HOUR);
 
         if (mn > USEC_PER_MINUTE) {
                 assert_similar(usec_shift_clock(rt - 30 * USEC_PER_SEC, CLOCK_REALTIME_ALARM, CLOCK_MONOTONIC), mn - 30 * USEC_PER_SEC);
@@ -1164,15 +1156,15 @@ TEST(usec_shift_clock) {
 TEST(in_utc_timezone) {
         SAVE_TIMEZONE;
 
-        assert_se(setenv("TZ", "UTC", 1) >= 0);
-        assert_se(in_utc_timezone());
+        ASSERT_OK_ERRNO(setenv("TZ", "UTC", 1));
+        ASSERT_TRUE(in_utc_timezone());
         ASSERT_STREQ(get_tzname(/* dst= */ false), "UTC");
         ASSERT_STREQ(get_tzname(/* dst= */ true), "UTC");
-        assert_se(timezone == 0);
-        assert_se(daylight == 0);
+        ASSERT_EQ(timezone, 0);
+        ASSERT_EQ(daylight, 0);
 
-        assert_se(setenv("TZ", "Europe/Berlin", 1) >= 0);
-        assert_se(!in_utc_timezone());
+        ASSERT_OK_ERRNO(setenv("TZ", "Europe/Berlin", 1));
+        ASSERT_FALSE(in_utc_timezone());
         ASSERT_STREQ(get_tzname(/* dst= */ false), "CET");
         ASSERT_STREQ(get_tzname(/* dst= */ true), "CEST");
 }
@@ -1185,24 +1177,24 @@ TEST(map_clock_usec) {
         z = map_clock_usec(y, CLOCK_MONOTONIC, CLOCK_REALTIME);
         /* Converting forth and back will introduce inaccuracies, since we cannot query both clocks atomically, but it should be small. Even on the slowest CI smaller than 1h */
 
-        assert_se((z > x ? z - x : x - z) < USEC_PER_HOUR);
+        ASSERT_LT(z > x ? z - x : x - z, USEC_PER_HOUR);
 
-        assert_se(nowr < USEC_INFINITY - USEC_PER_DAY*7); /* overflow check */
+        ASSERT_LT(nowr, USEC_INFINITY - USEC_PER_DAY*7); /* overflow check */
         x = nowr + USEC_PER_DAY*7; /* 1 week from now */
         y = map_clock_usec(x, CLOCK_REALTIME, CLOCK_MONOTONIC);
-        assert_se(timestamp_is_set(y));
+        ASSERT_TRUE(timestamp_is_set(y));
         z = map_clock_usec(y, CLOCK_MONOTONIC, CLOCK_REALTIME);
-        assert_se(timestamp_is_set(z));
-        assert_se((z > x ? z - x : x - z) < USEC_PER_HOUR);
+        ASSERT_TRUE(timestamp_is_set(z));
+        ASSERT_LT(z > x ? z - x : x - z, USEC_PER_HOUR);
 
-        assert_se(nowr > USEC_PER_DAY * 7); /* underflow check */
+        ASSERT_GT(nowr, USEC_PER_DAY * 7); /* underflow check */
         x = nowr - USEC_PER_DAY*7; /* 1 week ago */
         y = map_clock_usec(x, CLOCK_REALTIME, CLOCK_MONOTONIC);
         if (y != 0) { /* might underflow if machine is not up long enough for the monotonic clock to be beyond 1w */
-                assert_se(y < USEC_INFINITY);
+                ASSERT_LT(y, USEC_INFINITY);
                 z = map_clock_usec(y, CLOCK_MONOTONIC, CLOCK_REALTIME);
-                assert_se(timestamp_is_set(z));
-                assert_se((z > x ? z - x : x - z) < USEC_PER_HOUR);
+                ASSERT_TRUE(timestamp_is_set(z));
+                ASSERT_LT(z > x ? z - x : x - z, USEC_PER_HOUR);
         }
 }
 
@@ -1210,21 +1202,21 @@ static void test_timezone_offset_change_one(const char *utc, const char *pretty)
         usec_t x, y, z;
         char *s;
 
-        assert_se(parse_timestamp(utc, &x) >= 0);
+        ASSERT_OK(parse_timestamp(utc, &x));
 
         s = FORMAT_TIMESTAMP_STYLE(x, TIMESTAMP_UTC);
-        assert_se(parse_timestamp(s, &y) >= 0);
+        ASSERT_OK(parse_timestamp(s, &y));
         log_debug("%s -> " USEC_FMT " -> %s -> " USEC_FMT, utc, x, s, y);
         ASSERT_STREQ(s, utc);
-        assert_se(x == y);
+        ASSERT_EQ(x, y);
 
-        assert_se(parse_timestamp(pretty, &y) >= 0);
+        ASSERT_OK(parse_timestamp(pretty, &y));
         s = FORMAT_TIMESTAMP_STYLE(y, TIMESTAMP_PRETTY);
-        assert_se(parse_timestamp(s, &z) >= 0);
+        ASSERT_OK(parse_timestamp(s, &z));
         log_debug("%s -> " USEC_FMT " -> %s -> " USEC_FMT, pretty, y, s, z);
         ASSERT_STREQ(s, pretty);
-        assert_se(x == y);
-        assert_se(x == z);
+        ASSERT_EQ(x, y);
+        ASSERT_EQ(x, z);
 }
 
 TEST(timezone_offset_change) {
@@ -1271,13 +1263,13 @@ TEST(mktime_or_timegm_usec) {
         usec_t n = now(CLOCK_REALTIME), m;
         struct tm tm;
 
-        assert_se(localtime_or_gmtime_usec(n, /* utc= */ false, &tm) >= 0);
-        assert_se(mktime_or_timegm_usec(&tm, /* utc= */ false, &m) >= 0);
-        assert_se(absdiff(n, m) < 2 * USEC_PER_DAY);
+        ASSERT_OK(localtime_or_gmtime_usec(n, /* utc= */ false, &tm));
+        ASSERT_OK(mktime_or_timegm_usec(&tm, /* utc= */ false, &m));
+        ASSERT_LT(absdiff(n, m), 2 * USEC_PER_DAY);
 
-        assert_se(localtime_or_gmtime_usec(n, /* utc= */ true, &tm) >= 0);
-        assert_se(mktime_or_timegm_usec(&tm, /* utc= */ true, &m) >= 0);
-        assert_se(absdiff(n, m) < USEC_PER_SEC);
+        ASSERT_OK(localtime_or_gmtime_usec(n, /* utc= */ true, &tm));
+        ASSERT_OK(mktime_or_timegm_usec(&tm, /* utc= */ true, &m));
+        ASSERT_LT(absdiff(n, m), USEC_PER_SEC);
 
         /* This definitely should fail, because we refuse dates before the UNIX epoch */
         tm = (struct tm) {
@@ -1286,12 +1278,12 @@ TEST(mktime_or_timegm_usec) {
                 .tm_year = 1969 - 1900,
         };
 
-        assert_se(mktime_or_timegm_usec(&tm, /* utc= */ true, /* ret= */ NULL) == -ERANGE);
+        ASSERT_ERROR(mktime_or_timegm_usec(&tm, /* utc= */ true, /* ret= */ NULL), ERANGE);
 }
 
 static int intro(void) {
         /* Tests have hard-coded results that do not expect a specific timezone to be set by the caller */
-        assert_se(unsetenv("TZ") >= 0);
+        ASSERT_OK_ERRNO(unsetenv("TZ"));
 
         log_info("realtime=" USEC_FMT "\n"
                  "monotonic=" USEC_FMT "\n"
@@ -1306,7 +1298,7 @@ static int intro(void) {
         /* Ensure TIME_T_MAX works correctly */
         uintmax_t x = TIME_T_MAX;
         x++;
-        assert_se((time_t) x < 0);
+        ASSERT_LT((time_t) x, 0);
 
         return EXIT_SUCCESS;
 }

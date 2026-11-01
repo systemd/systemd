@@ -24,25 +24,25 @@ static void test_resolve_one(const char *name) {
 
         r = name_to_uid_offline(arg_root, name, &uid, &uid_cache);
         log_info_errno(r, "name_to_uid_offline: %s → "UID_FMT": %m", name, uid);
-        assert_se(relaxed || r == 0);
+        ASSERT_TRUE(relaxed || r == 0);
 
         r = name_to_uid_offline(arg_root, name, &uid, &uid_cache);
         log_info_errno(r, "name_to_uid_offline: %s → "UID_FMT": %m", name, uid);
-        assert_se(relaxed || r == 0);
+        ASSERT_TRUE(relaxed || r == 0);
 
         r = name_to_gid_offline(arg_root, name, &gid, &gid_cache);
         log_info_errno(r, "name_to_gid_offline: %s → "GID_FMT": %m", name, gid);
-        assert_se(relaxed || r == 0);
+        ASSERT_TRUE(relaxed || r == 0);
 
         r = name_to_gid_offline(arg_root, name, &gid, &gid_cache);
         log_info_errno(r, "name_to_gid_offline: %s → "GID_FMT": %m", name, gid);
-        assert_se(relaxed || r == 0);
+        ASSERT_TRUE(relaxed || r == 0);
 }
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
-        assert_se(argc >= 0);
-        assert_se(argv);
-        assert_se(ret_args);
+        ASSERT_GE(argc, 0);
+        ASSERT_NOT_NULL(argv);
+        ASSERT_NOT_NULL(ret_args);
 
         OptionParser opts = { argc, argv };
 
