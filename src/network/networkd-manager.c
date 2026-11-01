@@ -1322,6 +1322,11 @@ int manager_set_timezone(Manager *m, const char *tz) {
         assert(m);
         assert(tz);
 
+        /* DHCP leases are renewed periodically; do not reset the timezone (and
+         * override a possible manual change) unless it actually changed. */
+        if (streq_ptr(m->dynamic_timezone, tz))
+                return 0;
+
         log_debug("Setting system timezone: '%s'", tz);
         r = free_and_strdup_warn(&m->dynamic_timezone, tz);
         if (r < 0)

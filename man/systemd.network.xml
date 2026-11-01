@@ -3323,6 +3323,16 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>UseTimezone=</varname></term>
+        <listitem>
+          <para>When true, the timezone received from the DHCPv6 server will be set as timezone
+          of the local system. Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>UseDelegatedPrefix=</varname></term>
         <listitem>
           <para>When true (the default), the client will request the DHCPv6 server to delegate
