@@ -1010,7 +1010,7 @@ static int next_with_matches(
                               direction, ret, ret_offset);
 }
 
-static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direction, usec_t ts) {
+static _always_inline_ inline int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direction, usec_t ts) {
         Object *c;
         uint64_t cp, n_entries;
         int r;
@@ -1092,7 +1092,7 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
         }
 }
 
-static int compare_locations(sd_journal *j, JournalFile *af, JournalFile *bf) {
+static _always_inline_ inline int compare_locations(sd_journal *j, JournalFile *af, JournalFile *bf) {
         int r;
 
         assert(j);
@@ -1140,6 +1140,36 @@ static int compare_locations(sd_journal *j, JournalFile *af, JournalFile *bf) {
         return CMP(af->current_xor_hash, bf->current_xor_hash);
 }
 
+static JournalFile* journal_next_from_previous_scan(sd_journal *j, direction_t direction, usec_t ts) {
+        JournalFile *f = j->scan_winner;
+        int r;
+
+        /* Selecting an entry compares the candidates of all files, but between two entries only the file we
+         * just read from has a new candidate, and it usually wins again. Hence, remember the runner-up of the
+         * last full scan: if the new candidate still comes before it, it comes before all the others too.
+         * Anything else, including errors and EOF, is left to the full scan. Scan at least once per the tail
+         * timestamp refresh interval, so that the other files get their refresh and new entries get noticed. */
+
+        if (!f ||
+            f != j->current_file ||
+            j->current_location.type != LOCATION_DISCRETE ||
+            j->scan_direction != direction ||
+            ts >= j->scan_valid_until)
+                return NULL;
+
+        r = next_beyond_location(j, f, direction, ts);
+        if (r <= 0)
+                return NULL;
+
+        if (j->scan_runner_up) {
+                r = compare_locations(j, f, j->scan_runner_up);
+                if (direction == DIRECTION_DOWN ? r >= 0 : r <= 0)
+                        return NULL;
+        }
+
+        return f;
+}
+
 static int real_journal_next(sd_journal *j, direction_t direction) {
         unsigned n_files;
         const void **files;
@@ -1153,12 +1183,27 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
         usec_t ts = now(CLOCK_BOOTTIME);
 
         for (;;) {
-                JournalFile *new_file = NULL, *exact_match = NULL;
+                JournalFile *new_file = NULL, *runner_up = NULL, *exact_match = NULL;
+                bool track_runner_up = j->scan_same_file;
                 Object *o;
+
+                new_file = journal_next_from_previous_scan(j, direction, ts);
+                if (new_file) {
+                        r = journal_file_move_to_object(new_file, OBJECT_ENTRY, new_file->current_offset, &o);
+                        if (r >= 0) {
+                                set_location(j, new_file, o);
+                                j->scan_same_file = true;
+                                return 1;
+                        }
+
+                        new_file = NULL;
+                }
 
                 r = iterated_cache_get(j->files_cache, /* res_keys= */ NULL, &files, &n_files);
                 if (r < 0)
                         return r;
+
+                j->scan_winner = NULL;
 
                 FOREACH_ARRAY(_f, files, n_files) {
                         JournalFile *f = (JournalFile*) *_f;
@@ -1182,8 +1227,14 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
                                 found = direction == DIRECTION_DOWN ? r < 0 : r > 0;
                         }
 
-                        if (found)
+                        if (found) {
+                                runner_up = new_file;
                                 new_file = f;
+                        } else if (track_runner_up) {
+                                r = runner_up ? compare_locations(j, f, runner_up) : -1;
+                                if (!runner_up || (direction == DIRECTION_DOWN ? r < 0 : r > 0))
+                                        runner_up = f;
+                        }
 
                         /* Track the file that holds the cursor's exact entry (matching seqnum_id and
                          * seqnum). On systems without a reliable (or missing) RTC, compare_boot_ids() can
@@ -1223,7 +1274,20 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
                         continue;
                 }
 
+                /* Tracking the runner-up doubles the comparisons of a scan, which only pays off if the same file
+                 * keeps on winning. It doesn't if entries of many files are interleaved, hence only do it once a
+                 * file has won twice in a row. An exact match overrides the regular order, so it says nothing
+                 * about the runner-up. */
+                j->scan_same_file = new_file == j->current_file;
+
                 set_location(j, new_file, o);
+
+                if (track_runner_up && !exact_match) {
+                        j->scan_winner = new_file;
+                        j->scan_runner_up = runner_up;
+                        j->scan_direction = direction;
+                        j->scan_valid_until = usec_add(ts, USEC_PER_SEC);
+                }
 
                 return 1;
         }
@@ -1723,6 +1787,8 @@ static int add_any_file(
         /* journal_file_dump(f); */
 
         /* journal_file_open() generates an replacement fname if necessary, so we can use f->path. */
+        j->scan_winner = NULL;
+
         r = ordered_hashmap_put(j->files, f->path, f);
         if (r < 0) {
                 f->close_fd = false; /* Make sure journal_file_close() doesn't close the caller's fd
@@ -1840,6 +1906,8 @@ static void remove_file_real(sd_journal *j, JournalFile *f) {
         (void) ordered_hashmap_remove(j->files, f->path);
 
         log_debug("File %s removed.", f->path);
+
+        j->scan_winner = NULL;
 
         if (j->current_file == f) {
                 j->current_file = NULL;
