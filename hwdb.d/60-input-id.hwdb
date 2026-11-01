@@ -81,6 +81,11 @@ id-input:modalias:input:b0003v1781p0898*
 id-input:modalias:input:b0003v342DpE483*
  ID_INPUT_JOYSTICK=0
 
+# K809 Bluetooth keyboard
+id-input:bluetooth:v0957p0007:name:K809 Keyboard:*
+ ID_INPUT_TABLET=0
+ ID_INPUT_TABLET_PAD=0
+
 # XP-PEN STAR 06
 id-input:modalias:input:b0003v28bdp0078*
  ID_INPUT_TABLET=1
