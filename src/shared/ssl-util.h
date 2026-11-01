@@ -22,6 +22,7 @@ extern DLSYM_PROTOTYPE(SSL_CTX_set_options);
 extern DLSYM_PROTOTYPE(SSL_do_handshake);
 extern DLSYM_PROTOTYPE(SSL_free);
 extern DLSYM_PROTOTYPE(SSL_get_error);
+extern DLSYM_PROTOTYPE(SSL_get_verify_result);
 extern DLSYM_PROTOTYPE(SSL_get_wbio);
 extern DLSYM_PROTOTYPE(SSL_get0_param);
 extern DLSYM_PROTOTYPE(SSL_get1_session);
