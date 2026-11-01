@@ -393,6 +393,13 @@ static int async_polkit_process_reply(sd_bus_message *reply, AsyncPolkitQuery *q
          * We install an idle event loop event to clean-up the PolicyKit request data when we are idle again,
          * i.e. after the second time the message is processed is complete. */
 
+        /* All replies for a query share the one-shot defer event source below, and it drops a single
+         * reference when it fires. Every additional action we asked polkit about took a reference of its
+         * own (see bus_verify_polkit_async_full()), so if the defer from an earlier reply is still pending,
+         * re-arming it would not release the reference this reply took, and the query and the request would
+         * leak. Release it right away instead: the pending defer keeps the query alive. */
+        bool defer_pending = sd_event_source_get_enabled(q->defer_event_source, /* ret= */ NULL) > 0;
+
         if (!q->defer_event_source) {
                 r = sd_event_add_defer(
                                 sd_bus_get_event(q->bus),
@@ -426,6 +433,9 @@ static int async_polkit_process_reply(sd_bus_message *reply, AsyncPolkitQuery *q
                 if (r < 0)
                         return r;
         }
+
+        if (defer_pending)
+                async_polkit_query_unref(q); /* Not the last reference, the pending defer holds one. */
 
         return 1;
 }
@@ -736,7 +746,7 @@ static int varlink_check_good_user(sd_varlink *link, uid_t good_user, bool *ret_
         return good_user == peer_uid;
 }
 
-static int varlink_check_peer_privilege(sd_varlink *link) {
+int varlink_check_peer_privilege(sd_varlink *link) {
         int r;
 
         assert(link);
