@@ -289,19 +289,30 @@ jobs:
             git fetch origin "$PREVIOUS_HEAD" || echo "Previous head ${PREVIOUS_HEAD} is not fetchable, reviewing the full diff."
           fi
 
-      # The model's knowledge of the kernel can be wrong or out of date, so the
-      # review agents check kernel details in this kernel tree. A review without
-      # the kernel tree is still useful, so a failed clone does not fail the job.
-      # git clones into a temporary directory first. If the timeout kills git, the
-      # kernel directory does not exist, and the agents are not told about it.
-      - name: Clone the Linux kernel
+      # The model's knowledge of the kernel and glibc can be wrong or out of date.
+      # The review agents therefore check kernel and glibc details in the cloned
+      # source trees. A review without a source tree is still useful, so a failed
+      # clone does not fail the job. git clones into a temporary directory first.
+      # If the timeout kills git, the final directory does not exist, and the
+      # agents are not told about it.
+      - name: Clone the Linux kernel and glibc
         continue-on-error: true
         timeout-minutes: 10
         run: |
-          linux="$RUNNER_TEMP/claude-review/linux"
-          git clone --depth 1 --single-branch https://github.com/torvalds/linux.git "$linux.tmp"
-          mv "$linux.tmp" "$linux"
-          git -C "$linux" log -1 --format='Cloned Linux at %H (%s)'
+          clone() {
+            local name=$1 url=$2 dir="$RUNNER_TEMP/claude-review/$1"
+            git clone --quiet --depth 1 --single-branch "$url" "$dir.tmp" &&
+              mv "$dir.tmp" "$dir" &&
+              git -C "$dir" log -1 --format="Cloned $name at %H (%s)"
+          }
+          clone linux https://github.com/torvalds/linux.git &
+          linux=$!
+          clone glibc https://sourceware.org/git/glibc.git &
+          glibc=$!
+          status=0
+          wait "$linux" || status=1
+          wait "$glibc" || status=1
+          exit "$status"
 
       - name: Download PR context
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
@@ -507,6 +518,16 @@ jobs:
           A shallow clone of the latest mainline Linux kernel is at ${linux}. It has no history. When a
           finding depends on kernel behavior, such as system call semantics, flags, error codes, or
           ioctl and netlink interfaces, check the kernel source there instead of relying on memory."
+          fi
+
+          glibc="$RUNNER_TEMP/claude-review/glibc"
+          if [[ -d "$glibc" ]]; then
+            context+="
+
+          A shallow clone of the latest glibc is at ${glibc}. It has no history. When a finding
+          depends on glibc behavior, such as system call wrappers, NSS, dlopen, or errno values, check
+          the glibc source there instead of relying on memory. The libc.abilist files list the glibc
+          version that added each symbol."
           fi
 
           previous=""
