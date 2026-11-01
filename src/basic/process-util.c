@@ -2107,17 +2107,17 @@ int execvpe_safe(const char *file, char * const *argv, char * const *envp) {
 
         assert(file);
         assert(argv);
-        assert(envp);
 
         /* Like execvpe(), but doesn't fall back to running the file via /bin/sh if execve() fails with
          * ENOEXEC. Without this a truncated or otherwise broken binary would "successfully" run as an empty
-         * shell script instead of failing. Returns a negative errno on failure. */
+         * shell script instead of failing. Returns a negative errno on failure. A NULL envp is treated as
+         * an empty environment, like execve() does. */
 
         r = find_executable(file, &resolved);
         if (r < 0)
                 return r;
 
-        execve(resolved, argv, envp);
+        execve(resolved, argv, envp ?: STRV_EMPTY);
         return -errno;
 }
 

@@ -1595,15 +1595,15 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
 
                         sh = secure_getenv("SHELL");
                         if (sh) {
-                                execvp(sh, STRV_MAKE(sh));
-                                log_warning_errno(errno, "Failed to execute $SHELL, falling back to /bin/sh: %m");
+                                r = execvp_safe(sh, STRV_MAKE(sh));
+                                log_warning_errno(r, "Failed to execute $SHELL, falling back to /bin/sh: %m");
                         }
 
                         execl("/bin/sh", "sh", NULL);
                         log_error_errno(errno, "Failed to invoke /bin/sh: %m");
                 } else {
-                        execvp(arg_argv[0], arg_argv);
-                        log_error_errno(errno, "Failed to execute '%s': %m", arg_argv[0]);
+                        r = execvp_safe(arg_argv[0], arg_argv);
+                        log_error_errno(r, "Failed to execute '%s': %m", arg_argv[0]);
                 }
 
                 _exit(EXIT_FAILURE);

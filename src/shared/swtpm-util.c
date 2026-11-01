@@ -55,8 +55,8 @@ static int swtpm_find_best_profile(const char *swtpm_setup, char **ret) {
                 return log_error_errno(r, "Failed to run swtpm_setup: %m");
         if (r == 0) {
                 /* Child */
-                execvp(args[0], args);
-                log_error_errno(errno, "Failed to execute '%s': %m", args[0]);
+                r = execvp_safe(args[0], args);
+                log_error_errno(r, "Failed to execute '%s': %m", args[0]);
                 _exit(EXIT_FAILURE);
         }
 
@@ -236,8 +236,8 @@ int manufacture_swtpm(const char *state_dir, const char *secret) {
                 return log_error_errno(r, "Failed to run swtpm_setup: %m");
         if (r == 0) {
                 /* Child */
-                execvp(args[0], args);
-                log_error_errno(errno, "Failed to execute '%s': %m", args[0]);
+                r = execvp_safe(args[0], args);
+                log_error_errno(r, "Failed to execute '%s': %m", args[0]);
                 _exit(EXIT_FAILURE);
         }
 

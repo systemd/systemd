@@ -480,8 +480,8 @@ static int action_fork(char *const *_command) {
                 }
 
                 log_debug("Executing: %s", c);
-                execvp(command[0], command);
-                log_error_errno(errno, "Failed to execute '%s': %m", c);
+                r = execvp_safe(command[0], command);
+                log_error_errno(r, "Failed to execute '%s': %m", c);
                 _exit(EXIT_EXEC);
         }
 
@@ -671,10 +671,10 @@ static int run(int argc, char* argv[]) {
         }
 
         if (arg_exec) {
-                execvp(arg_exec[0], arg_exec);
+                r = execvp_safe(arg_exec[0], arg_exec);
 
                 _cleanup_free_ char *cmdline = strv_join(arg_exec, " ");
-                return log_error_errno(errno, "Failed to execute command line: %s", strnull(cmdline));
+                return log_error_errno(r, "Failed to execute command line: %s", strnull(cmdline));
         }
 
         /* The DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE() boilerplate will send the exit status via

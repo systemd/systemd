@@ -728,9 +728,9 @@ int make_filesystem(
                  if (fork_flags & FORK_NEW_MOUNTNS)
                         (void) mount_nofollow_verbose(LOG_DEBUG, "/dev/null", "/proc/self/mounts", /* fstype= */ NULL, MS_BIND, /* options= */ NULL);
 
-                execvp(mkfs, argv);
+                r = execvp_safe(mkfs, argv);
 
-                log_error_errno(errno, "Failed to execute %s: %m", mkfs);
+                log_error_errno(r, "Failed to execute %s: %m", mkfs);
 
                 _exit(EXIT_FAILURE);
         }
