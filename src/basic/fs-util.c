@@ -1330,11 +1330,11 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
                         r = RET_NERRNO(mkdirat(dir_fd, path, mode));
                 if (r == -EEXIST) {
                         if (FLAGS_SET(open_flags, O_EXCL))
-                                return -EEXIST;
+                                goto error;
 
                         dir_exists = true;
                 } else if (r < 0)
-                        return r;
+                        goto error;
                 else
                         made_dir = true;
 
