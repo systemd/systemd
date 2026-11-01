@@ -60,6 +60,12 @@ static inline int DNS_RECORD_TTL_STATE_TO_PERCENT(DnsRecordTTLState ttl_state) {
         return ttl_percent_table[ttl_state];
 }
 
+/* The cache caps the lifetime of a record, and the expiry we schedule against comes from there, so a larger
+ * TTL off the network must not be used to work out how long before the expiry to query. */
+static uint32_t mdns_maintenance_ttl(uint32_t ttl) {
+        return MIN(ttl, (uint32_t) (CACHE_TTL_MAX_USEC / USEC_PER_SEC));
+}
+
 static usec_t mdns_maintenance_next_time(usec_t until, uint32_t ttl, DnsRecordTTLState ttl_state) {
         assert(ttl_state >= DNS_RECORD_TTL_STATE_80_PERCENT);
         assert(ttl_state < _DNS_RECORD_TTL_STATE_MAX);
@@ -68,14 +74,17 @@ static usec_t mdns_maintenance_next_time(usec_t until, uint32_t ttl, DnsRecordTT
         assert(percent > 0);
         assert(percent <= 100);
 
-        return usec_sub_unsigned(until, (100 - percent) * ttl * USEC_PER_SEC / 100);
+        return usec_sub_unsigned(until, (100 - percent) * mdns_maintenance_ttl(ttl) * USEC_PER_SEC / 100);
 }
 
 /* RFC 6762 section 5.2
  * A random variation of 2% of the record TTL should
  * be added to maintenance queries. */
 static usec_t mdns_maintenance_jitter(uint32_t ttl) {
-        return random_u64_range(2 * ttl * USEC_PER_SEC / 100);
+        usec_t range = 2 * mdns_maintenance_ttl(ttl) * USEC_PER_SEC / 100;
+
+        /* random_u64_range(0) returns a value from the full 64-bit range */
+        return range > 0 ? random_u64_range(range) : 0;
 }
 
 static void mdns_maintenance_query_complete(DnsQuery *q) {
