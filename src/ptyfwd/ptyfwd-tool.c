@@ -209,7 +209,7 @@ static int run(int argc, char *argv[]) {
                 if (pty_fd < 0)
                         return log_error_errno(pty_fd, "Failed to acquire pseudo tty: %m");
 
-                peer_fd = pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                peer_fd = pty_open_peer(pty_fd, O_RDWR|O_NOCTTY);
                 if (peer_fd < 0)
                         return log_error_errno(peer_fd, "Failed to open pty peer: %m");
         }

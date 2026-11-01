@@ -4082,7 +4082,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (child_pty < 0)
                         return log_error_errno(child_pty, "Failed to reopen PTY backend: %m");
         } else if (master >= 0) {
-                child_pty = pty_open_peer(master, O_RDWR|O_CLOEXEC|O_NOCTTY);
+                child_pty = pty_open_peer(master, O_RDWR|O_NOCTTY);
                 if (child_pty < 0)
                         return log_error_errno(child_pty, "Failed to open PTY slave: %m");
         }

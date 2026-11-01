@@ -991,7 +991,7 @@ int machine_start_shell(
         if (!p || !utmp_id)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Path of pseudo TTY has unexpected prefix");
 
-        pty_fd = pty_open_peer(ptmx_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        pty_fd = pty_open_peer(ptmx_fd, O_RDWR|O_NOCTTY);
         if (pty_fd < 0)
                 return log_debug_errno(pty_fd, "Failed to open terminal: %m");
 
