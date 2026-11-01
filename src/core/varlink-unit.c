@@ -981,15 +981,15 @@ int vl_method_enqueue_unit_job(sd_varlink *link, sd_json_variant *parameters, sd
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "names",             SD_JSON_VARIANT_ARRAY,   dispatch_unit_names,       offsetof(EnqueueJobParameters, names),               SD_JSON_MANDATORY },
                 { "jobType",           SD_JSON_VARIANT_STRING,  dispatch_job_type,         offsetof(EnqueueJobParameters, job_type),            SD_JSON_MANDATORY },
-                { "mode",              SD_JSON_VARIANT_STRING,  dispatch_job_mode,         offsetof(EnqueueJobParameters, mode),                0                 },
-                { "notifyJobChanges",  SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(EnqueueJobParameters, notify_job_changes),  0                 },
-                { "notifyUnitChanges", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(EnqueueJobParameters, notify_unit_changes), 0                 },
+                { "mode",              SD_JSON_VARIANT_STRING,  dispatch_job_mode,         offsetof(EnqueueJobParameters, mode),                SD_JSON_NULLABLE  },
+                { "notifyJobChanges",  SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(EnqueueJobParameters, notify_job_changes),  SD_JSON_NULLABLE  },
+                { "notifyUnitChanges", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(EnqueueJobParameters, notify_unit_changes), SD_JSON_NULLABLE  },
                 {}
         };
 
         _cleanup_(enqueue_job_parameters_done) EnqueueJobParameters p = {
                 .job_type = _JOB_TYPE_INVALID,
-                .mode = JOB_REPLACE,
+                .mode = _JOB_MODE_INVALID,
                 .notify_job_changes = -1,
                 .notify_unit_changes = -1,
         };
@@ -1003,6 +1003,9 @@ int vl_method_enqueue_unit_job(sd_varlink *link, sd_json_variant *parameters, sd
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
+
+        if (p.mode < 0)
+                p.mode = JOB_REPLACE;
 
         size_t n = strv_length(p.names);
         bool notify = p.notify_job_changes > 0 || p.notify_unit_changes > 0;
