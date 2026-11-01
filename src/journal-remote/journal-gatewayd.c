@@ -1075,7 +1075,7 @@ static mhd_result request_handler(
         }
 
         if (arg_trust_pem) {
-                r = check_permissions(connection, &code, /* hostname= */ NULL);
+                r = check_permissions(connection, &code, /* hostname= */ NULL, /* use_common_name= */ false);
                 if (r < 0)
                         return code;
         }

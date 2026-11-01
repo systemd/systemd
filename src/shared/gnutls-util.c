@@ -13,6 +13,7 @@ DLSYM_PROTOTYPE(gnutls_global_set_log_function) = NULL;
 DLSYM_PROTOTYPE(gnutls_global_set_log_level) = NULL;
 DLSYM_PROTOTYPE(gnutls_x509_crt_deinit) = NULL;
 DLSYM_PROTOTYPE(gnutls_x509_crt_get_dn) = NULL;
+DLSYM_PROTOTYPE(gnutls_x509_crt_get_dn_by_oid) = NULL;
 DLSYM_PROTOTYPE(gnutls_x509_crt_import) = NULL;
 DLSYM_PROTOTYPE(gnutls_x509_crt_init) = NULL;
 #endif
@@ -36,6 +37,7 @@ int dlopen_gnutls(int log_level) {
                         DLSYM_ARG(gnutls_global_set_log_level),
                         DLSYM_ARG(gnutls_x509_crt_deinit),
                         DLSYM_ARG(gnutls_x509_crt_get_dn),
+                        DLSYM_ARG(gnutls_x509_crt_get_dn_by_oid),
                         DLSYM_ARG(gnutls_x509_crt_import),
                         DLSYM_ARG(gnutls_x509_crt_init));
 #else
