@@ -1730,11 +1730,18 @@ _public_ int sd_varlink_is_idle(sd_varlink *v) {
 }
 
 _public_ int sd_varlink_is_connected(sd_varlink *v) {
-        assert_return(v, -EINVAL);
+        /* Returns true if the connection is still connected. A non-existent connection is definitely not
+         * connected. */
 
-        /* Returns true if the connection is still connected */
+        return v && v->state != VARLINK_DISCONNECTED;
+}
 
-        return v->state != VARLINK_DISCONNECTED;
+_public_ int sd_varlink_wants_reply(sd_varlink *v) {
+        /* Returns true if we are currently processing a method call and are expected to reply to it, i.e.
+         * no reply or error has been sent yet, and the method call was not invoked in oneway mode. A
+         * non-existent connection wants no reply. */
+
+        return v && VARLINK_STATE_WANTS_REPLY(v->state);
 }
 
 _public_ int sd_varlink_get_fd(sd_varlink *v) {
