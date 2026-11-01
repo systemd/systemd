@@ -58,6 +58,7 @@ int timer_context_build_json(sd_json_variant **ret, const char *name, void *user
                         JSON_BUILD_PAIR_FINITE_USEC("AccuracyUSec", t->accuracy_usec),
                         JSON_BUILD_PAIR_FINITE_USEC_NON_ZERO("RandomizedDelayUSec", t->random_delay_usec),
                         JSON_BUILD_PAIR_FINITE_USEC_NON_ZERO("RandomizedOffsetUSec", t->random_offset_usec),
+                        JSON_BUILD_PAIR_FINITE_USEC_NON_ZERO("MinIntervalUSec", t->min_interval_usec),
                         SD_JSON_BUILD_PAIR_BOOLEAN("FixedRandomDelay", t->fixed_random_delay),
                         SD_JSON_BUILD_PAIR_BOOLEAN("Persistent", t->persistent),
                         SD_JSON_BUILD_PAIR_BOOLEAN("WakeSystem", t->wake_system),
