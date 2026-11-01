@@ -18,8 +18,10 @@
   <refnamediv>
     <refname>sd_varlink_is_connected</refname>
     <refname>sd_varlink_is_idle</refname>
+    <refname>sd_varlink_wants_reply</refname>
 
-    <refpurpose>Query if a Varlink connection object is currently connected or idle</refpurpose>
+    <refpurpose>Query if a Varlink connection object is currently connected, idle, or expected to reply to
+    a method call</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -33,6 +35,11 @@
 
       <funcprototype>
         <funcdef>int <function>sd_varlink_is_idle</function></funcdef>
+        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_wants_reply</function></funcdef>
         <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
@@ -50,16 +57,32 @@
     currently connected but idle, i.e. may accept a method call for enqueuing (if client side of a Varlink
     connection) or is waiting for more incoming method calls to arrive (if server side of a Varlink
     connection).</para>
+
+    <para><function>sd_varlink_wants_reply()</function> checks whether the specified Varlink connection
+    object is currently processing an incoming method call and is expected to send a reply to it, i.e. no
+    final reply or error has been enqueued for it yet, and the method call was not issued with the
+    <literal>oneway</literal> flag set. This is useful on the server side of a Varlink connection, in
+    particular in method call handlers that invoke helper functions that might or might not have replied
+    to the method call already, for example with an error, before returning. After a call to
+    <function>sd_varlink_reply()</function>, <function>sd_varlink_error()</function> or a related function,
+    this function returns 0. Note that while a method call invoked with the <literal>more</literal> flag set
+    is processed, this function continues to return a positive value after
+    <function>sd_varlink_notify()</function> has been called, as a final reply is still expected. On the
+    client side of a Varlink connection this function always returns 0. If <parameter>link</parameter> is
+    <constant>NULL</constant>, the function returns 0, since a non-existent connection does not expect a
+    reply.</para>
   </refsect1>
 
   <refsect1>
     <title>Return Value</title>
 
     <para>If the connection is currently connected <function>sd_varlink_is_connected()</function> returns a
-    positive non-zero value. If disconnected (or if <constant>NULL</constant> is specified) it returns
-    0. If the connection currently is idle
-    <function>sd_varlink_is_idle()</function> returns a positive non-zero integer. If not, returns 0. On
-    failure, <function>sd_varlink_is_idle()</function> returns a negative <varname>errno</varname> error
+    positive non-zero value. If disconnected (or if <constant>NULL</constant> is specified) it returns 0.
+    If the connection currently is idle <function>sd_varlink_is_idle()</function> returns a positive
+    non-zero integer. If not, returns 0. If a reply to the method call currently being processed is
+    expected <function>sd_varlink_wants_reply()</function> returns a positive non-zero integer. If not (or
+    if <constant>NULL</constant> is specified), it returns 0. On failure,
+    <function>sd_varlink_is_idle()</function> returns a negative <varname>errno</varname> error
     code.</para>
 
     <refsect2>
@@ -72,7 +95,8 @@
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para>The specified Varlink connection is invalid. (Not returned by
-          <function>sd_varlink_is_connected()</function>.)</para></listitem>
+          <function>sd_varlink_is_connected()</function> and
+          <function>sd_varlink_wants_reply()</function>.)</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -84,6 +108,7 @@
     <title>History</title>
     <para><function>sd_varlink_is_connected()</function> was added in version 259.</para>
     <para><function>sd_varlink_is_idle()</function> was added in version 257.</para>
+    <para><function>sd_varlink_wants_reply()</function> was added in version 263.</para>
   </refsect1>
 
   <refsect1>
@@ -92,6 +117,7 @@
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>sd-varlink</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_varlink_send</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 
