@@ -51,6 +51,10 @@ typedef struct DnsScope {
 
         sd_event_source *announce_event_source;
 
+        /* Runtime withdrawals emitted on this scope, awaiting their RFC 6762 §8.3 one-second
+         * retransmission. A scope freed inside that window abandons them, see dns_scope_free(). */
+        DnsAnswer *pending_withdrawals;
+
         sd_event_source *mdns_goodbye_event_source;
 
         RateLimit ratelimit;
@@ -128,8 +132,9 @@ DnsScope* dns_scope_first_mdns(DnsScope *s);
 const char* dns_scope_ifname(DnsScope *s);
 
 bool dns_scope_shutdown_goodbye_has_content(DnsScope *scope);
+bool dns_scope_withdraw_rrs(DnsScope *scope, DnsAnswer *candidates);
+void dns_scope_flush_pending_withdrawals(DnsScope *scope);
 int dns_scope_announce(DnsScope *scope, bool goodbye);
-int dns_scope_send_goodbye(DnsScope *scope, DnsAnswer *answer);
 /* Is this record one of the host's own, an address record or its reverse mapping, on this scope?
  * Those the shutdown goodbyes keep, so they stay ours to answer for while the withdrawal stands. */
 bool dns_scope_rr_is_host_record(const DnsScope *scope, const DnsResourceRecord *rr);
