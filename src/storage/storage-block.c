@@ -213,13 +213,13 @@ static int device_open_disk_auto_rw(sd_device *d, int *read_only) {
         assert(d);
         assert(read_only);
 
-        int fd = sd_device_open(d, *read_only > 0 ? O_RDONLY : O_RDWR);
+        int fd = device_open(d, *read_only > 0 ? O_RDONLY : O_RDWR);
         if (fd < 0) {
                 if (!ERRNO_IS_NEG_FS_WRITE_REFUSED(fd) || *read_only >= 0)
                         return log_device_debug_errno(d, fd, "Failed to open device in %s mode: %m", *read_only > 0 ? "read-only" : "read-write");
 
                 /* Try again in read-only mode */
-                fd = sd_device_open(d, O_RDONLY);
+                fd = device_open(d, O_RDONLY);
                 if (fd < 0)
                         return log_device_debug_errno(d, fd, "Failed to open device in read-only mode, too: %m");
 

@@ -170,7 +170,7 @@ static int voa_collect(
         /* Only a readdir handle, not a pin: every entry is re-resolved below and confined via its own
          * resolved path. */
         dfd = chase_and_openat(c->root_fd, c->root_fd, dir, VOA_CHASE_FLAGS(c->log_level),
-                               O_DIRECTORY|O_CLOEXEC, &physical);
+                               O_DIRECTORY, &physical);
         if (dfd == -ENOENT)
                 return 0;
         if (voa_chase_error_ignorable(dfd)) {

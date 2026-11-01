@@ -9,6 +9,7 @@
 #include "blkid-util.h"
 #include "blockdev-util.h"
 #include "chase.h"
+#include "device-private.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -138,7 +139,7 @@ static int device_get_file_system_word(
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int block_fd = sd_device_open(d, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        _cleanup_close_ int block_fd = device_open(d, O_RDONLY|O_NONBLOCK);
         if (block_fd < 0)
                 return block_fd;
 
@@ -205,7 +206,7 @@ int pcrextend_file_system_word(const char *path, char **ret_word, char **ret_nor
         assert(path);
         assert(ret_word);
 
-        dfd = chase_and_open(path, /* root= */ NULL, /* chase_flags= */ 0, O_DIRECTORY|O_CLOEXEC, &normalized_path);
+        dfd = chase_and_open(path, /* root= */ NULL, /* chase_flags= */ 0, O_DIRECTORY, &normalized_path);
         if (dfd < 0)
                 return log_error_errno(dfd, "Failed to open path '%s': %m", path);
 

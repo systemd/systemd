@@ -40,7 +40,7 @@ TEST_RET(make_console_stdio) {
         if (get_ctty(/* pid= */ 0, /* ret_devnr= */ NULL, &tty) < 0 || !tty_is_vc(tty))
                 return log_tests_skipped("Not running on a virtual console.");
         path = ASSERT_NOT_NULL(path_join("/dev", tty));
-        tty_fd = open_terminal(path, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        tty_fd = open_terminal(path, O_RDWR|O_NOCTTY);
         if (tty_fd < 0)
                 return log_tests_skipped_errno(tty_fd, "Cannot open the controlling VT");
         if (ioctl(tty_fd, VT_GETSTATE, &state) < 0 || state.v_active == vtnr_from_tty(tty))

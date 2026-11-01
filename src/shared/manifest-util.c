@@ -257,7 +257,7 @@ int manifest_context_hash_fd(ManifestContext *c, int inode_fd, uint8_t ret[stati
                 (void) fflush(c->output);
 
         /* Convert O_PATH fd into a regular one */
-        _cleanup_close_ int fd = fd_reopen(inode_fd, O_RDONLY|O_CLOEXEC);
+        _cleanup_close_ int fd = fd_reopen(inode_fd, O_RDONLY);
         if (fd < 0)
                 return fd;
 

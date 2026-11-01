@@ -590,7 +590,7 @@ int _fork_agent(const char *name, char * const *argv, const int except[], size_t
                         name,
                         /* stdio_fds= */ NULL,
                         (int*) except, n_except, /* safe_fork_full only changes except if you pass in FORK_PACK_FDS, which we don't */
-                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_RLIMIT_NOFILE_SAFE,
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_CLOEXEC_OFF|FORK_REOPEN_LOG|FORK_RLIMIT_NOFILE_SAFE,
                         ret);
         if (r < 0)
                 return r;
@@ -616,22 +616,13 @@ int _fork_agent(const char *name, char * const *argv, const int except[], size_t
                         _exit(EXIT_FAILURE);
                 }
 
-                if (!stdin_is_tty && dup2(fd, STDIN_FILENO) < 0) {
-                        log_error_errno(errno, "Failed to dup2 /dev/tty to STDIN: %m");
+                r = rearrange_stdio(stdin_is_tty ? STDIN_FILENO : fd,
+                                    stdout_is_tty ? STDOUT_FILENO : fd,
+                                    stderr_is_tty ? STDERR_FILENO : fd);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to connect stdio to %s: %m", "/dev/tty");
                         _exit(EXIT_FAILURE);
                 }
-
-                if (!stdout_is_tty && dup2(fd, STDOUT_FILENO) < 0) {
-                        log_error_errno(errno, "Failed to dup2 /dev/tty to STDOUT: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                if (!stderr_is_tty && dup2(fd, STDERR_FILENO) < 0) {
-                        log_error_errno(errno, "Failed to dup2 /dev/tty to STDERR: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                fd = safe_close_above_stdio(fd);
         }
 
         /* Count arguments */

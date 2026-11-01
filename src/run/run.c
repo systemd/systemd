@@ -2188,11 +2188,11 @@ static int start_transient_service(sd_bus *bus) {
         if (arg_stdio == ARG_STDIO_PTY) {
 
                 if (IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_CAPSULE)) {
-                        c.pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, &pty_path);
+                        c.pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_NONBLOCK, &pty_path);
                         if (c.pty_fd < 0)
                                 return log_error_errno(c.pty_fd, "Failed to acquire pseudo tty: %m");
 
-                        peer_fd = pty_open_peer(c.pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                        peer_fd = pty_open_peer(c.pty_fd, O_RDWR|O_NOCTTY);
                         if (peer_fd < 0)
                                 return log_error_errno(peer_fd, "Failed to open pty peer: %m");
 
@@ -2244,7 +2244,7 @@ static int start_transient_service(sd_bus *bus) {
                         if (!pty_path)
                                 return log_oom();
 
-                        peer_fd = pty_open_peer(c.pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                        peer_fd = pty_open_peer(c.pty_fd, O_RDWR|O_NOCTTY);
                         if (peer_fd < 0)
                                 return log_error_errno(peer_fd, "Failed to open PTY peer: %m");
                 } else

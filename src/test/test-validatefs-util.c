@@ -17,7 +17,7 @@ static int make_dir(char **ret_path, int *ret_fd) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        fd = mkdtemp_open("/var/tmp/test-validatefsXXXXXX", O_RDONLY|O_CLOEXEC, &t);
+        fd = mkdtemp_open("/var/tmp/test-validatefsXXXXXX", O_RDONLY, &t);
         if (fd < 0)
                 return fd;
 

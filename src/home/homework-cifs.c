@@ -38,9 +38,9 @@ int home_setup_cifs(
         assert(setup->root_fd < 0);
 
         if (FLAGS_SET(flags, HOME_SETUP_ALREADY_ACTIVATED)) {
-                setup->root_fd = open(user_record_home_directory(h), O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+                setup->root_fd = xopenat(AT_FDCWD, user_record_home_directory(h), O_RDONLY|O_DIRECTORY|O_NOFOLLOW);
                 if (setup->root_fd < 0)
-                        return log_error_errno(errno, "Failed to open home directory: %m");
+                        return log_error_errno(setup->root_fd, "Failed to open home directory: %m");
 
                 return 0;
         }
@@ -139,16 +139,16 @@ int home_setup_cifs(
                         return log_oom();
 
                 if (FLAGS_SET(flags, HOME_SETUP_CIFS_MKDIR)) {
-                        setup->root_fd = open_mkdir(j, O_CLOEXEC, 0700);
+                        setup->root_fd = open_mkdir(j, /* flags= */ 0, 0700);
                         if (setup->root_fd < 0)
                                 return log_error_errno(setup->root_fd, "Failed to create CIFS subdirectory: %m");
                 }
         }
 
         if (setup->root_fd < 0) {
-                setup->root_fd = open(j ?: HOME_RUNTIME_WORK_DIR, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+                setup->root_fd = xopenat(AT_FDCWD, j ?: HOME_RUNTIME_WORK_DIR, O_RDONLY|O_DIRECTORY|O_NOFOLLOW);
                 if (setup->root_fd < 0)
-                        return log_error_errno(errno, "Failed to open home directory: %m");
+                        return log_error_errno(setup->root_fd, "Failed to open home directory: %m");
         }
 
         setup->mount_suffix = TAKE_PTR(cdir);

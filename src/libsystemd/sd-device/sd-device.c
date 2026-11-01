@@ -2880,7 +2880,7 @@ _public_ int sd_device_trigger_with_args(
         return 0;
 }
 
-_public_ int sd_device_open(sd_device *device, int flags) {
+int device_open(sd_device *device, int flags) {
         _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
         const char *devname;
         uint64_t q, diskseq = 0;
@@ -2888,8 +2888,10 @@ _public_ int sd_device_open(sd_device *device, int flags) {
         dev_t devnum;
         int r;
 
-        assert_return(device, -EINVAL);
-        assert_return(FLAGS_SET(flags, O_PATH) || !FLAGS_SET(flags, O_NOFOLLOW), -EINVAL);
+        assert(device);
+        assert(FLAGS_SET(flags, O_PATH) || !FLAGS_SET(flags, O_NOFOLLOW));
+
+        /* Like sd_device_open(), but O_CLOEXEC is always set */
 
         r = sd_device_get_devname(device, &devname);
         if (r == -ENOENT)
@@ -2903,9 +2905,11 @@ _public_ int sd_device_open(sd_device *device, int flags) {
         if (r < 0)
                 return r;
 
-        fd = open(devname, FLAGS_SET(flags, O_PATH) ? flags : O_CLOEXEC|O_NOFOLLOW|O_PATH);
+        /* With O_PATH open() ignores all but these flags, so must we */
+        fd = xopenat(AT_FDCWD, devname,
+                     FLAGS_SET(flags, O_PATH) ? flags & (O_PATH|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC) : O_NOFOLLOW|O_PATH);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         if (fstat(fd, &st) < 0)
                 return -errno;
@@ -2954,6 +2958,27 @@ _public_ int sd_device_open(sd_device *device, int flags) {
                 return -ENXIO;
 
         return TAKE_FD(fd2);
+}
+
+_public_ int sd_device_open(sd_device *device, int flags) {
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert_return(device, -EINVAL);
+        assert_return(FLAGS_SET(flags, O_PATH) || !FLAGS_SET(flags, O_NOFOLLOW), -EINVAL);
+
+        fd = device_open(device, flags);
+        if (fd < 0)
+                return fd;
+
+        /* We've historically returned non-cloexec fds. */
+        if (!FLAGS_SET(flags, O_CLOEXEC)) {
+                r = fd_cloexec(fd, false);
+                if (r < 0)
+                        return r;
+        }
+
+        return TAKE_FD(fd);
 }
 
 int device_opendir(sd_device *device, const char *subdir, DIR **ret) {

@@ -25,9 +25,9 @@ int counters_file_map(const char *path, size_t size, uint64_t version, void **re
         assert(version > 0);
         assert(ret);
 
-        fd = open(path, O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0644);
+        fd = xopenat_full(AT_FDCWD, path, O_RDWR|O_CREAT|O_NOCTTY|O_NOFOLLOW, /* xopen_flags= */ 0, 0644);
         if (fd < 0)
-                return log_debug_errno(errno, "Failed to open counters file '%s': %m", path);
+                return log_debug_errno(fd, "Failed to open counters file '%s': %m", path);
 
         if (fstat(fd, &st) < 0)
                 return log_debug_errno(errno, "Failed to stat counters file '%s': %m", path);

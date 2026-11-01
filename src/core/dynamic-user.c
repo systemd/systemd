@@ -13,6 +13,7 @@
 #include "fdset.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "io-util.h"
 #include "iovec-util.h"
@@ -236,29 +237,15 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
 
                 xsprintf(lock_path, "/run/systemd/dynamic-uid/" UID_FMT, candidate);
 
-                for (;;) {
-                        lock_fd = open(lock_path, O_CREAT|O_RDWR|O_NOFOLLOW|O_CLOEXEC|O_NOCTTY, 0600);
-                        if (lock_fd < 0)
-                                return -errno;
-
-                        r = flock(lock_fd, LOCK_EX|LOCK_NB); /* Try to get a BSD file lock on the UID lock file */
-                        if (r < 0) {
-                                if (errno == EAGAIN)
-                                        goto next; /* already in use */
-
-                                return -errno;
-                        }
-
-                        r = fd_verify_linked(lock_fd);
-                        if (r >= 0)
-                                break;
-                        if (r != -EIDRM)
-                                return r;
-
-                        /* Oh, bummer, we got the lock, but the file was unlinked between the time we opened it and
-                         * got the lock. Close it, and try again. */
-                        lock_fd = safe_close(lock_fd);
-                }
+                /* Try to get a BSD file lock on the UID lock file */
+                lock_fd = xopenat_lock_full(
+                                AT_FDCWD, lock_path,
+                                O_CREAT|O_RDWR|O_NOFOLLOW|O_NOCTTY, /* xopen_flags= */ 0, 0600,
+                                LOCK_BSD, LOCK_EX|LOCK_NB);
+                if (lock_fd == -EAGAIN)
+                        continue; /* already in use */
+                if (lock_fd < 0)
+                        return lock_fd;
 
                 /* Some superficial check whether this UID/GID might already be taken by some static user */
                 if (getpwuid_malloc(candidate, /* ret= */ NULL) >= 0 ||
@@ -283,9 +270,6 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
 
                 *ret_uid = candidate;
                 return TAKE_FD(lock_fd);
-
-        next:
-                ;
         }
 }
 

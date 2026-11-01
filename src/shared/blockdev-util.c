@@ -240,9 +240,9 @@ int block_device_new_from_path(const char *path, BlockDeviceLookupFlags flags, s
         assert(path);
         assert(ret);
 
-        fd = open(path, O_CLOEXEC|O_PATH);
+        fd = xopenat(AT_FDCWD, path, O_PATH);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return block_device_new_from_fd(fd, flags, ret);
 }
@@ -323,9 +323,9 @@ int get_block_device(const char *path, dev_t *ret) {
         assert(path);
         assert(ret);
 
-        fd = open(path, O_RDONLY|O_NOFOLLOW|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, path, O_RDONLY|O_NOFOLLOW);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return get_block_device_fd(fd, ret);
 }
@@ -373,9 +373,9 @@ int get_block_device_harder(const char *path, dev_t *ret) {
         assert(path);
         assert(ret);
 
-        fd = open(path, O_RDONLY|O_NOFOLLOW|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, path, O_RDONLY|O_NOFOLLOW);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return get_block_device_harder_fd(fd, ret);
 }
@@ -395,7 +395,7 @@ int lock_whole_block_device(dev_t devt, int open_flags, int operation) {
         if (r < 0)
                 return r;
 
-        lock_fd = device_open_from_devnum(S_IFBLK, whole_devt, open_flags|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, /* ret_devname= */ NULL);
+        lock_fd = device_open_from_devnum(S_IFBLK, whole_devt, open_flags|O_NONBLOCK|O_NOCTTY, /* ret_devname= */ NULL);
         if (lock_fd < 0)
                 return lock_fd;
 
@@ -642,9 +642,9 @@ int fd_get_whole_disk(int fd, bool backing, dev_t *ret) {
 int path_get_whole_disk(const char *path, bool backing, dev_t *ret) {
         _cleanup_close_ int fd = -EBADF;
 
-        fd = open(path, O_CLOEXEC|O_PATH);
+        fd = xopenat(AT_FDCWD, path, O_PATH);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return fd_get_whole_disk(fd, backing, ret);
 }
@@ -782,7 +782,7 @@ int block_device_remove_all_partitions(sd_device *dev, int fd) {
                 return r;
 
         if (fd < 0) {
-                fd_close = sd_device_open(dev, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_RDONLY);
+                fd_close = device_open(dev, O_NONBLOCK|O_NOCTTY|O_RDONLY);
                 if (fd_close < 0)
                         return fd_close;
 

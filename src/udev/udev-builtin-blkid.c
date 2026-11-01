@@ -17,6 +17,7 @@
 #include "alloc-util.h"
 #include "blkid-util.h"
 #include "blockdev-util.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "devnum-util.h"
 #include "efi-api.h"
@@ -564,7 +565,7 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device name: %m");
 
-        fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        fd = device_open(dev, O_RDONLY|O_NONBLOCK|O_NOCTTY);
         if (fd < 0) {
                 bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(fd);
                 log_device_debug_errno(dev, fd, "Failed to open block device %s%s: %m",
