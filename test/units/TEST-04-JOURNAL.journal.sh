@@ -7,7 +7,13 @@ set -o pipefail
 . "$(dirname "$0")"/util.sh
 
 # Rotation/flush test, see https://github.com/systemd/systemd/issues/19895
+journalctl --flush
 journalctl --relinquish-var
+for parameters in '{}' '{"fileDescriptorStore": null}' '{"fileDescriptorStore": false}'; do
+    varlinkctl call /run/systemd/journal/io.systemd.journal io.systemd.Journal.RelinquishVar "$parameters"
+done
+assert_rc 1 varlinkctl call /run/systemd/journal/io.systemd.journal io.systemd.Journal.RelinquishVar '{"fileDescriptorStore": true}'
+assert_rc 1 varlinkctl call /run/systemd/journal/io.systemd.journal io.systemd.Journal.RelinquishVar '{"fileDescriptorStore": "yes"}'
 [[ "$(systemd-detect-virt -v)" == "qemu" ]] && ITERATIONS=10 || ITERATIONS=50
 for ((i = 0; i < ITERATIONS; i++)); do
     dd if=/dev/urandom bs=1M count=1 | base64 | systemd-cat
@@ -257,6 +263,46 @@ rm -f /tmp/expected /tmp/output
 
 # Add new tests before here, the journald restarts below
 # may make tests flappy.
+
+wait_for_runtime_journal_fdstore() {
+    # shellcheck disable=SC2016
+    timeout 10s bash -c '
+        until systemd-analyze fdstore systemd-journald.service --json=short |
+            jq -e --argjson expected "$1" "any(.[]; .fdname == \"runtime-journal\") == \$expected" >/dev/null; do
+            sleep 0.1
+        done
+    ' _ "$1"
+}
+
+# The memory-backed journal must survive both clean and unclean same-boot restarts until it is flushed.
+for restart in none clean crash; do
+    ID="$(systemd-id128 new)"
+    journalctl --flush
+    varlinkctl call /run/systemd/journal/io.systemd.journal io.systemd.Journal.RelinquishVar '{"fileDescriptorStore": true}'
+    wait_for_runtime_journal_fdstore true
+    echo before-restart | systemd-cat -t "$ID"
+    varlinkctl call /run/systemd/journal/io.systemd.journal io.systemd.Journal.Synchronize '{"offline": false}'
+
+    case "$restart" in
+        clean)
+            systemctl restart systemd-journald
+            ;;
+        crash)
+            systemctl kill --signal=SIGKILL systemd-journald
+            systemctl restart systemd-journald
+            ;;
+    esac
+
+    wait_for_runtime_journal_fdstore true
+    # Repeated preservation requests must remain successful while the memfd is already active.
+    varlinkctl call /run/systemd/journal/io.systemd.journal io.systemd.Journal.RelinquishVar '{"fileDescriptorStore": true}'
+    echo after-restart | systemd-cat -t "$ID"
+    journalctl --sync
+    journalctl --flush
+    journalctl --sync
+    wait_for_runtime_journal_fdstore false
+    assert_eq "$(journalctl -b -q -o cat -t "$ID")" $'before-restart\nafter-restart'
+done
 
 # Don't lose streams on restart
 systemctl start forever-print-hola
