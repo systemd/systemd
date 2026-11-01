@@ -101,7 +101,7 @@ static int open_sockets(int *ret_epoll_fd) {
          * immediately anyway, but would be a pain to fix. */
 
         STRV_FOREACH(address, arg_listen) {
-                r = make_socket_fd(LOG_DEBUG, *address, arg_socket_type, (arg_accept * SOCK_CLOEXEC));
+                r = make_socket_fd(LOG_DEBUG, *address, arg_socket_type, /* flags= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open '%s': %m", *address);
 
@@ -187,6 +187,12 @@ static int exec_process(char * const *argv, int start_fd, size_t n_fds) {
                                 return log_error_errno(errno, "Failed to dup connection: %m");
 
                         safe_close(start_fd);
+                }
+
+                for (int fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + (int) n_fds; fd++) {
+                        r = fd_cloexec(fd, /* cloexec= */ false);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to disable O_CLOEXEC for fd %i: %m", fd);
                 }
 
                 r = strv_extendf(&envp, "LISTEN_FDS=%zu", n_fds);

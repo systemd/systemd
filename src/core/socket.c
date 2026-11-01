@@ -1504,7 +1504,7 @@ static int socket_address_listen_do(
 
         return socket_address_listen(
                         address,
-                        SOCK_CLOEXEC|SOCK_NONBLOCK,
+                        SOCK_NONBLOCK,
                         s->backlog,
                         s->bind_ipv6_only,
                         s->bind_to_device,

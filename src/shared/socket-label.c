@@ -99,7 +99,7 @@ int socket_address_listen(
                         return r;
         }
 
-        fd = RET_NERRNO(socket(socket_address_family(a), a->type | flags, a->protocol));
+        fd = RET_NERRNO(socket(socket_address_family(a), a->type | flags | SOCK_CLOEXEC, a->protocol));
 
         if (selinux_label)
                 mac_selinux_create_socket_clear();
