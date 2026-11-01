@@ -117,6 +117,17 @@ static int normalize_local(const char *local, const char *url, char **ret) {
         return 0;
 }
 
+static int refuse_ranges(const char *type) {
+        assert(type);
+
+        /* Ranges only make sense for raw images, hence refuse them for anything else */
+
+        if (arg_offset != UINT64_MAX || arg_size_max != UINT64_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--offset=/--size-max= are not supported for %s images.", type);
+
+        return 0;
+}
+
 static void on_tar_finished(TarPull *pull, int error, void *userdata) {
         sd_event *event = userdata;
         assert(pull);
@@ -160,6 +171,10 @@ static int verb_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         if (arg_import_flags & (IMPORT_PULL_CHECKSUM_FILE_YES|IMPORT_PULL_CHECKSUM_FILE_NO))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--checksum-file= is not supported for tar images.");
+
+        r = refuse_ranges("tar");
+        if (r < 0)
+                return r;
 
         r = normalize_local(local, url, &normalized);
         if (r < 0)
@@ -285,6 +300,10 @@ static int verb_oci(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--compression= and --verify-decoded= are not supported for OCI images.");
         if (arg_import_flags & (IMPORT_PULL_CHECKSUM_FILE_YES|IMPORT_PULL_CHECKSUM_FILE_NO))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--checksum-file= is not supported for OCI images.");
+
+        r = refuse_ranges("OCI");
+        if (r < 0)
+                return r;
 
         _cleanup_free_ char *image = NULL;
         r = oci_ref_parse(ref, /* ret_registry= */ NULL, &image, /* ret_tag= */ NULL);

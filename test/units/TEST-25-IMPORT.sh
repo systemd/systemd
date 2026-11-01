@@ -326,6 +326,11 @@ pull_cf() {
 (! "$PULL" tar --verify=no --checksum-file=no "file://$CFDIR/foo.tar" foo) |& grep -F "not supported for tar images" >/dev/null
 (! "$PULL" oci --checksum-file=yes foo/bar) |& grep -F "not supported for OCI images" >/dev/null
 (! "$PULL" oci --checksum-file=no foo/bar) |& grep -F "not supported for OCI images" >/dev/null
+# … and so are target ranges, which only make sense for raw images
+(! "$PULL" tar --verify=no --direct --offset=4096 "file://$CFDIR/foo.tar" "$CFDIR/out") |& grep -F "not supported for tar images" >/dev/null
+(! "$PULL" tar --verify=no --size-max=4096 "file://$CFDIR/foo.tar" foo) |& grep -F "not supported for tar images" >/dev/null
+(! "$PULL" oci --direct --offset=4096 foo/bar "$CFDIR/out") |& grep -F "not supported for OCI images" >/dev/null
+(! "$PULL" oci --size-max=4096 foo/bar) |& grep -F "not supported for OCI images" >/dev/null
 test ! -e "$CFDIR/out"
 
 # A file whose name doesn't suggest it is a checksum file, which hence needs a checksum file covering it,
