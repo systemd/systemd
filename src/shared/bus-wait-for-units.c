@@ -455,6 +455,10 @@ static int wait_for_item_parse_properties(WaitForItem *item, sd_bus_message *m) 
         assert(item);
         assert(m);
 
+        /* LoadState is a constant property, hence it is only contained in the reply to GetAll(), but never in
+         * PropertiesChanged signals. */
+        bool had_load_state = item->load_state;
+
         r = bus_message_map_all_properties(m, map, BUS_MAP_STRDUP, /* reterr_error= */ NULL, item);
         if (r < 0)
                 return r;
@@ -479,6 +483,28 @@ static int wait_for_item_parse_properties(WaitForItem *item, sd_bus_message *m) 
                 }
 
                 item->removed = false;
+        }
+
+        if (!had_load_state && streq_ptr(item->load_state, "not-found")) {
+                /* The unit did not exist from the beginning. Treat it as terminated successfully. */
+                log_debug("Unit %s is not loaded.", item->name);
+
+                /* No result is collected for a unit that does not exist. Hence, create a fake result that
+                 * only contains the load state, and pass it to the callback, so that the caller can tell
+                 * that the unit does not exist. */
+                if (FLAGS_SET(item->flags, BUS_WAIT_COLLECT_RESULT)) {
+                        r = free_and_strdup(&item->result.load_state, item->load_state);
+                        if (r < 0) {
+                                log_oom_debug();
+                                wait_for_item_fail(item);
+                                return 0;
+                        }
+                }
+
+                BusWaitForUnits *d = ASSERT_PTR(item->parent);
+                call_unit_callback_and_wait(d, item, /* good= */ true);
+                bus_wait_for_units_check_ready(d);
+                return 0;
         }
 
         wait_for_item_check_ready(item);
