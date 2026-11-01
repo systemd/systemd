@@ -52,10 +52,9 @@ static int print_gaih_addrtuples(const struct gaih_addrtuple *tuples) {
                 char family_name[DECIMAL_STR_MAX(int)];
 
                 memcpy(&u, it->addr, 16);
-                r = in_addr_to_string(it->family, &u, &a);
-                assert_se(IN_SET(r, 0, -EAFNOSUPPORT));
+                r = ASSERT_OK_OR(in_addr_to_string(it->family, &u, &a), -EAFNOSUPPORT);
                 if (r == -EAFNOSUPPORT)
-                        assert_se(a = hexmem(it->addr, 16));
+                        ASSERT_NOT_NULL(a = hexmem(it->addr, 16));
 
                 log_info("        \"%s\" %s %s %s",
                          it->name,
@@ -73,9 +72,9 @@ static void assert_myhostname_gaih_addrtuples(const struct gaih_addrtuple *tuple
 
         for (const struct gaih_addrtuple *it = tuples; it; it = it->next)
                 if (it->family == AF_INET)
-                        assert_se(memeqzero(
-                                        (const uint8_t*) it->addr + sizeof(struct in_addr),
-                                        sizeof(it->addr) - sizeof(struct in_addr)));
+                        ASSERT_TRUE(memeqzero(
+                                          (const uint8_t*) it->addr + sizeof(struct in_addr),
+                                          sizeof(it->addr) - sizeof(struct in_addr)));
 }
 
 static void print_struct_hostent(struct hostent *host, const char *canon) {
@@ -86,12 +85,10 @@ static void print_struct_hostent(struct hostent *host, const char *canon) {
                 union in_addr_union u;
                 _cleanup_free_ char *a = NULL;
                 char family_name[DECIMAL_STR_MAX(int)];
-                int r;
 
-                assert_se((unsigned) host->h_length == FAMILY_ADDRESS_SIZE(host->h_addrtype));
+                ASSERT_EQ((unsigned) host->h_length, FAMILY_ADDRESS_SIZE(host->h_addrtype));
                 memcpy(&u, *s, host->h_length);
-                r = in_addr_to_string(host->h_addrtype, &u, &a);
-                assert_se(r == 0);
+                ASSERT_OK_ZERO(in_addr_to_string(host->h_addrtype, &u, &a));
                 log_info("        %s %s",
                          af_to_string(host->h_addrtype, family_name, sizeof family_name),
                          a);
@@ -153,15 +150,15 @@ static void test_gethostbyname4_r(void *handle, const char *module, const char *
 
         if (streq(name, "localhost")) {
                 if (streq(module, "myhostname")) {
-                        assert_se(status == NSS_STATUS_SUCCESS);
-                        assert_se(n == socket_ipv6_is_enabled() + 1);
+                        ASSERT_EQ(status, NSS_STATUS_SUCCESS);
+                        ASSERT_EQ(n, socket_ipv6_is_enabled() + 1);
 
                 } else if (streq(module, "resolve") && secure_getenv_bool("SYSTEMD_NSS_RESOLVE_SYNTHESIZE") != 0) {
-                        assert_se(status == NSS_STATUS_SUCCESS);
+                        ASSERT_EQ(status, NSS_STATUS_SUCCESS);
                         if (socket_ipv6_is_enabled())
-                                assert_se(n == 2);
+                                ASSERT_EQ(n, 2);
                         else
-                                assert_se(n <= 2); /* Even if IPv6 is disabled, /etc/hosts may contain ::1. */
+                                ASSERT_LE(n, 2); /* Even if IPv6 is disabled, /etc/hosts may contain ::1. */
                 }
         }
 }
@@ -281,7 +278,7 @@ static void test_gethostbyaddr2_r(void *handle,
                 return;
         }
 
-        assert_se(in_addr_to_string(af, addr, &addr_pretty) >= 0);
+        ASSERT_OK(in_addr_to_string(af, addr, &addr_pretty));
 
         status = f(addr, len, af, &host, buffer, sizeof buffer, &errno1, &errno2, &ttl);
         log_info("%s(\"%s\") → status=%s%-20serrno=%d/%s h_errno=%d/%s ttl=%"PRIi32,
@@ -318,7 +315,7 @@ static void test_gethostbyaddr_r(void *handle,
                 return;
         }
 
-        assert_se(in_addr_to_string(af, addr, &addr_pretty) >= 0);
+        ASSERT_OK(in_addr_to_string(af, addr, &addr_pretty));
 
         status = f(addr, len, af, &host, buffer, sizeof buffer, &errno1, &errno2);
         log_info("%s(\"%s\") → status=%s%-20serrno=%d/%s h_errno=%d/%s",
@@ -375,7 +372,7 @@ static int make_addresses(struct local_address **addresses) {
         if (n < 0)
                 log_info_errno(n, "Failed to query local addresses: %m");
 
-        assert_se(GREEDY_REALLOC(addrs, n + 3));
+        ASSERT_NOT_NULL(GREEDY_REALLOC(addrs, n + 3));
 
         addrs[n++] = (struct local_address) { .family = AF_INET,
                                               .address.in = { htobe32(0x7F000001) } };
@@ -444,7 +441,7 @@ static int parse_argv(int argc, char **argv,
                                 "mymachines",
 #endif
                                 NULL);
-        assert_se(modules);
+        ASSERT_NOT_NULL(modules);
 
         if (argc > 2) {
                 int family;
@@ -458,7 +455,7 @@ static int parse_argv(int argc, char **argv,
                                 if (r < 0)
                                         return r;
                         } else {
-                                assert_se(GREEDY_REALLOC0(addrs, n + 1));
+                                ASSERT_NOT_NULL(GREEDY_REALLOC0(addrs, n + 1));
 
                                 addrs[n++] = (struct local_address) { .family = family,
                                                                       .address = address };
@@ -466,15 +463,14 @@ static int parse_argv(int argc, char **argv,
                 }
         } else {
                 _cleanup_free_ char *hostname = NULL;
-                assert_se(hostname = gethostname_malloc());
-                assert_se(names = strv_new("localhost",
-                                           "_gateway",
-                                           "_outbound",
-                                           hostname,
-                                           slow_tests_enabled() ? "foo_no_such_host" : NULL));
+                ASSERT_NOT_NULL(hostname = gethostname_malloc());
+                ASSERT_NOT_NULL(names = strv_new("localhost",
+                                                 "_gateway",
+                                                 "_outbound",
+                                                 hostname,
+                                                 slow_tests_enabled() ? "foo_no_such_host" : NULL));
 
-                n = make_addresses(&addrs);
-                assert_se(n >= 0);
+                n = ASSERT_OK(make_addresses(&addrs));
         }
 
         *the_modules = TAKE_PTR(modules);
@@ -497,7 +493,7 @@ static int run(int argc, char **argv) {
         if (r < 0)
                 return log_error_errno(r, "Failed to parse arguments: %m");
 
-        assert_se(path_extract_directory(argv[0], &dir) >= 0);
+        ASSERT_OK(path_extract_directory(argv[0], &dir));
 
 #if HAVE_SECCOMP
         if (geteuid() != 0 || !is_seccomp_available())

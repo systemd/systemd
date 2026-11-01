@@ -25,22 +25,22 @@ static void *ignore_stdout_args[] = { &here, &here2, &here3 };
 
 /* noop handlers, just check that arguments are passed correctly */
 static int ignore_stdout_func(int fd, void *arg) {
-        assert_se(fd >= 0);
-        assert_se(arg == &here);
+        ASSERT_OK(fd);
+        ASSERT_PTR_EQ(arg, &here);
         safe_close(fd);
 
         return 0;
 }
 static int ignore_stdout_func2(int fd, void *arg) {
-        assert_se(fd >= 0);
-        assert_se(arg == &here2);
+        ASSERT_OK(fd);
+        ASSERT_PTR_EQ(arg, &here2);
         safe_close(fd);
 
         return 0;
 }
 static int ignore_stdout_func3(int fd, void *arg) {
-        assert_se(fd >= 0);
-        assert_se(arg == &here3);
+        ASSERT_OK(fd);
+        ASSERT_PTR_EQ(arg, &here3);
         safe_close(fd);
 
         return 0;
@@ -62,8 +62,8 @@ static void test_execute_directory_one(bool gather_stdout) {
 
         log_info("/* %s (%s) */", __func__, gather_stdout ? "gathering stdout" : "asynchronous");
 
-        assert_se(mkdtemp_malloc("/tmp/test-exec-util.lo.XXXXXXX", &tmp_lo) >= 0);
-        assert_se(mkdtemp_malloc("/tmp/test-exec-util.hi.XXXXXXX", &tmp_hi) >= 0);
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-exec-util.lo.XXXXXXX", &tmp_lo));
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-exec-util.hi.XXXXXXX", &tmp_hi));
 
         const char * dirs[] = { tmp_hi, tmp_lo, NULL };
 
@@ -79,40 +79,40 @@ static void test_execute_directory_one(bool gather_stdout) {
         masked2e = strjoina(tmp_lo, "/masked2e");
         mask2e = strjoina(tmp_hi, "/masked2e");
 
-        assert_se(write_string_file(name,
-                                    "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works",
-                                    WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(write_string_file(name2,
-                                    "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works2",
-                                    WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(write_string_file(overridden,
-                                    "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed",
-                                    WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(write_string_file(override,
-                                    "#!/bin/sh\necho 'Executing '$0",
-                                    WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(write_string_file(masked,
-                                    "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed",
-                                    WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(write_string_file(masked2,
-                                    "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed",
-                                    WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(write_string_file(masked2e,
-                                    "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed",
-                                    WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(symlink("/dev/null", mask) == 0);
-        assert_se(touch(mask2) == 0);
-        assert_se(touch(mask2e) == 0);
-        assert_se(touch(name3) >= 0);
+        ASSERT_OK_ZERO(write_string_file(name,
+                                         "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works",
+                                         WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ZERO(write_string_file(name2,
+                                         "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works2",
+                                         WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ZERO(write_string_file(overridden,
+                                         "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed",
+                                         WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ZERO(write_string_file(override,
+                                         "#!/bin/sh\necho 'Executing '$0",
+                                         WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ZERO(write_string_file(masked,
+                                         "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed",
+                                         WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ZERO(write_string_file(masked2,
+                                         "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed",
+                                         WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ZERO(write_string_file(masked2e,
+                                         "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed",
+                                         WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ZERO_ERRNO(symlink("/dev/null", mask));
+        ASSERT_OK_ZERO(touch(mask2));
+        ASSERT_OK_ZERO(touch(mask2e));
+        ASSERT_OK(touch(name3));
 
-        assert_se(chmod(name, 0755) == 0);
-        assert_se(chmod(name2, 0755) == 0);
-        assert_se(chmod(overridden, 0755) == 0);
-        assert_se(chmod(override, 0755) == 0);
-        assert_se(chmod(masked, 0755) == 0);
-        assert_se(chmod(masked2, 0755) == 0);
-        assert_se(chmod(masked2e, 0755) == 0);
-        assert_se(chmod(mask2e, 0755) == 0);
+        ASSERT_OK_ZERO_ERRNO(chmod(name, 0755));
+        ASSERT_OK_ZERO_ERRNO(chmod(name2, 0755));
+        ASSERT_OK_ZERO_ERRNO(chmod(overridden, 0755));
+        ASSERT_OK_ZERO_ERRNO(chmod(override, 0755));
+        ASSERT_OK_ZERO_ERRNO(chmod(masked, 0755));
+        ASSERT_OK_ZERO_ERRNO(chmod(masked2, 0755));
+        ASSERT_OK_ZERO_ERRNO(chmod(masked2e, 0755));
+        ASSERT_OK_ZERO_ERRNO(chmod(mask2e, 0755));
 
         if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
                 return;
@@ -130,13 +130,13 @@ static void test_execute_directory_one(bool gather_stdout) {
                                 /* envp= */ NULL,
                                 EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
-        assert_se(chdir(tmp_lo) == 0);
-        assert_se(access("it_works", F_OK) >= 0);
-        assert_se(access("failed", F_OK) < 0);
+        ASSERT_OK_ZERO_ERRNO(chdir(tmp_lo));
+        ASSERT_OK_ERRNO(access("it_works", F_OK));
+        ASSERT_ERROR_ERRNO(access("failed", F_OK), ENOENT);
 
-        assert_se(chdir(tmp_hi) == 0);
-        assert_se(access("it_works2", F_OK) >= 0);
-        assert_se(access("failed", F_OK) < 0);
+        ASSERT_OK_ZERO_ERRNO(chdir(tmp_hi));
+        ASSERT_OK_ERRNO(access("it_works2", F_OK));
+        ASSERT_ERROR_ERRNO(access("failed", F_OK), ENOENT);
 }
 
 TEST(execute_directory) {
@@ -150,8 +150,8 @@ TEST(execution_order) {
         const char *output, *t;
         _cleanup_free_ char *contents = NULL;
 
-        assert_se(mkdtemp_malloc("/tmp/test-exec-util-lo.XXXXXXX", &tmp_lo) >= 0);
-        assert_se(mkdtemp_malloc("/tmp/test-exec-util-hi.XXXXXXX", &tmp_hi) >= 0);
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-exec-util-lo.XXXXXXX", &tmp_lo));
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-exec-util-hi.XXXXXXX", &tmp_hi));
 
         const char *dirs[] = { tmp_hi, tmp_lo, NULL };
 
@@ -169,31 +169,31 @@ TEST(execution_order) {
         mask = strjoina(tmp_hi, "/10-masked");
 
         t = strjoina("#!/bin/sh\necho $(basename $0) >>", output);
-        assert_se(write_string_file(name, t, WRITE_STRING_FILE_CREATE) == 0);
+        ASSERT_OK_ZERO(write_string_file(name, t, WRITE_STRING_FILE_CREATE));
 
         t = strjoina("#!/bin/sh\necho $(basename $0) >>", output);
-        assert_se(write_string_file(name2, t, WRITE_STRING_FILE_CREATE) == 0);
+        ASSERT_OK_ZERO(write_string_file(name2, t, WRITE_STRING_FILE_CREATE));
 
         t = strjoina("#!/bin/sh\necho $(basename $0) >>", output);
-        assert_se(write_string_file(name3, t, WRITE_STRING_FILE_CREATE) == 0);
+        ASSERT_OK_ZERO(write_string_file(name3, t, WRITE_STRING_FILE_CREATE));
 
         t = strjoina("#!/bin/sh\necho OVERRIDDEN >>", output);
-        assert_se(write_string_file(overridden, t, WRITE_STRING_FILE_CREATE) == 0);
+        ASSERT_OK_ZERO(write_string_file(overridden, t, WRITE_STRING_FILE_CREATE));
 
         t = strjoina("#!/bin/sh\necho $(basename $0) >>", output);
-        assert_se(write_string_file(override, t, WRITE_STRING_FILE_CREATE) == 0);
+        ASSERT_OK_ZERO(write_string_file(override, t, WRITE_STRING_FILE_CREATE));
 
         t = strjoina("#!/bin/sh\necho MASKED >>", output);
-        assert_se(write_string_file(masked, t, WRITE_STRING_FILE_CREATE) == 0);
+        ASSERT_OK_ZERO(write_string_file(masked, t, WRITE_STRING_FILE_CREATE));
 
-        assert_se(symlink("/dev/null", mask) == 0);
+        ASSERT_OK_ZERO_ERRNO(symlink("/dev/null", mask));
 
-        assert_se(chmod(name, 0755) == 0);
-        assert_se(chmod(name2, 0755) == 0);
-        assert_se(chmod(name3, 0755) == 0);
-        assert_se(chmod(overridden, 0755) == 0);
-        assert_se(chmod(override, 0755) == 0);
-        assert_se(chmod(masked, 0755) == 0);
+        ASSERT_OK_ZERO_ERRNO(chmod(name, 0755));
+        ASSERT_OK_ZERO_ERRNO(chmod(name2, 0755));
+        ASSERT_OK_ZERO_ERRNO(chmod(name3, 0755));
+        ASSERT_OK_ZERO_ERRNO(chmod(overridden, 0755));
+        ASSERT_OK_ZERO_ERRNO(chmod(override, 0755));
+        ASSERT_OK_ZERO_ERRNO(chmod(masked, 0755));
 
         if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
                 return;
@@ -202,7 +202,7 @@ TEST(execution_order) {
                             dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, /* argv= */ NULL, /* envp= */ NULL,
                             EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
-        assert_se(read_full_file(output, &contents, /* ret_size= */ NULL) >= 0);
+        ASSERT_OK(read_full_file(output, &contents, /* ret_size= */ NULL));
         ASSERT_STREQ(contents, "30-override\n80-foo\n90-bar\nlast\n");
 }
 
@@ -210,12 +210,12 @@ static int gather_stdout_one(int fd, void *arg) {
         char ***s = arg, *t;
         char buf[128] = {};
 
-        assert_se(s);
-        assert_se(read(fd, buf, sizeof buf) >= 0);
+        ASSERT_NOT_NULL(s);
+        ASSERT_OK_ERRNO(read(fd, buf, sizeof buf));
         safe_close(fd);
 
-        assert_se(t = strndup(buf, sizeof buf));
-        assert_se(strv_push(s, t) >= 0);
+        ASSERT_NOT_NULL(t = strndup(buf, sizeof buf));
+        ASSERT_OK(strv_push(s, t));
 
         return 0;
 }
@@ -223,7 +223,7 @@ static int gather_stdout_two(int fd, void *arg) {
         char ***s = arg;
 
         STRV_FOREACH(t, *s)
-                assert_se(write(fd, *t, strlen(*t)) == (ssize_t) strlen(*t));
+                ASSERT_OK_EQ_ERRNO(write(fd, *t, strlen(*t)), (ssize_t) strlen(*t));
         safe_close(fd);
 
         return 0;
@@ -232,9 +232,9 @@ static int gather_stdout_three(int fd, void *arg) {
         char **s = arg;
         char buf[128] = {};
 
-        assert_se(read(fd, buf, sizeof buf - 1) > 0);
+        ASSERT_GT(read(fd, buf, sizeof buf - 1), 0);
         safe_close(fd);
-        assert_se(*s = strndup(buf, sizeof buf));
+        ASSERT_NOT_NULL(*s = strndup(buf, sizeof buf));
 
         return 0;
 }
@@ -255,7 +255,7 @@ TEST(stdout_gathering) {
 
         void* args[] = {&tmp, &tmp, &output};
 
-        assert_se(mkdtemp_malloc("/tmp/test-exec-util.XXXXXXX", &tmpdir) >= 0);
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-exec-util.XXXXXXX", &tmpdir));
 
         const char *dirs[] = { tmpdir, NULL };
 
@@ -264,19 +264,19 @@ TEST(stdout_gathering) {
         name2 = strjoina(tmpdir, "/20-bar");
         name3 = strjoina(tmpdir, "/30-last");
 
-        assert_se(write_string_file(name,
-                                    "#!/bin/sh\necho a\necho b\necho c\n",
-                                    WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(write_string_file(name2,
-                                    "#!/bin/sh\necho d\n",
-                                    WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(write_string_file(name3,
-                                    "#!/bin/sh\nsleep 1",
-                                    WRITE_STRING_FILE_CREATE) == 0);
+        ASSERT_OK_ZERO(write_string_file(name,
+                                         "#!/bin/sh\necho a\necho b\necho c\n",
+                                         WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ZERO(write_string_file(name2,
+                                         "#!/bin/sh\necho d\n",
+                                         WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ZERO(write_string_file(name3,
+                                         "#!/bin/sh\nsleep 1",
+                                         WRITE_STRING_FILE_CREATE));
 
-        assert_se(chmod(name, 0755) == 0);
-        assert_se(chmod(name2, 0755) == 0);
-        assert_se(chmod(name3, 0755) == 0);
+        ASSERT_OK_ZERO_ERRNO(chmod(name, 0755));
+        ASSERT_OK_ZERO_ERRNO(chmod(name2, 0755));
+        ASSERT_OK_ZERO_ERRNO(chmod(name3, 0755));
 
         if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
                 return;
@@ -284,7 +284,7 @@ TEST(stdout_gathering) {
         r = execute_directories(__func__,
                                 dirs, DEFAULT_TIMEOUT_USEC, gather_stdouts, args, /* argv= */ NULL, /* envp= */ NULL,
                                 EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         log_info("got: %s", output);
 
@@ -301,7 +301,7 @@ TEST(environment_gathering) {
 
         void* const args[] = { &tmp, &tmp, &env };
 
-        assert_se(mkdtemp_malloc("/tmp/test-exec-util.XXXXXXX", &tmpdir) >= 0);
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-exec-util.XXXXXXX", &tmpdir));
 
         const char *dirs[] = { tmpdir, NULL };
 
@@ -310,41 +310,40 @@ TEST(environment_gathering) {
         name2 = strjoina(tmpdir, "/20-bar");
         name3 = strjoina(tmpdir, "/30-last");
 
-        assert_se(write_string_file(name,
-                                    "#!/bin/sh\n"
-                                    "echo A=23\n",
-                                    WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(write_string_file(name2,
-                                    "#!/bin/sh\n"
-                                    "echo A=22:$A\n\n\n",            /* substitution from previous generator */
-                                    WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(write_string_file(name3,
-                                    "#!/bin/sh\n"
-                                    "echo A=$A:24\n"
-                                    "echo B=12\n"
-                                    "echo C=000\n"
-                                    "echo C=001\n"                    /* variable overwriting */
-                                     /* various invalid entries */
-                                    "echo unset A\n"
-                                    "echo unset A=\n"
-                                    "echo unset A=B\n"
-                                    "echo unset \n"
-                                    "echo A B=C\n"
-                                    "echo A\n"
-                                    /* test variable assignment without newline */
-                                    "echo PATH=$PATH:/no/such/file",   /* no newline */
-                                    WRITE_STRING_FILE_CREATE) == 0);
+        ASSERT_OK_ZERO(write_string_file(name,
+                                         "#!/bin/sh\n"
+                                         "echo A=23\n",
+                                         WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ZERO(write_string_file(name2,
+                                         "#!/bin/sh\n"
+                                         "echo A=22:$A\n\n\n",            /* substitution from previous generator */
+                                         WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ZERO(write_string_file(name3,
+                                         "#!/bin/sh\n"
+                                         "echo A=$A:24\n"
+                                         "echo B=12\n"
+                                         "echo C=000\n"
+                                         "echo C=001\n"                    /* variable overwriting */
+                                          /* various invalid entries */
+                                         "echo unset A\n"
+                                         "echo unset A=\n"
+                                         "echo unset A=B\n"
+                                         "echo unset \n"
+                                         "echo A B=C\n"
+                                         "echo A\n"
+                                         /* test variable assignment without newline */
+                                         "echo PATH=$PATH:/no/such/file",   /* no newline */
+                                         WRITE_STRING_FILE_CREATE));
 
-        assert_se(chmod(name, 0755) == 0);
-        assert_se(chmod(name2, 0755) == 0);
-        assert_se(chmod(name3, 0755) == 0);
+        ASSERT_OK_ZERO_ERRNO(chmod(name, 0755));
+        ASSERT_OK_ZERO_ERRNO(chmod(name2, 0755));
+        ASSERT_OK_ZERO_ERRNO(chmod(name3, 0755));
 
         /* When booting in containers or without initrd there might not be any PATH in the environment and if
          * there is no PATH /bin/sh built-in PATH may leak and override systemd's default path which is not
          * good. Force our own PATH in environment, to prevent expansion of sh built-in $PATH */
         old = getenv("PATH");
-        r = setenv("PATH", "no-sh-built-in-path", 1);
-        assert_se(r >= 0);
+        ASSERT_OK_ERRNO(setenv("PATH", "no-sh-built-in-path", 1));
 
         if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
                 return;
@@ -352,7 +351,7 @@ TEST(environment_gathering) {
         r = execute_directories(__func__,
                                 dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, /* argv= */ NULL, /* envp= */ NULL,
                                 EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         STRV_FOREACH(p, env)
                 log_info("got env: \"%s\"", *p);
@@ -364,13 +363,12 @@ TEST(environment_gathering) {
 
         /* Now retest with some "default" path passed. */
         env = strv_free(env);
-        env = strv_new("PATH=" DEFAULT_PATH_WITHOUT_SBIN);
-        assert_se(env);
+        env = ASSERT_NOT_NULL(strv_new("PATH=" DEFAULT_PATH_WITHOUT_SBIN));
 
         r = execute_directories(__func__,
                                 dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, /* argv= */ NULL, env,
                                 EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         STRV_FOREACH(p, env)
                 log_info("got env: \"%s\"", *p);
@@ -381,7 +379,7 @@ TEST(environment_gathering) {
         ASSERT_STREQ(strv_env_get(env, "PATH"), DEFAULT_PATH_WITHOUT_SBIN ":/no/such/file");
 
         /* reset environ PATH */
-        assert_se(set_unset_env("PATH", old, /* overwrite= */ true) == 0);
+        ASSERT_OK_ZERO(set_unset_env("PATH", old, /* overwrite= */ true));
 }
 
 TEST(error_catching) {
@@ -389,7 +387,7 @@ TEST(error_catching) {
         const char *name, *name2, *name3;
         int r;
 
-        assert_se(mkdtemp_malloc("/tmp/test-exec-util.XXXXXXX", &tmpdir) >= 0);
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-exec-util.XXXXXXX", &tmpdir));
 
         const char *dirs[] = { tmpdir, NULL };
 
@@ -398,19 +396,19 @@ TEST(error_catching) {
         name2 = strjoina(tmpdir, "/20-bar");
         name3 = strjoina(tmpdir, "/30-last");
 
-        assert_se(write_string_file(name,
-                                    "#!/bin/sh\necho a\necho b\necho c\n",
-                                    WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(write_string_file(name2,
-                                    "#!/bin/sh\nexit 42\n",
-                                    WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(write_string_file(name3,
-                                    "#!/bin/sh\nexit 12",
-                                    WRITE_STRING_FILE_CREATE) == 0);
+        ASSERT_OK_ZERO(write_string_file(name,
+                                         "#!/bin/sh\necho a\necho b\necho c\n",
+                                         WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ZERO(write_string_file(name2,
+                                         "#!/bin/sh\nexit 42\n",
+                                         WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ZERO(write_string_file(name3,
+                                         "#!/bin/sh\nexit 12",
+                                         WRITE_STRING_FILE_CREATE));
 
-        assert_se(chmod(name, 0755) == 0);
-        assert_se(chmod(name2, 0755) == 0);
-        assert_se(chmod(name3, 0755) == 0);
+        ASSERT_OK_ZERO_ERRNO(chmod(name, 0755));
+        ASSERT_OK_ZERO_ERRNO(chmod(name2, 0755));
+        ASSERT_OK_ZERO_ERRNO(chmod(name3, 0755));
 
         if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
                 return;
@@ -421,7 +419,7 @@ TEST(error_catching) {
                                 /* argv= */ NULL, /* envp= */ NULL, /* flags= */ 0);
 
         /* we should exit with the error code of the first script that failed */
-        assert_se(r == 42);
+        ASSERT_OK_EQ(r, 42);
 }
 
 TEST(exec_command_flags_from_strv) {
@@ -432,15 +430,15 @@ TEST(exec_command_flags_from_strv) {
 
         r = exec_command_flags_from_strv(valid_strv, &flags);
 
-        assert_se(r == 0);
-        assert_se(FLAGS_SET(flags, EXEC_COMMAND_NO_ENV_EXPAND));
-        assert_se(FLAGS_SET(flags, EXEC_COMMAND_NO_SETUID));
-        assert_se(FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE));
-        assert_se(!FLAGS_SET(flags, EXEC_COMMAND_FULLY_PRIVILEGED));
+        ASSERT_OK_ZERO(r);
+        ASSERT_TRUE(FLAGS_SET(flags, EXEC_COMMAND_NO_ENV_EXPAND));
+        ASSERT_TRUE(FLAGS_SET(flags, EXEC_COMMAND_NO_SETUID));
+        ASSERT_TRUE(FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE));
+        ASSERT_FALSE(FLAGS_SET(flags, EXEC_COMMAND_FULLY_PRIVILEGED));
 
         r = exec_command_flags_from_strv(invalid_strv, &flags);
 
-        assert_se(r == -EINVAL);
+        ASSERT_ERROR(r, EINVAL);
 }
 
 TEST(exec_command_flags_to_strv) {
@@ -452,7 +450,7 @@ TEST(exec_command_flags_to_strv) {
         opts = strv_free(opts);
 
         ASSERT_OK(exec_command_flags_to_strv(/* flags= */ 0, &opts));
-        assert_se(strv_isempty(opts));
+        ASSERT_TRUE(strv_isempty(opts));
 
         opts = strv_free(opts);
 

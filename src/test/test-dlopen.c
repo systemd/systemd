@@ -6,6 +6,9 @@
 #include "dlfcn-util.h"
 #include "forward.h"
 
+/* Note that this doesn't include tests.h and or link to libsystemd-shared,
+ * so bare assert_se() is used below. */
+
 int main(int argc, char **argv) {
         void *handles[argc - 1];
         int i;

@@ -7,6 +7,7 @@
 #include "forward.h"
 #include "log.h"
 #include "log-assert-critical.h"
+#include "path-util.h"                  /* IWYU pragma: keep */
 #include "static-destruct.h"            /* IWYU pragma: keep */
 #include "signal-util.h"                /* IWYU pragma: keep */
 #include "stdio-util.h"
@@ -32,7 +33,6 @@ static inline void log_set_assert_return_is_criticalp(bool *p) {
         })
 
 #define ASSERT_RETURN_EXPECTED(expr) ASSERT_RETURN_IS_CRITICAL(false, expr)
-#define ASSERT_RETURN_EXPECTED_SE(expr) ASSERT_RETURN_EXPECTED(assert_se(expr));
 
 static inline bool manager_errno_skip_test(int r) {
         return IN_SET(ABS(r),
@@ -168,6 +168,7 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
 #define DECIMAL_STR_FMT(x) _Generic((x),        \
         char: "%c",                             \
         bool: "%d",                             \
+        signed char: "%hhd",                    \
         unsigned char: "%d",                    \
         short: "%hd",                           \
         unsigned short: "%hu",                  \
