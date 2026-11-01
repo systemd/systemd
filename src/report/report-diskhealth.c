@@ -352,7 +352,7 @@ static void disk_read_health(sd_device *device, uint64_t values[static _DISK_HEA
                         return;
         }
 
-        _cleanup_close_ int fd = sd_device_open(device, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        _cleanup_close_ int fd = device_open(device, O_RDONLY|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
                 return (void) log_device_debug_errno(device, fd, "Failed to open disk, ignoring: %m");
 

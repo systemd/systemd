@@ -14,6 +14,7 @@
 #include "blockdev-util.h"
 #include "build.h"
 #include "daemon-util.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -944,7 +945,7 @@ static int device_added(Context *c, sd_device *device) {
                 return 0;
         }
 
-        int fd = sd_device_open(device, O_RDWR|O_CLOEXEC|O_NONBLOCK);
+        int fd = device_open(device, O_RDWR|O_NONBLOCK);
         if (fd < 0) {
                 log_device_warning_errno(device, fd, "Failed to open newly acquired device '%s', ignoring device: %m", devname);
                 return 0;

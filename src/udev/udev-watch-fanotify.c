@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include "daemon-util.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
 #include "errno-util.h"
@@ -26,7 +27,7 @@ static int device_watch(int fanotify_fd, sd_device *dev, bool add) {
         assert(fanotify_fd >= 0);
         assert(dev);
 
-        _cleanup_close_ int fd = sd_device_open(dev, O_CLOEXEC | O_NOFOLLOW | O_PATH);
+        _cleanup_close_ int fd = device_open(dev, O_NOFOLLOW | O_PATH);
         if (fd < 0)
                 return fd;
 

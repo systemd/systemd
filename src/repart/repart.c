@@ -9156,7 +9156,7 @@ static int resolve_copy_blocks_auto_candidate(
                                 major(partition_devno), minor(partition_devno),
                                 major(restrict_devno), minor(restrict_devno));
 
-        fd = r = device_open_from_devnum(S_IFBLK, whole_devno, O_RDONLY|O_CLOEXEC|O_NONBLOCK, &p);
+        fd = r = device_open_from_devnum(S_IFBLK, whole_devno, O_RDONLY|O_NONBLOCK, &p);
         if (r < 0)
                 return log_error_errno(r, "Failed to open block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(whole_devno));
@@ -9552,7 +9552,7 @@ static int context_open_copy_block_paths(
                                 return r;
                         assert(devno != 0);
 
-                        source_fd = r = device_open_from_devnum(S_IFBLK, devno, O_RDONLY|O_CLOEXEC|O_NONBLOCK, &opened);
+                        source_fd = r = device_open_from_devnum(S_IFBLK, devno, O_RDONLY|O_NONBLOCK, &opened);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to open automatically determined source block copy device " DEVNUM_FORMAT_STR ": %m",
                                                        DEVNUM_FORMAT_VAL(devno));
@@ -9583,7 +9583,7 @@ static int context_open_copy_block_paths(
 
                         safe_close(source_fd);
 
-                        source_fd = r = device_open_from_devnum(S_IFBLK, devt, O_RDONLY|O_CLOEXEC|O_NONBLOCK, &bdev);
+                        source_fd = r = device_open_from_devnum(S_IFBLK, devt, O_RDONLY|O_NONBLOCK, &bdev);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to open block device backing '%s': %m", opened);
 

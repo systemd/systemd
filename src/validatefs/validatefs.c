@@ -8,6 +8,7 @@
 #include "blockdev-util.h"
 #include "build.h"
 #include "chase.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "dlopen-note.h"
 #include "errno-util.h"
@@ -122,7 +123,7 @@ static int validate_gpt_metadata_one(sd_device *d, const char *path, const Valid
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int block_fd = sd_device_open(d, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        _cleanup_close_ int block_fd = device_open(d, O_RDONLY|O_NONBLOCK);
         if (block_fd < 0)
                 return log_error_errno(block_fd, "Failed to open block device backing '%s': %m", path);
 
