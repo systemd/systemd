@@ -13,6 +13,7 @@
 #include "efivar-erase.h"
 #include "efivars.h"
 #include "export-vars.h"
+#include "fwupdate.h"
 #include "graphics.h"
 #include "initrd.h"
 #include "iovec-util.h"
@@ -3265,7 +3266,7 @@ static void export_loader_variables(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 uint64_t init_usec) {
 
-        static const uint64_t loader_features =
+        uint64_t loader_features =
                 EFI_LOADER_FEATURE_CONFIG_TIMEOUT |
                 EFI_LOADER_FEATURE_CONFIG_TIMEOUT_ONE_SHOT |
                 EFI_LOADER_FEATURE_ENTRY_DEFAULT |
@@ -3293,9 +3294,19 @@ static void export_loader_variables(
 
         assert(loaded_image);
 
+        if (fwupdate_supported())
+                loader_features |= EFI_LOADER_FEATURE_FIRMWARE_UPDATE;
+
         efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeInitUSec", init_usec);
         (void) efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderInfo", u"systemd-boot " GIT_VERSION, /* flags= */ 0);
         (void) efivar_set_uint64_le(MAKE_GUID_PTR(LOADER), u"LoaderFeatures", loader_features, /* flags= */ 0);
+
+        /* Defined by fwupd https://github.com/fwupd/fwupd/tree/main/plugins/uefi-capsule#3rd-party-bootloader */
+        if (FLAGS_SET(loader_features, EFI_LOADER_FEATURE_FIRMWARE_UPDATE)) {
+                uint8_t value = 1;
+                (void) efivar_set_raw(MAKE_GUID_PTR(FWUPDATE), u"BootloaderSupportsFwupd", &value, sizeof(value), /* flags= */ 0);
+        } else
+                (void) efivar_unset(MAKE_GUID_PTR(FWUPDATE), u"BootloaderSupportsFwupd", /* flags= */ 0);
 }
 
 static void config_add_system_entries(Config *config) {
@@ -3431,6 +3442,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
         err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
+
+        /* First, apply any pending fwupd capsules from the boot disk. */
+        fwupdate_install(loaded_image->DeviceHandle);
 
         err = discover_root_dir(loaded_image, &root_dir);
         if (err != EFI_SUCCESS) {
