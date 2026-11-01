@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-bus.h"
+#include "sd-event.h"
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
@@ -102,9 +103,6 @@ static void bus_wait_for_units_pending_dec(BusWaitForUnits *d) {
         if (d->n_pending > 0 || d->ready)
                 return;
 
-        if (!d->bus) /* Disconnected or being torn down? Then don't bother. */
-                return;
-
         if (d->setup_failed) /* We cannot guarantee to notice all state changes, hence never claim we do */
                 return;
 
@@ -186,7 +184,6 @@ static void bus_wait_for_units_clear(BusWaitForUnits *d) {
         d->slot_unit_removed = sd_bus_slot_unref(d->slot_unit_removed);
         d->slot_reloading = sd_bus_slot_unref(d->slot_reloading);
         d->slot_name_owner_changed = sd_bus_slot_unref(d->slot_name_owner_changed);
-        d->bus = sd_bus_unref(d->bus);
 
         while ((item = hashmap_first(d->items)))
                 call_unit_callback_and_wait(d, item, /* good= */ false);
@@ -204,25 +201,42 @@ static int match_disconnected(sd_bus_message *m, void *userdata, sd_bus_error *r
         bus_wait_for_units_clear(d);
         sd_bus_close(sd_bus_message_get_bus(m));
 
-        return 0;
+        return sd_event_exit(sd_bus_get_event(d->bus), -ECONNRESET);
 }
 
-static bool bus_wait_for_units_is_ready(BusWaitForUnits *d) {
+static void bus_wait_for_units_unsubscribe(BusWaitForUnits *d) {
+        int r;
+
         assert(d);
 
-        if (!d->bus) /* Disconnected? */
-                return true;
+        if (!d->bus || !d->subscribed)
+                return;
 
-        return hashmap_isempty(d->items);
+        d->subscribed = false;
+
+        r = bus_call_method_async(
+                        d->bus,
+                        /* ret_slot= */ NULL,
+                        bus_systemd_mgr,
+                        "Unsubscribe",
+                        /* callback= */ NULL,
+                        /* userdata= */ NULL,
+                        /* types= */ NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed to unsubscribe from service manager signals, ignoring: %m");
 }
 
 static void bus_wait_for_units_check_ready(BusWaitForUnits *d) {
         assert(d);
 
-        if (!bus_wait_for_units_is_ready(d))
+        if (!hashmap_isempty(d->items))
                 return;
 
+        bus_wait_for_units_unsubscribe(d);
+
         d->state = d->has_failed ? BUS_WAIT_FAILURE : BUS_WAIT_SUCCESS;
+
+        (void) sd_event_exit(sd_bus_get_event(d->bus), 0);
 }
 
 static void wait_for_item_fail(WaitForItem *item) {
@@ -912,18 +926,12 @@ void bus_wait_for_units_set_ready_callback(
 }
 
 BusWaitForUnits* bus_wait_for_units_free(BusWaitForUnits *d) {
-        int r;
-
         if (!d)
                 return NULL;
 
-        if (d->subscribed && d->bus) {
-                r = bus_call_method_async(d->bus, /* ret_slot= */ NULL, bus_systemd_mgr, "Unsubscribe", /* callback= */ NULL, /* userdata= */ NULL, /* types= */ NULL);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to unsubscribe from service manager signals, ignoring: %m");
-        }
-
+        bus_wait_for_units_unsubscribe(d);
         bus_wait_for_units_clear(d);
+        sd_bus_unref(d->bus);
 
         return mfree(d);
 }
@@ -1029,21 +1037,33 @@ int bus_wait_for_units_run(BusWaitForUnits *d) {
         int r;
 
         assert(d);
+        assert(d->bus);
 
-        while (d->state == BUS_WAIT_RUNNING) {
+        if (hashmap_isempty(d->items)) /* Nothing to wait for? */
+                return BUS_WAIT_SUCCESS;
 
-                r = sd_bus_process(d->bus, /* ret= */ NULL);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        continue;
+        if (d->state != BUS_WAIT_RUNNING)
+                return -ESTALE;
 
-                r = sd_bus_wait(d->bus, UINT64_MAX);
-                if (r < 0)
-                        return r;
-        }
+        if (sd_bus_get_event(d->bus))
+                return -EBUSY;
 
-        return d->state;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        r = sd_event_new(&event);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_attach_event(d->bus, event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return r;
+
+        r = sd_event_loop(event);
+        if (r >= 0)
+                r = d->state;
+
+        (void) sd_bus_detach_event(d->bus);
+
+        return r;
 }
 
 BusWaitForUnitsState bus_wait_for_units_state(BusWaitForUnits *d) {
