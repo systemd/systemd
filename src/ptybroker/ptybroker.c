@@ -730,7 +730,7 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
         if (pty->frontend_fd < 0)
                 return log_error_errno(pty->frontend_fd, "Failed to allocate PTY: %m");
 
-        pty->backend_fd = pty_open_peer(pty->frontend_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        pty->backend_fd = pty_open_peer(pty->frontend_fd, O_RDWR|O_NOCTTY);
         if (pty->backend_fd < 0)
                 return log_error_errno(pty->backend_fd, "Failed to open PTY backend: %m");
 
@@ -909,7 +909,7 @@ static int validate_pty_master_fd(int fd, int *ret_pin_fd) {
         /* Open the backend ('slave') side through the frontend fd. This confirms it really is the frontend
          * side, and gives us an fd we can pin for later hang-up requests. We keep only an O_PATH reference
          * around: a proper open would keep the backend busy and prevent hang-up detection. */
-        _cleanup_close_ int peer_fd = pty_open_peer(fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        _cleanup_close_ int peer_fd = pty_open_peer(fd, O_RDWR|O_NOCTTY);
         if (peer_fd < 0)
                 return peer_fd;
 
