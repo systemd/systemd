@@ -117,7 +117,7 @@ int notify_recv_with_fds(
          * Returns -EAGAIN on recoverable errors (e.g. in case an invalid message is received, following
          * the logic that an invalid message shall be ignored, and treated like no message at all). */
 
-        n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+        n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT);
         if (ERRNO_IS_NEG_TRANSIENT(n))
                 return -EAGAIN;
         if (n == -ECHRNG) {

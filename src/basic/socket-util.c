@@ -1065,7 +1065,7 @@ ssize_t receive_one_fd_iov(
          * combination with send_one_fd().
          */
 
-        k = recvmsg_safe(transport_fd, &mh, MSG_CMSG_CLOEXEC | flags);
+        k = recvmsg_safe(transport_fd, &mh, flags);
         if (k < 0)
                 return k;
 
@@ -1468,12 +1468,14 @@ ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags) {
         /* A wrapper around recvmsg() that checks for MSG_CTRUNC and MSG_TRUNC, and turns them into an error,
          * in a reasonably safe way, closing any received fds in the error path.
          *
-         * Note that unlike our usual coding style this might modify *msg on failure. */
+         * Note that unlike our usual coding style this might modify *msg on failure.
+         *
+         * Received fds always get O_CLOEXEC. */
 
         assert(sockfd >= 0);
         assert(msg);
 
-        n = recvmsg(sockfd, msg, flags);
+        n = recvmsg(sockfd, msg, flags|MSG_CMSG_CLOEXEC);
         if (n < 0)
                 return -errno;
 

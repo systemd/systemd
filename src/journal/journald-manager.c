@@ -1557,7 +1557,7 @@ int manager_process_datagram(
 
         iovec = IOVEC_MAKE(m->buffer, MALLOC_ELEMENTSOF(m->buffer) - 1); /* Leave room for trailing NUL we add later */
 
-        n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+        n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT);
         if (ERRNO_IS_NEG_TRANSIENT(n))
                 return 0;
         if (n == -ECHRNG) {
