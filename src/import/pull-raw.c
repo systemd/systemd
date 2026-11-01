@@ -532,6 +532,15 @@ static void raw_pull_job_on_finished(PullJob *j) {
          *
          * We only do something when we got all files */
 
+        /* If the signature job was deferred, only now we know whether we need the detached signature file */
+        if (j == p->checksum_job) {
+                r = pull_signature_job_begin(p->checksum_job, &p->signature_job);
+                if (r < 0) {
+                        r = log_error_errno(r, "Failed to start signature job: %m");
+                        goto finish;
+                }
+        }
+
         if (!raw_pull_is_done(p))
                 return;
 
@@ -792,6 +801,8 @@ int raw_pull_start(
                 const char *local,
                 uint64_t offset,
                 uint64_t size_max,
+                uint64_t source_offset,
+                uint64_t source_size,
                 Compression compression,
                 ImportFlags flags,
                 ImportVerify verify,
@@ -809,6 +820,8 @@ int raw_pull_start(
         assert(!(flags & ~IMPORT_PULL_FLAGS_MASK_RAW));
         assert(offset == UINT64_MAX || FLAGS_SET(flags, IMPORT_DIRECT));
         assert(!FLAGS_SET(flags, IMPORT_ZERO_FILL) || (offset != UINT64_MAX && size_max != UINT64_MAX));
+        assert((source_offset == 0 && source_size == UINT64_MAX) || FLAGS_SET(flags, IMPORT_DIRECT));
+        assert((source_offset == 0 && source_size == UINT64_MAX) || !IN_SET(verify, IMPORT_VERIFY_CHECKSUM, IMPORT_VERIFY_SIGNATURE));
         assert(!(flags & (IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY)) || !(flags & IMPORT_DIRECT));
         assert(!(flags & (IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY)) || !iovec_is_set(checksum));
 
@@ -869,6 +882,10 @@ int raw_pull_start(
         if (offset != UINT64_MAX)
                 p->raw_job->offset = p->offset = offset;
         p->raw_job->zero_fill = FLAGS_SET(flags, IMPORT_ZERO_FILL);
+        p->raw_job->source_offset = source_offset;
+        p->raw_job->source_size = source_size;
+        /* Only a download that is not verified as a whole may be acquired partially */
+        p->raw_job->allow_range_request = verify == IMPORT_VERIFY_NO && !iovec_is_set(checksum);
 
         /* A previously downloaded image is neither keyed by the compression algorithm nor was it
          * necessarily verified against the decoded digest, hence don't reuse it if either is requested. */
@@ -970,6 +987,10 @@ int raw_pull_start(
 
                 j->on_progress = raw_pull_job_on_progress;
                 j->sync = FLAGS_SET(flags, IMPORT_SYNC);
+
+                /* The signature job might only be started once the checksum job finished, see raw_pull_job_on_finished() */
+                if (j == p->signature_job && pull_signature_job_deferred(p->checksum_job, p->signature_job))
+                        continue;
 
                 r = pull_job_begin(j);
                 if (r < 0)

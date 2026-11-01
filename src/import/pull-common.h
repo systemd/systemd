@@ -55,8 +55,9 @@ int pull_verify(
                 PullJob *verity_job);
 
 typedef enum VerificationStyle {
-        VERIFICATION_PER_FILE,      /* SUSE-style ".sha256" files with detached gpg signature */
-        VERIFICATION_PER_DIRECTORY, /* Ubuntu-style SHA256SUM files with detached SHA256SUM.gpg signatures */
+        VERIFICATION_UAPI16_MANIFEST, /* UAPI.16 "Uapi16Manifest" files with inline PKCS#7 signatures */
+        VERIFICATION_PER_FILE,        /* SUSE-style ".sha256" files with detached gpg signature */
+        VERIFICATION_PER_DIRECTORY,   /* Ubuntu-style SHA256SUM files with detached SHA256SUM.gpg signatures */
         _VERIFICATION_STYLE_MAX,
         _VERIFICATION_STYLE_INVALID = -EINVAL,
 } VerificationStyle;
@@ -73,6 +74,14 @@ typedef enum SignatureStyle {
 } SignatureStyle;
 
 int signature_style_from_url(const char *url, SignatureStyle *ret, char **ret_filename);
+
+/* Returns true if the signature job shall not be started right away, but only once the checksum job
+ * finished, via pull_signature_job_begin() */
+bool pull_signature_job_deferred(PullJob *checksum_job, PullJob *signature_job);
+
+/* To be called once the checksum job finished successfully: starts the signature job if it was deferred,
+ * unless the checksum file turned out to be a UAPI.16 manifest, in which case the signature job is dropped */
+int pull_signature_job_begin(PullJob *checksum_job, PullJob **signature_job);
 
 int pull_job_restart_with_sha256sum(PullJob *job, char **ret);
 int pull_job_restart_with_signature(PullJob *job, char **ret);
