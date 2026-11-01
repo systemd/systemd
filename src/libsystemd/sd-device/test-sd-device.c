@@ -260,6 +260,16 @@ static void test_sd_device_one(sd_device *d) {
                                 ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
                         }
 
+                        /* device_open() implies O_CLOEXEC */
+                        _cleanup_close_ int fd_internal = device_open(d, O_NONBLOCK | (is_block ? O_RDONLY : O_NOCTTY | O_PATH));
+                        ASSERT_TRUE(fd_internal >= 0 || ERRNO_IS_NEG_PRIVILEGE(fd_internal));
+                        if (fd_internal >= 0) {
+                                int fl;
+
+                                ASSERT_OK_ERRNO(fl = fcntl(fd_internal, F_GETFD));
+                                ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
+                        }
+
                         /* Without O_CLOEXEC the fd must not be close-on-exec, both on the O_PATH and the fd_reopen() path */
                         _cleanup_close_ int fd_nocloexec = sd_device_open(d, O_NONBLOCK | (is_block ? O_RDONLY : O_NOCTTY | O_PATH));
                         ASSERT_TRUE(fd_nocloexec >= 0 || ERRNO_IS_NEG_PRIVILEGE(fd_nocloexec));
