@@ -249,6 +249,10 @@ TEST(passfd_read) {
         ssize_t n = ASSERT_OK_ERRNO(read(fd, buf, sizeof(buf)-1));
         buf[n] = 0;
         ASSERT_STREQ(buf, file_contents);
+
+        /* recvmsg_safe() implies MSG_CMSG_CLOEXEC */
+        int fl = ASSERT_OK_ERRNO(fcntl(fd, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
 }
 
 TEST(passfd_contents_read) {
