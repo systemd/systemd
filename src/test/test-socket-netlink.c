@@ -1,12 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <sys/eventfd.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "missing-network.h"
+#include "process-util.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "tests.h"
 
@@ -415,6 +419,17 @@ TEST(af_unix_get_qlen) {
 
         _cleanup_close_ int efd = ASSERT_FD(eventfd(0, EFD_CLOEXEC));
         ASSERT_ERROR(af_unix_get_qlen(efd, &q), ENOTSOCK);
+}
+
+TEST(make_socket_fd_cloexec) {
+        char address[STRLEN("@test-socket-netlink-") + DECIMAL_STR_MAX(pid_t) + 1];
+
+        xsprintf(address, "@test-socket-netlink-" PID_FMT, getpid_cached());
+
+        /* SOCK_CLOEXEC is implied, whether requested or not */
+        _cleanup_close_ int fd = ASSERT_OK(make_socket_fd(LOG_DEBUG, address, SOCK_STREAM, /* flags= */ 0));
+        int fl = ASSERT_OK_ERRNO(fcntl(fd, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

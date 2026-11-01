@@ -319,7 +319,7 @@ TEST(terminal_is_pty_fd) {
         _cleanup_close_ int fd1 = ASSERT_OK(openpt_allocate(O_RDWR, /* ret_peer_path= */ NULL));
         ASSERT_OK_POSITIVE(terminal_is_pty_fd(fd1));
 
-        _cleanup_close_ int fd2 = ASSERT_OK(pty_open_peer(fd1, O_RDWR|O_CLOEXEC|O_NOCTTY));
+        _cleanup_close_ int fd2 = ASSERT_OK(pty_open_peer(fd1, O_RDWR|O_NOCTTY));
         ASSERT_OK_POSITIVE(terminal_is_pty_fd(fd2));
 
         fd1 = safe_close(fd1);
@@ -410,7 +410,11 @@ TEST(pty_open_peer) {
         _cleanup_close_ int pty_fd = ASSERT_OK(openpt_allocate(O_RDWR|O_NOCTTY|O_NONBLOCK, &pty_path));
         ASSERT_NOT_NULL(pty_path);
 
-        _cleanup_close_ int peer_fd = ASSERT_OK(pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC));
+        _cleanup_close_ int peer_fd = ASSERT_OK(pty_open_peer(pty_fd, O_RDWR|O_NOCTTY));
+
+        /* O_CLOEXEC is implied, whether requested or not */
+        int fl = ASSERT_OK_ERRNO(fcntl(peer_fd, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
 
         static const char x[] = { 'x', '\n' };
         ASSERT_OK_EQ_ERRNO(write(pty_fd, x, sizeof(x)), (ssize_t) sizeof(x));
@@ -425,7 +429,7 @@ TEST(terminal_new_session) {
         int r;
 
         _cleanup_close_ int pty_fd = ASSERT_OK(openpt_allocate(O_RDWR|O_NOCTTY|O_NONBLOCK, /* ret_peer_path= */ NULL));
-        _cleanup_close_ int peer_fd = ASSERT_OK(pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC));
+        _cleanup_close_ int peer_fd = ASSERT_OK(pty_open_peer(pty_fd, O_RDWR|O_NOCTTY));
 
         r = pidref_safe_fork_full(
                         "test-term-session",
