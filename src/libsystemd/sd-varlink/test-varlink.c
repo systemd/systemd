@@ -1865,6 +1865,11 @@ static void disconnect_callback(sd_varlink_server *server, sd_varlink *link, voi
         (*counter)++;
 }
 
+TEST(is_connected_null) {
+        /* A non-existent connection is not connected */
+        ASSERT_OK_ZERO(sd_varlink_is_connected(NULL));
+}
+
 TEST(add_connection_failure_cleanup) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         _cleanup_close_pair_ int fds[2] = EBADF_PAIR;
