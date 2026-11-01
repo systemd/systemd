@@ -38,6 +38,9 @@ typedef struct UnitResult {
 
 void unit_result_done(UnitResult *u);
 
+bool load_state_is_empty_or_not_found(const char *load_state);
+bool unit_result_is_empty_or_not_found(const UnitResult *u);
+
 /* Note: the property mapping calls only write the fields actually found in the reply, hence the structure
  * must be initialized with UNIT_RESULT_INIT before mapping properties into it. */
 extern const struct bus_properties_map unit_result_property_map[];

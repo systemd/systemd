@@ -19,6 +19,10 @@
 #include "unit-name.h"
 #include "unit-result.h"
 
+/* The exit status that timeout(1) uses when the command times out, so that
+ * "timeout 5 systemctl wait foo.service" is mostly equivalent to "systemctl wait --timeout=5 foo.service". */
+#define EXIT_TIMEOUT 124
+
 typedef struct WaitContext {
         UnitResult result;
         bool good;
@@ -96,9 +100,11 @@ int verb_wait(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (arg_verbose)
                 (void) journal_fork(arg_runtime_scope, STRV_MAKE(name), arg_output, &journal_pid);
 
-        r = bus_wait_for_units_run(w);
-        if (r < 0)
-                return log_error_errno(r, "Failed to wait for unit %s: %m", name);
+        r = bus_wait_for_units_run(w, arg_timeout_usec);
+        if (r < 0) {
+                log_error_errno(r, "Failed to wait for unit %s: %m", name);
+                return r == -ETIME ? EXIT_TIMEOUT : r;
+        }
 
         /* Close the journal watch logic before we output the exit summary */
         fork_notify_terminate(&journal_pid);
@@ -113,7 +119,7 @@ int verb_wait(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to wait for unit %s to terminate.", name);
 
         /* A unit that does not exist is treated like one that already terminated successfully. */
-        if (streq_ptr(c.result.load_state, "not-found")) {
+        if (unit_result_is_empty_or_not_found(&c.result)) {
                 if (!arg_quiet)
                         printf("Unit %s does not exist, treating as terminated.\n", name);
 

@@ -11,6 +11,7 @@
 #include "hashmap.h"
 #include "log.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "unit-def.h"
 #include "unit-result.h"
 
@@ -455,6 +456,8 @@ static int wait_for_item_parse_properties(WaitForItem *item, sd_bus_message *m) 
         assert(item);
         assert(m);
 
+        bool loaded = !load_state_is_empty_or_not_found(item->load_state);
+
         r = bus_message_map_all_properties(m, map, BUS_MAP_STRDUP, /* reterr_error= */ NULL, item);
         if (r < 0)
                 return r;
@@ -479,6 +482,16 @@ static int wait_for_item_parse_properties(WaitForItem *item, sd_bus_message *m) 
                 }
 
                 item->removed = false;
+        }
+
+        /* The unit did not exist from the beginning. Treat it as terminated successfully. */
+        if (!loaded && load_state_is_empty_or_not_found(item->load_state)) {
+                log_debug("Unit %s is not loaded.", item->name);
+
+                BusWaitForUnits *d = ASSERT_PTR(item->parent);
+                call_unit_callback_and_wait(d, item, /* good= */ true);
+                bus_wait_for_units_check_ready(d);
+                return 0;
         }
 
         wait_for_item_check_ready(item);
@@ -999,10 +1012,13 @@ int bus_wait_for_units_add_unit(
         return 1;
 }
 
-int bus_wait_for_units_run(BusWaitForUnits *d) {
+int bus_wait_for_units_run(BusWaitForUnits *d, usec_t timeout_usec) {
         int r;
 
         assert(d);
+
+        if (timeout_usec != USEC_INFINITY)
+                timeout_usec = usec_add(timeout_usec, now(CLOCK_MONOTONIC));
 
         while (d->state == BUS_WAIT_RUNNING) {
 
@@ -1012,9 +1028,17 @@ int bus_wait_for_units_run(BusWaitForUnits *d) {
                 if (r > 0)
                         continue;
 
-                r = sd_bus_wait(d->bus, UINT64_MAX);
+                usec_t t;
+                if (timeout_usec != USEC_INFINITY)
+                        t = usec_sub_unsigned(timeout_usec, now(CLOCK_MONOTONIC));
+                else
+                        t = USEC_INFINITY;
+
+                r = sd_bus_wait(d->bus, t);
                 if (r < 0)
                         return r;
+                if (r == 0 && timeout_usec != USEC_INFINITY)
+                        return -ETIME;
         }
 
         return d->state;

@@ -149,31 +149,35 @@ ELAPSED=$((END_SEC-START_SEC))
 
 # Test "systemctl wait"
 # An already inactive unit terminates the wait immediately, successfully
-timeout 5 systemctl wait wait2.service
+systemctl wait --timeout=5 wait2.service
 
 # A running unit is waited for until it terminates
 systemctl --no-block start wait2.service
 START_SEC=$(date -u '+%s')
-timeout 10 systemctl wait wait2.service
+systemctl wait --timeout=10 wait2.service
 END_SEC=$(date -u '+%s')
 ELAPSED=$((END_SEC-START_SEC))
 [[ "$ELAPSED" -ge 1 ]]
 
 # The exit status of the unit's main process is propagated
 systemctl --no-block start wait5fail.service
-assert_rc 1 timeout 10 systemctl wait wait5fail.service
+assert_rc 1 systemctl wait --timeout=10 wait5fail.service
 systemd-run --no-block --unit=wait-exit7.service bash -c 'sleep 2; exit 7'
-assert_rc 7 timeout 10 systemctl wait wait-exit7.service
+assert_rc 7 systemctl wait --timeout=10 wait-exit7.service
 # ... with termination by signal reported as 255
 systemd-run --unit=wait-sigkill.service sleep 60
 systemctl kill --signal=SIGKILL wait-sigkill.service
-assert_rc 255 timeout 10 systemctl wait wait-sigkill.service
+assert_rc 255 systemctl wait --timeout=10 wait-sigkill.service
+# ... with timeout reported as 124
+systemd-run --unit=wait-long.service sleep 60
+assert_rc 124 systemctl wait --timeout=0 wait-long.service
+assert_rc 124 systemctl wait --timeout=3 wait-long.service
 
 # A summary is shown on stdout, unless --quiet is given
 systemctl --no-block start wait2.service
-timeout 10 systemctl wait wait2.service | grep "Finished with result" >/dev/null
+systemctl wait --timeout=10 wait2.service | grep "Finished with result" >/dev/null
 systemctl --no-block start wait2.service
-OUT="$(timeout 10 systemctl --quiet wait wait2.service)"
+OUT="$(systemctl --quiet wait --timeout=10 wait2.service)"
 [[ -z "$OUT" ]]
 
 # --verbose forwards the unit's log output. To make this race-free, run "systemctl wait" as a Type=notify
@@ -190,17 +194,20 @@ mkfifo /tmp/wait-log.fifo
 systemd-run --unit=wait-log.service bash -c 'read -r </tmp/wait-log.fifo; echo hello-from-wait'
 systemd-run --unit=wait-watcher.service --service-type=notify --property=StandardOutput=truncate:/tmp/wait-watcher.log systemctl --verbose wait wait-log.service
 echo go >/tmp/wait-log.fifo
-timeout 10 systemctl wait wait-watcher.service
+systemctl wait --timeout=10 wait-watcher.service
 grep hello-from-wait /tmp/wait-watcher.log >/dev/null
 rm /tmp/wait-log.fifo
 
 # A non-existent unit is treated as terminated successfully, with a message in place of the summary
-systemctl wait nonexistent.service | grep "does not exist" >/dev/null
-OUT="$(systemctl --quiet wait nonexistent.service)"
+systemctl wait --timeout=10 nonexistent.service | grep "does not exist" >/dev/null
+OUT="$(systemctl --quiet wait --timeout=10 nonexistent.service)"
+[[ -z "$OUT" ]]
+run0 -u testuser systemctl wait --timeout=10 nonexistent.service | grep "does not exist" >/dev/null
+OUT="$(run0 -u testuser systemctl --quiet wait --timeout=10 nonexistent.service)"
 [[ -z "$OUT" ]]
 
 # A unit type without a Result property (e.g. a target) exits successfully once inactive
-timeout 5 systemctl wait hello-after-sleep.target
+systemctl wait --timeout=5 hello-after-sleep.target
 
 # Template unit names are refused
 (! systemctl wait 'foo@.service')
@@ -228,7 +235,7 @@ systemd-run --unit=wait-watcher.service --service-type=notify --property=Standar
 systemctl is-active wait-watcher.service
 # Stopping the unit makes it disappear right-away, which "systemctl wait" must notice and report as failure
 systemctl stop wait-gc.service
-assert_rc 1 timeout 10 systemctl wait wait-watcher.service
+assert_rc 1 systemctl wait --timeout=10 wait-watcher.service
 grep "has been removed while waiting for it" /tmp/wait-watcher.log >/dev/null
 systemctl reset-failed wait-watcher.service
 
@@ -240,7 +247,7 @@ systemctl is-active wait-watcher.service
 systemctl is-active wait-gc.service
 # ... but once the unit is stopped and garbage collected, "systemctl wait" must notice again
 systemctl stop wait-gc.service
-assert_rc 1 timeout 10 systemctl wait wait-watcher.service
+assert_rc 1 systemctl wait --timeout=10 wait-watcher.service
 grep "has been removed while waiting for it" /tmp/wait-watcher.log >/dev/null
 (! grep "removed during service manager reload" /tmp/wait-watcher.log >/dev/null)
 systemctl reset-failed wait-watcher.service
@@ -255,7 +262,7 @@ systemd-run --unit=wait-watcher.service --service-type=notify --property=Standar
 systemctl daemon-reload
 systemctl is-active wait-watcher.service
 systemctl stop wait-gc.service
-timeout 10 systemctl wait wait-watcher.service
+systemctl wait --timeout=10 wait-watcher.service
 grep "Finished with result: success" /tmp/wait-watcher.log >/dev/null
 
 # The same must hold for a daemon-reexec, where the Reloading(true) signal might not reach "systemctl wait",
@@ -266,7 +273,7 @@ systemctl daemon-reexec
 systemctl is-active wait-watcher.service
 systemctl is-active wait-gc.service
 systemctl stop wait-gc.service
-timeout 10 systemctl wait wait-watcher.service
+systemctl wait --timeout=10 wait-watcher.service
 grep "Finished with result: success" /tmp/wait-watcher.log >/dev/null
 (! grep "removed during service manager reload" /tmp/wait-watcher.log >/dev/null)
 
