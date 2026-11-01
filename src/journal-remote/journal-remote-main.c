@@ -616,7 +616,7 @@ static int setup_microhttpd_socket(RemoteServer *s,
                                    const char *trust) {
         int fd;
 
-        fd = make_socket_fd(LOG_DEBUG, address, SOCK_STREAM, SOCK_CLOEXEC);
+        fd = make_socket_fd(LOG_DEBUG, address, SOCK_STREAM, /* flags= */ 0);
         if (fd < 0)
                 return fd;
 
@@ -672,7 +672,7 @@ static int dispatch_http_event(sd_event_source *event,
 static int setup_raw_socket(RemoteServer *s, const char *address) {
         int fd;
 
-        fd = make_socket_fd(LOG_INFO, address, SOCK_STREAM, SOCK_CLOEXEC);
+        fd = make_socket_fd(LOG_INFO, address, SOCK_STREAM, /* flags= */ 0);
         if (fd < 0)
                 return fd;
 
