@@ -21,6 +21,7 @@ struct sd_dhcp6_lease {
         size_t serverid_len;
         uint8_t preference;
         bool rapid_commit;
+        bool register_addresses;
         triple_timestamp timestamp;
         usec_t lifetime_t1;
         usec_t lifetime_t2;
@@ -60,6 +61,8 @@ int dhcp6_lease_set_preference(sd_dhcp6_lease *lease, uint8_t preference);
 int dhcp6_lease_get_preference(sd_dhcp6_lease *lease, uint8_t *ret);
 int dhcp6_lease_set_rapid_commit(sd_dhcp6_lease *lease);
 int dhcp6_lease_get_rapid_commit(sd_dhcp6_lease *lease, bool *ret);
+int dhcp6_lease_set_register_addresses(sd_dhcp6_lease *lease);
+int dhcp6_lease_get_register_addresses(sd_dhcp6_lease *lease, bool *ret);
 
 int dhcp6_lease_add_dns(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen);
 int dhcp6_lease_add_domains(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen);
