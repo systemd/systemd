@@ -1063,6 +1063,17 @@ static int xfopenat_regular(int dir_fd, const char *path, const char *mode, int 
         if (isempty(path) && dir_fd == AT_FDCWD)
                 return path ? -ENOENT : -EBADF;
 
+        /* For plain reads with "e" fopen() does the same and saves the fcntl() of fdopen() */
+        if (dir_fd == AT_FDCWD && open_flags == 0 &&
+            FLAGS_SET(mode_flags, O_CLOEXEC) && !FLAGS_SET(mode_flags, O_CREAT)) {
+                FILE *f = fopen(path, mode);
+                if (!f)
+                        return -errno;
+
+                *ret = f;
+                return 0;
+        }
+
         /* A NULL or empty path reopens dir_fd, unless something is to be created */
         fd = xopenat_full(dir_fd, path, mode_flags | open_flags, XO_EMPTY_PATH, 0666);
         if (fd < 0)
