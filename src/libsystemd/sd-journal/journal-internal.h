@@ -86,6 +86,12 @@ typedef struct sd_journal {
         JournalFile *current_file;
         uint64_t current_field;
 
+        /* What the last full scan over all files found, see journal_next_from_previous_scan() */
+        JournalFile *scan_winner, *scan_runner_up;
+        direction_t scan_direction;
+        usec_t scan_valid_until;
+        bool scan_same_file;
+
         Match *level0, *level1, *level2;
         Set *exclude_syslog_identifiers;
 
