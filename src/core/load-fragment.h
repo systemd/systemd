@@ -26,6 +26,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_unit_path_printf);
 CONFIG_PARSER_PROTOTYPE(config_parse_colon_separated_paths);
 CONFIG_PARSER_PROTOTYPE(config_parse_unit_path_strv_printf);
 CONFIG_PARSER_PROTOTYPE(config_parse_documentation);
+CONFIG_PARSER_PROTOTYPE(config_parse_tags);
 CONFIG_PARSER_PROTOTYPE(config_parse_socket_listen);
 CONFIG_PARSER_PROTOTYPE(config_parse_socket_protocol);
 CONFIG_PARSER_PROTOTYPE(config_parse_socket_bind);

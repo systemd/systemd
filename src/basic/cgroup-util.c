@@ -24,6 +24,7 @@
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "runtime-scope.h"
 #include "set.h"
 #include "special.h"
 #include "stat-util.h"
@@ -515,6 +516,20 @@ int cg_remove_xattr(const char *path, const char *name) {
         return RET_NERRNO(removexattr(fs, name));
 }
 
+int cg_list_xattr(const char *path, char **ret) {
+        _cleanup_free_ char *fs = NULL;
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        r = cg_get_path(path, /* suffix= */ NULL, &fs);
+        if (r < 0)
+                return r;
+
+        return listxattr_malloc(fs, ret);
+}
+
 int cg_pid_get_path(pid_t pid, char **ret_path) {
         _cleanup_fclose_ FILE *f = NULL;
         const char *fs;
@@ -995,6 +1010,10 @@ static const char* skip_user_prefix(const char *path) {
 
         /* Alternatively skip the user session if it is in the path... */
         return skip_session(e);
+}
+
+RuntimeScope cg_path_runtime_scope(const char *path) {
+        return skip_user_prefix(path) ? RUNTIME_SCOPE_USER : RUNTIME_SCOPE_SYSTEM;
 }
 
 int cg_path_get_user_unit_full(const char *path, char **ret_unit, char **ret_subgroup) {
