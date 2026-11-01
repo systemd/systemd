@@ -167,7 +167,7 @@ void model_assert_entry(JournalFile *f, Object *o, uint64_t offset, const Model 
         }
 
         strv_sort(fields);
-        ASSERT_TRUE(strv_equal(fields, model->entries[i]));
+        ASSERT_STRV_EQ(fields, model->entries[i]);
 }
 
 static bool model_matches(const Model *model, size_t i, const char *match) {

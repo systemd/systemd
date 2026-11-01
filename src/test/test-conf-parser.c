@@ -74,7 +74,7 @@ static void test_config_parse_strv_one(const char *rvalue, bool filter_duplicate
         _cleanup_strv_free_ char **strv = NULL;
 
         ASSERT_OK(config_parse_strv("unit", "filename", 1, "section", 1, "lvalue", filter_duplicates, rvalue, &strv, /* userdata= */ NULL));
-        ASSERT_TRUE(strv_equal(expected, strv));
+        ASSERT_STRV_EQ(expected, strv);
 }
 
 static void test_config_parse_mode_one(const char *rvalue, mode_t expected) {

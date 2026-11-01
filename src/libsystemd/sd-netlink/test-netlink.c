@@ -520,7 +520,7 @@ TEST(message_strv) {
         ASSERT_OK(sd_netlink_message_rewind(m, rtnl));
 
         ASSERT_OK(sd_netlink_message_read_strv(m, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &names_out));
-        ASSERT_TRUE(strv_equal(names_in, names_out));
+        ASSERT_STRV_EQ(names_in, names_out);
 
         ASSERT_OK(sd_netlink_message_enter_container(m, IFLA_PROP_LIST));
         ASSERT_OK(sd_netlink_message_read_string(m, IFLA_ALT_IFNAME, &p));

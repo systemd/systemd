@@ -368,7 +368,7 @@ TEST(pid_get_cmdline_harder) {
                 line = mfree(line);
 
                 ASSERT_OK(pid_get_cmdline_strv(/* pid= */ 0, PROCESS_CMDLINE_COMM_FALLBACK, &args));
-                ASSERT_TRUE(strv_equal(args, STRV_MAKE("[testa]")));
+                ASSERT_STRV_EQ(args, STRV_MAKE("[testa]"));
                 args = strv_free(args);
 
         /* Test with multiple arguments that don't require quoting */
@@ -385,7 +385,7 @@ TEST(pid_get_cmdline_harder) {
                 line = mfree(line);
 
                 ASSERT_OK(pid_get_cmdline_strv(/* pid= */ 0, PROCESS_CMDLINE_COMM_FALLBACK, &args));
-                ASSERT_TRUE(strv_equal(args, STRV_MAKE("foo", "bar")));
+                ASSERT_STRV_EQ(args, STRV_MAKE("foo", "bar"));
                 args = strv_free(args);
 
                 ASSERT_OK_EQ_ERRNO(write(fd, "quux", 4), 4);
@@ -475,7 +475,7 @@ TEST(pid_get_cmdline_harder) {
                 line = mfree(line);
 
                 ASSERT_OK(pid_get_cmdline_strv(/* pid= */ 0, PROCESS_CMDLINE_COMM_FALLBACK, &args));
-                ASSERT_TRUE(strv_equal(args, STRV_MAKE("foo", "bar", "quux")));
+                ASSERT_STRV_EQ(args, STRV_MAKE("foo", "bar", "quux"));
                 args = strv_free(args);
 
                 ASSERT_OK_ERRNO(ftruncate(fd, 0));
@@ -504,7 +504,7 @@ TEST(pid_get_cmdline_harder) {
                 line = mfree(line);
 
                 ASSERT_OK(pid_get_cmdline_strv(/* pid= */ 0, PROCESS_CMDLINE_COMM_FALLBACK, &args));
-                ASSERT_TRUE(strv_equal(args, STRV_MAKE("[aaaa bbbb cccc]")));
+                ASSERT_STRV_EQ(args, STRV_MAKE("[aaaa bbbb cccc]"));
                 args = strv_free(args);
 
                 /* Test with multiple arguments that do require quoting */
@@ -531,7 +531,7 @@ TEST(pid_get_cmdline_harder) {
                 line = mfree(line);
 
                 ASSERT_OK(pid_get_cmdline_strv(/* pid= */ 0, /* flags= */ 0, &args));
-                ASSERT_TRUE(strv_equal(args, EXPECT1v));
+                ASSERT_STRV_EQ(args, EXPECT1v);
                 args = strv_free(args);
 
 #define CMDLINE2 "foo\0\1\2\3\0\0"
@@ -556,7 +556,7 @@ TEST(pid_get_cmdline_harder) {
                 line = mfree(line);
 
                 ASSERT_OK(pid_get_cmdline_strv(/* pid= */ 0, /* flags= */ 0, &args));
-                ASSERT_TRUE(strv_equal(args, EXPECT2v));
+                ASSERT_STRV_EQ(args, EXPECT2v);
                 args = strv_free(args);
 
                 safe_close(fd);

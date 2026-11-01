@@ -364,7 +364,7 @@ TEST(config_parse_match_ifnames) {
         assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", /* ltype= */ 0, "!baz", &names, /* userdata= */ NULL) == 0);
         assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", /* ltype= */ 0, "aaa bbb ccc", &names, /* userdata= */ NULL) == 0);
 
-        assert_se(strv_equal(names, STRV_MAKE("!hoge", "!hogehoge", "!foo", "!baz", "aaa", "bbb", "ccc")));
+        ASSERT_STRV_EQ(names, STRV_MAKE("!hoge", "!hogehoge", "!foo", "!baz", "aaa", "bbb", "ccc"));
 }
 
 TEST(config_parse_match_strv) {
@@ -375,14 +375,14 @@ TEST(config_parse_match_strv) {
         assert_se(config_parse_match_strv("network", "filename", 1, "section", 1, "Name", /* ltype= */ 0,
                                           "KEY=val \"KEY2=val with space\" \"KEY3=val with \\\"quotation\\\"\"", &names, /* userdata= */ NULL) == 0);
 
-        assert_se(strv_equal(names,
-                             STRV_MAKE("!hoge",
-                                       "!hogehoge",
-                                       "!foo",
-                                       "!baz",
-                                       "KEY=val",
-                                       "KEY2=val with space",
-                                       "KEY3=val with \\quotation\\")));
+        ASSERT_STRV_EQ(names,
+                       STRV_MAKE("!hoge",
+                                 "!hogehoge",
+                                 "!foo",
+                                 "!baz",
+                                 "KEY=val",
+                                 "KEY2=val with space",
+                                 "KEY3=val with \\quotation\\"));
 }
 
 static int parse_mpr(const char *rvalue, OrderedSet **nexthops) {

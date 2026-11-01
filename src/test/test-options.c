@@ -61,7 +61,7 @@ static void test_option_parse_one(
         ASSERT_EQ(i, n_entries);
 
         char **args = option_parser_get_args(&opts);
-        ASSERT_TRUE(strv_equal(args, remaining));
+        ASSERT_STRV_EQ(args, remaining);
         ASSERT_STREQ(argv[0], saved_argv0);
 
         size_t l = strv_length(remaining);
@@ -891,7 +891,7 @@ static void test_option_parsing_stops_at_second_nonoption_one(
 
         ASSERT_EQ(options_seen, options_to_see);
         ASSERT_EQ(verbs_seen, verbs_to_see);
-        ASSERT_TRUE(strv_equal(option_parser_get_args(&opts), args_to_see));
+        ASSERT_STRV_EQ(option_parser_get_args(&opts), args_to_see);
 }
 
 TEST(option_parsing_stops_at_second_nonoption) {
@@ -1010,7 +1010,7 @@ static void test_macros_parse_one(
         ASSERT_EQ(i, n_entries);
 
         char **args = option_parser_get_args(&opts);
-        ASSERT_TRUE(strv_equal(args, remaining));
+        ASSERT_STRV_EQ(args, remaining);
         ASSERT_STREQ(argv[0], saved_argv0);
         ASSERT_NULL(opts.opt);
         ASSERT_NULL(opts.arg);
@@ -1447,7 +1447,7 @@ TEST(option_optional_arg_consume) {
                 ASSERT_NULL(opts.opt);
                 ASSERT_NULL(opts.arg);
 
-                ASSERT_TRUE(strv_equal(option_parser_get_args(&opts), STRV_MAKE("pos1")));
+                ASSERT_STRV_EQ(option_parser_get_args(&opts), STRV_MAKE("pos1"));
         }
 
         /* --user at end of args: no next arg, so scope mode */
@@ -1531,7 +1531,7 @@ TEST(option_optional_arg_consume) {
 
                 ASSERT_EQ(nobody_seen, 2);
                 ASSERT_EQ(scope_seen, 2);
-                ASSERT_TRUE(strv_equal(option_parser_get_args(&opts), STRV_MAKE("nogroup")));
+                ASSERT_STRV_EQ(option_parser_get_args(&opts), STRV_MAKE("nogroup"));
                 ASSERT_NULL(opts.opt);
                 ASSERT_NULL(opts.arg);
         }
