@@ -666,7 +666,7 @@ int mstack_open_images(
                                 m->mount_fd = open_tree_attr_with_fallback(
                                                 mount_get_fd(m),
                                                 /* path= */ "",
-                                                OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_EMPTY_PATH,
+                                                OPEN_TREE_CLONE|AT_EMPTY_PATH,
                                                 &(struct mount_attr) {
                                                         .attr_set = mount_is_ro(m, flags) ? MOUNT_ATTR_RDONLY : 0,
                                                         .attr_clr = mount_is_ro(m, flags) ? 0 : MOUNT_ATTR_RDONLY,
