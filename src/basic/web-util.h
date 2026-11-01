@@ -12,3 +12,5 @@ int provider_url_parse(const char *url, char **ret_socket, char **ret_resource);
 bool provider_url_is_valid(const char *url);
 bool http_header_valid(const char *header) _pure_;
 bool http_etag_is_valid(const char *etag) _pure_;
+
+int parse_content_range(const char *s, uint64_t *ret_start, uint64_t *ret_end, uint64_t *ret_total);

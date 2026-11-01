@@ -35,6 +35,7 @@ static char *arg_image_root = NULL;
 static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
 static ImportFlags arg_import_flags = IMPORT_PULL_SETTINGS | IMPORT_PULL_ROOTHASH | IMPORT_PULL_ROOTHASH_SIGNATURE | IMPORT_PULL_VERITY | IMPORT_BTRFS_SUBVOL | IMPORT_BTRFS_QUOTA | IMPORT_CONVERT_QCOW2 | IMPORT_SYNC;
 static uint64_t arg_offset = UINT64_MAX, arg_size_max = UINT64_MAX;
+static uint64_t arg_source_offset = 0, arg_source_size = UINT64_MAX;
 static Compression arg_compression = _COMPRESSION_INVALID;
 static struct iovec arg_checksum = {};
 static struct iovec arg_decoded_checksum = {};
@@ -117,6 +118,20 @@ static int normalize_local(const char *local, const char *url, char **ret) {
         return 0;
 }
 
+static int refuse_ranges(const char *type) {
+        assert(type);
+
+        /* Ranges only make sense for raw images, hence refuse them for anything else */
+
+        if (arg_offset != UINT64_MAX || arg_size_max != UINT64_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--offset=/--size-max= are not supported for %s images.", type);
+
+        if (arg_source_offset != 0 || arg_source_size != UINT64_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--source-offset=/--source-size= are not supported for %s images.", type);
+
+        return 0;
+}
+
 static void on_tar_finished(TarPull *pull, int error, void *userdata) {
         sd_event *event = userdata;
         assert(pull);
@@ -160,6 +175,10 @@ static int verb_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         if (arg_import_flags & (IMPORT_PULL_CHECKSUM_FILE_YES|IMPORT_PULL_CHECKSUM_FILE_NO))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--checksum-file= is not supported for tar images.");
+
+        r = refuse_ranges("tar");
+        if (r < 0)
+                return r;
 
         r = normalize_local(local, url, &normalized);
         if (r < 0)
@@ -249,6 +268,8 @@ static int verb_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         normalized,
                         arg_offset,
                         arg_size_max,
+                        arg_source_offset,
+                        arg_source_size,
                         arg_compression,
                         arg_import_flags & IMPORT_PULL_FLAGS_MASK_RAW,
                         arg_verify,
@@ -285,6 +306,10 @@ static int verb_oci(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--compression= and --verify-decoded= are not supported for OCI images.");
         if (arg_import_flags & (IMPORT_PULL_CHECKSUM_FILE_YES|IMPORT_PULL_CHECKSUM_FILE_NO))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--checksum-file= is not supported for OCI images.");
+
+        r = refuse_ranges("OCI");
+        if (r < 0)
+                return r;
 
         _cleanup_free_ char *image = NULL;
         r = oci_ref_parse(ref, /* ret_registry= */ NULL, &image, /* ret_tag= */ NULL);
@@ -398,7 +423,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 }
 
                 OPTION_LONG("verify-decoded", "SHA256",
-                            "Verify the decoded (i.e. decompressed) image against the specified SHA256 hash"):
+                            "Verify the decoded (i.e. decompressed, and cut to the source range) image against the specified SHA256 hash"):
                         r = import_parse_sha256_argument("--verify-decoded=", opts.arg, &arg_decoded_checksum);
                         if (r < 0)
                                 return r;
@@ -529,6 +554,32 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
                 }
 
+                OPTION_LONG("source-offset", "BYTES", "Offset of the range of the decoded data to write"): {
+                        uint64_t u;
+
+                        r = safe_atou64(opts.arg, &u);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --source-offset= argument: %s", opts.arg);
+                        if (!FILE_SIZE_VALID(u))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argument to --source-offset= switch too large: %s", opts.arg);
+
+                        arg_source_offset = u;
+                        break;
+                }
+
+                OPTION_LONG("source-size", "BYTES", "Size of the range of the decoded data to write"): {
+                        uint64_t u;
+
+                        r = safe_atou64(opts.arg, &u);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --source-size= argument: %s", opts.arg);
+                        if (!FILE_SIZE_VALID(u))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argument to --source-size= switch too large: %s", opts.arg);
+
+                        arg_source_size = u;
+                        break;
+                }
+
                 OPTION_LONG("compression", "ALGORITHM",
                             "Compression algorithm of the downloaded data, one of: 'auto', 'none', 'gzip', 'xz', 'zstd', 'bzip2', 'lz4'"):
                         r = import_parse_compression_argument("--compression=", opts.arg, &arg_compression);
@@ -573,6 +624,12 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
         if (arg_offset != UINT64_MAX && !FLAGS_SET(arg_import_flags, IMPORT_DIRECT))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File offset only supported in --direct mode.");
+
+        if ((arg_source_offset != 0 || arg_source_size != UINT64_MAX) && !FLAGS_SET(arg_import_flags, IMPORT_DIRECT))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Source range only supported in --direct mode.");
+
+        if (arg_source_size != UINT64_MAX && arg_source_size > UINT64_MAX - arg_source_offset)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Source offset and size out of range.");
 
         if (FLAGS_SET(arg_import_flags, IMPORT_ZERO_FILL) && (arg_offset == UINT64_MAX || arg_size_max == UINT64_MAX))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Zero filling only supported if both --offset= and --size-max= are specified.");
