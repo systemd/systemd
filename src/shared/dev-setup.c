@@ -89,11 +89,11 @@ int make_inaccessible_nodes(
 
         BLOCK_WITH_UMASK(0000);
 
-        parent_fd = open(parent_dir, O_DIRECTORY|O_CLOEXEC|O_PATH, 0);
+        parent_fd = xopenat(AT_FDCWD, parent_dir, O_DIRECTORY|O_PATH);
         if (parent_fd < 0)
-                return -errno;
+                return parent_fd;
 
-        inaccessible_fd = open_mkdir_at_full(parent_fd, "inaccessible", O_CLOEXEC, XO_LABEL, 0755);
+        inaccessible_fd = open_mkdir_at_full(parent_fd, "inaccessible", /* flags= */ 0, XO_LABEL, 0755);
         if (inaccessible_fd < 0)
                 return inaccessible_fd;
 

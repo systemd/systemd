@@ -1807,7 +1807,7 @@ static int mount_bpffs(const MountEntry *m, PidRef *pidref, int socket_fd, int e
 
         pidref_done(pidref);
 
-        _cleanup_close_ int mnt_fd = fsmount(fs_fd, /* flags= */ 0, /* mount_attrs= */ 0);
+        _cleanup_close_ int mnt_fd = fsmount(fs_fd, FSMOUNT_CLOEXEC, /* mount_attrs= */ 0);
         if (mnt_fd < 0)
                 return log_debug_errno(errno, "Failed to fsmount bpffs: %m");
 
@@ -2667,7 +2667,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                                 _root_mount_fd = open_tree_attr_with_fallback(
                                                 p->rootfs->directory_fd,
                                                 "",
-                                                OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH|AT_RECURSIVE,
+                                                OPEN_TREE_CLONE|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH|AT_RECURSIVE,
                                                 &(struct mount_attr) {
                                                         /* We just remounted / as slave, but that didn't affect the detached
                                                          * mount that we just mounted, so remount that one as slave recursive
@@ -3419,7 +3419,7 @@ static int make_tmp_prefix(const char *prefix) {
 
         /* umask will corrupt this access mode, but that doesn't matter, we need to call chmod() anyway for
          * the suid bit, below. */
-        fd = open_mkdir(t, O_EXCL|O_CLOEXEC, 0777);
+        fd = open_mkdir(t, O_EXCL, 0777);
         if (fd < 0)
                 return fd;
 
@@ -3554,9 +3554,9 @@ int setup_shareable_ns(int ns_storage_socket[static 2], unsigned long nsflag) {
                 (void) loopback_setup();
 
         ns_path = strjoina("/proc/self/ns/", ns_name);
-        ns = open(ns_path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        ns = xopenat(AT_FDCWD, ns_path, O_RDONLY|O_NOCTTY);
         if (ns < 0)
-                return -errno;
+                return ns;
 
         r = send_one_fd(ns_storage_socket[1], ns, MSG_DONTWAIT);
         if (r < 0)
@@ -3596,9 +3596,9 @@ int open_shareable_ns_path(int ns_storage_socket[static 2], const char *path, un
 
         /* Nothing stored yet. Open the file from the file system. */
 
-        ns = open(path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        ns = xopenat(AT_FDCWD, path, O_RDONLY|O_NOCTTY);
         if (ns < 0)
-                return -errno;
+                return ns;
 
         r = fd_is_namespace(ns, type);
         if (r < 0)
@@ -3685,7 +3685,7 @@ static int unpeel_get_fd(const char *mount_path, int *ret_fd) {
                 }
 
                 /* Now that /mount_path is exposed, get an FD for it and pass back */
-                dir_fd = open_tree(-EBADF, mount_path, AT_SYMLINK_NOFOLLOW|OPEN_TREE_CLONE);
+                dir_fd = open_tree(-EBADF, mount_path, AT_SYMLINK_NOFOLLOW|OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC);
                 if (dir_fd < 0) {
                         log_debug_errno(errno, "Failed to clone mount %s: %m", mount_path);
                         _exit(EXIT_FAILURE);
@@ -3901,7 +3901,7 @@ static int handle_mount_from_grandchild(
         STRV_FOREACH(ol, m->overlay_layers) {
                 _cleanup_close_ int tree_fd = -EBADF;
 
-                tree_fd = open_tree(-EBADF, *ol, /* flags= */ 0);
+                tree_fd = open_tree(-EBADF, *ol, OPEN_TREE_CLOEXEC);
                 if (tree_fd < 0)
                         return log_debug_errno(errno, "Failed to open_tree overlay layer '%s': %m", *ol);
 

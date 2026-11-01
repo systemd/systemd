@@ -18,6 +18,7 @@
 #include "fd-util.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "machine-util.h"
 #include "main-func.h"
 #include "mount-util.h"
@@ -315,10 +316,10 @@ static int verb_providers(int argc, char *argv[], uintptr_t data, void *userdata
         (void) table_set_sort(t, (size_t) 0);
         table_set_ersatz_string(t, TABLE_ERSATZ_DASH);
 
-        _cleanup_close_ int fd = open(socket_path, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, socket_path, O_RDONLY|O_DIRECTORY);
         if (fd < 0) {
-                if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to open '%s': %m", socket_path);
+                if (fd != -ENOENT)
+                        return log_error_errno(fd, "Failed to open '%s': %m", socket_path);
         } else {
                 _cleanup_free_ DirectoryEntries *dentries = NULL;
                 r = readdir_all(fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_MUST_BE_SOCKET, &dentries);
@@ -668,7 +669,7 @@ static int run_as_mount_helper(int argc, char *argv[]) {
                 _cleanup_close_ int remapped_fd = open_tree_attr_with_fallback(
                                 reply.fd,
                                 /* path= */ NULL,
-                                OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC,
+                                OPEN_TREE_CLONE,
                                 &(struct mount_attr) {
                                           .attr_set = MOUNT_ATTR_IDMAP,
                                           .userns_fd = userns_fd,

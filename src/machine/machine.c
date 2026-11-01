@@ -184,7 +184,7 @@ int machine_save(Machine *m) {
 
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        r = fopen_tmpfile_linkable(m->state_file, O_WRONLY|O_CLOEXEC, &temp_path, &f);
+        r = fopen_tmpfile_linkable(m->state_file, O_WRONLY, &temp_path, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to create state file '%s': %m", m->state_file);
 
@@ -991,7 +991,7 @@ int machine_start_shell(
         if (!p || !utmp_id)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Path of pseudo TTY has unexpected prefix");
 
-        pty_fd = pty_open_peer(ptmx_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        pty_fd = pty_open_peer(ptmx_fd, O_RDWR|O_NOCTTY);
         if (pty_fd < 0)
                 return log_debug_errno(pty_fd, "Failed to open terminal: %m");
 
@@ -1194,7 +1194,7 @@ int machine_copy_from_to_operation(
         if (r < 0)
                 return log_debug_errno(r, "Failed to extract file name of '%s' path: %m", container_path);
 
-        host_fd = open_parent(host_path, O_CLOEXEC, /* mode= */ 0);
+        host_fd = open_parent(host_path, /* flags= */ 0, /* mode= */ 0);
         if (host_fd < 0)
                 return log_debug_errno(host_fd, "Failed to open host directory '%s': %m", host_path);
 
@@ -1228,7 +1228,7 @@ int machine_copy_from_to_operation(
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
                 _cleanup_close_ int container_fd = -EBADF;
-                container_fd = open_parent(container_path, O_CLOEXEC, /* mode= */ 0);
+                container_fd = open_parent(container_path, /* flags= */ 0, /* mode= */ 0);
                 if (container_fd < 0) {
                         log_debug_errno(container_fd, "Failed to open container directory: %m");
                         report_errno_and_exit(errno_pipe_fd[1], container_fd);
@@ -1553,9 +1553,9 @@ int machine_open_root_directory(Machine *machine) {
 
         switch (machine->class) {
         case MACHINE_HOST: {
-                int fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                int fd = xopenat(AT_FDCWD, "/", O_RDONLY|O_DIRECTORY);
                 if (fd < 0)
-                        return log_debug_errno(errno, "Failed to open host root directory: %m");
+                        return log_debug_errno(fd, "Failed to open host root directory: %m");
 
                 return fd;
         }
@@ -1598,10 +1598,10 @@ int machine_open_root_directory(Machine *machine) {
                         errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
                         fd_pass_socket[0] = safe_close(fd_pass_socket[0]);
 
-                        dfd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                        dfd = xopenat(AT_FDCWD, "/", O_RDONLY|O_DIRECTORY);
                         if (dfd < 0) {
-                                log_debug_errno(errno, "Failed to open root directory of machine '%s': %m", machine->name);
-                                report_errno_and_exit(errno_pipe_fd[1], -errno);
+                                log_debug_errno(dfd, "Failed to open root directory of machine '%s': %m", machine->name);
+                                report_errno_and_exit(errno_pipe_fd[1], dfd);
                         }
 
                         r = send_one_fd(fd_pass_socket[1], dfd, /* flags= */ 0);

@@ -446,8 +446,8 @@ static int add_veritytab_devices(void) {
 
         r = fopen_unlocked(arg_veritytab, "re", &f);
         if (r < 0) {
-                if (errno != ENOENT)
-                        log_error_errno(errno, "Failed to open %s: %m", arg_veritytab);
+                if (r != -ENOENT)
+                        log_error_errno(r, "Failed to open %s: %m", arg_veritytab);
                 return 0;
         }
 

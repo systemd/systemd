@@ -545,9 +545,9 @@ int mount_switch_root_full(const char *path, unsigned long mount_propagation_fla
         assert(path);
         assert(mount_propagation_flag_is_valid(mount_propagation_flag));
 
-        fd_newroot = open(path, O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        fd_newroot = xopenat(AT_FDCWD, path, O_PATH|O_DIRECTORY|O_NOFOLLOW);
         if (fd_newroot < 0)
-                return log_debug_errno(errno, "Failed to open new rootfs '%s': %m", path);
+                return log_debug_errno(fd_newroot, "Failed to open new rootfs '%s': %m", path);
 
         is_current_root = path_is_root_at(fd_newroot, /* path= */ NULL);
         if (is_current_root < 0)
@@ -823,9 +823,9 @@ int umountat_detach_verbose(
         if (isempty(where))
                 mnt_fd = fd;
         else {
-                inode_fd = openat(fd, where, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+                inode_fd = xopenat(fd, where, O_PATH|O_NOFOLLOW);
                 if (inode_fd < 0)
-                        return log_full_errno(error_log_level, errno, "Failed to pin '%s': %m", strna(joined));
+                        return log_full_errno(error_log_level, inode_fd, "Failed to pin '%s': %m", strna(joined));
 
                 mnt_fd = inode_fd;
         }
@@ -1604,6 +1604,8 @@ int open_tree_attr_with_fallback(int dir_fd, const char *path, unsigned flags, s
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(attr);
 
+        flags |= OPEN_TREE_CLOEXEC;
+
         if (isempty(path)) {
                 path = "";
                 flags |= AT_EMPTY_PATH;
@@ -1633,6 +1635,8 @@ int open_tree_try_drop_idmap(int dir_fd, const char *path, unsigned flags) {
          * a regular open_tree() */
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+
+        flags |= OPEN_TREE_CLOEXEC;
 
         if (isempty(path)) {
                 path = "";
@@ -1696,7 +1700,7 @@ int remount_idmap_fd(
                 mount_fds[n_mounts_fds] = open_tree_attr_with_fallback(
                                 AT_FDCWD,
                                 paths[i],
-                                OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC,
+                                OPEN_TREE_CLONE,
                                 &(struct mount_attr) {
                                           .attr_set = MOUNT_ATTR_IDMAP | extra_mount_attr_set,
                                           .userns_fd = userns_fd,
@@ -1847,7 +1851,7 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
                 if (!mount_attr_unsupported) {
                         mount_fd = open_tree_attr_with_fallback(
                                         AT_FDCWD, path,
-                                        OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE|AT_NO_AUTOMOUNT,
+                                        OPEN_TREE_CLONE|AT_RECURSIVE|AT_NO_AUTOMOUNT,
                                         &(struct mount_attr) { .propagation = MS_PRIVATE });
                         if (mount_fd == -ENOENT) /* The path may be hidden by another over-mount or already unmounted. */
                                 continue;
@@ -2248,7 +2252,7 @@ int path_is_network_fs_harder_at(int dir_fd, const char *path) {
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
-        fd = xopenat(dir_fd, path, O_PATH | O_CLOEXEC | O_NOFOLLOW);
+        fd = xopenat_full(dir_fd, path, O_PATH | O_NOFOLLOW, XO_EMPTY_PATH, MODE_INVALID); /* path may be empty */
         if (fd < 0)
                 return fd;
 

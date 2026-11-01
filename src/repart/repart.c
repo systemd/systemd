@@ -3480,9 +3480,9 @@ static int context_open_and_lock_backing_fd(const char *node, int operation, int
         if (*backing_fd >= 0)
                 return 0;
 
-        fd = open(node, mode|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, node, mode);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to open device '%s': %m", node);
+                return log_error_errno(fd, "Failed to open device '%s': %m", node);
 
         /* Tell udev not to interfere while we are processing the device */
         if (flock(fd, operation) < 0)
@@ -4040,9 +4040,9 @@ static int context_load_partition_table(Context *context) {
                 return log_error_errno(r, "Failed to set sector size: %m");
 
         if (context->backing_fd < 0) {
-                fd = open(context->node, context_open_mode(context)|O_CLOEXEC);
+                fd = xopenat(AT_FDCWD, context->node, context_open_mode(context));
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open backing node '%s': %m", context->node);
+                        return log_error_errno(fd, "Failed to open backing node '%s': %m", context->node);
         }
         r = sym_fdisk_assign_device_by_fd(
                         c,
@@ -5473,9 +5473,9 @@ static int partition_target_prepare(
 
                         context->needs_rescan = true;
 
-                        dev_fd = open(part_node, O_RDWR|O_CLOEXEC|O_NOCTTY);
+                        dev_fd = xopenat(AT_FDCWD, part_node, O_RDWR|O_NOCTTY);
                         if (dev_fd < 0) {
-                                r = -errno;
+                                r = dev_fd;
                                 int q = block_device_remove_partition(whole_fd, nr);
                                 if (q < 0)
                                         log_warning_errno(q, "Error while removing block device partition '%s', ignoring: %m", part_node);
@@ -6205,9 +6205,9 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                  integrity_alg_to_string(p->integrity_alg), p->partno);
                 }
 
-                dev_fd = open(vol, O_RDWR|O_CLOEXEC|O_NOCTTY);
+                dev_fd = xopenat(AT_FDCWD, vol, O_RDWR|O_NOCTTY);
                 if (dev_fd < 0)
-                        return log_error_errno(errno, "Failed to open LUKS volume '%s': %m", vol);
+                        return log_error_errno(dev_fd, "Failed to open LUKS volume '%s': %m", vol);
 
                 if (flock(dev_fd, LOCK_EX) < 0)
                         return log_error_errno(errno, "Failed to lock '%s': %m", vol);
@@ -7025,9 +7025,9 @@ static int file_is_denylisted(const char *source, Hashmap *denylist) {
                 if (stat_inode_same(&st, &rst))
                         break;
 
-                _cleanup_close_ int new_pfd = openat(pfd, "..", O_DIRECTORY|O_RDONLY);
+                _cleanup_close_ int new_pfd = xopenat(pfd, "..", O_DIRECTORY|O_RDONLY);
                 if (new_pfd < 0)
-                        return log_error_errno(errno, "Failed to open parent directory: %m");
+                        return log_error_errno(new_pfd, "Failed to open parent directory: %m");
 
                 close_and_replace(pfd, new_pfd);
         }
@@ -7081,11 +7081,11 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                 if (!path_equal(line->target, "/"))
                         continue;
 
-                rfd = open(root, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+                rfd = xopenat(AT_FDCWD, root, O_DIRECTORY|O_NOFOLLOW);
                 if (rfd < 0)
-                        return -errno;
+                        return rfd;
 
-                sfd = chase_and_open(line->source, arg_copy_source, CHASE_PREFIX_ROOT, O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOCTTY, /* ret_path= */ NULL);
+                sfd = chase_and_open(line->source, arg_copy_source, CHASE_PREFIX_ROOT, O_PATH|O_DIRECTORY|O_NOCTTY, /* ret_path= */ NULL);
                 if (sfd == -ENOTDIR)
                         continue;
                 if (sfd < 0)
@@ -7117,7 +7117,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                 if (r < 0)
                         return r;
 
-                sfd = chase_and_open(line->source, arg_copy_source, CHASE_PREFIX_ROOT, O_CLOEXEC|O_NOCTTY, /* ret_path= */ NULL);
+                sfd = chase_and_open(line->source, arg_copy_source, CHASE_PREFIX_ROOT, O_NOCTTY, /* ret_path= */ NULL);
                 if (sfd == -ENOENT) {
                         log_notice_errno(sfd, "Failed to open source file '%s%s', skipping: %m", strempty(arg_copy_source), line->source);
                         continue;
@@ -7131,7 +7131,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                 return log_error_errno(r, "Failed to check type of source file '%s': %m", line->source);
 
                         /* We are looking at a directory */
-                        tfd = chase_and_open(line->target, root, CHASE_PREFIX_ROOT, O_RDONLY|O_DIRECTORY|O_CLOEXEC, /* ret_path= */ NULL);
+                        tfd = chase_and_open(line->target, root, CHASE_PREFIX_ROOT, O_RDONLY|O_DIRECTORY, /* ret_path= */ NULL);
                         if (tfd < 0) {
                                 _cleanup_free_ char *dn = NULL, *fn = NULL;
 
@@ -7150,7 +7150,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to create parent directory '%s': %m", dn);
 
-                                pfd = chase_and_open(dn, root, CHASE_PREFIX_ROOT, O_RDONLY|O_DIRECTORY|O_CLOEXEC, /* ret_path= */ NULL);
+                                pfd = chase_and_open(dn, root, CHASE_PREFIX_ROOT, O_RDONLY|O_DIRECTORY, /* ret_path= */ NULL);
                                 if (pfd < 0)
                                         return log_error_errno(pfd, "Failed to open parent directory of target: %m");
 
@@ -7214,13 +7214,13 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create parent directory: %m");
 
-                        pfd = chase_and_open(dn, root, CHASE_PREFIX_ROOT, O_RDONLY|O_DIRECTORY|O_CLOEXEC, /* ret_path= */ NULL);
+                        pfd = chase_and_open(dn, root, CHASE_PREFIX_ROOT, O_RDONLY|O_DIRECTORY, /* ret_path= */ NULL);
                         if (pfd < 0)
                                 return log_error_errno(pfd, "Failed to open parent directory of target: %m");
 
-                        tfd = openat(pfd, fn, O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC, 0700);
+                        tfd = xopenat_full(pfd, fn, O_CREAT|O_EXCL|O_WRONLY, /* xopen_flags= */ 0, 0700);
                         if (tfd < 0)
-                                return log_error_errno(errno, "Failed to create target file '%s': %m", line->target);
+                                return log_error_errno(tfd, "Failed to create target file '%s': %m", line->target);
 
                         r = copy_bytes(sfd, tfd, UINT64_MAX, COPY_HOLES|COPY_SIGINT|COPY_TRUNCATE);
                         if (r < 0)
@@ -7416,9 +7416,9 @@ static int do_make_validatefs_xattrs(const Partition *p, const char *root) {
         if (!partition_add_validatefs(p))
                 return 0;
 
-        _cleanup_close_ int fd = open(root, O_DIRECTORY|O_CLOEXEC);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, root, O_DIRECTORY);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to open root inode '%s': %m", root);
+                return log_error_errno(fd, "Failed to open root inode '%s': %m", root);
 
         _cleanup_strv_free_ char **l = NULL;
         r = partition_acquire_sibling_labels(p, &l);
@@ -7489,9 +7489,9 @@ static int partition_populate_directory(Context *context, Partition *p, char **r
                 _cleanup_close_ int rfd = -EBADF;
                 struct timespec tspec;
 
-                rfd = open(root, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+                rfd = xopenat(AT_FDCWD, root, O_DIRECTORY|O_NOFOLLOW);
                 if (rfd < 0)
-                        return log_error_errno(errno, "Failed to open temporary directory: %m");
+                        return log_error_errno(rfd, "Failed to open temporary directory: %m");
 
                 timespec_store(&tspec, ts);
                 if (futimens(rfd, (const struct timespec[2]) { tspec, tspec }) < 0)
@@ -7903,9 +7903,9 @@ static int context_mkfs(Context *context) {
 
                 if (t->fd >= 0 && t->path && !t->loop && !t->block_partition) {
                         safe_close(t->fd);
-                        t->fd = open(t->path, O_RDWR|O_CLOEXEC);
+                        t->fd = xopenat(AT_FDCWD, t->path, O_RDWR);
                         if (t->fd < 0)
-                                return log_error_errno(errno, "Failed to reopen temporary file: %m");
+                                return log_error_errno(t->fd, "Failed to reopen temporary file: %m");
                 }
 
                 log_info("Successfully formatted future partition %" PRIu64 ".", p->partno);
@@ -8487,7 +8487,7 @@ static int context_split(Context *context) {
                 fdt = xopenat_full(
                                 AT_FDCWD,
                                 p->split_path,
-                                O_WRONLY|O_NOCTTY|O_CLOEXEC|O_NOFOLLOW|O_CREAT|O_EXCL,
+                                O_WRONLY|O_NOCTTY|O_NOFOLLOW|O_CREAT|O_EXCL,
                                 attrs & FS_NOCOW_FL ? XO_NOCOW : 0,
                                 0666);
                 if (fdt < 0)
@@ -9156,7 +9156,7 @@ static int resolve_copy_blocks_auto_candidate(
                                 major(partition_devno), minor(partition_devno),
                                 major(restrict_devno), minor(restrict_devno));
 
-        fd = r = device_open_from_devnum(S_IFBLK, whole_devno, O_RDONLY|O_CLOEXEC|O_NONBLOCK, &p);
+        fd = r = device_open_from_devnum(S_IFBLK, whole_devno, O_RDONLY|O_NONBLOCK, &p);
         if (r < 0)
                 return log_error_errno(r, "Failed to open block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(whole_devno));
@@ -9533,7 +9533,7 @@ static int context_open_copy_block_paths(
 
                 if (p->copy_blocks_path) {
 
-                        source_fd = chase_and_open(p->copy_blocks_path, p->copy_blocks_root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NONBLOCK, &opened);
+                        source_fd = chase_and_open(p->copy_blocks_path, p->copy_blocks_root, CHASE_PREFIX_ROOT, O_RDONLY|O_NONBLOCK, &opened);
                         if (source_fd < 0)
                                 return log_error_errno(source_fd, "Failed to open '%s': %m", p->copy_blocks_path);
 
@@ -9552,7 +9552,7 @@ static int context_open_copy_block_paths(
                                 return r;
                         assert(devno != 0);
 
-                        source_fd = r = device_open_from_devnum(S_IFBLK, devno, O_RDONLY|O_CLOEXEC|O_NONBLOCK, &opened);
+                        source_fd = r = device_open_from_devnum(S_IFBLK, devno, O_RDONLY|O_NONBLOCK, &opened);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to open automatically determined source block copy device " DEVNUM_FORMAT_STR ": %m",
                                                        DEVNUM_FORMAT_VAL(devno));
@@ -9583,7 +9583,7 @@ static int context_open_copy_block_paths(
 
                         safe_close(source_fd);
 
-                        source_fd = r = device_open_from_devnum(S_IFBLK, devt, O_RDONLY|O_CLOEXEC|O_NONBLOCK, &bdev);
+                        source_fd = r = device_open_from_devnum(S_IFBLK, devt, O_RDONLY|O_NONBLOCK, &bdev);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to open block device backing '%s': %m", opened);
 
@@ -9655,7 +9655,7 @@ static int context_open_btrfs_filesystems(Context *context) {
                         .source_fd = -EBADF,
                 };
 
-                replacement->mountpoint_fd = xopenat(AT_FDCWD, p->block_device_replace, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+                replacement->mountpoint_fd = xopenat(AT_FDCWD, p->block_device_replace, O_RDONLY|O_NONBLOCK|O_NOCTTY);
                 if (replacement->mountpoint_fd < 0)
                         return log_error_errno(replacement->mountpoint_fd, "Failed to open mountpoint %s for btrfs filesystem: %m", p->block_device_replace);
 
@@ -9672,9 +9672,9 @@ static int context_open_btrfs_filesystems(Context *context) {
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Btrfs filesystem has multiple devices.");
 
                 /* We need to keep the source device open otherwise, it might be collected. */
-                replacement->source_fd = open(replacement->source_path, O_RDONLY|O_CLOEXEC);
+                replacement->source_fd = xopenat(AT_FDCWD, replacement->source_path, O_RDONLY);
                 if (replacement->source_fd < 0)
-                        return log_error_errno(errno, "Failed to open source device %s: %m", replacement->source_path);
+                        return log_error_errno(replacement->source_fd, "Failed to open source device %s: %m", replacement->source_path);
 
                 r = fd_verify_block(replacement->source_fd);
                 if (r < 0)
@@ -9809,7 +9809,7 @@ static int context_fstab(Context *context) {
         if (!path)
                 return log_oom();
 
-        r = fopen_tmpfile_linkable(path, O_WRONLY|O_CLOEXEC, &t, &f);
+        r = fopen_tmpfile_linkable(path, O_WRONLY, &t, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to open temporary file for %s: %m", path);
 
@@ -9946,7 +9946,7 @@ static int context_crypttab(Context *context, bool late) {
         if (!path)
                 return log_oom();
 
-        r = fopen_tmpfile_linkable(path, O_WRONLY|O_CLOEXEC, &t, &f);
+        r = fopen_tmpfile_linkable(path, O_WRONLY, &t, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to open temporary file for %s: %m", path);
 
@@ -10099,7 +10099,7 @@ static int context_minimize(Context *context) {
                 fd = xopenat_full(
                                 AT_FDCWD,
                                 temp,
-                                O_CREAT|O_EXCL|O_CLOEXEC|O_RDWR|O_NOCTTY,
+                                O_CREAT|O_EXCL|O_RDWR|O_NOCTTY,
                                 attrs & FS_NOCOW_FL ? XO_NOCOW : 0,
                                 0600);
                 if (fd < 0)
@@ -10164,9 +10164,9 @@ static int context_minimize(Context *context) {
                 if (fstype_is_ro(p->format) || is_btrfs) {
                         fd = safe_close(fd);
 
-                        fd = open(temp, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                        fd = xopenat(AT_FDCWD, temp, O_RDONLY|O_NONBLOCK);
                         if (fd < 0)
-                                return log_error_errno(errno, "Failed to open temporary file %s: %m", temp);
+                                return log_error_errno(fd, "Failed to open temporary file %s: %m", temp);
 
                         if (fstat(fd, &st) < 0)
                                 return log_error_errno(errno, "Failed to stat temporary file: %m");
@@ -10313,7 +10313,7 @@ static int context_minimize(Context *context) {
                 fd = xopenat_full(
                                 AT_FDCWD,
                                 temp,
-                                O_RDONLY|O_CLOEXEC|O_CREAT|O_NONBLOCK,
+                                O_RDONLY|O_CREAT|O_NONBLOCK,
                                 attrs & FS_NOCOW_FL ? XO_NOCOW : 0,
                                 0600);
                 if (fd < 0)
@@ -11273,7 +11273,7 @@ static int acquire_root_devno(
 
 static int find_root(Context *context) {
         _cleanup_free_ char *device = NULL;
-        int r, open_flags = O_CLOEXEC|context_open_mode(context);
+        int r, open_flags = context_open_mode(context);
 
         assert(context);
 
@@ -11402,9 +11402,9 @@ static int resize_backing_fd(
         if (*fd < 0) {
                 /* Open the file if we haven't opened it yet. Note that we open it read-only here, just to
                  * keep a reference to the file we can pass around. */
-                *fd = open(node, O_RDONLY|O_CLOEXEC);
+                *fd = xopenat(AT_FDCWD, node, O_RDONLY);
                 if (*fd < 0)
-                        return log_error_errno(errno, "Failed to open '%s' in order to adjust size: %m", node);
+                        return log_error_errno(*fd, "Failed to open '%s' in order to adjust size: %m", node);
         }
 
         if (fstat(*fd, &st) < 0)
@@ -11441,9 +11441,9 @@ static int resize_backing_fd(
                 /* This is a loopback device. We can't really grow those directly, but we can grow the
                  * backing file, hence let's do that. */
 
-                writable_fd = open(backing_file, O_WRONLY|O_CLOEXEC|O_NONBLOCK);
+                writable_fd = xopenat(AT_FDCWD, backing_file, O_WRONLY|O_NONBLOCK);
                 if (writable_fd < 0)
-                        return log_error_errno(errno, "Failed to open backing file '%s': %m", backing_file);
+                        return log_error_errno(writable_fd, "Failed to open backing file '%s': %m", backing_file);
 
                 if (fstat(writable_fd, &st) < 0)
                         return log_error_errno(errno, "Failed to stat() backing file '%s': %m", backing_file);
@@ -11464,7 +11464,7 @@ static int resize_backing_fd(
                  * reopen the file for that temporarily. We keep the writable fd only open for this operation though,
                  * as fdisk can't accept it anyway. */
 
-                writable_fd = fd_reopen(*fd, O_WRONLY|O_CLOEXEC);
+                writable_fd = fd_reopen(*fd, O_WRONLY);
                 if (writable_fd < 0)
                         return log_error_errno(writable_fd, "Failed to reopen backing file '%s' writable: %m", node);
         }
@@ -11775,7 +11775,7 @@ static int vl_method_run(
                 return r;
 
         if (p.node) {
-                r = acquire_root_devno(p.node, /* root= */ NULL, O_CLOEXEC|context_open_mode(context), &context->node, &context->backing_fd);
+                r = acquire_root_devno(p.node, /* root= */ NULL, context_open_mode(context), &context->node, &context->backing_fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open file or determine backing device of %s: %m", p.node);
 
