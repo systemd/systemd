@@ -4,6 +4,7 @@
 
 #include "acl-util.h"
 #include "alloc-util.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -32,7 +33,7 @@ static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
         if (!logind_running())
                 return 0;
 
-        _cleanup_close_ int fd = sd_device_open(dev, O_CLOEXEC|O_PATH);
+        _cleanup_close_ int fd = device_open(dev, O_PATH);
         if (fd < 0) {
                 bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(fd);
                 log_device_full_errno(dev, ignore ? LOG_DEBUG : LOG_WARNING, fd,

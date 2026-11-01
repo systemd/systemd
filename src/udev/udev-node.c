@@ -705,7 +705,7 @@ int udev_node_apply_permissions(
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get devname: %m");
 
-        node_fd = sd_device_open(dev, O_PATH|O_CLOEXEC);
+        node_fd = device_open(dev, O_PATH);
         if (node_fd < 0) {
                 if (ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(node_fd)) {
                         log_device_debug_errno(dev, node_fd, "Device node %s is missing, skipping handling.", devnode);

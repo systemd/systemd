@@ -9,6 +9,7 @@
 #include "blkid-util.h"
 #include "blockdev-util.h"
 #include "chase.h"
+#include "device-private.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -138,7 +139,7 @@ static int device_get_file_system_word(
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int block_fd = sd_device_open(d, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        _cleanup_close_ int block_fd = device_open(d, O_RDONLY|O_NONBLOCK);
         if (block_fd < 0)
                 return block_fd;
 
