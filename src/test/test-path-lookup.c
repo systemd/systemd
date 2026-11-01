@@ -29,7 +29,7 @@ static void test_paths_one(RuntimeScope scope) {
         assert_se(strv_length(lp_with_env.search_path) == 1);
         ASSERT_STREQ(lp_with_env.search_path[0], systemd_unit_path);
         lookup_paths_log(&lp_with_env);
-        assert_se(strv_equal(lp_with_env.search_path, STRV_MAKE(systemd_unit_path)));
+        ASSERT_STRV_EQ(lp_with_env.search_path, STRV_MAKE(systemd_unit_path));
 }
 
 TEST(paths) {
@@ -61,7 +61,7 @@ static void test_paths_empty_components_one(RuntimeScope scope) {
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_UNIT_PATH", ":", 1));
         ASSERT_OK(lookup_paths_init(&lp_with_separator, scope, /* flags= */ 0, /* root_dir= */ NULL));
-        ASSERT_TRUE(strv_equal(lp_with_separator.search_path, lp_without_env.search_path));
+        ASSERT_STRV_EQ(lp_with_separator.search_path, lp_without_env.search_path);
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_UNIT_PATH", strjoina(":", systemd_unit_path), 1));
         ASSERT_ERROR(lookup_paths_init(&lp_with_leading_empty, scope, /* flags= */ 0, /* root_dir= */ NULL), EINVAL);
@@ -160,8 +160,8 @@ static void test_generator_binary_paths_one(RuntimeScope scope) {
         STRV_FOREACH(dir, env_gp_with_env)
                 log_info("        %s", *dir);
 
-        ASSERT_TRUE(strv_equal(gp_with_env, STRV_MAKE(systemd_generator_path)));
-        ASSERT_TRUE(strv_equal(env_gp_with_env, STRV_MAKE(systemd_env_generator_path)));
+        ASSERT_STRV_EQ(gp_with_env, STRV_MAKE(systemd_generator_path));
+        ASSERT_STRV_EQ(env_gp_with_env, STRV_MAKE(systemd_env_generator_path));
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_GENERATOR_PATH", strjoina(":", systemd_generator_path), 1));
         ASSERT_OK_ERRNO(setenv("SYSTEMD_ENVIRONMENT_GENERATOR_PATH", strjoina(":", systemd_env_generator_path), 1));
