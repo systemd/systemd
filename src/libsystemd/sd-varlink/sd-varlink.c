@@ -1736,6 +1736,23 @@ _public_ int sd_varlink_is_connected(sd_varlink *v) {
         return v && v->state != VARLINK_DISCONNECTED;
 }
 
+_public_ int sd_varlink_wants_reply(sd_varlink *v) {
+        /* Returns true if we are currently processing a method call and are expected to reply to it, i.e.
+         * no reply or error has been sent yet, and the method call was not invoked in oneway mode. A
+         * non-existent connection wants no reply.
+         *
+         * Note that this covers both the PROCESSING_METHOD* states (i.e. while the method call handler is
+         * running synchronously) and the PENDING_METHOD* states (i.e. while a fiber method call handler is
+         * running, or after a handler returned without replying, having stashed away a reference to the
+         * connection to reply asynchronously later). */
+
+        return v && (VARLINK_STATE_WANTS_REPLY(v->state) ||
+                     IN_SET(v->state,
+                            VARLINK_PENDING_METHOD,
+                            VARLINK_PENDING_METHOD_MORE,
+                            VARLINK_PENDING_METHOD_UPGRADE));
+}
+
 _public_ int sd_varlink_get_fd(sd_varlink *v) {
         assert_return(v, -EINVAL);
 
