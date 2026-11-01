@@ -299,6 +299,11 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
                 if (r < 0)
                         return log_debug_errno(r, "Failed to look up key: %m");
 
+                /* This runs during the shutdown grace second too: losing a tiebreak has to
+                 * suppress our reply (RFC 6762 section 8.2), or a peer probing for a name we
+                 * still probe would see a spurious conflict from a daemon about to exit. The
+                 * loss still withdraws the record locally; only what would follow is held back,
+                 * inside dns_zone_item_conflict(). */
                 if (tentative && DNS_PACKET_NSCOUNT(p) > 0) {
                         /*
                          * A race condition detected with the probe packet from
@@ -322,6 +327,26 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
 
                                 continue;
                         }
+                }
+
+                /* On the way out with the records goodbye'd, answering for them would
+                 * re-populate the caches the goodbyes just cleaned. The host's own records are
+                 * not withdrawn and are still answered: a peer probing for our host name has to
+                 * see it defended (RFC 6762 section 8.1). */
+                if (dns_scope_mdns_withdrawing(s)) {
+                        _cleanup_(dns_answer_unrefp) DnsAnswer *kept = NULL;
+
+                        DNS_ANSWER_FOREACH_ITEM(item, answer) {
+                                if (!dns_scope_rr_is_host_record(s, item->rr))
+                                        continue;
+
+                                r = dns_answer_add_extend_full(&kept, item->rr, item->ifindex,
+                                                               item->flags, item->rrsig, item->until);
+                                if (r < 0)
+                                        return log_debug_errno(r, "Failed to keep host record: %m");
+                        }
+
+                        DNS_ANSWER_REPLACE(answer, TAKE_PTR(kept));
                 }
 
                 if (dns_answer_isempty(answer))
@@ -370,6 +395,30 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to send reply packet: %m");
 
+        return 0;
+}
+
+/* The RFC 6763 section 9 type-enumeration PTR for a service type. One constructor for the
+ * announce and withdrawal paths, which must build byte-identical records for zone removal and
+ * cache matching. */
+int mdns_enumeration_service_ptr_new(const char *service_type, DnsResourceRecord **ret) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        assert(service_type);
+        assert(ret);
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR,
+                                          "_services._dns-sd._udp.local");
+        if (!rr)
+                return -ENOMEM;
+
+        rr->ptr.name = strdup(service_type);
+        if (!rr->ptr.name)
+                return -ENOMEM;
+
+        rr->ttl = MDNS_DEFAULT_TTL;
+
+        *ret = TAKE_PTR(rr);
         return 0;
 }
 
