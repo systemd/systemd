@@ -2927,9 +2927,13 @@ int pty_open_peer(int fd, int mode) {
 
         /* Opens the peer PTY using the new race-free TIOCGPTPEER ioctl() (kernel 4.13).
          *
-         * This is safe to be called on TTYs from other namespaces. */
+         * This is safe to be called on TTYs from other namespaces.
+         *
+         * O_CLOEXEC is always set. */
 
         assert((mode & (O_CREAT|O_PATH|O_DIRECTORY|O_TMPFILE)) == 0);
+
+        mode |= O_CLOEXEC;
 
         /* This replicates the EIO retry logic of open_terminal() in a modified way. */
         for (unsigned c = 0;; c++) {
