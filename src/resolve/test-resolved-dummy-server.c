@@ -426,7 +426,7 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "This program takes one argument in format ip_address:port");
 
-        fd = make_socket_fd(LOG_DEBUG, argv[1], SOCK_DGRAM, SOCK_CLOEXEC);
+        fd = make_socket_fd(LOG_DEBUG, argv[1], SOCK_DGRAM, /* flags= */ 0);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to listen on address '%s': %m", argv[1]);
 
