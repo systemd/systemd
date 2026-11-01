@@ -8832,6 +8832,38 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
     def tearDown(self):
         tear_down_common()
 
+    def test_dhcp_client_ipv6_use_timezone(self):
+        copy_network_unit(
+            '25-veth.netdev',
+            '25-dhcp-server-veth-peer.network',
+            '25-dhcp-client-ipv6-timezone.network',
+        )
+
+        # Make sure the zone is not already the one the server will emit,
+        # e.g. left over from test_emit_router_timezone.
+        timedatectl('set-timezone', 'UTC')
+
+        start_networkd()
+        self.wait_online('veth-peer:carrier')
+
+        start_dnsmasq(
+            '--dhcp-option=option6:42,Europe/Berlin',
+            ra_mode='ra-stateless',
+        )
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+
+        # The DHCPv6 REPLY for INFORMATION-REQUEST may be received after the
+        # link entered the configured state, and the timezone is applied
+        # through an asynchronous call to timedated. Wait for it.
+        tz = None
+        for _ in range(100):
+            r = run(*timedatectl_cmd, 'show', '--value', '--property', 'Timezone', env=env)
+            tz = r.stdout.rstrip()
+            if tz == 'Europe/Berlin':
+                break
+            time.sleep(0.2)
+        self.assertEqual(tz, 'Europe/Berlin')
+
     def test_dhcp_client_ipv6_only(self):
         copy_network_unit(
             '25-veth.netdev',

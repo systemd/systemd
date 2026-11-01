@@ -188,6 +188,7 @@ typedef struct Network {
         int dhcp6_use_ntp;
         bool dhcp6_use_sip;
         bool dhcp6_use_captive_portal;
+        bool dhcp6_use_timezone;
         bool dhcp6_use_rapid_commit;
         UseDomains dhcp6_use_domains;
         uint32_t dhcp6_iaid;

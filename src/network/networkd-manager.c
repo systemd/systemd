@@ -90,6 +90,8 @@ static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_b
         return 0;
 }
 
+static int manager_send_timezone(Manager *m);
+
 static int on_connected(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
         Manager *m = ASSERT_PTR(userdata);
 
@@ -99,7 +101,7 @@ static int on_connected(sd_bus_message *message, void *userdata, sd_bus_error *r
         if (m->dynamic_hostname)
                 (void) manager_set_hostname(m, m->dynamic_hostname);
         if (m->dynamic_timezone)
-                (void) manager_set_timezone(m, m->dynamic_timezone);
+                (void) manager_send_timezone(m);
         if (m->product_uuid_requested)
                 (void) manager_request_product_uuid(m);
 
@@ -1302,6 +1304,7 @@ int manager_set_hostname(Manager *m, const char *hostname) {
 }
 
 static int set_timezone_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+        Manager *manager = ASSERT_PTR(userdata);
         const sd_bus_error *e;
         int r;
 
@@ -1311,21 +1314,19 @@ static int set_timezone_handler(sd_bus_message *m, void *userdata, sd_bus_error 
         if (e) {
                 r = sd_bus_error_get_errno(e);
                 log_warning_errno(r, "Could not set timezone: %s", bus_error_message(e, r));
+
+                /* Forget the cached zone, so that the next lease retries. */
+                manager->dynamic_timezone = mfree(manager->dynamic_timezone);
         }
 
         return 1;
 }
 
-int manager_set_timezone(Manager *m, const char *tz) {
+static int manager_send_timezone(Manager *m) {
         int r;
 
         assert(m);
-        assert(tz);
-
-        log_debug("Setting system timezone: '%s'", tz);
-        r = free_and_strdup_warn(&m->dynamic_timezone, tz);
-        if (r < 0)
-                return r;
+        assert(m->dynamic_timezone);
 
         if (sd_bus_is_ready(m->bus) <= 0) {
                 log_debug("Not connected to system bus, setting system timezone later.");
@@ -1340,10 +1341,36 @@ int manager_set_timezone(Manager *m, const char *tz) {
                         set_timezone_handler,
                         m,
                         "sb",
-                        tz,
+                        m->dynamic_timezone,
                         false);
         if (r < 0)
                 return log_error_errno(r, "Could not set timezone: %m");
+
+        return 0;
+}
+
+int manager_set_timezone(Manager *m, const char *tz) {
+        int r;
+
+        assert(m);
+        assert(tz);
+
+        /* DHCP leases are renewed periodically; do not reset the timezone (and
+         * override a possible manual change) unless it actually changed. */
+        if (streq_ptr(m->dynamic_timezone, tz))
+                return 0;
+
+        log_debug("Setting system timezone: '%s'", tz);
+        r = free_and_strdup_warn(&m->dynamic_timezone, tz);
+        if (r < 0)
+                return r;
+
+        r = manager_send_timezone(m);
+        if (r < 0) {
+                /* Forget the cached zone, so that the next lease retries. */
+                m->dynamic_timezone = mfree(m->dynamic_timezone);
+                return r;
+        }
 
         return 0;
 }
