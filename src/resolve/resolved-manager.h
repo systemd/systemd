@@ -90,6 +90,9 @@ typedef struct Manager {
         int mdns_ipv6_fd;
         sd_event_source *mdns_ipv4_event_source;
         sd_event_source *mdns_ipv6_event_source;
+        /* Holds the exit for the shutdown goodbye's RFC 6762 §8.3 second transmission. */
+        sd_event_source *mdns_goodbye_retransmit_event_source;
+        bool mdns_withdrawing;
 
         /* DNS-SD */
         Hashmap *dnssd_registered_services;
