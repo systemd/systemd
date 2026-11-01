@@ -1807,7 +1807,7 @@ static int mount_bpffs(const MountEntry *m, PidRef *pidref, int socket_fd, int e
 
         pidref_done(pidref);
 
-        _cleanup_close_ int mnt_fd = fsmount(fs_fd, /* flags= */ 0, /* mount_attrs= */ 0);
+        _cleanup_close_ int mnt_fd = fsmount(fs_fd, FSMOUNT_CLOEXEC, /* mount_attrs= */ 0);
         if (mnt_fd < 0)
                 return log_debug_errno(errno, "Failed to fsmount bpffs: %m");
 
@@ -3685,7 +3685,7 @@ static int unpeel_get_fd(const char *mount_path, int *ret_fd) {
                 }
 
                 /* Now that /mount_path is exposed, get an FD for it and pass back */
-                dir_fd = open_tree(-EBADF, mount_path, AT_SYMLINK_NOFOLLOW|OPEN_TREE_CLONE);
+                dir_fd = open_tree(-EBADF, mount_path, AT_SYMLINK_NOFOLLOW|OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC);
                 if (dir_fd < 0) {
                         log_debug_errno(errno, "Failed to clone mount %s: %m", mount_path);
                         _exit(EXIT_FAILURE);
@@ -3901,7 +3901,7 @@ static int handle_mount_from_grandchild(
         STRV_FOREACH(ol, m->overlay_layers) {
                 _cleanup_close_ int tree_fd = -EBADF;
 
-                tree_fd = open_tree(-EBADF, *ol, /* flags= */ 0);
+                tree_fd = open_tree(-EBADF, *ol, OPEN_TREE_CLOEXEC);
                 if (tree_fd < 0)
                         return log_debug_errno(errno, "Failed to open_tree overlay layer '%s': %m", *ol);
 

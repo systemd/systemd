@@ -450,9 +450,9 @@ static int verify_gpg(
         {
                 _cleanup_close_ int sig_file = -EBADF;
 
-                sig_file = mkostemp(sig_file_path, O_RDWR);
+                sig_file = mkostemp_safe(sig_file_path);
                 if (sig_file < 0)
-                        return log_error_errno(errno, "Failed to create temporary file: %m");
+                        return log_error_errno(sig_file, "Failed to create temporary file: %m");
 
                 r = loop_write(sig_file, signature->iov_base, signature->iov_len);
                 if (r < 0) {
