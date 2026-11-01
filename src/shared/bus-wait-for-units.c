@@ -455,6 +455,8 @@ static int wait_for_item_parse_properties(WaitForItem *item, sd_bus_message *m) 
         assert(item);
         assert(m);
 
+        bool loaded = !load_state_is_empty_or_not_found(item->load_state);
+
         r = bus_message_map_all_properties(m, map, BUS_MAP_STRDUP, /* reterr_error= */ NULL, item);
         if (r < 0)
                 return r;
@@ -479,6 +481,16 @@ static int wait_for_item_parse_properties(WaitForItem *item, sd_bus_message *m) 
                 }
 
                 item->removed = false;
+        }
+
+        /* The unit did not exist from the beginning. Treat it as terminated successfully. */
+        if (!loaded && load_state_is_empty_or_not_found(item->load_state)) {
+                log_debug("Unit %s is not loaded.", item->name);
+
+                BusWaitForUnits *d = ASSERT_PTR(item->parent);
+                call_unit_callback_and_wait(d, item, /* good= */ true);
+                bus_wait_for_units_check_ready(d);
+                return 0;
         }
 
         wait_for_item_check_ready(item);

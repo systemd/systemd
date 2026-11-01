@@ -22,6 +22,16 @@ void unit_result_done(UnitResult *u) {
         u->result = mfree(u->result);
 }
 
+bool load_state_is_empty_or_not_found(const char *load_state) {
+        return isempty(load_state) || streq(load_state, "not-found");
+}
+
+bool unit_result_is_empty_or_not_found(const UnitResult *u) {
+        assert(u);
+
+        return load_state_is_empty_or_not_found(u->load_state);
+}
+
 const struct bus_properties_map unit_result_property_map[] = {
         { "LoadState",                       "s", NULL, offsetof(UnitResult, load_state)          },
         { "ActiveState",                     "s", NULL, offsetof(UnitResult, active_state)        },

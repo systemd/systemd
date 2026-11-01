@@ -113,7 +113,7 @@ int verb_wait(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to wait for unit %s to terminate.", name);
 
         /* A unit that does not exist is treated like one that already terminated successfully. */
-        if (streq_ptr(c.result.load_state, "not-found")) {
+        if (unit_result_is_empty_or_not_found(&c.result)) {
                 if (!arg_quiet)
                         printf("Unit %s does not exist, treating as terminated.\n", name);
 
