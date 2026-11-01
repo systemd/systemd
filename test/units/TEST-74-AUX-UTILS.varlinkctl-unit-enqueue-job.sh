@@ -38,6 +38,11 @@ UNIT
     varlinkctl call --collect /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"names": ["varlink-test-enqueue.service"], "jobType": "restart", "notifyJobChanges": true}' | jq -e 'length > 1 and .[0].job.JobType == "restart" and .[-1].job.Result == "done" and .[-1].context and .[-1].runtime'
     systemctl is-active varlink-test-enqueue.service
 
+    varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob \
+        '{"names":["varlink-test-enqueue.service"],"jobType":"restart","mode":null,"notifyJobChanges":null,"notifyUnitChanges":null}' \
+        | jq -e '.job.Id and .job.JobType == "restart"'
+    timeout 10 bash -c 'until systemctl is-active varlink-test-enqueue.service; do sleep 0.5; done'
+
     varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob '{"names": ["varlink-test-enqueue.service"], "jobType": "stop"}' | jq -e '.job.JobType == "stop"'
     timeout 10 bash -c 'until systemctl show -P ActiveState varlink-test-enqueue.service | grep inactive >/dev/null; do sleep 0.5; done'
 

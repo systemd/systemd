@@ -1106,9 +1106,9 @@ TransientExecContextParameters* transient_exec_context_parameters_free(Transient
 
 static int dispatch_transient_working_directory(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch[] = {
-                { "path",      SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(TransientWorkingDirectory, path),       0 },
-                { "home",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(TransientWorkingDirectory, home),       0 },
-                { "missingOK", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(TransientWorkingDirectory, missing_ok), 0 },
+                { "path",      SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(TransientWorkingDirectory, path),       SD_JSON_NULLABLE },
+                { "home",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(TransientWorkingDirectory, home),       SD_JSON_NULLABLE },
+                { "missingOK", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(TransientWorkingDirectory, missing_ok), SD_JSON_NULLABLE },
                 {}
         };
 
@@ -1117,7 +1117,10 @@ static int dispatch_transient_working_directory(const char *name, sd_json_varian
         const char *bad_field = NULL;
         int r;
 
-        r = sd_json_dispatch_full(variant, dispatch, /* bad= */ NULL, flags, wd, &bad_field);
+        if (sd_json_variant_is_null(variant))
+                return 0;
+
+        r = sd_json_dispatch_full(variant, dispatch, /* bad= */ NULL, /* flags= */ 0, wd, &bad_field);
         if (r < 0) {
                 if (bad_field)
                         varlink_propagate_bad_field(bad_field, /* child_bad_field= */ NULL, &p->bad_field);
@@ -1497,11 +1500,11 @@ typedef struct TransientExecProperty {
 /* Preserve [] so apply can distinguish an explicit reset from an absent setting. */
 #define EXEC_PROPERTY_STRV(json, field)                                                 \
         { json, SD_JSON_VARIANT_ARRAY, varlink_dispatch_strv_preserve_empty,            \
-          offsetof(TransientExecContextParameters, field), SD_JSON_NULLABLE, apply_exec_##field }
+          offsetof(TransientExecContextParameters, field), 0, apply_exec_##field }
 
 /* Settable dispatchers update both the value and its _set flag in the parameter structure. */
 #define EXEC_PROPERTY_SETTABLE_FULL(json, type, dispatch_fn, apply_fn)                  \
-        { json, type, dispatch_fn, 0, SD_JSON_NULLABLE, apply_fn }
+        { json, type, dispatch_fn, 0, 0, apply_fn }
 
 #define EXEC_PROPERTY_SETTABLE(json, field, type) \
         EXEC_PROPERTY_SETTABLE_FULL(json, type, varlink_dispatch_settable_##field, apply_exec_##field)
@@ -1606,11 +1609,15 @@ int transient_exec_context_dispatch(
         /* Build dispatch table only once, its constant. */
         static sd_json_dispatch_field exec_dispatch[ELEMENTSOF(exec_properties) + 1] = {};
         static bool exec_dispatch_set = false;
-
         const char *bad_field = NULL;
         int r;
 
         assert(ret);
+
+        if (sd_json_variant_is_null(variant)) {
+                *ret = NULL;
+                return 0;
+        }
 
         if (!exec_dispatch_set) {
                 FOREACH_ELEMENT(prop, exec_properties)
@@ -1619,7 +1626,7 @@ int transient_exec_context_dispatch(
                                 .type = prop->json_type,
                                 .callback = prop->dispatch,
                                 .offset = prop->parse_offset,
-                                .flags = prop->json_flags,
+                                .flags = SD_JSON_NULLABLE | prop->json_flags,
                         };
                 exec_dispatch_set = true;
         }

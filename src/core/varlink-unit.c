@@ -714,7 +714,7 @@ static void start_transient_parameters_done(StartTransientParameters *p) {
 static void start_transient_parameters_init(StartTransientParameters *p) {
         assert(p);
         *p = (StartTransientParameters) {
-                .mode = JOB_REPLACE,
+                .mode = _JOB_MODE_INVALID,
                 .notify_job_changes = -1,
                 .notify_unit_changes = -1,
         };
@@ -799,13 +799,13 @@ static int dispatch_transient_context_postauth(const char *name, sd_json_variant
         static const sd_json_dispatch_field base_context_dispatch[] = {
                 /* ID is already validated and stored before authorization via dispatch_transient_context_preauth(). */
                 { "ID",          SD_JSON_VARIANT_STRING, NULL,                            0,                                                       0                 },
-                { "Description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,   offsetof(StartTransientContextParameters, description),  0                 },
-                { "CollectMode", SD_JSON_VARIANT_STRING, dispatch_collect_mode,           offsetof(StartTransientContextParameters, collect_mode), 0                 },
-                { "Exec",        SD_JSON_VARIANT_OBJECT, dispatch_transient_exec_context, 0,                                                       0                 },
-                { "Kill",        SD_JSON_VARIANT_OBJECT, dispatch_transient_kill,         0,                                                       0                 },
-                { "Service",     SD_JSON_VARIANT_OBJECT, dispatch_transient_service,      0,                                                       0                 },
-                { "Scope",       SD_JSON_VARIANT_OBJECT, dispatch_transient_scope,        0,                                                       0                 },
-                { "CGroup",      SD_JSON_VARIANT_OBJECT, dispatch_transient_cgroup,       0,                                                       0                 },
+                { "Description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,   offsetof(StartTransientContextParameters, description),  SD_JSON_NULLABLE  },
+                { "CollectMode", SD_JSON_VARIANT_STRING, dispatch_collect_mode,           offsetof(StartTransientContextParameters, collect_mode), SD_JSON_NULLABLE  },
+                { "Exec",        SD_JSON_VARIANT_OBJECT, dispatch_transient_exec_context, 0,                                                       SD_JSON_NULLABLE  },
+                { "Kill",        SD_JSON_VARIANT_OBJECT, dispatch_transient_kill,         0,                                                       SD_JSON_NULLABLE  },
+                { "Service",     SD_JSON_VARIANT_OBJECT, dispatch_transient_service,      0,                                                       SD_JSON_NULLABLE  },
+                { "Scope",       SD_JSON_VARIANT_OBJECT, dispatch_transient_scope,        0,                                                       SD_JSON_NULLABLE  },
+                { "CGroup",      SD_JSON_VARIANT_OBJECT, dispatch_transient_cgroup,       0,                                                       SD_JSON_NULLABLE  },
         };
         /* Build dispatch table only once, it's constant. */
         static sd_json_dispatch_field context_dispatch[ELEMENTSOF(base_context_dispatch) + _UNIT_DEPENDENCY_MAX + 1] = {};
@@ -825,6 +825,7 @@ static int dispatch_transient_context_postauth(const char *name, sd_json_variant
                                 .type = SD_JSON_VARIANT_ARRAY,
                                 .callback = dispatch_dependency,
                                 .offset = offsetof(StartTransientContextParameters, dependencies[dep]),
+                                .flags = SD_JSON_NULLABLE,
                         };
                 }
                 context_dispatch_set = true;
@@ -980,15 +981,15 @@ int vl_method_enqueue_unit_job(sd_varlink *link, sd_json_variant *parameters, sd
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "names",             SD_JSON_VARIANT_ARRAY,   dispatch_unit_names,       offsetof(EnqueueJobParameters, names),               SD_JSON_MANDATORY },
                 { "jobType",           SD_JSON_VARIANT_STRING,  dispatch_job_type,         offsetof(EnqueueJobParameters, job_type),            SD_JSON_MANDATORY },
-                { "mode",              SD_JSON_VARIANT_STRING,  dispatch_job_mode,         offsetof(EnqueueJobParameters, mode),                0                 },
-                { "notifyJobChanges",  SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(EnqueueJobParameters, notify_job_changes),  0                 },
-                { "notifyUnitChanges", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(EnqueueJobParameters, notify_unit_changes), 0                 },
+                { "mode",              SD_JSON_VARIANT_STRING,  dispatch_job_mode,         offsetof(EnqueueJobParameters, mode),                SD_JSON_NULLABLE  },
+                { "notifyJobChanges",  SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(EnqueueJobParameters, notify_job_changes),  SD_JSON_NULLABLE  },
+                { "notifyUnitChanges", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(EnqueueJobParameters, notify_unit_changes), SD_JSON_NULLABLE  },
                 {}
         };
 
         _cleanup_(enqueue_job_parameters_done) EnqueueJobParameters p = {
                 .job_type = _JOB_TYPE_INVALID,
-                .mode = JOB_REPLACE,
+                .mode = _JOB_MODE_INVALID,
                 .notify_job_changes = -1,
                 .notify_unit_changes = -1,
         };
@@ -1002,6 +1003,9 @@ int vl_method_enqueue_unit_job(sd_varlink *link, sd_json_variant *parameters, sd
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
+
+        if (p.mode < 0)
+                p.mode = JOB_REPLACE;
 
         size_t n = strv_length(p.names);
         bool notify = p.notify_job_changes > 0 || p.notify_unit_changes > 0;
@@ -1123,9 +1127,9 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
 
         static const sd_json_dispatch_field dispatch_table_postauth[] = {
                 { "context",            SD_JSON_VARIANT_OBJECT,  dispatch_transient_context_postauth, 0,                                              SD_JSON_MANDATORY },
-                { "mode",               SD_JSON_VARIANT_STRING,  dispatch_job_mode,          offsetof(StartTransientParameters, mode),                0                 },
-                { "notifyJobChanges",   SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,  offsetof(StartTransientParameters, notify_job_changes),  0                 },
-                { "notifyUnitChanges",  SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,  offsetof(StartTransientParameters, notify_unit_changes), 0                 },
+                { "mode",               SD_JSON_VARIANT_STRING,  dispatch_job_mode,          offsetof(StartTransientParameters, mode),                SD_JSON_NULLABLE  },
+                { "notifyJobChanges",   SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,  offsetof(StartTransientParameters, notify_job_changes),  SD_JSON_NULLABLE  },
+                { "notifyUnitChanges",  SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,  offsetof(StartTransientParameters, notify_unit_changes), SD_JSON_NULLABLE  },
                 {}
         };
 
@@ -1185,6 +1189,9 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
                 }
                 return r;
         }
+
+        if (p.mode < 0)
+                p.mode = JOB_REPLACE;
 
         /* Resolve stdio fd indices against the fds attached to this method call before the unit exists,
          * so a failure (bad index, wrong access mode) doesn't leave a half-configured transient unit. */

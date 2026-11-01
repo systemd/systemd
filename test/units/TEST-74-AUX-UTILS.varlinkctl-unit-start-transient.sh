@@ -118,6 +118,25 @@ testcase_basic() {
     echo "$unsupported_service" | grep -F "context.Service.Restart"
 }
 
+testcase_nullable() {
+    setup
+
+    local fragment
+
+    defer_transient_cleanup varlink-transient-null.service
+    varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+        '{"context":{"ID":"varlink-transient-null.service","Exec":{"WorkingDirectory":null},"Kill":{"KillMode":null},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStartPre":null,"ExecStart":[{"path":"/bin/true","ignoreFailure":null}]}},"mode":null}'
+    timeout 10 bash -c 'until systemctl is-active varlink-transient-null.service; do sleep 0.5; done'
+    fragment=$(systemctl show -P FragmentPath varlink-transient-null.service)
+    test -r "$fragment"
+    (! grep -E '^(WorkingDirectory|KillMode|ExecStartPre)=' "$fragment")
+
+    defer_transient_cleanup varlink-transient-null.slice
+    varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+        '{"context":{"ID":"varlink-transient-null.slice","Exec":null,"Kill":null,"Service":null,"Scope":null,"CGroup":null}}' \
+        | jq -e '.context.ID == "varlink-transient-null.slice" and .job.Id'
+}
+
 testcase_dispatch_validation() {
     setup
 
@@ -932,16 +951,8 @@ testcase_dispatch_error_paths() {
         "context.ID"
 
     expect_invalid_parameter \
-        '{"context":{"ID":"varlink-transient-null-exec.service","Exec":null}}' \
-        "context.Exec"
-
-    expect_invalid_parameter \
-        '{"context":{"ID":"varlink-transient-null-wd.service","Exec":{"WorkingDirectory":null}}}' \
-        "context.Exec.WorkingDirectory"
-
-    expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-null-wd-path.service","Exec":{"WorkingDirectory":{"path":null}}}}' \
-        "context.Exec.WorkingDirectory.path"
+        "context.Exec.WorkingDirectory"
 
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-wd-bad-user.service","Exec":{"WorkingDirectory":{"path":"/tmp"},"User":"bad/user"}}}' \
@@ -955,12 +966,6 @@ testcase_dispatch_error_paths() {
         expect_invalid_parameter \
             '{"context":{"ID":"varlink-transient-bad-credential-array.service","Exec":{"'"$field"'":[{"id":"first","value":"YWJj"},{"id":"second","value":"!!!not_base64!!!"}]}}}' \
             "context.Exec.$field.value"
-    done
-
-    for field in ExecCondition ExecStartPre ExecStart ExecStartPost ExecReload ExecReloadPost ExecStop ExecStopPost; do
-        expect_invalid_parameter \
-            '{"context":{"ID":"varlink-transient-bad-command-array.service","Service":{"'"$field"'":[{"path":"/bin/true"},{"path":"/bin/true","arguments":["/bin/true"],"ignoreFailure":null}]}}}' \
-            "context.Service.$field.ignoreFailure"
     done
 
     expect_invalid_parameter \
