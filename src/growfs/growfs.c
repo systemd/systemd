@@ -16,6 +16,7 @@
 #include "dlopen-note.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mountpoint-util.h"
@@ -45,7 +46,7 @@ static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_
         if (r < 0)
                 return r;
 
-        main_devfd = r = device_open_from_devnum(S_IFBLK, main_devno, O_RDONLY|O_CLOEXEC, &main_devpath);
+        main_devfd = r = device_open_from_devnum(S_IFBLK, main_devno, O_RDONLY, &main_devpath);
         if (r < 0)
                 return log_error_errno(r, "Failed to open main block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(main_devno));
@@ -189,9 +190,9 @@ static int run(int argc, char *argv[]) {
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "\"%s\" is not a mount point.", arg_target);
 
-        mountfd = open(arg_target, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        mountfd = xopenat(AT_FDCWD, arg_target, O_RDONLY|O_DIRECTORY);
         if (mountfd < 0)
-                return log_error_errno(errno, "Failed to open \"%s\": %m", arg_target);
+                return log_error_errno(mountfd, "Failed to open \"%s\": %m", arg_target);
 
         r = get_block_device_fd(mountfd, &devno);
         if (r == -EUCLEAN)
@@ -205,7 +206,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 log_warning_errno(r, "Unable to resize underlying device of \"%s\", proceeding anyway: %m", arg_target);
 
-        devfd = r = device_open_from_devnum(S_IFBLK, devno, O_RDONLY|O_CLOEXEC, &devpath);
+        devfd = r = device_open_from_devnum(S_IFBLK, devno, O_RDONLY, &devpath);
         if (r < 0)
                 return log_error_errno(r, "Failed to open block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(devno));

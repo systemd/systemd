@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fs-util.h"
@@ -249,6 +250,31 @@ TEST(passfd_read) {
         ssize_t n = ASSERT_OK_ERRNO(read(fd, buf, sizeof(buf)-1));
         buf[n] = 0;
         ASSERT_STREQ(buf, file_contents);
+
+        /* recvmsg_safe() implies MSG_CMSG_CLOEXEC */
+        int fl = ASSERT_OK_ERRNO(fcntl(fd, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
+}
+
+TEST(recvmsg_safe_packet) {
+        /* AF_PACKET refuses MSG_CMSG_CLOEXEC with EINVAL, recvmsg_safe() must only pass it for AF_UNIX */
+        _cleanup_close_ int fd = socket(AF_PACKET, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (fd < 0) {
+                if (ERRNO_IS_PRIVILEGE(errno) || ERRNO_IS_NOT_SUPPORTED(errno))
+                        return (void) log_tests_skipped_errno(errno, "Failed to create AF_PACKET socket");
+                ASSERT_OK_ERRNO(fd);
+        }
+
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int))) control = {};
+        char buf[1];
+        struct msghdr msg = {
+                .msg_iov = &IOVEC_MAKE(buf, sizeof(buf)),
+                .msg_iovlen = 1,
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+
+        ASSERT_ERROR(recvmsg_safe(fd, &msg, MSG_DONTWAIT), EAGAIN);
 }
 
 TEST(passfd_contents_read) {

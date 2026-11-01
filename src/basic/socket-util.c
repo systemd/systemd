@@ -23,6 +23,7 @@
 #include "fd-util.h"
 #include "format-ifname.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "in-addr-util.h"
 #include "io-util.h"
 #include "log.h"
@@ -1064,7 +1065,7 @@ ssize_t receive_one_fd_iov(
          * combination with send_one_fd().
          */
 
-        k = recvmsg_safe(transport_fd, &mh, MSG_CMSG_CLOEXEC | flags);
+        k = recvmsg_safe(transport_fd, &mh, flags);
         if (k < 0)
                 return k;
 
@@ -1467,10 +1468,22 @@ ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags) {
         /* A wrapper around recvmsg() that checks for MSG_CTRUNC and MSG_TRUNC, and turns them into an error,
          * in a reasonably safe way, closing any received fds in the error path.
          *
-         * Note that unlike our usual coding style this might modify *msg on failure. */
+         * Note that unlike our usual coding style this might modify *msg on failure.
+         *
+         * Received fds always get O_CLOEXEC. */
 
         assert(sockfd >= 0);
         assert(msg);
+
+        /* Only AF_UNIX sockets can pass fds, and only into a control buffer. Other families might refuse
+         * MSG_CMSG_CLOEXEC, AF_PACKET does with EINVAL. */
+        if (msg->msg_controllen > 0) {
+                int af = socket_get_family(sockfd);
+                if (af < 0)
+                        return af;
+                if (af == AF_UNIX)
+                        flags |= MSG_CMSG_CLOEXEC;
+        }
 
         n = recvmsg(sockfd, msg, flags);
         if (n < 0)
@@ -1654,16 +1667,9 @@ int connect_unix_path(int fd, int dir_fd, const char *path) {
          * exist. If the path is too long, we also need to take the indirect route, since we can't fit this
          * into a sockaddr_un directly. */
 
-        if (dir_fd == XAT_FDROOT) {
-                _cleanup_free_ char *j = strjoin("/", path);
-                if (!j)
-                        return -ENOMEM;
-
-                inode_fd = open(j, O_PATH|O_CLOEXEC);
-        } else
-                inode_fd = openat(dir_fd, path, O_PATH|O_CLOEXEC);
+        inode_fd = xopenat(dir_fd, path, O_PATH);
         if (inode_fd < 0)
-                return -errno;
+                return inode_fd;
 
         return connect_unix_inode(fd, inode_fd);
 }

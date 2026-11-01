@@ -265,7 +265,7 @@ static int reread_partition_table_full(sd_device *dev, int fd, RereadPartitionTa
 
         _cleanup_close_ int lock_fd = -EBADF;
         if (FLAGS_SET(flags, REREADPT_BSD_LOCK)) {
-                lock_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                lock_fd = fd_reopen(fd, O_RDONLY|O_NOCTTY);
                 if (lock_fd < 0)
                         return log_device_debug_errno(dev, lock_fd, "Failed to open lock fd for block device '%s': %m", p);
 
@@ -395,7 +395,7 @@ static int reread_partition_table_full(sd_device *dev, int fd, RereadPartitionTa
 int reread_partition_table(sd_device *dev, RereadPartitionTableFlags flags, char * const *args) {
         assert(dev);
 
-        _cleanup_close_ int fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        _cleanup_close_ int fd = device_open(dev, O_RDONLY|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
                 return log_debug_errno(fd, "Failed to open block device: %m");
 

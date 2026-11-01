@@ -147,8 +147,8 @@ static int add_integritytab_devices(void) {
 
         r = fopen_unlocked(arg_integritytab, "re", &f);
         if (r < 0) {
-                if (errno != ENOENT)
-                        log_error_errno(errno, "Failed to open %s: %m", arg_integritytab);
+                if (r != -ENOENT)
+                        log_error_errno(r, "Failed to open %s: %m", arg_integritytab);
                 return 0;
         }
 

@@ -7,6 +7,7 @@
 
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "hwclock-util.h"
 
 int hwclock_get(struct tm *tm /* input + output! */) {
@@ -14,9 +15,9 @@ int hwclock_get(struct tm *tm /* input + output! */) {
 
         assert(tm);
 
-        fd = open("/dev/rtc", O_RDONLY|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, "/dev/rtc", O_RDONLY);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         /* This leaves the timezone fields of struct ret uninitialized! */
         if (ioctl(fd, RTC_RD_TIME, tm) < 0)
@@ -35,9 +36,9 @@ int hwclock_set(const struct tm *tm) {
 
         assert(tm);
 
-        fd = open("/dev/rtc", O_RDONLY|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, "/dev/rtc", O_RDONLY);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return RET_NERRNO(ioctl(fd, RTC_SET_TIME, tm));
 }

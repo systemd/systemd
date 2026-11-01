@@ -7,6 +7,7 @@
 
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "log.h"
 #include "parse-util.h"
 #include "string-util.h"
@@ -68,9 +69,9 @@ static int smbios_get_accepts_any(void) {
 int vsock_get_local_cid(unsigned *ret) {
         _cleanup_close_ int vsock_fd = -EBADF;
 
-        vsock_fd = open("/dev/vsock", O_RDONLY|O_CLOEXEC);
+        vsock_fd = xopenat(AT_FDCWD, "/dev/vsock", O_RDONLY);
         if (vsock_fd < 0)
-                return log_debug_errno(errno, "Failed to open %s: %m", "/dev/vsock");
+                return log_debug_errno(vsock_fd, "Failed to open %s: %m", "/dev/vsock");
 
         unsigned tmp;
         if (ioctl(vsock_fd, IOCTL_VM_SOCKETS_GET_LOCAL_CID, &tmp) < 0)
