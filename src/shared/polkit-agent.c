@@ -42,7 +42,7 @@ int polkit_agent_open(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether pkttyagent binary exists: %m");
 
-        if (pipe2(pipe_fd, 0) < 0)
+        if (pipe2(pipe_fd, O_CLOEXEC) < 0)
                 return -errno;
 
         xsprintf(notify_fd, "%i", pipe_fd[1]);

@@ -590,7 +590,7 @@ int _fork_agent(const char *name, char * const *argv, const int except[], size_t
                         name,
                         /* stdio_fds= */ NULL,
                         (int*) except, n_except, /* safe_fork_full only changes except if you pass in FORK_PACK_FDS, which we don't */
-                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_RLIMIT_NOFILE_SAFE,
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_CLOEXEC_OFF|FORK_REOPEN_LOG|FORK_RLIMIT_NOFILE_SAFE,
                         ret);
         if (r < 0)
                 return r;

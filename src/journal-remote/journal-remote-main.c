@@ -140,7 +140,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
 static int spawn_child(const char *child, char **argv) {
         int fd[2], r;
 
-        if (pipe(fd) < 0)
+        if (pipe2(fd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pager pipe: %m");
 
         r = pidref_safe_fork_full(

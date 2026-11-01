@@ -416,7 +416,8 @@ int pack_fds(int fds[], size_t n_fds) {
          * from SD_LISTEN_FDS_START. This must be called after close_all_fds();
          * it is likely to freeze up otherwise. You should probably use safe_fork_full
          * with FORK_CLOSE_ALL_FDS|FORK_PACK_FDS set, to ensure that this is done correctly.
-         * The fds array is modified in place with the new FD numbers. */
+         * The fds array is modified in place with the new FD numbers. Moved fds get O_CLOEXEC, turn it off
+         * right before execve(). */
 
         assert(fds);
 
@@ -430,7 +431,7 @@ int pack_fds(int fds[], size_t n_fds) {
                         if (fds[i] == i + 3)
                                 continue;
 
-                        nfd = fcntl(fds[i], F_DUPFD, i + 3);
+                        nfd = fcntl(fds[i], F_DUPFD_CLOEXEC, i + 3);
                         if (nfd < 0)
                                 return -errno;
 
