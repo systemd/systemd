@@ -679,7 +679,7 @@ static int vl_method_acquire(
                 _cleanup_close_ int mount_fd = open_tree_attr_with_fallback(
                                 real_fd,
                                 /* path= */ NULL,
-                                OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW,
+                                OPEN_TREE_CLONE|AT_SYMLINK_NOFOLLOW,
                                 &(struct mount_attr) {
                                         .attr_set = (p.read_only > 0 ? MOUNT_ATTR_RDONLY : 0),
                                         .attr_clr = MOUNT_ATTR_NOSUID|MOUNT_ATTR_NOEXEC|MOUNT_ATTR_NODEV,

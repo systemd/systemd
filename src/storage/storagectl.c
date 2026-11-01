@@ -669,7 +669,7 @@ static int run_as_mount_helper(int argc, char *argv[]) {
                 _cleanup_close_ int remapped_fd = open_tree_attr_with_fallback(
                                 reply.fd,
                                 /* path= */ NULL,
-                                OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC,
+                                OPEN_TREE_CLONE,
                                 &(struct mount_attr) {
                                           .attr_set = MOUNT_ATTR_IDMAP,
                                           .userns_fd = userns_fd,

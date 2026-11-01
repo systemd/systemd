@@ -1604,6 +1604,8 @@ int open_tree_attr_with_fallback(int dir_fd, const char *path, unsigned flags, s
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(attr);
 
+        flags |= OPEN_TREE_CLOEXEC;
+
         if (isempty(path)) {
                 path = "";
                 flags |= AT_EMPTY_PATH;
@@ -1633,6 +1635,8 @@ int open_tree_try_drop_idmap(int dir_fd, const char *path, unsigned flags) {
          * a regular open_tree() */
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+
+        flags |= OPEN_TREE_CLOEXEC;
 
         if (isempty(path)) {
                 path = "";
@@ -1696,7 +1700,7 @@ int remount_idmap_fd(
                 mount_fds[n_mounts_fds] = open_tree_attr_with_fallback(
                                 AT_FDCWD,
                                 paths[i],
-                                OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC,
+                                OPEN_TREE_CLONE,
                                 &(struct mount_attr) {
                                           .attr_set = MOUNT_ATTR_IDMAP | extra_mount_attr_set,
                                           .userns_fd = userns_fd,
@@ -1847,7 +1851,7 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
                 if (!mount_attr_unsupported) {
                         mount_fd = open_tree_attr_with_fallback(
                                         AT_FDCWD, path,
-                                        OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE|AT_NO_AUTOMOUNT,
+                                        OPEN_TREE_CLONE|AT_RECURSIVE|AT_NO_AUTOMOUNT,
                                         &(struct mount_attr) { .propagation = MS_PRIVATE });
                         if (mount_fd == -ENOENT) /* The path may be hidden by another over-mount or already unmounted. */
                                 continue;

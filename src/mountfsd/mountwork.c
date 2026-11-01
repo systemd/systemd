@@ -994,7 +994,7 @@ static int open_tree_try_drop_idmap_harder(sd_varlink *link, int directory_fd, c
         _cleanup_close_ int mount_fd = open_tree_try_drop_idmap(
                         directory_fd,
                         "",
-                        OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
+                        OPEN_TREE_CLONE|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
         if (mount_fd >= 0)
                 return TAKE_FD(mount_fd);
         if (mount_fd != -EINVAL)
@@ -1048,7 +1048,7 @@ static int open_tree_try_drop_idmap_harder(sd_varlink *link, int directory_fd, c
                 mount_fd = open_tree_try_drop_idmap(
                                 directory_fd,
                                 "",
-                                OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
+                                OPEN_TREE_CLONE|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
                 if (mount_fd < 0) {
                         log_debug_errno(mount_fd, "Failed to issue open_tree() of provided directory '%s': %m", strna(directory_path));
                         report_errno_and_exit(errno_pipe_fd[1], mount_fd);
