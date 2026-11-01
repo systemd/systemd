@@ -12,21 +12,21 @@ static void test_udev_rule_parse_value_one(const char *in, const char *expected_
 
         log_info("/* %s (%s, %s, %d) */", __func__, in, strnull(expected_value), expected_retval);
 
-        assert_se(str = strdup(in));
-        assert_se(udev_rule_parse_value(str, &value, &endpos, &i) == expected_retval);
+        ASSERT_NOT_NULL(str = strdup(in));
+        ASSERT_EQ(udev_rule_parse_value(str, &value, &endpos, &i), expected_retval);
         if (expected_retval < 0) {
                 /* not modified on failure */
-                assert_se(value == UINT_TO_PTR(0x12345678U));
-                assert_se(endpos == UINT_TO_PTR(0x87654321U));
+                ASSERT_PTR_EQ(value, UINT_TO_PTR(0x12345678U));
+                ASSERT_PTR_EQ(endpos, UINT_TO_PTR(0x87654321U));
         } else {
-                assert_se(streq_ptr(value, expected_value));
-                assert_se(endpos == str + strlen(in));
+                ASSERT_STREQ(value, expected_value);
+                ASSERT_PTR_EQ(endpos, str + strlen(in));
                 /*
                  * The return value must be terminated by two subsequent NULs
                  * so it could be safely interpreted as nulstr.
                  */
-                assert_se(value[strlen(value) + 1] == '\0');
-                assert_se(i == expected_case_insensitive);
+                ASSERT_EQ(value[strlen(value) + 1], '\0');
+                ASSERT_EQ(i, expected_case_insensitive);
         }
 }
 

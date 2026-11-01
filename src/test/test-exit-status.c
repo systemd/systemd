@@ -14,24 +14,24 @@ TEST(exit_status_to_string) {
                          class ? " (" : "", strempty(class), class ? ")" : "");
 
                 if (s)
-                        assert_se(exit_status_from_string(s) == i);
+                        ASSERT_EQ(exit_status_from_string(s), i);
         }
 }
 
 TEST(exit_status_from_string) {
-        assert_se(exit_status_from_string("11") == 11);
-        assert_se(exit_status_from_string("-1") == -ERANGE);
-        assert_se(exit_status_from_string("256") == -ERANGE);
-        assert_se(exit_status_from_string("foo") == -EINVAL);
-        assert_se(exit_status_from_string("SUCCESS") == 0);
-        assert_se(exit_status_from_string("FAILURE") == 1);
+        ASSERT_OK_EQ(exit_status_from_string("11"), 11);
+        ASSERT_ERROR(exit_status_from_string("-1"), ERANGE);
+        ASSERT_ERROR(exit_status_from_string("256"), ERANGE);
+        ASSERT_ERROR(exit_status_from_string("foo"), EINVAL);
+        ASSERT_OK_EQ(exit_status_from_string("SUCCESS"), 0);
+        ASSERT_OK_EQ(exit_status_from_string("FAILURE"), 1);
 }
 
 TEST(exit_status_NUMA_POLICY) {
         ASSERT_STREQ(exit_status_to_string(EXIT_NUMA_POLICY, EXIT_STATUS_FULL), "NUMA_POLICY");
         ASSERT_STREQ(exit_status_to_string(EXIT_NUMA_POLICY, EXIT_STATUS_SYSTEMD), "NUMA_POLICY");
-        assert_se(!exit_status_to_string(EXIT_NUMA_POLICY, EXIT_STATUS_BSD));
-        assert_se(!exit_status_to_string(EXIT_NUMA_POLICY, EXIT_STATUS_LSB));
+        ASSERT_NULL(exit_status_to_string(EXIT_NUMA_POLICY, EXIT_STATUS_BSD));
+        ASSERT_NULL(exit_status_to_string(EXIT_NUMA_POLICY, EXIT_STATUS_LSB));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

@@ -23,7 +23,7 @@ static int basic_request_handler_stop = 0;
 static void* basic_request_handler_userdata = (void*) 0xCABCAB;
 
 static void basic_request_handler(sd_ipv4ll *ll, int event, void *userdata) {
-        assert_se(userdata == basic_request_handler_userdata);
+        ASSERT_PTR_EQ(userdata, basic_request_handler_userdata);
 
         switch (event) {
                 case SD_IPV4LL_EVENT_STOP:
@@ -33,7 +33,7 @@ static void basic_request_handler(sd_ipv4ll *ll, int event, void *userdata) {
                         basic_request_handler_bind = 1;
                         break;
                 default:
-                        assert_se(0);
+                        assert_not_reached();
         }
 }
 
@@ -46,10 +46,10 @@ int arp_send_packet(
 
         struct ether_arp ea = {};
 
-        assert_se(fd >= 0);
-        assert_se(ifindex > 0);
-        assert_se(pa);
-        assert_se(ha);
+        ASSERT_OK(fd);
+        ASSERT_GT(ifindex, 0);
+        ASSERT_NOT_NULL(pa);
+        ASSERT_NOT_NULL(ha);
 
         if (send(fd, &ea, sizeof(struct ether_arp), 0) < 0)
                 return -errno;
@@ -78,44 +78,44 @@ static void test_public_api_setters(sd_event *e) {
         if (verbose)
                 printf("* %s\n", __func__);
 
-        assert_se(sd_ipv4ll_new(&ll) == 0);
-        assert_se(ll);
+        ASSERT_OK_ZERO(sd_ipv4ll_new(&ll));
+        ASSERT_NOT_NULL(ll);
 
-        ASSERT_RETURN_EXPECTED_SE(sd_ipv4ll_attach_event(/* ll= */ NULL, /* event= */ NULL, /* priority= */ 0) == -EINVAL);
-        assert_se(sd_ipv4ll_attach_event(ll, e, /* priority= */ 0) == 0);
-        ASSERT_RETURN_EXPECTED_SE(sd_ipv4ll_attach_event(ll, e, /* priority= */ 0) == -EBUSY);
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_ipv4ll_attach_event(/* ll= */ NULL, /* event= */ NULL, /* priority= */ 0), EINVAL));
+        ASSERT_OK_ZERO(sd_ipv4ll_attach_event(ll, e, /* priority= */ 0));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_ipv4ll_attach_event(ll, e, /* priority= */ 0), EBUSY));
 
-        ASSERT_RETURN_EXPECTED_SE(sd_ipv4ll_set_callback(/* ll= */ NULL, /* cb= */ NULL, /* userdata= */ NULL) == -EINVAL);
-        assert_se(sd_ipv4ll_set_callback(ll, /* cb= */ NULL, /* userdata= */ NULL) == 0);
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_ipv4ll_set_callback(/* ll= */ NULL, /* cb= */ NULL, /* userdata= */ NULL), EINVAL));
+        ASSERT_OK_ZERO(sd_ipv4ll_set_callback(ll, /* cb= */ NULL, /* userdata= */ NULL));
 
-        ASSERT_RETURN_EXPECTED_SE(sd_ipv4ll_set_address(ll, &address) == -EINVAL);
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_ipv4ll_set_address(ll, &address), EINVAL));
         address.s_addr |= htobe32(169U << 24 | 254U << 16);
-        ASSERT_RETURN_EXPECTED_SE(sd_ipv4ll_set_address(ll, &address) == -EINVAL);
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_ipv4ll_set_address(ll, &address), EINVAL));
         address.s_addr |= htobe32(0x00FF);
-        ASSERT_RETURN_EXPECTED_SE(sd_ipv4ll_set_address(ll, &address) == -EINVAL);
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_ipv4ll_set_address(ll, &address), EINVAL));
         address.s_addr |= htobe32(0xF000);
-        assert_se(sd_ipv4ll_set_address(ll, &address) == 0);
+        ASSERT_OK_ZERO(sd_ipv4ll_set_address(ll, &address));
         address.s_addr |= htobe32(0x0F00);
-        ASSERT_RETURN_EXPECTED_SE(sd_ipv4ll_set_address(ll, &address) == -EINVAL);
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_ipv4ll_set_address(ll, &address), EINVAL));
 
-        ASSERT_RETURN_EXPECTED_SE(sd_ipv4ll_set_address_seed(/* ll= */ NULL, seed) == -EINVAL);
-        assert_se(sd_ipv4ll_set_address_seed(ll, seed) == 0);
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_ipv4ll_set_address_seed(/* ll= */ NULL, seed), EINVAL));
+        ASSERT_OK_ZERO(sd_ipv4ll_set_address_seed(ll, seed));
 
-        ASSERT_RETURN_EXPECTED_SE(sd_ipv4ll_set_mac(/* ll= */ NULL, /* addr= */ NULL) == -EINVAL);
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_ipv4ll_set_mac(/* ll= */ NULL, /* addr= */ NULL), EINVAL));
 
-        ASSERT_RETURN_EXPECTED_SE(sd_ipv4ll_set_mac(ll, /* addr= */ NULL) == -EINVAL);
-        assert_se(sd_ipv4ll_set_mac(ll, &mac_addr) == 0);
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_ipv4ll_set_mac(ll, /* addr= */ NULL), EINVAL));
+        ASSERT_OK_ZERO(sd_ipv4ll_set_mac(ll, &mac_addr));
 
-        ASSERT_RETURN_EXPECTED_SE(sd_ipv4ll_set_ifindex(/* ll= */ NULL, -1) == -EINVAL);
-        ASSERT_RETURN_EXPECTED_SE(sd_ipv4ll_set_ifindex(ll, -1) == -EINVAL);
-        ASSERT_RETURN_EXPECTED_SE(sd_ipv4ll_set_ifindex(ll, -99) == -EINVAL);
-        assert_se(sd_ipv4ll_set_ifindex(ll, 1) == 0);
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_ipv4ll_set_ifindex(/* ll= */ NULL, -1), EINVAL));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_ipv4ll_set_ifindex(ll, -1), EINVAL));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_ipv4ll_set_ifindex(ll, -99), EINVAL));
+        ASSERT_OK_ZERO(sd_ipv4ll_set_ifindex(ll, 1));
 
-        assert_se(sd_ipv4ll_ref(ll) == ll);
-        assert_se(sd_ipv4ll_unref(ll) == NULL);
+        ASSERT_PTR_EQ(sd_ipv4ll_ref(ll), ll);
+        ASSERT_NULL(sd_ipv4ll_unref(ll));
 
         /* Cleanup */
-        assert_se(sd_ipv4ll_unref(ll) == NULL);
+        ASSERT_NULL(sd_ipv4ll_unref(ll));
 }
 
 static void test_basic_request(sd_event *e, const struct in_addr *start_address) {
@@ -128,58 +128,61 @@ static void test_basic_request(sd_event *e, const struct in_addr *start_address)
         if (verbose)
                 printf("* %s\n", __func__);
 
-        assert_se(sd_ipv4ll_new(&ll) == 0);
+        ASSERT_OK_ZERO(sd_ipv4ll_new(&ll));
         if (in4_addr_is_set(start_address))
-                assert_se(sd_ipv4ll_set_address(ll, start_address) >= 0);
-        ASSERT_RETURN_EXPECTED_SE(sd_ipv4ll_start(ll) == -EINVAL);
+                ASSERT_OK(sd_ipv4ll_set_address(ll, start_address));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_ipv4ll_start(ll), EINVAL));
 
-        assert_se(sd_ipv4ll_attach_event(ll, e, /* priority= */ 0) == 0);
-        ASSERT_RETURN_EXPECTED_SE(sd_ipv4ll_start(ll) == -EINVAL);
+        ASSERT_OK_ZERO(sd_ipv4ll_attach_event(ll, e, /* priority= */ 0));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_ipv4ll_start(ll), EINVAL));
 
-        assert_se(sd_ipv4ll_set_mac(ll, &mac_addr) == 0);
-        ASSERT_RETURN_EXPECTED_SE(sd_ipv4ll_start(ll) == -EINVAL);
+        ASSERT_OK_ZERO(sd_ipv4ll_set_mac(ll, &mac_addr));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_ipv4ll_start(ll), EINVAL));
 
-        assert_se(sd_ipv4ll_set_callback(ll, basic_request_handler,
-                                         basic_request_handler_userdata) == 0);
-        ASSERT_RETURN_EXPECTED_SE(sd_ipv4ll_start(ll) == -EINVAL);
+        ASSERT_OK_ZERO(sd_ipv4ll_set_callback(ll, basic_request_handler,
+                                              basic_request_handler_userdata));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_ipv4ll_start(ll), EINVAL));
 
-        assert_se(sd_ipv4ll_set_ifindex(ll, 1) == 0);
-        assert_se(sd_ipv4ll_start(ll) == 1);
+        ASSERT_OK_ZERO(sd_ipv4ll_set_ifindex(ll, 1));
+        ASSERT_OK_EQ(sd_ipv4ll_start(ll), 1);
 
         sd_event_run(e, UINT64_MAX);
-        assert_se(sd_ipv4ll_start(ll) == 0);
+        ASSERT_OK_EQ(sd_ipv4ll_start(ll), 0);
 
-        assert_se(sd_ipv4ll_is_running(ll));
+        ASSERT_OK_POSITIVE(sd_ipv4ll_is_running(ll));
 
         /* PROBE */
         sd_event_run(e, UINT64_MAX);
-        assert_se(recv(test_fd[1], &arp, sizeof(struct ether_arp), 0) == sizeof(struct ether_arp));
+        ASSERT_OK_EQ_ERRNO(recv(test_fd[1], &arp, sizeof(struct ether_arp), 0),
+                           (ssize_t) sizeof(struct ether_arp));
 
         if (extended) {
                 /* PROBE */
                 sd_event_run(e, UINT64_MAX);
-                assert_se(recv(test_fd[1], &arp, sizeof(struct ether_arp), 0) == sizeof(struct ether_arp));
+                ASSERT_OK_EQ_ERRNO(recv(test_fd[1], &arp, sizeof(struct ether_arp), 0),
+                                   (ssize_t) sizeof(struct ether_arp));
 
                 /* PROBE */
                 sd_event_run(e, UINT64_MAX);
-                assert_se(recv(test_fd[1], &arp, sizeof(struct ether_arp), 0) == sizeof(struct ether_arp));
+                ASSERT_OK_EQ_ERRNO(recv(test_fd[1], &arp, sizeof(struct ether_arp), 0),
+                                   (ssize_t) sizeof(struct ether_arp));
 
                 sd_event_run(e, UINT64_MAX);
-                assert_se(basic_request_handler_bind == 1);
+                ASSERT_EQ(basic_request_handler_bind, 1);
 
                 if (in4_addr_is_set(start_address)) {
                         struct in_addr address;
 
-                        assert_se(sd_ipv4ll_get_address(ll, &address) >= 0);
-                        assert_se(start_address->s_addr == address.s_addr);
+                        ASSERT_OK(sd_ipv4ll_get_address(ll, &address));
+                        ASSERT_EQ(start_address->s_addr, address.s_addr);
                 }
         }
 
         sd_ipv4ll_stop(ll);
-        assert_se(basic_request_handler_stop == 1);
+        ASSERT_EQ(basic_request_handler_stop, 1);
 
         /* Cleanup */
-        assert_se(sd_ipv4ll_unref(ll) == NULL);
+        ASSERT_NULL(sd_ipv4ll_unref(ll));
         safe_close(test_fd[1]);
 }
 
@@ -189,7 +192,7 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
-        assert_se(sd_event_new(&e) >= 0);
+        ASSERT_OK(sd_event_new(&e));
 
         test_public_api_setters(e);
         test_basic_request(e, &start_address);

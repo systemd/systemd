@@ -860,8 +860,8 @@ TEST(open_and_follow_edge_cases) {
 
         r = pidref_safe_fork("(journal-fork-test)", FORK_WAIT|FORK_LOG, /* ret= */ NULL);
         if (r == 0) {
-                ASSERT_RETURN_EXPECTED_SE(sd_journal_next(j) == -ECHILD);
-                ASSERT_RETURN_EXPECTED_SE(sd_journal_get_fd(j) == -ECHILD);
+                ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_journal_next(j), ECHILD));
+                ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_journal_get_fd(j), ECHILD));
                 sd_journal_close(j);
                 _exit(EXIT_SUCCESS);
         }

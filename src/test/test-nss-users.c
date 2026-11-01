@@ -37,7 +37,7 @@ static void print_struct_group(const struct group *gr) {
                  gr->gr_name, gr->gr_gid);
         log_info("        passwd=\"%s\"", gr->gr_passwd);
 
-        assert_se(members = strv_join(ASSERT_PTR(gr->gr_mem), ", "));
+        ASSERT_NOT_NULL(members = strv_join(ASSERT_PTR(gr->gr_mem), ", "));
         quoted = ASSERT_NOT_NULL(shell_maybe_quote(members, SHELL_ESCAPE_EMPTY));
         log_info("        members=%s", quoted);
 }
@@ -48,11 +48,11 @@ static void print_struct_sgrp(const struct sgrp *sg) {
         log_info("        \"%s\"", sg->sg_namp);
         log_info("        passwd=\"%s\"", sg->sg_passwd);
 
-        assert_se(administrators = strv_join(ASSERT_PTR(sg->sg_adm), ", "));
+        ASSERT_NOT_NULL(administrators = strv_join(ASSERT_PTR(sg->sg_adm), ", "));
         quoted_administrators = ASSERT_NOT_NULL(shell_maybe_quote(administrators, SHELL_ESCAPE_EMPTY));
         log_info("        administrators=%s", quoted_administrators);
 
-        assert_se(members = strv_join(ASSERT_PTR(sg->sg_mem), ", "));
+        ASSERT_NOT_NULL(members = strv_join(ASSERT_PTR(sg->sg_mem), ", "));
         quoted_members = ASSERT_NOT_NULL(shell_maybe_quote(members, SHELL_ESCAPE_EMPTY));
         log_info("        members=%s", quoted_members);
 }
@@ -254,7 +254,7 @@ static int parse_argv(int argc, char **argv,
                                 "mymachines",
 #endif
                                 NULL);
-        assert_se(modules);
+        ASSERT_NOT_NULL(modules);
 
         if (argc > 2)
                 names = strv_copy(strv_skip(argv, 2));
@@ -264,7 +264,7 @@ static int parse_argv(int argc, char **argv,
                                  "foo_no_such_user",
                                  "0",
                                  "65534");
-        assert_se(names);
+        ASSERT_NOT_NULL(names);
 
         *the_modules = TAKE_PTR(modules);
         *the_names = TAKE_PTR(names);
@@ -282,7 +282,7 @@ static int run(int argc, char **argv) {
         if (r < 0)
                 return log_error_errno(r, "Failed to parse arguments: %m");
 
-        assert_se(path_extract_directory(argv[0], &dir) >= 0);
+        ASSERT_OK(path_extract_directory(argv[0], &dir));
 
         STRV_FOREACH(module, modules) {
                 r = test_one_module(dir, *module, names);

@@ -22,8 +22,7 @@ TEST(strbuf) {
         h = strbuf_add_string(sb, "");
 
         /* check the content of the buffer directly */
-        l = strv_parse_nulstr(sb->buf, sb->len);
-        assert_se(l);
+        l = ASSERT_NOT_NULL(strv_parse_nulstr(sb->buf, sb->len));
 
         ASSERT_STREQ(l[0], ""); /* root */
         ASSERT_STREQ(l[1], "waldo");
@@ -32,23 +31,23 @@ TEST(strbuf) {
         ASSERT_STREQ(l[4], "waldorf");
         ASSERT_NULL(l[5]);
 
-        assert_se(sb->nodes_count == 5); /* root + 4 non-duplicates */
-        assert_se(sb->dedup_count == 4);
-        assert_se(sb->in_count == 8);
+        ASSERT_EQ(sb->nodes_count, 5U); /* root + 4 non-duplicates */
+        ASSERT_EQ(sb->dedup_count, 4U);
+        ASSERT_EQ(sb->in_count, 8U);
 
-        assert_se(sb->in_len == 29);    /* length of all strings added */
-        assert_se(sb->dedup_len == 11); /* length of all strings duplicated */
-        assert_se(sb->len == 23);       /* buffer length: in - dedup + \0 for each node */
+        ASSERT_EQ(sb->in_len, 29U);    /* length of all strings added */
+        ASSERT_EQ(sb->dedup_len, 11U); /* length of all strings duplicated */
+        ASSERT_EQ(sb->len, 23U);       /* buffer length: in - dedup + \0 for each node */
 
         /* check the returned offsets and the respective content in the buffer */
-        assert_se(a == 1);
-        assert_se(b == 7);
-        assert_se(c == 11);
-        assert_se(d == 1);
-        assert_se(e == 2);
-        assert_se(f == 4);
-        assert_se(g == 15);
-        assert_se(h == 0);
+        ASSERT_EQ(a, 1);
+        ASSERT_EQ(b, 7);
+        ASSERT_EQ(c, 11);
+        ASSERT_EQ(d, 1);
+        ASSERT_EQ(e, 2);
+        ASSERT_EQ(f, 4);
+        ASSERT_EQ(g, 15);
+        ASSERT_EQ(h, 0);
 
         ASSERT_STREQ(sb->buf + a, "waldo");
         ASSERT_STREQ(sb->buf + b, "foo");

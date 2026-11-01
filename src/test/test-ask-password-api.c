@@ -21,7 +21,7 @@ TEST(ask_password) {
                 ASSERT_NULL(ret);
         else {
                 ASSERT_OK(r);
-                assert_se(strv_length(ret) == 1);
+                ASSERT_EQ(strv_length(ret), 1U);
                 log_info("Got \"%s\"", *ret);
         }
 }

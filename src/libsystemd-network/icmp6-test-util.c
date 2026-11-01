@@ -6,6 +6,7 @@
 #include "fd-util.h"
 #include "icmp6-test-util.h"
 #include "icmp6-util.h"
+#include "tests.h"
 #include "time-util.h"
 
 int test_fd[2] = EBADF_PAIR;
@@ -39,7 +40,7 @@ int icmp6_receive(
                 int *ret_ifindex,
                 triple_timestamp *ret_timestamp) {
 
-        assert_se(read(fd, buffer, size) == (ssize_t) size);
+        ASSERT_OK_EQ_ERRNO(read(fd, buffer, size), (ssize_t) size);
 
         if (ret_timestamp)
                 triple_timestamp_now(ret_timestamp);

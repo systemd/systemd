@@ -25,7 +25,7 @@ static void test_rlimit_parse_format_one(int resource, const char *string, rlim_
                 .rlim_max = 4714
         };
 
-        assert_se(rlimit_parse(resource, string, &rl) == ret);
+        ASSERT_EQ(rlimit_parse(resource, string, &rl), ret);
         if (ret < 0)
                 return;
 
@@ -67,19 +67,19 @@ TEST(rlimit_parse_format) {
 }
 
 TEST(rlimit_from_string) {
-        assert_se(rlimit_from_string("NOFILE") == RLIMIT_NOFILE);
-        assert_se(rlimit_from_string("LimitNOFILE") == -EINVAL);
-        assert_se(rlimit_from_string("RLIMIT_NOFILE") == -EINVAL);
-        assert_se(rlimit_from_string("xxxNOFILE") == -EINVAL);
-        assert_se(rlimit_from_string("DefaultLimitNOFILE") == -EINVAL);
+        ASSERT_EQ(rlimit_from_string("NOFILE"), RLIMIT_NOFILE);
+        ASSERT_ERROR(rlimit_from_string("LimitNOFILE"), EINVAL);
+        ASSERT_ERROR(rlimit_from_string("RLIMIT_NOFILE"), EINVAL);
+        ASSERT_ERROR(rlimit_from_string("xxxNOFILE"), EINVAL);
+        ASSERT_ERROR(rlimit_from_string("DefaultLimitNOFILE"), EINVAL);
 }
 
 TEST(rlimit_from_string_harder) {
-        assert_se(rlimit_from_string_harder("NOFILE") == RLIMIT_NOFILE);
-        assert_se(rlimit_from_string_harder("LimitNOFILE") == RLIMIT_NOFILE);
-        assert_se(rlimit_from_string_harder("RLIMIT_NOFILE") == RLIMIT_NOFILE);
-        assert_se(rlimit_from_string_harder("xxxNOFILE") == -EINVAL);
-        assert_se(rlimit_from_string_harder("DefaultLimitNOFILE") == -EINVAL);
+        ASSERT_EQ(rlimit_from_string_harder("NOFILE"), RLIMIT_NOFILE);
+        ASSERT_EQ(rlimit_from_string_harder("LimitNOFILE"), RLIMIT_NOFILE);
+        ASSERT_EQ(rlimit_from_string_harder("RLIMIT_NOFILE"), RLIMIT_NOFILE);
+        ASSERT_ERROR(rlimit_from_string_harder("xxxNOFILE"), EINVAL);
+        ASSERT_ERROR(rlimit_from_string_harder("DefaultLimitNOFILE"), EINVAL);
 }
 
 TEST(rlimit_to_string_all) {
@@ -87,22 +87,22 @@ TEST(rlimit_to_string_all) {
                 _cleanup_free_ char *prefixed = NULL;
                 const char *p;
 
-                assert_se(p = rlimit_to_string(i));
+                ASSERT_NOT_NULL(p = rlimit_to_string(i));
                 log_info("%i = %s", i, p);
 
-                assert_se(rlimit_from_string(p) == i);
-                assert_se(rlimit_from_string_harder(p) == i);
+                ASSERT_EQ(rlimit_from_string(p), i);
+                ASSERT_EQ(rlimit_from_string_harder(p), i);
 
-                assert_se(prefixed = strjoin("Limit", p));
+                ASSERT_NOT_NULL(prefixed = strjoin("Limit", p));
 
-                assert_se(rlimit_from_string(prefixed) < 0);
-                assert_se(rlimit_from_string_harder(prefixed) == i);
+                ASSERT_FAIL(rlimit_from_string(prefixed));
+                ASSERT_EQ(rlimit_from_string_harder(prefixed), i);
 
                 prefixed = mfree(prefixed);
-                assert_se(prefixed = strjoin("RLIMIT_", p));
+                ASSERT_NOT_NULL(prefixed = strjoin("RLIMIT_", p));
 
-                assert_se(rlimit_from_string(prefixed) < 0);
-                assert_se(rlimit_from_string_harder(prefixed) == i);
+                ASSERT_FAIL(rlimit_from_string(prefixed));
+                ASSERT_EQ(rlimit_from_string_harder(prefixed), i);
         }
 }
 
@@ -113,34 +113,34 @@ TEST(setrlimit) {
                 .rlim_max = 5,
         };
 
-        assert_se(drop_capability(CAP_SYS_RESOURCE) == 0);
+        ASSERT_OK_ZERO(drop_capability(CAP_SYS_RESOURCE));
 
-        assert_se(getrlimit(RLIMIT_NOFILE, &old) == 0);
+        ASSERT_OK_ZERO_ERRNO(getrlimit(RLIMIT_NOFILE, &old));
         new.rlim_cur = MIN(5U, old.rlim_max);
         new.rlim_max = old.rlim_max;
-        assert_se(setrlimit(RLIMIT_NOFILE, &new) >= 0);
+        ASSERT_OK_ERRNO(setrlimit(RLIMIT_NOFILE, &new));
 
         ASSERT_STREQ(rlimit_to_string(RLIMIT_NOFILE), "NOFILE");
         ASSERT_NULL(rlimit_to_string(-1));
 
-        assert_se(getrlimit(RLIMIT_NOFILE, &old) == 0);
-        assert_se(setrlimit_closest(RLIMIT_NOFILE, &old) == 0);
-        assert_se(getrlimit(RLIMIT_NOFILE, &new) == 0);
-        assert_se(old.rlim_cur == new.rlim_cur);
-        assert_se(old.rlim_max == new.rlim_max);
+        ASSERT_OK_ZERO_ERRNO(getrlimit(RLIMIT_NOFILE, &old));
+        ASSERT_OK_ZERO(setrlimit_closest(RLIMIT_NOFILE, &old));
+        ASSERT_OK_ZERO_ERRNO(getrlimit(RLIMIT_NOFILE, &new));
+        ASSERT_EQ(old.rlim_cur, new.rlim_cur);
+        ASSERT_EQ(old.rlim_max, new.rlim_max);
 
-        assert_se(getrlimit(RLIMIT_NOFILE, &old) == 0);
+        ASSERT_OK_ZERO_ERRNO(getrlimit(RLIMIT_NOFILE, &old));
         high = RLIMIT_MAKE_CONST(old.rlim_max == RLIM_INFINITY ? old.rlim_max : old.rlim_max + 1);
-        assert_se(setrlimit_closest(RLIMIT_NOFILE, &high) == 0);
-        assert_se(getrlimit(RLIMIT_NOFILE, &new) == 0);
-        assert_se(new.rlim_max == old.rlim_max);
-        assert_se(new.rlim_cur == new.rlim_max);
+        ASSERT_OK_ZERO(setrlimit_closest(RLIMIT_NOFILE, &high));
+        ASSERT_OK_ZERO_ERRNO(getrlimit(RLIMIT_NOFILE, &new));
+        ASSERT_EQ(new.rlim_max, old.rlim_max);
+        ASSERT_EQ(new.rlim_cur, new.rlim_max);
 
-        assert_se(getrlimit(RLIMIT_NOFILE, &old) == 0);
-        assert_se(setrlimit_closest(RLIMIT_NOFILE, &err) == -EINVAL);
-        assert_se(getrlimit(RLIMIT_NOFILE, &new) == 0);
-        assert_se(old.rlim_cur == new.rlim_cur);
-        assert_se(old.rlim_max == new.rlim_max);
+        ASSERT_OK_ZERO_ERRNO(getrlimit(RLIMIT_NOFILE, &old));
+        ASSERT_ERROR(setrlimit_closest(RLIMIT_NOFILE, &err), EINVAL);
+        ASSERT_OK_ZERO_ERRNO(getrlimit(RLIMIT_NOFILE, &new));
+        ASSERT_EQ(old.rlim_cur, new.rlim_cur);
+        ASSERT_EQ(old.rlim_max, new.rlim_max);
 }
 
 TEST(pid_getrlimit) {
@@ -152,14 +152,14 @@ TEST(pid_getrlimit) {
         for (int resource = 0; resource < _RLIMIT_MAX; resource++) {
                 struct rlimit direct;
 
-                assert_se(getrlimit(resource, &direct) >= 0);
+                ASSERT_OK_ERRNO(getrlimit(resource, &direct));
 
                 /* We fork off a child so that getrlimit() doesn't work anymore */
                 r = pidref_safe_fork(
                                 "(getrlimit)",
                                 FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT,
                                 /* ret= */ NULL);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 if (r == 0) {
                         struct rlimit indirect;
@@ -169,7 +169,7 @@ TEST(pid_getrlimit) {
                         (void) setresgid(GID_NOBODY, GID_NOBODY, GID_NOBODY);
                         (void) setresuid(UID_NOBODY, UID_NOBODY, UID_NOBODY);
 
-                        assert_se(pid_getrlimit(getppid(), resource, &indirect) >= 0);
+                        ASSERT_OK(pid_getrlimit(getppid(), resource, &indirect));
 
 #if HAVE_VALGRIND_VALGRIND_H
                         /* Valgrind fakes some changes in RLIMIT_NOFILE getrlimit() returns, work around that */
@@ -179,8 +179,8 @@ TEST(pid_getrlimit) {
                         }
 #endif
 
-                        assert_se(direct.rlim_cur == indirect.rlim_cur);
-                        assert_se(direct.rlim_max == indirect.rlim_max);
+                        ASSERT_EQ(direct.rlim_cur, indirect.rlim_cur);
+                        ASSERT_EQ(direct.rlim_max, indirect.rlim_max);
 
                         _exit(EXIT_SUCCESS);
                 }

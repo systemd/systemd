@@ -34,13 +34,13 @@ DISABLE_WARNING_TYPE_LIMITS;
 #define check_no_sign(t, size)                  \
         do {                                    \
                 info_no_sign(t);                \
-                assert_se(sizeof(t) == size);   \
+                assert_cc(sizeof(t) == size);   \
         } while (false)
 
 #define check(t, size)                          \
         do {                                    \
                 info(t);                        \
-                assert_se(sizeof(t) == size);   \
+                assert_cc(sizeof(t) == size);   \
         } while (false)
 
 enum Enum {

@@ -37,9 +37,9 @@ static void test_syslog_parse_priority_one(const char *str, bool with_facility, 
 
         ret2 = syslog_parse_priority(&str, &priority2, with_facility);
 
-        assert_se(ret == ret2);
+        ASSERT_EQ(ret, ret2);
         if (ret2 == 1)
-                assert_se(priority == priority2);
+                ASSERT_EQ(priority, priority2);
 }
 
 TEST(syslog_parse_identifier) {

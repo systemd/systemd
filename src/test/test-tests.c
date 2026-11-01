@@ -111,6 +111,8 @@ TEST(ASSERT) {
         ASSERT_EQ(0, 0);
         ASSERT_EQ(-1, -1);
         ASSERT_SIGNAL(ASSERT_EQ(255, -1), SIGABRT);
+        ASSERT_EQ((int8_t) -1, (int8_t) -1);
+        ASSERT_SIGNAL(ASSERT_EQ((int8_t) 1, (int8_t) -1), SIGABRT);
 
         ASSERT_GE(0, 0);
         ASSERT_GE(1, -1);

@@ -123,11 +123,11 @@ static const Test same_prog_multi_option_1[] = {
 static int bpf_foreign_test_to_string(enum bpf_attach_type attach_type, const char *bpffs_path, char **ret_str) {
         const char *s = NULL;
 
-        assert_se(bpffs_path);
-        assert_se(ret_str);
+        ASSERT_NOT_NULL(bpffs_path);
+        ASSERT_NOT_NULL(ret_str);
 
-        assert_se(s = bpf_cgroup_attach_type_to_string(attach_type));
-        assert_se(*ret_str = strjoin(s, ":", bpffs_path));
+        ASSERT_NOT_NULL(s = bpf_cgroup_attach_type_to_string(attach_type));
+        ASSERT_NOT_NULL(*ret_str = strjoin(s, ":", bpffs_path));
 
         return 0;
 }
@@ -150,7 +150,7 @@ static int pin_programs(Unit *u, CGroupContext *cc, const Test *test_suite, size
         char log_buf[0xffff];
         int r;
 
-        assert_se(paths_ret);
+        ASSERT_NOT_NULL(paths_ret);
 
         for (size_t i = 0; i < test_suite_size; i++) {
                 _cleanup_(bpf_program_freep) BPFProgram *prog = NULL;
@@ -194,9 +194,9 @@ static int test_bpf_cgroup_programs(Manager *m, const char *unit_name, const Tes
         CGroupContext *cc = NULL;
         int cld_code, r;
 
-        assert_se(u = unit_new(m, sizeof(Service)));
-        assert_se(unit_add_name(u, unit_name) == 0);
-        assert_se(cc = unit_get_cgroup_context(u));
+        ASSERT_NOT_NULL(u = unit_new(m, sizeof(Service)));
+        ASSERT_OK_ZERO(unit_add_name(u, unit_name));
+        ASSERT_NOT_NULL(cc = unit_get_cgroup_context(u));
 
         r = pin_programs(u, cc, test_suite, test_suite_size, &bpffs_paths);
         if (r < 0)
@@ -300,7 +300,7 @@ int main(int argc, char *argv[]) {
 
         ASSERT_OK(get_testdata_dir("units", &unit_dir));
         ASSERT_OK(setenv_unit_path(unit_dir));
-        assert_se(runtime_dir = setup_fake_runtime_dir());
+        ASSERT_NOT_NULL(runtime_dir = setup_fake_runtime_dir());
 
         ASSERT_OK(manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m));
         ASSERT_OK(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
