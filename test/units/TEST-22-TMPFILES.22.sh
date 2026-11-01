@@ -42,6 +42,25 @@ EOF
 
 assert_in '[[]rootid=1000[]]' "$(getcap -n /tmp/setcap)"
 
+# '=' resets the listed capabilities, so a later clause overrides an earlier one
+systemd-tmpfiles --create - <<EOF
+k /tmp/setcap - - - - cap_setuid,cap_setgid=ep cap_setuid=
+EOF
+cap="$(getcap /tmp/setcap)"
+assert_not_in 'cap_setuid' "$cap"
+assert_in 'cap_setgid=ep$' "$cap"
+
+systemd-tmpfiles --create - <<EOF
+k /tmp/setcap - - - - cap_setuid=ep cap_setuid=p
+EOF
+assert_in 'cap_setuid=p$' "$(getcap /tmp/setcap)"
+
+# A clause may contain several actions
+systemd-tmpfiles --create - <<EOF
+k /tmp/setcap - - - - cap_setuid+ep-e
+EOF
+assert_in 'cap_setuid=p$' "$(getcap /tmp/setcap)"
+
 rm -f /tmp/setcap
 
 rm -rf /tmp/setcap-dir
