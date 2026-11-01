@@ -46,7 +46,7 @@ static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_
         if (r < 0)
                 return r;
 
-        main_devfd = r = device_open_from_devnum(S_IFBLK, main_devno, O_RDONLY|O_CLOEXEC, &main_devpath);
+        main_devfd = r = device_open_from_devnum(S_IFBLK, main_devno, O_RDONLY, &main_devpath);
         if (r < 0)
                 return log_error_errno(r, "Failed to open main block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(main_devno));
@@ -206,7 +206,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 log_warning_errno(r, "Unable to resize underlying device of \"%s\", proceeding anyway: %m", arg_target);
 
-        devfd = r = device_open_from_devnum(S_IFBLK, devno, O_RDONLY|O_CLOEXEC, &devpath);
+        devfd = r = device_open_from_devnum(S_IFBLK, devno, O_RDONLY, &devpath);
         if (r < 0)
                 return log_error_errno(r, "Failed to open block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(devno));
