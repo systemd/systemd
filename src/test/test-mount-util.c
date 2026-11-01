@@ -383,6 +383,85 @@ TEST(umount_recursive) {
         }
 }
 
+TEST(umount_recursive_stale_path) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        int r;
+
+        CHECK_PRIV;
+
+        ASSERT_OK(mkdtemp_malloc(NULL, &t));
+
+        r = ASSERT_OK(pidref_safe_fork("(umount-rec-stale)", FORK_COMMON_FLAGS, NULL));
+        if (r == 0) { /* child */
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", t, "tmpfs", 0, NULL));
+
+                _cleanup_free_ char
+                        *src = ASSERT_NOT_NULL(path_join(t, "src")),
+                        *outside = ASSERT_NOT_NULL(path_join(t, "outside")),
+                        *victim = ASSERT_NOT_NULL(path_join(t, "outside/y")),
+                        *prefix = ASSERT_NOT_NULL(path_join(t, "prefix")),
+                        *parent = ASSERT_NOT_NULL(path_join(t, "prefix/parent")),
+                        *link = ASSERT_NOT_NULL(path_join(t, "prefix/parent/x")),
+                        *child = ASSERT_NOT_NULL(path_join(t, "prefix/parent/x/y"));
+
+                ASSERT_OK(mkdir_p(src, 0755));
+                ASSERT_OK(mkdir_p(victim, 0755));
+                ASSERT_OK(mkdir_p(parent, 0755));
+                ASSERT_OK_ERRNO(symlink(outside, link));
+
+                /* The mount that later ends up below the parent has to be older than the parent, so that the
+                 * parent is reached first when the table is iterated backwards. Once the parent is detached
+                 * the path of the child resolves via the symlink it covered, to a mount outside of the prefix. */
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", src, "tmpfs", 0, NULL));
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", victim, "tmpfs", 0, NULL));
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", parent, "tmpfs", 0, NULL));
+                ASSERT_OK(mkdir_p(child, 0755));
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, src, child, NULL, MS_MOVE, NULL));
+
+                ASSERT_OK_POSITIVE(umount_recursive(prefix, MNT_DETACH));
+
+                ASSERT_OK_ZERO(path_is_mount_point(parent));
+                ASSERT_OK_POSITIVE(path_is_mount_point(victim));
+
+                _exit(EXIT_SUCCESS);
+        }
+}
+
+TEST(umount_recursive_busy) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        int r;
+
+        CHECK_PRIV;
+
+        ASSERT_OK(mkdtemp_malloc(NULL, &t));
+
+        r = ASSERT_OK(pidref_safe_fork("(umount-rec-busy)", FORK_COMMON_FLAGS, NULL));
+        if (r == 0) { /* child */
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", t, "tmpfs", 0, NULL));
+
+                _cleanup_free_ char
+                        *prefix = ASSERT_NOT_NULL(path_join(t, "prefix")),
+                        *older = ASSERT_NOT_NULL(path_join(t, "prefix/older")),
+                        *busy = ASSERT_NOT_NULL(path_join(t, "prefix/busy"));
+
+                ASSERT_OK(mkdir_p(older, 0755));
+                ASSERT_OK(mkdir_p(busy, 0755));
+
+                /* The busy mount is newer, hence reached first. It must not stop the walk. */
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", older, "tmpfs", 0, NULL));
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", busy, "tmpfs", 0, NULL));
+
+                _cleanup_close_ int fd = ASSERT_OK_ERRNO(open(busy, O_DIRECTORY|O_CLOEXEC));
+
+                ASSERT_OK_EQ(umount_recursive(prefix, 0), 1);
+
+                ASSERT_OK_ZERO(path_is_mount_point(older));
+                ASSERT_OK_POSITIVE(path_is_mount_point(busy));
+
+                _exit(EXIT_SUCCESS);
+        }
+}
+
 TEST(fd_make_mount_point) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_free_ char *s = NULL;
