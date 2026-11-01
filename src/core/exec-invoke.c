@@ -225,7 +225,7 @@ static int connect_logger_as(
         assert(ident);
         assert(nfd >= 0);
 
-        fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         if (fd < 0)
                 return -errno;
 
@@ -289,7 +289,7 @@ static int acquire_path(const char *path, int flags, mode_t mode) {
 
         /* So, it appears the specified path could be an AF_UNIX socket. Let's see if we can connect to it. */
 
-        fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         if (fd < 0)
                 return -errno;
 

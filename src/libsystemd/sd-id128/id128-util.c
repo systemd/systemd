@@ -299,7 +299,7 @@ int id128_get_boot_for_machine(const char *machine, sd_id128_t *ret) {
         if (r < 0)
                 return r;
 
-        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
+        if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair) < 0)
                 return -errno;
 
         r = namespace_fork("(sd-bootidns)", "(sd-bootid)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
