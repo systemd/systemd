@@ -67,6 +67,7 @@
 #include "vconsole-util.h"
 #include "verbs.h"
 #include "vfat-util.h"
+#include "voa-util.h"
 
 static char *arg_root = NULL;
 static char *arg_image = NULL;
@@ -103,6 +104,7 @@ static bool arg_chrome = true;
 static bool arg_mute_console = false;
 static LabelContext *arg_label_context = NULL;
 static char *arg_addon = NULL;
+static MachineCredentialContext arg_keys = {};
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -118,6 +120,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_label_context, mac_label_context_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_addon, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_keys, machine_credential_context_done);
 
 COMMAND(
         "systemd-firstboot\0",
@@ -1420,6 +1423,86 @@ static int process_reset(int rfd) {
         return 0;
 }
 
+static int parse_key_argument(const char *s) {
+        int r;
+
+        assert(s);
+
+        /* Takes "KEYRING:[NAME=]PATH". The certificate in the file becomes the credential
+         * "keyring-setup.KEYRING.NAME", which systemd-keyring-setup enrolls into the kernel keyring at boot,
+         * with NAME defaulting to the file name without its suffix. */
+
+        const char *e = strchr(s, ':');
+        if (!e)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing keyring in '%s', expected KEYRING:[NAME=]PATH.", s);
+
+        _cleanup_free_ char *keyring = strndup(s, e - s);
+        if (!keyring)
+                return log_oom();
+        if (!STR_IN_SET(keyring, "dm-verity", "fs-verity", "bpf"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown keyring '%s', expected dm-verity, fs-verity or bpf.", keyring);
+
+        /* A '=' only separates the name if it comes before any '/', so that a path containing '=' can be
+         * passed without a name */
+        _cleanup_free_ char *name = NULL, *path = NULL;
+        const char *k = e + 1, *eq = strchr(k, '='), *slash = strchr(k, '/');
+        if (eq && (!slash || eq < slash)) {
+                name = strndup(k, eq - k);
+                path = strdup(eq + 1);
+        } else {
+                _cleanup_free_ char *fn = NULL;
+                r = path_extract_filename(k, &fn);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract file name from '%s': %m", k);
+
+                char *dot = strrchr(fn, '.');
+                if (dot && dot != fn)
+                        *dot = 0;
+
+                name = TAKE_PTR(fn);
+                path = strdup(k);
+        }
+        if (!name || !path)
+                return log_oom();
+
+        if (isempty(path))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing key file path in '%s'.", s);
+        if (isempty(name) || name[0] == '.')
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing key name in '%s'.", s);
+        if (!voa_identifier_is_valid(name, /* allow_colon= */ false))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid key name '%s', expected lowercase letters, digits, '.', '_' and '-'.", name);
+
+        _cleanup_free_ char *id = strjoin("keyring-setup.", keyring, ".", name);
+        if (!id)
+                return log_oom();
+        if (!credential_name_valid(id))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid key name '%s'.", name);
+
+        /* The file is read securely as it might not be a public key after all, and with the limit the
+         * credential has at boot, rather than silently cut off there */
+        _cleanup_(erase_and_freep) char *data = NULL;
+        size_t size;
+        r = read_full_file_full(
+                        AT_FDCWD, path,
+                        /* offset= */ UINT64_MAX,
+                        CREDENTIAL_SIZE_MAX,
+                        READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER,
+                        /* bind_name= */ NULL,
+                        &data, &size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read key file '%s': %m", path);
+        if (size == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "Key file '%s' is empty.", path);
+
+        r = machine_credential_add(&arg_keys, id, data, size);
+        if (r == -EEXIST)
+                return log_error_errno(r, "Key '%s' specified more than once.", name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add key '%s': %m", name);
+
+        return 0;
+}
+
 static int addon_add_credential(MachineCredentialContext *creds, const char *id, const char *value) {
         int r;
 
@@ -1500,6 +1583,12 @@ static int write_addon(void) {
                 r = addon_add_credential(&creds, "system.machine_id", SD_ID128_TO_STRING(arg_machine_id));
                 if (r < 0)
                         return r;
+        }
+
+        FOREACH_ARRAY(k, arg_keys.credentials, arg_keys.n_credentials) {
+                r = machine_credential_add(&creds, k->id, k->data, k->size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add key '%s': %m", k->id);
         }
 
         if (creds.n_credentials == 0 && isempty(arg_kernel_cmdline))
@@ -1627,6 +1716,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid addon name: %s", opts.arg);
 
                         r = free_and_strdup_warn(&arg_addon, opts.arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("key", "KEYRING:[NAME=]PATH", "Provision a certificate for a kernel keyring via the addon"):
+                        r = parse_key_argument(opts.arg);
                         if (r < 0)
                                 return r;
                         break;
@@ -1858,6 +1953,9 @@ static int parse_argv(int argc, char *argv[]) {
         if (!sd_id128_is_null(arg_machine_id) && !(arg_image || arg_root) && !arg_force)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--machine-id=/--setup-machine-id only works with --root= or --image=.");
+
+        if (arg_keys.n_credentials > 0 && !arg_addon)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--key= requires --addon=.");
 
         if (arg_addon) {
                 if (!arg_image)
