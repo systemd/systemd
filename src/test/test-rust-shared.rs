@@ -37,6 +37,20 @@ macro_rules! format_cstr {
     };
 }
 
+fn test_json_option_choices() {
+    // The Rust JSON macro must expose the C format list, including its NULL terminator.
+    // Construct the table entry directly so this check does not depend on help formatting.
+    let option = systemd_shared::__option_entry!((0), OPTION_COMMON_JSON);
+    assert!(!option.choices.is_null());
+    // SAFETY: OPTION_COMMON_JSON references C's static array with three names and a NULL terminator.
+    unsafe {
+        for (i, expected) in [c"pretty", c"short", c"off"].iter().enumerate() {
+            assert_eq!(CStr::from_ptr(*option.choices.add(i)), *expected);
+        }
+        assert!((*option.choices.add(3)).is_null());
+    }
+}
+
 fn test_errno_check() {
     assert_eq!(check(0), Ok(0));
     assert_eq!(check(7), Ok(7));
@@ -1068,6 +1082,7 @@ fn test_creds() {
 define_test_main!(
     LOG_DEBUG,
     [
+        test_json_option_choices,
         test_errno_check,
         test_errno_sign,
         test_errno_conversions,
