@@ -19,6 +19,12 @@ ENV{ID_PRODUCT_SKU_IS_RUBBISH}!="1", ENV{ID_SKU}="$attr{product_sku}"
 ENV{ID_PRODUCT_VERSION_IS_RUBBISH}!="1", ENV{ID_HARDWARE_VERSION}="$attr{product_version}"
 ENV{ID_HARDWARE_VERSION}=="", ENV{ID_BOARD_VERSION_IS_RUBBISH}!="1", ENV{ID_HARDWARE_VERSION}="$attr{board_version}"
 
+# Hardware serial number. The system serial (DMI type 1) is preferred; fall back to the baseboard
+# serial (DMI type 2) when the system serial is missing or flagged as rubbish. This mirrors how
+# ID_MODEL and ID_HARDWARE_VERSION are selected above.
+ENV{ID_PRODUCT_SERIAL_IS_RUBBISH}!="1", ENV{ID_SERIAL}="$attr{product_serial}"
+ENV{ID_SERIAL}=="", ENV{ID_BOARD_SERIAL_IS_RUBBISH}!="1", ENV{ID_SERIAL}="$attr{board_serial}"
+
 # Chassis asset tag
 ENV{MODALIAS}!="", ATTR{chassis_asset_tag}!="", IMPORT{builtin}="hwdb '$attr{modalias}cat$attr{chassis_asset_tag}:'"
 ENV{ID_CHASSIS_ASSET_TAG_IS_RUBBISH}!="1", ENV{ID_CHASSIS_ASSET_TAG}="$attr{chassis_asset_tag}"

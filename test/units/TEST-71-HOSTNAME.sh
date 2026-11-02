@@ -154,13 +154,31 @@ testcase_hardware_serial() {
     fake_sysfs_dmi
 
     echo '1234' >/sys/class/dmi/id/board_serial
+    # 60-dmi-id.rules sets ID_SERIAL to the baseboard serial when the product serial is missing;
+    # sd_device picks up unknown keys from the uevent file as device properties, so write ID_SERIAL
+    # the same way the rules file would.
+    printf 'ID_SERIAL=1234\n' >>/sys/class/dmi/id/uevent
     stop_hostnamed
     assert_eq "$(hostnamectl --json=short | jq --raw-output .HardwareSerial)" "1234"
 
     # product_serial is preferred over board_serial
     echo '4321' >/sys/class/dmi/id/product_serial
+    printf 'ID_SERIAL=4321\n' > /sys/class/dmi/id/uevent
     stop_hostnamed
     assert_eq "$(hostnamectl --json=short | jq --raw-output .HardwareSerial)" "4321"
+
+    # hwdb can flag DMI type 1 product_serial as rubbish; 60-dmi-id.rules then sets ID_SERIAL to the
+    # DMI type 2 baseboard serial instead, and hostnamed reports it even though the (rubbish)
+    # product_serial is still readable via sysfs.
+    printf 'ID_SERIAL=1234\n' > /sys/class/dmi/id/uevent
+    stop_hostnamed
+    assert_eq "$(hostnamectl --json=short | jq --raw-output .HardwareSerial)" "1234"
+
+    # When both DMI serials are rubbish, the rules leave ID_SERIAL unset; hostnamed must not read
+    # the sysfs attributes directly but fall through to the device tree serial, which is absent here.
+    echo '1' > /sys/class/dmi/id/uevent
+    stop_hostnamed
+    assert_eq "$(hostnamectl --json=short | jq --raw-output .HardwareSerial)" "null"
 }
 
 testcase_nss-myhostname() {
