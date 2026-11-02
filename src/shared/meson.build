@@ -200,6 +200,7 @@ shared_sources = files(
         'selinux-util.c',
         'serialize.c',
         'service-util.c',
+        'shell-completion.c',
         'shift-uid.c',
         'sleep-config.c',
         'smack-util.c',

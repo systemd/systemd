@@ -31,6 +31,16 @@ typedef enum OptionFlags {
                                                 * --help and --introspect-cli output */
 } OptionFlags;
 
+/* Describes the argument of an option, or the arguments of a verb, for the shell completion scripts that
+ * shell_completion_print() generates. */
+typedef enum OptionCompletion {
+        OPTION_COMPLETE_FILE        = 1U << 0,
+        OPTION_COMPLETE_DIRECTORY   = 1U << 1,
+        OPTION_COMPLETE_AT_FILE     = 1U << 2,  /* TEXT or @PATH */
+        OPTION_COMPLETE_KEY_AT_FILE = 1U << 3,  /* KEY:TEXT, KEY:@PATH, or KEY:WORD@PATH */
+        OPTION_COMPLETE_REPEATABLE  = 1U << 4,  /* The option may be specified more than once */
+} OptionCompletion;
+
 /* Note: the alignment attribute must match the one applied to each variable via _alignptr_ in
  * _OPTION() below. Otherwise the struct's sizeof and the actual stride between consecutive entries
  * placed in the SYSTEMD_OPTIONS section would not match on architectures where the natural
@@ -44,10 +54,12 @@ typedef struct _alignptr_ Option {
         const char *metavar;
         uintptr_t data;
         const char *help;
+        OptionCompletion completion;
+        const char* const *choices;  /* NULL-terminated list of the possible arguments, for completion */
 } Option;
 assert_cc(sizeof(Option) % sizeof(void*) == 0);
 
-#define _OPTION(counter, fl, sc, lc, mv, d, h)                          \
+#define _OPTION(counter, fl, sc, lc, mv, d, h, ...)                     \
         _section_("SYSTEMD_OPTIONS")                                    \
         _alignptr_                                                      \
         _used_                                                          \
@@ -62,6 +74,7 @@ assert_cc(sizeof(Option) % sizeof(void*) == 0);
                 .metavar = mv,                                          \
                 .data = d,                                              \
                 .help = h,                                              \
+                __VA_ARGS__                                             \
         };                                                              \
         case (0x100 + counter)
 
@@ -76,11 +89,15 @@ assert_cc(sizeof(Option) % sizeof(void*) == 0);
         _OPTION(__COUNTER__, OPTION_GROUP_MARKER, /* sc= */ 0, /* lc= */ gr, /* mv= */ NULL, /* d= */ 0u, /* h= */ NULL)
 
 #define OPTION_FULL_DATA(fl, sc, lc, mv, d, h) _OPTION(__COUNTER__, fl, sc, lc, mv, d, h)
+#define OPTION_FULL_COMPLETE(fl, sc, lc, mv, comp, ch, h)               \
+        _OPTION(__COUNTER__, fl, sc, lc, mv, /* d= */ 0u, h, .completion = (comp), .choices = (ch))
 #define OPTION_FULL(fl, sc, lc, mv, h) OPTION_FULL_DATA(fl, sc, lc, mv, /* d= */ 0u, h)
 #define OPTION(sc, lc, mv, h) OPTION_FULL(/* fl= */ 0, sc, lc, mv, h)
 #define OPTION_LONG(lc, mv, h) OPTION(/* sc= */ 0, lc, mv, h)
 #define OPTION_LONG_FLAGS(fl, lc, mv, h) OPTION_FULL(fl, /* sc= */ 0, lc, mv, h)
 #define OPTION_LONG_DATA(lc, mv, d, h) OPTION_FULL_DATA(/* fl= */ 0, /* sc= */ 0, lc, mv, d, h)
+#define OPTION_LONG_COMPLETE(lc, mv, comp, h) OPTION_FULL_COMPLETE(/* fl= */ 0, /* sc= */ 0, lc, mv, comp, /* ch= */ NULL, h)
+#define OPTION_LONG_CHOICES(lc, mv, ch, h) OPTION_FULL_COMPLETE(/* fl= */ 0, /* sc= */ 0, lc, mv, /* comp= */ 0, ch, h)
 #define OPTION_SHORT(sc, mv, h) OPTION(sc, /* lc= */ NULL, mv, h)
 #define OPTION_SHORT_FLAGS(fl, sc, mv, h) OPTION_FULL(fl, sc, /* lc= */ NULL, mv, h)
 #define OPTION_SHORT_DATA(sc, mv, d, h) OPTION_FULL_DATA(/* fl= */ 0, sc, /* lc= */ NULL, mv, d, h)
@@ -152,8 +169,11 @@ assert_cc(sizeof(Option) % sizeof(void*) == 0);
 #define OPTION_COMMON_USER                                              \
         OPTION_LONG("user", NULL, "Operate in per-user mode")
 
+extern const char* const option_json_choices[];
+
 #define OPTION_COMMON_JSON                                              \
-        OPTION_LONG("json", "FORMAT", "Generate JSON output (pretty, short, or off)")
+        OPTION_LONG_CHOICES("json", "FORMAT", option_json_choices,     \
+                            "Generate JSON output (pretty, short, or off)")
 
 #define OPTION_COMMON_LOWERCASE_J                                       \
         OPTION_SHORT('j', NULL,                                         \
@@ -279,6 +299,8 @@ size_t option_parser_get_n_args(const OptionParser *state);
 char* option_parser_get_arg(const OptionParser *state, size_t i);
 
 char* option_get_synopsis(const Option *opt, const char *joiner, bool show_metavar);
+bool option_arg_optional(const Option *opt);
+bool option_is_metadata(const Option *opt);
 
 bool options_find_namespace(
                 const Option options[],
