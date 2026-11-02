@@ -703,6 +703,7 @@ TEST(unit_name_path_unescape) {
         test_unit_name_path_unescape_one("foo-bar", "/foo/bar", /* ret= */ 0);
         test_unit_name_path_unescape_one("foo-.bar", "/foo/.bar", /* ret= */ 0);
         test_unit_name_path_unescape_one("foo-bar-baz", "/foo/bar/baz", /* ret= */ 0);
+        test_unit_name_path_unescape_one("foo-bar\\x2dbaz", "/foo/bar-baz", /* ret= */ 0);
         test_unit_name_path_unescape_one("-", "/", /* ret= */ 0);
         test_unit_name_path_unescape_one("--", /* path= */ NULL, -EINVAL);
         test_unit_name_path_unescape_one("-foo-bar", /* path= */ NULL, -EINVAL);
@@ -711,6 +712,8 @@ TEST(unit_name_path_unescape) {
         test_unit_name_path_unescape_one(".-bar", /* path= */ NULL, -EINVAL);
         test_unit_name_path_unescape_one("foo-..", /* path= */ NULL, -EINVAL);
         test_unit_name_path_unescape_one("", /* path= */ NULL, -EINVAL);
+        test_unit_name_path_unescape_one("foo-bar-", /* path= */ NULL, -EINVAL);
+        test_unit_name_path_unescape_one("foo-bar\\x00baz", /* path= */ NULL, -EINVAL);
 }
 
 static void test_unit_name_to_prefix_one(const char *input, int ret, const char *output) {
@@ -1237,6 +1240,69 @@ TEST(unit_name_prefix_equal) {
         assert_se(!unit_name_prefix_equal("a@a.service", "b@a.service"));
         assert_se(!unit_name_prefix_equal("a", "b"));
         assert_se(!unit_name_prefix_equal("a", "a"));
+}
+
+TEST(xdg_app_id_is_valid) {
+        ASSERT_TRUE(xdg_app_id_is_valid("com.example.App"));
+        ASSERT_TRUE(xdg_app_id_is_valid("com.example._1App"));
+        ASSERT_TRUE(xdg_app_id_is_valid("com.example.App-Name"));
+        ASSERT_TRUE(xdg_app_id_is_valid("com.example.App_Name"));
+        ASSERT_TRUE(xdg_app_id_is_valid("org.example.domain.App"));
+        ASSERT_TRUE(xdg_app_id_is_valid("org.example.sub.domain.corp.App"));
+        ASSERT_TRUE(xdg_app_id_is_valid("app"));
+        ASSERT_TRUE(xdg_app_id_is_valid("some-app"));
+        ASSERT_TRUE(xdg_app_id_is_valid("some.app"));
+        ASSERT_TRUE(xdg_app_id_is_valid("0ad"));
+        ASSERT_TRUE(xdg_app_id_is_valid("7-zip"));
+        ASSERT_TRUE(xdg_app_id_is_valid("7zip"));
+        ASSERT_FALSE(xdg_app_id_is_valid(""));
+        ASSERT_FALSE(xdg_app_id_is_valid("."));
+        ASSERT_FALSE(xdg_app_id_is_valid(".."));
+        ASSERT_FALSE(xdg_app_id_is_valid("com..example.App"));
+        ASSERT_FALSE(xdg_app_id_is_valid(".com.example.App"));
+        ASSERT_FALSE(xdg_app_id_is_valid("com.example.App."));
+        ASSERT_FALSE(xdg_app_id_is_valid("com.example.1App"));
+        ASSERT_FALSE(xdg_app_id_is_valid("org.1example.App"));
+        ASSERT_FALSE(xdg_app_id_is_valid("1com.example.App"));
+        ASSERT_FALSE(xdg_app_id_is_valid("a.1"));
+        ASSERT_FALSE(xdg_app_id_is_valid("com.ex ample.App"));
+        ASSERT_FALSE(xdg_app_id_is_valid("com.example.App@Name"));
+        ASSERT_FALSE(xdg_app_id_is_valid("com.example.App/Name"));
+        ASSERT_FALSE(xdg_app_id_is_valid("com.example.App~"));
+        ASSERT_FALSE(xdg_app_id_is_valid("com.example.App+Name"));
+        ASSERT_FALSE(xdg_app_id_is_valid("com.example.App\nName"));
+}
+
+static void test_unit_name_to_app_id_one(const char *input, int ret, const char *output) {
+        _cleanup_free_ char *k = NULL;
+        ASSERT_EQ(unit_name_to_app_id(input, &k), ret);
+        ASSERT_STREQ(k, output);
+}
+
+TEST(unit_name_to_app_id) {
+        test_unit_name_to_app_id_one("app-org.gnome.Terminal.service", /* ret= */ 0, "org.gnome.Terminal");
+        test_unit_name_to_app_id_one("app-gnome-org.gnome.Terminal.service", /* ret= */ 0, "org.gnome.Terminal");
+        test_unit_name_to_app_id_one("app-org.gnome.Terminal@1234.service", /* ret= */ 0, "org.gnome.Terminal");
+        test_unit_name_to_app_id_one("app-gnome-org.gnome.Terminal@1234.service", /* ret= */ 0, "org.gnome.Terminal");
+        test_unit_name_to_app_id_one("app-org.example.App\\x2dname.service", /* ret= */ 0, "org.example.App-name");
+        test_unit_name_to_app_id_one("org.gnome.Terminal.service", -EINVAL, /* output= */ NULL);
+        test_unit_name_to_app_id_one("gnome-org.gnome.Terminal.service", -EINVAL, /* output= */ NULL);
+        test_unit_name_to_app_id_one("app-org-gnome-Terminal.service", -EINVAL, /* output= */ NULL);
+        test_unit_name_to_app_id_one("app--.service", -EINVAL, /* output= */ NULL);
+        test_unit_name_to_app_id_one("app-launcher-.service", -EINVAL, /* output= */ NULL);
+        test_unit_name_to_app_id_one("app--com.example.App.service", -EINVAL, /* output= */ NULL);
+        test_unit_name_to_app_id_one("app-org.gnome.Terminal-1234.scope", /* ret= */ 0, "org.gnome.Terminal");
+        test_unit_name_to_app_id_one("app-gnome-org.gnome.Terminal-1234.scope", /* ret= */ 0, "org.gnome.Terminal");
+        test_unit_name_to_app_id_one("app-launcher-org.example.App\\x2dname-1234.scope", /* ret= */ 0, "org.example.App-name");
+        test_unit_name_to_app_id_one("app-org.gnome.Terminal@1234.scope", -EINVAL, /* output= */ NULL);
+        test_unit_name_to_app_id_one("app-org.gnome.Terminal.scope", -EINVAL, /* output= */ NULL);
+        test_unit_name_to_app_id_one("app-org.gnome.Terminal-.scope", -EINVAL, /* output= */ NULL);
+        test_unit_name_to_app_id_one("app-launcher-org-gnome-Terminal-1234.scope", -EINVAL, /* output= */ NULL);
+        test_unit_name_to_app_id_one("app--1234.scope", -EINVAL, /* output= */ NULL);
+        test_unit_name_to_app_id_one("app-org.gnome.Terminal.slice", -EINVAL, /* output= */ NULL);
+        test_unit_name_to_app_id_one("app-launcher-org.example..App-1234.scope", -EINVAL, /* output= */ NULL);
+        test_unit_name_to_app_id_one("app-launcher-org.example.App\\x00name-1234.scope", -EINVAL, /* output= */ NULL);
+        test_unit_name_to_app_id_one("app-launcher-org.example.App\\x10name-1234.scope", -EINVAL, /* output= */ NULL);
 }
 
 static int intro(void) {
