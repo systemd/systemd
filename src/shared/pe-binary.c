@@ -87,6 +87,60 @@ const IMAGE_SECTION_HEADER* pe_section_table_find(
         return NULL;
 }
 
+const IMAGE_SECTION_HEADER* pe_find_profile_section_table(
+                const PeHeader *pe_header,
+                const IMAGE_SECTION_HEADER *sections,
+                unsigned profile,
+                size_t *ret_n_sections) {
+
+        assert(pe_header);
+
+        /* Looks for the part of the section table that defines the specified profile. If 'profile' is
+         * specified as UINT_MAX this will look for the base profile. */
+
+        if (le16toh(pe_header->pe.NumberOfSections) == 0)
+                return NULL;
+
+        assert(sections);
+
+        const IMAGE_SECTION_HEADER
+                *p = sections,
+                *e = sections + le16toh(pe_header->pe.NumberOfSections),
+                *start = profile == UINT_MAX ? sections : NULL,
+                *end;
+        unsigned current_profile = UINT_MAX;
+
+        for (;;) {
+                p = pe_section_table_find(p, e - p, ".profile");
+                if (!p) {
+                        end = e;
+                        break;
+                }
+                if (current_profile == profile) {
+                        end = p;
+                        break;
+                }
+
+                if (current_profile == UINT_MAX)
+                        current_profile = 0;
+                else
+                        current_profile++;
+
+                if (current_profile == profile)
+                        start = p;
+
+                p++; /* Continue scanning after the .profile entry we just found */
+        }
+
+        if (!start)
+                return NULL;
+
+        if (ret_n_sections)
+                *ret_n_sections = end - start;
+
+        return start;
+}
+
 const IMAGE_SECTION_HEADER* pe_header_find_section(
                 const PeHeader *pe_header,
                 const IMAGE_SECTION_HEADER *sections,
