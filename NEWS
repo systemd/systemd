@@ -79,6 +79,12 @@ CHANGES WITH 263 in spe:
         * systemd-portabled now asks polkit before it inspects extension
           images that are specified by path.
 
+        * RegisterService() now fails with org.freedesktop.resolve1.ShuttingDown
+          when called while systemd-resolved is already withdrawing its
+          published records on the way down: the registration could never be
+          announced. Clients may retry against the next instance of the
+          service.
+
         * systemd-networkd and networkctl have been merged into a single
           multi-call binary, with the former becoming a symlink to the latter.
           This should generally be invisible to users, but some packaging and
@@ -227,6 +233,18 @@ CHANGES WITH 263 in spe:
           based on the IAID and DUID it sends, instead of its hardware
           address. This is useful e.g. to tell apart hosts that share a
           hardware address, like ipvlan interfaces in L2 mode.
+
+        Changes in systemd-resolved and resolvectl:
+
+        * systemd-resolved now sends mDNS goodbye announcements (RFC 6762
+          section 10.1) for the DNS-SD services it publishes when they are
+          withdrawn — when the daemon is stopped, and when a *.dnssd file is
+          removed and the daemon reloaded — so peers drop them right away
+          instead of waiting out the record TTL. To let the goodbye of a
+          stopping daemon reach the network (and be repeated once, as
+          section 8.3 requires), stopping the daemon now takes about a second
+          longer on hosts that publish any such service. Hosts publishing none
+          are unaffected.
 
         Changes in systemd-sysupdate:
 
