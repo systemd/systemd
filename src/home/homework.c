@@ -615,9 +615,7 @@ static int write_identity_file(int root_fd, sd_json_variant *v, uid_t uid) {
 
         CLEANUP_TMPFILE_AT(root_fd, fn);
 
-        sd_json_variant_dump(normalized, SD_JSON_FORMAT_PRETTY, identity_file, /* prefix= */ NULL);
-
-        r = fflush_and_check(identity_file);
+        r = sd_json_variant_dump(normalized, SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_FLUSH, identity_file, /* prefix= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to write .identity file: %m");
 

@@ -3250,9 +3250,7 @@ int table_print_json(Table *t, FILE *f, sd_json_format_flags_t flags) {
         if (r < 0)
                 return r;
 
-        sd_json_variant_dump(v, flags, f, /* prefix= */ NULL);
-
-        return fflush_and_check(f);
+        return sd_json_variant_dump(v, flags|SD_JSON_FORMAT_FLUSH, f, /* prefix= */ NULL);
 }
 
 int table_print_with_pager(
