@@ -365,7 +365,8 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
 
                 case KEY_POWER:
                 case KEY_POWER2:
-                        if (b->manager->power_key_long_press_event_source) {
+                        if (b->manager->power_key_long_press_event_source &&
+                            sd_event_source_get_userdata(b->manager->power_key_long_press_event_source) == b) {
                                 /* Long press event timer is still pending and key release
                                    event happened.  This means that key press duration was
                                    insufficient to trigger a long press event
@@ -381,7 +382,8 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                         break;
 
                 case KEY_RESTART:
-                        if (b->manager->reboot_key_long_press_event_source) {
+                        if (b->manager->reboot_key_long_press_event_source &&
+                            sd_event_source_get_userdata(b->manager->reboot_key_long_press_event_source) == b) {
                                 log_struct(LOG_INFO,
                                            LOG_MESSAGE("Reboot key pressed short."),
                                            LOG_MESSAGE_ID(SD_MESSAGE_REBOOT_KEY_STR));
@@ -393,7 +395,8 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                         break;
 
                 case KEY_SLEEP:
-                        if (b->manager->suspend_key_long_press_event_source) {
+                        if (b->manager->suspend_key_long_press_event_source &&
+                            sd_event_source_get_userdata(b->manager->suspend_key_long_press_event_source) == b) {
                                 log_struct(LOG_INFO,
                                            LOG_MESSAGE("Suspend key pressed short."),
                                            LOG_MESSAGE_ID(SD_MESSAGE_SUSPEND_KEY_STR));
@@ -404,7 +407,8 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                         }
                         break;
                 case KEY_SUSPEND:
-                        if (b->manager->hibernate_key_long_press_event_source) {
+                        if (b->manager->hibernate_key_long_press_event_source &&
+                            sd_event_source_get_userdata(b->manager->hibernate_key_long_press_event_source) == b) {
                                 log_struct(LOG_INFO,
                                            LOG_MESSAGE("Hibernate key pressed short."),
                                            LOG_MESSAGE_ID(SD_MESSAGE_HIBERNATE_KEY_STR));
