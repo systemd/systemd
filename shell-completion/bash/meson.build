@@ -66,6 +66,7 @@ foreach item : [
         ['systemd-nspawn',      'ENABLE_NSPAWN'],
         ['systemd-path',        ''],
         ['systemd-pty-forward', ''],
+        ['systemd-repart',      'ENABLE_REPART'],
         ['systemd-resolve',     'ENABLE_RESOLVE'],
         ['systemd-run',         ''],
         ['systemd-sysext',      'ENABLE_SYSEXT'],

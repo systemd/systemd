@@ -274,6 +274,8 @@
 
         <para>The same default set of fields is used by
         <citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        and
+        <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         when generating manifests.</para>
 
         <xi:include href="version-info.xml" xpointer="v263"/></listitem>

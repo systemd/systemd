@@ -58,6 +58,7 @@ foreach item : [
         ['_systemd-nspawn',           ''],
         ['_systemd-path',             ''],
         ['_systemd-pty-forward',      ''],
+        ['_systemd-repart',           'ENABLE_REPART'],
         ['_systemd-run',              ''],
         ['_systemd-sysinstall',       'ENABLE_SYSINSTALL'],
         ['_systemd-sysupdate',        'ENABLE_SYSUPDATE'],
