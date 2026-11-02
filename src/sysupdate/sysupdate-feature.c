@@ -27,6 +27,7 @@ static Feature *feature_free(Feature *f) {
         strv_free(f->documentation);
         free(f->appstream);
 
+        condition_free_list(f->enable_on);
         condition_free_list(f->suggest_on);
 
         return mfree(f);
@@ -76,11 +77,23 @@ int feature_read_definition(Feature *f, const char *root, const char *path, cons
         if (!feature_name_valid(id))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Malformed feature filename '%s': %m", filename);
 
+        int enabled = -1;
         ConfigTableItem table[] = {
                 { "Feature", "Description",                config_parse_string,              0,                             &f->description   },
                 { "Feature", "Documentation",              config_parse_url_specifiers_many, 0,                             &f->documentation },
                 { "Feature", "AppStream",                  config_parse_url_specifiers,      0,                             &f->appstream     },
-                { "Feature", "Enabled",                    config_parse_bool,                0,                             &f->enabled       },
+                { "Feature", "Enabled",                    config_parse_tristate,            0,                             &enabled          },
+                { "Feature", "EnableOnArchitecture",       config_parse_condition,           CONDITION_ARCHITECTURE,        &f->enable_on     },
+                { "Feature", "EnableOnFirmware",           config_parse_condition,           CONDITION_FIRMWARE,            &f->enable_on     },
+                { "Feature", "EnableOnVirtualization",     config_parse_condition,           CONDITION_VIRTUALIZATION,      &f->enable_on     },
+                { "Feature", "EnableOnHost",               config_parse_condition,           CONDITION_HOST,                &f->enable_on     },
+                { "Feature", "EnableOnFraction",           config_parse_condition,           CONDITION_FRACTION,            &f->enable_on     },
+                { "Feature", "EnableOnKernelCommandLine",  config_parse_condition,           CONDITION_KERNEL_COMMAND_LINE, &f->enable_on     },
+                { "Feature", "EnableOnVersion",            config_parse_condition,           CONDITION_VERSION,             &f->enable_on     },
+                { "Feature", "EnableOnCredential",         config_parse_condition,           CONDITION_CREDENTIAL,          &f->enable_on     },
+                { "Feature", "EnableOnSecurity",           config_parse_condition,           CONDITION_SECURITY,            &f->enable_on     },
+                { "Feature", "EnableOnOSRelease",          config_parse_condition,           CONDITION_OS_RELEASE,          &f->enable_on     },
+                { "Feature", "EnableOnMachineTag",         config_parse_condition,           CONDITION_MACHINE_TAG,         &f->enable_on     },
                 { "Feature", "Suggest",                    config_parse_tristate,            0,                             &f->suggest       },
                 { "Feature", "SuggestOnArchitecture",      config_parse_condition,           CONDITION_ARCHITECTURE,        &f->suggest_on    },
                 { "Feature", "SuggestOnFirmware",          config_parse_condition,           CONDITION_FIRMWARE,            &f->suggest_on    },
@@ -111,6 +124,11 @@ int feature_read_definition(Feature *f, const char *root, const char *path, cons
         if (r < 0)
                 return r;
 
+        r = config_resolve_enabled(enabled, f->enable_on, /* default_enabled= */ false, id);
+        if (r < 0)
+                return r;
+
+        f->enabled = r;
         f->id = TAKE_PTR(id);
 
         return 0;
