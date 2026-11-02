@@ -12,11 +12,18 @@
 #include "string-util.h"
 #include "strv.h"
 
+const char* const option_json_choices[] = {
+        "pretty",
+        "short",
+        "off",
+        NULL
+};
+
 static bool option_takes_arg(const Option *opt) {
         return ASSERT_PTR(opt)->metavar;
 }
 
-static bool option_arg_optional(const Option *opt) {
+bool option_arg_optional(const Option *opt) {
         return option_takes_arg(opt) && FLAGS_SET(opt->flags, OPTION_OPTIONAL_ARG);
 }
 
@@ -24,7 +31,7 @@ static bool option_arg_required(const Option *opt) {
         return option_takes_arg(opt) && !FLAGS_SET(opt->flags, OPTION_OPTIONAL_ARG);
 }
 
-static bool option_is_metadata(const Option *opt) {
+bool option_is_metadata(const Option *opt) {
         /* A metadata entry that is not a real option, like the group marker */
         return ASSERT_PTR(opt)->flags & (OPTION_NAMESPACE_MARKER |
                                          OPTION_GROUP_MARKER |
