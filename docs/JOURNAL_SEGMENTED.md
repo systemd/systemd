@@ -333,8 +333,9 @@ Verification keeps a fixed-size cache of DATA lookups while rebuilding each inde
 * **No preallocation.** btrfs never compresses a preallocated file, and gives one with copy-on-write twice as many extents.
   Without preallocation, a full disk can interrupt a write in the middle of a batch.
   The writer leaves the partial object in place and starts a replacement file on rotation.
-  On btrfs, copy-on-write moves the partly filled last block of a file after each writeback, so an active file gets an extent per writeback.
-  journald defragments a file once it is archived.
+  On btrfs, each writeback of a file with copy-on-write gets a new extent, so a segment ends up in many small extents.
+  When journald syncs a file, it defragments the part that was written since the last defragmentation, if that part is at least 256 KiB.
+  When it archives a file, it defragments the rest. Defragmenting writes the data a second time.
 
 ## Measurements
 
