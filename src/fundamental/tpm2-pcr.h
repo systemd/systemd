@@ -65,3 +65,6 @@ enum {
 
 /* The tag used for EV_EVENT_TAG event log records covering SMBIOS type 11 (OEM strings) structures */
 #define SMBIOS_TYPE11_EVENT_TAG_ID UINT32_C(0xc0b3bd23)
+
+/* The tag used for EV_EVENT_TAG event log records covering the payload of the LoaderKeyringSetup EFI variable */
+#define KEYRING_SETUP_EVENT_TAG_ID UINT32_C(0x201ec819)

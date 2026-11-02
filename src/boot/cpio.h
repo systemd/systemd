@@ -51,6 +51,7 @@ EFI_STATUS pack_cpio_literal(
 
 extern const CpioTarget cpio_target_credentials;
 extern const CpioTarget cpio_target_global_credentials;
+extern const CpioTarget cpio_target_system_credentials;
 extern const CpioTarget cpio_target_sysext;
 extern const CpioTarget cpio_target_global_sysext;
 extern const CpioTarget cpio_target_confext;
