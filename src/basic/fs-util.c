@@ -1081,6 +1081,9 @@ int open_mkdir_at_full_label(int dirfd, const char *path, int flags, XOpenFlags 
         return TAKE_FD(fd);
 }
 
+/* openat_report_new() and xopenat_full_label() call open() and openat() directly. clang-tidy reports
+ * direct calls in all other code. */
+/* NOLINTBEGIN(bugprone-unsafe-functions) */
 int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, bool *ret_newly_created) {
         int fd, r;
 
@@ -1531,6 +1534,7 @@ error:
 
         return r;
 }
+/* NOLINTEND(bugprone-unsafe-functions) */
 
 int xopenat_lock_full_label(
                 int dir_fd,
