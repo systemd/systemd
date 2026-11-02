@@ -333,8 +333,57 @@ TEST(dll_characteristics) {
 }
 
 TEST(misaligned_section) {
+        /* Stripping a stub after linking leaves section data that isn't aligned to the file alignment. Here,
+         * the .sbat data starts 8 bytes after the file alignment and its raw size is half of it. */
         _cleanup_free_ uint8_t *stub = build_stub(STUB_SIZE, 0x400);
-        ((IMAGE_SECTION_HEADER*) (stub + SECTION_TABLE_OFFSET))[1].SizeOfRawData = htole32(0x100);
+        IMAGE_SECTION_HEADER *s = (IMAGE_SECTION_HEADER*) (stub + SECTION_TABLE_OFFSET);
+        memmove(stub + 0x608, stub + 0x600, 0x100);
+        memset(stub + 0x600, 0xaa, 8);
+        s[1].PointerToRawData = htole32(0x608);
+        s[1].SizeOfRawData = htole32(0x100);
+
+        _cleanup_close_ int fd = ASSERT_OK(memfd_new_and_seal("stub", stub, STUB_SIZE));
+        _cleanup_(pe_writer_freep) PeWriter *w = NULL;
+        ASSERT_OK(pe_writer_new(fd, &w));
+
+        _cleanup_close_ int out = ASSERT_OK(memfd_new("output"));
+        ASSERT_OK(pe_writer_write(w, out));
+
+        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
+        _cleanup_free_ PeHeader *pe_header = NULL;
+        ASSERT_OK(pe_load_headers_and_sections(out, &pe_header, &sections));
+        ASSERT_EQ(le32toh(sections[0].PointerToRawData), 0x400U);
+        ASSERT_EQ(le32toh(sections[0].SizeOfRawData), 0x200U);
+        ASSERT_EQ(le32toh(sections[1].PointerToRawData), 0x800U);
+        ASSERT_EQ(le32toh(sections[1].SizeOfRawData), 0x200U);
+        assert_section_data(out, pe_header, sections, ".sbat", stub_sbat, strlen(stub_sbat));
+
+        /* The data in front of the moved section stays in place, and the padding is zero. */
+        uint8_t before[8];
+        ASSERT_OK_EQ_ERRNO(pread(out, before, sizeof(before), 0x600), (ssize_t) sizeof(before));
+        ASSERT_EQ(before[0], 0xaa);
+        assert_zero(out, 0x608, 0x800 - 0x608);
+        assert_zero(out, 0x800 + 0x100, 0x100);
+
+        /* The data after the section moves with it. */
+        ASSERT_OK_EQ_ERRNO(lseek(out, 0, SEEK_END), (off_t) (0xa00 + STUB_SIZE - 0x708));
+
+        /* The data of a signed image can't move without breaking the signature. */
+        _cleanup_close_ int signed_fd = ASSERT_OK(memfd_new("signed"));
+        ASSERT_OK_EQ_ERRNO(pwrite(signed_fd, stub, STUB_SIZE, 0), (ssize_t) STUB_SIZE);
+        static const uint8_t signature[] = { 1, 2, 3, 4, 5, 6, 7, 8 };
+        ASSERT_OK(pe_append_signature(signed_fd, signature, sizeof(signature)));
+        _cleanup_(pe_writer_freep) PeWriter *signed_w = NULL;
+        ASSERT_ERROR(pe_writer_new(signed_fd, &signed_w), EOPNOTSUPP);
+}
+
+TEST(misaligned_section_order) {
+        /* The .text data follows the .sbat data, so moving the .sbat data would move the .text data too. */
+        _cleanup_free_ uint8_t *stub = build_stub(STUB_SIZE, 0x400);
+        IMAGE_SECTION_HEADER *s = (IMAGE_SECTION_HEADER*) (stub + SECTION_TABLE_OFFSET);
+        s[0].PointerToRawData = htole32(0x600);
+        s[1].PointerToRawData = htole32(0x400);
+        s[1].SizeOfRawData = htole32(0x100);
 
         _cleanup_close_ int fd = ASSERT_OK(memfd_new_and_seal("stub", stub, STUB_SIZE));
         _cleanup_(pe_writer_freep) PeWriter *w = NULL;
