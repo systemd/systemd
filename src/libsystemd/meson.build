@@ -303,6 +303,7 @@ libsystemd_tests += [
         {
                 'sources' : files('sd-journal/test-journal-benchmark.c'),
                 'type' : 'manual',
+                'standalone' : true,
         },
         {
                 'sources' : files('sd-journal/test-journal-dump.c'),
