@@ -319,6 +319,15 @@ EOF
     cryptsetup_start_and_check empty_pkcs11_auto
     cryptsetup luksKillSlot -q "$IMAGE_EMPTY" "$LEGACY_SLOT"
     cryptsetup token remove --token-id 0 "$IMAGE_EMPTY"
+
+    # Test unlocking via an already-enrolled PKCS#11 token in order to enroll a new password, i.e.
+    # --unlock-pkcs11-token-uri=
+    PIN="1234" systemd-cryptenroll --pkcs11-token-uri="pkcs11:token=TestToken;object=RSATestKey" --unlock-key-file="$IMAGE_EMPTY_KEYFILE" "$IMAGE_EMPTY"
+    PIN="1234" NEWPASSWORD="newpassword123" systemd-cryptenroll --unlock-pkcs11-token-uri=auto --password "$IMAGE_EMPTY"
+    echo -n "newpassword123" | cryptsetup luksOpen --test-passphrase "$IMAGE_EMPTY"
+    cryptsetup luksKillSlot -q "$IMAGE_EMPTY" 3
+    cryptsetup luksKillSlot -q "$IMAGE_EMPTY" 2
+    cryptsetup token remove --token-id 0 "$IMAGE_EMPTY"
 fi
 
 cryptsetup_start_and_check detached

@@ -5,3 +5,4 @@
 #include "forward.h"
 
 int enroll_pkcs11(const EnrollContext *c, struct crypt_device *cd, const struct iovec *volume_key);
+int load_volume_key_pkcs11(const EnrollContext *c, struct crypt_device *cd, struct iovec *ret_vk);
