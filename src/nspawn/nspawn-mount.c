@@ -13,6 +13,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "fstab-util.h"
 #include "log.h"
 #include "mkdir.h"
 #include "mount-util.h"
@@ -410,6 +411,7 @@ int inaccessible_mount_parse(CustomMount **l, size_t *n, const char *s) {
 int tmpfs_patch_options(
                 const char *options,
                 uid_t uid_shift,
+                uid_t uid_range,
                 const char *selinux_apifs_context,
                 char **ret) {
 
@@ -423,9 +425,60 @@ int tmpfs_patch_options(
                         return -ENOMEM;
         }
 
-        if (uid_shift != UID_INVALID)
-                if (strextendf_with_separator(&buf, ",", "uid=" UID_FMT ",gid=" UID_FMT, uid_shift, uid_shift) < 0)
+        if (uid_shift != UID_INVALID) {
+                uid_t uid = uid_shift;
+                gid_t gid = uid_shift;
+
+                if (options) {
+                        int r;
+                        _cleanup_free_ char *uid_value_str = NULL;
+
+                        r = fstab_filter_options(options, "uid\0", /* ret_namefound= */ NULL, &uid_value_str, /* ret_values= */ NULL, /* ret_filtered= */ NULL);
+                        if (r < 0)
+                                return r;
+                        if (r > 0 && uid_value_str) {
+                                if (uid_range == UID_INVALID)
+                                        return -EINVAL;
+
+                                uid_t options_uid;
+
+                                r = parse_uid(uid_value_str, &options_uid);
+                                if (r < 0)
+                                        return r;
+                                if (options_uid > UINT32_MAX - uid)
+                                        return -ERANGE;
+                                if (options_uid >= uid_range)
+                                        return -EINVAL;
+
+                                uid += options_uid;
+                        }
+
+                        _cleanup_free_ char *gid_value_str = NULL;
+
+                        r = fstab_filter_options(options, "gid\0", /* ret_namefound= */ NULL, &gid_value_str, /* ret_values= */ NULL, /* ret_filtered= */ NULL);
+                        if (r < 0)
+                                return r;
+                        if (r > 0 && gid_value_str) {
+                                if (uid_range == UID_INVALID)
+                                        return -EINVAL;
+
+                                gid_t options_gid;
+
+                                r = parse_gid(gid_value_str, &options_gid);
+                                if (r < 0)
+                                        return r;
+                                if (options_gid > UINT32_MAX - gid)
+                                        return -ERANGE;
+                                if (options_gid >= uid_range)
+                                        return -EINVAL;
+
+                                gid += options_gid;
+                        }
+                }
+
+                if (strextendf_with_separator(&buf, ",", "uid=" UID_FMT ",gid=" GID_FMT, uid, gid) < 0)
                         return -ENOMEM;
+        }
 
 #if HAVE_SELINUX
         if (selinux_apifs_context)
@@ -707,9 +760,11 @@ int mount_all(const char *dest,
 
                 o = m->options;
                 if (streq_ptr(m->type, "tmpfs")) {
-                        r = tmpfs_patch_options(o, in_userns ? 0 : uid_shift, selinux_apifs_context, &options);
-                        if (r < 0)
+                        r = tmpfs_patch_options(o, in_userns ? 0 : uid_shift, UID_INVALID, selinux_apifs_context, &options);
+                        if (r == -ENOMEM)
                                 return log_oom();
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to patch options of tmpfs %s: %m", where);
                         if (r > 0)
                                 o = options;
                 }
@@ -917,7 +972,7 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
         return 0;
 }
 
-static int mount_tmpfs(const char *dest, CustomMount *m, uid_t uid_shift, const char *selinux_apifs_context) {
+static int mount_tmpfs(const char *dest, CustomMount *m, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context) {
         const char *options;
         _cleanup_free_ char *buf = NULL, *where = NULL;
         int r;
@@ -934,9 +989,12 @@ static int mount_tmpfs(const char *dest, CustomMount *m, uid_t uid_shift, const 
                         return log_error_errno(r, "Creating mount point for tmpfs %s failed: %m", where);
         }
 
-        r = tmpfs_patch_options(m->options, uid_shift == 0 ? UID_INVALID : uid_shift, selinux_apifs_context, &buf);
-        if (r < 0)
+        r = tmpfs_patch_options(m->options, uid_shift == 0 ? UID_INVALID : uid_shift, uid_range, selinux_apifs_context, &buf);
+        if (r == -ENOMEM)
                 return log_oom();
+        if (r < 0)
+                return log_error_errno(r, "Failed to patch options of tmpfs %s: %m", where);
+
         options = r > 0 ? buf : m->options;
 
         return mount_nofollow_verbose(LOG_ERR, "tmpfs", where, "tmpfs", MS_NODEV|MS_STRICTATIME, options);
@@ -1077,7 +1135,7 @@ int mount_custom(
                         break;
 
                 case CUSTOM_MOUNT_TMPFS:
-                        r = mount_tmpfs(dest, m, uid_shift, selinux_apifs_context);
+                        r = mount_tmpfs(dest, m, uid_shift, uid_range, selinux_apifs_context);
                         break;
 
                 case CUSTOM_MOUNT_OVERLAY:
@@ -1143,9 +1201,11 @@ static int setup_volatile_state_after_remount_idmap(const char *directory, uid_t
                 return log_error_errno(errno, "Failed to create %s: %m", directory);
 
         const char *options = "mode=0755" TMPFS_LIMITS_VOLATILE_STATE;
-        r = tmpfs_patch_options(options, uid_shift == 0 ? UID_INVALID : uid_shift, selinux_apifs_context, &buf);
-        if (r < 0)
+        r = tmpfs_patch_options(options, uid_shift == 0 ? UID_INVALID : uid_shift, UID_INVALID, selinux_apifs_context, &buf);
+        if (r == -ENOMEM)
                 return log_oom();
+        if (r < 0)
+                return log_error_errno(r, "Failed to patch options of tmpfs %s: %m", p);
         if (r > 0)
                 options = buf;
 
@@ -1187,7 +1247,7 @@ static int setup_volatile_yes(const char *directory, uid_t uid_shift, const char
                 return log_error_errno(r, "Failed to create temporary directory: %m");
 
         const char *options = "mode=0755" TMPFS_LIMITS_ROOTFS;
-        r = tmpfs_patch_options(options, uid_shift == 0 ? UID_INVALID : uid_shift, selinux_apifs_context, &buf);
+        r = tmpfs_patch_options(options, uid_shift == 0 ? UID_INVALID : uid_shift, UID_INVALID, selinux_apifs_context, &buf);
         if (r < 0)
                 goto fail;
         if (r > 0)
@@ -1263,7 +1323,7 @@ static int setup_volatile_overlay(const char *directory, uid_t uid_shift, const 
                 return log_error_errno(r, "Failed to create temporary directory: %m");
 
         options = "mode=0755" TMPFS_LIMITS_ROOTFS;
-        r = tmpfs_patch_options(options, uid_shift == 0 ? UID_INVALID : uid_shift, selinux_apifs_context, &buf);
+        r = tmpfs_patch_options(options, uid_shift == 0 ? UID_INVALID : uid_shift, UID_INVALID, selinux_apifs_context, &buf);
         if (r < 0)
                 goto finish;
         if (r > 0)
