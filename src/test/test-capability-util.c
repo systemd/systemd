@@ -16,9 +16,8 @@
 #include "capability-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "fileio.h"
-#include "parse-util.h"
 #include "process-util.h"
+#include "sysctl-util.h"
 #include "tests.h"
 
 static uid_t test_uid = -1;
@@ -34,18 +33,15 @@ static const uint64_t test_flags = UINT64_C(1) << CAP_DAC_OVERRIDE;
 
 /* verify cap_last_cap() against /proc/sys/kernel/cap_last_cap */
 static void test_last_cap_file(void) {
-        _cleanup_free_ char *content = NULL;
         unsigned long val = 0;
         int r;
 
-        r = read_one_line_file("/proc/sys/kernel/cap_last_cap", &content);
+        r = sysctl_read_lu("kernel/cap_last_cap", &val);
         if (ERRNO_IS_NEG_PRIVILEGE(r))
-                return (void) log_tests_skipped_errno(r, "Failed to /proc/sys/kernel/cap_last_cap");
+                return (void) log_tests_skipped_errno(r, "Failed to read kernel.cap_last_cap sysctl");
         ASSERT_OK(r);
 
-        r = safe_atolu(content, &val);
-        ASSERT_OK(r);
-        assert_se(val != 0);
+        ASSERT_NE(val, 0UL);
         ASSERT_EQ(val, cap_last_cap());
 }
 
@@ -195,20 +191,17 @@ static void test_apply_ambient_caps(void) {
 }
 
 static void test_ensure_cap_64_bit(void) {
-        _cleanup_free_ char *content = NULL;
         unsigned long p = 0;
         int r;
 
-        r = read_one_line_file("/proc/sys/kernel/cap_last_cap", &content);
+        r = sysctl_read_lu("kernel/cap_last_cap", &p);
         if (ERRNO_IS_NEG_PRIVILEGE(r))
-                return (void) log_tests_skipped_errno(r, "Failed to /proc/sys/kernel/cap_last_cap");
+                return (void) log_tests_skipped_errno(r, "Failed to read kernel.cap_last_cap sysctl");
         ASSERT_OK(r);
-
-        ASSERT_OK(safe_atolu(content, &p));
 
         /* If caps don't fit into 64-bit anymore, we have a problem, fail the test. Moreover, we use
          * UINT64_MAX as unset, hence it must be smaller than or equals to 62 (CAP_LIMIT). */
-        assert_se(p <= CAP_LIMIT);
+        ASSERT_LE(p, (unsigned long) CAP_LIMIT);
 }
 
 static void test_capability_get_ambient(void) {
