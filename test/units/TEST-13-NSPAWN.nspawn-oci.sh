@@ -52,6 +52,14 @@ cat >"$OCI/config.json" <<EOF
     "root" : {
             "path" : "rootfs"
     },
+    "linux" : {
+        "resources" : {
+            "cpu" : {
+                "quota" : -1,
+                "period" : 100000
+            }
+        }
+    },
     "mounts" : [
         {
             "destination" : "/root",
