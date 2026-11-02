@@ -2585,7 +2585,7 @@ foreach dict : executables
                 if key in ['name', 'dbus', 'conditions', 'type', 'suite',
                            'timeout', 'parallel', 'sources', 'import', 'export',
                            'include_directories', 'build_by_default', 'install',
-                           'bpf_programs', 'link_args_static', 'symlinks', 'rust']
+                           'bpf_programs', 'io_uring', 'link_args_static', 'symlinks', 'rust']
                         continue
                 endif
 
@@ -2826,11 +2826,21 @@ foreach dict : executables
                 elif type == 'unsafe' and want_tests != 'unsafe'
                         message(f'@suite@/@name@ is an unsafe test')
                 elif dict.get('build_by_default')
+                        # Event loops only use io_uring if the program enables it. Tests with the
+                        # io_uring key run once with io_uring forced on, and once with it forced off.
                         test(name, exe,
-                             env : test_env,
+                             env : dict.get('io_uring', false) ? test_env + {'SYSTEMD_EVENT_IO_URING' : '1'} : test_env,
                              timeout : dict.get('timeout', 30),
                              suite : suite,
                              is_parallel : dict.get('parallel', true))
+
+                        if dict.get('io_uring', false)
+                                test(name + '-no-io-uring', exe,
+                                     env : test_env + {'SYSTEMD_EVENT_IO_URING' : '0'},
+                                     timeout : dict.get('timeout', 30),
+                                     suite : suite,
+                                     is_parallel : dict.get('parallel', true))
+                        endif
                 endif
         endif
 
