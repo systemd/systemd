@@ -650,12 +650,18 @@ static int method_with_oneway_sentinel(sd_varlink *link, sd_json_variant *parame
         /* The method was called oneway, so sd_varlink_set_sentinel() should be a no-op and the server should
          * transition back to idle without sending any reply. */
         ASSERT_TRUE(FLAGS_SET(flags, SD_VARLINK_METHOD_ONEWAY));
+        ASSERT_OK_ZERO(sd_varlink_wants_reply(link));
         ASSERT_OK(sd_varlink_set_sentinel(link, "io.test.SentinelError"));
+        ASSERT_OK_ZERO(sd_varlink_wants_reply(link));
         return 0;
 }
 
 static int method_oneway_sentinel_pong(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("result", "pong"));
+        /* A regular method call expects a reply, until we sent one */
+        ASSERT_OK_POSITIVE(sd_varlink_wants_reply(link));
+        ASSERT_OK(sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("result", "pong")));
+        ASSERT_OK_ZERO(sd_varlink_wants_reply(link));
+        return 0;
 }
 
 static int reply_oneway_sentinel_pong(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
@@ -663,6 +669,7 @@ static int reply_oneway_sentinel_pong(sd_varlink *link, sd_json_variant *paramet
          * properly handled a subsequent regular method call. */
         ASSERT_NULL(error_id);
         ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(parameters, "result")), "pong");
+        ASSERT_OK_ZERO(sd_varlink_wants_reply(link)); /* Client side never wants to reply */
         ASSERT_OK(sd_event_exit(sd_varlink_get_event(link), EXIT_SUCCESS));
         return 0;
 }
@@ -877,6 +884,7 @@ static int method_fiber_sentinel_error(sd_varlink *link, sd_json_variant *parame
         /* Set an error sentinel from a fiber callback and return without sending a reply. The sentinel
          * error should still be propagated by the fiber's post-callback logic, even though the varlink
          * state has already been transitioned to VARLINK_PENDING_METHOD by the time the fiber runs. */
+        ASSERT_OK_POSITIVE(sd_varlink_wants_reply(link));
         ASSERT_OK(sd_varlink_set_sentinel(link, "io.test.SentinelError"));
         return 0;
 }
@@ -991,7 +999,9 @@ static int fiber_stashed_deferred_reply(sd_event_source *s, void *userdata) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *link = ASSERT_PTR(userdata);
 
         sd_event_source_disable_unref(s);
+        ASSERT_OK_POSITIVE(sd_varlink_wants_reply(link));
         ASSERT_OK(sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("result", "stashed")));
+        ASSERT_OK_ZERO(sd_varlink_wants_reply(link));
         return 0;
 }
 
@@ -1001,6 +1011,7 @@ static int method_fiber_stash(sd_varlink *link, sd_json_variant *parameters, sd_
          * this as a valid deferred-reply case instead of failing the connection. */
         sd_event_source *source;
 
+        ASSERT_OK_POSITIVE(sd_varlink_wants_reply(link));
         ASSERT_OK(sd_event_add_defer(sd_varlink_get_event(link), &source, fiber_stashed_deferred_reply, sd_varlink_ref(link)));
         ASSERT_OK(sd_event_source_set_enabled(source, SD_EVENT_ONESHOT));
         return 0;
@@ -1044,6 +1055,7 @@ static int method_with_fd_sentinel(sd_varlink *link, sd_json_variant *parameters
         _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
 
         ASSERT_TRUE(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
+        ASSERT_OK_POSITIVE(sd_varlink_wants_reply(link));
 
         /* Set a sentinel so sd_varlink_reply() defers sending: each reply and its pushed fds are captured in
          * the queue, and the last one is sent as the final reply when the callback returns. */
@@ -1054,12 +1066,14 @@ static int method_with_fd_sentinel(sd_varlink *link, sd_json_variant *parameters
         ASSERT_OK_EQ(sd_varlink_push_fd(link, fd1), 0);
         TAKE_FD(fd1);
         ASSERT_OK(sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_INTEGER("index", 0)));
+        ASSERT_OK_POSITIVE(sd_varlink_wants_reply(link));
 
         /* Second reply: push one fd with "beta" content */
         ASSERT_OK(fd2 = memfd_new_and_seal_string("data", "beta"));
         ASSERT_OK_EQ(sd_varlink_push_fd(link, fd2), 0);
         TAKE_FD(fd2);
         ASSERT_OK(sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_INTEGER("index", 1)));
+        ASSERT_OK_POSITIVE(sd_varlink_wants_reply(link));
 
         return 0;
 }
@@ -1094,7 +1108,7 @@ static int reply_sentinel_fd(sd_varlink *link, sd_json_variant *parameters, cons
         return 0;
 }
 
-TEST(sentinel_with_fds) {
+static void run_sentinel_with_fds(bool use_fiber) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         ASSERT_OK(sd_event_default(&e));
 
@@ -1103,7 +1117,10 @@ TEST(sentinel_with_fds) {
 
         ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
 
-        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.FDSentinel", method_with_fd_sentinel));
+        if (use_fiber)
+                ASSERT_OK(varlink_server_bind_fiber(s, "io.test.FDSentinel", method_with_fd_sentinel));
+        else
+                ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.FDSentinel", method_with_fd_sentinel));
 
         int connfd[2];
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd));
@@ -1125,10 +1142,22 @@ TEST(sentinel_with_fds) {
         ASSERT_OK(sd_event_loop(e));
 }
 
+TEST(sentinel_with_fds) {
+        run_sentinel_with_fds(/* use_fiber= */ false);
+}
+
+TEST(fiber_sentinel_with_fds) {
+        run_sentinel_with_fds(/* use_fiber= */ true);
+}
+
 static int method_with_notify_then_error(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         /* Send a notify first, then return an error. The notify should be received before the error. */
         ASSERT_OK(sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_STRING("status", "in-progress")));
-        return sd_varlink_error(link, "io.test.OperationFailed", /* parameters= */ NULL);
+        ASSERT_OK_POSITIVE(sd_varlink_wants_reply(link));
+
+        int r = sd_varlink_error(link, "io.test.OperationFailed", /* parameters= */ NULL);
+        ASSERT_OK_ZERO(sd_varlink_wants_reply(link));
+        return r;
 }
 
 static int reply_notify_then_error(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
@@ -1185,10 +1214,13 @@ static int method_upgrade(sd_varlink *link, sd_json_variant *parameters, sd_varl
         int r;
 
         ASSERT_TRUE(FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE));
+        ASSERT_OK_POSITIVE(sd_varlink_wants_reply(link));
 
         r = sd_varlink_reply_and_upgrade(link, /* parameters= */ NULL, &input_fd, &output_fd);
         if (r < 0)
                 return r;
+
+        ASSERT_OK_ZERO(sd_varlink_wants_reply(link));
 
         /* After upgrade, do raw I/O: read until the client shuts down its write side (giving us a clean
          * EOF), reverse what we got, and write it back. Use suspending I/O so other fibers (the client)
@@ -1863,6 +1895,16 @@ static void disconnect_callback(sd_varlink_server *server, sd_varlink *link, voi
         unsigned *counter = ASSERT_PTR(userdata);
 
         (*counter)++;
+}
+
+TEST(is_connected_null) {
+        /* A non-existent connection is not connected */
+        ASSERT_OK_ZERO(sd_varlink_is_connected(NULL));
+}
+
+TEST(wants_reply_null) {
+        /* A non-existent connection wants no reply */
+        ASSERT_OK_ZERO(sd_varlink_wants_reply(NULL));
 }
 
 TEST(add_connection_failure_cleanup) {
