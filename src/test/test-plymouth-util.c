@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "plymouth-util.h"
+#include "strv.h"
 #include "tests.h"
 
 TEST(build_password_packet) {
@@ -25,6 +26,33 @@ TEST(build_password_packet) {
         packet = mfree(packet);
         ASSERT_ERROR(plymouth_build_password_packet(strjoina(message, "x"), &packet, &size), EMSGSIZE);
         ASSERT_NULL(packet);
+}
+
+TEST(parse_password_reply) {
+        _cleanup_strv_free_ char **reply = NULL;
+
+        ASSERT_NOT_NULL(reply = plymouth_parse_password_reply(true, "", 0));
+        ASSERT_TRUE(strv_equal(reply, STRV_MAKE("")));
+        reply = strv_free(reply);
+
+        ASSERT_NOT_NULL(reply = plymouth_parse_password_reply(false, "", 0));
+        ASSERT_TRUE(strv_isempty(reply));
+        reply = strv_free(reply);
+
+        ASSERT_NOT_NULL(reply = plymouth_parse_password_reply(true, "", 1));
+        ASSERT_TRUE(strv_equal(reply, STRV_MAKE("")));
+        reply = strv_free(reply);
+
+        ASSERT_NOT_NULL(reply = plymouth_parse_password_reply(true, "password", sizeof("password")));
+        ASSERT_TRUE(strv_equal(reply, STRV_MAKE("password")));
+        reply = strv_free(reply);
+
+        ASSERT_NOT_NULL(reply = plymouth_parse_password_reply(true, "password", strlen("password")));
+        ASSERT_TRUE(strv_equal(reply, STRV_MAKE("password")));
+        reply = strv_free(reply);
+
+        ASSERT_NOT_NULL(reply = plymouth_parse_password_reply(false, "one\0two", sizeof("one\0two")));
+        ASSERT_TRUE(strv_equal(reply, STRV_MAKE("one", "two")));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
