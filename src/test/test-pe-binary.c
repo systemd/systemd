@@ -146,6 +146,15 @@ static int load_headers_and_sections(
  * of pe_load_headers would read uninitialised heap memory (caught by MSAN
  * under CIFuzz). pe_load_headers must reject such files with -EBADMSG
  * before touching that field. */
+TEST(pe_section_name_is_valid) {
+        ASSERT_TRUE(pe_section_name_is_valid(".linux"));
+        ASSERT_TRUE(pe_section_name_is_valid(".dtbauto"));
+        ASSERT_FALSE(pe_section_name_is_valid(""));
+        ASSERT_FALSE(pe_section_name_is_valid(".toolong9"));
+        ASSERT_FALSE(pe_section_name_is_valid(".a\tb"));
+        ASSERT_FALSE(pe_section_name_is_valid(".\xc3\xa4"));
+}
+
 TEST(pe_load_headers_optional_header_too_small) {
         /* Minimum allowed by the existing magic check is 2 bytes (only
          * IMAGE_OPTIONAL_HEADER.Magic). That is well below the
