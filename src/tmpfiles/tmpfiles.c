@@ -3416,6 +3416,7 @@ static bool item_instance_needs_cleanup(
                 return false;
 
         usec_t cutoff = n - i->age;
+        nsec_t cutoff_nsec = i->age == 0 ? NSEC_INFINITY : cutoff * NSEC_PER_USEC;
         nsec_t atime_nsec = FLAGS_SET(sx->stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx->stx_atime) : NSEC_INFINITY;
         nsec_t mtime_nsec = FLAGS_SET(sx->stx_mask, STATX_MTIME) ? statx_timestamp_load_nsec(&sx->stx_mtime) : NSEC_INFINITY;
         nsec_t ctime_nsec = FLAGS_SET(sx->stx_mask, STATX_CTIME) ? statx_timestamp_load_nsec(&sx->stx_ctime) : NSEC_INFINITY;
@@ -3423,7 +3424,7 @@ static bool item_instance_needs_cleanup(
         bool is_dir = S_ISDIR(sx->stx_mode);
 
         return needs_cleanup(atime_nsec, btime_nsec, ctime_nsec, mtime_nsec,
-                             cutoff * NSEC_PER_USEC, instance,
+                             cutoff_nsec, instance,
                              is_dir ? i->age_by_dir : i->age_by_file, is_dir);
 }
 
@@ -3803,6 +3804,7 @@ static int clean_item_instance_from_dir(
                 return 0;
 
         usec_t cutoff = n - i->age;
+        nsec_t cutoff_nsec = i->age == 0 ? NSEC_INFINITY : cutoff * NSEC_PER_USEC;
         nsec_t atime_nsec = FLAGS_SET(sx->stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx->stx_atime) : NSEC_INFINITY;
         nsec_t mtime_nsec = FLAGS_SET(sx->stx_mask, STATX_MTIME) ? statx_timestamp_load_nsec(&sx->stx_mtime) : NSEC_INFINITY;
 
@@ -3820,14 +3822,14 @@ static int clean_item_instance_from_dir(
                 log_debug("Cleanup threshold for %s \"%s\" is %s; age-by: %s%s",
                           mountpoint ? "mount point" : "directory",
                           instance,
-                          FORMAT_TIMESTAMP_STYLE(cutoff, TIMESTAMP_US),
+                          i->age == 0 ? "unconditionally" : FORMAT_TIMESTAMP_STYLE(cutoff, TIMESTAMP_US),
                           ab_f, ab_d);
         }
 
         return dir_cleanup(c, i, instance, d,
                            atime_nsec,
                            mtime_nsec,
-                           cutoff * NSEC_PER_USEC,
+                           cutoff_nsec,
                            sx->stx_dev_major, sx->stx_dev_minor,
                            mountpoint,
                            MAX_DEPTH, i->keep_first_level,
