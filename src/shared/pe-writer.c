@@ -15,8 +15,6 @@
 #include "pe-binary.h"
 #include "pe-writer.h"
 #include "stat-util.h"
-#include "string-util.h"
-#include "utf8.h"
 
 /* Real PE images have a few KiB of headers. The limit stops a malformed SizeOfHeaders from allocating a
  * large buffer. */
@@ -321,9 +319,7 @@ int pe_writer_add_section(PeWriter *w, const char *name, uint32_t characteristic
         assert(w);
         assert(name);
 
-        /* Longer names would need the COFF string table, which systemd-stub does not read. */
-        if (isempty(name) || strlen(name) > sizeof_field(IMAGE_SECTION_HEADER, Name) ||
-            !ascii_is_valid(name) || string_has_cc(name, /* ok= */ NULL))
+        if (!pe_section_name_is_valid(name))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid PE section name '%s'.", name);
 
         /* New sections would be placed after the certificate table, which has to stay at the end of the

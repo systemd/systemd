@@ -59,6 +59,12 @@ bool pe_header_is_signed(const PeHeader *h) {
         return certificate_table && le32toh(certificate_table->VirtualAddress) != 0;
 }
 
+bool pe_section_name_is_valid(const char *name) {
+        /* Longer names would need the COFF string table, which systemd-stub doesn't read. */
+        return string_is_safe(name, STRING_ASCII|STRING_ALLOW_BACKSLASHES|STRING_ALLOW_QUOTES|STRING_ALLOW_GLOBS) &&
+                strlen(name) <= sizeof_field(IMAGE_SECTION_HEADER, Name);
+}
+
 const IMAGE_SECTION_HEADER* pe_section_table_find(
                 const IMAGE_SECTION_HEADER *sections,
                 size_t n_sections,
