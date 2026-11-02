@@ -652,6 +652,92 @@ void varlink_job_send_removed_signal(Job *j) {
         j->varlink = sd_varlink_unref(j->varlink);
 }
 
+/* A daemon-reload frees all jobs and units and deserializes them anew, while the varlink connections stay
+ * open. The watchers are handed over by job ID; that also covers the unit change subscription, as one
+ * only exists alongside a job watcher on the same connection, see varlink_reply_or_watch_unit_job(). */
+typedef struct JobWatcher {
+        sd_varlink *link;
+        bool notify_job_changes;
+        bool notify_unit_changes;
+} JobWatcher;
+
+static JobWatcher* job_watcher_free(JobWatcher *w) {
+        if (!w)
+                return NULL;
+
+        /* Not handed back to a job: close the connection rather than leave the client waiting for a final
+         * reply that never comes. */
+        sd_varlink_close_unref(w->link);
+        return mfree(w);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(JobWatcher*, job_watcher_free);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                job_watcher_hash_ops,
+                void, trivial_hash_func, trivial_compare_func,
+                JobWatcher, job_watcher_free);
+
+Hashmap* varlink_job_watchers_stash(Manager *m) {
+        _cleanup_hashmap_free_ Hashmap *watchers = NULL;
+        Job *j;
+
+        assert(m);
+
+        HASHMAP_FOREACH(j, m->jobs) {
+                if (!j->varlink)
+                        continue;
+
+                _cleanup_(job_watcher_freep) JobWatcher *w = new(JobWatcher, 1);
+                if (!w) {
+                        (void) log_oom();
+                        j->varlink = sd_varlink_close_unref(j->varlink);
+                        continue;
+                }
+
+                bool notify_unit_changes = j->unit->varlink_unit_change == j->varlink;
+                *w = (JobWatcher) {
+                        .link = TAKE_PTR(j->varlink),
+                        .notify_job_changes = j->varlink_notify_job_changes,
+                        .notify_unit_changes = notify_unit_changes,
+                };
+                if (notify_unit_changes)
+                        j->unit->varlink_unit_change = sd_varlink_unref(j->unit->varlink_unit_change);
+
+                if (hashmap_ensure_put(&watchers, &job_watcher_hash_ops, UINT32_TO_PTR(j->id), w) < 0) {
+                        (void) log_oom();
+                        continue;
+                }
+                TAKE_PTR(w);
+        }
+
+        return TAKE_PTR(watchers);
+}
+
+void varlink_job_watchers_restore(Manager *m, Hashmap *watchers) {
+        JobWatcher *w;
+        void *id;
+
+        assert(m);
+
+        while ((w = hashmap_steal_first_key_and_value(watchers, &id))) {
+                _cleanup_(job_watcher_freep) JobWatcher *watcher = w;
+
+                Job *j = hashmap_get(m->jobs, id);
+                if (!j) {
+                        log_debug("Job %" PRIu32 " did not survive the reload, closing its varlink watcher.",
+                                  PTR_TO_UINT32(id));
+                        continue;
+                }
+
+                assert(!j->varlink);
+                j->varlink = TAKE_PTR(watcher->link);
+                j->varlink_notify_job_changes = watcher->notify_job_changes;
+                if (watcher->notify_unit_changes && !j->unit->varlink_unit_change)
+                        j->unit->varlink_unit_change = sd_varlink_ref(j->varlink);
+        }
+}
+
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_job_mode, JobMode, job_mode_from_string);
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_collect_mode, CollectMode, collect_mode_from_string);
 static DEFINE_VARLINK_APPLY_ENUM(collect_mode, CollectMode, collect_mode_to_string);

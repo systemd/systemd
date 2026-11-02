@@ -34,4 +34,7 @@ void varlink_unit_send_change_signal(Unit *u);
 void varlink_job_send_change_signal(Job *j);
 void varlink_job_send_removed_signal(Job *j);
 
+Hashmap* varlink_job_watchers_stash(Manager *m);
+void varlink_job_watchers_restore(Manager *m, Hashmap *watchers);
+
 int varlink_error_no_such_unit(sd_varlink *v, const char *name);

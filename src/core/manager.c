@@ -3959,6 +3959,7 @@ int manager_override_watchdog_pretimeout_governor(Manager *m, const char *govern
 int manager_reload(Manager *m) {
         _unused_ _cleanup_(manager_reloading_stopp) Manager *reloading = NULL;
         _cleanup_strv_free_ char **saved_subscribed_as_strv = NULL;
+        _cleanup_hashmap_free_ Hashmap *varlink_job_watchers = NULL;
         _cleanup_fdset_free_ FDSet *fds = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         sd_id128_t saved_deserialized_bus_id;
@@ -3996,8 +3997,9 @@ int manager_reload(Manager *m) {
 
         /* Start by flushing out all jobs and units, all generated units, all runtime environments, all dynamic users
          * and everything else that is worth flushing out. We'll get it all back from the serialization — if we need
-         * it. */
+         * it. Only the varlink connections for streaming job updates stay, take them off the jobs first. */
 
+        varlink_job_watchers = varlink_job_watchers_stash(m);
         manager_clear_jobs_and_units(m);
         lookup_paths_flush_generator(&m->lookup_paths);
         exec_shared_runtime_vacuum(m);
@@ -4024,6 +4026,8 @@ int manager_reload(Manager *m) {
         r = manager_deserialize(m, f, fds);
         if (r < 0)
                 log_warning_errno(r, "Deserialization failed, proceeding anyway: %m");
+
+        varlink_job_watchers_restore(m, varlink_job_watchers);
 
         /* We don't need the serialization anymore */
         f = safe_fclose(f);
