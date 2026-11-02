@@ -630,26 +630,45 @@ void varlink_job_send_change_signal(Job *j) {
                         SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j));
 }
 
+void varlink_job_detach_client(Job *j) {
+        assert(j);
+        assert(j->unit);
+
+        /* Only drop the unit change subscription if it belongs to this very method call. A unit can carry
+         * two jobs at the same time (the regular one and a NOP one), which may be watched by two different
+         * connections. Detaching one client must not tear down the other one's subscription. */
+        if (j->unit->varlink_unit_change == j->varlink)
+                j->unit->varlink_unit_change = sd_varlink_unref(j->unit->varlink_unit_change);
+
+        j->varlink = sd_varlink_unref(j->varlink);
+        j->varlink_notify_job_changes = false;
+}
+
 void varlink_job_send_removed_signal(Job *j) {
         assert(j);
 
         if (!j->varlink)
                 return;
 
+        int r;
+        /* keep link object to reference it after varlink_job_detach_client() */
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = sd_varlink_ref(j->varlink);
+
         /* Send the final reply, which completes the method call */
-        (void) sd_varlink_replybo(
+        r = sd_varlink_replybo(
                         j->varlink,
                         SD_JSON_BUILD_PAIR_CALLBACK("context", unit_context_build_json, j->unit),
                         SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, j->unit),
                         SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j));
 
-        /* Only drop the unit change subscription if it belongs to this very method call. A unit can carry
-         * two jobs at the same time (the regular one and a NOP one), which may be watched by two different
-         * connections, and the one finishing here must not tear down the other one's subscription. */
-        if (j->unit->varlink_unit_change == j->varlink)
-                j->unit->varlink_unit_change = sd_varlink_unref(j->unit->varlink_unit_change);
+        varlink_job_detach_client(j);
 
-        j->varlink = sd_varlink_unref(j->varlink);
+        if (r < 0) {
+                log_unit_debug_errno(j->unit, r, "Failed to send final varlink job reply, closing connection: %m");
+                /* The job is going away, so nobody can finish this call if queuing the final reply failed.
+                 * Disconnect to ensure the client doesn't keep waiting. */
+                (void) sd_varlink_close(link);
+        }
 }
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_job_mode, JobMode, job_mode_from_string);
