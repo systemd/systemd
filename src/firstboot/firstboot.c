@@ -1479,12 +1479,20 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_GROUP("Settings"): {}
 
                 OPTION_LONG("locale", "LOCALE", "Set primary locale (LANG=)"):
+                        if (!locale_is_valid(opts.arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Locale %s is not valid.", opts.arg);
+
                         r = free_and_strdup_warn(&arg_locale, opts.arg);
                         if (r < 0)
                                 return r;
                         break;
 
                 OPTION_LONG("locale-messages", "LOCALE", "Set message locale (LC_MESSAGES=)"):
+                        if (!locale_is_valid(opts.arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Locale %s is not valid.", opts.arg);
+
                         r = free_and_strdup_warn(&arg_locale_messages, opts.arg);
                         if (r < 0)
                                 return r;
@@ -1571,6 +1579,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("root-shell", "SHELL", "Set root shell"):
+                        if (!valid_shell(opts.arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "%s is not a valid shell.", opts.arg);
+
                         r = free_and_strdup_warn(&arg_root_shell, opts.arg);
                         if (r < 0)
                                 return r;
