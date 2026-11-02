@@ -460,8 +460,9 @@ void manager_process_audit_message(
         if (IN_SET(nl->nlmsg_type, NLMSG_NOOP, NLMSG_ERROR))
                 return;
 
-        /* Except AUDIT_USER, all messages below AUDIT_FIRST_USER_MSG are control messages, let's ignore those */
-        if (nl->nlmsg_type < AUDIT_FIRST_USER_MSG && nl->nlmsg_type != AUDIT_USER)
+        /* Except AUDIT_USER and AUDIT_LOGIN, all messages below AUDIT_FIRST_USER_MSG are control messages,
+         * let's ignore those */
+        if (nl->nlmsg_type < AUDIT_FIRST_USER_MSG && !IN_SET(nl->nlmsg_type, AUDIT_USER, AUDIT_LOGIN))
                 return;
 
         process_audit_string(m, nl->nlmsg_type, NLMSG_DATA(nl), nl->nlmsg_len - ALIGN(sizeof(struct nlmsghdr)));
