@@ -1304,8 +1304,22 @@ int manager_set_hostname(Manager *m, const char *hostname) {
         return 0;
 }
 
+typedef struct TimezoneCall {
+        Manager *manager;
+        uint64_t generation;
+} TimezoneCall;
+
+static void timezone_call_free(void *userdata) {
+        TimezoneCall *call = userdata;
+
+        if (!call)
+                return;
+
+        free(call);
+}
+
 static int set_timezone_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
-        Manager *manager = ASSERT_PTR(userdata);
+        TimezoneCall *call = ASSERT_PTR(userdata);
         const sd_bus_error *e;
         int r;
 
@@ -1316,14 +1330,16 @@ static int set_timezone_handler(sd_bus_message *m, void *userdata, sd_bus_error 
                 r = sd_bus_error_get_errno(e);
                 log_warning_errno(r, "Could not set timezone: %s", bus_error_message(e, r));
 
-                /* Forget the cached zone, so that the next lease retries. */
-                manager->dynamic_timezone = mfree(manager->dynamic_timezone);
+                /* Forget the cached zone only if this is still the latest request. */
+                manager_timezone_request_failed(call->manager, call->generation);
         }
 
         return 1;
 }
 
 static int manager_send_timezone(Manager *m) {
+        _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
+        TimezoneCall *call;
         int r;
 
         assert(m);
@@ -1334,18 +1350,37 @@ static int manager_send_timezone(Manager *m) {
                 return 0;
         }
 
+        call = new0(TimezoneCall, 1);
+        if (!call)
+                return log_oom();
+
+        call->manager = m;
+        call->generation = ++m->dynamic_timezone_generation;
+
         r = bus_call_method_async(
                         m->bus,
-                        /* ret_slot= */ NULL,
+                        &slot,
                         bus_timedate,
                         "SetTimezone",
                         set_timezone_handler,
-                        m,
+                        call,
                         "sb",
                         m->dynamic_timezone,
                         false);
-        if (r < 0)
+        if (r < 0) {
+                timezone_call_free(call);
                 return log_error_errno(r, "Could not set timezone: %m");
+        }
+
+        r = sd_bus_slot_set_destroy_callback(slot, timezone_call_free);
+        if (r < 0) {
+                timezone_call_free(call);
+                return log_error_errno(r, "Could not track timezone request: %m");
+        }
+
+        r = sd_bus_slot_set_floating(slot, true);
+        if (r < 0)
+                return log_error_errno(r, "Could not track timezone request: %m");
 
         return 0;
 }
@@ -1366,6 +1401,7 @@ int manager_set_timezone(Manager *m, const char *tz) {
         if (r < 0)
                 return r;
 
+        m->dynamic_timezone_generation++;
         r = manager_send_timezone(m);
         if (r < 0) {
                 /* Forget the cached zone, so that the next lease retries. */
