@@ -36,6 +36,16 @@ runas testuser busctl call org.freedesktop.portable1 /org/freedesktop/portable1 
     grep -E "Permission denied|Access denied" >/dev/null
 rm /run/portables/minimal_8.raw /run/portables/app0.raw
 
+# Reattaching and detaching an image in the image search path must not remove the image.
+cp /usr/share/minimal_0.raw /run/portables/minimal_7.raw
+portablectl "${ARGS[@]}" attach --runtime /run/portables/minimal_7.raw minimal-app0
+portablectl "${ARGS[@]}" reattach --runtime /run/portables/minimal_7.raw minimal-app0
+test -f /run/portables/minimal_7.raw
+test ! -L /run/portables/minimal_7.raw
+portablectl detach --runtime /run/portables/minimal_7.raw minimal-app0
+test -f /run/portables/minimal_7.raw
+rm /run/portables/minimal_7.raw
+
 # Attaching with a profile that doesn't exist must fail and must not leave anything behind
 (! portablectl attach --runtime --profile=nonexistent /usr/share/minimal_0.raw minimal-app0)
 test ! -e /run/systemd/system.attached/minimal-app0.service
