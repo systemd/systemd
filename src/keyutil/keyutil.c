@@ -264,8 +264,12 @@ static int verb_extract_certificate(int argc, char *argv[], uintptr_t _data, voi
         if (r < 0)
                 return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
 
-        if (sym_PEM_write_X509(stdout, certificate) == 0)
-                return log_openssl_errors(LOG_ERR, "Failed to write certificate to stdout.");
+        _cleanup_free_ char *pem = NULL;
+        r = x509_to_pem(certificate, &pem);
+        if (r < 0)
+                return log_error_errno(r, "Failed to convert certificate to PEM: %m");
+
+        fputs(pem, stdout);
 
         return 0;
 }
