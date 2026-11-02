@@ -7569,7 +7569,7 @@ static int partition_manifest_prepare(Context *context, Partition *p) {
         assert(p->manifest_fd < 0);
         assert(!p->manifest_tmp_path);
 
-        p->manifest_fd = open_tmpfile_linkable(context->node, O_RDWR|O_CLOEXEC, &p->manifest_tmp_path);
+        p->manifest_fd = open_tmpfile_linkable(context->node, O_RDWR, &p->manifest_tmp_path);
         if (p->manifest_fd < 0)
                 return log_error_errno(p->manifest_fd, "Failed to create temporary file for manifest: %m");
 
@@ -7593,9 +7593,9 @@ static int partition_manifest_write(Context *context, Partition *p, const char *
 
         log_info("Generating manifest of %s filesystem.", p->format);
 
-        _cleanup_close_ int dir_fd = open(root, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        _cleanup_close_ int dir_fd = xopenat(AT_FDCWD, root, O_DIRECTORY|O_NOFOLLOW);
         if (dir_fd < 0)
-                return log_error_errno(errno, "Failed to open populated tree '%s': %m", root);
+                return log_error_errno(dir_fd, "Failed to open populated tree '%s': %m", root);
 
         _cleanup_close_ int dup_fd = fcntl(p->manifest_fd, F_DUPFD_CLOEXEC, 3);
         if (dup_fd < 0)
@@ -9025,7 +9025,7 @@ static int context_manifest_gpt(Context *context) {
                 return log_error_errno(r, "Failed to extract filename from %s: %m", context->node);
 
         /* Write to a temporary file first, and link it into place only once complete */
-        r = fopen_tmpfile_linkable(path, O_WRONLY|O_CLOEXEC, &tmp_path, &f);
+        r = fopen_tmpfile_linkable(path, O_WRONLY, &tmp_path, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to create temporary file for partition table manifest %s: %m", path);
 
