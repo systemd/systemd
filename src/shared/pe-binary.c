@@ -4,9 +4,12 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "copy.h"
 #include "crypto-util.h"
+#include "fd-util.h"
 #include "hexdecoct.h"
 #include "log.h"
+#include "memfd-util.h"
 #include "pe-binary.h"
 #include "sort-util.h"
 #include "stat-util.h"
@@ -354,6 +357,35 @@ int pe_read_section_data(
         }
 
         return 0;
+}
+
+int pe_section_to_memfd(int fd, const IMAGE_SECTION_HEADER *section, const char *name) {
+        int r;
+
+        assert(fd >= 0);
+        assert(section);
+        assert(name);
+
+        uint64_t offset = le32toh(section->PointerToRawData);
+        uint32_t size = MIN(le32toh(section->VirtualSize), le32toh(section->SizeOfRawData));
+
+        _cleanup_close_ int memfd = memfd_new(name);
+        if (memfd < 0)
+                return memfd;
+
+        /* copy_bytes_offset() can't use sendfile() when a target offset is given. copy_file_range() fails
+         * with EXDEV when the UKI is on another file system, and the copy then falls back to read() and
+         * pwrite(). Nothing else uses the memfd, so we write at its file offset instead. */
+        r = copy_bytes_offset(fd, &offset, memfd, /* toffset= */ NULL, size, /* copy_flags= */ 0);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EBADMSG;
+
+        if (lseek(memfd, 0, SEEK_SET) < 0)
+                return -errno;
+
+        return TAKE_FD(memfd);
 }
 
 int pe_read_section_data_by_name(
