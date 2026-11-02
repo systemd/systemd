@@ -2627,6 +2627,8 @@ _public_ void sd_journal_close(sd_journal *j) {
 
         set_free(j->exclude_syslog_identifiers);
 
+        catalog_file_free(j->catalog);
+
         free(j->path);
         free(j->prefix);
         free(j->namespace);
@@ -3805,11 +3807,35 @@ static char *lookup_field(const char *field, void *userdata) {
         return strndup((const char*) data + d, size - d);
 }
 
+static int journal_get_catalog_file(sd_journal *j, CatalogFile **ret) {
+        int r;
+
+        assert(j);
+        assert(ret);
+
+        if (j->catalog) {
+                *ret = j->catalog;
+                return 0;
+        }
+
+        if (j->catalog_error < 0)
+                return j->catalog_error;
+
+        r = catalog_file_open(secure_getenv("SYSTEMD_CATALOG") ?: CATALOG_DATABASE, &j->catalog);
+        if (r < 0)
+                return (j->catalog_error = r);
+
+        *ret = j->catalog;
+        return 0;
+}
+
 _public_ int sd_journal_get_catalog(sd_journal *j, char **ret) {
         const void *data;
         size_t size;
         sd_id128_t id;
-        _cleanup_free_ char *text = NULL, *cid = NULL;
+        _cleanup_free_ char *cid = NULL;
+        CatalogFile *c;
+        const char *text;
         char *t;
         int r;
 
@@ -3829,7 +3855,11 @@ _public_ int sd_journal_get_catalog(sd_journal *j, char **ret) {
         if (r < 0)
                 return r;
 
-        r = catalog_get(secure_getenv("SYSTEMD_CATALOG") ?: CATALOG_DATABASE, id, &text);
+        r = journal_get_catalog_file(j, &c);
+        if (r < 0)
+                return r;
+
+        r = catalog_file_lookup(c, id, &text);
         if (r < 0)
                 return r;
 
