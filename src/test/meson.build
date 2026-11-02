@@ -97,6 +97,7 @@ simple_tests += files(
         'test-devnum-util.c',
         'test-dirent-util.c',
         'test-discover-image.c',
+        'test-dm-util.c',
         'test-dns-domain.c',
         'test-ellipsize.c',
         'test-env-file.c',
