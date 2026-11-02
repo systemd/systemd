@@ -900,6 +900,8 @@ static int varlink_reply_or_watch_unit_job(
                 bool notify_job_changes,
                 bool notify_unit_changes) {
 
+        int r;
+
         assert(link);
         assert(u);
         assert(j);
@@ -928,10 +930,13 @@ static int varlink_reply_or_watch_unit_job(
         /* Send initial job state notification if requested. Unit state change notifications are not sent
          * here; they will arrive via varlink_unit_send_change_signal() when the unit actually transitions,
          * matching D-Bus PropertiesChanged behavior. */
-        if (notify_job_changes)
-                return sd_varlink_notifybo(
+        if (notify_job_changes) {
+                r = sd_varlink_notifybo(
                                 link,
                                 SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j));
+                if (r < 0)
+                        log_unit_debug_errno(u, r, "Failed to send varlink job notification, ignoring: %m");
+        }
 
         return 0;
 }
