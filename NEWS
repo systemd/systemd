@@ -91,6 +91,15 @@ CHANGES WITH 263 in spe:
           setting up Verity, or if the client's image policy doesn't
           overlap with its own.
 
+        * By default, the image policies that portablectl attach and reattach
+          generate only pin the file system type of each partition, the
+          partition flags and which partitions exist. The new
+          --pin-protection=yes option also pins the dm-verity protection and
+          the signature of the attached images, as before. With
+          --pin-protection=yes, portablectl attach refuses images whose
+          dm-verity signature the host doesn't trust, instead of failing when
+          the service starts.
+
         * systemd-networkd and networkctl have been merged into a single
           multi-call binary, with the former becoming a symlink to the latter.
           This should generally be invisible to users, but some packaging and
