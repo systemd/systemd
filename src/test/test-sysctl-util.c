@@ -72,4 +72,32 @@ TEST(sysctl_read) {
         assert_se(r >= 0 || ERRNO_IS_NEG_FS_WRITE_REFUSED(r));
 }
 
+TEST(sysctl_read_int) {
+        unsigned u;
+        uint32_t u32;
+        uint64_t u64;
+        unsigned long lu;
+        int i;
+
+        ASSERT_OK(sysctl_read_int("kernel/pid_max", &i));
+        ASSERT_GT(i, 0);
+        ASSERT_OK(sysctl_read_unsigned("kernel/pid_max", &u));
+        ASSERT_EQ(u, (unsigned) i);
+        ASSERT_OK(sysctl_read_uint32("kernel/pid_max", &u32));
+        ASSERT_EQ(u32, (uint32_t) i);
+        ASSERT_OK(sysctl_read_uint64("kernel/pid_max", &u64));
+        ASSERT_EQ(u64, (uint64_t) i);
+        ASSERT_OK(sysctl_read_lu("kernel/pid_max", &lu));
+        ASSERT_EQ(lu, (unsigned long) i);
+
+        ASSERT_ERROR(sysctl_read_int("kernel/random/boot_id", &i), EINVAL);
+        ASSERT_ERROR(sysctl_read_unsigned("kernel/random/boot_id", &u), EINVAL);
+        ASSERT_ERROR(sysctl_read_uint64("kernel/random/boot_id", &u64), EINVAL);
+        ASSERT_ERROR(sysctl_read_lu("kernel/random/boot_id", &lu), EINVAL);
+        ASSERT_ERROR(sysctl_read_int("kernel/this-does-not-exist", &i), ENOENT);
+        ASSERT_ERROR(sysctl_read_unsigned("kernel/this-does-not-exist", &u), ENOENT);
+        ASSERT_ERROR(sysctl_read_uint64("kernel/this-does-not-exist", &u64), ENOENT);
+        ASSERT_ERROR(sysctl_read_lu("kernel/this-does-not-exist", &lu), ENOENT);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
