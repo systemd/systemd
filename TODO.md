@@ -35,7 +35,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   - **zsh:**
     - `<command> <verb> -<TAB>` should complete options, but currently does not
     - systemctl add-wants,add-requires
-    - systemctl reboot --boot-loader-entry=
 
 - systemctl status should know about 'systemd-analyze calendar ... --iterations='
 - If timer has just OnInactiveSec=..., it should fire after a specified time
