@@ -190,24 +190,24 @@ static void test_config_parse_address_one(const char *rvalue, int family, unsign
         _cleanup_(manager_freep) Manager *manager = NULL;
         _cleanup_(network_unrefp) Network *network = NULL;
 
-        assert_se(manager_new(&manager, /* test_mode= */ true) >= 0);
-        assert_se(network = new0(Network, 1));
+        ASSERT_OK(manager_new(&manager, /* test_mode= */ true));
+        ASSERT_NOT_NULL(network = new0(Network, 1));
         network->n_ref = 1;
         network->manager = manager;
-        assert_se(network->filename = strdup("hogehoge.network"));
+        ASSERT_NOT_NULL(network->filename = strdup("hogehoge.network"));
 
-        assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", /* ltype= */ 0, "*", &network->match.ifname, network) == 0);
-        assert_se(config_parse_address_section("network", "filename", 1, "section", 1, "Address", ADDRESS_ADDRESS, rvalue, network, network) == 0);
-        assert_se(ordered_hashmap_size(network->addresses_by_section) == 1);
-        assert_se(network_verify(network) >= 0);
-        assert_se(ordered_hashmap_size(network->addresses_by_section) == n_addresses);
+        ASSERT_OK_ZERO(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", /* ltype= */ 0, "*", &network->match.ifname, network));
+        ASSERT_OK_ZERO(config_parse_address_section("network", "filename", 1, "section", 1, "Address", ADDRESS_ADDRESS, rvalue, network, network));
+        ASSERT_EQ(ordered_hashmap_size(network->addresses_by_section), 1U);
+        ASSERT_OK(network_verify(network));
+        ASSERT_EQ(ordered_hashmap_size(network->addresses_by_section), n_addresses);
         if (n_addresses > 0) {
                 Address *a;
 
-                assert_se(a = ordered_hashmap_first(network->addresses_by_section));
-                assert_se(a->prefixlen == prefixlen);
-                assert_se(a->family == family);
-                assert_se(in_addr_equal(family, &a->in_addr, u));
+                ASSERT_NOT_NULL(a = ordered_hashmap_first(network->addresses_by_section));
+                ASSERT_EQ(a->prefixlen, prefixlen);
+                ASSERT_EQ(a->family, family);
+                ASSERT_OK_POSITIVE(in_addr_equal(family, &a->in_addr, u));
                 /* TODO: check Address.in_addr and Address.broadcast */
         }
 }
@@ -360,9 +360,9 @@ TEST(config_parse_dhcp_static_lease) {
 TEST(config_parse_match_ifnames) {
         _cleanup_strv_free_ char **names = NULL;
 
-        assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", /* ltype= */ 0, "!hoge hogehoge foo", &names, /* userdata= */ NULL) == 0);
-        assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", /* ltype= */ 0, "!baz", &names, /* userdata= */ NULL) == 0);
-        assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", /* ltype= */ 0, "aaa bbb ccc", &names, /* userdata= */ NULL) == 0);
+        ASSERT_OK_ZERO(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", /* ltype= */ 0, "!hoge hogehoge foo", &names, /* userdata= */ NULL));
+        ASSERT_OK_ZERO(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", /* ltype= */ 0, "!baz", &names, /* userdata= */ NULL));
+        ASSERT_OK_ZERO(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", /* ltype= */ 0, "aaa bbb ccc", &names, /* userdata= */ NULL));
 
         ASSERT_STRV_EQ(names, STRV_MAKE("!hoge", "!hogehoge", "!foo", "!baz", "aaa", "bbb", "ccc"));
 }
@@ -370,10 +370,10 @@ TEST(config_parse_match_ifnames) {
 TEST(config_parse_match_strv) {
         _cleanup_strv_free_ char **names = NULL;
 
-        assert_se(config_parse_match_strv("network", "filename", 1, "section", 1, "Name", /* ltype= */ 0, "!hoge hogehoge foo", &names, /* userdata= */ NULL) == 0);
-        assert_se(config_parse_match_strv("network", "filename", 1, "section", 1, "Name", /* ltype= */ 0, "!baz", &names, /* userdata= */ NULL) == 0);
-        assert_se(config_parse_match_strv("network", "filename", 1, "section", 1, "Name", /* ltype= */ 0,
-                                          "KEY=val \"KEY2=val with space\" \"KEY3=val with \\\"quotation\\\"\"", &names, /* userdata= */ NULL) == 0);
+        ASSERT_OK_ZERO(config_parse_match_strv("network", "filename", 1, "section", 1, "Name", /* ltype= */ 0, "!hoge hogehoge foo", &names, /* userdata= */ NULL));
+        ASSERT_OK_ZERO(config_parse_match_strv("network", "filename", 1, "section", 1, "Name", /* ltype= */ 0, "!baz", &names, /* userdata= */ NULL));
+        ASSERT_OK_ZERO(config_parse_match_strv("network", "filename", 1, "section", 1, "Name", /* ltype= */ 0,
+                                               "KEY=val \"KEY2=val with space\" \"KEY3=val with \\\"quotation\\\"\"", &names, /* userdata= */ NULL));
 
         ASSERT_STRV_EQ(names,
                        STRV_MAKE("!hoge",

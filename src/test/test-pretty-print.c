@@ -41,21 +41,21 @@ TEST(draw_cylon) {
 TEST(terminal_urlify) {
         _cleanup_free_ char *formatted = NULL;
 
-        assert_se(terminal_urlify("https://www.freedesktop.org/wiki/Software/systemd", "systemd homepage", &formatted) >= 0);
+        ASSERT_OK(terminal_urlify("https://www.freedesktop.org/wiki/Software/systemd", "systemd homepage", &formatted));
         printf("Hey, consider visiting the %s right now! It is very good!\n", formatted);
 
         formatted = mfree(formatted);
 
-        assert_se(terminal_urlify_path("/etc/fstab", "this link to your /etc/fstab", &formatted) >= 0);
+        ASSERT_OK(terminal_urlify_path("/etc/fstab", "this link to your /etc/fstab", &formatted));
         printf("Or click on %s to have a look at it!\n", formatted);
 }
 
 TEST(cat_files) {
-        assert_se(cat_files("/no/such/file", /* dropins= */ NULL, /* flags= */ 0) == -ENOENT);
-        assert_se(cat_files(/* file= */ NULL, /* dropins= */ NULL, /* flags= */ 0) == 0);
+        ASSERT_ERROR(cat_files("/no/such/file", /* dropins= */ NULL, /* flags= */ 0), ENOENT);
+        ASSERT_OK_ZERO(cat_files(/* file= */ NULL, /* dropins= */ NULL, /* flags= */ 0));
 
         if (access("/etc/fstab", R_OK) >= 0)
-                assert_se(cat_files("/etc/fstab", STRV_MAKE("/etc/fstab", "/etc/fstab"), /* flags= */ 0) == 0);
+                ASSERT_OK_ZERO(cat_files("/etc/fstab", STRV_MAKE("/etc/fstab", "/etc/fstab"), /* flags= */ 0));
 
         /* Test masked file (symlink to /dev/null) - should succeed with exit code 0 */
         _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;

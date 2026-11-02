@@ -30,38 +30,38 @@ TEST(set_type) {
         const char* types[] = {"tty", "x11", "wayland", "mir", "web"};
         _cleanup_free_ char *type = NULL, *type2 = NULL;
 
-        assert_se(sd_bus_open_system(&bus) >= 0);
+        ASSERT_OK(sd_bus_open_system(&bus));
 
         /* Default type is set */
-        assert_se(bus_get_property_string(bus, &session, "Type", /* reterr_error= */ NULL, &type) >= 0);
-        assert_se(streq(type, "tty"));
+        ASSERT_OK(bus_get_property_string(bus, &session, "Type", /* reterr_error= */ NULL, &type));
+        ASSERT_STREQ(type, "tty");
 
         /* Type can only be set by the session controller (which we're not ATM) */
-        assert_se(bus_call_method(bus, &session, "SetType", &error, /* ret_reply= */ NULL, "s", "x11") < 0);
-        assert_se(sd_bus_error_has_name(&error, BUS_ERROR_NOT_IN_CONTROL));
+        ASSERT_FAIL(bus_call_method(bus, &session, "SetType", &error, /* ret_reply= */ NULL, "s", "x11"));
+        ASSERT_TRUE(sd_bus_error_has_name(&error, BUS_ERROR_NOT_IN_CONTROL));
 
-        assert_se(bus_call_method(bus, &session, "TakeControl", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "b", true) >= 0);
+        ASSERT_OK(bus_call_method(bus, &session, "TakeControl", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "b", true));
 
         /* All defined session types can be set */
         FOREACH_ELEMENT(i, types) {
                 type = mfree(type);
-                assert_se(bus_call_method(bus, &session, "SetType", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "s", *i) >= 0);
-                assert_se(bus_get_property_string(bus, &session, "Type", /* reterr_error= */ NULL, &type) >= 0);
-                assert_se(streq(type, *i));
+                ASSERT_OK(bus_call_method(bus, &session, "SetType", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "s", *i));
+                ASSERT_OK(bus_get_property_string(bus, &session, "Type", /* reterr_error= */ NULL, &type));
+                ASSERT_STREQ(type, *i);
         }
 
         /* An unknown type is rejected */
         sd_bus_error_free(&error);
-        assert_se(bus_call_method(bus, &session, "SetType", &error, /* ret_reply= */ NULL, "s", "hello") < 0);
-        assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS));
-        assert_se(bus_get_property_string(bus, &session, "Type", /* reterr_error= */ NULL, &type2) >= 0);
+        ASSERT_FAIL(bus_call_method(bus, &session, "SetType", &error, /* ret_reply= */ NULL, "s", "hello"));
+        ASSERT_TRUE(sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS));
+        ASSERT_OK(bus_get_property_string(bus, &session, "Type", /* reterr_error= */ NULL, &type2));
 
         /* Type is reset to the original value when we release control of the session */
-        assert_se(!streq(type, "tty"));
-        assert_se(bus_call_method(bus, &session, "ReleaseControl", /* reterr_error= */ NULL, /* ret_reply= */ NULL, /* types= */ NULL) >= 0);
+        ASSERT_NOT_STREQ(type, "tty");
+        ASSERT_OK(bus_call_method(bus, &session, "ReleaseControl", /* reterr_error= */ NULL, /* ret_reply= */ NULL, /* types= */ NULL));
         type = mfree(type);
-        assert_se(bus_get_property_string(bus, &session, "Type", /* reterr_error= */ NULL, &type) >= 0);
-        assert_se(streq(type, "tty"));
+        ASSERT_OK(bus_get_property_string(bus, &session, "Type", /* reterr_error= */ NULL, &type));
+        ASSERT_STREQ(type, "tty");
 }
 
 /* Tests org.freedesktop.logind.Session SetDisplay */
@@ -70,37 +70,37 @@ TEST(set_display) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *display = NULL;
 
-        assert_se(sd_bus_open_system(&bus) >= 0);
+        ASSERT_OK(sd_bus_open_system(&bus));
 
         /* Display is unset by default */
-        assert_se(bus_get_property_string(bus, &session, "Display", /* reterr_error= */ NULL, &display) >= 0);
-        assert_se(isempty(display));
+        ASSERT_OK(bus_get_property_string(bus, &session, "Display", /* reterr_error= */ NULL, &display));
+        ASSERT_STREQ(display, "");
 
         /* Display can only be set by the session controller (which we're not ATM) */
-        assert_se(bus_call_method(bus, &session, "SetDisplay", &error, /* ret_reply= */ NULL, "s", ":0") < 0);
-        assert_se(sd_bus_error_has_name(&error, BUS_ERROR_NOT_IN_CONTROL));
+        ASSERT_FAIL(bus_call_method(bus, &session, "SetDisplay", &error, /* ret_reply= */ NULL, "s", ":0"));
+        ASSERT_TRUE(sd_bus_error_has_name(&error, BUS_ERROR_NOT_IN_CONTROL));
 
-        assert_se(bus_call_method(bus, &session, "TakeControl", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "b", true) >= 0);
+        ASSERT_OK(bus_call_method(bus, &session, "TakeControl", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "b", true));
 
         /* Display can only be set on a graphical session */
-        assert_se(bus_call_method(bus, &session, "SetType", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "s", "tty") >= 0);
+        ASSERT_OK(bus_call_method(bus, &session, "SetType", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "s", "tty"));
         sd_bus_error_free(&error);
-        assert_se(bus_call_method(bus, &session, "SetDisplay", &error, /* ret_reply= */ NULL, "s", ":0") < 0);
-        assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_NOT_SUPPORTED));
+        ASSERT_FAIL(bus_call_method(bus, &session, "SetDisplay", &error, /* ret_reply= */ NULL, "s", ":0"));
+        ASSERT_TRUE(sd_bus_error_has_name(&error, SD_BUS_ERROR_NOT_SUPPORTED));
 
-        assert_se(bus_call_method(bus, &session, "SetType", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "s", "x11") >= 0);
+        ASSERT_OK(bus_call_method(bus, &session, "SetType", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "s", "x11"));
 
         /* Non-empty display can be set */
-        assert_se(bus_call_method(bus, &session, "SetDisplay", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "s", ":0") >= 0);
+        ASSERT_OK(bus_call_method(bus, &session, "SetDisplay", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "s", ":0"));
         display = mfree(display);
-        assert_se(bus_get_property_string(bus, &session, "Display", /* reterr_error= */ NULL, &display) >= 0);
-        assert_se(streq(display, ":0"));
+        ASSERT_OK(bus_get_property_string(bus, &session, "Display", /* reterr_error= */ NULL, &display));
+        ASSERT_STREQ(display, ":0");
 
         /* Empty display can be set too */
-        assert_se(bus_call_method(bus, &session, "SetDisplay", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "s", "") >= 0);
+        ASSERT_OK(bus_call_method(bus, &session, "SetDisplay", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "s", ""));
         display = mfree(display);
-        assert_se(bus_get_property_string(bus, &session, "Display", /* reterr_error= */ NULL, &display) >= 0);
-        assert_se(isempty(display));
+        ASSERT_OK(bus_get_property_string(bus, &session, "Display", /* reterr_error= */ NULL, &display));
+        ASSERT_STREQ(display, "");
 }
 
 /* Tests org.freedesktop.logind.Session SetTTY */
@@ -113,22 +113,21 @@ TEST(set_tty) {
         if (!arg_tty)
                 return;
 
-        fd = open(arg_tty, O_RDWR|O_CLOEXEC|O_NOCTTY);
-        assert_se(fd >= 0);
+        fd = ASSERT_OK_ERRNO(open(arg_tty, O_RDWR|O_CLOEXEC|O_NOCTTY));
 
-        assert_se(sd_bus_open_system(&bus) >= 0);
+        ASSERT_OK(sd_bus_open_system(&bus));
 
         /* tty can only be set by the session controller (which we're not ATM) */
-        assert_se(bus_call_method(bus, &session, "SetTTY", &error, /* ret_reply= */ NULL, "h", fd) < 0);
-        assert_se(sd_bus_error_has_name(&error, BUS_ERROR_NOT_IN_CONTROL));
+        ASSERT_FAIL(bus_call_method(bus, &session, "SetTTY", &error, /* ret_reply= */ NULL, "h", fd));
+        ASSERT_TRUE(sd_bus_error_has_name(&error, BUS_ERROR_NOT_IN_CONTROL));
 
-        assert_se(bus_call_method(bus, &session, "TakeControl", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "b", true) >= 0);
+        ASSERT_OK(bus_call_method(bus, &session, "TakeControl", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "b", true));
 
         /* tty can be set */
-        assert_se(bus_call_method(bus, &session, "SetTTY", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "h", fd) >= 0);
+        ASSERT_OK(bus_call_method(bus, &session, "SetTTY", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "h", fd));
         tty = mfree(tty);
-        assert_se(bus_get_property_string(bus, &session, "TTY", /* reterr_error= */ NULL, &tty) >= 0);
-        assert_se(streq(tty, "tty2"));
+        ASSERT_OK(bus_get_property_string(bus, &session, "TTY", /* reterr_error= */ NULL, &tty));
+        ASSERT_STREQ(tty, "tty2");
 }
 
 /* Tests org.freedesktop.logind.Session SetIdleHint */
@@ -138,41 +137,41 @@ TEST(set_idle_hint) {
         int idle_hint;
         time_t stamp, idle_since1, idle_since2;
 
-        assert_se(sd_bus_open_system(&bus) >= 0);
+        ASSERT_OK(sd_bus_open_system(&bus));
 
         /* Idle hint is not set by default */
-        assert_se(bus_get_property_trivial(bus, &session, "IdleHint", /* reterr_error= */ NULL, 'b', &idle_hint) >= 0);
-        assert_se(!idle_hint);
+        ASSERT_OK(bus_get_property_trivial(bus, &session, "IdleHint", /* reterr_error= */ NULL, 'b', &idle_hint));
+        ASSERT_FALSE(idle_hint);
 
-        assert_se(bus_call_method(bus, &session, "TakeControl", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "b", true) >= 0);
+        ASSERT_OK(bus_call_method(bus, &session, "TakeControl", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "b", true));
 
         /* Idle hint can only be set on a graphical session */
-        assert_se(bus_call_method(bus, &session, "SetType", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "s", "tty") >= 0);
-        assert_se(bus_call_method(bus, &session, "SetIdleHint", &error, /* ret_reply= */ NULL, "b", true) < 0);
-        assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_NOT_SUPPORTED));
+        ASSERT_OK(bus_call_method(bus, &session, "SetType", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "s", "tty"));
+        ASSERT_FAIL(bus_call_method(bus, &session, "SetIdleHint", &error, /* ret_reply= */ NULL, "b", true));
+        ASSERT_TRUE(sd_bus_error_has_name(&error, SD_BUS_ERROR_NOT_SUPPORTED));
 
-        assert_se(bus_call_method(bus, &session, "SetType", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "s", "x11") >= 0);
+        ASSERT_OK(bus_call_method(bus, &session, "SetType", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "s", "x11"));
 
         stamp = now(CLOCK_MONOTONIC);
 
         /* Idle hint can be set */
-        assert_se(bus_call_method(bus, &session, "SetIdleHint", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "b", true) >= 0);
-        assert_se(bus_get_property_trivial(bus, &session, "IdleHint", /* reterr_error= */ NULL, 'b', &idle_hint) >= 0);
-        assert_se(idle_hint);
-        assert_se(bus_get_property_trivial(bus, &session, "IdleSinceHintMonotonic", /* reterr_error= */ NULL, 't', &idle_since1) >= 0);
-        assert_se(idle_since1 >= stamp);
+        ASSERT_OK(bus_call_method(bus, &session, "SetIdleHint", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "b", true));
+        ASSERT_OK(bus_get_property_trivial(bus, &session, "IdleHint", /* reterr_error= */ NULL, 'b', &idle_hint));
+        ASSERT_TRUE(idle_hint);
+        ASSERT_OK(bus_get_property_trivial(bus, &session, "IdleSinceHintMonotonic", /* reterr_error= */ NULL, 't', &idle_since1));
+        ASSERT_GE(idle_since1, stamp);
 
         /* Repeated setting doesn't change anything */
-        assert_se(bus_call_method(bus, &session, "SetIdleHint", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "b", true) >= 0);
-        assert_se(bus_get_property_trivial(bus, &session, "IdleHint", /* reterr_error= */ NULL, 'b', &idle_hint) >= 0);
-        assert_se(idle_hint);
-        assert_se(bus_get_property_trivial(bus, &session, "IdleSinceHintMonotonic", /* reterr_error= */ NULL, 't', &idle_since2) >= 0);
-        assert_se(idle_since2 == idle_since1);
+        ASSERT_OK(bus_call_method(bus, &session, "SetIdleHint", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "b", true));
+        ASSERT_OK(bus_get_property_trivial(bus, &session, "IdleHint", /* reterr_error= */ NULL, 'b', &idle_hint));
+        ASSERT_TRUE(idle_hint);
+        ASSERT_OK(bus_get_property_trivial(bus, &session, "IdleSinceHintMonotonic", /* reterr_error= */ NULL, 't', &idle_since2));
+        ASSERT_EQ(idle_since2, idle_since1);
 
         /* Idle hint can be unset */
-        assert_se(bus_call_method(bus, &session, "SetIdleHint", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "b", false) >= 0);
-        assert_se(bus_get_property_trivial(bus, &session, "IdleHint", /* reterr_error= */ NULL, 'b', &idle_hint) >= 0);
-        assert_se(!idle_hint);
+        ASSERT_OK(bus_call_method(bus, &session, "SetIdleHint", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "b", false));
+        ASSERT_OK(bus_get_property_trivial(bus, &session, "IdleHint", /* reterr_error= */ NULL, 'b', &idle_hint));
+        ASSERT_FALSE(idle_hint);
 }
 
 /* Takes the first device matching subsystem/sysname that this session is allowed to take,
@@ -185,9 +184,9 @@ static bool take_first_available_device(sd_bus *bus, const char *subsystem, cons
         assert(sysname);
         assert(ret);
 
-        assert_se(sd_device_enumerator_new(&e) >= 0);
-        assert_se(sd_device_enumerator_add_match_subsystem(e, subsystem, /* match= */ true) >= 0);
-        assert_se(sd_device_enumerator_add_match_sysname(e, sysname) >= 0);
+        ASSERT_OK(sd_device_enumerator_new(&e));
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, subsystem, /* match= */ true));
+        ASSERT_OK(sd_device_enumerator_add_match_sysname(e, sysname));
 
         FOREACH_DEVICE(e, d) {
                 dev_t devnum;
@@ -214,28 +213,28 @@ TEST(take_device) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         dev_t found_dev = 0;
 
-        assert_se(sd_bus_open_system(&bus) >= 0);
-        assert_se(bus_call_method(bus, &session, "TakeControl", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "b", true) >= 0);
+        ASSERT_OK(sd_bus_open_system(&bus));
+        ASSERT_OK(bus_call_method(bus, &session, "TakeControl", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "b", true));
 
         /* Take a device on the session's seat. Input event devices (e.g. the ACPI power button and
          * the keyboard) and DRM cards belong to the seat and can be taken by its controller. */
         if (!take_first_available_device(bus, "input", "event*", &found_dev) &&
             !take_first_available_device(bus, "drm", "card*", &found_dev)) {
                 log_notice("No takeable seat device found, skipping %s.", __func__);
-                assert_se(bus_call_method(bus, &session, "ReleaseControl", /* reterr_error= */ NULL, /* ret_reply= */ NULL, /* types= */ NULL) >= 0);
+                ASSERT_OK(bus_call_method(bus, &session, "ReleaseControl", /* reterr_error= */ NULL, /* ret_reply= */ NULL, /* types= */ NULL));
                 return;
         }
 
         /* A duplicate TakeDevice must be rejected with 'device already taken' ... */
-        assert_se(bus_call_method(bus, &session, "TakeDevice", &error, /* ret_reply= */ NULL, "uu",
-                                  (uint32_t) major(found_dev), (uint32_t) minor(found_dev)) < 0);
-        assert_se(sd_bus_error_has_name(&error, BUS_ERROR_DEVICE_IS_TAKEN));
+        ASSERT_FAIL(bus_call_method(bus, &session, "TakeDevice", &error, /* ret_reply= */ NULL, "uu",
+                                    (uint32_t) major(found_dev), (uint32_t) minor(found_dev)));
+        ASSERT_TRUE(sd_bus_error_has_name(&error, BUS_ERROR_DEVICE_IS_TAKEN));
 
         /* ... and must NOT tear down the original entry. */
-        assert_se(bus_call_method(bus, &session, "ReleaseDevice", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "uu",
-                                  (uint32_t) major(found_dev), (uint32_t) minor(found_dev)) >= 0);
+        ASSERT_OK(bus_call_method(bus, &session, "ReleaseDevice", /* reterr_error= */ NULL, /* ret_reply= */ NULL, "uu",
+                                  (uint32_t) major(found_dev), (uint32_t) minor(found_dev)));
 
-        assert_se(bus_call_method(bus, &session, "ReleaseControl", /* reterr_error= */ NULL, /* ret_reply= */ NULL, /* types= */ NULL) >= 0);
+        ASSERT_OK(bus_call_method(bus, &session, "ReleaseControl", /* reterr_error= */ NULL, /* ret_reply= */ NULL, /* types= */ NULL));
 }
 
 static int intro(void) {

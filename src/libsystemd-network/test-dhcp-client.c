@@ -70,8 +70,6 @@ static const char *extra_option_163 = "private_option_163";
 static const char *extra_option_164 = "private_option_164";
 
 static void setup(sd_event_io_handler_t io_handler, sd_dhcp_client_callback_t client_handler, sd_dhcp_client **ret) {
-        assert_se(ret);
-
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         ASSERT_OK(sd_event_new(&e));
         ASSERT_NOT_NULL(e);
@@ -128,7 +126,7 @@ static void setup(sd_event_io_handler_t io_handler, sd_dhcp_client_callback_t cl
         TAKE_FD(socket_fd[1]);
         ASSERT_OK(sd_event_source_set_floating(s, true));
 
-        *ret = TAKE_PTR(client);
+        *ASSERT_PTR(ret) = TAKE_PTR(client);
 }
 
 static void receive_message(int fd, bool raw, bool check_xid, sd_dhcp_client *client, sd_dhcp_message **ret) {

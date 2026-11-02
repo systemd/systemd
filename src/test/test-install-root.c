@@ -35,35 +35,39 @@ TEST(basic_mask_and_enable) {
         ASSERT_EQ(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "h.service", /* ret= */ NULL), -ENOENT);
 
         p = strjoina(root, "/usr/lib/systemd/system/a.service");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "a.service", /* ret= */ NULL) >= 0);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "a.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "a.service", /* ret= */ NULL));
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "a.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
         p = strjoina(root, "/usr/lib/systemd/system/b.service");
-        assert_se(symlink("a.service", p) >= 0);
+        ASSERT_OK_ERRNO(symlink("a.service", p));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "b.service", /* ret= */ NULL) >= 0);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "b.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "b.service", /* ret= */ NULL));
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "b.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ALIAS);
 
         p = strjoina(root, "/usr/lib/systemd/system/c.service");
-        assert_se(symlink("/usr/lib/systemd/system/a.service", p) >= 0);
+        ASSERT_OK_ERRNO(symlink("/usr/lib/systemd/system/a.service", p));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "c.service", /* ret= */ NULL) >= 0);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "c.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "c.service", /* ret= */ NULL));
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "c.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ALIAS);
 
         p = strjoina(root, "/usr/lib/systemd/system/d.service");
-        assert_se(symlink("c.service", p) >= 0);
+        ASSERT_OK_ERRNO(symlink("c.service", p));
 
         /* This one is interesting, as d follows a relative, then an absolute symlink */
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", /* ret= */ NULL) >= 0);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", /* ret= */ NULL));
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ALIAS);
 
-        assert_se(unit_file_mask(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("a.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 1);
-        assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
+        ASSERT_OK(unit_file_mask(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("a.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/dev/null");
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/a.service");
         ASSERT_STREQ(changes[0].path, p);
@@ -71,136 +75,160 @@ TEST(basic_mask_and_enable) {
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "a.service", &state) >= 0 && state == UNIT_FILE_MASKED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "b.service", &state) >= 0 && state == UNIT_FILE_MASKED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "c.service", &state) >= 0 && state == UNIT_FILE_MASKED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", &state) >= 0 && state == UNIT_FILE_MASKED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "a.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_MASKED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "b.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_MASKED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "c.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_MASKED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_MASKED);
 
         /* Enabling a masked unit should fail! */
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("a.service"), &changes, &n_changes) == -ERFKILL);
+        ASSERT_ERROR(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("a.service"), &changes, &n_changes), ERFKILL);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_unmask(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("a.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 1);
-        assert_se(changes[0].type == INSTALL_CHANGE_UNLINK);
+        ASSERT_OK(unit_file_unmask(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("a.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_UNLINK);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/a.service");
         ASSERT_STREQ(changes[0].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("a.service"), &changes, &n_changes) == 1);
-        assert_se(n_changes == 1);
-        assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
+        ASSERT_OK_EQ(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("a.service"), &changes, &n_changes), 1);
+        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/a.service");
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/a.service");
         ASSERT_STREQ(changes[0].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "a.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "b.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "c.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "a.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "b.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ALIAS);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "c.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ALIAS);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ALIAS);
 
         /* Enabling it again should succeed but be a NOP */
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("a.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 0);
+        ASSERT_OK(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("a.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 0U);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("a.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 1);
-        assert_se(changes[0].type == INSTALL_CHANGE_UNLINK);
+        ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("a.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_UNLINK);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/a.service");
         ASSERT_STREQ(changes[0].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "a.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "b.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "c.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "a.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "b.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ALIAS);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "c.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ALIAS);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ALIAS);
 
         /* Disabling a disabled unit must succeed but be a NOP */
-        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("a.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 0);
+        ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("a.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 0U);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
         /* Let's enable this indirectly via a symlink */
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("d.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 1);
-        assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
+        ASSERT_OK(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("d.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/a.service");
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/a.service");
         ASSERT_STREQ(changes[0].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "a.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "b.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "c.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "a.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "b.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ALIAS);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "c.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ALIAS);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ALIAS);
 
         /* Let's try to reenable */
 
-        assert_se(unit_file_reenable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("b.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 2);
-        assert_se(changes[0].type == INSTALL_CHANGE_UNLINK);
+        ASSERT_OK(unit_file_reenable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("b.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 2U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_UNLINK);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/a.service");
         ASSERT_STREQ(changes[0].path, p);
-        assert_se(changes[1].type == INSTALL_CHANGE_SYMLINK);
+        ASSERT_EQ(changes[1].type, INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[1].source, "/usr/lib/systemd/system/a.service");
         ASSERT_STREQ(changes[1].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "a.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "b.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "c.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "a.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "b.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ALIAS);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "c.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ALIAS);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ALIAS);
 
         /* Test masking with relative symlinks */
 
         p = strjoina(root, "/usr/lib/systemd/system/e.service");
-        assert_se(symlink("../../../../../../dev/null", p) >= 0);
+        ASSERT_OK_ERRNO(symlink("../../../../../../dev/null", p));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", /* ret= */ NULL) >= 0);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", &state) >= 0 && state == UNIT_FILE_MASKED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", /* ret= */ NULL));
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_MASKED);
 
-        assert_se(unlink(p) == 0);
-        assert_se(symlink("/usr/../dev/null", p) >= 0);
+        ASSERT_OK_ZERO_ERRNO(unlink(p));
+        ASSERT_OK_ERRNO(symlink("/usr/../dev/null", p));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", /* ret= */ NULL) >= 0);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", &state) >= 0 && state == UNIT_FILE_MASKED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", /* ret= */ NULL));
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_MASKED);
 
-        assert_se(unlink(p) == 0);
+        ASSERT_OK_ZERO_ERRNO(unlink(p));
 
         /* Test enabling with unknown dependency target */
 
         p = strjoina(root, "/usr/lib/systemd/system/f.service");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=x.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=x.target\n", WRITE_STRING_FILE_CREATE));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "f.service", /* ret= */ NULL) >= 0);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "f.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "f.service", /* ret= */ NULL));
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "f.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("f.service"), &changes, &n_changes) == 1);
-        assert_se(n_changes == 2);
-        assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
+        ASSERT_OK_EQ(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("f.service"), &changes, &n_changes), 1);
+        ASSERT_EQ(n_changes, 2U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/f.service");
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/x.target.wants/f.service");
         ASSERT_STREQ(changes[0].path, p);
-        assert_se(changes[1].type == INSTALL_CHANGE_DESTINATION_NOT_PRESENT);
+        ASSERT_EQ(changes[1].type, INSTALL_CHANGE_DESTINATION_NOT_PRESENT);
         p = strjoina(root, "/usr/lib/systemd/system/f.service");
         ASSERT_STREQ(changes[1].source, p);
         ASSERT_STREQ(changes[1].path, "x.target");
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "f.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "f.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
 
         /* Test enabling units with only Alias= (unit_file_enable should return > 0 to indicate we did
          * something, #33411) */
@@ -244,66 +272,69 @@ TEST(linked_units) {
          */
 
         p = strjoina(root, "/opt/linked.service");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
                                     "Alias=linked-alias.service\n"
-                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE));
 
         p = strjoina(root, "/opt/linked2.service");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE));
 
         p = strjoina(root, "/opt/linked3.service");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked.service", /* ret= */ NULL) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked2.service", /* ret= */ NULL) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked3.service", /* ret= */ NULL) == -ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked.service", /* ret= */ NULL), ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked2.service", /* ret= */ NULL), ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked3.service", /* ret= */ NULL), ENOENT);
 
         p = strjoina(root, "/usr/lib/systemd/system/linked2.service");
-        assert_se(symlink("/opt/linked2.service", p) >= 0);
+        ASSERT_OK_ERRNO(symlink("/opt/linked2.service", p));
 
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/linked3.service");
-        assert_se(symlink("/opt/linked3.service", p) >= 0);
+        ASSERT_OK_ERRNO(symlink("/opt/linked3.service", p));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked.service", &state) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked2.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked3.service", &state) >= 0 && state == UNIT_FILE_LINKED);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked.service", &state), ENOENT);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked2.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked3.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_LINKED);
 
         /* First, let's link the unit into the search path */
-        assert_se(unit_file_link(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("/opt/linked.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 1);
-        assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
+        ASSERT_OK(unit_file_link(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("/opt/linked.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/opt/linked.service");
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/linked.service");
         ASSERT_STREQ(changes[0].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked.service", &state) >= 0 && state == UNIT_FILE_LINKED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_LINKED);
 
         /* Let's unlink it from the search path again */
-        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("linked.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 1);
-        assert_se(changes[0].type == INSTALL_CHANGE_UNLINK);
+        ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("linked.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_UNLINK);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/linked.service");
         ASSERT_STREQ(changes[0].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked.service", /* ret= */ NULL) == -ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked.service", /* ret= */ NULL), ENOENT);
 
         /* Now, let's not just link it, but also enable it */
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("/opt/linked.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 3);
+        ASSERT_OK(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("/opt/linked.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 3U);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/linked.service");
         q = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/linked.service");
         s = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/linked-alias.service");
         for (i = 0 ; i < n_changes; i++) {
-                assert_se(changes[i].type == INSTALL_CHANGE_SYMLINK);
+                ASSERT_EQ(changes[i].type, INSTALL_CHANGE_SYMLINK);
 
                 if (s && streq(changes[i].path, s))
                         /* The alias symlink should point within the search path. */
@@ -320,21 +351,25 @@ TEST(linked_units) {
                 else
                         assert_not_reached();
         }
-        assert_se(!p && !q && !s);
+        ASSERT_NULL(p);
+        ASSERT_NULL(q);
+        ASSERT_NULL(s);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked-alias.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked-alias.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ALIAS);
 
         /* And let's unlink it again */
-        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("linked.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 3);
+        ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("linked.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 3U);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/linked.service");
         q = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/linked.service");
         s = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/linked-alias.service");
         for (i = 0; i < n_changes; i++) {
-                assert_se(changes[i].type == INSTALL_CHANGE_UNLINK);
+                ASSERT_EQ(changes[i].type, INSTALL_CHANGE_UNLINK);
 
                 if (p && streq(changes[i].path, p))
                         p = NULL;
@@ -345,18 +380,20 @@ TEST(linked_units) {
                 else
                         assert_not_reached();
         }
-        assert_se(!p && !q && !s);
+        ASSERT_NULL(p);
+        ASSERT_NULL(q);
+        ASSERT_NULL(s);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked.service", /* ret= */ NULL) == -ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked.service", /* ret= */ NULL), ENOENT);
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("linked2.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 2);
+        ASSERT_OK(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("linked2.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 2U);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/linked2.service");
         q = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/linked2.service");
         for (i = 0 ; i < n_changes; i++) {
-                assert_se(changes[i].type == INSTALL_CHANGE_SYMLINK);
+                ASSERT_EQ(changes[i].type, INSTALL_CHANGE_SYMLINK);
                 ASSERT_STREQ(changes[i].source, "/opt/linked2.service");
 
                 if (p && streq(changes[i].path, p))
@@ -366,15 +403,16 @@ TEST(linked_units) {
                 else
                         assert_not_reached();
         }
-        assert_se(!p && !q);
+        ASSERT_NULL(p);
+        ASSERT_NULL(q);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("linked3.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 1);
-        assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
-        assert_se(startswith(changes[0].path, root));
-        assert_se(endswith(changes[0].path, "linked3.service"));
+        ASSERT_OK(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("linked3.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_SYMLINK);
+        ASSERT_NOT_NULL(startswith(changes[0].path, root));
+        ASSERT_NOT_NULL(endswith(changes[0].path, "linked3.service"));
         ASSERT_STREQ(changes[0].source, "/opt/linked3.service");
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
@@ -387,32 +425,32 @@ TEST(default) {
         const char *p;
 
         p = strjoina(root, "/usr/lib/systemd/system/test-default-real.target");
-        assert_se(write_string_file(p, "# pretty much empty", WRITE_STRING_FILE_CREATE) >= 0);
+        ASSERT_OK(write_string_file(p, "# pretty much empty", WRITE_STRING_FILE_CREATE));
 
         p = strjoina(root, "/usr/lib/systemd/system/test-default.target");
-        assert_se(symlink("test-default-real.target", p) >= 0);
+        ASSERT_OK_ERRNO(symlink("test-default-real.target", p));
 
-        assert_se(unit_file_get_default(RUNTIME_SCOPE_SYSTEM, root, &def) == -ENOENT);
+        ASSERT_ERROR(unit_file_get_default(RUNTIME_SCOPE_SYSTEM, root, &def), ENOENT);
 
-        assert_se(unit_file_set_default(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, "idontexist.target", &changes, &n_changes) == -ENOENT);
-        assert_se(n_changes == 1);
-        assert_se(changes[0].type == -ENOENT);
+        ASSERT_ERROR(unit_file_set_default(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, "idontexist.target", &changes, &n_changes), ENOENT);
+        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(changes[0].type, -ENOENT);
         ASSERT_STREQ(changes[0].path, "idontexist.target");
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_default(RUNTIME_SCOPE_SYSTEM, root, &def) == -ENOENT);
+        ASSERT_ERROR(unit_file_get_default(RUNTIME_SCOPE_SYSTEM, root, &def), ENOENT);
 
-        assert_se(unit_file_set_default(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, "test-default.target", &changes, &n_changes) >= 0);
-        assert_se(n_changes == 1);
-        assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
+        ASSERT_OK(unit_file_set_default(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, "test-default.target", &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/test-default-real.target");
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR "/" SPECIAL_DEFAULT_TARGET);
         ASSERT_STREQ(changes[0].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_default(RUNTIME_SCOPE_SYSTEM, root, &def) >= 0);
+        ASSERT_OK(unit_file_get_default(RUNTIME_SCOPE_SYSTEM, root, &def));
         ASSERT_STREQ(def, "test-default-real.target");
 }
 
@@ -422,18 +460,18 @@ TEST(add_dependency) {
         const char *p;
 
         p = strjoina(root, "/usr/lib/systemd/system/real-add-dependency-test-target.target");
-        assert_se(write_string_file(p, "# pretty much empty", WRITE_STRING_FILE_CREATE) >= 0);
+        ASSERT_OK(write_string_file(p, "# pretty much empty", WRITE_STRING_FILE_CREATE));
 
         p = strjoina(root, "/usr/lib/systemd/system/add-dependency-test-target.target");
-        assert_se(symlink("real-add-dependency-test-target.target", p) >= 0);
+        ASSERT_OK_ERRNO(symlink("real-add-dependency-test-target.target", p));
 
         p = strjoina(root, "/usr/lib/systemd/system/real-add-dependency-test-service.service");
-        assert_se(write_string_file(p, "# pretty much empty", WRITE_STRING_FILE_CREATE) >= 0);
+        ASSERT_OK(write_string_file(p, "# pretty much empty", WRITE_STRING_FILE_CREATE));
 
         p = strjoina(root, "/usr/lib/systemd/system/add-dependency-test-service.service");
-        assert_se(symlink("real-add-dependency-test-service.service", p) >= 0);
+        ASSERT_OK_ERRNO(symlink("real-add-dependency-test-service.service", p));
 
-        assert_se(unit_file_add_dependency(
+        ASSERT_OK(unit_file_add_dependency(
                                   RUNTIME_SCOPE_SYSTEM,
                                   /* flags= */ 0,
                                   root,
@@ -441,9 +479,9 @@ TEST(add_dependency) {
                                   "add-dependency-test-target.target",
                                   UNIT_WANTS,
                                   &changes,
-                                  &n_changes) >= 0);
-        assert_se(n_changes == 1);
-        assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
+                                  &n_changes));
+        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/real-add-dependency-test-service.service");
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/real-add-dependency-test-target.target.wants/real-add-dependency-test-service.service");
         ASSERT_STREQ(changes[0].path, p);
@@ -459,110 +497,150 @@ TEST(template_enable) {
 
         log_info("== %s ==", __func__);
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@.service", &state) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@def.service", &state) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@foo.service", &state) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@foo.service", &state) == -ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@.service", &state), ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@def.service", &state), ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@foo.service", &state), ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@foo.service", &state), ENOENT);
 
         p = strjoina(root, "/usr/lib/systemd/system/template@.service");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
                                     "DefaultInstance=def\n"
-                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE));
 
         p = strjoina(root, "/usr/lib/systemd/system/template-symlink@.service");
-        assert_se(symlink("template@.service", p) >= 0);
+        ASSERT_OK_ERRNO(symlink("template@.service", p));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@def.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@foo.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@def.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@foo.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@def.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@foo.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ALIAS);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@def.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@foo.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
         log_info("== %s with template@.service enabled ==", __func__);
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("template@.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 1);
-        assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
+        ASSERT_OK(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("template@.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/template@.service");
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/template@def.service");
         ASSERT_STREQ(changes[0].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@def.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@foo.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@def.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@foo.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@def.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@foo.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ALIAS);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@def.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@foo.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
-        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("template@.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 1);
-        assert_se(changes[0].type == INSTALL_CHANGE_UNLINK);
+        ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("template@.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_UNLINK);
         ASSERT_STREQ(changes[0].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@def.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@foo.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@def.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@foo.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@def.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@foo.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ALIAS);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@def.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@foo.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
         log_info("== %s with template@foo.service enabled ==", __func__);
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("template@foo.service"), &changes, &n_changes) >= 0);
-        assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
+        ASSERT_OK(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("template@foo.service"), &changes, &n_changes));
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/template@.service");
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/template@foo.service");
         ASSERT_STREQ(changes[0].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@.service", &state) >= 0 && state == UNIT_FILE_INDIRECT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@def.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@foo.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@foo.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@def.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@foo.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_INDIRECT);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@def.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@foo.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@foo.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@def.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@foo.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
 
-        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("template@foo.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 1);
-        assert_se(changes[0].type == INSTALL_CHANGE_UNLINK);
+        ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("template@foo.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_UNLINK);
         ASSERT_STREQ(changes[0].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@def.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@foo.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@quux.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@def.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@foo.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@quux.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@def.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@foo.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@quux.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ALIAS);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@def.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@foo.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@quux.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
         log_info("== %s with template-symlink@quux.service enabled ==", __func__);
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("template-symlink@quux.service"), &changes, &n_changes) >= 0);
-        assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
+        ASSERT_OK(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("template-symlink@quux.service"), &changes, &n_changes));
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/template@.service");
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/template@quux.service");
         ASSERT_STREQ(changes[0].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@.service", &state) >= 0 && state == UNIT_FILE_INDIRECT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@def.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@foo.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@quux.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@def.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@foo.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@quux.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_INDIRECT);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@def.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@foo.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template@quux.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ALIAS);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@def.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@foo.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "template-symlink@quux.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
 }
 
 TEST(indirect) {
@@ -571,43 +649,49 @@ TEST(indirect) {
         UnitFileState state;
         const char *p;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "indirecta.service", &state) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "indirectb.service", &state) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "indirectc.service", &state) == -ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "indirecta.service", &state), ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "indirectb.service", &state), ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "indirectc.service", &state), ENOENT);
 
         p = strjoina(root, "/usr/lib/systemd/system/indirecta.service");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "Also=indirectb.service\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "Also=indirectb.service\n", WRITE_STRING_FILE_CREATE));
 
         p = strjoina(root, "/usr/lib/systemd/system/indirectb.service");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE));
 
         p = strjoina(root, "/usr/lib/systemd/system/indirectc.service");
-        assert_se(symlink("indirecta.service", p) >= 0);
+        ASSERT_OK_ERRNO(symlink("indirecta.service", p));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "indirecta.service", &state) >= 0 && state == UNIT_FILE_INDIRECT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "indirectb.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "indirectc.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "indirecta.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_INDIRECT);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "indirectb.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "indirectc.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ALIAS);
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("indirectc.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 1);
-        assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
+        ASSERT_OK(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("indirectc.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/indirectb.service");
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/indirectb.service");
         ASSERT_STREQ(changes[0].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "indirecta.service", &state) >= 0 && state == UNIT_FILE_INDIRECT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "indirectb.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "indirectc.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "indirecta.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_INDIRECT);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "indirectb.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "indirectc.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ALIAS);
 
-        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("indirectc.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 1);
-        assert_se(changes[0].type == INSTALL_CHANGE_UNLINK);
+        ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("indirectc.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_UNLINK);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/indirectb.service");
         ASSERT_STREQ(changes[0].path, p);
         install_changes_free(changes, n_changes);
@@ -625,72 +709,84 @@ TEST(preset_and_list) {
 
         CLEANUP_ARRAY(changes, n_changes, install_changes_free);
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) == -ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state), ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state), ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state), ENOENT);
 
         p = strjoina(root, "/usr/lib/systemd/system/preset-yes.service");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE));
 
         p = strjoina(root, "/usr/lib/systemd/system/preset-no.service");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE));
 
         p = strjoina(root, "/usr/lib/systemd/system/preset-ignore.service");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE));
 
         p = strjoina(root, "/usr/lib/systemd/system-preset/test.preset");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "enable *-yes.*\n"
                                     "ignore *-ignore.*\n"
-                                    "disable *\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "disable *\n", WRITE_STRING_FILE_CREATE));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
-        assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, root, STRV_MAKE("preset-yes.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
-        assert_se(n_changes == 1);
-        assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
+        ASSERT_OK(unit_file_preset(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, root, STRV_MAKE("preset-yes.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/preset-yes.service");
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/preset-yes.service");
         ASSERT_STREQ(changes[0].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
-        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("preset-yes.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 1);
-        assert_se(changes[0].type == INSTALL_CHANGE_UNLINK);
+        ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("preset-yes.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_UNLINK);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/preset-yes.service");
         ASSERT_STREQ(changes[0].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
-        assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, root, STRV_MAKE("preset-no.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
-        assert_se(n_changes == 0);
+        ASSERT_OK(unit_file_preset(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, root, STRV_MAKE("preset-no.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes));
+        ASSERT_EQ(n_changes, 0U);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
-        assert_se(unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, root, UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
+        ASSERT_OK(unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, root, UNIT_FILE_PRESET_FULL, &changes, &n_changes));
 
-        assert_se(n_changes > 0);
+        ASSERT_GT(n_changes, 0U);
 
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/preset-yes.service");
 
@@ -700,15 +796,18 @@ TEST(preset_and_list) {
                         ASSERT_STREQ(changes[i].source, "/usr/lib/systemd/system/preset-yes.service");
                         ASSERT_STREQ(changes[i].path, p);
                 } else
-                        assert_se(changes[i].type == INSTALL_CHANGE_UNLINK);
+                        ASSERT_EQ(changes[i].type, INSTALL_CHANGE_UNLINK);
         }
 
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
         ASSERT_OK(unit_file_get_list(RUNTIME_SCOPE_SYSTEM, root, /* states= */ NULL, /* patterns= */ NULL, &h));
 
@@ -720,23 +819,25 @@ TEST(preset_and_list) {
 
                 ASSERT_OK(path_extract_filename(fl->path, &unit_filename));
                 ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, unit_filename, &state));
-                assert_se(fl->state == state);
+                ASSERT_EQ(fl->state, state);
 
                 if (streq(fl->path, p)) {
                         got_yes = true;
-                        assert_se(fl->state == UNIT_FILE_ENABLED);
+                        ASSERT_EQ(fl->state, UNIT_FILE_ENABLED);
                 } else if (streq(fl->path, q)) {
                         got_no = true;
-                        assert_se(fl->state == UNIT_FILE_DISABLED);
+                        ASSERT_EQ(fl->state, UNIT_FILE_DISABLED);
                 } else
-                        assert_se(IN_SET(fl->state, UNIT_FILE_DISABLED, UNIT_FILE_STATIC, UNIT_FILE_INDIRECT, UNIT_FILE_ALIAS));
+                        ASSERT_TRUE(IN_SET(fl->state, UNIT_FILE_DISABLED, UNIT_FILE_STATIC, UNIT_FILE_INDIRECT, UNIT_FILE_ALIAS));
         }
 
-        assert_se(got_yes && got_no);
+        ASSERT_TRUE(got_yes);
+        ASSERT_TRUE(got_no);
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("preset-ignore.service"), &changes, &n_changes) >= 0);
-        assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, root, STRV_MAKE("preset-ignore.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("preset-ignore.service"), &changes, &n_changes));
+        ASSERT_OK(unit_file_preset(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, root, STRV_MAKE("preset-ignore.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes));
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
 }
 
 TEST(revert) {
@@ -745,43 +846,44 @@ TEST(revert) {
         InstallChange *changes = NULL;
         size_t n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "xx.service", /* ret= */ NULL) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "yy.service", /* ret= */ NULL) == -ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "xx.service", /* ret= */ NULL), ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "yy.service", /* ret= */ NULL), ENOENT);
 
         p = strjoina(root, "/usr/lib/systemd/system/xx.service");
-        assert_se(write_string_file(p, "# Empty\n", WRITE_STRING_FILE_CREATE) >= 0);
+        ASSERT_OK(write_string_file(p, "# Empty\n", WRITE_STRING_FILE_CREATE));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "xx.service", /* ret= */ NULL) >= 0);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "xx.service", &state) >= 0 && state == UNIT_FILE_STATIC);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "xx.service", /* ret= */ NULL));
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "xx.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_STATIC);
 
         /* Initially there's nothing to revert */
-        assert_se(unit_file_revert(RUNTIME_SCOPE_SYSTEM, root, STRV_MAKE("xx.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 0);
+        ASSERT_OK(unit_file_revert(RUNTIME_SCOPE_SYSTEM, root, STRV_MAKE("xx.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 0U);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/xx.service");
-        assert_se(write_string_file(p, "# Empty override\n", WRITE_STRING_FILE_CREATE) >= 0);
+        ASSERT_OK(write_string_file(p, "# Empty override\n", WRITE_STRING_FILE_CREATE));
 
         /* Revert the override file */
-        assert_se(unit_file_revert(RUNTIME_SCOPE_SYSTEM, root, STRV_MAKE("xx.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 1);
-        assert_se(changes[0].type == INSTALL_CHANGE_UNLINK);
+        ASSERT_OK(unit_file_revert(RUNTIME_SCOPE_SYSTEM, root, STRV_MAKE("xx.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_UNLINK);
         ASSERT_STREQ(changes[0].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/xx.service.d/dropin.conf");
-        assert_se(write_string_file(p, "# Empty dropin\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
+        ASSERT_OK(write_string_file(p, "# Empty dropin\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755));
 
         /* Revert the dropin file */
-        assert_se(unit_file_revert(RUNTIME_SCOPE_SYSTEM, root, STRV_MAKE("xx.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 2);
-        assert_se(changes[0].type == INSTALL_CHANGE_UNLINK);
+        ASSERT_OK(unit_file_revert(RUNTIME_SCOPE_SYSTEM, root, STRV_MAKE("xx.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 2U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_UNLINK);
         ASSERT_STREQ(changes[0].path, p);
 
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/xx.service.d");
-        assert_se(changes[1].type == INSTALL_CHANGE_UNLINK);
+        ASSERT_EQ(changes[1].type, INSTALL_CHANGE_UNLINK);
         ASSERT_STREQ(changes[1].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
@@ -810,67 +912,77 @@ TEST(preset_order) {
         const char *p;
         UnitFileState state;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "prefix-1.service", &state) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "prefix-2.service", &state) == -ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "prefix-1.service", &state), ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "prefix-2.service", &state), ENOENT);
 
         p = strjoina(root, "/usr/lib/systemd/system/prefix-1.service");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE));
 
         p = strjoina(root, "/usr/lib/systemd/system/prefix-2.service");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE));
 
         p = strjoina(root, "/usr/lib/systemd/system-preset/test.preset");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "enable prefix-1.service\n"
                                     "disable prefix-*.service\n"
-                                    "enable prefix-2.service\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "enable prefix-2.service\n", WRITE_STRING_FILE_CREATE));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "prefix-1.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "prefix-2.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "prefix-1.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "prefix-2.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
-        assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, root, STRV_MAKE("prefix-1.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
-        assert_se(n_changes == 1);
-        assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
+        ASSERT_OK(unit_file_preset(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, root, STRV_MAKE("prefix-1.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/prefix-1.service");
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/prefix-1.service");
         ASSERT_STREQ(changes[0].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "prefix-1.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "prefix-2.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "prefix-1.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "prefix-2.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
-        assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, root, STRV_MAKE("prefix-2.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
-        assert_se(n_changes == 0);
+        ASSERT_OK(unit_file_preset(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, root, STRV_MAKE("prefix-2.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes));
+        ASSERT_EQ(n_changes, 0U);
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "prefix-1.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "prefix-2.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "prefix-1.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "prefix-2.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 }
 
 TEST(static_instance) {
         UnitFileState state;
         const char *p;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "static-instance@.service", &state) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "static-instance@foo.service", &state) == -ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "static-instance@.service", &state), ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "static-instance@foo.service", &state), ENOENT);
 
         p = strjoina(root, "/usr/lib/systemd/system/static-instance@.service");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "static-instance@.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "static-instance@foo.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "static-instance@.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "static-instance@foo.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
         p = strjoina(root, "/usr/lib/systemd/system/static-instance@foo.service");
-        assert_se(symlink("static-instance@.service", p) >= 0);
+        ASSERT_OK_ERRNO(symlink("static-instance@.service", p));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "static-instance@.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "static-instance@foo.service", &state) >= 0 && state == UNIT_FILE_STATIC);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "static-instance@.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "static-instance@foo.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_STATIC);
 }
 
 TEST(with_dropin) {
@@ -879,71 +991,76 @@ TEST(with_dropin) {
         InstallChange *changes = NULL;
         size_t n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-1.service", &state) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-2.service", &state) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-3.service", &state) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-4a.service", &state) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-4b.service", &state) == -ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-1.service", &state), ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-2.service", &state), ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-3.service", &state), ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-4a.service", &state), ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-4b.service", &state), ENOENT);
 
         p = strjoina(root, "/usr/lib/systemd/system/with-dropin-1.service");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE));
 
         p = strjoina(root, "/usr/lib/systemd/system/with-dropin-1.service.d/dropin.conf");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
+                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-1.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-1.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/with-dropin-2.service");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE));
 
         p = strjoina(root, "/usr/lib/systemd/system/with-dropin-2.service.d/dropin.conf");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
+                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-2.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-2.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
         p = strjoina(root, "/usr/lib/systemd/system/with-dropin-3.service");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE));
 
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/with-dropin-3.service.d/dropin.conf");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
+                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-3.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-3.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
         p = strjoina(root, "/usr/lib/systemd/system/with-dropin-4a.service");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE));
 
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/with-dropin-4a.service.d/dropin.conf");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "Also=with-dropin-4b.service\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
+                                    "Also=with-dropin-4b.service\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-4a.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-4a.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
         p = strjoina(root, "/usr/lib/systemd/system/with-dropin-4b.service");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-4b.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-4b.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("with-dropin-1.service"), &changes, &n_changes) == 1);
-        assert_se(n_changes == 2);
-        assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
-        assert_se(changes[1].type == INSTALL_CHANGE_SYMLINK);
+        ASSERT_OK_EQ(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("with-dropin-1.service"), &changes, &n_changes), 1);
+        ASSERT_EQ(n_changes, 2U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_SYMLINK);
+        ASSERT_EQ(changes[1].type, INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/with-dropin-1.service");
         ASSERT_STREQ(changes[1].source, "/usr/lib/systemd/system/with-dropin-1.service");
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/with-dropin-1.service");
@@ -953,11 +1070,12 @@ TEST(with_dropin) {
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("with-dropin-2.service"), &changes, &n_changes) == 1);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-2.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(n_changes == 2);
-        assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
-        assert_se(changes[1].type == INSTALL_CHANGE_SYMLINK);
+        ASSERT_OK_EQ(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("with-dropin-2.service"), &changes, &n_changes), 1);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-2.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_EQ(n_changes, 2U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_SYMLINK);
+        ASSERT_EQ(changes[1].type, INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, SYSTEM_CONFIG_UNIT_DIR"/with-dropin-2.service");
         ASSERT_STREQ(changes[1].source, SYSTEM_CONFIG_UNIT_DIR"/with-dropin-2.service");
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/with-dropin-2.service");
@@ -967,11 +1085,12 @@ TEST(with_dropin) {
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("with-dropin-3.service"), &changes, &n_changes) == 1);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-3.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(n_changes == 2);
-        assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
-        assert_se(changes[1].type == INSTALL_CHANGE_SYMLINK);
+        ASSERT_OK_EQ(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("with-dropin-3.service"), &changes, &n_changes), 1);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-3.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_EQ(n_changes, 2U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_SYMLINK);
+        ASSERT_EQ(changes[1].type, INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/with-dropin-3.service");
         ASSERT_STREQ(changes[1].source, "/usr/lib/systemd/system/with-dropin-3.service");
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/with-dropin-3.service");
@@ -981,11 +1100,12 @@ TEST(with_dropin) {
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("with-dropin-4a.service"), &changes, &n_changes) == 2);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-3.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(n_changes == 2);
-        assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
-        assert_se(changes[1].type == INSTALL_CHANGE_SYMLINK);
+        ASSERT_OK_EQ(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("with-dropin-4a.service"), &changes, &n_changes), 2);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-3.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_EQ(n_changes, 2U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_SYMLINK);
+        ASSERT_EQ(changes[1].type, INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/with-dropin-4a.service");
         ASSERT_STREQ(changes[1].source, "/usr/lib/systemd/system/with-dropin-4b.service");
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/with-dropin-4a.service");
@@ -995,11 +1115,16 @@ TEST(with_dropin) {
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-1.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-2.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-3.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-4a.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-4b.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-1.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-2.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-3.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-4a.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-4b.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
 }
 
 TEST(with_dropin_template) {
@@ -1008,51 +1133,54 @@ TEST(with_dropin_template) {
         InstallChange *changes = NULL;
         size_t n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-1@.service", &state) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-2@.service", &state) == -ENOENT);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-3@.service", &state) == -ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-1@.service", &state), ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-2@.service", &state), ENOENT);
+        ASSERT_ERROR(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-3@.service", &state), ENOENT);
 
         p = strjoina(root, "/usr/lib/systemd/system/with-dropin-1@.service");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE));
 
         p = strjoina(root, "/usr/lib/systemd/system/with-dropin-1@.service.d/dropin.conf");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
+                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-1@.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-1@.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
         p = strjoina(root, "/usr/lib/systemd/system/with-dropin-2@.service");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE));
 
         p = strjoina(root, "/usr/lib/systemd/system/with-dropin-2@instance-1.service.d/dropin.conf");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
+                                    "WantedBy=graphical.target\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-2@.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-2@.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
         p = strjoina(root, "/usr/lib/systemd/system/with-dropin-3@.service");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
                                     "DefaultInstance=instance-1\n"
-                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE));
 
         p = strjoina(root, "/usr/lib/systemd/system/with-dropin-3@.service.d/dropin.conf");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
-                                    "DefaultInstance=instance-2\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
+                                    "DefaultInstance=instance-2\n", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-3@.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-3@.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("with-dropin-1@instance-1.service"), &changes, &n_changes) == 1);
-        assert_se(n_changes == 2);
-        assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
-        assert_se(changes[1].type == INSTALL_CHANGE_SYMLINK);
+        ASSERT_OK_EQ(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("with-dropin-1@instance-1.service"), &changes, &n_changes), 1);
+        ASSERT_EQ(n_changes, 2U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_SYMLINK);
+        ASSERT_EQ(changes[1].type, INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/with-dropin-1@.service");
         ASSERT_STREQ(changes[1].source, "/usr/lib/systemd/system/with-dropin-1@.service");
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/with-dropin-1@instance-1.service");
@@ -1062,10 +1190,10 @@ TEST(with_dropin_template) {
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("with-dropin-2@instance-1.service"), &changes, &n_changes) == 1);
-        assert_se(n_changes == 2);
-        assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
-        assert_se(changes[1].type == INSTALL_CHANGE_SYMLINK);
+        ASSERT_OK_EQ(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("with-dropin-2@instance-1.service"), &changes, &n_changes), 1);
+        ASSERT_EQ(n_changes, 2U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_SYMLINK);
+        ASSERT_EQ(changes[1].type, INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/with-dropin-2@.service");
         ASSERT_STREQ(changes[1].source, "/usr/lib/systemd/system/with-dropin-2@.service");
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/with-dropin-2@instance-1.service");
@@ -1075,29 +1203,34 @@ TEST(with_dropin_template) {
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("with-dropin-2@instance-2.service"), &changes, &n_changes) == 1);
-        assert_se(n_changes == 1);
-        assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
+        ASSERT_OK_EQ(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("with-dropin-2@instance-2.service"), &changes, &n_changes), 1);
+        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/with-dropin-2@.service");
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/with-dropin-2@instance-2.service");
         ASSERT_STREQ(changes[0].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("with-dropin-3@.service"), &changes, &n_changes) == 1);
-        assert_se(n_changes == 1);
-        assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
+        ASSERT_OK_EQ(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("with-dropin-3@.service"), &changes, &n_changes), 1);
+        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_SYMLINK);
         ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/with-dropin-3@.service");
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/with-dropin-3@instance-2.service");
         ASSERT_STREQ(changes[0].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-1@instance-1.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-2@instance-1.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-2@instance-2.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-3@instance-1.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-3@instance-2.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-1@instance-1.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-2@instance-1.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-2@instance-2.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-3@instance-1.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "with-dropin-3@instance-2.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
 }
 
 TEST(preset_multiple_instances) {
@@ -1108,51 +1241,61 @@ TEST(preset_multiple_instances) {
 
         /* Set up template service files and preset file */
         p = strjoina(root, "/usr/lib/systemd/system/foo@.service");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "[Install]\n"
                                     "DefaultInstance=def\n"
-                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
         p = strjoina(root, "/usr/lib/systemd/system-preset/test.preset");
-        assert_se(write_string_file(p,
+        ASSERT_OK(write_string_file(p,
                                     "enable foo@.service bar0 bar1 bartest\n"
                                     "enable emptylist@.service\n" /* This line ensures the old functionality for templated unit still works */
-                                    "disable *\n" , WRITE_STRING_FILE_CREATE) >= 0);
+                                    "disable *\n" , WRITE_STRING_FILE_CREATE));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@bar0.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@bar0.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
         /* Preset a single instantiated unit specified in the list */
-        assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, root, STRV_MAKE("foo@bar0.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@bar0.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(n_changes == 1);
-        assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
+        ASSERT_OK(unit_file_preset(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, root, STRV_MAKE("foo@bar0.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes));
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@bar0.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_SYMLINK);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/foo@bar0.service");
         ASSERT_STREQ(changes[0].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
-        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("foo@bar0.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 1);
-        assert_se(changes[0].type == INSTALL_CHANGE_UNLINK);
+        ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("foo@bar0.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_UNLINK);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/foo@bar0.service");
         ASSERT_STREQ(changes[0].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
         /* Check for preset-all case, only instances on the list should be enabled, not including the default instance */
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@def.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@bar1.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@bartest.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@def.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@bar1.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@bartest.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
-        assert_se(unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, root, UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
-        assert_se(n_changes > 0);
+        ASSERT_OK(unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0, root, UNIT_FILE_PRESET_FULL, &changes, &n_changes));
+        ASSERT_GT(n_changes, 0U);
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@def.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@bar0.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@bar1.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@bartest.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@def.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_DISABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@bar0.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@bar1.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@bartest.service", &state));
+        ASSERT_EQ(state, UNIT_FILE_ENABLED);
 
         install_changes_free(changes, n_changes);
 }
@@ -1216,7 +1359,7 @@ static void verify_one(
                        i->name, alias, r, expected,
                        alias2 ? " [" : "", strempty(alias2),
                        alias2 ? "]" : "");
-        assert_se(r == expected);
+        ASSERT_EQ(r, expected);
 
         /* This is test for "instance propagation". This propagation matters mostly for WantedBy= and
          * RequiredBy= settings, and less so for Alias=. The only case where it should happen is when we have
@@ -1373,28 +1516,28 @@ TEST(verify_alias) {
 static int intro(void) {
         const char *p;
 
-        assert_se(mkdtemp_malloc("/tmp/rootXXXXXX", &root) >= 0);
+        ASSERT_OK(mkdtemp_malloc("/tmp/rootXXXXXX", &root));
 
         p = strjoina(root, "/usr/lib/systemd/system/");
-        assert_se(mkdir_p(p, 0755) >= 0);
+        ASSERT_OK(mkdir_p(p, 0755));
 
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/");
-        assert_se(mkdir_p(p, 0755) >= 0);
+        ASSERT_OK(mkdir_p(p, 0755));
 
         p = strjoina(root, "/run/systemd/system/");
-        assert_se(mkdir_p(p, 0755) >= 0);
+        ASSERT_OK(mkdir_p(p, 0755));
 
         p = strjoina(root, "/opt/");
-        assert_se(mkdir_p(p, 0755) >= 0);
+        ASSERT_OK(mkdir_p(p, 0755));
 
         p = strjoina(root, "/usr/lib/systemd/system-preset/");
-        assert_se(mkdir_p(p, 0755) >= 0);
+        ASSERT_OK(mkdir_p(p, 0755));
 
         p = strjoina(root, "/usr/lib/systemd/system/multi-user.target");
-        assert_se(write_string_file(p, "# pretty much empty", WRITE_STRING_FILE_CREATE) >= 0);
+        ASSERT_OK(write_string_file(p, "# pretty much empty", WRITE_STRING_FILE_CREATE));
 
         p = strjoina(root, "/usr/lib/systemd/system/graphical.target");
-        assert_se(write_string_file(p, "# pretty much empty", WRITE_STRING_FILE_CREATE) >= 0);
+        ASSERT_OK(write_string_file(p, "# pretty much empty", WRITE_STRING_FILE_CREATE));
 
         return EXIT_SUCCESS;
 }

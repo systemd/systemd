@@ -26,9 +26,8 @@ static void prefix_random(const char *name, char **ret) {
                 _cleanup_free_ char *b = NULL;
                 char *x;
 
-                assert_se(asprintf(&b, "x%" PRIu64 "x", random_u64()));
-                x = strjoin(b, ".", name);
-                assert_se(x);
+                ASSERT_OK_ERRNO(asprintf(&b, "x%" PRIu64 "x", random_u64()));
+                x = ASSERT_NOT_NULL(strjoin(b, ".", name));
 
                 free(m);
                 m = x;
@@ -49,18 +48,18 @@ static void test_rr_lookup(sd_bus *bus, const char *name, uint16_t type, const c
                 name = m;
         }
 
-        assert_se(bus_message_new_method_call(bus, &req, bus_resolve_mgr, "ResolveRecord") >= 0);
+        ASSERT_OK(bus_message_new_method_call(bus, &req, bus_resolve_mgr, "ResolveRecord"));
 
-        assert_se(sd_bus_message_append(req, "isqqt", 0, name, DNS_CLASS_IN, type, UINT64_C(0)) >= 0);
+        ASSERT_OK(sd_bus_message_append(req, "isqqt", 0, name, DNS_CLASS_IN, type, UINT64_C(0)));
 
         r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
 
         if (r < 0) {
-                assert_se(result);
-                assert_se(sd_bus_error_has_name(&error, result));
+                ASSERT_NOT_NULL(result);
+                ASSERT_TRUE(sd_bus_error_has_name(&error, result));
                 log_info("[OK] %s/%s resulted in <%s>.", name, dns_type_to_string(type), error.name);
         } else {
-                assert_se(!result);
+                ASSERT_NULL(result);
                 log_info("[OK] %s/%s succeeded.", name, dns_type_to_string(type));
         }
 }
@@ -80,18 +79,18 @@ static void test_hostname_lookup(sd_bus *bus, const char *name, int family, cons
                 name = m;
         }
 
-        assert_se(bus_message_new_method_call(bus, &req, bus_resolve_mgr, "ResolveHostname") >= 0);
+        ASSERT_OK(bus_message_new_method_call(bus, &req, bus_resolve_mgr, "ResolveHostname"));
 
-        assert_se(sd_bus_message_append(req, "isit", 0, name, family, UINT64_C(0)) >= 0);
+        ASSERT_OK(sd_bus_message_append(req, "isit", 0, name, family, UINT64_C(0)));
 
         r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
 
         if (r < 0) {
-                assert_se(result);
-                assert_se(sd_bus_error_has_name(&error, result));
+                ASSERT_NOT_NULL(result);
+                ASSERT_TRUE(sd_bus_error_has_name(&error, result));
                 log_info("[OK] %s/%s resulted in <%s>.", name, af, error.name);
         } else {
-                assert_se(!result);
+                ASSERT_NULL(result);
                 log_info("[OK] %s/%s succeeded.", name, af);
         }
 }
@@ -108,7 +107,7 @@ int main(int argc, char* argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
-        assert_se(sd_bus_open_system(&bus) >= 0);
+        ASSERT_OK(sd_bus_open_system(&bus));
 
         /* Normally signed */
         test_rr_lookup(bus, "www.eurid.eu", DNS_TYPE_A, /* result= */ NULL);

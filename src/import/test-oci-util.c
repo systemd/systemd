@@ -21,31 +21,31 @@ TEST(urlescape) {
 
 TEST(oci_registry_is_valid) {
         /* plain hostname — valid */
-        assert_se(oci_registry_is_valid("localhost") > 0);
-        assert_se(oci_registry_is_valid("registry.example.com") > 0);
+        ASSERT_OK_POSITIVE(oci_registry_is_valid("localhost"));
+        ASSERT_OK_POSITIVE(oci_registry_is_valid("registry.example.com"));
 
         /* host:port — valid */
-        assert_se(oci_registry_is_valid("localhost:5000") > 0);
-        assert_se(oci_registry_is_valid("registry.example.com:443") > 0);
-        assert_se(oci_registry_is_valid("registry.io:1") > 0);
-        assert_se(oci_registry_is_valid("registry.io:65535") > 0);
+        ASSERT_OK_POSITIVE(oci_registry_is_valid("localhost:5000"));
+        ASSERT_OK_POSITIVE(oci_registry_is_valid("registry.example.com:443"));
+        ASSERT_OK_POSITIVE(oci_registry_is_valid("registry.io:1"));
+        ASSERT_OK_POSITIVE(oci_registry_is_valid("registry.io:65535"));
 
         /* port 0 — invalid */
-        assert_se(oci_registry_is_valid("localhost:0") == 0);
+        ASSERT_OK_EQ(oci_registry_is_valid("localhost:0"), 0);
 
         /* port overflow */
-        assert_se(oci_registry_is_valid("localhost:65536") == 0);
+        ASSERT_OK_EQ(oci_registry_is_valid("localhost:65536"), 0);
 
         /* non-decimal port forms — rejected */
-        assert_se(oci_registry_is_valid("localhost:0x50") == 0);   /* hex */
-        assert_se(oci_registry_is_valid("localhost:017") == 0);    /* leading zero */
-        assert_se(oci_registry_is_valid("localhost:+80") == 0);    /* plus sign */
-        assert_se(oci_registry_is_valid("localhost: 80") == 0);    /* leading space */
+        ASSERT_OK_EQ(oci_registry_is_valid("localhost:0x50"), 0);   /* hex */
+        ASSERT_OK_EQ(oci_registry_is_valid("localhost:017"), 0);    /* leading zero */
+        ASSERT_OK_EQ(oci_registry_is_valid("localhost:+80"), 0);    /* plus sign */
+        ASSERT_OK_EQ(oci_registry_is_valid("localhost: 80"), 0);    /* leading space */
 
         /* invalid hostname */
-        assert_se(oci_registry_is_valid(":5000") == 0);
-        assert_se(oci_registry_is_valid("") == 0);
-        assert_se(oci_registry_is_valid(NULL) == 0);
+        ASSERT_OK_EQ(oci_registry_is_valid(":5000"), 0);
+        ASSERT_OK_EQ(oci_registry_is_valid(""), 0);
+        ASSERT_OK_EQ(oci_registry_is_valid(NULL), 0);
 }
 
 TEST(oci_ref_parse) {

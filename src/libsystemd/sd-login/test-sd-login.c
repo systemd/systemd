@@ -10,6 +10,7 @@
 #include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 
 static const char *arg_verb = NULL;  /* NULL means all */
 static pid_t arg_pid = 0;            /* 0 == self */
@@ -98,7 +99,7 @@ static int run(int argc, char *argv[]) {
 
         /* This is how we get executed by the test suite.
          * Do not return the error. */
-        assert_se(IN_SET(r, 0, -ENODATA, -ENOENT));
+        ASSERT_TRUE(IN_SET(r, 0, -ENODATA, -ENOENT));
         return 0;
 }
 

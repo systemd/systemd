@@ -12,14 +12,14 @@ static int render_key(char **ret, const char *key, const char *value) {
         FILE *f;
         int r;
 
-        assert_se(f = memstream_init(&m));
+        ASSERT_NOT_NULL(f = memstream_init(&m));
 
         r = qemu_config_key(f, key, value);
         if (r < 0)
                 return r;
 
         if (ret)
-                assert_se(memstream_finalize(&m, ret, /* ret_size= */ NULL) >= 0);
+                ASSERT_OK(memstream_finalize(&m, ret, /* ret_size= */ NULL));
 
         return r;
 }
@@ -29,14 +29,14 @@ static int render_section(char **ret, const char *type, const char *id) {
         FILE *f;
         int r;
 
-        assert_se(f = memstream_init(&m));
+        ASSERT_NOT_NULL(f = memstream_init(&m));
 
         r = qemu_config_section(f, type, id);
         if (r < 0)
                 return r;
 
         if (ret)
-                assert_se(memstream_finalize(&m, ret, /* ret_size= */ NULL) >= 0);
+                ASSERT_OK(memstream_finalize(&m, ret, /* ret_size= */ NULL));
 
         return r;
 }

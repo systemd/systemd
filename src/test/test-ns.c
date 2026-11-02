@@ -63,8 +63,8 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
-        assert_se(mkdtemp(tmp_dir));
-        assert_se(mkdtemp(var_tmp_dir));
+        ASSERT_NOT_NULL(mkdtemp(tmp_dir));
+        ASSERT_NOT_NULL(mkdtemp(var_tmp_dir));
 
         root_directory = getenv("TEST_NS_CHROOT");
         projects_directory = getenv("TEST_NS_PROJECTS");
@@ -81,11 +81,8 @@ int main(int argc, char *argv[]) {
         _cleanup_(pinned_resource_done) PinnedResource pr = PINNED_RESOURCE_NULL;
 
         if (root_directory) {
-                pr.directory_fd = open(root_directory, O_PATH|O_CLOEXEC|O_DIRECTORY);
-                assert_se(pr.directory_fd >= 0);
-
-                pr.directory = strdup(root_directory);
-                assert_se(pr.directory);
+                pr.directory_fd = ASSERT_OK_ERRNO(open(root_directory, O_PATH|O_CLOEXEC|O_DIRECTORY));
+                pr.directory = ASSERT_NOT_NULL(strdup(root_directory));
         }
 
         NamespaceParameters p = {

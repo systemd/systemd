@@ -23,7 +23,7 @@ int main(int argc, char **argv) {
                 const char *s;
 
                 s = dns_type_to_string(i);
-                assert_se(s == NULL || strlen(s) < _DNS_TYPE_STRING_MAX);
+                ASSERT_LT(strlen_ptr(s), _DNS_TYPE_STRING_MAX);
 
                 if (s)
                         log_info("%-*s %s%s%s%s%s%s%s%s%s",
@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
                 const char *s;
 
                 s = dns_class_to_string(i);
-                assert_se(s == NULL || strlen(s) < _DNS_CLASS_STRING_MAX);
+                ASSERT_LT(strlen_ptr(s), _DNS_CLASS_STRING_MAX);
 
                 if (s)
                         log_info("%-*s %s%s",
