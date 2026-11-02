@@ -1437,6 +1437,24 @@ static int target_method_describe_feature(sd_bus_message *msg, void *userdata, s
         if (flags != 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Flags must be 0");
 
+        const char *details[] = {
+                "class", target_class_to_string(t->class),
+                "name", t->name,
+                "feature", feature,
+                NULL
+        };
+
+        r = bus_verify_polkit_async(
+                        msg,
+                        "org.freedesktop.sysupdate1.check",
+                        details,
+                        &t->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
         r = job_new(JOB_DESCRIBE_FEATURE, t, msg, target_method_describe_finish, &j);
         if (r < 0)
                 return r;
