@@ -22,6 +22,7 @@ typedef struct Manager {
         sd_event *event;
         sd_resolve *resolve;
         sd_bus *bus;
+        sd_bus_slot *timezone_slot;
         sd_varlink_server *varlink_server;
         sd_varlink_server *varlink_resolve_hook_server;
         sd_varlink_server *varlink_metrics_server;
