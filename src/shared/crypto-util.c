@@ -2945,6 +2945,7 @@ int openssl_load_key_pair(
                 const char *public_key,
                 const AskPasswordRequest *request,
                 EVP_PKEY **ret_private_key,
+                X509 **ret_certificate,
                 EVP_PKEY **ret_public_key,
                 OpenSSLAskPasswordUI **ret_user_interface) {
 
@@ -2954,14 +2955,16 @@ int openssl_load_key_pair(
         int r;
 
         assert(!private_key || (request && ret_private_key && ret_user_interface));
-        assert(ret_public_key);
 
         /* Tools call this with the keys from their command line, which may all be unset. Some of them, like
          * systemd-repart, run without libcrypto, so we only load it when there is a key to load. */
         if (!private_key && !certificate && !public_key) {
                 if (ret_private_key)
                         *ret_private_key = NULL;
-                *ret_public_key = NULL;
+                if (ret_certificate)
+                        *ret_certificate = NULL;
+                if (ret_public_key)
+                        *ret_public_key = NULL;
                 if (ret_user_interface)
                         *ret_user_interface = NULL;
                 return 0;
@@ -2991,7 +2994,7 @@ int openssl_load_key_pair(
                         return log_error_errno(r, "Failed to load private key from %s: %m", private_key);
         }
 
-        if (public_key) {
+        if (ret_public_key && public_key) {
                 _cleanup_free_ char *pem = NULL;
                 size_t pem_size;
 
@@ -3002,11 +3005,11 @@ int openssl_load_key_pair(
                 r = openssl_pubkey_from_pem(pem, pem_size, &pubkey);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse public key %s: %m", public_key);
-        } else if (cert) {
+        } else if (ret_public_key && cert) {
                 pubkey = sym_X509_get_pubkey(cert);
                 if (!pubkey)
                         return log_openssl_errors(LOG_ERR, "Failed to extract public key from certificate %s", certificate);
-        } else if (privkey) {
+        } else if (ret_public_key && privkey) {
                 r = openssl_extract_public_key(privkey, &pubkey);
                 if (r < 0)
                         return log_error_errno(r, "Failed to extract public key from private key %s: %m", private_key);
@@ -3014,7 +3017,10 @@ int openssl_load_key_pair(
 
         if (ret_private_key)
                 *ret_private_key = TAKE_PTR(privkey);
-        *ret_public_key = TAKE_PTR(pubkey);
+        if (ret_certificate)
+                *ret_certificate = TAKE_PTR(cert);
+        if (ret_public_key)
+                *ret_public_key = TAKE_PTR(pubkey);
         if (ret_user_interface)
                 *ret_user_interface = TAKE_PTR(ui);
         return 0;

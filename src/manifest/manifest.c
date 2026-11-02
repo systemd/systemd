@@ -195,16 +195,18 @@ static int load_certificate(X509 **ret) {
         return 1;
 }
 
-static int load_private_key(EVP_PKEY **ret, OpenSSLAskPasswordUI **ret_ui) {
+static int load_key_pair(X509 **ret_certificate, EVP_PKEY **ret_private_key, OpenSSLAskPasswordUI **ret_ui) {
         int r;
 
-        assert(ret);
+        assert(arg_private_key);
+        assert(ret_certificate);
+        assert(ret_private_key);
         assert(ret_ui);
 
-        if (!arg_private_key) {
-                *ret = NULL;
-                *ret_ui = NULL;
-                return 0;
+        if (arg_certificate && arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
+                r = parse_path_argument(arg_certificate, /* suppress_root= */ false, &arg_certificate);
+                if (r < 0)
+                        return r;
         }
 
         if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
@@ -213,17 +215,23 @@ static int load_private_key(EVP_PKEY **ret, OpenSSLAskPasswordUI **ret_ui) {
                         return r;
         }
 
-        r = openssl_load_private_key(
+        r = openssl_load_key_pair(
                         arg_private_key_source_type,
                         arg_private_key_source,
                         arg_private_key,
+                        arg_certificate_source_type,
+                        arg_certificate_source,
+                        arg_certificate,
+                        /* public_key= */ NULL,
                         ASK_PASSWORD_PRIVATE_KEY_PIN("manifest", arg_private_key),
-                        ret,
+                        ret_private_key,
+                        ret_certificate,
+                        /* ret_public_key= */ NULL,
                         ret_ui);
         if (r < 0)
-                return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
+                return r;
 
-        return 1;
+        return 0;
 }
 #endif
 
@@ -283,11 +291,7 @@ static int verb_make(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
 
         if (arg_private_key) {
-                r = load_certificate(&certificate);
-                if (r < 0)
-                        return r;
-
-                r = load_private_key(&private_key, &ui);
+                r = load_key_pair(&certificate, &private_key, &ui);
                 if (r < 0)
                         return r;
 

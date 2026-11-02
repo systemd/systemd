@@ -497,7 +497,8 @@ int openssl_ask_password_ui_new(const AskPasswordRequest *request, OpenSSLAskPas
 /* Loads the certificate and the private key if they are specified. The public key comes from the public key
  * file if one is specified, otherwise from the certificate, otherwise from the private key. Returns NULL
  * keys if no private key, certificate, or public key is specified. Logs at error level which file failed
- * to load. */
+ * to load. All output arguments are optional, but the private key and the user interface are required
+ * when a private key is specified. */
 int openssl_load_key_pair(
                 KeySourceType private_key_source_type,
                 const char *private_key_source,
@@ -508,6 +509,7 @@ int openssl_load_key_pair(
                 const char *public_key,
                 const AskPasswordRequest *request,
                 EVP_PKEY **ret_private_key,
+                X509 **ret_certificate,
                 EVP_PKEY **ret_public_key,
                 OpenSSLAskPasswordUI **ret_user_interface);
 

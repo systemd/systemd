@@ -1575,32 +1575,27 @@ static int load_secure_boot_auto_enroll(
                         return r;
         }
 
-        _cleanup_(X509_freep) X509 *certificate = NULL;
-        r = openssl_load_x509_certificate(
-                        arg_certificate_source_type,
-                        arg_certificate_source,
-                        arg_certificate,
-                        &certificate);
-        if (r < 0)
-                return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
-
         if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
                 r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
                 if (r < 0)
                         return r;
         }
 
-        r = openssl_load_private_key(
+        r = openssl_load_key_pair(
                         arg_private_key_source_type,
                         arg_private_key_source,
                         arg_private_key,
+                        arg_certificate_source_type,
+                        arg_certificate_source,
+                        arg_certificate,
+                        /* public_key= */ NULL,
                         ASK_PASSWORD_PRIVATE_KEY_PIN("bootctl", arg_private_key),
                         ret_private_key,
+                        ret_certificate,
+                        /* ret_public_key= */ NULL,
                         ret_ui);
         if (r < 0)
-                return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
-
-        *ret_certificate = TAKE_PTR(certificate);
+                return r;
 
         return 0;
 }
