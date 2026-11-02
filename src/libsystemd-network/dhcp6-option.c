@@ -435,7 +435,8 @@ int dhcp6_option_append_user_class(uint8_t **buf, size_t *offset, char * const *
         return dhcp6_option_append(buf, offset, SD_DHCP6_OPTION_USER_CLASS, n, p);
 }
 
-int dhcp6_option_append_vendor_class(uint8_t **buf, size_t *offset, char * const *vendor_class) {
+int dhcp6_option_append_vendor_class(uint8_t **buf, size_t *offset, char * const *vendor_class,
+                                     uint32_t enterprise_identifier) {
         _cleanup_free_ uint8_t *p = NULL;
         size_t n = 0;
 
@@ -450,7 +451,7 @@ int dhcp6_option_append_vendor_class(uint8_t **buf, size_t *offset, char * const
                 return -ENOMEM;
 
         /* Enterprise Identifier */
-        unaligned_write_be32(p, SYSTEMD_PEN);
+        unaligned_write_be32(p, enterprise_identifier);
         n += sizeof(be32_t);
 
         STRV_FOREACH(s, vendor_class) {
@@ -926,3 +927,11 @@ DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 trivial_compare_func,
                 sd_dhcp6_option,
                 sd_dhcp6_option_unref);
+
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                dhcp6_vendor_class_hash_ops,
+                void,
+                trivial_hash_func,
+                trivial_compare_func,
+                char*,
+                strv_free);
