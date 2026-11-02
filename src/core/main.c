@@ -41,18 +41,19 @@
 #include "dbus.h"
 #include "dbus-manager.h"
 #include "dev-setup.h"
+#include "dlopen-check.h"
 #include "dlopen-note.h"
 #include "efi-random.h"
 #include "emergency-action.h"
 #include "env-util.h"
 #include "escape.h"
 #include "executor.h"
+#include "exit-status.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "glyph-util.h"
 #include "hash-funcs.h"
 #include "hashmap.h"
@@ -136,6 +137,7 @@ static enum {
         ACTION_DUMP_CONFIGURATION_ITEMS,
         ACTION_DUMP_BUS_PROPERTIES,
         ACTION_BUS_INTROSPECT,
+        ACTION_TEST_DLOPEN,
 } arg_action = ACTION_RUN;
 
 static const char *arg_bus_introspect = NULL;
@@ -1107,6 +1109,10 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("bus-introspect", "PATH", "Write XML introspection data"):
                         arg_bus_introspect = opts.arg;
                         arg_action = ACTION_BUS_INTROSPECT;
+                        break;
+
+                OPTION_LONG("test-dlopen", NULL, "Try to load fundamental shared libraries and exit"):
+                        arg_action = ACTION_TEST_DLOPEN;
                         break;
 
                 OPTION_LONG("unit", "UNIT", "Set default unit"):
@@ -2209,7 +2215,6 @@ static int do_reexecute(
                 const char **ret_error_message) {
 
         size_t i, args_size;
-        _cleanup_free_ char *our_exe = NULL;
         const char **args;
         int r;
 
@@ -2319,32 +2324,14 @@ static int do_reexecute(
                  */
                 valgrind_summary_hack();
 
-                args[0] = SYSTEMD_BINARY_PATH;
-                r = RET_NERRNO(execv(args[0], (char* const*) args));
-
                 if (objective == MANAGER_REEXECUTE) {
-                        /* If the binary is missing, try with our current executable too. This way things
-                         * continue to work if the binary is installed into a non-default location. Note that
-                         * we don't use chase here, the symlink the kernel gives is good enough. */
-                        if (r == -ENOENT) {
-                                int k;
-
-                                k = readlink_malloc("/proc/self/exe", &our_exe);
-                                if (k < 0)
-                                        log_warning_errno(k, "Failed to read /proc/self/exe: %m");
-                                else if (endswith(our_exe, " (deleted)"))
-                                        log_info("The current binary (/proc/self/exe) has been deleted.");
-                                else {
-                                        log_info_errno(r, "Failed to execute our own binary %s, trying /proc/self/exe: %m", args[0]);
-                                        args[0] = "/proc/self/exe";
-                                        r = RET_NERRNO(execv(args[0], (char* const*) args));
-                                }
-                        }
-
+                        r = manager_execute_self(args);
                         *ret_error_message = "Failed to execute our own binary";
-                        return log_error_errno(r, "Failed to execute our own binary %s: %m", args[0]);
+                        return r;
                 }
 
+                args[0] = SYSTEMD_BINARY_PATH;
+                r = RET_NERRNO(execv(args[0], (char* const*) args));
                 log_debug_errno(r, "Failed to execute our own binary %s, trying fallback: %m", args[0]);
         }
 
@@ -3813,6 +3800,16 @@ static int run_systemd(int argc, char *argv[]) {
         } else if (arg_action == ACTION_BUS_INTROSPECT) {
                 r = bus_manager_introspect_implementations(stdout, arg_bus_introspect);
                 retval = r >= 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+                goto finish;
+        } else if (arg_action == ACTION_TEST_DLOPEN) {
+                /* When invoked as reexecution canary, $SYSTEMD_LOG_TARGET tells us where PID 1 logs. */
+                log_parse_environment();
+                log_open();
+
+                /* Use a distinct exit status for missing libraries, so that callers can tell it apart from
+                 * the generic failure of older versions which don't know --test-dlopen. */
+                r = dlopen_check();
+                retval = r >= 0 ? EXIT_SUCCESS : r == -ELIBACC ? EXIT_NOTINSTALLED : EXIT_FAILURE;
                 goto finish;
         }
 
