@@ -159,6 +159,22 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--key=<replaceable>KEYRING</replaceable>:<optional><replaceable>NAME</replaceable>=</optional><replaceable>PATH</replaceable></option></term>
+        <listitem><para>Provisions a PEM-encoded X.509 certificate for one of the kernel keyrings
+        <citerefentry><refentrytitle>systemd-keyring-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        manages, for example to verify extension images with, as part of the addon written with
+        <option>--addon=</option>. <replaceable>KEYRING</replaceable> is one of <literal>dm-verity</literal>,
+        <literal>fs-verity</literal> and <literal>bpf</literal>. The file is included as credential
+        <varname>keyring-setup.<replaceable>KEYRING</replaceable>.<replaceable>NAME</replaceable></varname>,
+        with <replaceable>NAME</replaceable> defaulting to the file name without its suffix. It must consist
+        of lowercase letters, digits, <literal>.</literal>, <literal>_</literal> and <literal>-</literal>. A
+        <literal>=</literal> is only taken as the separator if it precedes any <literal>/</literal> in the
+        argument. May be used multiple times.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--locale=<replaceable>LOCALE</replaceable></option></term>
         <term><option>--locale-messages=<replaceable>LOCALE</replaceable></option></term>
 
