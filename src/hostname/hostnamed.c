@@ -460,16 +460,23 @@ static int get_device_tree_sysattr(Context *c, const char *key, char **ret) {
 }
 
 static int get_hardware_serial(Context *c, char **ret) {
+        _cleanup_free_ char *attr = NULL;
         int r;
 
         assert(c);
         assert(ret);
 
-        FOREACH_STRING(attr, "product_serial", "board_serial") {
-                r = get_dmi_sysattr(c, attr, ret);
-                if (r >= 0 || !ERRNO_IS_NEG_DEVICE_ABSENT(r))
-                        return r;
-        }
+        /* 60-dmi-id.rules selects which DMI serial attribute to report: the product serial number
+         * (DMI type 1) is preferred, unless hwdb flags it as rubbish, in which case the baseboard
+         * serial number (DMI type 2) is used instead. If both are rubbish (or the system lacks
+         * DMI), fall through to the device tree serial number. The serial value is read directly
+         * from sysfs as root, rather than copied into the udev database, to avoid exposing it to
+         * unprivileged users. */
+        r = get_dmi_property(c, "ID_SYSFS_ATTRIBUTE_SERIAL", &attr);
+        if (r >= 0)
+                return get_dmi_sysattr(c, attr, ret);
+        if (!ERRNO_IS_NEG_DEVICE_ABSENT(r))
+                return r;
 
         return get_device_tree_sysattr(c, "serial-number", ret);
 }
