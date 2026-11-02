@@ -128,7 +128,6 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 VERB_NOARG(verb_validate, "validate",
            "Load and validate the given certificate and private key");
 static int verb_validate(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(X509_freep) X509 *certificate = NULL;
         _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
         int r;
@@ -147,29 +146,27 @@ static int verb_validate(int argc, char *argv[], uintptr_t _data, void *userdata
                         return r;
         }
 
-        r = openssl_load_x509_certificate(
-                        arg_certificate_source_type,
-                        arg_certificate_source,
-                        arg_certificate,
-                        &certificate);
-        if (r < 0)
-                return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
-
         if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
                 r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
                 if (r < 0)
                         return r;
         }
 
-        r = openssl_load_private_key(
+        r = openssl_load_key_pair(
                         arg_private_key_source_type,
                         arg_private_key_source,
                         arg_private_key,
+                        arg_certificate_source_type,
+                        arg_certificate_source,
+                        arg_certificate,
+                        /* public_key= */ NULL,
                         ASK_PASSWORD_PRIVATE_KEY_PIN("keyutil", arg_private_key),
                         &private_key,
+                        /* ret_certificate= */ NULL,
+                        /* ret_public_key= */ NULL,
                         &ui);
         if (r < 0)
-                return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
+                return log_error_errno(r, "Failed to load certificate %s or private key %s: %m", arg_certificate, arg_private_key);
 
         puts("OK");
         return 0;
@@ -216,6 +213,7 @@ static int verb_extract_public(int argc, char *argv[], uintptr_t _data, void *us
                         /* public_key= */ NULL,
                         ASK_PASSWORD_PRIVATE_KEY_PIN("keyutil", private_key_path),
                         &private_key,
+                        /* ret_certificate= */ NULL,
                         &public_key,
                         &ui);
         if (r < 0)

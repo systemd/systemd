@@ -491,7 +491,9 @@ int openssl_load_private_key(
 int openssl_extract_public_key(EVP_PKEY *private_key, EVP_PKEY **ret);
 
 /* Loads the certificate and the private key if they are specified. The public key comes from the public key
- * file if one is specified, otherwise from the certificate, otherwise from the private key. */
+ * file if one is specified, otherwise from the certificate, otherwise from the private key. All output
+ * arguments are optional, but the private key and the user interface are required when a private key is
+ * specified. */
 int openssl_load_key_pair(
                 KeySourceType private_key_source_type,
                 const char *private_key_source,
@@ -502,6 +504,7 @@ int openssl_load_key_pair(
                 const char *public_key,
                 const AskPasswordRequest *request,
                 EVP_PKEY **ret_private_key,
+                X509 **ret_certificate,
                 EVP_PKEY **ret_public_key,
                 OpenSSLAskPasswordUI **ret_user_interface);
 
