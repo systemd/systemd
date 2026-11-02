@@ -249,6 +249,36 @@ int oomd_sort_cgroup_contexts(Hashmap *h, oomd_compare_t compare_func, const cha
         return (int) k;
 }
 
+static bool oomd_cgroup_is_monitored(Manager *m, const char *path) {
+        assert(m);
+        assert(path);
+
+        return hashmap_contains(m->monitored_swap_cgroup_contexts, path) ||
+                hashmap_contains(m->monitored_mem_pressure_cgroup_contexts, path) ||
+                hashmap_contains(m->monitored_rules_cgroup_contexts, path);
+}
+
+static void oomd_increment_xattr_on_ancestors(Manager *m, const char *path, const char *xattr, uint64_t n) {
+        char ancestor[strlen(path) + 1];
+        int r;
+
+        /* Also bump the counter on the ancestors of the killed cgroup, so that the service manager
+         * can attribute the kill to the unit owning the subtree: oomd may kill a cgroup below a
+         * unit's own cgroup, e.g. one created by a delegated service, in which case the counter on
+         * the unit cgroup itself would not change. Stop below cgroups that oomd monitors itself,
+         * as their counters are not meant to aggregate kills below them. */
+        PATH_FOREACH_PREFIX(ancestor, path) {
+                if (isempty(ancestor))
+                        break;
+                if (m && oomd_cgroup_is_monitored(m, ancestor))
+                        break;
+
+                r = increment_oomd_xattr(ancestor, xattr, n);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to set %s on %s, ignoring: %m", xattr, ancestor);
+        }
+}
+
 int oomd_cgroup_kill(Manager *m, OomdCGroupContext *ctx, bool recurse, const char *reason) {
         _cleanup_free_ char *cg_path_self = NULL;
         uint64_t n_pids_killed = UINT64_MAX;
@@ -269,6 +299,8 @@ int oomd_cgroup_kill(Manager *m, OomdCGroupContext *ctx, bool recurse, const cha
         r = increment_oomd_xattr(ctx->path, "user.oomd_ooms", 1);
         if (r < 0)
                 log_debug_errno(r, "Failed to set user.oomd_ooms before kill: %m");
+
+        oomd_increment_xattr_on_ancestors(m, ctx->path, "user.oomd_ooms", 1);
 
         if (recurse) {
                 r = cg_kill_kernel_sigkill(ctx->path, &n_pids_killed);
@@ -306,6 +338,8 @@ int oomd_cgroup_kill(Manager *m, OomdCGroupContext *ctx, bool recurse, const cha
                 r = increment_oomd_xattr(ctx->path, "user.oomd_kill", n_pids_killed);
                 if (r < 0)
                         log_debug_errno(r, "Failed to set user.oomd_kill on kill, ignoring: %m");
+
+                oomd_increment_xattr_on_ancestors(m, ctx->path, "user.oomd_kill", n_pids_killed);
         }
 
         /* send dbus signal */
