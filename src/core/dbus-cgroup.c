@@ -1721,7 +1721,7 @@ int bus_cgroup_set_property(
                         unit_write_settingf(u, flags, name, "%s=%s", name, mode);
                 }
 
-                (void) manager_varlink_send_managed_oom_update(u);
+                manager_varlink_send_managed_oom_update_recursive(u);
                 return 1;
         }
 
@@ -1743,7 +1743,7 @@ int bus_cgroup_set_property(
                 }
 
                 if (c->moom_mem_pressure == MANAGED_OOM_KILL)
-                        (void) manager_varlink_send_managed_oom_update(u);
+                        manager_varlink_send_managed_oom_update_recursive(u);
 
                 return 1;
         }
@@ -1773,7 +1773,7 @@ int bus_cgroup_set_property(
                 }
 
                 if (c->moom_mem_pressure == MANAGED_OOM_KILL)
-                        (void) manager_varlink_send_managed_oom_update(u);
+                        manager_varlink_send_managed_oom_update_recursive(u);
 
                 return 1;
         }
@@ -1823,7 +1823,7 @@ int bus_cgroup_set_property(
 
                         unit_write_settingf(u, flags, name, "OOMRules=\nOOMRules=%s", joined);
 
-                        (void) manager_varlink_send_managed_oom_update(u);
+                        manager_varlink_send_managed_oom_update_recursive(u);
                 }
 
                 return 1;
