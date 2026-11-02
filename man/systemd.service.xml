@@ -656,6 +656,10 @@ RestartMaxDelaySec=160s</programlisting>
         in the same format as <varname>RestartSec=</varname>, or <literal>infinity</literal>
         to disable the setting. Defaults to <literal>infinity</literal>.</para>
 
+        <para><command>systemd-analyze restart-delays</command> shows the delays of a service and whether the
+        start rate limit stops its restarts, see
+        <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
         <para>This setting is effective only if <varname>RestartSteps=</varname> is also set and
         <varname>RestartSec=</varname> is not zero.</para>
 
