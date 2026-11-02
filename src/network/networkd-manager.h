@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "alloc-util.h"
 #include "networkd-forward.h"
 #include "networkd-network.h"
 #include "tlv-util.h"
@@ -22,6 +23,7 @@ typedef struct Manager {
         sd_event *event;
         sd_resolve *resolve;
         sd_bus *bus;
+        sd_bus_slot *timezone_slot;
         sd_varlink_server *varlink_server;
         sd_varlink_server *varlink_resolve_hook_server;
         sd_varlink_server *varlink_metrics_server;
@@ -144,6 +146,10 @@ typedef struct Manager {
         int cgroup_fd;
 #endif
 } Manager;
+
+static inline void manager_timezone_request_failed(Manager *manager) {
+        manager->dynamic_timezone = mfree(manager->dynamic_timezone);
+}
 
 int manager_new(Manager **ret, bool test_mode);
 Manager* manager_free(Manager *m);

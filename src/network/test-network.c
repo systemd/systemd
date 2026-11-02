@@ -249,4 +249,17 @@ TEST(dhcp_hostname_shorten_overlong) {
         ASSERT_NULL(s);
 }
 
+TEST(manager_timezone_request_failed) {
+        _cleanup_(manager_freep) Manager *manager = NULL;
+
+        ASSERT_OK(manager_new(&manager, /* test_mode= */ true));
+        ASSERT_OK(manager_set_timezone(manager, "Europe/Berlin"));
+        ASSERT_OK(manager_set_timezone(manager, "Europe/Paris"));
+        ASSERT_STREQ(manager->dynamic_timezone, "Europe/Paris");
+
+        /* A failed request must invalidate the cache, so the next lease retries. */
+        manager_timezone_request_failed(manager);
+        ASSERT_NULL(manager->dynamic_timezone);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
