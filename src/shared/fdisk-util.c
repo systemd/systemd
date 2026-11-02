@@ -67,6 +67,7 @@ DLSYM_PROTOTYPE(fdisk_ref_partition) = NULL;
 DLSYM_PROTOTYPE(fdisk_save_user_sector_size) = NULL;
 DLSYM_PROTOTYPE(fdisk_set_ask) = NULL;
 DLSYM_PROTOTYPE(fdisk_set_disklabel_id) = NULL;
+DLSYM_PROTOTYPE(fdisk_set_first_lba) = NULL;
 DLSYM_PROTOTYPE(fdisk_set_partition) = NULL;
 DLSYM_PROTOTYPE(fdisk_table_get_nents) = NULL;
 DLSYM_PROTOTYPE(fdisk_table_get_partition) = NULL;
@@ -140,6 +141,7 @@ int dlopen_fdisk(int log_level) {
                         DLSYM_ARG(fdisk_save_user_sector_size),
                         DLSYM_ARG(fdisk_set_ask),
                         DLSYM_ARG(fdisk_set_disklabel_id),
+                        DLSYM_ARG(fdisk_set_first_lba),
                         DLSYM_ARG(fdisk_set_partition),
                         DLSYM_ARG(fdisk_table_get_nents),
                         DLSYM_ARG(fdisk_table_get_partition),
