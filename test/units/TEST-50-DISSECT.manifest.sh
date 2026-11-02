@@ -177,6 +177,166 @@ grep -F '\2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881  a\nb
 (cd "$WORK/escape" && sha256sum -c "$WORK/escape.sums")
 systemd-manifest verify --format=sha256sums "$WORK/escape" "$WORK/escape.sums"
 
+: "Joining: a tree and the same tree with more files added does not conflict"
+JROOT="$WORK/join-root"
+cp -a "$ROOT" "$JROOT"
+systemd-manifest make "$JROOT" "$WORK/join-a.Uapi16Manifest"
+echo -n "added" >"$JROOT/added.txt"
+mkdir -p "$JROOT/subdir/deeper"
+echo -n "deep" >"$JROOT/subdir/deeper/file.txt"
+ln -s ../regular.txt "$JROOT/subdir/link"
+echo -n "pair" >"$JROOT/new_hardlink_a"
+ln "$JROOT/new_hardlink_a" "$JROOT/new_hardlink_b"
+systemd-manifest make "$JROOT" "$WORK/join-b.Uapi16Manifest"
+
+# Note that these manifests are unsigned: join never requires (or checks) signatures
+(! jq --seq -e 'select(.mediaType == "application/vnd.uapi.16.signature")' "$WORK/join-a.Uapi16Manifest" >/dev/null)
+systemd-manifest join "$WORK/join-a.Uapi16Manifest" "$WORK/join-b.Uapi16Manifest" "$WORK/join-ab.Uapi16Manifest"
+systemd-manifest verify --verify-signature=no "$JROOT" "$WORK/join-ab.Uapi16Manifest"
+# B is a superset of A, hence the result is exactly B: same order, same inode token numbering
+cmp "$WORK/join-ab.Uapi16Manifest" "$WORK/join-b.Uapi16Manifest"
+# The order of the inputs does not matter
+systemd-manifest join "$WORK/join-b.Uapi16Manifest" "$WORK/join-a.Uapi16Manifest" - | cmp - "$WORK/join-b.Uapi16Manifest"
+# Joining a manifest with itself (or with nothing) results in the very same manifest
+systemd-manifest join "$WORK/join-a.Uapi16Manifest" "$WORK/join-a.Uapi16Manifest" - | cmp - "$WORK/join-a.Uapi16Manifest"
+systemd-manifest join "$WORK/join-a.Uapi16Manifest" - | cmp - "$WORK/join-a.Uapi16Manifest"
+# The output may be one of the inputs
+cp "$WORK/join-a.Uapi16Manifest" "$WORK/join-inplace.Uapi16Manifest"
+systemd-manifest join "$WORK/join-inplace.Uapi16Manifest" "$WORK/join-b.Uapi16Manifest" "$WORK/join-inplace.Uapi16Manifest"
+cmp "$WORK/join-inplace.Uapi16Manifest" "$WORK/join-b.Uapi16Manifest"
+
+: "Joining: disjoint trees with the same top-level inode"
+JDISJ="$WORK/join-disjoint"
+mkdir -p "$JDISJ/one" "$JDISJ/two" "$JDISJ/three" "$JDISJ/all"
+for d in one two three; do
+    mkdir "$JDISJ/$d/$d" "$JDISJ/all/$d"
+    echo -n "$d" >"$JDISJ/$d/$d/file"
+    echo -n "$d" >"$JDISJ/all/$d/file"
+done
+chmod 0755 "$JDISJ"/*
+systemd-manifest make "$JDISJ/one" "$WORK/join-one.Uapi16Manifest"
+systemd-manifest make "$JDISJ/two" "$WORK/join-two.Uapi16Manifest"
+systemd-manifest make "$JDISJ/three" "$WORK/join-three.Uapi16Manifest"
+systemd-manifest join "$WORK/join-three.Uapi16Manifest" "$WORK/join-one.Uapi16Manifest" "$WORK/join-two.Uapi16Manifest" "$WORK/join-all.Uapi16Manifest"
+systemd-manifest verify --verify-signature=no "$JDISJ/all" "$WORK/join-all.Uapi16Manifest"
+systemd-manifest make "$JDISJ/all" | cmp - "$WORK/join-all.Uapi16Manifest"
+
+: "Joining: hardlink groups are combined transitively"
+JHL="$WORK/join-hardlinks"
+for d in xy yz ya xyz xya; do
+    mkdir -p "$JHL/$d"
+    echo -n "linked" >"$JHL/$d/y"
+    chmod 0644 "$JHL/$d/y"
+done
+chmod 0755 "$JHL"/*
+ln "$JHL/xy/y" "$JHL/xy/x"
+ln "$JHL/yz/y" "$JHL/yz/z"
+ln "$JHL/xyz/y" "$JHL/xyz/x"
+ln "$JHL/xyz/y" "$JHL/xyz/z"
+# Here the new name sorts before "y", i.e. it is seen first and initially gets a hardlink group of its own
+ln "$JHL/ya/y" "$JHL/ya/a"
+ln "$JHL/xya/y" "$JHL/xya/x"
+ln "$JHL/xya/y" "$JHL/xya/a"
+for d in xy yz ya xyz xya; do
+    systemd-manifest make "$JHL/$d" "$WORK/join-hl-$d.Uapi16Manifest"
+done
+systemd-manifest join "$WORK/join-hl-xy.Uapi16Manifest" "$WORK/join-hl-yz.Uapi16Manifest" "$WORK/join-hl-xyz-joined.Uapi16Manifest"
+[[ "$(jq --seq -r 'select(.name) | .inodeToken | tostring' "$WORK/join-hl-xyz-joined.Uapi16Manifest" | sort -u)" == "1" ]]
+cmp "$WORK/join-hl-xyz-joined.Uapi16Manifest" "$WORK/join-hl-xyz.Uapi16Manifest"
+systemd-manifest join "$WORK/join-hl-xy.Uapi16Manifest" "$WORK/join-hl-ya.Uapi16Manifest" - | cmp - "$WORK/join-hl-xya.Uapi16Manifest"
+systemd-manifest join "$WORK/join-hl-ya.Uapi16Manifest" "$WORK/join-hl-xy.Uapi16Manifest" - | cmp - "$WORK/join-hl-xya.Uapi16Manifest"
+# Differences in hardlink information never conflict, groups are merged
+JHL2="$WORK/join-hardlinks-copy"
+cp -a "$ROOT" "$JHL2"
+rm "$JHL2/hardlink_b"
+cp -a "$ROOT/hardlink_a" "$JHL2/hardlink_b"
+ln "$JHL2/regular.txt" "$JHL2/regular_link.txt"
+systemd-manifest make "$JHL2" "$WORK/join-hl-copy.Uapi16Manifest"
+systemd-manifest join "$WORK/Uapi16Manifest" "$WORK/join-hl-copy.Uapi16Manifest" "$WORK/join-hl-copy-joined.Uapi16Manifest"
+[[ "$(jq --seq -r 'select(.name == "hardlink_a" or .name == "hardlink_b") | .inodeToken | tostring' "$WORK/join-hl-copy-joined.Uapi16Manifest" | sort -u | wc -l)" == "1" ]]
+[[ "$(jq --seq -r 'select(.name == "regular.txt" or .name == "regular_link.txt") | .inodeToken | tostring' "$WORK/join-hl-copy-joined.Uapi16Manifest" | sort -u | wc -l)" == "1" ]]
+
+: "Joining: objects are sorted, whatever order the inputs list them in"
+printf '\036{"mediaType":"application/vnd.uapi.16.manifest","mode":493}\n\036{"name":"b","size":0}\n\036{"name":"a/x","size":1}\n\036{"name":"a-b","size":2}\n\036{"mode":493,"name":"a","type":"dir"}\n\036{"mediaType":"application/vnd.uapi.16.trailer"}\n' >"$WORK/join-unsorted.Uapi16Manifest"
+systemd-manifest join "$WORK/join-unsorted.Uapi16Manifest" - >"$WORK/join-sorted.Uapi16Manifest"
+[[ "$(jq --seq -r 'select(.name) | .name' "$WORK/join-sorted.Uapi16Manifest" | tr '\n' ' ')" == "a a/x a-b b " ]]
+# The result is canonical, i.e. joining it again changes nothing
+systemd-manifest join "$WORK/join-sorted.Uapi16Manifest" - | cmp - "$WORK/join-sorted.Uapi16Manifest"
+# Parent directories that no input lists are not made up
+printf '\036{"mediaType":"application/vnd.uapi.16.manifest","mode":493}\n\036{"name":"p/q/r","size":0}\n\036{"mediaType":"application/vnd.uapi.16.trailer"}\n' >"$WORK/join-noparent.Uapi16Manifest"
+[[ "$(systemd-manifest join "$WORK/join-noparent.Uapi16Manifest" - | jq --seq -r 'select(.name) | .name')" == "p/q/r" ]]
+# Extension fields count too, and are retained
+printf '\036{"mediaType":"application/vnd.uapi.16.manifest","mode":493}\n\036{"name":"b","size":0,"fooBar":"baz"}\n\036{"mediaType":"application/vnd.uapi.16.trailer"}\n' >"$WORK/join-ext.Uapi16Manifest"
+[[ "$(systemd-manifest join "$WORK/join-ext.Uapi16Manifest" - | jq --seq -r 'select(.name == "b") | .fooBar')" == baz ]]
+(! systemd-manifest join "$WORK/join-unsorted.Uapi16Manifest" "$WORK/join-ext.Uapi16Manifest" -)
+
+: "Joining: conflicts are refused"
+join_conflict() {
+    local d="$WORK/join-conflict"
+
+    rm -rf "$d"
+    cp -a "$ROOT" "$d"
+    "$@"
+    systemd-manifest make "$d" "$WORK/join-conflict.Uapi16Manifest"
+    (! systemd-manifest join "$WORK/Uapi16Manifest" "$WORK/join-conflict.Uapi16Manifest" "$WORK/join-conflict-out.Uapi16Manifest")
+    # Nothing is written on failure
+    [[ ! -e "$WORK/join-conflict-out.Uapi16Manifest" ]]
+}
+join_conflict_change_contents() {
+    echo -n "HELLO WORLD" >"$WORK/join-conflict/regular.txt"
+}
+join_conflict_change_type() {
+    rm "$WORK/join-conflict/empty.txt"
+    mkdir "$WORK/join-conflict/empty.txt"
+}
+join_conflict join_conflict_change_contents
+join_conflict chmod 0600 "$WORK/join-conflict/regular.txt"
+join_conflict join_conflict_change_type
+join_conflict ln -sfn empty.txt "$WORK/join-conflict/symlink"
+join_conflict chmod 0750 "$WORK/join-conflict"
+set +o pipefail
+systemd-manifest join "$WORK/Uapi16Manifest" "$WORK/join-conflict.Uapi16Manifest" - 2>&1 >/dev/null | tee "$WORK/join-conflict.log"
+set -o pipefail
+grep -F "Definition of top-level inode in '$WORK/join-conflict.Uapi16Manifest' conflicts with the one in '$WORK/Uapi16Manifest' (differing fields: mode)." "$WORK/join-conflict.log"
+
+: "Joining: if objects only differ in their modification time, the newest wins"
+# Modification times of directories change when files are added, hence this is the same as the case above
+cp -a "$ROOT" "$WORK/join-mtime"
+systemd-manifest make --field=+mtime "$WORK/join-mtime" "$WORK/join-mtime-a.Uapi16Manifest"
+echo -n "added" >"$WORK/join-mtime/added.txt"
+systemd-manifest make --field=+mtime "$WORK/join-mtime" "$WORK/join-mtime-b.Uapi16Manifest"
+(! cmp "$WORK/join-mtime-a.Uapi16Manifest" "$WORK/join-mtime-b.Uapi16Manifest")
+systemd-manifest join "$WORK/join-mtime-a.Uapi16Manifest" "$WORK/join-mtime-b.Uapi16Manifest" - | cmp - "$WORK/join-mtime-b.Uapi16Manifest"
+systemd-manifest join "$WORK/join-mtime-b.Uapi16Manifest" "$WORK/join-mtime-a.Uapi16Manifest" - | cmp - "$WORK/join-mtime-b.Uapi16Manifest"
+# Also for regular files, in either direction
+touch -d @1000000000 "$WORK/join-mtime/regular.txt"
+systemd-manifest make --field=+mtime "$WORK/join-mtime" "$WORK/join-mtime-old.Uapi16Manifest"
+touch -d @2000000000 "$WORK/join-mtime/regular.txt"
+systemd-manifest make --field=+mtime "$WORK/join-mtime" "$WORK/join-mtime-new.Uapi16Manifest"
+systemd-manifest join "$WORK/join-mtime-old.Uapi16Manifest" "$WORK/join-mtime-new.Uapi16Manifest" - | cmp - "$WORK/join-mtime-new.Uapi16Manifest"
+systemd-manifest join "$WORK/join-mtime-new.Uapi16Manifest" "$WORK/join-mtime-old.Uapi16Manifest" - | cmp - "$WORK/join-mtime-new.Uapi16Manifest"
+# An object without modification time loses against one with
+systemd-manifest join "$WORK/join-mtime-old.Uapi16Manifest" "$WORK/Uapi16Manifest" - |
+    jq --seq -e 'select(.name == "regular.txt") | .mTimeNSec == 1000000000000000000' >/dev/null
+systemd-manifest join "$WORK/Uapi16Manifest" "$WORK/join-mtime-old.Uapi16Manifest" - |
+    jq --seq -e 'select(.name == "regular.txt") | .mTimeNSec == 1000000000000000000' >/dev/null
+# Any other difference still conflicts, even if the modification time differs too
+echo -n "HELLO WORLD" >"$WORK/join-mtime/regular.txt"
+systemd-manifest make --field=+mtime "$WORK/join-mtime" "$WORK/join-mtime-changed.Uapi16Manifest"
+(! systemd-manifest join "$WORK/join-mtime-old.Uapi16Manifest" "$WORK/join-mtime-changed.Uapi16Manifest" -)
+
+: "Joining: invalid invocations"
+(! systemd-manifest join)
+(! systemd-manifest join "$WORK/join-a.Uapi16Manifest")
+(! systemd-manifest join "$WORK/does-not-exist.Uapi16Manifest" -)
+(! systemd-manifest join --format=mtree "$WORK/join-a.Uapi16Manifest" -)
+(! systemd-manifest join --field=size "$WORK/join-a.Uapi16Manifest" -)
+(! systemd-manifest join --hash=sha512 "$WORK/join-a.Uapi16Manifest" -)
+(! systemd-manifest join --verify-signature=yes "$WORK/join-a.Uapi16Manifest" -)
+(! systemd-manifest join --verify-signature=no "$WORK/join-a.Uapi16Manifest" -)
+(! systemd-manifest join --voa-context=foo "$WORK/join-a.Uapi16Manifest" -)
+(! echo garbage | systemd-manifest join /dev/stdin -)
+
 : "Signing"
 if [[ -f /usr/share/mkosi.key && -f /usr/share/mkosi.crt ]] && command -v openssl >/dev/null; then
     # We sign if (and only if) a private key is specified, which requires a certificate, but not the other way round
@@ -237,6 +397,33 @@ EOF
 
     openssl req -x509 -newkey rsa:2048 -nodes -keyout "$WORK/other.key" -out "$WORK/other.crt" -subj /CN=other -days 2 2>/dev/null
     (! systemd-manifest verify --certificate="$WORK/other.crt" "$ROOT" "$WORK/Signed")
+
+    # Join never verifies its inputs, not even signed ones, and drops their signatures. The output is only
+    # signed if a private key is specified.
+    sed 's/"data":"./"data":"A/' "$WORK/Signed" >"$WORK/SignedBroken"
+    (! systemd-manifest verify --certificate=/usr/share/mkosi.crt "$ROOT" "$WORK/SignedBroken")
+    systemd-manifest join "$WORK/SignedBroken" "$WORK/Signed" "$WORK/JoinedUnsigned"
+    cmp "$WORK/JoinedUnsigned" "$WORK/Uapi16Manifest"
+    # Signed and unsigned inputs may be mixed
+    systemd-manifest join "$WORK/Signed" "$WORK/Uapi16Manifest" - | cmp - "$WORK/Uapi16Manifest"
+    systemd-manifest join "$WORK/Uapi16Manifest" "$WORK/Signed" - | cmp - "$WORK/Uapi16Manifest"
+    (! jq --seq -e 'select(.mediaType == "application/vnd.uapi.16.signature")' "$WORK/JoinedUnsigned" >/dev/null)
+    (! systemd-manifest join --certificate=/usr/share/mkosi.crt "$WORK/Signed" -)
+    (! systemd-manifest join --private-key=/usr/share/mkosi.key "$WORK/Signed" -)
+    systemd-manifest join --private-key=/usr/share/mkosi.key --certificate=/usr/share/mkosi.crt "$WORK/join-a.Uapi16Manifest" "$WORK/join-b.Uapi16Manifest" "$WORK/JoinedSigned"
+    # Joining a single input signs, re-signs or unsigns a manifest
+    systemd-manifest join --private-key=/usr/share/mkosi.key --certificate=/usr/share/mkosi.crt "$WORK/Uapi16Manifest" "$WORK/Resigned"
+    systemd-manifest verify --certificate=/usr/share/mkosi.crt "$ROOT" "$WORK/Resigned"
+    systemd-manifest join "$WORK/Resigned" - | cmp - "$WORK/Uapi16Manifest"
+    systemd-manifest join --private-key="$WORK/other.key" --certificate="$WORK/other.crt" "$WORK/Signed" "$WORK/ResignedOther"
+    systemd-manifest verify --certificate="$WORK/other.crt" "$ROOT" "$WORK/ResignedOther"
+    (! systemd-manifest verify --certificate=/usr/share/mkosi.crt "$ROOT" "$WORK/ResignedOther")
+    systemd-manifest join "$WORK/ResignedOther" - | cmp - "$WORK/Uapi16Manifest"
+    # ... and brings it into canonical form along the way
+    systemd-manifest join --private-key=/usr/share/mkosi.key --certificate=/usr/share/mkosi.crt "$WORK/join-unsorted.Uapi16Manifest" "$WORK/UnsortedSigned"
+    systemd-manifest join "$WORK/UnsortedSigned" - | cmp - "$WORK/join-sorted.Uapi16Manifest"
+    systemd-manifest verify --certificate=/usr/share/mkosi.crt "$JROOT" "$WORK/JoinedSigned"
+    (! systemd-manifest verify --certificate="$WORK/other.crt" "$JROOT" "$WORK/JoinedSigned")
 
     # Objects between the signature object and the trailer are not covered by the signature and ignored
     { head -c -"$(tr -d '\036' <"$WORK/Signed" | tail -n1 | wc -c)" "$WORK/Signed" | head -c -1; printf '\036{"mediaType":"application/x-test-extra","name":"extra.txt"}\n\036{"mediaType":"application/vnd.uapi.16.trailer"}\n'; } | systemd-manifest verify --certificate=/usr/share/mkosi.crt "$ROOT"
