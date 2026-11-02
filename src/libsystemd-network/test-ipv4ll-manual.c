@@ -13,7 +13,7 @@
 #include "tests.h"
 
 static void ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
-        assert_se(ll);
+        ASSERT_NOT_NULL(ll);
 
         struct in_addr addr;
         const char *pretty = sd_ipv4ll_get_address(ll, &addr) >= 0 ? IN4_ADDR_TO_STRING(&addr) : NULL;
@@ -36,31 +36,31 @@ static void ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
 static int client_run(int ifindex, const char *seed_str, const struct in_addr *start_address, const struct ether_addr *ha, sd_event *e) {
         sd_ipv4ll *ll;
 
-        assert_se(sd_ipv4ll_new(&ll) >= 0);
-        assert_se(sd_ipv4ll_attach_event(ll, e, /* priority= */ 0) >= 0);
+        ASSERT_OK(sd_ipv4ll_new(&ll));
+        ASSERT_OK(sd_ipv4ll_attach_event(ll, e, /* priority= */ 0));
 
-        assert_se(sd_ipv4ll_set_ifindex(ll, ifindex) >= 0);
-        assert_se(sd_ipv4ll_set_mac(ll, ha) >= 0);
-        assert_se(sd_ipv4ll_set_callback(ll, ll_handler, /* userdata= */ NULL) >= 0);
+        ASSERT_OK(sd_ipv4ll_set_ifindex(ll, ifindex));
+        ASSERT_OK(sd_ipv4ll_set_mac(ll, ha));
+        ASSERT_OK(sd_ipv4ll_set_callback(ll, ll_handler, /* userdata= */ NULL));
 
         if (seed_str) {
                 unsigned seed;
 
-                assert_se(safe_atou(seed_str, &seed) >= 0);
+                ASSERT_OK(safe_atou(seed_str, &seed));
 
-                assert_se(sd_ipv4ll_set_address_seed(ll, seed) >= 0);
+                ASSERT_OK(sd_ipv4ll_set_address_seed(ll, seed));
         }
 
         if (start_address && in4_addr_is_set(start_address))
-                assert_se(sd_ipv4ll_set_address(ll, start_address) >= 0);
+                ASSERT_OK(sd_ipv4ll_set_address(ll, start_address));
 
         log_info("starting IPv4LL client");
 
-        assert_se(sd_ipv4ll_start(ll) >= 0);
+        ASSERT_OK(sd_ipv4ll_start(ll));
 
-        assert_se(sd_event_loop(e) >= 0);
+        ASSERT_OK(sd_event_loop(e));
 
-        assert_se(!sd_ipv4ll_unref(ll));
+        ASSERT_NULL(sd_ipv4ll_unref(ll));
 
         return EXIT_SUCCESS;
 }
@@ -72,17 +72,17 @@ static int test_ll(const char *ifname, const char *seed, const struct in_addr *s
         struct ether_addr ha;
         int ifindex;
 
-        assert_se(sd_event_new(&e) >= 0);
+        ASSERT_OK(sd_event_new(&e));
 
-        assert_se(sd_netlink_open(&rtnl) >= 0);
-        assert_se(sd_netlink_attach_event(rtnl, e, /* priority= */ 0) >= 0);
+        ASSERT_OK(sd_netlink_open(&rtnl));
+        ASSERT_OK(sd_netlink_attach_event(rtnl, e, /* priority= */ 0));
 
-        assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, /* ifindex= */ 0) >= 0);
-        assert_se(sd_netlink_message_append_string(m, IFLA_IFNAME, ifname) >= 0);
-        assert_se(sd_netlink_call(rtnl, m, /* timeout= */ 0, &reply) >= 0);
+        ASSERT_OK(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, /* ifindex= */ 0));
+        ASSERT_OK(sd_netlink_message_append_string(m, IFLA_IFNAME, ifname));
+        ASSERT_OK(sd_netlink_call(rtnl, m, /* timeout= */ 0, &reply));
 
-        assert_se(sd_rtnl_message_link_get_ifindex(reply, &ifindex) >= 0);
-        assert_se(sd_netlink_message_read_ether_addr(reply, IFLA_ADDRESS, &ha) >= 0);
+        ASSERT_OK(sd_rtnl_message_link_get_ifindex(reply, &ifindex));
+        ASSERT_OK(sd_netlink_message_read_ether_addr(reply, IFLA_ADDRESS, &ha));
 
         client_run(ifindex, seed, start_address, &ha, e);
 

@@ -183,23 +183,21 @@ static void test_monitor(struct udev *udev) {
 
         log_info("/* %s */", __func__);
 
-        fd_ep = epoll_create1(EPOLL_CLOEXEC);
-        assert_se(fd_ep >= 0);
+        fd_ep = ASSERT_OK_ERRNO(epoll_create1(EPOLL_CLOEXEC));
 
-        udev_monitor = udev_monitor_new_from_netlink(udev, "udev");
-        assert_se(udev_monitor != NULL);
+        udev_monitor = ASSERT_NOT_NULL(udev_monitor_new_from_netlink(udev, "udev"));
 
         fd_udev = udev_monitor_get_fd(udev_monitor);
         ep_udev.data.fd = fd_udev;
 
-        assert_se(udev_monitor_filter_add_match_subsystem_devtype(udev_monitor, "block", /* devtype= */ NULL) >= 0);
-        assert_se(udev_monitor_filter_add_match_subsystem_devtype(udev_monitor, "tty", /* devtype= */ NULL) >= 0);
-        assert_se(udev_monitor_filter_add_match_subsystem_devtype(udev_monitor, "usb", "usb_device") >= 0);
+        ASSERT_OK(udev_monitor_filter_add_match_subsystem_devtype(udev_monitor, "block", /* devtype= */ NULL));
+        ASSERT_OK(udev_monitor_filter_add_match_subsystem_devtype(udev_monitor, "tty", /* devtype= */ NULL));
+        ASSERT_OK(udev_monitor_filter_add_match_subsystem_devtype(udev_monitor, "usb", "usb_device"));
 
-        assert_se(udev_monitor_enable_receiving(udev_monitor) >= 0);
+        ASSERT_OK(udev_monitor_enable_receiving(udev_monitor));
 
-        assert_se(epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_udev, &ep_udev) >= 0);
-        assert_se(epoll_ctl(fd_ep, EPOLL_CTL_ADD, STDIN_FILENO, &ep_stdin) >= 0);
+        ASSERT_OK_ERRNO(epoll_ctl(fd_ep, EPOLL_CTL_ADD, fd_udev, &ep_udev));
+        ASSERT_OK_ERRNO(epoll_ctl(fd_ep, EPOLL_CTL_ADD, STDIN_FILENO, &ep_stdin));
 
         for (;;) {
                 int fdcount;
@@ -234,7 +232,7 @@ static void test_queue(struct udev *udev) {
 
         log_info("/* %s */", __func__);
 
-        assert_se(udev_queue = udev_queue_new(udev));
+        ASSERT_NOT_NULL(udev_queue = udev_queue_new(udev));
 
         empty = udev_queue_get_queue_is_empty(udev_queue);
         log_info("queue is %s", empty ? "empty" : "not empty");
@@ -346,7 +344,7 @@ static void test_hwdb(struct udev *udev, const char *modalias) {
                 log_info("'%s'='%s'", udev_list_entry_get_name(entry), udev_list_entry_get_value(entry));
 
         hwdb = udev_hwdb_unref(hwdb);
-        assert_se(hwdb == NULL);
+        ASSERT_NULL(hwdb);
 }
 
 static void test_list(void) {
@@ -354,57 +352,51 @@ static void test_list(void) {
         struct udev_list_entry *e;
 
         /* empty list */
-        assert_se(list = udev_list_new(/* unique= */ false));
-        assert_se(!udev_list_get_entry(list));
+        ASSERT_NOT_NULL(list = udev_list_new(/* unique= */ false));
+        ASSERT_NULL(udev_list_get_entry(list));
         list = udev_list_free(list);
 
         /* unique == false */
-        assert_se(list = udev_list_new(/* unique= */ false));
-        assert_se(udev_list_entry_add(list, "aaa", "hoge"));
-        assert_se(udev_list_entry_add(list, "aaa", "hogehoge"));
-        assert_se(udev_list_entry_add(list, "bbb", "foo"));
-        e = udev_list_get_entry(list);
-        assert_se(e);
-        assert_se(streq_ptr(udev_list_entry_get_name(e), "aaa"));
-        assert_se(streq_ptr(udev_list_entry_get_value(e), "hoge"));
-        e = udev_list_entry_get_next(e);
-        assert_se(e);
-        assert_se(streq_ptr(udev_list_entry_get_name(e), "aaa"));
-        assert_se(streq_ptr(udev_list_entry_get_value(e), "hogehoge"));
-        e = udev_list_entry_get_next(e);
-        assert_se(e);
-        assert_se(streq_ptr(udev_list_entry_get_name(e), "bbb"));
-        assert_se(streq_ptr(udev_list_entry_get_value(e), "foo"));
-        assert_se(!udev_list_entry_get_next(e));
+        ASSERT_NOT_NULL(list = udev_list_new(/* unique= */ false));
+        ASSERT_NOT_NULL(udev_list_entry_add(list, "aaa", "hoge"));
+        ASSERT_NOT_NULL(udev_list_entry_add(list, "aaa", "hogehoge"));
+        ASSERT_NOT_NULL(udev_list_entry_add(list, "bbb", "foo"));
+        e = ASSERT_NOT_NULL(udev_list_get_entry(list));
+        ASSERT_STREQ(udev_list_entry_get_name(e), "aaa");
+        ASSERT_STREQ(udev_list_entry_get_value(e), "hoge");
+        e = ASSERT_NOT_NULL(udev_list_entry_get_next(e));
+        ASSERT_STREQ(udev_list_entry_get_name(e), "aaa");
+        ASSERT_STREQ(udev_list_entry_get_value(e), "hogehoge");
+        e = ASSERT_NOT_NULL(udev_list_entry_get_next(e));
+        ASSERT_STREQ(udev_list_entry_get_name(e), "bbb");
+        ASSERT_STREQ(udev_list_entry_get_value(e), "foo");
+        ASSERT_NULL(udev_list_entry_get_next(e));
 
-        assert_se(!udev_list_entry_get_by_name(e, "aaa"));
-        assert_se(!udev_list_entry_get_by_name(e, "bbb"));
-        assert_se(!udev_list_entry_get_by_name(e, "ccc"));
+        ASSERT_NULL(udev_list_entry_get_by_name(e, "aaa"));
+        ASSERT_NULL(udev_list_entry_get_by_name(e, "bbb"));
+        ASSERT_NULL(udev_list_entry_get_by_name(e, "ccc"));
         list = udev_list_free(list);
 
         /* unique == true */
-        assert_se(list = udev_list_new(/* unique= */ true));
-        assert_se(udev_list_entry_add(list, "aaa", "hoge"));
-        assert_se(udev_list_entry_add(list, "aaa", "hogehoge"));
-        assert_se(udev_list_entry_add(list, "bbb", "foo"));
-        e = udev_list_get_entry(list);
-        assert_se(e);
-        assert_se(streq_ptr(udev_list_entry_get_name(e), "aaa"));
-        assert_se(streq_ptr(udev_list_entry_get_value(e), "hogehoge"));
+        ASSERT_NOT_NULL(list = udev_list_new(/* unique= */ true));
+        ASSERT_NOT_NULL(udev_list_entry_add(list, "aaa", "hoge"));
+        ASSERT_NOT_NULL(udev_list_entry_add(list, "aaa", "hogehoge"));
+        ASSERT_NOT_NULL(udev_list_entry_add(list, "bbb", "foo"));
+        e = ASSERT_NOT_NULL(udev_list_get_entry(list));
+        ASSERT_STREQ(udev_list_entry_get_name(e), "aaa");
+        ASSERT_STREQ(udev_list_entry_get_value(e), "hogehoge");
         e = udev_list_entry_get_next(e);
-        assert_se(streq_ptr(udev_list_entry_get_name(e), "bbb"));
-        assert_se(streq_ptr(udev_list_entry_get_value(e), "foo"));
-        assert_se(!udev_list_entry_get_next(e));
+        ASSERT_STREQ(udev_list_entry_get_name(e), "bbb");
+        ASSERT_STREQ(udev_list_entry_get_value(e), "foo");
+        ASSERT_NULL(udev_list_entry_get_next(e));
 
-        e = udev_list_entry_get_by_name(e, "bbb");
-        assert_se(e);
-        assert_se(streq_ptr(udev_list_entry_get_name(e), "bbb"));
-        assert_se(streq_ptr(udev_list_entry_get_value(e), "foo"));
-        e = udev_list_entry_get_by_name(e, "aaa");
-        assert_se(e);
-        assert_se(streq_ptr(udev_list_entry_get_name(e), "aaa"));
-        assert_se(streq_ptr(udev_list_entry_get_value(e), "hogehoge"));
-        assert_se(!udev_list_entry_get_by_name(e, "ccc"));
+        e = ASSERT_NOT_NULL(udev_list_entry_get_by_name(e, "bbb"));
+        ASSERT_STREQ(udev_list_entry_get_name(e), "bbb");
+        ASSERT_STREQ(udev_list_entry_get_value(e), "foo");
+        e = ASSERT_NOT_NULL(udev_list_entry_get_by_name(e, "aaa"));
+        ASSERT_STREQ(udev_list_entry_get_name(e), "aaa");
+        ASSERT_STREQ(udev_list_entry_get_value(e), "hogehoge");
+        ASSERT_NULL(udev_list_entry_get_by_name(e, "ccc"));
 }
 
 COMMAND(
@@ -465,7 +457,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        assert_se(udev = udev_new());
+        ASSERT_NOT_NULL(udev = udev_new());
 
         /* add sys path if needed */
         if (!startswith(syspath, "/sys"))

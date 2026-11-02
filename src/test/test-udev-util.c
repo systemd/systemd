@@ -10,9 +10,9 @@ static void test_udev_replace_whitespace_one_len(const char *str, size_t len, co
         int r;
 
         result = new(char, len + 1);
-        assert_se(result);
+        ASSERT_NOT_NULL(result);
         r = udev_replace_whitespace(str, result, len);
-        assert_se((size_t) r == strlen(expected));
+        ASSERT_EQ((size_t) r, strlen(expected));
         ASSERT_STREQ(result, expected);
 }
 
@@ -63,11 +63,11 @@ static void test_udev_replace_whitespace_not_terminated_one(const char *str, siz
 
         /* Copy exactly 'len' bytes with no trailing NUL, so any read past 'len' is caught by the
          * sanitizers. */
-        assert_se(buf = memdup(str, len));
+        ASSERT_NOT_NULL(buf = memdup(str, len));
 
-        assert_se(result = new(char, len + 1));
+        ASSERT_NOT_NULL(result = new(char, len + 1));
         r = udev_replace_whitespace(buf, result, len);
-        assert_se((size_t) r == strlen(expected));
+        ASSERT_EQ((size_t) r, strlen(expected));
         ASSERT_STREQ(result, expected);
 }
 
@@ -79,11 +79,11 @@ TEST(udev_replace_whitespace_not_nul_terminated) {
         for (size_t len = 1; len <= 64; len++) {
                 _cleanup_free_ char *str = NULL, *result = NULL;
 
-                assert_se(str = new(char, len));
+                ASSERT_NOT_NULL(str = new(char, len));
                 memset(str, ' ', len);
 
-                assert_se(result = new(char, len + 1));
-                assert_se(udev_replace_whitespace(str, result, len) == 0);
+                ASSERT_NOT_NULL(result = new(char, len + 1));
+                ASSERT_EQ(udev_replace_whitespace(str, result, len), 0U);
                 ASSERT_STREQ(result, "");
         }
 

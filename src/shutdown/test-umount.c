@@ -16,12 +16,12 @@ static void test_mount_points_list_one(const char *fname) {
 
         if (fname) {
                 _cleanup_free_ char *testdata_fname = NULL;
-                assert_se(get_testdata_dir(fname, &testdata_fname) >= 0);
+                ASSERT_OK(get_testdata_dir(fname, &testdata_fname));
                 ASSERT_NOT_NULL((f = fopen(testdata_fname, "re")));
         }
 
         LIST_HEAD_INIT(mp_list_head);
-        assert_se(mount_points_list_get(f, &mp_list_head) >= 0);
+        ASSERT_OK(mount_points_list_get(f, &mp_list_head));
 
         LIST_FOREACH(mount_point, m, mp_list_head)
                 log_debug("path=%s o=%s f=0x%lx try-ro=%s",
@@ -46,7 +46,7 @@ static void test_swap_list_one(const char *fname) {
         log_info("/* %s(\"%s\") */", __func__, fname ?: "/proc/swaps");
 
         if (fname) {
-                assert_se(get_testdata_dir(fname, &testdata_fname) >= 0);
+                ASSERT_OK(get_testdata_dir(fname, &testdata_fname));
                 fname = testdata_fname;
         }
 
@@ -54,7 +54,7 @@ static void test_swap_list_one(const char *fname) {
         r = swap_list_get(fname, &sd_list_head);
         if (ERRNO_IS_PRIVILEGE(r))
                 return;
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         LIST_FOREACH(swap_device, m, sd_list_head)
                 log_debug("path=%s", m->path);

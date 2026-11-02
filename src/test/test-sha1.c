@@ -10,12 +10,10 @@ static void sha1_process_string(const char *key, struct sha1_ctx *ctx) {
 
 static void test_sha1_one(const char *key, const char *expect) {
         uint8_t result[SHA1_DIGEST_SIZE + 3];
-        _cleanup_free_ char *str = NULL;
-        struct sha1_ctx ctx;
 
         log_debug("\"%s\" → %s", key, expect);
 
-        assert_se(str = new(char, strlen(key) + 4));
+        _cleanup_free_ char *str = ASSERT_NOT_NULL(new(char, strlen(key) + 4));
 
         /* This tests unaligned buffers. */
 
@@ -24,6 +22,7 @@ static void test_sha1_one(const char *key, const char *expect) {
 
                 for (size_t j = 0; j < 4; j++) {
                         _cleanup_free_ char *hex_result = NULL;
+                        struct sha1_ctx ctx;
 
                         sha1_init_ctx(&ctx);
                         sha1_process_string(str + i, &ctx);

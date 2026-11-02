@@ -207,8 +207,10 @@ TEST(id128) {
         }
 
         /* Check return values */
-        ASSERT_RETURN_EXPECTED_SE(sd_id128_get_app_specific(SD_ID128_ALLF, SD_ID128_NULL, &id) == -ENXIO);
-        ASSERT_RETURN_EXPECTED_SE(sd_id128_get_app_specific(SD_ID128_NULL, SD_ID128_ALLF, &id) == 0);
+        ASSERT_RETURN_EXPECTED(
+                        ASSERT_ERROR(sd_id128_get_app_specific(SD_ID128_ALLF, SD_ID128_NULL, &id), ENXIO));
+        ASSERT_RETURN_EXPECTED(
+                        ASSERT_OK_ZERO(sd_id128_get_app_specific(SD_ID128_NULL, SD_ID128_ALLF, &id)));
 }
 
 TEST(sd_id128_get_invocation) {

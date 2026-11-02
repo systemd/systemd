@@ -14,14 +14,12 @@ static int inhibit(sd_bus *bus, const char *what) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *who = "Test Tool", *reason = "Just because!", *mode = "block";
         int fd;
-        int r;
 
-        r = bus_call_method(bus, bus_login_mgr, "Inhibit", &error, &reply, "ssss", what, who, reason, mode);
-        assert_se(r >= 0);
+        ASSERT_OK(bus_call_method(bus, bus_login_mgr, "Inhibit", &error, &reply,
+                                  "ssss", what, who, reason, mode));
 
-        r = sd_bus_message_read_basic(reply, SD_BUS_TYPE_UNIX_FD, &fd);
-        assert_se(r >= 0);
-        assert_se(fd >= 0);
+        ASSERT_OK(sd_bus_message_read_basic(reply, SD_BUS_TYPE_UNIX_FD, &fd));
+        ASSERT_OK(fd);
 
         return fcntl(fd, F_DUPFD_CLOEXEC, 3);
 }
@@ -34,11 +32,9 @@ static void print_inhibitors(sd_bus *bus) {
         unsigned n = 0;
         int r;
 
-        r = bus_call_method(bus, bus_login_mgr, "ListInhibitors", &error, &reply, /* types= */ NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(bus_call_method(bus, bus_login_mgr, "ListInhibitors", &error, &reply, /* types= */ NULL));
 
-        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssuu)");
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssuu)"));
 
         while ((r = sd_bus_message_read(reply, "(ssssuu)", &what, &who, &why, &mode, &uid, &pid)) > 0) {
                 printf("what=<%s> who=<%s> why=<%s> mode=<%s> uid=<%"PRIu32"> pid=<%"PRIu32">\n",
@@ -46,7 +42,7 @@ static void print_inhibitors(sd_bus *bus) {
 
                 n++;
         }
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         printf("%u inhibitors\n", n);
 }
@@ -54,21 +50,17 @@ static void print_inhibitors(sd_bus *bus) {
 int main(int argc, char *argv[]) {
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         int fd1, fd2;
-        int r;
 
         test_setup_logging(LOG_DEBUG);
 
-        r = sd_bus_open_system(&bus);
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_open_system(&bus));
 
         print_inhibitors(bus);
 
-        fd1 = inhibit(bus, "sleep");
-        assert_se(fd1 >= 0);
+        fd1 = ASSERT_OK_ERRNO(inhibit(bus, "sleep"));
         print_inhibitors(bus);
 
-        fd2 = inhibit(bus, "idle:shutdown");
-        assert_se(fd2 >= 0);
+        fd2 = ASSERT_OK_ERRNO(inhibit(bus, "idle:shutdown"));
         print_inhibitors(bus);
 
         safe_close(fd1);

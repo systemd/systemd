@@ -247,10 +247,10 @@ TEST(hostname_setup) {
 TEST(hostname_malloc) {
         _cleanup_free_ char *h = NULL, *l = NULL;
 
-        assert_se(h = gethostname_malloc());
+        ASSERT_NOT_NULL(h = gethostname_malloc());
         log_info("hostname_malloc: \"%s\"", h);
 
-        assert_se(l = gethostname_short_malloc());
+        ASSERT_NOT_NULL(l = gethostname_short_malloc());
         log_info("hostname_short_malloc: \"%s\"", l);
 }
 

@@ -10,12 +10,10 @@ static void sha256_process_string(const char *key, struct sha256_ctx *ctx) {
 
 static void test_sha256_one(const char *key, const char *expect) {
         uint8_t result[SHA256_DIGEST_SIZE + 3];
-        _cleanup_free_ char *str = NULL;
-        struct sha256_ctx ctx;
 
         log_debug("\"%s\" → %s", key, expect);
 
-        assert_se(str = new(char, strlen(key) + 4));
+        _cleanup_free_ char *str = ASSERT_NOT_NULL(new(char, strlen(key) + 4));
 
         /* This tests unaligned buffers. */
 
@@ -24,6 +22,7 @@ static void test_sha256_one(const char *key, const char *expect) {
 
                 for (size_t j = 0; j < 4; j++) {
                         _cleanup_free_ char *hex_result = NULL;
+                        struct sha256_ctx ctx;
 
                         sha256_init_ctx(&ctx);
                         sha256_process_string(str + i, &ctx);

@@ -67,8 +67,7 @@ static void test_misc(const char* fname) {
         log_info_errno(r, "mac_selinux_create_label_from_exe → %d, \"%s\" (%m)",
                        r, strnull(label2));
 
-        fd = socket(AF_INET, SOCK_DGRAM, 0);
-        assert_se(fd >= 0);
+        fd = ASSERT_OK_ERRNO(socket(AF_INET, SOCK_DGRAM, 0));
 
         r = mac_selinux_get_child_mls_label(fd, fname, label2, &label3);
         log_info_errno(r, "mac_selinux_get_child_mls_label → %d, \"%s\" (%m)",

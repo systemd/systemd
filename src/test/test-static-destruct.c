@@ -19,17 +19,17 @@ static void test_destroy(int *b) {
 }
 
 static void test_strings_destroy(char **array, size_t n) {
-        assert_se(n == 3);
+        ASSERT_EQ(n, 3U);
         ASSERT_STRV_EQ(array, STRV_MAKE("a", "bbb", "ccc"));
 
         strv_free(array);
 }
 
 static void test_integers_destroy(int *array, size_t n) {
-        assert_se(n == 10);
+        ASSERT_EQ(n, 10U);
 
         for (size_t i = 0; i < n; i++)
-                assert_se(array[i] == (int)(i * i));
+                ASSERT_EQ(array[i], (int) (i * i));
 
         free(array);
 }
@@ -45,23 +45,27 @@ STATIC_ARRAY_DESTRUCTOR_REGISTER(strings, n_strings, test_strings_destroy);
 STATIC_ARRAY_DESTRUCTOR_REGISTER(integers, n_integers, test_integers_destroy);
 
 TEST(static_destruct) {
-        assert_se(foo == 0 && bar == 0 && baz == 0);
-        assert_se(memory = strdup("hallo"));
-        assert_se(strings = strv_new("a", "bbb", "ccc"));
+        ASSERT_EQ(foo, 0);
+        ASSERT_EQ(bar, 0);
+        ASSERT_EQ(baz, 0);
+        ASSERT_NOT_NULL(memory = strdup("hallo"));
+        ASSERT_NOT_NULL(strings = strv_new("a", "bbb", "ccc"));
         n_strings = strv_length(strings);
         n_integers = 10;
-        assert_se(integers = new(int, n_integers));
+        ASSERT_NOT_NULL(integers = new(int, n_integers));
         for (size_t i = 0; i < n_integers; i++)
                 integers[i] = i * i;
 
         static_destruct();
 
-        assert_se(foo == 1 && bar == 2 && baz == 3);
-        assert_se(!memory);
-        assert_se(!strings);
-        assert_se(n_strings == 0);
-        assert_se(!integers);
-        assert_se(n_integers == 0);
+        ASSERT_EQ(foo, 1);
+        ASSERT_EQ(bar, 2);
+        ASSERT_EQ(baz, 3);
+        ASSERT_NULL(memory);
+        ASSERT_NULL(strings);
+        ASSERT_EQ(n_strings, 0U);
+        ASSERT_NULL(integers);
+        ASSERT_EQ(n_integers, 0U);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

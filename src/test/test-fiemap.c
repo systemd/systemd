@@ -42,7 +42,7 @@ static int test_fiemap_one(const char *path) {
 TEST_RET(fiemap) {
         int r = 0;
 
-        assert_se(test_fiemap_one(saved_argv[0]) == 0);
+        ASSERT_OK_ZERO(test_fiemap_one(saved_argv[0]));
         for (int i = 1; i < saved_argc; i++) {
                 int k = test_fiemap_one(saved_argv[i]);
                 if (r == 0)
