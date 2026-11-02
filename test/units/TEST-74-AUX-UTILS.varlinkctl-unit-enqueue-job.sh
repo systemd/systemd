@@ -13,7 +13,7 @@ at_exit() {
         wait "$watcher_pid" 2>/dev/null || true
     fi
     rm -f /run/systemd/system/varlink-test-enqueue{,-2}.service /run/systemd/system/varlink-test-slow.service
-    rm -f /tmp/enqueue-notifications.json
+    rm -f /tmp/enqueue-notifications.json /tmp/varlink-test-release
     systemctl daemon-reload
 }
 
@@ -130,6 +130,35 @@ UNIT
     systemctl stop varlink-test-slow.service
     wait "$watcher_pid" 2>/dev/null || true
     watcher_pid=
+}
+
+testcase_reload() {
+    trap at_exit EXIT
+
+    # A job that runs until the test lets it finish
+    cat >/run/systemd/system/varlink-test-slow.service <<UNIT
+[Service]
+Type=oneshot
+ExecStart=bash -c 'until [[ -e /tmp/varlink-test-release ]]; do sleep 0.1; done'
+RemainAfterExit=yes
+UNIT
+    systemctl daemon-reload
+
+    varlinkctl --json=short --timeout=30 call --more /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob \
+        '{"names": ["varlink-test-slow.service"], "jobType": "start", "notifyJobChanges": true, "notifyUnitChanges": true}' >/tmp/enqueue-notifications.json &
+    watcher_pid=$!
+
+    timeout 10 bash -c 'until systemctl show -P ActiveState varlink-test-slow.service | grep activating >/dev/null; do sleep 0.5; done'
+
+    # A daemon-reload while the job runs must not lose the watcher: the stream still ends with the
+    # final reply once the job finished.
+    systemctl daemon-reload
+    touch /tmp/varlink-test-release
+    wait "$watcher_pid"
+    watcher_pid=
+    jq -e --seq --slurp '.[-1].job.Result == "done" and .[-1].runtime.ActiveState == "active"' /tmp/enqueue-notifications.json
+
+    systemctl stop varlink-test-slow.service
 }
 
 run_testcases
