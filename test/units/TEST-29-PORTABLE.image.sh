@@ -54,7 +54,12 @@ cp /tmp/untrusted/minimal_9.roothash.p7s /run/portables/
 (! portablectl "${ARGS[@]}" reattach --runtime /run/portables/minimal_9.raw minimal-app0)
 test -e /run/systemd/system.attached/minimal-app0.service
 rm /run/portables/minimal_9.roothash.p7s
+# Reattaching and detaching an image in the image search path must not remove the image.
+portablectl "${ARGS[@]}" reattach --runtime /run/portables/minimal_9.raw minimal-app0
+test -f /run/portables/minimal_9.raw
+test ! -L /run/portables/minimal_9.raw
 portablectl detach --runtime /run/portables/minimal_9.raw minimal-app0
+test -f /run/portables/minimal_9.raw
 rm /run/portables/minimal_9.*
 
 # Attaching with a profile that doesn't exist must fail and must not leave anything behind
