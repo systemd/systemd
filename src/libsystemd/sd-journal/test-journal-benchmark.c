@@ -20,6 +20,7 @@
 #include "alloc-util.h"
 #include "chattr-util.h"
 #include "dirent-util.h"
+#include "dlopen-note.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
@@ -1750,6 +1751,9 @@ static void print_follow_reports(const Format **used, const Report *reports, siz
 }
 
 static int run(int argc, char *argv[]) {
+        COMPRESS_JOURNAL_NOTE;
+        LIBSELINUX_NOTE(suggested);
+
         _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
         Workload w = {};
         int r;
