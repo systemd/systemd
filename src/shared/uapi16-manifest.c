@@ -72,6 +72,7 @@ void uapi16_object_done(Uapi16Object *o) {
         o->group_name = mfree(o->group_name);
         o->gpt_label = mfree(o->gpt_label);
         iovec_done(&o->sha256);
+        o->json = sd_json_variant_unref(o->json);
 
         FOREACH_ARRAY(c, o->contents, o->n_contents)
                 uapi16_contents_done(c);
@@ -759,6 +760,8 @@ int dispatch_uapi16_object(sd_json_variant *v, size_t n, sd_json_dispatch_flags_
                                         return json_log_oom(v, flags);
                 }
         }
+
+        object.json = sd_json_variant_ref(v);
 
         *ret = TAKE_GENERIC(object, Uapi16Object, UAPI16_OBJECT_NULL);
         return 1;
