@@ -213,6 +213,18 @@ test -d /var/lib/machines/.hidden1
 machinectl clean
 test ! -d /var/lib/machines/.hidden1
 
+# Hidden images that are referenced as layers of an existing .mstack must survive "machinectl clean"
+machinectl clone container1 .mstacklayer
+mkdir /var/lib/machines/stacked.mstack
+ln -s ../.mstacklayer /var/lib/machines/stacked.mstack/layer@0
+machinectl clone container1 .unreferenced
+machinectl clean
+test -d /var/lib/machines/.mstacklayer
+test ! -d /var/lib/machines/.unreferenced
+rm -rf /var/lib/machines/stacked.mstack
+machinectl clean
+test ! -d /var/lib/machines/.mstacklayer
+
 if can_do_rootless_nspawn; then
     mkdir /var/lib/machines/foreign-error-source
     chown foreign-0:foreign-0 /var/lib/machines/foreign-error-source
