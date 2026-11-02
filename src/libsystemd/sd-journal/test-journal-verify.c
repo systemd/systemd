@@ -8,6 +8,7 @@
 #include "ansi-color.h"
 #include "chattr-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "iovec-util.h"
 #include "journal-authenticate.h"
 #include "journal-file-util.h"
@@ -26,7 +27,7 @@ static void bit_toggle(const char *fn, uint64_t p) {
         uint8_t b;
         int fd;
 
-        ASSERT_OK_ERRNO(fd = open(fn, O_RDWR|O_CLOEXEC));
+        ASSERT_OK(fd = xopenat(AT_FDCWD, fn, O_RDWR));
 
         ASSERT_EQ(pread(fd, &b, 1, p/8), 1);
 
@@ -242,7 +243,7 @@ static void test_hash_chain_cycle(void) {
         /* Point the second data object of the chain back at the head. Looking up the second data object,
          * which verifying the entry that references it does, would then run into the cycle. */
         back = htole64(head);
-        ASSERT_OK_ERRNO(fd = open("test.journal", O_RDWR|O_CLOEXEC));
+        ASSERT_OK(fd = xopenat(AT_FDCWD, "test.journal", O_RDWR));
         ASSERT_EQ(pwrite(fd, &back, sizeof(back), tail + offsetof(Object, data.next_hash_offset)),
                   (ssize_t) sizeof(back));
         safe_close(fd);
@@ -347,7 +348,7 @@ static void test_entry_reference_one(bool in_data_object) {
         ASSERT_NE(slot, 0u);
         (void) journal_file_offline_close(f);
 
-        ASSERT_OK_ERRNO(fd = open("test.journal", O_RDWR|O_CLOEXEC));
+        ASSERT_OK(fd = xopenat(AT_FDCWD, "test.journal", O_RDWR));
         if (in_data_object) {
                 /* Give the data object one more reference, to something that is not an entry object. All
                  * existing references stay intact, hence this is only noticed when the entries a data

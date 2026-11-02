@@ -16,6 +16,7 @@
 #include "bus-common-errors.h"
 #include "bus-locator.h"
 #include "device-util.h"
+#include "fs-util.h"
 #include "tests.h"
 #include "time-util.h"
 
@@ -113,7 +114,7 @@ TEST(set_tty) {
         if (!arg_tty)
                 return;
 
-        fd = ASSERT_OK_ERRNO(open(arg_tty, O_RDWR|O_CLOEXEC|O_NOCTTY));
+        fd = ASSERT_OK(xopenat(AT_FDCWD, arg_tty, O_RDWR|O_NOCTTY));
 
         ASSERT_OK(sd_bus_open_system(&bus));
 
