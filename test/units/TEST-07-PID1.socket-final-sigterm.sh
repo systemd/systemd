@@ -24,7 +24,7 @@ cat >/run/systemd/system/"$UNIT_NAME.socket" <<EOF
 [Socket]
 ListenStream=$SOCKET_PATH
 ExecStartPost=/bin/sh -c 'sleep 30 &'
-TimeoutSec=15s
+TimeoutSec=infinity
 EOF
 
 cat >/run/systemd/system/"$UNIT_NAME.service" <<EOF
@@ -37,7 +37,9 @@ systemctl start "$UNIT_NAME.socket"
 
 systemctl stop --no-block "$UNIT_NAME.socket"
 timeout 30 bash -c "until [[ \$(systemctl show '$UNIT_NAME.socket' -P SubState) == final-sigterm ]]; do sleep .1; done"
+assert_eq "$(systemctl show "$UNIT_NAME.socket" -P ControlPID)" "0"
 
+sed -i 's/TimeoutSec=infinity/TimeoutSec=1s/' /run/systemd/system/"$UNIT_NAME.socket"
 systemctl daemon-reload
 
 timeout 30 bash -c "until systemctl -q is-failed '$UNIT_NAME.socket'; do sleep .1; done"
