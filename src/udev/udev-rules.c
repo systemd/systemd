@@ -599,6 +599,120 @@ static int rule_resolve_group(UdevRuleLine *rule_line, const char *name, gid_t *
         return 0;
 }
 
+static int validate_action(const UdevRuleToken *token, const char *s) {
+        assert(token);
+        assert(s);
+
+        _cleanup_free_ char *v = NULL;
+        if (FLAGS_SET(token->match_type, MATCH_CASE_INSENSITIVE)) {
+                v = strdup(s);
+                if (!v)
+                        return log_oom();
+
+                s = ascii_strlower(v);
+        }
+
+        return device_action_from_string(s) >= 0;
+}
+
+static int validate_absolute_path(const UdevRuleToken *token, const char *s) {
+        return path_is_absolute(s) && path_is_normalized(s);
+}
+
+static int validate_relative_path(const UdevRuleToken *token, const char *s) {
+        return !path_is_absolute(s) && path_is_normalized(s);
+}
+
+static int validate_ifname(const UdevRuleToken *token, const char *s) {
+        return ifname_valid(s);
+}
+
+static int validate_filename(const UdevRuleToken *token, const char *s) {
+        return filename_is_valid(s);
+}
+
+static int verify_match_token(
+                const UdevRuleToken *token,
+                const char *name,
+                bool allow_empty,
+                int (*validator)(const UdevRuleToken *token, const char *s)) {
+
+        int r;
+
+        assert(token);
+
+        UdevRuleMatchType match_type = token->match_type & _MATCH_TYPE_MASK;
+        UdevRuleLine *line = token->rule_line;
+
+        switch (match_type) {
+        case MATCH_TYPE_EMPTY:
+                if (allow_empty)
+                        return true;
+
+                log_line_full(line, token->op == OP_MATCH ? LOG_ERR : LOG_WARNING,
+                              "%s is always non-empty.", name);
+                return token->op != OP_MATCH;
+
+        case MATCH_TYPE_SUBSYSTEM:
+                assert(token->type == TK_M_SUBSYSTEM);
+                return true;
+
+        case MATCH_TYPE_PLAIN_WITH_EMPTY:
+        case MATCH_TYPE_PLAIN: {
+                bool has = allow_empty && match_type == MATCH_TYPE_PLAIN_WITH_EMPTY;
+                NULSTR_FOREACH(i, token->value) {
+                        r = validator(token, i);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                log_line_warning(line, "Invalid %s value '%s', ignoring.", name, i);
+                        else
+                                has = true;
+                }
+                if (has)
+                        return true;
+
+                log_line_full(line, token->op == OP_MATCH ? LOG_ERR : LOG_WARNING,
+                              "%s token does not have valid value.", name);
+                return token->op != OP_MATCH;
+        }
+        case MATCH_TYPE_GLOB_WITH_EMPTY:
+        case MATCH_TYPE_GLOB:
+                return true;
+        default:
+                assert_not_reached();
+        }
+}
+
+static int verify_token(const UdevRuleToken *token) {
+        assert(token);
+
+        switch (token->type) {
+        case TK_M_ACTION:
+                return verify_match_token(token, "ACTION", /* allow_empty= */ false, validate_action);
+        case TK_M_DEVPATH:
+                return verify_match_token(token, "DEVPATH", /* allow_empty= */ false, validate_absolute_path);
+        case TK_M_KERNEL:
+                return verify_match_token(token, "KERNEL", /* allow_empty= */ false, validate_relative_path);
+        case TK_M_DEVLINK:
+                return verify_match_token(token, "SYMLINK", /* allow_empty= */ true, validate_relative_path);
+        case TK_M_NAME:
+                return verify_match_token(token, "NAME", /* allow_empty= */ true, validate_ifname);
+        case TK_M_SUBSYSTEM:
+                return verify_match_token(token, "SUBSYSTEM", /* allow_empty= */ false, validate_filename);
+        case TK_M_DRIVER:
+                return verify_match_token(token, "DRIVER", /* allow_empty= */ true, validate_filename);
+        case TK_M_PARENTS_KERNEL:
+                return verify_match_token(token, "KERNELS", /* allow_empty= */ false, validate_relative_path);
+        case TK_M_PARENTS_SUBSYSTEM:
+                return verify_match_token(token, "SUBSYSTEMS", /* allow_empty= */ true, validate_filename);
+        case TK_M_PARENTS_DRIVER:
+                return verify_match_token(token, "DRIVERS", /* allow_empty= */ true, validate_filename);
+        default:
+                return true;
+        }
+}
+
 static UdevRuleSubstituteType rule_get_substitution_type(const char *str) {
         assert(str);
 
@@ -625,6 +739,7 @@ static int rule_line_add_token(
         _cleanup_(udev_rule_token_freep) UdevRuleToken *token = NULL;
         UdevRuleMatchType match_type = _MATCH_TYPE_INVALID;
         UdevRuleSubstituteType subst_type = _SUBST_TYPE_INVALID;
+        int r;
 
         assert(rule_line);
         assert(type >= 0 && type < _TK_TYPE_MAX);
@@ -698,7 +813,7 @@ static int rule_line_add_token(
 
         token = new(UdevRuleToken, 1);
         if (!token)
-                return -ENOMEM;
+                return log_oom();
 
         *token = (UdevRuleToken) {
                 .type = type,
@@ -712,6 +827,12 @@ static int rule_line_add_token(
         };
 
         LIST_APPEND(tokens, rule_line->tokens, token);
+
+        r = verify_token(token);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EINVAL;
 
         if (token->type == TK_A_NAME)
                 SET_FLAG(rule_line->type, LINE_HAS_NAME, true);
@@ -1210,7 +1331,7 @@ static int parse_token(
         } else
                 return log_line_error_errno(rule_line, SYNTHETIC_ERRNO(EINVAL), "Invalid key '%s'.", key);
         if (r < 0)
-                return log_oom();
+                return r;
 
         return 1;
 }
