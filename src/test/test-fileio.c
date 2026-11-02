@@ -610,7 +610,7 @@ TEST(read_full_file_full) {
 
         /* A NULL filename reads the file the fd refers to */
         _cleanup_close_ int fd = -EBADF;
-        ASSERT_OK_ERRNO(fd = open(fn, O_RDONLY|O_CLOEXEC));
+        ASSERT_OK(fd = xopenat(AT_FDCWD, fn, O_RDONLY));
         ASSERT_OK(read_full_file_at(fd, /* filename= */ NULL, &rbuf, &rbuf_size));
         ASSERT_EQ(rbuf_size, sizeof(buf));
         ASSERT_EQ(memcmp(buf, rbuf, rbuf_size), 0);
@@ -624,7 +624,7 @@ TEST(xfopenat_empty_path) {
 
         ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
         ASSERT_OK(write_string_file_at(tfd, "file", "hello", WRITE_STRING_FILE_CREATE));
-        ASSERT_OK_ERRNO(fd = openat(tfd, "file", O_RDONLY|O_CLOEXEC));
+        ASSERT_OK(fd = xopenat(tfd, "file", O_RDONLY));
 
         /* A NULL or empty path reopens the fd for reading... */
         ASSERT_OK(xfopenat(fd, /* path= */ NULL, "re", 0, &f));
@@ -920,7 +920,7 @@ TEST(read_boolean_file) {
         ASSERT_OK_ERRNO(chdir(cwd));
 
         /* Also test the dir_fd >= 0 path using an actual fd for /tmp. */
-        ASSERT_OK(dfd = open("/tmp", O_DIRECTORY|O_CLOEXEC));
+        ASSERT_OK(dfd = xopenat(AT_FDCWD, "/tmp", O_DIRECTORY));
         ASSERT_OK(write_string_file(fn, "1", WRITE_STRING_FILE_TRUNCATE));
         _cleanup_free_ char *bn = NULL;
         ASSERT_OK(path_extract_filename(fn, &bn));

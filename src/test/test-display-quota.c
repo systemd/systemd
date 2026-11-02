@@ -4,6 +4,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "quota-util.h"
@@ -14,9 +15,9 @@
 static int show_quota(uid_t uid, const char *path) {
         int r;
 
-        _cleanup_close_ int fd = open(path, O_DIRECTORY|O_CLOEXEC);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, path, O_DIRECTORY);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to open '%s': %m", path);
+                return log_error_errno(fd, "Failed to open '%s': %m", path);
 
         struct dqblk req;
         r = quotactl_fd_with_fallback(fd, QCMD_FIXED(Q_GETQUOTA, USRQUOTA), uid, &req);

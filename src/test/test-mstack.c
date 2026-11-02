@@ -24,8 +24,8 @@ static bool overlayfs_set_fd_lowerdir_plus_supported(void) {
                 return false;
         ASSERT_OK_ERRNO(sb_fd);
 
-        _cleanup_close_ int layer_fd = open("/", O_DIRECTORY|O_CLOEXEC);
-        ASSERT_OK_ERRNO(layer_fd);
+        _cleanup_close_ int layer_fd = xopenat(AT_FDCWD, "/", O_DIRECTORY);
+        ASSERT_OK(layer_fd);
 
         r = RET_NERRNO(fsconfig(sb_fd, FSCONFIG_SET_FD, "lowerdir+", /* value= */ NULL, layer_fd));
         if (r < 0 && (ERRNO_IS_NEG_NOT_SUPPORTED(r) || r == -EINVAL))
@@ -107,8 +107,8 @@ TEST(mstack) {
                         _cleanup_close_ int rfd = -EBADF;
                         ASSERT_OK(mstack_bind_mounts(mstack, w, /* where_fd= */ -EBADF, flags, &rfd));
 
-                        _cleanup_close_ int ofd = open(w, O_PATH|O_CLOEXEC);
-                        ASSERT_OK_ERRNO(ofd);
+                        _cleanup_close_ int ofd = xopenat(AT_FDCWD, w, O_PATH);
+                        ASSERT_OK(ofd);
 
                         ASSERT_OK_ERRNO(faccessat(ofd, "check1", F_OK, AT_SYMLINK_NOFOLLOW));
                         ASSERT_OK_ERRNO(faccessat(ofd, "check2/", F_OK, AT_SYMLINK_NOFOLLOW));

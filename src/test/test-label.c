@@ -82,7 +82,7 @@ static int labelling_op(int dir_fd, const char *text, const char *path, mode_t m
                 return log_error_errno(r, "Error in pathname =>: %m");
 
         /* Open the file within the directory for writing */
-        write_fd = RET_NERRNO(openat(dir_fd, path, O_CLOEXEC|O_WRONLY|O_TRUNC|O_CREAT, 0644));
+        write_fd = xopenat_full(dir_fd, path, O_WRONLY|O_TRUNC|O_CREAT, /* xopen_flags= */ 0, 0644);
         if (write_fd < 0)
                 return log_error_errno(write_fd, "Error in opening directory for writing =>: %m");
 

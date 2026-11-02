@@ -52,7 +52,7 @@ TEST(asynchronous_close) {
 
                 ASSERT_OK(make_reaper_process(true));
 
-                fd = open("/dev/null", O_RDONLY|O_CLOEXEC);
+                fd = xopenat(AT_FDCWD, "/dev/null", O_RDONLY);
                 ASSERT_OK(fd);
                 asynchronous_close(fd);
                 wait_fd_closed(fd);

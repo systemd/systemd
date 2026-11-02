@@ -7,6 +7,7 @@
 
 #include "argv-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "hibernate-util.h"
 #include "log.h"
 #include "tests.h"
@@ -18,9 +19,9 @@ static int test_fiemap_one(const char *path) {
 
         log_info("/* %s */", __func__);
 
-        fd = open(path, O_RDONLY | O_CLOEXEC | O_NONBLOCK);
+        fd = xopenat(AT_FDCWD, path, O_RDONLY | O_NONBLOCK);
         if (fd < 0)
-                return log_error_errno(errno, "failed to open %s: %m", path);
+                return log_error_errno(fd, "failed to open %s: %m", path);
         r = read_fiemap(fd, &fiemap);
         if (r == -EOPNOTSUPP)
                 exit(log_tests_skipped("Not supported"));

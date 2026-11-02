@@ -9,6 +9,7 @@
 #include "compress.h"
 #include "copy.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "io-util.h"
 #include "memfd-util.h"
 #include "path-util.h"
@@ -479,7 +480,7 @@ TEST(compress_decompress_stream) {
 
                 log_debug("/* testing %s stream compression */", compression_to_string(c));
 
-                ASSERT_OK(src = open(srcfile, O_RDONLY|O_CLOEXEC));
+                ASSERT_OK(src = xopenat(AT_FDCWD, srcfile, O_RDONLY));
                 ASSERT_OK(dst = mkostemp_safe(pattern));
 
                 ASSERT_OK(compress_stream(c, src, dst, -1, &uncompressed_size));

@@ -4,6 +4,7 @@
 
 #include "fd-util.h"
 #include "fdset.h"
+#include "fs-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 
@@ -14,7 +15,7 @@ TEST(fdset_new_fill) {
         log_close();
         log_set_open_when_needed(true);
 
-        fd = open("/dev/null", O_CLOEXEC|O_RDONLY);
+        fd = xopenat(AT_FDCWD, "/dev/null", O_RDONLY);
         assert_se(fd >= 0);
 
         assert_se(fdset_new_fill(/* filter_cloexec= */ -1, &fdset) >= 0);
@@ -22,7 +23,7 @@ TEST(fdset_new_fill) {
         fdset = fdset_free(fdset);
         assert_se(fd_validate(fd) == -EBADF);
 
-        fd = open("/dev/null", O_CLOEXEC|O_RDONLY);
+        fd = xopenat(AT_FDCWD, "/dev/null", O_RDONLY);
         assert_se(fd >= 0);
 
         assert_se(fdset_new_fill(/* filter_cloexec= */ 0, &fdset) >= 0);
@@ -35,8 +36,8 @@ TEST(fdset_new_fill) {
         fdset = fdset_free(fdset);
         assert_se(fd_validate(fd) == -EBADF);
 
-        fd = open("/dev/null", O_RDONLY);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd = xopenat(AT_FDCWD, "/dev/null", O_RDONLY));
+        ASSERT_OK(fd_cloexec(fd, false));
 
         assert_se(fdset_new_fill(/* filter_cloexec= */ 1, &fdset) >= 0);
         assert_se(!fdset_contains(fdset, fd));

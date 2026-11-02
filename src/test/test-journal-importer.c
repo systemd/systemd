@@ -3,6 +3,7 @@
 #include <fcntl.h>
 
 #include "alloc-util.h"
+#include "fs-util.h"
 #include "journal-importer.h"
 #include "tests.h"
 
@@ -21,7 +22,7 @@ TEST(basic_parsing) {
         int r;
 
         assert_se(get_testdata_dir("journal-data/journal-1.txt", &journal_data_path) >= 0);
-        imp.fd = open(journal_data_path, O_RDONLY|O_CLOEXEC);
+        imp.fd = xopenat(AT_FDCWD, journal_data_path, O_RDONLY);
         assert_se(imp.fd >= 0);
 
         do
@@ -52,7 +53,7 @@ TEST(bad_input) {
         int r;
 
         assert_se(get_testdata_dir("journal-data/journal-1.txt", &journal_data_path) >= 0);
-        imp.fd = open(journal_data_path, O_RDONLY|O_CLOEXEC);
+        imp.fd = xopenat(AT_FDCWD, journal_data_path, O_RDONLY);
         assert_se(imp.fd >= 0);
 
         do

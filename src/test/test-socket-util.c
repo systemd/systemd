@@ -230,7 +230,7 @@ TEST(passfd_read) {
                 char tmpfile[] = "/tmp/test-socket-util-passfd-read-XXXXXX";
                 ASSERT_OK_ZERO(write_tmpfile(tmpfile, file_contents));
 
-                _cleanup_close_ int tmpfd = ASSERT_OK_ERRNO(open(tmpfile, O_RDONLY));
+                _cleanup_close_ int tmpfd = ASSERT_OK(xopenat(AT_FDCWD, tmpfile, O_RDONLY));
                 ASSERT_OK_ERRNO(unlink(tmpfile));
 
                 ASSERT_OK_ZERO(send_one_fd(pair[1], tmpfd, MSG_DONTWAIT));
@@ -296,7 +296,7 @@ TEST(passfd_contents_read) {
 
                 ASSERT_OK_ZERO(write_tmpfile(tmpfile, file_contents));
 
-                _cleanup_close_ int tmpfd = ASSERT_OK_ERRNO(open(tmpfile, O_RDONLY));
+                _cleanup_close_ int tmpfd = ASSERT_OK(xopenat(AT_FDCWD, tmpfile, O_RDONLY));
                 ASSERT_OK_ERRNO(unlink(tmpfile));
 
                 ASSERT_OK_POSITIVE(send_one_fd_iov(pair[1], tmpfd, &iov, 1, MSG_DONTWAIT));
@@ -505,7 +505,7 @@ TEST(sockaddr_un_set_path) {
         free(j);
         ASSERT_NOT_NULL(j = path_join(t, "sock"));
 
-        ASSERT_OK_ERRNO(fd3 = open(j, O_CLOEXEC|O_PATH|O_NOFOLLOW));
+        ASSERT_OK(fd3 = xopenat(AT_FDCWD, j, O_PATH|O_NOFOLLOW));
         ASSERT_OK(sockaddr_un_set_path(&sa.un, FORMAT_PROC_FD_PATH(fd3))); /* connect via O_PATH instead, circumventing 108ch limit */
 
         ASSERT_OK_ERRNO(connect(fd2, &sa.sa, sockaddr_len(&sa)));
