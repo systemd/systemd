@@ -13,6 +13,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "fstab-util.h"
 #include "log.h"
 #include "mkdir.h"
 #include "mount-util.h"
@@ -423,9 +424,30 @@ int tmpfs_patch_options(
                         return -ENOMEM;
         }
 
-        if (uid_shift != UID_INVALID)
-                if (strextendf_with_separator(&buf, ",", "uid=" UID_FMT ",gid=" UID_FMT, uid_shift, uid_shift) < 0)
+        if (uid_shift != UID_INVALID) {
+                uid_t uid = uid_shift;
+                gid_t gid = uid_shift;
+                if (options) {
+                        _cleanup_free_ char *uid_val_str = NULL;
+                        if (fstab_filter_options(options, "uid\0", NULL, &uid_val_str, NULL, NULL) == true) {
+                                uid_t options_uid;
+                                if (uid_val_str && parse_uid(uid_val_str, &options_uid) >= 0) {
+                                        uid += options_uid;
+                                }
+                        }
+
+                        _cleanup_free_ char *gid_value_str = NULL;
+                        if (fstab_filter_options(options, "gid\0", NULL, &gid_value_str, NULL, NULL) == true) {
+                                gid_t options_gid;
+                                if (gid_value_str && parse_gid(gid_value_str, &options_gid) >= 0) {
+                                        gid += options_gid;
+                                }
+                        }
+                }
+
+                if (strextendf_with_separator(&buf, ",", "uid=" UID_FMT ",gid=" UID_FMT, uid, gid) < 0)
                         return -ENOMEM;
+        }
 
 #if HAVE_SELINUX
         if (selinux_apifs_context)
