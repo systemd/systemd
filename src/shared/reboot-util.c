@@ -21,13 +21,11 @@
 #endif
 
 #include "alloc-util.h"
-#include "copy.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "kernel-image.h"
 #include "log.h"
-#include "memfd-util.h"
 #include "pe-binary.h"
 #include "proc-cmdline.h"
 #include "reboot-util.h"
@@ -256,38 +254,6 @@ int kexec(void) {
         return 0;
 }
 
-static int pe_section_to_memfd(int fd, const IMAGE_SECTION_HEADER *section, const char *name) {
-        int r;
-
-        assert(fd >= 0);
-        assert(section);
-
-        uint32_t offset = le32toh(section->PointerToRawData),
-                 size = MIN(le32toh(section->VirtualSize), le32toh(section->SizeOfRawData));
-
-        _cleanup_close_ int memfd = memfd_new(name);
-        if (memfd < 0)
-                return log_error_errno(memfd, "Failed to create memfd for PE section '%s': %m", name);
-
-        /* copy_bytes_offset() can't use sendfile() when a target offset is given. copy_file_range() fails
-         * with EXDEV when the UKI is on another file system, and the copy then falls back to read() and
-         * pwrite(). Nothing else uses the memfd, so we write at its file offset instead. */
-        r = copy_bytes_offset(
-                        fd,
-                        /* foffset= */ &(uint64_t) { offset },
-                        memfd,
-                        /* toffset= */ NULL,
-                        size,
-                        /* copy_flags= */ 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to copy PE section '%s': %m", name);
-
-        if (lseek(memfd, 0, SEEK_SET) < 0)
-                return log_error_errno(errno, "Failed to seek memfd: %m");
-
-        return TAKE_FD(memfd);
-}
-
 static int extract_uki(const char *path, int fd, int *ret_kernel_fd, int *ret_initrd_fd) {
         int r;
 
@@ -316,7 +282,7 @@ static int extract_uki(const char *path, int fd, int *ret_kernel_fd, int *ret_in
 
         _cleanup_close_ int kernel_memfd = pe_section_to_memfd(fd, linux_section, "kexec-uki-kernel");
         if (kernel_memfd < 0)
-                return kernel_memfd;
+                return log_error_errno(kernel_memfd, "Failed to copy .linux section of UKI '%s': %m", path);
 
         _cleanup_close_ int initrd_memfd = -EBADF;
         if (ret_initrd_fd) {
@@ -326,7 +292,7 @@ static int extract_uki(const char *path, int fd, int *ret_kernel_fd, int *ret_in
 
                         initrd_memfd = pe_section_to_memfd(fd, initrd_section, "kexec-uki-initrd");
                         if (initrd_memfd < 0)
-                                return initrd_memfd;
+                                return log_error_errno(initrd_memfd, "Failed to copy .initrd section of UKI '%s': %m", path);
                 }
         }
 
