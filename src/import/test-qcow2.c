@@ -3,6 +3,7 @@
 #include <fcntl.h>
 
 #include "fd-util.h"
+#include "fs-util.h"
 #include "log.h"
 #include "qcow2-util.h"
 #include "tests.h"
@@ -18,15 +19,15 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        sfd = open(argv[1], O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        sfd = xopenat(AT_FDCWD, argv[1], O_RDONLY|O_NOCTTY);
         if (sfd < 0) {
-                log_error_errno(errno, "Can't open source file: %m");
+                log_error_errno(sfd, "Can't open source file: %m");
                 return EXIT_FAILURE;
         }
 
-        dfd = open(argv[2], O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, 0666);
+        dfd = xopenat_full(AT_FDCWD, argv[2], O_WRONLY|O_CREAT|O_NOCTTY, /* xopen_flags= */ 0, 0666);
         if (dfd < 0) {
-                log_error_errno(errno, "Can't open destination file: %m");
+                log_error_errno(dfd, "Can't open destination file: %m");
                 return EXIT_FAILURE;
         }
 

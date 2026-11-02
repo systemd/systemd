@@ -24,6 +24,7 @@
 #include "fileio.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "hash-funcs.h"
 #include "hashmap.h"
 #include "io-util.h"
@@ -661,9 +662,9 @@ static int foreach_journal_file(const char *path, file_callback_t callback, void
                 if (!endswith(de->d_name, ".journal"))
                         continue;
 
-                fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW);
+                fd = xopenat(dirfd(d), de->d_name, O_RDONLY|O_NOFOLLOW);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open %s/%s: %m", path, de->d_name);
+                        return log_error_errno(fd, "Failed to open %s/%s: %m", path, de->d_name);
 
                 if (fstat(fd, &st) < 0)
                         return log_error_errno(errno, "Failed to stat %s/%s: %m", path, de->d_name);
