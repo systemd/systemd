@@ -12120,15 +12120,14 @@ int tpm2_parse_luks2_json(
 
         assert(v);
 
+        /* Any error other than -ENOMEM means that this token's data is not usable, e.g., a field is missing or
+         * it uses a value only a newer version knows. Callers iterating over tokens should skip the token
+         * then, since another one might still work. */
+
         if (ret_keyslot) {
                 keyslot = cryptsetup_get_keyslot_from_token(v);
-                if (keyslot < 0) {
-                        /* Return a recognizable error when parsing this field, so that callers can handle parsing
-                         * errors of the keyslots field gracefully, since it's not 'owned' by us, but by the LUKS2
-                         * spec */
-                        log_debug_errno(keyslot, "Failed to extract keyslot index from TPM2 JSON data token, skipping: %m");
-                        return -EUCLEAN;
-                }
+                if (keyslot < 0)
+                        return log_debug_errno(keyslot, "Failed to extract keyslot index from TPM2 JSON data token: %m");
         }
 
         w = sd_json_variant_by_key(v, "tpm2-pcrs");
