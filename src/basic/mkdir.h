@@ -19,6 +19,7 @@ int mkdirat_parents(int dir_fd, const char *path, mode_t mode);
 static inline int mkdir_parents(const char *path, mode_t mode) {
         return mkdirat_parents(AT_FDCWD, path, mode);
 }
+int mkdirat_p(int dir_fd, const char *path, mode_t mode);
 int mkdir_parents_safe(const char *prefix, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags);
 int mkdir_p(const char *path, mode_t mode);
 int mkdir_p_safe(const char *prefix, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags);
