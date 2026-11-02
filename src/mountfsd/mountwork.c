@@ -111,30 +111,6 @@ static int json_dispatch_image_options(const char *name, sd_json_variant *varian
         return 0;
 }
 
-static int json_dispatch_image_policy(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        _cleanup_(image_policy_freep) ImagePolicy *q = NULL;
-        ImagePolicy **p = ASSERT_PTR(userdata);
-        int r;
-
-        assert(p);
-
-        if (sd_json_variant_is_null(variant)) {
-                *p = image_policy_free(*p);
-                return 0;
-        }
-
-        if (!sd_json_variant_is_string(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
-
-        r = image_policy_from_string(sd_json_variant_string(variant), /* graceful= */ false, &q);
-        if (r < 0)
-                return json_log(variant, flags, r, "JSON field '%s' is not a valid image policy.", strna(name));
-
-        image_policy_free(*p);
-        *p = TAKE_PTR(q);
-        return 0;
-}
-
 typedef struct MountImageParameters {
         unsigned image_fd_idx;
         unsigned userns_fd_idx;

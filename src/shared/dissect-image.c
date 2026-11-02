@@ -4115,6 +4115,8 @@ int dissected_image_decrypt_interactively(
                 };
 
                 r = ask_password_auto(&req, /* flags= */ ask_password_flags, &z);
+                if (r == -ENOEXEC)
+                        return log_error_errno(r, "Image is encrypted, but no passphrase was supplied and running headless.");
                 if (r < 0)
                         return log_error_errno(r, "Failed to query for passphrase: %m");
 

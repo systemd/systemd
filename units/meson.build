@@ -397,6 +397,15 @@ units = [
           'conditions' : ['ENABLE_FIRSTBOOT'],
           'symlinks' : ['sysinit.target.wants/'],
         },
+        {
+          'file' : 'systemd-firstboot.socket',
+          'conditions' : ['ENABLE_FIRSTBOOT'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
+          'file' : 'systemd-firstboot@.service',
+          'conditions' : ['ENABLE_FIRSTBOOT'],
+        },
         { 'file' : 'systemd-fsck-root.service.in' },
         { 'file' : 'systemd-fsck@.service.in' },
         {
