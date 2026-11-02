@@ -86,6 +86,11 @@ NEWPIN=1234 systemd-cryptenroll --unlock-tpm2-device=auto --tpm2-device=auto --t
 PIN=1234 NEWPIN=4321 systemd-cryptenroll --unlock-tpm2-device=auto --tpm2-device=auto --tpm2-public-key= --tpm2-with-pin=yes "$IMAGE"
 PIN=4321 systemd-cryptenroll --unlock-tpm2-device=auto --recovery-key "$IMAGE"
 
+# A policy reference without a PCR public key has nothing to apply to, hence must be ignored
+PASSWORD=foo systemd-cryptenroll --tpm2-device=auto --tpm2-public-key= --tpm2-public-key-policyref=foo --wipe-slot=tpm2 "$IMAGE"
+cryptsetup luksDump --dump-json-metadata "$IMAGE" | jq -e '[.tokens[] | select(.type == "systemd-tpm2")] | length == 1 and (.[0] | has("tpm2_pubkey_ref") | not)'
+systemd-cryptenroll --unlock-tpm2-device=auto --recovery-key "$IMAGE"
+
 (! systemd-cryptenroll --fido2-with-client-pin=false)
 (! systemd-cryptenroll --fido2-with-user-presence=f "$IMAGE" /tmp/foo)
 (! systemd-cryptenroll --fido2-with-client-pin=1234 "$IMAGE")
