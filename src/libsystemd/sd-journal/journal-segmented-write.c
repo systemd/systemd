@@ -106,6 +106,10 @@ struct SegmentedWriter {
         uint64_t sync_index_offset _align_(8);
         /* The index that the header names. Only the offline thread changes it while it runs. */
         uint64_t synced_index_offset;
+        /* The end of the written objects that segmented_offline_prepare() recorded, and the end that the
+         * header contains */
+        uint64_t sync_offset _align_(8);
+        uint64_t synced_offset;
         bool sync_failed;             /* ever: the kernel reports a writeback error only once */
 
         SegmentData *data;
@@ -1526,6 +1530,7 @@ int segmented_writer_open(JournalFile *f, bool newly_created) {
         *a->writer = (SegmentedWriter) {
                 .checked = f->last_stat.st_size,
                 .synced_index_offset = le64toh(a->disk_header->synced_index_offset),
+                .synced_offset = le64toh(a->disk_header->synced_offset),
                 .flushed = a->scan_offset,
         };
 
@@ -1582,6 +1587,9 @@ void segmented_offline_prepare(JournalFile *f) {
 
         uint64_t newest = a->n_indexes > 0 ? a->indexes[a->n_indexes - 1].offset : 0;
         __atomic_store_n(&w->sync_index_offset, newest, __ATOMIC_SEQ_CST);
+
+        if (!w->write_failed && w->buffer_size == 0)
+                __atomic_store_n(&w->sync_offset, w->flushed, __ATOMIC_SEQ_CST);
 }
 
 static int header_write_synced_index(JournalFile *f, uint64_t offset) {
@@ -1598,13 +1606,31 @@ static int header_write_synced_index(JournalFile *f, uint64_t offset) {
         return 0;
 }
 
+static int header_write_synced_offset(JournalFile *f, uint64_t offset) {
+        SegmentedWriter *w = ASSERT_PTR(ASSERT_PTR(ASSERT_PTR(f)->segmented)->writer);
+        le64_t v = htole64(offset);
+        int r;
+
+        if (offset == 0 || offset == w->synced_offset)
+                return 0;
+
+        r = pwrite_full(f->fd, &v, sizeof(v), offsetof(Header, synced_offset));
+        if (r < 0)
+                return r;
+
+        w->synced_offset = offset;
+        return 0;
+}
+
 static int offline_sync(JournalFile *f) {
         SegmentedWriter *w = ASSERT_PTR(ASSERT_PTR(ASSERT_PTR(f)->segmented)->writer);
-        uint64_t offset;
+        uint64_t offset, end;
+        int r;
 
-        /* The main thread writes an index before it records it, and may record a newer one while the sync
-         * runs. Read the offset before the sync starts, so that the sync covers the index it names. */
+        /* The main thread may record a newer index while a sync runs. The offline thread snapshots the
+         * offsets before syncing to ensure that the sync covers the objects they name. */
         offset = __atomic_load_n(&w->sync_index_offset, __ATOMIC_SEQ_CST);
+        end = __atomic_load_n(&w->sync_offset, __ATOMIC_SEQ_CST);
 
         if (fdatasync(f->fd) < 0) {
                 w->sync_failed = true;
@@ -1612,11 +1638,17 @@ static int offline_sync(JournalFile *f) {
         }
 
         /* After a failed sync, some data may never reach the disk, and no later sync can vouch for it */
-        if (w->sync_failed || offset == 0 || offset == w->synced_index_offset)
+        if (w->sync_failed)
                 return 0;
 
-        /* The sync covered the index, so the header may name it */
-        return header_write_synced_index(f, offset);
+        /* The sync covered the index and the objects before 'end', so the header may name them */
+        if (offset != 0 && offset != w->synced_index_offset) {
+                r = header_write_synced_index(f, offset);
+                if (r < 0)
+                        return r;
+        }
+
+        return header_write_synced_offset(f, end);
 }
 
 static void offline_archive(JournalFile *f) {
@@ -1646,6 +1678,8 @@ static void offline_archive(JournalFile *f) {
         r = 0;
         if (!w->sync_failed && newest != w->synced_index_offset)
                 r = header_write_synced_index(f, newest);
+        if (r >= 0 && !w->sync_failed)
+                r = header_write_synced_offset(f, a->scan_offset);
         if (r >= 0)
                 r = pwrite_full(f->fd, &state, sizeof(state), offsetof(Header, state));
         if (r < 0) {

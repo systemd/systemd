@@ -1686,6 +1686,11 @@ static int verify_segmented(
                                 return -EBADMSG;
                         }
 
+                        if (le64toh(f->segmented->disk_header->synced_offset) > p) {
+                                error(p, "Synced offset covers a partial object");
+                                return -EBADMSG;
+                        }
+
                         /* A crash or a failed write leaves a partial object at the end of a file that is
                          * not archived. Readers stop scanning there, hence stop here too. */
                         warning(p, "File ends with a partial object");
@@ -1784,6 +1789,12 @@ static int verify_segmented(
                 segmented_header_add_object(&v.state, type, p, p + ALIGN64(size));
 
                 padding_end = p + ALIGN64(size);
+                uint64_t synced = le64toh(f->segmented->disk_header->synced_offset);
+                if (synced > p && synced < padding_end) {
+                        error(p, "Synced offset is inside an object");
+                        return -EBADMSG;
+                }
+
                 if (padding_end > v.file_size) {
                         if (f->segmented->disk_header->state == STATE_ARCHIVED) {
                                 error(p, "Padding extends beyond the end of the file");
