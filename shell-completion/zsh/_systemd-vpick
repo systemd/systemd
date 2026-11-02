@@ -1,0 +1,22 @@
+#compdef systemd-vpick
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+(( $+functions[_systemd-vpick_architectures] )) ||
+_systemd-vpick_architectures() {
+    local -a _architectures
+    _architectures=( native secondary uname auto $(systemd-analyze --quiet --no-pager --no-legend architectures 2>/dev/null | { while read -r a _; do echo "$a"; done; }) )
+    _describe -t architectures 'architecture' _architectures
+}
+
+_arguments \
+    '(- *)'{-h,--help}'[Show help text]' \
+    '(- *)--version[Show package version]' \
+    '(-B --basename)'{-B+,--basename=}'[Look for specified basename]:basename' \
+    '-V+[Look for specified version]:version' \
+    '-A+[Look for specified architecture]:architecture:_systemd-vpick_architectures' \
+    '(-S --suffix)'{-S+,--suffix=}'[Look for specified suffix]:suffix' \
+    '*'{-t+,--type=}'[Look for specified inode type]:type:(reg dir lnk chr blk fifo sock)' \
+    "--match-xattr=[Skip entries whose user.uapi.match_* xattrs don't match the system]:boolean:(yes no)" \
+    '(-p --print)'{-p+,--print=}'[Print selected WHAT rather than path]:what:(filename version type arch tries all)' \
+    '--resolve=[Canonicalize the result path]:boolean:(yes no)' \
+    '*:path:_files'
