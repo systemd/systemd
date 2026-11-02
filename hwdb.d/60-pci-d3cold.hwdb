@@ -1,0 +1,22 @@
+# This file is part of systemd.
+#
+# PCI devices that must not enter the PCI D3cold power state (removal of
+# auxiliary slot power) because their platform or driver fails to resume
+# them from it, which leaves the device non-functional after system sleep.
+# Applied by rules.d/60-autosuspend.rules via the ID_D3COLD_ALLOWED property.
+#
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+# Intel AX200/AX210 (Killer 1650x/1650w): entering D3cold during system
+# suspend leaves the card stuck in that state on resume on several handhelds
+# and laptops.
+pci:v00008086d00002725*
+ ID_D3COLD_ALLOWED=0
+
+# Intel BE200 / Killer BE1750 Wi-Fi 7: during s2idle on the MSI Claw A1M the
+# platform removes slot power and the card then fails to retrain its PCIe
+# link on resume, reading back all-ones (kernel Bugzilla 220223). Keeping
+# the device in D3hot with the link in L1.2 during sleep is sufficient for
+# correct suspend behavior; the SoC still reaches S0ix.
+pci:v00008086d0000272B*
+ ID_D3COLD_ALLOWED=0
