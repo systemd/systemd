@@ -610,7 +610,7 @@ static UdevRuleSubstituteType rule_get_substitution_type(const char *str) {
 }
 
 static bool type_has_nulstr_value(UdevRuleTokenType type) {
-        return type < TK_M_TEST || type == TK_M_RESULT;
+        return (type >= 0 && type < TK_M_TEST) || type == TK_M_RESULT;
 }
 
 static int rule_line_add_token(
@@ -630,7 +630,7 @@ static int rule_line_add_token(
         assert(type >= 0 && type < _TK_TYPE_MAX);
         assert(op >= 0 && op < _OP_TYPE_MAX);
 
-        if (type < _TK_M_MAX) {
+        if (type_has_nulstr_value(type)) {
                 assert(value);
                 assert(IN_SET(op, OP_MATCH, OP_NOMATCH));
 
@@ -647,38 +647,36 @@ static int rule_line_add_token(
                 else
                         match_type = MATCH_TYPE_PLAIN;
 
-                if (type_has_nulstr_value(type)) {
-                        /* Convert value string to nulstr. */
-                        bool bar = true, empty = false;
-                        char *a, *b;
+                /* Convert value string to nulstr. */
+                bool bar = true, empty = false;
+                char *a, *b;
 
-                        for (a = b = value; *a != '\0'; a++) {
-                                if (*a != '|') {
-                                        *b++ = *a;
-                                        bar = false;
-                                } else {
-                                        if (bar)
-                                                empty = true;
-                                        else
-                                                *b++ = '\0';
-                                        bar = true;
-                                }
+                for (a = b = value; *a != '\0'; a++) {
+                        if (*a != '|') {
+                                *b++ = *a;
+                                bar = false;
+                        } else {
+                                if (bar)
+                                        empty = true;
+                                else
+                                        *b++ = '\0';
+                                bar = true;
                         }
-                        *b = '\0';
+                }
+                *b = '\0';
 
-                        /* Make sure the value is end, so NULSTR_FOREACH can read correct match */
-                        if (b < a)
-                                b[1] = '\0';
+                /* Make sure the value is end, so NULSTR_FOREACH can read correct match */
+                if (b < a)
+                        b[1] = '\0';
 
-                        if (bar)
-                                empty = true;
+                if (bar)
+                        empty = true;
 
-                        if (empty) {
-                                if (match_type == MATCH_TYPE_GLOB)
-                                        match_type = MATCH_TYPE_GLOB_WITH_EMPTY;
-                                if (match_type == MATCH_TYPE_PLAIN)
-                                        match_type = MATCH_TYPE_PLAIN_WITH_EMPTY;
-                        }
+                if (empty) {
+                        if (match_type == MATCH_TYPE_GLOB)
+                                match_type = MATCH_TYPE_GLOB_WITH_EMPTY;
+                        if (match_type == MATCH_TYPE_PLAIN)
+                                match_type = MATCH_TYPE_PLAIN_WITH_EMPTY;
                 }
         }
 
