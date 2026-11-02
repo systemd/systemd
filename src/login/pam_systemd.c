@@ -64,6 +64,13 @@ static int parse_caps(
 
         assert(pamh);
         assert(value);
+        assert(caps);
+
+        if (isempty(value)) {
+                *caps = 0;
+                return 0;
+        }
+
 
         if (value[0] == '~') {
                 subtract = true;
