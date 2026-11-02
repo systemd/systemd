@@ -493,10 +493,12 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-pe-binary.c'),
+                'export' : files('pe-test-util.c'),
                 'dependencies' : libopenssl_cflags,
         },
         test_template + {
                 'sources' : files('test-pe-writer.c'),
+                'import' : ['test-pe-binary'],
                 'dependencies' : libopenssl_cflags,
         },
         test_template + {
