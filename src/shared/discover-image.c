@@ -2445,16 +2445,18 @@ bool image_in_search_path(
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(path, search) {
-                const char *p, *q;
-                size_t k;
+        /* The directories in the search path are relative to the root directory, while the image path
+         * starts with the root directory. */
+        const char *q = image;
+        if (!empty_or_root(root)) {
+                q = path_startswith_full(image, root, PATH_STARTSWITH_RETURN_LEADING_SLASH);
+                if (!q)
+                        return false;
+        }
 
-                if (!empty_or_root(root)) {
-                        q = path_startswith(*path, root);
-                        if (!q)
-                                continue;
-                } else
-                        q = *path;
+        STRV_FOREACH(path, search) {
+                const char *p;
+                size_t k;
 
                 p = path_startswith(q, *path);
                 if (!p)
