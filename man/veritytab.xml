@@ -221,10 +221,23 @@ This is based on crypttab(5).
         <literal>base64:</literal>, or an absolute path to a root hash signature file used to verify the root
         hash (in kernel). If the special string <literal>auto</literal> is specified, the root hash signature
         is attempted to be read from the udev property <literal>ID_DISSECT_PART_ROOTHASH_SIG=</literal> (in
-        Base64 format) of the data device. This feature requires Linux kernel version 5.4 or more
-        recent.</para>
+        Base64 format) of the data device. If the data device doesn't have this property, the device is
+        activated without a root hash signature, unless <option>root-hash-signature-required=yes</option> is
+        specified. This feature requires Linux kernel version 5.4 or more recent.</para>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>root-hash-signature-required=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Takes a boolean argument. If true, the device is only activated if the kernel or
+        userspace validates the root hash signature set with <option>root-hash-signature=</option>.
+        Userspace validation uses the certificates in <filename>/etc/verity.d/</filename> (and related
+        directories). If false, the device is activated with the root hash alone if neither the kernel nor
+        userspace validates the signature. Defaults to false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
       <varlistentry>
