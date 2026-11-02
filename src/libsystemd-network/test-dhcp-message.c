@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/if_infiniband.h>
 #include <net/if_arp.h>
 
 #include "sd-json.h"
@@ -552,6 +553,65 @@ TEST(dhcp_message) {
 
         /* dump */
         ASSERT_OK(dump_dhcp_message(m, /* args= */ NULL, DUMP_DHCP_MESSAGE_LEGEND | DUMP_DHCP_MESSAGE_FULL));
+}
+
+TEST(dhcp_message_infiniband) {
+        /* RFC 4390 section 2.1: on IPoIB, htype is 32, hlen is 0 and chaddr is zeroed. Hence, the
+         * link-layer address of the client is never carried in the header and cannot be verified. */
+
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
+        ASSERT_OK(dhcp_message_new(&m));
+        ASSERT_NOT_NULL(m);
+
+        uint32_t xid = random_u32();
+
+        struct hw_addr_data hw_addr = { .length = INFINIBAND_ALEN };
+        for (size_t i = 0; i < INFINIBAND_ALEN; i++)
+                hw_addr.bytes[i] = i + 1;
+
+        ASSERT_OK(dhcp_message_init_header(
+                                  m,
+                                  BOOTREPLY,
+                                  xid,
+                                  ARPHRD_INFINIBAND,
+                                  &hw_addr));
+
+        ASSERT_EQ(m->header.htype, ARPHRD_INFINIBAND);
+        ASSERT_EQ(m->header.hlen, 0u);
+        ASSERT_EQ(memcmp(m->header.chaddr, (const uint8_t[sizeof_field(DHCPMessageHeader, chaddr)]) {},
+                         sizeof(m->header.chaddr)), 0);
+
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_MESSAGE_TYPE, 1, &(uint8_t) { DHCP_OFFER }));
+
+        _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
+        ASSERT_OK(dhcp_message_build(m, &iovw));
+
+        _cleanup_(iovec_done) struct iovec joined = {};
+        ASSERT_OK(iovw_concat(&iovw, &joined));
+
+        /* The message must be accepted even though chaddr does not contain the client's address. */
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m2 = NULL;
+        ASSERT_OK(dhcp_message_parse(
+                                  &joined,
+                                  BOOTREPLY,
+                                  &xid,
+                                  ARPHRD_INFINIBAND,
+                                  &hw_addr,
+                                  &m2));
+        ASSERT_EQ(memcmp(&m2->header, &m->header, sizeof(m->header)), 0);
+
+        /* A non-zero hlen is a protocol violation on InfiniBand. */
+        DHCPMessageHeader *header = joined.iov_base;
+        header->hlen = ETH_ALEN;
+
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m3 = NULL;
+        ASSERT_ERROR(dhcp_message_parse(
+                                  &joined,
+                                  BOOTREPLY,
+                                  &xid,
+                                  ARPHRD_INFINIBAND,
+                                  &hw_addr,
+                                  &m3), EBADMSG);
 }
 
 static void test_domains_one(size_t len, const uint8_t *data, char * const *expected) {
