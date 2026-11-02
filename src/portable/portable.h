@@ -89,6 +89,8 @@ int portable_attach(
                 PortableFlags flags,
                 PortableChange **changes,
                 size_t *n_changes,
+                PortableChange **detach_changes,
+                size_t *n_detach_changes,
                 sd_bus_error *error);
 
 int portable_detach(
