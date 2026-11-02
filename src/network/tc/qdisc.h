@@ -18,6 +18,7 @@ typedef enum QDiscKind {
         QDISC_KIND_HHF,
         QDISC_KIND_HTB,
         QDISC_KIND_MQ,
+        QDISC_KIND_MQPRIO,
         QDISC_KIND_MULTIQ,
         QDISC_KIND_NETEM,
         QDISC_KIND_PFIFO,
