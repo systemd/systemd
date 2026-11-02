@@ -146,7 +146,7 @@ TEST(access_fd) {
         a = strjoina(arg_test_dir ?: "/tmp", "/access-fd.XXXXXX");
         ASSERT_OK(mkdtemp_malloc(a, &p));
 
-        fd = ASSERT_OK_ERRNO(open(p, O_RDONLY|O_DIRECTORY|O_CLOEXEC));
+        fd = ASSERT_OK(xopenat(AT_FDCWD, p, O_RDONLY|O_DIRECTORY));
 
         ASSERT_OK(access_fd(fd, R_OK));
         ASSERT_OK(access_fd(fd, F_OK));
@@ -269,7 +269,7 @@ TEST(unlinkat_deallocate) {
 
         ASSERT_OK(tempfn_random_child(arg_test_dir, "unlink-deallocation", &p));
 
-        fd = ASSERT_OK_ERRNO(open(p, O_WRONLY|O_CLOEXEC|O_CREAT|O_EXCL, 0600));
+        fd = ASSERT_OK(xopenat_full(AT_FDCWD, p, O_WRONLY|O_CREAT|O_EXCL, /* xopen_flags= */ 0, 0600));
 
         ASSERT_OK_EQ_ERRNO(write(fd, "hallo\n", 6), 6);
 
@@ -404,7 +404,7 @@ TEST(chmod_and_chown) {
 static void create_binary_file(const char *p, const void *data, size_t l) {
         _cleanup_close_ int fd = -EBADF;
 
-        fd = ASSERT_OK_ERRNO(open(p, O_CREAT|O_WRONLY|O_EXCL|O_CLOEXEC, 0600));
+        fd = ASSERT_OK(xopenat_full(AT_FDCWD, p, O_CREAT|O_WRONLY|O_EXCL, /* xopen_flags= */ 0, 0600));
         ASSERT_OK_EQ_ERRNO(write(fd, data, l), (ssize_t) l);
 }
 
@@ -881,7 +881,7 @@ TEST(xopenat_socket) {
         ASSERT_OK_ERRNO(mkdirat(tfd, "dir", 0755));
         ASSERT_ERROR(xopenat_full(tfd, "dir", O_PATH, XO_SOCKET, /* mode= */ 0), EISDIR);
 
-        fd = ASSERT_OK_ERRNO(openat(tfd, "reg", O_CREAT|O_CLOEXEC, 0600));
+        fd = ASSERT_OK(xopenat_full(tfd, "reg", O_CREAT, /* xopen_flags= */ 0, 0600));
         fd = safe_close(fd);
         ASSERT_ERROR(xopenat_full(tfd, "reg", O_PATH, XO_SOCKET, /* mode= */ 0), ENOTSOCK);
 
@@ -957,7 +957,7 @@ TEST(xopenat_auto_rw_ro) {
          * this when running as root, or as a user with CAP_DAC_OVERRIDE. */
 
         if (have_effective_cap(CAP_DAC_OVERRIDE) <= 0) {
-                fd = ASSERT_OK_ERRNO(openat(tfd, "ro", O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC, 0444));
+                fd = ASSERT_OK(xopenat_full(tfd, "ro", O_CREAT|O_EXCL|O_WRONLY, /* xopen_flags= */ 0, 0444));
                 fd = safe_close(fd);
                 ASSERT_OK_ERRNO(fchmodat(tfd, "ro", 0444, 0));
 
@@ -1037,23 +1037,23 @@ TEST(linkat_replace) {
 
         tfd = ASSERT_OK(mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &t));
 
-        _cleanup_close_ int fd1 = ASSERT_OK_ERRNO(openat(tfd, "foo", O_CREAT|O_RDWR|O_CLOEXEC, 0600));
+        _cleanup_close_ int fd1 = ASSERT_OK(xopenat_full(tfd, "foo", O_CREAT|O_RDWR, /* xopen_flags= */ 0, 0600));
 
         ASSERT_OK(linkat_replace(tfd, "foo", tfd, "bar"));
         ASSERT_OK(linkat_replace(tfd, "foo", tfd, "bar"));
 
-        _cleanup_close_ int fd1_check = ASSERT_OK_ERRNO(openat(tfd, "bar", O_RDWR|O_CLOEXEC));
+        _cleanup_close_ int fd1_check = ASSERT_OK(xopenat(tfd, "bar", O_RDWR));
 
         ASSERT_OK_POSITIVE(inode_same_at(fd1, /* filea= */ NULL, fd1_check, /* fileb= */ NULL,
                                          AT_EMPTY_PATH));
 
-        _cleanup_close_ int fd2 = ASSERT_OK_ERRNO(openat(tfd, "baz", O_CREAT|O_RDWR|O_CLOEXEC, 0600));
+        _cleanup_close_ int fd2 = ASSERT_OK(xopenat_full(tfd, "baz", O_CREAT|O_RDWR, /* xopen_flags= */ 0, 0600));
 
         ASSERT_OK_EQ(inode_same_at(fd1, /* filea= */ NULL, fd2, /* fileb= */ NULL, AT_EMPTY_PATH), 0);
 
         ASSERT_OK(linkat_replace(tfd, "foo", tfd, "baz"));
 
-        _cleanup_close_ int fd2_check = openat(tfd, "baz", O_RDWR|O_CLOEXEC);
+        _cleanup_close_ int fd2_check = xopenat(tfd, "baz", O_RDWR);
 
         ASSERT_OK_EQ(inode_same_at(fd2, /* filea= */ NULL, fd2_check, /* fileb= */ NULL, AT_EMPTY_PATH), 0);
         ASSERT_OK_POSITIVE(inode_same_at(fd1, /* filea= */ NULL, fd2_check, /* fileb= */ NULL,
@@ -1074,7 +1074,7 @@ TEST(readlinkat_malloc) {
         ASSERT_STREQ(p, expect);
         p = mfree(p);
 
-        fd = ASSERT_OK_ERRNO(openat(tfd, "linkname", O_PATH | O_NOFOLLOW | O_CLOEXEC));
+        fd = ASSERT_OK(xopenat(tfd, "linkname", O_PATH | O_NOFOLLOW));
         ASSERT_OK(readlinkat_malloc(fd, NULL, &p));
         ASSERT_STREQ(p, expect);
         p = mfree(p);

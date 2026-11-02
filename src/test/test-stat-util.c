@@ -119,8 +119,8 @@ TEST(inode_same) {
         ASSERT_OK_POSITIVE(inode_same("/proc", "/proc", /* flags= */ 0));
         ASSERT_OK_POSITIVE(inode_same("/proc", "/proc", AT_SYMLINK_NOFOLLOW));
 
-        _cleanup_close_ int fd1 = ASSERT_OK_ERRNO(open("/dev/null", O_CLOEXEC|O_RDONLY)),
-                fd2 = ASSERT_OK_ERRNO(open("/dev/null", O_CLOEXEC|O_RDONLY));
+        _cleanup_close_ int fd1 = ASSERT_OK(xopenat(AT_FDCWD, "/dev/null", O_RDONLY)),
+                fd2 = ASSERT_OK(xopenat(AT_FDCWD, "/dev/null", O_RDONLY));
 
         ASSERT_OK_POSITIVE(inode_same_at(fd1, /* filea= */ NULL, fd2, /* fileb= */ NULL, AT_EMPTY_PATH));
         ASSERT_OK_POSITIVE(inode_same_at(fd2, /* filea= */ NULL, fd1, /* fileb= */ NULL, AT_EMPTY_PATH));
@@ -130,7 +130,7 @@ TEST(inode_same) {
         ASSERT_OK_POSITIVE(inode_same_at(fd2, /* filea= */ NULL, fd2, /* fileb= */ NULL, AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW));
 
         safe_close(fd2);
-        fd2 = ASSERT_OK_ERRNO(open("/dev/urandom", O_CLOEXEC|O_RDONLY));
+        fd2 = ASSERT_OK(xopenat(AT_FDCWD, "/dev/urandom", O_RDONLY));
 
         ASSERT_OK_EQ(inode_same_at(fd1, /* filea= */ NULL, fd2, /* fileb= */ NULL, AT_EMPTY_PATH), 0);
         ASSERT_OK_EQ(inode_same_at(fd2, /* filea= */ NULL, fd1, /* fileb= */ NULL, AT_EMPTY_PATH), 0);
@@ -250,7 +250,7 @@ TEST(dir_is_empty) {
 
         /* A NULL path checks the directory the fd refers to */
         _cleanup_close_ int fd = -EBADF;
-        ASSERT_OK_ERRNO(fd = open(empty_dir, O_DIRECTORY|O_CLOEXEC));
+        ASSERT_OK(fd = xopenat(AT_FDCWD, empty_dir, O_DIRECTORY));
         ASSERT_OK_POSITIVE(dir_is_empty_at(fd, /* path= */ NULL, /* ignore_hidden_or_backup= */ false));
         ASSERT_OK(touch(j));
         ASSERT_OK_ZERO(dir_is_empty_at(fd, /* path= */ NULL, /* ignore_hidden_or_backup= */ false));
@@ -295,7 +295,7 @@ TEST(fd_verify_linked) {
         ASSERT_NOT_NULL(p = path_join(t, "hoge"));
         ASSERT_OK(touch(p));
 
-        fd = ASSERT_OK_ERRNO(open(p, O_CLOEXEC | O_PATH));
+        fd = ASSERT_OK(xopenat(AT_FDCWD, p, O_PATH));
 
         ASSERT_OK(fd_verify_linked(fd));
         ASSERT_OK_ERRNO(unlinkat(tfd, "hoge", 0));

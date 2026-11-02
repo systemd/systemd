@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "fs-util.h"
 #include "log.h"
 #include "namespace.h"
 #include "tests.h"
@@ -81,7 +82,7 @@ int main(int argc, char *argv[]) {
         _cleanup_(pinned_resource_done) PinnedResource pr = PINNED_RESOURCE_NULL;
 
         if (root_directory) {
-                pr.directory_fd = ASSERT_OK_ERRNO(open(root_directory, O_PATH|O_CLOEXEC|O_DIRECTORY));
+                pr.directory_fd = ASSERT_OK(xopenat(AT_FDCWD, root_directory, O_PATH|O_DIRECTORY));
                 pr.directory = ASSERT_NOT_NULL(strdup(root_directory));
         }
 

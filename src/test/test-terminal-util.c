@@ -13,6 +13,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "memfd-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -224,9 +225,9 @@ TEST(terminal_fix_size_vc) {
         /* On a virtual console terminal_fix_size() must not query the terminal at all: it should report
          * success without touching the dimensions the kernel gave us. */
 
-        _cleanup_close_ int fd = open("/dev/tty1", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, "/dev/tty1", O_RDWR|O_NOCTTY);
         if (fd < 0)
-                return (void) log_notice_errno(errno, "Can't open /dev/tty1, skipping: %m");
+                return (void) log_notice_errno(fd, "Can't open /dev/tty1, skipping: %m");
 
         _cleanup_free_ char *name = NULL;
         r = getttyname_harder(fd, &name);
@@ -325,7 +326,7 @@ TEST(terminal_is_pty_fd) {
         fd1 = safe_close(fd1);
         fd2 = safe_close(fd2);
 
-        fd1 = ASSERT_OK_ERRNO(open("/dev/null", O_RDONLY|O_CLOEXEC));
+        fd1 = ASSERT_OK(xopenat(AT_FDCWD, "/dev/null", O_RDONLY));
         ASSERT_OK_ZERO(terminal_is_pty_fd(fd1));
 
         /* In container managers real tty devices might be weird, avoid them. */

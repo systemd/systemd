@@ -7,6 +7,7 @@
 #include "capability-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "loop-util.h"
 #include "memfd-util.h"
 #include "path-util.h"
@@ -98,7 +99,7 @@ TEST(rereadpt) {
         ASSERT_OK_ZERO_ERRNO(access(p, F_OK));
 
         _cleanup_close_ int pfd = -EBADF;
-        ASSERT_OK_ERRNO(pfd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY));
+        ASSERT_OK(pfd = xopenat(AT_FDCWD, p, O_RDONLY|O_NONBLOCK|O_NOCTTY));
         uint64_t size;
         ASSERT_OK(blockdev_get_device_size(pfd, &size));
         ASSERT_EQ(size, 20U*1024U*1024U);
@@ -123,14 +124,14 @@ TEST(rereadpt) {
         ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0, /* args= */ NULL));
         ASSERT_OK_ZERO_ERRNO(access(p, F_OK));
 
-        ASSERT_OK_ERRNO(pfd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY));
+        ASSERT_OK(pfd = xopenat(AT_FDCWD, p, O_RDONLY|O_NONBLOCK|O_NOCTTY));
         ASSERT_OK(blockdev_get_device_size(pfd, &size));
         ASSERT_EQ(size, 30U*1024U*1024U);
         pfd = safe_close(pfd);
 
         /* No change */
         ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0, /* args= */ NULL));
-        ASSERT_OK_ERRNO(pfd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY));
+        ASSERT_OK(pfd = xopenat(AT_FDCWD, p, O_RDONLY|O_NONBLOCK|O_NOCTTY));
 
         /* Move */
         log_notice("MOVING BY 50M");
@@ -146,14 +147,14 @@ TEST(rereadpt) {
         ASSERT_OK_ZERO_ERRNO(access(p, F_OK));
         ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0, /* args= */ NULL));
 
-        pfd = ASSERT_OK_ERRNO(open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY));
+        pfd = ASSERT_OK(xopenat(AT_FDCWD, p, O_RDONLY|O_NONBLOCK|O_NOCTTY));
         ASSERT_OK(blockdev_get_device_size(pfd, &size));
         ASSERT_EQ(size, 15U*1024U*1024U);
         pfd = safe_close(pfd);
 
         /* No change */
         ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0, /* args= */ NULL));
-        pfd = ASSERT_OK_ERRNO(open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY));
+        pfd = ASSERT_OK(xopenat(AT_FDCWD, p, O_RDONLY|O_NONBLOCK|O_NOCTTY));
 
         /* Remove */
         log_notice("REMOVING");
