@@ -6,6 +6,8 @@
 #include "forward.h"
 #include "time-util.h"
 
+typedef struct CatalogFile CatalogFile;
+
 #define JOURNAL_FILES_MAX 7168u
 
 #define JOURNAL_LOG_RATELIMIT ((const RateLimit) { .interval = 60 * USEC_PER_SEC, .burst = 3 })
@@ -126,6 +128,12 @@ typedef struct sd_journal {
         Hashmap *directories_by_wd;
 
         Hashmap *errors;
+
+        /* The catalog database, opened on first use and kept mapped until the journal object is closed,
+         * so that we don't have to reopen it for every entry we show. If opening failed, the error is
+         * stored in catalog_error, so that we don't retry for every entry either. */
+        CatalogFile *catalog;
+        int catalog_error;
 } sd_journal;
 
 char* journal_make_match_string(sd_journal *j);

@@ -241,6 +241,30 @@ static void test_catalog_oob_offset(void) {
         test_catalog_oob_offset_one(/* item_offset= */ 0, /* strings_size= */ 16);
 }
 
+static void test_catalog_file(const char *database) {
+        _cleanup_(catalog_file_freep) CatalogFile *c = NULL;
+        _cleanup_free_ char *text = NULL;
+        const char *a, *b;
+
+        ASSERT_ERROR(catalog_file_open("/nonexistent/catalog.db", &c), ENOENT);
+        ASSERT_NULL(c);
+
+        ASSERT_OK(catalog_file_open(database, &c));
+        ASSERT_NOT_NULL(c);
+
+        /* Repeated lookups on the same object return the same string, and pointers stay valid across
+         * lookups, since they point into the mapping. */
+        ASSERT_OK(catalog_file_lookup(c, SD_MESSAGE_COREDUMP, &a));
+        ASSERT_OK(catalog_file_lookup(c, SD_MESSAGE_COREDUMP, &b));
+        ASSERT_PTR_EQ(a, b);
+
+        ASSERT_ERROR(catalog_file_lookup(c, SD_ID128_NULL, &b), ENOENT);
+        ASSERT_PTR_EQ(b, a); /* not touched on failure */
+
+        ASSERT_OK(catalog_get(database, SD_MESSAGE_COREDUMP, &text));
+        ASSERT_STREQ(a, text);
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_(unlink_tempfilep) char database[] = "/tmp/test-catalog.XXXXXX";
         _cleanup_close_ int fd = -EBADF;
@@ -277,6 +301,8 @@ int main(int argc, char *argv[]) {
 
         ASSERT_OK(catalog_get(database, SD_MESSAGE_COREDUMP, &text));
         printf(">>>%s<<<\n", text);
+
+        test_catalog_file(database);
 
         return 0;
 }
