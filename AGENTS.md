@@ -49,8 +49,9 @@ display. This is critical for diagnosing build and test failures.
 
 ## clang-tidy
 
-- After changing C code, always run clang-tidy for the affected code and fix every finding before
-committing. CI runs the same checks and fails on any warning.
+- After changing C code, try to run clang-tidy for the affected code and fix every finding before
+committing, if a compatible version is already available (skip it if not, never try to obtain a new version yourself).
+CI runs the same checks and fails on any warning.
 - meson.build defines a test named `clang-tidy-<file name>` for every `.c` and `.h` file in its `sources`
 list. The `.h` file with the same name next to a `.c` file in the list gets a test as well. Other files
 have no test of their own, for example `src/basic/macro.h` and the sources of NSS and PAM modules.
