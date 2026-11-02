@@ -590,6 +590,7 @@ static int build_policy_digest(bool sign) {
                         arg_public_key,
                         ASK_PASSWORD_PRIVATE_KEY_PIN("measure", arg_private_key),
                         &privkey,
+                        /* ret_certificate= */ NULL,
                         &pubkey,
                         &ui);
         if (r < 0)

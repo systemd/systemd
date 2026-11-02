@@ -178,31 +178,27 @@ static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         return r;
         }
 
-        r = openssl_load_x509_certificate(
+        if (arg_private_key && arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
+                r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
+                if (r < 0)
+                        return r;
+        }
+
+        r = openssl_load_key_pair(
+                        arg_private_key_source_type,
+                        arg_private_key_source,
+                        arg_private_key,
                         arg_certificate_source_type,
                         arg_certificate_source,
                         arg_certificate,
-                        &certificate);
+                        /* public_key= */ NULL,
+                        ASK_PASSWORD_PRIVATE_KEY_PIN("sbsign", arg_private_key),
+                        &private_key,
+                        &certificate,
+                        /* ret_public_key= */ NULL,
+                        &ui);
         if (r < 0)
-                return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
-
-        if (arg_private_key) {
-                if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
-                        r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = openssl_load_private_key(
-                                arg_private_key_source_type,
-                                arg_private_key_source,
-                                arg_private_key,
-                                ASK_PASSWORD_PRIVATE_KEY_PIN("sbsign", arg_private_key),
-                                &private_key,
-                                &ui);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
-        }
+                return r;
 
         if (arg_signed_data) {
                 _cleanup_free_ void *content = NULL;
