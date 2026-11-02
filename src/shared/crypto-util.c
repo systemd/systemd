@@ -36,6 +36,7 @@ uint64_t OSSL_get_max_threads(OSSL_LIB_CTX *ctx);
 struct OpenSSLAskPasswordUI {
         AskPasswordRequest request;
         UI_METHOD *method;
+        const UI_METHOD *previous_method;
 };
 
 DLSYM_PROTOTYPE(ASN1_ANY_it) = NULL;
@@ -2590,8 +2591,11 @@ OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui) {
         assert(openssl_ui_supported());
 
 #ifndef OPENSSL_NO_UI_CONSOLE
+        /* Each OpenSSLAskPasswordUI object installs itself as default UI method, and restores the previous
+         * one when freed. Hence, if multiple objects are allocated at the same time they must be freed in
+         * the reverse order of allocation. */
         assert(sym_UI_get_default_method() == ui->method);
-        sym_UI_set_default_method(sym_UI_OpenSSL());
+        sym_UI_set_default_method(ui->previous_method ?: sym_UI_OpenSSL());
         sym_UI_destroy_method(ui->method);
 #endif
         return mfree(ui);
@@ -2662,6 +2666,7 @@ static int openssl_ask_password_ui_new(const AskPasswordRequest *request, OpenSS
         *ui = (OpenSSLAskPasswordUI) {
                 .method = TAKE_PTR(method),
                 .request = *request,
+                .previous_method = sym_UI_get_default_method(),
         };
 
         sym_UI_set_default_method(ui->method);
