@@ -827,7 +827,7 @@ static int parse_token(
                 } else
                         r = rule_line_add_token(rule_line, TK_M_NAME, op, value, /* data= */ NULL, is_case_insensitive, token_str);
         } else if (streq(key, "ENV")) {
-                if (isempty(attr))
+                if (!device_property_name_is_valid(attr))
                         return log_line_invalid_attr(rule_line, key);
                 if (op == OP_REMOVE)
                         return log_line_invalid_op(rule_line, key);
@@ -1013,11 +1013,15 @@ static int parse_token(
                                 return log_line_error_errno(rule_line, SYNTHETIC_ERRNO(EINVAL),
                                                             "Unknown builtin command: %s", value);
                         r = rule_line_add_token(rule_line, TK_M_IMPORT_BUILTIN, op, value, UDEV_BUILTIN_CMD_TO_PTR(cmd), /* is_case_insensitive= */ false, token_str);
-                } else if (streq(attr, "db"))
+                } else if (streq(attr, "db")) {
+                        if (!device_property_name_is_valid(value))
+                                return log_line_error_errno(rule_line, SYNTHETIC_ERRNO(EINVAL), "Invalid property name: %s", value);
                         r = rule_line_add_token(rule_line, TK_M_IMPORT_DB, op, value, /* data= */ NULL, /* is_case_insensitive= */ false, token_str);
-                else if (streq(attr, "cmdline"))
+                } else if (streq(attr, "cmdline")) {
+                        if (!device_property_name_is_valid(value))
+                                return log_line_error_errno(rule_line, SYNTHETIC_ERRNO(EINVAL), "Invalid property name: %s", value);
                         r = rule_line_add_token(rule_line, TK_M_IMPORT_CMDLINE, op, value, /* data= */ NULL, /* is_case_insensitive= */ false, token_str);
-                else if (streq(attr, "parent"))
+                } else if (streq(attr, "parent"))
                         r = rule_line_add_token(rule_line, TK_M_IMPORT_PARENT, op, value, /* data= */ NULL, /* is_case_insensitive= */ false, token_str);
                 else
                         return log_line_invalid_attr(rule_line, key);
@@ -2605,6 +2609,11 @@ static int udev_rule_apply_token_to_event(
 
                 if (!apply_format_value(event, token, buf, sizeof(buf), "property name"))
                         return false;
+
+                if (!string_is_glob(buf) && !device_property_name_is_valid(buf)) {
+                        log_event_warning(event, token, "Invalid property name '%s', ignoring: %m", buf);
+                        return log_event_result(event, token, token->op == OP_NOMATCH);
+                }
 
                 sd_device *parent;
                 r = sd_device_get_parent(dev, &parent);
