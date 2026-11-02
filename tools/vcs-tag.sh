@@ -5,19 +5,26 @@ set -e
 INPUT="$1"
 MODE="$2"
 ENABLED="$3"
+SOURCE_ROOT="$4"
 
-if ! ((ENABLED)) || ! [[ -d .git ]] || ! command -v git >/dev/null || git describe --tags --exact-match &>/dev/null
+if ! ((ENABLED)) || ! [[ -e "$SOURCE_ROOT/.git" ]] || ! command -v git >/dev/null || git -C "$SOURCE_ROOT" describe --tags --exact-match &>/dev/null
 then
     sed -e "s/@VCS_TAG@//" "$INPUT"
     exit 0
 fi
 
 if [[ "$MODE" == "developer" ]]; then
-    DIRTY="--dirty=^"
+    DIRTY=("--dirty=^")
 else
-    DIRTY=""
+    DIRTY=()
 fi
 
-TAG="-g$(git describe --abbrev=7 --match="" --always $DIRTY)"
+# Git can refuse to read a checkout whose owner differs from the user running the build.
+if TAG="$(git -C "$SOURCE_ROOT" describe --abbrev=7 --match="" --always "${DIRTY[@]}")"; then
+    TAG="-g$TAG"
+else
+    echo "Warning: git describe failed; using the configured version without a VCS tag." >&2
+    TAG=""
+fi
 
 sed -e "s/@VCS_TAG@/$TAG/" "$INPUT"
