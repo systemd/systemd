@@ -3,63 +3,10 @@
 #include "console.h"
 #include "efi-efivars.h"
 #include "efi-log.h"
-#include "efi-string.h"
 #include "efivar-erase.h"
 #include "proto/simple-text-io.h"
 #include "strv.h"
 #include "util.h"
-
-/* Upper limit on the number of variables we enumerate, as protection against firmware that never returns
- * EFI_NOT_FOUND from GetNextVariableName() */
-#define ENUMERATE_VARIABLES_MAX 65536U
-
-static EFI_STATUS collect_variables(const EFI_GUID *vendor, char16_t ***ret) {
-        _cleanup_strv_free_ char16_t **l = NULL;
-        size_t n = 0, buf_size = 256 * sizeof(char16_t);
-        _cleanup_free_ char16_t *buf = NULL;
-        EFI_GUID guid = {};
-        EFI_STATUS err;
-
-        assert(vendor);
-        assert(ret);
-
-        /* Note that the UEFI spec leaves undefined what happens if variables are deleted while they are
-         * enumerated. Hence we first collect all names, and only delete them afterwards. */
-
-        buf = xmalloc(buf_size);
-        buf[0] = 0; /* Empty string starts enumeration */
-
-        for (unsigned i = 0;; i++) {
-                if (i >= ENUMERATE_VARIABLES_MAX)
-                        return log_error_status(EFI_ABORTED, "Too many EFI variables, refusing to enumerate further.");
-
-                size_t size = buf_size;
-                err = RT->GetNextVariableName(&size, buf, &guid);
-                if (err == EFI_NOT_FOUND)
-                        break;
-                if (err == EFI_BUFFER_TOO_SMALL) {
-                        if (size <= buf_size)
-                                return log_error_status(err, "Firmware reported invalid EFI variable name size.");
-
-                        /* Retain the current name, enumeration continues from it */
-                        buf = xrealloc(buf, buf_size, size);
-                        buf_size = size;
-                        continue;
-                }
-                if (err != EFI_SUCCESS)
-                        return log_error_status(err, "Failed to enumerate EFI variables: %m");
-
-                if (!efi_guid_equal(&guid, vendor))
-                        continue;
-
-                l = xrealloc(l, n == 0 ? 0 : (n + 1) * sizeof(char16_t*), (n + 2) * sizeof(char16_t*));
-                l[n++] = xstrdup16(buf);
-                l[n] = NULL;
-        }
-
-        *ret = TAKE_PTR(l);
-        return EFI_SUCCESS;
-}
 
 static EFI_STATUS erase_variable(const EFI_GUID *vendor, const char16_t *name) {
         uint32_t attributes;
@@ -90,9 +37,9 @@ EFI_STATUS efivar_erase_namespace(const EFI_GUID *vendor, const char16_t *const 
 
         assert(vendor);
 
-        err = collect_variables(vendor, &l);
+        err = efivar_get_names(vendor, &l);
         if (err != EFI_SUCCESS)
-                return err;
+                return log_error_status(err, "Failed to enumerate EFI variables: %m");
 
         STRV_FOREACH(i, l) {
                 if (strv_contains((char16_t**) keep, *i))
