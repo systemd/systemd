@@ -65,6 +65,7 @@ extern bool arg_show_transaction;
 extern int arg_force;
 extern bool arg_ask_password;
 extern bool arg_runtime;
+extern bool arg_vendor;
 extern UnitFilePresetMode arg_preset_mode;
 extern char **arg_wall;
 extern const char *arg_kill_whom;
