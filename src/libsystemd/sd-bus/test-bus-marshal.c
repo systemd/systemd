@@ -75,78 +75,99 @@ static int dlopen_libdbus(void) {
 static void test_bus_path_encode_unique(void) {
         _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL;
 
-        assert_se(bus_path_encode_unique(NULL, "/foo/bar", "some.sender", "a.suffix", &a) >= 0 && streq_ptr(a, "/foo/bar/some_2esender/a_2esuffix"));
-        assert_se(bus_path_decode_unique(a, "/foo/bar", &b, &c) > 0 && streq_ptr(b, "some.sender") && streq_ptr(c, "a.suffix"));
-        assert_se(bus_path_decode_unique(a, "/bar/foo", &d, &d) == 0 && !d);
-        assert_se(bus_path_decode_unique("/foo/bar/onlyOneSuffix", "/foo/bar", &d, &d) == 0 && !d);
-        assert_se(bus_path_decode_unique("/foo/bar/_/_", "/foo/bar", &d, &e) > 0 && streq_ptr(d, "") && streq_ptr(e, ""));
+        ASSERT_OK(bus_path_encode_unique(NULL, "/foo/bar", "some.sender", "a.suffix", &a));
+        ASSERT_STREQ(a, "/foo/bar/some_2esender/a_2esuffix");
+        ASSERT_OK_POSITIVE(bus_path_decode_unique(a, "/foo/bar", &b, &c));
+        ASSERT_STREQ(b, "some.sender");
+        ASSERT_STREQ(c, "a.suffix");
+        ASSERT_OK_EQ(bus_path_decode_unique(a, "/bar/foo", &d, &d), 0);
+        ASSERT_NULL(d);
+        ASSERT_OK_EQ(bus_path_decode_unique("/foo/bar/onlyOneSuffix", "/foo/bar", &d, &d), 0);
+        ASSERT_NULL(d);
+        ASSERT_OK_POSITIVE(bus_path_decode_unique("/foo/bar/_/_", "/foo/bar", &d, &e));
+        ASSERT_STREQ(d, "");
+        ASSERT_STREQ(e, "");
 }
 
 static void test_bus_path_encode(void) {
         _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *f = NULL, *g = NULL;
 
-        assert_se(sd_bus_path_encode("/foo/bar", "waldo", &a) >= 0 && streq(a, "/foo/bar/waldo"));
-        assert_se(sd_bus_path_decode(a, "/waldo", &b) == 0 && b == NULL);
-        assert_se(sd_bus_path_decode(a, "/foo/bar", &b) > 0 && streq(b, "waldo"));
+        ASSERT_OK(sd_bus_path_encode("/foo/bar", "waldo", &a));
+        ASSERT_STREQ(a, "/foo/bar/waldo");
+        ASSERT_OK_EQ(sd_bus_path_decode(a, "/waldo", &b), 0);
+        ASSERT_NULL(b);
+        ASSERT_OK_POSITIVE(sd_bus_path_decode(a, "/foo/bar", &b));
+        ASSERT_STREQ(b, "waldo");
 
-        ASSERT_RETURN_EXPECTED_SE(sd_bus_path_encode("xxxx", "waldo", &c) < 0);
-        ASSERT_RETURN_EXPECTED_SE(sd_bus_path_encode("/foo/", "waldo", &c) < 0);
+        ASSERT_RETURN_EXPECTED(ASSERT_FAIL(sd_bus_path_encode("xxxx", "waldo", &c)));
+        ASSERT_RETURN_EXPECTED(ASSERT_FAIL(sd_bus_path_encode("/foo/", "waldo", &c)));
 
-        assert_se(sd_bus_path_encode("/foo/bar", "", &c) >= 0 && streq(c, "/foo/bar/_"));
-        assert_se(sd_bus_path_decode(c, "/foo/bar", &d) > 0 && streq(d, ""));
+        ASSERT_OK(sd_bus_path_encode("/foo/bar", "", &c));
+        ASSERT_STREQ(c, "/foo/bar/_");
+        ASSERT_OK_POSITIVE(sd_bus_path_decode(c, "/foo/bar", &d));
+        ASSERT_STREQ(d, "");
 
-        assert_se(sd_bus_path_encode("/foo/bar", "foo.bar", &e) >= 0 && streq(e, "/foo/bar/foo_2ebar"));
-        assert_se(sd_bus_path_decode(e, "/foo/bar", &f) > 0 && streq(f, "foo.bar"));
+        ASSERT_OK(sd_bus_path_encode("/foo/bar", "foo.bar", &e));
+        ASSERT_STREQ(e, "/foo/bar/foo_2ebar");
+        ASSERT_OK_POSITIVE(sd_bus_path_decode(e, "/foo/bar", &f));
+        ASSERT_STREQ(f, "foo.bar");
 
-        assert_se(sd_bus_path_decode("/waldo", "/waldo", &g) > 0 && streq(g, ""));
+        ASSERT_OK_POSITIVE(sd_bus_path_decode("/waldo", "/waldo", &g));
+        ASSERT_STREQ(g, "");
 }
 
 static void test_bus_path_encode_many(void) {
         _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *f = NULL;
 
-        assert_se(sd_bus_path_decode_many("/foo/bar", "/prefix/%", NULL) == 0);
-        assert_se(sd_bus_path_decode_many("/prefix/bar", "/prefix/%bar", NULL) == 1);
-        assert_se(sd_bus_path_decode_many("/foo/bar", "/prefix/%/suffix", NULL) == 0);
-        assert_se(sd_bus_path_decode_many("/prefix/foobar/suffix", "/prefix/%/suffix", &a) == 1 && streq_ptr(a, "foobar"));
-        assert_se(sd_bus_path_decode_many("/prefix/one_foo_two/mid/three_bar_four/suffix", "/prefix/one_%_two/mid/three_%_four/suffix", &b, &c) == 1 && streq_ptr(b, "foo") && streq_ptr(c, "bar"));
-        assert_se(sd_bus_path_decode_many("/prefix/one_foo_two/mid/three_bar_four/suffix", "/prefix/one_%_two/mid/three_%_four/suffix", NULL, &d) == 1 && streq_ptr(d, "bar"));
+        ASSERT_OK_EQ(sd_bus_path_decode_many("/foo/bar", "/prefix/%", NULL), 0);
+        ASSERT_OK_EQ(sd_bus_path_decode_many("/prefix/bar", "/prefix/%bar", NULL), 1);
+        ASSERT_OK_EQ(sd_bus_path_decode_many("/foo/bar", "/prefix/%/suffix", NULL), 0);
+        ASSERT_OK_EQ(sd_bus_path_decode_many("/prefix/foobar/suffix", "/prefix/%/suffix", &a), 1);
+        ASSERT_STREQ(a, "foobar");
+        ASSERT_OK_EQ(sd_bus_path_decode_many("/prefix/one_foo_two/mid/three_bar_four/suffix", "/prefix/one_%_two/mid/three_%_four/suffix", &b, &c), 1);
+        ASSERT_STREQ(b, "foo");
+        ASSERT_STREQ(c, "bar");
+        ASSERT_OK_EQ(sd_bus_path_decode_many("/prefix/one_foo_two/mid/three_bar_four/suffix", "/prefix/one_%_two/mid/three_%_four/suffix", NULL, &d), 1);
+        ASSERT_STREQ(d, "bar");
 
-        assert_se(sd_bus_path_decode_many("/foo/bar", "/foo/bar/%", NULL) == 0);
-        assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "/foo/bar%", NULL) == 0);
-        assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "/foo/%/bar", NULL) == 0);
-        assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "/foo/%bar", NULL) == 0);
-        assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "/foo/bar/suffix") == 1);
-        assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "/foo/%%/suffix", NULL, NULL) == 0); /* multiple '%' are treated verbatim */
-        assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "/foo/%/suffi", NULL) == 0);
-        assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "/foo/%/suffix", &e) == 1 && streq_ptr(e, "bar"));
-        assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "/foo/%/%", NULL, NULL) == 1);
-        assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "/%/%/%", NULL, NULL, NULL) == 1);
-        assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "%/%/%", NULL, NULL, NULL) == 0);
-        assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "/%/%", NULL, NULL) == 0);
-        assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "/%/%/", NULL, NULL) == 0);
-        assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "/%/", NULL) == 0);
-        assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "/%", NULL) == 0);
-        assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "%", NULL) == 0);
+        ASSERT_OK_EQ(sd_bus_path_decode_many("/foo/bar", "/foo/bar/%", NULL), 0);
+        ASSERT_OK_EQ(sd_bus_path_decode_many("/foo/bar/suffix", "/foo/bar%", NULL), 0);
+        ASSERT_OK_EQ(sd_bus_path_decode_many("/foo/bar/suffix", "/foo/%/bar", NULL), 0);
+        ASSERT_OK_EQ(sd_bus_path_decode_many("/foo/bar/suffix", "/foo/%bar", NULL), 0);
+        ASSERT_OK_EQ(sd_bus_path_decode_many("/foo/bar/suffix", "/foo/bar/suffix"), 1);
+        ASSERT_OK_EQ(sd_bus_path_decode_many("/foo/bar/suffix", "/foo/%%/suffix", NULL, NULL), 0); /* multiple '%' are treated verbatim */
+        ASSERT_OK_EQ(sd_bus_path_decode_many("/foo/bar/suffix", "/foo/%/suffi", NULL), 0);
+        ASSERT_OK_EQ(sd_bus_path_decode_many("/foo/bar/suffix", "/foo/%/suffix", &e), 1);
+        ASSERT_STREQ(e, "bar");
+        ASSERT_OK_EQ(sd_bus_path_decode_many("/foo/bar/suffix", "/foo/%/%", NULL, NULL), 1);
+        ASSERT_OK_EQ(sd_bus_path_decode_many("/foo/bar/suffix", "/%/%/%", NULL, NULL, NULL), 1);
+        ASSERT_OK_EQ(sd_bus_path_decode_many("/foo/bar/suffix", "%/%/%", NULL, NULL, NULL), 0);
+        ASSERT_OK_EQ(sd_bus_path_decode_many("/foo/bar/suffix", "/%/%", NULL, NULL), 0);
+        ASSERT_OK_EQ(sd_bus_path_decode_many("/foo/bar/suffix", "/%/%/", NULL, NULL), 0);
+        ASSERT_OK_EQ(sd_bus_path_decode_many("/foo/bar/suffix", "/%/", NULL), 0);
+        ASSERT_OK_EQ(sd_bus_path_decode_many("/foo/bar/suffix", "/%", NULL), 0);
+        ASSERT_OK_EQ(sd_bus_path_decode_many("/foo/bar/suffix", "%", NULL), 0);
 
-        assert_se(sd_bus_path_encode_many(&f, "/prefix/one_%_two/mid/three_%_four/suffix", "foo", "bar") >= 0 && streq_ptr(f, "/prefix/one_foo_two/mid/three_bar_four/suffix"));
+        ASSERT_OK(sd_bus_path_encode_many(&f, "/prefix/one_%_two/mid/three_%_four/suffix", "foo", "bar"));
+        ASSERT_STREQ(f, "/prefix/one_foo_two/mid/three_bar_four/suffix");
 }
 
 static void test_bus_label_escape_one(const char *a, const char *b) {
         _cleanup_free_ char *t = NULL, *x = NULL, *y = NULL;
 
-        assert_se(t = bus_label_escape(a));
-        assert_se(streq(t, b));
+        ASSERT_NOT_NULL(t = bus_label_escape(a));
+        ASSERT_STREQ(t, b);
 
-        assert_se(x = bus_label_unescape(t));
-        assert_se(streq(a, x));
+        ASSERT_NOT_NULL(x = bus_label_unescape(t));
+        ASSERT_STREQ(a, x);
 
-        assert_se(y = bus_label_unescape(b));
-        assert_se(streq(a, y));
+        ASSERT_NOT_NULL(y = bus_label_unescape(b));
+        ASSERT_STREQ(a, y);
 }
 
 static ino_t get_inode(int fd) {
         struct stat st;
-        assert_se(fstat(fd, &st) >= 0);
+        ASSERT_OK_ERRNO(fstat(fd, &st));
         return st.st_ino;
 }
 
@@ -343,75 +364,56 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 return log_tests_skipped("Failed to connect to bus");
 
-        r = sd_bus_message_new_method_call(bus, &m, "foobar.waldo", "/", "foobar.waldo", "Piep");
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_new_method_call(bus, &m, "foobar.waldo", "/", "foobar.waldo", "Piep"));
 
-        r = sd_bus_message_append(m, "");
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_append(m, ""));
 
-        r = sd_bus_message_append(m, "s", "a string");
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_append(m, "s", "a string"));
 
-        r = sd_bus_message_append(m, "s", NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_append(m, "s", NULL));
 
-        r = sd_bus_message_append(m, "asg", 2, "string #1", "string #2", "sba(tt)ss");
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_append(m, "asg", 2, "string #1", "string #2", "sba(tt)ss"));
 
-        r = sd_bus_message_append(m, "sass", "foobar", 5, "foo", "bar", "waldo", "piep", "pap", "after");
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_append(m, "sass", "foobar",
+                                        5, "foo", "bar", "waldo", "piep", "pap",
+                                        "after"));
 
-        r = sd_bus_message_append(m, "a{yv}", 2, 3, "s", "foo", 5, "s", "waldo");
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_append(m, "a{yv}", 2, 3, "s", "foo", 5, "s", "waldo"));
 
-        r = sd_bus_message_append(m, "y(ty)y(yt)y", 8, 777ULL, 7, 9, 77, 7777ULL, 10);
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_append(m, "y(ty)y(yt)y", 8, 777ULL, 7, 9, 77, 7777ULL, 10));
 
-        r = sd_bus_message_append(m, "()");
-        assert_se(r == -EINVAL);
+        ASSERT_ERROR(sd_bus_message_append(m, "()"), EINVAL);
 
-        r = sd_bus_message_append(m, "ba(ss)", 255, 3, "aaa", "1", "bbb", "2", "ccc", "3");
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_append(m, "ba(ss)", 255, 3, "aaa", "1", "bbb", "2", "ccc", "3"));
 
-        r = sd_bus_message_open_container(m, 'a', "s");
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_open_container(m, 'a', "s"));
 
-        r = sd_bus_message_append_basic(m, 's', "foobar");
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_append_basic(m, 's', "foobar"));
 
-        r = sd_bus_message_append_basic(m, 's', "waldo");
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_append_basic(m, 's', "waldo"));
 
-        r = sd_bus_message_close_container(m);
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_close_container(m));
 
-        r = sd_bus_message_append_string_space(m, 5, &s);
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_append_string_space(m, 5, &s));
         strcpy(s, "hallo");
 
-        r = sd_bus_message_append_array(m, 'i', integer_array, sizeof(integer_array));
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_append_array(m, 'i', integer_array, sizeof(integer_array)));
 
-        r = sd_bus_message_append_array(m, 'u', /* ptr= */ NULL, /* size= */ 0);
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_append_array(m, 'u', /* ptr= */ NULL, /* size= */ 0));
 
-        r = sd_bus_message_append(m, "a(stdo)", 1, "foo", 815ULL, 47.0, "/");
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_append(m, "a(stdo)", 1, "foo", 815ULL, 47.0, "/"));
 
-        r = sd_bus_message_seal(m, 4711, /* timeout_usec= */ 0);
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_seal(m, 4711, /* timeout_usec= */ 0));
 
         sd_bus_message_dump(m, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
 
-        assert_se(mf = memstream_init(&ms));
+        ASSERT_NOT_NULL(mf = memstream_init(&ms));
         sd_bus_message_dump(m, mf, /* flags= */ 0);
-        assert_se(memstream_finalize(&ms, &first, &first_size) >= 0);
+        ASSERT_OK(memstream_finalize(&ms, &first, &first_size));
 
-        r = bus_message_get_blob(m, &buffer, &sz);
-        assert_se(r >= 0);
+        ASSERT_OK(bus_message_get_blob(m, &buffer, &sz));
 
-        h = cescape_length(buffer, sz);
-        assert_se(h);
+        h = ASSERT_NOT_NULL(cescape_length(buffer, sz));
         log_info("message size = %zu, contents =\n%s", sz, h);
 
 #if HAVE_GLIB
@@ -446,173 +448,143 @@ int main(int argc, char *argv[]) {
 
         m = sd_bus_message_unref(m);
 
-        r = bus_message_from_malloc(bus, buffer, sz, /* fds= */ NULL, /* n_fds= */ 0, /* got_ctrunc= */ false, /* label= */ NULL, &m);
-        assert_se(r >= 0);
+        ASSERT_OK(bus_message_from_malloc(bus, buffer, sz, /* fds= */ NULL, /* n_fds= */ 0, /* got_ctrunc= */ false, /* label= */ NULL, &m));
 
         sd_bus_message_dump(m, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
 
-        assert_se(mf = memstream_init(&ms));
+        ASSERT_NOT_NULL(mf = memstream_init(&ms));
         sd_bus_message_dump(m, mf, /* flags= */ 0);
-        assert_se(memstream_finalize(&ms, &second, &second_size) >= 0);
-        assert_se(first_size == second_size);
-        assert_se(memcmp(first, second, first_size) == 0);
+        ASSERT_OK(memstream_finalize(&ms, &second, &second_size));
+        ASSERT_EQ(first_size, second_size);
+        ASSERT_EQ(memcmp(first, second, first_size), 0);
 
-        assert_se(sd_bus_message_rewind(m, /* complete= */ true) >= 0);
+        ASSERT_OK(sd_bus_message_rewind(m, /* complete= */ true));
 
-        r = sd_bus_message_read(m, "ssasg", &x, &x2, 2, &y, &z, &a_signature);
-        assert_se(r > 0);
-        assert_se(streq(x, "a string"));
-        assert_se(streq(x2, ""));
-        assert_se(streq(y, "string #1"));
-        assert_se(streq(z, "string #2"));
-        assert_se(streq(a_signature, "sba(tt)ss"));
+        ASSERT_OK_POSITIVE(sd_bus_message_read(m, "ssasg", &x, &x2, 2, &y, &z, &a_signature));
+        ASSERT_STREQ(x, "a string");
+        ASSERT_STREQ(x2, "");
+        ASSERT_STREQ(y, "string #1");
+        ASSERT_STREQ(z, "string #2");
+        ASSERT_STREQ(a_signature, "sba(tt)ss");
 
-        r = sd_bus_message_read(m, "sass", &x, 5, &y, &z, &a, &b, &c, &d);
-        assert_se(r > 0);
-        assert_se(streq(x, "foobar"));
-        assert_se(streq(y, "foo"));
-        assert_se(streq(z, "bar"));
-        assert_se(streq(a, "waldo"));
-        assert_se(streq(b, "piep"));
-        assert_se(streq(c, "pap"));
-        assert_se(streq(d, "after"));
+        ASSERT_OK_POSITIVE(sd_bus_message_read(m, "sass", &x, 5, &y, &z, &a, &b, &c, &d));
+        ASSERT_STREQ(x, "foobar");
+        ASSERT_STREQ(y, "foo");
+        ASSERT_STREQ(z, "bar");
+        ASSERT_STREQ(a, "waldo");
+        ASSERT_STREQ(b, "piep");
+        ASSERT_STREQ(c, "pap");
+        ASSERT_STREQ(d, "after");
 
-        r = sd_bus_message_read(m, "a{yv}", 2, &u, "s", &x, &v, "s", &y);
-        assert_se(r > 0);
-        assert_se(u == 3);
-        assert_se(streq(x, "foo"));
-        assert_se(v == 5);
-        assert_se(streq(y, "waldo"));
+        ASSERT_OK_POSITIVE(sd_bus_message_read(m, "a{yv}", 2, &u, "s", &x, &v, "s", &y));
+        ASSERT_EQ(u, 3U);
+        ASSERT_STREQ(x, "foo");
+        ASSERT_EQ(v, 5);
+        ASSERT_STREQ(y, "waldo");
 
-        r = sd_bus_message_read(m, "y(ty)", &v, &u64, &u);
-        assert_se(r > 0);
-        assert_se(v == 8);
-        assert_se(u64 == 777);
-        assert_se(u == 7);
+        ASSERT_OK_POSITIVE(sd_bus_message_read(m, "y(ty)", &v, &u64, &u));
+        ASSERT_EQ(v, 8);
+        ASSERT_EQ(u64, 777U);
+        ASSERT_EQ(u, 7U);
 
-        r = sd_bus_message_read(m, "y(yt)", &v, &u, &u64);
-        assert_se(r > 0);
-        assert_se(v == 9);
-        assert_se(u == 77);
-        assert_se(u64 == 7777);
+        ASSERT_OK_POSITIVE(sd_bus_message_read(m, "y(yt)", &v, &u, &u64));
+        ASSERT_EQ(v, 9);
+        ASSERT_EQ(u, 77U);
+        ASSERT_EQ(u64, 7777U);
 
-        r = sd_bus_message_read(m, "y", &v);
-        assert_se(r > 0);
-        assert_se(v == 10);
+        ASSERT_OK_POSITIVE(sd_bus_message_read(m, "y", &v));
+        ASSERT_EQ(v, 10);
 
-        r = sd_bus_message_read(m, "()");
-        assert_se(r < 0);
+        ASSERT_FAIL(sd_bus_message_read(m, "()"));
 
-        r = sd_bus_message_read(m, "ba(ss)", &boolean, 3, &x, &y, &a, &b, &c, &d);
-        assert_se(r > 0);
-        assert_se(boolean);
-        assert_se(streq(x, "aaa"));
-        assert_se(streq(y, "1"));
-        assert_se(streq(a, "bbb"));
-        assert_se(streq(b, "2"));
-        assert_se(streq(c, "ccc"));
-        assert_se(streq(d, "3"));
+        ASSERT_OK_POSITIVE(sd_bus_message_read(m, "ba(ss)", &boolean, 3, &x, &y, &a, &b, &c, &d));
+        ASSERT_TRUE(boolean);
+        ASSERT_STREQ(x, "aaa");
+        ASSERT_STREQ(y, "1");
+        ASSERT_STREQ(a, "bbb");
+        ASSERT_STREQ(b, "2");
+        ASSERT_STREQ(c, "ccc");
+        ASSERT_STREQ(d, "3");
 
-        assert_se(sd_bus_message_verify_type(m, 'a', "s") > 0);
+        ASSERT_OK_POSITIVE(sd_bus_message_verify_type(m, 'a', "s"));
 
-        r = sd_bus_message_read(m, "as", 2, &x, &y);
-        assert_se(r > 0);
-        assert_se(streq(x, "foobar"));
-        assert_se(streq(y, "waldo"));
+        ASSERT_OK_POSITIVE(sd_bus_message_read(m, "as", 2, &x, &y));
+        ASSERT_STREQ(x, "foobar");
+        ASSERT_STREQ(y, "waldo");
 
-        r = sd_bus_message_read_basic(m, 's', &s);
-        assert_se(r > 0);
-        assert_se(streq(s, "hallo"));
+        ASSERT_OK_POSITIVE(sd_bus_message_read_basic(m, 's', &s));
+        ASSERT_STREQ(s, "hallo");
 
-        r = sd_bus_message_read_array(m, 'i', (const void**) &return_array, &sz);
-        assert_se(r > 0);
-        assert_se(sz == sizeof(integer_array));
-        assert_se(memcmp(integer_array, return_array, sz) == 0);
+        ASSERT_OK_POSITIVE(sd_bus_message_read_array(m, 'i', (const void**) &return_array, &sz));
+        ASSERT_EQ(sz, sizeof(integer_array));
+        ASSERT_EQ(memcmp(integer_array, return_array, sz), 0);
 
-        r = sd_bus_message_read_array(m, 'u', (const void**) &return_array, &sz);
-        assert_se(r > 0);
-        assert_se(sz == 0);
+        ASSERT_OK_POSITIVE(sd_bus_message_read_array(m, 'u', (const void**) &return_array, &sz));
+        ASSERT_EQ(sz, 0U);
 
-        r = sd_bus_message_read(m, "a(stdo)", 1, &x, &u64, &dbl, &y);
-        assert_se(r > 0);
-        assert_se(streq(x, "foo"));
-        assert_se(u64 == 815ULL);
-        assert_se(ABS(dbl - 47.0) < 0.1);
-        assert_se(streq(y, "/"));
+        ASSERT_OK_POSITIVE(sd_bus_message_read(m, "a(stdo)", 1, &x, &u64, &dbl, &y));
+        ASSERT_STREQ(x, "foo");
+        ASSERT_EQ(u64, 815ULL);
+        ASSERT_TRUE(ABS(dbl - 47.0) < 0.1);
+        ASSERT_STREQ(y, "/");
 
-        r = sd_bus_message_peek_type(m, /* ret_type= */ NULL, /* ret_contents= */ NULL);
-        assert_se(r == 0);
+        ASSERT_OK_ZERO(sd_bus_message_peek_type(m, /* ret_type= */ NULL, /* ret_contents= */ NULL));
 
-        r = sd_bus_message_new_method_call(bus, &copy, "foobar.waldo", "/", "foobar.waldo", "Piep");
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_new_method_call(bus, &copy, "foobar.waldo", "/", "foobar.waldo", "Piep"));
 
-        r = sd_bus_message_rewind(m, /* complete= */ true);
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_rewind(m, /* complete= */ true));
 
-        r = sd_bus_message_copy(copy, m, /* all= */ true);
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_copy(copy, m, /* all= */ true));
 
-        r = sd_bus_message_seal(copy, 4712, /* timeout_usec= */ 0);
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_seal(copy, 4712, /* timeout_usec= */ 0));
 
-        assert_se(mf = memstream_init(&ms));
+        ASSERT_NOT_NULL(mf = memstream_init(&ms));
         sd_bus_message_dump(copy, mf, /* flags= */ 0);
-        assert_se(memstream_finalize(&ms, &third, &third_size) >= 0);
+        ASSERT_OK(memstream_finalize(&ms, &third, &third_size));
 
         printf("<%.*s>\n", (int) first_size, first);
         printf("<%.*s>\n", (int) third_size, third);
 
-        assert_se(first_size == third_size);
-        assert_se(memcmp(first, third, third_size) == 0);
+        ASSERT_EQ(first_size, third_size);
+        ASSERT_EQ(memcmp(first, third, third_size), 0);
 
-        r = sd_bus_message_rewind(m, /* complete= */ true);
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_rewind(m, /* complete= */ true));
 
-        assert_se(sd_bus_message_verify_type(m, 's', /* contents= */ NULL) > 0);
+        ASSERT_OK_POSITIVE(sd_bus_message_verify_type(m, 's', /* contents= */ NULL));
 
-        r = sd_bus_message_skip(m, "ssasg");
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(sd_bus_message_skip(m, "ssasg"));
 
-        assert_se(sd_bus_message_verify_type(m, 's', /* contents= */ NULL) > 0);
+        ASSERT_OK_POSITIVE(sd_bus_message_verify_type(m, 's', /* contents= */ NULL));
 
-        r = sd_bus_message_skip(m, "sass");
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_skip(m, "sass"));
 
-        assert_se(sd_bus_message_verify_type(m, 'a', "{yv}") > 0);
+        ASSERT_OK_POSITIVE(sd_bus_message_verify_type(m, 'a', "{yv}"));
 
-        r = sd_bus_message_skip(m, "a{yv}y(ty)y(yt)y");
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_skip(m, "a{yv}y(ty)y(yt)y"));
 
-        assert_se(sd_bus_message_verify_type(m, 'b', /* contents= */ NULL) > 0);
+        ASSERT_OK_POSITIVE(sd_bus_message_verify_type(m, 'b', /* contents= */ NULL));
 
-        r = sd_bus_message_read(m, "b", &boolean);
-        assert_se(r > 0);
-        assert_se(boolean);
+        ASSERT_OK_POSITIVE(sd_bus_message_read(m, "b", &boolean));
+        ASSERT_TRUE(boolean);
 
-        r = sd_bus_message_enter_container(m, /* type= */ 0, /* contents= */ NULL);
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(sd_bus_message_enter_container(m, /* type= */ 0, /* contents= */ NULL));
 
-        r = sd_bus_message_read(m, "(ss)", &x, &y);
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(sd_bus_message_read(m, "(ss)", &x, &y));
 
-        r = sd_bus_message_read(m, "(ss)", &a, &b);
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(sd_bus_message_read(m, "(ss)", &a, &b));
 
-        r = sd_bus_message_read(m, "(ss)", &c, &d);
-        assert_se(r > 0);
+        ASSERT_OK_POSITIVE(sd_bus_message_read(m, "(ss)", &c, &d));
 
-        r = sd_bus_message_read(m, "(ss)", &x, &y);
-        assert_se(r == 0);
+        ASSERT_OK_ZERO(sd_bus_message_read(m, "(ss)", &x, &y));
 
-        r = sd_bus_message_exit_container(m);
-        assert_se(r >= 0);
+        ASSERT_OK(sd_bus_message_exit_container(m));
 
-        assert_se(streq(x, "aaa"));
-        assert_se(streq(y, "1"));
-        assert_se(streq(a, "bbb"));
-        assert_se(streq(b, "2"));
-        assert_se(streq(c, "ccc"));
-        assert_se(streq(d, "3"));
+        ASSERT_STREQ(x, "aaa");
+        ASSERT_STREQ(y, "1");
+        ASSERT_STREQ(a, "bbb");
+        ASSERT_STREQ(b, "2");
+        ASSERT_STREQ(c, "ccc");
+        ASSERT_STREQ(d, "3");
 
         test_bus_label_escape();
         test_bus_path_encode();

@@ -20,8 +20,8 @@ static void test_socket_address_parse_one(const char *in, int ret, int family, c
                 r = socket_address_print(&a, &out);
                 if (r < 0)
                         log_error_errno(r, "Printing failed for \"%s\": %m", in);
-                assert_se(r >= 0);
-                assert_se(a.type == 0);
+                ASSERT_OK(r);
+                ASSERT_EQ(a.type, 0);
         }
 
         log_info("\"%s\" → %s %d → \"%s\" (expect %d / \"%s\")",
@@ -30,9 +30,9 @@ static void test_socket_address_parse_one(const char *in, int ret, int family, c
                  empty_to_dash(out),
                  ret,
                  ret >= 0 ? expected ?: in : "-");
-        assert_se(r == ret);
+        ASSERT_EQ(r, ret);
         if (r >= 0) {
-                assert_se(a.sockaddr.sa.sa_family == family);
+                ASSERT_EQ(a.sockaddr.sa.sa_family, family);
                 ASSERT_STREQ(out, expected ?: in);
         }
 }
@@ -105,130 +105,130 @@ TEST(socket_address_parse) {
 TEST(socket_address_parse_netlink) {
         SocketAddress a;
 
-        assert_se(socket_address_parse_netlink(&a, "junk") < 0);
-        assert_se(socket_address_parse_netlink(&a, "") < 0);
+        ASSERT_FAIL(socket_address_parse_netlink(&a, "junk"));
+        ASSERT_FAIL(socket_address_parse_netlink(&a, ""));
 
-        assert_se(socket_address_parse_netlink(&a, "route") >= 0);
-        assert_se(a.sockaddr.nl.nl_family == AF_NETLINK);
-        assert_se(a.sockaddr.nl.nl_groups == 0);
-        assert_se(a.protocol == NETLINK_ROUTE);
-        assert_se(socket_address_parse_netlink(&a, "route") >= 0);
-        assert_se(socket_address_parse_netlink(&a, "route 10") >= 0);
-        assert_se(a.sockaddr.nl.nl_family == AF_NETLINK);
-        assert_se(a.sockaddr.nl.nl_groups == 10);
-        assert_se(a.protocol == NETLINK_ROUTE);
+        ASSERT_OK(socket_address_parse_netlink(&a, "route"));
+        ASSERT_EQ(a.sockaddr.nl.nl_family, AF_NETLINK);
+        ASSERT_EQ(a.sockaddr.nl.nl_groups, 0U);
+        ASSERT_EQ(a.protocol, NETLINK_ROUTE);
+        ASSERT_OK(socket_address_parse_netlink(&a, "route"));
+        ASSERT_OK(socket_address_parse_netlink(&a, "route 10"));
+        ASSERT_EQ(a.sockaddr.nl.nl_family, AF_NETLINK);
+        ASSERT_EQ(a.sockaddr.nl.nl_groups, 10U);
+        ASSERT_EQ(a.protocol, NETLINK_ROUTE);
 
         /* With spaces and tabs */
-        assert_se(socket_address_parse_netlink(&a, " kobject-uevent ") >= 0);
-        assert_se(a.sockaddr.nl.nl_family == AF_NETLINK);
-        assert_se(a.sockaddr.nl.nl_groups == 0);
-        assert_se(a.protocol == NETLINK_KOBJECT_UEVENT);
-        assert_se(socket_address_parse_netlink(&a, " \t kobject-uevent \t 10") >= 0);
-        assert_se(a.sockaddr.nl.nl_family == AF_NETLINK);
-        assert_se(a.sockaddr.nl.nl_groups == 10);
-        assert_se(a.protocol == NETLINK_KOBJECT_UEVENT);
-        assert_se(socket_address_parse_netlink(&a, "kobject-uevent\t10") >= 0);
-        assert_se(a.sockaddr.nl.nl_family == AF_NETLINK);
-        assert_se(a.sockaddr.nl.nl_groups == 10);
-        assert_se(a.protocol == NETLINK_KOBJECT_UEVENT);
+        ASSERT_OK(socket_address_parse_netlink(&a, " kobject-uevent "));
+        ASSERT_EQ(a.sockaddr.nl.nl_family, AF_NETLINK);
+        ASSERT_EQ(a.sockaddr.nl.nl_groups, 0U);
+        ASSERT_EQ(a.protocol, NETLINK_KOBJECT_UEVENT);
+        ASSERT_OK(socket_address_parse_netlink(&a, " \t kobject-uevent \t 10"));
+        ASSERT_EQ(a.sockaddr.nl.nl_family, AF_NETLINK);
+        ASSERT_EQ(a.sockaddr.nl.nl_groups, 10U);
+        ASSERT_EQ(a.protocol, NETLINK_KOBJECT_UEVENT);
+        ASSERT_OK(socket_address_parse_netlink(&a, "kobject-uevent\t10"));
+        ASSERT_EQ(a.sockaddr.nl.nl_family, AF_NETLINK);
+        ASSERT_EQ(a.sockaddr.nl.nl_groups, 10U);
+        ASSERT_EQ(a.protocol, NETLINK_KOBJECT_UEVENT);
 
         /* trailing space is not supported */
-        assert_se(socket_address_parse_netlink(&a, "kobject-uevent\t10 ") < 0);
+        ASSERT_FAIL(socket_address_parse_netlink(&a, "kobject-uevent\t10 "));
 
         /* Group must be unsigned */
-        assert_se(socket_address_parse_netlink(&a, "kobject-uevent -1") < 0);
+        ASSERT_FAIL(socket_address_parse_netlink(&a, "kobject-uevent -1"));
 
         /* oss-fuzz #6884 */
-        assert_se(socket_address_parse_netlink(&a, "\xff") < 0);
+        ASSERT_FAIL(socket_address_parse_netlink(&a, "\xff"));
 }
 
 TEST(socket_address_equal) {
         SocketAddress a, b;
 
-        assert_se(socket_address_parse(&a, "192.168.1.1:8888") >= 0);
-        assert_se(socket_address_parse(&b, "192.168.1.1:888") >= 0);
-        assert_se(!socket_address_equal(&a, &b));
+        ASSERT_OK(socket_address_parse(&a, "192.168.1.1:8888"));
+        ASSERT_OK(socket_address_parse(&b, "192.168.1.1:888"));
+        ASSERT_FALSE(socket_address_equal(&a, &b));
 
-        assert_se(socket_address_parse(&a, "192.168.1.1:8888") >= 0);
-        assert_se(socket_address_parse(&b, "192.16.1.1:8888") >= 0);
-        assert_se(!socket_address_equal(&a, &b));
+        ASSERT_OK(socket_address_parse(&a, "192.168.1.1:8888"));
+        ASSERT_OK(socket_address_parse(&b, "192.16.1.1:8888"));
+        ASSERT_FALSE(socket_address_equal(&a, &b));
 
-        assert_se(socket_address_parse(&a, "192.168.1.1:8888") >= 0);
-        assert_se(socket_address_parse(&b, "8888") >= 0);
-        assert_se(!socket_address_equal(&a, &b));
+        ASSERT_OK(socket_address_parse(&a, "192.168.1.1:8888"));
+        ASSERT_OK(socket_address_parse(&b, "8888"));
+        ASSERT_FALSE(socket_address_equal(&a, &b));
 
-        assert_se(socket_address_parse(&a, "192.168.1.1:8888") >= 0);
-        assert_se(socket_address_parse(&b, "/foo/bar/") >= 0);
-        assert_se(!socket_address_equal(&a, &b));
+        ASSERT_OK(socket_address_parse(&a, "192.168.1.1:8888"));
+        ASSERT_OK(socket_address_parse(&b, "/foo/bar/"));
+        ASSERT_FALSE(socket_address_equal(&a, &b));
 
-        assert_se(socket_address_parse(&a, "192.168.1.1:8888") >= 0);
-        assert_se(socket_address_parse(&b, "192.168.1.1:8888") >= 0);
-        assert_se(socket_address_equal(&a, &b));
+        ASSERT_OK(socket_address_parse(&a, "192.168.1.1:8888"));
+        ASSERT_OK(socket_address_parse(&b, "192.168.1.1:8888"));
+        ASSERT_TRUE(socket_address_equal(&a, &b));
 
-        assert_se(socket_address_parse(&a, "/foo/bar") >= 0);
-        assert_se(socket_address_parse(&b, "/foo/bar") >= 0);
-        assert_se(socket_address_equal(&a, &b));
+        ASSERT_OK(socket_address_parse(&a, "/foo/bar"));
+        ASSERT_OK(socket_address_parse(&b, "/foo/bar"));
+        ASSERT_TRUE(socket_address_equal(&a, &b));
 
-        assert_se(socket_address_parse(&a, "[::1]:8888") >= 0);
-        assert_se(socket_address_parse(&b, "[::1]:8888") >= 0);
-        assert_se(socket_address_equal(&a, &b));
+        ASSERT_OK(socket_address_parse(&a, "[::1]:8888"));
+        ASSERT_OK(socket_address_parse(&b, "[::1]:8888"));
+        ASSERT_TRUE(socket_address_equal(&a, &b));
 
-        assert_se(socket_address_parse(&a, "@abstract") >= 0);
-        assert_se(socket_address_parse(&b, "@abstract") >= 0);
-        assert_se(socket_address_equal(&a, &b));
+        ASSERT_OK(socket_address_parse(&a, "@abstract"));
+        ASSERT_OK(socket_address_parse(&b, "@abstract"));
+        ASSERT_TRUE(socket_address_equal(&a, &b));
 
-        assert_se(socket_address_parse_netlink(&a, "firewall") >= 0);
-        assert_se(socket_address_parse_netlink(&b, "firewall") >= 0);
-        assert_se(socket_address_equal(&a, &b));
+        ASSERT_OK(socket_address_parse_netlink(&a, "firewall"));
+        ASSERT_OK(socket_address_parse_netlink(&b, "firewall"));
+        ASSERT_TRUE(socket_address_equal(&a, &b));
 
-        assert_se(socket_address_parse(&a, "vsock:2:1234") >= 0);
-        assert_se(socket_address_parse(&b, "vsock:2:1234") >= 0);
-        assert_se(socket_address_equal(&a, &b));
-        assert_se(socket_address_parse(&b, "vsock:2:1235") >= 0);
-        assert_se(!socket_address_equal(&a, &b));
-        assert_se(socket_address_parse(&b, "vsock:3:1234") >= 0);
-        assert_se(!socket_address_equal(&a, &b));
+        ASSERT_OK(socket_address_parse(&a, "vsock:2:1234"));
+        ASSERT_OK(socket_address_parse(&b, "vsock:2:1234"));
+        ASSERT_TRUE(socket_address_equal(&a, &b));
+        ASSERT_OK(socket_address_parse(&b, "vsock:2:1235"));
+        ASSERT_FALSE(socket_address_equal(&a, &b));
+        ASSERT_OK(socket_address_parse(&b, "vsock:3:1234"));
+        ASSERT_FALSE(socket_address_equal(&a, &b));
 }
 
 TEST(socket_address_get_path) {
         SocketAddress a;
 
-        assert_se(socket_address_parse(&a, "192.168.1.1:8888") >= 0);
-        assert_se(!socket_address_get_path(&a));
+        ASSERT_OK(socket_address_parse(&a, "192.168.1.1:8888"));
+        ASSERT_NULL(socket_address_get_path(&a));
 
-        assert_se(socket_address_parse(&a, "@abstract") >= 0);
-        assert_se(!socket_address_get_path(&a));
+        ASSERT_OK(socket_address_parse(&a, "@abstract"));
+        ASSERT_NULL(socket_address_get_path(&a));
 
-        assert_se(socket_address_parse(&a, "[::1]:8888") >= 0);
-        assert_se(!socket_address_get_path(&a));
+        ASSERT_OK(socket_address_parse(&a, "[::1]:8888"));
+        ASSERT_NULL(socket_address_get_path(&a));
 
-        assert_se(socket_address_parse(&a, "/foo/bar") >= 0);
+        ASSERT_OK(socket_address_parse(&a, "/foo/bar"));
         ASSERT_STREQ(socket_address_get_path(&a), "/foo/bar");
 
-        assert_se(socket_address_parse(&a, "vsock:2:1234") >= 0);
-        assert_se(!socket_address_get_path(&a));
+        ASSERT_OK(socket_address_parse(&a, "vsock:2:1234"));
+        ASSERT_NULL(socket_address_get_path(&a));
 }
 
 TEST(socket_address_is) {
         SocketAddress a;
 
-        assert_se(socket_address_parse(&a, "192.168.1.1:8888") >= 0);
-        assert_se( socket_address_is(&a, "192.168.1.1:8888", 0 /* unspecified yet */));
-        assert_se(!socket_address_is(&a, "route", /* type= */ 0));
-        assert_se(!socket_address_is(&a, "route", SOCK_STREAM));
-        assert_se(!socket_address_is(&a, "192.168.1.1:8888", SOCK_RAW));
-        assert_se(!socket_address_is(&a, "192.168.1.1:8888", SOCK_STREAM));
+        ASSERT_OK(socket_address_parse(&a, "192.168.1.1:8888"));
+        ASSERT_TRUE(socket_address_is(&a, "192.168.1.1:8888", 0 /* unspecified yet */));
+        ASSERT_FALSE(socket_address_is(&a, "route", /* type= */ 0));
+        ASSERT_FALSE(socket_address_is(&a, "route", SOCK_STREAM));
+        ASSERT_FALSE(socket_address_is(&a, "192.168.1.1:8888", SOCK_RAW));
+        ASSERT_FALSE(socket_address_is(&a, "192.168.1.1:8888", SOCK_STREAM));
         a.type = SOCK_STREAM;
-        assert_se( socket_address_is(&a, "192.168.1.1:8888", SOCK_STREAM));
+        ASSERT_TRUE(socket_address_is(&a, "192.168.1.1:8888", SOCK_STREAM));
 }
 
 TEST(socket_address_is_netlink) {
         SocketAddress a;
 
-        assert_se(socket_address_parse_netlink(&a, "route 10") >= 0);
-        assert_se( socket_address_is_netlink(&a, "route 10"));
-        assert_se(!socket_address_is_netlink(&a, "192.168.1.1:8888"));
-        assert_se(!socket_address_is_netlink(&a, "route 1"));
+        ASSERT_OK(socket_address_parse_netlink(&a, "route 10"));
+        ASSERT_TRUE(socket_address_is_netlink(&a, "route 10"));
+        ASSERT_FALSE(socket_address_is_netlink(&a, "192.168.1.1:8888"));
+        ASSERT_FALSE(socket_address_is_netlink(&a, "route 1"));
 }
 
 static void test_in_addr_ifindex_to_string_one(int f, const char *a, int ifindex, const char *b) {
@@ -236,15 +236,15 @@ static void test_in_addr_ifindex_to_string_one(int f, const char *a, int ifindex
         union in_addr_union ua, uuaa;
         int ff, ifindex2;
 
-        assert_se(in_addr_from_string(f, a, &ua) >= 0);
-        assert_se(in_addr_ifindex_to_string(f, &ua, ifindex, &r) >= 0);
+        ASSERT_OK(in_addr_from_string(f, a, &ua));
+        ASSERT_OK(in_addr_ifindex_to_string(f, &ua, ifindex, &r));
         printf("test_in_addr_ifindex_to_string_one: %s == %s\n", b, r);
         ASSERT_STREQ(b, r);
 
-        assert_se(in_addr_ifindex_from_string_auto(b, &ff, &uuaa, &ifindex2) >= 0);
-        assert_se(ff == f);
-        assert_se(in_addr_equal(f, &ua, &uuaa));
-        assert_se(ifindex2 == ifindex || ifindex2 == 0);
+        ASSERT_OK(in_addr_ifindex_from_string_auto(b, &ff, &uuaa, &ifindex2));
+        ASSERT_EQ(ff, f);
+        ASSERT_OK_POSITIVE(in_addr_equal(f, &ua, &uuaa));
+        ASSERT_TRUE(ifindex2 == ifindex || ifindex2 == 0);
 }
 
 TEST(in_addr_ifindex_to_string) {
@@ -265,19 +265,19 @@ TEST(in_addr_ifindex_from_string_auto) {
 
         /* Most in_addr_ifindex_from_string_auto() invocations have already been tested above, but let's test some more */
 
-        assert_se(in_addr_ifindex_from_string_auto("fe80::17", &family, &ua, &ifindex) >= 0);
-        assert_se(family == AF_INET6);
-        assert_se(ifindex == 0);
+        ASSERT_OK(in_addr_ifindex_from_string_auto("fe80::17", &family, &ua, &ifindex));
+        ASSERT_EQ(family, AF_INET6);
+        ASSERT_EQ(ifindex, 0);
 
-        assert_se(in_addr_ifindex_from_string_auto("fe80::18%1", &family, &ua, &ifindex) >= 0);
-        assert_se(family == AF_INET6);
-        assert_se(ifindex == 1);
+        ASSERT_OK(in_addr_ifindex_from_string_auto("fe80::18%1", &family, &ua, &ifindex));
+        ASSERT_EQ(family, AF_INET6);
+        ASSERT_EQ(ifindex, 1);
 
-        assert_se(in_addr_ifindex_from_string_auto("fe80::18%lo", &family, &ua, &ifindex) >= 0);
-        assert_se(family == AF_INET6);
-        assert_se(ifindex == LOOPBACK_IFINDEX);
+        ASSERT_OK(in_addr_ifindex_from_string_auto("fe80::18%lo", &family, &ua, &ifindex));
+        ASSERT_EQ(family, AF_INET6);
+        ASSERT_EQ(ifindex, LOOPBACK_IFINDEX);
 
-        assert_se(in_addr_ifindex_from_string_auto("fe80::19%thisinterfacecantexist", &family, &ua, &ifindex) == -ENODEV);
+        ASSERT_ERROR(in_addr_ifindex_from_string_auto("fe80::19%thisinterfacecantexist", &family, &ua, &ifindex), ENODEV);
 }
 
 static void test_in_addr_ifindex_name_from_string_auto_one(const char *a, const char *expected) {
@@ -285,7 +285,7 @@ static void test_in_addr_ifindex_name_from_string_auto_one(const char *a, const 
         union in_addr_union ua;
         _cleanup_free_ char *server_name = NULL;
 
-        assert_se(in_addr_ifindex_name_from_string_auto(a, &family, &ua, &ifindex, &server_name) >= 0);
+        ASSERT_OK(in_addr_ifindex_name_from_string_auto(a, &family, &ua, &ifindex, &server_name));
         ASSERT_STREQ(server_name, expected);
 }
 
@@ -307,48 +307,48 @@ static void test_in_addr_port_ifindex_name_from_string_auto_one(const char *str,
 
         {
                 _cleanup_free_ char *name = NULL, *x = NULL;
-                assert_se(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, &p, &i, &name) == 0);
-                assert_se(family == f);
-                assert_se(port == p);
-                assert_se(ifindex == i);
+                ASSERT_OK_ZERO(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, &p, &i, &name));
+                ASSERT_EQ(family, f);
+                ASSERT_EQ(port, p);
+                ASSERT_EQ(ifindex, i);
                 ASSERT_STREQ(server_name, name);
-                assert_se(in_addr_port_ifindex_name_to_string(f, &a, p, i, name, &x) >= 0);
+                ASSERT_OK(in_addr_port_ifindex_name_to_string(f, &a, p, i, name, &x));
                 ASSERT_STREQ(str_repr ?: str, x);
         }
 
         if (port > 0)
-                assert_se(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, /* ret_port= */ NULL, &i, &fake) == -EINVAL);
+                ASSERT_ERROR(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, /* ret_port= */ NULL, &i, &fake), EINVAL);
         else {
                 _cleanup_free_ char *name = NULL, *x = NULL;
-                assert_se(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, /* ret_port= */ NULL, &i, &name) == 0);
-                assert_se(family == f);
-                assert_se(ifindex == i);
+                ASSERT_OK_ZERO(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, /* ret_port= */ NULL, &i, &name));
+                ASSERT_EQ(family, f);
+                ASSERT_EQ(ifindex, i);
                 ASSERT_STREQ(server_name, name);
-                assert_se(in_addr_port_ifindex_name_to_string(f, &a, /* port= */ 0, i, name, &x) >= 0);
+                ASSERT_OK(in_addr_port_ifindex_name_to_string(f, &a, /* port= */ 0, i, name, &x));
                 ASSERT_STREQ(str_repr ?: str, x);
         }
 
         if (ifindex > 0)
-                assert_se(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, &p, /* ret_ifindex= */ NULL, &fake) == -EINVAL);
+                ASSERT_ERROR(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, &p, /* ret_ifindex= */ NULL, &fake), EINVAL);
         else {
                 _cleanup_free_ char *name = NULL, *x = NULL;
-                assert_se(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, &p, /* ret_ifindex= */ NULL, &name) == 0);
-                assert_se(family == f);
-                assert_se(port == p);
+                ASSERT_OK_ZERO(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, &p, /* ret_ifindex= */ NULL, &name));
+                ASSERT_EQ(family, f);
+                ASSERT_EQ(port, p);
                 ASSERT_STREQ(server_name, name);
-                assert_se(in_addr_port_ifindex_name_to_string(f, &a, p, /* ifindex= */ 0, name, &x) >= 0);
+                ASSERT_OK(in_addr_port_ifindex_name_to_string(f, &a, p, /* ifindex= */ 0, name, &x));
                 ASSERT_STREQ(str_repr ?: str, x);
         }
 
         if (server_name)
-                assert_se(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, &p, &i, /* ret_server_name= */ NULL) == -EINVAL);
+                ASSERT_ERROR(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, &p, &i, /* ret_server_name= */ NULL), EINVAL);
         else {
                 _cleanup_free_ char *x = NULL;
-                assert_se(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, &p, &i, /* ret_server_name= */ NULL) == 0);
-                assert_se(family == f);
-                assert_se(port == p);
-                assert_se(ifindex == i);
-                assert_se(in_addr_port_ifindex_name_to_string(f, &a, p, i, /* server_name= */ NULL, &x) >= 0);
+                ASSERT_OK_ZERO(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, &p, &i, /* ret_server_name= */ NULL));
+                ASSERT_EQ(family, f);
+                ASSERT_EQ(port, p);
+                ASSERT_EQ(ifindex, i);
+                ASSERT_OK(in_addr_port_ifindex_name_to_string(f, &a, p, i, /* server_name= */ NULL, &x));
                 ASSERT_STREQ(str_repr ?: str, x);
         }
 }
@@ -377,8 +377,7 @@ TEST(netns_get_nsid) {
         uint32_t u;
         int r;
 
-        r = netns_get_nsid(-EBADF, &u);
-        assert_se(r == -ENODATA || r >= 0);
+        r = ASSERT_OK_OR(netns_get_nsid(-EBADF, &u), -ENODATA);
         if (r == -ENODATA)
                 log_info("Our network namespace has no NSID assigned.");
         else

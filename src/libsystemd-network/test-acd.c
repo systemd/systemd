@@ -11,7 +11,7 @@
 #include "tests.h"
 
 static void acd_handler(sd_ipv4acd *acd, int event, void *userdata) {
-        assert_se(acd);
+        ASSERT_NOT_NULL(acd);
 
         switch (event) {
         case SD_IPV4ACD_EVENT_BIND:
@@ -31,21 +31,21 @@ static void acd_handler(sd_ipv4acd *acd, int event, void *userdata) {
 static int client_run(int ifindex, const struct in_addr *pa, const struct ether_addr *ha, sd_event *e) {
         sd_ipv4acd *acd;
 
-        assert_se(sd_ipv4acd_new(&acd) >= 0);
-        assert_se(sd_ipv4acd_attach_event(acd, e, /* priority= */ 0) >= 0);
+        ASSERT_OK(sd_ipv4acd_new(&acd));
+        ASSERT_OK(sd_ipv4acd_attach_event(acd, e, /* priority= */ 0));
 
-        assert_se(sd_ipv4acd_set_ifindex(acd, ifindex) >= 0);
-        assert_se(sd_ipv4acd_set_mac(acd, ha) >= 0);
-        assert_se(sd_ipv4acd_set_address(acd, pa) >= 0);
-        assert_se(sd_ipv4acd_set_callback(acd, acd_handler, /* userdata= */ NULL) >= 0);
+        ASSERT_OK(sd_ipv4acd_set_ifindex(acd, ifindex));
+        ASSERT_OK(sd_ipv4acd_set_mac(acd, ha));
+        ASSERT_OK(sd_ipv4acd_set_address(acd, pa));
+        ASSERT_OK(sd_ipv4acd_set_callback(acd, acd_handler, /* userdata= */ NULL));
 
         log_info("starting IPv4ACD client");
 
-        assert_se(sd_ipv4acd_start(acd, /* reset_conflicts= */ true) >= 0);
+        ASSERT_OK(sd_ipv4acd_start(acd, /* reset_conflicts= */ true));
 
-        assert_se(sd_event_loop(e) >= 0);
+        ASSERT_OK(sd_event_loop(e));
 
-        assert_se(!sd_ipv4acd_unref(acd));
+        ASSERT_NULL(sd_ipv4acd_unref(acd));
 
         return EXIT_SUCCESS;
 }
@@ -58,19 +58,19 @@ static int test_acd(const char *ifname, const char *address) {
         struct ether_addr ha;
         int ifindex;
 
-        assert_se(in_addr_from_string(AF_INET, address, &pa) >= 0);
+        ASSERT_OK(in_addr_from_string(AF_INET, address, &pa));
 
-        assert_se(sd_event_new(&e) >= 0);
+        ASSERT_OK(sd_event_new(&e));
 
-        assert_se(sd_netlink_open(&rtnl) >= 0);
-        assert_se(sd_netlink_attach_event(rtnl, e, /* priority= */ 0) >= 0);
+        ASSERT_OK(sd_netlink_open(&rtnl));
+        ASSERT_OK(sd_netlink_attach_event(rtnl, e, /* priority= */ 0));
 
-        assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, /* ifindex= */ 0) >= 0);
-        assert_se(sd_netlink_message_append_string(m, IFLA_IFNAME, ifname) >= 0);
-        assert_se(sd_netlink_call(rtnl, m, /* timeout= */ 0, &reply) >= 0);
+        ASSERT_OK(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, /* ifindex= */ 0));
+        ASSERT_OK(sd_netlink_message_append_string(m, IFLA_IFNAME, ifname));
+        ASSERT_OK(sd_netlink_call(rtnl, m, /* timeout= */ 0, &reply));
 
-        assert_se(sd_rtnl_message_link_get_ifindex(reply, &ifindex) >= 0);
-        assert_se(sd_netlink_message_read_ether_addr(reply, IFLA_ADDRESS, &ha) >= 0);
+        ASSERT_OK(sd_rtnl_message_link_get_ifindex(reply, &ifindex));
+        ASSERT_OK(sd_netlink_message_read_ether_addr(reply, IFLA_ADDRESS, &ha));
 
         client_run(ifindex, &pa.in, &ha, e);
 

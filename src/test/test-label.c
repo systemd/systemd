@@ -100,9 +100,9 @@ TEST(label_ops_set) {
         };
 
         label_ops_reset();
-        assert_se(label_ops_set(&test_label_ops) == 0);
+        ASSERT_OK_ZERO(label_ops_set(&test_label_ops));
         /* attempt to reset label_ops when already set */
-        assert_se(label_ops_set(&test_label_ops) == -EBUSY);
+        ASSERT_ERROR(label_ops_set(&test_label_ops), EBUSY);
 }
 
 TEST(label_ops_pre) {
@@ -115,11 +115,11 @@ TEST(label_ops_pre) {
         label_ops_reset();
         label_ops_set(&test_label_ops);
         fd = get_dir_fd("file1.txt", 0755);
-        assert_se(label_ops_pre(fd, "file1.txt", 0644, /* label_context= */ NULL) == 0);
-        assert_se(label_ops_pre(fd, "/restricted_directory", 0644, /* label_context= */ NULL) == -EACCES);
-        assert_se(label_ops_pre(fd, "", 0700, /* label_context= */ NULL) == -EINVAL);
-        assert_se(label_ops_pre(fd, "/tmp", 0700, /* label_context= */ NULL) == 0);
-        assert_se(label_ops_pre(fd, "wekrgoierhgoierhqgherhgwklegnlweehgorwfkryrit", 0644, /* label_context= */ NULL) == -ENAMETOOLONG);
+        ASSERT_OK_ZERO(label_ops_pre(fd, "file1.txt", 0644, /* label_context= */ NULL));
+        ASSERT_ERROR(label_ops_pre(fd, "/restricted_directory", 0644, /* label_context= */ NULL), EACCES);
+        ASSERT_ERROR(label_ops_pre(fd, "", 0700, /* label_context= */ NULL), EINVAL);
+        ASSERT_OK_ZERO(label_ops_pre(fd, "/tmp", 0700, /* label_context= */ NULL));
+        ASSERT_ERROR(label_ops_pre(fd, "wekrgoierhgoierhqgherhgwklegnlweehgorwfkryrit", 0644, /* label_context= */ NULL), ENAMETOOLONG);
 }
 
 TEST(label_ops_post) {
@@ -137,18 +137,18 @@ TEST(label_ops_post) {
         fd = RET_NERRNO(get_dir_fd("label_test_dir", 0755));
         text1 = "Add initial texts to file for testing label operations to file1\n";
 
-        assert_se(labelling_op(fd, text1, "file1.txt", 0644) == 0);
-        assert_se(label_ops_post(fd, "file1.txt", /* created= */ true, /* label_context= */ NULL) == 0);
-        assert_se(strlen(text1) == (size_t)buf.st_size);
+        ASSERT_OK_ZERO(labelling_op(fd, text1, "file1.txt", 0644));
+        ASSERT_OK_ZERO(label_ops_post(fd, "file1.txt", /* created= */ true, /* label_context= */ NULL));
+        ASSERT_EQ(strlen(text1), (size_t) buf.st_size);
         text2 = "Add text2 data to file2\n";
 
-        assert_se(labelling_op(fd, text2, "file2.txt", 0644) == 0);
-        assert_se(label_ops_post(fd, "file2.txt", /* created= */ true, /* label_context= */ NULL) == 0);
-        assert_se(strlen(text2) == (size_t)buf.st_size);
-        assert_se(label_ops_post(fd, "file3.txt", /* created= */ true, /* label_context= */ NULL) == -ENOENT);
-        assert_se(label_ops_post(fd, "/abcd", /* created= */ true, /* label_context= */ NULL) == -ENOENT);
-        assert_se(label_ops_post(fd, "/restricted_directory", /* created= */ true, /* label_context= */ NULL) == -EACCES);
-        assert_se(label_ops_post(fd, "", /* created= */ true, /* label_context= */ NULL) == -EINVAL);
+        ASSERT_OK_ZERO(labelling_op(fd, text2, "file2.txt", 0644));
+        ASSERT_OK_ZERO(label_ops_post(fd, "file2.txt", /* created= */ true, /* label_context= */ NULL));
+        ASSERT_EQ(strlen(text2), (size_t) buf.st_size);
+        ASSERT_ERROR(label_ops_post(fd, "file3.txt", /* created= */ true, /* label_context= */ NULL), ENOENT);
+        ASSERT_ERROR(label_ops_post(fd, "/abcd", /* created= */ true, /* label_context= */ NULL), ENOENT);
+        ASSERT_ERROR(label_ops_post(fd, "/restricted_directory", /* created= */ true, /* label_context= */ NULL), EACCES);
+        ASSERT_ERROR(label_ops_post(fd, "", /* created= */ true, /* label_context= */ NULL), EINVAL);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO)

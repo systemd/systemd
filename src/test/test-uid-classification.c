@@ -15,7 +15,7 @@ static void test_read_login_defs_one(const char *path) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-user-record.XXXXXX";
         _cleanup_fclose_ FILE *f = NULL;
         if (!path) {
-                assert_se(fmkostemp_safe(name, "r+", &f) == 0);
+                ASSERT_OK_ZERO(fmkostemp_safe(name, "r+", &f));
                 fprintf(f,
                         "SYS_UID_MIN "UID_FMT"\n"
                         "SYS_UID_MAX "UID_FMT"\n"
@@ -25,11 +25,11 @@ static void test_read_login_defs_one(const char *path) {
                         (uid_t) (SYSTEM_UID_MAX + 5),
                         (gid_t) (SYSTEM_ALLOC_GID_MIN + 5),
                         (gid_t) (SYSTEM_GID_MAX + 5));
-                assert_se(fflush_and_check(f) >= 0);
+                ASSERT_OK(fflush_and_check(f));
         }
 
         UGIDAllocationRange defs;
-        assert_se(read_login_defs(&defs, path ?: name, /* root= */ NULL) >= 0);
+        ASSERT_OK(read_login_defs(&defs, path ?: name, /* root= */ NULL));
 
         log_info("system_alloc_uid_min="UID_FMT, defs.system_alloc_uid_min);
         log_info("system_uid_max="UID_FMT, defs.system_uid_max);
@@ -38,15 +38,15 @@ static void test_read_login_defs_one(const char *path) {
 
         if (!path) {
                 uid_t offset = ENABLE_COMPAT_MUTABLE_UID_BOUNDARIES ? 5 : 0;
-                assert_se(defs.system_alloc_uid_min == SYSTEM_ALLOC_UID_MIN + offset);
-                assert_se(defs.system_uid_max == SYSTEM_UID_MAX + offset);
-                assert_se(defs.system_alloc_gid_min == SYSTEM_ALLOC_GID_MIN + offset);
-                assert_se(defs.system_gid_max == SYSTEM_GID_MAX + offset);
+                ASSERT_EQ(defs.system_alloc_uid_min, SYSTEM_ALLOC_UID_MIN + offset);
+                ASSERT_EQ(defs.system_uid_max, SYSTEM_UID_MAX + offset);
+                ASSERT_EQ(defs.system_alloc_gid_min, SYSTEM_ALLOC_GID_MIN + offset);
+                ASSERT_EQ(defs.system_gid_max, SYSTEM_GID_MAX + offset);
         } else if (streq(path, "/dev/null")) {
-                assert_se(defs.system_alloc_uid_min == SYSTEM_ALLOC_UID_MIN);
-                assert_se(defs.system_uid_max == SYSTEM_UID_MAX);
-                assert_se(defs.system_alloc_gid_min == SYSTEM_ALLOC_GID_MIN);
-                assert_se(defs.system_gid_max == SYSTEM_GID_MAX);
+                ASSERT_EQ(defs.system_alloc_uid_min, (uid_t) SYSTEM_ALLOC_UID_MIN);
+                ASSERT_EQ(defs.system_uid_max, (uid_t) SYSTEM_UID_MAX);
+                ASSERT_EQ(defs.system_alloc_gid_min, (gid_t) SYSTEM_ALLOC_GID_MIN);
+                ASSERT_EQ(defs.system_gid_max, (gid_t) SYSTEM_GID_MAX);
         }
 }
 
@@ -58,7 +58,7 @@ TEST(read_login_defs) {
 
 TEST(acquire_ugid_allocation_range) {
         const UGIDAllocationRange *defs;
-        assert_se(defs = acquire_ugid_allocation_range());
+        ASSERT_NOT_NULL(defs = acquire_ugid_allocation_range());
 
         log_info("system_alloc_uid_min="UID_FMT, defs->system_alloc_uid_min);
         log_info("system_uid_max="UID_FMT, defs->system_uid_max);

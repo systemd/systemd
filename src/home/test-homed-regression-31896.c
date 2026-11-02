@@ -18,18 +18,18 @@ static int run(int argc, char **argv) {
          */
 
         test_setup_logging(LOG_DEBUG);
-        assert_se(sd_bus_open_system(&bus) >= 0);
+        ASSERT_OK(sd_bus_open_system(&bus));
 
-        assert_se(argc == 2);
+        ASSERT_EQ(argc, 2);
         username = argv[1];
 
-        assert_se(bus_call_method(bus, bus_home_mgr, "RefHomeUnrestricted", /* reterr_error= */ NULL, &ref, "sb", username, true) >= 0);
+        ASSERT_OK(bus_call_method(bus, bus_home_mgr, "RefHomeUnrestricted", /* reterr_error= */ NULL, &ref, "sb", username, true));
 
-        assert_se(bus_call_method_async(bus, /* ret_slot= */ NULL, bus_home_mgr, "AuthenticateHome", /* callback= */ NULL, /* userdata= */ NULL, "ss", username, "{}") >= 0);
-        assert_se(sd_bus_flush(bus) >= 0);
+        ASSERT_OK(bus_call_method_async(bus, /* ret_slot= */ NULL, bus_home_mgr, "AuthenticateHome", /* callback= */ NULL, /* userdata= */ NULL, "ss", username, "{}"));
+        ASSERT_OK(sd_bus_flush(bus));
 
         (void) bus_call_method(bus, bus_home_mgr, "ReleaseHome", &error, /* ret_reply= */ NULL, "s", username);
-        assert_se(!sd_bus_error_has_name(&error, SD_BUS_ERROR_NO_REPLY)); /* Make sure we didn't crash */
+        ASSERT_FALSE(sd_bus_error_has_name(&error, SD_BUS_ERROR_NO_REPLY)); /* Make sure we didn't crash */
 
         return 0;
 }
