@@ -22,7 +22,6 @@
 #include "pe-binary.h"
 #include "pe-writer.h"
 #include "string-util.h"
-#include "time-util.h"
 #include "tmpfile-util.h"
 #include "verbs.h"
 
@@ -198,14 +197,7 @@ static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
                                 arg_private_key_source_type,
                                 arg_private_key_source,
                                 arg_private_key,
-                                &(AskPasswordRequest) {
-                                        .tty_fd = -EBADF,
-                                        .id = "sbsign-private-key-pin",
-                                        .keyring = arg_private_key,
-                                        .credential = "sbsign.private-key-pin",
-                                        .until = USEC_INFINITY,
-                                        .hup_fd = -EBADF,
-                                },
+                                ASK_PASSWORD_PRIVATE_KEY_PIN("sbsign", arg_private_key),
                                 &private_key,
                                 &ui);
                 if (r < 0)

@@ -11075,14 +11075,7 @@ static int context_load_keys(Context *context) {
                                 arg_private_key_source_type,
                                 arg_private_key_source,
                                 arg_private_key,
-                                &(AskPasswordRequest) {
-                                        .tty_fd = -EBADF,
-                                        .id = "repart-private-key-pin",
-                                        .keyring = arg_private_key,
-                                        .credential = "repart.private-key-pin",
-                                        .until = USEC_INFINITY,
-                                        .hup_fd = -EBADF,
-                                },
+                                ASK_PASSWORD_PRIVATE_KEY_PIN("repart", arg_private_key),
                                 &context->private_key,
                                 &context->ui);
                 if (r < 0)

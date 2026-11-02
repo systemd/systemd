@@ -165,14 +165,7 @@ static int verb_validate(int argc, char *argv[], uintptr_t _data, void *userdata
                         arg_private_key_source_type,
                         arg_private_key_source,
                         arg_private_key,
-                        &(AskPasswordRequest) {
-                                .tty_fd = -EBADF,
-                                .id = "keyutil-private-key-pin",
-                                .keyring = arg_private_key,
-                                .credential = "keyutil.private-key-pin",
-                                .until = USEC_INFINITY,
-                                .hup_fd = -EBADF,
-                        },
+                        ASK_PASSWORD_PRIVATE_KEY_PIN("keyutil", arg_private_key),
                         &private_key,
                         &ui);
         if (r < 0)
@@ -221,14 +214,7 @@ static int verb_extract_public(int argc, char *argv[], uintptr_t _data, void *us
                         arg_certificate_source,
                         arg_certificate,
                         /* public_key= */ NULL,
-                        &(AskPasswordRequest) {
-                                .tty_fd = -EBADF,
-                                .id = "keyutil-private-key-pin",
-                                .keyring = private_key_path,
-                                .credential = "keyutil.private-key-pin",
-                                .until = USEC_INFINITY,
-                                .hup_fd = -EBADF,
-                        },
+                        ASK_PASSWORD_PRIVATE_KEY_PIN("keyutil", private_key_path),
                         &private_key,
                         &public_key,
                         &ui);
