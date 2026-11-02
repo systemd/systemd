@@ -527,6 +527,52 @@ static void test_remove_unlinked_selected_file_one(bool truncate, bool refresh_s
         ASSERT_NULL(ordered_hashmap_get(j->files, strjoina(t, "/two.journal")));
 }
 
+TEST(entry_appended_to_file_at_eof) {
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_free_ char *t = NULL;
+        dual_timestamp saved;
+        JournalFile *f1, *f2;
+        sd_id128_t id;
+
+        mkdtemp_chdir_chattr("/var/tmp/journal-eof-XXXXXX", &t);
+
+        f1 = test_open("one.journal");
+        f2 = test_open("two.journal");
+        ASSERT_OK(sd_id128_randomize(&id));
+
+        append_number(f1, 1, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
+        append_number(f1, 2, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
+        append_number(f1, 3, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
+
+        /* Date number 4 ahead, so that anything appended later on still sorts before it. */
+        saved = previous_ts;
+        previous_ts.monotonic += USEC_PER_HOUR;
+        previous_ts.realtime += USEC_PER_HOUR;
+        append_number(f1, 4, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
+
+        ASSERT_OK(sd_journal_open_directory(&j, t, 0));
+
+        for (unsigned i = 1; i <= 3; i++) {
+                ASSERT_OK_POSITIVE(sd_journal_next(j));
+                test_check_number(j, i);
+        }
+
+        /* The other file has been at EOF so far. A new entry there sorts before number 4 and must not get lost. */
+        previous_ts = saved;
+        append_number(f2, 5, &id, /* seqnum= */ NULL, /* ret_offset= */ NULL);
+
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_number(j, 5);
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        test_check_number(j, 4);
+        ASSERT_OK_ZERO(sd_journal_next(j));
+
+        (void) journal_file_offline_close(f1);
+        (void) journal_file_offline_close(f2);
+        test_done(t);
+        t = NULL;
+}
+
 TEST(remove_unlinked_selected_file) {
         test_remove_unlinked_selected_file_one(/* truncate= */ false, /* refresh_stat= */ false);
 }
