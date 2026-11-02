@@ -36,6 +36,12 @@ struct PeWriterSection {
         uint64_t size;
 };
 
+/* Inserts 'size' zero bytes before the byte at 'offset' of the input. */
+typedef struct PeWriterGap {
+        uint64_t offset;
+        uint64_t size;
+} PeWriterGap;
+
 typedef struct PeWriterReplacement {
         /* Contains the new data, padded with zeroes to the raw size of the section. */
         struct iovec raw;
@@ -58,6 +64,12 @@ struct PeWriter {
 
         /* The input is copied up to 'data_end', which excludes a stripped symbol table. */
         uint64_t data_end;
+
+        /* The zeroes that move misaligned section data to the file alignment, ordered by offset. */
+        PeWriterGap *gaps;
+        size_t n_gaps;
+        uint64_t gaps_size;
+
         uint32_t file_alignment;
         uint32_t section_alignment;
 
@@ -86,6 +98,7 @@ PeWriter* pe_writer_free(PeWriter *w) {
 
         safe_close(w->fd);
         free(w->headers);
+        free(w->gaps);
 
         FOREACH_ARRAY(r, w->replacements, w->n_sections)
                 iovec_done(&r->raw);
@@ -98,9 +111,9 @@ PeWriter* pe_writer_free(PeWriter *w) {
         return mfree(w);
 }
 
-/* 'fd' must refer to a regular file that contains a PE image whose section data is aligned to the file
- * alignment. pe_writer_new() reads the headers, and pe_writer_write() copies the rest of the file from 'fd'.
- * The file must not change in between, otherwise the output does not match the headers. */
+/* 'fd' must refer to a regular file that contains a PE image. pe_writer_new() reads the headers, and
+ * pe_writer_write() copies the rest of the file from 'fd'. The file must not change in between, otherwise
+ * the output does not match the headers. */
 int pe_writer_new(int fd, PeWriter **ret) {
         _cleanup_free_ IMAGE_DOS_HEADER *dos_header = NULL;
         _cleanup_free_ PeHeader *pe_header = NULL;
@@ -160,8 +173,9 @@ int pe_writer_new(int fd, PeWriter **ret) {
 
         /* pe_writer_write() uses the section table in 'headers'. If the section table was validated in a
          * separate read, the file could change between the two reads. */
-        const IMAGE_SECTION_HEADER *sections = (const IMAGE_SECTION_HEADER*) (headers + section_table_offset);
+        IMAGE_SECTION_HEADER *sections = (IMAGE_SECTION_HEADER*) (headers + section_table_offset);
         uint64_t sections_end = headers_size;
+        bool aligned = true;
         FOREACH_ARRAY(s, sections, n_sections) {
                 uint64_t prd = le32toh(s->PointerToRawData), srd = le32toh(s->SizeOfRawData);
 
@@ -171,11 +185,8 @@ int pe_writer_new(int fd, PeWriter **ret) {
                 if (srd == 0)
                         continue;
 
-                /* Only old stubs that were stripped after linking have misaligned section data. ukify moves
-                 * that data to fix the alignment, and the writer does not implement this. */
                 if (prd % file_alignment != 0 || srd % file_alignment != 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "PE section data is not aligned to the file alignment.");
+                        aligned = false;
 
                 if (prd < headers_size)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "PE section data overlaps the headers.");
@@ -221,6 +232,63 @@ int pe_writer_new(int fd, PeWriter **ret) {
                 }
         }
 
+        _cleanup_free_ PeWriterGap *gaps = NULL;
+        size_t n_gaps = 0;
+        uint64_t gaps_size = 0;
+        if (!aligned) {
+                /* Old stubs that were stripped after linking have section data that isn't aligned to the
+                 * file alignment. The Python version of ukify moved the data of each section to the next
+                 * multiple of the file alignment and padded it to a multiple of the file alignment, so
+                 * the writer inserts zeroes in the same places. */
+                if (pe_header_is_signed(pe_header))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Section data of signed PE image is not aligned to the file alignment.");
+
+                uint64_t previous_end = 0;
+                FOREACH_ARRAY(s, sections, n_sections) {
+                        uint64_t prd = le32toh(s->PointerToRawData), srd = le32toh(s->SizeOfRawData);
+
+                        if (srd == 0)
+                                continue;
+
+                        /* Each gap moves all data after it. If the data of the sections isn't ordered like
+                         * the section table, a gap would move the data of an earlier section. */
+                        if (prd < previous_end)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                       "Misaligned PE section data is not in the order of the section table.");
+                        previous_end = prd + srd;
+
+                        uint64_t start = ALIGN_TO_U64(prd + gaps_size, file_alignment),
+                                 size = ALIGN_TO_U64(srd, file_alignment);
+
+                        if (!GREEDY_REALLOC(gaps, n_gaps + 2))
+                                return log_oom_debug();
+
+                        gaps[n_gaps++] = (PeWriterGap) { .offset = prd, .size = start - (prd + gaps_size) };
+                        gaps[n_gaps++] = (PeWriterGap) { .offset = prd + srd, .size = size - srd };
+                        gaps_size = start + size - (prd + srd);
+
+                        if (start + size > UINT32_MAX)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EFBIG), "PE image is too large.");
+
+                        s->PointerToRawData = htole32(start);
+                        s->SizeOfRawData = htole32(size);
+                }
+
+                /* A symbol table that is kept moves like the data in front of it. */
+                if (!strip_symbols && symbol_table > 0) {
+                        uint64_t moved = symbol_table;
+                        FOREACH_ARRAY(g, gaps, n_gaps)
+                                if (g->offset <= symbol_table)
+                                        moved += g->size;
+
+                        if (moved > UINT32_MAX)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EFBIG), "PE image is too large.");
+
+                        ((PeHeader*) (headers + pe_offset))->pe.PointerToSymbolTable = htole32(moved);
+                }
+        }
+
         _cleanup_(pe_writer_freep) PeWriter *w = new(PeWriter, 1);
         if (!w)
                 return log_oom_debug();
@@ -234,6 +302,9 @@ int pe_writer_new(int fd, PeWriter **ret) {
                 .n_sections = n_sections,
                 .is_signed = pe_header_is_signed(pe_header),
                 .data_end = data_end,
+                .gaps = TAKE_PTR(gaps),
+                .n_gaps = n_gaps,
+                .gaps_size = gaps_size,
                 .file_alignment = file_alignment,
                 .section_alignment = section_alignment,
         };
@@ -461,7 +532,7 @@ int pe_writer_write(const PeWriter *w, int output_fd) {
 
         /* If the file ends inside the padded headers, data_end is smaller than headers_size. New section
          * data must start after the headers. */
-        uint64_t file_end = MAX(w->data_end, (uint64_t) w->headers_size),
+        uint64_t file_end = MAX(w->data_end + w->gaps_size, (uint64_t) w->headers_size),
                  initialized_data = le32toh(pe_header->optional.SizeOfInitializedData),
                  va = ALIGN_TO_U64(image_end, w->section_alignment),
                  raw = ALIGN_TO_U64(file_end, w->file_alignment);
@@ -509,13 +580,24 @@ int pe_writer_write(const PeWriter *w, int output_fd) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to write PE headers: %m");
 
-        if (w->data_end > w->headers_size) {
-                r = copy_bytes_offset(w->fd, &(uint64_t) { w->headers_size }, output_fd, &(uint64_t) { w->headers_size },
-                                  w->data_end - w->headers_size, /* copy_flags= */ 0);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to copy PE section data: %m");
-                if (r == 0) /* copy_bytes_offset() returns 0 if the input file ends before data_end. */
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "PE file ended prematurely while copying section data.");
+        /* The data between two gaps is copied in one piece. The zeroes of the gaps aren't written. */
+        uint64_t from = w->headers_size, shift = 0;
+        for (size_t i = 0; i <= w->n_gaps; i++) {
+                uint64_t to = i < w->n_gaps ? w->gaps[i].offset : w->data_end;
+
+                if (to > from) {
+                        r = copy_bytes_offset(w->fd, &(uint64_t) { from }, output_fd, &(uint64_t) { from + shift },
+                                              to - from, /* copy_flags= */ 0);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to copy PE section data: %m");
+                        if (r == 0) /* copy_bytes_offset() returns 0 if the input file ends before 'to'. */
+                                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "PE file ended prematurely while copying section data.");
+
+                        from = to;
+                }
+
+                if (i < w->n_gaps)
+                        shift += w->gaps[i].size;
         }
 
         for (size_t i = 0; i < w->n_sections; i++) {
