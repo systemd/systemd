@@ -24,6 +24,15 @@ typedef struct CatalogItem {
         le64_t offset;
 } CatalogItem;
 
+typedef struct CatalogFile CatalogFile;
+
+int catalog_file_open(const char *database, CatalogFile **ret);
+CatalogFile* catalog_file_free(CatalogFile *c);
+DEFINE_TRIVIAL_CLEANUP_FUNC(CatalogFile*, catalog_file_free);
+
+/* Returns a pointer into the mapped database, valid until catalog_file_free() is called. */
+int catalog_file_lookup(const CatalogFile *c, sd_id128_t id, const char **ret_text);
+
 int catalog_import_file(OrderedHashmap **h, int fd, const char *path);
 int catalog_update(const char *database, const char *root, const char* const *dirs);
 int catalog_get(const char *database, sd_id128_t id, char **ret_text);

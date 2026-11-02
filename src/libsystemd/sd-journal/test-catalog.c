@@ -184,7 +184,7 @@ static void test_catalog_file_lang(void) {
 static void test_catalog_oob_offset_one(uint64_t item_offset, size_t strings_size) {
         /* Builds a hostile single-item catalog database and verifies the reader rejects it instead of
          * chasing the item's string offset out of the mapping. The blob is laid out from the real struct
-         * offsets so it keeps matching open_mmap() if CatalogHeader/CatalogItem ever change. */
+         * offsets so it keeps matching catalog_file_open() if CatalogHeader/CatalogItem ever change. */
         _cleanup_(unlink_tempfilep) char db[] = "/tmp/test-catalog.XXXXXX";
         _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *text = NULL;
@@ -241,6 +241,54 @@ static void test_catalog_oob_offset(void) {
         test_catalog_oob_offset_one(/* item_offset= */ 0, /* strings_size= */ 16);
 }
 
+static void test_catalog_file(const char *database) {
+        _cleanup_(catalog_file_freep) CatalogFile *c = NULL;
+        _cleanup_free_ char *text = NULL;
+        const char *a, *b;
+
+        ASSERT_ERROR(catalog_file_open("/nonexistent/catalog.db", &c), ENOENT);
+        ASSERT_NULL(c);
+
+        ASSERT_OK(catalog_file_open(database, &c));
+        ASSERT_NOT_NULL(c);
+
+        /* Repeated lookups on the same object return the same string, and pointers stay valid across
+         * lookups, since they point into the mapping. */
+        ASSERT_OK(catalog_file_lookup(c, SD_MESSAGE_COREDUMP, &a));
+        ASSERT_OK(catalog_file_lookup(c, SD_MESSAGE_COREDUMP, &b));
+        ASSERT_PTR_EQ(a, b);
+
+        ASSERT_ERROR(catalog_file_lookup(c, SD_ID128_NULL, &b), ENOENT);
+        ASSERT_PTR_EQ(b, a); /* not touched on failure */
+
+        ASSERT_OK(catalog_get(database, SD_MESSAGE_COREDUMP, &text));
+        ASSERT_STREQ(a, text);
+}
+
+static void test_catalog_fallback_language(const char *database) {
+        _cleanup_free_ char *saved = NULL;
+
+        /* Regardless of LC_MESSAGES, a lookup must fall back to the untranslated entry if there's no
+         * matching translation, including for locales whose language part has no "_" separator. */
+
+        ASSERT_NOT_NULL(saved = strdup(ASSERT_PTR(setlocale(LC_MESSAGES, NULL))));
+
+        FOREACH_STRING(loc, "C", "C.UTF-8", "POSIX", "de_DE.UTF-8", "en_US.UTF-8") {
+                _cleanup_free_ char *text = NULL;
+
+                if (!setlocale(LC_MESSAGES, loc)) {
+                        log_info("Locale %s not available, skipping.", loc);
+                        continue;
+                }
+
+                log_info("Looking up catalog entry with LC_MESSAGES=%s", loc);
+                ASSERT_OK(catalog_get(database, SD_MESSAGE_COREDUMP, &text));
+                ASSERT_NOT_NULL(text);
+        }
+
+        ASSERT_NOT_NULL(setlocale(LC_MESSAGES, saved));
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_(unlink_tempfilep) char database[] = "/tmp/test-catalog.XXXXXX";
         _cleanup_close_ int fd = -EBADF;
@@ -277,6 +325,9 @@ int main(int argc, char *argv[]) {
 
         ASSERT_OK(catalog_get(database, SD_MESSAGE_COREDUMP, &text));
         printf(">>>%s<<<\n", text);
+
+        test_catalog_file(database);
+        test_catalog_fallback_language(database);
 
         return 0;
 }
