@@ -140,6 +140,8 @@ test ! -f "/tmp/ageby/d3/f2"
 test -f "/tmp/ageby/d4/f2"
 
 # Check that all files are removed if only "Age" is set to 0.
+# Files with future timestamps must be removed as well.
+touch --date "2035-01-01 00:00:00" /tmp/ageby/d3/f2 /tmp/ageby/d4/f2
 systemd-tmpfiles --clean - <<-EOF
 e /tmp/ageby/d3 - - - 0s
 d /tmp/ageby/d4 - - - 0s
