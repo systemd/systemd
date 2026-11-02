@@ -2025,6 +2025,33 @@ static bool verity_use_signature(const VeritySettings *verity, PartitionPolicyFl
 }
 #endif
 
+#if HAVE_BLKID
+static int verity_device_signed(int fd, const char *root_hash) {
+        _cleanup_free_ char *target_type = NULL, *params = NULL;
+        struct stat st;
+        int r;
+
+        assert(fd >= 0);
+        assert(root_hash);
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        r = stat_verify_block(&st);
+        if (r < 0)
+                return r;
+
+        r = dm_table_status(st.st_rdev, &target_type, &params);
+        if (r < 0)
+                return r;
+
+        if (!streq(target_type, "verity"))
+                return -EMEDIUMTYPE;
+
+        return dm_verity_table_signed(params, root_hash);
+}
+#endif
+
 int dissected_image_new_from_existing_verity(
                 const char *src,
                 const VeritySettings *verity,
@@ -2070,17 +2097,17 @@ int dissected_image_new_from_existing_verity(
         if (!root_fstype_string)
                 return -ENOPKG;
 
-        /* We don't query the existing device, so we don't know whether the kernel validated a signature for
-         * it. We only know that the device is protected by verity. If the image policy requires a signature,
-         * we dissect the image the full way, which checks the device before it reuses it. */
+        /* If the image policy requires a signature, we only reuse the existing device if the kernel validated
+         * a signature for it, which we check below. */
         PartitionPolicyFlags root_flags = image_policy_get_exhaustively(image_policy, PARTITION_ROOT);
         if (root_flags < 0)
                 return root_flags;
-        if (!FLAGS_SET(root_flags, PARTITION_POLICY_VERITY))
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOPKG), "Image policy requires a signature, skipping verity shortcut.");
+        bool need_signature = !FLAGS_SET(root_flags, PARTITION_POLICY_VERITY);
+        if (need_signature && !FLAGS_SET(root_flags, PARTITION_POLICY_SIGNED))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOPKG), "Image policy doesn't allow verity, skipping verity shortcut.");
 
         if (verity_settings_data_covers(verity, PARTITION_ROOT))
-                found_flags = PARTITION_POLICY_VERITY;
+                found_flags = need_signature ? PARTITION_POLICY_SIGNED : PARTITION_POLICY_VERITY;
         else
                 found_flags = encrypted ? PARTITION_POLICY_ENCRYPTED : PARTITION_POLICY_UNPROTECTED;
 
@@ -2099,6 +2126,16 @@ int dissected_image_new_from_existing_verity(
         mount_node_fd = open_partition(node, /* is_partition= */ false, /* loop= */ NULL);
         if (mount_node_fd < 0)
                 return mount_node_fd;
+
+        if (need_signature) {
+                r = verity_device_signed(mount_node_fd, root_hash_encoded);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to check the signature of verity device %s, skipping verity shortcut: %m", node);
+                else if (r == 0)
+                        log_debug("Verity device %s has no validated signature, skipping verity shortcut.", node);
+                if (r <= 0)
+                        return -ENOPKG;
+        }
 
         r = dissect_image_from_unpartitioned(
                         node,
