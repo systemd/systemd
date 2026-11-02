@@ -56,16 +56,16 @@ int cg_path_open(const char *path) {
         if (r < 0)
                 return r;
 
-        return RET_NERRNO(open(fs, O_DIRECTORY|O_CLOEXEC));
+        return xopenat(AT_FDCWD, fs, O_DIRECTORY);
 }
 
 int cg_cgroupid_open(int cgroupfs_fd, uint64_t id) {
         _cleanup_close_ int fsfd = -EBADF;
 
         if (cgroupfs_fd < 0) {
-                fsfd = open("/sys/fs/cgroup", O_CLOEXEC|O_DIRECTORY);
+                fsfd = xopenat(AT_FDCWD, "/sys/fs/cgroup", O_DIRECTORY);
                 if (fsfd < 0)
-                        return -errno;
+                        return fsfd;
 
                 cgroupfs_fd = fsfd;
         }

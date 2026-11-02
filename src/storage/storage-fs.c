@@ -89,7 +89,7 @@ static int open_storage_dir(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get state directory path: %m");
 
-        _cleanup_close_ int state_fd = chase_and_open(state_dir, /* root= */ NULL, CHASE_TRIGGER_AUTOFS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, O_CLOEXEC|O_CREAT|O_DIRECTORY, /* ret_path= */ NULL);
+        _cleanup_close_ int state_fd = chase_and_open(state_dir, /* root= */ NULL, CHASE_TRIGGER_AUTOFS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, O_CREAT|O_DIRECTORY, /* ret_path= */ NULL);
         if (state_fd < 0)
                 return log_error_errno(state_fd, "Failed to open '%s': %m", state_dir);
 
@@ -97,11 +97,11 @@ static int open_storage_dir(void) {
          * get ENOENT we'll try to create it. If that works, great. If we get EEXIST we'll try to reopen it
          * again, to deal with other instances of ourselves racing with us. We only do this exactly once
          * though, under the assumption that the dir is never removed, only created during runtime. */
-        _cleanup_close_ int storage_fd = chase_and_openat(XAT_FDROOT, state_fd, "storage", CHASE_TRIGGER_AUTOFS|CHASE_MUST_BE_DIRECTORY, O_CLOEXEC|O_DIRECTORY, /* ret_path= */ NULL);
+        _cleanup_close_ int storage_fd = chase_and_openat(XAT_FDROOT, state_fd, "storage", CHASE_TRIGGER_AUTOFS|CHASE_MUST_BE_DIRECTORY, O_DIRECTORY, /* ret_path= */ NULL);
         if (storage_fd == -ENOENT) {
-                storage_fd = xopenat_full(state_fd, "storage", O_EXCL|O_CREAT|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW, XO_LABEL|XO_SUBVOLUME, 0700);
+                storage_fd = xopenat_full(state_fd, "storage", O_EXCL|O_CREAT|O_DIRECTORY|O_NOFOLLOW, XO_LABEL|XO_SUBVOLUME, 0700);
                 if (storage_fd == -EEXIST)
-                        storage_fd = chase_and_openat(XAT_FDROOT, state_fd, "storage", CHASE_TRIGGER_AUTOFS|CHASE_MUST_BE_DIRECTORY, O_CLOEXEC|O_DIRECTORY, /* ret_path= */ NULL);
+                        storage_fd = chase_and_openat(XAT_FDROOT, state_fd, "storage", CHASE_TRIGGER_AUTOFS|CHASE_MUST_BE_DIRECTORY, O_DIRECTORY, /* ret_path= */ NULL);
         }
         if (storage_fd < 0)
                 return log_error_errno(storage_fd, "Failed to open '%s/storage/': %m", state_dir);
@@ -313,7 +313,7 @@ static int create_volume_dir(
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int volume_fd = xopenat_full(storage_fd, tf, O_CREAT|O_EXCL|O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW, xopen_flags, 0700);
+        _cleanup_close_ int volume_fd = xopenat_full(storage_fd, tf, O_CREAT|O_EXCL|O_RDONLY|O_DIRECTORY|O_NOFOLLOW, xopen_flags, 0700);
         if (volume_fd < 0)
                 return volume_fd;
 
@@ -323,7 +323,7 @@ static int create_volume_dir(
                 if (r < 0)
                         goto fail;
         } else {
-                root_fd = xopenat_full(volume_fd, "root", O_CREAT|O_EXCL|O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW, xopen_flags, 0755);
+                root_fd = xopenat_full(volume_fd, "root", O_CREAT|O_EXCL|O_RDONLY|O_DIRECTORY|O_NOFOLLOW, xopen_flags, 0755);
                 if (root_fd < 0) {
                         r = root_fd;
                         goto fail;
@@ -379,7 +379,7 @@ static int create_volume_reg(
         }
 
         _cleanup_free_ char *tf = NULL;
-        _cleanup_close_ int fd = open_tmpfile_linkable_at(storage_fd, filename, O_RDWR|O_CLOEXEC, &tf);
+        _cleanup_close_ int fd = open_tmpfile_linkable_at(storage_fd, filename, O_RDWR, &tf);
         if (fd < 0)
                 return fd;
 
@@ -630,7 +630,8 @@ static int vl_method_acquire(
                         open_flags |= O_DIRECTORY|O_NOFOLLOW;
                 }
 
-                real_fd = xopenat_full(pin_fd, subdir, open_flags|O_CLOEXEC, xopen_flags, /* mode= */ MODE_INVALID);
+                /* subdir may be NULL */
+                real_fd = xopenat_full(pin_fd, subdir, open_flags, xopen_flags|XO_EMPTY_PATH, MODE_INVALID);
                 if (real_fd < 0)
                         return log_debug_errno(real_fd, "Failed to reopen volume fd for '%s': %m", filename);
 
@@ -678,7 +679,7 @@ static int vl_method_acquire(
                 _cleanup_close_ int mount_fd = open_tree_attr_with_fallback(
                                 real_fd,
                                 /* path= */ NULL,
-                                OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW,
+                                OPEN_TREE_CLONE|AT_SYMLINK_NOFOLLOW,
                                 &(struct mount_attr) {
                                         .attr_set = (p.read_only > 0 ? MOUNT_ATTR_RDONLY : 0),
                                         .attr_clr = MOUNT_ATTR_NOSUID|MOUNT_ATTR_NOEXEC|MOUNT_ATTR_NODEV,

@@ -937,9 +937,9 @@ static DirectoryOwnership validate_directory_fd(
                 }
 
                 /* Go one level up */
-                _cleanup_close_ int new_parent_fd = openat(fd, "..", O_DIRECTORY|O_PATH|O_CLOEXEC);
+                _cleanup_close_ int new_parent_fd = xopenat(fd, "..", O_DIRECTORY|O_PATH);
                 if (new_parent_fd < 0)
-                        return log_debug_errno(errno, "Failed to open parent directory of directory file descriptor: %m");
+                        return log_debug_errno(new_parent_fd, "Failed to open parent directory of directory file descriptor: %m");
 
                 struct statx new_stx;
                 r = xstatx_full(new_parent_fd,
@@ -994,7 +994,7 @@ static int open_tree_try_drop_idmap_harder(sd_varlink *link, int directory_fd, c
         _cleanup_close_ int mount_fd = open_tree_try_drop_idmap(
                         directory_fd,
                         "",
-                        OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
+                        OPEN_TREE_CLONE|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
         if (mount_fd >= 0)
                 return TAKE_FD(mount_fd);
         if (mount_fd != -EINVAL)
@@ -1048,7 +1048,7 @@ static int open_tree_try_drop_idmap_harder(sd_varlink *link, int directory_fd, c
                 mount_fd = open_tree_try_drop_idmap(
                                 directory_fd,
                                 "",
-                                OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
+                                OPEN_TREE_CLONE|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
                 if (mount_fd < 0) {
                         log_debug_errno(mount_fd, "Failed to issue open_tree() of provided directory '%s': %m", strna(directory_path));
                         report_errno_and_exit(errno_pipe_fd[1], mount_fd);
@@ -1428,7 +1428,7 @@ static int vl_method_make_directory(
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int fd = open_mkdir_at(parent_fd, t, O_CLOEXEC, p.mode);
+        _cleanup_close_ int fd = open_mkdir_at(parent_fd, t, /* flags= */ 0, p.mode);
         if (fd < 0)
                 return fd;
 

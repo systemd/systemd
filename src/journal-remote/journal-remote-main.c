@@ -15,6 +15,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "journal-authenticate.h"
 #include "journal-compression-util.h"
@@ -139,7 +140,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
 static int spawn_child(const char *child, char **argv) {
         int fd[2], r;
 
-        if (pipe(fd) < 0)
+        if (pipe2(fd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pager pipe: %m");
 
         r = pidref_safe_fork_full(
@@ -615,7 +616,7 @@ static int setup_microhttpd_socket(RemoteServer *s,
                                    const char *trust) {
         int fd;
 
-        fd = make_socket_fd(LOG_DEBUG, address, SOCK_STREAM, SOCK_CLOEXEC);
+        fd = make_socket_fd(LOG_DEBUG, address, SOCK_STREAM, /* flags= */ 0);
         if (fd < 0)
                 return fd;
 
@@ -671,7 +672,7 @@ static int dispatch_http_event(sd_event_source *event,
 static int setup_raw_socket(RemoteServer *s, const char *address) {
         int fd;
 
-        fd = make_socket_fd(LOG_INFO, address, SOCK_STREAM, SOCK_CLOEXEC);
+        fd = make_socket_fd(LOG_INFO, address, SOCK_STREAM, /* flags= */ 0);
         if (fd < 0)
                 return fd;
 
@@ -805,9 +806,9 @@ static int create_remoteserver(
                 } else {
                         log_debug("Reading file %s...", *file);
 
-                        fd = open(*file, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                        fd = xopenat(AT_FDCWD, *file, O_RDONLY|O_NOCTTY|O_NONBLOCK);
                         if (fd < 0)
-                                return log_error_errno(errno, "Failed to open %s: %m", *file);
+                                return log_error_errno(fd, "Failed to open %s: %m", *file);
                         output_name = *file;
                 }
 

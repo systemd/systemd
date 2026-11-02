@@ -1804,7 +1804,7 @@ static int start_virtiofsd(
                 if (userns_fd < 0)
                         return log_error_errno(userns_fd, "Failed to allocate user namespace for virtiofsd: %m");
 
-                _cleanup_close_ int directory_fd = open(directory, O_DIRECTORY|O_CLOEXEC|O_PATH);
+                _cleanup_close_ int directory_fd = xopenat(AT_FDCWD, directory, O_DIRECTORY|O_PATH);
                 if (directory_fd < 0)
                         return log_error_errno(directory_fd, "Failed to open '%s': %m", directory);
 
@@ -2052,9 +2052,9 @@ static int merge_initrds(char **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create temporary file: %m");
 
-        ofd = open(merged_initrd, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0600);
+        ofd = xopenat_full(AT_FDCWD, merged_initrd, O_WRONLY|O_CREAT|O_EXCL, /* xopen_flags= */ 0, 0600);
         if (ofd < 0)
-                return log_error_errno(errno, "Failed to create regular file %s: %m", merged_initrd);
+                return log_error_errno(ofd, "Failed to create regular file %s: %m", merged_initrd);
 
         STRV_FOREACH(i, arg_initrds) {
                 _cleanup_close_ int ifd = -EBADF;
@@ -2070,9 +2070,9 @@ static int merge_initrds(char **ret) {
                 if (to_seek != 0 && lseek(ofd, to_seek, SEEK_CUR) < 0)
                         return log_error_errno(errno, "Failed to seek %s: %m", merged_initrd);
 
-                ifd = open(*i, O_RDONLY|O_CLOEXEC);
+                ifd = xopenat(AT_FDCWD, *i, O_RDONLY);
                 if (ifd < 0)
-                        return log_error_errno(errno, "Failed to open %s: %m", *i);
+                        return log_error_errno(ifd, "Failed to open %s: %m", *i);
 
                 r = copy_bytes(ifd, ofd, UINT64_MAX, /* copy_flags= */ 0);
                 if (r < 0)
@@ -2137,7 +2137,7 @@ static int grow_image(const char *path, uint64_t size) {
         if (size == 0)
                 return 0;
 
-        _cleanup_close_ int fd = xopenat_full(AT_FDCWD, path, O_RDWR|O_CLOEXEC, XO_REGULAR, /* mode= */ 0);
+        _cleanup_close_ int fd = xopenat_full(AT_FDCWD, path, O_RDWR, XO_REGULAR, /* mode= */ 0);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open image file '%s': %m", path);
 
@@ -2250,7 +2250,7 @@ static int prepare_efi_variable_store(const char *template, const char *sidecar_
                 if (!d)
                         return log_oom();
 
-                target_fd = openat_report_new(AT_FDCWD, arg_efi_nvram_state_path, O_RDWR|O_CREAT|O_CLOEXEC, 0600, &newly_created);
+                target_fd = openat_report_new(AT_FDCWD, arg_efi_nvram_state_path, O_RDWR|O_CREAT, 0600, &newly_created);
                 if (target_fd < 0)
                         return log_error_errno(target_fd, "Failed to open EFI variable store at %s: %m", arg_efi_nvram_state_path);
 
@@ -2262,7 +2262,7 @@ static int prepare_efi_variable_store(const char *template, const char *sidecar_
                                 return log_error_errno(r, "EFI variable store at %s is not a regular file: %m", arg_efi_nvram_state_path);
                 }
         } else {
-                target_fd = open_tmpfile_unlinkable(/* directory= */ NULL, O_RDWR|O_CLOEXEC);
+                target_fd = open_tmpfile_unlinkable(/* directory= */ NULL, O_RDWR);
                 if (target_fd < 0)
                         return log_error_errno(target_fd, "Failed to create temporary EFI variable store: %m");
 
@@ -2270,9 +2270,9 @@ static int prepare_efi_variable_store(const char *template, const char *sidecar_
         }
 
         if (newly_created) {
-                _cleanup_close_ int source_fd = open(template, O_RDONLY|O_CLOEXEC);
+                _cleanup_close_ int source_fd = xopenat(AT_FDCWD, template, O_RDONLY);
                 if (source_fd < 0)
-                        return log_error_errno(errno, "Failed to open EFI variable store template %s: %m", template);
+                        return log_error_errno(source_fd, "Failed to open EFI variable store template %s: %m", template);
 
                 r = copy_bytes(source_fd, target_fd, UINT64_MAX, /* copy_flags= */ 0);
                 if (r < 0)
@@ -2350,7 +2350,7 @@ static int cmdline_add_ovmf(
                 return r;
 
         /* QEMU's block layer opens the drive read-only first, so it needs a matching fd in the fdset. */
-        vars_fds[1] = fd_reopen(vars_fds[0], O_RDONLY|O_CLOEXEC);
+        vars_fds[1] = fd_reopen(vars_fds[0], O_RDONLY);
         if (vars_fds[1] < 0)
                 return log_error_errno(vars_fds[1], "Failed to reopen EFI variable store read-only: %m");
 
@@ -2528,11 +2528,11 @@ static int prepare_primary_drive(DriveInfos *drives) {
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve disk driver for '%s': %m", image_fn);
 
-        int open_flags = ((arg_ephemeral || FLAGS_SET(d->flags, QMP_DRIVE_READ_ONLY)) ? O_RDONLY : O_RDWR) | O_CLOEXEC | O_NOCTTY;
+        int open_flags = ((arg_ephemeral || FLAGS_SET(d->flags, QMP_DRIVE_READ_ONLY)) ? O_RDONLY : O_RDWR) | O_NOCTTY;
 
-        _cleanup_close_ int image_fd = open(arg_image, open_flags);
+        _cleanup_close_ int image_fd = xopenat(AT_FDCWD, arg_image, open_flags);
         if (image_fd < 0)
-                return log_error_errno(errno, "Failed to open '%s': %m", arg_image);
+                return log_error_errno(image_fd, "Failed to open '%s': %m", arg_image);
 
         struct stat st;
         if (fstat(image_fd, &st) < 0)
@@ -2575,7 +2575,7 @@ static int prepare_primary_drive(DriveInfos *drives) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to extract directory from '%s': %m", image_path);
 
-                        overlay_fd = open_tmpfile_unlinkable(image_dir, O_RDWR|O_CLOEXEC);
+                        overlay_fd = open_tmpfile_unlinkable(image_dir, O_RDWR);
                         if (overlay_fd < 0)
                                 log_debug_errno(overlay_fd,
                                                 "Failed to create ephemeral overlay in '%s', using the directory for large temporary files instead: %m",
@@ -2589,7 +2589,7 @@ static int prepare_primary_drive(DriveInfos *drives) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to determine directory for large temporary files: %m");
 
-                        overlay_fd = open_tmpfile_unlinkable(overlay_dir, O_RDWR|O_CLOEXEC);
+                        overlay_fd = open_tmpfile_unlinkable(overlay_dir, O_RDWR);
                         if (overlay_fd < 0)
                                 return log_error_errno(overlay_fd, "Failed to create ephemeral overlay in '%s': %m", overlay_dir);
                 }
@@ -2632,9 +2632,9 @@ static int prepare_extra_drives(DriveInfos *drives) {
                 if (drive->read_only)
                         d->flags |= QMP_DRIVE_READ_ONLY;
 
-                _cleanup_close_ int drive_fd = open(drive->path, (FLAGS_SET(d->flags, QMP_DRIVE_READ_ONLY) ? O_RDONLY : O_RDWR) | O_CLOEXEC | O_NOCTTY);
+                _cleanup_close_ int drive_fd = xopenat(AT_FDCWD, drive->path, (FLAGS_SET(d->flags, QMP_DRIVE_READ_ONLY) ? O_RDONLY : O_RDWR) | O_NOCTTY);
                 if (drive_fd < 0)
-                        return log_error_errno(errno, "Failed to open '%s': %m", drive->path);
+                        return log_error_errno(drive_fd, "Failed to open '%s': %m", drive->path);
 
                 struct stat drive_st;
                 if (fstat(drive_fd, &drive_st) < 0)
@@ -3246,9 +3246,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 config.vsock.fd = TAKE_FD(vhost_device_fd);
 
                 if (config.vsock.fd < 0) {
-                        config.vsock.fd = open("/dev/vhost-vsock", O_RDWR|O_CLOEXEC);
+                        config.vsock.fd = xopenat(AT_FDCWD, "/dev/vhost-vsock", O_RDWR);
                         if (config.vsock.fd < 0)
-                                return log_error_errno(errno, "Failed to open /dev/vhost-vsock as read/write: %m");
+                                return log_error_errno(config.vsock.fd, "Failed to open /dev/vhost-vsock as read/write: %m");
                 }
 
                 r = vsock_fix_child_cid(config.vsock.fd, &child_cid, arg_machine);
@@ -4078,11 +4078,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                  * the monitor connection (which is 'master' here). Reopen it to get an independent open file
                  * description, so FORK_REARRANGE_STDIO can move it onto stdin/stdout/stderr without disturbing
                  * the fd we hand QEMU's console chardev via the fd set. */
-                child_pty = fd_reopen(console_backend_fd, O_RDWR|O_CLOEXEC|O_NOCTTY);
+                child_pty = fd_reopen(console_backend_fd, O_RDWR|O_NOCTTY);
                 if (child_pty < 0)
                         return log_error_errno(child_pty, "Failed to reopen PTY backend: %m");
         } else if (master >= 0) {
-                child_pty = pty_open_peer(master, O_RDWR|O_CLOEXEC|O_NOCTTY);
+                child_pty = pty_open_peer(master, O_RDWR|O_NOCTTY);
                 if (child_pty < 0)
                         return log_error_errno(child_pty, "Failed to open PTY slave: %m");
         }

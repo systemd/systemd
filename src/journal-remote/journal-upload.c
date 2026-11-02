@@ -417,9 +417,9 @@ static int open_file_for_upload(Uploader *u, const char *filename) {
         if (streq(filename, "-"))
                 fd = STDIN_FILENO;
         else {
-                fd = open(filename, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                fd = xopenat(AT_FDCWD, filename, O_RDONLY|O_NOCTTY);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open %s: %m", filename);
+                        return log_error_errno(fd, "Failed to open %s: %m", filename);
         }
 
         u->input = fd;

@@ -13,6 +13,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "hexdecoct.h"
 #include "homework-fscrypt.h"
 #include "homework-mount.h"
@@ -450,7 +451,7 @@ int home_flush_keyring_fscrypt(UserRecord *h) {
          * fallback is the v1 user-keyring walk below, which is a no-op when nothing matches. Reaching
          * the walk also keeps prior behaviour: stale v1 entries get reaped even if the image
          * directory has gone away. */
-        _cleanup_close_ int dir_fd = open(ip, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+        _cleanup_close_ int dir_fd = xopenat(AT_FDCWD, ip, O_RDONLY|O_DIRECTORY|O_NOFOLLOW);
         if (dir_fd >= 0) {
                 struct fscrypt_key_specifier spec;
 
@@ -462,7 +463,7 @@ int home_flush_keyring_fscrypt(UserRecord *h) {
                 if (r < 0 && !IN_SET(r, -ENODATA, -ENOLINK))
                         log_debug_errno(r, "Failed to read fscrypt policy of %s, falling back to v1 keyring walk: %m", ip);
         } else
-                log_debug_errno(errno, "Failed to open %s, falling back to v1 keyring walk: %m", ip);
+                log_debug_errno(dir_fd, "Failed to open %s, falling back to v1 keyring walk: %m", ip);
 
         r = pidref_safe_fork(
                         "(sd-delkey)",
@@ -958,9 +959,9 @@ int home_setup_fscrypt(
 
         assert_se(ip = user_record_image_path(h));
 
-        setup->root_fd = open(ip, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        setup->root_fd = xopenat(AT_FDCWD, ip, O_RDONLY|O_DIRECTORY);
         if (setup->root_fd < 0)
-                return log_error_errno(errno, "Failed to open home directory: %m");
+                return log_error_errno(setup->root_fd, "Failed to open home directory: %m");
 
         /* fscrypt has v1 and v2 policy versions with different on-disk formats, and no in-place upgrade:
          * v1 binds the master key by an 8-byte descriptor (truncated double SHA-512), v2 by a 16-byte
@@ -1041,9 +1042,9 @@ int home_setup_fscrypt(
                 return r;
 
         safe_close(setup->root_fd);
-        setup->root_fd = open(HOME_RUNTIME_WORK_DIR, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+        setup->root_fd = xopenat(AT_FDCWD, HOME_RUNTIME_WORK_DIR, O_RDONLY|O_DIRECTORY|O_NOFOLLOW);
         if (setup->root_fd < 0)
-                return log_error_errno(errno, "Failed to open home directory: %m");
+                return log_error_errno(setup->root_fd, "Failed to open home directory: %m");
 
         /* Note we intentionally leave setup->fscrypt_v2_key_undo armed here: whether the key stays
          * installed is decided by the caller (kept on activation, rolled back on teardown). */
@@ -1290,9 +1291,9 @@ int home_create_fscrypt(
         if (r < 0)
                 return r;
 
-        setup->root_fd = open(temporary, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+        setup->root_fd = xopenat(AT_FDCWD, temporary, O_RDONLY|O_DIRECTORY|O_NOFOLLOW);
         if (setup->root_fd < 0)
-                return log_error_errno(errno, "Failed to open temporary home directory: %m");
+                return log_error_errno(setup->root_fd, "Failed to open temporary home directory: %m");
 
         /* Refuse if the parent directory is already encrypted (we'd inherit its policy). The v1-only
          * FS_IOC_GET_ENCRYPTION_POLICY ioctl returns EINVAL on v2-encrypted dirs, so use the helper
@@ -1357,7 +1358,7 @@ int home_create_fscrypt(
                 /* If we have established a new mount, then we can use that as new root fd to our home directory. */
                 safe_close(setup->root_fd);
 
-                setup->root_fd = fd_reopen(mount_fd, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                setup->root_fd = fd_reopen(mount_fd, O_RDONLY|O_DIRECTORY);
                 if (setup->root_fd < 0)
                         return log_error_errno(setup->root_fd, "Unable to convert mount fd into proper directory fd: %m");
 

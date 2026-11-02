@@ -36,7 +36,7 @@ int userns_registry_open_fd(void) {
                         "/run/systemd/nsresource/registry",
                         /* root= */ NULL,
                         CHASE_MKDIR_0755,
-                        O_CLOEXEC|O_DIRECTORY|O_CREAT,
+                        O_DIRECTORY|O_CREAT,
                         /* ret_path= */ NULL);
         if (fd < 0)
                 return log_debug_errno(fd, "Failed to open registry dir: %m");
@@ -55,7 +55,7 @@ int userns_registry_lock(int dir_fd) {
                 dir_fd = registry_fd;
         }
 
-        lock_fd = xopenat_lock_full(dir_fd, "lock", O_CREAT|O_RDWR|O_CLOEXEC, /* xopen_flags= */ 0, 0600, LOCK_BSD, LOCK_EX);
+        lock_fd = xopenat_lock_full(dir_fd, "lock", O_CREAT|O_RDWR, /* xopen_flags= */ 0, 0600, LOCK_BSD, LOCK_EX);
         if (lock_fd < 0)
                 return log_debug_errno(lock_fd, "Failed to open nsresource registry lock file: %m");
 
@@ -1102,9 +1102,9 @@ static int userns_destroy_cgroup(uint64_t cgroup_id) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to extract name of cgroup %" PRIu64 ", ignoring: %m", cgroup_id);
 
-        parent_fd = openat(cgroup_fd, "..", O_CLOEXEC|O_DIRECTORY);
+        parent_fd = xopenat(cgroup_fd, "..", O_DIRECTORY);
         if (parent_fd < 0)
-                return log_debug_errno(errno, "Failed to open parent cgroup of %" PRIu64 ", ignoring: %m", cgroup_id);
+                return log_debug_errno(parent_fd, "Failed to open parent cgroup of %" PRIu64 ", ignoring: %m", cgroup_id);
 
         /* Safety check, never leave cgroupfs */
         r = fd_is_fs_type(parent_fd, CGROUP2_SUPER_MAGIC);

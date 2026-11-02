@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <unistd.h>
 
 #include "errno-util.h"
@@ -36,6 +37,18 @@ TEST(memfd_get_sealed) {
         ASSERT_OK(memfd_set_sealed_gracefully(fd));
         ASSERT_OK_POSITIVE(memfd_get_sealed(fd));
         ASSERT_ERROR(memfd_set_sealed(fd), EPERM);
+}
+
+TEST(memfd_create_wrapper_cloexec) {
+        /* MFD_CLOEXEC is implied, whether requested or not */
+        _cleanup_close_ int fd = memfd_create_wrapper("test-memfd-cloexec", /* mode= */ 0);
+        if (fd < 0) {
+                ASSERT_TRUE(ERRNO_IS_NOT_SUPPORTED(fd));
+                return (void) log_tests_skipped_errno(fd, "Failed to create new memfd");
+        }
+
+        int fl = ASSERT_OK_ERRNO(fcntl(fd, F_GETFD));
+        ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

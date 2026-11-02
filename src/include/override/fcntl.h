@@ -10,6 +10,12 @@
 #define F_DUPFD_QUERY 1027
 #endif
 
+/* This is defined since glibc-2.41.
+ * Supported since kernel v6.12 (820a185896b77814557302b981b092a9e7b36814). */
+#ifndef F_CREATED_QUERY
+#define F_CREATED_QUERY 1028
+#endif
+
 /* This is defined since glibc-2.39. */
 #ifndef F_SEAL_EXEC
 #define F_SEAL_EXEC     0x0020  /* prevent chmod modifying exec bits */
@@ -28,6 +34,12 @@
 /* Defined by the kernel since v6.14, not yet by every glibc we support. */
 #ifndef AT_EXECVE_CHECK
 #define AT_EXECVE_CHECK 0x10000 /* Only perform a check if execution would be allowed */
+#endif
+
+/* Not defined by glibc yet.
+ * Supported since kernel v7.2 (31cf44efa6df72a524b40adefb80539f3a4e13ba). */
+#ifndef O_EMPTYPATH
+#define O_EMPTYPATH (1 << 26)  /* allow empty path */
 #endif
 
 #ifndef FD_NSFS_ROOT

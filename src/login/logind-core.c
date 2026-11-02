@@ -558,9 +558,9 @@ static int vt_is_busy(unsigned vtnr) {
          * we avoid this. Since tty1 is special and needs to be an
          * explicitly loaded getty or DM this is safe. */
 
-        fd = open_terminal("/dev/tty1", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal("/dev/tty1", O_RDWR|O_NOCTTY);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         if (ioctl(fd, VT_GETSTATE, &vt_stat) < 0)
                 r = -errno;

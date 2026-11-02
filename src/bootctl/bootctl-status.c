@@ -17,6 +17,7 @@
 #include "efivars.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "locale-setup.h"
 #include "log.h"
 #include "pager.h"
@@ -217,7 +218,7 @@ static int enumerate_binaries(
                         return log_oom();
                 LOG_SET_PREFIX(filename);
 
-                fd = RET_NERRNO(openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC));
+                fd = xopenat(dirfd(d), de->d_name, O_RDONLY);
                 if (fd == -ENOENT)
                         continue;
                 if (fd < 0)

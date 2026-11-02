@@ -10,6 +10,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "log.h"
@@ -77,9 +78,9 @@ static int prepare_dirs(
 
                 path_simplify(root_abs);
 
-                rfd = open(root, O_CLOEXEC|O_DIRECTORY|O_PATH);
+                rfd = xopenat(AT_FDCWD, root, O_DIRECTORY|O_PATH);
                 if (rfd < 0)
-                        return log_full_errno(log_level, errno, "Failed to open '%s': %m", root_abs);
+                        return log_full_errno(log_level, rfd, "Failed to open '%s': %m", root_abs);
 
         } else if (ret_dirs) {
                 /* When an empty root or "/" is specified, we will open "/" below, hence we need to make

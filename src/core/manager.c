@@ -505,7 +505,7 @@ static int manager_enable_special_signals(Manager *m) {
         if (reboot(RB_DISABLE_CAD) < 0 && !IN_SET(errno, EPERM, EINVAL))
                 log_warning_errno(errno, "Failed to enable ctrl-alt-del handling, ignoring: %m");
 
-        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY);
         if (fd < 0)
                 /* Support systems without virtual console (ENOENT) gracefully */
                 log_full_errno(fd == -ENOENT ? LOG_DEBUG : LOG_WARNING, fd, "Failed to open %s, ignoring: %m", "/dev/tty0");
@@ -5260,7 +5260,7 @@ static int manager_dispatch_handoff_timestamp_fd(sd_event_source *source, int fd
 
         assert(source);
 
-        n = recvmsg_safe(m->handoff_timestamp_fds[0], &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+        n = recvmsg_safe(m->handoff_timestamp_fds[0], &msghdr, MSG_DONTWAIT);
         if (ERRNO_IS_NEG_TRANSIENT(n))
                 return 0; /* Spurious wakeup, try again */
         if (n == -ECHRNG) {
@@ -5342,7 +5342,7 @@ static int manager_dispatch_pidref_transport_fd(sd_event_source *source, int fd,
          *
          * SO_PASSPIDFD may not be supported by the kernel (it is supported since v6.5) so we fall back to
          * using parent PID from ucreds and accept some raciness. */
-        n = recvmsg_safe(m->pidref_transport_fds[0], &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC|MSG_TRUNC);
+        n = recvmsg_safe(m->pidref_transport_fds[0], &msghdr, MSG_DONTWAIT|MSG_TRUNC);
         if (ERRNO_IS_NEG_TRANSIENT(n))
                 return 0; /* Spurious wakeup, try again */
         if (n == -ECHRNG) {

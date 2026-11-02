@@ -167,6 +167,10 @@ static int chase_xopenat(int dir_fd, const char *path, ChaseFlags chase_flags, i
          * the final target of a chase operation: they all want O_NOFOLLOW honoured, MUST_BE_* verified on
          * the opened inode, and automounts triggered if requested. */
 
+        /* An empty name reopens the directory, which open(2) refuses to create */
+        if (isempty(path) && FLAGS_SET(open_flags, O_CREAT))
+                return -EISDIR;
+
         if (FLAGS_SET(chase_flags, CHASE_NOFOLLOW))
                 open_flags |= O_NOFOLLOW;
         if (FLAGS_SET(chase_flags, CHASE_MUST_BE_DIRECTORY))
@@ -431,7 +435,7 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                  * are requested: open the target directly via xopenat_full() which applies any MUST_BE_*
                  * verification and automount triggering for us. */
 
-                r = chase_xopenat(dir_fd, path, flags, O_PATH|O_CLOEXEC, /* xopen_flags= */ 0);
+                r = chase_xopenat(dir_fd, path, flags, O_PATH, /* xopen_flags= */ 0);
                 if (r < 0)
                         return r;
 
@@ -464,7 +468,7 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                         return -ENOMEM;
         }
 
-        _cleanup_close_ int fd = xopenat(dir_fd, /* path= */ NULL, O_CLOEXEC|O_DIRECTORY|O_PATH);
+        _cleanup_close_ int fd = fd_reopen(dir_fd, O_DIRECTORY|O_PATH);
         if (fd < 0)
                 return fd;
 
@@ -551,9 +555,9 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                                 }
                         }
 
-                        fd_parent = openat(fd, "..", O_CLOEXEC|O_NOFOLLOW|O_PATH|O_DIRECTORY);
+                        fd_parent = xopenat(fd, "..", O_NOFOLLOW|O_PATH|O_DIRECTORY);
                         if (fd_parent < 0)
-                                return -errno;
+                                return fd_parent;
 
                         r = chase_statx(fd_parent, flags, &stx_parent);
                         if (r < 0)
@@ -641,9 +645,9 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                                         break;
                                 }
 
-                                fd_grandparent = openat(fd_parent, "..", O_CLOEXEC|O_NOFOLLOW|O_PATH|O_DIRECTORY);
+                                fd_grandparent = xopenat(fd_parent, "..", O_NOFOLLOW|O_PATH|O_DIRECTORY);
                                 if (fd_grandparent < 0)
-                                        return -errno;
+                                        return fd_grandparent;
 
                                 r = chase_statx(fd_grandparent, flags, &stx_grandparent);
                                 if (r < 0)
@@ -674,7 +678,7 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
 
                 /* Otherwise let's pin it by file descriptor, via O_PATH. */
                 child = r = xopenat_full(fd, first,
-                                         O_PATH|O_NOFOLLOW|O_CLOEXEC,
+                                         O_PATH|O_NOFOLLOW,
                                          FLAGS_SET(flags, CHASE_TRIGGER_AUTOFS) ? XO_TRIGGER_AUTOMOUNT : 0,
                                          MODE_INVALID);
                 if (r < 0) {
@@ -687,7 +691,7 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                         if (FLAGS_SET(flags, CHASE_MKDIR_0755) && (!isempty(todo) || !(flags & (CHASE_PARENT|CHASE_NONEXISTENT)))) {
                                 child = xopenat(fd,
                                                 first,
-                                                O_DIRECTORY|O_CREAT|O_EXCL|O_NOFOLLOW|O_PATH|O_CLOEXEC);
+                                                O_DIRECTORY|O_CREAT|O_EXCL|O_NOFOLLOW|O_PATH);
                                 if (child < 0)
                                         return child;
                         } else if (FLAGS_SET(flags, CHASE_PARENT) && isempty(todo)) {
@@ -739,7 +743,7 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                                  * root file descriptor as base. */
 
                                 safe_close(fd);
-                                fd = fd_reopen(root_fd, O_CLOEXEC|O_PATH|O_DIRECTORY);
+                                fd = fd_reopen(root_fd, O_PATH|O_DIRECTORY);
                                 if (fd < 0)
                                         return fd;
 
@@ -941,9 +945,9 @@ int chase(const char *path, const char *root, ChaseFlags flags, char **ret_path,
         if (empty_or_root(root))
                 fd = XAT_FDROOT;
         else {
-                fd = open(root, O_CLOEXEC|O_DIRECTORY|O_PATH);
+                fd = xopenat(AT_FDCWD, root, O_DIRECTORY|O_PATH);
                 if (fd < 0)
-                        return -errno;
+                        return fd;
         }
 
         r = chaseat(fd, fd, path, flags & ~CHASE_PREFIX_ROOT, ret_path ? &p : NULL, ret_fd ? &pfd : NULL);
@@ -1076,7 +1080,7 @@ int chase_and_open(
 
         if (empty_or_root(root) && !ret_path && (chase_flags & CHASE_NO_SHORTCUT_MASK) == 0)
                 /* Shortcut this call if none of the special features of this call are requested */
-                return chase_xopenat(AT_FDCWD, path, chase_flags, open_flags, /* xopen_flags= */ 0);
+                return chase_xopenat(AT_FDCWD, path, chase_flags, open_flags, XO_EMPTY_PATH);
 
         r = chase(path, root, (CHASE_PARENT|chase_flags)&~CHASE_MUST_BE_REGULAR, &p, &path_fd);
         if (r < 0)
@@ -1096,11 +1100,7 @@ int chase_and_open(
                 }
         }
 
-        /* An empty name reopens the directory, which open(2) refuses to create and fd_reopen() asserts on */
-        if (isempty(open_name) && FLAGS_SET(open_flags, O_CREAT))
-                return -EISDIR;
-
-        r = chase_xopenat(path_fd, strempty(open_name), chase_flags, open_flags|O_NOFOLLOW, /* xopen_flags= */ 0);
+        r = chase_xopenat(path_fd, open_name, chase_flags, open_flags|O_NOFOLLOW, XO_EMPTY_PATH);
         if (r < 0)
                 return r;
 
@@ -1246,7 +1246,7 @@ int chase_and_unlink(const char *path, const char *root, ChaseFlags chase_flags,
         assert(path);
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_PARENT|CHASE_MUST_BE_SOCKET|CHASE_MUST_BE_REGULAR|CHASE_MUST_BE_DIRECTORY|CHASE_EXTRACT_FILENAME|CHASE_MKDIR_0755)));
 
-        fd = chase_and_open(path, root, chase_flags|CHASE_PARENT|CHASE_NOFOLLOW, O_PATH|O_DIRECTORY|O_CLOEXEC, &p);
+        fd = chase_and_open(path, root, chase_flags|CHASE_PARENT|CHASE_NOFOLLOW, O_PATH|O_DIRECTORY, &p);
         if (fd < 0)
                 return fd;
 
@@ -1292,7 +1292,7 @@ int chase_and_openat(
 
         if (root_fd == XAT_FDROOT && dir_fd == AT_FDCWD && !ret_path && (chase_flags & CHASE_NO_SHORTCUT_MASK) == 0)
                 /* Shortcut this call if none of the special features of this call are requested */
-                return chase_xopenat(dir_fd, path, chase_flags, open_flags, /* xopen_flags= */ 0);
+                return chase_xopenat(dir_fd, path, chase_flags, open_flags, XO_EMPTY_PATH);
 
         r = chaseat(root_fd, dir_fd, path, (chase_flags|CHASE_PARENT)&~CHASE_MUST_BE_REGULAR, &p, &path_fd);
         if (r < 0)
@@ -1311,11 +1311,7 @@ int chase_and_openat(
                 }
         }
 
-        /* An empty name reopens the directory, which open(2) refuses to create and fd_reopen() asserts on */
-        if (isempty(open_name) && FLAGS_SET(open_flags, O_CREAT))
-                return -EISDIR;
-
-        r = chase_xopenat(path_fd, strempty(open_name), chase_flags, open_flags|O_NOFOLLOW, /* xopen_flags= */ 0);
+        r = chase_xopenat(path_fd, open_name, chase_flags, open_flags|O_NOFOLLOW, XO_EMPTY_PATH);
         if (r < 0)
                 return r;
 
@@ -1462,7 +1458,7 @@ int chase_and_unlinkat(int root_fd, int dir_fd, const char *path, ChaseFlags cha
         assert(path);
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_PARENT|CHASE_MUST_BE_SOCKET|CHASE_MUST_BE_REGULAR|CHASE_MUST_BE_DIRECTORY|CHASE_EXTRACT_FILENAME|CHASE_MKDIR_0755)));
 
-        fd = chase_and_openat(root_fd, dir_fd, path, chase_flags|CHASE_PARENT|CHASE_NOFOLLOW, O_PATH|O_DIRECTORY|O_CLOEXEC, &p);
+        fd = chase_and_openat(root_fd, dir_fd, path, chase_flags|CHASE_PARENT|CHASE_NOFOLLOW, O_PATH|O_DIRECTORY, &p);
         if (fd < 0)
                 return fd;
 

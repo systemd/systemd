@@ -435,7 +435,7 @@ static int offset_array_open_tmpfile(OffsetArray *a, MMapCache *m, const char *t
         assert(m);
         assert(tmp_dir);
 
-        fd = open_tmpfile_unlinkable(tmp_dir, O_RDWR | O_CLOEXEC);
+        fd = open_tmpfile_unlinkable(tmp_dir, O_RDWR);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to create temporary file: %m");
 

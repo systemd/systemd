@@ -139,7 +139,7 @@ static int openat_harder(int dfd, const char *path, int open_flags, RemoveFlags 
             !FLAGS_SET(open_flags, O_DIRECTORY) ||
             !FLAGS_SET(remove_flags, REMOVE_CHMOD)) {
 
-                fd = RET_NERRNO(openat(dfd, path, open_flags));
+                fd = xopenat(dfd, path, open_flags);
                 if (fd < 0)
                         return fd;
 
@@ -155,7 +155,7 @@ static int openat_harder(int dfd, const char *path, int open_flags, RemoveFlags 
                 return TAKE_FD(fd);
         }
 
-        pfd = RET_NERRNO(openat(dfd, path, (open_flags & (O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW)) | O_PATH));
+        pfd = xopenat(dfd, path, (open_flags & (O_DIRECTORY|O_NOFOLLOW)) | O_PATH);
         if (pfd < 0)
                 return pfd;
 
@@ -246,7 +246,7 @@ static int rm_rf_inner_child(
 
                 mode_t old_mode;
                 int subdir_fd = openat_harder(fd, fname,
-                                              O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME,
+                                              O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_NOFOLLOW|O_NOATIME,
                                               flags, &old_mode);
                 if (subdir_fd < 0)
                         return subdir_fd;
@@ -398,7 +398,7 @@ static int rm_rf_children_impl(
 
                                  mode_t mode;
                                  int newfd = openat_harder(fd, de->d_name,
-                                                           O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME,
+                                                           O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_NOFOLLOW|O_NOATIME,
                                                            flags, &mode);
                                  if (newfd >= 0) {
                                          todos[n_todo++] = (TodoEntry) {
@@ -485,7 +485,7 @@ int rm_rf_at(int dir_fd, const char *path, RemoveFlags flags) {
                 if (unlinkat(dir_fd, path, AT_REMOVEDIR) >= 0)
                         return 0;
 
-        fd = openat_harder(dir_fd, path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME, flags, &old_mode);
+        fd = openat_harder(dir_fd, path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_NOFOLLOW|O_NOATIME, flags, &old_mode);
         if (fd >= 0) {
                 /* We have a dir */
                 r = rm_rf_children_impl(fd, flags, /* root_dev= */ NULL, old_mode);

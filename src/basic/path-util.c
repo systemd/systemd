@@ -677,9 +677,9 @@ int open_and_check_executable(const char *name, const char *root, char **ret_pat
         } else {
                 /* We need to use O_PATH because there may be executables for which we have only exec permissions,
                  * but not read (usually suid executables). */
-                fd = open(name, O_PATH|O_CLOEXEC);
+                fd = xopenat(AT_FDCWD, name, O_PATH);
                 if (fd < 0)
-                        return -errno;
+                        return fd;
         }
 
         r = fd_verify_regular(fd);

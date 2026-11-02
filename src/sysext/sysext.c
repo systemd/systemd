@@ -586,9 +586,9 @@ static int move_submounts(const char *src, const char *dst) {
                 if (r < 0 && r != -EEXIST)
                         return log_error_errno(r, "Failed to create mountpoint %s: %m", t);
 
-                _cleanup_close_ int child_fd = openat(fd, fn, O_PATH|O_CLOEXEC);
+                _cleanup_close_ int child_fd = xopenat(fd, fn, O_PATH);
                 if (child_fd < 0)
-                        return log_error_errno(errno, "Failed to pin mountpoint %s: %m", t);
+                        return log_error_errno(child_fd, "Failed to pin mountpoint %s: %m", t);
 
                 /* Instead of a bind mount we attach the detached clone produced by
                  * open_tree_attr_with_fallback() from get_sub_mounts() because that has no propagation
@@ -997,7 +997,7 @@ static int resolve_mutable_directory(
                 if (r < 0)
                         return log_error_errno(r, "Failed to chase/create base directory '%s/%s': %m", strempty(root), skip_leading_slash(path));
 
-                chmod_fd = fd_reopen(path_fd, O_CLOEXEC|O_DIRECTORY);
+                chmod_fd = fd_reopen(path_fd, O_DIRECTORY);
                 if (chmod_fd < 0)
                         return log_error_errno(chmod_fd, "Failed to reopen '%s/%s': %m", strempty(root), skip_leading_slash(path));
 
@@ -1378,9 +1378,9 @@ static int mount_overlayfs_with_op(
         if (r < 0)
                 return log_error_errno(r, "Failed to make directory '%s': %m", meta_path);
 
-        _cleanup_close_ int atfd = open(meta_path, O_DIRECTORY|O_CLOEXEC);
+        _cleanup_close_ int atfd = xopenat(AT_FDCWD, meta_path, O_DIRECTORY);
         if (atfd < 0)
-                return log_error_errno(errno, "Failed to open directory '%s': %m", meta_path);
+                return log_error_errno(atfd, "Failed to open directory '%s': %m", meta_path);
 
         r = mac_selinux_fix_full(atfd, /* inode_path= */ NULL, op->hierarchy, /* flags= */ 0, /* label_context= */ NULL);
         if (r < 0)
@@ -1391,9 +1391,9 @@ static int mount_overlayfs_with_op(
                 if (r < 0)
                         return log_error_errno(r, "Failed to make directory '%s': %m", op->work_dir);
 
-                _cleanup_close_ int dfd = open(op->work_dir, O_DIRECTORY|O_CLOEXEC);
+                _cleanup_close_ int dfd = xopenat(AT_FDCWD, op->work_dir, O_DIRECTORY);
                 if (dfd < 0)
-                        return log_error_errno(errno, "Failed to open directory '%s': %m", op->work_dir);
+                        return log_error_errno(dfd, "Failed to open directory '%s': %m", op->work_dir);
 
                 r = mac_selinux_fix_full(dfd, /* inode_path= */ NULL, op->hierarchy, /* flags= */ 0, /* label_context= */ NULL);
                 if (r < 0)
@@ -1603,9 +1603,9 @@ static int store_info_in_meta(
         if (r < 0)
                 return log_error_errno(r, "Failed to create directory '%s': %m", f);
 
-        _cleanup_close_ int atfd = open(f, O_DIRECTORY|O_CLOEXEC);
+        _cleanup_close_ int atfd = xopenat(AT_FDCWD, f, O_DIRECTORY);
         if (atfd < 0)
-                return log_error_errno(errno, "Failed to open directory '%s': %m", f);
+                return log_error_errno(atfd, "Failed to open directory '%s': %m", f);
 
         r = mac_selinux_fix_full(atfd, /* inode_path= */ NULL, hierarchy, /* flags= */ 0, /* label_context= */ NULL);
         if (r < 0)

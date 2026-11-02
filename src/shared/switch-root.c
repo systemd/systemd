@@ -10,6 +10,7 @@
 #include "chase.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "libmount-util.h"
 #include "log.h"
 #include "mkdir.h"
@@ -194,13 +195,13 @@ int switch_root(const char *new_root,
         assert(new_root);
 
         /* Check if we shall remove the contents of the old root */
-        old_root_fd = open("/", O_DIRECTORY|O_CLOEXEC);
+        old_root_fd = xopenat(AT_FDCWD, "/", O_DIRECTORY);
         if (old_root_fd < 0)
-                return log_error_errno(errno, "Failed to open root directory: %m");
+                return log_error_errno(old_root_fd, "Failed to open root directory: %m");
 
-        new_root_fd = open(new_root, O_PATH|O_DIRECTORY|O_CLOEXEC);
+        new_root_fd = xopenat(AT_FDCWD, new_root, O_PATH|O_DIRECTORY);
         if (new_root_fd < 0)
-                return log_error_errno(errno, "Failed to open target directory '%s': %m", new_root);
+                return log_error_errno(new_root_fd, "Failed to open target directory '%s': %m", new_root);
 
         r = fds_inode_and_mount_same(old_root_fd, new_root_fd); /* checks if referenced inodes and mounts match */
         if (r < 0)
@@ -220,9 +221,9 @@ int switch_root(const char *new_root,
                 /* When the path was not a mount point, then we need to reopen the path, otherwise, it still
                  * points to the underlying directory. */
 
-                fd = open(new_root, O_DIRECTORY|O_CLOEXEC);
+                fd = xopenat(AT_FDCWD, new_root, O_DIRECTORY);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to reopen target directory '%s': %m", new_root);
+                        return log_error_errno(fd, "Failed to reopen target directory '%s': %m", new_root);
 
                 close_and_replace(new_root_fd, fd);
         }

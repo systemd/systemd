@@ -614,9 +614,9 @@ static int normalize_root_fd(const char *root, int *root_fd, int *ret_opened_fd)
                 return 0;
         }
 
-        int fd = open(root, O_CLOEXEC|O_PATH|O_DIRECTORY);
+        int fd = xopenat(AT_FDCWD, root, O_PATH|O_DIRECTORY);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to open root directory '%s': %m", root);
+                return log_error_errno(fd, "Failed to open root directory '%s': %m", root);
 
         *ret_opened_fd = *root_fd = fd;
         return 0;

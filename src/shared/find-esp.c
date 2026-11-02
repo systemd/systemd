@@ -19,6 +19,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "find-esp.h"
+#include "fs-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "stat-util.h"
@@ -515,9 +516,9 @@ int find_esp_and_warn_full(
         if (empty_or_root(root))
                 rfd = XAT_FDROOT;
         else {
-                rfd = open(root, O_PATH|O_DIRECTORY|O_CLOEXEC);
+                rfd = xopenat(AT_FDCWD, root, O_PATH|O_DIRECTORY);
                 if (rfd < 0)
-                        return -errno;
+                        return rfd;
         }
 
         _cleanup_close_ int fd = -EBADF;
@@ -869,9 +870,9 @@ int find_xbootldr_and_warn_full(
         if (empty_or_root(root))
                 rfd = XAT_FDROOT;
         else {
-                rfd = open(root, O_PATH|O_DIRECTORY|O_CLOEXEC);
+                rfd = xopenat(AT_FDCWD, root, O_PATH|O_DIRECTORY);
                 if (rfd < 0)
-                        return -errno;
+                        return rfd;
         }
 
         _cleanup_close_ int fd = -EBADF;
