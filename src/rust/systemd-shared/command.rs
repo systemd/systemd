@@ -95,6 +95,8 @@ pub struct OptionEntry {
     pub metavar: *const c_char,
     pub data: usize,
     pub help: *const c_char,
+    pub completion: sys::OptionCompletion,
+    pub choices: *const *const c_char,
 }
 
 // SAFETY: the entries are immutable tables that only C reads.
@@ -109,7 +111,9 @@ crate::assert_layout!(
     long_code,
     metavar,
     data,
-    help
+    help,
+    completion,
+    choices
 );
 
 /// One entry of the `SYSTEMD_VERBS` section, C's `Verb` with `data` as a pointer, because a static
@@ -127,6 +131,8 @@ pub struct VerbEntry {
     pub help: *const c_char,
     pub footer: *const c_char,
     pub option_namespace: *const c_char,
+    pub completion: sys::OptionCompletion,
+    pub choices: *const *const c_char,
 }
 
 // SAFETY: the entries are immutable tables that only C reads.
@@ -144,7 +150,9 @@ crate::assert_layout!(
     argspec,
     help,
     footer,
-    option_namespace
+    option_namespace,
+    completion,
+    choices
 );
 
 /// C's `CommandDescription`, what `COMMAND` in [`verbs!`] fills in.
@@ -191,6 +199,24 @@ impl CommandDescriptionEntry {
         option_groups: ptr::null(),
         pager_flags: ptr::null(),
         flags: 0,
+    };
+}
+
+impl VerbEntry {
+    /// All fields unset.
+    pub const NONE: VerbEntry = VerbEntry {
+        verb: ptr::null(),
+        min_args: 0,
+        max_args: 0,
+        flags: 0,
+        dispatch: None,
+        data: ptr::null(),
+        argspec: ptr::null(),
+        help: ptr::null(),
+        footer: ptr::null(),
+        option_namespace: ptr::null(),
+        completion: 0,
+        choices: ptr::null(),
     };
 }
 
@@ -481,7 +507,19 @@ macro_rules! __option_entry {
             metavar: $crate::__cstr_or_null!($mv),
             data: $d,
             help: $crate::__cstr_or_null!($h),
+            completion: 0,
+            choices: ::core::ptr::null(),
         }
+    };
+    (($id:expr), OPTION_FULL_COMPLETE($fl:expr, $sc:tt, $lc:tt, $mv:tt, $comp:expr, $ch:expr, $h:tt)) => {
+        $crate::command::OptionEntry {
+            completion: $comp,
+            choices: $ch,
+            ..$crate::__option_entry!(($id), OPTION_FULL($fl, $sc, $lc, $mv, $h))
+        }
+    };
+    (($id:expr), OPTION_LONG_CHOICES($lc:tt, $mv:tt, $ch:expr, $h:tt)) => {
+        $crate::__option_entry!(($id), OPTION_FULL_COMPLETE(0, 0, $lc, $mv, 0, $ch, $h))
     };
     (($id:expr), OPTION_FULL($fl:expr, $sc:tt, $lc:tt, $mv:tt, $h:tt)) => {
         $crate::__option_entry!(($id), OPTION_FULL_DATA($fl, $sc, $lc, $mv, 0, $h))
@@ -564,7 +602,15 @@ macro_rules! __option_entry {
     (($id:expr), OPTION_COMMON_JSON) => {
         $crate::__option_entry!(
             ($id),
-            OPTION_LONG("json", "FORMAT", "Generate JSON output (pretty, short, or off)")
+            OPTION_LONG_CHOICES(
+                "json",
+                "FORMAT",
+                {
+                    // SAFETY: C exports a static, NULL-terminated array of JSON format names.
+                    unsafe { ::core::ptr::addr_of!($crate::sys::option_json_choices).cast() }
+                },
+                "Generate JSON output (pretty, short, or off)"
+            )
         )
     };
     (($id:expr), OPTION_COMMON_LOWERCASE_J) => {
@@ -716,11 +762,7 @@ macro_rules! __command_field {
 macro_rules! __verb_entry {
     (COMMAND { $($field:ident : $value:tt),* $(,)? }) => {
         $crate::command::VerbEntry {
-            verb: ::core::ptr::null(),
-            min_args: 0,
-            max_args: 0,
             flags: $crate::sys::VERB_COMMAND_MARKER,
-            dispatch: None,
             data: {
                 static __DESCRIPTION: $crate::command::CommandDescriptionEntry =
                     $crate::command::CommandDescriptionEntry {
@@ -729,10 +771,7 @@ macro_rules! __verb_entry {
                     };
                 (&raw const __DESCRIPTION).cast()
             },
-            argspec: ::core::ptr::null(),
-            help: ::core::ptr::null(),
-            footer: ::core::ptr::null(),
-            option_namespace: ::core::ptr::null(),
+            ..$crate::command::VerbEntry::NONE
         }
     };
     (VERB_NS_FULL($d:path, $v:tt, $ns:tt, $a:tt, $amin:expr, $amax:expr, $f:expr, $dat:expr, $h:tt, $ft:tt)) => {
@@ -764,6 +803,7 @@ macro_rules! __verb_entry {
             help: $crate::__cstr_or_null!($h),
             footer: $crate::__cstr_or_null!($ft),
             option_namespace: $crate::__cstr_or_null!($ns),
+            ..$crate::command::VerbEntry::NONE
         }
     };
     (VERB_FULL($d:path, $v:tt, $a:tt, $amin:expr, $amax:expr, $f:expr, $dat:expr, $h:tt)) => {
@@ -784,15 +824,8 @@ macro_rules! __verb_entry {
     (VERB_GROUP($gr:tt)) => {
         $crate::command::VerbEntry {
             verb: $crate::__cstr_or_null!($gr),
-            min_args: 0,
-            max_args: 0,
             flags: $crate::sys::VERB_GROUP_MARKER,
-            dispatch: None,
-            data: ::core::ptr::null(),
-            argspec: ::core::ptr::null(),
-            help: ::core::ptr::null(),
-            footer: ::core::ptr::null(),
-            option_namespace: ::core::ptr::null(),
+            ..$crate::command::VerbEntry::NONE
         }
     };
     (VERB_COMMON_HELP_AUTO()) => {
@@ -812,7 +845,6 @@ macro_rules! __verb_entry {
             verb: $crate::__cstr_or_null!("help"),
             min_args: $crate::command::VERB_ANY,
             max_args: $crate::command::VERB_ANY,
-            flags: 0,
             dispatch: {
                 /// `verb_help_auto()` from verbs.h.
                 ///
@@ -839,10 +871,8 @@ macro_rules! __verb_entry {
                 let program: *const ::core::ffi::c_char = $crate::__cstr_or_null!($p);
                 program.cast()
             },
-            argspec: ::core::ptr::null(),
             help: $crate::__cstr_or_null!($h),
-            footer: ::core::ptr::null(),
-            option_namespace: ::core::ptr::null(),
+            ..$crate::command::VerbEntry::NONE
         }
     };
 }

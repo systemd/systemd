@@ -204,6 +204,7 @@ shared_sources = files(
         'selinux-util.c',
         'serialize.c',
         'service-util.c',
+        'shell-completion.c',
         'shift-uid.c',
         'sleep-config.c',
         'smack-util.c',
@@ -316,6 +317,17 @@ syscall_list_inc = custom_target(
 
 generated_sources += syscall_list_inc
 shared_sources += syscall_list_inc
+
+shell_completion_bash_inc = custom_target(
+        input : 'shell-completion.bash',
+        output : 'shell-completion-bash.inc',
+        command : [python,
+                   files('generate-c-string.py'),
+                   '@INPUT@'],
+        capture : true)
+
+generated_sources += shell_completion_bash_inc
+shared_sources += shell_completion_bash_inc
 
 if conf.get('ENABLE_NSS') == 1
         shared_sources += files('nss-util.c')

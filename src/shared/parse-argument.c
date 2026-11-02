@@ -6,12 +6,14 @@
 #include "format-table.h"
 #include "hostname-util.h"
 #include "log.h"
+#include "options.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "signal-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 
 /* All functions in this file emit warnings. */
 
@@ -65,9 +67,7 @@ int parse_json_argument(const char *s, sd_json_format_flags_t *ret) {
         else if (streq(s, "off"))
                 *ret = SD_JSON_FORMAT_OFF;
         else if (streq(s, "help")) {
-                puts("pretty\n"
-                     "short\n"
-                     "off");
+                strv_print((char**) option_json_choices);
                 return 0; /* 0 means → we showed a brief help, exit now */
         } else
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown argument to --json= switch: %s", s);
