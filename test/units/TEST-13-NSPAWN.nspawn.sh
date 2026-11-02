@@ -297,6 +297,22 @@ EOF
                    --tmpfs=/var:rw,nosuid,noexec \
                    bash -xec 'touch /var/nope'
     test ! -e "$root/var/nope"
+    # --tmpfs with --private-users and uid/gid options
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --private-users=pick \
+                   --tmpfs=/test:rw,nosuid,noexec,uid=1000,gid=1000 \
+                   bash -xec '[[ "$(stat -c %u /test)" == 1000 ]] && [[ "$(stat -c %g /test)" == 1000 ]]'
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --private-users=pick \
+                   --tmpfs=/test:rw,nosuid,noexec,uid=1000\
+                   bash -xec '[[ "$(stat -c %u /test)" == 1000 ]]'
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --private-users=pick \
+                   --tmpfs=/test:rw,nosuid,noexec,gid=1000\
+                   bash -xec '[[ "$(stat -c %g /test)" == 1000 ]]'
     # --overlay=
     systemd-nspawn --register=no \
                    --directory="$root" \
