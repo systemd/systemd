@@ -147,6 +147,11 @@ bool pe_header_is_64bit(const PeHeader *h);
 
 const IMAGE_DATA_DIRECTORY* pe_header_get_data_directory(const PeHeader *h, size_t i);
 bool pe_header_is_signed(const PeHeader *h);
+const IMAGE_SECTION_HEADER* pe_find_profile_section_table(
+                const PeHeader *pe_header,
+                const IMAGE_SECTION_HEADER *sections,
+                unsigned profile,
+                size_t *ret_n_sections);
 const IMAGE_SECTION_HEADER* pe_header_find_section(const PeHeader *pe_header, const IMAGE_SECTION_HEADER *sections, const char *name);
 bool pe_section_name_is_valid(const char *name);
 const IMAGE_SECTION_HEADER* pe_section_table_find(const IMAGE_SECTION_HEADER *sections, size_t n_sections, const char *name);
