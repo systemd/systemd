@@ -213,7 +213,7 @@ EOF
 test_syntax_error '=' 'Invalid key/value pair, ignoring.'
 test_syntax_error 'ACTION{a}=="b"' 'Invalid attribute for ACTION.'
 test_syntax_error 'ACTION:="b"' 'Invalid operator for ACTION.'
-test_syntax_error 'ACTION=="b"' 'The line has no effect, ignoring.'
+test_syntax_error 'ACTION=="add"' 'The line has no effect, ignoring.'
 test_syntax_error 'DEVPATH{a}=="b"' 'Invalid attribute for DEVPATH.'
 test_syntax_error 'DEVPATH:="b"' 'Invalid operator for DEVPATH.'
 test_syntax_error 'KERNEL{a}=="b"' 'Invalid attribute for KERNEL.'
@@ -378,7 +378,7 @@ test_syntax_error 'LABEL{a}="b"' 'Invalid attribute for LABEL.'
 test_syntax_error 'LABEL=="b"' 'Invalid operator for LABEL.'
 test_style_error 'LABEL="b"' 'style: LABEL="b" is unused.'
 test_syntax_error 'a="b"' "Invalid key 'a'."
-test_syntax_error 'KERNEL=="", KERNEL=="?*", NAME="a"' 'conflicting match expressions, the line has no effect.'
+test_syntax_error 'TAG=="", TAG=="?*", NAME="a"' 'conflicting match expressions, the line has no effect.'
 test_syntax_error 'KERNEL=="abc", KERNEL!="abc", NAME="b"' 'conflicting match expressions, the line has no effect.'
 test_syntax_error 'KERNEL=="|a|b", KERNEL!="b|a|", NAME="c"' 'conflicting match expressions, the line has no effect.'
 test_syntax_error 'KERNEL=="a|b", KERNEL=="c|d|e", NAME="f"' 'conflicting match expressions, the line has no effect.'
@@ -387,20 +387,20 @@ test_syntax_error 'ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}!=
                   'conflicting match expressions, the line has no effect.'
 test_syntax_error 'ACTION=="a*", ACTION=="bc*", NAME="d"' 'conflicting match expressions, the line has no effect.'
 test_syntax_error 'ACTION=="a*|bc*", ACTION=="d*|ef*", NAME="g"' 'conflicting match expressions, the line has no effect.'
-test_syntax_error 'KERNEL!="", KERNEL=="?*", NAME="a"' 'duplicate expressions.'
+test_syntax_error 'TAG!="", TAG=="?*", NAME="a"' 'duplicate expressions.'
 test_syntax_error 'KERNEL=="|a|b", KERNEL=="b|a|", NAME="c"' 'duplicate expressions.'
 # shellcheck disable=SC2016
 test_syntax_error 'ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}=="?*", ENV{ID_IGNORE_DISKSEQ}!="1", SYMLINK+="disk/by-diskseq/$env{DISKSEQ}"' \
                   'duplicate expressions.'
-test_style_error ',ACTION=="a", NAME="b"' 'style: stray leading comma.'
-test_style_error ' ,ACTION=="a", NAME="b"' 'style: stray leading comma.'
-test_style_error ', ACTION=="a", NAME="b"' 'style: stray leading comma.'
-test_style_error 'ACTION=="a", NAME="b",' 'style: stray trailing comma.'
-test_style_error 'ACTION=="a", NAME="b", ' 'style: stray trailing comma.'
-test_style_error 'ACTION=="a" NAME="b"' 'style: a comma between tokens is expected.'
-test_style_error 'ACTION=="a",, NAME="b"' 'style: more than one comma between tokens.'
-test_style_error 'ACTION=="a" , NAME="b"' 'style: stray whitespace before comma.'
-test_style_error 'ACTION=="a",NAME="b"' 'style: whitespace after comma is expected.'
+test_style_error ',ACTION=="add", NAME="b"' 'style: stray leading comma.'
+test_style_error ' ,ACTION=="add", NAME="b"' 'style: stray leading comma.'
+test_style_error ', ACTION=="add", NAME="b"' 'style: stray leading comma.'
+test_style_error 'ACTION=="add", NAME="b",' 'style: stray trailing comma.'
+test_style_error 'ACTION=="add", NAME="b", ' 'style: stray trailing comma.'
+test_style_error 'ACTION=="add" NAME="b"' 'style: a comma between tokens is expected.'
+test_style_error 'ACTION=="add",, NAME="b"' 'style: more than one comma between tokens.'
+test_style_error 'ACTION=="add" , NAME="b"' 'style: stray whitespace before comma.'
+test_style_error 'ACTION=="add",NAME="b"' 'style: whitespace after comma is expected.'
 test_syntax_error 'RESULT=="a", PROGRAM="b"' 'Reordering RESULT check after PROGRAM assignment.'
 test_syntax_error 'RESULT=="a*", PROGRAM="b", RESULT=="*c", PROGRAM="d"' \
                   'Reordering RESULT check after PROGRAM assignment.'
@@ -456,7 +456,7 @@ EOF
 assert_1 "${rules}"
 
 cat >"${rules}" <<'EOF'
-KERNEL!="", KERNEL=="?*", KERNEL=="", NAME="a"
+TAG!="", TAG=="?*", TAG=="", NAME="a"
 EOF
 cat >"${exp}" <<EOF
 $(pwd)/${rules}:1 duplicate expressions.
@@ -466,7 +466,7 @@ EOF
 assert_1 "${rules}"
 
 cat >"${rules}" <<'EOF'
-ACTION=="a"NAME="b"
+ACTION=="add"NAME="b"
 EOF
 cat >"${exp}" <<EOF
 $(pwd)/${rules}:1 style: a comma between tokens is expected.
@@ -478,7 +478,7 @@ assert_1_impl "${rules}"
 next_test_number
 
 cat >"${rules}" <<'EOF'
-ACTION=="a" ,NAME="b"
+ACTION=="add" ,NAME="b"
 EOF
 cat >"${exp}" <<EOF
 $(pwd)/${rules}:1 style: stray whitespace before comma.
@@ -486,6 +486,48 @@ $(pwd)/${rules}:1 style: whitespace after comma is expected.
 $(pwd)/${rules}: udev rules have style issues.
 EOF
 assert_0_impl --no-style "${rules}"
+assert_1_impl "${rules}"
+next_test_number
+
+cat >"${rules}" <<'EOF'
+ACTION=="", NAME="b"
+EOF
+cat >"${exp}" <<EOF
+$(pwd)/${rules}:1 ACTION is always non-empty.
+$(pwd)/${rules}: udev rules check failed.
+EOF
+assert_1_impl "${rules}"
+next_test_number
+
+cat >"${rules}" <<'EOF'
+ACTION!="", NAME="b"
+EOF
+cat >"${exp}" <<EOF
+$(pwd)/${rules}:1 ACTION is always non-empty.
+$(pwd)/${rules}: udev rules check failed.
+EOF
+assert_1_impl "${rules}"
+next_test_number
+
+cat >"${rules}" <<'EOF'
+ACTION=="a", NAME="b"
+EOF
+cat >"${exp}" <<EOF
+$(pwd)/${rules}:1 Invalid ACTION value: a
+$(pwd)/${rules}:1 ACTION token does not have valid value.
+$(pwd)/${rules}: udev rules check failed.
+EOF
+assert_1_impl "${rules}"
+next_test_number
+
+cat >"${rules}" <<'EOF'
+ACTION=="a|b|change", NAME="b"
+EOF
+cat >"${exp}" <<EOF
+$(pwd)/${rules}:1 Invalid ACTION value: a
+$(pwd)/${rules}:1 Invalid ACTION value: b
+$(pwd)/${rules}: udev rules check failed.
+EOF
 assert_1_impl "${rules}"
 next_test_number
 

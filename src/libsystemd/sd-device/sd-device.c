@@ -83,12 +83,16 @@ static sd_device* device_free(sd_device *device) {
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_device, sd_device, device_free);
 
-static bool property_is_valid(const char *key, const char *value) {
-        /* Device properties may be saved to database file, then may be parsed from the file. When if a
-         * property contains spurious characters, then the parser may be confused. Let's refuse spurious
-         * properties, even if it is internal, which will not be saved to database file, for consistency. */
+bool device_property_name_is_valid(const char *name) {
+        return !isempty(name) && in_charset(name, ALPHANUMERICAL "_.");
+}
 
-        if (isempty(key) || !in_charset(key, ALPHANUMERICAL "_."))
+static bool property_is_valid(const char *key, const char *value) {
+        /* Device properties may be saved to database file, then may be parsed from the file. If a property
+         * contains spurious characters, then the parser may be confused. Let's refuse spurious properties,
+         * even if it is internal, which will not be saved to database file, for consistency. */
+
+        if (!device_property_name_is_valid(key))
                 return false;
 
         /* an empty value means unset the property, hence that's fine. */

@@ -11,6 +11,8 @@ int device_new_from_strv(sd_device **ret, char **strv);
 
 int device_opendir(sd_device *device, const char *subdir, DIR **ret);
 
+bool device_property_name_is_valid(const char *name);
+
 int device_get_sysnum_unsigned(sd_device *device, unsigned *ret);
 int device_get_property_bool(sd_device *device, const char *key);
 int device_get_property_int(sd_device *device, const char *key, int *ret);
