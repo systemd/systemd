@@ -239,9 +239,9 @@ static int open_directory(const char *path) {
 
         /* Opens the specified directory, or the current directory if none is specified */
 
-        fd = open(path ?: ".", O_DIRECTORY|O_CLOEXEC|O_RDONLY);
+        fd = xopenat(AT_FDCWD, path ?: ".", O_DIRECTORY|O_RDONLY);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to open directory '%s': %m", path ?: ".");
+                return log_error_errno(fd, "Failed to open directory '%s': %m", path ?: ".");
 
         return fd;
 }
@@ -309,7 +309,7 @@ static int verb_make(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(unlink_and_freep) char *t = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         if (manifest) {
-                r = fopen_tmpfile_linkable(manifest, O_WRONLY|O_CLOEXEC, &t, &f);
+                r = fopen_tmpfile_linkable(manifest, O_WRONLY, &t, &f);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create '%s': %m", manifest);
 

@@ -16,6 +16,7 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "hibernate-util.h"
 #include "log.h"
 #include "parse-util.h"
@@ -203,9 +204,9 @@ static int swap_entry_get_resume_config(SwapEntry *swap) {
         assert(swap);
         assert(swap->path);
 
-        fd = open(swap->path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        fd = xopenat(AT_FDCWD, swap->path, O_RDONLY|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         if (fstat(fd, &st) < 0)
                 return -errno;

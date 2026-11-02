@@ -541,9 +541,9 @@ static int search_quota(uid_t uid, const char *exclude_quota_path) {
                 struct dqblk req;
                 struct stat st;
 
-                _cleanup_close_ int fd = open(where, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                _cleanup_close_ int fd = xopenat(AT_FDCWD, where, O_RDONLY|O_DIRECTORY);
                 if (fd < 0) {
-                        log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
+                        log_full_errno(fd == -ENOENT ? LOG_DEBUG : LOG_ERR, fd,
                                        "Failed to open '%s', ignoring: %m", where);
                         continue;
                 }
@@ -935,11 +935,11 @@ static int manager_assess_image(
                         return log_error_errno(r, "Failed to split image name into user name/realm: %m");
 
                 if (dir_fd >= 0)
-                        fd = openat(dir_fd, dentry_name, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+                        fd = xopenat(dir_fd, dentry_name, O_DIRECTORY|O_RDONLY);
                 else
-                        fd = open(path, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+                        fd = xopenat(AT_FDCWD, path, O_DIRECTORY|O_RDONLY);
                 if (fd < 0)
-                        return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                        return log_full_errno(fd == -ENOENT ? LOG_DEBUG : LOG_WARNING, fd,
                                               "Failed to open directory '%s', ignoring: %m", path);
 
                 if (fstat(fd, &st) < 0)

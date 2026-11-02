@@ -11,6 +11,7 @@
 #include "errno-util.h"                                 /* IWYU pragma: keep */
 #include "fd-util.h"
 #include "fileio.h"                                     /* IWYU pragma: keep */
+#include "fs-util.h"
 #include "log.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -55,9 +56,9 @@ static int msr(uint64_t index, uint64_t *ret) {
 
         assert(ret);
 
-        fd = open(MSR_DEVICE, O_RDONLY|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, MSR_DEVICE, O_RDONLY);
         if (fd < 0)
-                return log_debug_errno(errno,
+                return log_debug_errno(fd,
                                        "Cannot open MSR device %s (index %" PRIu64 "): %m",
                                        MSR_DEVICE, index);
 

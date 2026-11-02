@@ -6,6 +6,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "homework-quota.h"
 #include "log.h"
 #include "memory-util.h"
@@ -22,9 +23,9 @@ int home_update_quota_btrfs(UserRecord *h, int fd, const char *path) {
 
         _cleanup_close_ int _fd = -EBADF;
         if (fd < 0) {
-                _fd = open(path, O_CLOEXEC|O_RDONLY);
+                _fd = xopenat(AT_FDCWD, path, O_RDONLY);
                 if (_fd < 0)
-                        return log_error_errno(errno, "Failed to open '%s': %m", path);
+                        return log_error_errno(_fd, "Failed to open '%s': %m", path);
 
                 fd = _fd;
         }
@@ -58,9 +59,9 @@ int home_update_quota_classic(UserRecord *h, int fd, const char *path) {
 
         _cleanup_close_ int _fd = -EBADF;
         if (fd < 0) {
-                _fd = open(path, O_CLOEXEC|O_RDONLY);
+                _fd = xopenat(AT_FDCWD, path, O_RDONLY);
                 if (_fd < 0)
-                        return log_error_errno(errno, "Failed to open '%s': %m", path);
+                        return log_error_errno(_fd, "Failed to open '%s': %m", path);
 
                 fd = _fd;
         }
@@ -112,9 +113,9 @@ int home_update_quota_auto(UserRecord *h, int fd, const char *path) {
 
         _cleanup_close_ int _fd = -EBADF;
         if (fd < 0) {
-                _fd = open(path, O_CLOEXEC|O_RDONLY);
+                _fd = xopenat(AT_FDCWD, path, O_RDONLY);
                 if (_fd < 0)
-                        return log_error_errno(errno, "Failed to open '%s': %m", path);
+                        return log_error_errno(_fd, "Failed to open '%s': %m", path);
 
                 fd = _fd;
         }

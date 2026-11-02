@@ -1275,9 +1275,9 @@ static int acquire_merged_blob_dir(UserRecord *hr, bool existing, Hashmap **ret)
                 if (!name)
                         return log_oom();
 
-                fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                fd = xopenat(dirfd(d), de->d_name, O_RDONLY|O_NOCTTY);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open %s in %s: %m", de->d_name, src_blob_path);
+                        return log_error_errno(fd, "Failed to open %s in %s: %m", de->d_name, src_blob_path);
 
                 r = fd_verify_regular(fd);
                 if (r < 0) {
@@ -4462,9 +4462,9 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         }
 
                         if (path) {
-                                fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                                fd = xopenat(AT_FDCWD, path, O_RDONLY|O_NOCTTY);
                                 if (fd < 0)
-                                        return log_error_errno(errno, "Failed to open %s: %m", path);
+                                        return log_error_errno(fd, "Failed to open %s: %m", path);
 
                                 if (fd_verify_regular(fd) < 0)
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Provided blob is not a regular file: %s", path);

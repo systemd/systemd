@@ -334,9 +334,9 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create directory %s: %m", RANDOM_SEED);
 
-        random_fd = open("/dev/urandom", O_RDWR|O_CLOEXEC|O_NOCTTY);
+        random_fd = xopenat(AT_FDCWD, "/dev/urandom", O_RDWR|O_NOCTTY);
         if (random_fd < 0)
-                return log_error_errno(errno, "Failed to open %s: %m", "/dev/urandom");
+                return log_error_errno(random_fd, "Failed to open %s: %m", "/dev/urandom");
 
         /* When we load the seed we read it and write it to the device and then immediately update the saved
          * seed with new data, to make sure the next boot gets seeded differently. */
@@ -347,15 +347,16 @@ static int run(int argc, char *argv[]) {
                  * load_machine_id() for an explanation why. */
                 load_machine_id(random_fd);
 
-                seed_fd = RET_NERRNO(open(RANDOM_SEED, O_RDWR|O_CLOEXEC|O_NOCTTY|O_CREAT, 0600));
+                seed_fd = xopenat_full(AT_FDCWD, RANDOM_SEED, O_RDWR|O_NOCTTY|O_CREAT, /* xopen_flags= */ 0, 0600);
                 if (seed_fd < 0) {
                         int open_rw_error = seed_fd;
 
                         write_seed_file = false;
 
-                        seed_fd = RET_NERRNO(open(RANDOM_SEED, O_RDONLY|O_CLOEXEC|O_NOCTTY));
+                        seed_fd = xopenat(AT_FDCWD, RANDOM_SEED, O_RDONLY|O_NOCTTY);
                         if (seed_fd < 0) {
-                                bool missing = seed_fd == -ENOENT;
+                                /* A dangling symlink fails with -ELOOP above, it isn't just missing */
+                                bool missing = seed_fd == -ENOENT && open_rw_error != -ELOOP;
                                 int level = missing ? LOG_DEBUG : LOG_ERR;
 
                                 log_full_errno(level, open_rw_error, "Failed to open %s for writing: %m", RANDOM_SEED);
@@ -370,7 +371,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ACTION_SAVE:
-                seed_fd = RET_NERRNO(open(RANDOM_SEED, O_WRONLY|O_CLOEXEC|O_NOCTTY|O_CREAT, 0600));
+                seed_fd = xopenat_full(AT_FDCWD, RANDOM_SEED, O_WRONLY|O_NOCTTY|O_CREAT, /* xopen_flags= */ 0, 0600);
                 if (seed_fd < 0)
                         return log_error_errno(seed_fd, "Failed to open %s: %m", RANDOM_SEED);
 

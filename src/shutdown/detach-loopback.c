@@ -18,6 +18,7 @@
 #include "device-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "list.h"
 #include "shutdown.h"
 
@@ -105,14 +106,14 @@ static int delete_loopback(const char *device) {
 
         assert(device);
 
-        fd = open(device, O_RDONLY|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, device, O_RDONLY);
         if (fd < 0) {
-                if (ERRNO_IS_DEVICE_ABSENT(errno)) {
-                        log_debug_errno(errno, "Tried to open loopback device '%s', but device disappeared by now, ignoring: %m", device);
+                if (ERRNO_IS_DEVICE_ABSENT(fd)) {
+                        log_debug_errno(fd, "Tried to open loopback device '%s', but device disappeared by now, ignoring: %m", device);
                         return 0;
                 }
 
-                return log_debug_errno(errno, "Failed to open loopback device '%s': %m", device);
+                return log_debug_errno(fd, "Failed to open loopback device '%s': %m", device);
         }
 
         /* Loopback block devices don't sync in-flight blocks when we clear the fd, hence sync explicitly

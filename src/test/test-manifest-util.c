@@ -155,7 +155,7 @@ static int make_tree(char **ret_path) {
         /* Populates a temporary directory with one inode of each type we can create unprivileged, including
          * a pair of hardlinks. */
 
-        ASSERT_OK(tfd = mkdtemp_open(NULL, O_DIRECTORY|O_CLOEXEC, &t));
+        ASSERT_OK(tfd = mkdtemp_open(NULL, O_DIRECTORY, &t));
 
         ASSERT_OK(write_string_file_at(tfd, "regular.txt", "hello world", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE));
         ASSERT_OK(write_string_file_at(tfd, "empty.txt", "", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE));

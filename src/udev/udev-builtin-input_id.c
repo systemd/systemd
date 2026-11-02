@@ -49,7 +49,7 @@ static void extract_info(UdevEvent *event) {
         assert(event);
         assert(event->dev);
 
-        fd = sd_device_open(event->dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        fd = device_open(event->dev, O_RDONLY|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
                 return;
 

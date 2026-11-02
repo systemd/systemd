@@ -196,7 +196,8 @@ int inspect_kernel_full(
 
         assert(wildcard_fd_is_valid(dir_fd));
 
-        fd = xopenat(dir_fd, filename, O_RDONLY|O_CLOEXEC);
+        /* filename may be NULL */
+        fd = xopenat_full(dir_fd, filename, O_RDONLY, XO_EMPTY_PATH, MODE_INVALID);
         if (fd < 0)
                 return log_debug_errno(fd, "Failed to open kernel image file '%s': %m", strna(filename));
 

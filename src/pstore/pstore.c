@@ -16,6 +16,7 @@
 #include "dlopen-note.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "iovec-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -176,7 +177,7 @@ static int append_dmesg(PStoreEntry *pe, const char *subdir1, const char *subdir
         if (!ofd_path)
                 return log_oom();
 
-        ofd = open(ofd_path, O_CREAT|O_NOFOLLOW|O_NOCTTY|O_CLOEXEC|O_APPEND|O_WRONLY, 0640);
+        ofd = xopenat_full(AT_FDCWD, ofd_path, O_CREAT|O_NOFOLLOW|O_NOCTTY|O_APPEND|O_WRONLY, /* xopen_flags= */ 0, 0640);
         if (ofd < 0)
                 return log_error_errno(ofd, "Failed to open file %s: %m", ofd_path);
         wr = write(ofd, pe->content, pe->content_size);

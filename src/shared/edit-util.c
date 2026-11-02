@@ -455,9 +455,9 @@ static int edit_file_install_one_stdin(EditFile *e, const char *contents, size_t
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int tfd = open(e->temp, O_PATH|O_CLOEXEC);
+        _cleanup_close_ int tfd = xopenat(AT_FDCWD, e->temp, O_PATH);
         if (tfd < 0)
-                return log_error_errno(errno, "Failed to pin temporary file '%s': %m", e->temp);
+                return log_error_errno(tfd, "Failed to pin temporary file '%s': %m", e->temp);
 
         r = edit_file_install_one(e);
         if (r <= 0)

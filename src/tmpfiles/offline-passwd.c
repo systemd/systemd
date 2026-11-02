@@ -22,7 +22,7 @@ static int open_passwd_file(const char *root, const char *fname, FILE **ret_file
         assert(fname);
         assert(ret_file);
 
-        fd = chase_and_open(fname, root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC, &p);
+        fd = chase_and_open(fname, root, CHASE_PREFIX_ROOT, O_RDONLY, &p);
         if (fd < 0)
                 return fd;
 
