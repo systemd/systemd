@@ -680,7 +680,7 @@ static int method_create_machine(sd_bus_message *message, void *userdata, sd_bus
         assert(message);
 
         if (sd_bus_message_is_method_call(message, NULL, "CreateMachineEx"))
-                r = method_create_or_register_machine_ex(manager, message, "org.freedesktop.machine1.create-machines", &m, error);
+                r = method_create_or_register_machine_ex(manager, message, "org.freedesktop.machine1.create-machine", &m, error);
         else
                 r = method_create_or_register_machine(manager, message, "org.freedesktop.machine1.create-machine", &m, error);
         if (r < 0)
