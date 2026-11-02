@@ -13,6 +13,7 @@ version_h = custom_target('version',
                 '@INPUT@',
                 get_option('mode'),
                 vcs_tag ? '1' : '0',
+                relative_source_path,
         ])
 version_include = include_directories('.')
 userspace_sources += [version_h]
