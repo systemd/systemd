@@ -12,9 +12,11 @@
 #include "kernel-image.h"
 #include "memfd-util.h"
 #include "path-util.h"
+#include "rm-rf.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 #include "unaligned.h"
 
 static const char banner[] = "xx Linux version 6.1.0-test (builder@host) #1 SMP\n";
@@ -294,6 +296,30 @@ TEST(inspect_kernel_fd_only) {
         /* A NULL filename inspects the fd itself, as "bootctl link" does */
         ASSERT_OK(inspect_kernel(fd, /* filename= */ NULL, &t));
         ASSERT_EQ(t, KERNEL_IMAGE_TYPE_UNKNOWN);
+}
+
+TEST(initrd_concatenate) {
+        _cleanup_(rm_rf_physical_and_freep) char *dir = NULL;
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-initrd-concatenate-XXXXXX", &dir));
+
+        _cleanup_free_ char *a = ASSERT_NOT_NULL(path_join(dir, "a")), *b = ASSERT_NOT_NULL(path_join(dir, "b"));
+        ASSERT_OK(write_string_file(a, "AAAAA", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE));
+        ASSERT_OK(write_string_file(b, "BB", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE));
+
+        /* "AAAAA" is padded to 8 bytes, so that "BB" starts at a 4 byte boundary, and the output is padded
+         * to 12 bytes. */
+        _cleanup_close_ int fd = ASSERT_OK(memfd_new("initrd"));
+        ASSERT_OK_EQ_ERRNO(lseek(fd, 3, SEEK_SET), 3);
+        ASSERT_OK(initrd_concatenate(STRV_MAKE(a, b), fd));
+        ASSERT_OK_EQ_ERRNO(lseek(fd, 0, SEEK_CUR), 3);
+
+        char buf[16];
+        ASSERT_OK_EQ_ERRNO(pread(fd, buf, sizeof(buf), 0), (ssize_t) 12);
+        ASSERT_EQ(memcmp(buf, "AAAAA\0\0\0BB\0\0", 12), 0);
+
+        _cleanup_free_ char *missing = ASSERT_NOT_NULL(path_join(dir, "missing"));
+        _cleanup_close_ int fd2 = ASSERT_OK(memfd_new("initrd"));
+        ASSERT_ERROR(initrd_concatenate(STRV_MAKE(a, missing), fd2), ENOENT);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
