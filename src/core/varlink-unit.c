@@ -645,19 +645,37 @@ void varlink_job_detach_client(Job *j) {
 }
 
 void varlink_job_send_removed_signal(Job *j) {
+        int r;
+
         assert(j);
 
         if (!j->varlink)
                 return;
 
+        /* Keep the connection alive across subscription cleanup. */
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = sd_varlink_ref(j->varlink);
+
         /* Send the final reply, which completes the method call */
-        (void) sd_varlink_replybo(
+        r = sd_varlink_replybo(
                         j->varlink,
                         SD_JSON_BUILD_PAIR_CALLBACK("context", unit_context_build_json, j->unit),
                         SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, j->unit),
                         SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j));
 
         varlink_job_detach_client(j);
+
+        if (r < 0) {
+                log_unit_debug_errno(j->unit, r, "Failed to send final varlink job reply, sending error reply: %m");
+                /* The job is going away, so complete the call with an error or disconnect the client. */
+                (void) sd_varlink_error_errno(link, r);
+
+                /* Sending an error returns a negative errno even on success. Check whether the call
+                 * remains unanswered before closing, so a queued error reply can still be delivered. */
+                if (sd_varlink_wants_reply(link)) {
+                        log_unit_debug(j->unit, "Failed to send varlink error reply, closing connection.");
+                        (void) sd_varlink_close(link);
+                }
+        }
 }
 
 typedef struct VarlinkJobClient {
