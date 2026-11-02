@@ -63,6 +63,42 @@ cat >"$OCI/config.json" <<EOF
 EOF
 systemd-nspawn --oci-bundle="$OCI" bash -xec 'mountpoint /root'
 
+# An unlimited CPU quota is accepted both with and without a period
+cat >"$OCI/config.json" <<EOF
+{
+    "ociVersion" : "1.0.0",
+    "root" : {
+            "path" : "rootfs"
+    },
+    "linux" : {
+        "resources" : {
+            "cpu" : {
+                "quota" : -1,
+                "period" : 100000
+            }
+        }
+    }
+}
+EOF
+systemd-nspawn --oci-bundle="$OCI" bash -xec 'true'
+
+cat >"$OCI/config.json" <<EOF
+{
+    "ociVersion" : "1.0.0",
+    "root" : {
+            "path" : "rootfs"
+    },
+    "linux" : {
+        "resources" : {
+            "cpu" : {
+                "quota" : -1
+            }
+        }
+    }
+}
+EOF
+systemd-nspawn --oci-bundle="$OCI" bash -xec 'true'
+
 # And now for something a bit more involved
 # Notes:
 #   - the hooks are parsed & processed, but never executed
@@ -420,6 +456,10 @@ INVALID_SNIPPETS=(
     '"process" : { "capabilities" : { "bounding" : [ "FOO_BAR" ] } }'
     # Unsupported option (without JSON_PERMISSIVE)
     '"linux" : { "resources" : { "cpu" : { "realtimeRuntime" : 1 } } }'
+    # Invalid CPU quota
+    '"linux" : { "resources" : { "cpu" : { "quota" : 0, "period" : 100000 } } }'
+    '"linux" : { "resources" : { "cpu" : { "quota" : -2, "period" : 100000 } } }'
+    '"linux" : { "resources" : { "cpu" : { "quota" : 9223372036854775807, "period" : 100000 } } }'
     # Invalid namespace
     '"linux" : { "namespaces" : [ { "type" : "foo" } ] }'
     # Namespace path for a non-network namespace
