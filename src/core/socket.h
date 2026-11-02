@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-bus.h"
+
 #include "cgroup.h"
 #include "core-forward.h"
 #include "execute.h"
@@ -26,6 +28,7 @@ typedef enum SocketType {
         SOCKET_SPECIAL,
         SOCKET_MQUEUE,
         SOCKET_USB_FUNCTION,
+        SOCKET_DBUS_CLIENT,
         _SOCKET_TYPE_MAX,
         _SOCKET_TYPE_INVALID = -EINVAL,
 } SocketType;
@@ -55,6 +58,7 @@ typedef struct SocketPort {
         SocketAddress address;
         char *path;
         sd_event_source *event_source;
+        sd_bus *dbus_client;
 
         LIST_FIELDS(struct SocketPort, port);
 } SocketPort;
