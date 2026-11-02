@@ -238,12 +238,11 @@ static void start_parent_slices(Unit *unit) {
 }
 
 static bool apparmor_restrict_unprivileged_userns(void) {
-        _cleanup_free_ char *v = NULL;
-        int r;
+        int v, r;
 
         /* If kernel.apparmor_restrict_unprivileged_userns=1, then we cannot
          * use unprivileged user namespaces. */
-        r = sysctl_read("kernel/apparmor_restrict_unprivileged_userns", &v);
+        r = sysctl_read_int("kernel/apparmor_restrict_unprivileged_userns", &v);
         if (r < 0) {
                 if (r != -ENOENT)
                         log_debug_errno(r, "Failed to read kernel.apparmor_restrict_unprivileged_userns sysctl, ignoring: %m");
@@ -251,7 +250,7 @@ static bool apparmor_restrict_unprivileged_userns(void) {
                 return false;
         }
 
-        return streq(v, "1");
+        return v > 0;
 }
 
 static bool have_userns_privileges(void) {
