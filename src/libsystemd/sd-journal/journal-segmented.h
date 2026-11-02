@@ -240,8 +240,7 @@ int segmented_append_tag(JournalFile *f, TagObject *tag);
 int segmented_checkpoint(JournalFile *f);
 int segmented_flush(JournalFile *f);
 
-/* The steps of journal_file_set_offline(). Only segmented_offline() may run in the offline thread. It
- * returns true if it archived the file. */
+/* The steps of journal_file_set_offline(). Only segmented_offline() may run in the offline thread. */
 void segmented_offline_prepare(JournalFile *f);
-bool segmented_offline(JournalFile *f);
+void segmented_offline(JournalFile *f);
 int segmented_offline_finish(JournalFile *f);

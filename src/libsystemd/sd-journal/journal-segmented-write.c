@@ -1,11 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/btrfs.h>
+#include <sys/ioctl.h>
 #include <sys/uio.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "compress.h"
+#include "errno-util.h"
 #include "hashmap.h"
 #include "io-util.h"
 #include "iovec-util.h"
@@ -28,6 +31,11 @@
 #define CHECK_STEP (8 * U64_MB)
 
 #define TAIL_SIZE_MAX (4 * U64_MB)
+
+/* The kernel skips extents of at least 256 KiB when it defragments a range, which is the default of
+ * btrfs_ioctl_defrag_range_args.extent_thresh. A range of at least this size becomes an extent that the
+ * kernel skips from then on, so each byte is rewritten at most once. */
+#define DEFRAG_STEP (256 * U64_KB)
 
 /* The batch is written once it reaches this size, and otherwise by journal_file_post_change() */
 #define BATCH_SIZE_MAX (256 * U64_KB)
@@ -110,6 +118,10 @@ struct SegmentedWriter {
          * header contains */
         uint64_t sync_offset _align_(8);
         uint64_t synced_offset;
+        /* sync_defrag_end is the end of the last full page of written objects that segmented_offline_prepare()
+         * recorded. defragged_end is the end of the part of the file that the offline thread defragmented. */
+        uint64_t sync_defrag_end _align_(8);
+        uint64_t defragged_end;
         bool sync_failed;             /* ever: the kernel reports a writeback error only once */
 
         SegmentData *data;
@@ -1588,8 +1600,38 @@ void segmented_offline_prepare(JournalFile *f) {
         uint64_t newest = a->n_indexes > 0 ? a->indexes[a->n_indexes - 1].offset : 0;
         __atomic_store_n(&w->sync_index_offset, newest, __ATOMIC_SEQ_CST);
 
-        if (!w->write_failed && w->buffer_size == 0)
+        if (!w->write_failed && w->buffer_size == 0) {
                 __atomic_store_n(&w->sync_offset, w->flushed, __ATOMIC_SEQ_CST);
+                /* The main thread still appends to the last page. */
+                __atomic_store_n(&w->sync_defrag_end, ALIGN_DOWN_U64(w->flushed, page_size()), __ATOMIC_SEQ_CST);
+        }
+}
+
+static void offline_defrag(JournalFile *f, uint64_t end, bool all) {
+        SegmentedWriter *w = ASSERT_PTR(ASSERT_PTR(ASSERT_PTR(f)->segmented)->writer);
+        struct btrfs_ioctl_defrag_range_args args;
+
+        /* offline_defrag() runs in the offline thread. The kernel writes back dirty pages every 30s by
+         * default. btrfs allocates a new extent for every writeback of a file with copy-on-write, so the
+         * file ends up in many small extents. Readers scan the tail when they open the file, and each
+         * extent of the tail costs a seek on a rotating disk. Objects never change once they are written,
+         * so we defragment them once, in steps of DEFRAG_STEP. Defragmenting marks the pages dirty again,
+         * and the sync that follows writes them out. */
+
+        if (end <= w->defragged_end)
+                return;
+        if (!all && end - w->defragged_end < DEFRAG_STEP)
+                return;
+
+        args = (struct btrfs_ioctl_defrag_range_args) {
+                .start = w->defragged_end,
+                .len = end - w->defragged_end,
+        };
+
+        if (ioctl(f->fd, BTRFS_IOC_DEFRAG_RANGE, &args) < 0 && !ERRNO_IS_NOT_SUPPORTED(errno))
+                log_debug_errno(errno, "Failed to defragment journal fd %i, ignoring: %m", f->fd);
+
+        w->defragged_end = end;
 }
 
 static int header_write_synced_index(JournalFile *f, uint64_t offset) {
@@ -1632,6 +1674,8 @@ static int offline_sync(JournalFile *f) {
         offset = __atomic_load_n(&w->sync_index_offset, __ATOMIC_SEQ_CST);
         end = __atomic_load_n(&w->sync_offset, __ATOMIC_SEQ_CST);
 
+        offline_defrag(f, __atomic_load_n(&w->sync_defrag_end, __ATOMIC_SEQ_CST), /* all= */ false);
+
         if (fdatasync(f->fd) < 0) {
                 w->sync_failed = true;
                 return -errno;
@@ -1668,6 +1712,9 @@ static void offline_archive(JournalFile *f) {
 
         newest = a->n_indexes > 0 ? a->indexes[a->n_indexes - 1].offset : 0;
 
+        /* An archived file doesn't change anymore, so all of it can be defragmented */
+        offline_defrag(f, a->scan_offset, /* all= */ true);
+
         /* The header may only name an index that is known to be on disk. After a failed sync, it keeps
          * naming the one it names. */
         if (fdatasync(f->fd) < 0) {
@@ -1690,7 +1737,7 @@ static void offline_archive(JournalFile *f) {
         (void) fsync(f->fd);
 }
 
-bool segmented_offline(JournalFile *f) {
+void segmented_offline(JournalFile *f) {
         SegmentedWriter *w = ASSERT_PTR(ASSERT_PTR(ASSERT_PTR(f)->segmented)->writer);
         int r;
 
@@ -1702,15 +1749,14 @@ bool segmented_offline(JournalFile *f) {
                 r = offline_sync(f);
                 if (r < 0)
                         log_debug_errno(r, "Failed to sync journal fd %i: %m", f->fd);
-                return false;
+                return;
         }
 
         if (w->archive_done)
-                return false;
+                return;
 
         offline_archive(f);
         w->archive_done = true;
-        return !w->failed;
 }
 
 int segmented_offline_finish(JournalFile *f) {

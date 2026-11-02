@@ -6,7 +6,6 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
-#include "btrfs-util.h"
 #include "chattr-util.h"
 #include "copy.h"
 #include "errno-util.h"
@@ -328,14 +327,6 @@ static int journal_file_start_offline_thread(JournalFile *f, void* (*func)(void*
         return 0;
 }
 
-static void segmented_offline_and_defrag(JournalFile *f) {
-        /* On btrfs, copy-on-write moves the partly filled last block of the file whenever it changes after
-         * it was written back, hence the file gets a new extent for about every writeback. An archived file
-         * does not change anymore, so put its extents back together once. */
-        if (segmented_offline(f))
-                (void) btrfs_defrag_fd(f->fd);
-}
-
 static void* journal_file_segmented_offline_thread(void *arg) {
         JournalFile *f = arg;
 
@@ -344,7 +335,7 @@ static void* journal_file_segmented_offline_thread(void *arg) {
         for (;;) {
                 OfflineState tmp_state = OFFLINE_SYNCING;
 
-                segmented_offline_and_defrag(f);
+                segmented_offline(f);
 
                 if (__atomic_compare_exchange_n(&f->offline_state, &tmp_state, OFFLINE_DONE,
                                                 false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
@@ -380,7 +371,7 @@ static int journal_file_set_offline_segmented(JournalFile *f, bool wait) {
                 return 0;
 
         if (wait) {
-                segmented_offline_and_defrag(f);
+                segmented_offline(f);
                 return segmented_offline_finish(f);
         }
 
