@@ -104,6 +104,9 @@ Checking the payload checksum of every index would mean reading all indexes when
 journald syncs files periodically with `fdatasync()`. After a successful sync, it writes the offset of the newest index that existed when the sync started to the header, in `synced_index_offset`.
 Readers load that index and the indexes before it without checking their payload.
 An index after it is only used if its payload checksum matches.
+journald also writes the end of the objects that existed when the sync started to the header, in `synced_offset`.
+The sync wrote the objects before that offset completely, so readers don't check their checksums.
+Readers still check the checksums of indexes.
 
 ```mermaid
 sequenceDiagram
@@ -361,6 +364,7 @@ These numbers are for 300,000 entries of the journal of a mail server (258 MiB o
 The header layout is the same as for classic files.
 `state` is `STATE_OFFLINE`, or `STATE_ARCHIVED` once the file is archived, and `tail_entry_seqnum` is the sequence number that the file continues from.
 `synced_index_offset` takes the place of `entry_array_offset`. It is the newest index that a successful sync covered, or 0.
+`synced_offset` takes the place of `tail_object_offset`. It is the end of the objects that a successful sync covered, or 0.
 `n_entries` is `UINT64_MAX`: released versions of systemd delete archived files whose `n_entries` is 0 when they vacuum, without looking at the flags.
 
 In the object header, `le16_t aux` and `le32_t checksum` take the place of the reserved bytes.

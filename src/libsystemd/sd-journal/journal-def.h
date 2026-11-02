@@ -326,7 +326,12 @@ enum {
         le64_t data_hash_table_size;                    \
         le64_t field_hash_table_offset;                 \
         le64_t field_hash_table_size;                   \
-        le64_t tail_object_offset;                      \
+        union {                                         \
+                le64_t tail_object_offset;              \
+                /* segmented files: the end of the      \
+                 * objects that a sync covered, or 0 */ \
+                le64_t synced_offset;                   \
+        };                                              \
         le64_t n_objects;                               \
         le64_t n_entries;                               \
         le64_t tail_entry_seqnum;                       \
