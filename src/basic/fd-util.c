@@ -12,7 +12,6 @@
 #include "dirent-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "log.h"
@@ -24,6 +23,7 @@
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "sysctl-util.h"
 
 /* The maximum number of iterations in the loop to close descriptors in the fallback case
  * when /proc/self/fd/ is inaccessible. */
@@ -1046,24 +1046,17 @@ int fd_verify_safe_flags_full(int fd, int extra_flags) {
 }
 
 unsigned read_nr_open(void) {
-        _cleanup_free_ char *nr_open = NULL;
+        unsigned v;
         int r;
 
         /* Returns the kernel's current fd limit, either by reading it of /proc/sys if that works, or using the
          * hard-coded default compiled-in value of current kernels (1M) if not. This call will never fail. */
 
-        r = read_one_line_file("/proc/sys/fs/nr_open", &nr_open);
+        r = sysctl_read_unsigned("fs/nr_open", &v);
         if (r < 0)
-                log_debug_errno(r, "Failed to read /proc/sys/fs/nr_open, ignoring: %m");
-        else {
-                unsigned v;
-
-                r = safe_atou(nr_open, &v);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to parse /proc/sys/fs/nr_open value '%s', ignoring: %m", nr_open);
-                else
-                        return v;
-        }
+                log_debug_errno(r, "Failed to read fs.nr_open sysctl, ignoring: %m");
+        else
+                return v;
 
         /* If we fail, fall back to the hard-coded kernel limit of 1024 * 1024. */
         return NR_OPEN_DEFAULT;
