@@ -15,11 +15,13 @@
 #include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "manifest-join.h"
 #include "manifest-util.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "path-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
 #include "uapi16-manifest.h"
@@ -50,7 +52,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_voa_context, freep);
 
 COMMAND(
         "systemd-manifest\0",
-        "Generate and verify file manifests of directory trees.",
+        "Generate, verify and join file manifests of directory trees.",
         .man_pages = "systemd-manifest(1)\0",
         .pager_flags = &arg_pager_flags,
 );
@@ -273,6 +275,104 @@ static void context_from_args(ManifestContext *c) {
         c->color = colors_enabled();
 }
 
+typedef struct OutputContext {
+        ManifestContext manifest;
+        const char *path;         /* NULL if writing to stdout */
+        char *temp_path;
+        FILE *file;
+#if HAVE_OPENSSL
+        X509 *certificate;
+        EVP_PKEY *private_key;
+        OpenSSLAskPasswordUI *ui;
+#endif
+} OutputContext;
+
+#define OUTPUT_CONTEXT_NULL                             \
+        (OutputContext) {                               \
+                .manifest = MANIFEST_CONTEXT_NULL,      \
+        }
+
+static void output_context_done(OutputContext *o) {
+        assert(o);
+
+        manifest_context_done(&o->manifest);
+
+        o->file = safe_fclose(o->file);
+        o->temp_path = unlink_and_free(o->temp_path);
+
+#if HAVE_OPENSSL
+        o->ui = openssl_ask_password_ui_free(o->ui);
+        EVP_PKEY_freep(&o->private_key);
+        X509_freep(&o->certificate);
+#endif
+}
+
+static int output_context_open(OutputContext *o, const char *path) {
+        int r;
+
+        assert(o);
+
+        /* The common preparation of the verbs generating a manifest: sets up the manifest context from the
+         * command line arguments, loads the signing key, and opens the output (a temporary file next to the
+         * specified path, which is linked into place by output_context_commit() once the manifest is
+         * complete, or the pager + stdout if no path is specified). */
+
+        /* UAPI.16 is always JSON, hence default to a good JSON mode. We turn on color, but not pretty
+         * alignment, so that each file is in one row */
+        if (arg_format == MANIFEST_FORMAT_UAPI16 &&
+            FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+                arg_json_format_flags = SD_JSON_FORMAT_COLOR_AUTO;
+
+        /* We sign if a private key is specified, and only then. A certificate on its own is hence most likely
+         * a mistake, refuse it rather than silently generating an unsigned manifest. */
+        if (arg_certificate && !arg_private_key)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--certificate= specified without --private-key=, refusing to generate unsigned manifest.");
+
+        context_from_args(&o->manifest);
+
+        if (arg_private_key) {
+#if HAVE_OPENSSL
+                r = load_key_pair(&o->certificate, &o->private_key, &o->ui);
+                if (r < 0)
+                        return r;
+
+                o->manifest.certificate = o->certificate;
+                o->manifest.private_key = o->private_key;
+#else
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Signing not supported, OpenSSL support disabled.");
+#endif
+        }
+
+        if (path) {
+                r = fopen_tmpfile_linkable(path, O_WRONLY, &o->temp_path, &o->file);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create '%s': %m", path);
+
+                o->path = path;
+                o->manifest.output = o->file;
+                o->manifest.color = false;
+        } else
+                pager_open(arg_pager_flags);
+
+        return 0;
+}
+
+static int output_context_commit(OutputContext *o) {
+        int r;
+
+        assert(o);
+
+        if (!o->path)
+                return 0;
+
+        r = flink_tmpfile(o->file, o->temp_path, o->path, LINK_TMPFILE_REPLACE);
+        if (r < 0)
+                return log_error_errno(r, "Failed to move '%s' into place: %m", o->path);
+
+        o->temp_path = mfree(o->temp_path); /* disarm auto delete */
+        return 0;
+}
+
 VERB(verb_make, "make", "[DIRECTORY [MANIFEST]]\0", 1, 3, 0, "Generate a manifest of a directory tree");
 static int verb_make(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
@@ -286,79 +386,34 @@ static int verb_make(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (arg_format < 0)
                 arg_format = MANIFEST_FORMAT_UAPI16;
 
-        /* UAPI.16 is always JSON, hence default to a good JSON mode. We turn on color, but not pretty
-         * alignment, so that each file is in one row */
-        if (arg_format == MANIFEST_FORMAT_UAPI16 &&
-            FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
-                arg_json_format_flags = SD_JSON_FORMAT_COLOR_AUTO;
+        _cleanup_(output_context_done) OutputContext o = OUTPUT_CONTEXT_NULL;
+        r = output_context_open(&o, manifest);
+        if (r < 0)
+                return r;
 
-        /* We sign if a private key is specified, and only then. A certificate on its own is hence most likely
-         * a mistake, refuse it rather than silently generating an unsigned manifest. */
-        if (arg_certificate && !arg_private_key)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--certificate= specified without --private-key=, refusing to generate unsigned manifest.");
+        ManifestContext *c = &o.manifest;
 
-        _cleanup_(manifest_context_done) ManifestContext c;
-        context_from_args(&c);
-
-#if HAVE_OPENSSL
-        _cleanup_(X509_freep) X509 *certificate = NULL;
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
-        _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
-
-        if (arg_private_key) {
-                r = load_key_pair(&certificate, &private_key, &ui);
-                if (r < 0)
-                        return r;
-
-                c.certificate = certificate;
-                c.private_key = private_key;
-        }
-#else
-        if (arg_private_key)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Signing not supported, OpenSSL support disabled.");
-#endif
-
-        _cleanup_(unlink_and_freep) char *t = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        if (manifest) {
-                r = fopen_tmpfile_linkable(manifest, O_WRONLY, &t, &f);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create '%s': %m", manifest);
-
-                c.output = f;
-                c.color = false;
-        } else
-                pager_open(arg_pager_flags);
-
-        r = manifest_make(&c, dfd);
+        r = manifest_make(c, dfd);
         if (r < 0)
                 return r;
 
         /* Even in graceful mode, insist that the top-level inode is covered, after all a manifest that
          * doesn't even cover that is useless. */
-        if (!c.top_level_covered)
+        if (!c->top_level_covered)
                 return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN), "Top-level inode not covered by manifest, refusing.");
 
-        uint64_t n_failed = c.n_skipped - c.n_skipped_expected;
+        uint64_t n_failed = c->n_skipped - c->n_skipped_expected;
         int level = arg_graceful ? LOG_WARNING : LOG_ERR;
-        if (c.n_skipped_expected > 0)
-                log_info("%" PRIu64 " entries skipped, as the manifest format does not list inodes of their type.", c.n_skipped_expected);
+        if (c->n_skipped_expected > 0)
+                log_info("%" PRIu64 " entries skipped, as the manifest format does not list inodes of their type.", c->n_skipped_expected);
         if (n_failed > 0)
                 log_full(level, "%" PRIu64 " entries skipped, as they could not be read or were not representable in the manifest.", n_failed);
-        if (c.n_metadata_omitted > 0)
-                log_full(level, "%" PRIu64 " metadata fields omitted, as they could not be read or were not representable in the manifest.", c.n_metadata_omitted);
-        if (!arg_graceful && (n_failed > 0 || c.n_metadata_omitted > 0))
+        if (c->n_metadata_omitted > 0)
+                log_full(level, "%" PRIu64 " metadata fields omitted, as they could not be read or were not representable in the manifest.", c->n_metadata_omitted);
+        if (!arg_graceful && (n_failed > 0 || c->n_metadata_omitted > 0))
                 return -EUCLEAN;
 
-        if (manifest) {
-                r = flink_tmpfile(f, t, manifest, LINK_TMPFILE_REPLACE);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to move '%s' into place: %m", manifest);
-
-                t = mfree(t); /* disarm auto delete */
-        }
-
-        return 0;
+        return output_context_commit(&o);
 }
 
 static int guess_format(const char *path) {
@@ -470,6 +525,44 @@ static int verb_verify(int argc, char *argv[], uintptr_t _data, void *userdata) 
         }
 
         return manifest_verify(&c, dfd, f);
+}
+
+VERB(verb_join, "join", "INPUT… OUTPUT\0", 3, VERB_ANY, 0, "Join multiple manifests into one");
+static int verb_join(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        int r;
+
+        assert(argc >= 3);
+
+        /* Joining is not verifying: the inputs are not validated in any way, hence refuse the options that
+         * would suggest otherwise. Use "verify" for validating manifests. */
+        if (arg_verify_signature >= 0 || arg_voa_context)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--verify-signature= and --voa-context= are not supported with 'join', the inputs are never verified.");
+        if (!IN_SET(arg_format, _MANIFEST_FORMAT_INVALID, MANIFEST_FORMAT_UAPI16))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Joining is only supported for UAPI.16 manifests.");
+        if (arg_fields != _MANIFEST_FIELD_DEFAULT || arg_hash >= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--field= and --hash= are not supported with 'join', objects are copied as they are.");
+
+        arg_format = MANIFEST_FORMAT_UAPI16;
+
+        const char *output = empty_or_dash_to_null(argv[argc - 1]);
+
+        /* Cut off the output from the list of inputs */
+        _cleanup_strv_free_ char **inputs = strv_copy_n(strv_skip(argv, 1), argc - 2);
+        if (!inputs)
+                return log_oom();
+
+        /* Note that we write to a temporary file first, and only link it into place once all inputs have been
+         * read and the output is complete, hence the output may be one of the inputs. */
+        _cleanup_(output_context_done) OutputContext o = OUTPUT_CONTEXT_NULL;
+        r = output_context_open(&o, output);
+        if (r < 0)
+                return r;
+
+        r = manifest_join(&o.manifest, inputs);
+        if (r < 0)
+                return r;
+
+        return output_context_commit(&o);
 }
 
 static int run(int argc, char *argv[]) {
