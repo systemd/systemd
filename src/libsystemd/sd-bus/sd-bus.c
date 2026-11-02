@@ -368,8 +368,10 @@ _public_ int sd_bus_negotiate_fds(sd_bus *bus, int b) {
 _public_ int sd_bus_negotiate_timestamp(sd_bus *bus, int b) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
-        assert_return(!IN_SET(bus->state, BUS_CLOSING, BUS_CLOSED), -EPERM);
         assert_return(!bus_origin_changed(bus), -ECHILD);
+
+        if (IN_SET(bus->state, BUS_CLOSING, BUS_CLOSED))
+                return -ENOTCONN;
 
         /* This is not actually supported by any of our transports these days, but we do honour it for synthetic
          * replies, and maybe one day classic D-Bus learns this too */
@@ -382,8 +384,10 @@ _public_ int sd_bus_negotiate_creds(sd_bus *bus, int b, uint64_t mask) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(mask <= _SD_BUS_CREDS_ALL, -EINVAL);
-        assert_return(!IN_SET(bus->state, BUS_CLOSING, BUS_CLOSED), -EPERM);
         assert_return(!bus_origin_changed(bus), -ECHILD);
+
+        if (IN_SET(bus->state, BUS_CLOSING, BUS_CLOSED))
+                return -ENOTCONN;
 
         SET_FLAG(bus->creds_mask, mask, b);
 

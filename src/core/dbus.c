@@ -774,6 +774,9 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
         assert(m);
         assert(bus);
 
+        if (!sd_bus_is_open(bus))
+                return 0; /* Already disconnected. Let's skip the setup and wait for signal_disconnected(). */
+
         /* Let's make sure we have enough credential bits so that we can make security and selinux decisions */
         r = sd_bus_negotiate_creds(bus, 1,
                                    SD_BUS_CREDS_PID|SD_BUS_CREDS_UID|
