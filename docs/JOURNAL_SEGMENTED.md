@@ -375,11 +375,11 @@ Objects are aligned to 8 bytes.
 | `CONTEXT` | 8 | all |
 | `INDEX` | 9 | `struct IndexObject` without the payload |
 
-* `checksum` is the lower 32 bits of `siphash24()` keyed with `file_id`, over the offset relative to the start of the segment as `le64_t` and the covered part, with `checksum` taken as 0.
+* `checksum` is the CRC32C (Castagnoli) over `file_id`, the offset relative to the start of the segment as `le64_t`, and the covered part, with `checksum` taken as 0.
   A segment starts at the previous index, or at the end of the header. The checksum of an index uses the segment that the index covers.
 * `hash` is `siphash24()` keyed with `file_id`, over the uncompressed payload, or over the name for fields.
 * `hash2` is `siphash24()` keyed with `file_id` XOR `6a6f75726e616c2d617070656e646f6e`, over the uncompressed payload.
-* `payload_checksum` of an index is the lower 32 bits of `siphash24()` keyed with `file_id`, over the object from `payload` to its end.
+* `payload_checksum` of an index is the CRC32C over `file_id` and the object from `payload` to its end.
 
 A `DATA` object is the object header, `le64_t hash`, and the payload `FIELD=value`, possibly compressed.
 A `CONTEXT` object is the object header followed by `aux` items (`le32_t`), ascending. An item is the distance from a `DATA` object to the context.

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <pthread.h>
 #include <sys/stat.h>
 #include <threads.h>
 #include <unistd.h>
@@ -24,6 +25,95 @@
 #endif
 
 #define ENTRY_ITEMS_OFFSET offsetof(Object, entry.items)
+
+/* Readers check unsynced objects while scanning the log, so checksum computation has to be fast. x86-64
+ * computes CRC32C with the SSE 4.2 crc32 instruction. Other CPUs use slicing-by-8 tables. */
+
+#define CRC32C_POLY UINT32_C(0x82F63B78)
+
+static uint32_t crc32c_table[8][256];
+static pthread_once_t crc32c_once = PTHREAD_ONCE_INIT;
+
+static void crc32c_table_init(void) {
+        for (unsigned i = 0; i < 256; i++) {
+                uint32_t c = i;
+
+                for (unsigned k = 0; k < 8; k++)
+                        c = c & 1 ? (c >> 1) ^ CRC32C_POLY : c >> 1;
+
+                crc32c_table[0][i] = c;
+        }
+
+        for (unsigned i = 0; i < 256; i++)
+                for (unsigned t = 1; t < 8; t++)
+                        crc32c_table[t][i] = (crc32c_table[t - 1][i] >> 8) ^ crc32c_table[0][crc32c_table[t - 1][i] & 0xff];
+}
+
+static uint32_t crc32c_sw(uint32_t crc, const uint8_t *p, size_t n) {
+        assert_se(pthread_once(&crc32c_once, crc32c_table_init) == 0);
+
+        for (; n >= 8; n -= 8, p += 8) {
+                uint64_t v;
+
+                memcpy(&v, p, sizeof(v));
+                v = le64toh(v) ^ crc;
+
+                crc = crc32c_table[7][v & 0xff] ^
+                      crc32c_table[6][(v >> 8) & 0xff] ^
+                      crc32c_table[5][(v >> 16) & 0xff] ^
+                      crc32c_table[4][(v >> 24) & 0xff] ^
+                      crc32c_table[3][(v >> 32) & 0xff] ^
+                      crc32c_table[2][(v >> 40) & 0xff] ^
+                      crc32c_table[1][(v >> 48) & 0xff] ^
+                      crc32c_table[0][v >> 56];
+        }
+
+        for (; n > 0; n--, p++)
+                crc = (crc >> 8) ^ crc32c_table[0][(crc ^ *p) & 0xff];
+
+        return crc;
+}
+
+#if defined(__x86_64__)
+__attribute__((target("sse4.2")))
+static uint32_t crc32c_hw(uint32_t crc, const uint8_t *p, size_t n) {
+        uint64_t c = crc;
+
+        for (; n >= 8; n -= 8, p += 8) {
+                uint64_t v;
+
+                memcpy(&v, p, sizeof(v));
+                c = __builtin_ia32_crc32di(c, v);
+        }
+
+        for (; n > 0; n--, p++)
+                c = __builtin_ia32_crc32qi((uint32_t) c, *p);
+
+        return (uint32_t) c;
+}
+
+static bool crc32c_hw_supported(void) {
+        static thread_local int cached = -1;
+
+        if (cached < 0) {
+                __builtin_cpu_init();
+                cached = __builtin_cpu_supports("sse4.2");
+        }
+
+        return cached;
+}
+#endif
+
+static uint32_t crc32c(uint32_t crc, const void *data, size_t size) {
+        assert(data || size == 0);
+
+#if defined(__x86_64__)
+        if (crc32c_hw_supported())
+                return crc32c_hw(crc, data, size);
+#endif
+
+        return crc32c_sw(crc, data, size);
+}
 
 bool segmented_requested(void) {
         int r;
@@ -88,26 +178,31 @@ uint64_t segmented_hash2(JournalFile *f, const void *data, size_t size) {
 uint32_t segmented_checksum_with_file_id(sd_id128_t file_id, uint64_t distance, const void *object, size_t size) {
         static const uint8_t zero[sizeof_field(ObjectHeader, checksum)] = {};
         le64_t o = htole64(distance);
-        struct siphash state;
+        uint32_t crc;
 
         assert(object);
         assert(size >= sizeof(ObjectHeader));
 
         assert_cc(offsetof(ObjectHeader, checksum) + sizeof(zero) == offsetof(ObjectHeader, size));
 
-        siphash24_init(&state, file_id.bytes);
-        siphash24_compress_typesafe(o, &state);
-        siphash24_compress(object, offsetof(ObjectHeader, checksum), &state);
-        siphash24_compress(zero, sizeof(zero), &state);
-        siphash24_compress((const uint8_t*) object + offsetof(ObjectHeader, size), size - offsetof(ObjectHeader, size), &state);
+        crc = crc32c(UINT32_MAX, file_id.bytes, sizeof(file_id.bytes));
+        crc = crc32c(crc, &o, sizeof(o));
+        crc = crc32c(crc, object, offsetof(ObjectHeader, checksum));
+        crc = crc32c(crc, zero, sizeof(zero));
+        crc = crc32c(crc, (const uint8_t*) object + offsetof(ObjectHeader, size), size - offsetof(ObjectHeader, size));
 
-        return (uint32_t) siphash24_finalize(&state);
+        return ~crc;
 }
 
 uint32_t segmented_payload_checksum(sd_id128_t file_id, const void *payload, size_t size) {
+        uint32_t crc;
+
         assert(payload || size == 0);
 
-        return (uint32_t) siphash24(size > 0 ? payload : "", size, file_id.bytes);
+        crc = crc32c(UINT32_MAX, file_id.bytes, sizeof(file_id.bytes));
+        crc = crc32c(crc, payload, size);
+
+        return ~crc;
 }
 
 uint32_t segmented_checksum(JournalFile *f, uint64_t distance, const void *object, size_t size) {
