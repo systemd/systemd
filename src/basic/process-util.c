@@ -1311,6 +1311,10 @@ static pid_t cached_pid = CACHED_PID_UNSET;
 void reset_cached_pid(void) {
         /* Invoked in the child after a fork(), i.e. at the first moment the PID changed */
         cached_pid = CACHED_PID_UNSET;
+
+        /* The pidfd ID cache is keyed by PID, which is not enough to detect the PID 1 → PID 1 transition
+         * when forking into a new PID namespace, hence flush it explicitly too. */
+        reset_cached_pidfd_id();
 }
 
 pid_t getpid_cached(void) {
