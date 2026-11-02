@@ -78,6 +78,7 @@ PullJob* pull_job_unref(PullJob *j) {
                 sym_EVP_MD_CTX_free(j->checksum_ctx);
 
         free(j->url);
+        free(j->main_filename);
         free(j->etag);
         strv_free(j->old_etags);
         iovec_done(&j->payload);
@@ -144,6 +145,8 @@ int pull_job_restart(PullJob *j, const char *new_url) {
         iovec_done(&j->payload);
         j->written_compressed = 0;
         j->written_uncompressed = 0;
+        j->decoded_total = 0;
+        j->range_requested = j->range_applied = false;
         j->content_length = UINT64_MAX;
         j->etag = mfree(j->etag);
         j->etag_exists = false;
@@ -190,6 +193,29 @@ static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata)
 
         assert(p);
         assert(sz > 0);
+
+        /* Only pass on the requested range of the decoded data, i.e. skip over everything before it and
+         * drop everything after it. Note that the dropped data is still covered by the checksum of the
+         * download, as that is calculated from the encoded data. */
+        if (j->decoded_total > UINT64_MAX - sz)
+                return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "File too large, overflow");
+
+        uint64_t pos = j->decoded_total;
+        j->decoded_total += sz;
+
+        if (j->decoded_total <= j->source_offset)
+                return 0;
+        if (pos < j->source_offset) {
+                p = (const uint8_t*) p + (j->source_offset - pos);
+                sz -= j->source_offset - pos;
+        }
+
+        if (j->source_size != UINT64_MAX) {
+                if (j->written_uncompressed >= j->source_size)
+                        return 0;
+
+                sz = MIN(sz, j->source_size - j->written_uncompressed);
+        }
 
         if (j->written_uncompressed > UINT64_MAX - sz)
                 return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "File too large, overflow");
@@ -374,6 +400,10 @@ static int pull_job_complete(PullJob *j) {
         r = decompressor_push(j->compress, /* data= */ NULL, /* size= */ 0, pull_job_write_uncompressed, j);
         if (r < 0)
                 return pull_job_finish(j, r);
+
+        if (j->decoded_total < j->source_offset ||
+            (j->source_size != UINT64_MAX && j->written_uncompressed < j->source_size))
+                return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Decoded data of %s ends before the requested range does, refusing.", pull_job_description(j)));
 
         uint64_t cl = pull_job_content_length_effective(j);
         if (cl != UINT64_MAX &&
@@ -641,6 +671,18 @@ static size_t pull_job_write_callback(void *contents, size_t size, size_t nmemb,
 
         assert(contents);
 
+        /* If the server replied with partial content we must know where it starts. (If it replied with the
+         * full content instead, we cut out the range ourselves.) */
+        if (j->range_requested && !j->range_applied) {
+                long status;
+
+                if (sym_curl_easy_getinfo(curl_slot_get_easy(j->slot), CURLINFO_RESPONSE_CODE, &status) == CURLE_OK &&
+                    status == 206) {
+                        pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EPROTO), "Server returned partial content without range information for %s, refusing.", pull_job_description(j)));
+                        return 0;
+                }
+        }
+
         r = pull_job_process_data(j, contents, sz);
         if (r < 0) {
                 pull_job_finish(j, r);
@@ -648,6 +690,27 @@ static size_t pull_job_write_callback(void *contents, size_t size, size_t nmemb,
         }
 
         return sz;
+}
+
+static int parse_content_range_start(const char *s, uint64_t *ret) {
+        assert(s);
+        assert(ret);
+
+        /* Parses the start offset from a "Content-Range:" header value, i.e. "bytes START-END/TOTAL" */
+
+        const char *p = startswith(s, "bytes ");
+        if (!p)
+                return -EINVAL;
+
+        size_t n = strspn(p, DIGITS);
+        if (n == 0 || p[n] != '-')
+                return -EINVAL;
+
+        _cleanup_free_ char *t = strndup(p, n);
+        if (!t)
+                return -ENOMEM;
+
+        return safe_atou64(t, ret);
 }
 
 static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
@@ -684,6 +747,31 @@ static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb
                 if (r > 0)
                         free_and_replace(j->authentication_challenge, challenge);
                 return sz;
+        }
+
+        if (status == 206) {
+                _cleanup_free_ char *range = NULL;
+
+                r = curl_header_strdup(contents, sz, "Content-Range:", &range);
+                if (r < 0) {
+                        log_oom();
+                        goto fail;
+                }
+                if (r > 0) {
+                        /* The server sent us only the range we asked for, hence the data we receive starts
+                         * at its beginning rather than at the start of the source. */
+                        uint64_t start;
+                        r = parse_content_range_start(range, &start);
+                        if (r < 0 || !j->range_requested || start != j->source_offset) {
+                                r = log_error_errno(SYNTHETIC_ERRNO(EPROTO), "Server returned unexpected range '%s' for %s, refusing.", range, pull_job_description(j));
+                                goto fail;
+                        }
+
+                        log_debug("Server honoured range request for %s, starting at offset %" PRIu64 ".", pull_job_description(j), start);
+                        j->decoded_total = start;
+                        j->range_applied = true;
+                        return sz;
+                }
         }
 
         if (http_status_ok(status) || http_status_etag_exists(status)) {
@@ -860,6 +948,7 @@ int pull_job_new(
                 .uncompressed_max = 64LLU * 1024LLU * 1024LLU * 1024LLU, /* 64GB safety limit */
                 .url = TAKE_PTR(u),
                 .offset = UINT64_MAX,
+                .source_size = UINT64_MAX,
                 .sync = true,
                 .expected_content_length = UINT64_MAX,
         };
@@ -1100,6 +1189,31 @@ int pull_job_begin(PullJob *j) {
         if (j->request_header) {
                 if (sym_curl_easy_setopt(easy, CURLOPT_HTTPHEADER, j->request_header) != CURLE_OK)
                         return -EIO;
+        }
+
+        /* If we only need a range of the data, let's ask the server for just that. This is only possible if
+         * the data is not encoded (as we cannot decode from the middle of a stream), and if we don't have to
+         * verify the download as a whole. Only do this for HTTP, where we can tell from the response whether
+         * the server complied, and fall back to cutting out the range ourselves if it did not. */
+        if (j->allow_range_request &&
+            j->compression == COMPRESSION_NONE &&
+            (j->source_offset > 0 || j->source_size != UINT64_MAX) &&
+            j->source_size != 0 &&
+            http_url_is_valid(j->url)) {
+                _cleanup_free_ char *range = NULL;
+
+                if (j->source_size == UINT64_MAX)
+                        r = asprintf(&range, "%" PRIu64 "-", j->source_offset);
+                else
+                        r = asprintf(&range, "%" PRIu64 "-%" PRIu64, j->source_offset, j->source_offset + j->source_size - 1);
+                if (r < 0)
+                        return -ENOMEM;
+
+                if (sym_curl_easy_setopt(easy, CURLOPT_RANGE, range) != CURLE_OK)
+                        return -EIO;
+
+                log_debug("Requesting range %s of %s.", range, pull_job_description(j));
+                j->range_requested = true;
         }
 
         if (sym_curl_easy_setopt(easy, CURLOPT_WRITEFUNCTION, pull_job_write_callback) != CURLE_OK)
