@@ -8,6 +8,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "namespace-util.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -15,7 +16,7 @@
 #include "tests.h"
 
 TEST(fd_is_namespace) {
-        _cleanup_close_ int fd = ASSERT_OK_ERRNO(open("/dev/null", O_RDONLY|O_CLOEXEC));
+        _cleanup_close_ int fd = ASSERT_OK(xopenat(AT_FDCWD, "/dev/null", O_RDONLY));
 
         ASSERT_OK_ZERO(fd_is_namespace(fd, _NAMESPACE_TYPE_INVALID));
         ASSERT_OK_ZERO(fd_is_namespace(fd, NAMESPACE_USER));
@@ -35,9 +36,9 @@ TEST(fd_is_namespace) {
 }
 
 TEST(is_our_namespace) {
-        _cleanup_close_ int userns_fd = ASSERT_OK_ERRNO(open("/proc/self/ns/user", O_RDONLY|O_CLOEXEC));
-        _cleanup_close_ int mntns_fd = ASSERT_OK_ERRNO(open("/proc/self/ns/mnt", O_RDONLY|O_CLOEXEC));
-        _cleanup_close_ int fd = ASSERT_OK_ERRNO(open("/dev/null", O_RDONLY|O_CLOEXEC));
+        _cleanup_close_ int userns_fd = ASSERT_OK(xopenat(AT_FDCWD, "/proc/self/ns/user", O_RDONLY));
+        _cleanup_close_ int mntns_fd = ASSERT_OK(xopenat(AT_FDCWD, "/proc/self/ns/mnt", O_RDONLY));
+        _cleanup_close_ int fd = ASSERT_OK(xopenat(AT_FDCWD, "/dev/null", O_RDONLY));
 
         ASSERT_OK_POSITIVE(is_our_namespace(userns_fd, NAMESPACE_USER));
         ASSERT_OK_POSITIVE(is_our_namespace(mntns_fd, NAMESPACE_MOUNT));
@@ -115,12 +116,12 @@ TEST(namespace_enter_nothing) {
 
                 ASSERT_OK(namespace_enter(-EBADF, -EBADF, -EBADF, -EBADF, -EBADF));
 
-                _cleanup_close_ int userns_fd = ASSERT_OK_ERRNO(open("/proc/self/ns/user", O_RDONLY|O_CLOEXEC));
+                _cleanup_close_ int userns_fd = ASSERT_OK(xopenat(AT_FDCWD, "/proc/self/ns/user", O_RDONLY));
                 ASSERT_OK(namespace_enter(-EBADF, -EBADF, -EBADF, userns_fd, -EBADF));
 
-                _cleanup_close_ int mntns_fd = ASSERT_OK_ERRNO(open("/proc/self/ns/mnt", O_RDONLY|O_CLOEXEC));
-                _cleanup_close_ int pidns_fd = ASSERT_OK_ERRNO(open("/proc/self/ns/pid", O_RDONLY|O_CLOEXEC));
-                _cleanup_close_ int netns_fd = ASSERT_OK_ERRNO(open("/proc/self/ns/net", O_RDONLY|O_CLOEXEC));
+                _cleanup_close_ int mntns_fd = ASSERT_OK(xopenat(AT_FDCWD, "/proc/self/ns/mnt", O_RDONLY));
+                _cleanup_close_ int pidns_fd = ASSERT_OK(xopenat(AT_FDCWD, "/proc/self/ns/pid", O_RDONLY));
+                _cleanup_close_ int netns_fd = ASSERT_OK(xopenat(AT_FDCWD, "/proc/self/ns/net", O_RDONLY));
                 ASSERT_OK(namespace_enter(pidns_fd, mntns_fd, netns_fd, userns_fd, -EBADF));
 
                 _exit(EXIT_SUCCESS);

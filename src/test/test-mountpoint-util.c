@@ -161,10 +161,10 @@ TEST(path_is_mount_point) {
         assert_se(file1);
         file2 = path_join(tmp_dir, "file2");
         assert_se(file2);
-        fd = open(file1, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
+        fd = xopenat_full(AT_FDCWD, file1, O_WRONLY|O_CREAT|O_EXCL, /* xopen_flags= */ 0, 0664);
         assert_se(fd > 0);
         close(fd);
-        fd = open(file2, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
+        fd = xopenat_full(AT_FDCWD, file2, O_WRONLY|O_CREAT|O_EXCL, /* xopen_flags= */ 0, 0664);
         assert_se(fd > 0);
         close(fd);
         link1 = path_join(tmp_dir, "link1");
@@ -201,7 +201,7 @@ TEST(path_is_mount_point) {
         /* file in subdirectory mountpoints */
         dir1file = path_join(dir1, "file");
         assert_se(dir1file);
-        fd = open(dir1file, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
+        fd = xopenat_full(AT_FDCWD, dir1file, O_WRONLY|O_CREAT|O_EXCL, /* xopen_flags= */ 0, 0664);
         assert_se(fd > 0);
         close(fd);
 
@@ -242,7 +242,7 @@ TEST(path_is_mount_point) {
                 /* dirs */
                 dir2file = path_join(dir2, "file");
                 assert_se(dir2file);
-                fd = open(dir2file, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
+                fd = xopenat_full(AT_FDCWD, dir2file, O_WRONLY|O_CREAT|O_EXCL, /* xopen_flags= */ 0, 0664);
                 assert_se(fd > 0);
                 close(fd);
 
@@ -280,7 +280,7 @@ TEST(is_mount_point_at) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
+        fd = xopenat(AT_FDCWD, "/", O_RDONLY|O_DIRECTORY|O_NOCTTY);
         assert_se(fd >= 0);
 
         ASSERT_OK_POSITIVE(is_mount_point_at(fd, "/", /* flags= */ 0));
@@ -295,7 +295,7 @@ TEST(is_mount_point_at) {
         ASSERT_OK_ZERO(is_mount_point_at(fd, "usr/lib", /* flags= */ 0));
 
         safe_close(fd);
-        fd = open("/tmp", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
+        fd = xopenat(AT_FDCWD, "/tmp", O_RDONLY|O_DIRECTORY|O_NOCTTY);
         assert_se(fd >= 0);
 
         assert_se(mkdtemp_malloc("/tmp/not-mounted-XXXXXX", &tmpdir) >= 0);
@@ -304,7 +304,7 @@ TEST(is_mount_point_at) {
         ASSERT_OK_ZERO(is_mount_point_at(fd, strjoina(tmpdir_basename, "/"), /* flags= */ 0));
 
         safe_close(fd);
-        fd = open("/proc", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
+        fd = xopenat(AT_FDCWD, "/proc", O_RDONLY|O_DIRECTORY|O_NOCTTY);
         assert_se(fd >= 0);
 
         ASSERT_OK_POSITIVE(is_mount_point_at(fd, /* path= */ NULL, /* flags= */ 0));
@@ -323,7 +323,7 @@ TEST(is_mount_point_at) {
         ASSERT_OK_ERRNO(chdir(pwd));
 
         safe_close(fd);
-        fd = open("/proc/version", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        fd = xopenat(AT_FDCWD, "/proc/version", O_RDONLY|O_NOCTTY);
         assert_se(fd >= 0);
 
         r = is_mount_point_at(fd, /* path= */ NULL, /* flags= */ 0);
@@ -338,7 +338,7 @@ TEST(is_mount_point_at) {
         struct stat st;
 
         safe_close(fd);
-        ASSERT_OK_ERRNO(fd = open(tmpdir, O_DIRECTORY|O_PATH|O_CLOEXEC));
+        ASSERT_OK(fd = xopenat(AT_FDCWD, tmpdir, O_DIRECTORY|O_PATH));
 
         ASSERT_OK_ERRNO(symlinkat("/usr", fd, "symlink"));
 
@@ -347,7 +347,7 @@ TEST(is_mount_point_at) {
                 return;
         ASSERT_OK_ERRNO(mfd);
 
-        ASSERT_OK_ERRNO(rfd = openat(fd, "regular", O_CLOEXEC|O_CREAT|O_EXCL, 0644));
+        ASSERT_OK(rfd = xopenat_full(fd, "regular", O_CREAT|O_EXCL, /* xopen_flags= */ 0, 0644));
 
         ASSERT_OK_ERRNO(move_mount(mfd, "", rfd, "", MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_T_EMPTY_PATH));
 
@@ -411,7 +411,7 @@ TEST(path_get_mnt_id_at_null) {
         assert_se(id1 == id2);
         id2 = -1;
 
-        root_fd = open("/", O_DIRECTORY|O_CLOEXEC);
+        root_fd = xopenat(AT_FDCWD, "/", O_DIRECTORY);
         assert_se(root_fd >= 0);
 
         assert_se(path_get_mnt_id_at(root_fd, "/run/", &id2) >= 0);
@@ -430,7 +430,7 @@ TEST(path_get_mnt_id_at_null) {
         assert_se(id1 = id2);
         id2 = -1;
 
-        run_fd = openat(root_fd, "run", O_DIRECTORY|O_CLOEXEC);
+        run_fd = xopenat(root_fd, "run", O_DIRECTORY);
         assert_se(run_fd >= 0);
 
         id2 = -1;

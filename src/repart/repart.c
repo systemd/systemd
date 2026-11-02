@@ -7593,9 +7593,9 @@ static int partition_manifest_write(Context *context, Partition *p, const char *
 
         log_info("Generating manifest of %s filesystem.", p->format);
 
-        _cleanup_close_ int dir_fd = open(root, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        _cleanup_close_ int dir_fd = xopenat(AT_FDCWD, root, O_DIRECTORY|O_NOFOLLOW);
         if (dir_fd < 0)
-                return log_error_errno(errno, "Failed to open populated tree '%s': %m", root);
+                return log_error_errno(dir_fd, "Failed to open populated tree '%s': %m", root);
 
         _cleanup_close_ int dup_fd = fcntl(p->manifest_fd, F_DUPFD_CLOEXEC, 3);
         if (dup_fd < 0)

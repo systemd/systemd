@@ -4,6 +4,7 @@
 
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "libarchive-util.h"
 #include "main-func.h"
 #include "tar-util.h"
@@ -31,7 +32,7 @@ static int run(int argc, char **argv) {
                 return r;
 
         int flags = create ? O_CREAT | O_WRONLY | O_TRUNC : O_RDONLY;
-        _cleanup_close_ int fd1 = RET_NERRNO(open(argv[2], flags | O_CLOEXEC, 0666));
+        _cleanup_close_ int fd1 = xopenat_full(AT_FDCWD, argv[2], flags, /* xopen_flags= */ 0, 0666);
         if (fd1 < 0)
                 return log_error_errno(fd1, "Cannot open %s: %m", argv[2]);
 
@@ -41,7 +42,7 @@ static int run(int argc, char **argv) {
                         return log_error_errno(r, "Failed to mkdir %s: %m", argv[3]);
         }
 
-        _cleanup_close_ int fd2 = RET_NERRNO(open(argv[3], O_DIRECTORY | O_CLOEXEC));
+        _cleanup_close_ int fd2 = xopenat(AT_FDCWD, argv[3], O_DIRECTORY);
         if (fd2 < 0)
                 return log_error_errno(fd2, "Cannot open %s: %m", argv[3]);
 

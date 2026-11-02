@@ -1069,6 +1069,9 @@ static int try_fchmodat2(int dirfd, const char *path, mode_t mode, int flags) {
         return RET_NERRNO(fchmodat(dirfd, path, mode, flags));
 }
 
+/* restrict_suid_sgid tests the seccomp filter on the creat() and openat() syscalls. The test has to call
+ * creat() and openat() directly. */
+/* NOLINTBEGIN(bugprone-unsafe-functions) */
 TEST(restrict_suid_sgid) {
         int r;
 
@@ -1263,7 +1266,11 @@ TEST(restrict_suid_sgid) {
                 _exit(EXIT_SUCCESS);
         }
 }
+/* NOLINTEND(bugprone-unsafe-functions) */
 
+/* After seccomp_suppress_sync(), the open() syscall fails with EINVAL when O_SYNC is set. The test calls
+ * open() directly to check that. */
+/* NOLINTBEGIN(bugprone-unsafe-functions) */
 static void test_seccomp_suppress_sync_child(void) {
         _cleanup_(unlink_and_freep) char *path = NULL;
         _cleanup_close_ int fd = -EBADF;
@@ -1295,6 +1302,7 @@ static void test_seccomp_suppress_sync_child(void) {
         ASSERT_ERROR_ERRNO(fsync(-1), EBADF);
         ASSERT_ERROR_ERRNO(syncfs(-1), EBADF);
 }
+/* NOLINTEND(bugprone-unsafe-functions) */
 
 TEST(seccomp_suppress_sync) {
         int r;

@@ -12,6 +12,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "namespace-util.h"
 #include "path-util.h"
 #include "pidref.h"
@@ -84,7 +85,7 @@ TEST(userns_restrict) {
          * permission error before we even get to the BPF-LSM. */
         ASSERT_OK_ERRNO(chown(t, CONTAINER_UID_MIN, CONTAINER_UID_MIN));
 
-        host_fd1 = ASSERT_OK_ERRNO(open(t, O_DIRECTORY|O_CLOEXEC));
+        host_fd1 = ASSERT_OK(xopenat(AT_FDCWD, t, O_DIRECTORY));
         host_tmpfs = ASSERT_OK(make_tmpfs_fsmount());
 
         _cleanup_free_ char *idmap = NULL;
@@ -106,18 +107,22 @@ TEST(userns_restrict) {
                 private_tmpfs = make_tmpfs_fsmount();
 
                 /* These two host mounts would record our transient UID on disk, hence are inaccessible */
-                ASSERT_ERROR_ERRNO(openat(host_fd1, "test", O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
-                ASSERT_ERROR_ERRNO(openat(host_tmpfs, "xxx", O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
+                ASSERT_ERROR(xopenat_full(host_fd1, "test", O_RDWR|O_CREAT,
+                                          /* xopen_flags= */ 0, 0666), EPERM);
+                ASSERT_ERROR(xopenat_full(host_tmpfs, "xxx", O_RDWR|O_CREAT,
+                                          /* xopen_flags= */ 0, 0666), EPERM);
                 ASSERT_ERROR_ERRNO(mkdirat(host_fd1, "test2", 0666), EPERM);
                 ASSERT_ERROR_ERRNO(mkdirat(host_tmpfs, "xxx2", 0666), EPERM);
 
                 /* But this mount created locally should be fine */
-                safe_close(ASSERT_OK_ERRNO(openat(private_tmpfs, "yyy", O_RDWR|O_CREAT|O_CLOEXEC, 0666)));
+                safe_close(ASSERT_OK(xopenat_full(private_tmpfs, "yyy", O_RDWR|O_CREAT,
+                                                  /* xopen_flags= */ 0, 0666)));
                 ASSERT_OK_ERRNO(mkdirat(private_tmpfs, "yyy2", 0666));
 
                 /* And so should the idmapped host mount: it translates our transient UID to UID 0 before
                  * anything reaches the disk */
-                safe_close(ASSERT_OK_ERRNO(openat(idmapped_tmpfs, "zzz", O_RDWR|O_CREAT|O_CLOEXEC, 0666)));
+                safe_close(ASSERT_OK(xopenat_full(idmapped_tmpfs, "zzz", O_RDWR|O_CREAT,
+                                                  /* xopen_flags= */ 0, 0666)));
                 ASSERT_OK_ERRNO(mkdirat(idmapped_tmpfs, "zzz2", 0666));
 
                 /* chown() is subject to the same policy. Unlike the creation hooks it is handed the ID that
@@ -144,10 +149,12 @@ TEST(userns_restrict) {
                 ASSERT_NOT_NULL(p1 = path_join(t, "newns"));
                 ASSERT_NOT_NULL(p2 = path_join(t, "newns2"));
 
-                ASSERT_ERROR_ERRNO(open(p1, O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
+                ASSERT_ERROR(xopenat_full(AT_FDCWD, p1, O_RDWR|O_CREAT, /* xopen_flags= */ 0, 0666), EPERM);
                 ASSERT_ERROR_ERRNO(mkdir(p2, 0666), EPERM);
-                ASSERT_ERROR_ERRNO(openat(host_fd1, "newns3", O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
-                ASSERT_ERROR_ERRNO(openat(host_tmpfs, "newns4", O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
+                ASSERT_ERROR(xopenat_full(host_fd1, "newns3", O_RDWR|O_CREAT,
+                                          /* xopen_flags= */ 0, 0666), EPERM);
+                ASSERT_ERROR(xopenat_full(host_tmpfs, "newns4", O_RDWR|O_CREAT,
+                                          /* xopen_flags= */ 0, 0666), EPERM);
 
                 /* And chown() through the clone must stay refused too, not just inode creation. */
                 ASSERT_ERROR_ERRNO(fchownat(AT_FDCWD, t, GID_INVALID, 0, 0), EPERM);
@@ -159,14 +166,18 @@ TEST(userns_restrict) {
                 ASSERT_NOT_NULL(p3 = path_join(t, "newuser"));
                 ASSERT_NOT_NULL(p4 = path_join(t, "newuser2"));
 
-                ASSERT_ERROR_ERRNO(open(p3, O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
+                ASSERT_ERROR(xopenat_full(AT_FDCWD, p3, O_RDWR|O_CREAT, /* xopen_flags= */ 0, 0666), EPERM);
                 ASSERT_ERROR_ERRNO(mkdir(p4, 0666), EPERM);
-                ASSERT_ERROR_ERRNO(openat(host_fd1, "newuser3", O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
-                ASSERT_ERROR_ERRNO(openat(host_tmpfs, "newuser4", O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
+                ASSERT_ERROR(xopenat_full(host_fd1, "newuser3", O_RDWR|O_CREAT,
+                                          /* xopen_flags= */ 0, 0666), EPERM);
+                ASSERT_ERROR(xopenat_full(host_tmpfs, "newuser4", O_RDWR|O_CREAT,
+                                          /* xopen_flags= */ 0, 0666), EPERM);
 
                 /* …while what was legitimately writable before stays writable */
-                safe_close(ASSERT_OK_ERRNO(openat(private_tmpfs, "aaa", O_RDWR|O_CREAT|O_CLOEXEC, 0666)));
-                safe_close(ASSERT_OK_ERRNO(openat(idmapped_tmpfs, "bbb", O_RDWR|O_CREAT|O_CLOEXEC, 0666)));
+                safe_close(ASSERT_OK(xopenat_full(private_tmpfs, "aaa", O_RDWR|O_CREAT,
+                                                  /* xopen_flags= */ 0, 0666)));
+                safe_close(ASSERT_OK(xopenat_full(idmapped_tmpfs, "bbb", O_RDWR|O_CREAT,
+                                                  /* xopen_flags= */ 0, 0666)));
 
                 _exit(EXIT_SUCCESS);
         }
@@ -295,7 +306,7 @@ TEST(userns_restrict_overlayfs) {
                 _cleanup_free_ char *f = NULL, *uf = NULL;
                 ASSERT_NOT_NULL(f = path_join(merged, "f"));
                 ASSERT_NOT_NULL(uf = path_join(upper, "f"));
-                safe_close(ASSERT_OK_ERRNO(open(f, O_RDWR|O_CREAT|O_CLOEXEC, 0666)));
+                safe_close(ASSERT_OK(xopenat_full(AT_FDCWD, f, O_RDWR|O_CREAT, /* xopen_flags= */ 0, 0666)));
                 ASSERT_OK_ERRNO(access(uf, F_OK));
                 ASSERT_OK_ERRNO(fchownat(AT_FDCWD, f, UID_INVALID, 0, 0));
 

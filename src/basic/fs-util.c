@@ -1087,6 +1087,9 @@ static bool is_symlink_at(int dir_fd, const char *path) {
         return fstatat(dir_fd, path, &st, AT_SYMLINK_NOFOLLOW) >= 0 && S_ISLNK(st.st_mode);
 }
 
+/* openat_report_new() and xopenat_full_label() call open() and openat() directly. clang-tidy reports
+ * direct calls in all other code. */
+/* NOLINTBEGIN(bugprone-unsafe-functions) */
 int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, bool *ret_newly_created) {
         int fd;
 
@@ -1512,6 +1515,7 @@ error:
 
         return r;
 }
+/* NOLINTEND(bugprone-unsafe-functions) */
 
 int xopenat_lock_full_label(
                 int dir_fd,

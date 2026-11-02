@@ -147,7 +147,7 @@ TEST(rm_rf_children_rewind) {
         _cleanup_close_ int fd = -EBADF;
 
         ASSERT_OK(mkdtemp_malloc("/tmp/test-rm-rf-rewind.XXXXXXX", &d));
-        fd = ASSERT_OK_ERRNO(open(d, O_RDONLY|O_DIRECTORY|O_CLOEXEC));
+        fd = ASSERT_OK(xopenat(AT_FDCWD, d, O_RDONLY|O_DIRECTORY));
 
         /* Exclude the directory from automatic aging by systemd-tmpfiles, as per
          * https://systemd.io/TEMPORARY_DIRECTORIES */

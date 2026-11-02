@@ -4,6 +4,7 @@
 
 #include "bpf-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "main-func.h"
 #include "tests.h"
 
@@ -15,9 +16,9 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int bpffs_fd = open("/sys/fs/bpf", O_CLOEXEC|O_RDONLY);
+        _cleanup_close_ int bpffs_fd = xopenat(AT_FDCWD, "/sys/fs/bpf", O_RDONLY);
         if (bpffs_fd < 0)
-                return log_error_errno(errno, "Failed to open '/sys/fs/bpf': %m");
+                return log_error_errno(bpffs_fd, "Failed to open '/sys/fs/bpf': %m");
 
         _cleanup_close_ int token_fd = sym_bpf_token_create(bpffs_fd, /* opts= */ NULL);
         if (token_fd == -ENOSYS)

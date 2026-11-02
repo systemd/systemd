@@ -319,7 +319,7 @@ TEST(copy_tree_at_symlink) {
         p = mfree(p);
         q = mfree(q);
 
-        fd = openat(tfd, "from", O_CLOEXEC | O_PATH | O_NOFOLLOW);
+        fd = xopenat(tfd, "from", O_PATH | O_NOFOLLOW);
         assert_se(fd >= 0);
         assert_se(copy_tree_at(fd, /* from= */ NULL, tfd, "to_3", UID_INVALID, GID_INVALID, /* copy_flags= */ 0, /* denylist= */ NULL, /* subvolumes= */ NULL) >= 0);
         assert_se(readlinkat_malloc(tfd, "to_3", &p) >= 0);
@@ -344,8 +344,8 @@ TEST(copy_tree_at_fds) {
         ASSERT_OK_ERRNO(mkdirat(tfd, "to", 0755));
 
         /* Both directories handed in as fds, as copy_tree_at_foreign() does */
-        ASSERT_OK_ERRNO(from_fd = openat(tfd, "from", O_RDONLY|O_DIRECTORY|O_CLOEXEC));
-        ASSERT_OK_ERRNO(to_fd = openat(tfd, "to", O_RDONLY|O_DIRECTORY|O_CLOEXEC));
+        ASSERT_OK(from_fd = xopenat(tfd, "from", O_RDONLY|O_DIRECTORY));
+        ASSERT_OK(to_fd = xopenat(tfd, "to", O_RDONLY|O_DIRECTORY));
         ASSERT_OK(copy_tree_at(from_fd, /* from= */ NULL, to_fd, /* to= */ NULL, UID_INVALID, GID_INVALID,
                                COPY_MERGE_EMPTY, /* denylist= */ NULL, /* subvolumes= */ NULL));
         ASSERT_OK(readlinkat_malloc(tfd, "to/link", &p));
@@ -421,11 +421,11 @@ TEST_RET(copy_bytes) {
         int r;
         char buf[1024], buf2[1024];
 
-        infd = open("/usr/lib/os-release", O_RDONLY|O_CLOEXEC);
+        infd = xopenat(AT_FDCWD, "/usr/lib/os-release", O_RDONLY);
         if (infd < 0)
-                infd = open("/etc/os-release", O_RDONLY|O_CLOEXEC);
+                infd = xopenat(AT_FDCWD, "/etc/os-release", O_RDONLY);
         if (infd < 0)
-                return log_tests_skipped_errno(errno, "Could not open /usr/lib/os-release or /etc/os-release: %m");
+                return log_tests_skipped_errno(infd, "Could not open /usr/lib/os-release or /etc/os-release: %m");
 
         assert_se(pipe2(pipefd, O_CLOEXEC) == 0);
 
@@ -463,7 +463,7 @@ static void test_copy_bytes_regular_file_one(const char *src, uint64_t max_bytes
 
         log_info("%s max_bytes=%" PRIu64, __func__, max_bytes);
 
-        fd = open(src, O_CLOEXEC | O_PATH);
+        fd = xopenat(AT_FDCWD, src, O_PATH);
         assert_se(fd >= 0);
 
         fd2 = mkostemp_safe(fn2);
@@ -807,8 +807,8 @@ TEST_RET(copy_holes_with_gaps) {
         int r;
 
         assert_se((tfd = mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &t)) >= 0);
-        assert_se((fd = openat(tfd, "src", O_CREAT | O_RDWR, 0600)) >= 0);
-        assert_se((fd_copy = openat(tfd, "dst", O_CREAT | O_WRONLY, 0600)) >= 0);
+        assert_se((fd = xopenat_full(tfd, "src", O_CREAT | O_RDWR, /* xopen_flags= */ 0, 0600)) >= 0);
+        assert_se((fd_copy = xopenat_full(tfd, "dst", O_CREAT | O_WRONLY, /* xopen_flags= */ 0, 0600)) >= 0);
 
         ASSERT_OK_ERRNO(fstat(fd, &st));
         blksz = st.st_blksize;
@@ -910,9 +910,9 @@ TEST(copy_verify_linked) {
 
         assert_se(write_string_file_at(tfd, "hoge", "bar bar", WRITE_STRING_FILE_CREATE) >= 0);
 
-        fd_1 = openat(tfd, "hoge", O_CLOEXEC | O_NOCTTY | O_RDONLY);
+        fd_1 = xopenat(tfd, "hoge", O_NOCTTY | O_RDONLY);
         assert_se(fd_1 >= 0);
-        fd_2 = openat(tfd, "hoge", O_CLOEXEC | O_NOCTTY | O_RDONLY);
+        fd_2 = xopenat(tfd, "hoge", O_NOCTTY | O_RDONLY);
         assert_se(fd_2 >= 0);
         assert_se(unlinkat(tfd, "hoge", 0) >= 0);
 
@@ -925,7 +925,7 @@ TEST(copy_verify_linked) {
 
 static bool enable_fsverity(int dirfd, const char *name, int algo, const char *salt, size_t salt_size) {
         _cleanup_close_ int fd = -EBADF;
-        ASSERT_OK_ERRNO(fd = openat(dirfd, name, O_RDONLY | O_CLOEXEC | O_NOCTTY));
+        ASSERT_OK(fd = xopenat(dirfd, name, O_RDONLY | O_NOCTTY));
 
         struct fsverity_enable_arg enable_arg = {
                 .version = 1,
@@ -952,7 +952,7 @@ static struct fsverity_digest* alloc_fsverity_digest(size_t digest_size) {
 
 static bool measure_fsverity(int dirfd, const char *name, struct fsverity_digest *digest) {
         _cleanup_close_ int fd = -EBADF;
-        ASSERT_OK_ERRNO(fd = openat(dirfd, name, O_RDONLY | O_CLOEXEC | O_NOCTTY));
+        ASSERT_OK(fd = xopenat(dirfd, name, O_RDONLY | O_NOCTTY));
         if (ioctl(fd, FS_IOC_MEASURE_VERITY, digest) == 0)
                 return true;
 

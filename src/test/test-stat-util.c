@@ -120,8 +120,8 @@ TEST(inode_same) {
         assert_se(inode_same("/proc", "/proc", /* flags= */ 0));
         assert_se(inode_same("/proc", "/proc", AT_SYMLINK_NOFOLLOW));
 
-        _cleanup_close_ int fd1 = open("/dev/null", O_CLOEXEC|O_RDONLY),
-                fd2 = open("/dev/null", O_CLOEXEC|O_RDONLY);
+        _cleanup_close_ int fd1 = xopenat(AT_FDCWD, "/dev/null", O_RDONLY),
+                fd2 = xopenat(AT_FDCWD, "/dev/null", O_RDONLY);
 
         assert_se(fd1 >= 0);
         assert_se(fd2 >= 0);
@@ -134,7 +134,7 @@ TEST(inode_same) {
         assert_se(inode_same_at(fd2, /* filea= */ NULL, fd2, /* fileb= */ NULL, AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW) > 0);
 
         safe_close(fd2);
-        fd2 = open("/dev/urandom", O_CLOEXEC|O_RDONLY);
+        fd2 = xopenat(AT_FDCWD, "/dev/urandom", O_RDONLY);
         assert_se(fd2 >= 0);
 
         assert_se(inode_same_at(fd1, /* filea= */ NULL, fd2, /* fileb= */ NULL, AT_EMPTY_PATH) == 0);
@@ -259,7 +259,7 @@ TEST(dir_is_empty) {
 
         /* A NULL path checks the directory the fd refers to */
         _cleanup_close_ int fd = -EBADF;
-        ASSERT_OK_ERRNO(fd = open(empty_dir, O_DIRECTORY|O_CLOEXEC));
+        ASSERT_OK(fd = xopenat(AT_FDCWD, empty_dir, O_DIRECTORY));
         ASSERT_OK_POSITIVE(dir_is_empty_at(fd, /* path= */ NULL, /* ignore_hidden_or_backup= */ false));
         ASSERT_OK(touch(j));
         ASSERT_OK_ZERO(dir_is_empty_at(fd, /* path= */ NULL, /* ignore_hidden_or_backup= */ false));
@@ -306,7 +306,7 @@ TEST(fd_verify_linked) {
         assert_se(p = path_join(t, "hoge"));
         assert_se(touch(p) >= 0);
 
-        fd = open(p, O_CLOEXEC | O_PATH);
+        fd = xopenat(AT_FDCWD, p, O_PATH);
         assert_se(fd >= 0);
 
         assert_se(fd_verify_linked(fd) >= 0);

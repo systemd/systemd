@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 
 #include "fd-util.h"
+#include "fs-util.h"
 #include "log.h"
 #include "recurse-dir.h"
 #include "rm-rf.h"
@@ -168,7 +169,7 @@ static void test_must_be_flags(void) {
         ASSERT_OK(tfd = mkdtemp_open(/* template= */ NULL, O_DIRECTORY, &t));
 
         ASSERT_OK_ERRNO(mkdirat(tfd, "dir", 0777));
-        ASSERT_OK_ERRNO(reg_fd = openat(tfd, "reg", O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC, 0666));
+        ASSERT_OK(reg_fd = xopenat_full(tfd, "reg", O_CREAT|O_EXCL|O_WRONLY, /* xopen_flags= */ 0, 0666));
         reg_fd = safe_close(reg_fd);
         ASSERT_OK_ERRNO(symlinkat("reg", tfd, "lnk"));
         ASSERT_OK_ERRNO(mknodat(tfd, "sock", S_IFSOCK|0666, 0));
@@ -203,9 +204,9 @@ int main(int argc, char *argv[]) {
         else
                 p = "/usr/share/man"; /* something hopefully reasonably stable while we run (and limited in size) */
 
-        fd = open(p, O_DIRECTORY|O_CLOEXEC);
-        if (fd < 0 && errno == ENOENT)
-                return log_tests_skipped_errno(errno, "Couldn't open directory %s", p);
+        fd = xopenat(AT_FDCWD, p, O_DIRECTORY);
+        if (fd == -ENOENT)
+                return log_tests_skipped_errno(fd, "Couldn't open directory %s", p);
         assert_se(fd >= 0);
 
         /* If the test directory is on an overlayfs then files and their directory may return different

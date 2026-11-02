@@ -13,6 +13,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "in-addr-util.h"
 #include "io-util.h"
 #include "iovec-util.h"
@@ -1553,7 +1554,7 @@ TEST(fd_info) {
         ASSERT_OK(sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO, NULL, /* prefix= */ NULL));
         v = sd_json_variant_unref(v);
 
-        ASSERT_OK_ERRNO(fd = openat(AT_FDCWD, ".", O_CLOEXEC | O_DIRECTORY | O_PATH));
+        ASSERT_OK(fd = xopenat(AT_FDCWD, ".", O_DIRECTORY | O_PATH));
         ASSERT_OK(json_variant_new_fd_info(&v, fd));
         ASSERT_OK(sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO, NULL, /* prefix= */ NULL));
         v = sd_json_variant_unref(v);
@@ -1566,7 +1567,7 @@ TEST(fd_info) {
         v = sd_json_variant_unref(v);
         fd = safe_close(fd);
 
-        fd = open("/sys/class/net/lo/uevent", O_CLOEXEC | O_PATH);
+        fd = xopenat(AT_FDCWD, "/sys/class/net/lo/uevent", O_PATH);
         if (fd >= 0) {
                 ASSERT_OK(json_variant_new_fd_info(&v, fd));
                 ASSERT_OK(sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO, NULL, /* prefix= */ NULL));
@@ -1575,7 +1576,7 @@ TEST(fd_info) {
         }
 
         /* block device */
-        fd = open("/dev/sda", O_CLOEXEC | O_PATH);
+        fd = xopenat(AT_FDCWD, "/dev/sda", O_PATH);
         if (fd >= 0) {
                 ASSERT_OK(json_variant_new_fd_info(&v, fd));
                 ASSERT_OK(sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO, NULL, /* prefix= */ NULL));

@@ -7,7 +7,6 @@
 
 #include "alloc-util.h"
 #include "capability-util.h"
-#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "memfd-util.h"
@@ -97,7 +96,7 @@ TEST(fd_validate) {
         assert_se(fd_validate(-EBADF) == -EBADF);
 
         _cleanup_close_ int b = -EBADF;
-        assert_se((b = open("/dev/null", O_RDONLY|O_CLOEXEC)) >= 0);
+        assert_se((b = xopenat(AT_FDCWD, "/dev/null", O_RDONLY)) >= 0);
 
         assert_se(fd_validate(b) == 0);
         safe_close(b);
@@ -111,9 +110,9 @@ TEST(same_fd) {
 
         assert_se(pipe2(p, O_CLOEXEC) >= 0);
         assert_se((a = fcntl(p[0], F_DUPFD, 3)) >= 0);
-        assert_se((b = open("/bin/sh", O_RDONLY|O_CLOEXEC)) >= 0);
+        assert_se((b = xopenat(AT_FDCWD, "/bin/sh", O_RDONLY)) >= 0);
         assert_se((c = fcntl(a, F_DUPFD, 3)) >= 0);
-        assert_se((d = open("/bin/sh", O_RDONLY|O_CLOEXEC|O_PATH)) >= 0); /* O_PATH changes error returns in F_DUPFD_QUERY, let's test explicitly */
+        assert_se((d = xopenat(AT_FDCWD, "/bin/sh", O_RDONLY|O_PATH)) >= 0); /* O_PATH changes error returns in F_DUPFD_QUERY, let's test explicitly */
         assert_se((e = fcntl(d, F_DUPFD, 3)) >= 0);
 
         assert_se(same_fd(p[0], p[0]) > 0);
@@ -186,7 +185,7 @@ TEST(fd_move_above_stdio) {
         assert_se(original_stdin >= 3);
         assert_se(close_nointr(/* fd= */ 0) != EBADF);
 
-        new_fd = open("/dev/null", O_RDONLY);
+        new_fd = xopenat(AT_FDCWD, "/dev/null", O_RDONLY);
         assert_se(new_fd == 0);
 
         new_fd = fd_move_above_stdio(new_fd);
@@ -250,7 +249,7 @@ TEST(rearrange_stdio) {
                 pipe_read_fd = fd_move_above_stdio(/* fd= */ 0);
                 assert_se(pipe_read_fd >= 3);
 
-                assert_se(open("/dev/full", O_WRONLY|O_CLOEXEC) == 0);
+                assert_se(xopenat(AT_FDCWD, "/dev/full", O_WRONLY) == 0);
                 assert_se(memfd_new_and_seal_string("data", "foobar") == 2);
 
                 assert_se(rearrange_stdio(2, /* original_output_fd= */ 0, 1) >= 0);
@@ -424,7 +423,7 @@ TEST(fd_reopen) {
         int fl;
 
         /* Test this with a directory */
-        fd1 = open("/proc", O_DIRECTORY|O_PATH|O_CLOEXEC);
+        fd1 = xopenat(AT_FDCWD, "/proc", O_DIRECTORY|O_PATH);
         assert_se(fd1 >= 0);
 
         ASSERT_OK_ERRNO(fstat(fd1, &st1));
@@ -468,7 +467,7 @@ TEST(fd_reopen) {
         safe_close(fd1);
 
         /* And now, test this with a file. */
-        fd1 = open("/proc/version", O_PATH|O_CLOEXEC);
+        fd1 = xopenat(AT_FDCWD, "/proc/version", O_PATH);
         assert_se(fd1 >= 0);
 
         ASSERT_OK_ERRNO(fstat(fd1, &st1));
@@ -513,7 +512,7 @@ TEST(fd_reopen) {
         fd1 = -EBADF;
 
         /* Validate what happens if we reopen a symlink */
-        fd1 = open("/proc/self", O_PATH|O_CLOEXEC|O_NOFOLLOW);
+        fd1 = xopenat(AT_FDCWD, "/proc/self", O_PATH|O_NOFOLLOW);
         assert_se(fd1 >= 0);
         ASSERT_OK_ERRNO(fstat(fd1, &st1));
         assert_se(S_ISLNK(st1.st_mode));
@@ -548,7 +547,7 @@ TEST(fd_dup_or_reopen_stdio_nonblock) {
         nfd = safe_close(nfd);
         fd = safe_close(fd);
 
-        ASSERT_OK_ERRNO(fd = open(path, O_WRONLY|O_APPEND|O_CLOEXEC));
+        ASSERT_OK(fd = xopenat(AT_FDCWD, path, O_WRONLY|O_APPEND));
         ASSERT_OK(nfd = fd_dup_or_reopen_stdio_nonblock(fd, O_WRONLY));
         ASSERT_OK_ERRNO(fl = fcntl(nfd, F_GETFL));
         ASSERT_TRUE(FLAGS_SET(fl, O_APPEND));
@@ -556,7 +555,7 @@ TEST(fd_dup_or_reopen_stdio_nonblock) {
         fd = safe_close(fd);
 
         /* Reading ahead must not move the offset of the original fd */
-        ASSERT_OK_ERRNO(fd = open(path, O_RDONLY|O_CLOEXEC));
+        ASSERT_OK(fd = xopenat(AT_FDCWD, path, O_RDONLY));
         ASSERT_OK_EQ_ERRNO(lseek(fd, 2, SEEK_SET), (off_t) 2);
         ASSERT_OK(nfd = fd_dup_or_reopen_stdio_nonblock(fd, O_RDONLY));
         ASSERT_OK_EQ_ERRNO(read(nfd, buf, sizeof(buf) - 1), (ssize_t) 3);
@@ -589,7 +588,7 @@ TEST(fd_reopen_condition) {
         int fd2, fl;
 
         /* Open without O_PATH */
-        fd1 = open("/usr/", O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        fd1 = xopenat(AT_FDCWD, "/usr/", O_RDONLY|O_DIRECTORY);
         assert_se(fd1 >= 0);
 
         fl = fcntl(fd1, F_GETFL);
@@ -676,13 +675,13 @@ TEST(dir_fd_is_root) {
 
         assert_se(dir_fd_is_root_or_cwd(AT_FDCWD) > 0);
 
-        assert_se((fd = open("/", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
+        assert_se((fd = xopenat(AT_FDCWD, "/", O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
         assert_se(dir_fd_is_root(fd) > 0);
         assert_se(dir_fd_is_root_or_cwd(fd) > 0);
 
         fd = safe_close(fd);
 
-        assert_se((fd = open("/usr", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
+        assert_se((fd = xopenat(AT_FDCWD, "/usr", O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
         assert_se(dir_fd_is_root(fd) == 0);
         assert_se(dir_fd_is_root_or_cwd(fd) == 0);
 
@@ -701,19 +700,19 @@ TEST(dir_fd_is_root) {
 
         fd = safe_close(fd);
 
-        assert_se((fd = open(tmp, O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
+        assert_se((fd = xopenat(AT_FDCWD, tmp, O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
         assert_se(dir_fd_is_root(fd) == 0);
         assert_se(dir_fd_is_root_or_cwd(fd) == 0);
 
         fd = safe_close(fd);
 
-        assert_se((fd = open(x, O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
+        assert_se((fd = xopenat(AT_FDCWD, x, O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
         assert_se(dir_fd_is_root(fd) == 0);
         assert_se(dir_fd_is_root_or_cwd(fd) == 0);
 
         fd = safe_close(fd);
 
-        assert_se((fd = open(y, O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
+        assert_se((fd = xopenat(AT_FDCWD, y, O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
         assert_se(dir_fd_is_root(fd) == 0);
         assert_se(dir_fd_is_root_or_cwd(fd) == 0);
 }
@@ -734,7 +733,7 @@ static void test_path_is_root_at_one(bool expected) {
         ASSERT_OK_ZERO(path_is_root("/../../usr"));
 
         _cleanup_close_ int fd = -EBADF;
-        ASSERT_OK_ERRNO(fd = open("/", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW));
+        ASSERT_OK(fd = xopenat(AT_FDCWD, "/", O_PATH|O_DIRECTORY|O_NOFOLLOW));
 
         ASSERT_OK_POSITIVE(path_is_root_at(fd, /* path= */ NULL));
         ASSERT_OK_POSITIVE(path_is_root_at(fd, ""));
@@ -759,7 +758,7 @@ static void test_path_is_root_at_one(bool expected) {
         ASSERT_OK_ZERO(path_is_root_at(fd, "/../../usr"));
 
         safe_close(fd);
-        ASSERT_OK_ERRNO(fd = open("/../", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW));
+        ASSERT_OK(fd = xopenat(AT_FDCWD, "/../", O_PATH|O_DIRECTORY|O_NOFOLLOW));
 
         ASSERT_OK_EQ(path_is_root_at(fd, /* path= */ NULL), expected);
         ASSERT_OK_EQ(path_is_root_at(fd, ""), expected);
@@ -849,13 +848,13 @@ TEST(path_is_root_at) {
 TEST(fds_inode_and_mount_same) {
         _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF, fd3 = -EBADF, fd4 = -EBADF;
 
-        fd1 = open("/sys", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
-        fd2 = open("/proc", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
-        fd3 = open("/proc", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
-        fd4 = open("/", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
+        fd1 = xopenat(AT_FDCWD, "/sys", O_PATH|O_DIRECTORY|O_NOFOLLOW);
+        fd2 = xopenat(AT_FDCWD, "/proc", O_PATH|O_DIRECTORY|O_NOFOLLOW);
+        fd3 = xopenat(AT_FDCWD, "/proc", O_PATH|O_DIRECTORY|O_NOFOLLOW);
+        fd4 = xopenat(AT_FDCWD, "/", O_PATH|O_DIRECTORY|O_NOFOLLOW);
 
         if (fd1 < 0 || fd2 < 0 || fd3 < 0 || fd4 < 0)
-                return (void) log_tests_skipped_errno(errno, "Failed to open /sys or /proc or /");
+                return (void) log_tests_skipped("Failed to open /sys or /proc or /");
 
         assert_se(fds_inode_and_mount_same(fd1, fd2) == 0);
         assert_se(fds_inode_and_mount_same(fd2, fd3) > 0);
@@ -887,7 +886,7 @@ TEST(fd_get_path) {
         assert_se(symlinkat("../regular", tfd, "subdir/symlink") >= 0);
         assert_se(symlinkat("subdir", tfd, "symdir") >= 0);
 
-        fd = openat(tfd, "regular", O_CLOEXEC|O_PATH);
+        fd = xopenat(tfd, "regular", O_PATH);
         assert_se(fd >= 0);
         assert_se(fd_get_path(fd, &p) >= 0);
         ASSERT_STREQ(p, q);
@@ -895,7 +894,7 @@ TEST(fd_get_path) {
         p = mfree(p);
         fd = safe_close(fd);
 
-        fd = openat(AT_FDCWD, "regular", O_CLOEXEC|O_PATH);
+        fd = xopenat(AT_FDCWD, "regular", O_PATH);
         assert_se(fd >= 0);
         assert_se(fd_get_path(fd, &p) >= 0);
         ASSERT_STREQ(p, q);
@@ -903,16 +902,7 @@ TEST(fd_get_path) {
         p = mfree(p);
         fd = safe_close(fd);
 
-        fd = openat(tfd, "subdir/symlink", O_CLOEXEC|O_PATH);
-        assert_se(fd >= 0);
-        assert_se(fd_verify_regular(fd) >= 0);
-        assert_se(fd_get_path(fd, &p) >= 0);
-        ASSERT_STREQ(p, q);
-
-        p = mfree(p);
-        fd = safe_close(fd);
-
-        fd = openat(AT_FDCWD, "subdir/symlink", O_CLOEXEC|O_PATH);
+        fd = xopenat(tfd, "subdir/symlink", O_PATH);
         assert_se(fd >= 0);
         assert_se(fd_verify_regular(fd) >= 0);
         assert_se(fd_get_path(fd, &p) >= 0);
@@ -921,7 +911,7 @@ TEST(fd_get_path) {
         p = mfree(p);
         fd = safe_close(fd);
 
-        fd = openat(tfd, "symdir//./symlink", O_CLOEXEC|O_PATH);
+        fd = xopenat(AT_FDCWD, "subdir/symlink", O_PATH);
         assert_se(fd >= 0);
         assert_se(fd_verify_regular(fd) >= 0);
         assert_se(fd_get_path(fd, &p) >= 0);
@@ -930,7 +920,16 @@ TEST(fd_get_path) {
         p = mfree(p);
         fd = safe_close(fd);
 
-        fd = openat(AT_FDCWD, "symdir//./symlink", O_CLOEXEC|O_PATH);
+        fd = xopenat(tfd, "symdir//./symlink", O_PATH);
+        assert_se(fd >= 0);
+        assert_se(fd_verify_regular(fd) >= 0);
+        assert_se(fd_get_path(fd, &p) >= 0);
+        ASSERT_STREQ(p, q);
+
+        p = mfree(p);
+        fd = safe_close(fd);
+
+        fd = xopenat(AT_FDCWD, "symdir//./symlink", O_PATH);
         assert_se(fd >= 0);
         assert_se(fd_verify_regular(fd) >= 0);
         assert_se(fd_get_path(fd, &p) >= 0);
@@ -941,7 +940,7 @@ TEST(fd_get_path) {
         fd = safe_close(fd);
 
         assert_se(q = path_join(t, "subdir/symlink"));
-        fd = openat(tfd, "subdir/symlink", O_CLOEXEC|O_PATH|O_NOFOLLOW);
+        fd = xopenat(tfd, "subdir/symlink", O_PATH|O_NOFOLLOW);
         assert_se(fd >= 0);
         assert_se(fd_verify_regular(fd) == -ELOOP);
         assert_se(fd_get_path(fd, &p) >= 0);
@@ -950,7 +949,7 @@ TEST(fd_get_path) {
         p = mfree(p);
         fd = safe_close(fd);
 
-        fd = openat(AT_FDCWD, "subdir/symlink", O_CLOEXEC|O_PATH|O_NOFOLLOW);
+        fd = xopenat(AT_FDCWD, "subdir/symlink", O_PATH|O_NOFOLLOW);
         assert_se(fd >= 0);
         assert_se(fd_verify_regular(fd) == -ELOOP);
         assert_se(fd_get_path(fd, &p) >= 0);
@@ -959,7 +958,7 @@ TEST(fd_get_path) {
         p = mfree(p);
         fd = safe_close(fd);
 
-        fd = openat(tfd, "symdir//./symlink", O_CLOEXEC|O_PATH|O_NOFOLLOW);
+        fd = xopenat(tfd, "symdir//./symlink", O_PATH|O_NOFOLLOW);
         assert_se(fd >= 0);
         assert_se(fd_verify_regular(fd) == -ELOOP);
         assert_se(fd_get_path(fd, &p) >= 0);
@@ -968,7 +967,7 @@ TEST(fd_get_path) {
         p = mfree(p);
         fd = safe_close(fd);
 
-        fd = openat(AT_FDCWD, "symdir//./symlink", O_CLOEXEC|O_PATH|O_NOFOLLOW);
+        fd = xopenat(AT_FDCWD, "symdir//./symlink", O_PATH|O_NOFOLLOW);
         assert_se(fd >= 0);
         assert_se(fd_verify_regular(fd) == -ELOOP);
         assert_se(fd_get_path(fd, &p) >= 0);
@@ -986,17 +985,17 @@ TEST(fd_vet_accmode) {
         ASSERT_OK_ZERO(fd_vet_accmode(fd_rw, O_WRONLY));
         ASSERT_OK_POSITIVE(fd_vet_accmode(fd_rw, O_RDWR));
 
-        ASSERT_OK_ERRNO(fd_ro = open(name, O_RDONLY | O_CLOEXEC));
+        ASSERT_OK(fd_ro = xopenat(AT_FDCWD, name, O_RDONLY));
         ASSERT_OK_POSITIVE(fd_vet_accmode(fd_ro, O_RDONLY));
         ASSERT_ERROR(fd_vet_accmode(fd_ro, O_WRONLY), EPROTOTYPE);
         ASSERT_ERROR(fd_vet_accmode(fd_ro, O_RDWR), EPROTOTYPE);
 
-        ASSERT_OK_ERRNO(fd_wo = open(name, O_WRONLY | O_CLOEXEC));
+        ASSERT_OK(fd_wo = xopenat(AT_FDCWD, name, O_WRONLY));
         ASSERT_ERROR(fd_vet_accmode(fd_wo, O_RDONLY), EPROTOTYPE);
         ASSERT_OK_POSITIVE(fd_vet_accmode(fd_wo, O_WRONLY));
         ASSERT_ERROR(fd_vet_accmode(fd_wo, O_RDWR), EPROTOTYPE);
 
-        ASSERT_OK_ERRNO(fd_opath = open(name, O_PATH | O_CLOEXEC));
+        ASSERT_OK(fd_opath = xopenat(AT_FDCWD, name, O_PATH));
         ASSERT_ERROR(fd_vet_accmode(fd_opath, O_RDONLY), EBADFD);
         ASSERT_ERROR(fd_vet_accmode(fd_opath, O_WRONLY), EBADFD);
         ASSERT_ERROR(fd_vet_accmode(fd_opath, O_RDWR), EBADFD);
@@ -1009,13 +1008,13 @@ TEST(fd_is_writable) {
         ASSERT_OK(fd_rw = mkostemp_safe(name));
         ASSERT_OK_POSITIVE(fd_is_writable(fd_rw));
 
-        ASSERT_OK(fd_ro = open(name, O_RDONLY | O_CLOEXEC));
+        ASSERT_OK(fd_ro = xopenat(AT_FDCWD, name, O_RDONLY));
         ASSERT_OK_ZERO(fd_is_writable(fd_ro));
 
-        ASSERT_OK(fd_wo = open(name, O_WRONLY | O_CLOEXEC));
+        ASSERT_OK(fd_wo = xopenat(AT_FDCWD, name, O_WRONLY));
         ASSERT_OK_POSITIVE(fd_is_writable(fd_wo));
 
-        ASSERT_OK(fd_path = open(name, O_PATH | O_CLOEXEC));
+        ASSERT_OK(fd_path = xopenat(AT_FDCWD, name, O_PATH));
         ASSERT_OK_ZERO(fd_is_writable(fd_path));
 
         ASSERT_SIGNAL(fd_is_writable(-1), SIGABRT);
@@ -1031,8 +1030,9 @@ TEST(fd_reopen_emptypath) {
 
         ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
 
-        /* Older kernels ignore the flag and miss the empty path */
-        fd = openat(tfd, "", O_PATH|O_CLOEXEC|O_EMPTYPATH);
+        /* Older kernels ignore the flag and miss the empty path. xopenat() returns -ENOENT for an empty path
+         * without calling openat(), so the probe calls openat() directly. */
+        fd = openat(tfd, "", O_PATH|O_CLOEXEC|O_EMPTYPATH); /* NOLINT(bugprone-unsafe-functions) */
         if (fd < 0 && errno == ENOENT)
                 return (void) log_tests_skipped("kernel lacks O_EMPTYPATH");
         ASSERT_OK_ERRNO(fd);
@@ -1043,8 +1043,8 @@ TEST(fd_reopen_emptypath) {
 
         /* A directory we may read but not search: "." cannot be looked up in it, O_EMPTYPATH needs no lookup */
         ASSERT_OK_ERRNO(mkdirat(tfd, "noexec", 0400));
-        ASSERT_OK_ERRNO(dfd = openat(tfd, "noexec", O_PATH|O_DIRECTORY|O_CLOEXEC));
-        ASSERT_ERROR(RET_NERRNO(openat(dfd, ".", O_RDONLY|O_DIRECTORY|O_CLOEXEC)), EACCES);
+        ASSERT_OK(dfd = xopenat(tfd, "noexec", O_PATH|O_DIRECTORY));
+        ASSERT_ERROR(xopenat(dfd, ".", O_RDONLY|O_DIRECTORY), EACCES);
 
         ASSERT_OK(fd = fd_reopen(dfd, O_RDONLY|O_DIRECTORY));
         ASSERT_OK_POSITIVE(inode_same_at(dfd, NULL, fd, NULL, AT_EMPTY_PATH));
@@ -1054,7 +1054,7 @@ TEST(fd_reopen_cloexec) {
         _cleanup_close_ int fd = -EBADF, reopened = -EBADF;
         int fl;
 
-        ASSERT_OK_ERRNO(fd = open("/proc", O_DIRECTORY|O_PATH|O_CLOEXEC));
+        ASSERT_OK(fd = xopenat(AT_FDCWD, "/proc", O_DIRECTORY|O_PATH));
 
         /* O_CLOEXEC is implied, whether requested or not */
         ASSERT_OK(reopened = fd_reopen(fd, O_RDONLY|O_DIRECTORY));

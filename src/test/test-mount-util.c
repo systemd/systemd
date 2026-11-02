@@ -400,7 +400,7 @@ TEST(fd_make_mount_point) {
         if (r == 0) {
                 _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
 
-                fd = open(s, O_PATH|O_CLOEXEC);
+                fd = xopenat(AT_FDCWD, s, O_PATH);
                 assert_se(fd >= 0);
 
                 assert_se(is_mount_point_at(fd, /* path= */ NULL, AT_SYMLINK_FOLLOW) == 0);
@@ -408,7 +408,7 @@ TEST(fd_make_mount_point) {
                 assert_se(fd_make_mount_point(fd) > 0);
 
                 /* Reopen the inode so that we end up on the new mount */
-                fd2 = open(s, O_PATH|O_CLOEXEC);
+                fd2 = xopenat(AT_FDCWD, s, O_PATH);
 
                 assert_se(is_mount_point_at(fd2, /* path= */ NULL, AT_SYMLINK_FOLLOW) > 0);
 
@@ -547,7 +547,7 @@ TEST(path_is_network_fs_harder) {
         _cleanup_close_ int dir_fd = -EBADF;
         int r;
 
-        ASSERT_OK(dir_fd = open("/", O_PATH | O_CLOEXEC));
+        ASSERT_OK(dir_fd = xopenat(AT_FDCWD, "/", O_PATH));
         FOREACH_STRING(s,
                        "/", "/dev/", "/proc/", "/run/", "/sys/", "/tmp/", "/usr/", "/var/tmp/",
                        "", ".", "../../../", "/this/path/should/not/exist/for/test-mount-util/") {

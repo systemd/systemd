@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "compress.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "fuzz.h"
 #include "memfd-util.h"
 #include "memory-util.h"
@@ -126,7 +127,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 if (n < 0)
                         return 0;
 
-                null_fd = open("/dev/null", O_WRONLY|O_CLOEXEC|O_NOCTTY);
+                null_fd = xopenat(AT_FDCWD, "/dev/null", O_WRONLY|O_NOCTTY);
                 if (null_fd < 0)
                         return 0;
 

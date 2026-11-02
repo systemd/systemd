@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "compress.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "io-util.h"
 #include "reboot-util.h"
 #include "string-util.h"
@@ -214,9 +215,9 @@ TEST(system_kernel) {
 
         log_info("Found kernel image: %s", path);
 
-        fd = open(path, O_RDONLY|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, path, O_RDONLY);
         if (fd < 0) {
-                log_tests_skipped_errno(errno, "Cannot open kernel image '%s'", path);
+                log_tests_skipped_errno(fd, "Cannot open kernel image '%s'", path);
                 return;
         }
 
