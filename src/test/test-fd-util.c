@@ -1030,8 +1030,9 @@ TEST(fd_reopen_emptypath) {
 
         ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
 
-        /* Older kernels ignore the flag and miss the empty path */
-        fd = openat(tfd, "", O_PATH|O_CLOEXEC|O_EMPTYPATH);
+        /* Older kernels ignore the flag and miss the empty path. xopenat() returns -ENOENT for an empty path
+         * without calling openat(), so the probe calls openat() directly. */
+        fd = openat(tfd, "", O_PATH|O_CLOEXEC|O_EMPTYPATH); /* NOLINT(bugprone-unsafe-functions) */
         if (fd < 0 && errno == ENOENT)
                 return (void) log_tests_skipped("kernel lacks O_EMPTYPATH");
         ASSERT_OK_ERRNO(fd);
