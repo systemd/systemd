@@ -217,14 +217,7 @@ static int load_private_key(EVP_PKEY **ret, OpenSSLAskPasswordUI **ret_ui) {
                         arg_private_key_source_type,
                         arg_private_key_source,
                         arg_private_key,
-                        &(AskPasswordRequest) {
-                                .tty_fd = -EBADF,
-                                .id = "manifest-private-key-pin",
-                                .keyring = arg_private_key,
-                                .credential = "manifest.private-key-pin",
-                                .until = USEC_INFINITY,
-                                .hup_fd = -EBADF,
-                        },
+                        ASK_PASSWORD_PRIVATE_KEY_PIN("manifest", arg_private_key),
                         ret,
                         ret_ui);
         if (r < 0)

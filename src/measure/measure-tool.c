@@ -588,14 +588,7 @@ static int build_policy_digest(bool sign) {
                         arg_certificate_source,
                         arg_certificate,
                         arg_public_key,
-                        &(AskPasswordRequest) {
-                                .tty_fd = -EBADF,
-                                .id = "measure-private-key-pin",
-                                .keyring = arg_private_key,
-                                .credential = "measure.private-key-pin",
-                                .until = USEC_INFINITY,
-                                .hup_fd = -EBADF,
-                        },
+                        ASK_PASSWORD_PRIVATE_KEY_PIN("measure", arg_private_key),
                         &privkey,
                         &pubkey,
                         &ui);
