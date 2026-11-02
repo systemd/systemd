@@ -2913,6 +2913,80 @@ int openssl_load_x509_certificate(
 
         return 0;
 }
+
+int openssl_load_key_pair(
+                KeySourceType private_key_source_type,
+                const char *private_key_source,
+                const char *private_key,
+                CertificateSourceType certificate_source_type,
+                const char *certificate_source,
+                const char *certificate,
+                const char *public_key,
+                const AskPasswordRequest *request,
+                EVP_PKEY **ret_private_key,
+                EVP_PKEY **ret_public_key,
+                OpenSSLAskPasswordUI **ret_user_interface) {
+
+        _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *privkey = NULL, *pubkey = NULL;
+        _cleanup_(X509_freep) X509 *cert = NULL;
+        int r;
+
+        assert(!private_key || (request && ret_private_key && ret_user_interface));
+        assert(ret_public_key);
+
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        /* Loading a certificate after a private key hangs with some engines and providers, so the
+         * certificate is loaded first. */
+        if (certificate) {
+                r = openssl_load_x509_certificate(certificate_source_type, certificate_source, certificate, &cert);
+                if (r < 0)
+                        return r;
+        }
+
+        if (private_key) {
+                r = openssl_load_private_key(
+                                private_key_source_type,
+                                private_key_source,
+                                private_key,
+                                request,
+                                &privkey,
+                                &ui);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to load private key from %s: %m", private_key);
+        }
+
+        if (public_key) {
+                _cleanup_free_ char *pem = NULL;
+                size_t pem_size;
+
+                r = read_full_file(public_key, &pem, &pem_size);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to read public key %s: %m", public_key);
+
+                r = openssl_pubkey_from_pem(pem, pem_size, &pubkey);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse public key %s: %m", public_key);
+        } else if (cert) {
+                pubkey = sym_X509_get_pubkey(cert);
+                if (!pubkey)
+                        return log_openssl_errors(LOG_DEBUG, "Failed to extract public key from certificate %s", certificate);
+        } else if (privkey) {
+                r = openssl_extract_public_key(privkey, &pubkey);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to extract public key from private key %s: %m", private_key);
+        }
+
+        if (ret_private_key)
+                *ret_private_key = TAKE_PTR(privkey);
+        *ret_public_key = TAKE_PTR(pubkey);
+        if (ret_user_interface)
+                *ret_user_interface = TAKE_PTR(ui);
+        return 0;
+}
 #endif
 
 #if !HAVE_OPENSSL
