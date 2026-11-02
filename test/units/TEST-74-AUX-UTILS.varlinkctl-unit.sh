@@ -56,6 +56,41 @@ testcase_set_properties() {
         "name"
 }
 
+testcase_ref_units() (
+    local pid reply unit operation
+
+    varlinkctl --graceful=org.varlink.service.ExpectedMore call /run/systemd/io.systemd.Manager \
+        io.systemd.Unit.RefUnits '{"names":["varlink-ref-a.service"]}'
+
+    coproc REFS {
+        exec varlinkctl -E --json=short call /run/systemd/io.systemd.Manager io.systemd.Unit.RefUnits \
+            '{"names":["varlink-ref-a.service","varlink-ref-b.service"]}'
+    }
+    pid=$REFS_PID
+    trap 'kill "$pid" 2>/dev/null || :; wait "$pid" 2>/dev/null || :' EXIT
+    read -r -t 10 -u "${REFS[0]}" reply
+    [[ "$reply" == $'\x1e{}' ]]
+
+    for unit in varlink-ref-{a,b}.service; do
+        systemd-run --quiet --wait --collect --unit="$unit" true
+    done
+    for operation in daemon-reload daemon-reexec; do
+        systemctl "$operation"
+        kill -0 "$pid"
+        for unit in varlink-ref-{a,b}.service; do
+            [[ "$(systemctl show -P LoadState "$unit")" == loaded ]]
+        done
+    done
+
+    kill "$pid"
+    wait "$pid" || :
+    trap - EXIT
+    for unit in varlink-ref-{a,b}.service; do
+        # shellcheck disable=SC2016
+        timeout 10 bash -c 'until [[ "$(systemctl show -P LoadState "$1")" == not-found ]]; do sleep .1; done' _ "$unit"
+    done
+)
+
 testcase_contexts() {
     # test for KillContext
     varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"pid": {"pid": 0}}' | jq -e '.context.Kill'

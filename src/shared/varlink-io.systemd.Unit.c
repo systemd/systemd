@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bus-polkit.h"
 #include "varlink-idl-common.h"
 #include "varlink-io.systemd.Job.h"
 #include "varlink-io.systemd.Unit.h"
@@ -2033,6 +2034,13 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("The runtime properties to set."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(properties, UnitProperties, 0));
 
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                RefUnits,
+                SD_VARLINK_REQUIRES_MORE,
+                SD_VARLINK_FIELD_COMMENT("Names of units to keep loaded. Requires 'more'. An empty notification acknowledges that all references were acquired; they are released when the connection closes. Units need not exist yet, allowing a reference to be acquired before StartTransient(). References survive daemon-reload and daemon-reexec."),
+                SD_VARLINK_DEFINE_INPUT(names, SD_VARLINK_STRING, SD_VARLINK_ARRAY),
+                VARLINK_DEFINE_POLKIT_INPUT);
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Unit,
                 "io.systemd.Unit",
@@ -2044,6 +2052,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_SetProperties,
                 SD_VARLINK_SYMBOL_COMMENT("Create a transient unit and start it"),
                 &vl_method_StartTransient,
+                SD_VARLINK_SYMBOL_COMMENT("Keep units loaded for the lifetime of a streaming method call."),
+                &vl_method_RefUnits,
                 &vl_type_RateLimit,
                 SD_VARLINK_SYMBOL_COMMENT("An object to represent a unit's conditions"),
                 &vl_type_Condition,

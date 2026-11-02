@@ -11,3 +11,4 @@ typedef enum FrontendType FrontendType;
 typedef struct Manager Manager;
 typedef struct PseudoTTY PseudoTTY;
 typedef struct PseudoTTYMonitor PseudoTTYMonitor;
+typedef struct UnitReference UnitReference;

@@ -50,8 +50,10 @@ struct PseudoTTY {
         char *backend_path;
         char *unit;
 
-        /* Connection to the service manager while the StartTransient() call for the shell unit is in flight */
+        /* Prepare StartTransient() while acquiring the unit reference, then keep the connection until its reply */
         sd_varlink *start_shell_link;
+        sd_json_variant *start_shell_parameters;
+        UnitReference *unit_reference;
 
         /* Client connection whose AcquirePty() reply is deferred until the shell unit start completed, plus
          * the prepared reply parameters */
