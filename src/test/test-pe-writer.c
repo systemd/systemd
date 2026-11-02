@@ -8,6 +8,7 @@
 #include "memfd-util.h"
 #include "memory-util.h"
 #include "pe-binary.h"
+#include "pe-test-util.h"
 #include "pe-writer.h"
 #include "string-util.h"
 #include "tests.h"
@@ -17,9 +18,6 @@
 #  include "crypto-util.h"
 #endif
 
-#define PE_OFFSET 0x40U
-#define OPTIONAL_HEADER_SIZE 0xf0U
-#define SECTION_TABLE_OFFSET (PE_OFFSET + offsetof(PeHeader, optional) + OPTIONAL_HEADER_SIZE)
 #define FILE_ALIGNMENT 0x200U
 #define SECTION_ALIGNMENT 0x1000U
 #define STUB_SIZE 0x800U
@@ -34,27 +32,16 @@ static uint8_t* build_stub(size_t size, uint32_t size_of_headers) {
 
         uint8_t *stub = ASSERT_NOT_NULL(new0(uint8_t, size));
 
-        ((IMAGE_DOS_HEADER*) stub)->e_magic = htole16(0x5A4D);
-        ((IMAGE_DOS_HEADER*) stub)->e_lfanew = htole32(PE_OFFSET);
-
-        PeHeader *h = (PeHeader*) (stub + PE_OFFSET);
-        h->signature = htole32(UINT32_C(0x00004550));
-        h->pe.Machine = htole16(UINT16_C(0x8664));
-        h->pe.NumberOfSections = htole16(2);
-        h->pe.SizeOfOptionalHeader = htole16(OPTIONAL_HEADER_SIZE);
-        h->pe.Characteristics = htole16(UINT16_C(0x0022));
-        h->optional.Magic = htole16(UINT16_C(0x020B));
+        PeHeader *h = pe_test_init_headers(stub, size, /* n_sections= */ 2);
         h->optional.SizeOfInitializedData = htole32(0x400);
         h->optional.SectionAlignment = htole32(SECTION_ALIGNMENT);
         h->optional.FileAlignment = htole32(FILE_ALIGNMENT);
         h->optional.SizeOfImage = htole32(0x3000);
         h->optional.SizeOfHeaders = htole32(size_of_headers);
         h->optional.CheckSum = htole32(0x1234);
-        h->optional.Subsystem = htole16(IMAGE_SUBSYSTEM_EFI_APPLICATION);
         h->optional.DllCharacteristics = htole16(STUB_DLL_CHARACTERISTICS);
-        h->optional.pe32plus_NumberOfRvaAndSizes = htole32(16);
 
-        IMAGE_SECTION_HEADER *s = (IMAGE_SECTION_HEADER*) (stub + SECTION_TABLE_OFFSET);
+        IMAGE_SECTION_HEADER *s = (IMAGE_SECTION_HEADER*) (stub + PE_TEST_SECTION_TABLE_OFFSET);
         s[0] = (IMAGE_SECTION_HEADER) {
                 .Name = ".text",
                 .VirtualSize = htole32(0x180),
@@ -229,7 +216,7 @@ TEST(find_and_replace_section) {
 
 TEST(replace_section_memory_overlap) {
         _cleanup_free_ uint8_t *stub = build_stub(STUB_SIZE, 0x400);
-        IMAGE_SECTION_HEADER *s = (IMAGE_SECTION_HEADER*) (stub + SECTION_TABLE_OFFSET);
+        IMAGE_SECTION_HEADER *s = (IMAGE_SECTION_HEADER*) (stub + PE_TEST_SECTION_TABLE_OFFSET);
 
         /* Map .sbat 0x100 bytes after .text. .text has 0x200 bytes of raw data, but growing it beyond 0x100
          * bytes maps it over .sbat. */
@@ -247,12 +234,12 @@ TEST(replace_section_memory_overlap) {
 TEST(header_space) {
         /* SizeOfHeaders ends right after the section table. Rounding it up to the file alignment adds room
          * for more section headers. */
-        _cleanup_free_ uint8_t *stub = build_stub(STUB_SIZE, SECTION_TABLE_OFFSET + 2 * sizeof(IMAGE_SECTION_HEADER));
+        _cleanup_free_ uint8_t *stub = build_stub(STUB_SIZE, PE_TEST_SECTION_TABLE_OFFSET + 2 * sizeof(IMAGE_SECTION_HEADER));
         _cleanup_close_ int fd = ASSERT_OK(memfd_new_and_seal("stub", stub, STUB_SIZE));
         _cleanup_(pe_writer_freep) PeWriter *w = NULL;
         ASSERT_OK(pe_writer_new(fd, &w));
 
-        size_t free_slots = (FILE_ALIGNMENT - SECTION_TABLE_OFFSET) / sizeof(IMAGE_SECTION_HEADER) - 2;
+        size_t free_slots = (FILE_ALIGNMENT - PE_TEST_SECTION_TABLE_OFFSET) / sizeof(IMAGE_SECTION_HEADER) - 2;
         ASSERT_GT(free_slots, 0U);
         for (size_t i = 0; i < free_slots; i++)
                 ASSERT_OK(pe_writer_add_section(w, ".data", IMAGE_SCN_CNT_INITIALIZED_DATA|IMAGE_SCN_MEM_READ, /* ret= */ NULL));
@@ -273,7 +260,7 @@ TEST(header_space) {
 
 TEST(header_space_not_empty) {
         _cleanup_free_ uint8_t *stub = build_stub(STUB_SIZE, 0x400);
-        stub[SECTION_TABLE_OFFSET + 2 * sizeof(IMAGE_SECTION_HEADER)] = 'x';
+        stub[PE_TEST_SECTION_TABLE_OFFSET + 2 * sizeof(IMAGE_SECTION_HEADER)] = 'x';
 
         _cleanup_close_ int fd = ASSERT_OK(memfd_new_and_seal("stub", stub, STUB_SIZE));
         _cleanup_(pe_writer_freep) PeWriter *w = NULL;
@@ -336,7 +323,7 @@ TEST(misaligned_section) {
         /* Stripping a stub after linking leaves section data that isn't aligned to the file alignment. Here,
          * the .sbat data starts 8 bytes after the file alignment and its raw size is half of it. */
         _cleanup_free_ uint8_t *stub = build_stub(STUB_SIZE, 0x400);
-        IMAGE_SECTION_HEADER *s = (IMAGE_SECTION_HEADER*) (stub + SECTION_TABLE_OFFSET);
+        IMAGE_SECTION_HEADER *s = (IMAGE_SECTION_HEADER*) (stub + PE_TEST_SECTION_TABLE_OFFSET);
         memmove(stub + 0x608, stub + 0x600, 0x100);
         memset(stub + 0x600, 0xaa, 8);
         s[1].PointerToRawData = htole32(0x608);
@@ -380,7 +367,7 @@ TEST(misaligned_section) {
 TEST(misaligned_section_order) {
         /* The .text data follows the .sbat data, so moving the .sbat data would move the .text data too. */
         _cleanup_free_ uint8_t *stub = build_stub(STUB_SIZE, 0x400);
-        IMAGE_SECTION_HEADER *s = (IMAGE_SECTION_HEADER*) (stub + SECTION_TABLE_OFFSET);
+        IMAGE_SECTION_HEADER *s = (IMAGE_SECTION_HEADER*) (stub + PE_TEST_SECTION_TABLE_OFFSET);
         s[0].PointerToRawData = htole32(0x600);
         s[1].PointerToRawData = htole32(0x400);
         s[1].SizeOfRawData = htole32(0x100);
@@ -426,11 +413,11 @@ TEST(short_file) {
         /* The file ends after the section table, before the end of the headers that SizeOfHeaders
          * declares. New sections must not be placed inside the headers. */
         _cleanup_free_ uint8_t *stub = build_stub(STUB_SIZE, 0x300);
-        IMAGE_SECTION_HEADER *s = (IMAGE_SECTION_HEADER*) (stub + SECTION_TABLE_OFFSET);
+        IMAGE_SECTION_HEADER *s = (IMAGE_SECTION_HEADER*) (stub + PE_TEST_SECTION_TABLE_OFFSET);
         s[0].SizeOfRawData = s[0].PointerToRawData = 0;
         s[1].SizeOfRawData = s[1].PointerToRawData = 0;
 
-        size_t size = SECTION_TABLE_OFFSET + 2 * sizeof(IMAGE_SECTION_HEADER);
+        size_t size = PE_TEST_SECTION_TABLE_OFFSET + 2 * sizeof(IMAGE_SECTION_HEADER);
         _cleanup_close_ int fd = ASSERT_OK(memfd_new_and_seal("stub", stub, size));
         _cleanup_(pe_writer_freep) PeWriter *w = NULL;
         ASSERT_OK(pe_writer_new(fd, &w));
@@ -476,7 +463,7 @@ static uint8_t* build_stub_with_symbols(size_t extra, size_t *ret_size) {
         size_t symbols_size = 2 * 18, size = STUB_SIZE + symbols_size + 8 + extra;
         uint8_t *stub = build_stub(size, 0x400);
 
-        PeHeader *h = (PeHeader*) (stub + PE_OFFSET);
+        PeHeader *h = (PeHeader*) (stub + PE_TEST_PE_OFFSET);
         h->pe.PointerToSymbolTable = htole32(STUB_SIZE);
         h->pe.NumberOfSymbols = htole32(2);
         memset(stub + STUB_SIZE, 'x', symbols_size);
@@ -516,7 +503,7 @@ TEST(symbol_table_certificate_table) {
          * reads the certificate's dwLength as the string table size. The string table then ends at the end
          * of the file, but the certificate table must be kept. */
         _cleanup_free_ uint8_t *stub = build_stub(STUB_SIZE, 0x400);
-        ((PeHeader*) (stub + PE_OFFSET))->pe.PointerToSymbolTable = htole32(STUB_SIZE);
+        ((PeHeader*) (stub + PE_TEST_PE_OFFSET))->pe.PointerToSymbolTable = htole32(STUB_SIZE);
         _cleanup_close_ int fd = ASSERT_OK(memfd_new("stub"));
         ASSERT_OK_EQ_ERRNO(pwrite(fd, stub, STUB_SIZE, 0), (ssize_t) STUB_SIZE);
 
@@ -631,7 +618,7 @@ TEST(signature_malformed_certificate_table) {
         ASSERT_OK_ERRNO(ftruncate(fd, STUB_SIZE + 16 + 3));
         le32_t size = htole32(16 + 3);
         ASSERT_OK_EQ_ERRNO(pwrite(fd, &size, sizeof(size),
-                                  PE_OFFSET + offsetof(PeHeader, optional.pe32plus_DataDirectory[IMAGE_DATA_DIRECTORY_INDEX_CERTIFICATION_TABLE].Size)),
+                                  PE_TEST_PE_OFFSET + offsetof(PeHeader, optional.pe32plus_DataDirectory[IMAGE_DATA_DIRECTORY_INDEX_CERTIFICATION_TABLE].Size)),
                            (ssize_t) sizeof(size));
         ASSERT_ERROR(pe_append_signature(fd, signature, sizeof(signature)), EBADMSG);
 }
