@@ -670,7 +670,7 @@ static int index_adopt(JournalFile *f, const SegmentedIndex *i) {
         return 1;
 }
 
-static int scan_object(JournalFile *f, uint64_t file_size) {
+static int scan_object(JournalFile *f, uint64_t file_size, uint64_t synced) {
         Segmented *a = ASSERT_PTR(ASSERT_PTR(f)->segmented);
         uint64_t p = a->scan_offset, size, checked;
         Header *h = f->header;
@@ -701,9 +701,12 @@ static int scan_object(JournalFile *f, uint64_t file_size) {
          * this offset was checked before. */
         a->checked_entry_offset = 0;
 
+        /* A sync wrote the objects before 'synced' to disk completely, so their checksums need no check.
+         * Readers use an index without further checks, so the checksum of an index is always checked. */
         bool valid =
                 le64toh(o->object.size) == size &&
-                segmented_checksum(f, p - a->scan_base, o, checked) == le32toh(o->object.checksum) &&
+                ((p + checked <= synced && o->object.type != OBJECT_INDEX) ||
+                 segmented_checksum(f, p - a->scan_base, o, checked) == le32toh(o->object.checksum)) &&
                 segmented_check_object(f, o, p, SIZE_MAX) >= 0;
         if (!valid) {
                 /* Indexes are derived data, hence a bad one does not end the scan. */
@@ -765,6 +768,8 @@ static int scan(JournalFile *f) {
         uint64_t prefetched = a->scan_offset;
         int r;
 
+        uint64_t synced = le64toh(READ_NOW(f->segmented->disk_header->synced_offset));
+
         for (;;) {
                 if (a->scan_offset >= prefetched && a->scan_offset < file_size) {
                         uint64_t size = MIN(file_size - a->scan_offset, 128 * U64_KB);
@@ -773,7 +778,7 @@ static int scan(JournalFile *f) {
                         prefetched = a->scan_offset + size;
                 }
 
-                r = scan_object(f, file_size);
+                r = scan_object(f, file_size, synced);
                 if (r <= 0)
                         return r;
         }
@@ -876,7 +881,8 @@ int segmented_refresh(JournalFile *f, usec_t ts) {
 }
 
 int segmented_verify_header(JournalFile *f) {
-        uint64_t header_size;
+        Header *h;
+        uint64_t header_size, synced;
 
         assert(f);
         assert(f->header);
@@ -893,6 +899,22 @@ int segmented_verify_header(JournalFile *f) {
 
         if (header_size > (uint64_t) f->last_stat.st_size)
                 return -ENODATA;
+
+        h = f->segmented ? f->segmented->disk_header : f->header;
+        synced = le64toh(READ_NOW(h->synced_offset));
+        if (synced != 0 && (!VALID64(synced) || synced < header_size))
+                return -EBADMSG;
+
+        if (synced > (uint64_t) f->last_stat.st_size) {
+                int r;
+
+                /* A writer can sync after the opener took its file-size snapshot. */
+                r = journal_file_fstat(f);
+                if (r < 0)
+                        return r;
+                if (synced > (uint64_t) f->last_stat.st_size)
+                        return -EBADMSG;
+        }
 
         return 0;
 }

@@ -287,6 +287,48 @@ static void set_synced_index(const char *path, uint64_t offset) {
         ASSERT_EQ(pwrite(fd, &v, sizeof(v), offsetof(Header, synced_index_offset)), (ssize_t) sizeof(v));
 }
 
+static void set_synced(const char *path, uint64_t offset) {
+        _cleanup_close_ int fd = -EBADF;
+        le64_t v = htole64(offset);
+
+        ASSERT_OK(fd = xopenat(AT_FDCWD, path, O_WRONLY));
+        ASSERT_EQ(pwrite(fd, &v, sizeof(v), offsetof(Header, synced_offset)), (ssize_t) sizeof(v));
+}
+
+TEST(synced_boundary) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        model_append_generated(f, /* model= */ NULL, 0);
+        ASSERT_OK(segmented_flush(f));
+        const uint64_t offsets[] = {
+                UINT64_MAX,
+                f->segmented->scan_offset + 8,
+                le64toh(f->header->header_size) + 1,
+                le64toh(f->header->header_size) + 8,
+        };
+        FOREACH_ELEMENT(offset, offsets) {
+                set_synced(f->path, *offset);
+                ASSERT_ERROR(journal_file_verify(f, /* key= */ NULL, /* ret_first_contained= */ NULL, /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false), EBADMSG);
+        }
+        set_synced(f->path, f->segmented->scan_offset);
+        ASSERT_OK(journal_file_verify(f, /* key= */ NULL, /* ret_first_contained= */ NULL, /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false));
+
+        ObjectHeader partial = {
+                .type = OBJECT_DATA,
+                .size = htole64(64),
+        };
+        ASSERT_EQ(pwrite(f->fd, &partial, sizeof(partial), f->segmented->scan_offset), (ssize_t) sizeof(partial));
+        set_synced(f->path, f->segmented->scan_offset + 8);
+        ASSERT_ERROR(journal_file_verify(f, /* key= */ NULL, /* ret_first_contained= */ NULL, /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false), EBADMSG);
+        set_synced(f->path, f->segmented->scan_offset);
+        ASSERT_OK(journal_file_verify(f, /* key= */ NULL, /* ret_first_contained= */ NULL, /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false));
+}
+
 static bool ok_or_damaged(int r) {
         /* Readers fail on an index whose content is damaged, like on damaged entry arrays of classic files */
         return r >= 0 || r == -EBADMSG;
@@ -450,8 +492,26 @@ TEST(damaged) {
 
         ASSERT_ERROR(journal_file_open(-EBADF, "damaged.journal", O_RDWR, JOURNAL_COMPRESS, 0644, UINT64_MAX, /* metrics= */ NULL, m, /* template= */ NULL, &g), EBADMSG);
 
-        /* Damage to an entry in the tail: the entries before it remain readable */
         copy_truncated("test.journal", "damaged.journal", size);
+        flip("damaged.journal", tail + offsetof(ObjectHeader, checksum));
+        g = open_file(m, "damaged.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        model_assert_file(g, &model);
+        ASSERT_FAIL(journal_file_verify(g, /* key= */ NULL, /* ret_first_contained= */ NULL, /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false));
+        g = journal_file_close(g);
+
+        g = open_file(m, "test.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        uint64_t header_size = le64toh(g->header->header_size);
+        g = journal_file_close(g);
+        copy_truncated("test.journal", "damaged.journal", size);
+        set_synced_index("damaged.journal", header_size);
+        g = open_file(m, "damaged.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        model_assert_file(g, &model);
+        ASSERT_ERROR(journal_file_verify(g, /* key= */ NULL, /* ret_first_contained= */ NULL, /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false), EBADMSG);
+        g = journal_file_close(g);
+
+        /* Damage to an entry in the tail after the synced offset: the entries before it remain readable */
+        copy_truncated("test.journal", "damaged.journal", size);
+        set_synced("damaged.journal", /* offset= */ 0);
         flip("damaged.journal", tail + offsetof(Object, entry.xor_hash));
 
         g = open_file(m, "damaged.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
@@ -1248,6 +1308,38 @@ TEST(unscanned_entry_items) {
         ASSERT_ERROR(segmented_check_object(f, o, offset, size), EBADMSG);
 }
 
+TEST(failed_archive_flush) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(model_done) Model model = {};
+        JournalFile *f;
+        struct stat before, after;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        ASSERT_OK(sd_event_new(&e));
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        ASSERT_OK(journal_file_enable_post_change_timer(f, e, 250 * USEC_PER_MSEC));
+        model_append_generated(f, &model, 0);
+        ASSERT_OK_ERRNO(fstat(f->fd, &before));
+
+        int saved_fd = f->fd;
+        ASSERT_OK(f->fd = xopenat(AT_FDCWD, "test.journal", O_RDONLY));
+        f->archive = true;
+        segmented_offline_prepare(f);
+        ASSERT_OK_ERRNO(close(f->fd));
+        f->fd = saved_fd;
+        segmented_offline(f);
+        ASSERT_ERROR(segmented_offline_finish(f), EIO);
+        ASSERT_EQ(f->segmented->disk_header->state, STATE_OFFLINE);
+        ASSERT_EQ(le64toh(f->segmented->disk_header->synced_offset), 0U);
+        ASSERT_FAIL(segmented_flush(f));
+        f = journal_file_close(f);
+        ASSERT_OK_ERRNO(stat("test.journal", &after));
+        ASSERT_EQ(before.st_size, after.st_size);
+}
+
 TEST(rotate_failed_flush) {
         _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
@@ -1487,6 +1579,7 @@ TEST(idle_flush) {
                 ASSERT_EQ((uint64_t) st.st_size, f->segmented->scan_offset);
         }
         ASSERT_OK(journal_file_set_offline(f, /* wait= */ true));
+        ASSERT_EQ(le64toh(f->segmented->disk_header->synced_offset), f->segmented->scan_offset);
 }
 
 TEST(replay_cross_segment_reference) {
