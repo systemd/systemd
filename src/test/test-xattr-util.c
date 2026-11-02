@@ -42,7 +42,7 @@ TEST(getxattr_at_malloc) {
         value = mfree(value);
 
         safe_close(fd);
-        ASSERT_OK_ERRNO(fd = open("/", O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY));
+        ASSERT_OK(fd = xopenat(AT_FDCWD, "/", O_RDONLY|O_DIRECTORY|O_NOCTTY));
         r = getxattr_at_malloc(fd, "usr", "user.idontexist", /* at_flags= */ 0, &value, /* ret_size= */ NULL);
         ASSERT_TRUE(ERRNO_IS_NEG_XATTR_ABSENT(r));
 
@@ -57,7 +57,7 @@ TEST(getxattr_at_malloc) {
         ASSERT_TRUE(ERRNO_IS_NEG_XATTR_ABSENT(r));
 
         safe_close(fd);
-        ASSERT_OK_ERRNO(fd = open(x, O_PATH|O_CLOEXEC));
+        ASSERT_OK(fd = xopenat(AT_FDCWD, x, O_PATH));
         ASSERT_OK(getxattr_at_malloc(fd, /* path= */ NULL, "user.foo", /* at_flags= */ 0, &value, /* ret_size= */ NULL));
         ASSERT_STREQ(value, "bar");
         value = mfree(value);
@@ -164,7 +164,7 @@ TEST(xsetxattr) {
         verify_xattr(dfd, "");
 
         /* by fd (O_PATH) */
-        ASSERT_OK_ERRNO(fd = openat(dfd, "test", O_PATH|O_CLOEXEC));
+        ASSERT_OK(fd = xopenat(dfd, "test", O_PATH));
 
         ASSERT_OK(xremovexattr(fd, "", /* at_flags= */ 0, "user.foo"));
 
@@ -176,7 +176,7 @@ TEST(xsetxattr) {
 
         fd = safe_close(fd);
 
-        fd = openat(dfd, "test", O_RDONLY|O_CLOEXEC);
+        fd = xopenat(dfd, "test", O_RDONLY);
 
         ASSERT_OK(xsetxattr_full(fd, /* path= */ NULL, /* at_flags= */ 0, "user.foo", "fd_regular", SIZE_MAX, XATTR_REPLACE));
         verify_xattr(dfd, "fd_regular");
@@ -188,7 +188,7 @@ TEST(xsetxattr) {
 
         /* user.* xattrs are not supported on symlinks. Use trusted.* which requires privilege. */
         ASSERT_OK_ERRNO(symlinkat("empty", dfd, "symlink"));
-        ASSERT_OK_ERRNO(fd = openat(dfd, "symlink", O_NOFOLLOW|O_PATH|O_CLOEXEC));
+        ASSERT_OK(fd = xopenat(dfd, "symlink", O_NOFOLLOW|O_PATH));
 
         ASSERT_ERROR(xsetxattr(dfd, "symlink", AT_SYMLINK_FOLLOW, "trusted.test", "bogus"), ENOENT);
 

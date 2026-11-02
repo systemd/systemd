@@ -159,9 +159,9 @@ TEST(path_is_mount_point) {
         ASSERT_NOT_NULL(mkdtemp(tmp_dir));
         file1 = ASSERT_NOT_NULL(path_join(tmp_dir, "file1"));
         file2 = ASSERT_NOT_NULL(path_join(tmp_dir, "file2"));
-        fd = ASSERT_OK_ERRNO(open(file1, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664));
+        fd = ASSERT_OK(xopenat_full(AT_FDCWD, file1, O_WRONLY|O_CREAT|O_EXCL, /* xopen_flags= */ 0, 0664));
         close(fd);
-        fd = ASSERT_OK_ERRNO(open(file2, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664));
+        fd = ASSERT_OK(xopenat_full(AT_FDCWD, file2, O_WRONLY|O_CREAT|O_EXCL, /* xopen_flags= */ 0, 0664));
         close(fd);
         link1 = ASSERT_NOT_NULL(path_join(tmp_dir, "link1"));
         ASSERT_OK_ZERO_ERRNO(symlink("file1", link1));
@@ -190,7 +190,7 @@ TEST(path_is_mount_point) {
 
         /* file in subdirectory mountpoints */
         dir1file = ASSERT_NOT_NULL(path_join(dir1, "file"));
-        fd = ASSERT_OK_ERRNO(open(dir1file, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664));
+        fd = ASSERT_OK(xopenat_full(AT_FDCWD, dir1file, O_WRONLY|O_CREAT|O_EXCL, /* xopen_flags= */ 0, 0664));
         close(fd);
 
         ASSERT_OK_EQ(path_is_mount_point_full(dir1file, /* root= */ NULL, AT_SYMLINK_FOLLOW), 0);
@@ -229,7 +229,7 @@ TEST(path_is_mount_point) {
 
                 /* dirs */
                 dir2file = ASSERT_NOT_NULL(path_join(dir2, "file"));
-                fd = ASSERT_OK_ERRNO(open(dir2file, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664));
+                fd = ASSERT_OK(xopenat_full(AT_FDCWD, dir2file, O_WRONLY|O_CREAT|O_EXCL, /* xopen_flags= */ 0, 0664));
                 close(fd);
 
                 ASSERT_OK_ERRNO(mount(dir2, dir1, /* filesystemtype= */ NULL, MS_BIND, /* data= */ NULL));
@@ -266,7 +266,7 @@ TEST(is_mount_point_at) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        fd = ASSERT_OK_ERRNO(open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY));
+        fd = ASSERT_OK(xopenat(AT_FDCWD, "/", O_RDONLY|O_DIRECTORY|O_NOCTTY));
 
         ASSERT_OK_POSITIVE(is_mount_point_at(fd, "/", /* flags= */ 0));
         ASSERT_OK_POSITIVE(is_mount_point_at(fd, "..", /* flags= */ 0));
@@ -280,7 +280,7 @@ TEST(is_mount_point_at) {
         ASSERT_OK_ZERO(is_mount_point_at(fd, "usr/lib", /* flags= */ 0));
 
         safe_close(fd);
-        fd = ASSERT_OK_ERRNO(open("/tmp", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY));
+        fd = ASSERT_OK(xopenat(AT_FDCWD, "/tmp", O_RDONLY|O_DIRECTORY|O_NOCTTY));
 
         ASSERT_OK(mkdtemp_malloc("/tmp/not-mounted-XXXXXX", &tmpdir));
         ASSERT_OK(path_extract_filename(tmpdir, &tmpdir_basename));
@@ -288,7 +288,7 @@ TEST(is_mount_point_at) {
         ASSERT_OK_ZERO(is_mount_point_at(fd, strjoina(tmpdir_basename, "/"), /* flags= */ 0));
 
         safe_close(fd);
-        fd = ASSERT_OK_ERRNO(open("/proc", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY));
+        fd = ASSERT_OK(xopenat(AT_FDCWD, "/proc", O_RDONLY|O_DIRECTORY|O_NOCTTY));
 
         ASSERT_OK_POSITIVE(is_mount_point_at(fd, /* path= */ NULL, /* flags= */ 0));
         ASSERT_OK_POSITIVE(is_mount_point_at(fd, "", /* flags= */ 0));
@@ -306,7 +306,7 @@ TEST(is_mount_point_at) {
         ASSERT_OK_ERRNO(chdir(pwd));
 
         safe_close(fd);
-        fd = ASSERT_OK_ERRNO(open("/proc/version", O_RDONLY|O_CLOEXEC|O_NOCTTY));
+        fd = ASSERT_OK(xopenat(AT_FDCWD, "/proc/version", O_RDONLY|O_NOCTTY));
 
         r = is_mount_point_at(fd, /* path= */ NULL, /* flags= */ 0);
         ASSERT_TRUE(IN_SET(r, 0, -ENOTDIR)); /* on old kernels we can't determine if regular files are mount points if we have no directory fd */
@@ -320,7 +320,7 @@ TEST(is_mount_point_at) {
         struct stat st;
 
         safe_close(fd);
-        ASSERT_OK_ERRNO(fd = open(tmpdir, O_DIRECTORY|O_PATH|O_CLOEXEC));
+        ASSERT_OK(fd = xopenat(AT_FDCWD, tmpdir, O_DIRECTORY|O_PATH));
 
         ASSERT_OK_ERRNO(symlinkat("/usr", fd, "symlink"));
 
@@ -329,7 +329,7 @@ TEST(is_mount_point_at) {
                 return;
         ASSERT_OK_ERRNO(mfd);
 
-        ASSERT_OK_ERRNO(rfd = openat(fd, "regular", O_CLOEXEC|O_CREAT|O_EXCL, 0644));
+        ASSERT_OK(rfd = xopenat_full(fd, "regular", O_CREAT|O_EXCL, /* xopen_flags= */ 0, 0644));
 
         ASSERT_OK_ERRNO(move_mount(mfd, "", rfd, "", MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_T_EMPTY_PATH));
 
@@ -393,7 +393,7 @@ TEST(path_get_mnt_id_at_null) {
         ASSERT_EQ(id1, id2);
         id2 = -1;
 
-        root_fd = ASSERT_OK_ERRNO(open("/", O_DIRECTORY|O_CLOEXEC));
+        root_fd = ASSERT_OK(xopenat(AT_FDCWD, "/", O_DIRECTORY));
 
         ASSERT_OK(path_get_mnt_id_at(root_fd, "/run/", &id2));
         ASSERT_EQ(id1, id2);
@@ -411,7 +411,7 @@ TEST(path_get_mnt_id_at_null) {
         ASSERT_EQ(id1, id2);
         id2 = -1;
 
-        run_fd = ASSERT_OK_ERRNO(openat(root_fd, "run", O_DIRECTORY|O_CLOEXEC));
+        run_fd = ASSERT_OK(xopenat(root_fd, "run", O_DIRECTORY));
 
         id2 = -1;
         ASSERT_OK(path_get_mnt_id_at(run_fd, "", &id2));

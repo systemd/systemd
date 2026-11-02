@@ -13,6 +13,7 @@
 #include "capability-util.h"
 #include "dissect-image.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "gpt.h"
 #include "loop-util.h"
 #include "mkfs-util.h"
@@ -193,7 +194,8 @@ TEST(loop_block) {
         _cleanup_close_ int fd = -EBADF;
 
         ASSERT_OK(tempfn_random_child("/var/tmp", "sfdisk", &p));
-        fd = ASSERT_OK_ERRNO(open(p, O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOFOLLOW, 0666));
+        fd = ASSERT_OK(xopenat_full(AT_FDCWD, p, O_CREAT|O_EXCL|O_RDWR|O_NOFOLLOW,
+                                    /* xopen_flags= */ 0, 0666));
         ASSERT_OK_ERRNO(ftruncate(fd, 256*1024*1024));
 
         cmd = ASSERT_NOT_NULL(strjoin("sfdisk ", p));
@@ -416,7 +418,8 @@ static int make_test_image(int *ret_fd) {
         _cleanup_pclose_ FILE *sfdisk = NULL;
 
         ASSERT_OK(tempfn_random_child("/var/tmp", "sfdisk", &p));
-        int fd = ASSERT_OK_ERRNO(open(p, O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOFOLLOW, 0666));
+        int fd = ASSERT_OK(xopenat_full(AT_FDCWD, p, O_CREAT|O_EXCL|O_RDWR|O_NOFOLLOW,
+                                        /* xopen_flags= */ 0, 0666));
         ASSERT_OK_ERRNO(ftruncate(fd, 256*1024*1024));
 
         cmd = ASSERT_NOT_NULL(strjoin("sfdisk ", p));
@@ -655,7 +658,8 @@ TEST(partscan_not_needed_without_partition_table) {
          * to expose a nested partition table though, so any device without one — here simply an empty device —
          * must take the shortcut. */
         ASSERT_OK(tempfn_random_child("/var/tmp", "loop-util", &p));
-        fd = ASSERT_OK_ERRNO(open(p, O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOFOLLOW, 0666));
+        fd = ASSERT_OK(xopenat_full(AT_FDCWD, p, O_CREAT|O_EXCL|O_RDWR|O_NOFOLLOW,
+                                    /* xopen_flags= */ 0, 0666));
         ASSERT_OK_ERRNO(ftruncate(fd, 256*1024*1024));
         (void) unlink(p);
 
@@ -702,7 +706,8 @@ static void test_nested_partition_table_one(const char *nested_table) {
 
         /* Build an image with a single root partition spanning the whole disk. */
         ASSERT_OK(tempfn_random_child("/var/tmp", "sfdisk", &p));
-        fd = ASSERT_OK_ERRNO(open(p, O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOFOLLOW, 0666));
+        fd = ASSERT_OK(xopenat_full(AT_FDCWD, p, O_CREAT|O_EXCL|O_RDWR|O_NOFOLLOW,
+                                    /* xopen_flags= */ 0, 0666));
         ASSERT_OK_ERRNO(ftruncate(fd, 256*1024*1024));
 
         cmd = ASSERT_NOT_NULL(strjoin("sfdisk ", p));
@@ -747,7 +752,7 @@ static void test_nested_partition_table_one(const char *nested_table) {
         /* The partition has partition scanning disabled but now carries a partition table, so the shortcut
          * must be refused and a real loop device with partition scanning allocated (even without
          * LOOP_DEVICE_MAY_POPULATE_PARTITION_TABLE, since there genuinely is a table to scan). */
-        part_fd = ASSERT_OK_ERRNO(open(node, O_RDWR|O_CLOEXEC|O_NOCTTY));
+        part_fd = ASSERT_OK(xopenat(AT_FDCWD, node, O_RDWR|O_NOCTTY));
         ASSERT_OK(loop_device_make(part_fd, O_RDWR, /* offset= */ 0, UINT64_MAX, /* sector_size= */ 0, LO_FLAGS_PARTSCAN, LOCK_SH, &loop));
         ASSERT_TRUE(loop->created);
 #else

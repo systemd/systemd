@@ -224,7 +224,7 @@ TEST(physical_offset) {
                 _exit(EXIT_FAILURE);
         }
 
-        _cleanup_close_ int fd = ASSERT_OK_ERRNO(openat(dir_fd, "swapfile", O_RDONLY|O_CLOEXEC|O_NOCTTY));
+        _cleanup_close_ int fd = ASSERT_OK(xopenat(dir_fd, "swapfile", O_RDONLY|O_NOCTTY));
 
         unsigned attrs;
         ASSERT_OK(read_attr_fd(fd, &attrs));
