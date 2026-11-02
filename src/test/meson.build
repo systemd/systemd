@@ -70,6 +70,7 @@ simple_tests += files(
         'test-bitfield.c',
         'test-bitmap.c',
         'test-blockdev-util.c',
+        'test-bmp.c',
         'test-bootspec.c',
         'test-build-path.c',
         'test-bus-unit-util.c',

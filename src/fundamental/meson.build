@@ -3,6 +3,7 @@
 fundamental_include = include_directories('.')
 
 fundamental_sources = files(
+        'bmp.c',
         'bootspec.c',
         'chid.c',
         'edid.c',
