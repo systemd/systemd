@@ -233,6 +233,7 @@ test_syntax_error 'ENV{a}:="b"' "ENV key takes '==', '!=', '=', or '+=' operator
 test_syntax_error 'ENV{ACTION}="b"' "Invalid ENV attribute. 'ACTION' cannot be set."
 test_syntax_error 'ENV{a}=i"b"' "Invalid prefix 'i' for 'ENV'. The 'i' prefix can be specified only for '==' or '!=' operator."
 test_syntax_error 'ENV{a}+=i"b"' "Invalid prefix 'i' for 'ENV'. The 'i' prefix can be specified only for '==' or '!=' operator."
+test_syntax_error 'ENV{a?b}=="x"' "Invalid attribute for ENV."
 test_syntax_error 'CONST=="b"' 'Invalid attribute for CONST.'
 test_syntax_error 'CONST{a}=="b"' 'Invalid attribute for CONST.'
 test_syntax_error 'CONST{arch}="b"' 'Invalid operator for CONST.'
@@ -278,6 +279,8 @@ test_syntax_error 'IMPORT{a}-="b"' 'Invalid operator for IMPORT.'
 test_syntax_error 'IMPORT{file}=="%", NAME="b"' 'Invalid value "%" for IMPORT (char 1: invalid substitution type), ignoring.'
 test_syntax_error 'IMPORT{file}==i"a", NAME="b"' "Invalid prefix 'i' for IMPORT."
 test_syntax_error 'IMPORT{builtin}!="foo"' 'Unknown builtin command: foo'
+test_syntax_error 'IMPORT{db}=="a?b"' "Invalid property name 'a?b', ignoring."
+test_syntax_error 'IMPORT{cmdline}=="a?b"' "Invalid property name 'a?b', ignoring."
 test_syntax_error 'RESULT{a}=="b"' 'Invalid attribute for RESULT.'
 test_syntax_error 'RESULT:="b"' 'Invalid operator for RESULT.'
 test_syntax_error 'OPTIONS{a}="b"' 'Invalid attribute for OPTIONS.'
