@@ -723,6 +723,18 @@ TEST(x509_new_self_signed) {
         ASSERT_EQ(sym_X509_verify(cert, key), 1);
 
         ASSERT_ERROR(x509_new_self_signed(key, "systemd test", UINT_MAX, &cert2), ERANGE);
+
+        _cleanup_free_ char *cert_pem = NULL;
+        ASSERT_OK(x509_to_pem(cert, &cert_pem));
+        ASSERT_TRUE(startswith(cert_pem, "-----BEGIN CERTIFICATE-----\n"));
+
+        _cleanup_(X509_freep) X509 *cert3 = NULL;
+        ASSERT_OK(openssl_load_x509_certificate_from_pem(&IOVEC_MAKE_STRING(cert_pem), &cert3, /* ret_more= */ NULL));
+
+        uint8_t fp[X509_FINGERPRINT_SIZE], fp3[X509_FINGERPRINT_SIZE];
+        ASSERT_OK(x509_fingerprint(cert, fp));
+        ASSERT_OK(x509_fingerprint(cert3, fp3));
+        ASSERT_EQ(memcmp(fp, fp3, sizeof(fp)), 0);
 }
 
 TEST(x509_new_self_signed_no_digest) {
