@@ -22,6 +22,10 @@ typedef struct Button {
 
         sd_event_source *io_event_source;
         sd_event_source *check_event_source;
+        sd_event_source *power_key_long_press_event_source;
+        sd_event_source *reboot_key_long_press_event_source;
+        sd_event_source *suspend_key_long_press_event_source;
+        sd_event_source *hibernate_key_long_press_event_source;
 
         char *name;
         char *seat;
