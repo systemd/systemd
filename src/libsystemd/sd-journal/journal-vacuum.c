@@ -95,7 +95,7 @@ static void patch_realtime(
 static int journal_file_empty(int dir_fd, const char *name) {
         _cleanup_close_ int fd = -EBADF;
         struct stat st;
-        le64_t n_entries;
+        Header h;
         ssize_t n;
 
         fd = openat(dir_fd, name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK|O_NOATIME);
@@ -113,14 +113,37 @@ static int journal_file_empty(int dir_fd, const char *name) {
         if (st.st_size < (off_t) sizeof(Header))
                 return 1;
 
-        /* If the number of entries is empty, we consider it empty, too */
-        n = pread(fd, &n_entries, sizeof(n_entries), offsetof(Header, n_entries));
+        n = pread(fd, &h, sizeof(h), 0);
         if (n < 0)
                 return -errno;
-        if (n != sizeof(n_entries))
+        if (n != sizeof(h))
                 return -EIO;
 
-        return le64toh(n_entries) <= 0;
+        /* The header of segmented files does not count entries. A file without entries holds only tags.
+         * Only look at a few objects. A file with more is not empty in practice. */
+        if (JOURNAL_HEADER_SEGMENTED(&h)) {
+                uint64_t p = le64toh(h.header_size);
+
+                for (unsigned i = 0; i < 16 && p < (uint64_t) st.st_size; i++) {
+                        ObjectHeader o;
+
+                        n = pread(fd, &o, sizeof(o), p);
+                        if (n < 0)
+                                return -errno;
+                        if (n != sizeof(o) ||
+                            o.type != OBJECT_TAG ||
+                            le64toh(o.size) < sizeof(o) ||
+                            le64toh(o.size) > (uint64_t) st.st_size - p)
+                                return 0;
+
+                        p += ALIGN64(le64toh(o.size));
+                }
+
+                return p >= (uint64_t) st.st_size;
+        }
+
+        /* If the number of entries is empty, we consider it empty, too */
+        return le64toh(h.n_entries) <= 0;
 }
 
 int journal_directory_vacuum(
