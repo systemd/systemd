@@ -15,3 +15,4 @@ void manager_varlink_done(Manager *m);
 int manager_varlink_send_managed_oom_update(Unit *u);
 
 void manager_varlink_send_pending_reload_message(Manager *m);
+void manager_varlink_send_pending_reexecute_error(Manager *m, int error);
