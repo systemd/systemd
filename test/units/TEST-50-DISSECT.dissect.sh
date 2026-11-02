@@ -1136,9 +1136,9 @@ umount /tmp/img
 umount /tmp/ext
 veritysetup close "$(cat "$MINIMAL_IMAGE.roothash")-verity" ||:
 veritysetup close "$(cat /tmp/app0.roothash)-verity" ||:
-# The shortcut doesn't check whether the kernel validated a signature for an existing device. A unit whose image
-# policy requires a signature doesn't take the shortcut, while a unit whose image policy allows "verity" does.
-# veritysetup sets up the devices without a signature. The process of the unit logs the messages before it
+# A unit whose image policy requires a signature only takes the shortcut if the kernel validated a signature for
+# the existing device, while a unit whose image policy allows "verity" always does. veritysetup sets up the
+# devices without a signature here. The process of the unit logs the messages before it
 # executes the command, and the unit exits right after. journald attributes the messages to the wrong unit if
 # the process is gone when journald looks up its cgroup. So we don't filter the journal by unit. Each message
 # starts with the name of the unit, and each line of the trace of this script starts with a "+". We match the
@@ -1165,7 +1165,7 @@ if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
                 cat /opt/script0.sh
     journalctl --sync
     journalctl --after-cursor="$cursor" -o cat >/tmp/test-50-shortcut.log
-    test "$(grep -cxF 'test-50-shortcut-signed.service: Image policy requires a signature, skipping verity shortcut.' /tmp/test-50-shortcut.log)" -ge 3
+    test "$(grep -cE '^test-50-shortcut-signed.service: Verity device /dev/mapper/[0-9a-f]+-verity has no validated signature, skipping verity shortcut\.$' /tmp/test-50-shortcut.log)" -ge 3
     (! grep -E '^test-50-shortcut-signed.service: Reusing pre-existing verity-protected' /tmp/test-50-shortcut.log)
 fi
 journalctl --sync
@@ -1191,6 +1191,39 @@ umount /tmp/ext
 # gone already.
 veritysetup close "$(cat "$MINIMAL_IMAGE.roothash")-verity" ||:
 veritysetup close "$(cat /tmp/app0.roothash)-verity" ||:
+# With devices for which the kernel validated a signature, a unit whose image policy requires a signature takes
+# the shortcut too.
+if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
+    for image in "$MINIMAL_IMAGE" /tmp/app0; do
+        name="$(cat "$image.roothash")-verity"
+        timeout 60 bash -c 'while dmsetup info "$1" &>/dev/null; do sleep 0.1; done' bash "$name"
+        veritysetup open "$image.raw" "$name" "$image.verity" --root-hash-file "$image.roothash" \
+                    --root-hash-signature "$image.roothash.p7s"
+    done
+    mount -o ro "/dev/mapper/$(cat "$MINIMAL_IMAGE.roothash")-verity" /tmp/img
+    mount -o ro "/dev/mapper/$(cat /tmp/app0.roothash)-verity" /tmp/ext
+    journalctl --sync
+    cursor="$(journalctl -n 1 --show-cursor | sed -n 's/^-- cursor: //p')"
+    test -n "$cursor"
+    systemd-run --wait -P --unit=test-50-shortcut-signed2.service \
+                -p RootImage="$MINIMAL_IMAGE.raw" \
+                -p RootImagePolicy=root=signed+squashfs \
+                -p ExtensionImages=/tmp/app0.raw \
+                -p ExtensionImagePolicy=root=signed+squashfs \
+                -p TemporaryFileSystem=/var/lib \
+                -p MountImages=/tmp/app0.raw:/var/lib/app \
+                -p MountImagePolicy=root=signed+squashfs \
+                cat /opt/script0.sh
+    journalctl --sync
+    journalctl --after-cursor="$cursor" -o cat >/tmp/test-50-shortcut.log
+    grep -E '^test-50-shortcut-signed2.service: Reusing pre-existing verity-protected root image ' /tmp/test-50-shortcut.log >/dev/null
+    test "$(grep -cE '^test-50-shortcut-signed2.service: Reusing pre-existing verity-protected image ' /tmp/test-50-shortcut.log)" -ge 2
+    rm /tmp/test-50-shortcut.log
+    umount /tmp/img
+    umount /tmp/ext
+    veritysetup close "$(cat "$MINIMAL_IMAGE.roothash")-verity" ||:
+    veritysetup close "$(cat /tmp/app0.roothash)-verity" ||:
+fi
 
 # Test that an extension consisting of an empty directory under /etc/extensions/ takes precedence
 mkdir -p /var/lib/extensions/
