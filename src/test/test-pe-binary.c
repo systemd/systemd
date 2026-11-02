@@ -385,6 +385,38 @@ TEST(pe_read_section_data_reads_raw_data_only) {
         ASSERT_EQ(memcmp(data, "ABCDEFGH", size), 0);
 }
 
+TEST(pe_section_to_memfd) {
+        size_t base = SECTION_TABLE_OFFSET + 2 * IMAGE_SECTION_HEADER_BYTES;
+        SectionSpec specs[2] = {
+                { .name = ".cmdline", .virtual_size = 32, .size_of_raw_data = 16,
+                  .pointer_to_raw_data = (uint32_t) base },
+                { .name = ".uname",   .virtual_size = 8,  .size_of_raw_data = 16,
+                  .pointer_to_raw_data = (uint32_t) (base + 16) },
+        };
+        static const char contents[] = "0123456789abcdefABCDEFGHIJKLMNOP";
+        _cleanup_close_ int fd = build_pe_file(specs, /* n_sections= */ 2, /* override_file_size= */ 0);
+        ASSERT_OK_EQ_ERRNO(pwrite(fd, contents, strlen(contents), base), (ssize_t) strlen(contents));
+
+        _cleanup_free_ PeHeader *pe = NULL;
+        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
+        ASSERT_OK(pe_load_headers_and_sections(fd, &pe, &sections));
+
+        char buf[32];
+        _cleanup_close_ int cmdline_fd = ASSERT_OK(pe_section_to_memfd(fd, sections + 0, "cmdline"));
+        ASSERT_OK_EQ_ERRNO(read(cmdline_fd, buf, sizeof(buf)), (ssize_t) 16);
+        ASSERT_EQ(memcmp(buf, "0123456789abcdef", 16), 0);
+
+        _cleanup_close_ int uname_fd = ASSERT_OK(pe_section_to_memfd(fd, sections + 1, "uname"));
+        ASSERT_OK_EQ_ERRNO(read(uname_fd, buf, sizeof(buf)), (ssize_t) 8);
+        ASSERT_EQ(memcmp(buf, "ABCDEFGH", 8), 0);
+
+        /* The section data ends 8 bytes after the end of the file. */
+        IMAGE_SECTION_HEADER past_eof = sections[1];
+        past_eof.PointerToRawData = htole32(base + 24);
+        past_eof.VirtualSize = htole32(16);
+        ASSERT_ERROR(pe_section_to_memfd(fd, &past_eof, "past-eof"), EBADMSG);
+}
+
 /* ======================================================================
  * uki_hash — zero-padding cap from PLAN §3.2
  * ====================================================================== */
