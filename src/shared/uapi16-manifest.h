@@ -80,7 +80,10 @@ typedef struct Uapi16Object {
         usec_t valid_since_usec, valid_until_usec;
         Uapi16Validity validity;
 
-        /* NB: we omit a bunch of UAPI.16 specified fields we currently don't intend to consume.  */
+        /* NB: we omit a bunch of UAPI.16 specified fields we currently don't intend to consume. For
+         * consumers that need them anyway, the complete JSON object the above was parsed from is
+         * referenced here. */
+        sd_json_variant *json;
 } Uapi16Object;
 
 #define UAPI16_OBJECT_NULL (const Uapi16Object) {     \
