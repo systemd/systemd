@@ -5,6 +5,8 @@ set -o pipefail
 
 # shellcheck source=test/units/test-control.sh
 . "$(dirname "$0")"/test-control.sh
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
 
 MANAGER_SOCKET="/run/systemd/io.systemd.Manager"
 
@@ -17,6 +19,8 @@ at_exit() {
     done
     for pid in "${CHILD_PIDS[@]}"; do
         kill "$pid" 2>/dev/null || true
+        # Resume stopped clients so the pending SIGTERM can take effect.
+        kill -CONT "$pid" 2>/dev/null || true
         wait "$pid" 2>/dev/null || true
     done
     rm -f "${TEMP_FILES[@]}"
@@ -186,6 +190,70 @@ testcase_notifications() {
     printf '%s' "$result" | jq --seq --slurp -e 'any(.[]; .job.State)' >/dev/null
     printf '%s' "$result" | jq --seq --slurp -e 'any(.[]; .runtime.ActiveState)' >/dev/null
     printf '%s' "$result" | jq --seq --slurp -e 'any(.[]; .job.Result == "done")' >/dev/null
+}
+
+# Shell snippets expand their parameters in the child shell.
+# shellcheck disable=SC2016
+testcase_slow_notification_client() {
+    setup
+
+    local unit=varlink-transient-slow-client.service client_pid result
+
+    defer_transient_cleanup "$unit"
+    TEMP_FILES+=(/run/varlink-slow-client.{output,errors,started,go,ready})
+    rm -f /run/varlink-slow-client.*
+
+    # Start a service that waits until the watching client is paused.
+    systemd-run --quiet --unit="$unit" \
+        -p Type=notify -p NotifyAccess=all -p TimeoutStartSec=180 \
+        bash -ec '
+            # Wait until the client is subscribed and stopped.
+            touch /run/varlink-slow-client.started
+            until [[ -e /run/varlink-slow-client.go ]]; do sleep 0.1; done
+
+            # Fill the 16 MiB output buffer (JSON_STREAM_BUFFER_MAX_DEFAULT).
+            # Each update waits for the manager to process it.
+            status=$(printf "x%.0s" {1..4000})
+            for ((i = 0; i < 8192; i++)); do
+                systemd-notify --status="$i $status"
+            done
+
+            # Finish the start job and keep the service alive for the second client.
+            systemd-notify --ready
+            touch /run/varlink-slow-client.ready
+            exec sleep infinity
+        ' &
+    CHILD_PIDS+=("$!")
+    timeout 30 bash -c 'until [[ -e /run/varlink-slow-client.started ]]; do sleep 0.1; done'
+
+    # Subscribe and wait for the first reply to confirm the watch is installed.
+    varlinkctl call --more --json=short --timeout=infinity --graceful=io.systemd.Disconnected \
+        "$MANAGER_SOCKET" io.systemd.Unit.EnqueueJob \
+        '{"names":["'"$unit"'"],"jobType":"start","notifyJobChanges":true,"notifyUnitChanges":true}' \
+        >/run/varlink-slow-client.output 2>/run/varlink-slow-client.errors &
+    client_pid=$!
+    CHILD_PIDS+=("$client_pid")
+    timeout 10 bash -c 'until [[ "$(jq --seq --slurp -r ".[0].job.State" /run/varlink-slow-client.output 2>/dev/null)" == running ]]; do sleep 0.1; done'
+
+    # Stop the client before allowing the service to generate updates.
+    kill -STOP "$client_pid"
+    timeout 10 bash -c 'until grep -q "^State:.*T" "/proc/$1/status"; do sleep 0.1; done' bash "$client_pid"
+
+    # Let the service fill the output buffer and complete its startup job.
+    touch /run/varlink-slow-client.go
+    timeout 180 bash -c 'until [[ -e /run/varlink-slow-client.ready ]]; do sleep 0.1; done'
+    assert_unit_state "$unit" active running
+
+    # The final reply cannot fit. The resumed client must observe a disconnect.
+    kill -CONT "$client_pid"
+    timeout 10 tail --pid="$client_pid" -f /dev/null
+    wait "$client_pid"
+    grep -F 'io.systemd.Disconnected' /run/varlink-slow-client.errors
+
+    # The old unit subscription must be released so a new connection can watch it.
+    result=$(varlinkctl call --more "$MANAGER_SOCKET" io.systemd.Unit.EnqueueJob \
+        '{"names":["'"$unit"'"],"jobType":"start","notifyUnitChanges":true}')
+    assert_eq "$(jq --seq -r '.job.Result // empty' <<<"$result")" "done"
 }
 
 testcase_exec_properties() {

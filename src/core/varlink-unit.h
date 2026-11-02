@@ -33,5 +33,6 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
 void varlink_unit_send_change_signal(Unit *u);
 void varlink_job_send_change_signal(Job *j);
 void varlink_job_send_removed_signal(Job *j);
+void varlink_job_detach_client(Job *j);
 
 int varlink_error_no_such_unit(sd_varlink *v, const char *name);
