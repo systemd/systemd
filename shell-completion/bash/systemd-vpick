@@ -30,7 +30,7 @@ _systemd-vpick() {
 
     local -A OPTS=(
         [STANDALONE]='--help -h --version'
-        [ARG]='-B --baseline -V -A -S --suffix --type -p --print --resolve'
+        [ARG]='-B --basename -V -A -S --suffix --type -p --print --resolve'
     )
 
     _init_completion || return

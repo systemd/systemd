@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <elf.h>
+#include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "compress.h"
+#include "copy.h"
 #include "env-file.h"
 #include "fd-util.h"
 #include "fs-util.h"
@@ -20,6 +22,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "unaligned.h"
 
 #define PE_SECTION_READ_MAX (16U*1024U)
@@ -675,4 +678,29 @@ int kernel_find_uname(int fd, char **ret) {
                 return r;
 
         return kernel_uname_from_banner(data_fd, ret);
+}
+
+int initrd_concatenate(char * const *paths, int fd) {
+        uint64_t offset = 0;
+        int r;
+
+        assert(fd >= 0);
+
+        /* The kernel expects each cpio archive in a concatenated initrd to start at a 4 byte boundary. */
+        STRV_FOREACH(path, paths) {
+                _cleanup_close_ int ifd = xopenat(AT_FDCWD, *path, O_RDONLY);
+                if (ifd < 0)
+                        return log_debug_errno(ifd, "Failed to open %s: %m", *path);
+
+                r = copy_bytes_offset(ifd, /* foffset= */ NULL, fd, &offset, UINT64_MAX, /* copy_flags= */ 0);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to copy %s: %m", *path);
+
+                offset = ALIGN_TO_U64(offset, 4);
+        }
+
+        if (ftruncate(fd, offset) < 0)
+                return log_debug_errno(errno, "Failed to pad initrd: %m");
+
+        return 0;
 }

@@ -11048,87 +11048,70 @@ static int context_load_keys(Context *context) {
 
         assert(context);
 
-        if (arg_certificate) {
-                if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
-                        r = parse_path_argument(arg_certificate, /* suppress_root= */ false, &arg_certificate);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = openssl_load_x509_certificate(
-                                arg_certificate_source_type,
-                                arg_certificate_source,
-                                arg_certificate,
-                                &context->certificate);
+        if (arg_certificate && arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
+                r = parse_path_argument(arg_certificate, /* suppress_root= */ false, &arg_certificate);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
+                        return r;
         }
 
-        if (arg_private_key) {
-                if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
-                        r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = openssl_load_private_key(
-                                arg_private_key_source_type,
-                                arg_private_key_source,
-                                arg_private_key,
-                                &(AskPasswordRequest) {
-                                        .tty_fd = -EBADF,
-                                        .id = "repart-private-key-pin",
-                                        .keyring = arg_private_key,
-                                        .credential = "repart.private-key-pin",
-                                        .until = USEC_INFINITY,
-                                        .hup_fd = -EBADF,
-                                },
-                                &context->private_key,
-                                &context->ui);
+        if (arg_private_key && arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
+                r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
+                        return r;
         }
 
-        if (arg_manifest_certificate) {
-                if (arg_manifest_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
-                        r = parse_path_argument(arg_manifest_certificate, /* suppress_root= */ false, &arg_manifest_certificate);
-                        if (r < 0)
-                                return r;
-                }
+        r = openssl_load_key_pair(
+                        arg_private_key_source_type,
+                        arg_private_key_source,
+                        arg_private_key,
+                        arg_certificate_source_type,
+                        arg_certificate_source,
+                        arg_certificate,
+                        /* public_key= */ NULL,
+                        ASK_PASSWORD_PRIVATE_KEY_PIN("repart", arg_private_key),
+                        &context->private_key,
+                        &context->certificate,
+                        /* ret_public_key= */ NULL,
+                        &context->ui);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load certificate %s or private key %s: %m",
+                                       strna(arg_certificate), strna(arg_private_key));
 
-                r = openssl_load_x509_certificate(
-                                arg_manifest_certificate_source_type,
-                                arg_manifest_certificate_source,
-                                arg_manifest_certificate,
-                                &context->manifest_certificate);
+        if (arg_manifest_certificate && arg_manifest_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
+                r = parse_path_argument(arg_manifest_certificate, /* suppress_root= */ false, &arg_manifest_certificate);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_manifest_certificate);
+                        return r;
         }
 
-        if (arg_manifest_private_key) {
-                if (arg_manifest_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
-                        r = parse_path_argument(arg_manifest_private_key, /* suppress_root= */ false, &arg_manifest_private_key);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = openssl_load_private_key(
-                                arg_manifest_private_key_source_type,
-                                arg_manifest_private_key_source,
-                                arg_manifest_private_key,
-                                &(AskPasswordRequest) {
-                                        .tty_fd = -EBADF,
-                                        .id = "repart-manifest-private-key-pin",
-                                        .keyring = arg_manifest_private_key,
-                                        .credential = "repart.manifest-private-key-pin",
-                                        .until = USEC_INFINITY,
-                                        .hup_fd = -EBADF,
-                                },
-                                &context->manifest_private_key,
-                                &context->manifest_ui);
+        if (arg_manifest_private_key && arg_manifest_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
+                r = parse_path_argument(arg_manifest_private_key, /* suppress_root= */ false, &arg_manifest_private_key);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to load private key from %s: %m", arg_manifest_private_key);
+                        return r;
         }
+
+        r = openssl_load_key_pair(
+                        arg_manifest_private_key_source_type,
+                        arg_manifest_private_key_source,
+                        arg_manifest_private_key,
+                        arg_manifest_certificate_source_type,
+                        arg_manifest_certificate_source,
+                        arg_manifest_certificate,
+                        /* public_key= */ NULL,
+                        &(AskPasswordRequest) {
+                                .tty_fd = -EBADF,
+                                .id = "repart-manifest-private-key-pin",
+                                .keyring = arg_manifest_private_key,
+                                .credential = "repart.manifest-private-key-pin",
+                                .until = USEC_INFINITY,
+                                .hup_fd = -EBADF,
+                        },
+                        &context->manifest_private_key,
+                        &context->manifest_certificate,
+                        /* ret_public_key= */ NULL,
+                        &context->manifest_ui);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load manifest certificate %s or private key %s: %m",
+                                       strna(arg_manifest_certificate), strna(arg_manifest_private_key));
 
 #endif
         return 0;

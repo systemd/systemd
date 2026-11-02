@@ -20,9 +20,7 @@
 #include "main-func.h"
 #include "parse-argument.h"
 #include "pe-binary.h"
-#include "pe-writer.h"
 #include "string-util.h"
-#include "time-util.h"
 #include "tmpfile-util.h"
 #include "verbs.h"
 
@@ -179,38 +177,28 @@ static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         return r;
         }
 
-        r = openssl_load_x509_certificate(
+        if (arg_private_key && arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
+                r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
+                if (r < 0)
+                        return r;
+        }
+
+        r = openssl_load_key_pair(
+                        arg_private_key_source_type,
+                        arg_private_key_source,
+                        arg_private_key,
                         arg_certificate_source_type,
                         arg_certificate_source,
                         arg_certificate,
-                        &certificate);
+                        /* public_key= */ NULL,
+                        ASK_PASSWORD_PRIVATE_KEY_PIN("sbsign", arg_private_key),
+                        &private_key,
+                        &certificate,
+                        /* ret_public_key= */ NULL,
+                        &ui);
         if (r < 0)
-                return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
-
-        if (arg_private_key) {
-                if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
-                        r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = openssl_load_private_key(
-                                arg_private_key_source_type,
-                                arg_private_key_source,
-                                arg_private_key,
-                                &(AskPasswordRequest) {
-                                        .tty_fd = -EBADF,
-                                        .id = "sbsign-private-key-pin",
-                                        .keyring = arg_private_key,
-                                        .credential = "sbsign.private-key-pin",
-                                        .until = USEC_INFINITY,
-                                        .hup_fd = -EBADF,
-                                },
-                                &private_key,
-                                &ui);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
-        }
+                return log_error_errno(r, "Failed to load certificate %s or private key %s: %m",
+                                       arg_certificate, strna(arg_private_key));
 
         if (arg_signed_data) {
                 _cleanup_free_ void *content = NULL;
@@ -249,27 +237,27 @@ static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 log_debug_errno(r, "Failed to change temporary file mode: %m");
 
-        _cleanup_free_ void *pehash = NULL;
-        size_t pehashsz;
-        r = pe_hash(srcfd, sym_EVP_sha256(), &pehash, &pehashsz);
-        if (r < 0)
-                return log_error_errno(r, "Failed to hash PE binary %s: %m", argv[1]);
-
-        _cleanup_free_ uint8_t *idcraw = NULL;
-        size_t idcrawsz = 0; /* avoid false maybe-uninitialized warning */
-        r = authenticode_spc_indirect_data_content_new(pehash, pehashsz, &idcraw, &idcrawsz);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create SpcIndirectDataContent: %m");
-
-        _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
-        PKCS7_SIGNER_INFO *si = NULL; /* avoid false maybe-uninitialized warning */
-        r = authenticode_pkcs7_new(certificate, private_key, signed_attributes, &p7, &si);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create PKCS#7 signing context: %m");
-
-        TAKE_PTR(signed_attributes);
-
         if (arg_prepare_offline_signing) {
+                _cleanup_free_ void *pehash = NULL;
+                size_t pehashsz;
+                r = pe_hash(srcfd, sym_EVP_sha256(), &pehash, &pehashsz);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to hash PE binary %s: %m", argv[1]);
+
+                _cleanup_free_ uint8_t *idcraw = NULL;
+                size_t idcrawsz = 0; /* avoid false maybe-uninitialized warning */
+                r = authenticode_spc_indirect_data_content_new(pehash, pehashsz, &idcraw, &idcrawsz);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create SpcIndirectDataContent: %m");
+
+                _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
+                PKCS7_SIGNER_INFO *si = NULL; /* avoid false maybe-uninitialized warning */
+                r = authenticode_pkcs7_new(certificate, private_key, signed_attributes, &p7, &si);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create PKCS#7 signing context: %m");
+
+                TAKE_PTR(signed_attributes);
+
                 _cleanup_(BIO_free_allp) BIO *bio = NULL;
                 r = authenticode_pkcs7_data_bio(p7, idcraw, idcrawsz, &bio);
                 if (r < 0)
@@ -296,31 +284,13 @@ static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return 0;
         }
 
-        if (iovec_is_set(&signed_attributes_signature))
-                sym_ASN1_STRING_set0(si->enc_digest, TAKE_PTR(signed_attributes_signature.iov_base), signed_attributes_signature.iov_len);
-        else {
-                _cleanup_(BIO_free_allp) BIO *bio = NULL;
-                r = authenticode_pkcs7_data_bio(p7, idcraw, idcrawsz, &bio);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to populate PKCS#7 data: %m");
-
-                if (sym_PKCS7_dataFinal(p7, bio) == 0)
-                        return log_openssl_errors(LOG_ERR, "Failed to sign data");
-        }
-
-        _cleanup_free_ uint8_t *sig = NULL;
-        size_t sigsz;
-        r = authenticode_pkcs7_finalize(p7, idcraw, idcrawsz, &sig, &sigsz);
-        if (r < 0)
-                return log_error_errno(r, "Failed to finalize PKCS#7 signature: %m");
-
         r = copy_bytes(srcfd, dstfd, UINT64_MAX, /* copy_flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to copy %s to %s: %m", argv[1], tmp);
 
-        r = pe_append_signature(dstfd, sig, sigsz);
+        r = authenticode_sign_pe_full(dstfd, certificate, private_key, &signed_attributes, &signed_attributes_signature);
         if (r < 0)
-                return log_error_errno(r, "Failed to append signature to %s: %m", arg_output);
+                return log_error_errno(r, "Failed to sign %s: %m", argv[1]);
 
         r = link_tmpfile(dstfd, tmp, arg_output, LINK_TMPFILE_REPLACE|LINK_TMPFILE_SYNC);
         if (r < 0)

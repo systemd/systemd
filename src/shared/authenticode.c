@@ -6,6 +6,7 @@
 #include "authenticode.h"
 #include "crypto-util.h"
 #include "install-file.h"
+#include "iovec-util.h"
 #include "log.h"
 #include "pe-binary.h"
 #include "pe-writer.h"
@@ -439,12 +440,18 @@ int authenticode_pkcs7_finalize(PKCS7 *p7, const void *idc, size_t idc_size, uin
         return 0;
 }
 
-int authenticode_sign_pe(int fd, X509 *certificate, EVP_PKEY *private_key) {
+int authenticode_sign_pe_full(
+                int fd,
+                X509 *certificate,
+                EVP_PKEY *private_key,
+                STACK_OF(X509_ATTRIBUTE) **signed_attributes,
+                struct iovec *signed_attributes_signature) {
+
         int r;
 
         assert(fd >= 0);
         assert(certificate);
-        assert(private_key);
+        assert(private_key || iovec_is_set(signed_attributes_signature));
 
         r = dlopen_libcrypto(LOG_DEBUG);
         if (r < 0)
@@ -464,17 +471,27 @@ int authenticode_sign_pe(int fd, X509 *certificate, EVP_PKEY *private_key) {
 
         _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
         PKCS7_SIGNER_INFO *si = NULL; /* avoid false maybe-uninitialized warning */
-        r = authenticode_pkcs7_new(certificate, private_key, /* signed_attributes= */ NULL, &p7, &si);
+        r = authenticode_pkcs7_new(certificate, private_key, signed_attributes ? *signed_attributes : NULL, &p7, &si);
         if (r < 0)
                 return r;
 
-        _cleanup_(BIO_free_allp) BIO *bio = NULL;
-        r = authenticode_pkcs7_data_bio(p7, idc, idcsz, &bio);
-        if (r < 0)
-                return r;
+        /* authenticode_pkcs7_new() stored the signed attributes in the PKCS#7 context, which frees them. */
+        if (signed_attributes)
+                *signed_attributes = NULL;
 
-        if (sym_PKCS7_dataFinal(p7, bio) == 0)
-                return log_openssl_errors(LOG_DEBUG, "Failed to sign data");
+        if (iovec_is_set(signed_attributes_signature))
+                sym_ASN1_STRING_set0(si->enc_digest,
+                                     TAKE_PTR(signed_attributes_signature->iov_base),
+                                     signed_attributes_signature->iov_len);
+        else {
+                _cleanup_(BIO_free_allp) BIO *bio = NULL;
+                r = authenticode_pkcs7_data_bio(p7, idc, idcsz, &bio);
+                if (r < 0)
+                        return r;
+
+                if (sym_PKCS7_dataFinal(p7, bio) == 0)
+                        return log_openssl_errors(LOG_DEBUG, "Failed to sign data");
+        }
 
         _cleanup_free_ uint8_t *sig = NULL;
         size_t sigsz;

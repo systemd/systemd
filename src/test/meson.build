@@ -70,6 +70,7 @@ simple_tests += files(
         'test-bitfield.c',
         'test-bitmap.c',
         'test-blockdev-util.c',
+        'test-bmp.c',
         'test-bootspec.c',
         'test-build-path.c',
         'test-bus-unit-util.c',
@@ -208,6 +209,7 @@ simple_tests += files(
         'test-set-disable-mempool.c',
         'test-sha1.c',
         'test-sha256.c',
+        'test-shell-completion.c',
         'test-sigbus.c',
         'test-signal-util.c',
         'test-siphash24.c',
@@ -492,10 +494,12 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-pe-binary.c'),
+                'export' : files('pe-test-util.c'),
                 'dependencies' : libopenssl_cflags,
         },
         test_template + {
                 'sources' : files('test-pe-writer.c'),
+                'import' : ['test-pe-binary'],
                 'dependencies' : libopenssl_cflags,
         },
         test_template + {

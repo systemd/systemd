@@ -49,10 +49,12 @@ typedef struct _alignptr_ Verb {
         const char *help;
         const char *footer;            /* optional footer to print in --help */
         const char *option_namespace;  /* optional namespace with the verb's own options */
+        OptionCompletion completion;   /* how to complete the positional args, for shell_completion_print() */
+        const char* const *choices;    /* optional NULL-terminated list of the possible positional args */
 } Verb;
 assert_cc(sizeof(Verb) % sizeof(void*) == 0);
 
-#define _VERB_DATA(d, v, ns, a, amin, amax, f, dat, h, ft)              \
+#define _VERB_DATA(d, v, ns, a, amin, amax, f, dat, h, ft, ...)         \
         _section_("SYSTEMD_VERBS")                                      \
         _alignptr_                                                      \
         _used_                                                          \
@@ -70,16 +72,17 @@ assert_cc(sizeof(Verb) % sizeof(void*) == 0);
                 .help = h,                                              \
                 .footer = ft,                                           \
                 .option_namespace = ns,                                 \
+                __VA_ARGS__                                             \
         }
 
 /* Forward-define function d. scope specifies the scope, e.g. static. ns declares the option
  * namespace with the verb's own options, which are then shown in the verb's help (see
  * command_print_verb_help()) and reported in the CLI introspection. */
-#define VERB_SCOPE_NS_FULL(scope, d, v, ns, a, amin, amax, f, dat, h, ft) \
+#define VERB_SCOPE_NS_FULL(scope, d, v, ns, a, amin, amax, f, dat, h, ft, ...) \
         DISABLE_WARNING_REDUNDANT_DECLS                                 \
         scope int d(int, char**, uintptr_t, void*);                     \
         REENABLE_WARNING                                                \
-        _VERB_DATA(d, v, ns, a, amin, amax, f, dat, h, ft)
+        _VERB_DATA(d, v, ns, a, amin, amax, f, dat, h, ft, __VA_ARGS__)
 /* The same as VERB_SCOPE_NS_FULL, but for verbs without options of their own. */
 #define VERB_SCOPE_FULL(scope, d, v, a, amin, amax, f, dat, h, ft)      \
         VERB_SCOPE_NS_FULL(scope, d, v, /* ns= */ NULL, a, amin, amax, f, dat, h, ft)
@@ -98,6 +101,9 @@ assert_cc(sizeof(Verb) % sizeof(void*) == 0);
         VERB_SCOPE_NS(static, d, v, ns, a, amin, amax, f, h)
 #define VERB(d, v, a, amin, amax, f, h)                                 \
         VERB_SCOPE(static, d, v, a, amin, amax, f, h)
+#define VERB_COMPLETE(d, v, a, amin, amax, f, comp, ch, h)              \
+        VERB_SCOPE_NS_FULL(static, d, v, /* ns= */ NULL, a, amin, amax, f, /* dat= */ 0, h, /* ft= */ NULL, \
+                           .completion = (comp), .choices = (ch))
 
 /* Simplified VERB_SCOPE/VERB for verbs that take no argument. */
 #define VERB_SCOPE_NOARG(scope, d, v, h)                                \
@@ -152,6 +158,9 @@ int _dispatch_verb(char **args, const Verb verbs[], const Verb verbs_end[], void
         _dispatch_verb(args, __start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS, userdata)
 
 void help_section(const char *title);
+
+/* Returns true for verbs that --help doesn't list: deprecated verbs and verbs without a help text. */
+bool verb_is_hidden(const Verb *verb);
 
 #define VERB_COMMON_HELP_AUTO_FULL(program, help)                       \
         VERB_FULL(verb_help_auto, "help", NULL, VERB_ANY, VERB_ANY, 0, /* dat= */ (uintptr_t) program, /* help= */ help)

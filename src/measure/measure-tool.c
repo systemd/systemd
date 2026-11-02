@@ -545,7 +545,6 @@ static int build_policy_digest(bool sign) {
         _cleanup_(pcr_state_free_all) PcrState *pcr_states = NULL;
         _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *privkey = NULL, *pubkey = NULL;
-        _cleanup_(X509_freep) X509 *certificate = NULL;
         size_t n;
         int r;
 
@@ -569,71 +568,33 @@ static int build_policy_digest(bool sign) {
         /* When signing/building digest we only support JSON output */
         arg_json_format_flags &= ~SD_JSON_FORMAT_OFF;
 
-        /* This must be done before openssl_load_private_key() otherwise it will get stuck */
-        if (arg_certificate) {
-                if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
-                        r = parse_path_argument(arg_certificate, /* suppress_root= */ false, &arg_certificate);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = openssl_load_x509_certificate(
-                                arg_certificate_source_type,
-                                arg_certificate_source,
-                                arg_certificate,
-                                &certificate);
+        if (arg_certificate && arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
+                r = parse_path_argument(arg_certificate, /* suppress_root= */ false, &arg_certificate);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
+                        return r;
         }
 
-        if (arg_private_key) {
-                if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
-                        r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = openssl_load_private_key(
-                                arg_private_key_source_type,
-                                arg_private_key_source,
-                                arg_private_key,
-                                &(AskPasswordRequest) {
-                                        .tty_fd = -EBADF,
-                                        .id = "measure-private-key-pin",
-                                        .keyring = arg_private_key,
-                                        .credential = "measure.private-key-pin",
-                                        .until = USEC_INFINITY,
-                                        .hup_fd = -EBADF,
-                                },
-                                &privkey,
-                                &ui);
+        if (arg_private_key && arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
+                r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
+                        return r;
         }
 
-        if (arg_public_key) {
-                _cleanup_fclose_ FILE *pubkeyf = NULL;
-
-                pubkeyf = fopen(arg_public_key, "re");
-                if (!pubkeyf)
-                        return log_error_errno(errno, "Failed to open public key file '%s': %m", arg_public_key);
-
-                pubkey = sym_PEM_read_PUBKEY(pubkeyf, NULL, /* cb= */ NULL, NULL);
-                if (!pubkey)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse public key '%s'.", arg_public_key);
-        } else if (certificate) {
-                pubkey = sym_X509_get_pubkey(certificate);
-                if (!pubkey)
-                        return log_error_errno(
-                                        SYNTHETIC_ERRNO(EIO),
-                                        "Failed to extract public key from certificate %s.",
-                                        arg_certificate);
-        } else if (sign) {
-                /* No public key was specified, let's derive it automatically, if we can, when signing */
-                r = openssl_extract_public_key(privkey, &pubkey);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to extract public key from private key file '%s': %m", arg_private_key);
-        }
+        r = openssl_load_key_pair(
+                        arg_private_key_source_type,
+                        arg_private_key_source,
+                        arg_private_key,
+                        arg_certificate_source_type,
+                        arg_certificate_source,
+                        arg_certificate,
+                        arg_public_key,
+                        ASK_PASSWORD_PRIVATE_KEY_PIN("measure", arg_private_key),
+                        &privkey,
+                        /* ret_certificate= */ NULL,
+                        &pubkey,
+                        &ui);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load the private key, certificate, or public key: %m");
 
         r = pcr_states_allocate(arg_banks, &pcr_states);
         if (r < 0)
