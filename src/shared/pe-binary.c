@@ -12,6 +12,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "utf8.h"
 
 /* Cap on the (VirtualSize - SizeOfRawData) zero-padding the UKI hasher
  * will produce for a single section.  Any value beyond this is treated as
@@ -57,6 +58,14 @@ bool pe_header_is_signed(const PeHeader *h) {
                 pe_header_get_data_directory(h, IMAGE_DATA_DIRECTORY_INDEX_CERTIFICATION_TABLE);
 
         return certificate_table && le32toh(certificate_table->VirtualAddress) != 0;
+}
+
+bool pe_section_name_is_valid(const char *name) {
+        /* Longer names would need the COFF string table, which systemd-stub doesn't read. */
+        return !isempty(name) &&
+                strlen(name) <= sizeof_field(IMAGE_SECTION_HEADER, Name) &&
+                ascii_is_valid(name) &&
+                !string_has_cc(name, /* ok= */ NULL);
 }
 
 const IMAGE_SECTION_HEADER* pe_section_table_find(

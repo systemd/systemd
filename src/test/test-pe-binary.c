@@ -137,6 +137,15 @@ static int load_headers_and_sections(
         return pe_load_sections(fd, *ret_dos, *ret_pe, ret_sections);
 }
 
+TEST(pe_section_name_is_valid) {
+        ASSERT_TRUE(pe_section_name_is_valid(".linux"));
+        ASSERT_TRUE(pe_section_name_is_valid(".dtbauto"));
+        ASSERT_FALSE(pe_section_name_is_valid(""));
+        ASSERT_FALSE(pe_section_name_is_valid(".toolong9"));
+        ASSERT_FALSE(pe_section_name_is_valid(".a\tb"));
+        ASSERT_FALSE(pe_section_name_is_valid(".\xc3\xa4"));
+}
+
 /* ======================================================================
  * pe_load_headers — SizeOfOptionalHeader / NumberOfRvaAndSizes bound
  * ====================================================================== */
