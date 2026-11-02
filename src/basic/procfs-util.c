@@ -12,32 +12,19 @@
 #include "procfs-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "sysctl-util.h"
 #include "time-util.h"
 
 int procfs_get_pid_max(uint64_t *ret) {
-        _cleanup_free_ char *value = NULL;
-        int r;
-
         assert(ret);
 
-        r = read_one_line_file("/proc/sys/kernel/pid_max", &value);
-        if (r < 0)
-                return r;
-
-        return safe_atou64(value, ret);
+        return sysctl_read_uint64("kernel/pid_max", ret);
 }
 
 int procfs_get_threads_max(uint64_t *ret) {
-        _cleanup_free_ char *value = NULL;
-        int r;
-
         assert(ret);
 
-        r = read_one_line_file("/proc/sys/kernel/threads-max", &value);
-        if (r < 0)
-                return r;
-
-        return safe_atou64(value, ret);
+        return sysctl_read_uint64("kernel/threads-max", ret);
 }
 
 int procfs_tasks_set_limit(uint64_t limit) {
