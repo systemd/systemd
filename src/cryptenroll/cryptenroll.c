@@ -185,6 +185,7 @@ void enroll_context_done(EnrollContext *c) {
         c->tpm2_device_key = mfree(c->tpm2_device_key);
         c->tpm2_hash_pcr_values = mfree(c->tpm2_hash_pcr_values);
         c->tpm2_public_key = mfree(c->tpm2_public_key);
+        c->tpm2_public_key_policyref = mfree(c->tpm2_public_key_policyref);
         c->tpm2_signature = mfree(c->tpm2_signature);
         c->tpm2_pcrlock = mfree(c->tpm2_pcrlock);
         c->wipe_slots = mfree(c->wipe_slots);
