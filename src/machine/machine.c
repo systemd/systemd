@@ -26,6 +26,7 @@
 #include "machine.h"
 #include "machine-dbus.h"
 #include "machined-resolve-hook.h"
+#include "machined-ssh-agent.h"
 #include "machined.h"
 #include "mkdir.h"
 #include "namespace-util.h"
@@ -117,6 +118,9 @@ Machine* machine_free(Machine *m) {
                 assert(m->manager);
                 LIST_REMOVE(gc_queue, m->manager->machine_gc_queue, m);
         }
+
+        if (m->manager)
+                machine_stop_ssh_agent(m);
 
         if (m->manager) {
                 machine_release_unit(m);
@@ -687,6 +691,9 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
         if (r < 0)
                 return r;
 
+        /* The machine works without the SSH agent, so ignore failures. machine_start_ssh_agent() logs them. */
+        (void) machine_start_ssh_agent(m);
+
         log_struct(LOG_INFO,
                    LOG_MESSAGE_ID(SD_MESSAGE_MACHINE_START_STR),
                    LOG_ITEM("NAME=%s", m->name),
@@ -757,6 +764,7 @@ int machine_finalize(Machine *m) {
                 m->stopping = true; /* The machine is supposed to be going away. Don't try to kill it. */
         }
 
+        machine_stop_ssh_agent(m);
         machine_unlink(m);
         machine_add_to_gc_queue(m);
 
