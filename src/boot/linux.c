@@ -381,7 +381,10 @@ EFI_STATUS linux_exec(
                 EFI_IMAGE_ENTRY_POINT compat_entry =
                                 (EFI_IMAGE_ENTRY_POINT) ((const uint8_t *) parent_loaded_image->ImageBase + compat_entry_point);
                 err = compat_entry(parent_image, ST);
-        }
+        } else
+                /* pe_kernel_info() guarantees that one of the entry points is set, but let's not fall
+                 * through with err == EFI_SUCCESS if that ever changes. */
+                err = EFI_LOAD_ERROR;
 
         /* Restore */
         *parent_loaded_image = original_parent_loaded_image;
