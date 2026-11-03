@@ -77,7 +77,7 @@ TEST(login) {
         log_info("sd_pid_get_cgroup(0, …) → %s / \"%s\"", e(r), strnull(cgroup));
         ASSERT_TRUE(IN_SET(r, 0, -ENOMEDIUM));
 
-        pidfd = pidfd_open(getpid_cached(), 0);
+        pidfd = pidfd_open(getpid_cached(), /* flags= */ 0);
         if (pidfd >= 0) {
                 _cleanup_free_ char *cgroup2 = NULL, *session2 = NULL,
                         *unit2 = NULL, *user_unit2 = NULL, *slice2 = NULL;

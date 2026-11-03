@@ -580,7 +580,7 @@ TEST(pidfd) {
                 /* child */
                 _exit(66);
 
-        ASSERT_OK(pidfd = pidfd_open(pid, 0));
+        ASSERT_OK(pidfd = pidfd_open(pid, /* flags= */ 0));
 
         ASSERT_OK_ERRNO(pid2 = fork());
         if (pid2 == 0)
@@ -1131,7 +1131,7 @@ TEST(child_pidfd_wnowait) {
                 _exit(42);
 
         _cleanup_close_ int pidfd = -EBADF;
-        ASSERT_OK_ERRNO(pidfd = pidfd_open(pid, 0));
+        ASSERT_OK_ERRNO(pidfd = pidfd_open(pid, /* flags= */ 0));
 
         /* Add a child source with WNOWAIT flag */
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
@@ -1364,7 +1364,7 @@ TEST(io_uring_future_many) {
         ASSERT_OK(sd_event_new(&e));
 
         /* The ring can be created after the loop ran. */
-        ASSERT_OK(sd_event_run(e, 0));
+        ASSERT_OK(sd_event_run(e, /* timeout= */ 0));
 
         if (!io_uring_available_or_skip(e))
                 return;
@@ -1466,10 +1466,10 @@ TEST(io_uring_future_cancel_after_fork) {
         ASSERT_OK(add_recv(e, sv[0], buf, sizeof(buf), &f));
 
         /* sd_event_run() submits the SQE. Nobody writes to the socket, so the recv() stays armed. */
-        ASSERT_OK(sd_event_run(e, 0));
+        ASSERT_OK(sd_event_run(e, /* timeout= */ 0));
         ASSERT_EQ(sd_future_state(f), SD_FUTURE_PENDING);
 
-        r = ASSERT_OK(pidref_safe_fork("(future-cancel)", FORK_WAIT|FORK_LOG, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(future-cancel)", FORK_WAIT|FORK_LOG, /* ret= */ NULL));
         if (r == 0) {
                 ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_future_cancel(f)), ECHILD);
                 _exit(EXIT_SUCCESS);
@@ -1501,7 +1501,7 @@ TEST(io_uring_external_poll_loop) {
                 .events = POLLIN,
         }, 1, 5000), 1);
 
-        r = ASSERT_OK(sd_event_wait(e, 0));
+        r = ASSERT_OK(sd_event_wait(e, /* timeout= */ 0));
         if (r > 0)
                 ASSERT_OK(sd_event_dispatch(e));
 
@@ -1552,7 +1552,7 @@ TEST(io_uring_wait_fd_during_exit) {
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
         ASSERT_OK(add_recv(e, sv[0], buf, sizeof(buf), &f));
 
-        ASSERT_OK(sd_event_exit(e, 0));
+        ASSERT_OK(sd_event_exit(e, /* code= */ 0));
         ASSERT_OK(event_get_wait_fd(e));
         ASSERT_NE(event_get_wait_fd(e), sd_event_get_fd(e));
 
@@ -1590,12 +1590,12 @@ TEST(io_uring_exit_between_wait_and_dispatch) {
         ASSERT_OK(add_recv(e, sv[0], buf, sizeof(buf), &f));
 
         _cleanup_(sd_event_source_unrefp) sd_event_source *d = NULL, *x = NULL;
-        ASSERT_OK(sd_event_add_defer(e, &d, defer_noop, NULL));
+        ASSERT_OK(sd_event_add_defer(e, &d, defer_noop, /* userdata= */ NULL));
         ASSERT_OK(sd_event_add_exit(e, &x, exit_check_resolved, f));
 
         /* The defer source is pending, so sd_event_prepare() reports a pending event. */
         ASSERT_OK_POSITIVE(sd_event_prepare(e));
-        ASSERT_OK(sd_event_exit(e, 0));
+        ASSERT_OK(sd_event_exit(e, /* code= */ 0));
         ASSERT_OK_POSITIVE(sd_event_dispatch(e));
 
         ASSERT_OK(sd_event_loop(e));
@@ -1681,13 +1681,13 @@ TEST(io_uring_drain_on_exit_skips_ratelimit_expiry) {
         ASSERT_OK(add_recv(e, sv[0], buf, sizeof(buf), &f));
 
         while (sd_event_source_is_ratelimited(s) == 0)
-                ASSERT_OK(sd_event_run(e, 0));
+                ASSERT_OK(sd_event_run(e, /* timeout= */ 0));
 
         /* The ratelimit window ends during the sleep. Timer processing after the exit would then run the
          * ratelimit expiry callback. */
         ASSERT_OK(usleep_safe(20 * USEC_PER_MSEC));
 
-        ASSERT_OK(sd_event_exit(e, 0));
+        ASSERT_OK(sd_event_exit(e, /* code= */ 0));
         ASSERT_OK(sd_event_loop(e));
 
         ASSERT_ERROR(sd_future_result(f), ECANCELED);

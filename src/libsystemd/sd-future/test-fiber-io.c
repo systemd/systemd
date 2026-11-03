@@ -266,7 +266,7 @@ TEST(fiber_io_cancel_after_data) {
         CancelledRead c = { .fd = sockfd[0] };
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
         ASSERT_OK(sd_fiber_new(e, "cancelled-recv", cancelled_recv_fiber, &c, &f));
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
 
         /* The data arrives before the fiber runs again to see the cancellation. */
         ASSERT_OK_EQ_ERRNO(write(sockfd[1], "x", 1), 1);
@@ -306,9 +306,9 @@ TEST(fiber_io_after_exit) {
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
         ASSERT_OK(sd_fiber_new(e, "send-after-exit", send_after_exit_fiber, INT_TO_PTR(sockfd[1]), &f));
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
 
-        ASSERT_OK(sd_event_exit(e, 0));
+        ASSERT_OK(sd_event_exit(e, /* code= */ 0));
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK_ZERO(sd_future_result(f));
 
@@ -359,9 +359,9 @@ TEST(fiber_io_exit_order) {
         ASSERT_OK(sd_event_add_exit(e, &s, exit_order_handler, &o));
 
         /* The fiber suspends in sd_fiber_recv(). */
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
 
-        ASSERT_OK(sd_event_exit(e, 0));
+        ASSERT_OK(sd_event_exit(e, /* code= */ 0));
         ASSERT_OK(sd_event_loop(e));
 
         ASSERT_OK_ZERO(sd_future_result(f));
@@ -444,7 +444,7 @@ TEST(fiber_io_pty) {
         /* The read fiber has the higher priority, so it waits on the pty before the write fiber runs. */
         _cleanup_(sd_future_unrefp) sd_future *fr = NULL, *fw = NULL;
         ASSERT_OK(sd_fiber_new(e, "pty-read", pty_read_fiber, INT_TO_PTR(slave), &fr));
-        ASSERT_OK(sd_future_set_priority(fr, 0));
+        ASSERT_OK(sd_future_set_priority(fr, /* priority= */ 0));
         ASSERT_OK(sd_fiber_new(e, "pty-write", pty_write_fiber, INT_TO_PTR(master), &fw));
         ASSERT_OK(sd_future_set_priority(fw, 1));
 
@@ -748,7 +748,7 @@ TEST(fiber_io_recv_dontwait) {
          * runs. */
         _cleanup_(sd_future_unrefp) sd_future *fr = NULL, *fs = NULL;
         ASSERT_OK(sd_fiber_new(e, "socket-recv-dontwait", socket_recv_dontwait_fiber, INT_TO_PTR(sockfd[1]), &fr));
-        ASSERT_OK(sd_future_set_priority(fr, 0));
+        ASSERT_OK(sd_future_set_priority(fr, /* priority= */ 0));
         ASSERT_OK(sd_fiber_new(e, "socket-send-dontwait", socket_send_dontwait_fiber, INT_TO_PTR(sockfd[0]), &fs));
         ASSERT_OK(sd_future_set_priority(fs, 1));
 
@@ -1828,7 +1828,7 @@ static int shutdown_reader_fiber(void *userdata) {
 }
 
 static int on_shutdown_timer(sd_event_source *s, uint64_t usec, void *userdata) {
-        return sd_event_exit(sd_event_source_get_event(s), 0);
+        return sd_event_exit(sd_event_source_get_event(s), /* code= */ 0);
 }
 
 /* Fibers doing I/O into stack-allocated buffers while a timer fires sd_event_exit(). Every fiber
@@ -1853,8 +1853,8 @@ TEST(fiber_io_shutdown_during_work) {
 
         /* Short delay so the fibers actually transfer something before the teardown. */
         _cleanup_(sd_event_source_unrefp) sd_event_source *timer = NULL;
-        ASSERT_OK(sd_event_add_time_relative(e, &timer, CLOCK_MONOTONIC, 50 * USEC_PER_MSEC, 0,
-                                             on_shutdown_timer, NULL));
+        ASSERT_OK(sd_event_add_time_relative(e, &timer, CLOCK_MONOTONIC, 50 * USEC_PER_MSEC, /* accuracy= */ 0,
+                                             on_shutdown_timer, /* userdata= */ NULL));
 
         ASSERT_OK(sd_event_loop(e));
 
