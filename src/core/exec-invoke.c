@@ -1828,6 +1828,22 @@ static int apply_io_uring_address_families(const ExecContext *c, const ExecParam
         return io_uring_restrict_address_families(c->address_families, c->address_families_allow_list);
 }
 
+static int apply_io_uring_suid_sgid(const ExecContext *c, const ExecParameters *p) {
+        int r;
+
+        assert(c);
+        assert(p);
+
+        if (!c->restrict_suid_sgid)
+                return 0;
+
+        r = check_io_uring_bpf_filters("RestrictSUIDSGID=");
+        if (r <= 0)
+                return r;
+
+        return io_uring_restrict_suid_sgid();
+}
+
 #if HAVE_SECCOMP
 
 static bool seccomp_allows_drop_privileges(const ExecContext *c) {
@@ -6977,6 +6993,12 @@ int exec_invoke(
                 if (r < 0) {
                         *exit_status = EXIT_ADDRESS_FAMILIES;
                         return log_error_errno(r, "Failed to restrict address families of io_uring sockets: %m");
+                }
+
+                r = apply_io_uring_suid_sgid(context, params);
+                if (r < 0) {
+                        *exit_status = EXIT_SECCOMP;
+                        return log_error_errno(r, "Failed to apply SUID/SGID restrictions to io_uring: %m");
                 }
 
 #if HAVE_SECCOMP
