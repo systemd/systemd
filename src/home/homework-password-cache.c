@@ -30,7 +30,7 @@ void password_cache_load_keyring(UserRecord *h, PasswordCache *cache) {
         if (!name)
                 return (void) log_oom();
 
-        serial = request_key("user", name, NULL, 0);
+        serial = request_key("user", name, /* callout_info= */ NULL, /* destringid= */ 0);
         if (serial == -1) {
                 if (errno == ENOKEY) {
                         log_info("Home volume key is not available in kernel keyring.");
