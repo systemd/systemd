@@ -872,12 +872,12 @@ static int context_save_token(Context *c) {
         if (r < 0)
                 return context_log_errno(c, LOG_ERR, r, "Failed to build token JSON: %m");
 
-        _cleanup_free_ char *t = NULL;
-        r = sd_json_variant_format(j, SD_JSON_FORMAT_NEWLINE, &t);
-        if (r < 0)
-                return context_log_errno(c, LOG_ERR, r, "Failed to format JSON: %m");
-
-        r = write_string_file_at(c->cache_dir_fd, "token", t, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MODE_0600);
+        r = json_variant_write_file_at(
+                        c->cache_dir_fd,
+                        "token",
+                        j,
+                        SD_JSON_FORMAT_NEWLINE,
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MODE_0600);
         if (r < 0)
                 return context_log_errno(c, LOG_ERR, r, "Failed to write token cache file: %m");
 
@@ -1824,12 +1824,12 @@ static int setup_address_rrs(void) {
                 return 0;
         }
 
-        _cleanup_free_ char *text = NULL;
-        r = sd_json_variant_format(aj, SD_JSON_FORMAT_NEWLINE, &text);
-        if (r < 0)
-                return log_error_errno(r, "Failed to format JSON text: %m");
-
-        r = write_string_file("/run/systemd/resolve/static.d/imds-endpoint.rr", text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755);
+        r = json_variant_write_file_at(
+                        AT_FDCWD,
+                        "/run/systemd/resolve/static.d/imds-endpoint.rr",
+                        aj,
+                        SD_JSON_FORMAT_NEWLINE,
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to write IMDS RR data: %m");
 

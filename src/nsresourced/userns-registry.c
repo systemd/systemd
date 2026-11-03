@@ -716,16 +716,11 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
         if (r < 0)
                 return r;
 
-        _cleanup_free_ char *def_buf = NULL;
-        r = sd_json_variant_format(def, /* flags= */ 0, &def_buf);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to format userns JSON object: %m");
-
         _cleanup_free_ char *reg_fn = NULL, *link1_fn = NULL, *link2_fn = NULL, *link3_fn = NULL, *owner_fn = NULL, *uid_fn = NULL;
         if (asprintf(&reg_fn, "i%" PRIu64 ".userns", info->userns_inode) < 0)
                 return log_oom_debug();
 
-        r = write_string_file_at(dir_fd, reg_fn, def_buf, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+        r = json_variant_write_file_at(dir_fd, reg_fn, def, /* format_flags= */ 0, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write userns data to '%s' in registry: %m", reg_fn);
 
@@ -791,7 +786,7 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
         /* Store delegation files */
         FOREACH_ARRAY(delegate, info->delegates, info->n_delegates) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *delegate_def = NULL, *ancestor_array = NULL;
-                _cleanup_free_ char *delegate_buf = NULL, *delegate_uid_fn = NULL, *delegate_gid_fn = NULL;
+                _cleanup_free_ char *delegate_uid_fn = NULL, *delegate_gid_fn = NULL;
 
                 if (asprintf(&delegate_uid_fn, "u" UID_FMT ".delegate", delegate->start_uid) < 0) {
                         r = log_oom_debug();
@@ -839,13 +834,7 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
                 if (r < 0)
                         goto fail;
 
-                r = sd_json_variant_format(delegate_def, /* flags= */ 0, &delegate_buf);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to format delegation JSON object: %m");
-                        goto fail;
-                }
-
-                r = write_string_file_at(dir_fd, delegate_uid_fn, delegate_buf, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+                r = json_variant_write_file_at(dir_fd, delegate_uid_fn, delegate_def, /* format_flags= */ 0, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to write delegation data to '%s' in registry: %m", delegate_uid_fn);
                         goto fail;
@@ -986,7 +975,6 @@ int userns_registry_remove(int dir_fd, UserNamespaceInfo *info) {
 
                 if (existing.n_ancestor_userns > 0) {
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *delegate_def = NULL, *ancestor_array = NULL;
-                        _cleanup_free_ char *delegate_buf = NULL;
 
                         /* Pop the last ancestor userns inode to become the new owner */
                         uint64_t new_owner = existing.ancestor_userns[existing.n_ancestor_userns - 1];
@@ -1013,11 +1001,7 @@ int userns_registry_remove(int dir_fd, UserNamespaceInfo *info) {
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to build delegate JSON object: %m");
 
-                        r = sd_json_variant_format(delegate_def, /* flags= */ 0, &delegate_buf);
-                        if (r < 0)
-                                return log_debug_errno(r, "Failed to format delegation JSON object: %m");
-
-                        r = write_string_file_at(dir_fd, delegate_uid_fn, delegate_buf, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+                        r = json_variant_write_file_at(dir_fd, delegate_uid_fn, delegate_def, /* format_flags= */ 0, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
                         if (r < 0) {
                                 RET_GATHER(ret, log_debug_errno(r, "Failed to write restored delegation data to '%s' in registry: %m", delegate_uid_fn));
                                 continue;

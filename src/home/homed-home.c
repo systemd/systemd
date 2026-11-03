@@ -338,7 +338,6 @@ int home_set_record(Home *h, UserRecord *hr) {
 
 int home_save_record(Home *h) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_free_ char *text = NULL;
         const char *fn;
         int r;
 
@@ -349,16 +348,17 @@ int home_save_record(Home *h) {
         if (r < 0)
                 log_warning_errno(r, "User record could not be normalized.");
 
-        r = sd_json_variant_format(v, SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_NEWLINE, &text);
-        if (r < 0)
-                return r;
-
         (void) mkdir("/var/lib/systemd/", 0755);
         (void) mkdir(home_record_dir(), 0700);
 
         fn = strjoina(home_record_dir(), "/", h->user_name, ".identity");
 
-        r = write_string_file(fn, text, WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MODE_0600|WRITE_STRING_FILE_SYNC);
+        r = json_variant_write_file_at(
+                        AT_FDCWD,
+                        fn,
+                        v,
+                        SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_NEWLINE,
+                        WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MODE_0600|WRITE_STRING_FILE_SYNC);
         if (r < 0)
                 return r;
 

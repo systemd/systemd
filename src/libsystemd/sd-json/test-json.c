@@ -20,9 +20,13 @@
 #include "json-util.h"
 #include "math-util.h"
 #include "ordered-set.h"
+#include "path-util.h"
 #include "pidref.h"
+#include "rm-rf.h"
 #include "set.h"
+#include "stat-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 
@@ -2403,6 +2407,72 @@ TEST(json_dispatch_unhex_iovec32) {
 
         iovec_done(&data.digest);
         iovec_done(&data.null_digest);
+}
+
+TEST(json_variant_write_file_at) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int dfd = -EBADF;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *w = NULL;
+        _cleanup_free_ char *text = NULL;
+        struct stat st;
+
+        ASSERT_OK(dfd = mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &t));
+
+        ASSERT_OK(sd_json_buildo(&v,
+                                 SD_JSON_BUILD_PAIR_STRING("foo", "bar"),
+                                 SD_JSON_BUILD_PAIR_UNSIGNED("number", 4711),
+                                 SD_JSON_BUILD_PAIR("array", SD_JSON_BUILD_STRV(STRV_MAKE("a", "b", "c")))));
+
+        /* Plain write, without SD_JSON_FORMAT_NEWLINE: the newline is added by write_string_file_at() */
+        ASSERT_OK(json_variant_write_file_at(dfd, "plain.json", v, /* format_flags= */ 0, WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(read_full_file_at(dfd, "plain.json", &text, /* ret_size= */ NULL));
+        ASSERT_STREQ(text, "{\"foo\":\"bar\",\"number\":4711,\"array\":[\"a\",\"b\",\"c\"]}\n");
+        text = mfree(text);
+
+        /* Pretty printed, atomically, with mode and parent directory creation */
+        ASSERT_OK(json_variant_write_file_at(
+                                  dfd,
+                                  "sub/dir/pretty.json",
+                                  v,
+                                  SD_JSON_FORMAT_PRETTY,
+                                  WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_MODE_0600));
+        ASSERT_OK_ERRNO(fstatat(dfd, "sub/dir/pretty.json", &st, AT_SYMLINK_NOFOLLOW));
+        ASSERT_OK(stat_verify_regular(&st));
+        ASSERT_EQ(st.st_mode & 07777, 0600U);
+        ASSERT_OK(read_full_file_at(dfd, "sub/dir/pretty.json", &text, /* ret_size= */ NULL));
+        ASSERT_TRUE(endswith(text, "}\n"));
+        ASSERT_NULL(strstr(text, "}\n\n"));
+        ASSERT_OK(sd_json_parse(text, /* flags= */ 0, &w, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+        ASSERT_TRUE(sd_json_variant_equal(v, w));
+        text = mfree(text);
+        w = sd_json_variant_unref(w);
+
+        /* Replace the file atomically, and suppress the trailing newline */
+        ASSERT_OK(json_variant_write_file_at(
+                                  dfd,
+                                  "sub/dir/pretty.json",
+                                  v,
+                                  /* format_flags= */ 0,
+                                  WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_AVOID_NEWLINE));
+        ASSERT_OK(read_full_file_at(dfd, "sub/dir/pretty.json", &text, /* ret_size= */ NULL));
+        ASSERT_STREQ(text, "{\"foo\":\"bar\",\"number\":4711,\"array\":[\"a\",\"b\",\"c\"]}");
+        text = mfree(text);
+
+        /* Without O_CREAT nothing is created */
+        ASSERT_ERROR(json_variant_write_file_at(dfd, "missing.json", v, /* format_flags= */ 0, /* write_flags= */ 0), ENOENT);
+        ASSERT_ERROR_ERRNO(faccessat(dfd, "missing.json", F_OK, AT_SYMLINK_NOFOLLOW), ENOENT);
+
+        /* If JSON output is turned off we get ENOEXEC, and the file is left untouched */
+        ASSERT_ERROR(json_variant_write_file_at(dfd, "plain.json", v, SD_JSON_FORMAT_OFF, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE), ENOEXEC);
+        ASSERT_OK(read_full_file_at(dfd, "plain.json", &text, /* ret_size= */ NULL));
+        ASSERT_STREQ(text, "{\"foo\":\"bar\",\"number\":4711,\"array\":[\"a\",\"b\",\"c\"]}\n");
+        text = mfree(text);
+
+        /* AT_FDCWD + absolute path works too */
+        _cleanup_free_ char *p = ASSERT_NOT_NULL(path_join(t, "absolute.json"));
+        ASSERT_OK(json_variant_write_file_at(AT_FDCWD, p, v, SD_JSON_FORMAT_NEWLINE, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC));
+        ASSERT_OK(sd_json_parse_file_at(/* f= */ NULL, dfd, "absolute.json", /* flags= */ 0, &w, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+        ASSERT_TRUE(sd_json_variant_equal(v, w));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
