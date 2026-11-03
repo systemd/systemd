@@ -43,6 +43,7 @@ IORING_OFF_CQ_RING = 0x8000000
 IORING_OFF_SQES = 0x10000000
 
 IORING_OP_NOP = 0
+IORING_OP_READ = 22
 IORING_OP_OPENAT = 18
 IORING_OP_OPENAT2 = 28
 IORING_OP_SOCKET = 45
@@ -97,6 +98,10 @@ if command == "probe":
     print("supported" if r < 0 and ctypes.get_errno() == 14 else "unsupported")
 elif command == "nop":
     submit(IORING_OP_NOP)
+elif command == "read":
+    fd = os.open(sys.argv[2], os.O_RDONLY | os.O_CLOEXEC)
+    buf = ctypes.create_string_buffer(1)
+    submit(IORING_OP_READ, fd=fd, addr=ctypes.addressof(buf), length=1)
 elif command == "socket":
     family = {"unix": socket.AF_UNIX, "inet": socket.AF_INET, "inet6": socket.AF_INET6}[sys.argv[2]]
     submit(IORING_OP_SOCKET, fd=family, off=socket.SOCK_DGRAM | socket.SOCK_CLOEXEC)
@@ -141,6 +146,22 @@ for op in openat openat2; do
     (( $(run -p RestrictSUIDSGID=yes python3 "$HELPER" "$op" "$WORKDIR/plain-$op" 0755) >= 0 ))
     (( $(run python3 "$HELPER" "$op" "$WORKDIR/suid-$op" 4755) >= 0 ))
 done
+
+# SystemCallFilter= applies to the io_uring operations that can do the work of the denied system calls.
+# The cases set SystemCallErrorNumber=, because python3 itself can make a system call that the filter denies.
+# With the default action, the filter would kill python3 before the helper prints the result.
+[[ "$(run -p SystemCallFilter=~socket -p SystemCallErrorNumber=EPERM python3 "$HELPER" socket unix)" == "$EACCES" ]]
+[[ "$(run -p SystemCallFilter=~socket -p SystemCallErrorNumber=EPERM python3 "$HELPER" nop)" == 0 ]]
+(( $(run -p SystemCallFilter=@system-service -p SystemCallErrorNumber=EPERM python3 "$HELPER" socket unix) >= 0 ))
+[[ "$(run -p SystemCallFilter=@system-service -p SystemCallFilter=~@network-io -p SystemCallErrorNumber=EPERM python3 "$HELPER" socket unix)" == "$EACCES" ]]
+# An allow list denies system calls that are listed with an error number.
+[[ "$(run -p SystemCallFilter=@system-service -p SystemCallFilter=~socket:EPERM -p SystemCallErrorNumber=EPERM python3 "$HELPER" socket unix)" == "$EACCES" ]]
+# IORING_OP_READ can do the work of read() and pread64(), so denying either one denies it.
+[[ "$(run python3 "$HELPER" read /dev/null)" == 0 ]]
+[[ "$(run -p SystemCallFilter=~pread64 -p SystemCallErrorNumber=EPERM python3 "$HELPER" read /dev/null)" == "$EACCES" ]]
+# A system call that is denied with an error number of 0 pretends to succeed, which io_uring can't do.
+(( $(run -p SystemCallFilter=~socket:0 python3 "$HELPER" socket unix) >= 0 ))
+[[ "$(run -p SystemCallFilter=~io_uring_setup -p SystemCallErrorNumber=ENOSYS python3 "$HELPER" nop)" == "setup -38" ]]
 
 # Services that run as an unprivileged user get the filters as well.
 [[ "$(run -p User=testuser -p RestrictAddressFamilies=AF_UNIX python3 "$HELPER" socket inet)" == "$EACCES" ]]
