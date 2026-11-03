@@ -696,7 +696,7 @@ static int smbios_generate(const MetricFamily *mf, sd_varlink *link, void *userd
 
         _cleanup_close_ int dir_fd = xopenat(AT_FDCWD, "/sys/class/dmi/id", O_RDONLY|O_DIRECTORY);
         if (dir_fd < 0) {
-                log_full_errno(ERRNO_IS_DEVICE_ABSENT(dir_fd) ? LOG_DEBUG : LOG_WARNING, dir_fd,
+                log_full_errno(ERRNO_IS_NEG_DEVICE_ABSENT(dir_fd) ? LOG_DEBUG : LOG_WARNING, dir_fd,
                                "Failed to open /sys/class/dmi/id/, ignoring: %m");
                 return 0;
         }

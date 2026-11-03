@@ -133,7 +133,7 @@ static int delete_md(RaidDevice *m) {
 
         fd = xopenat(AT_FDCWD, m->path, O_RDONLY|O_EXCL);
         if (fd < 0) {
-                if (ERRNO_IS_DEVICE_ABSENT(fd)) {
+                if (ERRNO_IS_NEG_DEVICE_ABSENT(fd)) {
                         log_debug_errno(fd, "Tried to open MD device '%s', but device disappeared by now, ignoring: %m", m->path);
                         return 0;
                 }

@@ -567,7 +567,7 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
 
         fd = device_open(dev, O_RDONLY|O_NONBLOCK|O_NOCTTY);
         if (fd < 0) {
-                bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(fd);
+                bool ignore = ERRNO_IS_NEG_DEVICE_ABSENT_OR_EMPTY(fd);
                 log_device_debug_errno(dev, fd, "Failed to open block device %s%s: %m",
                                        devnode, ignore ? ", ignoring" : "");
                 return ignore ? 0 : fd;

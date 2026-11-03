@@ -418,7 +418,7 @@ static int run(int argc, char *argv[]) {
 
         fd = xopenat(AT_FDCWD, ASSERT_PTR(arg_device), O_RDONLY|O_NONBLOCK|O_NOCTTY);
         if (fd < 0) {
-                bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(fd);
+                bool ignore = ERRNO_IS_NEG_DEVICE_ABSENT_OR_EMPTY(fd);
                 log_full_errno(ignore ? LOG_DEBUG : LOG_WARNING, fd,
                                "Failed to open device node '%s'%s: %m",
                                arg_device, ignore ? ", ignoring" : "");

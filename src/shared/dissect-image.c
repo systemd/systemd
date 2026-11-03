@@ -3757,7 +3757,7 @@ static int verity_partition(
 
                 /* First, check if the device already exists. */
                 fd = xopenat(AT_FDCWD, node, O_RDONLY|O_NONBLOCK|O_NOCTTY);
-                if (fd < 0 && !ERRNO_IS_DEVICE_ABSENT(fd))
+                if (fd < 0 && !ERRNO_IS_NEG_DEVICE_ABSENT(fd))
                         return log_debug_errno(fd, "Failed to open verity device %s: %m", node);
                 if (fd >= 0)
                         goto check; /* The device already exists. Let's check it. */
@@ -3829,7 +3829,7 @@ static int verity_partition(
                         /* Now, the device is activated and devlink is created. Let's open it. */
                         fd = xopenat(AT_FDCWD, node, O_RDONLY|O_NONBLOCK|O_NOCTTY);
                         if (fd < 0) {
-                                if (!ERRNO_IS_DEVICE_ABSENT(fd))
+                                if (!ERRNO_IS_NEG_DEVICE_ABSENT(fd))
                                         return log_debug_errno(fd, "Failed to open verity device %s: %m", node);
 
                                 /* The device has already been removed?? */

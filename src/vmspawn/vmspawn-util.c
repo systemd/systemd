@@ -136,11 +136,11 @@ int qemu_check_vsock_support(void) {
         fd = xopenat(AT_FDCWD, "/dev/vhost-vsock", O_RDWR);
         if (fd >= 0)
                 return true;
-        if (ERRNO_IS_DEVICE_ABSENT(fd)) {
+        if (ERRNO_IS_NEG_DEVICE_ABSENT(fd)) {
                 log_debug_errno(fd, "/dev/vhost-vsock device doesn't exist. Not adding a vsock device to the virtual machine.");
                 return false;
         }
-        if (ERRNO_IS_PRIVILEGE(fd)) {
+        if (ERRNO_IS_NEG_PRIVILEGE(fd)) {
                 log_debug_errno(fd, "Permission denied to access /dev/vhost-vsock. Not adding a vsock device to the virtual machine.");
                 return false;
         }
