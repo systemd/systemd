@@ -13,6 +13,7 @@
 typedef struct Match Match;
 typedef struct Location Location;
 typedef struct Directory Directory;
+typedef struct CatalogFile CatalogFile;
 
 typedef enum MatchType {
         MATCH_DISCRETE,
@@ -126,6 +127,12 @@ typedef struct sd_journal {
         Hashmap *directories_by_wd;
 
         Hashmap *errors;
+
+        /* The catalog database, opened on first use and kept mapped until the journal object is closed,
+         * so that we don't have to reopen it for every entry we show. If opening failed, the error is
+         * stored in catalog_error, so that we don't retry for every entry either. */
+        CatalogFile *catalog;
+        int catalog_error;
 } sd_journal;
 
 char* journal_make_match_string(sd_journal *j);
