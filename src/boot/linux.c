@@ -83,12 +83,16 @@ static EFI_STATUS load_via_boot_services(
                 uninstall_security_override();
 
         if (err != EFI_SUCCESS)
-                return log_error_status(EFI_LOAD_ERROR, "Error loading inner kernel with shim: %m");
+                return log_error_status(
+                                err == EFI_UNSUPPORTED ? EFI_LOAD_ERROR : err,
+                                "Error loading inner kernel with shim: %m");
 
         err = BS->HandleProtocol(
                         kernel_image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
         if (err != EFI_SUCCESS)
-                return log_error_status(EFI_LOAD_ERROR, "Error getting kernel image from protocol from shim: %m");
+                return log_error_status(
+                                err == EFI_UNSUPPORTED ? EFI_LOAD_ERROR : err,
+                                "Error getting kernel image from protocol from shim: %m");
 
         if (cmdline) {
                 loaded_image->LoadOptions = (void *) cmdline;
