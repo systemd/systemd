@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -109,6 +110,9 @@ int userns_restrict_install(
         r = sym_bpf_map__set_max_entries(obj->maps.userns_setgroups_deny, USERNS_MAX);
         if (r < 0)
                 return log_error_errno(r, "Failed to size userns setgroups deny hash table: %m");
+
+        obj->rodata->o_tmpfile = O_TMPFILE & ~O_DIRECTORY;
+        obj->rodata->o_excl = O_EXCL;
 
         r = userns_restrict_bpf__load(obj);
         if (r < 0)
