@@ -1840,7 +1840,7 @@ static int event_log_add_component_file(EventLog *el, EventLogComponent *compone
                 sd_json_variant *rj;
 
                 if (!sd_json_variant_is_array(records)) {
-                        log_warning_errno(r, "Component records field of file %s is not an array, ignoring.", path);
+                        log_warning("Component records field of file %s is not an array, ignoring.", path);
                         return 0;
                 }
 
