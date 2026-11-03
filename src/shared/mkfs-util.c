@@ -679,7 +679,7 @@ int make_filesystem(
                 struct stat st;
 
                 if (stat(node, &st) < 0)
-                        return log_error_errno(r, "Failed to stat '%s': %m", node);
+                        return log_error_errno(errno, "Failed to stat '%s': %m", node);
 
                 if (S_ISBLK(st.st_mode))
                         fork_flags |= FORK_NEW_MOUNTNS;
