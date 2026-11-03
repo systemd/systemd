@@ -371,7 +371,7 @@ static int static_node_acl(Seat *s) {
 
                 r = stat_verify_device_node(&st);
                 if (r < 0) {
-                        RET_GATHER(ret, log_debug_errno(fd, "'/run/udev/static_node-tags/uaccess/%s' points to a non-device node: %m", de->d_name));
+                        RET_GATHER(ret, log_debug_errno(r, "'/run/udev/static_node-tags/uaccess/%s' points to a non-device node: %m", de->d_name));
                         continue;
                 }
 
