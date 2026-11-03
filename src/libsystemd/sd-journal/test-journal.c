@@ -8,6 +8,7 @@
 #include "argv-util.h"
 #include "chattr-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "iovec-util.h"
 #include "journal-authenticate.h"
 #include "journal-file-util.h"
@@ -720,7 +721,7 @@ static void test_punch_holes_hash_chain_cycle_one(void) {
 
         /* Make the data object its own successor in the hash chain */
         self = htole64(p);
-        ASSERT_OK_ERRNO(fd = open("test.journal", O_RDWR|O_CLOEXEC));
+        ASSERT_OK(fd = xopenat(AT_FDCWD, "test.journal", O_RDWR));
         ASSERT_EQ(pwrite(fd, &self, sizeof(self), p + offsetof(Object, data.next_hash_offset)),
                   (ssize_t) sizeof(self));
         ASSERT_OK_ERRNO(close(fd));
@@ -782,7 +783,7 @@ static void test_enumerate_fields_hash_chain_cycle_one(void) {
 
         /* Make the field object its own successor in the hash chain */
         self = htole64(p);
-        ASSERT_OK_ERRNO(fd = open("test.journal", O_RDWR|O_CLOEXEC));
+        ASSERT_OK(fd = xopenat(AT_FDCWD, "test.journal", O_RDWR));
         ASSERT_EQ(pwrite(fd, &self, sizeof(self), p + offsetof(Object, field.next_hash_offset)),
                   (ssize_t) sizeof(self));
         ASSERT_OK_ERRNO(close(fd));
@@ -839,7 +840,7 @@ static void test_enumerate_unique_field_list_cycle_one(void) {
 
         /* Make the data object its own successor in the list of its field */
         self = htole64(p);
-        ASSERT_OK_ERRNO(fd = open("test.journal", O_RDWR|O_CLOEXEC));
+        ASSERT_OK(fd = xopenat(AT_FDCWD, "test.journal", O_RDWR));
         ASSERT_EQ(pwrite(fd, &self, sizeof(self), p + offsetof(Object, data.next_field_offset)),
                   (ssize_t) sizeof(self));
         ASSERT_OK_ERRNO(close(fd));

@@ -541,7 +541,7 @@ TEST(chaseat) {
 
         /* If the file descriptor points to the root directory, the result will be absolute. */
 
-        fd = open("/", O_CLOEXEC | O_DIRECTORY | O_PATH);
+        fd = xopenat(AT_FDCWD, "/", O_DIRECTORY | O_PATH);
         ASSERT_OK(fd);
 
         ASSERT_OK(chaseat(XAT_FDROOT, fd, p, /* flags= */ 0, &result, /* ret_fd= */ NULL));
@@ -627,7 +627,7 @@ TEST(chaseat) {
         fd = safe_close(fd);
 
         /* A plain file (no symlink indirection) should also work. */
-        fd = ASSERT_OK_ERRNO(openat(tfd, "cwd_test", O_CREAT|O_CLOEXEC, 0600));
+        fd = ASSERT_OK(xopenat_full(tfd, "cwd_test", O_CREAT, /* xopen_flags= */ 0, 0600));
         fd = safe_close(fd);
 
         ASSERT_OK(chaseat(XAT_FDROOT, AT_FDCWD, "cwd_test", /* flags= */ 0, &result, &fd));
@@ -658,7 +658,7 @@ TEST(chaseat) {
         /* Test that absolute path or not are the same when resolving relative to a directory file
          * descriptor and that we always get a relative path back. */
 
-        fd = ASSERT_OK_ERRNO(openat(tfd, "def", O_CREAT|O_CLOEXEC, 0700));
+        fd = ASSERT_OK(xopenat_full(tfd, "def", O_CREAT, /* xopen_flags= */ 0, 0700));
         fd = safe_close(fd);
         ASSERT_OK_ERRNO(symlinkat("/def", tfd, "qed"));
         ASSERT_OK(chaseat(tfd, tfd, "qed", /* flags= */ 0, &result, /* ret_fd= */ NULL));
@@ -940,12 +940,12 @@ TEST(chaseat_separate_root_and_dir) {
 
         /* Create a file at the root and a subdirectory containing another file. */
         ASSERT_OK_ERRNO(mkdirat(root_fd, "sub", 0755));
-        sub_fd = ASSERT_OK_ERRNO(openat(root_fd, "sub", O_CLOEXEC|O_DIRECTORY|O_PATH));
+        sub_fd = ASSERT_OK(xopenat(root_fd, "sub", O_DIRECTORY|O_PATH));
 
-        fd = ASSERT_OK_ERRNO(openat(root_fd, "outside", O_CREAT|O_CLOEXEC, 0600));
+        fd = ASSERT_OK(xopenat_full(root_fd, "outside", O_CREAT, /* xopen_flags= */ 0, 0600));
         fd = safe_close(fd);
 
-        fd = ASSERT_OK_ERRNO(openat(sub_fd, "inside", O_CREAT|O_CLOEXEC, 0600));
+        fd = ASSERT_OK(xopenat_full(sub_fd, "inside", O_CREAT, /* xopen_flags= */ 0, 0600));
         fd = safe_close(fd);
 
         /* Relative lookup from sub_fd under root_fd finds sub's own files. */
@@ -1106,8 +1106,8 @@ TEST(trailing_dot_dot_below_root) {
         ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &t));
         _cleanup_free_ char *sub = ASSERT_PTR(path_join(t, "a/b"));
         ASSERT_OK(mkdir_p(sub, 0700));
-        root_fd = ASSERT_OK_ERRNO(open(t, O_PATH|O_DIRECTORY|O_CLOEXEC));
-        a_fd = ASSERT_OK_ERRNO(openat(root_fd, "a", O_PATH|O_DIRECTORY|O_CLOEXEC));
+        root_fd = ASSERT_OK(xopenat(AT_FDCWD, t, O_PATH|O_DIRECTORY));
+        a_fd = ASSERT_OK(xopenat(root_fd, "a", O_PATH|O_DIRECTORY));
         ASSERT_OK_ERRNO(symlinkat("..", root_fd, "a/up"));
 
         /* The parent of the root directory is the root directory itself. */
@@ -1177,7 +1177,7 @@ TEST(chase_mode) {
 
         ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &t));
         ASSERT_OK_ERRNO(chmod(t, 0755));
-        ASSERT_OK_ERRNO(tfd = open(t, O_PATH|O_DIRECTORY|O_CLOEXEC));
+        ASSERT_OK(tfd = xopenat(AT_FDCWD, t, O_PATH|O_DIRECTORY));
 
         ASSERT_NOT_NULL(a = path_join(t, "a"));
         ASSERT_NOT_NULL(b = path_join(t, "a/b"));
@@ -1268,8 +1268,8 @@ TEST(chase_mode) {
          * chaseat() doesn't open "a" in that case. */
         WITH_UMASK(0022)
                 ASSERT_OK(mkdir_p(c, 0755));
-        ASSERT_OK_ERRNO(bfd = open(b, O_PATH|O_DIRECTORY|O_CLOEXEC));
-        ASSERT_OK_ERRNO(cfd = open(c, O_PATH|O_DIRECTORY|O_CLOEXEC));
+        ASSERT_OK(bfd = xopenat(AT_FDCWD, b, O_PATH|O_DIRECTORY));
+        ASSERT_OK(cfd = xopenat(AT_FDCWD, c, O_PATH|O_DIRECTORY));
         ASSERT_OK(chaseat(tfd, cfd, "..", CHASE_PARENT|CHASE_MAX_MODE, /* ret_path= */ NULL, /* ret_fd= */ NULL));
         ASSERT_OK_ERRNO(chmod(a, 0777));
         ASSERT_ERROR(chaseat(tfd, cfd, "..", CHASE_PARENT|CHASE_MAX_MODE, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOLINK);

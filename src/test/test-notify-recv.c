@@ -8,6 +8,7 @@
 #include "event-util.h"
 #include "fd-util.h"
 #include "fdset.h"
+#include "fs-util.h"
 #include "notify-recv.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -98,10 +99,10 @@ TEST(notify_socket_prepare) {
                 ASSERT_OK_ERRNO(setenv("NOTIFY_SOCKET", path, /* overwrite= */ true));
                 ASSERT_OK_POSITIVE(sd_notify(/* unset_environment= */ false, "FIRST_MESSAGE=1"));
 
-                _cleanup_close_ int fd1 = open("/tmp", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
-                ASSERT_OK_ERRNO(fd1);
-                _cleanup_close_ int fd2 = open("/dev/null", O_RDONLY|O_CLOEXEC);
-                ASSERT_OK_ERRNO(fd2);
+                _cleanup_close_ int fd1 = xopenat(AT_FDCWD, "/tmp", O_RDONLY|O_DIRECTORY);
+                ASSERT_OK(fd1);
+                _cleanup_close_ int fd2 = xopenat(AT_FDCWD, "/dev/null", O_RDONLY);
+                ASSERT_OK(fd2);
 
                 ASSERT_OK_POSITIVE(
                         sd_pid_notify_with_fds(

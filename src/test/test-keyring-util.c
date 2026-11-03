@@ -6,6 +6,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "iovec-util.h"
 #include "keyring-util.h"
 #include "rm-rf.h"
@@ -178,11 +179,11 @@ TEST(keyring_find_by_name_at) {
 
         /* Below a root without /proc there is no /proc/keys to look at */
         ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &tmp));
-        ASSERT_OK_ERRNO(empty_fd = open(tmp, O_PATH|O_DIRECTORY|O_CLOEXEC));
+        ASSERT_OK(empty_fd = xopenat(AT_FDCWD, tmp, O_PATH|O_DIRECTORY));
         ASSERT_ERROR(keyring_find_by_name_at(empty_fd, "anything", getuid(), &serial), ENOENT);
 
         /* The host root behaves like keyring_find_by_name() */
-        ASSERT_OK_ERRNO(root_fd = open("/", O_PATH|O_DIRECTORY|O_CLOEXEC));
+        ASSERT_OK(root_fd = xopenat(AT_FDCWD, "/", O_PATH|O_DIRECTORY));
         r = keyring_find_by_name_at(root_fd, ".this-keyring-does-not-exist", getuid(), &serial);
         if (ERRNO_IS_NEG_PRIVILEGE(r) || IN_SET(r, -ERFKILL, -ENOENT)) {
                 log_tests_skipped_errno(r, "/proc/keys not available");

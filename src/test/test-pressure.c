@@ -17,6 +17,7 @@
 #include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "path-util.h"
 #include "pidref.h"
@@ -119,8 +120,8 @@ static void test_fake_pressure(
 
         _cleanup_free_ char *j = ASSERT_NOT_NULL(path_join(tmp, "fifo"));
         ASSERT_OK_ERRNO(mkfifo(j, 0600));
-        fifo_fd = open(j, O_CLOEXEC|O_RDWR|O_NONBLOCK);
-        ASSERT_OK_ERRNO(fifo_fd);
+        fifo_fd = xopenat(AT_FDCWD, j, O_RDWR|O_NONBLOCK);
+        ASSERT_OK(fifo_fd);
 
         _cleanup_free_ char *k = ASSERT_NOT_NULL(path_join(tmp, "sock"));
         socket_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
@@ -544,7 +545,8 @@ _noreturn_ static void real_pressure_eat_io(int pipe_fd) {
         for (;;) {
                 _cleanup_close_ int fd = -EBADF;
 
-                fd = open("/var/tmp/.io-pressure-test", O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC, 0600);
+                fd = xopenat_full(AT_FDCWD, "/var/tmp/.io-pressure-test", O_WRONLY|O_CREAT|O_TRUNC,
+                                  /* xopen_flags= */ 0, 0600);
                 if (fd < 0)
                         continue;
 

@@ -7,6 +7,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "tests.h"
 
 TEST(coredump_filter_to_from_string) {
@@ -134,7 +135,7 @@ TEST(parse_auxv) {
         _cleanup_close_ int dir_fd = -EBADF;
 
         ASSERT_OK(get_testdata_dir("auxv", &dir));
-        dir_fd = ASSERT_OK_ERRNO(open(dir, O_RDONLY | O_CLOEXEC | O_DIRECTORY | O_PATH));
+        dir_fd = ASSERT_OK(xopenat(AT_FDCWD, dir, O_RDONLY | O_DIRECTORY | O_PATH));
 
         if (__BYTE_ORDER == __LITTLE_ENDIAN) {
                 test_parse_auxv_one(ELFCLASS32, dir_fd, "resolved.arm32", /* expect_at_secure= */ 0, 193, 193, 193, 193);

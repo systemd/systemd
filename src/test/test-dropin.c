@@ -7,6 +7,7 @@
 #include "dropin.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
@@ -37,11 +38,11 @@ TEST(unit_file_classify_dependency_entry) {
         _cleanup_close_ int root_fd = -EBADF, wants_fd = -EBADF;
 
         ASSERT_OK(mkdtemp_malloc("/tmp/test-dropin-XXXXXX", &root));
-        ASSERT_OK_ERRNO(root_fd = open(root, O_DIRECTORY|O_CLOEXEC));
+        ASSERT_OK(root_fd = xopenat(AT_FDCWD, root, O_DIRECTORY));
 
         ASSERT_NOT_NULL(wants = path_join(root, "/etc/systemd/system/multi-user.target.wants"));
         ASSERT_OK(mkdir_p(wants, 0755));
-        ASSERT_OK_ERRNO(wants_fd = open(wants, O_DIRECTORY|O_CLOEXEC));
+        ASSERT_OK(wants_fd = xopenat(AT_FDCWD, wants, O_DIRECTORY));
 
         ASSERT_OK(write_string_file_at(root_fd, "etc/systemd/system/foo.service", "[Unit]",
                                        WRITE_STRING_FILE_CREATE));
@@ -85,8 +86,8 @@ TEST(unit_file_find_dropin_entry) {
         ASSERT_NOT_NULL(low_wants = path_join(low, "multi-user.target.wants"));
         ASSERT_OK(mkdir_p(high_wants, 0755));
         ASSERT_OK(mkdir_p(low_wants, 0755));
-        ASSERT_OK_ERRNO(high_fd = open(high_wants, O_DIRECTORY|O_CLOEXEC));
-        ASSERT_OK_ERRNO(low_fd = open(low_wants, O_DIRECTORY|O_CLOEXEC));
+        ASSERT_OK(high_fd = xopenat(AT_FDCWD, high_wants, O_DIRECTORY));
+        ASSERT_OK(low_fd = xopenat(AT_FDCWD, low_wants, O_DIRECTORY));
 
         ASSERT_OK_ERRNO(symlinkat("../foo.service", high_fd, "foo.service"));
         ASSERT_OK_ERRNO(symlinkat("../foo.service", low_fd, "foo.service"));

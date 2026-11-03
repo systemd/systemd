@@ -70,7 +70,7 @@ TEST(fanotify) {
         ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &t));
 
         _cleanup_(context_done) Context c = {
-                .mount_fd = ASSERT_OK_ERRNO(open(t, O_DIRECTORY | O_CLOEXEC)),
+                .mount_fd = ASSERT_OK(xopenat(AT_FDCWD, t, O_DIRECTORY)),
         };
         ASSERT_OK_ERRNO(fstatfs(c.mount_fd, &c.sfs));
 
@@ -114,7 +114,7 @@ TEST(fanotify) {
                 ASSERT_OK(set_ensure_consume(&c.stats, &inode_hash_ops, TAKE_PTR(st)));
 
                 /* Trigger a FAN_CLOSE_WRITE for this file. */
-                safe_close(ASSERT_OK_ERRNO(open(p, O_WRONLY | O_CLOEXEC)));
+                safe_close(ASSERT_OK(xopenat(AT_FDCWD, p, O_WRONLY)));
         }
 
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
