@@ -671,9 +671,11 @@ static int index_adopt(JournalFile *f, const SegmentedIndex *i) {
         return 1;
 }
 
+#define SCAN_MAP_SIZE 4096U
+
 static int scan_object(JournalFile *f, uint64_t file_size, uint64_t synced) {
         Segmented *a = ASSERT_PTR(ASSERT_PTR(f)->segmented);
-        uint64_t p = a->scan_offset, size, checked;
+        uint64_t p = a->scan_offset, size, checked, mapped;
         Header *h = f->header;
         Object *o;
         int r;
@@ -683,7 +685,9 @@ static int scan_object(JournalFile *f, uint64_t file_size, uint64_t synced) {
         if (p - a->tail_offset > UINT32_MAX || p > file_size || file_size - p < sizeof(ObjectHeader))
                 return 0;
 
-        r = journal_file_move_to(f, OBJECT_UNUSED, /* keep_always= */ false, p, sizeof(ObjectHeader), (void**) &o);
+        /* Most objects are small. Mapping a page up front saves a second lookup in the mmap cache for them. */
+        mapped = MIN(file_size - p, (uint64_t) SCAN_MAP_SIZE);
+        r = journal_file_move_to(f, OBJECT_UNUSED, /* keep_always= */ false, p, mapped, (void**) &o);
         if (r < 0)
                 return r;
 
@@ -694,9 +698,11 @@ static int scan_object(JournalFile *f, uint64_t file_size, uint64_t synced) {
         /* The payload of data objects and indexes may be large, only map the checked part. */
         checked = IN_SET(o->object.type, OBJECT_DATA, OBJECT_INDEX) ? segmented_checked_size(&o->object) : size;
 
-        r = journal_file_move_to(f, OBJECT_UNUSED, /* keep_always= */ false, p, checked, (void**) &o);
-        if (r < 0)
-                return r;
+        if (checked > mapped) {
+                r = journal_file_move_to(f, OBJECT_UNUSED, /* keep_always= */ false, p, checked, (void**) &o);
+                if (r < 0)
+                        return r;
+        }
 
         /* A partial write might have been cut off and replaced, hence check the object even if an entry at
          * this offset was checked before. */
