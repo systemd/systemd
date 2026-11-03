@@ -2619,7 +2619,7 @@ static int vl_method_apply_tags(sd_varlink *link, sd_json_variant *parameters, s
                 return r;
 
         if (strv_equal(tags, current))
-                return sd_varlink_reply(link, NULL);
+                return sd_varlink_reply(link, /* parameters= */ NULL);
 
         r = varlink_verify_polkit_async(
                         link,
@@ -2634,7 +2634,7 @@ static int vl_method_apply_tags(sd_varlink *link, sd_json_variant *parameters, s
         if (r < 0)
                 return r;
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int connect_varlink(Context *c) {
