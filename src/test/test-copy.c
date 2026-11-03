@@ -987,7 +987,7 @@ TEST_RET(copy_with_verity) {
         int r = copy_tree_at(src, ".", dst, ".", UID_INVALID, GID_INVALID, COPY_REPLACE|COPY_MERGE|COPY_PRESERVE_FS_VERITY, /* denylist= */ NULL, /* subvolumes= */ NULL);
         if (r == -ESOCKTNOSUPPORT)
                 /* This can happen on some versions of btrfs, for example */
-                return log_tests_skipped_errno(errno, "/var/tmp: fs-verity supported, but not reading metadata");
+                return log_tests_skipped_errno(r, "/var/tmp: fs-verity supported, but not reading metadata");
         ASSERT_OK(r);
         FOREACH_ELEMENT(file, files)
                 assert_fsverity_eq(src, dst, *file);
