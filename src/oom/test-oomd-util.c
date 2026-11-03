@@ -172,7 +172,7 @@ TEST(oomd_cgroup_kill) {
          * by the test so that pid1 doesn't delete it before we can read the xattrs. */
         ASSERT_NOT_NULL(subcgroup = path_join(cgroup, "oomdkilltest"));
         /* Always start clean, in case of repeated runs and failures */
-        ASSERT_OK(cg_trim(subcgroup, /* delete_root */ true));
+        ASSERT_OK(cg_trim(subcgroup, /* delete_root= */ true));
         ASSERT_OK(cg_create(subcgroup));
 
         /* If we don't have permissions to set xattrs we're likely in a userns or missing capabilities */
@@ -216,7 +216,7 @@ TEST(oomd_cgroup_kill) {
                 ASSERT_STREQ(v, i == 0 ? "2" : "4");
         }
 
-        ASSERT_OK(cg_trim(subcgroup, /* delete_root */ true));
+        ASSERT_OK(cg_trim(subcgroup, /* delete_root= */ true));
 }
 
 TEST(oomd_cgroup_kill_signal_reason) {
