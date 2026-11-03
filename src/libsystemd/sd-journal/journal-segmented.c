@@ -268,6 +268,7 @@ int segmented_index_parse(JournalFile *f, const IndexObject *o, uint64_t offset,
                 .size = le64toh(o->object.size),
                 .head_offset = offset - MIN(le64toh(o->segment_size), offset),
                 .n_entries = le64toh(o->n_entries),
+                .tail_seqnum = le64toh(o->tail_entry_seqnum),
                 .n_index_entries = le32toh(o->n_index_entries),
                 .entry_array_offset = le32toh(o->entry_array_offset),
                 .n_fields = le32toh(o->n_fields),
@@ -1102,6 +1103,22 @@ int segmented_entry_ordinal(JournalFile *f, uint64_t offset, direction_t directi
                 return 1;
         }
 
+        /* sd-journal looks for the entry after the current one by its offset plus or minus one */
+        if (a->current_offset != 0 && direction == DIRECTION_DOWN && offset == a->current_offset + 1) {
+                if (a->current_ordinal + 1 >= n_entries_known(a))
+                        return 0;
+
+                *ret = a->current_ordinal + 1;
+                return 1;
+        }
+        if (a->current_offset != 0 && direction == DIRECTION_UP && offset == a->current_offset - 1) {
+                if (a->current_ordinal == 0)
+                        return 0;
+
+                *ret = a->current_ordinal - 1;
+                return 1;
+        }
+
         n = n_entries_known(a);
 
         /* Without indexes, offsets before the tail are in the header */
@@ -1577,6 +1594,68 @@ static int entry_key_nearest(
         }
 }
 
+static bool key_satisfies(uint64_t k, uint64_t needle, direction_t direction) {
+        return direction == DIRECTION_DOWN ? k >= needle : k > needle;
+}
+
+static const SegmentedIndex* bisect_indexes(
+                Segmented *a,
+                uint64_t needle,
+                direction_t direction,
+                uint64_t *left,
+                uint64_t *right) {
+
+        size_t l = 0, r = a->n_indexes;
+
+        assert(left);
+        assert(right);
+
+        /* Each index records the key of the last entry of its segment. The first segment whose last entry
+         * satisfies the needle contains the result. The bisection hence only reads entries of that segment.
+         * If no segment satisfies the needle, the result is in the tail. */
+
+        while (l < r) {
+                size_t m = l + (r - l) / 2;
+                uint64_t k = a->indexes[m].tail_seqnum;
+
+                if (key_satisfies(k, needle, direction))
+                        r = m;
+                else
+                        l = m + 1;
+        }
+
+        if (l == a->n_indexes) {
+                *left = a->n_indexed_entries;
+                return NULL;
+        }
+
+        *left = a->indexes[l].first_ordinal;
+        *right = a->indexes[l].first_ordinal + a->indexes[l].n_index_entries;
+        return a->indexes + l;
+}
+
+/* If the entries that remain in a bisection lie within this many bytes, they are prefetched at once */
+#define BISECT_PREFETCH_MAX (2U * PREFETCH_WINDOW)
+
+static void bisect_prefetch(JournalFile *f, uint64_t left, uint64_t right, bool *done) {
+        uint64_t p, q;
+
+        assert(done);
+
+        if (*done || left >= right)
+                return;
+
+        if (segmented_entry_offset(f, left, &p) < 0 || segmented_entry_offset(f, right - 1, &q) < 0 || q < p)
+                return;
+
+        if (q - p > BISECT_PREFETCH_MAX)
+                return;
+
+        /* The size of the last entry is not known before it is read. Its first bytes are in the windows. */
+        segmented_prefetch(f, p, q - p + 1);
+        *done = true;
+}
+
 int segmented_bisect(
                 JournalFile *f,
                 SegmentedKey key,
@@ -1587,16 +1666,37 @@ int segmented_bisect(
 
         Segmented *a = ASSERT_PTR(ASSERT_PTR(f)->segmented);
         uint64_t left = 0, right, n, first;
-        bool found = false;
+        bool found = false, prefetched = false;
         int r;
 
         assert(ret);
 
+        /* Sequence numbers ascend even in files that combine entries from multiple sources. Realtime
+         * timestamps can go backwards in files written without strict ordering. */
+        if (key == SEGMENTED_KEY_SEQNUM && f->header->n_entries != 0) {
+                uint64_t head = le64toh(f->header->head_entry_seqnum),
+                         tail = le64toh(f->header->tail_entry_seqnum);
+
+                if (direction == DIRECTION_DOWN ? tail < needle : head > needle)
+                        return 0;
+        }
+
         n = right = among ? MIN(n_entries_known(a), among->n_bits) : n_entries_known(a);
-        first = n;
+
+        if (!among && key == SEGMENTED_KEY_SEQNUM) {
+                const SegmentedIndex *i;
+
+                i = bisect_indexes(a, needle, direction, &left, &right);
+                if (i)
+                        segmented_prefetch(f, i->offset + i->entry_array_offset, (uint64_t) i->n_index_entries * sizeof(le32_t));
+        }
+
+        first = right;
 
         while (left < right) {
                 uint64_t m = left + (right - left) / 2, o, k;
+
+                bisect_prefetch(f, left, right, &prefetched);
 
                 r = entry_key_nearest(f, m, right, key, among, &o, &k);
                 if (r < 0)
@@ -1606,7 +1706,7 @@ int segmented_bisect(
                         continue;
                 }
 
-                if (direction == DIRECTION_DOWN ? k >= needle : k > needle) {
+                if (key_satisfies(k, needle, direction)) {
                         first = o;
                         found = true;
                         right = m;
@@ -1615,7 +1715,9 @@ int segmented_bisect(
         }
 
         if (direction == DIRECTION_DOWN) {
-                if (!found)
+                /* If the indexes limited the bisection to one segment and no entry of the segment satisfies
+                 * the needle, the first entry after the segment is the result */
+                if (!found && first >= n)
                         return 0;
 
                 *ret = first;

@@ -21,6 +21,7 @@ typedef struct SegmentedIndex {
         uint64_t head_offset;
         uint64_t n_entries;      /* entries of the file up to the index */
         uint64_t first_ordinal;  /* ordinal of the first entry of the segment */
+        uint64_t tail_seqnum;    /* of the last entry of the file up to the index */
 
         uint32_t n_index_entries;
         uint32_t entry_array_offset;
