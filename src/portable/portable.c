@@ -462,11 +462,110 @@ static int extract_now(
         return 0;
 }
 
+static ImagePolicy* pin_image_policy(const DissectedImage *m, const VeritySettings *verity, bool pin_protection) {
+        ImagePolicy *p = image_policy_new_from_dissected(m, verity);
+        if (!p)
+                return NULL;
+
+        if (pin_protection)
+                return p;
+
+        FOREACH_ARRAY(pp, p->policies, p->n_policies) {
+                if (partition_verity_hash_to_data(pp->designator) >= 0 ||
+                    partition_verity_sig_to_data(pp->designator) >= 0) {
+                        pp->flags = PARTITION_POLICY_OPEN;
+                        continue;
+                }
+
+                /* If we only cleared the Verity and signature flags, the policy would have no protection flags
+                 * for the partition. A policy without protection flags allows "absent" and "unused" too. We
+                 * allow every Verity protection instead, so that the partition has to exist. */
+                if (pp->flags & (PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED))
+                        pp->flags |= PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_UNPROTECTED;
+
+                /* Without any flags, the policy string contains "-" for the partition, which
+                 * image_policy_from_string() parses as "ignore" instead of "open". */
+                if (pp->flags == 0)
+                        pp->flags = PARTITION_POLICY_OPEN;
+        }
+
+        return p;
+}
+
+static int pin_image_policy_from_fd(
+                int fd,
+                const VeritySettings *verity,
+                const ImagePolicy *image_policy,
+                DissectImageFlags flags,
+                bool pin_protection,
+                ImagePolicy **ret) {
+
+        _cleanup_(verity_settings_done) VeritySettings v = VERITY_SETTINGS_DEFAULT;
+        _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
+        _cleanup_close_ int image_fd = -EBADF;
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        r = verity_settings_copy(&v, verity);
+        if (r < 0)
+                return r;
+
+        image_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC);
+        if (image_fd < 0)
+                return image_fd;
+
+        struct stat st;
+        if (fstat(image_fd, &st) < 0)
+                return -errno;
+
+        /* We only read the partition table, which needs no privileges, unlike setting up a loopback block
+         * device or adding partition block devices. */
+        flags &= ~(DISSECT_IMAGE_ADD_PARTITION_DEVICES|DISSECT_IMAGE_PIN_PARTITION_DEVICES);
+
+        if (S_ISBLK(st.st_mode)) {
+                _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+
+                r = loop_device_open_from_fd(image_fd, O_RDONLY, LOCK_SH, &d);
+                if (r < 0)
+                        return r;
+
+                r = dissect_loop_device(d, &v, /* mount_options= */ NULL, image_policy, /* image_filter= */ NULL, flags, &m);
+        } else
+                r = dissect_image_file(
+                                FORMAT_PROC_FD_PATH(image_fd),
+                                &v,
+                                /* mount_options= */ NULL,
+                                image_policy,
+                                /* filter= */ NULL,
+                                flags,
+                                &m);
+        if (r < 0)
+                return r;
+
+        r = dissected_image_load_verity_sig_partition(m, image_fd, &v);
+        if (r < 0)
+                return r;
+
+        r = dissected_image_guess_verity_roothash(m, &v);
+        if (r < 0)
+                return r;
+
+        ImagePolicy *p = pin_image_policy(m, &v, pin_protection);
+        if (!p)
+                return -ENOMEM;
+
+        *ret = p;
+        return 0;
+}
+
 static int portable_extract_by_path(
                 RuntimeScope scope,
                 const char *path,
                 bool path_is_extension,
                 bool relax_extension_release_check,
+                bool pin_protection,
                 char **matches,
                 const ImagePolicy *image_policy,
                 PortableMetadata **ret_os_release,
@@ -626,6 +725,16 @@ static int portable_extract_by_path(
                         return log_debug_errno(r, "Failed to create temporary directory: %m");
 
                 if (scope == RUNTIME_SCOPE_USER) {
+                        /* mountfsd doesn't report whether the image is signed, so we dissect the image
+                         * ourselves to determine the policy to pin. We pass the pinned policy to mountfsd, so
+                         * that it refuses the image if the pinned policy requires a signature that the host
+                         * doesn't trust. */
+                        if (ret_pinned_image_policy) {
+                                r = pin_image_policy_from_fd(rfd, &verity, image_policy, flags, pin_protection, &pinned_image_policy);
+                                if (r < 0)
+                                        return log_debug_errno(r, "Failed to dissect '%s': %m", path);
+                        }
+
                         userns_fd = nsresource_allocate_userns(
                                         /* vl= */ NULL,
                                         /* name= */ NULL,
@@ -638,12 +747,10 @@ static int portable_extract_by_path(
                                         rfd,
                                         userns_fd,
                                         /* options= */ NULL,
-                                        image_policy,
+                                        pinned_image_policy ?: image_policy,
                                         &verity,
                                         flags,
                                         &m);
-                        if (r < 0)
-                                return r;
                 } else {
                         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
 
@@ -686,18 +793,38 @@ static int portable_extract_by_path(
                         r = dissected_image_guess_verity_roothash(m, &verity);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to guess verity roothash for '%s': %m", path);
+
+                        /* Callers only ask for a pinned policy when attaching an image. In that case we set
+                         * up Verity with the pinned policy. If the pinned policy requires a signature that the
+                         * host doesn't trust, we refuse to attach the image, instead of failing when the
+                         * service starts. We also read the metadata through Verity this way. We don't set up
+                         * Verity when only inspecting an image, so that the admin can still inspect an image
+                         * whose signature the host doesn't trust. */
+                        if (ret_pinned_image_policy) {
+                                pinned_image_policy = pin_image_policy(m, &verity, pin_protection);
+                                if (!pinned_image_policy)
+                                        return -ENOMEM;
+
+                                r = dissected_image_decrypt(
+                                                m,
+                                                /* root= */ NULL,
+                                                /* passphrase= */ NULL,
+                                                &verity,
+                                                pinned_image_policy,
+                                                flags);
+                        }
                 }
+                if (r == -EDESTADDRREQ)
+                        sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "The host doesn't trust the signature of image '%s'.", path);
+                else if (r == -ERFKILL)
+                        sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image '%s' is not permitted by the image policy.", path);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to set up image '%s': %m", path);
 
                 if (!m->image_name) {
                         r = dissected_image_name_from_path(path, &m->image_name);
                         if (r < 0)
                                 return r;
-                }
-
-                if (ret_pinned_image_policy) {
-                        pinned_image_policy = image_policy_new_from_dissected(m, &verity);
-                        if (!pinned_image_policy)
-                                return -ENOMEM;
                 }
 
                 if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, seq) < 0)
@@ -802,6 +929,7 @@ static int extract_image_and_extensions(
                 char **extension_image_paths,
                 bool validate_extension,
                 bool relax_extension_release_check,
+                bool pin_protection,
                 const ImagePolicy *image_policy,
                 Image **ret_image,
                 OrderedHashmap **ret_extension_images,
@@ -907,11 +1035,12 @@ static int extract_image_and_extensions(
                         image->path,
                         /* path_is_extension= */ false,
                         /* relax_extension_release_check= */ false,
+                        pin_protection,
                         matches,
                         image_policy,
                         &os_release,
                         &unit_files,
-                        &pinned_root_image_policy,
+                        ret_pinned_root_image_policy ? &pinned_root_image_policy : NULL,
                         error);
         if (r < 0)
                 return r;
@@ -982,11 +1111,12 @@ static int extract_image_and_extensions(
                                 ext->path,
                                 /* path_is_extension= */ true,
                                 relax_extension_release_check,
+                                pin_protection,
                                 matches,
                                 image_policy,
                                 &extension_release_meta,
                                 &extra_unit_files,
-                                &policy,
+                                ret_pinned_ext_image_policy ? &policy : NULL,
                                 error);
                 if (r < 0)
                         return r;
@@ -1092,6 +1222,7 @@ int portable_extract(
                         extension_image_paths,
                         /* validate_extension= */ false,
                         /* relax_extension_release_check= */ FLAGS_SET(flags, PORTABLE_FORCE_EXTENSION),
+                        /* pin_protection= */ FLAGS_SET(flags, PORTABLE_PIN_PROTECTION),
                         image_policy,
                         &image,
                         &extension_images,
@@ -1834,7 +1965,10 @@ static int install_image(
          * short image names and is listed among the images. If we are operating in mixed mode, the image is
          * copied instead. */
 
-        if (image_in_search_path(scope, IMAGE_PORTABLE, /* root= */ NULL, image_path))
+        r = image_in_search_path(scope, IMAGE_PORTABLE, /* root= */ NULL, image_path);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to check whether '%s' is in the image search path: %m", image_path);
+        if (r > 0)
                 return 0;
 
         r = image_target_path(scope, image_path, flags, &target);
@@ -2048,6 +2182,8 @@ int portable_attach(
                 PortableFlags flags,
                 PortableChange **changes,
                 size_t *n_changes,
+                PortableChange **detach_changes,
+                size_t *n_detach_changes,
                 sd_bus_error *error) {
 
         _cleanup_(image_policy_freep) ImagePolicy *pinned_root_image_policy = NULL, *pinned_ext_image_policy = NULL;
@@ -2061,6 +2197,7 @@ int portable_attach(
         int r;
 
         assert(scope < _RUNTIME_SCOPE_MAX);
+        assert(!FLAGS_SET(flags, PORTABLE_REATTACH) || (detach_changes && n_detach_changes));
 
         r = portable_profile_validate(scope, profile, error);
         if (r < 0)
@@ -2073,6 +2210,7 @@ int portable_attach(
                         extension_image_paths,
                         /* validate_extension= */ true,
                         /* relax_extension_release_check= */ FLAGS_SET(flags, PORTABLE_FORCE_EXTENSION),
+                        /* pin_protection= */ FLAGS_SET(flags, PORTABLE_PIN_PROTECTION),
                         image_policy,
                         &image,
                         &extension_images,
@@ -2144,6 +2282,22 @@ int portable_attach(
                         if (r > 0)
                                 return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' is active already, refusing.", item->name);
                 }
+
+        /* When reattaching, we only detach the image after the checks above. If attaching fails these
+         * checks, for example because no unit files match, the image stays attached. */
+        if (FLAGS_SET(flags, PORTABLE_REATTACH)) {
+                r = portable_detach(
+                                scope,
+                                bus,
+                                name_or_path,
+                                extension_image_paths,
+                                flags,
+                                detach_changes,
+                                n_detach_changes,
+                                error);
+                if (r < 0)
+                        return r;
+        }
 
         HASHMAP_FOREACH(item, unit_files) {
                 r = attach_unit_file(
@@ -2425,11 +2579,18 @@ int portable_detach(
                         if (r == 0)
                                 break;
 
-                        if (path_is_absolute(image) && !image_in_search_path(scope, IMAGE_PORTABLE, /* root= */ NULL, image)) {
-                                r = set_ensure_consume(&markers, &path_hash_ops_free, TAKE_PTR(image));
-                                if (r < 0)
-                                        return r;
-                        }
+                        if (!path_is_absolute(image))
+                                continue;
+
+                        r = image_in_search_path(scope, IMAGE_PORTABLE, /* root= */ NULL, image);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to check whether '%s' is in the image search path: %m", image);
+                        if (r > 0)
+                                continue;
+
+                        r = set_ensure_consume(&markers, &path_hash_ops_free, TAKE_PTR(image));
+                        if (r < 0)
+                                return r;
                 }
         }
 

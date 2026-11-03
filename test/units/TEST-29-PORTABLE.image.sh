@@ -36,6 +36,42 @@ runas testuser busctl call org.freedesktop.portable1 /org/freedesktop/portable1 
     grep -E "Permission denied|Access denied" >/dev/null
 rm /run/portables/minimal_8.raw /run/portables/app0.raw
 
+# With --pin-protection=yes, the host refuses to attach an image whose signature it doesn't trust, so that
+# the service doesn't only fail when it starts. Inspecting the image still works. Without a signature, the
+# same image is attached and pinned to Verity alone.
+mkdir -p /run/portables
+cp /tmp/untrusted/minimal_9.raw /tmp/untrusted/minimal_9.verity /tmp/untrusted/minimal_9.roothash \
+   /tmp/untrusted/minimal_9.roothash.p7s /run/portables/
+portablectl inspect /run/portables/minimal_9.raw minimal-app0 >/dev/null
+(! portablectl "${ARGS[@]}" attach --runtime --pin-protection=yes /run/portables/minimal_9.raw minimal-app0 2>/tmp/untrusted/attach.err)
+grep -F "doesn't trust the signature" /tmp/untrusted/attach.err >/dev/null
+test ! -e /run/systemd/system.attached/minimal-app0.service
+rm /run/portables/minimal_9.roothash.p7s
+portablectl "${ARGS[@]}" attach --runtime --pin-protection=yes /run/portables/minimal_9.raw minimal-app0
+grep -F 'root=verity+squashfs:' /run/systemd/system.attached/minimal-app0-foo.service.d/20-portable.conf >/dev/null
+# A reattach that is refused because of the signature leaves the image attached.
+cp /tmp/untrusted/minimal_9.roothash.p7s /run/portables/
+(! portablectl "${ARGS[@]}" reattach --runtime --pin-protection=yes /run/portables/minimal_9.raw minimal-app0)
+test -e /run/systemd/system.attached/minimal-app0.service
+rm /run/portables/minimal_9.roothash.p7s
+# Reattaching and detaching an image in the image search path must not remove the image.
+portablectl "${ARGS[@]}" reattach --runtime /run/portables/minimal_9.raw minimal-app0
+test -f /run/portables/minimal_9.raw
+test ! -L /run/portables/minimal_9.raw
+portablectl detach --runtime /run/portables/minimal_9.raw minimal-app0
+test -f /run/portables/minimal_9.raw
+rm /run/portables/minimal_9.*
+
+# By default, the generated policy doesn't require the signature. Attaching and reattaching the image
+# succeed, and the service starts without a validated signature.
+portablectl "${ARGS[@]}" attach --now --runtime /tmp/untrusted/minimal_9.raw minimal-app0
+grep -F 'RootImagePolicy=root=verity+signed+unprotected+squashfs:' /run/systemd/system.attached/minimal-app0-foo.service.d/20-portable.conf >/dev/null
+systemctl is-active minimal-app0.service
+portablectl "${ARGS[@]}" reattach --now --runtime /tmp/untrusted/minimal_9.raw minimal-app0
+grep -F 'RootImagePolicy=root=verity+signed+unprotected+squashfs:' /run/systemd/system.attached/minimal-app0-foo.service.d/20-portable.conf >/dev/null
+systemctl is-active minimal-app0.service
+portablectl detach --now --runtime /tmp/untrusted/minimal_9.raw minimal-app0
+
 # Attaching with a profile that doesn't exist must fail and must not leave anything behind
 (! portablectl attach --runtime --profile=nonexistent /usr/share/minimal_0.raw minimal-app0)
 test ! -e /run/systemd/system.attached/minimal-app0.service
@@ -51,7 +87,14 @@ systemctl is-active minimal-app0-bar.service && exit 1
 
 # Ensure pinning by policy works
 cat /run/systemd/system.attached/minimal-app0-foo.service.d/20-portable.conf
-grep -q -F 'root=signed+squashfs:' /run/systemd/system.attached/minimal-app0-foo.service.d/20-portable.conf
+grep -F 'RootImagePolicy=root=verity+signed+unprotected+squashfs:' /run/systemd/system.attached/minimal-app0-foo.service.d/20-portable.conf >/dev/null
+
+portablectl "${ARGS[@]}" reattach --now --runtime --pin-protection=yes /usr/share/minimal_0.raw minimal-app0
+systemctl is-active minimal-app0.service
+grep -F 'RootImagePolicy=root=signed+squashfs:' /run/systemd/system.attached/minimal-app0-foo.service.d/20-portable.conf >/dev/null
+portablectl "${ARGS[@]}" reattach --now --runtime --pin-protection=no /usr/share/minimal_0.raw minimal-app0
+systemctl is-active minimal-app0.service
+grep -F 'RootImagePolicy=root=verity+signed+unprotected+squashfs:' /run/systemd/system.attached/minimal-app0-foo.service.d/20-portable.conf >/dev/null
 
 # Reattaching with a profile that doesn't exist must fail without detaching the image first
 (! portablectl reattach --now --runtime --profile=nonexistent /usr/share/minimal_1.raw minimal-app0)
@@ -117,6 +160,18 @@ portablectl detach --force --now --runtime /usr/share/minimal_1.raw minimal-app0
 portablectl list | grep -F "No images." >/dev/null
 busctl tree org.freedesktop.portable1 --no-pager | grep -F '/org/freedesktop/portable1/image/minimal_5f1' >/dev/null && exit 1
 
+portablectl "${ARGS[@]}" attach --runtime --pin-protection=yes /usr/share/minimal_0.raw minimal-app0
+grep -F 'RootImagePolicy=root=signed+squashfs:' /run/systemd/system.attached/minimal-app0.service.d/20-portable.conf >/dev/null
+portablectl detach --runtime /usr/share/minimal_0.raw minimal-app0
+
+portablectl "${ARGS[@]}" attach --runtime --pin-protection=yes --extension /tmp/app0.raw /usr/share/minimal_0.raw app0
+grep -F 'RootImagePolicy=root=signed+squashfs:' /run/systemd/system.attached/app0.service.d/20-portable.conf >/dev/null
+grep -F 'ExtensionImagePolicy=root=signed+squashfs:' /run/systemd/system.attached/app0.service.d/20-portable.conf >/dev/null
+portablectl "${ARGS[@]}" reattach --runtime --pin-protection=yes --extension /tmp/app0.raw /usr/share/minimal_1.raw app0
+grep -F 'RootImagePolicy=root=signed+squashfs:' /run/systemd/system.attached/app0.service.d/20-portable.conf >/dev/null
+grep -F 'ExtensionImagePolicy=root=signed+squashfs:' /run/systemd/system.attached/app0.service.d/20-portable.conf >/dev/null
+portablectl detach --runtime --extension /tmp/app0.raw /usr/share/minimal_1.raw app0
+
 portablectl "${ARGS[@]}" attach --now --runtime --extension /tmp/app0.raw /usr/share/minimal_0.raw app0
 
 systemctl is-active app0.service
@@ -127,8 +182,8 @@ grep -q -F "LogExtraFields=PORTABLE_ROOT=minimal_0.raw" /run/systemd/system.atta
 grep -q -F "LogExtraFields=PORTABLE_EXTENSION=app0.raw" /run/systemd/system.attached/app0.service.d/20-portable.conf
 grep -q -F "LogExtraFields=PORTABLE_EXTENSION_NAME_AND_VERSION=app" /run/systemd/system.attached/app0.service.d/20-portable.conf
 # Ensure pinning by policy works
-grep -q -F 'RootImagePolicy=root=signed+squashfs:' /run/systemd/system.attached/app0.service.d/20-portable.conf >/dev/null
-grep -q -F 'ExtensionImagePolicy=root=signed+squashfs:' /run/systemd/system.attached/app0.service.d/20-portable.conf >/dev/null
+grep -F 'RootImagePolicy=root=verity+signed+unprotected+squashfs:' /run/systemd/system.attached/app0.service.d/20-portable.conf >/dev/null
+grep -F 'ExtensionImagePolicy=root=verity+signed+unprotected+squashfs:' /run/systemd/system.attached/app0.service.d/20-portable.conf >/dev/null
 
 portablectl "${ARGS[@]}" reattach --now --runtime --extension /tmp/app0.raw /usr/share/minimal_1.raw app0
 
