@@ -10724,7 +10724,7 @@ static int pcrlock_policy_load_credential(
                 return r;
 
         if (memchr(decoded.iov_base, 0, decoded.iov_len))
-                return log_error_errno(r, "Credential '%s' contains embedded NUL byte, refusing.", name);
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Credential '%s' contains embedded NUL byte, refusing.", name);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         r = sd_json_parse(decoded.iov_base,
