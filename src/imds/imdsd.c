@@ -47,6 +47,7 @@
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "sysctl-util.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
 #include "utf8.h"
@@ -1637,6 +1638,19 @@ static int imds_configured(int level) {
         return 0;
 }
 
+static void check_rp_filter_all(void) {
+        int r, v;
+
+        /* The kernel applies the maximum of the link's and the "all" setting, so turning off reverse path
+         * filtering on the link does not help if "all" turns it on. */
+        r = sysctl_read_ip_property_int(AF_INET, "all", "rp_filter", &v);
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to read net.ipv4.conf.all.rp_filter, ignoring: %m");
+        if (v != 0)
+                log_warning("net.ipv4.conf.all.rp_filter=%i turns on IPv4 reverse path filtering on all links, "
+                            "which drops IMDS replies in locked mode. Set it to 0 to allow IMDS access.", v);
+}
+
 static int setup_network(void) {
         int r;
 
@@ -1686,8 +1700,18 @@ static int setup_network(void) {
               "\n"
               "[Network]\n"
               "DHCP=yes\n"
-              "LinkLocalAddressing=ipv6\n"
-              "\n"
+              "LinkLocalAddressing=ipv6\n", f);
+
+        /* IMDS's replies to imdsd carry no firewall mark. Reverse path filtering would check their source
+         * address against the main table, find the prohibit route below, and drop them. IPv6 has no
+         * reverse path filter. */
+        if (arg_network_mode != IMDS_NETWORK_UNLOCKED && in4_addr_is_set(&arg_address_ipv4)) {
+                fputs("# Reverse path filtering would drop IMDS's replies due to the prohibit route\n"
+                      "IPv4ReversePathFilter=no\n", f);
+                check_rp_filter_all();
+        }
+
+        fputs("\n"
               "[DHCP]\n"
               "UseTimezone=yes\n"
               "UseHostname=yes\n"
