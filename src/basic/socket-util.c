@@ -1475,17 +1475,11 @@ ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags) {
         assert(sockfd >= 0);
         assert(msg);
 
-        /* Only AF_UNIX sockets can pass fds, and only into a control buffer. Other families might refuse
-         * MSG_CMSG_CLOEXEC, AF_PACKET does with EINVAL. */
-        if (msg->msg_controllen > 0) {
-                int af = socket_get_family(sockfd);
-                if (af < 0)
-                        return af;
-                if (af == AF_UNIX)
-                        flags |= MSG_CMSG_CLOEXEC;
-        }
-
-        n = recvmsg(sockfd, msg, flags);
+        /* Fds can only be received into a control buffer. Protocols that can't pass fds might refuse
+         * MSG_CMSG_CLOEXEC, AF_PACKET does with EINVAL, MCTP with EOPNOTSUPP. Retry without it then. */
+        n = recvmsg(sockfd, msg, flags | (msg->msg_controllen > 0 ? MSG_CMSG_CLOEXEC : 0));
+        if (n < 0 && msg->msg_controllen > 0 && IN_SET(errno, EINVAL, EOPNOTSUPP))
+                n = recvmsg(sockfd, msg, flags);
         if (n < 0)
                 return -errno;
 
