@@ -45,45 +45,42 @@ TEST(dnssec_verify_dns_key) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *dnskey = NULL, *ds1 = NULL, *ds2 = NULL;
 
         /* The two DS RRs in effect for nasa.gov on 2015-12-01. */
-        ds1 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DS, "nasa.gov");
-        assert_se(ds1);
+        ds1 = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DS, "nasa.gov"));
 
         ds1->ds.key_tag = 47857;
         ds1->ds.algorithm = DNSSEC_ALGORITHM_RSASHA256;
         ds1->ds.digest_type = DNSSEC_DIGEST_SHA1;
         ds1->ds.digest_size = sizeof(ds1_fprint);
         ds1->ds.digest = memdup(ds1_fprint, ds1->ds.digest_size);
-        assert_se(ds1->ds.digest);
+        ASSERT_NOT_NULL(ds1->ds.digest);
 
         log_info("DS1: %s", strna(dns_resource_record_to_string(ds1)));
 
-        ds2 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DS, "NASA.GOV");
-        assert_se(ds2);
+        ds2 = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DS, "NASA.GOV"));
 
         ds2->ds.key_tag = 47857;
         ds2->ds.algorithm = DNSSEC_ALGORITHM_RSASHA256;
         ds2->ds.digest_type = DNSSEC_DIGEST_SHA256;
         ds2->ds.digest_size = sizeof(ds2_fprint);
         ds2->ds.digest = memdup(ds2_fprint, ds2->ds.digest_size);
-        assert_se(ds2->ds.digest);
+        ASSERT_NOT_NULL(ds2->ds.digest);
 
         log_info("DS2: %s", strna(dns_resource_record_to_string(ds2)));
 
-        dnskey = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "nasa.GOV");
-        assert_se(dnskey);
+        dnskey = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "nasa.GOV"));
 
         dnskey->dnskey.flags = 257;
         dnskey->dnskey.protocol = 3;
         dnskey->dnskey.algorithm = DNSSEC_ALGORITHM_RSASHA256;
         dnskey->dnskey.key_size = sizeof(dnskey_blob);
         dnskey->dnskey.key = memdup(dnskey_blob, sizeof(dnskey_blob));
-        assert_se(dnskey->dnskey.key);
+        ASSERT_NOT_NULL(dnskey->dnskey.key);
 
         log_info("DNSKEY: %s", strna(dns_resource_record_to_string(dnskey)));
         log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey, /* mask_revoke= */ false));
 
-        assert_se(dnssec_verify_dnskey_by_ds(dnskey, ds1, /* mask_revoke= */ false) > 0);
-        assert_se(dnssec_verify_dnskey_by_ds(dnskey, ds2, /* mask_revoke= */ false) > 0);
+        ASSERT_OK_POSITIVE(dnssec_verify_dnskey_by_ds(dnskey, ds1, /* mask_revoke= */ false));
+        ASSERT_OK_POSITIVE(dnssec_verify_dnskey_by_ds(dnskey, ds2, /* mask_revoke= */ false));
 }
 
 TEST(dnssec_verify_rfc8080_ed25519_example1) {
@@ -111,41 +108,38 @@ TEST(dnssec_verify_rfc8080_ed25519_example1) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         DnssecResult result;
 
-        dnskey = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "example.com.");
-        assert_se(dnskey);
+        dnskey = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY,
+                                                              "example.com."));
 
         dnskey->dnskey.flags = 257;
         dnskey->dnskey.protocol = 3;
         dnskey->dnskey.algorithm = DNSSEC_ALGORITHM_ED25519;
         dnskey->dnskey.key_size = sizeof(dnskey_blob);
         dnskey->dnskey.key = memdup(dnskey_blob, sizeof(dnskey_blob));
-        assert_se(dnskey->dnskey.key);
+        ASSERT_NOT_NULL(dnskey->dnskey.key);
 
         log_info("DNSKEY: %s", strna(dns_resource_record_to_string(dnskey)));
 
-        ds = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DS, "example.com.");
-        assert_se(ds);
+        ds = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DS, "example.com."));
 
         ds->ds.key_tag = 3613;
         ds->ds.algorithm = DNSSEC_ALGORITHM_ED25519;
         ds->ds.digest_type = DNSSEC_DIGEST_SHA256;
         ds->ds.digest_size = sizeof(ds_fprint);
         ds->ds.digest = memdup(ds_fprint, ds->ds.digest_size);
-        assert_se(ds->ds.digest);
+        ASSERT_NOT_NULL(ds->ds.digest);
 
         log_info("DS: %s", strna(dns_resource_record_to_string(ds)));
 
-        mx = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_MX, "example.com.");
-        assert_se(mx);
+        mx = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_MX, "example.com."));
 
         mx->mx.priority = 10;
         mx->mx.exchange = strdup("mail.example.com.");
-        assert_se(mx->mx.exchange);
+        ASSERT_NOT_NULL(mx->mx.exchange);
 
         log_info("MX: %s", strna(dns_resource_record_to_string(mx)));
 
-        rrsig = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "example.com.");
-        assert_se(rrsig);
+        rrsig = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "example.com."));
 
         rrsig->rrsig.type_covered = DNS_TYPE_MX;
         rrsig->rrsig.algorithm = DNSSEC_ALGORITHM_ED25519;
@@ -155,23 +149,22 @@ TEST(dnssec_verify_rfc8080_ed25519_example1) {
         rrsig->rrsig.inception = 1438207200;
         rrsig->rrsig.key_tag = 3613;
         rrsig->rrsig.signer = strdup("example.com.");
-        assert_se(rrsig->rrsig.signer);
+        ASSERT_NOT_NULL(rrsig->rrsig.signer);
         rrsig->rrsig.signature_size = sizeof(signature_blob);
         rrsig->rrsig.signature = memdup(signature_blob, rrsig->rrsig.signature_size);
-        assert_se(rrsig->rrsig.signature);
+        ASSERT_NOT_NULL(rrsig->rrsig.signature);
 
         log_info("RRSIG: %s", strna(dns_resource_record_to_string(rrsig)));
 
-        assert_se(dnssec_key_match_rrsig(mx->key, rrsig) > 0);
-        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false) > 0);
+        ASSERT_OK_POSITIVE(dnssec_key_match_rrsig(mx->key, rrsig));
+        ASSERT_OK_POSITIVE(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false));
 
-        answer = dns_answer_new(1);
-        assert_se(answer);
-        assert_se(dns_answer_add(answer, mx, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL) >= 0);
+        answer = ASSERT_NOT_NULL(dns_answer_new(1));
+        ASSERT_OK(dns_answer_add(answer, mx, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
 
-        assert_se(dnssec_verify_rrset(answer, mx->key, rrsig, dnskey,
-                                      rrsig->rrsig.inception * USEC_PER_SEC, &result) >= 0);
-        assert_se(result == DNSSEC_VALIDATED);
+        ASSERT_OK(dnssec_verify_rrset(answer, mx->key, rrsig, dnskey,
+                                      rrsig->rrsig.inception * USEC_PER_SEC, &result));
+        ASSERT_EQ(result, DNSSEC_VALIDATED);
 }
 
 TEST(dnssec_verify_rfc8080_ed25519_example2) {
@@ -199,41 +192,38 @@ TEST(dnssec_verify_rfc8080_ed25519_example2) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         DnssecResult result;
 
-        dnskey = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "example.com.");
-        assert_se(dnskey);
+        dnskey = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY,
+                                                              "example.com."));
 
         dnskey->dnskey.flags = 257;
         dnskey->dnskey.protocol = 3;
         dnskey->dnskey.algorithm = DNSSEC_ALGORITHM_ED25519;
         dnskey->dnskey.key_size = sizeof(dnskey_blob);
         dnskey->dnskey.key = memdup(dnskey_blob, sizeof(dnskey_blob));
-        assert_se(dnskey->dnskey.key);
+        ASSERT_NOT_NULL(dnskey->dnskey.key);
 
         log_info("DNSKEY: %s", strna(dns_resource_record_to_string(dnskey)));
 
-        ds = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DS, "example.com.");
-        assert_se(ds);
+        ds = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DS, "example.com."));
 
         ds->ds.key_tag = 35217;
         ds->ds.algorithm = DNSSEC_ALGORITHM_ED25519;
         ds->ds.digest_type = DNSSEC_DIGEST_SHA256;
         ds->ds.digest_size = sizeof(ds_fprint);
         ds->ds.digest = memdup(ds_fprint, ds->ds.digest_size);
-        assert_se(ds->ds.digest);
+        ASSERT_NOT_NULL(ds->ds.digest);
 
         log_info("DS: %s", strna(dns_resource_record_to_string(ds)));
 
-        mx = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_MX, "example.com.");
-        assert_se(mx);
+        mx = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_MX, "example.com."));
 
         mx->mx.priority = 10;
         mx->mx.exchange = strdup("mail.example.com.");
-        assert_se(mx->mx.exchange);
+        ASSERT_NOT_NULL(mx->mx.exchange);
 
         log_info("MX: %s", strna(dns_resource_record_to_string(mx)));
 
-        rrsig = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "example.com.");
-        assert_se(rrsig);
+        rrsig = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "example.com."));
 
         rrsig->rrsig.type_covered = DNS_TYPE_MX;
         rrsig->rrsig.algorithm = DNSSEC_ALGORITHM_ED25519;
@@ -243,23 +233,22 @@ TEST(dnssec_verify_rfc8080_ed25519_example2) {
         rrsig->rrsig.inception = 1438207200;
         rrsig->rrsig.key_tag = 35217;
         rrsig->rrsig.signer = strdup("example.com.");
-        assert_se(rrsig->rrsig.signer);
+        ASSERT_NOT_NULL(rrsig->rrsig.signer);
         rrsig->rrsig.signature_size = sizeof(signature_blob);
         rrsig->rrsig.signature = memdup(signature_blob, rrsig->rrsig.signature_size);
-        assert_se(rrsig->rrsig.signature);
+        ASSERT_NOT_NULL(rrsig->rrsig.signature);
 
         log_info("RRSIG: %s", strna(dns_resource_record_to_string(rrsig)));
 
-        assert_se(dnssec_key_match_rrsig(mx->key, rrsig) > 0);
-        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false) > 0);
+        ASSERT_OK_POSITIVE(dnssec_key_match_rrsig(mx->key, rrsig));
+        ASSERT_OK_POSITIVE(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false));
 
-        answer = dns_answer_new(1);
-        assert_se(answer);
-        assert_se(dns_answer_add(answer, mx, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL) >= 0);
+        answer = ASSERT_NOT_NULL(dns_answer_new(1));
+        ASSERT_OK(dns_answer_add(answer, mx, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
 
-        assert_se(dnssec_verify_rrset(answer, mx->key, rrsig, dnskey,
-                                      rrsig->rrsig.inception * USEC_PER_SEC, &result) >= 0);
-        assert_se(result == DNSSEC_VALIDATED);
+        ASSERT_OK(dnssec_verify_rrset(answer, mx->key, rrsig, dnskey,
+                                      rrsig->rrsig.inception * USEC_PER_SEC, &result));
+        ASSERT_EQ(result, DNSSEC_VALIDATED);
 }
 
 TEST(dnssec_verify_rfc6605_example1) {
@@ -288,39 +277,37 @@ TEST(dnssec_verify_rfc6605_example1) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         DnssecResult result;
 
-        dnskey = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "example.net.");
-        assert_se(dnskey);
+        dnskey = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY,
+                                                              "example.net."));
 
         dnskey->dnskey.flags = 257;
         dnskey->dnskey.protocol = 3;
         dnskey->dnskey.algorithm = DNSSEC_ALGORITHM_ECDSAP256SHA256;
         dnskey->dnskey.key_size = sizeof(dnskey_blob);
         dnskey->dnskey.key = memdup(dnskey_blob, sizeof(dnskey_blob));
-        assert_se(dnskey->dnskey.key);
+        ASSERT_NOT_NULL(dnskey->dnskey.key);
 
         log_info("DNSKEY: %s", strna(dns_resource_record_to_string(dnskey)));
 
-        ds = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DS, "example.net.");
-        assert_se(ds);
+        ds = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DS, "example.net."));
 
         ds->ds.key_tag = 55648;
         ds->ds.algorithm = DNSSEC_ALGORITHM_ECDSAP256SHA256;
         ds->ds.digest_type = DNSSEC_DIGEST_SHA256;
         ds->ds.digest_size = sizeof(ds_fprint);
         ds->ds.digest = memdup(ds_fprint, ds->ds.digest_size);
-        assert_se(ds->ds.digest);
+        ASSERT_NOT_NULL(ds->ds.digest);
 
         log_info("DS: %s", strna(dns_resource_record_to_string(ds)));
 
-        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.net");
-        assert_se(a);
+        a = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.net"));
 
         a->a.in_addr.s_addr = inet_addr("192.0.2.1");
 
         log_info("A: %s", strna(dns_resource_record_to_string(a)));
 
-        rrsig = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.net.");
-        assert_se(rrsig);
+        rrsig = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG,
+                                                             "www.example.net."));
 
         rrsig->rrsig.type_covered = DNS_TYPE_A;
         rrsig->rrsig.algorithm = DNSSEC_ALGORITHM_ECDSAP256SHA256;
@@ -330,23 +317,22 @@ TEST(dnssec_verify_rfc6605_example1) {
         rrsig->rrsig.key_tag = 55648;
         rrsig->rrsig.original_ttl = 3600;
         rrsig->rrsig.signer = strdup("example.net.");
-        assert_se(rrsig->rrsig.signer);
+        ASSERT_NOT_NULL(rrsig->rrsig.signer);
         rrsig->rrsig.signature_size = sizeof(signature_blob);
         rrsig->rrsig.signature = memdup(signature_blob, rrsig->rrsig.signature_size);
-        assert_se(rrsig->rrsig.signature);
+        ASSERT_NOT_NULL(rrsig->rrsig.signature);
 
         log_info("RRSIG: %s", strna(dns_resource_record_to_string(rrsig)));
 
-        assert_se(dnssec_key_match_rrsig(a->key, rrsig) > 0);
-        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false) > 0);
+        ASSERT_OK_POSITIVE(dnssec_key_match_rrsig(a->key, rrsig));
+        ASSERT_OK_POSITIVE(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false));
 
-        answer = dns_answer_new(1);
-        assert_se(answer);
-        assert_se(dns_answer_add(answer, a, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL) >= 0);
+        answer = ASSERT_NOT_NULL(dns_answer_new(1));
+        ASSERT_OK(dns_answer_add(answer, a, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
 
-        assert_se(dnssec_verify_rrset(answer, a->key, rrsig, dnskey,
-                                      rrsig->rrsig.inception * USEC_PER_SEC, &result) >= 0);
-        assert_se(result == DNSSEC_VALIDATED);
+        ASSERT_OK(dnssec_verify_rrset(answer, a->key, rrsig, dnskey,
+                                      rrsig->rrsig.inception * USEC_PER_SEC, &result));
+        ASSERT_EQ(result, DNSSEC_VALIDATED);
 }
 
 TEST(dnssec_verify_rfc6605_example2) {
@@ -382,39 +368,37 @@ TEST(dnssec_verify_rfc6605_example2) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         DnssecResult result;
 
-        dnskey = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "example.net.");
-        assert_se(dnskey);
+        dnskey = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY,
+                                                              "example.net."));
 
         dnskey->dnskey.flags = 257;
         dnskey->dnskey.protocol = 3;
         dnskey->dnskey.algorithm = DNSSEC_ALGORITHM_ECDSAP384SHA384;
         dnskey->dnskey.key_size = sizeof(dnskey_blob);
         dnskey->dnskey.key = memdup(dnskey_blob, sizeof(dnskey_blob));
-        assert_se(dnskey->dnskey.key);
+        ASSERT_NOT_NULL(dnskey->dnskey.key);
 
         log_info("DNSKEY: %s", strna(dns_resource_record_to_string(dnskey)));
 
-        ds = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DS, "example.net.");
-        assert_se(ds);
+        ds = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DS, "example.net."));
 
         ds->ds.key_tag = 10771;
         ds->ds.algorithm = DNSSEC_ALGORITHM_ECDSAP384SHA384;
         ds->ds.digest_type = DNSSEC_DIGEST_SHA384;
         ds->ds.digest_size = sizeof(ds_fprint);
         ds->ds.digest = memdup(ds_fprint, ds->ds.digest_size);
-        assert_se(ds->ds.digest);
+        ASSERT_NOT_NULL(ds->ds.digest);
 
         log_info("DS: %s", strna(dns_resource_record_to_string(ds)));
 
-        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.net");
-        assert_se(a);
+        a = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.net"));
 
         a->a.in_addr.s_addr = inet_addr("192.0.2.1");
 
         log_info("A: %s", strna(dns_resource_record_to_string(a)));
 
-        rrsig = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.net.");
-        assert_se(rrsig);
+        rrsig = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG,
+                                                             "www.example.net."));
 
         rrsig->rrsig.type_covered = DNS_TYPE_A;
         rrsig->rrsig.algorithm = DNSSEC_ALGORITHM_ECDSAP384SHA384;
@@ -424,23 +408,22 @@ TEST(dnssec_verify_rfc6605_example2) {
         rrsig->rrsig.key_tag = 10771;
         rrsig->rrsig.original_ttl = 3600;
         rrsig->rrsig.signer = strdup("example.net.");
-        assert_se(rrsig->rrsig.signer);
+        ASSERT_NOT_NULL(rrsig->rrsig.signer);
         rrsig->rrsig.signature_size = sizeof(signature_blob);
         rrsig->rrsig.signature = memdup(signature_blob, rrsig->rrsig.signature_size);
-        assert_se(rrsig->rrsig.signature);
+        ASSERT_NOT_NULL(rrsig->rrsig.signature);
 
         log_info("RRSIG: %s", strna(dns_resource_record_to_string(rrsig)));
 
-        assert_se(dnssec_key_match_rrsig(a->key, rrsig) > 0);
-        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false) > 0);
+        ASSERT_OK_POSITIVE(dnssec_key_match_rrsig(a->key, rrsig));
+        ASSERT_OK_POSITIVE(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false));
 
-        answer = dns_answer_new(1);
-        assert_se(answer);
-        assert_se(dns_answer_add(answer, a, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL) >= 0);
+        answer = ASSERT_NOT_NULL(dns_answer_new(1));
+        ASSERT_OK(dns_answer_add(answer, a, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
 
-        assert_se(dnssec_verify_rrset(answer, a->key, rrsig, dnskey,
-                                      rrsig->rrsig.inception * USEC_PER_SEC, &result) >= 0);
-        assert_se(result == DNSSEC_VALIDATED);
+        ASSERT_OK(dnssec_verify_rrset(answer, a->key, rrsig, dnskey,
+                                      rrsig->rrsig.inception * USEC_PER_SEC, &result));
+        ASSERT_EQ(result, DNSSEC_VALIDATED);
 }
 
 TEST(dnssec_verify_rrset) {
@@ -471,15 +454,13 @@ TEST(dnssec_verify_rrset) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         DnssecResult result;
 
-        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "nAsA.gov");
-        assert_se(a);
+        a = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "nAsA.gov"));
 
         a->a.in_addr.s_addr = inet_addr("52.0.14.116");
 
         log_info("A: %s", strna(dns_resource_record_to_string(a)));
 
-        rrsig = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "NaSa.GOV.");
-        assert_se(rrsig);
+        rrsig = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "NaSa.GOV."));
 
         rrsig->rrsig.type_covered = DNS_TYPE_A;
         rrsig->rrsig.algorithm = DNSSEC_ALGORITHM_RSASHA256;
@@ -489,36 +470,34 @@ TEST(dnssec_verify_rrset) {
         rrsig->rrsig.inception = 0x565b7da8;
         rrsig->rrsig.key_tag = 63876;
         rrsig->rrsig.signer = strdup("Nasa.Gov.");
-        assert_se(rrsig->rrsig.signer);
+        ASSERT_NOT_NULL(rrsig->rrsig.signer);
         rrsig->rrsig.signature_size = sizeof(signature_blob);
         rrsig->rrsig.signature = memdup(signature_blob, rrsig->rrsig.signature_size);
-        assert_se(rrsig->rrsig.signature);
+        ASSERT_NOT_NULL(rrsig->rrsig.signature);
 
         log_info("RRSIG: %s", strna(dns_resource_record_to_string(rrsig)));
 
-        dnskey = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "nASA.gOV");
-        assert_se(dnskey);
+        dnskey = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "nASA.gOV"));
 
         dnskey->dnskey.flags = 256;
         dnskey->dnskey.protocol = 3;
         dnskey->dnskey.algorithm = DNSSEC_ALGORITHM_RSASHA256;
         dnskey->dnskey.key_size = sizeof(dnskey_blob);
         dnskey->dnskey.key = memdup(dnskey_blob, sizeof(dnskey_blob));
-        assert_se(dnskey->dnskey.key);
+        ASSERT_NOT_NULL(dnskey->dnskey.key);
 
         log_info("DNSKEY: %s", strna(dns_resource_record_to_string(dnskey)));
         log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey, /* mask_revoke= */ false));
 
-        assert_se(dnssec_key_match_rrsig(a->key, rrsig) > 0);
-        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false) > 0);
+        ASSERT_OK_POSITIVE(dnssec_key_match_rrsig(a->key, rrsig));
+        ASSERT_OK_POSITIVE(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false));
 
-        answer = dns_answer_new(1);
-        assert_se(answer);
-        assert_se(dns_answer_add(answer, a, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL) >= 0);
+        answer = ASSERT_NOT_NULL(dns_answer_new(1));
+        ASSERT_OK(dns_answer_add(answer, a, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
 
         /* Validate the RR as it if was 2015-12-2 today */
-        assert_se(dnssec_verify_rrset(answer, a->key, rrsig, dnskey, 1449092754*USEC_PER_SEC, &result) >= 0);
-        assert_se(result == DNSSEC_VALIDATED);
+        ASSERT_OK(dnssec_verify_rrset(answer, a->key, rrsig, dnskey, 1449092754*USEC_PER_SEC, &result));
+        ASSERT_EQ(result, DNSSEC_VALIDATED);
 }
 
 TEST(dnssec_verify_rrset_invalid_rsa_dnskey) {
@@ -602,28 +581,26 @@ TEST(dnssec_verify_rrset2) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         DnssecResult result;
 
-        nsec = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NSEC, "nasa.gov");
-        assert_se(nsec);
+        nsec = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NSEC, "nasa.gov"));
 
         nsec->nsec.next_domain_name = strdup("3D-Printing.nasa.gov");
-        assert_se(nsec->nsec.next_domain_name);
+        ASSERT_NOT_NULL(nsec->nsec.next_domain_name);
 
         nsec->nsec.types = bitmap_new();
-        assert_se(nsec->nsec.types);
-        assert_se(bitmap_set(nsec->nsec.types, DNS_TYPE_A) >= 0);
-        assert_se(bitmap_set(nsec->nsec.types, DNS_TYPE_NS) >= 0);
-        assert_se(bitmap_set(nsec->nsec.types, DNS_TYPE_SOA) >= 0);
-        assert_se(bitmap_set(nsec->nsec.types, DNS_TYPE_MX) >= 0);
-        assert_se(bitmap_set(nsec->nsec.types, DNS_TYPE_TXT) >= 0);
-        assert_se(bitmap_set(nsec->nsec.types, DNS_TYPE_RRSIG) >= 0);
-        assert_se(bitmap_set(nsec->nsec.types, DNS_TYPE_NSEC) >= 0);
-        assert_se(bitmap_set(nsec->nsec.types, DNS_TYPE_DNSKEY) >= 0);
-        assert_se(bitmap_set(nsec->nsec.types, 65534) >= 0);
+        ASSERT_NOT_NULL(nsec->nsec.types);
+        ASSERT_OK(bitmap_set(nsec->nsec.types, DNS_TYPE_A));
+        ASSERT_OK(bitmap_set(nsec->nsec.types, DNS_TYPE_NS));
+        ASSERT_OK(bitmap_set(nsec->nsec.types, DNS_TYPE_SOA));
+        ASSERT_OK(bitmap_set(nsec->nsec.types, DNS_TYPE_MX));
+        ASSERT_OK(bitmap_set(nsec->nsec.types, DNS_TYPE_TXT));
+        ASSERT_OK(bitmap_set(nsec->nsec.types, DNS_TYPE_RRSIG));
+        ASSERT_OK(bitmap_set(nsec->nsec.types, DNS_TYPE_NSEC));
+        ASSERT_OK(bitmap_set(nsec->nsec.types, DNS_TYPE_DNSKEY));
+        ASSERT_OK(bitmap_set(nsec->nsec.types, 65534));
 
         log_info("NSEC: %s", strna(dns_resource_record_to_string(nsec)));
 
-        rrsig = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "NaSa.GOV.");
-        assert_se(rrsig);
+        rrsig = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "NaSa.GOV."));
 
         rrsig->rrsig.type_covered = DNS_TYPE_NSEC;
         rrsig->rrsig.algorithm = DNSSEC_ALGORITHM_RSASHA256;
@@ -633,36 +610,34 @@ TEST(dnssec_verify_rrset2) {
         rrsig->rrsig.inception = 0x56617230;
         rrsig->rrsig.key_tag = 30390;
         rrsig->rrsig.signer = strdup("Nasa.Gov.");
-        assert_se(rrsig->rrsig.signer);
+        ASSERT_NOT_NULL(rrsig->rrsig.signer);
         rrsig->rrsig.signature_size = sizeof(signature_blob);
         rrsig->rrsig.signature = memdup(signature_blob, rrsig->rrsig.signature_size);
-        assert_se(rrsig->rrsig.signature);
+        ASSERT_NOT_NULL(rrsig->rrsig.signature);
 
         log_info("RRSIG: %s", strna(dns_resource_record_to_string(rrsig)));
 
-        dnskey = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "nASA.gOV");
-        assert_se(dnskey);
+        dnskey = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "nASA.gOV"));
 
         dnskey->dnskey.flags = 256;
         dnskey->dnskey.protocol = 3;
         dnskey->dnskey.algorithm = DNSSEC_ALGORITHM_RSASHA256;
         dnskey->dnskey.key_size = sizeof(dnskey_blob);
         dnskey->dnskey.key = memdup(dnskey_blob, sizeof(dnskey_blob));
-        assert_se(dnskey->dnskey.key);
+        ASSERT_NOT_NULL(dnskey->dnskey.key);
 
         log_info("DNSKEY: %s", strna(dns_resource_record_to_string(dnskey)));
         log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey, /* mask_revoke= */ false));
 
-        assert_se(dnssec_key_match_rrsig(nsec->key, rrsig) > 0);
-        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false) > 0);
+        ASSERT_OK_POSITIVE(dnssec_key_match_rrsig(nsec->key, rrsig));
+        ASSERT_OK_POSITIVE(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false));
 
-        answer = dns_answer_new(1);
-        assert_se(answer);
-        assert_se(dns_answer_add(answer, nsec, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL) >= 0);
+        answer = ASSERT_NOT_NULL(dns_answer_new(1));
+        ASSERT_OK(dns_answer_add(answer, nsec, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
 
         /* Validate the RR as it if was 2015-12-11 today */
-        assert_se(dnssec_verify_rrset(answer, nsec->key, rrsig, dnskey, 1449849318*USEC_PER_SEC, &result) >= 0);
-        assert_se(result == DNSSEC_VALIDATED);
+        ASSERT_OK(dnssec_verify_rrset(answer, nsec->key, rrsig, dnskey, 1449849318*USEC_PER_SEC, &result));
+        ASSERT_EQ(result, DNSSEC_VALIDATED);
 }
 
 TEST(dnssec_verify_rrset3) {
@@ -709,44 +684,39 @@ TEST(dnssec_verify_rrset3) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         DnssecResult result;
 
-        mx1 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_MX, "kodapan.se");
-        assert_se(mx1);
+        mx1 = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_MX, "kodapan.se"));
 
         mx1->mx.priority = 1;
         mx1->mx.exchange = strdup("ASPMX.L.GOOGLE.COM");
-        assert_se(mx1->mx.exchange);
+        ASSERT_NOT_NULL(mx1->mx.exchange);
 
         log_info("MX: %s", strna(dns_resource_record_to_string(mx1)));
 
-        mx2 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_MX, "kodapan.se");
-        assert_se(mx2);
+        mx2 = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_MX, "kodapan.se"));
 
         mx2->mx.priority = 5;
         mx2->mx.exchange = strdup("ALT2.ASPMX.L.GOOGLE.COM");
-        assert_se(mx2->mx.exchange);
+        ASSERT_NOT_NULL(mx2->mx.exchange);
 
         log_info("MX: %s", strna(dns_resource_record_to_string(mx2)));
 
-        mx3 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_MX, "kodapan.se");
-        assert_se(mx3);
+        mx3 = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_MX, "kodapan.se"));
 
         mx3->mx.priority = 10;
         mx3->mx.exchange = strdup("ASPMX2.GOOGLEMAIL.COM");
-        assert_se(mx3->mx.exchange);
+        ASSERT_NOT_NULL(mx3->mx.exchange);
 
         log_info("MX: %s", strna(dns_resource_record_to_string(mx3)));
 
-        mx4 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_MX, "kodapan.se");
-        assert_se(mx4);
+        mx4 = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_MX, "kodapan.se"));
 
         mx4->mx.priority = 10;
         mx4->mx.exchange = strdup("ASPMX3.GOOGLEMAIL.COM");
-        assert_se(mx4->mx.exchange);
+        ASSERT_NOT_NULL(mx4->mx.exchange);
 
         log_info("MX: %s", strna(dns_resource_record_to_string(mx4)));
 
-        rrsig = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "kodapan.se");
-        assert_se(rrsig);
+        rrsig = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "kodapan.se"));
 
         rrsig->rrsig.type_covered = DNS_TYPE_MX;
         rrsig->rrsig.algorithm = DNSSEC_ALGORITHM_RSASHA256;
@@ -756,42 +726,40 @@ TEST(dnssec_verify_rrset3) {
         rrsig->rrsig.inception = 0x5e4e1584;
         rrsig->rrsig.key_tag = 44028;
         rrsig->rrsig.signer = strdup("kodapan.se.");
-        assert_se(rrsig->rrsig.signer);
+        ASSERT_NOT_NULL(rrsig->rrsig.signer);
         rrsig->rrsig.signature_size = sizeof(signature_blob);
         rrsig->rrsig.signature = memdup(signature_blob, rrsig->rrsig.signature_size);
-        assert_se(rrsig->rrsig.signature);
+        ASSERT_NOT_NULL(rrsig->rrsig.signature);
 
         log_info("RRSIG: %s", strna(dns_resource_record_to_string(rrsig)));
 
-        dnskey = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "kodapan.se");
-        assert_se(dnskey);
+        dnskey = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "kodapan.se"));
 
         dnskey->dnskey.flags = 256;
         dnskey->dnskey.protocol = 3;
         dnskey->dnskey.algorithm = DNSSEC_ALGORITHM_RSASHA256;
         dnskey->dnskey.key_size = sizeof(dnskey_blob);
         dnskey->dnskey.key = memdup(dnskey_blob, sizeof(dnskey_blob));
-        assert_se(dnskey->dnskey.key);
+        ASSERT_NOT_NULL(dnskey->dnskey.key);
 
         log_info("DNSKEY: %s", strna(dns_resource_record_to_string(dnskey)));
         log_info("DNSKEY keytag: %u", dnssec_keytag(dnskey, /* mask_revoke= */ false));
 
-        assert_se(dnssec_key_match_rrsig(mx1->key, rrsig) > 0);
-        assert_se(dnssec_key_match_rrsig(mx2->key, rrsig) > 0);
-        assert_se(dnssec_key_match_rrsig(mx3->key, rrsig) > 0);
-        assert_se(dnssec_key_match_rrsig(mx4->key, rrsig) > 0);
-        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false) > 0);
+        ASSERT_OK_POSITIVE(dnssec_key_match_rrsig(mx1->key, rrsig));
+        ASSERT_OK_POSITIVE(dnssec_key_match_rrsig(mx2->key, rrsig));
+        ASSERT_OK_POSITIVE(dnssec_key_match_rrsig(mx3->key, rrsig));
+        ASSERT_OK_POSITIVE(dnssec_key_match_rrsig(mx4->key, rrsig));
+        ASSERT_OK_POSITIVE(dnssec_rrsig_match_dnskey(rrsig, dnskey, /* revoked_ok= */ false));
 
-        answer = dns_answer_new(4);
-        assert_se(answer);
-        assert_se(dns_answer_add(answer, mx1, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL) >= 0);
-        assert_se(dns_answer_add(answer, mx2, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL) >= 0);
-        assert_se(dns_answer_add(answer, mx3, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL) >= 0);
-        assert_se(dns_answer_add(answer, mx4, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL) >= 0);
+        answer = ASSERT_NOT_NULL(dns_answer_new(4));
+        ASSERT_OK(dns_answer_add(answer, mx1, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+        ASSERT_OK(dns_answer_add(answer, mx2, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+        ASSERT_OK(dns_answer_add(answer, mx3, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
+        ASSERT_OK(dns_answer_add(answer, mx4, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
 
         /* Validate the RR as it if was 2020-02-24 today */
-        assert_se(dnssec_verify_rrset(answer, mx1->key, rrsig, dnskey, 1582534685*USEC_PER_SEC, &result) >= 0);
-        assert_se(result == DNSSEC_VALIDATED);
+        ASSERT_OK(dnssec_verify_rrset(answer, mx1->key, rrsig, dnskey, 1582534685*USEC_PER_SEC, &result));
+        ASSERT_EQ(result, DNSSEC_VALIDATED);
 }
 
 TEST(dnssec_nsec3_hash) {
@@ -803,27 +771,24 @@ TEST(dnssec_nsec3_hash) {
         int k;
 
         /* The NSEC3 RR for eurid.eu on 2015-12-14. */
-        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NSEC3, "PJ8S08RR45VIQDAQGE7EN3VHKNROTBMM.eurid.eu.");
-        assert_se(rr);
+        rr = ASSERT_NOT_NULL(dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NSEC3, "PJ8S08RR45VIQDAQGE7EN3VHKNROTBMM.eurid.eu."));
 
         rr->nsec3.algorithm = DNSSEC_DIGEST_SHA1;
         rr->nsec3.flags = 1;
         rr->nsec3.iterations = 1;
         rr->nsec3.salt = memdup(salt, sizeof(salt));
-        assert_se(rr->nsec3.salt);
+        ASSERT_NOT_NULL(rr->nsec3.salt);
         rr->nsec3.salt_size = sizeof(salt);
         rr->nsec3.next_hashed_name = memdup(next_hashed_name, sizeof(next_hashed_name));
-        assert_se(rr->nsec3.next_hashed_name);
+        ASSERT_NOT_NULL(rr->nsec3.next_hashed_name);
         rr->nsec3.next_hashed_name_size = sizeof(next_hashed_name);
 
         log_info("NSEC3: %s", strna(dns_resource_record_to_string(rr)));
 
-        k = dnssec_nsec3_hash(rr, "eurid.eu", &h);
-        assert_se(k >= 0);
+        k = ASSERT_OK(dnssec_nsec3_hash(rr, "eurid.eu", &h));
 
-        b = base32hexmem(h, k, /* padding= */ false);
-        assert_se(b);
-        assert_se(strcasecmp(b, "PJ8S08RR45VIQDAQGE7EN3VHKNROTBMM") == 0);
+        b = ASSERT_NOT_NULL(base32hexmem(h, k, /* padding= */ false));
+        ASSERT_EQ(strcasecmp(b, "PJ8S08RR45VIQDAQGE7EN3VHKNROTBMM"), 0);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

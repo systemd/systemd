@@ -16,11 +16,11 @@ static void test_valid_item(
         uint16_t nr_ports, port_min;
         int af, ip_protocol;
 
-        assert_se(parse_socket_bind_item(str, &af, &ip_protocol, &nr_ports, &port_min) >= 0);
-        assert_se(af == expected_af);
-        assert_se(ip_protocol == expected_ip_protocol);
-        assert_se(nr_ports == expected_nr_ports);
-        assert_se(port_min == expected_port_min);
+        ASSERT_OK(parse_socket_bind_item(str, &af, &ip_protocol, &nr_ports, &port_min));
+        ASSERT_EQ(af, expected_af);
+        ASSERT_EQ(ip_protocol, expected_ip_protocol);
+        ASSERT_EQ(nr_ports, expected_nr_ports);
+        ASSERT_EQ(port_min, expected_port_min);
 
         log_info("%s: \"%s\" ok", __func__, str);
 }
@@ -29,7 +29,7 @@ static void test_invalid_item(const char *str) {
         uint16_t nr_ports, port_min;
         int af, ip_protocol;
 
-        assert_se(parse_socket_bind_item(str, &af, &ip_protocol, &nr_ports, &port_min) == -EINVAL);
+        ASSERT_ERROR(parse_socket_bind_item(str, &af, &ip_protocol, &nr_ports, &port_min), EINVAL);
 
         log_info("%s: \"%s\" ok", __func__, str);
 }
@@ -112,18 +112,18 @@ static int test_path_simplify_and_warn_one(const char *p, const char *q, PathSim
 
 TEST(path_simplify_and_warn) {
 
-        assert_se(test_path_simplify_and_warn_one("", "", 0) == -EINVAL);
-        assert_se(test_path_simplify_and_warn_one("/", "/", 0) == 0);
-        assert_se(test_path_simplify_and_warn_one("/foo/../bar", "/foo/../bar", 0) == -EINVAL);
-        assert_se(test_path_simplify_and_warn_one("/foo/./bar", "/foo/bar", 0) == 0);
-        assert_se(test_path_simplify_and_warn_one("/proc/self///fd", "/proc/self/fd", 0) == 0);
-        assert_se(test_path_simplify_and_warn_one("/proc/self///fd", "/proc/self/fd", PATH_CHECK_NON_API_VFS) == -EINVAL);
-        assert_se(test_path_simplify_and_warn_one("aaaa", "aaaa", 0) == 0);
-        assert_se(test_path_simplify_and_warn_one("aaaa", "aaaa", PATH_CHECK_ABSOLUTE) == -EINVAL);
-        assert_se(test_path_simplify_and_warn_one("aaaa", "aaaa", PATH_CHECK_RELATIVE) == 0);
-        assert_se(test_path_simplify_and_warn_one("/aaaa", "/aaaa", 0) == 0);
-        assert_se(test_path_simplify_and_warn_one("/aaaa", "/aaaa", PATH_CHECK_ABSOLUTE) == 0);
-        assert_se(test_path_simplify_and_warn_one("/aaaa", "/aaaa", PATH_CHECK_RELATIVE) == -EINVAL);
+        ASSERT_ERROR(test_path_simplify_and_warn_one("", "", 0), EINVAL);
+        ASSERT_OK_ZERO(test_path_simplify_and_warn_one("/", "/", 0));
+        ASSERT_ERROR(test_path_simplify_and_warn_one("/foo/../bar", "/foo/../bar", 0), EINVAL);
+        ASSERT_OK_ZERO(test_path_simplify_and_warn_one("/foo/./bar", "/foo/bar", 0));
+        ASSERT_OK_ZERO(test_path_simplify_and_warn_one("/proc/self///fd", "/proc/self/fd", 0));
+        ASSERT_ERROR(test_path_simplify_and_warn_one("/proc/self///fd", "/proc/self/fd", PATH_CHECK_NON_API_VFS), EINVAL);
+        ASSERT_OK_ZERO(test_path_simplify_and_warn_one("aaaa", "aaaa", 0));
+        ASSERT_ERROR(test_path_simplify_and_warn_one("aaaa", "aaaa", PATH_CHECK_ABSOLUTE), EINVAL);
+        ASSERT_OK_ZERO(test_path_simplify_and_warn_one("aaaa", "aaaa", PATH_CHECK_RELATIVE));
+        ASSERT_OK_ZERO(test_path_simplify_and_warn_one("/aaaa", "/aaaa", 0));
+        ASSERT_OK_ZERO(test_path_simplify_and_warn_one("/aaaa", "/aaaa", PATH_CHECK_ABSOLUTE));
+        ASSERT_ERROR(test_path_simplify_and_warn_one("/aaaa", "/aaaa", PATH_CHECK_RELATIVE), EINVAL);
 }
 
 static void check_families(Set *s, const int *expected, size_t n_expected) {

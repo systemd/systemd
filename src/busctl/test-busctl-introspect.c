@@ -308,8 +308,8 @@ static const char *xml_org_freedesktop_network1_network_unsigned =
 static int on_path(const char *path, void *userdata) {
         Set *paths = userdata;
 
-        assert_se(paths);
-        assert_se(set_put_strdup(&paths, path) >= 0);
+        ASSERT_NOT_NULL(paths);
+        ASSERT_OK(set_put_strdup(&paths, path));
 
         return 0;
 }
@@ -322,40 +322,40 @@ TEST(introspect_on_path) {
         _cleanup_set_free_ Set *paths = NULL;
         _cleanup_free_ char **l = NULL;
 
-        assert_se(set_put_strdup(&paths, "/") > 0);
+        ASSERT_OK_POSITIVE(set_put_strdup(&paths, "/"));
 
         log_debug("/* parse_xml_introspect(\"/\") */");
-        assert_se(parse_xml_introspect("/", xml_root, &ops, paths) >= 0);
+        ASSERT_OK(parse_xml_introspect("/", xml_root, &ops, paths));
         log_debug("/* parse_xml_introspect(\"/org\") */");
-        assert_se(parse_xml_introspect("/org", xml_org, &ops, paths) >= 0);
+        ASSERT_OK(parse_xml_introspect("/org", xml_org, &ops, paths));
         log_debug("/* parse_xml_introspect(\"/org/freedesktop\") */");
-        assert_se(parse_xml_introspect("/org/freedesktop", xml_org_freedesktop, &ops, paths) >= 0);
+        ASSERT_OK(parse_xml_introspect("/org/freedesktop", xml_org_freedesktop, &ops, paths));
         log_debug("/* parse_xml_introspect(\"/org/freedesktop/LogControl1\") */");
-        assert_se(parse_xml_introspect("/org/freedesktop/LogControl1", xml_org_freedesktop_LogControl1, &ops, paths) >= 0);
+        ASSERT_OK(parse_xml_introspect("/org/freedesktop/LogControl1", xml_org_freedesktop_LogControl1, &ops, paths));
         log_debug("/* parse_xml_introspect(\"/org/freedesktop/network1\") */");
-        assert_se(parse_xml_introspect("/org/freedesktop/network1", xml_org_freedesktop_network1, &ops, paths) >= 0);
+        ASSERT_OK(parse_xml_introspect("/org/freedesktop/network1", xml_org_freedesktop_network1, &ops, paths));
         log_debug("/* parse_xml_introspect(\"/org/freedesktop/network1/network\") */");
-        assert_se(parse_xml_introspect("/org/freedesktop/network1/network", xml_org_freedesktop_network1_network, &ops, paths) >= 0);
+        ASSERT_OK(parse_xml_introspect("/org/freedesktop/network1/network", xml_org_freedesktop_network1_network, &ops, paths));
         for (unsigned i = 0; i <= 20; i++) {
                 _cleanup_free_ char *path = NULL;
 
-                assert_se(asprintf(&path, "/org/freedesktop/network1/network/%u", i) >= 0);
+                ASSERT_OK_ERRNO(asprintf(&path, "/org/freedesktop/network1/network/%u", i));
                 log_debug("/* parse_xml_introspect(\"%s\") */", path);
-                assert_se(parse_xml_introspect(path, xml_org_freedesktop_network1_network_unsigned, &ops, paths) >= 0);
+                ASSERT_OK(parse_xml_introspect(path, xml_org_freedesktop_network1_network_unsigned, &ops, paths));
         }
 
-        assert_se(l = set_get_strv(paths));
+        ASSERT_NOT_NULL(l = set_get_strv(paths));
         strv_sort(l);
 
-        assert_se(strv_extend(&expected, "/") >= 0);
-        assert_se(strv_extend(&expected, "/org") >= 0);
-        assert_se(strv_extend(&expected, "/org/freedesktop") >= 0);
-        assert_se(strv_extend(&expected, "/org/freedesktop/LogControl1") >= 0);
-        assert_se(strv_extend(&expected, "/org/freedesktop/network1") >= 0);
-        assert_se(strv_extend(&expected, "/org/freedesktop/network1/network") >= 0);
+        ASSERT_OK(strv_extend(&expected, "/"));
+        ASSERT_OK(strv_extend(&expected, "/org"));
+        ASSERT_OK(strv_extend(&expected, "/org/freedesktop"));
+        ASSERT_OK(strv_extend(&expected, "/org/freedesktop/LogControl1"));
+        ASSERT_OK(strv_extend(&expected, "/org/freedesktop/network1"));
+        ASSERT_OK(strv_extend(&expected, "/org/freedesktop/network1/network"));
         for (unsigned i = 0; i <= 20; i++) {
-                assert_se(strv_extendf(&expected, "/org/freedesktop/network1/network/%u", i) >= 0);
-                assert_se(strv_extendf(&expected, "/org/freedesktop/network1/network/%u/hoge", i) >= 0);
+                ASSERT_OK(strv_extendf(&expected, "/org/freedesktop/network1/network/%u", i));
+                ASSERT_OK(strv_extendf(&expected, "/org/freedesktop/network1/network/%u/hoge", i));
         }
 
         strv_sort(expected);

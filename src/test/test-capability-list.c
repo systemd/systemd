@@ -12,15 +12,15 @@
 
 /* verify the capability parser */
 TEST(cap_list) {
-        assert_se(!capability_to_name(-1));
-        assert_se(!capability_to_name(capability_list_length()));
-        assert_se(!capability_to_name(63));
-        assert_se(!capability_to_name(64));
+        ASSERT_NULL(capability_to_name(-1));
+        ASSERT_NULL(capability_to_name(capability_list_length()));
+        ASSERT_NULL(capability_to_name(63));
+        ASSERT_NULL(capability_to_name(64));
 
-        assert_se(!CAPABILITY_TO_STRING(-1));
+        ASSERT_NULL(CAPABILITY_TO_STRING(-1));
         if (capability_list_length() <= 62)
                 ASSERT_STREQ(CAPABILITY_TO_STRING(62), "0x3e");
-        assert_se(!CAPABILITY_TO_STRING(64));
+        ASSERT_NULL(CAPABILITY_TO_STRING(64));
 
         for (unsigned i = 0; i < capability_list_length(); i++) {
                 const char *n;
@@ -32,58 +32,58 @@ TEST(cap_list) {
                 ASSERT_STREQ(CAPABILITY_TO_STRING(i), n);
         }
 
-        assert_se(capability_from_name("asdfbsd") == -EINVAL);
-        assert_se(capability_from_name("CAP_AUDIT_READ") == CAP_AUDIT_READ);
-        assert_se(capability_from_name("cap_audit_read") == CAP_AUDIT_READ);
-        assert_se(capability_from_name("cAp_aUdIt_rEAd") == CAP_AUDIT_READ);
-        assert_se(capability_from_name("0") == 0);
-        assert_se(capability_from_name("15") == 15);
-        assert_se(capability_from_name("62") == 62);
-        assert_se(capability_from_name("63") == -EINVAL);
-        assert_se(capability_from_name("64") == -EINVAL);
-        assert_se(capability_from_name("-1") == -EINVAL);
+        ASSERT_ERROR(capability_from_name("asdfbsd"), EINVAL);
+        ASSERT_OK_EQ(capability_from_name("CAP_AUDIT_READ"), CAP_AUDIT_READ);
+        ASSERT_OK_EQ(capability_from_name("cap_audit_read"), CAP_AUDIT_READ);
+        ASSERT_OK_EQ(capability_from_name("cAp_aUdIt_rEAd"), CAP_AUDIT_READ);
+        ASSERT_OK_EQ(capability_from_name("0"), 0);
+        ASSERT_OK_EQ(capability_from_name("15"), 15);
+        ASSERT_OK_EQ(capability_from_name("62"), 62);
+        ASSERT_ERROR(capability_from_name("63"), EINVAL);
+        ASSERT_ERROR(capability_from_name("64"), EINVAL);
+        ASSERT_ERROR(capability_from_name("-1"), EINVAL);
 }
 
 static void test_capability_set_one(uint64_t c, const char *t) {
         _cleanup_free_ char *t1 = NULL;
         uint64_t c1, c_masked = c & all_capabilities();
 
-        assert_se(capability_set_to_string(c, &t1) == 0);
+        ASSERT_OK_ZERO(capability_set_to_string(c, &t1));
         ASSERT_STREQ(t1, t);
 
-        assert_se(capability_set_from_string(t1, &c1) > 0);
-        assert_se(c1 == c_masked);
+        ASSERT_OK_POSITIVE(capability_set_from_string(t1, &c1));
+        ASSERT_EQ(c1, c_masked);
 
         free(t1);
-        assert_se(t1 = strjoin("'cap_chown cap_dac_override' \"cap_setgid cap_setuid\"", t,
-                               " hogehoge foobar 18446744073709551616 3.14 -3 ", t));
-        assert_se(capability_set_from_string(t1, &c1) == 0);
-        assert_se(c1 == c_masked);
+        ASSERT_NOT_NULL(t1 = strjoin("'cap_chown cap_dac_override' \"cap_setgid cap_setuid\"", t,
+                                     " hogehoge foobar 18446744073709551616 3.14 -3 ", t));
+        ASSERT_OK_EQ(capability_set_from_string(t1, &c1), 0);
+        ASSERT_EQ(c1, c_masked);
 }
 
 TEST(capability_set_from_string) {
         uint64_t c;
 
-        assert_se(capability_set_from_string(NULL, &c) > 0);
-        assert_se(c == 0);
+        ASSERT_OK_POSITIVE(capability_set_from_string(NULL, &c));
+        ASSERT_EQ(c, 0U);
 
-        assert_se(capability_set_from_string("", &c) > 0);
-        assert_se(c == 0);
+        ASSERT_OK_POSITIVE(capability_set_from_string("", &c));
+        ASSERT_EQ(c, 0U);
 
-        assert_se(capability_set_from_string("0", &c) > 0);
-        assert_se(c == UINT64_C(1));
+        ASSERT_OK_POSITIVE(capability_set_from_string("0", &c));
+        ASSERT_EQ(c, UINT64_C(1));
 
-        assert_se(capability_set_from_string("1", &c) > 0);
-        assert_se(c == UINT64_C(1) << 1);
+        ASSERT_OK_POSITIVE(capability_set_from_string("1", &c));
+        ASSERT_EQ(c, UINT64_C(1) << 1);
 
-        assert_se(capability_set_from_string("0 1 2 3", &c) > 0);
-        assert_se(c == (UINT64_C(1) << 4) - 1);
+        ASSERT_OK_POSITIVE(capability_set_from_string("0 1 2 3", &c));
+        ASSERT_EQ(c, (UINT64_C(1) << 4) - 1);
 }
 
 static void test_capability_set_to_strv_one(uint64_t m, char **l) {
         _cleanup_strv_free_ char **b = NULL;
 
-        assert_se(capability_set_to_strv(m, &b) >= 0);
+        ASSERT_OK(capability_set_to_strv(m, &b));
         ASSERT_STRV_EQ(l, b);
 }
 

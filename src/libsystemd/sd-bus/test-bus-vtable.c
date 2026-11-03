@@ -12,6 +12,7 @@
 #  include "alloc-util.h"
 #  include "bus-objects.h"
 #  include "log.h"
+#  include "tests.h"
 #endif
 
 #include "test-vtable-data.h"
@@ -57,13 +58,13 @@ static void test_vtable(void) {
 #ifndef __cplusplus
         _cleanup_free_ char *s, *s2;
 
-        assert_se(introspect_path(bus, "/foo", NULL, /* require_fallback= */ false, /* ignore_nodes_modified= */ true, /* found_object= */ NULL, &s, /* reterr_error= */ NULL) == 1);
+        ASSERT_OK_EQ(introspect_path(bus, "/foo", NULL, /* require_fallback= */ false, /* ignore_nodes_modified= */ true, /* found_object= */ NULL, &s, /* reterr_error= */ NULL), 1);
         fputs(s, stdout);
 
-        assert_se(introspect_path(bus, "/fallback", NULL, /* require_fallback= */ false, /* ignore_nodes_modified= */ true, /* found_object= */ NULL, &s2, /* reterr_error= */ NULL) == 1);
+        ASSERT_OK_EQ(introspect_path(bus, "/fallback", NULL, /* require_fallback= */ false, /* ignore_nodes_modified= */ true, /* found_object= */ NULL, &s2, /* reterr_error= */ NULL), 1);
         fputs(s2, stdout);
 
-        assert_se(happy_finder_object == 1);
+        ASSERT_EQ(happy_finder_object, 1);
 #endif
 
         sd_bus_unref(bus);

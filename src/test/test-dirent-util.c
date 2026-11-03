@@ -15,25 +15,23 @@
 #include "tmpfile-util.h"
 
 TEST(test_dirent_ensure_type) {
-        int r, dir_fd;
+        int dir_fd;
         static struct dirent de = {
                 .d_type = DT_UNKNOWN,
                 .d_name = "test",
         };
 
         dir_fd = 0;
-        assert_se(dirent_ensure_type(dir_fd, &de) == -ENOTDIR);
+        ASSERT_ERROR(dirent_ensure_type(dir_fd, &de), ENOTDIR);
 
         /* Test when d_name is "." or ".." */
         strcpy(de.d_name, ".");
-        r = dirent_ensure_type(dir_fd, &de);
-        assert_se(r == 0);
-        assert_se(de.d_type == DT_DIR);
+        ASSERT_OK_ZERO(dirent_ensure_type(dir_fd, &de));
+        ASSERT_EQ(de.d_type, DT_DIR);
 
         strcpy(de.d_name, "..");
-        r = dirent_ensure_type(dir_fd, &de);
-        assert_se(r == 0);
-        assert_se(de.d_type == DT_DIR);
+        ASSERT_OK_ZERO(dirent_ensure_type(dir_fd, &de));
+        ASSERT_EQ(de.d_type, DT_DIR);
 }
 
 TEST(test_dirent_is_file) {
@@ -47,7 +45,7 @@ TEST(test_dirent_is_file) {
                 .d_name = "test_unknown",
         };
 
-        assert_se(mkdtemp_malloc(/* template= */ NULL, &t) >= 0);
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &t));
 
         name = strjoina(t, "/test.txt");
         dotfile = strjoina(t, "/.hidden_file");
@@ -55,13 +53,13 @@ TEST(test_dirent_is_file) {
         tilda = strjoina(t, "/test~");
         name_alias = strjoina(t, "/test_link");
 
-        assert_se(touch(name) >= 0);
-        assert_se(touch(dotfile) >= 0);
-        assert_se(touch(bakfile) >= 0);
-        assert_se(touch(tilda) >= 0);
+        ASSERT_OK(touch(name));
+        ASSERT_OK(touch(dotfile));
+        ASSERT_OK(touch(bakfile));
+        ASSERT_OK(touch(tilda));
 
         if (symlink(name, name_alias) < 0) {
-                assert_se(IN_SET(errno, EINVAL, ENOSYS, ENOTTY, EPERM));
+                ASSERT_TRUE(IN_SET(errno, EINVAL, ENOSYS, ENOTTY, EPERM));
                 log_tests_skipped_errno(errno, "symlink() not possible");
         }
 
@@ -97,17 +95,17 @@ TEST(test_dirent_is_file) {
                         break;
 
         /* Test when d_type is DT_REG, DT_LNK, or DT_UNKNOWN */
-        assert_se(dirent_is_file(de_reg) == true);
+        ASSERT_TRUE(dirent_is_file(de_reg));
         if (de_lnk)
-                assert_se(dirent_is_file(de_lnk) == true);
+                ASSERT_TRUE(dirent_is_file(de_lnk));
         else
                 log_tests_skipped("de_lnk is NULL, skipping test");
-        assert_se(dirent_is_file(&de_unknown) == true);
+        ASSERT_TRUE(dirent_is_file(&de_unknown));
 
         /* Test for hidden files */
-        assert_se(dirent_is_file(de_dot) == false);
-        assert_se(dirent_is_file(de_bak) == false);
-        assert_se(dirent_is_file(de_tilda) == false);
+        ASSERT_FALSE(dirent_is_file(de_dot));
+        ASSERT_FALSE(dirent_is_file(de_bak));
+        ASSERT_FALSE(dirent_is_file(de_tilda));
 
         closedir(dir);
 }
@@ -123,7 +121,7 @@ TEST(test_dirent_is_file_with_suffix) {
                 .d_name = "test_unknown",
         };
 
-        assert_se(mkdtemp_malloc(/* template= */ NULL, &t) >= 0);
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &t));
 
         name = strjoina(t, "/test.txt");
         dotfile = strjoina(t, "/.hidden_file");
@@ -131,9 +129,9 @@ TEST(test_dirent_is_file_with_suffix) {
         chr = strjoina(t, "/test_chr");
         name_alias = strjoina(t, "/test_link");
 
-        assert_se(touch(name) >= 0);
-        assert_se(touch(dotfile) >= 0);
-        assert_se(touch(dotdot) >= 0);
+        ASSERT_OK(touch(name));
+        ASSERT_OK(touch(dotfile));
+        ASSERT_OK(touch(dotdot));
         /* This can fail in containers/build systems */
         if (mknod(chr, 0775 | S_IFCHR, makedev(0, 0)) < 0) {
                 assert(ERRNO_IS_PRIVILEGE(errno));
@@ -141,7 +139,7 @@ TEST(test_dirent_is_file_with_suffix) {
         }
 
         if (symlink(name, name_alias) < 0) {
-                assert_se(IN_SET(errno, EINVAL, ENOSYS, ENOTTY, EPERM));
+                ASSERT_TRUE(IN_SET(errno, EINVAL, ENOSYS, ENOTTY, EPERM));
                 log_tests_skipped_errno(errno, "symlink() not possible");
         }
 
@@ -179,36 +177,36 @@ TEST(test_dirent_is_file_with_suffix) {
 
                 /* Test when d_type is not DT_REG, DT_LNK, or DT_UNKNOWN */
                 assert(de_chr);
-                assert_se(!dirent_is_file_with_suffix(de_chr, /* suffix= */ NULL));
+                ASSERT_FALSE(dirent_is_file_with_suffix(de_chr, /* suffix= */ NULL));
         }
 
         /* Test when suffix is NULL */
-        assert_se(dirent_is_file_with_suffix(de_reg, /* suffix= */ NULL) == true);
+        ASSERT_TRUE(dirent_is_file_with_suffix(de_reg, /* suffix= */ NULL));
         if (de_lnk)
-                assert_se(dirent_is_file_with_suffix(de_lnk, /* suffix= */ NULL) == true);
+                ASSERT_TRUE(dirent_is_file_with_suffix(de_lnk, /* suffix= */ NULL));
         else
                 log_tests_skipped("de_lnk is NULL, skipping test");
-        assert_se(dirent_is_file_with_suffix(&de_unknown, /* suffix= */ NULL) == true);
+        ASSERT_TRUE(dirent_is_file_with_suffix(&de_unknown, /* suffix= */ NULL));
 
         /* Test for present suffix */
-        assert_se(dirent_is_file_with_suffix(de_reg, "txt") == true);
+        ASSERT_TRUE(dirent_is_file_with_suffix(de_reg, "txt"));
         if (de_lnk)
-                assert_se(dirent_is_file_with_suffix(de_lnk, "link") == true);
+                ASSERT_TRUE(dirent_is_file_with_suffix(de_lnk, "link"));
         else
                 log_tests_skipped("de_lnk is NULL, skipping test");
-        assert_se(dirent_is_file_with_suffix(&de_unknown, "unknown") == true);
+        ASSERT_TRUE(dirent_is_file_with_suffix(&de_unknown, "unknown"));
 
         /* Test for absent suffix */
-        assert_se(dirent_is_file_with_suffix(de_reg, "svg") == false);
+        ASSERT_FALSE(dirent_is_file_with_suffix(de_reg, "svg"));
         if (de_lnk)
-                assert_se(dirent_is_file_with_suffix(de_lnk, "pdf") == false);
+                ASSERT_FALSE(dirent_is_file_with_suffix(de_lnk, "pdf"));
         else
                 log_tests_skipped("de_lnk is NULL, skipping test");
-        assert_se(dirent_is_file_with_suffix(&de_unknown, "yes") == false);
+        ASSERT_FALSE(dirent_is_file_with_suffix(&de_unknown, "yes"));
 
         /* Test for dot and dot-dot */
-        assert_se(dirent_is_file_with_suffix(de_dot, /* suffix= */ NULL) == false);
-        assert_se(dirent_is_file_with_suffix(de_dotdot, /* suffix= */ NULL) == false);
+        ASSERT_FALSE(dirent_is_file_with_suffix(de_dot, /* suffix= */ NULL));
+        ASSERT_FALSE(dirent_is_file_with_suffix(de_dotdot, /* suffix= */ NULL));
 
         closedir(dir);
 }
