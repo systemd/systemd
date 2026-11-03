@@ -383,7 +383,7 @@ done
 # requested range, but without the total size. Each request is logged with its "Range:" header.
 RANGE_LOG="$COMPDIR/range.log"
 cat >"$COMPDIR/range-server.py" <<'EOF'
-import http.server, os, re, sys
+import http.server, os, re, socketserver, sys
 
 port, root, log = int(sys.argv[1]), sys.argv[2], sys.argv[3]
 
@@ -422,7 +422,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(chunk)
 
-http.server.HTTPServer(('127.0.0.1', port), Handler).serve_forever()
+# Use the plain TCPServer rather than HTTPServer, since the latter resolves the local host name via NSS
+# on bind, which on sanitizer builds pulls in our ASan-instrumented NSS modules and kills the interpreter.
+socketserver.TCPServer(('127.0.0.1', port), Handler).serve_forever()
 EOF
 systemd-run --unit=test-25-range-server -p Type=exec python3 "$COMPDIR/range-server.py" 8025 "$COMPDIR" "$RANGE_LOG"
 timeout 30 bash -c 'until curl -sf -o /dev/null http://127.0.0.1:8025/ignore/head.raw; do sleep .5; done'
