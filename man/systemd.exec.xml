@@ -2866,6 +2866,14 @@ RestrictNamespaces=~cgroup net</programlisting>
         calls where those bits are passed indirectly and cannot be inspected by the filter, such as
         <function>openat2()</function>, the call is blocked entirely, regardless of the requested mode.</para>
 
+        <para>On kernels that support io_uring BPF filters (Linux 7.0 and newer), this setting also applies
+        to the <constant>IORING_OP_OPENAT</constant> and <constant>IORING_OP_OPENAT2</constant> operations of
+        <citerefentry project='man-pages'><refentrytitle>io_uring</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        Requests that create a file with the SUID or SGID bits set fail with <constant>EACCES</constant>.
+        io_uring has no operations that change the mode of existing files. On such kernels,
+        <constant>IORING_REGISTER_RESTRICTIONS</constant> without an io_uring instance fails with
+        <constant>EPERM</constant> for the processes of the unit.</para>
+
         <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
 
