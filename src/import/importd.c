@@ -1295,7 +1295,7 @@ static int method_cancel(sd_bus_message *msg, void *userdata, sd_bus_error *erro
 
         r = bus_verify_polkit_async(
                         msg,
-                        "org.freedesktop.import1.pull",
+                        "org.freedesktop.import1.cancel",
                         /* details= */ NULL,
                         &t->manager->polkit_registry,
                         error);
