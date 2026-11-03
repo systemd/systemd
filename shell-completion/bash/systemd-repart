@@ -43,7 +43,9 @@ _systemd_repart() {
                --tpm2-pcrlock --include-partitions --exclude-partitions --defer-partitions
                --defer-partitions-empty --defer-partitions-factory-reset -s --copy-source --copy-from
                --make-ddi --append-fstab --generate-fstab --generate-crypttab --el-torito
-               --el-torito-system --el-torito-volume --el-torito-publisher --manifest --manifest-gpt
+               --el-torito-system --el-torito-volume --el-torito-publisher --match-xattr-hostname
+               --match-xattr-machine-id --match-xattr-machine-tags --match-xattr-image-id
+               --match-xattr-image-version --match-xattr-os-id --match-xattr-os-version --manifest --manifest-gpt
                --manifest-fields --manifest-private-key --manifest-private-key-source
                --manifest-certificate --manifest-certificate-source'
     )
