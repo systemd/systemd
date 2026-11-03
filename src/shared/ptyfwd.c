@@ -1125,7 +1125,7 @@ int pty_forward_new(
                  * read-only mode. */
                 r = RET_NERRNO(fcntl(STDIN_FILENO, F_GETFL));
                 if (r < 0 && r != -EBADF)
-                        return log_debug_errno(errno, "Failed to query stdin flags: %m");
+                        return log_debug_errno(r, "Failed to query stdin flags: %m");
                 if (r == -EBADF || (r & O_ACCMODE_STRICT) == O_WRONLY)
                         flags |= PTY_FORWARD_READ_ONLY;
                 else {
