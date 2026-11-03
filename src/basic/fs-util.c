@@ -1081,12 +1081,6 @@ int open_mkdir_at_full_label(int dirfd, const char *path, int flags, XOpenFlags 
         return TAKE_FD(fd);
 }
 
-static bool is_symlink_at(int dir_fd, const char *path) {
-        struct stat st;
-
-        return fstatat(dir_fd, path, &st, AT_SYMLINK_NOFOLLOW) >= 0 && S_ISLNK(st.st_mode);
-}
-
 int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, bool *ret_newly_created) {
         int fd;
 
@@ -1147,7 +1141,7 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
                         return -errno;
 
                 /* If this is a dangling symlink don't needlessly retry. Just report it like O_NOFOLLOW would. */
-                if (is_symlink_at(dirfd, pathname))
+                if (is_symlink_at(dirfd, pathname) > 0)
                         return -ELOOP;
 
                 /* Hmm, so now we got ENOENT? Then someone might have removed the symlink in the meantime.
@@ -1398,7 +1392,7 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
                                 }
 
                                 /* Don't create through a dangling symlink, report it like openat_report_new() */
-                                if (is_symlink_at(dir_fd, path)) {
+                                if (is_symlink_at(dir_fd, path) > 0) {
                                         r = -ELOOP;
                                         goto error;
                                 }
@@ -1475,7 +1469,7 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
                         fd = openat_report_new(dir_fd, path, open_flags, mode, &made_file);
                         if (fd < 0) {
                                 /* Report a dangling symlink in the way of mkdirat() like O_NOFOLLOW would */
-                                r = fd == -ENOENT && dir_exists && is_symlink_at(dir_fd, path) ? -ELOOP : fd;
+                                r = fd == -ENOENT && dir_exists && is_symlink_at(dir_fd, path) > 0 ? -ELOOP : fd;
                                 goto error;
                         }
                 }
