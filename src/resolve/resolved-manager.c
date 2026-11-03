@@ -641,6 +641,7 @@ static void manager_set_defaults(Manager *m) {
         m->read_static_records = true;
         m->resolve_unicast_single_label = false;
         m->cache_from_localhost = false;
+        m->need_builtin_fallbacks = true;
         for (DnsProtocol p = 0; p < _DNS_PROTOCOL_MAX; p++)
                 m->cache_max[p] = DEFAULT_CACHE_MAX;
         m->stale_retention_usec = 0;
@@ -736,7 +737,6 @@ int manager_new(Manager **ret) {
                 .hostname_fd = -EBADF,
 
                 .read_resolv_conf = true,
-                .need_builtin_fallbacks = true,
                 .etc_hosts_last = USEC_INFINITY,
                 .static_records_last = USEC_INFINITY,
 
