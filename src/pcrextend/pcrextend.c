@@ -176,6 +176,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         return introspect_cli(SD_JSON_FORMAT_OFF);
                 }
 
+        /* Suppress duplicates: otherwise we'd extend the same bank twice, and write a measurement log
+         * record listing the same digest twice, which readers refuse. */
+        strv_sort_uniq(arg_banks);
+
         if (!!arg_file_system + arg_machine_id + arg_product_id + !!arg_login > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--file-system=, --machine-id, --product-id, --login= may not be combined.");
 
