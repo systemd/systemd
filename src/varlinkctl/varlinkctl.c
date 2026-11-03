@@ -1309,7 +1309,7 @@ static int verb_list_registry(int argc, char *argv[], uintptr_t _data, void *use
                         }
 
                         default:
-                                log_debug("Ignoring inode '%s' of unexpected type: %m", de->d_name);
+                                log_debug("Ignoring inode '%s' of unexpected type.", de->d_name);
                         }
                 }
         }
