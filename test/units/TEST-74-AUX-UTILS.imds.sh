@@ -24,6 +24,10 @@ at_exit() {
     rm -rf /run/systemd/network/85-imds-early.network /run/systemd/network/85-imds-early.network.d \
            /run/systemd/resolve/static.d/imds-endpoint.rr
     networkctl reload
+    if [[ -v RP_FILTER_ALL ]]; then
+        rm -f /run/sysctl.d/90-imds.conf
+        sysctl -w net.ipv4.conf.all.rp_filter="$RP_FILTER_ALL"
+    fi
     rm -rf "$WORK_DIR"
 }
 
@@ -165,7 +169,7 @@ grep -F "Failed to parse IP address 'piff'" "$WORK_DIR/import.err" >/dev/null
 # address, as the prohibit route covers only that.
 ip -n imds addr add 169.254.169.254/32 dev veth-imds-peer
 IMDSD_LOCKED=("${IMDSD[@]}" --data-url=http://169.254.169.254:8088 --address-ipv4=169.254.169.254)
-SYSTEMD_PROC_CMDLINE=systemd.imds.network=locked "${IMDSD_LOCKED[@]}" --setup-network
+SYSTEMD_PROC_CMDLINE=systemd.imds.network=locked "${IMDSD_LOCKED[@]}" --setup-network 2>&1 | tee "$WORK_DIR/setup-network.log"
 cat /run/systemd/network/85-imds-early.network
 grep -Fx "Type=prohibit" /run/systemd/network/85-imds-early.network >/dev/null
 
@@ -195,9 +199,10 @@ sysctl net.ipv4.conf.all.rp_filter net.ipv4.conf.veth-imds.rp_filter
 # applies the maximum of that and net.ipv4.conf.all.rp_filter, which some distributions turn on (e.g.
 # Ubuntu). Then the reverse path filter still drops the replies.
 if [[ "$(sysctl -n net.ipv4.conf.all.rp_filter)" == 0 ]]; then
+    (! grep -F "net.ipv4.conf.all.rp_filter" "$WORK_DIR/setup-network.log" >/dev/null)
     assert_eq "$("${IMDSD_LOCKED[@]}" --interface=veth-imds /hostname)" "piff"
 else
-    echo "WARNING: net.ipv4.conf.all.rp_filter is on, imdsd cannot reach IMDS in locked mode"
+    grep -F "net.ipv4.conf.all.rp_filter=" "$WORK_DIR/setup-network.log" >/dev/null
     # Do not wait for imdsd's overall 40s timeout (too annoying); instead, check that reverse path filtering drops the replies
     rp_filter_drops() { nstat -asz TcpExtIPReversePathFilter | awk '/IPReversePathFilter/ { print $2 }'; }
     DROPS="$(rp_filter_drops)"
@@ -205,6 +210,15 @@ else
     timeout 5 "${IMDSD_LOCKED[@]}" --interface=veth-imds /hostname || RC=$?
     assert_eq "$RC" 124
     (( "$(rp_filter_drops)" > DROPS ))
+
+    # The documented workaround. Only apply this file: all sysctl.d files would also reset the link's
+    # setting, which networkd configures after them during boot.
+    RP_FILTER_ALL="$(sysctl -n net.ipv4.conf.all.rp_filter)"
+    mkdir -p /run/sysctl.d
+    echo "net.ipv4.conf.all.rp_filter = 0" >/run/sysctl.d/90-imds.conf
+    /usr/lib/systemd/systemd-sysctl /run/sysctl.d/90-imds.conf
+    sysctl net.ipv4.conf.all.rp_filter net.ipv4.conf.veth-imds.rp_filter
+    assert_eq "$("${IMDSD_LOCKED[@]}" --interface=veth-imds /hostname)" "piff"
 fi
 
 # Everybody else gets blocked

@@ -77,6 +77,16 @@
           set to <literal>unlocked</literal> (the default) this "prohibit" route is not created, and regular unprivileged
           processes can directly contact IMDS.</para>
 
+          <para>Some distributions (like Ubuntu) set <varname>net.ipv4.conf.all.rp_filter</varname>. With
+          <literal>locked</literal>, IMDS then cannot be reached. <command>systemd-imdsd</command> warns about
+          this when setting up the network. To allow IMDS access, turn it off with a
+          <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          drop-in, e.g. <filename>/etc/sysctl.d/90-imds.conf</filename>:</para>
+          <programlisting>net.ipv4.conf.all.rp_filter = 0</programlisting>.
+
+          <para>systemd's <filename>50-default.conf</filename> already turns on reverse path filtering for every
+          individual link.</para>
+
           <xi:include href="version-info.xml" xpointer="v261"/>
         </listitem>
       </varlistentry>
