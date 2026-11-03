@@ -35,6 +35,7 @@
 #include "glob-util.h"
 #include "hexdecoct.h"
 #include "image-policy.h"
+#include "io-uring-filter.h"
 #include "io-util.h"
 #include "ioprio-util.h"
 #include "log.h"
@@ -462,6 +463,20 @@ static void log_command_line(Unit *unit, const char *msg, const char *executable
 
 static int exec_context_load_environment(const Unit *unit, const ExecContext *c, char ***ret);
 
+bool exec_context_has_address_families(const ExecContext *c) {
+        assert(c);
+
+        return c->address_families_allow_list ||
+                !set_isempty(c->address_families);
+}
+
+bool exec_context_has_syscall_filters(const ExecContext *c) {
+        assert(c);
+
+        return c->syscall_allow_list ||
+                !hashmap_isempty(c->syscall_filter);
+}
+
 int exec_spawn(
                 Unit *unit,
                 ExecCommand *command,
@@ -488,6 +503,17 @@ int exec_spawn(
         assert(ret);
 
         LOG_CONTEXT_PUSH_UNIT(unit);
+
+        /* CLONE_INTO_CGROUP applies TasksMax= before the executor can fork a probe. */
+        if (FLAGS_SET(params->flags, EXEC_APPLY_SANDBOXING) &&
+            !FLAGS_SET(command->flags, EXEC_COMMAND_FULLY_PRIVILEGED) &&
+            (exec_context_has_address_families(context) ||
+             context->restrict_suid_sgid || exec_context_has_syscall_filters(context))) {
+                r = io_uring_bpf_filter_supported();
+                if (r < 0)
+                        return log_unit_error_errno(unit, r, "Failed to check whether io_uring BPF filters are supported: %m");
+                params->io_uring_bpf_filter_supported = r;
+        }
 
         r = exec_context_load_environment(unit, context, &params->files_env);
         if (r < 0)

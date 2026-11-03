@@ -49,6 +49,7 @@
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "image-policy.h"
+#include "io-uring-filter.h"
 #include "io-util.h"
 #include "iovec-util.h"
 #include "journal-send.h"
@@ -1743,20 +1744,6 @@ static void rename_process_from_path(const char *path) {
         (void) rename_process_full(comm, invocation ?: comm);
 }
 
-static bool context_has_address_families(const ExecContext *c) {
-        assert(c);
-
-        return c->address_families_allow_list ||
-                !set_isempty(c->address_families);
-}
-
-static bool context_has_syscall_filters(const ExecContext *c) {
-        assert(c);
-
-        return c->syscall_allow_list ||
-                !hashmap_isempty(c->syscall_filter);
-}
-
 static bool context_has_syscall_logs(const ExecContext *c) {
         assert(c);
 
@@ -1776,12 +1763,12 @@ static bool context_has_seccomp(const ExecContext *c) {
                 c->protect_kernel_tunables ||
                 c->protect_kernel_modules ||
                 c->protect_kernel_logs ||
-                context_has_address_families(c) ||
+                exec_context_has_address_families(c) ||
                 exec_context_restrict_namespaces_set(c) ||
                 c->restrict_realtime ||
                 c->restrict_suid_sgid ||
                 !set_isempty(c->syscall_archs) ||
-                context_has_syscall_filters(c) ||
+                exec_context_has_syscall_filters(c) ||
                 context_has_syscall_logs(c);
 }
 
@@ -1795,6 +1782,28 @@ static bool context_has_no_new_privileges(const ExecContext *c) {
                 return false;
 
         return context_has_seccomp(c);
+}
+
+static bool check_io_uring_bpf_filters(const char *setting) {
+        assert(setting);
+
+        if (!p->io_uring_bpf_filter_supported)
+                log_debug("io_uring BPF filters are not supported, not applying %s to io_uring requests.", setting);
+
+        return p->io_uring_bpf_filter_supported;
+}
+
+static int apply_io_uring_address_families(const ExecContext *c, const ExecParameters *p) {
+        assert(c);
+        assert(p);
+
+        if (!exec_context_has_address_families(c))
+                return 0;
+
+        if (!check_io_uring_bpf_filters("RestrictAddressFamilies="))
+                return 0;
+
+        return io_uring_restrict_address_families(c->address_families, c->address_families_allow_list);
 }
 
 #if HAVE_SECCOMP
@@ -1849,7 +1858,7 @@ static int apply_syscall_filter(const ExecContext *c, const ExecParameters *p) {
         assert(c);
         assert(p);
 
-        if (!context_has_syscall_filters(c))
+        if (!exec_context_has_syscall_filters(c))
                 return 0;
 
         if (skip_seccomp_unavailable("SystemCallFilter="))
@@ -1925,7 +1934,7 @@ static int apply_address_families(const ExecContext *c, const ExecParameters *p)
         assert(c);
         assert(p);
 
-        if (!context_has_address_families(c))
+        if (!exec_context_has_address_families(c))
                 return 0;
 
         if (skip_seccomp_unavailable("RestrictAddressFamilies="))
@@ -6939,6 +6948,14 @@ int exec_invoke(
                         return log_error_errno(r, "Failed to restrict filesystems: %m");
                 }
 #endif
+
+                /* The io_uring filters have to be registered before the system call filter, because the
+                 * system call filter can deny io_uring_register(). */
+                r = apply_io_uring_address_families(context, params);
+                if (r < 0) {
+                        *exit_status = EXIT_ADDRESS_FAMILIES;
+                        return log_error_errno(r, "Failed to restrict address families of io_uring sockets: %m");
+                }
 
 #if HAVE_SECCOMP
                 /* This really should remain as close to the execve() as possible, to make sure our own code is affected

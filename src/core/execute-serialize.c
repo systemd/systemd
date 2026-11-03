@@ -1121,6 +1121,10 @@ static int exec_parameters_serialize(const ExecParameters *p, const ExecContext 
                         return r;
         }
 
+        r = serialize_bool_elide(f, "exec-parameters-io-uring-bpf-filter-supported", p->io_uring_bpf_filter_supported);
+        if (r < 0)
+                return r;
+
         r = serialize_bool_elide(f, "exec-parameters-selinux-context-net", p->selinux_context_net);
         if (r < 0)
                 return r;
@@ -1336,6 +1340,12 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 return r;
                         p->flags = flags;
+                } else if ((val = startswith(l, "exec-parameters-io-uring-bpf-filter-supported="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+
+                        p->io_uring_bpf_filter_supported = r;
                 } else if ((val = startswith(l, "exec-parameters-selinux-context-net="))) {
                         r = parse_boolean(val);
                         if (r < 0)
