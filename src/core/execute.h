@@ -474,6 +474,7 @@ typedef struct ExecParameters {
 
         bool debug_invocation;
         bool selinux_context_net;
+        bool io_uring_bpf_filter_supported;
 } ExecParameters;
 
 #define EXEC_PARAMETERS_INIT(_flags)              \

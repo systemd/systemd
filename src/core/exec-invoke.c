@@ -49,6 +49,7 @@
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "image-policy.h"
+#include "io-uring-filter.h"
 #include "io-util.h"
 #include "iovec-util.h"
 #include "journal-send.h"
@@ -1795,6 +1796,34 @@ static bool context_has_no_new_privileges(const ExecContext *c) {
                 return false;
 
         return context_has_seccomp(c);
+}
+
+static int check_io_uring_bpf_filters(const char *setting) {
+        int r;
+
+        assert(setting);
+
+        r = p->io_uring_bpf_filter_supported;
+        if (r == 0)
+                log_debug("io_uring BPF filters are not supported, not applying %s to io_uring requests.", setting);
+
+        return r;
+}
+
+static int apply_io_uring_address_families(const ExecContext *c, const ExecParameters *p) {
+        int r;
+
+        assert(c);
+        assert(p);
+
+        if (!context_has_address_families(c))
+                return 0;
+
+        r = check_io_uring_bpf_filters("RestrictAddressFamilies=");
+        if (r <= 0)
+                return r;
+
+        return io_uring_restrict_address_families(c->address_families, c->address_families_allow_list);
 }
 
 #if HAVE_SECCOMP
@@ -6939,6 +6968,14 @@ int exec_invoke(
                         return log_error_errno(r, "Failed to restrict filesystems: %m");
                 }
 #endif
+
+                /* The io_uring filters have to be registered before the system call filter, because the
+                 * system call filter can deny io_uring_register(). */
+                r = apply_io_uring_address_families(context, params);
+                if (r < 0) {
+                        *exit_status = EXIT_ADDRESS_FAMILIES;
+                        return log_error_errno(r, "Failed to restrict address families of io_uring sockets: %m");
+                }
 
 #if HAVE_SECCOMP
                 /* This really should remain as close to the execve() as possible, to make sure our own code is affected

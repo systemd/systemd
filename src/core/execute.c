@@ -35,6 +35,7 @@
 #include "glob-util.h"
 #include "hexdecoct.h"
 #include "image-policy.h"
+#include "io-uring-filter.h"
 #include "io-util.h"
 #include "ioprio-util.h"
 #include "log.h"
@@ -488,6 +489,17 @@ int exec_spawn(
         assert(ret);
 
         LOG_CONTEXT_PUSH_UNIT(unit);
+
+        /* CLONE_INTO_CGROUP applies TasksMax= before the executor can fork a probe. */
+        if (FLAGS_SET(params->flags, EXEC_APPLY_SANDBOXING) &&
+            !FLAGS_SET(command->flags, EXEC_COMMAND_FULLY_PRIVILEGED) &&
+            (context->address_families_allow_list || !set_isempty(context->address_families) ||
+             context->restrict_suid_sgid || context->syscall_allow_list || !hashmap_isempty(context->syscall_filter))) {
+                r = io_uring_bpf_filter_supported();
+                if (r < 0)
+                        return log_unit_error_errno(unit, r, "Failed to check whether io_uring BPF filters are supported: %m");
+                params->io_uring_bpf_filter_supported = r;
+        }
 
         r = exec_context_load_environment(unit, context, &params->files_env);
         if (r < 0)
