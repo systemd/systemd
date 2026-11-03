@@ -1002,7 +1002,7 @@ TEST_RET(copy_with_verity) {
 
         /* Ensure the attempting to enable fs-verity here will fail */
         if (enable_fsverity(badsrc, "simple", FS_VERITY_HASH_ALG_SHA256, /* salt= */ NULL, /* salt_size= */ 0))
-                return log_tests_skipped_errno(errno, "/tmp: fs-verity *is* unexpectedly supported here");
+                return log_tests_skipped("/tmp: fs-verity *is* unexpectedly supported here");
 
         /* Copy from our non-verity filesystem into dst, requesting verity and making sure we notice that
          * we failed to read verity from the source. */
