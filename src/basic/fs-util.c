@@ -1082,7 +1082,7 @@ int open_mkdir_at_full_label(int dirfd, const char *path, int flags, XOpenFlags 
 }
 
 int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, bool *ret_newly_created) {
-        int fd;
+        int fd, r;
 
         /* Just like openat(), but adds one thing: optionally returns whether we created the file anew or if
          * it already existed before. This is only relevant if O_CREAT is set without O_EXCL, and thus will
@@ -1141,8 +1141,11 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
                         return -errno;
 
                 /* If this is a dangling symlink don't needlessly retry. Just report it like O_NOFOLLOW would. */
-                if (is_symlink_at(dirfd, pathname) > 0)
+                r = is_symlink_at(dirfd, pathname);
+                if (r > 0)
                         return -ELOOP;
+                if (r < 0 && r != -ENOENT)
+                        return r;
 
                 /* Hmm, so now we got ENOENT? Then someone might have removed the symlink in the meantime.
                  * Let's try again but with a limit so we don't spin forever. */
@@ -1392,7 +1395,10 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
                                 }
 
                                 /* Don't create through a dangling symlink, report it like openat_report_new() */
-                                if (is_symlink_at(dir_fd, path) > 0) {
+                                r = is_symlink_at(dir_fd, path);
+                                if (r < 0 && r != -ENOENT)
+                                        goto error;
+                                if (r > 0) {
                                         r = -ELOOP;
                                         goto error;
                                 }
@@ -1468,8 +1474,17 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
                 if (fd < 0) {
                         fd = openat_report_new(dir_fd, path, open_flags, mode, &made_file);
                         if (fd < 0) {
+                                r = fd;
+
                                 /* Report a dangling symlink in the way of mkdirat() like O_NOFOLLOW would */
-                                r = fd == -ENOENT && dir_exists && is_symlink_at(dir_fd, path) > 0 ? -ELOOP : fd;
+                                if (r == -ENOENT && dir_exists) {
+                                        int q = is_symlink_at(dir_fd, path);
+                                        if (q > 0)
+                                                r = -ELOOP;
+                                        else if (q < 0 && q != -ENOENT)
+                                                r = q;
+                                }
+
                                 goto error;
                         }
                 }
