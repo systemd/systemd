@@ -2,6 +2,7 @@
 
 #include <grp.h>
 #include <sched.h>
+#include <stdio.h>
 #include <sys/eventfd.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
@@ -87,6 +88,9 @@ TEST(userns_restrict) {
         host_fd1 = ASSERT_OK_ERRNO(open(t, O_DIRECTORY|O_CLOEXEC));
         host_tmpfs = ASSERT_OK(make_tmpfs_fsmount());
 
+        /* For RENAME_WHITEOUT below: the namespace itself cannot create anything here */
+        safe_close(ASSERT_OK_ERRNO(openat(host_fd1, "white", O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC, 0644)));
+
         _cleanup_free_ char *idmap = NULL;
         ASSERT_OK(asprintf(&idmap, "0 "UID_FMT" 1", CONTAINER_UID_MIN));
         userns_fd = ASSERT_OK(userns_acquire(idmap, idmap, /* setgroups_deny= */ true));
@@ -132,6 +136,22 @@ TEST(userns_restrict) {
                 ASSERT_OK_ERRNO(fchownat(private_tmpfs, "yyy", GID_INVALID, 0, 0));
                 ASSERT_OK_ERRNO(fchownat(idmapped_tmpfs, "zzz", GID_INVALID, 0, 0));
 
+                /* O_TMPFILE is refused like named files, unless O_EXCL makes it unlinkable for good */
+                ASSERT_ERROR_ERRNO(openat(host_fd1, ".", O_TMPFILE|O_RDWR|O_CLOEXEC, 0666), EPERM);
+                ASSERT_ERROR_ERRNO(openat(host_tmpfs, ".", O_TMPFILE|O_RDWR|O_CLOEXEC, 0666), EPERM);
+                safe_close(ASSERT_OK_ERRNO(openat(host_fd1, ".", O_TMPFILE|O_EXCL|O_RDWR|O_CLOEXEC, 0666)));
+
+                _cleanup_close_ int tmpfile1 = -EBADF, tmpfile2 = -EBADF;
+                tmpfile1 = ASSERT_OK_ERRNO(openat(private_tmpfs, ".", O_TMPFILE|O_RDWR|O_CLOEXEC, 0666));
+                ASSERT_OK_ERRNO(linkat(tmpfile1, "", private_tmpfs, "ccc", AT_EMPTY_PATH));
+                tmpfile2 = ASSERT_OK_ERRNO(openat(idmapped_tmpfs, ".", O_TMPFILE|O_RDWR|O_CLOEXEC, 0666));
+                ASSERT_OK_ERRNO(linkat(tmpfile2, "", idmapped_tmpfs, "ddd", AT_EMPTY_PATH));
+
+                /* So is the whiteout RENAME_WHITEOUT leaves behind, which is owned by us too */
+                ASSERT_ERROR_ERRNO(renameat2(host_fd1, "white", host_fd1, "white2", RENAME_WHITEOUT), EPERM);
+                ASSERT_OK_ERRNO(renameat2(private_tmpfs, "ccc", private_tmpfs, "ccc2", RENAME_WHITEOUT));
+                ASSERT_OK_ERRNO(renameat2(idmapped_tmpfs, "ddd", idmapped_tmpfs, "ddd2", RENAME_WHITEOUT));
+
                 /* Unsharing a mount namespace hands us clones of every mount we can see, owned by our own
                  * user namespace. That must not buy us anything.
                  *
@@ -148,6 +168,7 @@ TEST(userns_restrict) {
                 ASSERT_ERROR_ERRNO(mkdir(p2, 0666), EPERM);
                 ASSERT_ERROR_ERRNO(openat(host_fd1, "newns3", O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
                 ASSERT_ERROR_ERRNO(openat(host_tmpfs, "newns4", O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
+                ASSERT_ERROR_ERRNO(open(t, O_TMPFILE|O_RDWR|O_CLOEXEC, 0666), EPERM);
 
                 /* And chown() through the clone must stay refused too, not just inode creation. */
                 ASSERT_ERROR_ERRNO(fchownat(AT_FDCWD, t, GID_INVALID, 0, 0), EPERM);
@@ -163,6 +184,7 @@ TEST(userns_restrict) {
                 ASSERT_ERROR_ERRNO(mkdir(p4, 0666), EPERM);
                 ASSERT_ERROR_ERRNO(openat(host_fd1, "newuser3", O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
                 ASSERT_ERROR_ERRNO(openat(host_tmpfs, "newuser4", O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
+                ASSERT_ERROR_ERRNO(openat(host_tmpfs, ".", O_TMPFILE|O_RDWR|O_CLOEXEC, 0666), EPERM);
 
                 /* …while what was legitimately writable before stays writable */
                 safe_close(ASSERT_OK_ERRNO(openat(private_tmpfs, "aaa", O_RDWR|O_CREAT|O_CLOEXEC, 0666)));
