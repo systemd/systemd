@@ -292,22 +292,22 @@ TEST(strv_split) {
         l = strv_free_erase(l);
 
         ASSERT_OK_EQ(strv_split_full(&l, "\\", /* separators= */ NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX | EXTRACT_UNESCAPE_RELAX), 1);
-        ASSERT_STRV_EQ(l, STRV_MAKE("\\"));
+        ASSERT_STRV_EQ_SET(l, "\\");
 
         l = strv_free_erase(l);
 
         ASSERT_NOT_NULL(l = strv_split("\\", /* separators= */ NULL));
-        ASSERT_STRV_EQ(l, STRV_MAKE("\\"));
+        ASSERT_STRV_EQ_SET(l, "\\");
 
         l = strv_free_erase(l);
 
         ASSERT_NOT_NULL(l = strv_split("aa\\ bb\\", /* separators= */ NULL));
-        ASSERT_STRV_EQ(l, STRV_MAKE("aa\\", "bb\\"));
+        ASSERT_STRV_EQ_SET(l, "aa\\", "bb\\");
 
         l = strv_free_erase(l);
 
         ASSERT_NOT_NULL(l = strv_split("aa\" bb'", /* separators= */ NULL));
-        ASSERT_STRV_EQ(l, STRV_MAKE("aa\"", "bb'"));
+        ASSERT_STRV_EQ_SET(l, "aa\"", "bb'");
 }
 
 TEST(strv_split_empty) {
@@ -487,15 +487,15 @@ TEST(strv_remove_strv) {
         ASSERT_OK(strv_extend_strv(&l, STRV_MAKE("one", "two", "three", "four"), /* filter_duplicates= */ false));
 
         ASSERT_PTR_EQ(strv_remove_strv(l, STRV_MAKE("two", "four")), l);
-        ASSERT_STRV_EQ(l, STRV_MAKE("one", "three"));
+        ASSERT_STRV_EQ_SET(l, "one", "three");
 
         /* Removing entries not present is a no-op. */
         ASSERT_PTR_EQ(strv_remove_strv(l, STRV_MAKE("nope")), l);
-        ASSERT_STRV_EQ(l, STRV_MAKE("one", "three"));
+        ASSERT_STRV_EQ_SET(l, "one", "three");
 
         /* Empty removal list leaves the list untouched. */
         ASSERT_PTR_EQ(strv_remove_strv(l, STRV_EMPTY), l);
-        ASSERT_STRV_EQ(l, STRV_MAKE("one", "three"));
+        ASSERT_STRV_EQ_SET(l, "one", "three");
 
         /* Removing from an empty/NULL list is fine. */
         ASSERT_NULL(strv_remove_strv(NULL, STRV_MAKE("one")));
@@ -1122,31 +1122,31 @@ TEST(strv_copy_n) {
         strv_free(l);
 
         l = strv_copy_n(x, 1);
-        ASSERT_STRV_EQ(l, STRV_MAKE("a"));
+        ASSERT_STRV_EQ_SET(l, "a");
         strv_free(l);
 
         l = strv_copy_n(x, 2);
-        ASSERT_STRV_EQ(l, STRV_MAKE("a", "b"));
+        ASSERT_STRV_EQ_SET(l, "a", "b");
         strv_free(l);
 
         l = strv_copy_n(x, 3);
-        ASSERT_STRV_EQ(l, STRV_MAKE("a", "b", "c"));
+        ASSERT_STRV_EQ_SET(l, "a", "b", "c");
         strv_free(l);
 
         l = strv_copy_n(x, 4);
-        ASSERT_STRV_EQ(l, STRV_MAKE("a", "b", "c", "d"));
+        ASSERT_STRV_EQ_SET(l, "a", "b", "c", "d");
         strv_free(l);
 
         l = strv_copy_n(x, 5);
-        ASSERT_STRV_EQ(l, STRV_MAKE("a", "b", "c", "d", "e"));
+        ASSERT_STRV_EQ_SET(l, "a", "b", "c", "d", "e");
         strv_free(l);
 
         l = strv_copy_n(x, 6);
-        ASSERT_STRV_EQ(l, STRV_MAKE("a", "b", "c", "d", "e"));
+        ASSERT_STRV_EQ_SET(l, "a", "b", "c", "d", "e");
         strv_free(l);
 
         l = strv_copy_n(x, SIZE_MAX);
-        ASSERT_STRV_EQ(l, STRV_MAKE("a", "b", "c", "d", "e"));
+        ASSERT_STRV_EQ_SET(l, "a", "b", "c", "d", "e");
 }
 
 TEST(strv_find_first_field) {
@@ -1179,19 +1179,19 @@ TEST(strv_extend_many) {
         ASSERT_TRUE(strv_isempty(l));
 
         ASSERT_OK(strv_extend_many(&l, "foo"));
-        ASSERT_STRV_EQ(l, STRV_MAKE("foo"));
+        ASSERT_STRV_EQ_SET(l, "foo");
 
         ASSERT_OK(strv_extend_many(&l, NULL, "bar", NULL));
-        ASSERT_STRV_EQ(l, STRV_MAKE("foo", "bar"));
+        ASSERT_STRV_EQ_SET(l, "foo", "bar");
 
         ASSERT_OK(strv_extend_many(&l, "waldo", "quux"));
-        ASSERT_STRV_EQ(l, STRV_MAKE("foo", "bar", "waldo", "quux"));
+        ASSERT_STRV_EQ_SET(l, "foo", "bar", "waldo", "quux");
 
         ASSERT_OK(strv_extend_many(&l, "1", "2", "3", "4"));
-        ASSERT_STRV_EQ(l, STRV_MAKE("foo", "bar", "waldo", "quux", "1", "2", "3", "4"));
+        ASSERT_STRV_EQ_SET(l, "foo", "bar", "waldo", "quux", "1", "2", "3", "4");
 
         ASSERT_OK(strv_extend_many(&l, "yes", NULL, "no"));
-        ASSERT_STRV_EQ(l, STRV_MAKE("foo", "bar", "waldo", "quux", "1", "2", "3", "4", "yes", "no"));
+        ASSERT_STRV_EQ_SET(l, "foo", "bar", "waldo", "quux", "1", "2", "3", "4", "yes", "no");
 }
 
 TEST(strv_rebreak_lines) {
@@ -1202,43 +1202,36 @@ TEST(strv_rebreak_lines) {
         l = strv_free(l);
 
         ASSERT_OK(strv_rebreak_lines(STRV_MAKE(""), SIZE_MAX, &l));
-        ASSERT_STRV_EQ(l, STRV_MAKE(""));
+        ASSERT_STRV_EQ_SET(l, "");
         l = strv_free(l);
 
         ASSERT_OK(strv_rebreak_lines(STRV_MAKE("", ""), SIZE_MAX, &l));
-        ASSERT_STRV_EQ(l, STRV_MAKE("", ""));
+        ASSERT_STRV_EQ_SET(l, "", "");
         l = strv_free(l);
 
         ASSERT_OK(strv_rebreak_lines(STRV_MAKE("foo"), SIZE_MAX, &l));
-        ASSERT_STRV_EQ(l, STRV_MAKE("foo"));
+        ASSERT_STRV_EQ_SET(l, "foo");
         l = strv_free(l);
 
         ASSERT_OK(strv_rebreak_lines(STRV_MAKE("foo", "bar"), SIZE_MAX, &l));
-        ASSERT_STRV_EQ(l, STRV_MAKE("foo", "bar"));
+        ASSERT_STRV_EQ_SET(l, "foo", "bar");
         l = strv_free(l);
 
         ASSERT_OK(strv_rebreak_lines(STRV_MAKE("Foo fOo foO FOo", "bar Bar bAr baR BAr"), 10, &l));
-        ASSERT_STRV_EQ(l, STRV_MAKE("Foo fOo", "foO FOo", "bar Bar", "bAr baR", "BAr"));
+        ASSERT_STRV_EQ_SET(l, "Foo fOo", "foO FOo", "bar Bar", "bAr baR", "BAr");
         l = strv_free(l);
 
         ASSERT_OK(strv_rebreak_lines(STRV_MAKE("           foo               ",
                                                "             foo bar               waldo quux         "),
                                      10, &l));
-        ASSERT_STRV_EQ(l, STRV_MAKE("           foo",
-                                    "             foo",
-                                    "bar",
-                                    "waldo quux"));
+        ASSERT_STRV_EQ_SET(l, "           foo", "             foo", "bar", "waldo quux");
         l = strv_free(l);
 
         ASSERT_OK(strv_rebreak_lines(STRV_MAKE("            ",
                                                "\tfoo bar\t",
                                                "FOO\tBAR"),
                                      10, &l));
-        ASSERT_STRV_EQ(l, STRV_MAKE("",
-                                    "\tfoo",
-                                    "bar",
-                                    "FOO",
-                                    "BAR"));
+        ASSERT_STRV_EQ_SET(l, "", "\tfoo", "bar", "FOO", "BAR");
         l = strv_free(l);
 
         /* Now make sure that breaking the lines a 2nd time does not modify the output anymore */
@@ -1268,33 +1261,33 @@ TEST(strv_rebreak_lines) {
         /* Newlines embedded in the input are hard line breaks. Previously everything before such a newline
          * was silently dropped if nothing but whitespace followed it. */
         ASSERT_OK(strv_rebreak_lines(STRV_MAKE("foo\n"), 10, &l));
-        ASSERT_STRV_EQ(l, STRV_MAKE("foo"));
+        ASSERT_STRV_EQ_SET(l, "foo");
         l = strv_free(l);
 
         ASSERT_OK(strv_rebreak_lines(STRV_MAKE("foo\n   "), 10, &l));
-        ASSERT_STRV_EQ(l, STRV_MAKE("foo"));
+        ASSERT_STRV_EQ_SET(l, "foo");
         l = strv_free(l);
 
         ASSERT_OK(strv_rebreak_lines(STRV_MAKE("foo\nbar"), 10, &l));
-        ASSERT_STRV_EQ(l, STRV_MAKE("foo", "bar"));
+        ASSERT_STRV_EQ_SET(l, "foo", "bar");
         l = strv_free(l);
 
         ASSERT_OK(strv_rebreak_lines(STRV_MAKE("foo   \n   bar   \n"), 10, &l));
-        ASSERT_STRV_EQ(l, STRV_MAKE("foo", "   bar"));
+        ASSERT_STRV_EQ_SET(l, "foo", "   bar");
         l = strv_free(l);
 
         ASSERT_OK(strv_rebreak_lines(STRV_MAKE("foo\n\nbar"), 10, &l));
-        ASSERT_STRV_EQ(l, STRV_MAKE("foo", "", "bar"));
+        ASSERT_STRV_EQ_SET(l, "foo", "", "bar");
         l = strv_free(l);
 
         ASSERT_OK(strv_rebreak_lines(STRV_MAKE("foo\r\nbar\r\n"), 10, &l));
-        ASSERT_STRV_EQ(l, STRV_MAKE("foo", "bar"));
+        ASSERT_STRV_EQ_SET(l, "foo", "bar");
         l = strv_free(l);
 
         /* And the resulting lines are properly broken to the requested width, rather than staying glued
          * together in a single, over-long entry. */
         ASSERT_OK(strv_rebreak_lines(STRV_MAKE("hello world\nfoo bar baz quux waldo"), 10, &l));
-        ASSERT_STRV_EQ(l, STRV_MAKE("hello", "world", "foo bar", "baz quux", "waldo"));
+        ASSERT_STRV_EQ_SET(l, "hello", "world", "foo bar", "baz quux", "waldo");
         l = strv_free(l);
 }
 
@@ -1351,7 +1344,7 @@ TEST(strv_filter_prefix) {
         char **base = STRV_MAKE("foo", "bar", "baz", "foox", "zzz", "farb", "foerb");
 
         _cleanup_strv_free_ char **x = ASSERT_PTR(strv_filter_prefix(base, "fo"));
-        ASSERT_STRV_EQ(x, STRV_MAKE("foo", "foox", "foerb"));
+        ASSERT_STRV_EQ_SET(x, "foo", "foox", "foerb");
         x = strv_free(x);
 
         x = ASSERT_PTR(strv_filter_prefix(base, ""));
@@ -1359,11 +1352,11 @@ TEST(strv_filter_prefix) {
         x = strv_free(x);
 
         x = ASSERT_PTR(strv_filter_prefix(base, "z"));
-        ASSERT_STRV_EQ(x, STRV_MAKE("zzz"));
+        ASSERT_STRV_EQ_SET(x, "zzz");
         x = strv_free(x);
 
         x = ASSERT_PTR(strv_filter_prefix(base, "zzz"));
-        ASSERT_STRV_EQ(x, STRV_MAKE("zzz"));
+        ASSERT_STRV_EQ_SET(x, "zzz");
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

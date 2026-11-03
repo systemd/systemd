@@ -212,7 +212,7 @@ int main(int argc, char *argv[]) {
 
         ASSERT_OK(manager_load_unit(m, "unit-with-multiple-dashes.service", /* path= */ NULL, NULL, &unit_with_multiple_dashes));
 
-        ASSERT_STRV_EQ(unit_with_multiple_dashes->documentation, STRV_MAKE("man:test", "man:override2", "man:override3"));
+        ASSERT_STRV_EQ_SET(unit_with_multiple_dashes->documentation, "man:test", "man:override2", "man:override3");
         ASSERT_STREQ(unit_with_multiple_dashes->description, "override4");
 
         /* Now merge a synthetic unit into the existing one */

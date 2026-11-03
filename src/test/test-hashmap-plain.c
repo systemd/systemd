@@ -887,7 +887,7 @@ TEST(string_strv_hashmap) {
         ASSERT_TRUE(hashmap_contains(m, "foo"));
 
         s = hashmap_get(m, "foo");
-        ASSERT_STRV_EQ(s, STRV_MAKE("bar", "BAR"));
+        ASSERT_STRV_EQ_SET(s, "bar", "BAR");
 
         ASSERT_OK_EQ(string_strv_hashmap_put(&m, "xxx", "bar"), 1);
         ASSERT_OK_EQ(string_strv_hashmap_put(&m, "xxx", "bar"), 0);
@@ -897,18 +897,18 @@ TEST(string_strv_hashmap) {
         ASSERT_TRUE(hashmap_contains(m, "xxx"));
 
         s = hashmap_get(m, "xxx");
-        ASSERT_STRV_EQ(s, STRV_MAKE("bar", "BAR"));
+        ASSERT_STRV_EQ_SET(s, "bar", "BAR");
 
         string_strv_hashmap_remove(m, "foo", "bar");
         ASSERT_NOT_NULL((s = hashmap_get(m, "foo")));
-        ASSERT_STRV_EQ(s, STRV_MAKE("BAR"));
+        ASSERT_STRV_EQ_SET(s, "BAR");
 
         string_strv_hashmap_remove(m, "foo", "BAR");
         ASSERT_FALSE(hashmap_contains(m, "foo"));
 
         string_strv_hashmap_remove(m, "xxx", "BAR");
         ASSERT_NOT_NULL((s = hashmap_get(m, "xxx")));
-        ASSERT_STRV_EQ(s, STRV_MAKE("bar"));
+        ASSERT_STRV_EQ_SET(s, "bar");
 
         string_strv_hashmap_remove(m, "xxx", "bar");
         ASSERT_FALSE(hashmap_contains(m, "xxx"));

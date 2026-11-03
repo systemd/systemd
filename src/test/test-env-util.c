@@ -134,7 +134,7 @@ TEST(strv_env_assignf) {
 
         ASSERT_OK_POSITIVE(strv_env_assignf(&a, "c", "xxx%iyyy", 5));
         ASSERT_EQ(strv_length(a), 2U);
-        ASSERT_STRV_EQ(a, STRV_MAKE("a=a", "c=xxx5yyy"));
+        ASSERT_STRV_EQ_SET(a, "a=a", "c=xxx5yyy");
         ASSERT_OK_EQ(strv_env_assignf(&a, "c", /* valuef= */ NULL), 0);
 
         ASSERT_OK_POSITIVE(strv_env_assignf(&a, "b", "b"));
@@ -319,7 +319,6 @@ TEST(replace_env_argv) {
 }
 
 TEST(replace_env_argv_bad) {
-
         const char *env[] = {
                 "FOO=BAR BAR",
                 "BAR=waldo",
@@ -341,22 +340,16 @@ TEST(replace_env_argv_bad) {
 
         ASSERT_OK(replace_env_argv((char**) line, (char**) env, &replaced, &unset, &bad));
 
-        ASSERT_STRV_EQ(replaced, STRV_MAKE(
-                                       "BAR",
-                                       "BAR",
-                                       "ABAR BARB",
-                                       "ab",
-                                       "xy",
-                                       "zzz",
-                                       "piffpiff"));
+        ASSERT_STRV_EQ_SET(replaced,
+                           "BAR", "BAR",
+                           "ABAR BARB",
+                           "ab",
+                           "xy",
+                           "zzz",
+                           "piffpiff");
 
-        ASSERT_STRV_EQ(unset, STRV_MAKE(
-                                       "UNSET1",
-                                       "UNSET2",
-                                       "UNSET3"));
-        ASSERT_STRV_EQ(bad, STRV_MAKE("",
-                                      "%",
-                                      "~"));
+        ASSERT_STRV_EQ_SET(unset, "UNSET1", "UNSET2", "UNSET3");
+        ASSERT_STRV_EQ_SET(bad, "", "%", "~");
 }
 
 TEST(env_clean) {
@@ -598,11 +591,11 @@ TEST(replace_env_argv_unterminated) {
 
         /* Trailing bare unset variable after an expanded one. */
         ASSERT_OK(replace_env_argv(STRV_MAKE("$FOO", "$THIS_IS_UNSET"), STRV_MAKE("FOO=BAR"), &c, /* ret_unset_variables= */ NULL, /* ret_bad_variables= */ NULL));
-        ASSERT_STRV_EQ(c, STRV_MAKE("BAR"));
+        ASSERT_STRV_EQ_SET(c, "BAR");
 
         /* Trailing bare unset variable after a literal word. */
         ASSERT_OK(replace_env_argv(STRV_MAKE("hello", "$THIS_IS_UNSET"), STRV_MAKE("FOO=BAR"), &d, /* ret_unset_variables= */ NULL, /* ret_bad_variables= */ NULL));
-        ASSERT_STRV_EQ(d, STRV_MAKE("hello"));
+        ASSERT_STRV_EQ_SET(d, "hello");
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

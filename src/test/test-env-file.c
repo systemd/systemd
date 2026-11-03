@@ -181,7 +181,7 @@ TEST(write_and_load_env_file) {
                 ASSERT_STREQ(from_shell, v);
 
                 ASSERT_OK(load_env_file(NULL, p, &l));
-                ASSERT_STRV_EQ(l, STRV_MAKE(j));
+                ASSERT_STRV_EQ_SET(l, j);
 
                 ASSERT_OK(parse_env_file(NULL, p, "TEST", &w));
                 ASSERT_STREQ(w, v);

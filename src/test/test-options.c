@@ -1447,7 +1447,7 @@ TEST(option_optional_arg_consume) {
                 ASSERT_NULL(opts.opt);
                 ASSERT_NULL(opts.arg);
 
-                ASSERT_STRV_EQ(option_parser_get_args(&opts), STRV_MAKE("pos1"));
+                ASSERT_STRV_EQ_SET(option_parser_get_args(&opts), "pos1");
         }
 
         /* --user at end of args: no next arg, so scope mode */
@@ -1531,7 +1531,7 @@ TEST(option_optional_arg_consume) {
 
                 ASSERT_EQ(nobody_seen, 2);
                 ASSERT_EQ(scope_seen, 2);
-                ASSERT_STRV_EQ(option_parser_get_args(&opts), STRV_MAKE("nogroup"));
+                ASSERT_STRV_EQ_SET(option_parser_get_args(&opts), "nogroup");
                 ASSERT_NULL(opts.opt);
                 ASSERT_NULL(opts.arg);
         }

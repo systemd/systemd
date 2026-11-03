@@ -141,7 +141,7 @@ TEST(deserialize_environment) {
         ASSERT_OK(deserialize_environment("B=2", &env));
         ASSERT_OK(deserialize_environment("FOO%%=a\\177b\\nc\\td e", &env));
 
-        ASSERT_STRV_EQ(env, STRV_MAKE("A=1", "B=2", "FOO%%=a\177b\nc\td e"));
+        ASSERT_STRV_EQ_SET(env, "A=1", "B=2", "FOO%%=a\177b\nc\td e");
 
         ASSERT_FAIL(deserialize_environment("foo\\", &env));
         ASSERT_FAIL(deserialize_environment("bar\\_baz", &env));

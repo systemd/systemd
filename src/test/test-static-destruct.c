@@ -20,7 +20,7 @@ static void test_destroy(int *b) {
 
 static void test_strings_destroy(char **array, size_t n) {
         ASSERT_EQ(n, 3U);
-        ASSERT_STRV_EQ(array, STRV_MAKE("a", "bbb", "ccc"));
+        ASSERT_STRV_EQ_SET(array, "a", "bbb", "ccc");
 
         strv_free(array);
 }
