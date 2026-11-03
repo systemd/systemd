@@ -133,15 +133,14 @@ int in_addr_prefixes_reduce(Set *prefixes) {
                 }
 
         if (!ipv4_has_any)
-                for (size_t i = 0; i < 32; i++)
-                        if (ipv4_prefixlen_bits & (UINT32_C(1) << i))
-                                ipv4_prefixlens[ipv4_n_prefixlens++] = i + 1;
+                for (uint32_t m = ipv4_prefixlen_bits; m != 0; m &= m - 1)
+                        ipv4_prefixlens[ipv4_n_prefixlens++] = (uint8_t) (__builtin_ctz(m) + 1);
 
         if (!ipv6_has_any)
-                for (size_t i = 0; i < 128; i++)
-                        if (ipv6_prefixlen_bits[i / sizeof(uint64_t)] &
-                            (UINT64_C(1) << (i % sizeof(uint64_t))))
-                                ipv6_prefixlens[ipv6_n_prefixlens++] = i + 1;
+                for (size_t w = 0; w < 128 / sizeof(uint64_t); w++)
+                        for (uint64_t m = ipv6_prefixlen_bits[w]; m != 0; m &= m - 1)
+                                ipv6_prefixlens[ipv6_n_prefixlens++] =
+                                        (uint8_t) (w * sizeof(uint64_t) + (size_t) __builtin_ctzll(m) + 1);
 
         SET_FOREACH(p, prefixes) {
                 uint8_t *prefixlens;
