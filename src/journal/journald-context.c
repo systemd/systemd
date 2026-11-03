@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "audit-util.h"
 #include "cgroup-util.h"
+#include "constants.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -346,15 +347,12 @@ static int client_context_read_invocation_id(
         if (!c->unit)
                 return 0;
 
-        if (c->user_unit) {
-                r = asprintf(&p, "/run/user/" UID_FMT "/systemd/units/invocation:%s", c->owner_uid, c->user_unit);
-                if (r < 0)
-                        return r;
-        } else {
-                p = strjoin("/run/systemd/units/invocation:", c->unit);
-                if (!p)
-                        return -ENOMEM;
-        }
+        if (c->user_unit)
+                p = asprintf_safe("/run/user/" UID_FMT UNIT_INVOCATION_PARTIAL_PATH ":%s", c->owner_uid, c->user_unit);
+        else
+                p = strjoin(UNIT_INVOCATION_PATH ":", c->unit);
+        if (!p)
+                return -ENOMEM;
 
         r = readlink_malloc(p, &value);
         if (r < 0)
@@ -374,7 +372,7 @@ static int client_context_read_log_level_max(
         if (!c->unit)
                 return 0;
 
-        p = strjoina("/run/systemd/units/log-level-max:", c->unit);
+        p = strjoina(UNIT_LOG_LEVEL_MAX_PATH ":", c->unit);
         r = readlink_malloc(p, &value);
         if (r < 0)
                 return r;
@@ -403,7 +401,7 @@ static int client_context_read_extra_fields(
         if (!c->unit)
                 return 0;
 
-        p = strjoina("/run/systemd/units/log-extra-fields:", c->unit);
+        p = strjoina(UNIT_LOG_EXTRA_FIELDS_PATH ":", c->unit);
 
         if (c->extra_fields_mtime != NSEC_INFINITY) {
                 if (stat(p, &st) < 0) {
@@ -490,7 +488,7 @@ static int client_context_read_log_ratelimit_interval(ClientContext *c) {
         if (!c->unit)
                 return 0;
 
-        p = strjoina("/run/systemd/units/log-rate-limit-interval:", c->unit);
+        p = strjoina(UNIT_LOG_RATE_LIMIT_INTERVAL_PATH ":", c->unit);
         r = readlink_malloc(p, &value);
         if (r < 0)
                 return r;
@@ -513,7 +511,7 @@ static int client_context_read_log_ratelimit_burst(ClientContext *c) {
         if (!c->unit)
                 return 0;
 
-        p = strjoina("/run/systemd/units/log-rate-limit-burst:", c->unit);
+        p = strjoina(UNIT_LOG_RATE_LIMIT_BURST_PATH ":", c->unit);
         r = readlink_malloc(p, &value);
         if (r < 0)
                 return r;
