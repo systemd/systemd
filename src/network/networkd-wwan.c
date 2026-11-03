@@ -681,7 +681,7 @@ int config_parse_mm_allowed_auth(
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *auth = NULL;
 
-                r = extract_first_word(&p, &auth, /* separators */ NULL, /* flags */ 0);
+                r = extract_first_word(&p, &auth, /* separators= */ NULL, /* flags= */ 0);
                 if (r < 0)
                         return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 if (r == 0)
