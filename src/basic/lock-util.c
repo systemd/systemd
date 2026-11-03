@@ -226,8 +226,9 @@ int lock_generic_with_timeout(int fd, LockType type, int operation, usec_t timeo
         if (r < 0)
                 return log_error_errno(r, "Failed to flock block device in child process: %m");
         if (r == 0) {
-                if (lock_generic(fd, type, operation) < 0) {
-                        log_error_errno(errno, "Unable to get an exclusive lock on the device: %m");
+                r = lock_generic(fd, type, operation);
+                if (r < 0) {
+                        log_error_errno(r, "Unable to get an exclusive lock on the device: %m");
                         _exit(EXIT_FAILURE);
                 }
 
