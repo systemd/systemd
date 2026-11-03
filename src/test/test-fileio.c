@@ -622,25 +622,25 @@ TEST(xfopenat_empty_path) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *line = NULL;
 
-        ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
+        ASSERT_OK(tfd = mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &t));
         ASSERT_OK(write_string_file_at(tfd, "file", "hello", WRITE_STRING_FILE_CREATE));
         ASSERT_OK(fd = xopenat(tfd, "file", O_RDONLY));
 
         /* A NULL or empty path reopens the fd for reading... */
-        ASSERT_OK(xfopenat(fd, /* path= */ NULL, "re", 0, &f));
+        ASSERT_OK(xfopenat(fd, /* path= */ NULL, "re", /* open_flags= */ 0, &f));
         ASSERT_OK(read_line(f, SIZE_MAX, &line));
         ASSERT_STREQ(line, "hello");
         f = safe_fclose(f);
-        ASSERT_OK(xfopenat(fd, "", "re", 0, &f));
+        ASSERT_OK(xfopenat(fd, "", "re", /* open_flags= */ 0, &f));
         f = safe_fclose(f);
 
         /* ...but creating something needs a name */
-        ASSERT_ERROR(xfopenat(tfd, "", "we", 0, &f), ENOENT);
-        ASSERT_ERROR(xfopenat(tfd, /* path= */ NULL, "ae", 0, &f), ENOENT);
+        ASSERT_ERROR(xfopenat(tfd, "", "we", /* open_flags= */ 0, &f), ENOENT);
+        ASSERT_ERROR(xfopenat(tfd, /* path= */ NULL, "ae", /* open_flags= */ 0, &f), ENOENT);
 
         /* AT_FDCWD has no fd to reopen, "" fails like with fopen() */
-        ASSERT_ERROR(xfopenat(AT_FDCWD, "", "re", 0, &f), ENOENT);
-        ASSERT_ERROR(xfopenat(AT_FDCWD, /* path= */ NULL, "re", 0, &f), EBADF);
+        ASSERT_ERROR(xfopenat(AT_FDCWD, "", "re", /* open_flags= */ 0, &f), ENOENT);
+        ASSERT_ERROR(xfopenat(AT_FDCWD, /* path= */ NULL, "re", /* open_flags= */ 0, &f), EBADF);
         ASSERT_ERROR(fopen_unlocked("", "re", &f), ENOENT);
         ASSERT_ERROR(read_one_line_file("", &line), ENOENT);
 }
@@ -932,7 +932,7 @@ TEST(xfopenat_dangling_symlink) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_close_ int tfd = -EBADF;
 
-        ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
+        ASSERT_OK(tfd = mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &t));
         ASSERT_OK_ERRNO(symlinkat("target", tfd, "link"));
 
         /* The creating modes go through openat_report_new() now, which refuses to create through a dangling symlink */

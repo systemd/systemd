@@ -122,8 +122,8 @@ TEST(unit_concat_strv) {
 
 TEST(service_restart_backoff_enabled) {
         ASSERT_TRUE(service_restart_backoff_enabled(10 * USEC_PER_SEC, 160 * USEC_PER_SEC, 4));
-        ASSERT_FALSE(service_restart_backoff_enabled(10 * USEC_PER_SEC, 160 * USEC_PER_SEC, 0));
-        ASSERT_FALSE(service_restart_backoff_enabled(0, 160 * USEC_PER_SEC, 4));
+        ASSERT_FALSE(service_restart_backoff_enabled(10 * USEC_PER_SEC, 160 * USEC_PER_SEC, /* restart_steps= */ 0));
+        ASSERT_FALSE(service_restart_backoff_enabled(/* restart_usec= */ 0, 160 * USEC_PER_SEC, 4));
         ASSERT_FALSE(service_restart_backoff_enabled(10 * USEC_PER_SEC, USEC_INFINITY, 4));
         ASSERT_FALSE(service_restart_backoff_enabled(160 * USEC_PER_SEC, 160 * USEC_PER_SEC, 4));
 }
@@ -138,9 +138,9 @@ TEST(service_restart_usec_nth) {
         ASSERT_EQ(service_restart_usec_nth(1 * USEC_PER_SEC, 64 * USEC_PER_SEC, 6, 6), 32 * USEC_PER_SEC);
         ASSERT_EQ(service_restart_usec_nth(5 * USEC_PER_SEC, 60 * USEC_PER_SEC, 3, 2), 11447142u);
 
-        ASSERT_EQ(service_restart_usec_nth(10 * USEC_PER_SEC, 160 * USEC_PER_SEC, 0, 3), 10 * USEC_PER_SEC);
+        ASSERT_EQ(service_restart_usec_nth(10 * USEC_PER_SEC, 160 * USEC_PER_SEC, /* restart_steps= */ 0, 3), 10 * USEC_PER_SEC);
         ASSERT_EQ(service_restart_usec_nth(10 * USEC_PER_SEC, USEC_INFINITY, 4, 3), 10 * USEC_PER_SEC);
-        ASSERT_EQ(service_restart_usec_nth(0, 160 * USEC_PER_SEC, 4, 3), 0u);
+        ASSERT_EQ(service_restart_usec_nth(/* restart_usec= */ 0, 160 * USEC_PER_SEC, 4, 3), 0u);
         ASSERT_EQ(service_restart_usec_nth(160 * USEC_PER_SEC, 160 * USEC_PER_SEC, 4, 3), 160 * USEC_PER_SEC);
 }
 

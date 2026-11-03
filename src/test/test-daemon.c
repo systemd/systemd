@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
         ASSERT_TRUE(IN_SET(r, -EOPNOTSUPP, -EBADF));
         if (r == -EBADF) {
                 safe_close(fd);
-                ASSERT_OK_ERRNO(fd = pidfd_open(getpid_cached(), 0));
+                ASSERT_OK_ERRNO(fd = pidfd_open(getpid_cached(), /* flags= */ 0));
                 ASSERT_OK(sd_pidfd_get_inode_id(fd, /* ret= */ NULL));
         }
 

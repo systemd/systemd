@@ -102,7 +102,7 @@ TEST(subvol) {
         ASSERT_OK_POSITIVE(btrfs_subvol_get_read_only_fd(test1_fd));
         ASSERT_OK(btrfs_subvol_set_read_only_fd(test1_fd, false));
         ASSERT_OK_ZERO(btrfs_subvol_get_read_only_fd(test1_fd));
-        ASSERT_OK(btrfs_subvol_snapshot_at(test1_fd, /* from= */ NULL, dir_fd, "test5", 0));
+        ASSERT_OK(btrfs_subvol_snapshot_at(test1_fd, /* from= */ NULL, dir_fd, "test5", /* flags= */ 0));
 
         dev_t devnum_fd = 0, devnum_path = 0;
         int r = btrfs_get_block_device_fd(dir_fd, &devnum_fd);

@@ -59,40 +59,40 @@ TEST(machine_tag_is_valid) {
 
 TEST(machine_tag_list_is_valid) {
         ASSERT_OK_POSITIVE(machine_tag_list_is_valid(NULL, /* to_add= */ true));                /* empty list is valid */
-        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("a"), true));
-        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo", "bar", "c-d.e"), true));
-        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo=uuu", "bar=qqqq", "c-d.e"), true));
-        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo", "foo=aa"), true));        /* bare key and assignment coexist */
-        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo=1", "foobar=2"), true));    /* one key is a prefix of the other */
-        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("ab=1", "a=2"), true));          /* ... and the other way around */
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("a"), /* to_add= */ true));
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo", "bar", "c-d.e"), /* to_add= */ true));
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo=uuu", "bar=qqqq", "c-d.e"), /* to_add= */ true));
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo", "foo=aa"), /* to_add= */ true));        /* bare key and assignment coexist */
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo=1", "foobar=2"), /* to_add= */ true));    /* one key is a prefix of the other */
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("ab=1", "a=2"), /* to_add= */ true));          /* ... and the other way around */
 
-        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo=aa", "foo=aa"), true));     /* same key + same value is OK */
-        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("foo", "b:c"), true));
-        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("foo", ""), true));
-        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("foo=aa", "foo=b"), true));          /* same key, different value */
-        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("a=1", "b=2", "a=3"), true));        /* ... also when not adjacent */
-        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("foo=aa", "bar", "foo=aa", "foo=b"), true));
-        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("=aa"), true));
-        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("ab=1*"), true));                    /* globs */
-        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("ab=2[345]"), true));
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo=aa", "foo=aa"), /* to_add= */ true));     /* same key + same value is OK */
+        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("foo", "b:c"), /* to_add= */ true));
+        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("foo", ""), /* to_add= */ true));
+        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("foo=aa", "foo=b"), /* to_add= */ true));          /* same key, different value */
+        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("a=1", "b=2", "a=3"), /* to_add= */ true));        /* ... also when not adjacent */
+        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("foo=aa", "bar", "foo=aa", "foo=b"), /* to_add= */ true));
+        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("=aa"), /* to_add= */ true));
+        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("ab=1*"), /* to_add= */ true));                    /* globs */
+        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("ab=2[345]"), /* to_add= */ true));
 
         ASSERT_OK_POSITIVE(machine_tag_list_is_valid(NULL, /* to_add= */ false));               /* empty list is valid */
-        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("a"), false));
-        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo", "bar", "c-d.e"), false));
-        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo=uuu", "bar=qqqq", "c-d.e"), false));
-        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo", "foo=aa"), false));       /* bare key and assignment coexist */
-        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo=1", "foobar=2"), false));   /* one key is a prefix of the other */
-        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("ab=1", "a=2"), false));         /* ... and the other way around */
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("a"), /* to_add= */ false));
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo", "bar", "c-d.e"), /* to_add= */ false));
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo=uuu", "bar=qqqq", "c-d.e"), /* to_add= */ false));
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo", "foo=aa"), /* to_add= */ false));       /* bare key and assignment coexist */
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo=1", "foobar=2"), /* to_add= */ false));   /* one key is a prefix of the other */
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("ab=1", "a=2"), /* to_add= */ false));         /* ... and the other way around */
 
-        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo=aa", "foo=aa"), false));    /* same key + same value is OK */
-        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("foo", "b:c"), false));
-        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("foo", ""), false));
-        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo=aa", "foo=b"), false));     /* same key, different value */
-        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("a=1", "b=2", "a=3"), false));   /* ... also when not adjacent */
-        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo=aa", "bar", "foo=aa", "foo=b"), false));
-        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("=aa"), false));                 /* this is not a valid pattern, but we don't check */
-        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("ab=1*"), false));               /* globs */
-        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("ab=2[345]"), false));
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo=aa", "foo=aa"), /* to_add= */ false));    /* same key + same value is OK */
+        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("foo", "b:c"), /* to_add= */ false));
+        ASSERT_OK_ZERO(machine_tag_list_is_valid(STRV_MAKE("foo", ""), /* to_add= */ false));
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo=aa", "foo=b"), /* to_add= */ false));     /* same key, different value */
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("a=1", "b=2", "a=3"), /* to_add= */ false));   /* ... also when not adjacent */
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("foo=aa", "bar", "foo=aa", "foo=b"), /* to_add= */ false));
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("=aa"), /* to_add= */ false));                 /* this is not a valid pattern, but we don't check */
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("ab=1*"), /* to_add= */ false));               /* globs */
+        ASSERT_OK_POSITIVE(machine_tag_list_is_valid(STRV_MAKE("ab=2[345]"), /* to_add= */ false));
 }
 
 TEST(machine_tags_from_string) {
@@ -217,10 +217,10 @@ TEST(machine_tags_apply_config) {
         ASSERT_OK(mkdtemp_malloc("/tmp/test-machine-tags-XXXXXX", &root));
 
         /* No configuration at all: the base list is returned, sorted. An empty result is NULL. */
-        ASSERT_OK_ZERO(machine_tags_config_files(root, NULL, NULL));
+        ASSERT_OK_ZERO(machine_tags_config_files(root, /* ret_files= */ NULL, /* ret_n_files= */ NULL));
 
         check(root, STRV_MAKE("foo", "bar"), STRV_MAKE("bar", "foo"));
-        check(root, NULL, NULL);
+        check(root, /* base= */ NULL, /* expected= */ NULL);
 
         /* Comments, empty lines, several entries per line, CRLF line endings, an explicit '+' prefix, and
          * files from all directories applied in order of their names. The base tag 'vendor.env=old' is
@@ -238,7 +238,7 @@ TEST(machine_tags_apply_config) {
                         "-vendor.env=* -vendor.region=*\n"
                         "local.rack=7\n");
 
-        ASSERT_OK_POSITIVE(machine_tags_config_files(root, NULL, NULL));
+        ASSERT_OK_POSITIVE(machine_tags_config_files(root, /* ret_files= */ NULL, /* ret_n_files= */ NULL));
 
         check(root, STRV_MAKE("manual", "vendor.env=old"),
               STRV_MAKE("local.rack=7", "manual", "plus", "runtime", "vendor.after-comment", "vendor.extra",
@@ -283,14 +283,14 @@ TEST(machine_tags_apply_config) {
         /* "-*" resets the list */
         write_tags_file(root, "etc/machine-tags.d/90-reset.tags", "-* fresh\n");
         check(root, STRV_MAKE("manual", "vendor.env=old"), STRV_MAKE("fresh"));
-        check(root, NULL, STRV_MAKE("fresh"));
+        check(root, /* base= */ NULL, STRV_MAKE("fresh"));
 
         /* Too many tags */
         _cleanup_free_ char *many = NULL;
         for (unsigned i = 0; i <= MACHINE_TAGS_MAX; i++)
                 ASSERT_OK(strextendf_with_separator(&many, " ", "t%u", i));
         write_tags_file(root, "etc/machine-tags.d/95-many.tags", many);
-        ASSERT_ERROR(machine_tags_apply_config(root, NULL, &l), E2BIG);
+        ASSERT_ERROR(machine_tags_apply_config(root, /* base= */ NULL, &l), E2BIG);
         ASSERT_NULL(l);
 }
 

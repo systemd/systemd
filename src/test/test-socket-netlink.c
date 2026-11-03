@@ -217,7 +217,7 @@ TEST(socket_address_is) {
         SocketAddress a;
 
         ASSERT_OK(socket_address_parse(&a, "192.168.1.1:8888"));
-        ASSERT_TRUE(socket_address_is(&a, "192.168.1.1:8888", 0 /* unspecified yet */));
+        ASSERT_TRUE(socket_address_is(&a, "192.168.1.1:8888", /* type= */ 0 /* unspecified yet */));
         ASSERT_FALSE(socket_address_is(&a, "route", /* type= */ 0));
         ASSERT_FALSE(socket_address_is(&a, "route", SOCK_STREAM));
         ASSERT_FALSE(socket_address_is(&a, "192.168.1.1:8888", SOCK_RAW));

@@ -388,11 +388,11 @@ TEST(umount_recursive_stale_path) {
 
         CHECK_PRIV;
 
-        ASSERT_OK(mkdtemp_malloc(NULL, &t));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &t));
 
-        r = ASSERT_OK(pidref_safe_fork("(umount-rec-stale)", FORK_COMMON_FLAGS, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(umount-rec-stale)", FORK_COMMON_FLAGS, /* ret= */ NULL));
         if (r == 0) { /* child */
-                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", t, "tmpfs", 0, NULL));
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", t, "tmpfs", /* flags= */ 0, /* options= */ NULL));
 
                 _cleanup_free_ char
                         *src = ASSERT_NOT_NULL(path_join(t, "src")),
@@ -411,11 +411,11 @@ TEST(umount_recursive_stale_path) {
                 /* The mount that later ends up below the parent has to be older than the parent, so that the
                  * parent is reached first when the table is iterated backwards. Once the parent is detached
                  * the path of the child resolves via the symlink it covered, to a mount outside of the prefix. */
-                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", src, "tmpfs", 0, NULL));
-                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", victim, "tmpfs", 0, NULL));
-                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", parent, "tmpfs", 0, NULL));
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", src, "tmpfs", /* flags= */ 0, /* options= */ NULL));
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", victim, "tmpfs", /* flags= */ 0, /* options= */ NULL));
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", parent, "tmpfs", /* flags= */ 0, /* options= */ NULL));
                 ASSERT_OK(mkdir_p(child, 0755));
-                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, src, child, NULL, MS_MOVE, NULL));
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, src, child, /* fstype= */ NULL, MS_MOVE, /* options= */ NULL));
 
                 ASSERT_OK_POSITIVE(umount_recursive(prefix, MNT_DETACH));
 
@@ -432,11 +432,11 @@ TEST(umount_recursive_busy) {
 
         CHECK_PRIV;
 
-        ASSERT_OK(mkdtemp_malloc(NULL, &t));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &t));
 
-        r = ASSERT_OK(pidref_safe_fork("(umount-rec-busy)", FORK_COMMON_FLAGS, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(umount-rec-busy)", FORK_COMMON_FLAGS, /* ret= */ NULL));
         if (r == 0) { /* child */
-                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", t, "tmpfs", 0, NULL));
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", t, "tmpfs", /* flags= */ 0, /* options= */ NULL));
 
                 _cleanup_free_ char
                         *prefix = ASSERT_NOT_NULL(path_join(t, "prefix")),
@@ -447,12 +447,12 @@ TEST(umount_recursive_busy) {
                 ASSERT_OK(mkdir_p(busy, 0755));
 
                 /* The busy mount is newer, hence reached first. It must not stop the walk. */
-                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", older, "tmpfs", 0, NULL));
-                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", busy, "tmpfs", 0, NULL));
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", older, "tmpfs", /* flags= */ 0, /* options= */ NULL));
+                ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", busy, "tmpfs", /* flags= */ 0, /* options= */ NULL));
 
                 _unused_ _cleanup_close_ int fd = ASSERT_OK(xopenat(AT_FDCWD, busy, O_DIRECTORY));
 
-                ASSERT_OK_EQ(umount_recursive(prefix, 0), 1);
+                ASSERT_OK_EQ(umount_recursive(prefix, /* flags= */ 0), 1);
 
                 ASSERT_OK_ZERO(path_is_mount_point(older));
                 ASSERT_OK_POSITIVE(path_is_mount_point(busy));
@@ -663,7 +663,7 @@ TEST(umountat) {
         CHECK_PRIV;
 
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
-        _cleanup_close_ int dfd = mkdtemp_open(/* template= */ NULL, 0, &p);
+        _cleanup_close_ int dfd = mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &p);
         ASSERT_OK(dfd);
 
         ASSERT_OK(mkdirat(dfd, "foo", 0777));
