@@ -123,15 +123,27 @@ static int stdout_stream_save(StdoutStream *s) {
 
         if (!s->state_file) {
                 struct stat st;
+                uint64_t cookie;
 
                 r = fstat(s->fd, &st);
                 if (r < 0)
                         return log_ratelimit_warning_errno(errno, JOURNAL_LOG_RATELIMIT,
                                                            "Failed to stat connected stream: %m");
 
-                /* We use device and inode numbers as identifier for the stream */
-                r = asprintf(&s->state_file, "%s/streams/%lu:%lu", s->manager->runtime_directory, (unsigned long) st.st_dev, (unsigned long) st.st_ino);
+                /* Identify the stream by device, inode and socket cookie: socket inode numbers are 32-bit
+                 * and get reused, the cookie never is. Device and inode come first so that older versions
+                 * can still parse the name. */
+                r = socket_get_cookie(s->fd, &cookie);
                 if (r < 0)
+                        return log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
+                                                           "Failed to get cookie of connected stream: %m");
+
+                s->state_file = asprintf_safe("%s/streams/%lu:%lu:%" PRIu64,
+                                              s->manager->runtime_directory,
+                                              (unsigned long) st.st_dev,
+                                              (unsigned long) st.st_ino,
+                                              cookie);
+                if (!s->state_file)
                         return log_oom();
         }
 
@@ -833,6 +845,56 @@ static int stdout_stream_restore(Manager *m, const char *fname, int fd) {
         return 0;
 }
 
+static int restore_stream_from_file(Manager *m, DIR *d, const char *path, const char *fname, FDSet *fds, bool with_cookie) {
+        unsigned long st_dev, st_ino;
+        uint64_t cookie = 0;
+        int fd, n, r;
+
+        assert(m);
+        assert(d);
+        assert(path);
+        assert(fname);
+        /* fds may be NULL if no stream fds were passed in, in which case all state files are removed */
+
+        /* Older versions named state files without the socket cookie, see stdout_stream_save() */
+        n = sscanf(fname, "%lu:%lu:%" SCNu64, &st_dev, &st_ino, &cookie);
+        if (n != (with_cookie ? 3 : 2))
+                return 0;
+
+        FDSET_FOREACH(fd, fds) {
+                struct stat st;
+
+                if (fstat(fd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat %s: %m", fname);
+
+                if (!S_ISSOCK(st.st_mode) || st.st_dev != st_dev || st.st_ino != st_ino)
+                        continue;
+
+                /* Socket inode numbers are reused, so match the cookie too if we have one */
+                if (with_cookie) {
+                        uint64_t c;
+
+                        if (socket_get_cookie(fd, &c) < 0 || c != cookie)
+                                continue;
+                }
+
+                fdset_remove(fds, fd);
+
+                r = stdout_stream_restore(m, fname, fd);
+                if (r < 0)
+                        safe_close(fd);
+
+                return 0;
+        }
+
+        /* No file descriptor? Then let's delete the state file */
+        log_debug("Cannot restore stream file %s", fname);
+        if (unlinkat(dirfd(d), fname, 0) < 0)
+                log_warning_errno(errno, "Failed to remove %s/%s: %m", path, fname);
+
+        return 0;
+}
+
 int manager_restore_streams(Manager *m, FDSet *fds) {
         _cleanup_closedir_ DIR *d = NULL;
         const char *path;
@@ -847,39 +909,21 @@ int manager_restore_streams(Manager *m, FDSet *fds) {
                 return log_warning_errno(errno, "Failed to enumerate %s: %m", path);
         }
 
+        /* Restore streams from state files with socket cookie first, so that state files named without
+         * cookie can only take the fds that are left over: socket inode numbers are reused, and the fd of
+         * a stream with a state file of its own has to stay with that stream. */
         FOREACH_DIRENT(de, d, goto fail) {
-                unsigned long st_dev, st_ino;
-                bool found = false;
-                int fd;
-
-                if (sscanf(de->d_name, "%lu:%lu", &st_dev, &st_ino) != 2)
-                        continue;
-
-                FDSET_FOREACH(fd, fds) {
-                        struct stat st;
-
-                        if (fstat(fd, &st) < 0)
-                                return log_error_errno(errno, "Failed to stat %s: %m", de->d_name);
-
-                        if (S_ISSOCK(st.st_mode) && st.st_dev == st_dev && st.st_ino == st_ino) {
-                                found = true;
-                                break;
-                        }
-                }
-
-                if (!found) {
-                        /* No file descriptor? Then let's delete the state file */
-                        log_debug("Cannot restore stream file %s", de->d_name);
-                        if (unlinkat(dirfd(d), de->d_name, 0) < 0)
-                                log_warning_errno(errno, "Failed to remove %s/%s: %m", path, de->d_name);
-                        continue;
-                }
-
-                fdset_remove(fds, fd);
-
-                r = stdout_stream_restore(m, de->d_name, fd);
+                r = restore_stream_from_file(m, d, path, de->d_name, fds, /* with_cookie= */ true);
                 if (r < 0)
-                        safe_close(fd);
+                        return r;
+        }
+
+        rewinddir(d);
+
+        FOREACH_DIRENT(de, d, goto fail) {
+                r = restore_stream_from_file(m, d, path, de->d_name, fds, /* with_cookie= */ false);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
