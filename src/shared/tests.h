@@ -537,6 +537,21 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
 #endif
 
 #ifdef __COVERITY__
+#  define ASSERT_STRV_EQ_SET(expr, ...) __coverity_check__(strv_equal((expr), STRV_MAKE(__VA_ARGS__)))
+#else
+#  define ASSERT_STRV_EQ_SET(expr, ...)                                                                         \
+        ({                                                                                                      \
+                char * const *_expr1 = (expr), * const *_expr2 = STRV_MAKE(__VA_ARGS__);                        \
+                if (!strv_equal(_expr1, _expr2)) {                                                              \
+                        _cleanup_free_ char *_str1 = strv_join_quoted(_expr1),                                  \
+                                            *_str2 = strv_join_quoted(_expr2);                                  \
+                        log_test_failed("Expected \"%s == [%s]\", got %s != %s",                                \
+                                        #expr, #__VA_ARGS__, strnull(_str1), strnull(_str2));                   \
+                }                                                                                               \
+        })
+#endif
+
+#ifdef __COVERITY__
 #  define ASSERT_PTR_EQ(expr1, expr2) __coverity_check__((expr1) == (expr2))
 #else
 #  define ASSERT_PTR_EQ(expr1, expr2)                                                                           \

@@ -102,6 +102,12 @@ TEST(ASSERT) {
         ASSERT_SIGNAL(ASSERT_STRV_EQ(STRV_MAKE("foo"), NULL), SIGABRT);
         ASSERT_SIGNAL(ASSERT_STRV_EQ(STRV_MAKE("foo", "bar"), STRV_MAKE("foo", "baz")), SIGABRT);
 
+        ASSERT_STRV_EQ_SET(STRV_MAKE("foo", "bar"), "foo", "bar");
+        ASSERT_STRV_EQ_SET(STRV_MAKE(""), "");
+        ASSERT_SIGNAL(ASSERT_STRV_EQ_SET(NULL, "foo"), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_STRV_EQ_SET(STRV_MAKE("foo"), "foo", "bar"), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_STRV_EQ_SET(STRV_MAKE("foo", "bar"), "foo", "baz"), SIGABRT);
+
         _cleanup_free_ char *q = ASSERT_NOT_NULL(strv_join_quoted(STRV_MAKE("a", "", "b c", "d\"e\\f\n")));
         ASSERT_STREQ(q, "[\"a\", \"\", \"b c\", \"d\\\"e\\\\f\\n\"]");
         q = mfree(q);
