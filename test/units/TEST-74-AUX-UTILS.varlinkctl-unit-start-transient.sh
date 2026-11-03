@@ -130,6 +130,9 @@ testcase_dispatch_validation() {
     expect_invalid_parameter \
         '{"context":{"ID":"varlink-transient-bad-dispatch.service","Exec":{"WorkingDirectory":{"path":"","missingOK":true}}}}' \
         "context.Exec.WorkingDirectory.path"
+    expect_invalid_parameter \
+        '{"context":{"ID":"varlink-transient-bad-dispatch.service","Exec":{"IOUringFilter":{"isAllowList":true,"operations":["read","foobar"]}}}}' \
+        "context.Exec.IOUringFilter.operations"
 }
 
 testcase_authorization() {
@@ -240,6 +243,14 @@ testcase_exec_properties() {
     # "null" is also the default for StandardInput=, hence additionally verify it was written explicitly
     fragment=$(systemctl show -P FragmentPath varlink-transient-stdio.service)
     grep '^StandardInput=null$' "$fragment" >/dev/null
+
+    # StartTransient accepts Exec.IOUringFilter.
+    defer_transient_cleanup varlink-transient-io-uring.service
+    result=$(varlinkctl call "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+        '{"context":{"ID":"varlink-transient-io-uring.service","Exec":{"IOUringFilter":{"isAllowList":false,"operations":["uring_cmd","socket"]}},"Service":{"Type":"oneshot","RemainAfterExit":true,"ExecStart":[{"path":"/bin/true"}]}}}')
+    echo "$result" | jq -e '.context.Exec.IOUringFilter == {"isAllowList":false,"operations":["socket","uring_cmd"]}'
+    timeout 30 bash -c 'until systemctl is-active varlink-transient-io-uring.service; do sleep 0.5; done'
+    [[ "$(systemctl show -P IOUringFilter varlink-transient-io-uring.service)" == "~socket uring_cmd" ]]
 
     # The combined output types are spelled with a "+" in unit files, but with a "_" in the Varlink IDL (and
     # hence in our own replies). The latter spelling must be accepted, so that replies can be fed back in.

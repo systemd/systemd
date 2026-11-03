@@ -2502,19 +2502,70 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         activation with socket units, see
         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
         are unaffected. Also, sockets created with <function>socketpair()</function> (which creates connected
-        AF_UNIX sockets) or the
-        <citerefentry project='man-pages'><refentrytitle>io_uring</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        functions, are not affected. Thus, it is recommended to combined this setting with
+        AF_UNIX sockets) are not affected. Thus, it is recommended to combine this setting with
         <varname>SystemCallFilter=@service</varname>, to only allow a limited subset of system calls.</para>
 
-        <para>Note that this option is limited to some ABIs, in particular x86-64, but currently has no
-        effect on 32-bit x86, s390, s390x, mips, mips-le, ppc, ppc-le, ppc64, or ppc64-le, and is ignored. On
-        systems supporting multiple ABIs (such as x86/x86-64) it is recommended to turn off alternative ABIs
-        for services, so that they cannot be used to circumvent the restrictions of this option.
-        Specifically, it is recommended to combine this option with
-        <varname>SystemCallArchitectures=native</varname> or similar. </para>
+        <para>On kernels that support io_uring BPF filters (Linux 7.0 and newer), this setting also applies
+        to sockets created with the <constant>IORING_OP_SOCKET</constant> operation of
+        <citerefentry project='man-pages'><refentrytitle>io_uring</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        Such requests fail with <constant>EACCES</constant> for denied address families. The restriction
+        applies to all io_uring instances that the processes of the unit create, but not to io_uring
+        instances that they receive from other processes. On such kernels,
+        <constant>IORING_REGISTER_RESTRICTIONS</constant> without an io_uring instance fails with
+        <constant>EPERM</constant> for the processes of the unit. On older kernels, sockets created with
+        io_uring are not affected.</para>
+
+        <para>Note that the system call restriction of this option is limited to some ABIs, in particular
+        x86-64, but currently has no effect on 32-bit x86, s390, s390x, mips, mips-le, ppc, ppc-le, ppc64, or
+        ppc64-le, and is ignored. The io_uring restriction applies on all ABIs. On systems supporting
+        multiple ABIs (such as x86/x86-64) it is recommended to turn off alternative ABIs for services, so
+        that they cannot be used to circumvent the restrictions of this option. Specifically, it is
+        recommended to combine this option with <varname>SystemCallArchitectures=native</varname> or similar.
+        </para>
 
         <xi:include href="version-info.xml" xpointer="v211"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IOUringFilter=</varname></term>
+
+        <listitem><para>Restricts the
+        <citerefentry project='man-pages'><refentrytitle>io_uring</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        operations that the processes of this unit may submit. Takes a comma- or space-separated list of
+        operation names. The name of an operation is its <constant>IORING_OP_</constant> constant in lower
+        case and without the prefix, for example <literal>read</literal> for
+        <constant>IORING_OP_READ</constant>, or <literal>uring_cmd</literal> for
+        <constant>IORING_OP_URING_CMD</constant>. If the list is prefixed with <literal>~</literal>, the
+        listed operations are denied (deny-listing). Otherwise, only the listed operations are allowed
+        (allow-listing). An allow list also denies the operations of newer kernels that systemd doesn't
+        know, even though the kernel reports them as supported. Operation names that systemd doesn't know
+        are ignored.</para>
+
+        <para>This option may be specified more than once, in which case the lists are merged. If the first
+        assignment starts with <literal>~</literal>, the list is a deny list, otherwise it is an allow list.
+        Later assignments of the other type remove the listed operations from the list. If the empty string
+        is assigned, the list is reset and all prior assignments have no effect. This setting does not
+        affect commands prefixed with <literal>+</literal>.</para>
+
+        <para>Requests for denied operations fail with <constant>EACCES</constant>. The restriction applies
+        to all io_uring instances that the processes of the unit create, but not to io_uring instances that
+        they receive from other processes. <constant>IORING_REGISTER_RESTRICTIONS</constant> without an
+        io_uring instance fails with <constant>EPERM</constant> for the processes of the unit.</para>
+
+        <para>This setting requires a kernel with io_uring BPF filters (Linux 7.0 or newer). On older
+        kernels, <function>io_uring_setup()</function> fails with <constant>ENOSYS</constant> for the
+        processes of the unit instead, so that programs fall back to regular system calls. If seccomp is not
+        available either, this setting has no effect.</para>
+
+        <para>Example: to deny passthrough commands to drivers and zero-copy network operations, use:
+        <programlisting>IOUringFilter=~uring_cmd uring_cmd128 send_zc sendmsg_zc recv_zc</programlisting>
+        </para>
+
+        <para><varname>SystemCallFilter=</varname>, <varname>RestrictAddressFamilies=</varname>, and
+        <varname>RestrictSUIDSGID=</varname> apply to the equivalent io_uring operations as well. To deny
+        io_uring entirely, use <varname>SystemCallFilter=~io_uring_setup</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2857,6 +2908,14 @@ RestrictNamespaces=~cgroup net</programlisting>
         calls where those bits are passed indirectly and cannot be inspected by the filter, such as
         <function>openat2()</function>, the call is blocked entirely, regardless of the requested mode.</para>
 
+        <para>On kernels that support io_uring BPF filters (Linux 7.0 and newer), this setting also applies
+        to the <constant>IORING_OP_OPENAT</constant> and <constant>IORING_OP_OPENAT2</constant> operations of
+        <citerefentry project='man-pages'><refentrytitle>io_uring</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        Requests that create a file with the SUID or SGID bits set fail with <constant>EACCES</constant>.
+        io_uring has no operations that change the mode of existing files. On such kernels,
+        <constant>IORING_REGISTER_RESTRICTIONS</constant> without an io_uring instance fails with
+        <constant>EPERM</constant> for the processes of the unit.</para>
+
         <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
 
@@ -2977,6 +3036,22 @@ RestrictNamespaces=~cgroup net</programlisting>
 
         <para>This feature makes use of the Secure Computing Mode 2 interfaces of the kernel ('seccomp
         filtering') and is useful for enforcing a minimal sandboxing environment.</para>
+
+        <para>On kernels that support io_uring BPF filters (Linux 7.0 and newer), this setting also applies
+        to the operations of
+        <citerefentry project='man-pages'><refentrytitle>io_uring</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+        if the filter allows <function>io_uring_setup()</function>. An operation that can do the work of
+        one or more system calls, such as <constant>IORING_OP_OPENAT</constant> or
+        <constant>IORING_OP_SOCKET</constant>, is denied if the filter denies any of its equivalent system
+        calls. Operations of newer kernels that systemd doesn't know are not affected. Denied requests
+        always fail with <constant>EACCES</constant>, regardless of
+        <varname>SystemCallErrorNumber=</varname> and of the action of the system call. System calls that
+        are denied with an error number of 0 do not affect io_uring operations, since a denied request
+        can't pretend to succeed. The restriction applies to all io_uring instances that the processes of
+        the unit create, but not to io_uring instances that they receive from other processes. On such
+        kernels, <constant>IORING_REGISTER_RESTRICTIONS</constant> without an io_uring instance fails with
+        <constant>EPERM</constant> for the processes of the unit. To filter individual io_uring operations,
+        use <varname>IOUringFilter=</varname>.</para>
 
         <para>Note that on systems supporting multiple ABIs (such as x86/x86-64) it is recommended to turn
         off alternative ABIs for services, so that they cannot be used to circumvent the restrictions of this
