@@ -15,11 +15,13 @@
 #include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "manifest-join.h"
 #include "manifest-util.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "path-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tmpfile-util.h"
 #include "uapi16-manifest.h"
 #include "verbs.h"
@@ -458,6 +460,90 @@ static int verb_verify(int argc, char *argv[], uintptr_t _data, void *userdata) 
         }
 
         return manifest_verify(&c, dfd, f);
+}
+
+VERB(verb_join, "join", "INPUT… OUTPUT\0", 3, VERB_ANY, 0, "Join multiple manifests into one");
+static int verb_join(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        int r;
+
+        assert(argc >= 3);
+
+        /* Joining is not verifying: the inputs are not validated in any way, hence refuse the options that
+         * would suggest otherwise. Use "verify" for validating manifests. */
+        if (arg_verify_signature >= 0 || arg_voa_context)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--verify-signature= and --voa-context= are not supported with 'join', the inputs are never verified.");
+        if (!IN_SET(arg_format, _MANIFEST_FORMAT_INVALID, MANIFEST_FORMAT_UAPI16))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Joining is only supported for UAPI.16 manifests.");
+        if (arg_fields != _MANIFEST_FIELD_DEFAULT || arg_hash >= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--field= and --hash= are not supported with 'join', objects are copied as they are.");
+        if (arg_certificate && !arg_private_key)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--certificate= specified without --private-key=, refusing to generate unsigned manifest.");
+
+        arg_format = MANIFEST_FORMAT_UAPI16;
+
+        /* Same JSON default as on "make" */
+        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
+                arg_json_format_flags = SD_JSON_FORMAT_COLOR_AUTO;
+
+        const char *output = empty_or_dash_to_null(argv[argc - 1]);
+
+        /* Cut off the output from the list of inputs */
+        _cleanup_strv_free_ char **inputs = strv_copy_n(strv_skip(argv, 1), argc - 2);
+        if (!inputs)
+                return log_oom();
+
+        _cleanup_(manifest_context_done) ManifestContext c;
+        context_from_args(&c);
+
+#if HAVE_OPENSSL
+        _cleanup_(X509_freep) X509 *certificate = NULL;
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
+        _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
+
+        if (arg_private_key) {
+                r = load_certificate(&certificate);
+                if (r < 0)
+                        return r;
+
+                r = load_private_key(&private_key, &ui);
+                if (r < 0)
+                        return r;
+
+                c.certificate = certificate;
+                c.private_key = private_key;
+        }
+#else
+        if (arg_private_key)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Signing not supported, OpenSSL support disabled.");
+#endif
+
+        /* Note that we write to a temporary file first, and only link it into place once all inputs have been
+         * read and the output is complete, hence the output may be one of the inputs. */
+        _cleanup_(unlink_and_freep) char *t = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        if (output) {
+                r = fopen_tmpfile_linkable(output, O_WRONLY, &t, &f);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create '%s': %m", output);
+
+                c.output = f;
+                c.color = false;
+        } else
+                pager_open(arg_pager_flags);
+
+        r = manifest_join(&c, inputs);
+        if (r < 0)
+                return r;
+
+        if (output) {
+                r = flink_tmpfile(f, t, output, LINK_TMPFILE_REPLACE);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to move '%s' into place: %m", output);
+
+                t = mfree(t); /* disarm auto delete */
+        }
+
+        return 0;
 }
 
 static int run(int argc, char *argv[]) {

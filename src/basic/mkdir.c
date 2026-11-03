@@ -168,6 +168,44 @@ int mkdirat_parents(int dir_fd, const char *path, mode_t mode) {
         return mkdirat_parents_internal(dir_fd, path, mode, UID_INVALID, UID_INVALID, /* flags= */ 0, mkdirat_errno_wrapper, /* label_context= */ NULL);
 }
 
+int mkdirat_p(int dir_fd, const char *path, mode_t mode) {
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        /* Like mkdir_p(), but relative to the specified directory fd, i.e. this is to mkdirat_parents() what
+         * mkdir_p() is to mkdir_parents(). Creates (or opens if it exists already) one path component after
+         * the other, relative to the previous one. */
+
+        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
+        assert(path);
+
+        if (isempty(path))
+                return -EINVAL;
+
+        if (path_is_absolute(path))
+                dir_fd = XAT_FDROOT;
+
+        for (const char *p = path;;) {
+                const char *e;
+
+                r = path_find_first_component(&p, /* accept_dot_dot= */ true, &e);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 0;
+
+                _cleanup_free_ char *component = strndup(e, r);
+                if (!component)
+                        return -ENOMEM;
+
+                _cleanup_close_ int next_fd = xopenat_full(fd >= 0 ? fd : dir_fd, component, O_DIRECTORY|O_CREAT, /* xopen_flags= */ 0, mode);
+                if (next_fd < 0)
+                        return next_fd;
+
+                close_and_replace(fd, next_fd);
+        }
+}
+
 int mkdir_parents_safe(const char *prefix, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags) {
         return mkdir_parents_internal(prefix, path, mode, uid, gid, flags, mkdirat_errno_wrapper, /* label_context= */ NULL);
 }
