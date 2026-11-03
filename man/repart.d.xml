@@ -690,7 +690,11 @@
         <term><varname>BlockDeviceReplace=</varname></term>
 
         <listitem><para>Takes a path to a mountpoint. Its filesystem's backing device will be replaced
-        with the newly created partition. This works only for btrfs filesystems. This option is ignored for already existing partitions.</para>
+        with the newly created partition. This works only btrfs filesystems or for readonly filesystem behind
+        a dm-verity. This option is ignored for already existing partitions.</para>
+
+        <para>For dm-verity, the type of device maybe selected by prefixing the value with
+        <literal>data:</literal> or <literal>hash:</literal>. The default is <literal>hash:</literal></para>
 
         <para>If after moving the filesystem, an error happens before the writing of the partition table is
         finished, there will be an attempt to move the filesystem back to its original device. But if that

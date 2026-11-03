@@ -29,6 +29,7 @@
 #include "crypto-util.h"
 #include "cryptsetup-util.h"
 #include "device-util.h"
+#include "devmapper-util.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
 #include "dissect-image.h"
@@ -496,6 +497,31 @@ static BtrfsReplacement* btrfs_replacement_free(BtrfsReplacement *b) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(BtrfsReplacement*, btrfs_replacement_free);
 
+typedef struct {
+        int data_source_fd;
+        int verity_source_fd;
+        char *device_name;
+        char *type;
+        sd_id128_t uuid;
+        uint64_t size;
+        bool done;
+} VerityReplacement;
+
+static VerityReplacement* verity_replacement_free(VerityReplacement *v) {
+        if (!v)
+                return NULL;
+
+        safe_close(v->data_source_fd);
+        safe_close(v->verity_source_fd);
+        free(v->device_name);
+        free(v->type);
+        v->size = UINT64_MAX;
+
+        return mfree(v);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(VerityReplacement*, verity_replacement_free);
+
 typedef struct Partition {
         Context *context;
 
@@ -542,7 +568,9 @@ typedef struct Partition {
 
         char *format;
         char *block_device_replace;
+        char *block_device_replace_type;
         BtrfsReplacement *btrfs_replaced;
+        VerityReplacement *verity_replaced;
         char *volume_name;
         char **exclude_files_source;
         char **exclude_files_target;
@@ -911,7 +939,9 @@ static Partition* partition_free(Partition *p) {
 
         free(p->format);
         free(p->block_device_replace);
+        free(p->block_device_replace_type);
         btrfs_replacement_free(p->btrfs_replaced);
+        verity_replacement_free(p->verity_replaced);
         free(p->volume_name);
         strv_free(p->exclude_files_source);
         strv_free(p->exclude_files_target);
@@ -968,7 +998,9 @@ static void partition_foreignize(Partition *p) {
 
         p->format = mfree(p->format);
         p->block_device_replace = mfree(p->block_device_replace);
+        p->block_device_replace_type = mfree(p->block_device_replace_type);
         p->btrfs_replaced = btrfs_replacement_free(p->btrfs_replaced);
+        p->verity_replaced = verity_replacement_free(p->verity_replaced);
         p->volume_name = mfree(p->volume_name);
         p->exclude_files_source = strv_free(p->exclude_files_source);
         p->exclude_files_target = strv_free(p->exclude_files_target);
@@ -1297,7 +1329,9 @@ static uint64_t partition_min_size(const Context *context, const Partition *p) {
                 if (p->encrypt != ENCRYPT_OFF)
                         assert_se(INC_SAFE(&d, round_up_size(LUKS2_METADATA_KEEP_FREE, context->grain_size)));
 
-                if (p->copy_blocks_size != UINT64_MAX)
+                if (p->verity_replaced)
+                        assert_se(INC_SAFE(&d, round_up_size(p->verity_replaced->size, context->grain_size)));
+                else if (p->copy_blocks_size != UINT64_MAX)
                         assert_se(INC_SAFE(&d, round_up_size(p->copy_blocks_size, context->grain_size)));
                 else if (p->btrfs_replaced)
                         assert_se(INC_SAFE(&d, round_up_size(p->btrfs_replaced->source_size, context->grain_size)));
@@ -1321,7 +1355,7 @@ static uint64_t partition_min_size(const Context *context, const Partition *p) {
          * minimum size, because even if we wanted to we couldn't take possession of the extra space
          * allocated. */
         if (min_size == UINT64_MAX)
-                min_size = (p->format && fstype_is_ro(p->format)) || p->verity != VERITY_OFF ? 1 : DEFAULT_MIN_SIZE;
+                min_size = (p->format && fstype_is_ro(p->format)) || p->verity != VERITY_OFF || p->verity_replaced ? 1 : DEFAULT_MIN_SIZE;
 
         return MAX(round_up_size(min_size, context->grain_size), sz);
 }
@@ -3073,6 +3107,51 @@ static int config_parse_key_file(
         return parse_key_file(rvalue, &partition->key);
 }
 
+static int config_parse_device_replace(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Partition *partition = ASSERT_PTR(userdata);
+        int r;
+
+        assert(rvalue);
+
+        const char *q = rvalue;
+        _cleanup_free_ char *path = NULL, *type = NULL;;
+
+        r = extract_first_word(&q, &type, ":", EXTRACT_CUNESCAPE|EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0)
+                return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract source path: %s", rvalue);
+
+        r = extract_first_word(&q, &path, ":", EXTRACT_CUNESCAPE|EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0)
+                return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract source path: %s", rvalue);
+        if (r == 0)  {
+                path = TAKE_PTR(type);
+        }
+
+        partition->block_device_replace = TAKE_PTR(path);
+
+        if (type) {
+                if (!STR_IN_SET(type, "verity", "data"))
+                        return log_syntax(unit, LOG_ERR, filename, line, r, "Unexpected type for BlockDeviceReplace: %s", rvalue);
+
+                partition->block_device_replace_type = TAKE_PTR(type);
+        }
+
+        log_debug("Found device %s", q);
+
+        return 0;
+}
+
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_integrity, integrity_mode, IntegrityMode, INTEGRITY_OFF);
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_integrity_alg, integrity_alg, IntegrityAlg, INTEGRITY_ALG_HMAC_SHA256);
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_encrypt_kdf, encrypt_kdf, EncryptKDF, _ENCRYPT_KDF_INVALID);
@@ -3247,7 +3326,7 @@ static int partition_read_definition(
                 { "Partition", "AddValidateFS",            config_parse_tristate,          0,                                  &p->add_validatefs          },
                 { "Partition", "FileSystemSectorSize",     config_parse_fs_sector_size,    0,                                  &p->fs_sector_size          },
                 { "Partition", "Discard",                  config_parse_tristate,          0,                                  &p->discard                 },
-                { "Partition", "BlockDeviceReplace",       config_parse_path,              0,                                  &p->block_device_replace    },
+                { "Partition", "BlockDeviceReplace",       config_parse_device_replace,    0,                                  p },
                 { "Partition", "VolumeName",               config_parse_string,            CONFIG_PARSE_STRING_SAFE,           &p->volume_name             },
                 {}
         };
@@ -7872,6 +7951,105 @@ static int finalize_extra_mkfs_options(const Partition *p, const char *root, cha
         return 0;
 }
 
+static int context_block_device_replace_btrfs(Context *context, Partition *p) {
+        _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
+        int r;
+
+        assert(!p->btrfs_replaced->done);
+
+        (void) context_notify(context, PROGRESS_REPLACING_DEVICE, p->definition_path, UINT_MAX);
+
+        assert(p->offset != UINT64_MAX);
+        assert(p->new_size != UINT64_MAX);
+
+        r = partition_target_prepare(context, p,
+                                     p->new_size,
+                                     /* need_path= */ true,
+                                     &t);
+        if (r < 0)
+                return r;
+
+        if (p->encrypt != ENCRYPT_OFF) {
+                r = partition_encrypt(context, p, t, /* offline= */ false, /* temporary= */ false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to encrypt device: %m");
+        }
+
+        log_info("Replacing partition %" PRIu64 ".", p->partno);
+
+        /* btrfs_replace calls a synchronous ioctl and will return when replace is finished */
+        r = btrfs_replace(p->btrfs_replaced->mountpoint_fd, p->btrfs_replaced->devid, partition_target_path(t));
+        if (r < 0)
+                return log_error_errno(r, "Failed to replace btrfs device on partition %" PRIu64 ": %m", p->partno);
+
+        p->btrfs_replaced->done = true;
+
+        if (t->decrypted)
+                t->decrypted->keep = true;
+
+        log_info("Successfully replaced partition %" PRIu64 ".", p->partno);
+
+        return 0;
+}
+
+static int context_block_device_replace_verity(Context *context, Partition *p) {
+        _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
+        int r;
+        dev_t new_dev = 0, new_hash_dev = 0;
+
+        (void) context_notify(context, PROGRESS_REPLACING_DEVICE, p->definition_path, UINT_MAX);
+
+        assert(p->offset != UINT64_MAX);
+        assert(p->new_size != UINT64_MAX);
+
+        r = partition_target_prepare(context, p,
+                                     p->new_size,
+                                     /* need_path= */ true,
+                                     &t);
+        if (r < 0)
+                return r;
+
+        if (p->encrypt != ENCRYPT_OFF) {
+                r = partition_encrypt(context, p, t, /* offline= */ false, /* temporary= */ false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to encrypt device: %m");
+        }
+
+        log_info("Replacing partition %" PRIu64 ".", p->partno);
+
+        if ((p->verity_replaced->type == NULL) || (streq(p->verity_replaced->type, "data"))) {
+                struct stat st;
+                r = fstat(partition_target_fd(t), &st);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to stat target device: %m");
+                if (!S_ISBLK(st.st_mode))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "Target device is not a block device: %m");
+
+                new_dev = st.st_rdev;
+        } else if (streq(p->verity_replaced->type, "verity")) {
+                struct stat st;
+                r = fstat(partition_target_fd(t), &st);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to stat target device: %m");
+                if (!S_ISBLK(st.st_mode))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "Target device is not a block device: %m");
+
+                new_hash_dev = st.st_rdev;
+        }
+        r = swap_verity_devices(p->verity_replaced->device_name, new_dev, new_hash_dev);
+        if (r < 0)
+                return log_error_errno(r, "Failed to replace dm-verity device on partition %" PRIu64 ": %m", p->partno);
+
+        p->verity_replaced->done = true;
+
+        if (t->decrypted)
+                t->decrypted->keep = true;
+
+        log_info("Successfully replaced partition %" PRIu64 ".", p->partno);
+
+        return 0;
+}
+
 static int context_block_device_replace(Context *context) {
         int r;
 
@@ -7886,45 +8064,20 @@ static int context_block_device_replace(Context *context) {
                 if (PARTITION_EXISTS(p))
                         continue;
 
-                if (!p->btrfs_replaced)
-                        continue;
-
                 if (partition_defer(context, p))
                         continue;
 
-                assert(!p->btrfs_replaced->done);
-
-                (void) context_notify(context, PROGRESS_REPLACING_DEVICE, p->definition_path, UINT_MAX);
-
-                assert(p->offset != UINT64_MAX);
-                assert(p->new_size != UINT64_MAX);
-
-                r = partition_target_prepare(context, p,
-                                             p->new_size,
-                                             /* need_path= */ true,
-                                             &t);
-                if (r < 0)
-                        return r;
-
-                if (p->encrypt != ENCRYPT_OFF) {
-                        r = partition_encrypt(context, p, t, /* offline= */ false, /* temporary= */ false);
+                if (p->btrfs_replaced) {
+                        r = context_block_device_replace_btrfs(context, p);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to encrypt device: %m");
+                                return r;
                 }
 
-                log_info("Replacing partition %" PRIu64 ".", p->partno);
-
-                /* btrfs_replace calls a synchronous ioctl and will return when replace is finished */
-                r = btrfs_replace(p->btrfs_replaced->mountpoint_fd, p->btrfs_replaced->devid, partition_target_path(t));
-                if (r < 0)
-                        return log_error_errno(r, "Failed to replace btrfs device on partition %" PRIu64 ": %m", p->partno);
-
-                p->btrfs_replaced->done = true;
-
-                if (t->decrypted)
-                        t->decrypted->keep = true;
-
-                log_info("Successfully replaced partition %" PRIu64 ".", p->partno);
+                if (p->verity_replaced) {
+                        r = context_block_device_replace_verity(context, p);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return 0;
@@ -7963,6 +8116,48 @@ static void context_btrfs_replace_back(Context *context) {
                         continue;
 
                 r = btrfs_replace(p->btrfs_replaced->mountpoint_fd, p->btrfs_replaced->devid, p->btrfs_replaced->source_path);
+                if (r < 0)
+                        log_warning_errno(r, "Could not move back btrfs filesystem from partition %" PRIu64 ", leaving it on new device: %m", p->partno);
+        }
+}
+
+static void context_dm_verity_replace_back(Context *context) {
+        int r;
+
+        assert(context);
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                dev_t old_dev = 0, old_hash_dev = 0;
+
+                if (!p->verity_replaced)
+                        continue;
+
+                if (!p->verity_replaced->done)
+                        continue;
+
+                if (p->verity_replaced->verity_source_fd) {
+                        struct stat st;
+
+                        r = fstat(p->verity_replaced->verity_source_fd, &st);
+                        if (r < 0)
+                                return (void)log_error_errno(r, "Failed to stat target device: %m");
+                        if (!S_ISBLK(st.st_mode))
+                                return (void)log_error_errno(SYNTHETIC_ERRNO(ENODEV), "Target device is not a block device: %m");
+
+                        old_dev = st.st_rdev;
+                } else {
+                        struct stat st;
+
+                        r = fstat(p->verity_replaced->verity_source_fd, &st);
+                        if (r < 0)
+                                return (void)log_error_errno(r, "Failed to stat target device: %m");
+                        if (!S_ISBLK(st.st_mode))
+                                return (void)log_error_errno(SYNTHETIC_ERRNO(ENODEV), "Target device is not a block device: %m");
+
+                        old_hash_dev = st.st_rdev;
+                }
+
+                r = swap_verity_devices(p->verity_replaced->device_name, old_dev, old_hash_dev);
                 if (r < 0)
                         log_warning_errno(r, "Could not move back btrfs filesystem from partition %" PRIu64 ", leaving it on new device: %m", p->partno);
         }
@@ -9836,6 +10031,7 @@ static int context_write_partition_table(Context *context) {
 
  error:
         context_btrfs_replace_back(context);
+        context_dm_verity_replace_back(context);
 
         if (context->needs_rescan)
                 (void) context_partscan(context);
@@ -10474,13 +10670,208 @@ static int context_open_copy_block_paths(
         return 0;
 }
 
-static int context_open_btrfs_filesystems(Context *context) {
+static int context_open_replace_dm_verity(Context *context, Partition *p, int mountpoint_fd) {
+        _cleanup_free_ char *dev = NULL, *hash_dev = NULL, *device_name = NULL, *source_block = NULL;
+        _cleanup_close_ int dev_fd = -EBADF, source_block_fd = -EBADF;
+        int source_fd;
+        _cleanup_closedir_ DIR *dir = NULL;
+        struct stat mountpoint_st;
+        struct stat source_block_st;
+        int r;
+
+        if (fstat(mountpoint_fd, &mountpoint_st) < 0)
+                return log_error_errno(source_block_fd, "Failed to stat mountpoint %s: %m", p->block_device_replace);
+
+        if (major(mountpoint_st.st_dev) == 0)
+                return 0;
+
+        if (asprintf(&source_block, "/dev/block/%u:%u", major(mountpoint_st.st_dev), minor(mountpoint_st.st_dev)) < 0)
+                return log_oom();
+
+        source_block_fd = xopenat(AT_FDCWD, source_block, O_RDONLY|O_NONBLOCK|O_NOCTTY);
+        if (source_block_fd < 0)
+                return log_error_errno(source_block_fd, "Failed to open source block device %s: %m", source_block);
+
+        if (fstat(source_block_fd, &source_block_st) < 0)
+                return log_error_errno(source_block_fd, "Failed to stat source block device %s: %m", source_block);
+
+        dir = opendir("/dev/mapper");
+        if (!dir)
+                return log_error_errno(errno, "Failed to open /dev/mapper: %m");
+
+        FOREACH_DIRENT_ALL(de, dir, log_warning_errno(errno, "Failed to read /dev/mapper: %m")) {
+                _cleanup_free_ char *dev_path = NULL;
+                struct stat st;
+
+                if (asprintf(&dev_path, "/dev/mapper/%s", de->d_name) < 0)
+                        return log_oom();
+
+                r = chase_and_stat(dev_path, /* root= */ NULL, /* flags= */ 0, /* ret_path= */ NULL, &st);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to stat devmapper device '%s': %m", de->d_name);
+
+                if (S_ISBLK(source_block_st.st_mode) &&
+                    S_ISBLK(st.st_mode) &&
+                    (source_block_st.st_rdev == st.st_rdev)) {
+                        device_name = strdup(de->d_name);
+                        break ;
+                }
+        }
+
+        if (!device_name)
+                return 0;
+
+        r = dm_is_verity(device_name, &dev, &hash_dev);
+        if (r < 0)
+                return log_error_errno(r, "Could not find type of devmapper device '%s': %m", device_name);
+
+        if (r == 0)
+                return 0;
+
+        _cleanup_(verity_replacement_freep) VerityReplacement *verity_replacement = NULL;
+
+        assert(dev);
+        assert(hash_dev);
+
+        verity_replacement = new(VerityReplacement, 1);
+        if (!verity_replacement)
+                return log_oom();
+
+        *verity_replacement = (VerityReplacement) {
+                .device_name = TAKE_PTR(device_name),
+                .size = UINT64_MAX,
+                .data_source_fd = -EBADF,
+                .verity_source_fd = -EBADF,
+        };
+
+        if (p->block_device_replace_type == NULL) {
+                dev_fd = xopenat(AT_FDCWD, dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+                if (dev_fd < 0)
+                        return log_error_errno(dev_fd, "Cannot open device %s: %m", dev);
+
+                verity_replacement->data_source_fd = TAKE_FD(dev_fd);
+                source_fd = verity_replacement->data_source_fd;
+        } else {
+                verity_replacement->type = strdup(p->block_device_replace_type);
+                if (!verity_replacement->type)
+                        return log_oom();
+                if (streq(verity_replacement->type, "verity")) {
+                        dev_fd = xopenat(AT_FDCWD, hash_dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+                        if (dev_fd < 0)
+                                return log_error_errno(dev_fd, "Cannot open device %s: %m", hash_dev);
+                        verity_replacement->verity_source_fd = TAKE_FD(dev_fd);
+                        source_fd = verity_replacement->verity_source_fd;
+                } else {
+                        dev_fd = xopenat(AT_FDCWD, dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+                        if (dev_fd < 0)
+                                return log_error_errno(dev_fd, "Cannot open device %s: %m", dev);
+                        verity_replacement->data_source_fd = TAKE_FD(dev_fd);
+                        source_fd = verity_replacement->data_source_fd;
+                }
+        }
+
+        struct stat dev_st;
+        if (fstat(source_fd, &dev_st))
+                return log_error_errno(dev_fd, "... : %m");
+        if (!S_ISBLK(dev_st.st_mode))
+                return 0;
+
+        uint64_t size;
+        r = blockdev_get_device_size(source_fd, &size);
+        if (r < 0)
+                return log_error_errno(r, "D ...: %m");
+        verity_replacement->size = size;
+
+        dev_t whole_disk;
+        r = block_get_whole_disk(dev_st.st_rdev, &whole_disk);
+        if (r < 0)
+                return log_error_errno(r, "Cannot find whole disk for %u:%u: %m", major(dev_st.st_rdev), minor(dev_st.st_rdev));
+
+        _cleanup_close_ int whole_disk_fd = -EBADF;
+        _cleanup_free_ char *disk_name = NULL;
+
+        whole_disk_fd = device_open_from_devnum(S_IFBLK, whole_disk, O_RDONLY|O_NONBLOCK, &disk_name);
+        if (whole_disk_fd < 0)
+                return log_error_errno(r, "...: %m");
+
+        r = dlopen_libblkid(LOG_ERR);
+        if (r < 0) {
+                 log_warning_errno(r, "Cannot load libblkid, ignoring partition UUID: %m");
+                 goto nogpt;
+        }
+
+        _cleanup_(blkid_free_probep) blkid_probe probe = NULL;
+
+        probe = sym_blkid_new_probe();
+        if (!probe)
+                return log_oom();
+
+        errno = 0;
+        r = sym_blkid_probe_set_device(probe, whole_disk_fd, /* off= */ 0, /* size= */ 0);
+        if (r != 0) {
+                log_warning_errno(errno_or_else(ENOMEM), "Failed to open block device '%s', ignoring partition UUID: %m", disk_name);
+                goto nogpt;
+        }
+
+        (void) sym_blkid_probe_enable_partitions(probe, 1);
+        (void) sym_blkid_probe_set_partitions_flags(probe, BLKID_PARTS_ENTRY_DETAILS);
+
+        errno = 0;
+        r = sym_blkid_do_safeprobe(probe);
+        if (IN_SET(r, _BLKID_SAFEPROBE_ERROR, _BLKID_SAFEPROBE_AMBIGUOUS, _BLKID_SAFEPROBE_NOT_FOUND)) {
+                log_warning_errno(errno_or_else(EIO), "Unable to probe for partition table of '%s', ignoring partition UUID: %m", disk_name);
+                goto nogpt;
+        }
+
+        assert(r == _BLKID_SAFEPROBE_FOUND);
+
+        blkid_partition pp;
+        blkid_partlist pl;
+
+        errno = 0;
+        pl = sym_blkid_probe_get_partitions(probe);
+        if (!pl) {
+                log_warning_errno(errno_or_else(EIO), "Unable read partition table of '%s', ignoring partition UUID: %m", disk_name);
+                goto nogpt;
+        }
+
+        pp = sym_blkid_partlist_devno_to_partition(pl, dev_st.st_rdev);
+        if (!pp) {
+                log_debug("Partition %u:%u has no matching partition table entry on '%s', ignoring partition UUID.",
+                          major(dev_st.st_rdev), minor(dev_st.st_rdev), disk_name);
+                goto nogpt;
+        }
+
+        sd_id128_t uuid;
+        r = blkid_partition_get_uuid_id128(pp, &uuid);
+        if (r == -ENXIO) {
+                log_debug_errno(r, "Partition " DEVNUM_FORMAT_STR " has no UUID.", DEVNUM_FORMAT_VAL(dev_st.st_rdev));
+                goto nogpt;
+        }
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read partition UUID of " DEVNUM_FORMAT_STR ": %m", DEVNUM_FORMAT_VAL(dev_st.st_rdev));
+                goto nogpt;
+        }
+
+        p->new_uuid = uuid;
+        p->new_uuid_is_set = true;
+
+ nogpt:
+        p->verity_replaced = TAKE_PTR(verity_replacement);
+        p->copy_blocks_fd = fcntl(source_fd, F_DUPFD_CLOEXEC, 3);
+
+        return 1;
+}
+
+static int context_open_replace_filesystems(Context *context) {
         int r;
 
         assert(context);
 
         LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_free_ char *type = NULL, *source = NULL;
                 _cleanup_(btrfs_replacement_freep) BtrfsReplacement *replacement = NULL;
+                _cleanup_close_ int mountpoint_fd = -EBADF;
 
                 if (p->dropped)
                         continue;
@@ -10496,6 +10887,18 @@ static int context_open_btrfs_filesystems(Context *context) {
 
                 (void) context_notify(context, PROGRESS_OPENING_BLOCK_DEVICE_REPLACE_SOURCES, p->definition_path, UINT_MAX);
 
+                log_debug("Opening %s", p->block_device_replace);
+
+                mountpoint_fd = xopenat(AT_FDCWD, p->block_device_replace, O_RDONLY|O_NONBLOCK|O_NOCTTY);
+                if (mountpoint_fd < 0)
+                        return log_error_errno(replacement->mountpoint_fd, "Failed to open mountpoint %s for btrfs filesystem: %m", p->block_device_replace);
+
+                r = context_open_replace_dm_verity(context, p, mountpoint_fd);
+                if (r < 0)
+                        return r;
+                if (r == 1)
+                        continue;
+
                 replacement = new(BtrfsReplacement, 1);
                 if (!replacement)
                         return log_oom();
@@ -10505,10 +10908,7 @@ static int context_open_btrfs_filesystems(Context *context) {
                         .source_fd = -EBADF,
                 };
 
-                replacement->mountpoint_fd = xopenat(AT_FDCWD, p->block_device_replace, O_RDONLY|O_NONBLOCK|O_NOCTTY);
-                if (replacement->mountpoint_fd < 0)
-                        return log_error_errno(replacement->mountpoint_fd, "Failed to open mountpoint %s for btrfs filesystem: %m", p->block_device_replace);
-
+                replacement->mountpoint_fd = TAKE_FD(mountpoint_fd);
                 r = fd_is_fs_type(replacement->mountpoint_fd, BTRFS_SUPER_MAGIC);
                 if (r < 0)
                         return log_error_errno(r, "Failed to check filesystem for mountpoint %s: %m", p->block_device_replace);
@@ -12805,7 +13205,7 @@ static int vl_method_run(
         if (r < 0)
                 return r;
 
-        r = context_open_btrfs_filesystems(context);
+        r = context_open_replace_filesystems(context);
         if (r < 0)
                 return r;
 
@@ -13124,7 +13524,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = context_open_btrfs_filesystems(context);
+        r = context_open_replace_filesystems(context);
         if (r < 0)
                 return r;
 
