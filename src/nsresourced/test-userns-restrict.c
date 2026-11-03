@@ -2,6 +2,7 @@
 
 #include <grp.h>
 #include <sched.h>
+#include <stdio.h>
 #include <sys/eventfd.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
@@ -78,6 +79,7 @@ TEST(userns_restrict) {
                              idmapped_tmpfs = -EBADF;
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        bool have_tmpfile;
         int r;
 
         ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &t));
@@ -87,6 +89,18 @@ TEST(userns_restrict) {
 
         host_fd1 = ASSERT_OK(xopenat(AT_FDCWD, t, O_DIRECTORY));
         host_tmpfs = ASSERT_OK(make_tmpfs_fsmount());
+
+        r = xopenat_full(host_fd1, ".", O_TMPFILE|O_RDWR, /* xopen_flags= */ 0, 0666);
+        have_tmpfile = r >= 0;
+        if (have_tmpfile)
+                safe_close(r);
+        else {
+                ASSERT_ERROR(r, EOPNOTSUPP);
+                log_notice("O_TMPFILE is not supported here, skipping host directory checks.");
+        }
+
+        /* The client cannot create a file in the host directory for the whiteout check. */
+        safe_close(ASSERT_OK(xopenat_full(host_fd1, "white", O_CREAT|O_EXCL|O_WRONLY, /* xopen_flags= */ 0, 0644)));
 
         _cleanup_free_ char *idmap = NULL;
         ASSERT_OK(asprintf(&idmap, "0 "UID_FMT" 1", CONTAINER_UID_MIN));
@@ -137,6 +151,27 @@ TEST(userns_restrict) {
                 ASSERT_OK_ERRNO(fchownat(private_tmpfs, "yyy", GID_INVALID, 0, 0));
                 ASSERT_OK_ERRNO(fchownat(idmapped_tmpfs, "zzz", GID_INVALID, 0, 0));
 
+                if (have_tmpfile) {
+                        ASSERT_ERROR(xopenat_full(host_fd1, ".", O_TMPFILE|O_RDWR, /* xopen_flags= */ 0, 0666), EPERM);
+                        ASSERT_ERROR(xopenat_full(host_fd1, ".", O_TMPFILE|O_EXCL|O_RDWR, /* xopen_flags= */ 0, 0666), EPERM);
+                }
+                ASSERT_ERROR(xopenat_full(host_tmpfs, ".", O_TMPFILE|O_RDWR, /* xopen_flags= */ 0, 0666), EPERM);
+                ASSERT_ERROR(xopenat_full(host_tmpfs, ".", O_TMPFILE|O_EXCL|O_RDWR, /* xopen_flags= */ 0, 0666), EPERM);
+
+                _cleanup_close_ int tmpfile1 = -EBADF, tmpfile2 = -EBADF;
+                tmpfile1 = ASSERT_OK(xopenat_full(private_tmpfs, ".", O_TMPFILE|O_RDWR, /* xopen_flags= */ 0, 0666));
+                ASSERT_OK(link_fd(tmpfile1, private_tmpfs, "ccc"));
+                tmpfile2 = ASSERT_OK(xopenat_full(idmapped_tmpfs, ".", O_TMPFILE|O_RDWR, /* xopen_flags= */ 0, 0666));
+                ASSERT_OK(link_fd(tmpfile2, idmapped_tmpfs, "ddd"));
+
+                safe_close(ASSERT_OK(xopenat_full(private_tmpfs, ".", O_TMPFILE|O_EXCL|O_RDWR, /* xopen_flags= */ 0, 0666)));
+                safe_close(ASSERT_OK(xopenat_full(idmapped_tmpfs, ".", O_TMPFILE|O_EXCL|O_RDWR, /* xopen_flags= */ 0, 0666)));
+
+                /* So is the whiteout RENAME_WHITEOUT leaves behind, which is owned by us too */
+                ASSERT_ERROR_ERRNO(renameat2(host_fd1, "white", host_fd1, "white2", RENAME_WHITEOUT), EPERM);
+                ASSERT_OK_ERRNO(renameat2(private_tmpfs, "ccc", private_tmpfs, "ccc2", RENAME_WHITEOUT));
+                ASSERT_OK_ERRNO(renameat2(idmapped_tmpfs, "ddd", idmapped_tmpfs, "ddd2", RENAME_WHITEOUT));
+
                 /* Unsharing a mount namespace hands us clones of every mount we can see, owned by our own
                  * user namespace. That must not buy us anything.
                  *
@@ -155,6 +190,8 @@ TEST(userns_restrict) {
                                           /* xopen_flags= */ 0, 0666), EPERM);
                 ASSERT_ERROR(xopenat_full(host_tmpfs, "newns4", O_RDWR|O_CREAT,
                                           /* xopen_flags= */ 0, 0666), EPERM);
+                if (have_tmpfile)
+                        ASSERT_ERROR(xopenat_full(AT_FDCWD, t, O_TMPFILE|O_RDWR, /* xopen_flags= */ 0, 0666), EPERM);
 
                 /* And chown() through the clone must stay refused too, not just inode creation. */
                 ASSERT_ERROR_ERRNO(fchownat(AT_FDCWD, t, GID_INVALID, 0, 0), EPERM);
@@ -172,6 +209,7 @@ TEST(userns_restrict) {
                                           /* xopen_flags= */ 0, 0666), EPERM);
                 ASSERT_ERROR(xopenat_full(host_tmpfs, "newuser4", O_RDWR|O_CREAT,
                                           /* xopen_flags= */ 0, 0666), EPERM);
+                ASSERT_ERROR(xopenat_full(host_tmpfs, ".", O_TMPFILE|O_RDWR, /* xopen_flags= */ 0, 0666), EPERM);
 
                 /* …while what was legitimately writable before stays writable */
                 safe_close(ASSERT_OK(xopenat_full(private_tmpfs, "aaa", O_RDWR|O_CREAT,
