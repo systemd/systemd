@@ -1276,7 +1276,7 @@ static int print_property(
 
                         return 1;
 
-                } else if (STR_IN_SET(name, "SystemCallFilter", "SystemCallLog", "RestrictAddressFamilies", "RestrictNetworkInterfaces", "RestrictFileSystems")) {
+                } else if (STR_IN_SET(name, "SystemCallFilter", "SystemCallLog", "RestrictAddressFamilies", "RestrictNetworkInterfaces", "RestrictFileSystems", "IOUringFilter")) {
                         _cleanup_strv_free_ char **l = NULL;
                         int allow_list;
 

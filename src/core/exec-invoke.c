@@ -1756,7 +1756,7 @@ static bool context_has_syscall_logs(const ExecContext *c) {
 static bool context_has_seccomp(const ExecContext *c) {
         assert(c);
 
-        /* We need NNP if we have any form of seccomp and are unprivileged */
+        /* We need NNP if we have any form of seccomp or io_uring filters and are unprivileged */
         return c->lock_personality ||
                 c->memory_deny_write_execute ||
                 c->private_devices ||
@@ -1771,7 +1771,8 @@ static bool context_has_seccomp(const ExecContext *c) {
                 c->restrict_suid_sgid ||
                 !set_isempty(c->syscall_archs) ||
                 exec_context_has_syscall_filters(c) ||
-                context_has_syscall_logs(c);
+                context_has_syscall_logs(c) ||
+                exec_context_io_uring_filter_set(c);
 }
 
 static bool context_has_no_new_privileges(const ExecContext *c) {
@@ -1866,6 +1867,45 @@ static int apply_io_uring_suid_sgid(const ExecContext *c, const ExecParameters *
                 return 0;
 
         return io_uring_restrict_suid_sgid();
+}
+
+static int apply_io_uring_filter(const ExecContext *c, const ExecParameters *p) {
+        assert(c);
+        assert(p);
+
+        if (!exec_context_io_uring_filter_set(c))
+                return 0;
+
+        if (check_io_uring_bpf_filters(c, p, "IOUringFilter="))
+                return io_uring_restrict_ops(c->io_uring_filter, c->io_uring_filter_allow_list);
+
+        if (syscall_filter_denies_io_uring(c))
+                return 0;
+
+#if HAVE_SECCOMP
+        /* The kernel can't filter io_uring operations, so we deny io_uring_setup() to enforce
+         * IOUringFilter=. Programs fall back to regular system calls when io_uring_setup() fails with
+         * ENOSYS. */
+        if (is_seccomp_available()) {
+                _cleanup_hashmap_free_ Hashmap *filter = NULL;
+                int r;
+
+                log_debug("Denying io_uring_setup() to enforce IOUringFilter=.");
+
+                filter = hashmap_new(/* hash_ops= */ NULL);
+                if (!filter)
+                        return -ENOMEM;
+
+                r = seccomp_filter_set_add_by_name(filter, /* add= */ true, "io_uring_setup");
+                if (r < 0)
+                        return r;
+
+                return seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, filter, SCMP_ACT_ERRNO(ENOSYS), /* log_missing= */ false);
+        }
+#endif
+
+        log_debug("Seccomp is not available, not applying IOUringFilter=.");
+        return 0;
 }
 
 #if HAVE_SECCOMP
@@ -7081,6 +7121,12 @@ int exec_invoke(
                 if (r < 0) {
                         *exit_status = EXIT_SECCOMP;
                         return log_error_errno(r, "Failed to apply SUID/SGID restrictions to io_uring: %m");
+                }
+
+                r = apply_io_uring_filter(context, params);
+                if (r < 0) {
+                        *exit_status = EXIT_SECCOMP;
+                        return log_error_errno(r, "Failed to apply io_uring filters: %m");
                 }
 
 #if HAVE_SECCOMP

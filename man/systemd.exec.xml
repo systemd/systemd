@@ -2527,6 +2527,48 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>IOUringFilter=</varname></term>
+
+        <listitem><para>Restricts the
+        <citerefentry project='man-pages'><refentrytitle>io_uring</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        operations that the processes of this unit may submit. Takes a comma- or space-separated list of
+        operation names. The name of an operation is its <constant>IORING_OP_</constant> constant in lower
+        case and without the prefix, for example <literal>read</literal> for
+        <constant>IORING_OP_READ</constant>, or <literal>uring_cmd</literal> for
+        <constant>IORING_OP_URING_CMD</constant>. If the list is prefixed with <literal>~</literal>, the
+        listed operations are denied (deny-listing). Otherwise, only the listed operations are allowed
+        (allow-listing). An allow list also denies the operations of newer kernels that systemd doesn't
+        know, even though the kernel reports them as supported. Operation names that systemd doesn't know
+        are ignored.</para>
+
+        <para>This option may be specified more than once, in which case the lists are merged. If the first
+        assignment starts with <literal>~</literal>, the list is a deny list, otherwise it is an allow list.
+        Later assignments of the other type remove the listed operations from the list. If the empty string
+        is assigned, the list is reset and all prior assignments have no effect. This setting does not
+        affect commands prefixed with <literal>+</literal>.</para>
+
+        <para>Requests for denied operations fail with <constant>EACCES</constant>. The restriction applies
+        to all io_uring instances that the processes of the unit create, but not to io_uring instances that
+        they receive from other processes. <constant>IORING_REGISTER_RESTRICTIONS</constant> without an
+        io_uring instance fails with <constant>EPERM</constant> for the processes of the unit.</para>
+
+        <para>This setting requires a kernel with io_uring BPF filters (Linux 7.0 or newer). On older
+        kernels, <function>io_uring_setup()</function> fails with <constant>ENOSYS</constant> for the
+        processes of the unit instead, so that programs fall back to regular system calls. If seccomp is not
+        available either, this setting has no effect.</para>
+
+        <para>Example: to deny passthrough commands to drivers and zero-copy network operations, use:
+        <programlisting>IOUringFilter=~uring_cmd uring_cmd128 send_zc sendmsg_zc recv_zc</programlisting>
+        </para>
+
+        <para><varname>SystemCallFilter=</varname>, <varname>RestrictAddressFamilies=</varname>, and
+        <varname>RestrictSUIDSGID=</varname> apply to the equivalent io_uring operations as well. To deny
+        io_uring entirely, use <varname>SystemCallFilter=~io_uring_setup</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RestrictFileSystems=</varname></term>
 
         <listitem><para>Restricts the set of filesystems processes of this unit can open files on. Takes a
@@ -3008,7 +3050,8 @@ RestrictNamespaces=~cgroup net</programlisting>
         can't pretend to succeed. The restriction applies to all io_uring instances that the processes of
         the unit create, but not to io_uring instances that they receive from other processes. On such
         kernels, <constant>IORING_REGISTER_RESTRICTIONS</constant> without an io_uring instance fails with
-        <constant>EPERM</constant> for the processes of the unit.</para>
+        <constant>EPERM</constant> for the processes of the unit. To filter individual io_uring operations,
+        use <varname>IOUringFilter=</varname>.</para>
 
         <para>Note that on systems supporting multiple ABIs (such as x86/x86-64) it is recommended to turn
         off alternative ABIs for services, so that they cannot be used to circumvent the restrictions of this
