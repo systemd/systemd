@@ -15,29 +15,35 @@ fi
 at_exit() {
     set +e
     systemctl stop fake-imds systemd-imdsd.socket
-    ip link del dummy0
+    ip link del veth-imds
+    ip netns del imds
     rm -f /run/credstore/firstboot.hostname /run/credstore/acredtest /run/systemd/system/systemd-imdsd@.service.d/50-env.conf /run/fake-imds-flaky
     rmdir /run/systemd/system/systemd-imdsd@.service.d
     # cached negative entries would short-circuit the /flaky retry on a rerun
-    rm -rf /run/systemd/imds/cache/dummy0
+    rm -rf /run/systemd/imds/cache/veth-imds
     rm -rf "$WORK_DIR"
 }
 
 WORK_DIR="$(mktemp -d)"
 trap at_exit EXIT
 
-systemd-run -p Type=notify --unit=fake-imds /usr/lib/systemd/tests/integration-tests/TEST-74-AUX-UTILS/TEST-74-AUX-UTILS.units/fake-imds.py
-systemctl status fake-imds
+# Model a cloud instance: IMDS is on another host, behind a veth peer in another network namespace
+ip netns add imds
+ip link add veth-imds type veth peer name veth-imds-peer netns imds
+ip -n imds link set lo up
+ip -n imds link set veth-imds-peer up
+ip -n imds addr add 192.168.47.1/24 dev veth-imds-peer
+ip link set veth-imds up
+ip addr add 192.168.47.11/24 dev veth-imds
 
-# Add a fake network interface so that IMDS gets going
-ip link add dummy0 type dummy
-ip link set dummy0 up
-ip addr add 192.168.47.11/24 dev dummy0
+systemd-run -p Type=notify -p NetworkNamespacePath=/run/netns/imds --unit=fake-imds \
+            /usr/lib/systemd/tests/integration-tests/TEST-74-AUX-UTILS/TEST-74-AUX-UTILS.units/fake-imds.py
+systemctl status fake-imds
 
 USERDATA='{"systemd.credentials":[{"name":"acredtest","text":"avalue"}]}'
 
 # First try imdsd directly
-IMDSD=(/usr/lib/systemd/systemd-imdsd --vendor=test --data-url=http://192.168.47.11:8088 --well-known-key=userdata:/userdata --well-known-key=hostname:/hostname)
+IMDSD=(/usr/lib/systemd/systemd-imdsd --vendor=test --data-url=http://192.168.47.1:8088 --well-known-key=userdata:/userdata --well-known-key=hostname:/hostname)
 assert_eq "$("${IMDSD[@]}" --well-known=hostname)" "piff"
 assert_eq "$("${IMDSD[@]}" --well-known=userdata)" "$USERDATA"
 assert_eq "$("${IMDSD[@]}" /hostname)" "piff"
@@ -46,9 +52,9 @@ assert_eq "$("${IMDSD[@]}" /userdata)" "$USERDATA"
 # A request restarted with a new token after 401 still caches its result: a second request must find it in
 # the cache, as its data URL is unreachable.
 mkdir "$WORK_DIR/runtime"
-IMDSD_TOKEN=("${IMDSD[@]}" --interface=dummy0 --token-url=http://192.168.47.11:8088/token --token-header-name=X-Fake-IMDS-Token)
+IMDSD_TOKEN=("${IMDSD[@]}" --interface=veth-imds --token-url=http://192.168.47.1:8088/token --token-header-name=X-Fake-IMDS-Token)
 assert_eq "$(RUNTIME_DIRECTORY="$WORK_DIR/runtime" "${IMDSD_TOKEN[@]}" /expiring)" "fresh"
-assert_eq "$(RUNTIME_DIRECTORY="$WORK_DIR/runtime" "${IMDSD_TOKEN[@]}" --data-url=http://192.168.47.11:1 /expiring)" "fresh"
+assert_eq "$(RUNTIME_DIRECTORY="$WORK_DIR/runtime" "${IMDSD_TOKEN[@]}" --data-url=http://192.168.47.1:1 /expiring)" "fresh"
 
 # Running out of token refreshes is reported as timeout
 (! "${IMDSD_TOKEN[@]}" /unauthorized 2>"$WORK_DIR/unauthorized.err")
@@ -71,7 +77,7 @@ BUSY_PID=$!
 # Retries after a token refresh still back off; also in parallel
 (! SYSTEMD_LOG_LEVEL=debug "${IMDSD_TOKEN[@]}" /expiring-busy 2>"$WORK_DIR/expiring-busy.err") &
 EXPIRING_BUSY_PID=$!
-(! "${IMDSD[@]}" --interface=dummy0 --data-url=http://192.168.47.11:1 /hostname 2>"$WORK_DIR/refused.err")
+(! "${IMDSD[@]}" --interface=veth-imds --data-url=http://192.168.47.1:1 /hostname 2>"$WORK_DIR/refused.err")
 cat "$WORK_DIR/refused.err"
 (! grep -F "Overall timeout reached" "$WORK_DIR/refused.err" >/dev/null)
 grep -F "io.systemd.InstanceMetadata.Timeout" "$WORK_DIR/refused.err" >/dev/null
@@ -91,7 +97,7 @@ mkdir -p /run/systemd/system/systemd-imdsd@.service.d/
 cat >/run/systemd/system/systemd-imdsd@.service.d/50-env.conf <<EOF
 [Service]
 Environment=SYSTEMD_IMDS_VENDOR=test2
-Environment=SYSTEMD_IMDS_DATA_URL=http://192.168.47.11:8088
+Environment=SYSTEMD_IMDS_DATA_URL=http://192.168.47.1:8088
 Environment=SYSTEMD_IMDS_KEY_USERDATA=/userdata
 Environment=SYSTEMD_IMDS_KEY_HOSTNAME=/hostname
 Environment=SYSTEMD_IMDS_KEY_IPV6_PUBLIC=/ipv6
@@ -130,7 +136,7 @@ timeout 10 bash -c 'until test -e /run/fake-imds-flaky; do sleep 0.1; done'
                -p User=systemd-imds \
                -p AmbientCapabilities="CAP_NET_ADMIN CAP_NET_BIND_SERVICE" \
                -E RUNTIME_DIRECTORY=/run/systemd/imds \
-               "${IMDSD[@]}" --interface=dummy0 --extra-header="X-Fake-IMDS-Not-Found: 1" /flaky)
+               "${IMDSD[@]}" --interface=veth-imds --extra-header="X-Fake-IMDS-Not-Found: 1" /flaky)
 wait "$FLAKY_PID"
 assert_eq "$(cat "$WORK_DIR/flaky.out")" "{}"
 
