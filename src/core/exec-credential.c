@@ -1076,12 +1076,12 @@ static int setup_credentials_internal(
         // Work around a kernel bug that results in tmpfs reconfiguration failure.
         // FIXME: drop this once https://lore.kernel.org/linux-fsdevel/20251108190930.440685-1-me@yhndnzj.com/
         // is merged and hits the distro kernels.
-        (void) fsconfig(fs_fd, FSCONFIG_SET_FLAG, "noswap", NULL, 0);
+        (void) fsconfig(fs_fd, FSCONFIG_SET_FLAG, "noswap", /* value= */ NULL, /* aux= */ 0);
 
-        if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, "ro", NULL, 0) < 0)
+        if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, "ro", /* value= */ NULL, /* aux= */ 0) < 0)
                 return -errno;
 
-        if (fsconfig(fs_fd, FSCONFIG_CMD_RECONFIGURE, NULL, NULL, 0) < 0)
+        if (fsconfig(fs_fd, FSCONFIG_CMD_RECONFIGURE, /* key= */ NULL, /* value= */ NULL, /* aux= */ 0) < 0)
                 return -errno;
 
         log_debug("Successfully reconfigured credentials fs to be read only.");

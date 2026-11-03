@@ -3925,14 +3925,14 @@ static int handle_mount_from_grandchild(
         if (!options)
                 return log_oom_debug();
 
-        if (fsconfig(overlay_fs_fd, FSCONFIG_SET_STRING, "lowerdir", options, 0) < 0)
+        if (fsconfig(overlay_fs_fd, FSCONFIG_SET_STRING, "lowerdir", options, /* aux= */ 0) < 0)
                 return log_debug_errno(errno, "Failed to set lowerdir=%s: %m", options);
 
-        if (fsconfig(overlay_fs_fd, FSCONFIG_SET_STRING, "source", "systemd-extensions", 0) < 0)
+        if (fsconfig(overlay_fs_fd, FSCONFIG_SET_STRING, "source", "systemd-extensions", /* aux= */ 0) < 0)
                 return log_debug_errno(errno, "Failed to set source=systemd-extensions: %m");
 
         /* Create the superblock */
-        if (fsconfig(overlay_fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) < 0)
+        if (fsconfig(overlay_fs_fd, FSCONFIG_CMD_CREATE, /* key= */ NULL, /* value= */ NULL, /* aux= */ 0) < 0)
                 return log_debug_errno(errno, "Failed to create overlay superblock: %m");
 
         /* Signal completion to grandchild */
