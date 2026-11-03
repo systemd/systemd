@@ -81,7 +81,7 @@ int statx_verify_regular(const struct statx *stx) {
 }
 
 int verify_regular_at(int fd, const char *path, bool follow) {
-        return verify_stat_at(fd, path, follow, stat_verify_regular, true);
+        return verify_stat_at(fd, path, follow, stat_verify_regular, /* verify= */ true);
 }
 
 int fd_verify_regular(int fd) {
@@ -120,11 +120,11 @@ int fd_verify_directory(int fd) {
         if (IN_SET(fd, AT_FDCWD, XAT_FDROOT))
                 return 0;
 
-        return verify_stat_at(fd, NULL, false, stat_verify_directory, true);
+        return verify_stat_at(fd, /* path= */ NULL, /* follow= */ false, stat_verify_directory, /* verify= */ true);
 }
 
 int is_dir_at(int fd, const char *path, bool follow) {
-        return verify_stat_at(fd, path, follow, stat_verify_directory, false);
+        return verify_stat_at(fd, path, follow, stat_verify_directory, /* verify= */ false);
 }
 
 int is_dir(const char *path, bool follow) {
@@ -151,9 +151,13 @@ int fd_verify_symlink(int fd) {
         return verify_stat_at(fd, /* path= */ NULL, /* follow= */ false, stat_verify_symlink, /* verify= */ true);
 }
 
+int is_symlink_at(int fd, const char *path) {
+        return verify_stat_at(fd, path, /* follow= */ false, stat_verify_symlink, /* verify= */ false);
+}
+
 int is_symlink(const char *path) {
         assert(!isempty(path));
-        return verify_stat_at(AT_FDCWD, path, false, stat_verify_symlink, false);
+        return is_symlink_at(AT_FDCWD, path);
 }
 
 static int mode_verify_socket(mode_t mode) {
@@ -207,7 +211,7 @@ int fd_verify_linked(int fd) {
         if (fd == XAT_FDROOT)
                 return 0;
 
-        return verify_stat_at(fd, NULL, false, stat_verify_linked, true);
+        return verify_stat_at(fd, /* path= */ NULL, /* follow= */ false, stat_verify_linked, /* verify= */ true);
 }
 
 int stat_verify_block(const struct stat *st) {
@@ -264,7 +268,7 @@ int stat_verify_device_node(const struct stat *st) {
 
 int is_device_node(const char *path) {
         assert(!isempty(path));
-        return verify_stat_at(AT_FDCWD, path, false, stat_verify_device_node, false);
+        return verify_stat_at(AT_FDCWD, path, /* follow= */ false, stat_verify_device_node, /* verify= */ false);
 }
 
 int stat_verify_regular_or_block(const struct stat *st) {
@@ -294,7 +298,7 @@ int dir_is_empty_at(int dir_fd, const char *path, bool ignore_hidden_or_backup) 
         struct dirent *buf;
         size_t m;
 
-        fd = xopenat(dir_fd, path, O_DIRECTORY|O_CLOEXEC);
+        fd = xopenat_full(dir_fd, path, O_DIRECTORY, XO_EMPTY_PATH, MODE_INVALID); /* path may be NULL */
         if (fd < 0)
                 return fd;
 
@@ -502,7 +506,7 @@ int xstatfsat(int dir_fd, const char *path, struct statfs *ret) {
         assert(ret);
 
         if (!isempty(path)) {
-                fd = xopenat(dir_fd, path, O_PATH|O_CLOEXEC);
+                fd = xopenat(dir_fd, path, O_PATH);
                 if (fd < 0)
                         return fd;
                 dir_fd = fd;
@@ -535,9 +539,9 @@ int path_is_read_only_fs(const char *path) {
 
         assert(path);
 
-        fd = open(path, O_CLOEXEC | O_PATH);
+        fd = xopenat(AT_FDCWD, path, O_PATH);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return fd_is_read_only_fs(fd);
 }
@@ -566,9 +570,9 @@ int inode_same_at(int fda, const char *filea, int fdb, const char *fileb, int fl
                  * between via O_PATH, unless we already have an fd for it. */
 
                 if (!isempty(filea)) {
-                        pin_a = openat(fda, filea, O_PATH|O_CLOEXEC|(FLAGS_SET(flags, AT_SYMLINK_NOFOLLOW) ? O_NOFOLLOW : 0));
+                        pin_a = xopenat(fda, filea, O_PATH|(FLAGS_SET(flags, AT_SYMLINK_NOFOLLOW) ? O_NOFOLLOW : 0));
                         if (pin_a < 0)
-                                return -errno;
+                                return pin_a;
 
                         fda = pin_a;
                         filea = NULL;
@@ -576,9 +580,9 @@ int inode_same_at(int fda, const char *filea, int fdb, const char *fileb, int fl
                 }
 
                 if (!isempty(fileb)) {
-                        pin_b = openat(fdb, fileb, O_PATH|O_CLOEXEC|(FLAGS_SET(flags, AT_SYMLINK_NOFOLLOW) ? O_NOFOLLOW : 0));
+                        pin_b = xopenat(fdb, fileb, O_PATH|(FLAGS_SET(flags, AT_SYMLINK_NOFOLLOW) ? O_NOFOLLOW : 0));
                         if (pin_b < 0)
-                                return -errno;
+                                return pin_b;
 
                         fdb = pin_b;
                         fileb = NULL;

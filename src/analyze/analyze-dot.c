@@ -156,7 +156,7 @@ int verb_dot(int argc, char *argv[], uintptr_t _data, void *userdata) {
         UnitInfo u;
         int r;
 
-        r = acquire_bus(&bus, NULL);
+        r = acquire_bus(&bus, /* use_full_bus= */ NULL);
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
 
@@ -172,7 +172,7 @@ int verb_dot(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return r;
 
-        r = bus_call_method(bus, bus_systemd_mgr, "ListUnits", &error, &reply, NULL);
+        r = bus_call_method(bus, bus_systemd_mgr, "ListUnits", &error, &reply, /* types= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to list units: %s", bus_error_message(&error, r));
 

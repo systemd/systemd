@@ -8,7 +8,7 @@ typedef unsigned long loadavg_t;
 int parse_boolean(const char *v) _pure_;
 int parse_tristate_full(const char *v, const char *third, int *ret);
 static inline int parse_tristate(const char *v, int *ret) {
-        return parse_tristate_full(v, NULL, ret);
+        return parse_tristate_full(v, /* third= */ NULL, ret);
 }
 int parse_pid(const char *s, pid_t *ret);
 int parse_mode(const char *s, mode_t *ret);
@@ -32,7 +32,7 @@ int parse_capability_set(const char *s, uint64_t initial, uint64_t *current);
 
 int safe_atou_full(const char *s, unsigned base, unsigned *ret_u);
 static inline int safe_atou(const char *s, unsigned *ret_u) {
-        return safe_atou_full(s, 0, ret_u);
+        return safe_atou_full(s, /* base= */ 0, ret_u);
 }
 
 int safe_atou_bounded(const char *s, unsigned min, unsigned max, unsigned *ret);
@@ -43,13 +43,13 @@ int safe_atolli(const char *s, long long *ret_lli);
 int safe_atou8_full(const char *s, unsigned base, uint8_t *ret);
 
 static inline int safe_atou8(const char *s, uint8_t *ret) {
-        return safe_atou8_full(s, 0, ret);
+        return safe_atou8_full(s, /* base= */ 0, ret);
 }
 
 int safe_atou16_full(const char *s, unsigned base, uint16_t *ret);
 
 static inline int safe_atou16(const char *s, uint16_t *ret) {
-        return safe_atou16_full(s, 0, ret);
+        return safe_atou16_full(s, /* base= */ 0, ret);
 }
 
 static inline int safe_atoux16(const char *s, uint16_t *ret) {
@@ -64,7 +64,7 @@ static inline int safe_atou32_full(const char *s, unsigned base, uint32_t *ret_u
 }
 
 static inline int safe_atou32(const char *s, uint32_t *ret_u) {
-        return safe_atou32_full(s, 0, (unsigned*) ret_u);
+        return safe_atou32_full(s, /* base= */ 0, (unsigned*) ret_u);
 }
 
 static inline int safe_atoi32(const char *s, int32_t *ret_i) {
@@ -75,7 +75,7 @@ static inline int safe_atoi32(const char *s, int32_t *ret_i) {
 int safe_atollu_full(const char *s, unsigned base, unsigned long long *ret_llu);
 
 static inline int safe_atollu(const char *s, unsigned long long *ret_llu) {
-        return safe_atollu_full(s, 0, ret_llu);
+        return safe_atollu_full(s, /* base= */ 0, ret_llu);
 }
 
 static inline int safe_atou64_full(const char *s, unsigned base, uint64_t *ret_u) {
@@ -84,7 +84,7 @@ static inline int safe_atou64_full(const char *s, unsigned base, uint64_t *ret_u
 }
 
 static inline int safe_atou64(const char *s, uint64_t *ret_u) {
-        return safe_atou64_full(s, 0, ret_u);
+        return safe_atou64_full(s, /* base= */ 0, ret_u);
 }
 
 static inline int safe_atoi64(const char *s, int64_t *ret_i) {
@@ -118,7 +118,7 @@ static inline int safe_atoli(const char *s, long *ret_u) {
 #endif
 
 static inline int safe_atolu(const char *s, unsigned long *ret_u) {
-        return safe_atolu_full(s, 0, ret_u);
+        return safe_atolu_full(s, /* base= */ 0, ret_u);
 }
 
 #if SIZE_MAX == UINT_MAX

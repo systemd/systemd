@@ -213,3 +213,25 @@ size_t device_path_size(const EFI_DEVICE_PATH *dp) {
 EFI_DEVICE_PATH *device_path_dup(const EFI_DEVICE_PATH *dp) {
         return xmemdup(ASSERT_PTR(dp), device_path_size(dp));
 }
+
+EFI_STATUS device_path_split_file_path(
+                const EFI_DEVICE_PATH *dp,
+                EFI_DEVICE_PATH **ret_device_path,
+                const EFI_DEVICE_PATH **ret_file_path) {
+
+        assert(dp);
+        assert(ret_device_path);
+        assert(ret_file_path);
+
+        /* Return an owned, terminated copy of the device prefix and a borrowed pointer to the file suffix. */
+        for (const EFI_DEVICE_PATH *node = dp; !device_path_is_end(node); node = device_path_next_node(node)) {
+                if (node->Type != MEDIA_DEVICE_PATH || node->SubType != MEDIA_FILEPATH_DP)
+                        continue;
+
+                *ret_device_path = device_path_replace_node(dp, node, /* new_node= */ NULL);
+                *ret_file_path = node;
+                return EFI_SUCCESS;
+        }
+
+        return EFI_NOT_FOUND;
+}

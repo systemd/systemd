@@ -68,8 +68,8 @@ TEST(iovw_put) {
         _cleanup_(iovw_done) struct iovec_wrapper iovw = {};
 
         /* Zero-length insertions are no-ops and do not touch the data pointer */
-        ASSERT_OK_ZERO(iovw_put(&iovw, NULL, 0));
-        ASSERT_OK_ZERO(iovw_put(&iovw, (char*) "foo", 0));
+        ASSERT_OK_ZERO(iovw_put(&iovw, /* data= */ NULL, /* len= */ 0));
+        ASSERT_OK_ZERO(iovw_put(&iovw, (char*) "foo", /* len= */ 0));
         ASSERT_EQ(iovw.count, 0U);
 
         ASSERT_OK(iovw_put(&iovw, (char*) "foo", 3));
@@ -84,9 +84,9 @@ TEST(iovw_put) {
         ASSERT_EQ(iovw.iovec[2].iov_len, 1U);
         ASSERT_EQ(memcmp(iovw.iovec[2].iov_base, "q", 1), 0);
 
-        ASSERT_OK(iovw_put_full(&iovw, /* accept_zero= */ false, NULL, 0));
+        ASSERT_OK(iovw_put_full(&iovw, /* accept_zero= */ false, /* data= */ NULL, /* len= */ 0));
         ASSERT_EQ(iovw.count, 3U);
-        ASSERT_OK(iovw_put_full(&iovw, /* accept_zero= */ true, NULL, 0));
+        ASSERT_OK(iovw_put_full(&iovw, /* accept_zero= */ true, /* data= */ NULL, /* len= */ 0));
         ASSERT_EQ(iovw.count, 4U);
         ASSERT_TRUE(iovec_equal(&iovw.iovec[3], &(struct iovec) {}));
 }
@@ -96,7 +96,7 @@ TEST(iovw_put_iov) {
         _cleanup_(iovw_done) struct iovec_wrapper iovw = {};
 
         /* Appending an empty/NULL source is a no-op */
-        ASSERT_OK_ZERO(iovw_put_iov(&iovw, NULL));
+        ASSERT_OK_ZERO(iovw_put_iov(&iovw, /* iov= */ NULL));
         ASSERT_OK_ZERO(iovw_put_iov(&iovw, &(struct iovec) {}));
         ASSERT_EQ(iovw.count, 0U);
 
@@ -119,7 +119,7 @@ TEST(iovw_put_iovw) {
         _cleanup_(iovw_done) struct iovec_wrapper target = {}, source = {};
 
         /* Appending an empty/NULL source is a no-op */
-        ASSERT_OK_ZERO(iovw_put_iovw(&target, NULL));
+        ASSERT_OK_ZERO(iovw_put_iovw(&target, /* source= */ NULL));
         ASSERT_OK_ZERO(iovw_put_iovw(&target, &source));
         ASSERT_EQ(target.count, 0U);
 
@@ -177,8 +177,8 @@ TEST(iovw_extend) {
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
 
         /* Appending an empty/NULL source is a no-op */
-        ASSERT_OK_ZERO(iovw_extend(&iovw, NULL, 0));
-        ASSERT_OK_ZERO(iovw_extend(&iovw, "foo", 0));
+        ASSERT_OK_ZERO(iovw_extend(&iovw, /* data= */ NULL, /* len= */ 0));
+        ASSERT_OK_ZERO(iovw_extend(&iovw, "foo", /* len= */ 0));
         ASSERT_EQ(iovw.count, 0U);
 
         /* iovw_extend() copies the data; the wrapper owns the copies. */
@@ -198,9 +198,9 @@ TEST(iovw_extend) {
         memset(buf, 'X', sizeof buf);
         ASSERT_EQ(memcmp(iovw.iovec[0].iov_base, "one", 3), 0);
 
-        ASSERT_OK(iovw_extend_full(&iovw, /* accept_zero= */ false, NULL, 0));
+        ASSERT_OK(iovw_extend_full(&iovw, /* accept_zero= */ false, /* data= */ NULL, /* len= */ 0));
         ASSERT_EQ(iovw.count, 2U);
-        ASSERT_OK(iovw_extend_full(&iovw, /* accept_zero= */ true, NULL, 0));
+        ASSERT_OK(iovw_extend_full(&iovw, /* accept_zero= */ true, /* data= */ NULL, /* len= */ 0));
         ASSERT_EQ(iovw.count, 3U);
         ASSERT_TRUE(iovec_equal(&iovw.iovec[2], &(struct iovec) {}));
 }
@@ -209,7 +209,7 @@ TEST(iovw_extend_iov) {
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
 
         /* Appending an empty/NULL source is a no-op */
-        ASSERT_OK_ZERO(iovw_extend_iov(&iovw, NULL));
+        ASSERT_OK_ZERO(iovw_extend_iov(&iovw, /* iov= */ NULL));
         ASSERT_OK_ZERO(iovw_extend_iov(&iovw, &(struct iovec) {}));
         ASSERT_EQ(iovw.count, 0U);
 
@@ -233,13 +233,13 @@ TEST(iovw_extend_iovw) {
         _cleanup_(iovw_done) struct iovec_wrapper source = {};
 
         /* Appending an empty/NULL source is a no-op */
-        ASSERT_OK_ZERO(iovw_extend_iovw(&target, NULL));
+        ASSERT_OK_ZERO(iovw_extend_iovw(&target, /* source= */ NULL));
         ASSERT_OK_ZERO(iovw_extend_iovw(&target, &source));
         ASSERT_EQ(target.count, 0U);
 
         ASSERT_OK(iovw_put(&source, (char*) "one", 3));
         ASSERT_OK(iovw_put(&source, (char*) "twotwo", 6));
-        ASSERT_OK(iovw_put_full(&source, /* accept_zero= */ true, NULL, 0));
+        ASSERT_OK(iovw_put_full(&source, /* accept_zero= */ true, /* data= */ NULL, /* len= */ 0));
         ASSERT_EQ(source.count, 3U);
 
         /* Pre-seed target with one entry to check that append adds on top rather than replacing */
@@ -288,16 +288,16 @@ TEST(iovw_consume) {
         /* Zero-length: iovw_put returns 0 without adding anything. Even in that case, iovw_consume() frees
          * the payload. Confirm by strdup'ing something to verify that when running with sanitizer/valgrind. */
         char *q = ASSERT_NOT_NULL(strdup(""));
-        ASSERT_OK_ZERO(iovw_consume(&iovw, q, 0));
+        ASSERT_OK_ZERO(iovw_consume(&iovw, q, /* len= */ 0));
         ASSERT_EQ(iovw.count, 1U);
 
-        ASSERT_OK(iovw_consume_full(&iovw, /* accept_zero= */ false, NULL, 0));
+        ASSERT_OK(iovw_consume_full(&iovw, /* accept_zero= */ false, /* data= */ NULL, /* len= */ 0));
         ASSERT_EQ(iovw.count, 1U);
-        ASSERT_OK(iovw_consume_full(&iovw, /* accept_zero= */ true, NULL, 0));
+        ASSERT_OK(iovw_consume_full(&iovw, /* accept_zero= */ true, /* data= */ NULL, /* len= */ 0));
         ASSERT_EQ(iovw.count, 2U);
         ASSERT_TRUE(iovec_equal(&iovw.iovec[1], &(struct iovec) {}));
         q = ASSERT_NOT_NULL(strdup(""));
-        ASSERT_OK(iovw_consume_full(&iovw, /* accept_zero= */ true, q, 0));
+        ASSERT_OK(iovw_consume_full(&iovw, /* accept_zero= */ true, q, /* len= */ 0));
         ASSERT_EQ(iovw.count, 3U);
         ASSERT_TRUE(iovec_equal(&iovw.iovec[2], &(struct iovec) {}));
 }
@@ -305,7 +305,7 @@ TEST(iovw_consume) {
 TEST(iovw_consume_iov) {
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
 
-        ASSERT_OK_ZERO(iovw_consume_iov(&iovw, NULL));
+        ASSERT_OK_ZERO(iovw_consume_iov(&iovw, /* iov= */ NULL));
         ASSERT_EQ(iovw.count, 0U);
 
         ASSERT_OK_ZERO(iovw_consume_iov(&iovw, &(struct iovec) {}));
@@ -346,7 +346,7 @@ TEST(iovw_consume_iov) {
 }
 
 TEST(iovw_isempty) {
-        ASSERT_TRUE(iovw_isempty(NULL));
+        ASSERT_TRUE(iovw_isempty(/* iovw= */ NULL));
 
         _cleanup_(iovw_done) struct iovec_wrapper iovw = {};
         ASSERT_TRUE(iovw_isempty(&iovw));
@@ -467,7 +467,7 @@ TEST(iovw_size) {
         ASSERT_OK(iovw_put(&iovw, (char*) "kl", 2));
         ASSERT_EQ(iovw_size(&iovw), 12U);
 
-        ASSERT_EQ(iovw_size(NULL), 0U);
+        ASSERT_EQ(iovw_size(/* iovw= */ NULL), 0U);
 }
 
 TEST(iovw_concat) {
@@ -681,13 +681,13 @@ TEST(iovw_merge_and_iovec_split) {
         ASSERT_OK(iovw_merge(&(struct iovec_wrapper) {}, sizeof(uint8_t), &v));
         ASSERT_FALSE(iovec_is_set(&v));
 
-        ASSERT_OK(iovw_merge(NULL, sizeof(uint8_t), &v));
+        ASSERT_OK(iovw_merge(/* iovw= */ NULL, sizeof(uint8_t), &v));
         ASSERT_FALSE(iovec_is_set(&v));
 
         ASSERT_OK(iovec_split(&(struct iovec) {}, sizeof(uint8_t), &iovw2));
         ASSERT_TRUE(iovw_isempty(&iovw2));
 
-        ASSERT_OK(iovec_split(NULL, sizeof(uint8_t), &iovw2));
+        ASSERT_OK(iovec_split(/* iov= */ NULL, sizeof(uint8_t), &iovw2));
         ASSERT_TRUE(iovw_isempty(&iovw2));
 
         /* empty entry only */

@@ -46,7 +46,7 @@ int verb_run_debug(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        r = strv_extend_strv(&debugger_call, arg_debugger_args, false);
+        r = strv_extend_strv(&debugger_call, arg_debugger_args, /* filter_duplicates= */ false);
         if (r < 0)
                 return log_oom();
 
@@ -132,9 +132,9 @@ int verb_run_debug(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 goto finish;
         if (r == 0) {
-                execvp(debugger_call[0], debugger_call);
+                r = execvp_safe(debugger_call[0], debugger_call);
                 log_open();
-                log_error_errno(errno, "Failed to invoke %s: %m", debugger_call[0]);
+                log_error_errno(r, "Failed to invoke %s: %m", debugger_call[0]);
                 _exit(EXIT_FAILURE);
         }
 

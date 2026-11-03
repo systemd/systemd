@@ -51,6 +51,7 @@
 #include "pidref.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
+#include "process-util.h"
 #include "ptybroker-client.h"
 #include "ptyfwd.h"
 #include "run-polkit.h"
@@ -330,7 +331,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("working-directory", "PATH", "Set working directory"):
-                        r = parse_path_argument(opts.arg, true, &arg_working_directory);
+                        r = parse_path_argument(opts.arg, /* suppress_root= */ true, &arg_working_directory);
                         if (r < 0)
                                 return r;
 
@@ -502,7 +503,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to parse calendar event specification: %m");
 
                         /* Let's make sure the given calendar event is not in the past */
-                        r = calendar_spec_next_usec(cs, now(CLOCK_REALTIME), NULL);
+                        r = calendar_spec_next_usec(cs, now(CLOCK_REALTIME), /* next= */ NULL);
                         if (r == -ENOENT) {
                                 /* The calendar event might be in the past, so let's warn about this, but
                                  * install it anyway as is. The service manager will trigger the service
@@ -512,7 +513,7 @@ static int parse_argv(int argc, char *argv[]) {
                                  *
                                  * However, a mismatching weekday for a fixed date also results in -ENOENT,
                                  * and was already warned about when parsing. */
-                                if (!calendar_spec_weekday_conflicts(cs, NULL))
+                                if (!calendar_spec_weekday_conflicts(cs, /* ret_actual_wday= */ NULL))
                                         log_warning("Specified calendar expression is in the past, proceeding anyway.");
                         } else if (r < 0)
                                 return log_error_errno(r, "Failed to calculate next time calendar expression elapses: %m");
@@ -1216,11 +1217,11 @@ static int transient_cgroup_set_properties(sd_bus_message *m) {
                 switch (arg_runtime_scope) {
 
                 case RUNTIME_SCOPE_USER:
-                        r = cg_pid_get_user_slice(0, &name);
+                        r = cg_pid_get_user_slice(/* pid= */ 0, &name);
                         break;
 
                 case RUNTIME_SCOPE_SYSTEM:
-                        r = cg_pid_get_slice(0, &name);
+                        r = cg_pid_get_slice(/* pid= */ 0, &name);
                         break;
 
                 default:
@@ -1922,7 +1923,7 @@ static int run_context_attach_bus(RunContext *c, sd_bus *bus) {
                         c->bus_path,
                         "org.freedesktop.DBus.Properties",
                         "PropertiesChanged",
-                        on_properties_changed, NULL, c);
+                        on_properties_changed, /* install_callback= */ NULL, c);
         if (r < 0)
                 return log_error_errno(r, "Failed to request PropertiesChanged signal match: %m");
 
@@ -1933,7 +1934,7 @@ static int run_context_attach_bus(RunContext *c, sd_bus *bus) {
                         /* path= */ NULL,
                         "org.freedesktop.DBus.Local",
                         "Disconnected",
-                        on_disconnected, NULL, c);
+                        on_disconnected, /* install_callback= */ NULL, c);
         if (r < 0)
                 return log_error_errno(r, "Failed to request Disconnected signal match: %m");
 
@@ -2033,7 +2034,7 @@ static int bus_call_with_hint(
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
-        r = sd_bus_call(bus, message, 0, &error, reply);
+        r = sd_bus_call(bus, message, /* usec= */ 0, &error, reply);
         if (r < 0) {
                 log_error_errno(r, "Failed to start transient %s unit: %s", name, bus_error_message(&error, r));
 
@@ -2133,7 +2134,7 @@ static int print_unit_invocation(const char *unit, sd_id128_t invocation_id) {
                         return r;
         }
 
-        return sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+        return sd_json_variant_dump(v, arg_json_format_flags, stdout, /* prefix= */ NULL);
 }
 
 static int run_context_setup_ptyfwd(RunContext *c) {
@@ -2188,11 +2189,11 @@ static int start_transient_service(sd_bus *bus) {
         if (arg_stdio == ARG_STDIO_PTY) {
 
                 if (IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_CAPSULE)) {
-                        c.pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, &pty_path);
+                        c.pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_NONBLOCK, &pty_path);
                         if (c.pty_fd < 0)
                                 return log_error_errno(c.pty_fd, "Failed to acquire pseudo tty: %m");
 
-                        peer_fd = pty_open_peer(c.pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                        peer_fd = pty_open_peer(c.pty_fd, O_RDWR|O_NOCTTY);
                         if (peer_fd < 0)
                                 return log_error_errno(peer_fd, "Failed to open pty peer: %m");
 
@@ -2244,7 +2245,7 @@ static int start_transient_service(sd_bus *bus) {
                         if (!pty_path)
                                 return log_oom();
 
-                        peer_fd = pty_open_peer(c.pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                        peer_fd = pty_open_peer(c.pty_fd, O_RDWR|O_NOCTTY);
                         if (peer_fd < 0)
                                 return log_error_errno(peer_fd, "Failed to open PTY peer: %m");
                 } else
@@ -2666,7 +2667,7 @@ static int start_transient_scope(sd_bus *bus) {
         if (r < 0)
                 return r;
 
-        r = acquire_invocation_id(bus, NULL, &invocation_id);
+        r = acquire_invocation_id(bus, /* unit= */ NULL, &invocation_id);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -2788,9 +2789,9 @@ static int start_transient_scope(sd_bus *bus) {
                 }
         }
 
-        execvpe(arg_cmdline[0], arg_cmdline, env);
+        r = execvpe_safe(arg_cmdline[0], arg_cmdline, env);
 
-        return log_error_errno(errno, "Failed to execute: %m");
+        return log_error_errno(r, "Failed to execute: %m");
 }
 
 static int make_transient_trigger_unit(
@@ -3012,7 +3013,7 @@ static int polkit_validate(sd_bus *bus) {
                 flags |= POLKIT_ALLOW_INTERACTIVE;
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
-        r = polkit_check_authorization(bus, (uint32_t) (flags & _POLKIT_MASK_PUBLIC), NULL);
+        r = polkit_check_authorization(bus, (uint32_t) (flags & _POLKIT_MASK_PUBLIC), /* ret_tmpauthz_id= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) /* not authorized */

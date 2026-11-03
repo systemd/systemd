@@ -11,9 +11,10 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("An array of signature objects"),
                 SD_VARLINK_DEFINE_OUTPUT(data, SD_VARLINK_OBJECT, SD_VARLINK_ARRAY));
 
-SD_VARLINK_DEFINE_INTERFACE(
+SD_VARLINK_DEFINE_INTERFACE_FULL(
                 io_systemd_Report_Signer,
                 "io.systemd.Report.Signer",
+                SD_VARLINK_EXPERIMENTAL,
                 SD_VARLINK_INTERFACE_COMMENT("Backend API for signing reports. This interface shall be implemented by services linked into /run/systemd/report.sign/."),
                 SD_VARLINK_SYMBOL_COMMENT("Sign a report, identified by a digest. This may return zero, one or more signatures, as appropriate. For example some backend might have multiple keys or algorithms available, that are appropriate, in which case it can generate multiple signatures."),
                 &vl_method_Sign);

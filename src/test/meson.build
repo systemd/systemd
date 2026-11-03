@@ -97,6 +97,7 @@ simple_tests += files(
         'test-devnum-util.c',
         'test-dirent-util.c',
         'test-dns-domain.c',
+        'test-dropin.c',
         'test-ellipsize.c',
         'test-env-file.c',
         'test-env-util.c',
@@ -106,6 +107,7 @@ simple_tests += files(
         'test-exec-util.c',
         'test-execve.c',
         'test-exit-status.c',
+        'test-extension-util.c',
         'test-extract-word.c',
         'test-fanotify-util.c',
         'test-fdset.c',
@@ -134,12 +136,14 @@ simple_tests += files(
         'test-initrd-cpio.c',
         'test-install-file.c',
         'test-install-root.c',
+        'test-io-uring-util.c',
         'test-io-util.c',
         'test-iovec-util.c',
         'test-iovec-wrapper.c',
         'test-ip-protocol-list.c',
         'test-journal-importer.c',
         'test-kbd-util.c',
+        'test-keyring-util.c',
         'test-label.c',
         'test-limits-util.c',
         'test-list.c',
@@ -149,6 +153,7 @@ simple_tests += files(
         'test-log.c',
         'test-logarithm.c',
         'test-login-util.c',
+        'test-machine-tags.c',
         'test-machine-util.c',
         'test-macro.c',
         'test-main-func-fiber.c',
@@ -237,8 +242,10 @@ simple_tests += files(
         'test-utf8.c',
         'test-validatefs-util.c',
         'test-verbs.c',
+        'test-voa-util.c',
         'test-vpick.c',
         'test-web-util.c',
+        'test-xattr-match.c',
         'test-xattr-util.c',
         'test-xml.c',
 )
@@ -282,6 +289,10 @@ executables += [
                 'type' : 'manual',
         },
         test_template + {
+                'sources' : files('test-cli-c.c'),
+                'type' : 'manual',
+        },
+        test_template + {
                 'sources' : files('test-compress-benchmark.c'),
                 'link_with' : [libshared],
                 'timeout' : 90,
@@ -313,6 +324,10 @@ executables += [
                 # what we build the rest of systemd with
                 'override_options' : ['b_sanitize=none', 'strip=false', 'debug=true'],
                 'c_args' : ['-fno-sanitize=all', '-fno-optimize-sibling-calls', '-O1'],
+        },
+        test_template + {
+                'sources' : files('test-coredump-thread.c'),
+                'type' : 'manual',
         },
         test_template + {
                 'sources' : files('test-creds.c'),
@@ -445,6 +460,10 @@ executables += [
                 'type' : 'manual',
         },
         test_template + {
+                'sources' : files('test-manifest-util.c'),
+                'dependencies' : libopenssl_cflags,
+        },
+        test_template + {
                 'sources' : files('test-math-util.c'),
                 'dependencies' : libm,
         },
@@ -481,6 +500,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-pe-writer.c'),
+                'dependencies' : libopenssl_cflags,
         },
         test_template + {
                 'sources' : files('test-pkcs7-util.c'),
@@ -771,6 +791,20 @@ if static_libudev != 'false'
                         'build_by_default' : want_tests != 'false',
                         'install' : install_tests ? 'yes' : 'no',
                         'suite' : 'libudev',
+                },
+        ]
+endif
+
+############################################################
+
+if have_rust
+        executables += [
+                rust_test_template + {
+                        'sources' : files('test-rust-shared.rs'),
+                },
+                rust_test_template + {
+                        'sources' : files('test-cli-rust.rs'),
+                        'type' : 'manual',
                 },
         ]
 endif

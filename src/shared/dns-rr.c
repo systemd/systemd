@@ -84,7 +84,7 @@ int dns_resource_key_new_append_suffix(DnsResourceKey **ret, DnsResourceKey *key
                 return 0;
         }
 
-        r = dns_name_concat(dns_resource_key_name(key), name, 0, &joined);
+        r = dns_name_concat(dns_resource_key_name(key), name, /* flags= */ 0, &joined);
         if (r < 0)
                 return r;
 
@@ -248,7 +248,7 @@ int dns_resource_key_match_rr(const DnsResourceKey *key, DnsResourceRecord *rr, 
         if (search_domain) {
                 _cleanup_free_ char *joined = NULL;
 
-                r = dns_name_concat(dns_resource_key_name(key), search_domain, 0, &joined);
+                r = dns_name_concat(dns_resource_key_name(key), search_domain, /* flags= */ 0, &joined);
                 if (r < 0)
                         return r;
 
@@ -283,7 +283,7 @@ int dns_resource_key_match_cname_or_dname(const DnsResourceKey *key, const DnsRe
         if (search_domain) {
                 _cleanup_free_ char *joined = NULL;
 
-                r = dns_name_concat(dns_resource_key_name(key), search_domain, 0, &joined);
+                r = dns_name_concat(dns_resource_key_name(key), search_domain, /* flags= */ 0, &joined);
                 if (r < 0)
                         return r;
 
@@ -1145,7 +1145,7 @@ const char* dns_resource_record_to_string(DnsResourceRecord *rr) {
                 _cleanup_free_ char *alg = NULL;
                 uint16_t key_tag;
 
-                key_tag = dnssec_keytag(rr, true);
+                key_tag = dnssec_keytag(rr, /* mask_revoke= */ true);
 
                 r = dnssec_algorithm_to_string_alloc(rr->dnskey.algorithm, &alg);
                 if (r < 0)
@@ -1246,7 +1246,7 @@ const char* dns_resource_record_to_string(DnsResourceRecord *rr) {
                                 return NULL;
                 }
 
-                hash = base32hexmem(rr->nsec3.next_hashed_name, rr->nsec3.next_hashed_name_size, false);
+                hash = base32hexmem(rr->nsec3.next_hashed_name, rr->nsec3.next_hashed_name_size, /* padding= */ false);
                 if (!hash)
                         return NULL;
 
@@ -1450,7 +1450,7 @@ int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical) {
         if (rr->wire_format && rr->wire_format_canonical == canonical)
                 return 0;
 
-        r = dns_packet_append_rr(&packet, rr, 0, &start, &rds);
+        r = dns_packet_append_rr(&packet, rr, /* flags= */ 0, &start, &rds);
         if (r < 0)
                 return r;
 
@@ -2174,17 +2174,17 @@ int dns_resource_record_new_from_raw(DnsResourceRecord **ret, const void *data, 
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         int r;
 
-        r = dns_packet_new(&p, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
+        r = dns_packet_new(&p, DNS_PROTOCOL_DNS, /* min_alloc_dsize= */ 0, DNS_PACKET_SIZE_MAX);
         if (r < 0)
                 return r;
 
         p->refuse_compression = true;
 
-        r = dns_packet_append_blob(p, data, size, NULL);
+        r = dns_packet_append_blob(p, data, size, /* start= */ NULL);
         if (r < 0)
                 return r;
 
-        return dns_packet_read_rr(p, ret, NULL, NULL);
+        return dns_packet_read_rr(p, ret, /* ret_cache_flush= */ NULL, /* start= */ NULL);
 }
 
 int dns_resource_key_to_json(DnsResourceKey *key, sd_json_variant **ret) {
@@ -2221,7 +2221,7 @@ int dns_resource_key_from_json(sd_json_variant *v, DnsResourceKey **ret) {
         assert(v);
         assert(ret);
 
-        r = sd_json_dispatch(v, dispatch_table, 0, &p);
+        r = sd_json_dispatch(v, dispatch_table, /* flags= */ 0, &p);
         if (r < 0)
                 return r;
 
@@ -2259,7 +2259,7 @@ static int type_bitmap_to_json(Bitmap *b, sd_json_variant **ret) {
         }
 
         if (!l)
-                return sd_json_variant_new_array(ret, NULL, 0);
+                return sd_json_variant_new_array(ret, /* array= */ NULL, 0);
 
         *ret = TAKE_PTR(l);
         return 0;

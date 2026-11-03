@@ -9,7 +9,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_free_ void *p = NULL;
 
         /* This limit was borrowed from src/boot/efi/boot.c */
-        if (outside_size_range(size, 0, 100*1024))
+        if (outside_size_range(size, /* lower= */ 0, 100*1024))
                 return 0;
 
         fuzz_setup_logging();

@@ -26,13 +26,13 @@ typedef struct Context {
 
 int x11_context_verify_and_warn(const X11Context *xc, int log_level, sd_bus_error *error);
 static inline int x11_context_verify(const X11Context *xc) {
-        return x11_context_verify_and_warn(xc, LOG_DEBUG, NULL);
+        return x11_context_verify_and_warn(xc, LOG_DEBUG, /* error= */ NULL);
 }
 X11Context *context_get_x11_context(Context *c);
 
 int vc_context_verify_and_warn(const VCContext *vc, int log_level, sd_bus_error *error);
 static inline int vc_context_verify(const VCContext *vc) {
-        return vc_context_verify_and_warn(vc, LOG_DEBUG, NULL);
+        return vc_context_verify_and_warn(vc, LOG_DEBUG, /* error= */ NULL);
 }
 
 int locale_read_data(Context *c, sd_bus_message *m);

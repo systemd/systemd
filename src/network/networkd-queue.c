@@ -210,10 +210,10 @@ int netdev_queue_request(
         assert(netdev);
         assert(netdev->manager);
 
-        r = request_new(netdev->manager, NULL, REQUEST_TYPE_NETDEV_INDEPENDENT,
+        r = request_new(netdev->manager, /* link= */ NULL, REQUEST_TYPE_NETDEV_INDEPENDENT,
                         netdev, (mfree_func_t) netdev_unref,
                         trivial_hash_func, trivial_compare_func,
-                        process, NULL, NULL, ret);
+                        process, /* counter= */ NULL, /* netlink_handler= */ NULL, ret);
         if (r <= 0)
                 return r;
 
@@ -252,7 +252,7 @@ int manager_queue_request_full(
                 request_netlink_handler_t netlink_handler,
                 Request **ret) {
 
-        return request_new(manager, NULL, type,
+        return request_new(manager, /* link= */ NULL, type,
                            userdata, free_func, hash_func, compare_func,
                            process, counter, netlink_handler, ret);
 }

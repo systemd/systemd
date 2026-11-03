@@ -74,7 +74,7 @@ int blkid_probe_lookup_value_id128(blkid_probe b, const char *field, sd_id128_t 
         assert(field);
 
         const char *u = NULL;
-        (void) sym_blkid_probe_lookup_value(b, field, &u, /* ret_size= */ NULL);
+        (void) sym_blkid_probe_lookup_value(b, field, &u, /* len= */ NULL);
         if (!u)
                 return -ENXIO;
 
@@ -86,7 +86,7 @@ int blkid_probe_lookup_value_u64(blkid_probe b, const char *field, uint64_t *ret
         assert(field);
 
         const char *u = NULL;
-        (void) sym_blkid_probe_lookup_value(b, field, &u, /* ret_size= */ NULL);
+        (void) sym_blkid_probe_lookup_value(b, field, &u, /* len= */ NULL);
         if (!u)
                 return -ENXIO;
 

@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <syslog.h>
 
+#include "fs-util.h"
 #include "log.h"
 
 #if HAVE_SELINUX
@@ -18,19 +19,19 @@
 #include <selinux/selinux.h>
 
 #include "alloc-util.h"
+#include "chase.h"
+#include "env-file.h"
 #include "fd-util.h"
+#include "smack-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
 #endif
 
-#include "chase.h"
-#include "env-file.h"
 #include "errno-util.h"
 #include "label-util.h"
 #include "path-util.h"
 #include "selinux-util.h"
-#include "smack-util.h"
 
 #if HAVE_SELINUX
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(context_t, sym_context_free, context_freep, NULL);
@@ -69,7 +70,7 @@ static int mac_selinux_label_pre(int dir_fd, const char *path, mode_t mode, Labe
 static int mac_selinux_label_post(int dir_fd, const char *path, bool created, LabelContext *label_context) {
         if (label_context) {
                 PROTECT_ERRNO;
-                (void) sym_setfscreatecon_raw(NULL);
+                (void) sym_setfscreatecon_raw(/* context= */ NULL);
         } else
                 mac_selinux_create_file_clear();
         return 0;
@@ -228,7 +229,7 @@ static int open_label_db(void) {
                 before_timestamp = now(CLOCK_MONOTONIC);
         }
 
-        hnd = sym_selabel_open(SELABEL_CTX_FILE, NULL, 0);
+        hnd = sym_selabel_open(SELABEL_CTX_FILE, /* opts= */ NULL, /* nopts= */ 0);
         if (!hnd)
                 return log_selinux_enforcing_errno(errno, "Failed to initialize SELinux labeling handle: %m");
 
@@ -519,12 +520,12 @@ int mac_selinux_fix_full(
         }
 
         if (inode_path) {
-                opened_fd = openat(atfd, inode_path, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+                opened_fd = xopenat(atfd, inode_path, O_NOFOLLOW|O_PATH);
                 if (opened_fd < 0) {
-                        if ((flags & LABEL_IGNORE_ENOENT) && errno == ENOENT)
+                        if ((flags & LABEL_IGNORE_ENOENT) && opened_fd == -ENOENT)
                                 return 0;
 
-                        return -errno;
+                        return opened_fd;
                 }
 
                 inode_fd = opened_fd;
@@ -881,7 +882,7 @@ void mac_selinux_create_file_clear(void) {
         if (selinux_init(/* force= */ false) <= 0)
                 return;
 
-        (void) sym_setfscreatecon_raw(NULL);
+        (void) sym_setfscreatecon_raw(/* context= */ NULL);
 #endif
 }
 
@@ -911,7 +912,7 @@ void mac_selinux_create_socket_clear(void) {
         if (selinux_init(/* force= */ false) <= 0)
                 return;
 
-        (void) sym_setsockcreatecon_raw(NULL);
+        (void) sym_setsockcreatecon_raw(/* context= */ NULL);
 #endif
 }
 
@@ -992,7 +993,7 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         r = RET_NERRNO(bind(fd, addr, addrlen));
 
         if (context_changed)
-                (void) sym_setfscreatecon_raw(NULL);
+                (void) sym_setfscreatecon_raw(/* context= */ NULL);
 
         return r;
 

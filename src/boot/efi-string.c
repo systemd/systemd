@@ -1026,24 +1026,24 @@ _printf_(2, 0) static char16_t *printf_internal(EFI_STATUS status, const char *f
 void printf_status(EFI_STATUS status, const char *format, ...) {
         va_list ap;
         va_start(ap, format);
-        printf_internal(status, format, ap, false);
+        printf_internal(status, format, ap, /* ret= */ false);
         va_end(ap);
 }
 
 void vprintf_status(EFI_STATUS status, const char *format, va_list ap) {
-        printf_internal(status, format, ap, false);
+        printf_internal(status, format, ap, /* ret= */ false);
 }
 
 char16_t *xasprintf_status(EFI_STATUS status, const char *format, ...) {
         va_list ap;
         va_start(ap, format);
-        char16_t *ret = printf_internal(status, format, ap, true);
+        char16_t *ret = printf_internal(status, format, ap, /* ret= */ true);
         va_end(ap);
         return ret;
 }
 
 char16_t *xvasprintf_status(EFI_STATUS status, const char *format, va_list ap) {
-        return printf_internal(status, format, ap, true);
+        return printf_internal(status, format, ap, /* ret= */ true);
 }
 
 #if SD_BOOT

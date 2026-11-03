@@ -34,14 +34,21 @@ if "$BINARY" --help 2>&1 1>/dev/null | grep .; then
     exit 3
 fi
 
-# error output to stderr
-if ! ("$BINARY" --no-such-parameter 2>&1 1>/dev/null || :) | grep . >/dev/null; then
-    echo "$(basename "$BINARY") with an unknown parameter does not print to stderr"
-    exit 4
+# systemd-home-fallback-shell passes unknown params to the shell
+if ! [[ "$(basename "$BINARY")" = "systemd-home-fallback-shell" ]]; then
+    # error output to stderr
+    if ! ("$BINARY" --no-such-parameter 2>&1 1>/dev/null || :) | grep . >/dev/null; then
+        echo "$(basename "$BINARY") with an unknown parameter does not print to stderr"
+        exit 4
+    fi
 fi
 
-# --help and -h are equivalent
-if ! diff <("$BINARY" -h) <("$BINARY" --help); then
-    echo "$(basename "$BINARY") --help and -h are not identical"
-    exit 5
+# sysvinit compat aliases treat -h as "halt"
+# shellcheck disable=SC2076
+if ! [[ " halt poweroff reboot shutdown " =~ " $(basename "$BINARY") " ]]; then
+    # --help and -h are equivalent
+    if ! diff <("$BINARY" -h) <("$BINARY" --help); then
+        echo "$(basename "$BINARY") --help and -h are not identical"
+        exit 5
+    fi
 fi

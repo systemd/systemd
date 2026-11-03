@@ -35,7 +35,7 @@ TEST(future_group_empty) {
 
                 ASSERT_OK(sd_future_group_new(e, &group));
                 ASSERT_OK(sd_future_group_set_policy(group, policy));
-                ASSERT_OK_ZERO(sd_event_run(e, 0));
+                ASSERT_OK_ZERO(sd_event_run(e, /* timeout= */ 0));
                 ASSERT_EQ(sd_future_state(group), SD_FUTURE_PENDING);
                 ASSERT_EQ(sd_future_group_size(group), 0U);
 
@@ -68,7 +68,7 @@ TEST(future_group_seal_empty) {
 
                 ASSERT_OK(sd_future_group_seal(group));
 
-                ASSERT_OK(sd_future_new_defer(e, 0, &child));
+                ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &child));
                 ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_future_group_add(group, child)), ESTALE);
                 ASSERT_EQ(sd_future_group_size(group), 0U);
                 ASSERT_OK(sd_future_cancel(child));
@@ -82,8 +82,8 @@ TEST(future_group_seal_with_children) {
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
         ASSERT_OK(sd_future_group_new(e, &group));
-        ASSERT_OK(sd_future_new_defer(e, 0, &first));
-        ASSERT_OK(sd_future_new_defer(e, 0, &second));
+        ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &first));
+        ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &second));
         ASSERT_OK(sd_future_group_add(group, first));
 
         ASSERT_OK(sd_future_group_seal(group));
@@ -117,8 +117,8 @@ TEST(future_group_size) {
         ASSERT_OK(sd_future_group_new(e, &group));
         ASSERT_EQ(sd_future_group_size(group), 0U);
 
-        ASSERT_OK(sd_future_new_defer(e, 0, &first));
-        ASSERT_OK(sd_future_new_defer(e, 0, &second));
+        ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &first));
+        ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &second));
         ASSERT_EQ(ASSERT_RETURN_EXPECTED(sd_future_group_size(first)), 0U);
 
         ASSERT_OK(sd_future_group_add(group, first));
@@ -155,7 +155,7 @@ TEST(future_group_first_error) {
                 ASSERT_OK(sd_future_resolve(b, -EIO));
 
                 while (sd_future_group_size(group) > 1)
-                        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+                        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
 
                 /* Without IGNORE_ERRORS, the error of b already resolved the group and cancelled a. */
                 if (sd_future_state(a) == SD_FUTURE_PENDING)
@@ -164,7 +164,7 @@ TEST(future_group_first_error) {
                 ASSERT_OK(sd_future_group_seal(group));
 
                 while (sd_future_state(group) == SD_FUTURE_PENDING)
-                        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+                        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
 
                 ASSERT_ERROR(sd_future_result(group), EIO);
         }
@@ -178,9 +178,9 @@ TEST(future_group_wait_all_happy) {
 
         _cleanup_(sd_future_unrefp) sd_future *group = NULL, *c1 = NULL, *c2 = NULL, *c3 = NULL;
         ASSERT_OK(sd_future_group_new(e, &group));
-        ASSERT_OK(sd_future_new_defer(e, 0, &c1));
-        ASSERT_OK(sd_future_new_defer(e, 0, &c2));
-        ASSERT_OK(sd_future_new_defer(e, 0, &c3));
+        ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &c1));
+        ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &c2));
+        ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &c3));
         ASSERT_OK(sd_future_group_add(group, c1));
         ASSERT_OK(sd_future_group_add(group, c2));
         ASSERT_OK(sd_future_group_add(group, c3));
@@ -205,8 +205,8 @@ TEST(future_group_wait_all_fail_fast) {
         ASSERT_OK(sd_future_group_new(e, &group));
 
         ASSERT_OK(sd_future_new_defer(e, -EINVAL, &errorer));
-        ASSERT_OK(sd_fiber_new(e, "sleep-a", suspend_fiber, NULL, &sleeper_a));
-        ASSERT_OK(sd_fiber_new(e, "sleep-b", suspend_fiber, NULL, &sleeper_b));
+        ASSERT_OK(sd_fiber_new(e, "sleep-a", suspend_fiber, /* userdata= */ NULL, &sleeper_a));
+        ASSERT_OK(sd_fiber_new(e, "sleep-b", suspend_fiber, /* userdata= */ NULL, &sleeper_b));
 
         ASSERT_OK(sd_future_group_add(group, errorer));
         ASSERT_OK(sd_future_group_add(group, sleeper_a));
@@ -231,7 +231,7 @@ TEST(future_group_wait_all_ignore_errors) {
         ASSERT_OK(sd_future_group_set_policy(group, SD_FUTURE_GROUP_IGNORE_ERRORS));
 
         ASSERT_OK(sd_future_new_defer(e, -EINVAL, &errorer));
-        ASSERT_OK(sd_future_new_defer(e, 0, &succeeder));
+        ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &succeeder));
         ASSERT_OK(sd_future_group_add(group, errorer));
         ASSERT_OK(sd_future_group_add(group, succeeder));
 
@@ -255,8 +255,8 @@ TEST(future_group_wait_any) {
         ASSERT_OK(sd_future_group_set_policy(group, SD_FUTURE_GROUP_WAIT_ANY));
 
         ASSERT_OK(sd_future_new_defer(e, 42, &fast));
-        ASSERT_OK(sd_fiber_new(e, "medium", suspend_fiber, NULL, &medium));
-        ASSERT_OK(sd_fiber_new(e, "slow", suspend_fiber, NULL, &slow));
+        ASSERT_OK(sd_fiber_new(e, "medium", suspend_fiber, /* userdata= */ NULL, &medium));
+        ASSERT_OK(sd_fiber_new(e, "slow", suspend_fiber, /* userdata= */ NULL, &slow));
         ASSERT_OK(sd_future_group_add(group, fast));
         ASSERT_OK(sd_future_group_add(group, medium));
         ASSERT_OK(sd_future_group_add(group, slow));
@@ -316,7 +316,7 @@ TEST(future_group_first_success) {
 
         ASSERT_OK(sd_future_new_defer(e, -EINVAL, &fast_err));
         ASSERT_OK(sd_future_new_defer(e, 77, &medium_ok));
-        ASSERT_OK(sd_fiber_new(e, "slow-ok", suspend_fiber, NULL, &slow_ok));
+        ASSERT_OK(sd_fiber_new(e, "slow-ok", suspend_fiber, /* userdata= */ NULL, &slow_ok));
 
         ASSERT_OK(sd_future_group_add(group, fast_err));
         ASSERT_OK(sd_future_group_add(group, medium_ok));
@@ -367,8 +367,8 @@ TEST(future_group_external_cancel) {
         _cleanup_(sd_future_unrefp) sd_future *group = NULL, *long_a = NULL, *long_b = NULL;
         ASSERT_OK(sd_future_group_new(e, &group));
 
-        ASSERT_OK(sd_fiber_new(e, "long-a", suspend_fiber, NULL, &long_a));
-        ASSERT_OK(sd_fiber_new(e, "long-b", suspend_fiber, NULL, &long_b));
+        ASSERT_OK(sd_fiber_new(e, "long-a", suspend_fiber, /* userdata= */ NULL, &long_a));
+        ASSERT_OK(sd_fiber_new(e, "long-b", suspend_fiber, /* userdata= */ NULL, &long_b));
         ASSERT_OK(sd_future_group_add(group, long_a));
         ASSERT_OK(sd_future_group_add(group, long_b));
 
@@ -416,7 +416,7 @@ TEST(future_group_resolves_after_children_drain) {
          * about. */
         int err_result = -EINVAL;
         ASSERT_OK(sd_fiber_new(e, "err", yield_then_return_fiber, &err_result, &errorer));
-        ASSERT_OK(sd_fiber_new(e, "sleep", suspend_fiber, NULL, &sleeper));
+        ASSERT_OK(sd_fiber_new(e, "sleep", suspend_fiber, /* userdata= */ NULL, &sleeper));
         ASSERT_OK(sd_future_group_add(group, errorer));
         ASSERT_OK(sd_future_group_add(group, sleeper));
 
@@ -442,7 +442,7 @@ typedef struct ParentCancelState {
 } ParentCancelState;
 
 static int wake_parent_cb(sd_future *f, void *userdata) {
-        return sd_fiber_resume(userdata, 0);
+        return sd_fiber_resume(userdata, /* result= */ 0);
 }
 
 static int parent_cancel_driver(void *userdata) {
@@ -646,9 +646,9 @@ TEST(future_group_add_many) {
 
         AddManyState s = {};
         ASSERT_OK(sd_future_group_new(e, &s.group));
-        ASSERT_OK(sd_future_new_defer(e, 0, &s.a));
-        ASSERT_OK(sd_future_new_defer(e, 0, &s.b));
-        ASSERT_OK(sd_future_new_defer(e, 0, &s.c));
+        ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &s.a));
+        ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &s.b));
+        ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &s.c));
 
         _cleanup_(sd_future_unrefp) sd_future *driver = NULL;
         ASSERT_OK(sd_fiber_new(e, "driver", add_many_driver, &s, &driver));
@@ -711,7 +711,7 @@ TEST(future_group_cancel_forwards_repeats) {
         ASSERT_EQ(sc->cancels, 1U);
         ASSERT_EQ(sd_future_state(stubborn), SD_FUTURE_PENDING);
         ASSERT_ERROR(sd_future_result(sibling), ECANCELED);
-        while (ASSERT_OK(sd_event_run(e, 0)) > 0)
+        while (ASSERT_OK(sd_event_run(e, /* timeout= */ 0)) > 0)
                 ;
         ASSERT_EQ(sd_future_state(group), SD_FUTURE_PENDING);
 
@@ -802,7 +802,7 @@ TEST(future_group_cancel_wait_unref_drives_stubborn_child) {
 
         /* One iteration runs the fiber up to the await inside sd_future_cancel_wait_unref(): the group
          * is finalizing, but the stubborn child ignored the first cancel. */
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
         ASSERT_EQ(cancels, 0U);
 
         ASSERT_OK_POSITIVE(sd_future_cancel(driver));
@@ -829,7 +829,7 @@ TEST(future_group_cancel_failure_still_drains) {
         ASSERT_EQ(sd_future_group_size(group), 2U);
 
         /* The sibling's callback cannot finish the group while the failed cancellation is pending. */
-        while (ASSERT_OK(sd_event_run(e, 0)) > 0)
+        while (ASSERT_OK(sd_event_run(e, /* timeout= */ 0)) > 0)
                 ;
         ASSERT_EQ(sd_future_state(group), SD_FUTURE_PENDING);
 
@@ -839,7 +839,7 @@ TEST(future_group_cancel_failure_still_drains) {
         ASSERT_EQ(sd_future_state(group), SD_FUTURE_PENDING);
 
         ASSERT_OK(sd_future_resolve(failing, 42));
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
         ASSERT_ERROR(sd_future_result(group), ECANCELED);
         ASSERT_EQ(sd_future_result(failing), 42);
 }
@@ -863,7 +863,7 @@ TEST(future_group_add_rejected_during_finalize) {
         ASSERT_EQ(sd_future_state(group), SD_FUTURE_PENDING);
         ASSERT_EQ(sd_future_state(stubborn), SD_FUTURE_PENDING);
 
-        ASSERT_OK(sd_future_new_defer(e, 0, &new_child));
+        ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &new_child));
         ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_future_group_add(group, new_child)), ESTALE);
         ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_future_group_add_many(group, new_child)), ESTALE);
         ASSERT_EQ(sd_future_group_size(group), 1U);
@@ -895,7 +895,7 @@ TEST(future_group_set_policy_rejected_after_add) {
         ASSERT_OK(sd_future_group_set_policy(group,
                                              SD_FUTURE_GROUP_WAIT_ANY | SD_FUTURE_GROUP_IGNORE_ERRORS));
 
-        ASSERT_OK(sd_future_new_defer(e, 0, &child));
+        ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &child));
         ASSERT_OK(sd_future_group_add(group, child));
 
         /* Now that a child is registered, set_policy must reject. */
@@ -912,8 +912,8 @@ TEST(future_group_set_policy_after_failed_add_many) {
         ASSERT_OK(sd_event_new(&other));
         ASSERT_OK(sd_future_group_new(e, &group));
 
-        ASSERT_OK(sd_future_new_defer(e, 0, &child));
-        ASSERT_OK(sd_future_new_defer(other, 0, &foreign));
+        ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &child));
+        ASSERT_OK(sd_future_new_defer(other, /* result= */ 0, &foreign));
         ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_future_group_add_many(group, child, foreign)), EINVAL);
         ASSERT_EQ(sd_future_group_size(group), 0U);
 
@@ -929,7 +929,7 @@ TEST(future_group_set_policy_rejected_after_child_resolved) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
         ASSERT_OK(sd_future_group_new(e, &group));
 
-        ASSERT_OK(sd_future_new_defer(e, 0, &child));
+        ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &child));
         ASSERT_OK(sd_future_group_add(group, child));
 
         ASSERT_OK(sd_event_loop(e));
@@ -963,7 +963,7 @@ static int self_cancel_fiber(void *userdata) {
         if (r < 0)
                 return r;
 
-        r = sd_future_new_defer(sd_fiber_get_event(), 0, &child);
+        r = sd_future_new_defer(sd_fiber_get_event(), /* result= */ 0, &child);
         if (r < 0)
                 return r;
 
@@ -1040,7 +1040,7 @@ TEST(future_group_parent_await_scope) {
 
                 ASSERT_OK(sd_event_new(&e));
                 ASSERT_OK(sd_fiber_new(e, "parent-await", parent_await_driver, &s, &parent));
-                ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+                ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
                 if (s.await)
                         ASSERT_OK(sd_future_cancel(parent));
                 else {
@@ -1048,10 +1048,10 @@ TEST(future_group_parent_await_scope) {
                         ASSERT_OK(sd_fiber_resume(parent, 42));
                 }
                 while (!s.ready)
-                        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+                        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
 
                 ASSERT_OK(sd_future_resolve(s.child, -EIO));
-                while (ASSERT_OK(sd_event_run(e, 0)) > 0)
+                while (ASSERT_OK(sd_event_run(e, /* timeout= */ 0)) > 0)
                         ;
 
                 /* No exit-on-idle: only the child failure may wake the parent. */
@@ -1082,10 +1082,10 @@ TEST(future_group_external_cancel_leaves_parent_running) {
                 ASSERT_OK(sd_event_set_exit_on_idle(e, true));
                 ASSERT_OK(sd_fiber_new(e, "parent", parent_await_driver, &s, &parent));
                 s.parent = parent;
-                ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+                ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
                 ASSERT_OK(sd_fiber_resume(parent, 42));
                 while (!s.ready)
-                        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+                        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
 
                 if (peer)
                         ASSERT_OK(sd_fiber_new(e, "cancel-group", cancel_group_from_peer, &s, &canceller));
@@ -1120,15 +1120,15 @@ TEST(future_group_peer_await_does_not_suppress_parent_cancel) {
 
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_fiber_new(e, "parent", parent_await_driver, &s, &parent));
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
         ASSERT_OK(sd_fiber_resume(parent, 42));
         while (!s.ready)
-                ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+                ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
 
         ASSERT_OK(sd_fiber_new(e, "peer-await", peer_await_driver, s.group, &peer));
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
         ASSERT_OK(sd_future_resolve(s.child, -EIO));
-        while (ASSERT_OK(sd_event_run(e, 0)) > 0)
+        while (ASSERT_OK(sd_event_run(e, /* timeout= */ 0)) > 0)
                 ;
 
         ASSERT_EQ(sd_future_state(parent), SD_FUTURE_RESOLVED);
@@ -1149,10 +1149,10 @@ TEST(future_group_priority) {
                 ASSERT_OK(sd_event_new(&e));
                 ASSERT_OK(sd_future_group_new(e, &group));
                 ASSERT_OK(sd_future_group_new(e, &resolved));
-                ASSERT_OK(sd_future_resolve(resolved, 0));
+                ASSERT_OK(sd_future_resolve(resolved, /* result= */ 0));
                 ASSERT_OK(sd_future_new(e, &stubborn_child_ops, &unsupported));
-                ASSERT_OK(sd_future_new_defer(e, 0, &probe));
-                ASSERT_OK(sd_future_new_defer(e, 0, &pending));
+                ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &probe));
+                ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &pending));
                 if (before_add)
                         ASSERT_OK(sd_future_set_priority(group, -10));
                 ASSERT_OK(ASSERT_RETURN_EXPECTED(sd_future_group_add_many(group, resolved, unsupported, pending)));
@@ -1161,10 +1161,10 @@ TEST(future_group_priority) {
 
                 /* The pending child overtakes a source created earlier at normal priority. Resolved children
                  * and children without priority support must not make either operation fail. */
-                ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+                ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
                 ASSERT_EQ(sd_future_state(pending), SD_FUTURE_RESOLVED);
                 ASSERT_EQ(sd_future_state(probe), SD_FUTURE_PENDING);
-                ASSERT_OK(sd_future_resolve(unsupported, 0));
+                ASSERT_OK(sd_future_resolve(unsupported, /* result= */ 0));
                 ASSERT_OK(sd_event_set_exit_on_idle(e, true));
                 ASSERT_OK(sd_future_group_seal(group));
                 ASSERT_OK(sd_event_loop(e));
@@ -1182,17 +1182,17 @@ TEST(future_group_priority_unset) {
 
                 ASSERT_OK(sd_event_new(&e));
                 ASSERT_OK(sd_future_group_new(e, &group));
-                ASSERT_OK(sd_future_new_defer(e, 0, &pending));
+                ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &pending));
                 ASSERT_OK(sd_future_set_priority(pending, -10));
-                ASSERT_OK(sd_future_new_defer(e, 0, &probe));
+                ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &probe));
                 ASSERT_OK(sd_future_set_priority(probe, -5));
                 if (explicit_priority)
-                        ASSERT_OK(sd_future_set_priority(group, 0));
+                        ASSERT_OK(sd_future_set_priority(group, /* priority= */ 0));
                 ASSERT_OK(sd_future_group_add(group, pending));
 
                 /* An unset group priority preserves the child's priority; explicitly setting zero
                  * overrides it, making the probe run first. */
-                ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+                ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
                 ASSERT_EQ(sd_future_state(pending), explicit_priority ? SD_FUTURE_PENDING : SD_FUTURE_RESOLVED);
                 ASSERT_EQ(sd_future_state(probe), explicit_priority ? SD_FUTURE_RESOLVED : SD_FUTURE_PENDING);
                 ASSERT_OK(sd_event_set_exit_on_idle(e, true));
@@ -1227,8 +1227,8 @@ TEST(future_group_priority_add_failure) {
         ASSERT_EQ(sd_future_group_size(group), 0U);
 
         /* A failed add must leave neither membership nor a callback behind. */
-        ASSERT_OK(sd_future_resolve(child, 0));
-        ASSERT_OK_ZERO(sd_event_run(e, 0));
+        ASSERT_OK(sd_future_resolve(child, /* result= */ 0));
+        ASSERT_OK_ZERO(sd_event_run(e, /* timeout= */ 0));
         ASSERT_EQ(sd_future_state(group), SD_FUTURE_PENDING);
 }
 
@@ -1243,9 +1243,9 @@ TEST(future_group_priority_failure) {
                 ASSERT_OK(sd_event_new(&e));
                 ASSERT_OK(sd_future_group_new(e, &group));
                 ASSERT_OK(sd_future_new(e, &priority_failure_ops, &failing));
-                ASSERT_OK(sd_future_new_defer(e, 0, &probe));
+                ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &probe));
                 ASSERT_OK(sd_future_set_priority(probe, -5));
-                ASSERT_OK(sd_future_new_defer(e, 0, &accepting));
+                ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &accepting));
                 ASSERT_OK(sd_future_group_add_many(group,
                                                   failing_first ? failing : accepting,
                                                   failing_first ? accepting : failing));
@@ -1253,17 +1253,17 @@ TEST(future_group_priority_failure) {
 
                 /* A failure neither stops updates to the other children nor installs the attempted
                  * priority as the group's default for later additions. */
-                ASSERT_OK(sd_future_new_defer(e, 0, &later));
+                ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &later));
                 ASSERT_OK(sd_future_group_add(group, later));
-                ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+                ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
                 ASSERT_EQ(sd_future_state(accepting), SD_FUTURE_RESOLVED);
                 ASSERT_EQ(sd_future_state(probe), SD_FUTURE_PENDING);
                 ASSERT_EQ(sd_future_state(later), SD_FUTURE_PENDING);
-                ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+                ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
                 ASSERT_EQ(sd_future_state(probe), SD_FUTURE_RESOLVED);
                 ASSERT_EQ(sd_future_state(later), SD_FUTURE_PENDING);
 
-                ASSERT_OK(sd_future_resolve(failing, 0));
+                ASSERT_OK(sd_future_resolve(failing, /* result= */ 0));
                 ASSERT_OK(sd_event_set_exit_on_idle(e, true));
                 ASSERT_OK(sd_future_group_seal(group));
                 ASSERT_OK(sd_event_loop(e));
@@ -1288,8 +1288,8 @@ TEST(future_group_add_many_rollback) {
                         ASSERT_OK(sd_future_group_new(e, &original));
                         ASSERT_OK(sd_future_group_add(group, original));
                 }
-                ASSERT_OK(sd_future_new_defer(e, 0, &first));
-                ASSERT_OK(sd_future_new_defer(e, 0, &second));
+                ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &first));
+                ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &second));
                 ASSERT_OK(sd_future_new(e, &priority_failure_ops, &failing));
 
                 ASSERT_ERROR(sd_future_group_add_many(group, first, second, failing), EIO);
@@ -1298,9 +1298,9 @@ TEST(future_group_add_many_rollback) {
 
                 /* Only the two defer futures may dispatch: every partially registered callback must
                  * be removed, and any pre-existing membership must survive the rollback. */
-                ASSERT_OK_POSITIVE(sd_event_run(e, 0));
-                ASSERT_OK_POSITIVE(sd_event_run(e, 0));
-                ASSERT_OK_ZERO(sd_event_run(e, 0));
+                ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
+                ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
+                ASSERT_OK_ZERO(sd_event_run(e, /* timeout= */ 0));
                 ASSERT_OK_ZERO(sd_future_result(first));
                 ASSERT_OK_ZERO(sd_future_result(second));
                 ASSERT_EQ(sd_future_state(group), SD_FUTURE_PENDING);
@@ -1309,7 +1309,7 @@ TEST(future_group_add_many_rollback) {
                         ASSERT_OK(sd_future_resolve(original, 42));
                 else
                         ASSERT_OK(ASSERT_RETURN_EXPECTED(sd_future_group_add(group, first)));
-                ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+                ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
                 ASSERT_EQ(sd_future_result(group), existing ? 42 : 0);
         }
 }
@@ -1328,8 +1328,8 @@ TEST(future_group_rejects_cross_event_child) {
         ASSERT_OK(sd_future_resolve(child, -EIO));
         ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_future_group_add(group, child)), EINVAL);
         ASSERT_EQ(sd_future_group_size(group), 0U);
-        ASSERT_OK_ZERO(sd_event_run(e, 0));
-        ASSERT_OK_ZERO(sd_event_run(other, 0));
+        ASSERT_OK_ZERO(sd_event_run(e, /* timeout= */ 0));
+        ASSERT_OK_ZERO(sd_event_run(other, /* timeout= */ 0));
         ASSERT_EQ(sd_future_state(group), SD_FUTURE_PENDING);
 }
 
@@ -1343,7 +1343,7 @@ TEST(future_group_rejects_self) {
         ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_future_group_add(group, group)), EINVAL);
         ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_future_group_add_many(group, group)), EINVAL);
         ASSERT_EQ(sd_future_group_size(group), 0U);
-        ASSERT_OK_ZERO(sd_event_run(e, 0));
+        ASSERT_OK_ZERO(sd_event_run(e, /* timeout= */ 0));
         ASSERT_EQ(sd_future_state(group), SD_FUTURE_PENDING);
 }
 
@@ -1370,18 +1370,18 @@ TEST(future_group_does_not_capture_cross_event_parent) {
         s.event = other;
         ASSERT_OK(sd_future_group_new(other, &child));
         ASSERT_OK(sd_fiber_new(e, "cross-event-parent", cross_event_parent_driver, &s, &parent));
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
         ASSERT_OK(sd_future_group_add(s.group, child));
         ASSERT_OK(sd_future_resolve(child, -EIO));
-        while (ASSERT_OK(sd_event_run(other, 0)) > 0)
+        while (ASSERT_OK(sd_event_run(other, /* timeout= */ 0)) > 0)
                 ;
         ASSERT_ERROR(sd_future_result(s.group), EIO);
 
         /* A failure on the other loop must neither schedule nor cancel the creating fiber. */
-        ASSERT_OK_ZERO(sd_event_run(e, 0));
+        ASSERT_OK_ZERO(sd_event_run(e, /* timeout= */ 0));
         ASSERT_EQ(sd_future_state(parent), SD_FUTURE_PENDING);
         ASSERT_OK(sd_fiber_resume(parent, 42));
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
         ASSERT_OK_ZERO(sd_future_result(parent));
         sd_future_unref(s.group);
 }
@@ -1415,18 +1415,18 @@ TEST(future_group_outlives_parent) {
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_fiber_new(e, "short-lived-parent", parent_returns_before_child, &s, &parent));
         ASSERT_OK(sd_fiber_set_destroy_callback(parent, parent_lifetime_destroy));
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
         ASSERT_OK_ZERO(sd_future_result(parent));
         parent = sd_future_unref(parent);
 
         /* Dispatch the parent-resolution callbacks before the child fails. They must release their
          * references and forget the parent, since a later child error must not cancel freed memory. */
-        while (ASSERT_OK(sd_event_run(e, 0)) > 0)
+        while (ASSERT_OK(sd_event_run(e, /* timeout= */ 0)) > 0)
                 ;
         ASSERT_TRUE(s.parent_freed);
         ASSERT_EQ(sd_future_state(s.group), SD_FUTURE_PENDING);
         ASSERT_OK(sd_future_resolve(s.child, -EIO));
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
         ASSERT_ERROR(sd_future_result(s.group), EIO);
         sd_future_unref(s.group);
         sd_future_unref(s.child);
@@ -1439,7 +1439,7 @@ TEST(future_group_add_child_twice) {
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
         ASSERT_OK(sd_future_group_new(e, &group));
-        ASSERT_OK(sd_future_new_defer(e, 0, &child));
+        ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &child));
         ASSERT_OK(sd_future_group_add(group, child));
         ASSERT_OK(sd_future_group_add(group, child));
         ASSERT_EQ(sd_future_group_size(group), 2U);
@@ -1525,14 +1525,14 @@ TEST(future_group_spawn_cancel_drains) {
                 spawn_with_destroy(group, "sleep", suspend_fiber, &s);
 
         /* Let every fiber start and suspend, so that cancellation has to wait for the fibers. */
-        while (ASSERT_OK(sd_event_run(e, 0)) > 0)
+        while (ASSERT_OK(sd_event_run(e, /* timeout= */ 0)) > 0)
                 ;
         ASSERT_EQ(sd_future_group_size(group), 3U);
 
         ASSERT_OK(sd_future_cancel(group));
         ASSERT_EQ(sd_future_state(group), SD_FUTURE_PENDING);
 
-        while (ASSERT_OK(sd_event_run(e, 0)) > 0)
+        while (ASSERT_OK(sd_event_run(e, /* timeout= */ 0)) > 0)
                 ;
         ASSERT_ERROR(sd_future_result(group), ECANCELED);
         ASSERT_EQ(sd_future_group_size(group), 0U);
@@ -1574,7 +1574,7 @@ TEST(future_group_spawn_sealed) {
         ASSERT_OK(sd_future_group_new(e, &group));
         ASSERT_OK(sd_future_group_seal(group));
 
-        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_future_group_spawn(group, "late", failing_fiber, NULL, &f)), ESTALE);
+        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_future_group_spawn(group, "late", failing_fiber, /* userdata= */ NULL, &f)), ESTALE);
         ASSERT_NULL(f);
         ASSERT_OK_ZERO(sd_future_result(group));
 }

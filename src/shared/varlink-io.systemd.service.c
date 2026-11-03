@@ -65,7 +65,7 @@ int varlink_method_ping(sd_varlink *link, sd_json_variant *parameters, sd_varlin
 
         log_debug("Received io.systemd.service.Ping");
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 int varlink_method_set_log_level(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -95,7 +95,7 @@ int varlink_method_set_log_level(sd_varlink *link, sd_json_variant *parameters, 
 
         log_set_max_level(level);
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 int varlink_method_get_log_level(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {

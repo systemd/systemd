@@ -8,6 +8,7 @@
 #include "blockdev-util.h"
 #include "build.h"
 #include "chase.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "dlopen-note.h"
 #include "errno-util.h"
@@ -122,7 +123,7 @@ static int validate_gpt_metadata_one(sd_device *d, const char *path, const Valid
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int block_fd = sd_device_open(d, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        _cleanup_close_ int block_fd = device_open(d, O_RDONLY|O_NONBLOCK);
         if (block_fd < 0)
                 return log_error_errno(block_fd, "Failed to open block device backing '%s': %m", path);
 
@@ -131,7 +132,7 @@ static int validate_gpt_metadata_one(sd_device *d, const char *path, const Valid
                 return log_oom();
 
         errno = 0;
-        r = sym_blkid_probe_set_device(b, block_fd, 0, 0);
+        r = sym_blkid_probe_set_device(b, block_fd, /* off= */ 0, /* size= */ 0);
         if (r != 0)
                 return log_error_errno(errno_or_else(ENOMEM), "Failed to set up block device prober for '%s': %m", path);
 
@@ -237,7 +238,7 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         _cleanup_free_ char *resolved = NULL;
-        _cleanup_close_ int target_fd = chase_and_open(arg_target, arg_root, CHASE_MUST_BE_DIRECTORY, O_DIRECTORY|O_CLOEXEC, &resolved);
+        _cleanup_close_ int target_fd = chase_and_open(arg_target, arg_root, CHASE_MUST_BE_DIRECTORY, O_DIRECTORY, &resolved);
         if (target_fd < 0)
                 return log_error_errno(target_fd, "Failed to open directory '%s': %m", arg_target);
 

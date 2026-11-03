@@ -25,7 +25,7 @@ int path_extract_image_name(const char *path, char **ret);
 
 int path_is_extension_tree(ImageClass image_class, const char *path, const char *extension, bool relax_extension_release_check);
 static inline int path_is_os_tree(const char *path) {
-        return path_is_extension_tree(_IMAGE_CLASS_INVALID, path, NULL, false);
+        return path_is_extension_tree(_IMAGE_CLASS_INVALID, path, /* extension= */ NULL, /* relax_extension_release_check= */ false);
 }
 int fd_is_os_tree(int fd);
 
@@ -48,7 +48,7 @@ int parse_extension_release_at_sentinel(int rfd, ImageClass image_class, bool re
 
 int load_extension_release_pairs(const char *root, ImageClass image_class, const char *extension, bool relax_extension_release_check, char ***ret);
 static inline int load_os_release_pairs(const char *root, char ***ret) {
-        return load_extension_release_pairs(root, _IMAGE_CLASS_INVALID, NULL, false, ret);
+        return load_extension_release_pairs(root, _IMAGE_CLASS_INVALID, /* extension= */ NULL, /* relax_extension_release_check= */ false, ret);
 }
 int load_os_release_pairs_with_prefix(const char *root, const char *prefix, char ***ret);
 

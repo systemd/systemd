@@ -440,7 +440,7 @@ int user_record_test_home_directory(UserRecord *h) {
         if (!hd)
                 return -ENXIO;
 
-        r = is_dir(hd, false);
+        r = is_dir(hd, /* follow= */ false);
         if (r == -ENOENT)
                 return USER_TEST_ABSENT;
         if (r < 0)
@@ -858,7 +858,7 @@ int user_record_set_password(UserRecord *h, char **password, bool prepend) {
                 if (!e)
                         return -ENOMEM;
 
-                r = strv_extend_strv(&e, h->password, true);
+                r = strv_extend_strv(&e, h->password, /* filter_duplicates= */ true);
                 if (r < 0)
                         return r;
 
@@ -920,7 +920,7 @@ int user_record_set_token_pin(UserRecord *h, char **pin, bool prepend) {
                 if (!e)
                         return -ENOMEM;
 
-                r = strv_extend_strv(&e, h->token_pin, true);
+                r = strv_extend_strv(&e, h->token_pin, /* filter_duplicates= */ true);
                 if (r < 0)
                         return r;
 
@@ -1138,11 +1138,11 @@ int user_record_merge_secret(UserRecord *h, UserRecord *secret) {
 
         /* Merges the secrets from 'secret' into 'h'. */
 
-        r = user_record_set_password(h, secret->password, true);
+        r = user_record_set_password(h, secret->password, /* prepend= */ true);
         if (r < 0)
                 return r;
 
-        r = user_record_set_token_pin(h, secret->token_pin, true);
+        r = user_record_set_token_pin(h, secret->token_pin, /* prepend= */ true);
         if (r < 0)
                 return r;
 
@@ -1465,7 +1465,11 @@ int user_record_set_rebalance_weight(UserRecord *h, uint64_t weight) {
         }
 
         if (weight == REBALANCE_WEIGHT_UNSET)
-                r = sd_json_variant_set_field(&per_machine_entry, "rebalanceWeight", NULL); /* set explicitly to NULL (so that the perMachine setting we are setting here can override the global setting) */
+                r = sd_json_variant_set_field(
+                                &per_machine_entry,
+                                "rebalanceWeight",
+                                /* value= */ NULL); /* set explicitly to NULL (so that the perMachine setting
+                                                       we are setting here can override the global setting) */
         else
                 r = sd_json_variant_set_field_unsigned(&per_machine_entry, "rebalanceWeight", weight);
         if (r < 0)

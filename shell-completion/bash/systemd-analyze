@@ -97,6 +97,7 @@ _systemd_analyze() {
         [ARCHITECTURES]='architectures'
         [CPU_FEATURES]='cpu-features'
         [FDSTORE]='fdstore'
+        [RESTART_DELAYS]='restart-delays'
         [CAPABILITY]='capability'
         [TRANSIENT_SETTINGS]='transient-settings'
         [UNIT_SHELL]='unit-shell'
@@ -267,6 +268,16 @@ _systemd_analyze() {
             comps='--help --version --system --user --global -H --host -M --machine --no-pager --json=off --json=pretty --json=short --root --image'
         else
             comps=$( __get_services $mode )
+        fi
+
+    elif __contains_word "$verb" ${VERBS[RESTART_DELAYS]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --system --user -H --host -M --machine --no-pager --no-legend --json=off --json=pretty --json=short --offline --root --image --instance --generators'
+        elif ! __contains_word "--offline" ${COMP_WORDS[*]}; then
+            comps=$( __get_services $mode )
+        else
+            comps=$( compgen -A file -- "$cur" )
+            compopt -o filenames
         fi
 
     elif __contains_word "$verb" ${VERBS[CAPABILITY]}; then

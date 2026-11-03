@@ -218,6 +218,23 @@ static __always_inline __u64 pidfd_id_from_pid(struct pid *p) {
         return 0;
 }
 
+/* CO-RE flavors for struct sock::sk_peer_pid. Older kernels (< 7.4) have a plain
+ * "struct pid *", newer ones turned it into an array indexed by pid type. */
+struct sock___peer_pid_ptr {
+        struct pid *sk_peer_pid;
+};
+
+struct sock___peer_pid_array {
+        struct pid *sk_peer_pid[PIDTYPE_TGID + 1];
+};
+
+static __always_inline struct pid* sk_peer_tgid_pid(struct sock *sk) {
+        if (bpf_core_field_exists(struct sock___peer_pid_array, sk_peer_pid))
+                return BPF_CORE_READ((struct sock___peer_pid_array*) sk, sk_peer_pid[PIDTYPE_TGID]);
+
+        return BPF_CORE_READ((struct sock___peer_pid_ptr*) sk, sk_peer_pid);
+}
+
 SEC("lsm/socket_sendmsg")
 int BPF_PROG(
                 monitor_varlink_socket_sendmsg,
@@ -250,7 +267,7 @@ int BPF_PROG(
         if (peer_cred)
                 peer_uid = BPF_CORE_READ(peer_cred, euid.val);
 
-        struct pid *peer_pid_s = BPF_CORE_READ(sk, sk_peer_pid);
+        struct pid *peer_pid_s = sk_peer_tgid_pid(sk);
         __u32 peer_pid = peer_pid_s ? BPF_CORE_READ(peer_pid_s, numbers[0].nr) : 0;
         __u64 peer_pidfd_id = pidfd_id_from_pid(peer_pid_s);
 

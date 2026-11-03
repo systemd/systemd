@@ -48,7 +48,7 @@ static int bus_future_handler(sd_bus_message *m, void *userdata, sd_bus_error *r
         bf->slot = sd_bus_slot_unref(bf->slot);
         bf->reply = sd_bus_message_ref(m);
 
-        r = sd_bus_message_is_method_error(m, NULL) ? -sd_bus_message_get_errno(m) : 0;
+        r = sd_bus_message_is_method_error(m, /* name= */ NULL) ? -sd_bus_message_get_errno(m) : 0;
         return sd_future_resolve(f, r);
 }
 

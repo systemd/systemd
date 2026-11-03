@@ -84,7 +84,7 @@ static int list_job_one_with_selinux_access_check(sd_varlink *link, Job *job) {
         if (r < 0)
                 /* If mac_selinux_unit_access_check_varlink() returned an error,
                  * it means that SELinux enforce is on. It also does all the logging(). */
-                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
 
         return list_job_one(link, job);
 }
@@ -157,7 +157,7 @@ int vl_method_list_jobs(sd_varlink *link, sd_json_variant *parameters, sd_varlin
 
         /* List all jobs */
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
 
         r = sd_varlink_set_sentinel(link, VARLINK_ERROR_JOB_NO_SUCH_JOB);
         if (r < 0)
@@ -199,7 +199,7 @@ int vl_method_cancel_job(sd_varlink *link, sd_json_variant *parameters, sd_varli
 
         r = mac_selinux_unit_access_check_varlink(j->unit, link, "stop");
         if (r < 0)
-                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
 
         r = varlink_verify_polkit_async(
                         link,
@@ -216,7 +216,7 @@ int vl_method_cancel_job(sd_varlink *link, sd_json_variant *parameters, sd_varli
 
         job_finish_and_invalidate(j, JOB_CANCELED, /* recursive= */ true, /* already= */ false);
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 int vl_method_clear_all_jobs(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -232,7 +232,7 @@ int vl_method_clear_all_jobs(sd_varlink *link, sd_json_variant *parameters, sd_v
 
         r = mac_selinux_access_check_varlink(link, "reload");
         if (r < 0)
-                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
 
         r = varlink_verify_polkit_async(
                         link,
@@ -248,5 +248,5 @@ int vl_method_clear_all_jobs(sd_varlink *link, sd_json_variant *parameters, sd_v
 
         manager_clear_jobs(manager);
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }

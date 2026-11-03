@@ -18,7 +18,7 @@ static inline bool nulstr_contains(const char *nulstr, const char *needle) {
 
 char** strv_parse_nulstr_full(const char *s, size_t l, bool drop_trailing_nuls);
 static inline char** strv_parse_nulstr(const char *s, size_t l) {
-        return strv_parse_nulstr_full(s, l, false);
+        return strv_parse_nulstr_full(s, l, /* drop_trailing_nuls= */ false);
 }
 char** strv_split_nulstr(const char *s);
 static inline int strv_from_nulstr(char ***ret, const char *nulstr) {

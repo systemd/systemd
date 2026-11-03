@@ -85,7 +85,7 @@ static int auto_device_on_settle(sd_event_source *s, uint64_t usec, void *userda
                 return sd_event_exit(c->event, -ENODEV);
         }
 
-        return sd_event_exit(c->event, 0);
+        return sd_event_exit(c->event, /* code= */ 0);
 }
 
 static int auto_device_on_countdown(sd_event_source *s, uint64_t usec, void *userdata) {

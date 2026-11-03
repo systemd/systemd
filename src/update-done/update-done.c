@@ -41,7 +41,7 @@ static int save_timestamp(const char *dir, struct timespec *ts) {
 
         fd = chase_and_open(dir, arg_root,
                             CHASE_PREFIX_ROOT | CHASE_WARN | CHASE_MUST_BE_DIRECTORY,
-                            O_DIRECTORY | O_CLOEXEC | O_CREAT,
+                            O_DIRECTORY | O_CREAT,
                             &dirpath);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open %s%s: %m", strempty(arg_root), dir);
@@ -57,7 +57,7 @@ static int save_timestamp(const char *dir, struct timespec *ts) {
 
         r = write_string_file_full(fd, ".updated", message,
                                    WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL,
-                                   ts, NULL);
+                                   ts, /* label_fn= */ NULL);
         if (r == -EROFS && !arg_root)
                 log_debug_errno(r, "Cannot create \"%s/.updated\", file system is read-only.", dirpath);
         else if (r < 0)

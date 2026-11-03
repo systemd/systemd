@@ -35,14 +35,14 @@ static inline int mac_smack_read(const char *path, SmackAttr attr, char **ret) {
         return mac_smack_read_at(AT_FDCWD, path, attr, ret);
 }
 static inline int mac_smack_read_fd(int fd, SmackAttr attr, char **ret) {
-        return mac_smack_read_at(fd, NULL, attr, ret);
+        return mac_smack_read_at(fd, /* path= */ NULL, attr, ret);
 }
 
 static inline int mac_smack_apply(const char *path, SmackAttr attr, const char *label) {
         return mac_smack_apply_at(AT_FDCWD, path, attr, label);
 }
 static inline int mac_smack_apply_fd(int fd, SmackAttr attr, const char *label) {
-        return mac_smack_apply_at(fd, NULL, attr, label);
+        return mac_smack_apply_at(fd, /* path= */ NULL, attr, label);
 }
 
 int mac_smack_fix(const char *path, LabelFixFlags flags);

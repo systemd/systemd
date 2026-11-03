@@ -9,8 +9,10 @@
 #include "sd-event.h"
 
 #include "dhcp-server-internal.h"
+#include "dhcp-server-lease-internal.h"
 #include "dhcp-server-request.h"
 #include "fd-util.h"
+#include "hashmap.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "set.h"
@@ -36,20 +38,20 @@ TEST(basic) {
         ASSERT_PTR_EQ(sd_dhcp_server_get_event(server), event);
         ASSERT_OK(sd_dhcp_server_detach_event(server));
         ASSERT_NULL(sd_dhcp_server_get_event(server));
-        ASSERT_OK(sd_dhcp_server_attach_event(server, NULL, SD_EVENT_PRIORITY_NORMAL));
-        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_dhcp_server_attach_event(server, NULL, SD_EVENT_PRIORITY_NORMAL), EBUSY));
+        ASSERT_OK(sd_dhcp_server_attach_event(server, /* event= */ NULL, SD_EVENT_PRIORITY_NORMAL));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_dhcp_server_attach_event(server, /* event= */ NULL, SD_EVENT_PRIORITY_NORMAL), EBUSY));
 
         ASSERT_TRUE(sd_dhcp_server_ref(server) == server);
         ASSERT_NULL(sd_dhcp_server_unref(server));
 
         ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_dhcp_server_start(server), EUNATCH));
 
-        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_dhcp_server_configure_pool(server, &address_any, 28, 0, 0), EINVAL));
-        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_dhcp_server_configure_pool(server, &address_lo, 38, 0, 0), ERANGE));
-        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 0));
-        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 0));
-        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_dhcp_server_configure_pool(server, &address_any, 8, 0, 1), EINVAL));
-        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 1));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_dhcp_server_configure_pool(server, &address_any, 28, /* offset= */ 0, /* size= */ 0), EINVAL));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_dhcp_server_configure_pool(server, &address_lo, 38, /* offset= */ 0, /* size= */ 0), ERANGE));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, /* offset= */ 0, /* size= */ 0));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, /* offset= */ 0, /* size= */ 0));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_dhcp_server_configure_pool(server, &address_any, 8, /* offset= */ 0, 1), EINVAL));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, /* offset= */ 0, 1));
 
         _cleanup_close_pair_ int socket_fd[2] = EBADF_PAIR;
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, socket_fd));
@@ -71,16 +73,16 @@ TEST(sd_dhcp_server_configure_pool) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
         ASSERT_OK(sd_dhcp_server_new(&server, 4242));
 
-        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address, 24, 0, 0));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address, 24, /* offset= */ 0, /* size= */ 0));
         ASSERT_EQ(server->pool_offset, 1u);
         ASSERT_EQ(server->pool_size, 254u);
 
-        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address, 24, 0, 254));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address, 24, /* offset= */ 0, 254));
         ASSERT_RETURN_EXPECTED(ASSERT_ERROR(
-                        sd_dhcp_server_configure_pool(server, &address, 24, 0, 255),
+                        sd_dhcp_server_configure_pool(server, &address, 24, /* offset= */ 0, 255),
                         ERANGE));
 
-        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address, 24, 254, 0));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address, 24, 254, /* size= */ 0));
         ASSERT_EQ(server->pool_offset, 254u);
         ASSERT_EQ(server->pool_size, 1u);
 
@@ -92,19 +94,19 @@ TEST(sd_dhcp_server_configure_pool) {
         ASSERT_EQ(server->pool_size, 1u);
 
         ASSERT_RETURN_EXPECTED(ASSERT_ERROR(
-                        sd_dhcp_server_configure_pool(server, &address, 24, 255, 0),
+                        sd_dhcp_server_configure_pool(server, &address, 24, 255, /* size= */ 0),
                         ERANGE));
         ASSERT_RETURN_EXPECTED(ASSERT_ERROR(
                         sd_dhcp_server_configure_pool(server, &address, 24, 255, 1),
                         ERANGE));
         ASSERT_RETURN_EXPECTED(ASSERT_ERROR(
-                        sd_dhcp_server_configure_pool(server, &address, 24, 256, 0),
+                        sd_dhcp_server_configure_pool(server, &address, 24, 256, /* size= */ 0),
                         ERANGE));
         ASSERT_RETURN_EXPECTED(ASSERT_ERROR(
                         sd_dhcp_server_configure_pool(server, &address, 24, 256, 1),
                         ERANGE));
         ASSERT_RETURN_EXPECTED(ASSERT_ERROR(
-                        sd_dhcp_server_configure_pool(server, &address, 24, UINT32_MAX, 0),
+                        sd_dhcp_server_configure_pool(server, &address, 24, UINT32_MAX, /* size= */ 0),
                         ERANGE));
         ASSERT_RETURN_EXPECTED(ASSERT_ERROR(
                         sd_dhcp_server_configure_pool(server, &address, 24, UINT32_MAX, 1),
@@ -115,7 +117,7 @@ TEST(sd_dhcp_server_configure_pool) {
         ASSERT_EQ(server->pool_size, 1u);
 
         ASSERT_RETURN_EXPECTED(ASSERT_ERROR(
-                        sd_dhcp_server_configure_pool(server, &address, 30, 3, 0),
+                        sd_dhcp_server_configure_pool(server, &address, 30, 3, /* size= */ 0),
                         ERANGE));
         ASSERT_EQ(server->pool_offset, 2u);
         ASSERT_EQ(server->pool_size, 1u);
@@ -163,7 +165,7 @@ TEST(dhcp_server_process_message) {
 
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
         ASSERT_OK(sd_dhcp_server_new(&server, 4242));
-        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 0));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, /* offset= */ 0, /* size= */ 0));
         ASSERT_OK(sd_dhcp_server_set_static_lease(
                         server,
                         &static_lease_address,
@@ -355,7 +357,7 @@ TEST(dhcp_server_rapid_commit_ipv6_only_preferred) {
 
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
         ASSERT_OK(sd_dhcp_server_new(&server, 4242));
-        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 0));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, /* offset= */ 0, /* size= */ 0));
         ASSERT_OK(sd_dhcp_server_set_ipv6_only_preferred_usec(server, MIN_V6ONLY_WAIT_USEC));
         ASSERT_OK(sd_dhcp_server_attach_event(server, event, SD_EVENT_PRIORITY_NORMAL));
         server->socket_fd = TAKE_FD(socket_fd[0]);
@@ -373,6 +375,170 @@ TEST(dhcp_server_rapid_commit_ipv6_only_preferred) {
         /* Option 108 disabled on the server, rapid commit is honored again. */
         ASSERT_OK(sd_dhcp_server_set_ipv6_only_preferred_usec(server, 0));
         ASSERT_OK_EQ(process_one(server, m), DHCP_ACK);
+}
+
+static void set_message_type(sd_dhcp_message *m, uint8_t type) {
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_MESSAGE_TYPE);
+        ASSERT_OK(dhcp_message_append_option_u8(m, SD_DHCP_OPTION_MESSAGE_TYPE, type));
+}
+
+static void set_client_id(sd_dhcp_message *m, const sd_dhcp_client_id *client_id) {
+        dhcp_message_remove_option(m, SD_DHCP_OPTION_CLIENT_IDENTIFIER);
+        ASSERT_OK(dhcp_message_append_option_client_id(m, client_id));
+}
+
+static void check_bound_lease(sd_dhcp_server *server, be32_t address, const sd_dhcp_client_id *client_id) {
+        sd_dhcp_server_lease *lease = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(address));
+        ASSERT_NOT_NULL(lease);
+        ASSERT_TRUE(client_id_equal(&lease->client_id, client_id));
+        ASSERT_EQ(hashmap_size(server->bound_leases_by_client_id), 1u);
+}
+
+TEST(dhcp_server_static_lease_client_id_change) {
+        static const struct hw_addr_data hw_addr = {
+                .length = ETH_ALEN,
+                .ether = {{ 'A', 'B', 'C', 'D', 'E', 'F' }},
+        };
+        be32_t static_address = htobe32(INADDR_LOOPBACK + 42);
+
+        /* The client ID generated from the hardware address, e.g. sent by dhclient without -i. */
+        sd_dhcp_client_id client_id_mac = {
+                .size = 7,
+                .id.type = 1,
+                .id.eth.haddr = { 'A', 'B', 'C', 'D', 'E', 'F' },
+        };
+        /* Node-specific client IDs (RFC 4361), e.g. sent by dhclient -i or by systemd-networkd. */
+        sd_dhcp_client_id client_id_duid, client_id_duid_other;
+        ASSERT_OK(sd_dhcp_client_id_set_raw(
+                        &client_id_duid,
+                        (const uint8_t[]) { 0xff, 0x12, 0x34, 0x56, 0x78, 0x00, 0x04, 0xde, 0xad },
+                        9));
+        ASSERT_OK(sd_dhcp_client_id_set_raw(
+                        &client_id_duid_other,
+                        (const uint8_t[]) { 0xff, 0x12, 0x34, 0x56, 0x78, 0x00, 0x04, 0xbe, 0xef },
+                        9));
+
+        _cleanup_close_pair_ int socket_fd[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, socket_fd));
+
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        ASSERT_OK(sd_event_new(&event));
+
+        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+        ASSERT_OK(sd_dhcp_server_new(&server, 4242));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &(struct in_addr) { htobe32(INADDR_LOOPBACK) },
+                                                8, /* offset= */ 0, /* size= */ 0));
+        ASSERT_OK(sd_dhcp_server_set_static_lease(
+                        server,
+                        &(struct in_addr) { .s_addr = static_address },
+                        client_id_mac.raw,
+                        client_id_mac.size,
+                        /* hostname= */ NULL));
+        ASSERT_OK(sd_dhcp_server_attach_event(server, event, SD_EVENT_PRIORITY_NORMAL));
+        server->socket_fd = TAKE_FD(socket_fd[0]);
+        ASSERT_OK(sd_dhcp_server_start(server));
+
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
+        ASSERT_OK(dhcp_message_new(&m));
+        ASSERT_OK(dhcp_message_init_header(m, BOOTREQUEST, 0x12345678, ARPHRD_ETHER, &hw_addr));
+        ASSERT_OK(dhcp_message_append_option_be32(m, SD_DHCP_OPTION_SERVER_IDENTIFIER,
+                                                  htobe32(INADDR_LOOPBACK)));
+        ASSERT_OK(dhcp_message_append_option_be32(m, SD_DHCP_OPTION_REQUESTED_IP_ADDRESS, static_address));
+
+        /* The host acquires the static address with the client ID generated from its hardware address. */
+        set_client_id(m, &client_id_mac);
+        set_message_type(m, DHCP_DISCOVER);
+        ASSERT_OK_EQ(process_one(server, m), DHCP_OFFER);
+        set_message_type(m, DHCP_REQUEST);
+        ASSERT_OK_EQ(process_one(server, m), DHCP_ACK);
+        check_bound_lease(server, static_address, &client_id_mac);
+
+        /* The same host requests the static address with a node-specific client ID. The bound lease with
+         * the old client ID must not prevent the host from acquiring its static address. */
+        set_client_id(m, &client_id_duid);
+        set_message_type(m, DHCP_DISCOVER);
+        ASSERT_OK_EQ(process_one(server, m), DHCP_OFFER);
+        set_message_type(m, DHCP_REQUEST);
+        ASSERT_OK_EQ(process_one(server, m), DHCP_ACK);
+        check_bound_lease(server, static_address, &client_id_duid);
+
+        /* Another host with the same hardware address and another node-specific client ID, e.g. an ipvlan
+         * L2 child, must not take over the address. */
+        set_client_id(m, &client_id_duid_other);
+        set_message_type(m, DHCP_DISCOVER);
+        ASSERT_ERROR(process_one(server, m), EADDRINUSE);
+        set_message_type(m, DHCP_REQUEST);
+        ASSERT_OK_EQ(process_one(server, m), DHCP_NAK);
+        check_bound_lease(server, static_address, &client_id_duid);
+
+        /* Another host with the client ID previously used by the host must not take over the address. */
+        m->header.chaddr[5] = 'X';
+        set_client_id(m, &client_id_mac);
+        set_message_type(m, DHCP_DISCOVER);
+        ASSERT_ERROR(process_one(server, m), EADDRINUSE);
+        set_message_type(m, DHCP_REQUEST);
+        ASSERT_OK_EQ(process_one(server, m), DHCP_NAK);
+        check_bound_lease(server, static_address, &client_id_duid);
+        m->header.chaddr[5] = 'F';
+
+        /* The host goes back to the client ID generated from its hardware address, with Rapid Commit. */
+        set_client_id(m, &client_id_mac);
+        set_message_type(m, DHCP_DISCOVER);
+        ASSERT_OK(dhcp_message_append_option_flag(m, SD_DHCP_OPTION_RAPID_COMMIT));
+        ASSERT_OK_EQ(process_one(server, m), DHCP_ACK);
+        check_bound_lease(server, static_address, &client_id_mac);
+}
+
+TEST(dhcp_server_static_lease_special_addresses) {
+        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+        ASSERT_OK(sd_dhcp_server_new(&server, 4242));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &(struct in_addr) { htobe32(INADDR_LOOPBACK) },
+                                                8, 0, 0));
+
+        sd_dhcp_client_id client_id_subnet = {
+                .size = 7,
+                .id.type = 1,
+                .id.eth.haddr = { 'A', 'B', 'C', 'D', 'E', 'G' },
+        };
+        sd_dhcp_client_id client_id_broadcast = {
+                .size = 7,
+                .id.type = 1,
+                .id.eth.haddr = { 'A', 'B', 'C', 'D', 'E', 'H' },
+        };
+        sd_dhcp_client_id client_id_normal = {
+                .size = 7,
+                .id.type = 1,
+                .id.eth.haddr = { 'A', 'B', 'C', 'D', 'E', 'I' },
+        };
+
+        ASSERT_OK(sd_dhcp_server_set_static_lease(
+                        server,
+                        &(struct in_addr) { .s_addr = server->subnet },
+                        client_id_subnet.raw,
+                        client_id_subnet.size,
+                        /* hostname= */ NULL));
+        ASSERT_OK(sd_dhcp_server_set_static_lease(
+                        server,
+                        &(struct in_addr) { .s_addr = server->subnet | ~server->netmask },
+                        client_id_broadcast.raw,
+                        client_id_broadcast.size,
+                        /* hostname= */ NULL));
+        ASSERT_OK(sd_dhcp_server_set_static_lease(
+                        server,
+                        &(struct in_addr) { .s_addr = htobe32(INADDR_LOOPBACK + 42) },
+                        client_id_normal.raw,
+                        client_id_normal.size,
+                        /* hostname= */ NULL));
+
+        /* Static lease lookup is used while processing DHCPDISCOVER. */
+        DHCPRequest req = { .client_id = client_id_subnet };
+        ASSERT_NULL(dhcp_server_get_static_lease(server, &req));
+
+        req.client_id = client_id_broadcast;
+        ASSERT_NULL(dhcp_server_get_static_lease(server, &req));
+
+        req.client_id = client_id_normal;
+        ASSERT_NOT_NULL(dhcp_server_get_static_lease(server, &req));
 }
 
 TEST(sd_dhcp_server_set_static_lease) {
@@ -467,10 +633,10 @@ TEST(sd_dhcp_server_set_domain_name) {
         ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, "test.local"));
 
         /* Test clearing domain name */
-        ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, NULL));
+        ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, /* domain_name= */ NULL));
 
         /* Test clearing again (should return 0 - already cleared) */
-        ASSERT_OK_ZERO(sd_dhcp_server_set_domain_name(server, NULL));
+        ASSERT_OK_ZERO(sd_dhcp_server_set_domain_name(server, /* domain_name= */ NULL));
 
         /* Test invalid domain name */
         ASSERT_ERROR(sd_dhcp_server_set_domain_name(server, "invalid..domain"), EINVAL);
@@ -479,7 +645,7 @@ TEST(sd_dhcp_server_set_domain_name) {
         ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, ""));
 
         /* Test clearing domain name with NULL */
-        ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, NULL));
+        ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, /* domain_name= */ NULL));
 
         /* Test valid domain with subdomain */
         ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, "sub.example.com"));

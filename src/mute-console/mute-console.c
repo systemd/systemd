@@ -219,7 +219,7 @@ static void vl_on_disconnect(sd_varlink_server *server, sd_varlink *link, void *
         (void) unmute_pid1(c);
         (void) unmute_kernel(c);
 
-        (void) sd_varlink_set_userdata(c->link, NULL);
+        (void) sd_varlink_set_userdata(c->link, /* userdata= */ NULL);
         sd_varlink_flush_close_unref(c->link);
 
         free(c);

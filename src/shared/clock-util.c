@@ -34,7 +34,7 @@ int clock_is_localtime(const char *adjtime_path) {
 
         _cleanup_free_ char *line = NULL;
         for (unsigned i = 0; i < 2; i++) { /* skip the first two lines */
-                r = read_line(f, LONG_LINE_MAX, NULL);
+                r = read_line(f, LONG_LINE_MAX, /* ret= */ NULL);
                 if (r < 0)
                         return r;
                 if (r == 0)

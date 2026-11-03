@@ -58,3 +58,7 @@ int iovec_done_and_memdup(struct iovec *iovec, const struct iovec *source);
 struct iovec* iovec_append(struct iovec *iovec, const struct iovec *append);
 
 struct iovec* iovec_consume(struct iovec *iovec, size_t n);
+
+static inline struct iovec* iovec_unset_nullify(const struct iovec *iov) {
+        return iovec_is_set(iov) ? (struct iovec*) iov : NULL;
+}

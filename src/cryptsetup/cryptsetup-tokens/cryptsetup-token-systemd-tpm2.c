@@ -189,7 +189,7 @@ _public_ int cryptsetup_token_open(
                 size_t *ret_password_len,
                 void *usrptr /* plugin defined parameter passed to crypt_activate_by_token*() API */) {
 
-        return cryptsetup_token_open_pin(cd, token, NULL, 0, ret_password, ret_password_len, usrptr);
+        return cryptsetup_token_open_pin(cd, token, /* pin= */ NULL, /* pin_size= */ 0, ret_password, ret_password_len, usrptr);
 }
 
 /*

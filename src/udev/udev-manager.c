@@ -794,7 +794,7 @@ int manager_requeue_locked_events_by_device(Manager *manager, sd_device *dev) {
                 return 0;
 
         const char *devname;
-        r = udev_get_whole_disk(dev, NULL, &devname);
+        r = udev_get_whole_disk(dev, /* ret_device= */ NULL, &devname);
         if (r <= 0)
                 return r;
 
@@ -1029,7 +1029,7 @@ static int manager_deserialize_events(Manager *manager, int *fd) {
 
         uint64_t n = 0;
         for (;;) {
-                r = fd_wait_for_event(sd_device_monitor_get_fd(storage), POLLIN, 0);
+                r = fd_wait_for_event(sd_device_monitor_get_fd(storage), POLLIN, /* timeout= */ 0);
                 if (r == -EINTR)
                         continue;
                 if (r < 0)
@@ -1068,7 +1068,7 @@ static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata)
 
         (void) manager_create_queue_file(manager);
 
-        device_ensure_usec_initialized(dev, NULL);
+        device_ensure_usec_initialized(dev, /* device_old= */ NULL);
 
         r = event_queue_insert(manager, dev);
         if (r < 0) {
@@ -1302,7 +1302,7 @@ static int on_post_exit(Manager *manager) {
 
         udev_watch_dump(manager);
 
-        return sd_event_exit(manager->event, 0);
+        return sd_event_exit(manager->event, /* code= */ 0);
 }
 
 static int on_post(sd_event_source *s, void *userdata) {

@@ -271,7 +271,7 @@ _public_ int sd_bus_error_setf(sd_bus_error *e, const char *name, const char *fo
                 return r;
         }
 
-        r = sd_bus_error_set(e, name, NULL);
+        r = sd_bus_error_set(e, name, /* message= */ NULL);
         if (name)
                 assert(r < 0);
         return r;

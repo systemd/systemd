@@ -10,6 +10,7 @@
 # Settings for systemd units distributed with systemd itself, specific to initrds.
 
 enable systemd-confext-sysroot.service
+enable systemd-efivars-clear.service
 enable systemd-journald-audit.socket
 enable systemd-network-generator.service
 enable systemd-networkd.service

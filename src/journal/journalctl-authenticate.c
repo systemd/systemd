@@ -55,7 +55,7 @@ static int format_key(
 
         fprintf(f, "/%"PRIx64"-%"PRIx64, start, interval);
 
-        return memstream_finalize(&m, ret, NULL);
+        return memstream_finalize(&m, ret, /* ret_size= */ NULL);
 }
 #endif
 
@@ -122,7 +122,7 @@ int action_setup_keys(void) {
         n = now(CLOCK_REALTIME);
         n /= arg_interval;
 
-        fd = open_tmpfile_linkable(path, O_WRONLY|O_CLOEXEC, &tmpfile);
+        fd = open_tmpfile_linkable(path, O_WRONLY, &tmpfile);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open a temporary file for %s: %m", path);
 

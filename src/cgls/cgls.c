@@ -187,7 +187,7 @@ static int run(int argc, char *argv[]) {
                                         RuntimeScope scope = arg_show_unit == SHOW_UNIT_USER ? RUNTIME_SCOPE_USER : RUNTIME_SCOPE_SYSTEM;
 
                                         /* Connect to the bus only if necessary */
-                                        r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, scope, &bus);
+                                        r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, /* host= */ NULL, scope, &bus);
                                         if (r < 0)
                                                 return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL, scope);
                                 }
@@ -204,21 +204,21 @@ static int run(int argc, char *argv[]) {
                                 printf("Unit %s (%s):\n", unit_name, cgroup);
                                 fflush(stdout);
 
-                                q = show_cgroup(cgroup, NULL, 0, arg_output_flags);
+                                q = show_cgroup(cgroup, /* prefix= */ NULL, /* n_columns= */ 0, arg_output_flags);
 
                         } else if (path_startswith(*name, "/sys/fs/cgroup")) {
 
                                 printf("Directory %s:\n", *name);
                                 fflush(stdout);
 
-                                q = show_cgroup_by_path(*name, NULL, 0, arg_output_flags);
+                                q = show_cgroup_by_path(*name, /* prefix= */ NULL, /* n_columns= */ 0, arg_output_flags);
                         } else {
                                 _cleanup_free_ char *c = NULL, *p = NULL, *j = NULL;
                                 const char *path;
 
                                 if (!root) {
                                         /* Query root only if needed, treat error as fatal */
-                                        r = show_cgroup_get_path_and_warn(arg_machine, NULL, &root);
+                                        r = show_cgroup_get_path_and_warn(arg_machine, /* prefix= */ NULL, &root);
                                         if (r < 0)
                                                 return log_error_errno(r, "Failed to list cgroup tree: %m");
                                 }
@@ -244,7 +244,7 @@ static int run(int argc, char *argv[]) {
 
                                 show_cg_info(path);
 
-                                q = show_cgroup(path, NULL, 0, arg_output_flags);
+                                q = show_cgroup(path, /* prefix= */ NULL, /* n_columns= */ 0, arg_output_flags);
                         }
 
                 failed:
@@ -266,7 +266,7 @@ static int run(int argc, char *argv[]) {
                                 printf("Working directory %s:\n", cwd);
                                 fflush(stdout);
 
-                                r = show_cgroup_by_path(cwd, NULL, 0, arg_output_flags);
+                                r = show_cgroup_by_path(cwd, /* prefix= */ NULL, /* n_columns= */ 0, arg_output_flags);
                                 done = true;
                         }
                 }
@@ -274,14 +274,14 @@ static int run(int argc, char *argv[]) {
                 if (!done) {
                         _cleanup_free_ char *root = NULL;
 
-                        r = show_cgroup_get_path_and_warn(arg_machine, NULL, &root);
+                        r = show_cgroup_get_path_and_warn(arg_machine, /* prefix= */ NULL, &root);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to list cgroup tree: %m");
 
                         show_cg_info(root);
 
                         printf("-.slice\n");
-                        r = show_cgroup(root, NULL, 0, arg_output_flags);
+                        r = show_cgroup(root, /* prefix= */ NULL, /* n_columns= */ 0, arg_output_flags);
                 }
         }
         if (r < 0)

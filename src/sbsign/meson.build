@@ -6,10 +6,7 @@ executables += [
                 'conditions' : [
                         'HAVE_OPENSSL',
                 ],
-                'sources' : files(
-                        'sbsign.c',
-                        'authenticode.c',
-                ),
+                'sources' : files('sbsign.c'),
                 'dependencies' : libopenssl_cflags,
         },
 ]

@@ -14,24 +14,19 @@
 #include "string-util.h"
 #include "strv.h"
 
-int read_resource_pressure(const char *path, PressureType type, ResourcePressure *ret) {
+int read_resource_pressure_file(FILE *f, PressureType type, ResourcePressure *ret) {
         _cleanup_free_ char *line = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
         unsigned field_filled = 0;
         ResourcePressure rp = {};
         const char *cline;
         char *word;
         int r;
 
-        assert(path);
+        assert(f);
         assert(IN_SET(type, PRESSURE_TYPE_SOME, PRESSURE_TYPE_FULL));
         assert(ret);
 
         const char *t = ASSERT_PTR(pressure_type_to_string(type));
-
-        r = fopen_unlocked(path, "re", &f);
-        if (r < 0)
-                return r;
 
         for (;;) {
                 _cleanup_free_ char *l = NULL;
@@ -55,7 +50,7 @@ int read_resource_pressure(const char *path, PressureType type, ResourcePressure
                 return -ENODATA;
 
         /* extracts either avgX=Y.Z or total=X */
-        while ((r = extract_first_word(&cline, &word, NULL, 0)) > 0) {
+        while ((r = extract_first_word(&cline, &word, /* separators= */ NULL, /* flags= */ 0)) > 0) {
                 _cleanup_free_ char *w = word;
                 const char *v;
 
@@ -98,6 +93,19 @@ int read_resource_pressure(const char *path, PressureType type, ResourcePressure
 
         *ret = rp;
         return 0;
+}
+
+int read_resource_pressure(const char *path, PressureType type, ResourcePressure *ret) {
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        assert(path);
+
+        r = fopen_unlocked(path, "re", &f);
+        if (r < 0)
+                return r;
+
+        return read_resource_pressure_file(f, type, ret);
 }
 
 const PressureResourceInfo pressure_resource_info[_PRESSURE_RESOURCE_MAX] = {
@@ -144,7 +152,7 @@ int is_pressure_supported(void) {
                 return cached;
 
         FOREACH_STRING(p, "/proc/pressure/cpu", "/proc/pressure/io", "/proc/pressure/memory") {
-                r = read_virtual_file(p, 0, NULL, NULL);
+                r = read_virtual_file(p, /* max_size= */ 0, /* ret_contents= */ NULL, /* ret_size= */ NULL);
                 if (r == -ENOENT || ERRNO_IS_NEG_NOT_SUPPORTED(r))
                         return (cached = false);
                 if (r < 0)

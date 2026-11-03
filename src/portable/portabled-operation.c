@@ -58,7 +58,7 @@ static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdat
                         goto fail;
                 }
 
-                r = sd_bus_reply_method_return(o->message, NULL);
+                r = sd_bus_reply_method_return(o->message, /* types= */ NULL);
                 if (r < 0)
                         log_error_errno(r, "Failed to reply to message: %m");
         }

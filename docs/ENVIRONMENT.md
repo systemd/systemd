@@ -96,6 +96,11 @@ All tools:
 * `$SD_EVENT_PROFILE_DELAYS=1` — if set, the sd-event event loop implementation
   will print latency information at runtime.
 
+* `$SYSTEMD_EVENT_IO_URING=` — takes a boolean. If true, every sd-event event
+  loop uses io_uring for fiber I/O. If false, no event loop uses io_uring. If
+  unset, only the event loops of programs that enable io_uring use it. Only
+  useful for testing.
+
 * `$SYSTEMD_BUS_TIMEOUT=SECS` — specifies the maximum time to wait for method call
   completion. If no time unit is specified, assumes seconds. The usual other units
   are understood, too (us, ms, s, min, h, d, w, month, y). If it is not set or set
@@ -144,7 +149,8 @@ All tools:
   stable `<ROOTHASH>-verity` device mapper name. The default for this depends
   on the subsystem in question. Usually,
   RootImage=/ExtensionImages=/MountImages= in unit files default to enabled,
-  while other uses default to disabled for this.
+  while other uses default to disabled for this. For unprivileged clients of
+  `systemd-mountfsd`, reuse requires the same backing image file.
 
 * `$SYSTEMD_DISSECT_TPM2_UNLOCK=` — takes a boolean. If false, turns off
   unlocking of LUKS encrypted partitions in disk images via a TPM2 token
@@ -573,7 +579,9 @@ disk images with `--image=` or similar:
   (which is the default), the signature of suitable disk images is validated
   against any of the certificates in `/etc/verity.d/*.crt` (and similar
   directories in `/usr/lib/`, `/run`, …) or passed to the kernel for validation
-  against its built-in certificates.
+  against its built-in certificates. A signature that fails validation only
+  prevents activation if the image policy allows `signed` but not `verity`, see
+  `systemd.image-policy(7)`.
 
 * `$SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC=sec` — takes a timespan, which controls
   the timeout waiting for the image to be configured. Defaults to 100 msec.
@@ -799,6 +807,15 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
 * `$SYSTEMD_LLDP_SEND_MACHINE_ID` - takes a boolean, If true, systemd-networkd
   sends machine ID as chassis ID through LLDP protocol.
 
+* `$SYSTEMD_NETWORK_MAX_ADDRESSES_PER_LINK` – takes a positive integer.
+  Defaults to 16384. Limits the number of addresses that `systemd-networkd`
+  may add per link.
+
+* `$SYSTEMD_NETWORK_MAX_STATIC_ADDRESSES_PER_NETWORK` – takes a positive
+  integer. Defaults to 8192. Limits the number of static addresses that
+  `systemd-networkd` may add per `.network` file. The effective limit is capped
+  by `$SYSTEMD_NETWORK_MAX_ADDRESSES_PER_LINK`.
+
 `systemd-storagetm`:
 
 * `$SYSTEMD_NVME_MODEL`, `$SYSTEMD_NVME_FIRMWARE`, `$SYSTEMD_NVME_SERIAL`,
@@ -890,6 +907,13 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
   `process`, `session`, `user`, `user-session`, or `group`. Controls the kernel
   keyring in which `systemd-ask-password` caches the queried password. Defaults
   to `user`.
+
+`systemd-efivars-clear`:
+
+* `SYSTEMD_EFIVARS_ALLOW_CLEAR` – takes a boolean. Overrides the effect of the
+  `systemd.efivars_allow_clear=` kernel command line option: if set to false,
+  requesting erasing of the boot loader's EFI variables is skipped, and the
+  command immediately exits successfully.
 
 `systemd-tpm2-clear`:
 

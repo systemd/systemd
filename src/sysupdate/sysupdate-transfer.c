@@ -95,7 +95,9 @@ Transfer* transfer_new(Context *ctx) {
 
         *t = (Transfer) {
                 .source.type = _RESOURCE_TYPE_INVALID,
+                .source.manifest_format = MANIFEST_FORMAT_SHA256SUMS,
                 .target.type = _RESOURCE_TYPE_INVALID,
+                .target.manifest_format = _MANIFEST_FORMAT_INVALID,
                 .remove_temporary = -1,
                 .mode = MODE_INVALID,
                 .tries_left = UINT64_MAX,
@@ -203,14 +205,14 @@ static int config_parse_current_symlink(
                 return 0;
         }
 
-        r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
+        r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, t->context->root, /* userdata= */ NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in CurrentSymlink=, ignoring: %s", rvalue);
                 return 0;
         }
 
-        r = path_simplify_and_warn(resolved, 0, unit, filename, line, lvalue);
+        r = path_simplify_and_warn(resolved, /* flags= */ 0, unit, filename, line, lvalue);
         if (r < 0)
                 return 0;
 
@@ -324,7 +326,7 @@ static int config_parse_resource_pattern(
         for (;;) {
                 _cleanup_free_ char *word = NULL, *resolved = NULL;
 
-                r = extract_first_word(&rvalue, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_RELAX);
+                r = extract_first_word(&rvalue, &word, /* separators= */ NULL, EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_RELAX);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to extract first pattern from MatchPattern=, ignoring: %s", rvalue);
@@ -333,7 +335,7 @@ static int config_parse_resource_pattern(
                 if (r == 0)
                         break;
 
-                r = specifier_printf(word, NAME_MAX, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
+                r = specifier_printf(word, NAME_MAX, system_and_tmp_specifier_table, t->context->root, /* userdata= */ NULL, &resolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to expand specifiers in MatchPattern=, ignoring: %s", rvalue);
@@ -372,6 +374,7 @@ static int config_parse_resource_path(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+
         _cleanup_free_ char *resolved = NULL;
         Resource *rr = ASSERT_PTR(data);
         Transfer *t = ASSERT_PTR(userdata);
@@ -379,7 +382,7 @@ static int config_parse_resource_path(
 
         assert(rvalue);
 
-        r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, t->context->root, NULL, &resolved);
+        r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, t->context->root, /* userdata= */ NULL, &resolved);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in Path=, ignoring: %s", rvalue);
@@ -394,6 +397,8 @@ static int config_parse_resource_path(
 }
 
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_resource_type, resource_type, ResourceType);
+static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_resource_manifest_format, manifest_format, ManifestFormat,
+                                             MANIFEST_FORMAT_SHA256SUMS);
 
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_resource_path_relto, path_relative_to, PathRelativeTo,
                                              PATH_RELATIVE_TO_ROOT);
@@ -498,6 +503,43 @@ static int config_parse_partition_flags(
 
         t->partition_flags_set = true;
         return 0;
+}
+
+static int config_parse_resource_manifest_path(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Transfer *t = ASSERT_PTR(userdata);
+        char **path = ASSERT_PTR(data);
+        int r;
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *path = mfree(*path);
+                return 0;
+        }
+
+        _cleanup_free_ char *resolved = NULL;
+        r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, t->context->root, /* userdata= */ NULL, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to expand specifiers in ManifestPath=, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        /* Note that we don't validate the path as URL here, because we want to stay close to
+         * config_parse_resource_path() semantics. */
+
+        return free_and_replace(*path, resolved);
 }
 
 static bool transfer_decide_if_enabled(Transfer *t, Hashmap *known_features) {
@@ -608,6 +650,21 @@ static int transfer_finalize(Transfer *t, const char *origin, unsigned line, Has
                                                   "Source path is not a valid HTTP, HTTPS, file, or provider URL: %s", t->source.path);
         }
 
+        if (t->source.manifest_format != MANIFEST_FORMAT_SHA256SUMS)
+                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Manifest format '%s' not supported for source specifications, refusing.",
+                                  manifest_format_to_string(t->source.manifest_format));
+
+        if (t->source.manifest_path) {
+                if (!RESOURCE_IS_URL(t->source.type))
+                        return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "ManifestPath= is only supported for URL sources.");
+
+                if (!http_url_is_valid(t->source.manifest_path) && !file_url_is_valid(t->source.manifest_path))
+                        return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "Manifest path is not a valid HTTP, HTTPS or file URL: %s", t->source.manifest_path);
+        }
+
         if (strv_isempty(t->source.patterns))
                 return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
                                   "Source specification lacks MatchPattern=.");
@@ -674,6 +731,8 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 { "Source",      "Path",                    config_parse_resource_path,                0,                    &t->source                  },
                 { "Source",      "PathRelativeTo",          config_parse_resource_path_relto,          0,                    &t->source.path_relative_to },
                 { "Source",      "MatchPattern",            config_parse_resource_pattern,             MATCH_PATTERN_SOURCE, &t->source.patterns         },
+                { "Source",      "ManifestFormat",          config_parse_resource_manifest_format,     0,                    &t->source.manifest_format  },
+                { "Source",      "ManifestPath",            config_parse_resource_manifest_path,       0,                    &t->source.manifest_path    },
                 { "Target",      "Type",                    config_parse_resource_type,                0,                    &t->target.type             },
                 { "Target",      "Path",                    config_parse_resource_path,                0,                    &t->target                  },
                 { "Target",      "PathRelativeTo",          config_parse_resource_path_relto,          0,                    &t->target.path_relative_to },
@@ -718,7 +777,7 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                         CONFIG_PARSE_WARN,
                         t,
                         /* ret_stats_by_path= */ NULL,
-                        /* ret_drop_in_files= */ NULL);
+                        /* ret_dropin_files= */ NULL);
         if (r < 0)
                 return r;
 
@@ -731,6 +790,7 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_resource_type, ResourceType, resource_type_from_string);
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_path_relative_to, PathRelativeTo, path_relative_to_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_manifest_format, ManifestFormat, manifest_format_from_string);
 
 static int dispatch_resource_path(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         Resource *rr = ASSERT_PTR(userdata);
@@ -875,7 +935,7 @@ static int dispatch_current_symlink(const char *name, sd_json_variant *variant, 
         if (r < 0)
                 return r;
 
-        r = path_simplify_and_warn(p, 0, /* unit= */ NULL, /* filename= */ NULL, /* line= */ 0, name);
+        r = path_simplify_and_warn(p, /* flags= */ 0, /* unit= */ NULL, /* filename= */ NULL, /* line= */ 0, name);
         if (r < 0)
                 return r;
 
@@ -890,6 +950,8 @@ static int dispatch_transfer_source(const char *name, sd_json_variant *variant, 
                 { "path",           SD_JSON_VARIANT_STRING, dispatch_resource_path,    offsetof(Transfer, source),                  SD_JSON_MANDATORY },
                 { "pathRelativeTo", SD_JSON_VARIANT_STRING, dispatch_path_relative_to, offsetof(Transfer, source.path_relative_to), SD_JSON_NULLABLE },
                 { "matchPattern",   SD_JSON_VARIANT_ARRAY,  dispatch_source_patterns,  offsetof(Transfer, source),                  SD_JSON_MANDATORY },
+                { "manifestFormat", SD_JSON_VARIANT_STRING, dispatch_manifest_format,  offsetof(Transfer, source.manifest_format),  SD_JSON_NULLABLE },
+                { "manifestPath",   SD_JSON_VARIANT_STRING, sd_json_dispatch_string,   offsetof(Transfer, source.manifest_path),    SD_JSON_NULLABLE },
                 {},
         };
 
@@ -962,6 +1024,8 @@ int transfer_from_json(Transfer *t, sd_json_variant *v, const char *origin, Hash
                 t->source.path_relative_to = PATH_RELATIVE_TO_ROOT;
         if (t->target.path_relative_to < 0)
                 t->target.path_relative_to = PATH_RELATIVE_TO_ROOT;
+        if (t->source.manifest_format < 0)
+                t->source.manifest_format = MANIFEST_FORMAT_SHA256SUMS;
 
         _cleanup_free_ char *o = path_join(origin, t->id);
         if (!o)
@@ -1438,10 +1502,10 @@ static int run_callout(
                 return log_error_errno(r, "Failed to create event: %m");
 
         /* Kill the helper & return an error if we get interrupted by a signal */
-        r = sd_event_add_signal(event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, NULL, INT_TO_PTR(-ECANCELED));
+        r = sd_event_add_signal(event, /* ret= */ NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, /* callback= */ NULL, INT_TO_PTR(-ECANCELED));
         if (r < 0)
                 return log_error_errno(r, "Failed to register signal to event: %m");
-        r = sd_event_add_signal(event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, NULL, INT_TO_PTR(-ECANCELED));
+        r = sd_event_add_signal(event, /* ret= */ NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, /* callback= */ NULL, INT_TO_PTR(-ECANCELED));
         if (r < 0)
                 return log_error_errno(r, "Failed to register signal to event: %m");
 
@@ -1475,7 +1539,7 @@ static int run_callout(
         if (r < 0)
                 return log_error_errno(r, "Failed to add child process to event loop: %m");
 
-        r = sd_event_source_set_child_process_own(exit_source, true);
+        r = sd_event_source_set_child_process_own(exit_source, /* own= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to take ownership of child process: %m");
 
@@ -2057,7 +2121,7 @@ int transfer_install_instance(
                         assert_not_reached();
 
                 if (resolve_link_path && root) {
-                        r = chase(link_path, root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT|CHASE_TRIGGER_AUTOFS, &resolved, NULL);
+                        r = chase(link_path, root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT|CHASE_TRIGGER_AUTOFS, &resolved, /* ret_fd= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to resolve current symlink path '%s': %m", link_path);
 

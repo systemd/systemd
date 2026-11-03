@@ -16,6 +16,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "io-util.h"
 #include "list.h"
 #include "main-func.h"
@@ -25,6 +26,14 @@
 #include "string-util.h"
 #include "time-util.h"
 #include "udev-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-rfkill\0",
+        "Load and save the RF kill switch state.",
+        .man_pages = "systemd-rfkill.service(8)\0",
+        .option_namespace = "common",
+);
 
 /* Note that any write is delayed until exit and the rfkill state will not be
  * stored for rfkill indices that disappear after a change. */
@@ -271,28 +280,29 @@ static int run(int argc, char *argv[]) {
         bool ready = false;
         int r, n;
 
-        if (argc > 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program requires no arguments.");
-
         log_setup();
+
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 0, /* ret_args= */ NULL);
+        if (r <= 0)
+                return r;
 
         umask(0022);
 
-        n = sd_listen_fds(false);
+        n = sd_listen_fds(/* unset_environment= */ false);
         if (n < 0)
                 return log_error_errno(n, "Failed to determine whether we got any file descriptors passed: %m");
         if (n > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Got too many file descriptors.");
 
         if (n == 0) {
-                c.rfkill_fd = open("/dev/rfkill", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                c.rfkill_fd = xopenat(AT_FDCWD, "/dev/rfkill", O_RDWR|O_NOCTTY|O_NONBLOCK);
                 if (c.rfkill_fd < 0) {
-                        if (errno == ENOENT) {
-                                log_debug_errno(errno, "Missing rfkill subsystem, or no device present, exiting.");
+                        if (c.rfkill_fd == -ENOENT) {
+                                log_debug_errno(c.rfkill_fd, "Missing rfkill subsystem, or no device present, exiting.");
                                 return 0;
                         }
 
-                        return log_error_errno(errno, "Failed to open %s: %m", "/dev/rfkill");
+                        return log_error_errno(c.rfkill_fd, "Failed to open %s: %m", "/dev/rfkill");
                 }
         } else {
                 c.rfkill_fd = SD_LISTEN_FDS_START;
@@ -313,7 +323,7 @@ static int run(int argc, char *argv[]) {
                         if (!ready) {
                                 /* Notify manager that we are now finished with processing whatever was
                                  * queued */
-                                r = sd_notify(false, "READY=1");
+                                r = sd_notify(/* unset_environment= */ false, "READY=1");
                                 if (r < 0)
                                         log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
 

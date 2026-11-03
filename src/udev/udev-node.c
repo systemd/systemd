@@ -352,7 +352,7 @@ static int stack_directory_open_and_lock(
         if (!dirpath)
                 return -ENOMEM;
 
-        dirfd = open_mkdir(dirpath, O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW | O_RDONLY, 0755);
+        dirfd = open_mkdir(dirpath, O_DIRECTORY | O_NOFOLLOW | O_RDONLY, 0755);
         if (dirfd < 0)
                 return log_device_debug_errno(dev, dirfd, "Failed to open stack directory '%s': %m", dirpath);
 
@@ -385,7 +385,7 @@ static int node_get_current(const char *slink, int dirfd, char **ret_id, int *re
                 return -ENOMEM;
 
         if (ret_prio) {
-                r = stack_directory_read_one(dirfd, id, NULL, ret_prio);
+                r = stack_directory_read_one(dirfd, id, /* devnode= */ NULL, ret_prio);
                 if (r < 0)
                         return r;
         }
@@ -674,13 +674,13 @@ static int udev_node_apply_permissions_impl(
 
                 /* set the defaults */
                 if (!selinux)
-                        (void) mac_selinux_fix_full(node_fd, NULL, devnode, LABEL_IGNORE_ENOENT, /* label_context= */ NULL);
+                        (void) mac_selinux_fix_full(node_fd, /* inode_path= */ NULL, devnode, LABEL_IGNORE_ENOENT, /* label_context= */ NULL);
                 if (!smack)
-                        (void) mac_smack_apply_fd(node_fd, SMACK_ATTR_ACCESS, NULL);
+                        (void) mac_smack_apply_fd(node_fd, SMACK_ATTR_ACCESS, /* label= */ NULL);
         }
 
         /* always update timestamp when we re-use the node, like on media change events */
-        r = futimens_opath(node_fd, NULL);
+        r = futimens_opath(node_fd, /* ts= */ NULL);
         if (r < 0)
                 log_device_debug_errno(dev, r, "Failed to adjust timestamp of node %s: %m", devnode);
 
@@ -705,9 +705,9 @@ int udev_node_apply_permissions(
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get devname: %m");
 
-        node_fd = sd_device_open(dev, O_PATH|O_CLOEXEC);
+        node_fd = device_open(dev, O_PATH);
         if (node_fd < 0) {
-                if (ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(node_fd)) {
+                if (ERRNO_IS_NEG_DEVICE_ABSENT_OR_EMPTY(node_fd)) {
                         log_device_debug_errno(dev, node_fd, "Device node %s is missing, skipping handling.", devnode);
                         return 0; /* This is necessarily racey, so ignore missing the device */
                 }
@@ -738,13 +738,13 @@ int static_node_apply_permissions(
 
         devnode = strjoina("/dev/", name);
 
-        node_fd = open(devnode, O_PATH|O_CLOEXEC);
+        node_fd = xopenat(AT_FDCWD, devnode, O_PATH);
         if (node_fd < 0) {
-                bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(errno);
-                log_full_errno(ignore ? LOG_DEBUG : LOG_WARNING, errno,
+                bool ignore = ERRNO_IS_NEG_DEVICE_ABSENT_OR_EMPTY(node_fd);
+                log_full_errno(ignore ? LOG_DEBUG : LOG_WARNING, node_fd,
                                "Failed to open device node '%s'%s: %m",
                                devnode, ignore ? ", ignoring" : "");
-                return ignore ? 0 : -errno;
+                return ignore ? 0 : node_fd;
         }
 
         if (fstat(node_fd, &stats) < 0)
@@ -778,5 +778,5 @@ int static_node_apply_permissions(
                         return log_error_errno(errno, "Failed to create symlink %s -> %s: %m", p, devnode);
         }
 
-        return udev_node_apply_permissions_impl(NULL, node_fd, devnode, false, mode, uid, gid, NULL);
+        return udev_node_apply_permissions_impl(/* dev= */ NULL, node_fd, devnode, /* apply_mac= */ false, mode, uid, gid, /* seclabel_list= */ NULL);
 }

@@ -1750,7 +1750,7 @@ int bus_set_transient_exec_command(
                         fprintf(f, "%s=%s\n", written_name, a);
                 }
 
-                r = memstream_finalize(&m, &buf, NULL);
+                r = memstream_finalize(&m, &buf, /* ret_size= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -1993,7 +1993,7 @@ int bus_exec_context_set_transient_property(
                         if (isempty(pattern))
                                 continue;
 
-                        r = pattern_compile_and_log(pattern, 0, &compiled_pattern);
+                        r = pattern_compile_and_log(pattern, /* case_= */ 0, &compiled_pattern);
                         if (r < 0)
                                 return r;
 
@@ -2431,7 +2431,7 @@ int bus_exec_context_set_transient_property(
                                               FILESYSTEM_PARSE_LOG|
                                               (invert_flag ? FILESYSTEM_PARSE_INVERT : 0)|
                                               (c->restrict_filesystems_allow_list ? FILESYSTEM_PARSE_ALLOW_LIST : 0),
-                                              u->id, NULL, 0);
+                                              u->id, /* filename= */ NULL, /* line= */ 0);
                                 if (r < 0)
                                         return r;
                         }
@@ -2477,7 +2477,7 @@ int bus_exec_context_set_transient_property(
                         } else {
                                 _cleanup_free_ char *joined = NULL;
 
-                                r = strv_extend_strv(&c->supplementary_groups, l, true);
+                                r = strv_extend_strv(&c->supplementary_groups, l, /* filter_duplicates= */ true);
                                 if (r < 0)
                                         return r;
 
@@ -2732,7 +2732,7 @@ int bus_exec_context_set_transient_property(
                         eq = memchr(p, '=', sz);
                         if (!eq)
                                 return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Journal field contains no '=' character");
-                        if (!journal_field_valid(p, eq - (const char*) p, false))
+                        if (!journal_field_valid(p, eq - (const char*) p, /* allow_protected= */ false))
                                 return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Journal field invalid");
 
                         copy = memdup_suffix0(p, sz);
@@ -2807,7 +2807,7 @@ int bus_exec_context_set_transient_property(
                         }
 
                         if (!c->syscall_filter) {
-                                c->syscall_filter = hashmap_new(NULL);
+                                c->syscall_filter = hashmap_new(/* hash_ops= */ NULL);
                                 if (!c->syscall_filter)
                                         return log_oom();
 
@@ -2820,7 +2820,7 @@ int bus_exec_context_set_transient_property(
                                                                          SECCOMP_PARSE_PERMISSIVE |
                                                                          SECCOMP_PARSE_ALLOW_LIST,
                                                                          u->id,
-                                                                         NULL, 0);
+                                                                         /* filename= */ NULL, /* line= */ 0);
                                         if (r < 0)
                                                 return r;
                                 }
@@ -2844,7 +2844,7 @@ int bus_exec_context_set_transient_property(
                                                                  invert_flag |
                                                                  (c->syscall_allow_list ? SECCOMP_PARSE_ALLOW_LIST : 0),
                                                                  u->id,
-                                                                 NULL, 0);
+                                                                 /* filename= */ NULL, /* line= */ 0);
                                 if (r < 0)
                                         return r;
                         }
@@ -2891,7 +2891,7 @@ int bus_exec_context_set_transient_property(
                         }
 
                         if (!c->syscall_log) {
-                                c->syscall_log = hashmap_new(NULL);
+                                c->syscall_log = hashmap_new(/* hash_ops= */ NULL);
                                 if (!c->syscall_log)
                                         return log_oom();
 
@@ -2906,7 +2906,7 @@ int bus_exec_context_set_transient_property(
                                                                  invert_flag |
                                                                  (c->syscall_log_allow_list ? SECCOMP_PARSE_ALLOW_LIST : 0),
                                                                  u->id,
-                                                                 NULL, 0);
+                                                                 /* filename= */ NULL, /* line= */ 0);
                                 if (r < 0)
                                         return r;
                         }
@@ -2993,7 +2993,7 @@ int bus_exec_context_set_transient_property(
                         }
 
                         if (!c->address_families) {
-                                c->address_families = set_new(NULL);
+                                c->address_families = set_new(/* hash_ops= */ NULL);
                                 if (!c->address_families)
                                         return log_oom();
 
@@ -3550,7 +3550,7 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                r = memstream_finalize(&m, &joined, NULL);
+                r = memstream_finalize(&m, &joined, /* ret_size= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -3559,7 +3559,7 @@ int bus_exec_context_set_transient_property(
                                 c->environment_files = strv_free(c->environment_files);
                                 unit_write_setting(u, flags, name, "EnvironmentFile=");
                         } else {
-                                r = strv_extend_strv(&c->environment_files, l, true);
+                                r = strv_extend_strv(&c->environment_files, l, /* filter_duplicates= */ true);
                                 if (r < 0)
                                         return r;
 
@@ -3590,7 +3590,7 @@ int bus_exec_context_set_transient_property(
                         } else {
                                 _cleanup_free_ char *joined = NULL;
 
-                                r = strv_extend_strv(&c->pass_environment, l, true);
+                                r = strv_extend_strv(&c->pass_environment, l, /* filter_duplicates= */ true);
                                 if (r < 0)
                                         return r;
 
@@ -3651,7 +3651,7 @@ int bus_exec_context_set_transient_property(
                                 if (!joined)
                                         return -ENOMEM;
 
-                                r = strv_extend_strv(dirs, l, true);
+                                r = strv_extend_strv(dirs, l, /* filter_duplicates= */ true);
                                 if (r < 0)
                                         return r;
 
@@ -3678,7 +3678,7 @@ int bus_exec_context_set_transient_property(
                                 unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "ExecSearchPath=");
                         } else {
                                 _cleanup_free_ char *joined = NULL;
-                                r = strv_extend_strv(&c->exec_search_path, l, true);
+                                r = strv_extend_strv(&c->exec_search_path, l, /* filter_duplicates= */ true);
                                 if (r < 0)
                                         return r;
                                 joined = strv_join(c->exec_search_path, ":");

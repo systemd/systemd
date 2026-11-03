@@ -15,6 +15,7 @@
 #include "discover-image.h"
 #include "fd-util.h"
 #include "format-table.h"
+#include "fs-util.h"
 #include "import-common.h"
 #include "import-util.h"
 #include "log.h"
@@ -203,7 +204,7 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get event loop: %m");
 
-        r = sd_bus_attach_event(bus, event, 0);
+        r = sd_bus_attach_event(bus, event, /* priority= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
@@ -244,7 +245,7 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to request match: %m");
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
         if (r < 0)
                 return log_error_errno(r, "Failed to transfer image: %s", bus_error_message(&error, r));
 
@@ -258,8 +259,8 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
                 draw_progress_bar(PROGRESS_PREFIX, c.progress);
         }
 
-        (void) sd_event_add_signal(event, NULL, SIGINT|SD_EVENT_SIGNAL_PROCMASK, transfer_signal_handler, UINT32_TO_PTR(id));
-        (void) sd_event_add_signal(event, NULL, SIGTERM|SD_EVENT_SIGNAL_PROCMASK, transfer_signal_handler, UINT32_TO_PTR(id));
+        (void) sd_event_add_signal(event, /* ret= */ NULL, SIGINT|SD_EVENT_SIGNAL_PROCMASK, transfer_signal_handler, UINT32_TO_PTR(id));
+        (void) sd_event_add_signal(event, /* ret= */ NULL, SIGTERM|SD_EVENT_SIGNAL_PROCMASK, transfer_signal_handler, UINT32_TO_PTR(id));
 
         r = sd_event_loop(event);
         if (r < 0)
@@ -516,9 +517,9 @@ static int verb_import_tar(int argc, char *argv[], uintptr_t _data, void *userda
                                        local);
 
         if (path) {
-                fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                fd = xopenat(AT_FDCWD, path, O_RDONLY|O_NOCTTY);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open %s: %m", path);
+                        return log_error_errno(fd, "Failed to open %s: %m", path);
         }
 
         if (arg_image_class == IMAGE_MACHINE && (arg_import_flags & ~(IMPORT_FORCE|IMPORT_READ_ONLY)) == 0) {
@@ -596,9 +597,9 @@ static int verb_import_raw(int argc, char *argv[], uintptr_t _data, void *userda
                                        local);
 
         if (path) {
-                fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                fd = xopenat(AT_FDCWD, path, O_RDONLY|O_NOCTTY);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open %s: %m", path);
+                        return log_error_errno(fd, "Failed to open %s: %m", path);
         }
 
         if (arg_image_class == IMAGE_MACHINE && (arg_import_flags & ~(IMPORT_FORCE|IMPORT_READ_ONLY)) == 0) {
@@ -667,9 +668,9 @@ static int verb_import_fs(int argc, char *argv[], uintptr_t _data, void *userdat
                                        local);
 
         if (path) {
-                fd = open(path, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+                fd = xopenat(AT_FDCWD, path, O_DIRECTORY|O_RDONLY);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open directory '%s': %m", path);
+                        return log_error_errno(fd, "Failed to open directory '%s': %m", path);
         }
 
         if (arg_image_class == IMAGE_MACHINE && (arg_import_flags & ~(IMPORT_FORCE|IMPORT_READ_ONLY)) == 0) {
@@ -744,9 +745,9 @@ static int verb_export_tar(int argc, char *argv[], uintptr_t _data, void *userda
         if (path) {
                 determine_compression_from_filename(path);
 
-                fd = open(path, O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC|O_NOCTTY, 0666);
+                fd = xopenat_full(AT_FDCWD, path, O_WRONLY|O_CREAT|O_TRUNC|O_NOCTTY, /* xopen_flags= */ 0, 0666);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open %s: %m", path);
+                        return log_error_errno(fd, "Failed to open %s: %m", path);
         }
 
         if (arg_image_class == IMAGE_MACHINE && arg_import_flags == 0) {
@@ -804,9 +805,9 @@ static int verb_export_raw(int argc, char *argv[], uintptr_t _data, void *userda
         if (path) {
                 determine_compression_from_filename(path);
 
-                fd = open(path, O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC|O_NOCTTY, 0666);
+                fd = xopenat_full(AT_FDCWD, path, O_WRONLY|O_CREAT|O_TRUNC|O_NOCTTY, /* xopen_flags= */ 0, 0666);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open %s: %m", path);
+                        return log_error_errno(fd, "Failed to open %s: %m", path);
         }
 
         if (arg_image_class == IMAGE_MACHINE && arg_import_flags == 0) {
@@ -856,7 +857,7 @@ static int verb_list_transfers(int argc, char *argv[], uintptr_t _data, void *us
                 if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
                         sd_bus_error_free(&error);
 
-                        r = bus_call_method(bus, bus_import_mgr, "ListTransfers", &error, &reply, NULL);
+                        r = bus_call_method(bus, bus_import_mgr, "ListTransfers", &error, &reply, /* types= */ NULL);
                 }
                 if (r < 0)
                         return log_error_errno(r, "Could not get transfers: %s", bus_error_message(&error, r));
@@ -960,7 +961,7 @@ static int verb_cancel_transfer(int argc, char *argv[], uintptr_t _data, void *u
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse transfer id: %s", argv[i]);
 
-                r = bus_call_method(bus, bus_import_mgr, "CancelTransfer", &error, NULL, "u", id);
+                r = bus_call_method(bus, bus_import_mgr, "CancelTransfer", &error, /* ret_reply= */ NULL, "u", id);
                 if (r < 0)
                         return log_error_errno(r, "Could not cancel transfer: %s", bus_error_message(&error, r));
         }

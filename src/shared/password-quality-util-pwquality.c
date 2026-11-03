@@ -40,7 +40,7 @@ static void pwq_maybe_disable_dictionary(pwquality_settings_t *pwq) {
         r = sym_pwquality_get_str_value(pwq, PWQ_SETTING_DICT_PATH, &path);
         if (r < 0) {
                 log_debug("Failed to read libpwquality dictionary path, ignoring: %s",
-                          sym_pwquality_strerror(buf, sizeof(buf), r, NULL));
+                          sym_pwquality_strerror(buf, sizeof(buf), r, /* auxerror= */ NULL));
                 return;
         }
 
@@ -57,10 +57,10 @@ static void pwq_maybe_disable_dictionary(pwquality_settings_t *pwq) {
                 return;
         }
 
-        r = sym_pwquality_set_int_value(pwq, PWQ_SETTING_DICT_CHECK, 0);
+        r = sym_pwquality_set_int_value(pwq, PWQ_SETTING_DICT_CHECK, /* value= */ 0);
         if (r < 0)
                 log_debug("Failed to disable libpwquality dictionary check, ignoring: %s",
-                          sym_pwquality_strerror(buf, sizeof(buf), r, NULL));
+                          sym_pwquality_strerror(buf, sizeof(buf), r, /* auxerror= */ NULL));
 }
 
 static int pwq_allocate_context(pwquality_settings_t **ret) {
@@ -79,7 +79,7 @@ static int pwq_allocate_context(pwquality_settings_t **ret) {
         if (!pwq)
                 return -ENOMEM;
 
-        r = sym_pwquality_read_config(pwq, NULL, &auxerror);
+        r = sym_pwquality_read_config(pwq, /* cfgfile= */ NULL, &auxerror);
         if (r < 0)
                 log_debug("Failed to read libpwquality configuration, ignoring: %s",
                           sym_pwquality_strerror(buf, sizeof(buf), r, auxerror));
@@ -112,7 +112,7 @@ int suggest_passwords(void) {
                 r = sym_pwquality_generate(pwq, 64, suggestions + i);
                 if (r < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to generate password, ignoring: %s",
-                                               sym_pwquality_strerror(buf, sizeof(buf), r, NULL));
+                                               sym_pwquality_strerror(buf, sizeof(buf), r, /* auxerror= */ NULL));
         }
 
         joined = strv_join(suggestions, " ");

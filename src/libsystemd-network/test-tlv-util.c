@@ -45,12 +45,12 @@ TEST(tlv) {
         /* tlv_append_tlv() */
         _cleanup_(tlv_done) TLV tlv_copy = TLV_INIT(TLV_DHCP4);
         ASSERT_ERROR(tlv_append_tlv(&tlv_copy, &tlv_copy), EINVAL);
-        ASSERT_OK(tlv_append_tlv(&tlv_copy, NULL));
+        ASSERT_OK(tlv_append_tlv(&tlv_copy, /* source= */ NULL));
         ASSERT_OK(tlv_append_tlv(&tlv_copy, &tlv));
         ASSERT_EQ(hashmap_size(tlv_copy.entries), hashmap_size(tlv.entries));
 
         /* tlv_isempty() */
-        ASSERT_TRUE(tlv_isempty(NULL));
+        ASSERT_TRUE(tlv_isempty(/* tlv= */ NULL));
         ASSERT_TRUE(tlv_isempty(&TLV_INIT(TLV_DHCP4)));
         ASSERT_FALSE(tlv_isempty(&tlv));
 
@@ -118,7 +118,7 @@ TEST(tlv) {
         ASSERT_OK(tlv_get_full(&tlv, 33, data3.iov_len - UINT8_MAX, &iov));
         ASSERT_TRUE(iovec_equal(&iov, &IOVEC_SHIFT(&data3, UINT8_MAX)));
 
-        ASSERT_ERROR(tlv_get(&tlv, 44, NULL), ENODATA);
+        ASSERT_ERROR(tlv_get(&tlv, 44, /* ret= */ NULL), ENODATA);
 
         /* tlv_get_alloc() */
         _cleanup_(iovec_done) struct iovec v = {};
@@ -141,7 +141,7 @@ TEST(tlv) {
         ASSERT_TRUE(iovec_equal(&v, &data3));
         iovec_done(&v);
 
-        ASSERT_ERROR(tlv_get_alloc(&tlv, 44, NULL), ENODATA);
+        ASSERT_ERROR(tlv_get_alloc(&tlv, 44, /* ret= */ NULL), ENODATA);
 
         /* tlv_size() */
         size_t sz = tlv_size(&tlv);

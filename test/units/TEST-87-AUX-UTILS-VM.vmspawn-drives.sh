@@ -136,9 +136,7 @@ wait_for_machine "$MACHINE_MULTI" "$VMSPAWN_MULTI_PID" "$WORKDIR/vmspawn-multi.l
 echo "Multi-drive machine '$MACHINE_MULTI' registered with machined"
 
 # Verify varlink control address is present and the VM is running
-VARLINK_ADDR=$(varlinkctl call /run/systemd/machine/io.systemd.Machine \
-    io.systemd.Machine.List "{\"name\":\"$MACHINE_MULTI\"}" | jq -r '.controlAddress')
-assert_neq "$VARLINK_ADDR" "null"
+VARLINK_ADDR=$(machine_control_address "$MACHINE_MULTI")
 
 STATUS=$(varlinkctl call "$VARLINK_ADDR" io.systemd.MachineInstance.Describe '{}')
 echo "$STATUS" | jq -e '.running == true'
@@ -195,9 +193,7 @@ VMSPAWN_EPHEMERAL_PID=$!
 wait_for_machine "$MACHINE_EPHEMERAL" "$VMSPAWN_EPHEMERAL_PID" "$WORKDIR/vmspawn-ephemeral.log"
 echo "Ephemeral machine '$MACHINE_EPHEMERAL' registered with machined"
 
-VARLINK_ADDR_E=$(varlinkctl call /run/systemd/machine/io.systemd.Machine \
-    io.systemd.Machine.List "{\"name\":\"$MACHINE_EPHEMERAL\"}" | jq -r '.controlAddress')
-assert_neq "$VARLINK_ADDR_E" "null"
+VARLINK_ADDR_E=$(machine_control_address "$MACHINE_EPHEMERAL")
 
 STATUS_E=$(varlinkctl call "$VARLINK_ADDR_E" io.systemd.MachineInstance.Describe '{}')
 echo "$STATUS_E" | jq -e '.running == true'

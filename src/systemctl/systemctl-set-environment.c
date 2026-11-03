@@ -98,7 +98,7 @@ int verb_show_environment(int argc, char *argv[], uintptr_t _data, void *userdat
                 if (r < 0)
                         return r;
 
-                sd_json_variant_dump(v, output_mode_to_json_format_flags(arg_output), stdout, NULL);
+                sd_json_variant_dump(v, output_mode_to_json_format_flags(arg_output), stdout, /* prefix= */ NULL);
         } else {
                 while ((r = sd_bus_message_read_basic(reply, SD_BUS_TYPE_STRING, &text)) > 0) {
                         r = print_variable(text);
@@ -150,7 +150,7 @@ int verb_set_environment(int argc, char *argv[], uintptr_t _data, void *userdata
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, &error, NULL);
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, /* ret_reply= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to set environment: %s", bus_error_message(&error, r));
 
@@ -180,10 +180,10 @@ int verb_import_environment(int argc, char *argv[], uintptr_t _data, void *userd
                 if (!copy)
                         return log_oom();
 
-                strv_env_clean_with_callback(copy, invalid_callback, NULL);
+                strv_env_clean_with_callback(copy, invalid_callback, /* userdata= */ NULL);
 
                 STRV_FOREACH(e, copy)
-                        if (string_has_cc(*e, NULL))
+                        if (string_has_cc(*e, /* ok= */ NULL))
                                 log_notice("Environment variable $%.*s contains control characters, importing anyway.",
                                            (int) strcspn(*e, "="), *e);
 
@@ -206,7 +206,7 @@ int verb_import_environment(int argc, char *argv[], uintptr_t _data, void *userd
 
                                 eq = startswith(*b, *a);
                                 if (eq && *eq == '=') {
-                                        if (string_has_cc(eq + 1, NULL))
+                                        if (string_has_cc(eq + 1, /* ok= */ NULL))
                                                 log_notice("Environment variable $%.*s contains control characters, importing anyway.",
                                                            (int) (eq - *b), *b);
 
@@ -228,7 +228,7 @@ int verb_import_environment(int argc, char *argv[], uintptr_t _data, void *userd
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, &error, NULL);
+        r = sd_bus_call(bus, m, /* usec= */ 0, &error, /* ret_reply= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to import environment: %s", bus_error_message(&error, r));
 

@@ -208,7 +208,7 @@ int verb_list_dependencies(int argc, char *argv[], uintptr_t _data, void *userda
 
         patterns = strv_skip(argv, 1);
         if (patterns) {
-                r = expand_unit_names(bus, patterns, NULL, &units, NULL);
+                r = expand_unit_names(bus, patterns, /* suffix= */ NULL, &units, /* ret_expanded= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to expand names: %m");
         } else {
@@ -224,7 +224,7 @@ int verb_list_dependencies(int argc, char *argv[], uintptr_t _data, void *userda
                         puts("");
 
                 puts(*u);
-                r = list_dependencies_one(bus, *u, 0, &done, &cache, 0);
+                r = list_dependencies_one(bus, *u, /* level= */ 0, &done, &cache, /* branches= */ 0);
                 if (r < 0)
                         return r;
         }

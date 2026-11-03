@@ -115,7 +115,7 @@ int verb_enable(int argc, char *argv[], uintptr_t data, void *userdata) {
                 if (STR_IN_SET(verb, "mask", "unmask")) {
                         _cleanup_(lookup_paths_done) LookupPaths lp = {};
 
-                        r = lookup_paths_init_or_warn(&lp, arg_runtime_scope, 0, arg_root);
+                        r = lookup_paths_init_or_warn(&lp, arg_runtime_scope, /* flags= */ 0, arg_root);
                         if (r < 0)
                                 return r;
 
@@ -202,7 +202,7 @@ int verb_enable(int argc, char *argv[], uintptr_t data, void *userdata) {
                                 return bus_log_create_error(r);
                 }
 
-                r = sd_bus_call(bus, m, 0, &error, &reply);
+                r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
                 if (r < 0)
                         return log_error_errno(r, "Failed to %s unit: %s", verb, bus_error_message(&error, r));
 
@@ -336,9 +336,13 @@ int verb_enable(int argc, char *argv[], uintptr_t data, void *userdata) {
                         start_verb = "try-restart";
                         accept_path = true;
                         prohibit_templates = false;
+                } else if (streq(verb, "unmask")) {
+                        start_verb = "start";
+                        accept_path = false;
+                        prohibit_templates = true;
                 } else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "--now can only be used with verb enable, disable, reenable, or mask.");
+                                               "--now can only be used with verb enable, disable, reenable, mask, or unmask.");
 
                 switch (install_client_side()) {
                 case INSTALL_CLIENT_SIDE_NO:

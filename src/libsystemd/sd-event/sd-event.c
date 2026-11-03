@@ -15,15 +15,19 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "event-future.h"
+#include "event-internal.h"
 #include "event-source.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
+#include "io-uring-util.h"
 #include "list.h"
 #include "log.h"
 #include "logarithm.h"
@@ -184,7 +188,88 @@ struct sd_event {
 
         usec_t last_run_usec, last_log_usec;
         unsigned delays[sizeof(usec_t) * 8];
+
+        IoUring io_uring;
+
+        /* SQEs that were queued or submitted and whose CQE hasn't been processed yet. */
+        size_t n_io_uring_inflight;
+
+        /* Set once the cancel-all SQE of the exit was queued, so that it isn't queued again. */
+        bool io_uring_cancel_all_queued;
+
+        /* Set once event_io_uring_available() tried to set up the ring, so that a failure isn't retried on
+         * every call. */
+        bool io_uring_setup_attempted;
+
+        /* io_uring_env contains the value of $SYSTEMD_EVENT_IO_URING, or a negative errno if the variable is
+         * unset or invalid. A valid value overrides use_io_uring. */
+        bool use_io_uring;
+        int io_uring_env;
 };
+
+static bool event_io_uring_enabled(sd_event *e) {
+        assert(e);
+        return io_uring_is_initialized(&e->io_uring);
+}
+
+/* io_uring_get_sqe() returns NULL when the SQ ring is full. Submitting the queued SQEs makes room.
+ * io_uring_submit() doesn't wait for completions. When a socket operation has to wait for the socket, the
+ * kernel arms a poll for the operation and returns. The submit therefore doesn't block. */
+static int event_io_uring_get_sqe(sd_event *e, struct io_uring_sqe **ret) {
+        int r;
+
+        assert(e);
+        assert(ret);
+
+        struct io_uring_sqe *sqe = io_uring_get_sqe(&e->io_uring);
+        if (sqe) {
+                *ret = sqe;
+                return 0;
+        }
+
+        r = io_uring_submit(&e->io_uring);
+        if (r < 0)
+                return r;
+
+        sqe = io_uring_get_sqe(&e->io_uring);
+        if (!sqe)
+                return -ENOSPC;
+
+        *ret = sqe;
+        return 0;
+}
+
+/* The ring fd only becomes readable for SQEs that the kernel already has, so the queued SQEs have to be
+ * submitted before every epoll_wait(). io_uring_submit() also enters the kernel when the completion queue
+ * overflowed. The kernel then moves the overflowed CQEs back into the ring. */
+static int event_io_uring_submit(sd_event *e) {
+        assert(e);
+
+        if (!event_io_uring_enabled(e))
+                return 0;
+
+        return io_uring_submit(&e->io_uring);
+}
+
+static int event_io_uring_cancel_all(sd_event *e) {
+        int r;
+
+        assert(e);
+
+        if (!event_io_uring_enabled(e) || e->io_uring_cancel_all_queued)
+                return 0;
+
+        struct io_uring_sqe *sqe;
+        r = event_io_uring_get_sqe(e, &sqe);
+        if (r < 0)
+                return r;
+
+        io_uring_prep_cancel(sqe, /* user_data= */ NULL, IORING_ASYNC_CANCEL_ANY | IORING_ASYNC_CANCEL_ALL);
+        sqe->flags |= IOSQE_CQE_SKIP_SUCCESS;
+
+        e->io_uring_cancel_all_queued = true;
+        return 0;
+}
 
 DEFINE_ORIGIN_ID_HELPERS(sd_event, event);
 
@@ -391,6 +476,12 @@ static sd_event* event_free(sd_event *e) {
         if (e->default_event_ptr)
                 *(e->default_event_ptr) = NULL;
 
+        /* Every inflight SQE belongs to a future that references the event loop, so no SQE of a future can
+         * be inflight here. Only cancel SQEs can still be inflight, and a cancel SQE doesn't reference
+         * memory. */
+        assert(e->n_io_uring_inflight == 0);
+        io_uring_done(&e->io_uring);
+
         safe_close(e->epoll_fd);
         safe_close(e->watchdog_fd);
 
@@ -448,6 +539,7 @@ _public_ int sd_event_new(sd_event** ret) {
                 .boottime_alarm.next = USEC_INFINITY,
                 .perturb = USEC_INFINITY,
                 .origin_id = origin_id_query(),
+                .io_uring = IO_URING_NULL,
         };
 
         r = prioq_ensure_allocated(&e->pending, pending_prioq_compare);
@@ -467,6 +559,8 @@ _public_ int sd_event_new(sd_event** ret) {
                           glyph(GLYPH_ELLIPSIS));
                 e->profile_delays = true;
         }
+
+        e->io_uring_env = secure_getenv_bool("SYSTEMD_EVENT_IO_URING");
 
         *ret = e;
         return 0;
@@ -1692,7 +1786,7 @@ _public_ int sd_event_add_child(
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&e->child_sources, NULL);
+        r = hashmap_ensure_allocated(&e->child_sources, /* hash_ops= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1726,7 +1820,7 @@ _public_ int sd_event_add_child(
 
         } else {
                 /* We shall wait for some other event than WEXITED */
-                r = event_make_signal_data(e, SIGCHLD, NULL);
+                r = event_make_signal_data(e, SIGCHLD, /* ret= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -1774,7 +1868,7 @@ _public_ int sd_event_add_child_pidfd(
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&e->child_sources, NULL);
+        r = hashmap_ensure_allocated(&e->child_sources, /* hash_ops= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1804,7 +1898,7 @@ _public_ int sd_event_add_child_pidfd(
                         return r;
         } else {
                 /* We shall wait for some other event than WEXITED */
-                r = event_make_signal_data(e, SIGCHLD, NULL);
+                r = event_make_signal_data(e, SIGCHLD, /* ret= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -1891,7 +1985,7 @@ _public_ int sd_event_add_post(
         s->userdata = userdata;
         s->enabled = SD_EVENT_ON;
 
-        r = set_ensure_put(&e->post_sources, NULL, s);
+        r = set_ensure_put(&e->post_sources, /* hash_ops= */ NULL, s);
         if (r < 0)
                 return r;
         assert(r > 0);
@@ -2060,7 +2154,7 @@ static int event_add_pressure(
                  * not delegated to us, or PSI simply not available in the kernel). */
 
                 _cleanup_free_ char *cg = NULL;
-                r = cg_pid_get_path(0, &cg);
+                r = cg_pid_get_path(/* pid= */ 0, &cg);
                 if (r < 0)
                         return r;
 
@@ -2102,10 +2196,10 @@ static int event_add_pressure(
                 locked = false;
         }
 
-        path_fd = open(watch, O_PATH|O_CLOEXEC);
+        path_fd = xopenat(AT_FDCWD, watch, O_PATH);
         if (path_fd < 0) {
-                if (errno != ENOENT)
-                        return -errno;
+                if (path_fd != -ENOENT)
+                        return path_fd;
 
                 /* We got ENOENT. Two options now: try the fallback if we have one, or return the error as is
                  * (when based on user/env config). */
@@ -2115,11 +2209,11 @@ static int event_add_pressure(
                         return -ENOENT;
                 }
 
-                path_fd = open(watch_fallback, O_PATH|O_CLOEXEC);
+                path_fd = xopenat(AT_FDCWD, watch_fallback, O_PATH);
                 if (path_fd < 0) {
-                        if (errno == ENOENT) /* PSI is not available in the kernel even under the fallback path? */
+                        if (path_fd == -ENOENT) /* PSI is not available in the kernel even under the fallback path? */
                                 return -EOPNOTSUPP;
-                        return -errno;
+                        return path_fd;
                 }
         }
 
@@ -2131,14 +2225,14 @@ static int event_add_pressure(
                 if (fd < 0)
                         return -errno;
 
-                r = connect_unix_path(fd, path_fd, NULL);
+                r = connect_unix_path(fd, path_fd, /* path= */ NULL);
                 if (r < 0)
                         return r;
 
                 events = EPOLLIN;
 
         } else if (S_ISREG(st.st_mode) || S_ISFIFO(st.st_mode) || S_ISCHR(st.st_mode)) {
-                fd = fd_reopen(path_fd, (write_buffer_size > 0 ? O_RDWR : O_RDONLY) |O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+                fd = fd_reopen(path_fd, (write_buffer_size > 0 ? O_RDWR : O_RDONLY)|O_NONBLOCK|O_NOCTTY);
                 if (fd < 0)
                         return fd;
 
@@ -2509,7 +2603,7 @@ static int inode_data_realize_watch(sd_event *e, InodeData *d) {
         if (d->wd >= 0 && combined_mask == d->combined_mask)
                 return 0;
 
-        r = hashmap_ensure_allocated(&d->inotify_data->wd, NULL);
+        r = hashmap_ensure_allocated(&d->inotify_data->wd, /* hash_ops= */ NULL);
         if (r < 0)
                 return r;
 
@@ -2664,11 +2758,12 @@ _public_ int sd_event_add_inotify(
 
         assert_return(path, -EINVAL);
 
-        int fd = open(path, O_PATH | O_CLOEXEC |
-                            (mask & IN_ONLYDIR ? O_DIRECTORY : 0) |
-                            (mask & IN_DONT_FOLLOW ? O_NOFOLLOW : 0));
+        int fd = xopenat(AT_FDCWD, path,
+                         O_PATH |
+                         (mask & IN_ONLYDIR ? O_DIRECTORY : 0) |
+                         (mask & IN_DONT_FOLLOW ? O_NOFOLLOW : 0));
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return event_add_inotify_fd_internal(e, ret, fd, /* donate= */ true, path, mask, callback, userdata);
 }
@@ -3096,7 +3191,7 @@ static int event_source_online(
                 break;
 
         case SOURCE_SIGNAL:
-                r = event_make_signal_data(s->event, s->signal.sig, NULL);
+                r = event_make_signal_data(s->event, s->signal.sig, /* ret= */ NULL);
                 if (r < 0) {
                         event_gc_signal_data(s->event, &s->priority, s->signal.sig);
                         return r;
@@ -3114,7 +3209,7 @@ static int event_source_online(
                 } else {
                         /* something other to watch for than WEXITED */
 
-                        r = event_make_signal_data(s->event, SIGCHLD, NULL);
+                        r = event_make_signal_data(s->event, SIGCHLD, /* ret= */ NULL);
                         if (r < 0) {
                                 event_gc_signal_data(s->event, &s->priority, SIGCHLD);
                                 return r;
@@ -4464,6 +4559,15 @@ static int dispatch_exit(sd_event *e) {
 
         assert(e);
 
+        /* The exit can be requested between sd_event_wait() and sd_event_dispatch(), so SQEs can still be
+         * inflight here. No exit source may run before their CQEs arrived, and the loop must not finish
+         * before then either. We return to the initial state, and the next sd_event_wait() waits for the
+         * CQEs. sd_event_dispatch() returns 0 only after the loop finished, so we return 1. */
+        if (e->n_io_uring_inflight > 0) {
+                e->state = SD_EVENT_INITIAL;
+                return 1;
+        }
+
         p = prioq_peek(e->exit);
         assert(!p || p->type == SOURCE_EXIT);
 
@@ -4526,7 +4630,7 @@ static int process_watchdog(sd_event *e) {
         if (e->watchdog_last + e->watchdog_period / 4 > e->timestamp.monotonic)
                 return 0;
 
-        sd_notify(false, "WATCHDOG=1");
+        sd_notify(/* unset_environment= */ false, "WATCHDOG=1");
         e->watchdog_last = e->timestamp.monotonic;
 
         return arm_watchdog(e);
@@ -4594,6 +4698,10 @@ static bool event_loop_idle(sd_event *e) {
                 return false;
         }
 
+        /* An inflight SQE is work too, even though no event source represents it. */
+        if (e->n_io_uring_inflight > 0)
+                return false;
+
         return true;
 }
 
@@ -4617,7 +4725,7 @@ _public_ int sd_event_prepare(sd_event *e) {
         e->ratelimit_expired = false;
 
         if (!e->exit_requested && e->exit_on_idle && event_loop_idle(e))
-                (void) sd_event_exit(e, 0);
+                (void) sd_event_exit(e, /* code= */ 0);
 
         if (e->exit_requested)
                 goto pending;
@@ -4656,6 +4764,10 @@ _public_ int sd_event_prepare(sd_event *e) {
 
         event_close_inode_data_fds(e);
 
+        r = event_io_uring_submit(e);
+        if (r < 0)
+                return r;
+
         if (event_next_pending(e) || e->need_process_child || e->buffered_inotify_data_list)
                 goto pending;
 
@@ -4665,7 +4777,7 @@ _public_ int sd_event_prepare(sd_event *e) {
 
 pending:
         e->state = SD_EVENT_ARMED;
-        r = sd_event_wait(e, 0);
+        r = sd_event_wait(e, /* timeout= */ 0);
         if (r == 0)
                 e->state = SD_EVENT_ARMED;
 
@@ -4714,6 +4826,64 @@ static int epoll_wait_usec(
         return RET_NERRNO(epoll_wait(fd, events, maxevents, msec));
 }
 
+static void dispatch_cqe(sd_event *e, const struct io_uring_cqe *cqe) {
+        assert(e);
+        assert(cqe);
+
+        /* Our own cancel SQEs have no user_data, and IOSQE_CQE_SKIP_SUCCESS suppresses their CQE on success.
+         * -ENOENT means that the target completed before the cancel SQE ran, and -EALREADY that the target
+         * is running and completes on its own. */
+        _cleanup_(sd_future_unrefp) sd_future *f = io_uring_cqe_get_data(cqe);
+        if (!f) {
+                if (cqe->res < 0 && !IN_SET(cqe->res, -ENOENT, -EALREADY))
+                        log_debug_errno(cqe->res, "io_uring cancel SQE failed unexpectedly, ignoring: %m");
+                return;
+        }
+
+        assert(e->n_io_uring_inflight > 0);
+        e->n_io_uring_inflight--;
+
+        /* sd_future_resolve() only enables the event sources of the callbacks and of the waiting fibers, so
+         * it can run while the loop waits. */
+        assert_se(sd_future_resolve(f, cqe->res) >= 0);
+}
+
+static int process_io_uring(sd_event *e) {
+        struct io_uring_cqe *cqe;
+        unsigned n = 0;
+
+        assert(e);
+
+        IO_URING_FOREACH_CQE(cqe, &e->io_uring) {
+                dispatch_cqe(e, cqe);
+                n++;
+        }
+        io_uring_cq_advance(&e->io_uring, n);
+
+        return n;
+}
+
+/* After the exit, sd_event_prepare() doesn't re-arm the timerfds, and sd_event_dispatch() only dispatches
+ * exit sources. If we waited on the epoll fd, timer and ratelimit callbacks would run after
+ * sd_event_exit(), and a level-triggered fd would end every wait right away. We therefore wait for CQEs in
+ * io_uring_enter() instead. */
+static int process_io_uring_exit(sd_event *e, usec_t timeout) {
+        int r;
+
+        assert(e);
+        assert(event_io_uring_enabled(e));
+
+        if (io_uring_cq_ready(&e->io_uring) > 0 || timeout == 0)
+                r = io_uring_submit(&e->io_uring);
+        else
+                r = io_uring_submit_and_wait(&e->io_uring, timeout);
+        if (r < 0 && !IN_SET(r, -ETIME, -EINTR))
+                return r;
+
+        (void) process_io_uring(e);
+        return 0;
+}
+
 static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t *ret_min_priority) {
         size_t n_event_queue, m, n_event_max;
         int64_t min_priority = threshold;
@@ -4739,6 +4909,14 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
                                 e->event_queue,
                                 n_event_max,
                                 timeout);
+                if (r == -EINTR && event_io_uring_enabled(e) && io_uring_cq_ready(&e->io_uring) > 0) {
+                        /* io_uring completes an operation from task work. The kernel interrupts
+                         * epoll_wait() with -EINTR to run the task work, and the task work posts the CQE
+                         * before epoll_wait() returns. Collect the CQE now instead of returning without
+                         * any event. */
+                        timeout = 0;
+                        continue;
+                }
                 if (r < 0)
                         return r;
 
@@ -4765,7 +4943,9 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
         FOREACH_ARRAY(i, e->event_queue, m) {
 
                 if (i->data.ptr == INT_TO_PTR(SOURCE_WATCHDOG))
-                        r = flush_timer(e, e->watchdog_fd, i->events, NULL);
+                        r = flush_timer(e, e->watchdog_fd, i->events, /* next= */ NULL);
+                else if (i->data.ptr == &e->io_uring)
+                        r = process_io_uring(e);
                 else {
                         WakeupType *t = ASSERT_PTR(i->data.ptr);
 
@@ -4841,6 +5021,26 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
         assert_return(e->state == SD_EVENT_ARMED, -EBUSY);
 
         if (e->exit_requested) {
+                /* A fiber that waits for an io_uring future runs its cleanup from its exit source, like a
+                 * fiber that waits for an epoll future. The exit source of the fiber has to run in the
+                 * priority order of the exit sources, so we wait for the CQEs of the inflight SQEs before
+                 * sd_event_dispatch() runs any exit source. The kernel completes every inflight SQE with
+                 * -ECANCELED after the cancel-all SQE, unless the SQE completes on its own first. */
+                if (e->n_io_uring_inflight > 0) {
+                        r = event_io_uring_cancel_all(e);
+                        if (r < 0)
+                                goto finish;
+
+                        r = process_io_uring_exit(e, timeout);
+                        if (r < 0)
+                                goto finish;
+
+                        if (e->n_io_uring_inflight > 0) {
+                                r = 0;
+                                goto finish;
+                        }
+                }
+
                 e->state = SD_EVENT_PENDING;
                 return 1;
         }
@@ -5170,12 +5370,12 @@ _public_ int sd_event_set_watchdog(sd_event *e, int b) {
                 return e->watchdog;
 
         if (b) {
-                r = sd_watchdog_enabled(false, &e->watchdog_period);
+                r = sd_watchdog_enabled(/* unset_environment= */ false, &e->watchdog_period);
                 if (r <= 0)
                         return r;
 
                 /* Issue first ping immediately */
-                sd_notify(false, "WATCHDOG=1");
+                sd_notify(/* unset_environment= */ false, "WATCHDOG=1");
                 e->watchdog_last = now(CLOCK_MONOTONIC);
 
                 e->watchdog_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK|TFD_CLOEXEC);
@@ -5211,6 +5411,122 @@ _public_ int sd_event_get_watchdog(sd_event *e) {
         assert_return(!event_origin_changed(e), -ECHILD);
 
         return e->watchdog;
+}
+
+bool event_io_uring_available(sd_event *e) {
+        int r;
+
+        assert(e);
+        assert(!event_origin_changed(e));
+
+        if (event_io_uring_enabled(e))
+                return true;
+
+        if (e->io_uring_env == 0 || (e->io_uring_env < 0 && !e->use_io_uring))
+                return false;
+
+        if (e->io_uring_setup_attempted)
+                return false;
+
+        e->io_uring_setup_attempted = true;
+
+        /* The ring is only created on first use. A seccomp filter that doesn't allow io_uring_setup() can
+         * kill the process. When a ring is freed, the kernel runs task work in every thread that used the
+         * ring, and the task work interrupts a syscall that the thread is blocked in with EINTR. Event loops
+         * that never submit an SQE never call io_uring_setup(), so neither affects them.
+         *
+         * SUBMIT_ALL was added in 5.18 and COOP_TASKRUN in 5.19. IORING_ASYNC_CANCEL_ANY and
+         * IORING_ASYNC_CANCEL_ALL are from 5.19 too, so a successful io_uring_init() is sufficient as a
+         * probe.
+         *
+         * We don't request DEFER_TASKRUN. With DEFER_TASKRUN, the kernel only posts CQEs while the
+         * submitting thread is inside io_uring_enter(), and the event loop sleeps in epoll_wait() instead. */
+        r = io_uring_init(&e->io_uring, 256,
+                          IORING_SETUP_COOP_TASKRUN |  /* skip IPI for task-work */
+                          IORING_SETUP_SUBMIT_ALL);    /* keep submitting after one SQE fails */
+        if (r < 0) {
+                log_debug_errno(r, "Failed to set up io_uring, continuing without it: %m");
+                return false;
+        }
+
+        /* The ring fd becomes readable when CQEs are waiting. process_epoll() recognizes it by the
+         * address of e->io_uring. */
+        r = event_poll_ctl(e, EPOLL_CTL_ADD, e->io_uring.ring_fd, EPOLLIN, &e->io_uring);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to add the io_uring fd to epoll, continuing without io_uring: %m");
+                io_uring_done(&e->io_uring);
+                return false;
+        }
+
+        return true;
+}
+
+void event_set_use_io_uring(sd_event *e, bool b) {
+        assert(e);
+
+        e->use_io_uring = b;
+}
+
+int event_get_wait_fd(sd_event *e) {
+        assert(e);
+        assert(!event_origin_changed(e));
+
+        /* After the exit, sd-event only processes CQEs until every inflight SQE completed. Expired timers and
+         * ready fds of event sources keep the epoll fd readable in that state, so a loop that polls the
+         * epoll fd keeps waking up right away. The ring fd only becomes readable when a CQE arrives. */
+        if (e->exit_requested && e->n_io_uring_inflight > 0)
+                return e->io_uring.ring_fd;
+
+        return e->epoll_fd;
+}
+
+int event_add_io_uring_sqe(sd_event *e, const struct io_uring_sqe *sqe, sd_future *f) {
+        int r;
+
+        assert(e);
+        assert(sqe);
+        assert(f);
+        assert(!event_origin_changed(e));
+        assert(!e->exit_requested);
+        assert(event_io_uring_enabled(e));
+
+        struct io_uring_sqe *q;
+        r = event_io_uring_get_sqe(e, &q);
+        if (r < 0)
+                return r;
+
+        *q = *sqe;
+
+        /* The kernel gets a raw pointer to the future, so we hold a reference until the CQE arrives. */
+        io_uring_sqe_set_data(q, sd_future_ref(f));
+
+        e->n_io_uring_inflight++;
+
+        return 0;
+}
+
+int event_cancel_io_uring_sqe(sd_event *e, sd_future *f) {
+        int r;
+
+        assert_return(e, -EINVAL);
+        assert_return(f, -EINVAL);
+        assert_return(!event_origin_changed(e), -ECHILD);
+        assert(event_io_uring_enabled(e));
+
+        /* The cancel-all SQE of the exit covers every inflight SQE. */
+        if (e->io_uring_cancel_all_queued)
+                return 0;
+
+        /* The kernel runs SQEs in order. If the SQE of the future wasn't submitted yet, the kernel runs it
+         * before the cancel SQE, and the cancel SQE then cancels it. */
+        struct io_uring_sqe *sqe;
+        r = event_io_uring_get_sqe(e, &sqe);
+        if (r < 0)
+                return r;
+
+        io_uring_prep_cancel(sqe, f, /* flags= */ 0);
+        sqe->flags |= IOSQE_CQE_SKIP_SUCCESS;
+        return 0;
 }
 
 _public_ int sd_event_get_iteration(sd_event *e, uint64_t *ret) {
@@ -5389,7 +5705,7 @@ _public_ int sd_event_set_signal_exit(sd_event *e, int b) {
                  * floating after creation (and undo this before deleting them again). */
 
                 if (!e->sigint_event_source) {
-                        r = sd_event_add_signal(e, &e->sigint_event_source, SIGINT | SD_EVENT_SIGNAL_PROCMASK, NULL, NULL);
+                        r = sd_event_add_signal(e, &e->sigint_event_source, SIGINT | SD_EVENT_SIGNAL_PROCMASK, /* callback= */ NULL, /* userdata= */ NULL);
                         if (r < 0)
                                 return r;
 
@@ -5398,7 +5714,7 @@ _public_ int sd_event_set_signal_exit(sd_event *e, int b) {
                 }
 
                 if (!e->sigterm_event_source) {
-                        r = sd_event_add_signal(e, &e->sigterm_event_source, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, NULL, NULL);
+                        r = sd_event_add_signal(e, &e->sigterm_event_source, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, /* callback= */ NULL, /* userdata= */ NULL);
                         if (r < 0) {
                                 if (change) {
                                         assert_se(sd_event_source_set_floating(e->sigint_event_source, false) >= 0);

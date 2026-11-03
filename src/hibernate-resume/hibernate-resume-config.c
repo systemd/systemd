@@ -95,7 +95,7 @@ static int get_kernel_hibernate_location(KernelHibernateLocation **ret) {
         if (!k)
                 return log_oom();
 
-        r = proc_cmdline_parse(parse_proc_cmdline_item, k, 0);
+        r = proc_cmdline_parse(parse_proc_cmdline_item, k, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse kernel command line: %m");
 
@@ -172,7 +172,7 @@ int get_efi_hibernate_location(EFIHibernateLocation **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get EFI variable HibernateLocation: %m");
 
-        r = sd_json_parse(location_str, 0, &v, NULL, NULL);
+        r = sd_json_parse(location_str, /* flags= */ 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse HibernateLocation JSON object: %m");
 

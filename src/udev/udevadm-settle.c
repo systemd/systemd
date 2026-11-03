@@ -86,7 +86,7 @@ static int emit_deprecation_warning(void) {
         _cleanup_free_ char *unit = NULL;
         int r;
 
-        r = sd_pid_get_unit(0, &unit);
+        r = sd_pid_get_unit(/* pid= */ 0, &unit);
         if (r < 0) {
                 log_debug_errno(r, "Failed to determine unit we run in, ignoring: %m");
                 return 0;
@@ -112,7 +112,7 @@ static int emit_deprecation_warning(void) {
                                 unit_path,
                                 "org.freedesktop.systemd1.Unit",
                                 "WantedBy",
-                                NULL,
+                                /* reterr_error= */ NULL,
                                 &a);
 
                 (void) sd_bus_get_property_strv(
@@ -121,7 +121,7 @@ static int emit_deprecation_warning(void) {
                                 unit_path,
                                 "org.freedesktop.systemd1.Unit",
                                 "RequiredBy",
-                                NULL,
+                                /* reterr_error= */ NULL,
                                 &b);
 
                 r = strv_extend_strv_consume(&a, TAKE_PTR(b), /* filter_duplicates= */ true);
@@ -173,7 +173,7 @@ static int on_inotify(sd_event_source *s, const struct inotify_event *event, voi
         assert(s);
 
         if (check())
-                return sd_event_exit(sd_event_source_get_event(s), 0);
+                return sd_event_exit(sd_event_source_get_event(s), /* code= */ 0);
 
         return 0;
 }
@@ -209,13 +209,13 @@ int verb_settle_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get default sd-event object: %m");
 
-        r = sd_event_add_inotify(event, NULL, "/run/udev" , IN_DELETE, on_inotify, NULL);
+        r = sd_event_add_inotify(event, /* ret= */ NULL, "/run/udev" , IN_DELETE, on_inotify, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to add inotify watch for /run/udev: %m");
 
         if (arg_timeout_usec != USEC_INFINITY) {
-                r = sd_event_add_time_relative(event, NULL, CLOCK_BOOTTIME, arg_timeout_usec, 0,
-                                               NULL, INT_TO_PTR(-ETIMEDOUT));
+                r = sd_event_add_time_relative(event, /* ret= */ NULL, CLOCK_BOOTTIME, arg_timeout_usec, /* accuracy= */ 0,
+                                               /* callback= */ NULL, INT_TO_PTR(-ETIMEDOUT));
                 if (r < 0)
                         return log_error_errno(r, "Failed to add timer event source: %m");
         }

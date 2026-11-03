@@ -5,6 +5,15 @@
 #include "log.h"
 #include "main-func.h"
 #include "strv.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-xdg-autostart-condition\0",
+        "Check the OnlyShowIn= and NotShowIn= conditions of an XDG autostart entry.",
+        .argspec = "ONLY-SHOW-IN NOT-SHOW-IN\0",
+        .man_pages = "systemd-xdg-autostart-generator(8)\0",
+        .option_namespace = "common",
+);
 
 /*
  * This binary is intended to be run as an ExecCondition= in units generated
@@ -16,10 +25,15 @@
 static int run(int argc, char *argv[]) {
         _cleanup_strv_free_ char **only_show_in = NULL, **not_show_in = NULL, **desktops = NULL;
         const char *xdg_current_desktop;
+        int r;
 
-        if (argc != 3)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Wrong argument count. Expected the OnlyShowIn= and NotShowIn= sets, each colon separated.");
+        /* The arguments are the OnlyShowIn= and NotShowIn= lists of the .desktop file, which may well
+         * start with a dash, hence only options before them are recognized. */
+        char **args = NULL;
+        r = common_parse_argv_mode(argc, argv, OPTION_PARSER_STOP_AT_FIRST_NONOPTION,
+                                   /* min_args= */ 2, /* max_args= */ 2, &args);
+        if (r <= 0)
+                return r;
 
         xdg_current_desktop = getenv("XDG_CURRENT_DESKTOP");
         if (xdg_current_desktop) {
@@ -28,8 +42,8 @@ static int run(int argc, char *argv[]) {
                         return log_oom();
         }
 
-        only_show_in = strv_split(argv[1], ":");
-        not_show_in = strv_split(argv[2], ":");
+        only_show_in = strv_split(args[0], ":");
+        not_show_in = strv_split(args[1], ":");
         if (!only_show_in || !not_show_in)
                 return log_oom();
 

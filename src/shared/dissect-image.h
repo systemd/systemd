@@ -4,6 +4,7 @@
 #include "sd-id128.h"
 
 #include "architecture.h"
+#include "ask-password-api.h"
 #include "forward.h"
 #include "gpt.h"
 #include "iovec-util.h"
@@ -83,6 +84,7 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_FOREIGN_UID               = 1 << 28, /* Request a foreign UID range mapping */
         DISSECT_IMAGE_IDENTITY_UID              = 1 << 29, /* Explicitly request an identity UID range mapping */
         DISSECT_IMAGE_TPM2_UNLOCK               = 1 << 30, /* If no passphrase is supplied, try unlocking LUKS partitions via a TPM2 token enrolled in the LUKS2 header */
+        DISSECT_IMAGE_VERITY_SHARE_SAME_FILE     = 1U << 31, /* Reused Verity devices must have the same backing image file. */
 } DissectImageFlags;
 
 typedef enum PartitionTableType {
@@ -170,7 +172,7 @@ int mount_options_to_string(const MountOptions *mount_options, char **ret);
 
 int probe_filesystem_full(int fd, const char *path, uint64_t offset, uint64_t size, bool restrict_fstypes, char **ret_fstype);
 static inline int probe_filesystem(const char *path, char **ret_fstype) {
-        return probe_filesystem_full(-1, path, 0, UINT64_MAX, /* bool restrict_fstypes= */ false, ret_fstype);
+        return probe_filesystem_full(-1, path, /* offset= */ 0, UINT64_MAX, /* restrict_fstypes= */ false, ret_fstype);
 }
 
 int probe_partition_table(int fd, char **ret_pttype);
@@ -187,7 +189,7 @@ DissectedImage* dissected_image_unref(DissectedImage *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DissectedImage*, dissected_image_unref);
 
 int dissected_image_decrypt(DissectedImage *m, const char *root, const char *passphrase, const VeritySettings *verity, const ImagePolicy *image_policy, DissectImageFlags flags);
-int dissected_image_decrypt_interactively(DissectedImage *m, const char *passphrase, const VeritySettings *verity, const ImagePolicy *image_policy, DissectImageFlags flags);
+int dissected_image_decrypt_interactively(DissectedImage *m, const char *passphrase, AskPasswordFlags ask_password_flags, const VeritySettings *verity, const ImagePolicy *image_policy, DissectImageFlags flags);
 int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift, uid_t uid_range, int userns_fd, DissectImageFlags flags);
 int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t uid_shift, uid_t uid_range, int userns_fd, DissectImageFlags flags);
 
@@ -220,6 +222,7 @@ bool image_filter_test(const ImageFilter *filter, PartitionDesignator d, const c
 int image_filter_parse(const char *s, ImageFilter **ret);
 
 int verity_settings_load(VeritySettings *verity, const char *image, const char *root_hash_path, const char *root_hash_sig_path);
+int verity_validate_signature_userspace(const struct iovec *root_hash, const struct iovec *root_hash_sig, const char *root);
 
 static inline bool verity_settings_set(const VeritySettings *settings) {
         return settings &&
@@ -253,7 +256,18 @@ bool dissected_image_verity_candidate(const DissectedImage *image, PartitionDesi
 bool dissected_image_verity_ready(const DissectedImage *image, PartitionDesignator d);
 bool dissected_image_verity_sig_ready(const DissectedImage *image, PartitionDesignator d);
 
-int mount_image_privately_interactively(const char *image, const ImagePolicy *image_policy, DissectImageFlags flags, char **ret_directory, int *ret_dir_fd, LoopDevice **ret_loop_device);
+int mount_image_privately_full(const char *image, const ImagePolicy *image_policy, DissectImageFlags flags, const char *passphrase, AskPasswordFlags ask_password_flags, char **ret_directory, int *ret_dir_fd, LoopDevice **ret_loop_device);
+static inline int mount_image_privately_interactively(const char *image, const ImagePolicy *image_policy, DissectImageFlags flags, char **ret_directory, int *ret_dir_fd, LoopDevice **ret_loop_device) {
+        return mount_image_privately_full(
+                        image,
+                        image_policy,
+                        flags,
+                        /* passphrase= */ NULL,
+                        /* ask_password_flags= */ 0,
+                        ret_directory,
+                        ret_dir_fd,
+                        ret_loop_device);
+}
 
 int verity_dissect_and_mount(
                 int src_fd,

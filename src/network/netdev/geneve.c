@@ -117,7 +117,7 @@ int config_parse_geneve_vni(
 
         return config_parse_uint32_bounded(
                         unit, filename, line, section, section_line, lvalue, rvalue,
-                        0, GENEVE_VID_MAX, true,
+                        /* min= */ 0, GENEVE_VID_MAX, /* ignoring= */ true,
                         &v->id);
 }
 
@@ -228,7 +228,7 @@ int config_parse_geneve_ttl(
 
         r = config_parse_uint8_bounded(
                         unit, filename, line, section, section_line, lvalue, rvalue,
-                        0, UINT8_MAX, true,
+                        /* min= */ 0, UINT8_MAX, /* ignoring= */ true,
                         &v->ttl);
         if (r <= 0)
                 return r;

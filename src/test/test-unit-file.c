@@ -17,20 +17,20 @@
 #include "unit-file.h"
 
 TEST(unit_validate_alias_symlink_and_warn) {
-        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a.service", "/other/b.service") == 0);
-        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a.service", "/other/b.socket") == -EXDEV);
-        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a.service", "/other/b.foobar") == -EXDEV);
-        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@.service", "/other/b@.service") == 0);
-        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@.service", "/other/b@.socket") == -EXDEV);
-        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@XXX.service", "/other/b@YYY.service") == -EXDEV);
-        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@XXX.service", "/other/b@YYY.socket") == -EXDEV);
-        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@.service", "/other/b@YYY.service") == -EXDEV);
-        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@XXX.service", "/other/b@XXX.service") == 0);
-        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@XXX.service", "/other/b@.service") == 0);
-        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@.service", "/other/b.service") == -EXDEV);
-        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a.service", "/other/b@.service") == -EXDEV);
-        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@.slice", "/other/b.slice") == -EINVAL);
-        assert_se(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a.slice", "/other/b.slice") == -EINVAL);
+        ASSERT_OK_ZERO(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a.service", "/other/b.service"));
+        ASSERT_ERROR(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a.service", "/other/b.socket"), EXDEV);
+        ASSERT_ERROR(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a.service", "/other/b.foobar"), EXDEV);
+        ASSERT_OK_ZERO(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@.service", "/other/b@.service"));
+        ASSERT_ERROR(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@.service", "/other/b@.socket"), EXDEV);
+        ASSERT_ERROR(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@XXX.service", "/other/b@YYY.service"), EXDEV);
+        ASSERT_ERROR(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@XXX.service", "/other/b@YYY.socket"), EXDEV);
+        ASSERT_ERROR(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@.service", "/other/b@YYY.service"), EXDEV);
+        ASSERT_OK_ZERO(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@XXX.service", "/other/b@XXX.service"));
+        ASSERT_OK_ZERO(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@XXX.service", "/other/b@.service"));
+        ASSERT_ERROR(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@.service", "/other/b.service"), EXDEV);
+        ASSERT_ERROR(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a.service", "/other/b@.service"), EXDEV);
+        ASSERT_ERROR(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a@.slice", "/other/b.slice"), EINVAL);
+        ASSERT_ERROR(unit_validate_alias_symlink_or_warn(LOG_INFO, "/path/a.slice", "/other/b.slice"), EINVAL);
 }
 
 TEST(unit_file_build_name_map) {
@@ -44,9 +44,9 @@ TEST(unit_file_build_name_map) {
 
         ids = strv_skip(saved_argv, 1);
 
-        assert_se(lookup_paths_init(&lp, RUNTIME_SCOPE_SYSTEM, 0, NULL) >= 0);
+        ASSERT_OK(lookup_paths_init(&lp, RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, /* root_dir= */ NULL));
 
-        assert_se(unit_file_build_name_map(&lp, &mtime, &unit_ids, &unit_names, NULL) == 1);
+        ASSERT_OK_EQ(unit_file_build_name_map(&lp, &mtime, &unit_ids, &unit_names, /* path_cache= */ NULL), 1);
 
         HASHMAP_FOREACH_KEY(dst, k, unit_ids)
                 log_info("ids: %s → %s", k, dst);
@@ -59,8 +59,8 @@ TEST(unit_file_build_name_map) {
         char buf[FORMAT_TIMESTAMP_MAX];
         log_debug("Last modification time: %s", format_timestamp(buf, sizeof buf, mtime));
 
-        r = unit_file_build_name_map(&lp, &mtime, &unit_ids, &unit_names, NULL);
-        assert_se(IN_SET(r, 0, 1));
+        r = unit_file_build_name_map(&lp, &mtime, &unit_ids, &unit_names, /* path_cache= */ NULL);
+        ASSERT_TRUE(IN_SET(r, 0, 1));
         if (r == 0)
                 log_debug("Cache rebuild skipped based on mtime.");
 
@@ -73,7 +73,7 @@ TEST(unit_file_build_name_map) {
                                              *id,
                                              &fragment,
                                              &names);
-                 assert_se(r == 0);
+                 ASSERT_OK_ZERO(r);
                  log_info("fragment: %s", fragment);
                  log_info("names:");
                  SET_FOREACH(name, names)
@@ -88,8 +88,8 @@ TEST(unit_file_build_name_map) {
                                              unit_names,
                                              *id,
                                              &fragment,
-                                             NULL);
-                 assert_se(r == 0);
+                                             /* ret_names= */ NULL);
+                 ASSERT_OK_ZERO(r);
                  log_info("fragment: %s", fragment);
         }
 }
@@ -101,7 +101,7 @@ static bool test_unit_file_remove_from_name_map_trail(const LookupPaths *lp, siz
 
         _cleanup_hashmap_free_ Hashmap *unit_ids = NULL, *unit_names = NULL;
         _cleanup_set_free_ Set *path_cache = NULL;
-        ASSERT_OK_POSITIVE(unit_file_build_name_map(lp, NULL, &unit_ids, &unit_names, &path_cache));
+        ASSERT_OK_POSITIVE(unit_file_build_name_map(lp, /* cache_timestamp_hash= */ NULL, &unit_ids, &unit_names, &path_cache));
 
         _cleanup_free_ char *name = NULL;
         for (size_t i = 0; i < 100; i++) {
@@ -120,7 +120,7 @@ static bool test_unit_file_remove_from_name_map_trail(const LookupPaths *lp, siz
         ASSERT_OK_POSITIVE(unit_file_build_name_map(lp, &cache_timestamp_hash, &unit_ids, &unit_names, &path_cache));
 
         ASSERT_STREQ(hashmap_get(unit_ids, name), path);
-        ASSERT_TRUE(strv_equal(hashmap_get(unit_names, name), STRV_MAKE(name)));
+        ASSERT_STRV_EQ(hashmap_get(unit_names, name), STRV_MAKE(name));
         ASSERT_TRUE(set_contains(path_cache, path));
 
         ASSERT_OK_ERRNO(unlink(path));
@@ -135,7 +135,7 @@ static bool test_unit_file_remove_from_name_map_trail(const LookupPaths *lp, siz
 
         _cleanup_hashmap_free_ Hashmap *unit_ids_2 = NULL, *unit_names_2 = NULL;
         _cleanup_set_free_ Set *path_cache_2 = NULL;
-        ASSERT_OK_POSITIVE(unit_file_build_name_map(lp, NULL, &unit_ids_2, &unit_names_2, &path_cache_2));
+        ASSERT_OK_POSITIVE(unit_file_build_name_map(lp, /* cache_timestamp_hash= */ NULL, &unit_ids_2, &unit_names_2, &path_cache_2));
 
         if (hashmap_size(unit_ids) != hashmap_size(unit_ids_2) ||
             hashmap_size(unit_names) != hashmap_size(unit_names_2) ||
@@ -160,7 +160,7 @@ TEST(unit_file_remove_from_name_map) {
         _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
 
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
-        ASSERT_OK(lookup_paths_init(&lp, RUNTIME_SCOPE_SYSTEM, LOOKUP_PATHS_TEMPORARY_GENERATED, NULL));
+        ASSERT_OK(lookup_paths_init(&lp, RUNTIME_SCOPE_SYSTEM, LOOKUP_PATHS_TEMPORARY_GENERATED, /* root_dir= */ NULL));
         ASSERT_NOT_NULL((d = strdup(lp.temporary_dir)));
 
         for (size_t i = 0; i < 10; i++)
@@ -171,15 +171,15 @@ TEST(unit_file_remove_from_name_map) {
 }
 
 TEST(runlevel_to_target) {
-        in_initrd_force(false);
-        ASSERT_STREQ(runlevel_to_target(NULL), NULL);
+        in_initrd_force(/* value= */ false);
+        ASSERT_STREQ(runlevel_to_target(/* word= */ NULL), NULL);
         ASSERT_STREQ(runlevel_to_target("unknown-runlevel"), NULL);
         ASSERT_STREQ(runlevel_to_target("rd.unknown-runlevel"), NULL);
         ASSERT_STREQ(runlevel_to_target("3"), SPECIAL_MULTI_USER_TARGET);
         ASSERT_STREQ(runlevel_to_target("rd.rescue"), NULL);
 
-        in_initrd_force(true);
-        ASSERT_STREQ(runlevel_to_target(NULL), NULL);
+        in_initrd_force(/* value= */ true);
+        ASSERT_STREQ(runlevel_to_target(/* word= */ NULL), NULL);
         ASSERT_STREQ(runlevel_to_target("unknown-runlevel"), NULL);
         ASSERT_STREQ(runlevel_to_target("rd.unknown-runlevel"), NULL);
         ASSERT_STREQ(runlevel_to_target("3"), NULL);

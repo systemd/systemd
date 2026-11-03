@@ -4,7 +4,8 @@
 #include "forward.h"
 
 /* Each service links report-server.c (entry point and server lifecycle) with one provider implementation
- * (e.g. report-basic.c), which defines COMMAND() and the two symbols below. */
+ * (e.g. report-basic.c), which defines COMMAND() with .option_namespace = "common", since the command
+ * line is parsed with common_parse_argv(), and the two symbols below. */
 
 /* See report-example.c for a minimal provider. */
 

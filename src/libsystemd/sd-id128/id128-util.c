@@ -85,7 +85,7 @@ int id128_read_fd(int fd, Id128Flag f, sd_id128_t *ret) {
          *     -ENOPKG:    "uninitialized" or "uninitialized\n",
          *     -EUCLEAN:   other invalid strings. */
 
-        l = loop_read(fd, buffer, sizeof(buffer), false); /* we expect a short read of either 32/33 or 36/37 chars */
+        l = loop_read(fd, buffer, sizeof(buffer), /* do_poll= */ false); /* we expect a short read of either 32/33 or 36/37 chars */
         if (l < 0)
                 return (int) l;
         if (l == 0) /* empty? */
@@ -145,7 +145,7 @@ int id128_read_at(int dir_fd, const char *path, Id128Flag f, sd_id128_t *ret) {
         assert(wildcard_fd_is_valid(dir_fd));
         assert(path);
 
-        fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        fd = xopenat(dir_fd, path, O_RDONLY|O_NOCTTY);
         if (fd < 0)
                 return fd;
 
@@ -191,7 +191,7 @@ int id128_write_at(int dir_fd, const char *path, Id128Flag f, sd_id128_t id) {
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(path);
 
-        fd = xopenat_full(dir_fd, path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_TRUNC, /* xopen_flags= */ 0, 0444);
+        fd = xopenat_full(dir_fd, path, O_WRONLY|O_CREAT|O_NOCTTY|O_TRUNC, /* xopen_flags= */ 0, 0444);
         if (fd < 0)
                 return fd;
 
@@ -299,7 +299,7 @@ int id128_get_boot_for_machine(const char *machine, sd_id128_t *ret) {
         if (r < 0)
                 return r;
 
-        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
+        if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair) < 0)
                 return -errno;
 
         r = namespace_fork("(sd-bootidns)", "(sd-bootid)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
@@ -322,7 +322,7 @@ int id128_get_boot_for_machine(const char *machine, sd_id128_t *ret) {
 
         pair[1] = safe_close(pair[1]);
 
-        r = pidref_wait_for_terminate_and_check("(sd-bootidns)", &child, 0);
+        r = pidref_wait_for_terminate_and_check("(sd-bootidns)", &child, /* flags= */ 0);
         if (r < 0)
                 return r;
         if (r != EXIT_SUCCESS)

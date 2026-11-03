@@ -225,7 +225,7 @@ static int process_one(const char *input, char **ret) {
         }
 
         case ACTION_MANGLE:
-                r = unit_name_mangle(input, 0, &e);
+                r = unit_name_mangle(input, /* flags= */ 0, &e);
                 if (r < 0)
                         return log_error_errno(r, "Failed to mangle name: %m");
 

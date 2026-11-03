@@ -67,13 +67,13 @@ TEST(job_type_merge) {
                                                 /* Verify associativity */
 
                                                 JobType ab_c = ab;
-                                                ASSERT_OK(job_type_merge_and_collapse(&ab_c, c, u));
+                                                ASSERT_OK_ZERO(job_type_merge_and_collapse(&ab_c, c, u));
 
                                                 JobType bc_a = bc;
-                                                ASSERT_OK(job_type_merge_and_collapse(&bc_a, a, u));
+                                                ASSERT_OK_ZERO(job_type_merge_and_collapse(&bc_a, a, u));
 
                                                 JobType a_bc = a;
-                                                ASSERT_OK(job_type_merge_and_collapse(&a_bc, bc, u));
+                                                ASSERT_OK_ZERO(job_type_merge_and_collapse(&a_bc, bc, u));
 
                                                 ASSERT_EQ(ab_c, bc_a);
                                                 ASSERT_EQ(ab_c, a_bc);

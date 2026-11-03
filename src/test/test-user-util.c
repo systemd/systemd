@@ -28,7 +28,7 @@ static void test_uid_to_name_one(uid_t uid, const char *name) {
 }
 
 TEST(uid_to_name) {
-        test_uid_to_name_one(0, "root");
+        test_uid_to_name_one(/* uid= */ 0, "root");
         test_uid_to_name_one(UID_NOBODY, NOBODY_USER_NAME);
         test_uid_to_name_one(0xFFFF, "65535");
         test_uid_to_name_one(0xFFFFFFFF, "4294967295");
@@ -48,7 +48,7 @@ static void test_gid_to_name_one(gid_t gid, const char *name) {
 }
 
 TEST(gid_to_name) {
-        test_gid_to_name_one(0, "root");
+        test_gid_to_name_one(/* gid= */ 0, "root");
         test_gid_to_name_one(GID_NOBODY, NOBODY_GROUP_NAME);
         test_gid_to_name_one(0xFFFF, "65535");
         test_gid_to_name_one(0xFFFFFFFF, "4294967295");
@@ -135,43 +135,43 @@ TEST(valid_user_group_name_relaxed) {
 }
 
 TEST(valid_user_group_name) {
-        ASSERT_FALSE(valid_user_group_name(NULL, 0));
-        ASSERT_FALSE(valid_user_group_name("", 0));
-        ASSERT_FALSE(valid_user_group_name("1", 0));
-        ASSERT_FALSE(valid_user_group_name("65535", 0));
-        ASSERT_FALSE(valid_user_group_name("-1", 0));
-        ASSERT_FALSE(valid_user_group_name("-kkk", 0));
-        ASSERT_FALSE(valid_user_group_name("rööt", 0));
-        ASSERT_FALSE(valid_user_group_name(".", 0));
-        ASSERT_FALSE(valid_user_group_name(".eff", 0));
-        ASSERT_FALSE(valid_user_group_name("foo\nbar", 0));
-        ASSERT_FALSE(valid_user_group_name("0123456789012345678901234567890123456789", 0));
+        ASSERT_FALSE(valid_user_group_name(NULL, /* flags= */ 0));
+        ASSERT_FALSE(valid_user_group_name("", /* flags= */ 0));
+        ASSERT_FALSE(valid_user_group_name("1", /* flags= */ 0));
+        ASSERT_FALSE(valid_user_group_name("65535", /* flags= */ 0));
+        ASSERT_FALSE(valid_user_group_name("-1", /* flags= */ 0));
+        ASSERT_FALSE(valid_user_group_name("-kkk", /* flags= */ 0));
+        ASSERT_FALSE(valid_user_group_name("rööt", /* flags= */ 0));
+        ASSERT_FALSE(valid_user_group_name(".", /* flags= */ 0));
+        ASSERT_FALSE(valid_user_group_name(".eff", /* flags= */ 0));
+        ASSERT_FALSE(valid_user_group_name("foo\nbar", /* flags= */ 0));
+        ASSERT_FALSE(valid_user_group_name("0123456789012345678901234567890123456789", /* flags= */ 0));
         ASSERT_FALSE(valid_user_group_name("aaa:bbb", VALID_USER_ALLOW_NUMERIC));
-        ASSERT_FALSE(valid_user_group_name(".", 0));
-        ASSERT_FALSE(valid_user_group_name("..", 0));
-        ASSERT_FALSE(valid_user_group_name("...", 0));
-        ASSERT_FALSE(valid_user_group_name(".1", 0));
-        ASSERT_FALSE(valid_user_group_name(".65535", 0));
-        ASSERT_FALSE(valid_user_group_name(".-1", 0));
-        ASSERT_FALSE(valid_user_group_name(".-kkk", 0));
-        ASSERT_FALSE(valid_user_group_name(".rööt", 0));
+        ASSERT_FALSE(valid_user_group_name(".", /* flags= */ 0));
+        ASSERT_FALSE(valid_user_group_name("..", /* flags= */ 0));
+        ASSERT_FALSE(valid_user_group_name("...", /* flags= */ 0));
+        ASSERT_FALSE(valid_user_group_name(".1", /* flags= */ 0));
+        ASSERT_FALSE(valid_user_group_name(".65535", /* flags= */ 0));
+        ASSERT_FALSE(valid_user_group_name(".-1", /* flags= */ 0));
+        ASSERT_FALSE(valid_user_group_name(".-kkk", /* flags= */ 0));
+        ASSERT_FALSE(valid_user_group_name(".rööt", /* flags= */ 0));
         ASSERT_FALSE(valid_user_group_name(".aaa:bbb", VALID_USER_ALLOW_NUMERIC));
 
-        ASSERT_TRUE(valid_user_group_name("root", 0));
-        ASSERT_TRUE(valid_user_group_name("lennart", 0));
-        ASSERT_TRUE(valid_user_group_name("LENNART", 0));
-        ASSERT_TRUE(valid_user_group_name("_kkk", 0));
-        ASSERT_TRUE(valid_user_group_name("kkk-", 0));
-        ASSERT_TRUE(valid_user_group_name("kk-k", 0));
-        ASSERT_FALSE(valid_user_group_name("eff.eff", 0));
-        ASSERT_FALSE(valid_user_group_name("eff.", 0));
+        ASSERT_TRUE(valid_user_group_name("root", /* flags= */ 0));
+        ASSERT_TRUE(valid_user_group_name("lennart", /* flags= */ 0));
+        ASSERT_TRUE(valid_user_group_name("LENNART", /* flags= */ 0));
+        ASSERT_TRUE(valid_user_group_name("_kkk", /* flags= */ 0));
+        ASSERT_TRUE(valid_user_group_name("kkk-", /* flags= */ 0));
+        ASSERT_TRUE(valid_user_group_name("kk-k", /* flags= */ 0));
+        ASSERT_FALSE(valid_user_group_name("eff.eff", /* flags= */ 0));
+        ASSERT_FALSE(valid_user_group_name("eff.", /* flags= */ 0));
 
-        ASSERT_TRUE(valid_user_group_name("some5", 0));
-        ASSERT_FALSE(valid_user_group_name("5some", 0));
-        ASSERT_TRUE(valid_user_group_name("INNER5NUMBER", 0));
+        ASSERT_TRUE(valid_user_group_name("some5", /* flags= */ 0));
+        ASSERT_FALSE(valid_user_group_name("5some", /* flags= */ 0));
+        ASSERT_TRUE(valid_user_group_name("INNER5NUMBER", /* flags= */ 0));
 
-        ASSERT_FALSE(valid_user_group_name("piff.paff@ad.domain.example", 0));
-        ASSERT_FALSE(valid_user_group_name("Dāvis", 0));
+        ASSERT_FALSE(valid_user_group_name("piff.paff@ad.domain.example", /* flags= */ 0));
+        ASSERT_FALSE(valid_user_group_name("Dāvis", /* flags= */ 0));
 }
 
 TEST(valid_user_group_name_or_numeric_relaxed) {
@@ -313,8 +313,8 @@ static void test_get_user_creds_one(const char *id, const char *name, uid_t uid,
 }
 
 TEST(get_user_creds) {
-        test_get_user_creds_one("root", "root", 0, 0, "/root", DEFAULT_USER_SHELL);
-        test_get_user_creds_one("0", "root", 0, 0, "/root", DEFAULT_USER_SHELL);
+        test_get_user_creds_one("root", "root", /* uid= */ 0, /* gid= */ 0, "/root", DEFAULT_USER_SHELL);
+        test_get_user_creds_one("0", "root", /* uid= */ 0, /* gid= */ 0, "/root", DEFAULT_USER_SHELL);
         test_get_user_creds_one(NOBODY_USER_NAME, NOBODY_USER_NAME, UID_NOBODY, GID_NOBODY, "/", NOLOGIN);
         test_get_user_creds_one("65534", NOBODY_USER_NAME, UID_NOBODY, GID_NOBODY, "/", NOLOGIN);
 }
@@ -338,8 +338,8 @@ static void test_get_group_creds_one(const char *id, const char *expected_name, 
 }
 
 TEST(get_group_creds) {
-        test_get_group_creds_one("root", "root", 0);
-        test_get_group_creds_one("0", "root", 0);
+        test_get_group_creds_one("root", "root", /* expected_gid= */ 0);
+        test_get_group_creds_one("0", "root", /* expected_gid= */ 0);
         test_get_group_creds_one(NOBODY_GROUP_NAME, NOBODY_GROUP_NAME, GID_NOBODY);
         test_get_group_creds_one("65534", NOBODY_GROUP_NAME, GID_NOBODY);
 }
@@ -370,7 +370,7 @@ TEST(gid_lists_ops) {
         nresult = ASSERT_OK(merge_gid_lists(l2, ELEMENTSOF(l2), l3, ELEMENTSOF(l3), &res1));
         ASSERT_EQ(memcmp_nn(res1, nresult, result1, ELEMENTSOF(result1)), 0);
 
-        nresult = ASSERT_OK(merge_gid_lists(NULL, 0, l2, ELEMENTSOF(l2), &res2));
+        nresult = ASSERT_OK(merge_gid_lists(/* list1= */ NULL, /* size1= */ 0, l2, ELEMENTSOF(l2), &res2));
         ASSERT_EQ(memcmp_nn(res2, nresult, l2, ELEMENTSOF(l2)), 0);
 
         nresult = ASSERT_OK(merge_gid_lists(l1, ELEMENTSOF(l1), l1, ELEMENTSOF(l1), &res3));
@@ -500,7 +500,7 @@ TEST(lookup_pwent_in_files) {
 
         /* Missing uid */
         ASSERT_ERROR(lookup_pwent_in_files(files, /* name= */ NULL, 424242, &pw), ESRCH);
-        ASSERT_ERROR(lookup_pwent_in_files(files, /* name= */ NULL, 424242, NULL), ESRCH);
+        ASSERT_ERROR(lookup_pwent_in_files(files, /* name= */ NULL, 424242, /* ret= */ NULL), ESRCH);
 
         /* Non-existent file in the list is skipped */
         ASSERT_OK(lookup_pwent_in_files(
@@ -620,7 +620,7 @@ TEST(lookup_groups_in_files) {
         ASSERT_EQ(memcmp(arr, exp1, sizeof(exp1)), 0);
         arr = mfree(arr);
 
-        ASSERT_EQ(lookup_groups_in_files(files, "testuser1", 0, &arr), 4);
+        ASSERT_EQ(lookup_groups_in_files(files, "testuser1", /* gid= */ 0, &arr), 4);
         gid_t exp2[] = { 0, 100, 200, 400 };
         ASSERT_EQ(memcmp(arr, exp2, sizeof(exp2)), 0);
         arr = mfree(arr);

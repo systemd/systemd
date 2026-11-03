@@ -46,7 +46,7 @@ static int process_aliases(char *argv[], char *tempdir, char ***ret) {
                 if (!dst)
                         return -ENOMEM;
 
-                r = copy_file(src, dst, 0, 0644, /* copy_flags= */ 0);
+                r = copy_file(src, dst, /* open_flags= */ 0, 0644, /* copy_flags= */ 0);
                 if (r < 0)
                         return r;
 

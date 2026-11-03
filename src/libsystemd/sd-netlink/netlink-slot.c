@@ -94,7 +94,7 @@ void netlink_slot_disconnect(sd_netlink_slot *slot, bool unref) {
 static sd_netlink_slot* netlink_slot_free(sd_netlink_slot *slot) {
         assert(slot);
 
-        netlink_slot_disconnect(slot, false);
+        netlink_slot_disconnect(slot, /* unref= */ false);
 
         if (slot->destroy_callback)
                 slot->destroy_callback(slot->userdata);

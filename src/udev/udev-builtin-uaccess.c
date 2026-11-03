@@ -4,6 +4,7 @@
 
 #include "acl-util.h"
 #include "alloc-util.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -32,9 +33,9 @@ static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
         if (!logind_running())
                 return 0;
 
-        _cleanup_close_ int fd = sd_device_open(dev, O_CLOEXEC|O_PATH);
+        _cleanup_close_ int fd = device_open(dev, O_PATH);
         if (fd < 0) {
-                bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(fd);
+                bool ignore = ERRNO_IS_NEG_DEVICE_ABSENT_OR_EMPTY(fd);
                 log_device_full_errno(dev, ignore ? LOG_DEBUG : LOG_WARNING, fd,
                                       "Failed to open device node%s: %m",
                                       ignore ? ", ignoring" : "");
@@ -58,7 +59,7 @@ static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
                 else if (r < 0)
                         log_device_error_errno(dev, r, "Failed to determine active user on seat %s, ignoring: %m", seat);
                 else {
-                        if (set_ensure_put(&uids, NULL, UID_TO_PTR(uid)) < 0)
+                        if (set_ensure_put(&uids, /* hash_ops= */ NULL, UID_TO_PTR(uid)) < 0)
                                 return log_oom();
                 }
         }
@@ -115,7 +116,7 @@ static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
                         if (!match)
                                 continue;
 
-                        if (set_ensure_put(&uids, NULL, UID_TO_PTR(uid)) < 0)
+                        if (set_ensure_put(&uids, /* hash_ops= */ NULL, UID_TO_PTR(uid)) < 0)
                                 return log_oom();
                 }
         }

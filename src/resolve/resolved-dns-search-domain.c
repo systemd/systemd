@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "resolve-util.h"
 #include "resolved-dns-delegate.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-link.h"
@@ -26,7 +27,7 @@ int dns_search_domain_new(
         assert((type == DNS_SEARCH_DOMAIN_DELEGATE) == !!delegate);
         assert(name);
 
-        r = dns_name_normalize(name, 0, &normalized);
+        r = dns_name_normalize(name, /* flags= */ 0, &normalized);
         if (r < 0)
                 return r;
 

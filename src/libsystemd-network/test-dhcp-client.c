@@ -70,8 +70,6 @@ static const char *extra_option_163 = "private_option_163";
 static const char *extra_option_164 = "private_option_164";
 
 static void setup(sd_event_io_handler_t io_handler, sd_dhcp_client_callback_t client_handler, sd_dhcp_client **ret) {
-        assert_se(ret);
-
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         ASSERT_OK(sd_event_new(&e));
         ASSERT_NOT_NULL(e);
@@ -124,11 +122,11 @@ static void setup(sd_event_io_handler_t io_handler, sd_dhcp_client_callback_t cl
         ASSERT_OK(sd_event_add_io(e, &s, socket_fd[1], EPOLLIN, io_handler, client));
         ASSERT_OK(sd_event_source_set_priority(s, SD_EVENT_PRIORITY_IMPORTANT));
         ASSERT_OK(sd_event_source_set_description(s, "fake-server-io-event-source"));
-        ASSERT_OK(sd_event_source_set_io_fd_own(s, true));
+        ASSERT_OK(sd_event_source_set_io_fd_own(s, /* own= */ true));
         TAKE_FD(socket_fd[1]);
         ASSERT_OK(sd_event_source_set_floating(s, true));
 
-        *ret = TAKE_PTR(client);
+        *ASSERT_PTR(ret) = TAKE_PTR(client);
 }
 
 static void receive_message(int fd, bool raw, bool check_xid, sd_dhcp_client *client, sd_dhcp_message **ret) {
@@ -521,7 +519,7 @@ static int basic_io_handler(sd_event_source *s, int fd, uint32_t revents, void *
                 verify_request_server_address(request);
                 verify_request_client_address(request, /* header= */ true);
 
-                ASSERT_OK(sd_event_exit(sd_dhcp_client_get_event(client), 0));
+                ASSERT_OK(sd_event_exit(sd_dhcp_client_get_event(client), /* code= */ 0));
                 break;
         }
         default:
@@ -604,7 +602,7 @@ static int basic_client_handler(sd_dhcp_client *client, int event, void *userdat
 TEST(basic) {
         _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
         setup(basic_io_handler, basic_client_handler, &client);
-        ASSERT_OK(sd_dhcp_client_set_send_release(client, true));
+        ASSERT_OK(sd_dhcp_client_set_send_release(client, /* enable= */ true));
         ASSERT_OK(sd_dhcp_client_start(client));
         ASSERT_OK(sd_event_loop(sd_dhcp_client_get_event(client)));
 }
@@ -665,7 +663,7 @@ static int anonymize_client_handler(sd_dhcp_client *client, int event, void *use
         case 2:
                 ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_IP_ACQUIRE);
                 verify_reply(client, DHCP_STATE_BOUND);
-                ASSERT_OK(sd_event_exit(e, 0));
+                ASSERT_OK(sd_event_exit(e, /* code= */ 0));
                 break;
         default:
                 assert_not_reached();
@@ -722,7 +720,7 @@ static int rapid_commit_client_handler(sd_dhcp_client *client, int event, void *
         case 1:
                 ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_IP_ACQUIRE);
                 verify_reply(client, DHCP_STATE_BOUND);
-                ASSERT_OK(sd_event_exit(e, 0));
+                ASSERT_OK(sd_event_exit(e, /* code= */ 0));
                 break;
         default:
                 assert_not_reached();
@@ -734,7 +732,7 @@ static int rapid_commit_client_handler(sd_dhcp_client *client, int event, void *
 TEST(rapid_commit) {
         _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
         setup(rapid_commit_io_handler, rapid_commit_client_handler, &client);
-        ASSERT_OK(sd_dhcp_client_set_rapid_commit(client, true));
+        ASSERT_OK(sd_dhcp_client_set_rapid_commit(client, /* rapid_commit= */ true));
         ASSERT_OK(sd_dhcp_client_start(client));
         ASSERT_OK(sd_event_loop(sd_dhcp_client_get_event(client)));
 }
@@ -778,7 +776,7 @@ static int init_reboot_client_handler(sd_dhcp_client *client, int event, void *u
         case 1:
                 ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_IP_ACQUIRE);
                 verify_reply(client, DHCP_STATE_BOUND);
-                ASSERT_OK(sd_event_exit(e, 0));
+                ASSERT_OK(sd_event_exit(e, /* code= */ 0));
                 break;
         default:
                 assert_not_reached();
@@ -878,7 +876,7 @@ static int hostname_change_client_handler(sd_dhcp_client *client, int event, voi
         case 3:
                 ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_RENEW);
                 verify_reply(client, DHCP_STATE_BOUND);
-                ASSERT_OK(sd_event_exit(e, 0));
+                ASSERT_OK(sd_event_exit(e, /* code= */ 0));
                 break;
         default:
                 assert_not_reached();
@@ -933,7 +931,7 @@ static int bootp_client_handler(sd_dhcp_client *client, int event, void *userdat
         case 1:
                 ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_IP_ACQUIRE);
                 verify_reply(client, DHCP_STATE_BOUND);
-                ASSERT_OK(sd_event_exit(e, 0));
+                ASSERT_OK(sd_event_exit(e, /* code= */ 0));
                 break;
         default:
                 assert_not_reached();
@@ -945,7 +943,7 @@ static int bootp_client_handler(sd_dhcp_client *client, int event, void *userdat
 TEST(bootp) {
         _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
         setup(bootp_io_handler, bootp_client_handler, &client);
-        ASSERT_OK(sd_dhcp_client_set_bootp(client, true));
+        ASSERT_OK(sd_dhcp_client_set_bootp(client, /* bootp= */ true));
         ASSERT_OK(sd_dhcp_client_start(client));
         ASSERT_OK(sd_event_loop(sd_dhcp_client_get_event(client)));
 }
@@ -1048,7 +1046,7 @@ static int ipv6_only_before_discover_client_handler(sd_dhcp_client *client, int 
         case 2:
                 ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_STOP);
                 verify_reply(client, DHCP_STATE_REQUESTING);
-                ASSERT_OK(sd_event_exit(e, 0));
+                ASSERT_OK(sd_event_exit(e, /* code= */ 0));
                 break;
         default:
                 assert_not_reached();
@@ -1068,12 +1066,12 @@ static int ipv6_only_after_offer_client_handler(sd_dhcp_client *client, int even
         case 1:
                 ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_SELECTING);
                 verify_reply(client, DHCP_STATE_SELECTING);
-                ASSERT_OK(sd_dhcp_client_set_ipv6_connectivity(client, true));
+                ASSERT_OK(sd_dhcp_client_set_ipv6_connectivity(client, /* have= */ true));
                 break;
         case 2:
                 ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_STOP);
                 verify_reply(client, DHCP_STATE_REQUESTING);
-                ASSERT_OK(sd_event_exit(e, 0));
+                ASSERT_OK(sd_event_exit(e, /* code= */ 0));
                 break;
         default:
                 assert_not_reached();
@@ -1088,7 +1086,7 @@ static int ipv6_only_before_request_defer_handler(sd_event_source *s, void *user
         ASSERT_EQ(client->state, DHCP_STATE_REQUESTING);
         ASSERT_EQ(client->request_attempt, 0u);
 
-        ASSERT_OK(sd_dhcp_client_set_ipv6_connectivity(client, true));
+        ASSERT_OK(sd_dhcp_client_set_ipv6_connectivity(client, /* have= */ true));
         ASSERT_EQ(client->state, DHCP_STATE_STOPPED);
 
         ASSERT_OK(sd_event_source_set_enabled(s, SD_EVENT_OFF));
@@ -1111,7 +1109,7 @@ static int ipv6_only_before_request_client_handler(sd_dhcp_client *client, int e
         case 2:
                 ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_STOP);
                 verify_reply(client, DHCP_STATE_REQUESTING);
-                ASSERT_OK(sd_event_exit(e, 0));
+                ASSERT_OK(sd_event_exit(e, /* code= */ 0));
                 break;
         default:
                 assert_not_reached();
@@ -1131,7 +1129,7 @@ static int ipv6_only_before_ack_post_handler(sd_event_source *s, void *userdata)
                 ASSERT_EQ(client->request_attempt, 1u);
 
                 /* Set IPv6 connectivity after a DHCPREQUEST sent. */
-                ASSERT_OK(sd_dhcp_client_set_ipv6_connectivity(client, true));
+                ASSERT_OK(sd_dhcp_client_set_ipv6_connectivity(client, /* have= */ true));
                 /* Still running */
                 ASSERT_EQ(client->state, DHCP_STATE_REQUESTING);
 
@@ -1162,7 +1160,7 @@ static int ipv6_only_before_ack_client_handler(sd_dhcp_client *client, int event
         case 3:
                 ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_STOP);
                 verify_reply(client, DHCP_STATE_BOUND);
-                ASSERT_OK(sd_event_exit(e, 0));
+                ASSERT_OK(sd_event_exit(e, /* code= */ 0));
                 break;
         default:
                 assert_not_reached();
@@ -1196,10 +1194,10 @@ static int ipv6_only_after_ack_client_handler(sd_dhcp_client *client, int event,
         case 2:
                 ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_IP_ACQUIRE);
                 verify_reply(client, DHCP_STATE_BOUND);
-                ASSERT_OK(sd_dhcp_client_set_ipv6_connectivity(client, true));
+                ASSERT_OK(sd_dhcp_client_set_ipv6_connectivity(client, /* have= */ true));
                 /* still running */
                 ASSERT_EQ(client->state, DHCP_STATE_BOUND);
-                ASSERT_OK(sd_event_exit(e, 0));
+                ASSERT_OK(sd_event_exit(e, /* code= */ 0));
                 break;
         default:
                 assert_not_reached();
@@ -1219,7 +1217,7 @@ static int ipv6_only_init_reboot_client_handler(sd_dhcp_client *client, int even
         case 1:
                 ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_IP_ACQUIRE);
                 verify_reply(client, DHCP_STATE_BOUND);
-                ASSERT_OK(sd_event_exit(e, 0));
+                ASSERT_OK(sd_event_exit(e, /* code= */ 0));
                 break;
         default:
                 assert_not_reached();
@@ -1239,7 +1237,7 @@ static int ipv6_only_rapid_commit_client_handler(sd_dhcp_client *client, int eve
         case 1:
                 ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_IP_ACQUIRE);
                 verify_reply(client, DHCP_STATE_BOUND);
-                ASSERT_OK(sd_event_exit(e, 0));
+                ASSERT_OK(sd_event_exit(e, /* code= */ 0));
                 break;
         default:
                 assert_not_reached();
@@ -1254,7 +1252,7 @@ TEST(ipv6_only) {
         /* case 1: IPv6 connectivity is acquired before starting the client. */
         setup(ipv6_only_io_handler, ipv6_only_before_discover_client_handler, &client);
         ASSERT_OK(sd_dhcp_client_set_request_option(client, SD_DHCP_OPTION_IPV6_ONLY_PREFERRED));
-        ASSERT_OK(sd_dhcp_client_set_ipv6_connectivity(client, true));
+        ASSERT_OK(sd_dhcp_client_set_ipv6_connectivity(client, /* have= */ true));
         ASSERT_OK(sd_dhcp_client_start(client));
         ASSERT_OK(sd_event_loop(sd_dhcp_client_get_event(client)));
 
@@ -1296,7 +1294,7 @@ TEST(ipv6_only) {
         setup(ipv6_only_io_handler, ipv6_only_init_reboot_client_handler, &client);
         ASSERT_OK(sd_dhcp_client_set_request_option(client, SD_DHCP_OPTION_IPV6_ONLY_PREFERRED));
         ASSERT_OK(sd_dhcp_client_set_request_address(client, &client_address.in));
-        ASSERT_OK(sd_dhcp_client_set_ipv6_connectivity(client, true));
+        ASSERT_OK(sd_dhcp_client_set_ipv6_connectivity(client, /* have= */ true));
         ASSERT_OK(sd_dhcp_client_start(client));
         ASSERT_OK(sd_event_loop(sd_dhcp_client_get_event(client)));
 
@@ -1304,9 +1302,9 @@ TEST(ipv6_only) {
 
         /* case 7: IPv6 connectivity is acquired on rapid commit. */
         setup(ipv6_only_io_handler, ipv6_only_rapid_commit_client_handler, &client);
-        ASSERT_OK(sd_dhcp_client_set_rapid_commit(client, true));
+        ASSERT_OK(sd_dhcp_client_set_rapid_commit(client, /* rapid_commit= */ true));
         ASSERT_OK(sd_dhcp_client_set_request_option(client, SD_DHCP_OPTION_IPV6_ONLY_PREFERRED));
-        ASSERT_OK(sd_dhcp_client_set_ipv6_connectivity(client, true));
+        ASSERT_OK(sd_dhcp_client_set_ipv6_connectivity(client, /* have= */ true));
         ASSERT_OK(sd_dhcp_client_start(client));
         ASSERT_OK(sd_event_loop(sd_dhcp_client_get_event(client)));
 }
@@ -1384,7 +1382,7 @@ static int discover_attempt_no_reply_client_handler(sd_dhcp_client *client, int 
                 ASSERT_EQ(event, -ETIMEDOUT);
                 ASSERT_EQ(client->state, DHCP_STATE_SELECTING);
                 ASSERT_EQ(client->discover_attempt, 5u);
-                ASSERT_OK(sd_event_exit(e, 0));
+                ASSERT_OK(sd_event_exit(e, /* code= */ 0));
                 break;
         default:
                 assert_not_reached();
@@ -1416,7 +1414,7 @@ static int discover_attempt_reset_on_bound_client_handler(sd_dhcp_client *client
                 verify_reply(client, DHCP_STATE_BOUND);
                 ASSERT_EQ(client->discover_attempt, 0u);
                 /* expire the lease now. */
-                ASSERT_OK(sd_event_source_set_time_relative(client->timeout_expire, 0));
+                ASSERT_OK(sd_event_source_set_time_relative(client->timeout_expire, /* usec= */ 0));
                 break;
         case 6:
                 ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_EXPIRED);
@@ -1443,7 +1441,7 @@ static int discover_attempt_reset_on_bound_client_handler(sd_dhcp_client *client
                 ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_STOP);
                 verify_reply(client, DHCP_STATE_BOUND);
                 ASSERT_EQ(client->discover_attempt, 0u);
-                ASSERT_OK(sd_event_exit(e, 0));
+                ASSERT_OK(sd_event_exit(e, /* code= */ 0));
                 break;
         default:
                 assert_not_reached();

@@ -18,6 +18,7 @@
 #include "escape.h"
 #include "fileio.h"
 #include "format-table.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
 #include "json-util.h"
@@ -211,7 +212,7 @@ static int is_tmpfs_with_noswap(dev_t devno) {
         if (!fs)
                 return -ENODEV;
 
-        r = sym_mnt_fs_get_option(fs, "noswap", /* value= */ NULL, /* valuesz= */ NULL);
+        r = sym_mnt_fs_get_option(fs, "noswap", /* value= */ NULL, /* valsz= */ NULL);
         if (r < 0)
                 return r;
 
@@ -253,12 +254,12 @@ static int add_credentials_to_table(Table *t, bool encrypted) {
                 if (!credential_name_valid(de->d_name))
                         continue;
 
-                fd = openat(dirfd(d), de->d_name, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+                fd = xopenat(dirfd(d), de->d_name, O_PATH|O_NOFOLLOW);
                 if (fd < 0) {
-                        if (errno == ENOENT) /* Vanished by now? */
+                        if (fd == -ENOENT) /* Vanished by now? */
                                 continue;
 
-                        return log_error_errno(errno, "Failed to open credential '%s': %m", de->d_name);
+                        return log_error_errno(fd, "Failed to open credential '%s': %m", de->d_name);
                 }
 
                 if (fstat(fd, &st) < 0)
@@ -321,7 +322,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (!t)
                 return log_oom();
 
-        (void) table_set_align_percent(t, table_get_cell(t, 0, 2), 100);
+        (void) table_set_align_percent(t, table_get_cell(t, /* row= */ 0, 2), 100);
 
         r = add_credentials_to_table(t, /* encrypted= */ true);
         if (r < 0)
@@ -375,7 +376,7 @@ static int transcode(
         }
 
         case TRANSCODE_UNBASE64:
-                r = unbase64mem_full(input, input_size, true, ret_output, ret_output_size);
+                r = unbase64mem_full(input, input_size, /* secure= */ true, ret_output, ret_output_size);
                 if (r == -EPIPE) /* Uneven number of chars */
                         return -EINVAL;
 
@@ -394,7 +395,7 @@ static int transcode(
         }
 
         case TRANSCODE_UNHEX:
-                r = unhexmem_full(input, input_size, true, ret_output, ret_output_size);
+                r = unhexmem_full(input, input_size, /* secure= */ true, ret_output, ret_output_size);
                 if (r == -EPIPE) /* Uneven number of chars */
                         return -EINVAL;
 
@@ -443,11 +444,11 @@ static int write_blob(FILE *f, const void *data, size_t size) {
                 if (r < 0)
                         return log_error_errno(r, "Unable to convert binary string to C string: %m");
 
-                r = sd_json_parse(suffixed, SD_JSON_PARSE_SENSITIVE, &v, NULL, NULL);
+                r = sd_json_parse(suffixed, SD_JSON_PARSE_SENSITIVE, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse JSON: %m");
 
-                sd_json_variant_dump(v, arg_json_format_flags, f, NULL);
+                sd_json_variant_dump(v, arg_json_format_flags, f, /* prefix= */ NULL);
                 return 0;
         }
 
@@ -495,7 +496,7 @@ static int verb_cat(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 for (encrypted = 0; encrypted < 2; encrypted++) {
                         _cleanup_closedir_ DIR *d = NULL;
 
-                        r = open_credential_directory(encrypted, &d, NULL);
+                        r = open_credential_directory(encrypted, &d, /* ret_prefix= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to open credentials directory: %m");
                         if (!d) /* Not set */
@@ -509,7 +510,7 @@ static int verb_cat(int argc, char *argv[], uintptr_t _data, void *userdata) {
                                         dirfd(d), *cn,
                                         UINT64_MAX, SIZE_MAX,
                                         flags,
-                                        NULL,
+                                        /* bind_name= */ NULL,
                                         (char**) &content, &size);
                         if (r == -ENOENT) /* Not found */
                                 continue;
@@ -576,9 +577,24 @@ static int verb_encrypt(int argc, char *argv[], uintptr_t _data, void *userdata)
         input_path = empty_or_dash(argv[1]) ? NULL : argv[1];
 
         if (input_path)
-                r = read_full_file_full(AT_FDCWD, input_path, UINT64_MAX, CREDENTIAL_SIZE_MAX, READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, (char**) &plaintext.iov_base, &plaintext.iov_len);
+                r = read_full_file_full(
+                                AT_FDCWD,
+                                input_path,
+                                UINT64_MAX,
+                                CREDENTIAL_SIZE_MAX,
+                                READ_FULL_FILE_SECURE | READ_FULL_FILE_FAIL_WHEN_LARGER,
+                                /* bind_name= */ NULL,
+                                (char **) &plaintext.iov_base,
+                                &plaintext.iov_len);
         else
-                r = read_full_stream_full(stdin, NULL, UINT64_MAX, CREDENTIAL_SIZE_MAX, READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER, (char**) &plaintext.iov_base, &plaintext.iov_len);
+                r = read_full_stream_full(
+                                stdin,
+                                /* filename= */ NULL,
+                                UINT64_MAX,
+                                CREDENTIAL_SIZE_MAX,
+                                READ_FULL_FILE_SECURE | READ_FULL_FILE_FAIL_WHEN_LARGER,
+                                (char **) &plaintext.iov_base,
+                                &plaintext.iov_len);
         if (r == -E2BIG)
                 return log_error_errno(r, "Plaintext too long for credential (allowed size: %zu).", (size_t) CREDENTIAL_SIZE_MAX);
         if (r < 0)
@@ -664,7 +680,7 @@ static int verb_encrypt(int argc, char *argv[], uintptr_t _data, void *userdata)
         if (output_path)
                 r = write_string_file(output_path, base64_buf, WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE);
         else
-                r = write_string_stream(stdout, base64_buf, 0);
+                r = write_string_stream(stdout, base64_buf, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to write result: %m");
 
@@ -687,9 +703,24 @@ static int verb_decrypt(int argc, char *argv[], uintptr_t _data, void *userdata)
         input_path = empty_or_dash(argv[1]) ? NULL : argv[1];
 
         if (input_path)
-                r = read_full_file_full(AT_FDCWD, argv[1], UINT64_MAX, CREDENTIAL_ENCRYPTED_SIZE_MAX, READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, (char**) &input, &input.iov_len);
+                r = read_full_file_full(
+                                AT_FDCWD,
+                                argv[1],
+                                UINT64_MAX,
+                                CREDENTIAL_ENCRYPTED_SIZE_MAX,
+                                READ_FULL_FILE_UNBASE64 | READ_FULL_FILE_FAIL_WHEN_LARGER,
+                                /* bind_name= */ NULL,
+                                (char **) &input,
+                                &input.iov_len);
         else
-                r = read_full_stream_full(stdin, NULL, UINT64_MAX, CREDENTIAL_ENCRYPTED_SIZE_MAX, READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER, (char**) &input, &input.iov_len);
+                r = read_full_stream_full(
+                                stdin,
+                                /* filename= */ NULL,
+                                UINT64_MAX,
+                                CREDENTIAL_ENCRYPTED_SIZE_MAX,
+                                READ_FULL_FILE_UNBASE64 | READ_FULL_FILE_FAIL_WHEN_LARGER,
+                                (char **) &input,
+                                &input.iov_len);
         if (r == -E2BIG)
                 return log_error_errno(r, "Data too long for encrypted credential (allowed size: %zu).", (size_t) CREDENTIAL_ENCRYPTED_SIZE_MAX);
         if (r < 0)
@@ -1262,7 +1293,7 @@ static int vl_method_encrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
                         cflags,
                         &output);
         if (r == -ESRCH)
-                return sd_varlink_error(link, "io.systemd.Credentials.NoSuchUser", NULL);
+                return sd_varlink_error(link, "io.systemd.Credentials.NoSuchUser", /* parameters= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1382,11 +1413,11 @@ static int vl_method_decrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
         }
 
         if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))
-                return sd_varlink_error(link, "io.systemd.Credentials.UnexpectedPCRState", NULL);
+                return sd_varlink_error(link, "io.systemd.Credentials.UnexpectedPCRState", /* parameters= */ NULL);
         if (r < 0) {
                 const CredentialsVarlinkError *e = credentials_varlink_error_by_errno(r);
                 if (e)
-                        return sd_varlink_error(link, e->id, NULL);
+                        return sd_varlink_error(link, e->id, /* parameters= */ NULL);
 
                 return r;
         }

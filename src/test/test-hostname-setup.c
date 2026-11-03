@@ -87,7 +87,7 @@ TEST(read_etc_hostname) {
 TEST(hostname_substitute_wildcards) {
         int r;
 
-        r = sd_id128_get_machine(NULL);
+        r = sd_id128_get_machine(/* ret= */ NULL);
         if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r))
                 return (void) log_tests_skipped_errno(r, "skipping wildcard hostname tests, no machine ID defined");
 
@@ -111,7 +111,7 @@ TEST(hostname_substitute_wildcards_words) {
         _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
         int r;
 
-        r = sd_id128_get_machine(NULL);
+        r = sd_id128_get_machine(/* ret= */ NULL);
         if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r))
                 return (void) log_tests_skipped_errno(r, "skipping word hostname tests, no machine ID defined");
 
@@ -149,7 +149,7 @@ TEST(hostname_setup_rederive_default) {
         if (geteuid() != 0)
                 return (void) log_tests_skipped("Not privileged");
 
-        r = sd_id128_get_machine(NULL);
+        r = sd_id128_get_machine(/* ret= */ NULL);
         if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r))
                 return (void) log_tests_skipped_errno(r, "skipping re-derive hostname tests, no machine ID defined");
 
@@ -217,7 +217,7 @@ TEST(hostname_setup_cmdline_wildcards) {
         _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
         int r;
 
-        r = sd_id128_get_machine(NULL);
+        r = sd_id128_get_machine(/* ret= */ NULL);
         if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r))
                 return (void) log_tests_skipped_errno(r, "skipping cmdline wildcard hostname tests, no machine ID defined");
 
@@ -241,21 +241,21 @@ TEST(hostname_setup_cmdline_wildcards) {
 }
 
 TEST(hostname_setup) {
-        hostname_setup(false);
+        hostname_setup(/* really= */ false);
 }
 
 TEST(hostname_malloc) {
         _cleanup_free_ char *h = NULL, *l = NULL;
 
-        assert_se(h = gethostname_malloc());
+        ASSERT_NOT_NULL(h = gethostname_malloc());
         log_info("hostname_malloc: \"%s\"", h);
 
-        assert_se(l = gethostname_short_malloc());
+        ASSERT_NOT_NULL(l = gethostname_short_malloc());
         log_info("hostname_short_malloc: \"%s\"", l);
 }
 
 TEST(default_hostname) {
-        if (!hostname_is_valid(FALLBACK_HOSTNAME, 0)) {
+        if (!hostname_is_valid(FALLBACK_HOSTNAME, /* flags= */ 0)) {
                 log_error("Configured fallback hostname \"%s\" is not valid.", FALLBACK_HOSTNAME);
                 exit(EXIT_FAILURE);
         }

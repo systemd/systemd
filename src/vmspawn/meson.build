@@ -10,6 +10,7 @@ vmspawn_sources = files(
         'vmspawn-qmp.c',
         'vmspawn-varlink.c',
         'vmspawn-scope.c',
+        'vmspawn-memory.c',
 )
 vmspawn_export_sources = files(
         'vmspawn-mount.c',
@@ -21,7 +22,6 @@ vmspawn_export_sources = files(
 executables += [
         executable_template + {
                 'name' : 'systemd-vmspawn',
-                'public' : true,
                 'sources' : vmspawn_sources,
                 'export' : vmspawn_export_sources,
         },

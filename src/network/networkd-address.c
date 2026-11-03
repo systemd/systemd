@@ -10,6 +10,7 @@
 #include "alloc-util.h"
 #include "bitfield.h"
 #include "conf-parser.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "firewall-util.h"
 #include "in-addr-prefix-util.h"
@@ -38,8 +39,46 @@
 #include "string-util.h"
 #include "strv.h"
 
-#define ADDRESSES_PER_LINK_MAX 16384U
-#define STATIC_ADDRESSES_PER_NETWORK_MAX 8192U
+#define DEFAULT_MAX_ADDRESSES_PER_LINK           16384U
+#define DEFAULT_MAX_STATIC_ADDRESSES_PER_NETWORK  8192U
+
+static uint64_t max_addresses_per_link(void) {
+        static uint64_t cached = 0;
+        uint64_t value;
+        int r;
+
+        if (cached > 0)
+                return cached;
+
+        r = secure_getenv_uint64("SYSTEMD_NETWORK_MAX_ADDRESSES_PER_LINK", &value);
+        if (r < 0 && r != -ENXIO)
+                log_warning_errno(r, "Failed to parse environment variable $SYSTEMD_NETWORK_MAX_ADDRESSES_PER_LINK, ignoring: %m");
+        if (r < 0 || value == 0)
+                cached = DEFAULT_MAX_ADDRESSES_PER_LINK;
+        else
+                cached = value;
+
+        return cached;
+}
+
+static uint64_t max_static_addresses_per_network(void) {
+        static uint64_t cached = 0;
+        uint64_t value;
+        int r;
+
+        if (cached > 0)
+                return cached;
+
+        r = secure_getenv_uint64("SYSTEMD_NETWORK_MAX_STATIC_ADDRESSES_PER_NETWORK", &value);
+        if (r < 0 && r != -ENXIO)
+                log_warning_errno(r, "Failed to parse environment variable $SYSTEMD_NETWORK_MAX_STATIC_ADDRESSES_PER_NETWORK, ignoring: %m");
+        if (r < 0 || value == 0)
+                cached = MIN(DEFAULT_MAX_STATIC_ADDRESSES_PER_NETWORK, max_addresses_per_link());
+        else
+                cached = MIN(value, max_addresses_per_link());
+
+        return cached;
+}
 
 #define KNOWN_FLAGS                             \
         (IFA_F_SECONDARY |                      \
@@ -214,7 +253,7 @@ int address_new_static(Network *network, const char *filename, unsigned section_
                 return 0;
         }
 
-        if (ordered_hashmap_size(network->addresses_by_section) >= STATIC_ADDRESSES_PER_NETWORK_MAX)
+        if (ordered_hashmap_size(network->addresses_by_section) >= max_static_addresses_per_network())
                 return -E2BIG;
 
         r = address_new(&address);
@@ -1307,7 +1346,7 @@ int address_remove(Address *address, Link *link) {
 
         /* The operational state is determined by address state and carrier state. Hence, if we remove
          * an address, the operational state may be changed. */
-        link_update_operstate(link, true);
+        link_update_operstate(link, /* also_update_master= */ true);
         return 0;
 }
 
@@ -1400,11 +1439,11 @@ int link_drop_ipv6ll_addresses(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_set_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, /* dump= */ true);
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call(link->manager->rtnl, req, 0, &reply);
+        r = sd_netlink_call(link->manager->rtnl, req, /* timeout= */ 0, &reply);
         if (r < 0)
                 return r;
 
@@ -1436,7 +1475,7 @@ int link_drop_ipv6ll_addresses(Link *link) {
                         continue;
                 }
 
-                if (sd_netlink_message_read_in6_addr(addr, IFA_LOCAL, NULL) >= 0)
+                if (sd_netlink_message_read_in6_addr(addr, IFA_LOCAL, /* ret= */ NULL) >= 0)
                         /* address with peer, ignoring. */
                         continue;
 
@@ -1641,13 +1680,13 @@ static int address_acquire(Link *link, const Address *address, union in_addr_uni
         if (r == 0)
                 return -EBUSY;
 
-        /* Pick first address in range for ourselves. */
-        if (address->family == AF_INET)
-                a.in.s_addr |= htobe32(1);
-        else if (address->family == AF_INET6)
-                a.in6.s6_addr[15] |= 1;
-        else
-                assert_not_reached();
+        /* Pick first address in range for ourselves. A host prefix already identifies the exact address. */
+        if (address->prefixlen < FAMILY_ADDRESS_SIZE(address->family) * 8) {
+                if (address->family == AF_INET)
+                        a.in.s_addr |= htobe32(1);
+                else
+                        a.in6.s6_addr[15] |= 1;
+        }
 
         *ret = a;
         return 0;
@@ -1680,7 +1719,7 @@ static int address_requeue_request(Request *req, Link *link, const Address *addr
 
         tmp->in_addr = a;
 
-        r = link_requeue_request(link, req, tmp, NULL);
+        r = link_requeue_request(link, req, tmp, /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1699,11 +1738,11 @@ static int address_process_request(Request *req, Link *link, Address *address) {
         assert(link);
         assert(address);
 
-        if (!link_is_ready_to_configure(link, false))
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged= */ false))
                 return 0;
 
         /* Refuse adding more than the limit */
-        if (set_size(link->addresses) >= ADDRESSES_PER_LINK_MAX)
+        if (set_size(link->addresses) >= max_addresses_per_link())
                 return 0;
 
         r = address_requeue_request(req, link, address);
@@ -1763,7 +1802,7 @@ int link_request_address(
                 /* The requested address is outdated. Let's ignore the request. */
                 return 0;
 
-        if (address_get_request(link, address, NULL) >= 0)
+        if (address_get_request(link, address, /* ret= */ NULL) >= 0)
                 return 0; /* already requested, skipping. */
 
         r = address_dup(address, &tmp);
@@ -1825,7 +1864,7 @@ int link_request_static_address(Link *link, const Address *address) {
         assert(address->source == NETWORK_CONFIG_SOURCE_STATIC);
 
         return link_request_address(link, address, &link->static_address_messages,
-                                    static_address_handler, NULL);
+                                    static_address_handler, /* ret= */ NULL);
 }
 
 int link_request_static_addresses(Link *link) {

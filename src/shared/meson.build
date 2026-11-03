@@ -64,7 +64,6 @@ shared_sources = files(
         'dissect-image.c',
         'dm-util.c',
         'dns-answer.c',
-        'dns-configuration.c',
         'dns-domain.c',
         'dns-packet.c',
         'dns-question.c',
@@ -97,6 +96,7 @@ shared_sources = files(
         'gpt.c',
         'group-record.c',
         'hibernate-util.c',
+        'host-properties.c',
         'hostname-setup.c',
         'hwdb-util.c',
         'id128-print.c',
@@ -138,9 +138,11 @@ shared_sources = files(
         'machine-credential.c',
         'machine-id-setup.c',
         'machine-register.c',
+        'machine-tags.c',
         'machine-util.c',
         'macvlan-util.c',
         'main-func.c',
+        'manifest-util.c',
         'metrics.c',
         'microhttpd-util.c',
         'mkdir.c',
@@ -177,6 +179,7 @@ shared_sources = files(
         'plymouth-util.c',
         'polkit-agent.c',
         'portable-util.c',
+        'predict-measure.c',
         'pretty-print.c',
         'printk-util.c',
         'prompt-util.c',
@@ -216,6 +219,7 @@ shared_sources = files(
         'tomoyo-util.c',
         'tpm2-util.c',
         'tpm2-event-log.c',
+        'uapi16-manifest.c',
         'udev-util.c',
         'unit-file.c',
         'unit-result.c',
@@ -258,6 +262,7 @@ shared_sources = files(
         'varlink-io.systemd.Report.Uploader.c',
         'varlink-io.systemd.Resolve.c',
         'varlink-io.systemd.Resolve.Hook.c',
+        'varlink-io.systemd.Resolve.Link.c',
         'varlink-io.systemd.Resolve.Monitor.c',
         'varlink-io.systemd.ResourceProvider.c',
         'varlink-io.systemd.Shutdown.c',
@@ -280,12 +285,14 @@ shared_sources = files(
         'verb-log-control.c',
         'verbs.c',
         'vlan-util.c',
+        'voa-util.c',
         'volatile-util.c',
         'vpick.c',
         'vsock-util.c',
         'wall.c',
         'watchdog.c',
         'wifi-util.c',
+        'xattr-match.c',
         'xml.c',
 )
 
@@ -322,6 +329,10 @@ if conf.get('ENABLE_REPORT') == 1
         if conf.get('HAVE_TPM2') == 1
                 shared_sources += files('tpm2-report.c')
         endif
+endif
+
+if conf.get('HAVE_OPENSSL') == 1
+        shared_sources += files('authenticode.c')
 endif
 
 generate_ip_protocol_list = files('generate-ip-protocol-list.sh')

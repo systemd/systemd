@@ -70,7 +70,7 @@ static int increment_oomd_xattr(const char *path, const char *xattr, uint64_t nu
                 return -EOVERFLOW;
 
         xsprintf(buf, "%"PRIu64, curr_count + num_procs_killed);
-        r = cg_set_xattr(path, xattr, buf, strlen(buf), 0);
+        r = cg_set_xattr(path, xattr, buf, strlen(buf), /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -97,7 +97,7 @@ int oomd_pressure_above(Hashmap *h, Set **ret) {
         assert(h);
         assert(ret);
 
-        targets = set_new(NULL);
+        targets = set_new(/* hash_ops= */ NULL);
         if (!targets)
                 return -ENOMEM;
 

@@ -185,6 +185,7 @@ void enroll_context_done(EnrollContext *c) {
         c->tpm2_device_key = mfree(c->tpm2_device_key);
         c->tpm2_hash_pcr_values = mfree(c->tpm2_hash_pcr_values);
         c->tpm2_public_key = mfree(c->tpm2_public_key);
+        c->tpm2_public_key_policyref = mfree(c->tpm2_public_key_policyref);
         c->tpm2_signature = mfree(c->tpm2_signature);
         c->tpm2_pcrlock = mfree(c->tpm2_pcrlock);
         c->wipe_slots = mfree(c->wipe_slots);
@@ -587,7 +588,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("fido2-with-client-pin", "BOOL",
                             "Whether to require entering a PIN to unlock the volume"):
-                        r = parse_boolean_argument("--fido2-with-client-pin=", opts.arg, NULL);
+                        r = parse_boolean_argument("--fido2-with-client-pin=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_PIN, r);
@@ -595,7 +596,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("fido2-with-user-presence", "BOOL",
                             "Whether to require user presence to unlock the volume"):
-                        r = parse_boolean_argument("--fido2-with-user-presence=", opts.arg, NULL);
+                        r = parse_boolean_argument("--fido2-with-user-presence=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UP, r);
@@ -603,7 +604,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("fido2-with-user-verification", "BOOL",
                             "Whether to require user verification to unlock the volume"):
-                        r = parse_boolean_argument("--fido2-with-user-verification=", opts.arg, NULL);
+                        r = parse_boolean_argument("--fido2-with-user-verification=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UV, r);
@@ -677,7 +678,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("tpm2-public-key-policyref", "STRING",
                             "Enroll signed TPM2 PCR policy with the specified policy reference"):
-                        r = free_and_strdup_warn(&arg_tpm2_public_key_policyref, opts.arg);
+                        /* An empty policy reference is none, rather than one that no signature matches */
+                        r = free_and_strdup_warn(&arg_tpm2_public_key_policyref, empty_to_null(opts.arg));
                         if (r < 0)
                                 return r;
                         break;
@@ -777,7 +779,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         const char *arg = option_parser_get_arg(&opts, 0);
         if (arg)
-                r = parse_path_argument(arg, false, &arg_node);
+                r = parse_path_argument(arg, /* suppress_root= */ false, &arg_node);
         else if (!wipe_requested())
                 r = determine_default_node(&arg_node);
         else
@@ -807,7 +809,7 @@ static int parse_argv(int argc, char *argv[]) {
                 if (auto_pcrlock) {
                         assert(!arg_tpm2_pcrlock);
 
-                        r = tpm2_pcrlock_search_file(NULL, NULL, &arg_tpm2_pcrlock);
+                        r = tpm2_pcrlock_search_file(/* path= */ NULL, /* ret_file= */ NULL, &arg_tpm2_pcrlock);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         log_warning_errno(r, "Search for pcrlock.json failed, assuming it does not exist: %m");
@@ -849,7 +851,7 @@ static int check_for_homed(struct crypt_device *cd) {
          * volume should not get out of sync. */
 
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
-                r = cryptsetup_get_token_as_json(cd, token, "systemd-homed", NULL);
+                r = cryptsetup_get_token_as_json(cd, token, "systemd-homed", /* ret= */ NULL);
                 if (ERRNO_IS_NEG_CRYPTSETUP_TOKEN_SKIP(r))
                         continue;
                 if (r < 0)
@@ -879,7 +881,7 @@ int prepare_luks(
 
         cryptsetup_enable_logging(cd);
 
-        r = sym_crypt_load(cd, CRYPT_LUKS2, NULL);
+        r = sym_crypt_load(cd, CRYPT_LUKS2, /* params= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to load LUKS2 superblock of %s: %m", c->node);
 

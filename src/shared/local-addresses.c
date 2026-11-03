@@ -147,11 +147,11 @@ int local_addresses(
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_set_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, /* dump= */ true);
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call(rtnl, req, 0, &reply);
+        r = sd_netlink_call(rtnl, req, /* timeout= */ 0, &reply);
         if (r < 0)
                 return r;
 
@@ -401,11 +401,11 @@ int local_gateways(
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_set_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, /* dump= */ true);
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call(rtnl, req, 0, &reply);
+        r = sd_netlink_call(rtnl, req, /* timeout= */ 0, &reply);
         if (r < 0)
                 return r;
 
@@ -475,7 +475,7 @@ int local_gateways(
                         if (r < 0 && r != -ENODATA)
                                 return r;
                         if (r >= 0) {
-                                r = add_local_gateway(&list, &n_list, ifi, priority, 0, family, &gateway, &prefsrc);
+                                r = add_local_gateway(&list, &n_list, ifi, priority, /* weight= */ 0, family, &gateway, &prefsrc);
                                 if (r < 0)
                                         return r;
 
@@ -497,7 +497,7 @@ int local_gateways(
                                         return -EBADMSG;
 
                                 /* Ignore prefsrc, and let's take the source address by socket command, if necessary. */
-                                r = add_local_gateway(&list, &n_list, ifi, priority, 0, via.family,
+                                r = add_local_gateway(&list, &n_list, ifi, priority, /* weight= */ 0, via.family,
                                                       &(union in_addr_union) { .in6 = via.address.in6 },
                                                       /* prefsrc= */ NULL);
                                 if (r < 0)

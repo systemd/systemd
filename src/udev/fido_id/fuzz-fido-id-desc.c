@@ -8,7 +8,7 @@
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         fuzz_setup_logging();
 
-        if (outside_size_range(size, 0, HID_MAX_DESCRIPTOR_SIZE))
+        if (outside_size_range(size, /* lower= */ 0, HID_MAX_DESCRIPTOR_SIZE))
                 return 0;
 
         (void) is_fido_security_token_desc(data, size);

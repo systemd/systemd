@@ -13,3 +13,6 @@
 static inline bool strv_isempty(sd_char * const *l) {
         return !l || !*l;
 }
+
+sd_char* strv_find(sd_char * const *l, const sd_char *name) _pure_;
+#define strv_contains(l, s) (!!strv_find((l), (s)))

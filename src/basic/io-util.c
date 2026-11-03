@@ -45,7 +45,7 @@ int flush_fd(int fd) {
                 ssize_t l;
                 int r;
 
-                r = fd_wait_for_event(fd, POLLIN, 0);
+                r = fd_wait_for_event(fd, POLLIN, /* timeout= */ 0);
                 if (r == -EINTR)
                         continue;
                 if (r < 0)
@@ -302,7 +302,7 @@ int pwrite_full(int fd, const void *buf, size_t nbytes, uint64_t offset) {
 int pipe_eof(int fd) {
         int r;
 
-        r = fd_wait_for_event(fd, POLLIN, 0);
+        r = fd_wait_for_event(fd, POLLIN, /* timeout= */ 0);
         if (r <= 0)
                 return r;
 

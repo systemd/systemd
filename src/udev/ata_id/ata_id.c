@@ -19,6 +19,7 @@
 #include "device-nodes.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "strv.h"
@@ -415,13 +416,13 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        fd = open(ASSERT_PTR(arg_device), O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+        fd = xopenat(AT_FDCWD, ASSERT_PTR(arg_device), O_RDONLY|O_NONBLOCK|O_NOCTTY);
         if (fd < 0) {
-                bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(errno);
-                log_full_errno(ignore ? LOG_DEBUG : LOG_WARNING, errno,
+                bool ignore = ERRNO_IS_NEG_DEVICE_ABSENT_OR_EMPTY(fd);
+                log_full_errno(ignore ? LOG_DEBUG : LOG_WARNING, fd,
                                "Failed to open device node '%s'%s: %m",
                                arg_device, ignore ? ", ignoring" : "");
-                return ignore ? 0 : -errno;
+                return ignore ? 0 : fd;
         }
 
         if (disk_identify(fd, identify.byte, &peripheral_device_type) >= 0) {
@@ -432,7 +433,7 @@ static int run(int argc, char *argv[]) {
                 disk_identify_fixup_string(identify.byte,  10, 20); /* serial */
                 disk_identify_fixup_string(identify.byte,  23,  8); /* fwrev */
                 disk_identify_fixup_string(identify.byte,  27, 40); /* model */
-                disk_identify_fixup_uint16(identify.byte,  0);      /* configuration */
+                disk_identify_fixup_uint16(identify.byte,  /* offset_words= */ 0);      /* configuration */
                 disk_identify_fixup_uint16(identify.byte,  75);     /* queue depth */
                 disk_identify_fixup_uint16(identify.byte,  76);     /* SATA capabilities */
                 disk_identify_fixup_uint16(identify.byte,  82);     /* command set supported */
@@ -462,11 +463,11 @@ static int run(int argc, char *argv[]) {
         model[40] = '\0';
         encode_devnode_name(model, model_enc, sizeof(model_enc));
         udev_replace_whitespace((char *) id.model, model, 40);
-        udev_replace_chars(model, NULL);
+        udev_replace_chars(model, /* allow= */ NULL);
         udev_replace_whitespace((char *) id.serial_no, serial, 20);
-        udev_replace_chars(serial, NULL);
+        udev_replace_chars(serial, /* allow= */ NULL);
         udev_replace_whitespace((char *) id.fw_rev, revision, 8);
-        udev_replace_chars(revision, NULL);
+        udev_replace_chars(revision, /* allow= */ NULL);
 
         if (arg_export) {
                 /* Set this to convey the disk speaks the ATA protocol */

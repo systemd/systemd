@@ -3,7 +3,6 @@
 executables += [
         executable_template + {
                 'name' : 'systemd-stdio-bridge',
-                'public' : true,
                 'sources' : files('stdio-bridge.c'),
         },
 ]

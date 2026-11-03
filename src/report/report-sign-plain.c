@@ -28,6 +28,7 @@ COMMAND(
         "systemd-report-sign-plain\0",
         "Sign system reports with a local software key.",
         .man_pages = "systemd-report-sign-plain@.service(8)\0",
+        .option_namespace = "common",
 );
 
 /* No server-wide access restriction: the metrics interface is meant to be reachable unprivileged,
@@ -180,7 +181,7 @@ static int acquire_key(EVP_PKEY **ret) {
         _cleanup_close_ int dir_fd = xopenat_lock_full(
                         AT_FDCWD,
                         REPORT_SIGN_PLAIN_DIR,
-                        O_CLOEXEC|O_DIRECTORY|O_CREAT,
+                        O_DIRECTORY|O_CREAT,
                         /* xopen_flags= */ 0,
                         /* mode= */ 0700,
                         LOCK_BSD,

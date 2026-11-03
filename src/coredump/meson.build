@@ -56,7 +56,6 @@ executables += [
         },
         executable_template + {
                 'name' : 'coredumpctl',
-                'public' : true,
                 'sources' : coredumpctl_sources,
                 'link_with' : [libshared],
                 'dependencies' : common_dependencies,

@@ -8,7 +8,11 @@
 #include "report-server.h"
 #include "verbs.h"
 
-COMMAND("systemd-report-example\0", "Report example metrics.");
+COMMAND(
+        "systemd-report-example\0",
+        "Report example metrics.",
+        .option_namespace = "common",
+);
 
 /* Default for unprivileged metrics.
  * For a privileged-only service, use SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_MYSELF_ONLY.

@@ -29,6 +29,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-ifname.h"
+#include "fs-util.h"
 #include "hash-funcs.h"
 #include "hashmap.h"
 #include "imds-util.h"
@@ -194,7 +195,6 @@ struct Context {
         struct curl_slist *request_header_token, *request_header_data;
         sd_event_source *retry_source;
         unsigned n_retry;
-        usec_t retry_interval_usec;
 
         /* Mode 2 "indirect": we fork off a number of children which go to the network on behalf of us,
          * because we have multiple network interfaces to deal with. */
@@ -342,7 +342,7 @@ static int context_fail_full(Context *c, int r, const char *varlink_error) {
         /* If we are running in Varlink mode, return the error on the connection */
         if (c->current_link) {
                 if (varlink_error)
-                        (void) sd_varlink_error(c->current_link, varlink_error, NULL);
+                        (void) sd_varlink_error(c->current_link, varlink_error, /* parameters= */ NULL);
                 else
                         (void) sd_varlink_error_errno(c->current_link, r);
         } else
@@ -374,7 +374,7 @@ static void context_success(Context *c) {
                 if (r < 0)
                         context_log_errno(c, LOG_WARNING, r, "Failed to reply to Varlink call, ignoring: %m");
         } else
-                sd_event_exit(c->event, 0);
+                sd_event_exit(c->event, /* code= */ 0);
 
         context_reset_full(c);
 }
@@ -464,9 +464,9 @@ static int context_save_ifname(Context *c) {
         if (!d)
                 return 0;
 
-        _cleanup_close_ int dirfd = open(d, O_PATH|O_CLOEXEC);
+        _cleanup_close_ int dirfd = xopenat(AT_FDCWD, d, O_PATH);
         if (dirfd < 0)
-                return context_log_errno(c, LOG_ERR, errno, "Failed to open runtime directory: %m");
+                return context_log_errno(c, LOG_ERR, dirfd, "Failed to open runtime directory: %m");
 
         _cleanup_free_ char *ifname = NULL;
         r = rtnl_get_ifname_full(&c->rtnl, c->ifindex, &ifname, /* ret_altnames= */ NULL);
@@ -549,10 +549,10 @@ static CacheResult context_process_cache(Context *c) {
 
         c->cache_filename = TAKE_PTR(fn);
 
-        _cleanup_close_ int fd = openat(c->cache_dir_fd, c->cache_filename, O_RDONLY|O_CLOEXEC);
+        _cleanup_close_ int fd = xopenat(c->cache_dir_fd, c->cache_filename, O_RDONLY);
         if (fd < 0) {
-                if (errno != ENOENT)
-                        return context_log_errno(c, LOG_ERR, errno, "Failed to open cache file '%s': %m", c->cache_filename);
+                if (fd != -ENOENT)
+                        return context_log_errno(c, LOG_ERR, fd, "Failed to open cache file '%s': %m", c->cache_filename);
         } else {
                 _cleanup_free_ char *d = NULL;
                 size_t l;
@@ -624,8 +624,8 @@ static CacheResult context_process_cache(Context *c) {
                 return context_log_errno(c, LOG_ERR, r, "Failed to decode cached token data: %m");
 
         if (d.until > c->timestamp) {
-                c->token_string = strdup(d.token);
-                if (!c->token_string)
+                /* On retries we might still have a token */
+                if (free_and_strdup(&c->token_string, d.token) < 0)
                         return context_log_oom(c);
 
                 context_log(c, LOG_INFO, "Reusing cached token.");
@@ -635,9 +635,52 @@ static CacheResult context_process_cache(Context *c) {
         return CACHE_RESULT_MISS;
 }
 
+static int context_fail_cached_key_not_found(Context *c) {
+        int r;
+
+        assert(c);
+
+        /* Called when the cache has a negative entry for the current request */
+
+        r = context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(ENOENT), "Cache reports: key not found");
+        context_fail_full(c, r, "io.systemd.InstanceMetadata.KeyNotFound");
+        return r;
+}
+
+static int context_restart(Context *c) {
+        int r;
+
+        assert(c);
+
+        /* Restarts the current request after context_reset_for_refresh(). Failures are reported via
+         * context_fail(), which returns 0, hence this always returns 0. */
+
+        /* Maybe some other instance was successful in the meantime and already found something? */
+        CacheResult cr = context_process_cache(c);
+        if (cr < 0)
+                return context_fail(c, cr);
+        if (cr == CACHE_RESULT_HIT) {
+                context_success(c);
+                return 0;
+        }
+        if (cr == CACHE_RESULT_KEY_NOT_FOUND) {
+                (void) context_fail_cached_key_not_found(c);
+                return 0;
+        }
+
+        r = context_acquire_token(c);
+        if (r < 0)
+                return context_fail(c, r);
+
+        r = context_acquire_data(c);
+        if (r < 0)
+                return context_fail(c, r);
+
+        return 0;
+}
+
 static int on_retry(sd_event_source *s, uint64_t usec, void *userdata) {
         Context *c = ASSERT_PTR(userdata);
-        int r;
 
         assert(s);
 
@@ -645,32 +688,7 @@ static int on_retry(sd_event_source *s, uint64_t usec, void *userdata) {
 
         context_log(c, LOG_DEBUG, "Retrying...");
 
-        /* Maybe some other instance was successful in the meantime and already found something? */
-        CacheResult cr = context_process_cache(c);
-        if (cr < 0) {
-                context_fail(c, cr);
-                return 0;
-        }
-        if (cr == CACHE_RESULT_HIT) {
-                context_success(c);
-                return 0;
-        }
-        if (cr == CACHE_RESULT_KEY_NOT_FOUND) {
-                context_fail(c, context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(ENOENT), "Cache reports: key not found"));
-                return 0;
-        }
-
-        r = context_acquire_token(c);
-        if (r < 0) {
-                context_fail(c, r);
-                return 0;
-        }
-
-        r = context_acquire_data(c);
-        if (r < 0)
-                context_fail(c, r);
-
-        return 0;
+        return context_restart(c);
 }
 
 static int context_schedule_retry(Context *c) {
@@ -683,15 +701,11 @@ static int context_schedule_retry(Context *c) {
         if (c->n_retry >= RETRY_MAX)
                 return context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(EUCLEAN), "Retry limits reached, refusing.");
 
-        if (c->n_retry == 0)
-                c->retry_interval_usec = RETRY_MIN_USEC;
-        else if (c->retry_interval_usec < RETRY_MAX_USEC / 2)
-                c->retry_interval_usec *= 2;
-        else
-                c->retry_interval_usec = RETRY_MAX_USEC;
+        /* Exponential backoff, counting all retries of this request, including token refreshes */
+        usec_t interval = MIN(RETRY_MIN_USEC << c->n_retry, RETRY_MAX_USEC);
 
         c->n_retry++;
-        context_log(c, LOG_DEBUG, "Retry attempt #%u in %s...", c->n_retry, FORMAT_TIMESPAN(c->retry_interval_usec, USEC_PER_MSEC));
+        context_log(c, LOG_DEBUG, "Retry attempt #%u in %s...", c->n_retry, FORMAT_TIMESPAN(interval, USEC_PER_MSEC));
 
         context_reset_for_refresh(c);
 
@@ -699,7 +713,7 @@ static int context_schedule_retry(Context *c) {
                         c->event,
                         &c->retry_source,
                         CLOCK_BOOTTIME,
-                        c->retry_interval_usec,
+                        interval,
                         /* accuracy= */ 0,
                         on_retry,
                         c,
@@ -778,16 +792,7 @@ static int context_validate_data_http_status(Context *c, long status) {
 
                 context_flush_token(c);
                 context_reset_for_refresh(c);
-
-                r = context_acquire_token(c);
-                if (r < 0)
-                        return r;
-
-                r = context_acquire_data(c);
-                if (r < 0)
-                        return r;
-
-                return 0; /* restarted right-away */
+                return context_restart(c); /* restarted right-away */
         }
 
         if (status == 404) {
@@ -837,7 +842,7 @@ static int context_validate_token(Context *c) {
         if (r < 0)
                 return context_log_errno(c, LOG_ERR, r, "Failed to convert token into C string: %m");
 
-        if (string_has_cc(t, NULL) ||
+        if (string_has_cc(t, /* ok= */ NULL) ||
             !utf8_is_valid(t))
                 return context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(EINVAL), "Token not valid UTF-8 or contains control characters, refusing.");
 
@@ -867,12 +872,12 @@ static int context_save_token(Context *c) {
         if (r < 0)
                 return context_log_errno(c, LOG_ERR, r, "Failed to build token JSON: %m");
 
-        _cleanup_free_ char *t = NULL;
-        r = sd_json_variant_format(j, SD_JSON_FORMAT_NEWLINE, &t);
-        if (r < 0)
-                return context_log_errno(c, LOG_ERR, r, "Failed to format JSON: %m");
-
-        r = write_string_file_at(c->cache_dir_fd, "token", t, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MODE_0600);
+        r = json_variant_write_file_at(
+                        c->cache_dir_fd,
+                        "token",
+                        j,
+                        SD_JSON_FORMAT_NEWLINE,
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MODE_0600);
         if (r < 0)
                 return context_log_errno(c, LOG_ERR, r, "Failed to write token cache file: %m");
 
@@ -928,6 +933,8 @@ static int curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result, void *u
 
                 /* Automatically retry on some transient errors from curl itself */
                 r = context_schedule_retry(c);
+                if (r == -EUCLEAN)
+                        return context_fail_full(c, r, "io.systemd.InstanceMetadata.Timeout");
                 if (r < 0)
                         return context_fail(c, r);
 
@@ -947,10 +954,18 @@ static int curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result, void *u
         if (r < 0)
                 return context_fail(c, r);
         if (r == 0) { /* We shall retry */
-                (void) context_schedule_retry(c);
+                r = context_schedule_retry(c);
+                if (r == -EUCLEAN)
+                        return context_fail_full(c, r, "io.systemd.InstanceMetadata.Timeout");
+                if (r < 0)
+                        return context_fail(c, r);
+
                 return 0;
         }
-        if (result != CURLE_OK) /* if getting the HTTP status didn't work, propagate a generic error */
+        /* For status >= 300 the transfer was aborted on purpose to skip reading the error page. The status
+         * checks below then report the actual error. For a successful reply it means a local failure, which
+         * the callback logged already. */
+        if (result == CURLE_WRITE_ERROR && status < 300)
                 return context_fail(c, SYNTHETIC_ERRNO(ENOTRECOVERABLE));
 
         if (slot == c->slot_token) {
@@ -977,6 +992,8 @@ static int curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result, void *u
                 r = context_validate_data_http_status(c, status);
                 if (r == -ENOENT)
                         return context_fail_full(c, r, "io.systemd.InstanceMetadata.KeyNotFound");
+                if (r == -EUCLEAN)
+                        return context_fail_full(c, r, "io.systemd.InstanceMetadata.Timeout");
                 if (r < 0)
                         return context_fail(c, r);
                 if (r == 0) /* Immediately restarted */
@@ -1080,7 +1097,7 @@ static int context_acquire_data(Context *c) {
         if (c->cache_dir_fd >= 0 &&
             c->cache_filename &&
             c->cache_fd < 0) {
-                c->cache_fd = open_tmpfile_linkable_at(c->cache_dir_fd, c->cache_filename, O_WRONLY|O_CLOEXEC, &c->cache_temporary_filename);
+                c->cache_fd = open_tmpfile_linkable_at(c->cache_dir_fd, c->cache_filename, O_WRONLY, &c->cache_temporary_filename);
                 if (c->cache_fd < 0)
                         return context_log_errno(c, LOG_ERR, c->cache_fd, "Failed to create cache file '%s': %m", c->cache_filename);
 
@@ -1349,9 +1366,9 @@ static int context_load_ifname(Context *c) {
         if (!e)
                 return 0;
 
-        _cleanup_close_ int dirfd = open(e, O_PATH|O_CLOEXEC);
+        _cleanup_close_ int dirfd = xopenat(AT_FDCWD, e, O_PATH);
         if (dirfd < 0)
-                return context_log_errno(c, LOG_ERR, errno, "Failed to open runtime directory: %m");
+                return context_log_errno(c, LOG_ERR, dirfd, "Failed to open runtime directory: %m");
 
         _cleanup_free_ char *ifname = NULL;
         r = read_one_line_file_at(dirfd, "ifname", &ifname);
@@ -1587,12 +1604,12 @@ static int context_spawn_children(Context *c) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_set_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, /* dump= */ true);
         if (r < 0)
                 return r;
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *reply = NULL;
-        r = sd_netlink_call(c->rtnl, req, 0, &reply);
+        r = sd_netlink_call(c->rtnl, req, /* timeout= */ 0, &reply);
         if (r < 0)
                 return r;
 
@@ -1641,7 +1658,7 @@ static int setup_network(void) {
 
         _cleanup_free_ char *t = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        r = fopen_tmpfile_linkable_at(network_dir_fd, "85-imds-early.network", O_WRONLY|O_CLOEXEC, &t, &f);
+        r = fopen_tmpfile_linkable_at(network_dir_fd, "85-imds-early.network", O_WRONLY, &t, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to create 85-imds-early.network file: %m");
 
@@ -1807,12 +1824,12 @@ static int setup_address_rrs(void) {
                 return 0;
         }
 
-        _cleanup_free_ char *text = NULL;
-        r = sd_json_variant_format(aj, SD_JSON_FORMAT_NEWLINE, &text);
-        if (r < 0)
-                return log_error_errno(r, "Failed to format JSON text: %m");
-
-        r = write_string_file("/run/systemd/resolve/static.d/imds-endpoint.rr", text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755);
+        r = json_variant_write_file_at(
+                        AT_FDCWD,
+                        "/run/systemd/resolve/static.d/imds-endpoint.rr",
+                        aj,
+                        SD_JSON_FORMAT_NEWLINE,
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to write IMDS RR data: %m");
 
@@ -2054,7 +2071,7 @@ static int vl_method_get(sd_varlink *link, sd_json_variant *parameters, sd_varli
         }
 
         if (imds_configured(LOG_DEBUG) < 0)
-                return sd_varlink_error(link, "io.systemd.InstanceMetadata.NotSupported", NULL);
+                return sd_varlink_error(link, "io.systemd.InstanceMetadata.NotSupported", /* parameters= */ NULL);
 
         /* Up to this point we only validated/parsed stuff. Now we actually execute stuff, hence from now on
          * we need to go through context_fail() when failing (context_success() if we succeed early), to
@@ -2091,11 +2108,8 @@ static int vl_method_get(sd_varlink *link, sd_json_variant *parameters, sd_varli
                         context_success(c);
                         return 0;
                 }
-                if (cr == CACHE_RESULT_KEY_NOT_FOUND) {
-                        r = context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(ENOENT), "Cache reports: key not found");
-                        context_fail_full(c, r, "io.systemd.InstanceMetadata.KeyNotFound");
-                        return r;
-                }
+                if (cr == CACHE_RESULT_KEY_NOT_FOUND)
+                        return context_fail_cached_key_not_found(c);
 
                 r = context_acquire_token(c);
                 if (r < 0)
@@ -2139,7 +2153,7 @@ static int vl_method_get_vendor_info(sd_varlink *link, sd_json_variant *paramete
         /* NB! We allow access to this call without Polkit */
 
         if (imds_configured(LOG_DEBUG) < 0)
-                return sd_varlink_error(link, "io.systemd.InstanceMetadata.NotSupported", NULL);
+                return sd_varlink_error(link, "io.systemd.InstanceMetadata.NotSupported", /* parameters= */ NULL);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *wkj = NULL;
         for (ImdsWellKnown i = 0; i < _IMDS_WELL_KNOWN_MAX; i++) {

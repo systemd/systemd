@@ -102,7 +102,7 @@ int bus_wait_for_jobs_new(sd_bus *bus, BusWaitForJobs **ret) {
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         "JobRemoved",
-                        match_job_removed, NULL, d);
+                        match_job_removed, /* install_callback= */ NULL, d);
         if (r < 0)
                 return r;
 
@@ -110,10 +110,10 @@ int bus_wait_for_jobs_new(sd_bus *bus, BusWaitForJobs **ret) {
                         bus,
                         &d->slot_disconnected,
                         "org.freedesktop.DBus.Local",
-                        NULL,
+                        /* path= */ NULL,
                         "org.freedesktop.DBus.Local",
                         "Disconnected",
-                        match_disconnected, NULL, d);
+                        match_disconnected, /* install_callback= */ NULL, d);
         if (r < 0)
                 return r;
 
@@ -126,7 +126,7 @@ static int bus_process_wait(sd_bus *bus) {
         int r;
 
         for (;;) {
-                r = sd_bus_process(bus, NULL);
+                r = sd_bus_process(bus, /* ret= */ NULL);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -157,7 +157,7 @@ static int bus_job_get_service_result(BusWaitForJobs *d, char **ret) {
                                           dbus_path,
                                           "org.freedesktop.systemd1.Service",
                                           "Result",
-                                          NULL,
+                                          /* reterr_error= */ NULL,
                                           ret);
 }
 
@@ -189,7 +189,7 @@ static int log_job_error_with_service_result(
 
         assert(service);
 
-        service_shell_quoted = shell_maybe_quote(service, 0);
+        service_shell_quoted = shell_maybe_quote(service, /* flags= */ 0);
 
         if (!strv_isempty((char* const*) extra_args)) {
                 _cleanup_free_ char *t = NULL;

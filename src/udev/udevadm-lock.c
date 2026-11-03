@@ -11,6 +11,7 @@
 #include "device-util.h"
 #include "fd-util.h"
 #include "fdset.h"
+#include "fs-util.h"
 #include "glyph-util.h"
 #include "hash-funcs.h"
 #include "lock-util.h"
@@ -149,9 +150,9 @@ static int lock_device(
         int r;
 
         /* We open in O_WRONLY mode here, to trigger a rescan in udev once we are done */
-        fd = open(path, O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        fd = xopenat(AT_FDCWD, path, O_WRONLY|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to open '%s': %m", path);
+                return log_error_errno(fd, "Failed to open '%s': %m", path);
 
         if (fstat(fd, &st) < 0)
                 return log_error_errno(errno, "Failed to stat '%s': %m", path);
@@ -264,11 +265,11 @@ int verb_lock_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r == 0) {
                 /* Child */
 
-                execvp(arg_cmdline[0], arg_cmdline);
+                r = execvp_safe(arg_cmdline[0], arg_cmdline);
                 log_open();
-                log_error_errno(errno, "Failed to execute %s: %m", arg_cmdline[0]);
+                log_error_errno(r, "Failed to execute %s: %m", arg_cmdline[0]);
                 _exit(EXIT_FAILURE);
         }
 
-        return pidref_wait_for_terminate_and_check(arg_cmdline[0], &pidref, 0);
+        return pidref_wait_for_terminate_and_check(arg_cmdline[0], &pidref, /* flags= */ 0);
 }

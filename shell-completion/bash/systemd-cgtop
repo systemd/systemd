@@ -32,15 +32,16 @@ __get_machines() {
 }
 
 _systemd_cgtop() {
-    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
+    local cur prev words cword split
     local comps
 
     local -A OPTS=(
-        [STANDALONE]='-h --help --version -p -t -c -m -i -b --batch -r --raw -k -P'
-        [ARG]='--cpu --depth -M --machine --recursive -n --iterations -d --delay --order --root-memory'
+        [STANDALONE]='-h --help --version -p -t -c -m -i -b --batch -r --raw -k -P -1
+                      --cpu --cpu=time --cpu=percentage'
+        [ARG]='--depth -M --machine --recursive -n --iterations -d --delay --order --root-memory'
     )
 
-    _init_completion || return
+    _init_completion -s || return
 
     if __contains_word "$prev" ${OPTS[ARG]}; then
         case $prev in
@@ -61,9 +62,24 @@ _systemd_cgtop() {
         return 0
     fi
 
+    # --cpu takes an optional argument, so only complete it in the
+    # --cpu=VALUE form (i.e. when _init_completion -s split the word).
+    if [[ $split == true && $prev == --cpu ]]; then
+        COMPREPLY=( $(compgen -W 'time percentage' -- "$cur") )
+        return 0
+    fi
+
+    # Any other --opt=value: nothing sensible to offer
+    [[ $split == true ]] && return 0
+
     COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
-    if [ -d /sys/fs/cgroup/ ]; then
-        COMPREPLY+=( $(cd /sys/fs/cgroup/ && compgen -o nospace -o dirnames "$cur") )
+    if [[ $cur != -* && -d /sys/fs/cgroup/ ]]; then
+        local p=
+        [[ $cur == /* ]] && p=/
+
+        local IFS=$'\n'
+        COMPREPLY+=( $(cd /sys/fs/cgroup/ && compgen -d -P "$p" -S / -- "${cur#/}") )
+        compopt -o filenames -o nospace
     fi
 }
 

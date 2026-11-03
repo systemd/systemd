@@ -113,13 +113,13 @@ TEST(journal_send_huge) {
                 union sockaddr_union sa;
                 size_t received_size;
 
-                r = detach_mount_namespace_harder(0, 0);
+                r = detach_mount_namespace_harder(/* target_uid= */ 0, /* target_gid= */ 0);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to detach mount namespace: %m");
                         _exit(EXIT_TEST_SKIP);
                 }
 
-                ASSERT_OK_ERRNO(mount("tmpfs", "/run", "tmpfs", 0, "mode=0755"));
+                ASSERT_OK_ERRNO(mount("tmpfs", "/run", "tmpfs", /* mountflags= */ 0, "mode=0755"));
                 ASSERT_OK(mkdir_p("/run/systemd/journal", 0755));
 
                 sock = ASSERT_OK_ERRNO(socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0));

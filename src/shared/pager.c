@@ -31,7 +31,7 @@ static bool stderr_redirected = false;
 _noreturn_ static void pager_fallback(void) {
         int r;
 
-        r = copy_bytes(STDIN_FILENO, STDOUT_FILENO, UINT64_MAX, 0);
+        r = copy_bytes(STDIN_FILENO, STDOUT_FILENO, UINT64_MAX, /* copy_flags= */ 0);
         if (r < 0) {
                 log_error_errno(r, "Internal pager failed: %m");
                 _exit(EXIT_FAILURE);
@@ -84,7 +84,7 @@ static bool running_with_escalated_privileges(void) {
                 return true;
 
         uid_t uid;
-        r = sd_pid_get_owner_uid(0, &uid);
+        r = sd_pid_get_owner_uid(/* pid= */ 0, &uid);
         if (r < 0) {
                 log_debug_errno(r, "sd_pid_get_owner_uid() failed, enabling pager secure mode: %m");
                 return true;
@@ -200,7 +200,7 @@ void pager_open(PagerFlags flags) {
 
                 /* We generally always set variables used by less, even if we end up using a different pager.
                  * They shouldn't hurt in any case, and ideally other pagers would look at them too. */
-                r = set_unset_env("LESSSECURE", use_secure_mode ? "1" : NULL, true);
+                r = set_unset_env("LESSSECURE", use_secure_mode ? "1" : NULL, /* overwrite= */ true);
                 if (r < 0) {
                         log_error_errno(r, "Failed to adjust environment variable LESSSECURE: %m");
                         _exit(EXIT_FAILURE);
@@ -217,8 +217,8 @@ void pager_open(PagerFlags flags) {
                                 _exit(EXIT_FAILURE);
                         }
 
-                        execvp(pager_args[0], pager_args);
-                        log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                        r = execvp_safe(pager_args[0], pager_args);
+                        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                        "Failed to execute '%s', using fallback pagers: %m", pager_args[0]);
                 }
 
@@ -239,8 +239,8 @@ void pager_open(PagerFlags flags) {
                         }
 
                         if (i < ELEMENTSOF(pagers) - 1) {
-                                execlp(pagers[i], pagers[i], NULL);
-                                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                                r = execvp_safe(pagers[i], STRV_MAKE(pagers[i]));
+                                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                                "Failed to execute '%s', will try '%s' next: %m", pagers[i], pagers[i+1]);
                         } else {
                                 /* Close pipe to signal the parent to start sending data */
@@ -330,8 +330,8 @@ int show_man_page(const char *desc, bool null_stdio) {
                 return r;
         if (r == 0) {
                 /* Child */
-                execvp(args[0], (char**) args);
-                log_error_errno(errno, "Failed to execute man: %m");
+                r = execvp_safe(args[0], (char**) args);
+                log_error_errno(r, "Failed to execute man: %m");
                 _exit(EXIT_FAILURE);
         }
 

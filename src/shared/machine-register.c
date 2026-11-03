@@ -91,7 +91,7 @@ static int register_machine_dbus_ex(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        return sd_bus_call(bus, m, 0, error, NULL);
+        return sd_bus_call(bus, m, /* usec= */ 0, error, /* ret_reply= */ NULL);
 }
 
 static int register_machine_dbus(
@@ -121,7 +121,7 @@ static int register_machine_dbus(
                         bus_machine_mgr,
                         "RegisterMachineWithNetwork",
                         &error,
-                        NULL,
+                        /* ret_reply= */ NULL,
                         "sayssusai",
                         reg->name,
                         SD_BUS_MESSAGE_APPEND_ID128(reg->id),
@@ -327,7 +327,7 @@ int unregister_machine(sd_bus *bus, const char *machine_name, RuntimeScope scope
                 return log_debug_errno(SYNTHETIC_ERRNO(ESRCH), "Varlink connection to machined not available and no bus provided.");
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        r = bus_call_method(bus, bus_machine_mgr, "UnregisterMachine", &error, NULL, "s", machine_name);
+        r = bus_call_method(bus, bus_machine_mgr, "UnregisterMachine", &error, /* ret_reply= */ NULL, "s", machine_name);
         if (r < 0)
                 return log_debug_errno(r, "Failed to unregister machine via D-Bus: %s", bus_error_message(&error, r));
 

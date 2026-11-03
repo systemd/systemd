@@ -223,7 +223,7 @@ static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVI
 
         /* Chop off the partition part, leaving us with the full path to the disk itself. */
         _cleanup_free_ EFI_DEVICE_PATH *disk_path = NULL;
-        EFI_DEVICE_PATH *p = disk_path = device_path_replace_node(partition_path, part_node, NULL);
+        EFI_DEVICE_PATH *p = disk_path = device_path_replace_node(partition_path, part_node, /* new_node= */ NULL);
 
         EFI_HANDLE disk_handle;
         EFI_BLOCK_IO_PROTOCOL *block_io;

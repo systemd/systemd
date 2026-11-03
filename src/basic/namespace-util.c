@@ -14,6 +14,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "log.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
@@ -88,7 +89,7 @@ static int pidref_namespace_open_by_type_internal(const PidRef *pidref, Namespac
         const char *p;
 
         p = pid_namespace_path(pidref->pid, type);
-        nsfd = RET_NERRNO(open(p, O_RDONLY|O_NOCTTY|O_CLOEXEC));
+        nsfd = xopenat(AT_FDCWD, p, O_RDONLY|O_NOCTTY);
         if (nsfd == -ENOENT) {
                 r = proc_mounted();
                 if (r == 0)
@@ -119,7 +120,7 @@ static int pidref_namespace_open_by_type_internal(const PidRef *pidref, Namespac
 }
 
 int pidref_namespace_open_by_type(const PidRef *pidref, NamespaceType type) {
-        return pidref_namespace_open_by_type_internal(pidref, type, NULL);
+        return pidref_namespace_open_by_type_internal(pidref, type, /* need_verify= */ NULL);
 }
 
 int namespace_open_by_type(NamespaceType type) {
@@ -181,7 +182,7 @@ int pidref_namespace_open(
                 const char *root;
 
                 root = procfs_file_alloca(pidref->pid, "root");
-                root_fd = RET_NERRNO(open(root, O_CLOEXEC|O_DIRECTORY));
+                root_fd = xopenat(AT_FDCWD, root, O_DIRECTORY);
                 if (root_fd == -ENOENT && proc_mounted() == 0)
                         return -ENOSYS;
                 if (root_fd < 0)
@@ -623,10 +624,10 @@ int detach_mount_namespace(void) {
         if (unshare(CLONE_NEWNS) < 0)
                 return log_debug_errno(errno, "Failed to acquire mount namespace: %m");
 
-        if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0)
+        if (mount(/* source= */ NULL, "/", /* filesystemtype= */ NULL, MS_SLAVE | MS_REC, /* data= */ NULL) < 0)
                 return log_debug_errno(errno, "Failed to set mount propagation to MS_SLAVE for all mounts: %m");
 
-        if (mount(NULL, "/", NULL, MS_SHARED | MS_REC, NULL) < 0)
+        if (mount(/* source= */ NULL, "/", /* filesystemtype= */ NULL, MS_SHARED | MS_REC, /* data= */ NULL) < 0)
                 return log_debug_errno(errno, "Failed to set mount propagation back to MS_SHARED for all mounts: %m");
 
         return 0;
@@ -668,16 +669,16 @@ int detach_mount_namespace_harder(uid_t target_uid, gid_t target_gid) {
         if (unshare(CLONE_NEWUSER) < 0)
                 return log_debug_errno(errno, "Failed to acquire user namespace: %m");
 
-        r = write_string_filef("/proc/self/uid_map", 0,
+        r = write_string_filef("/proc/self/uid_map", /* flags= */ 0,
                                UID_FMT " " UID_FMT " 1\n", target_uid, from_uid);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write uid map: %m");
 
-        r = write_string_file("/proc/self/setgroups", "deny", 0);
+        r = write_string_file("/proc/self/setgroups", "deny", /* flags= */ 0);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write setgroups file: %m");
 
-        r = write_string_filef("/proc/self/gid_map", 0,
+        r = write_string_filef("/proc/self/gid_map", /* flags= */ 0,
                                GID_FMT " " GID_FMT " 1\n", target_gid, from_gid);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write gid map: %m");
@@ -919,7 +920,7 @@ int userns_has_root_mapping(int userns_fd) {
                 return log_debug_errno(SYNTHETIC_ERRNO(ENODATA),
                                        "User namespace has no UID/GID mapping yet.");
 
-        return uid_range_contains(uid_range, 0) && uid_range_contains(gid_range, 0);
+        return uid_range_contains(uid_range, /* uid= */ 0) && uid_range_contains(gid_range, /* uid= */ 0);
 }
 
 int process_is_owned_by_uid(const PidRef *pidref, uid_t uid) {
@@ -1072,7 +1073,7 @@ int is_idmapping_supported(const char *path) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to acquire new user namespace for checking if '%s' supports ID-mapping: %m", path);
 
-        dir_fd = r = RET_NERRNO(open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
+        dir_fd = r = xopenat(AT_FDCWD, path, O_RDONLY | O_NOFOLLOW);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return false;
         if (r < 0)

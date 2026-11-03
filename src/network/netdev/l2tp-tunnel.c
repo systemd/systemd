@@ -471,7 +471,7 @@ static int l2tp_create_tunnel(NetDev *netdev) {
 }
 
 static int netdev_l2tp_is_ready_to_create(NetDev *netdev, Link *link) {
-        return l2tp_get_local_address(netdev, NULL) >= 0;
+        return l2tp_get_local_address(netdev, /* ret= */ NULL) >= 0;
 }
 
 int config_parse_l2tp_tunnel_local_address(
@@ -508,7 +508,7 @@ int config_parse_l2tp_tunnel_local_address(
                 return 0;
         }
 
-        r = extract_first_word(&p, &addr_or_type, "@", 0);
+        r = extract_first_word(&p, &addr_or_type, "@", /* flags= */ 0);
         if (r < 0)
                 return log_oom();
         if (r == 0) {
@@ -642,7 +642,7 @@ int config_parse_l2tp_tunnel_id(
 
         return config_parse_uint32_bounded(
                         unit, filename, line, section, section_line, lvalue, rvalue,
-                        1, UINT32_MAX, true,
+                        1, UINT32_MAX, /* ignoring= */ true,
                         id);
 }
 
@@ -676,7 +676,7 @@ int config_parse_l2tp_session_id(
 
         r = config_parse_uint32_bounded(
                         unit, filename, line, section, section_line, lvalue, rvalue,
-                        1, UINT32_MAX, true,
+                        1, UINT32_MAX, /* ignoring= */ true,
                         id);
         if (r <= 0)
                 return r;

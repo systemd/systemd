@@ -221,7 +221,7 @@ int config_parse_mud_url(
                 return 0;
         }
 
-        l = cunescape(rvalue, 0, &unescaped);
+        l = cunescape(rvalue, /* flags= */ 0, &unescaped);
         if (l < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, l,
                            "Failed to unescape MUD URL, ignoring: %s", rvalue);

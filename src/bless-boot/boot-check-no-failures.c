@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-bus.h"
-#include "sd-json.h"
 
-#include "build.h"
 #include "bus-error.h"
 #include "log.h"
 #include "main-func.h"
@@ -13,29 +11,8 @@ COMMAND(
         "systemd-boot-check-no-failures\0",
         "Verify system operational state.",
         .man_pages = "systemd-boot-check-no-failures.service(8)\0",
+        .option_namespace = "common",
 );
-
-static int parse_argv(int argc, char *argv[]) {
-        assert(argc >= 0);
-        assert(argv);
-
-        OptionParser opts = { argc, argv };
-
-        FOREACH_OPTION_OR_RETURN(c, &opts)
-                switch (c) {
-
-                OPTION_COMMON_HELP:
-                        return command_print_help();
-
-                OPTION_COMMON_VERSION:
-                        return version();
-
-                OPTION_COMMON_INTROSPECT_CLI:
-                        return introspect_cli(SD_JSON_FORMAT_OFF);
-                }
-
-        return 1;
-}
 
 static int run(int argc, char *argv[]) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -45,7 +22,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 0, /* ret_args= */ NULL);
         if (r <= 0)
                 return r;
 

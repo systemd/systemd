@@ -18,6 +18,7 @@
 #include "pidref.h"
 #include "process-util.h"
 #include "stat-util.h"
+#include "sysctl-util.h"
 #include "user-util.h"
 
 int capability_get(CapabilityQuintet *ret) {
@@ -75,26 +76,20 @@ unsigned cap_last_cap(void) {
                 return c;
 
         /* Available since linux-3.2 */
-        _cleanup_free_ char *content = NULL;
-        r = read_one_line_file("/proc/sys/kernel/cap_last_cap", &content);
+        r = sysctl_read_int("kernel/cap_last_cap", &c);
         if (r < 0)
-                log_debug_errno(r, "Failed to read /proc/sys/kernel/cap_last_cap, ignoring: %m");
+                log_debug_errno(r, "Failed to read kernel.cap_last_cap sysctl, ignoring: %m");
         else {
-                r = safe_atoi(content, &c);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to parse /proc/sys/kernel/cap_last_cap, ignoring: %m");
-                else {
-                        if (c > CAP_LIMIT) /* Safety for the future: if one day the kernel learns more than
-                                            * 64 caps, then we are in trouble (since we, as much userspace
-                                            * and kernel space store capability masks in uint64_t types). We
-                                            * also want to use UINT64_MAX as marker for "unset". Hence let's
-                                            * hence protect ourselves against that and always cap at 62 for
-                                            * now. */
-                                c = CAP_LIMIT;
+                if (c > CAP_LIMIT) /* Safety for the future: if one day the kernel learns more than
+                                    * 64 caps, then we are in trouble (since we, as much userspace
+                                    * and kernel space store capability masks in uint64_t types). We
+                                    * also want to use UINT64_MAX as marker for "unset". Hence let's
+                                    * hence protect ourselves against that and always cap at 62 for
+                                    * now. */
+                        c = CAP_LIMIT;
 
-                        saved = c;
-                        return c;
-                }
+                saved = c;
+                return c;
         }
 
         /* Fall back to syscall-probing for pre linux-3.2, or where /proc/ is not mounted */
@@ -302,7 +297,7 @@ static int drop_from_file(const char *fn, uint64_t keep) {
         lo = after & UINT32_MAX;
         hi = (after >> 32) & UINT32_MAX;
 
-        return write_string_filef(fn, 0, "%" PRIu32 " %" PRIu32, lo, hi);
+        return write_string_filef(fn, /* flags= */ 0, "%" PRIu32 " %" PRIu32, lo, hi);
 }
 
 int capability_bounding_set_drop_usermode(uint64_t keep) {

@@ -107,50 +107,11 @@ static int pseudo_tty_track_buffer_add_line(PseudoTTY *pty, char *line) {
         return 0;
 }
 
-void pseudo_tty_fail_acquire(PseudoTTY *pty, const char *error_id, sd_json_variant *parameters) {
-        int r;
-
-        assert(pty);
-
-        /* Fails the AcquirePty() call still waiting for its reply, if there is one. If no error ID is
-         * specified a generic ECONNRESET error is returned. */
-
-        if (!pty->acquire_link)
-                return;
-
-        _cleanup_(sd_varlink_unrefp) sd_varlink *client = TAKE_PTR(pty->acquire_link);
-        pty->acquire_reply = sd_json_variant_unref(pty->acquire_reply);
-
-        /* If a monitor was requested it shares the connection with the AcquirePty() call, and would close
-         * it when destroyed, before the error reply is flushed. Hence detach the connection from the monitor
-         * first, and dispose of the monitor right-away, it will never get its connection upgraded. */
-        LIST_FOREACH(monitors, monitor, pty->monitors) {
-                if (monitor->link != client)
-                        continue;
-
-                /* The error reply below returns the connection to idle state, i.e. the client may issue
-                 * further calls on it, hence hand it back to the Manager */
-                sd_varlink_set_userdata(monitor->link, pty->manager);
-                monitor->link = sd_varlink_unref(monitor->link);
-                pseudo_tty_monitor_free(monitor);
-        }
-
-        if (error_id)
-                r = sd_varlink_error(client, error_id, parameters);
-        else
-                r = sd_varlink_error_errno(client, -ECONNRESET);
-        if (r < 0)
-                log_debug_errno(r, "Failed to send error reply to client, ignoring: %m");
-}
-
 PseudoTTY* pseudo_tty_free(PseudoTTY *pty) {
         int r;
 
         if (!pty)
                 return NULL;
-
-        /* Make sure no client is left waiting for a reply that would never come */
-        pseudo_tty_fail_acquire(pty, /* error_id= */ NULL, /* parameters= */ NULL);
 
         /* A pending hang-up is complete once the pty is gone */
         r = varlink_many_reply(pty->vhangup_links, /* parameters= */ NULL);
@@ -184,11 +145,6 @@ PseudoTTY* pseudo_tty_free(PseudoTTY *pty) {
 
         free(pty->backend_path);
         free(pty->unit);
-
-        sd_varlink_close_unref(pty->start_shell_link);
-
-        sd_varlink_unref(pty->acquire_link);
-        sd_json_variant_unref(pty->acquire_reply);
 
         free_many_charp(pty->track_buffer, pty->track_buffer_allocated_lines);
         free(pty->track_buffer);
@@ -622,7 +578,7 @@ static int pseudo_tty_process_hangup(PseudoTTY *pty, uint32_t revents) {
         return 0;
 }
 
-void pseudo_tty_add_to_free_queue(PseudoTTY *pty) {
+static void pseudo_tty_add_to_free_queue(PseudoTTY *pty) {
         assert(pty);
 
         if (pty->in_free_queue)
@@ -664,7 +620,7 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
                 pseudo_tty_add_to_free_queue(pty);
 
                 if (pty->io_event_source)
-                        (void) sd_event_source_set_io_events(pty->io_event_source, 0);
+                        (void) sd_event_source_set_io_events(pty->io_event_source, /* events= */ 0);
 
                 return r;
         }
@@ -725,7 +681,7 @@ int pseudo_tty_watch_frontend_fd(PseudoTTY *pty, sd_event *event) {
         if (pty->frontend_fd < 0)
                 return 0;
 
-        r = fd_nonblock(pty->frontend_fd, true);
+        r = fd_nonblock(pty->frontend_fd, /* nonblock= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to mark pty fd is non-blocking: %m");
 
@@ -833,7 +789,7 @@ static int vhangup_callback(sd_event_source *s, const siginfo_t *si, void *userd
         PseudoTTY *pty = ASSERT_PTR(userdata);
         int r;
 
-        r = varlink_many_reply(pty->vhangup_links, NULL);
+        r = varlink_many_reply(pty->vhangup_links, /* parameters= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to issue hangup method call replies, ignoring: %m");
 
@@ -872,7 +828,7 @@ int pseudo_tty_vhangup(PseudoTTY *pty) {
         if (r < 0)
                 return log_error_errno(r, "Failed to fork off vhangup() child: %m");
         if (r == 0) {
-                _cleanup_close_ int fd = fd_reopen(pin_fd, O_RDWR|O_CLOEXEC|O_NOCTTY);
+                _cleanup_close_ int fd = fd_reopen(pin_fd, O_RDWR|O_NOCTTY);
                 if (fd < 0)
                         goto child_fail;
 
@@ -901,7 +857,7 @@ int pseudo_tty_vhangup(PseudoTTY *pty) {
         if (r < 0)
                 return log_error_errno(r, "Failed to watch vhangup() child: %m");
 
-        r = sd_event_source_set_child_process_own(pty->vhangup_event_source, true);
+        r = sd_event_source_set_child_process_own(pty->vhangup_event_source, /* own= */ true);
         if (r < 0) {
                 pty->vhangup_event_source = sd_event_source_disable_unref(pty->vhangup_event_source);
                 return log_error_errno(r, "Failed to pass ownership of vhangup() child to event source: %m");

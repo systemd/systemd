@@ -75,6 +75,11 @@ evdev:input:b0003v08CAp0020*
  EVDEV_ABS_00=::20
  EVDEV_ABS_01=::20
 
+# APT-USB-3 (sold as Trust TB-3100), 200x150 mm active area
+evdev:input:b0003v08CAp0021*
+ EVDEV_ABS_00=::15
+ EVDEV_ABS_01=::15
+
 # AIPTEK Media Tablet Ultimate (detected as Waltop International Corp. Batteryless Tablet)
 evdev:input:b0003v172Fp0503*
  EVDEV_ABS_00=::160

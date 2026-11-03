@@ -106,13 +106,13 @@ int seat_save(Seat *s) {
         if (!s->started)
                 return 0;
 
-        r = mkdir_safe_label("/run/systemd/seats", 0755, 0, 0, MKDIR_WARN_MODE);
+        r = mkdir_safe_label("/run/systemd/seats", 0755, /* uid= */ 0, /* gid= */ 0, MKDIR_WARN_MODE);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /run/systemd/seats/: %m");
 
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        r = fopen_tmpfile_linkable(s->state_file, O_WRONLY|O_CLOEXEC, &temp_path, &f);
+        r = fopen_tmpfile_linkable(s->state_file, O_WRONLY, &temp_path, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to create state file '%s': %m", s->state_file);
 
@@ -179,7 +179,7 @@ static int vt_allocate(unsigned vtnr) {
         assert(vtnr >= 1);
 
         xsprintf(p, "/dev/tty%u", vtnr);
-        fd = open_terminal(p, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal(p, O_RDWR|O_NOCTTY);
         if (fd < 0)
                 return fd;
 
@@ -299,7 +299,7 @@ static int seat_trigger_devices(Seat *s) {
                         continue;
 
                 /* In case people mistag devices without nodes, we need to ignore this. */
-                r = sd_device_get_devname(d, NULL);
+                r = sd_device_get_devname(d, /* ret= */ NULL);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
@@ -342,7 +342,7 @@ static int static_node_acl(Seat *s) {
         assert(s);
 
         if (s->active) {
-                r = set_ensure_put(&uids, NULL, UID_TO_PTR(s->active->user->user_record->uid));
+                r = set_ensure_put(&uids, /* hash_ops= */ NULL, UID_TO_PTR(s->active->user->user_record->uid));
                 if (r < 0)
                         return log_oom();
         }
@@ -356,7 +356,7 @@ static int static_node_acl(Seat *s) {
         }
 
         FOREACH_DIRENT(de, dir, return -errno) {
-                _cleanup_close_ int fd = RET_NERRNO(openat(dirfd(dir), de->d_name, O_CLOEXEC|O_PATH));
+                _cleanup_close_ int fd = xopenat(dirfd(dir), de->d_name, O_PATH);
                 if (ERRNO_IS_NEG_DEVICE_ABSENT_OR_EMPTY(fd))
                         continue;
                 if (fd < 0) {
@@ -621,7 +621,7 @@ int seat_start(Seat *s) {
         /* Save seat data */
         seat_save(s);
 
-        seat_send_signal(s, true);
+        seat_send_signal(s, /* new_seat= */ true);
 
         return 0;
 }
@@ -643,7 +643,7 @@ int seat_stop(Seat *s, bool force) {
         seat_add_to_gc_queue(s);
 
         if (s->started)
-                seat_send_signal(s, false);
+                seat_send_signal(s, /* new_seat= */ false);
 
         s->started = false;
 

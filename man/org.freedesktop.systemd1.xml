@@ -1748,7 +1748,8 @@ node /org/freedesktop/systemd1 {
       directories and clear out the file descriptors store for the unit, as specified in the mask
       parameters. The possible values are <literal>configuration</literal>, <literal>state</literal>,
       <literal>logs</literal>, <literal>cache</literal>, <literal>runtime</literal>,
-      <literal>fdstore</literal>, and <literal>all</literal>.</para>
+      <literal>fdstore</literal>, and <literal>all</literal>. Clearing the file descriptor store also removes
+      copies of its file descriptors propagated to enclosing service managers.</para>
 
       <para><function>RemoveSubgroupFromUnit()</function> removes a subcgroup belonging to a unit's
       cgroup. Takes three arguments: the unit name (if empty defaults to the caller's unit), a cgroup path

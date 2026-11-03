@@ -43,7 +43,7 @@ static inline bool ordered_set_isempty(OrderedSet *s) {
 }
 
 static inline bool ordered_set_iterate(OrderedSet *s, Iterator *i, void **value) {
-        return ordered_hashmap_iterate((OrderedHashmap*) s, i, value, NULL);
+        return ordered_hashmap_iterate((OrderedHashmap*) s, i, value, /* key= */ NULL);
 }
 
 static inline void* ordered_set_remove(OrderedSet *s, void *p) {

@@ -184,7 +184,7 @@ _printf_(1, 0) static int fill_iovec_sprintf(
                         return -ENOMEM;
 
                 /* strip trailing whitespace, keep prefixing whitespace */
-                iov[n++] = IOVEC_MAKE_STRING(delete_trailing_chars(TAKE_PTR(buffer), NULL));
+                iov[n++] = IOVEC_MAKE_STRING(delete_trailing_chars(TAKE_PTR(buffer), /* bad= */ NULL));
         }
 
         *ret_iov = TAKE_PTR(iov);
@@ -201,7 +201,7 @@ _public_ int sd_journal_send(const char *format, ...) {
         CLEANUP_ARRAY(iov, n_iov, iovec_array_free);
 
         va_start(ap, format);
-        r = fill_iovec_sprintf(format, ap, 0, &iov, &n_iov);
+        r = fill_iovec_sprintf(format, ap, /* extra= */ 0, &iov, &n_iov);
         va_end(ap);
         if (r < 0)
                 return r;
@@ -316,7 +316,7 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         if (r < 0)
                 return r;
 
-        r = send_one_fd_sa(fd, buffer_fd, mh.msg_name, mh.msg_namelen, 0);
+        r = send_one_fd_sa(fd, buffer_fd, mh.msg_name, mh.msg_namelen, /* flags= */ 0);
         if (r == -ENOENT)
                 /* Fail silently if the journal is not available */
                 return 0;
@@ -369,7 +369,7 @@ static int fill_iovec_perror_and_send(const char *message, int skip, struct iove
 _public_ int sd_journal_perror(const char *message) {
         struct iovec iovec[3];
 
-        return fill_iovec_perror_and_send(message, 0, iovec);
+        return fill_iovec_perror_and_send(message, /* skip= */ 0, iovec);
 }
 
 _public_ int sd_journal_stream_fd_with_namespace(
@@ -445,7 +445,7 @@ _public_ int sd_journal_stream_fd_with_namespace(
 }
 
 _public_ int sd_journal_stream_fd(const char *identifier, int priority, int level_prefix) {
-        return sd_journal_stream_fd_with_namespace(NULL, identifier, priority, level_prefix);
+        return sd_journal_stream_fd_with_namespace(/* name_space= */ NULL, identifier, priority, level_prefix);
 }
 
 _public_ int sd_journal_print_with_location(int priority, const char *file, const char *line, const char *func, const char *format, ...) {

@@ -75,7 +75,7 @@ int verb_hwdb_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         log_notice("udevadm hwdb is deprecated. Use systemd-hwdb instead.");
 
         if (arg_update && !hwdb_bypass()) {
-                r = hwdb_update(arg_root, arg_hwdb_bin_dir, arg_strict, true);
+                r = hwdb_update(arg_root, arg_hwdb_bin_dir, arg_strict, /* compat= */ true);
                 if (r < 0)
                         return r;
         }

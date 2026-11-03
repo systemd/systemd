@@ -38,13 +38,20 @@ _systemd_dissect() {
                      --mkdir
                      --rmdir
                      --in-memory
-                     --relax'
+                     --relax
+                     --loop-ref-auto
+                     --all
+                     -q --quiet'
         [ARG]='-m --mount -M
                -u --umount -U
                --attach
                --detach
                -l --list
                --mtree
+               --sha256sums
+               --uapi16
+               --make-archive
+               --shift
                --with
                -x --copy-from
                -a --copy-to
@@ -54,11 +61,15 @@ _systemd_dissect() {
                --discard
                --root-hash
                --root-hash-sig
+               --usr-hash
+               --usr-hash-sig
                --verity-data
                --image-policy
+               --image-filter
                --json
                --loop-ref
-               --mtree-hash'
+               --mtree-hash
+               --copy-ownership'
     )
 
     _init_completion || return
@@ -78,7 +89,7 @@ _systemd_dissect() {
 
     if __contains_word "$prev_1" ${OPTS[ARG]}; then
         case $prev_1 in
-            -l|--list|--mtree|-m|--mount|-M|--attach|--detach|-x|--copy-from|-a|--copy-to|--verity-data|--validate|--with)
+            -l|--list|--mtree|--sha256sums|--uapi16|--make-archive|--shift|-m|--mount|-M|--attach|--detach|-x|--copy-from|-a|--copy-to|--verity-data|--validate|--with)
                 comps=$(compgen -A file -- "$cur")
                 compopt -o filenames
                 ;;
@@ -89,10 +100,13 @@ _systemd_dissect() {
             --fsck|--growfs|--mtree-hash)
                 comps='yes no'
                 ;;
-            --discard)
-                comps='disabled loop all crypto'
+            --copy-ownership)
+                comps='yes no auto'
                 ;;
-            --root-hash-sig)
+            --discard)
+                comps='disabled loop all crypt'
+                ;;
+            --root-hash-sig|--usr-hash-sig)
                 comps="base64: $(compgen -A file -- "$cur")"
                 compopt -o filenames
                 ;;
@@ -113,6 +127,9 @@ _systemd_dissect() {
             --with)
                 comps=$(compgen -A command -- "$cur")
                 compopt -o filenames
+                ;;
+            --shift)
+                comps='foreign 0'
                 ;;
             *)
                 comps=$(compgen -A file -- "$cur")

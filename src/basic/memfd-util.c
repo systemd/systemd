@@ -19,7 +19,11 @@ int memfd_create_wrapper(const char *name, unsigned mode) {
         assert(name);
 
         /* Wrapper around memfd_create() which adds compat with older kernels where memfd_create() didn't
-         * support MFD_EXEC/MFD_NOEXEC_SEAL. (kernel 6.3+) */
+         * support MFD_EXEC/MFD_NOEXEC_SEAL. (kernel 6.3+)
+         *
+         * MFD_CLOEXEC is always set. */
+
+        mode |= MFD_CLOEXEC;
 
         mfd = RET_NERRNO(memfd_create(name, mode));
         if (mfd != -EINVAL)
@@ -61,7 +65,7 @@ int memfd_new_full(const char *name, unsigned extra_flags) {
 
         return memfd_create_wrapper(
                         name,
-                        MFD_CLOEXEC | MFD_NOEXEC_SEAL | extra_flags);
+                        MFD_NOEXEC_SEAL | extra_flags);
 }
 
 static int memfd_add_seals(int fd, unsigned seals) {
@@ -150,7 +154,7 @@ int memfd_new_and_seal(const char *name, const void *data, size_t sz) {
                 return fd;
 
         if (sz > 0) {
-                r = pwrite_full(fd, data, sz, 0);
+                r = pwrite_full(fd, data, sz, /* offset= */ 0);
                 if (r < 0)
                         return r;
         }

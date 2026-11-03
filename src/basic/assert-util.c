@@ -7,9 +7,10 @@
 #include "errno-util.h"
 #include "log.h"
 
-/* Akin to glibc's __abort_msg; which is private and we hence cannot
- * use here. */
-static char *log_abort_msg = NULL;
+/* Akin to glibc's __abort_msg; which is private and we hence cannot use here. If an abort happened, this
+ * will contain a pointer to the formatted error message. Debuggers, core dump analyzers, and post-mortem
+ * analysis tools can extract the cause of a crash from the program core dump. */
+static char _used_ _unused_ *log_abort_msg = NULL;
 
 static void log_assert(
         int level,
@@ -30,7 +31,7 @@ static void log_assert(
 
         log_abort_msg = buffer;
 
-        log_dispatch_internal(level, 0, file, line, func, NULL, NULL, NULL, NULL, buffer);
+        log_dispatch_internal(level, /* error= */ 0, file, line, func, /* object_field= */ NULL, /* object= */ NULL, /* extra_field= */ NULL, /* extra= */ NULL, buffer);
 }
 
 _noreturn_ void log_assert_failed(const char *text, const char *file, int line, const char *func) {

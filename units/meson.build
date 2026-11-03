@@ -15,6 +15,7 @@ units = [
         { 'file' : 'capsule.slice' },
         {
           'file' : 'clonesetup.target',
+          'conditions' : ['ENABLE_CLONESETUP'],
           'symlinks' : ['sysinit.target.wants/'],
         },
         { 'file' : 'console-getty.service.in' },
@@ -65,7 +66,7 @@ units = [
         },
         {
           'file' : 'systemd-battery-check.service.in',
-          'conditions' : ['ENABLE_INITRD'],
+          'conditions' : ['ENABLE_BATTERY_CHECK', 'ENABLE_INITRD'],
           'symlinks' : ['initrd.target.wants/'],
         },
         {
@@ -116,11 +117,11 @@ units = [
         },
         {
           'file' : 'integritysetup-pre.target',
-          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+          'conditions' : ['ENABLE_INTEGRITYSETUP'],
         },
         {
           'file' : 'integritysetup.target',
-          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+          'conditions' : ['ENABLE_INTEGRITYSETUP'],
           'symlinks' : ['sysinit.target.wants/'],
         },
         { 'file' : 'kexec.target' },
@@ -199,12 +200,12 @@ units = [
         { 'file' : 'remote-fs.target' },
         {
           'file' : 'remote-integritysetup.target',
-          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+          'conditions' : ['ENABLE_INTEGRITYSETUP'],
           'symlinks' : ['initrd-root-device.target.wants/'],
         },
         {
           'file' : 'remote-veritysetup.target',
-          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+          'conditions' : ['ENABLE_VERITYSETUP'],
           'symlinks' : ['initrd-root-device.target.wants/'],
         },
         { 'file' : 'rescue.service.in' },
@@ -216,7 +217,10 @@ units = [
         { 'file' : 'serial-getty@.service.in' },
         { 'file' : 'shutdown.target' },
         { 'file' : 'sigpwr.target' },
-        { 'file' : 'sleep.target' },
+        {
+          'file' : 'sleep.target',
+          'conditions' : ['ENABLE_SLEEP'],
+        },
         { 'file' : 'slices.target' },
         { 'file' : 'smartcard.target' },
         { 'file' : 'sockets.target' },
@@ -227,7 +231,10 @@ units = [
           'file' : 'suspend-then-hibernate.target',
           'conditions' : ['ENABLE_HIBERNATE'],
         },
-        { 'file' : 'suspend.target' },
+        {
+          'file' : 'suspend.target',
+          'conditions' : ['ENABLE_SLEEP'],
+        },
         { 'file' : 'swap.target' },
         {
           'file' : 'sys-fs-fuse-connections.mount',
@@ -256,7 +263,7 @@ units = [
         {
           'file' : 'system-systemd-veritysetup.slice',
           'name' : 'system-systemd\\x2dveritysetup.slice',
-          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+          'conditions' : ['ENABLE_VERITYSETUP'],
         },
         { 'file' : 'system-update-cleanup.service' },
         { 'file' : 'system-update-pre.target' },
@@ -369,6 +376,10 @@ units = [
           'conditions' : ['HAVE_LIBCRYPTSETUP', 'ENABLE_INITRD'],
           'symlinks' : ['initrd.target.wants/'],
         },
+        {
+          'file' : 'systemd-efivars-clear.service.in',
+          'conditions' : ['ENABLE_BOOTLOADER'],
+        },
         { 'file' : 'systemd-exit.service' },
         { 'file' : 'systemd-factory-reset@.service.in' },
         {
@@ -388,8 +399,14 @@ units = [
         },
         { 'file' : 'systemd-fsck-root.service.in' },
         { 'file' : 'systemd-fsck@.service.in' },
-        { 'file' : 'systemd-growfs-root.service.in' },
-        { 'file' : 'systemd-growfs@.service.in' },
+        {
+          'file' : 'systemd-growfs-root.service.in',
+          'conditions' : ['ENABLE_GROWFS'],
+        },
+        {
+          'file' : 'systemd-growfs@.service.in',
+          'conditions' : ['ENABLE_GROWFS'],
+        },
         { 'file' : 'systemd-halt.service' },
         {
           'file' : 'systemd-hibernate-clear.service.in',
@@ -534,6 +551,11 @@ units = [
         { 'file' : 'systemd-journald@.socket' },
         { 'file' : 'systemd-kexec.service' },
         {
+          'file' : 'systemd-keyring-setup.service.in',
+          'conditions' : ['HAVE_OPENSSL', 'HAVE_RUST'],
+          'symlinks' : ['sysinit.target.wants/'],
+        },
+        {
           'file' : 'systemd-localed.service.in',
           'conditions' : ['ENABLE_LOCALED'],
           'symlinks' : ['dbus-org.freedesktop.locale1.service'],
@@ -560,6 +582,11 @@ units = [
         {
           'file' : 'systemd-machine-tag@.service',
           'conditions' : ['ENABLE_HOSTNAMED'],
+        },
+        {
+          'file' : 'systemd-machine-tags.service',
+          'conditions' : ['ENABLE_HOSTNAMED'],
+          'symlinks' : ['sysinit.target.wants/'],
         },
         {
           'file' : 'systemd-machined.service.in',
@@ -916,7 +943,10 @@ units = [
           'file' : 'systemd-suspend-then-hibernate.service.in',
           'conditions' : ['ENABLE_HIBERNATE'],
         },
-        { 'file' : 'systemd-suspend.service.in' },
+        {
+          'file' : 'systemd-suspend.service.in',
+          'conditions' : ['ENABLE_SLEEP'],
+        },
         {
           'file' : 'systemd-sysctl.service.in',
           'symlinks' : ['sysinit.target.wants/'],
@@ -1008,17 +1038,21 @@ units = [
         },
         {
           'file' : 'systemd-storage-block.socket',
+          'conditions' : ['ENABLE_STORAGE'],
           'symlinks' : ['sockets.target.wants/']
         },
         {
           'file' : 'systemd-storage-block@.service.in',
+          'conditions' : ['ENABLE_STORAGE'],
         },
         {
           'file' : 'systemd-storage-fs.socket',
+          'conditions' : ['ENABLE_STORAGE'],
           'symlinks' : ['sockets.target.wants/']
         },
         {
           'file' : 'systemd-storage-fs@.service.in',
+          'conditions' : ['ENABLE_STORAGE'],
         },
         {
           'file' : 'systemd-storagetm.service.in',
@@ -1137,7 +1171,7 @@ units = [
         },
         {
           'file' : 'systemd-validatefs@.service.in',
-          'conditions' : ['HAVE_BLKID'],
+          'conditions' : ['ENABLE_VALIDATEFS'],
         },
         {
           'file' : 'systemd-varlink-monitord.socket',
@@ -1175,12 +1209,28 @@ units = [
           'symlinks' : ['remote-fs.target.wants/', 'machines.target.wants/'],
         },
         {
+          'file' : 'varlink-sftp-root.service.in',
+          'conditions' : ['ENABLE_VARLINK_SFTP'],
+        },
+        {
+          'file' : 'varlink-sftp-root.socket.in',
+          'conditions' : ['ENABLE_VARLINK_SFTP'],
+        },
+        {
+          'file' : 'varlink-sftp-root-ro.service.in',
+          'conditions' : ['ENABLE_VARLINK_SFTP'],
+        },
+        {
+          'file' : 'varlink-sftp-root-ro.socket.in',
+          'conditions' : ['ENABLE_VARLINK_SFTP'],
+        },
+        {
           'file' : 'veritysetup-pre.target',
-          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+          'conditions' : ['ENABLE_VERITYSETUP'],
         },
         {
           'file' : 'veritysetup.target',
-          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+          'conditions' : ['ENABLE_VERITYSETUP'],
           'symlinks' : ['sysinit.target.wants/'],
         },
 ]

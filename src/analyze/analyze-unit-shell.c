@@ -100,8 +100,8 @@ int verb_unit_shell(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         if (r == 0) {
                 if (args) {
-                        (void) execvp(args[0], args);
-                        log_error_errno(errno, "Failed to execute '%s': %m", *args);
+                        r = execvp_safe(args[0], args);
+                        log_error_errno(r, "Failed to execute '%s': %m", *args);
                 } else {
                         (void) execl(DEFAULT_USER_SHELL, "-" DEFAULT_USER_SHELL_NAME, NULL);
                         log_debug_errno(errno, "Failed to execute '" DEFAULT_USER_SHELL "', ignoring: %m");

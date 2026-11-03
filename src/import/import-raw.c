@@ -154,7 +154,7 @@ static void raw_import_report_progress(RawImport *i) {
         if (!ratelimit_below(&i->progress_ratelimit))
                 return;
 
-        sd_notifyf(false, "X_IMPORT_PROGRESS=%u%%", percent);
+        sd_notifyf(/* unset_environment= */ false, "X_IMPORT_PROGRESS=%u%%", percent);
 
         if (isatty_safe(STDERR_FILENO))
                 (void) draw_progress_barf(
@@ -190,13 +190,13 @@ static int raw_import_maybe_convert_qcow2(RawImport *i) {
                 return 0;
 
         /* This is a QCOW2 image, let's convert it */
-        r = tempfn_random(i->final_path, NULL, &f);
+        r = tempfn_random(i->final_path, /* extra= */ NULL, &f);
         if (r < 0)
                 return log_oom();
 
-        converted_fd = open(f, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
+        converted_fd = xopenat_full(AT_FDCWD, f, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY, /* xopen_flags= */ 0, 0664);
         if (converted_fd < 0)
-                return log_error_errno(errno, "Failed to create %s: %m", f);
+                return log_error_errno(converted_fd, "Failed to create %s: %m", f);
 
         t = TAKE_PTR(f);
 
@@ -260,7 +260,7 @@ static int raw_import_finish(RawImport *i) {
 
                 if (S_ISREG(i->input_stat.st_mode)) {
                         (void) copy_times(i->input_fd, i->output_fd, COPY_CRTIME);
-                        (void) copy_xattr(i->input_fd, NULL, i->output_fd, NULL, 0);
+                        (void) copy_xattr(i->input_fd, /* from= */ NULL, i->output_fd, /* to= */ NULL, /* copy_flags= */ 0);
                 }
         }
 
@@ -295,11 +295,12 @@ static int raw_import_open_disk(RawImport *i) {
                  * redirection would do it) — except if an offset was passed, in which case we are supposed
                  * to operate on a section of the file only, in which case we apparently work on an some
                  * existing thing (i.e. are not the sole thing stored in the file), in which case we will
-                 * neither truncate nor create. */
+                 * neither truncate nor create. Unlike the shell we never create through a dangling
+                 * symlink. */
 
-                i->output_fd = open(i->local, O_RDWR|O_NOCTTY|O_CLOEXEC|(i->offset == UINT64_MAX ? O_TRUNC|O_CREAT : 0), 0664);
+                i->output_fd = xopenat_full(AT_FDCWD, i->local, O_RDWR|O_NOCTTY|(i->offset == UINT64_MAX ? O_TRUNC|O_CREAT : 0), /* xopen_flags= */ 0, 0664);
                 if (i->output_fd < 0)
-                        return log_error_errno(errno, "Failed to open destination '%s': %m", i->local);
+                        return log_error_errno(i->output_fd, "Failed to open destination '%s': %m", i->local);
 
                 if (i->offset == UINT64_MAX)
                         (void) import_set_nocow_and_log(i->output_fd, i->local);
@@ -308,15 +309,15 @@ static int raw_import_open_disk(RawImport *i) {
                 if (!i->final_path)
                         return log_oom();
 
-                r = tempfn_random(i->final_path, NULL, &i->temp_path);
+                r = tempfn_random(i->final_path, /* extra= */ NULL, &i->temp_path);
                 if (r < 0)
                         return log_oom();
 
                 (void) mkdir_parents_label(i->temp_path, 0700);
 
-                i->output_fd = open(i->temp_path, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
+                i->output_fd = xopenat_full(AT_FDCWD, i->temp_path, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY, /* xopen_flags= */ 0, 0664);
                 if (i->output_fd < 0)
-                        return log_error_errno(errno, "Failed to open destination '%s': %m", i->temp_path);
+                        return log_error_errno(i->output_fd, "Failed to open destination '%s': %m", i->temp_path);
 
                 (void) import_set_nocow_and_log(i->output_fd, i->temp_path);
         }
@@ -548,7 +549,7 @@ int raw_import_start(
         if (i->input_fd >= 0)
                 return -EBUSY;
 
-        r = fd_nonblock(fd, true);
+        r = fd_nonblock(fd, /* nonblock= */ true);
         if (r < 0)
                 return r;
 

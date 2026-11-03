@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+edition = "2021"
+max_width = 109

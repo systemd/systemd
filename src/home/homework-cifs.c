@@ -38,9 +38,9 @@ int home_setup_cifs(
         assert(setup->root_fd < 0);
 
         if (FLAGS_SET(flags, HOME_SETUP_ALREADY_ACTIVATED)) {
-                setup->root_fd = open(user_record_home_directory(h), O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+                setup->root_fd = xopenat(AT_FDCWD, user_record_home_directory(h), O_RDONLY|O_DIRECTORY|O_NOFOLLOW);
                 if (setup->root_fd < 0)
-                        return log_error_errno(errno, "Failed to open home directory: %m");
+                        return log_error_errno(setup->root_fd, "Failed to open home directory: %m");
 
                 return 0;
         }
@@ -92,7 +92,7 @@ int home_setup_cifs(
                 if (r == 0) {
                         /* Child */
 
-                        r = fd_cloexec(passwd_fd, false);
+                        r = fd_cloexec(passwd_fd, /* cloexec= */ false);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to disable CLOEXEC on password FD: %m");
                                 _exit(EXIT_FAILURE);
@@ -129,7 +129,7 @@ int home_setup_cifs(
                                        "Failed to mount home directory, supplied password(s) possibly wrong.");
 
         /* Adjust MS_SUID and similar flags */
-        r = mount_nofollow_verbose(LOG_ERR, NULL, HOME_RUNTIME_WORK_DIR, NULL, MS_BIND|MS_REMOUNT|user_record_mount_flags(h), NULL);
+        r = mount_nofollow_verbose(LOG_ERR, /* what= */ NULL, HOME_RUNTIME_WORK_DIR, /* fstype= */ NULL, MS_BIND|MS_REMOUNT|user_record_mount_flags(h), /* options= */ NULL);
         if (r < 0)
                 return r;
 
@@ -139,16 +139,16 @@ int home_setup_cifs(
                         return log_oom();
 
                 if (FLAGS_SET(flags, HOME_SETUP_CIFS_MKDIR)) {
-                        setup->root_fd = open_mkdir(j, O_CLOEXEC, 0700);
+                        setup->root_fd = open_mkdir(j, /* flags= */ 0, 0700);
                         if (setup->root_fd < 0)
                                 return log_error_errno(setup->root_fd, "Failed to create CIFS subdirectory: %m");
                 }
         }
 
         if (setup->root_fd < 0) {
-                setup->root_fd = open(j ?: HOME_RUNTIME_WORK_DIR, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+                setup->root_fd = xopenat(AT_FDCWD, j ?: HOME_RUNTIME_WORK_DIR, O_RDONLY|O_DIRECTORY|O_NOFOLLOW);
                 if (setup->root_fd < 0)
-                        return log_error_errno(errno, "Failed to open home directory: %m");
+                        return log_error_errno(setup->root_fd, "Failed to open home directory: %m");
         }
 
         setup->mount_suffix = TAKE_PTR(cdir);
@@ -174,11 +174,11 @@ int home_activate_cifs(
         assert_se(hdo = user_record_home_directory(h));
         hd = strdupa_safe(hdo); /* copy the string out, since it might change later in the home record object */
 
-        r = home_setup(h, 0, setup, cache, &header_home);
+        r = home_setup(h, /* flags= */ 0, setup, cache, &header_home);
         if (r < 0)
                 return r;
 
-        r = home_refresh(h, flags, setup, header_home, cache, NULL, &new_home);
+        r = home_refresh(h, flags, setup, header_home, cache, /* ret_statfs= */ NULL, &new_home);
         if (r < 0)
                 return r;
 
@@ -220,7 +220,7 @@ int home_create_cifs(UserRecord *h, HomeSetup *setup, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = dir_is_empty_at(setup->root_fd, NULL, /* ignore_hidden_or_backup= */ false);
+        r = dir_is_empty_at(setup->root_fd, /* path= */ NULL, /* ignore_hidden_or_backup= */ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to detect if CIFS directory is empty: %m");
         if (r == 0)
@@ -230,7 +230,7 @@ int home_create_cifs(UserRecord *h, HomeSetup *setup, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_sync_and_statfs(setup->root_fd, NULL);
+        r = home_sync_and_statfs(setup->root_fd, /* ret= */ NULL);
         if (r < 0)
                 return r;
 
@@ -241,15 +241,15 @@ int home_create_cifs(UserRecord *h, HomeSetup *setup, UserRecord **ret_home) {
         r = user_record_add_binding(
                         new_home,
                         USER_CIFS,
-                        NULL,
+                        /* image_path= */ NULL,
                         SD_ID128_NULL,
                         SD_ID128_NULL,
                         SD_ID128_NULL,
-                        NULL,
-                        NULL,
+                        /* luks_cipher= */ NULL,
+                        /* luks_cipher_mode= */ NULL,
                         UINT64_MAX,
-                        NULL,
-                        NULL,
+                        /* file_system_type= */ NULL,
+                        /* home_directory= */ NULL,
                         h->uid,
                         (gid_t) h->uid);
         if (r < 0)

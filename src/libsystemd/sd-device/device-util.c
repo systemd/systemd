@@ -48,7 +48,7 @@ int device_open_from_devnum(mode_t mode, dev_t devnum, int flags, char **ret_dev
         if (r < 0)
                 return r;
 
-        fd = sd_device_open(dev, flags);
+        fd = device_open(dev, flags);
         if (fd < 0)
                 return fd;
 

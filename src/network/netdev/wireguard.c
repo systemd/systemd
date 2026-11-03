@@ -381,8 +381,8 @@ static int wireguard_peer_resolve_handler(
                 r = event_reset_time_relative(netdev->manager->event,
                                               &peer->resolve_retry_event_source,
                                               CLOCK_BOOTTIME,
-                                              peer_next_resolve_usec(peer), 0,
-                                              on_resolve_retry, peer, 0, "wireguard-resolve-retry", true);
+                                              peer_next_resolve_usec(peer), /* accuracy= */ 0,
+                                              on_resolve_retry, peer, /* priority= */ 0, "wireguard-resolve-retry", /* force_reset= */ true);
                 if (r < 0)
                         log_netdev_warning_errno(netdev, r, "Could not arm resolve retry handler for endpoint %s:%s, ignoring: %m",
                                                  peer->endpoint_host, peer->endpoint_port);
@@ -413,7 +413,7 @@ static int peer_resolve_endpoint(WireguardPeer *peer) {
                 /* Not necessary to resolve the endpoint. */
                 return 0;
 
-        if (sd_event_source_get_enabled(peer->resolve_retry_event_source, NULL) > 0)
+        if (sd_event_source_get_enabled(peer->resolve_retry_event_source, /* ret= */ NULL) > 0)
                 /* Timer event source is enabled. The endpoint will be resolved later. */
                 return 0;
 
@@ -522,7 +522,7 @@ static int wireguard_decode_key_and_warn(
                 }
 
         } else if (!streq(lvalue, "PublicKey"))
-                (void) warn_file_is_world_accessible(filename, NULL, unit, line);
+                (void) warn_file_is_world_accessible(filename, /* st= */ NULL, unit, line);
 
         r = unbase64mem_full(cred ?: rvalue, SIZE_MAX, /* secure= */ true, &key, &len);
         if (r == -ENOMEM)
@@ -705,7 +705,7 @@ int config_parse_wireguard_allowed_ips(
                 _cleanup_free_ char *word = NULL;
                 union in_addr_union masked;
 
-                r = extract_first_word(&p, &word, "," WHITESPACE, 0);
+                r = extract_first_word(&p, &word, "," WHITESPACE, /* flags= */ 0);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
@@ -792,7 +792,7 @@ int config_parse_wireguard_endpoint(
         union in_addr_union addr;
         int family;
 
-        r = in_addr_port_ifindex_name_from_string_auto(endpoint, &family, &addr, &port, NULL, NULL);
+        r = in_addr_port_ifindex_name_from_string_auto(endpoint, &family, &addr, &port, /* ret_ifindex= */ NULL, /* ret_server_name= */ NULL);
         if (r >= 0) {
                 if (family == AF_INET)
                         peer->endpoint.in = (struct sockaddr_in) {
@@ -1103,7 +1103,7 @@ static int wireguard_read_key_file(const char *filename, uint8_t dest[static WG_
                         READ_FULL_FILE_WARN_WORLD_READABLE |
                         READ_FULL_FILE_CONNECT_SOCKET |
                         READ_FULL_FILE_FAIL_WHEN_LARGER,
-                        NULL, &key, &key_len);
+                        /* bind_name= */ NULL, &key, &key_len);
         if (r < 0)
                 return r;
 

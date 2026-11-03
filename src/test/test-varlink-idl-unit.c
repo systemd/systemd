@@ -98,8 +98,7 @@ TEST(unit_enums_idl) {
 
         /* TimerContext enums */
         for (TimerBase b = 0; b < _TIMER_BASE_MAX; b++) {
-                _cleanup_free_ char *s = timer_base_to_usec_string(b);
-                assert_se(s);
+                _cleanup_free_ char *s = ASSERT_NOT_NULL(timer_base_to_usec_string(b));
                 test_enum_to_string_name(s, &vl_type_TimerBase);
         }
 

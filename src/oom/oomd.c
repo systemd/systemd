@@ -83,7 +83,7 @@ static int run(int argc, char *argv[]) {
         /* Do some basic requirement checks for running systemd-oomd. It's not exhaustive as some of the other
          * requirements do not have a reliable means to check for in code. */
 
-        int n = sd_listen_fds(0);
+        int n = sd_listen_fds(/* unset_environment= */ 0);
         if (n < 0)
                 return log_error_errno(n, "Failed to determine number of listening fds: %m");
         if (n > 1)

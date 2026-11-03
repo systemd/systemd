@@ -121,7 +121,7 @@ static void raw_export_report_progress(RawExport *e) {
         if (!ratelimit_below(&e->progress_ratelimit))
                 return;
 
-        sd_notifyf(false, "X_IMPORT_PROGRESS=%u%%", percent);
+        sd_notifyf(/* unset_environment= */ false, "X_IMPORT_PROGRESS=%u%%", percent);
 
         if (isatty_safe(STDERR_FILENO))
                 (void) draw_progress_barf(
@@ -229,7 +229,7 @@ finish:
                         clear_progress_bar(/* prefix= */ NULL);
 
                 (void) copy_times(e->input_fd, e->output_fd, COPY_CRTIME);
-                (void) copy_xattr(e->input_fd, NULL, e->output_fd, NULL, 0);
+                (void) copy_xattr(e->input_fd, /* from= */ NULL, e->output_fd, /* to= */ NULL, /* copy_flags= */ 0);
         }
 
         if (e->on_finished)
@@ -255,17 +255,17 @@ static int raw_export_on_defer(sd_event_source *s, void *userdata) {
 static int reflink_snapshot(int fd, const char *path) {
         int new_fd, r;
 
-        new_fd = open_parent(path, O_TMPFILE|O_CLOEXEC|O_RDWR, 0600);
+        new_fd = open_parent(path, O_TMPFILE|O_RDWR, 0600);
         if (new_fd < 0) {
                 _cleanup_free_ char *t = NULL;
 
-                r = tempfn_random(path, NULL, &t);
+                r = tempfn_random(path, /* extra= */ NULL, &t);
                 if (r < 0)
                         return r;
 
-                new_fd = open(t, O_CLOEXEC|O_CREAT|O_NOCTTY|O_RDWR, 0600);
+                new_fd = xopenat_full(AT_FDCWD, t, O_CREAT|O_NOCTTY|O_RDWR, /* xopen_flags= */ 0, 0600);
                 if (new_fd < 0)
-                        return -errno;
+                        return new_fd;
 
                 (void) unlink(t);
         }
@@ -292,7 +292,7 @@ int raw_export_start(RawExport *e, const char *path, int fd, Compression compres
         if (e->output_fd >= 0)
                 return -EBUSY;
 
-        r = fd_nonblock(fd, true);
+        r = fd_nonblock(fd, /* nonblock= */ true);
         if (r < 0)
                 return r;
 
@@ -300,9 +300,9 @@ int raw_export_start(RawExport *e, const char *path, int fd, Compression compres
         if (r < 0)
                 return r;
 
-        sfd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        sfd = xopenat(AT_FDCWD, path, O_RDONLY|O_NOCTTY);
         if (sfd < 0)
-                return -errno;
+                return sfd;
 
         if (fstat(sfd, &e->st) < 0)
                 return -errno;

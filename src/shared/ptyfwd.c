@@ -164,7 +164,7 @@ static void pty_forward_disconnect(PTYForward *f) {
                 }
 
                 /* STDIN/STDOUT should not be non-blocking normally, so let's reset it */
-                (void) fd_nonblock(f->output_fd, false);
+                (void) fd_nonblock(f->output_fd, /* nonblock= */ false);
 
                 if (f->close_output_fd)
                         f->output_fd = safe_close(f->output_fd);
@@ -174,7 +174,7 @@ static void pty_forward_disconnect(PTYForward *f) {
                 if (f->saved_stdin)
                         (void) tcsetattr(f->input_fd, TCSANOW, &f->saved_stdin_attr);
 
-                (void) fd_nonblock(f->input_fd, false);
+                (void) fd_nonblock(f->input_fd, /* nonblock= */ false);
                 if (f->close_input_fd)
                         f->input_fd = safe_close(f->input_fd);
         }
@@ -988,13 +988,13 @@ static int shovel(PTYForward *f) {
 
                 if ((f->out_buffer_write_len <= 0 || f->stdout_hangup) &&
                     (f->in_buffer_full <= 0 || f->master_hangup))
-                        return pty_forward_done(f, 0);
+                        return pty_forward_done(f, /* rcode= */ 0);
         }
 
         /* If we were asked to drain, and there's nothing more to handle from the master, then call the callback
          * too. */
         if (f->drain && drained(f))
-                return pty_forward_done(f, 0);
+                return pty_forward_done(f, /* rcode= */ 0);
 
         return 0;
 }
@@ -1165,19 +1165,16 @@ int pty_forward_new(
                  * them. This has two advantages: when we are killed abruptly the stdin/stdout fds won't be
                  * left in O_NONBLOCK state for the next process using them. In addition, if some process
                  * running in the background wants to continue writing to our stdout it can do so without
-                 * being confused by O_NONBLOCK.
-                 * We keep O_APPEND (if present) on the output FD and (try to) keep current file position on
-                 * both input and output FD (principle of least surprise).
-                 */
+                 * being confused by O_NONBLOCK. Regular file output is dup'ed instead, to keep the file offset
+                 * shared with the caller. */
 
-                f->input_fd = fd_reopen_propagate_append_and_position(
-                                STDIN_FILENO, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                f->input_fd = fd_dup_or_reopen_stdio_nonblock(STDIN_FILENO, O_RDONLY);
                 if (f->input_fd < 0) {
                         /* Handle failures gracefully, after all certain fd types cannot be reopened
                          * (sockets, …) */
                         log_debug_errno(f->input_fd, "Failed to reopen stdin, using original fd: %m");
 
-                        r = fd_nonblock(STDIN_FILENO, true);
+                        r = fd_nonblock(STDIN_FILENO, /* nonblock= */ true);
                         if (r < 0)
                                 return r;
 
@@ -1185,12 +1182,11 @@ int pty_forward_new(
                 } else
                         f->close_input_fd = true;
 
-                f->output_fd = fd_reopen_propagate_append_and_position(
-                                STDOUT_FILENO, O_WRONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                f->output_fd = fd_dup_or_reopen_stdio_nonblock(STDOUT_FILENO, O_WRONLY);
                 if (f->output_fd < 0) {
                         log_debug_errno(f->output_fd, "Failed to reopen stdout, using original fd: %m");
 
-                        r = fd_nonblock(STDOUT_FILENO, true);
+                        r = fd_nonblock(STDOUT_FILENO, /* nonblock= */ true);
                         if (r < 0)
                                 return r;
 
@@ -1199,7 +1195,7 @@ int pty_forward_new(
                         f->close_output_fd = true;
         }
 
-        r = fd_nonblock(master, true);
+        r = fd_nonblock(master, /* nonblock= */ true);
         if (r < 0)
                 return r;
 
@@ -1369,9 +1365,11 @@ int pty_forward_set_priority(PTYForward *f, int64_t priority) {
                         return r;
         }
 
-        r = sd_event_source_set_priority(f->stdout_event_source, priority);
-        if (r < 0)
-                return r;
+        if (f->stdout_event_source) {
+                r = sd_event_source_set_priority(f->stdout_event_source, priority);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_event_source_set_priority(f->master_event_source, priority);
         if (r < 0)

@@ -28,7 +28,7 @@ int verb_whoami(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
                 /* Our own process can never go away while querying, hence no need to go through pidfd. */
 
-                r = get_unit_by_pid(bus, 0, &unit, /* ret_path= */ NULL);
+                r = get_unit_by_pid(bus, /* pid= */ 0, &unit, /* ret_path= */ NULL);
                 if (r < 0)
                         return r;
 

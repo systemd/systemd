@@ -49,7 +49,7 @@ static void extract_info(UdevEvent *event) {
         assert(event);
         assert(event->dev);
 
-        fd = sd_device_open(event->dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        fd = device_open(event->dev, O_RDONLY|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
                 return;
 
@@ -387,7 +387,7 @@ static int builtin_input_id(UdevEvent *event, int argc, char *argv[]) {
                 if (sd_device_get_sysattr_value(pdev, "capabilities/ev", /* ret= */ NULL) >= 0)
                         break;
 
-                if (sd_device_get_parent_with_subsystem_devtype(pdev, "input", NULL, &pdev) >= 0)
+                if (sd_device_get_parent_with_subsystem_devtype(pdev, "input", /* devtype= */ NULL, &pdev) >= 0)
                         continue;
 
                 pdev = NULL;

@@ -4,8 +4,6 @@
 #include "forward.h"
 #include "stat-util.h"
 
-#define FILESYSTEM_MAGIC_MAX 10
-
 typedef enum FilesystemGroups {
         /* Please leave BASIC_API first and KNOWN last, but sort the rest alphabetically */
         FILESYSTEM_SET_BASIC_API,
@@ -34,6 +32,7 @@ extern const FilesystemSet filesystem_sets[];
 const FilesystemSet *filesystem_set_find(const char *name);
 
 const char* fs_type_to_string(statfs_f_type_t magic);
+/* Returns the zero-terminated list of magic numbers of the filesystem with the specified name. */
 int fs_type_from_string(const char *name, const statfs_f_type_t **ret);
 bool fs_in_group(const struct statfs *s, enum FilesystemGroups fs_group);
 

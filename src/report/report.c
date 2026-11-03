@@ -129,9 +129,9 @@ static int metric_compare(sd_json_variant *const *a, sd_json_variant *const *b) 
         fields_a = sd_json_variant_by_key(*a, "fields");
         fields_b = sd_json_variant_by_key(*b, "fields");
         if (fields_a)
-                (void) sd_json_variant_format(fields_a, 0, &fields_str_a);
+                (void) sd_json_variant_format(fields_a, /* flags= */ 0, &fields_str_a);
         if (fields_b)
-                (void) sd_json_variant_format(fields_b, 0, &fields_str_b);
+                (void) sd_json_variant_format(fields_b, /* flags= */ 0, &fields_str_b);
 
         return strcmp_ptr(fields_str_a, fields_str_b);
 }
@@ -689,10 +689,8 @@ static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) 
 
         _cleanup_(context_done) Context context = {
                 .action = action,
+                .nonce = iovec_unset_nullify(&arg_nonce),
         };
-
-        if (iovec_is_set(&arg_nonce))
-                context.nonce = &arg_nonce;
 
         r = parse_metrics_matches(argv + 1, &context.matches);
         if (r < 0)
@@ -864,6 +862,7 @@ static int vl_method_generate_internal(
 
         _cleanup_(context_done) Context context = {
                 .action = ACTION_GENERATE,
+                .nonce = iovec_unset_nullify(&p.nonce),
         };
 
         r = parse_metrics_matches(p.matches, &context.matches);
@@ -873,9 +872,6 @@ static int vl_method_generate_internal(
         r = sd_event_new(&context.event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
-
-        if (iovec_is_set(&p.nonce))
-                context.nonce = &p.nonce;
 
         r = context_collect_metrics(&context);
         if (r < 0)

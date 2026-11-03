@@ -12,7 +12,7 @@
 TEST(parse_sleep_config) {
         _cleanup_(sleep_config_freep) SleepConfig *sleep_config = NULL;
 
-        assert_se(parse_sleep_config(&sleep_config) == 0);
+        ASSERT_OK_ZERO(parse_sleep_config(&sleep_config));
 
         _cleanup_free_ char *sum = NULL, *sus = NULL, *him = NULL, *his = NULL, *hym = NULL, *hys = NULL;
 

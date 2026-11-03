@@ -105,7 +105,7 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
 
         table_set_header(table, arg_legend != 0);
         if (arg_full)
-                table_set_width(table, 0);
+                table_set_width(table, /* width= */ 0);
 
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
@@ -195,7 +195,7 @@ int verb_list_unit_files(int argc, char *argv[], uintptr_t _data, void *userdata
 
                 UnitFileList *u;
                 HASHMAP_FOREACH(u, h) {
-                        if (output_show_unit_file(u, NULL, NULL) <= 0)
+                        if (output_show_unit_file(u, /* states= */ NULL, /* patterns= */ NULL) <= 0)
                                 continue;
 
                         units[c++] = *u;
@@ -234,7 +234,7 @@ int verb_list_unit_files(int argc, char *argv[], uintptr_t _data, void *userdata
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_call(bus, m, 0, &error, &reply);
+                r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
                 if (r < 0 && sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
                         /* Fallback to legacy ListUnitFiles method */
                         log_debug_errno(r, "Unable to list unit files through ListUnitFilesByPatterns, falling back to ListUnitsFiles method.");
@@ -247,7 +247,7 @@ int verb_list_unit_files(int argc, char *argv[], uintptr_t _data, void *userdata
                         if (r < 0)
                                 return bus_log_create_error(r);
 
-                        r = sd_bus_call(bus, m, 0, &error, &reply);
+                        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
                 }
                 if (r < 0)
                         return log_error_errno(r, "Failed to list unit files: %s", bus_error_message(&error, r));

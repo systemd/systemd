@@ -191,7 +191,7 @@ static int acquire_user_record(pam_handle_t *pamh, UserRecord **ret_record) {
         assert(pamh);
 
         const char *username = NULL;
-        r = sym_pam_get_user(pamh, &username, NULL);
+        r = sym_pam_get_user(pamh, &username, /* prompt= */ NULL);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to get user name: @PAMERR@");
         if (isempty(username))
@@ -242,7 +242,7 @@ static int acquire_user_record(pam_handle_t *pamh, UserRecord **ret_record) {
                         return pam_syslog_pam_error(pamh, LOG_ERR, PAM_USER_UNKNOWN,
                                                     "User record of user '%s' has no UID, refusing.", username);
 
-                r = sd_json_variant_format(ur->json, 0, &formatted);
+                r = sd_json_variant_format(ur->json, /* flags= */ 0, &formatted);
                 if (r < 0)
                         return pam_syslog_errno(pamh, LOG_ERR, r, "Failed to format user JSON: %m");
 
@@ -514,7 +514,7 @@ static bool getenv_harder_bool(pam_handle_t *pamh, bool debug, const char *key, 
         assert(pamh);
         assert(key);
 
-        v = getenv_harder(pamh, debug, key, NULL);
+        v = getenv_harder(pamh, debug, key, /* fallback= */ NULL);
         if (!v) {
                 pam_debug_syslog(pamh, debug, "Using fallback %s=%s", key, true_false(fallback));
                 return fallback;
@@ -536,7 +536,7 @@ static uint32_t getenv_harder_uint32(pam_handle_t *pamh, bool debug, const char 
         assert(pamh);
         assert(key);
 
-        const char *v = getenv_harder(pamh, debug, key, NULL);
+        const char *v = getenv_harder(pamh, debug, key, /* fallback= */ NULL);
         if (!v) {
                 pam_debug_syslog(pamh, debug, "Using fallback %s=%"PRIu32, key, fallback);
                 return fallback;
@@ -1291,12 +1291,12 @@ static int register_session(
                  * process and returns a dummy session_fd (no longer a fifo). However because logind cannot
                  * be restarted (known long-standing issue), we must still be prepared to receive a fifo fd
                  * from a running logind older than v258. */
-                if (sd_is_fifo(session_fd, NULL) > 0) {
+                if (sd_is_fifo(session_fd, /* path= */ NULL) > 0) {
                         _cleanup_close_ int fd = fcntl(session_fd, F_DUPFD_CLOEXEC, 3);
                         if (fd < 0)
                                 return pam_syslog_errno(pamh, LOG_ERR, errno, "Failed to dup session fd: %m");
 
-                        r = sym_pam_set_data(pamh, "systemd.session-fd", FD_TO_PTR(fd), NULL);
+                        r = sym_pam_set_data(pamh, "systemd.session-fd", FD_TO_PTR(fd), /* cleanup= */ NULL);
                         if (r != PAM_SUCCESS)
                                 return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to install session fd: @PAMERR@");
                         TAKE_FD(fd);
@@ -1416,11 +1416,11 @@ static int mkdir_chown_open_directory(
         assert(mode != MODE_INVALID);
 
         for (unsigned attempt = 0;; attempt++) {
-                _cleanup_close_ int fd = openat(parent_fd, name, O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+                _cleanup_close_ int fd = xopenat(parent_fd, name, O_DIRECTORY|O_NOFOLLOW);
                 if (fd >= 0)
                         return TAKE_FD(fd);
-                if (errno != ENOENT)
-                        return -errno;
+                if (fd != -ENOENT)
+                        return fd;
 
                 /* Let's create the directory under a temporary name first, since we want to make sure that
                  * once it appears under the right name it has the right ownership */
@@ -1428,7 +1428,7 @@ static int mkdir_chown_open_directory(
                 if (r < 0)
                         return r;
 
-                fd = open_mkdir_at(parent_fd, t, O_CLOEXEC|O_EXCL, 0700); /* Use restrictive mode until ownership is in order */
+                fd = open_mkdir_at(parent_fd, t, O_EXCL, 0700); /* Use restrictive mode until ownership is in order */
                 if (fd < 0)
                         return fd;
 
@@ -1472,9 +1472,9 @@ static int make_area_runtime_directory(
         /* Let's be careful with creating these directories, the runtime directory is owned by the user after all,
          * and they might play symlink games with us. */
 
-        _cleanup_close_ int fd = open(runtime_directory, O_CLOEXEC|O_PATH|O_DIRECTORY);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, runtime_directory, O_PATH|O_DIRECTORY);
         if (fd < 0)
-                return pam_syslog_errno(pamh, LOG_ERR, errno, "Unable to open runtime directory '%s': %m", runtime_directory);
+                return pam_syslog_errno(pamh, LOG_ERR, fd, "Unable to open runtime directory '%s': %m", runtime_directory);
 
         _cleanup_close_ int fd_areas = mkdir_chown_open_directory(fd, "Areas", ur->uid, user_record_gid(ur), 0755);
         if (fd_areas < 0)
@@ -1539,7 +1539,7 @@ static int setup_runtime_directory(
                 /* If this is an area switch request, always reset $XDG_RUNTIME_DIR if we got nothing
                  * to ensure the main runtime dir won't be clobbered. */
                 if (area)
-                        return update_environment(pamh, "XDG_RUNTIME_DIR", NULL);
+                        return update_environment(pamh, "XDG_RUNTIME_DIR", /* value= */ NULL);
 
                 return PAM_SUCCESS;
         }
@@ -1661,7 +1661,7 @@ static int open_osc_context(pam_handle_t *pamh, const char *session_type, UserRe
         /* Keep a reference to the TTY we are operating on, so that we can issue the OSC close sequence also
          * if the TTY is already closed. We use an O_PATH reference here, rather than a properly opened fd,
          * so that we don't delay tty hang-up. */
-        _cleanup_close_ int tty_opath_fd = fd_reopen(STDOUT_FILENO, O_PATH|O_CLOEXEC);
+        _cleanup_close_ int tty_opath_fd = fd_reopen(STDOUT_FILENO, O_PATH);
         if (tty_opath_fd < 0)
                 pam_debug_syslog_errno(pamh, debug, tty_opath_fd, "Failed to pin TTY, ignoring: %m");
         else
@@ -1728,7 +1728,7 @@ static int close_osc_context(pam_handle_t *pamh, bool debug) {
                 return PAM_SUCCESS;
 
         /* Now open the original TTY again, so that we can write on it */
-        _cleanup_close_ int fd = fd_reopen(tty_opath_fd, O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        _cleanup_close_ int fd = fd_reopen(tty_opath_fd, O_WRONLY|O_NONBLOCK|O_NOCTTY);
         if (fd < 0) {
                 pam_debug_syslog_errno(pamh, debug, fd, "Failed to reopen TTY, ignoring: %m");
                 return PAM_SUCCESS;
@@ -1862,13 +1862,13 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to get PAM items: @PAMERR@");
 
-        c.seat = getenv_harder(pamh, debug, "XDG_SEAT", NULL);
-        c.vtnr = getenv_harder_uint32(pamh, debug, "XDG_VTNR", 0);
+        c.seat = getenv_harder(pamh, debug, "XDG_SEAT", /* fallback= */ NULL);
+        c.vtnr = getenv_harder_uint32(pamh, debug, "XDG_VTNR", /* fallback= */ 0);
         c.type = getenv_harder(pamh, debug, "XDG_SESSION_TYPE", type_pam);
         c.class = getenv_harder(pamh, debug, "XDG_SESSION_CLASS", class_pam);
         c.desktop = getenv_harder(pamh, debug, "XDG_SESSION_DESKTOP", desktop_pam);
         c.area = getenv_harder(pamh, debug, "XDG_AREA", area_pam);
-        c.incomplete = getenv_harder_bool(pamh, debug, "XDG_SESSION_INCOMPLETE", false);
+        c.incomplete = getenv_harder_bool(pamh, debug, "XDG_SESSION_INCOMPLETE", /* fallback= */ false);
         inhibit_what = getenv_harder(pamh, debug, "XDG_SESSION_INHIBIT", inhibit_what);
         inhibit_why = getenv_harder(pamh, debug, "XDG_SESSION_INHIBIT_WHY", inhibit_why);
 
@@ -1887,7 +1887,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                          yes_no(c.incomplete),
                          strempty(inhibit_what));
 
-        const char *extra_device_access = getenv_harder(pamh, debug, "XDG_SESSION_EXTRA_DEVICE_ACCESS", NULL);
+        const char *extra_device_access = getenv_harder(pamh, debug, "XDG_SESSION_EXTRA_DEVICE_ACCESS", /* fallback= */ NULL);
         if (extra_device_access) {
                 c.extra_device_access = strv_split(extra_device_access, ":");
                 if (!c.extra_device_access)
@@ -1968,7 +1968,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
 
         (void) close_osc_context(pamh, debug);
 
-        (void) sym_pam_set_data(pamh, "systemd.inhibit-fd", NULL, NULL);
+        (void) sym_pam_set_data(pamh, "systemd.inhibit-fd", /* data= */ NULL, /* cleanup= */ NULL);
 
         id = sym_pam_getenv(pamh, "XDG_SESSION_ID");
         if (id) {
@@ -2009,7 +2009,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                         if (r != PAM_SUCCESS)
                                 return r;
 
-                        r = bus_call_method(bus, bus_login_mgr, "ReleaseSession", &error, NULL, "s", id);
+                        r = bus_call_method(bus, bus_login_mgr, "ReleaseSession", &error, /* ret_reply= */ NULL, "s", id);
                         if (r < 0)
                                 return pam_syslog_pam_error(pamh, LOG_ERR, PAM_SESSION_ERR,
                                                             "Failed to release session: %s", bus_error_message(&error, r));

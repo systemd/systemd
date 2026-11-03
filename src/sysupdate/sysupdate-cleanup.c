@@ -79,7 +79,7 @@ static int context_installdb_acquire_fd(Context *c, bool make) {
                         p,
                         c->root,
                         flags,
-                        O_DIRECTORY|O_CLOEXEC|(make ? O_CREAT : 0),
+                        O_DIRECTORY|(make ? O_CREAT : 0),
                         /* ret_path= */ NULL);
         if (c->installdb_fd == -ENOENT && !make)
                 return 0;
@@ -273,7 +273,7 @@ static int context_installdb_process_directory(
                         if (d->d_type != DT_DIR)
                                 continue;
 
-                        _cleanup_close_ int subdir_fd = RET_NERRNO(openat(dir_fd, d->d_name, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW));
+                        _cleanup_close_ int subdir_fd = xopenat(dir_fd, d->d_name, O_DIRECTORY|O_NOFOLLOW);
                         if (subdir_fd == -ENOENT)
                                 continue;
                         if (subdir_fd < 0) {
@@ -367,7 +367,7 @@ static int context_installdb_process_entry(
 
         /* NB: We set CHASE_PROHIBIT_SYMLINKS because the path was normalized by the writer of the entry
          * already, and if it isn't anymore, then something is fishy. */
-        _cleanup_close_ int dir_fd = chase_and_open(path, c->root, CHASE_MUST_BE_DIRECTORY|CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, O_DIRECTORY|O_CLOEXEC, /* ret_path= */ NULL);
+        _cleanup_close_ int dir_fd = chase_and_open(path, c->root, CHASE_MUST_BE_DIRECTORY|CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, O_DIRECTORY, /* ret_path= */ NULL);
         if (dir_fd == -ENOENT) {
                 log_debug("Install database path '%s' does not exist, expunging database entry.", path);
                 return 0;
@@ -440,7 +440,7 @@ int installdb_list_components(Context *context, char ***ret) {
                         "/var/lib/systemd/sysupdate",
                         context->root,
                         CHASE_MUST_BE_DIRECTORY|CHASE_PREFIX_ROOT,
-                        O_DIRECTORY|O_CLOEXEC,
+                        O_DIRECTORY,
                         /* ret_path= */ NULL);
         if (dir_fd == -ENOENT) {
                 *ret = NULL;

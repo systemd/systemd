@@ -18,7 +18,7 @@ int bus_test_polkit(sd_bus_message *call, const char *action, const char **detai
 
 int bus_verify_polkit_async_full(sd_bus_message *call, const char *action, const char **details, uid_t good_user, PolkitFlags flags, Hashmap **registry, bool *ret_admin, sd_bus_error *reterr_error);
 static inline int bus_verify_polkit_async(sd_bus_message *call, const char *action, const char **details, Hashmap **registry, sd_bus_error *reterr_error) {
-        return bus_verify_polkit_async_full(call, action, details, UID_INVALID, 0, registry, NULL, reterr_error);
+        return bus_verify_polkit_async_full(call, action, details, UID_INVALID, /* flags= */ 0, registry, /* ret_admin= */ NULL, reterr_error);
 }
 
 /* Returns > 0 if the peer of the connection is the user we run as, or root while we don't run as root. */
@@ -26,7 +26,7 @@ int varlink_check_peer_privilege(sd_varlink *link);
 
 int varlink_verify_polkit_async_full(sd_varlink *link, sd_bus *bus, const char *action, const char **details, uid_t good_user, PolkitFlags flags, Hashmap **registry, bool *ret_admin);
 static inline int varlink_verify_polkit_async(sd_varlink *link, sd_bus *bus, const char *action, const char **details, Hashmap **registry) {
-        return varlink_verify_polkit_async_full(link, bus, action, details, UID_INVALID, 0, registry, NULL);
+        return varlink_verify_polkit_async_full(link, bus, action, details, UID_INVALID, /* flags= */ 0, registry, /* ret_admin= */ NULL);
 }
 
 /* A sd_json_dispatch_field initializer that makes sure the allowInteractiveAuthentication boolean field we want for

@@ -17,7 +17,17 @@
 #include "path-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
+#include "verbs.h"
 #include "volatile-util.h"
+
+COMMAND(
+        "systemd-volatile-root\0",
+        "Make the root file system volatile.",
+        .argspec = "[MODE [DIRECTORY]]\0",
+        .man_pages = "systemd-volatile-root.service(8)\0",
+        .option_namespace = "common",
+);
 
 static int make_volatile(const char *path) {
         _cleanup_free_ char *old_usr = NULL;
@@ -25,7 +35,7 @@ static int make_volatile(const char *path) {
 
         assert(path);
 
-        r = chase("/usr", path, CHASE_PREFIX_ROOT, &old_usr, NULL);
+        r = chase("/usr", path, CHASE_PREFIX_ROOT, &old_usr, /* ret_fd= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "/usr not available in old root: %m");
 
@@ -42,29 +52,29 @@ static int make_volatile(const char *path) {
                 goto finish_umount;
         }
 
-        r = mount_nofollow_verbose(LOG_ERR, old_usr, "/run/systemd/volatile-sysroot/usr", NULL, MS_BIND|MS_REC, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, old_usr, "/run/systemd/volatile-sysroot/usr", /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
         if (r < 0)
                 goto finish_umount;
 
-        r = bind_remount_recursive("/run/systemd/volatile-sysroot/usr", MS_RDONLY, MS_RDONLY, NULL);
+        r = bind_remount_recursive("/run/systemd/volatile-sysroot/usr", MS_RDONLY, MS_RDONLY, /* deny_list= */ NULL);
         if (r < 0) {
                 log_error_errno(r, "Failed to remount /usr read-only: %m");
                 goto finish_umount;
         }
 
-        r = umount_recursive(path, 0);
+        r = umount_recursive(path, /* flags= */ 0);
         if (r < 0) {
                 log_error_errno(r, "Failed to unmount %s: %m", path);
                 goto finish_umount;
         }
 
-        if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
+        if (mount(/* source= */ NULL, "/", /* filesystemtype= */ NULL, MS_SLAVE|MS_REC, /* data= */ NULL) < 0)
                 log_warning_errno(errno, "Failed to remount %s MS_SLAVE|MS_REC, ignoring: %m", path);
 
-        r = mount_nofollow_verbose(LOG_ERR, "/run/systemd/volatile-sysroot", path, NULL, MS_MOVE, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, "/run/systemd/volatile-sysroot", path, /* fstype= */ NULL, MS_MOVE, /* options= */ NULL);
 
 finish_umount:
-        (void) umount_recursive("/run/systemd/volatile-sysroot", 0);
+        (void) umount_recursive("/run/systemd/volatile-sysroot", /* flags= */ 0);
 
 finish_rmdir:
         (void) rmdir("/run/systemd/volatile-sysroot");
@@ -107,7 +117,7 @@ static int make_overlay(const char *path) {
         }
 
         options = strjoina("lowerdir=", escaped_path, ",upperdir=/run/systemd/overlay-sysroot/upper,workdir=/run/systemd/overlay-sysroot/work");
-        r = mount_nofollow_verbose(LOG_ERR, "overlay", path, "overlay", 0, options);
+        r = mount_nofollow_verbose(LOG_ERR, "overlay", path, "overlay", /* flags= */ 0, options);
 
 finish:
         if (tmpfs_mounted)
@@ -127,24 +137,25 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        if (argc > 3)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Too many arguments. Expected directory and mode.");
+        char **args = NULL;
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 2, &args);
+        if (r <= 0)
+                return r;
 
         r = query_volatile_mode(&m);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine volatile mode from kernel command line: %m");
-        if (r == 0 && argc >= 2) {
+        if (r == 0 && args[0]) {
                 /* The kernel command line always wins. However if nothing was set there, the argument passed here wins instead. */
-                m = volatile_mode_from_string(argv[1]);
+                m = volatile_mode_from_string(args[0]);
                 if (m < 0)
-                        return log_error_errno(m, "Couldn't parse volatile mode: %s", argv[1]);
+                        return log_error_errno(m, "Couldn't parse volatile mode: %s", args[0]);
         }
 
-        if (argc < 3)
+        if (strv_length(args) < 2)
                 path = "/sysroot";
         else {
-                path = argv[2];
+                path = args[1];
 
                 if (isempty(path))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

@@ -13,8 +13,9 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(version, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(resources, Resource, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
 
-SD_VARLINK_DEFINE_INTERFACE(
+SD_VARLINK_DEFINE_INTERFACE_FULL(
                 io_systemd_SysUpdate_Notify,
                 "io.systemd.SysUpdate.Notify",
+                SD_VARLINK_EXPERIMENTAL,
                 &vl_type_Resource,
                 &vl_method_OnCompletedUpdate);

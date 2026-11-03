@@ -24,10 +24,10 @@ void sync_req_varlink_reply(SyncReq *req) {
 
         /* Disconnect the SyncReq from the Varlink connection object, and free it */
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = TAKE_PTR(req->link);
-        sd_varlink_set_userdata(vl, NULL);
+        sd_varlink_set_userdata(vl, /* userdata= */ NULL);
         req = sync_req_free(req);
 
-        r = sd_varlink_reply(vl, NULL);
+        r = sd_varlink_reply(vl, /* parameters= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to reply to Synchronize() client, ignoring: %m");
 }
@@ -104,7 +104,7 @@ static int vl_method_rotate(sd_varlink *link, sd_json_variant *parameters, sd_va
         manager_full_rotate(m);
         log_debug("Client request to rotate journal completed.");
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int vl_method_flush_to_var(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -123,13 +123,13 @@ static int vl_method_flush_to_var(sd_varlink *link, sd_json_variant *parameters,
                 return r;
 
         if (m->namespace)
-                return sd_varlink_error(link, "io.systemd.Journal.NotSupportedByNamespaces", NULL);
+                return sd_varlink_error(link, "io.systemd.Journal.NotSupportedByNamespaces", /* parameters= */ NULL);
 
         log_info("Received client request to flush runtime journal.");
         manager_full_flush(m);
         log_debug("Client request to flush runtime journal completed.");
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int vl_method_relinquish_var(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -148,13 +148,13 @@ static int vl_method_relinquish_var(sd_varlink *link, sd_json_variant *parameter
                 return r;
 
         if (m->namespace)
-                return sd_varlink_error(link, "io.systemd.Journal.NotSupportedByNamespaces", NULL);
+                return sd_varlink_error(link, "io.systemd.Journal.NotSupportedByNamespaces", /* parameters= */ NULL);
 
         log_info("Received client request to relinquish %s access.", m->system_storage.path);
         manager_relinquish_var(m);
         log_debug("Client request to relinquish %s access completed.", m->system_storage.path);
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int vl_connect(sd_varlink_server *server, sd_varlink *link, void *userdata) {
@@ -174,7 +174,7 @@ static void vl_disconnect(sd_varlink_server *server, sd_varlink *link, void *use
         assert(server);
         assert(link);
 
-        sync_req_free(sd_varlink_set_userdata(link, NULL));
+        sync_req_free(sd_varlink_set_userdata(link, /* userdata= */ NULL));
 
         (void) manager_start_or_stop_idle_timer(m); /* maybe we are idle now */
 }

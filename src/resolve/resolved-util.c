@@ -26,7 +26,7 @@ int resolve_system_hostname(char **full_hostname, char **first_label) {
                 return log_debug_errno(r, "Can't determine system hostname: %m");
 
         p = h;
-        r = dns_label_unescape(&p, label, sizeof label, 0);
+        r = dns_label_unescape(&p, label, sizeof label, /* flags= */ 0);
         if (r < 0)
                 return log_debug_errno(r, "Failed to unescape hostname: %m");
         if (r == 0)
@@ -37,7 +37,7 @@ int resolve_system_hostname(char **full_hostname, char **first_label) {
         _cleanup_free_ char *utf8 = NULL;
 
         if (dlopen_idn(LOG_DEBUG) >= 0) {
-                r = sym_idn2_to_unicode_8z8z(label, &utf8, 0);
+                r = sym_idn2_to_unicode_8z8z(label, &utf8, /* flags= */ 0);
                 if (r != IDN2_OK)
                         return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN),
                                                "Failed to undo IDNA: %s", sym_idn2_strerror(r));

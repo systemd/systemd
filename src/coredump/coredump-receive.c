@@ -51,7 +51,7 @@ int coredump_receive(int fd) {
 
                 mh.msg_iov = &iovec;
 
-                n = recvmsg_safe(fd, &mh, MSG_CMSG_CLOEXEC);
+                n = recvmsg_safe(fd, &mh, /* flags= */ 0);
                 if (n < 0)
                         return log_error_errno(n, "Failed to receive datagram: %m");
 

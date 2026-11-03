@@ -69,10 +69,10 @@ static int print_status_info(const StatusInfo *i) {
         if (!table)
                 return log_oom();
 
-        assert_se(cell = table_get_cell(table, 0, 0));
+        assert_se(cell = table_get_cell(table, /* row= */ 0, /* column= */ 0));
         (void) table_set_ellipsize_percent(table, cell, 100);
 
-        assert_se(cell = table_get_cell(table, 0, 1));
+        assert_se(cell = table_get_cell(table, /* row= */ 0, 1));
         (void) table_set_ellipsize_percent(table, cell, 100);
 
         /* Save the old $TZ */
@@ -136,7 +136,7 @@ static int print_status_info(const StatusInfo *i) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = table_add_cell(table, NULL, TABLE_FIELD, "Time zone");
+        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_FIELD, "Time zone");
         if (r < 0)
                 return table_log_add_error(r);
         if (timestamp_is_set(t)) {
@@ -227,10 +227,10 @@ static int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
         r = bus_print_all_properties(bus,
                                      "org.freedesktop.timedate1",
                                      "/org/freedesktop/timedate1",
-                                     NULL,
+                                     /* func= */ NULL,
                                      arg_property,
                                      arg_print_flags,
-                                     NULL);
+                                     /* reterr_error= */ NULL);
         if (r < 0)
                 return bus_log_parse_error(r);
 
@@ -255,7 +255,7 @@ static int verb_set_time(int argc, char *argv[], uintptr_t _data, void *userdata
                         bus_timedate,
                         "SetTime",
                         &error,
-                        NULL,
+                        /* ret_reply= */ NULL,
                         "xbb", (int64_t) t, false, arg_ask_password);
         if (r < 0)
                 return log_error_errno(r, "Failed to set time: %s", bus_error_message(&error, r));
@@ -271,7 +271,7 @@ static int verb_set_timezone(int argc, char *argv[], uintptr_t _data, void *user
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = bus_call_method(bus, bus_timedate, "SetTimezone", &error, NULL, "sb", argv[1], arg_ask_password);
+        r = bus_call_method(bus, bus_timedate, "SetTimezone", &error, /* ret_reply= */ NULL, "sb", argv[1], arg_ask_password);
         if (r < 0)
                 return log_error_errno(r, "Failed to set time zone: %s", bus_error_message(&error, r));
 
@@ -286,7 +286,7 @@ static int verb_list_timezones(int argc, char *argv[], uintptr_t _data, void *us
         int r;
         _cleanup_strv_free_ char **zones = NULL;
 
-        r = bus_call_method(bus, bus_timedate, "ListTimezones", &error, &reply, NULL);
+        r = bus_call_method(bus, bus_timedate, "ListTimezones", &error, &reply, /* types= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request list of time zones: %s",
                                        bus_error_message(&error, r));
@@ -325,7 +325,7 @@ static int verb_set_local_rtc(int argc, char *argv[], uintptr_t _data, void *use
                         bus_timedate,
                         "SetLocalRTC",
                         &error,
-                        NULL,
+                        /* ret_reply= */ NULL,
                         "bbb", b, arg_adjust_system_clock, arg_ask_password);
         if (r < 0)
                 return log_error_errno(r, "Failed to set local RTC: %s", bus_error_message(&error, r));
@@ -355,7 +355,7 @@ static int verb_set_ntp(int argc, char *argv[], uintptr_t _data, void *userdata)
                 return bus_log_create_error(r);
 
         /* Reloading the daemon may take long, hence set a longer timeout here */
-        r = sd_bus_call(bus, m, DAEMON_RELOAD_TIMEOUT_SEC, &error, NULL);
+        r = sd_bus_call(bus, m, DAEMON_RELOAD_TIMEOUT_SEC, &error, /* ret_reply= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to set ntp: %s", bus_error_message(&error, r));
 
@@ -412,10 +412,10 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
         if (!table)
                 return log_oom();
 
-        assert_se(cell = table_get_cell(table, 0, 0));
+        assert_se(cell = table_get_cell(table, /* row= */ 0, /* column= */ 0));
         (void) table_set_ellipsize_percent(table, cell, 100);
 
-        assert_se(cell = table_get_cell(table, 0, 1));
+        assert_se(cell = table_get_cell(table, /* row= */ 0, 1));
         (void) table_set_ellipsize_percent(table, cell, 100);
 
         /*
@@ -430,7 +430,7 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
          *  d = (T4 - T1) - (T3 - T2)     t = ((T2 - T1) + (T3 - T4)) / 2"
          */
 
-        r = table_add_cell(table, NULL, TABLE_FIELD, "Server");
+        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_FIELD, "Server");
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -438,7 +438,7 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = table_add_cell(table, NULL, TABLE_FIELD, "Poll interval");
+        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_FIELD, "Poll interval");
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -485,13 +485,13 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
                 return table_log_add_error(r);
 
         if (i->stratum <= 1)
-                r = table_add_cell(table, NULL, TABLE_STRING, i->reference.str);
+                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_STRING, i->reference.str);
         else
                 r = table_add_cell_stringf(table, NULL, "%" PRIX32, be32toh(i->reference.val));
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = table_add_cell(table, NULL, TABLE_FIELD, "Precision");
+        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_FIELD, "Precision");
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -501,7 +501,7 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = table_add_cell(table, NULL, TABLE_FIELD, "Root distance");
+        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_FIELD, "Root distance");
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -511,7 +511,7 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = table_add_cell(table, NULL, TABLE_FIELD, "Offset");
+        r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_FIELD, "Offset");
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -532,7 +532,7 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
                 return table_log_add_error(r);
 
         if (!i->spike) {
-                r = table_add_cell(table, NULL, TABLE_FIELD, "Frequency");
+                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_FIELD, "Frequency");
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -709,12 +709,12 @@ static int verb_timesync_status(int argc, char *argv[], uintptr_t _data, void *u
                 return log_error_errno(r, "Failed to get event loop: %m");
 
         r = sd_bus_match_signal(bus,
-                                NULL,
+                                /* ret= */ NULL,
                                 "org.freedesktop.timesync1",
                                 "/org/freedesktop/timesync1",
                                 "org.freedesktop.DBus.Properties",
                                 "PropertiesChanged",
-                                on_properties_changed, NULL);
+                                on_properties_changed, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match for PropertiesChanged signal: %m");
 
@@ -748,7 +748,7 @@ static int print_timesync_property(
                 if (streq(name, "NTPMessage")) {
                         _cleanup_(ntp_status_info_clear) NTPStatusInfo i = {};
 
-                        r = map_ntp_message(NULL, NULL, m, NULL, &i);
+                        r = map_ntp_message(/* bus= */ NULL, /* member= */ NULL, m, /* error= */ NULL, &i);
                         if (r < 0)
                                 return r;
 
@@ -783,7 +783,7 @@ static int print_timesync_property(
                 } else if (streq(name, "ServerAddress")) {
                         _cleanup_free_ char *str = NULL;
 
-                        r = map_server_address(NULL, NULL, m, NULL, &str);
+                        r = map_server_address(/* bus= */ NULL, /* member= */ NULL, m, /* error= */ NULL, &str);
                         if (r < 0)
                                 return r;
 
@@ -873,7 +873,7 @@ static int verb_ntp_servers(int argc, char *argv[], uintptr_t _data, void *userd
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, req, 0, &error, NULL);
+        r = sd_bus_call(bus, req, /* usec= */ 0, &error, /* ret_reply= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to set NTP servers: %s", bus_error_message(&error, r));
 
@@ -892,7 +892,7 @@ static int verb_revert(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = bus_call_method(bus, bus_network_mgr, "RevertLinkNTP", &error, NULL, "i", ifindex);
+        r = bus_call_method(bus, bus_network_mgr, "RevertLinkNTP", &error, /* ret_reply= */ NULL, "i", ifindex);
         if (r < 0)
                 return log_error_errno(r, "Failed to revert interface configuration: %s", bus_error_message(&error, r));
 

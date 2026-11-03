@@ -100,6 +100,7 @@ int tpm2_pcr_bank_from_efi_active_legacy(uint32_t active_banks, uint16_t *ret) {
 }
 
 #if HAVE_TPM2
+static DLSYM_PROTOTYPE(Esys_Certify) = NULL;
 static DLSYM_PROTOTYPE(Esys_ContextLoad) = NULL;
 static DLSYM_PROTOTYPE(Esys_ContextSave) = NULL;
 static DLSYM_PROTOTYPE(Esys_Create) = NULL;
@@ -187,6 +188,7 @@ static int dlopen_tpm2_esys(int log_level) {
 
         r = dlopen_many_sym_or_warn(
                         &libtss2_esys_dl, "libtss2-esys.so.0", log_level,
+                        DLSYM_ARG(Esys_Certify),
                         DLSYM_ARG(Esys_ContextLoad),
                         DLSYM_ARG(Esys_ContextSave),
                         DLSYM_ARG(Esys_Create),
@@ -817,7 +819,7 @@ static bool tpm2_get_capability_alg(Tpm2Context *c, TPM2_ALG_ID alg, TPMA_ALGORI
 }
 
 bool tpm2_supports_alg(Tpm2Context *c, TPM2_ALG_ID alg) {
-        return tpm2_get_capability_alg(c, alg, NULL);
+        return tpm2_get_capability_alg(c, alg, /* ret= */ NULL);
 }
 
 /* Get the TPMA_CC for a TPM2_CC. Returns true if the TPM supports the command and the TPMA_CC is provided,
@@ -840,7 +842,7 @@ static bool tpm2_get_capability_command(Tpm2Context *c, TPM2_CC command, TPMA_CC
 }
 
 bool tpm2_supports_command(Tpm2Context *c, TPM2_CC command) {
-        return tpm2_get_capability_command(c, command, NULL);
+        return tpm2_get_capability_command(c, command, /* ret= */ NULL);
 }
 
 /* Returns true if the TPM supports the ECC curve, otherwise false. */
@@ -1161,7 +1163,7 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
                         return log_oom_debug();
         }
 
-        rc = sym_Esys_Initialize(&context->esys_context, context->tcti_context, NULL);
+        rc = sym_Esys_Initialize(&context->esys_context, context->tcti_context, /* abiVersion= */ NULL);
         if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to initialize TPM context: %s", sym_Tss2_RC_Decode(rc));
@@ -2229,7 +2231,7 @@ static int tpm2_read_ek_cert(
         if (!cert)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "Failed to parse EK certificate for template '%s' from NV index 0x%08" PRIx32 ": %s",
-                                       ek_template_names[profile], cert_index, sym_ERR_error_string(sym_ERR_get_error(), NULL));
+                                       ek_template_names[profile], cert_index, sym_ERR_error_string(sym_ERR_get_error(), /* buf= */ NULL));
 
         *ret_cert = TAKE_PTR(cert);
         return 1;
@@ -2858,7 +2860,7 @@ void tpm2_tpms_pcr_selection_move(TPMS_PCR_SELECTION *a, TPMS_PCR_SELECTION *b) 
                 return;
 
         tpm2_tpms_pcr_selection_add(a, b);
-        tpm2_tpms_pcr_selection_from_mask(0, b->hash, b);
+        tpm2_tpms_pcr_selection_from_mask(/* mask= */ 0, b->hash, b);
 }
 
 #define FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(tpms, tpml)    \
@@ -3928,7 +3930,7 @@ int tpm2_pcr_read(
                                 ESYS_TR_NONE,
                                 ESYS_TR_NONE,
                                 &remaining,
-                                NULL,
+                                /* pcrUpdateCounter= */ NULL,
                                 &current_read,
                                 &current_values);
                 if (rc != TSS2_RC_SUCCESS)
@@ -3991,7 +3993,7 @@ int tpm2_pcr_read_missing_values(Tpm2Context *c, Tpm2PCRValue *pcr_values, size_
 
                 if (hash_count == 1 && pcr_values[0].hash == 0) {
                         uint32_t mask;
-                        r = tpm2_pcr_values_to_mask(pcr_values, n_pcr_values, 0, &mask);
+                        r = tpm2_pcr_values_to_mask(pcr_values, n_pcr_values, /* hash= */ 0, &mask);
                         if (r < 0)
                                 return r;
 
@@ -4009,7 +4011,7 @@ int tpm2_pcr_read_missing_values(Tpm2Context *c, Tpm2PCRValue *pcr_values, size_
                         continue;
 
                 TPML_PCR_SELECTION selection;
-                r = tpm2_tpml_pcr_selection_from_pcr_values(v, 1, &selection, NULL, NULL);
+                r = tpm2_tpml_pcr_selection_from_pcr_values(v, 1, &selection, /* ret_values= */ NULL, /* ret_n_values= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -4712,7 +4714,7 @@ int tpm2_make_encryption_session(
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
-                        NULL,
+                        /* nonceCaller= */ NULL,
                         TPM2_SE_HMAC,
                         &SESSION_TEMPLATE_SYM_AES_128_CFB,
                         TPM2_ALG_SHA256,
@@ -4810,7 +4812,7 @@ int tpm2_make_policy_session(
                         encryption_session ? encryption_session->esys_handle : ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
-                        NULL,
+                        /* nonceCaller= */ NULL,
                         TPM2_SE_POLICY,
                         &SESSION_TEMPLATE_SYM_AES_128_CFB,
                         TPM2_ALG_SHA256,
@@ -5307,7 +5309,7 @@ int tpm2_policy_signed_hmac_sha256(
                                        "Failed to determine NoneTPM of auth session: %s",
                                        sym_Tss2_RC_Decode(rc));
 
-        be32_t expiration = htobe64(0);
+        be32_t expiration = htobe64(/* value= */ 0);
         const TPM2B_DIGEST cpHashA = {};  /* For now, we do not make use of the cpHashA stuff */
         const TPM2B_NONCE policyRef = {}; /* ditto, we do not bother with policyRef */
 
@@ -5496,55 +5498,80 @@ int tpm2_policy_authorize_nv(
         return tpm2_get_policy_digest(c, session, ret_policy_digest);
 }
 
-int tpm2_policy_or(
-                Tpm2Context *c,
-                const Tpm2Handle *session,
-                const TPM2B_DIGEST *branches, size_t n_branches,
-                TPM2B_DIGEST **ret_policy_digest) {
+/* TPM2_PolicyOR() takes at most TPM2_POLICY_OR_MAX_BRANCHES digests. To support more alternatives we nest
+ * ORs into a balanced tree with that fanout. All leaves are at the same depth and the upper levels contain
+ * only ORs, as the TCG TSS JSON policy format requires. The exact partition below is part of the on-disk
+ * policy format: sealing (tpm2_calculate_policy_or()) and unsealing (tpm2_policy_or()) must derive the same
+ * tree forever, so group sizes and ordering must not change. */
 
-        TPML_DIGEST hash_list;
-        TSS2_RC rc;
-
-        assert(c);
-        assert(session);
-
-        if (n_branches > ELEMENTSOF(hash_list.digests))
-                return -EOPNOTSUPP;
-
-        log_debug("Submitting OR policy.");
-
-        hash_list = (TPML_DIGEST) {
-                .count = n_branches,
-        };
-
-        memcpy(hash_list.digests, branches, n_branches * sizeof(TPM2B_DIGEST));
-
-        if (DEBUG_LOGGING)
-                for (size_t i = 0; i < hash_list.count; i++) {
-                        _cleanup_free_ char *h = hexmem(hash_list.digests[i].buffer, hash_list.digests[i].size);
-                        log_debug("Submitting OR Branch #%zu: %s", i, h);
-                }
-
-        rc = sym_Esys_PolicyOR(
-                        c->esys_context,
-                        session->esys_handle,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        &hash_list);
-        if ((rc & ~(TPM2_RC_N_MASK|TPM2_RC_P)) == TPM2_RC_VALUE) /* Return a recognizable error if none of the OR branches matched */
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOANO),
-                                       "None of the PolicyOR branches matched the current policy state.");
-        if (rc != TSS2_RC_SUCCESS)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to add OR policy to TPM: %s",
-                                       sym_Tss2_RC_Decode(rc));
-
-        return tpm2_get_policy_digest(c, session, ret_policy_digest);
+/* Number of ORs needed to combine 'n' nodes into one level up. */
+static size_t tpm2_policy_or_tree_n_groups(size_t n) {
+        return DIV_ROUND_UP(n, TPM2_POLICY_OR_MAX_BRANCHES);
 }
 
-/* Extend 'digest' with the PolicyOR calculated hash. */
-int tpm2_calculate_policy_or(const TPM2B_DIGEST *branches, size_t n_branches, TPM2B_DIGEST *digest) {
+/* Number of nested OR levels needed to collapse 'n' branches into one digest. A flat OR (n <= 8) has
+ * depth 1, i.e. one level, and the tree has depth+1 levels in total including the leaves. Because the fanout
+ * is TPM2_POLICY_OR_MAX_BRANCHES, depth 'd' supports up to TPM2_POLICY_OR_MAX_BRANCHES^d alternatives, i.e.
+ * TPM2_POLICY_OR_MAX_DEPTH = 5 levels allow up to 8^5 = 32768 alternatives per PCR. */
+static size_t tpm2_policy_or_tree_depth(size_t n) {
+        size_t depth = 0;
+
+        while (n > 1) {
+                n = tpm2_policy_or_tree_n_groups(n);
+                depth++;
+        }
+
+        return depth;
+}
+
+/* Whether a PolicyOR expression over 'n' branches stays within TPM2_POLICY_OR_MAX_DEPTH levels. Callers use
+ * this to reject overly large branch lists before they build them, so that the offending PCR can be named
+ * and no work is wasted on the TPM round trips preceding it. */
+static bool tpm2_policy_or_branches_supported(size_t n) {
+        return n > 0 && tpm2_policy_or_tree_depth(n) <= TPM2_POLICY_OR_MAX_DEPTH;
+}
+
+/* Distribute 'n' nodes evenly over tpm2_policy_or_tree_n_groups(n) groups, with the first n%g groups getting
+ * one extra node. This avoids single-branch ORs. Return the slice [*ret_start, *ret_start + *ret_size) held
+ * by group 'group'. */
+static void tpm2_policy_or_tree_group_slice(size_t n, size_t group, size_t *ret_start, size_t *ret_size) {
+        size_t g, base, rem;
+
+        assert(n > 0);
+        assert(ret_start);
+        assert(ret_size);
+
+        g = tpm2_policy_or_tree_n_groups(n);
+        base = n / g;
+        rem = n % g;
+
+        *ret_size = base + (group < rem);
+        *ret_start = group < rem ? group * (base + 1) :
+                                   rem * (base + 1) + (group - rem) * base;
+}
+
+/* Inverse of tpm2_policy_or_tree_group_slice(): return which group of a level with 'n' nodes holds 'index'. */
+static size_t tpm2_policy_or_tree_group_of(size_t n, size_t index) {
+        size_t g, base, rem, first_big;
+
+        assert(n > 0);
+        assert(index < n);
+
+        g = tpm2_policy_or_tree_n_groups(n);
+        base = n / g;
+        rem = n % g;
+        first_big = rem * (base + 1);
+
+        return index < first_big ? index / (base + 1) :
+                                   rem + (index - first_big) / base;
+}
+
+/* Extend 'digest' with the PolicyOR calculated hash, for a single flat OR with 1…8 branches. */
+static int tpm2_calculate_policy_or_flat(
+                const TPM2B_DIGEST *branches,
+                size_t n_branches,
+                TPM2B_DIGEST *digest) {
+
         TPM2_CC command = TPM2_CC_PolicyOR;
         TSS2_RC rc;
         int r;
@@ -5554,10 +5581,10 @@ int tpm2_calculate_policy_or(const TPM2B_DIGEST *branches, size_t n_branches, TP
 
         if (n_branches == 0)
                 return -EINVAL;
+        if (n_branches > TPM2_POLICY_OR_MAX_BRANCHES)
+                return -E2BIG;
         if (n_branches == 1)
                 log_warning("PolicyOR with a single branch submitted, this is weird.");
-        if (n_branches > 8)
-                return -E2BIG;
 
         r = dlopen_tpm2(LOG_ERR);
         if (r < 0)
@@ -5597,6 +5624,216 @@ int tpm2_calculate_policy_or(const TPM2B_DIGEST *branches, size_t n_branches, TP
 
         tpm2_log_debug_digest(digest, "PolicyOR calculated digest");
 
+        return 0;
+}
+
+/* A fully materialized balanced PolicyOR tree: levels[0] are the n_level[0] leaves, and the last level holds
+ * exactly one digest (the root). Intermediate levels hold the flat OR of each group of the level below. */
+typedef struct Tpm2PolicyORTree {
+        TPM2B_DIGEST **levels;
+        size_t *n_level;
+        size_t n_levels;
+} Tpm2PolicyORTree;
+
+static void tpm2_policy_or_tree_done(Tpm2PolicyORTree *t) {
+        if (!t)
+                return;
+
+        if (t->levels)
+                for (size_t i = 0; i < t->n_levels; i++)
+                        free(t->levels[i]);
+
+        free(t->levels);
+        free(t->n_level);
+        *t = (Tpm2PolicyORTree) {};
+}
+
+static int tpm2_policy_or_tree_build(
+                const TPM2B_DIGEST *branches,
+                size_t n_branches,
+                Tpm2PolicyORTree *ret) {
+
+        size_t depth;
+        int r;
+
+        assert(branches);
+        assert(n_branches > TPM2_POLICY_OR_MAX_BRANCHES);
+        assert(ret);
+
+        depth = tpm2_policy_or_tree_depth(n_branches);
+        if (depth > TPM2_POLICY_OR_MAX_DEPTH)
+                return log_error_errno(SYNTHETIC_ERRNO(E2BIG),
+                                       "PolicyOR tree for %zu branches exceeds %u levels.",
+                                       n_branches, TPM2_POLICY_OR_MAX_DEPTH);
+
+        _cleanup_(tpm2_policy_or_tree_done) Tpm2PolicyORTree tree = {
+                .n_levels = depth + 1,
+        };
+
+        tree.levels = new0(TPM2B_DIGEST*, tree.n_levels);
+        tree.n_level = new0(size_t, tree.n_levels);
+        if (!tree.levels || !tree.n_level)
+                return log_oom_debug();
+
+        tree.n_level[0] = n_branches;
+        tree.levels[0] = newdup(TPM2B_DIGEST, branches, n_branches);
+        if (!tree.levels[0])
+                return log_oom_debug();
+
+        for (size_t i = 0; i + 1 < tree.n_levels; i++) {
+                size_t n_groups = tpm2_policy_or_tree_n_groups(tree.n_level[i]);
+
+                tree.n_level[i + 1] = n_groups;
+                tree.levels[i + 1] = new0(TPM2B_DIGEST, n_groups);
+                if (!tree.levels[i + 1])
+                        return log_oom_debug();
+
+                for (size_t g = 0; g < n_groups; g++) {
+                        size_t start, size;
+
+                        tree.levels[i + 1][g].size = SHA256_DIGEST_SIZE;
+
+                        tpm2_policy_or_tree_group_slice(tree.n_level[i], g, &start, &size);
+                        r = tpm2_calculate_policy_or_flat(
+                                        tree.levels[i] + start,
+                                        size,
+                                        &tree.levels[i + 1][g]);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        *ret = TAKE_STRUCT(tree);
+        return 0;
+}
+
+/* Submit a single flat PolicyOR (1…8 branches) to the TPM. */
+static int tpm2_policy_or_submit_flat(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                const TPM2B_DIGEST *branches,
+                size_t n_branches) {
+
+        TPML_DIGEST hash_list;
+        TSS2_RC rc;
+
+        assert_cc(ELEMENTSOF(((TPML_DIGEST) {}).digests) == TPM2_POLICY_OR_MAX_BRANCHES);
+
+        assert(c);
+        assert(session);
+        assert(n_branches <= TPM2_POLICY_OR_MAX_BRANCHES);
+
+        log_debug("Submitting OR policy.");
+
+        hash_list = (TPML_DIGEST) {
+                .count = n_branches,
+        };
+
+        memcpy(hash_list.digests, branches, n_branches * sizeof(TPM2B_DIGEST));
+
+        if (DEBUG_LOGGING)
+                for (size_t i = 0; i < hash_list.count; i++) {
+                        _cleanup_free_ char *h = hexmem(hash_list.digests[i].buffer, hash_list.digests[i].size);
+                        log_debug("Submitting OR Branch #%zu: %s", i, h);
+                }
+
+        rc = sym_Esys_PolicyOR(
+                        c->esys_context,
+                        session->esys_handle,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        &hash_list);
+        if (TPM2_RC_IS_POLICY_OR_NO_MATCH(rc)) /* Return a recognizable error if none of the OR branches matched */
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOANO),
+                                       "None of the PolicyOR branches matched the current policy state.");
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to add OR policy to TPM: %s",
+                                       sym_Tss2_RC_Decode(rc));
+
+        return 0;
+}
+
+int tpm2_policy_or(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                const TPM2B_DIGEST *branches, size_t n_branches,
+                TPM2B_DIGEST **ret_policy_digest) {
+
+        int r;
+
+        assert(c);
+        assert(session);
+
+        if (n_branches <= TPM2_POLICY_OR_MAX_BRANCHES) {
+                r = tpm2_policy_or_submit_flat(c, session, branches, n_branches);
+                if (r < 0)
+                        return r;
+
+                return tpm2_get_policy_digest(c, session, ret_policy_digest);
+        }
+
+        _cleanup_(tpm2_policy_or_tree_done) Tpm2PolicyORTree tree = {};
+        r = tpm2_policy_or_tree_build(branches, n_branches, &tree);
+        if (r < 0)
+                return r;
+
+        /* The immediately preceding policy command (typically PolicyPCR) left the session digest equal to
+         * one of our leaves. Find it, then walk from it up to the root, one OR per level. */
+        _cleanup_(Esys_Freep) TPM2B_DIGEST *current = NULL;
+        r = tpm2_get_policy_digest(c, session, &current);
+        if (r < 0)
+                return r;
+
+        size_t index = SIZE_MAX;
+        for (size_t i = 0; i < tree.n_level[0]; i++)
+                if (memcmp_nn(tree.levels[0][i].buffer, tree.levels[0][i].size,
+                              current->buffer, current->size) == 0) {
+                        index = i;
+                        break;
+                }
+
+        if (index == SIZE_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOANO),
+                                       "None of the PolicyOR branches matched the current policy state.");
+
+        for (size_t i = 0; i + 1 < tree.n_levels; i++) {
+                size_t group, start, size;
+
+                /* PolicyOR can only fail with TPM2_RC_VALUE if the session digest is not one of the submitted
+                 * digests. Every slice we submit does contain it: level 0's slice contains the leaf we just
+                 * matched, and after each OR the session digest is exactly levels[i + 1][group], which the
+                 * slice for the next level contains by construction. */
+                group = tpm2_policy_or_tree_group_of(tree.n_level[i], index);
+                tpm2_policy_or_tree_group_slice(tree.n_level[i], group, &start, &size);
+
+                r = tpm2_policy_or_submit_flat(c, session, tree.levels[i] + start, size);
+                if (r < 0)
+                        return r;
+
+                index = group;
+        }
+
+        return tpm2_get_policy_digest(c, session, ret_policy_digest);
+}
+
+/* Extend 'digest' with the PolicyOR calculated hash. */
+int tpm2_calculate_policy_or(const TPM2B_DIGEST *branches, size_t n_branches, TPM2B_DIGEST *digest) {
+        assert(digest);
+        assert(digest->size == SHA256_DIGEST_SIZE);
+
+        if (n_branches <= TPM2_POLICY_OR_MAX_BRANCHES)
+                return tpm2_calculate_policy_or_flat(branches, n_branches, digest);
+
+        _cleanup_(tpm2_policy_or_tree_done) Tpm2PolicyORTree tree = {};
+        int r;
+
+        r = tpm2_policy_or_tree_build(branches, n_branches, &tree);
+        if (r < 0)
+                return r;
+
+        *digest = tree.levels[tree.n_levels - 1][0];
         return 0;
 }
 
@@ -5680,7 +5917,7 @@ int tpm2_policy_pcr(
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
-                        NULL,
+                        /* pcrDigest= */ NULL,
                         pcr_selection);
         if (rc == TPM2_RC_PCR_CHANGED)
                 return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN),
@@ -5797,7 +6034,7 @@ static int tpm2_policy_authorize(
         log_debug("Adding PCR signature policy.");
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *pubkey_handle = NULL;
-        r = tpm2_load_external(c, NULL, public, NULL, &pubkey_handle);
+        r = tpm2_load_external(c, /* session= */ NULL, public, /* private= */ NULL, &pubkey_handle);
         if (r < 0)
                 return r;
 
@@ -6000,7 +6237,7 @@ static int tpm2_build_sealing_policy(
         if (pubkey_pcr_mask != 0) {
                 TPML_PCR_SELECTION pcr_selection;
                 tpm2_tpml_pcr_selection_from_mask(pubkey_pcr_mask, (TPMI_ALG_HASH)pcr_bank, &pcr_selection);
-                r = tpm2_policy_authorize(c, session, &pcr_selection, public, pubkey_policy_ref, fp, fp_size, signature_json, NULL);
+                r = tpm2_policy_authorize(c, session, &pcr_selection, public, pubkey_policy_ref, fp, fp_size, signature_json, /* ret_policy_digest= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -6027,7 +6264,7 @@ static int tpm2_build_sealing_policy(
                                 c,
                                 session,
                                 nv_handle,
-                                NULL);
+                                /* ret_policy_digest= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -6035,13 +6272,13 @@ static int tpm2_build_sealing_policy(
         if (hash_pcr_mask != 0) {
                 TPML_PCR_SELECTION pcr_selection;
                 tpm2_tpml_pcr_selection_from_mask(hash_pcr_mask, (TPMI_ALG_HASH)pcr_bank, &pcr_selection);
-                r = tpm2_policy_pcr(c, session, &pcr_selection, NULL);
+                r = tpm2_policy_pcr(c, session, &pcr_selection, /* ret_policy_digest= */ NULL);
                 if (r < 0)
                         return r;
         }
 
         if (use_pin) {
-                r = tpm2_policy_auth_value(c, session, NULL);
+                r = tpm2_policy_auth_value(c, session, /* ret_policy_digest= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -7533,7 +7770,7 @@ int tpm2_unseal(Tpm2Context *c,
                          * tpmKey is verified. In the non-srk model, with pin, the bindKey provides
                          * protections. */
                         _cleanup_(tpm2_handle_freep) Tpm2Handle *hmac_key = NULL;
-                        r = tpm2_load(c, primary_handle, NULL, &public, &private, &hmac_key);
+                        r = tpm2_load(c, primary_handle, /* session= */ NULL, &public, &private, &hmac_key);
                         if (r < 0)
                                 return r;
 
@@ -8466,7 +8703,7 @@ int tpm2_unseal_data(
                 return r;
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *what = NULL;
-        r = tpm2_load(c, primary_handle, NULL, &public, &private, &what);
+        r = tpm2_load(c, primary_handle, /* session= */ NULL, &public, &private, &what);
         if (r < 0)
                 return r;
 
@@ -8684,9 +8921,9 @@ static int tpm2_userspace_log_open(void) {
         /* We use access mode 0600 here (even though the measurements should not strictly be confidential),
          * because we use BSD file locking on it, and if anyone but root can access the file they can also
          * lock it, which we want to avoid. */
-        fd = open(e, O_CREAT|O_WRONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
+        fd = xopenat_full(AT_FDCWD, e, O_CREAT|O_WRONLY|O_NOCTTY|O_NOFOLLOW, /* xopen_flags= */ 0, 0600);
         if (fd < 0)
-                return log_debug_errno(errno, "Failed to open TPM log file '%s' for writing, ignoring: %m", e);
+                return log_debug_errno(fd, "Failed to open TPM log file '%s' for writing, ignoring: %m", e);
 
         if (flock(fd, LOCK_EX) < 0)
                 return log_debug_errno(errno, "Failed to lock TPM log file '%s', ignoring: %m", e);
@@ -8910,9 +9147,9 @@ int tpm2_pcr_extend_bytes(
                  * some unrelated purpose, who knows). Hence we instead measure an HMAC signature of a
                  * private non-secret string instead. */
                 if (iovec_is_set(secret) > 0) {
-                        if (!sym_HMAC(implementation, secret->iov_base, secret->iov_len, data->iov_base, data->iov_len, (unsigned char*) &values.digests[values.count].digest, NULL))
+                        if (!sym_HMAC(implementation, secret->iov_base, secret->iov_len, data->iov_base, data->iov_len, (unsigned char*) &values.digests[values.count].digest, /* md_len= */ NULL))
                                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to calculate HMAC of data to measure.");
-                } else if (sym_EVP_Digest(data->iov_base, data->iov_len, (unsigned char*) &values.digests[values.count].digest, NULL, implementation, NULL) != 1)
+                } else if (sym_EVP_Digest(data->iov_base, data->iov_len, (unsigned char*) &values.digests[values.count].digest, /* size= */ NULL, implementation, /* impl= */ NULL) != 1)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to hash data to measure.");
 
                 values.count++;
@@ -9335,9 +9572,9 @@ static int nvpcr_extend_bytes(
                 data = &iovec_empty;
 
         if (iovec_is_set(secret)) {
-                if (!sym_HMAC(implementation, secret->iov_base, secret->iov_len, data->iov_base, data->iov_len, digest.iov_base, NULL))
+                if (!sym_HMAC(implementation, secret->iov_base, secret->iov_len, data->iov_base, data->iov_len, digest.iov_base, /* md_len= */ NULL))
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to calculate HMAC of data to measure.");
-        } else if (sym_EVP_Digest(data->iov_base, data->iov_len, digest.iov_base, NULL, implementation, NULL) != 1)
+        } else if (sym_EVP_Digest(data->iov_base, data->iov_len, digest.iov_base, /* size= */ NULL, implementation, /* impl= */ NULL) != 1)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to hash data to measure.");
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
@@ -9628,7 +9865,7 @@ int tpm2_nvpcr_initialize(
         /* Open + lock the log file *before* we check for the *.auth flag file. */
         _cleanup_close_ int log_fd = tpm2_userspace_log_open();
 
-        _cleanup_close_ int dfd = open_mkdir("/run/systemd/nvpcr", O_CLOEXEC, 0755);
+        _cleanup_close_ int dfd = open_mkdir("/run/systemd/nvpcr", /* flags= */ 0, 0755);
         if (dfd < 0)
                 return log_debug_errno(dfd, "Failed to open directory '/run/systemd/nvpcr': %m");
 
@@ -10041,7 +10278,7 @@ int tpm2_pcr_prediction_to_json(
         }
 
         if (!aj) {
-                r = sd_json_variant_new_array(&aj, NULL, 0);
+                r = sd_json_variant_new_array(&aj, /* array= */ NULL, 0);
                 if (r < 0)
                         return r;
         }
@@ -10168,17 +10405,20 @@ int tpm2_calculate_policy_super_pcr(
         /* Now deal with the PCRs for which we have variants, i.e. more than one allowed values */
         for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
                 _cleanup_free_ TPM2B_DIGEST *pcr_policy_digest_variants = NULL;
-                size_t n_pcr_policy_digest_variants = 0;
+                size_t n_pcr_policy_digest_variants = 0, n_variants;
                 Tpm2PCRPredictionResult *banks;
 
                 if (!BIT_SET(prediction->pcrs, pcr))
                         continue;
 
-                if (ordered_set_size(prediction->results[pcr]) <= 1) /* We only care for PCRs with 2 or more variants in this loop */
+                n_variants = ordered_set_size(prediction->results[pcr]);
+                if (n_variants <= 1) /* We only care for PCRs with 2 or more variants in this loop */
                         continue;
 
-                if (ordered_set_size(prediction->results[pcr]) > 8)
-                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "PCR policies with more than 8 alternatives per PCR are currently not supported.");
+                if (!tpm2_policy_or_branches_supported(n_variants))
+                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG),
+                                               "PCR %" PRIu32 " has %zu predicted values, which needs more than the %u nested PolicyOR levels we support.",
+                                               pcr, n_variants, TPM2_POLICY_OR_MAX_DEPTH);
 
                 ORDERED_SET_FOREACH(banks, prediction->results[pcr]) {
                         /* Start from the super PCR policy from the previous PCR we looked at so far. */
@@ -10209,7 +10449,6 @@ int tpm2_calculate_policy_super_pcr(
                 }
 
                 assert_se(n_pcr_policy_digest_variants >= 2);
-                assert_se(n_pcr_policy_digest_variants <= 8);
 
                 /* Now combine all our variant into one OR policy */
                 r = tpm2_calculate_policy_or(
@@ -10282,8 +10521,13 @@ int tpm2_policy_super_pcr(
                         continue;
 
                 n_branches = ordered_set_size(prediction->results[pcr]);
-                if (n_branches < 1 || n_branches > 8)
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Number of variants per PCR not in range 1…8");
+                if (n_branches < 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "PCR %" PRIu32 " has no predicted values.", pcr);
+                if (!tpm2_policy_or_branches_supported(n_branches))
+                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG),
+                                               "PCR %" PRIu32 " has %zu predicted values, which needs more than the %u nested PolicyOR levels we support.",
+                                               pcr, n_branches, TPM2_POLICY_OR_MAX_DEPTH);
 
                 if (n_branches == 1) /* Single choice PCRs are already covered by the loop above */
                         continue;
@@ -10374,7 +10618,7 @@ int tpm2_pcrlock_search_file(const char *path, FILE **ret_file, char **ret_path)
         if (!path)
                 path = "pcrlock.json";
 
-        r = search_and_fopen_nulstr(path, ret_file ? "re" : NULL, NULL, search, ret_file, ret_path);
+        r = search_and_fopen_nulstr(path, ret_file ? "re" : NULL, /* root= */ NULL, search, ret_file, ret_path);
         if (r < 0)
                 return log_debug_errno(r, "Failed to find TPM2 pcrlock policy file '%s': %m", path);
 
@@ -10443,7 +10687,7 @@ int tpm2_pcrlock_policy_load(
                         /* flags= */ 0,
                         &v,
                         /* reterr_line= */ NULL,
-                        /* ret_column= */ NULL);
+                        /* reterr_column= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse existing pcrlock policy file '%s': %m", discovered_path);
 
@@ -10487,7 +10731,7 @@ static int pcrlock_policy_load_credential(
                        /* flags= */ 0,
                        &v,
                        /* reterr_line= */ NULL,
-                       /* ret_column= */ NULL);
+                       /* reterr_column= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse pcrlock policy: %m");
 
@@ -10519,14 +10763,14 @@ int tpm2_pcrlock_policy_from_credentials(
         if (r < 0)
                 return log_error_errno(r, "Failed to get encrypted system credentials directory: %m");
 
-        dfd = open(dp, O_CLOEXEC|O_DIRECTORY);
+        dfd = xopenat(AT_FDCWD, dp, O_DIRECTORY);
         if (dfd < 0) {
-                if (errno == ENOENT) {
+                if (dfd == -ENOENT) {
                         log_debug("No encrypted system credentials passed.");
                         return 0;
                 }
 
-                return log_error_errno(errno, "Failed to open system credentials directory.");
+                return log_error_errno(dfd, "Failed to open system credentials directory.");
         }
 
         _cleanup_free_ DirectoryEntries *de = NULL;
@@ -10744,13 +10988,13 @@ int tpm2_tpmt_signature_to_pem(const TPMT_SIGNATURE *signature, char **ret) {
                 label = "ECDSA SIGNATURE";
                 _cleanup_(BN_freep) BIGNUM *bn_r = sym_BN_bin2bn(
                                 signature->signature.ecdsa.signatureR.buffer,
-                                signature->signature.ecdsa.signatureR.size, NULL);
+                                signature->signature.ecdsa.signatureR.size, /* ret= */ NULL);
                 if (!bn_r)
                         return log_openssl_errors(LOG_DEBUG, "Failed to convert ECDSA signature r to BIGNUM");
 
                 _cleanup_(BN_freep) BIGNUM *bn_s = sym_BN_bin2bn(
                                 signature->signature.ecdsa.signatureS.buffer,
-                                signature->signature.ecdsa.signatureS.size, NULL);
+                                signature->signature.ecdsa.signatureS.size, /* ret= */ NULL);
                 if (!bn_s)
                         return log_openssl_errors(LOG_DEBUG, "Failed to convert ECDSA signature s to BIGNUM");
 
@@ -10765,7 +11009,7 @@ int tpm2_tpmt_signature_to_pem(const TPMT_SIGNATURE *signature, char **ret) {
 
                 /* We want to allocate our own buffer so we can have a common cleanup path for this
                  * and RSA signatures. */
-                r = sym_i2d_ECDSA_SIG(ecdsaSig, NULL);
+                r = sym_i2d_ECDSA_SIG(ecdsaSig, /* out= */ NULL);
                 if (r <= 0)
                         return log_openssl_errors(LOG_DEBUG, "Failed to determine ECDSA signature size");
                 sig_len = r;
@@ -10794,7 +11038,7 @@ int tpm2_tpmt_signature_to_pem(const TPMT_SIGNATURE *signature, char **ret) {
         if (!f)
                 return -ENOMEM;
 
-        if (sym_PEM_write(f, label, /* header= */ NULL, sig, sig_len) <= 0)
+        if (sym_PEM_write(f, label, /* hdr= */ NULL, sig, sig_len) <= 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to write signature in PEM format");
 
         return memstream_finalize(&m, ret, /* ret_size= */ NULL);
@@ -10927,6 +11171,8 @@ static const char* tpm2_st_attest_to_string(TPMI_ST_ATTEST attest) {
                 return "ATTEST_SESSION_AUDIT";
         case TPM2_ST_ATTEST_QUOTE:
                 return "ATTEST_QUOTE";
+        case TPM2_ST_ATTEST_CERTIFY:
+                return "ATTEST_CERTIFY";
         default:
                 log_debug("Unknown attestation type 0x%" PRIx16, attest);
                 return NULL;
@@ -11039,6 +11285,12 @@ static int tpm2_tpms_attest_to_json(const TPMS_ATTEST *attest, sd_json_variant *
                                 SD_JSON_BUILD_PAIR_HEX("pcrDigest", attest->attested.quote.pcrDigest.buffer, attest->attested.quote.pcrDigest.size));
                 break;
         }
+        case TPM2_ST_ATTEST_CERTIFY:
+                r = sd_json_buildo(
+                                &av,
+                                SD_JSON_BUILD_PAIR_HEX("name", attest->attested.certify.name.name, attest->attested.certify.name.size),
+                                SD_JSON_BUILD_PAIR_HEX("qualifiedName", attest->attested.certify.qualifiedName.name, attest->attested.certify.qualifiedName.size));
+                break;
         default:
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Unknown attestation type id 0x%" PRIx16, attest->type);
@@ -11212,9 +11464,57 @@ static int tpm2_tpmt_asym_scheme_to_json(const TPMT_ASYM_SCHEME *scheme, sd_json
         return 0;
 }
 
+/* Convert the symmetric parameters of an asymmetric object to JSON, in a format compatible with the TCG
+ * TSS2 JSON data format, and which is compatible with the TSS2 implementation. Signing keys carry no
+ * symmetric algorithm, storage keys (such as the SRK) carry AES in CFB mode. The TSS2 JSON format spells
+ * algorithm names in upper case (though it parses them case-insensitively), our string tables in lower
+ * case, hence convert. */
+static int tpm2_tpmt_sym_def_object_to_json(const TPMT_SYM_DEF_OBJECT *symmetric, sd_json_variant **ret) {
+        int r;
+
+        assert(symmetric);
+        assert(ret);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+        if (symmetric->algorithm == TPM2_ALG_NULL) {
+                r = sd_json_buildo(&v, SD_JSON_BUILD_PAIR_STRING("algorithm", "NULL"));
+                if (r < 0)
+                        return r;
+
+                *ret = TAKE_PTR(v);
+                return 0;
+        }
+
+        const char *a = tpm2_sym_alg_to_string(symmetric->algorithm);
+        if (!a)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unsupported object symmetric algorithm 0x%" PRIx16, symmetric->algorithm);
+
+        const char *m = tpm2_sym_mode_to_string(symmetric->mode.sym);
+        if (!m)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unsupported object symmetric mode 0x%" PRIx16, symmetric->mode.sym);
+
+        _cleanup_free_ char *alg = strdup(a), *mode = strdup(m);
+        if (!alg || !mode)
+                return log_oom_debug();
+
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_STRING("algorithm", ascii_strupper(alg)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("keyBits", symmetric->keyBits.sym),
+                        SD_JSON_BUILD_PAIR_STRING("mode", ascii_strupper(mode)));
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
 /* Convert a TPM public key to JSON, in a format compatible with the TCG TSS2 JSON data format, and which
- * is compatible with the TSS2 implementation. This only supports restricted asymmetric signing keys with
- * the signing scheme RSASSA, RSAPSS or ECDSA.
+ * is compatible with the TSS2 implementation. This only supports asymmetric keys with the signing scheme
+ * RSASSA, RSAPSS, ECDSA or no scheme at all, i.e. restricted signing keys and storage keys.
  *
  * See https://trustedcomputinggroup.org/wp-content/uploads/TSS_JSON_Policy_v0p7_r08_pub.pdf */
 int tpm2_tpmt_public_to_json(const TPMT_PUBLIC *public, sd_json_variant **ret) {
@@ -11227,13 +11527,10 @@ int tpm2_tpmt_public_to_json(const TPMT_PUBLIC *public, sd_json_variant **ret) {
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Unsupported object type 0x%" PRIx16, public->type);
 
-        /* We're currently only serializing restricted signing keys which never have a symmetric algorithm,
-         * so to avoid implementing the JSON encoding for this, just reject anything with a symmetric
-         * algorithm. */
-        if (public->parameters.asymDetail.symmetric.algorithm != TPM2_ALG_NULL)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Unsupported object symmetric algorithm 0x%" PRIx16,
-                                       public->parameters.asymDetail.symmetric.algorithm);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *symv = NULL;
+        r = tpm2_tpmt_sym_def_object_to_json(&public->parameters.asymDetail.symmetric, &symv);
+        if (r < 0)
+                return r;
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *sv = NULL;
         r = tpm2_tpmt_asym_scheme_to_json(&public->parameters.asymDetail.scheme, &sv);
@@ -11246,8 +11543,7 @@ int tpm2_tpmt_public_to_json(const TPMT_PUBLIC *public, sd_json_variant **ret) {
         case TPM2_ALG_RSA:
                 r = sd_json_buildo(
                                 &pv,
-                                SD_JSON_BUILD_PAIR_OBJECT("symmetric",
-                                                          SD_JSON_BUILD_PAIR_STRING("algorithm", "NULL")),
+                                SD_JSON_BUILD_PAIR_VARIANT("symmetric", symv),
                                 SD_JSON_BUILD_PAIR_VARIANT("scheme", sv),
                                 SD_JSON_BUILD_PAIR_UNSIGNED("keyBits", public->parameters.rsaDetail.keyBits),
                                 SD_JSON_BUILD_PAIR_UNSIGNED("exponent", public->parameters.rsaDetail.exponent));
@@ -11262,8 +11558,7 @@ int tpm2_tpmt_public_to_json(const TPMT_PUBLIC *public, sd_json_variant **ret) {
 
                 r = sd_json_buildo(
                                 &pv,
-                                SD_JSON_BUILD_PAIR_OBJECT("symmetric",
-                                                          SD_JSON_BUILD_PAIR_STRING("algorithm", "NULL")),
+                                SD_JSON_BUILD_PAIR_VARIANT("symmetric", symv),
                                 SD_JSON_BUILD_PAIR_VARIANT("scheme", sv),
                                 SD_JSON_BUILD_PAIR_STRING("curveID", tpm2_ecc_curve_to_string(public->parameters.eccDetail.curveID)),
                                 SD_JSON_BUILD_PAIR_OBJECT("kdf",
@@ -11569,7 +11864,7 @@ int tpm2_nv_certify(
                         audit_session ? audit_session->esys_handle : ESYS_TR_NONE,
                         qualifying_data,
                         &SIG_SCHEME_TEMPLATE_NULL,
-                        nv_public->dataSize, 0,
+                        nv_public->dataSize, /* offset= */ 0,
                         &certify_info,
                         ret_signature ? &signature : NULL);
         if (rc == TPM2_RC_EXCLUSIVE)
@@ -11578,6 +11873,82 @@ int tpm2_nv_certify(
         if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to obtain TPM attestation for NV index: %s", sym_Tss2_RC_Decode(rc));
+
+        if (ret_certify_info) {
+                _cleanup_free_ TPMS_ATTEST *certify_info_decoded = new0(TPMS_ATTEST, 1);
+                if (!certify_info_decoded)
+                        return log_oom_debug();
+                r = tpm2_unmarshal_attestation(certify_info->attestationData, certify_info->size, certify_info_decoded);
+                if (r < 0)
+                        return r;
+
+                *ret_certify_info = TAKE_PTR(certify_info_decoded);
+        }
+        if (ret_signature)
+                *ret_signature = TAKE_PTR(signature);
+
+        return 0;
+}
+
+int tpm2_certify(
+                Tpm2Context *c,
+                const Tpm2Handle *object_session,
+                const Tpm2Handle *sign_session,
+                const Tpm2Handle *audit_session,
+                const Tpm2Handle *object,
+                const Tpm2Handle *sign_key,
+                const TPM2B_DATA *qualifying_data,
+                TPMS_ATTEST **ret_certify_info,
+                TPMT_SIGNATURE **ret_signature) {
+
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(object);
+
+        /* Certifies that the object is loaded into the TPM, by signing its name with the specified signing
+         * key, via TPM2_Certify. This proves to a verifier of the signature that the object (typically a
+         * storage key such as the SRK) resides in the same TPM as the signing key (typically an attestation
+         * key). Without a signing key the TPM returns the attestation unsigned, which is still useful inside
+         * an audit session. */
+
+        log_debug("Fetching TPM attestation for object.");
+
+        if (audit_session && !tpm2_is_audit_session(c, audit_session))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Supplied session handle is not an audit session.");
+
+        _cleanup_(Esys_Freep) TPM2B_ATTEST *certify_info = NULL;
+        _cleanup_(Esys_Freep) TPMT_SIGNATURE *signature = NULL;
+        rc = sym_Esys_Certify(
+                        c->esys_context,
+                        object->esys_handle,
+                        sign_key ? sign_key->esys_handle : ESYS_TR_RH_NULL,
+                        object_session ? object_session->esys_handle : ESYS_TR_PASSWORD,
+                        sign_session ? sign_session->esys_handle : ESYS_TR_PASSWORD,
+                        audit_session ? audit_session->esys_handle : ESYS_TR_NONE,
+                        qualifying_data,
+                        &SIG_SCHEME_TEMPLATE_NULL,
+                        &certify_info,
+                        ret_signature ? &signature : NULL);
+        if (rc == TPM2_RC_EXCLUSIVE)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBUSY),
+                                       "Failed to obtain TPM attestation for object: audit session required exclusivity");
+        /* The object is authorized in the ADMIN role, for which a password session is only acceptable if
+         * adminWithPolicy is clear, and the password has to match the object's auth value (the TPM reports
+         * a mismatch as TPM2_RC_BAD_AUTH or TPM2_RC_AUTH_FAIL, depending on whether noDA is set). Report
+         * all of these as -EACCES, so that callers can skip the certification of an object they cannot
+         * authorize rather than fail altogether. A failed command does not touch the audit session. */
+        if (IN_SET(rc,
+                   TPM2_RC_AUTH_TYPE,
+                   TPM2_RC_BAD_AUTH|TPM2_RC_S|TPM2_RC_1,
+                   TPM2_RC_AUTH_FAIL|TPM2_RC_S|TPM2_RC_1))
+                return log_debug_errno(SYNTHETIC_ERRNO(EACCES),
+                                       "Failed to obtain TPM attestation for object: cannot authorize object: %s", sym_Tss2_RC_Decode(rc));
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to obtain TPM attestation for object: %s", sym_Tss2_RC_Decode(rc));
 
         if (ret_certify_info) {
                 _cleanup_free_ TPMS_ATTEST *certify_info_decoded = new0(TPMS_ATTEST, 1);
@@ -11741,7 +12112,7 @@ int tpm2_make_pcr_json_array(uint32_t pcr_mask, sd_json_variant **ret) {
         }
 
         if (!a)
-                return sd_json_variant_new_array(ret, NULL, 0);
+                return sd_json_variant_new_array(ret, /* array= */ NULL, 0);
 
         *ret = TAKE_PTR(a);
         return 0;
@@ -12387,11 +12758,11 @@ int verb_has_tpm2_generic(bool quiet) {
                 else
                         printf("%spartial%s\n", ansi_yellow(), ansi_normal());
 
-                print_field(NULL, "firmware", FLAGS_SET(s, TPM2_SUPPORT_FIRMWARE));
-                print_field(NULL, "driver", FLAGS_SET(s, TPM2_SUPPORT_DRIVER));
-                print_field(NULL, "system", FLAGS_SET(s, TPM2_SUPPORT_SYSTEM));
-                print_field(NULL, "subsystem", FLAGS_SET(s, TPM2_SUPPORT_SUBSYSTEM));
-                print_field(NULL, "libraries", FLAGS_SET(s, TPM2_SUPPORT_LIBRARIES));
+                print_field(/* prefix= */ NULL, "firmware", FLAGS_SET(s, TPM2_SUPPORT_FIRMWARE));
+                print_field(/* prefix= */ NULL, "driver", FLAGS_SET(s, TPM2_SUPPORT_DRIVER));
+                print_field(/* prefix= */ NULL, "system", FLAGS_SET(s, TPM2_SUPPORT_SYSTEM));
+                print_field(/* prefix= */ NULL, "subsystem", FLAGS_SET(s, TPM2_SUPPORT_SUBSYSTEM));
+                print_field(/* prefix= */ NULL, "libraries", FLAGS_SET(s, TPM2_SUPPORT_LIBRARIES));
                 print_field("  ", "libtss2-esys.so.0", FLAGS_SET(s, TPM2_SUPPORT_LIBTSS2_ESYS));
                 print_field("  ", "libtss2-rc.so.0", FLAGS_SET(s, TPM2_SUPPORT_LIBTSS2_RC));
                 print_field("  ", "libtss2-mu.so.0", FLAGS_SET(s, TPM2_SUPPORT_LIBTSS2_MU));
@@ -12579,11 +12950,11 @@ int tpm2_load_pcr_signature(const char *path, sd_json_variant **ret) {
                                 return log_oom_debug();
         }
 
-        r = search_and_fopen(path, "re", NULL, (const char**) search, &f, &discovered_path);
+        r = search_and_fopen(path, "re", /* root= */ NULL, (const char**) search, &f, &discovered_path);
         if (r < 0)
                 return log_debug_errno(r, "Failed to find TPM PCR signature file '%s': %m", path);
 
-        r = sd_json_parse_file(f, discovered_path, 0, ret, NULL, NULL);
+        r = sd_json_parse_file(f, discovered_path, /* flags= */ 0, ret, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r == -ENOMEM)
                 return log_oom_debug();
         if (r < 0) {
@@ -12619,7 +12990,7 @@ int tpm2_load_pcr_public_key(const char *path, void **ret_pubkey, size_t *ret_pu
                                 return log_oom_debug();
         }
 
-        r = search_and_fopen(path, "re", NULL, (const char**) search, &f, &discovered_path);
+        r = search_and_fopen(path, "re", /* root= */ NULL, (const char**) search, &f, &discovered_path);
         if (r < 0)
                 return log_debug_errno(r, "Failed to find TPM PCR public key file '%s': %m", path);
 

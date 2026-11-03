@@ -139,7 +139,7 @@ static int populate_edit_temp_file(EditFile *e, FILE *f, const char *filename) {
                 _cleanup_free_ char *source_contents = NULL;
 
                 if (source) {
-                        r = read_full_file(source, &source_contents, NULL);
+                        r = read_full_file(source, &source_contents, /* ret_size= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read source file '%s': %m", source);
                 }
@@ -166,7 +166,7 @@ static int populate_edit_temp_file(EditFile *e, FILE *f, const char *filename) {
                         if (PATH_IN_SET(*path, e->path, source))
                                 continue;
 
-                        r = read_full_file(*path, &comment, NULL);
+                        r = read_full_file(*path, &comment, /* ret_size= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read comment file '%s': %m", *path);
 
@@ -282,8 +282,8 @@ static int run_editor_child(const EditFileContext *context) {
 
                 *mempcpy_typesafe(mempcpy_typesafe(cmdline, editor, editor_n), args, strv_length(args)) = NULL;
 
-                execvp(cmdline[0], cmdline);
-                log_warning_errno(errno, "Specified editor '%s' not available, trying fallbacks: %m", editor[0]);
+                r = execvp_safe(cmdline[0], cmdline);
+                log_warning_errno(r, "Specified editor '%s' not available, trying fallbacks: %m", editor[0]);
         }
 
         bool prepended = false;
@@ -296,18 +296,18 @@ static int run_editor_child(const EditFileContext *context) {
                 if (r < 0)
                         return log_oom();
 
-                execvp(args[0], (char* const*) args);
+                r = execvp_safe(args[0], (char* const*) args);
 
-                if (errno == ENOTDIR) {
-                        log_debug_errno(errno,
+                if (r == -ENOTDIR) {
+                        log_debug_errno(r,
                                         "Failed to execute '%s': a path component is not a directory, skipping...",
                                         name);
                         continue;
                 }
                 /* We do not fail if the editor doesn't exist because we want to try each one of them
                  * before failing. */
-                if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to execute '%s': %m", name);
+                if (r != -ENOENT)
+                        return log_error_errno(r, "Failed to execute '%s': %m", name);
         }
 
         return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
@@ -344,7 +344,7 @@ static int strip_edit_temp_file(EditFile *e) {
         assert(!e->context->marker_start == !e->context->marker_end);
         assert(e->temp);
 
-        r = read_full_file(e->temp, &old_contents, NULL);
+        r = read_full_file(e->temp, &old_contents, /* ret_size= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to read temporary file '%s': %m", e->temp);
 
@@ -444,7 +444,7 @@ static int edit_file_install_one_stdin(EditFile *e, const char *contents, size_t
                 if (r < 0)
                         return log_error_errno(r, "Failed to create parent directories for '%s': %m", e->path);
 
-                r = copy_file_atomic_at(*fd, NULL, AT_FDCWD, e->path, 0644, COPY_REPLACE|COPY_MAC_CREATE);
+                r = copy_file_atomic_at(*fd, /* from= */ NULL, AT_FDCWD, e->path, 0644, COPY_REPLACE|COPY_MAC_CREATE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy stdin contents to '%s': %m", e->path);
 
@@ -455,9 +455,9 @@ static int edit_file_install_one_stdin(EditFile *e, const char *contents, size_t
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int tfd = open(e->temp, O_PATH|O_CLOEXEC);
+        _cleanup_close_ int tfd = xopenat(AT_FDCWD, e->temp, O_PATH);
         if (tfd < 0)
-                return log_error_errno(errno, "Failed to pin temporary file '%s': %m", e->temp);
+                return log_error_errno(tfd, "Failed to pin temporary file '%s': %m", e->temp);
 
         r = edit_file_install_one(e);
         if (r <= 0)

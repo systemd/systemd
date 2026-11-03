@@ -52,6 +52,9 @@ static int on_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata)
         } else if (strv_contains(l, "SECOND_MESSAGE=1")) {
                 ASSERT_STREQ(l[0], "SECOND_MESSAGE=1");
                 ASSERT_STREQ(l[1], "ADDITIONAL_DATA=hoge");
+                ASSERT_STREQ(l[2], "FDSTOREWIPE=quux\\*");
+                ASSERT_STREQ(l[3], "FDNAME=path\\name\\");
+                ASSERT_NULL(l[4]);
                 ASSERT_EQ(++c->data, 2u);
                 ASSERT_NOT_NULL(fds);
                 ASSERT_EQ(fdset_size(fds), 2u);
@@ -75,7 +78,7 @@ static int on_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
 
         ASSERT_EQ(c->data, 2u);
 
-        return sd_event_exit(sd_event_source_get_event(s), 0);
+        return sd_event_exit(sd_event_source_get_event(s), /* code= */ 0);
 }
 
 TEST(notify_socket_prepare) {
@@ -88,7 +91,7 @@ TEST(notify_socket_prepare) {
                 .pidref = PIDREF_NULL,
         };
         _cleanup_free_ char *path = NULL;
-        ASSERT_OK(notify_socket_prepare_full(e, SD_EVENT_PRIORITY_NORMAL - 10, on_recv, &c, true, &path, NULL));
+        ASSERT_OK(notify_socket_prepare_full(e, SD_EVENT_PRIORITY_NORMAL - 10, on_recv, &c, /* accept_fds= */ true, &path, /* ret_event_source= */ NULL));
 
         ASSERT_OK(r = pidref_safe_fork("(test-notify-recv-child)", FORK_DEATHSIG_SIGTERM|FORK_LOG, &c.pidref));
         if (r == 0) {
@@ -102,12 +105,13 @@ TEST(notify_socket_prepare) {
 
                 ASSERT_OK_POSITIVE(
                         sd_pid_notify_with_fds(
-                                0, /* unset_environment= */ false,
-                                "SECOND_MESSAGE=1\nADDITIONAL_DATA=hoge", (int[]) { fd1, fd2 }, 2));
+                                /* pid= */ 0, /* unset_environment= */ false,
+                                "SECOND_MESSAGE=1\nADDITIONAL_DATA=hoge\nFDSTOREWIPE=quux\\*\nFDNAME=path\\name\\",
+                                (int[]) { fd1, fd2 }, 2));
                 _exit(EXIT_SUCCESS);
         }
 
-        ASSERT_OK(event_add_child_pidref(e, NULL, &c.pidref, WEXITED, on_sigchld, &c));
+        ASSERT_OK(event_add_child_pidref(e, /* ret= */ NULL, &c.pidref, WEXITED, on_sigchld, &c));
         ASSERT_OK(sd_event_loop(e));
 }
 

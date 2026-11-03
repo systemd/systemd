@@ -35,7 +35,7 @@ int verb_bind(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         bus_systemd_mgr,
                         "BindMountUnit",
                         &error,
-                        NULL,
+                        /* ret_reply= */ NULL,
                         "sssbb",
                         n,
                         argv[2],
@@ -115,7 +115,7 @@ int verb_mount_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, -1, &error, NULL);
+        r = sd_bus_call(bus, m, -1, &error, /* ret_reply= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to mount image: %s", bus_error_message(&error, r));
 

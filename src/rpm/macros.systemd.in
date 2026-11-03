@@ -21,6 +21,7 @@
 %_user_tmpfilesdir {{USER_TMPFILES_DIR}}
 %_environmentdir {{ENVIRONMENT_DIR}}
 %_modulesloaddir {{MODULESLOAD_DIR}}
+%_machine_tags_dir {{MACHINE_TAGS_DIR}}
 %_modprobedir {{MODPROBE_DIR}}
 %_systemdgeneratordir {{SYSTEM_GENERATOR_DIR}}
 %_systemdusergeneratordir {{USER_GENERATOR_DIR}}

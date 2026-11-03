@@ -235,7 +235,7 @@ int config_parse_in_addr_prefixes(
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&p, &word, NULL, 0);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {

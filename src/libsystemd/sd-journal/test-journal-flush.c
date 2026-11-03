@@ -114,7 +114,7 @@ static void test_journal_flush_one(int argc, char *argv[]) {
 
         ASSERT_NOT_NULL(fn = path_join(dn, "test.journal"));
 
-        ASSERT_OK(journal_file_open(-EBADF, fn, O_CREAT|O_RDWR, 0, 0644, 0, NULL, m, NULL, &new_journal));
+        ASSERT_OK(journal_file_open(-EBADF, fn, O_CREAT|O_RDWR, /* file_flags= */ 0, 0644, /* compress_threshold_bytes= */ 0, /* metrics= */ NULL, m, /* template= */ NULL, &new_journal));
 
         if (argc > 1)
                 r = sd_journal_open_files(&j, (const char **) strv_skip(argv, 1), SD_JOURNAL_ASSUME_IMMUTABLE);
@@ -139,7 +139,7 @@ static void test_journal_flush_one(int argc, char *argv[]) {
                         log_error_errno(r, "journal_file_move_to_object failed: %m");
                 ASSERT_OK(r);
 
-                r = journal_file_copy_entry(f, new_journal, o, f->current_offset, NULL, NULL);
+                r = journal_file_copy_entry(f, new_journal, o, f->current_offset, /* seqnum= */ NULL, /* seqnum_id= */ NULL);
                 if (r < 0)
                         log_warning_errno(r, "journal_file_copy_entry failed: %m");
                 ASSERT_TRUE(r >= 0 ||
@@ -161,9 +161,19 @@ static void test_journal_flush_one(int argc, char *argv[]) {
 
         /* Read the online journal. */
         ASSERT_OK(sd_journal_seek_tail(j));
-        ASSERT_OK_POSITIVE(sd_journal_step_one(j, 0));
+        ASSERT_OK_POSITIVE(sd_journal_step_one(j, /* advanced= */ 0));
         printf("current_journal: %s (%i)\n", j->current_file->path, j->current_file->fd);
-        ASSERT_OK(show_journal_entry(stdout, j, OUTPUT_EXPORT, 0, 0, NULL, NULL, NULL, &(dual_timestamp) {}, &(sd_id128_t) {}));
+        ASSERT_OK(show_journal_entry(
+                        stdout,
+                        j,
+                        OUTPUT_EXPORT,
+                        /* n_columns= */ 0,
+                        /* flags= */ 0,
+                        /* output_fields= */ NULL,
+                        /* highlight= */ NULL,
+                        /* ellipsized= */ NULL,
+                        &(dual_timestamp) {},
+                        &(sd_id128_t) {}));
 
         uint64_t p;
         ASSERT_OK(journal_file_tail_end_by_mmap(j->current_file, &p));
@@ -175,7 +185,7 @@ static void test_journal_flush_one(int argc, char *argv[]) {
         }
 
         /* Archive and offline file. */
-        ASSERT_OK(journal_file_archive(new_journal, NULL));
+        ASSERT_OK(journal_file_archive(new_journal, /* ret_previous_path= */ NULL));
         ASSERT_OK(journal_file_set_offline(new_journal, /* wait= */ true));
 
         /* Read the archived and offline journal. */

@@ -12,10 +12,10 @@ int format_ifname_full(int ifindex, FormatIfnameFlag flag, char buf[static IF_NA
 int format_ifname_full_alloc(int ifindex, FormatIfnameFlag flag, char **ret);
 
 static inline int format_ifname(int ifindex, char buf[static IF_NAMESIZE]) {
-        return format_ifname_full(ifindex, 0, buf);
+        return format_ifname_full(ifindex, /* flag= */ 0, buf);
 }
 static inline int format_ifname_alloc(int ifindex, char **ret) {
-        return format_ifname_full_alloc(ifindex, 0, ret);
+        return format_ifname_full_alloc(ifindex, /* flag= */ 0, ret);
 }
 
 static inline char* _format_ifname_full(int ifindex, FormatIfnameFlag flag, char buf[static IF_NAMESIZE]) {

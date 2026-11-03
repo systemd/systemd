@@ -77,7 +77,7 @@ int chvt(int vt) {
         /* Switch to the specified vt number. If the VT is specified <= 0 switch to the VT the kernel log messages go,
          * if that's configured. */
 
-        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_NONBLOCK);
         if (fd < 0)
                 return fd;
 
@@ -624,15 +624,16 @@ int open_terminal(const char *name, int mode) {
          * https://bugs.launchpad.net/ubuntu/+source/linux/+bug/554172/comments/245
          */
 
+        assert(name);
         assert((mode & (O_CREAT|O_PATH|O_DIRECTORY|O_TMPFILE)) == 0);
 
         for (unsigned c = 0;; c++) {
-                fd = open(name, mode, 0);
+                fd = xopenat(AT_FDCWD, name, mode);
                 if (fd >= 0)
                         break;
 
-                if (errno != EIO)
-                        return -errno;
+                if (fd != -EIO)
+                        return fd;
 
                 /* Max 1s in total */
                 if (c >= 20)
@@ -701,7 +702,7 @@ int acquire_terminal(
 
                 /* We pass here O_NOCTTY only so that we can check the return value TIOCSCTTY and have a reliable way
                  * to figure out if we successfully became the controlling process of the tty */
-                fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                fd = open_terminal(name, O_RDWR|O_NOCTTY);
                 if (fd < 0)
                         return fd;
 
@@ -794,9 +795,9 @@ int release_terminal(void) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        fd = open("/dev/tty", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        fd = xopenat(AT_FDCWD, "/dev/tty", O_RDWR|O_NOCTTY|O_NONBLOCK);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         /* Temporarily ignore SIGHUP, so that we don't get SIGHUP'ed
          * by our own TIOCNOTTY */
@@ -841,7 +842,7 @@ int terminal_vhangup(const char *tty) {
 
         assert(tty);
 
-        fd = open_terminal(tty, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal(tty, O_RDWR|O_NOCTTY);
         if (fd < 0)
                 return fd;
 
@@ -856,7 +857,7 @@ int vt_disallocate(const char *tty_path) {
 
         int ttynr = vtnr_from_tty(tty_path);
         if (ttynr > 0) {
-                _cleanup_close_ int fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+                _cleanup_close_ int fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_NONBLOCK);
                 if (fd < 0)
                         return fd;
 
@@ -870,7 +871,7 @@ int vt_disallocate(const char *tty_path) {
         /* So this is not a VT (in which case we cannot deallocate it), or we failed to deallocate. Let's at
          * least clear the screen. */
 
-        _cleanup_close_ int fd2 = open_terminal(tty_path, O_WRONLY|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        _cleanup_close_ int fd2 = open_terminal(tty_path, O_WRONLY|O_NOCTTY|O_NONBLOCK);
         if (fd2 < 0)
                 return fd2;
 
@@ -979,7 +980,7 @@ int terminal_reset_ansi_seq(int fd) {
         if (getenv_terminal_is_dumb())
                 return 0;
 
-        r = fd_nonblock(fd, true);
+        r = fd_nonblock(fd, /* nonblock= */ true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to set terminal to non-blocking mode: %m");
         if (r > 0)
@@ -1018,7 +1019,7 @@ void reset_dev_console_fd(int fd, bool switch_to_text) {
         if (r < 0)
                 log_warning_errno(r, "Failed to get /dev/console size, ignoring: %m");
         else if (r > 0) {
-                r = terminal_set_size_fd(fd, NULL, rows, cols);
+                r = terminal_set_size_fd(fd, /* ident= */ NULL, rows, cols);
                 if (r < 0)
                         log_warning_errno(r, "Failed to set configured terminal size on /dev/console, ignoring: %m");
         } else
@@ -1035,7 +1036,7 @@ int lock_dev_console(void) {
 
         /* NB: We do not use O_NOFOLLOW here, because some container managers might place a symlink to some
          * pty in /dev/console, in which case it should be fine to lock the target TTY. */
-        fd = open_terminal("/dev/console", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        fd = open_terminal("/dev/console", O_RDONLY|O_NOCTTY);
         if (fd < 0)
                 return fd;
 
@@ -1197,7 +1198,7 @@ int get_kernel_consoles(char ***ret) {
         for (const char *p = line;;) {
                 _cleanup_free_ char *tty = NULL, *path = NULL;
 
-                r = extract_first_word(&p, &tty, NULL, 0);
+                r = extract_first_word(&p, &tty, /* separators= */ NULL, /* flags= */ 0);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1494,7 +1495,7 @@ int getttyname_harder(int fd, char **ret) {
                 return r;
 
         if (streq(s, "tty"))
-                return get_ctty(0, NULL, ret);
+                return get_ctty(/* pid= */ 0, /* ret_devnr= */ NULL, ret);
 
         *ret = TAKE_PTR(s);
         return 0;
@@ -1714,7 +1715,7 @@ int openpt_allocate_in_namespace(
 
         pair[1] = safe_close(pair[1]);
 
-        fd = receive_one_fd(pair[0], 0);
+        fd = receive_one_fd(pair[0], /* flags= */ 0);
         if (fd < 0)
                 return fd;
 
@@ -1787,7 +1788,7 @@ bool dev_console_colors_enabled(void) {
                 return false;
 
         if (getenv_for_pid(1, "TERM", &s) <= 0)
-                (void) proc_cmdline_get_key("TERM", 0, &s);
+                (void) proc_cmdline_get_key("TERM", /* flags= */ 0, &s);
 
         return !streq_ptr(s, "dumb");
 }
@@ -1815,7 +1816,7 @@ int vt_restore(int fd) {
         if (ioctl(fd, VT_SETMODE, &mode) < 0)
                 RET_GATHER(ret, log_debug_errno(errno, "Failed to set VT_AUTO mode, ignoring: %m"));
 
-        r = fchmod_and_chown(fd, TTY_MODE, 0, GID_INVALID);
+        r = fchmod_and_chown(fd, TTY_MODE, /* uid= */ 0, GID_INVALID);
         if (r < 0)
                 RET_GATHER(ret, log_debug_errno(r, "Failed to chmod()/chown() VT, ignoring: %m"));
 
@@ -2044,7 +2045,7 @@ int terminal_get_cursor_position(
         /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read() should someone
          * else process the POLLIN. */
 
-        nonblock_input_fd = r = fd_reopen(input_fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        nonblock_input_fd = r = fd_reopen(input_fd, O_RDONLY|O_NONBLOCK|O_NOCTTY);
         if (r < 0)
                 return r;
 
@@ -2329,7 +2330,7 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
 
         /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read()
          * should someone else process the POLLIN. Do all subsequent operations on the new fd. */
-        _cleanup_close_ int nonblock_input_fd = r = fd_reopen(STDIN_FILENO, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        _cleanup_close_ int nonblock_input_fd = r = fd_reopen(STDIN_FILENO, O_RDONLY|O_NONBLOCK|O_NOCTTY);
         if (r < 0)
                 return r;
 
@@ -2515,7 +2516,7 @@ static int terminal_prepare_query(
 
         /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read()
          * should someone else process the POLLIN. Do all subsequent operations on the new fd. */
-        _cleanup_close_ int nonblock_input_fd = r = fd_reopen(input_fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        _cleanup_close_ int nonblock_input_fd = r = fd_reopen(input_fd, O_RDONLY|O_NONBLOCK|O_NOCTTY);
         if (r < 0)
                 return r;
 
@@ -2648,7 +2649,7 @@ int terminal_get_size(
 
         /* Put the output fd in non-blocking mode with a write timeout, to avoid blocking indefinitely on
          * write if the terminal is not consuming data (e.g. serial console with flow control). */
-        r = fd_nonblock(output_fd, true);
+        r = fd_nonblock(output_fd, /* nonblock= */ true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to set terminal to non-blocking mode: %m");
         if (r > 0)
@@ -2771,7 +2772,7 @@ static int scan_terminfo_response(
                 return r;
 
         assert(((const char *) dec)[dec_size] == '\0'); /* unhexmem appends NUL for our convenience */
-        if (memchr(dec, '\0', dec_size) || string_has_cc(dec, NULL) || !filename_is_valid(dec))
+        if (memchr(dec, '\0', dec_size) || string_has_cc(dec, /* ok= */ NULL) || !filename_is_valid(dec))
                 return -EUCLEAN;
 
         *ret_name = TAKE_PTR(dec);
@@ -2874,7 +2875,7 @@ int query_term_for_tty(const char *tty, char **ret_term) {
         /* Try to query the terminal implementation that we're on. This will not work in all
          * cases, which is fine, since this is intended to be used as a fallback. */
 
-        _cleanup_close_ int tty_fd = open_terminal(tty, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        _cleanup_close_ int tty_fd = open_terminal(tty, O_RDWR|O_NOCTTY|O_NONBLOCK);
         if (tty_fd < 0)
                 return log_debug_errno(tty_fd, "Failed to open %s to query terminfo: %m", tty);
 
@@ -2903,7 +2904,7 @@ int terminal_is_pty_fd(int fd) {
         if (!isatty_safe(fd))
                 return false;
 
-        r = is_fs_type_at(fd, NULL, DEVPTS_SUPER_MAGIC);
+        r = is_fs_type_at(fd, /* path= */ NULL, DEVPTS_SUPER_MAGIC);
         if (r != 0)
                 return r;
 
@@ -2926,9 +2927,13 @@ int pty_open_peer(int fd, int mode) {
 
         /* Opens the peer PTY using the new race-free TIOCGPTPEER ioctl() (kernel 4.13).
          *
-         * This is safe to be called on TTYs from other namespaces. */
+         * This is safe to be called on TTYs from other namespaces.
+         *
+         * O_CLOEXEC is always set. */
 
         assert((mode & (O_CREAT|O_PATH|O_DIRECTORY|O_TMPFILE)) == 0);
+
+        mode |= O_CLOEXEC;
 
         /* This replicates the EIO retry logic of open_terminal() in a modified way. */
         for (unsigned c = 0;; c++) {

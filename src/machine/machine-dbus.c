@@ -82,7 +82,7 @@ int bus_machine_method_unregister(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_machine_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -117,7 +117,7 @@ int bus_machine_method_terminate(sd_bus_message *message, void *userdata, sd_bus
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_machine_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -170,7 +170,7 @@ int bus_machine_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -310,7 +310,7 @@ int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_
                         return 1; /* Will call us back */
         }
 
-        master = machine_openpt(m, O_RDWR|O_NOCTTY|O_CLOEXEC, &pty_name);
+        master = machine_openpt(m, O_RDWR|O_NOCTTY, &pty_name);
         if (master < 0)
                 return master;
 
@@ -356,7 +356,7 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
                         return 1; /* Will call us back */
         }
 
-        master = machine_openpt(m, O_RDWR|O_NOCTTY|O_CLOEXEC, &pty_name);
+        master = machine_openpt(m, O_RDWR|O_NOCTTY, &pty_name);
         if (master < 0)
                 return master;
 
@@ -475,7 +475,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
                         return 1; /* Will call us back */
         }
 
-        master = machine_openpt(m, O_RDWR|O_NOCTTY|O_CLOEXEC, &pty_name);
+        master = machine_openpt(m, O_RDWR|O_NOCTTY, &pty_name);
         if (master < 0)
                 return master;
 
@@ -562,7 +562,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to mount %s on %s in machine's namespace: %m", src, dest);
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_error *error) {

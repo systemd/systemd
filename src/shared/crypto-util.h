@@ -36,6 +36,7 @@ int parse_openssl_key_source_argument(const char *argument, char **private_key_s
 
 #  include <openssl/bio.h>              /* IWYU pragma: export */
 #  include <openssl/bn.h>               /* IWYU pragma: export */
+#  include <openssl/cms.h>              /* IWYU pragma: export */
 #  include <openssl/core_names.h>       /* IWYU pragma: export */
 #  include <openssl/crypto.h>           /* IWYU pragma: export */
 #  include <openssl/ec.h>               /* IWYU pragma: export */
@@ -47,6 +48,7 @@ int parse_openssl_key_source_argument(const char *argument, char **private_key_s
 #  include <openssl/pkcs7.h>            /* IWYU pragma: export */
 #  include <openssl/rsa.h>              /* IWYU pragma: export */
 #  include <openssl/sha.h>              /* IWYU pragma: export */
+#  include <openssl/x509v3.h>           /* IWYU pragma: export */
 
 #  include "dlfcn-util.h"
 
@@ -64,6 +66,7 @@ extern DLSYM_PROTOTYPE(ASN1_STRING_length);
 extern DLSYM_PROTOTYPE(ASN1_STRING_new);
 extern DLSYM_PROTOTYPE(ASN1_STRING_set);
 extern DLSYM_PROTOTYPE(ASN1_STRING_set0);
+extern DLSYM_PROTOTYPE(ASN1_STRING_type);
 extern DLSYM_PROTOTYPE(ASN1_TIME_free);
 extern DLSYM_PROTOTYPE(ASN1_TIME_set);
 extern DLSYM_PROTOTYPE(ASN1_TYPE_new);
@@ -73,13 +76,16 @@ extern DLSYM_PROTOTYPE(ASN1_item_free);
 extern DLSYM_PROTOTYPE(ASN1_item_i2d);
 extern DLSYM_PROTOTYPE(ASN1_item_new);
 extern DLSYM_PROTOTYPE(BIO_ctrl);
+extern DLSYM_PROTOTYPE(BIO_f_md);
 extern DLSYM_PROTOTYPE(BIO_find_type);
 extern DLSYM_PROTOTYPE(BIO_free);
 extern DLSYM_PROTOTYPE(BIO_free_all);
 extern DLSYM_PROTOTYPE(BIO_new);
 extern DLSYM_PROTOTYPE(BIO_new_mem_buf);
 extern DLSYM_PROTOTYPE(BIO_new_socket);
+extern DLSYM_PROTOTYPE(BIO_push);
 extern DLSYM_PROTOTYPE(BIO_s_mem);
+extern DLSYM_PROTOTYPE(BIO_s_null);
 extern DLSYM_PROTOTYPE(BIO_write);
 extern DLSYM_PROTOTYPE(BN_CTX_free);
 extern DLSYM_PROTOTYPE(BN_CTX_new);
@@ -109,6 +115,17 @@ extern DLSYM_PROTOTYPE(BN_num_bits);
 extern DLSYM_PROTOTYPE(BN_secure_new);
 extern DLSYM_PROTOTYPE(BN_set_word);
 extern DLSYM_PROTOTYPE(BN_sub_word);
+extern DLSYM_PROTOTYPE(CMS_ContentInfo_free);
+extern DLSYM_PROTOTYPE(CMS_SignerInfo_set1_signer_cert);
+extern DLSYM_PROTOTYPE(CMS_SignerInfo_verify);
+extern DLSYM_PROTOTYPE(CMS_SignerInfo_verify_content);
+extern DLSYM_PROTOTYPE(CMS_add1_signer);
+extern DLSYM_PROTOTYPE(CMS_dataFinal);
+extern DLSYM_PROTOTYPE(CMS_dataInit);
+extern DLSYM_PROTOTYPE(CMS_get0_SignerInfos);
+extern DLSYM_PROTOTYPE(CMS_get0_type);
+extern DLSYM_PROTOTYPE(CMS_sign);
+extern DLSYM_PROTOTYPE(CMS_signed_get_attr_count);
 extern DLSYM_PROTOTYPE(CRYPTO_free);
 extern DLSYM_PROTOTYPE(ECDSA_SIG_free);
 extern DLSYM_PROTOTYPE(ECDSA_SIG_get0_r);
@@ -203,6 +220,7 @@ extern DLSYM_PROTOTYPE(EVP_sha512);
 extern DLSYM_PROTOTYPE(HMAC);
 extern DLSYM_PROTOTYPE(OBJ_nid2obj);
 extern DLSYM_PROTOTYPE(OBJ_nid2sn);
+extern DLSYM_PROTOTYPE(OBJ_obj2nid);
 extern DLSYM_PROTOTYPE(OBJ_sn2nid);
 extern DLSYM_PROTOTYPE(OBJ_txt2obj);
 extern DLSYM_PROTOTYPE(OPENSSL_sk_new_null);
@@ -221,6 +239,7 @@ extern DLSYM_PROTOTYPE(OSSL_PARAM_construct_end);
 extern DLSYM_PROTOTYPE(OSSL_PARAM_construct_octet_string);
 extern DLSYM_PROTOTYPE(OSSL_PARAM_construct_utf8_string);
 extern DLSYM_PROTOTYPE(OSSL_PARAM_free);
+extern DLSYM_PROTOTYPE(OpenSSL_version_num);
 extern DLSYM_PROTOTYPE(PEM_read_PUBKEY);
 extern DLSYM_PROTOTYPE(PEM_read_PrivateKey);
 extern DLSYM_PROTOTYPE(PEM_read_X509);
@@ -256,16 +275,25 @@ extern DLSYM_PROTOTYPE(X509_VERIFY_PARAM_set1_ip);
 extern DLSYM_PROTOTYPE(X509_VERIFY_PARAM_set_hostflags);
 extern DLSYM_PROTOTYPE(X509_free);
 extern DLSYM_PROTOTYPE(X509_get0_pubkey);
+extern DLSYM_PROTOTYPE(X509_get0_serialNumber);
+extern DLSYM_PROTOTYPE(X509_get0_subject_key_id);
+extern DLSYM_PROTOTYPE(X509_get_extended_key_usage);
+extern DLSYM_PROTOTYPE(X509_get_extension_flags);
+extern DLSYM_PROTOTYPE(X509_get_issuer_name);
+extern DLSYM_PROTOTYPE(X509_get_key_usage);
 extern DLSYM_PROTOTYPE(X509_get_pubkey);
 extern DLSYM_PROTOTYPE(X509_get_subject_name);
 extern DLSYM_PROTOTYPE(X509_gmtime_adj);
+extern DLSYM_PROTOTYPE(X509_verify);
 extern DLSYM_PROTOTYPE(d2i_ASN1_OCTET_STRING);
+extern DLSYM_PROTOTYPE(d2i_CMS_ContentInfo);
 extern DLSYM_PROTOTYPE(d2i_ECDSA_SIG);
 extern DLSYM_PROTOTYPE(d2i_ECPKParameters);
 extern DLSYM_PROTOTYPE(d2i_PKCS7);
 extern DLSYM_PROTOTYPE(d2i_PUBKEY);
 extern DLSYM_PROTOTYPE(d2i_X509);
 extern DLSYM_PROTOTYPE(i2d_ASN1_INTEGER);
+extern DLSYM_PROTOTYPE(i2d_CMS_ContentInfo);
 extern DLSYM_PROTOTYPE(i2d_ECDSA_SIG);
 extern DLSYM_PROTOTYPE(i2d_PKCS7);
 extern DLSYM_PROTOTYPE(i2d_PKCS7_fp);
@@ -276,12 +304,14 @@ extern DLSYM_PROTOTYPE(i2d_X509_NAME);
 /* Mirrors of OpenSSL macros that go through our dlopen'd sym_* variants, so we don't end up linking against
  * libcrypto just for these. */
 #define sym_BIO_get_md_ctx(b, mdcp) sym_BIO_ctrl((b), BIO_C_GET_MD_CTX, 0, (char*) (mdcp))
+#define sym_BIO_get_mem_data(b, pp) sym_BIO_ctrl((b), BIO_CTRL_INFO, 0, (char*) (pp))
 #define sym_BIO_get_mem_ptr(b, pp) sym_BIO_ctrl((b), BIO_C_GET_BUF_MEM_PTR, 0, (char *) (pp))
 #define sym_BIO_reset(b) sym_BIO_ctrl((b), BIO_CTRL_RESET, 0, NULL)
+#define sym_BIO_set_md(b, md) sym_BIO_ctrl((b), BIO_C_SET_MD, 0, (char*) (md))
 #define sym_BN_num_bytes(a) ((sym_BN_num_bits(a) + 7) / 8)
 #define sym_BN_one(a) sym_BN_set_word(a, 1)
-#define sym_EVP_MD_CTX_get_size(ctx) sym_EVP_MD_get_size(sym_EVP_MD_CTX_get0_md(ctx))
 #define sym_EVP_MD_CTX_get0_name(ctx) sym_EVP_MD_get0_name(sym_EVP_MD_CTX_get0_md(ctx))
+#define sym_EVP_MD_CTX_get_size(ctx) sym_EVP_MD_get_size(sym_EVP_MD_CTX_get0_md(ctx))
 #define sym_OPENSSL_free(addr) sym_CRYPTO_free((addr), OPENSSL_FILE, OPENSSL_LINE)
 #define sym_PKCS7_set_detached(p, v) sym_PKCS7_ctrl((p), PKCS7_OP_SET_DETACHED_SIGNATURE, (v), NULL)
 
@@ -293,6 +323,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(BIGNUM*, sym_BN_clear_free, BN_clear_fre
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(BIO*, sym_BIO_free_all, BIO_free_allp, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(BIO*, sym_BIO_free, BIO_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(BN_CTX*, sym_BN_CTX_free, BN_CTX_freep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(CMS_ContentInfo*, sym_CMS_ContentInfo_free, CMS_ContentInfo_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(EC_GROUP*, sym_EC_GROUP_free, EC_GROUP_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(EC_POINT*, sym_EC_POINT_free, EC_POINT_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(ECDSA_SIG*, sym_ECDSA_SIG_free, ECDSA_SIG_freep, NULL);
@@ -327,6 +358,10 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(X509*, sym_X509_free, X509_freep, NULL);
         sym_OPENSSL_sk_num(ossl_check_const_PKCS7_SIGNER_INFO_sk_type(sk))
 #define sym_sk_PKCS7_SIGNER_INFO_value(sk, idx) \
         ((PKCS7_SIGNER_INFO*) sym_OPENSSL_sk_value(ossl_check_const_PKCS7_SIGNER_INFO_sk_type(sk), (idx)))
+#define sym_sk_CMS_SignerInfo_num(sk) \
+        sym_OPENSSL_sk_num(ossl_check_const_CMS_SignerInfo_sk_type(sk))
+#define sym_sk_CMS_SignerInfo_value(sk, idx) \
+        ((CMS_SignerInfo*) sym_OPENSSL_sk_value(ossl_check_const_CMS_SignerInfo_sk_type(sk), (idx)))
 
 static inline STACK_OF(X509_ALGOR) *x509_algor_free_many(STACK_OF(X509_ALGOR) *attrs) {
         if (!attrs)
@@ -410,6 +445,12 @@ int ecc_pkey_to_curve_x_y(const EVP_PKEY *pkey, int *ret_curve_id, void **ret_x,
 
 int ecc_pkey_new(int curve_id, EVP_PKEY **ret);
 
+int rsa_pkey_new(int bits, EVP_PKEY **ret);
+
+int x509_new_self_signed(EVP_PKEY *pkey, const char *common_name, unsigned validity_days, X509 **ret);
+
+int openssl_private_key_to_pem_traditional(EVP_PKEY *pkey, char **ret);
+
 int ecc_ecdh(const EVP_PKEY *private_pkey, const EVP_PKEY *peer_pkey, void **ret_shared_secret, size_t *ret_shared_secret_size);
 
 int pkey_generate_volume_keys(EVP_PKEY *pkey, const char *rsa_oaep_digest_alg, void **ret_decrypted_key, size_t *ret_decrypted_key_size, void **ret_saved_key, size_t *ret_saved_key_size);
@@ -435,6 +476,8 @@ int openssl_load_x509_certificate(
                 const char *certificate_source,
                 const char *certificate,
                 X509 **ret);
+
+int openssl_load_x509_certificate_from_pem(const struct iovec *pem, X509 **ret, bool *ret_more);
 
 int openssl_load_private_key(
                 KeySourceType private_key_source_type,

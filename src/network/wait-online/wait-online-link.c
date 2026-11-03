@@ -4,10 +4,10 @@
 #include "sd-network.h"
 
 #include "alloc-util.h"
-#include "dns-configuration.h"
 #include "format-ifname.h"
 #include "hashmap.h"
 #include "log-link.h"
+#include "resolve-varlink-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "wait-online-link.h"

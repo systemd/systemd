@@ -59,6 +59,24 @@
       <constant>TPMS_NV_PUBLIC</constant> structure), and a JSON blob of authenticated data (the NvPCR name
       and priority) that is digested and supplied as the qualifying data to the certify command.</para></listitem>
 
+      <listitem><para>A certification of the TPM's storage root key (SRK), generated with
+      <constant>TPM2_Certify</constant>. This contains the JSON encoded attestation and the corresponding
+      signature. The component also includes the public area of the SRK, as a JSON encoded
+      <constant>TPMT_PUBLIC</constant> structure. Marshalled into a <constant>TPM2B_PUBLIC</constant>
+      structure, this is the format accepted by the <option>--tpm2-device-key=</option> switch of
+      <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      and <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+      The certification proves to a verifier that the SRK resides in the same TPM as the attestation key,
+      so that secrets sealed to it, sealing to which requires no access to the TPM, can only be unsealed by
+      the reporting system. As <constant>TPM2_Clear</constant> replaces the SRK, a certification of the same
+      SRK in a later report is also evidence that the TPM has not been cleared in between. If no SRK exists
+      yet, one is created and persisted at the usual handle, which requires the authorization value of the
+      TPM's owner hierarchy to be empty. If the SRK cannot be acquired, or the object at its handle cannot
+      be authorized with an empty password, the report is generated without this component. The same applies
+      if the object lacks the <constant>noDA</constant> attribute, as a failed authorization attempt would
+      then count towards the TPM's dictionary attack protection. Checking that the attributes of the
+      certified key are those of a storage key that cannot leave the TPM is up to the verifier.</para></listitem>
+
       <listitem><para>One component per reported TPM property, generated with <constant>TPM2_GetCapability</constant>.
       Each of these contain the property and its value as a JSON encoded <constant>TPMS_TAGGED_PROPERTY</constant>
       structure, as well as a boolean indicating the value of the <constant>moreData</constant> parameter returned

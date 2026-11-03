@@ -98,7 +98,7 @@ static int user_lookup_uid(Manager *m, uid_t uid, char **ret_name, char **ret_re
                 return -ENOMEM;
 
         /* Don't synthesize invalid user/group names (too long...) */
-        if (!valid_user_group_name(n, 0))
+        if (!valid_user_group_name(n, /* flags= */ 0))
                 return -ESRCH;
 
         if (asprintf(&rn, "UID " UID_FMT " of Container %s", converted_uid, machine->name) < 0)
@@ -124,7 +124,7 @@ static int user_lookup_name(Manager *m, const char *name, uid_t *ret_uid, char *
         assert(ret_uid);
         assert(ret_real_name);
 
-        if (!valid_user_group_name(name, 0))
+        if (!valid_user_group_name(name, /* flags= */ 0))
                 return -ESRCH;
 
         e = startswith(name, "vu-");
@@ -189,16 +189,16 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
                 return r;
 
         if (!streq_ptr(p.service, "io.systemd.Machine"))
-                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", /* parameters= */ NULL);
 
         if (uid_is_valid(p.uid))
                 r = user_lookup_uid(m, p.uid, &found_name, &found_real_name);
         else if (p.user_name)
                 r = user_lookup_name(m, p.user_name, &found_uid, &found_real_name);
         else
-                return sd_varlink_error(link, "io.systemd.UserDatabase.EnumerationNotSupported", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.EnumerationNotSupported", /* parameters= */ NULL);
         if (r == -ESRCH)
-                return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", /* parameters= */ NULL);
         if (r < 0)
                 return r;
 
@@ -206,7 +206,7 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
         un = found_name ?: p.user_name;
 
         if (!user_match_lookup_parameters(&p, un, uid))
-                return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", /* parameters= */ NULL);
 
         r = build_user_json(un, uid, found_real_name, &v);
         if (r < 0)
@@ -265,7 +265,7 @@ static int group_lookup_gid(Manager *m, gid_t gid, char **ret_name, char **ret_d
         if (asprintf(&n, "vg-%s-" GID_FMT, machine->name, converted_gid) < 0)
                 return -ENOMEM;
 
-        if (!valid_user_group_name(n, 0))
+        if (!valid_user_group_name(n, /* flags= */ 0))
                 return -ESRCH;
 
         if (asprintf(&d, "GID " GID_FMT " of Container %s", converted_gid, machine->name) < 0)
@@ -290,7 +290,7 @@ static int group_lookup_name(Manager *m, const char *name, gid_t *ret_gid, char 
         assert(ret_gid);
         assert(ret_description);
 
-        if (!valid_user_group_name(name, 0))
+        if (!valid_user_group_name(name, /* flags= */ 0))
                 return -ESRCH;
 
         e = startswith(name, "vg-");
@@ -355,16 +355,16 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
                 return r;
 
         if (!streq_ptr(p.service, "io.systemd.Machine"))
-                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", /* parameters= */ NULL);
 
         if (gid_is_valid(p.gid))
                 r = group_lookup_gid(m, p.gid, &found_name, &found_description);
         else if (p.group_name)
                 r = group_lookup_name(m, p.group_name, &found_gid, &found_description);
         else
-                return sd_varlink_error(link, "io.systemd.UserDatabase.EnumerationNotSupported", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.EnumerationNotSupported", /* parameters= */ NULL);
         if (r == -ESRCH)
-                return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", /* parameters= */ NULL);
         if (r < 0)
                 return r;
 
@@ -372,7 +372,7 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
         gn = found_name ?: p.group_name;
 
         if (!group_match_lookup_parameters(&p, gn, gid))
-                return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", /* parameters= */ NULL);
 
         r = build_group_json(gn, gid, found_description, &v);
         if (r < 0)
@@ -400,10 +400,10 @@ static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *paramete
                 return r;
 
         if (!streq_ptr(p.service, "io.systemd.Machine"))
-                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", /* parameters= */ NULL);
 
         /* We don't support auxiliary groups for machines. */
-        return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+        return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", /* parameters= */ NULL);
 }
 
 static int json_build_local_addresses(const struct local_address *addresses, size_t n_addresses, sd_json_variant **ret) {
@@ -443,9 +443,9 @@ static int list_machine_one_and_maybe_read_metadata(sd_varlink *link, Machine *m
                 if (r < 0 && am == ACQUIRE_METADATA_GRACEFUL)
                         log_debug_errno(r, "Failed to get address (graceful mode), ignoring: %m");
                 else if (r == -ENONET)
-                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_PRIVATE_NETWORKING, NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_PRIVATE_NETWORKING, /* parameters= */ NULL);
                 else if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_AVAILABLE, NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_AVAILABLE, /* parameters= */ NULL);
                 else if (r < 0)
                         return log_debug_errno(r, "Failed to get addresses: %m");
                 else {
@@ -458,9 +458,9 @@ static int list_machine_one_and_maybe_read_metadata(sd_varlink *link, Machine *m
                 if (r < 0 && am == ACQUIRE_METADATA_GRACEFUL)
                         log_debug_errno(r, "Failed to get OS release (graceful mode), ignoring: %m");
                 else if (r == -ENONET)
-                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_OS_RELEASE_INFORMATION, NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_OS_RELEASE_INFORMATION, /* parameters= */ NULL);
                 else if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_AVAILABLE, NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_AVAILABLE, /* parameters= */ NULL);
                 else if (r < 0)
                         return log_debug_errno(r, "Failed to get OS release: %m");
 
@@ -468,9 +468,9 @@ static int list_machine_one_and_maybe_read_metadata(sd_varlink *link, Machine *m
                 if (r < 0 && am == ACQUIRE_METADATA_GRACEFUL)
                         log_debug_errno(r, "Failed to get UID shift (graceful mode), ignoring: %m");
                 else if (r == -ENXIO)
-                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_UID_SHIFT, NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_UID_SHIFT, /* parameters= */ NULL);
                 else if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_AVAILABLE, NULL);
+                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NOT_AVAILABLE, /* parameters= */ NULL);
                 else if (r < 0)
                         return log_debug_errno(r, "Failed to get UID shift: %m");
         }
@@ -563,7 +563,7 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         }
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
 
         Machine *machine;
         HASHMAP_FOREACH(machine, m->machines) {
@@ -598,7 +598,7 @@ static int lookup_machine_and_call_method(sd_varlink *link, sd_json_variant *par
 
         r = lookup_machine_by_name_or_pidref(link, manager, p.name, &p.pidref, &machine);
         if (r == -ESRCH)
-                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, NULL);
+                return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, /* parameters= */ NULL);
         if (r < 0)
                 return r;
 
@@ -725,7 +725,7 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
         }
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
 
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         r = image_discover(m->runtime_scope, IMAGE_MACHINE, /* root= */ NULL, &images);

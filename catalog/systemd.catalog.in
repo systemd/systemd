@@ -867,6 +867,18 @@ Clearing the TPM has the effect of invalidating all keys locked to the TPM,
 including full disk encryption keys. Because of that care should be taken that
 access to relevant resources is retained via other means.
 
+-- 7e3ed2117b184dee91b825cfdff46b6e
+Subject: Erasing of boot loader EFI variables requested
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-efivars-clear.service(8)
+
+A request to erase all EFI variables owned by the boot loader and by systemd
+has been issued to systemd-boot. This is typically done as part of a
+comprehensive factory reset operation, and ensures that on the next boot
+systemd-boot will erase these variables (after interactively requesting
+confirmation by the user, unless configured otherwise) and reboot.
+
 -- 1f4e0a44a88649939aaea34fc6da8c95
 Subject: Process @COREDUMP_PID@ (@COREDUMP_COMM@) terminated abnormally
 Defined-By: systemd

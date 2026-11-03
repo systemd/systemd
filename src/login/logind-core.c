@@ -458,7 +458,7 @@ bool manager_get_idle_hint(Manager *m, dual_timestamp *ret_timestamp) {
          * unreasonable large idle periods starting with the Unix epoch. */
         ts = m->init_ts;
 
-        idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, /* since= */ NULL, /* flags= */ 0, UID_INVALID, NULL);
+        idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, /* since= */ NULL, /* flags= */ 0, UID_INVALID, /* ret_offending= */ NULL);
 
         HASHMAP_FOREACH(s, m->sessions) {
                 dual_timestamp k;
@@ -558,9 +558,9 @@ static int vt_is_busy(unsigned vtnr) {
          * we avoid this. Since tty1 is special and needs to be an
          * explicitly loaded getty or DM this is safe. */
 
-        fd = open_terminal("/dev/tty1", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal("/dev/tty1", O_RDWR|O_NOCTTY);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         if (ioctl(fd, VT_GETSTATE, &vt_stat) < 0)
                 r = -errno;
@@ -595,7 +595,7 @@ int manager_spawn_autovt(Manager *m, unsigned vtnr) {
         }
 
         xsprintf(name, "autovt@tty%u.service", vtnr);
-        r = bus_call_method(m->bus, bus_systemd_mgr, "StartUnit", &error, NULL, "ss", name, "fail");
+        r = bus_call_method(m->bus, bus_systemd_mgr, "StartUnit", &error, /* ret_reply= */ NULL, "ss", name, "fail");
         if (r < 0)
                 return log_error_errno(r, "Failed to start %s: %s", name, bus_error_message(&error, r));
 
@@ -634,7 +634,7 @@ static int manager_count_external_displays(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_device_enumerator_add_match_subsystem(e, "drm", true);
+        r = sd_device_enumerator_add_match_subsystem(e, "drm", /* match= */ true);
         if (r < 0)
                 return r;
 
@@ -779,4 +779,32 @@ int manager_read_efi_boot_loader_entries(Manager *m) {
 #else
         return 0;
 #endif
+}
+
+int config_parse_kill_exclude_users(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char ***users = ASSERT_PTR(data);
+
+        if (isempty(rvalue)) {
+                /* NULL represents the default, i.e. only root is excluded. An empty (non-NULL) strv means
+                 * that no user is excluded. Hence, allocate an empty strv instead of freeing it. */
+                char **v = strv_new(NULL);
+                if (!v)
+                        return log_oom();
+
+                return strv_free_and_replace(*users, v);
+        }
+
+        return config_parse_strv(unit, filename, line, section, section_line,
+                                 lvalue, ltype, rvalue, data, userdata);
 }

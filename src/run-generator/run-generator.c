@@ -12,6 +12,15 @@
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-run-generator\0",
+        "Run commands specified on the kernel command line as a system service.",
+        .argspec = GENERATOR_ARGSPEC,
+        .man_pages = "systemd-run-generator(8)\0",
+        .option_namespace = "common",
+);
 
 static const char *arg_dest = NULL;
 static char **arg_commands = NULL;
@@ -126,7 +135,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         assert_se(arg_dest = dest);
 
-        r = proc_cmdline_parse(parse, NULL, PROC_CMDLINE_RD_STRICT|PROC_CMDLINE_STRIP_RD_PREFIX);
+        r = proc_cmdline_parse(parse, /* userdata= */ NULL, PROC_CMDLINE_RD_STRICT|PROC_CMDLINE_STRIP_RD_PREFIX);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 

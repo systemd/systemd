@@ -3,7 +3,6 @@
 executables += [
         executable_template + {
                 'name' : 'systemd-notify',
-                'public' : true,
                 'sources' : files('notify.c'),
         },
 ]

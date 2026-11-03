@@ -20,7 +20,6 @@ systemd_cryptenroll_sources = files(
 executables += [
         executable_template + {
                 'name' : 'systemd-cryptenroll',
-                'public' : true,
                 'sources' : systemd_cryptenroll_sources,
                 'dependencies' : [
                         libcryptsetup_cflags,

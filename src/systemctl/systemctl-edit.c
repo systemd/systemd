@@ -35,7 +35,7 @@ int verb_cat(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (arg_transport != BUS_TRANSPORT_LOCAL)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot remotely cat units.");
 
-        r = lookup_paths_init_or_warn(&lp, arg_runtime_scope, 0, arg_root);
+        r = lookup_paths_init_or_warn(&lp, arg_runtime_scope, /* flags= */ 0, arg_root);
         if (r < 0)
                 return r;
 
@@ -44,7 +44,7 @@ int verb_cat(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 if (r < 0)
                         return r;
 
-                r = expand_unit_names(bus, strv_skip(argv, 1), NULL, &names, NULL);
+                r = expand_unit_names(bus, strv_skip(argv, 1), /* suffix= */ NULL, &names, /* ret_expanded= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to expand names: %m");
 
@@ -172,7 +172,7 @@ static int unit_file_create_new(
         if (r < 0)
                 return r;
 
-        return edit_files_add(context, new_path, NULL, original_unit_paths);
+        return edit_files_add(context, new_path, /* original_path= */ NULL, original_unit_paths);
 }
 
 static int unit_file_create_copy(
@@ -204,7 +204,7 @@ static int unit_file_create_copy(
                         return log_warning_errno(SYNTHETIC_ERRNO(EKEYREJECTED), "%s skipped.", unit_name);
         }
 
-        return edit_files_add(context, new_path, fragment_path, NULL);
+        return edit_files_add(context, new_path, fragment_path, /* comment_paths= */ NULL);
 }
 
 static int find_paths_to_edit(
@@ -239,7 +239,7 @@ static int find_paths_to_edit(
         if (!suffix)
                 return log_oom();
 
-        r = lookup_paths_init(&lp, arg_runtime_scope, 0, arg_root);
+        r = lookup_paths_init(&lp, arg_runtime_scope, /* flags= */ 0, arg_root);
         if (r < 0)
                 return r;
 
@@ -274,7 +274,7 @@ static int find_paths_to_edit(
                                         &lp,
                                         *name,
                                         arg_full ? NULL : suffix,
-                                        NULL);
+                                        /* original_unit_paths= */ NULL);
                 } else {
                         _cleanup_free_ char *unit_name = NULL;
 
@@ -351,7 +351,7 @@ int verb_edit(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 if (r < 0)
                         return r;
 
-                r = expand_unit_names(bus, strv_skip(argv, 1), NULL, &names, NULL);
+                r = expand_unit_names(bus, strv_skip(argv, 1), /* suffix= */ NULL, &names, /* ret_expanded= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to expand names: %m");
         } else {

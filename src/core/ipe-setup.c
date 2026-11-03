@@ -8,6 +8,7 @@
 #include "copy.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "ipe-setup.h"
 #include "log.h"
 #include "path-util.h"
@@ -63,10 +64,10 @@ int ipe_setup(void) {
                                         "Invalid IPE policy name %s",
                                         policy_name);
 
-                input = open(*policy, O_RDONLY|O_NOFOLLOW|O_CLOEXEC);
+                input = xopenat(AT_FDCWD, *policy, O_RDONLY|O_NOFOLLOW);
                 if (input < 0)
                         return log_error_errno(
-                                        errno,
+                                        input,
                                         "Failed to open the IPE policy file %s: %m",
                                         *policy);
 
@@ -75,13 +76,13 @@ int ipe_setup(void) {
                 if (!output_path)
                         return log_oom();
 
-                output = open(output_path, O_WRONLY|O_CLOEXEC);
-                if (output < 0 && errno == ENOENT)
+                output = xopenat(AT_FDCWD, output_path, O_WRONLY);
+                if (output == -ENOENT)
                         /* Policy is not installed, install it and activate it */
-                        output = open(IPE_SECFS_NEW_POLICY, O_WRONLY|O_CLOEXEC);
+                        output = xopenat(AT_FDCWD, IPE_SECFS_NEW_POLICY, O_WRONLY);
                 if (output < 0)
                         return log_error_errno(
-                                        errno,
+                                        output,
                                         "Failed to open the IPE policy handle for writing: %m");
 
                 /* The policy is inline signed in binary format, so it has to be copied in one go, otherwise the

@@ -6,6 +6,7 @@
 #include "async.h"
 #include "constants.h"
 #include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "log.h"
@@ -40,18 +41,18 @@ int notify_socket_prepare_full(
         if (r < 0)
                 return log_debug_errno(r, "Failed to bind notification socket: %m");
 
-        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
+        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, /* value= */ true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to enable SO_PASSCRED on notification socket: %m");
 
         /* SO_PASSPIDFD is supported since kernel v6.5. */
-        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSPIDFD, true);
+        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSPIDFD, /* value= */ true);
         if (r < 0)
                 log_debug_errno(r, "Failed to enable SO_PASSPIDFD on notification socket, ignoring: %m");
 
         if (!accept_fds) {
                 /* since kernel v6.16 */
-                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, false);
+                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, /* value= */ false);
                 if (r < 0)
                         log_debug_errno(r, "Failed to disable SO_PASSRIGHTS on notification socket, ignoring: %m");
         }
@@ -65,7 +66,7 @@ int notify_socket_prepare_full(
         if (r < 0)
                 return log_debug_errno(r, "Failed to set priority to notification event source: %m");
 
-        r = sd_event_source_set_io_fd_own(s, true);
+        r = sd_event_source_set_io_fd_own(s, /* own= */ true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to make notification event source own file descriptor: %m");
         TAKE_FD(fd);
@@ -117,7 +118,7 @@ int notify_recv_with_fds(
          * Returns -EAGAIN on recoverable errors (e.g. in case an invalid message is received, following
          * the logic that an invalid message shall be ignored, and treated like no message at all). */
 
-        n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+        n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT);
         if (ERRNO_IS_NEG_TRANSIENT(n))
                 return -EAGAIN;
         if (n == -ECHRNG) {
@@ -245,8 +246,10 @@ int notify_recv_with_fds_strv(
                 return r;
 
         if (ret_list) {
-                char **l = strv_split_newlines(text);
-                if (!l) {
+                char **l;
+
+                r = strv_split_newlines_full(&l, text, EXTRACT_RETAIN_ESCAPE);
+                if (r < 0) {
                         log_oom_warning();
                         return -EAGAIN;
                 }

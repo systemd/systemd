@@ -461,7 +461,7 @@ static int radv_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_radv_attach_event(link->radv, link->manager->event, 0);
+        r = sd_radv_attach_event(link->radv, link->manager->event, /* priority= */ 0);
         if (r < 0)
                 return r;
 
@@ -658,7 +658,7 @@ int link_request_radv(Link *link) {
         if (link->radv)
                 return 0;
 
-        r = link_queue_request(link, REQUEST_TYPE_RADV, radv_process_request, NULL);
+        r = link_queue_request(link, REQUEST_TYPE_RADV, radv_process_request, /* ret= */ NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request configuring of the IPv6 Router Advertisement engine: %m");
 
@@ -1181,7 +1181,7 @@ int config_parse_route_prefix_preference(
                 return log_oom();
 
         r = config_parse_router_preference(unit, filename, line, section, section_line,
-                                           lvalue, ltype, rvalue, &p->route.preference, NULL);
+                                           lvalue, ltype, rvalue, &p->route.preference, /* userdata= */ NULL);
         if (r <= 0)
                 return r;
 
@@ -1311,7 +1311,7 @@ int config_parse_radv_dns(
                 _cleanup_free_ char *w = NULL;
                 union in_addr_union a;
 
-                r = extract_first_word(&p, &w, NULL, 0);
+                r = extract_first_word(&p, &w, /* separators= */ NULL, /* flags= */ 0);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -1373,7 +1373,7 @@ int config_parse_radv_search_domains(
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *w = NULL, *idna = NULL;
 
-                r = extract_first_word(&p, &w, NULL, 0);
+                r = extract_first_word(&p, &w, /* separators= */ NULL, /* flags= */ 0);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {

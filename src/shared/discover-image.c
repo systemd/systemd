@@ -381,13 +381,13 @@ static int image_update_quota(Image *i, int fd) {
                 return -EOPNOTSUPP;
 
         if (fd < 0) {
-                fd_close = open(i->path, O_CLOEXEC|O_DIRECTORY);
+                fd_close = xopenat(AT_FDCWD, i->path, O_DIRECTORY);
                 if (fd_close < 0)
-                        return -errno;
+                        return fd_close;
                 fd = fd_close;
         } else {
                 /* Convert from O_PATH to proper fd, if needed */
-                fd = fd_reopen_condition(fd, O_CLOEXEC|O_DIRECTORY, O_PATH, &fd_close);
+                fd = fd_reopen_condition(fd, O_DIRECTORY, O_PATH, &fd_close);
                 if (fd < 0)
                         return fd;
         }
@@ -399,7 +399,7 @@ static int image_update_quota(Image *i, int fd) {
                 return 0;
 
         BtrfsQuotaInfo quota;
-        r = btrfs_subvol_get_subtree_quota_fd(fd, 0, &quota);
+        r = btrfs_subvol_get_subtree_quota_fd(fd, /* subvol_id= */ 0, &quota);
         if (r < 0)
                 return r;
 
@@ -437,9 +437,9 @@ static int image_make(
         _cleanup_close_ int _fd = -EBADF;
         if (fd < 0) {
                 /* If we didn't get an fd passed in, then let's pin it via O_PATH now */
-                _fd = open(path, O_PATH|O_CLOEXEC);
+                _fd = xopenat(AT_FDCWD, path, O_PATH);
                 if (_fd < 0)
-                        return -errno;
+                        return _fd;
 
                 fd = _fd;
                 st = NULL; /* refresh stat() data now that we have the inode pinned */
@@ -568,7 +568,7 @@ static int image_make(
 
                                 /* It's a btrfs subvolume */
 
-                                r = btrfs_subvol_get_info_fd(fd, 0, &info);
+                                r = btrfs_subvol_get_info_fd(fd, /* subvol_id= */ 0, &info);
                                 if (r < 0)
                                         return r;
 
@@ -608,7 +608,7 @@ static int image_make(
                               path,
                               read_only || (file_attr & FS_IMMUTABLE_FL),
                               crtime,
-                              0, /* we don't use mtime of stat() here, since it's not the time of last change of the tree, but only of the top-level dir */
+                              /* mtime= */ 0, /* we don't use mtime of stat() here, since it's not the time of last change of the tree, but only of the top-level dir */
                               fh,
                               on_mount_id,
                               (uint64_t) st->st_ino,
@@ -673,7 +673,7 @@ static int image_make(
                         r = extract_image_basename(
                                         path,
                                         /* class_suffix= */ NULL,
-                                        /* format_suffix= */ NULL,
+                                        /* format_suffixes= */ NULL,
                                         &pretty_buffer,
                                         /* ret_suffix= */ NULL);
                         if (r < 0)
@@ -682,9 +682,9 @@ static int image_make(
                         pretty = pretty_buffer;
                 }
 
-                _cleanup_close_ int block_fd = fd_reopen(fd, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+                _cleanup_close_ int block_fd = fd_reopen(fd, O_RDONLY|O_NONBLOCK|O_NOCTTY);
                 if (block_fd < 0)
-                        log_debug_errno(errno, "Failed to open block device '%s', ignoring: %m", path);
+                        log_debug_errno(block_fd, "Failed to open block device '%s', ignoring: %m", path);
                 else {
                         if (!read_only) {
                                 int state = 0;
@@ -707,8 +707,8 @@ static int image_make(
                               pretty,
                               path,
                               !(st->st_mode & 0222) || read_only,
-                              0,
-                              0,
+                              /* crtime= */ 0,
+                              /* mtime= */ 0,
                               fh,
                               on_mount_id,
                               (uint64_t) st->st_ino,
@@ -878,9 +878,9 @@ int image_find(RuntimeScope scope,
 
         _cleanup_close_ int rfd = XAT_FDROOT; /* We only expect absolute paths */
         if (root) {
-                rfd = open(root, O_CLOEXEC|O_DIRECTORY|O_PATH);
+                rfd = xopenat(AT_FDCWD, root, O_DIRECTORY|O_PATH);
                 if (rfd < 0)
-                        return log_debug_errno(errno, "Failed to open root directory '%s': %m", root);
+                        return log_debug_errno(rfd, "Failed to open root directory '%s': %m", root);
         }
 
         _cleanup_strv_free_ char **search = NULL;
@@ -962,6 +962,7 @@ int image_find(RuntimeScope scope,
                                               fname_path, /* This has to be the unresolved entry with the .v suffix */
                                               &filter,
                                               /* n_filters= */ 1,
+                                              /* match_root= */ root,
                                               PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                                               &result);
                                 if (r < 0) {
@@ -1085,9 +1086,9 @@ int image_discover(
 
         _cleanup_close_ int rfd = XAT_FDROOT;  /* We only expect absolute paths */
         if (root) {
-                rfd = open(root, O_CLOEXEC|O_DIRECTORY|O_PATH);
+                rfd = xopenat(AT_FDCWD, root, O_DIRECTORY|O_PATH);
                 if (rfd < 0)
-                        return log_debug_errno(errno, "Failed to open root directory '%s': %m", root);
+                        return log_debug_errno(rfd, "Failed to open root directory '%s': %m", root);
         }
 
         _cleanup_strv_free_ char **search = NULL;
@@ -1184,6 +1185,7 @@ int image_discover(
                                                       fname_path, /* This has to be the unresolved entry with the .v suffix */
                                                       &filter,
                                                       /* n_filters= */ 1,
+                                                      /* match_root= */ root,
                                                       PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                                                       &result);
                                         if (r < 0) {
@@ -1227,7 +1229,7 @@ int image_discover(
                                 r = extract_image_basename(
                                                 fname,
                                                 /* class_suffix= */ NULL,
-                                                /* format_suffix= */ NULL,
+                                                /* format_suffixes= */ NULL,
                                                 &pretty,
                                                 /* ret_suffix= */ NULL);
                                 if (r < 0) {
@@ -1338,7 +1340,7 @@ static int unpriv_remove_cb(
                                 _exit(EXIT_FAILURE);
                         }
 
-                        _cleanup_close_ int dfd = fd_reopen(tree_fd, O_DIRECTORY|O_CLOEXEC);
+                        _cleanup_close_ int dfd = fd_reopen(tree_fd, O_DIRECTORY);
                         if (dfd < 0) {
                                 log_error_errno(dfd, "Failed to reopen tree fd: %m");
                                 _exit(EXIT_FAILURE);
@@ -1430,7 +1432,7 @@ int image_remove(Image *i, RuntimeScope scope) {
 
         case IMAGE_DIRECTORY:
                 /* Allow deletion of read-only directories */
-                (void) chattr_path(i->path, 0, FS_IMMUTABLE_FL);
+                (void) chattr_path(i->path, /* value= */ 0, FS_IMMUTABLE_FL);
 
                 _fallthrough_;
 
@@ -1531,7 +1533,7 @@ int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
         if (r < 0)
                 return r;
 
-        r = image_find(scope, IMAGE_MACHINE, new_name, NULL, NULL);
+        r = image_find(scope, IMAGE_MACHINE, new_name, /* root= */ NULL, /* ret= */ NULL);
         if (r >= 0)
                 return -EEXIST;
         if (r != -ENOENT)
@@ -1544,7 +1546,7 @@ int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
                 (void) read_attr_at(AT_FDCWD, i->path, &file_attr);
 
                 if (file_attr & FS_IMMUTABLE_FL)
-                        (void) chattr_path(i->path, 0, FS_IMMUTABLE_FL);
+                        (void) chattr_path(i->path, /* value= */ 0, FS_IMMUTABLE_FL);
 
                 _fallthrough_;
         case IMAGE_SUBVOLUME:
@@ -1768,7 +1770,7 @@ int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope sco
         if (r < 0)
                 return r;
 
-        r = image_find(scope, i->class, new_name, NULL, NULL);
+        r = image_find(scope, i->class, new_name, /* root= */ NULL, /* ret= */ NULL);
         if (r >= 0)
                 return -EEXIST;
         if (r != -ENOENT)
@@ -1907,9 +1909,9 @@ int image_read_only(Image *i, bool b, RuntimeScope scope) {
                 _cleanup_close_ int fd = -EBADF;
                 int state = b;
 
-                fd = open(i->path, O_CLOEXEC|O_RDONLY|O_NONBLOCK|O_NOCTTY);
+                fd = xopenat(AT_FDCWD, i->path, O_RDONLY|O_NONBLOCK|O_NOCTTY);
                 if (fd < 0)
-                        return -errno;
+                        return fd;
 
                 r = fd_verify_block(fd);
                 if (r < 0)
@@ -1937,11 +1939,11 @@ static int make_lock_dir(RuntimeScope scope) {
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int pfd = open_mkdir_at(AT_FDCWD, p, O_CLOEXEC, 0755);
+        _cleanup_close_ int pfd = open_mkdir_at(AT_FDCWD, p, /* flags= */ 0, 0755);
         if (pfd < 0)
                 return pfd;
 
-        _cleanup_close_ int nfd = open_mkdir_at(pfd, "nspawn", O_CLOEXEC, 0755);
+        _cleanup_close_ int nfd = open_mkdir_at(pfd, "nspawn", /* flags= */ 0, 0755);
         if (nfd < 0)
                 return nfd;
 
@@ -2076,9 +2078,9 @@ int image_set_limit(Image *i, uint64_t referenced_max) {
          * we didn't use to have a concept of subtree quota, and hence
          * only modified the subvolume quota. */
 
-        (void) btrfs_qgroup_set_limit(i->path, 0, referenced_max);
-        (void) btrfs_subvol_auto_qgroup(i->path, 0, true);
-        r = btrfs_subvol_set_subtree_quota_limit(i->path, 0, referenced_max);
+        (void) btrfs_qgroup_set_limit(i->path, /* qgroupid= */ 0, referenced_max);
+        (void) btrfs_subvol_auto_qgroup(i->path, /* subvol_id= */ 0, /* create_intermediary_qgroup= */ true);
+        r = btrfs_subvol_set_subtree_quota_limit(i->path, /* subvol_id= */ 0, referenced_max);
         if (r < 0)
                 return r;
 
@@ -2132,9 +2134,9 @@ int image_get_pool_usage(RuntimeScope scope, ImageClass class, uint64_t *ret) {
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int fd = open(pool, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, pool, O_RDONLY|O_DIRECTORY);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         BtrfsQuotaInfo q;
         r = btrfs_subvol_get_subtree_quota_fd(fd, /* subvol_id= */ 0, &q);
@@ -2157,9 +2159,9 @@ int image_get_pool_limit(RuntimeScope scope, ImageClass class, uint64_t *ret) {
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int fd = open(pool, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, pool, O_RDONLY|O_DIRECTORY);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         BtrfsQuotaInfo q;
         r = btrfs_subvol_get_subtree_quota_fd(fd, /* subvol_id= */ 0, &q);
@@ -2251,7 +2253,7 @@ int image_read_metadata(Image *i, const char *root, const ImagePolicy *image_pol
                                                        i->name);
                 }
 
-                r = chase("/etc/hostname", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path, NULL);
+                r = chase("/etc/hostname", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path, /* ret_fd= */ NULL);
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to chase /etc/hostname in image %s: %m", i->name);
                 else if (r >= 0) {
@@ -2266,7 +2268,7 @@ int image_read_metadata(Image *i, const char *root, const ImagePolicy *image_pol
                 if (r < 0)
                         log_debug_errno(r, "Failed to read machine ID in image %s, ignoring: %m", i->name);
 
-                r = chase("/etc/machine-info", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path, NULL);
+                r = chase("/etc/machine-info", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path, /* ret_fd= */ NULL);
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to chase /etc/machine-info in image %s: %m", i->name);
                 else if (r >= 0) {

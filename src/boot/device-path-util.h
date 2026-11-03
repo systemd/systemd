@@ -38,3 +38,8 @@ size_t device_path_size(const EFI_DEVICE_PATH *dp);
 bool device_path_is_valid(const EFI_DEVICE_PATH *dp, size_t size);
 
 EFI_DEVICE_PATH *device_path_dup(const EFI_DEVICE_PATH *dp);
+
+EFI_STATUS device_path_split_file_path(
+                const EFI_DEVICE_PATH *dp,
+                EFI_DEVICE_PATH **ret_device_path,
+                const EFI_DEVICE_PATH **ret_file_path);

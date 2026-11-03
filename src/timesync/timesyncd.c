@@ -10,7 +10,6 @@
 #include "bus-object.h"
 #include "clock-util.h"
 #include "daemon-util.h"
-#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -80,7 +79,7 @@ static int load_clock_timestamp(void) {
          * is particularly helpful on systems lacking a battery backed RTC. We also will adjust the time to
          * at least the build time of systemd. */
 
-        fd = RET_NERRNO(open(TIMESYNCD_CLOCK_FILE, O_RDWR|O_CLOEXEC, 0644));
+        fd = xopenat(AT_FDCWD, TIMESYNCD_CLOCK_FILE, O_RDWR);
         if (fd < 0) {
                 if (fd != -ENOENT)
                         log_warning_errno(fd, "Unable to open timestamp file "TIMESYNCD_CLOCK_FILE", ignoring: %m");
@@ -164,7 +163,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Could not connect to bus: %m");
 
-        if (clock_is_localtime(NULL) > 0) {
+        if (clock_is_localtime(/* adjtime_path= */ NULL) > 0) {
                 log_info("The system is configured to read the RTC time in the local time zone. "
                          "This mode cannot be fully supported. All system time to RTC updates are disabled.");
                 m->rtc_local_time = true;

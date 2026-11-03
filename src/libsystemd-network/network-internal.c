@@ -51,7 +51,7 @@ int deserialize_in_addrs(struct in_addr **ret, const char *string) {
                 union in_addr_union a;
                 int r;
 
-                r = extract_first_word(&string, &word, NULL, 0);
+                r = extract_first_word(&string, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -100,7 +100,7 @@ int deserialize_in6_addrs(struct in6_addr **ret, const char *string) {
                 union in_addr_union a;
                 int r;
 
-                r = extract_first_word(&string, &word, NULL, 0);
+                r = extract_first_word(&string, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -133,7 +133,7 @@ int serialize_dnr(FILE *f, const sd_dns_resolver *dnr, size_t n_dnr, bool *with_
         if (r < 0)
                 return r;
         if (r > 0)
-                fputstrv(f, names, NULL, with_leading_space);
+                fputstrv(f, names, /* separator= */ NULL, with_leading_space);
         n += r;
         return n;
 }
@@ -173,7 +173,7 @@ int deserialize_dnr(sd_dns_resolver **ret, const char *string) {
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&string, &word, NULL, 0);
+                r = extract_first_word(&string, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -184,7 +184,7 @@ int deserialize_dnr(sd_dns_resolver **ret, const char *string) {
                 _cleanup_free_ union in_addr_union *addr = new(union in_addr_union, 1);
                 _cleanup_free_ char *auth_name = NULL;
 
-                r = in_addr_port_ifindex_name_from_string_auto(word, &family, addr, &port, NULL, &auth_name);
+                r = in_addr_port_ifindex_name_from_string_auto(word, &family, addr, &port, /* ret_ifindex= */ NULL, &auth_name);
                 if (r < 0)
                         return r;
 

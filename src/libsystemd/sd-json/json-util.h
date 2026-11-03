@@ -5,6 +5,7 @@
 
 #include "sd-json.h"
 
+#include "fileio.h"
 #include "log.h"
 #include "forward.h"
 #include "string-util.h"        /* IWYU pragma: keep */
@@ -140,6 +141,8 @@ int json_dispatch_strv_environment(const char *name, sd_json_variant *variant, s
 int json_dispatch_access_mode(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_job_id(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_address_family(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
+int json_dispatch_yes_no_string(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
+int json_dispatch_string_non_empty(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 
 #if __SIZEOF_SIZE_T__ == 8
 #define json_dispatch_size sd_json_dispatch_uint64
@@ -305,3 +308,5 @@ char *json_dashify(char *p);
 int json_variant_compare(sd_json_variant *a, sd_json_variant *b);
 
 int json_seq_extract(const char **p, size_t *left, sd_json_parse_flags_t flags, bool eol, sd_json_variant **ret);
+
+int json_variant_write_file_at(int dir_fd, const char *path, sd_json_variant *v, sd_json_format_flags_t format_flags, WriteStringFileFlags write_flags);

@@ -147,6 +147,24 @@ Variables will be listed below using the Linux efivarfs naming,
                 EFI variable `LoaderKeyboardLayout-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`.
   * `1 << 21` → The boot loader measures SMBIOS information into a TPM2 PCR and reports the PCR index in the
                 EFI variable `LoaderPcrSMBIOS-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`.
+  * `1 << 22` → The boot loader honours `LoaderFactoryResetVariables` when set.
+  * `1 << 23` → The boot loader supports installing firmware update capsules prepared by fwupd.
+
+* The EFI variable `LoaderFactoryResetVariables-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
+  contains a boolean, formatted as a NUL-terminated UTF-16 string
+  (e.g. `1` for true, `0` for false; `yes`/`no`, `true`/`false`, `on`/`off` are accepted too).
+  It is set by the OS (typically as part of a factory reset operation)
+  in order to request that the boot loader erases all EFI variables
+  in the `4a67b082-0a4c-41cf-b6c7-440b29bb8c4f` (i.e. this Boot Loader Interface)
+  and `8cf2644b-4b0b-428f-9387-6d876050dc67` (i.e. systemd's own) vendor UUID namespaces
+  on the following boot, and then reboots.
+  The `FactoryResetRequest-8cf2644b-4b0b-428f-9387-6d876050dc67` variable is exempt from this,
+  so that the OS can complete its own factory reset on the subsequent boot.
+  The boot loader may ask the user for confirmation before erasing the variables.
+  If the request is declined the variable is removed, without erasing any other variables.
+  The same applies if the variable is set to an invalid value.
+  If the request is executed the variable is erased last,
+  so that an interrupted operation is resumed on the next boot.
 
 * The EFI variable `LoaderSystemToken-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
   contains binary random data,
@@ -191,11 +209,11 @@ Variables will be listed below using the Linux efivarfs naming,
   NUL-terminated UTF-16 string, e.g. `1`) into which the boot loader measured
   select SMBIOS structures: type 1 (system information, with the volatile
   "Wake-up Type" field zeroed out), type 2 (baseboard information) and type 11
-  (OEM strings). This is a volatile (non-persistent) variable, set only if a
-  measurement was successfully completed, and remains unset otherwise. Both
-  `systemd-boot` and `systemd-stub` perform this measurement; whichever runs
-  first sets the variable, and its presence suppresses a second measurement of
-  the same data into the same PCR during the same boot.
+  (OEM strings). This is a volatile (non-persistent) variable, set only if all
+  of these structures were measured successfully, and remains unset otherwise.
+  Both `systemd-boot` and `systemd-stub` perform this measurement; whichever
+  runs first sets the variable, and its presence suppresses a second
+  measurement of the same data into the same PCR during the same boot.
 
 * The EFI variable `LoaderInfo-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
   contains the version string of the boot loader that was booted,

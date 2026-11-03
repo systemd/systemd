@@ -2,19 +2,22 @@
 
 #include "alloc-util.h"
 #include "recovery-key.h"
-#include "string-util.h"
 #include "tests.h"
 
 static void test_normalize_recovery_key(const char *t, const char *expected) {
         _cleanup_free_ char *z = NULL;
         int r;
 
-        assert_se(t);
+        ASSERT_NOT_NULL(t);
 
         r = normalize_recovery_key(t, &z);
-        assert_se(expected ?
-                  (r >= 0 && streq(z, expected)) :
-                  (r == -EINVAL && z == NULL));
+        if (expected) {
+                ASSERT_OK(r);
+                ASSERT_STREQ(z, expected);
+        } else {
+                ASSERT_ERROR(r, EINVAL);
+                ASSERT_NULL(z);
+        }
 }
 
 TEST(normalize_recovery_key_all) {
@@ -36,16 +39,16 @@ TEST(normalize_recovery_key_all) {
         test_normalize_recovery_key("Iefgcelhbiduvkjvcjvuncnkvlfchdidjhtuhhdeurkllkegilkjgbrthjkbgktj",
                                     "iefgcelh-biduvkjv-cjvuncnk-vlfchdid-jhtuhhde-urkllkeg-ilkjgbrt-hjkbgktj");
 
-        test_normalize_recovery_key("iefgcelh-biduvkjv-cjvuncnk-vlfchdid-jhtuhhde-urkllkeg-ilkjgbrt-hjkbgkt", NULL);
-        test_normalize_recovery_key("iefgcelhbiduvkjvcjvuncnkvlfchdidjhtuhhdeurkllkegilkjgbrthjkbgkt", NULL);
-        test_normalize_recovery_key("IEFGCELHBIDUVKJVCJVUNCNKVLFCHDIDJHTUHHDEURKLLKEGILKJGBRTHJKBGKT", NULL);
+        test_normalize_recovery_key("iefgcelh-biduvkjv-cjvuncnk-vlfchdid-jhtuhhde-urkllkeg-ilkjgbrt-hjkbgkt", /* expected= */ NULL);
+        test_normalize_recovery_key("iefgcelhbiduvkjvcjvuncnkvlfchdidjhtuhhdeurkllkegilkjgbrthjkbgkt", /* expected= */ NULL);
+        test_normalize_recovery_key("IEFGCELHBIDUVKJVCJVUNCNKVLFCHDIDJHTUHHDEURKLLKEGILKJGBRTHJKBGKT", /* expected= */ NULL);
 
-        test_normalize_recovery_key("xefgcelh-biduvkjv-cjvuncnk-vlfchdid-jhtuhhde-urkllkeg-ilkjgbrt-hjkbgktj", NULL);
-        test_normalize_recovery_key("Xefgcelh-biduvkjv-cjvuncnk-vlfchdid-jhtuhhde-urkllkeg-ilkjgbrt-hjkbgktj", NULL);
-        test_normalize_recovery_key("iefgcelh+biduvkjv-cjvuncnk-vlfchdid-jhtuhhde-urkllkeg-ilkjgbrt-hjkbgktj", NULL);
-        test_normalize_recovery_key("iefgcelhebiduvkjv-cjvuncnk-vlfchdid-jhtuhhde-urkllkeg-ilkjgbrt-hjkbgktj", NULL);
+        test_normalize_recovery_key("xefgcelh-biduvkjv-cjvuncnk-vlfchdid-jhtuhhde-urkllkeg-ilkjgbrt-hjkbgktj", /* expected= */ NULL);
+        test_normalize_recovery_key("Xefgcelh-biduvkjv-cjvuncnk-vlfchdid-jhtuhhde-urkllkeg-ilkjgbrt-hjkbgktj", /* expected= */ NULL);
+        test_normalize_recovery_key("iefgcelh+biduvkjv-cjvuncnk-vlfchdid-jhtuhhde-urkllkeg-ilkjgbrt-hjkbgktj", /* expected= */ NULL);
+        test_normalize_recovery_key("iefgcelhebiduvkjv-cjvuncnk-vlfchdid-jhtuhhde-urkllkeg-ilkjgbrt-hjkbgktj", /* expected= */ NULL);
 
-        test_normalize_recovery_key("", NULL);
+        test_normalize_recovery_key("", /* expected= */ NULL);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

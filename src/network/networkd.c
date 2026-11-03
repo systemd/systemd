@@ -42,9 +42,9 @@ int run_networkd(int argc, char *argv[]) {
 
         log_setup();
 
-        r = service_parse_argv_multicall(BUS_IMPLEMENTATIONS(&manager_object, &log_control_object),
-                                         /* runtime_scope= */ NULL,
-                                         argc, argv);
+        r = service_parse_argv(BUS_IMPLEMENTATIONS(&manager_object, &log_control_object),
+                               /* runtime_scope= */ NULL,
+                               argc, argv);
         if (r <= 0)
                 return r;
 
@@ -59,7 +59,7 @@ int run_networkd(int argc, char *argv[]) {
                 uid_t uid;
                 gid_t gid;
 
-                r = get_user_creds("systemd-network", /* flags= */ 0, NULL, &uid, &gid, NULL, NULL);
+                r = get_user_creds("systemd-network", /* flags= */ 0, /* ret_username= */ NULL, &uid, &gid, /* ret_home= */ NULL, /* ret_shell= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Cannot resolve user name %s: %m", "systemd-network");
 

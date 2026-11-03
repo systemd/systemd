@@ -129,7 +129,7 @@ int import_fork_tar_x(int tree_fd, int userns_fd, PidRef *ret_pid) {
                 if (unshare(CLONE_NEWNET) < 0)
                         log_debug_errno(errno, "Failed to lock tar into network namespace, ignoring: %m");
 
-                r = capability_bounding_set_drop(retain, true);
+                r = capability_bounding_set_drop(retain, /* right_now= */ true);
                 if (r < 0)
                         log_debug_errno(r, "Failed to drop capabilities, ignoring: %m");
 
@@ -208,7 +208,7 @@ int import_fork_tar_c(int tree_fd, int userns_fd, PidRef *ret_pid) {
                 if (hardlink_db_fd < 0)
                         log_debug_errno(hardlink_db_fd, "Failed to allocate hardlink db, ignoring: %m");
 
-                r = capability_bounding_set_drop(retain, true);
+                r = capability_bounding_set_drop(retain, /* right_now= */ true);
                 if (r < 0)
                         log_debug_errno(r, "Failed to drop capabilities, ignoring: %m");
 
@@ -281,14 +281,14 @@ int import_mangle_os_tree_fd(int tree_fd, int userns_fd, ImportFlags flags) {
         } else if (errno != 0)
                 return log_error_errno(errno, "Failed to iterate through directory '%s': %m", path);
 
-        _cleanup_close_ int child_fd = openat(dirfd(d), child, O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW|O_NONBLOCK);
+        _cleanup_close_ int child_fd = xopenat(dirfd(d), child, O_DIRECTORY|O_NOFOLLOW|O_NONBLOCK);
         if (child_fd < 0) {
-                if (IN_SET(errno, ENOTDIR, ELOOP)) {
-                        log_debug_errno(errno, "Child '%s' of directory '%s' is not a directory, leaving things as they are.", child, path);
+                if (IN_SET(child_fd, -ENOTDIR, -ELOOP)) {
+                        log_debug_errno(child_fd, "Child '%s' of directory '%s' is not a directory, leaving things as they are.", child, path);
                         return 0;
                 }
 
-                return log_debug_errno(errno, "Failed to open file '%s/%s': %m", path, child);
+                return log_debug_errno(child_fd, "Failed to open file '%s/%s': %m", path, child);
         }
 
         if (fstat(child_fd, &st) < 0)
@@ -357,9 +357,9 @@ int import_mangle_os_tree_fd(int tree_fd, int userns_fd, ImportFlags flags) {
 int import_mangle_os_tree(const char *path, int userns_fd, ImportFlags flags) {
         assert(path);
 
-        _cleanup_close_ int fd = open(path, O_DIRECTORY|O_CLOEXEC|O_PATH);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, path, O_DIRECTORY|O_PATH);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to open '%s': %m", path);
+                return log_error_errno(fd, "Failed to open '%s': %m", path);
 
         return import_mangle_os_tree_fd(fd, userns_fd, flags);
 }
@@ -435,8 +435,8 @@ int import_allocate_event_with_signals(sd_event **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        (void) sd_event_add_signal(event, NULL, SIGTERM|SD_EVENT_SIGNAL_PROCMASK, interrupt_signal_handler,  NULL);
-        (void) sd_event_add_signal(event, NULL, SIGINT|SD_EVENT_SIGNAL_PROCMASK, interrupt_signal_handler, NULL);
+        (void) sd_event_add_signal(event, /* ret= */ NULL, SIGTERM|SD_EVENT_SIGNAL_PROCMASK, interrupt_signal_handler,  /* userdata= */ NULL);
+        (void) sd_event_add_signal(event, /* ret= */ NULL, SIGINT|SD_EVENT_SIGNAL_PROCMASK, interrupt_signal_handler, /* userdata= */ NULL);
 
         *ret = TAKE_PTR(event);
         return 0;

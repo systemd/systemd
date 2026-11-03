@@ -20,11 +20,15 @@ fi
 at_exit() {
     set +e
 
+    systemd-dissect --rmdir --umount "$IMAGE_DIR/verity-shared"
+    systemd-dissect --rmdir --umount "$IMAGE_DIR/verity-copy-privileged"
     umount -R /tmp/unpriv/mount
     rmdir /tmp/unpriv
     rm -f /tmp/test-50-unpriv-privkey.key /tmp/test-50-unpriv-cert.crt /run/verity.d/test-50-unpriv-cert.crt
     rm -f /var/tmp/unpriv.raw /tmp/unpriv.raw.mtree /tmp/unpriv2.raw.mtree
     rm -f /tmp/unpriv.out /tmp/unpriv.out2 /tmp/unpriv.out3
+    rm -f /etc/polkit-1/rules.d/untrusted.rules /var/tmp/test-50-badsig.gpt
+    rm -rf /var/tmp/test-50-badsig-srv.gpt /var/tmp/test-50-srv.repart.d
 }
 
 trap at_exit EXIT
@@ -124,8 +128,46 @@ systemd-dissect --image-policy='root=verity+signed:=absent+unused' --mtree /var/
 # This should fail before we install the key
 (! systemd-dissect --image-policy='root=signed:=absent+unused' --mtree /var/tmp/unpriv.raw >/dev/null)
 
-# If the kernel support is present unprivileged user units should be able to use verity images too
+# Unprivileged user units can use signed verity images if the kernel supports signature verification.
 if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
+    SYSTEMD_VERITY_SHARING=1 systemd-dissect --mkdir --mount "$MINIMAL_IMAGE.gpt" "$IMAGE_DIR/verity-shared"
+    shared_device="$(stat -c %D "$IMAGE_DIR/verity-shared")"
+
+    assert_eq "$(systemd-run -M testuser@ --user --pipe --wait \
+        --property RootImage="$MINIMAL_IMAGE.gpt" \
+        stat -c %D /)" "$shared_device"
+
+    ln "$MINIMAL_IMAGE.gpt" "$IMAGE_DIR/verity-hardlink.gpt"
+    assert_eq "$(systemd-run -M testuser@ --user --pipe --wait \
+        --property RootImage="$IMAGE_DIR/verity-hardlink.gpt" \
+        stat -c %D /)" "$shared_device"
+
+    cp --reflink=auto "$MINIMAL_IMAGE.gpt" "$IMAGE_DIR/verity-copy.gpt"
+    copy_device="$(systemd-run -M testuser@ --user --pipe --wait \
+        --property RootImage="$IMAGE_DIR/verity-copy.gpt" \
+        stat -c %D /)"
+    assert_neq "$copy_device" "$shared_device"
+
+    SYSTEMD_VERITY_SHARING=1 systemd-dissect --mkdir --mount "$IMAGE_DIR/verity-copy.gpt" "$IMAGE_DIR/verity-copy-privileged"
+    assert_eq "$(stat -c %D "$IMAGE_DIR/verity-copy-privileged")" "$shared_device"
+    systemd-dissect --rmdir --umount "$IMAGE_DIR/verity-copy-privileged"
+
+    privileged_device="$(varlinkctl --exec --push-fd="$IMAGE_DIR/verity-copy.gpt" call \
+        /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.MountImage \
+        '{"imageFileDescriptor":0,"veritySharing":true}' -- stat -Lc %D /proc/self/fd/3)"
+    assert_eq "$privileged_device" "$shared_device"
+
+    cp --reflink=auto "$MINIMAL_IMAGE.gpt" "$IMAGE_DIR/verity-forged.gpt"
+    mkdir "$IMAGE_DIR/verity-forged-root"
+    mksquashfs "$IMAGE_DIR/verity-forged-root" "$IMAGE_DIR/verity-forged.squashfs" -noappend
+    dd if="$IMAGE_DIR/verity-forged.squashfs" of="$IMAGE_DIR/verity-forged.gpt" \
+        bs=512 seek="$(sfdisk --json "$IMAGE_DIR/verity-forged.gpt" | jq -r '.partitiontable.partitions[0].start')" conv=notrunc
+    (! systemd-run -M testuser@ --user --pipe --wait \
+        --property RootImage="$IMAGE_DIR/verity-forged.gpt" \
+        true)
+
+    systemd-dissect --rmdir --umount "$IMAGE_DIR/verity-shared"
+
     systemd-run -M testuser@ --user --pipe --wait \
         --property RootImage="$MINIMAL_IMAGE.gpt" \
         test -e "/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity"
@@ -141,12 +183,12 @@ if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
     (! systemd-run -M testuser@ --user --pipe --wait \
         --property RootImage="$MINIMAL_IMAGE.raw" \
         --property ExtensionImages=/tmp/app0.raw \
-        bash -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\"")
+        true)
     (! systemd-run -M testuser@ --user --pipe --wait \
         --property RootImage="$MINIMAL_IMAGE.raw" \
         --property ExtensionImages=/tmp/app0.raw \
         --property ExtensionImagePolicy=root=verity+signed+absent:usr=verity+signed+absent \
-        bash -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\"")
+        true)
     mv /tmp/app0.roothash.p7s.bak /tmp/app0.roothash.p7s
 
     # Mount options should not be allowed without elevated privileges
@@ -181,7 +223,7 @@ EOF
         --property RootImage="$MINIMAL_IMAGE.raw" \
         --property ExtensionImages=/tmp/app0.raw \
         --property MountImages=/tmp/app0.raw:/var/tmp:nosuid \
-        sh -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\" && mount | grep -F /var/tmp | grep -F nosuid >/dev/null"
+        sh -c "mount | grep -F /var/tmp | grep -F nosuid >/dev/null"
 
     rm -f /etc/polkit-1/rules.d/mountoptions.rules
     systemctl try-reload-or-restart polkit.service
@@ -195,6 +237,55 @@ fi
     --property ExtensionImages=/tmp/app1.raw \
     --property ExtensionImagePolicy=root=verity+signed+unprotected+absent:usr=verity+signed+unprotected+absent \
     true)
+
+# An image with an invalid signature partition passes the untrusted image policy during dissection, but is
+# refused when Verity is set up. mountfsd must ask polkit then too, so that a polkit rule can allow it.
+cp "$MINIMAL_IMAGE.gpt" /var/tmp/test-50-badsig.gpt
+printf 'garbage' | dd of=/var/tmp/test-50-badsig.gpt \
+    bs=512 seek="$(sfdisk --json /var/tmp/test-50-badsig.gpt | jq -r '.partitiontable.partitions[2].start')" conv=notrunc
+(! systemd-run -M testuser@ --user --pipe --wait \
+    --property RootImage=/var/tmp/test-50-badsig.gpt \
+    true)
+mkdir -p /etc/polkit-1/rules.d
+cat >/etc/polkit-1/rules.d/untrusted.rules <<'EOF'
+polkit.addRule(function(action, subject) {
+    if (action.id == "io.systemd.mount-file-system.mount-untrusted-image-privately") {
+        return polkit.Result.YES;
+    }
+});
+EOF
+systemctl try-reload-or-restart polkit.service
+systemd-run -M testuser@ --user --pipe --wait \
+    --property RootImage=/var/tmp/test-50-badsig.gpt \
+    true
+# A client policy that doesn't overlap with the policy for untrusted images is handled like a refusal by the
+# image policy, so polkit is asked too.
+systemd-run -M testuser@ --user --pipe --wait \
+    --property RootImage=/var/tmp/test-50-badsig.gpt \
+    --property RootImagePolicy=root=verity:=unused+absent \
+    true
+# mountfsd grants root clients the polkit action without asking polkit, so for root it retries within the
+# same method call. The retry must dissect the image again with the policy for trusted images, because the
+# policy for untrusted images ignores the /srv partition.
+cp /var/tmp/test-50-badsig.gpt /var/tmp/test-50-badsig-srv.gpt
+mkdir -p /var/tmp/test-50-srv.repart.d
+cat >/var/tmp/test-50-srv.repart.d/srv.conf <<'EOF'
+[Partition]
+Type=srv
+Format=ext4
+SizeMinBytes=16M
+EOF
+# The gaps between existing partitions make systemd-repart --size=auto underestimate the required image size.
+systemd-repart --dry-run=no \
+               --size="$(( $(stat -c %s /var/tmp/test-50-badsig-srv.gpt) + 32 * 1024 * 1024 ))" \
+               --definitions=/var/tmp/test-50-srv.repart.d \
+               /var/tmp/test-50-badsig-srv.gpt
+varlinkctl --exec --push-fd=/var/tmp/test-50-badsig-srv.gpt call \
+    /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.MountImage '{"imageFileDescriptor":0}' -- \
+    jq -e '.partitions | map(.designator) | index("srv")' >/dev/null
+rm -rf /var/tmp/test-50-badsig-srv.gpt /var/tmp/test-50-srv.repart.d
+rm -f /etc/polkit-1/rules.d/untrusted.rules /var/tmp/test-50-badsig.gpt
+systemctl try-reload-or-restart polkit.service
 
 # Install key in keychain
 mkdir -p /run/verity.d

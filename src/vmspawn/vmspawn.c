@@ -95,6 +95,7 @@
 #include "utf8.h"
 #include "verbs.h"
 #include "vmspawn-bind-volume.h"
+#include "vmspawn-memory.h"
 #include "vmspawn-mount.h"
 #include "vmspawn-qemu-config.h"
 #include "vmspawn-qmp.h"
@@ -683,7 +684,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (isempty(opts.arg))
                                 arg_machine = mfree(arg_machine);
                         else {
-                                if (!hostname_is_valid(opts.arg, 0))
+                                if (!hostname_is_valid(opts.arg, /* flags= */ 0))
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                                "Invalid machine name: %s", opts.arg);
 
@@ -1152,7 +1153,7 @@ static int vmspawn_dispatch_vsock_connections(sd_event_source *source, int fd, u
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate notify connection event source: %m");
 
-        r = sd_event_source_set_io_fd_own(s, true);
+        r = sd_event_source_set_io_fd_own(s, /* own= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to pass ownership of notify to event source: %m");
         TAKE_FD(conn_fd); /* conn_fd is now owned by the event loop so don't clean it up */
@@ -1300,7 +1301,7 @@ fallback:
                 }
         }
 
-        return sd_event_exit(sd_event_source_get_event(s), 0);
+        return sd_event_exit(sd_event_source_get_event(s), /* code= */ 0);
 }
 
 /* QEMU's stdio is the console PTY, which nothing reads before the PTY forwarder starts. When we fail before
@@ -1689,7 +1690,7 @@ static int discover_root(char **ret) {
                         /* verity= */ NULL,
                         /* mount_options= */ NULL,
                         /* image_policy= */ NULL,
-                        /* image_filter= */ NULL,
+                        /* filter= */ NULL,
                         /* flags= */ 0,
                         &image);
         if (r < 0)
@@ -1803,7 +1804,7 @@ static int start_virtiofsd(
                 if (userns_fd < 0)
                         return log_error_errno(userns_fd, "Failed to allocate user namespace for virtiofsd: %m");
 
-                _cleanup_close_ int directory_fd = open(directory, O_DIRECTORY|O_CLOEXEC|O_PATH);
+                _cleanup_close_ int directory_fd = xopenat(AT_FDCWD, directory, O_DIRECTORY|O_PATH);
                 if (directory_fd < 0)
                         return log_error_errno(directory_fd, "Failed to open '%s': %m", directory);
 
@@ -1811,7 +1812,8 @@ static int start_virtiofsd(
                 if (r < 0)
                         return r;
 
-        } else if (!IN_SET(source_uid, FOREIGN_UID_MIN, UID_INVALID) && target_uid != UID_INVALID && uid_range != UID_INVALID) {
+        } else if (!IN_SET(source_uid, FOREIGN_UID_MIN, UID_INVALID) && target_uid != UID_INVALID && uid_range != UID_INVALID &&
+                   source_uid != target_uid) {
                 r = strv_extend(&argv, "--translate-uid");
                 if (r < 0)
                         return log_oom();
@@ -1862,14 +1864,14 @@ static int start_virtiofsd(
                         _exit(EXIT_FAILURE);
                 }
 
-                r = fd_cloexec(sock, false);
+                r = fd_cloexec(sock, /* cloexec= */ false);
                 if (r < 0) {
                         log_error_errno(r, "Failed to disable cloexec on socket: %m");
                         _exit(EXIT_FAILURE);
                 }
 
-                invoke_callout_binary(argv[0], argv);
-                log_error_errno(errno, "Failed to execute '%s': %m", argv[0]);
+                r = invoke_callout_binary(argv[0], argv);
+                log_error_errno(r, "Failed to execute '%s': %m", argv[0]);
                 _exit(EXIT_FAILURE);
         }
 
@@ -2050,9 +2052,9 @@ static int merge_initrds(char **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create temporary file: %m");
 
-        ofd = open(merged_initrd, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0600);
+        ofd = xopenat_full(AT_FDCWD, merged_initrd, O_WRONLY|O_CREAT|O_EXCL, /* xopen_flags= */ 0, 0600);
         if (ofd < 0)
-                return log_error_errno(errno, "Failed to create regular file %s: %m", merged_initrd);
+                return log_error_errno(ofd, "Failed to create regular file %s: %m", merged_initrd);
 
         STRV_FOREACH(i, arg_initrds) {
                 _cleanup_close_ int ifd = -EBADF;
@@ -2068,9 +2070,9 @@ static int merge_initrds(char **ret) {
                 if (to_seek != 0 && lseek(ofd, to_seek, SEEK_CUR) < 0)
                         return log_error_errno(errno, "Failed to seek %s: %m", merged_initrd);
 
-                ifd = open(*i, O_RDONLY|O_CLOEXEC);
+                ifd = xopenat(AT_FDCWD, *i, O_RDONLY);
                 if (ifd < 0)
-                        return log_error_errno(errno, "Failed to open %s: %m", *i);
+                        return log_error_errno(ifd, "Failed to open %s: %m", *i);
 
                 r = copy_bytes(ifd, ofd, UINT64_MAX, /* copy_flags= */ 0);
                 if (r < 0)
@@ -2135,7 +2137,7 @@ static int grow_image(const char *path, uint64_t size) {
         if (size == 0)
                 return 0;
 
-        _cleanup_close_ int fd = xopenat_full(AT_FDCWD, path, O_RDWR|O_CLOEXEC, XO_REGULAR, /* mode= */ 0);
+        _cleanup_close_ int fd = xopenat_full(AT_FDCWD, path, O_RDWR, XO_REGULAR, /* mode= */ 0);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open image file '%s': %m", path);
 
@@ -2166,7 +2168,7 @@ static int on_request_stop(sd_bus_message *m, void *userdata, sd_bus_error *erro
         assert(m);
 
         log_info("VM termination requested. Exiting.");
-        sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(m)), 0);
+        sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(m)), /* code= */ 0);
 
         return 0;
 }
@@ -2248,7 +2250,7 @@ static int prepare_efi_variable_store(const char *template, const char *sidecar_
                 if (!d)
                         return log_oom();
 
-                target_fd = openat_report_new(AT_FDCWD, arg_efi_nvram_state_path, O_RDWR|O_CREAT|O_CLOEXEC, 0600, &newly_created);
+                target_fd = openat_report_new(AT_FDCWD, arg_efi_nvram_state_path, O_RDWR|O_CREAT, 0600, &newly_created);
                 if (target_fd < 0)
                         return log_error_errno(target_fd, "Failed to open EFI variable store at %s: %m", arg_efi_nvram_state_path);
 
@@ -2260,7 +2262,7 @@ static int prepare_efi_variable_store(const char *template, const char *sidecar_
                                 return log_error_errno(r, "EFI variable store at %s is not a regular file: %m", arg_efi_nvram_state_path);
                 }
         } else {
-                target_fd = open_tmpfile_unlinkable(/* directory= */ NULL, O_RDWR|O_CLOEXEC);
+                target_fd = open_tmpfile_unlinkable(/* directory= */ NULL, O_RDWR);
                 if (target_fd < 0)
                         return log_error_errno(target_fd, "Failed to create temporary EFI variable store: %m");
 
@@ -2268,16 +2270,16 @@ static int prepare_efi_variable_store(const char *template, const char *sidecar_
         }
 
         if (newly_created) {
-                _cleanup_close_ int source_fd = open(template, O_RDONLY|O_CLOEXEC);
+                _cleanup_close_ int source_fd = xopenat(AT_FDCWD, template, O_RDONLY);
                 if (source_fd < 0)
-                        return log_error_errno(errno, "Failed to open EFI variable store template %s: %m", template);
+                        return log_error_errno(source_fd, "Failed to open EFI variable store template %s: %m", template);
 
                 r = copy_bytes(source_fd, target_fd, UINT64_MAX, /* copy_flags= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy EFI variable store template %s: %m", template);
 
                 /* This isn't always available so don't raise an error if it fails */
-                (void) copy_times(source_fd, target_fd, 0);
+                (void) copy_times(source_fd, target_fd, /* flags= */ 0);
         }
 
         destroy_path = mfree(destroy_path); /* disarm auto-destroy */
@@ -2348,7 +2350,7 @@ static int cmdline_add_ovmf(
                 return r;
 
         /* QEMU's block layer opens the drive read-only first, so it needs a matching fd in the fdset. */
-        vars_fds[1] = fd_reopen(vars_fds[0], O_RDONLY|O_CLOEXEC);
+        vars_fds[1] = fd_reopen(vars_fds[0], O_RDONLY);
         if (vars_fds[1] < 0)
                 return log_error_errno(vars_fds[1], "Failed to reopen EFI variable store read-only: %m");
 
@@ -2526,11 +2528,11 @@ static int prepare_primary_drive(DriveInfos *drives) {
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve disk driver for '%s': %m", image_fn);
 
-        int open_flags = ((arg_ephemeral || FLAGS_SET(d->flags, QMP_DRIVE_READ_ONLY)) ? O_RDONLY : O_RDWR) | O_CLOEXEC | O_NOCTTY;
+        int open_flags = ((arg_ephemeral || FLAGS_SET(d->flags, QMP_DRIVE_READ_ONLY)) ? O_RDONLY : O_RDWR) | O_NOCTTY;
 
-        _cleanup_close_ int image_fd = open(arg_image, open_flags);
+        _cleanup_close_ int image_fd = xopenat(AT_FDCWD, arg_image, open_flags);
         if (image_fd < 0)
-                return log_error_errno(errno, "Failed to open '%s': %m", arg_image);
+                return log_error_errno(image_fd, "Failed to open '%s': %m", arg_image);
 
         struct stat st;
         if (fstat(image_fd, &st) < 0)
@@ -2573,7 +2575,7 @@ static int prepare_primary_drive(DriveInfos *drives) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to extract directory from '%s': %m", image_path);
 
-                        overlay_fd = open_tmpfile_unlinkable(image_dir, O_RDWR|O_CLOEXEC);
+                        overlay_fd = open_tmpfile_unlinkable(image_dir, O_RDWR);
                         if (overlay_fd < 0)
                                 log_debug_errno(overlay_fd,
                                                 "Failed to create ephemeral overlay in '%s', using the directory for large temporary files instead: %m",
@@ -2587,7 +2589,7 @@ static int prepare_primary_drive(DriveInfos *drives) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to determine directory for large temporary files: %m");
 
-                        overlay_fd = open_tmpfile_unlinkable(overlay_dir, O_RDWR|O_CLOEXEC);
+                        overlay_fd = open_tmpfile_unlinkable(overlay_dir, O_RDWR);
                         if (overlay_fd < 0)
                                 return log_error_errno(overlay_fd, "Failed to create ephemeral overlay in '%s': %m", overlay_dir);
                 }
@@ -2630,9 +2632,9 @@ static int prepare_extra_drives(DriveInfos *drives) {
                 if (drive->read_only)
                         d->flags |= QMP_DRIVE_READ_ONLY;
 
-                _cleanup_close_ int drive_fd = open(drive->path, (FLAGS_SET(d->flags, QMP_DRIVE_READ_ONLY) ? O_RDONLY : O_RDWR) | O_CLOEXEC | O_NOCTTY);
+                _cleanup_close_ int drive_fd = xopenat(AT_FDCWD, drive->path, (FLAGS_SET(d->flags, QMP_DRIVE_READ_ONLY) ? O_RDONLY : O_RDWR) | O_NOCTTY);
                 if (drive_fd < 0)
-                        return log_error_errno(errno, "Failed to open '%s': %m", drive->path);
+                        return log_error_errno(drive_fd, "Failed to open '%s': %m", drive->path);
 
                 struct stat drive_st;
                 if (fstat(drive_fd, &drive_st) < 0)
@@ -2797,6 +2799,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         sd_event_source **children = NULL;
         size_t n_children = 0, n_pass_fds = 0;
+        bool balloon = arg_confidential_computing == COCO_NO;
+        uint64_t ram;
         int r;
 
         CLEANUP_ARRAY(children, n_children, fork_notify_terminate_many);
@@ -2931,7 +2935,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to find QEMU binary: %m");
 
-        if (asprintf(&mem, "%" PRIu64 "M", DIV_ROUND_UP(arg_ram, U64_MB)) < 0)
+        ram = DIV_ROUND_UP(arg_ram, U64_MB) * U64_MB;
+        if (asprintf(&mem, "%" PRIu64 "M", ram / U64_MB) < 0)
                 return log_oom();
 
         /* Create our runtime directory. We need this for the QMP varlink control socket, the QEMU
@@ -3033,9 +3038,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return r;
 
-        if (arg_confidential_computing == COCO_NO) {
+        if (balloon) {
                 r = qemu_config_section(config_file, "device", "balloon0",
                                         "driver", "virtio-balloon",
+                                        "deflate-on-oom", "on",
                                         "free-page-reporting", "on");
                 if (r < 0)
                         return r;
@@ -3118,7 +3124,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         (void) net_shorten_ifname(tap_name, /* check_naming_scheme= */ false);
 
                         if (ether_addr_is_null(&arg_network_provided_mac)) {
-                                r = net_generate_mac(arg_machine, &mac_vm, VM_TAP_HASH_KEY, 0);
+                                r = net_generate_mac(arg_machine, &mac_vm, VM_TAP_HASH_KEY, /* idx= */ 0);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to generate predictable MAC address for VM side: %m");
                         } else
@@ -3240,9 +3246,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 config.vsock.fd = TAKE_FD(vhost_device_fd);
 
                 if (config.vsock.fd < 0) {
-                        config.vsock.fd = open("/dev/vhost-vsock", O_RDWR|O_CLOEXEC);
+                        config.vsock.fd = xopenat(AT_FDCWD, "/dev/vhost-vsock", O_RDWR);
                         if (config.vsock.fd < 0)
-                                return log_error_errno(errno, "Failed to open /dev/vhost-vsock as read/write: %m");
+                                return log_error_errno(config.vsock.fd, "Failed to open /dev/vhost-vsock as read/write: %m");
                 }
 
                 r = vsock_fix_child_cid(config.vsock.fd, &child_cid, arg_machine);
@@ -3531,7 +3537,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (arg_ephemeral) {
                         r = create_ephemeral_snapshot(arg_directory,
                                                       arg_runtime_scope,
-                                                      /* read-only */ false,
+                                                      /* read_only= */ false,
                                                       &tree_global_lock,
                                                       &tree_local_lock,
                                                       &snapshot_directory);
@@ -3885,12 +3891,18 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
          * not covered by the launch measurement and are silently discarded by the guest PID1 in
          * confidential VMs. Instead, package credentials into a cpio archive appended to the initrd
          * (mirroring what systemd-stub does for ESP credentials) so they enter the launch measurement
-         * via QEMU's "kernel-hashes=on". The new initrd path requires a guest PID1 that knows about
-         * /.extra/system_credentials/, so we keep this scoped to SNP for now. Non-SNP guests
-         * continue to use the SMBIOS path below, which works with older systemd versions too.
+         * via QEMU's "kernel-hashes=on".
+         * Under --coco=tdx the guest PID1 accepts SMBIOS credentials only if systemd-stub or systemd-boot
+         * measured the SMBIOS table (the firmware's own SMBIOS measurement zeroes the OEM strings), so
+         * direct linux boot uses the cpio as well. The Linux EFI stub measures the initrd into RTMR 2
+         * there.
+         * The initrd path requires a guest PID1 that knows about /.extra/system_credentials/, so it stays
+         * limited to these cases and everything else continues to use the SMBIOS path below, which works
+         * with older systemd versions too.
          * Must run after all credential-mutating calls above so the cpio captures the complete set. */
-        bool use_initrd_cpio = arg_confidential_computing == COCO_SEV_SNP &&
-                               arg_credentials.n_credentials > 0;
+        bool use_initrd_cpio = arg_credentials.n_credentials > 0 &&
+                               (arg_confidential_computing == COCO_SEV_SNP ||
+                                (arg_confidential_computing == COCO_TDX && arg_linux && arg_linux_image_type != KERNEL_IMAGE_TYPE_UKI));
 
         _cleanup_(unlink_and_freep) char *credentials_cpio_path = NULL;
         if (use_initrd_cpio) {
@@ -3922,8 +3934,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
         }
 
-        /* Under SNP, credentials flow via the initrd cpio above. For everyone else, use the
-         * SMBIOS/fw_cfg/cmdline path. */
+        /* Where the initrd cpio carries the credentials (see above), skip the host channels. For
+         * everyone else, use the SMBIOS/fw_cfg/cmdline path. */
         if (!use_initrd_cpio) {
                 r = cmdline_add_credentials(&cmdline, smbios_dir_fd, smbios_dir);
                 if (r < 0)
@@ -4066,11 +4078,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                  * the monitor connection (which is 'master' here). Reopen it to get an independent open file
                  * description, so FORK_REARRANGE_STDIO can move it onto stdin/stdout/stderr without disturbing
                  * the fd we hand QEMU's console chardev via the fd set. */
-                child_pty = fd_reopen(console_backend_fd, O_RDWR|O_CLOEXEC|O_NOCTTY);
+                child_pty = fd_reopen(console_backend_fd, O_RDWR|O_NOCTTY);
                 if (child_pty < 0)
                         return log_error_errno(child_pty, "Failed to reopen PTY backend: %m");
         } else if (master >= 0) {
-                child_pty = pty_open_peer(master, O_RDWR|O_CLOEXEC|O_NOCTTY);
+                child_pty = pty_open_peer(master, O_RDWR|O_NOCTTY);
                 if (child_pty < 0)
                         return log_error_errno(child_pty, "Failed to open PTY slave: %m");
         }
@@ -4146,6 +4158,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return r;
 
+        r = vmspawn_memory_setup(bridge, ram, balloon);
+        if (r < 0)
+                return r;
+
         /* Resume vCPUs and switch to async event processing. The reset is only needed to power the
          * PCIe root port slots of boot-time devices. QEMU can only reset confidential guests if it can
          * rebuild their protected state, older versions shut them down instead. They only exist on x86,
@@ -4203,9 +4219,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 scope_allocated = true;
         } else {
                 if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM)
-                        r = cg_pid_get_unit(0, &unit);
+                        r = cg_pid_get_unit(/* pid= */ 0, &unit);
                 else
-                        r = cg_pid_get_user_unit(0, &unit);
+                        r = cg_pid_get_user_unit(/* pid= */ 0, &unit);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get our own unit: %m");
         }
@@ -4259,13 +4275,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
 
         if (system_bus) {
-                r = sd_bus_attach_event(system_bus, event, 0);
+                r = sd_bus_attach_event(system_bus, event, /* priority= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to attach system bus to event loop: %m");
         }
 
         if (user_bus) {
-                r = sd_bus_attach_event(user_bus, event, 0);
+                r = sd_bus_attach_event(user_bus, event, /* priority= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to attach user bus to event loop: %m");
         }
@@ -4288,13 +4304,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 .pidref = &child_pidref,
         };
 
-        (void) sd_event_add_signal(event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, shutdown_vm_graceful, &shutdown_info);
-        (void) sd_event_add_signal(event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, shutdown_vm_graceful, &shutdown_info);
-        (void) sd_event_add_signal(event, NULL, (SIGRTMIN+4) | SD_EVENT_SIGNAL_PROCMASK, shutdown_vm_graceful, &shutdown_info);
+        (void) sd_event_add_signal(event, /* ret= */ NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, shutdown_vm_graceful, &shutdown_info);
+        (void) sd_event_add_signal(event, /* ret= */ NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, shutdown_vm_graceful, &shutdown_info);
+        (void) sd_event_add_signal(event, /* ret= */ NULL, (SIGRTMIN+4) | SD_EVENT_SIGNAL_PROCMASK, shutdown_vm_graceful, &shutdown_info);
 
-        (void) sd_event_add_signal(event, NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, NULL);
+        (void) sd_event_add_signal(event, /* ret= */ NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
 
-        r = sd_event_add_memory_pressure(event, NULL, NULL, NULL);
+        r = sd_event_add_memory_pressure(event, /* ret= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
 
@@ -4428,7 +4444,7 @@ static int determine_names(void) {
                                 return log_oom();
 
                 hostname_cleanup(arg_machine);
-                if (!hostname_is_valid(arg_machine, 0))
+                if (!hostname_is_valid(arg_machine, /* flags= */ 0))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine machine name automatically, please use -M.");
         }
 
@@ -4625,7 +4641,7 @@ static int run(int argc, char *argv[]) {
                                  glyph(GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_normal());
         }
 
-        int n = sd_listen_fds_with_names(true, &names);
+        int n = sd_listen_fds_with_names(/* unset_environment= */ true, &names);
         if (n < 0)
                 return log_error_errno(n, "Failed to get passed file descriptors: %m");
 

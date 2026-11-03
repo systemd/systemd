@@ -51,7 +51,7 @@ bool image_name_is_valid(const char *s) {
         if (!filename_is_valid(s))
                 return false;
 
-        if (string_has_cc(s, NULL))
+        if (string_has_cc(s, /* ok= */ NULL))
                 return false;
 
         if (!utf8_is_valid(s))
@@ -107,7 +107,7 @@ int path_is_extension_tree(ImageClass image_class, const char *path, const char 
         /* We use /usr/lib/extension-release.d/extension-release[.NAME] as flag for something being a system extension,
          * /etc/extension-release.d/extension-release[.NAME] as flag for something being a system configuration, and finally,
          * and {/etc|/usr/lib}/os-release as a flag for something being an OS (when not an extension). */
-        r = open_extension_release(path, image_class, extension, relax_extension_release_check, NULL, NULL);
+        r = open_extension_release(path, image_class, extension, relax_extension_release_check, /* ret_path= */ NULL, /* ret_fd= */ NULL);
         if (r == -ENOENT) /* We got nothing */
                 return 0;
         if (r < 0)
@@ -191,9 +191,9 @@ int open_os_release(const char *root, char **ret_path, int *ret_fd) {
         int r;
 
         if (!empty_or_root(root)) {
-                rfd = open(root, O_CLOEXEC | O_DIRECTORY | O_PATH);
+                rfd = xopenat(AT_FDCWD, root, O_DIRECTORY | O_PATH);
                 if (rfd < 0)
-                        return -errno;
+                        return rfd;
         }
 
         r = open_os_release_at(rfd, ret_path ? &p : NULL, ret_fd ? &fd : NULL);
@@ -273,9 +273,9 @@ int open_extension_release_at(
 
                 /* We already chased the directory, and checked that this is a real file, so we shouldn't
                  * fail to open it. */
-                fd = openat(dirfd(dir), de->d_name, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+                fd = xopenat(dirfd(dir), de->d_name, O_PATH|O_NOFOLLOW);
                 if (fd < 0)
-                        return log_debug_errno(errno, "Failed to open release file %s/%s: %m", dir_path, de->d_name);
+                        return log_debug_errno(fd, "Failed to open release file %s/%s: %m", dir_path, de->d_name);
 
                 /* Really ensure it is a regular file after we open it. */
                 r = fd_verify_regular(fd);
@@ -339,9 +339,9 @@ int open_extension_release(
         int r;
 
         if (!empty_or_root(root)) {
-                rfd = open(root, O_CLOEXEC | O_DIRECTORY | O_PATH);
+                rfd = xopenat(AT_FDCWD, root, O_DIRECTORY | O_PATH);
                 if (rfd < 0)
-                        return -errno;
+                        return rfd;
         }
 
         r = open_extension_release_at(rfd, image_class, extension, relax_extension_release_check,
@@ -411,9 +411,9 @@ int parse_extension_release_sentinel(
         int r;
 
         if (!empty_or_root(root)) {
-                rfd = open(root, O_CLOEXEC | O_DIRECTORY | O_PATH);
+                rfd = xopenat(AT_FDCWD, root, O_DIRECTORY | O_PATH);
                 if (rfd < 0)
-                        return -errno;
+                        return rfd;
         }
 
         va_start(ap, extension);

@@ -697,7 +697,7 @@ static int display(Context *c) {
                 table_set_header(table, false);
 
         for (Column col = 0; col < _COLUMN_MAX; col++) {
-                TableCell *cell = ASSERT_PTR(table_get_cell(table, 0, col));
+                TableCell *cell = ASSERT_PTR(table_get_cell(table, /* row= */ 0, col));
 
                 (void) table_set_uppercase(table, cell, false);
 
@@ -1022,7 +1022,7 @@ static int redisplay(Context *c) {
          * in sd_fiber_ppoll() at this point, wake it up so that it looks at next_display again. The fiber
          * sees -EBUSY for such an unrelated wakeup. If it is not suspended (anymore), it looks at
          * next_display before it suspends the next time anyway, so a lost wakeup costs nothing. */
-        return sd_fiber_resume(c->fiber, 0);
+        return sd_fiber_resume(c->fiber, /* result= */ 0);
 }
 
 static int on_sigwinch(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
@@ -1048,14 +1048,14 @@ static int on_sigtstp(sd_event_source *s, const struct signalfd_siginfo *si, voi
 
         r = sigprocmask_many(SIG_UNBLOCK, /* ret_old_mask= */ NULL, SIGTSTP);
         if (r < 0)
-                return sd_event_exit(sd_event_source_get_event(s), log_error_errno(r, "Faield to unblock SIGTSTP: %m"));
+                return sd_event_exit(sd_event_source_get_event(s), log_error_errno(r, "Failed to unblock SIGTSTP: %m"));
 
         if (raise(SIGTSTP) < 0)
                 log_debug_errno(errno, "Failed to raise SIGTSTP, ignoring: %m");
 
         r = sigprocmask_many(SIG_BLOCK, /* ret_old_mask= */ NULL, SIGTSTP);
         if (r < 0)
-                return sd_event_exit(sd_event_source_get_event(s), log_error_errno(r, "Faield to block SIGTSTP: %m"));
+                return sd_event_exit(sd_event_source_get_event(s), log_error_errno(r, "Failed to block SIGTSTP: %m"));
 
         r = modify_console(c);
         if (r < 0)

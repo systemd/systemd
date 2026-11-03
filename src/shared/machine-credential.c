@@ -102,71 +102,119 @@ static int machine_credential_add_and_log(
         return 0;
 }
 
+int machine_credential_split(const char *s, char **ret_id, const char **ret_value) {
+        _cleanup_free_ char *id = NULL;
+        const char *p = ASSERT_PTR(s);
+        int r;
+
+        assert(ret_id);
+        assert(ret_value);
+
+        /* Splits "ID:VALUE" at the first ':'. Doesn't validate the ID, so that callers can log it. Returns
+         * -EBADMSG if there's no separator. */
+
+        r = extract_first_word(&p, &id, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0)
+                return r;
+        if (r == 0 || !p)
+                return -EBADMSG;
+
+        *ret_id = TAKE_PTR(id);
+        *ret_value = p;
+        return 0;
+}
+
+static bool machine_credential_source_valid(const char *source) {
+        assert(source);
+
+        return (is_path(source) && path_is_valid(source)) || credential_name_valid(source);
+}
+
+int machine_credential_read(const char *source, struct iovec *ret) {
+        ReadFullFileFlags flags = READ_FULL_FILE_SECURE;
+        _cleanup_free_ char *path_alloc = NULL;
+        int r;
+
+        assert(source);
+        assert(ret);
+
+        /* Reads a credential from a path (which may refer to an AF_UNIX socket), or from a credential passed
+         * to us, if the source is a credential name. Returns -ENXIO in the latter case if we didn't receive
+         * any credentials. Doesn't log. */
+
+        if (is_path(source) && path_is_valid(source))
+                flags |= READ_FULL_FILE_CONNECT_SOCKET;
+        else if (credential_name_valid(source)) {
+                const char *e;
+
+                r = get_credentials_dir(&e);
+                if (r < 0)
+                        return r;
+
+                path_alloc = path_join(e, source);
+                if (!path_alloc)
+                        return -ENOMEM;
+
+                source = path_alloc;
+        } else
+                return -EINVAL;
+
+        return read_full_file_full(
+                        AT_FDCWD, source,
+                        /* offset= */ UINT64_MAX,
+                        /* size= */ SIZE_MAX,
+                        flags,
+                        /* bind_name= */ NULL,
+                        (char**) &ret->iov_base, &ret->iov_len);
+}
 
 int machine_credential_set(MachineCredentialContext *ctx, const char *cred_str) {
+        _cleanup_free_ char *id = NULL;
+        const char *p;
         int r;
 
         assert(ctx);
+        assert(cred_str);
 
-        const char *p = ASSERT_PTR(cred_str);
-        _cleanup_free_ char *id = NULL;
-        r = extract_first_word(&p, &id, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        /* Don't log the argument or the data on failure, they might be secret. */
+
+        r = machine_credential_split(cred_str, &id, &p);
+        if (r == -EBADMSG)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing ':' separator in --set-credential= argument.");
         if (r < 0)
                 return log_error_errno(r, "Failed to parse --set-credential= parameter: %m");
-        if (r == 0 || !p)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Missing value for --set-credential=: %s", cred_str);
 
-        _cleanup_free_ char *data = NULL;
+        _cleanup_(erase_and_freep) char *data = NULL;
         ssize_t l;
         l = cunescape(p, UNESCAPE_ACCEPT_NUL, &data);
         if (l < 0)
-                return log_error_errno(l, "Failed to unescape credential data: %s", p);
+                return log_error_errno(l, "Failed to unescape data of credential '%s': %m", id);
 
         return machine_credential_add_and_log(ctx, id, data, l);
 }
 
 int machine_credential_load(MachineCredentialContext *ctx, const char *cred_path) {
+        _cleanup_free_ char *id = NULL;
+        const char *p;
         int r;
 
         assert(ctx);
+        assert(cred_path);
 
-        const char *p = ASSERT_PTR(cred_path);
-        _cleanup_free_ char *id = NULL;
-        r = extract_first_word(&p, &id, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        r = machine_credential_split(cred_path, &id, &p);
+        if (r == -EBADMSG)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for --load-credential=: %s", cred_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse --load-credential= parameter: %m");
-        if (r == 0 || !p)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for --load-credential=: %s", cred_path);
 
-        ReadFullFileFlags flags = READ_FULL_FILE_SECURE;
-        _cleanup_free_ char *path_alloc = NULL;
-        if (is_path(p) && path_is_valid(p))
-                flags |= READ_FULL_FILE_CONNECT_SOCKET;
-        else if (credential_name_valid(p)) {
-                const char *e;
-
-                r = get_credentials_dir(&e);
-                if (r < 0)
-                        return log_error_errno(r, "Credential not available (no credentials passed at all): %s", p);
-
-                path_alloc = path_join(e, p);
-                if (!path_alloc)
-                        return log_oom();
-
-                p = path_alloc;
-        } else
+        if (!machine_credential_source_valid(p))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Credential source appears to be neither a valid path nor a credential name: %s", p);
 
         _cleanup_(iovec_done_erase) struct iovec iov = {};
-        r = read_full_file_full(
-                        AT_FDCWD, p,
-                        /* offset= */ UINT64_MAX,
-                        /* size= */ SIZE_MAX,
-                        flags,
-                        /* bind_name= */ NULL,
-                        (char**) &iov.iov_base, &iov.iov_len);
+        r = machine_credential_read(p, &iov);
+        if (r == -ENXIO && !is_path(p))
+                return log_error_errno(r, "Credential not available (no credentials passed at all): %s", p);
         if (r < 0)
                 return log_error_errno(r, "Failed to read credential '%s': %m", p);
 

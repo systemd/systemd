@@ -1120,4 +1120,5 @@ global:
         sd_journal_get_data_to_fd;
         sd_varlink_invoke_and_upgrade;
         sd_varlink_invoke_and_upgradeb;
+        sd_varlink_wants_reply;
 } LIBSYSTEMD_262;

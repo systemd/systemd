@@ -142,7 +142,7 @@ int bus_home_get_record_json(
         if (r < 0)
                 return r;
 
-        r = sd_json_variant_format(augmented->json, 0, ret);
+        r = sd_json_variant_format(augmented->json, /* flags= */ 0, ret);
         if (r < 0)
                 return r;
 
@@ -233,7 +233,7 @@ int bus_home_method_deactivate(
 
         assert(message);
 
-        r = home_deactivate(h, false, error);
+        r = home_deactivate(h, /* force= */ false, error);
         if (r < 0)
                 return r;
 
@@ -276,7 +276,7 @@ int bus_home_method_unregister(
 
         /* Note that home_unregister() destroyed 'h' here, so no more accesses */
 
-        return sd_bus_reply_method_return(message, NULL);
+        return sd_bus_reply_method_return(message, /* types= */ NULL);
 }
 
 int bus_home_method_realize(
@@ -305,7 +305,7 @@ int bus_home_method_realize(
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = home_create(h, secret, NULL, 0, error);
+        r = home_create(h, secret, /* blobs= */ NULL, /* flags= */ 0, error);
         if (r < 0)
                 return r;
 
@@ -346,7 +346,7 @@ int bus_home_method_remove(
         if (r < 0)
                 return r;
         if (r > 0) /* Done already. Note that home_remove() destroyed 'h' here, so no more accesses */
-                return sd_bus_reply_method_return(message, NULL);
+                return sd_bus_reply_method_return(message, /* types= */ NULL);
 
         assert(!h->current_operation);
 
@@ -628,7 +628,7 @@ int bus_home_method_lock(
         if (r < 0)
                 return r;
         if (r > 0) /* Done */
-                return sd_bus_reply_method_return(message, NULL);
+                return sd_bus_reply_method_return(message, /* types= */ NULL);
 
         /* The operation is now in process, keep track of this message so that we can later reply to it. */
         assert(!h->current_operation);
@@ -969,7 +969,7 @@ static int on_deferred_change(sd_event_source *s, void *userdata) {
         }
 
         if (h->announced)
-                r = sd_bus_emit_properties_changed_strv(h->manager->bus, path, "org.freedesktop.home1.Home", NULL);
+                r = sd_bus_emit_properties_changed_strv(h->manager->bus, path, "org.freedesktop.home1.Home", /* names= */ NULL);
         else
                 r = sd_bus_emit_object_added(h->manager->bus, path);
         if (r < 0)

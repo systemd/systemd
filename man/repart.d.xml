@@ -995,6 +995,25 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ManifestName=</varname></term>
+
+        <listitem><para>Configures the suffix to append to the manifest file written for the partition when
+        the <option>--manifest</option> option of
+        <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry> is
+        used. The manifest describes the file system tree the partition was populated with (via
+        <varname>CopyFiles=</varname>, <varname>MakeDirectories=</varname>, <varname>MakeSymlinks=</varname>),
+        in the <ulink url="https://uapi-group.org/specifications/specs/file_manifest/">UAPI.16 File
+        Manifest</ulink> format, i.e. what
+        <citerefentry><refentrytitle>systemd-manifest</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        would generate for the tree. Simple specifier expansion is supported, see below, the same
+        specifiers as for <varname>SplitName=</varname> are understood. Defaults to <literal>%t</literal>.
+        To disable manifest generation for a partition, set <varname>ManifestName=</varname> to
+        <literal>-</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Minimize=</varname></term>
 
         <listitem><para>Takes one of <literal>off</literal>, <literal>best</literal>, and
@@ -1070,6 +1089,23 @@
         This option will be overridden by the global <varname>--tpm2-pcrs=</varname> option.</para>
 
         <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>TPM2PublicKeyPolicyRef=</varname></term>
+
+        <listitem><para>Configures the policy reference to bind the signed PCR policy to for LUKS2 volumes
+        configured with the <varname>Encrypt=tpm2</varname> setting in partition files. Takes the same
+        parameter as the <option>--tpm2-public-key-policyref=</option> option of
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        and has the same effect on partitions where TPM2 enrollment is requested. For example, set it to
+        <literal>initrd</literal> to only allow unlocking the partition from the initrd, given the PCR
+        signatures for that policy reference were created with <option>--sign-initrd-pcrs</option> of
+        <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry>. The
+        setting has no effect if no PCR public key is used. This option will be overridden by the global
+        <option>--tpm2-public-key-policyref=</option> option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1288,7 +1324,8 @@
 
     <para>Specifiers may be used in the <varname>Label=</varname>, <varname>CopyBlocks=</varname>,
     <varname>CopyFiles=</varname>, <varname>MakeDirectories=</varname>, <varname>MakeSymlinks=</varname>,
-    <varname>SplitName=</varname> settings. The following expansions are understood:</para>
+    <varname>SplitName=</varname>, <varname>ManifestName=</varname> settings. The following expansions are
+    understood:</para>
       <table class='specifiers'>
         <title>Specifiers available</title>
         <tgroup cols='3' align='left' colsep='1' rowsep='1'>
@@ -1323,8 +1360,8 @@
         </tgroup>
       </table>
 
-    <para>Additionally, for the <varname>SplitName=</varname> setting, the following specifiers are also
-    understood:</para>
+    <para>Additionally, for the <varname>SplitName=</varname> and <varname>ManifestName=</varname> settings,
+    the following specifiers are also understood:</para>
       <table class='specifiers'>
         <title>Specifiers available</title>
         <tgroup cols='3' align='left' colsep='1' rowsep='1'>
