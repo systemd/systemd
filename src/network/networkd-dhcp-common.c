@@ -462,7 +462,7 @@ int config_parse_ndisc_route_metric(
 
         Network *network = ASSERT_PTR(userdata);
         uint32_t metric_high, metric_medium, metric_low;
-        int r, s, t;
+        int r;
 
         assert(filename);
         assert(rvalue);
@@ -483,10 +483,10 @@ int config_parse_ndisc_route_metric(
                 }
 
                 r = safe_atou32(high, &metric_high);
-                s = safe_atou32(medium, &metric_medium);
-                t = safe_atou32(low, &metric_low);
-                if (r < 0 || s < 0 || t < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r < 0 ? r : s < 0 ? s : t,
+                RET_GATHER(r, safe_atou32(medium, &metric_medium));
+                RET_GATHER(r, safe_atou32(low, &metric_low));
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse RouteTable=%s, ignoring assignment: %m", rvalue);
                         return 0;
                 }
