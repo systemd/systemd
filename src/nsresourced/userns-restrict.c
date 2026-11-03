@@ -80,9 +80,13 @@ int userns_restrict_install(
                                 log_warning_errno(r, "Failed to create '%s', ignoring: %m", d);
                 }
 
-                map = sym_bpf_object__next_map(obj->obj, /* map= */ NULL);
-                while (map) {
+                for (map = sym_bpf_object__next_map(obj->obj, /* map= */ NULL); map;
+                     map = sym_bpf_object__next_map(obj->obj, map)) {
                         _cleanup_free_ char *fn = NULL;
+
+                        /* Internal maps (.rodata) are per object, and bpffs refuses their dotted names */
+                        if (sym_bpf_map__is_internal(map))
+                                continue;
 
                         fn = path_join(MAP_LINK_PREFIX, sym_bpf_map__name(map));
                         if (!fn)
@@ -91,8 +95,6 @@ int userns_restrict_install(
                         r = sym_bpf_map__set_pin_path(map, fn);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set pin path to '%s': %m", fn);
-
-                        map = sym_bpf_object__next_map(obj->obj, map);
                 }
         }
 
