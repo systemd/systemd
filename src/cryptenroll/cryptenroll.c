@@ -185,6 +185,7 @@ void enroll_context_done(EnrollContext *c) {
         c->tpm2_device_key = mfree(c->tpm2_device_key);
         c->tpm2_hash_pcr_values = mfree(c->tpm2_hash_pcr_values);
         c->tpm2_public_key = mfree(c->tpm2_public_key);
+        c->tpm2_public_key_policyref = mfree(c->tpm2_public_key_policyref);
         c->tpm2_signature = mfree(c->tpm2_signature);
         c->tpm2_pcrlock = mfree(c->tpm2_pcrlock);
         c->wipe_slots = mfree(c->wipe_slots);
@@ -677,7 +678,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("tpm2-public-key-policyref", "STRING",
                             "Enroll signed TPM2 PCR policy with the specified policy reference"):
-                        r = free_and_strdup_warn(&arg_tpm2_public_key_policyref, opts.arg);
+                        /* An empty policy reference is none, rather than one that no signature matches */
+                        r = free_and_strdup_warn(&arg_tpm2_public_key_policyref, empty_to_null(opts.arg));
                         if (r < 0)
                                 return r;
                         break;
