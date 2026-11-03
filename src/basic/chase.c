@@ -107,9 +107,9 @@ static int chase_openat2(int root_fd, int dir_fd, const char *path, ChaseFlags c
                 if (path_is_absolute(path))
                         dir_fd = AT_FDCWD;
                 else {
-                        dir_fd_local = open("/", O_CLOEXEC|O_DIRECTORY|O_PATH);
+                        dir_fd_local = xopenat(AT_FDCWD, "/", O_DIRECTORY|O_PATH);
                         if (dir_fd_local < 0)
-                                return -errno;
+                                return dir_fd_local;
                         dir_fd = dir_fd_local;
                 }
         }

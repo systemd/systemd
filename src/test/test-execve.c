@@ -2,6 +2,7 @@
 
 #include "exec-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "strv.h"
@@ -26,9 +27,9 @@ static int run(int argc, char **argv) {
 
         char **args = strv_skip(argv, 1) ?: STRV_MAKE("/bin/true");
 
-        _cleanup_close_ int fd = open(args[0], O_RDONLY | O_CLOEXEC);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, args[0], O_RDONLY);
         if (fd < 0)
-                return log_error_errno(errno, "open(%s) failed: %m", args[0]);
+                return log_error_errno(fd, "open(%s) failed: %m", args[0]);
 
         r = ASSERT_FAIL(fexecve_or_execve(fd, args[0], args, /* envp= */ NULL));
         return log_error_errno(r, "fexecve_or_execve(%s) failed: %m", args[0]);

@@ -12,6 +12,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "terminal-util.h"
 #include "tests.h"
 #include "time-util.h"
@@ -433,7 +434,7 @@ TEST(fiber_io_pty) {
         if (master < 0)
                 return (void) log_tests_skipped_errno(master, "Failed to allocate a pty");
 
-        _cleanup_close_ int slave = ASSERT_OK_ERRNO(open(peer, O_RDWR|O_NOCTTY|O_CLOEXEC));
+        _cleanup_close_ int slave = ASSERT_OK(xopenat(AT_FDCWD, peer, O_RDWR|O_NOCTTY));
 
         struct termios t;
         ASSERT_OK_ERRNO(tcgetattr(slave, &t));
@@ -979,8 +980,8 @@ TEST(fiber_io_sendmsg_recvmsg_fd) {
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, sockfd));
 
         /* Create a test file descriptor to send */
-        _cleanup_close_ int test_fd = open("/dev/null", O_RDONLY | O_CLOEXEC);
-        ASSERT_OK_ERRNO(test_fd);
+        _cleanup_close_ int test_fd = xopenat(AT_FDCWD, "/dev/null", O_RDONLY);
+        ASSERT_OK(test_fd);
 
         _cleanup_(sd_future_unrefp) sd_future *fs = NULL, *fr = NULL;
         int args[2] = { sockfd[0], test_fd };

@@ -10,6 +10,7 @@
 #include "chattr-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "journal-file-util.h"
 #include "journal-internal.h"
 #include "logs-show.h"
@@ -70,9 +71,9 @@ static int open_archive_file(sd_journal **ret) {
                 if (newest_realtime >= realtime)
                         continue;
 
-                fd = openat(dirfd(d), de->d_name, O_CLOEXEC | O_NONBLOCK | O_RDONLY);
+                fd = xopenat(dirfd(d), de->d_name, O_NONBLOCK | O_RDONLY);
                 if (fd < 0) {
-                        log_info_errno(errno, "Failed to open /var/log/journal/%s, ignoring: %m", de->d_name);
+                        log_info_errno(fd, "Failed to open /var/log/journal/%s, ignoring: %m", de->d_name);
                         continue;
                 }
 
