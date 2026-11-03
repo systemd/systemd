@@ -422,7 +422,7 @@ int config_parse_dhcp_route_metric(
         r = safe_atou32(rvalue, &metric);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse RouteMetric=%s, ignoring assignment: %m", rvalue);
+                           "Failed to parse %s=%s, ignoring assignment: %m", lvalue, rvalue);
                 return 0;
         }
 
@@ -478,7 +478,7 @@ int config_parse_ndisc_route_metric(
                         return log_oom();
                 if (r != 3 || !isempty(p)) {
                         log_syntax(unit, LOG_WARNING, filename, line, r < 0 ? r : 0,
-                                   "Failed to parse RouteTable=%s, ignoring assignment: %m", rvalue);
+                                   "Failed to parse %s=%s, ignoring assignment: %m", lvalue, rvalue);
                         return 0;
                 }
 
@@ -487,13 +487,13 @@ int config_parse_ndisc_route_metric(
                 RET_GATHER(r, safe_atou32(low, &metric_low));
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse RouteTable=%s, ignoring assignment: %m", rvalue);
+                                   "Failed to parse %s=%s, ignoring assignment: %m", lvalue, rvalue);
                         return 0;
                 }
 
                 if (metric_high >= metric_medium || metric_medium >= metric_low) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Invalid RouteTable=%s, ignoring assignment: %m", rvalue);
+                                   "Invalid %s=%s, ignoring assignment.", lvalue, rvalue);
                         return 0;
                 }
         }
@@ -530,7 +530,7 @@ int config_parse_dhcp_send_hostname(
         r = parse_boolean(rvalue);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse SendHostname=%s, ignoring assignment: %m", rvalue);
+                           "Failed to parse %s=%s, ignoring assignment: %m", lvalue, rvalue);
                 return 0;
         }
 
@@ -581,7 +581,7 @@ int config_parse_dhcp_or_ra_route_table(
         r = manager_get_route_table_from_string(network->manager, rvalue, &rt);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse RouteTable=%s, ignoring assignment: %m", rvalue);
+                           "Failed to parse %s=%s, ignoring assignment: %m", lvalue, rvalue);
                 return 0;
         }
 
@@ -783,7 +783,7 @@ int config_parse_dhcp6_send_option(
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r <= 0 || isempty(p)) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r < 0 ? r : 0,
                                    "Invalid DHCP option, ignoring assignment: %s", rvalue);
                         return 0;
                 }
@@ -801,7 +801,7 @@ int config_parse_dhcp6_send_option(
         if (r == -ENOMEM)
                 return log_oom();
         if (r <= 0 || isempty(p)) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r < 0 ? r : 0,
                            "Invalid DHCP option, ignoring assignment: %s", rvalue);
                 return 0;
         }
@@ -823,7 +823,7 @@ int config_parse_dhcp6_send_option(
         if (r == -ENOMEM)
                 return log_oom();
         if (r <= 0 || isempty(p)) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r < 0 ? r : 0,
                            "Invalid DHCP option, ignoring assignment: %s", rvalue);
                 return 0;
         }
@@ -968,7 +968,7 @@ int config_parse_dhcp_option(
         if (r == -ENOMEM)
                 return log_oom();
         if (r <= 0 || isempty(p))
-                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+                return log_syntax_parse_error(unit, filename, line, r < 0 ? r : 0, lvalue, rvalue);
 
         DHCPOptionDataType type = dhcp_option_data_type_from_string(word);
         if (type < 0)
@@ -1085,7 +1085,7 @@ int config_parse_dhcp_option_tlv(
         if (r == -ENOMEM)
                 return log_oom();
         if (r <= 0 || isempty(p))
-                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+                return log_syntax_parse_error(unit, filename, line, r < 0 ? r : 0, lvalue, rvalue);
 
         uint8_t code;
         r = safe_atou8(word, &code);
@@ -1250,7 +1250,7 @@ int config_parse_duid_type(
                 usec_t u;
 
                 if (type != DUID_TYPE_LLT) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "Invalid syntax, ignoring: %s", rvalue);
                         return 0;
                 }
