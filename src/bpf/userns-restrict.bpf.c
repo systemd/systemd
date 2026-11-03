@@ -69,6 +69,13 @@ void* bpf_rdonly_cast(const void *, __u32) __ksym;
 #define OVERLAYFS_SUPER_MAGIC 0x794c7630
 #define CGROUP2_SUPER_MAGIC 0x63677270
 
+/* From include/uapi/linux/fs.h, for the same reason. */
+#define RENAME_WHITEOUT (1U << 2)
+
+/* From include/uapi/asm-generic/fcntl.h. Only archs without BPF trampolines (no LSM programs) deviate. */
+#define O_EXCL (1U << 7)
+#define __O_TMPFILE (1U << 22) /* O_TMPFILE without O_DIRECTORY */
+
 struct {
         __uint(type, BPF_MAP_TYPE_HASH);
         __uint(max_entries, 1);        /* placeholder, configured otherwise by nsresourced */
@@ -386,8 +393,8 @@ int BPF_PROG(userns_restrict_path_mkdir, struct path *dir, struct dentry *dentry
         return validate_mount(dir->mnt, ret);
 }
 
-/* The mknod hook covers all file creations, including regular files, in case the reader is looking for a
- * missing hook for open(). */
+/* The mknod hook covers all named file creations, including regular files, in case the reader is looking for
+ * a missing hook for open(). O_TMPFILE is handled by the file_open hook below. */
 SEC("lsm/path_mknod")
 int BPF_PROG(userns_restrict_path_mknod, const struct path *dir, struct dentry *dentry, umode_t mode, unsigned dev, int ret) {
         return validate_mount(dir->mnt, ret);
@@ -401,6 +408,32 @@ int BPF_PROG(userns_restrict_path_symlink, const struct path *dir, struct dentry
 SEC("lsm/path_link")
 int BPF_PROG(userns_restrict_path_link, struct dentry *old_dentry, const struct path *new_dir, struct dentry *new_dentry, int ret) {
         return validate_mount(new_dir->mnt, ret);
+}
+
+/* O_TMPFILE creates an inode past all of the path hooks above, and whoever holds the fd may name it later,
+ * including a task outside of the user namespace. Only O_EXCL makes it unlinkable, see vfs_link(). */
+SEC("lsm/file_open")
+int BPF_PROG(userns_restrict_file_open, struct file *file, int ret) {
+        if (ret != 0) /* propagate earlier error */
+                return ret;
+
+        if (!(file->f_flags & __O_TMPFILE) || (file->f_flags & O_EXCL))
+                return 0;
+
+        return validate_mount(file->f_path.mnt, ret);
+}
+
+/* RENAME_WHITEOUT puts a whiteout owned by the calling task in place of the source, past the mknod hook */
+SEC("lsm/path_rename")
+int BPF_PROG(userns_restrict_path_rename, const struct path *old_dir, struct dentry *old_dentry,
+             const struct path *new_dir, struct dentry *new_dentry, unsigned flags, int ret) {
+        if (ret != 0) /* propagate earlier error */
+                return ret;
+
+        if (!(flags & RENAME_WHITEOUT))
+                return 0;
+
+        return validate_mount(old_dir->mnt, ret);
 }
 
 /* overlayfs' struct ovl_fs and struct ovl_layer are private to the module and hence absent from vmlinux.h
