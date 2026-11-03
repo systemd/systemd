@@ -42,6 +42,11 @@ typedef struct SegmentedField {
         uint64_t offset; /* of the data object, or of the InlineData structure */
 } SegmentedField;
 
+typedef struct SegmentedTailData {
+        uint64_t offset;
+        size_t value;
+} SegmentedTailData;
+
 typedef struct SegmentedResult {
         uint64_t key[2];
         uint64_t last_used;
@@ -56,6 +61,12 @@ typedef struct SegmentedResult {
         uint64_t *hashes;
         uint64_t *confirmed; /* offset of a data object known to have this value, or 0 */
         size_t n_values;
+
+        /* The data objects in [tail_begin, tail_end) whose hash is the hash of a value, by offset */
+        uint64_t tail_begin, tail_end;
+        SegmentedTailData *tail_data;
+        size_t n_tail_data;
+        uint64_t n_tail_evaluated; /* entries of the tail that were evaluated */
 
         /* For a single value, so that the result can be rebuilt without the match */
         char *value;

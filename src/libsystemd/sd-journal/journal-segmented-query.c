@@ -389,6 +389,7 @@ void segmented_result_done(SegmentedResult *result) {
         posting_bitmap_done(&result->verified);
         free(result->hashes);
         free(result->confirmed);
+        free(result->tail_data);
         free(result->value);
 
         *result = (SegmentedResult) {};
@@ -510,9 +511,95 @@ static int evaluate_index(
 
 typedef struct EntryFields {
         const SegmentedField *fields;
-        uint64_t *hashes;
         size_t n_fields;
 } EntryFields;
+
+static bool tail_data_has(const SegmentedResult *result, uint64_t offset, size_t value) {
+        size_t left = 0, right = result->n_tail_data;
+
+        /* Usually only a few data objects in the tail have the hash of a value */
+        if (result->n_tail_data <= 8) {
+                FOREACH_ARRAY(d, result->tail_data, result->n_tail_data)
+                        if (d->offset == offset && d->value == value)
+                                return true;
+
+                return false;
+        }
+
+        while (left < right) {
+                size_t m = left + (right - left) / 2;
+
+                if (result->tail_data[m].offset < offset)
+                        left = m + 1;
+                else
+                        right = m;
+        }
+
+        for (; left < result->n_tail_data && result->tail_data[left].offset == offset; left++)
+                if (result->tail_data[left].value == value)
+                        return true;
+
+        return false;
+}
+
+static int result_walk_tail(JournalFile *f, SegmentedResult *result) {
+        Segmented *a = ASSERT_PTR(ASSERT_PTR(f)->segmented);
+        uint64_t p;
+        int r;
+
+        assert(result);
+
+        /* An entry of the tail refers to data objects in the tail. Each data object is read once here to
+         * find the ones with the hash of a value. Without this, matching reads the hash of each data object
+         * of each entry. */
+
+        if (result->tail_begin != a->tail_offset || result->tail_end < a->tail_offset) {
+                result->tail_data = mfree(result->tail_data);
+                result->n_tail_data = 0;
+                result->tail_begin = result->tail_end = a->tail_offset;
+        }
+
+        p = result->tail_end;
+
+        for (;;) {
+                ObjectHeader h;
+                uint64_t q;
+                Object *o;
+
+                r = segmented_walk(f, &p, a->scan_offset, &h, &q);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                if (h.type != OBJECT_DATA) {
+                        result->tail_end = p;
+                        continue;
+                }
+
+                r = journal_file_move_to_object(f, OBJECT_DATA, q, &o);
+                if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r))
+                        continue;
+                if (r < 0)
+                        return r;
+
+                if (!GREEDY_REALLOC(result->tail_data, result->n_tail_data + result->n_values))
+                        return -ENOMEM;
+
+                for (size_t v = 0; v < result->n_values; v++) {
+                        if (le64toh(o->segmented_data.hash) != result->hashes[v])
+                                continue;
+
+                        result->tail_data[result->n_tail_data++] = (SegmentedTailData) {
+                                .offset = q,
+                                .value = v,
+                        };
+                }
+                result->tail_end = p;
+        }
+
+        return 0;
+}
 
 static int evaluate_entry(
                 JournalFile *f,
@@ -545,8 +632,22 @@ static int evaluate_entry(
                                 continue;
                         }
 
-                        if (e->hashes[i] != result->hashes[v])
-                                continue;
+                        uint64_t offset = e->fields[i].offset;
+
+                        if (offset >= result->tail_begin && offset < result->tail_end) {
+                                if (!tail_data_has(result, offset, v))
+                                        continue;
+                        } else {
+                                uint64_t hash;
+
+                                r = data_hash(f, offset, &hash);
+                                if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r))
+                                        continue;
+                                if (r < 0)
+                                        return r;
+                                if (hash != result->hashes[v])
+                                        continue;
+                        }
 
                         if (result->confirmed[v] == e->fields[i].offset)
                                 return 1;
@@ -585,7 +686,6 @@ static int evaluate_entry(
 }
 
 static int evaluate_ordinal(JournalFile *f, SegmentedResult *result, Match *m, uint64_t ordinal) {
-        _cleanup_free_ uint64_t *hashes = NULL;
         EntryFields e = {};
         size_t value = 0;
         uint64_t p;
@@ -599,23 +699,6 @@ static int evaluate_ordinal(JournalFile *f, SegmentedResult *result, Match *m, u
         r = segmented_entry_fields(f, o, p, &e.fields, &e.n_fields);
         if (r < 0)
                 return r;
-
-        hashes = new(uint64_t, e.n_fields);
-        if (!hashes)
-                return -ENOMEM;
-
-        for (size_t i = 0; i < e.n_fields; i++) {
-                hashes[i] = 0;
-
-                if (e.fields[i].type != SEGMENTED_FIELD_DATA)
-                        continue;
-
-                r = data_hash(f, e.fields[i].offset, hashes + i);
-                if (r < 0 && !ERRNO_IS_NEG_JOURNAL_CORRUPTION(r))
-                        return r;
-        }
-
-        e.hashes = hashes;
 
         return evaluate_entry(f, result, &e, m, &value);
 }
@@ -721,14 +804,16 @@ static int result_extend(JournalFile *f, SegmentedResult *result, Match *m) {
                 result->n_evaluated = i->n_entries;
         }
 
-        for (uint64_t o = MAX(result->n_evaluated, a->n_indexed_entries); o < n; o++) {
-                r = evaluate_ordinal(f, result, m, o);
+        /* The tail has no index. Its entries become candidates that result_find() evaluates when it
+         * reaches them. A reader that only reads a few entries, such as the last 10, hence does not
+         * evaluate the whole tail. */
+        uint64_t start = MAX(result->n_evaluated, a->n_indexed_entries);
+        if (start < n) {
+                r = result_set_inexact(result);
                 if (r < 0)
                         return r;
-                if (r > 0)
-                        posting_bitmap_set_range(&result->candidates, o, 1);
-                if (!result->exact)
-                        posting_bitmap_set_range(&result->verified, o, 1);
+
+                posting_bitmap_set_range(&result->candidates, start, n - start);
         }
 
         result->n_evaluated = n;
@@ -790,6 +875,8 @@ static int result_acquire(JournalFile *f, Match *m, const uint64_t key[static 2]
         return 0;
 }
 
+#define RESULT_WALK_TAIL_AFTER 256U
+
 static int result_find(
                 JournalFile *f,
                 SegmentedResult *result,
@@ -849,6 +936,15 @@ static int result_find(
                 if (result->exact || posting_bitmap_isset(&result->verified, o)) {
                         *ret = o;
                         return 1;
+                }
+
+                /* Reading the data objects of the tail once makes each later evaluation cheaper. A reader
+                 * that evaluates only a few entries, such as the last 10 matches of a unit that logs
+                 * often, is faster without it. */
+                if (o >= f->segmented->n_indexed_entries && ++result->n_tail_evaluated >= RESULT_WALK_TAIL_AFTER) {
+                        r = result_walk_tail(f, result);
+                        if (r < 0)
+                                return r;
                 }
 
                 r = evaluate_ordinal(f, result, m, o);
