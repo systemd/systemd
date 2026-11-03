@@ -71,7 +71,9 @@
           access. Unless set to <literal>off</literal> early boot networking is enabled, ensuring that the
           IMDS endpoint can be reached. If set to <literal>locked</literal> direct access to
           the IMDS endpoint by regular unprivileged processes is disabled via a "prohibit" route, so that any
-          access must be done through <filename>systemd-imdsd@.service</filename> or its associated tools. If
+          access must be done through <filename>systemd-imdsd@.service</filename> or its associated tools;
+          that turns off IPv4 reverse path filtering on these links (see <varname>IPv4ReversePathFilter=</varname> in
+          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>). If
           set to <literal>unlocked</literal> (the default) this "prohibit" route is not created, and regular unprivileged
           processes can directly contact IMDS.</para>
 

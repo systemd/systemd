@@ -21,6 +21,9 @@ at_exit() {
     rmdir /run/systemd/system/systemd-imdsd@.service.d
     # cached negative entries would short-circuit the /flaky retry on a rerun
     rm -rf /run/systemd/imds/cache/veth-imds
+    rm -rf /run/systemd/network/85-imds-early.network /run/systemd/network/85-imds-early.network.d \
+           /run/systemd/resolve/static.d/imds-endpoint.rr
+    networkctl reload
     rm -rf "$WORK_DIR"
 }
 
@@ -156,3 +159,55 @@ systemctl daemon-reload
 (! /usr/lib/systemd/systemd-imds --import 2>"$WORK_DIR/import.err")
 cat "$WORK_DIR/import.err"
 grep -F "Failed to parse IP address 'piff'" "$WORK_DIR/import.err" >/dev/null
+
+# Lock down IMDS access to imdsd (systemd.imds.network=locked), with the networking which
+# "systemd-imdsd --setup-network" generates and networkd applies. This needs IMDS at its usual link-local
+# address, as the prohibit route covers only that.
+ip -n imds addr add 169.254.169.254/32 dev veth-imds-peer
+IMDSD_LOCKED=("${IMDSD[@]}" --data-url=http://169.254.169.254:8088 --address-ipv4=169.254.169.254)
+SYSTEMD_PROC_CMDLINE=systemd.imds.network=locked "${IMDSD_LOCKED[@]}" --setup-network
+cat /run/systemd/network/85-imds-early.network
+grep -Fx "Type=prohibit" /run/systemd/network/85-imds-early.network >/dev/null
+
+# The generated .network matches physical Ethernet links only, and asks for DHCP. Apply it to the veth
+# instead, with its static address.
+mkdir -p /run/systemd/network/85-imds-early.network.d
+cat >/run/systemd/network/85-imds-early.network.d/50-test.conf <<EOF
+[Match]
+Kind=
+Name=veth-imds
+
+[Network]
+DHCP=no
+Address=192.168.47.11/24
+EOF
+
+systemctl start systemd-networkd
+networkctl reload
+/usr/lib/systemd/systemd-networkd-wait-online --interface=veth-imds --timeout=30
+networkctl status veth-imds
+ip route show table all
+ip rule show
+sysctl net.ipv4.conf.all.rp_filter net.ipv4.conf.veth-imds.rp_filter
+
+# imdsd marks its sockets, which routes them around the prohibit route. IMDS's replies carry no mark, so
+# this also needs reverse path filtering off, which the generated .network does on the link. But the kernel
+# applies the maximum of that and net.ipv4.conf.all.rp_filter, which some distributions turn on (e.g.
+# Ubuntu). Then the reverse path filter still drops the replies.
+if [[ "$(sysctl -n net.ipv4.conf.all.rp_filter)" == 0 ]]; then
+    assert_eq "$("${IMDSD_LOCKED[@]}" --interface=veth-imds /hostname)" "piff"
+else
+    echo "WARNING: net.ipv4.conf.all.rp_filter is on, imdsd cannot reach IMDS in locked mode"
+    # Do not wait for imdsd's overall 40s timeout (too annoying); instead, check that reverse path filtering drops the replies
+    rp_filter_drops() { nstat -asz TcpExtIPReversePathFilter | awk '/IPReversePathFilter/ { print $2 }'; }
+    DROPS="$(rp_filter_drops)"
+    RC=0
+    timeout 5 "${IMDSD_LOCKED[@]}" --interface=veth-imds /hostname || RC=$?
+    assert_eq "$RC" 124
+    (( "$(rp_filter_drops)" > DROPS ))
+fi
+
+# Everybody else gets blocked
+(! bash -c 'echo >/dev/tcp/169.254.169.254/8088' 2>"$WORK_DIR/connect.err")
+cat "$WORK_DIR/connect.err"
+grep -F "Permission denied" "$WORK_DIR/connect.err" >/dev/null
