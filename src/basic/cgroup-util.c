@@ -742,6 +742,29 @@ int cg_pid_get_path_shifted(pid_t pid, const char *root, char **ret_cgroup) {
         return strdup_to(ret_cgroup, c);
 }
 
+int cg_pidref_get_path_shifted(const PidRef *pidref, const char *root, char **ret_cgroup) {
+        _cleanup_free_ char *raw = NULL;
+        const char *c;
+        int r;
+
+        assert(ret_cgroup);
+
+        r = cg_pidref_get_path(pidref, &raw);
+        if (r < 0)
+                return r;
+
+        r = cg_shift_path(raw, root, &c);
+        if (r < 0)
+                return r;
+
+        if (c == raw) {
+                *ret_cgroup = TAKE_PTR(raw);
+                return 0;
+        }
+
+        return strdup_to(ret_cgroup, c);
+}
+
 int cg_path_decode_unit(const char *cgroup, char **ret_unit) {
         assert(cgroup);
 

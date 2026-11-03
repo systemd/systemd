@@ -180,6 +180,8 @@ static int run(int argc, char * argv[]) {
         };
         int r;
 
+        log_setup();
+
         r = sd_event_default(&event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");

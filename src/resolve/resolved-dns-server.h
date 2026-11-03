@@ -36,6 +36,9 @@ typedef enum DnsServerFeatureLevel {
 #define DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(x) ((x) >= DNS_SERVER_FEATURE_LEVEL_DO)
 #define DNS_SERVER_FEATURE_LEVEL_IS_UDP(x) IN_SET(x, DNS_SERVER_FEATURE_LEVEL_UDP, DNS_SERVER_FEATURE_LEVEL_EDNS0, DNS_SERVER_FEATURE_LEVEL_DO)
 
+/* The number of times we will attempt a certain feature set before degrading */
+#define DNS_SERVER_FEATURE_RETRY_ATTEMPTS 3
+
 DECLARE_STRING_TABLE_LOOKUP(dns_server_feature_level, DnsServerFeatureLevel);
 
 typedef struct DnsServer {

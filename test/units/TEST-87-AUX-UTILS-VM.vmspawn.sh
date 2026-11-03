@@ -292,4 +292,22 @@ timeout 10 bash -c "while kill -0 '$VMSPAWN_PID' 2>/dev/null; do sleep .5; done"
 timeout 10 bash -c "while kill -0 '$VMSPAWN2_PID' 2>/dev/null; do sleep .5; done"
 echo "Both vmspawn processes exited"
 
+# --- QEMU startup failure ---
+# With a console PTY, vmspawn must still show QEMU's own error when QEMU refuses to start.
+if SYSTEMD_VMSPAWN_QEMU_EXTRA="-device does-not-exist" timeout 30 systemd-vmspawn \
+    --directory="$WORKDIR/root" \
+    --linux="$KERNEL" \
+    --tpm=no \
+    --console=read-only \
+    &>"$WORKDIR/vmspawn-qemu-error.log"; then
+    echo "vmspawn unexpectedly succeeded with an unknown QEMU device"
+    exit 1
+fi
+if ! grep "'does-not-exist' is not a valid device model name" "$WORKDIR/vmspawn-qemu-error.log"; then
+    echo "Full vmspawn log:"
+    cat "$WORKDIR/vmspawn-qemu-error.log"
+    exit 1
+fi
+echo "QEMU's error is shown when it fails to start"
+
 echo "All vmspawn QMP-varlink bridge tests passed"
