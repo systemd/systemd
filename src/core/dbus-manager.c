@@ -886,15 +886,43 @@ static int method_enqueue_unit_job_many(sd_bus_message *message, void *userdata,
         if (mode < 0)
                 return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Job mode %s invalid", smode);
 
-        r = mac_selinux_access_check(message, job_type_to_access_method(type), reterr_error);
-        if (r < 0)
-                return r;
+        /* Callers without privileges get a polkit query for each unit (see below), and every answer
+         * restarts the processing of this message, so bound the work they can ask for. */
+        if (strv_length(names) > MANAGER_MAX_POLKIT_NAMES) {
+                r = sd_bus_query_sender_privilege(message, /* capability= */ -1);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return sd_bus_error_setf(
+                                        reterr_error, SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Too many unit names, at most %u are allowed without privileges.",
+                                        (unsigned) MANAGER_MAX_POLKIT_NAMES);
+        }
 
-        r = bus_verify_manage_units_async(m, message, reterr_error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+        /* Authorize every requested unit before enqueuing any jobs. In particular, pass the unit and
+         * verb to polkit just as the single-unit methods do. */
+        STRV_FOREACH(name, names) {
+                Unit *u;
+
+                r = manager_load_unit(m, *name, /* path= */ NULL, reterr_error, &u);
+                if (r < 0)
+                        return r;
+
+                r = mac_selinux_unit_access_check(u, message, job_type_to_access_method(type), reterr_error);
+                if (r < 0)
+                        return r;
+
+                r = bus_verify_manage_units_async_full(
+                                u,
+                                jtype,
+                                N_("Authentication is required to manage unit '$(unit)'."),
+                                message,
+                                reterr_error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 1; /* The async polkit check will call us again when it has a result. */
+        }
 
         jobs = set_new(NULL);
         if (!jobs)
