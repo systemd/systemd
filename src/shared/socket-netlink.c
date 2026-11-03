@@ -62,7 +62,7 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                 union in_addr_union address;
                 int family, ifindex;
 
-                r = in_addr_port_ifindex_name_from_string_auto(s, &family, &address, &port, &ifindex, NULL);
+                r = in_addr_port_ifindex_name_from_string_auto(s, &family, &address, &port, &ifindex, /* ret_server_name= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -124,7 +124,7 @@ int socket_address_parse_netlink(SocketAddress *a, const char *s) {
         assert(a);
         assert(s);
 
-        r = extract_first_word(&s, &word, NULL, 0);
+        r = extract_first_word(&s, &word, /* separators= */ NULL, /* flags= */ 0);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -273,7 +273,7 @@ int in_addr_port_ifindex_name_from_string_auto(
                         return -EINVAL; /* We want to return -EINVAL for syntactically invalid names,
                                          * and -ENODEV for valid but nonexistent interfaces. */
 
-                ifindex = rtnl_resolve_interface(NULL, m + 1);
+                ifindex = rtnl_resolve_interface(/* rtnl= */ NULL, m + 1);
                 if (ifindex < 0)
                         return ifindex;
 
@@ -456,7 +456,7 @@ int netns_get_nsid(int netnsfd, uint32_t *ret) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call(rtnl, req, 0, &reply);
+        r = sd_netlink_call(rtnl, req, /* timeout= */ 0, &reply);
         if (r < 0)
                 return r;
 

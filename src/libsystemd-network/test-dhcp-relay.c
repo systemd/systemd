@@ -166,7 +166,7 @@ static int fake_server_handler(sd_event_source *s, int fd, uint32_t revents, voi
                 ASSERT_EQ(t, DHCP_RELEASE);
 
                 if (fake_client_message_count == 3)
-                        ASSERT_OK(sd_event_exit(sd_event_source_get_event(s), 0));
+                        ASSERT_OK(sd_event_exit(sd_event_source_get_event(s), /* code= */ 0));
                 break;
         default:
                 assert_not_reached();
@@ -221,7 +221,7 @@ static int fake_client_handler(sd_event_source *s, int fd, uint32_t revents, voi
                 fake_client_verify(fd, DHCP_NAK, /* raw= */ false);
 
                 if (fake_server_message_count == 3)
-                        ASSERT_OK(sd_event_exit(sd_event_source_get_event(s), 0));
+                        ASSERT_OK(sd_event_exit(sd_event_source_get_event(s), /* code= */ 0));
                 break;
         default:
                 assert_not_reached();

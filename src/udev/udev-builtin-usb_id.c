@@ -14,6 +14,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "string-util.h"
 #include "strxcpyx.h"
 #include "udev-builtin.h"
@@ -117,9 +118,9 @@ static int dev_if_packed_info(sd_device *dev, char *ifs_str, size_t len) {
                 return r;
 
         filename = strjoina(syspath, "/descriptors");
-        fd = open(filename, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        fd = xopenat(AT_FDCWD, filename, O_RDONLY|O_NOCTTY);
         if (fd < 0)
-                return log_device_debug_errno(dev, errno, "Failed to open \"%s\": %m", filename);
+                return log_device_debug_errno(dev, fd, "Failed to open \"%s\": %m", filename);
 
         size = read(fd, buf, sizeof(buf));
         if (size < 18)
@@ -268,7 +269,7 @@ static int builtin_usb_id(UdevEvent *event, int argc, char *argv[]) {
                 }
                 encode_devnode_name(scsi_vendor, vendor_str_enc, sizeof(vendor_str_enc));
                 udev_replace_whitespace(scsi_vendor, vendor_str, sizeof(vendor_str)-1);
-                udev_replace_chars(vendor_str, NULL);
+                udev_replace_chars(vendor_str, /* allow= */ NULL);
 
                 r = sd_device_get_sysattr_value(dev_scsi, "model", &scsi_model);
                 if (r < 0) {
@@ -277,7 +278,7 @@ static int builtin_usb_id(UdevEvent *event, int argc, char *argv[]) {
                 }
                 encode_devnode_name(scsi_model, model_str_enc, sizeof(model_str_enc));
                 udev_replace_whitespace(scsi_model, model_str, sizeof(model_str)-1);
-                udev_replace_chars(model_str, NULL);
+                udev_replace_chars(model_str, /* allow= */ NULL);
 
                 unsigned scsi_type;
                 r = device_get_sysattr_unsigned(dev_scsi, "type", &scsi_type);
@@ -293,7 +294,7 @@ static int builtin_usb_id(UdevEvent *event, int argc, char *argv[]) {
                         goto fallback;
                 }
                 udev_replace_whitespace(scsi_rev, revision_str, sizeof(revision_str)-1);
-                udev_replace_chars(revision_str, NULL);
+                udev_replace_chars(revision_str, /* allow= */ NULL);
 
                 /*
                  * some broken devices have the same identifiers
@@ -319,7 +320,7 @@ fallback:
                         usb_vendor = vendor_id;
                 encode_devnode_name(usb_vendor, vendor_str_enc, sizeof(vendor_str_enc));
                 udev_replace_whitespace(usb_vendor, vendor_str, sizeof(vendor_str)-1);
-                udev_replace_chars(vendor_str, NULL);
+                udev_replace_chars(vendor_str, /* allow= */ NULL);
         }
 
         if (model_str[0] == '\0') {
@@ -329,7 +330,7 @@ fallback:
                         usb_model = product_id;
                 encode_devnode_name(usb_model, model_str_enc, sizeof(model_str_enc));
                 udev_replace_whitespace(usb_model, model_str, sizeof(model_str)-1);
-                udev_replace_chars(model_str, NULL);
+                udev_replace_chars(model_str, /* allow= */ NULL);
         }
 
         if (revision_str[0] == '\0') {
@@ -337,7 +338,7 @@ fallback:
 
                 if (sd_device_get_sysattr_value(dev_usb, "bcdDevice", &usb_rev) >= 0) {
                         udev_replace_whitespace(usb_rev, revision_str, sizeof(revision_str)-1);
-                        udev_replace_chars(revision_str, NULL);
+                        udev_replace_chars(revision_str, /* allow= */ NULL);
                 }
         }
 
@@ -354,7 +355,7 @@ fallback:
 
                         if (usb_serial) {
                                 udev_replace_whitespace(usb_serial, serial_str, sizeof(serial_str)-1);
-                                udev_replace_chars(serial_str, NULL);
+                                udev_replace_chars(serial_str, /* allow= */ NULL);
                         }
                 }
         }
@@ -367,7 +368,7 @@ fallback:
         if (!isempty(instance_str))
                 strpcpyl(&s, l, "-", instance_str, NULL);
 
-        if (sd_device_get_property_value(dev, "ID_BUS", NULL) >= 0)
+        if (sd_device_get_property_value(dev, "ID_BUS", /* ret= */ NULL) >= 0)
                 log_device_debug(dev, "ID_BUS property is already set, setting only properties prefixed with \"ID_USB_\".");
         else {
                 udev_builtin_add_property(event, "ID_BUS", "usb");

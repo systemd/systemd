@@ -34,7 +34,16 @@
 #include "strv.h"
 #include "time-util.h"
 #include "unit-name.h"
+#include "verbs.h"
 #include "virt.h"
+
+COMMAND(
+        "systemd-gpt-auto-generator\0",
+        "Discover and mount partitions based on GPT partition type UUIDs.",
+        .argspec = GENERATOR_ARGSPEC,
+        .man_pages = "systemd-gpt-auto-generator(8)\0",
+        .option_namespace = "common",
+);
 
 typedef enum MountPointFlags {
         MOUNT_RW         = 1 << 0,
@@ -99,7 +108,7 @@ static int add_cryptsetup(
         if (r < 0)
                 return r;
 
-        r = generator_write_cryptsetup_unit_section(f, NULL);
+        r = generator_write_cryptsetup_unit_section(f, /* source= */ NULL);
         if (r < 0)
                 return r;
 
@@ -136,7 +145,7 @@ static int add_cryptsetup(
                         log_debug("Will not measure volume key of volume '%s', as OS measurements are not explicitly requested and not booted via systemd-stub with measurements enabled.", id);
         }
 
-        r = generator_write_cryptsetup_service_section(f, id, what, NULL, options);
+        r = generator_write_cryptsetup_service_section(f, id, what, /* key_file= */ NULL, options);
         if (r < 0)
                 return r;
 
@@ -189,14 +198,20 @@ static int add_cryptsetup(
 }
 
 #if ENABLE_EFI
+static bool image_policy_requires_signature(PartitionDesignator d) {
+        PartitionPolicyFlags f = image_policy_get_exhaustively(arg_image_policy ?: &image_policy_host, d);
+        return f >= 0 && FLAGS_SET(f, PARTITION_POLICY_SIGNED) && !FLAGS_SET(f, PARTITION_POLICY_VERITY);
+}
+
 static int add_veritysetup(
                 const char *id,
                 const char *data_what,
                 const char *hash_what,
                 const char *mount_opts,
-                MountPointFlags flags) {
+                MountPointFlags flags,
+                bool require_signature) {
 
-#if HAVE_LIBCRYPTSETUP
+#if ENABLE_VERITYSETUP
         int r;
 
         assert(id);
@@ -240,6 +255,9 @@ static int add_veritysetup(
         _cleanup_free_ char *options =
                 strdup("root-hash-signature=auto"); /* auto means: derive signature from udev property ID_DISSECT_PART_ROOTHASH_SIG */
         if (!options)
+                return log_oom();
+
+        if (require_signature && !strextend_with_separator(&options, ",", "root-hash-signature-required=yes"))
                 return log_oom();
 
         if (FLAGS_SET(flags, MOUNT_MEASURE)) {
@@ -296,7 +314,7 @@ static int add_veritysetup(
 
         return 0;
 #else
-        log_warning("Compiled without libcryptsetup support, skipping verity setup for '%s'.", id);
+        log_warning("Compiled without systemd-veritysetup support, skipping verity setup for '%s'.", id);
         return 0;
 #endif
 }
@@ -865,17 +883,15 @@ static int add_root_mount(void) {
          * factory reset the latter is the link to use, otherwise the former (so that we don't accidentally
          * mount a root partition too early that is about to be wiped and replaced by another one). */
 
-        const char *bdev =
-                IN_SET(arg_auto_root, GPT_AUTO_ROOT_DISSECT, GPT_AUTO_ROOT_DISSECT_FORCE) ?
-                "/dev/disk/by-designator/root" : "/dev/gpt-auto-root";
+        bool dissect = IN_SET(arg_auto_root, GPT_AUTO_ROOT_DISSECT, GPT_AUTO_ROOT_DISSECT_FORCE);
+        const char *bdev = dissect ? "/dev/disk/by-designator/root" : "/dev/gpt-auto-root";
         if (IN_SET(arg_auto_root, GPT_AUTO_ROOT_FORCE, GPT_AUTO_ROOT_DISSECT_FORCE)) {
                 FactoryResetMode f = factory_reset_mode();
                 if (f < 0)
                         log_warning_errno(f, "Failed to determine whether we are in factory reset mode, assuming not: %m");
 
                 if (IN_SET(f, FACTORY_RESET_ON, FACTORY_RESET_COMPLETE))
-                        bdev =
-                                IN_SET(arg_auto_root, GPT_AUTO_ROOT_DISSECT, GPT_AUTO_ROOT_DISSECT_FORCE) ?
+                        bdev = dissect ?
                                 "/dev/disk/by-designator/root-ignore-factory-reset" :
                                 "/dev/gpt-auto-root-ignore-factory-reset";
         }
@@ -898,7 +914,8 @@ static int add_root_mount(void) {
                                 "/dev/disk/by-designator/root-verity-data",
                                 "/dev/disk/by-designator/root-verity",
                                 arg_root_options,
-                                MOUNT_MEASURE);
+                                MOUNT_MEASURE,
+                                /* require_signature= */ dissect && image_policy_requires_signature(PARTITION_ROOT));
                 if (r < 0)
                         return r;
         }
@@ -981,7 +998,8 @@ static int add_usr_mount(void) {
                                 "/dev/disk/by-designator/usr-verity-data",
                                 "/dev/disk/by-designator/usr-verity",
                                 arg_usr_options,
-                                MOUNT_MEASURE);
+                                MOUNT_MEASURE,
+                                /* require_signature= */ image_policy_requires_signature(PARTITION_USR));
                 if (r < 0)
                         return r;
         }
@@ -1179,7 +1197,7 @@ static int enumerate_partitions(dev_t devnum) {
                         &m);
         if (r < 0) {
                 bool ok = r == -ENOPKG;
-                dissect_log_error(ok ? LOG_DEBUG : LOG_ERR, r, devname, NULL);
+                dissect_log_error(ok ? LOG_DEBUG : LOG_ERR, r, devname, /* verity= */ NULL);
                 return ok ? 0 : r;
         }
 
@@ -1372,7 +1390,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 return 0;
         }
 
-        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
+        r = proc_cmdline_parse(parse_proc_cmdline_item, /* userdata= */ NULL, /* flags= */ 0);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 

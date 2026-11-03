@@ -71,7 +71,7 @@ static int find_empty_passphrase_slots(struct crypt_device *cd, Set *wipe_slots,
                 if (!vk)
                         return log_oom();
 
-                r = sym_crypt_volume_key_get(cd, slot, vk, &vks, "", 0);
+                r = sym_crypt_volume_key_get(cd, slot, vk, &vks, "", /* passphrase_size= */ 0);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to acquire volume key from slot %i with empty password, ignoring: %m", slot);
                         continue;
@@ -106,7 +106,7 @@ static int find_slots_by_mask(
                 sd_json_variant *w, *z;
                 EnrollType t;
 
-                r = cryptsetup_get_token_as_json(cd, token, NULL, &v);
+                r = cryptsetup_get_token_as_json(cd, token, /* verify_type= */ NULL, &v);
                 if (IN_SET(r, -ENOENT, -EINVAL))
                         continue;
                 if (r < 0) {
@@ -150,7 +150,7 @@ static int find_slots_by_mask(
                                 /* If we shall remove all plain password slots, let's maintain a list of
                                  * slots that are listed in any tokens, since those are *NOT* plain
                                  * passwords */
-                                if (set_ensure_allocated(&listed_slots, NULL) < 0)
+                                if (set_ensure_allocated(&listed_slots, /* hash_ops= */ NULL) < 0)
                                         return log_oom();
 
                                 if (set_put(listed_slots, INT_TO_PTR(slot)) < 0)
@@ -206,7 +206,7 @@ static int find_slot_tokens(struct crypt_device *cd, Set *wipe_slots, Set *keep_
                 bool shall_wipe = false;
                 sd_json_variant *w, *z;
 
-                r = cryptsetup_get_token_as_json(cd, token, NULL, &v);
+                r = cryptsetup_get_token_as_json(cd, token, /* verify_type= */ NULL, &v);
                 if (IN_SET(r, -ENOENT, -EINVAL))
                         continue;
                 if (r < 0) {
@@ -332,9 +332,9 @@ int wipe_slots(const EnrollContext *c,
          * Plus: We always want to exclude the slots/tokens we just added.
          */
 
-        wipe_slots = set_new(NULL);
-        keep_slots = set_new(NULL);
-        wipe_tokens = set_new(NULL);
+        wipe_slots = set_new(/* hash_ops= */ NULL);
+        keep_slots = set_new(/* hash_ops= */ NULL);
+        wipe_tokens = set_new(/* hash_ops= */ NULL);
         if (!wipe_slots || !keep_slots || !wipe_tokens)
                 return log_oom();
 
@@ -457,7 +457,7 @@ int wipe_slots(const EnrollContext *c,
         }
 
         for (size_t i = n_ordered_tokens; i > 0; i--) {
-                r = sym_crypt_token_json_set(cd, ordered_tokens[i - 1], NULL);
+                r = sym_crypt_token_json_set(cd, ordered_tokens[i - 1], /* json= */ NULL);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to wipe token %i, continuing: %m", ordered_tokens[i - 1]);
                         if (ret == 0)

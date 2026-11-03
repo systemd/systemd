@@ -36,6 +36,7 @@
 #include "analyze-nvpcrs.h"
 #include "analyze-pcrs.h"
 #include "analyze-plot.h"
+#include "analyze-restart-delays.h"
 #include "analyze-security.h"
 #include "analyze-service-watchdogs.h"
 #include "analyze-smbios11.h"
@@ -163,13 +164,13 @@ int bus_get_unit_property_strv(sd_bus *bus, const char *path, const char *proper
 }
 
 void time_parsing_hint(const char *p, bool calendar, bool timestamp, bool timespan) {
-        if (calendar && calendar_spec_from_string(p, NULL) >= 0)
+        if (calendar && calendar_spec_from_string(p, /* ret= */ NULL) >= 0)
                 log_notice("Hint: this expression is a valid calendar specification. "
                            "Use 'systemd-analyze calendar \"%s\"' instead?", p);
-        if (timestamp && parse_timestamp(p, NULL) >= 0)
+        if (timestamp && parse_timestamp(p, /* ret= */ NULL) >= 0)
                 log_notice("Hint: this expression is a valid timestamp. "
                            "Use 'systemd-analyze timestamp \"%s\"' instead?", p);
-        if (timespan && parse_time(p, NULL, USEC_PER_SEC) >= 0)
+        if (timespan && parse_time(p, /* ret= */ NULL, USEC_PER_SEC) >= 0)
                 log_notice("Hint: this expression is a valid timespan. "
                            "Use 'systemd-analyze timespan \"%s\"' instead?", p);
 }
@@ -276,6 +277,8 @@ VERB_SCOPE(, verb_security, "security", "[UNIT...]\0", VERB_ANY, VERB_ANY, 0,
            "Analyze security of unit");
 VERB_SCOPE(, verb_fdstore, "fdstore", "SERVICE...\0", 2, VERB_ANY, 0,
            "Show file descriptor store contents of service");
+VERB_SCOPE(, verb_restart_delays, "restart-delays", "SERVICE...\0", 2, VERB_ANY, 0,
+           "Show restart delays and start limit of service");
 VERB_SCOPE(, verb_malloc, "malloc", "[D-BUS SERVICE...]\0", VERB_ANY, VERB_ANY, 0,
            "Dump malloc stats of a D-Bus service");
 VERB_SCOPE(, verb_unit_gdb, "unit-gdb", "SERVICE\0", 2, VERB_ANY, 0,
@@ -446,7 +449,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_instance = opts.arg;
                         break;
 
-                OPTION_LONG("offline", "BOOL", "Perform a security review on unit files"):
+                OPTION_LONG("offline", "BOOL", "Analyze unit files instead of loaded units"):
                         r = parse_boolean_argument("--offline", opts.arg, &arg_offline);
                         if (r < 0)
                                 return r;
@@ -572,21 +575,21 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         if (!args || strv_prepend(&args, verb) < 0)                                 /* args is now [arg0, arg1, arg2, …] */
                 return log_oom();
 
-        if (arg_offline && !streq_ptr(verb, "security"))
+        if (arg_offline && !STRPTR_IN_SET(verb, "security", "restart-delays"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Option --offline= is only supported for security right now.");
+                                       "Option --offline= is only supported for security and restart-delays right now.");
 
         if (arg_offline && strv_length(args) < 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Option --offline= requires one or more units to perform a security review.");
+                                       "Option --offline= requires one or more units.");
 
         if (arg_json_format_flags != SD_JSON_FORMAT_OFF &&
             !STRPTR_IN_SET(verb,
                            "security", "inspect-elf", "dlopen-metadata", "plot", "fdstore", "pcrs", "nvpcrs",
                            "architectures", "cpu-features", "capability", "exit-status", "chid", "blame",
-                           "identify-tpm2"))
+                           "identify-tpm2", "restart-delays"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Option --json= is only supported for security, inspect-elf, dlopen-metadata, plot, fdstore, pcrs, nvpcrs, architectures, cpu-features, capability, exit-status, chid, blame, identify-tpm2 right now.");
+                                       "Option --json= is only supported for security, inspect-elf, dlopen-metadata, plot, fdstore, pcrs, nvpcrs, architectures, cpu-features, capability, exit-status, chid, blame, identify-tpm2, restart-delays right now.");
 
         if (arg_threshold != 100 && !streq_ptr(verb, "security"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -606,9 +609,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
         if ((arg_root || arg_image) &&
             !STRPTR_IN_SET(verb, "cat-config", "verify", "condition", "inspect-elf", "unit-gdb") &&
-            (!(streq_ptr(verb, "security") && arg_offline)))
+            (!(STRPTR_IN_SET(verb, "security", "restart-delays") && arg_offline)))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Options --root= and --image= are only supported for cat-config, verify, condition, unit-gdb, and security when used with --offline= right now.");
+                                       "Options --root= and --image= are only supported for cat-config, verify, condition, unit-gdb, and for security and restart-delays with --offline= right now.");
 
         /* Having both an image and a root is not supported by the code */
         if (arg_root && arg_image)

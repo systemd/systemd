@@ -240,9 +240,9 @@ int block_device_new_from_path(const char *path, BlockDeviceLookupFlags flags, s
         assert(path);
         assert(ret);
 
-        fd = open(path, O_CLOEXEC|O_PATH);
+        fd = xopenat(AT_FDCWD, path, O_PATH);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return block_device_new_from_fd(fd, flags, ret);
 }
@@ -323,9 +323,9 @@ int get_block_device(const char *path, dev_t *ret) {
         assert(path);
         assert(ret);
 
-        fd = open(path, O_RDONLY|O_NOFOLLOW|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, path, O_RDONLY|O_NOFOLLOW);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return get_block_device_fd(fd, ret);
 }
@@ -373,9 +373,9 @@ int get_block_device_harder(const char *path, dev_t *ret) {
         assert(path);
         assert(ret);
 
-        fd = open(path, O_RDONLY|O_NOFOLLOW|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, path, O_RDONLY|O_NOFOLLOW);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return get_block_device_harder_fd(fd, ret);
 }
@@ -395,7 +395,7 @@ int lock_whole_block_device(dev_t devt, int open_flags, int operation) {
         if (r < 0)
                 return r;
 
-        lock_fd = device_open_from_devnum(S_IFBLK, whole_devt, open_flags|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, NULL);
+        lock_fd = device_open_from_devnum(S_IFBLK, whole_devt, open_flags|O_NONBLOCK|O_NOCTTY, /* ret_devname= */ NULL);
         if (lock_fd < 0)
                 return lock_fd;
 
@@ -517,7 +517,7 @@ int blockdev_partscan_enabled_fd(int fd) {
 
         assert(fd >= 0);
 
-        r = block_device_new_from_fd(fd, 0, &dev);
+        r = block_device_new_from_fd(fd, /* flags= */ 0, &dev);
         if (r < 0)
                 return r;
 
@@ -642,9 +642,9 @@ int fd_get_whole_disk(int fd, bool backing, dev_t *ret) {
 int path_get_whole_disk(const char *path, bool backing, dev_t *ret) {
         _cleanup_close_ int fd = -EBADF;
 
-        fd = open(path, O_CLOEXEC|O_PATH);
+        fd = xopenat(AT_FDCWD, path, O_PATH);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return fd_get_whole_disk(fd, backing, ret);
 }
@@ -770,7 +770,7 @@ int block_device_remove_all_partitions(sd_device *dev, int fd) {
         assert(dev || fd >= 0);
 
         if (!dev) {
-                r = block_device_new_from_fd(fd, 0, &dev_unref);
+                r = block_device_new_from_fd(fd, /* flags= */ 0, &dev_unref);
                 if (r < 0)
                         return r;
 
@@ -782,7 +782,7 @@ int block_device_remove_all_partitions(sd_device *dev, int fd) {
                 return r;
 
         if (fd < 0) {
-                fd_close = sd_device_open(dev, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_RDONLY);
+                fd_close = device_open(dev, O_NONBLOCK|O_NOCTTY|O_RDONLY);
                 if (fd_close < 0)
                         return fd_close;
 
@@ -963,12 +963,24 @@ int blockdev_zero_out(int fd, uint64_t offset, uint64_t size) {
                 return r;
 
         /* Now let the kernel zero out the aligned part in the middle, if it can */
-        if (ioctl(fd, BLKZEROOUT, (uint64_t[2]) { aligned_start, aligned_end - aligned_start }) < 0) {
+        uint64_t range[] = { aligned_start, aligned_end - aligned_start };
+        r = RET_NERRNO(ioctl(fd, BLKZEROOUT, range));
+        if (r == -EBUSY) {
+                /* If another partition is in use, our payload and incomplete-sector writes may prevent
+                 * the kernel from invalidating dirty pages. Synchronize them and retry once to retain
+                 * offloading before falling back to buffered writes. */
+                log_debug_errno(r, "Failed to zero out block device via BLKZEROOUT, synchronizing and retrying: %m");
 
-                if (!ERRNO_IS_NOT_SUPPORTED(errno))
-                        return log_debug_errno(errno, "Failed to zero out block device via BLKZEROOUT: %m");
+                if (fdatasync(fd) < 0)
+                        return log_debug_errno(errno, "Failed to synchronize block device before zeroing out: %m");
 
-                log_debug_errno(errno, "Failed to zero out block device via BLKZEROOUT, writing zeroes manually: %m");
+                r = RET_NERRNO(ioctl(fd, BLKZEROOUT, range));
+        }
+        if (r < 0) {
+                if (!ERRNO_IS_NOT_SUPPORTED(r) && r != -EBUSY)
+                        return log_debug_errno(r, "Failed to zero out block device via BLKZEROOUT: %m");
+
+                log_debug_errno(r, "Failed to zero out block device via BLKZEROOUT, writing zeroes manually: %m");
 
                 r = write_zeroes(fd, aligned_start, aligned_end - aligned_start);
                 if (r < 0)

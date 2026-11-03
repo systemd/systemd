@@ -205,7 +205,7 @@ static int apply_glob_option(OrderedHashmap *sysctl_options, SysctlOption *optio
         int r = 0;
 
         if (strv_isempty(arg_prefixes))
-                return apply_glob_option_with_prefix(sysctl_options, option, NULL);
+                return apply_glob_option_with_prefix(sysctl_options, option, /* prefix= */ NULL);
 
         STRV_FOREACH(i, arg_prefixes)
                 RET_GATHER(r, apply_glob_option_with_prefix(sysctl_options, option, *i));
@@ -348,7 +348,7 @@ static int read_credential_lines(OrderedHashmap **sysctl_options) {
 static int cat_config(char **files) {
         pager_open(arg_pager_flags);
 
-        return cat_files(NULL, files, arg_cat_flags);
+        return cat_files(/* file= */ NULL, files, arg_cat_flags);
 }
 
 static int save_sysctl_options(OrderedHashmap *sysctl_options, const char *filename) {
@@ -563,7 +563,7 @@ static int run(int argc, char *argv[]) {
                                 /* Use (argument):n, where n==1 for the first positional arg */
                                 RET_GATHER(r, parse_line("(argument)", pos, s, /* invalid_config= */ NULL, &sysctl_options));
                         } else
-                                RET_GATHER(r, parse_file(&sysctl_options, *arg, false));
+                                RET_GATHER(r, parse_file(&sysctl_options, *arg, /* ignore_enoent= */ false));
                 }
 
                 if (arg_save_file) {
@@ -585,7 +585,7 @@ static int run(int argc, char *argv[]) {
                         return cat_config(files);
 
                 STRV_FOREACH(f, files)
-                        RET_GATHER(r, parse_file(&sysctl_options, *f, true));
+                        RET_GATHER(r, parse_file(&sysctl_options, *f, /* ignore_enoent= */ true));
 
                 RET_GATHER(r, read_credential_lines(&sysctl_options));
         }

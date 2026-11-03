@@ -58,6 +58,7 @@ static const Specifier link_specifier_table[] = {
 struct LinkConfigContext {
         LIST_HEAD(LinkConfig, configs);
         int ethtool_fd;
+        sd_netlink *genl;
         Hashmap *stats_by_path;
 };
 
@@ -106,6 +107,7 @@ LinkConfigContext *link_config_ctx_free(LinkConfigContext *ctx) {
                 return NULL;
 
         safe_close(ctx->ethtool_fd);
+        sd_netlink_unref(ctx->genl);
         link_configs_free(ctx);
         return mfree(ctx);
 }
@@ -164,7 +166,7 @@ static int link_read_wol_password_from_file(LinkConfig *config) {
         r = read_full_file_full(
                         AT_FDCWD, config->wol_password_file, UINT64_MAX, SIZE_MAX,
                         READ_FULL_FILE_SECURE | READ_FULL_FILE_WARN_WORLD_READABLE | READ_FULL_FILE_CONNECT_SOCKET,
-                        NULL, &password, NULL);
+                        /* bind_name= */ NULL, &password, /* ret_size= */ NULL);
         if (r < 0)
                 return r;
 
@@ -196,9 +198,9 @@ static int link_read_wol_password_from_cred(LinkConfig *config) {
         if (!cred_name)
                 return -ENOMEM;
 
-        r = read_credential(cred_name, (void**) &password, NULL);
+        r = read_credential(cred_name, (void**) &password, /* ret_size= */ NULL);
         if (r == -ENOENT)
-                r = read_credential("wol.password", (void**) &password, NULL);
+                r = read_credential("wol.password", (void**) &password, /* ret_size= */ NULL);
         if (r < 0)
                 return r;
 
@@ -319,7 +321,7 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                 return 0;
         }
 
-        if (!condition_test_list_net(config->conditions, environ, NULL, NULL, NULL)) {
+        if (!condition_test_list_net(config->conditions, environ, /* to_string= */ NULL, /* logger= */ NULL, /* userdata= */ NULL)) {
                 log_debug("%s: Conditions do not match the system environment, skipping.", filename);
                 return 0;
         }
@@ -368,7 +370,7 @@ bool link_config_should_reload(LinkConfigContext *ctx) {
 
         assert(ctx);
 
-        r = config_get_stats_by_path(".link", NULL, 0, NETWORK_DIRS, /* check_dropins= */ true, &stats_by_path);
+        r = config_get_stats_by_path(".link", /* root= */ NULL, /* flags= */ 0, NETWORK_DIRS, /* check_dropins= */ true, &stats_by_path);
         if (r < 0) {
                 log_warning_errno(r, "Failed to get stats of .link files, ignoring: %m");
                 return true;
@@ -488,13 +490,14 @@ int link_get_config(LinkConfigContext *ctx, Link *link) {
         return -ENOENT;
 }
 
-static int link_apply_ethtool_settings(Link *link, int *ethtool_fd) {
+static int link_apply_ethtool_settings(Link *link, int *ethtool_fd, sd_netlink **genl) {
         LinkConfig *config = ASSERT_PTR(ASSERT_PTR(link)->config);
         const char *name = ASSERT_PTR(link->ifname);
         int r;
 
         assert(link->event);
         assert(ethtool_fd);
+        assert(genl);
 
         if (link->event->event_mode != EVENT_UDEV_WORKER) {
                 log_link_debug(link, "Running in test mode, skipping application of ethtool settings.");
@@ -557,6 +560,10 @@ static int link_apply_ethtool_settings(Link *link, int *ethtool_fd) {
         r = ethtool_set_nic_coalesce_settings(ethtool_fd, name, &config->coalesce);
         if (r < 0)
                 log_link_warning_errno(link, r, "Could not set coalesce settings, ignoring: %m");
+
+        r = ethtool_set_nic_cqe_coalesce_settings(genl, link->ifindex, &config->coalesce);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Could not set CQE coalesce settings, ignoring: %m");
 
         r = ethtool_set_eee_settings(ethtool_fd, name, config->eee_enabled, config->eee_tx_lpi_enabled, config->eee_tx_lpi_timer_usec, config->eee_advertise[0]);
         if (r < 0)
@@ -877,7 +884,7 @@ static int sr_iov_configure(Link *link, sd_netlink **rtnl, SRIOV *sr_iov, SRIOVA
         if (r < 0)
                 return r;
 
-        return sd_netlink_call(*rtnl, req, 0, NULL);
+        return sd_netlink_call(*rtnl, req, /* timeout= */ 0, /* ret= */ NULL);
 }
 
 static int link_apply_sr_iov_config(Link *link) {
@@ -1738,7 +1745,7 @@ static int link_apply_udev_properties(Link *link) {
 
         /* 3. apply UnsetProperty=. */
         STRV_FOREACH(p, config->unset_properties)
-                (void) udev_builtin_add_property(event, *p, NULL);
+                (void) udev_builtin_add_property(event, *p, /* val= */ NULL);
 
         /* 4. set the default properties. */
         (void) udev_builtin_add_property(event, "ID_NET_LINK_FILE", config->filename);
@@ -1769,7 +1776,7 @@ int link_apply_config(LinkConfigContext *ctx, Link *link) {
         assert(ctx);
         assert(link);
 
-        r = link_apply_ethtool_settings(link, &ctx->ethtool_fd);
+        r = link_apply_ethtool_settings(link, &ctx->ethtool_fd, &ctx->genl);
         if (r < 0)
                 return r;
 
@@ -1829,7 +1836,7 @@ int config_parse_udev_property(
                 _cleanup_free_ char *word = NULL, *resolved = NULL, *key = NULL;
                 const char *eq;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -1840,7 +1847,7 @@ int config_parse_udev_property(
                 if (r == 0)
                         return 0;
 
-                r = specifier_printf(word, SIZE_MAX, link_specifier_table, NULL, NULL, &resolved);
+                r = specifier_printf(word, SIZE_MAX, link_specifier_table, /* root= */ NULL, /* userdata= */ NULL, &resolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to resolve specifiers in %s, ignoring assignment: %m", word);
@@ -1898,7 +1905,7 @@ int config_parse_udev_property_name(
         for (const char *p = rvalue;; ) {
                 _cleanup_free_ char *word = NULL, *resolved = NULL;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
+                r = extract_first_word(&p, &word, /* separators= */ NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -1909,7 +1916,7 @@ int config_parse_udev_property_name(
                 if (r == 0)
                         return 0;
 
-                r = specifier_printf(word, SIZE_MAX, link_specifier_table, NULL, NULL, &resolved);
+                r = specifier_printf(word, SIZE_MAX, link_specifier_table, /* root= */ NULL, /* userdata= */ NULL, &resolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to resolve specifiers in %s, ignoring assignment: %m", word);
@@ -2070,7 +2077,7 @@ int config_parse_wol_password(
                 return free_and_strdup_warn(&config->wol_password_file, rvalue);
         }
 
-        warn_file_is_world_accessible(filename, NULL, unit, line);
+        warn_file_is_world_accessible(filename, /* st= */ NULL, unit, line);
 
         r = link_parse_wol_password(config, rvalue);
         if (r == -ENOMEM)

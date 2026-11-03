@@ -133,7 +133,7 @@ static void ipv4acd_reset(sd_ipv4acd *acd) {
 
         acd->fd = safe_close(acd->fd);
 
-        ipv4acd_set_state(acd, IPV4ACD_STATE_INIT, true);
+        ipv4acd_set_state(acd, IPV4ACD_STATE_INIT, /* reset_counter= */ true);
 }
 
 static sd_ipv4acd *ipv4acd_free(sd_ipv4acd *acd) {
@@ -215,9 +215,9 @@ static int ipv4acd_set_next_wakeup(sd_ipv4acd *acd, usec_t usec, usec_t random_u
 
         return event_reset_time(acd->event, &acd->timer_event_source,
                                 CLOCK_BOOTTIME,
-                                time_now + next_timeout, 0,
+                                time_now + next_timeout, /* accuracy= */ 0,
                                 ipv4acd_on_timeout, acd,
-                                acd->event_priority, "ipv4acd-timer", true);
+                                acd->event_priority, "ipv4acd-timer", /* force_reset= */ true);
 }
 
 static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
@@ -234,7 +234,7 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
                             IPV4_ADDRESS_FMT_VAL(acd->address),
                             FORMAT_TIMESPAN(TOTAL_TIME_UNITS * acd->time_unit_usec, USEC_PER_MSEC));
 
-                ipv4acd_set_state(acd, IPV4ACD_STATE_WAITING_PROBE, true);
+                ipv4acd_set_state(acd, IPV4ACD_STATE_WAITING_PROBE, /* reset_counter= */ true);
 
                 if (acd->n_conflict >= MAX_CONFLICTS) {
                         log_ipv4acd(acd, "Max conflicts reached, delaying by %s",
@@ -242,7 +242,7 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
                         r = ipv4acd_set_next_wakeup(
                                         acd, RATE_LIMIT_INTERVAL_USEC, PROBE_WAIT * acd->time_unit_usec);
                 } else
-                        r = ipv4acd_set_next_wakeup(acd, 0, PROBE_WAIT * acd->time_unit_usec);
+                        r = ipv4acd_set_next_wakeup(acd, /* usec= */ 0, PROBE_WAIT * acd->time_unit_usec);
                 if (r < 0)
                         goto fail;
 
@@ -260,7 +260,7 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
                 log_ipv4acd(acd, "Probing "IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(acd->address));
 
                 if (acd->n_iteration < PROBE_NUM - 2) {
-                        ipv4acd_set_state(acd, IPV4ACD_STATE_PROBING, false);
+                        ipv4acd_set_state(acd, IPV4ACD_STATE_PROBING, /* reset_counter= */ false);
 
                         r = ipv4acd_set_next_wakeup(
                                         acd,
@@ -269,9 +269,9 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
                         if (r < 0)
                                 goto fail;
                 } else {
-                        ipv4acd_set_state(acd, IPV4ACD_STATE_WAITING_ANNOUNCE, true);
+                        ipv4acd_set_state(acd, IPV4ACD_STATE_WAITING_ANNOUNCE, /* reset_counter= */ true);
 
-                        r = ipv4acd_set_next_wakeup(acd, ANNOUNCE_WAIT * acd->time_unit_usec, 0);
+                        r = ipv4acd_set_next_wakeup(acd, ANNOUNCE_WAIT * acd->time_unit_usec, /* random_usec= */ 0);
                         if (r < 0)
                                 goto fail;
                 }
@@ -280,7 +280,7 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
 
         case IPV4ACD_STATE_ANNOUNCING:
                 if (acd->n_iteration >= ANNOUNCE_NUM - 1) {
-                        ipv4acd_set_state(acd, IPV4ACD_STATE_RUNNING, false);
+                        ipv4acd_set_state(acd, IPV4ACD_STATE_RUNNING, /* reset_counter= */ false);
                         break;
                 }
 
@@ -295,9 +295,9 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
 
                 log_ipv4acd(acd, "Announcing "IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(acd->address));
 
-                ipv4acd_set_state(acd, IPV4ACD_STATE_ANNOUNCING, false);
+                ipv4acd_set_state(acd, IPV4ACD_STATE_ANNOUNCING, /* reset_counter= */ false);
 
-                r = ipv4acd_set_next_wakeup(acd, ANNOUNCE_INTERVAL_USEC, 0);
+                r = ipv4acd_set_next_wakeup(acd, ANNOUNCE_INTERVAL_USEC, /* random_usec= */ 0);
                 if (r < 0)
                         goto fail;
 
@@ -395,7 +395,7 @@ static int ipv4acd_on_packet(
         case IPV4ACD_STATE_ANNOUNCING:
         case IPV4ACD_STATE_RUNNING:
 
-                if (ipv4acd_arp_conflict(acd, &packet, true)) {
+                if (ipv4acd_arp_conflict(acd, &packet, /* announced= */ true)) {
                         usec_t ts;
 
                         assert_se(sd_event_now(acd->event, CLOCK_BOOTTIME, &ts) >= 0);
@@ -420,7 +420,7 @@ static int ipv4acd_on_packet(
         case IPV4ACD_STATE_WAITING_PROBE:
         case IPV4ACD_STATE_PROBING:
         case IPV4ACD_STATE_WAITING_ANNOUNCE:
-                if (ipv4acd_arp_conflict(acd, &packet, false))
+                if (ipv4acd_arp_conflict(acd, &packet, /* announced= */ false))
                         ipv4acd_on_conflict(acd);
                 break;
 
@@ -576,11 +576,11 @@ int sd_ipv4acd_set_address(sd_ipv4acd *acd, const struct in_addr *address) {
         if (r < 0)
                 goto fail;
 
-        r = ipv4acd_set_next_wakeup(acd, 0, 0);
+        r = ipv4acd_set_next_wakeup(acd, /* usec= */ 0, /* random_usec= */ 0);
         if (r < 0)
                 goto fail;
 
-        ipv4acd_set_state(acd, IPV4ACD_STATE_STARTED, true);
+        ipv4acd_set_state(acd, IPV4ACD_STATE_STARTED, /* reset_counter= */ true);
         return 0;
 
 fail:
@@ -645,11 +645,11 @@ int sd_ipv4acd_start(sd_ipv4acd *acd, bool reset_conflicts) {
 
         (void) sd_event_source_set_description(acd->receive_message_event_source, "ipv4acd-receive-message");
 
-        r = ipv4acd_set_next_wakeup(acd, 0, 0);
+        r = ipv4acd_set_next_wakeup(acd, /* usec= */ 0, /* random_usec= */ 0);
         if (r < 0)
                 goto fail;
 
-        ipv4acd_set_state(acd, IPV4ACD_STATE_STARTED, true);
+        ipv4acd_set_state(acd, IPV4ACD_STATE_STARTED, /* reset_counter= */ true);
         return 0;
 
 fail:

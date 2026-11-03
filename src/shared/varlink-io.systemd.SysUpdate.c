@@ -110,9 +110,10 @@ static SD_VARLINK_DEFINE_METHOD(
 static SD_VARLINK_DEFINE_ERROR(NoUpdateNeeded);
 SD_VARLINK_DEFINE_ERROR(NoSuchTarget);
 
-SD_VARLINK_DEFINE_INTERFACE(
+SD_VARLINK_DEFINE_INTERFACE_FULL(
                 io_systemd_SysUpdate,
                 "io.systemd.SysUpdate",
+                SD_VARLINK_EXPERIMENTAL,
                 SD_VARLINK_INTERFACE_COMMENT("APIs to manage system updates"),
 
                 /* Methods */

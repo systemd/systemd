@@ -373,7 +373,7 @@ static int trie_store(struct trie *trie, const char *filename, bool compat) {
         /* calculate size of header, nodes, children entries, value entries */
         trie_store_nodes_size(&t, trie->root, compat);
 
-        r = fopen_tmpfile_linkable(filename, O_WRONLY|O_CLOEXEC, &filename_tmp, &f);
+        r = fopen_tmpfile_linkable(filename, O_WRONLY, &filename_tmp, &f);
         if (r < 0)
                 return r;
 
@@ -676,7 +676,7 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
         if (r < 0)
                 return log_error_errno(r, "Failed to write database %s: %m", hwdb_bin);
 
-        r = label_fix(hwdb_bin, 0);
+        r = label_fix(hwdb_bin, /* flags= */ 0);
         if (r < 0)
                 return r;
 

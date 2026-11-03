@@ -1,0 +1,119 @@
+# shellcheck shell=bash
+# systemd-manifest(1) completion                      -*- shell-script -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
+
+__contains_word() {
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
+}
+
+_systemd_manifest() {
+    local i verb comps
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local -A OPTS=(
+        [STANDALONE]='-h --help --version --no-pager --graceful'
+        [ARG]='--json --format --field --hash --private-key --private-key-source
+               --certificate --certificate-source --verify-signature --voa-context'
+    )
+
+    _init_completion || return
+
+    if __contains_word "$prev" ${OPTS[ARG]}; then
+        case $prev in
+            --json)
+                comps='pretty short off'
+                ;;
+            --format)
+                comps='list sha256sums mtree uapi16'
+                ;;
+            --field)
+                local f
+                comps=''
+                for f in mode uid gid size hash symlink device hardlink mtime user-xattr user-name group-name; do
+                    comps+=" $f +$f -$f"
+                done
+                comps+=' all default none'
+                ;;
+            --hash)
+                comps='sha256 sha512'
+                ;;
+            --private-key|--certificate)
+                comps=$(compgen -A file -- "$cur")
+                compopt -o filenames
+                ;;
+            --private-key-source)
+                comps='file provider: engine:'
+                compopt -o nospace
+                ;;
+            --certificate-source)
+                comps='file provider:'
+                compopt -o nospace
+                ;;
+            --verify-signature)
+                comps='yes no'
+                ;;
+            --voa-context)
+                comps=''
+                ;;
+        esac
+        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+        return 0
+    fi
+
+    if [[ "$cur" = -* ]]; then
+        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+        return 0
+    fi
+
+    local VERBS='help make verify'
+    local n_args=0
+
+    for ((i=1; i < COMP_CWORD; i++)); do
+        if __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]} || [[ ${COMP_WORDS[i]} = -* ]]; then
+            continue
+        fi
+        if [[ -z ${verb-} ]]; then
+            verb=${COMP_WORDS[i]}
+        else
+            n_args=$((n_args + 1))
+        fi
+    done
+
+    if [[ -z ${verb-} ]]; then
+        comps=$VERBS
+    elif __contains_word "$verb" make verify; then
+        if (( n_args == 0 )); then
+            comps=$(compgen -A directory -- "$cur")
+            compopt -o filenames
+        elif (( n_args == 1 )); then
+            comps=$(compgen -A file -- "$cur")
+            compopt -o filenames
+        else
+            comps=''
+        fi
+    else
+        comps=''
+    fi
+
+    COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+    return 0
+}
+
+complete -F _systemd_manifest systemd-manifest

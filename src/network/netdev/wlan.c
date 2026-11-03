@@ -38,7 +38,7 @@ static int wlan_get_wiphy(NetDev *netdev, Wiphy **ret) {
 }
 
 static int wlan_is_ready_to_create(NetDev *netdev, Link *link) {
-        return wlan_get_wiphy(netdev, NULL) >= 0;
+        return wlan_get_wiphy(netdev, /* ret= */ NULL) >= 0;
 }
 
 static int wlan_fill_message(NetDev *netdev, sd_netlink_message *m) {

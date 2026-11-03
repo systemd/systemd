@@ -13,12 +13,15 @@
 #include "macvlan-util.h"
 #include "ndisc-internal.h"
 #include "networkd-dns.h"
+#include "networkd-link.h"
 #include "networkd-lldp-rx.h"
 #include "networkd-radv.h"
 #include "networkd-sysctl.h"
 #include "test-tables.h"
+#include "test-varlink-idl-util.h"
 #include "tests.h"
 #include "tunnel.h"
+#include "varlink-io.systemd.Network.h"
 
 int main(int argc, char **argv) {
         test_setup_logging(LOG_DEBUG);
@@ -39,6 +42,7 @@ int main(int argc, char **argv) {
         test_table(TunnelMode, tunnel_mode, TUNNEL_MODE);
         test_table(IPv6PrivacyExtensions, ipv6_privacy_extensions, IPV6_PRIVACY_EXTENSIONS);
         test_table(IPVlanFlags, ipvlan_flags, NETDEV_IPVLAN_FLAGS);
+        test_table(LinkConfiguringReason, link_configuring_reason, LINK_CONFIGURING_REASON);
         test_table(LinkOperationalState, link_operstate, LINK_OPERSTATE);
         /* test_table(link_state, LINK_STATE);  — not a reversible mapping */
         test_table(LLDPMode, lldp_mode, LLDP_MODE);
@@ -51,6 +55,10 @@ int main(int argc, char **argv) {
         test_table_sparse(IPVlanMode, ipvlan_mode, NETDEV_IPVLAN_MODE);
         test_table_sparse(MacVlanMode, macvlan_mode, NETDEV_MACVLAN_MODE);
         test_table_sparse(AddressFamily, address_family, ADDRESS_FAMILY);
+
+        TEST_IDL_ENUM(LinkConfiguringReason, link_configuring_reason, vl_type_LinkConfiguringReason);
+        for (LinkConfiguringReason r = 0; r < _LINK_CONFIGURING_REASON_MAX; r++)
+                ASSERT_NOT_NULL(link_configuring_reason_message_to_string(r));
 
         assert_cc(sizeof(sd_lldp_rx_event_t) == sizeof(int64_t));
         assert_cc(sizeof(sd_ndisc_event_t) == sizeof(int64_t));

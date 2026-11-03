@@ -22,7 +22,16 @@
 #include "specifier.h"
 #include "string-util.h"
 #include "unit-name.h"
+#include "verbs.h"
 #include "web-util.h"
+
+COMMAND(
+        "systemd-import-generator\0",
+        "Download disk images at boot.",
+        .argspec = GENERATOR_ARGSPEC,
+        .man_pages = "systemd-import-generator(8)\0",
+        .option_namespace = "common",
+);
 
 typedef struct Transfer {
         ImageClass class;
@@ -432,7 +441,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         assert_se(arg_dest = dest);
 
-        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_RD_STRICT|PROC_CMDLINE_STRIP_RD_PREFIX);
+        r = proc_cmdline_parse(parse_proc_cmdline_item, /* userdata= */ NULL, PROC_CMDLINE_RD_STRICT|PROC_CMDLINE_STRIP_RD_PREFIX);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 

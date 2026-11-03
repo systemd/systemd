@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
         pthread_t t;
         int r;
 
-        loopback = udev_device_new_from_syspath(NULL, "/sys/class/net/lo");
+        loopback = udev_device_new_from_syspath(/* udev= */ NULL, "/sys/class/net/lo");
         if (!loopback) {
                 if (errno == ENODEV)
                         return log_tests_skipped_errno(errno, "Loopback device not found");

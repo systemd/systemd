@@ -34,10 +34,10 @@ static int test_calendar_one(usec_t n, const char *p) {
         if (!table)
                 return log_oom();
 
-        assert_se(cell = table_get_cell(table, 0, 0));
+        assert_se(cell = table_get_cell(table, /* row= */ 0, /* column= */ 0));
         (void) table_set_ellipsize_percent(table, cell, 100);
 
-        assert_se(cell = table_get_cell(table, 0, 1));
+        assert_se(cell = table_get_cell(table, /* row= */ 0, 1));
         (void) table_set_ellipsize_percent(table, cell, 100);
 
         if (!streq(t, p)) {
@@ -87,7 +87,7 @@ static int test_calendar_one(usec_t n, const char *p) {
                         else
                                 k = 0;
 
-                        r = table_add_cell_stringf_full(table, NULL, TABLE_FIELD, "Iteration #%u", i+1);
+                        r = table_add_cell_stringf_full(table, /* ret_cell= */ NULL, TABLE_FIELD, "Iteration #%u", i+1);
                         if (r < 0)
                                 return table_log_add_error(r);
 

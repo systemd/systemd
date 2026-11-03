@@ -130,7 +130,7 @@ static int wait_for_killed_signal(sd_bus *server, sd_bus *client, const char *cg
         for (size_t i = 0; i < 200; i++) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m_client = NULL;
 
-                r = sd_bus_process(server, NULL);
+                r = sd_bus_process(server, /* ret= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -176,7 +176,7 @@ TEST(oomd_cgroup_kill) {
         ASSERT_OK(cg_create(subcgroup));
 
         /* If we don't have permissions to set xattrs we're likely in a userns or missing capabilities */
-        r = cg_set_xattr(subcgroup, "user.oomd_test", "test", 4, 0);
+        r = cg_set_xattr(subcgroup, "user.oomd_test", "test", 4, /* flags= */ 0);
         if (ERRNO_IS_PRIVILEGE(r) || ERRNO_IS_NOT_SUPPORTED(r))
                 return (void) log_tests_skipped("Cannot set user xattrs");
 
@@ -300,9 +300,9 @@ TEST(oomd_cgroup_context_acquire_and_insert) {
 
         /* Test hashmap inserts */
         ASSERT_NOT_NULL(h1 = hashmap_new(&oomd_cgroup_ctx_hash_ops));
-        ASSERT_OK(oomd_insert_cgroup_context(NULL, h1, cgroup));
+        ASSERT_OK(oomd_insert_cgroup_context(/* old_h= */ NULL, h1, cgroup));
         ASSERT_NOT_NULL(c1 = hashmap_get(h1, cgroup));
-        ASSERT_ERROR(oomd_insert_cgroup_context(NULL, h1, cgroup), EEXIST);
+        ASSERT_ERROR(oomd_insert_cgroup_context(/* old_h= */ NULL, h1, cgroup), EEXIST);
 
          /* make sure certain values from h1 get updated in h2 */
         c1->pgscan = UINT64_MAX;
@@ -552,7 +552,7 @@ TEST(oomd_sort_cgroups) {
         ASSERT_OK(hashmap_put(h, "/omitted.slice", &ctx[5]));
         ASSERT_OK(hashmap_put(h, "/avoid.slice", &ctx[6]));
 
-        ASSERT_OK_EQ(oomd_sort_cgroup_contexts(h, compare_swap_usage, NULL, &sorted_cgroups), 6);
+        ASSERT_OK_EQ(oomd_sort_cgroup_contexts(h, compare_swap_usage, /* prefix= */ NULL, &sorted_cgroups), 6);
         ASSERT_PTR_EQ(sorted_cgroups[0], &ctx[1]);
         ASSERT_PTR_EQ(sorted_cgroups[1], &ctx[2]);
         ASSERT_PTR_EQ(sorted_cgroups[2], &ctx[0]);
@@ -561,7 +561,7 @@ TEST(oomd_sort_cgroups) {
         ASSERT_PTR_EQ(sorted_cgroups[5], &ctx[6]);
         sorted_cgroups = mfree(sorted_cgroups);
 
-        ASSERT_OK_EQ(oomd_sort_cgroup_contexts(h, compare_pgscan_rate_and_memory_usage, NULL, &sorted_cgroups), 6);
+        ASSERT_OK_EQ(oomd_sort_cgroup_contexts(h, compare_pgscan_rate_and_memory_usage, /* prefix= */ NULL, &sorted_cgroups), 6);
         ASSERT_PTR_EQ(sorted_cgroups[0], &ctx[0]);
         ASSERT_PTR_EQ(sorted_cgroups[1], &ctx[2]);
         ASSERT_PTR_EQ(sorted_cgroups[2], &ctx[3]);
@@ -601,29 +601,29 @@ TEST(oomd_fetch_cgroup_oom_preference) {
 
         /* If we don't have permissions to set xattrs we're likely in a userns or missing capabilities
          * so skip the xattr portions of the test. */
-        r = cg_set_xattr(cgroup, "user.oomd_test", "1", 1, 0);
+        r = cg_set_xattr(cgroup, "user.oomd_test", "1", 1, /* flags= */ 0);
         test_xattrs = !ERRNO_IS_PRIVILEGE(r) && !ERRNO_IS_NOT_SUPPORTED(r);
 
         if (test_xattrs) {
-                ASSERT_OK(oomd_fetch_cgroup_oom_preference(ctx, NULL));
-                ASSERT_OK(cg_set_xattr(cgroup, "user.oomd_omit", "1", 1, 0));
-                ASSERT_OK(cg_set_xattr(cgroup, "user.oomd_avoid", "1", 1, 0));
+                ASSERT_OK(oomd_fetch_cgroup_oom_preference(ctx, /* prefix= */ NULL));
+                ASSERT_OK(cg_set_xattr(cgroup, "user.oomd_omit", "1", 1, /* flags= */ 0));
+                ASSERT_OK(cg_set_xattr(cgroup, "user.oomd_avoid", "1", 1, /* flags= */ 0));
 
                 /* omit takes precedence over avoid when both are set to true */
-                ASSERT_OK(oomd_fetch_cgroup_oom_preference(ctx, NULL));
+                ASSERT_OK(oomd_fetch_cgroup_oom_preference(ctx, /* prefix= */ NULL));
                 ASSERT_EQ(ctx->preference, geteuid() == 0 ? MANAGED_OOM_PREFERENCE_OMIT : MANAGED_OOM_PREFERENCE_NONE);
         } else {
-                ASSERT_FAIL(oomd_fetch_cgroup_oom_preference(ctx, NULL));
+                ASSERT_FAIL(oomd_fetch_cgroup_oom_preference(ctx, /* prefix= */ NULL));
                 ASSERT_EQ(ctx->preference, MANAGED_OOM_PREFERENCE_NONE);
         }
         ctx = oomd_cgroup_context_unref(ctx);
 
         /* also check when only avoid is set to true */
         if (test_xattrs) {
-                ASSERT_OK(cg_set_xattr(cgroup, "user.oomd_omit", "0", 1, 0));
-                ASSERT_OK(cg_set_xattr(cgroup, "user.oomd_avoid", "1", 1, 0));
+                ASSERT_OK(cg_set_xattr(cgroup, "user.oomd_omit", "0", 1, /* flags= */ 0));
+                ASSERT_OK(cg_set_xattr(cgroup, "user.oomd_avoid", "1", 1, /* flags= */ 0));
                 ASSERT_OK(oomd_cgroup_context_acquire(cgroup, &ctx));
-                ASSERT_OK(oomd_fetch_cgroup_oom_preference(ctx, NULL));
+                ASSERT_OK(oomd_fetch_cgroup_oom_preference(ctx, /* prefix= */ NULL));
                 ASSERT_EQ(ctx->preference, geteuid() == 0 ? MANAGED_OOM_PREFERENCE_AVOID : MANAGED_OOM_PREFERENCE_NONE);
                 ctx = oomd_cgroup_context_unref(ctx);
         }
@@ -637,7 +637,7 @@ TEST(oomd_fetch_cgroup_oom_preference) {
                 root_pref = MANAGED_OOM_PREFERENCE_AVOID;
         if (cg_get_xattr_bool("", "user.oomd_omit") > 0)
                 root_pref = MANAGED_OOM_PREFERENCE_OMIT;
-        ASSERT_OK(oomd_fetch_cgroup_oom_preference(ctx, NULL));
+        ASSERT_OK(oomd_fetch_cgroup_oom_preference(ctx, /* prefix= */ NULL));
         ASSERT_EQ(ctx->preference, root_pref);
 
         ASSERT_ERROR(oomd_fetch_cgroup_oom_preference(ctx, "/herp.slice/derp.scope"), EINVAL);
@@ -646,10 +646,10 @@ TEST(oomd_fetch_cgroup_oom_preference) {
          * owned by the same user. */
         if (test_xattrs && !empty_or_root(cgroup) && geteuid() == 0) {
                 ctx = oomd_cgroup_context_unref(ctx);
-                ASSERT_OK(cg_set_access(cgroup, 61183, 0));
+                ASSERT_OK(cg_set_access(cgroup, 61183, /* gid= */ 0));
                 ASSERT_OK(oomd_cgroup_context_acquire(cgroup, &ctx));
 
-                ASSERT_OK(oomd_fetch_cgroup_oom_preference(ctx, NULL));
+                ASSERT_OK(oomd_fetch_cgroup_oom_preference(ctx, /* prefix= */ NULL));
                 ASSERT_EQ(ctx->preference, MANAGED_OOM_PREFERENCE_NONE);
 
                 ASSERT_OK(oomd_fetch_cgroup_oom_preference(ctx, ctx->path));

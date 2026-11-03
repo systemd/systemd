@@ -5,6 +5,7 @@
 #include "chase.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "log.h"
 #include "os-util.h"
 #include "path-util.h"
@@ -31,7 +32,7 @@ static int entry_token_load_one(int rfd, const char *dir, BootEntryTokenType *ty
         if (!p)
                 return log_oom();
 
-        r = chase_and_fopenat_unlocked(rfd, rfd, p, /* chase_flags= */ 0, "re", NULL, &f);
+        r = chase_and_fopenat_unlocked(rfd, rfd, p, /* chase_flags= */ 0, "re", /* ret_path= */ NULL, &f);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -232,9 +233,9 @@ int boot_entry_token_ensure(
 
         _cleanup_close_ int rfd = XAT_FDROOT;
         if (!empty_or_root(root)) {
-                rfd = open(root, O_CLOEXEC | O_DIRECTORY | O_PATH);
+                rfd = xopenat(AT_FDCWD, root, O_DIRECTORY | O_PATH);
                 if (rfd < 0)
-                        return -errno;
+                        return rfd;
         }
 
         return boot_entry_token_ensure_at(rfd, conf_root, machine_id, machine_id_is_random, type, token);

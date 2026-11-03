@@ -75,7 +75,7 @@ int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_
                 return r;
 
         if (!streq_ptr(p.service, "io.systemd.DynamicUser"))
-                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", /* parameters= */ NULL);
 
         r = sd_varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
         if (r < 0)
@@ -122,7 +122,7 @@ int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_
         un = found_name ?: p.user_name;
 
         if (!user_match_lookup_parameters(&p, un, uid))
-                return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", /* parameters= */ NULL);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         r = build_user_json(un, uid, &v);
@@ -186,7 +186,7 @@ int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd
                 return r;
 
         if (!streq_ptr(p.service, "io.systemd.DynamicUser"))
-                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", /* parameters= */ NULL);
 
         if (gid_is_valid(p.gid))
                 r = dynamic_user_lookup_uid(m, (uid_t) p.gid, &found_name);
@@ -231,7 +231,7 @@ int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd
         gn = found_name ?: p.group_name;
 
         if (!group_match_lookup_parameters(&p, gn, gid))
-                return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", /* parameters= */ NULL);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         r = build_group_json(gn, gid, &v);
@@ -260,8 +260,8 @@ int vl_method_get_memberships(sd_varlink *link, sd_json_variant *parameters, sd_
                 return r;
 
         if (!streq_ptr(p.service, "io.systemd.DynamicUser"))
-                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
+                return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", /* parameters= */ NULL);
 
         /* We don't support auxiliary groups with dynamic users. */
-        return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+        return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", /* parameters= */ NULL);
 }

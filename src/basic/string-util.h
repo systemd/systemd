@@ -115,7 +115,7 @@ char* delete_chars(char *s, const char *bad);
 char* delete_trailing_chars(char *s, const char *bad);
 char* truncate_nl_full(char *s, size_t *ret_len);
 static inline char* truncate_nl(char *s) {
-        return truncate_nl_full(s, NULL);
+        return truncate_nl_full(s, /* ret_len= */ NULL);
 }
 
 static inline char* skip_leading_chars(const char *s, const char *bad) {
@@ -268,7 +268,7 @@ int string_extract_line(const char *s, size_t i, char **ret);
 
 int string_contains_word_strv(const char *string, const char *separators, char * const *words, const char **ret_word);
 static inline int string_contains_word(const char *string, const char *separators, const char *word) {
-        return string_contains_word_strv(string, separators, STRV_MAKE(word), NULL);
+        return string_contains_word_strv(string, separators, STRV_MAKE(word), /* ret_word= */ NULL);
 }
 
 bool streq_skip_trailing_chars(const char *s1, const char *s2, const char *ok);

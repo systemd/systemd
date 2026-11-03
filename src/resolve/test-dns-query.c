@@ -32,10 +32,10 @@ TEST(dns_query_new_single_question) {
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         _cleanup_(dns_query_freep) DnsQuery *query = NULL;
 
-        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", /* convert_idna= */ false));
         ASSERT_NOT_NULL(question);
 
-        ASSERT_OK(dns_query_new(&manager, &query, question, NULL, NULL, 1, 0));
+        ASSERT_OK(dns_query_new(&manager, &query, question, /* question_idna= */ NULL, /* question_bypass= */ NULL, 1, /* flags= */ 0));
         ASSERT_NOT_NULL(query);
 }
 
@@ -50,15 +50,15 @@ TEST(dns_query_new_multi_question_same_domain) {
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
-        ASSERT_OK(dns_question_add(question, key, 0));
+        ASSERT_OK(dns_question_add(question, key, /* flags= */ 0));
         dns_resource_key_unref(key);
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com");
         ASSERT_NOT_NULL(key);
-        ASSERT_OK(dns_question_add(question, key, 0));
+        ASSERT_OK(dns_question_add(question, key, /* flags= */ 0));
         dns_resource_key_unref(key);
 
-        ASSERT_OK(dns_query_new(&manager, &query, question, NULL, NULL, 1, 0));
+        ASSERT_OK(dns_query_new(&manager, &query, question, /* question_idna= */ NULL, /* question_bypass= */ NULL, 1, /* flags= */ 0));
         ASSERT_NOT_NULL(query);
 }
 
@@ -73,15 +73,15 @@ TEST(dns_query_new_multi_question_different_domain) {
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "ns1.example.com");
         ASSERT_NOT_NULL(key);
-        ASSERT_OK(dns_question_add(question, key, 0));
+        ASSERT_OK(dns_question_add(question, key, /* flags= */ 0));
         dns_resource_key_unref(key);
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, "ns2.example.com");
         ASSERT_NOT_NULL(key);
-        ASSERT_OK(dns_question_add(question, key, 0));
+        ASSERT_OK(dns_question_add(question, key, /* flags= */ 0));
         dns_resource_key_unref(key);
 
-        ASSERT_ERROR(dns_query_new(&manager, &query, question, NULL, NULL, 1, 0), EINVAL);
+        ASSERT_ERROR(dns_query_new(&manager, &query, question, /* question_idna= */ NULL, /* question_bypass= */ NULL, 1, /* flags= */ 0), EINVAL);
         ASSERT_NULL(query);
 }
 
@@ -91,13 +91,13 @@ TEST(dns_query_new_same_utf8_and_idna) {
         _cleanup_(dns_question_unrefp) DnsQuestion *q_utf8 = NULL, *q_idna = NULL;
         _cleanup_(dns_query_freep) DnsQuery *query = NULL;
 
-        ASSERT_OK(dns_question_new_address(&q_utf8, AF_INET, "www.\xF0\x9F\x98\xB1.com", false));
+        ASSERT_OK(dns_question_new_address(&q_utf8, AF_INET, "www.\xF0\x9F\x98\xB1.com", /* convert_idna= */ false));
         ASSERT_NOT_NULL(q_utf8);
 
-        ASSERT_OK(dns_question_new_address(&q_idna, AF_INET, "www.\xF0\x9F\x98\xB1.com", true));
+        ASSERT_OK(dns_question_new_address(&q_idna, AF_INET, "www.\xF0\x9F\x98\xB1.com", /* convert_idna= */ true));
         ASSERT_NOT_NULL(q_idna);
 
-        ASSERT_OK(dns_query_new(&manager, &query, q_utf8, q_idna, NULL, 1, 0));
+        ASSERT_OK(dns_query_new(&manager, &query, q_utf8, q_idna, /* question_bypass= */ NULL, 1, /* flags= */ 0));
         ASSERT_NOT_NULL(query);
 }
 
@@ -106,13 +106,13 @@ TEST(dns_query_new_different_utf8_and_idna) {
         _cleanup_(dns_question_unrefp) DnsQuestion *q_utf8 = NULL, *q_idna = NULL;
         _cleanup_(dns_query_freep) DnsQuery *query = NULL;
 
-        ASSERT_OK(dns_question_new_address(&q_utf8, AF_INET, "www.\xF0\x9F\x98\xB1.com", false));
+        ASSERT_OK(dns_question_new_address(&q_utf8, AF_INET, "www.\xF0\x9F\x98\xB1.com", /* convert_idna= */ false));
         ASSERT_NOT_NULL(q_utf8);
 
-        ASSERT_OK(dns_question_new_address(&q_idna, AF_INET, "www.\xF0\x9F\x8E\xBC.com", true));
+        ASSERT_OK(dns_question_new_address(&q_idna, AF_INET, "www.\xF0\x9F\x8E\xBC.com", /* convert_idna= */ true));
         ASSERT_NOT_NULL(q_idna);
 
-        ASSERT_OK(dns_query_new(&manager, &query, q_utf8, q_idna, NULL, 1, 0));
+        ASSERT_OK(dns_query_new(&manager, &query, q_utf8, q_idna, /* question_bypass= */ NULL, 1, /* flags= */ 0));
         ASSERT_NOT_NULL(query);
 }
 #endif
@@ -123,17 +123,17 @@ TEST(dns_query_new_bypass_ok) {
         _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
 
-        ASSERT_OK(dns_packet_new_query(&packet, DNS_PROTOCOL_DNS, 0, false));
+        ASSERT_OK(dns_packet_new_query(&packet, DNS_PROTOCOL_DNS, /* min_alloc_dsize= */ 0, /* dnssec_checking_disabled= */ false));
         ASSERT_NOT_NULL(packet);
 
-        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", /* convert_idna= */ false));
         ASSERT_NOT_NULL(question);
 
         ASSERT_OK(dns_packet_append_question(packet, question));
         DNS_PACKET_HEADER(packet)->qdcount = htobe16(dns_question_size(question));
         ASSERT_OK(dns_packet_extract(packet));
 
-        ASSERT_OK(dns_query_new(&manager, &query, NULL, NULL, packet, 1, 0));
+        ASSERT_OK(dns_query_new(&manager, &query, /* question_utf8= */ NULL, /* question_idna= */ NULL, packet, 1, /* flags= */ 0));
         ASSERT_NOT_NULL(query);
 }
 
@@ -143,20 +143,20 @@ TEST(dns_query_new_bypass_conflict) {
         _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL, *extra_q = NULL;
 
-        ASSERT_OK(dns_packet_new_query(&packet, DNS_PROTOCOL_DNS, 0, false));
+        ASSERT_OK(dns_packet_new_query(&packet, DNS_PROTOCOL_DNS, /* min_alloc_dsize= */ 0, /* dnssec_checking_disabled= */ false));
         ASSERT_NOT_NULL(packet);
 
-        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", /* convert_idna= */ false));
         ASSERT_NOT_NULL(question);
 
         ASSERT_OK(dns_packet_append_question(packet, question));
         DNS_PACKET_HEADER(packet)->qdcount = htobe16(dns_question_size(question));
         ASSERT_OK(dns_packet_extract(packet));
 
-        ASSERT_OK(dns_question_new_address(&extra_q, AF_INET, "www.example.com", false));
+        ASSERT_OK(dns_question_new_address(&extra_q, AF_INET, "www.example.com", /* convert_idna= */ false));
         ASSERT_NOT_NULL(extra_q);
 
-        ASSERT_ERROR(dns_query_new(&manager, &query, extra_q, NULL, packet, 1, 0), EINVAL);
+        ASSERT_ERROR(dns_query_new(&manager, &query, extra_q, /* question_idna= */ NULL, packet, 1, /* flags= */ 0), EINVAL);
         ASSERT_NULL(query);
 }
 
@@ -168,19 +168,19 @@ TEST(dns_query_new_too_many_questions) {
         DnsQuery *queries[MAX_QUERIES + 1];
 
         for (size_t i = 0; i < MAX_QUERIES; i++) {
-                ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+                ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", /* convert_idna= */ false));
                 ASSERT_NOT_NULL(question);
 
-                ASSERT_OK(dns_query_new(&manager, &queries[i], question, NULL, NULL, 1, 0));
+                ASSERT_OK(dns_query_new(&manager, &queries[i], question, /* question_idna= */ NULL, /* question_bypass= */ NULL, 1, /* flags= */ 0));
                 ASSERT_NOT_NULL(queries[i]);
 
                 dns_question_unref(question);
         }
 
-        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", /* convert_idna= */ false));
         ASSERT_NOT_NULL(question);
 
-        ASSERT_ERROR(dns_query_new(&manager, &queries[MAX_QUERIES], question, NULL, NULL, 1, 0), EBUSY);
+        ASSERT_ERROR(dns_query_new(&manager, &queries[MAX_QUERIES], question, /* question_idna= */ NULL, /* question_bypass= */ NULL, 1, /* flags= */ 0), EBUSY);
         dns_question_unref(question);
 
         for (size_t i = 0; i < MAX_QUERIES; i++)
@@ -196,19 +196,19 @@ TEST(dns_query_make_auxiliary) {
         _cleanup_(dns_question_unrefp) DnsQuestion *qn1 = NULL, *qn2 = NULL, *qn3 = NULL;
         _cleanup_(dns_query_freep) DnsQuery *q1 = NULL, *q2 = NULL, *q3 = NULL;
 
-        ASSERT_OK(dns_question_new_address(&qn1, AF_INET, "www.example.com", false));
+        ASSERT_OK(dns_question_new_address(&qn1, AF_INET, "www.example.com", /* convert_idna= */ false));
         ASSERT_NOT_NULL(qn1);
-        ASSERT_OK(dns_query_new(&manager, &q1, qn1, NULL, NULL, 1, 0));
+        ASSERT_OK(dns_query_new(&manager, &q1, qn1, /* question_idna= */ NULL, /* question_bypass= */ NULL, 1, /* flags= */ 0));
         ASSERT_NOT_NULL(q1);
 
-        ASSERT_OK(dns_question_new_address(&qn2, AF_INET, "www.example.net", false));
+        ASSERT_OK(dns_question_new_address(&qn2, AF_INET, "www.example.net", /* convert_idna= */ false));
         ASSERT_NOT_NULL(qn2);
-        ASSERT_OK(dns_query_new(&manager, &q2, qn2, NULL, NULL, 1, 0));
+        ASSERT_OK(dns_query_new(&manager, &q2, qn2, /* question_idna= */ NULL, /* question_bypass= */ NULL, 1, /* flags= */ 0));
         ASSERT_NOT_NULL(q2);
 
-        ASSERT_OK(dns_question_new_address(&qn3, AF_INET, "www.example.org", false));
+        ASSERT_OK(dns_question_new_address(&qn3, AF_INET, "www.example.org", /* convert_idna= */ false));
         ASSERT_NOT_NULL(qn3);
-        ASSERT_OK(dns_query_new(&manager, &q3, qn3, NULL, NULL, 1, 0));
+        ASSERT_OK(dns_query_new(&manager, &q3, qn3, /* question_idna= */ NULL, /* question_bypass= */ NULL, 1, /* flags= */ 0));
         ASSERT_NOT_NULL(q3);
 
         ASSERT_OK(dns_query_make_auxiliary(q2, q1));
@@ -231,10 +231,10 @@ TEST(dns_query_process_cname_one_null) {
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         _cleanup_(dns_query_freep) DnsQuery *query = NULL;
 
-        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", /* convert_idna= */ false));
         ASSERT_NOT_NULL(question);
 
-        ASSERT_OK(dns_query_new(&manager, &query, NULL, question, NULL, 1, 0));
+        ASSERT_OK(dns_query_new(&manager, &query, /* question_utf8= */ NULL, question, /* question_bypass= */ NULL, 1, /* flags= */ 0));
         ASSERT_NOT_NULL(query);
 
         ASSERT_EQ(dns_query_process_cname_one(query), DNS_QUERY_MATCH);
@@ -246,10 +246,10 @@ TEST(dns_query_process_cname_one_success_exact_match) {
         _cleanup_(dns_query_freep) DnsQuery *query = NULL;
         DnsResourceRecord *rr = NULL;
 
-        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", /* convert_idna= */ false));
         ASSERT_NOT_NULL(question);
 
-        ASSERT_OK(dns_query_new(&manager, &query, NULL, question, NULL, 1, 0));
+        ASSERT_OK(dns_query_new(&manager, &query, /* question_utf8= */ NULL, question, /* question_bypass= */ NULL, 1, /* flags= */ 0));
         ASSERT_NOT_NULL(query);
 
         query->state = DNS_TRANSACTION_SUCCESS;
@@ -262,7 +262,7 @@ TEST(dns_query_process_cname_one_success_exact_match) {
         ASSERT_NOT_NULL(rr);
         rr->ttl = 3600;
         rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
-        dns_answer_add(query->answer, rr, 1, 0, NULL);
+        dns_answer_add(query->answer, rr, 1, /* flags= */ 0, /* rrsig= */ NULL);
         dns_resource_record_unref(rr);
 
         ASSERT_EQ(dns_query_process_cname_one(query), DNS_QUERY_MATCH);
@@ -276,10 +276,10 @@ TEST(dns_query_process_cname_one_success_no_match) {
         _cleanup_(dns_query_freep) DnsQuery *query = NULL;
         DnsResourceRecord *rr = NULL;
 
-        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", /* convert_idna= */ false));
         ASSERT_NOT_NULL(question);
 
-        ASSERT_OK(dns_query_new(&manager, &query, NULL, question, NULL, 1, 0));
+        ASSERT_OK(dns_query_new(&manager, &query, /* question_utf8= */ NULL, question, /* question_bypass= */ NULL, 1, /* flags= */ 0));
         ASSERT_NOT_NULL(query);
 
         query->state = DNS_TRANSACTION_SUCCESS;
@@ -292,7 +292,7 @@ TEST(dns_query_process_cname_one_success_no_match) {
         ASSERT_NOT_NULL(rr);
         rr->ttl = 3600;
         rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
-        dns_answer_add(query->answer, rr, 1, 0, NULL);
+        dns_answer_add(query->answer, rr, 1, /* flags= */ 0, /* rrsig= */ NULL);
         dns_resource_record_unref(rr);
 
         ASSERT_EQ(dns_query_process_cname_one(query), DNS_QUERY_NOMATCH);
@@ -307,10 +307,10 @@ TEST(dns_query_process_cname_one_success_match_cname) {
         DnsResourceRecord *rr = NULL;
         DnsResourceKey *key = NULL;
 
-        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", /* convert_idna= */ false));
         ASSERT_NOT_NULL(question);
 
-        ASSERT_OK(dns_query_new(&manager, &query, NULL, question, NULL, 1, 0));
+        ASSERT_OK(dns_query_new(&manager, &query, /* question_utf8= */ NULL, question, /* question_bypass= */ NULL, 1, /* flags= */ 0));
         ASSERT_NOT_NULL(query);
 
         query->state = DNS_TRANSACTION_SUCCESS;
@@ -324,7 +324,7 @@ TEST(dns_query_process_cname_one_success_match_cname) {
         ASSERT_NOT_NULL(rr);
         rr->ttl = 3600;
         rr->cname.name = checked_strdup("example.com");
-        dns_answer_add(query->answer, rr, 1, 0, NULL);
+        dns_answer_add(query->answer, rr, 1, /* flags= */ 0, /* rrsig= */ NULL);
         dns_resource_record_unref(rr);
 
         ASSERT_EQ(dns_query_process_cname_one(query), DNS_QUERY_CNAME);
@@ -358,10 +358,10 @@ TEST(dns_query_process_cname_one_success_flags) {
         _cleanup_(dns_query_freep) DnsQuery *query = NULL;
         DnsResourceRecord *rr = NULL;
 
-        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", /* convert_idna= */ false));
         ASSERT_NOT_NULL(question);
 
-        ASSERT_OK(dns_query_new(&manager, &query, NULL, question, NULL, 1, 0));
+        ASSERT_OK(dns_query_new(&manager, &query, /* question_utf8= */ NULL, question, /* question_bypass= */ NULL, 1, /* flags= */ 0));
         ASSERT_NOT_NULL(query);
 
         query->state = DNS_TRANSACTION_SUCCESS;
@@ -379,7 +379,7 @@ TEST(dns_query_process_cname_one_success_flags) {
         ASSERT_NOT_NULL(rr);
         rr->ttl = 3600;
         rr->cname.name = checked_strdup("example.com");
-        dns_answer_add(query->answer, rr, 1, 0, NULL);
+        dns_answer_add(query->answer, rr, 1, /* flags= */ 0, /* rrsig= */ NULL);
         dns_resource_record_unref(rr);
 
         ASSERT_EQ(dns_query_process_cname_one(query), DNS_QUERY_CNAME);
@@ -396,10 +396,10 @@ TEST(dns_query_process_cname_one_success_match_dname) {
         DnsResourceRecord *rr = NULL;
         DnsResourceKey *key = NULL;
 
-        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", /* convert_idna= */ false));
         ASSERT_NOT_NULL(question);
 
-        ASSERT_OK(dns_query_new(&manager, &query, NULL, question, NULL, 1, 0));
+        ASSERT_OK(dns_query_new(&manager, &query, /* question_utf8= */ NULL, question, /* question_bypass= */ NULL, 1, /* flags= */ 0));
         ASSERT_NOT_NULL(query);
 
         query->state = DNS_TRANSACTION_SUCCESS;
@@ -412,7 +412,7 @@ TEST(dns_query_process_cname_one_success_match_dname) {
         ASSERT_NOT_NULL(rr);
         rr->ttl = 3600;
         rr->dname.name = checked_strdup("v2.example.com");
-        dns_answer_add(query->answer, rr, 1, 0, NULL);
+        dns_answer_add(query->answer, rr, 1, /* flags= */ 0, /* rrsig= */ NULL);
         dns_resource_record_unref(rr);
 
         ASSERT_EQ(dns_query_process_cname_one(query), DNS_QUERY_CNAME);
@@ -442,13 +442,13 @@ TEST(dns_query_process_cname_one_success_match_dname_utf8_same) {
         DnsResourceRecord *rr = NULL;
         DnsResourceKey *key = NULL;
 
-        ASSERT_OK(dns_question_new_address(&q_utf8, AF_INET, "www.xn--tl8h.com", false));
+        ASSERT_OK(dns_question_new_address(&q_utf8, AF_INET, "www.xn--tl8h.com", /* convert_idna= */ false));
         ASSERT_NOT_NULL(q_utf8);
 
-        ASSERT_OK(dns_question_new_address(&q_idna, AF_INET, "www.\xF0\x9F\x8E\xBC.com", true));
+        ASSERT_OK(dns_question_new_address(&q_idna, AF_INET, "www.\xF0\x9F\x8E\xBC.com", /* convert_idna= */ true));
         ASSERT_NOT_NULL(q_idna);
 
-        ASSERT_OK(dns_query_new(&manager, &query, q_utf8, q_idna, NULL, 1, 0));
+        ASSERT_OK(dns_query_new(&manager, &query, q_utf8, q_idna, /* question_bypass= */ NULL, 1, /* flags= */ 0));
         ASSERT_NOT_NULL(query);
 
         query->state = DNS_TRANSACTION_SUCCESS;
@@ -461,7 +461,7 @@ TEST(dns_query_process_cname_one_success_match_dname_utf8_same) {
         ASSERT_NOT_NULL(rr);
         rr->ttl = 3600;
         rr->dname.name = checked_strdup("v2.xn--tl8h.com");
-        dns_answer_add(query->answer, rr, 1, 0, NULL);
+        dns_answer_add(query->answer, rr, 1, /* flags= */ 0, /* rrsig= */ NULL);
         dns_resource_record_unref(rr);
 
         ASSERT_EQ(dns_query_process_cname_one(query), DNS_QUERY_CNAME);
@@ -495,13 +495,13 @@ TEST(dns_query_process_cname_one_success_match_dname_utf8_different) {
         DnsResourceRecord *rr = NULL;
         DnsResourceKey *key = NULL;
 
-        ASSERT_OK(dns_question_new_address(&q_utf8, AF_INET, "www.\xF0\x9F\x98\xB1.com", false));
+        ASSERT_OK(dns_question_new_address(&q_utf8, AF_INET, "www.\xF0\x9F\x98\xB1.com", /* convert_idna= */ false));
         ASSERT_NOT_NULL(q_utf8);
 
-        ASSERT_OK(dns_question_new_address(&q_idna, AF_INET, "www.\xF0\x9F\x8E\xBC.com", true));
+        ASSERT_OK(dns_question_new_address(&q_idna, AF_INET, "www.\xF0\x9F\x8E\xBC.com", /* convert_idna= */ true));
         ASSERT_NOT_NULL(q_idna);
 
-        ASSERT_OK(dns_query_new(&manager, &query, q_utf8, q_idna, NULL, 1, 0));
+        ASSERT_OK(dns_query_new(&manager, &query, q_utf8, q_idna, /* question_bypass= */ NULL, 1, /* flags= */ 0));
         ASSERT_NOT_NULL(query);
 
         query->state = DNS_TRANSACTION_SUCCESS;
@@ -514,7 +514,7 @@ TEST(dns_query_process_cname_one_success_match_dname_utf8_different) {
         ASSERT_NOT_NULL(rr);
         rr->ttl = 3600;
         rr->dname.name = checked_strdup("v2.xn--tl8h.com");
-        dns_answer_add(query->answer, rr, 1, 0, NULL);
+        dns_answer_add(query->answer, rr, 1, /* flags= */ 0, /* rrsig= */ NULL);
         dns_resource_record_unref(rr);
 
         ASSERT_EQ(dns_query_process_cname_one(query), DNS_QUERY_CNAME);
@@ -558,10 +558,10 @@ TEST(dns_query_process_cname_many_success_match_multiple_cname) {
         DnsResourceRecord *rr = NULL;
         DnsResourceKey *key = NULL;
 
-        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", /* convert_idna= */ false));
         ASSERT_NOT_NULL(question);
 
-        ASSERT_OK(dns_query_new(&manager, &query, NULL, question, NULL, 1, 0));
+        ASSERT_OK(dns_query_new(&manager, &query, /* question_utf8= */ NULL, question, /* question_bypass= */ NULL, 1, /* flags= */ 0));
         ASSERT_NOT_NULL(query);
 
         query->state = DNS_TRANSACTION_SUCCESS;
@@ -575,28 +575,28 @@ TEST(dns_query_process_cname_many_success_match_multiple_cname) {
         ASSERT_NOT_NULL(rr);
         rr->ttl = 3600;
         rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
-        dns_answer_add(query->answer, rr, 1, 0, NULL);
+        dns_answer_add(query->answer, rr, 1, /* flags= */ 0, /* rrsig= */ NULL);
         dns_resource_record_unref(rr);
 
         rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
         ASSERT_NOT_NULL(rr);
         rr->ttl = 3600;
         rr->cname.name = checked_strdup("tmp1.example.com");
-        dns_answer_add(query->answer, rr, 1, 0, NULL);
+        dns_answer_add(query->answer, rr, 1, /* flags= */ 0, /* rrsig= */ NULL);
         dns_resource_record_unref(rr);
 
         rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "tmp2.example.com");
         ASSERT_NOT_NULL(rr);
         rr->ttl = 3600;
         rr->cname.name = checked_strdup("example.com");
-        dns_answer_add(query->answer, rr, 1, 0, NULL);
+        dns_answer_add(query->answer, rr, 1, /* flags= */ 0, /* rrsig= */ NULL);
         dns_resource_record_unref(rr);
 
         rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "tmp1.example.com");
         ASSERT_NOT_NULL(rr);
         rr->ttl = 3600;
         rr->cname.name = checked_strdup("tmp2.example.com");
-        dns_answer_add(query->answer, rr, 1, 0, NULL);
+        dns_answer_add(query->answer, rr, 1, /* flags= */ 0, /* rrsig= */ NULL);
         dns_resource_record_unref(rr);
 
         ASSERT_EQ(dns_query_process_cname_many(query), DNS_QUERY_MATCH);
@@ -643,10 +643,10 @@ TEST(dns_query_string_question_utf8) {
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         _cleanup_(dns_query_freep) DnsQuery *query = NULL;
 
-        ASSERT_OK(dns_question_new_address(&question, AF_INET, "utf8.example.com", false));
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "utf8.example.com", /* convert_idna= */ false));
         ASSERT_NOT_NULL(question);
 
-        ASSERT_OK(dns_query_new(&manager, &query, question, NULL, NULL, 1, 0));
+        ASSERT_OK(dns_query_new(&manager, &query, question, /* question_idna= */ NULL, /* question_bypass= */ NULL, 1, /* flags= */ 0));
         ASSERT_NOT_NULL(query);
 
         const char *str = dns_query_string(query);
@@ -658,10 +658,10 @@ TEST(dns_query_string_question_idna) {
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         _cleanup_(dns_query_freep) DnsQuery *query = NULL;
 
-        ASSERT_OK(dns_question_new_address(&question, AF_INET, "idna.example.com", false));
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "idna.example.com", /* convert_idna= */ false));
         ASSERT_NOT_NULL(question);
 
-        ASSERT_OK(dns_query_new(&manager, &query, NULL, question, NULL, 1, 0));
+        ASSERT_OK(dns_query_new(&manager, &query, /* question_utf8= */ NULL, question, /* question_bypass= */ NULL, 1, /* flags= */ 0));
         ASSERT_NOT_NULL(query);
 
         const char *str = dns_query_string(query);
@@ -673,13 +673,13 @@ TEST(dns_query_string_question_bypass) {
         _cleanup_(dns_query_freep) DnsQuery *query = NULL;
         _cleanup_(dns_packet_unrefp) DnsPacket * packet = NULL;
 
-        ASSERT_OK(dns_packet_new_query(&packet, DNS_PROTOCOL_DNS, 0, false));
+        ASSERT_OK(dns_packet_new_query(&packet, DNS_PROTOCOL_DNS, /* min_alloc_dsize= */ 0, /* dnssec_checking_disabled= */ false));
         ASSERT_NOT_NULL(packet);
 
-        ASSERT_OK(dns_question_new_address(&packet->question, AF_INET, "bypass.example.com", false));
+        ASSERT_OK(dns_question_new_address(&packet->question, AF_INET, "bypass.example.com", /* convert_idna= */ false));
         ASSERT_NOT_NULL(packet->question);
 
-        ASSERT_OK(dns_query_new(&manager, &query, NULL, NULL, packet, 1, 0));
+        ASSERT_OK(dns_query_new(&manager, &query, /* question_utf8= */ NULL, /* question_idna= */ NULL, packet, 1, /* flags= */ 0));
         ASSERT_NOT_NULL(query);
 
         const char *str = dns_query_string(query);
@@ -691,10 +691,10 @@ TEST(dns_query_string_request_address) {
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         _cleanup_(dns_query_freep) DnsQuery *query = NULL;
 
-        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", false));
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", /* convert_idna= */ false));
         ASSERT_NOT_NULL(question);
 
-        ASSERT_OK(dns_query_new(&manager, &query, question, NULL, NULL, 1, 0));
+        ASSERT_OK(dns_query_new(&manager, &query, question, /* question_idna= */ NULL, /* question_bypass= */ NULL, 1, /* flags= */ 0));
         ASSERT_NOT_NULL(query);
 
         query->request_family = AF_INET;
@@ -833,20 +833,20 @@ static void exercise_dns_query_go(GoConfig *cfg, void (*check_query)(DnsQuery *q
 
         go_env_setup(&env, cfg);
 
-        int flags = SD_RESOLVED_FLAGS_MAKE(env.protocol, env.family, false, false);
+        int flags = SD_RESOLVED_FLAGS_MAKE(env.protocol, env.family, /* authenticated= */ false, /* confidential= */ false);
 
         if (cfg->n_search_domains > 0) {
                 /* search domains trigger on single-label domains */
-                ASSERT_OK(dns_question_new_address(&question, env.family, "berlin", false));
+                ASSERT_OK(dns_question_new_address(&question, env.family, "berlin", /* convert_idna= */ false));
                 flags &= ~SD_RESOLVED_NO_SEARCH;
         } else {
-                ASSERT_OK(dns_question_new_address(&question, env.family, "www.example.com", false));
+                ASSERT_OK(dns_question_new_address(&question, env.family, "www.example.com", /* convert_idna= */ false));
         }
 
         ASSERT_NOT_NULL(question);
 
         if (cfg->use_bypass) {
-                ASSERT_OK(dns_packet_new_query(&packet, env.protocol, 0, false));
+                ASSERT_OK(dns_packet_new_query(&packet, env.protocol, /* min_alloc_dsize= */ 0, /* dnssec_checking_disabled= */ false));
                 ASSERT_NOT_NULL(packet);
                 DNS_PACKET_HEADER(packet)->qdcount = htobe16(1);
                 packet->question = dns_question_ref(question);
@@ -855,9 +855,9 @@ static void exercise_dns_query_go(GoConfig *cfg, void (*check_query)(DnsQuery *q
                 /* search domains must be turned off for bypass queries, otherwise dns_query_add_candidate()
                  * tries to extract the domain name from question_idna which cannot exist on bypasses. */
                 flags |= SD_RESOLVED_NO_SEARCH;
-                ASSERT_OK(dns_query_new(&env.manager, &query, NULL, NULL, packet, env.ifindex, flags));
+                ASSERT_OK(dns_query_new(&env.manager, &query, /* question_utf8= */ NULL, /* question_idna= */ NULL, packet, env.ifindex, flags));
         } else {
-                ASSERT_OK(dns_query_new(&env.manager, &query, question, question, NULL, env.ifindex, flags));
+                ASSERT_OK(dns_query_new(&env.manager, &query, question, question, /* question_bypass= */ NULL, env.ifindex, flags));
         }
 
         ASSERT_NOT_NULL(query);
@@ -878,15 +878,15 @@ TEST(dns_query_go) {
         GoConfig cfg;
 
         cfg = mk_go_config();
-        exercise_dns_query_go(&cfg, NULL);
+        exercise_dns_query_go(&cfg, /* check_query= */ NULL);
 
         cfg = mk_go_config();
         cfg.use_link = true;
-        exercise_dns_query_go(&cfg, NULL);
+        exercise_dns_query_go(&cfg, /* check_query= */ NULL);
 
         cfg = mk_go_config();
         cfg.use_bypass = true;
-        exercise_dns_query_go(&cfg, NULL);
+        exercise_dns_query_go(&cfg, /* check_query= */ NULL);
 
         cfg = mk_go_config();
         cfg.has_scope = false;
@@ -894,7 +894,7 @@ TEST(dns_query_go) {
 
         cfg = mk_go_config();
         cfg.n_search_domains = 2;
-        exercise_dns_query_go(&cfg, NULL);
+        exercise_dns_query_go(&cfg, /* check_query= */ NULL);
 }
 
 static int intro(void) {

@@ -258,7 +258,7 @@ int sd_radv_send(sd_radv *ra) {
         if (r < 0)
                 return r;
 
-        r = radv_send_router(ra, NULL);
+        r = radv_send_router(ra, /* dst= */ NULL);
         if (r < 0)
                 /* Do not treat transient send failures (e.g. ENOBUFS while a bond is still selecting an
                  * aggregator after a carrier flap, or ENETDOWN/EADDRNOTAVAIL during a short link bounce) as
@@ -305,7 +305,7 @@ int sd_radv_send(sd_radv *ra) {
                         CLOCK_BOOTTIME,
                         usec_add(time_now, timeout), MSEC_PER_SEC,
                         radv_timeout, ra,
-                        ra->event_priority, "radv-timeout", true);
+                        ra->event_priority, "radv-timeout", /* force_reset= */ true);
 }
 
 int sd_radv_stop(sd_radv *ra) {
@@ -374,9 +374,9 @@ int sd_radv_start(sd_radv *ra) {
 
         r = event_reset_time(ra->event, &ra->timeout_event_source,
                              CLOCK_BOOTTIME,
-                             0, 0,
+                             /* usec= */ 0, /* accuracy= */ 0,
                              radv_timeout, ra,
-                             ra->event_priority, "radv-timeout", true);
+                             ra->event_priority, "radv-timeout", /* force_reset= */ true);
         if (r < 0)
                 goto fail;
 

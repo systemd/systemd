@@ -14,6 +14,7 @@
 #include "build.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "main-func.h"
 #include "random-util.h"
 #include "sort-util.h"
@@ -256,7 +257,7 @@ static int media_eject(int fd) {
         scsi_cmd_set(&sc, 4, 0x02);
         scsi_cmd_set(&sc, 5, 0);
 
-        return scsi_cmd_run_and_log(&sc, fd, NULL, 0, "start/stop unit");
+        return scsi_cmd_run_and_log(&sc, fd, /* buf= */ NULL, /* bufsize= */ 0, "start/stop unit");
 }
 
 static int cd_capability_compat(Context *c) {
@@ -753,11 +754,11 @@ static int open_drive(Context *c) {
         assert(c->fd < 0);
 
         for (int cnt = 0;; cnt++) {
-                fd = open(arg_node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+                fd = xopenat(AT_FDCWD, arg_node, O_RDONLY|O_NONBLOCK|O_NOCTTY);
                 if (fd >= 0)
                         break;
-                if (++cnt >= 20 || errno != EBUSY)
-                        return log_debug_errno(errno, "Unable to open '%s': %m", arg_node);
+                if (++cnt >= 20 || fd != -EBUSY)
+                        return log_debug_errno(fd, "Unable to open '%s': %m", arg_node);
 
                 (void) usleep_safe(100 * USEC_PER_MSEC + random_u64_range(100 * USEC_PER_MSEC));
         }
@@ -1000,17 +1001,17 @@ work:
         /* lock the media, so we enable eject button events */
         if (arg_lock && c.has_media) {
                 log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (lock)");
-                (void) media_lock(c.fd, true);
+                (void) media_lock(c.fd, /* lock= */ true);
         }
 
         if (arg_unlock && c.has_media) {
                 log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (unlock)");
-                (void) media_lock(c.fd, false);
+                (void) media_lock(c.fd, /* lock= */ false);
         }
 
         if (arg_eject) {
                 log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (unlock)");
-                (void) media_lock(c.fd, false);
+                (void) media_lock(c.fd, /* lock= */ false);
                 log_debug("START_STOP_UNIT (eject)");
                 (void) media_eject(c.fd);
         }

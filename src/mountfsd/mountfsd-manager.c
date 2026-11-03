@@ -9,7 +9,9 @@
 #include "build-path.h"
 #include "common-signal.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "event-util.h"
+#include "exit-status.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "log.h"
@@ -43,6 +45,14 @@ static int on_worker_exit(sd_event_source *s, const siginfo_t *si, void *userdat
         sd_event_source_disable_unref(s);
 
         if (si->si_code == CLD_EXITED) {
+                if (si->si_status == EXIT_EXEC) {
+                        /* The worker binary cannot be executed, respawning it would just fail the same way
+                         * over and over again. Let's give up. */
+                        log_error("Worker " PID_FMT " failed to execute worker binary, exiting.", si->si_pid);
+                        sd_event_exit(m->event, EXIT_FAILURE);
+                        return 0;
+                }
+
                 if (si->si_status == EXIT_SUCCESS)
                         log_debug("Worker " PID_FMT " exited successfully.", si->si_pid);
                 else
@@ -91,11 +101,11 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(m->event, NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, NULL);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
         if (r < 0)
                 return r;
 
-        r = sd_event_add_memory_pressure(m->event, NULL, NULL, NULL);
+        r = sd_event_add_memory_pressure(m->event, /* ret= */ NULL, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
 
@@ -103,7 +113,7 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 log_debug_errno(r, "Failed to enable watchdog handling, ignoring: %m");
 
-        r = sd_event_add_signal(m->event, NULL, SIGUSR2|SD_EVENT_SIGNAL_PROCMASK, on_sigusr2, m);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, SIGUSR2|SD_EVENT_SIGNAL_PROCMASK, on_sigusr2, m);
         if (r < 0)
                 return r;
 
@@ -147,7 +157,7 @@ static int start_one_worker(Manager *m) {
                 /* Child */
 
                 if (m->listen_fd == 3) {
-                        r = fd_cloexec(3, false);
+                        r = fd_cloexec(3, /* cloexec= */ false);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to turn off O_CLOEXEC for fd 3: %m");
                                 _exit(EXIT_FAILURE);
@@ -194,7 +204,7 @@ static int start_one_worker(Manager *m) {
 
                 r = invoke_callout_binary(SYSTEMD_MOUNTWORK_PATH, STRV_MAKE("systemd-mountwork", "xxxxxxxxxxxxxxxx")); /* With some extra space rename_process() can make use of */
                 log_error_errno(r, "Failed to start worker process: %m");
-                _exit(EXIT_FAILURE);
+                _exit(ERRNO_IS_NEG_RESOURCE(r) ? EXIT_FAILURE : EXIT_EXEC);
         }
 
         r = event_add_child_pidref(m->event, &source, &pidref, WEXITED, on_worker_exit, m);
@@ -251,7 +261,7 @@ int manager_startup(Manager *m) {
         assert(m);
         assert(m->listen_fd < 0);
 
-        n = sd_listen_fds(false);
+        n = sd_listen_fds(/* unset_environment= */ false);
         if (n < 0)
                 return log_error_errno(n, "Failed to determine number of passed file descriptors: %m");
         if (n > 1)

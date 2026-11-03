@@ -38,13 +38,13 @@ static int test_socket_bind(
         CGroupContext *cc = NULL;
         int cld_code, r;
 
-        assert_se(u = unit_new(m, sizeof(Service)));
-        assert_se(unit_add_name(u, unit_name) == 0);
-        assert_se(cc = unit_get_cgroup_context(u));
+        ASSERT_NOT_NULL(u = unit_new(m, sizeof(Service)));
+        ASSERT_OK_ZERO(unit_add_name(u, unit_name));
+        ASSERT_NOT_NULL(cc = unit_get_cgroup_context(u));
 
         STRV_FOREACH(rule, allow_rules) {
                 r = config_parse_cgroup_socket_bind(
-                                u->id, "filename", 1, "Service", 1, "SocketBindAllow", 0,
+                                u->id, "filename", 1, "Service", 1, "SocketBindAllow", /* ltype= */ 0,
                                 *rule, &cc->socket_bind_allow, u);
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Failed to parse SocketBindAllow: %m");
@@ -56,7 +56,7 @@ static int test_socket_bind(
 
         STRV_FOREACH(rule, deny_rules) {
                 r = config_parse_cgroup_socket_bind(
-                                u->id, "filename", 1, "Service", 1, "SocketBindDeny", 0,
+                                u->id, "filename", 1, "Service", 1, "SocketBindDeny", /* ltype= */ 0,
                                 *rule, &cc->socket_bind_deny, u);
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Failed to parse SocketBindDeny: %m");
@@ -78,7 +78,7 @@ static int test_socket_bind(
         u->load_state = UNIT_LOADED;
 
         ASSERT_OK(unit_patch_contexts(u));
-        r = unit_start(u, NULL);
+        r = unit_start(u, /* details= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Unit start failed: %m");
 
@@ -110,7 +110,7 @@ int main(int argc, char *argv[]) {
         if (detect_container() > 0)
                 return log_tests_skipped("test-socket-bind fails inside LXC and Docker containers: https://github.com/systemd/systemd/issues/9666");
 
-        assert_se(getrlimit(RLIMIT_MEMLOCK, &rl) >= 0);
+        ASSERT_OK_ERRNO(getrlimit(RLIMIT_MEMLOCK, &rl));
         rl.rlim_cur = rl.rlim_max = MAX(rl.rlim_max, CAN_MEMLOCK_SIZE);
         (void) setrlimit_closest(RLIMIT_MEMLOCK, &rl);
 
@@ -124,28 +124,28 @@ int main(int argc, char *argv[]) {
         if (find_netcat_executable(&netcat_path) != 0)
                 return log_tests_skipped("Cannot find netcat executable");
 
-        r = enter_cgroup_subroot(NULL);
+        r = enter_cgroup_subroot(/* ret_cgroup= */ NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
         ASSERT_OK(get_testdata_dir("units", &unit_dir));
         ASSERT_OK(setenv_unit_path(unit_dir));
-        assert_se(runtime_dir = setup_fake_runtime_dir());
+        ASSERT_NOT_NULL(runtime_dir = setup_fake_runtime_dir());
 
-        assert_se(manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m) >= 0);
-        assert_se(manager_startup(m, NULL, NULL, NULL, NULL) >= 0);
+        ASSERT_OK(manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m));
+        ASSERT_OK(manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
 
-        assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "2000", STRV_MAKE("2000"), STRV_MAKE("any")) >= 0);
-        assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "2000", STRV_MAKE("ipv6:2001-2002"), STRV_MAKE("any")) >= 0);
-        assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "6666", STRV_MAKE("ipv4:6666", "6667"), STRV_MAKE("any")) >= 0);
-        assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "6666", STRV_MAKE("6667", "6668", ""), STRV_MAKE("any")) >= 0);
-        assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "7777", STRV_EMPTY, STRV_EMPTY) >= 0);
-        assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "8888", STRV_MAKE("any"), STRV_MAKE("any")) >= 0);
-        assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "8888", STRV_MAKE("ipv6:tcp:8888-8889"), STRV_MAKE("any")) >= 0);
-        assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "10000", STRV_MAKE("ipv6:udp:9999-10000"), STRV_MAKE("any")) >= 0);
-        assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "6666", STRV_MAKE("ipv4:tcp:6666"), STRV_MAKE("any")) >= 0);
-        assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "6666", STRV_MAKE("ipv4:udp:6666"), STRV_MAKE("any")) >= 0);
-        assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "6666", STRV_MAKE("tcp:6666"), STRV_MAKE("any")) >= 0);
+        ASSERT_OK(test_socket_bind(m, "socket_bind_test.service", netcat_path, "2000", STRV_MAKE("2000"), STRV_MAKE("any")));
+        ASSERT_OK(test_socket_bind(m, "socket_bind_test.service", netcat_path, "2000", STRV_MAKE("ipv6:2001-2002"), STRV_MAKE("any")));
+        ASSERT_OK(test_socket_bind(m, "socket_bind_test.service", netcat_path, "6666", STRV_MAKE("ipv4:6666", "6667"), STRV_MAKE("any")));
+        ASSERT_OK(test_socket_bind(m, "socket_bind_test.service", netcat_path, "6666", STRV_MAKE("6667", "6668", ""), STRV_MAKE("any")));
+        ASSERT_OK(test_socket_bind(m, "socket_bind_test.service", netcat_path, "7777", STRV_EMPTY, STRV_EMPTY));
+        ASSERT_OK(test_socket_bind(m, "socket_bind_test.service", netcat_path, "8888", STRV_MAKE("any"), STRV_MAKE("any")));
+        ASSERT_OK(test_socket_bind(m, "socket_bind_test.service", netcat_path, "8888", STRV_MAKE("ipv6:tcp:8888-8889"), STRV_MAKE("any")));
+        ASSERT_OK(test_socket_bind(m, "socket_bind_test.service", netcat_path, "10000", STRV_MAKE("ipv6:udp:9999-10000"), STRV_MAKE("any")));
+        ASSERT_OK(test_socket_bind(m, "socket_bind_test.service", netcat_path, "6666", STRV_MAKE("ipv4:tcp:6666"), STRV_MAKE("any")));
+        ASSERT_OK(test_socket_bind(m, "socket_bind_test.service", netcat_path, "6666", STRV_MAKE("ipv4:udp:6666"), STRV_MAKE("any")));
+        ASSERT_OK(test_socket_bind(m, "socket_bind_test.service", netcat_path, "6666", STRV_MAKE("tcp:6666"), STRV_MAKE("any")));
 
         return 0;
 }

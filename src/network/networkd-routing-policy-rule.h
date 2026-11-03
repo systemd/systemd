@@ -58,10 +58,10 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
 
 int link_drop_routing_policy_rules(Link *link, bool only_static);
 static inline int link_drop_unmanaged_routing_policy_rules(Link *link) {
-        return link_drop_routing_policy_rules(link, false);
+        return link_drop_routing_policy_rules(link, /* only_static= */ false);
 }
 static inline int link_drop_static_routing_policy_rules(Link *link) {
-        return link_drop_routing_policy_rules(link, true);
+        return link_drop_routing_policy_rules(link, /* only_static= */ true);
 }
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(RoutingPolicyRule, routing_policy_rule);

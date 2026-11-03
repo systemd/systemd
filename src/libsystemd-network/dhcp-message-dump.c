@@ -68,7 +68,7 @@ static void table_apply_flags(Table *table, DumpDHCPMessageFlag flags) {
 
         table_set_header(table, FLAGS_SET(flags, DUMP_DHCP_MESSAGE_LEGEND));
         if (FLAGS_SET(flags, DUMP_DHCP_MESSAGE_FULL))
-                table_set_width(table, 0);
+                table_set_width(table, /* width= */ 0);
 }
 
 static int dump_dhcp_option_vendor_specific_information(sd_dhcp_message *m, DumpDHCPMessageFlag flags) {
@@ -84,7 +84,7 @@ static int dump_dhcp_option_vendor_specific_information(sd_dhcp_message *m, Dump
 
         (void) table_set_sort(table, (size_t) 0);
 
-        TableCell *cell = table_get_cell(table, 0, 0);
+        TableCell *cell = table_get_cell(table, /* row= */ 0, /* column= */ 0);
         if (!cell)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to get table cell.");
 
@@ -133,7 +133,7 @@ static int dump_dhcp_option_vendor_identifying_vendor_class(sd_dhcp_message *m, 
 
         (void) table_set_sort(table, (size_t) 0);
 
-        TableCell *cell = table_get_cell(table, 0, 0);
+        TableCell *cell = table_get_cell(table, /* row= */ 0, /* column= */ 0);
         if (!cell)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to get table cell.");
 
@@ -193,7 +193,7 @@ static int dump_dhcp_option_vendor_identifying_vendor_specific_information(sd_dh
         (void) table_set_sort(table, (size_t) 0, (size_t) 1);
 
         for (unsigned i = 0; i <= 1; i++) {
-                TableCell *cell = table_get_cell(table, 0, i);
+                TableCell *cell = table_get_cell(table, /* row= */ 0, i);
                 if (!cell)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to get table cell.");
 
@@ -960,7 +960,7 @@ static int dump_dhcp_options(sd_dhcp_message *message, char * const *args, DumpD
 
         (void) table_set_sort(table, (size_t) 0);
 
-        TableCell *cell = table_get_cell(table, 0, 0);
+        TableCell *cell = table_get_cell(table, /* row= */ 0, /* column= */ 0);
         if (!cell)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to get table cell.");
 
@@ -1095,7 +1095,7 @@ static int dump_dhcp_header(sd_dhcp_message *message, DumpDHCPMessageFlag flags)
 
         table_apply_flags(table, flags);
 
-        TableCell *cell = table_get_cell(table, 0, 0);
+        TableCell *cell = table_get_cell(table, /* row= */ 0, /* column= */ 0);
         if (!cell)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to get table cell.");
 

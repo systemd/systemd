@@ -73,6 +73,7 @@ typedef struct JournalFile {
         bool close_fd:1;
         bool archive:1;
         bool strict_order:1;
+        bool verifying:1;    /* The file is opened for verifying. See journal_file_verify(). */
 
         direction_t last_direction;
         LocationType location_type;
@@ -136,6 +137,8 @@ typedef struct {
 } EntryItem;
 
 extern const struct hash_ops journal_file_hash_ops_by_path;
+
+int journal_file_verify_header(JournalFile *f);
 
 /* The sequence number ID is used when the file is created, in preference to the one of the template. */
 int journal_file_open_full(

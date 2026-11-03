@@ -48,6 +48,7 @@ struct sd_dhcp6_lease {
         char **sip_domains;
         char *fqdn;
         char *captive_portal;
+        char *timezone;
         struct sd_dhcp6_option **sorted_vendor_options;
         Set *vendor_options;
 };
@@ -69,6 +70,7 @@ int dhcp6_lease_add_sip_addrs(sd_dhcp6_lease *lease, const uint8_t *optval, size
 int dhcp6_lease_add_sip_domains(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen);
 int dhcp6_lease_set_fqdn(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen);
 int dhcp6_lease_set_captive_portal(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen);
+int dhcp6_lease_set_timezone(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen);
 
 int dhcp6_lease_new(sd_dhcp6_lease **ret);
 int dhcp6_lease_new_from_message(

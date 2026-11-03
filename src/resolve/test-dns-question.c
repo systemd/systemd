@@ -48,14 +48,14 @@ TEST(dns_question_new_address) {
         ASSERT_NOT_NULL(key4 = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com"));
         ASSERT_NOT_NULL(key6 = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com"));
 
-        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", 0));
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", /* convert_idna= */ 0));
         ASSERT_NOT_NULL(question);
         ASSERT_EQ(dns_question_size(question), 1u);
         ASSERT_OK_POSITIVE(dns_question_contains_key(question, key4));
         ASSERT_OK_ZERO(dns_question_contains_key(question, key6));
         question = dns_question_unref(question);
 
-        ASSERT_OK(dns_question_new_address(&question, AF_INET6, "www.example.com", 0));
+        ASSERT_OK(dns_question_new_address(&question, AF_INET6, "www.example.com", /* convert_idna= */ 0));
         ASSERT_NOT_NULL(question);
         ASSERT_EQ(dns_question_size(question), 1u);
         ASSERT_OK_ZERO(dns_question_contains_key(question, key4));

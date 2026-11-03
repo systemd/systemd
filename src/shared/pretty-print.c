@@ -209,7 +209,7 @@ static int cat_file(const ConfFile *c, bool *newline, CatFlags flags) {
 
         bool resolved = !path_equal(c->original_path, c->resolved_path);
 
-        r = terminal_urlify_path(c->resolved_path, NULL, &urlified);
+        r = terminal_urlify_path(c->resolved_path, /* text= */ NULL, &urlified);
         if (r < 0)
                 return log_error_errno(r, "Failed to urlify path \"%s\": %m", c->resolved_path);
 
@@ -427,7 +427,10 @@ static int guess_type(const char **name, char ***ret_prefixes, bool *ret_is_coll
                 ext = ".rules";
         else if (path_equal(n, "kernel/install.d"))
                 ext = ".install";
-        else if (path_equal(n, "systemd/ntp-units.d")) {
+        else if (path_equal(n, "machine-tags.d")) {
+                coll = true;
+                ext = ".tags";
+        } else if (path_equal(n, "systemd/ntp-units.d")) {
                 coll = true;
                 ext = ".list";
         } else if (path_equal(n, "systemd/relabel-extra.d")) {

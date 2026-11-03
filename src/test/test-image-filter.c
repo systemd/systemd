@@ -41,9 +41,9 @@ TEST(image_filter_test_basic) {
         _cleanup_(image_filter_freep) ImageFilter *f = NULL;
 
         /* NULL filter matches everything */
-        ASSERT_TRUE(image_filter_test(NULL, PARTITION_ROOT, "foo"));
-        ASSERT_TRUE(image_filter_test(NULL, PARTITION_USR, "bar"));
-        ASSERT_TRUE(image_filter_test(NULL, PARTITION_USR_VERITY, "baz"));
+        ASSERT_TRUE(image_filter_test(/* filter= */ NULL, PARTITION_ROOT, "foo"));
+        ASSERT_TRUE(image_filter_test(/* filter= */ NULL, PARTITION_USR, "bar"));
+        ASSERT_TRUE(image_filter_test(/* filter= */ NULL, PARTITION_USR_VERITY, "baz"));
 
         /* Filter on usr matches the right label */
         ASSERT_OK(image_filter_parse("usr=250", &f));

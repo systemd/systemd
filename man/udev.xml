@@ -61,7 +61,10 @@
       ignored.</para>
 
       <para>Every line in the rules file contains at least one key-value pair.
-      Except for empty lines or lines beginning with <literal>#</literal>, which are ignored.
+      A line ending with a backslash (<literal>\</literal>) is joined with the following line,
+      and the result is processed as a single line.
+      Lines beginning with <literal>#</literal> are ignored, even within a continuation.
+      An empty or whitespace-only line ends a pending continuation and is otherwise ignored.
       There are two kinds of keys: match and assignment.
       If all match keys match against their values, the rule gets applied and the
       assignment keys get the specified values assigned.</para>

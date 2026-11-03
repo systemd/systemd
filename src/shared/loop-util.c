@@ -6,6 +6,7 @@
 
 #include <fcntl.h>
 #include <linux/loop.h>
+#include <linux/major.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -62,7 +63,7 @@ static int open_lock_fd(int primary_fd, int operation) {
 
         assert(IN_SET(operation & ~LOCK_NB, LOCK_SH, LOCK_EX));
 
-        lock_fd = fd_reopen(ASSERT_FD(primary_fd), O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        lock_fd = fd_reopen(ASSERT_FD(primary_fd), O_RDONLY|O_NONBLOCK|O_NOCTTY);
         if (lock_fd < 0)
                 return lock_fd;
 
@@ -255,7 +256,7 @@ static int loop_configure(
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get devnum: %m");
 
-        fd = sd_device_open(dev, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
+        fd = device_open(dev, O_NONBLOCK|O_NOCTTY|open_flags);
         if (fd < 0)
                 return log_device_debug_errno(dev, fd, "Failed to open device: %m");
 
@@ -436,7 +437,7 @@ static int probe_fd_open(int fd, int f_flags, int *ret_to_close) {
                 return fd;
         }
 
-        r = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        r = fd_reopen(fd, O_RDONLY|O_NONBLOCK);
         if (r < 0)
                 return r;
 
@@ -630,7 +631,7 @@ static int loop_device_make_internal(
                  * Our intention here is that LO_FLAGS_DIRECT_IO is the primary knob, and O_DIRECT derived
                  * from that automatically. */
 
-                reopened_fd = fd_reopen(fd, (FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO) ? O_DIRECT : 0)|O_CLOEXEC|O_NONBLOCK|open_flags);
+                reopened_fd = fd_reopen(fd, (FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO) ? O_DIRECT : 0)|O_NONBLOCK|open_flags);
                 if (reopened_fd < 0) {
                         if (!FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO))
                                 return log_debug_errno(reopened_fd, "Failed to reopen file descriptor without O_DIRECT: %m");
@@ -642,9 +643,9 @@ static int loop_device_make_internal(
                         fd = reopened_fd; /* From now on, operate on our new O_DIRECT fd */
         }
 
-        control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+        control = xopenat(AT_FDCWD, "/dev/loop-control", O_RDWR|O_NOCTTY|O_NONBLOCK);
         if (control < 0)
-                return -errno;
+                return control;
 
         /* Strip LO_FLAGS_PARTSCAN from LOOP_CONFIGURE and enable it afterwards via
          * LOOP_SET_STATUS64 to work around a kernel race: LOOP_CONFIGURE sends a uevent with
@@ -723,7 +724,7 @@ static int loop_device_make_internal(
                         config.info.lo_flags &= ~LO_FLAGS_DIRECT_IO;
                         open_flags &= ~O_DIRECT;
 
-                        int non_direct_io_fd = fd_reopen(config.fd, O_CLOEXEC|O_NONBLOCK|open_flags);
+                        int non_direct_io_fd = fd_reopen(config.fd, O_NONBLOCK|open_flags);
                         if (non_direct_io_fd < 0)
                                 return log_debug_errno(
                                                 non_direct_io_fd,
@@ -761,7 +762,7 @@ static int loop_device_make_internal(
         if (deferred_partscan) {
                 /* Open+close to drain GD_NEED_PART_SCAN harmlessly (GD_SUPPRESS_PART_SCAN is still
                  * set so no partitions appear). Then enable partscan via LOOP_SET_STATUS64. */
-                int tmp_fd = fd_reopen(d->fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                int tmp_fd = fd_reopen(d->fd, O_RDONLY|O_NONBLOCK);
                 if (tmp_fd < 0)
                         return log_debug_errno(tmp_fd, "Failed to reopen loop device to drain partscan flag: %m");
                 safe_close(tmp_fd);
@@ -814,7 +815,7 @@ int loop_device_make(
         assert(ret);
 
         return loop_device_make_internal(
-                        NULL,
+                        /* path= */ NULL,
                         fd,
                         open_flags,
                         offset,
@@ -850,13 +851,14 @@ int loop_device_make_by_path_at(
         /* Let's open with O_DIRECT if we can. But not all file systems support that, hence fall back to
          * non-O_DIRECT mode automatically, if it fails. */
 
-        basic_flags = O_CLOEXEC|O_NONBLOCK|O_NOCTTY;
+        basic_flags = O_NONBLOCK|O_NOCTTY;
         direct_flags = FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO) ? O_DIRECT : 0;
         rdwr_flags = open_flags >= 0 ? open_flags : O_RDWR;
 
-        fd = xopenat(dir_fd, path, basic_flags|direct_flags|rdwr_flags);
+        /* path may be NULL */
+        fd = xopenat_full(dir_fd, path, basic_flags|direct_flags|rdwr_flags, XO_EMPTY_PATH, MODE_INVALID);
         if (fd < 0 && direct_flags != 0) /* If we had O_DIRECT on, and things failed with that, let's immediately try again without */
-                fd = xopenat(dir_fd, path, basic_flags|rdwr_flags);
+                fd = xopenat_full(dir_fd, path, basic_flags|rdwr_flags, XO_EMPTY_PATH, MODE_INVALID);
         else
                 direct = direct_flags != 0;
         if (fd < 0) {
@@ -866,9 +868,10 @@ int loop_device_make_by_path_at(
                 if (open_flags >= 0 || !ERRNO_IS_NEG_FS_WRITE_REFUSED(r))
                         return r;
 
-                fd = xopenat(dir_fd, path, basic_flags|direct_flags|O_RDONLY);
+                fd = xopenat_full(dir_fd, path, basic_flags|direct_flags|O_RDONLY,
+                                  XO_EMPTY_PATH, MODE_INVALID);
                 if (fd < 0 && direct_flags != 0) /* as above */
-                        fd = xopenat(dir_fd, path, basic_flags|O_RDONLY);
+                        fd = xopenat_full(dir_fd, path, basic_flags|O_RDONLY, XO_EMPTY_PATH, MODE_INVALID);
                 else
                         direct = direct_flags != 0;
                 if (fd < 0)
@@ -919,9 +922,9 @@ int loop_device_make_by_path_memory(
 
         loop_flags &= ~LO_FLAGS_DIRECT_IO; /* memfds don't support O_DIRECT, hence LO_FLAGS_DIRECT_IO can't be used either */
 
-        fd = open(path, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_RDONLY);
+        fd = xopenat(AT_FDCWD, path, O_NONBLOCK|O_NOCTTY|O_RDONLY);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         r = fd_verify_regular_or_block(fd);
         if (r < 0)
@@ -931,13 +934,13 @@ int loop_device_make_by_path_memory(
         if (r < 0)
                 return r;
 
-        mfd = memfd_clone_fd(fd, fn, open_flags|O_CLOEXEC);
+        mfd = memfd_clone_fd(fd, fn, open_flags);
         if (mfd < 0)
                 return mfd;
 
         fd = safe_close(fd); /* Let's close the original early */
 
-        return loop_device_make_internal(NULL, mfd, open_flags, 0, 0, sector_size, loop_flags, lock_op, ret);
+        return loop_device_make_internal(/* path= */ NULL, mfd, open_flags, /* offset= */ 0, /* size= */ 0, sector_size, loop_flags, lock_op, ret);
 }
 
 static LoopDevice* loop_device_free(LoopDevice *d) {
@@ -958,9 +961,9 @@ static LoopDevice* loop_device_free(LoopDevice *d) {
          * delete it in a synchronized fashion, and allocators won't needlessly see the block device as free
          * while we are about to delete it. */
         if (!LOOP_DEVICE_IS_FOREIGN(d) && !d->relinquished) {
-                control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                control = xopenat(AT_FDCWD, "/dev/loop-control", O_RDWR|O_NOCTTY|O_NONBLOCK);
                 if (control < 0)
-                        log_debug_errno(errno, "Failed to open loop control device, cannot remove loop device '%s', ignoring: %m", strna(d->node));
+                        log_debug_errno(control, "Failed to open loop control device, cannot remove loop device '%s', ignoring: %m", strna(d->node));
                 else if (flock(control, LOCK_EX) < 0)
                         log_debug_errno(errno, "Failed to lock loop control device, ignoring: %m");
         }
@@ -1045,7 +1048,7 @@ int loop_device_open(
 
         _cleanup_close_ int fd = -EBADF, lock_fd = -EBADF;
         _cleanup_free_ char *node = NULL, *backing_file = NULL;
-        dev_t devnum, backing_devno = 0;
+        dev_t devnum, whole_devnum, backing_devno = 0;
         struct loop_info64 info;
         ino_t backing_inode = 0;
         uint64_t diskseq = 0;
@@ -1061,7 +1064,7 @@ int loop_device_open(
          * here, instead of keeping just a dup() clone of it around, since we want to ensure that the
          * O_DIRECT flag of the handle we keep is off, we have our own file index, and have the right
          * read/write mode in effect. */
-        fd = sd_device_open(dev, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
+        fd = device_open(dev, O_NONBLOCK|O_NOCTTY|open_flags);
         if (fd < 0)
                 return fd;
 
@@ -1071,7 +1074,21 @@ int loop_device_open(
                         return lock_fd;
         }
 
-        if (ioctl(fd, LOOP_GET_STATUS64, &info) >= 0) {
+        r = sd_device_get_devnum(dev, &devnum);
+        if (r < 0)
+                return r;
+
+        /* Device-mapper forwards ioctls to the underlying device for targets such as dm-verity. On a verity
+         * device that maps a loop device, LOOP_GET_STATUS64 returns the status of that loop device. LOOP_CLR_FD
+         * on the verity device clears the loop device, although the verity device still uses it. So we only
+         * query the loop status of loop devices and their partitions. The partitions of a loop device don't
+         * have the loop major number, they have the extended major number 259. So we check the major number of
+         * the whole disk. */
+        r = block_get_whole_disk(devnum, &whole_devnum);
+        if (r < 0)
+                return r;
+
+        if (major(whole_devnum) == LOOP_MAJOR && ioctl(fd, LOOP_GET_STATUS64, &info) >= 0) {
 #if HAVE_VALGRIND_MEMCHECK_H
                 /* Valgrind currently doesn't know LOOP_GET_STATUS64. Remove this once it does */
                 VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
@@ -1099,10 +1116,6 @@ int loop_device_open(
 
         uint64_t device_size;
         r = blockdev_get_device_size(fd, &device_size);
-        if (r < 0)
-                return r;
-
-        r = sd_device_get_devnum(dev, &devnum);
         if (r < 0)
                 return r;
 
@@ -1149,7 +1162,7 @@ int loop_device_open_from_fd(
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         int r;
 
-        r = block_device_new_from_fd(ASSERT_FD(fd), 0, &dev);
+        r = block_device_new_from_fd(ASSERT_FD(fd), /* flags= */ 0, &dev);
         if (r < 0)
                 return r;
 
@@ -1167,7 +1180,7 @@ int loop_device_open_from_path(
 
         assert(path);
 
-        r = block_device_new_from_path(path, 0, &dev);
+        r = block_device_new_from_path(path, /* flags= */ 0, &dev);
         if (r < 0)
                 return r;
 
@@ -1234,7 +1247,7 @@ static int resize_partition(int partition_fd, uint64_t offset, uint64_t size) {
         if (r < 0)
                 return r;
 
-        whole_fd = r = device_open_from_devnum(S_IFBLK, devno, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, NULL);
+        whole_fd = r = device_open_from_devnum(S_IFBLK, devno, O_RDWR|O_NONBLOCK|O_NOCTTY, /* ret_devname= */ NULL);
         if (r < 0)
                 return r;
 

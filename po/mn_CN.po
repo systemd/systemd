@@ -1,0 +1,1538 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is distributed under the same license as the systemd package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: systemd\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-08-26 10:57+0100\n"
+"PO-Revision-Date: 2026-11-03 00:00+0800\n"
+"Last-Translator: dongshengyuan <dongshengyuan@uniontech.com>, hanjinlong <hanjinlong@uniontech.com>\n"
+"Language-Team: Mongolian\n"
+"Language: mn_CN\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: src/core/org.freedesktop.systemd1.policy.in:22
+msgid "Send passphrase back to system"
+msgstr "ᠨᠢᠭᠤᠴᠠ ᠦᠭᠡ᠎ᠶᠢ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠳᠦ ᠪᠤᠴᠠᠨ ᠢᠯᠡᠭᠡᠬᠦ"
+
+#: src/core/org.freedesktop.systemd1.policy.in:23
+msgid ""
+"Authentication is required to send the entered passphrase back to the system."
+msgstr ""
+"ᠣᠷᠤᠭᠤᠯᠤᠭᠰᠠᠨ ᠨᠢᠭᠤᠴᠠ ᠦᠭᠡ᠎ᠶᠢ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠳᠦ ᠪᠤᠴᠠᠨ ᠢᠯᠡᠭᠡᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/core/org.freedesktop.systemd1.policy.in:33
+msgid "Manage system services or other units"
+msgstr "ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠦᠢᠯᠡᠴᠢᠯᠡᠭᠡ ᠪᠣᠯᠤᠨ ᠪᠤᠰᠤᠳ ᠨᠢᠭᠡᠴᠡ᠎ᠶᠢ ᠤᠳᠤᠷᠢᠳᠬᠤ"
+
+#: src/core/org.freedesktop.systemd1.policy.in:34
+msgid "Authentication is required to manage system services or other units."
+msgstr ""
+"ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠦᠢᠯᠡᠴᠢᠯᠡᠭᠡ ᠪᠣᠯᠤᠨ ᠪᠤᠰᠤᠳ ᠨᠢᠭᠡᠴᠡ᠎ᠶᠢ ᠤᠳᠤᠷᠢᠳᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/core/org.freedesktop.systemd1.policy.in:43
+msgid "Manage system service or unit files"
+msgstr "ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠦᠢᠯᠡᠴᠢᠯᠡᠭᠡ ᠡᠰᠪᠡᠯ ᠨᠢᠭᠡᠴᠡ᠎ᠶᠢᠨ ᠹᠠᠢᠯ᠎ᠤᠳ᠎ᠢ ᠤᠳᠤᠷᠢᠳᠬᠤ"
+
+#: src/core/org.freedesktop.systemd1.policy.in:44
+msgid "Authentication is required to manage system service or unit files."
+msgstr ""
+"ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠦᠢᠯᠡᠴᠢᠯᠡᠭᠡ ᠡᠰᠪᠡᠯ ᠨᠢᠭᠡᠴᠡ᠎ᠶᠢᠨ ᠹᠠᠢᠯ᠎ᠤᠳ᠎ᠢ ᠤᠳᠤᠷᠢᠳᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/core/org.freedesktop.systemd1.policy.in:54
+msgid "Set or unset system and service manager environment variables"
+msgstr ""
+"ᠰᠢᠰᠲ᠋ᠧᠮ ᠪᠣᠯᠤᠨ ᠦᠢᠯᠡᠴᠢᠯᠡᠭᠡᠨ᠎ᠦ ᠮᠡᠨᠡᠵᠡᠷ᠎ᠦᠨ ᠣᠷᠴᠢᠨ᠎ᠤ ᠬᠤᠪᠢᠰᠤᠭᠴᠢ᠎ᠶᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ"
+"ᠡᠰᠪᠡᠯ ᠠᠷᠢᠯᠭᠠᠬᠤ"
+
+#: src/core/org.freedesktop.systemd1.policy.in:55
+msgid ""
+"Authentication is required to set or unset system and service manager "
+"environment variables."
+msgstr ""
+"ᠰᠢᠰᠲ᠋ᠧᠮ ᠪᠣᠯᠤᠨ ᠦᠢᠯᠡᠴᠢᠯᠡᠭᠡᠨ᠎ᠦ ᠮᠡᠨᠡᠵᠡᠷ᠎ᠦᠨ ᠣᠷᠴᠢᠨ᠎ᠤ ᠬᠤᠪᠢᠰᠤᠭᠴᠢ᠎ᠶᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ"
+"ᠡᠰᠪᠡᠯ ᠠᠷᠢᠯᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/core/org.freedesktop.systemd1.policy.in:64
+msgid "Reload the systemd state"
+msgstr "systemd-ᠢᠢᠨ ᠲᠥᠯᠦᠪ᠎ᠢ ᠳᠠᠬᠢᠨ ᠠᠴᠢᠶᠠᠯᠠᠬᠤ"
+
+#: src/core/org.freedesktop.systemd1.policy.in:65
+msgid "Authentication is required to reload the systemd state."
+msgstr ""
+"systemd-ᠢᠢᠨ ᠲᠥᠯᠦᠪ᠎ᠢ ᠳᠠᠬᠢᠨ ᠠᠴᠢᠶᠠᠯᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/core/org.freedesktop.systemd1.policy.in:74
+msgid "Dump the systemd state without rate limits"
+msgstr "systemd-ᠢᠢᠨ ᠲᠥᠯᠦᠪ᠎ᠢ ᠳᠠᠪᠲᠠᠮᠵᠢ᠎ᠶᠢᠨ ᠬᠶᠠᠵᠭᠠᠷᠯᠠᠯᠲᠭᠦᠢᠭᠡᠷ ᠭᠠᠷᠭᠠᠬᠤ"
+
+#: src/core/org.freedesktop.systemd1.policy.in:75
+msgid ""
+"Authentication is required to dump the systemd state without rate limits."
+msgstr ""
+"systemd-ᠢᠢᠨ ᠲᠥᠯᠦᠪ᠎ᠢ ᠳᠠᠪᠲᠠᠮᠵᠢ᠎ᠶᠢᠨ ᠬᠶᠠᠵᠭᠠᠷᠯᠠᠯᠲᠭᠦᠢᠭᠡᠷ ᠭᠠᠷᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/home/org.freedesktop.home1.policy:13
+msgid "Create a home area"
+msgstr "ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠭᠡᠷ᠎ᠦᠨ ᠣᠷᠴᠢᠨ ᠡᠭᠦᠰᠬᠡᠬᠦ"
+
+#: src/home/org.freedesktop.home1.policy:14
+msgid "Authentication is required to create a user's home area."
+msgstr ""
+"ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠭᠡᠷ᠎ᠦᠨ ᠣᠷᠴᠢᠨ ᠡᠭᠦᠰᠬᠡᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/home/org.freedesktop.home1.policy:23
+msgid "Remove a home area"
+msgstr "ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠭᠡᠷ᠎ᠦᠨ ᠣᠷᠴᠢᠨ᠎ᠢ ᠤᠰᠠᠳᠬᠠᠬᠤ"
+
+#: src/home/org.freedesktop.home1.policy:24
+msgid "Authentication is required to remove a user's home area."
+msgstr ""
+"ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠭᠡᠷ᠎ᠦᠨ ᠣᠷᠴᠢᠨ᠎ᠢ ᠤᠰᠠᠳᠬᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/home/org.freedesktop.home1.policy:33
+msgid "Check credentials of a home area"
+msgstr "ᠭᠡᠷ᠎ᠦᠨ ᠣᠷᠴᠢᠨ᠎ᠤ ᠨᠡᠪᠲᠡᠷᠡᠬᠦ ᠮᠡᠳᠡᠭᠡᠯᠡᠯ᠎ᠢ ᠰᠢᠯᠭᠠᠬᠤ"
+
+#: src/home/org.freedesktop.home1.policy:34
+msgid ""
+"Authentication is required to check credentials against a user's home area."
+msgstr ""
+"ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠭᠡᠷ᠎ᠦᠨ ᠣᠷᠴᠢᠨ᠎ᠤ ᠨᠡᠪᠲᠡᠷᠡᠬᠦ ᠮᠡᠳᠡᠭᠡᠯᠡᠯ᠎ᠢ ᠰᠢᠯᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/home/org.freedesktop.home1.policy:43
+msgid "Update a home area"
+msgstr "ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠭᠡᠷ᠎ᠦᠨ ᠣᠷᠴᠢᠨ᠎ᠢ ᠰᠢᠨᠡᠴᠢᠯᠡᠬᠦ"
+
+#: src/home/org.freedesktop.home1.policy:44
+msgid "Authentication is required to update a user's home area."
+msgstr ""
+"ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠭᠡᠷ᠎ᠦᠨ ᠣᠷᠴᠢᠨ᠎ᠢ ᠰᠢᠨᠡᠴᠢᠯᠡᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/home/org.freedesktop.home1.policy:53
+msgid "Update your home area"
+msgstr "ᠥᠪᠡᠷ᠎ᠦᠨ ᠭᠡᠷ᠎ᠦᠨ ᠣᠷᠴᠢᠨ᠎ᠢ ᠰᠢᠨᠡᠴᠢᠯᠡᠬᠦ"
+
+#: src/home/org.freedesktop.home1.policy:54
+msgid "Authentication is required to update your home area."
+msgstr ""
+"ᠥᠪᠡᠷ᠎ᠦᠨ ᠭᠡᠷ᠎ᠦᠨ ᠣᠷᠴᠢᠨ᠎ᠢ ᠰᠢᠨᠡᠴᠢᠯᠡᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/home/org.freedesktop.home1.policy:63
+msgid "Resize a home area"
+msgstr "ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠭᠡᠷ᠎ᠦᠨ ᠣᠷᠴᠢᠨ᠎ᠤ ᠬᠡᠮᠵᠢᠶ᠎ᠡ᠎ᠶᠢ ᠥᠭᠡᠷᠡᠴᠢᠯᠡᠬᠦ"
+
+#: src/home/org.freedesktop.home1.policy:64
+msgid "Authentication is required to resize a user's home area."
+msgstr ""
+"ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠭᠡᠷ᠎ᠦᠨ ᠣᠷᠴᠢᠨ᠎ᠤ ᠬᠡᠮᠵᠢᠶ᠎ᠡ᠎ᠶᠢ ᠥᠭᠡᠷᠡᠴᠢᠯᠡᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/home/org.freedesktop.home1.policy:73
+msgid "Change password of a home area"
+msgstr "ᠭᠡᠷ᠎ᠦᠨ ᠣᠷᠴᠢᠨ᠎ᠤ ᠨᠢᠭᠤᠴᠠ ᠦᠭᠡ᠎ᠶᠢ ᠰᠣᠯᠢᠬᠤ"
+
+#: src/home/org.freedesktop.home1.policy:74
+msgid ""
+"Authentication is required to change the password of a user's home area."
+msgstr ""
+"ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠭᠡᠷ᠎ᠦᠨ ᠣᠷᠴᠢᠨ᠎ᠤ ᠨᠢᠭᠤᠴᠠ ᠦᠭᠡ᠎ᠶᠢ ᠰᠣᠯᠢᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/home/org.freedesktop.home1.policy:83
+msgid "Activate a home area"
+msgstr "ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠭᠡᠷ᠎ᠦᠨ ᠣᠷᠴᠢᠨ᠎ᠢ ᠢᠳᠡᠪᠬᠢᠵᠢᠭᠦᠯᠬᠦ"
+
+#: src/home/org.freedesktop.home1.policy:84
+msgid "Authentication is required to activate a user's home area."
+msgstr ""
+"ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠭᠡᠷ᠎ᠦᠨ ᠣᠷᠴᠢᠨ᠎ᠢ ᠢᠳᠡᠪᠬᠢᠵᠢᠭᠦᠯᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/home/org.freedesktop.home1.policy:93
+msgid "Manage Home Directory Signing Keys"
+msgstr "ᠭᠡᠷ᠎ᠦᠨ ᠰᠠᠩ᠎ᠤᠨ ᠭᠠᠷ᠎ᠤᠨ ᠦᠰᠦᠭ᠎ᠦᠨ ᠲᠦᠯᠬᠢᠭᠦᠷ᠎ᠦᠳ᠎ᠢ ᠤᠳᠤᠷᠢᠳᠬᠤ"
+
+#: src/home/org.freedesktop.home1.policy:94
+msgid "Authentication is required to manage signing keys for home directories."
+msgstr ""
+"ᠭᠡᠷ᠎ᠦᠨ ᠰᠠᠩ᠎ᠤᠨ ᠭᠠᠷ᠎ᠤᠨ ᠦᠰᠦᠭ᠎ᠦᠨ ᠲᠦᠯᠬᠢᠭᠦᠷ᠎ᠦᠳ᠎ᠢ ᠤᠳᠤᠷᠢᠳᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/home/pam_systemd_home.c:328
+#, c-format
+msgid ""
+"Home of user %s is currently absent, please plug in the necessary storage "
+"device or backing file system."
+msgstr ""
+"%s ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠭᠡᠷ᠎ᠦᠨ ᠣᠷᠴᠢᠨ ᠠᠯᠠᠭ᠎ᠠ ᠪᠠᠢᠨ᠎ᠠ. ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ ᠬᠠᠳᠠᠭᠠᠯᠠᠬᠤ"
+"ᠲᠥᠬᠦᠭᠡᠷᠡᠮᠵᠢ ᠡᠰᠪᠡᠯ ᠰᠠᠭᠤᠷᠢ ᠹᠠᠢᠯ᠎ᠤᠨ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠢ ᠬᠣᠯᠪᠤᠨ᠎ᠠ ᠤᠤ."
+
+#: src/home/pam_systemd_home.c:333
+#, c-format
+msgid "Too frequent login attempts for user %s, try again later."
+msgstr ""
+"%s ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ ᠨᠡᠪᠲᠡᠷᠡᠬᠦ᠎ᠶᠢ ᠬᠡᠲᠦ ᠣᠯᠠᠨ ᠤᠳᠠᠭ᠎ᠠ ᠣᠷᠤᠯᠳᠤᠯ᠎ᠠ. ᠳᠠᠷᠠᠭ᠎ᠠ ᠳᠠᠬᠢᠨ"
+"ᠣᠷᠤᠯᠳᠤᠨ᠎ᠠ ᠤᠤ."
+
+#: src/home/pam_systemd_home.c:345
+msgid "Password: "
+msgstr "ᠨᠢᠭᠤᠴᠠ ᠦᠭᠡ: "
+
+#: src/home/pam_systemd_home.c:347
+#, c-format
+msgid "Password incorrect or not sufficient for authentication of user %s."
+msgstr "%s ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢ ᠪᠠᠲᠤᠯᠠᠭᠠᠵᠢᠭᠤᠯᠬᠤ ᠨᠢᠭᠤᠴᠠ ᠦᠭᠡ ᠪᠤᠷᠤᠭᠤ ᠡᠰᠪᠡᠯ ᠬᠠᠩᠭᠠᠯᠲᠠ ᠦᠭᠡᠢ ᠪᠠᠢᠨ᠎ᠠ."
+
+#: src/home/pam_systemd_home.c:348
+msgid "Sorry, try again: "
+msgstr "ᠳᠠᠬᠢᠨ ᠣᠷᠤᠯᠳᠤᠨ᠎ᠠ ᠤᠤ: "
+
+#: src/home/pam_systemd_home.c:370
+msgid "Recovery key: "
+msgstr "ᠰᠡᠷᠭᠦᠭᠡᠬᠦ ᠲᠦᠯᠬᠢᠭᠦᠷ: "
+
+#: src/home/pam_systemd_home.c:372
+#, c-format
+msgid ""
+"Password/recovery key incorrect or not sufficient for authentication of user "
+"%s."
+msgstr ""
+"%s ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢ ᠪᠠᠲᠤᠯᠠᠭᠠᠵᠢᠭᠤᠯᠬᠤ ᠨᠢᠭᠤᠴᠠ ᠦᠭᠡ ᠡᠰᠪᠡᠯ ᠰᠡᠷᠭᠦᠭᠡᠬᠦ ᠲᠦᠯᠬᠢᠭᠦᠷ ᠪᠤᠷᠤᠭᠤ,"
+"ᠡᠰᠪᠡᠯ ᠬᠠᠩᠭᠠᠯᠲᠠ ᠦᠭᠡᠢ ᠪᠠᠢᠨ᠎ᠠ."
+
+#: src/home/pam_systemd_home.c:373
+msgid "Sorry, reenter recovery key: "
+msgstr "ᠰᠡᠷᠭᠦᠭᠡᠬᠦ ᠲᠦᠯᠬᠢᠭᠦᠷ᠎ᠢ ᠳᠠᠬᠢᠨ ᠣᠷᠤᠭᠤᠯᠤᠨ᠎ᠠ ᠤᠤ: "
+
+#: src/home/pam_systemd_home.c:393
+#, c-format
+msgid "Security token of user %s not inserted."
+msgstr "%s ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠬᠠᠮᠠᠭᠠᠯᠠᠯᠲᠠ᠎ᠶᠢᠨ ᠲᠣᠬᠡᠨ ᠵᠠᠯᠭ᠎ᠠ᠎ᠶᠢ᠎ᠳᠤ᠎ᠪᠠᠨ ᠦᠭᠡᠢ ᠪᠠᠢᠨ᠎ᠠ."
+
+#: src/home/pam_systemd_home.c:394 src/home/pam_systemd_home.c:397
+msgid "Try again with password: "
+msgstr "ᠨᠢᠭᠤᠴᠠ ᠦᠭᠡ᠎ᠪᠡᠷ ᠳᠠᠬᠢᠨ ᠣᠷᠤᠯᠳᠤᠨ᠎ᠠ ᠤᠤ: "
+
+#: src/home/pam_systemd_home.c:396
+#, c-format
+msgid ""
+"Password incorrect or not sufficient, and configured security token of user "
+"%s not inserted."
+msgstr ""
+"ᠨᠢᠭᠤᠴᠠ ᠦᠭᠡ ᠪᠤᠷᠤᠭᠤ ᠡᠰᠪᠡᠯ ᠬᠠᠩᠭᠠᠯᠲᠠ ᠦᠭᠡᠢ ᠪᠥᠭᠡᠳ %s ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠤᠭᠰᠠᠨ"
+"ᠬᠠᠮᠠᠭᠠᠯᠠᠯᠲᠠ᠎ᠶᠢᠨ ᠲᠣᠬᠡᠨ ᠵᠠᠯᠭ᠎ᠠ᠎ᠶᠢ᠎ᠳᠤ᠎ᠪᠠᠨ ᠦᠭᠡᠢ ᠪᠠᠢᠨ᠎ᠠ."
+
+#: src/home/pam_systemd_home.c:416
+msgid "Security token PIN: "
+msgstr "ᠬᠠᠮᠠᠭᠠᠯᠠᠯᠲᠠ᠎ᠶᠢᠨ ᠲᠣᠬ᠎ᠤᠨ PIN: "
+
+#: src/home/pam_systemd_home.c:433
+#, c-format
+msgid "Please authenticate physically on security token of user %s."
+msgstr "%s ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠬᠠᠮᠠᠭᠠᠯᠠᠯᠲᠠ᠎ᠶᠢᠨ ᠲᠣᠬᠡᠨ ᠳᠡᠭᠡᠷ᠎ᠡ ᠪᠢᠡᠴᠯᠡᠨ ᠪᠠᠲᠤᠯᠠᠭᠠᠵᠢᠭᠤᠯᠤᠨ᠎ᠠ ᠤᠤ."
+
+#: src/home/pam_systemd_home.c:444
+#, c-format
+msgid "Please confirm presence on security token of user %s."
+msgstr ""
+"%s ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠬᠠᠮᠠᠭᠠᠯᠠᠯᠲᠠ᠎ᠶᠢᠨ ᠲᠣᠬᠡᠨ ᠳᠡᠭᠡᠷ᠎ᠡ ᠪᠠᠢᠭ᠎ᠠ᠎ᠪᠠᠨ ᠪᠠᠲᠤᠯᠠᠭᠠᠵᠢᠭᠤᠯᠤᠨ᠎ᠠ"
+"ᠤᠤ."
+
+#: src/home/pam_systemd_home.c:455
+#, c-format
+msgid "Please verify user on security token of user %s."
+msgstr "%s ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢ ᠬᠠᠮᠠᠭᠠᠯᠠᠯᠲᠠ᠎ᠶᠢᠨ ᠲᠣᠬᠡᠨ᠎ᠢᠶᠠᠷ ᠪᠠᠲᠤᠯᠠᠭᠠᠵᠢᠭᠤᠯᠤᠨ᠎ᠠ ᠤᠤ."
+
+#: src/home/pam_systemd_home.c:464
+msgid ""
+"Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
+"insertion might suffice.)"
+msgstr ""
+"ᠬᠠᠮᠠᠭᠠᠯᠠᠯᠲᠠ᠎ᠶᠢᠨ ᠲᠣᠬ᠎ᠤᠨ PIN ᠲᠦᠭᠵᠢᠭᠳᠰᠡᠨ ᠪᠠᠢᠨ᠎ᠠ. ᠡᠬᠢᠯᠡᠭᠡᠳ ᠲᠦᠭᠵᠢᠶ᠎ᠡ᠎ᠶᠢ ᠲᠠᠢᠯᠤᠨ᠎ᠠ"
+"ᠤᠤ. (ᠲᠣᠬᠡᠨ᠎ᠢ ᠰᠠᠯᠭ᠎ᠠ᠎ᠳᠤ ᠳᠠᠬᠢᠨ ᠵᠠᠯᠭᠠᠬᠤ᠎ᠳᠤ ᠬᠠᠩᠭᠠᠯᠲᠠᠲᠠᠢ ᠪᠠᠢᠵᠤ ᠪᠣᠯᠤᠨ᠎ᠠ.)"
+
+#: src/home/pam_systemd_home.c:472
+#, c-format
+msgid "Security token PIN incorrect for user %s."
+msgstr "%s ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠬᠠᠮᠠᠭᠠᠯᠠᠯᠲᠠ᠎ᠶᠢᠨ ᠲᠣᠬ᠎ᠤᠨ PIN ᠪᠤᠷᠤᠭᠤ ᠪᠠᠢᠨ᠎ᠠ."
+
+#: src/home/pam_systemd_home.c:473 src/home/pam_systemd_home.c:492
+#: src/home/pam_systemd_home.c:511
+msgid "Sorry, retry security token PIN: "
+msgstr "ᠬᠠᠮᠠᠭᠠᠯᠠᠯᠲᠠ᠎ᠶᠢᠨ ᠲᠣᠬ᠎ᠤᠨ PIN-ᠡᠢᠭ ᠳᠠᠬᠢᠨ ᠣᠷᠤᠭᠤᠯᠤᠨ᠎ᠠ ᠤᠤ: "
+
+#: src/home/pam_systemd_home.c:491
+#, c-format
+msgid "Security token PIN of user %s incorrect (only a few tries left!)"
+msgstr ""
+"%s ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠬᠠᠮᠠᠭᠠᠯᠠᠯᠲᠠ᠎ᠶᠢᠨ ᠲᠣᠬ᠎ᠤᠨ PIN ᠪᠤᠷᠤᠭᠤ ᠪᠠᠢᠨ᠎ᠠ (ᠴᠥᠭᠡᠭᠡᠨ"
+"ᠣᠷᠤᠯᠳᠤᠯᠭ᠎ᠠ ᠦᠯᠡᠳᠡᠯ᠎ᠡ!)"
+
+#: src/home/pam_systemd_home.c:510
+#, c-format
+msgid "Security token PIN of user %s incorrect (only one try left!)"
+msgstr ""
+"%s ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠬᠠᠮᠠᠭᠠᠯᠠᠯᠲᠠ᠎ᠶᠢᠨ ᠲᠣᠬ᠎ᠤᠨ PIN ᠪᠤᠷᠤᠭᠤ ᠪᠠᠢᠨ᠎ᠠ (ᠭᠠᠭᠴᠠ ᠣᠷᠤᠯᠳᠤᠯᠭ᠎ᠠ"
+"ᠦᠯᠡᠳᠡᠯ᠎ᠡ!)"
+
+#: src/home/pam_systemd_home.c:677
+#, c-format
+msgid "Home of user %s is currently not active, please log in locally first."
+msgstr ""
+"%s ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠭᠡᠷ᠎ᠦᠨ ᠣᠷᠴᠢᠨ ᠢᠳᠡᠪᠬᠢ ᠦᠭᠡᠢ ᠪᠠᠢᠨ᠎ᠠ. ᠡᠬᠢᠯᠡᠭᠡᠳ ᠳᠣᠲᠤᠭᠠᠳᠤ᠎ᠳᠤ᠎ᠪᠠᠨ"
+"ᠨᠡᠪᠲᠡᠷᠨᠡ ᠦᠦ."
+
+#: src/home/pam_systemd_home.c:679
+#, c-format
+msgid "Home of user %s is currently locked, please unlock locally first."
+msgstr ""
+"%s ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠭᠡᠷ᠎ᠦᠨ ᠣᠷᠴᠢᠨ ᠲᠦᠭᠵᠢᠭᠳᠰᠡᠨ ᠪᠠᠢᠨ᠎ᠠ. ᠡᠬᠢᠯᠡᠭᠡᠳ ᠳᠣᠲᠤᠭᠠᠳᠤ᠎ᠳᠤ᠎ᠪᠠᠨ"
+"ᠲᠦᠭᠵᠢᠶ᠎ᠡ᠎ᠶᠢ ᠲᠠᠢᠯᠤᠨ᠎ᠠ ᠤᠤ."
+
+#: src/home/pam_systemd_home.c:713
+#, c-format
+msgid "Too many unsuccessful login attempts for user %s, refusing."
+msgstr ""
+"%s ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ ᠠᠮᠵᠢᠯᠲᠠ ᠦᠭᠡᠢ ᠨᠡᠪᠲᠡᠷᠡᠬᠦ ᠣᠷᠤᠯᠳᠯᠤᠭ᠎ᠢ ᠬᠡᠲᠦ ᠣᠯᠠᠨ ᠬᠢᠭᠰᠡᠨ ᠲᠤᠯᠠ"
+"ᠬᠦᠰᠡᠯᠲᠡ᠎ᠶᠢ ᠲᠠᠲᠠᠭᠠᠯᠵᠠᠯ᠎ᠢᠶᠠᠨ."
+
+#: src/home/pam_systemd_home.c:1015
+msgid "User record is blocked, prohibiting access."
+msgstr "ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠪᠦᠷᠢᠳᠬᠡᠯ ᠬᠠᠭᠠᠭᠳᠠᠭᠰᠠᠨ ᠲᠤᠯᠠ ᠬᠠᠨᠳᠤᠯᠲᠠ᠎ᠶᠢ ᠬᠣᠷᠢᠭᠯᠠᠯ᠎ᠠ."
+
+#: src/home/pam_systemd_home.c:1019
+msgid "User record is not valid yet, prohibiting access."
+msgstr ""
+"ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠪᠦᠷᠢᠳᠬᠡᠯ ᠬᠠᠷᠠᠬᠠᠨ ᠬᠦᠴᠦ ᠲᠥᠭᠡᠯ᠎ᠳᠦ᠎ᠪᠡᠷ ᠪᠣᠯ᠎ᠢᠶᠠᠨ ᠦᠭᠡᠢ ᠲᠤᠯᠠ"
+"ᠬᠠᠨᠳᠤᠯᠲᠠ᠎ᠶᠢ ᠬᠣᠷᠢᠭᠯᠠᠯ᠎ᠠ."
+
+#: src/home/pam_systemd_home.c:1023
+msgid "User record is not valid anymore, prohibiting access."
+msgstr "ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠪᠦᠷᠢᠳᠬᠡᠯ ᠬᠦᠴᠦ ᠦᠭᠡᠢ ᠪᠣᠯᠤᠭᠰᠠᠨ ᠲᠤᠯᠠ ᠬᠠᠨᠳᠤᠯᠲᠠ᠎ᠶᠢ ᠬᠣᠷᠢᠭᠯᠠᠯ᠎ᠠ."
+
+#: src/home/pam_systemd_home.c:1028 src/home/pam_systemd_home.c:1077
+msgid "User record not valid, prohibiting access."
+msgstr "ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢᠨ ᠪᠦᠷᠢᠳᠬᠡᠯ ᠬᠦᠴᠦ ᠲᠥᠭᠡᠯ᠎ᠳᠦ᠎ᠪᠡᠷ ᠪᠤᠰᠤ ᠲᠤᠯᠠ ᠬᠠᠨᠳᠤᠯᠲᠠ᠎ᠶᠢ ᠬᠣᠷᠢᠭᠯᠠᠯ᠎ᠠ."
+
+#: src/home/pam_systemd_home.c:1038
+#, c-format
+msgid "Too many logins, try again in %s."
+msgstr ""
+"ᠨᠡᠪᠲᠡᠷᠡᠬᠦ ᠣᠷᠤᠯᠳᠤᠯᠭ᠎ᠠ ᠬᠡᠲᠦ ᠣᠯᠠᠨ ᠪᠠᠢᠨ᠎ᠠ. %s ᠬᠤᠭᠤᠴᠠᠭᠠᠨ᠎ᠤ ᠳᠠᠷᠠᠭ᠎ᠠ ᠳᠠᠬᠢᠨ"
+"ᠣᠷᠤᠯᠳᠤᠨ᠎ᠠ ᠤᠤ."
+
+#: src/home/pam_systemd_home.c:1049
+msgid "Password change required."
+msgstr "ᠨᠢᠭᠤᠴᠠ ᠦᠭᠡ᠎ᠶᠢ ᠰᠣᠯᠢᠬᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/home/pam_systemd_home.c:1053
+msgid "Password expired, change required."
+msgstr "ᠨᠢᠭᠤᠴᠠ ᠦᠭᠡ᠎ᠶᠢᠨ ᠬᠤᠭᠤᠴᠠᠭ᠎ᠠ ᠳᠠᠭᠤᠰᠤᠭᠰᠠᠨ ᠲᠤᠯᠠ ᠰᠣᠯᠢᠬᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/home/pam_systemd_home.c:1059
+msgid "Password is expired, but can't change, refusing login."
+msgstr ""
+"ᠨᠢᠭᠤᠴᠠ ᠦᠭᠡ᠎ᠶᠢᠨ ᠬᠤᠭᠤᠴᠠᠭ᠎ᠠ ᠳᠠᠭᠤᠰᠤᠭᠰᠠᠨ ᠪᠥᠭᠡᠳ ᠰᠣᠯᠢᠬᠤ ᠪᠣᠯᠤᠮᠵᠢ ᠦᠭᠡᠢ ᠲᠤᠯᠠ"
+"ᠨᠡᠪᠲᠡᠷᠡᠬᠦ᠎ᠶᠢ ᠲᠠᠲᠠᠭᠠᠯᠵᠠᠯ᠎ᠢᠶᠠᠨ."
+
+#: src/home/pam_systemd_home.c:1063
+msgid "Password will expire soon, please change."
+msgstr "ᠨᠢᠭᠤᠴᠠ ᠦᠭᠡ᠎ᠶᠢᠨ ᠬᠤᠭᠤᠴᠠᠭ᠎ᠠ ᠤᠳᠠᠬᠤ ᠦᠭᠡᠢ ᠳᠠᠭᠤᠰᠤᠨ᠎ᠠ. ᠣᠳᠤ᠎ᠪᠠᠨ ᠰᠣᠯᠢᠨ᠎ᠠ ᠤᠤ."
+
+#: src/hostname/org.freedesktop.hostname1.policy:20
+msgid "Set hostname"
+msgstr "ᠬᠣᠣᠰ᠎ᠲᠤ᠎ᠶᠢᠨ ᠨᠡᠷ᠎ᠡ᠎ᠶᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ"
+
+#: src/hostname/org.freedesktop.hostname1.policy:21
+msgid "Authentication is required to set the local hostname."
+msgstr ""
+"ᠬᠣᠣᠰ᠎ᠲᠤ᠎ᠶᠢᠨ ᠨᠡᠷ᠎ᠡ᠎ᠶᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/hostname/org.freedesktop.hostname1.policy:30
+msgid "Set static hostname"
+msgstr "ᠲᠣᠭᠲᠠᠮᠠᠯ ᠬᠣᠣᠰ᠎ᠲᠤ᠎ᠶᠢᠨ ᠨᠡᠷ᠎ᠡ᠎ᠶᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ"
+
+#: src/hostname/org.freedesktop.hostname1.policy:31
+msgid ""
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
+msgstr ""
+"ᠲᠣᠭᠲᠠᠮᠠᠯ ᠬᠣᠣᠰ᠎ᠲᠤ᠎ᠶᠢᠨ ᠨᠡᠷ᠎ᠡ᠎ᠶᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/hostname/org.freedesktop.hostname1.policy:41
+msgid "Set machine information"
+msgstr "ᠮᠠᠱᠢᠨ᠋᠎ᠤ ᠮᠡᠳᠡᠭᠡᠯᠡᠯ᠎ᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ"
+
+#: src/hostname/org.freedesktop.hostname1.policy:42
+msgid "Authentication is required to set local machine information."
+msgstr ""
+"ᠮᠠᠱᠢᠨ᠋᠎ᠤ ᠮᠡᠳᠡᠭᠡᠯᠡᠯ᠎ᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/hostname/org.freedesktop.hostname1.policy:51
+msgid "Get product UUID"
+msgstr "ᠪᠦᠲᠦᠭᠡᠭᠳᠡᠬᠦᠨ᠎ᠦ UUID-ᠭ ᠠᠪᠬᠤ"
+
+#: src/hostname/org.freedesktop.hostname1.policy:52
+msgid "Authentication is required to get product UUID."
+msgstr "ᠪᠦᠲᠦᠭᠡᠭᠳᠡᠬᠦᠨ᠎ᠦ UUID-ᠭ ᠠᠪᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/hostname/org.freedesktop.hostname1.policy:61
+msgid "Get hardware serial number"
+msgstr "ᠲᠡᠭᠨᠢᠭ ᠬᠠᠩᠭᠠᠮᠵᠢ᠎ᠶᠢᠨ ᠰᠡᠷᠢ᠎ᠶᠢᠨ ᠳ᠋ᠤᠭᠠᠷ᠎ᠢ ᠠᠪᠬᠤ"
+
+#: src/hostname/org.freedesktop.hostname1.policy:62
+msgid "Authentication is required to get hardware serial number."
+msgstr ""
+"ᠲᠡᠭᠨᠢᠭ ᠬᠠᠩᠭᠠᠮᠵᠢ᠎ᠶᠢᠨ ᠰᠡᠷᠢ᠎ᠶᠢᠨ ᠳ᠋ᠤᠭᠠᠷ᠎ᠢ ᠠᠪᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/hostname/org.freedesktop.hostname1.policy:71
+msgid "Get system description"
+msgstr "ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠲᠠᠢᠯᠪᠤᠷᠢ᠎ᠶᠢ ᠠᠪᠬᠤ"
+
+#: src/hostname/org.freedesktop.hostname1.policy:72
+msgid "Authentication is required to get system description."
+msgstr "ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠲᠠᠢᠯᠪᠤᠷᠢ᠎ᠶᠢ ᠠᠪᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/import/org.freedesktop.import1.policy:22
+msgid "Import a disk image"
+msgstr "ᠳ᠋ᠢᠰᠻ᠎ᠦᠨ ᠳᠦᠷᠰᠦ ᠢᠮᠫᠤᠷᠲ᠋ᠯᠠᠬᠤ"
+
+#: src/import/org.freedesktop.import1.policy:23
+msgid "Authentication is required to import an image."
+msgstr "ᠳ᠋ᠢᠰᠻ᠎ᠦᠨ ᠳᠦᠷᠰᠦ ᠢᠮᠫᠤᠷᠲ᠋ᠯᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/import/org.freedesktop.import1.policy:32
+msgid "Export a disk image"
+msgstr "ᠳ᠋ᠢᠰᠻ᠎ᠦᠨ ᠳᠦᠷᠰᠦ ᠡᠬᠰᠫᠤᠷᠲᠯᠠᠬᠤ"
+
+#: src/import/org.freedesktop.import1.policy:33
+msgid "Authentication is required to export disk image."
+msgstr "ᠳ᠋ᠢᠰᠻ᠎ᠦᠨ ᠳᠦᠷᠰᠦ ᠡᠬᠰᠫᠤᠷᠲᠯᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/import/org.freedesktop.import1.policy:42
+msgid "Download a disk image"
+msgstr "ᠳ᠋ᠢᠰᠻ᠎ᠦᠨ ᠳᠦᠷᠰᠦ ᠲᠠᠲᠠᠵᠤ ᠠᠪᠬᠤ"
+
+#: src/import/org.freedesktop.import1.policy:43
+msgid "Authentication is required to download a disk image."
+msgstr "ᠳ᠋ᠢᠰᠻ᠎ᠦᠨ ᠳᠦᠷᠰᠦ ᠲᠠᠲᠠᠵᠤ ᠠᠪᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/import/org.freedesktop.import1.policy:52
+msgid "Cancel transfer of a disk image"
+msgstr "ᠳ᠋ᠢᠰᠻ᠎ᠦᠨ ᠳᠦᠷᠰᠦ ᠳᠠᠮᠵᠢᠭᠤᠯᠤᠯᠲᠠ᠎ᠶᠢ ᠴᠤᠴᠠᠯᠠᠬᠤ"
+
+#: src/import/org.freedesktop.import1.policy:53
+msgid ""
+"Authentication is required to cancel the ongoing transfer of a disk image."
+msgstr ""
+"ᠳ᠋ᠢᠰᠻ᠎ᠦᠨ ᠳᠦᠷᠰᠦ ᠳᠠᠮᠵᠢᠭᠤᠯᠤᠯᠲᠠ᠎ᠶᠢ ᠴᠤᠴᠠᠯᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/locale/org.freedesktop.locale1.policy:22
+msgid "Set system locale"
+msgstr "ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠬᠡᠯᠡ, ᠯᠣᠬᠠᠯ ᠲᠣᠬᠢᠷᠠᠭ᠎ᠠ᠎ᠶᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ"
+
+#: src/locale/org.freedesktop.locale1.policy:23
+msgid "Authentication is required to set the system locale."
+msgstr ""
+"ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠬᠡᠯᠡ, ᠯᠣᠬᠠᠯ ᠲᠣᠬᠢᠷᠠᠭ᠎ᠠ᠎ᠶᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/locale/org.freedesktop.locale1.policy:33
+msgid "Set system keyboard settings"
+msgstr "ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠭᠠᠷ᠎ᠤᠨ ᠲᠣᠬᠢᠷᠠᠭ᠎ᠠ᠎ᠶᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ"
+
+#: src/locale/org.freedesktop.locale1.policy:34
+msgid "Authentication is required to set the system keyboard settings."
+msgstr ""
+"ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠭᠠᠷ᠎ᠤᠨ ᠲᠣᠬᠢᠷᠠᠭ᠎ᠠ᠎ᠶᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:22
+msgid "Allow applications to inhibit system shutdown"
+msgstr "ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ᠎ᠳᠤ ᠰᠢᠰᠲ᠋ᠧᠮ ᠤᠨᠲᠠᠷᠠᠬᠤ᠎ᠠᠴᠠ ᠰᠡᠷᠭᠡᠢᠯᠡᠬᠦ ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠯ ᠣᠯᠭᠤᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:23
+msgid ""
+"Authentication is required for an application to inhibit system shutdown."
+msgstr ""
+"ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ᠎ᠳᠤ ᠰᠢᠰᠲ᠋ᠧᠮ ᠤᠨᠲᠠᠷᠠᠬᠤ᠎ᠠᠴᠠ ᠰᠡᠷᠭᠡᠢᠯᠡᠬᠦ ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠯ ᠣᠯᠭᠤᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ"
+"ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:33
+msgid "Allow applications to delay system shutdown"
+msgstr "ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ᠎ᠳᠤ ᠰᠢᠰᠲ᠋ᠧᠮ ᠤᠨᠲᠠᠷᠠᠬᠤ᠎ᠶᠢ ᠬᠣᠢᠰᠢᠯᠠᠭᠤᠯᠬᠤ ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠯ ᠣᠯᠭᠤᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:34
+msgid "Authentication is required for an application to delay system shutdown."
+msgstr ""
+"ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ᠎ᠳᠤ ᠰᠢᠰᠲ᠋ᠧᠮ ᠤᠨᠲᠠᠷᠠᠬᠤ᠎ᠶᠢ ᠬᠣᠢᠰᠢᠯᠠᠭᠤᠯᠬᠤ ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠯ ᠣᠯᠭᠤᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ"
+"ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:44
+msgid "Allow applications to inhibit system sleep"
+msgstr "ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ᠎ᠳᠤ ᠰᠢᠰᠲ᠋ᠧᠮ ᠤᠨᠲᠠᠬᠤ᠎ᠠᠴᠠ ᠰᠡᠷᠭᠡᠢᠯᠡᠬᠦ ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠯ ᠣᠯᠭᠤᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:45
+msgid "Authentication is required for an application to inhibit system sleep."
+msgstr ""
+"ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ᠎ᠳᠤ ᠰᠢᠰᠲ᠋ᠧᠮ ᠤᠨᠲᠠᠬᠤ᠎ᠠᠴᠠ ᠰᠡᠷᠭᠡᠢᠯᠡᠬᠦ ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠯ ᠣᠯᠭᠤᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ"
+"ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:55
+msgid "Allow applications to delay system sleep"
+msgstr "ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ᠎ᠳᠤ ᠰᠢᠰᠲ᠋ᠧᠮ ᠤᠨᠲᠠᠬᠤ᠎ᠶᠢ ᠬᠣᠢᠰᠢᠯᠠᠭᠤᠯᠬᠤ ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠯ ᠣᠯᠭᠤᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:56
+msgid "Authentication is required for an application to delay system sleep."
+msgstr ""
+"ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ᠎ᠳᠤ ᠰᠢᠰᠲ᠋ᠧᠮ ᠤᠨᠲᠠᠬᠤ᠎ᠶᠢ ᠬᠣᠢᠰᠢᠯᠠᠭᠤᠯᠬᠤ ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠯ ᠣᠯᠭᠤᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ"
+"ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:65
+msgid "Allow applications to inhibit automatic system suspend"
+msgstr ""
+"ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ᠎ᠳᠤ ᠰᠢᠰᠲ᠋ᠧᠮ ᠠᠤᠲᠤᠮᠠᠲ᠎ᠢᠶᠠᠷ ᠲᠦᠷ ᠵᠣᠭᠰᠤᠬᠤ᠎ᠠᠴᠠ ᠰᠡᠷᠭᠡᠢᠯᠡᠬᠦ ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠯ"
+"ᠣᠯᠭᠤᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:66
+msgid ""
+"Authentication is required for an application to inhibit automatic system "
+"suspend."
+msgstr ""
+"ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ᠎ᠳᠤ ᠰᠢᠰᠲ᠋ᠧᠮ ᠠᠤᠲᠤᠮᠠᠲ᠎ᠢᠶᠠᠷ ᠲᠦᠷ ᠵᠣᠭᠰᠤᠬᠤ᠎ᠠᠴᠠ ᠰᠡᠷᠭᠡᠢᠯᠡᠬᠦ ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠯ"
+"ᠣᠯᠭᠤᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:75
+msgid "Allow applications to inhibit system handling of the power key"
+msgstr ""
+"ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ᠎ᠳᠤ ᠠᠰᠠᠭᠠᠬᠤ ᠲᠣᠪᠴᠢᠨ᠎ᠤ ᠦᠢᠯᠡᠳᠦᠯ᠎ᠢ ᠰᠢᠰᠲ᠋ᠧᠮ ᠪᠣᠯᠪᠠᠰᠤᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢ ᠬᠣᠷᠢᠭᠯᠠᠬᠤ"
+"ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠯ ᠣᠯᠭᠤᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:76
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the power key."
+msgstr ""
+"ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ᠎ᠳᠤ ᠠᠰᠠᠭᠠᠬᠤ ᠲᠣᠪᠴᠢᠨ᠎ᠤ ᠦᠢᠯᠡᠳᠦᠯ᠎ᠢ ᠰᠢᠰᠲ᠋ᠧᠮ ᠪᠣᠯᠪᠠᠰᠤᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢ ᠬᠣᠷᠢᠭᠯᠠᠬᠤ"
+"ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠯ ᠣᠯᠭᠤᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:86
+msgid "Allow applications to inhibit system handling of the suspend key"
+msgstr ""
+"ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ᠎ᠳᠤ ᠲᠦᠷ ᠵᠣᠭᠰᠤᠭᠠᠬᠤ ᠲᠣᠪᠴᠢᠨ᠎ᠤ ᠦᠢᠯᠡᠳᠦᠯ᠎ᠢ ᠰᠢᠰᠲ᠋ᠧᠮ ᠪᠣᠯᠪᠠᠰᠤᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢ"
+"ᠬᠣᠷᠢᠭᠯᠠᠬᠤ ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠯ ᠣᠯᠭᠤᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:87
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the suspend key."
+msgstr ""
+"ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ᠎ᠳᠤ ᠲᠦᠷ ᠵᠣᠭᠰᠤᠭᠠᠬᠤ ᠲᠣᠪᠴᠢᠨ᠎ᠤ ᠦᠢᠯᠡᠳᠦᠯ᠎ᠢ ᠰᠢᠰᠲ᠋ᠧᠮ ᠪᠣᠯᠪᠠᠰᠤᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢ"
+"ᠬᠣᠷᠢᠭᠯᠠᠬᠤ ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠯ ᠣᠯᠭᠤᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:97
+msgid "Allow applications to inhibit system handling of the hibernate key"
+msgstr ""
+"ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ᠎ᠳᠤ ᠢᠴᠡᠭᠡᠬᠦ ᠲᠣᠪᠴᠢᠨ᠎ᠤ ᠦᠢᠯᠡᠳᠦᠯ᠎ᠢ ᠰᠢᠰᠲ᠋ᠧᠮ ᠪᠣᠯᠪᠠᠰᠤᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢ ᠬᠣᠷᠢᠭᠯᠠᠬᠤ"
+"ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠯ ᠣᠯᠭᠤᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:98
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the hibernate key."
+msgstr ""
+"ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ᠎ᠳᠤ ᠢᠴᠡᠭᠡᠬᠦ ᠲᠣᠪᠴᠢᠨ᠎ᠤ ᠦᠢᠯᠡᠳᠦᠯ᠎ᠢ ᠰᠢᠰᠲ᠋ᠧᠮ ᠪᠣᠯᠪᠠᠰᠤᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢ ᠬᠣᠷᠢᠭᠯᠠᠬᠤ"
+"ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠯ ᠣᠯᠭᠤᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:107
+msgid "Allow applications to inhibit system handling of the lid switch"
+msgstr ""
+"ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ᠎ᠳᠤ ᠲᠠᠭ᠎ᠤᠨ ᠤᠨᠲᠠᠷᠠᠭᠠᠯᠭ᠎ᠠ᠎ᠶᠢᠨ ᠦᠢᠯᠡᠳᠦᠯ᠎ᠢ ᠰᠢᠰᠲ᠋ᠧᠮ ᠪᠣᠯᠪᠠᠰᠤᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢ"
+"ᠬᠣᠷᠢᠭᠯᠠᠬᠤ ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠯ ᠣᠯᠭᠤᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:108
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the lid switch."
+msgstr ""
+"ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ᠎ᠳᠤ ᠲᠠᠭ᠎ᠤᠨ ᠤᠨᠲᠠᠷᠠᠭᠠᠯᠭ᠎ᠠ᠎ᠶᠢᠨ ᠦᠢᠯᠡᠳᠦᠯ᠎ᠢ ᠰᠢᠰᠲ᠋ᠧᠮ ᠪᠣᠯᠪᠠᠰᠤᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢ"
+"ᠬᠣᠷᠢᠭᠯᠠᠬᠤ ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠯ ᠣᠯᠭᠤᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:117
+msgid "Allow applications to inhibit system handling of the reboot key"
+msgstr ""
+"ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ᠎ᠳᠤ ᠳᠠᠬᠢᠨ ᠠᠰᠠᠭᠠᠬᠤ ᠲᠣᠪᠴᠢᠨ᠎ᠤ ᠦᠢᠯᠡᠳᠦᠯ᠎ᠢ ᠰᠢᠰᠲ᠋ᠧᠮ ᠪᠣᠯᠪᠠᠰᠤᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢ"
+"ᠬᠣᠷᠢᠭᠯᠠᠬᠤ ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠯ ᠣᠯᠭᠤᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:118
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the reboot key."
+msgstr ""
+"ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ᠎ᠳᠤ ᠳᠠᠬᠢᠨ ᠠᠰᠠᠭᠠᠬᠤ ᠲᠣᠪᠴᠢᠨ᠎ᠤ ᠦᠢᠯᠡᠳᠦᠯ᠎ᠢ ᠰᠢᠰᠲ᠋ᠧᠮ ᠪᠣᠯᠪᠠᠰᠤᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢ"
+"ᠬᠣᠷᠢᠭᠯᠠᠬᠤ ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠯ ᠣᠯᠭᠤᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:128
+msgid "Allow non-logged-in user to run programs"
+msgstr "ᠨᠡᠪᠲᠡᠷ᠎ᠢᠶᠡᠨ ᠦᠭᠡᠢ ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠳᠦ ᠫᠷᠣᠭᠷᠠᠮᠮ ᠠᠵᠢᠯᠯᠠᠭᠤᠯᠬᠤ᠎ᠶᠢ ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠬᠦ"
+
+#: src/login/org.freedesktop.login1.policy:129
+msgid "Explicit request is required to run programs as a non-logged-in user."
+msgstr ""
+"ᠨᠡᠪᠲᠡᠷ᠎ᠢᠶᠡᠨ ᠦᠭᠡᠢ ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠳᠦ ᠫᠷᠣᠭᠷᠠᠮᠮ ᠠᠵᠢᠯᠯᠠᠭᠤᠯᠬᠤ᠎ᠶᠢ ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠬᠦ᠎ᠶᠢᠨ"
+"ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠣᠳᠤᠷᠬᠠᠢ ᠬᠦᠰᠡᠯᠲᠡ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:138
+msgid "Allow non-logged-in users to run programs"
+msgstr "ᠨᠡᠪᠲᠡᠷ᠎ᠢᠶᠡᠨ ᠦᠭᠡᠢ ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠳᠦ᠎ᠳᠦ ᠫᠷᠣᠭᠷᠠᠮᠮ ᠠᠵᠢᠯᠯᠠᠭᠤᠯᠬᠤ᠎ᠶᠢ ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠬᠦ"
+
+#: src/login/org.freedesktop.login1.policy:139
+msgid "Authentication is required to run programs as a non-logged-in user."
+msgstr ""
+"ᠨᠡᠪᠲᠡᠷ᠎ᠢᠶᠡᠨ ᠦᠭᠡᠢ ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠳᠦ᠎ᠳᠦ ᠫᠷᠣᠭᠷᠠᠮᠮ ᠠᠵᠢᠯᠯᠠᠭᠤᠯᠬᠤ᠎ᠶᠢ ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠬᠦ᠎ᠶᠢᠨ"
+"ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:148
+msgid "Allow attaching devices to seats"
+msgstr "ᠲᠥᠬᠦᠭᠡᠷᠡᠮᠵᠢ᠎ᠶᠢ ᠰᠠᠭᠤᠳᠠᠯ᠎ᠳᠤ ᠬᠣᠯᠪᠤᠬᠤ᠎ᠶᠢ ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠬᠦ"
+
+#: src/login/org.freedesktop.login1.policy:149
+msgid "Authentication is required to attach a device to a seat."
+msgstr ""
+"ᠲᠥᠬᠦᠭᠡᠷᠡᠮᠵᠢ᠎ᠶᠢ ᠰᠠᠭᠤᠳᠠᠯ᠎ᠳᠤ ᠬᠣᠯᠪᠤᠬᠤ᠎ᠶᠢ ᠵᠥᠪᠰᠢᠶᠡᠷᠡᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:159
+msgid "Flush device to seat attachments"
+msgstr "ᠲᠥᠬᠦᠭᠡᠷᠡᠮᠵᠢ᠎ᠶᠢᠨ ᠰᠠᠭᠤᠳᠠᠯᠲᠠᠢ ᠬᠣᠯᠪᠤᠯᠲᠠ᠎ᠶᠢ ᠴᠡᠪᠡᠷᠯᠡᠬᠦ"
+
+#: src/login/org.freedesktop.login1.policy:160
+msgid "Authentication is required to reset how devices are attached to seats."
+msgstr ""
+"ᠲᠥᠬᠦᠭᠡᠷᠡᠮᠵᠢ᠎ᠶᠢᠨ ᠰᠠᠭᠤᠳᠠᠯᠲᠠᠢ ᠬᠣᠯᠪᠤᠯᠲᠠ᠎ᠶᠢ ᠴᠡᠪᠡᠷᠯᠡᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:169
+msgid "Power off the system"
+msgstr "ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠢ ᠤᠨᠲᠠᠷᠠᠭᠠᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:170
+msgid "Authentication is required to power off the system."
+msgstr "ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠢ ᠤᠨᠲᠠᠷᠠᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:180
+msgid "Power off the system while other users are logged in"
+msgstr "ᠪᠤᠰᠤᠳ ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ ᠨᠡᠪᠲᠡᠷᠰᠡᠨ ᠦᠶ᠎ᠡ᠎ᠳᠦ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠢ ᠤᠨᠲᠠᠷᠠᠭᠠᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:181
+msgid ""
+"Authentication is required to power off the system while other users are "
+"logged in."
+msgstr ""
+"ᠪᠤᠰᠤᠳ ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ ᠨᠡᠪᠲᠡᠷᠰᠡᠨ ᠦᠶ᠎ᠡ᠎ᠳᠦ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠢ ᠤᠨᠲᠠᠷᠠᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:191
+msgid "Power off the system while an application is inhibiting this"
+msgstr "ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ ᠰᠠᠭᠠᠲᠠᠭᠤᠯᠵᠤ ᠪᠠᠢᠭ᠎ᠠ ᠦᠶ᠎ᠡ᠎ᠳᠦ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠢ ᠤᠨᠲᠠᠷᠠᠭᠠᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:192
+msgid ""
+"Authentication is required to power off the system while an application is "
+"inhibiting this."
+msgstr ""
+"ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ ᠰᠠᠭᠠᠲᠠᠭᠤᠯᠵᠤ ᠪᠠᠢᠭ᠎ᠠ ᠦᠶ᠎ᠡ᠎ᠳᠦ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠢ ᠤᠨᠲᠠᠷᠠᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:202
+msgid "Reboot the system"
+msgstr "ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠢ ᠳᠠᠬᠢᠨ ᠠᠰᠠᠭᠠᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:203
+msgid "Authentication is required to reboot the system."
+msgstr "ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠢ ᠳᠠᠬᠢᠨ ᠠᠰᠠᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:213
+msgid "Reboot the system while other users are logged in"
+msgstr "ᠪᠤᠰᠤᠳ ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ ᠨᠡᠪᠲᠡᠷᠰᠡᠨ ᠦᠶ᠎ᠡ᠎ᠳᠦ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠢ ᠳᠠᠬᠢᠨ ᠠᠰᠠᠭᠠᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:214
+msgid ""
+"Authentication is required to reboot the system while other users are logged "
+"in."
+msgstr ""
+"ᠪᠤᠰᠤᠳ ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ ᠨᠡᠪᠲᠡᠷᠰᠡᠨ ᠦᠶ᠎ᠡ᠎ᠳᠦ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠢ ᠳᠠᠬᠢᠨ ᠠᠰᠠᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:224
+msgid "Reboot the system while an application is inhibiting this"
+msgstr "ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ ᠰᠠᠭᠠᠲᠠᠭᠤᠯᠵᠤ ᠪᠠᠢᠭ᠎ᠠ ᠦᠶ᠎ᠡ᠎ᠳᠦ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠢ ᠳᠠᠬᠢᠨ ᠠᠰᠠᠭᠠᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:225
+msgid ""
+"Authentication is required to reboot the system while an application is "
+"inhibiting this."
+msgstr ""
+"ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ ᠰᠠᠭᠠᠲᠠᠭᠤᠯᠵᠤ ᠪᠠᠢᠭ᠎ᠠ ᠦᠶ᠎ᠡ᠎ᠳᠦ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠢ ᠳᠠᠬᠢᠨ ᠠᠰᠠᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ"
+"ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:235
+msgid "Halt the system"
+msgstr "ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠠᠵᠢᠯᠯᠠᠭ᠎ᠠ᠎ᠶᠢ ᠵᠣᠭᠰᠤᠭᠠᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:236
+msgid "Authentication is required to halt the system."
+msgstr ""
+"ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠠᠵᠢᠯᠯᠠᠭ᠎ᠠ᠎ᠶᠢ ᠵᠣᠭᠰᠤᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:246
+msgid "Halt the system while other users are logged in"
+msgstr "ᠪᠤᠰᠤᠳ ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ ᠨᠡᠪᠲᠡᠷᠰᠡᠨ ᠦᠶ᠎ᠡ᠎ᠳᠦ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠠᠵᠢᠯᠯᠠᠭ᠎ᠠ᠎ᠶᠢ ᠵᠣᠭᠰᠤᠭᠠᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:247
+msgid ""
+"Authentication is required to halt the system while other users are logged "
+"in."
+msgstr ""
+"ᠪᠤᠰᠤᠳ ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ ᠨᠡᠪᠲᠡᠷᠰᠡᠨ ᠦᠶ᠎ᠡ᠎ᠳᠦ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠠᠵᠢᠯᠯᠠᠭ᠎ᠠ᠎ᠶᠢ ᠵᠣᠭᠰᠤᠭᠠᠬᠤ᠎ᠶᠢᠨ"
+"ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:257
+msgid "Halt the system while an application is inhibiting this"
+msgstr "ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ ᠰᠠᠭᠠᠲᠠᠭᠤᠯᠵᠤ ᠪᠠᠢᠭ᠎ᠠ ᠦᠶ᠎ᠡ᠎ᠳᠦ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠠᠵᠢᠯᠯᠠᠭ᠎ᠠ᠎ᠶᠢ ᠵᠣᠭᠰᠤᠭᠠᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:258
+msgid ""
+"Authentication is required to halt the system while an application is "
+"inhibiting this."
+msgstr ""
+"ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ ᠰᠠᠭᠠᠲᠠᠭᠤᠯᠵᠤ ᠪᠠᠢᠭ᠎ᠠ ᠦᠶ᠎ᠡ᠎ᠳᠦ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠠᠵᠢᠯᠯᠠᠭ᠎ᠠ᠎ᠶᠢ ᠵᠣᠭᠰᠤᠭᠠᠬᠤ᠎ᠶᠢᠨ"
+"ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:268
+msgid "Suspend the system"
+msgstr "ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠢ ᠲᠦᠷ ᠵᠣᠭᠰᠤᠭᠠᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:269
+msgid "Authentication is required to suspend the system."
+msgstr "ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠢ ᠲᠦᠷ ᠵᠣᠭᠰᠤᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:278
+msgid "Suspend the system while other users are logged in"
+msgstr "ᠪᠤᠰᠤᠳ ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ ᠨᠡᠪᠲᠡᠷᠰᠡᠨ ᠦᠶ᠎ᠡ᠎ᠳᠦ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠢ ᠲᠦᠷ ᠵᠣᠭᠰᠤᠭᠠᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:279
+msgid ""
+"Authentication is required to suspend the system while other users are "
+"logged in."
+msgstr ""
+"ᠪᠤᠰᠤᠳ ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ ᠨᠡᠪᠲᠡᠷᠰᠡᠨ ᠦᠶ᠎ᠡ᠎ᠳᠦ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠢ ᠲᠦᠷ ᠵᠣᠭᠰᠤᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:289
+msgid "Suspend the system while an application is inhibiting this"
+msgstr "ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ ᠰᠠᠭᠠᠲᠠᠭᠤᠯᠵᠤ ᠪᠠᠢᠭ᠎ᠠ ᠦᠶ᠎ᠡ᠎ᠳᠦ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠢ ᠲᠦᠷ ᠵᠣᠭᠰᠤᠭᠠᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:290
+msgid ""
+"Authentication is required to suspend the system while an application is "
+"inhibiting this."
+msgstr ""
+"ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ ᠰᠠᠭᠠᠲᠠᠭᠤᠯᠵᠤ ᠪᠠᠢᠭ᠎ᠠ ᠦᠶ᠎ᠡ᠎ᠳᠦ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠢ ᠲᠦᠷ ᠵᠣᠭᠰᠤᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ"
+"ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:300
+msgid "Hibernate the system"
+msgstr "ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠢ ᠢᠴᠡᠭᠡᠬᠦ ᠭᠣᠷᠢᠮ᠎ᠳᠤ ᠣᠷᠤᠭᠤᠯᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:301
+msgid "Authentication is required to hibernate the system."
+msgstr ""
+"ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠢ ᠢᠴᠡᠭᠡᠬᠦ ᠭᠣᠷᠢᠮ᠎ᠳᠤ ᠣᠷᠤᠭᠤᠯᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:310
+msgid "Hibernate the system while other users are logged in"
+msgstr "ᠪᠤᠰᠤᠳ ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ ᠨᠡᠪᠲᠡᠷᠰᠡᠨ ᠦᠶ᠎ᠡ᠎ᠳᠦ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠢ ᠢᠴᠡᠭᠡᠬᠦ ᠭᠣᠷᠢᠮ᠎ᠳᠤ ᠣᠷᠤᠭᠤᠯᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:311
+msgid ""
+"Authentication is required to hibernate the system while other users are "
+"logged in."
+msgstr ""
+"ᠪᠤᠰᠤᠳ ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ ᠨᠡᠪᠲᠡᠷᠰᠡᠨ ᠦᠶ᠎ᠡ᠎ᠳᠦ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠢ ᠢᠴᠡᠭᠡᠬᠦ ᠭᠣᠷᠢᠮ᠎ᠳᠤ ᠣᠷᠤᠭᠤᠯᠬᠤ᠎ᠶᠢᠨ"
+"ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:321
+msgid "Hibernate the system while an application is inhibiting this"
+msgstr "ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ ᠰᠠᠭᠠᠲᠠᠭᠤᠯᠵᠤ ᠪᠠᠢᠭ᠎ᠠ ᠦᠶ᠎ᠡ᠎ᠳᠦ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠢ ᠢᠴᠡᠭᠡᠬᠦ ᠭᠣᠷᠢᠮ᠎ᠳᠤ ᠣᠷᠤᠭᠤᠯᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:322
+msgid ""
+"Authentication is required to hibernate the system while an application is "
+"inhibiting this."
+msgstr ""
+"ᠠᠫᠫᠯᠢᠬᠡᠢᠱᠨ ᠰᠠᠭᠠᠲᠠᠭᠤᠯᠵᠤ ᠪᠠᠢᠭ᠎ᠠ ᠦᠶ᠎ᠡ᠎ᠳᠦ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠢ ᠢᠴᠡᠭᠡᠬᠦ ᠭᠣᠷᠢᠮ᠎ᠳᠤ"
+"ᠣᠷᠤᠭᠤᠯᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:332
+msgid "Manage active sessions, users and seats"
+msgstr "ᠢᠳᠡᠪᠬᠢᠲᠡᠢ ᠰᠡᠰᠰ, ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ ᠪᠣᠯᠤᠨ ᠰᠠᠭᠤᠳᠠᠯ᠎ᠢ ᠤᠳᠤᠷᠢᠳᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:333
+msgid "Authentication is required to manage active sessions, users and seats."
+msgstr ""
+"ᠢᠳᠡᠪᠬᠢᠲᠡᠢ ᠰᠡᠰᠰ, ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ ᠪᠣᠯᠤᠨ ᠰᠠᠭᠤᠳᠠᠯ᠎ᠢ ᠤᠳᠤᠷᠢᠳᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:342
+msgid "Lock or unlock active sessions"
+msgstr "ᠢᠳᠡᠪᠬᠢᠲᠡᠢ ᠰᠡᠰᠰ᠎ᠢ ᠲᠦᠭᠵᠢᠬᠦ ᠡᠰᠪᠡᠯ ᠲᠦᠭᠵᠢᠶ᠎ᠡ᠎ᠶᠢ ᠲᠠᠢᠯᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:343
+msgid "Authentication is required to lock or unlock active sessions."
+msgstr ""
+"ᠢᠳᠡᠪᠬᠢᠲᠡᠢ ᠰᠡᠰᠰ᠎ᠢ ᠲᠦᠭᠵᠢᠬᠦ ᠡᠰᠪᠡᠯ ᠲᠦᠭᠵᠢᠶ᠎ᠡ᠎ᠶᠢ ᠲᠠᠢᠯᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:352
+msgid "Set the reboot \"reason\" in the kernel"
+msgstr "ᠴᠥᠮ᠎ᠡ᠎ᠳᠦ ᠳᠠᠬᠢᠨ ᠠᠰᠠᠭᠠᠬᠤ \"ᠰᠢᠯᠲᠠᠭᠠᠨ\" ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:353
+msgid "Authentication is required to set the reboot \"reason\" in the kernel."
+msgstr ""
+"ᠴᠥᠮ᠎ᠡ᠎ᠳᠦ ᠳᠠᠬᠢᠨ ᠠᠰᠠᠭᠠᠬᠤ \"ᠰᠢᠯᠲᠠᠭᠠᠨ\" ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:363
+msgid "Indicate to the firmware to boot to setup interface"
+msgstr "ᠲᠣᠬᠢᠷᠠᠭᠠᠨ᠎ᠤ ᠢᠨᠲᠡᠷᠹᠡᠢᠰ ᠤᠷᠤᠭᠤ ᠡᠬᠢᠯᠡᠭᠦᠯᠬᠦ᠎ᠶᠢ firmware-ᠳ ᠮᠡᠳᠡᠭᠳᠡᠬᠦ"
+
+#: src/login/org.freedesktop.login1.policy:364
+msgid ""
+"Authentication is required to indicate to the firmware to boot to setup "
+"interface."
+msgstr ""
+"ᠲᠣᠬᠢᠷᠠᠭᠠᠨ᠎ᠤ ᠢᠨᠲᠡᠷᠹᠡᠢᠰ ᠤᠷᠤᠭᠤ ᠡᠬᠢᠯᠡᠭᠦᠯᠬᠦ᠎ᠶᠢ firmware-ᠳ ᠮᠡᠳᠡᠭᠳᠡᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ"
+"ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:374
+msgid "Indicate to the boot loader to boot to the boot loader menu"
+msgstr "ᠠᠴᠠᠯᠠᠭᠴᠢ᠎ᠶᠢᠨ ᠼᠧᠰᠧ᠎ᠶᠢ ᠬᠠᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢ boot loader-ᠳ ᠮᠡᠳᠡᠭᠳᠡᠬᠦ"
+
+#: src/login/org.freedesktop.login1.policy:375
+msgid ""
+"Authentication is required to indicate to the boot loader to boot to the "
+"boot loader menu."
+msgstr ""
+"ᠠᠴᠠᠯᠠᠭᠴᠢ᠎ᠶᠢᠨ ᠼᠧᠰᠧ᠎ᠶᠢ ᠬᠠᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢ boot loader-ᠳ ᠮᠡᠳᠡᠭᠳᠡᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:385
+msgid "Indicate to the boot loader to boot a specific entry"
+msgstr "ᠲᠣᠳᠤᠷᠬᠠᠢ ᠪᠢᠴᠢᠯᠭᠡ᠎ᠪᠡᠷ ᠡᠬᠢᠯᠡᠭᠦᠯᠬᠦ᠎ᠶᠢ boot loader-ᠳ ᠮᠡᠳᠡᠭᠳᠡᠬᠦ"
+
+#: src/login/org.freedesktop.login1.policy:386
+msgid ""
+"Authentication is required to indicate to the boot loader to boot into a "
+"specific boot loader entry."
+msgstr ""
+"ᠲᠣᠳᠤᠷᠬᠠᠢ ᠪᠢᠴᠢᠯᠭᠡ᠎ᠪᠡᠷ ᠡᠬᠢᠯᠡᠭᠦᠯᠬᠦ᠎ᠶᠢ boot loader-ᠳ ᠮᠡᠳᠡᠭᠳᠡᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:396
+msgid "Set a wall message"
+msgstr "ᠪᠦᠬᠦ ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠳᠦ ᠬᠠᠷᠠᠭᠳᠠᠬᠤ ᠮᠡᠳᠡᠭᠳᠡᠯ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:397
+msgid "Authentication is required to set a wall message."
+msgstr ""
+"ᠪᠦᠬᠦ ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠳᠦ ᠬᠠᠷᠠᠭᠳᠠᠬᠤ ᠮᠡᠳᠡᠭᠳᠡᠯ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/login/org.freedesktop.login1.policy:406
+msgid "Change Session"
+msgstr "ᠰᠡᠰᠰ ᠰᠣᠯᠢᠬᠤ"
+
+#: src/login/org.freedesktop.login1.policy:407
+msgid "Authentication is required to change the virtual terminal."
+msgstr "ᠰᠡᠰᠰ ᠰᠣᠯᠢᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/machine/org.freedesktop.machine1.policy:22
+msgid "Log into a local container"
+msgstr "ᠳᠣᠲᠤᠭᠠᠳᠤ ᠬᠣᠨᠲᠡᠢᠨᠡᠷ᠎ᠲᠤ ᠨᠡᠪᠲᠡᠷᠡᠬᠦ"
+
+#: src/machine/org.freedesktop.machine1.policy:23
+msgid "Authentication is required to log into a local container."
+msgstr "ᠳᠣᠲᠤᠭᠠᠳᠤ ᠬᠣᠨᠲᠡᠢᠨᠡᠷ᠎ᠲᠤ ᠨᠡᠪᠲᠡᠷᠡᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/machine/org.freedesktop.machine1.policy:32
+msgid "Log into the local host"
+msgstr "ᠳᠣᠲᠤᠭᠠᠳᠤ ᠬᠣᠣᠰ᠎ᠲᠤ᠎ᠳᠤ ᠨᠡᠪᠲᠡᠷᠡᠬᠦ"
+
+#: src/machine/org.freedesktop.machine1.policy:33
+msgid "Authentication is required to log into the local host."
+msgstr "ᠳᠣᠲᠤᠭᠠᠳᠤ ᠬᠣᠣᠰ᠎ᠲᠤ᠎ᠳᠤ ᠨᠡᠪᠲᠡᠷᠡᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/machine/org.freedesktop.machine1.policy:42
+msgid "Acquire a shell in a local container"
+msgstr "ᠳᠣᠲᠤᠭᠠᠳᠤ ᠬᠣᠨᠲᠡᠢᠨᠡᠷ᠎ᠲᠤ ᠪᠦᠷᠬᠦᠭᠦᠯ ᠨᠡᠭᠡᠭᠡᠬᠦ"
+
+#: src/machine/org.freedesktop.machine1.policy:43
+msgid "Authentication is required to acquire a shell in a local container."
+msgstr ""
+"ᠳᠣᠲᠤᠭᠠᠳᠤ ᠬᠣᠨᠲᠡᠢᠨᠡᠷ᠎ᠲᠤ ᠪᠦᠷᠬᠦᠭᠦᠯ ᠨᠡᠭᠡᠭᠡᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/machine/org.freedesktop.machine1.policy:53
+msgid "Acquire a shell on the local host"
+msgstr "ᠳᠣᠲᠤᠭᠠᠳᠤ ᠬᠣᠣᠰ᠎ᠲᠤ᠎ᠳᠤ ᠪᠦᠷᠬᠦᠭᠦᠯ ᠨᠡᠭᠡᠭᠡᠬᠦ"
+
+#: src/machine/org.freedesktop.machine1.policy:54
+msgid "Authentication is required to acquire a shell on the local host."
+msgstr ""
+"ᠳᠣᠲᠤᠭᠠᠳᠤ ᠬᠣᠣᠰ᠎ᠲᠤ᠎ᠳᠤ ᠪᠦᠷᠬᠦᠭᠦᠯ ᠨᠡᠭᠡᠭᠡᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/machine/org.freedesktop.machine1.policy:64
+msgid "Acquire a pseudo TTY in a local container"
+msgstr "ᠳᠣᠲᠤᠭᠠᠳᠤ ᠬᠣᠨᠲᠡᠢᠨᠡᠷ᠎ᠲᠤ ᠫᠰᠡᠪᠳᠤ TTY ᠠᠪᠬᠤ"
+
+#: src/machine/org.freedesktop.machine1.policy:65
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
+msgstr ""
+"ᠳᠣᠲᠤᠭᠠᠳᠤ ᠬᠣᠨᠲᠡᠢᠨᠡᠷ᠎ᠲᠤ ᠫᠰᠡᠪᠳᠤ TTY ᠠᠪᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/machine/org.freedesktop.machine1.policy:74
+msgid "Acquire a pseudo TTY on the local host"
+msgstr "ᠳᠣᠲᠤᠭᠠᠳᠤ ᠬᠣᠣᠰ᠎ᠲᠤ᠎ᠳᠤ ᠫᠰᠡᠪᠳᠤ TTY ᠠᠪᠬᠤ"
+
+#: src/machine/org.freedesktop.machine1.policy:75
+msgid "Authentication is required to acquire a pseudo TTY on the local host."
+msgstr ""
+"ᠳᠣᠲᠤᠭᠠᠳᠤ ᠬᠣᠣᠰ᠎ᠲᠤ᠎ᠳᠤ ᠫᠰᠡᠪᠳᠤ TTY ᠠᠪᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/machine/org.freedesktop.machine1.policy:84
+msgid "Manage local virtual machines and containers"
+msgstr "ᠳᠣᠲᠤᠭᠠᠳᠤ ᠸᠢᠷᠲᠤᠠᠯ ᠮᠠᠱᠢᠨ᠋ ᠪᠣᠯᠤᠨ ᠬᠣᠨᠲᠡᠢᠨᠡᠷ᠎ᠢ ᠤᠳᠤᠷᠢᠳᠬᠤ"
+
+#: src/machine/org.freedesktop.machine1.policy:85
+msgid ""
+"Authentication is required to manage local virtual machines and containers."
+msgstr ""
+"ᠳᠣᠲᠤᠭᠠᠳᠤ ᠸᠢᠷᠲᠤᠠᠯ ᠮᠠᠱᠢᠨ᠋ ᠪᠣᠯᠤᠨ ᠬᠣᠨᠲᠡᠢᠨᠡᠷ᠎ᠢ ᠤᠳᠤᠷᠢᠳᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/machine/org.freedesktop.machine1.policy:95
+msgid "Inspect local virtual machines and containers"
+msgstr "ᠳᠣᠲᠤᠭᠠᠳᠤ ᠸᠢᠷᠲᠤᠠᠯ ᠮᠠᠱᠢᠨ᠋ ᠪᠣᠯᠤᠨ ᠬᠣᠨᠲᠡᠢᠨᠡᠷ᠎ᠢ ᠰᠢᠯᠭᠠᠬᠤ"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+msgid ""
+"Authentication is required to inspect local virtual machines and containers."
+msgstr ""
+"ᠳᠣᠲᠤᠭᠠᠳᠤ ᠸᠢᠷᠲᠤᠠᠯ ᠮᠠᠱᠢᠨ᠋ ᠪᠣᠯᠤᠨ ᠬᠣᠨᠲᠡᠢᠨᠡᠷ᠎ᠢ ᠰᠢᠯᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/machine/org.freedesktop.machine1.policy:105
+msgid "Create a local virtual machine or container"
+msgstr "ᠳᠣᠲᠤᠭᠠᠳᠤ ᠸᠢᠷᠲᠤᠠᠯ ᠮᠠᠱᠢᠨ᠋ ᠡᠰᠪᠡᠯ ᠬᠣᠨᠲᠡᠢᠨᠡᠷ ᠡᠭᠦᠰᠬᠡᠬᠦ"
+
+#: src/machine/org.freedesktop.machine1.policy:106
+msgid ""
+"Authentication is required to create a local virtual machine or container."
+msgstr ""
+"ᠳᠣᠲᠤᠭᠠᠳᠤ ᠸᠢᠷᠲᠤᠠᠯ ᠮᠠᠱᠢᠨ᠋ ᠡᠰᠪᠡᠯ ᠬᠣᠨᠲᠡᠢᠨᠡᠷ ᠡᠭᠦᠰᠬᠡᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/machine/org.freedesktop.machine1.policy:116
+msgid "Register a local virtual machine or container"
+msgstr "ᠳᠣᠲᠤᠭᠠᠳᠤ ᠸᠢᠷᠲᠤᠠᠯ ᠮᠠᠱᠢᠨ᠋ ᠡᠰᠪᠡᠯ ᠬᠣᠨᠲᠡᠢᠨᠡᠷ ᠪᠦᠷᠢᠳᠬᠡᠬᠦ"
+
+#: src/machine/org.freedesktop.machine1.policy:117
+msgid ""
+"Authentication is required to register a local virtual machine or container."
+msgstr ""
+"ᠳᠣᠲᠤᠭᠠᠳᠤ ᠸᠢᠷᠲᠤᠠᠯ ᠮᠠᠱᠢᠨ᠋ ᠡᠰᠪᠡᠯ ᠬᠣᠨᠲᠡᠢᠨᠡᠷ ᠪᠦᠷᠢᠳᠬᠡᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/machine/org.freedesktop.machine1.policy:126
+msgid "Manage local virtual machine and container images"
+msgstr "ᠳᠣᠲᠤᠭᠠᠳᠤ ᠸᠢᠷᠲᠤᠠᠯ ᠮᠠᠱᠢᠨ᠋ ᠪᠣᠯᠤᠨ ᠬᠣᠨᠲᠡᠢᠨᠡᠷ᠎ᠤᠨ ᠳᠦᠷᠰᠦ᠎ᠶᠢ ᠤᠳᠤᠷᠢᠳᠬᠤ"
+
+#: src/machine/org.freedesktop.machine1.policy:127
+msgid ""
+"Authentication is required to manage local virtual machine and container "
+"images."
+msgstr ""
+"ᠳᠣᠲᠤᠭᠠᠳᠤ ᠸᠢᠷᠲᠤᠠᠯ ᠮᠠᠱᠢᠨ᠋ ᠪᠣᠯᠤᠨ ᠬᠣᠨᠲᠡᠢᠨᠡᠷ᠎ᠤᠨ ᠳᠦᠷᠰᠦ᠎ᠶᠢ ᠤᠳᠤᠷᠢᠳᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/machine/org.freedesktop.machine1.policy:137
+msgid "Inspect local virtual machine and container images"
+msgstr "ᠳᠣᠲᠤᠭᠠᠳᠤ ᠸᠢᠷᠲᠤᠠᠯ ᠮᠠᠱᠢᠨ᠋ ᠪᠣᠯᠤᠨ ᠬᠣᠨᠲᠡᠢᠨᠡᠷ᠎ᠤᠨ ᠳᠦᠷᠰᠦ᠎ᠶᠢ ᠰᠢᠯᠭᠠᠬᠤ"
+
+#: src/machine/org.freedesktop.machine1.policy:138
+msgid ""
+"Authentication is required to inspect local virtual machine and container "
+"images."
+msgstr ""
+"ᠳᠣᠲᠤᠭᠠᠳᠤ ᠸᠢᠷᠲᠤᠠᠯ ᠮᠠᠱᠢᠨ᠋ ᠪᠣᠯᠤᠨ ᠬᠣᠨᠲᠡᠢᠨᠡᠷ᠎ᠤᠨ ᠳᠦᠷᠰᠦ᠎ᠶᠢ ᠰᠢᠯᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/network/org.freedesktop.network1.policy:22
+msgid "Set NTP servers"
+msgstr "NTP ᠰᠡᠷᠪᠡᠷᠦᠳ᠎ᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ"
+
+#: src/network/org.freedesktop.network1.policy:23
+msgid "Authentication is required to set NTP servers."
+msgstr "NTP ᠰᠡᠷᠪᠡᠷᠦᠳ᠎ᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/network/org.freedesktop.network1.policy:33
+#: src/resolve/org.freedesktop.resolve1.policy:44
+msgid "Set DNS servers"
+msgstr "DNS ᠰᠡᠷᠪᠡᠷᠦᠳ᠎ᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ"
+
+#: src/network/org.freedesktop.network1.policy:34
+#: src/resolve/org.freedesktop.resolve1.policy:45
+msgid "Authentication is required to set DNS servers."
+msgstr "DNS ᠰᠡᠷᠪᠡᠷᠦᠳ᠎ᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/network/org.freedesktop.network1.policy:44
+#: src/resolve/org.freedesktop.resolve1.policy:55
+msgid "Set domains"
+msgstr "ᠳᠣᠮᠡᠢᠨᠤᠳ᠎ᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ"
+
+#: src/network/org.freedesktop.network1.policy:45
+#: src/resolve/org.freedesktop.resolve1.policy:56
+msgid "Authentication is required to set domains."
+msgstr "ᠳᠣᠮᠡᠢᠨᠤᠳ᠎ᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/network/org.freedesktop.network1.policy:55
+#: src/resolve/org.freedesktop.resolve1.policy:66
+msgid "Set default route"
+msgstr "ᠥᠭᠦᠭᠳᠮᠦᠯ ᠴᠢᠭᠯᠦᠯᠡᠯᠲ᠎ᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ"
+
+#: src/network/org.freedesktop.network1.policy:56
+#: src/resolve/org.freedesktop.resolve1.policy:67
+msgid "Authentication is required to set default route."
+msgstr ""
+"ᠥᠭᠦᠭᠳᠮᠦᠯ ᠴᠢᠭᠯᠦᠯᠡᠯᠲ᠎ᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/network/org.freedesktop.network1.policy:66
+#: src/resolve/org.freedesktop.resolve1.policy:77
+msgid "Enable/disable LLMNR"
+msgstr "LLMNR-ᠭ ᠢᠳᠡᠪᠬᠢᠵᠢᠭᠦᠯᠬᠦ ᠡᠰᠪᠡᠯ ᠢᠳᠡᠪᠬᠢ ᠦᠭᠡᠢ ᠪᠣᠯᠭᠠᠬᠤ"
+
+#: src/network/org.freedesktop.network1.policy:67
+#: src/resolve/org.freedesktop.resolve1.policy:78
+msgid "Authentication is required to enable or disable LLMNR."
+msgstr ""
+"LLMNR-ᠭ ᠢᠳᠡᠪᠬᠢᠵᠢᠭᠦᠯᠬᠦ ᠡᠰᠪᠡᠯ ᠢᠳᠡᠪᠬᠢ ᠦᠭᠡᠢ ᠪᠣᠯᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/network/org.freedesktop.network1.policy:77
+#: src/resolve/org.freedesktop.resolve1.policy:88
+msgid "Enable/disable multicast DNS"
+msgstr "ᠣᠯᠠᠨ ᠳᠠᠮᠵᠢᠭᠤᠯᠤᠯᠲᠠ᠎ᠲᠤ DNS-ᠭ ᠢᠳᠡᠪᠬᠢᠵᠢᠭᠦᠯᠬᠦ ᠡᠰᠪᠡᠯ ᠢᠳᠡᠪᠬᠢ ᠦᠭᠡᠢ ᠪᠣᠯᠭᠠᠬᠤ"
+
+#: src/network/org.freedesktop.network1.policy:78
+#: src/resolve/org.freedesktop.resolve1.policy:89
+msgid "Authentication is required to enable or disable multicast DNS."
+msgstr ""
+"ᠣᠯᠠᠨ ᠳᠠᠮᠵᠢᠭᠤᠯᠤᠯᠲᠠ᠎ᠲᠤ DNS-ᠭ ᠢᠳᠡᠪᠬᠢᠵᠢᠭᠦᠯᠬᠦ ᠡᠰᠪᠡᠯ ᠢᠳᠡᠪᠬᠢ ᠦᠭᠡᠢ ᠪᠣᠯᠭᠠᠬᠤ᠎ᠶᠢᠨ"
+"ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/network/org.freedesktop.network1.policy:88
+#: src/resolve/org.freedesktop.resolve1.policy:99
+msgid "Enable/disable DNS over TLS"
+msgstr "TLS-ᠡᠭᠡᠷ᠎ᠡ DNS ᠠᠰᠢᠭᠯᠠᠬᠤ᠎ᠶᠢ ᠢᠳᠡᠪᠬᠢᠵᠢᠭᠦᠯᠬᠦ ᠡᠰᠪᠡᠯ ᠢᠳᠡᠪᠬᠢ ᠦᠭᠡᠢ ᠪᠣᠯᠭᠠᠬᠤ"
+
+#: src/network/org.freedesktop.network1.policy:89
+#: src/resolve/org.freedesktop.resolve1.policy:100
+msgid "Authentication is required to enable or disable DNS over TLS."
+msgstr ""
+"TLS-ᠡᠭᠡᠷ᠎ᠡ DNS ᠠᠰᠢᠭᠯᠠᠬᠤ᠎ᠶᠢ ᠢᠳᠡᠪᠬᠢᠵᠢᠭᠦᠯᠬᠦ ᠡᠰᠪᠡᠯ ᠢᠳᠡᠪᠬᠢ ᠦᠭᠡᠢ ᠪᠣᠯᠭᠠᠬᠤ᠎ᠶᠢᠨ"
+"ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/network/org.freedesktop.network1.policy:99
+#: src/resolve/org.freedesktop.resolve1.policy:110
+msgid "Enable/disable DNSSEC"
+msgstr "DNSSEC-ᠭ ᠢᠳᠡᠪᠬᠢᠵᠢᠭᠦᠯᠬᠦ ᠡᠰᠪᠡᠯ ᠢᠳᠡᠪᠬᠢ ᠦᠭᠡᠢ ᠪᠣᠯᠭᠠᠬᠤ"
+
+#: src/network/org.freedesktop.network1.policy:100
+#: src/resolve/org.freedesktop.resolve1.policy:111
+msgid "Authentication is required to enable or disable DNSSEC."
+msgstr ""
+"DNSSEC-ᠭ ᠢᠳᠡᠪᠬᠢᠵᠢᠭᠦᠯᠬᠦ ᠡᠰᠪᠡᠯ ᠢᠳᠡᠪᠬᠢ ᠦᠭᠡᠢ ᠪᠣᠯᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/network/org.freedesktop.network1.policy:110
+#: src/resolve/org.freedesktop.resolve1.policy:121
+msgid "Set DNSSEC Negative Trust Anchors"
+msgstr "DNSSEC-ᠢᠢᠨ ᠰᠥᠷᠭᠦ ᠢᠲᠡᠭᠡᠯᠴᠡᠯ᠎ᠦᠨ ᠵᠠᠩᠭᠤᠤ᠎ᠶᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ"
+
+#: src/network/org.freedesktop.network1.policy:111
+#: src/resolve/org.freedesktop.resolve1.policy:122
+msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
+msgstr ""
+"DNSSEC-ᠢᠢᠨ ᠰᠥᠷᠭᠦ ᠢᠲᠡᠭᠡᠯᠴᠡᠯ᠎ᠦᠨ ᠵᠠᠩᠭᠤᠤ᠎ᠶᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/network/org.freedesktop.network1.policy:121
+msgid "Revert NTP settings"
+msgstr "NTP ᠲᠣᠬᠢᠷᠠᠭ᠎ᠠ᠎ᠶᠢ ᠪᠤᠴᠠᠭᠠᠬᠤ"
+
+#: src/network/org.freedesktop.network1.policy:122
+msgid "Authentication is required to reset NTP settings."
+msgstr "NTP ᠲᠣᠬᠢᠷᠠᠭ᠎ᠠ᠎ᠶᠢ ᠪᠤᠴᠠᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/network/org.freedesktop.network1.policy:132
+msgid "Revert DNS settings"
+msgstr "DNS ᠲᠣᠬᠢᠷᠠᠭ᠎ᠠ᠎ᠶᠢ ᠪᠤᠴᠠᠭᠠᠬᠤ"
+
+#: src/network/org.freedesktop.network1.policy:133
+msgid "Authentication is required to reset DNS settings."
+msgstr "DNS ᠲᠣᠬᠢᠷᠠᠭ᠎ᠠ᠎ᠶᠢ ᠪᠤᠴᠠᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/network/org.freedesktop.network1.policy:143
+msgid "DHCP server sends force renew message"
+msgstr "DHCP ᠰᠡᠷᠪᠡᠷ᠎ᠡᠴᠡ ᠬᠦᠴᠦ᠎ᠪᠡᠷ ᠰᠢᠨᠡᠴᠢᠯᠡᠬᠦ ᠬᠦᠰᠡᠯᠲᠡ ᠢᠯᠡᠭᠡᠬᠦ"
+
+#: src/network/org.freedesktop.network1.policy:144
+msgid ""
+"Authentication is required to send a force renew message from the DHCP "
+"server."
+msgstr ""
+"DHCP ᠰᠡᠷᠪᠡᠷ᠎ᠡᠴᠡ ᠬᠦᠴᠦ᠎ᠪᠡᠷ ᠰᠢᠨᠡᠴᠢᠯᠡᠬᠦ ᠬᠦᠰᠡᠯᠲᠡ ᠢᠯᠡᠭᠡᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/network/org.freedesktop.network1.policy:154
+msgid "Renew dynamic addresses"
+msgstr "ᠳ᠋ᠢᠨᠠᠮᠢᠻ ᠬᠠᠶ᠋ᠢᠭ᠎ᠤᠳ᠎ᠢ ᠰᠢᠨᠡᠴᠢᠯᠡᠬᠦ"
+
+#: src/network/org.freedesktop.network1.policy:155
+msgid "Authentication is required to renew dynamic addresses."
+msgstr "ᠳ᠋ᠢᠨᠠᠮᠢᠻ ᠬᠠᠶ᠋ᠢᠭ᠎ᠤᠳ᠎ᠢ ᠰᠢᠨᠡᠴᠢᠯᠡᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/network/org.freedesktop.network1.policy:165
+msgid "Reload network settings"
+msgstr "ᠰᠦᠯᠵᠢᠶᠡᠨ᠎ᠦ ᠲᠣᠬᠢᠷᠠᠭ᠎ᠠ᠎ᠶᠢ ᠳᠠᠬᠢᠨ ᠠᠴᠢᠶᠠᠯᠠᠬᠤ"
+
+#: src/network/org.freedesktop.network1.policy:166
+msgid "Authentication is required to reload network settings."
+msgstr ""
+"ᠰᠦᠯᠵᠢᠶᠡᠨ᠎ᠦ ᠲᠣᠬᠢᠷᠠᠭ᠎ᠠ᠎ᠶᠢ ᠳᠠᠬᠢᠨ ᠠᠴᠢᠶᠠᠯᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/network/org.freedesktop.network1.policy:176
+msgid "Reconfigure network interface"
+msgstr "ᠰᠦᠯᠵᠢᠶᠡᠨ᠎ᠦ ᠢᠨᠲᠡᠷᠹᠡᠢᠰ᠎ᠢ ᠳᠠᠬᠢᠨ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ"
+
+#: src/network/org.freedesktop.network1.policy:177
+msgid "Authentication is required to reconfigure network interface."
+msgstr ""
+"ᠰᠦᠯᠵᠢᠶᠡᠨ᠎ᠦ ᠢᠨᠲᠡᠷᠹᠡᠢᠰ᠎ᠢ ᠳᠠᠬᠢᠨ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/network/org.freedesktop.network1.policy:187
+msgid "Specify whether persistent storage for systemd-networkd is available"
+msgstr "systemd-networkd-ᠳ ᠪᠠᠢᠩᠭᠤ᠎ᠶᠢᠨ ᠬᠠᠳᠠᠭᠠᠯᠠᠯᠲᠠ ᠠᠰᠢᠭᠯᠠᠬᠤ ᠪᠣᠯᠤᠮᠵᠢᠲᠠᠢ ᠡᠰᠡᠬᠦ᠎ᠶᠢ ᠵᠢᠭᠠᠬᠤ"
+
+#: src/network/org.freedesktop.network1.policy:188
+msgid ""
+"Authentication is required to specify whether persistent storage for systemd-"
+"networkd is available."
+msgstr ""
+"systemd-networkd-ᠳ ᠪᠠᠢᠩᠭᠤ᠎ᠶᠢᠨ ᠬᠠᠳᠠᠭᠠᠯᠠᠯᠲᠠ ᠠᠰᠢᠭᠯᠠᠬᠤ ᠪᠣᠯᠤᠮᠵᠢᠲᠠᠢ ᠡᠰᠡᠬᠦ᠎ᠶᠢ"
+"ᠵᠢᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/network/org.freedesktop.network1.policy:198
+msgid "Manage network links"
+msgstr "ᠰᠦᠯᠵᠢᠶᠡᠨ᠎ᠦ ᠬᠣᠯᠪᠤᠭᠠᠰᠤ᠎ᠨᠤᠭᠤᠳ᠎ᠢ ᠤᠳᠤᠷᠢᠳᠬᠤ"
+
+#: src/network/org.freedesktop.network1.policy:199
+msgid "Authentication is required to manage network links."
+msgstr ""
+"ᠰᠦᠯᠵᠢᠶᠡᠨ᠎ᠦ ᠬᠣᠯᠪᠤᠭᠠᠰᠤ᠎ᠨᠤᠭᠤᠳ᠎ᠢ ᠤᠳᠤᠷᠢᠳᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/portable/org.freedesktop.portable1.policy:13
+msgid "Inspect a portable service image"
+msgstr "ᠵᠥᠭᠡᠭᠡᠪᠦᠷᠢ᠎ᠶᠢᠨ ᠦᠢᠯᠡᠴᠢᠯᠡᠭᠡᠨ᠎ᠦ ᠳᠦᠷᠰᠦ᠎ᠶᠢ ᠰᠢᠯᠭᠠᠬᠤ"
+
+#: src/portable/org.freedesktop.portable1.policy:14
+msgid "Authentication is required to inspect a portable service image."
+msgstr ""
+"ᠵᠥᠭᠡᠭᠡᠪᠦᠷᠢ᠎ᠶᠢᠨ ᠦᠢᠯᠡᠴᠢᠯᠡᠭᠡᠨ᠎ᠦ ᠳᠦᠷᠰᠦ᠎ᠶᠢ ᠰᠢᠯᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/portable/org.freedesktop.portable1.policy:23
+msgid "Attach or detach a portable service image"
+msgstr "ᠵᠥᠭᠡᠭᠡᠪᠦᠷᠢ᠎ᠶᠢᠨ ᠦᠢᠯᠡᠴᠢᠯᠡᠭᠡᠨ᠎ᠦ ᠳᠦᠷᠰᠦ᠎ᠶᠢ ᠬᠣᠯᠪᠤᠬᠤ ᠡᠰᠪᠡᠯ ᠰᠠᠯᠭᠠᠬᠤ"
+
+#: src/portable/org.freedesktop.portable1.policy:24
+msgid ""
+"Authentication is required to attach or detach a portable service image."
+msgstr ""
+"ᠵᠥᠭᠡᠭᠡᠪᠦᠷᠢ᠎ᠶᠢᠨ ᠦᠢᠯᠡᠴᠢᠯᠡᠭᠡᠨ᠎ᠦ ᠳᠦᠷᠰᠦ᠎ᠶᠢ ᠬᠣᠯᠪᠤᠬᠤ ᠡᠰᠪᠡᠯ ᠰᠠᠯᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/portable/org.freedesktop.portable1.policy:34
+msgid "Delete or modify portable service image"
+msgstr "ᠵᠥᠭᠡᠭᠡᠪᠦᠷᠢ᠎ᠶᠢᠨ ᠦᠢᠯᠡᠴᠢᠯᠡᠭᠡᠨ᠎ᠦ ᠳᠦᠷᠰᠦ᠎ᠶᠢ ᠤᠰᠠᠳᠬᠠᠬᠤ ᠡᠰᠪᠡᠯ ᠥᠭᠡᠷᠡᠴᠢᠯᠡᠬᠦ"
+
+#: src/portable/org.freedesktop.portable1.policy:35
+msgid ""
+"Authentication is required to delete or modify a portable service image."
+msgstr ""
+"ᠵᠥᠭᠡᠭᠡᠪᠦᠷᠢ᠎ᠶᠢᠨ ᠦᠢᠯᠡᠴᠢᠯᠡᠭᠡᠨ᠎ᠦ ᠳᠦᠷᠰᠦ᠎ᠶᠢ ᠤᠰᠠᠳᠬᠠᠬᠤ ᠡᠰᠪᠡᠯ ᠥᠭᠡᠷᠡᠴᠢᠯᠡᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ"
+"ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/resolve/org.freedesktop.resolve1.policy:22
+msgid "Register a DNS-SD service"
+msgstr "DNS-SD ᠦᠢᠯᠡᠴᠢᠯᠡᠭᠡ᠎ᠶᠢ ᠪᠦᠷᠢᠳᠬᠡᠬᠦ"
+
+#: src/resolve/org.freedesktop.resolve1.policy:23
+msgid "Authentication is required to register a DNS-SD service."
+msgstr "DNS-SD ᠦᠢᠯᠡᠴᠢᠯᠡᠭᠡ᠎ᠶᠢ ᠪᠦᠷᠢᠳᠬᠡᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/resolve/org.freedesktop.resolve1.policy:33
+msgid "Unregister a DNS-SD service"
+msgstr "DNS-SD ᠦᠢᠯᠡᠴᠢᠯᠡᠭᠡ᠎ᠶᠢ ᠪᠦᠷᠢᠳᠬᠡᠯ᠎ᠡᠴᠡ ᠬᠠᠰᠤᠬᠤ"
+
+#: src/resolve/org.freedesktop.resolve1.policy:34
+msgid "Authentication is required to unregister a DNS-SD service."
+msgstr ""
+"DNS-SD ᠦᠢᠯᠡᠴᠢᠯᠡᠭᠡ᠎ᠶᠢ ᠪᠦᠷᠢᠳᠬᠡᠯ᠎ᠡᠴᠡ ᠬᠠᠰᠤᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/resolve/org.freedesktop.resolve1.policy:132
+msgid "Revert name resolution settings"
+msgstr "ᠨᠡᠷ᠎ᠡ ᠲᠠᠢᠯᠬᠤ ᠲᠣᠬᠢᠷᠠᠭ᠎ᠠ᠎ᠶᠢ ᠪᠤᠴᠠᠭᠠᠬᠤ"
+
+#: src/resolve/org.freedesktop.resolve1.policy:133
+msgid "Authentication is required to reset name resolution settings."
+msgstr ""
+"ᠨᠡᠷ᠎ᠡ ᠲᠠᠢᠯᠬᠤ ᠲᠣᠬᠢᠷᠠᠭ᠎ᠠ᠎ᠶᠢ ᠪᠤᠴᠠᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/resolve/org.freedesktop.resolve1.policy:143
+msgid "Subscribe query results"
+msgstr "ᠠᠰᠠᠭᠤᠯᠭ᠎ᠠ᠎ᠶᠢᠨ ᠦᠷ᠎ᠡ ᠳ᠋ᠦᠩ᠎ᠦᠨ ᠮᠡᠳᠡᠭᠳᠡᠯ᠎ᠳᠦ ᠪᠦᠷᠢᠳᠬᠡᠭᠦᠯᠬᠦ"
+
+#: src/resolve/org.freedesktop.resolve1.policy:144
+msgid "Authentication is required to subscribe query results."
+msgstr ""
+"ᠠᠰᠠᠭᠤᠯᠭ᠎ᠠ᠎ᠶᠢᠨ ᠦᠷ᠎ᠡ ᠳ᠋ᠦᠩ᠎ᠦᠨ ᠮᠡᠳᠡᠭᠳᠡᠯ᠎ᠳᠦ ᠪᠦᠷᠢᠳᠬᠡᠭᠦᠯᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/resolve/org.freedesktop.resolve1.policy:154
+msgid "Subscribe to DNS configuration"
+msgstr "DNS ᠲᠣᠬᠢᠷᠠᠭᠠᠨ᠎ᠤ ᠮᠡᠳᠡᠭᠳᠡᠯ᠎ᠳᠦ ᠪᠦᠷᠢᠳᠬᠡᠭᠦᠯᠬᠦ"
+
+#: src/resolve/org.freedesktop.resolve1.policy:155
+msgid "Authentication is required to subscribe to DNS configuration."
+msgstr ""
+"DNS ᠲᠣᠬᠢᠷᠠᠭᠠᠨ᠎ᠤ ᠮᠡᠳᠡᠭᠳᠡᠯ᠎ᠳᠦ ᠪᠦᠷᠢᠳᠬᠡᠭᠦᠯᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/resolve/org.freedesktop.resolve1.policy:165
+msgid "Dump cache"
+msgstr "ᠬᠡᠰᠢ᠎ᠶᠢ ᠭᠠᠷᠭᠠᠬᠤ"
+
+#: src/resolve/org.freedesktop.resolve1.policy:166
+msgid "Authentication is required to dump cache."
+msgstr "ᠬᠡᠰᠢ᠎ᠶᠢ ᠭᠠᠷᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/resolve/org.freedesktop.resolve1.policy:176
+msgid "Dump server state"
+msgstr "ᠰᠡᠷᠪᠡᠷ᠎ᠦᠨ ᠲᠥᠯᠦᠪ᠎ᠢ ᠭᠠᠷᠭᠠᠬᠤ"
+
+#: src/resolve/org.freedesktop.resolve1.policy:177
+msgid "Authentication is required to dump server state."
+msgstr "ᠰᠡᠷᠪᠡᠷ᠎ᠦᠨ ᠲᠥᠯᠦᠪ᠎ᠢ ᠭᠠᠷᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/resolve/org.freedesktop.resolve1.policy:187
+msgid "Dump statistics"
+msgstr "ᠰᠲ᠋ᠠᠲ᠋ᠢᠰᠲ᠋ᠢᠻ᠎ᠢ ᠭᠠᠷᠭᠠᠬᠤ"
+
+#: src/resolve/org.freedesktop.resolve1.policy:188
+msgid "Authentication is required to dump statistics."
+msgstr "ᠰᠲ᠋ᠠᠲ᠋ᠢᠰᠲ᠋ᠢᠻ᠎ᠢ ᠭᠠᠷᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/resolve/org.freedesktop.resolve1.policy:198
+msgid "Reset statistics"
+msgstr "ᠰᠲ᠋ᠠᠲ᠋ᠢᠰᠲ᠋ᠢᠻ᠎ᠢ ᠲᠡᠭᠯᠡᠬᠦ"
+
+#: src/resolve/org.freedesktop.resolve1.policy:199
+msgid "Authentication is required to reset statistics."
+msgstr "ᠰᠲ᠋ᠠᠲ᠋ᠢᠰᠲ᠋ᠢᠻ᠎ᠢ ᠲᠡᠭᠯᠡᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/resolve/org.freedesktop.resolve1.policy:209
+msgid "Flush DNS caches"
+msgstr "DNS ᠬᠡᠰᠢ᠎ᠶᠢ ᠴᠡᠪᠡᠷᠯᠡᠬᠦ"
+
+#: src/resolve/org.freedesktop.resolve1.policy:210
+msgid "Authentication is required to flush DNS caches."
+msgstr "DNS ᠬᠡᠰᠢ᠎ᠶᠢ ᠴᠡᠪᠡᠷᠯᠡᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/resolve/org.freedesktop.resolve1.policy:220
+msgid "Reset server features"
+msgstr "ᠰᠡᠷᠪᠡᠷ᠎ᠦᠨ ᠪᠣᠯᠤᠮᠵᠢ᠎ᠨᠤᠭᠤᠳ᠎ᠢ ᠳᠠᠬᠢᠨ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ"
+
+#: src/resolve/org.freedesktop.resolve1.policy:221
+msgid "Authentication is required to reset server features."
+msgstr ""
+"ᠰᠡᠷᠪᠡᠷ᠎ᠦᠨ ᠪᠣᠯᠤᠮᠵᠢ᠎ᠨᠤᠭᠤᠳ᠎ᠢ ᠳᠠᠬᠢᠨ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:38
+msgid "Check for system updates"
+msgstr "ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠰᠢᠨᠡᠴᠢᠯᠡᠯ ᠪᠠᠢᠭ᠎ᠠ ᠡᠰᠡᠬᠦ᠎ᠶᠢ ᠰᠢᠯᠭᠠᠬᠤ"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:39
+msgid "Authentication is required to check for system updates."
+msgstr ""
+"ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠰᠢᠨᠡᠴᠢᠯᠡᠯ ᠪᠠᠢᠭ᠎ᠠ ᠡᠰᠡᠬᠦ᠎ᠶᠢ ᠰᠢᠯᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:48
+msgid "Cancel checking for system updates"
+msgstr "ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠰᠢᠨᠡᠴᠢᠯᠡᠯ ᠰᠢᠯᠭᠠᠬᠤ᠎ᠶᠢ ᠴᠤᠴᠠᠯᠠᠬᠤ"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:49
+msgid "Authentication is required to cancel checking for system updates."
+msgstr ""
+"ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠰᠢᠨᠡᠴᠢᠯᠡᠯ ᠰᠢᠯᠭᠠᠬᠤ᠎ᠶᠢ ᠴᠤᠴᠠᠯᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:58
+msgid "Install system updates"
+msgstr "ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠰᠢᠨᠡᠴᠢᠯᠡᠯ᠎ᠦᠳ᠎ᠢ ᠰᠠᠭᠤᠯᠭᠠᠬᠤ"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:59
+msgid "Authentication is required to install system updates."
+msgstr ""
+"ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠰᠢᠨᠡᠴᠢᠯᠡᠯ᠎ᠦᠳ᠎ᠢ ᠰᠠᠭᠤᠯᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:68
+msgid "Cancel installing system updates"
+msgstr "ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠰᠢᠨᠡᠴᠢᠯᠡᠯ ᠰᠠᠭᠤᠯᠭᠠᠬᠤ᠎ᠶᠢ ᠴᠤᠴᠠᠯᠠᠬᠤ"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:69
+msgid "Authentication is required to cancel installing system updates."
+msgstr ""
+"ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠰᠢᠨᠡᠴᠢᠯᠡᠯ ᠰᠠᠭᠤᠯᠭᠠᠬᠤ᠎ᠶᠢ ᠴᠤᠴᠠᠯᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:78
+msgid "Install specific system version"
+msgstr "ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠲᠣᠳᠤᠷᠬᠠᠢ ᠬᠤᠪᠢᠯᠪᠤᠷᠢ᠎ᠶᠢ ᠰᠠᠭᠤᠯᠭᠠᠬᠤ"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:79
+msgid ""
+"Authentication is required to update the system to a specific (possibly old) "
+"version."
+msgstr ""
+"ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠲᠣᠳᠤᠷᠬᠠᠢ ᠬᠤᠪᠢᠯᠪᠤᠷᠢ᠎ᠶᠢ ᠰᠠᠭᠤᠯᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:88
+msgid "Cancel installing specific system version"
+msgstr "ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠲᠣᠳᠤᠷᠬᠠᠢ ᠬᠤᠪᠢᠯᠪᠤᠷᠢ ᠰᠠᠭᠤᠯᠭᠠᠬᠤ᠎ᠶᠢ ᠴᠤᠴᠠᠯᠠᠬᠤ"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:89
+msgid ""
+"Authentication is required to cancel updating the system to a specific "
+"(possibly old) version."
+msgstr ""
+"ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠲᠣᠳᠤᠷᠬᠠᠢ ᠬᠤᠪᠢᠯᠪᠤᠷᠢ ᠰᠠᠭᠤᠯᠭᠠᠬᠤ᠎ᠶᠢ ᠴᠤᠴᠠᠯᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:98
+msgid "Clean up old system updates"
+msgstr "ᠬᠠᠭᠤᠴᠢᠨ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠰᠢᠨᠡᠴᠢᠯᠡᠯ᠎ᠦᠳ᠎ᠢ ᠴᠡᠪᠡᠷᠯᠡᠬᠦ"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:99
+msgid "Authentication is required to clean up old system updates."
+msgstr ""
+"ᠬᠠᠭᠤᠴᠢᠨ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠰᠢᠨᠡᠴᠢᠯᠡᠯ᠎ᠦᠳ᠎ᠢ ᠴᠡᠪᠡᠷᠯᠡᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:108
+msgid "Cancel cleaning up old system updates"
+msgstr "ᠬᠠᠭᠤᠴᠢᠨ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠰᠢᠨᠡᠴᠢᠯᠡᠯ ᠴᠡᠪᠡᠷᠯᠡᠬᠦ᠎ᠶᠢ ᠴᠤᠴᠠᠯᠠᠬᠤ"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:109
+msgid "Authentication is required to cancel cleanup of old system updates."
+msgstr ""
+"ᠬᠠᠭᠤᠴᠢᠨ ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠰᠢᠨᠡᠴᠢᠯᠡᠯ ᠴᠡᠪᠡᠷᠯᠡᠬᠦ᠎ᠶᠢ ᠴᠤᠴᠠᠯᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:118
+msgid "Manage optional features"
+msgstr "ᠨᠡᠮᠡᠯᠲᠡ ᠪᠣᠯᠤᠮᠵᠢ᠎ᠨᠤᠭᠤᠳ᠎ᠢ ᠤᠳᠤᠷᠢᠳᠬᠤ"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:119
+msgid "Authentication is required to manage optional features."
+msgstr ""
+"ᠨᠡᠮᠡᠯᠲᠡ ᠪᠣᠯᠤᠮᠵᠢ᠎ᠨᠤᠭᠤᠳ᠎ᠢ ᠤᠳᠤᠷᠢᠳᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/timedate/org.freedesktop.timedate1.policy:22
+msgid "Set system time"
+msgstr "ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠴᠠᠭ᠎ᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ"
+
+#: src/timedate/org.freedesktop.timedate1.policy:23
+msgid "Authentication is required to set the system time."
+msgstr "ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠴᠠᠭ᠎ᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/timedate/org.freedesktop.timedate1.policy:33
+msgid "Set system timezone"
+msgstr "ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠴᠠᠭ᠎ᠤᠨ ᠪᠦᠰᠡ᠎ᠶᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ"
+
+#: src/timedate/org.freedesktop.timedate1.policy:34
+msgid "Authentication is required to set the system timezone."
+msgstr ""
+"ᠰᠢᠰᠲ᠋ᠧᠮ᠎ᠦᠨ ᠴᠠᠭ᠎ᠤᠨ ᠪᠦᠰᠡ᠎ᠶᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/timedate/org.freedesktop.timedate1.policy:43
+msgid "Set RTC to local timezone or UTC"
+msgstr "RTC-ᠳ ᠯᠣᠬᠠᠯ ᠴᠠᠭ᠎ᠤᠨ ᠪᠦᠰᠡ ᠡᠰᠪᠡᠯ UTC ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ"
+
+#: src/timedate/org.freedesktop.timedate1.policy:44
+msgid ""
+"Authentication is required to control whether the RTC stores the local or "
+"UTC time."
+msgstr ""
+"RTC-ᠳ ᠯᠣᠬᠠᠯ ᠴᠠᠭ᠎ᠤᠨ ᠪᠦᠰᠡ ᠡᠰᠪᠡᠯ UTC ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/timedate/org.freedesktop.timedate1.policy:53
+msgid "Turn network time synchronization on or off"
+msgstr "ᠰᠦᠯᠵᠢᠶᠡᠨ᠎ᠦ ᠴᠠᠭ᠎ᠢᠶᠠᠷ ᠰᠢᠩᠬᠷᠤᠨᠴᠯᠤᠬᠤ᠎ᠶᠢ ᠠᠰᠠᠭᠠᠬᠤ ᠡᠰᠪᠡᠯ ᠤᠨᠲᠠᠷᠠᠭᠠᠬᠤ"
+
+#: src/timedate/org.freedesktop.timedate1.policy:54
+msgid ""
+"Authentication is required to control whether network time synchronization "
+"shall be enabled."
+msgstr ""
+"ᠰᠦᠯᠵᠢᠶᠡᠨ᠎ᠦ ᠴᠠᠭ᠎ᠢᠶᠠᠷ ᠰᠢᠩᠬᠷᠤᠨᠴᠯᠤᠬᠤ᠎ᠶᠢ ᠠᠰᠠᠭᠠᠬᠤ ᠡᠰᠪᠡᠯ ᠤᠨᠲᠠᠷᠠᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/core/dbus-unit.c:372
+msgid "Authentication is required to start '$(unit)'."
+msgstr "'$(unit)' ᠨᠢᠭᠡᠴᠡ᠎ᠶᠢ ᠡᠬᠢᠯᠡᠭᠦᠯᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/core/dbus-unit.c:373
+msgid "Authentication is required to stop '$(unit)'."
+msgstr "'$(unit)' ᠨᠢᠭᠡᠴᠡ᠎ᠶᠢ ᠵᠣᠭᠰᠤᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/core/dbus-unit.c:374
+msgid "Authentication is required to reload '$(unit)'."
+msgstr ""
+"'$(unit)' ᠨᠢᠭᠡᠴᠡ᠎ᠶᠢ ᠳᠠᠬᠢᠨ ᠠᠴᠢᠶᠠᠯᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/core/dbus-unit.c:375 src/core/dbus-unit.c:376
+msgid "Authentication is required to restart '$(unit)'."
+msgstr ""
+"'$(unit)' ᠨᠢᠭᠡᠴᠡ᠎ᠶᠢ ᠳᠠᠬᠢᠨ ᠡᠬᠢᠯᠡᠭᠦᠯᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ"
+"ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/core/dbus-unit.c:594
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
+msgstr ""
+"'$(unit)' ᠨᠢᠭᠡᠴᠡ᠎ᠶᠢᠨ ᠫᠷᠣᠼᠧᠰᠰ᠎ᠤᠳ᠎ᠲᠤ UNIX ᠳᠣᠬᠢᠶ᠎ᠠ ᠢᠯᠡᠭᠡᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/core/dbus-unit.c:647
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"subgroup of '$(unit)'."
+msgstr ""
+"'$(unit)' ᠨᠢᠭᠡᠴᠡ᠎ᠶᠢᠨ ᠳᠡᠳ᠋ ᠪᠦᠯᠦᠭ᠎ᠦᠨ ᠫᠷᠣᠼᠧᠰᠰ᠎ᠤᠳ᠎ᠲᠤ UNIX ᠳᠣᠬᠢᠶ᠎ᠠ ᠢᠯᠡᠭᠡᠬᠦ᠎ᠶᠢᠨ"
+"ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/core/dbus-unit.c:675
+msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgstr ""
+"'$(unit)' ᠨᠢᠭᠡᠴᠡ᠎ᠶᠢᠨ \"failed\" ᠲᠥᠯᠦᠪ᠎ᠢ ᠠᠷᠢᠯᠭᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/core/dbus-unit.c:705
+msgid "Authentication is required to set properties on '$(unit)'."
+msgstr ""
+"'$(unit)' ᠨᠢᠭᠡᠴᠡ᠎ᠶᠢᠨ ᠰᠢᠨᠵᠢ ᠴᠢᠨᠠᠷ᠎ᠤᠳ᠎ᠢ ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/core/dbus-unit.c:802
+msgid ""
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
+msgstr ""
+"'$(unit)' ᠨᠢᠭᠡᠴᠡᠲᠡᠢ ᠬᠣᠯᠪᠤᠭᠠᠲᠠᠢ ᠹᠠᠢᠯ, ᠰᠠᠩᠭ ᠤᠰᠠᠳᠬᠠᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/core/dbus-unit.c:839
+msgid ""
+"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgstr ""
+"'$(unit)' ᠨᠢᠭᠡᠴᠡ᠎ᠶᠢᠨ ᠫᠷᠣᠼᠧᠰᠰ᠎ᠤᠳ᠎ᠢ ᠴᠠᠷᠴᠠᠭᠠᠬᠤ ᠡᠰᠪᠡᠯ ᠭᠡᠰᠬᠡᠭᠡᠬᠦ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠲᠠᠨ"
+"ᠪᠠᠲᠠᠯᠭᠠᠵᠤᠯᠠᠯ᠎ᠲᠤ ᠱᠠᠭᠠᠷᠳᠠᠯᠭᠠᠲᠠᠢ."
+
+#: src/shared/libfido2-util.c:494 src/shared/libfido2-util.c:551
+msgid "Please confirm presence on security token to unlock."
+msgstr ""
+"ᠲᠦᠭᠵᠢᠶ᠎ᠡ᠎ᠶᠢ ᠲᠠᠢᠯᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠬᠠᠮᠠᠭᠠᠯᠠᠯᠲᠠ᠎ᠶᠢᠨ ᠲᠣᠬᠡᠨ ᠳᠡᠭᠡᠷ᠎ᠡ ᠪᠠᠢᠭ᠎ᠠ᠎ᠪᠠᠨ"
+"ᠪᠠᠲᠤᠯᠠᠭᠠᠵᠢᠭᠤᠯᠤᠨ᠎ᠠ ᠤᠤ."
+
+#: src/shared/libfido2-util.c:510
+msgid "Please verify user on security token to unlock."
+msgstr ""
+"ᠲᠦᠭᠵᠢᠶ᠎ᠡ᠎ᠶᠢ ᠲᠠᠢᠯᠬᠤ᠎ᠶᠢᠨ ᠲᠤᠯᠠ᠎ᠳᠤ ᠬᠡᠷᠡᠭᠯᠡᠭᠴᠢ᠎ᠶᠢ ᠬᠠᠮᠠᠭᠠᠯᠠᠯᠲᠠ᠎ᠶᠢᠨ ᠲᠣᠬᠡᠨ᠎ᠢᠶᠠᠷ"
+"ᠪᠠᠲᠤᠯᠠᠭᠠᠵᠢᠭᠤᠯᠤᠨ᠎ᠠ ᠤᠤ."
+
+#: src/shared/libfido2-util.c:944
+#, c-format
+msgid ""
+"Please enter security token PIN (remaining attempts before lock-out: %d):"
+msgstr ""
+"ᠬᠠᠮᠠᠭᠠᠯᠠᠯᠲᠠ᠎ᠶᠢᠨ ᠲᠣᠬ᠎ᠤᠨ PIN-ᠭ ᠣᠷᠤᠭᠤᠯᠤᠨ᠎ᠠ ᠤᠤ (ᠲᠦᠭᠵᠢᠭᠳᠡᠬᠦ᠎ᠡᠴᠡ ᠡᠮᠦᠨᠡᠬᠢ ᠦᠯᠡᠳᠡᠭᠰᠡᠨ"
+"ᠣᠷᠤᠯᠳᠤᠯᠭ᠎ᠠ: %d):"
+
+#: src/shared/libfido2-util.c:955
+msgid "Please enter security token PIN:"
+msgstr "ᠬᠠᠮᠠᠭᠠᠯᠠᠯᠲᠠ᠎ᠶᠢᠨ ᠲᠣᠬ᠎ᠤᠨ PIN-ᠭ ᠣᠷᠤᠭᠤᠯᠤᠨ᠎ᠠ ᠤᠤ:"

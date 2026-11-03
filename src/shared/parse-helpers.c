@@ -113,7 +113,7 @@ int parse_address_families(const char *rvalue, Set **families, bool *is_allowlis
         }
 
         if (!*families) {
-                *families = set_new(NULL);
+                *families = set_new(/* hash_ops= */ NULL);
                 if (!*families)
                         return -ENOMEM;
 

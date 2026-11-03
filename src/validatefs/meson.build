@@ -4,7 +4,7 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-validatefs',
                 'conditions' : [
-                        'HAVE_BLKID',
+                        'ENABLE_VALIDATEFS',
                 ],
                 'sources' : files('validatefs.c'),
                 'dependencies' : [

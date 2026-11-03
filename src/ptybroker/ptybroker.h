@@ -15,6 +15,7 @@ struct Manager {
         Hashmap *polkit_registry;
 
         Hashmap *ptys; /* name string → PseudoTTY object */
+        Set *reserved_pty_names; /* AcquirePty() adds a PTY's name here until it links the PTY into ptys. */
 
         LIST_HEAD(PseudoTTY, ptys_free_queue);
         sd_event_source *ptys_free_queue_event_source;

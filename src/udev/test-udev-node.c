@@ -10,8 +10,8 @@ static void test_udev_node_escape_path_one(const char *path, const char *expecte
 
         r = udev_node_escape_path(path, buf, sizeof buf);
         log_debug("udev_node_escape_path(%s) -> %s (expected: %s)", path, buf, expected);
-        assert_se(r == strlen(expected));
-        assert_se(streq(buf, expected));
+        ASSERT_EQ(r, strlen(expected));
+        ASSERT_STREQ(buf, expected);
 }
 
 TEST(udev_node_escape_path) {

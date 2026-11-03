@@ -25,6 +25,7 @@ systemd_analyze_sources = files(
         'analyze-nvpcrs.c',
         'analyze-pcrs.c',
         'analyze-plot.c',
+        'analyze-restart-delays.c',
         'analyze-security.c',
         'analyze-service-watchdogs.c',
         'analyze-smbios11.c',
@@ -48,7 +49,6 @@ systemd_analyze_export_sources = files(
 executables += [
         executable_template + {
                 'name' : 'systemd-analyze',
-                'public' : conf.get('ENABLE_ANALYZE') == 1,
                 'sources' : systemd_analyze_sources,
                 'export' : systemd_analyze_export_sources,
                 'include_directories' : core_includes,

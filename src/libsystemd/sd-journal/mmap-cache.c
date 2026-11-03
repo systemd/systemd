@@ -320,7 +320,7 @@ static int add_mmap(
         if (size >= SIZE_MAX)
                 return -EADDRNOTAVAIL;
 
-        r = mmap_try_harder(f, NULL, MAP_SHARED, offset, size, &d);
+        r = mmap_try_harder(f, /* addr= */ NULL, MAP_SHARED, offset, size, &d);
         if (r < 0)
                 return r;
 
@@ -531,7 +531,7 @@ int mmap_cache_add_fd(MMapCache *m, int fd, int prot, MMapFileDescriptor **ret) 
                 .prot = prot,
         };
 
-        r = hashmap_ensure_put(&m->fds, NULL, FD_TO_PTR(fd), f);
+        r = hashmap_ensure_put(&m->fds, /* hash_ops= */ NULL, FD_TO_PTR(fd), f);
         if (r < 0)
                 return r;
         assert(r > 0);

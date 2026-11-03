@@ -18,6 +18,8 @@ fi
 # without it. Skip the whole test for simplicity.
 [ -x /usr/lib/systemd/systemd-report ] || exit 77
 
+IMAGE_DIR="$(vmspawn_images_dir)"
+
 MACHINE="coco-snp-direct-$$"
 WORKDIR="$(mktemp -d)"
 mkdir -p "$WORKDIR/honest" "$WORKDIR/hostile"
@@ -62,7 +64,7 @@ QEMU_EXTRA=(
 
 SYSTEMD_VMSPAWN_QEMU_EXTRA="${QEMU_EXTRA[*]}" \
 vmspawn_boot_coco "$MACHINE-hostile" "$COCO_TYPE" "$WORKDIR/hostile" \
-    'detect_virt creds_vmspawn creds_hostile_fwcfg creds_hostile_snp_smbios creds_hostile_shadow' \
+    'detect_virt creds_vmspawn creds_hostile_fwcfg creds_hostile_smbios creds_hostile_shadow' \
     --image="$IMAGE_DIR/image.raw" \
     --linux="$IMAGE_DIR/image.vmlinuz" \
     --initrd="$IMAGE_DIR/image.initrd" \

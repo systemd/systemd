@@ -21,13 +21,13 @@ static void test_policy_closed(const char *cgroup_path, BPFProgram **installed_p
 
         log_info("/* %s */", __func__);
 
-        r = bpf_devices_cgroup_init(&prog, CGROUP_DEVICE_POLICY_CLOSED, true);
+        r = bpf_devices_cgroup_init(&prog, CGROUP_DEVICE_POLICY_CLOSED, /* allow_list= */ true);
         ASSERT_OK(r);
 
         r = bpf_devices_allow_list_static(prog, cgroup_path);
         ASSERT_OK(r);
 
-        r = bpf_devices_apply_policy(&prog, CGROUP_DEVICE_POLICY_CLOSED, true, cgroup_path, installed_prog);
+        r = bpf_devices_apply_policy(&prog, CGROUP_DEVICE_POLICY_CLOSED, /* allow_list= */ true, cgroup_path, installed_prog);
         ASSERT_OK(r);
 
         FOREACH_STRING(s, "/dev/null",
@@ -48,7 +48,7 @@ static void test_policy_closed(const char *cgroup_path, BPFProgram **installed_p
                 log_debug("open(%s, \"w\") = %d/%s", s, fd2, fd2 < 0 ? ERRNO_NAME(errno) : "-");
                 wrong += fd2 < 0 && errno == EPERM;
         }
-        assert_se(wrong == 0);
+        ASSERT_EQ(wrong, 0U);
 }
 
 static void test_policy_strict(const char *cgroup_path, BPFProgram **installed_prog) {
@@ -58,7 +58,7 @@ static void test_policy_strict(const char *cgroup_path, BPFProgram **installed_p
 
         log_info("/* %s */", __func__);
 
-        r = bpf_devices_cgroup_init(&prog, CGROUP_DEVICE_POLICY_STRICT, true);
+        r = bpf_devices_cgroup_init(&prog, CGROUP_DEVICE_POLICY_STRICT, /* allow_list= */ true);
         ASSERT_OK(r);
 
         r = bpf_devices_allow_list_device(prog, cgroup_path, "/dev/null", CGROUP_DEVICE_READ|CGROUP_DEVICE_WRITE);
@@ -70,7 +70,7 @@ static void test_policy_strict(const char *cgroup_path, BPFProgram **installed_p
         r = bpf_devices_allow_list_device(prog, cgroup_path, "/dev/zero", CGROUP_DEVICE_WRITE);
         ASSERT_OK(r);
 
-        r = bpf_devices_apply_policy(&prog, CGROUP_DEVICE_POLICY_STRICT, true, cgroup_path, installed_prog);
+        r = bpf_devices_apply_policy(&prog, CGROUP_DEVICE_POLICY_STRICT, /* allow_list= */ true, cgroup_path, installed_prog);
         ASSERT_OK(r);
 
         {
@@ -125,7 +125,7 @@ static void test_policy_strict(const char *cgroup_path, BPFProgram **installed_p
                 wrong += fd2 >= 0;
         }
 
-        assert_se(wrong == 0);
+        ASSERT_EQ(wrong, 0U);
 }
 
 static void test_policy_allow_list_major(const char *pattern, const char *cgroup_path, BPFProgram **installed_prog) {
@@ -135,13 +135,13 @@ static void test_policy_allow_list_major(const char *pattern, const char *cgroup
 
         log_info("/* %s(%s) */", __func__, pattern);
 
-        r = bpf_devices_cgroup_init(&prog, CGROUP_DEVICE_POLICY_STRICT, true);
+        r = bpf_devices_cgroup_init(&prog, CGROUP_DEVICE_POLICY_STRICT, /* allow_list= */ true);
         ASSERT_OK(r);
 
         r = bpf_devices_allow_list_major(prog, cgroup_path, pattern, 'c', CGROUP_DEVICE_READ|CGROUP_DEVICE_WRITE);
         ASSERT_OK(r);
 
-        r = bpf_devices_apply_policy(&prog, CGROUP_DEVICE_POLICY_STRICT, true, cgroup_path, installed_prog);
+        r = bpf_devices_apply_policy(&prog, CGROUP_DEVICE_POLICY_STRICT, /* allow_list= */ true, cgroup_path, installed_prog);
         ASSERT_OK(r);
 
         /* /dev/null, /dev/full have major==1, /dev/tty has major==5 */
@@ -184,7 +184,7 @@ static void test_policy_allow_list_major(const char *pattern, const char *cgroup
                 wrong += fd2 >= 0;
         }
 
-        assert_se(wrong == 0);
+        ASSERT_EQ(wrong, 0U);
 }
 
 static void test_policy_allow_list_major_star(char type, const char *cgroup_path, BPFProgram **installed_prog) {
@@ -194,13 +194,13 @@ static void test_policy_allow_list_major_star(char type, const char *cgroup_path
 
         log_info("/* %s(type=%c) */", __func__, type);
 
-        r = bpf_devices_cgroup_init(&prog, CGROUP_DEVICE_POLICY_STRICT, true);
+        r = bpf_devices_cgroup_init(&prog, CGROUP_DEVICE_POLICY_STRICT, /* allow_list= */ true);
         ASSERT_OK(r);
 
         r = bpf_devices_allow_list_major(prog, cgroup_path, "*", type, CGROUP_DEVICE_READ|CGROUP_DEVICE_WRITE);
         ASSERT_OK(r);
 
-        r = bpf_devices_apply_policy(&prog, CGROUP_DEVICE_POLICY_STRICT, true, cgroup_path, installed_prog);
+        r = bpf_devices_apply_policy(&prog, CGROUP_DEVICE_POLICY_STRICT, /* allow_list= */ true, cgroup_path, installed_prog);
         ASSERT_OK(r);
 
         {
@@ -215,7 +215,7 @@ static void test_policy_allow_list_major_star(char type, const char *cgroup_path
                         wrong += fd >= 0;
         }
 
-        assert_se(wrong == 0);
+        ASSERT_EQ(wrong, 0U);
 }
 
 static void test_policy_empty(bool add_mismatched, const char *cgroup_path, BPFProgram **installed_prog) {
@@ -228,12 +228,11 @@ static void test_policy_empty(bool add_mismatched, const char *cgroup_path, BPFP
         r = bpf_devices_cgroup_init(&prog, CGROUP_DEVICE_POLICY_STRICT, add_mismatched);
         ASSERT_OK(r);
 
-        if (add_mismatched) {
-                r = bpf_devices_allow_list_major(prog, cgroup_path, "foobarxxx", 'c', CGROUP_DEVICE_READ|CGROUP_DEVICE_WRITE);
-                assert_se(r < 0);
-        }
+        if (add_mismatched)
+                ASSERT_FAIL(bpf_devices_allow_list_major(prog, cgroup_path, "foobarxxx", 'c',
+                                                         CGROUP_DEVICE_READ|CGROUP_DEVICE_WRITE));
 
-        r = bpf_devices_apply_policy(&prog, CGROUP_DEVICE_POLICY_STRICT, false, cgroup_path, installed_prog);
+        r = bpf_devices_apply_policy(&prog, CGROUP_DEVICE_POLICY_STRICT, /* allow_list= */ false, cgroup_path, installed_prog);
         ASSERT_OK(r);
 
         {
@@ -245,7 +244,7 @@ static void test_policy_empty(bool add_mismatched, const char *cgroup_path, BPFP
                 wrong += fd >= 0;
         }
 
-        assert_se(wrong == 0);
+        ASSERT_EQ(wrong, 0U);
 }
 
 int main(int argc, char *argv[]) {
@@ -289,13 +288,13 @@ int main(int argc, char *argv[]) {
         test_policy_allow_list_major_star('c', cgroup, &prog);
         test_policy_allow_list_major_star('b', cgroup, &prog);
 
-        test_policy_empty(false, cgroup, &prog);
-        test_policy_empty(true, cgroup, &prog);
+        test_policy_empty(/* add_mismatched= */ false, cgroup, &prog);
+        test_policy_empty(/* add_mismatched= */ true, cgroup, &prog);
 
         ASSERT_OK(path_extract_directory(cgroup, &parent));
 
         ASSERT_OK(cg_mask_supported(&supported));
-        ASSERT_OK(cg_attach(parent, 0));
+        ASSERT_OK(cg_attach(parent, /* pid= */ 0));
 
         return 0;
 }

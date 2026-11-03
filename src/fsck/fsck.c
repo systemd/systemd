@@ -33,6 +33,15 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "time-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-fsck\0",
+        "Check a file system before it is mounted.",
+        .argspec = "[DEVICE]\0",
+        .man_pages = "systemd-fsck@.service(8)\0",
+        .option_namespace = "common",
+);
 
 typedef enum FSCKMode {
         FSCK_AUTO,
@@ -93,7 +102,7 @@ static void start_target(const char *target, const char *mode) {
         log_info("Requesting %s/start/%s", target, mode);
 
         /* Start this unit only if we can replace basic.target with it */
-        r = bus_call_method(bus, bus_systemd_mgr, "StartUnitReplace", &error, NULL, "sss", SPECIAL_BASIC_TARGET, target, mode);
+        r = bus_call_method(bus, bus_systemd_mgr, "StartUnitReplace", &error, /* ret_reply= */ NULL, "sss", SPECIAL_BASIC_TARGET, target, mode);
 
         /* Don't print a warning if we aren't called during startup */
         if (r < 0 && !sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_JOB))
@@ -257,7 +266,7 @@ static int fsck_progress_socket(void) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         if (fd < 0)
                 return log_warning_errno(errno, "socket(): %m");
 
@@ -281,13 +290,14 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        if (argc > 2)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program expects one or no arguments.");
+        char **args = NULL;
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 1, &args);
+        if (r <= 0)
+                return r;
 
         umask(0022);
 
-        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
+        r = proc_cmdline_parse(parse_proc_cmdline_item, /* userdata= */ NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
@@ -298,8 +308,8 @@ static int run(int argc, char *argv[]) {
         if (arg_mode == FSCK_SKIP)
                 return 0;
 
-        if (argc > 1) {
-                dpath = strdup(argv[1]);
+        if (args[0]) {
+                dpath = strdup(args[0]);
                 if (!dpath)
                         return log_oom();
 
@@ -372,7 +382,7 @@ static int run(int argc, char *argv[]) {
         console = fopen("/dev/console", "we");
         if (console &&
             show_progress &&
-            pipe(progress_pipe) < 0)
+            pipe2(progress_pipe, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "pipe(): %m");
 
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
@@ -428,7 +438,17 @@ static int run(int argc, char *argv[]) {
                 cmdline[i++] = device;
                 cmdline[i++] = NULL;
 
-                execvp(cmdline[0], (char**) cmdline);
+                /* fsck writes its progress to the fd passed with -C */
+                int progress_fd = progress_socket >= 0 ? progress_socket : progress_pipe[1];
+                if (progress_fd >= 0) {
+                        r = fd_cloexec(progress_fd, /* cloexec= */ false);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to disable O_CLOEXEC for progress fd: %m");
+                                _exit(FSCK_OPERATIONAL_ERROR);
+                        }
+                }
+
+                (void) execvp_safe(cmdline[0], (char**) cmdline);
                 _exit(FSCK_OPERATIONAL_ERROR);
         }
 

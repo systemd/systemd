@@ -22,9 +22,9 @@ static void test_libmount_unescaping_one(
         _cleanup_fclose_ FILE *f = NULL;
 
         f = fmemopen((char*) string, strlen(string), "r");
-        assert_se(f);
+        ASSERT_NOT_NULL(f);
 
-        assert_se(libmount_parse_mountinfo(f, &table, &iter) >= 0);
+        ASSERT_OK(libmount_parse_mountinfo(f, &table, &iter));
 
         struct libmnt_fs *fs;
         const char *source, *target;
@@ -37,18 +37,18 @@ static void test_libmount_unescaping_one(
                 log_error_errno(r, "mnt_table_next_fs failed: %m");
                 return;
         }
-        assert_se(r == 0);
+        ASSERT_OK_ZERO(r);
 
-        assert_se(x = cescape(string));
+        ASSERT_NOT_NULL(x = cescape(string));
 
-        assert_se(source = sym_mnt_fs_get_source(fs));
-        assert_se(target = sym_mnt_fs_get_target(fs));
+        ASSERT_NOT_NULL(source = sym_mnt_fs_get_source(fs));
+        ASSERT_NOT_NULL(target = sym_mnt_fs_get_target(fs));
 
-        assert_se(cs = cescape(source));
-        assert_se(ct = cescape(target));
+        ASSERT_NOT_NULL(cs = cescape(source));
+        ASSERT_NOT_NULL(ct = cescape(target));
 
-        assert_se(cunescape(source, UNESCAPE_RELAX, &s) >= 0);
-        assert_se(cunescape(target, UNESCAPE_RELAX, &t) >= 0);
+        ASSERT_OK(cunescape(source, UNESCAPE_RELAX, &s));
+        ASSERT_OK(cunescape(target, UNESCAPE_RELAX, &t));
 
         log_info("from '%s'", x);
         log_info("source: '%s'", source);
@@ -60,17 +60,17 @@ static void test_libmount_unescaping_one(
         log_info("target: '%s'", t);
         log_info("expected: '%s'", strna(expected_target));
 
-        assert_se(may_fail || streq(source, expected_source));
-        assert_se(may_fail || streq(target, expected_target));
+        ASSERT_TRUE(may_fail || streq(source, expected_source));
+        ASSERT_TRUE(may_fail || streq(target, expected_target));
 
-        assert_se(sym_mnt_table_next_fs(table, iter, &fs) == 1);
+        ASSERT_EQ(sym_mnt_table_next_fs(table, iter, &fs), 1);
 }
 
 TEST(libmount_unescaping) {
         test_libmount_unescaping_one(
                         "escaped space + utf8",
                         "729 38 0:59 / /tmp/„zupa\\040zębowa” rw,relatime shared:395 - tmpfs die\\040Brühe rw,seclabel",
-                        false,
+                        /* may_fail= */ false,
                         "die Brühe",
                         "/tmp/„zupa zębowa”"
         );
@@ -78,7 +78,7 @@ TEST(libmount_unescaping) {
         test_libmount_unescaping_one(
                         "escaped newline",
                         "729 38 0:59 / /tmp/x\\012y rw,relatime shared:395 - tmpfs newline rw,seclabel",
-                        false,
+                        /* may_fail= */ false,
                         "newline",
                         "/tmp/x\ny"
         );
@@ -90,7 +90,7 @@ TEST(libmount_unescaping) {
         test_libmount_unescaping_one(
                         "empty source",
                         "760 38 0:60 / /tmp/emptysource rw,relatime shared:410 - tmpfs  rw,seclabel",
-                        true,
+                        /* may_fail= */ true,
                         "",
                         "/tmp/emptysource"
         );
@@ -101,7 +101,7 @@ TEST(libmount_unescaping) {
         test_libmount_unescaping_one(
                         "foo\\rbar",
                         "790 38 0:61 / /tmp/foo\rbar rw,relatime shared:425 - tmpfs tmpfs rw,seclabel",
-                        true,
+                        /* may_fail= */ true,
                         "tmpfs",
                         "/tmp/foo\rbar"
         );

@@ -241,7 +241,7 @@ static inline int tpm2_digest_buffer(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest, co
 }
 int tpm2_digest_many_digests(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest, const TPM2B_DIGEST data[], size_t n_data, bool extend);
 static inline int tpm2_digest_rehash(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest) {
-        return tpm2_digest_many(alg, digest, NULL, 0, true);
+        return tpm2_digest_many(alg, digest, /* data= */ NULL, /* n_data= */ 0, /* extend= */ true);
 }
 int tpm2_digest_init(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest);
 
@@ -348,6 +348,33 @@ int tpm2_policy_authorize_nv(Tpm2Context *c, const Tpm2Handle *session, const Tp
  * moved while the policy was submitted, i.e. if something extended a PCR in the meantime. That's transient,
  * callers are supposed to restart the policy session and try again. */
 int tpm2_policy_pcr(Tpm2Context *c, const Tpm2Handle *session, const TPML_PCR_SELECTION *pcr_selection, TPM2B_DIGEST **ret_policy_digest);
+
+/* TPM2_PolicyOR() accepts at most TPM2_POLICY_OR_MAX_BRANCHES branches (the TPM's TPML_DIGEST is fixed at 8
+ * elements). To support more alternatives the PolicyOR helpers nest ORs into a balanced tree with that
+ * fanout. TPM2_POLICY_OR_MAX_DEPTH caps the nesting depth, and hence the number of alternatives per PCR at
+ * TPM2_POLICY_OR_MAX_BRANCHES^TPM2_POLICY_OR_MAX_DEPTH = 8^5 = 32768. The cap ensures unsealing never needs
+ * an unbounded number of TPM round trips. */
+#define TPM2_POLICY_OR_MAX_BRANCHES 8U
+#define TPM2_POLICY_OR_MAX_DEPTH 5U
+
+/* TPM2_PolicyOR() has a single parameter, pHashList. When the TPM rejects the command it does so with
+ * TPM_RC_VALUE on that parameter: a format-one code with TPM_RC_P set and the 1-based parameter number in N.
+ * Classify those fields explicitly instead of masking N away the way we do for other commands: TPM_RC_S
+ * shares bit 11 with the top bit of N, so masking N away hides the session bit too and would turn a
+ * session-related (or otherwise unrelated) TPM_RC_VALUE into a bogus "no branch matched". */
+static inline bool TPM2_RC_IS_POLICY_OR_NO_MATCH(TSS2_RC rc) {
+        if (!(rc & TPM2_RC_P)) /* A handle- or session-related error, or not parameter-related at all */
+                return false;
+        if (rc & TPM2_RC_S) /* Session-related, hence not about pHashList */
+                return false;
+        if ((rc & ~(TPM2_RC_N_MASK | TPM2_RC_P)) != TPM2_RC_VALUE)
+                return false;
+
+        /* N is the parameter number, i.e. 1 for PolicyOR's only parameter. TPMs that leave it at 0 are
+         * tolerated. */
+        return ((rc & TPM2_RC_N_MASK) >> 8) <= 1;
+}
+
 int tpm2_policy_or(Tpm2Context *c, const Tpm2Handle *session, const TPM2B_DIGEST *branches, size_t n_branches, TPM2B_DIGEST **ret_policy_digest);
 int tpm2_policy_super_pcr(Tpm2Context *c, const Tpm2Handle *session, const Tpm2PCRPrediction *prediction, uint16_t algorithm);
 int tpm2_policy_signed_hmac_sha256(Tpm2Context *c, const Tpm2Handle *session, const Tpm2Handle *hmac_key_handle, const struct iovec *hmac_key, TPM2B_DIGEST **ret_policy_digest);
@@ -443,6 +470,7 @@ int tpm2_tpms_tagged_policy_to_json(const TPMS_TAGGED_POLICY *policy, sd_json_va
 
 int tpm2_quote(Tpm2Context *c, const Tpm2Handle *sign_session, const Tpm2Handle *audit_session, const Tpm2Handle *sign_key, const TPM2B_DATA *qualifying_data, const TPML_PCR_SELECTION *pcr_select, TPMS_ATTEST **ret_quoted, TPMT_SIGNATURE **ret_signature);
 int tpm2_nv_certify(Tpm2Context *c, const Tpm2Handle *sign_session, const Tpm2Handle *auth_session, const Tpm2Handle *audit_session, const Tpm2Handle *sign_key, const TPMS_NV_PUBLIC *nv_public, const Tpm2Handle *nv_handle, const TPM2B_DATA *qualifying_data, TPMS_ATTEST **ret_certify_info, TPMT_SIGNATURE **ret_signature);
+int tpm2_certify(Tpm2Context *c, const Tpm2Handle *object_session, const Tpm2Handle *sign_session, const Tpm2Handle *audit_session, const Tpm2Handle *object, const Tpm2Handle *sign_key, const TPM2B_DATA *qualifying_data, TPMS_ATTEST **ret_certify_info, TPMT_SIGNATURE **ret_signature);
 int tpm2_get_session_audit_digest(Tpm2Context *c, const Tpm2Handle *eh_session, const Tpm2Handle *sign_session, const Tpm2Handle *audit_session, const Tpm2Handle *sign_key, const TPM2B_DATA *qualifying_data, TPMS_ATTEST **ret_audit_info, TPMT_SIGNATURE **ret_signature);
 
 /* The tpm2-tss library has many structs that are simply a combination of an array (or object) and

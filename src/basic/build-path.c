@@ -167,7 +167,7 @@ int get_build_exec_dir(char **ret) {
                 return -ENOEXEC;
 
         _cleanup_free_ char *exe = NULL;
-        r = get_process_exe(0, &exe);
+        r = get_process_exe(/* pid= */ 0, &exe);
         if (r < 0)
                 return runpath_cached = r;
 
@@ -244,8 +244,7 @@ int invoke_callout_binary(const char *path, char *const argv[]) {
         if (find_build_dir_binary(fn, &np) >= 0)
                 execv(np, argv);
 
-        execvp(path, argv);
-        return -errno;
+        return execvp_safe(path, argv);
 }
 
 int pin_callout_binary(const char *path, char **ret_path) {

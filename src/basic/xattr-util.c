@@ -60,9 +60,9 @@ static int normalize_and_maybe_pin_inode(
 
         /* If both have been specified, then we go via O_PATH */
 
-        int tfd = openat(*fd, *path, O_PATH|O_CLOEXEC|(FLAGS_SET(*at_flags, AT_SYMLINK_FOLLOW) ? 0 : O_NOFOLLOW));
+        int tfd = xopenat(*fd, *path, O_PATH|(FLAGS_SET(*at_flags, AT_SYMLINK_FOLLOW) ? 0 : O_NOFOLLOW));
         if (tfd < 0)
-                return -errno;
+                return tfd;
 
         *fd = *ret_tfd = tfd;
         *path = NULL;
@@ -165,7 +165,7 @@ int getxattr_at_malloc(
                 if (n != -ERANGE)
                         return (int) n;
 
-                n = getxattr_pinned_internal(fd, path, at_flags, by_procfs, name, NULL, 0);
+                n = getxattr_pinned_internal(fd, path, at_flags, by_procfs, name, /* buf= */ NULL, /* size= */ 0);
                 if (n < 0)
                         return (int) n;
 
@@ -273,7 +273,7 @@ int listxattr_at_malloc(int fd, const char *path, int at_flags, char **ret) {
                 if (r != -ERANGE)
                         return r;
 
-                r = listxattr_pinned_internal(fd, path, at_flags, by_procfs, NULL, 0);
+                r = listxattr_pinned_internal(fd, path, at_flags, by_procfs, /* buf= */ NULL, /* size= */ 0);
                 if (r < 0)
                         return r;
 

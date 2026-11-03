@@ -1634,15 +1634,15 @@ int verify_timezone(const char *name, int log_level) {
 
         t = strjoina("/usr/share/zoneinfo/", name);
 
-        fd = open(t, O_RDONLY|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, t, O_RDONLY);
         if (fd < 0)
-                return log_full_errno(log_level, errno, "Failed to open timezone file '%s': %m", t);
+                return log_full_errno(log_level, fd, "Failed to open timezone file '%s': %m", t);
 
         r = fd_verify_regular(fd);
         if (r < 0)
                 return log_full_errno(log_level, r, "Timezone file '%s' is not a regular file: %m", t);
 
-        r = loop_read_exact(fd, buf, 4, false);
+        r = loop_read_exact(fd, buf, 4, /* do_poll= */ false);
         if (r < 0)
                 return log_full_errno(log_level, r, "Failed to read from timezone file '%s': %m", t);
 

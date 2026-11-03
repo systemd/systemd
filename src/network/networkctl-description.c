@@ -56,13 +56,13 @@ static int dump_link_description(sd_varlink *vl, char * const *patterns) {
                 index = sd_json_variant_integer(sd_json_variant_by_key(i, "Index"));
                 xsprintf(ifindex_str, "%" PRIi64, index);
 
-                if (!strv_fnmatch_full(patterns, ifindex_str, 0, &pos) &&
-                    !strv_fnmatch_full(patterns, name, 0, &pos)) {
+                if (!strv_fnmatch_full(patterns, ifindex_str, /* flags= */ 0, &pos) &&
+                    !strv_fnmatch_full(patterns, name, /* flags= */ 0, &pos)) {
                         bool match = false;
                         sd_json_variant *a;
 
                         JSON_VARIANT_ARRAY_FOREACH(a, sd_json_variant_by_key(i, "AlternativeNames"))
-                                if (strv_fnmatch_full(patterns, sd_json_variant_string(a), 0, &pos)) {
+                                if (strv_fnmatch_full(patterns, sd_json_variant_string(a), /* flags= */ 0, &pos)) {
                                         match = true;
                                         break;
                                 }
@@ -72,7 +72,7 @@ static int dump_link_description(sd_varlink *vl, char * const *patterns) {
                 }
 
                 matched_patterns[pos] = true;
-                sd_json_variant_dump(i, arg_json_format_flags, NULL, NULL);
+                sd_json_variant_dump(i, arg_json_format_flags, NULL, /* prefix= */ NULL);
                 c++;
         }
 

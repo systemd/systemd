@@ -149,8 +149,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   for really old stuff only keep one report per week, for really recent stuff
   one per 5min, and in between logarithmically increasing.
 
-- teach hostnamed to unset tags by wildcard
-
 - define portabled auto-attach dir where DDIs can be dropped that are
   automatically attached after an explicit call to work on it
 
@@ -577,17 +575,21 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   root=nvme:\<trtype>:\<traddr>:\<trsvcid>:\<nqn>:\<partition> to boot directly from
   nvme-oF
 
-- add support for asymmetric LUKS2 TPM based encryption. i.e. allow preparing
-  an encrypted image on some host given a public key belonging to a specific
-  other host, so that only hosts possessing the private key in the TPM2 chip
-  can decrypt the volume key and activate the volume. Use case: systemd-confext
-  for a central orchestrator to generate confext images securely that can only
-  be activated on one specific host (which can be used for installing a bunch
-  of creds in /etc/credstore/ for example). Extending on this: allow binding
-  LUKS2 TPM based encryption also to the TPM2 internal clock. Net result:
-  prepare a confext image that can only be activated on a specific host that
-  runs a specific software in a specific time window. confext would be
-  automatically invalidated outside of it.
+- allow preparing an encrypted image on some host for a specific other host,
+  so that only the TPM2 chip of that host can decrypt the volume key and
+  activate the volume. The sealing side exists (--tpm2-device-key= of
+  systemd-cryptenroll and systemd-repart seal to an SRK public area without
+  access to the TPM), and systemd-report-sign-tpm2 certifies the SRK, so that
+  a verifier of a report can trust the public area it carries. Missing: teach
+  systemd-repart to build such DDIs end-to-end, and pin the PCRs listed in the
+  report via a deny list of volatile PCRs. Use case: systemd-confext for a
+  central orchestrator to generate confext images securely that can only be
+  activated on one specific host (which can be used for installing a bunch of
+  creds in /etc/credstore/ for example). Extending on this: allow binding LUKS2
+  TPM based encryption also to the TPM2 internal clock. Net result: prepare a
+  confext image that can only be activated on a specific host that runs a
+  specific software in a specific time window. confext would be automatically
+  invalidated outside of it.
 
 - Add support for extra verity configuration options to systemd-repart (FEC,
   hash type, etc)
@@ -656,9 +658,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - automatically propagate LUKS password credential into cryptsetup from host
   (i.e. SMBIOS type #11, …), so that one can unlock LUKS via VM hypervisor
   supplied password.
-
-- automatically reset specific EFI vars on factory reset (make this generic
-  enough so that infra can be used to erase shim's mok vars?)
 
 - be able to specify a forced restart of service A where service B depends on, in case B
   needs to be auto-respawned?
@@ -969,6 +968,10 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - expose the handoff timestamp fully via the D-Bus properties that contain
   ExecStatus information
+
+- extend the factory reset EFI variable erasing in systemd-boot
+  (LoaderFactoryResetVariables) to other vendors' namespaces, e.g. to erase
+  shim's MOK variables
 
 - extend the smbios11 logic for passing credentials so that instead of passing
   the credential data literally it can also just reference an AF_VSOCK CID/port
@@ -1986,7 +1989,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   - pre-calc cryptsetup root key measurement
   - maybe make systemd-repart generate .pcrlock for old and new GPT header in
     /run?
-  - Add support for more than 8 branches per PCR OR
   - add "systemd-pcrlock lock-kernel-current" or so which synthesizes .pcrlock
     policy from currently booted kernel/event log, to close gap for first boot
     for pre-built images

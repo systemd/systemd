@@ -3,7 +3,6 @@
 executables += [
         executable_template + {
                 'name' : 'systemd-ask-password',
-                'public' : true,
                 'sources' : files('ask-password.c'),
         },
 ]

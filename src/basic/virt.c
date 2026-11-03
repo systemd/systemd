@@ -276,7 +276,7 @@ static Virtualization detect_vm_dmi(void) {
                         _cleanup_free_ char *s = NULL;
                         const char *e;
 
-                        r = read_full_virtual_file("/sys/class/dmi/id/product_name", &s, NULL);
+                        r = read_full_virtual_file("/sys/class/dmi/id/product_name", &s, /* ret_size= */ NULL);
                         /* In EC2, virtualized is much more common than metal, so if for some reason
                          * we fail to read the DMI data, assume we are virtualized. */
                         if (r < 0) {
@@ -344,7 +344,7 @@ static int detect_vm_xen_dom0(void) {
         for (const char *i = domcap;;) {
                 _cleanup_free_ char *cap = NULL;
 
-                r = extract_first_word(&i, &cap, ",", 0);
+                r = extract_first_word(&i, &cap, ",", /* flags= */ 0);
                 if (r < 0)
                         return r;
                 if (r == 0) {

@@ -10,8 +10,10 @@
 #include "efi-efivars.h"
 #include "efi-log.h"
 #include "efi-string-table.h"
+#include "efivar-erase.h"
 #include "efivars.h"
 #include "export-vars.h"
+#include "fwupdate.h"
 #include "graphics.h"
 #include "initrd.h"
 #include "iovec-util.h"
@@ -521,7 +523,7 @@ static bool menu_run(
                 ACTION_QUIT,            /* Return to the firmware */
         } action = ACTION_CONTINUE;
 
-        graphics_mode(false);
+        graphics_mode(/* on= */ false);
         ST->ConIn->Reset(ST->ConIn, false);
         ST->ConOut->EnableCursor(ST->ConOut, false);
 
@@ -825,12 +827,12 @@ static bool menu_run(
 
                 case KEYPRESS(0, 0, '-'):
                 case KEYPRESS(0, 0, 'T'):
-                        status = update_timeout_efivar(config, false);
+                        status = update_timeout_efivar(config, /* inc= */ false);
                         break;
 
                 case KEYPRESS(0, 0, '+'):
                 case KEYPRESS(0, 0, 't'):
-                        status = update_timeout_efivar(config, true);
+                        status = update_timeout_efivar(config, /* inc= */ true);
                         break;
 
                 case KEYPRESS(0, 0, 'e'):
@@ -1076,7 +1078,7 @@ static EFI_STATUS config_timeout_sec_from_string(const char *value, uint64_t *ds
                 *dst = TIMEOUT_MENU_HIDDEN;
         else {
                 uint64_t u;
-                if (!parse_number8(value, &u, NULL) || u > TIMEOUT_TYPE_MAX)
+                if (!parse_number8(value, &u, /* ret_tail= */ NULL) || u > TIMEOUT_TYPE_MAX)
                         return EFI_INVALID_PARAMETER;
                 *dst = u;
         }
@@ -1203,7 +1205,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 config->secure_boot_enroll_timeout_sec = ENROLL_TIMEOUT_HIDDEN;
                         else {
                                 uint64_t u;
-                                if (!parse_number8(value, &u, NULL) || u > ENROLL_TIMEOUT_MAX) {
+                                if (!parse_number8(value, &u, /* ret_tail= */ NULL) || u > ENROLL_TIMEOUT_MAX) {
                                         log_warning("Error parsing 'secure-boot-enroll-timeout-sec' config option, ignoring: %s",
                                                   value);
                                         continue;
@@ -1219,7 +1221,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 config->console_mode = CONSOLE_MODE_KEEP;
                         else {
                                 uint64_t u;
-                                if (!parse_number8(value, &u, NULL) || u > CONSOLE_MODE_RANGE_MAX) {
+                                if (!parse_number8(value, &u, /* ret_tail= */ NULL) || u > CONSOLE_MODE_RANGE_MAX) {
                                         log_warning("Error parsing 'console-mode' config option, ignoring: %s",
                                                   value);
                                         continue;
@@ -1355,7 +1357,7 @@ static EFI_STATUS boot_entry_bump_counters(BootEntry *entry) {
         /* Let's tell the OS that we renamed this file, so that it knows what to rename to the counter-less name on
          * success */
         new_path = xasprintf("%ls\\%ls", entry->directory, entry->next_name);
-        efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderBootCountPath", new_path, 0);
+        efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderBootCountPath", new_path, /* flags= */ 0);
 
         /* If the file we just renamed is the loader path, then let's update that. */
         if (streq16(entry->loader, old_path)) {
@@ -1413,7 +1415,7 @@ static void boot_entry_add_type1(
 
                 } else if (streq8(key, "profile")) {
                         uint64_t u;
-                        if (parse_number8(value, &u, NULL) && u <= UINT_MAX)
+                        if (parse_number8(value, &u, /* ret_tail= */ NULL) && u <= UINT_MAX)
                                 entry->profile = (unsigned)u;
                         else
                                 log_warning("Error parsing 'profile' entry option, ignoring: %s", value);
@@ -1583,7 +1585,7 @@ static EFI_STATUS efivar_get_timeout(const char16_t *var, uint64_t *ret_value) {
         }
 
         uint64_t timeout;
-        if (!parse_number16(value, &timeout, NULL))
+        if (!parse_number16(value, &timeout, /* ret_tail= */ NULL))
                 return EFI_INVALID_PARAMETER;
 
         *ret_value = MIN(timeout, TIMEOUT_TYPE_MAX);
@@ -1614,7 +1616,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .timeout_sec_smbios = TIMEOUT_UNSET,
         };
 
-        err = file_read(root_dir, u"\\loader\\loader.conf", 0, 0, &content, &content_size);
+        err = file_read(root_dir, u"\\loader\\loader.conf", /* offset= */ 0, /* size= */ 0, &content, &content_size);
         if (err == EFI_SUCCESS) {
                 /* First, measure. */
                 err = tpm_log_tagged_event(
@@ -1875,7 +1877,7 @@ static bool sysfail_process(Config *config) {
         /* Store reason string in LoaderSysFailReason EFI variable */
         const char16_t *reason_str = sysfail_get_error_str(sysfail_type);
         if (reason_str)
-                (void) efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderSysFailReason", reason_str, 0);
+                (void) efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderSysFailReason", reason_str, /* flags= */ 0);
 
         config->sysfail_occurred = true;
 
@@ -2278,7 +2280,7 @@ static void config_add_entry_windows(Config *config, EFI_HANDLE *device, EFI_FIL
                 return;
 
         /* Try to find a better title. */
-        err = file_read(root, u"\\EFI\\Microsoft\\Boot\\BCD", 0, 100*1024, &bcd, &len);
+        err = file_read(root, u"\\EFI\\Microsoft\\Boot\\BCD", /* offset= */ 0, 100*1024, &bcd, &len);
         if (err == EFI_SUCCESS)
                 title = get_bcd_title((uint8_t *) bcd, len);
 
@@ -2286,7 +2288,7 @@ static void config_add_entry_windows(Config *config, EFI_HANDLE *device, EFI_FIL
                         config,
                         device,
                         root,
-                        NULL,
+                        /* loaded_image_path= */ NULL,
                         u"auto-windows",
                         'w',
                         title ?: u"Windows Boot Manager",
@@ -2587,7 +2589,7 @@ static void config_load_xbootldr(
                 return;
 
         config_load_type2_entries(config, new_device, root_dir);
-        config_load_type1_entries(config, new_device, root_dir, NULL);
+        config_load_type1_entries(config, new_device, root_dir, /* loaded_image_path= */ NULL);
 }
 
 static EFI_STATUS initrd_prepare(
@@ -2629,7 +2631,7 @@ static EFI_STATUS initrd_prepare(
                         return err;
 
                 _cleanup_free_ EFI_FILE_INFO *info = NULL;
-                err = get_file_info(handle, &info, NULL);
+                err = get_file_info(handle, &info, /* ret_size= */ NULL);
                 if (err != EFI_SUCCESS)
                         return err;
 
@@ -2667,7 +2669,7 @@ static EFI_STATUS initrd_prepare(
                         return err;
 
                 _cleanup_free_ EFI_FILE_INFO *info = NULL;
-                err = get_file_info(handle, &info, NULL);
+                err = get_file_info(handle, &info, /* ret_size= */ NULL);
                 if (err != EFI_SUCCESS)
                         return err;
 
@@ -3104,12 +3106,12 @@ static EFI_STATUS call_image_start(
                 loaded_image->LoadOptionsSize = strsize16(options);
 
                 /* Try to log any options to the TPM, especially to catch manually edited options */
-                (void) tpm_log_load_options(options, NULL);
+                (void) tpm_log_load_options(options, /* ret_measured= */ NULL);
         }
 
-        efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeExecUSec", 0);
+        efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeExecUSec", /* usec= */ 0);
         err = BS->StartImage(image, NULL, NULL);
-        graphics_mode(false);
+        graphics_mode(/* on= */ false);
         if (err == EFI_SUCCESS)
                 return EFI_SUCCESS;
 
@@ -3128,7 +3130,7 @@ static EFI_STATUS call_image_start(
                                 (EFI_IMAGE_ENTRY_POINT) ((uint8_t *) loaded_image->ImageBase + compat_address);
 
                         err = kernel_entry(image, ST);
-                        graphics_mode(false);
+                        graphics_mode(/* on= */ false);
                         if (err == EFI_SUCCESS)
                                 return EFI_SUCCESS;
                 } else
@@ -3170,7 +3172,7 @@ static void config_write_entries_to_variable(Config *config) {
         assert(p == buffer + sz);
 
         /* Store the full list of discovered entries. */
-        (void) efivar_set_raw(MAKE_GUID_PTR(LOADER), u"LoaderEntries", buffer, sz, 0);
+        (void) efivar_set_raw(MAKE_GUID_PTR(LOADER), u"LoaderEntries", buffer, sz, /* flags= */ 0);
 }
 
 static void save_selected_entry(const Config *config, const BootEntry *entry) {
@@ -3181,7 +3183,7 @@ static void save_selected_entry(const Config *config, const BootEntry *entry) {
                 return;
 
         /* Always export the selected boot entry to the system in a volatile var. */
-        (void) efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntrySelected", entry->id, 0);
+        (void) efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntrySelected", entry->id, /* flags= */ 0);
 
         /* Do not save or delete if this was a oneshot boot. */
         if (streq16(config->entry_oneshot, entry->id))
@@ -3262,9 +3264,10 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
 
 static void export_loader_variables(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
-                uint64_t init_usec) {
+                uint64_t init_usec,
+                bool fwupdate_available) {
 
-        static const uint64_t loader_features =
+        uint64_t loader_features =
                 EFI_LOADER_FEATURE_CONFIG_TIMEOUT |
                 EFI_LOADER_FEATURE_CONFIG_TIMEOUT_ONE_SHOT |
                 EFI_LOADER_FEATURE_ENTRY_DEFAULT |
@@ -3287,13 +3290,22 @@ static void export_loader_variables(
                 EFI_LOADER_FEATURE_TPM2_ACTIVE_PCR_BANKS |
                 EFI_LOADER_FEATURE_KEYBOARD_LAYOUT |
                 EFI_LOADER_FEATURE_SMBIOS_MEASURED |
+                EFI_LOADER_FEATURE_FACTORY_RESET_VARIABLES |
+                (fwupdate_available ? EFI_LOADER_FEATURE_FIRMWARE_UPDATE : 0) |
                 0;
 
         assert(loaded_image);
 
         efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeInitUSec", init_usec);
-        (void) efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderInfo", u"systemd-boot " GIT_VERSION, 0);
-        (void) efivar_set_uint64_le(MAKE_GUID_PTR(LOADER), u"LoaderFeatures", loader_features, 0);
+        (void) efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderInfo", u"systemd-boot " GIT_VERSION, /* flags= */ 0);
+        (void) efivar_set_uint64_le(MAKE_GUID_PTR(LOADER), u"LoaderFeatures", loader_features, /* flags= */ 0);
+
+        /* Defined by fwupd https://github.com/fwupd/fwupd/tree/main/plugins/uefi-capsule#3rd-party-bootloader */
+        if (FLAGS_SET(loader_features, EFI_LOADER_FEATURE_FIRMWARE_UPDATE)) {
+                uint8_t value = 1;
+                (void) efivar_set_raw(MAKE_GUID_PTR(FWUPDATE), u"BootloaderSupportsFwupd", &value, sizeof(value), /* flags= */ 0);
+        } else
+                (void) efivar_unset(MAKE_GUID_PTR(FWUPDATE), u"BootloaderSupportsFwupd", /* flags= */ 0);
 }
 
 static void config_add_system_entries(Config *config) {
@@ -3416,6 +3428,7 @@ static EFI_STATUS discover_root_dir(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, EFI
 static EFI_STATUS run(EFI_HANDLE image) {
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         _cleanup_file_close_ EFI_FILE *root_dir = NULL;
+        _cleanup_free_ EFI_DEVICE_PATH *fwupdate_disk_path = NULL;
         _cleanup_(config_free) Config config = {};
         EFI_STATUS err;
         uint64_t init_usec;
@@ -3429,6 +3442,11 @@ static EFI_STATUS run(EFI_HANDLE image) {
         err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
+
+        /* First, apply any pending fwupd capsules from the boot disk. */
+        err = fwupdate_get_boot_disk_path(loaded_image->DeviceHandle, &fwupdate_disk_path);
+        if (err == EFI_SUCCESS)
+                fwupdate_install(fwupdate_disk_path);
 
         err = discover_root_dir(loaded_image, &root_dir);
         if (err != EFI_SUCCESS) {
@@ -3452,7 +3470,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         shim_retain_protocol();
 
         export_common_variables(loaded_image);
-        export_loader_variables(loaded_image, init_usec);
+        export_loader_variables(loaded_image, init_usec, fwupdate_disk_path != NULL);
 
         /* Measure SMBIOS data into PCR 1. This is done early, and suppressed if sd-stub later runs in
          * the same boot (and vice versa), via the LoaderPcrSMBIOS EFI variable. */
@@ -3464,6 +3482,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
         (void) device_path_to_str(loaded_image->FilePath, &loaded_image_path);
         config_load_all_entries(&config, loaded_image, loaded_image_path, root_dir);
         (void) sysfail_process(&config);
+
+        /* If a factory reset of our EFI variables has been requested, do so now, after asking the user. This
+         * reboots if the variables are erased. */
+        (void) factory_reset_variables_process();
 
         if (config.n_entries == 0)
                 return log_error_status(
@@ -3493,7 +3515,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
                 entry = config.entries[config.idx_default];
                 if (menu) {
-                        efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeMenuUSec", 0);
+                        efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeMenuUSec", /* usec= */ 0);
                         if (!menu_run(&config, &entry, loaded_image_path))
                                 return EFI_SUCCESS;
                 }

@@ -356,7 +356,7 @@ int sd_dhcp6_client_set_fqdn(
 
         /* Make sure FQDN qualifies as DNS and as Linux hostname */
         if (fqdn &&
-            !(hostname_is_valid(fqdn, 0) && dns_name_is_valid(fqdn) > 0))
+            !(hostname_is_valid(fqdn, /* flags= */ 0) && dns_name_is_valid(fqdn) > 0))
                 return -EINVAL;
 
         return free_and_strdup(&client->fqdn, fqdn);
@@ -779,7 +779,7 @@ int dhcp6_client_send_message(sd_dhcp6_client *client) {
 
         case DHCP6_STATE_SOLICITATION:
                 if (client->rapid_commit) {
-                        r = dhcp6_option_append(&buf, &offset, SD_DHCP6_OPTION_RAPID_COMMIT, 0, NULL);
+                        r = dhcp6_option_append(&buf, &offset, SD_DHCP6_OPTION_RAPID_COMMIT, /* optlen= */ 0, /* optval= */ NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -938,7 +938,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
                                       CLOCK_BOOTTIME,
                                       client->retransmit_time, 10 * USEC_PER_MSEC,
                                       client_timeout_resend, client,
-                                      client->event_priority, "dhcp6-resend-timer", true);
+                                      client->event_priority, "dhcp6-resend-timer", /* force_reset= */ true);
         if (r < 0)
                 client_stop(client, r);
 
@@ -984,9 +984,9 @@ static int client_start_transaction(sd_dhcp6_client *client, DHCP6State state) {
 
         r = event_reset_time(client->event, &client->timeout_resend,
                              CLOCK_BOOTTIME,
-                             0, 0,
+                             /* usec= */ 0, /* accuracy= */ 0,
                              client_timeout_resend, client,
-                             client->event_priority, "dhcp6-resend-timeout", true);
+                             client->event_priority, "dhcp6-resend-timeout", /* force_reset= */ true);
         if (r < 0)
                 goto error;
 
@@ -1086,7 +1086,7 @@ static int client_enter_bound_state(sd_dhcp6_client *client) {
                                               CLOCK_BOOTTIME,
                                               lifetime_t1, 10 * USEC_PER_SEC,
                                               client_timeout_t1, client,
-                                              client->event_priority, "dhcp6-t1-timeout", true);
+                                              client->event_priority, "dhcp6-t1-timeout", /* force_reset= */ true);
                 if (r < 0)
                         goto error;
         }
@@ -1100,7 +1100,7 @@ static int client_enter_bound_state(sd_dhcp6_client *client) {
                                               CLOCK_BOOTTIME,
                                               lifetime_t2, 10 * USEC_PER_SEC,
                                               client_timeout_t2, client,
-                                              client->event_priority, "dhcp6-t2-timeout", true);
+                                              client->event_priority, "dhcp6-t2-timeout", /* force_reset= */ true);
                 if (r < 0)
                         goto error;
         }
@@ -1115,7 +1115,7 @@ static int client_enter_bound_state(sd_dhcp6_client *client) {
                                               CLOCK_BOOTTIME,
                                               lifetime_valid, USEC_PER_SEC,
                                               client_timeout_expire, client,
-                                              client->event_priority, "dhcp6-lease-expire", true);
+                                              client->event_priority, "dhcp6-lease-expire", /* force_reset= */ true);
                 if (r < 0)
                         goto error;
         }
@@ -1425,9 +1425,16 @@ int sd_dhcp6_client_stop(sd_dhcp6_client *client) {
 
 int sd_dhcp6_client_send_renew(sd_dhcp6_client *client) {
         assert_return(client, -EINVAL);
+        assert_return(client->event, -EINVAL);
 
-        /* A lease can be renewed only when it is acquired. Otherwise, e.g. in the information request mode,
-         * this does nothing. */
+        /* In the information request mode, the client is stopped after a reply is received, but the lease
+         * is kept. Let's request the information again without waiting for the information refresh time. */
+        if (client->information_request && client->state == DHCP6_STATE_STOPPED && client->lease) {
+                client->information_request_time_usec = now(CLOCK_MONOTONIC);
+                return client_start_transaction(client, DHCP6_STATE_INFORMATION_REQUEST);
+        }
+
+        /* A lease can be renewed only when it is acquired. Otherwise, this does nothing. */
         if (client->state != DHCP6_STATE_BOUND)
                 return 0;
 
@@ -1454,10 +1461,6 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
         assert_return(in6_addr_is_link_local(&client->local_address) > 0, -EINVAL);
         assert_return(!sd_dhcp6_client_is_running(client), -EBUSY);
         assert_return(client->information_request || client->request_ia != 0, -EINVAL);
-
-        /* Even if the client is in the STOPPED state, the lease acquired in the previous information
-         * request may be stored. */
-        client->lease = sd_dhcp6_lease_unref(client->lease);
 
         r = client_ensure_iaid(client);
         if (r < 0)
@@ -1498,12 +1501,18 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
         if (client->information_request) {
                 usec_t t = now(CLOCK_MONOTONIC);
 
+                /* Keep the lease acquired in the previous information request, so that the information
+                 * can be requested again by sd_dhcp6_client_send_renew(). */
                 if (t < usec_add(client->information_request_time_usec, client->information_refresh_time_usec))
                         return 0;
 
                 client->information_request_time_usec = t;
                 state = DHCP6_STATE_INFORMATION_REQUEST;
         }
+
+        /* Even if the client is in the STOPPED state, the lease acquired in the previous information
+         * request may be stored. */
+        client->lease = sd_dhcp6_lease_unref(client->lease);
 
         log_dhcp6_client(client, "Starting in %s mode",
                          client->information_request ? "Information request" : "Solicit");

@@ -14,6 +14,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "log.h"
 #include "path-util.h"
 #include "ratelimit.h"
@@ -86,7 +87,7 @@ static int watchdog_get_pretimeout_governor(char **ret_gov) {
 
         log_info("Watchdog: reading from %s", sys_fn);
 
-        r = read_virtual_file(sys_fn, WATCHDOG_GOV_NAME_MAXLEN - 1, ret_gov, NULL);
+        r = read_virtual_file(sys_fn, WATCHDOG_GOV_NAME_MAXLEN - 1, ret_gov, /* ret_size= */ NULL);
         if (r < 0)
                 return r;
 
@@ -350,7 +351,7 @@ static int watchdog_update_timeout(void) {
          * time, we want to configure the pretimeout before it is enabled. */
         (void) watchdog_update_pretimeout();
 
-        r = watchdog_set_enable(true);
+        r = watchdog_set_enable(/* enable= */ true);
         if (r < 0)
                 return r;
 
@@ -382,7 +383,7 @@ static int watchdog_open(bool ignore_ratelimit) {
                 STRV_MAKE("/dev/watchdog0", "/dev/watchdog") : STRV_MAKE(watchdog_device);
 
         STRV_FOREACH(wd, try_order) {
-                watchdog_fd = RET_NERRNO(open(*wd, O_WRONLY|O_CLOEXEC));
+                watchdog_fd = xopenat(AT_FDCWD, *wd, O_WRONLY);
                 if (watchdog_fd >= 0) {
                         if (free_and_strdup(&watchdog_device, *wd) < 0) {
                                 r = log_oom_debug();
@@ -589,7 +590,7 @@ void watchdog_close(bool disarm) {
                 return;
 
         if (disarm) {
-                (void) watchdog_set_enable(false);
+                (void) watchdog_set_enable(/* enable= */ false);
 
                 /* To be sure, use magic close logic, too */
                 for (;;) {

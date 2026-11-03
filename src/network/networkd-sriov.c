@@ -148,11 +148,11 @@ static int find_ifindex_from_pci_dev_port(sd_device *pci_dev, const char *dev_po
         if (r < 0)
                 return r;
 
-        r = sd_device_enumerator_add_match_subsystem(e, "net", true);
+        r = sd_device_enumerator_add_match_subsystem(e, "net", /* match= */ true);
         if (r < 0)
                 return r;
 
-        r = sd_device_enumerator_add_match_sysattr(e, "dev_port", dev_port, true);
+        r = sd_device_enumerator_add_match_sysattr(e, "dev_port", dev_port, /* match= */ true);
         if (r < 0)
                 return r;
 
@@ -190,7 +190,7 @@ static int manager_update_sr_iov_ifindices(Manager *manager, int phys_port_ifind
                 return r;
 
         /* update VF ifindex in PF */
-        r = set_ensure_put(&phys_link->sr_iov_virt_port_ifindices, NULL, INT_TO_PTR(virt_port_ifindex));
+        r = set_ensure_put(&phys_link->sr_iov_virt_port_ifindices, /* hash_ops= */ NULL, INT_TO_PTR(virt_port_ifindex));
         if (r < 0)
                 return r;
 
@@ -278,7 +278,7 @@ int link_set_sr_iov_ifindices(Link *link) {
         if (!link->dev)
                 return -ENODEV;
 
-        r = sd_device_get_parent_with_subsystem_devtype(link->dev, "pci", NULL, &pci_dev);
+        r = sd_device_get_parent_with_subsystem_devtype(link->dev, "pci", /* devtype= */ NULL, &pci_dev);
         if (ERRNO_IS_NEG_DEVICE_ABSENT(r))
                 return 0;
         if (r < 0)

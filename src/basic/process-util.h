@@ -187,7 +187,7 @@ int pidref_safe_fork_full(
                 PidRef *ret);
 
 static inline int pidref_safe_fork(const char *name, ForkFlags flags, PidRef *ret) {
-        return pidref_safe_fork_full(name, NULL, NULL, 0, flags, ret);
+        return pidref_safe_fork_full(name, /* stdio_fds= */ NULL, /* except_fds= */ NULL, /* n_except_fds= */ 0, flags, ret);
 }
 
 int namespace_fork_full(
@@ -239,6 +239,9 @@ int get_process_threads(pid_t pid);
 
 int is_reaper_process(void);
 int make_reaper_process(bool b);
+
+int execvpe_safe(const char *file, char * const *argv, char * const *envp);
+int execvp_safe(const char *file, char * const *argv);
 
 int posix_spawn_wrapper(
                 const char *path,

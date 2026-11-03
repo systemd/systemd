@@ -44,7 +44,7 @@ _varlinkctl() {
     local -A OPTS=(
         [STANDALONE]='-h --help --version --no-pager -q --quiet --no-ask-password
                       --oneway --collect --more --exec --upgrade -j -E'
-        [ARG]='--graceful --timeout --push-fd --json -u --uid -p --pid --path'
+        [ARG]='--graceful --timeout --push-fd --json -u --uid -p --pid --path --polkit-action'
     )
 
     if __contains_word "$prev" ${OPTS[ARG]}; then

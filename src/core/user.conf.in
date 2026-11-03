@@ -22,6 +22,7 @@
 #LogColor=yes
 #LogLocation=no
 #LogTime=no
+#SecureBits=
 #SystemCallArchitectures=
 #TimerSlackNSec=
 #StatusUnitFormat={{STATUS_UNIT_FORMAT_DEFAULT_STR}}

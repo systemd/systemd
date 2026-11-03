@@ -20,12 +20,12 @@ TEST(parse_etc_hosts_system) {
 
         f = fopen("/etc/hosts", "re");
         if (!f) {
-                assert_se(errno == ENOENT);
+                ASSERT_EQ(errno, ENOENT);
                 return;
         }
 
         _cleanup_(etc_hosts_clear) EtcHosts hosts = {};
-        assert_se(etc_hosts_parse(&hosts, f) == 0);
+        ASSERT_OK_ZERO(etc_hosts_parse(&hosts, f));
 }
 
 #define in_addr_4(_address_str)                                       \
@@ -47,11 +47,9 @@ TEST(parse_etc_hosts) {
         int fd;
         _cleanup_fclose_ FILE *f = NULL;
 
-        fd = mkostemp_safe(t);
-        assert_se(fd >= 0);
+        fd = ASSERT_OK(mkostemp_safe(t));
 
-        f = fdopen(fd, "r+");
-        assert_se(f);
+        f = ASSERT_NOT_NULL(fdopen(fd, "r+"));
         fputs("1.2.3.4 some.where\n"
               "1.2.3.5 some.where\n"
               "1.2.3.6 dash dash-dash.where-dash\n"
@@ -69,37 +67,37 @@ TEST(parse_etc_hosts) {
               "0.0.0.0 deny.listed\n"
               "::5\t\t\t \tsome.where\tsome.other foobar.foo.foo\t\t\t\n"
               "        \n", f);
-        assert_se(fflush_and_check(f) >= 0);
+        ASSERT_OK(fflush_and_check(f));
         rewind(f);
 
         _cleanup_(etc_hosts_clear) EtcHosts hosts = {};
-        assert_se(etc_hosts_parse(&hosts, f) == 0);
+        ASSERT_OK_ZERO(etc_hosts_parse(&hosts, f));
 
         EtcHostsItemByName *bn;
-        assert_se(bn = hashmap_get(hosts.by_name, "some.where"));
-        assert_se(set_size(bn->addresses) == 3);
-        assert_se(has_4(bn->addresses, "1.2.3.4"));
-        assert_se(has_4(bn->addresses, "1.2.3.5"));
-        assert_se(has_6(bn->addresses, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5}));
+        ASSERT_NOT_NULL(bn = hashmap_get(hosts.by_name, "some.where"));
+        ASSERT_EQ(set_size(bn->addresses), 3U);
+        ASSERT_TRUE(has_4(bn->addresses, "1.2.3.4"));
+        ASSERT_TRUE(has_4(bn->addresses, "1.2.3.5"));
+        ASSERT_TRUE(has_6(bn->addresses, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5}));
 
-        assert_se(bn = hashmap_get(hosts.by_name, "dash"));
-        assert_se(set_size(bn->addresses) == 1);
-        assert_se(has_4(bn->addresses, "1.2.3.6"));
+        ASSERT_NOT_NULL(bn = hashmap_get(hosts.by_name, "dash"));
+        ASSERT_EQ(set_size(bn->addresses), 1U);
+        ASSERT_TRUE(has_4(bn->addresses, "1.2.3.6"));
 
-        assert_se(bn = hashmap_get(hosts.by_name, "dash-dash.where-dash"));
-        assert_se(set_size(bn->addresses) == 1);
-        assert_se(has_4(bn->addresses, "1.2.3.6"));
+        ASSERT_NOT_NULL(bn = hashmap_get(hosts.by_name, "dash-dash.where-dash"));
+        ASSERT_EQ(set_size(bn->addresses), 1U);
+        ASSERT_TRUE(has_4(bn->addresses, "1.2.3.6"));
 
         /* See https://tools.ietf.org/html/rfc1035#section-2.3.1 */
         FOREACH_STRING(s, "bad-dash-", "-bad-dash", "-bad-dash.bad-")
                 ASSERT_FALSE(hashmap_contains(hosts.by_name, s));
 
-        assert_se(bn = hashmap_get(hosts.by_name, "before.comment"));
-        assert_se(set_size(bn->addresses) == 4);
-        assert_se(has_4(bn->addresses, "1.2.3.9"));
-        assert_se(has_4(bn->addresses, "1.2.3.10"));
-        assert_se(has_4(bn->addresses, "1.2.3.11"));
-        assert_se(has_4(bn->addresses, "1.2.3.12"));
+        ASSERT_NOT_NULL(bn = hashmap_get(hosts.by_name, "before.comment"));
+        ASSERT_EQ(set_size(bn->addresses), 4U);
+        ASSERT_TRUE(has_4(bn->addresses, "1.2.3.9"));
+        ASSERT_TRUE(has_4(bn->addresses, "1.2.3.10"));
+        ASSERT_TRUE(has_4(bn->addresses, "1.2.3.11"));
+        ASSERT_TRUE(has_4(bn->addresses, "1.2.3.12"));
 
         ASSERT_FALSE(hashmap_contains(hosts.by_name, "within.comment"));
         ASSERT_FALSE(hashmap_contains(hosts.by_name, "within.comment2"));
@@ -113,28 +111,28 @@ TEST(parse_etc_hosts) {
         ASSERT_FALSE(set_contains(hosts.no_address, "long.address"));
         ASSERT_FALSE(set_contains(hosts.no_address, "multi.colon"));
 
-        assert_se(bn = hashmap_get(hosts.by_name, "some.other"));
-        assert_se(set_size(bn->addresses) == 1);
-        assert_se(has_6(bn->addresses, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5}));
+        ASSERT_NOT_NULL(bn = hashmap_get(hosts.by_name, "some.other"));
+        ASSERT_EQ(set_size(bn->addresses), 1U);
+        ASSERT_TRUE(has_6(bn->addresses, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5}));
 
         EtcHostsItemByAddress *ba;
-        assert_se(ba = hashmap_get(hosts.by_address, in_addr_4("1.2.3.6")));
-        assert_se(set_size(ba->names) == 2);
-        assert_se(set_contains(ba->names, "dash"));
-        assert_se(set_contains(ba->names, "dash-dash.where-dash"));
-        assert_se(streq(ba->canonical_name, "dash"));
+        ASSERT_NOT_NULL(ba = hashmap_get(hosts.by_address, in_addr_4("1.2.3.6")));
+        ASSERT_EQ(set_size(ba->names), 2U);
+        ASSERT_TRUE(set_contains(ba->names, "dash"));
+        ASSERT_TRUE(set_contains(ba->names, "dash-dash.where-dash"));
+        ASSERT_STREQ(ba->canonical_name, "dash");
 
-        assert_se(ba = hashmap_get(hosts.by_address, in_addr_6({0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5})));
-        assert_se(set_size(ba->names) == 3);
-        assert_se(set_contains(ba->names, "some.where"));
-        assert_se(set_contains(ba->names, "some.other"));
-        assert_se(set_contains(ba->names, "foobar.foo.foo"));
-        assert_se(streq(ba->canonical_name, "some.where"));
+        ASSERT_NOT_NULL(ba = hashmap_get(hosts.by_address, in_addr_6({0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5})));
+        ASSERT_EQ(set_size(ba->names), 3U);
+        ASSERT_TRUE(set_contains(ba->names, "some.where"));
+        ASSERT_TRUE(set_contains(ba->names, "some.other"));
+        ASSERT_TRUE(set_contains(ba->names, "foobar.foo.foo"));
+        ASSERT_STREQ(ba->canonical_name, "some.where");
 
-        assert_se( set_contains(hosts.no_address, "some.where"));
-        assert_se( set_contains(hosts.no_address, "some.other"));
-        assert_se( set_contains(hosts.no_address, "deny.listed"));
-        assert_se(!set_contains(hosts.no_address, "foobar.foo.foo"));
+        ASSERT_TRUE(set_contains(hosts.no_address, "some.where"));
+        ASSERT_TRUE(set_contains(hosts.no_address, "some.other"));
+        ASSERT_TRUE(set_contains(hosts.no_address, "deny.listed"));
+        ASSERT_FALSE(set_contains(hosts.no_address, "foobar.foo.foo"));
 }
 
 static void test_parse_file_one(const char *fname) {
@@ -143,8 +141,8 @@ static void test_parse_file_one(const char *fname) {
 
         log_info("/* %s(\"%s\") */", __func__, fname);
 
-        assert_se(f = fopen(fname, "re"));
-        assert_se(etc_hosts_parse(&hosts, f) == 0);
+        ASSERT_NOT_NULL(f = fopen(fname, "re"));
+        ASSERT_OK_ZERO(etc_hosts_parse(&hosts, f));
 }
 
 TEST(parse_file) {

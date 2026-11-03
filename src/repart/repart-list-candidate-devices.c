@@ -31,7 +31,7 @@ static void vl_on_disconnect(sd_varlink_server *server, sd_varlink *link, void *
         assert(server);
         assert(link);
 
-        list_candidate_devices_context_free(sd_varlink_set_userdata(link, NULL));
+        list_candidate_devices_context_free(sd_varlink_set_userdata(link, /* userdata= */ NULL));
 }
 
 static int list_candidate_devices_send_remove(sd_varlink *link, sd_device *dev) {

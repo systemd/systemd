@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "crypto-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "fsprg-openssl.h"
 #include "hexdecoct.h"
 #include "iovec-util.h"
@@ -83,12 +84,12 @@ static int journal_auth_load(JournalAuthContext **ret) {
                      SD_ID128_FORMAT_VAL(machine)) < 0)
                 return -ENOMEM;
 
-        _cleanup_close_ int fd = open(path, O_RDWR|O_CLOEXEC|O_NOCTTY, 0600);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, path, O_RDWR|O_NOCTTY);
         if (fd < 0) {
-                if (errno != ENOENT)
-                        log_error_errno(errno, "Failed to open %s: %m", path);
+                if (fd != -ENOENT)
+                        log_error_errno(fd, "Failed to open %s: %m", path);
 
-                return -errno;
+                return fd;
         }
 
         struct stat st;
@@ -294,7 +295,7 @@ static int journal_auth_setup(JournalAuthContext *c) {
         if (r < 0)
                 return r;
 
-        _cleanup_(EVP_MAC_freep) EVP_MAC *hmac = sym_EVP_MAC_fetch(NULL, "HMAC", NULL);
+        _cleanup_(EVP_MAC_freep) EVP_MAC *hmac = sym_EVP_MAC_fetch(/* libctx= */ NULL, "HMAC", /* properties= */ NULL);
         if (!hmac)
                 return log_openssl_errors(LOG_DEBUG, "EVP_MAC_fetch() failed");
 
@@ -306,7 +307,7 @@ static int journal_auth_setup(JournalAuthContext *c) {
         if (!bld)
                 return log_openssl_errors(LOG_DEBUG, "OSSL_PARAM_BLD_new() failed");
 
-        if (sym_OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_MAC_PARAM_DIGEST, "SHA256", 0) <= 0)
+        if (sym_OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_MAC_PARAM_DIGEST, "SHA256", /* bsize= */ 0) <= 0)
                 return log_openssl_errors(LOG_DEBUG, "OSSL_PARAM_BLD_push_utf8_string() failed");
 
         _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = sym_OSSL_PARAM_BLD_to_param(bld);

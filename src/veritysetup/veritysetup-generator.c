@@ -18,6 +18,15 @@
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-veritysetup-generator\0",
+        "Generate units for verity protected block devices.",
+        .argspec = GENERATOR_ARGSPEC,
+        .man_pages = "systemd-veritysetup-generator(8)\0",
+        .option_namespace = "common",
+);
 
 static const char *arg_dest = NULL;
 static bool arg_enabled = true;
@@ -357,7 +366,7 @@ static int create_veritytab_device(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        r = generator_open_unit_file(arg_dest, NULL, n, &f);
+        r = generator_open_unit_file(arg_dest, /* source= */ NULL, n, &f);
         if (r < 0)
                 return r;
 
@@ -437,8 +446,8 @@ static int add_veritytab_devices(void) {
 
         r = fopen_unlocked(arg_veritytab, "re", &f);
         if (r < 0) {
-                if (errno != ENOENT)
-                        log_error_errno(errno, "Failed to open %s: %m", arg_veritytab);
+                if (r != -ENOENT)
+                        log_error_errno(r, "Failed to open %s: %m", arg_veritytab);
                 return 0;
         }
 
@@ -484,7 +493,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         arg_veritytab = getenv("SYSTEMD_VERITYTAB") ?: "/etc/veritytab";
 
-        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
+        r = proc_cmdline_parse(parse_proc_cmdline_item, /* userdata= */ NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse kernel command line: %m");
 

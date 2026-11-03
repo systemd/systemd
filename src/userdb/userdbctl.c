@@ -136,11 +136,11 @@ static int show_user(UserRecord *ur, Table *table) {
                 break;
 
         case OUTPUT_JSON:
-                sd_json_variant_dump(ur->json, arg_json_format_flags, NULL, NULL);
+                sd_json_variant_dump(ur->json, arg_json_format_flags, NULL, /* prefix= */ NULL);
                 break;
 
         case OUTPUT_FRIENDLY:
-                user_record_show(ur, true);
+                user_record_show(ur, /* show_full_group_info= */ true);
 
                 if (ur->incomplete) {
                         fflush(stdout);
@@ -433,8 +433,8 @@ static int verb_display_user(int argc, char *argv[], uintptr_t _data, void *user
                 if (!table)
                         return log_oom();
 
-                (void) table_set_align_percent(table, table_get_cell(table, 0, 3), 100);
-                (void) table_set_align_percent(table, table_get_cell(table, 0, 4), 100);
+                (void) table_set_align_percent(table, table_get_cell(table, /* row= */ 0, 3), 100);
+                (void) table_set_align_percent(table, table_get_cell(table, /* row= */ 0, 4), 100);
                 table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
                 (void) table_set_sort(table, (size_t) 3, (size_t) 8);
                 (void) table_hide_column_from_display(table, (size_t) 8);
@@ -596,11 +596,11 @@ static int show_group(GroupRecord *gr, Table *table) {
         }
 
         case OUTPUT_JSON:
-                sd_json_variant_dump(gr->json, arg_json_format_flags, NULL, NULL);
+                sd_json_variant_dump(gr->json, arg_json_format_flags, NULL, /* prefix= */ NULL);
                 break;
 
         case OUTPUT_FRIENDLY:
-                group_record_show(gr, true);
+                group_record_show(gr, /* show_full_user_info= */ true);
 
                 if (gr->incomplete) {
                         fflush(stdout);
@@ -778,7 +778,7 @@ static int verb_display_group(int argc, char *argv[], uintptr_t _data, void *use
                 if (!table)
                         return log_oom();
 
-                (void) table_set_align_percent(table, table_get_cell(table, 0, 3), 100);
+                (void) table_set_align_percent(table, table_get_cell(table, /* row= */ 0, 3), 100);
                 table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
                 (void) table_set_sort(table, (size_t) 3, (size_t) 5);
                 (void) table_hide_column_from_display(table, (size_t) 5);
@@ -938,7 +938,7 @@ static int show_membership(const char *user, const char *group, Table *table) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to build JSON object: %m");
 
-                sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+                sd_json_variant_dump(v, arg_json_format_flags, NULL, /* prefix= */ NULL);
                 break;
         }
 
@@ -1233,9 +1233,9 @@ static int write_membership(int dir_fd, const char *dir, const char *user, const
         if (!membership)
                 return log_oom();
 
-        _cleanup_close_ int fd = openat(dir_fd, membership, O_WRONLY|O_CREAT|O_CLOEXEC, 0644);
+        _cleanup_close_ int fd = xopenat_full(dir_fd, membership, O_WRONLY|O_CREAT, /* xopen_flags= */ 0, 0644);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to create %s/%s: %m", dir, membership);
+                return log_error_errno(fd, "Failed to create %s/%s: %m", dir, membership);
 
         r = loop_write(fd, "{}\n", SIZE_MAX);
         if (r < 0)
@@ -1274,7 +1274,7 @@ static int load_credential_one(
         int *userdb_dir_fd = transient ? userdb_dir_transient_fd : userdb_dir_persist_fd;
         if (*userdb_dir_fd == -EBADF) {
                 *userdb_dir_fd = xopenat_full(AT_FDCWD, userdb_dir,
-                                              /* open_flags= */ O_DIRECTORY|O_CREAT|O_CLOEXEC,
+                                              /* open_flags= */ O_DIRECTORY|O_CREAT,
                                               /* xopen_flags= */ XO_LABEL,
                                               /* mode= */ 0755);
                 if (*userdb_dir_fd < 0)
@@ -1432,12 +1432,12 @@ static int load_credential_one(
                                        "Passed credential '%s' would result in invalid filename '%s'.",
                                        name, fn);
 
-        _cleanup_free_ char *formatted = NULL;
-        r = sd_json_variant_format(ur ? ur_stripped->json : gr_stripped->json, SD_JSON_FORMAT_NEWLINE, &formatted);
-        if (r < 0)
-                return log_error_errno(r, "Failed to format JSON record: %m");
-
-        r = write_string_file_at(*userdb_dir_fd, fn, formatted, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+        r = json_variant_write_file_at(
+                        *userdb_dir_fd,
+                        fn,
+                        ur ? ur_stripped->json : gr_stripped->json,
+                        SD_JSON_FORMAT_NEWLINE,
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
         if (r < 0)
                 return log_error_errno(r, "Failed to write JSON record to %s/%s: %m", userdb_dir, fn);
 
@@ -1453,12 +1453,12 @@ static int load_credential_one(
                 if (!fn)
                         return log_oom();
 
-                formatted = mfree(formatted);
-                r = sd_json_variant_format(ur ? ur_privileged->json : gr_privileged->json, SD_JSON_FORMAT_NEWLINE, &formatted);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to format JSON record: %m");
-
-                r = write_string_file_at(*userdb_dir_fd, fn, formatted, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MODE_0600);
+                r = json_variant_write_file_at(
+                                *userdb_dir_fd,
+                                fn,
+                                ur ? ur_privileged->json : gr_privileged->json,
+                                SD_JSON_FORMAT_NEWLINE,
+                                WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MODE_0600);
                 if (r < 0)
                         return log_error_errno(r, "Failed to write JSON record to %s/%s: %m", userdb_dir, fn);
 
@@ -1662,7 +1662,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         break;
 
                 OPTION_LONG("with-nss", "BOOL", "Control whether to include glibc NSS data"):
-                        r = parse_boolean_argument("--with-nss=", opts.arg, NULL);
+                        r = parse_boolean_argument("--with-nss=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
 
@@ -1676,7 +1676,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         break;
 
                 OPTION_LONG("synthesize", "BOOL", "Synthesize root/nobody user"):
-                        r = parse_boolean_argument("--synthesize=", opts.arg, NULL);
+                        r = parse_boolean_argument("--synthesize=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
 
@@ -1684,7 +1684,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         break;
 
                 OPTION_LONG("with-dropin", "BOOL", "Control whether to include drop-in records"):
-                        r = parse_boolean_argument("--with-dropin=", opts.arg, NULL);
+                        r = parse_boolean_argument("--with-dropin=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
 
@@ -1692,7 +1692,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         break;
 
                 OPTION_LONG("with-varlink", "BOOL", "Control whether to talk to services at all"):
-                        r = parse_boolean_argument("--with-varlink=", opts.arg, NULL);
+                        r = parse_boolean_argument("--with-varlink=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
 
@@ -1700,7 +1700,7 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                         break;
 
                 OPTION_LONG("multiplexer", "BOOL", "Control whether to use the multiplexer"):
-                        r = parse_boolean_argument("--multiplexer=", opts.arg, NULL);
+                        r = parse_boolean_argument("--multiplexer=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
 

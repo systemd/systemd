@@ -496,9 +496,9 @@ static int oci_pull_job_on_open_disk(PullJob *j) {
                         (void) import_assign_pool_quota_and_warn(st->temp_path);
                 }
 
-                st->tree_fd = open(st->temp_path, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+                st->tree_fd = xopenat(AT_FDCWD, st->temp_path, O_DIRECTORY|O_NOFOLLOW);
                 if (st->tree_fd < 0)
-                        return log_error_errno(errno, "Failed to open '%s': %m", st->temp_path);
+                        return log_error_errno(st->tree_fd, "Failed to open '%s': %m", st->temp_path);
         }
 
         j->disk_fd = import_fork_tar_x(st->tree_fd, i->userns_fd, &st->tar_pid);
@@ -930,6 +930,34 @@ static int dispatch_unsupported(const char *name, sd_json_variant *v, sd_json_di
         return 0;
 }
 
+static int json_dispatch_oci_user(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        assert(variant);
+
+        /* At least buildah does not omit an empty User field but add them as empty string.
+         * Filter that out so that dispatching that field does not fail with invalid user name. */
+        if (sd_json_variant_is_string(variant) && isempty(sd_json_variant_string(variant))) {
+                char **user = ASSERT_PTR(userdata);
+                *user = mfree(*user);
+                return 0;
+        }
+
+        return json_dispatch_user_group_name(name, variant, flags, userdata);
+}
+
+static int json_dispatch_oci_working_dir(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        assert(variant);
+
+        /* At least buildah does not omit an empty working dir field but add them as empty string.
+         * Filter that out so that dispatching that field does not fail with invalid path. */
+        if (sd_json_variant_is_string(variant) && isempty(sd_json_variant_string(variant))) {
+                char **working_dir = ASSERT_PTR(userdata);
+                *working_dir = mfree(*working_dir);
+                return 0;
+        }
+
+        return json_dispatch_path(name, variant, flags, userdata);
+}
+
 static int oci_pull_save_nspawn_settings(OciPull *i) {
         int r;
 
@@ -959,11 +987,11 @@ static int oci_pull_save_nspawn_settings(OciPull *i) {
                 .stop_signal = SIGTERM,
         };
         static const struct sd_json_dispatch_field dispatch_table[] = {
-                { "User",         SD_JSON_VARIANT_STRING,        json_dispatch_user_group_name,  offsetof(OciConfiguration, user),        0 },
+                { "User",         SD_JSON_VARIANT_STRING,        json_dispatch_oci_user,         offsetof(OciConfiguration, user),        0 },
                 { "Env",          SD_JSON_VARIANT_ARRAY,         json_dispatch_strv_environment, offsetof(OciConfiguration, env),         0 },
                 { "Entrypoint",   SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,          offsetof(OciConfiguration, entrypoint),  0 },
                 { "Cmd",          SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,          offsetof(OciConfiguration, cmd),         0 },
-                { "WorkingDir",   SD_JSON_VARIANT_STRING,        json_dispatch_path,             offsetof(OciConfiguration, working_dir), 0 },
+                { "WorkingDir",   SD_JSON_VARIANT_STRING,        json_dispatch_oci_working_dir,  offsetof(OciConfiguration, working_dir), 0 },
                 { "StopSignal",   SD_JSON_VARIANT_STRING,        sd_json_dispatch_signal,        offsetof(OciConfiguration, stop_signal), 0 },
 
                 /* Currently unsupported fields that the OCI image spec defines but we cannot convert into
@@ -993,7 +1021,7 @@ static int oci_pull_save_nspawn_settings(OciPull *i) {
 
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_(unlink_and_freep) char *tmpfile = NULL;
-        r = fopen_tmpfile_linkable(j, O_WRONLY|O_CLOEXEC, &tmpfile, &f);
+        r = fopen_tmpfile_linkable(j, O_WRONLY, &tmpfile, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to create '%s': %m", j);
 
@@ -1083,7 +1111,7 @@ static int oci_pull_save_oci_config(OciPull *i) {
 
         _cleanup_close_ int fd = -EBADF;
         _cleanup_(unlink_and_freep) char *tmpfile = NULL;
-        fd = open_tmpfile_linkable(j, O_WRONLY|O_CLOEXEC, &tmpfile);
+        fd = open_tmpfile_linkable(j, O_WRONLY, &tmpfile);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to create '%s': %m", j);
 
@@ -1121,7 +1149,7 @@ static int oci_pull_save_mstack(OciPull *i) {
         if (r < 0)
                 return log_oom();
 
-        _cleanup_close_ int dir_fd = xopenat(AT_FDCWD, _jt, O_DIRECTORY|O_CREAT|O_CLOEXEC);
+        _cleanup_close_ int dir_fd = xopenat(AT_FDCWD, _jt, O_DIRECTORY|O_CREAT);
         if (dir_fd < 0)
                 return log_error_errno(dir_fd, "Failed to create '%s': %m", j);
 
@@ -1156,7 +1184,7 @@ static int oci_pull_save_mstack(OciPull *i) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create 'rw' layer: %m");
                 } else {
-                        _cleanup_close_ int rw_fd = open_mkdir_at(dir_fd, "rw", O_EXCL|O_CLOEXEC, 0755);
+                        _cleanup_close_ int rw_fd = open_mkdir_at(dir_fd, "rw", O_EXCL, 0755);
                         if (rw_fd < 0)
                                 return log_error_errno(rw_fd, "Failed to create 'rw' layer: %m");
                 }

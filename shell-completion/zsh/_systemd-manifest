@@ -1,0 +1,50 @@
+#compdef systemd-manifest
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+(( $+functions[_systemd-manifest_fields] )) ||
+_systemd-manifest_fields() {
+    local -a _fields _all
+    _fields=(mode uid gid size hash symlink device hardlink mtime user-xattr user-name group-name)
+    _all=( $_fields ${_fields/#/+} ${_fields/#/-} all default none )
+    _values -s , 'field' $_all
+}
+
+(( $+functions[_systemd-manifest_commands] )) ||
+_systemd-manifest_commands() {
+    local -a _commands
+    _commands=(
+        'make:Generate a manifest of a directory tree'
+        'verify:Verify a directory tree against a manifest'
+        'help:Show help text'
+    )
+    _describe 'command' _commands
+}
+
+(( $+functions[_systemd-manifest_args] )) ||
+_systemd-manifest_args() {
+    case $words[1] in
+        make|verify)
+            _arguments \
+                '1:directory:_directories' \
+                '2:manifest file:_files'
+            ;;
+    esac
+}
+
+_arguments \
+    '(- *)'{-h,--help}'[Show help text]' \
+    '(- *)--version[Show package version]' \
+    '--no-pager[Do not pipe output into a pager]' \
+    '--json=[Generate JSON output]:format:(pretty short off)' \
+    '--format=[Manifest format]:format:(list sha256sums mtree uapi16)' \
+    '--field=[Fields to include]:fields:_systemd-manifest_fields' \
+    '--hash=[Hash algorithm to use for mtree manifests]:algorithm:(sha256 sha512)' \
+    "--graceful[Don't fail if inodes had to be skipped or metadata omitted]" \
+    '--private-key=[Private key to sign the manifest with]:private key:_files' \
+    '--private-key-source=[How to use the private key]:source:(file provider: engine:)' \
+    '--certificate=[Certificate to sign with, or to verify the signature against]:certificate:_files' \
+    '--certificate-source=[How to interpret the certificate]:source:(file provider:)' \
+    '--verify-signature=[Verify the manifest signature]:boolean:(yes no)' \
+    '--voa-context=[VOA context to look up certificates in]:context' \
+    '1:command:_systemd-manifest_commands' \
+    '*::arguments:_systemd-manifest_args'

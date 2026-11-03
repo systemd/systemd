@@ -17,7 +17,7 @@ int sysctl_printk_read(void) {
 
         _cleanup_free_ char *sysctl_printk_curr = NULL;
         const char *p = sysctl_printk_vals;
-        r = extract_first_word(&p, &sysctl_printk_curr, NULL, 0);
+        r = extract_first_word(&p, &sysctl_printk_curr, /* separators= */ NULL, /* flags= */ 0);
         if (r < 0)
                 return log_debug_errno(r, "Failed to split out kernel printk priority: %m");
         if (r == 0)

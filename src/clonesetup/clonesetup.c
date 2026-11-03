@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #include <sys/stat.h>
 
-#include "sd-json.h"
-
 #include "alloc-util.h"
-#include "build.h"
 #include "clonesetup-ioctl.h"
 #include "clonesetup-util.h"
 #include "extract-word.h"
@@ -12,7 +9,6 @@
 #include "main-func.h"
 #include "parse-util.h"
 #include "string-util.h"
-#include "strv.h"               /* strv_skip */
 #include "verbs.h"
 
 /* region-size: size of each dm-clone region in bytes. Handled internally in bytes, but must correspond to a
@@ -25,6 +21,7 @@ COMMAND(
         "systemd-clonesetup\0",
         "Add or remove a dm-clone device.",
         .man_pages = "systemd-clonesetup(8)\0",
+        .option_namespace = "common",
 );
 
 static int parse_clone_options(const char *options, uint64_t *ret_region_size_bytes) {
@@ -141,27 +138,6 @@ static int verb_remove(int argc, char *argv[], uintptr_t data, void *userdata) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        assert(argc >= 0);
-        assert(argv);
-
-        OptionParser opts = { argc, argv };
-        FOREACH_OPTION_OR_RETURN(c, &opts)
-                switch (c) {
-
-                OPTION_COMMON_HELP:
-                        return command_print_help();
-
-                OPTION_COMMON_VERSION:
-                        return version();
-
-                OPTION_COMMON_INTROSPECT_CLI:
-                        return introspect_cli(SD_JSON_FORMAT_OFF);
-                }
-
-        return 1;
-}
-
 /* systemd-clonesetup uses device-mapper ioctls to create and remove the
  * dm-clone devices. */
 static int run(int argc, char *argv[]) {
@@ -170,11 +146,12 @@ static int run(int argc, char *argv[]) {
         log_setup();
         umask(0022);
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = common_parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
-        return dispatch_verb(strv_skip(argv, 1), /* userdata= */ NULL);
+        return dispatch_verb(args, /* userdata= */ NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

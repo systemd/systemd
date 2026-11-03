@@ -1575,7 +1575,7 @@ static int deserialize_mount_options(const char *s, MountOptions **ret_mount_opt
                 PartitionDesignator partition_designator;
                 const char *p;
 
-                r = extract_first_word(&s, &word, NULL, 0);
+                r = extract_first_word(&s, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -2646,7 +2646,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         ssize_t k;
                         char *p;
 
-                        k = cunescape(val, 0, &p);
+                        k = cunescape(val, /* flags= */ 0, &p);
                         if (k < 0)
                                 return k;
                         free_and_replace(c->working_directory, p);
@@ -2654,7 +2654,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         ssize_t k;
                         char *p;
 
-                        k = cunescape(val, 0, &p);
+                        k = cunescape(val, /* flags= */ 0, &p);
                         if (k < 0)
                                 return k;
                         free_and_replace(c->root_directory, p);
@@ -2662,7 +2662,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         ssize_t k;
                         char *p;
 
-                        k = cunescape(val, 0, &p);
+                        k = cunescape(val, /* flags= */ 0, &p);
                         if (k < 0)
                                 return k;
                         free_and_replace(c->root_image, p);
@@ -2705,7 +2705,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         ssize_t k;
                         char *p;
 
-                        k = cunescape(val, 0, &p);
+                        k = cunescape(val, /* flags= */ 0, &p);
                         if (k < 0)
                                 return k;
                         free_and_replace(c->root_mstack, p);
@@ -3026,7 +3026,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         _cleanup_free_ char *limit = NULL;
                         int type;
 
-                        r = extract_first_word(&val, &limit, "=", 0);
+                        r = extract_first_word(&val, &limit, "=", /* flags= */ 0);
                         if (r < 0)
                                 return r;
                         if (r == 0 || !val)
@@ -3144,7 +3144,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         ssize_t k;
                         char *p;
 
-                        k = cunescape(val, 0, &p);
+                        k = cunescape(val, /* flags= */ 0, &p);
                         if (k < 0)
                                 return k;
 
@@ -3154,7 +3154,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         ssize_t k;
                         char *p;
 
-                        k = cunescape(val, 0, &p);
+                        k = cunescape(val, /* flags= */ 0, &p);
                         if (k < 0)
                                 return k;
 
@@ -3164,7 +3164,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         ssize_t k;
                         char *p;
 
-                        k = cunescape(val, 0, &p);
+                        k = cunescape(val, /* flags= */ 0, &p);
                         if (k < 0)
                                 return k;
 
@@ -3405,7 +3405,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
 
-                        r = hashmap_ensure_put(&c->syscall_filter, NULL, INT_TO_PTR(id + 1), INT_TO_PTR(errno_num));
+                        r = hashmap_ensure_put(&c->syscall_filter, /* hash_ops= */ NULL, INT_TO_PTR(id + 1), INT_TO_PTR(errno_num));
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-syscall-archs="))) {
@@ -3415,7 +3415,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
 
-                        r = set_ensure_put(&c->syscall_archs, NULL, UINT_TO_PTR(id + 1));
+                        r = set_ensure_put(&c->syscall_archs, /* hash_ops= */ NULL, UINT_TO_PTR(id + 1));
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-syscall-errno="))) {
@@ -3445,7 +3445,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
 
-                        r = hashmap_ensure_put(&c->syscall_log, NULL, INT_TO_PTR(id + 1), INT_TO_PTR(errno_num));
+                        r = hashmap_ensure_put(&c->syscall_log, /* hash_ops= */ NULL, INT_TO_PTR(id + 1), INT_TO_PTR(errno_num));
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-syscall-log-allow-list="))) {
@@ -3478,7 +3478,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
 
-                        r = set_ensure_put(&c->address_families, NULL, INT_TO_PTR(af));
+                        r = set_ensure_put(&c->address_families, /* hash_ops= */ NULL, INT_TO_PTR(af));
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-address-families-allow-list="))) {
@@ -3545,7 +3545,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
 
                         r = extract_first_word(&val,
                                                &source,
-                                               NULL,
+                                               /* separators= */ NULL,
                                                EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS);
                         if (r < 0)
                                 return r;

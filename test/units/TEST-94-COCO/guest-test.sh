@@ -80,9 +80,10 @@ testcase_coco_creds_hostile_fwcfg() {
     _coco_assert_cred_absent "$COCO_CRED_FWCFG_ID"
 }
 
-# SNP only: the SMBIOS tables are not covered by the launch measurement, so
-# import_credentials_smbios() bails out. Under TDX they are measured into RTMR0 and thus trusted.
-testcase_coco_creds_hostile_snp_smbios() {
+# Direct kernel boot: no boot loader ran, so nobody measured the SMBIOS table (the firmware's own
+# SMBIOS measurement zeroes the type #11 OEM strings before hashing), and import_credentials_smbios()
+# drops the strings in any confidential VM. Applies to SNP and TDX alike.
+testcase_coco_creds_hostile_smbios() {
     _coco_assert_smbios_injected "$COCO_CRED_SMBIOS_ID"
     _coco_assert_cred_absent "$COCO_CRED_SMBIOS_ID"
 }

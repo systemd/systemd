@@ -16,20 +16,20 @@ static void test_paths_one(RuntimeScope scope) {
         _cleanup_(lookup_paths_done) LookupPaths lp_with_env = {};
         char *systemd_unit_path;
 
-        assert_se(mkdtemp_malloc("/tmp/test-path-lookup.XXXXXXX", &tmp) >= 0);
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-path-lookup.XXXXXXX", &tmp));
 
         ASSERT_OK_ERRNO(unsetenv("SYSTEMD_UNIT_PATH"));
-        assert_se(lookup_paths_init(&lp_without_env, scope, 0, NULL) >= 0);
-        assert_se(!strv_isempty(lp_without_env.search_path));
+        ASSERT_OK(lookup_paths_init(&lp_without_env, scope, /* flags= */ 0, /* root_dir= */ NULL));
+        ASSERT_FALSE(strv_isempty(lp_without_env.search_path));
         lookup_paths_log(&lp_without_env);
 
         systemd_unit_path = strjoina(tmp, "/systemd-unit-path");
         ASSERT_OK_ERRNO(setenv("SYSTEMD_UNIT_PATH", systemd_unit_path, 1));
-        assert_se(lookup_paths_init(&lp_with_env, scope, 0, NULL) == 0);
-        assert_se(strv_length(lp_with_env.search_path) == 1);
+        ASSERT_OK_ZERO(lookup_paths_init(&lp_with_env, scope, /* flags= */ 0, /* root_dir= */ NULL));
+        ASSERT_EQ(strv_length(lp_with_env.search_path), 1U);
         ASSERT_STREQ(lp_with_env.search_path[0], systemd_unit_path);
         lookup_paths_log(&lp_with_env);
-        assert_se(strv_equal(lp_with_env.search_path, STRV_MAKE(systemd_unit_path)));
+        ASSERT_STRV_EQ(lp_with_env.search_path, STRV_MAKE(systemd_unit_path));
 }
 
 TEST(paths) {
@@ -48,29 +48,29 @@ static void test_paths_empty_components_one(RuntimeScope scope) {
         _cleanup_(lookup_paths_done) LookupPaths lp_with_trailing_empty = {};
         char *systemd_unit_path;
 
-        assert_se(mkdtemp_malloc("/tmp/test-path-lookup.XXXXXXX", &tmp) >= 0);
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-path-lookup.XXXXXXX", &tmp));
 
         systemd_unit_path = strjoina(tmp, "/systemd-unit-path");
 
         ASSERT_OK_ERRNO(unsetenv("SYSTEMD_UNIT_PATH"));
-        ASSERT_OK(lookup_paths_init(&lp_without_env, scope, 0, NULL));
+        ASSERT_OK(lookup_paths_init(&lp_without_env, scope, /* flags= */ 0, /* root_dir= */ NULL));
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_UNIT_PATH", "", 1));
-        ASSERT_OK(lookup_paths_init(&lp_with_empty, scope, 0, NULL));
+        ASSERT_OK(lookup_paths_init(&lp_with_empty, scope, /* flags= */ 0, /* root_dir= */ NULL));
         ASSERT_TRUE(strv_isempty(lp_with_empty.search_path));
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_UNIT_PATH", ":", 1));
-        ASSERT_OK(lookup_paths_init(&lp_with_separator, scope, 0, NULL));
-        ASSERT_TRUE(strv_equal(lp_with_separator.search_path, lp_without_env.search_path));
+        ASSERT_OK(lookup_paths_init(&lp_with_separator, scope, /* flags= */ 0, /* root_dir= */ NULL));
+        ASSERT_STRV_EQ(lp_with_separator.search_path, lp_without_env.search_path);
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_UNIT_PATH", strjoina(":", systemd_unit_path), 1));
-        ASSERT_ERROR(lookup_paths_init(&lp_with_leading_empty, scope, 0, NULL), EINVAL);
+        ASSERT_ERROR(lookup_paths_init(&lp_with_leading_empty, scope, /* flags= */ 0, /* root_dir= */ NULL), EINVAL);
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_UNIT_PATH", strjoina(systemd_unit_path, "::/run"), 1));
-        ASSERT_ERROR(lookup_paths_init(&lp_with_middle_empty, scope, 0, NULL), EINVAL);
+        ASSERT_ERROR(lookup_paths_init(&lp_with_middle_empty, scope, /* flags= */ 0, /* root_dir= */ NULL), EINVAL);
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_UNIT_PATH", strjoina(systemd_unit_path, ":"), 1));
-        ASSERT_OK(lookup_paths_init(&lp_with_trailing_empty, scope, 0, NULL));
+        ASSERT_OK(lookup_paths_init(&lp_with_trailing_empty, scope, /* flags= */ 0, /* root_dir= */ NULL));
         ASSERT_STREQ(lp_with_trailing_empty.search_path[0], systemd_unit_path);
         ASSERT_GT(strv_length(lp_with_trailing_empty.search_path), 1u);
 
@@ -92,8 +92,8 @@ TEST(user_and_global_paths) {
         ASSERT_OK_ERRNO(unsetenv("XDG_DATA_DIRS"));
         ASSERT_OK_ERRNO(unsetenv("XDG_CONFIG_DIRS"));
 
-        assert_se(lookup_paths_init(&lp_global, RUNTIME_SCOPE_GLOBAL, 0, NULL) == 0);
-        assert_se(lookup_paths_init(&lp_user, RUNTIME_SCOPE_USER, 0, NULL) == 0);
+        ASSERT_OK_ZERO(lookup_paths_init(&lp_global, RUNTIME_SCOPE_GLOBAL, /* flags= */ 0, /* root_dir= */ NULL));
+        ASSERT_OK_ZERO(lookup_paths_init(&lp_user, RUNTIME_SCOPE_USER, /* flags= */ 0, /* root_dir= */ NULL));
         g = lp_global.search_path;
         u = lp_user.search_path;
 
@@ -107,7 +107,7 @@ TEST(user_and_global_paths) {
                         k++;
                 }
                 log_info("  %s", *p);
-                assert_se(u[k]); /* If NULL, we didn't find a matching entry */
+                ASSERT_NOT_NULL(u[k]); /* If NULL, we didn't find a matching entry */
                 k++;
         }
         STRV_FOREACH(p, u + k)
@@ -125,7 +125,7 @@ static void test_generator_binary_paths_one(RuntimeScope scope) {
         char *systemd_generator_path = NULL;
         char *systemd_env_generator_path = NULL;
 
-        assert_se(mkdtemp_malloc("/tmp/test-path-lookup.XXXXXXX", &tmp) >= 0);
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-path-lookup.XXXXXXX", &tmp));
 
         ASSERT_OK_ERRNO(unsetenv("SYSTEMD_GENERATOR_PATH"));
         ASSERT_OK_ERRNO(unsetenv("SYSTEMD_ENVIRONMENT_GENERATOR_PATH"));
@@ -160,8 +160,8 @@ static void test_generator_binary_paths_one(RuntimeScope scope) {
         STRV_FOREACH(dir, env_gp_with_env)
                 log_info("        %s", *dir);
 
-        ASSERT_TRUE(strv_equal(gp_with_env, STRV_MAKE(systemd_generator_path)));
-        ASSERT_TRUE(strv_equal(env_gp_with_env, STRV_MAKE(systemd_env_generator_path)));
+        ASSERT_STRV_EQ(gp_with_env, STRV_MAKE(systemd_generator_path));
+        ASSERT_STRV_EQ(env_gp_with_env, STRV_MAKE(systemd_env_generator_path));
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_GENERATOR_PATH", strjoina(":", systemd_generator_path), 1));
         ASSERT_OK_ERRNO(setenv("SYSTEMD_ENVIRONMENT_GENERATOR_PATH", strjoina(":", systemd_env_generator_path), 1));

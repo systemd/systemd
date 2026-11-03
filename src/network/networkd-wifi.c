@@ -29,7 +29,7 @@ int link_get_wlan_interface(Link *link) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "Could not append NL80211_ATTR_IFINDEX attribute: %m");
 
-        r = sd_netlink_call(link->manager->genl, req, 0, &reply);
+        r = sd_netlink_call(link->manager->genl, req, /* timeout= */ 0, &reply);
         if (r < 0)
                 return log_link_debug_errno(link, r, "Failed to request information about wlan interface: %m");
         if (!reply) {
@@ -102,7 +102,7 @@ int manager_genl_process_nl80211_config(sd_netlink *genl, sd_netlink_message *me
                  * is created.
                  */
                 if (cmd == NL80211_CMD_NEW_INTERFACE) {
-                        r = set_ensure_put(&manager->new_wlan_ifindices, NULL, INT_TO_PTR(ifindex));
+                        r = set_ensure_put(&manager->new_wlan_ifindices, /* hash_ops= */ NULL, INT_TO_PTR(ifindex));
                         if (r < 0)
                                 log_warning_errno(r, "Failed to add new wireless interface index to set, ignoring: %m");
                 } else if (cmd == NL80211_CMD_DEL_INTERFACE)

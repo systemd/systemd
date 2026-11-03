@@ -9,6 +9,7 @@ ADDITIONAL_DEPS=(
     expect
     fdisk
     jekyll
+    jq
     linux-tools-generic
     python3-libevdev
     python3-pip
@@ -169,7 +170,7 @@ for phase in "${PHASES[@]}"; do
                 MESON_ARGS+=(-Db_lundef=false -Dfuzz-tests=true)
 
                 if [[ "$phase" == "RUN_CLANG_ASAN_UBSAN_NO_DEPS" ]]; then
-                    MESON_ARGS+=(--auto-features=disabled -Dnspawn=enabled)
+                    MESON_ARGS+=(--auto-features=disabled -Dhibernate=false -Dnspawn=enabled)
                 fi
             fi
             MESON_ARGS+=(--fatal-meson-warnings)

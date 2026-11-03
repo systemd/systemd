@@ -76,7 +76,7 @@ static int fake_filesystems(void) {
 
         FOREACH_ELEMENT(fakefs, fakefss) {
                 r = mount_nofollow_verbose(fakefs->ignore_mount_error ? LOG_NOTICE : LOG_ERR,
-                                           fakefs->src, fakefs->target, NULL, MS_BIND, NULL);
+                                           fakefs->src, fakefs->target, /* fstype= */ NULL, MS_BIND, /* options= */ NULL);
                 if (r < 0 && !fakefs->ignore_mount_error)
                         return r;
         }
@@ -134,16 +134,16 @@ static int run(int argc, char *argv[]) {
                 usleep_safe(us);
         }
 
-        assert_se(udev_rules_load(&rules, RESOLVE_NAME_EARLY, /* extra= */ NULL) == 0);
+        ASSERT_OK_ZERO(udev_rules_load(&rules, RESOLVE_NAME_EARLY, /* extra= */ NULL));
 
         const char *syspath = strjoina("/sys", devpath);
         r = device_new_from_synthetic_event(&dev, syspath, action);
         if (r < 0)
                 return log_debug_errno(r, "Failed to open device '%s'", devpath);
 
-        assert_se(event = udev_event_new(dev, NULL, EVENT_TEST_RULE_RUNNER));
+        ASSERT_NOT_NULL(event = udev_event_new(dev, /* worker= */ NULL, EVENT_TEST_RULE_RUNNER));
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, SIGHUP) >= 0);
+        ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, SIGHUP));
 
         /* do what devtmpfs usually provides us */
         if (sd_device_get_devname(dev, &devname) >= 0) {

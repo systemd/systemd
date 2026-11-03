@@ -21,7 +21,6 @@
 #include "bus-util.h"
 #include "crypto-util.h"
 #include "dlopen-note.h"
-#include "dns-configuration.h"
 #include "dns-domain.h"
 #include "dns-packet.h"
 #include "dns-rr.h"
@@ -576,7 +575,7 @@ static int output_rr_packet(DnsResourceRecord *rr, int ifindex) {
                 if (!j)
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "JSON formatting for records of type %s (%u) not available.", dns_type_to_string(rr->key->type), rr->key->type);
 
-                r = sd_json_variant_dump(j, arg_json_format_flags, NULL, NULL);
+                r = sd_json_variant_dump(j, arg_json_format_flags, NULL, /* prefix= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -641,7 +640,7 @@ static bool single_label_nonsynthetic(const char *name) {
             is_dns_proxy_stub_hostname(name))
                 return false;
 
-        r = resolve_system_hostname(NULL, &first_label);
+        r = resolve_system_hostname(/* full_hostname= */ NULL, &first_label);
         if (r < 0) {
                 log_warning_errno(r, "Failed to determine the hostname: %m");
                 return false;
@@ -874,7 +873,7 @@ static int resolve_rfc4501(const char *name) {
         if (type == 0)
                 type = arg_type ?: DNS_TYPE_A;
 
-        return resolve_record(n, class, type, true);
+        return resolve_record(n, class, type, /* warn_missing= */ true);
 
 invalid:
         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -888,7 +887,7 @@ static int verb_query(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         if (arg_type != 0)
                 STRV_FOREACH(p, strv_skip(argv, 1))
-                        RET_GATHER(ret, resolve_record(*p, arg_class, arg_type, true));
+                        RET_GATHER(ret, resolve_record(*p, arg_class, arg_type, /* warn_missing= */ true));
 
         else
                 STRV_FOREACH(p, strv_skip(argv, 1)) {
@@ -1037,9 +1036,9 @@ static int verb_service(int argc, char *argv[], uintptr_t _data, void *userdata)
                 flags |= SD_RESOLVED_NO_TXT;
 
         if (argc == 2)
-                return resolve_service(NULL, NULL, argv[1], flags);
+                return resolve_service(/* name= */ NULL, /* type= */ NULL, argv[1], flags);
         if (argc == 3)
-                return resolve_service(NULL, argv[1], argv[2], flags);
+                return resolve_service(/* name= */ NULL, argv[1], argv[2], flags);
 
         return resolve_service(argv[1], argv[2], argv[3], flags);
 }
@@ -1150,7 +1149,7 @@ static int resolve_tlsa(const char *family, const char *address) {
 
         return resolve_record(full,
                               arg_class ?: DNS_CLASS_IN,
-                              arg_type ?: DNS_TYPE_TLSA, true);
+                              arg_type ?: DNS_TYPE_TLSA, /* warn_missing= */ true);
 }
 
 static bool service_family_is_valid(const char *s) {
@@ -1223,7 +1222,7 @@ static int status_json_filter_links(sd_json_variant **configuration, char **link
                         if (ifindex < 0)
                                 return ifindex;
 
-                        r = set_ensure_put(&links_by_index, NULL, INT_TO_PTR(ifindex));
+                        r = set_ensure_put(&links_by_index, /* hash_ops= */ NULL, INT_TO_PTR(ifindex));
                         if (r < 0)
                                 return r;
                 }
@@ -1298,7 +1297,7 @@ static int format_dns_server_one(DNSConfiguration *configuration, DNSServer *s, 
 
         r = in_addr_port_ifindex_name_to_string(
                         s->family,
-                        &s->in_addr,
+                        &s->in_addr.address,
                         s->port != 53 ? s->port : 0,
                         s->ifindex,
                         s->server_name,
@@ -1599,7 +1598,7 @@ static int print_configuration(DNSConfiguration *configuration, StatusMode mode,
                 if (r < 0)
                         return r;
 
-                r = table_add_cell(table, NULL, TABLE_STRING, s ?: "none");
+                r = table_add_cell(table, /* ret_cell= */ NULL, TABLE_STRING, s ?: "none");
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -1799,7 +1798,7 @@ static int verb_show_statistics(int argc, char *argv[], uintptr_t _data, void *u
                 return r;
 
         if (sd_json_format_enabled(arg_json_format_flags))
-                return sd_json_variant_dump(reply, arg_json_format_flags, NULL, NULL);
+                return sd_json_variant_dump(reply, arg_json_format_flags, NULL, /* prefix= */ NULL);
 
         struct statistics {
                 sd_json_variant *transactions;
@@ -1961,7 +1960,7 @@ static int verb_reset_statistics(int argc, char *argv[], uintptr_t _data, void *
                 return r;
 
         if (sd_json_format_enabled(arg_json_format_flags))
-                return sd_json_variant_dump(reply, arg_json_format_flags, NULL, NULL);
+                return sd_json_variant_dump(reply, arg_json_format_flags, NULL, /* prefix= */ NULL);
 
         return 0;
 }
@@ -2172,7 +2171,7 @@ static int monitor_reply(
                 /* The first message coming in will just indicate that we are now subscribed. We let our
                  * caller know if they asked for it. Once the caller sees this they should know that we are
                  * not going to miss any queries anymore. */
-                (void) sd_notify(/* unset_environment=false */ false, "READY=1");
+                (void) sd_notify(/* unset_environment= */ false, "READY=1");
                 return 0;
         }
 
@@ -2180,7 +2179,7 @@ static int monitor_reply(
                 monitor_query_dump(parameters);
                 printf("\n");
         } else
-                sd_json_variant_dump(parameters, arg_json_format_flags, NULL, NULL);
+                sd_json_variant_dump(parameters, arg_json_format_flags, NULL, /* prefix= */ NULL);
 
         fflush(stdout);
 
@@ -2238,27 +2237,82 @@ static int verb_monitor(int argc, char *argv[], uintptr_t _data, void *userdata)
         return c;
 }
 
-static int call_dns(sd_bus *bus, char **dns, const BusLocator *locator, sd_bus_error *error, bool extended) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
+static int varlink_call_link_method(const char *method, sd_json_variant *parameters) {
         int r;
+
+        assert(method);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *link_parameters = NULL;
+        r = sd_json_buildo(
+                        &link_parameters,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("ifindex", arg_ifindex));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON parameters: %m");
+
+        r = sd_json_variant_merge_object(&link_parameters, parameters);
+        if (r < 0)
+                return log_error_errno(r, "Failed to merge JSON parameters: %m");
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to service /run/systemd/resolve/io.systemd.Resolve: %m");
+
+        const char *error_id = NULL;
+        sd_json_variant *reply = NULL;
+        r = sd_varlink_call(vl, method, link_parameters, &reply, &error_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue %s call: %m", method);
+
+        if (streq_ptr(error_id, "io.systemd.Resolve.Link.ManagedByNetworkd")) {
+                /* Make the call to systemd-networkd instead. */
+                log_debug("Link is managed by systemd-networkd.");
+
+                error_id = NULL;
+                reply = NULL;
+                vl = sd_varlink_unref(vl);
+
+                r = sd_varlink_connect_address(&vl, "/run/systemd/netif/io.systemd.Network");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to network service /run/systemd/netif/io.systemd.Network: %m");
+
+                r = sd_varlink_call(vl, method, link_parameters, &reply, &error_id);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to issue %s call: %m", method);
+        }
+
+        if (streq_ptr(error_id, "io.systemd.Resolve.Link.IsLoopback"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Link %s is loopback device", FORMAT_IFNAME(arg_ifindex));
+
+        if (sd_varlink_error_is_invalid_parameter(error_id, reply, "ifindex")) {
+                if (arg_ifindex_permissive)
+                        return 0;
+
+                return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "No such link %s", arg_ifname);
+        }
+
+        if (!isempty(error_id))
+                return log_error_errno(sd_varlink_error_to_errno(error_id, reply), "%s call failed: %s", method, error_id);
+
+        return 0;
+}
+
+static int call_set_dns(char **dns) {
+        int r;
+
+        assert(arg_ifindex > 0);
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
-        r = bus_message_new_method_call(bus, &req, locator, extended ? "SetLinkDNSEx" : "SetLinkDNS");
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *servers = NULL;
+        r = sd_json_variant_new_array(&servers, /* array= */ NULL, /* n= */ 0);
         if (r < 0)
-                return bus_log_create_error(r);
+                return log_error_errno(r, "Failed to build JSON parameters: %m");
 
-        r = sd_bus_message_append(req, "i", arg_ifindex);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_open_container(req, 'a', extended ? "(iayqs)" : "(iay)");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        /* If only argument is the empty string, then call SetLinkDNS() with an
-         * empty list, which will clear the list of domains for an interface. */
-        if (!strv_equal(dns, STRV_MAKE("")))
+        /* If only argument is the empty string, then call io.systemd.Network.Link.SetDNS
+         * with an empty list, which will clear the list of DNS for an interface. */
+        if (!strv_equal(dns, STRV_MAKE(""))) {
                 STRV_FOREACH(p, dns) {
                         _cleanup_free_ char *name = NULL;
                         struct in_addr_data data;
@@ -2269,46 +2323,30 @@ static int call_dns(sd_bus *bus, char **dns, const BusLocator *locator, sd_bus_e
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse DNS server address: %s", *p);
 
+                        if (!dns_server_address_valid(data.family, &data.address))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid DNS server address %s", *p);
+
                         if (ifindex != 0 && ifindex != arg_ifindex)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid ifindex: %i", ifindex);
 
-                        r = sd_bus_message_open_container(req, 'r', extended ? "iayqs" : "iay");
+                        r = sd_json_variant_append_arraybo(
+                                        &servers,
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("family", data.family),
+                                        JSON_BUILD_PAIR_IN_ADDR("address", data.family, &data.address),
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("port", port),
+                                        JSON_BUILD_PAIR_CONDITION_UNSIGNED(ifindex > 0, "ifindex", ifindex),
+                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("name", name));
                         if (r < 0)
-                                return bus_log_create_error(r);
-
-                        r = sd_bus_message_append(req, "i", data.family);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        r = sd_bus_message_append_array(req, 'y', &data.address, FAMILY_ADDRESS_SIZE(data.family));
-                        if (r < 0)
-                                return bus_log_create_error(r);
-
-                        if (extended) {
-                                r = sd_bus_message_append(req, "q", port);
-                                if (r < 0)
-                                        return bus_log_create_error(r);
-
-                                r = sd_bus_message_append(req, "s", name);
-                                if (r < 0)
-                                        return bus_log_create_error(r);
-                        }
-
-                        r = sd_bus_message_close_container(req);
-                        if (r < 0)
-                                return bus_log_create_error(r);
+                                return log_error_errno(r, "Failed to add DNS to JSON parameters: %m");
                 }
-
-        r = sd_bus_message_close_container(req);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_call(bus, req, 0, error, NULL);
-        if (r < 0 && extended && sd_bus_error_has_name(error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
-                sd_bus_error_free(error);
-                return call_dns(bus, dns, locator, error, false);
         }
-        return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        r = sd_json_buildo(&parameters, SD_JSON_BUILD_PAIR_VARIANT("servers", servers));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON parameters: %m");
+
+        return varlink_call_link_method("io.systemd.Resolve.Link.SetDNS", parameters);
 }
 
 static int dump_cache_item(sd_json_variant *item) {
@@ -2477,7 +2515,7 @@ static int verb_show_cache(int argc, char *argv[], uintptr_t _data, void *userda
                 return 0;
         }
 
-        return sd_json_variant_dump(d, arg_json_format_flags, NULL, NULL);
+        return sd_json_variant_dump(d, arg_json_format_flags, NULL, /* prefix= */ NULL);
 }
 
 static int dump_server_state(sd_json_variant *server) {
@@ -2535,9 +2573,9 @@ static int dump_server_state(sd_json_variant *server) {
         if (!table)
                 return log_oom();
 
-        assert_se(cell = table_get_cell(table, 0, 0));
+        assert_se(cell = table_get_cell(table, /* row= */ 0, /* column= */ 0));
         (void) table_set_ellipsize_percent(table, cell, 100);
-        (void) table_set_align_percent(table, cell, 0);
+        (void) table_set_align_percent(table, cell, /* percent= */ 0);
 
         r = table_add_cell_stringf(table, NULL, "Server: %s", server_state.server_name);
         if (r < 0)
@@ -2655,19 +2693,13 @@ static int verb_show_server_state(int argc, char *argv[], uintptr_t _data, void 
                 return 0;
         }
 
-        return sd_json_variant_dump(d, arg_json_format_flags, NULL, NULL);
+        return sd_json_variant_dump(d, arg_json_format_flags, NULL, /* prefix= */ NULL);
 }
 
 VERB(verb_dns, "dns", "[LINK [SERVER…]]\0", VERB_ANY, VERB_ANY, 0,
      "Get/set per-interface DNS server address");
 static int verb_dns(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -2681,22 +2713,7 @@ static int verb_dns(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (argc < 3)
                 return status_ifindex(arg_ifindex, STATUS_DNS);
 
-        char **args = strv_skip(argv, 2);
-        r = call_dns(bus, args, bus_resolve_mgr, &error, true);
-        if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
-                sd_bus_error_free(&error);
-
-                r = call_dns(bus, args, bus_network_mgr, &error, true);
-        }
-        if (r < 0) {
-                if (arg_ifindex_permissive &&
-                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
-                        return 0;
-
-                return log_error_errno(r, "Failed to set DNS configuration: %s", bus_error_message(&error, r));
-        }
-
-        return 0;
+        return call_set_dns(strv_skip(argv, 2));
 }
 
 static int call_domain(sd_bus *bus, char **domain, const BusLocator *locator, sd_bus_error *error) {
@@ -2742,7 +2759,7 @@ static int call_domain(sd_bus *bus, char **domain, const BusLocator *locator, sd
         if (r < 0)
                 return bus_log_create_error(r);
 
-        return sd_bus_call(bus, req, 0, error, NULL);
+        return sd_bus_call(bus, req, /* usec= */ 0, error, /* ret_reply= */ NULL);
 }
 
 VERB(verb_domain, "domain", "[LINK [DOMAIN…]]\0", VERB_ANY, VERB_ANY, 0,
@@ -2815,11 +2832,11 @@ static int verb_default_route(int argc, char *argv[], uintptr_t _data, void *use
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
-        r = bus_call_method(bus, bus_resolve_mgr, "SetLinkDefaultRoute", &error, NULL, "ib", arg_ifindex, b);
+        r = bus_call_method(bus, bus_resolve_mgr, "SetLinkDefaultRoute", &error, /* ret_reply= */ NULL, "ib", arg_ifindex, b);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
 
-                r = bus_call_method(bus, bus_network_mgr, "SetLinkDefaultRoute", &error, NULL, "ib", arg_ifindex, b);
+                r = bus_call_method(bus, bus_network_mgr, "SetLinkDefaultRoute", &error, /* ret_reply= */ NULL, "ib", arg_ifindex, b);
         }
         if (r < 0) {
                 if (arg_ifindex_permissive &&
@@ -2875,11 +2892,11 @@ static int verb_llmnr(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
-        r = bus_call_method(bus, bus_resolve_mgr, "SetLinkLLMNR", &error, NULL, "is", arg_ifindex, argv[2]);
+        r = bus_call_method(bus, bus_resolve_mgr, "SetLinkLLMNR", &error, /* ret_reply= */ NULL, "is", arg_ifindex, argv[2]);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
 
-                r = bus_call_method(bus, bus_network_mgr, "SetLinkLLMNR", &error, NULL, "is", arg_ifindex, argv[2]);
+                r = bus_call_method(bus, bus_network_mgr, "SetLinkLLMNR", &error, /* ret_reply= */ NULL, "is", arg_ifindex, argv[2]);
         }
         if (r < 0) {
                 if (arg_ifindex_permissive &&
@@ -2935,7 +2952,7 @@ static int verb_mdns(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
-        r = bus_call_method(bus, bus_resolve_mgr, "SetLinkMulticastDNS", &error, NULL, "is", arg_ifindex, argv[2]);
+        r = bus_call_method(bus, bus_resolve_mgr, "SetLinkMulticastDNS", &error, /* ret_reply= */ NULL, "is", arg_ifindex, argv[2]);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
 
@@ -2944,7 +2961,7 @@ static int verb_mdns(int argc, char *argv[], uintptr_t _data, void *userdata) {
                                 bus_network_mgr,
                                 "SetLinkMulticastDNS",
                                 &error,
-                                NULL,
+                                /* ret_reply= */ NULL,
                                 "is", arg_ifindex, argv[2]);
         }
         if (r < 0) {
@@ -2983,7 +3000,7 @@ static int verb_dns_over_tls(int argc, char *argv[], uintptr_t _data, void *user
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
-        r = bus_call_method(bus, bus_resolve_mgr, "SetLinkDNSOverTLS", &error, NULL, "is", arg_ifindex, argv[2]);
+        r = bus_call_method(bus, bus_resolve_mgr, "SetLinkDNSOverTLS", &error, /* ret_reply= */ NULL, "is", arg_ifindex, argv[2]);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
 
@@ -2992,7 +3009,7 @@ static int verb_dns_over_tls(int argc, char *argv[], uintptr_t _data, void *user
                                 bus_network_mgr,
                                 "SetLinkDNSOverTLS",
                                 &error,
-                                NULL,
+                                /* ret_reply= */ NULL,
                                 "is", arg_ifindex, argv[2]);
         }
         if (r < 0) {
@@ -3031,11 +3048,11 @@ static int verb_dnssec(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
-        r = bus_call_method(bus, bus_resolve_mgr, "SetLinkDNSSEC", &error, NULL, "is", arg_ifindex, argv[2]);
+        r = bus_call_method(bus, bus_resolve_mgr, "SetLinkDNSSEC", &error, /* ret_reply= */ NULL, "is", arg_ifindex, argv[2]);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
 
-                r = bus_call_method(bus, bus_network_mgr, "SetLinkDNSSEC", &error, NULL, "is", arg_ifindex, argv[2]);
+                r = bus_call_method(bus, bus_network_mgr, "SetLinkDNSSEC", &error, /* ret_reply= */ NULL, "is", arg_ifindex, argv[2]);
         }
         if (r < 0) {
                 if (arg_ifindex_permissive &&
@@ -3066,7 +3083,7 @@ static int call_nta(sd_bus *bus, char **nta, const BusLocator *locator,  sd_bus_
         if (r < 0)
                 return bus_log_create_error(r);
 
-        return sd_bus_call(bus, req, 0, error, NULL);
+        return sd_bus_call(bus, req, /* usec= */ 0, error, /* ret_reply= */ NULL);
 }
 
 VERB(verb_nta, "nta", "[LINK [DOMAIN…]]\0", VERB_ANY, VERB_ANY, 0,
@@ -3151,11 +3168,11 @@ static int verb_revert_link(int argc, char *argv[], uintptr_t _data, void *userd
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
-        r = bus_call_method(bus, bus_resolve_mgr, "RevertLink", &error, NULL, "i", arg_ifindex);
+        r = bus_call_method(bus, bus_resolve_mgr, "RevertLink", &error, /* ret_reply= */ NULL, "i", arg_ifindex);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
 
-                r = bus_call_method(bus, bus_network_mgr, "RevertLinkDNS", &error, NULL, "i", arg_ifindex);
+                r = bus_call_method(bus, bus_network_mgr, "RevertLinkDNS", &error, /* ret_reply= */ NULL, "i", arg_ifindex);
         }
         if (r < 0) {
                 if (arg_ifindex_permissive &&
@@ -3333,14 +3350,14 @@ static int compat_parse_argv(int argc, char *argv[], char ***remaining_args) {
                         break;
 
                 OPTION_LONG("service-address", "BOOL", "Resolve address for services (default: yes)"):
-                        r = parse_boolean_argument("--service-address=", opts.arg, NULL);
+                        r = parse_boolean_argument("--service-address=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_ADDRESS, r == 0);
                         break;
 
                 OPTION_LONG("service-txt", "BOOL", "Resolve TXT records for services (default: yes)"):
-                        r = parse_boolean_argument("--service-txt=", opts.arg, NULL);
+                        r = parse_boolean_argument("--service-txt=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_TXT, r == 0);
@@ -3361,14 +3378,14 @@ static int compat_parse_argv(int argc, char *argv[], char ***remaining_args) {
                         break;
 
                 OPTION_LONG("cname", "BOOL", "Follow CNAME redirects (default: yes)"):
-                        r = parse_boolean_argument("--cname=", opts.arg, NULL);
+                        r = parse_boolean_argument("--cname=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_CNAME, r == 0);
                         break;
 
                 OPTION_LONG("search", "BOOL", "Use search domains for single-label names (default: yes)"):
-                        r = parse_boolean_argument("--search=", opts.arg, NULL);
+                        r = parse_boolean_argument("--search=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_SEARCH, r == 0);
@@ -3571,14 +3588,14 @@ static int native_parse_argv(int argc, char *argv[], char ***remaining_args) {
                         break;
 
                 OPTION_LONG("service-address", "BOOL", "Resolve address for services (default: yes)"):
-                        r = parse_boolean_argument("--service-address=", opts.arg, NULL);
+                        r = parse_boolean_argument("--service-address=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_ADDRESS, r == 0);
                         break;
 
                 OPTION_LONG("service-txt", "BOOL", "Resolve TXT records for services (default: yes)"):
-                        r = parse_boolean_argument("--service-txt=", opts.arg, NULL);
+                        r = parse_boolean_argument("--service-txt=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_TXT, r == 0);
@@ -3586,28 +3603,28 @@ static int native_parse_argv(int argc, char *argv[], char ***remaining_args) {
                         break;
 
                 OPTION_LONG("cname", "BOOL", "Follow CNAME redirects (default: yes)"):
-                        r = parse_boolean_argument("--cname=", opts.arg, NULL);
+                        r = parse_boolean_argument("--cname=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_CNAME, r == 0);
                         break;
 
                 OPTION_LONG("validate", "BOOL", "Allow DNSSEC validation (default: yes)"):
-                        r = parse_boolean_argument("--validate=", opts.arg, NULL);
+                        r = parse_boolean_argument("--validate=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_VALIDATE, r == 0);
                         break;
 
                 OPTION_LONG("synthesize", "BOOL", "Allow synthetic response (default: yes)"):
-                        r = parse_boolean_argument("--synthesize=", opts.arg, NULL);
+                        r = parse_boolean_argument("--synthesize=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_SYNTHESIZE, r == 0);
                         break;
 
                 OPTION_LONG("cache", "BOOL", "Allow response from cache (default: yes)"):
-                        r = parse_boolean_argument("--cache=", opts.arg, NULL);
+                        r = parse_boolean_argument("--cache=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_CACHE, r == 0);
@@ -3615,7 +3632,7 @@ static int native_parse_argv(int argc, char *argv[], char ***remaining_args) {
 
                 OPTION_LONG("stale-data", "BOOL",
                             "Allow response from cache with stale data (default: yes)"):
-                        r = parse_boolean_argument("--stale-data=", opts.arg, NULL);
+                        r = parse_boolean_argument("--stale-data=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_STALE, r == 0);
@@ -3623,7 +3640,7 @@ static int native_parse_argv(int argc, char *argv[], char ***remaining_args) {
 
                 OPTION_LONG("relax-single-label", "BOOL",
                             "Allow single label lookups to go upstream (default: no)"):
-                        r = parse_boolean_argument("--relax-single-label=", opts.arg, NULL);
+                        r = parse_boolean_argument("--relax-single-label=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_RELAX_SINGLE_LABEL, r > 0);
@@ -3631,7 +3648,7 @@ static int native_parse_argv(int argc, char *argv[], char ***remaining_args) {
 
                 OPTION_LONG("zone", "BOOL",
                             "Allow response from locally registered mDNS/LLMNR records (default: yes)"):
-                        r = parse_boolean_argument("--zone=", opts.arg, NULL);
+                        r = parse_boolean_argument("--zone=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_ZONE, r == 0);
@@ -3639,21 +3656,21 @@ static int native_parse_argv(int argc, char *argv[], char ***remaining_args) {
 
                 OPTION_LONG("trust-anchor", "BOOL",
                             "Allow response from local trust anchor (default: yes)"):
-                        r = parse_boolean_argument("--trust-anchor=", opts.arg, NULL);
+                        r = parse_boolean_argument("--trust-anchor=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_TRUST_ANCHOR, r == 0);
                         break;
 
                 OPTION_LONG("network", "BOOL", "Allow response from network (default: yes)"):
-                        r = parse_boolean_argument("--network=", opts.arg, NULL);
+                        r = parse_boolean_argument("--network=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_NETWORK, r == 0);
                         break;
 
                 OPTION_LONG("search", "BOOL", "Use search domains for single-label names (default: yes)"):
-                        r = parse_boolean_argument("--search=", opts.arg, NULL);
+                        r = parse_boolean_argument("--search=", opts.arg, /* ret= */ NULL);
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_SEARCH, r == 0);
@@ -3746,31 +3763,31 @@ static int compat_main(char **args) {
         switch (arg_mode) {
         case MODE_RESOLVE_HOST:
         case MODE_RESOLVE_RECORD:
-                return translate("query", NULL, args);
+                return translate("query", /* single_arg= */ NULL, args);
 
         case MODE_RESOLVE_SERVICE:
-                return translate("service", NULL, args);
+                return translate("service", /* single_arg= */ NULL, args);
 
         case MODE_RESOLVE_OPENPGP:
-                return translate("openpgp", NULL, args);
+                return translate("openpgp", /* single_arg= */ NULL, args);
 
         case MODE_RESOLVE_TLSA:
                 return translate("tlsa", arg_service_family, args);
 
         case MODE_STATISTICS:
-                return translate("statistics", NULL, NULL);
+                return translate("statistics", /* single_arg= */ NULL, /* args= */ NULL);
 
         case MODE_RESET_STATISTICS:
-                return translate("reset-statistics", NULL, NULL);
+                return translate("reset-statistics", /* single_arg= */ NULL, /* args= */ NULL);
 
         case MODE_FLUSH_CACHES:
-                return translate("flush-caches", NULL, NULL);
+                return translate("flush-caches", /* single_arg= */ NULL, /* args= */ NULL);
 
         case MODE_RESET_SERVER_FEATURES:
-                return translate("reset-server-features", NULL, NULL);
+                return translate("reset-server-features", /* single_arg= */ NULL, /* args= */ NULL);
 
         case MODE_STATUS:
-                return translate("status", NULL, args);
+                return translate("status", /* single_arg= */ NULL, args);
 
         case MODE_SET_LINK:
                 assert(arg_ifname);
@@ -3828,7 +3845,7 @@ static int compat_main(char **args) {
         case MODE_REVERT_LINK:
                 assert(arg_ifname);
 
-                return translate("revert", arg_ifname, NULL);
+                return translate("revert", arg_ifname, /* args= */ NULL);
 
         case _MODE_INVALID:
                 assert_not_reached();

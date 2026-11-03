@@ -6,6 +6,7 @@
 #include "bpf-bind-iface.h"
 #include "cgroup.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "netlink-util.h"
 #include "string-util.h"
 #include "unit.h"
@@ -92,9 +93,9 @@ static int bind_network_interface_install_impl(Unit *u, CGroupRuntime *crt) {
                 return log_unit_error_errno(u, r, "bind-interface: Failed to load BPF object: %m");
 
         /* Open the cgroup directory */
-        cgroup_fd = open(cgroup_path, O_PATH | O_CLOEXEC | O_DIRECTORY, 0);
+        cgroup_fd = xopenat(AT_FDCWD, cgroup_path, O_PATH | O_DIRECTORY);
         if (cgroup_fd < 0)
-                return log_unit_error_errno(u, errno, "bind-interface: Failed to open cgroup directory '%s': %m", cgroup_path);
+                return log_unit_error_errno(u, cgroup_fd, "bind-interface: Failed to open cgroup directory '%s': %m", cgroup_path);
 
         /* Attach the BPF program to the cgroup */
         link = sym_bpf_program__attach_cgroup(obj->progs.sd_bind_interface, cgroup_fd);

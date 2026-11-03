@@ -34,7 +34,7 @@ bool journal_test_setup(char **ret_directory) {
         assert(ret_directory);
 
         /* journal_file_open() requires a valid machine ID */
-        if (sd_id128_get_machine(NULL) < 0) {
+        if (sd_id128_get_machine(/* ret= */ NULL) < 0) {
                 (void) log_tests_skipped("No valid machine ID found");
                 return false;
         }
@@ -167,7 +167,7 @@ void model_assert_entry(JournalFile *f, Object *o, uint64_t offset, const Model 
         }
 
         strv_sort(fields);
-        ASSERT_TRUE(strv_equal(fields, model->entries[i]));
+        ASSERT_STRV_EQ(fields, model->entries[i]);
 }
 
 static bool model_matches(const Model *model, size_t i, const char *match) {
@@ -262,6 +262,6 @@ void model_assert_file(JournalFile *f, const Model *model) {
         if (model->n_entries > 0) {
                 ASSERT_OK_ZERO(journal_file_move_to_entry_by_realtime(f, model->realtime[model->n_entries - 1] + 1, DIRECTION_DOWN, &o, &p));
                 ASSERT_OK_ZERO(journal_file_move_to_entry_by_realtime(f, model->realtime[0] - 1, DIRECTION_UP, &o, &p));
-                ASSERT_OK_ZERO(journal_file_move_to_entry_by_monotonic(f, MODEL_BOOT_B, 0, DIRECTION_DOWN, &o, &p));
+                ASSERT_OK_ZERO(journal_file_move_to_entry_by_monotonic(f, MODEL_BOOT_B, /* monotonic= */ 0, DIRECTION_DOWN, &o, &p));
         }
 }

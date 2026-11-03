@@ -6,23 +6,23 @@
 #include <sys/kcmp.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
+#include <threads.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "dirent-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "log.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "sysctl-util.h"
 
 /* The maximum number of iterations in the loop to close descriptors in the fallback case
  * when /proc/self/fd/ is inaccessible. */
@@ -172,7 +172,7 @@ void nonblock_resetp(int *fd) {
         PROTECT_ERRNO;
 
         if (*fd >= 0)
-                (void) fd_nonblock(*fd, false);
+                (void) fd_nonblock(*fd, /* nonblock= */ false);
 }
 
 int stdio_disable_nonblock(void) {
@@ -181,9 +181,9 @@ int stdio_disable_nonblock(void) {
         /* stdin/stdout/stderr really should have O_NONBLOCK, which would confuse apps if left on, as
          * write()s might unexpectedly fail with EAGAIN. */
 
-        RET_GATHER(ret, fd_nonblock(STDIN_FILENO, false));
-        RET_GATHER(ret, fd_nonblock(STDOUT_FILENO, false));
-        RET_GATHER(ret, fd_nonblock(STDERR_FILENO, false));
+        RET_GATHER(ret, fd_nonblock(STDIN_FILENO, /* nonblock= */ false));
+        RET_GATHER(ret, fd_nonblock(STDOUT_FILENO, /* nonblock= */ false));
+        RET_GATHER(ret, fd_nonblock(STDERR_FILENO, /* nonblock= */ false));
 
         return ret;
 }
@@ -415,7 +415,8 @@ int pack_fds(int fds[], size_t n_fds) {
          * from SD_LISTEN_FDS_START. This must be called after close_all_fds();
          * it is likely to freeze up otherwise. You should probably use safe_fork_full
          * with FORK_CLOSE_ALL_FDS|FORK_PACK_FDS set, to ensure that this is done correctly.
-         * The fds array is modified in place with the new FD numbers. */
+         * The fds array is modified in place with the new FD numbers. Moved fds get O_CLOEXEC, turn it off
+         * right before execve(). */
 
         assert(fds);
 
@@ -429,7 +430,7 @@ int pack_fds(int fds[], size_t n_fds) {
                         if (fds[i] == i + 3)
                                 continue;
 
-                        nfd = fcntl(fds[i], F_DUPFD, i + 3);
+                        nfd = fcntl(fds[i], F_DUPFD_CLOEXEC, i + 3);
                         if (nfd < 0)
                                 return -errno;
 
@@ -551,19 +552,13 @@ int same_fd(int a, int b) {
         return fa == fb;
 }
 
-bool fdname_is_valid(const char *s) {
+static bool fdname_is_valid_full(const char *s, bool glob) {
         const char *p;
 
-        /* Validates a name for $LISTEN_FDNAMES. We basically allow
-         * everything ASCII that's not a control character. Also, as
-         * special exception the ":" character is not allowed, as we
-         * use that as field separator in $LISTEN_FDNAMES.
-         *
-         * Note that the empty string is explicitly allowed
-         * here. However, we limit the length of the names to 255
-         * characters. */
+        /* Names and globs allow printable ASCII except ':' (the $LISTEN_FDNAMES separator), up to 255
+         * characters. Names may be empty, but globs must be non-empty. */
 
-        if (!s)
+        if (glob ? isempty(s) : !s)
                 return false;
 
         for (p = s; *p; p++) {
@@ -576,6 +571,14 @@ bool fdname_is_valid(const char *s) {
         }
 
         return p - s <= FDNAME_MAX;
+}
+
+bool fdname_is_valid(const char *s) {
+        return fdname_is_valid_full(s, /* glob= */ false);
+}
+
+bool fdname_glob_is_valid(const char *s) {
+        return fdname_is_valid_full(s, /* glob= */ true);
 }
 
 int fd_get_path(int fd, char **ret) {
@@ -706,10 +709,10 @@ int rearrange_stdio(int original_input_fd, int original_output_fd, int original_
         if (null_readable || null_writable) {
 
                 /* Let's open this with O_CLOEXEC first, and convert it to non-O_CLOEXEC when we move the fd to the final position. */
-                null_fd = open("/dev/null", (null_readable && null_writable ? O_RDWR :
-                                             null_readable ? O_RDONLY : O_WRONLY) | O_CLOEXEC);
+                null_fd = xopenat(AT_FDCWD, "/dev/null", (null_readable && null_writable ? O_RDWR :
+                                                          null_readable ? O_RDONLY : O_WRONLY));
                 if (null_fd < 0) {
-                        r = -errno;
+                        r = null_fd;
                         goto finish;
                 }
 
@@ -748,7 +751,7 @@ int rearrange_stdio(int original_input_fd, int original_output_fd, int original_
         for (int i = 0; i < 3; i++)
                 if (fd[i] == i) {
                         /* fd is already in place, but let's make sure O_CLOEXEC is off */
-                        r = fd_cloexec(i, false);
+                        r = fd_cloexec(i, /* cloexec= */ false);
                         if (r < 0)
                                 goto finish;
                 } else {
@@ -791,6 +794,9 @@ int fd_reopen(int fd, int flags) {
          *
          * This implicitly resets the file read index to 0.
          *
+         * Kernels with O_EMPTYPATH (7.2+) reopen the fd directly, older ones need /proc/self/fd/ for anything
+         * but directories.
+         *
          * If AT_FDCWD is specified as file descriptor gets an fd to the current cwd.
          *
          * If XAT_FDROOT is specified as fd get an fd to the root directory.
@@ -798,7 +804,11 @@ int fd_reopen(int fd, int flags) {
          * If the specified file descriptor refers to a symlink via O_PATH, then this function cannot be used
          * to follow that symlink. Because we cannot have non-O_PATH fds to symlinks reopening it without
          * O_PATH will always result in -ELOOP. Or in other words: if you have an O_PATH fd to a symlink you
-         * can reopen it only if you pass O_PATH again. */
+         * can reopen it only if you pass O_PATH again.
+         *
+         * The returned fd always has O_CLOEXEC set, use fd_cloexec() to turn it off. */
+
+        flags |= O_CLOEXEC;
 
         if (FLAGS_SET(flags, O_NOFOLLOW))
                 /* O_NOFOLLOW is not allowed in fd_reopen(), because after all this is primarily implemented
@@ -811,7 +821,25 @@ int fd_reopen(int fd, int flags) {
         if (fd == XAT_FDROOT)
                 return RET_NERRNO(open("/", flags | O_DIRECTORY));
 
-        if (FLAGS_SET(flags, O_DIRECTORY) || fd == AT_FDCWD)
+        if (fd == AT_FDCWD)
+                return RET_NERRNO(openat(AT_FDCWD, ".", flags | O_DIRECTORY));
+
+        /* Kernels since 7.2 reopen the fd itself when passed an empty path with O_EMPTYPATH. Unlike "."
+         * below, that needs no search permission on directories, just like /proc/self/fd/. */
+        static thread_local int have_emptypath = -1;
+        if (have_emptypath != 0) {
+                int new_fd = openat(fd, "", flags | O_EMPTYPATH);
+                if (new_fd >= 0) {
+                        have_emptypath = 1;
+                        return new_fd;
+                }
+                if (errno != ENOENT || have_emptypath > 0) /* Once it worked ENOENT comes from ->open() */
+                        return -errno;
+
+                have_emptypath = 0;
+        }
+
+        if (FLAGS_SET(flags, O_DIRECTORY))
                 /* If we shall reopen the fd as directory we can just go via "." and thus bypass the whole
                  * magic /proc/ directory, and make ourselves independent of that being mounted. */
                 return RET_NERRNO(openat(fd, ".", flags | O_DIRECTORY));
@@ -827,7 +855,7 @@ int fd_reopen(int fd, int flags) {
         return new_fd;
 }
 
-int fd_reopen_propagate_append_and_position(int fd, int flags) {
+static int fd_reopen_propagate_append_and_position(int fd, int flags) {
         /* Invokes fd_reopen(fd, flags), but propagates O_APPEND if set on original fd, and also tries to
          * keep current file position.
          *
@@ -865,6 +893,39 @@ int fd_reopen_propagate_append_and_position(int fd, int flags) {
         }
 
         return new_fd;
+}
+
+int fd_dup_or_reopen_stdio_nonblock(int fd, int mode) {
+        /* IO on some fd types (pipes, ttys, …) might block, while on others (regular files, block devices, …)
+         * it never does. In asynchronous programs it's hence often desirable to acquire O_NONBLOCK copies of
+         * existing fds, without disturbing the O_NONBLOCK flag for everything else that has the fd open.
+         * However, we shouldn't copy too eagerly, because decoupling O_NONBLOCK via fd_reopen() also
+         * decouples the file offset, which might not be desirable. Thankfully, potentially blocking fds
+         * typically have no file offset concept, while those which never block do. Hence, let's do a simple
+         * dup for the latter and an fd_reopen() for the former.
+         *
+         * This is particularly useful when operating with generic fds such as stdin/stdout/stderr, where we
+         * want temporarily asynchronous behaviour but still update the file offset regularly, as in
+         * "{ echo header; systemd-run --pty echo hello; echo trailer; } > out".
+         *
+         * Input is always reopened privately though: we read ahead whether or not the data is consumed, and
+         * a shared offset would eat input the caller still expects to read itself, as in
+         * "while read -r l; do systemd-run --pty ...; done < list". */
+
+        assert(fd >= 0);
+        assert(IN_SET(mode, O_RDONLY, O_WRONLY));
+
+        if (mode == O_WRONLY) {
+                struct stat st;
+                if (fstat(fd, &st) < 0)
+                        return -errno;
+
+                if (S_ISREG(st.st_mode) || S_ISBLK(st.st_mode))
+                        return RET_NERRNO(fcntl(fd, F_DUPFD_CLOEXEC, 3));
+        }
+
+        /* O_NOCTTY, so that reopening a tty doesn't make it our controlling terminal if we lack one */
+        return fd_reopen_propagate_append_and_position(fd, mode|O_NOCTTY|O_NONBLOCK);
 }
 
 int fd_reopen_condition(
@@ -979,6 +1040,8 @@ int fd_verify_safe_flags_full(int fd, int extra_flags) {
          * RAW_O_LARGEFILE: glibc secretly sets this and neglects to hide it from us if we call fcntl.
          *                  See comment in src/basic/include/fcntl.h for more details about this.
          *
+         * O_EMPTYPATH: Sticks to the file like O_NOFOLLOW does, and is just as meaningless once it is open.
+         *
          * If 'extra_flags' is specified as non-zero the included flags are also allowed.
          */
 
@@ -988,7 +1051,7 @@ int fd_verify_safe_flags_full(int fd, int extra_flags) {
         if (flags < 0)
                 return -errno;
 
-        unexpected_flags = flags & ~(O_ACCMODE_STRICT|O_NOFOLLOW|RAW_O_LARGEFILE|extra_flags);
+        unexpected_flags = flags & ~(O_ACCMODE_STRICT|O_NOFOLLOW|O_EMPTYPATH|RAW_O_LARGEFILE|extra_flags);
         if (unexpected_flags != 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EREMOTEIO),
                                        "Unexpected flags set for extrinsic fd: 0%o",
@@ -998,24 +1061,17 @@ int fd_verify_safe_flags_full(int fd, int extra_flags) {
 }
 
 unsigned read_nr_open(void) {
-        _cleanup_free_ char *nr_open = NULL;
+        unsigned v;
         int r;
 
         /* Returns the kernel's current fd limit, either by reading it of /proc/sys if that works, or using the
          * hard-coded default compiled-in value of current kernels (1M) if not. This call will never fail. */
 
-        r = read_one_line_file("/proc/sys/fs/nr_open", &nr_open);
+        r = sysctl_read_unsigned("fs/nr_open", &v);
         if (r < 0)
-                log_debug_errno(r, "Failed to read /proc/sys/fs/nr_open, ignoring: %m");
-        else {
-                unsigned v;
-
-                r = safe_atou(nr_open, &v);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to parse /proc/sys/fs/nr_open value '%s', ignoring: %m", nr_open);
-                else
-                        return v;
-        }
+                log_debug_errno(r, "Failed to read fs.nr_open sysctl, ignoring: %m");
+        else
+                return v;
 
         /* If we fail, fall back to the hard-coded kernel limit of 1024 * 1024. */
         return NR_OPEN_DEFAULT;
@@ -1062,7 +1118,7 @@ int path_is_root_at(int dir_fd, const char *path) {
 
         _cleanup_close_ int fd = -EBADF;
         if (!isempty(path)) {
-                fd = xopenat(dir_fd, path, O_PATH|O_DIRECTORY|O_CLOEXEC);
+                fd = xopenat(dir_fd, path, O_PATH|O_DIRECTORY);
                 if (fd == -ENOTDIR)
                         return false; /* the root dir must be a dir */
                 if (fd < 0)

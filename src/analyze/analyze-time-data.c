@@ -85,7 +85,7 @@ int acquire_boot_times(sd_bus *bus, bool require_finished, BootTimes **ret) {
                         property_map,
                         BUS_MAP_STRDUP,
                         &error,
-                        NULL,
+                        /* ret_reply= */ NULL,
                         &times);
         if (r < 0)
                 return log_error_errno(r, "Failed to get timestamp properties: %s", bus_error_message(&error, r));
@@ -330,7 +330,7 @@ int acquire_time_data(sd_bus *bus, bool require_finished, UnitTimes **out) {
         if (r < 0)
                 return r;
 
-        r = bus_call_method(bus, bus_systemd_mgr, "ListUnits", &error, &reply, NULL);
+        r = bus_call_method(bus, bus_systemd_mgr, "ListUnits", &error, &reply, /* types= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to list units: %s", bus_error_message(&error, r));
 
@@ -357,7 +357,7 @@ int acquire_time_data(sd_bus *bus, bool require_finished, UnitTimes **out) {
                                 property_map,
                                 BUS_MAP_STRDUP,
                                 &error,
-                                NULL,
+                                /* ret_reply= */ NULL,
                                 t);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get timestamp properties of unit %s: %s",

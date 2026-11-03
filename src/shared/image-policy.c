@@ -149,9 +149,12 @@ PartitionPolicyFlags image_policy_get(const ImagePolicy *policy, PartitionDesign
                 if (!(data_flags & PARTITION_POLICY_SIGNED))
                         return _PARTITION_POLICY_FLAGS_INVALID;
 
+                /* If the data partition may be used with Verity alone, then the signature partition is
+                 * optional. */
                 return partition_policy_normalized_flags(
                                 &(const PartitionPolicy) {
                                         .flags = PARTITION_POLICY_UNPROTECTED | (data_flags & (PARTITION_POLICY_UNUSED|PARTITION_POLICY_ABSENT)) |
+                                                 (data_flags & PARTITION_POLICY_VERITY ? PARTITION_POLICY_ABSENT : 0) |
                                                  (data_flags & _PARTITION_POLICY_PFLAGS_MASK),
                                         .designator = designator,
                                 });
@@ -372,7 +375,7 @@ int image_policy_from_string(const char *s, bool graceful, ImagePolicy **ret) {
                 if (!ret)
                         return 0;
 
-                p = image_policy_new(0);
+                p = image_policy_new(/* n_policies= */ 0);
                 if (!p)
                         return -ENOMEM;
 

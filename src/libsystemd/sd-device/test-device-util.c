@@ -25,7 +25,7 @@ TEST(device_in_subsystem_devtype_sysname_startswith) {
 
         ASSERT_OK(sd_device_enumerator_new(&e));
         ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
-        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", true));
+        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", /* match= */ true));
 
         FOREACH_DEVICE(e, d) {
                 ASSERT_OK_ZERO(device_in_subsystem(d, "net"));
@@ -45,31 +45,31 @@ TEST(device_in_subsystem_devtype_sysname_startswith) {
                 ASSERT_OK_POSITIVE(device_in_subsystem_strv(d, STRV_MAKE("block", "")));
                 ASSERT_OK_ZERO(device_in_subsystem_strv(d, STRV_MAKE("")));
                 ASSERT_OK_ZERO(device_in_subsystem_strv(d, STRV_MAKE(NULL)));
-                ASSERT_OK_ZERO(device_in_subsystem_strv(d, NULL));
+                ASSERT_OK_ZERO(device_in_subsystem_strv(d, /* subsystems= */ NULL));
 
                 const char *t;
                 ASSERT_OK(sd_device_get_devtype(d, &t));
                 ASSERT_OK_POSITIVE(device_is_devtype(d, t));
                 ASSERT_OK_ZERO(device_is_devtype(d, "hoge"));
                 ASSERT_OK_ZERO(device_is_devtype(d, ""));
-                ASSERT_OK_ZERO(device_is_devtype(d, NULL));
+                ASSERT_OK_ZERO(device_is_devtype(d, /* devtype= */ NULL));
 
                 ASSERT_OK_POSITIVE(device_is_subsystem_devtype(d, "block", t));
                 ASSERT_OK_ZERO(device_is_subsystem_devtype(d, "block", "hoge"));
                 ASSERT_OK_ZERO(device_is_subsystem_devtype(d, "block", ""));
-                ASSERT_OK_POSITIVE(device_is_subsystem_devtype(d, "block", NULL));
+                ASSERT_OK_POSITIVE(device_is_subsystem_devtype(d, "block", /* devtype= */ NULL));
                 ASSERT_OK_ZERO(device_is_subsystem_devtype(d, "net", t));
                 ASSERT_OK_ZERO(device_is_subsystem_devtype(d, "net", "hoge"));
                 ASSERT_OK_ZERO(device_is_subsystem_devtype(d, "net", ""));
-                ASSERT_OK_ZERO(device_is_subsystem_devtype(d, "net", NULL));
+                ASSERT_OK_ZERO(device_is_subsystem_devtype(d, "net", /* devtype= */ NULL));
                 ASSERT_OK_ZERO(device_is_subsystem_devtype(d, "subsystem", t));
                 ASSERT_OK_ZERO(device_is_subsystem_devtype(d, "subsystem", "hoge"));
                 ASSERT_OK_ZERO(device_is_subsystem_devtype(d, "subsystem", ""));
-                ASSERT_OK_ZERO(device_is_subsystem_devtype(d, "subsystem", NULL));
-                ASSERT_OK_ZERO(device_is_subsystem_devtype(d, NULL, t));
-                ASSERT_OK_ZERO(device_is_subsystem_devtype(d, NULL, "hoge"));
-                ASSERT_OK_ZERO(device_is_subsystem_devtype(d, NULL, ""));
-                ASSERT_OK_ZERO(device_is_subsystem_devtype(d, NULL, NULL));
+                ASSERT_OK_ZERO(device_is_subsystem_devtype(d, "subsystem", /* devtype= */ NULL));
+                ASSERT_OK_ZERO(device_is_subsystem_devtype(d, /* subsystem= */ NULL, t));
+                ASSERT_OK_ZERO(device_is_subsystem_devtype(d, /* subsystem= */ NULL, "hoge"));
+                ASSERT_OK_ZERO(device_is_subsystem_devtype(d, /* subsystem= */ NULL, ""));
+                ASSERT_OK_ZERO(device_is_subsystem_devtype(d, /* subsystem= */ NULL, /* devtype= */ NULL));
 
                 const char *s;
                 ASSERT_OK(sd_device_get_sysname(d, &s));
@@ -99,24 +99,24 @@ TEST(device_in_subsystem_devtype_sysname_startswith) {
                 ASSERT_OK_ZERO(device_in_subsystem_strv(dev, STRV_MAKE("block", "")));
                 ASSERT_OK_ZERO(device_in_subsystem_strv(dev, STRV_MAKE("")));
                 ASSERT_OK_ZERO(device_in_subsystem_strv(dev, STRV_MAKE(NULL)));
-                ASSERT_OK_ZERO(device_in_subsystem_strv(dev, NULL));
+                ASSERT_OK_ZERO(device_in_subsystem_strv(dev, /* subsystems= */ NULL));
 
                 ASSERT_OK_ZERO(device_is_devtype(dev, "hoge"));
                 ASSERT_OK_ZERO(device_is_devtype(dev, ""));
-                ASSERT_OK_POSITIVE(device_is_devtype(dev, NULL));
+                ASSERT_OK_POSITIVE(device_is_devtype(dev, /* devtype= */ NULL));
 
                 ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, "block", "hoge"));
                 ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, "block", ""));
-                ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, "block", NULL));
+                ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, "block", /* devtype= */ NULL));
                 ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, "net", "hoge"));
                 ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, "net", ""));
-                ASSERT_OK_POSITIVE(device_is_subsystem_devtype(dev, "net", NULL));
+                ASSERT_OK_POSITIVE(device_is_subsystem_devtype(dev, "net", /* devtype= */ NULL));
                 ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, "subsystem", "hoge"));
                 ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, "subsystem", ""));
-                ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, "subsystem", NULL));
-                ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, NULL, "hoge"));
-                ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, NULL, ""));
-                ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, NULL, NULL));
+                ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, "subsystem", /* devtype= */ NULL));
+                ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, /* subsystem= */ NULL, "hoge"));
+                ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, /* subsystem= */ NULL, ""));
+                ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, /* subsystem= */ NULL, /* devtype= */ NULL));
 
                 ASSERT_OK_POSITIVE(device_sysname_startswith(dev, "lo"));
                 ASSERT_OK_POSITIVE(device_sysname_startswith(dev, "l"));
@@ -144,21 +144,21 @@ TEST(device_in_subsystem_devtype_sysname_startswith) {
         ASSERT_OK_ZERO(device_in_subsystem_strv(dev, STRV_MAKE("block", "")));
         ASSERT_OK_ZERO(device_in_subsystem_strv(dev, STRV_MAKE("")));
         ASSERT_OK_ZERO(device_in_subsystem_strv(dev, STRV_MAKE(NULL)));
-        ASSERT_OK_ZERO(device_in_subsystem_strv(dev, NULL));
+        ASSERT_OK_ZERO(device_in_subsystem_strv(dev, /* subsystems= */ NULL));
 
         ASSERT_OK_ZERO(device_is_devtype(dev, "hoge"));
         ASSERT_OK_ZERO(device_is_devtype(dev, ""));
-        ASSERT_OK_POSITIVE(device_is_devtype(dev, NULL));
+        ASSERT_OK_POSITIVE(device_is_devtype(dev, /* devtype= */ NULL));
 
         ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, "block", "hoge"));
         ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, "block", ""));
-        ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, "block", NULL));
+        ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, "block", /* devtype= */ NULL));
         ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, "subsystem", "hoge"));
         ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, "subsystem", ""));
-        ASSERT_OK_POSITIVE(device_is_subsystem_devtype(dev, "subsystem", NULL));
-        ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, NULL, "hoge"));
-        ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, NULL, ""));
-        ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, NULL, NULL));
+        ASSERT_OK_POSITIVE(device_is_subsystem_devtype(dev, "subsystem", /* devtype= */ NULL));
+        ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, /* subsystem= */ NULL, "hoge"));
+        ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, /* subsystem= */ NULL, ""));
+        ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, /* subsystem= */ NULL, /* devtype= */ NULL));
 
         ASSERT_OK_POSITIVE(device_sysname_startswith(dev, "net"));
         ASSERT_OK_POSITIVE(device_sysname_startswith(dev, "n"));
@@ -185,21 +185,21 @@ TEST(device_in_subsystem_devtype_sysname_startswith) {
         ASSERT_OK_ZERO(device_in_subsystem_strv(dev, STRV_MAKE("block", "")));
         ASSERT_OK_ZERO(device_in_subsystem_strv(dev, STRV_MAKE("")));
         ASSERT_OK_POSITIVE(device_in_subsystem_strv(dev, STRV_MAKE(NULL)));
-        ASSERT_OK_POSITIVE(device_in_subsystem_strv(dev, NULL));
+        ASSERT_OK_POSITIVE(device_in_subsystem_strv(dev, /* subsystems= */ NULL));
 
         ASSERT_OK_ZERO(device_is_devtype(dev, "hoge"));
         ASSERT_OK_ZERO(device_is_devtype(dev, ""));
-        ASSERT_OK_POSITIVE(device_is_devtype(dev, NULL));
+        ASSERT_OK_POSITIVE(device_is_devtype(dev, /* devtype= */ NULL));
 
         ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, "block", "hoge"));
         ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, "block", ""));
-        ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, "block", NULL));
+        ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, "block", /* devtype= */ NULL));
         ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, "subsystem", "hoge"));
         ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, "subsystem", ""));
-        ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, "subsystem", NULL));
-        ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, NULL, "hoge"));
-        ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, NULL, ""));
-        ASSERT_OK_POSITIVE(device_is_subsystem_devtype(dev, NULL, NULL));
+        ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, "subsystem", /* devtype= */ NULL));
+        ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, /* subsystem= */ NULL, "hoge"));
+        ASSERT_OK_ZERO(device_is_subsystem_devtype(dev, /* subsystem= */ NULL, ""));
+        ASSERT_OK_POSITIVE(device_is_subsystem_devtype(dev, /* subsystem= */ NULL, /* devtype= */ NULL));
 
         ASSERT_OK_POSITIVE(device_sysname_startswith(dev, "class"));
         ASSERT_OK_POSITIVE(device_sysname_startswith(dev, "c"));

@@ -20,6 +20,13 @@
 #include "user-util.h"
 #include "varlink-io.systemd.VarlinkMonitor.h"
 #include "varlink-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-varlink-monitord\0",
+        "Monitor Varlink connections with BPF probes.",
+        .option_namespace = "common",
+);
 
 static struct monitor_varlink_bpf *monitor_varlink_bpf_free(struct monitor_varlink_bpf *obj) {
         if (obj)
@@ -165,7 +172,7 @@ static void on_disconnect(sd_varlink_server *server, sd_varlink *link, void *use
         c->monitor = bpf_monitor_free(c->monitor);
 
         if (c->event)
-                sd_event_exit(c->event, 0);
+                sd_event_exit(c->event, /* code= */ 0);
 }
 
 static bool filters_are_self_only(struct monitor_varlink_filter *filters, size_t n_filters, uid_t peer_uid) {
@@ -288,7 +295,7 @@ static int vl_method_acquire(
         assert(parameters);
 
         if (!(flags & SD_VARLINK_METHOD_MORE))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
 
         assert(!c->monitor);
 
@@ -364,8 +371,9 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        if (argc != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 0, /* ret_args= */ NULL);
+        if (r <= 0)
+                return r;
 
         LIBBPF_NOTE(recommended);
         r = dlopen_bpf(LOG_WARNING);

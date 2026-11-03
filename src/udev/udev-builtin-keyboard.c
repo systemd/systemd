@@ -29,7 +29,7 @@ static int install_force_release(sd_device *dev, const unsigned *release, unsign
         assert(dev);
         assert(release);
 
-        r = sd_device_get_parent_with_subsystem_devtype(dev, "serio", NULL, &atkbd);
+        r = sd_device_get_parent_with_subsystem_devtype(dev, "serio", /* devtype= */ NULL, &atkbd);
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to get serio parent: %m");
 
@@ -142,7 +142,7 @@ static int set_trackpoint_sensitivity(sd_device *dev, const char *value) {
         assert(value);
 
         /* The sensitivity sysfs attr belongs to the serio parent device */
-        r = sd_device_get_parent_with_subsystem_devtype(dev, "serio", NULL, &pdev);
+        r = sd_device_get_parent_with_subsystem_devtype(dev, "serio", /* devtype= */ NULL, &pdev);
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to get serio parent: %m");
 
@@ -202,9 +202,9 @@ static int builtin_keyboard(UdevEvent *event, int argc, char *argv[]) {
                         }
 
                         if (fd < 0) {
-                                fd = sd_device_open(dev, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+                                fd = device_open(dev, O_RDWR|O_NONBLOCK|O_NOCTTY);
                                 if (fd < 0) {
-                                        bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(fd);
+                                        bool ignore = ERRNO_IS_NEG_DEVICE_ABSENT_OR_EMPTY(fd);
                                         log_device_full_errno(dev, ignore ? LOG_DEBUG : LOG_WARNING, fd,
                                                               "Failed to open device '%s'%s: %m",
                                                               node, ignore ? ", ignoring" : "");
@@ -224,9 +224,9 @@ static int builtin_keyboard(UdevEvent *event, int argc, char *argv[]) {
                         }
 
                         if (fd < 0) {
-                                fd = sd_device_open(dev, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+                                fd = device_open(dev, O_RDWR|O_NONBLOCK|O_NOCTTY);
                                 if (fd < 0) {
-                                        bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(fd);
+                                        bool ignore = ERRNO_IS_NEG_DEVICE_ABSENT_OR_EMPTY(fd);
                                         log_device_full_errno(dev, ignore ? LOG_DEBUG : LOG_WARNING, fd,
                                                               "Failed to open device '%s'%s: %m",
                                                               node, ignore ? ", ignoring" : "");

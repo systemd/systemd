@@ -43,7 +43,7 @@ int manager_get_dump_jobs_string(Manager *m, char **patterns, const char *prefix
 
         manager_dump_jobs(m, f, patterns, prefix);
 
-        return memstream_finalize(&ms, ret, NULL);
+        return memstream_finalize(&ms, ret, /* ret_size= */ NULL);
 }
 
 void manager_dump_units(Manager *m, FILE *f, char **patterns, const char *prefix) {
@@ -112,9 +112,9 @@ int manager_get_dump_string(Manager *m, char **patterns, char **ret) {
         if (!f)
                 return -errno;
 
-        manager_dump(m, f, patterns, NULL);
+        manager_dump(m, f, patterns, /* prefix= */ NULL);
 
-        return memstream_finalize(&ms, ret, NULL);
+        return memstream_finalize(&ms, ret, /* ret_size= */ NULL);
 }
 
 void manager_test_summary(Manager *m) {

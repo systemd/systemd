@@ -223,11 +223,11 @@ static int device_enumerator_add_match_sysname(sd_device_enumerator *enumerator,
 }
 
 _public_ int sd_device_enumerator_add_match_sysname(sd_device_enumerator *enumerator, const char *sysname) {
-        return device_enumerator_add_match_sysname(enumerator, sysname, true);
+        return device_enumerator_add_match_sysname(enumerator, sysname, /* match= */ true);
 }
 
 _public_ int sd_device_enumerator_add_nomatch_sysname(sd_device_enumerator *enumerator, const char *sysname) {
-        return device_enumerator_add_match_sysname(enumerator, sysname, false);
+        return device_enumerator_add_match_sysname(enumerator, sysname, /* match= */ false);
 }
 
 _public_ int sd_device_enumerator_add_match_tag(sd_device_enumerator *enumerator, const char *tag) {
@@ -573,10 +573,10 @@ static int match_initialized(sd_device_enumerator *enumerator, sd_device *device
                 if (r > 0)
                         return true;
 
-                if (sd_device_get_devnum(device, NULL) >= 0)
+                if (sd_device_get_devnum(device, /* ret= */ NULL) >= 0)
                         return false;
 
-                if (sd_device_get_ifindex(device, NULL) >= 0)
+                if (sd_device_get_ifindex(device, /* ret= */ NULL) >= 0)
                         return false;
 
                 return true;
@@ -629,7 +629,7 @@ static int test_matches(
         }
 
         if (FLAGS_SET(flags, MATCH_PARENT) &&
-            !device_match_parent(device, enumerator->match_parent, NULL))
+            !device_match_parent(device, enumerator->match_parent, /* nomatch_parent= */ NULL))
                 return false;
 
         if (FLAGS_SET(flags, MATCH_TAG) &&
@@ -975,11 +975,11 @@ static int enumerator_scan_devices_children(sd_device_enumerator *enumerator) {
 static int enumerator_scan_devices_all(sd_device_enumerator *enumerator) {
         int k, r = 0;
 
-        k = enumerator_scan_dir(enumerator, "bus", "devices", NULL);
+        k = enumerator_scan_dir(enumerator, "bus", "devices", /* subsystem= */ NULL);
         if (k < 0)
                 r = log_debug_errno(k, "sd-device-enumerator: Failed to scan /sys/bus: %m");
 
-        k = enumerator_scan_dir(enumerator, "class", NULL, NULL);
+        k = enumerator_scan_dir(enumerator, "class", /* subdir= */ NULL, /* subsystem= */ NULL);
         if (k < 0)
                 r = log_debug_errno(k, "sd-device-enumerator: Failed to scan /sys/class: %m");
 
@@ -1059,14 +1059,14 @@ int device_enumerator_scan_subsystems(sd_device_enumerator *enumerator) {
 
         /* modules */
         if (match_subsystem(enumerator, "module")) {
-                k = enumerator_scan_dir_and_add_devices(enumerator, "module", NULL, NULL);
+                k = enumerator_scan_dir_and_add_devices(enumerator, "module", /* subdir1= */ NULL, /* subdir2= */ NULL);
                 if (k < 0)
                         r = log_debug_errno(k, "sd-device-enumerator: Failed to scan modules: %m");
         }
 
         /* subsystems (only buses support coldplug) */
         if (match_subsystem(enumerator, "subsystem")) {
-                k = enumerator_scan_dir_and_add_devices(enumerator, "bus", NULL, NULL);
+                k = enumerator_scan_dir_and_add_devices(enumerator, "bus", /* subdir1= */ NULL, /* subdir2= */ NULL);
                 if (k < 0)
                         r = log_debug_errno(k, "sd-device-enumerator: Failed to scan subsystems: %m");
         }
@@ -1134,12 +1134,12 @@ int device_enumerator_scan_devices_and_subsystems(sd_device_enumerator *enumerat
                 r = enumerator_scan_devices_all(enumerator);
 
                 if (match_subsystem(enumerator, "module")) {
-                        k = enumerator_scan_dir_and_add_devices(enumerator, "module", NULL, NULL);
+                        k = enumerator_scan_dir_and_add_devices(enumerator, "module", /* subdir1= */ NULL, /* subdir2= */ NULL);
                         if (k < 0)
                                 r = log_debug_errno(k, "sd-device-enumerator: Failed to scan modules: %m");
                 }
                 if (match_subsystem(enumerator, "subsystem")) {
-                        k = enumerator_scan_dir_and_add_devices(enumerator, "bus", NULL, NULL);
+                        k = enumerator_scan_dir_and_add_devices(enumerator, "bus", /* subdir1= */ NULL, /* subdir2= */ NULL);
                         if (k < 0)
                                 r = log_debug_errno(k, "sd-device-enumerator: Failed to scan subsystems: %m");
                 }

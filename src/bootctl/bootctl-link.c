@@ -284,9 +284,9 @@ static int link_context_from_cmdline_common(LinkContext *b) {
                 return log_oom();
 
         if (arg_root) {
-                b->root_fd = open(arg_root, O_CLOEXEC|O_DIRECTORY|O_PATH);
+                b->root_fd = xopenat(AT_FDCWD, arg_root, O_DIRECTORY|O_PATH);
                 if (b->root_fd < 0)
-                        return log_error_errno(errno, "Failed to open root directory '%s': %m", arg_root);
+                        return log_error_errno(b->root_fd, "Failed to open root directory '%s': %m", arg_root);
 
                 if (strdup_to(&b->root, arg_root) < 0)
                         return log_oom();
@@ -310,7 +310,7 @@ static int link_context_add_cmdline_extras(LinkContext *b) {
                 if (r == O_DIRECTORY)
                         return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Extra file path '%s' does not refer to regular file.", *x);
 
-                _cleanup_close_ int fd = xopenat_full(AT_FDCWD, *x, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, XO_REGULAR, /* mode= */ MODE_INVALID);
+                _cleanup_close_ int fd = xopenat_full(AT_FDCWD, *x, O_RDONLY|O_NONBLOCK|O_NOCTTY, XO_REGULAR, /* mode= */ MODE_INVALID);
                 if (fd < 0)
                         return log_error_errno(fd, "Failed to open '%s': %m", *x);
 
@@ -360,7 +360,7 @@ static int link_context_from_cmdline(LinkContext *ret, const char *kernel) {
                 return log_error_errno(r, "Failed to extract filename from kernel path '%s': %m", kernel);
         if (!efi_loader_entry_resource_filename_valid(b.kernel_filename))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Kernel '%s' is not suitable for reference in a boot menu entry.", kernel);
-        b.kernel_fd = xopenat_full(AT_FDCWD, kernel, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, XO_REGULAR, /* mode= */ MODE_INVALID);
+        b.kernel_fd = xopenat_full(AT_FDCWD, kernel, O_RDONLY|O_NONBLOCK|O_NOCTTY, XO_REGULAR, /* mode= */ MODE_INVALID);
         if (b.kernel_fd < 0)
                 return log_error_errno(b.kernel_fd, "Failed to open kernel path '%s': %m", kernel);
 
@@ -446,7 +446,7 @@ static int begin_copy_file(
         }
 
         _cleanup_free_ char *t = NULL;
-        _cleanup_close_ int write_fd = open_tmpfile_linkable_at(target_dir_fd, filename, O_WRONLY|O_CLOEXEC, &t);
+        _cleanup_close_ int write_fd = open_tmpfile_linkable_at(target_dir_fd, filename, O_WRONLY, &t);
         if (write_fd < 0)
                 return log_error_errno(write_fd, "Failed to create '%s': %m", filename);
 
@@ -545,7 +545,7 @@ static int begin_write_entry_file(
         log_info("Writing new boot menu entry '%s/loader/entries/%s' for profile %u.", c->dollar_boot_path, filename, profile_nr);
 
         _cleanup_free_ char *t = NULL;
-        _cleanup_close_ int write_fd = open_tmpfile_linkable_at(c->loader_entries_dir_fd, filename, O_WRONLY|O_CLOEXEC, &t);
+        _cleanup_close_ int write_fd = open_tmpfile_linkable_at(c->loader_entries_dir_fd, filename, O_WRONLY, &t);
         if (write_fd < 0)
                 return log_error_errno(write_fd, "Failed to create '%s': %m", filename);
 
@@ -650,7 +650,7 @@ static int link_context_pick_entry_commit(LinkContext *c) {
         if (c->entry_commit != 0)
                 return 0;
 
-        _cleanup_close_ int opened_fd = fd_reopen(c->loader_entries_dir_fd, O_DIRECTORY|O_CLOEXEC);
+        _cleanup_close_ int opened_fd = fd_reopen(c->loader_entries_dir_fd, O_DIRECTORY);
         if (opened_fd < 0)
                 return log_error_errno(opened_fd, "Failed to reopen loader entries dir: %m");
 
@@ -711,7 +711,7 @@ static int clean_temporary_files(int fd) {
          * materialized before they are fully written. However, vfat currently does not support O_TMPFILE,
          * hence we need to clean things up manually. */
 
-        _cleanup_close_ int dfd = fd_reopen(fd, O_CLOEXEC|O_DIRECTORY);
+        _cleanup_close_ int dfd = fd_reopen(fd, O_DIRECTORY);
         if (dfd < 0)
                 return log_error_errno(dfd, "Failed to open directory: %m");
 
@@ -1093,7 +1093,7 @@ static int link_context_add_extra(LinkContext *c, int dir_fd, const char *path, 
         if (!efi_loader_entry_resource_filename_valid(filename))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Extra file '%s' is not suitable for reference in a boot menu entry, refusing.", filename);
 
-        _cleanup_close_ int fd = xopenat_full(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, XO_REGULAR, /* mode= */ MODE_INVALID);
+        _cleanup_close_ int fd = xopenat_full(dir_fd, path, O_RDONLY|O_NONBLOCK|O_NOCTTY, XO_REGULAR, /* mode= */ MODE_INVALID);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open extra file '%s': %m", path);
 
@@ -1128,7 +1128,7 @@ static int link_context_add_extras(LinkContext *c, int uki_dir_fd, Set **seen) {
                         uki_dir_fd,
                         "extras.d",
                         /* chase_flags= */ 0,
-                        O_DIRECTORY|O_CLOEXEC,
+                        O_DIRECTORY,
                         /* ret_path= */ NULL);
         if (extras_dir_fd == -ENOENT)
                 return 0;
@@ -1194,6 +1194,7 @@ static int link_context_add_extras(LinkContext *c, int uki_dir_fd, Set **seen) {
                                               de->d_name,
                                               &filter,
                                               /* n_filters= */ 1,
+                                              /* match_root= */ c->root,
                                               /* flags= */ 0,
                                               &pick);
                                 if (r == -ENOENT || r == 0) {
@@ -1238,7 +1239,7 @@ static int link_context_find_kernel(LinkContext *c, int uki_dir_fd) {
         _cleanup_free_ char *filename = NULL;
         _cleanup_close_ int kernel_fd = xopenat_full(
                         uki_dir_fd, "kernel.efi",
-                        O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_NOFOLLOW,
+                        O_RDONLY|O_NONBLOCK|O_NOCTTY|O_NOFOLLOW,
                         XO_REGULAR,
                         /* mode= */ MODE_INVALID);
         if (kernel_fd == -ENOENT) {
@@ -1249,6 +1250,7 @@ static int link_context_find_kernel(LinkContext *c, int uki_dir_fd) {
                               "kernel.efi.v",
                               &pick_filter_uki,
                               /* n_filters= */ 1,
+                              /* match_root= */ c->root,
                               /* flags= */ 0,
                               &pick);
                 if (r == -ENOENT || r == 0)
@@ -1260,7 +1262,7 @@ static int link_context_find_kernel(LinkContext *c, int uki_dir_fd) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to extract filename from '%s': %m", pick.path);
 
-                kernel_fd = fd_reopen(pick.fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+                kernel_fd = fd_reopen(pick.fd, O_RDONLY|O_NONBLOCK|O_NOCTTY);
                 if (kernel_fd < 0)
                         return log_error_errno(kernel_fd, "Failed to open UKI '%s': %m", pick.path);
 
@@ -1305,7 +1307,7 @@ static int link_context_discover_resources(LinkContext *c) {
                                 /* dir_fd= */ c->root_fd,
                                 *dir,
                                 CHASE_MUST_BE_DIRECTORY,
-                                O_RDONLY|O_DIRECTORY|O_CLOEXEC,
+                                O_RDONLY|O_DIRECTORY,
                                 /* ret_path= */ NULL);
                 if (uki_dir_fd == -ENOENT)
                         continue;
@@ -1493,9 +1495,9 @@ static int vl_link_prepare(sd_varlink *link, LinkParameters *p) {
                                 p->context.root = mfree(p->context.root);
                 }
         } else if (p->context.root) {
-                p->context.root_fd = open(p->context.root, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                p->context.root_fd = xopenat(AT_FDCWD, p->context.root, O_RDONLY|O_DIRECTORY);
                 if (p->context.root_fd < 0)
-                        return log_debug_errno(errno, "Failed to open '%s': %m", p->context.root);
+                        return log_debug_errno(p->context.root_fd, "Failed to open '%s': %m", p->context.root);
         } else
                 p->context.root_fd = XAT_FDROOT;
 
@@ -1543,7 +1545,7 @@ static int vl_link_finish(sd_varlink *link, LinkParameters *p, bool with_ids) {
                                 &p->context.dollar_boot_path,
                                 &p->context.dollar_boot_fd);
                 if (r == -ENOKEY)
-                        return sd_varlink_error(link, "io.systemd.BootControl.NoDollarBootFound", NULL);
+                        return sd_varlink_error(link, "io.systemd.BootControl.NoDollarBootFound", /* parameters= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -1553,14 +1555,14 @@ static int vl_link_finish(sd_varlink *link, LinkParameters *p, bool with_ids) {
 
         r = run_link(&p->context);
         if (r == -EUNATCH) /* no boot entry token is set */
-                return sd_varlink_error(link, "io.systemd.BootControl.BootEntryTokenUnavailable", NULL);
+                return sd_varlink_error(link, "io.systemd.BootControl.BootEntryTokenUnavailable", /* parameters= */ NULL);
         if (r < 0)
                 return r;
 
         if (with_ids)
                 return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRV("ids", p->context.linked_ids));
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 int vl_method_link(
@@ -1624,11 +1626,11 @@ int vl_method_link(
         KernelImageType kit = _KERNEL_IMAGE_TYPE_INVALID;
         r = inspect_kernel(p.context.kernel_fd, /* filename= */ NULL, &kit);
         if (r == -EBADMSG)
-                return sd_varlink_error(link, "io.systemd.BootControl.InvalidKernelImage", NULL);
+                return sd_varlink_error(link, "io.systemd.BootControl.InvalidKernelImage", /* parameters= */ NULL);
         if (r < 0)
                 return r;
         if (kit != KERNEL_IMAGE_TYPE_UKI)
-                return sd_varlink_error(link, "io.systemd.BootControl.InvalidKernelImage", NULL);
+                return sd_varlink_error(link, "io.systemd.BootControl.InvalidKernelImage", /* parameters= */ NULL);
 
         return vl_link_finish(link, &p, /* with_ids= */ true);
 }
@@ -1720,7 +1722,7 @@ int vl_method_on_completed_update(
         if (r < 0)
                 return r;
         if (r == 0) /* Nothing staged for linking. */
-                return sd_varlink_reply(link, NULL);
+                return sd_varlink_reply(link, /* parameters= */ NULL);
 
         return vl_link_finish(link, &p, /* with_ids= */ false);
 }

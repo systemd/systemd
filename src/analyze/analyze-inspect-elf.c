@@ -23,7 +23,7 @@ static int analyze_elf(char **filenames, sd_json_format_flags_t json_flags) {
                 _cleanup_close_ int fd = -EBADF;
                 bool coredump = false;
 
-                fd = chase_and_open(*filename, arg_root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC, &abspath);
+                fd = chase_and_open(*filename, arg_root, CHASE_PREFIX_ROOT, O_RDONLY, &abspath);
                 if (fd < 0)
                         return log_error_errno(fd, "Could not open \"%s\": %m", *filename);
 
@@ -116,7 +116,7 @@ static int analyze_elf(char **filenames, sd_json_format_flags_t json_flags) {
                 }
 
                 if (sd_json_format_enabled(json_flags))
-                        sd_json_variant_dump(package_metadata, json_flags, stdout, NULL);
+                        sd_json_variant_dump(package_metadata, json_flags, stdout, /* prefix= */ NULL);
                 else {
                         r = table_print_or_warn(t);
                         if (r < 0)

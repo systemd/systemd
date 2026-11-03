@@ -118,7 +118,7 @@ int specifier_real_path(char specifier, const void *data, const char *root, cons
         if (!path)
                 return -ENOENT;
 
-        return chase(path, root, 0, ret, NULL);
+        return chase(path, root, /* flags= */ 0, ret, /* ret_fd= */ NULL);
 }
 
 int specifier_real_directory(char specifier, const void *data, const char *root, const void *userdata, char **ret) {

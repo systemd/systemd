@@ -27,7 +27,7 @@ static int dump_malloc_info(sd_bus *bus, char *service) {
                                "GetMallocInfo",
                                &error,
                                &reply,
-                               NULL);
+                               /* types= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to call GetMallocInfo on '%s': %s", service, bus_error_message(&error, r));
 
@@ -47,7 +47,7 @@ int verb_malloc(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 services = args;
         }
 
-        r = acquire_bus(&bus, NULL);
+        r = acquire_bus(&bus, /* use_full_bus= */ NULL);
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
 

@@ -6,15 +6,16 @@
 #include "clock-util.h"
 #include "constants.h"
 #include "errno-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "log.h"
 #include "os-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "sysctl-util.h"
 #include "taint.h"
 #include "uid-range.h"
+#include "user-util.h"
 
 static int short_uid_gid_range(UIDRangeUsernsMode mode) {
         _cleanup_(uid_range_freep) UIDRange *p = NULL;
@@ -29,7 +30,7 @@ static int short_uid_gid_range(UIDRangeUsernsMode mode) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to load uid_map or gid_map: %m");
 
-        return !uid_range_covers(p, 0, 65535);
+        return !uid_range_covers(p, /* start= */ 0, 65535);
 }
 
 char** taint_strv(void) {
@@ -57,10 +58,10 @@ char** taint_strv(void) {
         if (r != -ENOENT && (r < 0 || !PATH_IN_SET(var_run, "../run", "/run")))
                 stage[n++] = "var-run-bad";
 
-        if (clock_is_localtime(NULL) > 0)
+        if (clock_is_localtime(/* adjtime_path= */ NULL) > 0)
                 stage[n++] = "local-hwclock";
 
-        if (os_release_support_ended(NULL, /* quiet= */ true, NULL) > 0)
+        if (os_release_support_ended(/* support_end= */ NULL, /* quiet= */ true, /* ret_eol= */ NULL) > 0)
                 stage[n++] = "support-ended";
 
         struct utsname uts;
@@ -68,12 +69,15 @@ char** taint_strv(void) {
         if (strverscmp_improved(uts.release, KERNEL_BASELINE_VERSION) < 0)
                 stage[n++] = "old-kernel";
 
-        _cleanup_free_ char *overflowuid = NULL, *overflowgid = NULL;
-        if (read_one_line_file("/proc/sys/kernel/overflowuid", &overflowuid) >= 0 &&
-            !streq(overflowuid, "65534"))
+        /* Taint if the value is not the expected one, or cannot be parsed (-EINVAL/-ERANGE), but not if
+         * the sysctl cannot be read at all. */
+        uid_t overflowuid;
+        r = sysctl_read_uint32("kernel/overflowuid", &overflowuid);
+        if (IN_SET(r, -EINVAL, -ERANGE) || (r >= 0 && overflowuid != UID_NOBODY))
                 stage[n++] = "overflowuid-not-65534";
-        if (read_one_line_file("/proc/sys/kernel/overflowgid", &overflowgid) >= 0 &&
-            !streq(overflowgid, "65534"))
+        gid_t overflowgid;
+        r = sysctl_read_uint32("kernel/overflowgid", &overflowgid);
+        if (IN_SET(r, -EINVAL, -ERANGE) || (r >= 0 && overflowgid != GID_NOBODY))
                 stage[n++] = "overflowgid-not-65534";
 
         if (short_uid_gid_range(UID_RANGE_USERNS_INSIDE) > 0)

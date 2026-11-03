@@ -11,6 +11,13 @@ CHANGES WITH 263 in spe:
 
         Feature Removals and Incompatible Changes:
 
+        * The io.systemd.Unit.SetProperties() Varlink method now accepts a
+          dedicated UnitProperties input type containing only Markers. Clients
+          using generated bindings may need updates. The Markers JSON
+          representation is unchanged. Calls with runtime=false, previously
+          accepted without persistence, are now rejected; callers should pass
+          runtime=true.
+
         * ConfigurationDirectory= passed as a transient-unit property over
           D-Bus now uses the same directory:symlink:flags parser as the other
           *Directory= settings, allowing the read-only flag with an empty
@@ -39,6 +46,51 @@ CHANGES WITH 263 in spe:
           of source:destination. Unknown flags are shown numerically so newer
           manager properties can still be displayed.
 
+        * The Varlink method io.systemd.Hostname.SetTags has been extedended to
+          allow globs and now applies the 'remove' list before the 'add' list.
+          Previously, both lists were only allowed to contain literal tag
+          specifications. That meant that there was little reason to include
+          the same item in both lists, and the item would always be removed
+          from the result. Now, if the same literal tag is present in both
+          lists, it'll be present in the result.
+
+          The change also applies to 'hostnamectl tags +… -…', which uses this
+          API internally.
+
+          The goal of the change in ordering is to allow the 'remove' list to
+          clear all tags from a specific namespace, before new values are
+          added. For example, to replace any assignments of 'org.ns.item='
+          with 'value':
+
+            hostnamectl tags -- '-org.ns.item=*' '+org.ns.item=value'
+
+        * For unprivileged clients, systemd-mountfsd shares Verity devices only
+          between mounts of the same backing image file.
+
+        * dm-verity signatures of disk images are now only required if the
+          image policy allows "signed" but not "verity" for the partition,
+          such as RootImagePolicy=root=signed or the built-in policies for
+          untrusted images, for example in systemd-mountfsd. With the other
+          default policies, an image whose signature is missing, malformed or
+          can't be validated is set up with Verity alone. A signature is
+          valid if the kernel or a certificate in /etc/verity.d/ validates
+          it.
+
+        * systemd-portabled now asks polkit before it inspects extension
+          images that are specified by path.
+
+        * systemd-veritysetup no longer fails if root-hash-signature=auto
+          finds no signature. It gained a root-hash-signature-required=
+          option, which systemd-gpt-auto-generator enables if
+          systemd.image_policy= requires a signature. If the kernel can't
+          validate the root hash signature, systemd-veritysetup now
+          validates it in userspace with the certificates in
+          /etc/verity.d/, like systemd-dissect does.
+
+        * systemd-mountfsd now asks polkit if the image policy denies
+          setting up Verity, or if the client's image policy doesn't
+          overlap with its own.
+
         * systemd-networkd and networkctl have been merged into a single
           multi-call binary, with the former becoming a symlink to the latter.
           This should generally be invisible to users, but some packaging and
@@ -54,6 +106,13 @@ CHANGES WITH 263 in spe:
           client, the previous behaviour may be restored with the new
           SendHostnameUpdates=no setting in the [DHCPv4] and [DHCPv6]
           sections.
+
+        * systemd-networkd now generates an IPv6 link-local address on
+          WireGuard interfaces by default, like on other interfaces.
+          Previously, LinkLocalAddressing= was ignored for WireGuard
+          interfaces, and an IPv6 link-local address could only be assigned
+          with Address=. The previous behaviour may be restored with
+          LinkLocalAddressing=no.
 
         * The "appStream" key of
           org.freedesktop.sysupdate1.Target.DescribeFeature() is now an array of
@@ -98,6 +157,52 @@ CHANGES WITH 263 in spe:
           systemd-sysupdate. The Credential= match in .network, .netdev, and
           .link files is unchanged.
 
+        * systemd may now optionally be built with support for programs
+          written in Rust, controlled by the new -Drust= meson option. This
+          adds rustc >= 1.85, bindgen >= 0.71.1 and meson >= 1.4.0 as
+          optional build dependencies.
+
+        * The ID_SMARTCARD_READER udev property for USB smartcard (CCID)
+          readers is now set through the udev hwdb instead of by a udev rule
+          that directly matches the USB interfaces. If a smartcard reader is
+          already used in the initrd, e.g. by systemd-cryptsetup to activate
+          encrypted host disks, the initrd must now include hwdb.bin.
+          Otherwise, the reader does not get the property and
+          systemd-cryptsetup may not find the device, so the activation may no
+          longer work.
+
+        Changes in the system and service manager:
+
+        * LockPersonality= no longer refuses querying the personality with
+          personality(0xffffffff).
+
+        * RestrictFileSystemAccess= now answers execveat() queries carrying
+          the AT_EXECVE_CHECK flag (Linux 6.14 or newer) with the verdict a
+          real execution of the file would get, so that script interpreters
+          honouring SECBIT_EXEC_RESTRICT_FILE can enforce the policy for the
+          scripts they run.
+
+        * A new SecureBits= setting in system.conf and user.conf sets secure
+          bits on the service manager itself, so that all processes inherit
+          them. With RestrictFileSystemAccess=, exec-restrict-file and its
+          locked variant ask interpreters that support the executability
+          check to enforce the policy for their scripts.
+
+        * RestrictFileSystemAccess= now refuses the READ_IMPLIES_EXEC
+          personality flag, which makes brk() hand out writable and
+          executable memory.
+
+        * StandardInput=file:, StandardOutput=file:/append:/truncate: and
+          StandardError=file:/append:/truncate: no longer create the specified
+          file through a dangling symlink. If the path is a symlink whose
+          target does not exist yet, the service now fails to start with an
+          ELOOP error, in line with the other file-creating code in systemd.
+
+        Changes in systemd-logind:
+
+        * systemd-inhibit --mode=delay now defaults to --what=sleep:shutdown,
+          since logind does not accept delay locks for any other operation.
+
         Changes in systemd-udevd:
 
         * systemd-udevd now uses fanotify rather than inotify to watch device
@@ -115,13 +220,31 @@ CHANGES WITH 263 in spe:
         * As mentioned above, systemd-networkd and networkctl have been merged
           into a single multi-call binary to reduce the installation footprint.
 
+        * As mentioned above, an IPv6 link-local address is now generated on
+          WireGuard interfaces by default. This is useful e.g. for running
+          routing protocols like Babel over the tunnel.
+
         * As mentioned above, the hostname sent by the DHCPv4 and DHCPv6
           clients now follows the system hostname. The new
           SendHostnameUpdates= setting in the [DHCPv4] and [DHCPv6] sections
           may be used to disable this.
 
         * "networkctl renew" now renews the DHCPv6 lease too, not only the
-          DHCPv4 lease.
+          DHCPv4 lease. When the DHCPv6 client runs in the information
+          request mode, the information, e.g. DNS servers, is requested
+          again.
+
+        * "networkctl status" now shows why a link is still in the
+          configuring state, e.g. that static routes are not configured yet.
+          The reason is also exposed in the new ConfiguringReasons field of
+          the interface description provided over Varlink.
+
+        * The [DHCPServerStaticLease] section gained new ClientIdentifier=,
+          IAID=, DUIDType=, and DUIDRawData= settings. With
+          ClientIdentifier=duid, a static address is assigned to a client
+          based on the IAID and DUID it sends, instead of its hardware
+          address. This is useful e.g. to tell apart hosts that share a
+          hardware address, like ipvlan interfaces in L2 mode.
 
         Changes in systemd-sysupdate:
 
@@ -151,6 +274,62 @@ CHANGES WITH 263 in spe:
           only, calls are not refused. Experimental items are shown with a
           "# [Experimental]" comment line in the interface description, which
           sd_varlink_idl_parse() turns back into the flag.
+
+        Changes in systemd-keyring-setup:
+
+        * A new service systemd-keyring-setup.service has been added that
+          enrolls X.509 certificates into the kernel's .dm-verity, .fs-verity
+          and .bpf keyrings early during boot, and seals the keyrings
+          afterwards. The certificates are read from the File Hierarchy for
+          the Verification of OS Artifacts (VOA), i.e. from /etc/voa/,
+          /run/voa/, /usr/local/share/voa/ and /usr/share/voa/, or may be
+          passed in as keyring-setup.* system credentials. This allows the
+          kernel to verify signed dm-verity volumes, fs-verity files and BPF
+          programs with certificates provided by the OS vendor or the local
+          administrator, without rebuilding the kernel or enrolling keys into
+          the firmware. Note that the kernel seals the .dm-verity and .bpf
+          keyrings while they are still empty, unless
+          dm_verity.keyring_unsealed=1 or bpf.keyring_unsealed=1 is specified
+          on the kernel command line, respectively. The service is enabled
+          statically whenever it is built, and is considered experimental for
+          now. See
+          systemd-keyring-setup.service(8) and
+          https://uapi-group.org/specifications/specs/file_hierarchy_for_the_verification_of_os_artifacts/
+          for details.
+
+          systemd-keyring-setup is the first systemd component written in
+          Rust, and is hence only built if Rust support is enabled with the
+          new -Drust= build option.
+
+        Changes in systemd-cryptsetup:
+
+        * systemd-cryptsetup gained support for a new friendly-name= option in
+          /etc/crypttab. It can be used to override the default device
+          description shown when the user is asked for the passphrase or PKCS#11
+          token PIN to unlock a device.
+
+        Changes in varlinkctl:
+
+        * varlinkctl serve gained a --polkit-action= switch which verifies
+          via polkit that the client is authorized for the specified action
+          before the connection is upgraded and the command is executed.
+
+        * New optional varlink-sftp-root.socket and varlink-sftp-root-ro.socket
+          units expose the local file system via SFTP over an upgraded Varlink
+          connection, read-write and read-only respectively. Access is
+          controlled via the polkit actions io.systemd.sftp.root and
+          io.systemd.sftp.root-read-only. They are built only with
+          -Dvarlink-sftp=true, and are disabled by default. Note that both
+          run as root so allowing access is equivalent to r/w root access or
+          r/o /etc/shadow access.
+
+        Other changes:
+
+        * systemd-random-seed, "importctl export-tar/export-raw",
+          "userdbctl load-credentials" and the --direct mode of systemd-import
+          and systemd-pull no longer create their output files through a
+          dangling symlink and fail with an ELOOP error instead, in line with
+          the other file-creating code in systemd.
 
 CHANGES WITH 262:
 

@@ -29,7 +29,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(memstream_done) MemStream m = {};
         FILE *f;
 
-        if (outside_size_range(size, 0, 2048))
+        if (outside_size_range(size, /* lower= */ 0, 2048))
                 return 0;
 
         fuzz_setup_logging();
@@ -37,15 +37,15 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(sd_event_new(&e) == 0);
         assert_se(sd_lldp_rx_new(&lldp_rx) >= 0);
         assert_se(sd_lldp_rx_set_ifindex(lldp_rx, 42) >= 0);
-        assert_se(sd_lldp_rx_attach_event(lldp_rx, e, 0) >= 0);
+        assert_se(sd_lldp_rx_attach_event(lldp_rx, e, /* priority= */ 0) >= 0);
         assert_se(sd_lldp_rx_start(lldp_rx) >= 0);
 
         assert_se(write(test_fd[1], data, size) == (ssize_t) size);
-        assert_se(sd_event_run(e, 0) >= 0);
+        assert_se(sd_event_run(e, /* timeout= */ 0) >= 0);
 
         assert_se(lldp_rx_build_neighbors_json(lldp_rx, &v) >= 0);
         assert_se(f = memstream_init(&m));
-        (void) sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_COLOR, f, NULL);
+        (void) sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_COLOR, f, /* prefix= */ NULL);
 
         assert_se(sd_lldp_rx_stop(lldp_rx) >= 0);
         assert_se(sd_lldp_rx_detach_event(lldp_rx) >= 0);

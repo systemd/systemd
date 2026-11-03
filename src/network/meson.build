@@ -186,7 +186,6 @@ network_fuzz_template = fuzz_template + {
 executables += [
         executable_template + {
                 'name' : 'networkctl',
-                'public' : true,
                 'symlinks' : [{
                         'name' : 'systemd-networkd',
                         'install_dir' : libexecdir,
@@ -211,7 +210,6 @@ executables += [
         },
         libexec_template + {
                 'name' : 'systemd-networkd-wait-online',
-                'public' : true,
                 'conditions' : ['ENABLE_NETWORKD'],
                 'sources' : systemd_networkd_wait_online_sources,
                 'install' : get_option('link-networkd-shared') ? 'yes' : 'static',

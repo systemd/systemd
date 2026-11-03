@@ -62,7 +62,7 @@ static int run(int argc, char *argv[]) {
                 uid_t uid;
                 gid_t gid;
 
-                r = get_user_creds("systemd-resolve", /* flags= */ 0, NULL, &uid, &gid, NULL, NULL);
+                r = get_user_creds("systemd-resolve", /* flags= */ 0, /* ret_username= */ NULL, &uid, &gid, /* ret_home= */ NULL, /* ret_shell= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Cannot resolve user name %s: %m", "systemd-resolve");
 

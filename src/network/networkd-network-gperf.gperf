@@ -318,6 +318,7 @@ DHCPv6.UseDomains,                               config_parse_use_domains,      
 DHCPv6.UseNTP,                                   config_parse_tristate,                          0,                                      offsetof(Network, dhcp6_use_ntp)
 DHCPv6.UseSIP,                                   config_parse_bool,                              0,                                      offsetof(Network, dhcp6_use_sip)
 DHCPv6.UseCaptivePortal,                         config_parse_bool,                              0,                                      offsetof(Network, dhcp6_use_captive_portal)
+DHCPv6.UseTimezone,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp6_use_timezone)
 DHCPv6.MUDURL,                                   config_parse_mud_url,                           0,                                      offsetof(Network, dhcp6_mudurl)
 DHCPv6.SendHostname,                             config_parse_dhcp_send_hostname,                AF_INET6,                               0
 DHCPv6.SendHostnameUpdates,                      config_parse_bool,                              0,                                      offsetof(Network, dhcp6_send_hostname_updates)
@@ -410,6 +411,10 @@ DHCPServer.PersistLeases,                        config_parse_dhcp_server_persis
 DHCPServer.LocalLeaseDomain,                     config_parse_dns_name,                          0,                                      offsetof(Network, dhcp_server_local_lease_domain)
 DHCPServerStaticLease.Address,                   config_parse_dhcp_static_lease_address,         0,                                      0
 DHCPServerStaticLease.MACAddress,                config_parse_dhcp_static_lease_hwaddr,          0,                                      0
+DHCPServerStaticLease.ClientIdentifier,          config_parse_dhcp_static_lease_section,         DHCP_STATIC_LEASE_CLIENT_IDENTIFIER,    0
+DHCPServerStaticLease.IAID,                      config_parse_dhcp_static_lease_section,         DHCP_STATIC_LEASE_IAID,                 0
+DHCPServerStaticLease.DUIDType,                  config_parse_dhcp_static_lease_section,         DHCP_STATIC_LEASE_DUID_TYPE,            0
+DHCPServerStaticLease.DUIDRawData,               config_parse_dhcp_static_lease_section,         DHCP_STATIC_LEASE_DUID_RAW_DATA,        0
 DHCPServerStaticLease.Hostname,                  config_parse_dhcp_static_lease_hostname,        0,                                      0
 Bridge.Cost,                                     config_parse_uint32,                            0,                                      offsetof(Network, cost)
 Bridge.UseBPDU,                                  config_parse_tristate,                          0,                                      offsetof(Network, use_bpdu)

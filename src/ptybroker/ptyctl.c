@@ -314,7 +314,7 @@ static int on_hangup_reply(
         sd_varlink_unref(link);
 
         if (set_isempty(context->connections))
-                (void) sd_event_exit(context->event, 0); /* Errors are propagated via context->error instead */
+                (void) sd_event_exit(context->event, /* code= */ 0); /* Errors are propagated via context->error instead */
 
         return 0;
 }

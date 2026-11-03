@@ -58,7 +58,7 @@ static int on_fanotify(sd_event_source *s, int fanotify_fd, uint32_t revents, vo
         }
 
         if (set_isempty(c->stats))
-                return sd_event_exit(sd_event_source_get_event(s), 0);
+                return sd_event_exit(sd_event_source_get_event(s), /* code= */ 0);
 
         return 0;
 }

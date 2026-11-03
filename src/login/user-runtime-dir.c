@@ -5,6 +5,7 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "devnum-util.h"
@@ -27,10 +28,17 @@
 #include "smack-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
-#include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
 #include "userdb.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-user-runtime-dir\0",
+        "Set up and tear down the runtime directory of a user.",
+        .man_pages = "user@.service(5)\0",
+        .option_namespace = "common",
+);
 
 static int acquire_runtime_dir_properties(uint64_t *ret_size, uint64_t *ret_inodes) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -81,7 +89,7 @@ static int user_mkdir_runtime_path(
         assert(uid_is_valid(uid));
         assert(gid_is_valid(gid));
 
-        r = mkdir_safe_label("/run/user", 0755, 0, 0, MKDIR_WARN_MODE);
+        r = mkdir_safe_label("/run/user", 0755, /* uid= */ 0, /* gid= */ 0, MKDIR_WARN_MODE);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /run/user: %m");
 
@@ -125,7 +133,7 @@ static int user_mkdir_runtime_path(
 
                 destroy = mfree(destroy); /* deactivate auto-destroy */
 
-                r = label_fix(runtime_path, 0);
+                r = label_fix(runtime_path, /* flags= */ 0);
                 if (r < 0)
                         log_warning_errno(r, "Failed to fix label of \"%s\", ignoring: %m", runtime_path);
         }
@@ -159,7 +167,7 @@ static int user_remove_runtime_path(const char *runtime_path) {
         assert(runtime_path);
         assert(path_is_absolute(runtime_path));
 
-        r = rm_rf(runtime_path, 0);
+        r = rm_rf(runtime_path, /* flags= */ 0);
         if (r < 0)
                 log_debug_errno(r, "Failed to remove runtime directory %s (before unmounting), ignoring: %m", runtime_path);
 
@@ -184,7 +192,7 @@ static int do_umount(const char *user) {
         /* The user may be already removed. So, first try to parse the string by parse_uid(),
          * and if it fails, fall back to get_user_creds(). */
         if (parse_uid(user, &uid) < 0) {
-                r = get_user_creds(user, /* flags= */ 0, NULL, &uid, NULL, NULL, NULL);
+                r = get_user_creds(user, /* flags= */ 0, /* ret_username= */ NULL, &uid, /* ret_gid= */ NULL, /* ret_home= */ NULL, /* ret_shell= */ NULL);
                 if (r < 0)
                         return log_error_errno(r,
                                                r == -ESRCH ? "No such user \"%s\"" :
@@ -216,9 +224,9 @@ static int apply_tmpfs_quota(
                         continue;
                 }
 
-                _cleanup_close_ int fd = open(*p, O_DIRECTORY|O_CLOEXEC);
+                _cleanup_close_ int fd = xopenat(AT_FDCWD, *p, O_DIRECTORY);
                 if (fd < 0) {
-                        log_warning_errno(errno, "Failed to open '%s' in order to set quota, ignoring: %m", *p);
+                        log_warning_errno(fd, "Failed to open '%s' in order to set quota, ignoring: %m", *p);
                         continue;
                 }
 
@@ -325,6 +333,30 @@ static int do_tmpfs_quota(UserRecord *ur) {
         return 0;
 }
 
+VERB(verb_start, "start", "USER\0", 2, 2, 0, "Set up the runtime directory of the user");
+static int verb_start(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        const char *user = argv[1];
+        int r;
+
+        r = userdb_by_name(user, /* match= */ NULL, USERDB_PARSE_NUMERIC|USERDB_SUPPRESS_SHADOW, &ur);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve user '%s': %s", user, STRERROR_USER(r));
+
+        /* We do two things here: mount the per-user XDG_RUNTIME_DIR, and set up tmpfs quota on /tmp/
+         * and /dev/shm/. */
+
+        r = 0;
+        RET_GATHER(r, do_mount(ur));
+        RET_GATHER(r, do_tmpfs_quota(ur));
+        return r;
+}
+
+VERB(verb_stop, "stop", "USER\0", 2, 2, 0, "Remove the runtime directory of the user");
+static int verb_stop(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return do_umount(argv[1]);
+}
+
 static int run(int argc, char *argv[]) {
         int r;
 
@@ -333,15 +365,10 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        if (argc != 3)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program takes two arguments.");
-
-        const char *verb = argv[1], *user = argv[2];
-
-        if (!STR_IN_SET(verb, "start", "stop"))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "First argument must be either \"start\" or \"stop\".");
+        char **args = NULL;
+        r = common_parse_argv(argc, argv, &args);
+        if (r <= 0)
+                return r;
 
         umask(0022);
 
@@ -349,25 +376,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        if (streq(verb, "start")) {
-                _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-                r = userdb_by_name(user, /* match= */ NULL, USERDB_PARSE_NUMERIC|USERDB_SUPPRESS_SHADOW, &ur);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to resolve user '%s': %s", user, STRERROR_USER(r));
-
-                /* We do two things here: mount the per-user XDG_RUNTIME_DIR, and set up tmpfs quota on /tmp/
-                 * and /dev/shm/. */
-
-                r = 0;
-                RET_GATHER(r, do_mount(ur));
-                RET_GATHER(r, do_tmpfs_quota(ur));
-                return r;
-        }
-
-        if (streq(verb, "stop"))
-                return do_umount(user);
-
-        assert_not_reached();
+        return dispatch_verb(args, /* userdata= */ NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

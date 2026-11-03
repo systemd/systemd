@@ -8,11 +8,13 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "glyph-util.h"
 #include "in-addr-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
 #include "log.h"
+#include "memory-util.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -985,6 +987,32 @@ int json_dispatch_job_id(const char *name, sd_json_variant *variant, sd_json_dis
         return 0;
 }
 
+/* Matches JSON_BUILD_PAIR_YES_NO() for fields represented as strings rather than JSON booleans. */
+int json_dispatch_yes_no_string(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        int *b = ASSERT_PTR(userdata);
+        int r;
+
+        assert(variant);
+
+        if (sd_json_variant_is_null(variant)) {
+                *b = -1;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
+                                "JSON field '%s' is not a string.", strna(name));
+
+        r = parse_boolean(sd_json_variant_string(variant));
+        if (r < 0)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
+                                "Value of JSON field '%s' is not a boolean string: %s",
+                                strna(name), sd_json_variant_string(variant));
+
+        *b = r;
+        return 0;
+}
+
 int json_variant_compare(sd_json_variant *a, sd_json_variant *b) {
         int r;
 
@@ -1184,4 +1212,52 @@ int json_seq_extract(
                 *ret = TAKE_PTR(v);
                 return 1;
         }
+}
+
+int json_dispatch_string_non_empty(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        char **str = ASSERT_PTR(userdata);
+        int r;
+
+        assert(variant);
+
+        _cleanup_free_ char *s = NULL;
+        r = sd_json_dispatch_string(name, variant, flags, &s);
+        if (r < 0)
+                return r;
+
+        if (isempty(s))
+                *str = NULL;
+        else
+                *str = TAKE_PTR(s);
+
+        return 0;
+
+}
+
+int json_variant_write_file_at(
+                int dir_fd,
+                const char *path,
+                sd_json_variant *v,
+                sd_json_format_flags_t format_flags,
+                WriteStringFileFlags write_flags) {
+
+        _cleanup_(erase_and_freep) char *text = NULL;
+        int r;
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+
+        /* Formats the specified JSON variant and writes it to the specified file, i.e. combines
+         * sd_json_variant_format() and write_string_file_at(). The format flags and write flags are passed
+         * to these two functions as they are. Note that unless WRITE_STRING_FILE_AVOID_NEWLINE is specified
+         * the written JSON text is always terminated by a newline, regardless of SD_JSON_FORMAT_NEWLINE.
+         *
+         * We format the JSON text into a memory buffer first (rather than streaming it into the file),
+         * since some of the write flags (e.g. WRITE_STRING_FILE_VERIFY_ON_FAILURE) need the full string
+         * anyway. Since the JSON object might contain sensitive data, the buffer is erased after use. */
+
+        r = sd_json_variant_format(v, format_flags, &text);
+        if (r < 0)
+                return r;
+
+        return write_string_file_at(dir_fd, path, text, write_flags);
 }

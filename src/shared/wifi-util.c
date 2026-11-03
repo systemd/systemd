@@ -28,7 +28,7 @@ int wifi_get_interface(sd_netlink *genl, int ifindex, enum nl80211_iftype *ret_i
         if (r < 0)
                 return log_debug_errno(r, "Could not append NL80211_ATTR_IFINDEX attribute: %m");
 
-        r = sd_netlink_call(genl, m, 0, &reply);
+        r = sd_netlink_call(genl, m, /* timeout= */ 0, &reply);
         if (r == -ENODEV) {
                 /* For obsolete WEXT driver. */
                 log_debug_errno(r, "Failed to request information about wifi interface %d. "
@@ -109,7 +109,7 @@ int wifi_get_station(sd_netlink *genl, int ifindex, struct ether_addr *ret_bssid
         if (r < 0)
                 return log_debug_errno(r, "Could not append NL80211_ATTR_IFINDEX attribute: %m");
 
-        r = sd_netlink_call(genl, m, 0, &reply);
+        r = sd_netlink_call(genl, m, /* timeout= */ 0, &reply);
         if (r < 0)
                 return log_debug_errno(r, "Failed to request information about wifi station: %m");
         if (!reply) {

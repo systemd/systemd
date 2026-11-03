@@ -10,9 +10,9 @@
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fileio.h"
-#include "log.h"
 #include "generator.h"
 #include "initrd-util.h"
+#include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
@@ -22,6 +22,15 @@
 #include "strv.h"
 #include "unit-file.h"
 #include "unit-name.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-debug-generator\0",
+        "Enable a runtime debug shell and mask specific units at boot.",
+        .argspec = GENERATOR_ARGSPEC,
+        .man_pages = "systemd-debug-generator(8)\0",
+        .option_namespace = "common",
+);
 
 static const char *arg_dest = NULL;
 static char *arg_default_unit = NULL;
@@ -296,7 +305,7 @@ static int process_unit_credentials(const char *credentials_dir) {
 
                 _cleanup_free_ char *d = NULL;
 
-                r = read_credential_with_decryption(de->d_name, (void**) &d, NULL);
+                r = read_credential_with_decryption(de->d_name, (void**) &d, /* ret_size= */ NULL);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to read credential '%s', ignoring: %m", de->d_name);
                         continue;
@@ -370,7 +379,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         assert_se(arg_dest = dest_early);
 
-        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_RD_STRICT | PROC_CMDLINE_STRIP_RD_PREFIX);
+        r = proc_cmdline_parse(parse_proc_cmdline_item, /* userdata= */ NULL, PROC_CMDLINE_RD_STRICT | PROC_CMDLINE_STRIP_RD_PREFIX);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 

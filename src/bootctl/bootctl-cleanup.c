@@ -71,7 +71,7 @@ static int cleanup_orphaned_files(
                 return log_error_errno(r, "Failed to count files in %s: %m", root);
 
         dir_fd = chase_and_open(arg_entry_token, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS,
-                        O_DIRECTORY|O_CLOEXEC, &full);
+                                O_DIRECTORY, &full);
         if (dir_fd == -ENOENT)
                 return 0;
         if (dir_fd < 0)
@@ -81,7 +81,7 @@ static int cleanup_orphaned_files(
         if (!p)
                 return log_oom();
 
-        r = recurse_dir(dir_fd, p, 0, UINT_MAX, RECURSE_DIR_SORT, list_remove_orphaned_file, known_files);
+        r = recurse_dir(dir_fd, p, /* statx_mask= */ 0, UINT_MAX, RECURSE_DIR_SORT, list_remove_orphaned_file, known_files);
         if (r < 0)
                 return log_error_errno(r, "Failed to cleanup %s: %m", full);
 

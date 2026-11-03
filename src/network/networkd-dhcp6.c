@@ -236,7 +236,7 @@ static int dhcp6_request_address(
                 address_unmark(existing);
 
         r = link_request_address(link, addr, &link->dhcp6_messages,
-                                 dhcp6_address_handler, NULL);
+                                 dhcp6_address_handler, /* ret= */ NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv6 address %s/128: %m",
                                             IN6_ADDR_TO_STRING(ip6_addr));
@@ -311,6 +311,29 @@ static int dhcp6_request_hostname(Link *link) {
         return 0;
 }
 
+static int dhcp6_request_timezone(Link *link) {
+        const char *tz;
+        int r;
+
+        assert(link);
+        assert(link->network);
+
+        if (!link->network->dhcp6_use_timezone)
+                return 0;
+
+        r = sd_dhcp6_lease_get_timezone(link->dhcp6_lease, &tz);
+        if (r == -ENODATA)
+                return 0;
+        if (r < 0)
+                return r;
+
+        r = manager_set_timezone(link->manager, tz);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to set timezone to '%s', ignoring: %m", tz);
+
+        return 0;
+}
+
 static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
         _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease_old = NULL;
         sd_dhcp6_lease *lease;
@@ -326,6 +349,10 @@ static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
         link->dhcp6_lease = sd_dhcp6_lease_ref(lease);
 
         r = dhcp6_request_hostname(link);
+        if (r < 0)
+                return r;
+
+        r = dhcp6_request_timezone(link);
         if (r < 0)
                 return r;
 
@@ -369,6 +396,10 @@ static int dhcp6_lease_information_acquired(sd_dhcp6_client *client, Link *link)
                 return log_link_error_errno(link, r, "Failed to get DHCPv6 lease: %m");
 
         unref_and_replace_new_ref(link->dhcp6_lease, lease, sd_dhcp6_lease_ref, sd_dhcp6_lease_unref);
+
+        r = dhcp6_request_timezone(link);
+        if (r < 0)
+                return r;
 
         link_dirty(link);
         return 0;
@@ -561,7 +592,7 @@ static int dhcp6_set_hostname(sd_dhcp6_client *client, Link *link) {
                 /* Ignore error when the machine's hostname is not suitable to send in DHCP packet, but
                  * do not keep sending the previous hostname. */
                 log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to set hostname from kernel hostname, ignoring: %m");
-                (void) sd_dhcp6_client_set_fqdn(client, NULL);
+                (void) sd_dhcp6_client_set_fqdn(client, /* fqdn= */ NULL);
         } else if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to set hostname: %m");
 
@@ -603,7 +634,7 @@ static int dhcp6_set_identifier(Link *link, sd_dhcp6_client *client) {
                         r = sd_dhcp6_client_set_duid_uuid(client);
                         break;
                 default:
-                        r = sd_dhcp6_client_set_duid_raw(client, duid->type, NULL, 0);
+                        r = sd_dhcp6_client_set_duid_raw(client, duid->type, /* duid= */ NULL, /* duid_len= */ 0);
                 }
         else
                 r = sd_dhcp6_client_set_duid_raw(client, duid->type, duid->raw_data, duid->raw_data_len);
@@ -632,7 +663,7 @@ static int dhcp6_configure(Link *link) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to create DHCPv6 client: %m");
 
-        r = sd_dhcp6_client_attach_event(client, link->manager->event, 0);
+        r = sd_dhcp6_client_attach_event(client, link->manager->event, /* priority= */ 0);
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to attach event: %m");
 
@@ -688,6 +719,12 @@ static int dhcp6_configure(Link *link) {
                 r = sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_CAPTIVE_PORTAL);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to request captive portal: %m");
+        }
+
+        if (link->network->dhcp6_use_timezone) {
+                r = sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_TZDB_TIMEZONE);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to request timezone: %m");
         }
 
         if (link_get_use_ntp(link, NETWORK_CONFIG_SOURCE_DHCP6)) {
@@ -838,7 +875,7 @@ static bool dhcp6_hostname_is_from_lease(Link *link) {
 }
 
 int dhcp6_update_hostname(Link *link) {
-        int r;
+        int inf_req, r;
 
         assert(link);
 
@@ -855,6 +892,13 @@ int dhcp6_update_hostname(Link *link) {
         r = dhcp6_set_hostname(link->dhcp6_client, link);
         if (r < 0)
                 return r;
+
+        /* No hostname is sent in the information request mode. */
+        r = sd_dhcp6_client_get_information_request(link->dhcp6_client, &inf_req);
+        if (r < 0)
+                return r;
+        if (inf_req)
+                return 0;
 
         /* If the hostname was set from the current lease, the server already knows it. The new hostname
          * will be sent on the next renewal. */
@@ -879,6 +923,8 @@ int dhcp6_update_hostname(Link *link) {
 }
 
 int dhcp6_renew(Link *link) {
+        int r;
+
         assert(link);
         assert(link->manager);
 
@@ -891,13 +937,18 @@ int dhcp6_renew(Link *link) {
             IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 0;
 
+        /* This renews the acquired lease, or in the information request mode, requests the information
+         * again. This does nothing if no reply is received yet. */
+        r = sd_dhcp6_client_send_renew(link->dhcp6_client);
+        if (r < 0)
+                return r;
+
         /* The client may have been stopped, e.g. on failure. Let's restart it in that case. This does
          * nothing when the client is started by RA, as the client will be started on the next RA. */
         if (!sd_dhcp6_client_is_running(link->dhcp6_client))
                 return dhcp6_start(link);
 
-        /* This does nothing if no lease is acquired yet. */
-        return sd_dhcp6_client_send_renew(link->dhcp6_client);
+        return 0;
 }
 
 static int dhcp6_process_request(Request *req, Link *link, void *userdata) {
@@ -940,7 +991,7 @@ int link_request_dhcp6_client(Link *link) {
         if (link->dhcp6_client)
                 return 0;
 
-        r = link_queue_request(link, REQUEST_TYPE_DHCP6_CLIENT, dhcp6_process_request, NULL);
+        r = link_queue_request(link, REQUEST_TYPE_DHCP6_CLIENT, dhcp6_process_request, /* ret= */ NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request configuring of the DHCPv6 client: %m");
 

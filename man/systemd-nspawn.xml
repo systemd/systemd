@@ -689,7 +689,8 @@
         <para>If <command>systemd-nspawn</command> itself is invoked with a <varname>$NOTIFY_SOCKET</varname>
         set in its environment (i.e. it is itself supervised by a service manager that uses the
         <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        protocol), <literal>FDSTORE=1</literal> and <literal>FDSTOREREMOVE=1</literal> messages received
+        protocol), <literal>FDSTORE=1</literal>, <literal>FDSTOREREMOVE=1</literal>, and
+        <literal>FDSTOREWIPE=</literal> messages received
         from the container payload (along with any accompanying file descriptors and
         <literal>FDNAME=</literal> tag) are forwarded one level up to the enveloping service manager. This
         allows the file descriptor store of services running inside the container to be preserved across
@@ -699,6 +700,11 @@
         configured on the unit running <command>systemd-nspawn</command>. See the
         <ulink url="https://systemd.io/FILE_DESCRIPTOR_STORE">File Descriptor Store</ulink> documentation
         for details.</para>
+
+        <para>If a <literal>FDSTOREWIPE=</literal> message is received, <literal>payload-</literal> is prepended
+        to its glob pattern before forwarding. For example, <literal>FDSTOREWIPE=*</literal> becomes
+        <literal>FDSTOREWIPE=payload-*</literal>, removing all entries forwarded from the container payload.
+        Entries not originating from the payload are left untouched.</para>
 
         <xi:include href="version-info.xml" xpointer="v231"/></listitem>
       </varlistentry>
@@ -1973,10 +1979,16 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
           <para>Note: when <command>systemd-nspawn</command> runs as systemd system service it can propagate
           the credentials it received via <varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
-          to the container payload. A systemd service manager running as PID 1 in the container can further
-          propagate them to the services it itself starts. It is thus possible to easily propagate credentials
-          from a parent service manager to a container manager service and from there into its payload. This
-          can even be done recursively.</para>
+          to the container payload, if they are passed on with
+          <option>--load-credential=<replaceable>ID</replaceable>:<replaceable>ID</replaceable></option>,
+          i.e. if <replaceable>PATH</replaceable> is the name of a credential rather than a path. A systemd
+          service manager running as PID 1 in the container can further propagate them to the services it
+          itself starts. It is thus possible to easily propagate credentials from a parent service manager to a
+          container manager service and from there into its payload. This can even be done recursively. For
+          <filename>systemd-nspawn@.service</filename>, credentials may also be passed with the
+          <varname>SetCredential=</varname> and <varname>LoadCredential=</varname> settings in
+          <citerefentry><refentrytitle>systemd.nspawn</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          files.</para>
 
           <para>In order to embed binary data into the credential data for <option>--set-credential=</option>,
           use C-style escaping (i.e. <literal>\n</literal> to embed a newline, or <literal>\x00</literal> to

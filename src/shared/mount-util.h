@@ -19,12 +19,12 @@ int repeat_unmount(const char *path, int flags);
 
 int umount_recursive_full(const char *prefix, int flags, char **keep);
 static inline int umount_recursive(const char *prefix, int flags) {
-        return umount_recursive_full(prefix, flags, NULL);
+        return umount_recursive_full(prefix, flags, /* keep= */ NULL);
 }
 
 int bind_remount_recursive_with_mountinfo(const char *prefix, unsigned long new_flags, unsigned long flags_mask, char **deny_list, FILE *proc_self_mountinfo);
 static inline int bind_remount_recursive(const char *prefix, unsigned long new_flags, unsigned long flags_mask, char **deny_list) {
-        return bind_remount_recursive_with_mountinfo(prefix, new_flags, flags_mask, deny_list, NULL);
+        return bind_remount_recursive_with_mountinfo(prefix, new_flags, flags_mask, deny_list, /* proc_self_mountinfo= */ NULL);
 }
 
 int bind_remount_one_with_mountinfo(const char *path, unsigned long new_flags, unsigned long flags_mask, FILE *proc_self_mountinfo);
@@ -32,7 +32,7 @@ int bind_remount_one(const char *path, unsigned long new_flags, unsigned long fl
 
 int mount_switch_root_full(const char *path, unsigned long mount_propagation_flag, bool force_ms_move);
 static inline int mount_switch_root(const char *path, unsigned long mount_propagation_flag) {
-        return mount_switch_root_full(path, mount_propagation_flag, false);
+        return mount_switch_root_full(path, mount_propagation_flag, /* force_ms_move= */ false);
 }
 
 int mount_verbose_full(
@@ -51,7 +51,7 @@ static inline int mount_follow_verbose(
                 const char *fstype,
                 unsigned long flags,
                 const char *options) {
-        return mount_verbose_full(error_log_level, what, where, fstype, flags, options, true);
+        return mount_verbose_full(error_log_level, what, where, fstype, flags, options, /* follow_symlink= */ true);
 }
 
 static inline int mount_nofollow_verbose(
@@ -61,7 +61,7 @@ static inline int mount_nofollow_verbose(
                 const char *fstype,
                 unsigned long flags,
                 const char *options) {
-        return mount_verbose_full(error_log_level, what, where, fstype, flags, options, false);
+        return mount_verbose_full(error_log_level, what, where, fstype, flags, options, /* follow_symlink= */ false);
 }
 
 int umount_verbose(

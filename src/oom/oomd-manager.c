@@ -82,7 +82,7 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                 if (!sd_json_variant_is_object(c))
                         continue;
 
-                r = sd_json_dispatch(c, dispatch_table, 0, &message);
+                r = sd_json_dispatch(c, dispatch_table, /* flags= */ 0, &message);
                 if (r == -ENOMEM)
                         return r;
                 if (r < 0)
@@ -163,7 +163,7 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                          * a fresh one if the cgroup is new. */
                         ctx = hashmap_get(monitor_hm, empty_to_root(message.path));
                         if (!ctx) {
-                                r = oomd_insert_cgroup_context(NULL, monitor_hm, message.path);
+                                r = oomd_insert_cgroup_context(/* old_h= */ NULL, monitor_hm, message.path);
                                 if (r == -ENOMEM)
                                         return r;
                                 if (r < 0) {
@@ -204,7 +204,7 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                         continue;
                 }
 
-                r = oomd_insert_cgroup_context(NULL, monitor_hm, message.path);
+                r = oomd_insert_cgroup_context(/* old_h= */ NULL, monitor_hm, message.path);
                 if (r == -ENOMEM)
                         return r;
                 if (r < 0 && r != -EEXIST)
@@ -304,7 +304,7 @@ static int recursively_get_cgroup_context(Hashmap *new_h, const char *path) {
         if (r < 0)
                 return r;
         else if (r == 0) { /* No subgroups? We're a leaf node */
-                r = oomd_insert_cgroup_context(NULL, new_h, path);
+                r = oomd_insert_cgroup_context(/* old_h= */ NULL, new_h, path);
                 if (r == -ENOMEM)
                         return r;
                 if (r < 0)
@@ -330,7 +330,7 @@ static int recursively_get_cgroup_context(Hashmap *new_h, const char *path) {
                         continue;
                 }
                 if (r > 0)
-                        r = oomd_insert_cgroup_context(NULL, new_h, cg_path);
+                        r = oomd_insert_cgroup_context(/* old_h= */ NULL, new_h, cg_path);
                 else
                         r = recursively_get_cgroup_context(new_h, cg_path);
                 if (r == -ENOMEM)
@@ -436,7 +436,7 @@ static int acquire_managed_oom_connect(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind reply callback: %m");
 
-        r = sd_varlink_observe(link, "io.systemd.ManagedOOM.SubscribeManagedOOMCGroups", NULL);
+        r = sd_varlink_observe(link, "io.systemd.ManagedOOM.SubscribeManagedOOMCGroups", /* parameters= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to observe varlink call: %m");
 
@@ -1069,7 +1069,7 @@ static int monitor_swap_contexts(Manager *m) {
         assert(m);
         assert(m->event);
 
-        r = sd_event_add_time(m->event, &s, CLOCK_MONOTONIC, 0, 0, monitor_swap_contexts_handler, m);
+        r = sd_event_add_time(m->event, &s, CLOCK_MONOTONIC, /* usec= */ 0, /* accuracy= */ 0, monitor_swap_contexts_handler, m);
         if (r < 0)
                 return r;
 
@@ -1094,7 +1094,7 @@ static int monitor_memory_pressure_contexts(Manager *m) {
         assert(m);
         assert(m->event);
 
-        r = sd_event_add_time(m->event, &s, CLOCK_MONOTONIC, 0, 0, monitor_memory_pressure_contexts_handler, m);
+        r = sd_event_add_time(m->event, &s, CLOCK_MONOTONIC, /* usec= */ 0, /* accuracy= */ 0, monitor_memory_pressure_contexts_handler, m);
         if (r < 0)
                 return r;
 
@@ -1119,7 +1119,7 @@ static int monitor_rules_contexts(Manager *m) {
         assert(m);
         assert(m->event);
 
-        r = sd_event_add_time(m->event, &s, CLOCK_MONOTONIC, 0, 0, monitor_rules_contexts_handler, m);
+        r = sd_event_add_time(m->event, &s, CLOCK_MONOTONIC, /* usec= */ 0, /* accuracy= */ 0, monitor_rules_contexts_handler, m);
         if (r < 0)
                 return r;
 
@@ -1245,11 +1245,11 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.oom1", 0, NULL, NULL);
+        r = sd_bus_request_name_async(m->bus, /* ret_slot= */ NULL, "org.freedesktop.oom1", /* flags= */ 0, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
 
-        r = sd_bus_attach_event(m->bus, m->event, 0);
+        r = sd_bus_attach_event(m->bus, m->event, /* priority= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
@@ -1389,5 +1389,5 @@ int manager_get_dump_string(Manager *m, char **ret) {
         FOREACH_ARRAY(c, sorted, n)
                 oomd_dump_memory_pressure_cgroup_context(*c, f, "\t");
 
-        return memstream_finalize(&ms, ret, NULL);
+        return memstream_finalize(&ms, ret, /* ret_size= */ NULL);
 }

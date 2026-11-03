@@ -36,7 +36,7 @@ int userns_registry_open_fd(void) {
                         "/run/systemd/nsresource/registry",
                         /* root= */ NULL,
                         CHASE_MKDIR_0755,
-                        O_CLOEXEC|O_DIRECTORY|O_CREAT,
+                        O_DIRECTORY|O_CREAT,
                         /* ret_path= */ NULL);
         if (fd < 0)
                 return log_debug_errno(fd, "Failed to open registry dir: %m");
@@ -55,7 +55,7 @@ int userns_registry_lock(int dir_fd) {
                 dir_fd = registry_fd;
         }
 
-        lock_fd = xopenat_lock_full(dir_fd, "lock", O_CREAT|O_RDWR|O_CLOEXEC, /* xopen_flags= */ 0, 0600, LOCK_BSD, LOCK_EX);
+        lock_fd = xopenat_lock_full(dir_fd, "lock", O_CREAT|O_RDWR, /* xopen_flags= */ 0, 0600, LOCK_BSD, LOCK_EX);
         if (lock_fd < 0)
                 return log_debug_errno(lock_fd, "Failed to open nsresource registry lock file: %m");
 
@@ -271,7 +271,7 @@ static int userns_registry_load(int dir_fd, const char *fn, UserNamespaceInfo **
                 dir_fd = registry_fd;
         }
 
-        r = sd_json_parse_file_at(NULL, dir_fd, fn, 0, &v, NULL, NULL);
+        r = sd_json_parse_file_at(NULL, dir_fd, fn, /* flags= */ 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return r;
 
@@ -279,7 +279,7 @@ static int userns_registry_load(int dir_fd, const char *fn, UserNamespaceInfo **
         if (!userns_info)
                 return -ENOMEM;
 
-        r = sd_json_dispatch(v, dispatch_table, 0, userns_info);
+        r = sd_json_dispatch(v, dispatch_table, /* flags= */ 0, userns_info);
         if (r < 0)
                 return r;
 
@@ -716,16 +716,11 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
         if (r < 0)
                 return r;
 
-        _cleanup_free_ char *def_buf = NULL;
-        r = sd_json_variant_format(def, 0, &def_buf);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to format userns JSON object: %m");
-
         _cleanup_free_ char *reg_fn = NULL, *link1_fn = NULL, *link2_fn = NULL, *link3_fn = NULL, *owner_fn = NULL, *uid_fn = NULL;
         if (asprintf(&reg_fn, "i%" PRIu64 ".userns", info->userns_inode) < 0)
                 return log_oom_debug();
 
-        r = write_string_file_at(dir_fd, reg_fn, def_buf, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+        r = json_variant_write_file_at(dir_fd, reg_fn, def, /* format_flags= */ 0, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write userns data to '%s' in registry: %m", reg_fn);
 
@@ -791,7 +786,7 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
         /* Store delegation files */
         FOREACH_ARRAY(delegate, info->delegates, info->n_delegates) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *delegate_def = NULL, *ancestor_array = NULL;
-                _cleanup_free_ char *delegate_buf = NULL, *delegate_uid_fn = NULL, *delegate_gid_fn = NULL;
+                _cleanup_free_ char *delegate_uid_fn = NULL, *delegate_gid_fn = NULL;
 
                 if (asprintf(&delegate_uid_fn, "u" UID_FMT ".delegate", delegate->start_uid) < 0) {
                         r = log_oom_debug();
@@ -839,13 +834,7 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
                 if (r < 0)
                         goto fail;
 
-                r = sd_json_variant_format(delegate_def, /* flags= */ 0, &delegate_buf);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to format delegation JSON object: %m");
-                        goto fail;
-                }
-
-                r = write_string_file_at(dir_fd, delegate_uid_fn, delegate_buf, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+                r = json_variant_write_file_at(dir_fd, delegate_uid_fn, delegate_def, /* format_flags= */ 0, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to write delegation data to '%s' in registry: %m", delegate_uid_fn);
                         goto fail;
@@ -986,7 +975,6 @@ int userns_registry_remove(int dir_fd, UserNamespaceInfo *info) {
 
                 if (existing.n_ancestor_userns > 0) {
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *delegate_def = NULL, *ancestor_array = NULL;
-                        _cleanup_free_ char *delegate_buf = NULL;
 
                         /* Pop the last ancestor userns inode to become the new owner */
                         uint64_t new_owner = existing.ancestor_userns[existing.n_ancestor_userns - 1];
@@ -1013,11 +1001,7 @@ int userns_registry_remove(int dir_fd, UserNamespaceInfo *info) {
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to build delegate JSON object: %m");
 
-                        r = sd_json_variant_format(delegate_def, /* flags= */ 0, &delegate_buf);
-                        if (r < 0)
-                                return log_debug_errno(r, "Failed to format delegation JSON object: %m");
-
-                        r = write_string_file_at(dir_fd, delegate_uid_fn, delegate_buf, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+                        r = json_variant_write_file_at(dir_fd, delegate_uid_fn, delegate_def, /* format_flags= */ 0, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
                         if (r < 0) {
                                 RET_GATHER(ret, log_debug_errno(r, "Failed to write restored delegation data to '%s' in registry: %m", delegate_uid_fn));
                                 continue;
@@ -1102,9 +1086,9 @@ static int userns_destroy_cgroup(uint64_t cgroup_id) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to extract name of cgroup %" PRIu64 ", ignoring: %m", cgroup_id);
 
-        parent_fd = openat(cgroup_fd, "..", O_CLOEXEC|O_DIRECTORY);
+        parent_fd = xopenat(cgroup_fd, "..", O_DIRECTORY);
         if (parent_fd < 0)
-                return log_debug_errno(errno, "Failed to open parent cgroup of %" PRIu64 ", ignoring: %m", cgroup_id);
+                return log_debug_errno(parent_fd, "Failed to open parent cgroup of %" PRIu64 ", ignoring: %m", cgroup_id);
 
         /* Safety check, never leave cgroupfs */
         r = fd_is_fs_type(parent_fd, CGROUP2_SUPER_MAGIC);
@@ -1212,7 +1196,7 @@ bool userns_name_is_valid(const char *name) {
                 return false;
 
         const char *u = strjoina("ns-", name, "-65535"); /* Make sure we can turn this into valid user names */
-        if (!valid_user_group_name(u, 0))
+        if (!valid_user_group_name(u, /* flags= */ 0))
                 return false;
 
         return true;

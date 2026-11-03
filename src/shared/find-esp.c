@@ -19,6 +19,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "find-esp.h"
+#include "fs-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "stat-util.h"
@@ -103,7 +104,7 @@ static int verify_esp_blkid(
         if (r != 0)
                 return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe file system \"%s\": %m", node);
 
-        r = sym_blkid_probe_lookup_value(b, "TYPE", &v, NULL);
+        r = sym_blkid_probe_lookup_value(b, "TYPE", &v, /* len= */ NULL);
         if (r != 0)
                 return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                       SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
@@ -113,7 +114,7 @@ static int verify_esp_blkid(
                                       SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
                                       "File system \"%s\" is not FAT.", node);
 
-        r = sym_blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &v, NULL);
+        r = sym_blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &v, /* len= */ NULL);
         if (r != 0)
                 return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                       SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
@@ -124,7 +125,7 @@ static int verify_esp_blkid(
                                       "File system \"%s\" is not on a GPT partition table.", node);
 
         errno = 0;
-        r = sym_blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
+        r = sym_blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, /* len= */ NULL);
         if (r != 0)
                 return log_error_errno(errno ?: EIO, "Failed to probe partition type UUID of \"%s\": %m", node);
         if (sd_id128_string_equal(v, SD_GPT_ESP) <= 0)
@@ -137,7 +138,7 @@ static int verify_esp_blkid(
                 return log_error_errno(r, "Failed to probe partition entry UUID of \"%s\": %m", node);
 
         errno = 0;
-        r = sym_blkid_probe_lookup_value(b, "PART_ENTRY_NUMBER", &v, NULL);
+        r = sym_blkid_probe_lookup_value(b, "PART_ENTRY_NUMBER", &v, /* len= */ NULL);
         if (r != 0)
                 return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition number of \"%s\": %m", node);
         r = safe_atou32(v, &part);
@@ -515,9 +516,9 @@ int find_esp_and_warn_full(
         if (empty_or_root(root))
                 rfd = XAT_FDROOT;
         else {
-                rfd = open(root, O_PATH|O_DIRECTORY|O_CLOEXEC);
+                rfd = xopenat(AT_FDCWD, root, O_PATH|O_DIRECTORY);
                 if (rfd < 0)
-                        return -errno;
+                        return rfd;
         }
 
         _cleanup_close_ int fd = -EBADF;
@@ -603,7 +604,7 @@ static int verify_xbootldr_blkid(
 
         assert(r == _BLKID_SAFEPROBE_FOUND);
 
-        r = sym_blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &type, NULL);
+        r = sym_blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &type, /* len= */ NULL);
         if (r != 0)
                 return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                       searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(EIO),
@@ -611,7 +612,7 @@ static int verify_xbootldr_blkid(
         if (streq(type, "gpt")) {
 
                 errno = 0;
-                r = sym_blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
+                r = sym_blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, /* len= */ NULL);
                 if (r != 0)
                         return log_error_errno(errno_or_else(EIO), "%s: Failed to probe PART_ENTRY_TYPE: %m", node);
                 if (sd_id128_string_equal(v, SD_GPT_XBOOTLDR) <= 0)
@@ -626,7 +627,7 @@ static int verify_xbootldr_blkid(
         } else if (streq(type, "dos")) {
 
                 errno = 0;
-                r = sym_blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
+                r = sym_blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, /* len= */ NULL);
                 if (r != 0)
                         return log_error_errno(errno_or_else(EIO), "%s: Failed to probe PART_ENTRY_TYPE: %m", node);
                 if (!streq(v, "0xea"))
@@ -869,9 +870,9 @@ int find_xbootldr_and_warn_full(
         if (empty_or_root(root))
                 rfd = XAT_FDROOT;
         else {
-                rfd = open(root, O_PATH|O_DIRECTORY|O_CLOEXEC);
+                rfd = xopenat(AT_FDCWD, root, O_PATH|O_DIRECTORY);
                 if (rfd < 0)
-                        return -errno;
+                        return rfd;
         }
 
         _cleanup_close_ int fd = -EBADF;

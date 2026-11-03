@@ -41,4 +41,12 @@ static inline uint16_t dns_stub_listener_extra_port(DnsStubListenerExtra *p) {
 void manager_dns_stub_stop(Manager *m);
 int manager_dns_stub_start(Manager *m);
 
+/* Only for test-dns-stub */
+int dns_stub_patch_bypass_reply_packet(
+                DnsPacket **ret,
+                DnsPacket *original,
+                DnsPacket *request,
+                bool validated,
+                bool authenticated);
+
 DECLARE_STRING_TABLE_LOOKUP(dns_stub_listener_mode, DnsStubListenerMode);

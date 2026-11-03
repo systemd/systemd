@@ -7,6 +7,7 @@
 #include "sd-bus.h"
 #include "sd-id128.h"
 #include "sd-json.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -38,6 +39,7 @@ static const char *arg_host = NULL;
 static bool arg_transient = false;
 static bool arg_pretty = false;
 static bool arg_static = false;
+static bool arg_apply = false;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 
 COMMAND(
@@ -128,7 +130,7 @@ static int print_status_info(StatusInfo *i) {
         if (!table)
                 return log_oom();
 
-        assert_se(cell = table_get_cell(table, 0, 0));
+        assert_se(cell = table_get_cell(table, /* row= */ 0, /* column= */ 0));
         (void) table_set_ellipsize_percent(table, cell, 100);
 
         table_set_ersatz_string(table, TABLE_ERSATZ_UNSET);
@@ -486,7 +488,7 @@ static int show_all_names(sd_bus *bus) {
                                    "org.freedesktop.hostname1",
                                    "/org/freedesktop/hostname1",
                                    hostname_map,
-                                   0,
+                                   /* flags= */ 0,
                                    &error,
                                    &host_message,
                                    &info);
@@ -497,7 +499,7 @@ static int show_all_names(sd_bus *bus) {
                                    "org.freedesktop.systemd1",
                                    "/org/freedesktop/systemd1",
                                    manager_map,
-                                   0,
+                                   /* flags= */ 0,
                                    &error,
                                    &manager_message,
                                    &info);
@@ -532,7 +534,7 @@ static int show_all_names(sd_bus *bus) {
                             "GetHardwareSerial",
                             &error,
                             &hardware_serial_reply,
-                            NULL);
+                            /* types= */ NULL);
         if (r < 0)
                 log_full_errno(sd_bus_error_has_names(
                                                &error,
@@ -568,7 +570,7 @@ static int get_hostname_based_on_flag(sd_bus *bus) {
         attr = arg_pretty ? "PrettyHostname" :
                 arg_static ? "StaticHostname" : "Hostname";
 
-        return get_one_name(bus, attr, NULL);
+        return get_one_name(bus, attr, /* ret= */ NULL);
 }
 
 VERB_DEFAULT_NOARG(verb_show_status, "status", "Show current hostname settings");
@@ -582,7 +584,7 @@ static int verb_show_status(int argc, char *argv[], uintptr_t _data, void *userd
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
                 const char *text = NULL;
 
-                r = bus_call_method(bus, bus_hostname, "Describe", &error, &reply, NULL);
+                r = bus_call_method(bus, bus_hostname, "Describe", &error, &reply, /* types= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Could not get description: %s", bus_error_message(&error, r));
 
@@ -594,7 +596,7 @@ static int verb_show_status(int argc, char *argv[], uintptr_t _data, void *userd
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse JSON: %m");
 
-                sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+                sd_json_variant_dump(v, arg_json_format_flags, NULL, /* prefix= */ NULL);
                 return 0;
         }
 
@@ -613,7 +615,7 @@ static int set_simple_string_internal(sd_bus *bus, sd_bus_error *error, const ch
         if (!error)
                 error = &e;
 
-        r = bus_call_method(bus, bus_hostname, method, error, NULL, "sb", value, arg_ask_password);
+        r = bus_call_method(bus, bus_hostname, method, error, /* ret_reply= */ NULL, "sb", value, arg_ask_password);
         if (r < 0)
                 return log_error_errno(r, "Could not set %s: %s", target, bus_error_message(error, r));
 
@@ -621,7 +623,7 @@ static int set_simple_string_internal(sd_bus *bus, sd_bus_error *error, const ch
 }
 
 static int set_simple_string(sd_bus *bus, const char *target, const char *method, const char *value) {
-        return set_simple_string_internal(bus, NULL, target, method, value);
+        return set_simple_string_internal(bus, /* error= */ NULL, target, method, value);
 }
 
 static int verb_set_hostname(int argc, char *argv[], uintptr_t _data, void *userdata) {
@@ -720,36 +722,86 @@ static int verb_get_or_set_hostname(int argc, char *argv[], uintptr_t data, void
 VERB(verb_get_or_set_icon_name, "icon-name", "[NAME]\0", VERB_ANY, 2, 0, "Get/set icon name for host");
 VERB(verb_get_or_set_icon_name, "set-icon-name", "NAME\0", 2, 2, 0, NULL); /* obsolete */
 static int verb_get_or_set_icon_name(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return argc == 1 ? get_one_name(userdata, "IconName", NULL) :
+        return argc == 1 ? get_one_name(userdata, "IconName", /* ret= */ NULL) :
                            set_simple_string(userdata, "icon", "SetIconName", argv[1]);
 }
 
 VERB(verb_get_or_set_chassis, "chassis", "[NAME]\0", VERB_ANY, 2, 0, "Get/set chassis type for host");
 VERB(verb_get_or_set_chassis, "set-chassis", "NAME\0", 2, 2, 0, NULL); /* obsolete */
 static int verb_get_or_set_chassis(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return argc == 1 ? get_one_name(userdata, "Chassis", NULL) :
+        return argc == 1 ? get_one_name(userdata, "Chassis", /* ret= */ NULL) :
                            set_simple_string(userdata, "chassis", "SetChassis", argv[1]);
 }
 
 VERB(verb_get_or_set_deployment, "deployment", "[NAME]\0", VERB_ANY, 2, 0, "Get/set deployment environment for host");
 VERB(verb_get_or_set_deployment, "set-deployment", "NAME\0", 2, 2, 0, NULL); /* obsolete */
 static int verb_get_or_set_deployment(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return argc == 1 ? get_one_name(userdata, "Deployment", NULL) :
+        return argc == 1 ? get_one_name(userdata, "Deployment", /* ret= */ NULL) :
                            set_simple_string(userdata, "deployment", "SetDeployment", argv[1]);
 }
 
 VERB(verb_get_or_set_location, "location", "[NAME]\0", VERB_ANY, 2, 0, "Get/set location for host");
 VERB(verb_get_or_set_location, "set-location", "NAME\0", 2, 2, 0, NULL); /* obsolete */
 static int verb_get_or_set_location(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return argc == 1 ? get_one_name(userdata, "Location", NULL) :
+        return argc == 1 ? get_one_name(userdata, "Location", /* ret= */ NULL) :
                            set_simple_string(userdata, "location", "SetLocation", argv[1]);
+}
+
+static int apply_tags(void) {
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
+        int r;
+
+        /* Asks systemd-hostnamed to apply the machine-tags.d/ configuration on top of the current tags.
+         * This is only available via Varlink, hence not for remote hosts or containers. */
+
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "--apply is not supported in combination with --host= or --machine=.");
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Hostname");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to /run/systemd/io.systemd.Hostname: %m");
+
+        sd_json_variant *reply = NULL;
+        const char *error_id = NULL;
+        r = sd_varlink_callbo(
+                        vl,
+                        "io.systemd.Hostname.ApplyTags",
+                        &reply,
+                        &error_id,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue io.systemd.Hostname.ApplyTags() varlink call: %m");
+        if (streq_ptr(error_id, SD_VARLINK_ERROR_METHOD_NOT_FOUND))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Installed version of systemd-hostnamed does not support applying the machine-tags.d/ configuration.");
+        if (error_id) {
+                r = sd_varlink_error_to_errno(error_id, reply);
+                if (r != -EBADR)
+                        return log_error_errno(r, "Failed to apply machine-tags.d/ configuration: %m");
+
+                return log_error_errno(r, "Failed to apply machine-tags.d/ configuration: %s", error_id);
+        }
+
+        return 0;
 }
 
 VERB(verb_get_or_set_tags, "tags", "[TAG…]\0", VERB_ANY, VERB_ANY, 0, "Get/set machine tags for host");
 static int verb_get_or_set_tags(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = ASSERT_PTR(userdata);
+        sd_bus *bus = userdata; /* NULL if --apply is used, see run() */
         int r;
+
+        if (arg_apply) {
+                if (argc > 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No arguments expected with --apply.");
+
+                return apply_tags();
+        }
+
+        assert(bus);
 
         if (argc == 1) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -898,6 +950,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_pretty = true;
                         break;
 
+                OPTION_LONG("apply", NULL, "Apply machine-tags.d/ configuration to machine tags"):
+                        arg_apply = true;
+                        break;
+
                 OPTION_COMMON_JSON:
                         r = parse_json_argument(opts.arg, &arg_json_format_flags);
                         if (r <= 0)
@@ -928,9 +984,16 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = bus_connect_transport(arg_transport, arg_host, RUNTIME_SCOPE_SYSTEM, &bus);
-        if (r < 0)
-                return bus_log_connect_error(r, arg_transport, RUNTIME_SCOPE_SYSTEM);
+        /* "tags --apply" talks to systemd-hostnamed via Varlink only, hence needs no D-Bus connection. This
+         * allows it to be used early during boot, before D-Bus is available. */
+        if (arg_apply) {
+                if (strv_isempty(args) || !streq(args[0], "tags"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--apply is only supported with the 'tags' command.");
+        } else {
+                r = bus_connect_transport(arg_transport, arg_host, RUNTIME_SCOPE_SYSTEM, &bus);
+                if (r < 0)
+                        return bus_log_connect_error(r, arg_transport, RUNTIME_SCOPE_SYSTEM);
+        }
 
         return dispatch_verb(args, bus);
 }

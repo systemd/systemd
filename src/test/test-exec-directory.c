@@ -75,17 +75,17 @@ static void test_transient_directory_one(
                 ASSERT_OK(sd_bus_message_append(message, "a(sst)", 1, source, strempty(destination), flags));
         else
                 ASSERT_OK(sd_bus_message_append(message, "as", 1, source));
-        ASSERT_OK(sd_bus_message_seal(message, 1, 0));
-        ASSERT_OK(sd_bus_message_rewind(message, true));
+        ASSERT_OK(sd_bus_message_seal(message, 1, /* timeout_usec= */ 0));
+        ASSERT_OK(sd_bus_message_rewind(message, /* complete= */ true));
 
         /* Validate first without applying anything, matching the manager's two-pass handling. */
         ASSERT_EQ(bus_exec_context_set_transient_property(
                           unit, &context,
                           tuple ? exec_directory_type_symlink_to_string(type) : exec_directory_type_to_string(type),
-                          message, 0, &error), expected);
+                          message, /* flags= */ 0, &error), expected);
         ASSERT_EQ(context.directories[type].n_items, 0U);
         sd_bus_error_free(&error);
-        ASSERT_OK(sd_bus_message_rewind(message, true));
+        ASSERT_OK(sd_bus_message_rewind(message, /* complete= */ true));
 
         ASSERT_EQ(bus_exec_context_set_transient_property(
                           unit, &context,
@@ -103,7 +103,7 @@ static void test_transient_directory_one(
         delete_trailing_chars(value, "\n");
         ASSERT_OK(config_parse_exec_directories(
                           "test.service", "test.conf", 1, "Service", 1,
-                          exec_directory_type_to_string(type), 0, value, &parsed, unit));
+                          exec_directory_type_to_string(type), /* ltype= */ 0, value, &parsed, unit));
         assert_directory(&parsed, source, destination, flags);
 }
 
@@ -121,7 +121,7 @@ TEST(transient_directory_roundtrip) {
                 return;
         }
         ASSERT_OK(r);
-        ASSERT_OK(manager_startup(manager, NULL, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(manager, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
 
         for (ExecDirectoryType type = 0; type < _EXEC_DIRECTORY_TYPE_MAX; type++) {
                 FOREACH_ELEMENT(path, paths) {
@@ -185,7 +185,7 @@ TEST(executor_directory_roundtrip) {
                                                      type == EXEC_DIRECTORY_CONFIGURATION ? NULL : *path,
                                                      EXEC_DIRECTORY_READ_ONLY));
 
-                ASSERT_OK(exec_serialize_invocation(f, fds, &context, &command, &parameters, NULL, &cgroup));
+                ASSERT_OK(exec_serialize_invocation(f, fds, &context, &command, &parameters, /* rt= */ NULL, &cgroup));
                 ASSERT_OK_ERRNO(fseek(f, 0, SEEK_SET));
                 ASSERT_OK(exec_deserialize_invocation(f, fds, &parsed, &command, &parameters, &runtime, &cgroup));
 
@@ -207,7 +207,7 @@ TEST(fragment_private_destination) {
                 return;
         }
         ASSERT_OK(r);
-        ASSERT_OK(manager_startup(manager, NULL, NULL, NULL, NULL));
+        ASSERT_OK(manager_startup(manager, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL));
         ASSERT_OK(unit_new_for_name(manager, sizeof(Service), "test-exec-directory.service", &unit));
 
         for (ExecDirectoryType type = 0; type < _EXEC_DIRECTORY_TYPE_MAX; type++) {
@@ -220,7 +220,7 @@ TEST(fragment_private_destination) {
 
                         ASSERT_OK(config_parse_exec_directories(
                                           "test.service", "test.conf", 1, "Service", 1,
-                                          exec_directory_type_to_string(type), 0, value, &directory, unit));
+                                          exec_directory_type_to_string(type), /* ltype= */ 0, value, &directory, unit));
                         ASSERT_EQ(directory.n_items, 0U);
                 }
         }

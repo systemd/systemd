@@ -28,19 +28,19 @@ int dhcp6_network_bind_udp_socket(int ifindex, const struct in6_addr *local_addr
         if (s < 0)
                 return -errno;
 
-        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_V6ONLY, true);
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_V6ONLY, /* value= */ true);
         if (r < 0)
                 return r;
 
-        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, false);
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, /* value= */ false);
         if (r < 0)
                 return r;
 
-        r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
+        r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, /* value= */ true);
         if (r < 0)
                 return r;
 
-        r = setsockopt_int(s, SOL_SOCKET, SO_TIMESTAMP, true);
+        r = setsockopt_int(s, SOL_SOCKET, SO_TIMESTAMP, /* value= */ true);
         if (r < 0)
                 return r;
 

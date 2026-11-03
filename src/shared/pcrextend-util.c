@@ -9,6 +9,7 @@
 #include "blkid-util.h"
 #include "blockdev-util.h"
 #include "chase.h"
+#include "device-private.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -75,7 +76,7 @@ int pcrextend_pcr_now(unsigned pcr, const char *word, const struct iovec *secret
         log_debug("Measurement of '%s' into PCR %u completed.", word, pcr);
         return 1;
 #else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support disabled, not measuring.");
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support disabled, not measuring.");
 #endif
 }
 
@@ -116,7 +117,7 @@ int pcrextend_nvpcr_now(const char *nvpcr, const char *word, const char *event) 
         log_debug("Measurement of '%s' into NvPCR '%s' completed.", word, nvpcr);
         return 1;
 #else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support disabled, not measuring.");
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support disabled, not measuring.");
 #endif
 }
 
@@ -138,7 +139,7 @@ static int device_get_file_system_word(
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int block_fd = sd_device_open(d, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        _cleanup_close_ int block_fd = device_open(d, O_RDONLY|O_NONBLOCK);
         if (block_fd < 0)
                 return block_fd;
 
@@ -147,7 +148,7 @@ static int device_get_file_system_word(
                 return -ENOMEM;
 
         errno = 0;
-        r = sym_blkid_probe_set_device(b, block_fd, 0, 0);
+        r = sym_blkid_probe_set_device(b, block_fd, /* off= */ 0, /* size= */ 0);
         if (r != 0)
                 return errno_or_else(ENOMEM);
 
@@ -172,7 +173,7 @@ static int device_get_file_system_word(
         FOREACH_STRING(field, "TYPE", "UUID", "LABEL", "PART_ENTRY_UUID", "PART_ENTRY_TYPE", "PART_ENTRY_NAME") {
                 const char *v = NULL;
 
-                (void) sym_blkid_probe_lookup_value(b, field, &v, NULL);
+                (void) sym_blkid_probe_lookup_value(b, field, &v, /* len= */ NULL);
 
                 _cleanup_free_ char *escaped = xescape(strempty(v), ":"); /* Avoid ambiguity around ":" */
                 if (!escaped)
@@ -205,11 +206,11 @@ int pcrextend_file_system_word(const char *path, char **ret_word, char **ret_nor
         assert(path);
         assert(ret_word);
 
-        dfd = chase_and_open(path, NULL, 0, O_DIRECTORY|O_CLOEXEC, &normalized_path);
+        dfd = chase_and_open(path, /* root= */ NULL, /* chase_flags= */ 0, O_DIRECTORY, &normalized_path);
         if (dfd < 0)
                 return log_error_errno(dfd, "Failed to open path '%s': %m", path);
 
-        r = is_mount_point_at(dfd, NULL, 0);
+        r = is_mount_point_at(dfd, /* path= */ NULL, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine if path '%s' is mount point: %m", normalized_path);
         if (r == 0)

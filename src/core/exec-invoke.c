@@ -127,7 +127,7 @@ static int flag_fds(
                  * since after all we want to pass these fds to our
                  * children */
 
-                r = fd_cloexec(fds[i], false);
+                r = fd_cloexec(fds[i], /* cloexec= */ false);
                 if (r < 0)
                         return r;
         }
@@ -140,11 +140,11 @@ static int open_null_as(int flags, int nfd) {
 
         assert(nfd >= 0);
 
-        fd = open("/dev/null", flags|O_NOCTTY);
+        fd = xopenat(AT_FDCWD, "/dev/null", flags|O_NOCTTY);
         if (fd < 0)
-                return -errno;
+                return fd;
 
-        return move_fd(fd, nfd, false);
+        return move_fd(fd, nfd, /* cloexec= */ false);
 }
 
 static int connect_journal_socket(
@@ -225,7 +225,7 @@ static int connect_logger_as(
         assert(ident);
         assert(nfd >= 0);
 
-        fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         if (fd < 0)
                 return -errno;
 
@@ -255,7 +255,7 @@ static int connect_logger_as(
                     exec_output_forward_to_console(output)) < 0)
                 return -errno;
 
-        return move_fd(TAKE_FD(fd), nfd, false);
+        return move_fd(TAKE_FD(fd), nfd, /* cloexec= */ false);
 }
 
 static int open_terminal_as(const char *path, int flags, int nfd) {
@@ -268,7 +268,7 @@ static int open_terminal_as(const char *path, int flags, int nfd) {
         if (fd < 0)
                 return fd;
 
-        return move_fd(fd, nfd, false);
+        return move_fd(fd, nfd, /* cloexec= */ false);
 }
 
 static int acquire_path(const char *path, int flags, mode_t mode) {
@@ -280,16 +280,16 @@ static int acquire_path(const char *path, int flags, mode_t mode) {
         if (IN_SET(flags & O_ACCMODE_STRICT, O_WRONLY, O_RDWR))
                 flags |= O_CREAT;
 
-        fd = open(path, flags|O_NOCTTY, mode);
+        fd = xopenat_full(AT_FDCWD, path, flags|O_NOCTTY, /* xopen_flags= */ 0, mode);
         if (fd >= 0)
                 return TAKE_FD(fd);
 
-        if (errno != ENXIO) /* ENXIO is returned when we try to open() an AF_UNIX file system socket on Linux */
-                return -errno;
+        if (fd != -ENXIO) /* ENXIO is returned when we try to open() an AF_UNIX file system socket on Linux */
+                return fd;
 
         /* So, it appears the specified path could be an AF_UNIX socket. Let's see if we can connect to it. */
 
-        fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         if (fd < 0)
                 return -errno;
 
@@ -590,7 +590,7 @@ static int setup_input(
         case EXEC_INPUT_NAMED_FD:
                 assert(named_iofds[STDIN_FILENO] >= 0);
 
-                (void) fd_nonblock(named_iofds[STDIN_FILENO], false);
+                (void) fd_nonblock(named_iofds[STDIN_FILENO], /* nonblock= */ false);
                 return RET_NERRNO(dup2(named_iofds[STDIN_FILENO], STDIN_FILENO));
 
         case EXEC_INPUT_DATA: {
@@ -600,7 +600,7 @@ static int setup_input(
                 if (fd < 0)
                         return fd;
 
-                return move_fd(fd, STDIN_FILENO, false);
+                return move_fd(fd, STDIN_FILENO, /* cloexec= */ false);
         }
 
         case EXEC_INPUT_FILE: {
@@ -616,7 +616,7 @@ static int setup_input(
                 if (fd < 0)
                         return fd;
 
-                return move_fd(fd, STDIN_FILENO, false);
+                return move_fd(fd, STDIN_FILENO, /* cloexec= */ false);
         }
 
         default:
@@ -844,7 +844,7 @@ static int setup_output(
         case EXEC_OUTPUT_NAMED_FD:
                 assert(named_iofds[fileno] >= 0);
 
-                (void) fd_nonblock(named_iofds[fileno], false);
+                (void) fd_nonblock(named_iofds[fileno], /* nonblock= */ false);
                 return RET_NERRNO(dup2(named_iofds[fileno], fileno));
 
         case EXEC_OUTPUT_FILE:
@@ -870,7 +870,7 @@ static int setup_output(
                 if (fd < 0)
                         return fd;
 
-                return move_fd(fd, fileno, 0);
+                return move_fd(fd, fileno, /* cloexec= */ 0);
         }
 
         default:
@@ -966,7 +966,7 @@ static void write_confirm_error(int err, const char *vc, const char *unit_id) {
         assert(vc);
         assert(unit_id);
 
-        fd = open_terminal(vc, O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal(vc, O_WRONLY|O_NOCTTY);
         if (fd < 0)
                 return;
 
@@ -1247,7 +1247,7 @@ static int enforce_user(
 
                 /* First step: If we need to keep capabilities but drop privileges we need to make sure we
                  * keep our caps, while we drop privileges. Add KEEP_CAPS to the securebits */
-                r = set_securebits(1U << SECURE_KEEP_CAPS, 0);
+                r = set_securebits(1U << SECURE_KEEP_CAPS, /* mask= */ 0);
                 if (r < 0)
                         return r;
         }
@@ -1414,7 +1414,7 @@ static int attach_to_subcgroup(
         if (r == 0)
                 return 0;
 
-        r = cg_attach(subgroup, 0);
+        r = cg_attach(subgroup, /* pid= */ 0);
         if (r == -EUCLEAN)
                 return log_error_errno(r,
                                 "Failed to attach process " PID_FMT " to cgroup '%s', "
@@ -1880,7 +1880,7 @@ static int apply_syscall_filter(const ExecContext *c, const ExecParameters *p) {
                         return r;
         }
 
-        return seccomp_load_syscall_filter_set_raw(default_action, c->syscall_filter, action, false);
+        return seccomp_load_syscall_filter_set_raw(default_action, c->syscall_filter, action, /* log_missing= */ false);
 }
 
 static int apply_syscall_log(const ExecContext *c, const ExecParameters *p) {
@@ -1905,7 +1905,7 @@ static int apply_syscall_log(const ExecContext *c, const ExecParameters *p) {
                 action = SCMP_ACT_ALLOW;
         }
 
-        return seccomp_load_syscall_filter_set_raw(default_action, c->syscall_log, action, false);
+        return seccomp_load_syscall_filter_set_raw(default_action, c->syscall_log, action, /* log_missing= */ false);
 }
 
 static int apply_syscall_archs(const ExecContext *c, const ExecParameters *p) {
@@ -2014,7 +2014,7 @@ static int apply_protect_kernel_modules(const ExecContext *c, const ExecParamete
         if (skip_seccomp_unavailable("ProtectKernelModules="))
                 return 0;
 
-        return seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_MODULE, SCMP_ACT_ERRNO(EPERM), false);
+        return seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_MODULE, SCMP_ACT_ERRNO(EPERM), /* log_missing= */ false);
 }
 
 static int apply_protect_kernel_logs(const ExecContext *c, const ExecParameters *p) {
@@ -2040,7 +2040,7 @@ static int apply_protect_clock(const ExecContext *c, const ExecParameters *p) {
         if (skip_seccomp_unavailable("ProtectClock="))
                 return 0;
 
-        return seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_CLOCK, SCMP_ACT_ERRNO(EPERM), false);
+        return seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_CLOCK, SCMP_ACT_ERRNO(EPERM), /* log_missing= */ false);
 }
 
 static int apply_private_devices(const ExecContext *c, const ExecParameters *p) {
@@ -2055,7 +2055,7 @@ static int apply_private_devices(const ExecContext *c, const ExecParameters *p) 
         if (skip_seccomp_unavailable("PrivateDevices="))
                 return 0;
 
-        return seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_RAW_IO, SCMP_ACT_ERRNO(EPERM), false);
+        return seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_RAW_IO, SCMP_ACT_ERRNO(EPERM), /* log_missing= */ false);
 }
 
 static int apply_restrict_namespaces(const ExecContext *c, const ExecParameters *p) {
@@ -2291,7 +2291,7 @@ static int build_environment(
         if (!username && !c->dynamic_user && p->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
                 assert(!c->user);
 
-                r = get_user_creds("root", USER_CREDS_CLEAN, &_username, NULL, NULL, &_home, &_shell);
+                r = get_user_creds("root", USER_CREDS_CLEAN, &_username, /* ret_uid= */ NULL, /* ret_gid= */ NULL, &_home, &_shell);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to determine credentials for user root: %s",
                                         STRERROR_USER(r));
@@ -2797,7 +2797,7 @@ static int setup_private_users(
         if (n != 0) /* on success we should have read 0 bytes */
                 return -EIO;
 
-        r = pidref_wait_for_terminate_and_check("(sd-userns)", &pidref, 0);
+        r = pidref_wait_for_terminate_and_check("(sd-userns)", &pidref, /* flags= */ 0);
         if (r < 0)
                 return r;
         pidref_done(&pidref);
@@ -2835,7 +2835,7 @@ static int can_mount_proc(void) {
 
                 /* Try mounting /proc on /dev/shm/. No need to clean up the mount since the mount
                  * namespace will be cleaned up once the process exits. */
-                r = mount_follow_verbose(LOG_DEBUG, "proc", "/dev/shm/", "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+                r = mount_follow_verbose(LOG_DEBUG, "proc", "/dev/shm/", "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, /* options= */ NULL);
                 if (r < 0) {
                         (void) write(errno_pipe[1], &r, sizeof(r));
                         _exit(EXIT_FAILURE);
@@ -2872,9 +2872,9 @@ static int can_mount_proc(void) {
         return 1;
 }
 
-static int setup_private_pids(const ExecContext *c, ExecParameters *p) {
+static int setup_private_pids(const ExecContext *c, ExecParameters *p, int *ret_keep_parent_fd /* may be NULL */) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
+        _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR, keep_parent_pipe[2] = EBADF_PAIR;
         ssize_t n;
         int r, q;
 
@@ -2892,6 +2892,12 @@ static int setup_private_pids(const ExecContext *c, ExecParameters *p) {
         if (pipe2(errno_pipe, O_CLOEXEC) < 0)
                 return log_debug_errno(errno, "Failed to create pipe for communicating with parent process: %m");
 
+        /* The parent opened connections to mountfsd and nsresourced, so those services will lookup
+         * information through the parent process. So the parent needs to stick around until the child is
+         * done. The parent waits until the child closes the fd returned in ret_keep_parent_fd. */
+        if (ret_keep_parent_fd && pipe2(keep_parent_pipe, O_CLOEXEC) < 0)
+                return log_debug_errno(errno, "Failed to create pipe for waiting for child process: %m");
+
         /* Set FORK_DETACH to immediately re-parent the child process to the invoking manager process. */
         r = pidref_safe_fork("(sd-pidns-child)", FORK_NEW_PIDNS|FORK_DETACH, &pidref);
         if (r < 0)
@@ -2908,14 +2914,27 @@ static int setup_private_pids(const ExecContext *c, ExecParameters *p) {
                                 &IOVEC_MAKE(&pidref.pid, sizeof(pidref.pid)),
                                 /* iovlen= */ 1,
                                 /* flags= */ 0);
-                /* Send error code to child process. */
+                /* Send error code to child process. Close the pipe right away so that the child doesn't
+                 * block in read() if the write failed, as we might wait for the child below. */
                 (void) write(errno_pipe[1], &q, sizeof(q));
+                errno_pipe[1] = safe_close(errno_pipe[1]);
+
+                if (ret_keep_parent_fd) {
+                        keep_parent_pipe[1] = safe_close(keep_parent_pipe[1]);
+                        for (;;) {
+                                r = fd_wait_for_event(keep_parent_pipe[0], POLLHUP, USEC_INFINITY);
+                                if (r != -EINTR)
+                                        break;
+                        }
+                }
+
                 /* Exit here so we only go through the destructors in exec_invoke only once - in the child - as
                  * some destructors have external effects. The main codepaths continue in the child process. */
                 _exit(q < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
 
         errno_pipe[1] = safe_close(errno_pipe[1]);
+        keep_parent_pipe[0] = safe_close(keep_parent_pipe[0]);
         p->pidref_transport_fd = safe_close(p->pidref_transport_fd);
 
         /* Try to read an error code from the parent. Note a child process cannot wait for the parent so we always
@@ -2927,6 +2946,9 @@ static int setup_private_pids(const ExecContext *c, ExecParameters *p) {
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to read enough bytes from pipe with parent process");
         if (r < 0)
                 return log_debug_errno(r, "Failed to send child pidref to manager: %m");
+
+        if (ret_keep_parent_fd)
+                *ret_keep_parent_fd = TAKE_FD(keep_parent_pipe[1]);
 
         /* NOTE! This function returns in the child process only. */
         return r;
@@ -2954,7 +2976,7 @@ static int create_many_symlinks(const char *root, const char *source, char **sym
                 if (r < 0)
                         return r;
 
-                r = symlink_idempotent(src_abs, dst_abs, true);
+                r = symlink_idempotent(src_abs, dst_abs, /* make_relative= */ true);
                 if (r < 0)
                         return r;
         }
@@ -2980,9 +3002,9 @@ static int set_exec_storage_quota(int fd, uint32_t proj_id, const ExecQuotaLimit
                  * used for quotactl_fd(SET) and is passed again for fstatvfs(), the total number of blocks is not
                  * reported accurately (instead, the block limit is reported as total blocks). Thus, use the FD
                  * associated with the parent, so that total blocks is accurate */
-                fd_parent = openat(fd, "..", O_PATH|O_CLOEXEC|O_DIRECTORY);
+                fd_parent = xopenat(fd, "..", O_PATH|O_DIRECTORY);
                 if (fd_parent < 0)
-                        return -errno;
+                        return fd_parent;
 
                 uint32_t xattr_flags = 0;
                 r = read_fs_xattr_fd(fd_parent, &xattr_flags, /* ret_projid= */ NULL);
@@ -3040,7 +3062,7 @@ static int unset_exec_storage_quota(int fd, uint32_t proj_id, bool quota_account
 
         /* Release project ID if no accounting needed */
         if (!quota_accounting) {
-                r = set_proj_id_recursive(fd, 0);
+                r = set_proj_id_recursive(fd, /* proj_id= */ 0);
                 if (r < 0)
                         log_warning_errno(r, "Failed to release project ID %" PRIu32 ", ignoring: %m", proj_id);
         }
@@ -3069,9 +3091,9 @@ static int apply_exec_quotas(
         if (!IN_SET(type, EXEC_DIRECTORY_STATE, EXEC_DIRECTORY_CACHE, EXEC_DIRECTORY_LOGS))
                 return 0;
 
-        fd = open(target_dir, O_PATH|O_CLOEXEC|O_DIRECTORY);
+        fd = xopenat(AT_FDCWD, target_dir, O_PATH|O_DIRECTORY);
         if (fd < 0)
-                return log_debug_errno(errno, "Failed to open %s: %m", target_dir);
+                return log_debug_errno(fd, "Failed to open %s: %m", target_dir);
 
         /* Get the project ID of the current directory */
         uint32_t proj_id;
@@ -3103,7 +3125,7 @@ static int apply_exec_quotas(
         if (*exec_dt_proj_id > 0 && *exec_dt_proj_id != proj_id) {
                 /* Set the existing project ID only if the current directory's ID does not exist or does not match */
                 proj_id = *exec_dt_proj_id;
-                r = quota_proj_id_set_recursive(fd, proj_id, false);
+                r = quota_proj_id_set_recursive(fd, proj_id, /* verify_exclusive= */ false);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to set project ID for %s: %m", target_dir);
         } else if (*exec_dt_proj_id == 0) {
@@ -3137,7 +3159,7 @@ static int apply_exec_quotas(
                         }
 
                         if (!quota_dqblk_is_populated(&req)) {
-                                int proj_id_was_set = quota_proj_id_set_recursive(fd, proj_id, true);
+                                int proj_id_was_set = quota_proj_id_set_recursive(fd, proj_id, /* verify_exclusive= */ true);
                                 if (proj_id_was_set < 0)
                                         return log_debug_errno(proj_id_was_set, "Failed to set project ID for %s: %m", target_dir);
                                 if (proj_id_was_set) {
@@ -3310,7 +3332,7 @@ static int setup_exec_directory(
                         }
 
                         /* First set up private root if it doesn't exist yet, with access mode 0700 and owned by root:root */
-                        r = mkdir_safe_label(pp, 0700, 0, 0, MKDIR_WARN_MODE);
+                        r = mkdir_safe_label(pp, 0700, /* uid= */ 0, /* gid= */ 0, MKDIR_WARN_MODE);
                         if (r < 0)
                                 goto fail;
 
@@ -3324,7 +3346,7 @@ static int setup_exec_directory(
                         if (r < 0)
                                 goto fail;
 
-                        if (is_dir(p, false) > 0 &&
+                        if (is_dir(p, /* follow= */ false) > 0 &&
                             (access_nofollow(pp, F_OK) == -ENOENT)) {
 
                                 /* Hmm, the private directory doesn't exist yet, but the normal one exists? If so, move
@@ -3360,7 +3382,7 @@ static int setup_exec_directory(
                                  *    and, /var/lib/foo is a symlink to /var/lib/private/foo. So, not only
                                  *    we do not need to create the symlink, but we cannot create the symlink.
                                  *    See issue #24783. */
-                                r = symlink_idempotent(pp, p, true);
+                                r = symlink_idempotent(pp, p, /* make_relative= */ true);
                                 if (r < 0)
                                         goto fail;
                         }
@@ -3379,7 +3401,7 @@ static int setup_exec_directory(
                                  * since they all support the private/ symlink logic at least in some
                                  * configurations, see above. */
 
-                                r = chase(target, NULL, 0, &target_resolved, NULL);
+                                r = chase(target, /* root= */ NULL, /* flags= */ 0, &target_resolved, /* ret_fd= */ NULL);
                                 if (r < 0)
                                         goto fail;
 
@@ -3390,7 +3412,7 @@ static int setup_exec_directory(
                                 }
 
                                 /* /var/lib or friends may be symlinks. So, let's chase them also. */
-                                r = chase(q, NULL, CHASE_NONEXISTENT, &q_resolved, NULL);
+                                r = chase(q, /* root= */ NULL, CHASE_NONEXISTENT, &q_resolved, /* ret_fd= */ NULL);
                                 if (r < 0)
                                         goto fail;
 
@@ -3534,7 +3556,7 @@ static int setup_smack(
         assert(executable_fd >= 0);
 
         if (context->smack_process_label) {
-                r = mac_smack_apply_pid(0, context->smack_process_label);
+                r = mac_smack_apply_pid(/* pid= */ 0, context->smack_process_label);
                 if (r < 0)
                         return r;
         } else if (params->fallback_smack_process_label) {
@@ -3544,7 +3566,7 @@ static int setup_smack(
                 if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
                         return r;
 
-                r = mac_smack_apply_pid(0, exec_label ?: params->fallback_smack_process_label);
+                r = mac_smack_apply_pid(/* pid= */ 0, exec_label ?: params->fallback_smack_process_label);
                 if (r < 0)
                         return r;
         }
@@ -3961,6 +3983,7 @@ static int pin_rootfs(
                               context->root_image,
                               pick_filter_image_raw,
                               ELEMENTSOF(pick_filter_image_raw),
+                              /* match_root= */ NULL,
                               PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                               &result);
                 if (r < 0) {
@@ -3977,9 +4000,9 @@ static int pin_rootfs(
                  * mountfsd will want this later, and it wants a fully opened fd, so that security checks
                  * have been passed */
                 _cleanup_close_ int reopened_fd = -EBADF;
-                reopened_fd = fd_reopen(result.fd, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_RDWR);
+                reopened_fd = fd_reopen(result.fd, O_NONBLOCK|O_NOCTTY|O_RDWR);
                 if (ERRNO_IS_NEG_FS_WRITE_REFUSED(reopened_fd))
-                        reopened_fd = fd_reopen(result.fd, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_RDONLY);
+                        reopened_fd = fd_reopen(result.fd, O_NONBLOCK|O_NOCTTY|O_RDONLY);
                 if (reopened_fd < 0) {
                         *reterr_path = strdup(context->root_image);
                         return log_debug_errno(reopened_fd, "Failed to open image '%s': %m", context->root_image);
@@ -4003,6 +4026,7 @@ static int pin_rootfs(
                               context->root_directory,
                               pick_filter_image_dir,
                               ELEMENTSOF(pick_filter_image_dir),
+                              /* match_root= */ NULL,
                               PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                               &result);
                 if (r < 0) {
@@ -4033,6 +4057,7 @@ static int pin_rootfs(
                               context->root_mstack,
                               pick_filter_image_mstack,
                               /* n_filters= */ 1,
+                              /* match_root= */ NULL,
                               PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                               &result);
                 if (r < 0) {
@@ -4741,9 +4766,9 @@ static int get_open_file_fd(const OpenFile *of) {
 
         assert(of);
 
-        ofd = open(of->path, O_PATH | O_CLOEXEC);
+        ofd = xopenat(AT_FDCWD, of->path, O_PATH);
         if (ofd < 0)
-                return log_debug_errno(errno, "Failed to open '%s' as O_PATH: %m", of->path);
+                return log_debug_errno(ofd, "Failed to open '%s' as O_PATH: %m", of->path);
 
         if (fstat(ofd, &st) < 0)
                 return log_debug_errno( errno, "Failed to stat '%s': %m", of->path);
@@ -4764,7 +4789,7 @@ static int get_open_file_fd(const OpenFile *of) {
                 else if (FLAGS_SET(of->flags, OPENFILE_TRUNCATE))
                         flags |= O_TRUNC;
 
-                fd = fd_reopen(ofd, flags|O_NOCTTY|O_CLOEXEC);
+                fd = fd_reopen(ofd, flags|O_NOCTTY);
                 if (fd < 0)
                         return log_debug_errno(fd, "Failed to reopen file '%s': %m", of->path);
 
@@ -4937,6 +4962,7 @@ static int setup_delegated_namespaces(
                 int bpffs_socket_fd,
                 int bpffs_errno_pipe,
                 sd_varlink *mountfsd_link, /* may be NULL */
+                int *keep_parent_fd,
                 int *reterr_exit_status) {
 
         int r;
@@ -4955,6 +4981,7 @@ static int setup_delegated_namespaces(
         assert(pressure_path);
         assert(command);
         assert(bpffs_pidref);
+        assert(keep_parent_fd);
         assert(reterr_exit_status);
 
         if (exec_needs_network_namespace(context) &&
@@ -5040,7 +5067,7 @@ static int setup_delegated_namespaces(
                         }
                 }
 
-                r = setup_private_pids(context, params);
+                r = setup_private_pids(context, params, mountfsd_link ? keep_parent_fd : NULL);
                 if (r < 0) {
                         *reterr_exit_status = EXIT_NAMESPACE;
                         return log_error_errno(r, "Failed to set up pid namespace: %m");
@@ -5440,7 +5467,7 @@ int exec_invoke(
          * but seen from the outside (covers userns mappings) */
         uid_t uid = UID_INVALID, saved_uid = getuid(), outside_uid = UID_INVALID;
         gid_t gid = GID_INVALID, saved_gid = getgid(), outside_gid = GID_INVALID;
-        int secure_bits;
+        int secure_bits, inherited_secure_bits;
         _cleanup_free_ gid_t *gids = NULL, *gids_after_pam = NULL;
         int ngids = 0, ngids_after_pam = 0;
         int named_iofds[3] = EBADF_TRIPLET;
@@ -5453,6 +5480,10 @@ int exec_invoke(
         assert(runtime);
         assert(cgroup_context);
         assert(exit_status);
+
+        /* Creating or joining a user namespace resets the secure bits, so take what the service manager passed
+         * down before that happens. */
+        inherited_secure_bits = prctl_safe(PR_GET_SECUREBITS, 0, 0, 0, 0);
 
         LOG_CONTEXT_PUSH_EXEC(context, params);
 
@@ -5754,7 +5785,7 @@ int exec_invoke(
 
         /* If a socket is connected to STDIN/STDOUT/STDERR, we must drop O_NONBLOCK */
         if (socket_fd >= 0)
-                (void) fd_nonblock(socket_fd, false);
+                (void) fd_nonblock(socket_fd, /* nonblock= */ false);
 
         /* We need sandboxing if the caller asked us to apply it and the command isn't explicitly excepted
          * from it. */
@@ -5787,7 +5818,7 @@ int exec_invoke(
                                                            !exec_params_needs_control_subcgroup(params)
                                                            ? params->cgroup_path : subcgroup;
 
-                r = cg_attach(cgtarget, 0);
+                r = cg_attach(cgtarget, /* pid= */ 0);
                 if (r == -EUCLEAN) {
                         *exit_status = EXIT_CGROUP;
                         return log_error_errno(r,
@@ -6119,6 +6150,7 @@ int exec_invoke(
         }
 
         _cleanup_(sd_varlink_unrefp) sd_varlink *mountfsd_link = NULL, *nsresource_link = NULL;
+        _cleanup_close_ int keep_parent_fd = -EBADF;
         if (needs_sandboxing &&
             exec_context_get_effective_private_users(context, params) == PRIVATE_USERS_MANAGED) {
 
@@ -6391,6 +6423,7 @@ int exec_invoke(
                         bpffs_socket_fd,
                         bpffs_errno_pipe,
                         mountfsd_link,
+                        &keep_parent_fd,
                         exit_status);
         if (r < 0)
                 return r;
@@ -6492,6 +6525,7 @@ int exec_invoke(
                         bpffs_socket_fd,
                         bpffs_errno_pipe,
                         mountfsd_link,
+                        &keep_parent_fd,
                         exit_status);
         if (r < 0)
                 return r;
@@ -6499,6 +6533,8 @@ int exec_invoke(
         /* We are done now with the nsresourced/mountfsd shenanigans, let's close the connections */
         nsresource_link = sd_varlink_unref(nsresource_link);
         mountfsd_link = sd_varlink_unref(mountfsd_link);
+        /* With PrivatePIDs=, this releases the parent process that set up the connections */
+        keep_parent_fd = safe_close(keep_parent_fd);
 
         /* We don't need the pinned rootfs anymore at this point. Close the fds now, so that they are
          * definitely gone before we do our fd rearrangements below. */
@@ -6536,7 +6572,7 @@ int exec_invoke(
 
         _cleanup_free_ char *executable = NULL;
         _cleanup_close_ int executable_fd = -EBADF;
-        r = find_executable_full(path, /* root= */ NULL, context->exec_search_path, false, &executable, &executable_fd);
+        r = find_executable_full(path, /* root= */ NULL, context->exec_search_path, /* use_path_envvar= */ false, &executable, &executable_fd);
         if (r < 0) {
                 *exit_status = EXIT_EXEC;
                 log_struct_errno(LOG_NOTICE, r,
@@ -6778,6 +6814,10 @@ int exec_invoke(
                 /* PR_GET_SECUREBITS is not privileged, while PR_SET_SECUREBITS is. So to suppress potential
                  * EPERMs we'll try not to call PR_SET_SECUREBITS unless necessary. Setting securebits
                  * requires CAP_SETPCAP. */
+                /* The service manager's bits are inherited by everything it starts, units only add to them. */
+                if (inherited_secure_bits > 0)
+                        secure_bits |= inherited_secure_bits;
+
                 r = prctl_safe(PR_GET_SECUREBITS, 0, 0, 0, 0);
                 if (r != secure_bits) {
                         /* CAP_SETPCAP is required to set securebits. This capability is raised into the

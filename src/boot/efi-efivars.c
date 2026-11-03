@@ -1,9 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "efi-efivars.h"
+#include "efi-log.h"
 #include "efi-string.h"
 #include "ticks.h"
 #include "util.h"
+
+/* Bound enumeration in case firmware never returns EFI_NOT_FOUND. */
+#define ENUMERATE_VARIABLES_MAX 65536U
 
 EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const char16_t *name, const void *buf, size_t size, uint32_t flags) {
         assert(vendor);
@@ -69,9 +73,9 @@ EFI_STATUS efivar_unset(const EFI_GUID *vendor, const char16_t *name, uint32_t f
 
         /* We could be wiping a non-volatile variable here and the spec makes no guarantees that won't incur
          * in an extra write (and thus wear out). So check and clear only if needed. */
-        err = efivar_get_raw(vendor, name, NULL, NULL);
+        err = efivar_get_raw(vendor, name, /* ret_data= */ NULL, /* ret_size= */ NULL);
         if (err == EFI_SUCCESS)
-                return efivar_set_raw(vendor, name, NULL, 0, flags);
+                return efivar_set_raw(vendor, name, /* buf= */ NULL, /* size= */ 0, flags);
 
         return err;
 }
@@ -124,11 +128,32 @@ EFI_STATUS efivar_get_uint64_str16(const EFI_GUID *vendor, const char16_t *name,
                 return err;
 
         uint64_t u;
-        if (!parse_number16(val, &u, NULL))
+        if (!parse_number16(val, &u, /* ret_tail= */ NULL))
                 return EFI_INVALID_PARAMETER;
 
         if (ret)
                 *ret = u;
+        return EFI_SUCCESS;
+}
+
+EFI_STATUS efivar_get_boolean_str16(const EFI_GUID *vendor, const char16_t *name, bool *ret) {
+        EFI_STATUS err;
+
+        assert(vendor);
+        assert(name);
+
+        _cleanup_free_ char16_t *val = NULL;
+        err = efivar_get_str16(vendor, name, &val);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        _cleanup_free_ char *val8 = xstr16_to_ascii(val);
+        bool b;
+        if (!parse_boolean(val8, &b))
+                return EFI_INVALID_PARAMETER;
+
+        if (ret)
+                *ret = b;
         return EFI_SUCCESS;
 }
 
@@ -251,7 +276,54 @@ void efivar_set_time_usec(const EFI_GUID *vendor, const char16_t *name, uint64_t
                 return;
 
         _cleanup_free_ char16_t *str = xasprintf("%" PRIu64, usec);
-        efivar_set_str16(vendor, name, str, 0);
+        efivar_set_str16(vendor, name, str, /* flags= */ 0);
+}
+
+EFI_STATUS efivar_get_names(const EFI_GUID *vendor, char16_t ***ret) {
+        _cleanup_strv_free_ char16_t **names = NULL;
+        size_t n = 0, buf_size = 256 * sizeof(char16_t);
+        _cleanup_free_ char16_t *buf = NULL;
+        EFI_GUID guid = {};
+        EFI_STATUS err;
+
+        assert(vendor);
+        assert(ret);
+
+        /* Deleting variables while enumerating them is undefined. Collect the names first so callers can
+         * modify their variables afterwards. */
+        buf = xmalloc(buf_size);
+        buf[0] = 0;
+
+        for (unsigned i = 0;; i++) {
+                if (i >= ENUMERATE_VARIABLES_MAX)
+                        return log_debug_status(EFI_ABORTED, "Too many EFI variables, refusing to enumerate further.");
+
+                size_t size = buf_size;
+                err = RT->GetNextVariableName(&size, buf, &guid);
+                if (err == EFI_NOT_FOUND)
+                        break;
+                if (err == EFI_BUFFER_TOO_SMALL) {
+                        if (size <= buf_size)
+                                return log_debug_status(err, "Firmware reported invalid EFI variable name size.");
+
+                        /* Retain the current name and GUID: enumeration continues from them. */
+                        buf = xrealloc(buf, buf_size, size);
+                        buf_size = size;
+                        continue;
+                }
+                if (err != EFI_SUCCESS)
+                        return err;
+
+                if (!efi_guid_equal(&guid, vendor))
+                        continue;
+
+                names = xrealloc(names, n == 0 ? 0 : (n + 1) * sizeof(char16_t*), (n + 2) * sizeof(char16_t*));
+                names[n++] = xstrdup16(buf);
+                names[n] = NULL;
+        }
+
+        *ret = TAKE_PTR(names);
+        return EFI_SUCCESS;
 }
 
 uint64_t get_os_indications_supported(void) {

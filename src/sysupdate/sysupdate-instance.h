@@ -3,6 +3,7 @@
 
 #include "sd-id128.h"
 
+#include "sha256.h"
 #include "sysupdate-forward.h"
 #include "sysupdate-partition.h"
 
@@ -21,7 +22,7 @@ typedef struct InstanceMetadata {
         int no_auto;
         int read_only;
         int growfs;
-        uint8_t sha256sum[32];             /* SHA256 sum of the download (i.e. compressed) file */
+        uint8_t sha256sum[SHA256_DIGEST_SIZE];             /* SHA256 sum of the download (i.e. compressed) file */
         bool sha256sum_set;
 } InstanceMetadata;
 

@@ -38,23 +38,23 @@ static void test_ellipsize_mem_one(const char *s, size_t old_length, size_t new_
         t1 = ellipsize_mem(n, old_length, new_length, 30);
         log_info("30%% → %s utf8_console_width=%zu", t1, utf8_console_width(t1));
         if (!has_wide_chars)
-                assert_se(utf8_console_width(t1) == max_width);
+                ASSERT_EQ(utf8_console_width(t1), max_width);
         else
-                assert_se(utf8_console_width(t1) <= max_width);
+                ASSERT_LE(utf8_console_width(t1), max_width);
 
         t2 = ellipsize_mem(n, old_length, new_length, 90);
         log_info("90%% → %s utf8_console_width=%zu", t2, utf8_console_width(t2));
         if (!has_wide_chars)
-                assert_se(utf8_console_width(t2) == max_width);
+                ASSERT_EQ(utf8_console_width(t2), max_width);
         else
-                assert_se(utf8_console_width(t2) <= max_width);
+                ASSERT_LE(utf8_console_width(t2), max_width);
 
         t3 = ellipsize_mem(n, old_length, new_length, 100);
         log_info("100%% → %s utf8_console_width=%zu", t3, utf8_console_width(t3));
         if (!has_wide_chars)
-                assert_se(utf8_console_width(t3) == max_width);
+                ASSERT_EQ(utf8_console_width(t3), max_width);
         else
-                assert_se(utf8_console_width(t3) <= max_width);
+                ASSERT_LE(utf8_console_width(t3), max_width);
 
         if (new_length >= old_length) {
                 ASSERT_STREQ(t1, n);
@@ -86,13 +86,13 @@ static void test_ellipsize_one(const char *p) {
         t = ellipsize(p, columns(), 70);
         puts(t);
         free(t);
-        t = ellipsize(p, columns(), 0);
+        t = ellipsize(p, columns(), /* percent= */ 0);
         puts(t);
         free(t);
         t = ellipsize(p, columns(), 100);
         puts(t);
         free(t);
-        t = ellipsize(p, 0, 50);
+        t = ellipsize(p, /* length= */ 0, 50);
         puts(t);
         free(t);
         t = ellipsize(p, 1, 50);
@@ -133,7 +133,7 @@ TEST(ellipsize_ansi) {
                 for (ssize_t x = 21; x >= 0; x--) {
                         _cleanup_free_ char *t = ellipsize_mem(s, len, x, percent);
                         printf("%02zd: \"%s\"\n", x, t);
-                        assert_se(utf8_is_valid(t));
+                        ASSERT_NOT_NULL(utf8_is_valid(t));
 
                         if (DEBUG_LOGGING) {
                                 _cleanup_free_ char *e = cescape(t);
@@ -147,14 +147,14 @@ TEST(ellipsize_ansi_cats) {
 
         /* Make sure we don't cut off in the middle of an ANSI escape sequence. */
 
-        e = ellipsize("01" ANSI_NORMAL "23", 4, 0);
+        e = ellipsize("01" ANSI_NORMAL "23", 4, /* percent= */ 0);
         puts(e);
         ASSERT_STREQ(e, "01" ANSI_NORMAL "23");
         f = ellipsize("ab" ANSI_NORMAL "cd", 4, 90);
         puts(f);
         ASSERT_STREQ(f, "ab" ANSI_NORMAL "cd");
 
-        g = ellipsize("🐱🐱" ANSI_NORMAL "🐱🐱" ANSI_NORMAL, 5, 0);
+        g = ellipsize("🐱🐱" ANSI_NORMAL "🐱🐱" ANSI_NORMAL, 5, /* percent= */ 0);
         puts(g);
         ASSERT_STREQ(g, "…" ANSI_NORMAL "🐱🐱" ANSI_NORMAL);
         h = ellipsize("🐱🐱" ANSI_NORMAL "🐱🐱" ANSI_NORMAL, 5, 90);
@@ -168,7 +168,7 @@ TEST(ellipsize_ansi_two_byte) {
         /* Fe escape sequences are just two bytes long (ESC followed by 0x40…0x5F). Make sure they are
          * skipped over like the longer CSI sequences are, in particular when one terminates the string. */
 
-        e = ellipsize("🐱🐱" "\x1bM" "🐱🐱" "\x1bM", 5, 0);
+        e = ellipsize("🐱🐱" "\x1bM" "🐱🐱" "\x1bM", 5, /* percent= */ 0);
         puts(e);
         ASSERT_STREQ(e, "…" "\x1bM" "🐱🐱" "\x1bM");
 
@@ -182,9 +182,8 @@ TEST(ellipsize_esc_infinite_loop) {
         static const char s[] = { 'A', 'B', 0x1B, ' ', 'D', '\0' };
         _cleanup_free_ char *t = NULL;
 
-        t = ellipsize_mem(s, 5, 5, 50);
-        assert_se(t);
-        assert_se(memcmp(t, s, 5) == 0);
+        t = ASSERT_NOT_NULL(ellipsize_mem(s, 5, 5, 50));
+        ASSERT_EQ(memcmp(t, s, 5), 0);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

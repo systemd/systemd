@@ -15,6 +15,7 @@
 #include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "unaligned.h"
 
 #define IRT_DEFAULT (1 * USEC_PER_DAY)
@@ -740,6 +741,34 @@ int sd_dhcp6_lease_get_captive_portal(sd_dhcp6_lease *lease, const char **ret) {
         return 0;
 }
 
+int dhcp6_lease_set_timezone(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
+        _cleanup_free_ char *tz = NULL;
+        int r;
+
+        assert(lease);
+        assert(optval || optlen == 0);
+
+        r = dhcp6_option_parse_string(optval, optlen, &tz);
+        if (r < 0)
+                return r;
+
+        if (!tz || !timezone_is_valid(tz, LOG_DEBUG))
+                return -EINVAL;
+
+        return free_and_replace(lease->timezone, tz);
+}
+
+int sd_dhcp6_lease_get_timezone(sd_dhcp6_lease *lease, const char **ret) {
+        assert_return(lease, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (!lease->timezone)
+                return -ENODATA;
+
+        *ret = lease->timezone;
+        return 0;
+}
+
 int sd_dhcp6_lease_get_vendor_options(sd_dhcp6_lease *lease, sd_dhcp6_option ***ret) {
         int r;
 
@@ -750,7 +779,7 @@ int sd_dhcp6_lease_get_vendor_options(sd_dhcp6_lease *lease, sd_dhcp6_option ***
 
         if (ret) {
                 if (!lease->sorted_vendor_options) {
-                        r = set_dump_sorted(lease->vendor_options, (void***) &lease->sorted_vendor_options, NULL);
+                        r = set_dump_sorted(lease->vendor_options, (void***) &lease->sorted_vendor_options, /* ret_n= */ NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -850,7 +879,7 @@ static int dhcp6_lease_parse_message(
 
                 switch (optcode) {
                 case SD_DHCP6_OPTION_CLIENTID:
-                        if (dhcp6_lease_get_clientid(lease, NULL, NULL) >= 0)
+                        if (dhcp6_lease_get_clientid(lease, /* ret_id= */ NULL, /* ret_len= */ NULL) >= 0)
                                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s contains multiple client IDs",
                                                               dhcp6_message_type_to_string(message->type));
 
@@ -861,7 +890,7 @@ static int dhcp6_lease_parse_message(
                         break;
 
                 case SD_DHCP6_OPTION_SERVERID:
-                        if (dhcp6_lease_get_serverid(lease, NULL, NULL) >= 0)
+                        if (dhcp6_lease_get_serverid(lease, /* ret_id= */ NULL, /* ret_len= */ NULL) >= 0)
                                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL), "%s contains multiple server IDs",
                                                               dhcp6_message_type_to_string(message->type));
 
@@ -1006,6 +1035,13 @@ static int dhcp6_lease_parse_message(
 
                         break;
 
+                case SD_DHCP6_OPTION_TZDB_TIMEZONE:
+                        r = dhcp6_lease_set_timezone(lease, optval, optlen);
+                        if (r < 0)
+                                log_dhcp6_client_errno(client, r, "Failed to parse timezone option, ignoring: %m");
+
+                        break;
+
                 case SD_DHCP6_OPTION_INFORMATION_REFRESH_TIME:
                         if (optlen != 4)
                                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
@@ -1050,7 +1086,7 @@ static int dhcp6_lease_parse_message(
                                  FORMAT_TIMESPAN(client->information_refresh_time_usec, USEC_PER_SEC));
 
         } else {
-                r = dhcp6_lease_get_serverid(lease, NULL, NULL);
+                r = dhcp6_lease_get_serverid(lease, /* ret_id= */ NULL, /* ret_len= */ NULL);
                 if (r < 0)
                         return log_dhcp6_client_errno(client, r, "%s has no server id",
                                                       dhcp6_message_type_to_string(message->type));
@@ -1079,6 +1115,7 @@ static sd_dhcp6_lease *dhcp6_lease_free(sd_dhcp6_lease *lease) {
         dns_resolver_free_array(lease->dnr, lease->n_dnr);
         free(lease->fqdn);
         free(lease->captive_portal);
+        free(lease->timezone);
         strv_free(lease->domains);
         free(lease->ntp);
         strv_free(lease->ntp_fqdn);

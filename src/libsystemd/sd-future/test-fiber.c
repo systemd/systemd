@@ -57,11 +57,11 @@ TEST(fiber_single_yield) {
 
         /* First iteration: fiber runs until first yield */
         ASSERT_EQ(counter, 0);
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
         ASSERT_EQ(counter, 1);
 
         /* Second iteration: fiber runs from yield to completion */
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
         ASSERT_EQ(counter, 2);
 
         /* No more fibers to run */
@@ -91,7 +91,7 @@ TEST(fiber_multiple_yield) {
         for (size_t i = 0; i < ELEMENTSOF(fibers); i++) {
                 _cleanup_free_ char *name = NULL;
                 ASSERT_OK(asprintf(&name, "counting-%zu", i));
-                ASSERT_OK(sd_fiber_new(e, name, counting_fiber, NULL, &fibers[i]));
+                ASSERT_OK(sd_fiber_new(e, name, counting_fiber, /* userdata= */ NULL, &fibers[i]));
         }
 
         ASSERT_OK(sd_event_loop(e));
@@ -169,7 +169,7 @@ TEST(fiber_error_return) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "error", error_fiber, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "error", error_fiber, /* userdata= */ NULL, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_EQ(sd_future_result(f), -ENOENT);
@@ -217,9 +217,9 @@ TEST(fiber_cancel_propagation_via_yield) {
         int yield_count = 0;
         ASSERT_OK(sd_fiber_new(e, "yielding", fiber_that_yields, &yield_count, &f));
 
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
         ASSERT_EQ(yield_count, 1);
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
         ASSERT_EQ(yield_count, 2);
 
         ASSERT_OK(sd_future_cancel(f));
@@ -276,9 +276,9 @@ TEST(fiber_cancel_one_of_many) {
                 ASSERT_OK(sd_fiber_new(e, "multiple-yield", multiple_yield_fiber, &counters[i], &fibers[i]));
 
         /* Run one iteration - all fibers yield after incrementing once */
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
         ASSERT_EQ(counters[0], 1);
         ASSERT_EQ(counters[1], 1);
         ASSERT_EQ(counters[2], 1);
@@ -337,7 +337,7 @@ TEST(fiber_wait_for_basic) {
 
         /* Create waiter fiber with higher priority (runs first) */
         ASSERT_OK(sd_fiber_new(e, "waiting", waiting_fiber, target, &waiter));
-        ASSERT_OK(sd_future_set_priority(waiter, 0));
+        ASSERT_OK(sd_future_set_priority(waiter, /* priority= */ 0));
 
         ASSERT_OK(sd_event_loop(e));
 
@@ -368,7 +368,7 @@ TEST(fiber_wait_for_completed) {
 
         /* Create target fiber with higher priority (runs first) */
         ASSERT_OK(sd_fiber_new(e, "simple", simple_fiber, &value, &target));
-        ASSERT_OK(sd_future_set_priority(target, 0));
+        ASSERT_OK(sd_future_set_priority(target, /* priority= */ 0));
         /* Create waiter fiber with lower priority (runs second, after target completes) */
         ASSERT_OK(sd_fiber_new(e, "wait-for-completed", wait_for_completed_fiber, target, &waiter));
         ASSERT_OK(sd_future_set_priority(waiter, 1));
@@ -399,7 +399,7 @@ TEST(fiber_await_resolved) {
 
         /* Higher-priority target runs to completion before the waiter starts. */
         ASSERT_OK(sd_fiber_new(e, "target", simple_fiber, &value, &target));
-        ASSERT_OK(sd_future_set_priority(target, 0));
+        ASSERT_OK(sd_future_set_priority(target, /* priority= */ 0));
         ASSERT_OK(sd_fiber_new(e, "await-resolved", await_resolved_fiber, target, &waiter));
         ASSERT_OK(sd_future_set_priority(waiter, 1));
 
@@ -431,8 +431,8 @@ TEST(fiber_wait_for_cancelled) {
         ASSERT_OK(sd_fiber_new(e, "yielding", fiber_that_yields, &counter, &target));
         ASSERT_OK(sd_fiber_new(e, "wait-for-cancelled", wait_for_cancelled_fiber, target, &waiter));
 
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
 
         ASSERT_OK(sd_future_cancel(target));
 
@@ -694,11 +694,11 @@ TEST(fiber_cancel_running_ancestor) {
                 ASSERT_OK(sd_event_new(&e));
                 ASSERT_OK(sd_fiber_new(e, "running-ancestor", running_ancestor_fiber, &yield_first, &f));
                 if (yield_first)
-                        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
-                ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+                        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
+                ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
 
                 ASSERT_EQ(sd_future_state(f), SD_FUTURE_PENDING);
-                ASSERT_OK_ZERO(sd_event_run(e, 0));
+                ASSERT_OK_ZERO(sd_event_run(e, /* timeout= */ 0));
                 ASSERT_OK(sd_fiber_resume(f, 42));
                 ASSERT_OK(sd_event_set_exit_on_idle(e, true));
                 ASSERT_OK(sd_event_loop(e));
@@ -736,7 +736,7 @@ static int nested_cancellation_fiber(void *userdata) {
 
 static int exit_loop_fiber(void *userdata) {
         /* Just exit the event loop, causing the outer fiber to be cancelled */
-        return sd_event_exit(sd_fiber_get_event(), 0);
+        return sd_event_exit(sd_fiber_get_event(), /* code= */ 0);
 }
 
 static int exit_ready_fiber(void *userdata) {
@@ -755,10 +755,10 @@ TEST(fiber_exit_ready) {
 
         /* Yield leaves the fiber READY without a queued result. The exit handler must deliver
          * cancellation and run it in the same dispatch, without needing another iteration. */
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
         ASSERT_FALSE(finished);
-        ASSERT_OK(sd_event_exit(e, 0));
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK(sd_event_exit(e, /* code= */ 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
 
         ASSERT_TRUE(finished);
         ASSERT_EQ(sd_future_state(f), SD_FUTURE_RESOLVED);
@@ -787,19 +787,19 @@ TEST(fiber_exit_ready_child) {
 
                         ASSERT_OK(sd_event_new(&e));
                         ASSERT_OK(sd_fiber_new(e, "exit-ready-parent", exit_ready_parent_fiber, &child, &parent));
-                        ASSERT_OK_POSITIVE(sd_event_run(e, 0)); /* Parent creates child and suspends. */
-                        ASSERT_OK_POSITIVE(sd_event_run(e, 0)); /* Child yields, leaving only its defer armed. */
+                        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0)); /* Parent creates child and suspends. */
+                        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0)); /* Child yields, leaving only its defer armed. */
 
                         if (result == -ECANCELED)
                                 ASSERT_OK_POSITIVE(sd_future_cancel(child));
                         else if (result != 0)
                                 ASSERT_OK(sd_fiber_resume(child, result));
 
-                        ASSERT_OK(sd_event_exit(e, 0));
+                        ASSERT_OK(sd_event_exit(e, /* code= */ 0));
                         if (wake_during_exit)
                                 /* A sticky interruption must not prevent the pending dispatch from moving
                                  * to the exit source, even between exit callbacks. */
-                                ASSERT_OK(sd_fiber_resume(child, 0));
+                                ASSERT_OK(sd_fiber_resume(child, /* result= */ 0));
 
                         ASSERT_OK(sd_event_loop(e));
                         ASSERT_EQ(sd_future_state(child), SD_FUTURE_RESOLVED);
@@ -821,7 +821,7 @@ TEST(fiber_nested_cancellation) {
 
         /* Create exit fiber with lower priority (runs after all nested fibers have suspended) */
         _cleanup_(sd_future_unrefp) sd_future *exit_fiber = NULL;
-        ASSERT_OK(sd_fiber_new(e, "exit-loop", exit_loop_fiber, NULL, &exit_fiber));
+        ASSERT_OK(sd_fiber_new(e, "exit-loop", exit_loop_fiber, /* userdata= */ NULL, &exit_fiber));
         ASSERT_OK(sd_future_set_priority(exit_fiber, 1));
 
         /* Run the event loop - the exit fiber should cause it to exit,
@@ -988,7 +988,7 @@ TEST(fiber_destroy_callback) {
         ASSERT_OK_ZERO(sd_fiber_get_destroy_callback(f, &callback));
         ASSERT_NULL(callback);
 
-        ASSERT_OK(sd_future_new_defer(e, 0, &defer));
+        ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &defer));
         ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_fiber_set_destroy_callback(defer, fire_and_forget_destroy)), EINVAL);
         ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_fiber_get_destroy_callback(defer, &callback)), EINVAL);
 }
@@ -1020,7 +1020,7 @@ TEST(fiber_floating_exit_before_start) {
 
                 /* Cancellation drops the floating self-reference without ever entering the fiber.
                  * The exit handler must return without accessing the freed fiber afterwards. */
-                ASSERT_OK(sd_event_exit(e, 0));
+                ASSERT_OK(sd_event_exit(e, /* code= */ 0));
                 ASSERT_OK(sd_event_loop(e));
                 ASSERT_EQ(counter, 1);
         }
@@ -1048,7 +1048,7 @@ TEST(fiber_floating_callback_drops_ref) {
         /* Bump the ref for the callback to drop, then install the callback (floating slot,
          * lifetime bound to f). */
         sd_future_ref(f);
-        ASSERT_OK(sd_future_add_callback(f, NULL, drop_extra_ref, NULL));
+        ASSERT_OK(sd_future_add_callback(f, /* ret_slot= */ NULL, drop_extra_ref, /* userdata= */ NULL));
 
         /* Drop our handle. Refs remaining: floating self-ref + the extra ref the callback will drop. */
         f = sd_future_unref(f);
@@ -1100,7 +1100,7 @@ TEST(fiber_timeout_suspend_expires) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "timeout-suspend", timeout_suspend_fiber, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "timeout-suspend", timeout_suspend_fiber, /* userdata= */ NULL, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_ERROR(sd_future_result(f), ETIME);
@@ -1119,7 +1119,7 @@ TEST(fiber_timeout_sleep_in_time) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "in-time", timeout_in_time_fiber, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "in-time", timeout_in_time_fiber, /* userdata= */ NULL, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK_ZERO(sd_future_result(f));
@@ -1138,7 +1138,7 @@ TEST(fiber_timeout_infinite_no_op) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "infinite", timeout_infinite_fiber, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "infinite", timeout_infinite_fiber, /* userdata= */ NULL, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK_ZERO(sd_future_result(f));
@@ -1158,7 +1158,7 @@ TEST(fiber_with_timeout_block) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "with-timeout", with_timeout_block_fiber, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "with-timeout", with_timeout_block_fiber, /* userdata= */ NULL, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_ERROR(sd_future_result(f), ETIME);
@@ -1298,7 +1298,7 @@ TEST(fiber_resume_queues_while_running) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "resume-queue", resume_queue_while_running_fiber, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "resume-queue", resume_queue_while_running_fiber, /* userdata= */ NULL, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK(sd_future_result(f));
@@ -1320,13 +1320,13 @@ TEST(fiber_self_resume_does_not_arm_source) {
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_fiber_new(e, "self-resume", self_resume_then_suspend_fiber,
                                /* userdata= */ NULL, &f));
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0)); /* Yield. */
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0)); /* Consume queued results, then really suspend. */
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0)); /* Yield. */
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0)); /* Consume queued results, then really suspend. */
 
         /* No source may dispatch until an external wakeup arrives. */
-        ASSERT_OK_ZERO(sd_event_run(e, 0));
+        ASSERT_OK_ZERO(sd_event_run(e, /* timeout= */ 0));
         ASSERT_EQ(sd_future_state(f), SD_FUTURE_PENDING);
-        ASSERT_OK(sd_fiber_resume(f, 0));
+        ASSERT_OK(sd_fiber_resume(f, /* result= */ 0));
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK_ZERO(sd_future_result(f));
@@ -1341,7 +1341,7 @@ static int self_resume_during_exit_fiber(void *userdata) {
 }
 
 static int resume_fiber_on_exit(sd_event_source *s, void *userdata) {
-        return sd_fiber_resume(userdata, 0);
+        return sd_fiber_resume(userdata, /* result= */ 0);
 }
 
 TEST(fiber_self_resume_during_exit_does_not_arm_source) {
@@ -1352,13 +1352,13 @@ TEST(fiber_self_resume_during_exit_does_not_arm_source) {
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_fiber_new(e, "self-resume-exit", self_resume_during_exit_fiber,
                                /* userdata= */ NULL, &f));
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
 
         /* Cleanup must really suspend before this lower-priority source wakes it. A stray dispatch
          * from self-resume would run the suspended fiber first and trip fiber_run()'s assertion. */
         ASSERT_OK(sd_event_add_exit(e, &resume, resume_fiber_on_exit, f));
         ASSERT_OK(sd_event_source_set_priority(resume, 1));
-        ASSERT_OK(sd_event_exit(e, 0));
+        ASSERT_OK(sd_event_exit(e, /* code= */ 0));
         ASSERT_OK(sd_event_loop(e));
         ASSERT_ERROR(sd_future_result(f), ECANCELED);
 }
@@ -1436,7 +1436,7 @@ TEST(fiber_cancel_wait_unref_propagates_cancellation_from_main) {
 
         /* One iteration drives the fiber through its first cancel + await inside
          * cancel_wait_unref, leaving it suspended waiting for the stubborn future. */
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
 
         /* Cancel from outside any fiber. The fiber is still suspended inside cancel_wait_unref's
          * await — this queues -ECANCELED on it and re-arms its defer source. */
@@ -1464,7 +1464,7 @@ TEST(fiber_cancel_wait_unref_propagates_cancellation_from_peer_fiber) {
         unsigned cancel_count = 0;
         _cleanup_(sd_future_unrefp) sd_future *target = NULL, *canceller = NULL;
         ASSERT_OK(sd_fiber_new(e, "target", cancel_wait_propagates_cancellation_fiber, &cancel_count, &target));
-        ASSERT_OK(sd_future_set_priority(target, 0));
+        ASSERT_OK(sd_future_set_priority(target, /* priority= */ 0));
 
         /* Lower-priority canceller runs after target has reached cancel_wait_unref's await and
          * suspended; it cancels target from within a fiber dispatch. */
@@ -1536,7 +1536,7 @@ TEST(fiber_cancel_wait_unref_no_phantom_cancellation_on_async_resolve) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "async-resolve", cancel_wait_async_resolve_fiber, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "async-resolve", cancel_wait_async_resolve_fiber, /* userdata= */ NULL, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK(sd_future_result(f));
@@ -1548,7 +1548,7 @@ static int cancel_wait_chain_fiber(void *userdata) {
         {
                 _cleanup_(sd_fiber_timeout_unrefp) sd_future *timer = NULL;
                 if (mode > 0) {
-                        ASSERT_NOT_NULL(timer = sd_fiber_timeout(0));
+                        ASSERT_NOT_NULL(timer = sd_fiber_timeout(/* timeout= */ 0));
                         /* In the combined case, let cancellation be consumed before the timer fires. */
                         ASSERT_OK(sd_future_set_priority(timer, 100));
                 }
@@ -1581,7 +1581,7 @@ TEST(fiber_cancel_wait_unref_chain) {
                 ASSERT_OK(sd_event_new(&e));
                 ASSERT_OK(sd_event_set_exit_on_idle(e, true));
                 ASSERT_OK(sd_fiber_new(e, "cleanup-chain", cancel_wait_chain_fiber, &mode, &f));
-                ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+                ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
                 if (mode != 1)
                         ASSERT_OK(sd_future_cancel(f));
                 ASSERT_OK(sd_event_loop(e));
@@ -1627,7 +1627,7 @@ TEST(future_from_private) {
         ASSERT_PTR_EQ(sd_future_from_private(sd_future_get_private(f)), f);
         ASSERT_NULL(ASSERT_RETURN_EXPECTED(sd_future_from_private(NULL)));
 
-        ASSERT_OK(sd_future_resolve(f, 0));
+        ASSERT_OK(sd_future_resolve(f, /* result= */ 0));
 }
 
 TEST(future_new_default_event) {
@@ -1675,7 +1675,7 @@ TEST(future_default_event_constructors) {
 
         ASSERT_OK(sd_event_default(&e));
         ASSERT_OK(sd_fiber_new(SD_EVENT_DEFAULT, "default-event", default_event_fiber, e, &f));
-        while (ASSERT_OK(sd_event_run(e, 0)) > 0)
+        while (ASSERT_OK(sd_event_run(e, /* timeout= */ 0)) > 0)
                 ;
 
         /* No exit-on-idle: the child error, not loop shutdown, must have resumed the parent. */
@@ -1739,7 +1739,7 @@ TEST(fiber_await_last_reference) {
                 ASSERT_OK(sd_fiber_new(e, "await-borrowed", await_borrowed_fiber, target, &waiter));
 
                 /* Suspend in await, so the waiter's own reference and the wait itself keep target alive. */
-                ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+                ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
                 ASSERT_EQ(sd_future_state(waiter), SD_FUTURE_PENDING);
 
                 /* Drop our reference while the wait is in flight: the waiter still reads the result. */
@@ -1764,12 +1764,12 @@ TEST(fiber_await_unowned) {
         ASSERT_OK(sd_future_new(e, &manual_future_ops, &target));
         ASSERT_OK(sd_fiber_new(e, "await-unowned", await_unowned_fiber, target, &waiter));
 
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
         ASSERT_EQ(sd_future_state(waiter), SD_FUTURE_PENDING);
 
         /* The fiber holds no reference to target. After we drop ours, the reference that the wait holds
          * is the last one. sd_fiber_await() must not drop it before it reads the target's state. */
-        ASSERT_OK(sd_future_resolve(target, 0));
+        ASSERT_OK(sd_future_resolve(target, /* result= */ 0));
         target = sd_future_unref(target);
 
         ASSERT_OK(sd_event_loop(e));
@@ -1792,7 +1792,7 @@ static int await_invalid_fiber(void *userdata) {
         sd_future *other = s->other;
         _cleanup_(sd_future_unrefp) sd_future *synchronous = NULL;
 
-        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_fiber_await(NULL)), EINVAL);
+        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_fiber_await(/* target= */ NULL)), EINVAL);
         ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_fiber_await(sd_fiber_get_current())), EDEADLK);
         ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_fiber_await(other)), EINVAL);
         ASSERT_NULL(sd_future_cancel_wait_unref(sd_future_ref(sd_fiber_get_current())));
@@ -1804,7 +1804,7 @@ static int await_invalid_fiber(void *userdata) {
 
         /* Cleanup only needs the same loop if cancellation actually has to wait. */
         ASSERT_NULL(sd_future_cancel_wait_unref(sd_future_ref(other)));
-        ASSERT_OK(sd_future_new_defer(sd_future_get_event(other), 0, &synchronous));
+        ASSERT_OK(sd_future_new_defer(sd_future_get_event(other), /* result= */ 0, &synchronous));
         ASSERT_NULL(sd_future_cancel_wait_unref(TAKE_PTR(synchronous)));
         return 0;
 }
@@ -1828,7 +1828,7 @@ TEST(fiber_await_invalid) {
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK_ZERO(sd_future_result(waiter));
         ASSERT_EQ(sd_future_result(target), 42);
-        ASSERT_OK_ZERO(sd_event_run(other, 0));
+        ASSERT_OK_ZERO(sd_event_run(other, /* timeout= */ 0));
 
         /* Invalid cleanup calls consume their owned references too, not just valid calls. */
         waiter = sd_future_unref(waiter);
@@ -1847,14 +1847,14 @@ TEST(fiber_get_awaiting) {
         ASSERT_OK(sd_fiber_new(e, "get-awaiting", await_borrowed_fiber, target, &waiter));
         ASSERT_NULL(sd_fiber_get_awaiting(waiter));
 
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
         ASSERT_PTR_EQ(sd_fiber_get_awaiting(waiter), target);
 
         /* Resolution only queues the wake-up; the fiber keeps awaiting until it actually runs. */
         ASSERT_OK(sd_future_resolve(target, 42));
         ASSERT_PTR_EQ(sd_fiber_get_awaiting(waiter), target);
 
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
         ASSERT_NULL(sd_fiber_get_awaiting(waiter));
         ASSERT_EQ(sd_future_result(waiter), 42);
 }
@@ -1866,18 +1866,18 @@ TEST(fiber_await_resumed_before_completion) {
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_future_new(e, &manual_future_ops, &target));
         ASSERT_OK(sd_fiber_new(e, "await-resumed", await_borrowed_fiber, target, &waiter));
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
         ASSERT_EQ(sd_future_state(waiter), SD_FUTURE_PENDING);
 
         /* An unrelated successful resume is not completion of the target. The abandoned wait must
          * unlink the fiber from the target, so resolving the target later cannot resume the finished
          * fiber. */
         ASSERT_OK(sd_fiber_resume(waiter, 42));
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
         ASSERT_ERROR(sd_future_result(waiter), EBUSY);
         ASSERT_EQ(sd_future_state(target), SD_FUTURE_PENDING);
-        ASSERT_OK(sd_future_resolve(target, 0));
-        ASSERT_OK_ZERO(sd_event_run(e, 0));
+        ASSERT_OK(sd_future_resolve(target, /* result= */ 0));
+        ASSERT_OK_ZERO(sd_event_run(e, /* timeout= */ 0));
 }
 
 static int cancel_wait_collision_fiber(void *userdata) {
@@ -1908,13 +1908,13 @@ TEST(fiber_cancel_wait_unref_propagates_cancellation_colliding_with_resolve) {
 
         /* Drive the fiber to suspend inside cancel_wait_unref's await on mf (mf's no-op cancel leaves
          * it PENDING). */
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
 
         /* In one shot — with no loop dispatch in between — resolve mf successfully *and* cancel the
          * calling fiber. Both arm a resume for the next iteration, so the await returns -ECANCELED with
          * mf already RESOLVED: the exact collision. The genuine fiber cancellation must survive, and
          * mf's own 0 result must not be what the fiber ends up observing. */
-        ASSERT_OK(sd_future_resolve(mf, 0));
+        ASSERT_OK(sd_future_resolve(mf, /* result= */ 0));
         ASSERT_OK_POSITIVE(sd_future_cancel(fib));
 
         ASSERT_OK(sd_event_loop(e));
@@ -1948,12 +1948,12 @@ TEST(fiber_cancel_wait_unref_keeps_interrupt_value_over_later_resolution) {
         ASSERT_OK(sd_fiber_new(e, "keep-interrupt", cancel_wait_keeps_interrupt_value_fiber, mf, &fib));
 
         /* Reach the first await on mf (no-op cancel leaves mf PENDING). */
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
 
         /* Deliver an interruption while mf is still pending: cancel_wait_unref remembers -ECANCELED and
          * loops back to await mf again (now suspended in the second iteration). */
         ASSERT_OK_POSITIVE(sd_future_cancel(fib));
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
 
         /* Resolve mf with its own negative result. This is a completion, so it must
          * not overwrite the remembered -ECANCELED — with the bug, the fiber would observe -EIO. */
@@ -2014,10 +2014,10 @@ TEST(fiber_signal_mask_is_per_thread) {
         ASSERT_OK_ZERO(-pthread_sigmask(SIG_SETMASK, NULL, &saved));
 
         _cleanup_(sd_future_unrefp) sd_future *waiter = NULL, *peer = NULL;
-        ASSERT_OK(sd_fiber_new(e, "sigmask-peer", sigmask_peer_fiber, NULL, &peer));
+        ASSERT_OK(sd_fiber_new(e, "sigmask-peer", sigmask_peer_fiber, /* userdata= */ NULL, &peer));
         ASSERT_OK(sd_future_set_priority(peer, 1));
         ASSERT_OK(sd_fiber_new(e, "sigmask-waiter", sigmask_waiter_fiber, peer, &waiter));
-        ASSERT_OK(sd_future_set_priority(waiter, 0));
+        ASSERT_OK(sd_future_set_priority(waiter, /* priority= */ 0));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK(sd_future_result(waiter));
@@ -2072,7 +2072,7 @@ TEST(fiber_log_context_per_fiber) {
         ASSERT_OK(sd_fiber_new(e, "log-peer", log_context_peer_fiber, &peer_observed, &peer));
         ASSERT_OK(sd_future_set_priority(peer, 1));
         ASSERT_OK(sd_fiber_new(e, "log-waiter", log_context_waiter_fiber, peer, &waiter));
-        ASSERT_OK(sd_future_set_priority(waiter, 0));
+        ASSERT_OK(sd_future_set_priority(waiter, /* priority= */ 0));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK(sd_future_result(waiter));
@@ -2128,7 +2128,7 @@ TEST(fiber_stack_guard) {
                 ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
                 _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-                ASSERT_OK(sd_fiber_new(e, "overflow", stack_overflow_fiber, NULL, &f));
+                ASSERT_OK(sd_fiber_new(e, "overflow", stack_overflow_fiber, /* userdata= */ NULL, &f));
                 (void) sd_event_loop(e);
                 _exit(EXIT_SUCCESS);    /* unreachable if the guard fires */
         }
@@ -2194,7 +2194,7 @@ TEST(future_slot_inherits_fiber_priority) {
 
                         ASSERT_OK(sd_fiber_new(e, "register-slot", slot_priority_register, &s, &registrar));
                         ASSERT_OK(sd_future_set_priority(registrar, -10));
-                        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+                        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
                         ASSERT_OK_ZERO(sd_future_result(registrar));
                         ASSERT_EQ(s.count, 0U);
 
@@ -2202,7 +2202,7 @@ TEST(future_slot_inherits_fiber_priority) {
                          * overtake the older normal-priority probe during regular dispatch and exit. */
                         ASSERT_OK(sd_future_resolve(target, 42));
                         if (exiting)
-                                ASSERT_OK(sd_event_exit(e, 0));
+                                ASSERT_OK(sd_event_exit(e, /* code= */ 0));
                         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
                         ASSERT_OK(sd_event_loop(e));
                         ASSERT_EQ(s.count, 2U);
@@ -2256,7 +2256,7 @@ TEST(future_slot_exit) {
 
                         ExitSlotState s = { .target = target, .floating = floating, .resolved = resolved };
                         ASSERT_OK(sd_event_add_exit(e, &exit_source, exit_slot_setup, &s));
-                        ASSERT_OK(sd_event_exit(e, 0));
+                        ASSERT_OK(sd_event_exit(e, /* code= */ 0));
                         ASSERT_OK(sd_event_loop(e));
                         ASSERT_EQ(s.count, 1);
                         sd_future_slot_unref(s.slot);
@@ -2281,7 +2281,7 @@ TEST(future_slot_exit_transition) {
                                 /* Request exit before queueing the callback, after queueing it, or after
                                  * dispatching it normally. It must run exactly once in every case. */
                                 if (phase == 0)
-                                        ASSERT_OK(sd_event_exit(e, 0));
+                                        ASSERT_OK(sd_event_exit(e, /* code= */ 0));
 
                                 if (resolved)
                                         ASSERT_OK(sd_future_resolve(f, 42));
@@ -2291,11 +2291,11 @@ TEST(future_slot_exit_transition) {
                                 ASSERT_EQ(count, 0);
 
                                 if (phase == 2) {
-                                        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+                                        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
                                         ASSERT_EQ(count, 1);
                                 }
                                 if (phase != 0)
-                                        ASSERT_OK(sd_event_exit(e, 0));
+                                        ASSERT_OK(sd_event_exit(e, /* code= */ 0));
 
                                 ASSERT_OK(sd_event_loop(e));
                                 ASSERT_EQ(count, 1);
@@ -2312,14 +2312,14 @@ TEST(future_resolve_twice) {
         ASSERT_OK(sd_future_new(e, &manual_future_ops, &f));
         ASSERT_OK(sd_future_add_callback(f, &slot, counting_callback, &count));
         ASSERT_OK(sd_future_resolve(f, 42));
-        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_future_resolve(f, 0)), ESTALE);
+        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_future_resolve(f, /* result= */ 0)), ESTALE);
         ASSERT_EQ(sd_future_result(f), 42);
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
         ASSERT_EQ(count, 1);
 
         ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_future_resolve(f, -EINVAL)), ESTALE);
         ASSERT_EQ(sd_future_result(f), 42);
-        ASSERT_OK_ZERO(sd_event_run(e, 0));
+        ASSERT_OK_ZERO(sd_event_run(e, /* timeout= */ 0));
         ASSERT_EQ(count, 1);
 }
 
@@ -2332,14 +2332,14 @@ TEST(future_resolve_after_fork) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
         ASSERT_OK(sd_future_new(e, &manual_future_ops, &target));
         ASSERT_OK(sd_fiber_new(e, "await-fork", await_borrowed_fiber, target, &waiter));
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
 
         /* In the child, the event loop belongs to the parent. sd_future_resolve() and sd_fiber_resume()
          * must still return 0 there instead of aborting. */
         r = ASSERT_OK(pidref_safe_fork("(resolve)", FORK_WAIT|FORK_LOG|FORK_DEATHSIG_SIGKILL, /* ret= */ NULL));
         if (r == 0) {
                 ASSERT_OK_ZERO(sd_future_resolve(target, 42));
-                ASSERT_OK_ZERO(sd_fiber_resume(waiter, 0));
+                ASSERT_OK_ZERO(sd_fiber_resume(waiter, /* result= */ 0));
                 _exit(EXIT_SUCCESS);
         }
 
@@ -2357,7 +2357,7 @@ TEST(future_resolve_after_event_finished) {
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_future_new(e, &manual_future_ops, &f));
         ASSERT_OK(sd_future_add_callback(f, &slot, counting_callback, &count));
-        ASSERT_OK(sd_event_exit(e, 0));
+        ASSERT_OK(sd_event_exit(e, /* code= */ 0));
         ASSERT_OK(sd_event_loop(e));
 
         /* A finished loop never runs the callback, so resolving succeeds without scheduling it. */
@@ -2371,7 +2371,7 @@ TEST(future_cancel_wait_unref_without_fiber) {
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
 
         ASSERT_OK(sd_event_new(&e));
-        ASSERT_OK(sd_future_new_defer(e, 0, &f));
+        ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &f));
         ASSERT_NULL(sd_future_cancel_wait_unref(sd_future_ref(f)));
         ASSERT_ERROR(sd_future_result(f), ECANCELED);
         ASSERT_NULL(sd_future_cancel_wait_unref(TAKE_PTR(f)));
@@ -2386,7 +2386,7 @@ TEST(future_slot_lifecycle) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
         _cleanup_(sd_future_unrefp) sd_future *target = NULL;
-        ASSERT_OK(sd_future_new_defer(e, 0, &target));
+        ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &target));
 
         _cleanup_(sd_future_slot_unrefp) sd_future_slot *slot_a = NULL;
         _cleanup_(sd_future_slot_unrefp) sd_future_slot *slot_b = NULL;
@@ -2411,10 +2411,10 @@ TEST(future_floating_slot_fires_on_resolve) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
         _cleanup_(sd_future_unrefp) sd_future *target = NULL;
-        ASSERT_OK(sd_future_new_defer(e, 0, &target));
+        ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &target));
 
         int count = 0;
-        ASSERT_OK(sd_future_add_callback(target, NULL, counting_callback, &count));
+        ASSERT_OK(sd_future_add_callback(target, /* ret_slot= */ NULL, counting_callback, &count));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_EQ(count, 1);
@@ -2425,7 +2425,7 @@ static int defer_basic_fiber(void *userdata) {
         _cleanup_(sd_future_unrefp) sd_future *defer = NULL;
         _cleanup_(sd_future_slot_unrefp) sd_future_slot *slot = NULL;
 
-        ASSERT_OK(sd_future_new_defer(sd_fiber_get_event(), 0, &defer));
+        ASSERT_OK(sd_future_new_defer(sd_fiber_get_event(), /* result= */ 0, &defer));
         ASSERT_OK(sd_future_add_callback(defer, &slot, counting_callback, counter));
         return sd_fiber_await(defer);
 }
@@ -2452,12 +2452,12 @@ TEST(add_callback_resolved_no_fiber_defers) {
         ASSERT_OK(sd_event_new(&e));
 
         _cleanup_(sd_future_unrefp) sd_future *target = NULL;
-        ASSERT_OK(sd_future_new_defer(e, 0, &target));
+        ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &target));
 
         /* Drive the loop manually — sd_event_loop would transition to FINISHED and block
          * the subsequent sd_event_add_defer. */
         do
-                ASSERT_OK(sd_event_run(e, 0));
+                ASSERT_OK(sd_event_run(e, /* timeout= */ 0));
         while (sd_future_state(target) == SD_FUTURE_PENDING);
 
         int count = 0;
@@ -2465,7 +2465,7 @@ TEST(add_callback_resolved_no_fiber_defers) {
         ASSERT_OK(sd_future_add_callback(target, &slot, counting_callback, &count));
         ASSERT_EQ(count, 0);
 
-        ASSERT_OK(sd_event_run(e, 0));
+        ASSERT_OK(sd_event_run(e, /* timeout= */ 0));
         ASSERT_EQ(count, 1);
 }
 
@@ -2475,17 +2475,17 @@ TEST(add_callback_resolved_no_fiber_floating_defers) {
         ASSERT_OK(sd_event_new(&e));
 
         _cleanup_(sd_future_unrefp) sd_future *target = NULL;
-        ASSERT_OK(sd_future_new_defer(e, 0, &target));
+        ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &target));
 
         do
-                ASSERT_OK(sd_event_run(e, 0));
+                ASSERT_OK(sd_event_run(e, /* timeout= */ 0));
         while (sd_future_state(target) == SD_FUTURE_PENDING);
 
         int count = 0;
-        ASSERT_OK(sd_future_add_callback(target, NULL, counting_callback, &count));
+        ASSERT_OK(sd_future_add_callback(target, /* ret_slot= */ NULL, counting_callback, &count));
         ASSERT_EQ(count, 0);
 
-        ASSERT_OK(sd_event_run(e, 0));
+        ASSERT_OK(sd_event_run(e, /* timeout= */ 0));
         ASSERT_EQ(count, 1);
 }
 
@@ -2500,7 +2500,7 @@ static int floating_freed_driver(void *userdata) {
         ASSERT_OK(sd_fiber_await(s->target));
         ASSERT_EQ(sd_future_state(s->target), SD_FUTURE_RESOLVED);
 
-        ASSERT_OK(sd_future_add_callback(s->target, NULL, counting_callback, &s->fired_count));
+        ASSERT_OK(sd_future_add_callback(s->target, /* ret_slot= */ NULL, counting_callback, &s->fired_count));
 
         /* Drop the last external ref before the defer tick. The future owns the floating
          * slot; freeing it must tear the slot's defer source down rather than leave it
@@ -2517,7 +2517,7 @@ TEST(add_callback_resolved_in_fiber_floating_future_freed) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
         FloatingFreedState s = {};
-        ASSERT_OK(sd_future_new_defer(e, 0, &s.target));
+        ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &s.target));
 
         _cleanup_(sd_future_unrefp) sd_future *driver = NULL;
         ASSERT_OK(sd_fiber_new(e, "driver", floating_freed_driver, &s, &driver));
@@ -2554,7 +2554,7 @@ TEST(defer_slot_cancel_before_fire) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
         _cleanup_(sd_future_unrefp) sd_future *target = NULL;
-        ASSERT_OK(sd_future_new_defer(e, 0, &target));
+        ASSERT_OK(sd_future_new_defer(e, /* result= */ 0, &target));
 
         DeferCancelState s = { .target = target };
         _cleanup_(sd_future_unrefp) sd_future *driver = NULL;
@@ -2598,7 +2598,7 @@ TEST(fiber_resume_cancellation_is_sticky) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "sticky", sticky_cancel_fiber, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "sticky", sticky_cancel_fiber, /* userdata= */ NULL, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_ERROR(sd_future_result(f), ECANCELED);
@@ -2633,7 +2633,7 @@ TEST(fiber_resume_timeout_is_sticky) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
         _cleanup_(sd_future_unrefp) sd_future *f = NULL;
-        ASSERT_OK(sd_fiber_new(e, "sticky-timeout", sticky_timeout_fiber, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "sticky-timeout", sticky_timeout_fiber, /* userdata= */ NULL, &f));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_ERROR(sd_future_result(f), ETIME);
@@ -2677,8 +2677,8 @@ TEST(fiber_resume_cancel_outranks_timeout) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
         _cleanup_(sd_future_unrefp) sd_future *escalate = NULL, *keep = NULL;
-        ASSERT_OK(sd_fiber_new(e, "escalate", timeout_then_cancel_fiber, NULL, &escalate));
-        ASSERT_OK(sd_fiber_new(e, "keep", cancel_then_timeout_fiber, NULL, &keep));
+        ASSERT_OK(sd_fiber_new(e, "escalate", timeout_then_cancel_fiber, /* userdata= */ NULL, &escalate));
+        ASSERT_OK(sd_fiber_new(e, "keep", cancel_then_timeout_fiber, /* userdata= */ NULL, &keep));
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_ERROR(sd_future_result(escalate), ECANCELED);
@@ -2693,11 +2693,11 @@ TEST(future_new_defer_rejected_on_exiting_loop) {
         ASSERT_OK(sd_event_new(&e));
 
         /* Drive the loop to FINISHED by asking it to exit immediately. */
-        ASSERT_OK(sd_event_exit(e, 0));
+        ASSERT_OK(sd_event_exit(e, /* code= */ 0));
         ASSERT_OK(sd_event_loop(e));
 
         sd_future *f = NULL;
-        ASSERT_ERROR(sd_future_new_defer(e, 0, &f), ECANCELED);
+        ASSERT_ERROR(sd_future_new_defer(e, /* result= */ 0, &f), ECANCELED);
         ASSERT_NULL(f);
 }
 
@@ -2728,7 +2728,7 @@ TEST(fiber_await_completion_wins) {
 
                 AwaitInterrupted a = { .target = target };
                 ASSERT_OK(sd_fiber_new(e, "completion-wins", await_then_yield_fiber, &a, &waiter));
-                ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+                ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
                 ASSERT_PTR_EQ(sd_fiber_get_awaiting(waiter), target);
 
                 /* The target resolves first, then the interruption arrives before the fiber runs. */
@@ -2768,7 +2768,7 @@ TEST(fiber_interrupted) {
 
         ASSERT_OK(sd_event_new(&e));
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
-        ASSERT_OK(sd_fiber_new(e, "interrupted", interrupted_fiber, NULL, &f));
+        ASSERT_OK(sd_fiber_new(e, "interrupted", interrupted_fiber, /* userdata= */ NULL, &f));
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK_ZERO(sd_future_result(f));
 }
@@ -2786,8 +2786,8 @@ static int timeout_scope_fiber(void *userdata) {
         sd_future *outer = NULL, *inner;
 
         if (t->nested)
-                ASSERT_NOT_NULL(outer = sd_fiber_timeout(0));
-        ASSERT_NOT_NULL(inner = sd_fiber_timeout(0));
+                ASSERT_NOT_NULL(outer = sd_fiber_timeout(/* timeout= */ 0));
+        ASSERT_NOT_NULL(inner = sd_fiber_timeout(/* timeout= */ 0));
 
         t->await_result = sd_fiber_await(t->target);
         inner = sd_fiber_timeout_unref(inner);
@@ -2812,14 +2812,14 @@ TEST(fiber_timeout_unref_drops_queued_timeout) {
 
                 TimeoutScope t = { .target = target, .nested = *nested };
                 ASSERT_OK(sd_fiber_new(e, "timeout-scope", timeout_scope_fiber, &t, &waiter));
-                ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+                ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
                 ASSERT_PTR_EQ(sd_fiber_get_awaiting(waiter), target);
 
                 /* Every timer has to expire and wake the fiber before the fiber runs again, so that the
                  * fiber sees -ETIME although the target resolved. */
                 ASSERT_OK(sd_future_set_priority(waiter, 1000));
 
-                ASSERT_OK(sd_future_resolve(target, 0));
+                ASSERT_OK(sd_future_resolve(target, /* result= */ 0));
                 ASSERT_OK(sd_event_loop(e));
 
                 ASSERT_OK_ZERO(t.await_result);
@@ -2849,9 +2849,9 @@ TEST(fiber_return_drops_queued_interruption) {
         ASSERT_OK(sd_event_set_exit_on_idle(e, true));
         ASSERT_OK(sd_future_new(e, &manual_future_ops, &target));
         ASSERT_OK(sd_fiber_new(e, "return-queued", await_then_return_fiber, target, &waiter));
-        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
 
-        ASSERT_OK(sd_future_resolve(target, 0));
+        ASSERT_OK(sd_future_resolve(target, /* result= */ 0));
         ASSERT_OK(sd_future_cancel(waiter));
 
         ASSERT_OK(sd_event_loop(e));

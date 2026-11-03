@@ -16,6 +16,11 @@ typedef struct Tpm2ReportOptions {
         size_t n_tpm_props;
         TPM2_HANDLE *auth_policies;
         size_t n_auth_policies;
+
+        /* The key to certify in the report, if any, along with its public area as read and vetted by the
+         * caller. The report carries this public area, and the certified name is checked against it. */
+        Tpm2Handle *certify_key;
+        TPMT_PUBLIC *certify_key_public;
 } Tpm2ReportOptions;
 
 void tpm2_report_options_done(Tpm2ReportOptions *opts);
@@ -23,6 +28,7 @@ void tpm2_report_options_done(Tpm2ReportOptions *opts);
 typedef enum Tpm2ReportComponentType {
         TPM2_REPORT_TYPE_PCR,
         TPM2_REPORT_TYPE_NVPCR,
+        TPM2_REPORT_TYPE_KEY_CERTIFICATION,
         TPM2_REPORT_TYPE_CAPABILITY_TPM_PROPERTY,
         TPM2_REPORT_TYPE_CAPABILITY_AUTH_POLICY,
         TPM2_REPORT_TYPE_SESSION_AUDIT,
@@ -49,6 +55,9 @@ typedef struct Tpm2ReportComponent {
          * data is the report digest we get. */
         char *authenticated_data;
 
+        /* For key certifications only: the public area of the certified key */
+        TPMT_PUBLIC *key_public;
+
         /* For session audit only */
         TPMI_ALG_HASH session_audit_hash_alg;
 
@@ -61,7 +70,7 @@ typedef struct Tpm2ReportComponent {
         /* For auth policy capability components only. */
         TPMS_TAGGED_POLICY *auth_policy;
 
-        /* Common fields for PCR, NvPCR and session audit components. */
+        /* Common fields for PCR, NvPCR, key certification and session audit components. */
         TPMS_ATTEST *attestation;
         TPMT_SIGNATURE *signature;
 } Tpm2ReportComponent;

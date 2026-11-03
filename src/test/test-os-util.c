@@ -17,7 +17,7 @@
 TEST(path_is_os_tree) {
         ASSERT_GT(path_is_os_tree("/"), 0);
         ASSERT_EQ(path_is_os_tree("/etc"), 0);
-        assert_se(path_is_os_tree("/idontexist") == -ENOENT);
+        ASSERT_ERROR(path_is_os_tree("/idontexist"), ENOENT);
 }
 
 TEST(parse_os_release) {
@@ -71,21 +71,20 @@ TEST(parse_extension_release) {
         if (r < 0)
                 log_error_errno(r, "Failed to setup working directory: %m");
 
-        assert_se(a = path_join(tempdir, "/usr/lib/extension-release.d/extension-release.test"));
-        assert_se(mkdir_parents(a, 0777) >= 0);
-        ASSERT_GE(mkdir_parents(a, 0777), 0);
+        ASSERT_NOT_NULL(a = path_join(tempdir, "/usr/lib/extension-release.d/extension-release.test"));
+        ASSERT_OK(mkdir_parents(a, 0777));
 
         r = write_string_file(a, "ID=the-id  \n VERSION_ID=the-version-id", WRITE_STRING_FILE_CREATE);
         if (r < 0)
                 log_error_errno(r, "Failed to write file: %m");
 
-        assert_se(parse_extension_release(tempdir, IMAGE_SYSEXT, "test", false, "ID", &id, "VERSION_ID", &version_id) == 0);
+        ASSERT_OK_ZERO(parse_extension_release(tempdir, IMAGE_SYSEXT, "test", false, "ID", &id, "VERSION_ID", &version_id));
         log_info("ID: %s VERSION_ID: %s", id, version_id);
         ASSERT_STREQ(id, "the-id");
         ASSERT_STREQ(version_id, "the-version-id");
 
-        assert_se(b = path_join(tempdir, "/etc/extension-release.d/extension-release.tester"));
-        assert_se(mkdir_parents(b, 0777) >= 0);
+        ASSERT_NOT_NULL(b = path_join(tempdir, "/etc/extension-release.d/extension-release.tester"));
+        ASSERT_OK(mkdir_parents(b, 0777));
 
         r = write_string_file(b, "ID=\"ignored\" \n ID=\"the-id\" \n VERSION_ID='the-version-id'", WRITE_STRING_FILE_CREATE);
         if (r < 0)
@@ -96,11 +95,11 @@ TEST(parse_extension_release) {
         ASSERT_STREQ(id, "the-id");
         ASSERT_STREQ(version_id, "the-version-id");
 
-        assert_se(parse_extension_release(tempdir, IMAGE_CONFEXT, "tester", false, "FOOBAR", &foobar) == 0);
+        ASSERT_OK_ZERO(parse_extension_release(tempdir, IMAGE_CONFEXT, "tester", false, "FOOBAR", &foobar));
         log_info("FOOBAR: %s", strnull(foobar));
         ASSERT_NULL(foobar);
 
-        assert_se(parse_extension_release(tempdir, IMAGE_SYSEXT, "test", false, "FOOBAR", &foobar) == 0);
+        ASSERT_OK_ZERO(parse_extension_release(tempdir, IMAGE_SYSEXT, "test", false, "FOOBAR", &foobar));
         log_info("FOOBAR: %s", strnull(foobar));
         ASSERT_NULL(foobar);
 }
@@ -115,9 +114,9 @@ TEST(load_os_release_pairs) {
         ASSERT_OK_ERRNO(setenv("SYSTEMD_OS_RELEASE", tmpfile, 1));
 
         _cleanup_strv_free_ char **pairs = NULL;
-        ASSERT_EQ(load_os_release_pairs(NULL, &pairs), 0);
-        assert_se(strv_equal(pairs, STRV_MAKE("ID", "the-id",
-                                              "NAME", "the-name")));
+        ASSERT_EQ(load_os_release_pairs(/* root= */ NULL, &pairs), 0);
+        ASSERT_STRV_EQ(pairs, STRV_MAKE("ID", "the-id",
+                                        "NAME", "the-name"));
 
         ASSERT_OK_ERRNO(unsetenv("SYSTEMD_OS_RELEASE"));
 }
@@ -125,16 +124,16 @@ TEST(load_os_release_pairs) {
 TEST(os_release_support_ended) {
         int r;
 
-        ASSERT_TRUE(os_release_support_ended("1999-01-01", false, NULL));
+        ASSERT_TRUE(os_release_support_ended("1999-01-01", /* quiet= */ false, /* ret_eol= */ NULL));
 #if SIZEOF_TIME_T == 4
         /* Dates past 2038 overflow time_t on 32-bit systems, so keep a safe date here. */
         ASSERT_FALSE(os_release_support_ended("2037-12-31", false, NULL));
 #else
-        ASSERT_FALSE(os_release_support_ended("9999-12-30", false, NULL));
+        ASSERT_FALSE(os_release_support_ended("9999-12-30", /* quiet= */ false, /* ret_eol= */ NULL));
 #endif
-        ASSERT_ERROR(os_release_support_ended("1-1-1", true, NULL), ERANGE);
+        ASSERT_ERROR(os_release_support_ended("1-1-1", /* quiet= */ true, /* ret_eol= */ NULL), ERANGE);
 
-        r = os_release_support_ended(NULL, false, NULL);
+        r = os_release_support_ended(/* support_end= */ NULL, /* quiet= */ false, /* ret_eol= */ NULL);
         if (r < 0)
                 log_info_errno(r, "Failed to check host: %m");
         else

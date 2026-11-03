@@ -556,7 +556,7 @@ static int pci_get_hotplug_slot(sd_device *dev, uint32_t *ret) {
                         return 0; /* domain can be still used. */
                 }
 
-                if (sd_device_get_parent_with_subsystem_devtype(slot_dev, "pci", NULL, &slot_dev) < 0)
+                if (sd_device_get_parent_with_subsystem_devtype(slot_dev, "pci", /* devtype= */ NULL, &slot_dev) < 0)
                         break;
         }
 
@@ -599,7 +599,7 @@ static int pci_get_slot_from_firmware_node_sun(sd_device *dev, uint32_t *ret) {
         if (get_device_firmware_node_sun(dev, ret) >= 0)
                 return 0;
 
-        r = sd_device_get_parent_with_subsystem_devtype(dev, "pci", NULL, &slot_dev);
+        r = sd_device_get_parent_with_subsystem_devtype(dev, "pci", /* devtype= */ NULL, &slot_dev);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to find parent PCI device, ignoring: %m");
 
@@ -732,7 +732,7 @@ static int names_vio(UdevEvent *event, const char *prefix) {
         /* get ibmveth/ibmvnic slot-based names. */
 
         /* check if our direct parent is a VIO device with no other bus in-between */
-        if (get_matching_parent(dev, STRV_MAKE("vio"), /* skip_virtio= */ false, NULL) < 0)
+        if (get_matching_parent(dev, STRV_MAKE("vio"), /* skip_virtio= */ false, /* ret= */ NULL) < 0)
                 return 0;
 
         log_device_debug(dev, "Parent device is in the vio subsystem.");
@@ -779,7 +779,7 @@ static int names_platform(UdevEvent *event, const char *prefix) {
         /* get ACPI path names for ARM64 platform devices */
 
         /* check if our direct parent is a platform device with no other bus in-between */
-        if (get_matching_parent(dev, STRV_MAKE("platform"), /* skip_virtio= */ false, NULL) < 0)
+        if (get_matching_parent(dev, STRV_MAKE("platform"), /* skip_virtio= */ false, /* ret= */ NULL) < 0)
                 return 0;
 
         log_device_debug(dev, "Parent device is in the platform subsystem.");
@@ -923,7 +923,7 @@ static int names_devicetree_alias_prefix(UdevEvent *event, const char *prefix, c
                 }
 
                 /* ...but make sure we don't have an alias conflict */
-                if (i == 0 && device_get_sysattr_safe_string_filtered(aliases_dev, conflict, NULL) >= 0)
+                if (i == 0 && device_get_sysattr_safe_string_filtered(aliases_dev, conflict, /* ret_value= */ NULL) >= 0)
                         return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EEXIST),
                                         "DeviceTree alias conflict: '%s' and '%s' both exist.",
                                         alias_prefix, alias_prefix_0);
@@ -1098,7 +1098,7 @@ static int names_usb(UdevEvent *event, const char *prefix) {
                 return r;
 
         /* If the USB bus is on PCI bus, then suffix the USB specifier to the name based on the PCI bus. */
-        r = sd_device_get_parent_with_subsystem_devtype(usbdev, "pci", NULL, &pcidev);
+        r = sd_device_get_parent_with_subsystem_devtype(usbdev, "pci", /* devtype= */ NULL, &pcidev);
         if (r >= 0)
                 return names_pci_slot(event, pcidev, prefix, suffix);
 
@@ -1150,11 +1150,11 @@ static int names_bcma(UdevEvent *event, const char *prefix) {
 
         assert(prefix);
 
-        r = sd_device_get_parent_with_subsystem_devtype(dev, "bcma", NULL, &bcmadev);
+        r = sd_device_get_parent_with_subsystem_devtype(dev, "bcma", /* devtype= */ NULL, &bcmadev);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Could not get BCMA parent device: %m");
 
-        r = sd_device_get_parent_with_subsystem_devtype(bcmadev, "pci", NULL, &pcidev);
+        r = sd_device_get_parent_with_subsystem_devtype(bcmadev, "pci", /* devtype= */ NULL, &pcidev);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Could not get PCI parent device: %m");
 
@@ -1236,7 +1236,7 @@ static int ieee_oui(UdevEvent *event, const struct hw_addr_data *hw_addr) {
                  hw_addr->bytes[4],
                  hw_addr->bytes[5]);
 
-        return udev_builtin_hwdb_lookup(event, NULL, str, NULL);
+        return udev_builtin_hwdb_lookup(event, /* prefix= */ NULL, str, /* filter= */ NULL);
 }
 
 static int names_mac(UdevEvent *event, const char *prefix) {
@@ -1305,7 +1305,7 @@ static int names_netdevsim(UdevEvent *event, const char *prefix) {
         if (!naming_scheme_has(NAMING_NETDEVSIM))
                 return 0;
 
-        r = sd_device_get_parent_with_subsystem_devtype(dev, "netdevsim", NULL, &netdevsimdev);
+        r = sd_device_get_parent_with_subsystem_devtype(dev, "netdevsim", /* devtype= */ NULL, &netdevsimdev);
         if (r < 0)
                 return r;
 
@@ -1343,7 +1343,7 @@ static int names_xen(UdevEvent *event, const char *prefix) {
                 return 0;
 
         /* check if our direct parent is a Xen VIF device with no other bus in-between */
-        if (get_matching_parent(dev, STRV_MAKE("xen"), /* skip_virtio= */ false, NULL) < 0)
+        if (get_matching_parent(dev, STRV_MAKE("xen"), /* skip_virtio= */ false, /* ret= */ NULL) < 0)
                 return 0;
 
         /* Use the vif-n name to extract "n" */

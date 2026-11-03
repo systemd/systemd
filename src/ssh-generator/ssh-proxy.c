@@ -17,6 +17,15 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-ssh-proxy\0",
+        "Connect an SSH client to AF_VSOCK and AF_UNIX sockets.",
+        .argspec = "HOST PORT\0",
+        .man_pages = "systemd-ssh-proxy(1)\0",
+        .option_namespace = "common",
+);
 
 #define HEADER_READ_TIMEOUT_USEC (5 * USEC_PER_SEC)
 
@@ -388,13 +397,16 @@ static char *startswith_sep(const char *s, const char *prefix) {
 }
 
 static int run(int argc, char* argv[]) {
+        int r;
 
         log_setup();
 
-        if (argc != 3)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected two arguments: host and port.");
+        char **args = NULL;
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 2, /* max_args= */ 2, &args);
+        if (r <= 0)
+                return r;
 
-        const char *host = argv[1], *port = argv[2];
+        const char *host = args[0], *port = args[1];
 
         const char *p = startswith_sep(host, "vsock");
         if (p)

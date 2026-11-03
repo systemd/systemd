@@ -2,10 +2,7 @@
 
 #include <sys/stat.h>
 
-#include "sd-json.h"
-
 #include "alloc-util.h"
-#include "build.h"
 #include "cryptsetup-util.h"
 #include "dlopen-note.h"
 #include "fileio.h"
@@ -45,6 +42,7 @@ COMMAND(
         "systemd-integritysetup\0",
         "Attach or detach an integrity protected block device.",
         .man_pages = "systemd-integritysetup@.service(8)\0",
+        .option_namespace = "common",
 );
 
 static int load_key_file(
@@ -61,7 +59,7 @@ static int load_key_file(
         r = read_full_file_full(
                         AT_FDCWD, key_file, UINT64_MAX, DM_MAX_KEY_SIZE,
                         READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET|READ_FULL_FILE_FAIL_WHEN_LARGER,
-                        NULL,
+                        /* bind_name= */ NULL,
                         &tmp_key_file_contents, &tmp_key_file_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to process key file: %m");
@@ -183,35 +181,11 @@ static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
 VERB_COMMON_HELP_AUTO_HIDDEN();
 
-static int parse_argv(int argc, char *argv[], char ***ret_args) {
-        assert(argc >= 0);
-        assert(argv);
-        assert(ret_args);
-
-        OptionParser opts = { argc, argv };
-
-        FOREACH_OPTION_OR_RETURN(c, &opts)
-                switch (c) {
-
-                OPTION_COMMON_HELP:
-                        return command_print_help();
-
-                OPTION_COMMON_VERSION:
-                        return version();
-
-                OPTION_COMMON_INTROSPECT_CLI:
-                        return introspect_cli(SD_JSON_FORMAT_OFF);
-                }
-
-        *ret_args = option_parser_get_args(&opts);
-        return 1;
-}
-
 static int run(int argc, char *argv[]) {
         int r;
 
         char **args = NULL;
-        r = parse_argv(argc, argv, &args);
+        r = common_parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 

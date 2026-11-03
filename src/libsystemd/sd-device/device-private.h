@@ -9,6 +9,7 @@ int device_new_from_mode_and_devnum(sd_device **ret, mode_t mode, dev_t devnum);
 int device_new_from_nulstr(sd_device **ret, char *nulstr, size_t len);
 int device_new_from_strv(sd_device **ret, char **strv);
 
+int device_open(sd_device *device, int flags);
 int device_opendir(sd_device *device, const char *subdir, DIR **ret);
 
 int device_get_sysnum_unsigned(sd_device *device, unsigned *ret);
@@ -80,7 +81,7 @@ int device_delete_db(sd_device *device);
 int device_read_db_internal_filename(sd_device *device, const char *filename); /* For fuzzer */
 int device_read_db_internal(sd_device *device, bool force);
 static inline int device_read_db(sd_device *device) {
-        return device_read_db_internal(device, false);
+        return device_read_db_internal(device, /* force= */ false);
 }
 
 int device_read_uevent_file(sd_device *device);

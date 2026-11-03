@@ -119,7 +119,7 @@ static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
         if (r < 0)
                 return r;
 
-        return link_request_address(link, address, NULL, ipv4ll_address_handler, NULL);
+        return link_request_address(link, address, /* message_counter= */ NULL, ipv4ll_address_handler, /* ret= */ NULL);
 }
 
 static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
@@ -176,7 +176,7 @@ static int ipv4ll_check_mac(sd_ipv4ll *ll, const struct ether_addr *mac, void *u
                 .ether = *mac,
         };
 
-        return link_get_by_hw_addr(m, &hw_addr, NULL) >= 0;
+        return link_get_by_hw_addr(m, &hw_addr, /* ret= */ NULL) >= 0;
 }
 
 static int ipv4ll_set_address(Link *link) {
@@ -241,12 +241,12 @@ int ipv4ll_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_ipv4ll_attach_event(link->ipv4ll, link->manager->event, 0);
+        r = sd_ipv4ll_attach_event(link->ipv4ll, link->manager->event, /* priority= */ 0);
         if (r < 0)
                 return r;
 
         if (link->dev &&
-            net_get_unique_predictable_data(link->dev, true, &seed) >= 0) {
+            net_get_unique_predictable_data(link->dev, /* use_sysname= */ true, &seed) >= 0) {
                 r = sd_ipv4ll_set_address_seed(link->ipv4ll, seed);
                 if (r < 0)
                         return r;

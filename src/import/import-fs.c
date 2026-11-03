@@ -13,6 +13,7 @@
 #include "dlopen-note.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "import-common.h"
 #include "import-util.h"
 #include "install-file.h"
@@ -163,7 +164,7 @@ static int verb_import_fs(int argc, char *argv[], uintptr_t _data, void *userdat
                         return log_oom();
 
                 if (!arg_force) {
-                        r = image_find(arg_runtime_scope, arg_class, local, NULL, NULL);
+                        r = image_find(arg_runtime_scope, arg_class, local, /* root= */ NULL, /* ret= */ NULL);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
@@ -174,9 +175,9 @@ static int verb_import_fs(int argc, char *argv[], uintptr_t _data, void *userdat
         }
 
         if (path) {
-                open_fd = open(path, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+                open_fd = xopenat(AT_FDCWD, path, O_DIRECTORY|O_RDONLY);
                 if (open_fd < 0)
-                        return log_error_errno(errno, "Failed to open directory to import: %m");
+                        return log_error_errno(open_fd, "Failed to open directory to import: %m");
 
                 fd = open_fd;
 
@@ -201,7 +202,7 @@ static int verb_import_fs(int argc, char *argv[], uintptr_t _data, void *userdat
 
                 dest = final_path;
         } else {
-                r = tempfn_random(final_path, NULL, &temp_path);
+                r = tempfn_random(final_path, /* extra= */ NULL, &temp_path);
                 if (r < 0)
                         return log_oom();
 
@@ -217,7 +218,7 @@ static int verb_import_fs(int argc, char *argv[], uintptr_t _data, void *userdat
 
                 if (arg_btrfs_subvol)
                         r = btrfs_subvol_snapshot_at_full(
-                                        fd, NULL,
+                                        fd, /* from= */ NULL,
                                         AT_FDCWD, dest,
                                         BTRFS_SNAPSHOT_FALLBACK_COPY|
                                         BTRFS_SNAPSHOT_FALLBACK_DIRECTORY|
@@ -229,7 +230,7 @@ static int verb_import_fs(int argc, char *argv[], uintptr_t _data, void *userdat
                                         &progress);
                 else
                         r = copy_directory_at_full(
-                                        fd, NULL,
+                                        fd, /* from= */ NULL,
                                         AT_FDCWD, dest,
                                         /* override_uid= */ UID_INVALID,
                                         /* override_gid= */ GID_INVALID,

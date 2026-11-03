@@ -28,7 +28,7 @@ static int device_is_power_sink(sd_device *device) {
         if (r < 0)
                 return r;
 
-        r = sd_device_enumerator_add_match_subsystem(e, "typec", true);
+        r = sd_device_enumerator_add_match_subsystem(e, "typec", /* match= */ true);
         if (r < 0)
                 return r;
 
@@ -118,7 +118,7 @@ int on_ac_power(void) {
         if (r < 0)
                 return r;
 
-        r = sd_device_enumerator_add_match_subsystem(e, "power_supply", true);
+        r = sd_device_enumerator_add_match_subsystem(e, "power_supply", /* match= */ true);
         if (r < 0)
                 return r;
 
@@ -155,7 +155,7 @@ int on_ac_power(void) {
                         continue;
                 }
 
-                r = device_get_sysattr_unsigned(d, "online", NULL);
+                r = device_get_sysattr_unsigned(d, "online", /* ret= */ NULL);
                 if (r < 0) {
                         log_device_debug_errno(d, r, "Failed to query 'online' sysfs attribute, ignoring device: %m");
                         continue;

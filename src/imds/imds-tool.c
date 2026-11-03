@@ -401,7 +401,7 @@ static int write_credential(const char *dir, const char *name, const struct iove
         assert(dir);
         assert(name);
 
-        _cleanup_close_ int dfd = open_mkdir(dir, O_CLOEXEC|O_PATH, 0700);
+        _cleanup_close_ int dfd = open_mkdir(dir, O_PATH, 0700);
         if (dfd < 0)
                 return log_error_errno(dfd, "Failed to open credential directory '%s': %m", dir);
 
@@ -414,7 +414,7 @@ static int write_credential(const char *dir, const char *name, const struct iove
         }
 
         _cleanup_free_ char *t = NULL;
-        _cleanup_close_ int fd = open_tmpfile_linkable_at(dfd, name, O_WRONLY|O_CLOEXEC, &t);
+        _cleanup_close_ int fd = open_tmpfile_linkable_at(dfd, name, O_WRONLY, &t);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to create credential file '%s/%s': %m", dir, name);
 
@@ -590,7 +590,7 @@ static int add_public_address_to_json_array(sd_json_variant **array, int family,
 }
 
 static int import_imds_public_addresses(sd_varlink *link) {
-        int r, ret = 0;
+        int r;
 
         assert(link);
 
@@ -601,8 +601,8 @@ static int import_imds_public_addresses(sd_varlink *link) {
         union in_addr_union u = {};
         r = acquire_imds_key_as_ip_address(link, IMDS_IPV4_PUBLIC, /* key= */ NULL, AF_INET, &u);
         if (r < 0)
-                RET_GATHER(ret, r);
-        else if (r > 0) {
+                return r;
+        if (r > 0) {
                 r = add_public_address_to_json_array(&aj, AF_INET, &u);
                 if (r < 0)
                         return r;
@@ -611,8 +611,8 @@ static int import_imds_public_addresses(sd_varlink *link) {
         u = (union in_addr_union) {};
         r = acquire_imds_key_as_ip_address(link, IMDS_IPV6_PUBLIC, /* key= */ NULL, AF_INET6, &u);
         if (r < 0)
-                RET_GATHER(ret, r);
-        else if (r > 0) {
+                return r;
+        if (r > 0) {
                 r = add_public_address_to_json_array(&aj, AF_INET6, &u);
                 if (r < 0)
                         return r;
@@ -623,12 +623,12 @@ static int import_imds_public_addresses(sd_varlink *link) {
                 return 0;
         }
 
-        _cleanup_free_ char *text = NULL;
-        r = sd_json_variant_format(aj, SD_JSON_FORMAT_NEWLINE, &text);
-        if (r < 0)
-                return log_error_errno(r, "Failed to format JSON text: %m");
-
-        r = write_string_file("/run/systemd/resolve/static.d/imds-public.rr", text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755);
+        r = json_variant_write_file_at(
+                        AT_FDCWD,
+                        "/run/systemd/resolve/static.d/imds-public.rr",
+                        aj,
+                        SD_JSON_FORMAT_NEWLINE,
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to write IMDS RR data: %m");
 

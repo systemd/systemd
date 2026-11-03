@@ -640,6 +640,119 @@ EOF
     rm -fr "$root" "/run/systemd/nspawn/$container.nspawn"
 }
 
+testcase_nspawn_settings_credentials() {
+    local root container
+
+    mkdir -p /run/systemd/nspawn
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.nspawn-settings-credentials.XXX)"
+    container="$(basename "$root")"
+    create_dummy_container "$root"
+    rm -f "/etc/systemd/nspawn/$container.nspawn"
+    echo "foo bar" >/tmp/cred.path
+    rm -f /tmp/cred.missing
+
+    # Settings files in /run/systemd/nspawn/ are trusted, hence may load credentials from the host
+    cat >"/run/systemd/nspawn/$container.nspawn" <<EOF
+[Exec]
+SetCredential=cred.reset:nope
+SetCredential=
+LoadCredential=cred.load-reset:/tmp/cred.path
+LoadCredential=
+SetCredential=cred.set:hello world
+SetCredential=cred.escaped:a\\nb
+SetCredential=cred.replaced:old
+SetCredential=cred.replaced:new
+LoadCredential=cred.path:/tmp/cred.missing
+LoadCredential=cred.path:/tmp/cred.path
+LoadCredential=cred.load-wins:/tmp/cred.path
+SetCredential=cred.load-wins:fallback
+SetCredential=cred.fallback:fallback
+LoadCredential=cred.fallback:/tmp/cred.missing
+LoadCredential=cred.inherited:svc.cred
+LoadCredential=cred.inherited-missing:svc.missing
+LoadCredential=cred.inherited-fallback:svc.missing
+SetCredential=cred.inherited-fallback:fallback
+SetCredential=cred.no-separator
+LoadCredential=cred.no-separator
+SetCredential=cred/invalid:value
+LoadCredential=cred/invalid:/tmp/cred.path
+LoadCredential=cred.relative:tmp/cred.path
+LoadCredential=cred.unnormalized:/tmp/../tmp/cred.path
+
+[Files]
+${COVERAGE_BUILD_DIR:+"Bind=$COVERAGE_BUILD_DIR"}
+EOF
+    cat >"$root/creds.sh" <<\EOF
+#!/usr/bin/env bash
+set -ex
+
+[[ "$CREDENTIALS_DIRECTORY" == /run/host/credentials ]]
+[[ "$(</run/host/credentials/cred.set)" == "hello world" ]]
+[[ "$(</run/host/credentials/cred.escaped)" == $'a\nb' ]]
+[[ "$(</run/host/credentials/cred.replaced)" == new ]]
+[[ "$(</run/host/credentials/cred.path)" == "foo bar" ]]
+[[ "$(</run/host/credentials/cred.load-wins)" == "foo bar" ]]
+[[ "$(</run/host/credentials/cred.fallback)" == fallback ]]
+[[ ! -e /run/host/credentials/cred.reset ]]
+[[ ! -e /run/host/credentials/cred.load-reset ]]
+# Invalid assignments are ignored
+[[ ! -e /run/host/credentials/cred.no-separator ]]
+[[ ! -e /run/host/credentials/cred.relative ]]
+[[ ! -e /run/host/credentials/cred.unnormalized ]]
+[[ ! -e /run/host/credentials/cred ]]
+if [[ -n "${EXPECTED_INHERITED:-}" ]]; then
+    [[ "$(</run/host/credentials/cred.inherited)" == "$EXPECTED_INHERITED" ]]
+else
+    [[ ! -e /run/host/credentials/cred.inherited ]]
+fi
+EOF
+    # A credential to be inherited from systemd-nspawn is skipped if it wasn't passed to it...
+    systemd-nspawn --register=no --directory="$root" bash /creds.sh
+
+    # ... and passed on if it was
+    systemd-run --wait \
+                -p SetCredential=svc.cred:from-service \
+                systemd-nspawn --register=no \
+                               --directory="$root" \
+                               --setenv=EXPECTED_INHERITED=from-service \
+                               bash /creds.sh
+
+    # Credentials on the command line take precedence over all credential settings
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --set-credential=cred.cmdline:yes \
+                   bash -xec 'test -e /run/host/credentials/cred.cmdline; test ! -e /run/host/credentials/cred.set'
+
+    # ... unless --settings=override is used, in which case the settings replace the command line ones
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --settings=override \
+                   --set-credential=cred.set:cmdline \
+                   --set-credential=cred.cmdline:yes \
+                   bash -xec '[[ "$(</run/host/credentials/cred.set)" == "hello world" ]]; test ! -e /run/host/credentials/cred.cmdline'
+
+    # A settings file next to the image isn't trusted, so it may not load credentials from the host, and
+    # SetCredential= is used instead. Bind= is ignored in untrusted files too, hence pass the coverage
+    # directory on the command line.
+    mv "/run/systemd/nspawn/$container.nspawn" "/var/lib/machines/$container.nspawn"
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   ${COVERAGE_BUILD_DIR:+--bind="$COVERAGE_BUILD_DIR"} \
+                   bash -xec '[[ "$(</run/host/credentials/cred.load-wins)" == fallback ]]; test ! -e /run/host/credentials/cred.path'
+
+    # A missing credential file is fatal if there is no fallback
+    cat >"/run/systemd/nspawn/$container.nspawn" <<EOF
+[Exec]
+LoadCredential=cred.missing:/tmp/cred.missing
+
+[Files]
+${COVERAGE_BUILD_DIR:+"Bind=$COVERAGE_BUILD_DIR"}
+EOF
+    (! systemd-nspawn --register=no --directory="$root" true)
+
+    rm -fr "$root" "/run/systemd/nspawn/$container.nspawn" "/var/lib/machines/$container.nspawn" /tmp/cred.path
+}
+
 bind_user_cleanup() {
     userdel --force --remove nspawn-bind-user-1
     userdel --force --remove nspawn-bind-user-2
@@ -999,6 +1112,177 @@ testcase_notification_socket() {
 
     systemd-nspawn --register=no --directory="$root" bash -x -c "$cmd"
     systemd-nspawn --register=no --directory="$root" -U bash -x -c "$cmd"
+
+    rm -fr "$root"
+}
+
+testcase_fdstore_wipe() {
+    local root commands n_fds names unit=test-nspawn-fdstore-wipe.service
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.fdstore_wipe.XXX)"
+    create_dummy_container "$root"
+    cat >"$root/entrypoint.sh" <<'EOF'
+#!/usr/bin/env bash
+set -e
+exec /usr/bin/test-fdstore store
+EOF
+    chmod +x "$root/entrypoint.sh"
+
+    # FD-store wipes must work without access to either manager bus.
+    systemd-run --unit="$unit" -p Type=notify -p NotifyAccess=all -p KillMode=mixed \
+        -p StartLimitIntervalSec=0 \
+        -p 'InaccessiblePaths=-/run/dbus -/run/systemd/private' \
+        -p Delegate=yes -p DelegateSubgroup=supervisor \
+        -p FileDescriptorStoreMax=4 -p FileDescriptorStorePreserve=yes \
+        -p 'ExecReload=/bin/sh -c "exec systemd-notify --fd=3 --fdname=nspawn-only 3</dev/null"' \
+        systemd-nspawn --register=no --keep-unit --directory="$root" \
+        --notify-ready=yes --kill-signal=SIGTERM /entrypoint.sh
+    timeout 30s bash -c \
+        'until [[ "$(systemctl show "$1" -P NFileDescriptorStore)" -eq 2 ]]; do sleep 0.5; done' _ "$unit"
+
+    systemctl reload "$unit"
+    assert_eq "$(systemctl show "$unit" -P NFileDescriptorStore)" 3
+
+    for commands in "check wipe=missing*" "check wipe=" "check wipe=1" "check wipe=test-fd-" \
+                    "check wipe=test-fd-[[:alpha:]]" "check wipe=test-fd-[a]" "wipe=test-fd-?" "store wipe=test-fd-[a-z]" \
+                    "store wipe=*" "wipe"; do
+        case "$commands" in
+            "check wipe=missing*"|"check wipe="|"check wipe=1"|"check wipe=test-fd-"|"check wipe=test-fd-[[:alpha:]]")
+                n_fds=3
+                names='["nspawn-only", "payload-test-fd-a", "payload-test-fd-b"]'
+                ;;
+            "check wipe=test-fd-[a]")
+                n_fds=2
+                names='["nspawn-only", "payload-test-fd-b"]'
+                ;;
+            *)
+                n_fds=1
+                names='["nspawn-only"]'
+                ;;
+        esac
+
+        cat >"$root/entrypoint.sh" <<EOF
+#!/usr/bin/env bash
+set -ef
+exec /usr/bin/test-fdstore $commands
+EOF
+        systemctl restart "$unit"
+        timeout 30s bash -c \
+            'until [[ "$(systemctl show "$1" -P NFileDescriptorStore)" -eq "$2" ]]; do sleep 0.5; done' _ "$unit" "$n_fds"
+        systemd-analyze fdstore "$unit" --json=short | jq -e --argjson names "$names" '[.[].fdname] | sort == $names'
+        systemctl is-active --quiet "$unit"
+    done
+
+    systemctl stop "$unit"
+    systemctl clean "$unit" --what=fdstore
+    rm -fr "$root"
+}
+
+testcase_socket_activation() {
+    # Verify that the socket activation environment variables are properly propagated into the
+    # container, i.e. that $LISTEN_FDNAMES survives, and that $LISTEN_PID refers to the process that
+    # actually ends up running the payload (PID 2 when --as-pid2 is used).
+    # https://github.com/systemd/systemd/issues/43764
+    local root entrypoint socket1 socket2 nspawn
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.socket-activation.XXX)"
+    create_dummy_container "$root"
+    entrypoint="$root/entrypoint.sh"
+    socket1="/run/TEST-13-NSPAWN-socket-activation-1.sock"
+    socket2="/run/TEST-13-NSPAWN-socket-activation-2.sock"
+    rm -f "$socket1" "$socket2"
+
+    cat >"$entrypoint" <<\EOF
+#!/usr/bin/env bash
+set -ex
+
+env | grep '^LISTEN_'
+test "$LISTEN_FDS" = "${EXPECTED_FDS:-1}"
+test "${LISTEN_FDNAMES-unset}" = "$EXPECTED_FDNAMES"
+if [[ -v EXPECTED_PID ]]; then
+    test "$LISTEN_PID" = "$EXPECTED_PID"
+    # $LISTEN_PIDFDID must not refer to a different process than $LISTEN_PID
+    test "${LISTEN_PIDFDID-unset}" = "unset"
+else
+    test "$LISTEN_PID" = "$$"
+fi
+for ((fd = 3; fd < 3 + LISTEN_FDS; fd++)); do
+    test -S "/proc/self/fd/$fd"
+done
+if [[ ! -v EXPECTED_PID ]]; then
+    # sd_listen_fds() only accepts the fds if both $LISTEN_PID and $LISTEN_PIDFDID refer to the calling
+    # process. exec keeps both our PID and our pidfd inode ID.
+    exec /usr/bin/test-fdstore listen exit
+fi
+EOF
+    chmod +x "$entrypoint"
+
+    nspawn=(systemd-nspawn --register=no --directory="$root")
+
+    # Without --as-pid2 the payload is PID 1 in the container...
+    systemd-socket-activate --listen="$socket1" --fdname=hoge --now -- \
+        "${nspawn[@]}" --setenv=EXPECTED_FDNAMES=hoge "${entrypoint##"$root"}"
+    rm -f "$socket1"
+
+    # ...and with --as-pid2 it's PID 2, as the stub PID 1 forks it off.
+    systemd-socket-activate --listen="$socket1" --fdname=hoge --now -- \
+        "${nspawn[@]}" --as-pid2 --setenv=EXPECTED_FDNAMES=hoge "${entrypoint##"$root"}"
+    rm -f "$socket1"
+
+    # Multiple file descriptors are passed on in order
+    systemd-socket-activate --listen="$socket1" --listen="$socket2" --fdname=hoge --fdname=fuga --now -- \
+        "${nspawn[@]}" --as-pid2 --setenv=EXPECTED_FDS=2 --setenv=EXPECTED_FDNAMES=hoge:fuga \
+                       "${entrypoint##"$root"}"
+    rm -f "$socket1" "$socket2"
+
+    # Escape sequences in $LISTEN_FDNAMES are resolved the same way sd_listen_fds_with_names() does, and the
+    # names are escaped again when passed on, so that the payload ends up with the same names
+    systemd-socket-activate --listen="$socket1" --listen="$socket2" \
+                            --fdname='ho\ge' --fdname='fu\\ga' --now -- \
+        "${nspawn[@]}" --as-pid2 --setenv=EXPECTED_FDS=2 --setenv='EXPECTED_FDNAMES=hoge:fu\\ga' \
+                       "${entrypoint##"$root"}"
+    rm -f "$socket1" "$socket2"
+
+    # The prefix nspawn adds to the names of fd store entries it forwards upstream is stripped again, but
+    # only if nspawn actually forwards fd store entries, i.e. it has an upstream fd store
+    systemd-socket-activate --listen="$socket1" --fdname=payload-hoge --now -- \
+        "${nspawn[@]}" --as-pid2 --setenv=EXPECTED_FDNAMES=payload-hoge "${entrypoint##"$root"}"
+    rm -f "$socket1"
+    systemd-run --wait --pipe -p Type=notify -p NotifyAccess=all -p FileDescriptorStoreMax=1 -- \
+        bash -c 'exec systemd-socket-activate -E NOTIFY_SOCKET -E FDSTORE "$@"' _ \
+            --listen="$socket1" --fdname=payload-hoge --now -- \
+            "${nspawn[@]}" --keep-unit --as-pid2 --setenv=EXPECTED_FDNAMES=hoge "${entrypoint##"$root"}"
+    rm -f "$socket1"
+
+    # $LISTEN_FDNAMES is not passed on if it is not set, ...
+    systemd-socket-activate --listen="$socket1" --now -- \
+        "${nspawn[@]}" --as-pid2 --setenv=EXPECTED_FDNAMES=unset "${entrypoint##"$root"}"
+    rm -f "$socket1"
+
+    # ...doesn't match the number of file descriptors, ...
+    systemd-socket-activate --listen="$socket1" --fdname=hoge --fdname=fuga --now -- \
+        "${nspawn[@]}" --as-pid2 --setenv=EXPECTED_FDNAMES=unset "${entrypoint##"$root"}"
+    rm -f "$socket1"
+
+    # ...cannot be parsed, ...
+    # shellcheck disable=SC1003
+    systemd-socket-activate --listen="$socket1" --fdname='hoge\' --now -- \
+        "${nspawn[@]}" --as-pid2 --setenv=EXPECTED_FDNAMES=unset "${entrypoint##"$root"}"
+    rm -f "$socket1"
+
+    # ...or contains invalid names
+    systemd-socket-activate --listen="$socket1" --fdname=$'ho\tge' --now -- \
+        "${nspawn[@]}" --as-pid2 --setenv=EXPECTED_FDNAMES=unset "${entrypoint##"$root"}"
+    rm -f "$socket1"
+
+    # An explicit --setenv= takes precedence over the socket activation variables, and $LISTEN_PIDFDID is
+    # not set if $LISTEN_PID is overridden
+    systemd-socket-activate --listen="$socket1" --fdname=hoge --now -- \
+        "${nspawn[@]}" --as-pid2 \
+                       --setenv=LISTEN_FDNAMES=override --setenv=EXPECTED_FDNAMES=override \
+                       --setenv=LISTEN_PID=4711 --setenv=EXPECTED_PID=4711 \
+                       "${entrypoint##"$root"}"
+    rm -f "$socket1"
 
     rm -fr "$root"
 }

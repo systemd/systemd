@@ -35,7 +35,7 @@ static void read_journal(const char *name) {
         size_t size, match_size = 0;
         unsigned n;
 
-        if (sd_journal_open_files(&j, (const char*[]) { name, NULL }, 0) < 0)
+        if (sd_journal_open_files(&j, (const char*[]) { name, NULL }, /* flags= */ 0) < 0)
                 return;
 
         n = 0;
@@ -118,10 +118,10 @@ static void read_journal(const char *name) {
 static void verify_journal(MMapCache *m, const char *name) {
         JournalFile *f = NULL;
 
-        if (journal_file_open(-EBADF, name, O_RDONLY, 0, 0, UINT64_MAX, NULL, m, NULL, &f) < 0)
+        if (journal_file_open(-EBADF, name, O_RDONLY, /* file_flags= */ 0, /* mode= */ 0, UINT64_MAX, /* metrics= */ NULL, m, /* template= */ NULL, &f) < 0)
                 return;
 
-        (void) journal_file_verify(f, NULL, NULL, NULL, NULL, /* show_progress= */ false);
+        (void) journal_file_verify(f, /* key= */ NULL, /* ret_first_contained= */ NULL, /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false);
         (void) journal_file_close(f);
 }
 

@@ -42,7 +42,7 @@ static void assert_directory_property(
                         ASSERT_STREQ(actual_destination, destination);
                         ASSERT_EQ(actual_flags, flags);
                 }
-                ASSERT_OK_POSITIVE(sd_bus_message_at_end(m, false));
+                ASSERT_OK_POSITIVE(sd_bus_message_at_end(m, /* complete= */ false));
                 ASSERT_OK(sd_bus_message_exit_container(m));
         } else {
                 _cleanup_strv_free_ char **actual = NULL;
@@ -53,9 +53,9 @@ static void assert_directory_property(
                         ASSERT_STREQ(actual[i], sources[i]);
         }
 
-        ASSERT_OK_POSITIVE(sd_bus_message_at_end(m, false));
+        ASSERT_OK_POSITIVE(sd_bus_message_at_end(m, /* complete= */ false));
         ASSERT_OK(sd_bus_message_exit_container(m));
-        ASSERT_OK_POSITIVE(sd_bus_message_at_end(m, false));
+        ASSERT_OK_POSITIVE(sd_bus_message_at_end(m, /* complete= */ false));
         ASSERT_OK(sd_bus_message_exit_container(m));
 }
 
@@ -73,10 +73,10 @@ static void test_directory_assignment_one(
         ASSERT_NOT_NULL(assignment = strjoin(field, "=", value));
         ASSERT_OK(sd_bus_message_new(arg_bus, &m, SD_BUS_MESSAGE_METHOD_CALL));
         ASSERT_EQ(bus_append_unit_property_assignment(m, UNIT_SERVICE, assignment), 1);
-        ASSERT_OK(sd_bus_message_seal(m, 1, 0));
-        ASSERT_OK(sd_bus_message_rewind(m, true));
+        ASSERT_OK(sd_bus_message_seal(m, 1, /* timeout_usec= */ 0));
+        ASSERT_OK(sd_bus_message_rewind(m, /* complete= */ true));
         assert_directory_property(m, property, sources, destination, flags);
-        ASSERT_OK_POSITIVE(sd_bus_message_at_end(m, true));
+        ASSERT_OK_POSITIVE(sd_bus_message_at_end(m, /* complete= */ true));
 }
 
 TEST(directory_properties) {
@@ -93,17 +93,17 @@ TEST(directory_properties) {
 
         FOREACH_ELEMENT(p, properties) {
                 test_directory_assignment_one(p->field, "myapp subdir", p->field,
-                                              STRV_MAKE_CONST("myapp", "subdir"), /* destination= */ NULL, 0);
+                                              STRV_MAKE_CONST("myapp", "subdir"), /* destination= */ NULL, /* flags= */ 0);
                 test_directory_assignment_one(p->field, "myapp\\\\:colon", p->field,
-                                              STRV_MAKE_CONST("myapp:colon"), /* destination= */ NULL, 0);
+                                              STRV_MAKE_CONST("myapp:colon"), /* destination= */ NULL, /* flags= */ 0);
                 test_directory_assignment_one(p->field, "", p->field,
-                                              /* sources= */ NULL, /* destination= */ NULL, 0);
+                                              /* sources= */ NULL, /* destination= */ NULL, /* flags= */ 0);
                 test_directory_assignment_one(p->field, "myapp::ro", p->symlink_field,
                                               STRV_MAKE_CONST("myapp"), "", EXEC_DIRECTORY_READ_ONLY);
 
                 if (!streq(p->field, "ConfigurationDirectory")) {
                         test_directory_assignment_one(p->field, "myapp:link", p->symlink_field,
-                                                      STRV_MAKE_CONST("myapp"), "link", 0);
+                                                      STRV_MAKE_CONST("myapp"), "link", /* flags= */ 0);
                         test_directory_assignment_one(p->field, "myapp:link:ro", p->symlink_field,
                                                       STRV_MAKE_CONST("myapp"), "link", EXEC_DIRECTORY_READ_ONLY);
                 }
@@ -114,16 +114,16 @@ TEST(directory_properties) {
                 ASSERT_NOT_NULL(assignment = strjoin(p->field, "=plain myapp::ro"));
                 ASSERT_OK(sd_bus_message_new(arg_bus, &m, SD_BUS_MESSAGE_METHOD_CALL));
                 ASSERT_EQ(bus_append_unit_property_assignment(m, UNIT_SERVICE, assignment), 1);
-                ASSERT_OK(sd_bus_message_seal(m, 1, 0));
-                ASSERT_OK(sd_bus_message_rewind(m, true));
-                assert_directory_property(m, p->field, STRV_MAKE_CONST("plain"), /* destination= */ NULL, 0);
+                ASSERT_OK(sd_bus_message_seal(m, 1, /* timeout_usec= */ 0));
+                ASSERT_OK(sd_bus_message_rewind(m, /* complete= */ true));
+                assert_directory_property(m, p->field, STRV_MAKE_CONST("plain"), /* destination= */ NULL, /* flags= */ 0);
                 assert_directory_property(m, p->symlink_field, STRV_MAKE_CONST("myapp"), "", EXEC_DIRECTORY_READ_ONLY);
-                ASSERT_OK_POSITIVE(sd_bus_message_at_end(m, true));
+                ASSERT_OK_POSITIVE(sd_bus_message_at_end(m, /* complete= */ true));
         }
 }
 
 TEST(exec_directory_flags) {
-        ASSERT_STREQ(exec_directory_flags_to_string(0), "");
+        ASSERT_STREQ(exec_directory_flags_to_string(/* flags= */ 0), "");
         ASSERT_STREQ(exec_directory_flags_to_string(EXEC_DIRECTORY_READ_ONLY), "ro");
         ASSERT_NULL(exec_directory_flags_to_string(EXEC_DIRECTORY_ONLY_CREATE));
         ASSERT_NULL(exec_directory_flags_to_string(UINT64_C(1) << 32));
@@ -144,7 +144,7 @@ static void test_transient_settings_one(UnitType type, const char* const* lines)
 
                 if (t[0] == '-') {
                         _cleanup_free_ char *code = NULL;
-                        ASSERT_OK(extract_first_word(&t, &code, " ", 0));
+                        ASSERT_OK(extract_first_word(&t, &code, " ", /* flags= */ 0));
                         ASSERT_OK(r = errno_from_name(code + 1));
                         expect = -r;
                 }
@@ -168,8 +168,8 @@ static void test_setting_full(UnitType type, const char *assignment, ...) {
 
         ASSERT_OK(sd_bus_message_new(arg_bus, &m, SD_BUS_MESSAGE_METHOD_CALL));
         ASSERT_OK_EQ(bus_append_unit_property_assignment(m, type, assignment), 1);
-        ASSERT_OK(sd_bus_message_seal(m, 1, 0));
-        ASSERT_OK(sd_bus_message_dump_json(m, 0, &v));
+        ASSERT_OK(sd_bus_message_seal(m, 1, /* timeout_usec= */ 0));
+        ASSERT_OK(sd_bus_message_dump_json(m, /* flags= */ 0, &v));
 
         /* The message body is a sequence of (sv) structs, represented in JSON as an array of
          * [name, {"type": signature, "data": value}] pairs. */
@@ -186,16 +186,16 @@ static void test_setting_full(UnitType type, const char *assignment, ...) {
                 ASSERT_NOT_NULL(pair = sd_json_variant_by_index(data, n));
                 ASSERT_NOT_NULL(variant = sd_json_variant_by_index(pair, 1));
 
-                ASSERT_OK(sd_json_variant_format(sd_json_variant_by_key(variant, "data"), 0, &s));
+                ASSERT_OK(sd_json_variant_format(sd_json_variant_by_key(variant, "data"), /* flags= */ 0, &s));
                 string_replace_char(s, '"', '\'');
 
                 log_debug("%s → %s %s %s",
                           assignment,
-                          sd_json_variant_string(sd_json_variant_by_index(pair, 0)),
+                          sd_json_variant_string(sd_json_variant_by_index(pair, /* index= */ 0)),
                           sd_json_variant_string(sd_json_variant_by_key(variant, "type")),
                           s);
 
-                ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_index(pair, 0)), name);
+                ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_index(pair, /* index= */ 0)), name);
                 ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(variant, "type")), signature);
                 ASSERT_STREQ(s, expected);
         }

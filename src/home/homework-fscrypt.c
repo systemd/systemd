@@ -13,6 +13,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "hexdecoct.h"
 #include "homework-fscrypt.h"
 #include "homework-mount.h"
@@ -450,7 +451,7 @@ int home_flush_keyring_fscrypt(UserRecord *h) {
          * fallback is the v1 user-keyring walk below, which is a no-op when nothing matches. Reaching
          * the walk also keeps prior behaviour: stale v1 entries get reaped even if the image
          * directory has gone away. */
-        _cleanup_close_ int dir_fd = open(ip, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+        _cleanup_close_ int dir_fd = xopenat(AT_FDCWD, ip, O_RDONLY|O_DIRECTORY|O_NOFOLLOW);
         if (dir_fd >= 0) {
                 struct fscrypt_key_specifier spec;
 
@@ -462,7 +463,7 @@ int home_flush_keyring_fscrypt(UserRecord *h) {
                 if (r < 0 && !IN_SET(r, -ENODATA, -ENOLINK))
                         log_debug_errno(r, "Failed to read fscrypt policy of %s, falling back to v1 keyring walk: %m", ip);
         } else
-                log_debug_errno(errno, "Failed to open %s, falling back to v1 keyring walk: %m", ip);
+                log_debug_errno(dir_fd, "Failed to open %s, falling back to v1 keyring walk: %m", ip);
 
         r = pidref_safe_fork(
                         "(sd-delkey)",
@@ -560,7 +561,7 @@ static int fscrypt_slot_try_v1(
         /* We only use the first half of the derived key */
         assert(sizeof(derived) >= (size_t) sym_EVP_CIPHER_get_key_length(cc));
 
-        if (sym_EVP_DecryptInit_ex(context, cc, NULL, derived, NULL) != 1)
+        if (sym_EVP_DecryptInit_ex(context, cc, /* impl= */ NULL, derived, /* iv= */ NULL) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize decryption context.");
 
         decrypted_size = encrypted_size + sym_EVP_CIPHER_get_key_length(cc) * 2;
@@ -647,7 +648,7 @@ static int fscrypt_slot_try_v2(
         if (sym_EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_GCM_SET_IVLEN, (int) iv->iov_len, /* ptr= */ NULL) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to set GCM IV length.");
 
-        if (sym_EVP_DecryptInit_ex(context, /* type= */ NULL, /* impl= */ NULL, derived, iv->iov_base) != 1)
+        if (sym_EVP_DecryptInit_ex(context, /* cipher= */ NULL, /* impl= */ NULL, derived, iv->iov_base) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to set decryption key/IV.");
 
         if (__builtin_add_overflow(encrypted->iov_len, (size_t) sym_EVP_CIPHER_get_block_size(cc), &decrypted_size))
@@ -836,7 +837,7 @@ static int fscrypt_setup(
                 nr = startswith(xa, "trusted.fscrypt_slot");
                 if (!nr)
                         continue;
-                if (safe_atou32(nr, NULL) < 0)
+                if (safe_atou32(nr, /* ret_u= */ NULL) < 0)
                         continue;
 
                 r = fgetxattr_malloc(setup->root_fd, xa, &value, &vsize);
@@ -958,9 +959,9 @@ int home_setup_fscrypt(
 
         assert_se(ip = user_record_image_path(h));
 
-        setup->root_fd = open(ip, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        setup->root_fd = xopenat(AT_FDCWD, ip, O_RDONLY|O_DIRECTORY);
         if (setup->root_fd < 0)
-                return log_error_errno(errno, "Failed to open home directory: %m");
+                return log_error_errno(setup->root_fd, "Failed to open home directory: %m");
 
         /* fscrypt has v1 and v2 policy versions with different on-disk formats, and no in-place upgrade:
          * v1 binds the master key by an 8-byte descriptor (truncated double SHA-512), v2 by a 16-byte
@@ -1024,26 +1025,26 @@ int home_setup_fscrypt(
         if (r < 0)
                 return r;
 
-        r = mount_follow_verbose(LOG_ERR, ip, HOME_RUNTIME_WORK_DIR, NULL, MS_BIND, NULL);
+        r = mount_follow_verbose(LOG_ERR, ip, HOME_RUNTIME_WORK_DIR, /* fstype= */ NULL, MS_BIND, /* options= */ NULL);
         if (r < 0)
                 return r;
 
         setup->undo_mount = true;
 
         /* Turn off any form of propagation for this */
-        r = mount_nofollow_verbose(LOG_ERR, NULL, HOME_RUNTIME_WORK_DIR, NULL, MS_PRIVATE, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, /* what= */ NULL, HOME_RUNTIME_WORK_DIR, /* fstype= */ NULL, MS_PRIVATE, /* options= */ NULL);
         if (r < 0)
                 return r;
 
         /* Adjust MS_SUID and similar flags */
-        r = mount_nofollow_verbose(LOG_ERR, NULL, HOME_RUNTIME_WORK_DIR, NULL, MS_BIND|MS_REMOUNT|user_record_mount_flags(h), NULL);
+        r = mount_nofollow_verbose(LOG_ERR, /* what= */ NULL, HOME_RUNTIME_WORK_DIR, /* fstype= */ NULL, MS_BIND|MS_REMOUNT|user_record_mount_flags(h), /* options= */ NULL);
         if (r < 0)
                 return r;
 
         safe_close(setup->root_fd);
-        setup->root_fd = open(HOME_RUNTIME_WORK_DIR, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+        setup->root_fd = xopenat(AT_FDCWD, HOME_RUNTIME_WORK_DIR, O_RDONLY|O_DIRECTORY|O_NOFOLLOW);
         if (setup->root_fd < 0)
-                return log_error_errno(errno, "Failed to open home directory: %m");
+                return log_error_errno(setup->root_fd, "Failed to open home directory: %m");
 
         /* Note we intentionally leave setup->fscrypt_v2_key_undo armed here: whether the key stays
          * installed is decided by the caller (kept on activation, rolled back on teardown). */
@@ -1110,7 +1111,7 @@ static int fscrypt_slot_set(
         if (sym_EVP_CIPHER_CTX_ctrl(context, EVP_CTRL_GCM_SET_IVLEN, (int) sizeof(iv), /* ptr= */ NULL) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to set GCM IV length.");
 
-        if (sym_EVP_EncryptInit_ex(context, /* type= */ NULL, /* impl= */ NULL, derived, iv) != 1)
+        if (sym_EVP_EncryptInit_ex(context, /* cipher= */ NULL, /* impl= */ NULL, derived, iv) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to set encryption key/IV.");
 
         if (!ADD_SAFE(&encrypted_size, volume_key->iov_len, (size_t) sym_EVP_CIPHER_get_block_size(cc)))
@@ -1290,9 +1291,9 @@ int home_create_fscrypt(
         if (r < 0)
                 return r;
 
-        setup->root_fd = open(temporary, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+        setup->root_fd = xopenat(AT_FDCWD, temporary, O_RDONLY|O_DIRECTORY|O_NOFOLLOW);
         if (setup->root_fd < 0)
-                return log_error_errno(errno, "Failed to open temporary home directory: %m");
+                return log_error_errno(setup->root_fd, "Failed to open temporary home directory: %m");
 
         /* Refuse if the parent directory is already encrypted (we'd inherit its policy). The v1-only
          * FS_IOC_GET_ENCRYPTION_POLICY ioctl returns EINVAL on v2-encrypted dirs, so use the helper
@@ -1357,7 +1358,7 @@ int home_create_fscrypt(
                 /* If we have established a new mount, then we can use that as new root fd to our home directory. */
                 safe_close(setup->root_fd);
 
-                setup->root_fd = fd_reopen(mount_fd, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                setup->root_fd = fd_reopen(mount_fd, O_RDONLY|O_DIRECTORY);
                 if (setup->root_fd < 0)
                         return log_error_errno(setup->root_fd, "Unable to convert mount fd into proper directory fd: %m");
 
@@ -1368,7 +1369,7 @@ int home_create_fscrypt(
         if (r < 0)
                 return r;
 
-        r = home_sync_and_statfs(setup->root_fd, NULL);
+        r = home_sync_and_statfs(setup->root_fd, /* ret= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1383,11 +1384,11 @@ int home_create_fscrypt(
                         SD_ID128_NULL,
                         SD_ID128_NULL,
                         SD_ID128_NULL,
-                        NULL,
-                        NULL,
+                        /* luks_cipher= */ NULL,
+                        /* luks_cipher_mode= */ NULL,
                         UINT64_MAX,
-                        NULL,
-                        NULL,
+                        /* file_system_type= */ NULL,
+                        /* home_directory= */ NULL,
                         h->uid,
                         (gid_t) h->uid);
         if (r < 0)

@@ -50,6 +50,13 @@
 #include "user-util.h"
 #include "varlink-io.systemd.MountFileSystem.h"
 #include "varlink-util.h"
+#include "verbs.h"
+
+COMMAND(
+        "systemd-mountwork\0",
+        "Mount disk images on behalf of systemd-mountfsd.",
+        .option_namespace = "common",
+);
 
 #define ITERATIONS_MAX 64U
 #define RUNTIME_MAX_USEC (5 * USEC_PER_MINUTE)
@@ -225,7 +232,7 @@ static int verify_trusted_image_fd_by_path(int fd) {
                         struct stat stb;
                         const char *e;
 
-                        r = chase(s, NULL, CHASE_SAFE|CHASE_TRIGGER_AUTOFS, &q, &dir_fd);
+                        r = chase(s, /* root= */ NULL, CHASE_SAFE|CHASE_TRIGGER_AUTOFS, &q, &dir_fd);
                         if (r == -ENOENT)
                                 continue;
                         if (r < 0) {
@@ -243,7 +250,7 @@ static int verify_trusted_image_fd_by_path(int fd) {
                         if (!filename_is_valid(e))
                                 continue;
 
-                        r = chaseat(XAT_FDROOT, dir_fd, e, CHASE_SAFE|CHASE_TRIGGER_AUTOFS, NULL, &inode_fd);
+                        r = chaseat(XAT_FDROOT, dir_fd, e, CHASE_SAFE|CHASE_TRIGGER_AUTOFS, /* ret_path= */ NULL, &inode_fd);
                         if (r < 0)
                                 return log_error_errno(r, "Couldn't verify that specified image '%s' is in search path '%s': %m", p, s);
 
@@ -410,6 +417,11 @@ static int vl_method_mount_image(
         if (r != 0)
                 return r;
 
+        uid_t peer_uid;
+        r = sd_varlink_get_peer_uid(link, &peer_uid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get client UID: %m");
+
         /* Verity data and roothash have to be either both set, or both unset. The sig can be set only if
          * the roothash is set. */
         if ((p.verity_data_fd_idx != UINT_MAX) != (p.verity_root_hash.iov_len > 0))
@@ -511,14 +523,14 @@ static int vl_method_mount_image(
         /* Generate the common dissection directory here. We are not going to use it, but the clients might,
          * and they likely are unprivileged, hence cannot create it themselves. Hence let's just create it
          * here, if it is missing. */
-        r = get_common_dissect_directory(NULL);
+        r = get_common_dissect_directory(/* ret= */ NULL);
         if (r < 0)
                 return r;
 
         r = loop_device_make(
                         image_fd,
                         p.read_only > 0 ? O_RDONLY : -1,
-                        0,
+                        /* offset= */ 0,
                         UINT64_MAX,
                         UINT32_MAX,
                         LO_FLAGS_PARTSCAN,
@@ -535,6 +547,7 @@ static int vl_method_mount_image(
                 DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES |
                 (p.verity_sharing ? DISSECT_IMAGE_VERITY_SHARE : 0) |
+                (peer_uid != 0 ? DISSECT_IMAGE_VERITY_SHARE_SAME_FILE : 0) |
                 /* Maybe the image is a bare filesystem. Note that this requires privileges, as it is
                  * classified by the policy as an 'unprotected' image and will be refused otherwise. */
                 DISSECT_IMAGE_NO_PARTITION_TABLE |
@@ -545,9 +558,24 @@ static int vl_method_mount_image(
         bool polkit_have_untrusted_action =
                 varlink_has_polkit_action(link, polkit_untrusted_action, polkit_details, polkit_registry, /* ret_admin= */ NULL);
 
+        /* dissected_image_load_verity_sig_partition() and dissected_image_guess_verity_roothash() add the
+         * root hash and the signature from the image to the Verity settings. dissect_loop_device() treats
+         * these settings as the client's. When we dissect the image again after a polkit authentication, we
+         * start from the Verity settings that the client passed. */
+        _cleanup_(verity_settings_done) VeritySettings client_verity = VERITY_SETTINGS_DEFAULT;
+        r = verity_settings_copy(&client_verity, &verity);
+        if (r < 0)
+                return r;
+
         for (;;) {
                 use_policy = image_policy_free(use_policy);
                 ps = mfree(ps);
+                di = dissected_image_unref(di);
+
+                verity_settings_done(&verity);
+                r = verity_settings_copy(&verity, &client_verity);
+                if (r < 0)
+                        return r;
 
                 /* We use the image policy for trusted images if either the path is below a trusted
                  * directory, or if we have already acquired a PK authentication that tells us that untrusted
@@ -561,34 +589,76 @@ static int vl_method_mount_image(
                                 use_trusted_policy,
                                 p.image_policy,
                                 &use_policy);
-                if (r < 0)
+                if (r == -ENAVAIL)
+                        /* The client's image policy and our own one have nothing in common, so no image
+                         * satisfies both. We handle this like a refusal by the image policy, so that we ask
+                         * polkit whether the client may use the policy for trusted images instead. */
+                        r = log_debug_errno(SYNTHETIC_ERRNO(ERFKILL),
+                                            "Client image policy doesn't overlap with our image policy.");
+                else if (r < 0)
                         return r;
+                else {
+                        r = image_policy_to_string(use_policy, /* simplify= */ true, &ps);
+                        if (r < 0)
+                                return r;
 
-                r = image_policy_to_string(use_policy, /* simplify= */ true, &ps);
-                if (r < 0)
-                        return r;
+                        log_debug("Using image policy: %s", ps);
 
-                log_debug("Using image policy: %s", ps);
-
-                r = dissect_loop_device(
-                                loop,
-                                &verity,
-                                p.options,
-                                use_policy,
-                                /* image_filter= */ NULL,
-                                dissect_flags,
-                                &di);
+                        r = dissect_loop_device(
+                                        loop,
+                                        &verity,
+                                        p.options,
+                                        use_policy,
+                                        /* image_filter= */ NULL,
+                                        dissect_flags,
+                                        &di);
+                }
                 if (r == -ENOPKG)
-                        return sd_varlink_error(link, "io.systemd.MountFileSystem.IncompatibleImage", NULL);
+                        return sd_varlink_error(link, "io.systemd.MountFileSystem.IncompatibleImage", /* parameters= */ NULL);
                 if (r == -ENOTUNIQ)
-                        return sd_varlink_error(link, "io.systemd.MountFileSystem.MultipleRootPartitionsFound", NULL);
+                        return sd_varlink_error(link, "io.systemd.MountFileSystem.MultipleRootPartitionsFound", /* parameters= */ NULL);
                 if (r == -ENXIO)
-                        return sd_varlink_error(link, "io.systemd.MountFileSystem.RootPartitionNotFound", NULL);
-                if (r == -ERFKILL) {
-                        /* The image policy refused this, let's retry after trying to get PolicyKit */
+                        return sd_varlink_error(link, "io.systemd.MountFileSystem.RootPartitionNotFound", /* parameters= */ NULL);
+                if (r >= 0) {
+                        r = dissected_image_load_verity_sig_partition(
+                                        di,
+                                        loop->fd,
+                                        &verity);
+                        if (r < 0)
+                                return r;
 
-                        if (!polkit_have_untrusted_action) {
-                                log_debug("Denied by image policy. Trying a stronger polkit authentication before continuing.");
+                        r = dissected_image_guess_verity_roothash(
+                                        di,
+                                        &verity);
+                        if (r < 0)
+                                return r;
+
+                        r = dissected_image_decrypt(
+                                        di,
+                                        /* root= */ NULL,
+                                        p.password,
+                                        &verity,
+                                        use_policy,
+                                        dissect_flags);
+                        if (r == -EBUSY) /* DM kernel subsystem is bad at returning useful errors hence we keep retrying
+                                          * under the assumption that some errors are transitional. Which the errors might
+                                          * not actually be. After all retries failed we return EBUSY. Let's turn that into a
+                                          * generic Verity error. It's not very helpful, could mean anything, but at least it
+                                          * gives client a clear idea that this has to do with Verity. */
+                                return sd_varlink_error(link, "io.systemd.MountFileSystem.VerityFailure", /* parameters= */ NULL);
+                }
+                if (IN_SET(r, -EDESTADDRREQ, -ERFKILL)) {
+                        /* The image policy returns ERFKILL if it refuses the image during dissection or
+                         * Verity setup, for example because the signature partition is invalid.
+                         * dissected_image_decrypt() returns EDESTADDRREQ if neither the kernel nor userspace
+                         * validates the dm-verity signature. */
+                        bool key_not_found = r == -EDESTADDRREQ;
+
+                        /* If we use the policy for trusted images already, a polkit authorization wouldn't
+                         * change the policy. */
+                        if (!use_trusted_policy) {
+                                log_debug("%s. Trying a stronger polkit authentication before continuing.",
+                                          key_not_found ? "Missing verity key in kernel and userspace" : "Denied by image policy");
                                 r = varlink_verify_polkit_async_full(
                                                 link,
                                                 /* bus= */ NULL,
@@ -598,103 +668,23 @@ static int vl_method_mount_image(
                                                 /* flags= */ 0,                   /* NB: the image cannot be authenticated, hence unless PK is around to allow this anyway, fail! */
                                                 polkit_registry,
                                                 /* ret_admin= */ NULL);
-                                if (r <= 0 && !ERRNO_IS_NEG_PRIVILEGE(r))
+                                if (r <= 0 && (!ERRNO_IS_NEG_PRIVILEGE(r) || sd_varlink_wants_reply(link) <= 0))
                                         return r;
                                 if (r > 0) {
-                                        /* Try again, now that we know the client has enough privileges. */
-                                        log_debug("Denied by image policy, retrying after polkit authentication.");
+                                        /* The policy for untrusted images ignores all partitions except the
+                                         * root and /usr partitions. Let's dissect the image again with the
+                                         * policy for trusted images. */
+                                        log_debug("Retrying after polkit authentication.");
                                         polkit_have_untrusted_action = true;
                                         continue;
                                 }
                         }
 
-                        return sd_varlink_error(link, "io.systemd.MountFileSystem.DeniedByImagePolicy", NULL);
+                        return sd_varlink_error(
+                                        link,
+                                        key_not_found ? "io.systemd.MountFileSystem.KeyNotFound" : "io.systemd.MountFileSystem.DeniedByImagePolicy",
+                                        /* parameters= */ NULL);
                 }
-                if (r < 0)
-                        return r;
-
-                /* Success */
-                break;
-        }
-
-        r = dissected_image_load_verity_sig_partition(
-                        di,
-                        loop->fd,
-                        &verity);
-        if (r < 0)
-                return r;
-
-        r = dissected_image_guess_verity_roothash(
-                        di,
-                        &verity);
-        if (r < 0)
-                return r;
-
-        for (;;) {
-                use_policy = image_policy_free(use_policy);
-                ps = mfree(ps);
-
-                /* We use the image policy for trusted images if either the path is below a trusted
-                 * directory, or if we have already acquired a PK authentication that tells us that untrusted
-                 * images are OK */
-                bool use_trusted_policy =
-                        image_is_trusted ||
-                        polkit_have_untrusted_action;
-
-                r = determine_image_policy(
-                                image_fd,
-                                use_trusted_policy,
-                                p.image_policy,
-                                &use_policy);
-                if (r < 0)
-                        return r;
-
-                r = image_policy_to_string(use_policy, /* simplify= */ true, &ps);
-                if (r < 0)
-                        return r;
-
-                log_debug("Using image policy: %s", ps);
-
-                r = dissected_image_decrypt(
-                                di,
-                                /* root= */ NULL,
-                                p.password,
-                                &verity,
-                                use_policy,
-                                dissect_flags);
-                if (r == -EDESTADDRREQ) {
-                        /* new dm-verity userspace returns ENOKEY if the dm-verity signature key is not in
-                         * key chain which we mangle to EDESTADDRREQ. That's great. */
-
-                        if (!polkit_have_untrusted_action) {
-                                 log_debug("Missing verity key in kernel and userspace. Trying a stronger polkit authentication before continuing.");
-                                 r = varlink_verify_polkit_async_full(
-                                                 link,
-                                                 /* bus= */ NULL,
-                                                 polkit_untrusted_action,
-                                                 polkit_details,
-                                                 /* good_user= */ UID_INVALID,
-                                                 /* flags= */ 0,                   /* NB: the image cannot be authenticated, hence unless PK is around to allow this anyway, fail! */
-                                                 polkit_registry,
-                                                 /* ret_admin= */ NULL);
-                                 if (r <= 0 && !ERRNO_IS_NEG_PRIVILEGE(r))
-                                         return r;
-                                 if (r > 0) {
-                                         /* Try again, now that we know the client has enough privileges. */
-                                         log_debug("Missing verity key in kernel and userspace, retrying after polkit authentication.");
-                                         polkit_have_untrusted_action = true;
-                                         continue;
-                                 }
-                         }
-
-                        return sd_varlink_error(link, "io.systemd.MountFileSystem.KeyNotFound", NULL);
-                }
-                if (r == -EBUSY) /* DM kernel subsystem is bad at returning useful errors hence we keep retrying
-                                  * under the assumption that some errors are transitional. Which the errors might
-                                  * not actually be. After all retries failed we return EBUSY. Let's turn that into a
-                                  * generic Verity error. It's not very helpful, could mean anything, but at least it
-                                  * gives client a clear idea that this has to do with Verity. */
-                        return sd_varlink_error(link, "io.systemd.MountFileSystem.VerityFailure", NULL);
                 if (r < 0)
                         return r;
 
@@ -924,9 +914,9 @@ static DirectoryOwnership validate_directory_fd(
                 }
 
                 /* Go one level up */
-                _cleanup_close_ int new_parent_fd = openat(fd, "..", O_DIRECTORY|O_PATH|O_CLOEXEC);
+                _cleanup_close_ int new_parent_fd = xopenat(fd, "..", O_DIRECTORY|O_PATH);
                 if (new_parent_fd < 0)
-                        return log_debug_errno(errno, "Failed to open parent directory of directory file descriptor: %m");
+                        return log_debug_errno(new_parent_fd, "Failed to open parent directory of directory file descriptor: %m");
 
                 struct statx new_stx;
                 r = xstatx_full(new_parent_fd,
@@ -981,7 +971,7 @@ static int open_tree_try_drop_idmap_harder(sd_varlink *link, int directory_fd, c
         _cleanup_close_ int mount_fd = open_tree_try_drop_idmap(
                         directory_fd,
                         "",
-                        OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
+                        OPEN_TREE_CLONE|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
         if (mount_fd >= 0)
                 return TAKE_FD(mount_fd);
         if (mount_fd != -EINVAL)
@@ -1035,7 +1025,7 @@ static int open_tree_try_drop_idmap_harder(sd_varlink *link, int directory_fd, c
                 mount_fd = open_tree_try_drop_idmap(
                                 directory_fd,
                                 "",
-                                OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
+                                OPEN_TREE_CLONE|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
                 if (mount_fd < 0) {
                         log_debug_errno(mount_fd, "Failed to issue open_tree() of provided directory '%s': %m", strna(directory_path));
                         report_errno_and_exit(errno_pipe_fd[1], mount_fd);
@@ -1179,7 +1169,7 @@ static int vl_method_mount_directory(
         /* Generate the common dissection directory here. We are not going to use it, but the clients might,
          * and they likely are unprivileged, hence cannot create it themselves. Hence let's just create it
          * here, if it is missing. */
-        r = get_common_dissect_directory(NULL);
+        r = get_common_dissect_directory(/* ret= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1415,7 +1405,7 @@ static int vl_method_make_directory(
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int fd = open_mkdir_at(parent_fd, t, O_CLOEXEC, p.mode);
+        _cleanup_close_ int fd = open_mkdir_at(parent_fd, t, /* flags= */ 0, p.mode);
         if (fd < 0)
                 return fd;
 
@@ -1460,7 +1450,7 @@ static int process_connection(sd_varlink_server *server, int _fd) {
         if (r < 0)
                 return r;
 
-        r = sd_varlink_server_attach_event(server, event, 0);
+        r = sd_varlink_server_attach_event(server, event, /* priority= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach Varlink server to event loop: %m");
 
@@ -1498,7 +1488,13 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        m = sd_listen_fds(false);
+        /* The daemon passes a dummy argument to reserve space in argv[] for rename_process(), ignore it. */
+        char **args = NULL;
+        r = common_parse_argv_full(argc, argv, /* min_args= */ 0, /* max_args= */ 1, &args);
+        if (r <= 0)
+                return r;
+
+        m = sd_listen_fds(/* unset_environment= */ false);
         if (m < 0)
                 return log_error_errno(m, "Failed to determine number of listening fds: %m");
         if (m == 0)
@@ -1508,7 +1504,7 @@ static int run(int argc, char *argv[]) {
 
         listen_fd = SD_LISTEN_FDS_START;
 
-        r = fd_nonblock(listen_fd, false);
+        r = fd_nonblock(listen_fd, /* nonblock= */ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to turn off non-blocking mode for listening socket: %m");
 
@@ -1588,7 +1584,7 @@ static int run(int argc, char *argv[]) {
                         /* We only slept a very short time? If so, let's see if there are more sockets
                          * pending, and if so, let's ask our parent for more workers */
 
-                        r = fd_wait_for_event(listen_fd, POLLIN, 0);
+                        r = fd_wait_for_event(listen_fd, POLLIN, /* timeout= */ 0);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to test for POLLIN on listening socket: %m");
 

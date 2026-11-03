@@ -219,7 +219,7 @@ int config_parse_bridge_igmp_version(
 
         return config_parse_uint8_bounded(
                         unit, filename, line, section, section_line, lvalue, rvalue,
-                        2, 3, true,
+                        2, 3, /* ignoring= */ true,
                         &b->igmp_version);
 }
 
@@ -243,7 +243,7 @@ int config_parse_bridge_port_priority(
 
         return config_parse_uint16_bounded(
                         unit, filename, line, section, section_line, lvalue, rvalue,
-                        0, LINK_BRIDGE_PORT_PRIORITY_MAX, true,
+                        /* min= */ 0, LINK_BRIDGE_PORT_PRIORITY_MAX, /* ignoring= */ true,
                         prio);
 }
 
@@ -273,7 +273,7 @@ int config_parse_bridge_fdb_max_learned(
         }
 
         r = config_parse_uint32_bounded(unit, filename, line, section, section_line, lvalue, rvalue,
-                                        0, UINT32_MAX, true, &b->fdb_max_learned);
+                                        /* min= */ 0, UINT32_MAX, /* ignoring= */ true, &b->fdb_max_learned);
         if (r <= 0)
                 return r;
 

@@ -136,7 +136,7 @@ TEST(benchmark) {
                                 if (j >= size)
                                         log_error("%s \"compressed\" %zu -> %zu", label, size, j);
 
-                                ASSERT_OK_ZERO(decompress_blob(c, buf, j, &buf2, &k, 0));
+                                ASSERT_OK_ZERO(decompress_blob(c, buf, j, &buf2, &k, /* dst_max= */ 0));
                                 ASSERT_EQ(k, size);
                                 ASSERT_EQ(memcmp(text, buf2, size), 0);
 

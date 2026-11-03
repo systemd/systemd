@@ -10,6 +10,7 @@
 #include "chase.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "libmount-util.h"
 #include "log.h"
 #include "mkdir.h"
@@ -194,13 +195,13 @@ int switch_root(const char *new_root,
         assert(new_root);
 
         /* Check if we shall remove the contents of the old root */
-        old_root_fd = open("/", O_DIRECTORY|O_CLOEXEC);
+        old_root_fd = xopenat(AT_FDCWD, "/", O_DIRECTORY);
         if (old_root_fd < 0)
-                return log_error_errno(errno, "Failed to open root directory: %m");
+                return log_error_errno(old_root_fd, "Failed to open root directory: %m");
 
-        new_root_fd = open(new_root, O_PATH|O_DIRECTORY|O_CLOEXEC);
+        new_root_fd = xopenat(AT_FDCWD, new_root, O_PATH|O_DIRECTORY);
         if (new_root_fd < 0)
-                return log_error_errno(errno, "Failed to open target directory '%s': %m", new_root);
+                return log_error_errno(new_root_fd, "Failed to open target directory '%s': %m", new_root);
 
         r = fds_inode_and_mount_same(old_root_fd, new_root_fd); /* checks if referenced inodes and mounts match */
         if (r < 0)
@@ -220,9 +221,9 @@ int switch_root(const char *new_root,
                 /* When the path was not a mount point, then we need to reopen the path, otherwise, it still
                  * points to the underlying directory. */
 
-                fd = open(new_root, O_DIRECTORY|O_CLOEXEC);
+                fd = xopenat(AT_FDCWD, new_root, O_DIRECTORY);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to reopen target directory '%s': %m", new_root);
+                        return log_error_errno(fd, "Failed to reopen target directory '%s': %m", new_root);
 
                 close_and_replace(new_root_fd, fd);
         }
@@ -238,7 +239,7 @@ int switch_root(const char *new_root,
 
         if (old_root_after) {
                 /* Determine where we shall place the old root after the transition */
-                r = chase(old_root_after, new_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved_old_root_after, NULL);
+                r = chase(old_root_after, new_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved_old_root_after, /* ret_fd= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve %s/%s: %m", new_root, old_root_after);
                 if (r == 0) /* Doesn't exist yet. Let's create it */
@@ -265,7 +266,7 @@ int switch_root(const char *new_root,
          * MS_SHARED. Hence remount them MS_PRIVATE here as a work-around.
          *
          * https://bugzilla.redhat.com/show_bug.cgi?id=847418 */
-        if (mount(NULL, "/", NULL, MS_REC|MS_PRIVATE, NULL) < 0)
+        if (mount(/* source= */ NULL, "/", /* filesystemtype= */ NULL, MS_REC|MS_PRIVATE, /* data= */ NULL) < 0)
                 return log_error_errno(errno, "Failed to set \"/\" mount propagation to private: %m");
 
         /* Do not fail if base_filesystem_create() fails. Not all switch roots are like base_filesystem_create() wants
@@ -286,7 +287,7 @@ int switch_root(const char *new_root,
                         continue;
                 }
 
-                r = chase(transfer->path, new_root, CHASE_PREFIX_ROOT, &chased, NULL);
+                r = chase(transfer->path, new_root, CHASE_PREFIX_ROOT, &chased, /* ret_fd= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve %s/%s: %m", new_root, transfer->path);
 
@@ -297,7 +298,7 @@ int switch_root(const char *new_root,
                 if (r > 0) /* If it is already mounted, then do nothing */
                         continue;
 
-                r = mount_nofollow_verbose(LOG_ERR, transfer->path, chased, NULL, mount_flags, NULL);
+                r = mount_nofollow_verbose(LOG_ERR, transfer->path, chased, /* fstype= */ NULL, mount_flags, /* options= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -321,7 +322,7 @@ int switch_root(const char *new_root,
                 log_debug_errno(r, "Pivoting root file system failed, moving mounts instead: %m");
 
                 if (resolved_old_root_after) {
-                        r = mount_nofollow_verbose(LOG_ERR, "/", resolved_old_root_after, NULL, MS_BIND|MS_REC, NULL);
+                        r = mount_nofollow_verbose(LOG_ERR, "/", resolved_old_root_after, /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -332,9 +333,9 @@ int switch_root(const char *new_root,
                  * MS_MOVE won't magically unmount anything below it. Once the chroot() succeeds the mounts
                  * below would still be around but invisible to us, because not accessible via
                  * /proc/self/mountinfo. Hence, let's clean everything up first, as long as we still can. */
-                (void) umount_recursive_full(NULL, MNT_DETACH, STRV_MAKE(new_root));
+                (void) umount_recursive_full(/* prefix= */ NULL, MNT_DETACH, STRV_MAKE(new_root));
 
-                if (mount(".", "/", NULL, MS_MOVE, NULL) < 0)
+                if (mount(".", "/", /* filesystemtype= */ NULL, MS_MOVE, /* data= */ NULL) < 0)
                         return log_error_errno(errno, "Failed to move %s to /: %m", new_root);
 
                 if (chroot(".") < 0)
@@ -352,7 +353,7 @@ int switch_root(const char *new_root,
 
                         /* Note: the below won't operate on non-memory file systems (i.e. only on tmpfs, ramfs), and
                          * it will stop at mount boundaries */
-                        (void) rm_rf_children(TAKE_FD(old_root_fd), 0, &rb); /* takes possession of the dir fd, even on failure */
+                        (void) rm_rf_children(TAKE_FD(old_root_fd), /* flags= */ 0, &rb); /* takes possession of the dir fd, even on failure */
                 }
         } else
                 /* NB: we don't bother with emptying the old root superblock here, under the assumption the

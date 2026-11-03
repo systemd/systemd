@@ -22,20 +22,20 @@ static void check_p_d_u(const char *path, int code, const char *result) {
 
         r = cg_path_decode_unit(path, &unit);
         printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit, r, strnull(result), code);
-        assert_se(r == code);
+        ASSERT_EQ(r, code);
         ASSERT_STREQ(unit, result);
 }
 
 TEST(path_decode_unit) {
-        check_p_d_u("getty@tty2.service", 0, "getty@tty2.service");
-        check_p_d_u("getty@tty2.service/", 0, "getty@tty2.service");
-        check_p_d_u("getty@tty2.service/xxx", 0, "getty@tty2.service");
-        check_p_d_u("getty@.service/", -ENXIO, NULL);
-        check_p_d_u("getty@.service", -ENXIO, NULL);
-        check_p_d_u("getty.service", 0, "getty.service");
-        check_p_d_u("getty", -ENXIO, NULL);
-        check_p_d_u("getty/waldo", -ENXIO, NULL);
-        check_p_d_u("_cpu.service", 0, "cpu.service");
+        check_p_d_u("getty@tty2.service", /* code= */ 0, "getty@tty2.service");
+        check_p_d_u("getty@tty2.service/", /* code= */ 0, "getty@tty2.service");
+        check_p_d_u("getty@tty2.service/xxx", /* code= */ 0, "getty@tty2.service");
+        check_p_d_u("getty@.service/", -ENXIO, /* result= */ NULL);
+        check_p_d_u("getty@.service", -ENXIO, /* result= */ NULL);
+        check_p_d_u("getty.service", /* code= */ 0, "getty.service");
+        check_p_d_u("getty", -ENXIO, /* result= */ NULL);
+        check_p_d_u("getty/waldo", -ENXIO, /* result= */ NULL);
+        check_p_d_u("_cpu.service", /* code= */ 0, "cpu.service");
 }
 
 static void check_p_g_u(const char *path, int code, const char *result) {
@@ -44,22 +44,22 @@ static void check_p_g_u(const char *path, int code, const char *result) {
 
         r = cg_path_get_unit(path, &unit);
         printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit, r, strnull(result), code);
-        assert_se(r == code);
+        ASSERT_EQ(r, code);
         ASSERT_STREQ(unit, result);
 }
 
 TEST(path_get_unit) {
-        check_p_g_u("/system.slice/foobar.service/sdfdsaf", 0, "foobar.service");
-        check_p_g_u("/system.slice/getty@tty5.service", 0, "getty@tty5.service");
-        check_p_g_u("/system.slice/getty@tty5.service/aaa/bbb", 0, "getty@tty5.service");
-        check_p_g_u("/system.slice/getty@tty5.service/", 0, "getty@tty5.service");
-        check_p_g_u("/system.slice/getty@tty6.service/tty5", 0, "getty@tty6.service");
-        check_p_g_u("sadfdsafsda", -ENXIO, NULL);
-        check_p_g_u("/system.slice/getty####@tty6.service/xxx", -ENXIO, NULL);
-        check_p_g_u("/system.slice/system-waldo.slice/foobar.service/sdfdsaf", 0, "foobar.service");
-        check_p_g_u("/system.slice/system-waldo.slice/_cpu.service/sdfdsaf", 0, "cpu.service");
-        check_p_g_u("/user.slice/user-1000.slice/user@1000.service/server.service", 0, "user@1000.service");
-        check_p_g_u("/user.slice/user-1000.slice/user@.service/server.service", -ENXIO, NULL);
+        check_p_g_u("/system.slice/foobar.service/sdfdsaf", /* code= */ 0, "foobar.service");
+        check_p_g_u("/system.slice/getty@tty5.service", /* code= */ 0, "getty@tty5.service");
+        check_p_g_u("/system.slice/getty@tty5.service/aaa/bbb", /* code= */ 0, "getty@tty5.service");
+        check_p_g_u("/system.slice/getty@tty5.service/", /* code= */ 0, "getty@tty5.service");
+        check_p_g_u("/system.slice/getty@tty6.service/tty5", /* code= */ 0, "getty@tty6.service");
+        check_p_g_u("sadfdsafsda", -ENXIO, /* result= */ NULL);
+        check_p_g_u("/system.slice/getty####@tty6.service/xxx", -ENXIO, /* result= */ NULL);
+        check_p_g_u("/system.slice/system-waldo.slice/foobar.service/sdfdsaf", /* code= */ 0, "foobar.service");
+        check_p_g_u("/system.slice/system-waldo.slice/_cpu.service/sdfdsaf", /* code= */ 0, "cpu.service");
+        check_p_g_u("/user.slice/user-1000.slice/user@1000.service/server.service", /* code= */ 0, "user@1000.service");
+        check_p_g_u("/user.slice/user-1000.slice/user@.service/server.service", -ENXIO, /* result= */ NULL);
 }
 
 static void check_p_g_u_f(const char *path, int expected_code, const char *expected_unit, const char *expected_subgroup) {
@@ -74,22 +74,22 @@ static void check_p_g_u_f(const char *path, int expected_code, const char *expec
 }
 
 TEST(path_get_unit_full) {
-        check_p_g_u_f("/system.slice/foobar.service/sdfdsaf", 0, "foobar.service", "sdfdsaf");
-        check_p_g_u_f("/system.slice/foobar.service//sdfdsaf", 0, "foobar.service", "sdfdsaf");
-        check_p_g_u_f("/system.slice/foobar.service/sdfdsaf/", 0, "foobar.service", "sdfdsaf");
-        check_p_g_u_f("/system.slice/foobar.service//sdfdsaf/", 0, "foobar.service", "sdfdsaf");
-        check_p_g_u_f("/system.slice/foobar.service//sdfdsaf//", 0, "foobar.service", "sdfdsaf");
-        check_p_g_u_f("/system.slice/foobar.service/sdfdsaf/urks", 0, "foobar.service", "sdfdsaf/urks");
-        check_p_g_u_f("/system.slice/foobar.service//sdfdsaf//urks", 0, "foobar.service", "sdfdsaf/urks");
-        check_p_g_u_f("/system.slice/foobar.service/sdfdsaf/urks/", 0, "foobar.service", "sdfdsaf/urks");
-        check_p_g_u_f("/system.slice/foobar.service//sdfdsaf//urks//", 0, "foobar.service", "sdfdsaf/urks");
-        check_p_g_u_f("/system.slice/foobar.service", 0, "foobar.service", NULL);
-        check_p_g_u_f("/system.slice/foobar.service/", 0, "foobar.service", NULL);
-        check_p_g_u_f("/system.slice/foobar.service//", 0, "foobar.service", NULL);
-        check_p_g_u_f("/system.slice/", -ENXIO, NULL, NULL);
-        check_p_g_u_f("/system.slice/piff", -ENXIO, NULL, NULL);
-        check_p_g_u_f("/system.service/piff", 0, "system.service", "piff");
-        check_p_g_u_f("//system.service//piff", 0, "system.service", "piff");
+        check_p_g_u_f("/system.slice/foobar.service/sdfdsaf", /* expected_code= */ 0, "foobar.service", "sdfdsaf");
+        check_p_g_u_f("/system.slice/foobar.service//sdfdsaf", /* expected_code= */ 0, "foobar.service", "sdfdsaf");
+        check_p_g_u_f("/system.slice/foobar.service/sdfdsaf/", /* expected_code= */ 0, "foobar.service", "sdfdsaf");
+        check_p_g_u_f("/system.slice/foobar.service//sdfdsaf/", /* expected_code= */ 0, "foobar.service", "sdfdsaf");
+        check_p_g_u_f("/system.slice/foobar.service//sdfdsaf//", /* expected_code= */ 0, "foobar.service", "sdfdsaf");
+        check_p_g_u_f("/system.slice/foobar.service/sdfdsaf/urks", /* expected_code= */ 0, "foobar.service", "sdfdsaf/urks");
+        check_p_g_u_f("/system.slice/foobar.service//sdfdsaf//urks", /* expected_code= */ 0, "foobar.service", "sdfdsaf/urks");
+        check_p_g_u_f("/system.slice/foobar.service/sdfdsaf/urks/", /* expected_code= */ 0, "foobar.service", "sdfdsaf/urks");
+        check_p_g_u_f("/system.slice/foobar.service//sdfdsaf//urks//", /* expected_code= */ 0, "foobar.service", "sdfdsaf/urks");
+        check_p_g_u_f("/system.slice/foobar.service", /* expected_code= */ 0, "foobar.service", /* expected_subgroup= */ NULL);
+        check_p_g_u_f("/system.slice/foobar.service/", /* expected_code= */ 0, "foobar.service", /* expected_subgroup= */ NULL);
+        check_p_g_u_f("/system.slice/foobar.service//", /* expected_code= */ 0, "foobar.service", /* expected_subgroup= */ NULL);
+        check_p_g_u_f("/system.slice/", -ENXIO, /* expected_unit= */ NULL, /* expected_subgroup= */ NULL);
+        check_p_g_u_f("/system.slice/piff", -ENXIO, /* expected_unit= */ NULL, /* expected_subgroup= */ NULL);
+        check_p_g_u_f("/system.service/piff", /* expected_code= */ 0, "system.service", "piff");
+        check_p_g_u_f("//system.service//piff", /* expected_code= */ 0, "system.service", "piff");
 }
 
 static void check_p_g_u_p(const char *path, int code, const char *result) {
@@ -98,25 +98,25 @@ static void check_p_g_u_p(const char *path, int code, const char *result) {
 
         r = cg_path_get_unit_path(path, &unit_path);
         printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit_path, r, strnull(result), code);
-        assert_se(r == code);
+        ASSERT_EQ(r, code);
         ASSERT_STREQ(unit_path, result);
 }
 
 TEST(path_get_unit_path) {
-        check_p_g_u_p("/system.slice/foobar.service/sdfdsaf", 0, "/system.slice/foobar.service");
-        check_p_g_u_p("/system.slice/getty@tty5.service", 0, "/system.slice/getty@tty5.service");
-        check_p_g_u_p("/system.slice/getty@tty5.service/aaa/bbb", 0, "/system.slice/getty@tty5.service");
-        check_p_g_u_p("/system.slice/getty@tty5.service/", 0, "/system.slice/getty@tty5.service");
-        check_p_g_u_p("/system.slice/getty@tty6.service/tty5", 0, "/system.slice/getty@tty6.service");
-        check_p_g_u_p("sadfdsafsda", -ENXIO, NULL);
-        check_p_g_u_p("/system.slice/getty####@tty6.service/xxx", -ENXIO, NULL);
-        check_p_g_u_p("/system.slice/system-waldo.slice/foobar.service/sdfdsaf", 0, "/system.slice/system-waldo.slice/foobar.service");
-        check_p_g_u_p("/system.slice/system-waldo.slice/_cpu.service/sdfdsaf", 0, "/system.slice/system-waldo.slice/_cpu.service");
-        check_p_g_u_p("/system.slice/system-waldo.slice/_cpu.service", 0, "/system.slice/system-waldo.slice/_cpu.service");
-        check_p_g_u_p("/user.slice/user-1000.slice/user@1000.service/server.service", 0, "/user.slice/user-1000.slice/user@1000.service");
-        check_p_g_u_p("/user.slice/user-1000.slice/user@.service/server.service", -ENXIO, NULL);
-        check_p_g_u_p("/user.slice/_user-1000.slice/user@1000.service/foobar.slice/foobar@pie.service", 0, "/user.slice/_user-1000.slice/user@1000.service");
-        check_p_g_u_p("/_session-2.scope/_foobar@pie.service/pa/po", 0, "/_session-2.scope");
+        check_p_g_u_p("/system.slice/foobar.service/sdfdsaf", /* code= */ 0, "/system.slice/foobar.service");
+        check_p_g_u_p("/system.slice/getty@tty5.service", /* code= */ 0, "/system.slice/getty@tty5.service");
+        check_p_g_u_p("/system.slice/getty@tty5.service/aaa/bbb", /* code= */ 0, "/system.slice/getty@tty5.service");
+        check_p_g_u_p("/system.slice/getty@tty5.service/", /* code= */ 0, "/system.slice/getty@tty5.service");
+        check_p_g_u_p("/system.slice/getty@tty6.service/tty5", /* code= */ 0, "/system.slice/getty@tty6.service");
+        check_p_g_u_p("sadfdsafsda", -ENXIO, /* result= */ NULL);
+        check_p_g_u_p("/system.slice/getty####@tty6.service/xxx", -ENXIO, /* result= */ NULL);
+        check_p_g_u_p("/system.slice/system-waldo.slice/foobar.service/sdfdsaf", /* code= */ 0, "/system.slice/system-waldo.slice/foobar.service");
+        check_p_g_u_p("/system.slice/system-waldo.slice/_cpu.service/sdfdsaf", /* code= */ 0, "/system.slice/system-waldo.slice/_cpu.service");
+        check_p_g_u_p("/system.slice/system-waldo.slice/_cpu.service", /* code= */ 0, "/system.slice/system-waldo.slice/_cpu.service");
+        check_p_g_u_p("/user.slice/user-1000.slice/user@1000.service/server.service", /* code= */ 0, "/user.slice/user-1000.slice/user@1000.service");
+        check_p_g_u_p("/user.slice/user-1000.slice/user@.service/server.service", -ENXIO, /* result= */ NULL);
+        check_p_g_u_p("/user.slice/_user-1000.slice/user@1000.service/foobar.slice/foobar@pie.service", /* code= */ 0, "/user.slice/_user-1000.slice/user@1000.service");
+        check_p_g_u_p("/_session-2.scope/_foobar@pie.service/pa/po", /* code= */ 0, "/_session-2.scope");
 }
 
 static void check_p_g_u_u(const char *path, int code, const char *result) {
@@ -125,106 +125,106 @@ static void check_p_g_u_u(const char *path, int code, const char *result) {
 
         r = cg_path_get_user_unit(path, &unit);
         printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit, r, strnull(result), code);
-        assert_se(r == code);
+        ASSERT_EQ(r, code);
         ASSERT_STREQ(unit, result);
 }
 
 TEST(path_get_user_unit) {
-        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/foobar.service", 0, "foobar.service");
-        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/waldo.slice/foobar.service", 0, "foobar.service");
-        check_p_g_u_u("/user.slice/user-1002.slice/session-2.scope/foobar.service/waldo", 0, "foobar.service");
-        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/foobar.service/waldo/uuuux", 0, "foobar.service");
-        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/waldo/waldo/uuuux", -ENXIO, NULL);
-        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/foobar@pie.service/pa/po", 0, "foobar@pie.service");
-        check_p_g_u_u("/session-2.scope/foobar@pie.service/pa/po", 0, "foobar@pie.service");
-        check_p_g_u_u("/xyz.slice/xyz-waldo.slice/session-77.scope/foobar@pie.service/pa/po", 0, "foobar@pie.service");
-        check_p_g_u_u("/meh.service", -ENXIO, NULL);
-        check_p_g_u_u("/session-3.scope/_cpu.service", 0, "cpu.service");
-        check_p_g_u_u("/user.slice/user-1000.slice/user@1000.service/server.service", 0, "server.service");
-        check_p_g_u_u("/user.slice/user-1000.slice/user@1000.service/foobar.slice/foobar@pie.service", 0, "foobar@pie.service");
-        check_p_g_u_u("/user.slice/user-1000.slice/user@.service/server.service", -ENXIO, NULL);
-        check_p_g_u_u("/capsule.slice/capsule@test.service/app.slice/run-p9-i1.service", 0, "run-p9-i1.service");
-        check_p_g_u_u("/capsule.slice/capsule@usr-joe.service/foo.slice/foo-bar.slice/run-p9-i1.service", 0, "run-p9-i1.service");
-        check_p_g_u_u("/capsule.slice/capsule@#.service/foo.slice/foo-bar.slice/run-p9-i1.service", -ENXIO, NULL);
+        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/foobar.service", /* code= */ 0, "foobar.service");
+        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/waldo.slice/foobar.service", /* code= */ 0, "foobar.service");
+        check_p_g_u_u("/user.slice/user-1002.slice/session-2.scope/foobar.service/waldo", /* code= */ 0, "foobar.service");
+        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/foobar.service/waldo/uuuux", /* code= */ 0, "foobar.service");
+        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/waldo/waldo/uuuux", -ENXIO, /* result= */ NULL);
+        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/foobar@pie.service/pa/po", /* code= */ 0, "foobar@pie.service");
+        check_p_g_u_u("/session-2.scope/foobar@pie.service/pa/po", /* code= */ 0, "foobar@pie.service");
+        check_p_g_u_u("/xyz.slice/xyz-waldo.slice/session-77.scope/foobar@pie.service/pa/po", /* code= */ 0, "foobar@pie.service");
+        check_p_g_u_u("/meh.service", -ENXIO, /* result= */ NULL);
+        check_p_g_u_u("/session-3.scope/_cpu.service", /* code= */ 0, "cpu.service");
+        check_p_g_u_u("/user.slice/user-1000.slice/user@1000.service/server.service", /* code= */ 0, "server.service");
+        check_p_g_u_u("/user.slice/user-1000.slice/user@1000.service/foobar.slice/foobar@pie.service", /* code= */ 0, "foobar@pie.service");
+        check_p_g_u_u("/user.slice/user-1000.slice/user@.service/server.service", -ENXIO, /* result= */ NULL);
+        check_p_g_u_u("/capsule.slice/capsule@test.service/app.slice/run-p9-i1.service", /* code= */ 0, "run-p9-i1.service");
+        check_p_g_u_u("/capsule.slice/capsule@usr-joe.service/foo.slice/foo-bar.slice/run-p9-i1.service", /* code= */ 0, "run-p9-i1.service");
+        check_p_g_u_u("/capsule.slice/capsule@#.service/foo.slice/foo-bar.slice/run-p9-i1.service", -ENXIO, /* result= */ NULL);
 }
 
 static void check_p_g_s(const char *path, int code, const char *result) {
         _cleanup_free_ char *s = NULL;
 
-        assert_se(cg_path_get_session(path, &s) == code);
+        ASSERT_EQ(cg_path_get_session(path, &s), code);
         ASSERT_STREQ(s, result);
 }
 
 TEST(path_get_session) {
-        check_p_g_s("/user.slice/user-1000.slice/session-2.scope/foobar.service", 0, "2");
-        check_p_g_s("/session-3.scope", 0, "3");
-        check_p_g_s("/session-.scope", -ENXIO, NULL);
-        check_p_g_s("", -ENXIO, NULL);
+        check_p_g_s("/user.slice/user-1000.slice/session-2.scope/foobar.service", /* code= */ 0, "2");
+        check_p_g_s("/session-3.scope", /* code= */ 0, "3");
+        check_p_g_s("/session-.scope", -ENXIO, /* result= */ NULL);
+        check_p_g_s("", -ENXIO, /* result= */ NULL);
 }
 
 static void check_p_g_o_u(const char *path, int code, uid_t result) {
         uid_t uid = 0;
 
-        assert_se(cg_path_get_owner_uid(path, &uid) == code);
-        assert_se(uid == result);
+        ASSERT_EQ(cg_path_get_owner_uid(path, &uid), code);
+        ASSERT_EQ(uid, result);
 }
 
 TEST(path_get_owner_uid) {
-        check_p_g_o_u("/user.slice/user-1000.slice/session-2.scope/foobar.service", 0, 1000);
-        check_p_g_o_u("/user.slice/user-1006.slice", 0, 1006);
-        check_p_g_o_u("", -ENXIO, 0);
+        check_p_g_o_u("/user.slice/user-1000.slice/session-2.scope/foobar.service", /* code= */ 0, 1000);
+        check_p_g_o_u("/user.slice/user-1006.slice", /* code= */ 0, 1006);
+        check_p_g_o_u("", -ENXIO, /* result= */ 0);
 }
 
 static void check_p_g_slice(const char *path, int code, const char *result) {
         _cleanup_free_ char *s = NULL;
 
-        assert_se(cg_path_get_slice(path, &s) == code);
+        ASSERT_EQ(cg_path_get_slice(path, &s), code);
         ASSERT_STREQ(s, result);
 }
 
 TEST(path_get_slice) {
-        check_p_g_slice("/user.slice", 0, "user.slice");
-        check_p_g_slice("/foobar", 0, SPECIAL_ROOT_SLICE);
-        check_p_g_slice("/user.slice/user-waldo.slice", 0, "user-waldo.slice");
-        check_p_g_slice("", 0, SPECIAL_ROOT_SLICE);
-        check_p_g_slice("foobar", 0, SPECIAL_ROOT_SLICE);
-        check_p_g_slice("foobar.slice", 0, "foobar.slice");
-        check_p_g_slice("foo.slice/foo-bar.slice/waldo.service", 0, "foo-bar.slice");
-        check_p_g_slice("/capsule.slice/capsule@test.service/app.slice/run-p9-i1.service", 0, "capsule.slice");
+        check_p_g_slice("/user.slice", /* code= */ 0, "user.slice");
+        check_p_g_slice("/foobar", /* code= */ 0, SPECIAL_ROOT_SLICE);
+        check_p_g_slice("/user.slice/user-waldo.slice", /* code= */ 0, "user-waldo.slice");
+        check_p_g_slice("", /* code= */ 0, SPECIAL_ROOT_SLICE);
+        check_p_g_slice("foobar", /* code= */ 0, SPECIAL_ROOT_SLICE);
+        check_p_g_slice("foobar.slice", /* code= */ 0, "foobar.slice");
+        check_p_g_slice("foo.slice/foo-bar.slice/waldo.service", /* code= */ 0, "foo-bar.slice");
+        check_p_g_slice("/capsule.slice/capsule@test.service/app.slice/run-p9-i1.service", /* code= */ 0, "capsule.slice");
 }
 
 static void check_p_g_u_slice(const char *path, int code, const char *result) {
         _cleanup_free_ char *s = NULL;
 
-        assert_se(cg_path_get_user_slice(path, &s) == code);
+        ASSERT_EQ(cg_path_get_user_slice(path, &s), code);
         ASSERT_STREQ(s, result);
 }
 
 TEST(path_get_user_slice) {
-        check_p_g_u_slice("/user.slice", -ENXIO, NULL);
-        check_p_g_u_slice("/foobar", -ENXIO, NULL);
-        check_p_g_u_slice("/user.slice/user-waldo.slice", -ENXIO, NULL);
-        check_p_g_u_slice("", -ENXIO, NULL);
-        check_p_g_u_slice("foobar", -ENXIO, NULL);
-        check_p_g_u_slice("foobar.slice", -ENXIO, NULL);
-        check_p_g_u_slice("foo.slice/foo-bar.slice/waldo.service", -ENXIO, NULL);
+        check_p_g_u_slice("/user.slice", -ENXIO, /* result= */ NULL);
+        check_p_g_u_slice("/foobar", -ENXIO, /* result= */ NULL);
+        check_p_g_u_slice("/user.slice/user-waldo.slice", -ENXIO, /* result= */ NULL);
+        check_p_g_u_slice("", -ENXIO, /* result= */ NULL);
+        check_p_g_u_slice("foobar", -ENXIO, /* result= */ NULL);
+        check_p_g_u_slice("foobar.slice", -ENXIO, /* result= */ NULL);
+        check_p_g_u_slice("foo.slice/foo-bar.slice/waldo.service", -ENXIO, /* result= */ NULL);
 
-        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service", 0, SPECIAL_ROOT_SLICE);
-        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/", 0, SPECIAL_ROOT_SLICE);
-        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service///", 0, SPECIAL_ROOT_SLICE);
-        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/waldo.service", 0, SPECIAL_ROOT_SLICE);
-        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/piep.slice/foo.service", 0, "piep.slice");
-        check_p_g_u_slice("/foo.slice//foo-bar.slice/user@1000.service/piep.slice//piep-pap.slice//foo.service", 0, "piep-pap.slice");
+        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service", /* code= */ 0, SPECIAL_ROOT_SLICE);
+        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/", /* code= */ 0, SPECIAL_ROOT_SLICE);
+        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service///", /* code= */ 0, SPECIAL_ROOT_SLICE);
+        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/waldo.service", /* code= */ 0, SPECIAL_ROOT_SLICE);
+        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/piep.slice/foo.service", /* code= */ 0, "piep.slice");
+        check_p_g_u_slice("/foo.slice//foo-bar.slice/user@1000.service/piep.slice//piep-pap.slice//foo.service", /* code= */ 0, "piep-pap.slice");
 
-        check_p_g_u_slice("/capsule.slice/capsule@test.service/app.slice/run-p9-i1.service", 0, "app.slice");
-        check_p_g_u_slice("/capsule.slice/capsule@usr-joe.service/app.slice/run-p9-i1.service", 0, "app.slice");
-        check_p_g_u_slice("/capsule.slice/capsule@usr-joe.service/foo.slice/foo-bar.slice/run-p9-i1.service", 0, "foo-bar.slice");
+        check_p_g_u_slice("/capsule.slice/capsule@test.service/app.slice/run-p9-i1.service", /* code= */ 0, "app.slice");
+        check_p_g_u_slice("/capsule.slice/capsule@usr-joe.service/app.slice/run-p9-i1.service", /* code= */ 0, "app.slice");
+        check_p_g_u_slice("/capsule.slice/capsule@usr-joe.service/foo.slice/foo-bar.slice/run-p9-i1.service", /* code= */ 0, "foo-bar.slice");
 }
 
 TEST(get_paths, .sd_booted = true) {
         _cleanup_free_ char *a = NULL;
 
-        assert_se(cg_get_root_path(&a) >= 0);
+        ASSERT_OK(cg_get_root_path(&a));
         log_info("Root = %s", a);
 }
 
@@ -266,7 +266,7 @@ TEST(proc, .sd_booted = true) {
                 if (hidden_cgroup(path))
                         continue;
 
-                int r1 = cg_pid_get_path_shifted(pid.pid, NULL, &path_shifted);
+                int r1 = cg_pid_get_path_shifted(pid.pid, /* cached_root= */ NULL, &path_shifted);
                 int r2 = cg_pidref_get_unit(&pid, &unit);
                 int r3 = cg_pid_get_slice(pid.pid, &slice);
 
@@ -300,16 +300,16 @@ TEST(proc, .sd_booted = true) {
 static void test_escape_one(const char *s, const char *expected) {
         _cleanup_free_ char *b = NULL;
 
-        assert_se(s);
-        assert_se(expected);
+        ASSERT_NOT_NULL(s);
+        ASSERT_NOT_NULL(expected);
 
         ASSERT_OK(cg_escape(s, &b));
         ASSERT_STREQ(b, expected);
 
         ASSERT_STREQ(cg_unescape(b), s);
 
-        assert_se(filename_is_valid(b));
-        assert_se(!cg_needs_escape(s) || b[0] == '_');
+        ASSERT_TRUE(filename_is_valid(b));
+        ASSERT_TRUE(!cg_needs_escape(s) || b[0] == '_');
 }
 
 TEST(escape, .sd_booted = true) {
@@ -383,33 +383,33 @@ static void test_slice_to_path_one(const char *unit, const char *path, int error
         r = cg_slice_to_path(unit, &ret);
         log_info("actual: %s / %d", strnull(ret), r);
         log_info("expect: %s / %d", strnull(path), error);
-        assert_se(r == error);
+        ASSERT_EQ(r, error);
         ASSERT_STREQ(ret, path);
 }
 
 TEST(slice_to_path) {
-        test_slice_to_path_one("foobar.slice", "foobar.slice", 0);
-        test_slice_to_path_one("foobar-waldo.slice", "foobar.slice/foobar-waldo.slice", 0);
-        test_slice_to_path_one("foobar-waldo.service", NULL, -EINVAL);
-        test_slice_to_path_one(SPECIAL_ROOT_SLICE, "", 0);
-        test_slice_to_path_one("--.slice", NULL, -EINVAL);
-        test_slice_to_path_one("-", NULL, -EINVAL);
-        test_slice_to_path_one("-foo-.slice", NULL, -EINVAL);
-        test_slice_to_path_one("-foo.slice", NULL, -EINVAL);
-        test_slice_to_path_one("foo-.slice", NULL, -EINVAL);
-        test_slice_to_path_one("foo--bar.slice", NULL, -EINVAL);
-        test_slice_to_path_one("foo.slice/foo--bar.slice", NULL, -EINVAL);
-        test_slice_to_path_one("a-b.slice", "a.slice/a-b.slice", 0);
-        test_slice_to_path_one("a-b-c-d-e.slice", "a.slice/a-b.slice/a-b-c.slice/a-b-c-d.slice/a-b-c-d-e.slice", 0);
+        test_slice_to_path_one("foobar.slice", "foobar.slice", /* error= */ 0);
+        test_slice_to_path_one("foobar-waldo.slice", "foobar.slice/foobar-waldo.slice", /* error= */ 0);
+        test_slice_to_path_one("foobar-waldo.service", /* path= */ NULL, -EINVAL);
+        test_slice_to_path_one(SPECIAL_ROOT_SLICE, "", /* error= */ 0);
+        test_slice_to_path_one("--.slice", /* path= */ NULL, -EINVAL);
+        test_slice_to_path_one("-", /* path= */ NULL, -EINVAL);
+        test_slice_to_path_one("-foo-.slice", /* path= */ NULL, -EINVAL);
+        test_slice_to_path_one("-foo.slice", /* path= */ NULL, -EINVAL);
+        test_slice_to_path_one("foo-.slice", /* path= */ NULL, -EINVAL);
+        test_slice_to_path_one("foo--bar.slice", /* path= */ NULL, -EINVAL);
+        test_slice_to_path_one("foo.slice/foo--bar.slice", /* path= */ NULL, -EINVAL);
+        test_slice_to_path_one("a-b.slice", "a.slice/a-b.slice", /* error= */ 0);
+        test_slice_to_path_one("a-b-c-d-e.slice", "a.slice/a-b.slice/a-b-c.slice/a-b-c-d.slice/a-b-c-d-e.slice", /* error= */ 0);
 
-        test_slice_to_path_one("foobar@.slice", NULL, -EINVAL);
-        test_slice_to_path_one("foobar@waldo.slice", NULL, -EINVAL);
-        test_slice_to_path_one("foobar@waldo.service", NULL, -EINVAL);
-        test_slice_to_path_one("-foo@-.slice", NULL, -EINVAL);
-        test_slice_to_path_one("-foo@.slice", NULL, -EINVAL);
-        test_slice_to_path_one("foo@-.slice", NULL, -EINVAL);
-        test_slice_to_path_one("foo@@bar.slice", NULL, -EINVAL);
-        test_slice_to_path_one("foo.slice/foo@@bar.slice", NULL, -EINVAL);
+        test_slice_to_path_one("foobar@.slice", /* path= */ NULL, -EINVAL);
+        test_slice_to_path_one("foobar@waldo.slice", /* path= */ NULL, -EINVAL);
+        test_slice_to_path_one("foobar@waldo.service", /* path= */ NULL, -EINVAL);
+        test_slice_to_path_one("-foo@-.slice", /* path= */ NULL, -EINVAL);
+        test_slice_to_path_one("-foo@.slice", /* path= */ NULL, -EINVAL);
+        test_slice_to_path_one("foo@-.slice", /* path= */ NULL, -EINVAL);
+        test_slice_to_path_one("foo@@bar.slice", /* path= */ NULL, -EINVAL);
+        test_slice_to_path_one("foo.slice/foo@@bar.slice", /* path= */ NULL, -EINVAL);
 }
 
 static void test_shift_path_one(const char *raw, const char *root, const char *shifted) {
@@ -449,38 +449,38 @@ TEST(cg_get_keyed_attribute) {
         if (ERRNO_IS_PRIVILEGE(r))
                 return (void) log_tests_skipped_errno(r, "/sys/fs/cgroup not accessible");
 
-        assert_se(r == -ENOENT);
+        ASSERT_ERROR(r, ENOENT);
         ASSERT_NULL(val);
 
         if (access("/sys/fs/cgroup/init.scope/cpu.stat", R_OK) < 0)
                 return (void) log_tests_skipped_errno(errno, "/init.scope/cpu.stat not accessible");
 
-        assert_se(cg_get_keyed_attribute("/init.scope", "cpu.stat", STRV_MAKE("no_such_attr"), &val) == -ENXIO);
+        ASSERT_ERROR(cg_get_keyed_attribute("/init.scope", "cpu.stat", STRV_MAKE("no_such_attr"), &val), ENXIO);
         ASSERT_NULL(val);
 
-        assert_se(cg_get_keyed_attribute("/init.scope", "cpu.stat", STRV_MAKE("usage_usec"), &val) == 0);
+        ASSERT_OK_ZERO(cg_get_keyed_attribute("/init.scope", "cpu.stat", STRV_MAKE("usage_usec"), &val));
         val = mfree(val);
 
-        assert_se(cg_get_keyed_attribute("/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "no_such_attr"), vals3) == -ENXIO);
+        ASSERT_ERROR(cg_get_keyed_attribute("/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "no_such_attr"), vals3), ENXIO);
 
-        assert_se(cg_get_keyed_attribute("/init.scope", "cpu.stat",
-                                         STRV_MAKE("usage_usec", "user_usec", "system_usec"), vals3) == 0);
+        ASSERT_OK_ZERO(cg_get_keyed_attribute("/init.scope", "cpu.stat",
+                                              STRV_MAKE("usage_usec", "user_usec", "system_usec"), vals3));
         for (size_t i = 0; i < 3; i++)
                 free(vals3[i]);
 
-        assert_se(cg_get_keyed_attribute("/init.scope", "cpu.stat",
-                                         STRV_MAKE("system_usec", "user_usec", "usage_usec"), vals3a) == 0);
+        ASSERT_OK_ZERO(cg_get_keyed_attribute("/init.scope", "cpu.stat",
+                                              STRV_MAKE("system_usec", "user_usec", "usage_usec"), vals3a));
         for (size_t i = 0; i < 3; i++)
                 free(vals3a[i]);
 }
 
 TEST(bfq_weight_conversion) {
-        assert_se(BFQ_WEIGHT(1) == 1);
-        assert_se(BFQ_WEIGHT(50) == 50);
-        assert_se(BFQ_WEIGHT(100) == 100);
-        assert_se(BFQ_WEIGHT(500) == 136);
-        assert_se(BFQ_WEIGHT(5000) == 545);
-        assert_se(BFQ_WEIGHT(10000) == 1000);
+        ASSERT_EQ(BFQ_WEIGHT(1), 1U);
+        ASSERT_EQ(BFQ_WEIGHT(50), 50U);
+        ASSERT_EQ(BFQ_WEIGHT(100), 100U);
+        ASSERT_EQ(BFQ_WEIGHT(500), 136U);
+        ASSERT_EQ(BFQ_WEIGHT(5000), 545U);
+        ASSERT_EQ(BFQ_WEIGHT(10000), 1000U);
 }
 
 TEST(cgroupid) {
@@ -517,7 +517,7 @@ TEST(cgroupid) {
 
                 ASSERT_EQ(id, id2);
 
-                ASSERT_OK_EQ(inode_same_at(fd, NULL, fd2, NULL, AT_EMPTY_PATH), true);
+                ASSERT_OK_EQ(inode_same_at(fd, /* filea= */ NULL, fd2, /* fileb= */ NULL, AT_EMPTY_PATH), true);
         }
 }
 

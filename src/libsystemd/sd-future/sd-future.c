@@ -132,7 +132,7 @@ int sd_future_resolve(sd_future *f, int result) {
         /* Waiters are only woken up, never run from here: they unlink themselves once they resume, and
          * the wait reports completion separately from the result. */
         LIST_FOREACH(waiters, w, f->waiters)
-                assert_se(sd_fiber_resume(w->fiber, 0) >= 0);
+                assert_se(sd_fiber_resume(w->fiber, /* result= */ 0) >= 0);
 
         return 0;
 }

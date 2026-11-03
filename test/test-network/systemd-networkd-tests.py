@@ -2667,6 +2667,16 @@ ReorderHeader=no
         self.networkctl_check_unit('wg98', '25-wireguard-23-peers', '25-wireguard-23-peers')
         self.networkctl_check_unit('wg97', '25-wireguard-no-peer', '25-wireguard-no-peer')
 
+        # The WireGuard driver disables generating an IPv6LL address every time the interface is brought
+        # up. Check that the address is generated, also after the interface is brought down and up again.
+        ipv6ll = r'inet6 fe80::[0-9a-f:]+/64'
+        self.wait_address('wg97', ipv6ll, scope='link', ipv='-6')
+        self.wait_address('wg98', ipv6ll, scope='link', ipv='-6')
+        check_output('ip link set dev wg97 down')
+        self.wait_address_dropped('wg97', ipv6ll, scope='link', ipv='-6')
+        check_output('ip link set dev wg97 up')
+        self.wait_address('wg97', ipv6ll, scope='link', ipv='-6')
+
         output = check_output('ip -4 address show dev wg99')
         print(output)
         self.assertIn('inet 192.168.124.1/24 scope global wg99', output)
@@ -2799,6 +2809,14 @@ ReorderHeader=no
         )
         networkctl_reload()
         self.wait_online('wg99:routable', 'wg98:routable', 'wg97:carrier')
+
+        # Check that the IPv6LL address is dropped when LinkLocalAddressing=no is set.
+        with open(
+            os.path.join(network_unit_dir, '25-wireguard-no-peer.network'), mode='a', encoding='utf-8'
+        ) as f:
+            f.write('\n[Network]\nLinkLocalAddressing=no\n')
+        networkctl_reload()
+        self.wait_address_dropped('wg97', ipv6ll, scope='link', ipv='-6')
 
     def test_geneve(self):
         copy_network_unit('25-geneve.netdev', '26-netdev-link-local-addressing-yes.network')
@@ -4125,8 +4143,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         flag4: str,
         ip4_null_16: str,
         ip4_null_24: str,
+        ip4_null_32: str,
         ip6_null_73: str,
         ip6_null_74: str,
+        ip6_null_128: str,
     ):
         output = check_output('ip address show dev dummy98')
         print(output)
@@ -4192,8 +4212,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         prefix24 = ip4_null_24[: -len('.1')]
         self.assertIn(f'inet {ip4_null_16}/16 brd {prefix16}.255.255 scope global subnet16', output)
         self.assertIn(f'inet {ip4_null_24}/24 brd {prefix24}.255 scope global subnet24', output)
+        self.assertIn(f'inet {ip4_null_32}/32 scope global host32', output)
         self.assertIn(f'inet6 {ip6_null_73}/73 scope global', output)
         self.assertIn(f'inet6 {ip6_null_74}/74 scope global', output)
+        self.assertIn(f'inet6 {ip6_null_128}/128 scope global', output)
 
         # invalid sections
         self.assertNotIn('10.4.4.1', output)
@@ -4220,25 +4242,33 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         ip4_null_16 = None
         ip4_null_24 = None
+        ip4_null_32 = None
         output = check_output('ip -4 --json address show dev dummy98')
         for i in json.loads(output)[0]['addr_info']:
             if i['label'] == 'subnet16':
                 ip4_null_16 = i['local']
             elif i['label'] == 'subnet24':
                 ip4_null_24 = i['local']
+            elif i['label'] == 'host32':
+                ip4_null_32 = i['local']
         self.assertTrue(ip4_null_16.endswith('.0.1'))
         self.assertTrue(ip4_null_24.endswith('.1'))
+        self.assertIsNotNone(ip4_null_32)
 
         ip6_null_73 = None
         ip6_null_74 = None
+        ip6_null_128 = None
         output = check_output('ip -6 --json address show dev dummy98')
         for i in json.loads(output)[0]['addr_info']:
             if i['prefixlen'] == 73:
                 ip6_null_73 = i['local']
             elif i['prefixlen'] == 74:
                 ip6_null_74 = i['local']
+            elif i['prefixlen'] == 128 and i['local'].startswith('fd'):
+                ip6_null_128 = i['local']
         self.assertTrue(ip6_null_73.endswith(':1'))
         self.assertTrue(ip6_null_74.endswith(':1'))
+        self.assertIsNotNone(ip6_null_128)
 
         self.verify_address_static(
             label1='label1',
@@ -4266,8 +4296,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             flag4=' home mngtmpaddr',
             ip4_null_16=ip4_null_16,
             ip4_null_24=ip4_null_24,
+            ip4_null_32=ip4_null_32,
             ip6_null_73=ip6_null_73,
             ip6_null_74=ip6_null_74,
+            ip6_null_128=ip6_null_128,
         )
         # nft set
         self.check_nftset('addr4', r'10\.10\.1\.1')
@@ -4305,8 +4337,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             flag4=' noprefixroute',
             ip4_null_16=ip4_null_16,
             ip4_null_24=ip4_null_24,
+            ip4_null_32=ip4_null_32,
             ip6_null_73=ip6_null_73,
             ip6_null_74=ip6_null_74,
+            ip6_null_128=ip6_null_128,
         )
 
         networkctl_reconfigure('dummy98')
@@ -4337,8 +4371,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             flag4=' noprefixroute',
             ip4_null_16=ip4_null_16,
             ip4_null_24=ip4_null_24,
+            ip4_null_32=ip4_null_32,
             ip6_null_73=ip6_null_73,
             ip6_null_74=ip6_null_74,
+            ip6_null_128=ip6_null_128,
         )
 
         # Tests for #20891.
@@ -4379,8 +4415,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             flag4=' noprefixroute',
             ip4_null_16=ip4_null_16,
             ip4_null_24=ip4_null_24,
+            ip4_null_32=ip4_null_32,
             ip6_null_73=ip6_null_73,
             ip6_null_74=ip6_null_74,
+            ip6_null_128=ip6_null_128,
         )
 
         # test for ENOBUFS issue #17012 (with reload)
@@ -6219,6 +6257,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         time.sleep(1)
         output = networkctl_status('test1')
         self.assertIn('State: routable (configuring)', output)
+        self.assertIn('Configuring: static routes are not configured', output)
+        output = networkctl_json('test1')
+        check_json(output)
+        self.assertIn('"ConfiguringReasons":["static_routes"]', output)
 
         # Check if the route which needs nexthop 21 are forgotten.
         output = networkctl_json()
@@ -6229,6 +6271,13 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         # then the route requested by test1 can be configured.
         networkctl_reconfigure('dummy98')
         self.wait_online('test1:routable')
+
+        # Check if the reason is cleared once the interface is configured.
+        output = networkctl_status('test1')
+        self.assertNotIn('Configuring:', output)
+        output = networkctl_json('test1')
+        check_json(output)
+        self.assertNotIn('ConfiguringReasons', output)
 
         # Check if the requested route actually configured.
         output = check_output('ip route show 10.10.11.10')
@@ -8571,6 +8620,21 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertIn('Address: 10.1.1.200 (DHCPv4 via 10.1.1.1)', output)
         self.assertRegex(output, 'DHCPv4 Client ID: IAID:[0-9a-z]*/DUID')
 
+    def test_dhcp_server_static_lease_client_id(self):
+        copy_network_unit(
+            '25-veth.netdev',
+            '25-dhcp-client-static-lease-client-id.network',
+            '25-dhcp-server-static-lease-client-id.network',
+        )
+        start_networkd()
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+
+        output = networkctl_status('veth99')
+        print(output)
+        self.assertIn('Address: 10.1.1.201 (DHCPv4 via 10.1.1.1)', output)
+        self.assertNotIn('10.1.1.202', output)
+        self.assertIn('DHCPv4 Client ID: IAID:0x12345678/DUID', output)
+
     def test_dhcp_server_static_lease_hostname_simple(self):
         copy_network_unit(
             '25-veth.netdev',
@@ -8779,6 +8843,38 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
     def tearDown(self):
         tear_down_common()
 
+    def test_dhcp_client_ipv6_use_timezone(self):
+        copy_network_unit(
+            '25-veth.netdev',
+            '25-dhcp-server-veth-peer.network',
+            '25-dhcp-client-ipv6-timezone.network',
+        )
+
+        # Make sure the zone is not already the one the server will emit,
+        # e.g. left over from test_emit_router_timezone.
+        timedatectl('set-timezone', 'UTC')
+
+        start_networkd()
+        self.wait_online('veth-peer:carrier')
+
+        start_dnsmasq(
+            '--dhcp-option=option6:42,Europe/Berlin',
+            ra_mode='ra-stateless',
+        )
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+
+        # The DHCPv6 REPLY for INFORMATION-REQUEST may be received after the
+        # link entered the configured state, and the timezone is applied
+        # through an asynchronous call to timedated. Wait for it.
+        tz = None
+        for _ in range(100):
+            r = run(*timedatectl_cmd, 'show', '--value', '--property', 'Timezone', env=env)
+            tz = r.stdout.rstrip()
+            if tz == 'Europe/Berlin':
+                break
+            time.sleep(0.2)
+        self.assertEqual(tz, 'Europe/Berlin')
+
     def test_dhcp_client_ipv6_only(self):
         copy_network_unit(
             '25-veth.netdev',
@@ -8833,6 +8929,37 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         # Check json format
         check_json(networkctl_json('veth99'))
+
+        # "networkctl renew" must request the information again.
+        stop_dnsmasq()
+        since = datetime.datetime.now()
+        start_dnsmasq(
+            '--dhcp-option=108,00:00:02:00',
+            '--dhcp-option=option6:dns-server,[2600::ee]',
+            '--dhcp-option=option6:ntp-server,[2600::fe]',
+            ra_mode='ra-stateless',
+        )
+        # The RA from the restarted dnsmasq makes networkd start the DHCPv6 client again, which is refused
+        # within the information refresh time. The information must be requested again even after that.
+        if enable_debug:
+            self.check_networkd_log("veth99: NDISC: Invoking callback for 'router' event.", since=since)
+        networkctl('renew', 'veth99')
+
+        for _ in range(100):
+            output = read_link_state_file('veth99')
+            if 'NTP=2600::fe' in output:
+                break
+            time.sleep(0.2)
+
+        print('## link state file after renew')
+        print(output)
+        self.assertIn('NTP=2600::fe', output)
+        self.assertNotIn('2600::ff', output)
+
+        print('## dnsmasq log after renew')
+        output = read_dnsmasq_log_file()
+        print(output)
+        self.assertIn('DHCPINFORMATION-REQUEST(veth-peer)', output)
 
         # solicit mode
         stop_dnsmasq()

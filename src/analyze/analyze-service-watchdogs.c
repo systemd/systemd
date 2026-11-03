@@ -19,7 +19,7 @@ int verb_service_watchdogs(int argc, char *argv[], uintptr_t _data, void *userda
         assert(IN_SET(argc, 1, 2));
         assert(argv);
 
-        r = acquire_bus(&bus, NULL);
+        r = acquire_bus(&bus, /* use_full_bus= */ NULL);
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
 

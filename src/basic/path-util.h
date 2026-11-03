@@ -48,7 +48,7 @@ typedef enum PathStartWithFlags {
 
 char* path_startswith_full(const char *path, const char *prefix, PathStartWithFlags flags) _pure_;
 static inline char* path_startswith(const char *path, const char *prefix) {
-        return path_startswith_full(path, prefix, 0);
+        return path_startswith_full(path, prefix, /* flags= */ 0);
 }
 
 int path_compare(const char *a, const char *b) _pure_;
@@ -78,7 +78,7 @@ typedef enum PathSimplifyFlags {
 
 char* path_simplify_full(char *path, PathSimplifyFlags flags);
 static inline char* path_simplify(char *path) {
-        return path_simplify_full(path, 0);
+        return path_simplify_full(path, /* flags= */ 0);
 }
 
 int path_simplify_alloc(const char *path, char **ret);
@@ -102,7 +102,7 @@ int find_executable_full(
                 char **ret_filename,
                 int *ret_fd);
 static inline int find_executable(const char *name, char **ret_filename) {
-        return find_executable_full(name, /* root= */ NULL, NULL, true, ret_filename, NULL);
+        return find_executable_full(name, /* root= */ NULL, /* exec_search_path= */ NULL, /* use_path_envvar= */ true, ret_filename, /* ret_fd= */ NULL);
 }
 
 int fsck_exists(void);
@@ -136,10 +136,10 @@ const char* last_path_component(const char *path);
 
 int path_split_prefix_filename(const char *path, char **ret_dir, char **ret_filename);
 static inline int path_extract_filename(const char *path, char **ret) {
-        return path_split_prefix_filename(path, NULL, ret);
+        return path_split_prefix_filename(path, /* ret_dir= */ NULL, ret);
 }
 static inline int path_extract_directory(const char *path, char **ret) {
-        int r = path_split_prefix_filename(path, ret, NULL);
+        int r = path_split_prefix_filename(path, ret, /* ret_filename= */ NULL);
         return r < 0 ? r : 0; /* suppress O_DIRECTORY */
 }
 

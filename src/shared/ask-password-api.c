@@ -102,7 +102,7 @@ static int touch_ask_password_directory(AskPasswordFlags flags) {
         if (r <= 0)
                 return r;
 
-        _cleanup_close_ int fd = open_mkdir(p, O_CLOEXEC, 0755);
+        _cleanup_close_ int fd = open_mkdir(p, /* flags= */ 0, 0755);
         if (fd < 0)
                 return fd;
 
@@ -522,7 +522,7 @@ int ask_password_tty(
                 if (r < 0)
                         return r;
                 if (r > 0) {
-                        _cleanup_close_ int watch_fd = open_mkdir(watch_path, O_CLOEXEC|O_RDONLY, 0755);
+                        _cleanup_close_ int watch_fd = open_mkdir(watch_path, O_RDONLY, 0755);
                         if (watch_fd < 0)
                                 return watch_fd;
 
@@ -537,7 +537,7 @@ int ask_password_tty(
         /* If the caller didn't specify a TTY, then use the controlling tty, if we can. */
         int ttyfd;
         if (req->tty_fd < 0)
-                ttyfd = cttyfd = open("/dev/tty", O_RDWR|O_NOCTTY|O_CLOEXEC);
+                ttyfd = cttyfd = open_terminal("/dev/tty", O_RDWR|O_NOCTTY);
         else
                 ttyfd = req->tty_fd;
 
@@ -819,11 +819,11 @@ static int create_socket(const char *askpwdir, char **ret) {
                 if (bind(fd, &sa.sa, sa_len) < 0)
                         return -errno;
 
-        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
+        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, /* value= */ true);
         if (r < 0)
                 return r;
 
-        (void) setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, false);
+        (void) setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, /* value= */ false);
 
         *ret = TAKE_PTR(path);
         return TAKE_FD(fd);
@@ -877,7 +877,7 @@ int ask_password_agent(
         if (r == 0)
                 return -ENXIO;
 
-        dfd = open_mkdir(askpwdir, O_CLOEXEC, 0755);
+        dfd = open_mkdir(askpwdir, /* flags= */ 0, 0755);
         if (dfd < 0)
                 return log_debug_errno(dfd, "Failed to open directory '%s': %m", askpwdir);
 
@@ -1038,7 +1038,7 @@ int ask_password_agent(
                         .msg_controllen = sizeof(control),
                 };
 
-                ssize_t n = recvmsg_safe(socket_fd, &msghdr, 0);
+                ssize_t n = recvmsg_safe(socket_fd, &msghdr, /* flags= */ 0);
                 if (ERRNO_IS_NEG_TRANSIENT(n))
                         continue;
                 if (n == -ECHRNG) {

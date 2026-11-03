@@ -17,9 +17,9 @@ int bus_wait_for_jobs_new(sd_bus *bus, BusWaitForJobs **ret);
 int bus_wait_for_jobs_add(BusWaitForJobs *d, const char *path);
 int bus_wait_for_jobs_full(BusWaitForJobs *d, WaitJobsFlags flags, const char* const* extra_args);
 static inline int bus_wait_for_jobs(BusWaitForJobs *d, WaitJobsFlags flags) {
-        return bus_wait_for_jobs_full(d, flags, NULL);
+        return bus_wait_for_jobs_full(d, flags, /* extra_args= */ NULL);
 }
 int bus_wait_for_jobs_one_full(BusWaitForJobs *d, const char *path, WaitJobsFlags flags, const char* const* extra_args);
 static inline int bus_wait_for_jobs_one(BusWaitForJobs *d, const char *path, WaitJobsFlags flags) {
-        return bus_wait_for_jobs_one_full(d, path, flags, NULL);
+        return bus_wait_for_jobs_one_full(d, path, flags, /* extra_args= */ NULL);
 }

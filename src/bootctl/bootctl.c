@@ -504,7 +504,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         if (streq(opts.arg, "auto"))  /* retained for backwards compatibility */
                                 arg_make_entry_directory = -1; /* yes if machine-id is permanent */
                         else {
-                                r = parse_boolean_argument("--make-entry-directory=", opts.arg, NULL);
+                                r = parse_boolean_argument("--make-entry-directory=", opts.arg, /* ret= */ NULL);
                                 if (r < 0)
                                         return r;
 
@@ -797,6 +797,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         int r;
 
+        COMPRESS_NOTE(suggested);
         LIBBLKID_NOTE(recommended);
         LIBCRYPTO_NOTE(recommended);
         LIBCRYPTSETUP_NOTE(suggested);

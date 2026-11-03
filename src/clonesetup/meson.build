@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+if conf.get('ENABLE_CLONESETUP') != 1
+        subdir_done()
+endif
+
 systemd_clonesetup_sources = files(
         'clonesetup-ioctl.c',
         'clonesetup.c',

@@ -67,16 +67,16 @@ static void analyze_coredump_file(
         assert(ret_color);
         assert(ret_size);
 
-        fd = open(path, O_PATH|O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, path, O_PATH);
         if (fd < 0) {
-                if (errno == ENOENT) {
+                if (fd == -ENOENT) {
                         *ret_state = "missing";
                         *ret_color = ansi_grey();
                         *ret_size = UINT64_MAX;
                         return;
                 }
 
-                r = -errno;
+                r = fd;
         } else
                 r = access_fd(fd, R_OK);
         if (r < 0) {
@@ -471,7 +471,7 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 return log_oom();
 
         if (arg_full)
-                table_set_width(table, 0);
+                table_set_width(table, /* width= */ 0);
 
         if (!sd_id128_is_null(f.coredump_id)) {
                 r = table_add_many(table,

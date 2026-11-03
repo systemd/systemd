@@ -10,6 +10,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "io-util.h"
+#include "json-util.h"
 #include "log.h"
 #include "nspawn.h"
 #include "machine-bind-user.h"
@@ -29,7 +30,7 @@ static int write_and_symlink(
                 const char *suffix,
                 WriteStringFileFlags extra_flags) {
 
-        _cleanup_free_ char *j = NULL, *f = NULL, *p = NULL, *q = NULL;
+        _cleanup_free_ char *f = NULL, *p = NULL, *q = NULL;
         int r;
 
         assert(root);
@@ -37,10 +38,6 @@ static int write_and_symlink(
         assert(name);
         assert(uid_is_valid(uid));
         assert(suffix);
-
-        r = sd_json_variant_format(v, SD_JSON_FORMAT_NEWLINE, &j);
-        if (r < 0)
-                return log_error_errno(r, "Failed to format user record JSON: %m");
 
         f = strjoin(name, suffix);
         if (!f)
@@ -56,15 +53,15 @@ static int write_and_symlink(
         if (symlink(f, q) < 0)
                 return log_error_errno(errno, "Failed to create symlink '%s': %m", q);
 
-        r = userns_lchown(q, 0, 0);
+        r = userns_lchown(q, /* uid= */ 0, /* gid= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust access mode of '%s': %m", q);
 
-        r = write_string_file(p, j, WRITE_STRING_FILE_CREATE|extra_flags);
+        r = json_variant_write_file_at(AT_FDCWD, p, v, SD_JSON_FORMAT_NEWLINE, WRITE_STRING_FILE_CREATE|extra_flags);
         if (r < 0)
                 return log_error_errno(r, "Failed to write %s: %m", p);
 
-        r = userns_lchown(p, 0, 0);
+        r = userns_lchown(p, /* uid= */ 0, /* gid= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust access mode of '%s': %m", p);
 
@@ -89,7 +86,7 @@ static int write_membership(const char *root, const char *user, const char *grou
                         p,
                         root,
                         CHASE_PREFIX_ROOT|CHASE_NO_AUTOFS,
-                        O_WRONLY|O_CREAT|O_CLOEXEC,
+                        O_WRONLY|O_CREAT,
                         /* ret_path= */ NULL);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to create %s: %m", p);
@@ -124,11 +121,11 @@ int bind_user_setup(const MachineBindUserContext *c, const char *root) {
         if (r < 0)
                 return r;
 
-        r = userns_mkdir(root, "/run/host/home", 0755, 0, 0);
+        r = userns_mkdir(root, "/run/host/home", 0755, /* uid= */ 0, /* gid= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /run/host/home: %m");
 
-        r = userns_mkdir(root, "/run/host/userdb", 0755, 0, 0);
+        r = userns_mkdir(root, "/run/host/userdb", 0755, /* uid= */ 0, /* gid= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /run/host/userdb: %m");
 
@@ -164,7 +161,7 @@ int bind_user_setup(const MachineBindUserContext *c, const char *root) {
                                 d->payload_group->group_name,
                                 d->payload_group->gid,
                                 ".group",
-                                0);
+                                /* extra_flags= */ 0);
                 if (r < 0)
                         return r;
 
@@ -202,7 +199,7 @@ int bind_user_setup(const MachineBindUserContext *c, const char *root) {
                                 d->payload_user->user_name,
                                 d->payload_user->uid,
                                 ".user",
-                                0);
+                                /* extra_flags= */ 0);
                 if (r < 0)
                         return r;
 

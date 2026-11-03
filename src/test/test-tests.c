@@ -5,6 +5,7 @@
 
 #include "sd-id128.h"
 
+#include "alloc-util.h"
 #include "errno-util.h"
 #include "tests.h"
 
@@ -96,9 +97,22 @@ TEST(ASSERT) {
         ASSERT_SIGNAL(ASSERT_NOT_STREQ("foo", "foo"), SIGABRT);
         ASSERT_SIGNAL(ASSERT_NOT_STREQ(NULL, NULL), SIGABRT);
 
+        ASSERT_STRV_EQ(NULL, NULL);
+        ASSERT_STRV_EQ(STRV_MAKE("foo", "bar"), STRV_MAKE("foo", "bar"));
+        ASSERT_SIGNAL(ASSERT_STRV_EQ(STRV_MAKE("foo"), NULL), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_STRV_EQ(STRV_MAKE("foo", "bar"), STRV_MAKE("foo", "baz")), SIGABRT);
+
+        _cleanup_free_ char *q = ASSERT_NOT_NULL(strv_join_quoted(STRV_MAKE("a", "", "b c", "d\"e\\f\n")));
+        ASSERT_STREQ(q, "[\"a\", \"\", \"b c\", \"d\\\"e\\\\f\\n\"]");
+        q = mfree(q);
+        ASSERT_NOT_NULL(q = strv_join_quoted(NULL));
+        ASSERT_STREQ(q, "[]");
+
         ASSERT_EQ(0, 0);
         ASSERT_EQ(-1, -1);
         ASSERT_SIGNAL(ASSERT_EQ(255, -1), SIGABRT);
+        ASSERT_EQ((int8_t) -1, (int8_t) -1);
+        ASSERT_SIGNAL(ASSERT_EQ((int8_t) 1, (int8_t) -1), SIGABRT);
 
         ASSERT_GE(0, 0);
         ASSERT_GE(1, -1);

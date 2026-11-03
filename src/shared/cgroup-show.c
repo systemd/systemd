@@ -15,6 +15,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "glyph-util.h"
 #include "hostname-util.h"
 #include "log.h"
@@ -124,7 +125,7 @@ static int show_cgroup_one_by_path(
                 pids[n++] = pid;
         }
 
-        show_pid_array(pids, n, prefix, n_columns, false, more, flags);
+        show_pid_array(pids, n, prefix, n_columns, /* extra= */ false, more, flags);
 
         return 0;
 }
@@ -141,9 +142,9 @@ static int show_cgroup_name(
         bool delegate;
         int r;
 
-        fd = open(path, O_PATH|O_CLOEXEC|O_NOFOLLOW|O_DIRECTORY, 0);
+        fd = xopenat(AT_FDCWD, path, O_PATH|O_NOFOLLOW|O_DIRECTORY);
         if (fd < 0)
-                return log_debug_errno(errno, "Failed to open cgroup '%s', ignoring: %m", path);
+                return log_debug_errno(fd, "Failed to open cgroup '%s', ignoring: %m", path);
 
         r = cg_is_delegated_fd(fd);
         if (r < 0)
@@ -252,7 +253,7 @@ int show_cgroup_by_path(
                         continue;
 
                 if (!shown_pids) {
-                        (void) show_cgroup_one_by_path(path, prefix, n_columns, true, flags);
+                        (void) show_cgroup_one_by_path(path, prefix, n_columns, /* more= */ true, flags);
                         shown_pids = true;
                 }
 
@@ -353,7 +354,7 @@ static int show_extra_pids(
                 copy[j++] = pids[i];
         }
 
-        show_pid_array(copy, j, prefix, n_columns, true, false, flags);
+        show_pid_array(copy, j, prefix, n_columns, /* extra= */ true, /* more= */ false, flags);
 
         return 0;
 }
@@ -420,7 +421,7 @@ int show_cgroup_get_path_and_warn(
                 _cleanup_free_ char *unit = NULL;
                 const char *m;
 
-                if (!hostname_is_valid(machine, 0))
+                if (!hostname_is_valid(machine, /* flags= */ 0))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Machine name is not valid: %s", machine);
 
                 m = strjoina("/run/systemd/machines/", machine);
@@ -428,7 +429,7 @@ int show_cgroup_get_path_and_warn(
                 if (r < 0)
                         return log_error_errno(r, "Failed to load machine data: %m");
 
-                r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, RUNTIME_SCOPE_SYSTEM, &bus);
+                r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, /* host= */ NULL, RUNTIME_SCOPE_SYSTEM, &bus);
                 if (r < 0)
                         return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL, RUNTIME_SCOPE_SYSTEM);
 

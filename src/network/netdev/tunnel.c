@@ -65,7 +65,7 @@ static int dhcp4_pd_create_6rd_tunnel_name(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_dhcp_lease_get_6rd(link->dhcp_lease, &ipv4masklen, &sixrd_prefixlen, &sixrd_prefix, NULL, NULL);
+        r = sd_dhcp_lease_get_6rd(link->dhcp_lease, &ipv4masklen, &sixrd_prefixlen, &sixrd_prefix, /* ret_br_addresses= */ NULL, /* ret_n_br_addresses= */ NULL);
         if (r < 0)
                 return r;
 
@@ -118,7 +118,7 @@ int dhcp4_pd_create_6rd_tunnel(Link *link, link_netlink_message_handler_t callba
         if (r < 0)
                 return r;
 
-        r = sd_dhcp_lease_get_6rd(link->dhcp_lease, &ipv4masklen, &sixrd_prefixlen, &sixrd_prefix, NULL, NULL);
+        r = sd_dhcp_lease_get_6rd(link->dhcp_lease, &ipv4masklen, &sixrd_prefixlen, &sixrd_prefix, /* ret_br_addresses= */ NULL, /* ret_n_br_addresses= */ NULL);
         if (r < 0)
                 return r;
 
@@ -196,7 +196,7 @@ static int tunnel_get_local_address(Tunnel *t, Link *link, union in_addr_union *
                 return 0;
         }
 
-        return link_get_local_address(link, t->local_type, t->family, NULL, ret);
+        return link_get_local_address(link, t->local_type, t->family, /* ret_family= */ NULL, ret);
 }
 
 static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
@@ -650,7 +650,7 @@ static int netdev_tunnel_is_ready_to_create(NetDev *netdev, Link *link) {
         if (t->independent)
                 return true;
 
-        return tunnel_get_local_address(t, link, NULL) >= 0;
+        return tunnel_get_local_address(t, link, /* ret= */ NULL) >= 0;
 }
 
 static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
@@ -931,7 +931,7 @@ int config_parse_ipv6_flowlabel(
 
         r = config_parse_uint32_bounded(
                         unit, filename, line, section, section_line, lvalue, rvalue,
-                        0, 0xFFFFF, true,
+                        /* min= */ 0, 0xFFFFF, /* ignoring= */ true,
                         &k);
         if (r <= 0)
                 return r;
@@ -967,7 +967,7 @@ int config_parse_encap_limit(
 
         r = config_parse_uint8_bounded(
                         unit, filename, line, section, section_line, lvalue, rvalue,
-                        0, UINT8_MAX, true,
+                        /* min= */ 0, UINT8_MAX, /* ignoring= */ true,
                         &t->encap_limit);
         if (r <= 0)
                 return r;
@@ -1038,7 +1038,7 @@ int config_parse_erspan_version(
 
         return config_parse_uint8_bounded(
                         unit, filename, line, section, section_line, lvalue, rvalue,
-                        0, 2, true,
+                        /* min= */ 0, 2, /* ignoring= */ true,
                         v);
 }
 
@@ -1067,7 +1067,7 @@ int config_parse_erspan_index(
 
         return config_parse_uint32_bounded(
                         unit, filename, line, section, section_line, lvalue, rvalue,
-                        0, 0x100000 - 1, true,
+                        /* min= */ 0, 0x100000 - 1, /* ignoring= */ true,
                         v);
 }
 
@@ -1125,7 +1125,7 @@ int config_parse_erspan_hwid(
 
         return config_parse_uint16_bounded(
                         unit, filename, line, section, section_line, lvalue, rvalue,
-                        0, 63, true,
+                        /* min= */ 0, 63, /* ignoring= */ true,
                         v);
 }
 

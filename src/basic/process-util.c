@@ -1027,7 +1027,7 @@ int pidref_is_unwaited(PidRef *pid) {
         if (pid->pid == 1 || pidref_is_self(pid))
                 return true;
 
-        r = pidref_kill(pid, 0);
+        r = pidref_kill(pid, /* sig= */ 0);
         if (r == -ESRCH)
                 return false;
         if (r < 0)
@@ -1124,7 +1124,7 @@ int pidref_from_same_root_fs(PidRef *a, PidRef *b) {
         const char *roota = procfs_file_alloca(a->pid, "root");
         const char *rootb = procfs_file_alloca(b->pid, "root");
 
-        int result = inode_same(roota, rootb, 0);
+        int result = inode_same(roota, rootb, /* flags= */ 0);
         if (result == -ENOENT)
                 return proc_mounted() == 0 ? -ENOSYS : -ESRCH;
         if (result < 0)
@@ -1248,7 +1248,7 @@ void valgrind_summary_hack(void) {
                         log_info("Spawned valgrind helper as PID "PID_FMT".", pid);
                         _cleanup_(pidref_done) PidRef pidref = PIDREF_MAKE_FROM_PID(pid);
                         (void) pidref_set_pid(&pidref, pid);
-                        (void) pidref_wait_for_terminate(&pidref, NULL);
+                        (void) pidref_wait_for_terminate(&pidref, /* ret_si= */ NULL);
                 }
         }
 #endif
@@ -1311,6 +1311,10 @@ static pid_t cached_pid = CACHED_PID_UNSET;
 void reset_cached_pid(void) {
         /* Invoked in the child after a fork(), i.e. at the first moment the PID changed */
         cached_pid = CACHED_PID_UNSET;
+
+        /* The pidfd ID cache is keyed by PID, which is not enough to detect the PID 1 → PID 1 transition
+         * when forking into a new PID namespace, hence flush it explicitly too. */
+        reset_cached_pidfd_id();
 }
 
 pid_t getpid_cached(void) {
@@ -1445,6 +1449,8 @@ int pidref_safe_fork_full(
         assert(!FLAGS_SET(flags, FORK_WAIT|FORK_FREEZE));
         assert(!FLAGS_SET(flags, FORK_DETACH) ||
                (flags & (FORK_WAIT|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGKILL)) == 0);
+        /* pack_fds() moves the fds with O_CLOEXEC set */
+        assert(!FLAGS_SET(flags, FORK_PACK_FDS) || FLAGS_SET(flags, FORK_CLOEXEC_OFF));
 
         /* A wrapper around fork(), that does a couple of important initializations in addition to mere
          * forking. If provided, ret is initialized in both the parent and the child process, both times
@@ -1687,7 +1693,7 @@ int pidref_safe_fork_full(
 
         if (FLAGS_SET(flags, FORK_NEW_MOUNTNS | FORK_MOUNTNS_SLAVE)) {
                 /* Optionally, make sure we never propagate mounts to the host. */
-                if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0) {
+                if (mount(/* source= */ NULL, "/", /* filesystemtype= */ NULL, MS_SLAVE | MS_REC, /* data= */ NULL) < 0) {
                         log_full_errno(prio, errno, "Failed to remount root directory as MS_SLAVE: %m");
                         _exit(EXIT_FAILURE);
                 }
@@ -1755,7 +1761,7 @@ int pidref_safe_fork_full(
         }
 
         if (flags & FORK_CLOEXEC_OFF) {
-                r = fd_cloexec_many(except_fds, n_except_fds, false);
+                r = fd_cloexec_many(except_fds, n_except_fds, /* cloexec= */ false);
                 if (r < 0) {
                         log_full_errno(prio, r, "Failed to turn off O_CLOEXEC on file descriptors: %m");
                         _exit(EXIT_FAILURE);
@@ -1864,7 +1870,7 @@ int namespace_fork_full(
                 /* We mask a few flags here that either make no sense for the grandchild, or that we don't have to do again */
                 r = pidref_safe_fork_full(
                                 inner_name,
-                                NULL,
+                                /* stdio_fds= */ NULL,
                                 except_fds, n_except_fds,
                                 flags & ~(FORK_WAIT|FORK_RESET_SIGNALS|FORK_REARRANGE_STDIO|FORK_FLUSH_STDIO|FORK_STDOUT_TO_STDERR),
                                 &pidref_inner);
@@ -1951,7 +1957,7 @@ int get_oom_score_adjust(int *ret) {
         _cleanup_free_ char *t = NULL;
         int r, a;
 
-        r = read_virtual_file("/proc/self/oom_score_adj", SIZE_MAX, &t, NULL);
+        r = read_virtual_file("/proc/self/oom_score_adj", SIZE_MAX, &t, /* ret_size= */ NULL);
         if (r < 0)
                 return r;
 
@@ -2027,7 +2033,7 @@ _noreturn_ void freeze(void) {
         /* Make sure nobody waits for us (i.e. on one of our sockets) anymore. Note that we use
          * close_all_fds_without_malloc() instead of plain close_all_fds() here, since we want this function
          * to be compatible with being called from signal handlers. */
-        (void) close_all_fds_without_malloc(NULL, 0);
+        (void) close_all_fds_without_malloc(/* except= */ NULL, /* n_except= */ 0);
 
         /* Let's not freeze right away, but keep reaping zombies. */
         for (;;) {
@@ -2101,6 +2107,30 @@ int make_reaper_process(bool b) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(posix_spawnattr_t*, posix_spawnattr_destroy, NULL);
 
+int execvpe_safe(const char *file, char * const *argv, char * const *envp) {
+        _cleanup_free_ char *resolved = NULL;
+        int r;
+
+        assert(file);
+        assert(argv);
+
+        /* Like execvpe(), but doesn't fall back to running the file via /bin/sh if execve() fails with
+         * ENOEXEC. Without this a truncated or otherwise broken binary would "successfully" run as an empty
+         * shell script instead of failing. Returns a negative errno on failure. A NULL envp is treated as
+         * an empty environment, like execve() does. */
+
+        r = find_executable(file, &resolved);
+        if (r < 0)
+                return r;
+
+        execve(resolved, argv, envp ?: STRV_EMPTY);
+        return -errno;
+}
+
+int execvp_safe(const char *file, char * const *argv) {
+        return execvpe_safe(file, argv, environ);
+}
+
 int posix_spawn_wrapper(
                 const char *path,
                 char * const *argv,
@@ -2147,9 +2177,9 @@ int posix_spawn_wrapper(
                 if (r < 0)
                         return r;
 
-                cgroup_fd = open(resolved_cgroup, O_PATH|O_DIRECTORY|O_CLOEXEC);
+                cgroup_fd = xopenat(AT_FDCWD, resolved_cgroup, O_PATH|O_DIRECTORY);
                 if (cgroup_fd < 0)
-                        return -errno;
+                        return cgroup_fd;
 
                 r = posix_spawnattr_setcgroup_np(&attr, cgroup_fd);
                 if (r == 0)

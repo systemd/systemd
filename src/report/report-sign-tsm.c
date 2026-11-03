@@ -17,6 +17,7 @@ COMMAND(
         "Get an attestation report via configfs Trusted Security Module (TSM) "
         "that includes the hash of the system report.",
         .man_pages = "systemd-report-sign-tsm@.service(8)\0",
+        .option_namespace = "common",
 );
 
 const sd_varlink_server_flags_t report_server_flags = SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_MYSELF_ONLY;

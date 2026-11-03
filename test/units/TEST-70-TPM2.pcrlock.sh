@@ -46,7 +46,7 @@ at_exit() {
         "$SD_PCRLOCK" unlock-raw --pcrlock=/var/lib/pcrlock.d/920-test70.pcrlock
     fi
 
-    rm -rf /tmp/fakexbootldr /var/lib/pcrlock.d/123-empty.pcrlock.d /run/systemd/system/systemd-pcrlock.socket.d
+    rm -rf /tmp/fakexbootldr /var/lib/pcrlock.d/123-empty.pcrlock.d /var/lib/pcrlock.d/930-many.pcrlock.d /run/systemd/system/systemd-pcrlock.socket.d
     if [[ -n "${img:-}" ]]; then
         rm -f "$img" "$img".private.pem "$img".public.pem "$img".pcrsign
     fi
@@ -98,6 +98,21 @@ SYSTEMD_COLORS=256 "$SD_PCRLOCK"
 "$SD_PCRLOCK" is-supported
 "$SD_PCRLOCK" cel --no-pager --json=pretty
 "$SD_PCRLOCK" log --pcr="$PCRS"
+
+# The log header (the Spec ID event) is an EV_NO_ACTION event in the legacy event format, which should be
+# retained as the first record of the firmware log, with a single all-zero SHA1 digest.
+SPEC_ID_EVENT_CHECK='.recnum == 1 and .pcr == 0 and .content_type == "pcclient_std" and
+    .content.event_type == "EV_NO_ACTION" and
+    .digests == [{"hashAlg": "sha1", "digest": "0000000000000000000000000000000000000000"}] and
+    (.content.event_data | startswith("53706563204944204576656e74303300"))'
+if [[ -e /sys/kernel/security/tpm0/binary_bios_measurements ]]; then
+    "$SD_PCRLOCK" cel --json=short | jq -e ".[0] | $SPEC_ID_EVENT_CHECK" >/dev/null
+
+    # EV_NO_ACTION events are not extended into the PCRs, so everything other than the CEL output must still
+    # skip them. Don't restrict the PCRs here, as these events live on PCR 0.
+    "$SD_PCRLOCK" log --json=short |
+        jq -e 'any(.log[]; .pcr == 0) and (any(.log[]; .event == "no-action") | not)' >/dev/null
+fi
 "$SD_PCRLOCK" log --json=pretty --pcr="$PCRS"
 "$SD_PCRLOCK" list-components
 "$SD_PCRLOCK" list-components --location=250-
@@ -181,6 +196,30 @@ echo -n test70-take-two | "$SD_PCRLOCK" lock-raw --pcrlock=/var/lib/pcrlock.d/92
 systemd-cryptsetup attach pcrlock "$img" - tpm2-device=auto,tpm2-pcrlock=/var/lib/systemd/pcrlock.json,headless
 systemd-cryptsetup detach pcrlock
 
+# Now exercise the PolicyOR tree code path: more than 8 alternatives for a PCR. Add a component with 9
+# variants touching PCR 16, rebuild the policy (the current PCR 16 state still matches the policy generated
+# above, so the recovery PIN is not needed), then extend PCR 16 with the 9th variant and unlock again. A
+# flat PolicyOR could only hold 8 of these. The 9th variant is in the second group, so the nested walk also
+# has to submit a group slice with a non-zero start offset.
+mkdir -p /var/lib/pcrlock.d/930-many.pcrlock.d
+for i in $(seq -w 1 9); do
+    echo -n "test70-many-$i" | "$SD_PCRLOCK" lock-raw \
+        --pcrlock="/var/lib/pcrlock.d/930-many.pcrlock.d/${i}.pcrlock" --pcr=16
+done
+
+"$SD_PCRLOCK" predict --pcr="$PCRS"
+
+# The extra variants for PCR 16 must actually end up in the prediction, otherwise this block silently stops
+# covering the nested PolicyOR code path.
+"$SD_PCRLOCK" predict --json=short --pcr="$PCRS" | \
+    jq -e '[to_entries[] | .value[] | select(.pcr == 16) | .values | length] | length > 0 and all(. > 8)' >/dev/null
+
+"$SD_PCRLOCK" make-policy --pcr="$PCRS" --force
+
+"$SD_PCREXTEND" --pcr=16 test70-many-9
+systemd-cryptsetup attach pcrlock "$img" - tpm2-device=auto,tpm2-pcrlock=/var/lib/systemd/pcrlock.json,headless
+systemd-cryptsetup detach pcrlock
+
 # Now combined pcrlock and signed PCR
 # Generate key pair
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$img".private.pem
@@ -260,6 +299,10 @@ systemctl restart systemd-pcrlock.socket
 varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.RemovePolicy '{}'
 varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.MakePolicy '{}'
 varlinkctl call --collect --json=pretty /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.ReadEventLog '{}'
+if [[ -e /sys/kernel/security/tpm0/binary_bios_measurements ]]; then
+    varlinkctl call --collect --json=short /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.ReadEventLog '{}' |
+        jq -e ".[0].record | $SPEC_ID_EVENT_CHECK" >/dev/null
+fi
 varlinkctl call --collect --json=pretty /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.ListComponents '{}'
 varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"firmwareConfig"}'
 varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"firmwareConfig","lock":false}'

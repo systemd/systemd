@@ -83,7 +83,7 @@ static int print_inhibitors(sd_bus *bus) {
 
         pager_open(arg_pager_flags);
 
-        r = bus_call_method(bus, bus_login_mgr, "ListInhibitors", &error, &reply, NULL);
+        r = bus_call_method(bus, bus_login_mgr, "ListInhibitors", &error, &reply, /* types= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Could not get active inhibitors: %s", bus_error_message(&error, r));
 
@@ -280,8 +280,12 @@ static int run(int argc, char *argv[]) {
                 /* Ignore SIGINT and allow the forked process to receive it */
                 (void) ignore_signals(SIGINT);
 
+                if (!arg_mode)
+                        arg_mode = "block";
+
                 if (!arg_what)
-                        arg_what = "idle:sleep:shutdown";
+                        /* logind only accepts delay locks for sleep and shutdown. */
+                        arg_what = streq(arg_mode, "delay") ? "sleep:shutdown" : "idle:sleep:shutdown";
 
                 if (!arg_who) {
                         w = strv_join(args, " ");
@@ -293,9 +297,6 @@ static int run(int argc, char *argv[]) {
 
                 if (!arg_why)
                         arg_why = "Unknown reason";
-
-                if (!arg_mode)
-                        arg_mode = "block";
 
                 fd = inhibit(bus, &error);
                 if (fd < 0)
@@ -311,9 +312,9 @@ static int run(int argc, char *argv[]) {
                         return r;
                 if (r == 0) {
                         /* Child */
-                        execvp(arguments[0], arguments);
+                        r = execvp_safe(arguments[0], arguments);
                         log_open();
-                        log_error_errno(errno, "Failed to execute '%s': %m", arguments[0]);
+                        log_error_errno(r, "Failed to execute '%s': %m", arguments[0]);
                         _exit(EXIT_FAILURE);
                 }
 

@@ -220,13 +220,55 @@ int sysctl_read(const char *property, char **ret) {
         if (!path_is_normalized(p)) /* Filter out attempts to write to /proc/sys/../../…, just in case */
                 return -EINVAL;
 
-        r = read_full_virtual_file(p, ret, NULL);
+        r = read_full_virtual_file(p, ret, /* ret_size= */ NULL);
         if (r < 0)
                 return r;
         if (ret)
                 delete_trailing_chars(*ret, NEWLINE);
 
         return r;
+}
+
+int sysctl_read_int(const char *property, int *ret) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert(property);
+        assert(ret);
+
+        r = sysctl_read(property, &s);
+        if (r < 0)
+                return r;
+
+        return safe_atoi(s, ret);
+}
+
+int sysctl_read_unsigned(const char *property, unsigned *ret) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert(property);
+        assert(ret);
+
+        r = sysctl_read(property, &s);
+        if (r < 0)
+                return r;
+
+        return safe_atou(s, ret);
+}
+
+int sysctl_read_uint64(const char *property, uint64_t *ret) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert(property);
+        assert(ret);
+
+        r = sysctl_read(property, &s);
+        if (r < 0)
+                return r;
+
+        return safe_atou64(s, ret);
 }
 
 int sysctl_read_ip_property(int af, const char *ifname, const char *property, char **ret) {

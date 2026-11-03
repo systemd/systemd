@@ -12,6 +12,7 @@
 #include "dlopen-note.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "in-addr-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
@@ -55,6 +56,7 @@ COMMAND(
         "systemd-report-geoip\0",
         "Report the approximate geographic location of the system as a metric.",
         .man_pages = "systemd-report-geoip@.service(8)\0",
+        .option_namespace = "common",
 );
 
 const sd_varlink_server_flags_t report_server_flags = 0;
@@ -344,9 +346,9 @@ static int geoip_cache_load(const char *path, char **ret_text, usec_t *ret_mtime
 
         /* Reads the cache file, and returns its modification time, i.e. when the data was downloaded. */
 
-        _cleanup_close_ int fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, path, O_RDONLY|O_NOCTTY);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         struct stat st;
         if (fstat(fd, &st) < 0)

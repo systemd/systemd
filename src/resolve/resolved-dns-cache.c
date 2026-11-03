@@ -420,7 +420,7 @@ static void dns_cache_item_update_positive(
 
         DNS_PACKET_REPLACE(i->full_packet, dns_packet_ref(full_packet));
 
-        i->until_valid = calculate_until_valid(rr, min_ttl, UINT32_MAX, timestamp, false);
+        i->until_valid = calculate_until_valid(rr, min_ttl, UINT32_MAX, timestamp, /* use_soa_minimum= */ false);
         i->until = calculate_until(i->until_valid, stale_retention_usec);
         i->query_flags = query_flags & CACHEABLE_QUERY_FLAGS;
         i->shared_owner = shared_owner;
@@ -518,7 +518,7 @@ static int dns_cache_put_positive(
          * is set to a duration of StaleRetentionSec from the time of TTL expiry. Otherwise, both the
          * 'until' and 'until_valid' are set to the TTL duration, leading to the eviction of the record
          * once the TTL expires. */
-        usec_t until_valid = calculate_until_valid(rr, min_ttl, UINT32_MAX, timestamp, false);
+        usec_t until_valid = calculate_until_valid(rr, min_ttl, UINT32_MAX, timestamp, /* use_soa_minimum= */ false);
         *i = (DnsCacheItem) {
                 .type = DNS_CACHE_POSITIVE,
                 .key = dns_resource_key_ref(rr->key),
@@ -642,7 +642,7 @@ static int dns_cache_put_negative(
          * of some other RR. Let's better take the lowest option here than a needlessly high one */
         i->until = i->until_valid =
                 i->type == DNS_CACHE_RCODE ? timestamp + CACHE_TTL_STRANGE_RCODE_USEC :
-                calculate_until_valid(soa, dns_answer_min_ttl(answer), nsec_ttl, timestamp, true);
+                calculate_until_valid(soa, dns_answer_min_ttl(answer), nsec_ttl, timestamp, /* use_soa_minimum= */ true);
 
         if (i->type == DNS_CACHE_NXDOMAIN) {
                 /* NXDOMAIN entries should apply equally to all types, so we use ANY as
@@ -817,11 +817,11 @@ int dns_cache_put(
                          * direct response to the original query. If we cache an RR we also received, and
                          * that is just auxiliary information we can't use the data, hence don't. */
 
-                        primary = dns_resource_key_match_rr(key, item->rr, NULL);
+                        primary = dns_resource_key_match_rr(key, item->rr, /* search_domain= */ NULL);
                         if (primary < 0)
                                 return primary;
                         if (primary == 0) {
-                                primary = dns_resource_key_match_cname_or_dname(key, item->rr->key, NULL);
+                                primary = dns_resource_key_match_cname_or_dname(key, item->rr->key, /* search_domain= */ NULL);
                                 if (primary < 0)
                                         return primary;
                         }
@@ -860,7 +860,7 @@ int dns_cache_put(
                 return 0;
 
         /* Third, add in negative entries if the key has no RR */
-        r = dns_answer_match_key(answer, key, NULL);
+        r = dns_answer_match_key(answer, key, /* ret_flags= */ NULL);
         if (r < 0)
                 goto fail;
         if (r > 0)
@@ -868,7 +868,7 @@ int dns_cache_put(
 
         /* But not if it has a matching CNAME/DNAME (the negative caching will be done on the canonical name,
          * not on the alias) */
-        r = dns_answer_find_cname_or_dname(answer, key, NULL, NULL);
+        r = dns_answer_find_cname_or_dname(answer, key, /* ret= */ NULL, /* ret_flags= */ NULL);
         if (r < 0)
                 goto fail;
         if (r > 0)
@@ -1190,7 +1190,7 @@ int dns_cache_lookup(
                                         j->rr,
                                         j->ifindex,
                                         FLAGS_SET(j->query_flags, SD_RESOLVED_AUTHENTICATED) ? DNS_ANSWER_AUTHENTICATED : 0,
-                                        NULL,
+                                        /* rrsig= */ NULL,
                                         query_flags,
                                         until,
                                         current);
@@ -1380,7 +1380,7 @@ int dns_cache_export_shared_to_packet(DnsCache *cache, DnsPacket *p, usec_t ts, 
                                 DNS_PACKET_HEADER(p)->ancount = htobe16(ancount);
                                 ancount = 0;
 
-                                r = dns_packet_new_query(&p->more, p->protocol, 0, true);
+                                r = dns_packet_new_query(&p->more, p->protocol, /* min_alloc_dsize= */ 0, /* dnssec_checking_disabled= */ true);
                                 if (r < 0)
                                         return r;
 
@@ -1389,7 +1389,7 @@ int dns_cache_export_shared_to_packet(DnsCache *cache, DnsPacket *p, usec_t ts, 
                                 max_rr = UINT_MAX;
                         }
 
-                        r = dns_packet_append_rr(p, j->rr, 0, NULL, NULL);
+                        r = dns_packet_append_rr(p, j->rr, /* flags= */ 0, /* start= */ NULL, /* rdata_start= */ NULL);
                         if (r == -EMSGSIZE) {
                                 if (max_rr == 0)
                                         /* If max_rr == 0, do not allocate more packets. */
@@ -1401,13 +1401,13 @@ int dns_cache_export_shared_to_packet(DnsCache *cache, DnsPacket *p, usec_t ts, 
                                 DNS_PACKET_HEADER(p)->ancount = htobe16(ancount);
                                 ancount = 0;
 
-                                r = dns_packet_new_query(&p->more, p->protocol, 0, true);
+                                r = dns_packet_new_query(&p->more, p->protocol, /* min_alloc_dsize= */ 0, /* dnssec_checking_disabled= */ true);
                                 if (r < 0)
                                         return r;
 
                                 /* continue with new packet */
                                 p = p->more;
-                                r = dns_packet_append_rr(p, j->rr, 0, NULL, NULL);
+                                r = dns_packet_append_rr(p, j->rr, /* flags= */ 0, /* start= */ NULL, /* rdata_start= */ NULL);
                         }
 
                         if (r < 0)
@@ -1497,7 +1497,7 @@ int dns_cache_dump_to_json(DnsCache *cache, sd_json_variant **ret) {
                         }
 
                         if (!l) {
-                                r = sd_json_variant_new_array(&l, NULL, 0);
+                                r = sd_json_variant_new_array(&l, /* array= */ NULL, 0);
                                 if (r < 0)
                                         return r;
                         }
@@ -1528,7 +1528,7 @@ int dns_cache_dump_to_json(DnsCache *cache, sd_json_variant **ret) {
         }
 
         if (!c)
-                return sd_json_variant_new_array(ret, NULL, 0);
+                return sd_json_variant_new_array(ret, /* array= */ NULL, 0);
 
         *ret = TAKE_PTR(c);
         return 0;

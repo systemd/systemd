@@ -142,6 +142,34 @@ grep -qE '^initrd .*/the-token/1.1.1/initrd' "$entry"
 grep -qE 'image' "$BOOT_ROOT/the-token/1.1.1/linux"
 grep -qE 'initrd' "$BOOT_ROOT/the-token/1.1.1/initrd"
 
+# Tries and devicetree files without trailing newline are accepted (issue #39881)
+rm "$entry"
+printf '%s' '56' >"$D/sources/tries"
+printf '%s' 'subdir/whatever.dtb' >"$D/sources/devicetree"
+"$kernel_install" -v add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
+test -f "$entry"
+grep -qE '^devicetree .*/the-token/1.1.1/whatever.dtb' "$entry"
+
+# Empty tries files and empty or newline-only devicetree files are refused before the previous entry,
+# kernel image and devicetree blob are touched
+check_refused() {
+    ( ! "$kernel_install" -v add 1.1.1 "$D/sources/linux-new" "$D/sources/initrd" 2>"$D/err" )
+    grep -qF "$1" "$D/err"
+    cmp "$D/entry.orig" "$entry"
+    cmp "$D/sources/linux" "$BOOT_ROOT/the-token/1.1.1/linux"
+    cmp "$D/sources/subdir/whatever.dtb" "$BOOT_ROOT/the-token/1.1.1/whatever.dtb"
+}
+echo 'new image' >"$D/sources/linux-new"
+cp "$entry" "$D/entry.orig"
+: >"$D/sources/tries"
+check_refused "$D/sources/tries does not contain an integer."
+echo '56' >"$D/sources/tries"
+for dt in '' $'\n'; do
+    printf '%s' "$dt" >"$D/sources/devicetree"
+    check_refused "Error: '$D/sources/devicetree' is empty or cannot be read."
+done
+echo 'subdir/whatever.dtb' >"$D/sources/devicetree"
+
 # Install UKI
 if [ -f "$ukify" ]; then
     "$test_ukify_install" "$ukify_install"
@@ -175,6 +203,9 @@ fi
 # Test bootctl
 if [ -x "$bootctl" ]; then
     echo "Testing bootctl"
+    printf 'Linux version 6.1.0-test (builder@host) #1 SMP\n' >"$D/sources/plain-kernel"
+    "$bootctl" kernel-inspect "$D/sources/plain-kernel" | grep -E 'Version: +6\.1\.0-test$' >/dev/null
+
     e2="${entry%+*}_2.conf"
     cp "$entry" "$e2"
     export SYSTEMD_ESP_PATH=/boot
@@ -451,3 +482,82 @@ KERNEL_INSTALL_PLUGINS="$D/10-plugin-fail" "$kernel_install" -v add 1.1.1 "$D/so
 ret=$?
 set -e
 test "$ret" -eq "42"
+
+###########################################
+# tests for tries file handling in 90-uki-copy.install
+###########################################
+uki_copy_add() {
+    KERNEL_INSTALL_CONF_ROOT="$D/uki-conf" \
+    KERNEL_INSTALL_LAYOUT=uki \
+    KERNEL_INSTALL_VERBOSE=1 \
+    KERNEL_INSTALL_ENTRY_TOKEN=the-token \
+    KERNEL_INSTALL_BOOT_ROOT="$D/uki-boot" \
+    KERNEL_INSTALL_STAGING_AREA="$D/uki-staging" \
+        "$uki_copy_install" add 2.0.0 "$D/uki-boot/the-token/2.0.0" "$D/sources/fake.efi"
+}
+mkdir "$D/uki-conf"
+echo 'fake UKI' >"$D/sources/fake.efi"
+
+# A tries file without trailing newline is accepted
+printf '%s' '3' >"$D/uki-conf/tries"
+uki_copy_add
+cmp "$D/sources/fake.efi" "$D/uki-boot/EFI/Linux/the-token-2.0.0+3.efi"
+
+# An empty tries file is refused before the previous UKI is removed
+: >"$D/uki-conf/tries"
+( ! uki_copy_add 2>"$D/err" )
+grep -qF "$D/uki-conf/tries does not contain an integer." "$D/err"
+test -f "$D/uki-boot/EFI/Linux/the-token-2.0.0+3.efi"
+
+###########################################
+# Test tries search precedence without depending on the host's configuration
+###########################################
+mkdir -p "$D/tries-etc" "$D/tries-run" "$D/tries-usr" "$D/tries-conf" "$D/tries-staging" "$D/tries-entry"
+for plugin in "$loaderentry_install" "$uki_copy_install"; do
+    sed -e "s|/etc/kernel/|$D/tries-etc/|g" -e "s|/run/kernel/|$D/tries-run/|g" \
+        -e "s|/usr/lib/kernel/|$D/tries-usr/|g" \
+        "$plugin" >"$D/${plugin##*/}"
+    chmod +x "$D/${plugin##*/}"
+done
+
+check_tries_search() {
+    local name="$1" suffix="$2" conf_root="$3"
+
+    KERNEL_INSTALL_CONF_ROOT="$conf_root" \
+    KERNEL_INSTALL_LAYOUT=bls \
+    KERNEL_INSTALL_VERBOSE=0 \
+    KERNEL_INSTALL_MACHINE_ID="$MACHINE_ID" \
+    KERNEL_INSTALL_ENTRY_TOKEN=the-token \
+    KERNEL_INSTALL_ENTRY_NAME="$name" \
+    KERNEL_INSTALL_BOOT_ROOT="$D/tries-boot" \
+    KERNEL_INSTALL_STAGING_AREA="$D/tries-staging" \
+    BOOT_MNT="$D/tries-boot" \
+        "$D/${loaderentry_install##*/}" add 2.0.0 "$D/tries-entry" "$D/sources/linux"
+    test -f "$D/tries-boot/loader/entries/$name$suffix.conf"
+
+    KERNEL_INSTALL_CONF_ROOT="$conf_root" \
+    KERNEL_INSTALL_LAYOUT=uki \
+    KERNEL_INSTALL_VERBOSE=0 \
+    KERNEL_INSTALL_ENTRY_TOKEN=the-token \
+    KERNEL_INSTALL_ENTRY_NAME="$name" \
+    KERNEL_INSTALL_BOOT_ROOT="$D/tries-boot" \
+    KERNEL_INSTALL_STAGING_AREA="$D/tries-staging" \
+        "$D/${uki_copy_install##*/}" add 2.0.0 "$D/tries-entry" "$D/sources/fake.efi"
+    test -f "$D/tries-boot/EFI/Linux/$name$suffix.efi"
+}
+
+echo 3 >"$D/tries-usr/tries"
+check_tries_search usr +3 ''
+echo 4 >"$D/tries-run/tries"
+check_tries_search run +4 ''
+echo 5 >"$D/tries-etc/tries"
+check_tries_search etc +5 ''
+check_tries_search conf-missing '' "$D/tries-conf"
+rm "$D/tries-etc/tries"
+ln -s /dev/null "$D/tries-etc/tries"
+check_tries_search masked '' ''
+rm "$D/tries-etc/tries" "$D/tries-run/tries"
+ln -s /dev/null "$D/tries-run/tries"
+check_tries_search run-masked '' ''
+echo 7 >"$D/tries-conf/tries"
+check_tries_search conf +7 "$D/tries-conf"

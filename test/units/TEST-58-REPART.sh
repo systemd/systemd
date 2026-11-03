@@ -453,6 +453,7 @@ Label=luks-format-copy
 UUID=7b93d1f2-595d-4ce3-b0b9-837fbd9e63b0
 Format=ext4
 Encrypt=yes
+EncryptKDF=pbkdf2
 CopyFiles=$defs:/def
 SizeMinBytes=48M
 VolumeLabel=schrupfel
@@ -551,6 +552,114 @@ $imgs/zzz8 : start=     6422488, size=      131072, type=4D21B016-B534-45C2-A9FB
 
     cryptsetup luksDump "${loop}p8" | grep 'Flags:[[:space:]]*(no flags)' >/dev/null
     losetup -d "$loop"
+}
+
+testcase_empty_force_block_device() {
+    local defs imgs loop before partition_fd
+
+    if systemd-detect-virt --quiet --container; then
+        echo "Skipping block device overwrite tests in container."
+        return
+    fi
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    # Repart enforces a 32M minimum for ext4, even if SizeMaxBytes= is smaller.
+    tee "$defs/10-data.conf" <<EOF
+[Partition]
+Type=linux-generic
+Label=original
+Format=ext4
+SizeMinBytes=32M
+SizeMaxBytes=32M
+EOF
+
+    tee "$defs/20-extra.conf" <<EOF
+[Partition]
+Type=linux-generic
+Label=extra
+SizeMinBytes=32M
+SizeMaxBytes=32M
+EOF
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --empty=create \
+                   --size=128M \
+                   --dry-run=no \
+                   "$imgs/force.img"
+
+    loop="$(losetup --partscan --show --find "$imgs/force.img")"
+    # shellcheck disable=SC2064
+    trap "losetup -d '$loop'; rm -rf '$defs' '$imgs'" RETURN ERR
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop:?}p1" "${loop:?}p2"
+
+    # Test dry run mode
+    before="$(sfdisk -d "$loop")"
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --empty=force \
+                   --discard=no \
+                   --dry-run=yes \
+                   "$loop"
+
+    assert_eq "$(sfdisk -d "$loop")" "$before"
+    assert_eq "$(blockdev --getsize64 "${loop}p1")" "$((32 * 1024 * 1024))"
+    assert_eq "$(blockdev --getsize64 "${loop}p2")" "$((32 * 1024 * 1024))"
+
+    # An open partition prevents the initial BLKRRPART, but must not prevent an offline overwrite.
+    if [[ "$OFFLINE" == yes ]]; then
+        exec {partition_fd}<"${loop}p2"
+    fi
+
+    # Recreating even the same layout must not collide with the old kernel partition devices.
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --empty=force \
+                   --discard=no \
+                   --dry-run=no \
+                   "$loop" 2>&1 | tee "$imgs/recreate.log"
+
+    if [[ "$OFFLINE" == yes ]]; then
+        exec {partition_fd}<&-
+        if built_with_musl; then
+            grep -F "Failed to reread partition table after wiping, ignoring: Resource busy" "$imgs/recreate.log"
+        else
+            grep -F "Failed to reread partition table after wiping, ignoring: Device or resource busy" "$imgs/recreate.log"
+        fi
+    fi
+
+    assert_eq "$(grep -Fc 'Informing kernel about changed partitions...' "$imgs/recreate.log")" 1
+
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop}p1" "${loop}p2"
+    assert_eq "$(sfdisk -d "$loop")" "$before"
+    assert_eq "$(blkid -p -s TYPE -o value "${loop}p1")" ext4
+    assert_eq "$(blkid -p -s LABEL -o value "${loop}p1")" original
+
+    # Also replace the layout with a partition overlapping both old partitions.
+    rm "$defs/20-extra.conf"
+    sed -i -e 's/Label=original/Label=replacement/' -e 's/32M/64M/g' "$defs/10-data.conf"
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --empty=force \
+                   --discard=no \
+                   --dry-run=no \
+                   "$loop"
+
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop}p1"
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --removed --settle "${loop}p2"
+    assert_eq "$(blockdev --getsize64 "${loop}p1")" "$((64 * 1024 * 1024))"
+    assert_eq "$(blkid -p -s TYPE -o value "${loop}p1")" ext4
+    assert_eq "$(blkid -p -s LABEL -o value "${loop}p1")" replacement
+    assert_not_in "${loop}p2 :" "$(sfdisk -d "$loop")"
 }
 
 testcase_copy_from_grain_padding() {
@@ -1389,6 +1498,9 @@ EOF
     mkdir -p /run/verity.d
     ln -sf "$defs/verity.crt" /run/verity.d/ok.crt
 
+    # Manifests are signed with a key of their own, separate from the verity one
+    openssl req -x509 -newkey rsa:2048 -nodes -keyout "$defs/manifest.key" -out "$defs/manifest.crt" -subj /CN=manifest -days 2 2>/dev/null
+
     output=$(systemd-repart --offline="$OFFLINE" \
                             --definitions="$defs" \
                             --seed="$seed" \
@@ -1396,6 +1508,11 @@ EOF
                             --empty=create \
                             --size=auto \
                             --split=yes \
+                            --manifest=yes \
+                            --manifest-gpt=yes \
+                            --manifest-fields=size,hash \
+                            --manifest-private-key="$defs/manifest.key" \
+                            --manifest-certificate="$defs/manifest.crt" \
                             --json=pretty \
                             --private-key="$defs/verity.key" \
                             --certificate="$defs/verity.crt" \
@@ -1414,6 +1531,71 @@ EOF
     assert_neq "$sig_split" ""
     assert_neq "$sig_split" "null"
     jq . "$sig_split" >/dev/null
+
+    # The manifest of the root partition's file system tree lists the files copied into it, and the manifest
+    # of the partition table describes the partitions, with the split artifacts as sources, hence it must
+    # verify against the directory the split artifacts are in.
+    root_manifest=$(jq -r ".[] | select(.type == \"root-${architecture}\") | .manifest_path" <<<"$output")
+    assert_eq "$root_manifest" "$imgs/verity.root-${architecture}.Uapi16Manifest"
+    # CopyFiles= places the definitions directory at the same path inside the partition
+    jq --seq -s -e ".[] | select(.name == \"${defs#/}/verity-data.conf\")" <"$root_manifest" >/dev/null
+    # Only the requested fields are included
+    jq --seq -s -e ".[] | select(.name == \"${defs#/}/verity-data.conf\") | has(\"size\") and has(\"sha256\") and (has(\"mode\") | not)" <"$root_manifest" >/dev/null
+    # The manifest is signed with the manifest key, not the verity key
+    systemd-manifest verify --certificate="$defs/manifest.crt" / "$root_manifest"
+    (! systemd-manifest verify --certificate="$defs/verity.crt" / "$root_manifest")
+    assert_eq "$(jq -r ".[] | select(.type == \"root-${architecture}-verity-sig\") | .manifest_path" <<<"$output")" "-"
+
+    gpt_manifest="$imgs/verity.Uapi16Manifest"
+    jq --seq -s -e '.[] | select(.mediaType == "application/vnd.uapi.16.signature") | .mechanism == "pkcs7"' <"$gpt_manifest" >/dev/null
+    # The image as a whole is covered too
+    jq --seq -s -e ".[] | select(.name == \"verity\") | .size == $(stat -c %s "$imgs/verity") and .sha256 == \"$(sha256sum "$imgs/verity" | cut -d' ' -f1)\"" <"$gpt_manifest" >/dev/null
+    root_split=$(jq -r ".[] | select(.type == \"root-${architecture}\") | .split_path" <<<"$output")
+    jq --seq -s -e ".[] | select(.name == \"$(basename "$root_split")\") | (.contents | length) == 1 and .contents[0].file == \"$(basename "$imgs/verity")\" and .contents[0].offset > 0 and .gptLabel != null" <"$gpt_manifest" >/dev/null
+    # The verity signature partition is described like its split artifact, i.e. without the NUL padding
+    jq --seq -s -e ".[] | select(.name == \"$(basename "$sig_split")\") | (.contents | length) == 1 and .size == $(stat -c %s "$sig_split")" <"$gpt_manifest" >/dev/null
+    systemd-manifest verify --certificate="$defs/manifest.crt" "$imgs" "$gpt_manifest"
+    (! systemd-manifest verify --certificate="$defs/verity.crt" "$imgs" "$gpt_manifest")
+
+    # A verity signature partition without any signature in it (e.g. an empty B slot) is described with
+    # its full size, rather than failing
+    mkdir "$defs/empty-sig"
+    tee "$defs/empty-sig/10-sig.conf" <<EOF
+[Partition]
+Type=root-${architecture}-verity-sig
+SplitName=-
+EOF
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs/empty-sig" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --empty=create \
+                   --size=auto \
+                   --manifest-gpt=yes \
+                   "$imgs/empty-sig"
+    sig_size=$(sfdisk --json "$imgs/empty-sig" | jq '.partitiontable.partitions[0].size * .partitiontable.sectorsize')
+    jq --seq -s -e ".[] | select(.name == \"empty-sig.0\") | .size == $sig_size" <"$imgs/empty-sig.Uapi16Manifest" >/dev/null
+
+    # Colliding names in the partition table manifest (here: an A/B pair of root partitions with the
+    # default SplitName=) are refused before the partition table is written
+    mkdir "$defs/collide"
+    for i in a b; do
+        tee "$defs/collide/10-root-$i.conf" <<EOF
+[Partition]
+Type=root-${architecture}
+SizeMinBytes=10M
+EOF
+    done
+    truncate -s 64M "$imgs/collide"
+    (! systemd-repart --offline="$OFFLINE" \
+                      --definitions="$defs/collide" \
+                      --seed="$seed" \
+                      --dry-run=no \
+                      --empty=allow \
+                      --manifest-gpt=yes \
+                      "$imgs/collide")
+    (! sfdisk --dump "$imgs/collide")
+    [[ ! -e "$imgs/collide.Uapi16Manifest" ]]
 
     # Check that offline signing works and the resulting image is valid
 

@@ -108,7 +108,6 @@ executables += [
         },
         libexec_template + {
                 'name' : 'systemd-bsod',
-                'public' : true,
                 'conditions' : ['HAVE_QRENCODE'],
                 'sources' : files('bsod.c'),
                 'dependencies' : [
@@ -117,13 +116,11 @@ executables += [
         },
         executable_template + {
                 'name' : 'systemd-cat',
-                'public' : true,
                 'sources' : files('cat.c'),
                 'import' : ['systemd-journald'],
         },
         executable_template + {
                 'name' : 'journalctl',
-                'public' : true,
                 'sources' : journalctl_sources,
                 'dependencies' : [
                         liblz4_cflags,

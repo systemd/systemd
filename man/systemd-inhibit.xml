@@ -71,7 +71,9 @@
         suspending/hibernating, the automatic idle detection, or the
         low-level handling of the power/reboot/sleep key and the lid switch,
         respectively. If omitted, defaults to
-        <literal>idle:sleep:shutdown</literal>.</para></listitem>
+        <literal>idle:sleep:shutdown</literal>, or to <literal>sleep:shutdown</literal> if
+        <option>--mode=delay</option> is used, since delay locks are only supported for
+        <literal>sleep</literal> and <literal>shutdown</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

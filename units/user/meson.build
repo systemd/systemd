@@ -68,10 +68,12 @@ units = [
         },
         {
           'file' : 'systemd-storage-fs.socket',
+          'conditions' : ['ENABLE_STORAGE'],
           'symlinks' : ['sockets.target.wants/']
         },
         {
           'file' : 'systemd-storage-fs@.service.in',
+          'conditions' : ['ENABLE_STORAGE'],
         },
         { 'file' : 'systemd-tmpfiles-clean.service' },
         { 'file' : 'systemd-tmpfiles-clean.timer' },

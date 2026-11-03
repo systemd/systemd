@@ -233,7 +233,6 @@ executables += [
         libexec_template + {
                 'name' : 'systemd',
                 'dbus' : true,
-                'public' : true,
                 'sources' : systemd_sources,
                 'link_args_static' : systemd_link_args,
                 'link_with' : [
@@ -250,7 +249,6 @@ executables += [
                         {
                                 # Alias for external callers when the executor is built into systemd
                                 'name' : 'systemd-executor',
-                                'public' : true,
                                 'conditions' : ['SYSTEMD_MULTICALL_BINARY'],
                         },
                 ],
@@ -284,7 +282,6 @@ if conf.get('SYSTEMD_MULTICALL_BINARY') != 1
         executables += [
                 libexec_template + {
                         'name' : 'systemd-executor',
-                        'public' : true,
                         'sources' : systemd_executor_sources,
                         'link_with' : [
                                 libcore,

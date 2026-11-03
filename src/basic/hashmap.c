@@ -281,7 +281,7 @@ void hashmap_trim_pools(void) {
         if (getpid() != gettid())
                 return (void) log_debug("Not cleaning up memory pools, not in main thread.");
 
-        r = get_process_threads(0);
+        r = get_process_threads(/* pid= */ 0);
         if (r < 0)
                 return (void) log_debug_errno(r, "Failed to determine number of threads, not cleaning up memory pools: %m");
         if (r != 1)
@@ -598,7 +598,7 @@ static void base_remove_entry(HashmapBase *h, unsigned idx) {
              prev = left, left = next_idx(h, left)) {
                 dib = bucket_calculate_dib(h, left, dibs[left]);
                 assert(dib != 0);
-                bucket_move_entry(h, NULL, left, prev);
+                bucket_move_entry(h, /* swap= */ NULL, left, prev);
                 bucket_set_dib(h, prev, dib - 1);
         }
 
@@ -674,7 +674,7 @@ static unsigned hashmap_iterate_in_internal_order(HashmapBase *h, Iterator *i) {
                         i->idx = skip_free_buckets(h, h->indirect.idx_lowest_entry);
                         h->indirect.idx_lowest_entry = i->idx;
                 } else
-                        i->idx = skip_free_buckets(h, 0);
+                        i->idx = skip_free_buckets(h, /* idx= */ 0);
 
                 if (i->idx == IDX_NIL)
                         goto at_end;
@@ -968,7 +968,7 @@ void _hashmap_clear(HashmapBase *h) {
                         void *k = NULL;
                         void *v;
 
-                        v = _hashmap_first_key_and_value(h, true, &k);
+                        v = _hashmap_first_key_and_value(h, /* remove= */ true, &k);
 
                         if (h->hash_ops->free_key)
                                 h->hash_ops->free_key(k);
@@ -1824,14 +1824,12 @@ HashmapBase* _hashmap_copy(HashmapBase *h) {
 }
 
 char** _hashmap_get_strv(HashmapBase *h) {
-        char **sv;
+        /* Build a strv with borrowed Hashmap values. */
+
         Iterator i;
         unsigned idx, n;
 
-        if (!h)
-                return new0(char*, 1);
-
-        sv = new(char*, n_entries(h)+1);
+        char **sv = new(char*, (h ? n_entries(h) : 0) + 1);
         if (!sv)
                 return NULL;
 
@@ -1839,6 +1837,26 @@ char** _hashmap_get_strv(HashmapBase *h) {
         HASHMAP_FOREACH_IDX(idx, h, i)
                 sv[n++] = entry_value(h, bucket_at(h, idx));
         sv[n] = NULL;
+
+        return sv;
+}
+
+char** _hashmap_values_to_strv(HashmapBase *h) {
+        /* Convert the Hashmap values to a strv.
+         *
+         * The key:value pairs are drained from the hashmap, the keys are freed if the
+         * hash_ops->free_key function is defined, and values are used by the returned
+         * strv. The input hashmap is left empty. */
+
+        char **sv = new(char*, (h ? n_entries(h) : 0) + 1);
+        if (!sv)
+                return NULL;
+
+        unsigned n = 0;
+        void *key;
+        while ((sv[n++] = _hashmap_first_key_and_value(h, /* remove= */ true, &key)))
+                if (h->hash_ops->free_key)
+                        h->hash_ops->free_key(key);
 
         return sv;
 }

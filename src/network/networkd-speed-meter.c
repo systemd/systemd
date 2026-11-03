@@ -62,19 +62,19 @@ static int speed_meter_handler(sd_event_source *s, uint64_t usec, void *userdata
         HASHMAP_FOREACH(link, manager->links_by_index)
                 link->stats_updated = false;
 
-        r = sd_rtnl_message_new_link(manager->rtnl, &req, RTM_GETLINK, 0);
+        r = sd_rtnl_message_new_link(manager->rtnl, &req, RTM_GETLINK, /* ifindex= */ 0);
         if (r < 0) {
                 log_warning_errno(r, "Failed to allocate RTM_GETLINK netlink message, ignoring: %m");
                 return 0;
         }
 
-        r = sd_netlink_message_set_request_dump(req, true);
+        r = sd_netlink_message_set_request_dump(req, /* dump= */ true);
         if (r < 0) {
                 log_warning_errno(r, "Failed to set dump flag, ignoring: %m");
                 return 0;
         }
 
-        r = sd_netlink_call(manager->rtnl, req, 0, &reply);
+        r = sd_netlink_call(manager->rtnl, req, /* timeout= */ 0, &reply);
         if (r < 0) {
                 log_warning_errno(r, "Failed to call RTM_GETLINK, ignoring: %m");
                 return 0;
@@ -128,7 +128,7 @@ int manager_start_speed_meter(Manager *manager) {
         if (!manager->use_speed_meter)
                 return 0;
 
-        r = sd_event_add_time(manager->event, &s, CLOCK_MONOTONIC, 0, 0, speed_meter_handler, manager);
+        r = sd_event_add_time(manager->event, &s, CLOCK_MONOTONIC, /* usec= */ 0, /* accuracy= */ 0, speed_meter_handler, manager);
         if (r < 0)
                 return r;
 

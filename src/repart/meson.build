@@ -7,7 +7,6 @@ endif
 executables += [
         executable_template + {
                 'name' : 'systemd-repart',
-                'public' : true,
                 'export' : files(
                         'iso9660.c',
                         'repart.c',

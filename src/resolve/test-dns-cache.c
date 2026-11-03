@@ -105,7 +105,7 @@ static void answer_add_a(PutArgs *args, DnsResourceKey *key, int addr, int ttl, 
         ASSERT_NOT_NULL(rr);
         rr->a.in_addr.s_addr = htobe32(addr);
         rr->ttl = ttl;
-        dns_answer_add(args->answer, rr, 1, flags, NULL);
+        dns_answer_add(args->answer, rr, 1, flags, /* rrsig= */ NULL);
 }
 
 static void answer_add_cname(PutArgs *args, DnsResourceKey *key, const char *alias, int ttl, DnsAnswerFlags flags) {
@@ -115,7 +115,7 @@ static void answer_add_cname(PutArgs *args, DnsResourceKey *key, const char *ali
         ASSERT_NOT_NULL(rr);
         rr->cname.name = checked_strdup(alias);
         rr->ttl = ttl;
-        dns_answer_add(args->answer, rr, 1, flags, NULL);
+        dns_answer_add(args->answer, rr, 1, flags, /* rrsig= */ NULL);
 }
 
 static void answer_add_opt(PutArgs *args, DnsResourceKey *key, int ttl, DnsAnswerFlags flags) {
@@ -125,7 +125,7 @@ static void answer_add_opt(PutArgs *args, DnsResourceKey *key, int ttl, DnsAnswe
         ASSERT_NOT_NULL(rr);
         rr->opt.data_size = 0;
         rr->ttl = ttl;
-        dns_answer_add(args->answer, rr, 1, flags, NULL);
+        dns_answer_add(args->answer, rr, 1, flags, /* rrsig= */ NULL);
 }
 
 #define BY_IDX(json, idx) sd_json_variant_by_index(json, idx)
@@ -244,7 +244,7 @@ TEST(dns_a_success_mdns_zero_ttl_removes_existing) {
         args2.rcode = DNS_RCODE_SUCCESS;
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
         ASSERT_NOT_NULL(key);
-        answer_add_a(&args2, key, 0xc0a8017f, 0, DNS_ANSWER_CACHEABLE | DNS_ANSWER_SHARED_OWNER);
+        answer_add_a(&args2, key, 0xc0a8017f, /* ttl= */ 0, DNS_ANSWER_CACHEABLE | DNS_ANSWER_SHARED_OWNER);
         dns_resource_key_unref(key);
 
         ASSERT_OK(cache_put(&cache, &args2));
@@ -351,7 +351,7 @@ TEST(dns_a_nxdomain_is_cached) {
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
         put_args.rcode = DNS_RCODE_NXDOMAIN;
-        dns_answer_add_soa(put_args.answer, "example.com", 3600, 0);
+        dns_answer_add_soa(put_args.answer, "example.com", 3600, /* ifindex= */ 0);
 
         ASSERT_OK(cache_put(&cache, &put_args));
         ASSERT_FALSE(dns_cache_is_empty(&cache));
@@ -376,7 +376,7 @@ TEST(dns_a_nxdomain_any_class_is_not_cached) {
         put_args.key = dns_resource_key_new(DNS_CLASS_ANY, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
         put_args.rcode = DNS_RCODE_NXDOMAIN;
-        dns_answer_add_soa(put_args.answer, "example.com", 3600, 0);
+        dns_answer_add_soa(put_args.answer, "example.com", 3600, /* ifindex= */ 0);
 
         ASSERT_OK(cache_put(&cache, &put_args));
         ASSERT_TRUE(dns_cache_is_empty(&cache));
@@ -389,7 +389,7 @@ TEST(dns_a_nxdomain_any_type_not_cached) {
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_ANY, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
         put_args.rcode = DNS_RCODE_NXDOMAIN;
-        dns_answer_add_soa(put_args.answer, "example.com", 3600, 0);
+        dns_answer_add_soa(put_args.answer, "example.com", 3600, /* ifindex= */ 0);
 
         ASSERT_OK(cache_put(&cache, &put_args));
         ASSERT_TRUE(dns_cache_is_empty(&cache));
@@ -402,7 +402,7 @@ TEST(dns_a_nxdomain_opt_not_cached) {
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_OPT, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
         put_args.rcode = DNS_RCODE_NXDOMAIN;
-        dns_answer_add_soa(put_args.answer, "example.com", 3600, 0);
+        dns_answer_add_soa(put_args.answer, "example.com", 3600, /* ifindex= */ 0);
 
         ASSERT_OK(cache_put(&cache, &put_args));
         ASSERT_TRUE(dns_cache_is_empty(&cache));
@@ -439,7 +439,7 @@ TEST(dns_a_success_zero_ttl_is_not_cached) {
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
         put_args.rcode = DNS_RCODE_SUCCESS;
-        answer_add_a(&put_args, put_args.key, 0xc0a8017f, 0, DNS_ANSWER_CACHEABLE);
+        answer_add_a(&put_args, put_args.key, 0xc0a8017f, /* ttl= */ 0, DNS_ANSWER_CACHEABLE);
 
         ASSERT_OK(cache_put(&cache, &put_args));
         ASSERT_TRUE(dns_cache_is_empty(&cache));
@@ -460,7 +460,7 @@ TEST(dns_a_success_zero_ttl_removes_existing_entry) {
         dns_answer_unref(put_args.answer);
         put_args.answer = dns_answer_new(1);
         ASSERT_NOT_NULL(put_args.answer);
-        answer_add_a(&put_args, put_args.key, 0xc0a8017f, 0, DNS_ANSWER_CACHEABLE);
+        answer_add_a(&put_args, put_args.key, 0xc0a8017f, /* ttl= */ 0, DNS_ANSWER_CACHEABLE);
 
         ASSERT_OK(cache_put(&cache, &put_args));
         ASSERT_TRUE(dns_cache_is_empty(&cache));
@@ -473,7 +473,7 @@ TEST(dns_a_success_not_cacheable_is_not_cached) {
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
         put_args.rcode = DNS_RCODE_SUCCESS;
-        answer_add_a(&put_args, put_args.key, 0xc0a8017f, 3600, 0);
+        answer_add_a(&put_args, put_args.key, 0xc0a8017f, 3600, /* flags= */ 0);
 
         ASSERT_OK(cache_put(&cache, &put_args));
         ASSERT_TRUE(dns_cache_is_empty(&cache));
@@ -601,7 +601,7 @@ TEST(dns_cache_lookup_miss) {
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
         query_flags = 0;
-        ASSERT_FALSE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
+        ASSERT_FALSE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, /* ret_dnssec_result= */ NULL));
 
         ASSERT_EQ(cache.n_hit, 0u);
         ASSERT_EQ(cache.n_miss, 1u);
@@ -633,7 +633,7 @@ TEST(dns_cache_lookup_success) {
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
         query_flags = 0;
-        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
+        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, /* ret_dnssec_result= */ NULL));
 
         ASSERT_EQ(cache.n_hit, 1u);
         ASSERT_EQ(cache.n_miss, 0u);
@@ -670,7 +670,7 @@ TEST(dns_cache_lookup_clamp_ttl) {
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
         query_flags = SD_RESOLVED_CLAMP_TTL;
-        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
+        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, /* ret_dnssec_result= */ NULL));
 
         ASSERT_EQ(cache.n_hit, 1u);
         ASSERT_EQ(cache.n_miss, 0u);
@@ -845,7 +845,7 @@ TEST(dns_cache_lookup_returns_most_recent_response) {
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
         query_flags = 0;
-        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
+        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, /* ret_dnssec_result= */ NULL));
 
         ASSERT_EQ(cache.n_hit, 1u);
         ASSERT_EQ(cache.n_miss, 0u);
@@ -890,7 +890,7 @@ TEST(dns_cache_lookup_retains_multiple_answers_from_one_response) {
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
         query_flags = 0;
-        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
+        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, /* ret_dnssec_result= */ NULL));
 
         ASSERT_EQ(cache.n_hit, 1u);
         ASSERT_EQ(cache.n_miss, 0u);
@@ -926,7 +926,7 @@ TEST(dns_cache_lookup_nxdomain) {
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
         put_args.rcode = DNS_RCODE_NXDOMAIN;
-        dns_answer_add_soa(put_args.answer, "example.com", 3600, 0);
+        dns_answer_add_soa(put_args.answer, "example.com", 3600, /* ifindex= */ 0);
         cache_put(&cache, &put_args);
 
         ASSERT_EQ(dns_cache_size(&cache), 1u);
@@ -934,7 +934,7 @@ TEST(dns_cache_lookup_nxdomain) {
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(key);
         query_flags = 0;
-        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
+        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, /* ret_dnssec_result= */ NULL));
 
         ASSERT_EQ(cache.n_hit, 1u);
         ASSERT_EQ(cache.n_miss, 0u);
@@ -976,7 +976,7 @@ TEST(dns_cache_lookup_any_always_misses) {
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_ANY, "www.example.com");
         ASSERT_NOT_NULL(key);
         query_flags = 0;
-        ASSERT_FALSE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
+        ASSERT_FALSE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, /* ret_dnssec_result= */ NULL));
 
         ASSERT_EQ(cache.n_hit, 0u);
         ASSERT_EQ(cache.n_miss, 1u);
@@ -1019,7 +1019,7 @@ TEST(dns_cache_lookup_mdns_multiple_shared_responses_are_cached) {
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
         ASSERT_NOT_NULL(key);
         query_flags = 0;
-        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
+        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, /* ret_dnssec_result= */ NULL));
         dns_resource_key_unref(key);
 
         ASSERT_EQ(cache.n_hit, 1u);
@@ -1075,7 +1075,7 @@ TEST(dns_cache_lookup_mdns_multiple_unshared_responses_are_not_cached) {
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com");
         ASSERT_NOT_NULL(key);
         query_flags = 0;
-        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, NULL));
+        ASSERT_OK_POSITIVE(dns_cache_lookup(&cache, key, query_flags, &ret_rcode, &ret_answer, &ret_full_packet, &ret_query_flags, /* ret_dnssec_result= */ NULL));
         dns_resource_key_unref(key);
 
         ASSERT_EQ(cache.n_hit, 1u);
@@ -1322,9 +1322,9 @@ TEST(dns_cache_export_shared_to_packet) {
         answer_add_a(&args2, args2.key, 0xa9fe0100, 2400, DNS_ANSWER_CACHEABLE);
         cache_put(&cache, &args2);
 
-        dns_packet_new(&packet, DNS_PROTOCOL_MDNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_new(&packet, DNS_PROTOCOL_MDNS, /* min_alloc_dsize= */ 0, DNS_PACKET_SIZE_MAX);
         ASSERT_NOT_NULL(packet);
-        ASSERT_OK(dns_cache_export_shared_to_packet(&cache, packet, 0, 50));
+        ASSERT_OK(dns_cache_export_shared_to_packet(&cache, packet, /* ts= */ 0, 50));
 
         const uint8_t data[] = {
                         0x00, 0x00,     0x00, 0x00,
@@ -1371,9 +1371,9 @@ TEST(dns_cache_export_shared_to_packet_multi) {
 
         cache_put(&cache, &put_args);
 
-        dns_packet_new(&packet, DNS_PROTOCOL_MDNS, 0, DNS_PACKET_SIZE_MAX);
+        dns_packet_new(&packet, DNS_PROTOCOL_MDNS, /* min_alloc_dsize= */ 0, DNS_PACKET_SIZE_MAX);
         ASSERT_NOT_NULL(packet);
-        ASSERT_OK(dns_cache_export_shared_to_packet(&cache, packet, 0, 1));
+        ASSERT_OK(dns_cache_export_shared_to_packet(&cache, packet, /* ts= */ 0, 1));
 
         const uint8_t data1[] = {
                         0x00, 0x00,     0x00, 0x00,
@@ -1543,7 +1543,7 @@ TEST(dns_cache_dump_json_basic) {
         ASSERT_NOT_NULL(item);
 
         sprintf(str, "{ \"class\": %d, \"type\": %d, \"name\": \"www.example.com\" }", DNS_CLASS_IN, DNS_TYPE_A);
-        ASSERT_OK(sd_json_parse(str, 0, &expected, NULL, NULL));
+        ASSERT_OK(sd_json_parse(str, /* flags= */ 0, &expected, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
         ASSERT_TRUE(sd_json_variant_equal(BY_KEY(item, "key"), expected));
 
         ASSERT_TRUE(sd_json_variant_is_array(BY_KEY(item, "rrs")));
@@ -1556,7 +1556,7 @@ TEST(dns_cache_dump_json_basic) {
         sd_json_variant_unref(expected);
 
         sprintf(str, "[192, 168, 1, 127]");
-        ASSERT_OK(sd_json_parse(str, 0, &expected, NULL, NULL));
+        ASSERT_OK(sd_json_parse(str, /* flags= */ 0, &expected, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
         ASSERT_TRUE(sd_json_variant_equal(BY_KEY(rr, "address"), expected));
 
         ASSERT_TRUE(sd_json_variant_is_string(BY_KEY(BY_IDX(BY_KEY(item, "rrs"), 0), "raw")));

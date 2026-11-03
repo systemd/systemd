@@ -68,6 +68,7 @@ local -a opts=(
     '--more[Request multiple responses]'
     '--collect[Collect multiple responses in a JSON array]'
     '--upgrade[Upgrade connection to raw protocol after method call]'
+    '--polkit-action=[Authorize clients via the specified polkit action before upgrading]:action:'
     {-j+,--json=}'[Output as json]:json-mode:(pretty short)'
     {-u+,--uid=}'[Monitor only connections of specified UID]:uid:_users'
     {-p+,--pid=}'[Filter monitored traffic by PID]:pid:_pids'

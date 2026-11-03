@@ -7,10 +7,12 @@
 #include "forward.h"
 #include "log.h"
 #include "log-assert-critical.h"
+#include "path-util.h"                  /* IWYU pragma: keep */
 #include "static-destruct.h"            /* IWYU pragma: keep */
 #include "signal-util.h"                /* IWYU pragma: keep */
 #include "stdio-util.h"
 #include "string-util.h"                /* IWYU pragma: keep */
+#include "strv.h"                       /* IWYU pragma: keep */
 
 static inline void log_set_assert_return_is_criticalp(bool *p) {
         log_set_assert_return_is_critical(*p);
@@ -31,7 +33,6 @@ static inline void log_set_assert_return_is_criticalp(bool *p) {
         })
 
 #define ASSERT_RETURN_EXPECTED(expr) ASSERT_RETURN_IS_CRITICAL(false, expr)
-#define ASSERT_RETURN_EXPECTED_SE(expr) ASSERT_RETURN_EXPECTED(assert_se(expr));
 
 static inline bool manager_errno_skip_test(int r) {
         return IN_SET(ABS(r),
@@ -85,6 +86,9 @@ int define_hex_ptr_internal(const char *hex, void **name, size_t *name_len);
         _cleanup_free_ void *name = NULL;                               \
         size_t name##_len = 0;                                          \
         ASSERT_OK(define_hex_ptr_internal(hex, &name, &name##_len))
+
+/* Formats a strv as ["a", "b"] for assertion messages. */
+char* strv_join_quoted(char * const *l);
 
 /* Provide a convenient way to check if we're running in CI. */
 const char* ci_environment(void);
@@ -164,6 +168,7 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
 #define DECIMAL_STR_FMT(x) _Generic((x),        \
         char: "%c",                             \
         bool: "%d",                             \
+        signed char: "%hhd",                    \
         unsigned char: "%d",                    \
         short: "%hd",                           \
         unsigned short: "%hu",                  \
@@ -513,6 +518,21 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
                 if (!strneq_ptr(_expr1, _expr2, _n))                                                            \
                         log_test_failed("Expected \"%s == %s\", got \"%s != %s\" (first %zu characters)",       \
                                         #expr1, #expr2, strnull(_expr1), strnull(_expr2), _n);                  \
+        })
+#endif
+
+#ifdef __COVERITY__
+#  define ASSERT_STRV_EQ(expr1, expr2) __coverity_check__(strv_equal((expr1), (expr2)))
+#else
+#  define ASSERT_STRV_EQ(expr1, expr2)                                                                          \
+        ({                                                                                                      \
+                char * const *_expr1 = (expr1), * const *_expr2 = (expr2);                                      \
+                if (!strv_equal(_expr1, _expr2)) {                                                              \
+                        _cleanup_free_ char *_str1 = strv_join_quoted(_expr1),                                  \
+                                            *_str2 = strv_join_quoted(_expr2);                                  \
+                        log_test_failed("Expected \"%s == %s\", got %s != %s",                                  \
+                                        #expr1, #expr2, strnull(_str1), strnull(_str2));                        \
+                }                                                                                               \
         })
 #endif
 

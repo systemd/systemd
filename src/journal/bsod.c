@@ -49,7 +49,7 @@ static int acquire_first_emergency_log_message(char **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open journal: %m");
 
-        r = add_match_this_boot(j, NULL);
+        r = add_match_this_boot(j, /* machine= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to add boot ID filter: %m");
 
@@ -135,7 +135,7 @@ static int display_emergency_message_fullscreen(const char *message) {
         if (arg_tty)
                 tty = arg_tty;
         else {
-                fd = open_terminal("/dev/tty1", O_RDWR|O_NOCTTY|O_CLOEXEC);
+                fd = open_terminal("/dev/tty1", O_RDWR|O_NOCTTY);
                 if (fd < 0)
                         return log_error_errno(fd, "Failed to open %s: %m", "/dev/tty1");
 
@@ -149,7 +149,7 @@ static int display_emergency_message_fullscreen(const char *message) {
                 fd = safe_close(fd);
         }
 
-        fd = open_terminal(tty, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal(tty, O_RDWR|O_NOCTTY);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open %s: %m", tty);
 

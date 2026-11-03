@@ -7,6 +7,7 @@
 #include "cgroup.h"
 #include "fd-util.h"
 #include "fdset.h"
+#include "fs-util.h"
 #include "netlink-util.h"
 #include "set.h"
 #include "unit.h"
@@ -89,7 +90,7 @@ int bpf_restrict_ifaces_supported(void) {
         if (dlopen_bpf(LOG_WARNING) < 0)
                 return (supported = false);
 
-        r = prepare_restrict_ifaces_bpf(NULL, true, NULL, &obj);
+        r = prepare_restrict_ifaces_bpf(NULL, /* is_allow_list= */ true, /* restrict_network_interfaces= */ NULL, &obj);
         if (r < 0) {
                 log_debug_errno(r, "restrict-interfaces: Failed to load BPF object: %m");
                 return (supported = false);
@@ -124,9 +125,9 @@ static int restrict_ifaces_install_impl(Unit *u, CGroupRuntime *crt) {
         if (r < 0)
                 return r;
 
-        cgroup_fd = open(cgroup_path, O_PATH | O_CLOEXEC | O_DIRECTORY, 0);
+        cgroup_fd = xopenat(AT_FDCWD, cgroup_path, O_PATH | O_DIRECTORY);
         if (cgroup_fd < 0)
-                return -errno;
+                return cgroup_fd;
 
         ingress_link = sym_bpf_program__attach_cgroup(obj->progs.sd_restrictif_i, cgroup_fd);
         r = bpf_get_error_translated(ingress_link);

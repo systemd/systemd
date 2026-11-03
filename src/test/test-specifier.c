@@ -32,8 +32,8 @@ TEST(specifier_escape) {
 static void test_specifier_escape_strv_one(char **a, char **b) {
         _cleanup_strv_free_ char **x = NULL;
 
-        assert_se(specifier_escape_strv(a, &x) >= 0);
-        assert_se(strv_equal(x, b));
+        ASSERT_OK(specifier_escape_strv(a, &x));
+        ASSERT_STRV_EQ(x, b);
 }
 
 TEST(specifier_escape_strv) {
@@ -67,23 +67,20 @@ TEST(specifier_printf) {
         };
 
         _cleanup_free_ char *w = NULL;
-        int r;
 
-        r = specifier_printf("xxx a=%X b=%Y e=%e yyy", SIZE_MAX, table, NULL, NULL, &w);
-        assert_se(r >= 0);
-        assert_se(w);
+        ASSERT_OK(specifier_printf("xxx a=%X b=%Y e=%e yyy", SIZE_MAX, table, /* root= */ NULL, /* userdata= */ NULL, &w));
+        ASSERT_NOT_NULL(w);
 
         puts(w);
         ASSERT_STREQ(w, "xxx a=AAAA b=BBBB e= yyy");
 
         free(w);
-        r = specifier_printf("boot=%b, host=%H, pretty=%q, version=%v, arch=%a, empty=%e", SIZE_MAX, table, NULL, NULL, &w);
-        assert_se(r >= 0);
-        assert_se(w);
+        ASSERT_OK(specifier_printf("boot=%b, host=%H, pretty=%q, version=%v, arch=%a, empty=%e", SIZE_MAX, table, /* root= */ NULL, /* userdata= */ NULL, &w));
+        ASSERT_NOT_NULL(w);
         puts(w);
 
         w = mfree(w);
-        specifier_printf("os=%o, os-version=%w, build=%B, variant=%W, empty=%e%e%e", SIZE_MAX, table, NULL, NULL, &w);
+        specifier_printf("os=%o, os-version=%w, build=%B, variant=%W, empty=%e%e%e", SIZE_MAX, table, /* root= */ NULL, /* userdata= */ NULL, &w);
         if (w)
                 puts(w);
 }
@@ -101,7 +98,7 @@ TEST(specifier_real_path) {
         _cleanup_free_ char *w = NULL, *expected = NULL;
         int r;
 
-        r = specifier_printf("p=%p y=%y Y=%Y w=%w W=%W", SIZE_MAX, table, NULL, NULL, &w);
+        r = specifier_printf("p=%p y=%y Y=%Y w=%w W=%W", SIZE_MAX, table, /* root= */ NULL, /* userdata= */ NULL, &w);
         if (r < 0) {
                 ASSERT_ERROR(r, ENOENT);
                 return (void) log_tests_skipped_errno(r, "/dev/fd and/or /dev/tty do not exist");
@@ -122,13 +119,12 @@ TEST(specifier_real_path_missing_file) {
         };
 
         _cleanup_free_ char *w = NULL;
-        int r;
 
-        r = specifier_printf("p=%p y=%y", SIZE_MAX, table, NULL, NULL, &w);
-        assert_se(r == -ENOENT);
+        ASSERT_ERROR(specifier_printf("p=%p y=%y", SIZE_MAX, table,
+                                      /* root= */ NULL, /* userdata= */ NULL, &w), ENOENT);
 
-        r = specifier_printf("p=%p Y=%Y", SIZE_MAX, table, NULL, NULL, &w);
-        assert_se(r == -ENOENT);
+        ASSERT_ERROR(specifier_printf("p=%p Y=%Y", SIZE_MAX, table,
+                                      /* root= */ NULL, /* userdata= */ NULL, &w), ENOENT);
 }
 
 TEST(specifiers) {
@@ -140,12 +136,12 @@ TEST(specifiers) {
 
                 xsprintf(spec, "%%%c", s->specifier);
 
-                r = specifier_printf(spec, SIZE_MAX, specifier_table, NULL, NULL, &resolved);
+                r = specifier_printf(spec, SIZE_MAX, specifier_table, /* root= */ NULL, /* userdata= */ NULL, &resolved);
                 if (s->specifier == 'A' && r == -EUNATCH) /* os-release might be missing in build chroots */
                         continue;
                 if (s->specifier == 'm' && IN_SET(r, -EUNATCH, -ENOMEDIUM, -ENOPKG)) /* machine-id might be missing in build chroots */
                         continue;
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 log_info("%%%c → %s", s->specifier, resolved);
         }
@@ -165,12 +161,10 @@ TEST(specifiers_assorted) {
         for (const Specifier *s = table; s->specifier; s++) {
                 char spec[3];
                 _cleanup_free_ char *resolved = NULL;
-                int r;
 
                 xsprintf(spec, "%%%c", s->specifier);
 
-                r = specifier_printf(spec, SIZE_MAX, table, NULL, NULL, &resolved);
-                assert_se(r >= 0);
+                ASSERT_OK(specifier_printf(spec, SIZE_MAX, table, /* root= */ NULL, /* userdata= */ NULL, &resolved));
 
                 log_info("%%%c → %s", s->specifier, resolved);
         }
@@ -179,15 +173,15 @@ TEST(specifiers_assorted) {
 TEST(specifiers_missing_data_ok) {
         _cleanup_free_ char *resolved = NULL;
 
-        assert_se(setenv("SYSTEMD_OS_RELEASE", "/dev/null", 1) == 0);
-        assert_se(specifier_printf("%A-%B-%M-%o-%w-%W", SIZE_MAX, specifier_table, NULL, NULL, &resolved) >= 0);
+        ASSERT_OK_ZERO_ERRNO(setenv("SYSTEMD_OS_RELEASE", "/dev/null", 1));
+        ASSERT_OK(specifier_printf("%A-%B-%M-%o-%w-%W", SIZE_MAX, specifier_table, /* root= */ NULL, /* userdata= */ NULL, &resolved));
         ASSERT_STREQ(resolved, "-----");
 
-        assert_se(setenv("SYSTEMD_OS_RELEASE", "/nosuchfileordirectory", 1) == 0);
-        assert_se(specifier_printf("%A-%B-%M-%o-%w-%W", SIZE_MAX, specifier_table, NULL, NULL, &resolved) == -EUNATCH);
+        ASSERT_OK_ZERO_ERRNO(setenv("SYSTEMD_OS_RELEASE", "/nosuchfileordirectory", 1));
+        ASSERT_ERROR(specifier_printf("%A-%B-%M-%o-%w-%W", SIZE_MAX, specifier_table, /* root= */ NULL, /* userdata= */ NULL, &resolved), EUNATCH);
         ASSERT_STREQ(resolved, "-----");
 
-        assert_se(unsetenv("SYSTEMD_OS_RELEASE") == 0);
+        ASSERT_OK_ZERO_ERRNO(unsetenv("SYSTEMD_OS_RELEASE"));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

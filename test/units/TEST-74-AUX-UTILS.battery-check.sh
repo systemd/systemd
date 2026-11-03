@@ -3,6 +3,11 @@
 set -eux
 set -o pipefail
 
+if [[ ! -x /usr/lib/systemd/systemd-battery-check ]]; then
+    echo "systemd-battery-check is not installed, skipping test."
+    exit 77
+fi
+
 /usr/lib/systemd/systemd-battery-check --help
 /usr/lib/systemd/systemd-battery-check --version
 

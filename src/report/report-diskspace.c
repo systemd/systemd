@@ -13,6 +13,7 @@
 #include "devnum-util.h"
 #include "dlopen-note.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "hash-funcs.h"
 #include "hashmap.h"
 #include "json-util.h"
@@ -29,6 +30,7 @@
 COMMAND(
         "systemd-report-diskspace\0",
         "Report disk space metrics.",
+        .option_namespace = "common",
 );
 
 const sd_varlink_server_flags_t report_server_flags = SD_VARLINK_SERVER_INHERIT_USERDATA;
@@ -134,9 +136,9 @@ static int mount_collect(Hashmap **file_systems, struct libmnt_fs *fs) {
 
         /* Mount points below a directory we lack access to (or that have been unmounted since the mount
          * table was read) are simply not considered. */
-        _cleanup_close_ int fd = open(target, O_PATH|O_CLOEXEC);
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, target, O_PATH);
         if (fd < 0) {
-                log_debug_errno(errno, "Failed to open mount point '%s', ignoring: %m", target);
+                log_debug_errno(fd, "Failed to open mount point '%s', ignoring: %m", target);
                 return 0;
         }
 

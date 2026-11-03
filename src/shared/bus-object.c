@@ -16,7 +16,7 @@ int bus_add_implementation(sd_bus *bus, const BusObjectImplementation *impl, voi
         log_debug("Registering bus object implementation for path=%s iface=%s", impl->path, impl->interface);
 
         for (const sd_bus_vtable **p = impl->vtables; p && *p; p++) {
-                r = sd_bus_add_object_vtable(bus, NULL,
+                r = sd_bus_add_object_vtable(bus, /* ret_slot= */ NULL,
                                              impl->path,
                                              impl->interface,
                                              *p,
@@ -28,7 +28,7 @@ int bus_add_implementation(sd_bus *bus, const BusObjectImplementation *impl, voi
         }
 
         for (const BusObjectVtablePair *p = impl->fallback_vtables; p && p->vtable; p++) {
-                r = sd_bus_add_fallback_vtable(bus, NULL,
+                r = sd_bus_add_fallback_vtable(bus, /* ret_slot= */ NULL,
                                                impl->path,
                                                impl->interface,
                                                p->vtable,
@@ -41,7 +41,7 @@ int bus_add_implementation(sd_bus *bus, const BusObjectImplementation *impl, voi
         }
 
         if (impl->node_enumerator) {
-                r = sd_bus_add_node_enumerator(bus, NULL,
+                r = sd_bus_add_node_enumerator(bus, /* ret_slot= */ NULL,
                                                impl->path,
                                                impl->node_enumerator,
                                                userdata);
@@ -51,7 +51,7 @@ int bus_add_implementation(sd_bus *bus, const BusObjectImplementation *impl, voi
         }
 
         if (impl->manager) {
-                r = sd_bus_add_object_manager(bus, NULL, impl->path);
+                r = sd_bus_add_object_manager(bus, /* ret_slot= */ NULL, impl->path);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add object manager for %s: %m", impl->path);
         }
@@ -139,7 +139,7 @@ int bus_introspect_implementations(
                                        pattern);
 
         /* We use trusted=false here to get all the @org.freedesktop.systemd1.Privileged annotations. */
-        r = introspect_begin(&intro, false);
+        r = introspect_begin(&intro, /* trusted= */ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to write introspection data: %m");
 

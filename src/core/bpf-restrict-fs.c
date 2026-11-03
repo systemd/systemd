@@ -57,7 +57,7 @@ int bpf_restrict_fs_setup(Manager *m) {
                                        sym_bpf_map__name(obj->maps.cgroup_hash));
 
         /* Dummy map to satisfy the verifier */
-        _cleanup_close_ int inner_map_fd = compat_bpf_map_create(BPF_MAP_TYPE_HASH, NULL, sizeof(uint32_t), sizeof(uint32_t), 128U, NULL);
+        _cleanup_close_ int inner_map_fd = compat_bpf_map_create(BPF_MAP_TYPE_HASH, /* map_name= */ NULL, sizeof(uint32_t), sizeof(uint32_t), 128U, /* opts= */ NULL);
         if (inner_map_fd < 0)
                 return log_error_errno(errno, "bpf-restrict-fs: Failed to create BPF map: %m");
 
@@ -96,11 +96,11 @@ int bpf_restrict_fs_update(const Set *filesystems, uint64_t cgroup_id, int outer
 
         int inner_map_fd = compat_bpf_map_create(
                         BPF_MAP_TYPE_HASH,
-                        NULL,
+                        /* map_name= */ NULL,
                         sizeof(uint32_t),
                         sizeof(uint32_t),
                         128U, /* Should be enough for all filesystem types */
-                        NULL);
+                        /* opts= */ NULL);
         if (inner_map_fd < 0)
                 return log_error_errno(errno, "bpf-restrict-fs: Failed to create inner BPF map: %m");
 
@@ -122,10 +122,7 @@ int bpf_restrict_fs_update(const Set *filesystems, uint64_t cgroup_id, int outer
 
                 log_debug("bpf-restrict-fs: Restricting filesystem access to '%s'", fs);
 
-                for (int i = 0; i < FILESYSTEM_MAGIC_MAX; i++) {
-                        if (magic[i] == 0)
-                                break;
-
+                for (size_t i = 0; magic[i] != 0; i++) {
                         /* The map key is uint32_t but statfs_f_type_t may be 64-bit, pass a truncated copy
                          * to avoid breaking on big endian arches. */
                         uint32_t key = magic[i];

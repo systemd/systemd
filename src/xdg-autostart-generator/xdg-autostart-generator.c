@@ -12,7 +12,16 @@
 #include "log.h"
 #include "path-lookup.h"
 #include "strv.h"
+#include "verbs.h"
 #include "xdg-autostart-service.h"
+
+COMMAND(
+        "systemd-xdg-autostart-generator\0",
+        "Generate user units from XDG autostart files.",
+        .argspec = GENERATOR_ARGSPEC,
+        .man_pages = "systemd-xdg-autostart-generator(8)\0",
+        .option_namespace = "common",
+);
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(xdgautostartservice_hash_ops, char, string_hash_func, string_compare_func, XdgAutostartService, xdg_autostart_service_free);
 
