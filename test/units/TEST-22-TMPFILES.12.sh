@@ -140,6 +140,8 @@ test ! -f "/tmp/ageby/d3/f2"
 test -f "/tmp/ageby/d4/f2"
 
 # Check that all files are removed if only "Age" is set to 0.
+# Files with future timestamps must be removed as well.
+touch --date "2099-01-01 00:00:00" /tmp/ageby/d3/f2 /tmp/ageby/d4/f2
 systemd-tmpfiles --clean - <<-EOF
 e /tmp/ageby/d3 - - - 0s
 d /tmp/ageby/d4 - - - 0s
@@ -232,6 +234,18 @@ touch --date "3 minutes ago" \
     /tmp/ageby-remove/old-dir/child \
     /tmp/ageby-remove/old-dir \
     /tmp/ageby-remove/old-empty-dir
+
+# Age=0 also removes future-dated r/R targets.
+mkdir -p /tmp/ageby-remove/zero-age-recursive/child
+touch /tmp/ageby-remove/zero-age-file /tmp/ageby-remove/zero-age-recursive/child/file
+touch --date "3 minutes ago" /tmp/ageby-remove/zero-age-recursive /tmp/ageby-remove/zero-age-recursive/child
+touch --date "2099-01-01 00:00:00" /tmp/ageby-remove/zero-age-file /tmp/ageby-remove/zero-age-recursive/child/file
+systemd-tmpfiles --clean - <<-EOF
+r /tmp/ageby-remove/zero-age-file - - - 0s -
+R /tmp/ageby-remove/zero-age-recursive - - - 0s -
+EOF
+test ! -e /tmp/ageby-remove/zero-age-file
+test ! -e /tmp/ageby-remove/zero-age-recursive
 
 output="$(systemd-tmpfiles --dry-run --clean - 2>&1 <<-EOF
 r /tmp/ageby-remove/old-file - - - m:1m -
