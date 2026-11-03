@@ -127,7 +127,8 @@ int acpi_get_boot_usec(usec_t *ret_loader_start, usec_t *ret_loader_exit) {
                         break;
                 if (rec->type != ACPI_FPDT_TYPE_BOOT)
                         continue;
-                if (rec->length != sizeof(struct acpi_fpdt_header))
+                if (rec->length != sizeof(struct acpi_fpdt_header) ||
+                    (char *)rec + rec->length > buf + l)
                         continue;
 
                 ptr = rec->ptr;

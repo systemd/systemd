@@ -344,5 +344,6 @@ DECLARE_STRING_TABLE_LOOKUP(unit_dependency, UnitDependency);
 DECLARE_STRING_TABLE_LOOKUP(notify_access, NotifyAccess);
 DECLARE_STRING_TABLE_LOOKUP(job_mode, JobMode);
 DECLARE_STRING_TABLE_LOOKUP(exec_directory_type, ExecDirectoryType);
+DECLARE_STRING_TABLE_LOOKUP(exec_directory_type_symlink, ExecDirectoryType);
 
 Glyph unit_active_state_to_glyph(UnitActiveState state);

@@ -75,7 +75,7 @@ int pcrextend_pcr_now(unsigned pcr, const char *word, const struct iovec *secret
         log_debug("Measurement of '%s' into PCR %u completed.", word, pcr);
         return 1;
 #else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support disabled, not measuring.");
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support disabled, not measuring.");
 #endif
 }
 
@@ -116,7 +116,7 @@ int pcrextend_nvpcr_now(const char *nvpcr, const char *word, const char *event) 
         log_debug("Measurement of '%s' into NvPCR '%s' completed.", word, nvpcr);
         return 1;
 #else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support disabled, not measuring.");
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support disabled, not measuring.");
 #endif
 }
 

@@ -58,6 +58,7 @@ int main(int argc, char **argv) {
         test_table(DnssecMode, dnssec_mode, DNSSEC_MODE);
         test_table(EmergencyAction, emergency_action, EMERGENCY_ACTION);
         test_table(ExecDirectoryType, exec_directory_type, EXEC_DIRECTORY_TYPE);
+        test_table(ExecDirectoryType, exec_directory_type_symlink, EXEC_DIRECTORY_TYPE);
         test_table(ExecInput, exec_input, EXEC_INPUT);
         test_table(ExecKeyringMode, exec_keyring_mode, EXEC_KEYRING_MODE);
         test_table(ExecOutput, exec_output, EXEC_OUTPUT);

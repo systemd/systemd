@@ -18,19 +18,19 @@
 #include <selinux/selinux.h>
 
 #include "alloc-util.h"
+#include "chase.h"
+#include "env-file.h"
 #include "fd-util.h"
+#include "smack-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
 #endif
 
-#include "chase.h"
-#include "env-file.h"
 #include "errno-util.h"
 #include "label-util.h"
 #include "path-util.h"
 #include "selinux-util.h"
-#include "smack-util.h"
 
 #if HAVE_SELINUX
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(context_t, sym_context_free, context_freep, NULL);

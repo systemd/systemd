@@ -932,18 +932,15 @@ static bool hardlinks_protected(void) {
         if (cached >= 0)
                 return cached;
 
-        _cleanup_free_ char *value = NULL;
-
-        r = sysctl_read("fs/protected_hardlinks", &value);
+        int v;
+        r = sysctl_read_int("fs/protected_hardlinks", &v);
         if (r < 0) {
                 log_debug_errno(r, "Failed to read fs.protected_hardlinks sysctl, assuming disabled: %m");
                 return false;
         }
 
-        cached = parse_boolean(value);
-        if (cached < 0)
-                log_debug_errno(cached, "Failed to parse fs.protected_hardlinks sysctl, assuming disabled: %m");
-        return cached > 0;
+        cached = v > 0;
+        return cached;
 }
 
 static bool hardlink_vulnerable(const struct stat *st) {
@@ -3725,10 +3722,8 @@ static int clean_remove_item_instance(
 
         assert(c);
         assert(i);
+        assert(i->age_set);
         assert(instance);
-
-        if (!i->age_set)
-                return 0;
 
         _cleanup_free_ char *name = NULL;
         bool must_be_directory;
@@ -3792,6 +3787,7 @@ static int clean_item_instance_from_dir(
 
         assert(c);
         assert(i);
+        assert(i->age_set);
         assert(instance);
         assert(d);
         assert(sx);
@@ -3845,6 +3841,7 @@ static int clean_item_instance(
 
         assert(c);
         assert(i);
+        assert(i->age_set);
         assert(instance);
 
         _cleanup_closedir_ DIR *d = NULL;
@@ -3868,10 +3865,8 @@ static int clean_recursive_remove_item_instance(
 
         assert(c);
         assert(i);
+        assert(i->age_set);
         assert(instance);
-
-        if (!i->age_set)
-                return 0;
 
         _cleanup_free_ char *name = NULL;
         bool must_be_directory;
@@ -3922,6 +3917,9 @@ static int clean_recursive_remove_item_instance(
 static int clean_item(Context *c, Item *i) {
         assert(c);
         assert(i);
+
+        if (!i->age_set)
+                return 0;
 
         log_debug("Running clean action for entry %c %s", (char) i->type, i->path);
 

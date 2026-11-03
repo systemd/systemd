@@ -269,6 +269,12 @@ int vl_method_reload_manager(sd_varlink *link, sd_json_variant *parameters, sd_v
 
         varlink_log_caller(link, manager, "Reload");
 
+        /* See method_reload(). */
+        if (manager->pending_reload_message_vl || manager->pending_reload_message_dbus) {
+                log_warning("Reloading request rejected, reply to previous reload still pending.");
+                return sd_varlink_error_errno(link, -EBUSY);
+        }
+
         /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
         if (!ratelimit_below(&manager->reload_reexec_ratelimit)) {
                 log_warning("Reloading request rejected due to rate limit.");
@@ -278,8 +284,6 @@ int vl_method_reload_manager(sd_varlink *link, sd_json_variant *parameters, sd_v
         /* Instead of sending the reply back right away, we just remember that we need to and then send it
          * after the reload is finished. That way the caller knows when the reload finished. */
 
-        assert(!manager->pending_reload_message_vl);
-        assert(!manager->pending_reload_message_dbus);
         manager->pending_reload_message_vl = sd_varlink_ref(link);
 
         manager->objective = MANAGER_RELOAD;

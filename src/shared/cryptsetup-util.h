@@ -38,6 +38,7 @@ extern DLSYM_PROTOTYPE(crypt_get_cipher_mode);
 extern DLSYM_PROTOTYPE(crypt_get_data_offset);
 extern DLSYM_PROTOTYPE(crypt_get_device_name);
 extern DLSYM_PROTOTYPE(crypt_get_dir);
+extern DLSYM_PROTOTYPE(crypt_get_pbkdf_type_params);
 extern DLSYM_PROTOTYPE(crypt_get_type);
 extern DLSYM_PROTOTYPE(crypt_get_uuid);
 extern DLSYM_PROTOTYPE(crypt_get_verity_info);
