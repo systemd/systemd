@@ -6,10 +6,18 @@
 #include "tests.h"
 #include "unit.h"
 
-int main(int argc, char *argv[]) {
-        const ServiceState test_states[] = { SERVICE_DEAD, SERVICE_RUNNING };
+TEST(job_type_to_access_method) {
+        ASSERT_STREQ(job_type_to_access_method(JOB_START), "start");
+        ASSERT_STREQ(job_type_to_access_method(JOB_RESTART), "start");
+        ASSERT_STREQ(job_type_to_access_method(JOB_TRY_RESTART), "start");
+        ASSERT_STREQ(job_type_to_access_method(JOB_RELOAD_OR_START), "start");
+        ASSERT_STREQ(job_type_to_access_method(JOB_STOP), "stop");
+        ASSERT_STREQ(job_type_to_access_method(JOB_RELOAD), "reload");
+        ASSERT_STREQ(job_type_to_access_method(JOB_TRY_RELOAD), "reload");
+}
 
-        test_setup_logging(LOG_DEBUG);
+TEST(job_type_merge) {
+        const ServiceState test_states[] = { SERVICE_DEAD, SERVICE_RUNNING };
 
         FOREACH_ELEMENT(state, test_states) {
                 /* fake a unit */
@@ -76,6 +84,6 @@ int main(int argc, char *argv[]) {
                         }
                 }
         }
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);
