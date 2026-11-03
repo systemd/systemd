@@ -344,7 +344,7 @@ int pidfd_get_inode_id_self_cached(uint64_t *ret) {
         if (cached_pidfd_id_initialized < 0)
                 return cached_pidfd_id_initialized;
 
-        _cleanup_close_ int fd = pidfd_open(getpid_cached(), 0);
+        _cleanup_close_ int fd = pidfd_open(getpid_cached(), /* flags= */ 0);
         if (fd < 0)
                 return -errno;
 
