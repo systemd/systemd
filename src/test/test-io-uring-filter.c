@@ -103,6 +103,16 @@ static bool have_io_uring_bpf_filters(void) {
         if (!have_io_uring_bpf_filters())                                               \
                 return (void) log_tests_skipped("io_uring BPF filters are not available")
 
+TEST(io_uring_op_names) {
+        for (int op = 0; op < IORING_OP_LAST; op++) {
+                const char *name = ASSERT_NOT_NULL(io_uring_op_to_string(op));
+                ASSERT_EQ(io_uring_op_from_string(name), op);
+        }
+
+        ASSERT_NULL(io_uring_op_to_string(IORING_OP_LAST));
+        ASSERT_ERROR(io_uring_op_from_string("foobar"), EINVAL);
+}
+
 TEST(restrict_ops_deny_list) {
         int r;
 

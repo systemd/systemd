@@ -572,6 +572,13 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(filesystems, SD_VARLINK_STRING, SD_VARLINK_ARRAY));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                IOUringOperationList,
+                SD_VARLINK_FIELD_COMMENT("Whether the list of io_uring operations is an allow list"),
+                SD_VARLINK_DEFINE_FIELD(isAllowList, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("The list of io_uring operations"),
+                SD_VARLINK_DEFINE_FIELD(operations, SD_VARLINK_STRING, SD_VARLINK_ARRAY));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SystemCallList,
                 SD_VARLINK_FIELD_COMMENT("Whether the list of system calls is an allow list"),
                 SD_VARLINK_DEFINE_FIELD(isAllowList, SD_VARLINK_BOOL, 0),
@@ -816,6 +823,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(RestrictAddressFamilies, AddressFamilyList, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#RestrictFileSystems="),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(RestrictFilesystems, FilesystemList, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#IOUringFilter="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(IOUringFilter, IOUringOperationList, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#RestrictNamespaces="),
                 SD_VARLINK_DEFINE_FIELD(RestrictNamespaces, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#DelegateNamespaces="),
@@ -2120,6 +2129,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_TemporaryFilesystem,
                 &vl_type_AddressFamilyList,
                 &vl_type_FilesystemList,
+                &vl_type_IOUringOperationList,
                 &vl_type_SystemCallList,
                 &vl_type_EnvironmentFile,
                 &vl_type_LogFilterPattern,
