@@ -667,6 +667,8 @@ TEST(execute_properties) {
                         "RestrictFileSystems=ext4",
                         "RestrictFileSystems=ext4 xfs",
                         "RestrictFileSystems=~tmpfs",
+                        "IOUringFilter=read write",
+                        "IOUringFilter=~uring_cmd,socket",
                         "SystemCallFilter=@system-service",
                         "SystemCallFilter=read write open close",
                         "SystemCallFilter=read,write,open,close",
@@ -1456,6 +1458,10 @@ TEST(values_filter_lists) {
                      "SystemCallLog", "(bas)", "[true,['@system-service']]");
         test_setting(UNIT_SERVICE, "RestrictFileSystems=~tmpfs,ext4",
                      "RestrictFileSystems", "(bas)", "[false,['tmpfs','ext4']]");
+        test_setting(UNIT_SERVICE, "IOUringFilter=read,write",
+                     "IOUringFilter", "(bas)", "[true,['read','write']]");
+        test_setting(UNIT_SERVICE, "IOUringFilter=~uring_cmd socket",
+                     "IOUringFilter", "(bas)", "[false,['uring_cmd','socket']]");
         test_setting(UNIT_SERVICE, "RestrictNetworkInterfaces=~eth0 lo",
                      "RestrictNetworkInterfaces", "(bas)", "[false,['eth0','lo']]");
         test_setting(UNIT_SERVICE, "RestrictNetworkInterfaces=~iface,wo,comma 'iface,w,comma'",

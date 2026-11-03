@@ -126,6 +126,8 @@ run() {
 }
 
 if [[ "$(run python3 "$HELPER" probe)" != "supported" ]]; then
+    # Without io_uring BPF filters, IOUringFilter= denies io_uring_setup() with ENOSYS.
+    [[ "$(run -p IOUringFilter=~nop python3 "$HELPER" nop)" == "setup -38" ]]
     echo "kernel does not support io_uring BPF filters, skipping" >&2
     exit 77
 fi
@@ -167,5 +169,19 @@ done
 [[ "$(run -p SystemCallFilter=~fsync:0 python3 "$HELPER" fsync "$HELPER")" == 0 ]]
 [[ "$(run -p SystemCallFilter=~io_uring_setup -p SystemCallErrorNumber=ENOSYS python3 "$HELPER" nop)" == "setup -38" ]]
 
+# IOUringFilter= works as a deny list and as an allow list.
+[[ "$(run -p IOUringFilter=~nop python3 "$HELPER" nop)" == "$EACCES" ]]
+(( $(run -p IOUringFilter=~nop python3 "$HELPER" socket unix) >= 0 ))
+[[ "$(run -p IOUringFilter=nop python3 "$HELPER" nop)" == 0 ]]
+[[ "$(run -p IOUringFilter=nop python3 "$HELPER" socket unix)" == "$EACCES" ]]
+[[ "$(run -p IOUringFilter=nop -p IOUringFilter=~nop python3 "$HELPER" nop)" == "$EACCES" ]]
+[[ "$(run -p IOUringFilter=~nop -p IOUringFilter= python3 "$HELPER" nop)" == 0 ]]
+
 # Services that run as an unprivileged user get the filters as well.
+[[ "$(run -p User=testuser -p IOUringFilter=~nop python3 "$HELPER" nop)" == "$EACCES" ]]
 [[ "$(run -p User=testuser -p RestrictAddressFamilies=AF_UNIX python3 "$HELPER" socket inet)" == "$EACCES" ]]
+
+# The property is visible over D-Bus.
+systemd-run --unit=io-uring-filter-test --remain-after-exit -p IOUringFilter="~uring_cmd socket" true
+[[ "$(systemctl show -P IOUringFilter io-uring-filter-test.service)" == "~socket uring_cmd" ]]
+systemctl stop io-uring-filter-test.service
