@@ -50,7 +50,7 @@ _public_ PAM_EXTERN int pam_sm_authenticate(
         /* Retrieve the key. */
 
         key_serial_t serial;
-        serial = request_key("user", keyname, NULL, 0);
+        serial = request_key("user", keyname, /* callout_info= */ NULL, /* destringid= */ 0);
         if (serial < 0) {
                 if (errno == ENOKEY) {
                         pam_debug_syslog(pamh, debug, "Key not found: %s", keyname);
