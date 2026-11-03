@@ -51,6 +51,13 @@
 #define CONF_PATHS_STRV(n)                      \
         STRV_MAKE(CONF_PATHS(n))
 
+#define UNIT_INVOCATION_PARTIAL_PATH      "/systemd/units/invocation"
+#define UNIT_INVOCATION_PATH              "/run" UNIT_INVOCATION_PARTIAL_PATH
+#define UNIT_LOG_LEVEL_MAX_PATH           "/run/systemd/units/log-level-max"
+#define UNIT_LOG_EXTRA_FIELDS_PATH        "/run/systemd/units/log-extra-fields"
+#define UNIT_LOG_RATE_LIMIT_INTERVAL_PATH "/run/systemd/units/log-rate-limit-interval"
+#define UNIT_LOG_RATE_LIMIT_BURST_PATH    "/run/systemd/units/log-rate-limit-burst"
+
 /* The limit for PID 1 itself (which is not inherited to children) */
 #define HIGH_RLIMIT_MEMLOCK (1024ULL*1024ULL*64ULL)
 
