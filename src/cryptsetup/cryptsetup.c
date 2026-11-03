@@ -893,7 +893,7 @@ static PassphraseType check_registered_passwords(struct crypt_device *cd) {
                                 }
 
                                 if (u >= (unsigned) slot_max) {
-                                        log_warning_errno(at, "Token JSON data's keyslot field exceeds the maximum value allowed, ignoring.");
+                                        log_warning("Token JSON data's keyslot field exceeds the maximum value allowed, ignoring.");
                                         continue;
                                 }
 
