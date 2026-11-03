@@ -1432,12 +1432,12 @@ static int load_credential_one(
                                        "Passed credential '%s' would result in invalid filename '%s'.",
                                        name, fn);
 
-        _cleanup_free_ char *formatted = NULL;
-        r = sd_json_variant_format(ur ? ur_stripped->json : gr_stripped->json, SD_JSON_FORMAT_NEWLINE, &formatted);
-        if (r < 0)
-                return log_error_errno(r, "Failed to format JSON record: %m");
-
-        r = write_string_file_at(*userdb_dir_fd, fn, formatted, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+        r = json_variant_write_file_at(
+                        *userdb_dir_fd,
+                        fn,
+                        ur ? ur_stripped->json : gr_stripped->json,
+                        SD_JSON_FORMAT_NEWLINE,
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
         if (r < 0)
                 return log_error_errno(r, "Failed to write JSON record to %s/%s: %m", userdb_dir, fn);
 
@@ -1453,12 +1453,12 @@ static int load_credential_one(
                 if (!fn)
                         return log_oom();
 
-                formatted = mfree(formatted);
-                r = sd_json_variant_format(ur ? ur_privileged->json : gr_privileged->json, SD_JSON_FORMAT_NEWLINE, &formatted);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to format JSON record: %m");
-
-                r = write_string_file_at(*userdb_dir_fd, fn, formatted, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MODE_0600);
+                r = json_variant_write_file_at(
+                                *userdb_dir_fd,
+                                fn,
+                                ur ? ur_privileged->json : gr_privileged->json,
+                                SD_JSON_FORMAT_NEWLINE,
+                                WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MODE_0600);
                 if (r < 0)
                         return log_error_errno(r, "Failed to write JSON record to %s/%s: %m", userdb_dir, fn);
 
