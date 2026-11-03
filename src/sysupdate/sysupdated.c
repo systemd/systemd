@@ -1557,7 +1557,7 @@ static int target_list_components(Target *t, char ***ret_components, bool *ret_h
         return 0;
 }
 
-static int manager_ensure_targets(Manager *m);
+static void manager_ensure_targets(Manager *m);
 
 static int target_object_find(
                 sd_bus *bus,
@@ -1585,9 +1585,7 @@ static int target_object_find(
         if (!e)
                 return -ENOMEM;
 
-        r = manager_ensure_targets(m);
-        if (r < 0)
-                return r;
+        manager_ensure_targets(m);
 
         t = hashmap_get(m->targets, e);
         if (!t)
@@ -1624,9 +1622,7 @@ static int target_node_enumerator(
 
         assert(nodes);
 
-        r = manager_ensure_targets(m);
-        if (r < 0)
-                return r;
+        manager_ensure_targets(m);
 
         l = new0(char*, hashmap_size(m->targets) + 1);
         if (!l)
@@ -1930,7 +1926,7 @@ static int manager_enumerate_components(Manager *m) {
         return 0;
 }
 
-static int manager_enumerate_targets(Manager *m) {
+static void manager_enumerate_targets(Manager *m) {
         static const TargetClass discoverable_classes[] = {
                 TARGET_MACHINE,
                 TARGET_PORTABLE,
@@ -1952,16 +1948,15 @@ static int manager_enumerate_targets(Manager *m) {
         if (r < 0)
                 log_warning_errno(r, "Failed to enumerate components, ignoring: %m");
 
-        return 0;
 }
 
-static int manager_ensure_targets(Manager *m) {
+static void manager_ensure_targets(Manager *m) {
         assert(m);
 
         if (!hashmap_isempty(m->targets))
-                return 0;
+                return;
 
-        return manager_enumerate_targets(m);
+        manager_enumerate_targets(m);
 }
 
 static int method_list_targets(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
@@ -1972,9 +1967,7 @@ static int method_list_targets(sd_bus_message *msg, void *userdata, sd_bus_error
 
         assert(msg);
 
-        r = manager_ensure_targets(m);
-        if (r < 0)
-                return r;
+        manager_ensure_targets(m);
 
         r = sd_bus_message_new_method_return(msg, &reply);
         if (r < 0)
@@ -2048,9 +2041,7 @@ static int method_list_appstream(sd_bus_message *msg, void *userdata, sd_bus_err
 
         assert(msg);
 
-        r = manager_ensure_targets(m);
-        if (r < 0)
-                return r;
+        manager_ensure_targets(m);
 
         HASHMAP_FOREACH(t, m->targets) {
                 char **target_appstream;

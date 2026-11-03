@@ -1551,17 +1551,17 @@ _public_ int sd_json_variant_get_source(sd_json_variant *v, const char **ret_sou
         return 0;
 }
 
-static int print_source(FILE *f, sd_json_variant *v, sd_json_format_flags_t flags, bool whitespace) {
+static void print_source(FILE *f, sd_json_variant *v, sd_json_format_flags_t flags, bool whitespace) {
         size_t w, k;
 
         if (!FLAGS_SET(flags, SD_JSON_FORMAT_SOURCE|SD_JSON_FORMAT_PRETTY))
-                return 0;
+                return;
 
         if (!json_variant_is_regular(v))
-                return 0;
+                return;
 
         if (!v->source && v->line == 0 && v->column == 0)
-                return 0;
+                return;
 
         /* The max width we need to format the line numbers for this source file */
         w = (v->source && v->source->max_line > 0) ?
@@ -1598,8 +1598,6 @@ static int print_source(FILE *f, sd_json_variant *v, sd_json_format_flags_t flag
                 fputc(']', f);
                 fputc(' ', f);
         }
-
-        return 0;
 }
 
 static void json_format_string(FILE *f, const char *q, sd_json_format_flags_t flags) {
