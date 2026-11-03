@@ -1489,10 +1489,10 @@ static int vl_get_link(sd_varlink *vlink, int ifindex, Link **ret_link) {
                 return sd_varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("ifindex"));
 
         if (FLAGS_SET(link->flags, IFF_LOOPBACK))
-                return sd_varlink_error(vlink, "io.systemd.Resolve.Link.IsLoopback", NULL);
+                return sd_varlink_error(vlink, "io.systemd.Resolve.Link.IsLoopback", /* parameters= */ NULL);
 
         if (link->is_managed)
-                return sd_varlink_error(vlink, "io.systemd.Resolve.Link.ManagedByNetworkd", NULL);
+                return sd_varlink_error(vlink, "io.systemd.Resolve.Link.ManagedByNetworkd", /* parameters= */ NULL);
 
         *ret_link = link;
         return 0;
@@ -1555,7 +1555,7 @@ static int vl_method_link_set_dns(sd_varlink *link, sd_json_variant *parameters,
         if (r < 0)
                 return r;
 
-        return sd_varlink_reply(link, NULL);
+        return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
 static int varlink_monitor_server_init(Manager *m) {
