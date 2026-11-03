@@ -623,12 +623,12 @@ static int import_imds_public_addresses(sd_varlink *link) {
                 return 0;
         }
 
-        _cleanup_free_ char *text = NULL;
-        r = sd_json_variant_format(aj, SD_JSON_FORMAT_NEWLINE, &text);
-        if (r < 0)
-                return log_error_errno(r, "Failed to format JSON text: %m");
-
-        r = write_string_file("/run/systemd/resolve/static.d/imds-public.rr", text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755);
+        r = json_variant_write_file_at(
+                        AT_FDCWD,
+                        "/run/systemd/resolve/static.d/imds-public.rr",
+                        aj,
+                        SD_JSON_FORMAT_NEWLINE,
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to write IMDS RR data: %m");
 

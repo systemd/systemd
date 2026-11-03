@@ -10,6 +10,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "io-util.h"
+#include "json-util.h"
 #include "log.h"
 #include "nspawn.h"
 #include "machine-bind-user.h"
@@ -29,7 +30,7 @@ static int write_and_symlink(
                 const char *suffix,
                 WriteStringFileFlags extra_flags) {
 
-        _cleanup_free_ char *j = NULL, *f = NULL, *p = NULL, *q = NULL;
+        _cleanup_free_ char *f = NULL, *p = NULL, *q = NULL;
         int r;
 
         assert(root);
@@ -37,10 +38,6 @@ static int write_and_symlink(
         assert(name);
         assert(uid_is_valid(uid));
         assert(suffix);
-
-        r = sd_json_variant_format(v, SD_JSON_FORMAT_NEWLINE, &j);
-        if (r < 0)
-                return log_error_errno(r, "Failed to format user record JSON: %m");
 
         f = strjoin(name, suffix);
         if (!f)
@@ -60,7 +57,7 @@ static int write_and_symlink(
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust access mode of '%s': %m", q);
 
-        r = write_string_file(p, j, WRITE_STRING_FILE_CREATE|extra_flags);
+        r = json_variant_write_file_at(AT_FDCWD, p, v, SD_JSON_FORMAT_NEWLINE, WRITE_STRING_FILE_CREATE|extra_flags);
         if (r < 0)
                 return log_error_errno(r, "Failed to write %s: %m", p);
 

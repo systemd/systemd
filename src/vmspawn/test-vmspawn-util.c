@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "fileio.h"
+#include "json-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "set.h"
@@ -53,7 +54,7 @@ static void write_descriptor(
                 char **features) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_free_ char *j = NULL, *p = NULL;
+        _cleanup_free_ char *p = NULL;
 
         if (!arch)
                 ASSERT_OK(native_arch_as_qemu(&arch));
@@ -83,9 +84,8 @@ static void write_descriptor(
                         SD_JSON_BUILD_PAIR_STRV("features", features),
                         SD_JSON_BUILD_PAIR_EMPTY_ARRAY("tags")));
 
-        ASSERT_OK(sd_json_variant_format(v, /* flags= */ 0, &j));
         ASSERT_NOT_NULL(p = path_join(dir, name));
-        ASSERT_OK(write_string_file(p, j, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755));
+        ASSERT_OK(json_variant_write_file_at(AT_FDCWD, p, v, /* format_flags= */ 0, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755));
 }
 
 /* Searches with the given feature sets and flags, and asserts that the firmware with the expected

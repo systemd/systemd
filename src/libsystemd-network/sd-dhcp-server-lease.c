@@ -12,14 +12,11 @@
 #include "dns-domain.h"
 #include "errno-util.h"
 #include "ether-addr-util.h"
-#include "fd-util.h"
-#include "fs-util.h"
+#include "fileio.h"
 #include "hashmap.h"
 #include "in-addr-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
-#include "mkdir.h"
-#include "tmpfile-util.h"
 
 static sd_dhcp_server_lease* dhcp_server_lease_free(sd_dhcp_server_lease *lease) {
         if (!lease)
@@ -432,31 +429,12 @@ int dhcp_server_save_leases(sd_dhcp_server *server) {
         if (r < 0)
                 return r;
 
-        r = mkdirat_parents(server->lease_dir_fd, server->lease_file, 0755);
-        if (r < 0)
-                return r;
-
-        _cleanup_free_ char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-
-        r = fopen_temporary_at(server->lease_dir_fd, server->lease_file, &f, &temp_path);
-        if (r < 0)
-                return r;
-
-        CLEANUP_TMPFILE_AT(server->lease_dir_fd, temp_path);
-
-        (void) fchmod(fileno(f), 0644);
-
-        r = sd_json_variant_dump(v, SD_JSON_FORMAT_NEWLINE | SD_JSON_FORMAT_FLUSH, f, /* prefix= */ NULL);
-        if (r < 0)
-                return r;
-
-        r = conservative_renameat(server->lease_dir_fd, temp_path, server->lease_dir_fd, server->lease_file);
-        if (r < 0)
-                return r;
-
-        temp_path = mfree(temp_path); /* disarm CLEANUP_TMPFILE_AT() */
-        return 0;
+        return json_variant_write_file_at(
+                        server->lease_dir_fd,
+                        server->lease_file,
+                        v,
+                        SD_JSON_FORMAT_NEWLINE,
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755);
 }
 
 typedef struct LeaseParam {
