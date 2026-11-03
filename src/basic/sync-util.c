@@ -139,13 +139,10 @@ int fsync_path_and_parent_at(int at_fd, const char *path) {
                         return fsync_full(at_fd);
 
                 opened_fd = fd_reopen(at_fd, O_RDONLY|O_DIRECTORY);
-                if (opened_fd < 0)
-                        return opened_fd;
-        } else {
+        } else
                 opened_fd = xopenat(at_fd, path, O_RDONLY|O_NOFOLLOW|O_NONBLOCK);
-                if (opened_fd < 0)
-                        return opened_fd;
-        }
+        if (opened_fd < 0)
+                return opened_fd;
 
         return fsync_full(opened_fd);
 }
@@ -158,13 +155,10 @@ int syncfs_path(int at_fd, const char *path) {
                         return RET_NERRNO(syncfs(at_fd));
 
                 fd = fd_reopen(at_fd, O_RDONLY|O_DIRECTORY);
-                if (fd < 0)
-                        return fd;
-        } else {
+        } else
                 fd = xopenat(at_fd, path, O_RDONLY|O_NONBLOCK);
-                if (fd < 0)
-                        return fd;
-        }
+        if (fd < 0)
+                return fd;
 
         return RET_NERRNO(syncfs(fd));
 }

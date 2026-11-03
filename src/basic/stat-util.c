@@ -151,9 +151,13 @@ int fd_verify_symlink(int fd) {
         return verify_stat_at(fd, /* path= */ NULL, /* follow= */ false, stat_verify_symlink, /* verify= */ true);
 }
 
+int is_symlink_at(int fd, const char *path) {
+        return verify_stat_at(fd, path, /* follow= */ false, stat_verify_symlink, /* verify= */ false);
+}
+
 int is_symlink(const char *path) {
         assert(!isempty(path));
-        return verify_stat_at(AT_FDCWD, path, /* follow= */ false, stat_verify_symlink, /* verify= */ false);
+        return is_symlink_at(AT_FDCWD, path);
 }
 
 static int mode_verify_socket(mode_t mode) {

@@ -824,7 +824,8 @@ int fd_reopen(int fd, int flags) {
         if (fd == AT_FDCWD)
                 return RET_NERRNO(openat(AT_FDCWD, ".", flags | O_DIRECTORY));
 
-        /* Kernels since 7.2 reopen the fd itself when passed an empty path with O_EMPTYPATH. */
+        /* Kernels since 7.2 reopen the fd itself when passed an empty path with O_EMPTYPATH. Unlike "."
+         * below, that needs no search permission on directories, just like /proc/self/fd/. */
         static thread_local int have_emptypath = -1;
         if (have_emptypath != 0) {
                 int new_fd = openat(fd, "", flags | O_EMPTYPATH);

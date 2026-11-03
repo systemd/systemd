@@ -108,7 +108,7 @@ static int delete_loopback(const char *device) {
 
         fd = xopenat(AT_FDCWD, device, O_RDONLY);
         if (fd < 0) {
-                if (ERRNO_IS_DEVICE_ABSENT(fd)) {
+                if (ERRNO_IS_NEG_DEVICE_ABSENT(fd)) {
                         log_debug_errno(fd, "Tried to open loopback device '%s', but device disappeared by now, ignoring: %m", device);
                         return 0;
                 }

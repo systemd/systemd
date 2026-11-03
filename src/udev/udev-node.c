@@ -707,7 +707,7 @@ int udev_node_apply_permissions(
 
         node_fd = device_open(dev, O_PATH);
         if (node_fd < 0) {
-                if (ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(node_fd)) {
+                if (ERRNO_IS_NEG_DEVICE_ABSENT_OR_EMPTY(node_fd)) {
                         log_device_debug_errno(dev, node_fd, "Device node %s is missing, skipping handling.", devnode);
                         return 0; /* This is necessarily racey, so ignore missing the device */
                 }
@@ -740,7 +740,7 @@ int static_node_apply_permissions(
 
         node_fd = xopenat(AT_FDCWD, devnode, O_PATH);
         if (node_fd < 0) {
-                bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(node_fd);
+                bool ignore = ERRNO_IS_NEG_DEVICE_ABSENT_OR_EMPTY(node_fd);
                 log_full_errno(ignore ? LOG_DEBUG : LOG_WARNING, node_fd,
                                "Failed to open device node '%s'%s: %m",
                                devnode, ignore ? ", ignoring" : "");
