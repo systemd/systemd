@@ -9,11 +9,13 @@ if ! command -v python3 >/dev/null; then
 fi
 
 HELPER="$(mktemp /tmp/io-uring-XXXXXX.py)"
+WORKDIR="$(mktemp -d /tmp/io-uring-XXXXXX)"
+chmod 0755 "$WORKDIR"
 chmod 0644 "$HELPER"
 
 at_exit() {
     set +e
-    rm -f "$HELPER"
+    rm -rf "$HELPER" "$WORKDIR"
 }
 
 trap at_exit EXIT
@@ -41,6 +43,8 @@ IORING_OFF_CQ_RING = 0x8000000
 IORING_OFF_SQES = 0x10000000
 
 IORING_OP_NOP = 0
+IORING_OP_OPENAT = 18
+IORING_OP_OPENAT2 = 28
 IORING_OP_SOCKET = 45
 
 class Params(ctypes.Structure):
@@ -96,6 +100,15 @@ elif command == "nop":
 elif command == "socket":
     family = {"unix": socket.AF_UNIX, "inet": socket.AF_INET, "inet6": socket.AF_INET6}[sys.argv[2]]
     submit(IORING_OP_SOCKET, fd=family, off=socket.SOCK_DGRAM | socket.SOCK_CLOEXEC)
+elif command in ("openat", "openat2"):
+    path = ctypes.create_string_buffer(sys.argv[2].encode())
+    flags = os.O_CREAT | os.O_RDWR | os.O_CLOEXEC
+    mode = int(sys.argv[3], 8)
+    if command == "openat":
+        submit(IORING_OP_OPENAT, fd=-100, addr=ctypes.addressof(path), length=mode, op_flags=flags)
+    else:
+        how = ctypes.create_string_buffer(struct.pack("=QQQ", flags, mode, 0))
+        submit(IORING_OP_OPENAT2, fd=-100, off=ctypes.addressof(how), addr=ctypes.addressof(path), length=24)
 else:
     sys.exit(f"Unknown command {command}")
 EOF
@@ -120,6 +133,14 @@ EACCES=-13
 (( $(run -p RestrictAddressFamilies=AF_UNIX python3 "$HELPER" socket unix) >= 0 ))
 [[ "$(run -p RestrictAddressFamilies=~AF_INET python3 "$HELPER" socket inet)" == "$EACCES" ]]
 (( $(run -p RestrictAddressFamilies=~AF_INET python3 "$HELPER" socket inet6) >= 0 ))
+
+# RestrictSUIDSGID= applies to IORING_OP_OPENAT and IORING_OP_OPENAT2.
+for op in openat openat2; do
+    [[ "$(run -p RestrictSUIDSGID=yes python3 "$HELPER" "$op" "$WORKDIR/suid-$op" 4755)" == "$EACCES" ]]
+    [[ "$(run -p RestrictSUIDSGID=yes python3 "$HELPER" "$op" "$WORKDIR/sgid-$op" 2755)" == "$EACCES" ]]
+    (( $(run -p RestrictSUIDSGID=yes python3 "$HELPER" "$op" "$WORKDIR/plain-$op" 0755) >= 0 ))
+    (( $(run python3 "$HELPER" "$op" "$WORKDIR/suid-$op" 4755) >= 0 ))
+done
 
 # Services that run as an unprivileged user get the filters as well.
 [[ "$(run -p User=testuser -p RestrictAddressFamilies=AF_UNIX python3 "$HELPER" socket inet)" == "$EACCES" ]]
