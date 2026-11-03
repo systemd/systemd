@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sched.h>
+#include <stdio.h>
 #include <sys/eventfd.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
@@ -8,11 +9,13 @@
 
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "namespace-util.h"
 #include "process-util.h"
 #include "rm-rf.h"
+#include "tests.h"
 #include "tmpfile-util.h"
 #include "userns-restrict.h"
 
@@ -57,6 +60,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_close_ int userns_fd = -EBADF, host_fd1 = -EBADF, host_tmpfs = -EBADF, afd = -EBADF, bfd = -EBADF;
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_(sigkill_waitp) pid_t pid = 0;
+        bool have_tmpfile;
         int r;
 
         log_set_max_level(LOG_DEBUG);
@@ -81,6 +85,18 @@ static int run(int argc, char *argv[]) {
 
         host_tmpfs = make_tmpfs_fsmount();
         assert_se(host_tmpfs >= 0);
+
+        r = RET_NERRNO(openat(host_fd1, ".", O_TMPFILE|O_RDWR|O_CLOEXEC, 0666));
+        have_tmpfile = r >= 0;
+        if (have_tmpfile)
+                safe_close(r);
+        else {
+                ASSERT_ERROR(r, EOPNOTSUPP);
+                log_notice("O_TMPFILE is not supported here, skipping host directory checks.");
+        }
+
+        /* The client cannot create a file in the host directory for the whiteout check. */
+        safe_close(ASSERT_OK_ERRNO(openat(host_fd1, "white", O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC, 0644)));
 
         userns_fd = userns_acquire("0 0 1", "0 0 1", /* setgroups_deny= */ true);
         if (userns_fd < 0)
@@ -120,6 +136,23 @@ static int run(int argc, char *argv[]) {
                 /* But this mount created locally should be fine */
                 test_works_reg(private_tmpfs, "yyy");
                 test_works_dir(private_tmpfs, "yyy2");
+
+                if (have_tmpfile) {
+                        ASSERT_ERROR_ERRNO(openat(host_fd1, ".", O_TMPFILE|O_RDWR|O_CLOEXEC, 0666), EPERM);
+                        ASSERT_ERROR_ERRNO(openat(host_fd1, ".", O_TMPFILE|O_EXCL|O_RDWR|O_CLOEXEC, 0666), EPERM);
+                }
+                ASSERT_ERROR_ERRNO(openat(host_tmpfs, ".", O_TMPFILE|O_RDWR|O_CLOEXEC, 0666), EPERM);
+                ASSERT_ERROR_ERRNO(openat(host_tmpfs, ".", O_TMPFILE|O_EXCL|O_RDWR|O_CLOEXEC, 0666), EPERM);
+
+                _cleanup_close_ int tmpfile_fd = -EBADF;
+                tmpfile_fd = ASSERT_OK_ERRNO(openat(private_tmpfs, ".", O_TMPFILE|O_RDWR|O_CLOEXEC, 0666));
+                ASSERT_OK(link_fd(tmpfile_fd, private_tmpfs, "ccc"));
+
+                safe_close(ASSERT_OK_ERRNO(openat(private_tmpfs, ".", O_TMPFILE|O_EXCL|O_RDWR|O_CLOEXEC, 0666)));
+
+                /* The whiteout RENAME_WHITEOUT leaves behind is owned by us too. */
+                ASSERT_ERROR_ERRNO(renameat2(host_fd1, "white", host_fd1, "white2", RENAME_WHITEOUT), EPERM);
+                ASSERT_OK_ERRNO(renameat2(private_tmpfs, "ccc", private_tmpfs, "ccc2", RENAME_WHITEOUT));
 
                 /* Let's sync with the parent, so that it allowlists more stuff for us */
                 assert_se(eventfd_write(afd, 1) >= 0);
