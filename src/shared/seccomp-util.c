@@ -2228,7 +2228,7 @@ static int add_personality_rules(scmp_filter_ctx seccomp, uint32_t arch, uint32_
         assert((value & ~mask) == 0);
 
         BIT_FOREACH(bit, value) {
-                r = add_personality_rule(seccomp, arch, INDEX_TO_MASK(uint32_t, bit), 0);
+                r = add_personality_rule(seccomp, arch, INDEX_TO_MASK(uint32_t, bit), /* value= */ 0);
                 if (r < 0)
                         return r;
         }
@@ -2281,7 +2281,7 @@ int seccomp_restrict_read_implies_exec(void) {
                 if (r < 0)
                         return r;
 
-                r = add_personality_rules(seccomp, arch, READ_IMPLIES_EXEC, 0);
+                r = add_personality_rules(seccomp, arch, READ_IMPLIES_EXEC, /* value= */ 0);
                 if (r < 0)
                         return r;
 

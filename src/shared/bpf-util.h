@@ -96,7 +96,7 @@ static inline int compat_bpf_map_create(
                                           value_size, max_entries, opts);
 
         return sym_bpf_create_map(map_type, key_size, value_size, max_entries,
-                                  0 /* opts->map_flags, but opts is always NULL for us so skip build dependency on the type */);
+                                  /* map_flags= */ 0 /* opts->map_flags, but opts is always NULL for us so skip build dependency on the type */);
 }
 
 /* libbpf sometimes returns error codes that make sense only in the kernel, like 524 for EOPNOTSUPP. Use

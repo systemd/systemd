@@ -115,7 +115,7 @@ bool uapi16_name_is_valid(const char *s) {
         if (!path_is_normalized(s))
                 return false;
 
-        if (string_has_cc(s, NULL))
+        if (string_has_cc(s, /* ok= */ NULL))
                 return false;
 
         if (uapi16_manifest_filename_is_reserved(s))
@@ -130,7 +130,7 @@ bool uapi16_xattr_name_is_valid(const char *s) {
 
         return !isempty(s) &&
                 utf8_is_valid(s) &&
-                !string_has_cc(s, NULL);
+                !string_has_cc(s, /* ok= */ NULL);
 }
 
 static int json_dispatch_uapi16_name(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -426,7 +426,7 @@ int uapi16_xattrs_build_json(const Uapi16Xattr *x, size_t n, sd_json_variant **r
         assert(ret);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *ns = NULL;
-        r = sd_json_variant_new_object(&ns, NULL, 0);
+        r = sd_json_variant_new_object(&ns, /* array= */ NULL, 0);
         if (r < 0)
                 return r;
 

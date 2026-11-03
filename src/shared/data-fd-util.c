@@ -85,7 +85,7 @@ int copy_data_fd_full(int fd, uint64_t max_size) {
 
         /* If we have reason to believe this will fit fine in /tmp, then use that as first fallback. */
         if ((!S_ISREG(st.st_mode) || (uint64_t) st.st_size < DATA_FD_TMP_LIMIT)) {
-                tmp_fd = open_tmpfile_unlinkable(NULL /* NULL as directory means /tmp */, O_RDWR);
+                tmp_fd = open_tmpfile_unlinkable(/* directory= */ NULL /* NULL as directory means /tmp */, O_RDWR);
                 if (tmp_fd < 0)
                         return tmp_fd;
 
