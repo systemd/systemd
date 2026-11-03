@@ -11,8 +11,8 @@ We welcome all contributions to systemd. If you notice a bug or a missing
 feature, please feel invited to fix it, and submit your work as a
 [GitHub Pull Request (PR)](https://github.com/systemd/systemd/pull/new).
 
-Please make sure to follow our [Coding Style](/CODING_STYLE) when submitting
-patches. Also have a look at our [Contribution Guidelines](/CONTRIBUTING).
+Please make sure to follow our [Coding Style](/docs/CODING_STYLE.md) when submitting
+patches. Also have a look at our [Contribution Guidelines](/docs/CONTRIBUTING.md).
 
 When adding new functionality, tests should be added. For shared functionality
 (in `src/basic/` and `src/shared/`) unit tests should be sufficient. The general
