@@ -107,6 +107,7 @@ simple_tests += files(
         'test-exec-util.c',
         'test-execve.c',
         'test-exit-status.c',
+        'test-extension-util.c',
         'test-extract-word.c',
         'test-fanotify-util.c',
         'test-fdset.c',
@@ -243,6 +244,7 @@ simple_tests += files(
         'test-voa-util.c',
         'test-vpick.c',
         'test-web-util.c',
+        'test-xattr-match.c',
         'test-xattr-util.c',
         'test-xml.c',
 )
