@@ -45,6 +45,9 @@ void* bpf_rdonly_cast(const void *, __u32) __ksym;
 /* kernel currently enforces a maximum usernamespace nesting depth of 32, see create_user_ns() in the kernel sources */
 #define USER_NAMESPACE_DEPTH_MAX 32U
 
+/* From include/uapi/linux/fs.h, which vmlinux.h does not provide. */
+#define RENAME_WHITEOUT (1U << 2)
+
 /* From include/uapi/asm-generic/fcntl.h. Only archs without BPF trampolines (no LSM programs) deviate. */
 #define __O_TMPFILE (1U << 22) /* O_TMPFILE without O_DIRECTORY */
 
@@ -168,6 +171,16 @@ int BPF_PROG(userns_restrict_file_open, struct file *file, int ret) {
                 return ret;
 
         return validate_path(&file->f_path, ret);
+}
+
+/* RENAME_WHITEOUT puts a whiteout owned by the calling task in place of the source, past the mknod hook */
+SEC("lsm/path_rename")
+int BPF_PROG(userns_restrict_path_rename, const struct path *old_dir, struct dentry *old_dentry,
+             const struct path *new_dir, struct dentry *new_dentry, unsigned flags, int ret) {
+        if (!(flags & RENAME_WHITEOUT))
+                return ret;
+
+        return validate_path(old_dir, ret);
 }
 
 SEC("kprobe/free_user_ns")
