@@ -211,6 +211,7 @@ typedef struct SegmentedCursor {
         uint64_t index;
         uint64_t position;
         uint64_t item;
+        uint64_t incomplete_index; /* index plus one */
 } SegmentedCursor;
 
 int segmented_enumerate_fields(JournalFile *f, SegmentedCursor *c, const void **ret_name, size_t *ret_size);

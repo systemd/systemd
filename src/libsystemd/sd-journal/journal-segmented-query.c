@@ -169,20 +169,22 @@ int segmented_data_payload_equal(JournalFile *f, uint64_t offset, const void *da
         return memcmp_nn(data, size, d, l) == 0;
 }
 
-int segmented_index_find_data(
+static int index_bisect_data(
                 JournalFile *f,
                 const SegmentedIndex *i,
                 const IndexFieldItem *field,
-                const void *data,
-                size_t size,
                 uint64_t hash,
-                IndexDataItem *ret) {
+                uint64_t hash2,
+                bool prefetch,
+                uint32_t *ret_first,
+                uint32_t *ret_end) {
 
-        uint32_t left, right;
-        uint64_t hash2;
+        uint32_t left, right, end;
         int r;
 
         assert(field);
+        assert(ret_first);
+        assert(ret_end);
 
         /* The values of a field are together in the data table, sorted by hash */
 
@@ -193,11 +195,12 @@ int segmented_index_find_data(
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "Index at %" PRIu64 " of %s has a field with invalid values.", i->offset, f->path);
 
-        index_prefetch_table(f, i, i->data_table_offset + (uint64_t) left * sizeof(IndexDataItem), (uint64_t) right * sizeof(IndexDataItem));
+        if (prefetch)
+                index_prefetch_table(f, i, i->data_table_offset + (uint64_t) left * sizeof(IndexDataItem), (uint64_t) right * sizeof(IndexDataItem));
 
         right += left;
+        end = right;
 
-        uint32_t end = right;
         while (left < right) {
                 uint32_t m = left + (right - left) / 2;
                 IndexDataItem item;
@@ -206,13 +209,63 @@ int segmented_index_find_data(
                 if (r < 0)
                         return r;
 
-                if (le64toh(item.hash) < hash)
+                if (le64toh(item.hash) < hash ||
+                    (le64toh(item.hash) == hash && le64toh(item.hash2) < hash2))
                         left = m + 1;
                 else
                         right = m;
         }
 
+        *ret_first = left;
+        *ret_end = end;
+        return 0;
+}
+
+static int index_has_hashes(
+                JournalFile *f,
+                const SegmentedIndex *i,
+                const IndexFieldItem *field,
+                uint64_t hash,
+                uint64_t hash2) {
+
+        uint32_t left, end;
+        int r;
+
+        /* The caller enumerated the values of the field in this index before. The data table is hence in
+         * the page cache, and another prefetch of it would only cost a system call for each value. */
+        r = index_bisect_data(f, i, field, hash, hash2, /* prefetch= */ false, &left, &end);
+        if (r < 0)
+                return r;
+
+        if (left == end)
+                return 0;
+
+        IndexDataItem item;
+        r = segmented_index_data(f, i, left, &item);
+        if (r < 0)
+                return r;
+
+        return le64toh(item.hash) == hash && le64toh(item.hash2) == hash2;
+}
+
+int segmented_index_find_data(
+                JournalFile *f,
+                const SegmentedIndex *i,
+                const IndexFieldItem *field,
+                const void *data,
+                size_t size,
+                uint64_t hash,
+                IndexDataItem *ret) {
+
+        uint32_t left, end;
+        uint64_t hash2;
+        int r;
+
         hash2 = segmented_hash2(f, data, size);
+
+        r = index_bisect_data(f, i, field, hash, hash2, /* prefetch= */ true, &left, &end);
+        if (r < 0)
+                return r;
 
         for (; left < end; left++) {
                 IndexDataItem item;
@@ -221,10 +274,8 @@ int segmented_index_find_data(
                 if (r < 0)
                         return r;
 
-                if (le64toh(item.hash) != hash)
+                if (le64toh(item.hash) != hash || le64toh(item.hash2) != hash2)
                         break;
-                if (le64toh(item.hash2) != hash2)
-                        continue;
 
                 if (segmented_index_data_offset(i, &item) >= i->offset)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
@@ -1390,7 +1441,13 @@ int segmented_enumerate_fields(JournalFile *f, SegmentedCursor *c, const void **
         return 0;
 }
 
-static void prefetch_values(JournalFile *f, const SegmentedIndex *i, const IndexFieldItem *field, uint32_t from) {
+static void prefetch_values(
+                JournalFile *f,
+                const SegmentedIndex *i,
+                const IndexFieldItem *field,
+                const SegmentedIndex *prev,
+                const IndexFieldItem *prev_field,
+                uint32_t from) {
         uint32_t first = le32toh(field->first_data), n = le32toh(field->n_data), end;
         uint64_t last_page = UINT64_MAX;
 
@@ -1410,6 +1467,9 @@ static void prefetch_values(JournalFile *f, const SegmentedIndex *i, const Index
 
                 if (segmented_index_data(f, i, first + k, &data) < 0)
                         return;
+
+                if (prev && index_has_hashes(f, prev, prev_field, le64toh(data.hash), le64toh(data.hash2)) > 0)
+                        continue;
 
                 p = segmented_index_data_offset(i, &data);
                 if (p >= i->offset || p / page_size() == last_page)
@@ -1465,11 +1525,22 @@ int segmented_enumerate_unique(
                                 continue;
                         }
 
+                        /* An incomplete enumeration may not have returned every indexed value. */
+                        const SegmentedIndex *prev = NULL;
+                        IndexFieldItem prev_item;
+                        if (c->index > 0 && c->incomplete_index != c->index) {
+                                r = segmented_index_find_field(f, i - 1, field, field_length, &prev_item);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0 && !FLAGS_SET(le32toh(prev_item.flags), INDEX_FIELD_INLINE))
+                                        prev = i - 1;
+                        }
+
                         while (c->position < le32toh(item.n_data)) {
                                 IndexDataItem data;
 
                                 if (c->position % UNIQUE_PREFETCH_VALUES == 0)
-                                        prefetch_values(f, i, &item, c->position);
+                                        prefetch_values(f, i, &item, prev, &prev_item, c->position);
 
                                 r = segmented_index_data(f, i, le32toh(item.first_data) + c->position, &data);
                                 if (r < 0)
@@ -1477,11 +1548,21 @@ int segmented_enumerate_unique(
 
                                 c->position++;
 
+                                if (prev) {
+                                        r = index_has_hashes(f, prev, &prev_item, le64toh(data.hash), le64toh(data.hash2));
+                                        if (r < 0)
+                                                return r;
+                                        if (r > 0)
+                                                continue;
+                                }
+
                                 r = journal_file_data_payload_pinned(
                                                 f,
                                                 segmented_index_data_offset(i, &data),
                                                 field, field_length,
                                                 ret_data, ret_size);
+                                if (r <= 0)
+                                        c->incomplete_index = c->index + 1;
                                 if (ERRNO_IS_NEG_JOURNAL_CORRUPTION(r))
                                         continue;
                                 if (r != 0)

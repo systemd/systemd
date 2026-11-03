@@ -164,6 +164,48 @@ TEST(indexes) {
         follower = journal_file_close(follower);
 }
 
+TEST(unique) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_strv_free_ char **values = NULL;
+        SegmentedCursor c = {};
+        sd_id128_t boot_id;
+        JournalFile *f, *g;
+        const void *d;
+        size_t l;
+        usec_t t = 0;
+        int r;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        ASSERT_OK(sd_id128_randomize(&boot_id));
+
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 128 * U64_MB);
+
+        FOREACH_STRING(segment, "UNIT=a", "UNIT=a UNIT=b", "UNIT=b", "UNIT=a") {
+                _cleanup_strv_free_ char **split = NULL;
+
+                ASSERT_NOT_NULL(split = strv_split(segment, " "));
+                STRV_FOREACH(value, split) {
+                        t++;
+                        model_append(f, NULL, t, t, boot_id, STRV_MAKE(*value));
+                }
+                ASSERT_OK(segmented_checkpoint(f));
+        }
+
+        g = open_file(m, "test.journal", O_RDONLY, /* segmented= */ false, 0);
+        ASSERT_EQ(g->segmented->n_indexes, 4U);
+
+        /* A value is skipped if the previous index lists it */
+        while ((r = segmented_enumerate_unique(g, "UNIT", STRLEN("UNIT"), &c, &d, &l)) > 0)
+                ASSERT_OK(strv_extend(&values, strndupa_safe(d, l)));
+        ASSERT_OK(r);
+        ASSERT_TRUE(strv_equal(values, STRV_MAKE("UNIT=a", "UNIT=b", "UNIT=a")));
+
+        g = journal_file_close(g);
+        f = journal_file_offline_close(f);
+}
+
 TEST(rotate_seqnum_id) {
         _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
