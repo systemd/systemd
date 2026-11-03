@@ -494,7 +494,8 @@ int exec_spawn(
         if (FLAGS_SET(params->flags, EXEC_APPLY_SANDBOXING) &&
             !FLAGS_SET(command->flags, EXEC_COMMAND_FULLY_PRIVILEGED) &&
             (context->address_families_allow_list || !set_isempty(context->address_families) ||
-             context->restrict_suid_sgid || context->syscall_allow_list || !hashmap_isempty(context->syscall_filter))) {
+             context->restrict_suid_sgid || context->syscall_allow_list || !hashmap_isempty(context->syscall_filter) ||
+             exec_context_io_uring_filter_set(context))) {
                 r = io_uring_bpf_filter_supported();
                 if (r < 0)
                         return log_unit_error_errno(unit, r, "Failed to check whether io_uring BPF filters are supported: %m");
@@ -735,6 +736,7 @@ void exec_context_done(ExecContext *c) {
         c->syscall_archs = set_free(c->syscall_archs);
         c->syscall_log = hashmap_free(c->syscall_log);
         c->address_families = set_free(c->address_families);
+        c->io_uring_filter = set_free(c->io_uring_filter);
 
         FOREACH_ARRAY(d, c->directories, _EXEC_DIRECTORY_TYPE_MAX)
                 exec_directory_done(d);
@@ -1652,6 +1654,14 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         }
 #endif
 
+        if (exec_context_io_uring_filter_set(c)) {
+                _cleanup_strv_free_ char **l = exec_context_get_io_uring_filter(c);
+                _cleanup_free_ char *joined = strv_join(l, " ");
+
+                fprintf(f, "%sIOUringFilter: %s%s\n",
+                        prefix, c->io_uring_filter_allow_list ? "" : "~", strnull(joined));
+        }
+
         if (c->user_namespace_path)
                 fprintf(f,
                         "%sUserNamespacePath: %s\n",
@@ -2103,6 +2113,28 @@ char** exec_context_get_syscall_log(const ExecContext *c) {
         return l ? TAKE_PTR(l) : strv_new(NULL);
 }
 
+char** exec_context_get_io_uring_filter(const ExecContext *c) {
+        _cleanup_strv_free_ char **l = NULL;
+        void *op;
+
+        assert(c);
+
+        SET_FOREACH(op, c->io_uring_filter) {
+                const char *name;
+
+                name = io_uring_op_to_string(PTR_TO_INT(op) - 1);
+                if (!name)
+                        continue;
+
+                if (strv_extend(&l, name) < 0)
+                        return NULL;
+        }
+
+        strv_sort(l);
+
+        return l ? TAKE_PTR(l) : strv_new(NULL);
+}
+
 char** exec_context_get_address_families(const ExecContext *c) {
         _cleanup_strv_free_ char **l = NULL;
         void *af;
@@ -2150,6 +2182,13 @@ bool exec_context_restrict_filesystems_set(const ExecContext *c) {
 
         return c->restrict_filesystems_allow_list ||
           !set_isempty(c->restrict_filesystems);
+}
+
+bool exec_context_io_uring_filter_set(const ExecContext *c) {
+        assert(c);
+
+        return c->io_uring_filter_allow_list ||
+                !set_isempty(c->io_uring_filter);
 }
 
 bool exec_context_with_rootfs(const ExecContext *c) {
