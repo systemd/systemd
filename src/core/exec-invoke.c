@@ -682,7 +682,7 @@ static int maybe_inherit_stdout_from_stdin(const ExecContext *context, ExecInput
                 if (r < 0)
                         log_warning_errno(r, "Failed to check if inherited stdin is writable for stdout, using fallback: %m");
                 else
-                        log_warning("Inherited stdin is not writable for stdout, using fallback: %m");
+                        log_warning("Inherited stdin is not writable for stdout, using fallback.");
                 goto fallback;
         }
 
