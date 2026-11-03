@@ -2995,6 +2995,21 @@ RestrictNamespaces=~cgroup net</programlisting>
         <para>This feature makes use of the Secure Computing Mode 2 interfaces of the kernel ('seccomp
         filtering') and is useful for enforcing a minimal sandboxing environment.</para>
 
+        <para>On kernels that support io_uring BPF filters (Linux 7.0 and newer), this setting also applies
+        to the operations of
+        <citerefentry project='man-pages'><refentrytitle>io_uring</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+        if the filter allows <function>io_uring_setup()</function>. An operation that can do the work of
+        one or more system calls, such as <constant>IORING_OP_OPENAT</constant> or
+        <constant>IORING_OP_SOCKET</constant>, is denied if the filter denies any of its equivalent system
+        calls. Operations of newer kernels that systemd doesn't know are not affected. Denied requests
+        always fail with <constant>EACCES</constant>, regardless of
+        <varname>SystemCallErrorNumber=</varname> and of the action of the system call. System calls that
+        are denied with an error number of 0 do not affect io_uring operations, since a denied request
+        can't pretend to succeed. The restriction applies to all io_uring instances that the processes of
+        the unit create, but not to io_uring instances that they receive from other processes. On such
+        kernels, <constant>IORING_REGISTER_RESTRICTIONS</constant> without an io_uring instance fails with
+        <constant>EPERM</constant> for the processes of the unit.</para>
+
         <para>Note that on systems supporting multiple ABIs (such as x86/x86-64) it is recommended to turn
         off alternative ABIs for services, so that they cannot be used to circumvent the restrictions of this
         option. Specifically, it is recommended to combine this option with

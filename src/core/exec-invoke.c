@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <grp.h>
+#include <linux/io_uring.h>
 #include <linux/securebits.h>
 #include <poll.h>
 #include <sched.h>
@@ -63,6 +64,7 @@
 #include "namespace-util.h"
 #include "nsflags.h"
 #include "nsresource.h"
+#include "nulstr-util.h"
 #include "open-file.h"
 #include "osc-context.h"
 #include "pam-util.h"
@@ -1798,10 +1800,57 @@ static bool context_has_no_new_privileges(const ExecContext *c) {
         return context_has_seccomp(c);
 }
 
-static int check_io_uring_bpf_filters(const char *setting) {
+#if HAVE_SECCOMP
+static bool syscall_filter_allows(const ExecContext *c, int id) {
+        int e;
+
+        assert(c);
+
+        if (!hashmap_contains(c->syscall_filter, INT_TO_PTR(id + 1)))
+                return !c->syscall_allow_list;
+
+        /* With an error number of 0, the system call does nothing and pretends to succeed. A denied io_uring
+         * request fails with EACCES instead. A service that suppresses fsync() with an error number of 0
+         * would then see its io_uring fsync requests fail. */
+        e = PTR_TO_INT(hashmap_get(c->syscall_filter, INT_TO_PTR(id + 1)));
+        if (e == 0)
+                return true;
+
+        /* An allow list contains the allowed system calls with the value -1. Its other entries come from
+         * assignments like "~uname:EILSEQ" and deny the system call. */
+        return c->syscall_allow_list && e < 0;
+}
+#endif
+
+static bool syscall_filter_denies_io_uring(const ExecContext *c) {
+        assert(c);
+
+#if HAVE_SECCOMP
+        int id;
+
+        if (!context_has_syscall_filters(c) || !is_seccomp_available())
+                return false;
+
+        id = sym_seccomp_syscall_resolve_name("io_uring_setup");
+        return id >= 0 && !syscall_filter_allows(c, id);
+#else
+        return false;
+#endif
+}
+
+static int check_io_uring_bpf_filters(const ExecContext *c, const ExecParameters *p, const char *setting) {
         int r;
 
+        assert(c);
+        assert(p);
         assert(setting);
+
+        /* If SystemCallFilter= denies io_uring_setup(), the processes of the unit can't create rings, and
+         * io_uring filters have no effect. */
+        if (syscall_filter_denies_io_uring(c)) {
+                log_debug("SystemCallFilter= denies io_uring_setup(), not applying %s to io_uring requests.", setting);
+                return 0;
+        }
 
         r = p->io_uring_bpf_filter_supported;
         if (r == 0)
@@ -1819,7 +1868,7 @@ static int apply_io_uring_address_families(const ExecContext *c, const ExecParam
         if (!context_has_address_families(c))
                 return 0;
 
-        r = check_io_uring_bpf_filters("RestrictAddressFamilies=");
+        r = check_io_uring_bpf_filters(c, p, "RestrictAddressFamilies=");
         if (r <= 0)
                 return r;
 
@@ -1835,7 +1884,7 @@ static int apply_io_uring_suid_sgid(const ExecContext *c, const ExecParameters *
         if (!c->restrict_suid_sgid)
                 return 0;
 
-        r = check_io_uring_bpf_filters("RestrictSUIDSGID=");
+        r = check_io_uring_bpf_filters(c, p, "RestrictSUIDSGID=");
         if (r <= 0)
                 return r;
 
@@ -2029,6 +2078,65 @@ static int apply_restrict_suid_sgid(const ExecContext *c, const ExecParameters *
                 return 0;
 
         return seccomp_restrict_suid_sgid();
+}
+
+static bool syscall_filter_allows_all(const ExecContext *c, const char *syscalls) {
+        assert(c);
+        assert(syscalls);
+
+        NULSTR_FOREACH(name, syscalls) {
+                int id;
+
+                /* libseccomp returns negative numbers for system calls that the native architecture does
+                 * not have. */
+                id = sym_seccomp_syscall_resolve_name(name);
+                if (id < 0)
+                        continue;
+
+                if (!syscall_filter_allows(c, id))
+                        return false;
+        }
+
+        return true;
+}
+
+static int apply_io_uring_syscall_filter(const ExecContext *c, const ExecParameters *p) {
+        _cleanup_set_free_ Set *denied = NULL;
+        int r;
+
+        assert(c);
+        assert(p);
+
+        if (!context_has_syscall_filters(c))
+                return 0;
+
+        r = dlopen_libseccomp(LOG_DEBUG);
+        if (r < 0) {
+                log_debug_errno(r, "libseccomp is not available, not applying SystemCallFilter= to io_uring requests: %m");
+                return 0;
+        }
+
+        r = check_io_uring_bpf_filters(c, p, "SystemCallFilter=");
+        if (r <= 0)
+                return r;
+
+        /* An io_uring operation can do the work of each of its equivalent system calls, so we deny it if
+         * the filter denies any of them. */
+        for (int op = 0; op < IORING_OP_LAST; op++) {
+                const char *syscalls = io_uring_op_syscalls_to_string(op);
+
+                if (!syscalls || syscall_filter_allows_all(c, syscalls))
+                        continue;
+
+                r = set_ensure_put(&denied, /* hash_ops= */ NULL, INT_TO_PTR(op + 1));
+                if (r < 0)
+                        return r;
+        }
+
+        /* A denied io_uring request fails with EACCES, but the kernel still reports the operation as
+         * supported. Programs therefore can't fall back from an unknown operation that we deny. We only deny
+         * known operations, even for an allow list of system calls. */
+        return io_uring_restrict_ops(denied, /* allow_list= */ false);
 }
 
 static int apply_protect_sysctl(const ExecContext *c, const ExecParameters *p) {
@@ -7000,6 +7108,12 @@ int exec_invoke(
                 }
 
 #if HAVE_SECCOMP
+                r = apply_io_uring_syscall_filter(context, params);
+                if (r < 0) {
+                        *exit_status = EXIT_SECCOMP;
+                        return log_error_errno(r, "Failed to apply system call filters to io_uring: %m");
+                }
+
                 /* This really should remain as close to the execve() as possible, to make sure our own code is affected
                  * by the filter as little as possible. */
                 r = apply_syscall_filter(context, params);
