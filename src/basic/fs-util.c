@@ -1123,10 +1123,20 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
                  * without O_CREAT. */
                 fd = openat(dirfd, pathname, flags | O_NOFOLLOW, mode);
                 if (fd >= 0) {
-                        /* Unless it went away in the meantime and we created it after all. F_CREATED_QUERY
-                         * tells us since Linux 6.12, with older kernels we assume it still existed. */
-                        if (ret_newly_created)
-                                *ret_newly_created = fcntl(fd, F_CREATED_QUERY) > 0;
+                        if (ret_newly_created) {
+                                /* Unless it went away in the meantime and we created it after all.
+                                 * F_CREATED_QUERY tells us since Linux 6.12, older kernels refuse it with
+                                 * EINVAL and we assume it still existed. */
+                                r = RET_NERRNO(fcntl(fd, F_CREATED_QUERY));
+                                if (r == -EINVAL || ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                                        r = false;
+                                else if (r < 0) {
+                                        safe_close(fd);
+                                        return r;
+                                }
+
+                                *ret_newly_created = r;
+                        }
                         return fd;
                 }
                 if (errno == ELOOP && !FLAGS_SET(flags, O_NOFOLLOW)) {
