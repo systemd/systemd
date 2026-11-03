@@ -445,7 +445,7 @@ TEST(exec_command_flags_to_strv) {
         _cleanup_strv_free_ char **opts = NULL;
 
         ASSERT_OK(exec_command_flags_to_strv(EXEC_COMMAND_NO_ENV_EXPAND|EXEC_COMMAND_IGNORE_FAILURE, &opts));
-        ASSERT_STRV_EQ(opts, STRV_MAKE("ignore-failure", "no-env-expand"));
+        ASSERT_STRV_EQ_SET(opts, "ignore-failure", "no-env-expand");
 
         opts = strv_free(opts);
 
