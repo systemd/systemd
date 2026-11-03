@@ -1685,8 +1685,16 @@ static int setup_network(void) {
               "\n"
               "[Network]\n"
               "DHCP=yes\n"
-              "LinkLocalAddressing=ipv6\n"
-              "\n"
+              "LinkLocalAddressing=ipv6\n", f);
+
+        /* IMDS's replies to imdsd carry no firewall mark. Reverse path filtering would check their source
+         * address against the main table, find the prohibit route below, and drop them. IPv6 has no
+         * reverse path filter. */
+        if (arg_network_mode != IMDS_NETWORK_UNLOCKED && in4_addr_is_set(&arg_address_ipv4))
+                fputs("# Reverse path filtering would drop IMDS's replies due to the prohibit route\n"
+                      "IPv4ReversePathFilter=no\n", f);
+
+        fputs("\n"
               "[DHCP]\n"
               "UseTimezone=yes\n"
               "UseHostname=yes\n"
