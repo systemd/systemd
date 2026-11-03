@@ -973,6 +973,11 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             account.
             </para>
 
+            <para>This command also removes the <filename>/dev/null</filename> entries that a prior
+            <command>disable</command> placed in the unit configuration directory to shadow the symlinks the
+            vendor enabled the unit with below <filename>/usr/</filename>, see <command>disable</command>
+            below.</para>
+
             <para>When using this operation on units without install information, a warning about it is shown.
             <option>--no-warn</option> can be used to suppress the warning.</para>
 
@@ -1003,6 +1008,19 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <command>link</command>. Note that while <command>disable</command> undoes the effect of
             <command>enable</command>, the two commands are otherwise not symmetric, as <command>disable</command> may
             remove more symlinks than a prior <command>enable</command> invocation of the same unit created.</para>
+
+            <para>A unit the vendor enabled with a <filename>.wants/</filename>, <filename>.requires/</filename>
+            or <filename>.upholds/</filename> symlink below <filename>/usr/</filename> is turned off by
+            placing a symlink to <filename>/dev/null</filename> with the same name in the unit configuration
+            directory. The service manager ignores a dependency entry that resolves to
+            <filename>/dev/null</filename>, so the entry shadows the vendor's symlink. The vendor's symlink
+            itself stays: <filename>/usr/</filename> is frequently read-only, and the next image update
+            would restore it. Only the symlinks that <command>enable</command> would create are shadowed,
+            i.e. the ones in the directories that <varname>WantedBy=</varname>,
+            <varname>RequiredBy=</varname> and <varname>UpheldBy=</varname> in the [Install] section name.
+            Any other dependency symlink below <filename>/usr/</filename> is a static dependency and stays in
+            effect. Existing masks stay too, including the masks of instances when a template unit is
+            disabled.</para>
 
             <para>This command expects valid unit names only, it does not accept paths to unit files.</para>
 
@@ -1066,6 +1084,11 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>Use <option>--preset-mode=</option> to control whether units shall be
             enabled and disabled, or only enabled, or only disabled.</para>
 
+            <para>A preset policy of <literal>disable</literal> removes the symlinks in the unit
+            configuration directory. Unlike <command>disable</command>, it leaves the symlinks the vendor
+            enabled a unit with below <filename>/usr/</filename> in effect. Preset files do not need to name
+            the units the vendor enabled.</para>
+
             <para>If the unit carries no install information, it will be silently ignored
             by this command. <replaceable>UNIT</replaceable> must be the real unit name,
             any alias names are ignored silently.</para>
@@ -1121,7 +1144,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
                 <tbody>
                   <row>
                     <entry><literal>enabled</literal></entry>
-                    <entry morerows='1'>Enabled via <filename>.wants/</filename>, <filename>.requires/</filename> or <varname>Alias=</varname> symlinks (permanently in <filename>/etc/systemd/system/</filename>, or transiently in <filename>/run/systemd/system/</filename>).</entry>
+                    <entry morerows='1'>Enabled via <filename>.wants/</filename>, <filename>.requires/</filename> or <varname>Alias=</varname> symlinks (permanently in <filename>/etc/systemd/system/</filename>, or transiently in <filename>/run/systemd/system/</filename>). Units the vendor enabled with a <filename>.wants/</filename>, <filename>.requires/</filename> or <filename>.upholds/</filename> symlink below <filename>/usr/</filename>, in a directory the [Install] section of the unit names, are reported as <literal>enabled</literal> too: the service manager acts on those the same way.</entry>
                     <entry morerows='1'>0</entry>
                   </row>
                   <row>
