@@ -2705,6 +2705,7 @@ static const BusProperty execute_properties[] = {
         { "SystemCallFilter",                      bus_append_filter_list                        },
         { "SystemCallLog",                         bus_append_filter_list                        },
         { "RestrictNetworkInterfaces",             bus_append_filter_list                        },
+        { "IOUringFilter",                         bus_append_filter_list                        },
         { "RestrictNamespaces",                    bus_append_namespace_list                     },
         { "DelegateNamespaces",                    bus_append_namespace_list                     },
         { "BindPaths",                             bus_append_bind_paths                         },
