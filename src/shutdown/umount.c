@@ -255,9 +255,8 @@ static int remount_with_timeout(MountPoint *m, bool last_try) {
 
         assert(m);
 
-        r = pipe2(pfd, O_CLOEXEC|O_NONBLOCK);
-        if (r < 0)
-                return r;
+        if (pipe2(pfd, O_CLOEXEC|O_NONBLOCK) < 0)
+                return -errno;
 
         /* Due to the possibility of a remount operation hanging, we fork a child process and set a
          * timeout. If the timeout lapses, the assumption is that the particular remount failed. */
@@ -317,9 +316,8 @@ static int umount_with_timeout(MountPoint *m, bool last_try) {
 
         assert(m);
 
-        r = pipe2(pfd, O_CLOEXEC|O_NONBLOCK);
-        if (r < 0)
-                return r;
+        if (pipe2(pfd, O_CLOEXEC|O_NONBLOCK) < 0)
+                return -errno;
 
         /* Due to the possibility of a umount operation hanging, we fork a child process and set a
          * timeout. If the timeout lapses, the assumption is that the particular umount failed. */
