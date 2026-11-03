@@ -18,6 +18,67 @@
 #include "pidref.h"
 #include "process-util.h"
 #include "set.h"
+#include "string-table.h"
+
+/* Each opcode maps to the system calls that it can do the work of. An opcode that is missing here has no
+ * system call equivalent, because it only manages the ring itself. */
+static const char* const io_uring_op_syscalls_table[IORING_OP_LAST] = {
+        [IORING_OP_READV]            = "readv\0preadv\0preadv2\0",
+        [IORING_OP_WRITEV]           = "writev\0pwritev\0pwritev2\0",
+        [IORING_OP_FSYNC]            = "fsync\0fdatasync\0",
+        [IORING_OP_READ_FIXED]       = "read\0pread64\0",
+        [IORING_OP_WRITE_FIXED]      = "write\0pwrite64\0",
+        [IORING_OP_POLL_ADD]         = "poll\0ppoll\0ppoll_time64\0",
+        [IORING_OP_SYNC_FILE_RANGE]  = "sync_file_range\0sync_file_range2\0",
+        [IORING_OP_SENDMSG]          = "sendmsg\0",
+        [IORING_OP_RECVMSG]          = "recvmsg\0",
+        [IORING_OP_ACCEPT]           = "accept\0accept4\0",
+        [IORING_OP_CONNECT]          = "connect\0",
+        [IORING_OP_FALLOCATE]        = "fallocate\0",
+        [IORING_OP_OPENAT]           = "open\0openat\0",
+        [IORING_OP_CLOSE]            = "close\0",
+        [IORING_OP_STATX]            = "statx\0",
+        [IORING_OP_READ]             = "read\0pread64\0",
+        [IORING_OP_WRITE]            = "write\0pwrite64\0",
+        [IORING_OP_FADVISE]          = "fadvise64\0fadvise64_64\0arm_fadvise64_64\0",
+        [IORING_OP_MADVISE]          = "madvise\0",
+        [IORING_OP_SEND]             = "sendto\0",
+        [IORING_OP_RECV]             = "recvfrom\0",
+        [IORING_OP_OPENAT2]          = "openat2\0",
+        [IORING_OP_EPOLL_CTL]        = "epoll_ctl\0",
+        [IORING_OP_SPLICE]           = "splice\0",
+        [IORING_OP_TEE]              = "tee\0",
+        [IORING_OP_SHUTDOWN]         = "shutdown\0",
+        [IORING_OP_RENAMEAT]         = "rename\0renameat\0renameat2\0",
+        [IORING_OP_UNLINKAT]         = "unlink\0unlinkat\0rmdir\0",
+        [IORING_OP_MKDIRAT]          = "mkdir\0mkdirat\0",
+        [IORING_OP_SYMLINKAT]        = "symlink\0symlinkat\0",
+        [IORING_OP_LINKAT]           = "link\0linkat\0",
+        [IORING_OP_FSETXATTR]        = "fsetxattr\0",
+        [IORING_OP_SETXATTR]         = "setxattr\0setxattrat\0",
+        [IORING_OP_FGETXATTR]        = "fgetxattr\0",
+        [IORING_OP_GETXATTR]         = "getxattr\0getxattrat\0",
+        [IORING_OP_SOCKET]           = "socket\0",
+        [IORING_OP_URING_CMD]        = "ioctl\0setsockopt\0getsockopt\0getsockname\0",
+        [IORING_OP_SEND_ZC]          = "sendto\0",
+        [IORING_OP_SENDMSG_ZC]       = "sendmsg\0",
+        [IORING_OP_READ_MULTISHOT]   = "read\0",
+        [IORING_OP_WAITID]           = "waitid\0",
+        [IORING_OP_FUTEX_WAIT]       = "futex\0futex_time64\0",
+        [IORING_OP_FUTEX_WAKE]       = "futex\0futex_time64\0",
+        [IORING_OP_FUTEX_WAITV]      = "futex_waitv\0",
+        [IORING_OP_FTRUNCATE]        = "ftruncate\0ftruncate64\0",
+        [IORING_OP_BIND]             = "bind\0",
+        [IORING_OP_LISTEN]           = "listen\0",
+        [IORING_OP_RECV_ZC]          = "recvfrom\0",
+        [IORING_OP_EPOLL_WAIT]       = "epoll_wait\0epoll_pwait\0epoll_pwait2\0",
+        [IORING_OP_READV_FIXED]      = "readv\0preadv\0preadv2\0",
+        [IORING_OP_WRITEV_FIXED]     = "writev\0pwritev\0pwritev2\0",
+        [IORING_OP_PIPE]             = "pipe\0pipe2\0",
+        [IORING_OP_URING_CMD128]     = "ioctl\0setsockopt\0getsockopt\0getsockname\0",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(io_uring_op_syscalls, int);
 
 /* Filters load 32-bit words from struct io_uring_bpf_ctx in native byte order. Flags and mode of an open
  * request are 64-bit fields, and all bits that we check are in their lower half. */

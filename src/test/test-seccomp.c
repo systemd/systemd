@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/io_uring.h>
 #include <poll.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -226,6 +227,34 @@ TEST(filter_sets) {
                         }
 
                         _exit(EXIT_SUCCESS);
+                }
+        }
+}
+
+TEST(io_uring_op_syscalls) {
+        _cleanup_hashmap_free_ Hashmap *system_service = NULL;
+
+        ASSERT_NOT_NULL(system_service = hashmap_new(/* hash_ops= */ NULL));
+        if (is_seccomp_available())
+                ASSERT_OK(seccomp_filter_set_add_by_name(system_service, /* add= */ true, "@system-service"));
+
+        for (int op = 0; op < IORING_OP_LAST; op++) {
+                const char *syscalls = io_uring_op_syscalls_to_string(op);
+
+                if (!syscalls)
+                        continue;
+
+                NULSTR_FOREACH(name, syscalls) {
+                        log_debug("io_uring opcode %i: %s", op, name);
+                        ASSERT_TRUE(nulstr_contains(syscall_filter_sets[SYSCALL_FILTER_SET_KNOWN].value, name));
+
+                        if (!is_seccomp_available())
+                                continue;
+
+                        /* SystemCallFilter=@system-service must not deny any io_uring operation. */
+                        int id = sym_seccomp_syscall_resolve_name(name);
+                        if (id >= 0)
+                                ASSERT_TRUE(hashmap_contains(system_service, INT_TO_PTR(id + 1)));
                 }
         }
 }
