@@ -268,11 +268,11 @@ static int on_connect(sd_event_source *s, int fd, uint32_t revents, void *userda
         return 0;
 }
 
-static int manager_exit(Manager *manager, int exit_code) {
+static void manager_exit(Manager *manager, int exit_code) {
         assert(manager);
 
         if (manager->exit)
-                return 0;
+                return;
 
         manager->exit_code = exit_code;
         manager->exit = true;
@@ -282,8 +282,6 @@ static int manager_exit(Manager *manager, int exit_code) {
         /* Do not accept any new connections. */
         manager->coredump_socket_event_source = sd_event_source_disable_unref(manager->coredump_socket_event_source);
         manager->coredump_socket = safe_close(manager->coredump_socket);
-
-        return 0;
 }
 
 static int on_post(sd_event_source *s, void *userdata) {
@@ -295,7 +293,7 @@ static int on_post(sd_event_source *s, void *userdata) {
                 r = sd_event_source_set_enabled(manager->coredump_socket_event_source, SD_EVENT_ON);
                 if (r < 0) {
                         log_error_errno(r, "Failed to re-enable listening on the kernel coredump socket, terminating: %m");
-                        (void) manager_exit(manager, r);
+                        manager_exit(manager, r);
                 }
         }
 
@@ -310,7 +308,9 @@ static int on_post(sd_event_source *s, void *userdata) {
 }
 
 static int on_sigterm(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        return manager_exit(ASSERT_PTR(userdata), /* exit_code= */ 0);
+        manager_exit(ASSERT_PTR(userdata), /* exit_code= */ 0);
+
+        return 0;
 }
 
 static int on_sighup(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
