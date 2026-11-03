@@ -105,6 +105,14 @@ static inline bool isempty(const sd_char *a) {
         return !a || a[0] == '\0';
 }
 
+/* This macro's return pointer will have the "const" qualifier set or unset the same way as the input
+ * pointer. */
+#define empty_to_null(p)                                \
+        ({                                              \
+                const sd_char *_p = (p);                \
+                (typeof(p)) (isempty(_p) ? NULL : _p);  \
+        })
+
 static inline const sd_char *strempty(const sd_char *s) {
         return s ?: STR_C("");
 }
