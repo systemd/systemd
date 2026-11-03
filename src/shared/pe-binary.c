@@ -4,14 +4,18 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "copy.h"
 #include "crypto-util.h"
+#include "fd-util.h"
 #include "hexdecoct.h"
 #include "log.h"
+#include "memfd-util.h"
 #include "pe-binary.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "utf8.h"
 
 /* Cap on the (VirtualSize - SizeOfRawData) zero-padding the UKI hasher
  * will produce for a single section.  Any value beyond this is treated as
@@ -59,6 +63,14 @@ bool pe_header_is_signed(const PeHeader *h) {
         return certificate_table && le32toh(certificate_table->VirtualAddress) != 0;
 }
 
+bool pe_section_name_is_valid(const char *name) {
+        /* Longer names would need the COFF string table, which systemd-stub doesn't read. */
+        return !isempty(name) &&
+                strlen(name) <= sizeof_field(IMAGE_SECTION_HEADER, Name) &&
+                ascii_is_valid(name) &&
+                !string_has_cc(name, /* ok= */ NULL);
+}
+
 const IMAGE_SECTION_HEADER* pe_section_table_find(
                 const IMAGE_SECTION_HEADER *sections,
                 size_t n_sections,
@@ -79,6 +91,60 @@ const IMAGE_SECTION_HEADER* pe_section_table_find(
                         return section;
 
         return NULL;
+}
+
+const IMAGE_SECTION_HEADER* pe_find_profile_section_table(
+                const PeHeader *pe_header,
+                const IMAGE_SECTION_HEADER *sections,
+                unsigned profile,
+                size_t *ret_n_sections) {
+
+        assert(pe_header);
+
+        /* Looks for the part of the section table that defines the specified profile. If 'profile' is
+         * specified as UINT_MAX this will look for the base profile. */
+
+        if (le16toh(pe_header->pe.NumberOfSections) == 0)
+                return NULL;
+
+        assert(sections);
+
+        const IMAGE_SECTION_HEADER
+                *p = sections,
+                *e = sections + le16toh(pe_header->pe.NumberOfSections),
+                *start = profile == UINT_MAX ? sections : NULL,
+                *end;
+        unsigned current_profile = UINT_MAX;
+
+        for (;;) {
+                p = pe_section_table_find(p, e - p, ".profile");
+                if (!p) {
+                        end = e;
+                        break;
+                }
+                if (current_profile == profile) {
+                        end = p;
+                        break;
+                }
+
+                if (current_profile == UINT_MAX)
+                        current_profile = 0;
+                else
+                        current_profile++;
+
+                if (current_profile == profile)
+                        start = p;
+
+                p++; /* Continue scanning after the .profile entry we just found */
+        }
+
+        if (!start)
+                return NULL;
+
+        if (ret_n_sections)
+                *ret_n_sections = end - start;
+
+        return start;
 }
 
 const IMAGE_SECTION_HEADER* pe_header_find_section(
@@ -294,6 +360,35 @@ int pe_read_section_data(
         }
 
         return 0;
+}
+
+int pe_section_to_memfd(int fd, const IMAGE_SECTION_HEADER *section, const char *name) {
+        int r;
+
+        assert(fd >= 0);
+        assert(section);
+        assert(name);
+
+        uint64_t offset = le32toh(section->PointerToRawData);
+        uint32_t size = MIN(le32toh(section->VirtualSize), le32toh(section->SizeOfRawData));
+
+        _cleanup_close_ int memfd = memfd_new(name);
+        if (memfd < 0)
+                return memfd;
+
+        /* copy_bytes_offset() can't use sendfile() when a target offset is given. copy_file_range() fails
+         * with EXDEV when the UKI is on another file system, and the copy then falls back to read() and
+         * pwrite(). Nothing else uses the memfd, so we write at its file offset instead. */
+        r = copy_bytes_offset(fd, &offset, memfd, /* toffset= */ NULL, size, /* copy_flags= */ 0);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EBADMSG;
+
+        if (lseek(memfd, 0, SEEK_SET) < 0)
+                return -errno;
+
+        return TAKE_FD(memfd);
 }
 
 int pe_read_section_data_by_name(

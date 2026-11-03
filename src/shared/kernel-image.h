@@ -34,6 +34,11 @@ int kernel_uname_from_elf_note(int fd, char **ret);
 int kernel_uname_from_banner(int fd, char **ret);
 int kernel_find_uname(int fd, char **ret);
 
+/* Writes the initrds at 'paths' one after the other to 'fd', which has to be empty. Each initrd starts at a
+ * 4 byte boundary, and the output is padded to 4 bytes. The output starts at offset 0 of 'fd', independent of
+ * the file offset of 'fd', and the file offset doesn't change. */
+int initrd_concatenate(char * const *paths, int fd);
+
 static inline int inspect_kernel(
                 int dir_fd,
                 const char *filename,
