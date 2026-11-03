@@ -2427,7 +2427,7 @@ int image_name_lock(
         return make_lock_file(p, operation, ret);
 }
 
-bool image_in_search_path(
+int image_in_search_path(
                 RuntimeScope scope,
                 ImageClass class,
                 const char *root,
