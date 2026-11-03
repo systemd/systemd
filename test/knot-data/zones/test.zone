@@ -17,6 +17,7 @@ ns1.unsigned          A    10.0.0.1
 ns1.unsigned          AAAA fd00:dead:beef:cafe::1
 
 onlinesign            NS   ns1.unsigned
+mixedalgo             NS   ns1.unsigned
 signed                NS   ns1.unsigned
 unsigned              NS   ns1.unsigned
 

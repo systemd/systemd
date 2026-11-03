@@ -30,6 +30,8 @@ fi
 knotc -c /usr/lib/systemd/tests/testdata/knot-data/knot.conf conf-check
 
 RUN_OUT="$(mktemp)"
+# Set by setup() if knot supports ED448
+MIXEDALGO_ED448=0
 
 run() {
     "$@" |& tee "$RUN_OUT"
@@ -152,6 +154,14 @@ EOF
     chmod -R ug+rwX /var/lib/knot/
     chmod -R g+r /etc/knot/
 
+    : "Setup - Sign mixedalgo.test with ECDSAP256SHA256 and ED448"
+    keymgr mixedalgo.test. generate algorithm=ECDSAP256SHA256 ksk=yes zsk=yes
+    if keymgr mixedalgo.test. generate algorithm=ED448 ksk=yes zsk=yes; then
+        MIXEDALGO_ED448=1
+    else
+        echo "knot doesn't support ED448, mixedalgo.test is signed with ECDSAP256SHA256 only"
+    fi
+
     : "Setup - Sign the root zone"
     keymgr . generate algorithm=ECDSAP256SHA256 ksk=yes zsk=yes
     # Create a trust anchor for resolved with our root zone
@@ -206,18 +216,19 @@ EOF
     run knotc zone-check || :
     sed -i '/forwarded.test./d' "$RUN_OUT"
     [[ ! -s "$RUN_OUT" ]]
-    # We need to manually propagate the DS records of onlinesign.test. to the parent
-    # zone, since they're generated online
+    # Propagate the DS records of onlinesign.test. (generated online) and mixedalgo.test. (manual keys)
     knotc zone-begin test.
-    if knotc zone-get test. onlinesign.test. ds | grep .; then
-        # Drop any old DS records, if present (e.g. on test re-run)
-        knotc zone-unset test. onlinesign.test. ds
-    fi
+    for zone in onlinesign.test. mixedalgo.test.; do
+        if knotc zone-get test. "$zone" ds | grep .; then
+            # Drop any old DS records, if present (e.g. on test re-run)
+            knotc zone-unset test. "$zone" ds
+        fi
 
-    : "Setup - Propagate the new DS records"
-    while read -ra line; do
-        knotc zone-set test. "${line[0]}" 600 "${line[@]:1}"
-    done < <(keymgr onlinesign.test. ds)
+        : "Setup - Propagate the new DS records of $zone"
+        while read -ra line; do
+            knotc zone-set test. "${line[0]}" 600 "${line[@]:1}"
+        done < <(keymgr "$zone" ds)
+    done
     knotc zone-commit test.
 
     knotc reload
@@ -1859,6 +1870,49 @@ testcase_16_varlink_link_methods() {
     do_test_varlink_link_error "hoge0" "/run/systemd/netif/io.systemd.Network" "io.systemd.Network.Link.InterfaceUnmanaged"
     do_test_varlink_link_error "lo" "/run/systemd/resolve/io.systemd.Resolve" "io.systemd.Resolve.Link.IsLoopback"
     do_test_varlink_link_error "lo" "/run/systemd/netif/io.systemd.Network" "io.systemd.Resolve.Link.IsLoopback"
+}
+
+testcase_dnssec_mixed_algorithms() {
+    if [[ "$MIXEDALGO_ED448" -ne 1 ]]; then
+        echo "mixedalgo.test is not signed with ED448, skipping"
+        return 0
+    fi
+
+    # shellcheck disable=SC2317,SC2329
+    cleanup() {
+        resolvectl revert dns0
+        resolvectl flush-caches
+    }
+
+    trap cleanup RETURN ERR
+
+    # Strict mode, so validation failures aren't downgraded
+    resolvectl dnssec dns0 'yes'
+    resolvectl flush-caches
+    run resolvectl dnssec dns0
+    grep -qF "dns0): yes" "$RUN_OUT"
+
+    : "The zone is signed with both ECDSAP256SHA256 (13) and ED448 (16)"
+    run dig @ns1.unsigned.test +short DNSKEY mixedalgo.test
+    grep -qE "^257 3 13 " "$RUN_OUT"
+    grep -qE "^257 3 16 " "$RUN_OUT"
+    run dig @ns1.unsigned.test +short DS mixedalgo.test
+    grep -qE "^[0-9]+ 13 " "$RUN_OUT"
+    grep -qE "^[0-9]+ 16 " "$RUN_OUT"
+
+    : "Data from the zone is validated"
+    run_delv @ns1.unsigned.test mixedalgo.test
+    grep -qF "; fully validated" "$RUN_OUT"
+    run resolvectl query mixedalgo.test
+    grep -qF "mixedalgo.test: 10.0.0.141" "$RUN_OUT"
+    grep -qF "authenticated: yes" "$RUN_OUT"
+    run resolvectl query sub.mixedalgo.test
+    grep -qF "sub.mixedalgo.test: 10.0.0.142" "$RUN_OUT"
+    grep -qF "authenticated: yes" "$RUN_OUT"
+    run resolvectl query --legend=no -t TXT mixedalgo.test
+    grep -qF 'mixedalgo.test IN TXT "hello from mixedalgo"' "$RUN_OUT"
+    run resolvectl query -t DNSKEY mixedalgo.test
+    grep -qF "authenticated: yes" "$RUN_OUT"
 }
 
 # PRE-SETUP
