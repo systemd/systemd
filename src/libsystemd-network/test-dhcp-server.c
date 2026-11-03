@@ -493,7 +493,7 @@ TEST(dhcp_server_static_lease_special_addresses) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
         ASSERT_OK(sd_dhcp_server_new(&server, 4242));
         ASSERT_OK(sd_dhcp_server_configure_pool(server, &(struct in_addr) { htobe32(INADDR_LOOPBACK) },
-                                                8, 0, 0));
+                                                8, /* offset= */ 0, /* size= */ 0));
 
         sd_dhcp_client_id client_id_subnet = {
                 .size = 7,
