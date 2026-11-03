@@ -2539,7 +2539,8 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         listed operations are denied (deny-listing). Otherwise, only the listed operations are allowed
         (allow-listing). An allow list also denies the operations of newer kernels that systemd doesn't
         know, even though the kernel reports them as supported. Operation names that systemd doesn't know
-        are ignored.</para>
+        are ignored. Use <command>systemd-analyze io-uring-filter</command> to list the operations that
+        systemd knows.</para>
 
         <para>This option may be specified more than once, in which case the lists are merged. If the first
         assignment starts with <literal>~</literal>, the list is a deny list, otherwise it is an allow list.
@@ -3043,7 +3044,8 @@ RestrictNamespaces=~cgroup net</programlisting>
         if the filter allows <function>io_uring_setup()</function>. An operation that can do the work of
         one or more system calls, such as <constant>IORING_OP_OPENAT</constant> or
         <constant>IORING_OP_SOCKET</constant>, is denied if the filter denies any of its equivalent system
-        calls. Operations of newer kernels that systemd doesn't know are not affected. Denied requests
+        calls. <command>systemd-analyze io-uring-filter</command> lists the equivalent system calls of each
+        operation. Operations of newer kernels that systemd doesn't know are not affected. Denied requests
         always fail with <constant>EACCES</constant>, regardless of
         <varname>SystemCallErrorNumber=</varname> and of the action of the system call. System calls that
         are denied with an error number of 0 do not affect io_uring operations, since a denied request
