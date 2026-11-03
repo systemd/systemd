@@ -233,6 +233,8 @@ static int dhcp_server_ack(sd_dhcp_server *server, DHCPRequest *req) {
 }
 
 static int dhcp_server_process_discover(sd_dhcp_server *server, DHCPRequest *req) {
+        int r;
+
         assert(server);
         assert(req);
 
@@ -244,10 +246,10 @@ static int dhcp_server_process_discover(sd_dhcp_server *server, DHCPRequest *req
 
         /* for now pick a random free address from the pool */
         if (static_lease) {
-                sd_dhcp_server_lease *l = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(static_lease->address));
-                if (l && l != existing_lease)
+                r = dhcp_server_get_bound_lease(server, req, static_lease->address, /* ret= */ NULL);
+                if (r < 0)
                         /* The address is already assigned to another host. Refusing. */
-                        return -EADDRINUSE;
+                        return r;
 
                 /* Found a matching static lease. */
                 req->static_lease = static_lease;
@@ -283,8 +285,13 @@ static int dhcp_server_process_discover(sd_dhcp_server *server, DHCPRequest *req
         if (req->address == INADDR_ANY)
                 return -EADDRNOTAVAIL; /* no free addresses left */
 
+        /* RFC 8925 section 3.3:
+         * If a client includes both a Rapid Commit option and an IPv6-Only Preferred option in the
+         * DHCPDISCOVER message, the server SHOULD NOT honor the Rapid Commit option if the response to the
+         * client would contain the IPv6-Only Preferred option. */
         if (server->rapid_commit &&
-            dhcp_message_get_option_flag(req->message, SD_DHCP_OPTION_RAPID_COMMIT) >= 0)
+            dhcp_message_get_option_flag(req->message, SD_DHCP_OPTION_RAPID_COMMIT) >= 0 &&
+            !dhcp_server_want_ipv6_only_preferred(server, req))
                 return dhcp_server_ack(server, req);
 
         return dhcp_server_send_reply(server, req, DHCP_OFFER);
@@ -355,9 +362,7 @@ static int dhcp_server_process_request(sd_dhcp_server *server, DHCPRequest *req)
         assert(server);
         assert(req);
 
-        sd_dhcp_server_lease
-                *existing_lease = hashmap_get(server->bound_leases_by_client_id, &req->client_id),
-                *static_lease = dhcp_server_get_static_lease(server, req);
+        sd_dhcp_server_lease *static_lease = dhcp_server_get_static_lease(server, req);
 
         DHCPState state;
         be32_t address;
@@ -430,13 +435,10 @@ static int dhcp_server_process_request(sd_dhcp_server *server, DHCPRequest *req)
          * cycle, so that should not cause any big issues. */
         bool send_nak = IN_SET(state, DHCP_STATE_SELECTING, DHCP_STATE_RENEWING, DHCP_STATE_INIT_REBOOT);
 
-        /* Check if the requested address is already assigned to another host.
-         * - if 'l' is NULL, then the address is not assigned to any host.
-         * - if 'l' is non-NULL, and equivalent to 'existing_lease', then the address is assigned to the host.
-         * - if 'l' is non-NULL, but different from 'existing_lease', then the address is already assigned to
-         *   another host. In this case, we explicitly know that the address should not be used by the host. */
-        sd_dhcp_server_lease *l = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(address));
-        if (l && l != existing_lease)
+        /* Check if the requested address is already assigned to another host. In this case, we explicitly
+         * know that the address should not be used by the host. */
+        r = dhcp_server_get_bound_lease(server, req, address, /* ret= */ NULL);
+        if (r < 0)
                 return send_nak ? dhcp_server_send_reply(server, req, DHCP_NAK) : 0;
 
         /* Check if the request is consistent with the static lease. */

@@ -28,6 +28,7 @@
 #include "portable.h"
 #include "string-util.h"
 #include "strv.h"
+#include "unit-name.h"
 #include "verbs.h"
 
 static PagerFlags arg_pager_flags = 0;
@@ -497,6 +498,8 @@ static int verb_inspect_image(int argc, char *argv[], uintptr_t _data, void *use
         if (r < 0)
                 return r;
 
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
         r = determine_matches(argv[1], argv + 2, true, &matches);
         if (r < 0)
                 return r;
@@ -860,6 +863,8 @@ static int maybe_start_stop_restart_units(
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_strv_free_ char **units = NULL;
+        size_t n_units = 0;
         const char *method;
         int r;
 
@@ -873,6 +878,16 @@ static int maybe_start_stop_restart_units(
                  streq(job_type, "stop")  ? "StopUnit"  :
                                             "RestartUnit";
 
+        /* Trying to start/stop/restart templates will result in an error being returned and printed */
+        STRV_FOREACH(name, names) {
+                if (unit_name_is_valid(*name, UNIT_NAME_TEMPLATE))
+                        continue;
+                if (strv_extend_with_size(&units, &n_units, *name) < 0)
+                        return log_oom();
+        }
+        if (n_units == 0)
+                return 0;
+
         /* Prefer the new EnqueueUnitJobMany() method which submits all units in a single transaction.
          * Falls back to per-unit calls on older managers (UnknownMethod) or when the new method rejects
          * something about the request (InvalidArgs). */
@@ -880,7 +895,7 @@ static int maybe_start_stop_restart_units(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append_strv(m, (char**) names);
+        r = sd_bus_message_append_strv(m, units);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -929,8 +944,8 @@ static int maybe_start_stop_restart_units(
         log_debug_errno(r, "EnqueueUnitJobMany() not supported (%s), falling back to per-unit calls.",
                         bus_error_message(&error, r));
 
-        STRV_FOREACH(name, names)
-                (void) maybe_start_stop_restart(bus, *name, method, wait);
+        STRV_FOREACH(unit, units)
+                (void) maybe_start_stop_restart(bus, *unit, method, wait);
 
         return 0;
 }

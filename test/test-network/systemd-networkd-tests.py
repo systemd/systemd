@@ -4125,8 +4125,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         flag4: str,
         ip4_null_16: str,
         ip4_null_24: str,
+        ip4_null_32: str,
         ip6_null_73: str,
         ip6_null_74: str,
+        ip6_null_128: str,
     ):
         output = check_output('ip address show dev dummy98')
         print(output)
@@ -4192,8 +4194,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         prefix24 = ip4_null_24[: -len('.1')]
         self.assertIn(f'inet {ip4_null_16}/16 brd {prefix16}.255.255 scope global subnet16', output)
         self.assertIn(f'inet {ip4_null_24}/24 brd {prefix24}.255 scope global subnet24', output)
+        self.assertIn(f'inet {ip4_null_32}/32 scope global host32', output)
         self.assertIn(f'inet6 {ip6_null_73}/73 scope global', output)
         self.assertIn(f'inet6 {ip6_null_74}/74 scope global', output)
+        self.assertIn(f'inet6 {ip6_null_128}/128 scope global', output)
 
         # invalid sections
         self.assertNotIn('10.4.4.1', output)
@@ -4220,25 +4224,33 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         ip4_null_16 = None
         ip4_null_24 = None
+        ip4_null_32 = None
         output = check_output('ip -4 --json address show dev dummy98')
         for i in json.loads(output)[0]['addr_info']:
             if i['label'] == 'subnet16':
                 ip4_null_16 = i['local']
             elif i['label'] == 'subnet24':
                 ip4_null_24 = i['local']
+            elif i['label'] == 'host32':
+                ip4_null_32 = i['local']
         self.assertTrue(ip4_null_16.endswith('.0.1'))
         self.assertTrue(ip4_null_24.endswith('.1'))
+        self.assertIsNotNone(ip4_null_32)
 
         ip6_null_73 = None
         ip6_null_74 = None
+        ip6_null_128 = None
         output = check_output('ip -6 --json address show dev dummy98')
         for i in json.loads(output)[0]['addr_info']:
             if i['prefixlen'] == 73:
                 ip6_null_73 = i['local']
             elif i['prefixlen'] == 74:
                 ip6_null_74 = i['local']
+            elif i['prefixlen'] == 128 and i['local'].startswith('fd'):
+                ip6_null_128 = i['local']
         self.assertTrue(ip6_null_73.endswith(':1'))
         self.assertTrue(ip6_null_74.endswith(':1'))
+        self.assertIsNotNone(ip6_null_128)
 
         self.verify_address_static(
             label1='label1',
@@ -4266,8 +4278,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             flag4=' home mngtmpaddr',
             ip4_null_16=ip4_null_16,
             ip4_null_24=ip4_null_24,
+            ip4_null_32=ip4_null_32,
             ip6_null_73=ip6_null_73,
             ip6_null_74=ip6_null_74,
+            ip6_null_128=ip6_null_128,
         )
         # nft set
         self.check_nftset('addr4', r'10\.10\.1\.1')
@@ -4305,8 +4319,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             flag4=' noprefixroute',
             ip4_null_16=ip4_null_16,
             ip4_null_24=ip4_null_24,
+            ip4_null_32=ip4_null_32,
             ip6_null_73=ip6_null_73,
             ip6_null_74=ip6_null_74,
+            ip6_null_128=ip6_null_128,
         )
 
         networkctl_reconfigure('dummy98')
@@ -4337,8 +4353,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             flag4=' noprefixroute',
             ip4_null_16=ip4_null_16,
             ip4_null_24=ip4_null_24,
+            ip4_null_32=ip4_null_32,
             ip6_null_73=ip6_null_73,
             ip6_null_74=ip6_null_74,
+            ip6_null_128=ip6_null_128,
         )
 
         # Tests for #20891.
@@ -4379,8 +4397,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             flag4=' noprefixroute',
             ip4_null_16=ip4_null_16,
             ip4_null_24=ip4_null_24,
+            ip4_null_32=ip4_null_32,
             ip6_null_73=ip6_null_73,
             ip6_null_74=ip6_null_74,
+            ip6_null_128=ip6_null_128,
         )
 
         # test for ENOBUFS issue #17012 (with reload)
@@ -7786,6 +7806,126 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         check_output('ip link set dev veth-peer mtu 1800')
         self.check_ndisc_mtu(1700)
 
+    def test_ndisc_router_limit(self):
+        if not os.path.exists(test_ndisc_send):
+            self.skipTest(f'{test_ndisc_send} does not exist.')
+
+        copy_network_unit(
+            '25-veth.netdev',
+            '25-veth-peer-no-address.network',
+            '25-ipv6-prefix-veth-token-static.network',
+        )
+        start_networkd()
+        self.wait_online('veth-peer:degraded')
+        self.check_networkd_log('veth99: NDISC: Started IPv6 Router Solicitation client')
+
+        # See NDISC_ROUTER_MAX in networkd-ndisc.c
+        ndisc_router_max = 64
+        n_senders = ndisc_router_max + 16
+        for i in range(n_senders):
+            check_output(f'{test_ndisc_send} --interface veth-peer --type ra --lifetime 1hour --source fe80::47:{i:x}')  # fmt: skip
+
+        # Wait for networkd to process all RAs (and refuse those that are over the limit).
+        self.check_networkd_log(f'Too many routers remembered per link ({ndisc_router_max}), ignoring RA from fe80::47:{n_senders - 1:x}.')  # fmt: skip
+        # Wait for the last to-be-accepted route.
+        self.wait_route(
+            'veth99',
+            rf'default nhid [0-9]* via fe80::47:{ndisc_router_max - 1:x}',
+            ipv='-6',
+            timeout_sec=10,
+        )
+
+        output = check_output('ip -6 route show default dev veth99 proto ra')
+        print(output)
+        self.assertEqual(len(re.findall(r'via fe80::47:', output)), ndisc_router_max)
+
+        # Resend the first RA with a different MTU - since it's already present in the router hashmap the
+        # existing entry should get updated instead of rejected.
+        check_output(f'{test_ndisc_send} --interface veth-peer --type ra --lifetime 1hour --preference high --mtu 1442 --source fe80::47:0')  # fmt: skip
+        self.check_ndisc_mtu(1442)
+        self.wait_route(
+            'veth99',
+            'default nhid [0-9]* via fe80::47:0 .* pref high',
+            ipv='-6',
+            timeout_sec=10,
+        )
+
+    def test_ndisc_route_limit(self):
+        if not os.path.exists(test_ndisc_send):
+            self.skipTest(f'{test_ndisc_send} does not exist.')
+
+        copy_network_unit(
+            '25-veth.netdev',
+            '25-veth-peer-no-address.network',
+            '25-ipv6-prefix-veth-token-static.network',
+        )
+        start_networkd()
+        self.wait_online('veth-peer:degraded')
+        self.check_networkd_log('veth99: NDISC: Started IPv6 Router Solicitation client')
+
+        # A router-lifetime-zero RA is not remembered as a default router, but a Route Information Option it
+        # carries still installs a route whose gateway is the sender. NDisc routes are capped independently
+        # (NDISC_ROUTE_MAX), so this must be bounded too - otherwise the router cap could be bypassed with
+        # RIO-only RAs.
+        #
+        # See NDISC_ROUTE_MAX in networkd-ndisc.c
+        ndisc_route_max = 512
+        n_senders = ndisc_route_max + 16
+        for i in range(n_senders):
+            check_output(f'{test_ndisc_send} --interface veth-peer --type ra --route 2001:db8:47:{i:x}::/64 --route-lifetime 1hour --source fe80::47:1')  # fmt: skip
+
+        # Wait for networkd to process all RAs (and refuse those that are over the limit).
+        self.check_networkd_log(f'Too many NDisc routes per link ({ndisc_route_max}), ignoring route 2001:db8:47:{n_senders - 1:x}::/64.')  # fmt: skip
+        # Wait for the last to-be-accepted route.
+        self.wait_route(
+            'veth99',
+            rf'2001:db8:47:{ndisc_route_max - 1:x}::/64 .*via fe80::47:1',
+            ipv='-6',
+            timeout_sec=10,
+        )
+
+        output = check_output('ip -6 route show dev veth99 proto ra')
+        print(output)
+        self.assertEqual(len(re.findall(r'2001:db8:47:', output)), ndisc_route_max)
+
+        # Zero-lifetime RA with per-link parameters (MTU) from new sender must be honoured even when cap was
+        # already reached.
+        check_output(f'{test_ndisc_send} --interface veth-peer --type ra --mtu 1462 --source fe80::48:1')  # fmt: skip
+        self.check_ndisc_mtu(1462)
+
+    def test_ndisc_redirect_limit(self):
+        if not os.path.exists(test_ndisc_send):
+            self.skipTest(f'{test_ndisc_send} does not exist.')
+
+        copy_network_unit(
+            '25-veth.netdev',
+            '25-ipv6-prefix.network',
+            '25-ipv6-prefix-veth-token-static.network',
+        )
+        start_networkd()
+        # Wait until veth-peer's RA is processed, so that it is a remembered router and its redirects are
+        # accepted by ndisc_redirect_verify_sender().
+        self.check_ipv6_token_static()
+
+        # See NDISC_REDIRECT_MAX in networkd-ndisc.c.
+        ndisc_redirect_max = 64
+        n_redirects = ndisc_redirect_max + 16
+        for i in range(n_redirects):
+            check_output(f'{test_ndisc_send} --interface veth-peer --type redirect --target-address fe80::1 --redirect-destination 2002:da8:1:1::{i:x}')  # fmt: skip
+        # Wait for networkd to process all redirects (and refuse those over the limit).
+        self.check_networkd_log(f'Too many NDisc redirects per link ({ndisc_redirect_max}), ignoring redirect for 2002:da8:1:1::{n_redirects - 1:x}.')  # fmt: skip
+        # Wait for the last to-be-accepted redirect route.
+        self.wait_route(
+            'veth99',
+            rf'2002:da8:1:1::{ndisc_redirect_max - 1:x} .*proto redirect',
+            ipv='-6',
+            timeout_sec=10,
+        )
+
+        output = check_output('ip -6 route show dev veth99 proto redirect')
+        print(output)
+        self.assertEqual(len(re.findall(r'2002:da8:1:1::', output)), ndisc_redirect_max)
+
     def test_ipv6_token_prefixstable(self):
         copy_network_unit(
             '25-veth.netdev',
@@ -9583,6 +9723,38 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
             self.assertNotRegex(output, r'8.8.8.8 via 192.168.5.[0-9]* proto dhcp src 192.168.5.[0-9]* metric 1024')
             self.assertNotRegex(output, r'9.9.9.9 via 192.168.5.[0-9]* proto dhcp src 192.168.5.[0-9]* metric 1024')
         # fmt: on
+
+        check_json(networkctl_json())
+
+    def test_dhcp_client_ipv4_rfc3021(self):
+        copy_network_unit(
+            '25-veth.netdev',
+            '25-dhcp-server-veth-peer.network',
+            '25-dhcp-client-ipv4-use-routes-use-gateway.network',
+            copy_dropins=False,
+        )
+
+        start_networkd()
+        self.wait_online('veth-peer:carrier')
+        # The lower address of a /31 network is a valid host address, see RFC 3021. Announce a classless
+        # static route for a larger network whose base address is the same as the acquired address.
+        start_dnsmasq(
+            '--dhcp-host=12:34:56:78:9a:bc,192.168.5.0',
+            '--dhcp-option=option:classless-static-route,192.168.5.0/25,192.168.5.1',
+            ipv4_range='192.168.5.0,192.168.5.1,255.255.255.254',
+        )
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+
+        output = check_output('ip -4 address show dev veth99')
+        print(output)
+        self.assertIn('inet 192.168.5.0/31', output)
+
+        output = check_output('ip -4 route show dev veth99')
+        print(output)
+        # The acquired address only shadows a host route to itself, hence the gateway must be honored.
+        self.assertIn('192.168.5.0/25 via 192.168.5.1 proto dhcp src 192.168.5.0 metric 1024', output)
+        self.assertIn('192.168.5.1 proto dhcp scope link src 192.168.5.0 metric 1024', output)
+        self.assertNotIn('192.168.5.0/25 proto dhcp scope host', output)
 
         check_json(networkctl_json())
 
