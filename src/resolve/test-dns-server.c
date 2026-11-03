@@ -24,9 +24,11 @@ static void server_env_setup(ServerEnv *env) {
 
         assert(env);
 
-        /* With DNSSEC enabled and no DNS-over-TLS the best feature level is DO. */
+        /* With DNSSEC enabled and no DNS-over-TLS the best feature level is DO. Claim that libcrypto is
+         * available, as otherwise allow-downgrade is turned off. */
         env->manager = (Manager) {
                 .dnssec_mode = DNSSEC_ALLOW_DOWNGRADE,
+                .dnssec_crypto = 1,
         };
 
         /* Create the server first, like the configured servers that resolved parses before it sets up the
