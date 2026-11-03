@@ -261,12 +261,14 @@
 
       <para>Addon files are sorted, loaded, and measured into TPM PCR 12 (if a TPM is present) and appended
       to the kernel command line. UKI command line options are listed first, then options from addons in
-      <filename>/loader/addons/*.addon.efi</filename>, and finally UKI-specific addons. Device tree blobs are
-      loaded and measured following the same algorithm. Microcode addons are passed to the kernel in inverse
-      order (UKI specific addons, global addons, UKI embedded section). This is because the microcode update
+      <filename>/loader/addons/*.addon.efi</filename>, then UKI-specific addons, and finally boot entry
+      specific addons (see below). Device tree blobs are loaded and measured following the same algorithm.
+      Microcode addons are passed to the kernel in inverse order (boot entry specific addons, UKI specific
+      addons, global addons, UKI embedded section). This is because the microcode update
       driver stops on the first matching filename. Addons are always loaded in the same order based on
-      the filename, so that, given the same set of addons, the same set of measurements can be expected in
-      PCR12. However, note that the filename is not protected by the PE signature, and as such an attacker
+      the filename (boot entry specific addons in the order listed in the entry), so that, given the same set of
+      addons, the same set of measurements can be expected in PCR12. However, note that the filename is not
+      protected by the PE signature, and as such an attacker
       with write access to the ESP could potentially rename these files to change the order in which they are
       loaded, in a way that could alter the functionality of the kernel, as some options might be
       order-dependent. If you sign such addons, you should pay attention to the PCR12 values and make use of
@@ -284,6 +286,14 @@
       <literal>.initrd</literal>, and <literal>.ucode</literal> sections are parsed from them.
       This is supposed to be used to pass additional command line parameters, DeviceTree blobs, initrds,
       and microcode updates to the kernel, regardless of the kernel version being booted.</para></listitem>
+
+      <listitem><para>Finally, addons passed by the boot loader as <constant>LoadFile2</constant> objects
+      (see the <ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>) are
+      loaded, verified and parsed the same way. They are registered by the boot loader, for example by
+      <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+      <filename>*.addon.efi</filename> files configured in UAPI.1 Type #1 <literal>extra</literal> lines. This
+      allows passing addons that are specific to a boot entry, so that the same UKI may be shared between
+      multiple boot entries with different addons.</para></listitem>
     </itemizedlist>
 
     <para>These mechanisms may be used to parameterize and extend trusted (i.e. signed), immutable initrd
