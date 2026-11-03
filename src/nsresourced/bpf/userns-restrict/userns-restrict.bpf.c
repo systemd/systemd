@@ -69,6 +69,9 @@ void* bpf_rdonly_cast(const void *, __u32) __ksym;
 #define OVERLAYFS_SUPER_MAGIC 0x794c7630
 #define CGROUP2_SUPER_MAGIC 0x63677270
 
+/* From include/uapi/linux/fs.h, for the same reason. */
+#define RENAME_WHITEOUT (1U << 2)
+
 /* From include/uapi/asm-generic/fcntl.h. Only archs without BPF trampolines (no LSM programs) deviate. */
 #define __O_TMPFILE (1U << 22) /* O_TMPFILE without O_DIRECTORY */
 
@@ -414,6 +417,16 @@ int BPF_PROG(userns_restrict_file_open, struct file *file, int ret) {
                 return ret;
 
         return validate_mount(file->f_path.mnt, ret);
+}
+
+/* RENAME_WHITEOUT puts a whiteout owned by the calling task in place of the source, past the mknod hook */
+SEC("lsm/path_rename")
+int BPF_PROG(userns_restrict_path_rename, const struct path *old_dir, struct dentry *old_dentry,
+             const struct path *new_dir, struct dentry *new_dentry, unsigned flags, int ret) {
+        if (!(flags & RENAME_WHITEOUT))
+                return ret;
+
+        return validate_mount(old_dir->mnt, ret);
 }
 
 /* overlayfs' struct ovl_fs and struct ovl_layer are private to the module and hence absent from vmlinux.h
