@@ -9050,7 +9050,7 @@ static int context_manifest_gpt(Context *context) {
 
         /* Then an object for the whole image, i.e. the complete disk including the partition table */
         uint8_t image_hash[SHA256_DIGEST_SIZE];
-        r = hash_range(fd, 0, context->total, image_hash);
+        r = hash_range(fd, /* offset= */ 0, context->total, image_hash);
         if (r < 0)
                 return r;
 
