@@ -514,7 +514,9 @@ static int dhcp4_request_route_auto(
                 route->nexthop.gw = IN_ADDR_NULL;
                 route->prefsrc = IN_ADDR_NULL;
 
-        } else if (in4_addr_equal(&route->dst.in, &address)) {
+        } else if (route->dst_prefixlen == 32 && in4_addr_equal(&route->dst.in, &address)) {
+                /* The destination is masked, hence a larger network also compares equal when the acquired
+                 * address has no host bits set, e.g. the lower address of a /31. See RFC 3021. */
                 if (in4_addr_is_set(gw))
                         log_link_debug(link, "DHCP: requested route destination "IPV4_ADDRESS_FMT_STR"/%u is equivalent to the acquired address, "
                                        "ignoring gateway address "IPV4_ADDRESS_FMT_STR,

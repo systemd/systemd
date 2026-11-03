@@ -766,7 +766,8 @@ endif
 time_epoch = get_option('time-epoch')
 if time_epoch <= 0
         time_epoch = run_command(sh, '-c', 'echo "$SOURCE_DATE_EPOCH"', check : true).stdout().strip()
-        if time_epoch == '' and git.found() and fs.is_dir('.git')
+        # .git is a file instead of a directory in a git worktree.
+        if time_epoch == '' and git.found() and fs.exists('.git')
                 # If we're in a git repository, use the creation time of the latest git tag.
                 latest_tag = run_command(git, 'describe', '--abbrev=0', '--tags',
                                          check : false)
@@ -2870,13 +2871,27 @@ if meson.version().version_compare('>=1.4.0')
                         inputs += header
                 endif
 
+                # Generated sources are in the build directory, which is often build/ below the
+                # source directory. Relative to the source directory, the path of a generated
+                # source starts with build/ instead of src/ and gets no clang-tidy-<directory> suite.
+                root = meson.project_source_root()
+                if source.full_path().startswith(meson.project_build_root() + '/')
+                        root = meson.project_build_root()
+                endif
+
+                suites = ['clang-tidy']
+                parts = fs.relative_to(source.full_path(), root).split('/')
+                if parts.length() > 2 and parts[0] == 'src'
+                        suites += 'clang-tidy-@0@'.format(parts[1])
+                endif
+
                 foreach input : inputs
                         if clang_tidy.found()
                                 test(
                                         'clang-tidy-@0@'.format(fs.name(input)),
                                         clang_tidy,
                                         args : ['-p', meson.project_build_root(), input],
-                                        suite : 'clang-tidy',
+                                        suite : suites,
                                         depends : generated_sources,
                                 )
                         endif
@@ -2912,17 +2927,19 @@ if spatch.found()
         endforeach
 endif
 
-symbol_analysis_exes = []
-foreach name, exe : executables_by_name
-        symbol_analysis_exes += exe
-endforeach
+if want_tests != 'false' and conf.get('BUILD_MODE_DEVELOPER') == 1
+        symbol_analysis_exes = []
+        foreach name, exe : executables_by_name
+                symbol_analysis_exes += exe
+        endforeach
 
-test(
-        'libshared-unused-symbols',
-        find_unused_library_symbols_py,
-        suite : 'unused-symbols',
-        args : [libshared, libcore] + nss_targets + pam_targets + symbol_analysis_exes,
-)
+        test(
+                'libshared-unused-symbols',
+                find_unused_library_symbols_py,
+                suite : 'unused-symbols',
+                args : [libshared, libcore] + nss_targets + pam_targets + symbol_analysis_exes,
+        )
+endif
 
 run_target(
         'check-api-docs',

@@ -83,12 +83,14 @@ static bool arg_batch = false;
 static bool arg_raw = false;
 static usec_t arg_delay = 1*USEC_PER_SEC;
 static const char *arg_machine = NULL;
-static const char *arg_root = NULL;
+static char *arg_root = NULL;
 static bool arg_recursive = true;
 static bool arg_recursive_unset = false;
 static PidsCount arg_count = COUNT_PIDS;
 static Order arg_order = ORDER_CPU;
 static CPUType arg_cpu_type = CPU_PERCENTAGE;
+
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 
 COMMAND(
         "systemd-cgtop\0",
@@ -812,8 +814,15 @@ static int parse_argv(int argc, char *argv[]) {
         if (n_args > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Too many arguments.");
-        if (n_args == 1)
-                arg_root = option_parser_get_args(&opts)[0];
+        if (n_args == 1) {
+                const char *p = option_parser_get_args(&opts)[0];
+                r = path_simplify_alloc(p, &arg_root);
+                if (r < 0)
+                        return log_oom();
+
+                if (!path_is_normalized(arg_root))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "CGroup path '%s' cannot be normalized.", p);
+        }
 
         return 1;
 }
@@ -1009,7 +1018,7 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Non-recursive counting is only supported when counting processes, not tasks. Use -P or -k.");
 
-        r = show_cgroup_get_path_and_warn(arg_machine, arg_root, &root);
+        r = show_cgroup_get_path_and_warn(arg_machine, skip_leading_chars(arg_root, "/"), &root);
         if (r < 0)
                 return log_error_errno(r, "Failed to get root control group path: %m");
         log_debug("CGroup path: %s", root);
