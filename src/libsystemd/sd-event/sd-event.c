@@ -49,8 +49,6 @@
 #include "strxcpyx.h"
 #include "time-util.h"
 
-#define DEFAULT_ACCURACY_USEC (250 * USEC_PER_MSEC)
-
 static bool EVENT_SOURCE_WATCH_PIDFD(const sd_event_source *s) {
         /* Returns true if this is a PID event source and can be implemented by watching EPOLLIN */
         return s &&
@@ -1581,7 +1579,7 @@ _public_ int sd_event_add_time(
                 return -ENOMEM;
 
         s->time.next = usec;
-        s->time.accuracy = accuracy == 0 ? DEFAULT_ACCURACY_USEC : accuracy;
+        s->time.accuracy = accuracy == 0 ? EVENT_DEFAULT_ACCURACY_USEC : accuracy;
         s->time.callback = callback;
         s->earliest_index = s->latest_index = PRIOQ_IDX_NULL;
         s->userdata = userdata;
@@ -3365,7 +3363,7 @@ _public_ int sd_event_source_set_time_accuracy(sd_event_source *s, uint64_t usec
                 return r;
 
         if (usec == 0)
-                usec = DEFAULT_ACCURACY_USEC;
+                usec = EVENT_DEFAULT_ACCURACY_USEC;
 
         s->time.accuracy = usec;
 
