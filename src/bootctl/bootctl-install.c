@@ -1217,7 +1217,7 @@ static int install_secure_boot_auto_enroll(InstallContext *c) {
 
                 r = link_tmpfile_at(fd, keys_fd, t, filename, LINK_TMPFILE_SYNC);
                 if (r < 0)
-                        return log_error_errno(errno, "Failed to link secure boot auto-enrollment file: %m");
+                        return log_error_errno(r, "Failed to link secure boot auto-enrollment file: %m");
 
                 t = mfree(t); /* Disarm CLEANUP_TMPFILE_AT() */
 
