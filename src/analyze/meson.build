@@ -20,6 +20,7 @@ systemd_analyze_sources = files(
         'analyze-has-tpm2.c',
         'analyze-image-policy.c',
         'analyze-inspect-elf.c',
+        'analyze-io-uring-filter.c',
         'analyze-log-control.c',
         'analyze-malloc.c',
         'analyze-nvpcrs.c',
