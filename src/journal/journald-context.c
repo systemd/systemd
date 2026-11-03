@@ -347,15 +347,12 @@ static int client_context_read_invocation_id(
         if (!c->unit)
                 return 0;
 
-        if (c->user_unit) {
-                r = asprintf(&p, "/run/user/" UID_FMT UNIT_INVOCATION_PARTIAL_PATH ":%s", c->owner_uid, c->user_unit);
-                if (r < 0)
-                        return r;
-        } else {
+        if (c->user_unit)
+                p = asprintf_safe("/run/user/" UID_FMT UNIT_INVOCATION_PARTIAL_PATH ":%s", c->owner_uid, c->user_unit);
+        else
                 p = strjoin(UNIT_INVOCATION_PATH ":", c->unit);
-                if (!p)
-                        return -ENOMEM;
-        }
+        if (!p)
+                return -ENOMEM;
 
         r = readlink_malloc(p, &value);
         if (r < 0)
