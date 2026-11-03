@@ -129,7 +129,7 @@ static inline Pages xmalloc_initrd_pages(size_t n_pages) {
                         AllocateAnyPages,
                         EfiLoaderData,
                         EFI_SIZE_TO_PAGES(n_pages),
-                        0 /* Ignored. */);
+                        /* addr= */ 0 /* Ignored. */);
 }
 
 void convert_efi_path(char16_t *path);
