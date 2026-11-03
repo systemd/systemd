@@ -212,6 +212,7 @@ All execution-related settings are available for transient units.
 ✓ RestrictRealtime=
 ✓ RestrictSUIDSGID=
 ✓ RestrictAddressFamilies=
+✓ IOUringFilter=
 ✓ RootHash=
 ✓ RootHashSignature=
 ✓ RootVerity=
