@@ -96,8 +96,8 @@ static void test_pid_get_comm_one(pid_t pid) {
         ASSERT_OK_ZERO(get_process_gid(pid, &g));
         log_info("PID"PID_FMT" GID: "GID_FMT, pid, g);
 
-        ASSERT_OK_OR(get_process_environ(pid, &env), -EACCES);
-        log_info("PID"PID_FMT" strlen(environ): %zi", pid, env ? (ssize_t)strlen(env) : (ssize_t)-errno);
+        r = ASSERT_OK_OR(get_process_environ(pid, &env), -EACCES);
+        log_info("PID"PID_FMT" strlen(environ): %zi", pid, env ? (ssize_t) strlen(env) : (ssize_t) r);
 
         if (!detect_container() && pid == 1)
                 ASSERT_ERROR(get_ctty_devnr(pid, &h), ENXIO);

@@ -4000,7 +4000,7 @@ int config_parse_delegate(
 
                         cc = cgroup_controller_from_string(word);
                         if (cc < 0) {
-                                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid controller name '%s', ignoring", word);
+                                log_syntax(unit, LOG_WARNING, filename, line, cc, "Invalid controller name '%s', ignoring", word);
                                 continue;
                         }
 
@@ -6260,7 +6260,7 @@ int unit_load_fragment(Unit *u) {
                                 _cleanup_freecon_ char *selcon = NULL;
 
                                 /* Cache the SELinux context of the unit file here. We'll make use of when checking access permissions to loaded units */
-                                r = sym_fgetfilecon_raw(fileno(f), &selcon);
+                                r = RET_NERRNO(sym_fgetfilecon_raw(fileno(f), &selcon));
                                 if (r < 0)
                                         log_unit_warning_errno(u, r, "Failed to read SELinux context of '%s', ignoring: %m", fragment);
 

@@ -309,9 +309,9 @@ int mac_selinux_access_check_bus_internal(
                         return 0;
 
                 if (r == -EOPNOTSUPP)
-                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_ACCESS_DENIED, "We appear not to have any SELinux context: %m");
+                        return sd_bus_error_set(reterr_error, SD_BUS_ERROR_ACCESS_DENIED, "We appear not to have any SELinux context.");
 
-                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get current context: %m");
+                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get current context: %s", STRERROR(r));
         }
 
         (void) sd_bus_creds_get_cmdline(creds, &cmdline);

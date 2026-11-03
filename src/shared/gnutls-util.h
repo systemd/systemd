@@ -30,6 +30,7 @@ extern DLSYM_PROTOTYPE(gnutls_certificate_verify_peers2);
 extern DLSYM_PROTOTYPE(gnutls_free);
 extern DLSYM_PROTOTYPE(gnutls_global_set_log_function);
 extern DLSYM_PROTOTYPE(gnutls_global_set_log_level);
+extern DLSYM_PROTOTYPE(gnutls_strerror);
 extern DLSYM_PROTOTYPE(gnutls_x509_crt_deinit);
 extern DLSYM_PROTOTYPE(gnutls_x509_crt_get_dn);
 extern DLSYM_PROTOTYPE(gnutls_x509_crt_import);

@@ -3892,7 +3892,7 @@ static int handle_mount_from_grandchild(
                 return log_oom_debug();
 
         (void) mkdir_p_label(hierarchy_path_moved_mount, 0555);
-        r = move_mount(hierarchy_path_fd, "", AT_FDCWD, hierarchy_path_moved_mount, MOVE_MOUNT_F_EMPTY_PATH);
+        r = RET_NERRNO(move_mount(hierarchy_path_fd, "", AT_FDCWD, hierarchy_path_moved_mount, MOVE_MOUNT_F_EMPTY_PATH));
         if (r < 0)
                 return log_debug_errno(r, "Failed to move mount for %s: %m", mount_path);
 

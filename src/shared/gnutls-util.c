@@ -11,6 +11,7 @@ DLSYM_PROTOTYPE(gnutls_certificate_verify_peers2) = NULL;
 DLSYM_PROTOTYPE(gnutls_free) = NULL;
 DLSYM_PROTOTYPE(gnutls_global_set_log_function) = NULL;
 DLSYM_PROTOTYPE(gnutls_global_set_log_level) = NULL;
+DLSYM_PROTOTYPE(gnutls_strerror) = NULL;
 DLSYM_PROTOTYPE(gnutls_x509_crt_deinit) = NULL;
 DLSYM_PROTOTYPE(gnutls_x509_crt_get_dn) = NULL;
 DLSYM_PROTOTYPE(gnutls_x509_crt_import) = NULL;
@@ -34,6 +35,7 @@ int dlopen_gnutls(int log_level) {
                         DLSYM_ARG(gnutls_free),
                         DLSYM_ARG(gnutls_global_set_log_function),
                         DLSYM_ARG(gnutls_global_set_log_level),
+                        DLSYM_ARG(gnutls_strerror),
                         DLSYM_ARG(gnutls_x509_crt_deinit),
                         DLSYM_ARG(gnutls_x509_crt_get_dn),
                         DLSYM_ARG(gnutls_x509_crt_import),

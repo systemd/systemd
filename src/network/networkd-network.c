@@ -1084,7 +1084,7 @@ int config_parse_link_group(
         }
 
         if (group < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, SYNTHETIC_ERRNO(ERANGE),
                            "Value of Group= must be in the range 0…2147483647, ignoring assignment: %s", rvalue);
                 return 0;
         }

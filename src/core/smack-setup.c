@@ -108,8 +108,8 @@ static int write_access2_rules(const char *srcdir) {
                         /* if 3 args -> load rule   : subject object access1 */
                         /* if 4 args -> change rule : subject object access1 access2 */
                         if (sscanf(buf, "%ms %ms %ms %ms", &sbj, &obj, &acc1, &acc2) < 3) {
-                                log_error_errno(errno, "%s/%s: failed to parse rule '%s', ignoring.",
-                                                srcdir, entry->d_name, buf);
+                                log_error("%s/%s: failed to parse rule '%s', ignoring.",
+                                          srcdir, entry->d_name, buf);
                                 continue;
                         }
 

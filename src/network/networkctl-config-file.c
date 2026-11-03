@@ -727,7 +727,7 @@ int verb_unmask(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         continue;
 
                 if (path_startswith(path, "/usr"))
-                        return log_error_errno(r, "Cannot unmask network config under /usr/: %s", path);
+                        return log_error_errno(SYNTHETIC_ERRNO(EROFS), "Cannot unmask network config under /usr/: %s", path);
 
                 if (unlink(path) < 0) {
                         if (errno == ENOENT)

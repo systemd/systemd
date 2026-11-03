@@ -2909,7 +2909,7 @@ static int analyze_security(sd_bus *bus,
                         if (unit_name_is_valid(mangled, UNIT_NAME_TEMPLATE)) {
                                 r = unit_name_replace_instance(mangled, arg_instance, &instance);
                                 if (r < 0)
-                                        return log_oom();
+                                        return log_error_errno(r, "Failed to replace instance in unit name %s: %m", mangled);
 
                                 name = instance;
                         } else
