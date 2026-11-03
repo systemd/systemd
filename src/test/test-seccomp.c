@@ -23,6 +23,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "io-uring-filter.h"
 #include "memory-util.h"
 #include "nsflags.h"
 #include "nulstr-util.h"
@@ -1271,6 +1272,35 @@ TEST(seccomp_suppress_sync) {
                 test_seccomp_suppress_sync_child();
                 _exit(EXIT_SUCCESS);
         }
+}
+
+static void test_io_uring_bpf_filter_supported_one(uint32_t action) {
+        int r;
+
+        r = ASSERT_OK(pidref_safe_fork("(io-uring-probe)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
+        if (r == 0) {
+                _cleanup_hashmap_free_ Hashmap *filter = NULL;
+
+                ASSERT_OK(proc_set_nnp());
+                ASSERT_NOT_NULL(filter = hashmap_new(/* hash_ops= */ NULL));
+                ASSERT_OK(seccomp_filter_set_add_by_name(filter, /* add= */ true, "io_uring_register"));
+                ASSERT_OK(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, filter, action, /* log_missing= */ true));
+
+                /* io_uring_bpf_filter_supported() returns 0 if a seccomp filter kills the process on
+                 * io_uring_register(). */
+                ASSERT_OK_ZERO(io_uring_bpf_filter_supported());
+
+                _exit(EXIT_SUCCESS);
+        }
+}
+
+TEST(io_uring_bpf_filter_supported) {
+        if (!is_seccomp_available())
+                return (void) log_tests_skipped("Seccomp not available");
+
+        test_io_uring_bpf_filter_supported_one(SCMP_ACT_KILL_PROCESS);
+        test_io_uring_bpf_filter_supported_one(SCMP_ACT_ERRNO(EPERM));
+        test_io_uring_bpf_filter_supported_one(SCMP_ACT_ERRNO(EACCES));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
