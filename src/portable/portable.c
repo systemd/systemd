@@ -1928,7 +1928,10 @@ static int install_image(
          * short image names and is listed among the images. If we are operating in mixed mode, the image is
          * copied instead. */
 
-        if (image_in_search_path(scope, IMAGE_PORTABLE, /* root= */ NULL, image_path))
+        r = image_in_search_path(scope, IMAGE_PORTABLE, /* root= */ NULL, image_path);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to check whether '%s' is in the image search path: %m", image_path);
+        if (r > 0)
                 return 0;
 
         r = image_target_path(scope, image_path, flags, &target);
@@ -2539,11 +2542,18 @@ int portable_detach(
                         if (r == 0)
                                 break;
 
-                        if (path_is_absolute(image) && !image_in_search_path(scope, IMAGE_PORTABLE, /* root= */ NULL, image)) {
-                                r = set_ensure_consume(&markers, &path_hash_ops_free, TAKE_PTR(image));
-                                if (r < 0)
-                                        return r;
-                        }
+                        if (!path_is_absolute(image))
+                                continue;
+
+                        r = image_in_search_path(scope, IMAGE_PORTABLE, /* root= */ NULL, image);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to check whether '%s' is in the image search path: %m", image);
+                        if (r > 0)
+                                continue;
+
+                        r = set_ensure_consume(&markers, &path_hash_ops_free, TAKE_PTR(image));
+                        if (r < 0)
+                                return r;
                 }
         }
 
