@@ -256,6 +256,22 @@ systemd-run --scope --property=Conflicts=slowly-activating.service --job-mode=re
 SHELL=/bin/true systemd-run --shell
 SHELL=/bin/true systemd-run --scope --shell
 systemd-run --wait --pty true
+# stdout as a regular file cannot be polled, the forwarder must cope without a stdout event source
+systemd-run --wait --pty echo pty-regular-file >/tmp/pty-regular.out
+grep pty-regular-file /tmp/pty-regular.out >/dev/null
+rm -f /tmp/pty-regular.out
+
+# The shared file offset keeps "trailer" from clobbering our output
+{ echo header; systemd-run --wait --pty --quiet echo hello; echo trailer; } >/tmp/pty-offset.out
+assert_eq "$(tr -d '\r' </tmp/pty-offset.out)" "$(printf 'header\nhello\ntrailer')"
+rm -f /tmp/pty-offset.out
+
+# Reading ahead on stdin must not eat the lines the loop still expects to read
+printf 'one\ntwo\nthree\n' >/tmp/pty-input.list
+n=0
+while read -r _; do systemd-run --wait --pty --quiet true; n=$((n + 1)); done </tmp/pty-input.list
+assert_eq "$n" 3
+rm -f /tmp/pty-input.list
 systemd-run --wait --machine=.host --pty true
 systemd-run --json=short true | jq . >/dev/null
 systemd-run --json=pretty true | jq . >/dev/null

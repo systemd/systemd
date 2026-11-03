@@ -13,14 +13,15 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "io-util.h"
 #include "iovec-util.h"
 #include "log.h"
-#include "parse-util.h"
 #include "pidfd-util.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "sha256.h"
+#include "sysctl-util.h"
 #include "time-util.h"
 
 /* This is a "best effort" kind of thing, but has no real security value. So, this should only be used by
@@ -152,23 +153,16 @@ int crypto_random_bytes_allocate_iovec(size_t n, struct iovec *ret) {
 }
 
 size_t random_pool_size(void) {
-        _cleanup_free_ char *s = NULL;
+        unsigned sz;
         int r;
 
         /* Read pool size, if possible */
-        r = read_one_line_file("/proc/sys/kernel/random/poolsize", &s);
+        r = sysctl_read_unsigned("kernel/random/poolsize", &sz);
         if (r < 0)
                 log_debug_errno(r, "Failed to read pool size from kernel: %m");
-        else {
-                unsigned sz;
-
-                r = safe_atou(s, &sz);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to parse pool size: %s", s);
-                else
-                        /* poolsize is in bits on 2.6, but we want bytes */
-                        return CLAMP(sz / 8, RANDOM_POOL_SIZE_MIN, RANDOM_POOL_SIZE_MAX);
-        }
+        else
+                /* poolsize is in bits on 2.6, but we want bytes */
+                return CLAMP(sz / 8, RANDOM_POOL_SIZE_MIN, RANDOM_POOL_SIZE_MAX);
 
         /* Use the minimum as default, if we can't retrieve the correct value */
         return RANDOM_POOL_SIZE_MIN;

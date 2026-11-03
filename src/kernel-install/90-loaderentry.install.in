@@ -105,10 +105,36 @@ if [ "$ENTRY_TOKEN" = "$MACHINE_ID" ] && ! echo "$BOOT_OPTIONS" | grep -q "syste
     BOOT_OPTIONS="$BOOT_OPTIONS systemd.machine_id=$MACHINE_ID"
 fi
 
+# Read the devicetree configuration file before anything is removed or installed below, so that a
+# configuration file that is refused leaves the existing loader entries, kernel image and devicetree
+# blob of this kernel version untouched.
+DEVICETREE_FILE=
+if [ -n "$KERNEL_INSTALL_CONF_ROOT" ]; then
+    if [ -f "$KERNEL_INSTALL_CONF_ROOT/devicetree" ]; then
+        DEVICETREE_FILE="$KERNEL_INSTALL_CONF_ROOT/devicetree"
+    fi
+elif [ -f /etc/kernel/devicetree ]; then
+    DEVICETREE_FILE=/etc/kernel/devicetree
+elif [ -f /usr/lib/kernel/devicetree ]; then
+    DEVICETREE_FILE=/usr/lib/kernel/devicetree
+fi
+if [ -n "$DEVICETREE_FILE" ]; then
+    # 'read' fails if it hits the end of the file before a newline, even though it assigned the variable.
+    # Hence, here and for the tries file below, its exit status is ignored and the value is checked
+    # instead. The variable is cleared first, so that an inherited value is not used if opening fails.
+    DEVICETREE=
+    read -r DEVICETREE <"$DEVICETREE_FILE" || :
+    [ -z "$DEVICETREE" ] && {
+        echo "Error: '$DEVICETREE_FILE' is empty or cannot be read." >&2
+        exit 1
+    }
+fi
+
 TRIES_FILE="${KERNEL_INSTALL_CONF_ROOT:-/etc/kernel}/tries"
 
 if [ -f "$TRIES_FILE" ]; then
-    read -r TRIES <"$TRIES_FILE"
+    TRIES=
+    read -r TRIES <"$TRIES_FILE" || :
     if ! echo "$TRIES" | grep -q '^[0-9][0-9]*$'; then
         echo "$TRIES_FILE does not contain an integer." >&2
         exit 1
@@ -138,15 +164,6 @@ install -m 0644 "$KERNEL_IMAGE" "$KERNEL_DEST" || {
 }
 chown root:root "$KERNEL_DEST" || :
 
-if [ -n "$KERNEL_INSTALL_CONF_ROOT" ]; then
-    if [ -f "$KERNEL_INSTALL_CONF_ROOT/devicetree" ]; then
-        read -r DEVICETREE <"$KERNEL_INSTALL_CONF_ROOT/devicetree"
-    fi
-elif [ -f /etc/kernel/devicetree ]; then
-    read -r DEVICETREE </etc/kernel/devicetree
-elif [ -f /usr/lib/kernel/devicetree ]; then
-    read -r DEVICETREE </usr/lib/kernel/devicetree
-fi
 if [ -n "$DEVICETREE" ]; then
     for prefix in \
         "$KERNEL_INSTALL_CONF_ROOT" \

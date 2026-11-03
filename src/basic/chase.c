@@ -21,6 +21,10 @@
  * semantics (e.g. CHASE_NONEXISTENT, CHASE_PARENT, CHASE_STEP) or ask for per-component validation that a
  * single open() cannot provide (e.g. CHASE_SAFE, CHASE_NO_AUTOFS, CHASE_PROHIBIT_SYMLINKS).
  *
+ * CHASE_NO_SYNC is included here because the shortcut paths use fstat(). Since fstat() cannot pass
+ * AT_STATX_DONT_SYNC, it would still synchronize with the server and potentially block. By forcing the
+ * slow path, we guarantee that chase_statx() is used, where the flag is honored.
+ *
  * Notably, the following are *not* listed here:
  *   - CHASE_TRIGGER_AUTOFS: plain open() already triggers automounts, and O_PATH shortcuts can use
  *     XO_TRIGGER_AUTOMOUNT to tell xopenat_full() to use open_tree() instead.
@@ -34,20 +38,39 @@
          CHASE_STEP |                                   \
          CHASE_PROHIBIT_SYMLINKS |                      \
          CHASE_PARENT |                                 \
-         CHASE_MKDIR_0755)
+         CHASE_MKDIR_0755 |                             \
+         CHASE_NO_SYNC)
 
 #define CHASE_MUST_BE_ANY \
         (CHASE_MUST_BE_DIRECTORY|CHASE_MUST_BE_REGULAR|CHASE_MUST_BE_SOCKET)
 
-static int chase_statx(int fd, struct statx *ret) {
+static int chase_statx(int fd, ChaseFlags chase_flags, struct statx *ret) {
+        int statx_flags = 0;
+
+        /* Querying fresh attributes of a mount point root on a network file system (e.g. NFS) makes
+         * the kernel revalidate them with the server, which blocks if the server is unreachable.
+         * Hence, don't force a sync with the server if the caller explicitly asked us not to. */
+        if (FLAGS_SET(chase_flags, CHASE_NO_SYNC))
+                statx_flags |= AT_STATX_DONT_SYNC;
+
         return xstatx_full(fd,
                         /* path= */ NULL,
-                        /* statx_flags= */ 0,
+                        statx_flags,
                         XSTATX_MNT_ID_BEST,
                         STATX_TYPE|STATX_UID|STATX_INO,
                         /* optional_mask= */ 0,
                         /* mandatory_attributes= */ 0,
                         ret);
+}
+
+static int chase_statx_is_root(const struct statx *stx, const struct statx *root_stx) {
+        assert(stx);
+        assert(root_stx);
+
+        if (!statx_inode_same(stx, root_stx))
+                return false;
+
+        return statx_mount_same(stx, root_stx);
 }
 
 static int chase_openat2(int root_fd, int dir_fd, const char *path, ChaseFlags chase_flags) {
@@ -406,7 +429,7 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                 return fd;
 
         struct statx stx;
-        r = chase_statx(fd, &stx);
+        r = chase_statx(fd, flags, &stx);
         if (r < 0)
                 return r;
 
@@ -418,7 +441,7 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                 if (root_fd == dir_fd)
                         root_stx = stx;
                 else {
-                        r = chase_statx(root_fd, &root_stx);
+                        r = chase_statx(root_fd, flags, &root_stx);
                         if (r < 0)
                                 return r;
                 }
@@ -469,8 +492,8 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                          * dir_fd, not that we're at the chroot boundary. */
                         if (root_fd != XAT_FDROOT) {
                                 bool is_root = root_fd == dir_fd && empty_or_root(done);
-                                if (!is_root && statx_inode_same(&stx, &root_stx)) {
-                                        r = statx_mount_same(&stx, &root_stx);
+                                if (!is_root) {
+                                        r = chase_statx_is_root(&stx, &root_stx);
                                         if (r < 0)
                                                 return r;
 
@@ -487,7 +510,7 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                         if (fd_parent < 0)
                                 return -errno;
 
-                        r = chase_statx(fd_parent, &stx_parent);
+                        r = chase_statx(fd_parent, flags, &stx_parent);
                         if (r < 0)
                                 return r;
 
@@ -550,11 +573,30 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                                 _cleanup_close_ int fd_grandparent = -EBADF;
                                 struct statx stx_grandparent;
 
+                                /* With CHASE_PARENT, the returned fd refers to the result itself if the
+                                 * result is "." or "/". fd_parent refers to the result in that case already.
+                                 * If fd_parent is the root directory, openat(fd_parent, "..") returns the
+                                 * directory above the root. We treat the root directory as its own parent
+                                 * instead, like we do for "/..". */
+                                bool stay = empty_or_root(done);
+                                if (!stay && root_fd != XAT_FDROOT) {
+                                        r = chase_statx_is_root(&stx_parent, &root_stx);
+                                        if (r < 0)
+                                                return r;
+
+                                        stay = r > 0;
+                                }
+                                if (stay) {
+                                        stx = stx_parent;
+                                        close_and_replace(fd, fd_parent);
+                                        break;
+                                }
+
                                 fd_grandparent = openat(fd_parent, "..", O_CLOEXEC|O_NOFOLLOW|O_PATH|O_DIRECTORY);
                                 if (fd_grandparent < 0)
                                         return -errno;
 
-                                r = chase_statx(fd_grandparent, &stx_grandparent);
+                                r = chase_statx(fd_grandparent, flags, &stx_grandparent);
                                 if (r < 0)
                                         return r;
 
@@ -610,7 +652,7 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                                 return r;
                 }
 
-                r = chase_statx(child, &stx_child);
+                r = chase_statx(child, flags, &stx_child);
                 if (r < 0)
                         return r;
 
@@ -648,7 +690,7 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                                 if (fd < 0)
                                         return fd;
 
-                                r = chase_statx(fd, &stx);
+                                r = chase_statx(fd, flags, &stx);
                                 if (r < 0)
                                         return r;
 
@@ -993,6 +1035,10 @@ int chase_and_open(
                 }
         }
 
+        /* An empty name reopens the directory, which open(2) refuses to create and fd_reopen() asserts on */
+        if (isempty(open_name) && FLAGS_SET(open_flags, O_CREAT))
+                return -EISDIR;
+
         r = chase_xopenat(path_fd, strempty(open_name), chase_flags, open_flags|O_NOFOLLOW, /* xopen_flags= */ 0);
         if (r < 0)
                 return r;
@@ -1203,6 +1249,10 @@ int chase_and_openat(
                         open_name = fname;
                 }
         }
+
+        /* An empty name reopens the directory, which open(2) refuses to create and fd_reopen() asserts on */
+        if (isempty(open_name) && FLAGS_SET(open_flags, O_CREAT))
+                return -EISDIR;
 
         r = chase_xopenat(path_fd, strempty(open_name), chase_flags, open_flags|O_NOFOLLOW, /* xopen_flags= */ 0);
         if (r < 0)

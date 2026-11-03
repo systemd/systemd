@@ -576,8 +576,10 @@ int bearer_update_link(Bearer *b) {
                 return 0;
 
         r = link_apply_bearer_impl(link, b);
-        if (r < 0)
+        if (r < 0) {
                 link_enter_failed(link);
+                return r;
+        }
 
         /*
          * Need to bring up the interface after the modem has connected.
@@ -590,8 +592,10 @@ int bearer_update_link(Bearer *b) {
          */
 
         r = link_request_to_bring_up_or_down(link, b->connected);
-        if (r < 0)
+        if (r < 0) {
                 link_enter_failed(link);
+                return r;
+        }
 
         return 0;
 }

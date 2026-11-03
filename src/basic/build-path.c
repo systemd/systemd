@@ -244,8 +244,7 @@ int invoke_callout_binary(const char *path, char *const argv[]) {
         if (find_build_dir_binary(fn, &np) >= 0)
                 execv(np, argv);
 
-        execvp(path, argv);
-        return -errno;
+        return execvp_safe(path, argv);
 }
 
 int pin_callout_binary(const char *path, char **ret_path) {
