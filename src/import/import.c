@@ -172,7 +172,7 @@ static int verb_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
                 r = tar_strip_suffixes(l, &ll);
                 if (r < 0)
-                        return log_oom();
+                        return log_error_errno(r, "Failed to strip suffixes from '%s': %m", l);
 
                 local = ll;
         }
