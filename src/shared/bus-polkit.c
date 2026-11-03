@@ -398,7 +398,7 @@ static int async_polkit_process_reply(sd_bus_message *reply, AsyncPolkitQuery *q
          * own (see bus_verify_polkit_async_full()), so if the defer from an earlier reply is still pending,
          * re-arming it would not release the reference this reply took, and the query and the request would
          * leak. Release it right away instead: the pending defer keeps the query alive. */
-        bool defer_pending = sd_event_source_get_enabled(q->defer_event_source, /* ret= */ NULL) > 0;
+        bool defer_pending = false;
 
         if (!q->defer_event_source) {
                 r = sd_event_add_defer(
@@ -412,7 +412,8 @@ static int async_polkit_process_reply(sd_bus_message *reply, AsyncPolkitQuery *q
                 r = sd_event_source_set_priority(q->defer_event_source, SD_EVENT_PRIORITY_IDLE);
                 if (r < 0)
                         return r;
-        }
+        } else
+                defer_pending = sd_event_source_get_enabled(q->defer_event_source, /* ret= */ NULL) > 0;
 
         r = sd_event_source_set_enabled(q->defer_event_source, SD_EVENT_ONESHOT);
         if (r < 0)
