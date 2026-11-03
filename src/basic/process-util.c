@@ -1449,6 +1449,8 @@ int pidref_safe_fork_full(
         assert(!FLAGS_SET(flags, FORK_WAIT|FORK_FREEZE));
         assert(!FLAGS_SET(flags, FORK_DETACH) ||
                (flags & (FORK_WAIT|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGKILL)) == 0);
+        /* pack_fds() moves the fds with O_CLOEXEC set */
+        assert(!FLAGS_SET(flags, FORK_PACK_FDS) || FLAGS_SET(flags, FORK_CLOEXEC_OFF));
 
         /* A wrapper around fork(), that does a couple of important initializations in addition to mere
          * forking. If provided, ret is initialized in both the parent and the child process, both times

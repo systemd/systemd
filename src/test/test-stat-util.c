@@ -168,6 +168,26 @@ TEST(is_symlink) {
         ASSERT_FAIL(is_symlink("/a/file/which/does/not/exist/i/guess"));
 }
 
+TEST(is_symlink_at) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+
+        ASSERT_OK(tfd = mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &t));
+        ASSERT_OK_ERRNO(fd = openat(tfd, "file", O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC, 0600));
+        fd = safe_close(fd);
+        ASSERT_OK_ERRNO(symlinkat("missing", tfd, "dangling"));
+
+        ASSERT_OK_ZERO(is_symlink_at(tfd, "file"));
+        ASSERT_OK_POSITIVE(is_symlink_at(tfd, "dangling"));
+        ASSERT_ERROR(is_symlink_at(tfd, "missing"), ENOENT);
+        ASSERT_OK_ZERO(is_symlink_at(tfd, /* path= */ NULL));
+
+        ASSERT_OK_ERRNO(fd = openat(tfd, "dangling", O_PATH|O_NOFOLLOW|O_CLOEXEC));
+        ASSERT_OK_POSITIVE(is_symlink_at(fd, /* path= */ NULL));
+        ASSERT_OK_POSITIVE(is_symlink_at(fd, ""));
+        ASSERT_ERROR(is_symlink_at(fd, "file"), ENOTDIR);
+}
+
 TEST(path_is_fs_type) {
         /* run might not be a mount point in build chroots */
         if (path_is_mount_point_full("/run", /* root= */ NULL, AT_SYMLINK_FOLLOW) > 0) {

@@ -995,7 +995,7 @@ TEST(fd_reopen_emptypath) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF, dfd = -EBADF, fd = -EBADF;
 
-        ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
+        ASSERT_OK(tfd = mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &t));
 
         /* Older kernels ignore the flag and miss the empty path */
         fd = openat(tfd, "", O_PATH|O_CLOEXEC|O_EMPTYPATH);
@@ -1013,7 +1013,7 @@ TEST(fd_reopen_emptypath) {
         ASSERT_ERROR(RET_NERRNO(openat(dfd, ".", O_RDONLY|O_DIRECTORY|O_CLOEXEC)), EACCES);
 
         ASSERT_OK(fd = fd_reopen(dfd, O_RDONLY|O_DIRECTORY));
-        ASSERT_OK_POSITIVE(inode_same_at(dfd, NULL, fd, NULL, AT_EMPTY_PATH));
+        ASSERT_OK_POSITIVE(inode_same_at(dfd, /* filea= */ NULL, fd, /* fileb= */ NULL, AT_EMPTY_PATH));
 }
 
 TEST(fd_reopen_cloexec) {
