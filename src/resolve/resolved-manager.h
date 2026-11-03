@@ -23,6 +23,7 @@ typedef struct Manager {
         ResolveSupport llmnr_support;
         ResolveSupport mdns_support;
         DnssecMode dnssec_mode;
+        int dnssec_crypto; /* 0: not checked yet, > 0: libcrypto is available, < 0: why loading it failed */
         DnsOverTlsMode dns_over_tls_mode;
         DnsCacheMode enable_cache;
         unsigned cache_max[_DNS_PROTOCOL_MAX];
@@ -216,6 +217,8 @@ int manager_is_own_hostname(Manager *m, const char *name);
 int manager_compile_dns_servers(Manager *m, OrderedSet **servers);
 int manager_compile_search_domains(Manager *m, OrderedSet **domains, int filter_route);
 
+bool manager_dnssec_crypto_available(Manager *m);
+DnssecMode manager_dnssec_mode_effective(Manager *m, DnssecMode mode);
 DnssecMode manager_get_dnssec_mode(Manager *m);
 bool manager_dnssec_supported(Manager *m);
 
