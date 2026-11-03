@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -80,9 +81,13 @@ int userns_restrict_install(
                                 log_warning_errno(r, "Failed to create '%s', ignoring: %m", d);
                 }
 
-                map = sym_bpf_object__next_map(obj->obj, /* map= */ NULL);
-                while (map) {
+                for (map = sym_bpf_object__next_map(obj->obj, /* map= */ NULL); map;
+                     map = sym_bpf_object__next_map(obj->obj, map)) {
                         _cleanup_free_ char *fn = NULL;
+
+                        /* Internal maps (.rodata) are per object, and bpffs refuses their dotted names */
+                        if (sym_bpf_map__is_internal(map))
+                                continue;
 
                         fn = path_join(MAP_LINK_PREFIX, sym_bpf_map__name(map));
                         if (!fn)
@@ -91,8 +96,6 @@ int userns_restrict_install(
                         r = sym_bpf_map__set_pin_path(map, fn);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set pin path to '%s': %m", fn);
-
-                        map = sym_bpf_object__next_map(obj->obj, map);
                 }
         }
 
@@ -107,6 +110,9 @@ int userns_restrict_install(
         r = sym_bpf_map__set_max_entries(obj->maps.userns_setgroups_deny, USERNS_MAX);
         if (r < 0)
                 return log_error_errno(r, "Failed to size userns setgroups deny hash table: %m");
+
+        obj->rodata->o_tmpfile = O_TMPFILE & ~O_DIRECTORY;
+        obj->rodata->o_excl = O_EXCL;
 
         r = userns_restrict_bpf__load(obj);
         if (r < 0)

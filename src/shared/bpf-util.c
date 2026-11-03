@@ -27,6 +27,7 @@ DLSYM_PROTOTYPE(bpf_link__fd) = NULL;
 DLSYM_PROTOTYPE(bpf_link__open) = NULL;
 DLSYM_PROTOTYPE(bpf_link__pin) = NULL;
 DLSYM_PROTOTYPE(bpf_map__fd) = NULL;
+DLSYM_PROTOTYPE(bpf_map__is_internal) = NULL;
 DLSYM_PROTOTYPE(bpf_map__name) = NULL;
 DLSYM_PROTOTYPE(bpf_map__set_inner_map_fd) = NULL;
 DLSYM_PROTOTYPE(bpf_map__set_max_entries) = NULL;
@@ -104,6 +105,7 @@ int dlopen_bpf(int log_level) {
                                 DLSYM_ARG(bpf_link__open),
                                 DLSYM_ARG(bpf_link__pin),
                                 DLSYM_ARG(bpf_map__fd),
+                                DLSYM_ARG(bpf_map__is_internal),
                                 DLSYM_ARG(bpf_map__name),
                                 DLSYM_ARG(bpf_map__set_inner_map_fd),
                                 DLSYM_ARG(bpf_map__set_max_entries),

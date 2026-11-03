@@ -42,6 +42,7 @@ extern DLSYM_PROTOTYPE(bpf_link__fd);
 extern DLSYM_PROTOTYPE(bpf_link__open);
 extern DLSYM_PROTOTYPE(bpf_link__pin);
 extern DLSYM_PROTOTYPE(bpf_map__fd);
+extern DLSYM_PROTOTYPE(bpf_map__is_internal);
 extern DLSYM_PROTOTYPE(bpf_map__name);
 extern DLSYM_PROTOTYPE(bpf_map__set_inner_map_fd);
 extern DLSYM_PROTOTYPE(bpf_map__set_max_entries);
