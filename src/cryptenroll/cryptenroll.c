@@ -69,6 +69,7 @@ static char *arg_pkcs11_token_uri = NULL;
 static char *arg_fido2_device = NULL;
 static char *arg_fido2_salt_file = NULL;
 static bool arg_fido2_parameters_in_header = true;
+static bool arg_fido2_salt_prompt = false;
 static char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_seal_key_handle = 0;
 static char *arg_tpm2_device_key = NULL;
@@ -568,6 +569,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                OPTION_LONG("fido2-salt-prompt", "BOOL",
+                            "Prompt for FIDO2 salt (SHA-256) on every unlock"):
+                        r = parse_boolean_argument("--fido2-salt-prompt=", opts.arg, &arg_fido2_salt_prompt);
+                        if (r < 0)
+                                return r;
+                        break;
                 OPTION_LONG("fido2-parameters-in-header", "BOOL",
                             "Whether to store FIDO2 parameters in the LUKS2 header"):
                         r = parse_boolean_argument("--fido2-parameters-in-header=", opts.arg, &arg_fido2_parameters_in_header);
@@ -978,6 +985,7 @@ static int enroll_context_from_args(EnrollContext *c) {
             strdup_to(&c->unlock_tpm2_device, arg_unlock_tpm2_device) < 0 ||
             strdup_to(&c->fido2_device, arg_fido2_device) < 0 ||
             strdup_to(&c->fido2_salt_file, arg_fido2_salt_file) < 0 ||
+                (c->fido2_salt_prompt = arg_fido2_salt_prompt, 0) ||
             strdup_to(&c->pkcs11_token_uri, arg_pkcs11_token_uri) < 0 ||
             strdup_to(&c->tpm2_device, arg_tpm2_device) < 0 ||
             strdup_to(&c->tpm2_device_key, arg_tpm2_device_key) < 0 ||

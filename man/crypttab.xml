@@ -773,6 +773,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>fido2-salt-prompt=</option></term>
+        <listitem>
+          <para>Takes a boolean. If true, the user is prompted for a passphrase
+          that is hashed with SHA-256 to produce the 32-byte FIDO2 salt.
+          The salt is never stored and never cached. Requires that the
+          corresponding LUKS2 token was enrolled with
+          <option>--fido2-salt-prompt=yes</option>.</para>
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>fido2-cid=</option></term>
 
         <listitem><para>Takes a Base64 encoded FIDO2 client ID to use for the FIDO2 unlock operation. If

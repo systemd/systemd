@@ -107,6 +107,7 @@ static bool arg_fido2_device_auto = false;
 static void *arg_fido2_cid = NULL;
 static size_t arg_fido2_cid_size = 0;
 static char *arg_fido2_rp_id = NULL;
+static bool arg_fido2_salt_prompt = false;
 /* For now and for compatibility, if the user explicitly configured FIDO2 support and we do
  * not read FIDO2 metadata off the LUKS2 header, default to the systemd 248 logic, where we
  * use PIN + UP when needed, and do not configure UV at all. */
@@ -445,6 +446,11 @@ static int parse_one_option(const char *option) {
                 arg_fido2_manual_flags &= ~FIDO2ENROLL_PIN_IF_NEEDED;
                 SET_FLAG(arg_fido2_manual_flags, FIDO2ENROLL_PIN, r);
 
+        } else if ((val = startswith(option, "fido2-salt-prompt="))) {
+                r = parse_boolean(val);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s: %m", option);
+                arg_fido2_salt_prompt = r;
         } else if ((val = startswith(option, "fido2-up="))) {
 
                 r = parse_boolean(val);
@@ -1600,6 +1606,7 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                                                 arg_fido2_manual_flags,
                                                 "cryptsetup.fido2-pin",
                                                 arg_ask_password_flags,
+                                                arg_fido2_salt_prompt,
                                                 &decrypted_key,
                                                 &decrypted_key_size);
                         else
