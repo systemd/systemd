@@ -5,6 +5,9 @@
 
 #include "sd-forward.h"
 
+/* The timer accuracy sd-event uses if 0 is specified as accuracy */
+#define EVENT_DEFAULT_ACCURACY_USEC (250 * USEC_PER_MSEC)
+
 #define PROTECT_EVENT(e)                                                \
         _unused_ _cleanup_(sd_event_unrefp) sd_event *_ref = sd_event_ref(e);
 
