@@ -4000,7 +4000,7 @@ int config_parse_delegate(
 
                         cc = cgroup_controller_from_string(word);
                         if (cc < 0) {
-                                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid controller name '%s', ignoring", word);
+                                log_syntax(unit, LOG_WARNING, filename, line, cc, "Invalid controller name '%s', ignoring", word);
                                 continue;
                         }
 
