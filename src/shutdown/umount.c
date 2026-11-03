@@ -275,10 +275,10 @@ static int remount_with_timeout(MountPoint *m, bool last_try) {
                 log_info("Remounting '%s' read-only with options '%s'.", m->path, strempty(m->remount_options));
 
                 /* Start the mount operation here in the child */
-                r = mount(NULL, m->path, NULL, m->remount_flags, m->remount_options);
+                r = RET_NERRNO(mount(/* source= */ NULL, m->path, /* filesystemtype= */ NULL, m->remount_flags, m->remount_options));
                 if (r < 0)
                         log_full_errno(last_try ? LOG_ERR : LOG_INFO,
-                                       errno,
+                                       r,
                                        "Failed to remount '%s' read-only: %m",
                                        m->path);
 
