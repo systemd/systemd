@@ -159,6 +159,29 @@ static int fill_fixed_size(JournalImporter *imp, void **data, size_t size) {
         return 1;
 }
 
+static int check_entry_size(const JournalImporter *imp, size_t extra) {
+        assert(imp);
+        assert(imp->offset >= imp->entry_offset);
+
+        /* Check that the entry we're currently assembling stays within ENTRY_SIZE_MAX. We deliberately
+         * account for everything the entry occupies in the buffer, not just for the payload we end up
+         * handing over to the writer: field names, separators, length headers, and even the fields we
+         * eventually ignore (dunders, invalid field names) all need to be buffered, so they all need to be
+         * paid for. 'extra' is what we're about to read on top of that.
+         *
+         * Note this is slightly stricter than the equivalent check in journald (which doesn't see the
+         * on-the-wire framing), by at most a few bytes per field, which is irrelevant at these sizes. */
+
+        size_t consumed = imp->offset - imp->entry_offset;
+
+        if (consumed > ENTRY_SIZE_MAX || extra > ENTRY_SIZE_MAX - consumed)
+                return log_warning_errno(SYNTHETIC_ERRNO(ENOBUFS),
+                                         "Entry is bigger than %u bytes, refusing.",
+                                         ENTRY_SIZE_MAX);
+
+        return 0;
+}
+
 static int get_data_size(JournalImporter *imp) {
         int r;
         void *data;
@@ -188,6 +211,14 @@ static int get_data_data(JournalImporter *imp, void **data) {
         assert(imp);
         assert(data);
         assert(imp->state == IMPORTER_STATE_DATA);
+
+        /* Make sure the declared payload (plus the newline terminating it) still fits into the entry budget
+         * before fill_fixed_size() allocates and reads it. Note we also get here when we re-enter this state
+         * after iovw_put() below failed with -E2BIG, so this doubles as a guard against growing the buffer
+         * indefinitely in that case. */
+        r = check_entry_size(imp, imp->data_size + 1);
+        if (r < 0)
+                return r;
 
         r = fill_fixed_size(imp, data, imp->data_size);
         if (r <= 0)
@@ -311,6 +342,13 @@ int journal_importer_process_data(JournalImporter *imp) {
                         log_trace("Received empty line, event is ready");
                         return 1;
                 }
+
+                /* get_line() already consumed the line, so just make sure we didn't blow the budget. This
+                 * runs for every line, including the ones we discard below, since those occupy the buffer
+                 * all the same until the entry is done. */
+                r = check_entry_size(imp, /* extra= */ 0);
+                if (r < 0)
+                        return r;
 
                 /* MESSAGE=xxx\n
                    or
@@ -461,6 +499,9 @@ void journal_importer_drop_iovw(JournalImporter *imp) {
                 imp->offset = imp->scanned = 0;
                 imp->filled = remain;
         }
+
+        /* Whatever is left in the buffer now belongs to the next entry. */
+        imp->entry_offset = imp->offset;
 
         target = MALLOC_SIZEOF_SAFE(imp->buf);
         while (target > 16 * LINE_CHUNK && imp->filled < target / 2)
