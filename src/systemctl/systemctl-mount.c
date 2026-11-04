@@ -9,6 +9,7 @@
 #include "extract-word.h"
 #include "gpt.h"
 #include "log.h"
+#include "path-util.h"
 #include "systemctl.h"
 #include "systemctl-mount.h"
 #include "systemctl-util.h"
@@ -16,7 +17,7 @@
 
 int verb_bind(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_free_ char *n = NULL;
+        _cleanup_free_ char *n = NULL, *src = NULL, *dest = NULL;
         sd_bus *bus;
         int r;
 
@@ -30,6 +31,14 @@ int verb_bind(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle unit name: %m");
 
+        /* Drop trailing slashes (as added by shell tab completion of directories), the service manager
+         * only accepts normalized paths. */
+        if (path_simplify_alloc(argv[2], &src) < 0)
+                return log_oom();
+
+        if (path_simplify_alloc(argc > 3 ? argv[3] : NULL, &dest) < 0)
+                return log_oom();
+
         r = bus_call_method(
                         bus,
                         bus_systemd_mgr,
@@ -38,8 +47,8 @@ int verb_bind(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         /* ret_reply= */ NULL,
                         "sssbb",
                         n,
-                        argv[2],
-                        argv[3],
+                        src,
+                        dest,
                         arg_read_only,
                         arg_mkdir);
         if (r < 0)
@@ -50,9 +59,8 @@ int verb_bind(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
 int verb_mount_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        const char *unit = argv[1], *src = argv[2], *dest = argv[3];
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_free_ char *n = NULL;
+        _cleanup_free_ char *n = NULL, *src = NULL, *dest = NULL;
         sd_bus *bus;
         int r;
 
@@ -62,9 +70,15 @@ int verb_mount_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         polkit_agent_open_maybe();
 
-        r = unit_name_mangle(unit, arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN, &n);
+        r = unit_name_mangle(argv[1], arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN, &n);
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle unit name: %m");
+
+        if (path_simplify_alloc(argv[2], &src) < 0)
+                return log_oom();
+
+        if (path_simplify_alloc(argv[3], &dest) < 0)
+                return log_oom();
 
         r = bus_message_new_method_call(
                         bus,
