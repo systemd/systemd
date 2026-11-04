@@ -1002,12 +1002,42 @@ static int timespec_store_maybe_relative(struct timespec *ts, int64_t signed_use
         return 0;
 }
 
+static int context_set_time(Context *c, usec_t t) {
+        struct timespec ts;
+        struct tm tm;
+        int r;
+
+        assert(c);
+
+        timespec_store(&ts, t);
+
+        /* Set system clock */
+        if (clock_settime(CLOCK_REALTIME, &ts) < 0)
+                return log_error_errno(errno, "Failed to set local time: %m");
+
+        /* Sync down to RTC */
+        r = localtime_or_gmtime_usec(timespec_load(&ts), !c->local_rtc, &tm);
+        if (r < 0)
+                log_debug_errno(r, "Failed to convert timestamp to calendar time, ignoring: %m");
+        else {
+                r = hwclock_set(&tm);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to update hardware clock, ignoring: %m");
+        }
+
+        log_struct(LOG_INFO,
+                   LOG_MESSAGE_ID(SD_MESSAGE_TIME_CHANGE_STR),
+                   LOG_ITEM("REALTIME="USEC_FMT, timespec_load(&ts)),
+                   LOG_MESSAGE("Changed local time to %s", strnull(FORMAT_TIMESTAMP(timespec_load(&ts)))));
+
+        return 0;
+}
+
 static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         int relative, interactive, r;
         Context *c = ASSERT_PTR(userdata);
         int64_t utc;
         struct timespec ts;
-        struct tm tm;
 
         assert(m);
 
@@ -1053,26 +1083,9 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
         if (r == 0)
                 return 1;
 
-        /* Set system clock */
-        if (clock_settime(CLOCK_REALTIME, &ts) < 0) {
-                log_error_errno(errno, "Failed to set local time: %m");
-                return sd_bus_error_set_errnof(error, errno, "Failed to set local time: %m");
-        }
-
-        /* Sync down to RTC */
-        r = localtime_or_gmtime_usec(timespec_load(&ts), !c->local_rtc, &tm);
+        r = context_set_time(c, timespec_load(&ts));
         if (r < 0)
-                log_debug_errno(r, "Failed to convert timestamp to calendar time, ignoring: %m");
-        else {
-                r = hwclock_set(&tm);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to update hardware clock, ignoring: %m");
-        }
-
-        log_struct(LOG_INFO,
-                   LOG_MESSAGE_ID(SD_MESSAGE_TIME_CHANGE_STR),
-                   LOG_ITEM("REALTIME="USEC_FMT, timespec_load(&ts)),
-                   LOG_MESSAGE("Changed local time to %s", strnull(FORMAT_TIMESTAMP(timespec_load(&ts)))));
+                return sd_bus_error_set_errnof(error, r, "Failed to set local time: %m");
 
         return sd_bus_reply_method_return(m, /* types= */ NULL);
 }
