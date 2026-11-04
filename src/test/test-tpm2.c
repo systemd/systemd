@@ -1287,9 +1287,9 @@ static int policy_or_tree_reference(const TPM2B_DIGEST *leaves, size_t n, TPM2B_
         _cleanup_free_ TPM2B_DIGEST *level = NULL;
         size_t n_level = n;
 
-        assert_se(leaves);
-        assert_se(n > 0);
-        assert_se(ret);
+        ASSERT_NOT_NULL(leaves);
+        ASSERT_GT(n, 0U);
+        ASSERT_NOT_NULL(ret);
 
         level = newdup(TPM2B_DIGEST, leaves, n);
         if (!level)
@@ -1309,8 +1309,8 @@ static int policy_or_tree_reference(const TPM2B_DIGEST *leaves, size_t n, TPM2B_
                         size_t size = base + (i < rem);
                         int r;
 
-                        assert_se(size >= 2); /* No degenerate single-branch ORs */
-                        assert_se(size <= TPM2_POLICY_OR_MAX_BRANCHES);
+                        ASSERT_GE(size, 2U); /* No degenerate single-branch ORs */
+                        ASSERT_LE(size, TPM2_POLICY_OR_MAX_BRANCHES);
 
                         next[i].size = SHA256_DIGEST_SIZE;
                         r = tpm2_calculate_policy_or(level + off, size, &next[i]);
