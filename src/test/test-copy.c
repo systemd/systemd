@@ -610,9 +610,9 @@ TEST(copy_bytes_offset_reflink) {
         ASSERT_EQ(toffset, 2 * bs);
 
         ASSERT_OK_EQ_ERRNO(pread(dst, buf, 3 * bs, 0), (ssize_t) (3 * bs));
-        ASSERT_TRUE(memeqbyte('b', buf, bs));
-        ASSERT_TRUE(memeqbyte('c', buf + bs, bs));
-        ASSERT_TRUE(memeqbyte('b', buf + 2 * bs, bs));
+        ASSERT_MEMEQ_BYTE('b', buf, bs);
+        ASSERT_MEMEQ_BYTE('c', buf + bs, bs);
+        ASSERT_MEMEQ_BYTE('b', buf + 2 * bs, bs);
         ASSERT_OK_EQ_ERRNO(lseek(src, 0, SEEK_CUR), (off_t) 5);
         ASSERT_OK_EQ_ERRNO(lseek(dst, 0, SEEK_CUR), (off_t) 7);
 }
@@ -652,11 +652,11 @@ TEST_RET(copy_bytes_offset_holes) {
         ASSERT_EQ(toffset, 4 * bs + 1);
 
         ASSERT_OK_EQ_ERRNO(pread(dst, buf, 5 * bs, 0), (ssize_t) (5 * bs));
-        ASSERT_TRUE(memeqbyte('X', buf, bs + 1));
-        ASSERT_TRUE(memeqzero(buf + bs + 1, bs));
-        ASSERT_TRUE(memeqbyte('D', buf + 2 * bs + 1, bs));
-        ASSERT_TRUE(memeqzero(buf + 3 * bs + 1, bs));
-        ASSERT_TRUE(memeqbyte('X', buf + 4 * bs + 1, bs - 1));
+        ASSERT_MEMEQ_BYTE('X', buf, bs + 1);
+        ASSERT_MEMEQ_ZERO(buf + bs + 1, bs);
+        ASSERT_MEMEQ_BYTE('D', buf + 2 * bs + 1, bs);
+        ASSERT_MEMEQ_ZERO(buf + 3 * bs + 1, bs);
+        ASSERT_MEMEQ_BYTE('X', buf + 4 * bs + 1, bs - 1);
         ASSERT_OK_EQ_ERRNO(lseek(src, 0, SEEK_CUR), (off_t) 5);
         ASSERT_OK_EQ_ERRNO(lseek(dst, 0, SEEK_CUR), (off_t) 7);
 
