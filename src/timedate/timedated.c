@@ -1237,6 +1237,76 @@ static int connect_bus(Context *c) {
         return 0;
 }
 
+static int context_build_json(Context *c, sd_json_variant **ret) {
+        bool can_ntp, ntp;
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        if (c->slot_job_removed)
+                /* When the previous request is not finished, then assume NTP is enabled and active. */
+                can_ntp = ntp = true;
+        else {
+                r = context_update_ntp_status(c, c->bus, /* m= */ NULL);
+                if (r < 0)
+                        return r;
+
+                can_ntp = context_ntp_service_exists(c) > 0;
+                ntp = context_ntp_service_is_active(c) > 0;
+        }
+
+        struct tm tm = {};
+        usec_t rtc = 0;
+        r = hwclock_get(&tm);
+        if (r == -EBUSY)
+                log_warning("/dev/rtc is busy. Is somebody keeping it open continuously? That's not a good idea... Returning a bogus RTC timestamp.");
+        else if (r == -ENOENT)
+                log_debug("/dev/rtc not found.");
+        else if (r == -ENODATA)
+                log_debug("/dev/rtc has no valid time, power loss probably occurred?");
+        else if (r < 0)
+                log_warning_errno(r, "Failed to read RTC, ignoring: %m");
+        else {
+                r = mktime_or_timegm_usec(&tm, /* utc= */ true, &rtc);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to convert RTC time to UNIX time, ignoring: %m");
+        }
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("Timezone", c->zone),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("LocalRTC", c->local_rtc),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("CanNTP", can_ntp),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("NTP", ntp),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("NTPSynchronized", ntp_synced()),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("TimeUSec", now(CLOCK_REALTIME)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("RTCTimeUSec", rtc));
+}
+
+static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                {}
+        };
+
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = context_build_json(c, &v);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, v);
+}
+
 static int vl_method_set_timezone(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "timezone", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, 0, SD_JSON_MANDATORY },
@@ -1465,6 +1535,7 @@ static int connect_varlink(Context *c) {
 
         r = sd_varlink_server_bind_method_many(
                         c->varlink_server,
+                        "io.systemd.Timedate.Describe",      vl_method_describe,
                         "io.systemd.Timedate.SetLocalRTC",   vl_method_set_local_rtc,
                         "io.systemd.Timedate.SetNTP",        vl_method_set_ntp,
                         "io.systemd.Timedate.SetTime",       vl_method_set_time,
