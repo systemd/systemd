@@ -8,6 +8,7 @@
 #include "env-util.h"
 #include "fuzz.h"
 #include "memstream-util.h"
+#include "tests.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(memstream_done) MemStream m = {};
@@ -21,7 +22,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         fuzz_setup_logging();
 
         r = sd_bus_new(&bus);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         _cleanup_(bus_match_free) BusMatchNode root = {
                 .type = BUS_MATCH_ROOT,
@@ -35,7 +36,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         };
 
         if (getenv_bool("SYSTEMD_FUZZ_OUTPUT") <= 0)
-                assert_se(g = memstream_init(&m));
+                g = ASSERT_NOT_NULL(memstream_init(&m));
 
         for (size_t offset = 0; offset < size; ) {
                 _cleanup_free_ char *line = NULL;
@@ -57,7 +58,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                         log_debug_errno(r, "Failed to parse line: %m");
                         continue;
                 }
-                assert_se(r >= 0); /* We only expect EINVAL and ENOMEM errors, or success. */
+                ASSERT_OK(r); /* We only expect EINVAL and ENOMEM errors, or success. */
 
                 CLEANUP_ARRAY(components, n_components, bus_match_parse_free);
 
