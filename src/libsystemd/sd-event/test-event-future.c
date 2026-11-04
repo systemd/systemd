@@ -892,8 +892,8 @@ static int io_uring_recv_fiber(void *userdata) {
         sd_event *e = sd_fiber_get_event();
         int r;
 
-        struct io_uring_sqe sqe = {};
-        io_uring_prep_recv(&sqe, st->fd, st->buf, sizeof(st->buf), /* flags= */ 0);
+        union io_uring_sqe128 sqe = {};
+        io_uring_prep_recv(&sqe.sqe, st->fd, st->buf, sizeof(st->buf), /* flags= */ 0);
 
         _cleanup_(sd_future_cancel_wait_unrefp) sd_future *f = NULL;
         r = future_new_io_uring(e, &sqe, &f);
