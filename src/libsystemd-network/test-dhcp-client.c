@@ -304,7 +304,7 @@ static void verify_request(sd_dhcp_message *m, uint8_t type) {
                 ASSERT_OK(iovw_put(&iovw, (void*) *s, strlen(*s)));
         _cleanup_(iovw_done_free) struct iovec_wrapper user_class = {};
         ASSERT_OK(dhcp_message_get_option_length_prefixed_data(m, SD_DHCP_OPTION_USER_CLASS, /* length_size= */ 1, &user_class));
-        ASSERT_TRUE(iovw_equal(&user_class, &iovw));
+        ASSERT_IOVW_EQ(&user_class, &iovw);
 
         str = mfree(str);
         ASSERT_OK(dhcp_message_get_option_string(m, 163, &str));
