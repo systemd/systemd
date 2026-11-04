@@ -85,12 +85,8 @@ int config_parse_htb_default_class(
         }
 
         r = safe_atou32_full(rvalue, 16, &htb->default_class);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         TAKE_PTR(qdisc);
 
@@ -137,12 +133,8 @@ int config_parse_htb_u32(
         }
 
         r = safe_atou32(rvalue, &htb->rate_to_quantum);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         TAKE_PTR(qdisc);
 
@@ -279,12 +271,8 @@ int config_parse_htb_class_u32(
         }
 
         r = safe_atou32(rvalue, &v);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         htb->priority = v;
         tclass = NULL;
@@ -344,12 +332,8 @@ int config_parse_htb_class_size(
         }
 
         r = parse_size(rvalue, 1024, &v);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if ((streq(lvalue, "OverheadBytes") && v > UINT16_MAX) || v > UINT32_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid '%s=', ignoring assignment: %s",
@@ -422,12 +406,8 @@ int config_parse_htb_class_rate(
         }
 
         r = parse_size(rvalue, 1000, v);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         *v /= 8;
         tclass = NULL;

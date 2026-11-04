@@ -251,9 +251,7 @@ int config_parse_cpu_set(
                         if (critical)
                                 return log_debug_errno(r, "Failed to parse CPU set: %s", rvalue);
 
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s= setting, ignoring assignment: %s",
-                                   lvalue, rvalue);
-                        return 0;
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 }
                 if (r == 0)
                         break;

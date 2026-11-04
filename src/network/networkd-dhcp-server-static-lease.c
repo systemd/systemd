@@ -183,11 +183,8 @@ int config_parse_dhcp_static_lease_address(
         }
 
         r = in_addr_from_string(AF_INET, rvalue, &addr);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse IPv4 address for DHCPv4 static lease, ignoring assignment: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (in4_addr_is_null(&addr.in)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "IPv4 address for DHCPv4 static lease cannot be the ANY address, ignoring assignment: %s", rvalue);
@@ -232,11 +229,8 @@ int config_parse_dhcp_static_lease_hwaddr(
         }
 
         r = parse_ether_addr(rvalue, &hwaddr);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse MAC address for DHCPv4 static lease, ignoring assignment: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (ether_addr_is_null(&hwaddr) || (hwaddr.ether_addr_octet[0] & 0x01)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "MAC address for DHCPv4 static lease cannot be null or multicast, ignoring assignment: %s", rvalue);

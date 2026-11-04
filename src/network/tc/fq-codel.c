@@ -142,12 +142,8 @@ int config_parse_fq_codel_u32(
         }
 
         r = safe_atou32(rvalue, p);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         TAKE_PTR(qdisc);
 
@@ -207,12 +203,8 @@ int config_parse_fq_codel_usec(
         }
 
         r = parse_sec(rvalue, p);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         TAKE_PTR(qdisc);
 
@@ -252,12 +244,8 @@ int config_parse_fq_codel_bool(
         fqcd = FQ_CODEL(qdisc);
 
         r = parse_tristate(rvalue, &fqcd->ecn);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         TAKE_PTR(qdisc);
 
@@ -316,12 +304,8 @@ int config_parse_fq_codel_size(
         }
 
         r = parse_size(rvalue, 1024, &sz);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (sz >= UINT32_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Specified '%s=' is too large, ignoring assignment: %s",

@@ -750,7 +750,7 @@ int config_parse_exec_nice(
                 if (r == -ERANGE)
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Nice priority out of range, ignoring: %s", rvalue);
                 else
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse nice priority '%s', ignoring: %m", rvalue);
+                        log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 return 0;
         }
 
@@ -789,7 +789,7 @@ int config_parse_exec_oom_score_adjust(
                 if (r == -ERANGE)
                         log_syntax(unit, LOG_WARNING, filename, line, r, "OOM score adjust value out of range, ignoring: %s", rvalue);
                 else
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse the OOM score adjust value '%s', ignoring: %m", rvalue);
+                        log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 return 0;
         }
 
@@ -826,11 +826,8 @@ int config_parse_exec_coredump_filter(
 
         uint64_t f;
         r = coredump_filter_mask_from_string(rvalue, &f);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse the CoredumpFilter=%s, ignoring: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         c->coredump_filter |= f;
         c->coredump_filter_set = true;
@@ -862,11 +859,8 @@ int config_parse_kill_mode(
         }
 
         m = kill_mode_from_string(rvalue);
-        if (m < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, m,
-                           "Failed to parse kill mode specification, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (m < 0)
+                return log_syntax_parse_error(unit, filename, line, m, lvalue, rvalue);
 
         if (m == KILL_NONE)
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
@@ -1195,10 +1189,8 @@ int config_parse_exec_input(
 
         } else {
                 ei = exec_input_from_string(rvalue);
-                if (ei < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, ei, "Failed to parse input specifier, ignoring: %s", rvalue);
-                        return 0;
-                }
+                if (ei < 0)
+                        return log_syntax_parse_error(unit, filename, line, ei, lvalue, rvalue);
         }
 
         c->std_input = ei;
@@ -1419,10 +1411,8 @@ int config_parse_exec_output(
                 eo = EXEC_OUTPUT_FILE_TRUNCATE;
         } else {
                 eo = exec_output_from_string(rvalue);
-                if (eo < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, eo, "Failed to parse output specifier, ignoring: %s", rvalue);
-                        return 0;
-                }
+                if (eo < 0)
+                        return log_syntax_parse_error(unit, filename, line, eo, lvalue, rvalue);
         }
 
         if (obsolete)
@@ -1478,10 +1468,8 @@ int config_parse_exec_io_class(
         }
 
         x = ioprio_class_from_string(rvalue);
-        if (x < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, x, "Failed to parse IO scheduling class, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (x < 0)
+                return log_syntax_parse_error(unit, filename, line, x, lvalue, rvalue);
 
         c->ioprio = ioprio_normalize(ioprio_prio_value(x, ioprio_prio_data(c->ioprio)));
         c->ioprio_is_set = true;
@@ -1515,10 +1503,8 @@ int config_parse_exec_io_priority(
         }
 
         r = ioprio_parse_priority(rvalue, &i);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse IO priority, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         c->ioprio = ioprio_normalize(ioprio_prio_value(ioprio_prio_class(c->ioprio), i));
         c->ioprio_is_set = true;
@@ -1553,13 +1539,11 @@ int config_parse_exec_cpu_sched_policy(
         }
 
         x = sched_policy_from_string(rvalue);
-        if (x < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, x, "Failed to parse CPU scheduling policy, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (x < 0)
+                return log_syntax_parse_error(unit, filename, line, x, lvalue, rvalue);
 
         if (!sched_policy_supported(x))
-                log_syntax(unit, LOG_WARNING, filename, line, x, "Unsupported CPU scheduling policy: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Unsupported CPU scheduling policy: %s", rvalue);
 
         c->cpu_sched_policy = x;
         /* Moving to or from real-time policy? We need to adjust the priority */
@@ -1627,10 +1611,8 @@ int config_parse_exec_cpu_sched_prio(
         assert(rvalue);
 
         r = safe_atoi(rvalue, &i);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse CPU scheduling priority, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         /* On Linux RR/FIFO range from 1 to 99 and OTHER/BATCH may only be 0. Policy might be set later so
          * we do not check the precise range, but only the generic outer bounds. */
@@ -1673,12 +1655,8 @@ int config_parse_root_image_options(
         }
 
         r = strv_split_colon_pairs(&l, rvalue);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         STRV_FOREACH_PAIR(first, second, l) {
                 _cleanup_free_ char *mount_options_resolved = NULL;
@@ -1885,10 +1863,8 @@ int config_parse_capability_set(
         uint64_t initial = streq(lvalue, "CapabilityBoundingSet") ? CAP_MASK_ALL : 0;
 
         r = parse_capability_set(rvalue, initial, capability_set);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s= specifier '%s', ignoring: %m", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (*capability_set == CAP_MASK_UNSET)
                 *capability_set = 0;
@@ -2293,10 +2269,8 @@ int config_parse_xattr(
 
         _cleanup_free_ char *name = NULL, *value = NULL;
         r = split_pair(rvalue, "=", &name, &value);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse extended attribute expression, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         _cleanup_free_ char *expanded_name = NULL;
         r = unit_full_printf(u, name, &expanded_name);
@@ -2478,10 +2452,8 @@ int config_parse_service_timeout(
          * immediately, hence fix this to become USEC_INFINITY instead. This is in-line with how we internally handle
          * all other timeouts. */
         r = parse_sec_fix_0(rvalue, &usec);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s= parameter, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         s->start_timeout_defined = true;
         s->timeout_start_usec = usec;
@@ -3527,10 +3499,8 @@ int config_parse_syscall_errno(
         }
 
         e = parse_errno(rvalue);
-        if (e < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, e, "Failed to parse error number, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (e < 0)
+                return log_syntax_parse_error(unit, filename, line, e, lvalue, rvalue);
         if (e == 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid error number, ignoring: %s", rvalue);
                 return 0;
@@ -3564,13 +3534,8 @@ int config_parse_address_families(
         /* Copy back unconditionally: parse_address_families() may have partially populated
          * c->address_families before failing, so keep is_allowlist in sync with that state. */
         c->address_families_allow_list = is_allowlist;
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse address family, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         return 0;
 }
@@ -3620,10 +3585,8 @@ int config_parse_namespace_flags(
 
         /* Not a boolean argument, in this case it's a list of namespace types. */
         r = namespace_flags_from_string(rvalue, &f);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse namespace type string, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (*flags == NAMESPACE_FLAGS_INITIAL)
                 /* Initial assignment. Just set the value. */
@@ -4121,10 +4084,8 @@ int config_parse_managed_oom_mem_pressure_limit(
         }
 
         r = parse_permyriad(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse memory pressure limit value, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         /* Normalize to 2^32-1 == 100% */
         *limit = UINT32_SCALE_FROM_PERMYRIAD(r);
@@ -4544,10 +4505,8 @@ int config_parse_job_mode_isolate(
         assert(rvalue);
 
         r = parse_boolean(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse boolean, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         log_notice("%s is deprecated. Please use OnFailureJobMode= instead", lvalue);
 
@@ -4692,10 +4651,8 @@ int config_parse_exec_quota(
         r = parse_permyriad(rvalue);
         if (r < 0) {
                 r = parse_size(rvalue, 1024, &quota_absolute);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse disk quota value, ignoring: %s", rvalue);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         } else
                 /* Normalize to 2^32-1 == 100% */
                 quota_scale = UINT32_SCALE_FROM_PERMYRIAD(r);
@@ -5004,13 +4961,8 @@ int config_parse_set_status(
                 Bitmap *bitmap;
 
                 r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse %s=%s, ignoring: %m", lvalue, rvalue);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 if (r == 0)
                         return 0;
 
@@ -5219,12 +5171,8 @@ int config_parse_bind_paths(
                 bool rbind = true, ignore_enoent = false;
 
                 r = extract_first_word(&p, &tuple, /* separators= */ NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s, ignoring: %s", lvalue, rvalue);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 if (r == 0)
                         break;
 
@@ -5612,10 +5560,8 @@ int config_parse_job_timeout_sec(
         assert(rvalue);
 
         r = parse_sec_fix_0(rvalue, &usec);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse JobTimeoutSec= parameter, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         /* If the user explicitly changed JobTimeoutSec= also change JobRunningTimeoutSec=, for compatibility with old
          * versions. If JobRunningTimeoutSec= was explicitly set, avoid this however as whatever the user picked should
@@ -5650,10 +5596,8 @@ int config_parse_job_running_timeout_sec(
         assert(rvalue);
 
         r = parse_sec_fix_0(rvalue, &usec);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse JobRunningTimeoutSec= parameter, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         u->job_running_timeout = usec;
         u->job_running_timeout_set = true;
@@ -5693,8 +5637,7 @@ int config_parse_emergency_action(
                                 "%s= specified as %s mode action, ignoring: %s",
                                 lvalue, runtime_scope_to_string(runtime_scope), rvalue);
         else if (r < 0)
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                                "Failed to parse %s=, ignoring: %s", lvalue, rvalue);
+                log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         return 0;
 }
@@ -5775,10 +5718,8 @@ int config_parse_exit_status(
         }
 
         r = safe_atou8(rvalue, &u);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse exit status '%s', ignoring: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         *exit_status = u;
         return 0;
@@ -5903,12 +5844,8 @@ int config_parse_bpf_foreign_program(
         }
 
         r = extract_first_word(&p, &word, ":", /* flags= */ 0);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse foreign BPF program, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (r == 0 || isempty(p)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid syntax in %s=, ignoring: %s", lvalue, rvalue);
                 return 0;
@@ -6508,7 +6445,7 @@ int config_parse_show_status(
 
         k = parse_show_status(rvalue, b);
         if (k < 0)
-                log_syntax(unit, LOG_WARNING, filename, line, k, "Failed to parse show status setting, ignoring: %s", rvalue);
+                log_syntax_parse_error(unit, filename, line, k, lvalue, rvalue);
 
         return 0;
 }
@@ -6540,10 +6477,8 @@ int config_parse_output_restricted(
                 obsolete = true;
         } else {
                 t = exec_output_from_string(rvalue);
-                if (t < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, t, "Failed to parse output type, ignoring: %s", rvalue);
-                        return 0;
-                }
+                if (t < 0)
+                        return log_syntax_parse_error(unit, filename, line, t, lvalue, rvalue);
 
                 if (IN_SET(t, EXEC_OUTPUT_SOCKET, EXEC_OUTPUT_NAMED_FD) || exec_output_is_file(t) || exec_output_is_broker(t)) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0, "Standard output types socket, fd:, file:, append:, truncate:, broker, broker-log are not supported as defaults, ignoring: %s", rvalue);
@@ -6581,7 +6516,7 @@ int config_parse_crash_chvt(
 
         r = parse_crash_chvt(rvalue, data);
         if (r < 0)
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse CrashChangeVT= setting, ignoring: %s", rvalue);
+                log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         return 0;
 }
@@ -6766,10 +6701,8 @@ int config_parse_open_file(
         }
 
         r = open_file_parse(rvalue, &of);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse OpenFile= setting, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         LIST_APPEND(open_files, *head, TAKE_PTR(of));
 
@@ -6872,13 +6805,8 @@ int config_parse_luo_sessions(
                 int r;
 
                 r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse LUOSession= value, ignoring: %s", rvalue);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 if (r == 0) {
                         strv_sort(*sessions);
                         return 0;

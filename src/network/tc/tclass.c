@@ -685,12 +685,8 @@ int config_parse_tclass_parent(
                 tclass->parent = TC_H_ROOT;
         else {
                 r = parse_handle(rvalue, &tclass->parent);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse 'Parent=', ignoring assignment: %s",
-                                   rvalue);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         }
 
         TAKE_PTR(tclass);
@@ -734,12 +730,8 @@ int config_parse_tclass_classid(
         }
 
         r = parse_handle(rvalue, &tclass->classid);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse 'ClassId=', ignoring assignment: %s",
-                           rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         TAKE_PTR(tclass);
 
