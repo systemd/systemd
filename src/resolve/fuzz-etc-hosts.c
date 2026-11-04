@@ -3,6 +3,7 @@
 #include "fd-util.h"
 #include "fuzz.h"
 #include "resolved-etc-hosts.h"
+#include "tests.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_fclose_ FILE *f = NULL;
@@ -11,7 +12,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         fuzz_setup_logging();
 
         f = data_to_file(data, size);
-        assert_se(f);
+        ASSERT_NOT_NULL(f);
 
         (void) etc_hosts_parse(&h, f);
 
