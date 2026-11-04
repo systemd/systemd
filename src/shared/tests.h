@@ -7,6 +7,7 @@
 #include "forward.h"
 #include "hexdump.h"                    /* IWYU pragma: keep */
 #include "iovec-util.h"                 /* IWYU pragma: keep */
+#include "iovec-wrapper.h"              /* IWYU pragma: keep */
 #include "log.h"
 #include "log-assert-critical.h"
 #include "memory-util.h"                /* IWYU pragma: keep */
@@ -630,6 +631,20 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
 #endif
 
 #define ASSERT_MEMEQ_ZERO(data, length) ASSERT_MEMEQ_BYTE(0x00, data, length)
+
+#ifdef __COVERITY__
+#  define ASSERT_IOVW_EQ(a, b) __coverity_check__(iovw_equal((a), (b)))
+#else
+#  define ASSERT_IOVW_EQ(a, b)                                                                                   \
+        ({                                                                                                      \
+                const struct iovec_wrapper *_a = (a), *_b = (b);                                                \
+                if (!iovw_equal(_a, _b)) {                                                                      \
+                        _cleanup_free_ char *_dump = hexdump_iovw_compare(_a, _b);                              \
+                        log_test_failed("Expected iovec wrappers \"%s\" (%zu elements) and \"%s\" (%zu elements) to be equal:\n%s", \
+                                        #a, _a ? _a->count : 0, #b, _b ? _b->count : 0, strnull(_dump));        \
+                }                                                                                               \
+        })
+#endif
 
 /* DECIMAL_STR_FMT() uses _Generic which cannot be used in string concatenation so we have to format the
  * input into strings first and then format those into the final assertion message. */
