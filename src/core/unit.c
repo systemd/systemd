@@ -807,6 +807,11 @@ Unit* unit_free(Unit *u) {
         if (unit_has_invocation_id(u))
                 hashmap_remove_value(u->manager->units_by_invocation_id, &u->invocation_id, u);
 
+        SET_FOREACH(t, u->aliases)
+                manager_set_unit_slice_override(u->manager, t, /* slice= */ NULL);
+        if (u->id)
+                manager_set_unit_slice_override(u->manager, u->id, /* slice= */ NULL);
+
         if (u->job) {
                 Job *j = u->job;
                 job_uninstall(j);
@@ -3470,8 +3475,8 @@ int unit_set_slice(Unit *u, Unit *slice) {
         assert(u);
         assert(slice);
 
-        /* Sets the unit slice if it has not been set before. Is extra careful, to only allow this for units
-         * that actually have a cgroup context. Also, we don't allow to set this for slices (since the parent
+        /* Sets the unit slice, if we still can. Is extra careful, to only allow this for unit types that
+         * actually have a cgroup context. Also, we don't allow to set this for slices (since the parent
          * slice is derived from the name). Make sure the unit we set is actually a slice. */
 
         if (!UNIT_HAS_CGROUP_CONTEXT(u))
@@ -3556,6 +3561,31 @@ int unit_set_default_slice(Unit *u) {
         else
                 slice_name = SPECIAL_APP_SLICE;
 
+        r = manager_load_unit(u->manager, slice_name, /* path= */ NULL, NULL, &slice);
+        if (r < 0)
+                return r;
+
+        return unit_set_slice(u, slice);
+}
+
+int unit_maybe_override_slice(Unit *u) {
+        int r;
+
+        assert(u);
+
+        const char *slice_name = manager_get_unit_slice_override(u->manager, u->id);
+        if (!slice_name) {
+                const char *alias;
+                SET_FOREACH (alias, u->aliases) {
+                        slice_name = manager_get_unit_slice_override(u->manager, alias);
+                        if (slice_name)
+                                break;
+                }
+        }
+        if (!slice_name)
+                return 0; /* Nothing to do */
+
+        Unit *slice;
         r = manager_load_unit(u->manager, slice_name, /* path= */ NULL, NULL, &slice);
         if (r < 0)
                 return r;
