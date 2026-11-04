@@ -8,6 +8,7 @@
 #include "manager-dump.h"
 #include "memstream-util.h"
 #include "string-util.h"
+#include "tests.h"
 #include "unit-serialize.h"
 #include "utf8.h"
 
@@ -23,9 +24,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (outside_size_range(size, /* lower= */ 0, 65536))
                 return 0;
 
-        f = data_to_file(data, size);
-
-        assert_se(f);
+        f = ASSERT_NOT_NULL(data_to_file(data, size));
 
         if (read_line(f, LINE_MAX, &p) < 0)
                 return 0;
@@ -38,7 +37,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 return 0;
 
         offset = ftell(f);
-        assert_se(offset >= 0);
+        ASSERT_OK(offset);
 
         for (;;) {
                 _cleanup_free_ char *l = NULL;
@@ -58,14 +57,14 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 }
         }
 
-        assert_se(fseek(f, offset, SEEK_SET) == 0);
+        ASSERT_EQ(fseek(f, offset, SEEK_SET), 0);
 
         fuzz_setup_logging();
 
-        assert_se(manager_new(RUNTIME_SCOPE_SYSTEM, MANAGER_TEST_RUN_MINIMAL|MANAGER_TEST_DONT_OPEN_EXECUTOR, &m) >= 0);
+        ASSERT_OK(manager_new(RUNTIME_SCOPE_SYSTEM, MANAGER_TEST_RUN_MINIMAL|MANAGER_TEST_DONT_OPEN_EXECUTOR, &m));
 
         name = strjoina("a.", unit_type_to_string(t));
-        assert_se(unit_new_for_name(m, unit_vtable[t]->object_size, name, &u) >= 0);
+        ASSERT_OK(unit_new_for_name(m, unit_vtable[t]->object_size, name, &u));
 
         (void) config_parse(
                         name, name, f,
@@ -78,7 +77,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(memstream_done) MemStream ms = {};
         FILE *g;
 
-        assert_se(g = memstream_init(&ms));
+        g = ASSERT_NOT_NULL(memstream_init(&ms));
         unit_dump(u, g, "");
         manager_dump(m, g, /* patterns= */ NULL, ">>>");
 
