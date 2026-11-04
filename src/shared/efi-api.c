@@ -3,6 +3,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "architecture.h"
 #include "dirent-util.h"
 #include "efi-api.h"
 #include "efi.h"
@@ -14,6 +15,7 @@
 #include "sort-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "tpm2-util.h"                  /* IWYU pragma: keep */
 #include "utf8.h"
@@ -687,34 +689,47 @@ void efi_id128_to_guid(sd_id128_t id, void *ret_guid) {
         memcpy(ret_guid, &uuid, sizeof(uuid));
 }
 
-const char* get_efi_arch(void) {
-        /* Detect EFI firmware architecture of the running system. On mixed mode systems, it could be 32-bit
-         * while the kernel is running in 64-bit. */
+static const char* const efi_arch_table[_ARCHITECTURE_MAX] = {
+        [ARCHITECTURE_X86]         = "ia32",
+        [ARCHITECTURE_X86_64]      = "x64",
+        [ARCHITECTURE_ARM]         = "arm",
+        [ARCHITECTURE_ARM64]       = "aa64",
+        [ARCHITECTURE_LOONGARCH64] = "loongarch64",
+        [ARCHITECTURE_RISCV32]     = "riscv32",
+        [ARCHITECTURE_RISCV64]     = "riscv64",
+};
 
-#ifdef __x86_64__
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(efi_arch, Architecture);
+
+const char* get_efi_arch(void) {
+        /* We use the architecture of the running kernel instead of the one systemd was built for, because a
+         * 32-bit userspace can run on a 64-bit kernel with 64-bit firmware. On mixed mode systems, the
+         * firmware can be 32-bit while the kernel runs in 64-bit mode. */
+
+        Architecture a = uname_architecture();
+        const char *arch = efi_arch_to_string(a);
+        if (!arch)
+                return EFI_MACHINE_TYPE_NAME;
+
+        if (a != ARCHITECTURE_X86_64)
+                return arch;
+
         _cleanup_free_ char *platform_size = NULL;
         int r;
 
         r = read_one_line_file("/sys/firmware/efi/fw_platform_size", &platform_size);
         if (r == -ENOENT)
-                return EFI_MACHINE_TYPE_NAME;
+                return arch;
         if (r < 0) {
-                log_warning_errno(r,
-                        "Error reading EFI firmware word size, assuming machine type '%s': %m",
-                        EFI_MACHINE_TYPE_NAME);
-                return EFI_MACHINE_TYPE_NAME;
+                log_warning_errno(r, "Error reading EFI firmware word size, assuming machine type '%s': %m", arch);
+                return arch;
         }
 
         if (streq(platform_size, "64"))
-                return EFI_MACHINE_TYPE_NAME;
+                return arch;
         if (streq(platform_size, "32"))
                 return "ia32";
 
-        log_warning(
-                "Unknown EFI firmware word size '%s', using machine type '%s'.",
-                platform_size,
-                EFI_MACHINE_TYPE_NAME);
-#endif
-
-        return EFI_MACHINE_TYPE_NAME;
+        log_warning("Unknown EFI firmware word size '%s', using machine type '%s'.", platform_size, arch);
+        return arch;
 }

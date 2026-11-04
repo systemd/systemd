@@ -128,7 +128,6 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 VERB_NOARG(verb_validate, "validate",
            "Load and validate the given certificate and private key");
 static int verb_validate(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(X509_freep) X509 *certificate = NULL;
         _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
         int r;
@@ -147,36 +146,27 @@ static int verb_validate(int argc, char *argv[], uintptr_t _data, void *userdata
                         return r;
         }
 
-        r = openssl_load_x509_certificate(
-                        arg_certificate_source_type,
-                        arg_certificate_source,
-                        arg_certificate,
-                        &certificate);
-        if (r < 0)
-                return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
-
         if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
                 r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
                 if (r < 0)
                         return r;
         }
 
-        r = openssl_load_private_key(
+        r = openssl_load_key_pair(
                         arg_private_key_source_type,
                         arg_private_key_source,
                         arg_private_key,
-                        &(AskPasswordRequest) {
-                                .tty_fd = -EBADF,
-                                .id = "keyutil-private-key-pin",
-                                .keyring = arg_private_key,
-                                .credential = "keyutil.private-key-pin",
-                                .until = USEC_INFINITY,
-                                .hup_fd = -EBADF,
-                        },
+                        arg_certificate_source_type,
+                        arg_certificate_source,
+                        arg_certificate,
+                        /* public_key= */ NULL,
+                        ASK_PASSWORD_PRIVATE_KEY_PIN("keyutil", arg_private_key),
                         &private_key,
+                        /* ret_certificate= */ NULL,
+                        /* ret_public_key= */ NULL,
                         &ui);
         if (r < 0)
-                return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
+                return r;
 
         puts("OK");
         return 0;
@@ -186,69 +176,48 @@ VERB_NOARG(verb_extract_public, "extract-public",
            "Extract a public key");
 VERB_NOARG(verb_extract_public, "public", /* help= */ NULL); /* Deprecated but kept for backward compat. */
 static int verb_extract_public(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *public_key = NULL;
+        _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL, *public_key = NULL;
         int r;
 
-        if (arg_certificate) {
-                _cleanup_(X509_freep) X509 *certificate = NULL;
+        if (!arg_certificate && !arg_private_key)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "One of --certificate=, or --private-key= must be specified");
 
-                if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
-                        r = parse_path_argument(arg_certificate, /* suppress_root= */ false, &arg_certificate);
-                        if (r < 0)
-                                return r;
-                }
+        if (arg_certificate && arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
+                r = parse_path_argument(arg_certificate, /* suppress_root= */ false, &arg_certificate);
+                if (r < 0)
+                        return r;
+        }
 
-                r = dlopen_libcrypto(LOG_ERR);
+        /* The private key is only needed if there's no certificate. Loading it might ask for a PIN. */
+        const char *private_key_path = arg_certificate ? NULL : arg_private_key;
+        if (private_key_path && arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
+                r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
                 if (r < 0)
                         return r;
 
-                r = openssl_load_x509_certificate(
-                                arg_certificate_source_type,
-                                arg_certificate_source,
-                                arg_certificate,
-                                &certificate);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
+                private_key_path = arg_private_key;
+        }
 
-                public_key = sym_X509_get_pubkey(certificate);
-                if (!public_key)
-                        return log_openssl_errors(
-                                        LOG_ERR,
-                                        "Failed to extract public key from certificate %s.",
-                                        arg_certificate);
+        r = dlopen_libcrypto(LOG_ERR);
+        if (r < 0)
+                return r;
 
-        } else if (arg_private_key) {
-                _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
-                _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
-
-                if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
-                        r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = openssl_load_private_key(
-                                arg_private_key_source_type,
-                                arg_private_key_source,
-                                arg_private_key,
-                                &(AskPasswordRequest) {
-                                        .tty_fd = -EBADF,
-                                        .id = "keyutil-private-key-pin",
-                                        .keyring = arg_private_key,
-                                        .credential = "keyutil.private-key-pin",
-                                        .until = USEC_INFINITY,
-                                        .hup_fd = -EBADF,
-                                },
-                                &private_key,
-                                &ui);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
-
-                r = openssl_extract_public_key(private_key, &public_key);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to extract public key from private key file '%s': %m", arg_private_key);
-        } else
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "One of --certificate=, or --private-key= must be specified");
+        r = openssl_load_key_pair(
+                        arg_private_key_source_type,
+                        arg_private_key_source,
+                        private_key_path,
+                        arg_certificate_source_type,
+                        arg_certificate_source,
+                        arg_certificate,
+                        /* public_key= */ NULL,
+                        ASK_PASSWORD_PRIVATE_KEY_PIN("keyutil", private_key_path),
+                        &private_key,
+                        /* ret_certificate= */ NULL,
+                        &public_key,
+                        &ui);
+        if (r < 0)
+                return r;
 
         if (sym_PEM_write_PUBKEY(stdout, public_key) == 0)
                 return log_openssl_errors(LOG_ERR, "Failed to write public key to stdout");
@@ -279,8 +248,16 @@ static int verb_extract_certificate(int argc, char *argv[], uintptr_t _data, voi
         if (r < 0)
                 return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
 
-        if (sym_PEM_write_X509(stdout, certificate) == 0)
-                return log_openssl_errors(LOG_ERR, "Failed to write certificate to stdout.");
+        _cleanup_free_ char *pem = NULL;
+        r = x509_to_pem(certificate, &pem);
+        if (r < 0)
+                return log_error_errno(r, "Failed to convert certificate to PEM: %m");
+
+        fputs(pem, stdout);
+
+        r = fflush_and_check(stdout);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write certificate to stdout: %m");
 
         return 0;
 }
