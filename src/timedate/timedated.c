@@ -1313,6 +1313,28 @@ static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_
         return sd_varlink_reply(link, v);
 }
 
+static int vl_method_list_timezones(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                {}
+        };
+
+        _cleanup_strv_free_ char **zones = NULL;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        r = get_timezones(&zones);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read list of time zones: %m");
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRV("timezones", zones));
+}
+
 static int vl_method_set_timezone(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "timezone", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, 0, SD_JSON_MANDATORY },
@@ -1557,6 +1579,7 @@ static int connect_varlink(Context *c) {
         r = sd_varlink_server_bind_method_many(
                         c->varlink_server,
                         "io.systemd.Timedate.Describe",      vl_method_describe,
+                        "io.systemd.Timedate.ListTimezones", vl_method_list_timezones,
                         "io.systemd.Timedate.SetLocalRTC",   vl_method_set_local_rtc,
                         "io.systemd.Timedate.SetNTP",        vl_method_set_ntp,
                         "io.systemd.Timedate.SetTime",       vl_method_set_time,
