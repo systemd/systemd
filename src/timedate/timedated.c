@@ -1303,6 +1303,86 @@ static int vl_method_set_local_rtc(sd_varlink *link, sd_json_variant *parameters
         return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
+static int vl_method_set_time(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        struct params {
+                int64_t time_usec;
+                bool relative;
+        };
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "timeUSec", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int64,   offsetof(struct params, time_usec), SD_JSON_MANDATORY },
+                { "relative", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool, offsetof(struct params, relative),  SD_JSON_NULLABLE  },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Context *c = ASSERT_PTR(userdata);
+        struct timespec ts;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        struct params p = {};
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        /* Validate the parameters before the more expensive operations below. */
+        if (!p.relative && p.time_usec <= 0)
+                return sd_varlink_error_invalid_parameter_name(link, "timeUSec");
+
+        if (p.relative && p.time_usec == 0)
+                return sd_varlink_reply(link, /* parameters= */ NULL);
+
+        if (p.relative) {
+                usec_t n = now(CLOCK_REALTIME);
+                bool valid;
+
+                if (p.time_usec > 0)
+                        valid = INC_SAFE(&n, (usec_t) p.time_usec);
+                else
+                        valid = DEC_SAFE(&n, -(usec_t) p.time_usec);
+                if (!valid)
+                        return sd_varlink_error_invalid_parameter_name(link, "timeUSec");
+
+                timespec_store(&ts, n);
+        } else
+                timespec_store(&ts, (usec_t) p.time_usec);
+
+        /* refuse the request when the time is before systemd build date time */
+        if (ts.tv_sec < TIME_EPOCH)
+                return sd_varlink_error_invalid_parameter_name(link, "timeUSec");
+
+        if (c->slot_job_removed)
+                return sd_varlink_error(link, "io.systemd.Timedate.AutomaticTimeSyncEnabled", /* parameters= */ NULL);
+
+        r = context_update_ntp_status(c, c->bus, /* m= */ NULL);
+        if (r < 0)
+                return r;
+
+        if (context_ntp_service_is_active(c) > 0)
+                return sd_varlink_error(link, "io.systemd.Timedate.AutomaticTimeSyncEnabled", /* parameters= */ NULL);
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        c->bus,
+                        "org.freedesktop.timedate1.set-time",
+                        /* details= */ NULL,
+                        &c->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        /* TODO: Adjust the absolute time for the delay between the client issuing the request and
+         * us applying it (e.g. the time spent waiting for polkit), like the D-Bus SetTime() method
+         * does. This requires carrying the request's receive time across the asynchronous polkit
+         * re-dispatch, which is not tracked yet. */
+        r = context_set_time(c, timespec_load(&ts));
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
 static int connect_varlink(Context *c) {
         int r;
 
@@ -1327,6 +1407,7 @@ static int connect_varlink(Context *c) {
         r = sd_varlink_server_bind_method_many(
                         c->varlink_server,
                         "io.systemd.Timedate.SetLocalRTC",   vl_method_set_local_rtc,
+                        "io.systemd.Timedate.SetTime",       vl_method_set_time,
                         "io.systemd.Timedate.SetTimezone",   vl_method_set_timezone,
                         "io.systemd.service.Ping",           varlink_method_ping,
                         "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
