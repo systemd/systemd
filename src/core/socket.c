@@ -440,6 +440,9 @@ static int socket_verify(Socket *s) {
         if (!strv_isempty(s->symlinks) && !socket_find_symlink_target(s))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Unit has symlinks set but none or more than one node in the file system. Refusing.");
 
+        if (s->propagate_slice && !s->accept)
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Unit has PropagateSlice= enabled, but Accept= disabled. Refusing.");
+
         return 0;
 }
 
@@ -1422,6 +1425,37 @@ fail:
         return r;
 }
 
+static int socket_override_service_slice(Socket *socket, const char *service, int cfd) {
+        int r;
+
+        assert(socket);
+        assert(service);
+        assert(cfd >= 0);
+
+        _cleanup_(pidref_done) PidRef peer = PIDREF_NULL;
+        r = getpeerpidref(cfd, &peer);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *full_cg_path = NULL;
+        r = cg_pidref_get_path(&peer, &full_cg_path);
+        if (r < 0)
+                return r;
+
+        const char *cg_path = path_startswith_full(full_cg_path,
+                                                   empty_to_root(UNIT(socket)->manager->cgroup_root),
+                                                   PATH_STARTSWITH_RETURN_LEADING_SLASH|PATH_STARTSWITH_REFUSE_DOT_DOT);
+        if (!cg_path)
+                return -ENODATA;
+
+        _cleanup_free_ char *slice_name = NULL;
+        r = cg_path_get_slice(cg_path, &slice_name);
+        if (r < 0)
+                return r;
+
+        return manager_set_unit_slice_override(UNIT(socket)->manager, service, slice_name);
+}
+
 int socket_load_service_unit(Socket *s, int cfd, Unit **ret) {
         int r;
 
@@ -1467,6 +1501,12 @@ int socket_load_service_unit(Socket *s, int cfd, Unit **ret) {
         r = unit_name_build(prefix, instance ?: "internal", ".service", &name);
         if (r < 0)
                 return r;
+
+        if (cfd >= 0 && s->propagate_slice) {
+                r = socket_override_service_slice(s, name, cfd);
+                if (r < 0)
+                        log_unit_debug_errno(UNIT(s), r, "Failed to find slice corresponding to peer, ignoring: %m");
+        }
 
         return manager_load_unit(UNIT(s)->manager, name, /* path= */ NULL, NULL, ret);
 }

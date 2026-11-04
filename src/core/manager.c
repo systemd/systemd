@@ -1805,6 +1805,7 @@ Manager* manager_free(Manager *m) {
 
         hashmap_free(m->cgroup_unit);
         manager_free_unit_name_maps(m);
+        hashmap_free(m->unit_slice_overrides);
 
         free(m->switch_root);
         free(m->switch_root_init);
@@ -5633,6 +5634,41 @@ void manager_log_caller(Manager *manager, PidRef *caller, const char *method) {
                    method, caller->pid,
                    comm ? " ('" : "", strempty(comm), comm ? "')" : "",
                    caller_unit ? " (unit " : "", caller_unit ? caller_unit->id : "", caller_unit ? ")" : "");
+}
+
+int manager_set_unit_slice_override(Manager *manager, const char *unit, const char *slice) {
+        int r;
+
+        assert(manager);
+        assert(unit);
+
+        _cleanup_free_ char *old_unit = NULL, *old_slice = NULL;
+        old_slice = hashmap_remove2(manager->unit_slice_overrides, unit, (void**) &old_unit);
+
+        if (!slice)
+                return 0;
+
+        _cleanup_free_ char *new_unit = TAKE_PTR(old_unit) ?: strdup(unit);
+        if (!new_unit)
+                return -ENOMEM;
+
+        _cleanup_free_ char *new_slice = strdup(slice);
+        if (!new_slice)
+                return -ENOMEM;
+
+        r = hashmap_ensure_put(&manager->unit_slice_overrides, &string_hash_ops_free_free, new_unit, new_slice);
+        if (r < 0)
+                return r;
+        TAKE_PTR(new_unit);
+        TAKE_PTR(new_slice);
+
+        return 0;
+}
+
+const char* manager_get_unit_slice_override(Manager *manager, const char *unit) {
+        assert(manager);
+        assert(unit);
+        return hashmap_get(manager->unit_slice_overrides, unit);
 }
 
 static const char* const manager_state_table[_MANAGER_STATE_MAX] = {
