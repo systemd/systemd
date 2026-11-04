@@ -27,6 +27,7 @@
 #include "pidref.h"
 #include "process-util.h"
 #include "selinux-access.h"
+#include "service.h"
 #include "set.h"
 #include "signal-util.h"
 #include "special.h"
@@ -2466,6 +2467,23 @@ static int bus_unit_set_transient_property(
                 if (r < 0)
                         return r;
 
+                Service *service = SERVICE(u);
+                if (streq(s, "socket")) {
+                        if (!service || !unit_name_is_valid(u->id, UNIT_NAME_TEMPLATE|UNIT_NAME_INSTANCE))
+                                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Slice=socket may only be set on templated service units.");
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                service->inherit_socket_slice = true;
+
+                                r = unit_set_slice(u, /* slice= */ NULL);
+                                if (r < 0)
+                                        return r;
+
+                                unit_write_setting(u, flags|UNIT_PRIVATE, name, "Slice=socket");
+                        }
+                        return 1;
+                }
+
                 if (!unit_name_is_valid(s, UNIT_NAME_PLAIN))
                         return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid unit name '%s'", s);
 
@@ -2484,6 +2502,8 @@ static int bus_unit_set_transient_property(
                         if (r < 0)
                                 return r;
 
+                        if (service)
+                                service->inherit_socket_slice = false;
                         unit_write_settingf(u, flags|UNIT_PRIVATE, name, "Slice=%s", s);
                 }
 
