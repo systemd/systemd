@@ -1096,6 +1096,8 @@ int getenv_path_list(const char *name, char ***ret_paths) {
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Path '%s' is not absolute, refusing.", *p);
 
+                path_simplify(*p);
+
                 if (!path_is_normalized(*p))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Path '%s' is not normalized, refusing.", *p);

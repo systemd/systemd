@@ -99,7 +99,8 @@ static int get_credentials_dir_internal(const char *envvar, const char **ret) {
         if (!e)
                 return -ENXIO;
 
-        if (!path_is_absolute(e) || !path_is_normalized(e))
+        /* Like $TMPDIR, this is set by humans too, and a trailing slash is not uncommon, accept it */
+        if (!path_is_absolute(e) || !path_is_normalized_full(e, PATH_ALLOW_TRAILING_SLASH))
                 return -EINVAL;
 
         *ret = e;

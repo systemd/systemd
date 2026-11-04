@@ -897,7 +897,8 @@ bool valid_home(const char *p) {
         if (!path_is_absolute(p))
                 return false;
 
-        if (!path_is_normalized(p))
+        /* Trailing slashes are not uncommon in home directories listed in /etc/passwd, accept them */
+        if (!path_is_normalized_full(p, PATH_ALLOW_TRAILING_SLASH))
                 return false;
 
         /* Colons are used as field separators, and hence not OK */
@@ -1085,7 +1086,7 @@ int is_this_me(const char *username) {
 const char* get_home_root(void) {
         /* For debug purposes allow overriding where we look for home dirs */
         const char *e = secure_getenv("SYSTEMD_HOME_ROOT");
-        if (e && path_is_absolute(e) && path_is_normalized(e))
+        if (e && path_is_absolute(e) && path_is_normalized_full(e, PATH_ALLOW_TRAILING_SLASH))
                 return e;
 
         return "/home";

@@ -4880,6 +4880,9 @@ int config_parse_load_credential(
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in \"%s\", ignoring: %m", p);
                         return 0;
                 }
+                if (path_is_absolute(path))
+                        path_simplify(path);
+
                 if (path_is_absolute(path) ? !path_is_normalized(path) : !credential_name_valid(path)) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0, "Credential source \"%s\" not valid, ignoring.", path);
                         return 0;

@@ -1189,7 +1189,7 @@ bool path_is_valid_full(const char *p, bool accept_dot_dot) {
         }
 }
 
-bool path_is_normalized(const char *p) {
+bool path_is_normalized_full(const char *p, PathNormalizedFlags flags) {
         if (!path_is_safe(p))
                 return false;
 
@@ -1197,6 +1197,10 @@ bool path_is_normalized(const char *p) {
                 return false;
 
         if (strstr(p, "//"))
+                return false;
+
+        /* Refuse trailing slashes, except for the root directory itself, unless explicitly allowed */
+        if (!FLAGS_SET(flags, PATH_ALLOW_TRAILING_SLASH) && !streq(p, "/") && endswith(p, "/"))
                 return false;
 
         return true;
