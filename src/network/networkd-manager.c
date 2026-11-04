@@ -97,9 +97,8 @@ static int on_connected(sd_bus_message *message, void *userdata, sd_bus_error *r
 
         assert(message);
 
-        /* Did we get a timezone or transient hostname from DHCP while D-Bus wasn't up yet? */
-        if (m->dynamic_hostname)
-                (void) manager_set_hostname(m, m->dynamic_hostname);
+        /* Did we get a timezone from DHCP while D-Bus wasn't up yet? The transient hostname is set via
+         * Varlink, independently of this bus connection, hence does not need to be replayed here. */
         if (m->dynamic_timezone)
                 (void) manager_send_timezone(m);
         if (m->product_uuid_requested)
@@ -800,6 +799,8 @@ Manager* manager_free(Manager *m) {
         m->query_filter_subscriptions = set_free(m->query_filter_subscriptions);
         hashmap_free(m->polkit_registry);
         sd_bus_flush_close_unref(m->bus);
+
+        hostname_varlink_close(m->hostname_varlink);
 
         free(m->dynamic_timezone);
         free(m->dynamic_hostname);

@@ -89,6 +89,7 @@ typedef struct Manager {
         /* For updating the hostname sent by DHCP clients */
         sd_event_source *hostname_event_source;
         char *kernel_hostname;
+        sd_varlink *hostname_varlink;
 
         Set *rules;
 
