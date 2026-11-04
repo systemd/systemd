@@ -64,6 +64,6 @@ _gnu_printf_(3, 4) EFI_STATUS log_internal(EFI_STATUS status, LogLevel log_level
 /* Debugging helper — please keep this around, even if not used */
 #define log_hexdump(prefix, data, size)                                 \
         ({                                                              \
-                _cleanup_free_ char16_t *hex = hexdump(data, size);     \
+                _cleanup_free_ char16_t *hex = hexdump16(data, size);   \
                 log_debug("%ls[%zu]: %ls", prefix, size, hex);          \
         })
