@@ -3,6 +3,7 @@
 #include "fd-util.h"
 #include "fuzz.h"
 #include "nspawn-oci.h"
+#include "tests.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_fclose_ FILE *f = NULL;
@@ -12,7 +13,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 return 0;
 
         f = data_to_file(data, size);
-        assert_se(f);
+        ASSERT_NOT_NULL(f);
 
         fuzz_setup_logging();
 
