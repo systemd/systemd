@@ -2613,11 +2613,11 @@ static int config_parse_subvolumes(
                 if (f) {
                         BtrfsSubvolFlags flags = subvolume_flags_from_string(f);
                         if (flags == -EBADRQC) {
-                                log_syntax(unit, LOG_WARNING, filename, line, r, "Unknown subvolume flag in subvolume, ignoring: %s", f);
+                                log_syntax(unit, LOG_WARNING, filename, line, flags, "Unknown subvolume flag in subvolume, ignoring: %s", f);
                                 continue;
                         }
                         if (flags < 0) {
-                                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse subvolume flags, ignoring: %s", f);
+                                log_syntax(unit, LOG_WARNING, filename, line, flags, "Failed to parse subvolume flags, ignoring: %s", f);
                                 continue;
                         }
 

@@ -850,7 +850,7 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
                         m->source,
                         open_tree_flags);
         if (fd_clone < 0)
-                return log_error_errno(errno, "Failed to clone %s: %m", m->source);
+                return log_error_errno(fd_clone, "Failed to clone %s: %m", m->source);
 
         if (fstat(fd_clone, &source_st) < 0)
                 return log_error_errno(errno, "Failed to stat %s: %m", m->source);

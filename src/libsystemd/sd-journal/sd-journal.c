@@ -1662,21 +1662,22 @@ static int add_any_file(
 
                 r = fd_nonblock(fd, /* nonblock= */ false);
                 if (r < 0) {
-                        r = log_debug_errno(errno, "Failed to turn off O_NONBLOCK for %s: %m", path);
+                        log_debug_errno(r, "Failed to turn off O_NONBLOCK for %s: %m", path);
                         goto error;
                 }
 
                 r = fd_get_path(fd, &resolved_path);
                 if (r < 0) {
-                        r = log_debug_errno(r, "Failed to resolve path '%s': %m", path);
+                        log_debug_errno(r, "Failed to resolve path '%s': %m", path);
                         goto error;
                 }
 
                 path = resolved_path;
         }
 
-        if (fstat(fd, &st) < 0) {
-                r = log_debug_errno(errno, "Failed to fstat %s: %m", path ?: "fd");
+        r = RET_NERRNO(fstat(fd, &st));
+        if (r < 0) {
+                log_debug_errno(r, "Failed to fstat %s: %m", path ?: "fd");
                 goto error;
         }
 
@@ -1710,8 +1711,8 @@ static int add_any_file(
         }
 
         if (ordered_hashmap_size(j->files) >= JOURNAL_FILES_MAX) {
-                r = log_debug_errno(SYNTHETIC_ERRNO(ETOOMANYREFS),
-                                    "Too many open journal files, not adding %s.", path ?: "fd");
+                log_debug("Too many open journal files, not adding %s.", path ?: "fd");
+                r = -ETOOMANYREFS;
                 goto error;
         }
 

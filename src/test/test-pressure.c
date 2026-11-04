@@ -362,7 +362,7 @@ TEST(real_memory_pressure) {
 
         printf("current: %" PRIu64 "\n", mcurrent);
         if (mcurrent == UINT64_MAX)
-                return (void) log_tests_skipped_errno(r, "memory accounting not available");
+                return (void) log_tests_skipped("memory accounting not available");
 
         m = sd_bus_message_unref(m);
 

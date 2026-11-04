@@ -187,7 +187,7 @@ static int display_emergency_message_fullscreen(const char *message) {
 
         r = fdopen_independent(fd, "r+", &f);
         if (r < 0) {
-                r = log_error_errno(errno, "Failed to open output file: %m");
+                log_error_errno(r, "Failed to open output file: %m");
                 goto cleanup;
         }
 

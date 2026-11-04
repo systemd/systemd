@@ -767,8 +767,6 @@ static int write_temporary_shadow(
                 if (r == 0)
                         break;
         }
-        if (!IN_SET(errno, 0, ENOENT))
-                return -errno;
 
         r = fflush_sync_and_check(shadow);
         if (r < 0)

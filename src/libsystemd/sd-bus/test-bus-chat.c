@@ -539,8 +539,11 @@ TEST(ctrunc) {
         ASSERT_OK(get_one_message(bus, &recvd));
         recvd = sd_bus_message_unref(recvd);
 
-        if (!sd_bus_can_send(bus, 'h'))
-                return (void) log_error("Bus does not support fd passing: %m");
+        r = sd_bus_can_send(bus, 'h');
+        if (r < 0)
+                return (void) log_error_errno(r, "Failed to check whether the bus supports fd passing: %m");
+        if (r == 0)
+                return (void) log_error("Bus does not support fd passing.");
 
         /* We will create a message with 64 fds in it and set a fd limit of 128 and try to receive it.  We'll
          * hold on to that message after we send it and then attempt to receive it back. Since various other

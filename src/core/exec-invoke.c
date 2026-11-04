@@ -682,7 +682,7 @@ static int maybe_inherit_stdout_from_stdin(const ExecContext *context, ExecInput
                 if (r < 0)
                         log_warning_errno(r, "Failed to check if inherited stdin is writable for stdout, using fallback: %m");
                 else
-                        log_warning("Inherited stdin is not writable for stdout, using fallback: %m");
+                        log_warning("Inherited stdin is not writable for stdout, using fallback.");
                 goto fallback;
         }
 
@@ -6788,7 +6788,7 @@ int exec_invoke(
                         char *exec_context = mac_selinux_context_net ?: context->selinux_context;
 
                         if (exec_context) {
-                                r = sym_setexeccon_raw(exec_context);
+                                r = RET_NERRNO(sym_setexeccon_raw(exec_context));
                                 if (r < 0) {
                                         if (!context->selinux_context_ignore) {
                                                 *exit_status = EXIT_SELINUX_CONTEXT;

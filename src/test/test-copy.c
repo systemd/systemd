@@ -987,7 +987,7 @@ TEST_RET(copy_with_verity) {
         int r = copy_tree_at(src, ".", dst, ".", UID_INVALID, GID_INVALID, COPY_REPLACE|COPY_MERGE|COPY_PRESERVE_FS_VERITY, /* denylist= */ NULL, /* subvolumes= */ NULL);
         if (r == -ESOCKTNOSUPPORT)
                 /* This can happen on some versions of btrfs, for example */
-                return log_tests_skipped_errno(errno, "/var/tmp: fs-verity supported, but not reading metadata");
+                return log_tests_skipped_errno(r, "/var/tmp: fs-verity supported, but not reading metadata");
         ASSERT_OK(r);
         FOREACH_ELEMENT(file, files)
                 assert_fsverity_eq(src, dst, *file);
@@ -1002,7 +1002,7 @@ TEST_RET(copy_with_verity) {
 
         /* Ensure the attempting to enable fs-verity here will fail */
         if (enable_fsverity(badsrc, "simple", FS_VERITY_HASH_ALG_SHA256, /* salt= */ NULL, /* salt_size= */ 0))
-                return log_tests_skipped_errno(errno, "/tmp: fs-verity *is* unexpectedly supported here");
+                return log_tests_skipped("/tmp: fs-verity *is* unexpectedly supported here");
 
         /* Copy from our non-verity filesystem into dst, requesting verity and making sure we notice that
          * we failed to read verity from the source. */

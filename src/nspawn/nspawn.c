@@ -855,7 +855,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         r = unit_name_mangle_with_suffix(opts.arg, /* operation= */ NULL, UNIT_NAME_MANGLE_WARN, ".slice", &mangled);
                         if (r < 0)
-                                return log_oom();
+                                return log_error_errno(r, "Failed to mangle slice name '%s': %m", opts.arg);
 
                         free_and_replace(arg_slice, mangled);
                         arg_settings_mask |= SETTING_SLICE;
