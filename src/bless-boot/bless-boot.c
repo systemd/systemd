@@ -519,7 +519,7 @@ static int verb_set(int argc, char *argv[], uintptr_t data, void *userdata) {
                 break;
         case STATUS_INDETERMINATE:
                 if (left == 0)
-                        return log_error_errno(r, "Current boot entry was already marked bad in a previous boot, cannot reset to indeterminate.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Current boot entry was already marked bad in a previous boot, cannot reset to indeterminate.");
 
                 target = path;
                 source1 = good;

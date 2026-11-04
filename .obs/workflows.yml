@@ -17,19 +17,7 @@ ci:
     # Also prepare some images, but disabled by default to avoid wasting cpu/disk
     - link_package:
         source_project: system:systemd
-        source_package: particleos-debian
-        target_project: system:systemd:ci
-    - link_package:
-        source_project: system:systemd
-        source_package: particleos-debian-arm
-        target_project: system:systemd:ci
-    - link_package:
-        source_project: system:systemd
         source_package: particleos-fedora
-        target_project: system:systemd:ci
-    - link_package:
-        source_project: system:systemd
-        source_package: uki-debian
         target_project: system:systemd:ci
     - link_package:
         source_project: system:systemd
