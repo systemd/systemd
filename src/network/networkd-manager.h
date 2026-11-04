@@ -74,7 +74,7 @@ typedef struct Manager {
         DUID dhcp6_duid;
         DUID duid_product_uuid;
         bool has_product_uuid;
-        bool product_uuid_requested;
+        sd_varlink *product_uuid_varlink;
 
         /* DHCP relay agent */
         sd_dhcp_relay *dhcp_relay;

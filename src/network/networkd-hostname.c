@@ -2,14 +2,12 @@
 
 #include <fcntl.h>
 
-#include "sd-bus.h"
 #include "sd-event.h"
 #include "sd-id128.h"
+#include "sd-json.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
-#include "bus-error.h"
-#include "bus-locator.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
@@ -177,78 +175,92 @@ int manager_set_hostname(Manager *m, const char *hostname) {
         return 0;
 }
 
-static int get_product_uuid_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
-        Manager *manager = ASSERT_PTR(userdata);
-        const sd_bus_error *e;
-        const void *a;
-        size_t sz;
+static int get_product_uuid_handler(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                const char *error_id,
+                sd_varlink_reply_flags_t flags,
+                void *userdata) {
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "ProductUUID", SD_JSON_VARIANT_STRING, sd_json_dispatch_id128, 0, SD_JSON_NULLABLE },
+                {}
+        };
+
         int r;
 
-        assert(m);
+        assert(link);
 
-        /* To avoid calling GetProductUUID() bus method so frequently, set the flag below
-         * even if the method fails. */
-        manager->has_product_uuid = true;
+        Manager *m = ASSERT_PTR(sd_event_get_userdata(sd_varlink_get_event(link)));
 
-        e = sd_bus_message_get_error(m);
-        if (e) {
-                r = sd_bus_error_get_errno(e);
-                log_warning_errno(r, "Could not get product UUID. Falling back to use machine-app-specific ID as DUID-UUID: %s",
-                                  bus_error_message(e, r));
+        m->product_uuid_varlink = sd_varlink_close_unref(m->product_uuid_varlink);
+
+        /* Set the flag even on failure, to avoid asking for the product UUID again. */
+        m->has_product_uuid = true;
+
+        if (error_id) {
+                log_warning_errno(sd_varlink_error_to_errno(error_id, parameters),
+                                  "Could not get product UUID. Falling back to use machine-app-specific ID as DUID-UUID: %s",
+                                  error_id);
                 return 0;
         }
 
-        r = sd_bus_message_read_array(m, 'y', &a, &sz);
+        sd_id128_t uuid = SD_ID128_NULL;
+        r = sd_json_dispatch(parameters, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &uuid);
         if (r < 0) {
-                log_warning_errno(r, "Failed to get product UUID. Falling back to use machine-app-specific ID as DUID-UUID: %m");
+                log_warning_errno(r, "Failed to parse product UUID. Falling back to use machine-app-specific ID as DUID-UUID: %m");
                 return 0;
         }
 
-        if (sz != sizeof(sd_id128_t)) {
-                log_warning("Invalid product UUID. Falling back to use machine-app-specific ID as DUID-UUID.");
+        if (sd_id128_is_null(uuid)) {
+                log_debug("systemd-hostnamed did not return a product UUID. Falling back to use machine-app-specific ID as DUID-UUID.");
                 return 0;
         }
 
-        log_debug("Successfully obtained product UUID");
+        log_debug("Successfully obtained product UUID.");
 
-        memcpy(&manager->duid_product_uuid.raw_data, a, sz);
-        manager->duid_product_uuid.raw_data_len = sz;
+        memcpy(&m->duid_product_uuid.raw_data, uuid.bytes, sizeof(uuid.bytes));
+        m->duid_product_uuid.raw_data_len = sizeof(uuid.bytes);
 
         return 0;
 }
 
 int manager_request_product_uuid(Manager *m) {
-        static bool bus_method_is_called = false;
         int r;
 
         assert(m);
 
-        if (bus_method_is_called)
+        if (m->has_product_uuid)
                 return 0;
 
-        if (sd_bus_is_ready(m->bus) <= 0 && !m->product_uuid_requested) {
-                log_debug("Not connected to system bus, requesting product UUID later.");
-                m->product_uuid_requested = true;
+        if (m->product_uuid_varlink)
                 return 0;
-        }
 
-        m->product_uuid_requested = false;
-
-        r = bus_call_method_async(
-                        m->bus,
-                        /* ret_slot= */ NULL,
-                        bus_hostname,
-                        "GetProductUUID",
-                        get_product_uuid_handler,
-                        m,
-                        "b",
-                        false);
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
+        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Hostname");
         if (r < 0)
-                return log_warning_errno(r, "Failed to get product UUID: %m");
+                return log_warning_errno(r, "Failed to connect to systemd-hostnamed: %m");
+
+        (void) sd_varlink_set_description(vl, "product-uuid");
+
+        /* The Describe reply carries the product UUID (and, for privileged peers, the hardware serial),
+         * hence mark the reply as sensitive so its memory is erased when freed. */
+        (void) sd_varlink_set_input_sensitive(vl);
+
+        r = sd_varlink_attach_event(vl, m->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to attach product UUID Varlink connection to event loop: %m");
+
+        r = sd_varlink_bind_reply(vl, get_product_uuid_handler);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to bind product UUID reply callback: %m");
+
+        r = sd_varlink_invoke(vl, "io.systemd.Hostname.Describe", /* parameters= */ NULL);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to request product UUID: %m");
 
         log_debug("Requesting product UUID.");
 
-        bus_method_is_called = true;
-
+        m->product_uuid_varlink = TAKE_PTR(vl);
         return 0;
 }

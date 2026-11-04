@@ -100,8 +100,6 @@ static int on_connected(sd_bus_message *message, void *userdata, sd_bus_error *r
         /* Did we get a timezone from DHCP while the bus wasn't up yet? */
         if (m->dynamic_timezone)
                 (void) manager_send_timezone(m);
-        if (m->product_uuid_requested)
-                (void) manager_request_product_uuid(m);
 
         (void) manager_notify_mm_bus_connected(m);
 
@@ -800,6 +798,7 @@ Manager* manager_free(Manager *m) {
         sd_bus_flush_close_unref(m->bus);
 
         hostname_varlink_close(m->hostname_varlink);
+        sd_varlink_close_unref(m->product_uuid_varlink);
 
         free(m->dynamic_timezone);
         free(m->dynamic_hostname);
