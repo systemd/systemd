@@ -115,15 +115,20 @@ polkit.addRule(function(action, subject) {
 EOF
 systemctl reload-or-restart polkit.service
 
-# The alias is explicitly allowed by the rule, but its canonical unit is denied.
-# Both single-unit and batch requests must use the canonical name for polkit.
-for names_json in "[\"$alias\"]" "[\"$allowed\",\"$alias\"]"; do
-    output=$(runas testuser varlinkctl --more call /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob \
-        "{\"names\":$names_json,\"jobType\":\"start\"}" 2>&1) && assert_not_reached
-    assert_in '(PermissionDenied|AccessDenied|Permission denied|Access denied)' "$output"
-    assert_eq "$(systemctl show "$denied" -P ActiveState)" inactive
-    assert_eq "$(systemctl show "$allowed" -P ActiveState)" inactive
-done
+# Varlink polkit checks use pidfd subjects, which require kernel 6.5 and polkit 124.
+if systemd-analyze compare-versions "$(uname -r)" ge 6.5 &&
+   systemd-analyze compare-versions "$(pkcheck --version | awk '{print $3}')" ge 124; then
+    # The alias is explicitly allowed by the rule, but its canonical unit is denied.
+    # Both single-unit and batch requests must use the canonical name for polkit.
+    for names_json in "[\"$alias\"]" "[\"$allowed\",\"$alias\"]"; do
+        output=$(runas testuser varlinkctl --more call /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob \
+            "{\"names\":$names_json,\"jobType\":\"start\"}" 2>&1) && assert_not_reached
+        assert_in '(PermissionDenied|AccessDenied|Permission denied|Access denied)' "$output"
+        assert_eq "$(systemctl show "$denied" -P ActiveState)" inactive
+        assert_eq "$(systemctl show "$allowed" -P ActiveState)" inactive
+    done
+
+fi
 
 assert_denied "${manager[@]}" EnqueueUnitJobMany assst 2 "$allowed" "$denied" start replace 0
 assert_denied "${manager[@]}" EnqueueUnitJobMany assst 2 "$denied" "$allowed" start replace 0
