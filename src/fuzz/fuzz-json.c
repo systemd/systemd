@@ -7,6 +7,7 @@
 #include "fuzz.h"
 #include "memstream-util.h"
 #include "string-util.h"
+#include "tests.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(memstream_done) MemStream m = {};
@@ -18,7 +19,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         fuzz_setup_logging();
 
         f = data_to_file(data, size);
-        assert_se(f);
+        ASSERT_NOT_NULL(f);
 
         r = sd_json_parse_file(f, /* path= */ NULL, /* flags= */ 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0) {
@@ -27,7 +28,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         }
 
         if (getenv_bool("SYSTEMD_FUZZ_OUTPUT") <= 0)
-                assert_se(g = memstream_init(&m));
+                g = ASSERT_NOT_NULL(memstream_init(&m));
 
         sd_json_variant_dump(v, /* flags= */ 0, g ?: stdout, /* prefix= */ NULL);
         sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_COLOR|SD_JSON_FORMAT_SOURCE, g ?: stdout, /* prefix= */ NULL);
@@ -40,7 +41,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         sorted = sd_json_variant_is_sorted(v);
         log_debug("json_variant_is_sorted: %s", yes_no(sorted));
-        assert_se(r < 0 || sorted);
+        ASSERT_TRUE(r < 0 || sorted);
 
         bool normalized = sd_json_variant_is_normalized(v);
         log_debug("json_variant_is_normalized: %s", yes_no(normalized));
@@ -50,7 +51,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         normalized = sd_json_variant_is_normalized(v);
         log_debug("json_variant_is_normalized: %s", yes_no(normalized));
-        assert_se(r < 0 || normalized);
+        ASSERT_TRUE(r < 0 || normalized);
 
         double real = sd_json_variant_real(v);
         log_debug("json_variant_real: %lf", real);
@@ -70,9 +71,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         for (size_t i = 0; i <= elements + 2; i++)
                 (void) sd_json_variant_by_index(v, i);
 
-        assert_se(sd_json_variant_equal(v, v));
-        assert_se(!sd_json_variant_equal(v, NULL));
-        assert_se(!sd_json_variant_equal(NULL, v));
+        ASSERT_TRUE(sd_json_variant_equal(v, v));
+        ASSERT_FALSE(sd_json_variant_equal(v, NULL));
+        ASSERT_FALSE(sd_json_variant_equal(NULL, v));
 
         bool sensitive = sd_json_variant_is_sensitive(v);
         log_debug("json_variant_is_sensitive: %s", yes_no(sensitive));
@@ -84,7 +85,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         const char *source;
         unsigned line, column;
-        assert_se(sd_json_variant_get_source(v, &source, &line, &column) == 0);
+        ASSERT_OK_ZERO(sd_json_variant_get_source(v, &source, &line, &column));
         log_debug("json_variant_get_source: %s:%u:%u", source ?: "-", line, column);
 
         r = sd_json_variant_set_field_string(&v, "a", "string-a");
