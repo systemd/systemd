@@ -9,6 +9,7 @@ CHANGES WITH 263 in spe:
           with CONFIG_FANOTIFY, CONFIG_TMPFS, and CONFIG_SHMEM. See also the
           changes in systemd-udevd below.
 
+
         Feature Removals and Incompatible Changes:
 
         * The io.systemd.Unit.SetProperties() Varlink method now accepts a
@@ -216,6 +217,13 @@ CHANGES WITH 263 in spe:
           running "udevadm trigger" for all devices that have a device node.
 
         Changes in systemd-networkd:
+
+        * The DHCPv4 client gained support for persisting leases in
+          non-volatile storage, and loading them again on start, controlled by
+          the new PersistLeases= setting in the [DHCPv4] section of .network
+          files. Optionally, expired leases may be reused for a limited time,
+          configurable with ExpiredLeaseExtensionLifetimeSec= and
+          ExpiredLeaseExtensionFuzz=.
 
         * As mentioned above, systemd-networkd and networkctl have been merged
           into a single multi-call binary to reduce the installation footprint.

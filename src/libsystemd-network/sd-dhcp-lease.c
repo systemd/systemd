@@ -12,11 +12,17 @@
 #include "dhcp-lease-internal.h"
 #include "dhcp-route.h"
 #include "dns-resolver-internal.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
 #include "in-addr-util.h"
 #include "ip-util.h"
+#include "json-util.h"
+#include "mkdir.h"
 #include "set.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 #include "time-util.h"
 
 void dhcp_lease_set_timestamp(sd_dhcp_lease *lease, const triple_timestamp *timestamp) {
@@ -388,6 +394,119 @@ int dhcp_lease_new(sd_dhcp_lease **ret) {
         return 0;
 }
 
+int dhcp_lease_save_at(sd_dhcp_lease *lease, int dir_fd, const char *lease_file) {
+        int r;
+
+        assert(lease);
+        assert(lease->message);
+        assert(lease_file);
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        r = dhcp_message_build_json(lease->message, &m);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_buildo(&v,
+                           SD_JSON_BUILD_PAIR_UNSIGNED("Version", 1),
+                           SD_JSON_BUILD_PAIR_UNSIGNED("TimestampRealtimeUSec", lease->timestamp.realtime),
+                           SD_JSON_BUILD_PAIR_UNSIGNED("LifetimeUSec", lease->lifetime),
+                           SD_JSON_BUILD_PAIR_VARIANT("Message", m));
+        if (r < 0)
+                return r;
+
+        r = mkdirat_parents(dir_fd, lease_file, 0755);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *t = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        r = fopen_tmpfile_linkable_at(dir_fd, lease_file, O_WRONLY|O_CLOEXEC, &t, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create lease file %s : %m", lease_file);
+
+        CLEANUP_TMPFILE_AT(dir_fd, t);
+
+        r = sd_json_variant_dump(v, SD_JSON_FORMAT_FLUSH | SD_JSON_FORMAT_PRETTY_AUTO, f, /* prefix= */ NULL);
+        if (r < 0)
+                return r;
+
+        if (fchmod(fileno(f), 0644) < 0)
+                return log_error_errno(errno, "Failed to set access mode for %s: %m", lease_file);
+
+        r = flink_tmpfile_at(f, dir_fd, t, lease_file, LINK_TMPFILE_REPLACE);
+        if (r < 0)
+                return log_error_errno(r, "Failed to move %s into place: %m", lease_file);
+
+        t = mfree(t); /* disarm auto-cleanup */
+
+        log_debug("Saved lease file to %s.", lease_file);
+        return 0;
+}
+
+int dhcp_lease_load_at(sd_dhcp_client *client, int dir_fd, const char *lease_file, sd_dhcp_lease **ret) {
+        int r;
+
+        assert(client);
+        assert(lease_file);
+        assert(ret);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_parse_file_at(/* f= */ NULL, dir_fd, lease_file, SD_JSON_PARSE_MUST_BE_OBJECT,
+                                  &v, /* ret_line= */ NULL, /* ret_column= */ NULL);
+        if (r < 0)
+                return r;
+
+        struct {
+                uint64_t version;
+                uint64_t timestamp;
+                uint64_t lifetime;
+                sd_json_variant *message;
+        } p = {};
+
+        static const sd_json_dispatch_field table[] = {
+                { "Version",               _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        voffsetof(p, version),   SD_JSON_MANDATORY },
+                { "TimestampRealtimeUSec", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        voffsetof(p, timestamp), SD_JSON_MANDATORY },
+                { "LifetimeUSec",          _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        voffsetof(p, lifetime), SD_JSON_MANDATORY },
+                { "Message",               SD_JSON_VARIANT_OBJECT,        sd_json_dispatch_variant_noref, voffsetof(p, message),   SD_JSON_MANDATORY },
+                {}
+        };
+
+        r = sd_json_dispatch(v, table, SD_JSON_ALLOW_EXTENSIONS, &p);
+        if (r < 0)
+                return r;
+
+        if (p.version != 1)
+                return -EPROTONOSUPPORT;
+
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *message = NULL;
+        r = dhcp_message_parse_json(p.message, &message);
+        if (r < 0)
+                return r;
+
+        /* Don't load invalid lifetime value */
+        if (p.lifetime == 0)
+                return -EBADMSG;
+
+        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
+        r = dhcp_lease_new_from_message(client, message, &lease);
+        if (r < 0)
+                return r;
+
+        /* lifetime of a reloaded lease might be less than what the server supplied, which
+         * is likely different from message, so lets use the saved one and recompute t1/t2 */
+        lease->lifetime = p.lifetime;
+        dhcp_set_default_t1_t2(lease);
+
+        /* Restore the timestamp of when the lease was acquired, so that the caller can determine
+         * how much of the lifetime is left. */
+        triple_timestamp_from_realtime(&lease->timestamp, p.timestamp);
+
+        *ret = TAKE_PTR(lease);
+        return 0;
+}
+
 int sd_dhcp_lease_get_timezone(sd_dhcp_lease *lease, const char **ret) {
         assert_return(lease, -EINVAL);
 
@@ -399,7 +518,38 @@ int sd_dhcp_lease_get_timezone(sd_dhcp_lease *lease, const char **ret) {
         return 0;
 }
 
-static int dhcp_lease_new_from_message(sd_dhcp_client *client, sd_dhcp_message *message, sd_dhcp_lease **ret) {
+void dhcp_set_default_t1_t2(sd_dhcp_lease *lease) {
+        assert(lease);
+        assert(lease->lifetime > 0);
+
+        if (lease->lifetime == USEC_INFINITY) {
+                /* Timers not armed in infinite leases */
+                lease->t1 = 0;
+                lease->t2 = 0;
+                return;
+        }
+
+        /* verify that 0 < t2 < lifetime */
+        if (lease->t2 <= 0 || lease->t2 >= lease->lifetime)
+                /* RFC2131 section 4.4.5: T2 defaults to (0.875 * duration_of_lease). */
+                lease->t2 = lease->lifetime * 7 / 8;
+
+        /* verify that 0 < t1 < t2 */
+        if (lease->t1 <= 0 || lease->t1 >= lease->t2)
+                /* RFC2131 section 4.4.5: T1 defaults to (0.5 * duration_of_lease). */
+                lease->t1 = lease->lifetime / 2;
+
+        /* For the case when T2 is too small compared with lifetime. */
+        if (lease->t1 >= lease->t2)
+                /* RFC2131 section 4.4.5: T2 defaults to (0.875 * duration_of_lease). */
+                lease->t2 = lease->lifetime * 7 / 8;
+
+        assert(lease->t1 > 0);
+        assert(lease->t1 < lease->t2);
+        assert(lease->t2 < lease->lifetime);
+}
+
+int dhcp_lease_new_from_message(sd_dhcp_client *client, sd_dhcp_message *message, sd_dhcp_lease **ret) {
         int r;
 
         assert(client);
@@ -472,38 +622,20 @@ static int dhcp_lease_new_from_message(sd_dhcp_client *client, sd_dhcp_message *
                         lease->lifetime = 30 * USEC_PER_SEC;
                 }
 
-                if (lease->lifetime != USEC_INFINITY) {
-                        /* T2 */
-                        r = dhcp_message_get_option_sec(message, SD_DHCP_OPTION_REBINDING_TIME, /* max_as_infinity= */ true, &lease->t2);
-                        if (r < 0 && r != -ENODATA)
-                                log_dhcp_client_errno(client, r, "Failed to read %s option, ignoring: %m",
-                                                      dhcp_option_code_to_string(SD_DHCP_OPTION_REBINDING_TIME));
+                /* T2 */
+                r = dhcp_message_get_option_sec(message, SD_DHCP_OPTION_REBINDING_TIME, /* max_as_infinity= */ true, &lease->t2);
+                if (r < 0 && r != -ENODATA)
+                        log_dhcp_client_errno(client, r, "Failed to read %s option, ignoring: %m",
+                                              dhcp_option_code_to_string(SD_DHCP_OPTION_REBINDING_TIME));
 
-                        /* verify that 0 < t2 < lifetime */
-                        if (lease->t2 <= 0 || lease->t2 >= lease->lifetime)
-                                /* RFC2131 section 4.4.5: T2 defaults to (0.875 * duration_of_lease). */
-                                lease->t2 = lease->lifetime * 7 / 8;
+                /* T1 */
+                r = dhcp_message_get_option_sec(message, SD_DHCP_OPTION_RENEWAL_TIME, /* max_as_infinity= */ true, &lease->t1);
+                if (r < 0 && r != -ENODATA)
+                        log_dhcp_client_errno(client, r, "Failed to read %s option, ignoring: %m",
+                                              dhcp_option_code_to_string(SD_DHCP_OPTION_RENEWAL_TIME));
 
-                        /* T1 */
-                        r = dhcp_message_get_option_sec(message, SD_DHCP_OPTION_RENEWAL_TIME, /* max_as_infinity= */ true, &lease->t1);
-                        if (r < 0 && r != -ENODATA)
-                                log_dhcp_client_errno(client, r, "Failed to read %s option, ignoring: %m",
-                                                      dhcp_option_code_to_string(SD_DHCP_OPTION_RENEWAL_TIME));
-
-                        /* verify that 0 < t1 < t2 */
-                        if (lease->t1 <= 0 || lease->t1 >= lease->t2)
-                                /* RFC2131 section 4.4.5: T1 defaults to (0.5 * duration_of_lease). */
-                                lease->t1 = lease->lifetime / 2;
-
-                        /* For the case when T2 is too small compared with lifetime. */
-                        if (lease->t1 >= lease->t2)
-                                /* RFC2131 section 4.4.5: T2 defaults to (0.875 * duration_of_lease). */
-                                lease->t2 = lease->lifetime * 7 / 8;
-
-                        assert(lease->t1 > 0);
-                        assert(lease->t1 < lease->t2);
-                        assert(lease->t2 < lease->lifetime);
-                }
+                /* Check Values */
+                dhcp_set_default_t1_t2(lease);
         }
 
         r = dhcp_message_get_option_be32(message, SD_DHCP_OPTION_BROADCAST, &lease->broadcast);
