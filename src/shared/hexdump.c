@@ -7,6 +7,8 @@
 
 #include "alloc-util.h"
 #include "hexdump.h"
+#include "iovec-util.h"
+#include "iovec-wrapper.h"
 #include "memstream-util.h"
 
 void hexdump(FILE *f, const void *p, size_t s) {
@@ -147,4 +149,35 @@ char* hexdump_memcmp_byte(uint8_t byte, const void *data, size_t length) {
         }
 
         return hexdump_memcmp(data, length, expected, length);
+}
+
+char* hexdump_iovw_compare(const struct iovec_wrapper *a, const struct iovec_wrapper *b) {
+        _cleanup_(memstream_done) MemStream m = {};
+        size_t na = a ? a->count : 0, nb = b ? b->count : 0, mx = MAX(na, nb);
+        FILE *f;
+
+        /* Dumps the elements of two iovec wrappers that differ, element by element, reusing
+         * hexdump_memcmp(). Used by ASSERT_IOVW_EQ(). */
+
+        f = memstream_init(&m);
+        if (!f)
+                return NULL;
+
+        for (size_t i = 0; i < mx; i++) {
+                const struct iovec *ia = i < na ? a->iovec + i : NULL;
+                const struct iovec *ib = i < nb ? b->iovec + i : NULL;
+
+                if (ia && ib && iovec_memcmp(ia, ib) == 0)
+                        continue;
+
+                _cleanup_free_ char *d = hexdump_memcmp(ia ? ia->iov_base : NULL, ia ? ia->iov_len : 0,
+                                                        ib ? ib->iov_base : NULL, ib ? ib->iov_len : 0);
+                fprintf(f, "element %zu differs:\n%s", i, d ?: "");
+        }
+
+        char *ret;
+        if (memstream_finalize(&m, &ret, NULL) < 0)
+                return NULL;
+
+        return ret;
 }
