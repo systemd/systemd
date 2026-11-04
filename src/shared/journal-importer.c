@@ -369,7 +369,6 @@ int journal_importer_process_data(JournalImporter *imp) {
                 assert(imp->data_size == 0);
 
                 r = get_data_size(imp);
-                // log_debug("get_data_size() -> %d", r);
                 if (r < 0)
                         return r;
                 if (r == 0) {
@@ -389,7 +388,6 @@ int journal_importer_process_data(JournalImporter *imp) {
                 assert(imp->data_size > 0);
 
                 r = get_data_data(imp, &data);
-                // log_debug("get_data_data() -> %d", r);
                 if (r < 0)
                         return r;
                 if (r == 0) {
@@ -413,7 +411,6 @@ int journal_importer_process_data(JournalImporter *imp) {
 
         case IMPORTER_STATE_DATA_FINISH:
                 r = get_data_newline(imp);
-                // log_debug("get_data_newline() -> %d", r);
                 if (r < 0)
                         return r;
                 if (r == 0) {
