@@ -266,11 +266,8 @@ int config_parse_vxlan_address(
         }
 
         r = in_addr_from_string_auto(rvalue, &f, &buffer);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         r = in_addr_is_multicast(f, &buffer);
 
@@ -318,8 +315,7 @@ int config_parse_port_range(
 
         r = parse_ip_port_range(rvalue, &v->port_range.low, &v->port_range.high, /* allow_zero= */ false);
         if (r < 0)
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse VXLAN port range '%s'. Port should be greater than 0 and less than 65535.", rvalue);
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         return 0;
 }
 
@@ -345,10 +341,8 @@ int config_parse_flow_label(
         assert(data);
 
         r = safe_atou(rvalue, &f);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse VXLAN flow label '%s'.", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (f & ~VXLAN_FLOW_LABEL_MAX_MASK) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,

@@ -91,11 +91,8 @@ int config_parse_vlanid(
                            "VLAN identifier outside of valid range 0…4094, ignoring: %s", rvalue);
                 return 0;
         }
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse VLAN identifier value, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         return 0;
 }

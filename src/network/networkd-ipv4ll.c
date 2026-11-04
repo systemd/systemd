@@ -369,13 +369,8 @@ int config_parse_ipv4ll(
          * applies only to IPv4 */
 
         r = parse_boolean(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=%s, ignoring assignment. "
-                           "Note that the setting %s= is deprecated, please use LinkLocalAddressing= instead.",
-                           lvalue, rvalue, lvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         SET_FLAG(*link_local, ADDRESS_FAMILY_IPV4, r);
 
@@ -412,11 +407,8 @@ int config_parse_ipv4ll_address(
         }
 
         r = in_addr_from_string(AF_INET, rvalue, &a);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (!in4_addr_is_link_local_dynamic(&a.in)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Specified address cannot be used as an IPv4 link local address, ignoring assignment: %s",

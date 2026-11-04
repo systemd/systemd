@@ -114,12 +114,8 @@ int config_parse_gred_u32(
         }
 
         r = safe_atou32(rvalue, &v);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (v > MAX_DPs) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
@@ -166,12 +162,8 @@ int config_parse_gred_bool(
         gred = GRED(qdisc);
 
         r = parse_tristate(rvalue, &gred->grio);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         TAKE_PTR(qdisc);
 
