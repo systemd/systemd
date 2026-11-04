@@ -424,7 +424,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 # Use the plain TCPServer rather than HTTPServer, since the latter resolves the local host name via NSS
 # on bind, which on sanitizer builds pulls in our ASan-instrumented NSS modules and kills the interpreter.
-socketserver.TCPServer(('127.0.0.1', port), Handler).serve_forever()
+# Unlike HTTPServer, TCPServer doesn't set SO_REUSEADDR by default, hence turn it on, so that reruns of the
+# test don't fail with EADDRINUSE due to TIME_WAIT sockets left over from the previous run.
+class Server(socketserver.TCPServer):
+    allow_reuse_address = True
+
+Server(('127.0.0.1', port), Handler).serve_forever()
 EOF
 systemd-run --unit=test-25-range-server -p Type=exec python3 "$COMPDIR/range-server.py" 8025 "$COMPDIR" "$RANGE_LOG"
 timeout 30 bash -c 'until curl -sf -o /dev/null http://127.0.0.1:8025/ignore/head.raw; do sleep .5; done'
