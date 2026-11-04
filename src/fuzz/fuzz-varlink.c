@@ -7,7 +7,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fuzz.h"
-#include "hexdecoct.h"
+#include "hexdump.h"
 #include "iovec-util.h"
 
 static FILE *null = NULL;

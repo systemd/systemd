@@ -125,6 +125,7 @@ simple_tests += files(
         'test-gunicode.c',
         'test-hash-funcs.c',
         'test-hexdecoct.c',
+        'test-hexdump.c',
         'test-hmac.c',
         'test-hostname-setup.c',
         'test-hostname-util.c',
