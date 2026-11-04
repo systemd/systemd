@@ -6,6 +6,7 @@
 #include "fd-util.h"
 #include "fuzz.h"
 #include "hashmap.h"
+#include "tests.h"
 #include "tmpfile-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
@@ -16,8 +17,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         fuzz_setup_logging();
 
         fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
-        assert_se(write(fd, data, size) == (ssize_t) size);
+        ASSERT_OK(fd);
+        ASSERT_EQ(write(fd, data, size), (ssize_t) size);
 
         (void) catalog_import_file(&h, fd, name);
 
