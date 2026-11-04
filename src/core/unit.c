@@ -5909,11 +5909,11 @@ static int unit_get_invocation_path(Unit *u, char **ret) {
         assert(ret);
 
         if (MANAGER_IS_SYSTEM(u->manager))
-                p = strjoin("/run/systemd/units/invocation:", u->id);
+                p = strjoin(UNIT_INVOCATION_PATH ":", u->id);
         else {
                 _cleanup_free_ char *user_path = NULL;
 
-                r = xdg_user_runtime_dir("/systemd/units/invocation:", &user_path);
+                r = xdg_user_runtime_dir(UNIT_INVOCATION_PARTIAL_PATH ":", &user_path);
                 if (r < 0)
                         return r;
 
@@ -5971,7 +5971,7 @@ static int unit_export_log_level_max(Unit *u, int log_level_max, bool overwrite)
         buf[0] = '0' + log_level_max;
         buf[1] = 0;
 
-        p = strjoina("/run/systemd/units/log-level-max:", u->id);
+        p = strjoina(UNIT_LOG_LEVEL_MAX_PATH ":", u->id);
         r = symlink_atomic(buf, p);
         if (r < 0)
                 return log_unit_debug_errno(u, r, "Failed to create maximum log level symlink %s: %m", p);
@@ -6001,7 +6001,7 @@ static int unit_export_log_extra_fields(Unit *u, const ExecContext *c) {
                 iovec[i*2+1] = c->log_extra_fields[i];
         }
 
-        const char *p = strjoina("/run/systemd/units/log-extra-fields:", u->id);
+        const char *p = strjoina(UNIT_LOG_EXTRA_FIELDS_PATH ":", u->id);
         char *pattern = strjoina(p, ".XXXXXX");
 
         _cleanup_close_ int fd = mkostemp_safe(pattern);
@@ -6040,7 +6040,7 @@ static int unit_export_log_ratelimit_interval(Unit *u, const ExecContext *c) {
         if (c->log_ratelimit.interval == 0)
                 return 0;
 
-        const char *p = strjoina("/run/systemd/units/log-rate-limit-interval:", u->id);
+        const char *p = strjoina(UNIT_LOG_RATE_LIMIT_INTERVAL_PATH ":", u->id);
 
         char buf[DECIMAL_STR_MAX(c->log_ratelimit.interval)];
         xsprintf(buf, "%" PRIu64, c->log_ratelimit.interval);
@@ -6065,7 +6065,7 @@ static int unit_export_log_ratelimit_burst(Unit *u, const ExecContext *c) {
         if (c->log_ratelimit.burst == 0)
                 return 0;
 
-        const char *p = strjoina("/run/systemd/units/log-rate-limit-burst:", u->id);
+        const char *p = strjoina(UNIT_LOG_RATE_LIMIT_BURST_PATH ":", u->id);
 
         char buf[DECIMAL_STR_MAX(c->log_ratelimit.burst)];
         xsprintf(buf, "%u", c->log_ratelimit.burst);
@@ -6139,28 +6139,28 @@ void unit_unlink_state_files(Unit *u) {
                 return;
 
         if (u->exported_log_level_max) {
-                p = strjoina("/run/systemd/units/log-level-max:", u->id);
+                p = strjoina(UNIT_LOG_LEVEL_MAX_PATH ":", u->id);
                 (void) unlink(p);
 
                 u->exported_log_level_max = false;
         }
 
         if (u->exported_log_extra_fields) {
-                p = strjoina("/run/systemd/units/log-extra-fields:", u->id);
+                p = strjoina(UNIT_LOG_EXTRA_FIELDS_PATH ":", u->id);
                 (void) unlink(p);
 
                 u->exported_log_extra_fields = false;
         }
 
         if (u->exported_log_ratelimit_interval) {
-                p = strjoina("/run/systemd/units/log-rate-limit-interval:", u->id);
+                p = strjoina(UNIT_LOG_RATE_LIMIT_INTERVAL_PATH ":", u->id);
                 (void) unlink(p);
 
                 u->exported_log_ratelimit_interval = false;
         }
 
         if (u->exported_log_ratelimit_burst) {
-                p = strjoina("/run/systemd/units/log-rate-limit-burst:", u->id);
+                p = strjoina(UNIT_LOG_RATE_LIMIT_BURST_PATH ":", u->id);
                 (void) unlink(p);
 
                 u->exported_log_ratelimit_burst = false;
