@@ -186,7 +186,7 @@ static void verify_sub_tlv(sd_dhcp_message *m, TLV *expected) {
 static void verify_length_prefixed_data(sd_dhcp_message *m, const struct iovec_wrapper *expected) {
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
         ASSERT_OK(dhcp_message_get_option_length_prefixed_data(m, SD_DHCP_OPTION_USER_CLASS, 1, &iovw));
-        ASSERT_TRUE(iovw_equal(&iovw, expected));
+        ASSERT_IOVW_EQ(&iovw, expected);
 }
 
 static void verify_send_udp(sd_dhcp_message *message, uint32_t xid, const struct hw_addr_data *hw_addr) {
@@ -223,7 +223,7 @@ static void verify_send_udp(sd_dhcp_message *message, uint32_t xid, const struct
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {}, iovw2 = {};
         ASSERT_OK(dhcp_message_build(message, &iovw));
         ASSERT_OK(dhcp_message_build(m, &iovw2));
-        ASSERT_TRUE(iovw_equal(&iovw, &iovw2));
+        ASSERT_IOVW_EQ(&iovw, &iovw2);
 }
 
 static void verify_send_raw(sd_dhcp_message *message, uint32_t xid, const struct hw_addr_data *hw_addr) {
@@ -274,7 +274,7 @@ static void verify_send_raw(sd_dhcp_message *message, uint32_t xid, const struct
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {}, iovw2 = {};
         ASSERT_OK(dhcp_message_build(message, &iovw));
         ASSERT_OK(dhcp_message_build(m, &iovw2));
-        ASSERT_TRUE(iovw_equal(&iovw, &iovw2));
+        ASSERT_IOVW_EQ(&iovw, &iovw2);
 }
 
 TEST(dhcp_message) {
@@ -530,7 +530,7 @@ TEST(dhcp_message) {
         /* build again, and verify the packet */
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw2 = {};
         ASSERT_OK(dhcp_message_build(m2, &iovw2));
-        ASSERT_TRUE(iovw_equal(&iovw, &iovw2));
+        ASSERT_IOVW_EQ(&iovw, &iovw2);
 
         /* json */
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
@@ -541,7 +541,7 @@ TEST(dhcp_message) {
 
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw3 = {};
         ASSERT_OK(dhcp_message_build(m3, &iovw3));
-        ASSERT_TRUE(iovw_equal(&iovw, &iovw3));
+        ASSERT_IOVW_EQ(&iovw, &iovw3);
 
         /* send */
         verify_send_udp(m, xid, &hw_addr);

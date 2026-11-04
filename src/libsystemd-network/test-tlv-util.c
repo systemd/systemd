@@ -195,7 +195,7 @@ TEST(tlv) {
         void *tagp;
         HASHMAP_FOREACH_KEY(iovw, tagp, tlv.entries) {
                 struct iovec_wrapper *iovw2 = ASSERT_PTR(hashmap_get(tlv2->entries, tagp));
-                ASSERT_TRUE(iovw_equal(iovw, iovw2));
+                ASSERT_IOVW_EQ(iovw, iovw2);
         }
 
         /* tlv_build() again, and check the reproducibility. */

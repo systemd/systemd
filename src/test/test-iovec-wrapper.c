@@ -44,24 +44,24 @@ TEST(iovw_compare) {
         ASSERT_LT(iovw_compare(NULL, &a1), 0);
         ASSERT_EQ(iovw_compare(NULL, NULL), 0);
 
-        ASSERT_TRUE(iovw_equal(&a1, &a1));
-        ASSERT_TRUE(iovw_equal(&a1, &a2));
-        ASSERT_TRUE(iovw_equal(&a2, &a1));
+        ASSERT_IOVW_EQ(&a1, &a1);
+        ASSERT_IOVW_EQ(&a1, &a2);
+        ASSERT_IOVW_EQ(&a2, &a1);
         ASSERT_FALSE(iovw_equal(&a1, &b));
         ASSERT_FALSE(iovw_equal(&b, &a1));
-        ASSERT_TRUE(iovw_equal(&b, &b));
+        ASSERT_IOVW_EQ(&b, &b);
         ASSERT_FALSE(iovw_equal(&a1, &c));
         ASSERT_FALSE(iovw_equal(&c, &a1));
-        ASSERT_TRUE(iovw_equal(&c, &c));
+        ASSERT_IOVW_EQ(&c, &c);
         ASSERT_FALSE(iovw_equal(&a1, &d));
         ASSERT_FALSE(iovw_equal(&d, &a1));
-        ASSERT_TRUE(iovw_equal(&d, &d));
+        ASSERT_IOVW_EQ(&d, &d);
         ASSERT_FALSE(iovw_equal(&a1, &e));
         ASSERT_FALSE(iovw_equal(&e, &a1));
-        ASSERT_TRUE(iovw_equal(&e, &e));
+        ASSERT_IOVW_EQ(&e, &e);
         ASSERT_FALSE(iovw_equal(&a1, NULL));
         ASSERT_FALSE(iovw_equal(NULL, &a1));
-        ASSERT_TRUE(iovw_equal(NULL, NULL));
+        ASSERT_IOVW_EQ(NULL, NULL);
 }
 
 TEST(iovw_put) {
@@ -511,7 +511,7 @@ TEST(iovw_merge_and_iovec_split) {
         ASSERT_MEMEQ(p, a.iov_base, a.iov_len);
         p += a.iov_len;
         ASSERT_OK(iovec_split(&v, sizeof(uint8_t), &iovw2));
-        ASSERT_TRUE(iovw_equal(&iovw, &iovw2));
+        ASSERT_IOVW_EQ(&iovw, &iovw2);
 
         iovec_done(&v);
         iovw_done_free(&iovw2);
@@ -524,7 +524,7 @@ TEST(iovw_merge_and_iovec_split) {
         ASSERT_MEMEQ(p, a.iov_base, a.iov_len);
         p += a.iov_len;
         ASSERT_OK(iovec_split(&v, sizeof(uint16_t), &iovw2));
-        ASSERT_TRUE(iovw_equal(&iovw, &iovw2));
+        ASSERT_IOVW_EQ(&iovw, &iovw2);
 
         iovec_done(&v);
         iovw_done_free(&iovw2);
@@ -539,7 +539,7 @@ TEST(iovw_merge_and_iovec_split) {
         ASSERT_MEMEQ(p, a.iov_base, a.iov_len);
         p += a.iov_len;
         ASSERT_OK(iovec_split(&v, sizeof(uint32_t), &iovw2));
-        ASSERT_TRUE(iovw_equal(&iovw, &iovw2));
+        ASSERT_IOVW_EQ(&iovw, &iovw2);
 
         iovec_done(&v);
         iovw_done_free(&iovw2);
@@ -560,7 +560,7 @@ TEST(iovw_merge_and_iovec_split) {
         ASSERT_EQ(*p++, c.iov_len);
         ASSERT_MEMEQ(p, c.iov_base, c.iov_len);
         ASSERT_OK(iovec_split(&v, sizeof(uint8_t), &iovw2));
-        ASSERT_TRUE(iovw_equal(&iovw, &iovw2));
+        ASSERT_IOVW_EQ(&iovw, &iovw2);
 
         iovec_done(&v);
         iovw_done_free(&iovw2);
@@ -580,7 +580,7 @@ TEST(iovw_merge_and_iovec_split) {
         ASSERT_EQ(*p++, c.iov_len);
         ASSERT_MEMEQ(p, c.iov_base, c.iov_len);
         ASSERT_OK(iovec_split(&v, sizeof(uint16_t), &iovw2));
-        ASSERT_TRUE(iovw_equal(&iovw, &iovw2));
+        ASSERT_IOVW_EQ(&iovw, &iovw2);
 
         iovec_done(&v);
         iovw_done_free(&iovw2);
@@ -606,7 +606,7 @@ TEST(iovw_merge_and_iovec_split) {
         ASSERT_EQ(*p++, c.iov_len);
         ASSERT_MEMEQ(p, c.iov_base, c.iov_len);
         ASSERT_OK(iovec_split(&v, sizeof(uint32_t), &iovw2));
-        ASSERT_TRUE(iovw_equal(&iovw, &iovw2));
+        ASSERT_IOVW_EQ(&iovw, &iovw2);
 
         iovec_done(&v);
         iovw_done_free(&iovw2);
@@ -639,7 +639,7 @@ TEST(iovw_merge_and_iovec_split) {
         p = mempcpy(p, c.iov_base, c.iov_len);
         *p++ = 0;
         ASSERT_OK(iovec_split(&IOVEC_MAKE(buf, sz), sizeof(uint8_t), &iovw2));
-        ASSERT_TRUE(iovw_equal(&iovw, &iovw2));
+        ASSERT_IOVW_EQ(&iovw, &iovw2);
 
         iovw_done_free(&iovw2);
 
