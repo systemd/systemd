@@ -62,7 +62,6 @@ static inline const DUID *link_get_dhcp6_duid(Link *link) {
 }
 
 int dhcp_configure_duid(Link *link, const DUID *duid);
-int manager_request_product_uuid(Manager *m);
 
 bool address_is_filtered(int family, const union in_addr_union *address, uint8_t prefixlen, Set *allow_list, Set *deny_list);
 static inline bool in4_address_is_filtered(const struct in_addr *address, Set *allow_list, Set *deny_list) {

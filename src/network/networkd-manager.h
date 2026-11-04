@@ -161,7 +161,6 @@ int manager_enumerate_internal(
                 int (*process)(sd_netlink *, sd_netlink_message *, Manager *));
 int manager_enumerate(Manager *m);
 
-int manager_set_hostname(Manager *m, const char *hostname);
 int manager_set_timezone(Manager *m, const char *tz);
 
 int manager_reload(Manager *m, sd_bus_message *message, sd_varlink *varlink, bool reconfigure_links);
