@@ -3524,7 +3524,21 @@ int unit_set_default_slice(Unit *u) {
         if (UNIT_GET_SLICE(u))
                 return 0;
 
-        if (u->instance) {
+        _cleanup_free_ char *app_id = NULL;
+        if (MANAGER_IS_USER(u->manager)) {
+                r = unit_name_to_app_id(u->id, &app_id);
+                if (r < 0 && r != -EINVAL)
+                        log_unit_debug_errno(u, r, "Unexpected error parsing XDG app ID, ignoring: %m");
+        }
+
+        if (app_id) {
+                _cleanup_free_ char *escaped = unit_name_escape(app_id);
+                if (!escaped)
+                        return -ENOMEM;
+
+                slice_name = strjoina("app-", escaped, ".slice");
+
+        } else if (u->instance) {
                 _cleanup_free_ char *prefix = NULL, *escaped = NULL;
 
                 /* Implicitly place all instantiated units in their
