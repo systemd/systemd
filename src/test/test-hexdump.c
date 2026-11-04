@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "hexdump.h"
 #include "tests.h"
 
@@ -24,6 +25,29 @@ TEST(hexdump) {
                 data[i] = i*2;
 
         hexdump(stdout, data, sizeof(data));
+}
+
+TEST(hexdump_memcmp) {
+        static const uint8_t a[] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                                     0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+                                     0x10, 0x11 };
+        static const uint8_t b[] = { 0x00, 0x01, 0xff, 0x03, 0x04, 0x05, 0x06, 0x07,
+                                     0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+                                     0x10 };
+
+        /* Equal regions: no marker lines, just the two sides. */
+        _cleanup_free_ char *s = ASSERT_NOT_NULL(hexdump_memcmp(a, sizeof(a), a, sizeof(a)));
+        log_info("equal:\n%s", s);
+
+        /* Differing byte and differing length. */
+        free(s);
+        s = ASSERT_NOT_NULL(hexdump_memcmp(a, sizeof(a), b, sizeof(b)));
+        log_info("differ:\n%s", s);
+
+        /* Empty regions are fine. */
+        free(s);
+        s = ASSERT_NOT_NULL(hexdump_memcmp(NULL, 0, NULL, 0));
+        ASSERT_STREQ(s, "");
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "hexdump.h"
+#include "memstream-util.h"
 
 void hexdump(FILE *f, const void *p, size_t s) {
         const uint8_t *b = p;
@@ -53,4 +54,79 @@ void hexdump(FILE *f, const void *p, size_t s) {
                 b += 16;
                 s -= 16;
         }
+}
+
+static void dump_hex_line(FILE *f, char tag, const uint8_t *p, size_t size, size_t off) {
+        assert(f);
+
+        fprintf(f, "%c %04zx  ", tag, off);
+
+        for (size_t i = 0; i < 16; i++) {
+                if (off + i < size)
+                        fprintf(f, "%02x ", p[off + i]);
+                else
+                        fputs("   ", f);
+
+                if (i == 7)
+                        fputc(' ', f);
+        }
+
+        fputs(" |", f);
+        for (size_t i = 0; i < 16; i++) {
+                if (off + i < size) {
+                        uint8_t c = p[off + i];
+                        fputc(isprint(c) ? (char) c : '.', f);
+                } else
+                        fputc(' ', f);
+        }
+        fputs("|\n", f);
+}
+
+char* hexdump_memcmp(const void *m1, size_t l1, const void *m2, size_t l2) {
+        _cleanup_(memstream_done) MemStream m = {};
+        const uint8_t *a = m1, *b = m2;
+        size_t mx = MAX(l1, l2);
+        FILE *f;
+
+        /* Returns a hexdump(3)-like side-by-side representation of two memory regions. For each 16 byte
+         * chunk that differs a marker line pointing at the diverging bytes ('<' is the first region, '>' the
+         * second) is appended. */
+
+        f = memstream_init(&m);
+        if (!f)
+                return NULL;
+
+        for (size_t off = 0; off < mx; off += 16) {
+                dump_hex_line(f, '<', a, l1, off);
+                dump_hex_line(f, '>', b, l2, off);
+
+                /* Figure out whether this chunk differs at all, and only then emit the marker line. */
+                bool any = false;
+                for (size_t i = 0; i < 16 && off + i < mx; i++) {
+                        bool pa = off + i < l1, pb = off + i < l2;
+                        if (pa != pb || (pa && pb && a[off + i] != b[off + i])) {
+                                any = true;
+                                break;
+                        }
+                }
+                if (!any)
+                        continue;
+
+                fputs("        ", f); /* align with the 8-char "%c %04zx  " prefix: tag + space + 4 hex + 2 spaces */
+                for (size_t i = 0; i < 16; i++) {
+                        bool pa = off + i < l1, pb = off + i < l2;
+                        bool diff = pa != pb || (pa && pb && a[off + i] != b[off + i]);
+                        fputs(diff ? "^^ " : "   ", f);
+
+                        if (i == 7)
+                                fputc(' ', f);
+                }
+                fputc('\n', f);
+        }
+
+        char *ret;
+        if (memstream_finalize(&m, &ret, NULL) < 0)
+                return NULL;
+
+        return ret;
 }
