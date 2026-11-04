@@ -46,6 +46,8 @@
 #include "time-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
+#include "varlink-io.systemd.service.h"
+#include "varlink-util.h"
 #include "verbs.h"
 
 #define NULL_ADJTIME_UTC "0.0 0 0\n0\nUTC\n"
@@ -75,6 +77,7 @@ typedef struct Context {
 
         sd_event *event;
         sd_bus *bus;
+        sd_varlink_server *varlink_server;
 
         LIST_HEAD(UnitStatusInfo, units);
 } Context;
@@ -117,6 +120,7 @@ static void context_clear(Context *c) {
 
         sd_bus_slot_unref(c->slot_job_removed);
 
+        sd_varlink_server_unref(c->varlink_server);
         sd_bus_flush_close_unref(c->bus);
         sd_event_unref(c->event);
 
@@ -1165,10 +1169,56 @@ static int connect_bus(Context *c) {
         return 0;
 }
 
+static int connect_varlink(Context *c) {
+        int r;
+
+        assert(c);
+        assert(c->event);
+        assert(!c->varlink_server);
+
+        r = varlink_server_new(
+                        &c->varlink_server,
+                        SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA,
+                        c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+        r = sd_varlink_server_add_interface_many(
+                        c->varlink_server,
+                        &vl_interface_io_systemd_service);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Varlink interfaces: %m");
+
+        r = sd_varlink_server_bind_method_many(
+                        c->varlink_server,
+                        "io.systemd.service.Ping",           varlink_method_ping,
+                        "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
+                        "io.systemd.service.GetLogLevel",    varlink_method_get_log_level,
+                        "io.systemd.service.GetEnvironment", varlink_method_get_environment);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink method calls: %m");
+
+        r = sd_varlink_server_attach_event(c->varlink_server, c->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach Varlink server to event loop: %m");
+
+        r = sd_varlink_server_listen_auto(c->varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind to passed Varlink sockets: %m");
+        if (r == 0) {
+                r = sd_varlink_server_listen_address(c->varlink_server, "/run/systemd/io.systemd.Timedate", 0666);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind to Varlink socket: %m");
+        }
+
+        return 0;
+}
+
 static bool context_check_idle(void *userdata) {
         Context *c = ASSERT_PTR(userdata);
 
-        return hashmap_isempty(c->polkit_registry);
+        return sd_varlink_server_current_connections(c->varlink_server) == 0 &&
+                hashmap_isempty(c->polkit_registry);
 }
 
 COMMAND(
@@ -1213,6 +1263,10 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         (void) sd_bus_negotiate_timestamp(context.bus, true);
+
+        r = connect_varlink(&context);
+        if (r < 0)
+                return r;
 
         r = context_read_data(&context);
         if (r < 0)
