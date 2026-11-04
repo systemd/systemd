@@ -7,7 +7,6 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "log.h"
-#include "memory-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "tests.h"
@@ -368,16 +367,16 @@ TEST(gid_lists_ops) {
         int nresult;
 
         nresult = ASSERT_OK(merge_gid_lists(l2, ELEMENTSOF(l2), l3, ELEMENTSOF(l3), &res1));
-        ASSERT_EQ(memcmp_nn(res1, nresult, result1, ELEMENTSOF(result1)), 0);
+        ASSERT_MEMEQ_NN(res1, nresult, result1, ELEMENTSOF(result1));
 
         nresult = ASSERT_OK(merge_gid_lists(/* list1= */ NULL, /* size1= */ 0, l2, ELEMENTSOF(l2), &res2));
-        ASSERT_EQ(memcmp_nn(res2, nresult, l2, ELEMENTSOF(l2)), 0);
+        ASSERT_MEMEQ_NN(res2, nresult, l2, ELEMENTSOF(l2));
 
         nresult = ASSERT_OK(merge_gid_lists(l1, ELEMENTSOF(l1), l1, ELEMENTSOF(l1), &res3));
-        ASSERT_EQ(memcmp_nn(l1, ELEMENTSOF(l1), res3, nresult), 0);
+        ASSERT_MEMEQ_NN(l1, ELEMENTSOF(l1), res3, nresult);
 
         nresult = ASSERT_OK(merge_gid_lists(l1, ELEMENTSOF(l1), l4, ELEMENTSOF(l4), &res4));
-        ASSERT_EQ(memcmp_nn(result2, ELEMENTSOF(result2), res4, nresult), 0);
+        ASSERT_MEMEQ_NN(result2, ELEMENTSOF(result2), res4, nresult);
 
         nresult = ASSERT_OK(getgroups_alloc(&gids));
         if (nresult > 0)
@@ -617,17 +616,17 @@ TEST(lookup_groups_in_files) {
 
         ASSERT_EQ(lookup_groups_in_files(files, "testuser1", 100, &arr), 3);
         gid_t exp1[] = { 100, 200, 400 };
-        ASSERT_EQ(memcmp(arr, exp1, sizeof(exp1)), 0);
+        ASSERT_MEMEQ(arr, exp1, sizeof(exp1));
         arr = mfree(arr);
 
         ASSERT_EQ(lookup_groups_in_files(files, "testuser1", /* gid= */ 0, &arr), 4);
         gid_t exp2[] = { 0, 100, 200, 400 };
-        ASSERT_EQ(memcmp(arr, exp2, sizeof(exp2)), 0);
+        ASSERT_MEMEQ(arr, exp2, sizeof(exp2));
         arr = mfree(arr);
 
         ASSERT_EQ(lookup_groups_in_files(files, "testuser3", 300, &arr), 1);
         gid_t exp3[] = { 300 };
-        ASSERT_EQ(memcmp(arr, exp3, sizeof(exp3)), 0);
+        ASSERT_MEMEQ(arr, exp3, sizeof(exp3));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

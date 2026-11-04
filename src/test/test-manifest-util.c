@@ -41,7 +41,7 @@ static void assert_digest(const struct iovec *digest, const char *hex) {
         _cleanup_(iovec_done) struct iovec expected = {};
 
         ASSERT_OK(unhexmem(hex, &expected.iov_base, &expected.iov_len));
-        ASSERT_EQ(iovec_memcmp(digest, &expected), 0);
+        ASSERT_IOVEC_EQ(digest, &expected);
 }
 
 TEST(manifest_parse_sums) {
@@ -871,13 +871,13 @@ TEST(uapi16_dispatch) {
         ASSERT_TRUE(o.user_xattrs_set);
         ASSERT_EQ(o.n_user_xattrs, 4U);
         ASSERT_STREQ(o.user_xattrs[0].name, "a");
-        ASSERT_EQ(iovec_memcmp(&o.user_xattrs[0].value, &IOVEC_MAKE_STRING("hello")), 0);
+        ASSERT_IOVEC_EQ(&o.user_xattrs[0].value, &IOVEC_MAKE_STRING("hello"));
         ASSERT_STREQ(o.user_xattrs[1].name, "b");
-        ASSERT_EQ(iovec_memcmp(&o.user_xattrs[1].value, &IOVEC_MAKE("\x00\x01\x02\x03", 4)), 0);
+        ASSERT_IOVEC_EQ(&o.user_xattrs[1].value, &IOVEC_MAKE("\x00\x01\x02\x03", 4));
         ASSERT_STREQ(o.user_xattrs[2].name, "e");
         ASSERT_EQ(o.user_xattrs[2].value.iov_len, 0U);
         ASSERT_STREQ(o.user_xattrs[3].name, "u");
-        ASSERT_EQ(iovec_memcmp(&o.user_xattrs[3].value, &IOVEC_MAKE("\xfb\xff", 2)), 0);
+        ASSERT_IOVEC_EQ(&o.user_xattrs[3].value, &IOVEC_MAKE("\xfb\xff", 2));
 
         /* … and they round-trip */
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *x = NULL;

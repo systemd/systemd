@@ -69,7 +69,7 @@ static void receive_and_check_question(int fd, const uint8_t *expected_question,
         }
         ASSERT_EQ(n_read, question_size);
 
-        ASSERT_EQ(memcmp(expected_question, actual_question, question_size), 0);
+        ASSERT_MEMEQ(expected_question, actual_question, question_size);
 }
 
 static void send_answer(int fd, const uint8_t *answer, size_t answer_size) {
@@ -278,8 +278,8 @@ static void test_dns_stream(bool tls) {
         while (n_received_packets != 1)
                 ASSERT_OK_POSITIVE(sd_event_run(event, EVENT_TIMEOUT_USEC));
         ASSERT_NOT_NULL(DNS_PACKET_DATA(received_packets[0]));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(received_packets[0]),
-                         ANSWER_A + 2, sizeof(ANSWER_A) - 2), 0);
+        ASSERT_MEMEQ(DNS_PACKET_DATA(received_packets[0]),
+                     ANSWER_A + 2, sizeof(ANSWER_A) - 2);
         dns_packet_unref(TAKE_PTR(received_packets[0]));
         n_received_packets = 0;
 
@@ -289,8 +289,8 @@ static void test_dns_stream(bool tls) {
         while (n_received_packets != 1)
                 ASSERT_OK_POSITIVE(sd_event_run(event, EVENT_TIMEOUT_USEC));
         ASSERT_NOT_NULL(DNS_PACKET_DATA(received_packets[0]));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(received_packets[0]),
-                         ANSWER_AAAA + 2, sizeof(ANSWER_AAAA) - 2), 0);
+        ASSERT_MEMEQ(DNS_PACKET_DATA(received_packets[0]),
+                     ANSWER_AAAA + 2, sizeof(ANSWER_AAAA) - 2);
         dns_packet_unref(TAKE_PTR(received_packets[0]));
         n_received_packets = 0;
 
@@ -305,10 +305,10 @@ static void test_dns_stream(bool tls) {
                 ASSERT_OK_POSITIVE(sd_event_run(event, EVENT_TIMEOUT_USEC));
         ASSERT_NOT_NULL(DNS_PACKET_DATA(received_packets[0]));
         ASSERT_NOT_NULL(DNS_PACKET_DATA(received_packets[1]));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(received_packets[0]),
-                         ANSWER_A + 2, sizeof(ANSWER_A) - 2), 0);
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(received_packets[1]),
-                         ANSWER_AAAA + 2, sizeof(ANSWER_AAAA) - 2), 0);
+        ASSERT_MEMEQ(DNS_PACKET_DATA(received_packets[0]),
+                     ANSWER_A + 2, sizeof(ANSWER_A) - 2);
+        ASSERT_MEMEQ(DNS_PACKET_DATA(received_packets[1]),
+                     ANSWER_AAAA + 2, sizeof(ANSWER_AAAA) - 2);
         dns_packet_unref(TAKE_PTR(received_packets[0]));
         dns_packet_unref(TAKE_PTR(received_packets[1]));
         n_received_packets = 0;

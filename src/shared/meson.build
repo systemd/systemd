@@ -95,6 +95,7 @@ shared_sources = files(
         'gnutls-util.c',
         'gpt.c',
         'group-record.c',
+        'hexdump.c',
         'hibernate-util.c',
         'host-properties.c',
         'hostname-setup.c',

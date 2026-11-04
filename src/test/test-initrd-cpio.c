@@ -75,16 +75,14 @@ TEST_RET(initrd_cpio_credentials_basic) {
         ASSERT_TRUE(S_ISREG(st.st_mode));
         ASSERT_EQ((mode_t) (st.st_mode & 07777), (mode_t) 0400);
         ASSERT_OK(read_full_file(foo_path, &foo_content, &foo_size));
-        ASSERT_EQ(foo_size, 5U);
-        ASSERT_EQ(memcmp(foo_content, "hello", 5), 0);
+        ASSERT_MEMEQ_NN(foo_content, foo_size, "hello", 5);
 
         ASSERT_NOT_NULL(bar_path = path_join(extract_dir, ".extra/system_credentials/bar.cred"));
         ASSERT_OK_ERRNO(stat(bar_path, &st));
         ASSERT_TRUE(S_ISREG(st.st_mode));
         ASSERT_EQ((mode_t) (st.st_mode & 07777), (mode_t) 0400);
         ASSERT_OK(read_full_file(bar_path, &bar_content, &bar_size));
-        ASSERT_EQ(bar_size, 7U);
-        ASSERT_EQ(memcmp(bar_content, "abc\0def", 7), 0);
+        ASSERT_MEMEQ_NN(bar_content, bar_size, "abc\0def", 7);
 
         return 0;
 }

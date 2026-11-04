@@ -27,6 +27,7 @@
 #include "fd-util.h"
 #include "fdset.h"
 #include "fuzz.h"
+#include "tests.h"
 
 static void exec_fuzz_one(FILE *f, FDSet *fdset) {
         _cleanup_(exec_params_deep_clear) ExecParameters params = EXEC_PARAMETERS_INIT(/* flags= */ 0);
@@ -86,8 +87,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         fuzz_setup_logging();
 
-        assert_se(fdset = fdset_new());
-        assert_se(f = data_to_file(data, size));
+        fdset = ASSERT_NOT_NULL(fdset_new());
+        f = ASSERT_NOT_NULL(data_to_file(data, size));
 
         exec_fuzz_one(f, fdset);
 

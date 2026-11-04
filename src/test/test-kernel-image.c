@@ -33,8 +33,7 @@ static void assert_decompressed(int fd) {
 
         ASSERT_OK_POSITIVE(kernel_decompress(fd, &decompressed_fd));
         ASSERT_OK(read_full_file_full(decompressed_fd, /* filename= */ NULL, UINT64_MAX, SIZE_MAX, /* flags= */ 0, /* bind_name= */ NULL, &data, &size));
-        ASSERT_EQ(size, strlen(banner));
-        ASSERT_EQ(memcmp(data, banner, size), 0);
+        ASSERT_MEMEQ_NN(data, size, banner, strlen(banner));
 }
 
 static void assert_uname(int fd, const char *expected) {

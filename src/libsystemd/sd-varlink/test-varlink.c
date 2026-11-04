@@ -105,7 +105,7 @@ static void test_fd(int fd, const void *buf, size_t n) {
         ssize_t m;
 
         ASSERT_OK_ERRNO(m = read(fd, rbuf, n + 1));
-        ASSERT_OK_ZERO(memcmp_nn(buf, n, rbuf, m));
+        ASSERT_MEMEQ_NN(buf, n, rbuf, m);
 }
 
 static int method_passfd(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {

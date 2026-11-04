@@ -44,5 +44,3 @@ int unbase64mem_full(const char *p, size_t l, bool secure, void **ret_data, size
 static inline int unbase64mem(const char *p, void **ret_data, size_t *ret_size) {
         return unbase64mem_full(p, SIZE_MAX, /* secure= */ false, ret_data, ret_size);
 }
-
-void hexdump(FILE *f, const void *p, size_t s) _nonnull_if_nonzero_(2, 3);

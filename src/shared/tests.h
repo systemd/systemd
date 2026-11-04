@@ -5,8 +5,12 @@
 
 #include "errno-list.h"
 #include "forward.h"
+#include "hexdump.h"                    /* IWYU pragma: keep */
+#include "iovec-util.h"                 /* IWYU pragma: keep */
+#include "iovec-wrapper.h"              /* IWYU pragma: keep */
 #include "log.h"
 #include "log-assert-critical.h"
+#include "memory-util.h"                /* IWYU pragma: keep */
 #include "path-util.h"                  /* IWYU pragma: keep */
 #include "static-destruct.h"            /* IWYU pragma: keep */
 #include "signal-util.h"                /* IWYU pragma: keep */
@@ -560,6 +564,85 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
                 if (_expr1 != _expr2)                                                                           \
                         log_test_failed("Expected \"%s == %s\", got \"0x%p != 0x%p\"",                          \
                                         #expr1, #expr2, _expr1, _expr2);                                        \
+        })
+#endif
+
+#ifdef __COVERITY__
+#  define ASSERT_MEMEQ(p1, p2, n) __coverity_check__(memcmp_safe((p1), (p2), (n)) == 0)
+#else
+#  define ASSERT_MEMEQ(p1, p2, n)                                                                                \
+        ({                                                                                                      \
+                const void *_p1 = (p1), *_p2 = (p2);                                                            \
+                size_t _n = (n);                                                                                \
+                if (memcmp_safe(_p1, _p2, _n) != 0) {                                                           \
+                        _cleanup_free_ char *_dump = hexdump_memcmp(_p1, _n, _p2, _n);                          \
+                        log_test_failed("Expected \"%s\" and \"%s\" to have equal contents (%zu bytes):\n%s",   \
+                                        #p1, #p2, _n, strnull(_dump));                                          \
+                }                                                                                               \
+        })
+#endif
+
+#ifdef __COVERITY__
+#  define ASSERT_MEMEQ_NN(p1, l1, p2, l2) __coverity_check__(memcmp_nn((p1), (l1), (p2), (l2)) == 0)
+#else
+#  define ASSERT_MEMEQ_NN(p1, l1, p2, l2)                                                                       \
+        ({                                                                                                      \
+                const void *_p1 = (p1), *_p2 = (p2);                                                            \
+                size_t _l1 = (l1), _l2 = (l2);                                                                  \
+                if (memcmp_nn(_p1, _l1, _p2, _l2) != 0) {                                                       \
+                        _cleanup_free_ char *_dump = hexdump_memcmp(_p1, _l1, _p2, _l2);                        \
+                        log_test_failed("Expected \"%s\" (%zu bytes) and \"%s\" (%zu bytes) to have equal contents:\n%s", \
+                                        #p1, _l1, #p2, _l2, strnull(_dump));                                     \
+                }                                                                                               \
+        })
+#endif
+
+#ifdef __COVERITY__
+#  define ASSERT_IOVEC_EQ(i1, i2) __coverity_check__(iovec_memcmp((i1), (i2)) == 0)
+#else
+#  define ASSERT_IOVEC_EQ(i1, i2)                                                                               \
+        ({                                                                                                      \
+                const struct iovec *_i1 = (i1), *_i2 = (i2);                                                    \
+                if (iovec_memcmp(_i1, _i2) != 0) {                                                              \
+                        _cleanup_free_ char *_dump = hexdump_memcmp(_i1 ? _i1->iov_base : NULL,                 \
+                                                                    _i1 ? _i1->iov_len : 0,                     \
+                                                                    _i2 ? _i2->iov_base : NULL,                 \
+                                                                    _i2 ? _i2->iov_len : 0);                    \
+                        log_test_failed("Expected iovec \"%s\" (%zu bytes) and \"%s\" (%zu bytes) to have equal contents:\n%s", \
+                                        #i1, _i1 ? _i1->iov_len : 0, #i2, _i2 ? _i2->iov_len : 0, strnull(_dump)); \
+                }                                                                                               \
+        })
+#endif
+
+#ifdef __COVERITY__
+#  define ASSERT_MEMEQ_BYTE(byte, data, length) __coverity_check__(memeqbyte((byte), (data), (length)))
+#else
+#  define ASSERT_MEMEQ_BYTE(byte, data, length)                                                                 \
+        ({                                                                                                      \
+                uint8_t _byte = (byte);                                                                         \
+                const void *_data = (data);                                                                     \
+                size_t _length = (length);                                                                      \
+                if (!memeqbyte(_byte, _data, _length)) {                                                        \
+                        _cleanup_free_ char *_dump = hexdump_memcmp_byte(_byte, _data, _length);                \
+                        log_test_failed("Expected all %zu bytes of \"%s\" to be 0x%02x:\n%s",                   \
+                                        _length, #data, _byte, strnull(_dump));                                 \
+                }                                                                                               \
+        })
+#endif
+
+#define ASSERT_MEMEQ_ZERO(data, length) ASSERT_MEMEQ_BYTE(0x00, data, length)
+
+#ifdef __COVERITY__
+#  define ASSERT_IOVW_EQ(a, b) __coverity_check__(iovw_equal((a), (b)))
+#else
+#  define ASSERT_IOVW_EQ(a, b)                                                                                   \
+        ({                                                                                                      \
+                const struct iovec_wrapper *_a = (a), *_b = (b);                                                \
+                if (!iovw_equal(_a, _b)) {                                                                      \
+                        _cleanup_free_ char *_dump = hexdump_iovw_compare(_a, _b);                              \
+                        log_test_failed("Expected iovec wrappers \"%s\" (%zu elements) and \"%s\" (%zu elements) to be equal:\n%s", \
+                                        #a, _a ? _a->count : 0, #b, _b ? _b->count : 0, strnull(_dump));        \
+                }                                                                                               \
         })
 #endif
 

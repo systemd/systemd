@@ -84,7 +84,7 @@ TEST(short_hashes) {
                 two[i-1] = one[i-1];
                 siphash24_compress(two, i, &state2);
 
-                ASSERT_EQ(memcmp(&state1, &state2, sizeof state1), 0);
+                ASSERT_MEMEQ(&state1, &state2, sizeof state1);
         }
 
         /* hashing n and 1, n and 2, n and 3, ..., n-1 and 1, n-2 and 2, ... */
@@ -99,7 +99,7 @@ TEST(short_hashes) {
                         two[j-1] = one[j-1];
                         siphash24_compress(two, j, &state2);
 
-                        ASSERT_EQ(memcmp(&state1, &state2, sizeof state1), 0);
+                        ASSERT_MEMEQ(&state1, &state2, sizeof state1);
                 }
         }
 }

@@ -73,7 +73,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                         _cleanup_(iovw_done_free) struct iovec_wrapper iovw2 = {};
                         ASSERT_OK(dhcp_message_build(lease2->message, &iovw2));
 
-                        ASSERT_TRUE(iovw_equal(&iovw, &iovw2));
+                        ASSERT_IOVW_EQ(&iovw, &iovw2);
                 }
         }
 

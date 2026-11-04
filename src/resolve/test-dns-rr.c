@@ -829,7 +829,7 @@ TEST(dns_resource_record_new_address_ipv6) {
         ASSERT_EQ(rr->key->class, DNS_CLASS_IN);
         ASSERT_EQ(rr->key->type, DNS_TYPE_AAAA);
         ASSERT_STREQ(dns_resource_key_name(rr->key), "www.example.com");
-        ASSERT_EQ(memcmp(&rr->aaaa.in6_addr, &addr.in6, sizeof(struct in6_addr)), 0);
+        ASSERT_MEMEQ(&rr->aaaa.in6_addr, &addr.in6, sizeof(struct in6_addr));
 
         test_to_json_from_json(rr);
 }

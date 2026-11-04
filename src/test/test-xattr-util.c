@@ -34,11 +34,11 @@ TEST(getxattr_at_malloc) {
         ASSERT_OK_ERRNO(r);
 
         ASSERT_OK(getxattr_at_malloc(fd, "test", "user.foo", /* at_flags= */ 0, &value, /* ret_size= */ NULL));
-        ASSERT_EQ(memcmp(value, "bar", 3), 0);
+        ASSERT_MEMEQ(value, "bar", 3);
         value = mfree(value);
 
         ASSERT_OK(getxattr_at_malloc(AT_FDCWD, x, "user.foo", /* at_flags= */ 0, &value, /* ret_size= */ NULL));
-        ASSERT_EQ(memcmp(value, "bar", 3), 0);
+        ASSERT_MEMEQ(value, "bar", 3);
         value = mfree(value);
 
         safe_close(fd);
@@ -66,8 +66,7 @@ TEST(getxattr_at_malloc) {
         ASSERT_ERROR(getxattr_at_malloc(fd, /* path= */ NULL, "user.foozu", /* at_flags= */ 0, &value, /* ret_size= */ NULL), EBADMSG);
         size_t value_size;
         ASSERT_OK(getxattr_at_malloc(fd, /* path= */ NULL, "user.foozu", /* at_flags= */ 0, &value, &value_size));
-        ASSERT_EQ(value_size, 13U);
-        ASSERT_EQ(memcmp(value, "bar\0qux\0wal\0\0", 13), 0);
+        ASSERT_MEMEQ_NN(value, value_size, "bar\0qux\0wal\0\0", 13);
         ASSERT_EQ(value[13], 0); /* check extra NUL */
 }
 

@@ -90,15 +90,14 @@ static void assert_section_data(
         size_t contents_size;
 
         ASSERT_OK(pe_read_section_data_by_name(fd, pe_header, sections, name, SIZE_MAX, &contents, &contents_size));
-        ASSERT_EQ(contents_size, size);
-        ASSERT_EQ(memcmp(contents, data, size), 0);
+        ASSERT_MEMEQ_NN(contents, contents_size, data, size);
 }
 
 static void assert_zero(int fd, uint64_t offset, size_t size) {
         _cleanup_free_ uint8_t *buf = ASSERT_NOT_NULL(new(uint8_t, size));
 
         ASSERT_OK_EQ_ERRNO(pread(fd, buf, size, offset), (ssize_t) size);
-        ASSERT_TRUE(memeqzero(buf, size));
+        ASSERT_MEMEQ_ZERO(buf, size);
 }
 
 TEST(add_sections) {
@@ -188,7 +187,7 @@ TEST(add_sections) {
         _cleanup_free_ uint8_t *second = ASSERT_NOT_NULL(new(uint8_t, end));
         ASSERT_OK_EQ_ERRNO(pread(out, first, end, 0), (ssize_t) end);
         ASSERT_OK_EQ_ERRNO(pread(out2, second, end, 0), (ssize_t) end);
-        ASSERT_EQ(memcmp(first, second, end), 0);
+        ASSERT_MEMEQ(first, second, end);
 }
 
 TEST(find_and_replace_section) {
@@ -364,7 +363,7 @@ TEST(trailing_data) {
 
         uint8_t trailing[0x10];
         ASSERT_OK_EQ_ERRNO(pread(out2, trailing, sizeof(trailing), STUB_SIZE), (ssize_t) sizeof(trailing));
-        ASSERT_EQ(memcmp(trailing, stub + STUB_SIZE, sizeof(trailing)), 0);
+        ASSERT_MEMEQ(trailing, stub + STUB_SIZE, sizeof(trailing));
         assert_zero(out2, size, STUB_SIZE + FILE_ALIGNMENT - size);
 
         _cleanup_free_ PeHeader *pe_header = NULL;
@@ -453,7 +452,7 @@ TEST(symbol_table_trailing_data) {
 
         _cleanup_free_ uint8_t *data = ASSERT_NOT_NULL(new(uint8_t, size - STUB_SIZE));
         ASSERT_OK_EQ_ERRNO(pread(out, data, size - STUB_SIZE, STUB_SIZE), (ssize_t) (size - STUB_SIZE));
-        ASSERT_EQ(memcmp(data, stub + STUB_SIZE, size - STUB_SIZE), 0);
+        ASSERT_MEMEQ(data, stub + STUB_SIZE, size - STUB_SIZE);
 
         _cleanup_free_ PeHeader *pe_header = NULL;
         ASSERT_OK(pe_load_headers_and_sections(out, &pe_header, /* ret_sections= */ NULL));
@@ -534,8 +533,8 @@ TEST(signature) {
         static const uint8_t certificate[16] = { 13, 0, 0, 0, 0x00, 0x02, 0x02, 0x00, 1, 2, 3, 4, 5, 0, 0, 0 };
         uint8_t certificates[2 * sizeof(certificate)];
         ASSERT_OK_EQ_ERRNO(pread(out, certificates, sizeof(certificates), unsigned_size), (ssize_t) sizeof(certificates));
-        ASSERT_EQ(memcmp(certificates, certificate, sizeof(certificate)), 0);
-        ASSERT_EQ(memcmp(certificates + sizeof(certificate), certificate, sizeof(certificate)), 0);
+        ASSERT_MEMEQ(certificates, certificate, sizeof(certificate));
+        ASSERT_MEMEQ(certificates + sizeof(certificate), certificate, sizeof(certificate));
 
         uint32_t checksum;
         ASSERT_OK(pe_checksum(out, &checksum));
@@ -643,7 +642,7 @@ TEST(authenticode_sign_pe) {
 
         /* The Authenticode hash does not cover the certificate table, so signing does not change it. */
         ASSERT_OK(pe_hash(fd, sym_EVP_sha256(), &signed_hash, &signed_hash_size));
-        ASSERT_EQ(memcmp_nn(signed_hash, signed_hash_size, hash, hash_size), 0);
+        ASSERT_MEMEQ_NN(signed_hash, signed_hash_size, hash, hash_size);
 }
 #endif
 
