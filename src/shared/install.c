@@ -362,13 +362,12 @@ static int path_is_mask(const LookupPaths *lp, const char *path) {
         assert(lp);
         assert(path);
 
-        /* null_or_empty_path_with_root() fails on a dangling symlink. PID 1 does not treat a dangling
-         * symlink as a mask, so return false for it. */
+        /* Disabling a unit must still remove dangling or self-referential dependency symlinks. */
         r = null_or_empty_path_with_root(path, lp->root_dir);
-        if (r == -ENOMEM)
-                return r;
+        if (IN_SET(r, -ENOENT, -ENOTDIR, -ELOOP))
+                return false;
 
-        return r > 0;
+        return r;
 }
 
 static const char* config_path_from_flags(const LookupPaths *lp, UnitFileFlags flags) {
