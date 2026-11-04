@@ -97,7 +97,7 @@ static void assert_zero(int fd, uint64_t offset, size_t size) {
         _cleanup_free_ uint8_t *buf = ASSERT_NOT_NULL(new(uint8_t, size));
 
         ASSERT_OK_EQ_ERRNO(pread(fd, buf, size, offset), (ssize_t) size);
-        ASSERT_TRUE(memeqzero(buf, size));
+        ASSERT_MEMEQ_ZERO(buf, size);
 }
 
 TEST(add_sections) {
