@@ -150,6 +150,10 @@ systemd-analyze syscall-filter @chown @sync
 systemd-analyze syscall-filter @sync @sync @sync
 (! systemd-analyze syscall-filter @chown @sync @foobar)
 (! systemd-analyze syscall-filter --global)
+systemd-analyze io-uring-filter >/dev/null
+systemd-analyze io-uring-filter nop read uring_cmd
+systemd-analyze io-uring-filter --json=short socket | jq -e '.[0] == {"name": "socket", "syscalls": ["socket"]}'
+(! systemd-analyze io-uring-filter read foobar)
 # filesystems (requires libbpf support)
 if systemctl --version | grep "+BPF_FRAMEWORK"; then
     systemd-analyze filesystems >/dev/null

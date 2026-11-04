@@ -35,6 +35,7 @@
 #include "hashmap.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
+#include "io-uring-filter.h"
 #include "ioprio-util.h"
 #include "iovec-util.h"
 #include "ip-protocol-list.h"
@@ -3576,6 +3577,76 @@ int config_parse_address_families(
 }
 #endif
 
+int config_parse_io_uring_filter(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = ASSERT_PTR(data);
+        bool invert = false;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                c->io_uring_filter = set_free(c->io_uring_filter);
+                c->io_uring_filter_allow_list = false;
+                return 0;
+        }
+
+        if (rvalue[0] == '~') {
+                invert = true;
+                rvalue++;
+        }
+
+        if (!c->io_uring_filter) {
+                c->io_uring_filter = set_new(/* hash_ops= */ NULL);
+                if (!c->io_uring_filter)
+                        return log_oom();
+
+                c->io_uring_filter_allow_list = !invert;
+        }
+
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *word = NULL;
+                int op;
+
+                r = extract_first_word(&p, &word, /* separators= */ WHITESPACE ",", EXTRACT_UNQUOTE);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                op = io_uring_op_from_string(word);
+                if (op < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, op,
+                                   "Unknown io_uring operation, ignoring: %s", word);
+                        continue;
+                }
+
+                /* An assignment of the other list type removes the listed operations from the list. */
+                if (invert != c->io_uring_filter_allow_list) {
+                        r = set_put(c->io_uring_filter, INT_TO_PTR(op + 1));
+                        if (r < 0)
+                                return log_oom();
+                } else
+                        set_remove(c->io_uring_filter, INT_TO_PTR(op + 1));
+        }
+}
+
 int config_parse_namespace_flags(
                 const char *unit,
                 const char *filename,
@@ -6420,6 +6491,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_syscall_log,           "SYSCALLS" },
                 { config_parse_address_families,      "FAMILIES" },
 #endif
+                { config_parse_io_uring_filter,       "OPERATIONS" },
                 { config_parse_namespace_flags,       "NAMESPACES" },
                 { config_parse_restrict_filesystems,  "FILESYSTEMS"  },
                 { config_parse_cg_weight,             "WEIGHT" },

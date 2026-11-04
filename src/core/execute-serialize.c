@@ -1121,6 +1121,10 @@ static int exec_parameters_serialize(const ExecParameters *p, const ExecContext 
                         return r;
         }
 
+        r = serialize_bool_elide(f, "exec-parameters-io-uring-bpf-filter-supported", p->io_uring_bpf_filter_supported);
+        if (r < 0)
+                return r;
+
         r = serialize_bool_elide(f, "exec-parameters-selinux-context-net", p->selinux_context_net);
         if (r < 0)
                 return r;
@@ -1336,6 +1340,12 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 return r;
                         p->flags = flags;
+                } else if ((val = startswith(l, "exec-parameters-io-uring-bpf-filter-supported="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+
+                        p->io_uring_bpf_filter_supported = r;
                 } else if ((val = startswith(l, "exec-parameters-selinux-context-net="))) {
                         r = parse_boolean(val);
                         if (r < 0)
@@ -2432,6 +2442,17 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
+        void *op;
+        SET_FOREACH(op, c->io_uring_filter) {
+                r = serialize_item_format(f, "exec-context-io-uring-filter", "%d", PTR_TO_INT(op) - 1);
+                if (r < 0)
+                        return r;
+        }
+
+        r = serialize_bool_elide(f, "exec-context-io-uring-filter-allow-list", c->io_uring_filter_allow_list);
+        if (r < 0)
+                return r;
+
         r = serialize_item(f, "exec-context-user-namespace-path", c->user_namespace_path);
         if (r < 0)
                 return r;
@@ -3486,6 +3507,23 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                         c->address_families_allow_list = r;
+                } else if ((val = startswith(l, "exec-context-io-uring-filter="))) {
+                        int op;
+
+                        r = safe_atoi(val, &op);
+                        if (r < 0)
+                                return r;
+                        if (op < 0)
+                                return -EINVAL;
+
+                        r = set_ensure_put(&c->io_uring_filter, /* hash_ops= */ NULL, INT_TO_PTR(op + 1));
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-context-io-uring-filter-allow-list="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->io_uring_filter_allow_list = r;
                 } else if ((val = startswith(l, "exec-context-network-namespace-path="))) {
                         r = free_and_strdup(&c->network_namespace_path, val);
                         if (r < 0)

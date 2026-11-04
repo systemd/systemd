@@ -23,6 +23,7 @@
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "image-policy.h"
+#include "io-uring-filter.h"
 #include "ioprio-util.h"
 #include "iovec-util.h"
 #include "journal-file.h"
@@ -327,6 +328,41 @@ static int property_get_smack_process_label(
         assert(reply);
 
         return sd_bus_message_append(reply, "(bs)", c->smack_process_label_ignore, c->smack_process_label);
+}
+
+static int property_get_io_uring_filter(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *reterr_error) {
+
+        ExecContext *c = ASSERT_PTR(userdata);
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
+
+        assert(bus);
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'r', "bas");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "b", c->io_uring_filter_allow_list);
+        if (r < 0)
+                return r;
+
+        l = exec_context_get_io_uring_filter(c);
+        if (!l)
+                return -ENOMEM;
+
+        r = sd_bus_message_append_strv(reply, l);
+        if (r < 0)
+                return r;
+
+        return sd_bus_message_close_container(reply);
 }
 
 static int property_get_address_families(
@@ -1356,6 +1392,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("Personality", "s", property_get_personality, offsetof(ExecContext, personality), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LockPersonality", "b", bus_property_get_bool, offsetof(ExecContext, lock_personality), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestrictAddressFamilies", "(bas)", property_get_address_families, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("IOUringFilter", "(bas)", property_get_io_uring_filter, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimeDirectorySymlink", "a(sst)", property_get_exec_dir_symlink, offsetof(ExecContext, directories[EXEC_DIRECTORY_RUNTIME]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimeDirectoryPreserve", "s", bus_property_get_exec_preserve_mode, offsetof(ExecContext, runtime_directory_preserve_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimeDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_RUNTIME].mode), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -2441,6 +2478,72 @@ int bus_exec_context_set_transient_property(
                                 return -ENOMEM;
 
                         unit_write_settingf(u, flags, name, "%s=%s%s", name, allow_list ? "" : "~", joined);
+                }
+
+                return 1;
+        }
+
+        if (streq(name, "IOUringFilter")) {
+                _cleanup_strv_free_ char **l = NULL;
+                int allow_list;
+
+                r = sd_bus_message_enter_container(message, 'r', "bas");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read(message, "b", &allow_list);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read_strv(message, &l);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                STRV_FOREACH(s, l)
+                        if (io_uring_op_from_string(*s) < 0)
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Invalid io_uring operation: %s", *s);
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        _cleanup_free_ char *joined = NULL;
+
+                        if (strv_isempty(l)) {
+                                c->io_uring_filter_allow_list = false;
+                                c->io_uring_filter = set_free(c->io_uring_filter);
+
+                                unit_write_setting(u, flags, name, "IOUringFilter=");
+                                return 1;
+                        }
+
+                        if (!c->io_uring_filter) {
+                                c->io_uring_filter = set_new(/* hash_ops= */ NULL);
+                                if (!c->io_uring_filter)
+                                        return -ENOMEM;
+
+                                c->io_uring_filter_allow_list = allow_list;
+                        }
+
+                        STRV_FOREACH(s, l) {
+                                int op = io_uring_op_from_string(*s);
+                                assert(op >= 0);
+
+                                if (allow_list == c->io_uring_filter_allow_list) {
+                                        r = set_put(c->io_uring_filter, INT_TO_PTR(op + 1));
+                                        if (r < 0)
+                                                return r;
+                                } else
+                                        set_remove(c->io_uring_filter, INT_TO_PTR(op + 1));
+                        }
+
+                        joined = strv_join(l, " ");
+                        if (!joined)
+                                return -ENOMEM;
+
+                        unit_write_settingf(u, flags, name, "IOUringFilter=%s%s", allow_list ? "" : "~", joined);
                 }
 
                 return 1;
