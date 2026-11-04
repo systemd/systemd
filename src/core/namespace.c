@@ -1809,7 +1809,7 @@ static int mount_bpffs(const MountEntry *m, PidRef *pidref, int socket_fd, int e
 
         pidref_done(pidref);
 
-        _cleanup_close_ int mnt_fd = fsmount(fs_fd, FSMOUNT_CLOEXEC, /* mount_attrs= */ 0);
+        _cleanup_close_ int mnt_fd = fsmount(fs_fd, FSMOUNT_CLOEXEC, /* attr_flags= */ 0);
         if (mnt_fd < 0)
                 return log_debug_errno(errno, "Failed to fsmount bpffs: %m");
 
@@ -3771,7 +3771,7 @@ static int unpeel_mount_and_setup_overlay(int pair_fd, const char *mount_path) {
                 return log_debug_errno(r, "Failed to receive configured overlay: %m");
 
         /* Create the mount */
-        mount_fd = fsmount(overlay_fs_fd, FSMOUNT_CLOEXEC, /* flags= */ 0);
+        mount_fd = fsmount(overlay_fs_fd, FSMOUNT_CLOEXEC, /* attr_flags= */ 0);
         if (mount_fd < 0)
                 return log_debug_errno(errno, "Failed to create overlay mount: %m");
 
