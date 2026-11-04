@@ -11,6 +11,7 @@
 #include "exec-credential.h"
 #include "execute.h"
 #include "image-policy.h"
+#include "io-uring-filter.h"
 #include "ioprio-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
@@ -435,6 +436,28 @@ static int address_families_build_json(sd_json_variant **ret, const char *name, 
                         ret,
                         SD_JSON_BUILD_PAIR_BOOLEAN("isAllowList", c->address_families_allow_list),
                         SD_JSON_BUILD_PAIR_STRV("addressFamilies", l));
+}
+
+static int io_uring_filter_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_strv_free_ char **l = NULL;
+        ExecContext *c = ASSERT_PTR(userdata);
+
+        assert(ret);
+        assert(name);
+
+        if (!exec_context_io_uring_filter_set(c)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        l = exec_context_get_io_uring_filter(c);
+        if (!l)
+                return -ENOMEM;
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("isAllowList", c->io_uring_filter_allow_list),
+                        SD_JSON_BUILD_PAIR_STRV("operations", l));
 }
 
 static int restrict_filesystems_build_json(sd_json_variant **ret, const char *name, void *userdata) {
@@ -927,6 +950,7 @@ int unit_exec_context_build_json(sd_json_variant **ret, const char *name, void *
                         JSON_BUILD_PAIR_ENUM("ProtectControlGroups", protect_control_groups_to_string(c->protect_control_groups)),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("RestrictAddressFamilies", address_families_build_json, c),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("RestrictFileSystems", restrict_filesystems_build_json, c),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("IOUringFilter", io_uring_filter_build_json, c),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("RestrictNamespaces", namespace_flags_build_json, ULONG_TO_PTR(c->restrict_namespaces)),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("DelegateNamespaces", namespace_flags_build_json, ULONG_TO_PTR(c->delegate_namespaces)),
                         JSON_BUILD_PAIR_ENUM("PrivatePBF", private_bpf_to_string(c->private_bpf)),
@@ -1020,6 +1044,9 @@ struct TransientExecContextParameters {
         const char *user;
         const char *group;
         char **supplementary_groups;
+        bool io_uring_filter_set;
+        bool io_uring_filter_allow_list;
+        char **io_uring_filter;
         const char *pam_name;
         /* Absolute-path strings: must validate via path_is_absolute(). */
         const char *ipc_namespace_path;
@@ -1096,12 +1123,42 @@ TransientExecContextParameters* transient_exec_context_parameters_free(Transient
 
         strv_free(p->environment);
         strv_free(p->supplementary_groups);
+        strv_free(p->io_uring_filter);
         transient_set_credential_array_free(p->set_credentials, p->n_set_credentials);
         transient_set_credential_array_free(p->set_credentials_encrypted, p->n_set_credentials_encrypted);
         free(p->bad_field);
         free(p->working_directory.path);
 
         return mfree(p);
+}
+
+static int dispatch_transient_io_uring_filter(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch[] = {
+                { "isAllowList", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(TransientExecContextParameters, io_uring_filter_allow_list), SD_JSON_MANDATORY },
+                { "operations",  SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,    offsetof(TransientExecContextParameters, io_uring_filter),            SD_JSON_MANDATORY },
+                {}
+        };
+
+        TransientExecContextParameters *p = ASSERT_PTR(userdata);
+        const char *bad_field = NULL;
+        int r;
+
+        r = sd_json_dispatch_full(variant, dispatch, /* bad= */ NULL, flags, p, &bad_field);
+        if (r < 0) {
+                if (bad_field)
+                        varlink_propagate_bad_field(bad_field, /* child_bad_field= */ NULL, &p->bad_field);
+                return r;
+        }
+
+        STRV_FOREACH(s, p->io_uring_filter)
+                if (io_uring_op_from_string(*s) < 0) {
+                        varlink_propagate_bad_field("operations", /* child_bad_field= */ NULL, &p->bad_field);
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "IOUringFilter: invalid io_uring operation: %s", *s);
+                }
+
+        p->io_uring_filter_set = true;
+        return 0;
 }
 
 static int dispatch_transient_working_directory(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -1337,6 +1394,45 @@ static int apply_exec_umask(Unit *u, ExecContext *c, TransientExecContextParamet
         return 0;
 }
 
+static int apply_exec_io_uring_filter(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        _cleanup_free_ char *joined = NULL;
+        int r;
+
+        assert(c);
+        assert(p);
+
+        if (!p->io_uring_filter_set)
+                return 0;
+
+        c->io_uring_filter = set_free(c->io_uring_filter);
+        c->io_uring_filter_allow_list = false;
+
+        /* Like in unit files and on D-Bus, an empty list resets the setting. */
+        if (strv_isempty(p->io_uring_filter)) {
+                unit_write_setting(u, UNIT_RUNTIME|UNIT_PRIVATE, "IOUringFilter", "IOUringFilter=");
+                return 0;
+        }
+
+        c->io_uring_filter_allow_list = p->io_uring_filter_allow_list;
+
+        STRV_FOREACH(s, p->io_uring_filter) {
+                int op = io_uring_op_from_string(*s);
+                assert(op >= 0);
+
+                r = set_ensure_put(&c->io_uring_filter, /* hash_ops= */ NULL, INT_TO_PTR(op + 1));
+                if (r < 0)
+                        return r;
+        }
+
+        joined = strv_join(p->io_uring_filter, " ");
+        if (!joined)
+                return -ENOMEM;
+
+        unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "IOUringFilter", "IOUringFilter=\nIOUringFilter=%s%s",
+                            p->io_uring_filter_allow_list ? "" : "~", joined);
+        return 0;
+}
+
 static int apply_exec_working_directory(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
         assert(p);
 
@@ -1553,6 +1649,7 @@ static const TransientExecProperty exec_properties[] = {
         EXEC_PROPERTY_TRISTATE_BOOL("RestrictRealtime",       restrict_realtime),
         EXEC_PROPERTY_TRISTATE_BOOL("RestrictSUIDSGID",       restrict_suid_sgid),
         EXEC_PROPERTY_TRISTATE_BOOL("RemoveIPC",              remove_ipc),
+        EXEC_PROPERTY              ("IOUringFilter",          io_uring_filter,           SD_JSON_VARIANT_OBJECT),
         EXEC_PROPERTY_SETTABLE     ("Environment",            environment,               SD_JSON_VARIANT_ARRAY),
         EXEC_PROPERTY_ENUM         ("StandardInput",          std_input,  dispatch_exec_input),
         EXEC_PROPERTY_ENUM         ("StandardOutput",         std_output, dispatch_exec_output),

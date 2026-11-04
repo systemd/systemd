@@ -119,6 +119,7 @@ IOAccounting=
 IODeviceWeight=
 IOReadBandwidthMax=
 IOReadIOPSMax=
+IOUringFilter=
 IOWeight=
 IOWriteBandwidthMax=
 IOWriteIOPSMax=

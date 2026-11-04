@@ -31,6 +31,7 @@
 #include "analyze-has-tpm2.h"
 #include "analyze-image-policy.h"
 #include "analyze-inspect-elf.h"
+#include "analyze-io-uring-filter.h"
 #include "analyze-log-control.h"
 #include "analyze-malloc.h"
 #include "analyze-nvpcrs.h"
@@ -241,6 +242,8 @@ VERB_SCOPE(, verb_capabilities, "capability", "[CAP...]\0", VERB_ANY, VERB_ANY, 
            "List capability definitions");
 VERB_SCOPE(, verb_syscall_filters, "syscall-filter", "[NAME...]\0", VERB_ANY, VERB_ANY, 0,
            "List syscalls in seccomp filters");
+VERB_SCOPE(, verb_io_uring_filter, "io-uring-filter", "[NAME...]\0", VERB_ANY, VERB_ANY, 0,
+           "List io_uring operations");
 VERB_SCOPE(, verb_filesystems, "filesystems", "[NAME...]\0", VERB_ANY, VERB_ANY, 0,
            "List known filesystems");
 VERB_SCOPE(, verb_architectures, "architectures", "[NAME...]\0", VERB_ANY, VERB_ANY, 0,
@@ -587,9 +590,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
             !STRPTR_IN_SET(verb,
                            "security", "inspect-elf", "dlopen-metadata", "plot", "fdstore", "pcrs", "nvpcrs",
                            "architectures", "cpu-features", "capability", "exit-status", "chid", "blame",
-                           "identify-tpm2", "restart-delays"))
+                           "identify-tpm2", "restart-delays", "io-uring-filter"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Option --json= is only supported for security, inspect-elf, dlopen-metadata, plot, fdstore, pcrs, nvpcrs, architectures, cpu-features, capability, exit-status, chid, blame, identify-tpm2, restart-delays right now.");
+                                       "Option --json= is only supported for security, inspect-elf, dlopen-metadata, plot, fdstore, pcrs, nvpcrs, architectures, cpu-features, capability, exit-status, chid, blame, identify-tpm2, restart-delays, io-uring-filter right now.");
 
         if (arg_threshold != 100 && !streq_ptr(verb, "security"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

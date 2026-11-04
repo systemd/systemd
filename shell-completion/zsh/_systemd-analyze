@@ -43,6 +43,13 @@
         _describe -t groups 'syscall groups' _groups || compadd "$@"
     }
 
+(( $+functions[_systemd-analyze_io-uring-filter] )) ||
+    _systemd-analyze_io-uring-filter() {
+        local -a _ops
+        _ops=( $(systemd-analyze --quiet --no-pager --no-legend io-uring-filter 2>/dev/null | { while read -r a b; do echo " $a"; done; }) )
+        _describe -t operations 'io_uring operations' _ops || compadd "$@"
+    }
+
 (( $+functions[_systemd-analyze_filesystems] )) ||
     _systemd-analyze_filesystems() {
         local -a _groups
@@ -95,6 +102,7 @@
             'exit-status:List known exit statuses'
             'capability:List capability definitions'
             'syscall-filter:List syscalls in seccomp filters'
+            'io-uring-filter:List io_uring operations'
             'filesystems:List known filesystems'
             'condition:Evaluate Condition*= and Assert*= assignments'
             'verify:Check unit files for correctness'
