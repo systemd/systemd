@@ -75,6 +75,7 @@ typedef struct Context {
         Hashmap *polkit_registry;
         sd_bus_message *cache;
         Set *set_ntp_calls;
+        Set *set_ntp_links;
 
         sd_bus_slot *slot_job_removed;
 
@@ -120,6 +121,7 @@ static void context_done(Context *c) {
         hashmap_free(c->polkit_registry);
         sd_bus_message_unref(c->cache);
         set_free(c->set_ntp_calls);
+        set_free(c->set_ntp_links);
 
         sd_bus_slot_unref(c->slot_job_removed);
 
@@ -510,6 +512,11 @@ static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *er
                                 log_debug_errno(r, "Failed to reply to SetNTP method call, ignoring: %m");
                         sd_bus_message_unref(cm);
                 }
+
+                r = varlink_many_reply(c->set_ntp_links, /* parameters= */ NULL);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to reply to SetNTP Varlink call, ignoring: %m");
+                c->set_ntp_links = set_free(c->set_ntp_links);
         }
 
         return 0;
@@ -1186,7 +1193,7 @@ static int context_set_ntp(Context *c, bool enable, sd_bus_error *error) {
 
         assert(c);
 
-        if (set_size(c->set_ntp_calls) >= SET_NTP_IN_FLIGHT_MAX)
+        if (set_size(c->set_ntp_calls) + set_size(c->set_ntp_links) >= SET_NTP_IN_FLIGHT_MAX)
                 return -EAGAIN;
 
         /* This may be called frequently. Forget the previous job if it has not completed yet. */
@@ -1293,6 +1300,62 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
 
         /* Asynchronous reply to m in match_job_removed() */
         return set_ensure_consume(&c->set_ntp_calls, &bus_message_hash_ops, sd_bus_message_ref(m));
+}
+
+static int vl_method_set_ntp(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "useNTP", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, 0, SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Context *c = ASSERT_PTR(userdata);
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        bool enable = false;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &enable);
+        if (r != 0)
+                return r;
+
+        /* The following makes synchronous calls on the (possibly watch-bound) system bus, which would
+         * block the event loop until D-Bus is up. Fail fast instead if it is not connected yet. */
+        r = bus_verify_available(c->bus);
+        if (r < 0)
+                return r;
+
+        r = context_update_ntp_status(c, /* m= */ NULL);
+        if (r < 0)
+                return r;
+
+        if (context_ntp_service_exists(c) <= 0)
+                return sd_varlink_error(link, "io.systemd.Timedate.NoNTPSupport", /* parameters= */ NULL);
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        c->bus,
+                        "org.freedesktop.timedate1.set-ntp",
+                        (const char**) STRV_MAKE("enable", one_zero(enable)),
+                        &c->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = context_set_ntp(c, enable, &error);
+        if (r < 0)
+                return r;
+
+        /* A oneway caller doesn't expect a reply, so don't track the link. Otherwise reply
+         * asynchronously from match_job_removed() once the units' jobs have completed. */
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_ONEWAY)) {
+                r = set_ensure_consume(&c->set_ntp_links, &varlink_hash_ops, sd_varlink_ref(link));
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static int method_list_timezones(sd_bus_message *m, void *userdata, sd_bus_error *error) {
@@ -1420,6 +1483,7 @@ static int connect_varlink(Context *c) {
         r = sd_varlink_server_bind_method_many(
                         server,
                         "io.systemd.Timedate.SetLocalRTC",   vl_method_set_local_rtc,
+                        "io.systemd.Timedate.SetNTP",        vl_method_set_ntp,
                         "io.systemd.Timedate.SetTime",       vl_method_set_time,
                         "io.systemd.Timedate.SetTimezone",   vl_method_set_timezone,
                         "io.systemd.service.Ping",           varlink_method_ping,
