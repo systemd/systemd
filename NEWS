@@ -171,6 +171,28 @@ CHANGES WITH 263 in spe:
           systemd-cryptsetup may not find the device, so the activation may no
           longer work.
 
+        * In udev rules, the SYMLINK, TAG and TAGS match keys now compare an
+          empty match against an empty string instead of skipping it when the
+          device has no symlink or tag. As a result SYMLINK=="", TAG=="" and
+          TAGS=="", as well as match lists with an empty alternative such as
+          SYMLINK=="foo|", now match a device that has no device symlink or tag
+          (for TAGS, the device and its parent devices are considered).
+          Previously such matches never succeeded. The negated forms, e.g.
+          SYMLINK!="", change accordingly.
+
+        * systemd-udevd now checks the value of several match keys when a rule
+          file is parsed, rather than only when the rule is applied to a device.
+          The keys ACTION, DEVPATH, KERNEL, SYMLINK, NAME, SUBSYSTEM, DRIVER,
+          KERNELS, SUBSYSTEMS and DRIVERS are rejected when they use an invalid
+          interface name, file name or path, or a value that can never match
+          (for example ACTION=="" or ACTION=="<unknown-action>"). The property
+          name of ENV=, IMPORT{db}= and IMPORT{cmdline}= is validated as well.
+          For a "==" match such a token is now an error that makes the rule line
+          fail to load, while a "!=" match is kept with a warning. IMPORT{parent}=
+          validates its property name when the rule is applied and does not match
+          if the name is invalid. Existing rules can be checked with "udevadm
+          verify".
+
         Changes in the system and service manager:
 
         * LockPersonality= no longer refuses querying the personality with
