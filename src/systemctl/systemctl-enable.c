@@ -279,11 +279,8 @@ int verb_enable(int argc, char *argv[], uintptr_t data, void *userdata) {
                            glyph(GLYPH_BULLET));
 
         if (streq(verb, "disable") && arg_runtime_scope == RUNTIME_SCOPE_USER && !arg_quiet && !arg_no_warn) {
-                /* If some of the units are disabled in user scope but still enabled in global scope,
-                 * we emit a warning for that. We check the user scope rather than the global scope. A
-                 * unit enabled in /etc/systemd/user/ is enabled in both. A unit the vendor enabled in
-                 * /usr/lib/systemd/user/ is only enabled in the global scope once the disable masked it
-                 * from the user's configuration. */
+                /* A vendor dependency masked in user scope remains enabled in global scope. A unit
+                 * enabled only in the user's other configuration directory is not enabled globally. */
 
                 /* No strv_free here, strings are owned by 'names' */
                 _cleanup_free_ char **enabled_in_global_scope = NULL;
@@ -292,6 +289,15 @@ int verb_enable(int argc, char *argv[], uintptr_t data, void *userdata) {
                         UnitFileState state;
 
                         r = unit_file_get_state(RUNTIME_SCOPE_USER, arg_root, *name, &state);
+                        if (r == -ENOENT)
+                                continue;
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get unit file state for %s: %m", *name);
+
+                        if (!IN_SET(state, UNIT_FILE_ENABLED, UNIT_FILE_ENABLED_RUNTIME))
+                                continue;
+
+                        r = unit_file_get_state(RUNTIME_SCOPE_GLOBAL, arg_root, *name, &state);
                         if (r == -ENOENT)
                                 continue;
                         if (r < 0)
