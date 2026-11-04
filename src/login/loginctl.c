@@ -27,6 +27,7 @@
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "polkit-agent.h"
 #include "process-util.h"
 #include "runtime-scope.h"
@@ -1447,13 +1448,19 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         for (int i = 2; i < argc; i++) {
+                _cleanup_free_ char *p = NULL;
+
+                /* Drop trailing slashes (as added by shell tab completion of directories), logind only
+                 * accepts normalized paths. */
+                if (path_simplify_alloc(argv[i], &p) < 0)
+                        return log_oom();
 
                 r = bus_call_method(
                         bus,
                         bus_login_mgr,
                         "AttachDevice",
                         &error, /* ret_reply= */ NULL,
-                        "ssb", argv[1], argv[i], true);
+                        "ssb", argv[1], p, true);
                 if (r < 0)
                         return log_error_errno(r, "Could not attach device: %s", bus_error_message(&error, r));
         }

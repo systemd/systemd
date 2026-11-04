@@ -636,10 +636,13 @@ static int transfer_finalize(Transfer *t, const char *origin, unsigned line, Has
                                   "PathRelativeTo=explicit can only be used in source specifications.");
 
         if (t->source.path) {
-                if (RESOURCE_IS_FILESYSTEM(t->source.type) || t->source.type == RESOURCE_PARTITION)
+                if (RESOURCE_IS_FILESYSTEM(t->source.type) || t->source.type == RESOURCE_PARTITION) {
+                        path_simplify(t->source.path);
+
                         if (!path_is_absolute(t->source.path) || !path_is_normalized(t->source.path))
                                 return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
                                                   "Source path is not a normalized, absolute path: %s", t->source.path);
+                }
 
                 /* We unofficially support file:// in addition to http:// and https:// for url
                  * sources. That's mostly for testing, since it relieves us from having to set up a HTTP
@@ -678,10 +681,13 @@ static int transfer_finalize(Transfer *t, const char *origin, unsigned line, Has
                 return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
                                   "Target specification lacks Path= field.");
 
-        if (t->target.path &&
-            (!path_is_absolute(t->target.path) || !path_is_normalized(t->target.path)))
-                return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
-                                  "Target path is not a normalized, absolute path: %s", t->target.path);
+        if (t->target.path) {
+                path_simplify(t->target.path);
+
+                if (!path_is_absolute(t->target.path) || !path_is_normalized(t->target.path))
+                        return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "Target path is not a normalized, absolute path: %s", t->target.path);
+        }
 
         if (strv_isempty(t->target.patterns)) {
                 log_syntax(NULL, LOG_INFO, origin, line, 0, "Target specification lacks MatchPattern= expression. Assuming same value as in source specification.");

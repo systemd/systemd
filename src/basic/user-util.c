@@ -897,7 +897,8 @@ bool valid_home(const char *p) {
         if (!path_is_absolute(p))
                 return false;
 
-        if (!path_is_normalized(p))
+        /* Trailing slashes are not uncommon in home directories listed in /etc/passwd, accept them */
+        if (!path_is_normalized_full(p, PATH_ALLOW_TRAILING_SLASH))
                 return false;
 
         /* Colons are used as field separators, and hence not OK */

@@ -73,7 +73,7 @@ int path_simplify_and_warn(
                                   "%s= path has invalid length (%zu bytes)%s.",
                                   lvalue, strlen(path), fatal ? "" : ", ignoring");
 
-        if (!path_is_normalized(path))
+        if (!path_is_normalized_full(path, FLAGS_SET(flags, PATH_KEEP_TRAILING_SLASH) ? PATH_ALLOW_TRAILING_SLASH : 0))
                 return log_syntax(unit, level, filename, line, SYNTHETIC_ERRNO(EINVAL),
                                   "%s= path is not normalized%s: %s",
                                   lvalue, fatal ? "" : ", ignoring", path);

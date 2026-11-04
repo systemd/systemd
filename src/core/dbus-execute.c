@@ -2551,6 +2551,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 for (;;) {
+                        _cleanup_free_ char *simplified = NULL;
                         const char *id, *source;
 
                         r = sd_bus_message_read(message, "(ss)", &id, &source);
@@ -2561,6 +2562,13 @@ int bus_exec_context_set_transient_property(
 
                         if (!credential_name_valid(id))
                                 return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Credential ID is invalid: %s", id);
+
+                        if (path_is_absolute(source)) {
+                                if (path_simplify_alloc(source, &simplified) < 0)
+                                        return -ENOMEM;
+
+                                source = simplified;
+                        }
 
                         if (!(path_is_absolute(source) ? path_is_normalized(source) : credential_name_valid(source)))
                                 return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Credential source is invalid: %s", source);
