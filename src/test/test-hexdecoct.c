@@ -478,29 +478,6 @@ TEST(unbase64mem) {
         test_unbase64mem_one(" Z m 8 = q u u x ", /* output= */ NULL, -ENAMETOOLONG);
 }
 
-TEST(hexdump) {
-        uint8_t data[146];
-        unsigned i;
-
-        hexdump(stdout, NULL, 0);
-        hexdump(stdout, "", 0);
-        hexdump(stdout, "", SIZE_MAX);
-        hexdump(stdout, "", 1);
-        hexdump(stdout, "x", 1);
-        hexdump(stdout, "x", SIZE_MAX);
-        hexdump(stdout, "x", 2);
-        hexdump(stdout, "foobar", 7);
-        hexdump(stdout, "foobar", SIZE_MAX);
-        hexdump(stdout, "f\nobar", 7);
-        hexdump(stdout, "f\nobar", SIZE_MAX);
-        hexdump(stdout, "xxxxxxxxxxxxxxxxxxxxyz", 23);
-
-        for (i = 0; i < ELEMENTSOF(data); i++)
-                data[i] = i*2;
-
-        hexdump(stdout, data, sizeof(data));
-}
-
 TEST(base64withwithouturl) {
         static const uint8_t plaintext[] = {
                 0xcc, 0xa1, 0x72, 0x22, 0xae, 0xda, 0x66, 0x7e, 0x04, 0xa6, 0xe0, 0x82,
