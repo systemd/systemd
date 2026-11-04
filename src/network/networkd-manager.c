@@ -644,6 +644,8 @@ int manager_setup(Manager *m) {
         if (r < 0)
                 return r;
 
+        (void) sd_event_set_userdata(m->event, m);
+
         (void) sd_event_set_watchdog(m->event, true);
         (void) sd_event_add_signal(m->event, /* ret= */ NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, signal_terminate_callback, m);
         (void) sd_event_add_signal(m->event, /* ret= */ NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, signal_terminate_callback, m);
