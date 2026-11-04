@@ -275,7 +275,6 @@ int config_parse_fq_bool(
                 return 0;
         }
 
-        fq->pacing = r;
         TAKE_PTR(qdisc);
 
         return 0;
