@@ -354,6 +354,32 @@ RULES = [
         ''',
     ),
     Rules.new(
+        'SYMLINK match against empty string',
+        Device(
+            '/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0',
+            exp_links=['empty-match', 'has-devlink'],
+            not_exp_links=['bad-nonempty', 'bad-empty-again'],
+        ),
+        rules=r'''
+        KERNEL=="ttyACM0", SYMLINK=="aaa", SYMLINK+="bad-nonempty"
+        KERNEL=="ttyACM0", SYMLINK=="", SYMLINK+="empty-match"
+        KERNEL=="ttyACM0", SYMLINK=="", SYMLINK+="bad-empty-again"
+        KERNEL=="ttyACM0", SYMLINK!="", SYMLINK+="has-devlink"
+        ''',
+    ),
+    Rules.new(
+        'SYMLINK match with empty alternative',
+        Device(
+            '/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0',
+            exp_links=['empty-alternative-match'],
+            not_exp_links=['bad-nonempty'],
+        ),
+        rules=r'''
+        KERNEL=="ttyACM0", SYMLINK!="", SYMLINK+="bad-nonempty"
+        KERNEL=="ttyACM0", SYMLINK=="aaa|", SYMLINK+="empty-alternative-match"
+        ''',
+    ),
+    Rules.new(
         'catch device by *',
         Device(
             '/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0',
