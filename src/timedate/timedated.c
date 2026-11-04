@@ -7,6 +7,7 @@
 
 #include "sd-bus.h"
 #include "sd-event.h"
+#include "sd-json.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
@@ -32,6 +33,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "hwclock-util.h"
+#include "json-util.h"
 #include "label-util.h"
 #include "list.h"
 #include "log.h"
@@ -46,6 +48,7 @@
 #include "time-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
+#include "varlink-io.systemd.Timedate.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 #include "verbs.h"
@@ -1184,6 +1187,43 @@ static int connect_bus(Context *c) {
         return 0;
 }
 
+static int vl_method_set_timezone(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "timezone", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, 0, SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        _cleanup_free_ char *z = NULL;
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &z);
+        if (r != 0)
+                return r;
+
+        if (!timezone_is_valid(z, LOG_DEBUG))
+                return sd_varlink_error_invalid_parameter_name(link, "timezone");
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        c->bus,
+                        "org.freedesktop.timedate1.set-timezone",
+                        /* details= */ NULL,
+                        &c->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = context_set_timezone(c, z);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
 static int connect_varlink(Context *c) {
         int r;
 
@@ -1200,12 +1240,14 @@ static int connect_varlink(Context *c) {
 
         r = sd_varlink_server_add_interface_many(
                         c->varlink_server,
+                        &vl_interface_io_systemd_Timedate,
                         &vl_interface_io_systemd_service);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Varlink interfaces: %m");
 
         r = sd_varlink_server_bind_method_many(
                         c->varlink_server,
+                        "io.systemd.Timedate.SetTimezone",   vl_method_set_timezone,
                         "io.systemd.service.Ping",           varlink_method_ping,
                         "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
                         "io.systemd.service.GetLogLevel",    varlink_method_get_log_level,
