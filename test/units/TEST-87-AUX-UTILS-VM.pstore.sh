@@ -71,6 +71,10 @@ prepare_efi_logs() {
 }
 
 prepare_erst_logs() {
+    # Called in command substitution ("$(prepare_erst_logs ...)"), where errexit is not inherited
+    # (no inherit_errexit), so re-enable it to make a failing pstore write abort the function.
+    set -e
+
     local file="${1:?}"
     local start_id="${2:?}"
     local id filename

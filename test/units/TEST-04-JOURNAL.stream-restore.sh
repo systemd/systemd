@@ -18,6 +18,10 @@ start_logger() {
 
 # Print the state file of the stream with the given identifier, once PID 1 has the stream in its fd store
 state_file_of() {
+    # Called in command substitution ("$(state_file_of ...)"), where errexit is not inherited
+    # (no inherit_errexit), so re-enable it to make the assertions below actually abort.
+    set -e
+
     local id="${1:?}"
     local f ino
 

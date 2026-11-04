@@ -896,6 +896,10 @@ install_primary_key() {
 # signature record is written to $WORK/report.sig.N, one per configured signing
 # key. Prints the sha256 of the exact report bytes that were signed.
 generate_signed() {
+    # Called in command substitution ("$(generate_signed)"), where errexit is not inherited
+    # (no inherit_errexit), so re-enable it to make the validations below actually abort.
+    set -e
+
     rm -f "$WORK"/report.sig.*
 
     # The reply carries the signed report as base64-encoded JSON-SEQ data.
@@ -931,6 +935,10 @@ generate_signed() {
 #
 # Prints the JSON public key that produced it.
 verify_tpm2_sig() {
+    # Called in command substitution ("$(verify_tpm2_sig ...)"), where errexit is not inherited
+    # (no inherit_errexit), so re-enable it to make the assertions below actually abort.
+    set -e
+
     local sig_file="$1" digest="$2" report
 
     [ "$(jq -r .mediaType "$sig_file")" = "application/vnd.io.systemd.report.signature" ]
