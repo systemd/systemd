@@ -42,7 +42,9 @@ DLSYM_PROTOTYPE(bpf_object__pin_maps) = NULL;
 DLSYM_PROTOTYPE(bpf_program__attach) = NULL;
 DLSYM_PROTOTYPE(bpf_program__attach_cgroup) = NULL;
 DLSYM_PROTOTYPE(bpf_program__attach_lsm) = NULL;
+DLSYM_PROTOTYPE(bpf_program__fd) = NULL;
 DLSYM_PROTOTYPE(bpf_program__name) = NULL;
+DLSYM_PROTOTYPE(bpf_program__set_autoload) = NULL;
 DLSYM_PROTOTYPE(btf__find_by_name_kind) = NULL;
 DLSYM_PROTOTYPE(btf__free) = NULL;
 DLSYM_PROTOTYPE(btf__load_vmlinux_btf) = NULL;
@@ -170,7 +172,9 @@ int dlopen_bpf_full(int log_level) {
                         DLSYM_ARG_FORCE(bpf_program__attach_cgroup),
                         DLSYM_ARG_FORCE(bpf_program__attach_lsm),
 #endif
+                        DLSYM_ARG(bpf_program__fd),
                         DLSYM_ARG(bpf_program__name),
+                        DLSYM_ARG(bpf_program__set_autoload),
                         DLSYM_ARG(libbpf_get_error),
                         DLSYM_ARG(libbpf_set_print),
                         DLSYM_ARG(ring_buffer__epoll_fd),
