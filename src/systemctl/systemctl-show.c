@@ -50,6 +50,7 @@
 #include "systemctl-show.h"
 #include "systemctl-util.h"
 #include "terminal-util.h"
+#include "unit-name.h"
 #include "utf8.h"
 
 static OutputFlags get_output_flags(void) {
@@ -431,6 +432,13 @@ static void print_status_info(
 
         if (i->transient)
                 printf("  Transient: yes\n");
+
+        if (arg_runtime_scope == RUNTIME_SCOPE_USER) {
+                _cleanup_free_ char *app_id = NULL;
+                r = unit_name_to_app_id(i->id, &app_id);
+                if (r >= 0)
+                        printf("     App ID: %s\n", app_id);
+        }
 
         if (!strv_isempty(i->dropin_paths)) {
                 _cleanup_free_ char *dir = NULL;
