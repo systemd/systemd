@@ -816,6 +816,11 @@ int parse_loadavg_fixed_point(const char *s, loadavg_t *ret) {
         if (r < 0)
                 return r;
 
+        /* safe_atolu_full() accepts "-0", hence refuse the "-" explicitly, so that e.g. "-0.50" is not
+         * taken as 0.50. */
+        if (strchr(s, '-'))
+                return -ERANGE;
+
         return store_loadavg_fixed_point(i, f, ret);
 }
 
