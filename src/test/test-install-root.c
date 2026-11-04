@@ -1947,6 +1947,22 @@ TEST(vendor_requires_and_upholds) {
         }
 }
 
+TEST(vendor_template_specifier) {
+        write_vendor_file("system/vendor-spec@.service",
+                          "[Install]\n"
+                          "DefaultInstance=dflt\n"
+                          "WantedBy=vendor-%i.target\n");
+        write_vendor_symlink("vendor-inst.target.wants/vendor-spec@inst.service", "../vendor-spec@.service");
+        write_vendor_symlink("vendor-dflt.target.wants/vendor-spec@dflt.service", "../vendor-spec@.service");
+
+        assert_state("vendor-spec@.service", UNIT_FILE_ENABLED);
+        assert_state("vendor-spec@inst.service", UNIT_FILE_ENABLED);
+        assert_state("vendor-spec@dflt.service", UNIT_FILE_ENABLED);
+
+        write_vendor_symlink("vendor-wrong.target.wants/vendor-spec@wrong-instance.service", "../vendor-spec@.service");
+        assert_state("vendor-spec@wrong-instance.service", UNIT_FILE_STATIC);
+}
+
 TEST(vendor_template_instance) {
         const char *mask;
 

@@ -90,7 +90,6 @@ static int dependency_dir_is_named(
 
         STRV_FOREACH(target, targets) {
                 _cleanup_free_ char *dst = NULL;
-                const char *e;
 
                 r = install_name_printf(scope, info, *target, &dst);
                 if (r == -ENOMEM)
@@ -100,8 +99,7 @@ static int dependency_dir_is_named(
                         continue;
                 }
 
-                e = startswith(dir, dst);
-                if (e && streq(e, suffix))
+                if (streq_ptr(startswith(dir, dst), suffix))
                         return true;
         }
 
@@ -1255,6 +1253,7 @@ static int install_info_mask_dependencies(
 }
 
 static int find_symlinks_in_directory(
+                RuntimeScope scope,
                 DIR *dir,
                 const char *dir_path,
                 const LookupPaths *lp,
@@ -1263,7 +1262,9 @@ static int find_symlinks_in_directory(
                 bool match_name,
                 bool ignore_same_name,
                 const char *config_path,
-                bool *same_name_link) {
+                bool *same_name_link,
+                const char *vendor_dependency_dir,
+                bool *found_static) {
 
         int r, ret = 0;
 
@@ -1339,6 +1340,16 @@ static int find_symlinks_in_directory(
                                         continue;
                         }
 
+                        if (vendor_dependency_dir) {
+                                r = dependency_is_enablement(scope, info, vendor_dependency_dir, de->d_name);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0) {
+                                        *ASSERT_PTR(found_static) = true;
+                                        continue;
+                                }
+                        }
+
                         if (!match_name)
                                 return 1;
 
@@ -1400,26 +1411,15 @@ static int find_symlinks(
                         continue;
                 }
 
-                r = find_symlinks_in_directory(d, path, lp, i,
+                r = find_symlinks_in_directory(scope, d, path, lp, i,
                                                /* ignore_destination= */ true,
                                                /* match_name= */ match_name,
                                                /* ignore_same_name= */ ignore_same_name,
                                                config_path,
-                                               same_name_link);
+                                               same_name_link,
+                                               vendor ? de->d_name : NULL,
+                                               &found_static);
                 if (r > 0) {
-                        /* In the vendor directories only a symlink that enabling would create enables the
-                         * unit. Any other dependency symlink there is a static dependency, which
-                         * find_symlinks_in_scope() treats like an alias. */
-                        if (vendor) {
-                                r = dependency_is_enablement(scope, i, de->d_name, i->name);
-                                if (r < 0)
-                                        return r;
-                                if (r == 0) {
-                                        found_static = true;
-                                        continue;
-                                }
-                        }
-
                         *ret_enablement = true;
                         return 1;
                 }
@@ -1430,12 +1430,14 @@ static int find_symlinks(
         /* We didn't find any suitable symlinks in .wants, .requires or .upholds directories,
          * let's look for linked unit files in this directory. */
         rewinddir(config_dir);
-        r = find_symlinks_in_directory(config_dir, config_path, lp, i,
+        r = find_symlinks_in_directory(scope, config_dir, config_path, lp, i,
                                        /* ignore_destination= */ false,
                                        /* match_name= */ match_name,
                                        /* ignore_same_name= */ ignore_same_name,
                                        config_path,
-                                       same_name_link);
+                                       same_name_link,
+                                       /* vendor_dependency_dir= */ NULL,
+                                       /* found_static= */ NULL);
         if (r < 0)
                 return r;
 
