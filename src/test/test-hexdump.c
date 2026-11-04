@@ -50,4 +50,22 @@ TEST(hexdump_memcmp) {
         ASSERT_STREQ(s, "");
 }
 
+TEST(hexdump_memcmp_byte) {
+        static const uint8_t a[] = { 'x', 'x', 'x', 'y', 'x', 'x' };
+
+        /* All bytes match 'byte': no marker lines. */
+        _cleanup_free_ char *s = ASSERT_NOT_NULL(hexdump_memcmp_byte('x', (const uint8_t[]) { 'x', 'x' }, 2));
+        log_info("all equal:\n%s", s);
+
+        /* One byte differs from 'byte'. */
+        free(s);
+        s = ASSERT_NOT_NULL(hexdump_memcmp_byte('x', a, sizeof(a)));
+        log_info("differ:\n%s", s);
+
+        /* Empty region is fine. */
+        free(s);
+        s = ASSERT_NOT_NULL(hexdump_memcmp_byte(0x00, NULL, 0));
+        ASSERT_STREQ(s, "");
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);

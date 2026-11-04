@@ -2,8 +2,10 @@
 
 #include <ctype.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
+#include "alloc-util.h"
 #include "hexdump.h"
 #include "memstream-util.h"
 
@@ -129,4 +131,20 @@ char* hexdump_memcmp(const void *m1, size_t l1, const void *m2, size_t l2) {
                 return NULL;
 
         return ret;
+}
+
+char* hexdump_memcmp_byte(uint8_t byte, const void *data, size_t length) {
+        _cleanup_free_ uint8_t *expected = NULL;
+
+        /* Like hexdump_memcmp(), but compares the memory region against a region of the same length filled
+         * with 'byte'. Used by ASSERT_MEMEQ_BYTE() and ASSERT_MEMEQ_ZERO(). */
+
+        if (length > 0) {
+                expected = malloc(length);
+                if (!expected)
+                        return NULL;
+                memset(expected, byte, length);
+        }
+
+        return hexdump_memcmp(data, length, expected, length);
 }
