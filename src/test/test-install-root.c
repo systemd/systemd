@@ -1663,6 +1663,20 @@ TEST(dependency_mask_empty_file) {
         assert_state("empty-mask-dep.service", UNIT_FILE_DISABLED);
 }
 
+TEST(disable_dependency_with_non_directory_target) {
+        const char *entry;
+
+        write_vendor_file("system/non-dir-dep.service", WANTED_BY_MULTI_USER);
+        do_enable(0, STRV_MAKE("non-dir-dep.service"));
+
+        entry = strjoina(vendor_root, ETC_WANTS"non-dir-dep.service");
+        ASSERT_OK_ERRNO(unlink(entry));
+        ASSERT_OK_ERRNO(symlink("/usr/lib/systemd/system/non-dir-dep.service/child", entry));
+
+        do_disable(0, STRV_MAKE("non-dir-dep.service"));
+        ASSERT_FALSE(symlink_exists(entry));
+}
+
 TEST(disable_template_keeps_instance_mask) {
         const char *mask;
 
