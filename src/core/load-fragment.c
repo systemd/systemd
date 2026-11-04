@@ -1559,7 +1559,7 @@ int config_parse_exec_cpu_sched_policy(
         }
 
         if (!sched_policy_supported(x))
-                log_syntax(unit, LOG_WARNING, filename, line, x, "Unsupported CPU scheduling policy: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Unsupported CPU scheduling policy: %s", rvalue);
 
         c->cpu_sched_policy = x;
         /* Moving to or from real-time policy? We need to adjust the priority */
