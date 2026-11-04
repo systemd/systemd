@@ -5,6 +5,7 @@
 #include "sd-bus.h"
 #include "sd-event.h"
 #include "sd-id128.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "bus-error.h"
@@ -80,48 +81,99 @@ int manager_watch_hostname(Manager *m) {
         return 0;
 }
 
-static int set_hostname_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
-        const sd_bus_error *e;
-        int r;
+sd_varlink* hostname_varlink_close(sd_varlink *vl) {
+        if (!vl)
+                return NULL;
 
-        assert(m);
+        free(sd_varlink_get_userdata(vl));
+        return sd_varlink_close_unref(vl);
+}
 
-        e = sd_bus_message_get_error(m);
-        if (e) {
-                r = sd_bus_error_get_errno(e);
-                log_warning_errno(r, "Could not set hostname: %s", bus_error_message(e, r));
+static int set_hostname_handler(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                const char *error_id,
+                sd_varlink_reply_flags_t flags,
+                void *userdata) {
+
+        assert(link);
+
+        Manager *m = ASSERT_PTR(sd_event_get_userdata(sd_varlink_get_event(link)));
+
+        _cleanup_free_ char *hostname = sd_varlink_set_userdata(link, NULL);
+
+        m->hostname_varlink = sd_varlink_close_unref(m->hostname_varlink);
+
+        if (error_id) {
+                log_warning_errno(sd_varlink_error_to_errno(error_id, parameters),
+                                  "Could not set transient hostname, ignoring: %s", error_id);
+                return 0;
         }
 
-        return 1;
+        return free_and_replace(m->dynamic_hostname, hostname);
+}
+
+const char* manager_get_dynamic_hostname(Manager *m) {
+        assert(m);
+
+        /* Returns the hostname that is going to take effect: the in-flight one while a request is pending
+         * (stored as the connection's userdata), otherwise the one already applied. */
+        return m->hostname_varlink ? sd_varlink_get_userdata(m->hostname_varlink) : m->dynamic_hostname;
 }
 
 int manager_set_hostname(Manager *m, const char *hostname) {
         int r;
 
-        log_debug("Setting transient hostname: '%s'", strna(hostname));
+        assert(m);
 
-        r = free_and_strdup_warn(&m->dynamic_hostname, hostname);
-        if (r < 0)
-                return r;
-
-        if (sd_bus_is_ready(m->bus) <= 0) {
-                log_debug("Not connected to system bus, setting system hostname later.");
+        if (streq_ptr(hostname, manager_get_dynamic_hostname(m))) {
+                log_debug("Transient hostname is already set to '%s', skipping.", strna(hostname));
                 return 0;
         }
 
-        r = bus_call_method_async(
-                        m->bus,
-                        /* ret_slot= */ NULL,
-                        bus_hostname,
-                        "SetHostname",
-                        set_hostname_handler,
-                        m,
-                        "sb",
-                        hostname,
-                        false);
-        if (r < 0)
-                return log_error_errno(r, "Could not set transient hostname: %m");
+        log_debug("Setting transient hostname: '%s'", strna(hostname));
 
+        _cleanup_free_ char *h = NULL;
+        if (hostname) {
+                h = strdup(hostname);
+                if (!h)
+                        return log_oom();
+        }
+
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
+        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Hostname");
+        if (r < 0) {
+                log_warning_errno(r, "Failed to connect to systemd-hostnamed, ignoring: %m");
+                return 0;
+        }
+
+        (void) sd_varlink_set_description(vl, "hostname");
+
+        r = sd_varlink_attach_event(vl, m->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to attach hostname Varlink connection to event loop, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_varlink_bind_reply(vl, set_hostname_handler);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to bind hostname reply callback, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_varlink_invokebo(
+                        vl,
+                        "io.systemd.Hostname.SetHostname",
+                        SD_JSON_BUILD_PAIR_STRING("newValue", hostname));
+        if (r < 0) {
+                log_warning_errno(r, "Failed to set transient hostname, ignoring: %m");
+                return 0;
+        }
+
+        sd_varlink_set_userdata(vl, TAKE_PTR(h));
+
+        hostname_varlink_close(m->hostname_varlink);
+        m->hostname_varlink = TAKE_PTR(vl);
         return 0;
 }
 
