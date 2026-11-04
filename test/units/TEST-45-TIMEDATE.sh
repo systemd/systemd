@@ -317,8 +317,9 @@ assert_timesyncd_signal() {
 
     for _ in {0..9}; do
         if journalctl "${args[@]}" --grep .; then
-            [[ "$(journalctl "${args[@]}" -o cat | jq -r ".payload.data[1].$property.data | join(\" \")")" == "$value" ]];
-            return 0
+            # Return success only if the signal actually carries the expected value; otherwise
+            # keep polling (a bare 'return 0' here would ignore the comparison result).
+            [[ "$(journalctl "${args[@]}" -o cat | jq -r ".payload.data[1].$property.data | join(\" \")")" == "$value" ]] && return 0
         fi
 
         sleep .5
