@@ -12,10 +12,12 @@
 #include "manager.h"
 #include "path-util.h"
 #include "percent-util.h"
+#include "service.h"
 #include "set.h"
 #include "special.h"
 #include "time-util.h"
 #include "unit.h"
+#include "unit-name.h"
 #include "varlink-cgroup.h"
 #include "varlink-common.h"
 
@@ -674,6 +676,23 @@ struct TransientCGroupContextParameters {
         char *bad_field; /* Field path for error propagation. */
 };
 
+static int dispatch_cgroup_slice(
+                const char *name,
+                sd_json_variant *variant,
+                sd_json_dispatch_flags_t flags,
+                void *userdata) {
+
+        const char **ret = ASSERT_PTR(userdata);
+
+        if (streq_ptr(sd_json_variant_string(variant), "socket")) {
+                *ret = "socket";
+                return 0;
+        }
+
+        /* SD_JSON_STRICT restricts the slice name to UNIT_NAME_PLAIN, as bus_set_transient_slice() does. */
+        return json_dispatch_const_unit_name(name, variant, flags|SD_JSON_STRICT, userdata);
+}
+
 static int apply_cgroup_slice(Unit *u, CGroupContext *c, TransientCGroupContextParameters *p) {
         Unit *slice;
         int r;
@@ -691,6 +710,21 @@ static int apply_cgroup_slice(Unit *u, CGroupContext *c, TransientCGroupContextP
         if (unit_has_name(u, SPECIAL_INIT_SCOPE))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot set slice for init.scope.");
 
+        Service *service = SERVICE(u);
+        if (streq(p->slice, "socket")) {
+                if (!service || !unit_name_is_valid(u->id, UNIT_NAME_TEMPLATE|UNIT_NAME_INSTANCE))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Slice=socket may only be set on templated service units.");
+
+                service->inherit_socket_slice = true;
+
+                r = unit_set_slice(u, /* slice= */ NULL);
+                if (r < 0)
+                        return r;
+
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "Slice", "Slice=socket");
+                return 0;
+        }
+
         /* manager_load_unit_prepare(): don't dispatch the load queue while our own transient unit
          * is still half set up (same as bus_set_transient_slice()). */
         r = manager_load_unit_prepare(u->manager, p->slice, /* path= */ NULL, /* e= */ NULL, &slice);
@@ -704,6 +738,8 @@ static int apply_cgroup_slice(Unit *u, CGroupContext *c, TransientCGroupContextP
         if (r < 0)
                 return r;
 
+        if (service)
+                service->inherit_socket_slice = false;
         unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "Slice", "Slice=%s", p->slice);
 
         return 0;
@@ -1075,8 +1111,7 @@ typedef struct TransientCGroupProperty {
           offsetof(TransientCGroupContextParameters, field), 0, apply_cgroup_##field, true }
 
 static const TransientCGroupProperty cgroup_properties[] = {
-        /* SD_JSON_STRICT restricts the slice name to UNIT_NAME_PLAIN, as bus_set_transient_slice() does. */
-        CGROUP_PROPERTY_FULL         ("Slice", SD_JSON_VARIANT_STRING, json_dispatch_const_unit_name, offsetof(TransientCGroupContextParameters, slice), SD_JSON_STRICT, apply_cgroup_slice),
+        CGROUP_PROPERTY_FULL         ("Slice", SD_JSON_VARIANT_STRING, dispatch_cgroup_slice, offsetof(TransientCGroupContextParameters, slice), 0, apply_cgroup_slice),
 
         CGROUP_PROPERTY_NUMERIC      ("CPUWeight",          cpu_weight),
         CGROUP_PROPERTY_NUMERIC      ("StartupCPUWeight",   startup_cpu_weight),

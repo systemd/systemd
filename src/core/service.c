@@ -1252,9 +1252,11 @@ static int service_add_extras(Service *s) {
         if (r < 0)
                 return r;
 
-        r = unit_set_default_slice(UNIT(s));
-        if (r < 0)
-                return r;
+        if (!s->inherit_socket_slice) {
+                r = unit_set_default_slice(UNIT(s));
+                if (r < 0)
+                        return r;
+        }
 
         /* Each configured LUOSession= is handed to the service through the fd store, hence make sure the
          * store is large enough to hold them all. */
@@ -1792,6 +1794,50 @@ static usec_t service_coldplug_timeout(Service *s) {
         }
 }
 
+static int acquire_socket_slice(Service *s, int fd, Unit **ret) {
+        int r;
+
+        assert(s);
+        assert(fd >= 0);
+
+        _cleanup_(pidref_done) PidRef peer = PIDREF_NULL;
+        r = getpeerpidref(fd, &peer);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *slice_name = NULL;
+        if (MANAGER_IS_SYSTEM(UNIT(s)->manager))
+                r = cg_pidref_get_slice(&peer, &slice_name);
+        else
+                r = cg_pidref_get_user_slice(&peer, &slice_name);
+        if (r < 0)
+                return r;
+
+        return manager_load_unit(UNIT(s)->manager, slice_name, /* path= */ NULL, NULL, ret);
+}
+
+static int service_inherit_socket_slice(Service *s, int fd) {
+        int r;
+
+        assert(s);
+        assert(fd >= 0);
+
+        if (UNIT(s)->load_state != UNIT_LOADED)
+                return -EINVAL;
+
+        Unit *slice;
+        r = acquire_socket_slice(s, fd, &slice);
+        if (r < 0) {
+                log_unit_debug_errno(UNIT(s), r, "Failed to resolve slice from socket, ignoring: %m");
+                r = unit_set_default_slice(UNIT(s));
+        } else
+                r = unit_set_slice(UNIT(s), slice);
+        if (r < 0)
+                return r;
+
+        return unit_add_slice_dependencies(UNIT(s));
+}
+
 static int service_coldplug(Unit *u) {
         Service *s = SERVICE(u);
         int r;
@@ -1853,6 +1899,12 @@ static int service_coldplug(Unit *u) {
                                 socket_peer_unref(s->socket_peer);
                                 s->socket_peer = peer;
                         }
+                }
+
+                if (s->inherit_socket_slice) {
+                        r = service_inherit_socket_slice(s, s->socket_fd);
+                        if (r < 0)
+                                return r;
                 }
         }
 
@@ -6075,6 +6127,13 @@ int service_set_socket_fd(
                 return log_unit_debug_errno(UNIT(s), r,
                                             "Failed to add After=/TriggeredBy= dependencies on socket unit: %m");
 
+        if (s->inherit_socket_slice) {
+                r = service_inherit_socket_slice(s, fd);
+                if (r < 0)
+                        return log_unit_debug_errno(UNIT(s), r,
+                                                    "Failed to apply Slice=socket on service: %m");
+        }
+
         s->socket_fd = fd;
         s->socket_peer = peer;
         s->socket_fd_selinux_context_net = selinux_context_net;
@@ -6410,6 +6469,10 @@ static int service_test_startable(Unit *u) {
          * unit_start(). Hence, here we only need to check states that mapped to UNIT_ACTIVATING. */
         if (IN_SET(s->state, SERVICE_CONDITION, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST))
                 return false;
+
+        if (s->inherit_socket_slice && !UNIT_GET_SLICE(u))
+                return log_unit_notice_errno(u, SYNTHETIC_ERRNO(ENOLINK),
+                                             "Slice=socket set, but unit isn't triggered by an Accept=yes socket");
 
         /* Make sure we don't enter a busy loop of some kind. */
         r = unit_test_start_limit(u);

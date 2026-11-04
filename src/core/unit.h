@@ -844,6 +844,7 @@ int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, boo
 int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency e, const char *name, bool add_reference, UnitDependencyMask mask);
 
 int unit_add_exec_dependencies(Unit *u, ExecContext *c);
+int unit_add_slice_dependencies(Unit *u);
 
 int unit_choose_id(Unit *u, const char *name);
 int unit_set_description(Unit *u, const char *description);

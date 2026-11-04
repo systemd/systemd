@@ -1525,7 +1525,7 @@ int unit_add_default_target_dependency(Unit *u, Unit *target) {
         return unit_add_dependency(target, UNIT_AFTER, u, /* add_reference= */ true, UNIT_DEPENDENCY_DEFAULT);
 }
 
-static int unit_add_slice_dependencies(Unit *u) {
+int unit_add_slice_dependencies(Unit *u) {
         Unit *slice;
 
         assert(u);
@@ -3467,10 +3467,9 @@ int unit_set_slice(Unit *u, Unit *slice) {
         int r;
 
         assert(u);
-        assert(slice);
 
-        /* Sets the unit slice if it has not been set before. Is extra careful, to only allow this for units
-         * that actually have a cgroup context. Also, we don't allow to set this for slices (since the parent
+        /* Sets (or unsets) the unit slice. Is extra careful, to only allow this for unit types that
+         * actually have a cgroup context. Also, we don't allow to set this for slices (since the parent
          * slice is derived from the name). Make sure the unit we set is actually a slice. */
 
         if (!UNIT_HAS_CGROUP_CONTEXT(u))
@@ -3482,11 +3481,11 @@ int unit_set_slice(Unit *u, Unit *slice) {
         if (unit_active_state(u) != UNIT_INACTIVE)
                 return -EBUSY;
 
-        if (slice->type != UNIT_SLICE)
+        if (slice && slice->type != UNIT_SLICE)
                 return -EINVAL;
 
         if (unit_has_name(u, SPECIAL_INIT_SCOPE) &&
-            !unit_has_name(slice, SPECIAL_ROOT_SLICE))
+            (!slice || !unit_has_name(slice, SPECIAL_ROOT_SLICE)))
                 return -EPERM;
 
         if (UNIT_GET_SLICE(u) == slice)
@@ -3499,9 +3498,12 @@ int unit_set_slice(Unit *u, Unit *slice) {
                         return -EBUSY;
         }
 
-        /* Remove any slices assigned prior; we should only have one UNIT_IN_SLICE dependency */
+        /* Remove any slices assigned prior; we should have at most one UNIT_IN_SLICE dependency */
         if (UNIT_GET_SLICE(u))
                 unit_remove_dependencies(u, UNIT_DEPENDENCY_SLICE_PROPERTY);
+
+        if (!slice)
+                return 0;
 
         r = unit_add_dependency(u, UNIT_IN_SLICE, slice, /* add_reference= */ true, UNIT_DEPENDENCY_SLICE_PROPERTY);
         if (r < 0)
