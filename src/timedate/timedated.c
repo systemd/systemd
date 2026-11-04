@@ -681,37 +681,15 @@ static int property_get_ntp(
         return sd_bus_message_append(reply, "b", context_ntp_service_is_active(c) > 0);
 }
 
-static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        Context *c = ASSERT_PTR(userdata);
+static int context_set_timezone(Context *c, const char *z) {
         _cleanup_free_ char *old_zone = NULL, *zone = NULL;
-        int interactive, r;
-        const char *z;
+        int r;
 
-        assert(m);
-
-        r = sd_bus_message_read(m, "sb", &z, &interactive);
-        if (r < 0)
-                return r;
-
-        if (!timezone_is_valid(z, LOG_DEBUG))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid or not installed time zone '%s'", z);
+        assert(c);
+        assert(z);
 
         if (streq_ptr(z, c->zone))
-                return sd_bus_reply_method_return(m, /* types= */ NULL);
-
-        r = bus_verify_polkit_async_full(
-                        m,
-                        "org.freedesktop.timedate1.set-timezone",
-                        /* details= */ NULL,
-                        /* good_user= */ UID_INVALID,
-                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
-                        &c->polkit_registry,
-                        /* ret_admin= */ NULL,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+                return 0;
 
         zone = strdup(z);
         if (!zone)
@@ -724,8 +702,7 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
         r = context_write_data_timezone(c);
         if (r < 0) {
                 free_and_replace(c->zone, old_zone);
-                log_error_errno(r, "Failed to set time zone: %m");
-                return sd_bus_error_set_errnof(error, r, "Failed to set time zone: %m");
+                return log_error_errno(r, "Failed to set time zone: %m");
         }
 
         /* 2. Make glibc notice the new timezone */
@@ -757,9 +734,47 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
                    LOG_ITEM("DAYLIGHT=%i", daylight),
                    LOG_MESSAGE("Changed time zone to '%s' (%s).", c->zone, get_tzname(daylight)));
 
-        (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
+        (void) sd_bus_emit_properties_changed(c->bus,
                                               "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "Timezone",
                                               NULL);
+
+        return 1;
+}
+
+static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        Context *c = ASSERT_PTR(userdata);
+        int interactive, r;
+        const char *z;
+
+        assert(m);
+
+        r = sd_bus_message_read(m, "sb", &z, &interactive);
+        if (r < 0)
+                return r;
+
+        if (!timezone_is_valid(z, LOG_DEBUG))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid or not installed time zone '%s'", z);
+
+        if (streq_ptr(z, c->zone))
+                return sd_bus_reply_method_return(m, /* types= */ NULL);
+
+        r = bus_verify_polkit_async_full(
+                        m,
+                        "org.freedesktop.timedate1.set-timezone",
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
+                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
+                        &c->polkit_registry,
+                        /* ret_admin= */ NULL,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = context_set_timezone(c, z);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to set time zone: %m");
 
         return sd_bus_reply_method_return(m, /* types= */ NULL);
 }
