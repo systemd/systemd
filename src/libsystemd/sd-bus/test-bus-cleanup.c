@@ -42,6 +42,27 @@ static void test_bus_fork(void) {
         ASSERT_EQ(bus->n_ref, 1U);
 }
 
+static void test_bus_negotiate_closed(void) {
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+
+        ASSERT_OK_ZERO(sd_bus_new(&bus));
+
+        ASSERT_OK(sd_bus_negotiate_timestamp(bus, false));
+        ASSERT_OK(sd_bus_negotiate_creds(bus, false, SD_BUS_CREDS_PID));
+
+        bus_set_state(bus, BUS_CLOSING);
+        ASSERT_ERROR(sd_bus_negotiate_timestamp(bus, true), ENOTCONN);
+        ASSERT_ERROR(sd_bus_negotiate_creds(bus, true, SD_BUS_CREDS_PID), ENOTCONN);
+
+        sd_bus_close(bus);
+        ASSERT_ERROR(sd_bus_negotiate_timestamp(bus, true), ENOTCONN);
+        ASSERT_ERROR(sd_bus_negotiate_creds(bus, true, SD_BUS_CREDS_PID), ENOTCONN);
+
+        /* The rejected calls must not have mutated the bus. */
+        ASSERT_FALSE(bus->attach_timestamp);
+        ASSERT_FALSE(bus->creds_mask & SD_BUS_CREDS_PID);
+}
+
 static int test_bus_open(void) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
@@ -93,6 +114,7 @@ int main(int argc, char **argv) {
 
         test_bus_new();
         test_bus_fork();
+        test_bus_negotiate_closed();
 
         if (test_bus_open() < 0)
                 return log_tests_skipped("Failed to connect to bus");
