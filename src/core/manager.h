@@ -384,6 +384,11 @@ typedef struct Manager {
         sd_event_source *cgroup_empty_event_source;
         sd_event_source *cgroup_oom_event_source;
 
+        /* Maps unit IDs to the IDs of the slices they should be using instead of whatever is configured.
+         * This is state in the manager, rather than being tracked per-unit, because we need to know this
+         * information before the unit is loaded.*/
+        Hashmap *unit_slice_overrides;
+
         /* Make sure the user cannot accidentally unmount our cgroup
          * file system */
         int pin_cgroupfs_fd;
@@ -740,6 +745,9 @@ int update_first_boot_file(bool b);
 
 void unit_defaults_init(UnitDefaults *defaults, RuntimeScope scope);
 void unit_defaults_done(UnitDefaults *defaults);
+
+int manager_set_unit_slice_override(Manager *manager, const char *unit, const char *slice);
+const char* manager_get_unit_slice_override(Manager *manager, const char *unit);
 
 enum {
         /* most important … */

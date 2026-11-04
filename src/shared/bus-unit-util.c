@@ -2865,6 +2865,7 @@ static const BusProperty socket_properties[] = {
         { "ReusePort",                             bus_append_parse_boolean                      },
         { "RemoveOnStop",                          bus_append_parse_boolean                      },
         { "SELinuxContextFromNet",                 bus_append_parse_boolean                      },
+        { "PropagateSlice",                        bus_append_parse_boolean                      },
         { "Priority",                              bus_append_safe_atoi                          },
         { "IPTTL",                                 bus_append_safe_atoi                          },
         { "Mark",                                  bus_append_safe_atoi                          },
