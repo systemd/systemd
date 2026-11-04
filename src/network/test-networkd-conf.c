@@ -300,8 +300,7 @@ static void test_config_parse_dhcp_static_lease_one(
 
         ASSERT_EQ(hashmap_size(network->dhcp_static_leases_by_section), 1u);
         ASSERT_NOT_NULL(lease = hashmap_first(network->dhcp_static_leases_by_section));
-        ASSERT_EQ(lease->client_id.size, expected_size);
-        ASSERT_EQ(memcmp(lease->client_id.raw, expected, expected_size), 0);
+        ASSERT_MEMEQ_NN(lease->client_id.raw, lease->client_id.size, expected, expected_size);
 }
 
 TEST(config_parse_dhcp_static_lease) {
@@ -416,7 +415,7 @@ static void test_config_parse_multipath_route_verify(
         if (expected_gw) {
                 union in_addr_union gw;
                 ASSERT_OK(in_addr_from_string(expected_family, expected_gw, &gw));
-                ASSERT_EQ(memcmp(&nh->gw, &gw, FAMILY_ADDRESS_SIZE(expected_family)), 0);
+                ASSERT_MEMEQ(&nh->gw, &gw, FAMILY_ADDRESS_SIZE(expected_family));
         } else
                 ASSERT_FALSE(in_addr_is_set(nh->family, &nh->gw));
 

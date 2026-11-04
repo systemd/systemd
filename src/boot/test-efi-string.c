@@ -70,11 +70,11 @@ TEST(strtolower8) {
         ASSERT_NULL(strtolower8(NULL));
 
         ASSERT_PTR_EQ(strtolower8(s), s);
-        ASSERT_EQ(memcmp(s, "\0001234abcDEF!\0zZ", sizeof(s)), 0);
+        ASSERT_MEMEQ(s, "\0001234abcDEF!\0zZ", sizeof(s));
 
         s[0] = '#';
         ASSERT_PTR_EQ(strtolower8(s), s);
-        ASSERT_EQ(memcmp(s, "#1234abcdef!\0zZ", sizeof(s)), 0);
+        ASSERT_MEMEQ(s, "#1234abcdef!\0zZ", sizeof(s));
 }
 
 TEST(strtolower16) {
@@ -83,11 +83,11 @@ TEST(strtolower16) {
         ASSERT_NULL(strtolower16(NULL));
 
         ASSERT_PTR_EQ(strtolower16(s), s);
-        ASSERT_EQ(memcmp(s, u"\0001234abcDEF!\0zZ", sizeof(s)), 0);
+        ASSERT_MEMEQ(s, u"\0001234abcDEF!\0zZ", sizeof(s));
 
         s[0] = '#';
         ASSERT_PTR_EQ(strtolower16(s), s);
-        ASSERT_EQ(memcmp(s, u"#1234abcdef!\0zZ", sizeof(s)), 0);
+        ASSERT_MEMEQ(s, u"#1234abcdef!\0zZ", sizeof(s));
 }
 
 TEST(strncmp8) {
@@ -855,13 +855,13 @@ TEST(efi_memcpy) {
         ASSERT_PTR_EQ(efi_memcpy(buf, "a", 0), buf);
 
         ASSERT_PTR_EQ(efi_memcpy(buf, "", 1), buf);
-        ASSERT_EQ(memcmp(buf, "", 1), 0);
+        ASSERT_MEMEQ(buf, "", 1);
         ASSERT_PTR_EQ(efi_memcpy(buf, "1", 1), buf);
-        ASSERT_EQ(memcmp(buf, "1", 1), 0);
+        ASSERT_MEMEQ(buf, "1", 1);
         ASSERT_PTR_EQ(efi_memcpy(buf, "23", 3), buf);
-        ASSERT_EQ(memcmp(buf, "23", 3), 0);
+        ASSERT_MEMEQ(buf, "23", 3);
         ASSERT_PTR_EQ(efi_memcpy(buf, "45\0ab\0\0\0c", 9), buf);
-        ASSERT_EQ(memcmp(buf, "45\0ab\0\0\0c", 9), 0);
+        ASSERT_MEMEQ(buf, "45\0ab\0\0\0c", 9);
 }
 
 TEST(efi_memset) {
@@ -872,11 +872,11 @@ TEST(efi_memset) {
         ASSERT_PTR_EQ(efi_memset(buf, '1', 0), buf);
 
         ASSERT_PTR_EQ(efi_memset(buf, '2', 1), buf);
-        ASSERT_EQ(memcmp(buf, "2", 1), 0);
+        ASSERT_MEMEQ(buf, "2", 1);
         ASSERT_PTR_EQ(efi_memset(buf, '4', 4), buf);
-        ASSERT_EQ(memcmp(buf, "4444", 4), 0);
+        ASSERT_MEMEQ(buf, "4444", 4);
         ASSERT_PTR_EQ(efi_memset(buf, 'a', 10), buf);
-        ASSERT_EQ(memcmp(buf, "aaaaaaaaaa", 10), 0);
+        ASSERT_MEMEQ(buf, "aaaaaaaaaa", 10);
 }
 
 TEST(efi_strspn) {

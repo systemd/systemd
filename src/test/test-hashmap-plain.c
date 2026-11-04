@@ -935,8 +935,7 @@ TEST(hashmap_dump_sorted) {
         ASSERT_OK_EQ(hashmap_put(m, "key 2", expected[2]), 1);
 
         ASSERT_OK(hashmap_dump_sorted(m, &vals, &n));
-        ASSERT_EQ(n, ELEMENTSOF(expected));
-        ASSERT_EQ(memcmp(vals, expected, n * sizeof(void*)), 0);
+        ASSERT_MEMEQ_NN(vals, n * sizeof(void*), expected, ELEMENTSOF(expected) * sizeof(void*));
 
         vals = mfree(vals);
 
@@ -959,14 +958,12 @@ TEST(hashmap_dump_sorted) {
         ASSERT_OK_EQ(hashmap_put(m, UINT_TO_PTR(111U), expected[0]), 1);
 
         ASSERT_OK(hashmap_dump_sorted(m, &vals, &n));
-        ASSERT_EQ(n, ELEMENTSOF(expected));
-        ASSERT_EQ(memcmp(vals, expected, n * sizeof(void*)), 0);
+        ASSERT_MEMEQ_NN(vals, n * sizeof(void*), expected, ELEMENTSOF(expected) * sizeof(void*));
 
         vals = mfree(vals);
 
         ASSERT_OK(hashmap_dump_keys_sorted(m, &vals, &n));
-        ASSERT_EQ(n, ELEMENTSOF(expected_keys2));
-        ASSERT_EQ(memcmp(vals, expected_keys2, n * sizeof(void*)), 0);
+        ASSERT_MEMEQ_NN(vals, n * sizeof(void*), expected_keys2, ELEMENTSOF(expected_keys2) * sizeof(void*));
 }
 
 /* Signal to test-hashmap.c that tests from this compilation unit were run. */

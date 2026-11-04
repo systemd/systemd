@@ -566,7 +566,7 @@ TEST(loop_read_write_fallback) {
         char buf[16];
         ssize_t n = loop_read(pipefd[0], buf, STRLEN("fallback"), /* do_poll= */ true);
         ASSERT_OK_EQ(n, (ssize_t) STRLEN("fallback"));
-        ASSERT_EQ(memcmp(buf, "fallback", STRLEN("fallback")), 0);
+        ASSERT_MEMEQ(buf, "fallback", STRLEN("fallback"));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

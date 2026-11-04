@@ -307,7 +307,7 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
                 struct iovec v;
                 ASSERT_OK_POSITIVE(journal_file_data_payload_full(f, o, p, field, field_length, flags,
                                                                   -EBADF, (const void**) &v.iov_base, &v.iov_len));
-                ASSERT_TRUE(iovec_equal(&v, &IOVEC_SHIFT(&iovec, skip)));
+                ASSERT_IOVEC_EQ(&v, &IOVEC_SHIFT(&iovec, skip));
 
                 _cleanup_close_ int fd = ASSERT_OK(memfd_new("decompress-blob-to-fd-test"));
                 size_t sz;
@@ -323,7 +323,7 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
                 ASSERT_OK(iovec_alloc(sz, &w));
 
                 ASSERT_OK_EQ_ERRNO(pread(fd, w.iov_base, w.iov_len, 0), (ssize_t) w.iov_len);
-                ASSERT_TRUE(iovec_equal(&w, &IOVEC_SHIFT(&iovec, skip)));
+                ASSERT_IOVEC_EQ(&w, &IOVEC_SHIFT(&iovec, skip));
         }
 
         (void) journal_file_offline_close(f);

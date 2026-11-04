@@ -246,7 +246,7 @@ static void create_reply(sd_dhcp_client *client, sd_dhcp_message *request, uint8
 static void verify_header(sd_dhcp_message *m) {
         ASSERT_EQ(m->header.op, BOOTREQUEST);
         ASSERT_EQ(m->header.htype, ARPHRD_ETHER);
-        ASSERT_EQ(memcmp_nn(m->header.chaddr, m->header.hlen, hw_addr.bytes, hw_addr.length), 0);
+        ASSERT_MEMEQ_NN(m->header.chaddr, m->header.hlen, hw_addr.bytes, hw_addr.length);
 }
 
 static void verify_basic_options(sd_dhcp_message *m, uint8_t type) {
@@ -296,7 +296,7 @@ static void verify_request(sd_dhcp_message *m, uint8_t type) {
         STRV_FOREACH(s, vendor_specific_strv) {
                 struct iovec v;
                 ASSERT_OK(tlv_get(vendor_specific, ++c, &v));
-                ASSERT_EQ(memcmp_nn(v.iov_base, v.iov_len, *s, strlen(*s)), 0);
+                ASSERT_MEMEQ_NN(v.iov_base, v.iov_len, *s, strlen(*s));
         }
 
         _cleanup_(iovw_done) struct iovec_wrapper iovw = {};

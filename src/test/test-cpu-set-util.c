@@ -239,11 +239,11 @@ TEST(cpu_set_to_from_dbus) {
 
         ASSERT_LE(allocated, sizeof expected);
         ASSERT_GE(allocated, DIV_ROUND_UP(201u, 8u)); /* We need at least 201 bits for our mask */
-        ASSERT_EQ(memcmp(array, expected, allocated), 0);
+        ASSERT_MEMEQ(array, expected, allocated);
 
         ASSERT_OK(cpu_set_from_dbus(array, allocated, &c2));
         ASSERT_CPUSET_COUNT(c2, 104);
-        ASSERT_EQ(memcmp_nn(c.set, c.allocated, c2.set, c2.allocated), 0);
+        ASSERT_MEMEQ_NN(c.set, c.allocated, c2.set, c2.allocated);
 }
 
 TEST(cpus_in_affinity_mask) {
