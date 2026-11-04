@@ -766,3 +766,16 @@ EOF
 # Without --root= being passed on this inspects the host, which knows nothing about this unit.
 "$systemctl" --root="$root" is-enabled --full rooted.service |
     grep "^  $root/etc/systemd/system/multi-user.target.wants/rooted.service\$" >/dev/null
+
+: '-------issue 43908: unit is enabled if [Install] links are present-----------------'
+cat >"$root/usr/lib/systemd/system/yet-another-service.service" <<EOF
+[Install]
+WantedBy=default.target
+EOF
+
+test "$(systemctl --root="$root" is-enabled yet-another-service.service)" = "disabled"
+
+mkdir -p "$root/usr/lib/systemd/system/default.target.wants"
+ln -s "$root/usr/lib/systemd/system/yet-another-service.service" "$root/usr/lib/systemd/system/default.target.wants/yet-another-service.service"
+readlink -f "$root/usr/lib/systemd/system/default.target.wants/yet-another-service.service"
+test "$(systemctl --root="$root" is-enabled yet-another-service.service)" = "enabled"
