@@ -18,6 +18,7 @@
 #include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp6.h"
 #include "networkd-dhcp6-bus.h"
+#include "networkd-hostname.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-ntp.h"
