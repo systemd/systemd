@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <poll.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -1292,15 +1293,15 @@ static bool io_uring_available_or_skip(sd_event *e) {
 }
 
 static int add_nop(sd_event *e, sd_future **ret) {
-        struct io_uring_sqe sqe = {};
-        io_uring_prep_nop(&sqe);
+        union io_uring_sqe128 sqe = {};
+        io_uring_prep_nop(&sqe.sqe);
         return future_new_io_uring(e, &sqe, ret);
 }
 
 /* A recv() on a socket that nobody writes to only completes when it is cancelled. */
 static int add_recv(sd_event *e, int fd, char *buf, size_t n, sd_future **ret) {
-        struct io_uring_sqe sqe = {};
-        io_uring_prep_recv(&sqe, fd, buf, n, /* flags= */ 0);
+        union io_uring_sqe128 sqe = {};
+        io_uring_prep_recv(&sqe.sqe, fd, buf, n, /* flags= */ 0);
         return future_new_io_uring(e, &sqe, ret);
 }
 
@@ -1379,6 +1380,94 @@ TEST(io_uring_future_many) {
                 run_until_resolved(e, *f);
                 ASSERT_OK_ZERO(sd_future_result(*f));
         }
+}
+
+TEST(io_uring_future128) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+        if (!io_uring_available_or_skip(e))
+                return;
+
+        union io_uring_sqe128 sqe = {};
+        io_uring_prep_nop(&sqe.sqe);
+        memset(sqe.raw + sizeof(sqe.sqe), 0xa5, sizeof(sqe) - sizeof(sqe.sqe));
+
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        ASSERT_OK(future_new_io_uring(e, &sqe, &f));
+
+        union io_uring_cqe32 cqe;
+        ASSERT_ERROR(future_io_uring_get_cqe(f, &cqe), EAGAIN);
+        run_until_resolved(e, f);
+        ASSERT_OK_ZERO(sd_future_result(f));
+        ASSERT_OK(future_io_uring_get_cqe(f, &cqe));
+        ASSERT_EQ(cqe.cqe.res, 0);
+        ASSERT_EQ(cqe.cqe.user_data, PTR_TO_UINT64(f));
+}
+
+TEST(io_uring_future_cqe32) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+        if (!io_uring_available_or_skip(e))
+                return;
+
+        union io_uring_sqe128 sqe = {};
+        io_uring_prep_nop(&sqe.sqe);
+        sqe.sqe.nop_flags = IORING_NOP_CQE32 | IORING_NOP_INJECT_RESULT;
+        sqe.sqe.len = 1;
+        sqe.sqe.off = UINT64_MAX;
+        sqe.sqe.addr = UINT64_C(0x123456789abcdef0);
+
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        ASSERT_OK(future_new_io_uring(e, &sqe, &f));
+        run_until_resolved(e, f);
+        /* Older kernels ignore nop_flags and return 0 instead of the injected result. */
+        if (IN_SET(sd_future_result(f), 0, -EINVAL))
+                return (void) log_tests_skipped("IORING_NOP_CQE32 unavailable");
+        ASSERT_EQ(sd_future_result(f), 1);
+
+        union io_uring_cqe32 cqe;
+        ASSERT_OK(future_io_uring_get_cqe(f, &cqe));
+        ASSERT_EQ(cqe.cqe.res, 1);
+        ASSERT_EQ(cqe.cqe.big_cqe[0], UINT64_MAX);
+        ASSERT_EQ(cqe.cqe.big_cqe[1], UINT64_C(0x123456789abcdef0));
+
+        for (unsigned i = 0; i < 600; i++) {
+                _cleanup_(sd_future_unrefp) sd_future *other = NULL;
+                ASSERT_OK(add_nop(e, &other));
+                run_until_resolved(e, other);
+                ASSERT_OK_ZERO(sd_future_result(other));
+        }
+
+        union io_uring_cqe32 saved;
+        ASSERT_OK(future_io_uring_get_cqe(f, &saved));
+        ASSERT_EQ(memcmp(&cqe, &saved, sizeof(cqe)), 0);
+}
+
+TEST(io_uring_future128_cancel) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sd_event_new(&e));
+        if (!io_uring_available_or_skip(e))
+                return;
+
+        _cleanup_close_pair_ int sv[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM, 0, sv));
+
+        char buf[1];
+        union io_uring_sqe128 sqe = {};
+        io_uring_prep_recv(&sqe.sqe, sv[0], buf, sizeof(buf), /* flags= */ 0);
+
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        ASSERT_OK(future_new_io_uring(e, &sqe, &f));
+        ASSERT_OK(sd_future_cancel(f));
+        run_until_resolved(e, f);
+        ASSERT_ERROR(sd_future_result(f), ECANCELED);
+
+        union io_uring_cqe32 cqe;
+        ASSERT_OK(future_io_uring_get_cqe(f, &cqe));
+        ASSERT_ERROR(cqe.cqe.res, ECANCELED);
 }
 
 TEST(io_uring_future_when_disabled) {

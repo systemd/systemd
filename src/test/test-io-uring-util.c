@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <string.h>
+
 #include "errno-util.h"
 #include "io-uring-util.h"
 #include "tests.h"
@@ -20,21 +22,21 @@ static bool io_uring_init_or_skip(IoUring *ring, unsigned entries) {
 
 static void queue_nops(IoUring *ring, unsigned n, uint64_t first_id) {
         for (unsigned i = 0; i < n; i++) {
-                struct io_uring_sqe *sqe = ASSERT_NOT_NULL(io_uring_get_sqe(ring));
-                io_uring_prep_nop(sqe);
-                sqe->user_data = first_id + i;
+                union io_uring_sqe128 *sqe = ASSERT_NOT_NULL(io_uring_get_sqe(ring));
+                io_uring_prep_nop(&sqe->sqe);
+                sqe->sqe.user_data = first_id + i;
         }
 }
 
 static unsigned reap(IoUring *ring, bool *seen, size_t n_seen) {
-        struct io_uring_cqe *cqe;
+        union io_uring_cqe32 *cqe;
         unsigned n = 0;
 
         IO_URING_FOREACH_CQE(cqe, ring) {
-                ASSERT_EQ(cqe->res, 0);
-                ASSERT_LT(cqe->user_data, (uint64_t) n_seen);
-                ASSERT_FALSE(seen[cqe->user_data]);
-                seen[cqe->user_data] = true;
+                ASSERT_EQ(cqe->cqe.res, 0);
+                ASSERT_LT(cqe->cqe.user_data, (uint64_t) n_seen);
+                ASSERT_FALSE(seen[cqe->cqe.user_data]);
+                seen[cqe->cqe.user_data] = true;
                 n++;
         }
         io_uring_cq_advance(ring, n);
@@ -114,6 +116,63 @@ TEST(submit_and_wait) {
         ASSERT_OK_EQ(io_uring_submit_and_wait(&ring, USEC_INFINITY), 1);
         ASSERT_EQ(reap(&ring, seen, ELEMENTSOF(seen)), 1u);
         ASSERT_TRUE(seen[0]);
+}
+
+TEST(sqe_cleared) {
+        _cleanup_(io_uring_done) IoUring ring = IO_URING_NULL;
+        bool seen[4 * 25] = {};
+
+        if (!io_uring_init_or_skip(&ring, 4))
+                return;
+
+        for (unsigned round = 0; round < 25; round++) {
+                for (unsigned i = 0; i < 4; i++) {
+                        union io_uring_sqe128 *sqe = ASSERT_NOT_NULL(io_uring_get_sqe(&ring));
+                        FOREACH_ELEMENT(byte, sqe->raw)
+                                ASSERT_EQ(*byte, 0u);
+
+                        memset(sqe->raw + sizeof(sqe->sqe), 0xff, sizeof(*sqe) - sizeof(sqe->sqe));
+                        io_uring_prep_nop(&sqe->sqe);
+                        sqe->sqe.user_data = round * 4 + i;
+                }
+                ASSERT_OK_EQ(io_uring_submit(&ring), 4);
+                ASSERT_EQ(reap(&ring, seen, ELEMENTSOF(seen)), 4u);
+        }
+}
+
+TEST(cqe32_payload) {
+        _cleanup_(io_uring_done) IoUring ring = IO_URING_NULL;
+        union io_uring_cqe32 *cqe;
+        unsigned n = 0;
+
+        if (!io_uring_init_or_skip(&ring, 256))
+                return;
+
+        for (unsigned i = 0; i < 256; i++) {
+                union io_uring_sqe128 *sqe = ASSERT_NOT_NULL(io_uring_get_sqe(&ring));
+                io_uring_prep_nop(&sqe->sqe);
+                sqe->sqe.nop_flags = IORING_NOP_CQE32 | IORING_NOP_INJECT_RESULT;
+                sqe->sqe.len = 1;
+                sqe->sqe.off = UINT64_MAX - i;
+                sqe->sqe.addr = UINT64_C(0x123456789abcdef0) + i;
+                sqe->sqe.user_data = i;
+                ASSERT_OK_EQ(io_uring_submit(&ring), 1);
+
+                IO_URING_FOREACH_CQE(cqe, &ring) {
+                        /* Older kernels ignore nop_flags and return 0 instead of the injected result. */
+                        if (IN_SET(cqe->cqe.res, 0, -EINVAL)) {
+                                log_tests_skipped("IORING_NOP_CQE32 unavailable");
+                                return;
+                        }
+                        ASSERT_EQ(cqe->cqe.res, 1);
+                        ASSERT_EQ(cqe->cqe.user_data, i);
+                        ASSERT_EQ(cqe->cqe.big_cqe[0], UINT64_MAX - i);
+                        ASSERT_EQ(cqe->cqe.big_cqe[1], UINT64_C(0x123456789abcdef0) + i);
+                        n++;
+                }
+                ASSERT_EQ(n, i + 1);
+                io_uring_cq_advance(&ring, 1);
+        }
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
