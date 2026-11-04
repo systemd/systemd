@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "bcd.h"
 #include "fuzz.h"
+#include "tests.h"
 #include "utf8.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
@@ -15,7 +16,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         fuzz_setup_logging();
 
         p = memdup(data, size);
-        assert_se(p);
+        ASSERT_NOT_NULL(p);
 
         char16_t *title = get_bcd_title(p, size);
         /* If we get something, it must be NUL-terminated, but an empty string is still valid! */
