@@ -2306,11 +2306,21 @@ static int udev_rule_apply_token_to_event(
                 return token_match_string(event, token, val, /* log_result= */ true);
         }
         case TK_M_TAG:
-        case TK_M_PARENTS_TAG:
-                FOREACH_DEVICE_CURRENT_TAG(dev, val)
+        case TK_M_PARENTS_TAG: {
+                bool have_tag = false;
+
+                FOREACH_DEVICE_CURRENT_TAG(dev, val) {
+                        have_tag = true;
                         if (token_match_string(event, token, val, /* log_result= */ false) == (token->op == OP_MATCH))
                                 return log_event_result(event, token, token->op == OP_MATCH);
+                }
+
+                /* If no tag is set, match against the empty string, so that e.g. TAG=="" matches. */
+                if (!have_tag)
+                        return token_match_string(event, token, "", /* log_result= */ true);
+
                 return log_event_result(event, token, token->op == OP_NOMATCH);
+        }
 
         case TK_M_SUBSYSTEM:
         case TK_M_PARENTS_SUBSYSTEM: {
