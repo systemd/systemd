@@ -2266,11 +2266,21 @@ static int udev_rule_apply_token_to_event(
 
                 return token_match_string(event, token, val, /* log_result= */ true);
         }
-        case TK_M_DEVLINK:
-                FOREACH_DEVICE_DEVLINK(dev, val)
+        case TK_M_DEVLINK: {
+                bool have_devlink = false;
+
+                FOREACH_DEVICE_DEVLINK(dev, val) {
+                        have_devlink = true;
                         if (token_match_string(event, token, strempty(startswith(val, "/dev/")), /* log_result= */ false) == (token->op == OP_MATCH))
                                 return log_event_result(event, token, token->op == OP_MATCH);
+                }
+
+                /* If no devlink is set, match against the empty string, so that e.g. SYMLINK=="" matches. */
+                if (!have_devlink)
+                        return token_match_string(event, token, "", /* log_result= */ true);
+
                 return log_event_result(event, token, token->op == OP_NOMATCH);
+        }
 
         case TK_M_NAME:
                 return token_match_string(event, token, event->name, /* log_result= */ true);
