@@ -64,7 +64,7 @@ static ssize_t fiber_io_uring_await(sd_future *io) {
 
 /* Returns true if io_uring ran the operation, with its result in *ret. Returns false if the caller has to run
  * the operation itself. */
-static bool fiber_io_uring_run(sd_event *e, const struct io_uring_sqe *sqe, ssize_t *ret) {
+static bool fiber_io_uring_run(sd_event *e, const union io_uring_sqe128 *sqe, ssize_t *ret) {
         _cleanup_(sd_future_cancel_wait_unrefp) sd_future *io = NULL;
 
         assert(e);
@@ -95,7 +95,7 @@ static ssize_t fiber_io_operation(
                 uint32_t events,
                 FiberIOFunc func,
                 void *args,
-                const struct io_uring_sqe *sqe) {
+                const union io_uring_sqe128 *sqe) {
 
         _cleanup_(nonblock_resetp) int reset_fd = -EBADF;
         int r;
@@ -161,8 +161,8 @@ ssize_t sd_fiber_read(int fd, void *buf, size_t count) {
         assert_return(fd >= 0, -EBADF);
         assert_return(buf || count == 0, -EINVAL);
 
-        struct io_uring_sqe sqe = {};
-        io_uring_prep_read(&sqe, fd, buf, sqe_len(count), /* offset= */ UINT64_MAX);
+        union io_uring_sqe128 sqe = {};
+        io_uring_prep_read(&sqe.sqe, fd, buf, sqe_len(count), /* offset= */ UINT64_MAX);
 
         return fiber_io_operation(fd, EPOLLIN, read_callback, &(ReadArgs) {
                 .buf = buf,
@@ -187,8 +187,8 @@ ssize_t sd_fiber_write(int fd, const void *buf, size_t count) {
         assert_return(fd >= 0, -EBADF);
         assert_return(buf || count == 0, -EINVAL);
 
-        struct io_uring_sqe sqe = {};
-        io_uring_prep_write(&sqe, fd, buf, sqe_len(count), /* offset= */ UINT64_MAX);
+        union io_uring_sqe128 sqe = {};
+        io_uring_prep_write(&sqe.sqe, fd, buf, sqe_len(count), /* offset= */ UINT64_MAX);
 
         return fiber_io_operation(fd, EPOLLOUT, write_callback, &(WriteArgs) {
                 .buf = buf,
@@ -213,8 +213,8 @@ ssize_t sd_fiber_readv(int fd, const struct iovec *iov, int iovcnt) {
         assert_return(fd >= 0, -EBADF);
         assert_return(iov || iovcnt == 0, -EINVAL);
 
-        struct io_uring_sqe sqe = {};
-        io_uring_prep_readv(&sqe, fd, iov, iovcnt, /* offset= */ UINT64_MAX);
+        union io_uring_sqe128 sqe = {};
+        io_uring_prep_readv(&sqe.sqe, fd, iov, iovcnt, /* offset= */ UINT64_MAX);
 
         return fiber_io_operation(fd, EPOLLIN, readv_callback, &(ReadvArgs) {
                 .iov = iov,
@@ -239,8 +239,8 @@ ssize_t sd_fiber_writev(int fd, const struct iovec *iov, int iovcnt) {
         assert_return(fd >= 0, -EBADF);
         assert_return(iov || iovcnt == 0, -EINVAL);
 
-        struct io_uring_sqe sqe = {};
-        io_uring_prep_writev(&sqe, fd, iov, iovcnt, /* offset= */ UINT64_MAX);
+        union io_uring_sqe128 sqe = {};
+        io_uring_prep_writev(&sqe.sqe, fd, iov, iovcnt, /* offset= */ UINT64_MAX);
 
         return fiber_io_operation(fd, EPOLLOUT, writev_callback, &(WritevArgs) {
                 .iov = iov,
@@ -266,8 +266,8 @@ ssize_t sd_fiber_recv(int sockfd, void *buf, size_t len, int flags) {
         assert_return(sockfd >= 0, -EBADF);
         assert_return(buf || len == 0, -EINVAL);
 
-        struct io_uring_sqe sqe = {};
-        io_uring_prep_recv(&sqe, sockfd, buf, sqe_len(len), flags);
+        union io_uring_sqe128 sqe = {};
+        io_uring_prep_recv(&sqe.sqe, sockfd, buf, sqe_len(len), flags);
 
         return fiber_io_operation(sockfd, EPOLLIN, recv_callback, &(RecvArgs) {
                 .buf = buf,
@@ -296,8 +296,8 @@ ssize_t sd_fiber_send(int sockfd, const void *buf, size_t len, int flags) {
         assert_return(sockfd >= 0, -EBADF);
         assert_return(buf || len == 0, -EINVAL);
 
-        struct io_uring_sqe sqe = {};
-        io_uring_prep_send(&sqe, sockfd, buf, sqe_len(len), flags);
+        union io_uring_sqe128 sqe = {};
+        io_uring_prep_send(&sqe.sqe, sockfd, buf, sqe_len(len), flags);
 
         return fiber_io_operation(sockfd, EPOLLOUT, send_callback, &(SendArgs) {
                 .buf = buf,
@@ -323,8 +323,8 @@ int sd_fiber_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         sd_event *e = sd_fiber_get_event();
         assert(e);
 
-        struct io_uring_sqe sqe = {};
-        io_uring_prep_connect(&sqe, sockfd, addr, addrlen);
+        union io_uring_sqe128 sqe = {};
+        io_uring_prep_connect(&sqe.sqe, sockfd, addr, addrlen);
 
         ssize_t n;
         if (fiber_io_uring_run(e, &sqe, &n))
@@ -372,8 +372,8 @@ ssize_t sd_fiber_recvmsg(int sockfd, struct msghdr *msg, int flags) {
         assert_return(sockfd >= 0, -EBADF);
         assert_return(msg, -EINVAL);
 
-        struct io_uring_sqe sqe = {};
-        io_uring_prep_recvmsg(&sqe, sockfd, msg, flags);
+        union io_uring_sqe128 sqe = {};
+        io_uring_prep_recvmsg(&sqe.sqe, sockfd, msg, flags);
 
         return fiber_io_operation(sockfd, EPOLLIN, recvmsg_callback, &(RecvmsgArgs) {
                 .msg = msg,
@@ -399,8 +399,8 @@ ssize_t sd_fiber_sendmsg(int sockfd, const struct msghdr *msg, int flags) {
         assert_return(sockfd >= 0, -EBADF);
         assert_return(msg, -EINVAL);
 
-        struct io_uring_sqe sqe = {};
-        io_uring_prep_sendmsg(&sqe, sockfd, msg, flags);
+        union io_uring_sqe128 sqe = {};
+        io_uring_prep_sendmsg(&sqe.sqe, sockfd, msg, flags);
 
         return fiber_io_operation(sockfd, EPOLLOUT, sendmsg_callback, &(SendmsgArgs) {
                 .msg = msg,
@@ -425,8 +425,8 @@ ssize_t sd_fiber_recvfrom(int sockfd, void *buf, size_t len, int flags, struct s
                 .msg_iovlen = 1,
         };
 
-        struct io_uring_sqe sqe = {};
-        io_uring_prep_recvmsg(&sqe, sockfd, &msg, flags);
+        union io_uring_sqe128 sqe = {};
+        io_uring_prep_recvmsg(&sqe.sqe, sockfd, &msg, flags);
 
         n = fiber_io_operation(sockfd, EPOLLIN, recvmsg_callback, &(RecvmsgArgs) {
                 .msg = &msg,
@@ -453,8 +453,8 @@ ssize_t sd_fiber_sendto(int sockfd, const void *buf, size_t len, int flags, cons
                 .msg_iovlen = 1,
         };
 
-        struct io_uring_sqe sqe = {};
-        io_uring_prep_sendmsg(&sqe, sockfd, &msg, flags);
+        union io_uring_sqe128 sqe = {};
+        io_uring_prep_sendmsg(&sqe.sqe, sockfd, &msg, flags);
 
         return fiber_io_operation(sockfd, EPOLLOUT, sendmsg_callback, &(SendmsgArgs) {
                 .msg = &msg,
@@ -477,8 +477,8 @@ static ssize_t accept_callback(int fd, void *args) {
 int sd_fiber_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags) {
         assert_return(sockfd >= 0, -EBADF);
 
-        struct io_uring_sqe sqe = {};
-        io_uring_prep_accept(&sqe, sockfd, addr, addrlen, flags);
+        union io_uring_sqe128 sqe = {};
+        io_uring_prep_accept(&sqe.sqe, sockfd, addr, addrlen, flags);
 
         return fiber_io_operation(sockfd, EPOLLIN, accept_callback, &(AcceptArgs) {
                 .addr = addr,

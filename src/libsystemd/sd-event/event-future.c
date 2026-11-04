@@ -9,6 +9,7 @@
 #include "event-internal.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "io-uring-util.h"
 #include "pidref.h"
 #include "socket-util.h"
 #include "time-util.h"
@@ -557,12 +558,40 @@ static int io_uring_future_cancel(sd_future *f) {
         return event_cancel_io_uring_sqe(sd_future_get_event(f), f);
 }
 
+typedef struct IoUringFuture {
+        union io_uring_cqe32 cqe;
+} IoUringFuture;
+
 static const sd_future_ops io_uring_future_ops = {
         .size = sizeof(sd_future_ops),
+        .private_size = sizeof(IoUringFuture),
         .cancel = io_uring_future_cancel,
 };
 
-int future_new_io_uring(sd_event *e, const struct io_uring_sqe *sqe, sd_future **ret) {
+void future_io_uring_complete(sd_future *f, const union io_uring_cqe32 *cqe) {
+        assert(f);
+        assert(cqe);
+        assert(sd_future_get_ops(f) == &io_uring_future_ops);
+
+        IoUringFuture *uf = ASSERT_PTR(sd_future_get_private(f));
+        uf->cqe = *cqe;
+        assert_se(sd_future_resolve(f, cqe->cqe.res) >= 0);
+}
+
+int future_io_uring_get_cqe(sd_future *f, union io_uring_cqe32 *ret) {
+        assert_return(f, -EINVAL);
+        assert_return(ret, -EINVAL);
+        assert_return(sd_future_get_ops(f) == &io_uring_future_ops, -EINVAL);
+
+        if (sd_future_state(f) != SD_FUTURE_RESOLVED)
+                return -EAGAIN;
+
+        IoUringFuture *uf = ASSERT_PTR(sd_future_get_private(f));
+        *ret = uf->cqe;
+        return 0;
+}
+
+int future_new_io_uring(sd_event *e, const union io_uring_sqe128 *sqe, sd_future **ret) {
         int r;
 
         assert(e);
