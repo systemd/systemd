@@ -97,20 +97,27 @@ TEST(unit_file_find_dropin_entry) {
         ASSERT_OK_ERRNO(symlinkat("loop.service", high_fd, "loop.service"));
         ASSERT_OK_ERRNO(symlinkat("../loop.service", low_fd, "loop.service"));
 
+        const char *relocated = strjoina(root, "/relocated-wants");
+        ASSERT_OK_ERRNO(rename(high_wants, relocated));
+        ASSERT_OK_ERRNO(symlink("../../../relocated-wants", high_wants));
+
         ASSERT_OK_POSITIVE(unit_file_find_dropin_paths(root, lookup_path, /* unit_path_cache= */ NULL,
                                                        ".wants", /* file_suffix= */ NULL,
                                                        "multi-user.target", /* aliases= */ NULL, &paths));
 
         FOREACH_STRING(entry, "foo.service", "bar.service", "loop.service") {
+                _cleanup_free_ char *origin = NULL;
+
                 ASSERT_OK_POSITIVE(unit_file_find_dropin_entry(root, lookup_path, ".wants", "multi-user.target",
-                                                               /* aliases= */ NULL, entry, &found));
+                                                               /* aliases= */ NULL, entry, &origin, &found));
+                ASSERT_STREQ(origin, streq(entry, "foo.service") ? high : low);
                 ASSERT_TRUE(strv_contains(paths, found));
                 ASSERT_TRUE(path_equal_filename(found, entry));
                 found = mfree(found);
         }
 
         ASSERT_OK_ZERO(unit_file_find_dropin_entry(root, lookup_path, ".wants", "multi-user.target",
-                                                   /* aliases= */ NULL, "missing.service", &found));
+                                                   /* aliases= */ NULL, "missing.service", /* ret_lookup_path= */ NULL, &found));
         ASSERT_NULL(found);
 }
 
