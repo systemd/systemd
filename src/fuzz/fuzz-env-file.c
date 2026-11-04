@@ -6,6 +6,7 @@
 #include "fd-util.h"
 #include "fuzz.h"
 #include "strv.h"
+#include "tests.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_fclose_ FILE *f = NULL;
@@ -15,12 +16,12 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 return 0;
 
         f = data_to_file(data, size);
-        assert_se(f);
+        ASSERT_NOT_NULL(f);
 
         fuzz_setup_logging();
 
         (void) load_env_file(f, /* fname= */ NULL, &rl);
-        assert_se(fseek(f, 0, SEEK_SET) == 0);
+        ASSERT_EQ(fseek(f, 0, SEEK_SET), 0);
         (void) load_env_file_pairs(f, /* fname= */ NULL, &rlp);
 
         return 0;
