@@ -92,12 +92,8 @@ int config_parse_qfq_weight(
         }
 
         r = safe_atou32(rvalue, &v);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (v == 0 || v > QFQ_MAX_WEIGHT) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
@@ -152,12 +148,8 @@ int config_parse_qfq_max_packet(
         }
 
         r = parse_size(rvalue, 1024, &v);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (v < QFQ_MIN_MAX_PACKET || v > QFQ_MAX_MAX_PACKET) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,

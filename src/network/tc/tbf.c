@@ -158,12 +158,8 @@ int config_parse_tbf_size(
         }
 
         r = parse_size(rvalue, 1024, &k);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (STR_IN_SET(lvalue, "BurstBytes", "Burst"))
                 tbf->burst = k;
@@ -228,12 +224,8 @@ int config_parse_tbf_rate(
         }
 
         r = parse_size(rvalue, 1000, &k);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         *p = k / 8;
 
@@ -283,12 +275,8 @@ int config_parse_tbf_latency(
         }
 
         r = parse_sec(rvalue, &u);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         tbf->latency = u;
 

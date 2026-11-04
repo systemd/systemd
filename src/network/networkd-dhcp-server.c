@@ -914,11 +914,8 @@ int config_parse_dhcp_server_address(
         }
 
         r = in_addr_prefix_from_string(rvalue, AF_INET, &a, &prefixlen);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (in4_addr_is_localhost(&a.in) || in4_addr_is_link_local(&a.in)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "DHCP server address cannot be a localhost or link-local address, "
@@ -957,11 +954,8 @@ int config_parse_dhcp_server_ipv6_only_preferred(
         }
 
         r = parse_sec(rvalue, &t);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse [%s] %s=, ignoring assignment: %s", section, lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (t < MIN_V6ONLY_WAIT_USEC && !network_test_mode_enabled()) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,

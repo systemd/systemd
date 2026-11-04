@@ -1351,10 +1351,8 @@ static int config_parse_routing_policy_rule_priority(
         }
 
         r = safe_atou32(rvalue, &rule->priority);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse RPDB rule priority, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         rule->priority_set = true;
         return 1;
@@ -1380,10 +1378,8 @@ static int config_parse_routing_policy_rule_goto(
         assert(rvalue);
 
         r = safe_atou32(rvalue, &priority);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s=%s, ignoring assignment: %m", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (priority <= 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid goto target priority, ignoring assignment.");
                 return 0;
@@ -1441,10 +1437,8 @@ static int config_parse_routing_policy_rule_fwmark(
         assert(rvalue);
 
         r = parse_fwmark_fwmask(rvalue, &rule->fwmark, &rule->fwmask);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse RPDB rule firewall mark or mask, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         return 1;
 }
@@ -1467,10 +1461,8 @@ static int config_parse_routing_policy_rule_port_range(
         assert(rvalue);
 
         r = parse_ip_port_range(rvalue, &p->start, &p->end, /* allow_zero= */ false);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse routing policy rule port range '%s'", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         return 1;
 }
@@ -1530,11 +1522,8 @@ static int config_parse_routing_policy_rule_suppress(
         }
 
         r = safe_atoi32(rvalue, &val);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=%s, ignoring assignment: %m", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (val < 0 || val > ltype) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid value specified to %s=, ignoring assignment: %s", lvalue, rvalue);

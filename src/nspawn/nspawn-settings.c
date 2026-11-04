@@ -274,7 +274,7 @@ int config_parse_expose_port(
         if (r == -EEXIST)
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Duplicate port specification, ignoring: %s", rvalue);
         else if (r < 0)
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse host port %s: %m", rvalue);
+                log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         return 0;
 }
@@ -595,10 +595,8 @@ int config_parse_boot(
         assert(rvalue);
 
         r = parse_boolean(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse Boot= parameter %s, ignoring: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (r) {
                 if (settings->start_mode == START_PID2)
@@ -640,10 +638,8 @@ int config_parse_pid2(
         assert(rvalue);
 
         r = parse_boolean(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse ProcessTwo= parameter %s, ignoring: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (r) {
                 if (settings->start_mode == START_BOOT)
@@ -780,11 +776,8 @@ int config_parse_syscall_filter(
                         return 0;
                 if (r == -ENOMEM)
                         return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse SystemCallFilter= parameter %s, ignoring: %m", rvalue);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
                 if (negative)
                         r = strv_extend(&settings->syscall_deny_list, word);
@@ -822,10 +815,8 @@ int config_parse_oom_score_adjust(
                 log_syntax(unit, LOG_WARNING, filename, line, r, "OOM score adjust value out of range, ignoring: %s", rvalue);
                 return 0;
         }
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse the OOM score adjust value, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         settings->oom_score_adjust = oa;
         settings->oom_score_adjust_set = true;
@@ -910,7 +901,7 @@ int config_parse_link_journal(
 
         r = parse_link_journal(rvalue, &settings->link_journal, &settings->link_journal_try);
         if (r < 0)
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse link journal mode, ignoring: %s", rvalue);
+                log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         return 0;
 }
@@ -973,10 +964,8 @@ int config_parse_userns_chown(
         /* Compatibility support for UserNamespaceChown=, whose job has been taken over by UserNamespaceOwnership= */
 
         r = parse_boolean(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse user namespace ownership mode, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         *ownership = r ? USER_NAMESPACE_OWNERSHIP_CHOWN : USER_NAMESPACE_OWNERSHIP_OFF;
         return 0;
@@ -1010,10 +999,8 @@ int config_parse_bind_user(
                 r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
                 if (r == -ENOMEM)
                         return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse BindUser= list, ignoring: %s", rvalue);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 if (r == 0)
                         break;
 
@@ -1059,10 +1046,8 @@ int config_parse_bind_user_shell(
         r = parse_user_shell(rvalue, &sh, &copy);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse BindUserShell= value, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         free_and_replace(settings->bind_user_shell, sh);
         settings->bind_user_shell_copy = copy;
@@ -1091,11 +1076,8 @@ int config_parse_restrict_address_families(
         r = parse_address_families(rvalue, &settings->restrict_address_families, &settings->restrict_address_families_is_allowlist);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse address family, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         return 0;
 }

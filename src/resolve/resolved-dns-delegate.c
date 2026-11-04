@@ -247,11 +247,8 @@ int config_parse_delegate_dns_servers(
         for (;;) {
                 _cleanup_free_ char *word = NULL;
                 r = extract_first_word(&rvalue, &word, /* separators= */ NULL, /* flags= */ 0);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse DNS server string '%s', ignoring.", rvalue);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 if (r == 0)
                         break;
 
@@ -332,11 +329,8 @@ int config_parse_delegate_domains(
         for (;;) {
                 _cleanup_free_ char *word = NULL;
                 r = extract_first_word(&rvalue, &word, /* separators= */ NULL, /* flags= */ 0);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse search domains string '%s', ignoring.", rvalue);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 if (r == 0)
                         break;
 

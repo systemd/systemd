@@ -449,11 +449,8 @@ int config_parse_sr_iov_uint32(
         }
 
         r = safe_atou32(rvalue, &k);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse SR-IOV '%s=', ignoring assignment: %s", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (streq(lvalue, "VLANId")) {
                 if (k == 0 || k > 4095) {
@@ -554,11 +551,8 @@ int config_parse_sr_iov_link_state(
         }
 
         r = parse_boolean(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse SR-IOV '%s=', ignoring assignment: %s", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         sr_iov->link_state = r ? SR_IOV_LINK_STATE_ENABLE : SR_IOV_LINK_STATE_DISABLE;
         TAKE_PTR(sr_iov);
@@ -604,10 +598,8 @@ int config_parse_sr_iov_boolean(
         }
 
         r = parse_boolean(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse '%s=', ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (streq(lvalue, "MACSpoofCheck"))
                 sr_iov->vf_spoof_check_setting = r;
@@ -653,11 +645,8 @@ int config_parse_sr_iov_mac(
         }
 
         r = parse_ether_addr(rvalue, &sr_iov->mac);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse SR-IOV '%s=', ignoring assignment: %s", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         TAKE_PTR(sr_iov);
         return 0;
@@ -688,11 +677,8 @@ int config_parse_sr_iov_num_vfs(
         }
 
         r = safe_atou32(rvalue, &n);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (n > INT_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,

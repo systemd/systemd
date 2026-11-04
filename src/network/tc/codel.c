@@ -114,12 +114,8 @@ int config_parse_codel_u32(
         }
 
         r = safe_atou32(rvalue, &cd->packet_limit);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         qdisc = NULL;
 
@@ -179,12 +175,8 @@ int config_parse_codel_usec(
         }
 
         r = parse_sec(rvalue, p);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         qdisc = NULL;
 
@@ -224,12 +216,8 @@ int config_parse_codel_bool(
         cd = CODEL(qdisc);
 
         r = parse_tristate(rvalue, &cd->ecn);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         TAKE_PTR(qdisc);
 
