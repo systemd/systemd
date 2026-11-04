@@ -25,7 +25,14 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(relative, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 VARLINK_DEFINE_POLKIT_INPUT);
 
+static SD_VARLINK_DEFINE_METHOD(
+                SetNTP,
+                SD_VARLINK_FIELD_COMMENT("If true, enables automatic time synchronization via a network time service, otherwise disables it."),
+                SD_VARLINK_DEFINE_INPUT(useNTP, SD_VARLINK_BOOL, 0),
+                VARLINK_DEFINE_POLKIT_INPUT);
+
 static SD_VARLINK_DEFINE_ERROR(AutomaticTimeSyncEnabled);
+static SD_VARLINK_DEFINE_ERROR(NoNTPSupport);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Timedate,
@@ -37,5 +44,9 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_SetLocalRTC,
                 SD_VARLINK_SYMBOL_COMMENT("Sets the system clock."),
                 &vl_method_SetTime,
+                SD_VARLINK_SYMBOL_COMMENT("Enables or disables automatic time synchronization via a network time service. The reply is delayed until the relevant units have been started or stopped."),
+                &vl_method_SetNTP,
                 SD_VARLINK_SYMBOL_COMMENT("Returned when the clock cannot be set because automatic time synchronization (NTP) is enabled, or a previous enablement request is still in progress."),
-                &vl_error_AutomaticTimeSyncEnabled);
+                &vl_error_AutomaticTimeSyncEnabled,
+                SD_VARLINK_SYMBOL_COMMENT("Returned when automatic time synchronization cannot be configured because no network time service is installed."),
+                &vl_error_NoNTPSupport);
