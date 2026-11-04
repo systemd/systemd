@@ -12,6 +12,7 @@
 #include "lldp-network.h"
 #include "lldp-rx-internal.h"
 #include "memstream-util.h"
+#include "tests.h"
 
 static int test_fd[2] = EBADF_PAIR;
 
@@ -34,21 +35,21 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         fuzz_setup_logging();
 
-        assert_se(sd_event_new(&e) == 0);
-        assert_se(sd_lldp_rx_new(&lldp_rx) >= 0);
-        assert_se(sd_lldp_rx_set_ifindex(lldp_rx, 42) >= 0);
-        assert_se(sd_lldp_rx_attach_event(lldp_rx, e, /* priority= */ 0) >= 0);
-        assert_se(sd_lldp_rx_start(lldp_rx) >= 0);
+        ASSERT_OK_ZERO(sd_event_new(&e));
+        ASSERT_OK(sd_lldp_rx_new(&lldp_rx));
+        ASSERT_OK(sd_lldp_rx_set_ifindex(lldp_rx, 42));
+        ASSERT_OK(sd_lldp_rx_attach_event(lldp_rx, e, /* priority= */ 0));
+        ASSERT_OK(sd_lldp_rx_start(lldp_rx));
 
-        assert_se(write(test_fd[1], data, size) == (ssize_t) size);
-        assert_se(sd_event_run(e, /* timeout= */ 0) >= 0);
+        ASSERT_EQ(write(test_fd[1], data, size), (ssize_t) size);
+        ASSERT_OK(sd_event_run(e, /* timeout= */ 0));
 
-        assert_se(lldp_rx_build_neighbors_json(lldp_rx, &v) >= 0);
-        assert_se(f = memstream_init(&m));
+        ASSERT_OK(lldp_rx_build_neighbors_json(lldp_rx, &v));
+        f = ASSERT_NOT_NULL(memstream_init(&m));
         (void) sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_COLOR, f, /* prefix= */ NULL);
 
-        assert_se(sd_lldp_rx_stop(lldp_rx) >= 0);
-        assert_se(sd_lldp_rx_detach_event(lldp_rx) >= 0);
+        ASSERT_OK(sd_lldp_rx_stop(lldp_rx));
+        ASSERT_OK(sd_lldp_rx_detach_event(lldp_rx));
         test_fd[1] = safe_close(test_fd[1]);
 
         return 0;
