@@ -73,6 +73,9 @@ typedef struct Context {
 
         sd_bus_slot *slot_job_removed;
 
+        sd_event *event;
+        sd_bus *bus;
+
         LIST_HEAD(UnitStatusInfo, units);
 } Context;
 
@@ -113,6 +116,9 @@ static void context_clear(Context *c) {
         set_free(c->set_ntp_calls);
 
         sd_bus_slot_unref(c->slot_job_removed);
+
+        sd_bus_flush_close_unref(c->bus);
+        sd_event_unref(c->event);
 
         LIST_CLEAR(units, c->units, unit_status_info_free);
 }
@@ -397,7 +403,7 @@ static int context_write_data_local_rtc(Context *c) {
         return write_string_file(etc_adjtime(), w, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
 }
 
-static int context_update_ntp_status(Context *c, sd_bus *bus, sd_bus_message *m) {
+static int context_update_ntp_status(Context *c, sd_bus_message *m) {
         static const struct bus_properties_map map[] = {
                 { "LoadState",     "s", NULL, offsetof(UnitStatusInfo, load_state)      },
                 { "ActiveState",   "s", NULL, offsetof(UnitStatusInfo, active_state)    },
@@ -407,7 +413,7 @@ static int context_update_ntp_status(Context *c, sd_bus *bus, sd_bus_message *m)
         int r;
 
         assert(c);
-        assert(bus);
+        assert(c->bus);
 
         /* Suppress calling context_update_ntp_status() multiple times within single DBus transaction. */
         if (m) {
@@ -431,7 +437,7 @@ static int context_update_ntp_status(Context *c, sd_bus *bus, sd_bus_message *m)
                         return -ENOMEM;
 
                 r = bus_map_all_properties(
-                                bus,
+                                c->bus,
                                 "org.freedesktop.systemd1",
                                 path,
                                 map,
@@ -636,7 +642,7 @@ static int property_get_can_ntp(
                 /* When the previous request is not finished, then assume NTP is enabled. */
                 return sd_bus_message_append(reply, "b", true);
 
-        r = context_update_ntp_status(c, bus, reply);
+        r = context_update_ntp_status(c, reply);
         if (r < 0)
                 return r;
 
@@ -664,7 +670,7 @@ static int property_get_ntp(
                 /* When the previous request is not finished, then assume NTP is active. */
                 return sd_bus_message_append(reply, "b", true);
 
-        r = context_update_ntp_status(c, bus, reply);
+        r = context_update_ntp_status(c, reply);
         if (r < 0)
                 return r;
 
@@ -858,7 +864,6 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
 }
 
 static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        sd_bus *bus = sd_bus_message_get_bus(m);
         int relative, interactive, r;
         Context *c = ASSERT_PTR(userdata);
         int64_t utc;
@@ -870,7 +875,7 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
         if (c->slot_job_removed)
                 return sd_bus_error_set(error, BUS_ERROR_AUTOMATIC_TIME_SYNC_ENABLED, "Previous request is not finished, refusing.");
 
-        r = context_update_ntp_status(c, bus, m);
+        r = context_update_ntp_status(c, m);
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to update context: %m");
 
@@ -945,19 +950,17 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
 
 static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
-        sd_bus *bus = sd_bus_message_get_bus(m);
         Context *c = ASSERT_PTR(userdata);
         const UnitStatusInfo *selected = NULL;
         int enable, interactive, q, r;
 
         assert(m);
-        assert(bus);
 
         r = sd_bus_message_read(m, "bb", &enable, &interactive);
         if (r < 0)
                 return r;
 
-        r = context_update_ntp_status(c, bus, m);
+        r = context_update_ntp_status(c, m);
         if (r < 0)
                 return r;
 
@@ -987,7 +990,7 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
 
         if (!c->slot_job_removed) {
                 r = bus_match_signal_async(
-                                bus,
+                                c->bus,
                                 &slot,
                                 bus_systemd_mgr,
                                 "JobRemoved",
@@ -1005,12 +1008,12 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
 
                         LOG_CONTEXT_PUSH_UNIT(u);
 
-                        r = unit_enable_or_disable(u, bus, error, enable_this_one);
+                        r = unit_enable_or_disable(u, c->bus, error, enable_this_one);
                         if (r < 0)
                                 /* If enablement failed, don't start this unit. */
                                 enable_this_one = false;
 
-                        r = unit_start_or_stop(u, bus, error, enable_this_one);
+                        r = unit_start_or_stop(u, c->bus, error, enable_this_one);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to %s %sd NTP unit, ignoring: %m",
                                                   enable_this_one ? "start" : "stop",
@@ -1023,11 +1026,11 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
                         if (!streq(u->load_state, "loaded"))
                                 continue;
 
-                        q = unit_enable_or_disable(u, bus, error, /* enable= */ false);
+                        q = unit_enable_or_disable(u, c->bus, error, /* enable= */ false);
                         if (q < 0)
                                 r = q;
 
-                        q = unit_start_or_stop(u, bus, error, /* start= */ false);
+                        q = unit_start_or_stop(u, c->bus, error, /* start= */ false);
                         if (q < 0)
                                 r = q;
                 }
@@ -1117,13 +1120,13 @@ static const BusObjectImplementation manager_object = {
         .vtables = BUS_VTABLES(timedate_vtable),
 };
 
-static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
+static int connect_bus(Context *c) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         assert(c);
-        assert(event);
-        assert(_bus);
+        assert(c->event);
+        assert(!c->bus);
 
         r = sd_bus_default_system(&bus);
         if (r < 0)
@@ -1141,12 +1144,11 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
 
-        r = sd_bus_attach_event(bus, event, /* priority= */ 0);
+        r = sd_bus_attach_event(bus, c->event, /* priority= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-        *_bus = TAKE_PTR(bus);
-
+        c->bus = TAKE_PTR(bus);
         return 0;
 }
 
@@ -1168,8 +1170,6 @@ COMMAND(
 
 static int run(int argc, char *argv[]) {
         _cleanup_(context_clear) Context context = {};
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         LIBSELINUX_NOTE(recommended);
@@ -1185,17 +1185,17 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = sd_event_default(&event);
+        r = sd_event_default(&context.event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        (void) sd_event_set_watchdog(event, true);
+        (void) sd_event_set_watchdog(context.event, true);
 
-        r = sd_event_set_signal_exit(event, true);
+        r = sd_event_set_signal_exit(context.event, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to install SIGINT/SIGTERM handlers: %m");
 
-        r = connect_bus(&context, event, &bus);
+        r = connect_bus(&context);
         if (r < 0)
                 return r;
 
@@ -1212,8 +1212,8 @@ static int run(int argc, char *argv[]) {
                 log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
 
         r = bus_event_loop_with_idle(
-                        event,
-                        bus,
+                        context.event,
+                        context.bus,
                         "org.freedesktop.timedate1",
                         DEFAULT_EXIT_USEC,
                         context_check_idle,
