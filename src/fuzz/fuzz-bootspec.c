@@ -12,6 +12,7 @@
 #include "fuzz.h"
 #include "json-util.h"
 #include "strv.h"
+#include "tests.h"
 
 static int json_dispatch_config(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         BootConfig *config = ASSERT_PTR(userdata);
@@ -21,7 +22,7 @@ static int json_dispatch_config(const char *name, sd_json_variant *variant, sd_j
                 return -EINVAL;
 
         _cleanup_fclose_ FILE *f = NULL;
-        assert_se(f = data_to_file((const uint8_t*) s, strlen(s)));
+        f = ASSERT_NOT_NULL(data_to_file((const uint8_t*) s, strlen(s)));
 
         (void) boot_loader_read_conf(config, f, "memstream");
         return 0;
@@ -54,9 +55,9 @@ static int json_dispatch_entries(const char *name, sd_json_variant *variant, sd_
                         len = cunescape(raw, UNESCAPE_RELAX | UNESCAPE_ACCEPT_NUL, &data);
                 if (len >= 0) {
                         _cleanup_fclose_ FILE *f = NULL;
-                        assert_se(f = data_to_file((const uint8_t*) data, len));
+                        f = ASSERT_NOT_NULL(data_to_file((const uint8_t*) data, len));
 
-                        assert_se(boot_config_load_type1(config, f, "/", BOOT_ENTRY_ESP, "/entries", id) != -ENOMEM);
+                        ASSERT_NE(boot_config_load_type1(config, f, "/", BOOT_ENTRY_ESP, "/entries", id), -ENOMEM);
                 }
         }
 
@@ -93,7 +94,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         fuzz_setup_logging();
 
-        assert_se(datadup = memdup_suffix0(data, size));
+        datadup = ASSERT_NOT_NULL(memdup_suffix0(data, size));
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         r = sd_json_parse(datadup, /* flags= */ 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
@@ -104,7 +105,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (r < 0)
                 return 0;
 
-        assert_se(boot_config_finalize(&config) >= 0);
+        ASSERT_OK(boot_config_finalize(&config));
 
         (void) boot_config_select_special_entries(&config, /* skip_efivars= */ false);
 
@@ -114,14 +115,14 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 if (orig_stdout_fd < 0)
                         log_warning_errno(errno, "Failed to duplicate fd 1, ignoring: %m");
                 else
-                        assert_se(freopen("/dev/null", "w", stdout));
+                        ASSERT_NOT_NULL(freopen("/dev/null", "w", stdout));
         }
 
         (void) show_boot_entries(&config, SD_JSON_FORMAT_OFF);
         (void) show_boot_entries(&config, SD_JSON_FORMAT_PRETTY);
 
         if (orig_stdout_fd >= 0)
-                assert_se(freopen(FORMAT_PROC_FD_PATH(orig_stdout_fd), "w", stdout));
+                ASSERT_NOT_NULL(freopen(FORMAT_PROC_FD_PATH(orig_stdout_fd), "w", stdout));
 
         return 0;
 }
