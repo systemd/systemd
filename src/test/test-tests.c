@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "errno-util.h"
+#include "iovec-util.h"
 #include "tests.h"
 
 TEST(ASSERT) {
@@ -151,6 +152,22 @@ TEST(ASSERT) {
                                 SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e)),
                 SIGABRT);
         ASSERT_SIGNAL(ASSERT_NE_ID128(SD_ID128_NULL, SD_ID128_NULL), SIGABRT);
+
+        static const uint8_t m1[] = { 0, 1, 2, 3 }, m2[] = { 0, 1, 2, 3 }, m3[] = { 0, 1, 9, 3 };
+
+        ASSERT_MEMEQ(m1, m2, sizeof(m1));
+        ASSERT_MEMEQ(m1, m3, 2);
+        ASSERT_MEMEQ(NULL, NULL, 0);
+        ASSERT_SIGNAL(ASSERT_MEMEQ(m1, m3, sizeof(m1)), SIGABRT);
+
+        ASSERT_MEMEQ_NN(m1, sizeof(m1), m2, sizeof(m2));
+        ASSERT_MEMEQ_NN(NULL, 0, NULL, 0);
+        ASSERT_SIGNAL(ASSERT_MEMEQ_NN(m1, sizeof(m1), m2, sizeof(m2) - 1), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_MEMEQ_NN(m1, sizeof(m1), m3, sizeof(m3)), SIGABRT);
+
+        ASSERT_IOVEC_EQ(&IOVEC_MAKE(m1, sizeof(m1)), &IOVEC_MAKE(m2, sizeof(m2)));
+        ASSERT_SIGNAL(ASSERT_IOVEC_EQ(&IOVEC_MAKE(m1, sizeof(m1)), &IOVEC_MAKE(m3, sizeof(m3))), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_IOVEC_EQ(&IOVEC_MAKE(m1, sizeof(m1)), &IOVEC_MAKE(m1, sizeof(m1) - 1)), SIGABRT);
 }
 
 TEST(ASSERT_OK_OR) {
