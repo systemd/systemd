@@ -207,32 +207,35 @@ update_now() {
     # modes. Some updates in the test suite need to be monolithic (e.g. when
     # repairing an installation), so that can be overridden via the local.
 
+    # Handle failures explicitly instead of relying on errexit: this function is also invoked as
+    # '(! update_now ...)', where the '!' disables errexit inside it, so an intermediate failure
+    # would otherwise be swallowed and only the last command would decide the exit status.
     if [[ "$checks" != "no-checks" ]]; then
-        check_new_update_available "$client"
+        check_new_update_available "$client" || return 1
     fi
 
     if [[ "$update_type" == "monolithic" ]]; then
-        "$SYSUPDATE" --verify=no update
+        "$SYSUPDATE" --verify=no update || return 1
     elif [[ "$update_type" == "split-offline" ]]; then
-        "$SYSUPDATE" --verify=no acquire
-        "$SYSUPDATE" --verify=no update --offline
+        "$SYSUPDATE" --verify=no acquire || return 1
+        "$SYSUPDATE" --verify=no update --offline || return 1
     elif [[ "$update_type" == "split" ]]; then
-        "$SYSUPDATE" --verify=no acquire
-        "$SYSUPDATE" --verify=no update
+        "$SYSUPDATE" --verify=no acquire || return 1
+        "$SYSUPDATE" --verify=no update || return 1
     elif [[ "$update_type" == "updatectl" ]]; then
         if [[ -x "$UPDATECTL" ]]; then
-            systemctl start systemd-sysupdated
-            "$UPDATECTL" update
+            systemctl start systemd-sysupdated || return 1
+            "$UPDATECTL" update || return 1
         else
             # Gracefully fall back to sysupdate
-            "$SYSUPDATE" --verify=no update
+            "$SYSUPDATE" --verify=no update || return 1
         fi
     else
         exit 1
     fi
 
     if [[ "$checks" != "no-checks" ]]; then
-        check_no_new_update_available "$client"
+        check_no_new_update_available "$client" || return 1
     fi
 }
 
