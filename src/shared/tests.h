@@ -613,6 +613,24 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
         })
 #endif
 
+#ifdef __COVERITY__
+#  define ASSERT_MEMEQ_BYTE(byte, data, length) __coverity_check__(memeqbyte((byte), (data), (length)))
+#else
+#  define ASSERT_MEMEQ_BYTE(byte, data, length)                                                                 \
+        ({                                                                                                      \
+                uint8_t _byte = (byte);                                                                         \
+                const void *_data = (data);                                                                     \
+                size_t _length = (length);                                                                      \
+                if (!memeqbyte(_byte, _data, _length)) {                                                        \
+                        _cleanup_free_ char *_dump = hexdump_memcmp_byte(_byte, _data, _length);                \
+                        log_test_failed("Expected all %zu bytes of \"%s\" to be 0x%02x:\n%s",                   \
+                                        _length, #data, _byte, strnull(_dump));                                 \
+                }                                                                                               \
+        })
+#endif
+
+#define ASSERT_MEMEQ_ZERO(data, length) ASSERT_MEMEQ_BYTE(0x00, data, length)
+
 /* DECIMAL_STR_FMT() uses _Generic which cannot be used in string concatenation so we have to format the
  * input into strings first and then format those into the final assertion message. */
 

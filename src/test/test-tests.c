@@ -168,6 +168,16 @@ TEST(ASSERT) {
         ASSERT_IOVEC_EQ(&IOVEC_MAKE(m1, sizeof(m1)), &IOVEC_MAKE(m2, sizeof(m2)));
         ASSERT_SIGNAL(ASSERT_IOVEC_EQ(&IOVEC_MAKE(m1, sizeof(m1)), &IOVEC_MAKE(m3, sizeof(m3))), SIGABRT);
         ASSERT_SIGNAL(ASSERT_IOVEC_EQ(&IOVEC_MAKE(m1, sizeof(m1)), &IOVEC_MAKE(m1, sizeof(m1) - 1)), SIGABRT);
+
+        static const uint8_t allx[] = { 'x', 'x', 'x', 'x' }, mixed[] = { 'x', 'x', 'y', 'x' }, zeros[4] = {};
+
+        ASSERT_MEMEQ_BYTE('x', allx, sizeof(allx));
+        ASSERT_MEMEQ_BYTE('x', allx, 0);
+        ASSERT_SIGNAL(ASSERT_MEMEQ_BYTE('x', mixed, sizeof(mixed)), SIGABRT);
+
+        ASSERT_MEMEQ_ZERO(zeros, sizeof(zeros));
+        ASSERT_MEMEQ_ZERO(NULL, 0);
+        ASSERT_SIGNAL(ASSERT_MEMEQ_ZERO(allx, sizeof(allx)), SIGABRT);
 }
 
 TEST(ASSERT_OK_OR) {
