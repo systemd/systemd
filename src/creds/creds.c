@@ -276,7 +276,7 @@ static int add_credentials_to_table(Table *t, bool encrypted) {
                 } else {
                         struct statfs sfs;
                         if (fstatfs(fd, &sfs) < 0)
-                                return log_error_errno(r, "fstatfs() failed on '%s': %m", de->d_name);
+                                return log_error_errno(errno, "fstatfs() failed on '%s': %m", de->d_name);
 
                         bool is_secure;
                         if (is_fs_type(&sfs, RAMFS_MAGIC))
