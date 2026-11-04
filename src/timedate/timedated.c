@@ -1179,45 +1179,19 @@ static int vl_method_set_time(sd_varlink *link, sd_json_variant *parameters, sd_
         return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
-static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int context_set_ntp(Context *c, bool enable, sd_bus_error *error) {
         _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
-        Context *c = ASSERT_PTR(userdata);
         const UnitStatusInfo *selected = NULL;
-        int enable, interactive, q, r;
+        int q, r = 0;
 
-        assert(m);
-
-        r = sd_bus_message_read(m, "bb", &enable, &interactive);
-        if (r < 0)
-                return r;
-
-        r = context_update_ntp_status(c, m);
-        if (r < 0)
-                return r;
-
-        if (context_ntp_service_exists(c) <= 0)
-                return sd_bus_error_set(error, BUS_ERROR_NO_NTP_SUPPORT, "NTP not supported");
-
-        r = bus_verify_polkit_async_full(
-                        m,
-                        "org.freedesktop.timedate1.set-ntp",
-                        /* details= */ NULL,
-                        /* good_user= */ UID_INVALID,
-                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
-                        &c->polkit_registry,
-                        /* ret_admin= */ NULL,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1;
-
-        /* This method may be called frequently. Forget the previous job if it has not completed yet. */
-        LIST_FOREACH(units, u, c->units)
-                u->path = mfree(u->path);
+        assert(c);
 
         if (set_size(c->set_ntp_calls) >= SET_NTP_IN_FLIGHT_MAX)
-                return sd_bus_error_set_errnof(error, EAGAIN, "Too many calls in flight.");
+                return -EAGAIN;
+
+        /* This may be called frequently. Forget the previous job if it has not completed yet. */
+        LIST_FOREACH(units, u, c->units)
+                u->path = mfree(u->path);
 
         if (!c->slot_job_removed) {
                 r = bus_match_signal_async(
@@ -1278,6 +1252,44 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
                 log_info("Set NTP to be enabled (%s).", selected->name);
         else
                 log_info("Set NTP to be disabled.");
+
+        return 0;
+}
+
+static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        Context *c = ASSERT_PTR(userdata);
+        int enable, interactive, r;
+
+        assert(m);
+
+        r = sd_bus_message_read(m, "bb", &enable, &interactive);
+        if (r < 0)
+                return r;
+
+        r = context_update_ntp_status(c, m);
+        if (r < 0)
+                return r;
+
+        if (context_ntp_service_exists(c) <= 0)
+                return sd_bus_error_set(error, BUS_ERROR_NO_NTP_SUPPORT, "NTP not supported");
+
+        r = bus_verify_polkit_async_full(
+                        m,
+                        "org.freedesktop.timedate1.set-ntp",
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
+                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
+                        &c->polkit_registry,
+                        /* ret_admin= */ NULL,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1;
+
+        r = context_set_ntp(c, enable, error);
+        if (r < 0)
+                return r;
 
         /* Asynchronous reply to m in match_job_removed() */
         return set_ensure_consume(&c->set_ntp_calls, &bus_message_hash_ops, sd_bus_message_ref(m));
