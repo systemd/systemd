@@ -73,6 +73,9 @@ typedef struct Context {
 
         sd_bus_slot *slot_job_removed;
 
+        sd_event *event;
+        sd_bus *bus;
+
         LIST_HEAD(UnitStatusInfo, units);
 } Context;
 
@@ -113,6 +116,9 @@ static void context_clear(Context *c) {
         set_free(c->set_ntp_calls);
 
         sd_bus_slot_unref(c->slot_job_removed);
+
+        sd_bus_flush_close_unref(c->bus);
+        sd_event_unref(c->event);
 
         LIST_CLEAR(units, c->units, unit_status_info_free);
 }
@@ -1133,35 +1139,32 @@ static const BusObjectImplementation manager_object = {
         .vtables = BUS_VTABLES(timedate_vtable),
 };
 
-static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+static int connect_bus(Context *c) {
         int r;
 
         assert(c);
-        assert(event);
-        assert(_bus);
+        assert(c->event);
+        assert(!c->bus);
 
-        r = sd_bus_default_system(&bus);
+        r = sd_bus_default_system(&c->bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to get system bus connection: %m");
 
-        r = bus_add_implementation(bus, &manager_object, c);
+        r = bus_add_implementation(c->bus, &manager_object, c);
         if (r < 0)
                 return r;
 
-        r = bus_log_control_api_register(bus);
+        r = bus_log_control_api_register(c->bus);
         if (r < 0)
                 return r;
 
-        r = sd_bus_request_name_async(bus, /* ret_slot= */ NULL, "org.freedesktop.timedate1", /* flags= */ 0, /* callback= */ NULL, /* userdata= */ NULL);
+        r = sd_bus_request_name_async(c->bus, /* ret_slot= */ NULL, "org.freedesktop.timedate1", /* flags= */ 0, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
 
-        r = sd_bus_attach_event(bus, event, /* priority= */ 0);
+        r = sd_bus_attach_event(c->bus, c->event, /* priority= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
-
-        *_bus = TAKE_PTR(bus);
 
         return 0;
 }
@@ -1184,8 +1187,6 @@ COMMAND(
 
 static int run(int argc, char *argv[]) {
         _cleanup_(context_clear) Context context = {};
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         LIBSELINUX_NOTE(recommended);
@@ -1201,21 +1202,21 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = sd_event_default(&event);
+        r = sd_event_default(&context.event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        (void) sd_event_set_watchdog(event, true);
+        (void) sd_event_set_watchdog(context.event, true);
 
-        r = sd_event_set_signal_exit(event, true);
+        r = sd_event_set_signal_exit(context.event, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to install SIGINT/SIGTERM handlers: %m");
 
-        r = connect_bus(&context, event, &bus);
+        r = connect_bus(&context);
         if (r < 0)
                 return r;
 
-        (void) sd_bus_negotiate_timestamp(bus, true);
+        (void) sd_bus_negotiate_timestamp(context.bus, true);
 
         r = context_read_data(&context);
         if (r < 0)
@@ -1230,8 +1231,8 @@ static int run(int argc, char *argv[]) {
                 log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
 
         r = bus_event_loop_with_idle(
-                        event,
-                        bus,
+                        context.event,
+                        context.bus,
                         "org.freedesktop.timedate1",
                         DEFAULT_EXIT_USEC,
                         context_check_idle,
