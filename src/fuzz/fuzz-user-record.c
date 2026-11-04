@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "fuzz.h"
+#include "tests.h"
 #include "user-record.h"
 
 #include "sd-json.h"
@@ -18,8 +19,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (outside_size_range(size, /* lower= */ 0, 65536))
                 return 0;
 
-        assert_se(str = memdup_suffix0(data, size));
-        assert_se(ur = user_record_new());
+        str = ASSERT_NOT_NULL(memdup_suffix0(data, size));
+        ur = ASSERT_NOT_NULL(user_record_new());
 
         fuzz_setup_logging();
 
