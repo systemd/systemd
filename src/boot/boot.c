@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "addon-media.h"
 #include "bcd.h"
 #include "bootspec.h"
 #include "console.h"
@@ -2746,6 +2747,10 @@ static EFI_STATUS load_extras(
         unsigned n = 0;
 
         STRV_FOREACH(i, entry->extras) {
+                /* Addons are passed to the stub on their own, see register_extra_addons() */
+                if (endswith_no_case(*i, u".addon.efi"))
+                        continue;
+
                 _cleanup_file_close_ EFI_FILE *handle = NULL;
                 err = root->Open(root, &handle, *i, EFI_FILE_MODE_READ, /* Attributes= */ 0);
                 if (err != EFI_SUCCESS) {
@@ -2876,6 +2881,46 @@ nothing:
         *ret_initrd_pages = (Pages) {};
         *ret_initrd_size = 0;
         return EFI_SUCCESS;
+}
+
+static DEFINE_ARRAY_FREE_FUNC(addon_media_free_array, EFI_HANDLE, cleanup_addon_media);
+
+static void register_extra_addons(
+                EFI_FILE *root,
+                const BootEntry *entry,
+                EFI_HANDLE **handles,
+                size_t *n_handles) {
+
+        EFI_STATUS err;
+
+        assert(root);
+        assert(entry);
+        assert(handles);
+        assert(n_handles);
+
+        STRV_FOREACH(i, entry->extras) {
+                if (!endswith_no_case(*i, u".addon.efi"))
+                        continue;
+
+                _cleanup_free_ char *content = NULL;
+                size_t size = 0;
+                err = file_read(root, *i, /* offset= */ 0, /* size= */ 0, &content, &size);
+                if (err != EFI_SUCCESS) {
+                        log_warning_status(err, "Failed to read addon '%ls', ignoring: %m", *i);
+                        continue;
+                }
+
+                EFI_HANDLE handle = NULL;
+                err = addon_media_register(*n_handles, *i, &IOVEC_MAKE(content, size), &handle);
+                if (err != EFI_SUCCESS) {
+                        log_warning_status(err, "Failed to register addon '%ls', ignoring: %m", *i);
+                        continue;
+                }
+                TAKE_PTR(content);
+
+                *handles = xrealloc(*handles, *n_handles * sizeof(EFI_HANDLE), (*n_handles + 1) * sizeof(EFI_HANDLE));
+                (*handles)[(*n_handles)++] = handle;
+        }
 }
 
 static EFI_STATUS expand_path(
@@ -3030,6 +3075,9 @@ static EFI_STATUS call_image_start(
         _cleanup_pages_ Pages initrd_pages = {};                        /* Note: please keep order intact: these pages should be released after the initrd handle is released */
         _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
         size_t initrd_size = 0;
+        EFI_HANDLE *addon_handles = NULL;
+        size_t n_addon_handles = 0;
+        CLEANUP_ARRAY(addon_handles, n_addon_handles, addon_media_free_array);
         if (image_root) {
                 /* DTBs are loaded by the kernel before ExitBootServices(), and they can be used to map and
                  * assign arbitrary memory ranges, so skip them when secure boot is enabled as the DTB here
@@ -3058,6 +3106,8 @@ static EFI_STATUS call_image_start(
                         err = load_extras(image_root, entry, &initrd_pages, &initrd_size);
                         if (err != EFI_SUCCESS)
                                 return err; /* load_extras() logs on its own */
+
+                        register_extra_addons(image_root, entry, &addon_handles, &n_addon_handles);
                         break;
 
                 default:
@@ -3292,6 +3342,7 @@ static void export_loader_variables(
                 EFI_LOADER_FEATURE_SMBIOS_MEASURED |
                 EFI_LOADER_FEATURE_FACTORY_RESET_VARIABLES |
                 (fwupdate_available ? EFI_LOADER_FEATURE_FIRMWARE_UPDATE : 0) |
+                EFI_LOADER_FEATURE_ENTRY_ADDONS |
                 0;
 
         assert(loaded_image);
