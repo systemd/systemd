@@ -20,10 +20,10 @@ TEST(openssl_pkey_from_pem) {
         ASSERT_EQ(curve_id, NID_X9_62_prime256v1);
 
         DEFINE_HEX_PTR(expected_x, "ae39c4b812ec225f6b869870caf5cd3e18f88c19cf0d79f22742bd532acd81de");
-        ASSERT_EQ(memcmp_nn(x, x_len, expected_x, expected_x_len), 0);
+        ASSERT_MEMEQ_NN(x, x_len, expected_x, expected_x_len);
 
         DEFINE_HEX_PTR(expected_y, "92e40e764fea12bed9028fa66b9788571b7c004145e9a01952fad1eab51a8be5");
-        ASSERT_EQ(memcmp_nn(y, y_len, expected_y, expected_y_len), 0);
+        ASSERT_MEMEQ_NN(y, y_len, expected_y, expected_y_len);
 
         DEFINE_HEX_PTR(key_rsa, "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d494942496a414e42676b71686b6947397730424151454641414f43415138414d49494243674b4341514541795639434950652f505852337a436f63787045300a6a575262546c3568585844436b472f584b79374b6d2f4439584942334b734f5a31436a5937375571372f674359363170697838697552756a73413464503165380a593445336c68556d374a332b6473766b626f4b64553243626d52494c2f6675627771694c4d587a41673342575278747234547545443533527a373634554650640a307a70304b68775231496230444c67772f344e67566f314146763378784b4d6478774d45683567676b73733038326332706c354a504e32587677426f744e6b4d0a5471526c745a4a35355244436170696e7153334577376675646c4e735851357746766c7432377a7637344b585165616d704c59433037584f6761304c676c536b0a79754774586b6a50542f735542544a705374615769674d5a6f714b7479563463515a58436b4a52684459614c47587673504233687a766d5671636e6b47654e540a65774944415141420a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a");
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey_rsa = NULL;
@@ -34,10 +34,10 @@ TEST(openssl_pkey_from_pem) {
         ASSERT_OK(rsa_pkey_to_n_e(pkey_rsa, &n, &n_len, &e, &e_len));
 
         DEFINE_HEX_PTR(expected_n, "c95f4220f7bf3d7477cc2a1cc691348d645b4e5e615d70c2906fd72b2eca9bf0fd5c80772ac399d428d8efb52aeff80263ad698b1f22b91ba3b00e1d3f57bc638137961526ec9dfe76cbe46e829d53609b99120bfdfb9bc2a88b317cc0837056471b6be13b840f9dd1cfbeb85053ddd33a742a1c11d486f40cb830ff8360568d4016fdf1c4a31dc7030487982092cb34f36736a65e493cdd97bf0068b4d90c4ea465b59279e510c26a98a7a92dc4c3b7ee76536c5d0e7016f96ddbbcefef829741e6a6a4b602d3b5ce81ad0b8254a4cae1ad5e48cf4ffb140532694ad6968a0319a2a2adc95e1c4195c29094610d868b197bec3c1de1cef995a9c9e419e3537b");
-        ASSERT_EQ(memcmp_nn(n, n_len, expected_n, expected_n_len), 0);
+        ASSERT_MEMEQ_NN(n, n_len, expected_n, expected_n_len);
 
         DEFINE_HEX_PTR(expected_e, "010001");
-        ASSERT_EQ(memcmp_nn(e, e_len, expected_e, expected_e_len), 0);
+        ASSERT_MEMEQ_NN(e, e_len, expected_e, expected_e_len);
 }
 
 TEST(rsa_pkey_n_e) {
@@ -61,9 +61,9 @@ TEST(rsa_pkey_n_e) {
         _cleanup_free_ void *n2 = NULL, *e2 = NULL;
         size_t n2_size, e2_size;
         ASSERT_OK(rsa_pkey_to_n_e(pkey, &n2, &n2_size, &e2, &e2_size));
-        ASSERT_EQ(memcmp_nn(n, n_len, n2, n2_size), 0);
+        ASSERT_MEMEQ_NN(n, n_len, n2, n2_size);
         ASSERT_LE(e2_size, sizeof(uint32_t));
-        ASSERT_EQ(memcmp(&((uint8_t*) &e)[sizeof(uint32_t) - e2_size], e2, e2_size), 0);
+        ASSERT_MEMEQ(&((uint8_t*) &e)[sizeof(uint32_t) - e2_size], e2, e2_size);
 }
 
 TEST(ecc_pkey_curve_x_y) {
@@ -90,8 +90,8 @@ TEST(ecc_pkey_curve_x_y) {
         int curveid2;
         ASSERT_OK(ecc_pkey_to_curve_x_y(pkey, &curveid2, &x2, &x2_size, &y2, &y2_size));
         ASSERT_EQ(curveid, curveid2);
-        ASSERT_EQ(memcmp_nn(x, x_len, x2, x2_size), 0);
-        ASSERT_EQ(memcmp_nn(y, y_len, y2, y2_size), 0);
+        ASSERT_MEMEQ_NN(x, x_len, x2, x2_size);
+        ASSERT_MEMEQ_NN(y, y_len, y2, y2_size);
 }
 
 TEST(ecc_pkey_curve_x_y_leading_zero) {
@@ -109,10 +109,10 @@ TEST(ecc_pkey_curve_x_y_leading_zero) {
         ASSERT_EQ(curve_id, NID_secp384r1);
 
         DEFINE_HEX_PTR(expected_x, "0066d96e6276481d41247c9cd7180ecc976781782055b4e966f40fa50913546cbcb1bc2fc2c1eb7191ead3366fc7fd65");
-        ASSERT_EQ(memcmp_nn(x, x_size, expected_x, expected_x_len), 0);
+        ASSERT_MEMEQ_NN(x, x_size, expected_x, expected_x_len);
 
         DEFINE_HEX_PTR(expected_y, "0bac7365d6951c2d46d3ce7195c949c290995a152a5a17ecfe3a77cc29a70e322e2723d6e42407208d1ef96646a5b708");
-        ASSERT_EQ(memcmp_nn(y, y_size, expected_y, expected_y_len), 0);
+        ASSERT_MEMEQ_NN(y, y_size, expected_y, expected_y_len);
 }
 
 TEST(ecc_pkey_curve_x_y_p521) {
@@ -130,10 +130,10 @@ TEST(ecc_pkey_curve_x_y_p521) {
         ASSERT_EQ(curve_id, NID_secp521r1);
 
         DEFINE_HEX_PTR(expected_x, "00a11cc63c5568cb90b318a97c498bb11f859de92b862df800e5b33e46b5c62f5c81b17283e38ea82f4beed1f36aab39dfcc49bd63d4c6709f4bf16ab127bb7655e4");
-        ASSERT_EQ(memcmp_nn(x, x_size, expected_x, expected_x_len), 0);
+        ASSERT_MEMEQ_NN(x, x_size, expected_x, expected_x_len);
 
         DEFINE_HEX_PTR(expected_y, "015059c5923fc8d80edccc709b664932592c9f5699fd7e4a401011b57f92d214cac37f279f212d84b39d39dc9e9d0020dbc9d5d40985f9f4740e2c3d03c8ef10b0ca");
-        ASSERT_EQ(memcmp_nn(y, y_size, expected_y, expected_y_len), 0);
+        ASSERT_MEMEQ_NN(y, y_size, expected_y, expected_y_len);
 }
 
 TEST(invalid) {
@@ -209,7 +209,7 @@ static void verify_digest(const char *digest_alg, const struct iovec *data, size
         ASSERT_OK(r);
 
         DEFINE_HEX_PTR(e, expect);
-        ASSERT_EQ(memcmp_nn(e, e_len, digest, digest_size), 0);
+        ASSERT_MEMEQ_NN(e, e_len, digest, digest_size);
 }
 
 #define _DEFINE_DIGEST_TEST(uniq, alg, expect, ...)                     \
@@ -272,16 +272,16 @@ static void verify_hmac(
 
         if (n_data == 0) {
                 ASSERT_OK_ZERO(openssl_hmac(digest_alg, k, k_len, /* buf= */ NULL, /* len= */ 0, &digest, &digest_size));
-                ASSERT_EQ(memcmp_nn(e, e_len, digest, digest_size), 0);
+                ASSERT_MEMEQ_NN(e, e_len, digest, digest_size);
                 digest = mfree(digest);
         } else if(n_data == 1) {
                 ASSERT_OK_ZERO(openssl_hmac(digest_alg, k, k_len, data[0].iov_base, data[0].iov_len, &digest, &digest_size));
-                ASSERT_EQ(memcmp_nn(e, e_len, digest, digest_size), 0);
+                ASSERT_MEMEQ_NN(e, e_len, digest, digest_size);
                 digest = mfree(digest);
         }
 
         ASSERT_OK_ZERO(openssl_hmac_many(digest_alg, k, k_len, data, n_data, &digest, &digest_size));
-        ASSERT_EQ(memcmp_nn(e, e_len, digest, digest_size), 0);
+        ASSERT_MEMEQ_NN(e, e_len, digest, digest_size);
 }
 
 #define _DEFINE_HMAC_TEST(uniq, alg, key, expect, ...)                  \
@@ -354,7 +354,7 @@ TEST(kdf_kb_hmac_derive) {
         DEFINE_HEX_PTR(expected_derived_key, "A9DA9CEEB9578DBE7DD2862F82898B086E85FF2D10C4E8EC5BD99D0D7F003A2DE1574EB4BD789C03EF5235259BCB3A009DA303EA4DB4CA6BF507DB7C5A063279");
 
         ASSERT_OK(kdf_kb_hmac_derive("COUNTER", "SHA256", key, key_len, salt, strlen(salt), info, info_len, /* seed= */ NULL, /* seed_size= */ 0, 64, &derived_key));
-        ASSERT_EQ(memcmp_nn(derived_key, 64, expected_derived_key, expected_derived_key_len), 0);
+        ASSERT_MEMEQ_NN(derived_key, 64, expected_derived_key, expected_derived_key_len);
 }
 
 static void check_ss_derive(const char *hex_key, const char *hex_salt, const char *hex_info, const char *hex_expected) {
@@ -365,7 +365,7 @@ static void check_ss_derive(const char *hex_key, const char *hex_salt, const cha
 
         _cleanup_free_ void *derived_key = NULL;
         ASSERT_OK(kdf_ss_derive("SHA256", key, key_len, salt, salt_len, info, info_len, expected_len, &derived_key));
-        ASSERT_EQ(memcmp_nn(derived_key, expected_len, expected, expected_len), 0);
+        ASSERT_MEMEQ_NN(derived_key, expected_len, expected, expected_len);
 }
 
 TEST(kdf_ss_derive) {
@@ -408,7 +408,7 @@ static void check_hkdf_derive(
                         &IOVEC_MAKE(info, info_len),
                         expected_len,
                         &derived));
-        ASSERT_EQ(memcmp_nn(derived.iov_base, derived.iov_len, expected, expected_len), 0);
+        ASSERT_MEMEQ_NN(derived.iov_base, derived.iov_len, expected, expected_len);
 }
 
 TEST(kdf_hkdf_derive) {
@@ -484,7 +484,7 @@ TEST(kdf_hkdf_derive) {
                                 /* salt= */ NULL,
                                 &IOVEC_MAKE((void*) info, sizeof(info)),
                                 expected_len, &derived));
-                ASSERT_EQ(memcmp_nn(derived.iov_base, derived.iov_len, expected, expected_len), 0);
+                ASSERT_MEMEQ_NN(derived.iov_base, derived.iov_len, expected, expected_len);
         }
 }
 
@@ -507,16 +507,16 @@ static void check_cipher(
 
         if (n_data == 0) {
                 ASSERT_OK(openssl_cipher(alg, bits, mode, key, key_len, iv, iv_len, /* buf= */ NULL, /* len= */ 0, &enc_buf, &enc_buf_len));
-                ASSERT_EQ(memcmp_nn(enc_buf, enc_buf_len, expected, expected_len), 0);
+                ASSERT_MEMEQ_NN(enc_buf, enc_buf_len, expected, expected_len);
                 enc_buf = mfree(enc_buf);
         } else if (n_data == 1) {
                 ASSERT_OK(openssl_cipher(alg, bits, mode, key, key_len, iv, iv_len, data[0].iov_base, data[0].iov_len, &enc_buf, &enc_buf_len));
-                ASSERT_EQ(memcmp_nn(enc_buf, enc_buf_len, expected, expected_len), 0);
+                ASSERT_MEMEQ_NN(enc_buf, enc_buf_len, expected, expected_len);
                 enc_buf = mfree(enc_buf);
         }
 
         ASSERT_OK(openssl_cipher_many(alg, bits, mode, key, key_len, iv, iv_len, data, n_data, &enc_buf, &enc_buf_len));
-        ASSERT_EQ(memcmp_nn(enc_buf, enc_buf_len, expected, expected_len), 0);
+        ASSERT_MEMEQ_NN(enc_buf, enc_buf_len, expected, expected_len);
 }
 
 TEST(openssl_cipher) {
@@ -614,8 +614,8 @@ TEST(ecc_ecdh) {
         ASSERT_OK(ecc_ecdh(pkeyA, pkeyC, &secretAC, &secretAC_size));
         ASSERT_OK(ecc_ecdh(pkeyC, pkeyA, &secretCA, &secretCA_size));
 
-        ASSERT_EQ(memcmp_nn(secretAB, secretAB_size, secretBA, secretBA_size), 0);
-        ASSERT_EQ(memcmp_nn(secretAC, secretAC_size, secretCA, secretCA_size), 0);
+        ASSERT_MEMEQ_NN(secretAB, secretAB_size, secretBA, secretBA_size);
+        ASSERT_MEMEQ_NN(secretAC, secretAC_size, secretCA, secretCA_size);
         ASSERT_NE(memcmp_nn(secretAC, secretAC_size, secretAB, secretAB_size), 0);
 }
 
@@ -680,7 +680,7 @@ TEST(openssl_load_x509_certificate_from_pem) {
         ASSERT_OK(openssl_load_x509_certificate_from_pem(&IOVEC_MAKE_STRING(prefixed), &skipped, &more));
         ASSERT_FALSE(more);
         ASSERT_OK(x509_fingerprint(skipped, fp2));
-        ASSERT_EQ(memcmp(fp, fp2, sizeof(fp)), 0);
+        ASSERT_MEMEQ(fp, fp2, sizeof(fp));
 
         /* The first certificate wins, the second is reported, and ret_more is optional */
         _cleanup_free_ char *two = strjoin(pem, pem2);
@@ -688,11 +688,11 @@ TEST(openssl_load_x509_certificate_from_pem) {
         ASSERT_OK(openssl_load_x509_certificate_from_pem(&IOVEC_MAKE_STRING(two), &first, &more));
         ASSERT_TRUE(more);
         ASSERT_OK(x509_fingerprint(first, fp2));
-        ASSERT_EQ(memcmp(fp, fp2, sizeof(fp)), 0);
+        ASSERT_MEMEQ(fp, fp2, sizeof(fp));
         ASSERT_OK(openssl_load_x509_certificate_from_pem(&IOVEC_MAKE_STRING(two), &first_again,
                                                          /* ret_more= */ NULL));
         ASSERT_OK(x509_fingerprint(first_again, fp2));
-        ASSERT_EQ(memcmp(fp, fp2, sizeof(fp)), 0);
+        ASSERT_MEMEQ(fp, fp2, sizeof(fp));
 
         static const char garbage[] = "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n";
         ASSERT_FAIL(openssl_load_x509_certificate_from_pem(&IOVEC_MAKE_STRING(garbage), &bad, &more));

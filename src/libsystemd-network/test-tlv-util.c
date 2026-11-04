@@ -66,22 +66,22 @@ TEST(tlv) {
 
         iovw = ASSERT_NOT_NULL(tlv_get_all(&tlv, 10));
         ASSERT_EQ(iovw->count, 1u);
-        ASSERT_TRUE(iovec_equal(&iovw->iovec[0], &data0));
+        ASSERT_IOVEC_EQ(&iovw->iovec[0], &data0);
 
         iovw = ASSERT_NOT_NULL(tlv_get_all(&tlv, 11));
         ASSERT_EQ(iovw->count, 1u);
-        ASSERT_TRUE(iovec_equal(&iovw->iovec[0], &data1));
+        ASSERT_IOVEC_EQ(&iovw->iovec[0], &data1);
 
         iovw = ASSERT_NOT_NULL(tlv_get_all(&tlv, 22));
         ASSERT_EQ(iovw->count, 3u);
-        ASSERT_TRUE(iovec_equal(&iovw->iovec[0], &data2a));
-        ASSERT_TRUE(iovec_equal(&iovw->iovec[1], &IOVEC_MAKE(data2b.iov_base, UINT8_MAX)));
-        ASSERT_TRUE(iovec_equal(&iovw->iovec[2], &IOVEC_SHIFT(&data2b, UINT8_MAX)));
+        ASSERT_IOVEC_EQ(&iovw->iovec[0], &data2a);
+        ASSERT_IOVEC_EQ(&iovw->iovec[1], &IOVEC_MAKE(data2b.iov_base, UINT8_MAX));
+        ASSERT_IOVEC_EQ(&iovw->iovec[2], &IOVEC_SHIFT(&data2b, UINT8_MAX));
 
         iovw = ASSERT_NOT_NULL(tlv_get_all(&tlv, 33));
         ASSERT_EQ(iovw->count, 2u);
-        ASSERT_TRUE(iovec_equal(&iovw->iovec[0], &IOVEC_MAKE(data3.iov_base, UINT8_MAX)));
-        ASSERT_TRUE(iovec_equal(&iovw->iovec[1], &IOVEC_SHIFT(&data3, UINT8_MAX)));
+        ASSERT_IOVEC_EQ(&iovw->iovec[0], &IOVEC_MAKE(data3.iov_base, UINT8_MAX));
+        ASSERT_IOVEC_EQ(&iovw->iovec[1], &IOVEC_SHIFT(&data3, UINT8_MAX));
 
         ASSERT_NULL(tlv_get_all(&tlv, 44));
 
@@ -89,34 +89,34 @@ TEST(tlv) {
         struct iovec iov;
 
         ASSERT_OK(tlv_get(&tlv, 10, &iov));
-        ASSERT_TRUE(iovec_equal(&iov, &data0));
+        ASSERT_IOVEC_EQ(&iov, &data0);
         ASSERT_OK(tlv_get_full(&tlv, 10, data0.iov_len, &iov));
-        ASSERT_TRUE(iovec_equal(&iov, &data0));
+        ASSERT_IOVEC_EQ(&iov, &data0);
         ASSERT_ERROR(tlv_get_full(&tlv, 10, 123, &iov), ENODATA);
 
         ASSERT_OK(tlv_get(&tlv, 11, &iov));
-        ASSERT_TRUE(iovec_equal(&iov, &data1));
+        ASSERT_IOVEC_EQ(&iov, &data1);
         ASSERT_OK(tlv_get_full(&tlv, 11, data1.iov_len, &iov));
-        ASSERT_TRUE(iovec_equal(&iov, &data1));
+        ASSERT_IOVEC_EQ(&iov, &data1);
         ASSERT_ERROR(tlv_get_full(&tlv, 11, 123, &iov), ENODATA);
 
         ASSERT_OK(tlv_get(&tlv, 22, &iov));
-        ASSERT_TRUE(iovec_equal(&iov, &data2a));
+        ASSERT_IOVEC_EQ(&iov, &data2a);
         ASSERT_OK(tlv_get_full(&tlv, 22, data2a.iov_len, &iov));
-        ASSERT_TRUE(iovec_equal(&iov, &data2a));
+        ASSERT_IOVEC_EQ(&iov, &data2a);
         ASSERT_ERROR(tlv_get_full(&tlv, 22, data2b.iov_len, &iov), ENODATA);
         ASSERT_OK(tlv_get_full(&tlv, 22, UINT8_MAX, &iov));
-        ASSERT_TRUE(iovec_equal(&iov, &IOVEC_MAKE(data2b.iov_base, UINT8_MAX)));
+        ASSERT_IOVEC_EQ(&iov, &IOVEC_MAKE(data2b.iov_base, UINT8_MAX));
         ASSERT_OK(tlv_get_full(&tlv, 22, data2b.iov_len - UINT8_MAX, &iov));
-        ASSERT_TRUE(iovec_equal(&iov, &IOVEC_SHIFT(&data2b, UINT8_MAX)));
+        ASSERT_IOVEC_EQ(&iov, &IOVEC_SHIFT(&data2b, UINT8_MAX));
 
         ASSERT_OK(tlv_get(&tlv, 33, &iov));
-        ASSERT_TRUE(iovec_equal(&iov, &IOVEC_MAKE(data3.iov_base, UINT8_MAX)));
+        ASSERT_IOVEC_EQ(&iov, &IOVEC_MAKE(data3.iov_base, UINT8_MAX));
         ASSERT_ERROR(tlv_get_full(&tlv, 33, data3.iov_len, &iov), ENODATA);
         ASSERT_OK(tlv_get_full(&tlv, 33, UINT8_MAX, &iov));
-        ASSERT_TRUE(iovec_equal(&iov, &IOVEC_MAKE(data3.iov_base, UINT8_MAX)));
+        ASSERT_IOVEC_EQ(&iov, &IOVEC_MAKE(data3.iov_base, UINT8_MAX));
         ASSERT_OK(tlv_get_full(&tlv, 33, data3.iov_len - UINT8_MAX, &iov));
-        ASSERT_TRUE(iovec_equal(&iov, &IOVEC_SHIFT(&data3, UINT8_MAX)));
+        ASSERT_IOVEC_EQ(&iov, &IOVEC_SHIFT(&data3, UINT8_MAX));
 
         ASSERT_ERROR(tlv_get(&tlv, 44, /* ret= */ NULL), ENODATA);
 
@@ -124,21 +124,21 @@ TEST(tlv) {
         _cleanup_(iovec_done) struct iovec v = {};
 
         ASSERT_OK(tlv_get_alloc(&tlv, 10, &v));
-        ASSERT_TRUE(iovec_equal(&v, &data0));
+        ASSERT_IOVEC_EQ(&v, &data0);
         iovec_done(&v);
 
         ASSERT_OK(tlv_get_alloc(&tlv, 11, &v));
-        ASSERT_TRUE(iovec_equal(&v, &data1));
+        ASSERT_IOVEC_EQ(&v, &data1);
         iovec_done(&v);
 
         ASSERT_OK(tlv_get_alloc(&tlv, 22, &v));
         ASSERT_EQ(v.iov_len, data2a.iov_len + data2b.iov_len);
-        ASSERT_EQ(memcmp(v.iov_base, data2a.iov_base, data2a.iov_len), 0);
-        ASSERT_EQ(memcmp((uint8_t*) v.iov_base + data2a.iov_len, data2b.iov_base, data2b.iov_len), 0);
+        ASSERT_MEMEQ(v.iov_base, data2a.iov_base, data2a.iov_len);
+        ASSERT_MEMEQ((uint8_t*) v.iov_base + data2a.iov_len, data2b.iov_base, data2b.iov_len);
         iovec_done(&v);
 
         ASSERT_OK(tlv_get_alloc(&tlv, 33, &v));
-        ASSERT_TRUE(iovec_equal(&v, &data3));
+        ASSERT_IOVEC_EQ(&v, &data3);
         iovec_done(&v);
 
         ASSERT_ERROR(tlv_get_alloc(&tlv, 44, /* ret= */ NULL), ENODATA);
@@ -158,32 +158,32 @@ TEST(tlv) {
 
         ASSERT_EQ(*p++, 11u);
         ASSERT_EQ(*p++, data1.iov_len);
-        ASSERT_EQ(memcmp(p, data1.iov_base, data1.iov_len), 0);
+        ASSERT_MEMEQ(p, data1.iov_base, data1.iov_len);
         p += data1.iov_len;
 
         ASSERT_EQ(*p++, 22u);
         ASSERT_EQ(*p++, data2a.iov_len);
-        ASSERT_EQ(memcmp(p, data2a.iov_base, data2a.iov_len), 0);
+        ASSERT_MEMEQ(p, data2a.iov_base, data2a.iov_len);
         p += data2a.iov_len;
 
         ASSERT_EQ(*p++, 22u);
         ASSERT_EQ(*p++, UINT8_MAX);
-        ASSERT_EQ(memcmp(p, data2b.iov_base, UINT8_MAX), 0);
+        ASSERT_MEMEQ(p, data2b.iov_base, UINT8_MAX);
         p += UINT8_MAX;
 
         ASSERT_EQ(*p++, 22u);
         ASSERT_EQ(*p++, data2b.iov_len - UINT8_MAX);
-        ASSERT_EQ(memcmp(p, (uint8_t*) data2b.iov_base + UINT8_MAX, data2b.iov_len - UINT8_MAX), 0);
+        ASSERT_MEMEQ(p, (uint8_t*) data2b.iov_base + UINT8_MAX, data2b.iov_len - UINT8_MAX);
         p += data2b.iov_len - UINT8_MAX;
 
         ASSERT_EQ(*p++, 33u);
         ASSERT_EQ(*p++, UINT8_MAX);
-        ASSERT_EQ(memcmp(p, data3.iov_base, UINT8_MAX), 0);
+        ASSERT_MEMEQ(p, data3.iov_base, UINT8_MAX);
         p += UINT8_MAX;
 
         ASSERT_EQ(*p++, 33u);
         ASSERT_EQ(*p++, data3.iov_len - UINT8_MAX);
-        ASSERT_EQ(memcmp(p, (uint8_t*) data3.iov_base + UINT8_MAX, data3.iov_len - UINT8_MAX), 0);
+        ASSERT_MEMEQ(p, (uint8_t*) data3.iov_base + UINT8_MAX, data3.iov_len - UINT8_MAX);
         p += data3.iov_len - UINT8_MAX;
 
         ASSERT_EQ(*p, 255u);
@@ -201,7 +201,7 @@ TEST(tlv) {
         /* tlv_build() again, and check the reproducibility. */
         _cleanup_(iovec_done) struct iovec v2 = {};
         ASSERT_OK(tlv_build(tlv2, &v2));
-        ASSERT_TRUE(iovec_equal(&v, &v2));
+        ASSERT_IOVEC_EQ(&v, &v2);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

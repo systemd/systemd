@@ -23,7 +23,7 @@ static void test_sparse_write_one(int fd, const char *buffer, size_t n) {
         ASSERT_OK_EQ_ERRNO(lseek(fd, 0, SEEK_SET), 0);
         ASSERT_OK_EQ_ERRNO(read(fd, check, n), (ssize_t) n);
 
-        ASSERT_EQ(memcmp(buffer, check, n), 0);
+        ASSERT_MEMEQ(buffer, check, n);
 }
 
 TEST(sparse_write) {
@@ -73,7 +73,7 @@ TEST(pwritev_full) {
         ASSERT_OK(pwritev_full(fd, iovec, n, 7, &written));
         ASSERT_EQ(written, sizeof(expected));
         ASSERT_EQ(pread(fd, buf, sizeof(buf), 7), (ssize_t) sizeof(buf));
-        ASSERT_EQ(memcmp(buf, expected, sizeof(expected)), 0);
+        ASSERT_MEMEQ(buf, expected, sizeof(expected));
 
         /* Written iovecs are advanced past the data */
         FOREACH_ARRAY(i, iovec, n)
@@ -89,7 +89,7 @@ TEST(pwrite_full) {
         ASSERT_OK(pwrite_full(fd, /* buf= */ NULL, /* nbytes= */ 0, /* offset= */ 0));
         ASSERT_OK(pwrite_full(fd, "abc", 3, 5));
         ASSERT_EQ(pread(fd, buf, sizeof(buf), 5), (ssize_t) sizeof(buf));
-        ASSERT_EQ(memcmp(buf, "abc", 3), 0);
+        ASSERT_MEMEQ(buf, "abc", 3);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

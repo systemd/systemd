@@ -80,7 +80,7 @@ static void test_hexmem_one(const char *in, const char *expected) {
         ASSERT_STREQ(result, expected);
 
         ASSERT_OK(unhexmem(result, &mem, &len));
-        ASSERT_EQ(memcmp_safe(mem, in, len), 0);
+        ASSERT_MEMEQ(mem, in, len);
 }
 
 TEST(hexmem) {
@@ -301,15 +301,13 @@ TEST(base64mem_linebreak) {
                 ASSERT_EQ((size_t) l, strlen(encoded));
 
                 ASSERT_OK(unbase64mem(encoded, &decoded, &decoded_size));
-                ASSERT_EQ(decoded_size, n);
-                ASSERT_EQ(memcmp(data, decoded, n), 0);
+                ASSERT_MEMEQ_NN(data, n, decoded, decoded_size);
 
                 /* Also try in secure mode */
                 decoded = mfree(decoded);
                 decoded_size = 0;
                 ASSERT_OK(unbase64mem_full(encoded, SIZE_MAX, /* secure= */ true, &decoded, &decoded_size));
-                ASSERT_EQ(decoded_size, n);
-                ASSERT_EQ(memcmp(data, decoded, n), 0);
+                ASSERT_MEMEQ_NN(data, n, decoded, decoded_size);
 
                 for (size_t j = 0; j < (size_t) l; j++)
                         ASSERT_EQ(encoded[j] == '\n', j % (m + 1) == m);
@@ -435,8 +433,7 @@ static void test_unbase64mem_one(const char *input, const char *output, int ret)
 
         ASSERT_EQ(unbase64mem(input, &buffer, &size), ret);
         if (ret >= 0) {
-                ASSERT_EQ(size, strlen(output));
-                ASSERT_EQ(memcmp(buffer, output, size), 0);
+                ASSERT_MEMEQ_NN(buffer, size, output, strlen(output));
                 ASSERT_EQ(((char*) buffer)[size], 0);
         }
 
@@ -446,8 +443,7 @@ static void test_unbase64mem_one(const char *input, const char *output, int ret)
 
         ASSERT_EQ(unbase64mem_full(input, SIZE_MAX, /* secure= */ true, &buffer, &size), ret);
         if (ret >= 0) {
-                ASSERT_EQ(size, strlen(output));
-                ASSERT_EQ(memcmp(buffer, output, size), 0);
+                ASSERT_MEMEQ_NN(buffer, size, output, strlen(output));
                 ASSERT_EQ(((char*) buffer)[size], 0);
         }
 }
@@ -496,12 +492,12 @@ TEST(base64withwithouturl) {
 
         /* This is regular base64 */
         ASSERT_OK(unbase64mem("zKFyIq7aZn4EpuCCmpcF9jPgD8JFE1g/xfT0Mas8X4M0WycyigRsQ4IH4yysufus0AORQsuk3oeGhRC7t1tLyKD0Ih0VcYedv5+p8e6itqrIwzecu98+rNyUVDhWBzS0PMwxEw==", &buffer, &size));
-        ASSERT_EQ(memcmp_nn(plaintext, sizeof(plaintext), buffer, size), 0);
+        ASSERT_MEMEQ_NN(plaintext, sizeof(plaintext), buffer, size);
         buffer = mfree(buffer);
 
         /* This is the same but in base64url */
         ASSERT_OK(unbase64mem("zKFyIq7aZn4EpuCCmpcF9jPgD8JFE1g_xfT0Mas8X4M0WycyigRsQ4IH4yysufus0AORQsuk3oeGhRC7t1tLyKD0Ih0VcYedv5-p8e6itqrIwzecu98-rNyUVDhWBzS0PMwxEw==", &buffer, &size));
-        ASSERT_EQ(memcmp_nn(plaintext, sizeof(plaintext), buffer, size), 0);
+        ASSERT_MEMEQ_NN(plaintext, sizeof(plaintext), buffer, size);
 
         /* Hint: use xxd -i to generate the static C array from some data, and basenc --base64 + basenc
          * --base64url to generate the correctly encoded base64 strings */

@@ -93,7 +93,7 @@ static void test_strv_make_nulstr_one(char **l) {
         ASSERT_STRV_EQ(l, q);
 
         ASSERT_OK(strv_make_nulstr(q, &c, &m));
-        ASSERT_EQ(memcmp_nn(b, n, c, m), 0);
+        ASSERT_MEMEQ_NN(b, n, c, m);
 
         NULSTR_FOREACH(s, b)
                 ASSERT_STREQ(s, l[i++]);
@@ -119,7 +119,7 @@ TEST(set_make_nulstr) {
 
                 ASSERT_OK_ZERO(set_make_nulstr(set, &nulstr, &len));
                 ASSERT_EQ(len, 0U);
-                ASSERT_EQ(memcmp(expect, nulstr, len + 2), 0);
+                ASSERT_MEMEQ(expect, nulstr, len + 2);
         }
 
         {
@@ -131,7 +131,7 @@ TEST(set_make_nulstr) {
 
                 ASSERT_OK_ZERO(set_make_nulstr(set, &nulstr, &len));
                 ASSERT_EQ(len, 0U);
-                ASSERT_EQ(memcmp(expect, nulstr, len + 2), 0);
+                ASSERT_MEMEQ(expect, nulstr, len + 2);
         }
 
         {
@@ -143,7 +143,7 @@ TEST(set_make_nulstr) {
 
                 ASSERT_OK_ZERO(set_make_nulstr(set, &nulstr, &len));
                 ASSERT_EQ(len, 4U);
-                ASSERT_EQ(memcmp(expect, nulstr, len + 1), 0);
+                ASSERT_MEMEQ(expect, nulstr, len + 1);
         }
 }
 
@@ -153,7 +153,7 @@ static void test_strv_make_nulstr_binary_one(char **l, const char *b, size_t n) 
         size_t m;
 
         ASSERT_OK(strv_make_nulstr(l, &a, &m));
-        ASSERT_EQ(memcmp_nn(a, m, b, n), 0);
+        ASSERT_MEMEQ_NN(a, m, b, n);
         ASSERT_NOT_NULL(z = strv_parse_nulstr(a, m));
         ASSERT_STRV_EQ(l, z);
 }

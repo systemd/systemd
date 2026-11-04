@@ -742,8 +742,7 @@ TEST(cursor_and_data_lifetime) {
         ASSERT_OK(sd_journal_get_data_threshold(j, &size));
         ASSERT_EQ(size, 4U);
         ASSERT_OK(sd_journal_get_data(j, "BINARY", &data, &size));
-        ASSERT_EQ(size, sizeof(binary));
-        ASSERT_EQ(memcmp(data, binary, size), 0);
+        ASSERT_MEMEQ_NN(data, size, binary, sizeof(binary));
 
         ASSERT_OK(sd_journal_get_realtime_usec(j, &value));
         ASSERT_EQ(value, ts.realtime);
@@ -751,34 +750,30 @@ TEST(cursor_and_data_lifetime) {
         ASSERT_EQ(value, ts.monotonic);
         ASSERT_EQ_ID128(id, boot_id);
         ASSERT_OK_POSITIVE(sd_journal_test_cursor(j, cursor));
-        ASSERT_EQ(memcmp(data, binary, size), 0);
+        ASSERT_MEMEQ(data, binary, size);
         ASSERT_ERROR(sd_journal_get_data(j, "MISSING", &data, &size), ENOENT);
 
         ASSERT_OK(sd_journal_set_data_threshold(j, /* sz= */ 0));
         sd_journal_restart_data(j);
         ASSERT_OK_POSITIVE(sd_journal_enumerate_data(j, &data, &size));
-        ASSERT_EQ(size, strlen(small));
-        ASSERT_EQ(memcmp(data, small, size), 0);
+        ASSERT_MEMEQ_NN(data, size, small, strlen(small));
         ASSERT_OK(sd_journal_get_seqnum(j, &value, &id));
         ASSERT_EQ(value, seqnum);
         ASSERT_EQ_ID128(id, seqnum_id);
-        ASSERT_EQ(memcmp(data, small, size), 0);
+        ASSERT_MEMEQ(data, small, size);
         ASSERT_OK_POSITIVE(sd_journal_enumerate_data(j, &data, &size));
-        ASSERT_EQ(size, sizeof(binary));
-        ASSERT_EQ(memcmp(data, binary, size), 0);
+        ASSERT_MEMEQ_NN(data, size, binary, sizeof(binary));
         ASSERT_OK_ZERO(sd_journal_enumerate_data(j, &data, &size));
 
         ASSERT_OK(sd_journal_query_unique(j, "BINARY"));
         ASSERT_OK_POSITIVE(sd_journal_enumerate_unique(j, &data, &size));
-        ASSERT_EQ(size, sizeof(binary));
-        ASSERT_EQ(memcmp(data, binary, size), 0);
+        ASSERT_MEMEQ_NN(data, size, binary, sizeof(binary));
         ASSERT_OK(sd_journal_get_realtime_usec(j, &value));
-        ASSERT_EQ(memcmp(data, binary, size), 0);
+        ASSERT_MEMEQ(data, binary, size);
         ASSERT_OK_ZERO(sd_journal_enumerate_unique(j, &data, &size));
         sd_journal_restart_unique(j);
         ASSERT_OK_POSITIVE(sd_journal_enumerate_unique(j, &data, &size));
-        ASSERT_EQ(size, sizeof(binary));
-        ASSERT_EQ(memcmp(data, binary, size), 0);
+        ASSERT_MEMEQ_NN(data, size, binary, sizeof(binary));
 
         unsigned n_fields = 0;
         sd_journal_restart_fields(j);
@@ -964,7 +959,7 @@ static void test_boot_id_one(void (*setup)(void), size_t n_ids_expected) {
                                         &ids_limited, &n_ids_limited));
                 ASSERT_TRUE(ids_limited || i == 0);
                 ASSERT_EQ(n_ids_limited, MIN(i, n_ids_expected));
-                ASSERT_EQ(memcmp_safe(ids, ids_limited, n_ids_limited * sizeof(LogId)), 0);
+                ASSERT_MEMEQ(ids, ids_limited, n_ids_limited * sizeof(LogId));
         }
 
         for (size_t i = 0; i <= n_ids_expected + 1; i++) {
@@ -978,7 +973,7 @@ static void test_boot_id_one(void (*setup)(void), size_t n_ids_expected) {
                 ASSERT_TRUE(ids_limited || i == 0);
                 ASSERT_EQ(n_ids_limited, MIN(i, n_ids_expected));
                 for (size_t k = 0; k < n_ids_limited; k++)
-                        ASSERT_EQ(memcmp(&ids[n_ids - k - 1], &ids_limited[k], sizeof(LogId)), 0);
+                        ASSERT_MEMEQ(&ids[n_ids - k - 1], &ids_limited[k], sizeof(LogId));
         }
 }
 

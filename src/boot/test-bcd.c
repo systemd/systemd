@@ -35,7 +35,7 @@ static void test_get_bcd_title_one(
         char16_t *title = get_bcd_title(bcd, len);
         if (title_expect) {
                 ASSERT_NOT_NULL(title);
-                ASSERT_EQ(memcmp(title, title_expect, title_len_expect), 0);
+                ASSERT_MEMEQ(title, title_expect, title_len_expect);
         } else
                 ASSERT_NULL(title);
 }

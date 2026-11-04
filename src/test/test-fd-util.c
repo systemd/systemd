@@ -255,7 +255,7 @@ TEST(rearrange_stdio) {
                 ASSERT_OK_EQ_ERRNO(read(pipe_read_fd, buffer, sizeof(buffer)), 1);
                 ASSERT_EQ(buffer[0], 'z');
                 ASSERT_OK_EQ_ERRNO(read(0, buffer, sizeof(buffer)), 6);
-                ASSERT_EQ(memcmp(buffer, "foobar", 6), 0);
+                ASSERT_MEMEQ(buffer, "foobar", 6);
 
                 ASSERT_OK(fd_cloexec(1, true)); /* stays in place, but the flag must still be cleared */
                 ASSERT_OK(rearrange_stdio(-EBADF, 1, 2));

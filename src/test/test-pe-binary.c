@@ -367,13 +367,11 @@ TEST(pe_read_section_data_reads_raw_data_only) {
         _cleanup_free_ void *data = NULL;
         size_t size;
         ASSERT_OK(pe_read_section_data(fd, sections + 0, SIZE_MAX, &data, &size));
-        ASSERT_EQ(size, 16U);
-        ASSERT_EQ(memcmp(data, "0123456789abcdef", size), 0);
+        ASSERT_MEMEQ_NN(data, size, "0123456789abcdef", 16U);
 
         data = mfree(data);
         ASSERT_OK(pe_read_section_data(fd, sections + 1, SIZE_MAX, &data, &size));
-        ASSERT_EQ(size, 8U);
-        ASSERT_EQ(memcmp(data, "ABCDEFGH", size), 0);
+        ASSERT_MEMEQ_NN(data, size, "ABCDEFGH", 8U);
 }
 
 /* ======================================================================

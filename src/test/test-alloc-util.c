@@ -17,7 +17,7 @@ TEST(alloca) {
 
         t = alloca0_align(997, 1024);
         ASSERT_FALSE((uintptr_t)t & 0x1ff);
-        ASSERT_EQ(memcmp(t, zero, 997), 0);
+        ASSERT_MEMEQ(t, zero, 997);
 }
 
 TEST(GREEDY_REALLOC) {
@@ -63,14 +63,14 @@ TEST(GREEDY_REALLOC) {
                 ASSERT_NOT_NULL(GREEDY_REALLOC_APPEND(before, n_before, c, n_c));
                 ASSERT_NOT_NULL(before);
                 ASSERT_EQ(n_before, n_c);
-                ASSERT_EQ(memcmp_safe(c, before, n_c), 0);
+                ASSERT_MEMEQ(c, before, n_c);
 
                 ASSERT_NOT_NULL(GREEDY_REALLOC_APPEND(c, n_c, from, n_from));
                 ASSERT_EQ(n_c, n_before + n_from);
                 ASSERT_GE(MALLOC_ELEMENTSOF(c), n_c);
                 ASSERT_GE(MALLOC_SIZEOF_SAFE(c), n_c * sizeof(int));
-                ASSERT_EQ(memcmp_safe(c, before, n_before), 0);
-                ASSERT_EQ(memcmp_safe(&c[n_before], from, n_from), 0);
+                ASSERT_MEMEQ(c, before, n_before);
+                ASSERT_MEMEQ(&c[n_before], from, n_from);
 
                 before = mfree(before);
                 ASSERT_NULL(before);
@@ -78,14 +78,14 @@ TEST(GREEDY_REALLOC) {
                 ASSERT_NOT_NULL(GREEDY_REALLOC_APPEND(before, n_before, c, n_c));
                 ASSERT_NOT_NULL(before);
                 ASSERT_EQ(n_before, n_c);
-                ASSERT_EQ(memcmp_safe(c, before, n_c), 0);
+                ASSERT_MEMEQ(c, before, n_c);
 
                 ASSERT_NOT_NULL(GREEDY_REALLOC_APPEND(c, n_c, NULL, 0));
                 ASSERT_NOT_NULL(c);
                 ASSERT_EQ(n_c, n_before);
                 ASSERT_GE(MALLOC_ELEMENTSOF(c), n_c);
                 ASSERT_GE(MALLOC_SIZEOF_SAFE(c), n_c * sizeof(int));
-                ASSERT_EQ(memcmp_safe(c, before, n_c), 0);
+                ASSERT_MEMEQ(c, before, n_c);
         }
 
         for (j = 0; j < i * n_from; j++)

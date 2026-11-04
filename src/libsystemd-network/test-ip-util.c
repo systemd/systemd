@@ -65,17 +65,17 @@ TEST(udp_packet_build_and_verify) {
                                   &ip2,
                                   &udp2));
 
-        ASSERT_EQ(memcmp(&ip, &ip2, sizeof(struct iphdr)), 0);
-        ASSERT_EQ(memcmp(&udp, &udp2, sizeof(struct udphdr)), 0);
+        ASSERT_MEMEQ(&ip, &ip2, sizeof(struct iphdr));
+        ASSERT_MEMEQ(&udp, &udp2, sizeof(struct udphdr));
 
         _cleanup_(iovec_done) struct iovec packet = {};
         create_packet(&ip, &udp, &payload, &packet);
 
         struct iovec iov;
         ASSERT_OK(udp_packet_verify(&packet, /* port= */ 43, /* checksum= */ false, &iov));
-        ASSERT_TRUE(iovec_equal(&iov, &joined));
+        ASSERT_IOVEC_EQ(&iov, &joined);
         ASSERT_OK(udp_packet_verify(&packet, /* port= */ 43, /* checksum= */ true, &iov));
-        ASSERT_TRUE(iovec_equal(&iov, &joined));
+        ASSERT_IOVEC_EQ(&iov, &joined);
 
         /* UDP port mismatch */
         ASSERT_ERROR(udp_packet_verify(&packet, /* port= */ 42, /* checksum= */ false, /* ret_payload= */ NULL), EBADMSG);
@@ -156,7 +156,7 @@ TEST(udp_packet_build_and_verify) {
         iovec_done(&packet);
         create_packet(&ip, &badudp, &payload, &packet);
         ASSERT_OK(udp_packet_verify(&packet, /* port= */ 43, /* checksum= */ false, &iov));
-        ASSERT_TRUE(iovec_equal(&iov, &joined));
+        ASSERT_IOVEC_EQ(&iov, &joined);
         ASSERT_ERROR(udp_packet_verify(&packet, /* port= */ 43, /* checksum= */ true, /* ret_payload= */ NULL), EBADMSG);
 
         /* missing UDP checksum */
@@ -165,9 +165,9 @@ TEST(udp_packet_build_and_verify) {
         iovec_done(&packet);
         create_packet(&ip, &badudp, &payload, &packet);
         ASSERT_OK(udp_packet_verify(&packet, /* port= */ 43, /* checksum= */ false, &iov));
-        ASSERT_TRUE(iovec_equal(&iov, &joined));
+        ASSERT_IOVEC_EQ(&iov, &joined);
         ASSERT_OK(udp_packet_verify(&packet, /* port= */ 43, /* checksum= */ true, &iov));
-        ASSERT_TRUE(iovec_equal(&iov, &joined));
+        ASSERT_IOVEC_EQ(&iov, &joined);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

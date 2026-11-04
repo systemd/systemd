@@ -561,47 +561,41 @@ TEST(read_full_file_full) {
         ASSERT_OK(fflush_and_check(f));
 
         ASSERT_OK(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, SIZE_MAX, /* flags= */ 0, /* bind_name= */ NULL, &rbuf, &rbuf_size));
-        ASSERT_EQ(rbuf_size, sizeof(buf));
-        ASSERT_EQ(memcmp(buf, rbuf, rbuf_size), 0);
+        ASSERT_MEMEQ_NN(buf, sizeof(buf), rbuf, rbuf_size);
         rbuf = mfree(rbuf);
 
         ASSERT_OK(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, 128, /* flags= */ 0, /* bind_name= */ NULL, &rbuf, &rbuf_size));
         ASSERT_EQ(rbuf_size, 128U);
-        ASSERT_EQ(memcmp(buf, rbuf, rbuf_size), 0);
+        ASSERT_MEMEQ(buf, rbuf, rbuf_size);
         rbuf = mfree(rbuf);
 
         ASSERT_ERROR(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, 128, READ_FULL_FILE_FAIL_WHEN_LARGER, /* bind_name= */ NULL, &rbuf, &rbuf_size), E2BIG);
         ASSERT_ERROR(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, sizeof(buf)-1, READ_FULL_FILE_FAIL_WHEN_LARGER, /* bind_name= */ NULL, &rbuf, &rbuf_size), E2BIG);
         ASSERT_OK(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, sizeof(buf), READ_FULL_FILE_FAIL_WHEN_LARGER, /* bind_name= */ NULL, &rbuf, &rbuf_size));
-        ASSERT_EQ(rbuf_size, sizeof(buf));
-        ASSERT_EQ(memcmp(buf, rbuf, rbuf_size), 0);
+        ASSERT_MEMEQ_NN(buf, sizeof(buf), rbuf, rbuf_size);
         rbuf = mfree(rbuf);
 
         ASSERT_ERROR(read_full_file_full(AT_FDCWD, fn, 47, 128, READ_FULL_FILE_FAIL_WHEN_LARGER, /* bind_name= */ NULL, &rbuf, &rbuf_size), E2BIG);
         ASSERT_ERROR(read_full_file_full(AT_FDCWD, fn, 47, sizeof(buf)-47-1, READ_FULL_FILE_FAIL_WHEN_LARGER, /* bind_name= */ NULL, &rbuf, &rbuf_size), E2BIG);
         ASSERT_OK(read_full_file_full(AT_FDCWD, fn, 47, sizeof(buf)-47, READ_FULL_FILE_FAIL_WHEN_LARGER, /* bind_name= */ NULL, &rbuf, &rbuf_size));
-        ASSERT_EQ(rbuf_size, sizeof(buf)-47);
-        ASSERT_EQ(memcmp(buf+47, rbuf, rbuf_size), 0);
+        ASSERT_MEMEQ_NN(buf+47, sizeof(buf)-47, rbuf, rbuf_size);
         rbuf = mfree(rbuf);
 
         ASSERT_OK(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, sizeof(buf)+1, READ_FULL_FILE_FAIL_WHEN_LARGER, /* bind_name= */ NULL, &rbuf, &rbuf_size));
-        ASSERT_EQ(rbuf_size, sizeof(buf));
-        ASSERT_EQ(memcmp(buf, rbuf, rbuf_size), 0);
+        ASSERT_MEMEQ_NN(buf, sizeof(buf), rbuf, rbuf_size);
         rbuf = mfree(rbuf);
 
         ASSERT_OK(read_full_file_full(AT_FDCWD, fn, 1234, SIZE_MAX, /* flags= */ 0, /* bind_name= */ NULL, &rbuf, &rbuf_size));
-        ASSERT_EQ(rbuf_size, sizeof(buf) - 1234);
-        ASSERT_EQ(memcmp(buf + 1234, rbuf, rbuf_size), 0);
+        ASSERT_MEMEQ_NN(buf + 1234, sizeof(buf) - 1234, rbuf, rbuf_size);
         rbuf = mfree(rbuf);
 
         ASSERT_OK(read_full_file_full(AT_FDCWD, fn, 2345, 777, /* flags= */ 0, /* bind_name= */ NULL, &rbuf, &rbuf_size));
         ASSERT_EQ(rbuf_size, 777U);
-        ASSERT_EQ(memcmp(buf + 2345, rbuf, rbuf_size), 0);
+        ASSERT_MEMEQ(buf + 2345, rbuf, rbuf_size);
         rbuf = mfree(rbuf);
 
         ASSERT_OK(read_full_file_full(AT_FDCWD, fn, 4700, 20, /* flags= */ 0, /* bind_name= */ NULL, &rbuf, &rbuf_size));
-        ASSERT_EQ(rbuf_size, 11U);
-        ASSERT_EQ(memcmp(buf + 4700, rbuf, rbuf_size), 0);
+        ASSERT_MEMEQ_NN(buf + 4700, 11U, rbuf, rbuf_size);
         rbuf = mfree(rbuf);
 
         ASSERT_OK(read_full_file_full(AT_FDCWD, fn, 10000, 99, /* flags= */ 0, /* bind_name= */ NULL, &rbuf, &rbuf_size));
@@ -612,8 +606,7 @@ TEST(read_full_file_full) {
         _cleanup_close_ int fd = -EBADF;
         ASSERT_OK(fd = xopenat(AT_FDCWD, fn, O_RDONLY));
         ASSERT_OK(read_full_file_at(fd, /* filename= */ NULL, &rbuf, &rbuf_size));
-        ASSERT_EQ(rbuf_size, sizeof(buf));
-        ASSERT_EQ(memcmp(buf, rbuf, rbuf_size), 0);
+        ASSERT_MEMEQ_NN(buf, sizeof(buf), rbuf, rbuf_size);
 }
 
 TEST(xfopenat_empty_path) {
@@ -750,13 +743,13 @@ TEST(write_data_file_atomic_at) {
 
         _cleanup_(iovec_done) struct iovec ra = {};
         ASSERT_OK(read_full_file(abs_wdfa, (char**) &ra.iov_base, &ra.iov_len));
-        ASSERT_TRUE(iovec_equal(&a, &ra));
+        ASSERT_IOVEC_EQ(&a, &ra);
         ASSERT_OK_ERRNO(unlink(abs_wdfa));
 
         ASSERT_OK(write_data_file_atomic_at(XAT_FDROOT, rel_wdfa, &a, /* flags= */ 0));
         iovec_done(&ra);
         ASSERT_OK(read_full_file(abs_wdfa, (char**) &ra.iov_base, &ra.iov_len));
-        ASSERT_TRUE(iovec_equal(&a, &ra));
+        ASSERT_IOVEC_EQ(&a, &ra);
         ASSERT_OK_ERRNO(unlink(abs_wdfa));
 
         ASSERT_ERROR(write_data_file_atomic_at(AT_FDCWD, /* path= */ NULL, &a, /* flags= */ 0), EINVAL);
@@ -772,13 +765,13 @@ TEST(write_data_file_atomic_at) {
         ASSERT_OK(write_data_file_atomic_at(AT_FDCWD, "wdfa", &a, /* flags= */ 0));
         iovec_done(&ra);
         ASSERT_OK(read_full_file(abs_wdfa, (char**) &ra.iov_base, &ra.iov_len));
-        ASSERT_TRUE(iovec_equal(&a, &ra));
+        ASSERT_IOVEC_EQ(&a, &ra);
         ASSERT_OK_ERRNO(unlink(abs_wdfa));
 
         ASSERT_OK(write_data_file_atomic_at(XAT_FDROOT, rel_wdfa, &a, /* flags= */ 0));
         iovec_done(&ra);
         ASSERT_OK(read_full_file(abs_wdfa, (char**) &ra.iov_base, &ra.iov_len));
-        ASSERT_TRUE(iovec_equal(&a, &ra));
+        ASSERT_IOVEC_EQ(&a, &ra);
         ASSERT_OK_ERRNO(unlink(abs_wdfa));
 
         ASSERT_OK_ERRNO(chdir(cwd));
@@ -787,7 +780,7 @@ TEST(write_data_file_atomic_at) {
         ASSERT_OK(write_data_file_atomic_at(XAT_FDROOT, rel_zzz_wdfa, &a, WRITE_DATA_FILE_MKDIR_0755));
         iovec_done(&ra);
         ASSERT_OK(read_full_file(abs_zzz_wdfa, (char**) &ra.iov_base, &ra.iov_len));
-        ASSERT_TRUE(iovec_equal(&a, &ra));
+        ASSERT_IOVEC_EQ(&a, &ra);
         ASSERT_OK_ERRNO(unlink(abs_zzz_wdfa));
 
         r = write_data_file_atomic_at(AT_FDCWD, abs_zzz, &a, /* flags= */ 0);
