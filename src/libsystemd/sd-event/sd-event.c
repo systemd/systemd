@@ -213,13 +213,13 @@ static bool event_io_uring_enabled(sd_event *e) {
 /* io_uring_get_sqe() returns NULL when the SQ ring is full. Submitting the queued SQEs makes room.
  * io_uring_submit() doesn't wait for completions. When a socket operation has to wait for the socket, the
  * kernel arms a poll for the operation and returns. The submit therefore doesn't block. */
-static int event_io_uring_get_sqe(sd_event *e, struct io_uring_sqe **ret) {
+static int event_io_uring_get_sqe(sd_event *e, union io_uring_sqe128 **ret) {
         int r;
 
         assert(e);
         assert(ret);
 
-        struct io_uring_sqe *sqe = io_uring_get_sqe(&e->io_uring);
+        union io_uring_sqe128 *sqe = io_uring_get_sqe(&e->io_uring);
         if (sqe) {
                 *ret = sqe;
                 return 0;
@@ -257,13 +257,13 @@ static int event_io_uring_cancel_all(sd_event *e) {
         if (!event_io_uring_enabled(e) || e->io_uring_cancel_all_queued)
                 return 0;
 
-        struct io_uring_sqe *sqe;
+        union io_uring_sqe128 *sqe;
         r = event_io_uring_get_sqe(e, &sqe);
         if (r < 0)
                 return r;
 
-        io_uring_prep_cancel(sqe, /* user_data= */ NULL, IORING_ASYNC_CANCEL_ANY | IORING_ASYNC_CANCEL_ALL);
-        sqe->flags |= IOSQE_CQE_SKIP_SUCCESS;
+        io_uring_prep_cancel(&sqe->sqe, /* user_data= */ NULL, IORING_ASYNC_CANCEL_ANY | IORING_ASYNC_CANCEL_ALL);
+        sqe->sqe.flags |= IOSQE_CQE_SKIP_SUCCESS;
 
         e->io_uring_cancel_all_queued = true;
         return 0;
@@ -4824,17 +4824,17 @@ static int epoll_wait_usec(
         return RET_NERRNO(epoll_wait(fd, events, maxevents, msec));
 }
 
-static void dispatch_cqe(sd_event *e, const struct io_uring_cqe *cqe) {
+static void dispatch_cqe(sd_event *e, const union io_uring_cqe32 *cqe) {
         assert(e);
         assert(cqe);
 
         /* Our own cancel SQEs have no user_data, and IOSQE_CQE_SKIP_SUCCESS suppresses their CQE on success.
          * -ENOENT means that the target completed before the cancel SQE ran, and -EALREADY that the target
          * is running and completes on its own. */
-        _cleanup_(sd_future_unrefp) sd_future *f = io_uring_cqe_get_data(cqe);
+        _cleanup_(sd_future_unrefp) sd_future *f = io_uring_cqe_get_data(&cqe->cqe);
         if (!f) {
-                if (cqe->res < 0 && !IN_SET(cqe->res, -ENOENT, -EALREADY))
-                        log_debug_errno(cqe->res, "io_uring cancel SQE failed unexpectedly, ignoring: %m");
+                if (cqe->cqe.res < 0 && !IN_SET(cqe->cqe.res, -ENOENT, -EALREADY))
+                        log_debug_errno(cqe->cqe.res, "io_uring cancel SQE failed unexpectedly, ignoring: %m");
                 return;
         }
 
@@ -4843,11 +4843,11 @@ static void dispatch_cqe(sd_event *e, const struct io_uring_cqe *cqe) {
 
         /* sd_future_resolve() only enables the event sources of the callbacks and of the waiting fibers, so
          * it can run while the loop waits. */
-        assert_se(sd_future_resolve(f, cqe->res) >= 0);
+        future_io_uring_complete(f, cqe);
 }
 
 static int process_io_uring(sd_event *e) {
-        struct io_uring_cqe *cqe;
+        union io_uring_cqe32 *cqe;
         unsigned n = 0;
 
         assert(e);
@@ -5478,7 +5478,7 @@ int event_get_wait_fd(sd_event *e) {
         return e->epoll_fd;
 }
 
-int event_add_io_uring_sqe(sd_event *e, const struct io_uring_sqe *sqe, sd_future *f) {
+int event_add_io_uring_sqe(sd_event *e, const union io_uring_sqe128 *sqe, sd_future *f) {
         int r;
 
         assert(e);
@@ -5488,7 +5488,7 @@ int event_add_io_uring_sqe(sd_event *e, const struct io_uring_sqe *sqe, sd_futur
         assert(!e->exit_requested);
         assert(event_io_uring_enabled(e));
 
-        struct io_uring_sqe *q;
+        union io_uring_sqe128 *q;
         r = event_io_uring_get_sqe(e, &q);
         if (r < 0)
                 return r;
@@ -5496,7 +5496,7 @@ int event_add_io_uring_sqe(sd_event *e, const struct io_uring_sqe *sqe, sd_futur
         *q = *sqe;
 
         /* The kernel gets a raw pointer to the future, so we hold a reference until the CQE arrives. */
-        io_uring_sqe_set_data(q, sd_future_ref(f));
+        io_uring_sqe_set_data(&q->sqe, sd_future_ref(f));
 
         e->n_io_uring_inflight++;
 
@@ -5517,13 +5517,13 @@ int event_cancel_io_uring_sqe(sd_event *e, sd_future *f) {
 
         /* The kernel runs SQEs in order. If the SQE of the future wasn't submitted yet, the kernel runs it
          * before the cancel SQE, and the cancel SQE then cancels it. */
-        struct io_uring_sqe *sqe;
+        union io_uring_sqe128 *sqe;
         r = event_io_uring_get_sqe(e, &sqe);
         if (r < 0)
                 return r;
 
-        io_uring_prep_cancel(sqe, f, /* flags= */ 0);
-        sqe->flags |= IOSQE_CQE_SKIP_SUCCESS;
+        io_uring_prep_cancel(&sqe->sqe, f, /* flags= */ 0);
+        sqe->sqe.flags |= IOSQE_CQE_SKIP_SUCCESS;
         return 0;
 }
 
