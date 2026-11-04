@@ -1417,9 +1417,9 @@ VERB(verb_copy_files, "copy-from", "NAME PATH [PATH]\0", 3, 4, 0,
 static int verb_copy_files(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_free_ char *abs_host_path = NULL;
-        char *dest, *host_path, *container_path;
+        _cleanup_free_ char *host_path = NULL, *container_path = NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
+        const char *dest;
         bool copy_from;
         int r;
 
@@ -1427,16 +1427,16 @@ static int verb_copy_files(int argc, char *argv[], uintptr_t _data, void *userda
 
         copy_from = streq(argv[0], "copy-from");
         dest = argv[3] ?: argv[2];
-        host_path = copy_from ? dest : argv[2];
-        container_path = copy_from ? argv[2] : dest;
 
-        if (!path_is_absolute(host_path)) {
-                r = path_make_absolute_cwd(host_path, &abs_host_path);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to make path absolute: %m");
+        /* Drop trailing slashes (as added by shell tab completion of directories), machined only accepts
+         * normalized paths. */
+        r = path_make_absolute_cwd(copy_from ? dest : argv[2], &host_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to make path absolute: %m");
+        path_simplify(host_path);
 
-                host_path = abs_host_path;
-        }
+        if (path_simplify_alloc(copy_from ? argv[2] : dest, &container_path) < 0)
+                return log_oom();
 
         r = bus_message_new_method_call(
                         bus,
@@ -1473,10 +1473,19 @@ VERB(verb_bind_mount, "bind", "NAME PATH [PATH]\0", 3, 4, 0,
      "Bind mount a path from the host into a container");
 static int verb_bind_mount(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *src = NULL, *dest = NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        /* Drop trailing slashes (as added by shell tab completion of directories), machined only accepts
+         * normalized paths. */
+        if (path_simplify_alloc(argv[2], &src) < 0)
+                return log_oom();
+
+        if (path_simplify_alloc(argc > 3 ? argv[3] : NULL, &dest) < 0)
+                return log_oom();
 
         r = bus_call_method(
                         bus,
@@ -1486,8 +1495,8 @@ static int verb_bind_mount(int argc, char *argv[], uintptr_t _data, void *userda
                         /* ret_reply= */ NULL,
                         "sssbb",
                         argv[1],
-                        argv[2],
-                        argv[3],
+                        src,
+                        dest,
                         arg_read_only,
                         arg_mkdir);
         if (r < 0)

@@ -1180,15 +1180,18 @@ int config_parse_load_credential(
                 return 0;
         }
 
-        if (path_is_absolute(p) ? !path_is_normalized(p) : !credential_name_valid(p)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Credential source is neither a normalized absolute path nor a credential name, ignoring: %s", p);
-                return 0;
-        }
-
         source = strdup(p);
         if (!source)
                 return log_oom();
+
+        if (path_is_absolute(source))
+                path_simplify(source);
+
+        if (path_is_absolute(source) ? !path_is_normalized(source) : !credential_name_valid(source)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Credential source is neither a normalized absolute path nor a credential name, ignoring: %s", source);
+                return 0;
+        }
 
         /* As in unit files, a later assignment overrides an earlier one for the same credential. */
         STRV_FOREACH_PAIR(i, s, settings->load_credentials)
