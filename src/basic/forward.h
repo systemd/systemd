@@ -121,6 +121,8 @@ typedef struct Fiber Fiber;
 typedef struct FiberOps FiberOps;
 typedef struct Hashmap Hashmap;
 typedef struct HashmapBase HashmapBase;
+union io_uring_cqe32;
+union io_uring_sqe128;
 typedef struct IteratedCache IteratedCache;
 typedef struct Iterator Iterator;
 typedef struct LogContext LogContext;
