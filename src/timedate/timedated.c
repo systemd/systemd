@@ -781,46 +781,25 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
         return sd_bus_reply_method_return(m, /* types= */ NULL);
 }
 
-static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        int lrtc, fix_system, interactive;
-        Context *c = ASSERT_PTR(userdata);
+static int context_set_local_rtc(Context *c, bool local_rtc, bool fix_system) {
         struct timespec ts;
         int r;
 
-        assert(m);
+        assert(c);
 
-        r = sd_bus_message_read(m, "bbb", &lrtc, &fix_system, &interactive);
-        if (r < 0)
-                return r;
+        if (local_rtc == c->local_rtc && !fix_system)
+                return 0;
 
-        if (lrtc == c->local_rtc && !fix_system)
-                return sd_bus_reply_method_return(m, /* types= */ NULL);
-
-        r = bus_verify_polkit_async_full(
-                        m,
-                        "org.freedesktop.timedate1.set-local-rtc",
-                        /* details= */ NULL,
-                        /* good_user= */ UID_INVALID,
-                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
-                        &c->polkit_registry,
-                        /* ret_admin= */ NULL,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1;
-
-        if (lrtc != c->local_rtc) {
+        if (local_rtc != c->local_rtc) {
                 bool old_local_rtc = c->local_rtc;
 
-                c->local_rtc = lrtc;
+                c->local_rtc = local_rtc;
 
                 /* 1. Write new configuration file */
                 r = context_write_data_local_rtc(c);
                 if (r < 0) {
                         c->local_rtc = old_local_rtc;
-                        log_error_errno(r, "Failed to set RTC to %s: %m", lrtc ? "local" : "UTC");
-                        return sd_bus_error_set_errnof(error, r, "Failed to set RTC to %s: %m", lrtc ? "local" : "UTC");
+                        return log_error_errno(r, "Failed to set RTC to %s: %m", local_rtc ? "local" : "UTC");
                 }
         }
 
@@ -877,9 +856,44 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
 
         log_info("RTC configured to %s time.", c->local_rtc ? "local" : "UTC");
 
-        (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
+        (void) sd_bus_emit_properties_changed(c->bus,
                                               "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "LocalRTC",
                                               NULL);
+
+        return 1;
+}
+
+static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        int lrtc, fix_system, interactive;
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(m);
+
+        r = sd_bus_message_read(m, "bbb", &lrtc, &fix_system, &interactive);
+        if (r < 0)
+                return r;
+
+        if (lrtc == c->local_rtc && !fix_system)
+                return sd_bus_reply_method_return(m, /* types= */ NULL);
+
+        r = bus_verify_polkit_async_full(
+                        m,
+                        "org.freedesktop.timedate1.set-local-rtc",
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
+                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
+                        &c->polkit_registry,
+                        /* ret_admin= */ NULL,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1;
+
+        r = context_set_local_rtc(c, lrtc, fix_system);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to set RTC to %s: %m", lrtc ? "local" : "UTC");
 
         return sd_bus_reply_method_return(m, /* types= */ NULL);
 }
@@ -1233,6 +1247,51 @@ static int vl_method_set_timezone(sd_varlink *link, sd_json_variant *parameters,
         return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
+static int vl_method_set_local_rtc(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        struct params {
+                bool local_rtc;
+                bool fix_system;
+        };
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "localRTC",  SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct params, local_rtc),  SD_JSON_MANDATORY },
+                { "fixSystem", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct params, fix_system), SD_JSON_NULLABLE  },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        if (FLAGS_SET(flags, SD_VARLINK_METHOD_ONEWAY))
+                return -EINVAL;
+
+        struct params p = {};
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (p.local_rtc == c->local_rtc && !p.fix_system)
+                return sd_varlink_reply(link, /* parameters= */ NULL);
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        c->bus,
+                        "org.freedesktop.timedate1.set-local-rtc",
+                        /* details= */ NULL,
+                        &c->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = context_set_local_rtc(c, p.local_rtc, p.fix_system);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
 static int connect_varlink(Context *c) {
         int r;
 
@@ -1256,6 +1315,7 @@ static int connect_varlink(Context *c) {
 
         r = sd_varlink_server_bind_method_many(
                         c->varlink_server,
+                        "io.systemd.Timedate.SetLocalRTC",   vl_method_set_local_rtc,
                         "io.systemd.Timedate.SetTimezone",   vl_method_set_timezone,
                         "io.systemd.service.Ping",           varlink_method_ping,
                         "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
