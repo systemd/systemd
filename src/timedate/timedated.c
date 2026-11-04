@@ -1456,6 +1456,37 @@ static int method_list_timezones(sd_bus_message *m, void *userdata, sd_bus_error
         return sd_bus_message_send(reply);
 }
 
+static int vl_method_list_timezones(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_strv_free_ char **zones = NULL;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        r = get_timezones(&zones);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read list of time zones: %m");
+
+        r = sd_varlink_set_sentinel(link, /* error_id= */ NULL);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(zone, zones) {
+                r = sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("timezone", *zone));
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static const sd_bus_vtable timedate_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -1558,6 +1589,7 @@ static int connect_varlink(Context *c) {
         r = sd_varlink_server_bind_method_many(
                         c->varlink_server,
                         "io.systemd.Timedate.Describe",      vl_method_describe,
+                        "io.systemd.Timedate.ListTimezones", vl_method_list_timezones,
                         "io.systemd.Timedate.SetLocalRTC",   vl_method_set_local_rtc,
                         "io.systemd.Timedate.SetNTP",        vl_method_set_ntp,
                         "io.systemd.Timedate.SetTime",       vl_method_set_time,
