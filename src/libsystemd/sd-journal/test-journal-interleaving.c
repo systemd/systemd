@@ -18,6 +18,7 @@
 #include "chattr-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "iovec-util.h"
 #include "journal-file-util.h"
@@ -490,7 +491,7 @@ static void test_remove_unlinked_selected_file_one(bool truncate, bool refresh_s
                 sigbus_install();
 
         /* Keep the file open and mapped while the name goes away, like vacuuming does. */
-        fd = ASSERT_OK_ERRNO(open("two.journal", O_WRONLY|O_CLOEXEC));
+        fd = ASSERT_OK(xopenat(AT_FDCWD, "two.journal", O_WRONLY));
         ASSERT_OK_ERRNO(unlink("two.journal"));
 
         if (truncate) {
@@ -567,7 +568,7 @@ TEST(keep_linked_selected_file_error) {
         f = ASSERT_NOT_NULL(ordered_hashmap_get(j->files, strjoina(t, "/two.journal")));
         ASSERT_EQ((int) f->location_type, LOCATION_SEEK);
 
-        fd = ASSERT_OK_ERRNO(open("two.journal", O_WRONLY|O_CLOEXEC));
+        fd = ASSERT_OK(xopenat(AT_FDCWD, "two.journal", O_WRONLY));
         ASSERT_OK_EQ_ERRNO(pwrite(fd, &type, sizeof(type), f->current_offset), (ssize_t) sizeof(type));
         ASSERT_OK_ERRNO(fsync(fd));
 
@@ -869,8 +870,8 @@ TEST(open_and_follow_edge_cases) {
         sd_journal_close(j);
         j = NULL;
 
-        directory_fd = open(t, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
-        ASSERT_OK_ERRNO(directory_fd);
+        directory_fd = xopenat(AT_FDCWD, t, O_RDONLY|O_DIRECTORY);
+        ASSERT_OK(directory_fd);
         owned_directory_fd = directory_fd;
         ASSERT_OK(sd_journal_open_directory_fd(
                         &j,
@@ -886,8 +887,8 @@ TEST(open_and_follow_edge_cases) {
         ASSERT_OK_ERRNO(rmdir(t));
         ASSERT_OK_ERRNO(rename(renamed, t));
 
-        failure_fd = open(one, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
-        ASSERT_OK_ERRNO(failure_fd);
+        failure_fd = xopenat(AT_FDCWD, one, O_RDONLY|O_NONBLOCK);
+        ASSERT_OK(failure_fd);
         int failure_fds[] = { failure_fd, -EBADF };
         ASSERT_ERROR(sd_journal_open_files_fd(
                              &j,
@@ -898,11 +899,11 @@ TEST(open_and_follow_edge_cases) {
         ASSERT_OK_ERRNO(fcntl(failure_fd, F_GETFD));
 
         int fds[] = {
-                open(one, O_RDONLY|O_CLOEXEC|O_NONBLOCK),
-                open(two, O_RDONLY|O_CLOEXEC|O_NONBLOCK),
+                xopenat(AT_FDCWD, one, O_RDONLY|O_NONBLOCK),
+                xopenat(AT_FDCWD, two, O_RDONLY|O_NONBLOCK),
         };
-        ASSERT_OK_ERRNO(fds[0]);
-        ASSERT_OK_ERRNO(fds[1]);
+        ASSERT_OK(fds[0]);
+        ASSERT_OK(fds[1]);
         ASSERT_OK_ERRNO(rename(one, moved));
         ASSERT_OK(sd_journal_open_files_fd(&j, fds, ELEMENTSOF(fds), SD_JOURNAL_ASSUME_IMMUTABLE));
         ASSERT_OK_ERRNO(unlink(moved));

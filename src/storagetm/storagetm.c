@@ -626,7 +626,7 @@ static int nvme_port_add(const char *name, int ip_family, NvmePort **ret) {
                 if (attempt > 16)
                         return log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Can't find free NVME port after %u attempts.", attempt);
 
-                log_debug_errno(port_fd, "NVME port %" PRIu16 " exists already, randomizing port.", portnr);
+                log_debug("NVME port %" PRIu16 " exists already, randomizing port.", portnr);
 
                 portnr = calculate_next_port(ip_family);
         }

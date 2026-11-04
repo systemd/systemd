@@ -28,12 +28,8 @@ int config_parse_vrf_table(
         assert(rvalue);
 
         r = manager_get_route_table_from_string(vrf->meta.manager, rvalue, table);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=, ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         return 0;
 }

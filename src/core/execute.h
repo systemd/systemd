@@ -383,6 +383,9 @@ typedef struct ExecContext {
         bool address_families_allow_list:1;
         Set *address_families;
 
+        bool io_uring_filter_allow_list:1;
+        Set *io_uring_filter; /* io_uring opcodes plus one */
+
         char *user_namespace_path;
         char *network_namespace_path;
         char *ipc_namespace_path;
@@ -474,6 +477,7 @@ typedef struct ExecParameters {
 
         bool debug_invocation;
         bool selinux_context_net;
+        bool io_uring_bpf_filter_supported;
 } ExecParameters;
 
 #define EXEC_PARAMETERS_INIT(_flags)              \
@@ -619,9 +623,13 @@ char** exec_context_get_syscall_filter(const ExecContext *c);
 char** exec_context_get_syscall_archs(const ExecContext *c);
 char** exec_context_get_syscall_log(const ExecContext *c);
 char** exec_context_get_address_families(const ExecContext *c);
+char** exec_context_get_io_uring_filter(const ExecContext *c);
 char** exec_context_get_restrict_filesystems(const ExecContext *c);
+bool exec_context_has_address_families(const ExecContext *c);
+bool exec_context_has_syscall_filters(const ExecContext *c);
 bool exec_context_restrict_namespaces_set(const ExecContext *c);
 bool exec_context_restrict_filesystems_set(const ExecContext *c);
+bool exec_context_io_uring_filter_set(const ExecContext *c);
 bool exec_context_with_rootfs(const ExecContext *c);
 bool exec_context_with_rootfs_strict(const ExecContext *c);
 

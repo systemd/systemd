@@ -179,12 +179,8 @@ int config_parse_cake_bandwidth(
         }
 
         r = parse_size(rvalue, 1000, &k);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         c->bandwidth = k/8;
         TAKE_PTR(qdisc);
@@ -232,12 +228,8 @@ int config_parse_cake_overhead(
         }
 
         r = safe_atoi32(rvalue, &v);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (v < -64 || v > 256) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid '%s=', ignoring assignment: %s",
@@ -291,12 +283,8 @@ int config_parse_cake_mpu(
         }
 
         r = safe_atou32(rvalue, &v);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (v <= 0 || v > 256) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid '%s=', ignoring assignment: %s",
@@ -355,12 +343,8 @@ int config_parse_cake_tristate(
                 assert_not_reached();
 
         r = parse_tristate(rvalue, dest);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         TAKE_PTR(qdisc);
         return 0;
@@ -414,12 +398,8 @@ int config_parse_cake_compensation_mode(
         }
 
         mode = cake_compensation_mode_from_string(rvalue);
-        if (mode < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, mode,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (mode < 0)
+                return log_syntax_parse_error(unit, filename, line, mode, lvalue, rvalue);
 
         c->compensation_mode = mode;
         TAKE_PTR(qdisc);
@@ -479,12 +459,8 @@ int config_parse_cake_flow_isolation_mode(
         }
 
         mode = cake_flow_isolation_mode_from_string(rvalue);
-        if (mode < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, mode,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (mode < 0)
+                return log_syntax_parse_error(unit, filename, line, mode, lvalue, rvalue);
 
         c->flow_isolation_mode = mode;
         TAKE_PTR(qdisc);
@@ -541,12 +517,8 @@ int config_parse_cake_priority_queueing_preset(
         }
 
         preset = cake_priority_queueing_preset_from_string(rvalue);
-        if (preset < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, preset,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (preset < 0)
+                return log_syntax_parse_error(unit, filename, line, preset, lvalue, rvalue);
 
         c->preset = preset;
         TAKE_PTR(qdisc);
@@ -593,12 +565,8 @@ int config_parse_cake_fwmark(
         }
 
         r = safe_atou32(rvalue, &fwmark);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (fwmark <= 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid '%s=', ignoring assignment: %s",
@@ -651,12 +619,8 @@ int config_parse_cake_rtt(
         }
 
         r = parse_sec(rvalue, &t);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (t <= 0 || t > UINT32_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid '%s=', ignoring assignment: %s",
@@ -717,12 +681,8 @@ int config_parse_cake_ack_filter(
         }
 
         ack_filter = cake_ack_filter_from_string(rvalue);
-        if (ack_filter < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, ack_filter,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (ack_filter < 0)
+                return log_syntax_parse_error(unit, filename, line, ack_filter, lvalue, rvalue);
 
         c->ack_filter = ack_filter;
         TAKE_PTR(qdisc);

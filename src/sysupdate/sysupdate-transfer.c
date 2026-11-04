@@ -254,11 +254,8 @@ static int config_parse_instances_max(
         }
 
         r = safe_atou64(rvalue, &i);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse InstancesMax= value, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         transfer_set_instances_max(instances_max, i, filename, line);
         return 0;
@@ -427,11 +424,8 @@ static int config_parse_resource_ptype(
         }
 
         r = gpt_partition_type_from_string(rvalue, &rr->partition_type);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse partition type, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         rr->partition_type_set = true;
         return 0;
@@ -461,11 +455,8 @@ static int config_parse_partition_uuid(
         }
 
         r = sd_id128_from_string(rvalue, &t->partition_uuid);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse partition UUID, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         t->partition_uuid_set = true;
         return 0;
@@ -495,11 +486,8 @@ static int config_parse_partition_flags(
         }
 
         r = safe_atoux64(rvalue, &t->partition_flags);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse partition flags, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         t->partition_flags_set = true;
         return 0;

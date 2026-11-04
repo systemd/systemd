@@ -52,6 +52,10 @@ __get_syscall_sets() {
     done
 }
 
+__get_io_uring_ops() {
+    systemd-analyze --no-legend --no-pager io-uring-filter 2>/dev/null | { while read -r a b; do echo " $a"; done; }
+}
+
 __get_architectures() {
     systemd-analyze --no-legend --no-pager architectures 2>/dev/null | { while read -r a b; do echo " $a"; done; }
 }
@@ -88,6 +92,7 @@ _systemd_analyze() {
         [DUMP]='dump'
         [VERIFY]='verify'
         [SECCOMP_FILTER]='syscall-filter'
+        [IO_URING_FILTER]='io-uring-filter'
         [CAT_CONFIG]='cat-config'
         [SECURITY]='security'
         [CONDITION]='condition'
@@ -247,6 +252,13 @@ _systemd_analyze() {
     elif __contains_word "$verb" ${VERBS[PLOT]}; then
         if [[ $cur = -* ]]; then
             comps='--help --version --system --user --global --no-pager --json=off --json=pretty --json=short --table --no-legend --scale-svg --detailed'
+        fi
+
+    elif __contains_word "$verb" ${VERBS[IO_URING_FILTER]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --no-pager --json=off --json=pretty --json=short --no-legend'
+        else
+            comps=$( __get_io_uring_ops )
         fi
 
     elif __contains_word "$verb" ${VERBS[ARCHITECTURES]}; then

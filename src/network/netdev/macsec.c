@@ -597,12 +597,8 @@ int config_parse_macsec_port(
         }
 
         r = parse_ip_port(rvalue, &port);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse port '%s' for secure channel identifier. Ignoring assignment: %m",
-                           rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         unaligned_write_be16(dest, port);
 
@@ -643,12 +639,8 @@ int config_parse_macsec_hw_address(
                 return log_oom();
 
         r = parse_ether_addr(rvalue, b ? &b->sci.mac : &c->sci.mac);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse MAC address for secure channel identifier. "
-                           "Ignoring assignment: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         TAKE_PTR(b);
         TAKE_PTR(c);
@@ -690,11 +682,8 @@ int config_parse_macsec_packet_number(
         dest = a ? &a->sa.packet_number : &b->sa.packet_number;
 
         r = safe_atou32(rvalue, &val);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse packet number. Ignoring assignment: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (streq(section, "MACsecTransmitAssociation") && val == 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid packet number. Ignoring assignment: %s", rvalue);
@@ -746,10 +735,8 @@ int config_parse_macsec_key(
         dest = a ? &a->sa : &b->sa;
 
         r = unhexmem_full(rvalue, SIZE_MAX, /* secure= */ true, &p, &l);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse key. Ignoring assignment: %m");
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, "(secret)");
 
         if (l != 16) {
                 /* See DEFAULT_SAK_LEN in drivers/net/macsec.c */
@@ -854,13 +841,8 @@ int config_parse_macsec_key_id(
                 return log_oom();
 
         r = unhexmem(rvalue, &p, &l);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse KeyId=%s, ignoring assignment: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (l > MACSEC_KEYID_LEN) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Specified KeyId= is larger then the allowed maximum (%zu > %i), ignoring: %s",
@@ -911,14 +893,8 @@ int config_parse_macsec_sa_activate(
         dest = a ? &a->sa.activate : &b->sa.activate;
 
         r = parse_tristate(rvalue, dest);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse activation mode of %s security association. "
-                           "Ignoring assignment: %s",
-                           streq(section, "MACsecTransmitAssociation") ? "transmit" : "receive",
-                           rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         TAKE_PTR(a);
         TAKE_PTR(b);
@@ -959,12 +935,8 @@ int config_parse_macsec_use_for_encoding(
         }
 
         r = parse_tristate(rvalue, &a->sa.use_for_encoding);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s= setting. Ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (a->sa.use_for_encoding > 0)
                 a->sa.activate = true;

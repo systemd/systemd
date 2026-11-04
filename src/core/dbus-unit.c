@@ -2511,8 +2511,10 @@ static int bus_unit_set_transient_property(
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 r = unit_add_mounts_for(u, *p, UNIT_DEPENDENCY_FILE, unit_mount_dependency_type_from_string(name));
+                                if (r == -ENOMEM)
+                                        return sd_bus_error_set_errno(reterr_error, r);
                                 if (r < 0)
-                                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Failed to add requested mount \"%s\": %m", *p);
+                                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Failed to add requested mount \"%s\": %s", *p, STRERROR(r));
 
                                 unit_write_settingf(u, flags, name, "%s=%s", name, *p);
                         }

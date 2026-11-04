@@ -525,13 +525,8 @@ static int wireguard_decode_key_and_warn(
                 (void) warn_file_is_world_accessible(filename, /* st= */ NULL, unit, line);
 
         r = unbase64mem_full(cred ?: rvalue, SIZE_MAX, /* secure= */ true, &key, &len);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to decode wireguard key provided by %s=, ignoring assignment: %m", lvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, "(secret)");
         if (len != WG_KEY_LEN) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Wireguard key provided by %s= has invalid length (%zu bytes), ignoring assignment.",
@@ -888,12 +883,8 @@ int config_parse_wireguard_keepalive(
                 keepalive = 0;
         else {
                 r = safe_atou16(rvalue, &keepalive);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse \"%s\" as keepalive interval (range 0–65535), ignoring assignment: %m",
-                                   rvalue);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         }
 
         peer->persistent_keepalive_interval = keepalive;
@@ -928,12 +919,8 @@ int config_parse_wireguard_route_table(
         }
 
         r = manager_get_route_table_from_string(netdev->manager, rvalue, table);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=, ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         return 0;
 }
@@ -977,12 +964,8 @@ int config_parse_wireguard_peer_route_table(
         }
 
         r = manager_get_route_table_from_string(NETDEV(w)->manager, rvalue, &peer->route_table);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=, ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         peer->route_table_set = true;
         TAKE_PTR(peer);

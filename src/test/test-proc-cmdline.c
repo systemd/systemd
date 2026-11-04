@@ -38,7 +38,7 @@ TEST(proc_cmdline_override) {
         ASSERT_STREQ(line, "foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\"");
         line = mfree(line);
         ASSERT_OK(proc_cmdline_strv(&args));
-        ASSERT_STRV_EQ(args, STRV_MAKE("foo_bar=quux", "wuff-piep=tuet", "zumm", "some_arg_with_space=foo bar", "and_one_more=zzz aaa"));
+        ASSERT_STRV_EQ_SET(args, "foo_bar=quux", "wuff-piep=tuet", "zumm", "some_arg_with_space=foo bar", "and_one_more=zzz aaa");
         args = strv_free(args);
 
         /* Test if parsing makes uses of the override */
@@ -60,7 +60,7 @@ TEST(proc_cmdline_override) {
         ASSERT_STREQ(line, "hoge");
         line = mfree(line);
         ASSERT_OK(proc_cmdline_strv(&args));
-        ASSERT_STRV_EQ(args, STRV_MAKE("hoge"));
+        ASSERT_STRV_EQ_SET(args, "hoge");
         args = strv_free(args);
 }
 

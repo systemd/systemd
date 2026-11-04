@@ -163,7 +163,7 @@ TEST(xattr_match_filter_test_uapi16_object) {
         ASSERT_TRUE(h.loaded);
         ASSERT_STREQ(h.hostname, "foo.example.com");
         ASSERT_TRUE(sd_id128_equal(h.machine_id, TEST_MACHINE_ID));
-        ASSERT_TRUE(strv_equal(h.machine_tags, STRV_MAKE("rack=7", "server")));
+        ASSERT_STRV_EQ_SET(h.machine_tags, "rack=7", "server");
         ASSERT_STREQ(h.os_id, "fedora");
         ASSERT_STREQ(h.os_version, "42");
         ASSERT_STREQ(h.image_id, "myos");
@@ -210,7 +210,7 @@ TEST(host_properties_load_symlinks) {
         _cleanup_(host_properties_done) HostProperties h = {};
         ASSERT_OK(host_properties_load(&h, t));
         ASSERT_STREQ(h.hostname, "inroot.example.com");
-        ASSERT_TRUE(strv_equal(h.machine_tags, STRV_MAKE("inroot")));
+        ASSERT_STRV_EQ_SET(h.machine_tags, "inroot");
         ASSERT_TRUE(sd_id128_is_null(h.machine_id));
         ASSERT_NULL(h.os_id);
 }

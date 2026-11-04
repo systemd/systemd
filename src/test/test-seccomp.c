@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/io_uring.h>
 #include <poll.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -23,6 +24,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "io-uring-filter.h"
 #include "memory-util.h"
 #include "nsflags.h"
 #include "nulstr-util.h"
@@ -225,6 +227,34 @@ TEST(filter_sets) {
                         }
 
                         _exit(EXIT_SUCCESS);
+                }
+        }
+}
+
+TEST(io_uring_op_syscalls) {
+        _cleanup_hashmap_free_ Hashmap *system_service = NULL;
+
+        ASSERT_NOT_NULL(system_service = hashmap_new(/* hash_ops= */ NULL));
+        if (is_seccomp_available())
+                ASSERT_OK(seccomp_filter_set_add_by_name(system_service, /* add= */ true, "@system-service"));
+
+        for (int op = 0; op < IORING_OP_LAST; op++) {
+                const char *syscalls = io_uring_op_syscalls_to_string(op);
+
+                if (!syscalls)
+                        continue;
+
+                NULSTR_FOREACH(name, syscalls) {
+                        log_debug("io_uring opcode %i: %s", op, name);
+                        ASSERT_TRUE(nulstr_contains(syscall_filter_sets[SYSCALL_FILTER_SET_KNOWN].value, name));
+
+                        if (!is_seccomp_available())
+                                continue;
+
+                        /* SystemCallFilter=@system-service must not deny any io_uring operation. */
+                        int id = sym_seccomp_syscall_resolve_name(name);
+                        if (id >= 0)
+                                ASSERT_TRUE(hashmap_contains(system_service, INT_TO_PTR(id + 1)));
                 }
         }
 }
@@ -1013,7 +1043,7 @@ static int real_open(const char *path, int flags, mode_t mode) {
 #if defined __NR_open && __NR_open >= 0
         return (int) syscall(__NR_open, path, flags, mode);
 #else
-        return open(path, flags, mode);
+        return open(path, flags, mode); /* NOLINT(bugprone-unsafe-functions) */
 #endif
 }
 
@@ -1035,6 +1065,9 @@ static int try_fchmodat2(int dirfd, const char *path, mode_t mode, int flags) {
         return RET_NERRNO(fchmodat(dirfd, path, mode, flags));
 }
 
+/* restrict_suid_sgid tests the seccomp filter on the creat() and openat() syscalls. The test has to call
+ * creat() and openat() directly. */
+/* NOLINTBEGIN(bugprone-unsafe-functions) */
 TEST(restrict_suid_sgid) {
         int r;
 
@@ -1228,7 +1261,11 @@ TEST(restrict_suid_sgid) {
                 _exit(EXIT_SUCCESS);
         }
 }
+/* NOLINTEND(bugprone-unsafe-functions) */
 
+/* After seccomp_suppress_sync(), the open() syscall fails with EINVAL when O_SYNC is set. The test calls
+ * open() directly to check that. */
+/* NOLINTBEGIN(bugprone-unsafe-functions) */
 static void test_seccomp_suppress_sync_child(void) {
         _cleanup_(unlink_and_freep) char *path = NULL;
         _cleanup_close_ int fd = -EBADF;
@@ -1260,6 +1297,7 @@ static void test_seccomp_suppress_sync_child(void) {
         ASSERT_ERROR_ERRNO(fsync(-1), EBADF);
         ASSERT_ERROR_ERRNO(syncfs(-1), EBADF);
 }
+/* NOLINTEND(bugprone-unsafe-functions) */
 
 TEST(seccomp_suppress_sync) {
         int r;
@@ -1271,6 +1309,35 @@ TEST(seccomp_suppress_sync) {
                 test_seccomp_suppress_sync_child();
                 _exit(EXIT_SUCCESS);
         }
+}
+
+static void test_io_uring_bpf_filter_supported_one(uint32_t action) {
+        int r;
+
+        r = ASSERT_OK(pidref_safe_fork("(io-uring-probe)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
+        if (r == 0) {
+                _cleanup_hashmap_free_ Hashmap *filter = NULL;
+
+                ASSERT_OK(proc_set_nnp());
+                ASSERT_NOT_NULL(filter = hashmap_new(/* hash_ops= */ NULL));
+                ASSERT_OK(seccomp_filter_set_add_by_name(filter, /* add= */ true, "io_uring_register"));
+                ASSERT_OK(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, filter, action, /* log_missing= */ true));
+
+                /* io_uring_bpf_filter_supported() returns 0 if a seccomp filter kills the process on
+                 * io_uring_register(). */
+                ASSERT_OK_ZERO(io_uring_bpf_filter_supported());
+
+                _exit(EXIT_SUCCESS);
+        }
+}
+
+TEST(io_uring_bpf_filter_supported) {
+        if (!is_seccomp_available())
+                return (void) log_tests_skipped("Seccomp not available");
+
+        test_io_uring_bpf_filter_supported_one(SCMP_ACT_KILL_PROCESS);
+        test_io_uring_bpf_filter_supported_one(SCMP_ACT_ERRNO(EPERM));
+        test_io_uring_bpf_filter_supported_one(SCMP_ACT_ERRNO(EACCES));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

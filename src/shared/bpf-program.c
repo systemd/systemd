@@ -522,7 +522,7 @@ int bpf_program_deserialize_attachment(const char *v, FDSet *fds, BPFProgram **b
 
         ifd = parse_fd(sfd);
         if (ifd < 0)
-                return r;
+                return ifd;
 
         /* Extract second word: the attach type */
         r = extract_first_word(&v, &sat, /* separators= */ NULL, /* flags= */ 0);

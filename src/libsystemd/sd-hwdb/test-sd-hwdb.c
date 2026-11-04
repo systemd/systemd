@@ -7,6 +7,7 @@
 
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "hwdb-internal.h"
 #include "nulstr-util.h"
 #include "path-util.h"
@@ -84,7 +85,7 @@ static sd_hwdb* hwdb_new_from_blob(const void *data, size_t size) {
         ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &tmp));
         _cleanup_free_ char *path = ASSERT_NOT_NULL(path_join(tmp, "hwdb.bin"));
 
-        fd = ASSERT_OK_ERRNO(open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_TRUNC, 0644));
+        fd = ASSERT_OK(xopenat_full(AT_FDCWD, path, O_WRONLY|O_CREAT|O_TRUNC, /* xopen_flags= */ 0, 0644));
         ASSERT_OK_EQ_ERRNO(write(fd, data, size), (ssize_t) size);
         fd = safe_close(fd);
 

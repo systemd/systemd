@@ -11,6 +11,7 @@
 #include "capability-util.h"
 #include "cgroup.h"
 #include "conf-parser.h"
+#include "execute.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "hashmap.h"
@@ -720,6 +721,36 @@ TEST(config_parse_capability_set) {
         ASSERT_EQ(capability_bounding_set, make_cap(CAP_NET_RAW) | make_cap(CAP_NET_ADMIN));
 }
 
+static void check_io_uring_filter(ExecContext *c, const char *rvalue, bool allow_list, const char *expected) {
+        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free_ char *joined = NULL;
+
+        ASSERT_OK(config_parse_io_uring_filter(/* unit= */ NULL, "fake", 1, "section", 1,
+                                               "IOUringFilter", /* ltype= */ 0, rvalue,
+                                               c, /* userdata= */ NULL));
+
+        ASSERT_EQ((bool) c->io_uring_filter_allow_list, allow_list);
+        l = ASSERT_NOT_NULL(exec_context_get_io_uring_filter(c));
+        joined = ASSERT_NOT_NULL(strv_join(l, " "));
+        ASSERT_STREQ(joined, expected);
+}
+
+TEST(config_parse_io_uring_filter) {
+        ExecContext c = {};
+
+        check_io_uring_filter(&c, "read write", /* allow_list= */ true, "read write");
+        check_io_uring_filter(&c, "socket,nop", /* allow_list= */ true, "nop read socket write");
+        check_io_uring_filter(&c, "~write", /* allow_list= */ true, "nop read socket");
+        check_io_uring_filter(&c, "foobar openat", /* allow_list= */ true, "nop openat read socket");
+        check_io_uring_filter(&c, "", /* allow_list= */ false, "");
+
+        check_io_uring_filter(&c, "~uring_cmd socket", /* allow_list= */ false, "socket uring_cmd");
+        check_io_uring_filter(&c, "socket", /* allow_list= */ false, "uring_cmd");
+        check_io_uring_filter(&c, "~send_zc", /* allow_list= */ false, "send_zc uring_cmd");
+
+        c.io_uring_filter = set_free(c.io_uring_filter);
+}
+
 TEST(config_parse_rlimit) {
         struct rlimit * rl[_RLIMIT_MAX] = {};
 
@@ -1204,7 +1235,7 @@ TEST(config_parse_service_refresh_on_reload) {
         ASSERT_OK(r);
         ASSERT_EQ(flags, SERVICE_RELOAD_EXTENSIONS);
         ASSERT_OK(service_refresh_on_reload_to_strv(flags, &l));
-        ASSERT_STRV_EQ(l, STRV_MAKE("extensions"));
+        ASSERT_STRV_EQ_SET(l, "extensions");
 
         l = strv_free(l);
 
@@ -1212,7 +1243,7 @@ TEST(config_parse_service_refresh_on_reload) {
         ASSERT_OK(r);
         ASSERT_EQ(flags, SERVICE_RELOAD_EXTENSIONS|SERVICE_RELOAD_CREDENTIALS);
         ASSERT_OK(service_refresh_on_reload_to_strv(flags, &l));
-        ASSERT_STRV_EQ(l, STRV_MAKE("extensions", "credentials"));
+        ASSERT_STRV_EQ_SET(l, "extensions", "credentials");
 
         ASSERT_ERROR(service_refresh_on_reload_from_string_many("hoge", &flags), EINVAL);
 

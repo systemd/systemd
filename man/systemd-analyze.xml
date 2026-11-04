@@ -119,6 +119,12 @@
     <cmdsynopsis>
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">io-uring-filter</arg>
+      <arg choice="opt"><replaceable>NAME</replaceable>…</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">filesystems</arg>
       <arg choice="opt"><replaceable>SET</replaceable>…</arg>
     </cmdsynopsis>
@@ -598,6 +604,31 @@ Conditions succeeded.</programlisting>
       <para>This command will list system calls contained in the specified system call set
       <replaceable>SET</replaceable>, or all known sets if no sets are specified. Argument
       <replaceable>SET</replaceable> must include the <literal>@</literal> prefix.</para>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze io-uring-filter <optional><replaceable>NAME</replaceable>...</optional></command></title>
+
+      <para>Lists the
+      <citerefentry project='man-pages'><refentrytitle>io_uring</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+      operations that systemd knows, or only the operations with the specified names. The names are the ones
+      that <varname>IOUringFilter=</varname> takes, see
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>. For
+      each operation, the <literal>SYSCALLS</literal> column lists the system calls whose work the operation
+      can do. <varname>SystemCallFilter=</varname> denies an operation if it denies any of the listed system
+      calls.</para>
+
+      <example>
+        <title>Table output</title>
+        <programlisting>$ systemd-analyze io-uring-filter nop read socket uring_cmd
+NAME      SYSCALLS
+nop       -
+read      read pread64
+socket    socket
+uring_cmd ioctl setsockopt getsockopt getsockname</programlisting>
+      </example>
+
+      <xi:include href="version-info.xml" xpointer="v263"/>
     </refsect2>
 
     <refsect2>

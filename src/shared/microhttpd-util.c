@@ -230,12 +230,12 @@ static int verify_cert_authorized(gnutls_session_t session) {
 
         r = sym_gnutls_certificate_verify_peers2(session, &status);
         if (r < 0)
-                return log_error_errno(r, "gnutls_certificate_verify_peers2 failed: %m");
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "gnutls_certificate_verify_peers2 failed: %s", sym_gnutls_strerror(r));
 
         type = sym_gnutls_certificate_type_get(session);
         r = sym_gnutls_certificate_verification_status_print(status, type, &out, /* flags= */ 0);
         if (r < 0)
-                return log_error_errno(r, "gnutls_certificate_verification_status_print failed: %m");
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "gnutls_certificate_verification_status_print failed: %s", sym_gnutls_strerror(r));
 
         log_debug("Certificate status: %s", out.data);
         /* gnutls_free is declared as a function pointer variable (not a function), so sym_gnutls_free

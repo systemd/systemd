@@ -9,6 +9,7 @@
 #include "data-fd-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "io-util.h"
 #include "memfd-util.h"
 #include "pidref.h"
@@ -42,7 +43,7 @@ TEST(copy_data_fd) {
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         int r;
 
-        fd1 = open("/etc/fstab", O_RDONLY|O_CLOEXEC);
+        fd1 = xopenat(AT_FDCWD, "/etc/fstab", O_RDONLY);
         if (fd1 >= 0) {
 
                 fd2 = ASSERT_OK(copy_data_fd(fd1));

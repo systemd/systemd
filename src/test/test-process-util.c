@@ -96,8 +96,8 @@ static void test_pid_get_comm_one(pid_t pid) {
         ASSERT_OK_ZERO(get_process_gid(pid, &g));
         log_info("PID"PID_FMT" GID: "GID_FMT, pid, g);
 
-        ASSERT_OK_OR(get_process_environ(pid, &env), -EACCES);
-        log_info("PID"PID_FMT" strlen(environ): %zi", pid, env ? (ssize_t)strlen(env) : (ssize_t)-errno);
+        r = ASSERT_OK_OR(get_process_environ(pid, &env), -EACCES);
+        log_info("PID"PID_FMT" strlen(environ): %zi", pid, env ? (ssize_t) strlen(env) : (ssize_t) r);
 
         if (!detect_container() && pid == 1)
                 ASSERT_ERROR(get_ctty_devnr(pid, &h), ENXIO);
@@ -368,7 +368,7 @@ TEST(pid_get_cmdline_harder) {
                 line = mfree(line);
 
                 ASSERT_OK(pid_get_cmdline_strv(/* pid= */ 0, PROCESS_CMDLINE_COMM_FALLBACK, &args));
-                ASSERT_STRV_EQ(args, STRV_MAKE("[testa]"));
+                ASSERT_STRV_EQ_SET(args, "[testa]");
                 args = strv_free(args);
 
         /* Test with multiple arguments that don't require quoting */
@@ -385,7 +385,7 @@ TEST(pid_get_cmdline_harder) {
                 line = mfree(line);
 
                 ASSERT_OK(pid_get_cmdline_strv(/* pid= */ 0, PROCESS_CMDLINE_COMM_FALLBACK, &args));
-                ASSERT_STRV_EQ(args, STRV_MAKE("foo", "bar"));
+                ASSERT_STRV_EQ_SET(args, "foo", "bar");
                 args = strv_free(args);
 
                 ASSERT_OK_EQ_ERRNO(write(fd, "quux", 4), 4);
@@ -475,7 +475,7 @@ TEST(pid_get_cmdline_harder) {
                 line = mfree(line);
 
                 ASSERT_OK(pid_get_cmdline_strv(/* pid= */ 0, PROCESS_CMDLINE_COMM_FALLBACK, &args));
-                ASSERT_STRV_EQ(args, STRV_MAKE("foo", "bar", "quux"));
+                ASSERT_STRV_EQ_SET(args, "foo", "bar", "quux");
                 args = strv_free(args);
 
                 ASSERT_OK_ERRNO(ftruncate(fd, 0));
@@ -504,7 +504,7 @@ TEST(pid_get_cmdline_harder) {
                 line = mfree(line);
 
                 ASSERT_OK(pid_get_cmdline_strv(/* pid= */ 0, PROCESS_CMDLINE_COMM_FALLBACK, &args));
-                ASSERT_STRV_EQ(args, STRV_MAKE("[aaaa bbbb cccc]"));
+                ASSERT_STRV_EQ_SET(args, "[aaaa bbbb cccc]");
                 args = strv_free(args);
 
                 /* Test with multiple arguments that do require quoting */

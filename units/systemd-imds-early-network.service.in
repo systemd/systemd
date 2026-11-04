@@ -15,7 +15,7 @@ Before=network-pre.target
 Wants=network-pre.target
 Conflicts=shutdown.target initrd-switch-root.target
 Before=shutdown.target initrd-switch-root.target
-After=sys-devices-virtual-dmi-id.device
+After=sys-devices-virtual-dmi-id.device systemd-sysctl.service
 
 [Service]
 ExecStart={{LIBEXECDIR}}/systemd-imdsd --setup-network

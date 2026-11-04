@@ -39,14 +39,14 @@ static void test_policy_closed(const char *cgroup_path, BPFProgram **installed_p
                           "/dev/ptmx") {
                 _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
 
-                fd = open(s, O_CLOEXEC|O_RDONLY|O_NOCTTY);
-                log_debug("open(%s, \"r\") = %d/%s", s, fd, fd < 0 ? ERRNO_NAME(errno) : "-");
-                wrong += fd < 0 && errno == EPERM;
+                fd = xopenat(AT_FDCWD, s, O_RDONLY|O_NOCTTY);
+                log_debug("open(%s, \"r\") = %d/%s", s, fd, fd < 0 ? ERRNO_NAME(fd) : "-");
+                wrong += fd == -EPERM;
                 /* We ignore errors other than EPERM, e.g. ENOENT or ENXIO */
 
-                fd2 = open(s, O_CLOEXEC|O_WRONLY|O_NOCTTY);
-                log_debug("open(%s, \"w\") = %d/%s", s, fd2, fd2 < 0 ? ERRNO_NAME(errno) : "-");
-                wrong += fd2 < 0 && errno == EPERM;
+                fd2 = xopenat(AT_FDCWD, s, O_WRONLY|O_NOCTTY);
+                log_debug("open(%s, \"w\") = %d/%s", s, fd2, fd2 < 0 ? ERRNO_NAME(fd2) : "-");
+                wrong += fd2 == -EPERM;
         }
         ASSERT_EQ(wrong, 0U);
 }
@@ -77,12 +77,12 @@ static void test_policy_strict(const char *cgroup_path, BPFProgram **installed_p
                 _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
                 const char *s = "/dev/null";
 
-                fd = open(s, O_CLOEXEC|O_RDONLY|O_NOCTTY);
-                log_debug("open(%s, \"r\") = %d/%s", s, fd, fd < 0 ? ERRNO_NAME(errno) : "-");
+                fd = xopenat(AT_FDCWD, s, O_RDONLY|O_NOCTTY);
+                log_debug("open(%s, \"r\") = %d/%s", s, fd, fd < 0 ? ERRNO_NAME(fd) : "-");
                 wrong += fd < 0;
 
-                fd2 = open(s, O_CLOEXEC|O_WRONLY|O_NOCTTY);
-                log_debug("open(%s, \"w\") = %d/%s", s, fd2, fd2 < 0 ? ERRNO_NAME(errno) : "-");
+                fd2 = xopenat(AT_FDCWD, s, O_WRONLY|O_NOCTTY);
+                log_debug("open(%s, \"w\") = %d/%s", s, fd2, fd2 < 0 ? ERRNO_NAME(fd2) : "-");
                 wrong += fd2 < 0;
         }
 
@@ -90,12 +90,12 @@ static void test_policy_strict(const char *cgroup_path, BPFProgram **installed_p
                 _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
                 const char *s = "/dev/random";
 
-                fd = open(s, O_CLOEXEC|O_RDONLY|O_NOCTTY);
-                log_debug("open(%s, \"r\") = %d/%s", s, fd, fd < 0 ? ERRNO_NAME(errno) : "-");
+                fd = xopenat(AT_FDCWD, s, O_RDONLY|O_NOCTTY);
+                log_debug("open(%s, \"r\") = %d/%s", s, fd, fd < 0 ? ERRNO_NAME(fd) : "-");
                 wrong += fd < 0;
 
-                fd2 = open(s, O_CLOEXEC|O_WRONLY|O_NOCTTY);
-                log_debug("open(%s, \"w\") = %d/%s", s, fd2, fd2 < 0 ? ERRNO_NAME(errno) : "-");
+                fd2 = xopenat(AT_FDCWD, s, O_WRONLY|O_NOCTTY);
+                log_debug("open(%s, \"w\") = %d/%s", s, fd2, fd2 < 0 ? ERRNO_NAME(fd2) : "-");
                 wrong += fd2 >= 0;
         }
 
@@ -103,12 +103,12 @@ static void test_policy_strict(const char *cgroup_path, BPFProgram **installed_p
                 _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
                 const char *s = "/dev/zero";
 
-                fd = open(s, O_CLOEXEC|O_RDONLY|O_NOCTTY);
-                log_debug("open(%s, \"r\") = %d/%s", s, fd, fd < 0 ? ERRNO_NAME(errno) : "-");
+                fd = xopenat(AT_FDCWD, s, O_RDONLY|O_NOCTTY);
+                log_debug("open(%s, \"r\") = %d/%s", s, fd, fd < 0 ? ERRNO_NAME(fd) : "-");
                 wrong += fd >= 0;
 
-                fd2 = open(s, O_CLOEXEC|O_WRONLY|O_NOCTTY);
-                log_debug("open(%s, \"w\") = %d/%s", s, fd2, fd2 < 0 ? ERRNO_NAME(errno) : "-");
+                fd2 = xopenat(AT_FDCWD, s, O_WRONLY|O_NOCTTY);
+                log_debug("open(%s, \"w\") = %d/%s", s, fd2, fd2 < 0 ? ERRNO_NAME(fd2) : "-");
                 wrong += fd2 < 0;
         }
 
@@ -116,12 +116,12 @@ static void test_policy_strict(const char *cgroup_path, BPFProgram **installed_p
                 _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
                 const char *s = "/dev/full";
 
-                fd = open(s, O_CLOEXEC|O_RDONLY|O_NOCTTY);
-                log_debug("open(%s, \"r\") = %d/%s", s, fd, fd < 0 ? ERRNO_NAME(errno) : "-");
+                fd = xopenat(AT_FDCWD, s, O_RDONLY|O_NOCTTY);
+                log_debug("open(%s, \"r\") = %d/%s", s, fd, fd < 0 ? ERRNO_NAME(fd) : "-");
                 wrong += fd >= 0;
 
-                fd2 = open(s, O_CLOEXEC|O_WRONLY|O_NOCTTY);
-                log_debug("open(%s, \"w\") = %d/%s", s, fd2, fd2 < 0 ? ERRNO_NAME(errno) : "-");
+                fd2 = xopenat(AT_FDCWD, s, O_WRONLY|O_NOCTTY);
+                log_debug("open(%s, \"w\") = %d/%s", s, fd2, fd2 < 0 ? ERRNO_NAME(fd2) : "-");
                 wrong += fd2 >= 0;
         }
 
@@ -149,12 +149,12 @@ static void test_policy_allow_list_major(const char *pattern, const char *cgroup
                 _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
                 const char *s = "/dev/null";
 
-                fd = open(s, O_CLOEXEC|O_RDONLY|O_NOCTTY);
-                log_debug("open(%s, \"r\") = %d/%s", s, fd, fd < 0 ? ERRNO_NAME(errno) : "-");
+                fd = xopenat(AT_FDCWD, s, O_RDONLY|O_NOCTTY);
+                log_debug("open(%s, \"r\") = %d/%s", s, fd, fd < 0 ? ERRNO_NAME(fd) : "-");
                 wrong += fd < 0;
 
-                fd2 = open(s, O_CLOEXEC|O_WRONLY|O_NOCTTY);
-                log_debug("open(%s, \"w\") = %d/%s", s, fd2, fd2 < 0 ? ERRNO_NAME(errno) : "-");
+                fd2 = xopenat(AT_FDCWD, s, O_WRONLY|O_NOCTTY);
+                log_debug("open(%s, \"w\") = %d/%s", s, fd2, fd2 < 0 ? ERRNO_NAME(fd2) : "-");
                 wrong += fd2 < 0;
         }
 
@@ -162,12 +162,12 @@ static void test_policy_allow_list_major(const char *pattern, const char *cgroup
                 _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
                 const char *s = "/dev/full";
 
-                fd = open(s, O_CLOEXEC|O_RDONLY|O_NOCTTY);
-                log_debug("open(%s, \"r\") = %d/%s", s, fd, fd < 0 ? ERRNO_NAME(errno) : "-");
+                fd = xopenat(AT_FDCWD, s, O_RDONLY|O_NOCTTY);
+                log_debug("open(%s, \"r\") = %d/%s", s, fd, fd < 0 ? ERRNO_NAME(fd) : "-");
                 wrong += fd < 0;
 
-                fd2 = open(s, O_CLOEXEC|O_WRONLY|O_NOCTTY);
-                log_debug("open(%s, \"w\") = %d/%s", s, fd2, fd2 < 0 ? ERRNO_NAME(errno) : "-");
+                fd2 = xopenat(AT_FDCWD, s, O_WRONLY|O_NOCTTY);
+                log_debug("open(%s, \"w\") = %d/%s", s, fd2, fd2 < 0 ? ERRNO_NAME(fd2) : "-");
                 wrong += fd2 < 0;
         }
 
@@ -175,12 +175,12 @@ static void test_policy_allow_list_major(const char *pattern, const char *cgroup
                 _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
                 const char *s = "/dev/tty";
 
-                fd = open(s, O_CLOEXEC|O_RDONLY|O_NOCTTY);
-                log_debug("open(%s, \"r\") = %d/%s", s, fd, fd < 0 ? ERRNO_NAME(errno) : "-");
+                fd = xopenat(AT_FDCWD, s, O_RDONLY|O_NOCTTY);
+                log_debug("open(%s, \"r\") = %d/%s", s, fd, fd < 0 ? ERRNO_NAME(fd) : "-");
                 wrong += fd >= 0;
 
-                fd2 = open(s, O_CLOEXEC|O_WRONLY|O_NOCTTY);
-                log_debug("open(%s, \"w\") = %d/%s", s, fd2, fd2 < 0 ? ERRNO_NAME(errno) : "-");
+                fd2 = xopenat(AT_FDCWD, s, O_WRONLY|O_NOCTTY);
+                log_debug("open(%s, \"w\") = %d/%s", s, fd2, fd2 < 0 ? ERRNO_NAME(fd2) : "-");
                 wrong += fd2 >= 0;
         }
 
@@ -207,8 +207,8 @@ static void test_policy_allow_list_major_star(char type, const char *cgroup_path
                 _cleanup_close_ int fd = -EBADF;
                 const char *s = "/dev/null";
 
-                fd = open(s, O_CLOEXEC|O_RDWR|O_NOCTTY);
-                log_debug("open(%s, \"r\") = %d/%s", s, fd, fd < 0 ? ERRNO_NAME(errno) : "-");
+                fd = xopenat(AT_FDCWD, s, O_RDWR|O_NOCTTY);
+                log_debug("open(%s, \"r\") = %d/%s", s, fd, fd < 0 ? ERRNO_NAME(fd) : "-");
                 if (type == 'c')
                         wrong += fd < 0;
                 else
@@ -239,8 +239,8 @@ static void test_policy_empty(bool add_mismatched, const char *cgroup_path, BPFP
                 _cleanup_close_ int fd = -EBADF;
                 const char *s = "/dev/null";
 
-                fd = open(s, O_CLOEXEC|O_RDWR|O_NOCTTY);
-                log_debug("open(%s, \"r\") = %d/%s", s, fd, fd < 0 ? ERRNO_NAME(errno) : "-");
+                fd = xopenat(AT_FDCWD, s, O_RDWR|O_NOCTTY);
+                log_debug("open(%s, \"r\") = %d/%s", s, fd, fd < 0 ? ERRNO_NAME(fd) : "-");
                 wrong += fd >= 0;
         }
 

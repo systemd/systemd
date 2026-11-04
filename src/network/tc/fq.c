@@ -155,12 +155,8 @@ int config_parse_fq_u32(
         }
 
         r = safe_atou32(rvalue, p);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         qdisc = NULL;
 
@@ -216,12 +212,8 @@ int config_parse_fq_size(
         }
 
         r = parse_size(rvalue, 1024, &sz);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (sz > UINT32_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Specified '%s=' is too large, ignoring assignment: %s",
@@ -268,14 +260,9 @@ int config_parse_fq_bool(
         fq = FQ(qdisc);
 
         r = parse_tristate(rvalue, &fq->pacing);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
-        fq->pacing = r;
         TAKE_PTR(qdisc);
 
         return 0;
@@ -322,12 +309,8 @@ int config_parse_fq_usec(
         }
 
         r = parse_sec(rvalue, &sec);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (sec > UINT32_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Specified '%s=' is too large, ignoring assignment: %s",
@@ -382,12 +365,8 @@ int config_parse_fq_max_rate(
         }
 
         r = parse_size(rvalue, 1000, &sz);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (sz / 8 > UINT32_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Specified '%s=' is too large, ignoring assignment: %s",

@@ -85,7 +85,7 @@ int verb_kill(int argc, char *argv[], uintptr_t _data, void *userdata) {
         }
 
         if (w) {
-                q = bus_wait_for_units_run(w);
+                q = bus_wait_for_units_run(w, /* timeout_usec= */ USEC_INFINITY);
                 if (q < 0)
                         return log_error_errno(q, "Failed to wait for units: %m");
                 if (q == BUS_WAIT_FAILURE)

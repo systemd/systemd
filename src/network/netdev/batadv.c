@@ -71,17 +71,15 @@ int config_parse_badadv_bandwidth (
         assert(rvalue);
 
         r = parse_size(rvalue, 1000, &k);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+        if (k/1000/100 > UINT32_MAX) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "The value of '%s=', is outside of 0...429496729500000 range, ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
         }
-
-        if (k/1000/100 > UINT32_MAX)
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "The value of '%s=', is outside of 0...429496729500000 range: %s",
-                           lvalue, rvalue);
 
         *bandwidth = k/1000/100;
 
