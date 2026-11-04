@@ -404,6 +404,7 @@ int log_openssl_errors_internal(int level, const char *file, int line, const cha
 
 int openssl_pubkey_from_pem(const void *pem, size_t pem_size, EVP_PKEY **ret);
 int openssl_pubkey_to_pem(EVP_PKEY *pkey, char **ret);
+int x509_to_pem(X509 *cert, char **ret);
 
 int openssl_digest_size(const char *digest_alg, size_t *ret_digest_size);
 
@@ -488,6 +489,29 @@ int openssl_load_private_key(
                 OpenSSLAskPasswordUI **ret_user_interface);
 
 int openssl_extract_public_key(EVP_PKEY *private_key, EVP_PKEY **ret);
+
+/* Installs a UI method that asks for passwords with the request. Returns a NULL UI if OpenSSL has no UI
+ * support. UIs must be freed in the reverse order of their creation. */
+int openssl_ask_password_ui_new(const AskPasswordRequest *request, OpenSSLAskPasswordUI **ret);
+
+/* Loads the certificate and the private key if they are specified. The public key comes from the public key
+ * file if one is specified, otherwise from the certificate, otherwise from the private key. Returns NULL
+ * keys if no private key, certificate, or public key is specified. Logs at error level which file failed
+ * to load. All output arguments are optional, but the private key and the user interface are required
+ * when a private key is specified. */
+int openssl_load_key_pair(
+                KeySourceType private_key_source_type,
+                const char *private_key_source,
+                const char *private_key,
+                CertificateSourceType certificate_source_type,
+                const char *certificate_source,
+                const char *certificate,
+                const char *public_key,
+                const AskPasswordRequest *request,
+                EVP_PKEY **ret_private_key,
+                X509 **ret_certificate,
+                EVP_PKEY **ret_public_key,
+                OpenSSLAskPasswordUI **ret_user_interface);
 
 OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OpenSSLAskPasswordUI*, openssl_ask_password_ui_free, NULL);

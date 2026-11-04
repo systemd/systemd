@@ -10,7 +10,7 @@ from pathlib import Path
 
 BYTES_PER_LINE = 16
 
-# Keep in sync with Device from src/boot/chid.h
+# Keep in sync with Device from src/fundamental/chid.h
 # uint32_t descriptor, EFI_GUID chid, uint32_t name_offset, uint32_t compatible_offset
 DEVICE_STRUCT_SIZE = 4 + 16 + 4 + 4
 NULL_DEVICE = b'\0' * DEVICE_STRUCT_SIZE
