@@ -62,6 +62,9 @@ executables += [
                 'sources' : files('fuzz-bcd.c'),
         },
         efi_fuzz_template + {
+                'sources' : files('fuzz-bmp.c'),
+        },
+        efi_fuzz_template + {
                 'sources' : files('fuzz-efi-string.c'),
         },
         efi_fuzz_template + {
