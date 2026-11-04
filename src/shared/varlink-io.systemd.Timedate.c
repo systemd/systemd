@@ -21,6 +21,11 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_OUTPUT(RTCTimeUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
+                ListTimezones,
+                SD_VARLINK_FIELD_COMMENT("The list of known time zones."),
+                SD_VARLINK_DEFINE_OUTPUT(timezones, SD_VARLINK_STRING, SD_VARLINK_ARRAY));
+
+static SD_VARLINK_DEFINE_METHOD(
                 SetTimezone,
                 SD_VARLINK_FIELD_COMMENT("The time zone to set, e.g. 'Europe/Berlin'. Must be a valid, installed time zone."),
                 SD_VARLINK_DEFINE_INPUT(timezone, SD_VARLINK_STRING, 0),
@@ -57,6 +62,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_INTERFACE_COMMENT("APIs for querying and changing the system clock and timezone settings."),
                 SD_VARLINK_SYMBOL_COMMENT("Returns the time zone, RTC mode, NTP status and current system and RTC time in one call."),
                 &vl_method_Describe,
+                SD_VARLINK_SYMBOL_COMMENT("Returns the list of known time zones."),
+                &vl_method_ListTimezones,
                 SD_VARLINK_SYMBOL_COMMENT("Sets the system time zone."),
                 &vl_method_SetTimezone,
                 SD_VARLINK_SYMBOL_COMMENT("Configures whether the RTC is maintained in local time or UTC."),
