@@ -7,6 +7,7 @@
 
 #include "sd-bus.h"
 #include "sd-event.h"
+#include "sd-json.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
@@ -32,6 +33,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "hwclock-util.h"
+#include "json-util.h"
 #include "label-util.h"
 #include "list.h"
 #include "log.h"
@@ -46,6 +48,9 @@
 #include "time-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
+#include "varlink-io.systemd.Timedate.h"
+#include "varlink-io.systemd.service.h"
+#include "varlink-util.h"
 #include "verbs.h"
 
 #define NULL_ADJTIME_UTC "0.0 0 0\n0\nUTC\n"
@@ -70,8 +75,13 @@ typedef struct Context {
         Hashmap *polkit_registry;
         sd_bus_message *cache;
         Set *set_ntp_calls;
+        Set *set_ntp_links;
 
         sd_bus_slot *slot_job_removed;
+
+        sd_event *event;
+        sd_bus *bus;
+        sd_varlink_server *varlink_server;
 
         LIST_HEAD(UnitStatusInfo, units);
 } Context;
@@ -111,8 +121,13 @@ static void context_clear(Context *c) {
         hashmap_free(c->polkit_registry);
         sd_bus_message_unref(c->cache);
         set_free(c->set_ntp_calls);
+        set_free(c->set_ntp_links);
 
         sd_bus_slot_unref(c->slot_job_removed);
+
+        sd_varlink_server_unref(c->varlink_server);
+        sd_bus_flush_close_unref(c->bus);
+        sd_event_unref(c->event);
 
         LIST_CLEAR(units, c->units, unit_status_info_free);
 }
@@ -480,6 +495,14 @@ static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *er
                                 log_debug_errno(r, "Failed to reply to SetNTP method call, ignoring: %m");
                         sd_bus_message_unref(cm);
                 }
+
+                sd_varlink *vl;
+                while ((vl = set_steal_first(c->set_ntp_links))) {
+                        r = sd_varlink_reply(vl, /* parameters= */ NULL);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to reply to SetNTP Varlink call, ignoring: %m");
+                        sd_varlink_unref(vl);
+                }
         }
 
         return 0;
@@ -671,37 +694,15 @@ static int property_get_ntp(
         return sd_bus_message_append(reply, "b", context_ntp_service_is_active(c) > 0);
 }
 
-static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        Context *c = ASSERT_PTR(userdata);
+static int context_set_timezone(Context *c, const char *z) {
         _cleanup_free_ char *old_zone = NULL, *zone = NULL;
-        int interactive, r;
-        const char *z;
+        int r;
 
-        assert(m);
-
-        r = sd_bus_message_read(m, "sb", &z, &interactive);
-        if (r < 0)
-                return r;
-
-        if (!timezone_is_valid(z, LOG_DEBUG))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid or not installed time zone '%s'", z);
+        assert(c);
+        assert(z);
 
         if (streq_ptr(z, c->zone))
-                return sd_bus_reply_method_return(m, /* types= */ NULL);
-
-        r = bus_verify_polkit_async_full(
-                        m,
-                        "org.freedesktop.timedate1.set-timezone",
-                        /* details= */ NULL,
-                        /* good_user= */ UID_INVALID,
-                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
-                        &c->polkit_registry,
-                        /* ret_admin= */ NULL,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+                return 0;
 
         zone = strdup(z);
         if (!zone)
@@ -714,8 +715,7 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
         r = context_write_data_timezone(c);
         if (r < 0) {
                 free_and_replace(c->zone, old_zone);
-                log_error_errno(r, "Failed to set time zone: %m");
-                return sd_bus_error_set_errnof(error, r, "Failed to set time zone: %m");
+                return log_error_errno(r, "Failed to set time zone: %m");
         }
 
         /* 2. Make glibc notice the new timezone */
@@ -747,31 +747,33 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
                    LOG_ITEM("DAYLIGHT=%i", daylight),
                    LOG_MESSAGE("Changed time zone to '%s' (%s).", c->zone, get_tzname(daylight)));
 
-        (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
+        (void) sd_bus_emit_properties_changed(c->bus,
                                               "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "Timezone",
                                               NULL);
 
-        return sd_bus_reply_method_return(m, /* types= */ NULL);
+        return 1;
 }
 
-static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        int lrtc, fix_system, interactive;
+static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = ASSERT_PTR(userdata);
-        struct timespec ts;
-        int r;
+        int interactive, r;
+        const char *z;
 
         assert(m);
 
-        r = sd_bus_message_read(m, "bbb", &lrtc, &fix_system, &interactive);
+        r = sd_bus_message_read(m, "sb", &z, &interactive);
         if (r < 0)
                 return r;
 
-        if (lrtc == c->local_rtc && !fix_system)
+        if (!timezone_is_valid(z, LOG_DEBUG))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid or not installed time zone '%s'", z);
+
+        if (streq_ptr(z, c->zone))
                 return sd_bus_reply_method_return(m, /* types= */ NULL);
 
         r = bus_verify_polkit_async_full(
                         m,
-                        "org.freedesktop.timedate1.set-local-rtc",
+                        "org.freedesktop.timedate1.set-timezone",
                         /* details= */ NULL,
                         /* good_user= */ UID_INVALID,
                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
@@ -781,19 +783,34 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
         if (r < 0)
                 return r;
         if (r == 0)
-                return 1;
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        if (lrtc != c->local_rtc) {
+        r = context_set_timezone(c, z);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to set time zone: %m");
+
+        return sd_bus_reply_method_return(m, /* types= */ NULL);
+}
+
+static int context_set_local_rtc(Context *c, bool local_rtc, bool fix_system) {
+        struct timespec ts;
+        int r;
+
+        assert(c);
+
+        if (local_rtc == c->local_rtc && !fix_system)
+                return 0;
+
+        if (local_rtc != c->local_rtc) {
                 bool old_local_rtc = c->local_rtc;
 
-                c->local_rtc = lrtc;
+                c->local_rtc = local_rtc;
 
                 /* 1. Write new configuration file */
                 r = context_write_data_local_rtc(c);
                 if (r < 0) {
                         c->local_rtc = old_local_rtc;
-                        log_error_errno(r, "Failed to set RTC to %s: %m", lrtc ? "local" : "UTC");
-                        return sd_bus_error_set_errnof(error, r, "Failed to set RTC to %s: %m", lrtc ? "local" : "UTC");
+                        return log_error_errno(r, "Failed to set RTC to %s: %m", local_rtc ? "local" : "UTC");
                 }
         }
 
@@ -850,11 +867,77 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
 
         log_info("RTC configured to %s time.", c->local_rtc ? "local" : "UTC");
 
-        (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
+        (void) sd_bus_emit_properties_changed(c->bus,
                                               "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "LocalRTC",
                                               NULL);
 
+        return 1;
+}
+
+static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        int lrtc, fix_system, interactive;
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(m);
+
+        r = sd_bus_message_read(m, "bbb", &lrtc, &fix_system, &interactive);
+        if (r < 0)
+                return r;
+
+        if (lrtc == c->local_rtc && !fix_system)
+                return sd_bus_reply_method_return(m, /* types= */ NULL);
+
+        r = bus_verify_polkit_async_full(
+                        m,
+                        "org.freedesktop.timedate1.set-local-rtc",
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
+                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
+                        &c->polkit_registry,
+                        /* ret_admin= */ NULL,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1;
+
+        r = context_set_local_rtc(c, lrtc, fix_system);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to set RTC to %s: %m", lrtc ? "local" : "UTC");
+
         return sd_bus_reply_method_return(m, /* types= */ NULL);
+}
+
+static int context_set_time(Context *c, usec_t t) {
+        struct timespec ts;
+        struct tm tm;
+        int r;
+
+        assert(c);
+
+        timespec_store(&ts, t);
+
+        /* Set system clock */
+        if (clock_settime(CLOCK_REALTIME, &ts) < 0)
+                return log_error_errno(errno, "Failed to set local time: %m");
+
+        /* Sync down to RTC */
+        r = localtime_or_gmtime_usec(timespec_load(&ts), !c->local_rtc, &tm);
+        if (r < 0)
+                log_debug_errno(r, "Failed to convert timestamp to calendar time, ignoring: %m");
+        else {
+                r = hwclock_set(&tm);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to update hardware clock, ignoring: %m");
+        }
+
+        log_struct(LOG_INFO,
+                   LOG_MESSAGE_ID(SD_MESSAGE_TIME_CHANGE_STR),
+                   LOG_ITEM("REALTIME="USEC_FMT, timespec_load(&ts)),
+                   LOG_MESSAGE("Changed local time to %s", strnull(FORMAT_TIMESTAMP(timespec_load(&ts)))));
+
+        return 0;
 }
 
 static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *error) {
@@ -864,7 +947,6 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
         int64_t utc;
         struct timespec ts;
         usec_t start;
-        struct tm tm;
 
         assert(m);
 
@@ -931,71 +1013,20 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
 
         timespec_store(&ts, timespec_load(&ts) + usec_sub_unsigned(now(CLOCK_MONOTONIC), start));
 
-        /* Set system clock */
-        if (clock_settime(CLOCK_REALTIME, &ts) < 0) {
-                log_error_errno(errno, "Failed to set local time: %m");
-                return sd_bus_error_set_errnof(error, errno, "Failed to set local time: %m");
-        }
-
-        /* Sync down to RTC */
-        r = localtime_or_gmtime_usec(timespec_load(&ts), !c->local_rtc, &tm);
+        r = context_set_time(c, timespec_load(&ts));
         if (r < 0)
-                log_debug_errno(r, "Failed to convert timestamp to calendar time, ignoring: %m");
-        else {
-                r = hwclock_set(&tm);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to update hardware clock, ignoring: %m");
-        }
-
-        log_struct(LOG_INFO,
-                   LOG_MESSAGE_ID(SD_MESSAGE_TIME_CHANGE_STR),
-                   LOG_ITEM("REALTIME="USEC_FMT, timespec_load(&ts)),
-                   LOG_MESSAGE("Changed local time to %s", strnull(FORMAT_TIMESTAMP(timespec_load(&ts)))));
+                return sd_bus_error_set_errnof(error, r, "Failed to set local time: %m");
 
         return sd_bus_reply_method_return(m, /* types= */ NULL);
 }
 
-static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int context_set_ntp(Context *c, sd_bus *bus, bool enable, sd_bus_error *error) {
         _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
-        sd_bus *bus = sd_bus_message_get_bus(m);
-        Context *c = ASSERT_PTR(userdata);
         const UnitStatusInfo *selected = NULL;
-        int enable, interactive, q, r;
+        int q, r = 0;
 
-        assert(m);
+        assert(c);
         assert(bus);
-
-        r = sd_bus_message_read(m, "bb", &enable, &interactive);
-        if (r < 0)
-                return r;
-
-        r = context_update_ntp_status(c, bus, m);
-        if (r < 0)
-                return r;
-
-        if (context_ntp_service_exists(c) <= 0)
-                return sd_bus_error_set(error, BUS_ERROR_NO_NTP_SUPPORT, "NTP not supported");
-
-        r = bus_verify_polkit_async_full(
-                        m,
-                        "org.freedesktop.timedate1.set-ntp",
-                        /* details= */ NULL,
-                        /* good_user= */ UID_INVALID,
-                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
-                        &c->polkit_registry,
-                        /* ret_admin= */ NULL,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1;
-
-        /* This method may be called frequently. Forget the previous job if it has not completed yet. */
-        LIST_FOREACH(units, u, c->units)
-                u->path = mfree(u->path);
-
-        if (set_size(c->set_ntp_calls) >= SET_NTP_IN_FLIGHT_MAX)
-                return sd_bus_error_set_errnof(error, EAGAIN, "Too many calls in flight.");
 
         if (!c->slot_job_removed) {
                 r = bus_match_signal_async(
@@ -1056,6 +1087,53 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
                 log_info("Set NTP to be enabled (%s).", selected->name);
         else
                 log_info("Set NTP to be disabled.");
+
+        return 0;
+}
+
+static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        sd_bus *bus = sd_bus_message_get_bus(m);
+        Context *c = ASSERT_PTR(userdata);
+        int enable, interactive, r;
+
+        assert(m);
+        assert(bus);
+
+        r = sd_bus_message_read(m, "bb", &enable, &interactive);
+        if (r < 0)
+                return r;
+
+        r = context_update_ntp_status(c, bus, m);
+        if (r < 0)
+                return r;
+
+        if (context_ntp_service_exists(c) <= 0)
+                return sd_bus_error_set(error, BUS_ERROR_NO_NTP_SUPPORT, "NTP not supported");
+
+        r = bus_verify_polkit_async_full(
+                        m,
+                        "org.freedesktop.timedate1.set-ntp",
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
+                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
+                        &c->polkit_registry,
+                        /* ret_admin= */ NULL,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1;
+
+        /* This method may be called frequently. Forget the previous job if it has not completed yet. */
+        LIST_FOREACH(units, u, c->units)
+                u->path = mfree(u->path);
+
+        if (set_size(c->set_ntp_calls) + set_size(c->set_ntp_links) >= SET_NTP_IN_FLIGHT_MAX)
+                return sd_bus_error_set_errnof(error, EAGAIN, "Too many calls in flight.");
+
+        r = context_set_ntp(c, bus, enable, error);
+        if (r < 0)
+                return r;
 
         /* Asynchronous reply to m in match_job_removed() */
         return set_ensure_consume(&c->set_ntp_calls, &bus_message_hash_ops, sd_bus_message_ref(m));
@@ -1129,35 +1207,381 @@ static const BusObjectImplementation manager_object = {
         .vtables = BUS_VTABLES(timedate_vtable),
 };
 
-static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+static int connect_bus(Context *c) {
         int r;
 
         assert(c);
-        assert(event);
-        assert(_bus);
+        assert(c->event);
+        assert(!c->bus);
 
-        r = sd_bus_default_system(&bus);
+        r = sd_bus_default_system(&c->bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to get system bus connection: %m");
 
-        r = bus_add_implementation(bus, &manager_object, c);
+        r = bus_add_implementation(c->bus, &manager_object, c);
         if (r < 0)
                 return r;
 
-        r = bus_log_control_api_register(bus);
+        r = bus_log_control_api_register(c->bus);
         if (r < 0)
                 return r;
 
-        r = sd_bus_request_name_async(bus, /* ret_slot= */ NULL, "org.freedesktop.timedate1", /* flags= */ 0, /* callback= */ NULL, /* userdata= */ NULL);
+        r = sd_bus_request_name_async(c->bus, /* ret_slot= */ NULL, "org.freedesktop.timedate1", /* flags= */ 0, /* callback= */ NULL, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
 
-        r = sd_bus_attach_event(bus, event, /* priority= */ 0);
+        r = sd_bus_attach_event(c->bus, c->event, /* priority= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-        *_bus = TAKE_PTR(bus);
+        return 0;
+}
+
+static int context_build_json(Context *c, sd_json_variant **ret) {
+        bool can_ntp, ntp;
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        if (c->slot_job_removed)
+                /* When the previous request is not finished, then assume NTP is enabled and active. */
+                can_ntp = ntp = true;
+        else {
+                r = context_update_ntp_status(c, c->bus, /* m= */ NULL);
+                if (r < 0)
+                        return r;
+
+                can_ntp = context_ntp_service_exists(c) > 0;
+                ntp = context_ntp_service_is_active(c) > 0;
+        }
+
+        struct tm tm = {};
+        usec_t rtc = 0;
+        r = hwclock_get(&tm);
+        if (r == -EBUSY)
+                log_warning("/dev/rtc is busy. Is somebody keeping it open continuously? That's not a good idea... Returning a bogus RTC timestamp.");
+        else if (r == -ENOENT)
+                log_debug("/dev/rtc not found.");
+        else if (r == -ENODATA)
+                log_debug("/dev/rtc has no valid time, power loss probably occurred?");
+        else if (r < 0)
+                log_warning_errno(r, "Failed to read RTC, ignoring: %m");
+        else {
+                r = mktime_or_timegm_usec(&tm, /* utc= */ true, &rtc);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to convert RTC time to UNIX time, ignoring: %m");
+        }
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("Timezone", c->zone),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("LocalRTC", c->local_rtc),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("CanNTP", can_ntp),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("NTP", ntp),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("NTPSynchronized", ntp_synced()),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("TimeUSec", now(CLOCK_REALTIME)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("RTCTimeUSec", rtc));
+}
+
+static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                {}
+        };
+
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = context_build_json(c, &v);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, v);
+}
+
+static int vl_method_list_timezones(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                {}
+        };
+
+        _cleanup_strv_free_ char **zones = NULL;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        r = get_timezones(&zones);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read list of time zones: %m");
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRV("timezones", zones));
+}
+
+static int vl_method_set_timezone(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "timezone", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, 0, SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        _cleanup_free_ char *z = NULL;
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &z);
+        if (r != 0)
+                return r;
+
+        if (!timezone_is_valid(z, LOG_DEBUG))
+                return sd_varlink_error_invalid_parameter_name(link, "timezone");
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        c->bus,
+                        "org.freedesktop.timedate1.set-timezone",
+                        /* details= */ NULL,
+                        &c->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = context_set_timezone(c, z);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
+static int vl_method_set_local_rtc(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        struct params {
+                bool local_rtc;
+                bool fix_system;
+        };
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "localRTC",  SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct params, local_rtc),  SD_JSON_MANDATORY },
+                { "fixSystem", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct params, fix_system), 0                 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        struct params p = {};
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        c->bus,
+                        "org.freedesktop.timedate1.set-local-rtc",
+                        /* details= */ NULL,
+                        &c->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = context_set_local_rtc(c, p.local_rtc, p.fix_system);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
+static int vl_method_set_time(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        struct params {
+                int64_t usec;
+                bool relative;
+        };
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "usec",     _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int64,   offsetof(struct params, usec),     SD_JSON_MANDATORY },
+                { "relative", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool, offsetof(struct params, relative), 0                 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Context *c = ASSERT_PTR(userdata);
+        struct timespec ts;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        struct params p = {};
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (c->slot_job_removed)
+                return sd_varlink_error(link, "io.systemd.Timedate.AutomaticTimeSyncEnabled", /* parameters= */ NULL);
+
+        r = context_update_ntp_status(c, c->bus, /* m= */ NULL);
+        if (r < 0)
+                return r;
+
+        if (context_ntp_service_is_active(c) > 0)
+                return sd_varlink_error(link, "io.systemd.Timedate.AutomaticTimeSyncEnabled", /* parameters= */ NULL);
+
+        if (!p.relative && p.usec <= 0)
+                return sd_varlink_error_invalid_parameter_name(link, "usec");
+
+        if (p.relative && p.usec == 0)
+                return sd_varlink_reply(link, /* parameters= */ NULL);
+
+        if (p.relative) {
+                usec_t n = now(CLOCK_REALTIME);
+                bool valid;
+
+                if (p.usec > 0)
+                        valid = INC_SAFE(&n, (usec_t) p.usec);
+                else
+                        valid = DEC_SAFE(&n, (usec_t) -p.usec);
+                if (!valid)
+                        return sd_varlink_error_invalid_parameter_name(link, "usec");
+
+                timespec_store(&ts, n);
+        } else
+                timespec_store(&ts, (usec_t) p.usec);
+
+        /* refuse the request when the time is before systemd build date time */
+        if (ts.tv_sec < TIME_EPOCH)
+                return sd_varlink_error_invalid_parameter_name(link, "usec");
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        c->bus,
+                        "org.freedesktop.timedate1.set-time",
+                        /* details= */ NULL,
+                        &c->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = context_set_time(c, timespec_load(&ts));
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
+static int vl_method_set_ntp(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "useNTP", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, 0, SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Context *c = ASSERT_PTR(userdata);
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        bool enable = false;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &enable);
+        if (r != 0)
+                return r;
+
+        r = context_update_ntp_status(c, c->bus, /* m= */ NULL);
+        if (r < 0)
+                return r;
+
+        if (context_ntp_service_exists(c) <= 0)
+                return sd_varlink_error(link, "io.systemd.Timedate.NoNTPSupport", /* parameters= */ NULL);
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        c->bus,
+                        "org.freedesktop.timedate1.set-ntp",
+                        /* details= */ NULL,
+                        &c->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        /* This method may be called frequently. Forget the previous job if it has not completed yet. */
+        LIST_FOREACH(units, u, c->units)
+                u->path = mfree(u->path);
+
+        if (set_size(c->set_ntp_calls) + set_size(c->set_ntp_links) >= SET_NTP_IN_FLIGHT_MAX)
+                return sd_varlink_error_errno(link, -EAGAIN);
+
+        r = context_set_ntp(c, c->bus, enable, &error);
+        if (r < 0)
+                return r;
+
+        /* Asynchronous reply to link in match_job_removed() */
+        r = set_ensure_consume(&c->set_ntp_links, &varlink_hash_ops, sd_varlink_ref(link));
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int connect_varlink(Context *c) {
+        int r;
+
+        assert(c);
+        assert(c->event);
+        assert(!c->varlink_server);
+
+        r = varlink_server_new(
+                        &c->varlink_server,
+                        SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA,
+                        c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+        r = sd_varlink_server_add_interface_many(
+                        c->varlink_server,
+                        &vl_interface_io_systemd_Timedate,
+                        &vl_interface_io_systemd_service);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Varlink interfaces: %m");
+
+        r = sd_varlink_server_bind_method_many(
+                        c->varlink_server,
+                        "io.systemd.Timedate.Describe",      vl_method_describe,
+                        "io.systemd.Timedate.ListTimezones", vl_method_list_timezones,
+                        "io.systemd.Timedate.SetLocalRTC",   vl_method_set_local_rtc,
+                        "io.systemd.Timedate.SetNTP",        vl_method_set_ntp,
+                        "io.systemd.Timedate.SetTime",       vl_method_set_time,
+                        "io.systemd.Timedate.SetTimezone",   vl_method_set_timezone,
+                        "io.systemd.service.Ping",           varlink_method_ping,
+                        "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
+                        "io.systemd.service.GetLogLevel",    varlink_method_get_log_level,
+                        "io.systemd.service.GetEnvironment", varlink_method_get_environment);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink method calls: %m");
+
+        r = sd_varlink_server_attach_event(c->varlink_server, c->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach Varlink server to event loop: %m");
+
+        r = sd_varlink_server_listen_auto(c->varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind to passed Varlink sockets: %m");
+        if (r == 0) {
+                r = sd_varlink_server_listen_address(c->varlink_server, "/run/systemd/io.systemd.Timedate", 0666);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind to Varlink socket: %m");
+        }
 
         return 0;
 }
@@ -1165,7 +1589,8 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
 static bool context_check_idle(void *userdata) {
         Context *c = ASSERT_PTR(userdata);
 
-        return hashmap_isempty(c->polkit_registry);
+        return sd_varlink_server_current_connections(c->varlink_server) == 0 &&
+                hashmap_isempty(c->polkit_registry);
 }
 
 COMMAND(
@@ -1180,8 +1605,6 @@ COMMAND(
 
 static int run(int argc, char *argv[]) {
         _cleanup_(context_clear) Context context = {};
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         LIBSELINUX_NOTE(recommended);
@@ -1197,21 +1620,25 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = sd_event_default(&event);
+        r = sd_event_default(&context.event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        (void) sd_event_set_watchdog(event, true);
+        (void) sd_event_set_watchdog(context.event, true);
 
-        r = sd_event_set_signal_exit(event, true);
+        r = sd_event_set_signal_exit(context.event, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to install SIGINT/SIGTERM handlers: %m");
 
-        r = connect_bus(&context, event, &bus);
+        r = connect_bus(&context);
         if (r < 0)
                 return r;
 
-        (void) sd_bus_negotiate_timestamp(bus, true);
+        (void) sd_bus_negotiate_timestamp(context.bus, true);
+
+        r = connect_varlink(&context);
+        if (r < 0)
+                return r;
 
         r = context_read_data(&context);
         if (r < 0)
@@ -1226,8 +1653,8 @@ static int run(int argc, char *argv[]) {
                 log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
 
         r = bus_event_loop_with_idle(
-                        event,
-                        bus,
+                        context.event,
+                        context.bus,
                         "org.freedesktop.timedate1",
                         DEFAULT_EXIT_USEC,
                         context_check_idle,
