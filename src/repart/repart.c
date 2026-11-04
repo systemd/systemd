@@ -1967,7 +1967,7 @@ static int config_parse_type(
 
         r = gpt_partition_type_from_string(rvalue, type);
         if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse partition type: %s", rvalue);
+                return log_syntax_parse_error_full(unit, filename, line, r, /* critical= */ true, lvalue, rvalue);
 
         if (arg_architecture >= 0)
                 *type = gpt_partition_type_override_architecture(*type, arg_architecture);
@@ -2071,11 +2071,8 @@ static int config_parse_weight(
         assert(rvalue);
 
         r = safe_atou32(rvalue, &v);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse weight value, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (v > 1000U*1000U) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
@@ -2107,8 +2104,7 @@ static int config_parse_size4096(
 
         r = parse_size(rvalue, 1024, &parsed);
         if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "Failed to parse size value: %s", rvalue);
+                return log_syntax_parse_error_full(unit, filename, line, r, /* critical= */ true, lvalue, rvalue);
 
         if (ltype > 0)
                 *sz = round_up_size(parsed, 4096);
@@ -2143,8 +2139,7 @@ static int config_parse_block_size(
 
         r = parse_size(rvalue, 1024, &parsed);
         if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "Failed to parse size value: %s", rvalue);
+                return log_syntax_parse_error_full(unit, filename, line, r, /* critical= */ true, lvalue, rvalue);
 
         if (parsed < 512 || parsed > 4096)
                 return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
@@ -2182,8 +2177,7 @@ static int config_parse_fs_sector_size(
 
         r = parse_size(rvalue, 1024, &parsed);
         if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "Failed to parse size value: %s", rvalue);
+                return log_syntax_parse_error_full(unit, filename, line, r, /* critical= */ true, lvalue, rvalue);
 
         if (!ISPOWEROF2(parsed))
                 return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
@@ -2681,11 +2675,8 @@ static int config_parse_gpt_flags(
         assert(rvalue);
 
         r = safe_atou64(rvalue, gpt_flags);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse Flags= value, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         return 0;
 }
@@ -2718,10 +2709,8 @@ static int config_parse_uuid(
         }
 
         r = sd_id128_from_string(rvalue, &partition->new_uuid);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse 128-bit ID/UUID, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         partition->new_uuid_is_set = true;
 
@@ -2908,11 +2897,8 @@ static int config_parse_encrypt_add_token(
         /* Extract only type and source; leave the rest of q as the value verbatim.
          * This allows ':' in the value (e.g. file paths containing colons). */
         r = extract_many_words(&q, ":", EXTRACT_DONT_COALESCE_SEPARATORS, &type, &source);
-        if (r == -ENOMEM)
-                return log_oom();
         if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "Failed to parse %s=: %s", lvalue, rvalue);
+                return log_syntax_parse_error_full(unit, filename, line, r, /* critical= */ true, lvalue, rvalue);
         if (r < 1)
                 return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
                                   "%s= requires at least a token type name.", lvalue);

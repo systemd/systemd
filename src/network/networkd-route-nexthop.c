@@ -1099,7 +1099,7 @@ int config_parse_multipath_route(
 
         if (isempty(word)) {
                 if (!dev)
-                        return log_syntax_parse_error(unit, filename, line, SYNTHETIC_ERRNO(EINVAL), lvalue, rvalue);
+                        return log_syntax_parse_error(unit, filename, line, 0, lvalue, rvalue);
         } else {
                 r = in_addr_from_string_auto(word, &nh->family, &nh->gw);
                 if (r < 0) {

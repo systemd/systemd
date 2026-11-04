@@ -186,11 +186,8 @@ int config_parse_ip_masquerade(
         }
 
         a = ip_masquerade_address_family_from_string(rvalue);
-        if (a < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, a,
-                           "Failed to parse IPMasquerade= setting, ignoring assignment: %s", rvalue);
-                return 0;
-        }
+        if (a < 0)
+                return log_syntax_parse_error(unit, filename, line, a, lvalue, rvalue);
 
         *ret = a;
         return 0;

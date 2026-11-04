@@ -44,11 +44,8 @@ int config_parse_dns_servers(
         else {
                 /* Otherwise, add to the list */
                 r = manager_parse_dns_server_string_and_warn(m, ltype, rvalue);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse DNS server string '%s', ignoring.", rvalue);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         }
 
         /* If we have a manual setting, then we stop reading
@@ -86,11 +83,8 @@ int config_parse_search_domains(
         else {
                 /* Otherwise, add to the list */
                 r = manager_parse_search_domains_and_warn(m, rvalue);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse search domains string '%s', ignoring.", rvalue);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         }
 
         /* If we have a manual setting, then we stop reading
@@ -145,12 +139,8 @@ int config_parse_dns_stub_listener_extra(
         }
 
         r = in_addr_port_ifindex_name_from_string_auto(p, &stub->family, &stub->address, &stub->port, /* ret_ifindex= */ NULL, /* ret_server_name= */ NULL);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse address in %s=%s, ignoring assignment: %m",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         r = ordered_set_ensure_put(&m->dns_extra_stub_listeners, &dns_stub_listener_extra_hash_ops, stub);
         if (r == -ENOMEM)

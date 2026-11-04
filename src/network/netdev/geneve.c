@@ -184,10 +184,8 @@ int config_parse_geneve_flow_label(
         int r;
 
         r = safe_atou32(rvalue, &f);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse Geneve flow label '%s'.", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (f & ~GENEVE_FLOW_LABEL_MAX_MASK) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,

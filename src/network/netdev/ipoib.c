@@ -122,12 +122,8 @@ int config_parse_ipoib_pkey(
         }
 
         r = safe_atou16(rvalue, &u);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse IPoIB pkey '%s', ignoring assignment: %m",
-                           rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (IN_SET(u, 0, 0x8000)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "IPoIB pkey cannot be 0 nor 0x8000, ignoring assignment: %s",

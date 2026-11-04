@@ -807,7 +807,7 @@ int config_parse_image_policy(
         if (r == -EBADRQC)
                 return log_syntax(unit, LOG_ERR, filename, line, r, "Unknown partition policy flag in image policy, refusing: %s", rvalue);
         if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse image policy, refusing: %s", rvalue);
+                return log_syntax_parse_error_full(unit, filename, line, r, /* critical= */ true, lvalue, rvalue);
 
         return free_and_replace_full(*p, np, image_policy_free);
 }

@@ -412,12 +412,8 @@ int config_parse_fdb_vxlan_vni(
                 return log_oom();
 
         r = safe_atou32(rvalue, &vni);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse VXLAN Network Identifier (VNI), ignoring assignment: %s",
-                           rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (vni > VXLAN_VID_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,

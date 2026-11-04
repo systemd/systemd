@@ -1140,10 +1140,8 @@ int config_parse_tmpfs_size(
                 r = parse_size(rvalue, 1024, &k);
                 if (r >= 0 && (k <= 0 || (uint64_t) (size_t) k != k))
                         r = -ERANGE;
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse size value '%s', ignoring: %m", rvalue);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
                 *sz = PAGE_ALIGN((size_t) k);
         }
