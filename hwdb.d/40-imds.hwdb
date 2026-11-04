@@ -83,6 +83,17 @@ dmi:bvnHetzner:*
  IMDS_KEY_SSH_KEY=/public-keys/0
  IMDS_KEY_USERDATA=/userdata
 
+# https://docs.openstack.org/nova/latest/user/metadata.html
+dmi:*:svnOpenStackFoundation:*
+ IMDS_VENDOR=openstack
+ IMDS_DATA_URL=http://169.254.169.254
+ IMDS_ADDRESS_IPV4=169.254.169.254
+ IMDS_ADDRESS_IPV6=fe80::a9fe:a9fe
+ IMDS_KEY_HOSTNAME=/1.0/meta-data/hostname
+ IMDS_KEY_IPV4_PUBLIC=/1.0/meta-data/public-ipv4
+ IMDS_KEY_SSH_KEY=/1.0/meta-data/public-keys/0/openssh-key
+ IMDS_KEY_USERDATA=/openstack/latest/user_data
+
 # https://docs.oracle.com/en-us/iaas/Content/Compute/Tasks/gettingmetadata.htm#metadata-keys
 dmi:*:catOracleCloud.com:*
  IMDS_VENDOR=oracle-cloud-oci
