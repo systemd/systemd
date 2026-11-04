@@ -1,13 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <grp.h>
+#include <linux/btrfs.h>
+#include <linux/magic.h>
 #include <sched.h>
 #include <stdio.h>
 #include <sys/eventfd.h>
+#include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "btrfs-util.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "errno-util.h"
@@ -19,6 +23,7 @@
 #include "pidref.h"
 #include "process-util.h"
 #include "rm-rf.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
@@ -221,6 +226,81 @@ TEST(userns_restrict) {
         }
 
         ASSERT_OK(pidref_wait_for_terminate_and_check("(test)", &pidref, WAIT_LOG));
+}
+
+TEST(userns_restrict_btrfs) {
+        _cleanup_(rm_rf_subvolume_and_freep) char *t = NULL;
+        _cleanup_close_ int dir_fd = -EBADF, host_fd = -EBADF, mapped_fd = -EBADF,
+                             mount_fd = -EBADF, idmapped_fd = -EBADF, userns_fd = -EBADF,
+                             tmpfs_mount = -EBADF, tmpfs_fd = -EBADF;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        _cleanup_free_ char *idmap = NULL;
+        struct stat st;
+        int r;
+
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/test-userns-restrict-btrfs.XXXXXX", &t));
+        dir_fd = ASSERT_OK(xopenat(AT_FDCWD, t, O_DIRECTORY));
+        if (ASSERT_OK(fd_is_fs_type(dir_fd, BTRFS_SUPER_MAGIC)) == 0)
+                return (void) log_tests_skipped("Temporary directory is not on Btrfs");
+
+        host_fd = ASSERT_OK(xopenat_full(dir_fd, "host", O_DIRECTORY|O_CREAT, /* xopen_flags= */ 0, 0700));
+        mapped_fd = ASSERT_OK(xopenat_full(dir_fd, "mapped", O_DIRECTORY|O_CREAT, /* xopen_flags= */ 0, 0700));
+        ASSERT_OK_ERRNO(fchown(host_fd, CONTAINER_UID_MIN, CONTAINER_UID_MIN));
+
+        ASSERT_OK(btrfs_subvol_make(host_fd, "probe"));
+        ASSERT_OK(btrfs_subvol_remove_at(host_fd, "probe", /* flags= */ 0));
+
+        ASSERT_OK(asprintf(&idmap, "0 "UID_FMT" 1", CONTAINER_UID_MIN));
+        userns_fd = ASSERT_OK(userns_acquire(idmap, idmap, /* setgroups_deny= */ true));
+
+        mount_fd = ASSERT_OK_ERRNO(open_tree(mapped_fd, "", OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_EMPTY_PATH));
+        ASSERT_OK_ERRNO(mount_setattr(mount_fd, "", AT_EMPTY_PATH,
+                                      &(struct mount_attr) {
+                                              .attr_set = MOUNT_ATTR_IDMAP,
+                                              .userns_fd = userns_fd,
+                                      }, sizeof(struct mount_attr)));
+        idmapped_fd = ASSERT_OK(xopenat(mount_fd, ".", O_DIRECTORY));
+
+        tmpfs_mount = ASSERT_OK(make_tmpfs_fsmount());
+        tmpfs_fd = ASSERT_OK(xopenat(tmpfs_mount, ".", O_DIRECTORY));
+
+        ASSERT_OK(userns_restrict_register_by_fd(bpf_obj, userns_fd));
+
+        r = ASSERT_OK(pidref_safe_fork("(btrfs)", FORK_DEATHSIG_SIGKILL, &pidref));
+        if (r == 0) {
+                struct btrfs_ioctl_vol_args legacy = { .name = "legacy" };
+                struct btrfs_ioctl_vol_args_v2 modern = { .name = "modern" };
+                struct btrfs_ioctl_fs_info_args info = {};
+
+                ASSERT_OK(namespace_enter(-EBADF, -EBADF, -EBADF, userns_fd, -EBADF));
+                ASSERT_OK_ERRNO(unshare(CLONE_NEWNS));
+
+                ASSERT_ERROR_ERRNO(ioctl(host_fd, BTRFS_IOC_SUBVOL_CREATE, &legacy), EPERM);
+                ASSERT_ERROR_ERRNO(ioctl(host_fd, BTRFS_IOC_SUBVOL_CREATE_V2, &modern), EPERM);
+                ASSERT_OK_ERRNO(ioctl(idmapped_fd, BTRFS_IOC_SUBVOL_CREATE, &legacy));
+                ASSERT_OK_ERRNO(ioctl(idmapped_fd, BTRFS_IOC_SUBVOL_CREATE_V2, &modern));
+                ASSERT_OK_ERRNO(ioctl(host_fd, BTRFS_IOC_FS_INFO, &info));
+
+                ASSERT_ERROR_ERRNO(ioctl(tmpfs_fd, BTRFS_IOC_SUBVOL_CREATE, &legacy), ENOTTY);
+                ASSERT_ERROR_ERRNO(ioctl(tmpfs_fd, BTRFS_IOC_SUBVOL_CREATE_V2, &modern), ENOTTY);
+
+                ASSERT_OK_ERRNO(unshare(CLONE_NEWUSER));
+                ASSERT_ERROR_ERRNO(ioctl(host_fd, BTRFS_IOC_SUBVOL_CREATE, &legacy), EPERM);
+                ASSERT_ERROR_ERRNO(ioctl(host_fd, BTRFS_IOC_SUBVOL_CREATE_V2, &modern), EPERM);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        ASSERT_OK(pidref_wait_for_terminate_and_check("(btrfs)", &pidref, WAIT_LOG));
+
+        FOREACH_STRING(name, "legacy", "modern") {
+                ASSERT_OK_ERRNO(fstatat(mapped_fd, name, &st, 0));
+                ASSERT_EQ(st.st_uid, 0U);
+                ASSERT_EQ(st.st_gid, 0U);
+        }
+
+        ASSERT_OK_ERRNO(fstat(userns_fd, &st));
+        ASSERT_OK(userns_restrict_reset_by_inode(bpf_obj, st.st_ino));
 }
 
 TEST(userns_restrict_overlayfs) {

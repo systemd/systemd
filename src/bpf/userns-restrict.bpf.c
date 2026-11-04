@@ -15,6 +15,7 @@
 
 #include "vmlinux.h"
 
+#include <asm/ioctl.h>
 #include <errno.h>                      /* IWYU pragma: keep */
 #include <bpf/bpf_core_read.h>
 #include <bpf/bpf_helpers.h>
@@ -66,6 +67,7 @@ void* bpf_rdonly_cast(const void *, __u32) __ksym;
 #define UID_GID_INVALID ((uid_t) -1)
 
 /* From include/uapi/linux/magic.h, which vmlinux.h does not provide. */
+#define BTRFS_SUPER_MAGIC 0x9123683E
 #define OVERLAYFS_SUPER_MAGIC 0x794c7630
 #define CGROUP2_SUPER_MAGIC 0x63677270
 
@@ -74,6 +76,10 @@ void* bpf_rdonly_cast(const void *, __u32) __ksym;
 
 /* From include/uapi/asm-generic/fcntl.h. Only archs without BPF trampolines (no LSM programs) deviate. */
 #define __O_TMPFILE (1U << 22) /* O_TMPFILE without O_DIRECTORY */
+
+/* The Btrfs UAPI header conflicts with vmlinux.h, so define the subvolume creation commands here. */
+#define BTRFS_IOC_SUBVOL_CREATE _IOC(_IOC_WRITE, 0x94, 14, 4096)
+#define BTRFS_IOC_SUBVOL_CREATE_V2 _IOC(_IOC_WRITE, 0x94, 24, 4096)
 
 struct {
         __uint(type, BPF_MAP_TYPE_HASH);
@@ -427,6 +433,27 @@ int BPF_PROG(userns_restrict_path_rename, const struct path *old_dir, struct den
                 return ret;
 
         return validate_mount(old_dir->mnt, ret);
+}
+
+/* Btrfs creates subvolume root inodes without calling the path or inode creation hooks. */
+static int validate_ioctl(struct file *file, unsigned cmd, int ret) {
+        if (cmd != BTRFS_IOC_SUBVOL_CREATE && cmd != BTRFS_IOC_SUBVOL_CREATE_V2)
+                return ret;
+
+        if (file->f_path.mnt->mnt_sb->s_magic != BTRFS_SUPER_MAGIC)
+                return ret;
+
+        return validate_mount(file->f_path.mnt, ret);
+}
+
+SEC("lsm/file_ioctl")
+int BPF_PROG(userns_restrict_file_ioctl, struct file *file, unsigned cmd, unsigned long arg, int ret) {
+        return validate_ioctl(file, cmd, ret);
+}
+
+SEC("lsm/file_ioctl_compat")
+int BPF_PROG(userns_restrict_file_ioctl_compat, struct file *file, unsigned cmd, unsigned long arg, int ret) {
+        return validate_ioctl(file, cmd, ret);
 }
 
 /* overlayfs' struct ovl_fs and struct ovl_layer are private to the module and hence absent from vmlinux.h
