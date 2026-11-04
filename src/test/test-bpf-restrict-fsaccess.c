@@ -49,6 +49,7 @@
 #include "devnum-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "log.h"
 #include "memory-util.h"
 #include "pidref.h"
@@ -85,9 +86,9 @@ static int mmap_probe(const char *path, int prot, const char *what) {
         void *addr;
         int r;
 
-        fd = open(path, O_RDONLY | O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, path, O_RDONLY);
         if (fd < 0) {
-                log_error_errno(errno, "Failed to open %s: %m", path);
+                log_error_errno(fd, "Failed to open %s: %m", path);
                 return PROBE_ERROR;
         }
 
@@ -109,9 +110,9 @@ static int mprotect_probe(const char *path, int prot, bool poke, int new_prot, c
         void *addr;
         int r;
 
-        fd = open(path, O_RDONLY | O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, path, O_RDONLY);
         if (fd < 0) {
-                log_error_errno(errno, "Failed to open %s: %m", path);
+                log_error_errno(fd, "Failed to open %s: %m", path);
                 return PROBE_ERROR;
         }
 
@@ -192,9 +193,9 @@ static int do_procmem_cow(const char *path) {
         ssize_t n;
         int r;
 
-        fd = open(path, O_RDONLY | O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, path, O_RDONLY);
         if (fd < 0) {
-                log_error_errno(errno, "Failed to open %s: %m", path);
+                log_error_errno(fd, "Failed to open %s: %m", path);
                 return PROBE_ERROR;
         }
 
@@ -204,11 +205,10 @@ static int do_procmem_cow(const char *path) {
                 return PROBE_ERROR;
         }
 
-        mem_fd = open("/proc/self/mem", O_RDWR | O_CLOEXEC);
+        mem_fd = xopenat(AT_FDCWD, "/proc/self/mem", O_RDWR);
         if (mem_fd < 0) {
-                r = -errno;
                 munmap_safe(addr, 4096);
-                log_error_errno(r, "Failed to open /proc/self/mem: %m");
+                log_error_errno(mem_fd, "Failed to open /proc/self/mem: %m");
                 return PROBE_ERROR;
         }
 
@@ -232,9 +232,9 @@ static int do_execve_check(const char *path) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        fd = open(path, O_RDONLY | O_CLOEXEC);
+        fd = xopenat(AT_FDCWD, path, O_RDONLY);
         if (fd < 0) {
-                log_error_errno(errno, "Failed to open %s: %m", path);
+                log_error_errno(fd, "Failed to open %s: %m", path);
                 return PROBE_ERROR;
         }
 

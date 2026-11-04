@@ -8,6 +8,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "glob-util.h"
 #include "kernel-image.h"
 #include "memfd-util.h"
@@ -213,12 +214,12 @@ TEST(installed_kernels) {
                 ASSERT_OK(path_extract_directory(*path, &dir));
                 ASSERT_OK(path_extract_filename(dir, &version));
 
-                _cleanup_close_ int fd = open(*path, O_RDONLY|O_CLOEXEC);
-                if (fd < 0 && ERRNO_IS_PRIVILEGE(errno)) {
-                        log_notice_errno(errno, "Cannot open %s, skipping: %m", *path);
+                _cleanup_close_ int fd = xopenat(AT_FDCWD, *path, O_RDONLY);
+                if (ERRNO_IS_NEG_PRIVILEGE(fd)) {
+                        log_notice_errno(fd, "Cannot open %s, skipping: %m", *path);
                         continue;
                 }
-                ASSERT_OK_ERRNO(fd);
+                ASSERT_OK(fd);
 
                 _cleanup_close_ int decompressed_fd = -EBADF;
                 r = kernel_decompress(fd, &decompressed_fd);

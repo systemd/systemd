@@ -8,6 +8,7 @@
 #include "conf-files.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
@@ -64,7 +65,7 @@ TEST(voa_os_identifiers) {
         _cleanup_close_ int root_fd = -EBADF;
 
         ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &root));
-        ASSERT_OK_ERRNO(root_fd = open(root, O_PATH|O_DIRECTORY|O_CLOEXEC));
+        ASSERT_OK(root_fd = xopenat(AT_FDCWD, root, O_PATH|O_DIRECTORY));
 
         /* No os-release at all yields the documented default */
         ASSERT_OK_ZERO(voa_os_identifiers(root_fd, &l));
@@ -173,7 +174,7 @@ TEST(voa_list_verifiers) {
         };
 
         ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &root));
-        ASSERT_OK_ERRNO(root_fd = open(root, O_PATH|O_DIRECTORY|O_CLOEXEC));
+        ASSERT_OK(root_fd = xopenat(AT_FDCWD, root, O_PATH|O_DIRECTORY));
 
         /* Every copy counts */
         add_file(root, "/usr/share/voa/testos" X509_DIR "a-certificate.pem");
@@ -316,7 +317,7 @@ TEST(voa_list_verifiers_symlinked_load_path_parent) {
         };
 
         ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &root));
-        ASSERT_OK_ERRNO(root_fd = open(root, O_PATH|O_DIRECTORY|O_CLOEXEC));
+        ASSERT_OK(root_fd = xopenat(AT_FDCWD, root, O_PATH|O_DIRECTORY));
 
         /* rpm-ostree layout: /usr/local is a symlink to ../var/usrlocal */
         add_dir(root, "/usr");
@@ -356,7 +357,7 @@ TEST(voa_list_verifiers_mode) {
         };
 
         ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &root));
-        ASSERT_OK_ERRNO(root_fd = open(root, O_PATH|O_DIRECTORY|O_CLOEXEC));
+        ASSERT_OK(root_fd = xopenat(AT_FDCWD, root, O_PATH|O_DIRECTORY));
 
         add_file(root, "/etc/voa/testos" X509_DIR "a-certificate.pem");
         add_file(root, "/run/voa/testos" X509_DIR "b-certificate.pem");

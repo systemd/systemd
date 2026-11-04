@@ -15,6 +15,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
 #include "iovec-util.h"
@@ -722,12 +723,12 @@ TEST(manifest_omitted) {
          * make of that */
         ASSERT_OK_ERRNO(fchmodat(tfd, "regular.txt", 0000, 0));
         ASSERT_OK_ERRNO(fchmodat(tfd, "subdir", 0000, 0));
-        _cleanup_close_ int probe_fd = openat(tfd, "regular.txt", O_RDONLY|O_CLOEXEC);
+        _cleanup_close_ int probe_fd = xopenat(tfd, "regular.txt", O_RDONLY);
         if (probe_fd >= 0) {
                 ASSERT_OK_ERRNO(fchmodat(tfd, "subdir", 0755, 0));
                 return (void) log_tests_skipped("Privileged enough to read inaccessible files");
         }
-        ASSERT_EQ(errno, EACCES);
+        ASSERT_ERROR(probe_fd, EACCES);
 
         static const struct {
                 ManifestFormat format;

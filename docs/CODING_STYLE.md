@@ -911,6 +911,10 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   `execve()` the `O_CLOEXEC` bit must be cleared explicitly via
   `fd_cloexec(fd, false)` right before the `execve()`.
 
+- Open files with `xopenat()` or one of the other helpers above instead of
+  calling `open()`, `openat()` or `creat()` directly. This also applies to
+  tests. clang-tidy reports direct calls.
+
 - It's a good idea to use `O_NONBLOCK` when opening 'foreign' regular files,
   i.e.  file system objects that are supposed to be regular files whose paths
   were specified by the user and hence might actually refer to other types of

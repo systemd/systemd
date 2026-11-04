@@ -783,6 +783,8 @@ finish:
         return r;
 }
 
+/* fd_reopen() calls open() and openat() directly. clang-tidy reports direct calls in all other code. */
+/* NOLINTBEGIN(bugprone-unsafe-functions) */
 int fd_reopen(int fd, int flags) {
         assert(wildcard_fd_is_valid(fd));
         assert(!FLAGS_SET(flags, O_CREAT));
@@ -854,6 +856,7 @@ int fd_reopen(int fd, int flags) {
 
         return new_fd;
 }
+/* NOLINTEND(bugprone-unsafe-functions) */
 
 static int fd_reopen_propagate_append_and_position(int fd, int flags) {
         /* Invokes fd_reopen(fd, flags), but propagates O_APPEND if set on original fd, and also tries to

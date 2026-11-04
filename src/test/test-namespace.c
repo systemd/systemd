@@ -16,6 +16,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "libmount-util.h"
 #include "namespace-util.h"
 #include "namespace.h"
@@ -227,12 +228,12 @@ TEST(protect_kernel_logs) {
         if (r == 0) {
                 _cleanup_close_ int fd = -EBADF;
 
-                ASSERT_OK_ERRNO(fd = open("/dev/kmsg", O_RDONLY | O_CLOEXEC));
+                ASSERT_OK(fd = xopenat(AT_FDCWD, "/dev/kmsg", O_RDONLY));
 
                 ASSERT_OK_ZERO(setup_namespace(&p, /* reterr_path= */ NULL));
 
                 ASSERT_OK_ERRNO(setresuid(UID_NOBODY, UID_NOBODY, UID_NOBODY));
-                ASSERT_ERROR_ERRNO(open("/dev/kmsg", O_RDONLY | O_CLOEXEC), EACCES);
+                ASSERT_ERROR(xopenat(AT_FDCWD, "/dev/kmsg", O_RDONLY), EACCES);
 
                 _exit(EXIT_SUCCESS);
         }
@@ -288,7 +289,7 @@ TEST(userns_get_base_uid) {
 
 TEST(namespace_open_by_id) {
         /* Try our own user namespace first to see if the kernel exposes ns_id at all. */
-        _cleanup_close_ int userns_fd = ASSERT_OK_ERRNO(open("/proc/self/ns/user", O_RDONLY|O_CLOEXEC));
+        _cleanup_close_ int userns_fd = ASSERT_OK(xopenat(AT_FDCWD, "/proc/self/ns/user", O_RDONLY));
 
         uint64_t ns_id;
         int r = RET_NERRNO(ioctl(userns_fd, NS_GET_ID, &ns_id));
