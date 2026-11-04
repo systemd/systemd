@@ -22,13 +22,16 @@
 #include "io-util.h"
 #include "iovec-util.h"
 #include "keyring-util.h"
+#include "lock-util.h"
 #include "log.h"
+#include "mkdir.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-lookup.h"
 #include "plymouth-util.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "sha256.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -259,6 +262,103 @@ static int ask_password_keyring(const AskPasswordRequest *req, AskPasswordFlags 
 
         *ret = TAKE_PTR(l);
         return 0;
+}
+
+static int ask_password_cache_lock(
+                const AskPasswordRequest *req,
+                AskPasswordFlags flags,
+                LockFile *ret_lock,
+                char ***ret) {
+
+        _cleanup_free_ char *directory = NULL, *digest = NULL, *name = NULL;
+        _cleanup_close_ int dfd = -EBADF, signal_fd = -EBADF;
+        key_serial_t scope;
+        int r;
+
+        if (!req->keyring || !FLAGS_SET(flags, ASK_PASSWORD_ACCEPT_CACHED|ASK_PASSWORD_PUSH_CACHE) ||
+            keyring_cache_timeout() == 0)
+                return 0;
+
+        r = ask_password_keyring(req, flags, ret);
+        if (r != -ENOKEY)
+                return r < 0 ? r : 1;
+
+        r = keyring_resolve(keyring_cache_type(), &scope);
+        if (r < 0) {
+                log_debug_errno(r, "Cannot resolve password cache keyring, proceeding without a lock: %m");
+                return 0;
+        }
+
+        /* The lock directory must be shared in the callers' mount namespaces. A UID uses the same
+         * lock directory for user and system agent requests. */
+        r = get_ask_password_directory_for_flags(getuid() == 0 ? 0 : ASK_PASSWORD_USER, &directory);
+        if (r <= 0)
+                return r;
+
+        r = mkdir_parents(directory, 0755);
+        if (r < 0)
+                return r;
+
+        dfd = open_mkdir(directory, O_CLOEXEC, 0755);
+        if (dfd < 0)
+                return dfd;
+
+        digest = sha256_direct_hex(req->keyring, strlen(req->keyring));
+        if (!digest)
+                return -ENOMEM;
+        if (asprintf(&name, ".cache-lock-%" PRIi32 "-%s", scope, digest) < 0)
+                return -ENOMEM;
+
+        sigset_t mask, oldmask;
+        _unused_ _cleanup_(block_signals_reset) sigset_t *saved_ssp = NULL;
+
+        assert_se(sigemptyset(&mask) >= 0);
+        assert_se(sigset_add_many(&mask, SIGINT, SIGTERM) >= 0);
+        assert_se(sigprocmask(SIG_BLOCK, &mask, &oldmask) >= 0);
+        saved_ssp = &oldmask;
+
+        signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
+        if (signal_fd < 0)
+                return -errno;
+
+        for (;;) {
+                struct pollfd pollfd[] = {
+                        { .fd = signal_fd, .events = POLLIN },
+                        { .fd = req->hup_fd, .events = POLLHUP },
+                };
+                usec_t timeout = 50 * USEC_PER_MSEC;
+
+                if (req->until > 0) {
+                        usec_t left = usec_sub_unsigned(req->until, now(CLOCK_MONOTONIC));
+                        if (left == 0)
+                                return -ETIME;
+                        timeout = MIN(timeout, left);
+                }
+                if (req->flag_file && access(req->flag_file, F_OK) < 0)
+                        return -errno;
+
+                r = ppoll_usec(pollfd, ELEMENTSOF(pollfd), 0);
+                if (r < 0)
+                        return r;
+                if (pollfd[0].revents)
+                        return -EINTR;
+                if (pollfd[1].revents & (POLLHUP|POLLERR|POLLNVAL))
+                        return -ECONNRESET;
+
+                /* make_lock_file_at() verifies the inode after locking. Waiters reopen the path on
+                 * every retry because release_lock_file() removes the file before closing it. */
+                r = make_lock_file_at(dfd, name, LOCK_EX|LOCK_NB, ret_lock);
+                if (r >= 0) {
+                        r = ask_password_keyring(req, flags, ret);
+                        return r == -ENOKEY ? 0 : r < 0 ? r : 1;
+                }
+                if (r != -EBUSY)
+                        return r;
+
+                r = ppoll_usec(pollfd, ELEMENTSOF(pollfd), timeout);
+                if (r < 0 && r != -EINTR)
+                        return r;
+        }
 }
 
 static int backspace_chars(int ttyfd, size_t p) {
@@ -493,6 +593,11 @@ int ask_password_tty(
 
         if (FLAGS_SET(flags, ASK_PASSWORD_NO_TTY))
                 return -EUNATCH;
+
+        _cleanup_(release_lock_file) LockFile cache_lock = LOCK_FILE_INIT;
+        r = ask_password_cache_lock(req, flags, &cache_lock, ret);
+        if (r != 0)
+                return r < 0 ? r : 0;
 
         const char *message = req->message ?: "Password:";
         const char *keyring = req->keyring;
@@ -869,6 +974,11 @@ int ask_password_agent(
         if (!ask_password_agent_prompt_fields_are_safe(req))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Password request contains unsafe characters, refusing.");
+
+        _cleanup_(release_lock_file) LockFile cache_lock = LOCK_FILE_INIT;
+        r = ask_password_cache_lock(req, flags, &cache_lock, ret);
+        if (r != 0)
+                return r < 0 ? r : 0;
 
         _cleanup_free_ char *askpwdir = NULL;
         r = get_ask_password_directory_for_flags(flags, &askpwdir);
