@@ -139,19 +139,19 @@ TEST(cunescape) {
         unescaped = mfree(unescaped);
 
         ASSERT_OK_EQ(cunescape("\\x00\\x00\\x00", UNESCAPE_ACCEPT_NUL, &unescaped), 3);
-        ASSERT_EQ(memcmp(unescaped, "\0\0\0", 3), 0);
+        ASSERT_MEMEQ(unescaped, "\0\0\0", 3);
         unescaped = mfree(unescaped);
 
         ASSERT_OK_EQ(cunescape("\\u0000\\u0000\\u0000", UNESCAPE_ACCEPT_NUL, &unescaped), 3);
-        ASSERT_EQ(memcmp(unescaped, "\0\0\0", 3), 0);
+        ASSERT_MEMEQ(unescaped, "\0\0\0", 3);
         unescaped = mfree(unescaped);
 
         ASSERT_OK_EQ(cunescape("\\U00000000\\U00000000\\U00000000", UNESCAPE_ACCEPT_NUL, &unescaped), 3);
-        ASSERT_EQ(memcmp(unescaped, "\0\0\0", 3), 0);
+        ASSERT_MEMEQ(unescaped, "\0\0\0", 3);
         unescaped = mfree(unescaped);
 
         ASSERT_OK_EQ(cunescape("\\000\\000\\000", UNESCAPE_ACCEPT_NUL, &unescaped), 3);
-        ASSERT_EQ(memcmp(unescaped, "\0\0\0", 3), 0);
+        ASSERT_MEMEQ(unescaped, "\0\0\0", 3);
 }
 
 static void test_shell_escape_one(const char *s, const char *bad, const char *expected) {

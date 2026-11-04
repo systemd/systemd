@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "bus-label.h"
 #include "fuzz.h"
+#include "tests.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_free_ char *unescaped = NULL, *escaped = NULL;
@@ -10,9 +11,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         fuzz_setup_logging();
 
         unescaped = bus_label_unescape_n((const char*)data, size);
-        assert_se(unescaped != NULL);
+        ASSERT_NOT_NULL(unescaped);
         escaped = bus_label_escape(unescaped);
-        assert_se(escaped != NULL);
+        ASSERT_NOT_NULL(escaped);
 
         return 0;
 }

@@ -152,7 +152,7 @@ TEST(tpm2_util_pbkdf2_hmac_sha256) {
                                 vector->saltlen,
                                 res);
                 ASSERT_OK_ZERO(rc);
-                ASSERT_EQ(memcmp(vector->expected, res, SHA256_DIGEST_SIZE), 0);
+                ASSERT_MEMEQ(vector->expected, res, SHA256_DIGEST_SIZE);
         }
 }
 
@@ -525,7 +525,7 @@ static void check_digests(
         ASSERT_EQ(n_digests, n_expect);
 
         for (size_t i = 0; i < n_expect; i++)
-                ASSERT_EQ(memcmp_nn(digests[i].buffer, digests[i].size, expect[i].buffer, expect[i].size), 0);
+                ASSERT_MEMEQ_NN(digests[i].buffer, digests[i].size, expect[i].buffer, expect[i].size);
 }
 
 TEST(pcr_values_to_digests_for_selection) {
@@ -736,8 +736,7 @@ static void check_parse_pcr_argument(
 
                 ASSERT_EQ(v->index, e->index);
                 ASSERT_EQ(v->hash, e->hash);
-                ASSERT_EQ(v->value.size, e->value.size);
-                ASSERT_EQ(memcmp(v->value.buffer, e->value.buffer, e->value.size), 0);
+                ASSERT_MEMEQ_NN(v->value.buffer, v->value.size, e->value.buffer, e->value.size);
         }
 
         size_t hash_count;
@@ -1012,7 +1011,7 @@ static void get_tpm2b_public_from_pem(const void *pem, size_t pem_size, TPM2B_PU
         ASSERT_OK(openssl_pubkey_from_pem(pem, pem_size, &pkey));
         ASSERT_OK(tpm2_tpm2b_public_from_openssl_pkey(pkey, &p1));
         ASSERT_OK(tpm2_tpm2b_public_from_pem(pem, pem_size, &p2));
-        ASSERT_EQ(memcmp_nn(&p1, sizeof(p1), &p2, sizeof(p2)), 0);
+        ASSERT_MEMEQ_NN(&p1, sizeof(p1), &p2, sizeof(p2));
 
         *ret = p1;
 }
@@ -1023,7 +1022,7 @@ static void check_tpm2b_public_fingerprint(const TPM2B_PUBLIC *public, const cha
         size_t fp_size;
 
         ASSERT_OK(tpm2_tpm2b_public_to_fingerprint(public, &fp, &fp_size));
-        ASSERT_EQ(memcmp_nn(fp, fp_size, expected, expected_len), 0);
+        ASSERT_MEMEQ_NN(fp, fp_size, expected, expected_len);
 }
 
 static void check_tpm2b_public_name(const TPM2B_PUBLIC *public, const char *hexname) {
@@ -1031,7 +1030,7 @@ static void check_tpm2b_public_name(const TPM2B_PUBLIC *public, const char *hexn
         TPM2B_NAME name = {};
 
         ASSERT_OK(tpm2_calculate_pubkey_name(&public->publicArea, &name));
-        ASSERT_EQ(memcmp_nn(name.name, name.size, expected, expected_len), 0);
+        ASSERT_MEMEQ_NN(name.name, name.size, expected, expected_len);
 }
 
 static void check_tpm2b_public_from_ecc_pem(const char *pem, TPMI_ECC_CURVE curve, const char *hexx, const char *hexy, const char *hexfp, const char *hexname) {
@@ -1045,10 +1044,10 @@ static void check_tpm2b_public_from_ecc_pem(const char *pem, TPMI_ECC_CURVE curv
         ASSERT_EQ(p->parameters.eccDetail.curveID, curve);
 
         DEFINE_HEX_PTR(expected_x, hexx);
-        ASSERT_EQ(memcmp_nn(p->unique.ecc.x.buffer, p->unique.ecc.x.size, expected_x, expected_x_len), 0);
+        ASSERT_MEMEQ_NN(p->unique.ecc.x.buffer, p->unique.ecc.x.size, expected_x, expected_x_len);
 
         DEFINE_HEX_PTR(expected_y, hexy);
-        ASSERT_EQ(memcmp_nn(p->unique.ecc.y.buffer, p->unique.ecc.y.size, expected_y, expected_y_len), 0);
+        ASSERT_MEMEQ_NN(p->unique.ecc.y.buffer, p->unique.ecc.y.size, expected_y, expected_y_len);
 
         check_tpm2b_public_fingerprint(&public, hexfp);
         check_tpm2b_public_name(&public, hexname);
@@ -1064,7 +1063,7 @@ static void check_tpm2b_public_from_rsa_pem(const char *pem, const char *hexn, u
         ASSERT_EQ(p->type, TPM2_ALG_RSA);
 
         DEFINE_HEX_PTR(expected_n, hexn);
-        ASSERT_EQ(memcmp_nn(p->unique.rsa.buffer, p->unique.rsa.size, expected_n, expected_n_len), 0);
+        ASSERT_MEMEQ_NN(p->unique.rsa.buffer, p->unique.rsa.size, expected_n, expected_n_len);
 
         ASSERT_EQ(p->parameters.rsaDetail.keyBits, expected_n_len * 8);
 
@@ -1115,8 +1114,7 @@ static void check_name(const TPM2B_NAME *name, const char *expect) {
         ASSERT_EQ(name->size, SHA256_DIGEST_SIZE + 2);
 
         DEFINE_HEX_PTR(e, expect);
-        ASSERT_EQ(name->size, e_len);
-        ASSERT_EQ(memcmp(name->name, e, e_len), 0);
+        ASSERT_MEMEQ_NN(name->name, name->size, e, e_len);
 }
 
 TEST(calculate_pubkey_name) {
@@ -1183,8 +1181,7 @@ TEST(make_policy_authorize_tbs_data) {
 
         /* Without a policy reference the to-be-signed data is just the approved policy digest. */
         ASSERT_OK_ZERO(tpm2_make_policy_authorize_tbs_data(&d, /* policy_ref_data= */ NULL, &tbs));
-        ASSERT_EQ(tbs.iov_len, d.size);
-        ASSERT_EQ(memcmp(tbs.iov_base, d.buffer, d.size), 0);
+        ASSERT_MEMEQ_NN(tbs.iov_base, tbs.iov_len, d.buffer, d.size);
         iovec_done(&tbs);
 
         /* An empty (zero-length) policy reference should not result in a SHA256 digest being appended. */
@@ -1197,8 +1194,8 @@ TEST(make_policy_authorize_tbs_data) {
         const char ref[] = "initrd";
         ASSERT_OK_ZERO(tpm2_make_policy_authorize_tbs_data(&d, ref, &tbs));
         ASSERT_EQ(tbs.iov_len, (size_t) d.size + SHA256_DIGEST_SIZE);
-        ASSERT_EQ(memcmp(tbs.iov_base, d.buffer, d.size), 0);
-        ASSERT_EQ(memcmp((const uint8_t*) tbs.iov_base + d.size, SHA256_DIRECT(ref, strlen(ref)), SHA256_DIGEST_SIZE), 0);
+        ASSERT_MEMEQ(tbs.iov_base, d.buffer, d.size);
+        ASSERT_MEMEQ((const uint8_t*) tbs.iov_base + d.size, SHA256_DIRECT(ref, strlen(ref)), SHA256_DIGEST_SIZE);
 }
 
 TEST(calculate_policy_pcr) {
@@ -1290,9 +1287,9 @@ static int policy_or_tree_reference(const TPM2B_DIGEST *leaves, size_t n, TPM2B_
         _cleanup_free_ TPM2B_DIGEST *level = NULL;
         size_t n_level = n;
 
-        assert_se(leaves);
-        assert_se(n > 0);
-        assert_se(ret);
+        ASSERT_NOT_NULL(leaves);
+        ASSERT_GT(n, 0U);
+        ASSERT_NOT_NULL(ret);
 
         level = newdup(TPM2B_DIGEST, leaves, n);
         if (!level)
@@ -1312,8 +1309,8 @@ static int policy_or_tree_reference(const TPM2B_DIGEST *leaves, size_t n, TPM2B_
                         size_t size = base + (i < rem);
                         int r;
 
-                        assert_se(size >= 2); /* No degenerate single-branch ORs */
-                        assert_se(size <= TPM2_POLICY_OR_MAX_BRANCHES);
+                        ASSERT_GE(size, 2U); /* No degenerate single-branch ORs */
+                        ASSERT_LE(size, TPM2_POLICY_OR_MAX_BRANCHES);
 
                         next[i].size = SHA256_DIGEST_SIZE;
                         r = tpm2_calculate_policy_or(level + off, size, &next[i]);
@@ -1350,8 +1347,7 @@ TEST(calculate_policy_or) {
                 actual = (TPM2B_DIGEST) { .size = SHA256_DIGEST_SIZE };
                 ASSERT_OK(tpm2_calculate_policy_or(leaves, *n, &actual));
 
-                ASSERT_EQ(actual.size, reference.size);
-                ASSERT_EQ(memcmp(actual.buffer, reference.buffer, actual.size), 0);
+                ASSERT_MEMEQ_NN(actual.buffer, actual.size, reference.buffer, reference.size);
 
                 /* Pin the flat form and one nested result to the on-disk format, independently of the
                  * shared implementation. */
@@ -1758,9 +1754,9 @@ static void check_get_or_create_srk(Tpm2Context *c) {
         ASSERT_NOT_NULL(qname2);
         ASSERT_NOT_NULL(handle2);
 
-        ASSERT_EQ(memcmp_nn(public, sizeof(*public), public2, sizeof(*public2)), 0);
-        ASSERT_EQ(memcmp_nn(name->name, name->size, name2->name, name2->size), 0);
-        ASSERT_EQ(memcmp_nn(qname->name, qname->size, qname2->name, qname2->size), 0);
+        ASSERT_MEMEQ_NN(public, sizeof(*public), public2, sizeof(*public2));
+        ASSERT_MEMEQ_NN(name->name, name->size, name2->name, name2->size);
+        ASSERT_MEMEQ_NN(qname->name, qname->size, qname2->name, qname2->size);
 }
 
 #if HAVE_OPENSSL
@@ -1804,7 +1800,7 @@ static void calculate_seal_and_unseal(
                         &serialized_parent,
                         &unsealed_secret));
 
-        ASSERT_EQ(memcmp_nn(secret_string, secret_size, unsealed_secret.iov_base, unsealed_secret.iov_len), 0);
+        ASSERT_MEMEQ_NN(secret_string, secret_size, unsealed_secret.iov_base, unsealed_secret.iov_len);
 
         char unsealed_string[unsealed_secret.iov_len];
         ASSERT_EQ(snprintf(unsealed_string, unsealed_secret.iov_len, "%s", (char*) unsealed_secret.iov_base), (int) unsealed_secret.iov_len - 1);
@@ -1892,7 +1888,7 @@ static void check_seal_unseal_for_handle(Tpm2Context *c, TPM2_HANDLE handle) {
                         &srk,
                         &unsealed_secret));
 
-        ASSERT_TRUE(iovec_equal(&secret, &unsealed_secret));
+        ASSERT_IOVEC_EQ(&secret, &unsealed_secret);
 }
 
 static void check_seal_unseal(Tpm2Context *c) {
@@ -1974,7 +1970,7 @@ static void check_nv_index_read(Tpm2Context *c) {
 
                 _cleanup_(iovec_done) struct iovec value = {};
                 ASSERT_OK_ZERO(tpm2_read_nv_index(c, /* session= */ NULL, nv_index, nv_handle, &value));
-                ASSERT_TRUE(iovec_equal(&value, &data));
+                ASSERT_IOVEC_EQ(&value, &data);
         }
 
         c->max_nv_buffer_size = saved_max_nv_buffer_size;
@@ -1994,7 +1990,7 @@ static void check_nv_index_read(Tpm2Context *c) {
 
         _cleanup_(iovec_done) struct iovec value = {};
         ASSERT_OK_ZERO(tpm2_read_nv_index(c, /* session= */ NULL, nv_index, nv_handle, &value));
-        ASSERT_TRUE(iovec_equal(&value, &data2));
+        ASSERT_IOVEC_EQ(&value, &data2);
 
         ASSERT_OK_ZERO(tpm2_undefine_nv_index(c, /* session= */ NULL, nv_index, nv_handle));
         nv_index = 0;
@@ -2008,7 +2004,7 @@ static void check_nv_index_read(Tpm2Context *c) {
         ASSERT_NOT_NULL(nv_handle);
 
         ASSERT_OK_ZERO(tpm2_read_nv_index(c, /* session= */ NULL, nv_index, nv_handle, &value));
-        ASSERT_TRUE(iovec_equal(&value, &data));
+        ASSERT_IOVEC_EQ(&value, &data);
 
         ASSERT_OK_ZERO(tpm2_undefine_nv_index(c, /* session= */ NULL, nv_index, nv_handle));
 }
@@ -2108,9 +2104,9 @@ static void check_get_or_create_ek(Tpm2Context *c) {
         ASSERT_NOT_NULL(qname2);
         ASSERT_NOT_NULL(handle2);
 
-        ASSERT_EQ(memcmp_nn(public, sizeof(*public), public2, sizeof(*public2)), 0);
-        ASSERT_EQ(memcmp_nn(name->name, name->size, name2->name, name2->size), 0);
-        ASSERT_EQ(memcmp_nn(qname->name, qname->size, qname2->name, qname2->size), 0);
+        ASSERT_MEMEQ_NN(public, sizeof(*public), public2, sizeof(*public2));
+        ASSERT_MEMEQ_NN(name->name, name->size, name2->name, name2->size);
+        ASSERT_MEMEQ_NN(qname->name, qname->size, qname2->name, qname2->size);
 }
 
 static void check_max_data_size(Tpm2Context *c) {
@@ -2131,11 +2127,11 @@ TEST(tpm2_digest_to_data) {
 
         TPM2B_DATA d;
         ASSERT_OK(tpm2_digest_buf_to_data(TPM2_ALG_SHA256, h, h_len, &d));
-        ASSERT_EQ(memcmp_nn(d.buffer, d.size, expected, expected_len), 0);
+        ASSERT_MEMEQ_NN(d.buffer, d.size, expected, expected_len);
 
         memset(&d, 0, sizeof(d));
         ASSERT_OK(tpm2_digest_iovec_to_data(TPM2_ALG_SHA256, &IOVEC_MAKE(h, h_len), &d));
-        ASSERT_EQ(memcmp_nn(d.buffer, d.size, expected, expected_len), 0);
+        ASSERT_MEMEQ_NN(d.buffer, d.size, expected, expected_len);
 }
 
 static void check_context_saving(Tpm2Context *c) {
@@ -2159,7 +2155,7 @@ static void check_context_saving(Tpm2Context *c) {
         ASSERT_OK(tpm2_get_name(c, handle, &name1));
         ASSERT_OK(tpm2_get_name(c, handle2, &name2));
 
-        ASSERT_EQ(memcmp_nn(name1->name, name1->size, name2->name, name2->size), 0);
+        ASSERT_MEMEQ_NN(name1->name, name1->size, name2->name, name2->size);
 }
 
 static void check_saved_context_marshaling(Tpm2Context *c) {
@@ -2190,7 +2186,7 @@ static void check_saved_context_marshaling(Tpm2Context *c) {
         ASSERT_OK(tpm2_get_name(c, handle, &name1));
         ASSERT_OK(tpm2_get_name(c, handle2, &name2));
 
-        ASSERT_EQ(memcmp_nn(name1->name, name1->size, name2->name, name2->size), 0);
+        ASSERT_MEMEQ_NN(name1->name, name1->size, name2->name, name2->size);
 }
 
 static void check_policy_secret(Tpm2Context *c) {
@@ -2818,7 +2814,7 @@ TEST(tpm2_tpms_tagged_policy_to_json) {
 static void check_attest_common(const TPMS_ATTEST *attest, TPMI_ST_ATTEST type, const TPM2B_DATA *extra_data) {
         ASSERT_EQ(attest->magic, TPM2_GENERATED_VALUE);
         ASSERT_EQ(attest->type, type);
-        ASSERT_EQ(memcmp_nn(attest->extraData.buffer, attest->extraData.size, extra_data->buffer, extra_data->size), 0);
+        ASSERT_MEMEQ_NN(attest->extraData.buffer, attest->extraData.size, extra_data->buffer, extra_data->size);
 }
 
 static void check_attest_signature(const TPM2B_PUBLIC *public, const TPMT_SIGNATURE *sig) {
@@ -2880,7 +2876,7 @@ static void check_quote(Tpm2Context *c) {
         ASSERT_OK(tpm2_quote(c, /* sign_session= */ NULL, /* audit_session= */ NULL, key, &data, &pcrs, &quote, &sig));
 
         check_attest_common(quote, TPM2_ST_ATTEST_QUOTE, &data);
-        ASSERT_EQ(memcmp(&quote->attested.quote.pcrSelect, &pcrs, sizeof(pcrs)), 0);
+        ASSERT_MEMEQ(&quote->attested.quote.pcrSelect, &pcrs, sizeof(pcrs));
 
         check_attest_signature(&template, sig);
 }
@@ -2936,9 +2932,9 @@ static void check_nv_certify(Tpm2Context *c) {
         ASSERT_OK(tpm2_undefine_nv_index(c, /* session= */ NULL, nv_index, nv_handle));
 
         check_attest_common(certify_info, TPM2_ST_ATTEST_NV, &data);
-        ASSERT_EQ(memcmp_nn(certify_info->attested.nv.indexName.name, certify_info->attested.nv.indexName.size, nv_name->name, nv_name->size), 0);
+        ASSERT_MEMEQ_NN(certify_info->attested.nv.indexName.name, certify_info->attested.nv.indexName.size, nv_name->name, nv_name->size);
         ASSERT_EQ(certify_info->attested.nv.offset, 0);
-        ASSERT_EQ(memcmp_nn(certify_info->attested.nv.nvContents.buffer, certify_info->attested.nv.nvContents.size, nv_data.iov_base, nv_data.iov_len), 0);
+        ASSERT_MEMEQ_NN(certify_info->attested.nv.nvContents.buffer, certify_info->attested.nv.nvContents.size, nv_data.iov_base, nv_data.iov_len);
 
         check_attest_signature(&template, sig);
 }
@@ -3022,7 +3018,7 @@ static void check_certify(Tpm2Context *c) {
         ASSERT_OK(tpm2_certify(c, /* object_session= */ NULL, /* sign_session= */ NULL, /* audit_session= */ NULL, srk, key, &data, &certify_info, &sig));
 
         check_attest_common(certify_info, TPM2_ST_ATTEST_CERTIFY, &data);
-        ASSERT_EQ(memcmp_nn(certify_info->attested.certify.name.name, certify_info->attested.certify.name.size, srk_name->name, srk_name->size), 0);
+        ASSERT_MEMEQ_NN(certify_info->attested.certify.name.name, certify_info->attested.certify.name.size, srk_name->name, srk_name->size);
 
         check_attest_signature(&template, sig);
 
@@ -3032,7 +3028,7 @@ static void check_certify(Tpm2Context *c) {
         ASSERT_OK(tpm2_certify(c, /* object_session= */ NULL, /* sign_session= */ NULL, /* audit_session= */ NULL, srk, /* sign_key= */ NULL, &data, &unsigned_info, &unsigned_sig));
 
         check_attest_common(unsigned_info, TPM2_ST_ATTEST_CERTIFY, &data);
-        ASSERT_EQ(memcmp_nn(unsigned_info->attested.certify.name.name, unsigned_info->attested.certify.name.size, srk_name->name, srk_name->size), 0);
+        ASSERT_MEMEQ_NN(unsigned_info->attested.certify.name.name, unsigned_info->attested.certify.name.size, srk_name->name, srk_name->size);
         ASSERT_NOT_NULL(unsigned_sig);
         ASSERT_EQ(unsigned_sig->sigAlg, TPM2_ALG_NULL);
 
@@ -3124,8 +3120,7 @@ static void check_policy_or_tree_runtime(Tpm2Context *c) {
         TPM2B_DIGEST calculated = { .size = SHA256_DIGEST_SIZE };
         ASSERT_OK(tpm2_calculate_policy_or(branches, ELEMENTSOF(branches), &calculated));
 
-        ASSERT_EQ(tpm_digest->size, calculated.size);
-        ASSERT_EQ(memcmp(tpm_digest->buffer, calculated.buffer, calculated.size), 0);
+        ASSERT_MEMEQ_NN(tpm_digest->buffer, tpm_digest->size, calculated.buffer, calculated.size);
 
         /* Another fresh session again starts from an all-zero digest. If none of the branches matches it,
          * the leaf lookup must fail with ENOANO, which pcrlock relies on to detect tampering. */
@@ -3203,8 +3198,7 @@ static void check_policy_super_pcr_tree(Tpm2Context *c) {
         ASSERT_OK(tpm2_policy_auth_value(c, session, &tpm_digest));
         ASSERT_OK(tpm2_calculate_policy_auth_value(&expected));
 
-        ASSERT_EQ(tpm_digest->size, expected.size);
-        ASSERT_EQ(memcmp(tpm_digest->buffer, expected.buffer, expected.size), 0);
+        ASSERT_MEMEQ_NN(tpm_digest->buffer, tpm_digest->size, expected.buffer, expected.size);
 }
 
 TEST_RET(tests_which_require_tpm) {

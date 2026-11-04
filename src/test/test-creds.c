@@ -152,7 +152,7 @@ TEST(read_credential_with_decryption) {
                 _cleanup_(iovec_done_erase) struct iovec result = {};
 
                 ASSERT_OK_EQ(read_credential_with_decryption("foo", &result.iov_base, &result.iov_len), 1);
-                ASSERT_TRUE(iovec_equal(&binary, &result));
+                ASSERT_IOVEC_EQ(&binary, &result);
         }
         {
                 _cleanup_(erase_and_freep) char *text = NULL;
@@ -244,7 +244,7 @@ TEST(read_credential_with_decryption_encrypted) {
                                                     WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE));
                         ASSERT_OK_EQ(read_credential_with_decryption("foo", &result.iov_base,
                                                                      &result.iov_len), 1);
-                        ASSERT_TRUE(iovec_equal(&input->data, &result));
+                        ASSERT_IOVEC_EQ(&input->data, &result);
 
                         r = read_credential_with_decryption("foo", (void**) &text, /* ret_size= */ NULL);
                         if (input->contains_nul) {
@@ -384,7 +384,7 @@ static void test_encrypt_decrypt_with(sd_id128_t mode, uid_t uid) {
                         &decrypted);
         ASSERT_OK(r);
 
-        ASSERT_TRUE(iovec_equal(&plaintext, &decrypted));
+        ASSERT_IOVEC_EQ(&plaintext, &decrypted);
 }
 
 static bool try_tpm2(void) {

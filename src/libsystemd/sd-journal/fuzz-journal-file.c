@@ -12,6 +12,7 @@
 #include "journal-file.h"
 #include "journal-verify.h"
 #include "mmap-cache.h"
+#include "tests.h"
 #include "tmpfile-util.h"
 
 #define ENTRIES_MAX 256U
@@ -21,8 +22,8 @@ static void make_file(char *name, const uint8_t *data, size_t size) {
 
         /* sd_journal_open_files() refuses files without a name, so the input goes to a temporary file
          * instead of a memfd. */
-        assert_se((fd = mkostemp_safe(name)) >= 0);
-        assert_se(loop_write(fd, data, size) >= 0);
+        fd = ASSERT_OK(mkostemp_safe(name));
+        ASSERT_OK(loop_write(fd, data, size));
 }
 
 static void read_journal(const char *name) {
@@ -134,7 +135,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         fuzz_setup_logging();
 
-        assert_se(m = mmap_cache_new());
+        m = ASSERT_NOT_NULL(mmap_cache_new());
 
         make_file(name, data, size);
         read_journal(name);

@@ -33,7 +33,7 @@ static void assert_equal_fd(int fd1, int fd2) {
                 if (x == 0)
                         break;
 
-                ASSERT_EQ(memcmp(a, b, x), 0);
+                ASSERT_MEMEQ(a, b, x);
         }
 }
 
@@ -148,7 +148,7 @@ static void test_copy_data_fd_full_one(size_t size) {
                 copy_fd = ASSERT_OK(copy_data_fd_full(fd, *max_size));
 
                 ASSERT_EQ(loop_read(copy_fd, buf, size + 1, /* do_poll= */ false), (ssize_t) size);
-                ASSERT_EQ(memcmp(buf, data, size), 0);
+                ASSERT_MEMEQ(buf, data, size);
         }
 }
 
@@ -168,7 +168,7 @@ static void assert_fd_contents(int fd, const char *contents) {
         ASSERT_TRUE(S_ISREG(st.st_mode));
         ASSERT_EQ((size_t) st.st_size, strlen(contents));
         ASSERT_EQ(pread(fd, buf, sizeof(buf), 0), (ssize_t) strlen(contents));
-        ASSERT_EQ(memcmp(buf, contents, strlen(contents)), 0);
+        ASSERT_MEMEQ(buf, contents, strlen(contents));
 }
 
 TEST(open_seekable_data_fd) {

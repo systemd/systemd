@@ -68,7 +68,7 @@ static void test_dns_name_to_wire_format_one(const char *what, const char *expec
 
         if (r >= 0) {
                 assert(expect);  /* for gcc */
-                ASSERT_EQ(memcmp(buffer, expect, r), 0);
+                ASSERT_MEMEQ(buffer, expect, r);
         }
 }
 
@@ -134,7 +134,7 @@ static void test_dns_name_from_wire_format_one(const char *expect, const uint8_t
 
         if (r >= 0) {
                 assert(expect);  /* for gcc */
-                ASSERT_EQ(memcmp(name, expect, r), 0);
+                ASSERT_MEMEQ(name, expect, r);
         }
 }
 

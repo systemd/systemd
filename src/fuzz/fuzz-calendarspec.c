@@ -4,6 +4,7 @@
 #include "calendarspec.h"
 #include "fuzz.h"
 #include "string-util.h"
+#include "tests.h"
 #include "time-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
@@ -13,7 +14,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         fuzz_setup_logging();
 
-        assert_se(str = memdup_suffix0(data, size));
+        str = ASSERT_NOT_NULL(memdup_suffix0(data, size));
 
         size_t l1 = strlen(str);
         const char* usecs = l1 < size ? str + l1 + 1 : "";
@@ -25,15 +26,15 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         }
 
         _cleanup_free_ char *p = NULL;
-        assert_se(calendar_spec_valid(cspec));
-        assert_se(calendar_spec_to_string(cspec, &p) == 0);
+        ASSERT_TRUE(calendar_spec_valid(cspec));
+        ASSERT_OK_ZERO(calendar_spec_to_string(cspec, &p));
         assert(p);
 
         log_debug("spec: %s → %s", str, p);
 
         _cleanup_(calendar_spec_freep) CalendarSpec *cspec2 = NULL;
-        assert_se(calendar_spec_from_string(p, &cspec2) >= 0);
-        assert_se(calendar_spec_valid(cspec2));
+        ASSERT_OK(calendar_spec_from_string(p, &cspec2));
+        ASSERT_TRUE(calendar_spec_valid(cspec2));
 
         usec_t usec = 0;
         (void) parse_time(usecs, &usec, 1);

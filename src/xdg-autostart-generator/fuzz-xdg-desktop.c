@@ -5,6 +5,7 @@
 #include "fd-util.h"
 #include "fuzz.h"
 #include "rm-rf.h"
+#include "tests.h"
 #include "tmpfile-util.h"
 #include "xdg-autostart-service.h"
 
@@ -19,14 +20,14 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         fuzz_setup_logging();
 
-        assert_se(mkdtemp_malloc("/tmp/fuzz-xdg-desktop-XXXXXX", &tmpdir) >= 0);
+        ASSERT_OK(mkdtemp_malloc("/tmp/fuzz-xdg-desktop-XXXXXX", &tmpdir));
 
         fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
-        assert_se(write(fd, data, size) == (ssize_t) size);
+        ASSERT_OK(fd);
+        ASSERT_EQ(write(fd, data, size), (ssize_t) size);
 
-        assert_se(service = xdg_autostart_service_parse_desktop(name));
-        assert_se(service->name = strdup("fuzz-xdg-desktop.service"));
+        service = ASSERT_NOT_NULL(xdg_autostart_service_parse_desktop(name));
+        service->name = ASSERT_NOT_NULL(strdup("fuzz-xdg-desktop.service"));
         (void) xdg_autostart_service_generate_unit(service, tmpdir);
 
         return 0;

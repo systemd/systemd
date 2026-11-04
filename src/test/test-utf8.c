@@ -219,15 +219,14 @@ TEST(utf16_to_utf8) {
 
         /* Convert UTF-16 to UTF-8, filtering embedded bad chars */
         a = ASSERT_NOT_NULL(utf16_to_utf8(utf16, sizeof(utf16)));
-        ASSERT_EQ(memcmp(a, utf8, sizeof(utf8)), 0);
+        ASSERT_MEMEQ(a, utf8, sizeof(utf8));
 
         /* Convert UTF-8 to UTF-16, and back */
         b = ASSERT_NOT_NULL(utf8_to_utf16(utf8, sizeof(utf8)));
 
         free(a);
         a = ASSERT_NOT_NULL(utf16_to_utf8(b, SIZE_MAX));
-        ASSERT_EQ(strlen(a), sizeof(utf8));
-        ASSERT_EQ(memcmp(a, utf8, sizeof(utf8)), 0);
+        ASSERT_MEMEQ_NN(a, strlen(a), utf8, sizeof(utf8));
 }
 
 TEST(utf8_n_codepoints) {

@@ -227,7 +227,7 @@ static void test_sync_then_archive_one(bool sync_done) {
 
         ASSERT_OK(journal_file_archive(f, /* ret_previous_path= */ NULL));
         ASSERT_OK(journal_file_set_offline(f, /* wait= */ false));
-        ASSERT_EQ(memcmp(f->header->signature, HEADER_SIGNATURE, sizeof(f->header->signature)), 0);
+        ASSERT_MEMEQ(f->header->signature, HEADER_SIGNATURE, sizeof(f->header->signature));
         ASSERT_OK(journal_file_set_offline(f, /* wait= */ true));
         ASSERT_EQ(f->header->state, STATE_ARCHIVED);
         model_assert_file(f, &model);

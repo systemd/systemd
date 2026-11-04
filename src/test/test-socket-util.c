@@ -204,8 +204,7 @@ TEST(getpeercred_getpeergroups) {
                         r = ASSERT_OK_OR(getpeergroups(pair[0], &peer_groups), -EOPNOTSUPP, -ENOPROTOOPT);
 
                         if (r >= 0) {
-                                ASSERT_EQ((size_t) r, n_test_gids);
-                                ASSERT_EQ(memcmp(peer_groups, test_gids, sizeof(gid_t) * n_test_gids), 0);
+                                ASSERT_MEMEQ_NN(peer_groups, sizeof(gid_t) * (size_t) r, test_gids, sizeof(gid_t) * n_test_gids);
                         }
                 }
 

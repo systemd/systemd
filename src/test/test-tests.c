@@ -7,6 +7,8 @@
 
 #include "alloc-util.h"
 #include "errno-util.h"
+#include "iovec-util.h"
+#include "iovec-wrapper.h"
 #include "tests.h"
 
 TEST(ASSERT) {
@@ -151,6 +153,44 @@ TEST(ASSERT) {
                                 SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e)),
                 SIGABRT);
         ASSERT_SIGNAL(ASSERT_NE_ID128(SD_ID128_NULL, SD_ID128_NULL), SIGABRT);
+
+        static const uint8_t m1[] = { 0, 1, 2, 3 }, m2[] = { 0, 1, 2, 3 }, m3[] = { 0, 1, 9, 3 };
+
+        ASSERT_MEMEQ(m1, m2, sizeof(m1));
+        ASSERT_MEMEQ(m1, m3, 2);
+        ASSERT_MEMEQ(NULL, NULL, 0);
+        ASSERT_SIGNAL(ASSERT_MEMEQ(m1, m3, sizeof(m1)), SIGABRT);
+
+        ASSERT_MEMEQ_NN(m1, sizeof(m1), m2, sizeof(m2));
+        ASSERT_MEMEQ_NN(NULL, 0, NULL, 0);
+        ASSERT_SIGNAL(ASSERT_MEMEQ_NN(m1, sizeof(m1), m2, sizeof(m2) - 1), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_MEMEQ_NN(m1, sizeof(m1), m3, sizeof(m3)), SIGABRT);
+
+        ASSERT_IOVEC_EQ(&IOVEC_MAKE(m1, sizeof(m1)), &IOVEC_MAKE(m2, sizeof(m2)));
+        ASSERT_SIGNAL(ASSERT_IOVEC_EQ(&IOVEC_MAKE(m1, sizeof(m1)), &IOVEC_MAKE(m3, sizeof(m3))), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_IOVEC_EQ(&IOVEC_MAKE(m1, sizeof(m1)), &IOVEC_MAKE(m1, sizeof(m1) - 1)), SIGABRT);
+
+        static const uint8_t allx[] = { 'x', 'x', 'x', 'x' }, mixed[] = { 'x', 'x', 'y', 'x' }, zeros[4] = {};
+
+        ASSERT_MEMEQ_BYTE('x', allx, sizeof(allx));
+        ASSERT_MEMEQ_BYTE('x', allx, 0);
+        ASSERT_SIGNAL(ASSERT_MEMEQ_BYTE('x', mixed, sizeof(mixed)), SIGABRT);
+
+        ASSERT_MEMEQ_ZERO(zeros, sizeof(zeros));
+        ASSERT_MEMEQ_ZERO(NULL, 0);
+        ASSERT_SIGNAL(ASSERT_MEMEQ_ZERO(allx, sizeof(allx)), SIGABRT);
+
+        struct iovec iova[] = { IOVEC_MAKE_STRING("foo"), IOVEC_MAKE_STRING("bar") };
+        struct iovec iovb[] = { IOVEC_MAKE_STRING("foo"), IOVEC_MAKE_STRING("baz") };
+        struct iovec_wrapper iovwa = { .iovec = iova, .count = ELEMENTSOF(iova) };
+        struct iovec_wrapper iovwb = { .iovec = iovb, .count = ELEMENTSOF(iovb) };
+        struct iovec_wrapper iovwa1 = { .iovec = iova, .count = 1 };
+
+        ASSERT_IOVW_EQ(&iovwa, &iovwa);
+        ASSERT_IOVW_EQ(NULL, NULL);
+        ASSERT_SIGNAL(ASSERT_IOVW_EQ(&iovwa, &iovwb), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_IOVW_EQ(&iovwa, &iovwa1), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_IOVW_EQ(&iovwa, NULL), SIGABRT);
 }
 
 TEST(ASSERT_OK_OR) {

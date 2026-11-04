@@ -183,7 +183,7 @@ TEST(ellipsize_esc_infinite_loop) {
         _cleanup_free_ char *t = NULL;
 
         t = ASSERT_NOT_NULL(ellipsize_mem(s, 5, 5, 50));
-        ASSERT_EQ(memcmp(t, s, 5), 0);
+        ASSERT_MEMEQ(t, s, 5);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

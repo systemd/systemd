@@ -123,13 +123,13 @@ static int fake_server_handler(sd_event_source *s, int fd, uint32_t revents, voi
 
                 switch (tag) {
                 case SD_DHCP_RELAY_AGENT_CIRCUIT_ID:
-                        ASSERT_TRUE(iovec_equal(&iov, &downstream->circuit_id));
+                        ASSERT_IOVEC_EQ(&iov, &downstream->circuit_id);
                         break;
                 case SD_DHCP_RELAY_AGENT_REMOTE_ID:
-                        ASSERT_TRUE(iovec_equal(&iov, &relay->remote_id));
+                        ASSERT_IOVEC_EQ(&iov, &relay->remote_id);
                         break;
                 case SD_DHCP_RELAY_AGENT_LINK_SELECTION:
-                        ASSERT_TRUE(iovec_equal(&iov, &IOVEC_MAKE(&downstream->address, sizeof(struct in_addr))));
+                        ASSERT_IOVEC_EQ(&iov, &IOVEC_MAKE(&downstream->address, sizeof(struct in_addr)));
                         break;
                 case SD_DHCP_RELAY_AGENT_FLAGS: {
                         ASSERT_TRUE(relay->server_identifier_override);
@@ -142,10 +142,10 @@ static int fake_server_handler(sd_event_source *s, int fd, uint32_t revents, voi
                 }
                 case SD_DHCP_RELAY_AGENT_SERVER_IDENTIFIER_OVERRIDE:
                         ASSERT_TRUE(relay->server_identifier_override);
-                        ASSERT_TRUE(iovec_equal(&iov, &IOVEC_MAKE(&downstream->address, sizeof(struct in_addr))));
+                        ASSERT_IOVEC_EQ(&iov, &IOVEC_MAKE(&downstream->address, sizeof(struct in_addr)));
                         break;
                 case SD_DHCP_RELAY_AGENT_VIRTUAL_SUBNET_SELECTION:
-                        ASSERT_TRUE(iovec_equal(&iov, &downstream->vss));
+                        ASSERT_IOVEC_EQ(&iov, &downstream->vss);
                         break;
                 default:
                         assert_not_reached();

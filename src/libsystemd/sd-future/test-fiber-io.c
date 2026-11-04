@@ -378,9 +378,9 @@ static int file_position_fiber(void *userdata) {
         ASSERT_OK_ZERO_ERRNO(lseek(fd, 0, SEEK_SET));
 
         ASSERT_OK_EQ(sd_fiber_read(fd, buf, sizeof(buf)), (ssize_t) sizeof(buf));
-        ASSERT_EQ(memcmp(buf, "abc", sizeof(buf)), 0);
+        ASSERT_MEMEQ(buf, "abc", sizeof(buf));
         ASSERT_OK_EQ(sd_fiber_read(fd, buf, sizeof(buf)), (ssize_t) sizeof(buf));
-        ASSERT_EQ(memcmp(buf, "def", sizeof(buf)), 0);
+        ASSERT_MEMEQ(buf, "def", sizeof(buf));
         ASSERT_OK_ZERO(sd_fiber_read(fd, buf, sizeof(buf)));
 
         return 0;
@@ -414,7 +414,7 @@ static int pty_read_fiber(void *userdata) {
                 n += k;
         }
 
-        ASSERT_EQ(memcmp(buf, "hello", sizeof(buf)), 0);
+        ASSERT_MEMEQ(buf, "hello", sizeof(buf));
         return 0;
 }
 

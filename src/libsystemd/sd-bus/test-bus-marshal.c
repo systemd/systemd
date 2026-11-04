@@ -455,8 +455,7 @@ int main(int argc, char *argv[]) {
         ASSERT_NOT_NULL(mf = memstream_init(&ms));
         sd_bus_message_dump(m, mf, /* flags= */ 0);
         ASSERT_OK(memstream_finalize(&ms, &second, &second_size));
-        ASSERT_EQ(first_size, second_size);
-        ASSERT_EQ(memcmp(first, second, first_size), 0);
+        ASSERT_MEMEQ_NN(first, first_size, second, second_size);
 
         ASSERT_OK(sd_bus_message_rewind(m, /* complete= */ true));
 
@@ -516,8 +515,7 @@ int main(int argc, char *argv[]) {
         ASSERT_STREQ(s, "hallo");
 
         ASSERT_OK_POSITIVE(sd_bus_message_read_array(m, 'i', (const void**) &return_array, &sz));
-        ASSERT_EQ(sz, sizeof(integer_array));
-        ASSERT_EQ(memcmp(integer_array, return_array, sz), 0);
+        ASSERT_MEMEQ_NN(integer_array, sizeof(integer_array), return_array, sz);
 
         ASSERT_OK_POSITIVE(sd_bus_message_read_array(m, 'u', (const void**) &return_array, &sz));
         ASSERT_EQ(sz, 0U);
@@ -545,8 +543,7 @@ int main(int argc, char *argv[]) {
         printf("<%.*s>\n", (int) first_size, first);
         printf("<%.*s>\n", (int) third_size, third);
 
-        ASSERT_EQ(first_size, third_size);
-        ASSERT_EQ(memcmp(first, third, third_size), 0);
+        ASSERT_MEMEQ_NN(first, first_size, third, third_size);
 
         ASSERT_OK(sd_bus_message_rewind(m, /* complete= */ true));
 

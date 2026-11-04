@@ -119,7 +119,7 @@ bool parse_boolean(const char *v, bool *ret);
 
 char* line_get_key_value(char *s, const char *sep, size_t *pos, char **ret_key, char **ret_value);
 
-char16_t *hexdump(const void *data, size_t size);
+char16_t *hexdump16(const void *data, size_t size);
 
 #ifdef __clang__
 #  define _gnu_printf_(a, b) _printf_(a, b)

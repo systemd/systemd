@@ -8,8 +8,7 @@
 #include "tests.h"
 
 static void assert_iovec_entry(const struct iovec *iovec, const char* content) {
-        ASSERT_EQ(strlen(content), iovec->iov_len);
-        ASSERT_EQ(memcmp(content, iovec->iov_base, iovec->iov_len), 0);
+        ASSERT_MEMEQ_NN(content, strlen(content), iovec->iov_base, iovec->iov_len);
 }
 
 #define COREDUMP_PROC_GROUP                                             \

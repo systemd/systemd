@@ -36,18 +36,18 @@ TEST(cleanup_array) {
         saved_n = n;
 
         {
-                ASSERT_TRUE(memeqbyte('x', saved_iov, sizeof(struct iovec) * saved_n));
+                ASSERT_MEMEQ_BYTE('x', saved_iov, sizeof(struct iovec) * saved_n);
                 ASSERT_NOT_NULL(iov);
                 ASSERT_GT(n, 0U);
 
                 CLEANUP_ARRAY(iov, n, my_destructor);
 
-                ASSERT_TRUE(memeqbyte('x', saved_iov, sizeof(struct iovec) * saved_n));
+                ASSERT_MEMEQ_BYTE('x', saved_iov, sizeof(struct iovec) * saved_n);
                 ASSERT_NOT_NULL(iov);
                 ASSERT_GT(n, 0U);
         }
 
-        ASSERT_TRUE(memeqbyte('y', saved_iov, sizeof(struct iovec) * saved_n));
+        ASSERT_MEMEQ_BYTE('y', saved_iov, sizeof(struct iovec) * saved_n);
         ASSERT_NULL(iov);
         ASSERT_EQ(n, 0U);
 

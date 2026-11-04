@@ -72,9 +72,9 @@ static void assert_myhostname_gaih_addrtuples(const struct gaih_addrtuple *tuple
 
         for (const struct gaih_addrtuple *it = tuples; it; it = it->next)
                 if (it->family == AF_INET)
-                        ASSERT_TRUE(memeqzero(
+                        ASSERT_MEMEQ_ZERO(
                                           (const uint8_t*) it->addr + sizeof(struct in_addr),
-                                          sizeof(it->addr) - sizeof(struct in_addr)));
+                                          sizeof(it->addr) - sizeof(struct in_addr));
 }
 
 static void print_struct_hostent(struct hostent *host, const char *canon) {
