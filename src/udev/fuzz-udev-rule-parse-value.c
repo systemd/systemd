@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "fuzz.h"
+#include "tests.h"
 #include "udev-rules.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
@@ -15,18 +16,18 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         fuzz_setup_logging();
 
-        assert_se(str = malloc(size + 1));
+        str = ASSERT_NOT_NULL(malloc(size + 1));
         memcpy(str, data, size);
         str[size] = '\0';
 
         r = udev_rule_parse_value(str, &value, &endpos, &is_case_sensitive);
         if (r < 0) {
                 /* not modified on failure */
-                assert_se(value == UINT_TO_PTR(0x12345678U));
-                assert_se(endpos == UINT_TO_PTR(0x87654321U));
+                ASSERT_PTR_EQ(value, UINT_TO_PTR(0x12345678U));
+                ASSERT_PTR_EQ(endpos, UINT_TO_PTR(0x87654321U));
         } else {
-                assert_se(endpos <= str + size);
-                assert_se(endpos > str + 1);
+                ASSERT_TRUE(endpos <= str + size);
+                ASSERT_TRUE(endpos > str + 1);
         }
 
         return 0;
