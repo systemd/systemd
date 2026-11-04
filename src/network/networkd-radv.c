@@ -935,11 +935,8 @@ int config_parse_prefix_boolean(
                 return log_oom();
 
         r = parse_boolean(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (ltype != 0)
                 SET_FLAG(p->prefix.flags, ltype, r);
@@ -1028,12 +1025,8 @@ int config_parse_prefix_metric(
                 return log_oom();
 
         r = safe_atou32(rvalue, &p->route_metric);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=, ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         TAKE_PTR(p);
         return 0;
@@ -1486,11 +1479,8 @@ int config_parse_router_lifetime(
         }
 
         r = parse_sec(rvalue, &usec);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse router lifetime, ignoring assignment: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (usec > 0) {
                 if (usec < RADV_MIN_ROUTER_LIFETIME_USEC) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
@@ -1537,11 +1527,8 @@ int config_parse_router_uint32_msec_usec(
         }
 
         r = parse_sec(rvalue, &usec);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (usec != USEC_INFINITY &&
             usec > RADV_MAX_UINT32_MSEC_USEC) {
@@ -1606,11 +1593,8 @@ int config_parse_router_home_agent_lifetime(
         }
 
         r = parse_sec(rvalue, &usec);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (!timestamp_is_set(usec) ||
             usec > RADV_HOME_AGENT_MAX_LIFETIME_USEC) {

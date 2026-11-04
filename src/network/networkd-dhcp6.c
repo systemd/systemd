@@ -1066,11 +1066,8 @@ int config_parse_dhcp6_pd_prefix_hint(
         assert(rvalue);
 
         r = in_addr_prefix_from_string(rvalue, AF_INET6, &u, &prefixlen);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=%s, ignoring assignment.", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (prefixlen < 1 || prefixlen > 128) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,

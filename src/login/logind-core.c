@@ -526,11 +526,8 @@ int config_parse_n_autovts(
         assert(rvalue);
 
         r = safe_atou(rvalue, &o);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse number of autovts, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (o > 15) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,

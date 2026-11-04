@@ -2000,10 +2000,8 @@ int config_parse_rx_tx_queues(
         }
 
         r = safe_atou32(rvalue, &k);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s=, ignoring assignment: %s.", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (k == 0 || k > 16384) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid %s=, ignoring assignment: %s.", lvalue, rvalue);
                 return 0;
@@ -2034,10 +2032,8 @@ int config_parse_txqueuelen(
         }
 
         r = safe_atou32(rvalue, &k);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s=, ignoring assignment: %s.", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (k == UINT32_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid %s=, ignoring assignment: %s.", lvalue, rvalue);
                 return 0;
@@ -2082,11 +2078,8 @@ int config_parse_wol_password(
         r = link_parse_wol_password(config, rvalue);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=, ignoring assignment: %s.", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         config->wol_password_file = mfree(config->wol_password_file);
         return 0;

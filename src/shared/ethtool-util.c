@@ -1203,9 +1203,7 @@ int config_parse_mdi(
                 return 0;
         }
 
-        log_syntax(unit, LOG_WARNING, filename, line, 0,
-                   "Failed to parse %s= setting, ignoring assignment: %s", lvalue, rvalue);
-        return 0;
+        return log_syntax_parse_error(unit, filename, line, 0, lvalue, rvalue);
 }
 
 int config_parse_ring_buffer_or_channel(
@@ -1242,11 +1240,8 @@ int config_parse_ring_buffer_or_channel(
         }
 
         r = safe_atou32(rvalue, &k);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (k < 1) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid %s= value, ignoring: %s", lvalue, rvalue);
@@ -1346,11 +1341,8 @@ int config_parse_coalesce_u32(
         }
 
         r = safe_atou32(rvalue, &k);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         dst->value = k;
         dst->set = true;
@@ -1380,11 +1372,8 @@ int config_parse_coalesce_sec(
         }
 
         r = nsec ? parse_nsec(rvalue, &t) : parse_sec(rvalue, &t);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse coalesce setting value, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (t > UINT32_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,

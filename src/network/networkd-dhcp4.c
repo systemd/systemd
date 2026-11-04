@@ -2007,11 +2007,8 @@ int config_parse_dhcp_max_attempts(
         }
 
         r = safe_atou64(rvalue, &a);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse DHCP maximum attempts, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (a == 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
@@ -2051,8 +2048,7 @@ int config_parse_dhcp_ip_service_type(
         else if (streq(rvalue, "CS6"))
                 *tos = IPTOS_CLASS_CS6;
         else
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
+                log_syntax_parse_error(unit, filename, line, 0, lvalue, rvalue);
 
         return 0;
 }
@@ -2080,11 +2076,8 @@ int config_parse_dhcp_socket_priority(
         }
 
         r = safe_atoi(rvalue, &a);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse socket priority, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (a < 0 || a > TC_PRIO_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid socket priority, must be in 0…%i, ignoring: %i", TC_PRIO_MAX, a);

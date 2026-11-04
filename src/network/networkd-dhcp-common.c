@@ -382,11 +382,8 @@ int config_parse_dhcp(
                  * support its values for compatibility. */
 
                 s = dhcp_deprecated_address_family_from_string(rvalue);
-                if (s < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, s,
-                                   "Failed to parse DHCP option, ignoring: %s", rvalue);
-                        return 0;
-                }
+                if (s < 0)
+                        return log_syntax_parse_error(unit, filename, line, s, lvalue, rvalue);
 
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "DHCP=%s is deprecated, please use DHCP=%s instead.",
@@ -420,11 +417,8 @@ int config_parse_dhcp_route_metric(
         assert(data);
 
         r = safe_atou32(rvalue, &metric);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=%s, ignoring assignment: %m", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         switch (ltype) {
         case AF_INET:
@@ -476,20 +470,14 @@ int config_parse_ndisc_route_metric(
                 r = extract_many_words(&p, ":", EXTRACT_DONT_COALESCE_SEPARATORS, &high, &medium, &low);
                 if (r == -ENOMEM)
                         return log_oom();
-                if (r != 3 || !isempty(p)) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r < 0 ? r : 0,
-                                   "Failed to parse %s=%s, ignoring assignment: %m", lvalue, rvalue);
-                        return 0;
-                }
+                if (r != 3 || !isempty(p))
+                        return log_syntax_parse_error(unit, filename, line, r < 0 ? r : 0, lvalue, rvalue);
 
                 r = safe_atou32(high, &metric_high);
                 RET_GATHER(r, safe_atou32(medium, &metric_medium));
                 RET_GATHER(r, safe_atou32(low, &metric_low));
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse %s=%s, ignoring assignment: %m", lvalue, rvalue);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
                 if (metric_high >= metric_medium || metric_medium >= metric_low) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
@@ -528,11 +516,8 @@ int config_parse_dhcp_send_hostname(
         assert(data);
 
         r = parse_boolean(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=%s, ignoring assignment: %m", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         switch (ltype) {
         case AF_INET:
@@ -579,11 +564,8 @@ int config_parse_dhcp_or_ra_route_table(
         assert(rvalue);
 
         r = manager_get_route_table_from_string(network->manager, rvalue, &rt);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=%s, ignoring assignment: %m", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         switch (ltype) {
         case NETWORK_CONFIG_SOURCE_DHCP4:
@@ -1143,12 +1125,8 @@ int config_parse_dhcp_request_options(
                 r = extract_first_word(&p, &n, /* separators= */ NULL, /* flags= */ 0);
                 if (r == -ENOMEM)
                         return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse DHCP request option, ignoring assignment: %s",
-                                   rvalue);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 if (r == 0)
                         return 0;
 

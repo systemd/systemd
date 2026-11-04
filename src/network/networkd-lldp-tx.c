@@ -163,11 +163,8 @@ int config_parse_lldp_multicast_mode(
         }
 
         m = lldp_multicast_mode_from_string(rvalue);
-        if (m < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, m,
-                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
-                return 0;
-        }
+        if (m < 0)
+                return log_syntax_parse_error(unit, filename, line, m, lvalue, rvalue);
 
         *mode = m;
         return 0;

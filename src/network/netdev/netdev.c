@@ -1244,10 +1244,8 @@ int config_parse_netdev_kind(
         assert(rvalue);
 
         k = netdev_kind_from_string(rvalue);
-        if (k < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, k, "Failed to parse netdev kind, ignoring assignment: %s", rvalue);
-                return 0;
-        }
+        if (k < 0)
+                return log_syntax_parse_error(unit, filename, line, k, lvalue, rvalue);
 
         if (*kind != _NETDEV_KIND_INVALID && *kind != k) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,

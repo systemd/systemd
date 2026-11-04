@@ -892,11 +892,8 @@ int config_parse_tunnel_key(
         r = in_addr_from_string(AF_INET, rvalue, &buffer);
         if (r < 0) {
                 r = safe_atou32(rvalue, &k);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse tunnel key ignoring assignment: %s", rvalue);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         } else
                 k = be32toh(buffer.in.s_addr);
 
@@ -998,10 +995,8 @@ int config_parse_6rd_prefix(
         assert(rvalue);
 
         r = in_addr_prefix_from_string(rvalue, AF_INET6, &p, &l);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse 6rd prefix \"%s\", ignoring: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (l == 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "6rd prefix length of \"%s\" must be greater than zero, ignoring", rvalue);
                 return 0;

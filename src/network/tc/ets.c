@@ -122,12 +122,8 @@ int config_parse_ets_u8(
         }
 
         r = safe_atou8(rvalue, &v);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (v > TCQ_ETS_MAX_BANDS) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid '%s='. The value must be <= %d, ignoring assignment: %s",
