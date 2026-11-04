@@ -2536,6 +2536,8 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                 return 0;
         if (t->answer_source != DNS_TRANSACTION_NETWORK)
                 return 0; /* We only need to validate stuff from the network */
+        if (!manager_dnssec_crypto_available(t->scope->manager))
+                return 0; /* We can't validate anyway, see dns_transaction_validate_dnssec() */
         if (!dns_transaction_dnssec_supported(t))
                 return 0; /* If we can't do DNSSEC anyway there's no point in getting the auxiliary RRs */
 
@@ -3672,6 +3674,15 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
         /* Cached stuff is not affected by validation. */
         if (t->answer_source != DNS_TRANSACTION_NETWORK)
                 return 0;
+
+        if (!manager_dnssec_crypto_available(t->scope->manager)) {
+                /* Without libcrypto, allow-downgrade is turned off (see manager_dnssec_mode_effective()), so
+                 * this is DNSSEC=yes. Fail, instead of treating everything as signed with an unsupported
+                 * algorithm, i.e. as insecure. */
+                t->answer_dnssec_result = DNSSEC_CRYPTO_UNAVAILABLE;
+                log_debug("Not validating response for %" PRIu16 ", libcrypto is not available.", t->id);
+                return 0;
+        }
 
         if (!dns_transaction_dnssec_supported_full(t)) {
                 /* The server does not support DNSSEC, or doesn't augment responses with RRSIGs, or this
