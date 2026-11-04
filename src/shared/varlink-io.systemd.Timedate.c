@@ -17,6 +17,16 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(adjustSystemClock, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 VARLINK_DEFINE_POLKIT_INPUT);
 
+static SD_VARLINK_DEFINE_METHOD(
+                SetTime,
+                SD_VARLINK_FIELD_COMMENT("The time to set, in µs. If 'relative' is true this is an offset to the current system time (and may be negative), otherwise an absolute timestamp in µs since the UNIX epoch."),
+                SD_VARLINK_DEFINE_INPUT(timeUSec, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("If true 'timeUSec' is interpreted relative to the current system time, otherwise as an absolute timestamp. Defaults to false."),
+                SD_VARLINK_DEFINE_INPUT(relative, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_POLKIT_INPUT);
+
+static SD_VARLINK_DEFINE_ERROR(AutomaticTimeSyncEnabled);
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Timedate,
                 "io.systemd.Timedate",
@@ -24,4 +34,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("Sets the system time zone."),
                 &vl_method_SetTimezone,
                 SD_VARLINK_SYMBOL_COMMENT("Configures whether the RTC is maintained in local time or UTC."),
-                &vl_method_SetLocalRTC);
+                &vl_method_SetLocalRTC,
+                SD_VARLINK_SYMBOL_COMMENT("Sets the system clock."),
+                &vl_method_SetTime,
+                SD_VARLINK_SYMBOL_COMMENT("Returned when the clock cannot be set because automatic time synchronization (NTP) is enabled, or a previous enablement request is still in progress."),
+                &vl_error_AutomaticTimeSyncEnabled);
