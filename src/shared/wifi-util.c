@@ -329,6 +329,8 @@ static const char * const nl80211_cmd_table[__NL80211_CMD_AFTER_LAST] = {
         [NL80211_CMD_NAN_CHANNEL_EVAC]             = "nan_channel_evac",
         [NL80211_CMD_START_PD]                     = "start_pd",
         [NL80211_CMD_STOP_PD]                      = "stop_pd",
+        [NL80211_CMD_NAN_SET_NON_EVAC_CHANNELS]    = "nan_set_non_evac_channels",
+        [NL80211_CMD_UPDATE_BEACON]                = "update_beacon",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(nl80211_cmd, int);
