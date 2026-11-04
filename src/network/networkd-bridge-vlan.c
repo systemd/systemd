@@ -369,12 +369,8 @@ int config_parse_bridge_vlan_id(
         }
 
         r = parse_vlanid(rvalue, &v);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=, ignoring: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         *id = v;
         return 0;
@@ -407,12 +403,8 @@ int config_parse_bridge_vlan_id_range(
         }
 
         r = parse_vid_range(rvalue, &vid, &vid_end);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=, ignoring: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         for (; vid <= vid_end; vid++)
                 set_bit(vid, bitmap);

@@ -152,11 +152,8 @@ int config_parse_can_bitrate(
         assert(rvalue);
 
         r = parse_size(rvalue, 1000, &sz);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse can bitrate '%s', ignoring: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         /* Linux uses __u32 for bitrates, so the value should not exceed that. */
         if (sz <= 0 || sz > UINT32_MAX) {
@@ -190,11 +187,8 @@ int config_parse_can_time_quanta(
         assert(rvalue);
 
         r = parse_nsec(rvalue, &val);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse can time quanta '%s', ignoring: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         /* Linux uses __u32 for bitrates, so the value should not exceed that. */
         if (val <= 0 || val > UINT32_MAX) {
@@ -227,11 +221,8 @@ int config_parse_can_restart_usec(
         assert(rvalue);
 
         r = parse_sec(rvalue, &usec);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse CAN restart sec '%s', ignoring: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (usec != USEC_INFINITY &&
             DIV_ROUND_UP(usec, USEC_PER_MSEC) > UINT32_MAX) {
@@ -272,11 +263,8 @@ int config_parse_can_control_mode(
         }
 
         r = parse_boolean(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse CAN control mode '%s', ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         network->can_control_mode_mask |= mask;
         SET_FLAG(network->can_control_mode_flags, mask, r);
@@ -316,11 +304,8 @@ int config_parse_can_termination(
         r = safe_atou16(rvalue, &network->can_termination);
         if (r < 0) {
                 r = parse_boolean(rvalue);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse CAN termination value, ignoring: %s", rvalue);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
                 network->can_termination = r ? CAN_TERMINATION_DEFAULT_OHM_VALUE : 0;
         }

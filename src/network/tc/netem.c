@@ -92,12 +92,8 @@ int config_parse_netem_delay(
         }
 
         r = parse_sec(rvalue, &u);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (STR_IN_SET(lvalue, "DelaySec", "NetworkEmulatorDelaySec"))
                 ne->delay = u;
@@ -153,12 +149,8 @@ int config_parse_netem_rate(
         }
 
         r = parse_tc_percent(rvalue, &rate);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         if (STR_IN_SET(lvalue, "LossRate", "NetworkEmulatorLossRate"))
                 ne->loss = rate;
@@ -209,12 +201,8 @@ int config_parse_netem_packet_limit(
         }
 
         r = safe_atou(rvalue, &ne->limit);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse '%s=', ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         TAKE_PTR(qdisc);
         return 0;

@@ -774,12 +774,8 @@ int config_parse_qdisc_parent(
                 qdisc->handle = TC_H_MAKE(TC_H_INGRESS, 0);
         } else {
                 r = parse_handle(rvalue, &qdisc->parent);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse 'Parent=', ignoring assignment: %s",
-                                   rvalue);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         }
 
         if (STR_IN_SET(rvalue, "clsact", "ingress")) {
@@ -831,12 +827,8 @@ int config_parse_qdisc_handle(
         }
 
         r = safe_atou16_full(rvalue, 16, &n);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse 'Handle=', ignoring assignment: %s",
-                           rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         qdisc->handle = (uint32_t) n << 16;
         TAKE_PTR(qdisc);

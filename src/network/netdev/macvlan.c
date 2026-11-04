@@ -140,12 +140,8 @@ int config_parse_macvlan_broadcast_queue_threshold(
         }
 
         r = safe_atoi32(rvalue, &v);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=, ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         if (v < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid %s= value specified, ignoring assignment: %s",

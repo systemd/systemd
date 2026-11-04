@@ -1211,7 +1211,7 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
         else if (r < 0)
                 log_debug_errno(r, "rtnl: could not get NHA_OIF attribute, ignoring: %m");
         else if (ifindex > INT32_MAX)
-                log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "rtnl: received invalid NHA_OIF attribute, ignoring: %m");
+                log_debug("rtnl: received invalid NHA_OIF attribute, ignoring.");
         else
                 nexthop->ifindex = (int) ifindex;
 

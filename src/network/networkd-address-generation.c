@@ -507,12 +507,8 @@ int config_parse_address_generation_type(
 
         if (addr) {
                 r = in_addr_from_string(AF_INET6, addr, &buffer);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse IP address in %s=, ignoring assignment: %s",
-                                   lvalue, rvalue);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
         }
 
         switch (type) {
