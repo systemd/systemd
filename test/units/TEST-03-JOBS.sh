@@ -461,6 +461,9 @@ assert_eq "$(systemctl show "$UNIT_NAME" -P RestartRandomizedDelayUSec)" "1s"
 # waiting for the delay to elapse.
 systemctl log-level debug
 
+# Stores the "<total>|<delay>" line in $RESTART_INTERVAL. Run as a normal command (not in command
+# substitution), so that errexit catches a failing setup step (e.g. the service never entering
+# auto-restart) instead of it being swallowed; only the final value is captured.
 get_restart_interval() {
     # Enter auto-restart once, read the logged "<total>|<delay>", then stop again so it never has to elapse.
     systemctl start --no-block "$UNIT_NAME"
@@ -468,15 +471,16 @@ get_restart_interval() {
     systemctl stop "$UNIT_NAME"
     journalctl --sync
     # needed because of -o pipefail
-    { journalctl -q --no-pager -o cat -b -u "$UNIT_NAME" --grep="Next restart interval calculated as" || true; } |
-        sed -n 's/.*calculated as: \(.*\) (randomized delay: \(.*\))$/\1|\2/p' | tail -n1
+    RESTART_INTERVAL="$({ journalctl -q --no-pager -o cat -b -u "$UNIT_NAME" --grep="Next restart interval calculated as" || true; } |
+        sed -n 's/.*calculated as: \(.*\) (randomized delay: \(.*\))$/\1|\2/p' | tail -n1)"
 }
 
 # Several samples + "not all equal": two draws could rarely render identically (~1e-6) and falsely fail.
 DELAYS=()
 TOTALS=()
 for _ in {1..4}; do
-    IFS='|' read -r total delay <<<"$(get_restart_interval)"
+    get_restart_interval
+    IFS='|' read -r total delay <<<"$RESTART_INTERVAL"
     TOTALS+=("$total")
     DELAYS+=("$delay")
 done
