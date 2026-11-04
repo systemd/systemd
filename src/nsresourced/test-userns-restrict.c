@@ -3,6 +3,7 @@
 #include <grp.h>
 #include <linux/btrfs.h>
 #include <linux/magic.h>
+#include <mqueue.h>
 #include <sched.h>
 #include <stdio.h>
 #include <sys/eventfd.h>
@@ -11,6 +12,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "bpf-link.h"
+#include "bpf-util.h"
 #include "btrfs-util.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
@@ -26,9 +29,12 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "uid-classification.h"
+#include "unaligned.h"
 #include "user-util.h"
+#include "userns-restrict-skel.h"
 #include "userns-restrict.h"
 
 static int make_tmpfs_fsmount(void) {
@@ -653,6 +659,95 @@ TEST(setgroups_deny) {
 
                 ASSERT_OK(pidref_wait_for_terminate_and_check("(test-allow)", &pidref, WAIT_LOG));
         }
+}
+
+static int ringbuf_userns_freed(void *userdata, void *data, size_t size) {
+        unsigned *inode = ASSERT_PTR(userdata);
+
+        ASSERT_EQ(size, sizeof(unsigned));
+        if (unaligned_read_ne32(data) == *inode)
+                *inode = 0;
+
+        return 0;
+}
+
+TEST_RET(userns_mqueue_lifetime) {
+        _cleanup_(pidref_done_sigkill_wait) PidRef supervisor = PIDREF_NULL, creator = PIDREF_NULL;
+        _cleanup_(bpf_ring_buffer_freep) struct ring_buffer *rb = NULL;
+        _cleanup_close_ int userns_fd = -EBADF;
+        _cleanup_free_ char *idmap = NULL;
+        struct stat userns_st, queue_st;
+        const struct mq_attr attr = { .mq_maxmsg = 1, .mq_msgsize = 1 };
+        mqd_t queue;
+        unsigned inode;
+        int r;
+
+        /* A separate IPC namespace prevents failed assertions from leaving queues on the host. */
+        r = ASSERT_OK(pidref_safe_fork("(test-mqueue)", FORK_DEATHSIG_SIGKILL, &supervisor));
+        if (r > 0)
+                return ASSERT_OK(pidref_wait_for_terminate_and_check("(test-mqueue)", &supervisor, WAIT_LOG));
+
+        r = RET_NERRNO(unshare(CLONE_NEWIPC));
+        if (ERRNO_IS_NEG_PRIVILEGE(r) || IN_SET(r, -EINVAL, -ENOSYS))
+                _exit(log_tests_skipped_errno(r, "Cannot create an IPC namespace"));
+        ASSERT_OK(r);
+
+        queue = mq_open("/probe", O_CREAT|O_EXCL|O_RDONLY|O_CLOEXEC, 0600, &attr);
+        if (queue < 0 && errno == ENOSYS)
+                _exit(log_tests_skipped("POSIX message queues are not supported"));
+        ASSERT_OK_ERRNO(queue);
+        ASSERT_OK_ERRNO(mq_close(queue));
+        ASSERT_OK_ERRNO(mq_unlink("/probe"));
+
+        ASSERT_OK(asprintf(&idmap, "0 "UID_FMT" 1", CONTAINER_UID_MIN));
+        userns_fd = ASSERT_OK(userns_acquire(idmap, idmap, /* setgroups_deny= */ true));
+        ASSERT_OK_ERRNO(fstat(userns_fd, &userns_st));
+        inode = 0;
+
+        rb = sym_ring_buffer__new(sym_bpf_map__fd(bpf_obj->maps.userns_ringbuf), ringbuf_userns_freed, &inode, /* opts= */ NULL);
+        ASSERT_NOT_NULL(rb);
+        ASSERT_OK(sym_ring_buffer__poll(rb, 0));
+        inode = (unsigned) userns_st.st_ino;
+        ASSERT_NE(inode, 0U);
+
+        /* The setgroups map enables free notifications without imposing inode creation restrictions. */
+        ASSERT_OK(userns_restrict_setgroups_deny_by_fd(bpf_obj, userns_fd));
+
+        r = ASSERT_OK(pidref_safe_fork("(mqueue-creator)", FORK_DEATHSIG_SIGKILL, &creator));
+        if (r == 0) {
+                ASSERT_OK(namespace_enter(-EBADF, -EBADF, -EBADF, userns_fd, -EBADF));
+                userns_fd = safe_close(userns_fd);
+                queue = ASSERT_OK_ERRNO(mq_open("/lifetime", O_CREAT|O_EXCL|O_RDONLY|O_CLOEXEC, 0600, &attr));
+                ASSERT_OK_ERRNO(mq_close(queue));
+                _exit(EXIT_SUCCESS);
+        }
+
+        ASSERT_OK(pidref_wait_for_terminate_and_check("(mqueue-creator)", &creator, WAIT_LOG));
+        queue = ASSERT_OK_ERRNO(mq_open("/lifetime", O_RDONLY|O_CLOEXEC));
+        ASSERT_OK_ERRNO(fstat(queue, &queue_st));
+        ASSERT_EQ(queue_st.st_uid, CONTAINER_UID_MIN);
+        ASSERT_EQ(queue_st.st_gid, CONTAINER_UID_MIN);
+        ASSERT_OK_ERRNO(mq_close(queue));
+        userns_fd = safe_close(userns_fd);
+
+        /* The queue's ucounts reference must keep its creator's user namespace alive after the creator exits. */
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), USEC_PER_SEC);
+        do {
+                ASSERT_OK(sym_ring_buffer__poll(rb, 100));
+                ASSERT_NE(inode, 0U);
+        } while (now(CLOCK_MONOTONIC) < end);
+
+        ASSERT_OK_ERRNO(mq_unlink("/lifetime"));
+
+        /* The kernel frees user namespaces from a workqueue, so the notification arrives asynchronously. */
+        end = usec_add(now(CLOCK_MONOTONIC), 30 * USEC_PER_SEC);
+        while (inode != 0) {
+                ASSERT_LT(now(CLOCK_MONOTONIC), end);
+                ASSERT_OK(sym_ring_buffer__poll(rb, 100));
+        }
+
+        ASSERT_OK(userns_restrict_reset_by_inode(bpf_obj, userns_st.st_ino));
+        _exit(EXIT_SUCCESS);
 }
 
 DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);
