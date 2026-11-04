@@ -607,7 +607,7 @@ static int getenv_tmp_dir(const char **ret_path) {
                         r = -ENOTDIR;
                         goto next;
                 }
-                if (!path_is_normalized(e)) {
+                if (!path_is_normalized_full(e, PATH_ALLOW_TRAILING_SLASH)) { /* $TMPDIR=/tmp/ is common */
                         r = -EPERM;
                         goto next;
                 }

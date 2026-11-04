@@ -152,7 +152,16 @@ static inline bool path_is_valid(const char *p) {
 static inline bool path_is_safe(const char *p) {
         return path_is_valid_full(p, /* accept_dot_dot= */ false);
 }
-bool path_is_normalized(const char *p) _pure_;
+
+typedef enum PathNormalizedFlags {
+        PATH_ALLOW_TRAILING_SLASH = 1 << 0,
+} PathNormalizedFlags;
+
+bool path_is_normalized_full(const char *p, PathNormalizedFlags flags) _pure_;
+static inline bool path_is_normalized(const char *p) {
+        return path_is_normalized_full(p, /* flags= */ 0);
+}
+
 static inline bool filename_or_absolute_path_is_valid(const char *p) {
         if (path_is_absolute(p))
                 return path_is_valid(p);
