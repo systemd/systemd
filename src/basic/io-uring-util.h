@@ -6,6 +6,19 @@
 
 #include "forward.h"
 
+union io_uring_sqe128 {
+        uint8_t raw[128];
+        struct io_uring_sqe sqe;
+};
+
+union io_uring_cqe32 {
+        uint64_t raw[4];
+        struct io_uring_cqe cqe;
+};
+
+assert_cc(sizeof(union io_uring_sqe128) == 128);
+assert_cc(sizeof(union io_uring_cqe32) == 32);
+
 /* An io_uring instance consists of two rings in memory that the kernel shares with us. We queue requests as
  * submission queue entries (SQEs) in the SQ ring, and the kernel reports the result of each request as a
  * completion queue entry (CQE) in the CQ ring. The res field of a CQE contains what the syscall would
@@ -24,13 +37,13 @@ typedef struct IoUring {
         /* The SQEs between the kernel's SQ tail and sqe_tail are filled in, but not submitted yet. */
         uint32_t sqe_tail;
 
-        struct io_uring_sqe *sqes;
+        union io_uring_sqe128 *sqes;
         size_t sqes_size;
 
         uint32_t *cq_head;
         uint32_t *cq_tail;
         uint32_t cq_mask;
-        struct io_uring_cqe *cqes;
+        union io_uring_cqe32 *cqes;
 } IoUring;
 
 #define IO_URING_NULL (IoUring) { .ring_fd = -EBADF }
@@ -43,7 +56,7 @@ static inline bool io_uring_is_initialized(const IoUring *ring) {
         return ring->ring_fd >= 0;
 }
 
-struct io_uring_sqe* io_uring_get_sqe(IoUring *ring);
+union io_uring_sqe128* io_uring_get_sqe(IoUring *ring);
 int io_uring_submit(IoUring *ring);
 /* Submits the queued SQEs and waits until a CQE is ready or the timeout elapsed. Returns -ETIME if the
  * timeout elapsed first, unless SQEs were submitted. The kernel then returns the number of submitted SQEs. */
