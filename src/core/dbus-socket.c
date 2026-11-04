@@ -151,6 +151,7 @@ const sd_bus_vtable bus_socket_vtable[] = {
         SD_BUS_PROPERTY("UID", "u", bus_property_get_uid, offsetof(Unit, ref_uid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("GID", "u", bus_property_get_gid, offsetof(Unit, ref_gid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("PassFileDescriptorsToExec", "b", bus_property_get_bool, offsetof(Socket, pass_fds_to_exec), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("InheritSlice", "b", bus_property_get_bool, offsetof(Socket, inherit_slice), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecStartPre", offsetof(Socket, exec_command[SOCKET_EXEC_START_PRE]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecStartPost", offsetof(Socket, exec_command[SOCKET_EXEC_START_POST]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecStopPre", offsetof(Socket, exec_command[SOCKET_EXEC_STOP_PRE]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
@@ -434,6 +435,9 @@ static int bus_socket_set_transient_property(
 
         if (streq(name, "XAttrAccept"))
                 return bus_socket_set_transient_xattr(u, name, &s->xattr_accept, message, flags, reterr_error);
+
+        if (streq(name, "InheritSlice"))
+                return bus_set_transient_bool(u, name, &s->inherit_slice, message, flags, reterr_error);
 
         if (streq(name, "Symlinks")) {
                 _cleanup_strv_free_ char **l = NULL;
