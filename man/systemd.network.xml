@@ -898,9 +898,11 @@ DuplicateAddressDetection=none</programlisting></para>
       <varlistentry>
         <term><varname>IPv6Forwarding=</varname></term>
         <listitem>
-          <para>Configures interface-specific host/router behaviour. Takes a boolean value. This controls the
+          <para>Configures interface-specific host/router behaviour and, with Linux kernel 6.17 or newer,
+          forwarding of IPv6 packets received on the interface. Takes a boolean value. This controls the
           <filename>net.ipv6.conf.<replaceable>INTERFACE</replaceable>.forwarding</filename> sysctl option of
-          the network interface. See
+          the network interface, and when explicitly specified, also
+          <filename>net.ipv6.conf.<replaceable>INTERFACE</replaceable>.force_forwarding</filename>. See
           <ulink url="https://docs.kernel.org/networking/ip-sysctl.html">IP Sysctl</ulink>
           for more details about the sysctl option. Defaults to true if <varname>IPMasquerade=</varname> is
           enabled for IPv6 or <varname>IPv6SendRA=</varname> is enabled, otherwise the value specified to the
@@ -912,13 +914,21 @@ DuplicateAddressDetection=none</programlisting></para>
           <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           </para>
 
-          <para>Note, unlike <varname>IPv4Forwarding=</varname>, enabling per-interface
-          <varname>IPv6Forwarding=</varname> on two or more interfaces <emphasis>DOES NOT</emphasis> make IPv6
-          packets forwarded within the interfaces. This setting just controls the per-interface sysctl value,
-          and the sysctl value is not directly correlated to whether packets are forwarded. To ensure IPv6
-          packets forwarded, the global setting in
+          <para>Note, with Linux kernel older than 6.17, unlike <varname>IPv4Forwarding=</varname>, enabling
+          per-interface <varname>IPv6Forwarding=</varname> on two or more interfaces
+          <emphasis>DOES NOT</emphasis> make IPv6 packets forwarded within the interfaces. This setting just
+          controls the per-interface sysctl value, and the sysctl value is not directly correlated to whether
+          packets are forwarded. To ensure IPv6 packets forwarded on such kernels, the global setting in
           <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           needs to be enabled.</para>
+
+          <para>With newer kernels, explicitly enabling this setting makes IPv6 packets received on the
+          interface forwarded, even if the global setting is disabled. To forward packets in both directions
+          between interfaces, enable it on all of them. <varname>IPv6SendRA=</varname> and
+          <varname>IPMasquerade=</varname> do not set <filename>force_forwarding</filename>. Disabling this
+          setting does not stop forwarding when the global setting is enabled, as the kernel then forwards
+          packets received on any interface. Also, the kernel resets <filename>force_forwarding</filename> on
+          all interfaces when <filename>net.ipv6.conf.all.forwarding</filename> is set to 0.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
