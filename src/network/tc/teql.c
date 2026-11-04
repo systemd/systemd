@@ -88,10 +88,12 @@ int config_parse_teql_id(
                            lvalue, rvalue);
                 return 0;
         }
-        if (id > INT_MAX)
+        if (id > INT_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "'%s=' is too large, ignoring assignment: %s",
                            lvalue, rvalue);
+                return 0;
+        }
 
         teql->id = id;
 

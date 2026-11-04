@@ -121,10 +121,12 @@ int config_parse_gred_u32(
                 return 0;
         }
 
-        if (v > MAX_DPs)
+        if (v > MAX_DPs) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
+                return 0;
+        }
 
         *p = v;
         TAKE_PTR(qdisc);

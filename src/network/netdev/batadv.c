@@ -78,10 +78,12 @@ int config_parse_badadv_bandwidth (
                 return 0;
         }
 
-        if (k/1000/100 > UINT32_MAX)
+        if (k/1000/100 > UINT32_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "The value of '%s=', is outside of 0...429496729500000 range: %s",
+                           "The value of '%s=', is outside of 0...429496729500000 range, ignoring assignment: %s",
                            lvalue, rvalue);
+                return 0;
+        }
 
         *bandwidth = k/1000/100;
 
