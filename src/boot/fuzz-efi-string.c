@@ -3,10 +3,11 @@
 #include "alloc-util.h"
 #include "efi-string.h"
 #include "fuzz.h"
+#include "tests.h"
 
 static char16_t *memdup_str16(const uint8_t *data, size_t size) {
         char16_t *ret = memdup(data, size);
-        assert_se(ret);
+        ASSERT_NOT_NULL(ret);
         ret[size / sizeof(char16_t) - 1] = '\0';
         return ret;
 }
