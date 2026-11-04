@@ -3,6 +3,7 @@
 #include "fd-util.h"
 #include "fuzz.h"
 #include "networkd-manager.h"
+#include "tests.h"
 #include "tmpfile-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
@@ -15,12 +16,12 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         fuzz_setup_logging();
 
-        assert_se(fmkostemp_safe(network_config, "r+", &f) == 0);
+        ASSERT_OK_ZERO(fmkostemp_safe(network_config, "r+", &f));
         if (size != 0)
-                assert_se(fwrite(data, size, 1, f) == 1);
+                ASSERT_EQ(fwrite(data, size, 1, f), (size_t) 1);
 
         fflush(f);
-        assert_se(manager_new(&manager, /* test_mode= */ true) >= 0);
+        ASSERT_OK(manager_new(&manager, /* test_mode= */ true));
         (void) network_load_one(manager, &manager->networks, network_config);
         return 0;
 }
