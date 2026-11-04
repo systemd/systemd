@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "iovec-util.h"
+#include "iovec-wrapper.h"
 #include "tests.h"
 
 TEST(ASSERT) {
@@ -178,6 +179,18 @@ TEST(ASSERT) {
         ASSERT_MEMEQ_ZERO(zeros, sizeof(zeros));
         ASSERT_MEMEQ_ZERO(NULL, 0);
         ASSERT_SIGNAL(ASSERT_MEMEQ_ZERO(allx, sizeof(allx)), SIGABRT);
+
+        struct iovec iova[] = { IOVEC_MAKE_STRING("foo"), IOVEC_MAKE_STRING("bar") };
+        struct iovec iovb[] = { IOVEC_MAKE_STRING("foo"), IOVEC_MAKE_STRING("baz") };
+        struct iovec_wrapper iovwa = { .iovec = iova, .count = ELEMENTSOF(iova) };
+        struct iovec_wrapper iovwb = { .iovec = iovb, .count = ELEMENTSOF(iovb) };
+        struct iovec_wrapper iovwa1 = { .iovec = iova, .count = 1 };
+
+        ASSERT_IOVW_EQ(&iovwa, &iovwa);
+        ASSERT_IOVW_EQ(NULL, NULL);
+        ASSERT_SIGNAL(ASSERT_IOVW_EQ(&iovwa, &iovwb), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_IOVW_EQ(&iovwa, &iovwa1), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_IOVW_EQ(&iovwa, NULL), SIGABRT);
 }
 
 TEST(ASSERT_OK_OR) {
