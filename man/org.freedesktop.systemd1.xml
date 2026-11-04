@@ -3542,6 +3542,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (bas) RestrictAddressFamilies = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (bas) IOUringFilter = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sst) RuntimeDirectorySymlink = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RuntimeDirectoryPreserve = '...';
@@ -4192,6 +4194,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property LockPersonality is not documented!-->
 
     <!--property RestrictAddressFamilies is not documented!-->
+
+    <!--property IOUringFilter is not documented!-->
 
     <!--property RuntimeDirectoryPreserve is not documented!-->
 
@@ -4934,6 +4938,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="LockPersonality"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictAddressFamilies"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IOUringFilter"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeDirectorySymlink"/>
 
@@ -5863,6 +5869,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (bas) RestrictAddressFamilies = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (bas) IOUringFilter = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sst) RuntimeDirectorySymlink = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RuntimeDirectoryPreserve = '...';
@@ -6525,6 +6533,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property LockPersonality is not documented!-->
 
     <!--property RestrictAddressFamilies is not documented!-->
+
+    <!--property IOUringFilter is not documented!-->
 
     <!--property RuntimeDirectoryPreserve is not documented!-->
 
@@ -7243,6 +7253,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="LockPersonality"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictAddressFamilies"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IOUringFilter"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeDirectorySymlink"/>
 
@@ -7991,6 +8003,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (bas) RestrictAddressFamilies = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (bas) IOUringFilter = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sst) RuntimeDirectorySymlink = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RuntimeDirectoryPreserve = '...';
@@ -8577,6 +8591,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property LockPersonality is not documented!-->
 
     <!--property RestrictAddressFamilies is not documented!-->
+
+    <!--property IOUringFilter is not documented!-->
 
     <!--property RuntimeDirectoryPreserve is not documented!-->
 
@@ -9197,6 +9213,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="LockPersonality"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictAddressFamilies"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IOUringFilter"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeDirectorySymlink"/>
 
@@ -10067,6 +10085,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (bas) RestrictAddressFamilies = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (bas) IOUringFilter = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sst) RuntimeDirectorySymlink = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RuntimeDirectoryPreserve = '...';
@@ -10635,6 +10655,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property LockPersonality is not documented!-->
 
     <!--property RestrictAddressFamilies is not documented!-->
+
+    <!--property IOUringFilter is not documented!-->
 
     <!--property RuntimeDirectoryPreserve is not documented!-->
 
@@ -11237,6 +11259,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="LockPersonality"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictAddressFamilies"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IOUringFilter"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeDirectorySymlink"/>
 
@@ -13037,6 +13061,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>LUOSession</varname> was added in version 262.</para>
       <para><varname>RestartRandomizedDelayUSec</varname> was added in version 262.</para>
       <para><varname>ConfigurationDirectorySymlink</varname> was added in version 263.</para>
+      <para><varname>IOUringFilter</varname> was added in version 263.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -13117,6 +13142,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>XAttrListen</varname>, and
       <varname>XAttrAccept</varname> were added in version 262.</para>
       <para><varname>ConfigurationDirectorySymlink</varname> was added in version 263.</para>
+      <para><varname>IOUringFilter</varname> was added in version 263.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -13189,6 +13215,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>CPUSetPartition</varname>, and
       <varname>OOMRules</varname> were added in version 261.</para>
       <para><varname>ConfigurationDirectorySymlink</varname> was added in version 263.</para>
+      <para><varname>IOUringFilter</varname> was added in version 263.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -13259,6 +13286,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>CPUSetPartition</varname>, and
       <varname>OOMRules</varname> were added in version 261.</para>
       <para><varname>ConfigurationDirectorySymlink</varname> was added in version 263.</para>
+      <para><varname>IOUringFilter</varname> was added in version 263.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>

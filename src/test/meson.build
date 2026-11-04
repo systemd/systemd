@@ -136,6 +136,7 @@ simple_tests += files(
         'test-initrd-cpio.c',
         'test-install-file.c',
         'test-install-root.c',
+        'test-io-uring-filter.c',
         'test-io-uring-util.c',
         'test-io-util.c',
         'test-iovec-util.c',

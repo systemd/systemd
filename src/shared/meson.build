@@ -109,6 +109,7 @@ shared_sources = files(
         'install-file.c',
         'install-printf.c',
         'install.c',
+        'io-uring-filter.c',
         'ioprio-util.c',
         'ip-protocol-list.c',
         'ipvlan-util.c',

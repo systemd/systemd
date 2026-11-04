@@ -11,6 +11,7 @@
 #include "capability-util.h"
 #include "cgroup.h"
 #include "conf-parser.h"
+#include "execute.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "hashmap.h"
@@ -718,6 +719,36 @@ TEST(config_parse_capability_set) {
                                               "CapabilityBoundingSet", /* ltype= */ 0, "  'CAP_NET_RAW' WAT_CAP??? CAP_NET_ADMIN CAP'_trailing_garbage",
                                               &capability_bounding_set, /* userdata= */ NULL));
         ASSERT_EQ(capability_bounding_set, make_cap(CAP_NET_RAW) | make_cap(CAP_NET_ADMIN));
+}
+
+static void check_io_uring_filter(ExecContext *c, const char *rvalue, bool allow_list, const char *expected) {
+        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free_ char *joined = NULL;
+
+        ASSERT_OK(config_parse_io_uring_filter(/* unit= */ NULL, "fake", 1, "section", 1,
+                                               "IOUringFilter", /* ltype= */ 0, rvalue,
+                                               c, /* userdata= */ NULL));
+
+        ASSERT_EQ((bool) c->io_uring_filter_allow_list, allow_list);
+        l = ASSERT_NOT_NULL(exec_context_get_io_uring_filter(c));
+        joined = ASSERT_NOT_NULL(strv_join(l, " "));
+        ASSERT_STREQ(joined, expected);
+}
+
+TEST(config_parse_io_uring_filter) {
+        ExecContext c = {};
+
+        check_io_uring_filter(&c, "read write", /* allow_list= */ true, "read write");
+        check_io_uring_filter(&c, "socket,nop", /* allow_list= */ true, "nop read socket write");
+        check_io_uring_filter(&c, "~write", /* allow_list= */ true, "nop read socket");
+        check_io_uring_filter(&c, "foobar openat", /* allow_list= */ true, "nop openat read socket");
+        check_io_uring_filter(&c, "", /* allow_list= */ false, "");
+
+        check_io_uring_filter(&c, "~uring_cmd socket", /* allow_list= */ false, "socket uring_cmd");
+        check_io_uring_filter(&c, "socket", /* allow_list= */ false, "uring_cmd");
+        check_io_uring_filter(&c, "~send_zc", /* allow_list= */ false, "send_zc uring_cmd");
+
+        c.io_uring_filter = set_free(c.io_uring_filter);
 }
 
 TEST(config_parse_rlimit) {
