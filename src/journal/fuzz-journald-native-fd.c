@@ -8,6 +8,7 @@
 #include "journald-native.h"
 #include "memfd-util.h"
 #include "process-util.h"
+#include "tests.h"
 #include "tmpfile-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
@@ -22,7 +23,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         dummy_manager_new(&m, /* buffer= */ NULL, /* size= */ 0);
 
         sealed_fd = memfd_new_and_seal(/* name= */ NULL, data, size);
-        assert_se(sealed_fd >= 0);
+        ASSERT_OK(sealed_fd);
         ucred = (struct ucred) {
                 .pid = getpid_cached(),
                 .uid = geteuid(),
@@ -31,9 +32,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         (void) manager_process_native_file(m, sealed_fd, &ucred, tv, /* label= */ NULL);
 
         unsealed_fd = mkostemp_safe(name);
-        assert_se(unsealed_fd >= 0);
-        assert_se(write(unsealed_fd, data, size) == (ssize_t) size);
-        assert_se(lseek(unsealed_fd, 0, SEEK_SET) == 0);
+        ASSERT_OK(unsealed_fd);
+        ASSERT_EQ(write(unsealed_fd, data, size), (ssize_t) size);
+        ASSERT_OK_ZERO_ERRNO(lseek(unsealed_fd, 0, SEEK_SET));
         (void) manager_process_native_file(m, unsealed_fd, &ucred, tv, /* label= */ NULL);
 
         return 0;
