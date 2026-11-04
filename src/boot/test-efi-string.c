@@ -644,22 +644,22 @@ TEST(line_get_key_value) {
         }
 }
 
-TEST(hexdump) {
+TEST(hexdump16) {
         char16_t *hex;
 
-        ASSERT_NOT_NULL(hex = hexdump(/* data= */ NULL, /* size= */ 0));
+        ASSERT_NOT_NULL(hex = hexdump16(/* data= */ NULL, /* size= */ 0));
         ASSERT_TRUE(streq16(hex, u""));
         free(hex);
 
-        ASSERT_NOT_NULL(hex = hexdump("1", 2));
+        ASSERT_NOT_NULL(hex = hexdump16("1", 2));
         ASSERT_TRUE(streq16(hex, u"3100"));
         free(hex);
 
-        ASSERT_NOT_NULL(hex = hexdump("abc", 4));
+        ASSERT_NOT_NULL(hex = hexdump16("abc", 4));
         ASSERT_TRUE(streq16(hex, u"61626300"));
         free(hex);
 
-        ASSERT_NOT_NULL(hex = hexdump((uint8_t[]){ 0x0, 0x42, 0xFF, 0xF1, 0x1F }, 5));
+        ASSERT_NOT_NULL(hex = hexdump16((uint8_t[]){ 0x0, 0x42, 0xFF, 0xF1, 0x1F }, 5));
         ASSERT_TRUE(streq16(hex, u"0042fff11f"));
         free(hex);
 }
