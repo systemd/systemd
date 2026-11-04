@@ -14,6 +14,7 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-get-properties.h"
+#include "bus-internal.h"
 #include "bus-locator.h"
 #include "bus-log-control-api.h"
 #include "bus-map-properties.h"
@@ -407,6 +408,23 @@ static int context_write_data_local_rtc(Context *c) {
                 return r;
 
         return write_string_file(etc_adjtime(), w, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
+}
+
+static int bus_verify_available(sd_bus *bus) {
+        int r;
+
+        assert(bus);
+
+        r = sd_bus_is_open(bus);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENOTCONN;
+
+        if (bus->state == BUS_WATCH_BIND)
+                return -EAGAIN;
+
+        return 0;
 }
 
 static int context_update_ntp_status(Context *c, sd_bus_message *m) {
@@ -1090,6 +1108,77 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
         return sd_bus_reply_method_return(m, /* types= */ NULL);
 }
 
+static int vl_method_set_time(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        struct params {
+                int64_t time_usec;
+                bool relative;
+        };
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "timeUSec", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int64,   offsetof(struct params, time_usec), SD_JSON_MANDATORY },
+                { "relative", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool, offsetof(struct params, relative),  SD_JSON_NULLABLE  },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Context *c = ASSERT_PTR(userdata);
+        struct timespec ts;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        struct params p = {};
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        /* Validate the parameters before the more expensive operations below. */
+        if (!p.relative && p.time_usec <= 0)
+                return sd_varlink_error_invalid_parameter_name(link, "timeUSec");
+
+        if (p.relative && p.time_usec == 0)
+                return sd_varlink_reply(link, /* parameters= */ NULL);
+
+        r = timespec_store_maybe_relative(&ts, p.time_usec, p.relative);
+        if (r < 0)
+                return sd_varlink_error_invalid_parameter_name(link, "timeUSec");
+
+        /* refuse the request when the time is before systemd build date time */
+        if (ts.tv_sec < TIME_EPOCH)
+                return sd_varlink_error_invalid_parameter_name(link, "timeUSec");
+
+        if (c->slot_job_removed)
+                return sd_varlink_error(link, "io.systemd.Timedate.AutomaticTimeSyncEnabled", /* parameters= */ NULL);
+
+        /* The following makes synchronous calls on the (possibly watch-bound) system bus, which would
+         * block the event loop until D-Bus is up. Fail fast instead if it is not connected yet. */
+        r = bus_verify_available(c->bus);
+        if (r < 0)
+                return r;
+
+        r = context_update_ntp_status(c, /* m= */ NULL);
+        if (r < 0)
+                return r;
+
+        if (context_ntp_service_is_active(c) > 0)
+                return sd_varlink_error(link, "io.systemd.Timedate.AutomaticTimeSyncEnabled", /* parameters= */ NULL);
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        c->bus,
+                        "org.freedesktop.timedate1.set-time",
+                        /* details= */ NULL,
+                        &c->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = context_set_time(c, timespec_load(&ts));
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
 static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
         Context *c = ASSERT_PTR(userdata);
@@ -1319,6 +1408,7 @@ static int connect_varlink(Context *c) {
         r = sd_varlink_server_bind_method_many(
                         server,
                         "io.systemd.Timedate.SetLocalRTC",   vl_method_set_local_rtc,
+                        "io.systemd.Timedate.SetTime",       vl_method_set_time,
                         "io.systemd.Timedate.SetTimezone",   vl_method_set_timezone,
                         "io.systemd.service.Ping",           varlink_method_ping,
                         "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
