@@ -1795,7 +1795,7 @@ SUBSYSTEMS=="scsi", PROGRAM=="/bin/bash -c \"printf %%s 'foo1 foo2' | grep 'foo1
         rules=r'''
         KERNEL=="sda", TAG="foo"
         TAGS=="|foo", SYMLINK+="found"
-        TAGS=="|aaa", SYMLINK+="bad"
+        TAGS=="aaa", SYMLINK+="bad"
         ''',
     ),
     Rules.new(
@@ -1821,7 +1821,7 @@ SUBSYSTEMS=="scsi", PROGRAM=="/bin/bash -c \"printf %%s 'foo1 foo2' | grep 'foo1
         rules=r'''
         KERNEL=="sda", TAG="foo"
         TAGS=="foo||bar", SYMLINK+="found"
-        TAGS=="aaa||bbb", SYMLINK+="bad"
+        TAGS=="aaa|bbb", SYMLINK+="bad"
         ''',
     ),
     Rules.new(
@@ -1847,7 +1847,7 @@ SUBSYSTEMS=="scsi", PROGRAM=="/bin/bash -c \"printf %%s 'foo1 foo2' | grep 'foo1
         rules=r'''
         KERNEL=="sda", TAG="foo"
         TAGS=="foo|", SYMLINK+="found"
-        TAGS=="aaa|", SYMLINK+="bad"
+        TAGS=="aaa", SYMLINK+="bad"
         KERNEL=="sda", TAGS!="hoge", SYMLINK+="found2"
         KERNEL=="sda", TAGS!="foo", SYMLINK+="bad2"
         ''',
@@ -1875,7 +1875,7 @@ SUBSYSTEMS=="scsi", PROGRAM=="/bin/bash -c \"printf %%s 'foo1 foo2' | grep 'foo1
         rules=r'''
         KERNEL=="sda", TAG="c"
         TAGS=="foo||bar||c", SYMLINK+="found"
-        TAGS=="aaa||bbb||ccc", SYMLINK+="bad"
+        TAGS=="aaa|bbb|ccc", SYMLINK+="bad"
         ''',
     ),
     Rules.new(
@@ -1887,13 +1887,31 @@ SUBSYSTEMS=="scsi", PROGRAM=="/bin/bash -c \"printf %%s 'foo1 foo2' | grep 'foo1
         ),
         rules=r'''
        KERNEL=="sda", TAG+="", TAG+="invalid.char", TAG+="path/is/also/invalid", TAG+="valid"
-       TAGS=="", SYMLINK+="empty"
+       TAGS=="aaa", SYMLINK+="empty"
        TAGS=="invalid.char", SYMLINK+="invalid_char"
        TAGS=="path/is/also/invalid", SYMLINK+="path"
        TAGS=="valid", SYMLINK+="valid"
        TAGS=="valid|", SYMLINK+="found"
-       TAGS=="aaa|", SYMLINK+="bad"
+       TAGS=="aaa", SYMLINK+="bad"
        TAGS=="aaa|bbb", SYMLINK+="bad2"
+        ''',
+    ),
+    Rules.new(
+        'TAG and TAGS match against empty string',
+        Device(
+            '/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda',
+            exp_links=['tag-empty', 'tags-empty', 'tags-alt', 'has-tag'],
+            not_exp_links=['tag-bad', 'tags-bad', 'tag-set-bad'],
+        ),
+        rules=r'''
+        KERNEL=="sda", TAG=="aaa", SYMLINK+="tag-bad"
+        KERNEL=="sda", TAGS=="aaa", SYMLINK+="tags-bad"
+        KERNEL=="sda", TAG=="", SYMLINK+="tag-empty"
+        KERNEL=="sda", TAGS=="", SYMLINK+="tags-empty"
+        KERNEL=="sda", TAGS=="aaa|", SYMLINK+="tags-alt"
+        KERNEL=="sda", TAG+="foo"
+        KERNEL=="sda", TAG=="", SYMLINK+="tag-set-bad"
+        KERNEL=="sda", TAGS!="", SYMLINK+="has-tag"
         ''',
     ),
     Rules.new(
