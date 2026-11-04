@@ -11,3 +11,6 @@ char* hexdump_memcmp(const void *m1, size_t l1, const void *m2, size_t l2);
 
 /* Like hexdump_memcmp(), but compares against a region of the same length filled with 'byte'. */
 char* hexdump_memcmp_byte(uint8_t byte, const void *data, size_t length);
+
+/* Dumps the differing elements of two iovec wrappers, element by element. Used by ASSERT_IOVW_EQ(). */
+char* hexdump_iovw_compare(const struct iovec_wrapper *a, const struct iovec_wrapper *b);

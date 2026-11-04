@@ -2,6 +2,8 @@
 
 #include "alloc-util.h"
 #include "hexdump.h"
+#include "iovec-util.h"
+#include "iovec-wrapper.h"
 #include "tests.h"
 
 TEST(hexdump) {
@@ -66,6 +68,28 @@ TEST(hexdump_memcmp_byte) {
         free(s);
         s = ASSERT_NOT_NULL(hexdump_memcmp_byte(0x00, NULL, 0));
         ASSERT_STREQ(s, "");
+}
+
+TEST(hexdump_iovw_compare) {
+        struct iovec iov_a[] = { IOVEC_MAKE_STRING("foo"), IOVEC_MAKE_STRING("bar") };
+        struct iovec iov_b[] = { IOVEC_MAKE_STRING("foo"), IOVEC_MAKE_STRING("baz") };
+        struct iovec_wrapper wa = { .iovec = iov_a, .count = ELEMENTSOF(iov_a) };
+        struct iovec_wrapper wb = { .iovec = iov_b, .count = ELEMENTSOF(iov_b) };
+
+        /* Equal wrappers: empty dump. */
+        _cleanup_free_ char *s = ASSERT_NOT_NULL(hexdump_iovw_compare(&wa, &wa));
+        ASSERT_STREQ(s, "");
+
+        /* One element differs. */
+        free(s);
+        s = ASSERT_NOT_NULL(hexdump_iovw_compare(&wa, &wb));
+        log_info("differ:\n%s", s);
+
+        /* Different element count. */
+        struct iovec_wrapper wc = { .iovec = iov_a, .count = 1 };
+        free(s);
+        s = ASSERT_NOT_NULL(hexdump_iovw_compare(&wa, &wc));
+        log_info("count differ:\n%s", s);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
