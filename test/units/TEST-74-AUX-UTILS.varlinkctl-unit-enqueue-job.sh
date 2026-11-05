@@ -152,6 +152,11 @@ UNIT
     printf '%s' "$result" | jq --seq --slurp -e 'any(.[]; .job.Result == "done")' >/dev/null
     printf '%s' "$result" | jq --seq --slurp -e 'any(.[]; .runtime.Service.StatusText == "after-reexec" and (has("job") | not))' >/dev/null
     systemctl is-active varlink-test-reexec.service
+
+    # Reexecute and Reload reply once they are complete
+    timeout 60 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Reexecute '{}'
+    timeout 60 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Reload '{}'
+    systemctl is-active varlink-test-reexec.service
 }
 
 run_testcases
