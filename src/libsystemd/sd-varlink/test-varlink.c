@@ -26,6 +26,7 @@
 #include "time-util.h"
 #include "tmpfile-util.h"
 #include "varlink-util.h"
+#include "xattr-util.h"
 
 /* Let's pick some high value, that is higher than the largest listen() backlog, but leaves enough room below
    the typical RLIMIT_NOFILE value of 1024 so that we can process both sides of each socket in our
@@ -1209,18 +1210,36 @@ TEST(notify_then_error) {
         ASSERT_OK(sd_event_loop(e));
 }
 
+static void assert_varlink_xattr(int fd, const char *expected) {
+        _cleanup_free_ char *role = NULL;
+
+        if (socket_xattr_supported() <= 0)
+                return;
+
+        if (expected) {
+                ASSERT_OK(fgetxattr_malloc(fd, "user.varlink", &role, /* ret_size= */ NULL));
+                ASSERT_STREQ(role, expected);
+        } else
+                ASSERT_ERROR(fgetxattr_malloc(fd, "user.varlink", &role, /* ret_size= */ NULL), ENODATA);
+}
+
 static int method_upgrade(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         _cleanup_close_ int input_fd = -EBADF, output_fd = -EBADF;
         int r;
 
         ASSERT_TRUE(FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE));
         ASSERT_OK_POSITIVE(sd_varlink_wants_reply(link));
+        assert_varlink_xattr(ASSERT_OK(sd_varlink_get_input_fd(link)), "server");
 
         r = sd_varlink_reply_and_upgrade(link, /* parameters= */ NULL, &input_fd, &output_fd);
         if (r < 0)
                 return r;
 
         ASSERT_OK_ZERO(sd_varlink_wants_reply(link));
+
+        /* The connection doesn't speak Varlink anymore, hence the marker must be gone */
+        assert_varlink_xattr(input_fd, NULL);
+        assert_varlink_xattr(output_fd, NULL);
 
         /* After upgrade, do raw I/O: read until the client shuts down its write side (giving us a clean
          * EOF), reverse what we got, and write it back. Use suspending I/O so other fibers (the client)
@@ -1255,12 +1274,15 @@ static int upgrade_client_fiber(void *arg) {
 
         ASSERT_OK(sd_varlink_connect_address(&c, arg));
         ASSERT_OK(sd_varlink_set_description(c, "upgrade-client"));
+        assert_varlink_xattr(ASSERT_OK(sd_varlink_get_input_fd(c)), "client");
 
         ASSERT_OK(sd_varlink_call_and_upgrade(c, "io.test.Upgrade", /* parameters= */ NULL, &o, &error_id, &input_fd, &output_fd));
         ASSERT_NULL(error_id);
         ASSERT_GE(input_fd, 0);
         ASSERT_GE(output_fd, 0);
         ASSERT_NE(input_fd, output_fd); /* library dups for bidirectional sockets */
+        assert_varlink_xattr(input_fd, NULL);
+        assert_varlink_xattr(output_fd, NULL);
 
         /* Send a test string, shut down write side so server sees EOF, then read the reversed reply */
         static const char msg[] = "Hello!";
@@ -1359,6 +1381,8 @@ static int async_upgrade_on_upgrade(sd_varlink *link, int input_fd, int output_f
         ASSERT_GE(output_fd, 0);
         ASSERT_NE(input_fd, output_fd);
         ASSERT_FALSE(sd_varlink_is_connected(link));
+        assert_varlink_xattr(input_fd, NULL);
+        assert_varlink_xattr(output_fd, NULL);
 
         t->got_upgrade = true;
         t->input_fd = input_fd;
@@ -1436,6 +1460,7 @@ TEST(upgrade_async) {
         sd_varlink_set_userdata(c, &t);
         ASSERT_OK(sd_varlink_bind_reply(c, async_upgrade_on_reply));
         ASSERT_OK(sd_varlink_bind_upgrade(c, async_upgrade_on_upgrade));
+        assert_varlink_xattr(ASSERT_OK(sd_varlink_get_input_fd(c)), "client");
         ASSERT_OK(sd_varlink_invoke_and_upgrade(c, "io.test.Upgrade", /* parameters= */ NULL));
 
         /* No other calls may be pipelined behind an upgrade request */
