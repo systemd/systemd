@@ -53,6 +53,10 @@ int chase(const char *path_with_prefix, const char *root, ChaseFlags flags, char
 int chaseat_make_absolute(const char *path, const char *base, char **ret);
 int chase_split_prefix_filename(const char *path, const char *root, char **ret_dir, char **ret_filename);
 
+/* chase_xopenat() applies CHASE_NOFOLLOW, CHASE_MUST_BE_*, and CHASE_TRIGGER_AUTOFS. Callers must validate
+ * other chase flags while resolving the path. */
+int chase_xopenat(int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, XOpenFlags xopen_flags);
+
 int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, int open_flags, char **ret_path);
 int chase_and_opendir(const char *path, const char *root, ChaseFlags chase_flags, char **ret_path, DIR **ret_dir);
 int chase_and_stat(const char *path, const char *root, ChaseFlags chase_flags, char **ret_path, struct stat *ret_stat);
