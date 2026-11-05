@@ -39,6 +39,7 @@ typedef enum ChaseFlags {
                                              * and CHASE_MAX_MODE check. Doesn't apply to the final fstat*() of
                                              * chase_and_stat*(). Keep this in mind */
         CHASE_EXTRACT_FILENAME_HARDER = CHASE_EXTRACT_FILENAME | (1 << 18), /* Return "." if there is no filename. */
+        CHASE_EMPTY_PATH         = 1 << 19, /* An empty path refers to the inode of dir_fd itself. */
 } ChaseFlags;
 
 int statx_unsafe_transition(const struct statx *a, const struct statx *b);
@@ -60,6 +61,7 @@ int chase_and_fopen_unlocked(const char *path, const char *root, ChaseFlags chas
 int chase_and_unlink(const char *path, const char *root, ChaseFlags chase_flags, int unlink_flags, char **ret_path);
 int chase_and_open_parent(const char *path, const char *root, ChaseFlags chase_flags, char **ret_filename);
 
+/* CHASE_EMPTY_PATH makes an empty path refer to dir_fd itself, including a file or symlink. */
 int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int *ret_fd);
 
 int chase_and_openat(int root_fd, int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, char **ret_path);
