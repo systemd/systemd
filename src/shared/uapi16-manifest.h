@@ -26,6 +26,13 @@ typedef struct Uapi16Contents {
                 .original_size = UINT64_MAX,          \
         }
 
+static inline bool uapi16_contents_has_literal(const Uapi16Contents *c) {
+        /* An empty "literal" field is valid (it encodes empty data), hence check whether the field was set,
+         * not whether it carries data: when decoding Base64 we always allocate a buffer, even for empty
+         * data. */
+        return c->literal.iov_base;
+}
+
 /* An extended attribute in the "user" namespace */
 typedef struct Uapi16Xattr {
         char *name;          /* The attribute name, without the "user." prefix */

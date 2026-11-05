@@ -536,7 +536,7 @@ static int json_dispatch_contents(const char *name, sd_json_variant *variant, sd
                 if (r < 0)
                         return r;
 
-                if (!!c.file + !!c.url + !!iovec_is_set(&c.literal) > 1)
+                if (!!c.file + !!c.url + uapi16_contents_has_literal(&c) > 1)
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Only one of 'file', 'url', 'literal' may be set for '%s'.", strna(name));
 
                 if (c.encoding) {
