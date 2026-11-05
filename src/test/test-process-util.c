@@ -1164,7 +1164,7 @@ TEST(execvp_safe) {
         /* An empty executable file must make execvp_safe() fail with ENOEXEC, and must not be run as an
          * empty shell script, which would exit successfully. */
 
-        ASSERT_OK(mkdtemp_malloc(NULL, &d));
+        ASSERT_OK(mkdtemp_malloc(/* template= */ NULL, &d));
         ASSERT_NOT_NULL(p = path_join(d, "test-process-util-empty"));
         ASSERT_OK(touch_file(p, /* parents= */ false, USEC_INFINITY, UID_INVALID, GID_INVALID, 0755));
         if (access(p, X_OK) < 0) /* e.g. /tmp/ mounted noexec */
@@ -1173,7 +1173,7 @@ TEST(execvp_safe) {
         test_execvp_safe_one(p, /* search_path= */ NULL, -ENOEXEC);
         test_execvp_safe_one("test-process-util-empty", d, -ENOEXEC);
         test_execvp_safe_one("test-process-util-missing", d, -ENOENT);
-        test_execvp_safe_one("true", /* search_path= */ NULL, 0);
+        test_execvp_safe_one("true", /* search_path= */ NULL, /* expected_error= */ 0);
 }
 
 static int intro(void) {

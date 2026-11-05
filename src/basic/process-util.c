@@ -2199,7 +2199,7 @@ int posix_spawn_wrapper(
 
         _cleanup_close_ int pidfd = -EBADF;
 
-        r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
+        r = pidfd_spawn(&pidfd, path, /* file_actions= */ NULL, &attr, argv, envp);
         if (ERRNO_IS_NOT_SUPPORTED(r) && FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP) && cg_is_threaded(cgroup) > 0)
                 return -EUCLEAN; /* clone3() could also return EOPNOTSUPP if the target cgroup is in threaded mode,
                                     turn that into something recognizable */
@@ -2218,7 +2218,7 @@ int posix_spawn_wrapper(
                 if (r != 0)
                         return -r;
 
-                r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
+                r = pidfd_spawn(&pidfd, path, /* file_actions= */ NULL, &attr, argv, envp);
         }
         if (r == 0) {
                 r = pidref_set_pidfd_consume(ret_pidref, TAKE_FD(pidfd));

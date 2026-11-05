@@ -2973,7 +2973,7 @@ _public_ int sd_device_open(sd_device *device, int flags) {
 
         /* We've historically returned non-cloexec fds. */
         if (!FLAGS_SET(flags, O_CLOEXEC)) {
-                r = fd_cloexec(fd, false);
+                r = fd_cloexec(fd, /* cloexec= */ false);
                 if (r < 0)
                         return r;
         }

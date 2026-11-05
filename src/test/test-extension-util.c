@@ -40,7 +40,7 @@ TEST(extension_match_host) {
 
         host_init(&h);
 
-        ASSERT_OK(tfd = mkdtemp_open(NULL, O_DIRECTORY, &t));
+        ASSERT_OK(tfd = mkdtemp_open(/* template= */ NULL, O_DIRECTORY, &t));
         ASSERT_OK(write_string_file_at(tfd, "ext.raw", "x", WRITE_STRING_FILE_CREATE));
         _cleanup_free_ char *p = ASSERT_NOT_NULL(path_join(t, "ext.raw"));
 

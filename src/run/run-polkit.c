@@ -36,7 +36,7 @@ int polkit_check_authorization(sd_bus *bus, PolkitFlags flags, char **ret_tmpaut
         pid = getpid_cached();
 
         /* Polkit requires pidfd to honor temporary authorizations */
-        pidfd = pidfd_open(pid, 0);
+        pidfd = pidfd_open(pid, /* flags= */ 0);
         if (pidfd < 0)
                 return log_debug_errno(errno, "pidfd_open failed: %m");
 

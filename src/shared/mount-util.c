@@ -2021,14 +2021,14 @@ int fsmount_credentials_fs(int *ret_fsfd) {
         if (fs_fd < 0)
                 return -errno;
 
-        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "nr_inodes", "1024", 0) < 0)
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "nr_inodes", "1024", /* aux= */ 0) < 0)
                 return -errno;
 
         xsprintf(size_str, "%" PRIu64, CREDENTIALS_TOTAL_SIZE_MAX);
-        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "size", size_str, 0) < 0)
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "size", size_str, /* aux= */ 0) < 0)
                 return -errno;
 
-        if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, "noswap", NULL, 0) < 0) {
+        if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, "noswap", /* value= */ NULL, /* aux= */ 0) < 0) {
                 if (errno != EINVAL)
                         return -errno;
 
@@ -2037,10 +2037,10 @@ int fsmount_credentials_fs(int *ret_fsfd) {
                         close_and_replace(fs_fd, ramfs_fd);
         }
 
-        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "mode", "0700", 0) < 0)
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "mode", "0700", /* aux= */ 0) < 0)
                 return -errno;
 
-        if (fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) < 0)
+        if (fsconfig(fs_fd, FSCONFIG_CMD_CREATE, /* key= */ NULL, /* value= */ NULL, /* aux= */ 0) < 0)
                 return -errno;
 
         unsigned mount_attrs = ms_flags_to_mount_attr(credentials_fs_mount_flags(/* ro = */ false));
@@ -2109,11 +2109,11 @@ int make_fsmount(
         if (fs_fd < 0)
                 return log_full_errno(error_log_level, errno, "Failed to open superblock for \"%s\": %m", type);
 
-        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "source", what, 0) < 0)
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "source", what, /* aux= */ 0) < 0)
                 return log_full_errno(error_log_level, errno, "Failed to set mount source for \"%s\" to \"%s\": %m", type, what);
 
         if (FLAGS_SET(f, MS_RDONLY))
-                if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, "ro", NULL, 0) < 0)
+                if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, "ro", /* value= */ NULL, /* aux= */ 0) < 0)
                         return log_full_errno(error_log_level, errno, "Failed to set read only mount flag for \"%s\": %m", type);
 
         for (const char *p = o;;) {
@@ -2131,18 +2131,18 @@ int make_fsmount(
                         *eq = 0;
                         eq++;
 
-                        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, word, eq, 0) < 0)
+                        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, word, eq, /* aux= */ 0) < 0)
                                 return log_full_errno(error_log_level, errno, "Failed to set mount option \"%s=%s\" for \"%s\": %m", word, eq, type);
                 } else {
-                        if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, word, NULL, 0) < 0)
+                        if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, word, /* value= */ NULL, /* aux= */ 0) < 0)
                                 return log_full_errno(error_log_level, errno, "Failed to set mount flag \"%s\" for \"%s\": %m", word, type);
                 }
         }
 
-        if (fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) < 0)
+        if (fsconfig(fs_fd, FSCONFIG_CMD_CREATE, /* key= */ NULL, /* value= */ NULL, /* aux= */ 0) < 0)
                 return log_full_errno(error_log_level, errno, "Failed to realize fs fd for \"%s\" (\"%s\"): %m", what, type);
 
-        mnt_fd = fsmount(fs_fd, FSMOUNT_CLOEXEC, 0);
+        mnt_fd = fsmount(fs_fd, FSMOUNT_CLOEXEC, /* attr_flags= */ 0);
         if (mnt_fd < 0)
                 return log_full_errno(error_log_level, errno, "Failed to create mount fd for \"%s\" (\"%s\"): %m", what, type);
 

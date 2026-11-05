@@ -156,7 +156,7 @@ static int make_tree(char **ret_path) {
         /* Populates a temporary directory with one inode of each type we can create unprivileged, including
          * a pair of hardlinks. */
 
-        ASSERT_OK(tfd = mkdtemp_open(NULL, O_DIRECTORY, &t));
+        ASSERT_OK(tfd = mkdtemp_open(/* template= */ NULL, O_DIRECTORY, &t));
 
         ASSERT_OK(write_string_file_at(tfd, "regular.txt", "hello world", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE));
         ASSERT_OK(write_string_file_at(tfd, "empty.txt", "", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE));
@@ -461,8 +461,8 @@ TEST(manifest_mtree_names) {
         _cleanup_free_ char *user_name = NULL, *group_name = NULL;
         ASSERT_NOT_NULL(user_name = uid_to_name(getuid()));
         ASSERT_NOT_NULL(group_name = gid_to_name(getgid()));
-        const char *expected_user_name = parse_uid(user_name, NULL) < 0 ? user_name : NULL,
-                *expected_group_name = parse_gid(group_name, NULL) < 0 ? group_name : NULL;
+        const char *expected_user_name = parse_uid(user_name, /* ret_uid= */ NULL) < 0 ? user_name : NULL,
+                *expected_group_name = parse_gid(group_name, /* ret_gid= */ NULL) < 0 ? group_name : NULL;
 
         /* Names are not included by default */
         _cleanup_free_ char *buf = NULL;
@@ -470,8 +470,8 @@ TEST(manifest_mtree_names) {
         _cleanup_(manifest_context_done) ManifestContext c;
         context_init(&c, MANIFEST_FORMAT_MTREE);
         ASSERT_OK(generate(&c, tfd, &buf, &size));
-        assert_mtree_keyword(buf, "./regular.txt ", "uname", NULL);
-        assert_mtree_keyword(buf, "./regular.txt ", "gname", NULL);
+        assert_mtree_keyword(buf, "./regular.txt ", "uname", /* value= */ NULL);
+        assert_mtree_keyword(buf, "./regular.txt ", "gname", /* value= */ NULL);
 
         /* Ask for the names only: they must be resolved even though the numeric IDs are not requested, and
          * the latter must not be included. */
@@ -489,8 +489,8 @@ TEST(manifest_mtree_names) {
         FOREACH_STRING(prefix, "./ ", "./regular.txt ", "./subdir/ ", "./subdir/nested.txt ", "./symlink ", "./fifo ", "./hardlink_b ") {
                 assert_mtree_keyword(buf2, prefix, "uname", expected_user_name);
                 assert_mtree_keyword(buf2, prefix, "gname", expected_group_name);
-                assert_mtree_keyword(buf2, prefix, "uid", NULL);
-                assert_mtree_keyword(buf2, prefix, "gid", NULL);
+                assert_mtree_keyword(buf2, prefix, "uid", /* value= */ NULL);
+                assert_mtree_keyword(buf2, prefix, "gid", /* value= */ NULL);
         }
 
         /* Each name may be requested individually, and is combined with the numeric ID if that is requested
@@ -506,7 +506,7 @@ TEST(manifest_mtree_names) {
         assert_mtree_keyword(buf3, "./regular.txt ", "uid", uid_str);
         assert_mtree_keyword(buf3, "./regular.txt ", "gid", gid_str);
         assert_mtree_keyword(buf3, "./regular.txt ", "uname", expected_user_name);
-        assert_mtree_keyword(buf3, "./regular.txt ", "gname", NULL);
+        assert_mtree_keyword(buf3, "./regular.txt ", "gname", /* value= */ NULL);
 
         _cleanup_free_ char *buf4 = NULL;
         size_t size4;
@@ -514,9 +514,9 @@ TEST(manifest_mtree_names) {
         context_init(&c, MANIFEST_FORMAT_MTREE);
         c.fields = MANIFEST_FIELD_GROUP_NAME;
         ASSERT_OK(generate(&c, tfd, &buf4, &size4));
-        assert_mtree_keyword(buf4, "./regular.txt ", "uid", NULL);
-        assert_mtree_keyword(buf4, "./regular.txt ", "gid", NULL);
-        assert_mtree_keyword(buf4, "./regular.txt ", "uname", NULL);
+        assert_mtree_keyword(buf4, "./regular.txt ", "uid", /* value= */ NULL);
+        assert_mtree_keyword(buf4, "./regular.txt ", "gid", /* value= */ NULL);
+        assert_mtree_keyword(buf4, "./regular.txt ", "uname", /* value= */ NULL);
         assert_mtree_keyword(buf4, "./regular.txt ", "gname", expected_group_name);
 
         /* Verification of mtree manifests is not supported, regardless of the fields */
@@ -564,7 +564,7 @@ TEST(manifest_uapi16) {
         /* Each record starts with an RS byte */
         ASSERT_EQ(buf[0], 0x1e);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *root = find_object(buf, NULL);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *root = find_object(buf, /* name= */ NULL);
         ASSERT_NOT_NULL(root);
         ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(root, "mediaType")), UAPI16_MANIFEST_MEDIA_TYPE);
 
@@ -635,11 +635,11 @@ TEST(manifest_uapi16) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *reg3 = find_object(buf3, "regular.txt");
         ASSERT_NOT_NULL(reg3);
         ASSERT_NULL(sd_json_variant_by_key(reg3, "uid"));
-        if (parse_uid(user_name, NULL) < 0) /* uid_to_name() falls back to the numeric UID if unresolvable */
+        if (parse_uid(user_name, /* ret_uid= */ NULL) < 0) /* uid_to_name() falls back to the numeric UID if unresolvable */
                 ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(reg3, "userName")), user_name);
         else
                 ASSERT_NULL(sd_json_variant_by_key(reg3, "userName"));
-        if (parse_gid(group_name, NULL) < 0)
+        if (parse_gid(group_name, /* ret_gid= */ NULL) < 0)
                 ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(reg3, "groupName")), group_name);
         else
                 ASSERT_NULL(sd_json_variant_by_key(reg3, "groupName"));
@@ -1147,10 +1147,10 @@ static void load_key_pair(
         ASSERT_OK(write_string_file(key_path, private_key_pem, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MODE_0600));
         ASSERT_OK(write_string_file(cert_path, certificate_pem, WRITE_STRING_FILE_CREATE));
 
-        ASSERT_OK(openssl_load_x509_certificate(OPENSSL_CERTIFICATE_SOURCE_FILE, NULL, cert_path, ret_certificate));
+        ASSERT_OK(openssl_load_x509_certificate(OPENSSL_CERTIFICATE_SOURCE_FILE, /* certificate_source= */ NULL, cert_path, ret_certificate));
         ASSERT_OK(openssl_load_private_key(
                                   OPENSSL_KEY_SOURCE_FILE,
-                                  NULL,
+                                  /* private_key_source= */ NULL,
                                   key_path,
                                   &(AskPasswordRequest) {
                                           .tty_fd = -EBADF,

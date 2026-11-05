@@ -125,7 +125,7 @@ TEST(xattr_match_filter_test_uapi16_object) {
         _cleanup_close_ int tfd = -EBADF;
 
         /* A root to load the host properties from */
-        ASSERT_OK(tfd = mkdtemp_open(NULL, O_PATH, &t));
+        ASSERT_OK(tfd = mkdtemp_open(/* template= */ NULL, O_PATH, &t));
         ASSERT_OK_ERRNO(mkdirat(tfd, "etc", 0755));
         ASSERT_OK(write_string_file_at(tfd, "etc/hostname", "foo.example.com", WRITE_STRING_FILE_CREATE));
         ASSERT_OK(write_string_file_at(tfd, "etc/machine-id", "4b1f7c950d4f4e1a9e8f3d22576180a3", WRITE_STRING_FILE_CREATE));
@@ -200,7 +200,7 @@ TEST(host_properties_load_symlinks) {
         _cleanup_close_ int tfd = -EBADF;
 
         /* Absolute and relative symlinks are resolved below the root, not on the host */
-        ASSERT_OK(tfd = mkdtemp_open(NULL, O_PATH, &t));
+        ASSERT_OK(tfd = mkdtemp_open(/* template= */ NULL, O_PATH, &t));
         ASSERT_OK_ERRNO(mkdirat(tfd, "etc", 0755));
         ASSERT_OK(write_string_file_at(tfd, "etc/hostname.real", "inroot.example.com", WRITE_STRING_FILE_CREATE));
         ASSERT_OK_ERRNO(symlinkat("/etc/hostname.real", tfd, "etc/hostname"));
@@ -220,7 +220,7 @@ TEST(xattr_match_filter_test_inode) {
         _cleanup_close_ int tfd = -EBADF;
         int r;
 
-        ASSERT_OK(tfd = mkdtemp_open(NULL, O_DIRECTORY, &t));
+        ASSERT_OK(tfd = mkdtemp_open(/* template= */ NULL, O_DIRECTORY, &t));
         ASSERT_OK(write_string_file_at(tfd, "plain", "x", WRITE_STRING_FILE_CREATE));
         ASSERT_OK(write_string_file_at(tfd, "mine", "x", WRITE_STRING_FILE_CREATE));
         ASSERT_OK(write_string_file_at(tfd, "other", "x", WRITE_STRING_FILE_CREATE));

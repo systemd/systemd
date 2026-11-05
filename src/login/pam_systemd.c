@@ -865,7 +865,7 @@ static int create_session_message(
         assert(ret);
 
         if (!avoid_pidfd) {
-                pidfd = pidfd_open(getpid_cached(), 0);
+                pidfd = pidfd_open(getpid_cached(), /* flags= */ 0);
                 if (pidfd < 0)
                         return -errno;
         }

@@ -182,7 +182,7 @@ TEST(fd_move_above_stdio) {
         ASSERT_OK(close_nointr(/* fd= */ 0));
 
         new_fd = ASSERT_OK_ZERO(xopenat(AT_FDCWD, "/dev/null", O_RDONLY));
-        ASSERT_OK(fd_cloexec(new_fd, false));
+        ASSERT_OK(fd_cloexec(new_fd, /* cloexec= */ false));
 
         new_fd = fd_move_above_stdio(new_fd);
         ASSERT_GE(new_fd, 3);
@@ -257,7 +257,7 @@ TEST(rearrange_stdio) {
                 ASSERT_OK_EQ_ERRNO(read(0, buffer, sizeof(buffer)), 6);
                 ASSERT_EQ(memcmp(buffer, "foobar", 6), 0);
 
-                ASSERT_OK(fd_cloexec(1, true)); /* stays in place, but the flag must still be cleared */
+                ASSERT_OK(fd_cloexec(1, /* cloexec= */ true)); /* stays in place, but the flag must still be cleared */
                 ASSERT_OK(rearrange_stdio(-EBADF, 1, 2));
                 assert_stdio_not_cloexec();
                 ASSERT_ERROR_ERRNO(write(1, "a", 1), ENOSPC);

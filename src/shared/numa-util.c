@@ -72,7 +72,8 @@ int apply_numa_policy(const NUMAPolicy *policy) {
 
         assert(policy);
 
-        if (get_mempolicy(NULL, NULL, 0, NULL, 0) < 0 && errno == ENOSYS)
+        if (get_mempolicy(/* mode= */ NULL, /* nodemask= */ NULL, /* maxnode= */ 0,
+                          /* addr= */ NULL, /* flags= */ 0) < 0 && errno == ENOSYS)
                 /* NUMA syscall interface not available (kernel compiled without NUMA support).
                  * Return -ENOSYS so callers can distinguish this from -EOPNOTSUPP, which we
                  * return below when the syscall interface exists but the requested policy is

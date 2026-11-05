@@ -130,7 +130,7 @@ TEST(keyring_find_by_name) {
 
         /* Keyrings the process possesses show up in /proc/keys. A leftover of a crashed run may linger. */
         xsprintf(name, "test-keyring-util-find-" PID_FMT, getpid());
-        ring = add_key("keyring", name, NULL, 0, KEY_SPEC_THREAD_KEYRING);
+        ring = add_key("keyring", name, /* payload= */ NULL, /* plen= */ 0, KEY_SPEC_THREAD_KEYRING);
         if (ring < 0) {
                 log_tests_skipped_errno(errno, "Cannot create keyring");
                 return;
@@ -159,7 +159,7 @@ TEST(keyring_find_by_name) {
         ASSERT_EQ(serial, ring);
 
         /* Two keyrings of the same name are ambiguous */
-        other = add_key("keyring", name, NULL, 0, KEY_SPEC_PROCESS_KEYRING);
+        other = add_key("keyring", name, /* payload= */ NULL, /* plen= */ 0, KEY_SPEC_PROCESS_KEYRING);
         ASSERT_OK_ERRNO(other);
         ASSERT_ERROR(keyring_find_by_name(name, getuid(), &serial), ENOTUNIQ);
 
@@ -192,7 +192,7 @@ TEST(keyring_find_by_name_at) {
         ASSERT_ERROR(r, ENOKEY);
 
         xsprintf(name, "test-keyring-util-find-at-" PID_FMT, getpid());
-        ring = add_key("keyring", name, NULL, 0, KEY_SPEC_THREAD_KEYRING);
+        ring = add_key("keyring", name, /* payload= */ NULL, /* plen= */ 0, KEY_SPEC_THREAD_KEYRING);
         if (ring < 0) {
                 log_tests_skipped_errno(errno, "Cannot create keyring");
                 return;
@@ -242,7 +242,7 @@ TEST(keyring_ops) {
         int r;
 
         /* A private keyring in the thread keyring suffices, no privileges needed */
-        ring = add_key("keyring", "test-keyring-util", NULL, 0, KEY_SPEC_THREAD_KEYRING);
+        ring = add_key("keyring", "test-keyring-util", /* payload= */ NULL, /* plen= */ 0, KEY_SPEC_THREAD_KEYRING);
         if (ring < 0) {
                 log_tests_skipped_errno(errno, "Cannot create keyring");
                 return;
@@ -407,7 +407,7 @@ TEST(keyring_chain) {
         key_serial_t ring, serial, serial2;
         int r;
 
-        ring = add_key("keyring", "test-keyring-util-chain", NULL, 0, KEY_SPEC_THREAD_KEYRING);
+        ring = add_key("keyring", "test-keyring-util-chain", /* payload= */ NULL, /* plen= */ 0, KEY_SPEC_THREAD_KEYRING);
         if (ring < 0)
                 return (void) log_tests_skipped_errno(errno, "Cannot create keyring");
 

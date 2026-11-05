@@ -1338,7 +1338,7 @@ TEST(calculate_policy_or) {
 
         /* The empty input must be rejected before the flat/tree split. */
         actual = (TPM2B_DIGEST) { .size = SHA256_DIGEST_SIZE };
-        ASSERT_ERROR(tpm2_calculate_policy_or(leaves, 0, &actual), EINVAL);
+        ASSERT_ERROR(tpm2_calculate_policy_or(leaves, /* n_branches= */ 0, &actual), EINVAL);
 
         /* For n<=8 the flat form must be used unchanged; for n>8 the result must match the balanced tree
          * reference implementation. */

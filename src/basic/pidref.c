@@ -354,7 +354,7 @@ int pidref_kill(const PidRef *pidref, int sig) {
                 return -EREMOTE;
 
         if (pidref->fd >= 0)
-                return RET_NERRNO(pidfd_send_signal(pidref->fd, sig, NULL, 0));
+                return RET_NERRNO(pidfd_send_signal(pidref->fd, sig, /* info= */ NULL, /* flags= */ 0));
 
         if (pidref->pid > 0)
                 return RET_NERRNO(kill(pidref->pid, sig));
@@ -396,7 +396,7 @@ int pidref_sigqueue(const PidRef *pidref, int sig, int value) {
                 si.si_uid = getuid();
                 si.si_value.sival_int = value;
 
-                return RET_NERRNO(pidfd_send_signal(pidref->fd, sig, &si, 0));
+                return RET_NERRNO(pidfd_send_signal(pidref->fd, sig, &si, /* flags= */ 0));
         }
 
         if (pidref->pid > 0)

@@ -748,7 +748,7 @@ TEST(xopenat_tmpfile) {
         _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
         struct stat st;
 
-        ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
+        ASSERT_OK(tfd = mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &t));
 
         BLOCK_WITH_UMASK(0022);
 
@@ -803,7 +803,7 @@ TEST(xopenat_empty_path) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
 
-        ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
+        ASSERT_OK(tfd = mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &t));
 
         /* Without XO_EMPTY_PATH an empty path is a missing name, as for open("") */
         ASSERT_ERROR(xopenat(tfd, "", O_RDONLY|O_DIRECTORY), ENOENT);
@@ -818,20 +818,20 @@ TEST(xopenat_empty_path) {
 
         /* With the flag it reopens the directory itself, like AT_EMPTY_PATH... */
         ASSERT_OK(fd = xopenat_full(tfd, "", O_RDONLY|O_DIRECTORY, XO_EMPTY_PATH, MODE_INVALID));
-        ASSERT_OK_POSITIVE(inode_same_at(tfd, NULL, fd, NULL, AT_EMPTY_PATH));
+        ASSERT_OK_POSITIVE(inode_same_at(tfd, /* filea= */ NULL, fd, /* fileb= */ NULL, AT_EMPTY_PATH));
         fd = safe_close(fd);
 
         ASSERT_OK(fd = xopenat_full(tfd, /* path= */ NULL, O_RDONLY|O_DIRECTORY, XO_EMPTY_PATH, MODE_INVALID));
-        ASSERT_OK_POSITIVE(inode_same_at(tfd, NULL, fd, NULL, AT_EMPTY_PATH));
+        ASSERT_OK_POSITIVE(inode_same_at(tfd, /* filea= */ NULL, fd, /* fileb= */ NULL, AT_EMPTY_PATH));
         fd = safe_close(fd);
 
         ASSERT_OK(fd = xopenat_full(XAT_FDROOT, "", O_RDONLY|O_DIRECTORY, XO_EMPTY_PATH, MODE_INVALID));
-        ASSERT_OK_POSITIVE(inode_same_at(AT_FDCWD, "/", fd, NULL, AT_EMPTY_PATH));
+        ASSERT_OK_POSITIVE(inode_same_at(AT_FDCWD, "/", fd, /* fileb= */ NULL, AT_EMPTY_PATH));
         fd = safe_close(fd);
 
         /* ...and a non-empty path is opened as usual */
         ASSERT_OK(fd = xopenat_full(tfd, "file", O_RDWR|O_CREAT|O_EXCL, XO_EMPTY_PATH, 0644));
-        ASSERT_OK_POSITIVE(inode_same_at(tfd, "file", fd, NULL, AT_EMPTY_PATH));
+        ASSERT_OK_POSITIVE(inode_same_at(tfd, "file", fd, /* fileb= */ NULL, AT_EMPTY_PATH));
 }
 
 TEST(xopenat_nocow) {
@@ -1157,7 +1157,7 @@ TEST(xopenat_cloexec) {
         _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
         int fl;
 
-        ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
+        ASSERT_OK(tfd = mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &t));
 
         /* O_CLOEXEC is implied, whether requested or not */
         ASSERT_OK(fd = xopenat(tfd, "regular", O_RDWR|O_CREAT|O_EXCL));
@@ -1170,7 +1170,7 @@ TEST(xopenat_cloexec) {
         ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
         fd = safe_close(fd);
 
-        ASSERT_OK(fd = openat_report_new(tfd, "regular", O_RDWR|O_CREAT, 0644, NULL));
+        ASSERT_OK(fd = openat_report_new(tfd, "regular", O_RDWR|O_CREAT, 0644, /* ret_newly_created= */ NULL));
         ASSERT_OK_ERRNO(fl = fcntl(fd, F_GETFD));
         ASSERT_TRUE(FLAGS_SET(fl, FD_CLOEXEC));
         fd = safe_close(fd);

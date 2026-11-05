@@ -2399,7 +2399,7 @@ int dns_packet_read_rr(
                 if (r < 0)
                         return r;
 
-                r = dns_packet_read_name(p, &rr->svcb.target_name, false /* uncompressed */, /* start= */ NULL);
+                r = dns_packet_read_name(p, &rr->svcb.target_name, /* allow_compression= */ false, /* start= */ NULL);
                 if (r < 0)
                         return r;
 

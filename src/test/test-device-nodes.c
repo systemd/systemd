@@ -60,7 +60,7 @@ TEST(encode_devnode_name_truncated) {
 
         /* A zero-sized buffer is rejected without being touched, a one-byte buffer only holds the NUL */
         memset(buf, 'X', sizeof(buf));
-        ASSERT_ERROR(encode_devnode_name("abc", buf, 0), EINVAL);
+        ASSERT_ERROR(encode_devnode_name("abc", buf, /* len= */ 0), EINVAL);
         ASSERT_EQ(buf[0], 'X');
 
         memset(buf, 'X', sizeof(buf));

@@ -9,9 +9,9 @@ DEFINE_SYSCALL_SHIM(fsopen, int,
                     unsigned, flags)
 
 DEFINE_SYSCALL_SHIM(fsmount, int,
-                    int, fd,
+                    int, fsfd,
                     unsigned, flags,
-                    unsigned, ms_flags)
+                    unsigned, attr_flags)
 
 DEFINE_SYSCALL_SHIM(move_mount, int,
                     int, from_dfd,

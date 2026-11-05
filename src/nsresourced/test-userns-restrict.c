@@ -43,9 +43,9 @@ static int make_tmpfs_fsmount(void) {
         _cleanup_close_ int fsfd = -EBADF, mntfd = -EBADF;
 
         fsfd = ASSERT_OK_ERRNO(fsopen("tmpfs", FSOPEN_CLOEXEC));
-        ASSERT_OK_ERRNO(fsconfig(fsfd, FSCONFIG_CMD_CREATE, NULL, NULL, 0));
+        ASSERT_OK_ERRNO(fsconfig(fsfd, FSCONFIG_CMD_CREATE, /* key= */ NULL, /* value= */ NULL, /* aux= */ 0));
 
-        mntfd = ASSERT_OK_ERRNO(fsmount(fsfd, FSMOUNT_CLOEXEC, 0));
+        mntfd = ASSERT_OK_ERRNO(fsmount(fsfd, FSMOUNT_CLOEXEC, /* attr_flags= */ 0));
 
         return TAKE_FD(mntfd);
 }
@@ -984,7 +984,7 @@ TEST_RET(userns_mqueue_lifetime) {
 
         rb = sym_ring_buffer__new(sym_bpf_map__fd(bpf_obj->maps.userns_ringbuf), ringbuf_userns_freed, &inode, /* opts= */ NULL);
         ASSERT_NOT_NULL(rb);
-        ASSERT_OK(sym_ring_buffer__poll(rb, 0));
+        ASSERT_OK(sym_ring_buffer__poll(rb, /* timeout_ms= */ 0));
         inode = (unsigned) userns_st.st_ino;
         ASSERT_NE(inode, 0U);
 

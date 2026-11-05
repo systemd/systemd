@@ -905,7 +905,7 @@ static int io_uring_recv_fiber(void *userdata) {
                 return r;
 
         st->got = sd_future_result(f);
-        return sd_event_exit(e, 0);
+        return sd_event_exit(e, /* code= */ 0);
 }
 
 TEST(io_uring_future_recv) {

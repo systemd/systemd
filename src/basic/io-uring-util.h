@@ -110,11 +110,11 @@ static inline void io_uring_prep_rw(
 }
 
 static inline void io_uring_prep_nop(struct io_uring_sqe *sqe) {
-        io_uring_prep_rw(sqe, IORING_OP_NOP, -EBADF, NULL, 0, 0);
+        io_uring_prep_rw(sqe, IORING_OP_NOP, -EBADF, /* addr= */ NULL, /* len= */ 0, /* offset= */ 0);
 }
 
 static inline void io_uring_prep_cancel(struct io_uring_sqe *sqe, const void *user_data, uint32_t flags) {
-        io_uring_prep_rw(sqe, IORING_OP_ASYNC_CANCEL, -EBADF, user_data, 0, 0);
+        io_uring_prep_rw(sqe, IORING_OP_ASYNC_CANCEL, -EBADF, user_data, /* len= */ 0, /* offset= */ 0);
         sqe->cancel_flags = flags;
 }
 
@@ -135,30 +135,30 @@ static inline void io_uring_prep_writev(struct io_uring_sqe *sqe, int fd, const 
 }
 
 static inline void io_uring_prep_connect(struct io_uring_sqe *sqe, int fd, const struct sockaddr *addr, socklen_t addrlen) {
-        io_uring_prep_rw(sqe, IORING_OP_CONNECT, fd, addr, 0, addrlen);
+        io_uring_prep_rw(sqe, IORING_OP_CONNECT, fd, addr, /* len= */ 0, addrlen);
 }
 
 static inline void io_uring_prep_recv(struct io_uring_sqe *sqe, int fd, void *buf, uint32_t n, int flags) {
-        io_uring_prep_rw(sqe, IORING_OP_RECV, fd, buf, n, 0);
+        io_uring_prep_rw(sqe, IORING_OP_RECV, fd, buf, n, /* offset= */ 0);
         sqe->msg_flags = (uint32_t) flags;
 }
 
 static inline void io_uring_prep_send(struct io_uring_sqe *sqe, int fd, const void *buf, uint32_t n, int flags) {
-        io_uring_prep_rw(sqe, IORING_OP_SEND, fd, buf, n, 0);
+        io_uring_prep_rw(sqe, IORING_OP_SEND, fd, buf, n, /* offset= */ 0);
         sqe->msg_flags = (uint32_t) flags;
 }
 
 static inline void io_uring_prep_recvmsg(struct io_uring_sqe *sqe, int fd, struct msghdr *msg, int flags) {
-        io_uring_prep_rw(sqe, IORING_OP_RECVMSG, fd, msg, 1, 0);
+        io_uring_prep_rw(sqe, IORING_OP_RECVMSG, fd, msg, 1, /* offset= */ 0);
         sqe->msg_flags = (uint32_t) flags;
 }
 
 static inline void io_uring_prep_sendmsg(struct io_uring_sqe *sqe, int fd, const struct msghdr *msg, int flags) {
-        io_uring_prep_rw(sqe, IORING_OP_SENDMSG, fd, msg, 1, 0);
+        io_uring_prep_rw(sqe, IORING_OP_SENDMSG, fd, msg, 1, /* offset= */ 0);
         sqe->msg_flags = (uint32_t) flags;
 }
 
 static inline void io_uring_prep_accept(struct io_uring_sqe *sqe, int fd, struct sockaddr *addr, socklen_t *addrlen, int flags) {
-        io_uring_prep_rw(sqe, IORING_OP_ACCEPT, fd, addr, 0, (uint64_t) (uintptr_t) addrlen);
+        io_uring_prep_rw(sqe, IORING_OP_ACCEPT, fd, addr, /* len= */ 0, (uint64_t) (uintptr_t) addrlen);
         sqe->accept_flags = (uint32_t) flags;
 }

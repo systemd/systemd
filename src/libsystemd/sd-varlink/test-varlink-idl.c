@@ -694,13 +694,13 @@ TEST(split_qualified_symbol_name) {
                                   &name));
         ASSERT_STREQ(name, "GetInfo");
 
-        ASSERT_ERROR(varlink_idl_split_qualified_symbol_name(/* symbol= */ NULL, NULL, NULL), EINVAL);
-        ASSERT_ERROR(varlink_idl_split_qualified_symbol_name("", NULL, NULL), EINVAL);
-        ASSERT_ERROR(varlink_idl_split_qualified_symbol_name("Foo", NULL, NULL), EINVAL);
-        ASSERT_ERROR(varlink_idl_split_qualified_symbol_name("xxx.xxx", NULL, NULL), EINVAL);
-        ASSERT_ERROR(varlink_idl_split_qualified_symbol_name(".Foo", NULL, NULL), EINVAL);
-        ASSERT_ERROR(varlink_idl_split_qualified_symbol_name("xxx.xxx.0foo", NULL, NULL), EINVAL);
-        ASSERT_ERROR(varlink_idl_split_qualified_symbol_name("xxx..Foo", NULL, NULL), EINVAL);
+        ASSERT_ERROR(varlink_idl_split_qualified_symbol_name(/* symbol= */ NULL, /* ret_interface= */ NULL, /* ret_name= */ NULL), EINVAL);
+        ASSERT_ERROR(varlink_idl_split_qualified_symbol_name("", /* ret_interface= */ NULL, /* ret_name= */ NULL), EINVAL);
+        ASSERT_ERROR(varlink_idl_split_qualified_symbol_name("Foo", /* ret_interface= */ NULL, /* ret_name= */ NULL), EINVAL);
+        ASSERT_ERROR(varlink_idl_split_qualified_symbol_name("xxx.xxx", /* ret_interface= */ NULL, /* ret_name= */ NULL), EINVAL);
+        ASSERT_ERROR(varlink_idl_split_qualified_symbol_name(".Foo", /* ret_interface= */ NULL, /* ret_name= */ NULL), EINVAL);
+        ASSERT_ERROR(varlink_idl_split_qualified_symbol_name("xxx.xxx.0foo", /* ret_interface= */ NULL, /* ret_name= */ NULL), EINVAL);
+        ASSERT_ERROR(varlink_idl_split_qualified_symbol_name("xxx..Foo", /* ret_interface= */ NULL, /* ret_name= */ NULL), EINVAL);
 }
 
 TEST(validate_json) {

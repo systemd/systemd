@@ -246,7 +246,7 @@ static void bus_wait_for_units_check_ready(BusWaitForUnits *d) {
         d->state = d->has_failed ? BUS_WAIT_FAILURE : BUS_WAIT_SUCCESS;
 
         if (d->event)
-                (void) sd_event_exit(d->event, 0);
+                (void) sd_event_exit(d->event, /* code= */ 0);
 }
 
 static void wait_for_item_fail(WaitForItem *item) {

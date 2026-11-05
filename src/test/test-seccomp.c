@@ -558,7 +558,7 @@ TEST(restrict_realtime) {
                         .sched_policy = SCHED_FIFO,
                         .sched_priority = 1,
                 };
-                ASSERT_ERROR_ERRNO(sched_setattr(0, &attr, 0), ENOANO);
+                ASSERT_ERROR_ERRNO(sched_setattr(/* pid= */ 0, &attr, /* flags= */ 0), ENOANO);
 
                 attr = (struct sched_attr) {
                         .size = sizeof(attr),
@@ -567,13 +567,13 @@ TEST(restrict_realtime) {
                         .sched_deadline = 10000000,
                         .sched_period = 10000000,
                 };
-                ASSERT_ERROR_ERRNO(sched_setattr(0, &attr, 0), ENOANO);
+                ASSERT_ERROR_ERRNO(sched_setattr(/* pid= */ 0, &attr, /* flags= */ 0), ENOANO);
 
                 attr = (struct sched_attr) {
                         .size = sizeof(attr),
                         .sched_policy = SCHED_OTHER,
                 };
-                ASSERT_ERROR_ERRNO(sched_setattr(0, &attr, 0), ENOANO);
+                ASSERT_ERROR_ERRNO(sched_setattr(/* pid= */ 0, &attr, /* flags= */ 0), ENOANO);
 
                 _exit(EXIT_SUCCESS);
         }
@@ -1024,7 +1024,7 @@ TEST(lock_personality) {
         }
 
         /* Each bit set in the locked personality takes a rule of its own. */
-        r = ASSERT_OK(pidref_safe_fork("(lock-personality-flags)", FORK_LOG|FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(lock-personality-flags)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
         if (r == 0) {
                 unsigned long personality = current_opinionated | ADDR_NO_RANDOMIZE | ADDR_COMPAT_LAYOUT;
 

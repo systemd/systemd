@@ -1298,7 +1298,7 @@ TEST(chase_and_open_cloexec) {
         _cleanup_free_ char *p = NULL;
         int fl;
 
-        ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
+        ASSERT_OK(tfd = mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &t));
         ASSERT_OK_ERRNO(mkdirat(tfd, "dir", 0755));
 
         /* O_CLOEXEC is implied, whether requested or not, on the shortcut and on the full chase */

@@ -48,7 +48,7 @@ TEST(sq_full) {
         if (!io_uring_init_or_skip(&ring, 4))
                 return;
 
-        queue_nops(&ring, 4, 0);
+        queue_nops(&ring, 4, /* first_id= */ 0);
         ASSERT_NULL(io_uring_get_sqe(&ring));
 
         ASSERT_OK_EQ(io_uring_submit(&ring), 4);
@@ -110,7 +110,7 @@ TEST(submit_and_wait) {
 
         ASSERT_ERROR(io_uring_submit_and_wait(&ring, 10 * USEC_PER_MSEC), ETIME);
 
-        queue_nops(&ring, 1, 0);
+        queue_nops(&ring, 1, /* first_id= */ 0);
         ASSERT_OK_EQ(io_uring_submit_and_wait(&ring, USEC_INFINITY), 1);
         ASSERT_EQ(reap(&ring, seen, ELEMENTSOF(seen)), 1u);
         ASSERT_TRUE(seen[0]);

@@ -1752,7 +1752,7 @@ int exec_context_get_effective_ioprio(const ExecContext *c) {
         if (c->ioprio_is_set)
                 return c->ioprio;
 
-        p = ioprio_get(IOPRIO_WHO_PROCESS, 0);
+        p = ioprio_get(IOPRIO_WHO_PROCESS, /* who= */ 0);
         if (p < 0)
                 return IOPRIO_DEFAULT_CLASS_AND_PRIO;
 

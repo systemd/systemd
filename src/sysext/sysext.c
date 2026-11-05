@@ -995,7 +995,7 @@ static int resolve_mutable_directory(
                 /* This also creates, e.g., /var/lib/extensions.mutable/usr if needed and all parent
                  * directories plus it also works when the last part is a symlink to the real /usr but we
                  * can't use chase_and_open here because it does not behave the same. */
-                r = chase(path, root, CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY|CHASE_PREFIX_ROOT, /* ret_path */ NULL, &path_fd);
+                r = chase(path, root, CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY|CHASE_PREFIX_ROOT, /* ret_path= */ NULL, &path_fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to chase/create base directory '%s/%s': %m", strempty(root), skip_leading_slash(path));
 
@@ -2351,7 +2351,7 @@ static int merge_subprocess(
                 if (old_origin_content)
                         continue;
 
-                r = read_full_file(f, &buf, /* ret_size */ NULL);
+                r = read_full_file(f, &buf, /* ret_size= */ NULL);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to open '%s', continuing search: %m", f);
                         continue;

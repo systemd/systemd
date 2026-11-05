@@ -411,7 +411,7 @@ TEST(lease_timezone) {
 
         /* "UTC" in the main test messages bypasses the tzfile check in
          * verify_timezone(); exercise the validation with invalid inputs. */
-        ASSERT_ERROR(dhcp6_lease_set_timezone(lease, (const uint8_t *) "", 0), EINVAL);
+        ASSERT_ERROR(dhcp6_lease_set_timezone(lease, (const uint8_t *) "", /* optlen= */ 0), EINVAL);
         ASSERT_ERROR(dhcp6_lease_set_timezone(lease, (const uint8_t *) "UTC\0", 4), EINVAL);
         ASSERT_ERROR(dhcp6_lease_set_timezone(lease, (const uint8_t *) "/etc/passwd", 11), EINVAL);
         ASSERT_ERROR(dhcp6_lease_set_timezone(lease, (const uint8_t *) "../passwd", 9), EINVAL);

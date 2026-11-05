@@ -904,7 +904,7 @@ static int mstack_make_overlayfs(
                 report_errno_and_exit(errno_pipe_fds[1], /* error= */ 0);
         }
 
-        _cleanup_close_ int overlayfs_mnt_fd = fsmount(sb_fd, FSMOUNT_CLOEXEC, 0);
+        _cleanup_close_ int overlayfs_mnt_fd = fsmount(sb_fd, FSMOUNT_CLOEXEC, /* attr_flags= */ 0);
         if (overlayfs_mnt_fd < 0)
                 return log_debug_errno(errno, "Failed to create mount fd: %m");
 
@@ -951,16 +951,16 @@ int mstack_make_mounts(
                 if (sb_fd < 0)
                         return log_debug_errno(errno, "Failed to create tmpfs: %m");
 
-                if (fsconfig(sb_fd, FSCONFIG_SET_STRING, "source", mstack->path, 0) < 0)
+                if (fsconfig(sb_fd, FSCONFIG_SET_STRING, "source", mstack->path, /* aux= */ 0) < 0)
                         return log_debug_errno(errno, "Failed to set mount source: %m");
 
-                if (fsconfig(sb_fd, FSCONFIG_SET_STRING, "mode", "0755", 0) < 0)
+                if (fsconfig(sb_fd, FSCONFIG_SET_STRING, "mode", "0755", /* aux= */ 0) < 0)
                         return log_debug_errno(errno, "Failed to set mount source: %m");
 
-                if (fsconfig(sb_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) < 0)
+                if (fsconfig(sb_fd, FSCONFIG_CMD_CREATE, /* key= */ NULL, /* value= */ NULL, /* aux= */ 0) < 0)
                         return log_debug_errno(errno, "Failed to realize tmpfs: %m");
 
-                mstack->root_mount_fd = fsmount(sb_fd, FSMOUNT_CLOEXEC, 0);
+                mstack->root_mount_fd = fsmount(sb_fd, FSMOUNT_CLOEXEC, /* attr_flags= */ 0);
                 if (mstack->root_mount_fd < 0)
                         return log_debug_errno(errno, "Failed to create mount fd: %m");
 

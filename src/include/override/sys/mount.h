@@ -46,7 +46,7 @@ int fsopen_shim(const char *fsname, unsigned flags);
    FLAGS with ATTR_FLAGS describing how the mount is to be performed.  */
 /* Defined since glibc-2.36.
  * Supported since kernel v5.2 (93766fbd2696c2c4453dd8e1070977e9cd4e6b6d). */
-int fsmount_shim(int fd, unsigned flags, unsigned ms_flags);
+int fsmount_shim(int fsfd, unsigned flags, unsigned attr_flags);
 #define fsmount fsmount_shim
 
 /* Add the mounted FROM_DFD referenced by FROM_PATHNAME filesystem returned

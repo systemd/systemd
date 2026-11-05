@@ -214,7 +214,7 @@ static int get_invocation_from_keyring(sd_id128_t *ret) {
 
         assert(ret);
 
-        key = request_key("user", "invocation_id", NULL, 0);
+        key = request_key("user", "invocation_id", /* callout_info= */ NULL, /* destringid= */ 0);
         if (key == -1) {
                 /* Keyring support not available? Keyring access locked down? No invocation key stored? */
                 if (ERRNO_IS_NOT_SUPPORTED(errno) ||

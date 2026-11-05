@@ -799,7 +799,7 @@ int config_parse_image_policy(
                 return 0;
         }
 
-        r = image_policy_from_string(rvalue, /* graceful */ true, &np);
+        r = image_policy_from_string(rvalue, /* graceful= */ true, &np);
         if (r == -ENOTUNIQ)
                 return log_syntax(unit, LOG_ERR, filename, line, r, "Duplicate rule in image policy, refusing: %s", rvalue);
         if (r == -EBADSLT)

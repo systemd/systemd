@@ -316,9 +316,9 @@ TEST(dns_synthesize_answer_onion) {
 
                 key = dns_resource_key_new(DNS_CLASS_IN, type, "mysecret.onion");
                 ASSERT_NOT_NULL(key);
-                ASSERT_OK(dns_question_add(question, key, 0));
+                ASSERT_OK(dns_question_add(question, key, /* flags= */ 0));
 
-                ASSERT_ERROR(dns_synthesize_answer(&manager, question, 0, &answer), ENXIO);
+                ASSERT_ERROR(dns_synthesize_answer(&manager, question, /* ifindex= */ 0, &answer), ENXIO);
                 ASSERT_NULL(answer);
         }
 }

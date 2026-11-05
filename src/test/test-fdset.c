@@ -35,7 +35,7 @@ TEST(fdset_new_fill) {
         ASSERT_ERROR(fd_validate(fd), EBADF);
 
         fd = ASSERT_OK(xopenat(AT_FDCWD, "/dev/null", O_RDONLY));
-        ASSERT_OK(fd_cloexec(fd, false));
+        ASSERT_OK(fd_cloexec(fd, /* cloexec= */ false));
 
         ASSERT_OK(fdset_new_fill(/* filter_cloexec= */ 1, &fdset));
         ASSERT_FALSE(fdset_contains(fdset, fd));

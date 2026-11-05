@@ -679,7 +679,7 @@ _public_ int sd_pid_notify_barrier(pid_t pid, int unset_environment, uint64_t ti
 
         pipe_fd[1] = safe_close(pipe_fd[1]);
 
-        r = fd_wait_for_event(pipe_fd[0], 0 /* POLLHUP is implicit */, timeout);
+        r = fd_wait_for_event(pipe_fd[0], /* event= */ 0 /* POLLHUP is implicit */, timeout);
         if (r < 0)
                 goto finish;
         if (r == 0) {

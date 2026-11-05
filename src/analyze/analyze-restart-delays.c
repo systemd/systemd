@@ -129,7 +129,7 @@ static int show_never_restarted(const RestartSettings *rs, const char *setting) 
         if (r < 0)
                 return log_oom();
 
-        return sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+        return sd_json_variant_dump(v, arg_json_format_flags, stdout, /* prefix= */ NULL);
 }
 
 static int show_restart_delays(const RestartSettings *rs, bool *printed) {
@@ -207,7 +207,7 @@ static int show_restart_delays(const RestartSettings *rs, bool *printed) {
                 if (r < 0)
                         return log_oom();
 
-                return sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+                return sd_json_variant_dump(v, arg_json_format_flags, stdout, /* prefix= */ NULL);
         }
 
         r = table_print_with_pager(table, SD_JSON_FORMAT_OFF, arg_pager_flags, arg_legend);
@@ -289,7 +289,7 @@ static int restart_delays_online(sd_bus *bus, const char *arg, bool *printed) {
         assert(arg);
         assert(printed);
 
-        r = unit_name_mangle_with_suffix(arg, NULL, UNIT_NAME_MANGLE_WARN, ".service", &unit);
+        r = unit_name_mangle_with_suffix(arg, /* operation= */ NULL, UNIT_NAME_MANGLE_WARN, ".service", &unit);
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle name '%s': %m", arg);
 
@@ -317,7 +317,7 @@ static int restart_delays_online(sd_bus *bus, const char *arg, bool *printed) {
                         map,
                         BUS_MAP_STRDUP,
                         &error,
-                        NULL,
+                        /* ret_reply= */ NULL,
                         &rs);
         if (r < 0)
                 return log_error_errno(r, "Failed to get properties of %s: %s", unit, bus_error_message(&error, r));
@@ -403,7 +403,7 @@ int verb_restart_delays(int argc, char *argv[], uintptr_t _data, void *userdata)
         int r, ret = 0;
 
         if (!arg_offline) {
-                r = acquire_bus(&bus, NULL);
+                r = acquire_bus(&bus, /* use_full_bus= */ NULL);
                 if (r < 0)
                         return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
         }

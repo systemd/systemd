@@ -1809,7 +1809,7 @@ static int mount_bpffs(const MountEntry *m, PidRef *pidref, int socket_fd, int e
 
         pidref_done(pidref);
 
-        _cleanup_close_ int mnt_fd = fsmount(fs_fd, FSMOUNT_CLOEXEC, /* mount_attrs= */ 0);
+        _cleanup_close_ int mnt_fd = fsmount(fs_fd, FSMOUNT_CLOEXEC, /* attr_flags= */ 0);
         if (mnt_fd < 0)
                 return log_debug_errno(errno, "Failed to fsmount bpffs: %m");
 
@@ -3771,7 +3771,7 @@ static int unpeel_mount_and_setup_overlay(int pair_fd, const char *mount_path) {
                 return log_debug_errno(r, "Failed to receive configured overlay: %m");
 
         /* Create the mount */
-        mount_fd = fsmount(overlay_fs_fd, FSMOUNT_CLOEXEC, /* flags= */ 0);
+        mount_fd = fsmount(overlay_fs_fd, FSMOUNT_CLOEXEC, /* attr_flags= */ 0);
         if (mount_fd < 0)
                 return log_debug_errno(errno, "Failed to create overlay mount: %m");
 
@@ -3925,14 +3925,14 @@ static int handle_mount_from_grandchild(
         if (!options)
                 return log_oom_debug();
 
-        if (fsconfig(overlay_fs_fd, FSCONFIG_SET_STRING, "lowerdir", options, 0) < 0)
+        if (fsconfig(overlay_fs_fd, FSCONFIG_SET_STRING, "lowerdir", options, /* aux= */ 0) < 0)
                 return log_debug_errno(errno, "Failed to set lowerdir=%s: %m", options);
 
-        if (fsconfig(overlay_fs_fd, FSCONFIG_SET_STRING, "source", "systemd-extensions", 0) < 0)
+        if (fsconfig(overlay_fs_fd, FSCONFIG_SET_STRING, "source", "systemd-extensions", /* aux= */ 0) < 0)
                 return log_debug_errno(errno, "Failed to set source=systemd-extensions: %m");
 
         /* Create the superblock */
-        if (fsconfig(overlay_fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) < 0)
+        if (fsconfig(overlay_fs_fd, FSCONFIG_CMD_CREATE, /* key= */ NULL, /* value= */ NULL, /* aux= */ 0) < 0)
                 return log_debug_errno(errno, "Failed to create overlay superblock: %m");
 
         /* Signal completion to grandchild */

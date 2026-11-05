@@ -1232,7 +1232,7 @@ static void source_disown(sd_event_source *s) {
                         assert(s->child.pidfd >= 0);
 
                         if (!s->child.exited) {
-                                r = RET_NERRNO(pidfd_send_signal(s->child.pidfd, SIGKILL, NULL, 0));
+                                r = RET_NERRNO(pidfd_send_signal(s->child.pidfd, SIGKILL, /* info= */ NULL, /* flags= */ 0));
                                 if (r < 0 && r != -ESRCH)
                                         log_debug_errno(r, "Failed to kill process " PID_FMT ", ignoring: %m",
                                                         s->child.pid);
@@ -1798,7 +1798,7 @@ _public_ int sd_event_add_child(
         /* We always take a pidfd here, even if we wait for anything else than WEXITED, so that we pin the
          * PID, and make regular waitid() handling race-free. */
 
-        s->child.pidfd = pidfd_open(pid, 0);
+        s->child.pidfd = pidfd_open(pid, /* flags= */ 0);
         if (s->child.pidfd < 0)
                 return -errno;
 

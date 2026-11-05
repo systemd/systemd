@@ -1360,7 +1360,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                           dns_server_feature_level_to_string(t->clamp_feature_level_servfail));
                         }
 
-                        dns_transaction_retry(t, false /* use the same server */);
+                        dns_transaction_retry(t, /* next_server= */ false /* use the same server */);
                         return;
                 }
 
