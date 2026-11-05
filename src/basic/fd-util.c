@@ -152,7 +152,7 @@ int fd_nonblock(int fd, bool nonblock) {
 
         assert(fd >= 0);
 
-        flags = fcntl(fd, F_GETFL, 0);
+        flags = fcntl(fd, F_GETFL);
         if (flags < 0)
                 return -errno;
 
