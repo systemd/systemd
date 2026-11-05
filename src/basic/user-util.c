@@ -915,7 +915,7 @@ bool valid_shell(const char *p) {
         if (!valid_home(p))
                 return false;
 
-        return !endswith(p, "/"); /* one additional restriction: shells may not be dirs */
+        return !path_implies_directory(p); /* one additional restriction: shells may not be dirs */
 }
 
 int maybe_setgroups(size_t size, const gid_t *list) {
