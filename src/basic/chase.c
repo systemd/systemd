@@ -161,12 +161,7 @@ static int chase_openat2(int root_fd, int dir_fd, const char *path, ChaseFlags c
         return TAKE_FD(fd);
 }
 
-static int chase_xopenat(int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, XOpenFlags xopen_flags) {
-        /* Wrapper around xopenat_full() that translates CHASE_NOFOLLOW, CHASE_MUST_BE_* and
-         * CHASE_TRIGGER_AUTOFS into their xopenat_full() counterparts. Used by shortcuts that want to open
-         * the final target of a chase operation: they all want O_NOFOLLOW honoured, MUST_BE_* verified on
-         * the opened inode, and automounts triggered if requested. */
-
+int chase_xopenat(int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, XOpenFlags xopen_flags) {
         /* An empty name reopens the directory, which open(2) refuses to create */
         if (isempty(path) && FLAGS_SET(open_flags, O_CREAT))
                 return -EISDIR;
