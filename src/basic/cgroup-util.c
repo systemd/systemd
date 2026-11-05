@@ -696,14 +696,14 @@ int cg_get_root_path(char **ret_path) {
         return 0;
 }
 
-int cg_shift_path(const char *cgroup, const char *root, const char **ret_shifted) {
+int cg_shift_path(const char *cgroup, const char *cached_root, const char **ret_shifted) {
         int r;
 
         assert(cgroup);
         assert(ret_shifted);
 
         _cleanup_free_ char *rt = NULL;
-        if (!root) {
+        if (!cached_root) {
                 /* If the root was specified let's use that, otherwise
                  * let's determine it from PID 1 */
 
@@ -711,14 +711,14 @@ int cg_shift_path(const char *cgroup, const char *root, const char **ret_shifted
                 if (r < 0)
                         return r;
 
-                root = rt;
+                cached_root = rt;
         }
 
-        *ret_shifted = path_startswith_full(cgroup, root, PATH_STARTSWITH_RETURN_LEADING_SLASH|PATH_STARTSWITH_REFUSE_DOT_DOT) ?: cgroup;
+        *ret_shifted = path_startswith_full(cgroup, cached_root, PATH_STARTSWITH_RETURN_LEADING_SLASH|PATH_STARTSWITH_REFUSE_DOT_DOT) ?: cgroup;
         return 0;
 }
 
-int cg_pid_get_path_shifted(pid_t pid, const char *root, char **ret_cgroup) {
+int cg_pid_get_path_shifted(pid_t pid, const char *cached_root, char **ret_cgroup) {
         _cleanup_free_ char *raw = NULL;
         const char *c;
         int r;
@@ -730,7 +730,7 @@ int cg_pid_get_path_shifted(pid_t pid, const char *root, char **ret_cgroup) {
         if (r < 0)
                 return r;
 
-        r = cg_shift_path(raw, root, &c);
+        r = cg_shift_path(raw, cached_root, &c);
         if (r < 0)
                 return r;
 
@@ -742,7 +742,7 @@ int cg_pid_get_path_shifted(pid_t pid, const char *root, char **ret_cgroup) {
         return strdup_to(ret_cgroup, c);
 }
 
-int cg_pidref_get_path_shifted(const PidRef *pidref, const char *root, char **ret_cgroup) {
+int cg_pidref_get_path_shifted(const PidRef *pidref, const char *cached_root, char **ret_cgroup) {
         _cleanup_free_ char *raw = NULL;
         const char *c;
         int r;
@@ -753,7 +753,7 @@ int cg_pidref_get_path_shifted(const PidRef *pidref, const char *root, char **re
         if (r < 0)
                 return r;
 
-        r = cg_shift_path(raw, root, &c);
+        r = cg_shift_path(raw, cached_root, &c);
         if (r < 0)
                 return r;
 
