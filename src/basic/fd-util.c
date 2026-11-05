@@ -152,7 +152,7 @@ int fd_nonblock(int fd, bool nonblock) {
 
         assert(fd >= 0);
 
-        flags = fcntl(fd, F_GETFL, 0);
+        flags = fcntl(fd, F_GETFL);
         if (flags < 0)
                 return -errno;
 
@@ -193,7 +193,7 @@ int fd_cloexec(int fd, bool cloexec) {
 
         assert(fd >= 0);
 
-        flags = fcntl(fd, F_GETFD, 0);
+        flags = fcntl(fd, F_GETFL, 0);
         if (flags < 0)
                 return -errno;
 
@@ -201,7 +201,10 @@ int fd_cloexec(int fd, bool cloexec) {
         if (nflags == flags)
                 return 0;
 
-        return RET_NERRNO(fcntl(fd, F_SETFD, nflags));
+        if (fcntl(fd, F_SETFD, nflags) < 0)
+                return -errno;
+
+        return 1;
 }
 
 int fd_cloexec_many(const int fds[], size_t n_fds, bool cloexec) {
