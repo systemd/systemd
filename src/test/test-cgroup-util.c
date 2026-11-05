@@ -159,20 +159,20 @@ static void check_p_g_u_u_p(const char *path, int code, const char *result) {
 }
 
 TEST(path_get_user_unit_path) {
-        check_p_g_u_u_p("/user.slice/user-1000.slice/user@1000.service/app.slice/foobar.service", 0, "/user.slice/user-1000.slice/user@1000.service/app.slice/foobar.service");
-        check_p_g_u_u_p("/user.slice/user-1000.slice/user@1000.service/app.slice/foobar.service/", 0, "/user.slice/user-1000.slice/user@1000.service/app.slice/foobar.service");
-        check_p_g_u_u_p("/user.slice/user-1000.slice/user@1000.service/app.slice/foobar.service/asdf", 0, "/user.slice/user-1000.slice/user@1000.service/app.slice/foobar.service");
-        check_p_g_u_u_p("/user.slice/user-1000.slice/user@1000.service/app.slice/foobar@baz.service", 0, "/user.slice/user-1000.slice/user@1000.service/app.slice/foobar@baz.service");
-        check_p_g_u_u_p("/user.slice/user-1000.slice/user@1000.service/app.slice/foobar@baz.service/asdf", 0, "/user.slice/user-1000.slice/user@1000.service/app.slice/foobar@baz.service");
-        check_p_g_u_u_p("/user.slice/user-1000.slice/user@1000.service/app.slice/_cpu.service", 0, "/user.slice/user-1000.slice/user@1000.service/app.slice/_cpu.service");
-        check_p_g_u_u_p("/user.slice/user-1000.slice/user@1000.service/app.slice/_cpu.service/asdf", 0, "/user.slice/user-1000.slice/user@1000.service/app.slice/_cpu.service");
-        check_p_g_u_u_p("/user.slice/user-1000.slice/user@1000.service/app.slice/example.slice/foobar.service", 0, "/user.slice/user-1000.slice/user@1000.service/app.slice/example.slice/foobar.service");
-        check_p_g_u_u_p("/capsule.slice/capsule@test.service/app.slice/foobar.service", 0, "/capsule.slice/capsule@test.service/app.slice/foobar.service");
-        check_p_g_u_u_p("/user.slice/user-1000.slice/session-2.scope/foobar.service", 0, "/user.slice/user-1000.slice/session-2.scope/foobar.service");
-        check_p_g_u_u_p("sadfdsafsda", -ENXIO, NULL);
-        check_p_g_u_u_p("/user.slice/user-1000.slice/user@1000.service/app.slice/foo###bar.service", -ENXIO, NULL);
-        check_p_g_u_u_p("/user.slice/user-1000.slice/user@1000.service/app.slice/foobar@.service", -ENXIO, NULL);
-        check_p_g_u_u_p("/system.slice/foobar.service", -ENXIO, NULL);
+        check_p_g_u_u_p("/user.slice/user-1000.slice/user@1000.service/app.slice/foobar.service", /* code= */ 0, "/user.slice/user-1000.slice/user@1000.service/app.slice/foobar.service");
+        check_p_g_u_u_p("/user.slice/user-1000.slice/user@1000.service/app.slice/foobar.service/", /* code= */ 0, "/user.slice/user-1000.slice/user@1000.service/app.slice/foobar.service");
+        check_p_g_u_u_p("/user.slice/user-1000.slice/user@1000.service/app.slice/foobar.service/asdf", /* code= */ 0, "/user.slice/user-1000.slice/user@1000.service/app.slice/foobar.service");
+        check_p_g_u_u_p("/user.slice/user-1000.slice/user@1000.service/app.slice/foobar@baz.service", /* code= */ 0, "/user.slice/user-1000.slice/user@1000.service/app.slice/foobar@baz.service");
+        check_p_g_u_u_p("/user.slice/user-1000.slice/user@1000.service/app.slice/foobar@baz.service/asdf", /* code= */ 0, "/user.slice/user-1000.slice/user@1000.service/app.slice/foobar@baz.service");
+        check_p_g_u_u_p("/user.slice/user-1000.slice/user@1000.service/app.slice/_cpu.service", /* code= */ 0, "/user.slice/user-1000.slice/user@1000.service/app.slice/_cpu.service");
+        check_p_g_u_u_p("/user.slice/user-1000.slice/user@1000.service/app.slice/_cpu.service/asdf", /* code= */ 0, "/user.slice/user-1000.slice/user@1000.service/app.slice/_cpu.service");
+        check_p_g_u_u_p("/user.slice/user-1000.slice/user@1000.service/app.slice/example.slice/foobar.service", /* code= */ 0, "/user.slice/user-1000.slice/user@1000.service/app.slice/example.slice/foobar.service");
+        check_p_g_u_u_p("/capsule.slice/capsule@test.service/app.slice/foobar.service", /* code= */ 0, "/capsule.slice/capsule@test.service/app.slice/foobar.service");
+        check_p_g_u_u_p("/user.slice/user-1000.slice/session-2.scope/foobar.service", /* code= */ 0, "/user.slice/user-1000.slice/session-2.scope/foobar.service");
+        check_p_g_u_u_p("sadfdsafsda", -ENXIO, /* result= */ NULL);
+        check_p_g_u_u_p("/user.slice/user-1000.slice/user@1000.service/app.slice/foo###bar.service", -ENXIO, /* result= */ NULL);
+        check_p_g_u_u_p("/user.slice/user-1000.slice/user@1000.service/app.slice/foobar@.service", -ENXIO, /* result= */ NULL);
+        check_p_g_u_u_p("/system.slice/foobar.service", -ENXIO, /* result= */ NULL);
 }
 
 static void check_p_g_s(const char *path, int code, const char *result) {
