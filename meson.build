@@ -2251,6 +2251,9 @@ endif
 #              (without the '.standalone' suffix).
 # Currently, test and fuzzer executables only support 'yes' or 'no'.
 #
+# Test executables only get the .standalone variant if their dictionary sets
+# 'standalone' to true. The variant is never installed or run as a test.
+#
 # For executables matched by the install-standalone list, a .standalone variant
 # will be installed if install is true.
 #
@@ -2585,7 +2588,8 @@ foreach dict : executables
                 if key in ['name', 'dbus', 'conditions', 'type', 'suite',
                            'timeout', 'parallel', 'sources', 'import', 'export',
                            'include_directories', 'build_by_default', 'install',
-                           'bpf_programs', 'io_uring', 'link_args_static', 'symlinks', 'rust']
+                           'bpf_programs', 'io_uring', 'link_args_static', 'symlinks', 'rust',
+                           'standalone']
                         continue
                 endif
 
@@ -2701,7 +2705,7 @@ foreach dict : executables
                 endif
         endif
 
-        if not is_test and not is_fuzz and not is_rust
+        if (not is_test or dict.get('standalone', false)) and not is_fuzz and not is_rust
                 link_with_static = []
                 foreach obj : kwargs.get('link_with', [])
                         if obj.full_path() == libshared.full_path()

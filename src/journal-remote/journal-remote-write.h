@@ -15,6 +15,7 @@ typedef struct Writer {
         char *hashmap_key;
 
         uint64_t seqnum;
+        uint64_t synced_index;
 
         unsigned n_ref;
 } Writer;

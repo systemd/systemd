@@ -2,6 +2,7 @@
 #pragma once
 
 #include "journal-file.h"
+#include "journal-segmented.h"
 #include "list.h"
 #include "forward.h"
 #include "time-util.h"
@@ -88,6 +89,7 @@ typedef struct sd_journal {
         uint64_t current_field;
 
         Match *level0, *level1, *level2;
+        uint64_t match_generation; /* changes whenever the matches do */
         Set *exclude_syslog_identifiers;
 
         uint64_t origin_id;
@@ -99,14 +101,25 @@ typedef struct sd_journal {
 
         /* Iterating through unique fields and their data values */
         char *unique_field;
+        uint8_t *unique_buffer;
         JournalFile *unique_file;
         uint64_t unique_offset;
+        SegmentedCursor unique_cursor;
+        Set *unique_seen;
+        bool unique_batch;
+        size_t unique_batch_left;
 
         /* Iterating through known fields */
         JournalFile *fields_file;
         uint64_t fields_offset;
         uint64_t fields_hash_table_index;
         char *fields_buffer;
+        SegmentedCursor fields_cursor;
+        Set *fields_seen;
+
+        /* Key for the two sets above */
+        uint8_t seen_key[32];
+        bool seen_key_set;
 
         int flags;
 

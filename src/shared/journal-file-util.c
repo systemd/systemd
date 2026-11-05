@@ -13,6 +13,7 @@
 #include "journal-authenticate.h"
 #include "journal-file-util.h"
 #include "journal-internal.h"
+#include "journal-segmented.h"
 #include "log.h"
 #include "log-ratelimit.h"
 #include "set.h"
@@ -303,7 +304,7 @@ static int journal_file_start_offline_thread(JournalFile *f, void* (*func)(void*
         assert(func);
 
         assert_se(sigfillset(&ss) >= 0);
-        /* Don't block SIGBUS since the offlining thread accesses a memory mapped file.
+        /* Don't block SIGBUS since the offlining thread of classic files accesses a memory mapped file.
          * Asynchronous SIGBUS signals can safely be handled by either thread. */
         assert_se(sigdelset(&ss, SIGBUS) >= 0);
 
@@ -324,6 +325,58 @@ static int journal_file_start_offline_thread(JournalFile *f, void* (*func)(void*
                 return -k;
 
         return 0;
+}
+
+static void* journal_file_segmented_offline_thread(void *arg) {
+        JournalFile *f = arg;
+
+        (void) pthread_setname_np(pthread_self(), "journal-offline");
+
+        for (;;) {
+                OfflineState tmp_state = OFFLINE_SYNCING;
+
+                segmented_offline(f);
+
+                if (__atomic_compare_exchange_n(&f->offline_state, &tmp_state, OFFLINE_DONE,
+                                                false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
+                        break;
+
+                /* Another sync was requested while this one ran. It has to cover what was written since. */
+                __atomic_store_n(&f->offline_state, OFFLINE_SYNCING, __ATOMIC_SEQ_CST);
+        }
+
+        return NULL;
+}
+
+static int journal_file_set_offline_segmented(JournalFile *f, bool wait) {
+        int r;
+
+        assert(f);
+
+        /* The header of segmented files has no online state to clear. Offlining syncs them, and finishes
+         * archiving them if they are archived. */
+
+        /* First, so that a running sync that is restarted covers the batch and the newest index, and archives
+         * the file when it is done if it is being archived */
+        segmented_offline_prepare(f);
+
+        if (!wait && journal_file_set_offline_try_restart(f))
+                return 0;
+
+        r = journal_file_set_offline_thread_join(f);
+        if (r < 0)
+                return r;
+
+        if (f->header->state == STATE_ARCHIVED)
+                return 0;
+
+        if (wait) {
+                segmented_offline(f);
+                return segmented_offline_finish(f);
+        }
+
+        f->offline_state = OFFLINE_SYNCING;
+        return journal_file_start_offline_thread(f, journal_file_segmented_offline_thread);
 }
 
 /* Sets a journal offline.
@@ -348,6 +401,9 @@ int journal_file_set_offline(JournalFile *f, bool wait) {
 
         if (f->fd < 0 || !f->header)
                 return -EINVAL;
+
+        if (f->segmented)
+                return journal_file_set_offline_segmented(f, wait);
 
         target_state = f->archive ? STATE_ARCHIVED : STATE_OFFLINE;
 
@@ -428,9 +484,9 @@ JournalFile* journal_file_offline_close(JournalFile *f) {
         if (r < 0)
                 log_debug_errno(r, "Failed to append tag when closing journal, ignoring: %m");
 
-        if (sd_event_source_get_enabled(f->post_change_timer, /* ret= */ NULL) > 0)
-                journal_file_post_change(f);
+        journal_file_post_change_pending(f);
         f->post_change_timer = sd_event_source_disable_unref(f->post_change_timer);
+        f->post_change_idle = sd_event_source_disable_unref(f->post_change_idle);
 
         journal_file_set_offline(f, /* wait= */ true);
 
@@ -532,6 +588,7 @@ int journal_file_open_reliably(
                     -EHOSTDOWN,         /* Other machine */
                     -EPROTONOSUPPORT,   /* Incompatible feature */
                     -EBUSY,             /* Unclean shutdown */
+                    -EWOULDBLOCK,       /* Locked */
                     -ESHUTDOWN,         /* Already archived */
                     -EIO,               /* IO error, including SIGBUS on mmap */
                     -EIDRM))            /* File has been deleted */
