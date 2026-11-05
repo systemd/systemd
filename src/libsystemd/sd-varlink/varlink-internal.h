@@ -119,6 +119,10 @@ typedef struct sd_varlink {
         sd_event_source *defer_event_source;
 
         PidRef exec_pidref;
+
+        /* Kernel-derived identifier of the connection, stable across execve(), see
+         * sd_varlink_get_connection_id(). Calculated lazily. */
+        char *connection_id;
 } sd_varlink;
 
 typedef struct VarlinkServerSocket VarlinkServerSocket;
