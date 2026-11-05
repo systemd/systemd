@@ -2309,11 +2309,10 @@ static int ndisc_router_process_pref64(Link *link, sd_ndisc_router *rt, bool zer
                                         .prefix_len = prefix_len
                                 }));
 
-                /* Only stop CLAT on PREF64 expiry if we depend on NDisc for the prefix.
-                 * If Pref64Prefix= is manually configured, CLAT doesn't need NDisc entries. */
-                if (set_isempty(link->ndisc_pref64) &&
-                    link->network && link->network->clat_pref64_prefix_len == 0)
-                        (void) xlat_stop(link);
+                /* Stops CLAT if it depends on discovered prefixes and none is left, and switches to another
+                 * prefix if the one in use was removed. With a manually configured Pref64Prefix=, CLAT
+                 * does not need the discovered entries. */
+                (void) xlat_pref64_removed(link, &a, prefix_len);
 
                 return 0;
         }
@@ -2672,13 +2671,14 @@ static int ndisc_drop_outdated(Link *link, const struct in6_addr *router, usec_t
                 if (router && !in6_addr_equal(&p64->router, router))
                         continue;
 
+                struct in6_addr removed_prefix = p64->prefix;
+                uint8_t removed_prefix_len = p64->prefix_len;
+
                 free(set_remove(link->ndisc_pref64, p64));
                 /* The pref64 prefix is not exported through the state file, hence it is not necessary to set
                  * the 'updated' flag. */
 
-                if (set_isempty(link->ndisc_pref64) &&
-                    link->network && link->network->clat_pref64_prefix_len == 0)
-                        (void) xlat_stop(link);
+                (void) xlat_pref64_removed(link, &removed_prefix, removed_prefix_len);
         }
 
         SET_FOREACH(dnr, link->ndisc_dnr) {

@@ -975,15 +975,17 @@ static int address_drop(Address *in, bool removed_by_us) {
                                 log_link_warning_errno(link, r, "Failed to restart IPv6 services with alternate IPv6LL address, ignoring: %m");
                 }
         }
-        /* Restart CLAT if its cached source address was removed */
-        if (address->family == AF_INET6)
-                (void) xlat_check_address(link);
 
         ipv4acd_detach(link, address);
 
         (void) link_dhcp_relay_address_dropped(link, address);
 
         address_detach(address);
+
+        /* Restart CLAT if its cached source address was removed. This has to be done after the address was
+         * detached, otherwise the dropped address could be picked as the source again. */
+        if (address->family == AF_INET6)
+                (void) xlat_check_address(link);
 
         if (!removed_by_us) {
                 r = address_removed_maybe_kernel_dad(link, address);

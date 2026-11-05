@@ -2,7 +2,9 @@
 
 #include <endian.h>
 #include <fcntl.h>
+#include <linux/fib_rules.h>
 #include <linux/filter.h>
+#include <linux/if_addr.h>
 #include <linux/if_ether.h>
 #include <linux/if_packet.h>
 #include <linux/if_tun.h>
@@ -22,6 +24,7 @@
 #include <unistd.h>
 
 #include "sd-event.h"
+#include "sd-id128.h"
 #include "sd-netlink.h"
 
 #if ENABLE_CLAT_BPF
@@ -44,6 +47,9 @@
 #include "networkd-route.h"
 #include "networkd-xlat.h"
 #include "set.h"
+#include "siphash24.h"
+#include "socket-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 
 #define TUN_DEV "/dev/net/tun"
@@ -56,6 +62,10 @@
  * destinations (a NAT64 router would not answer). The Ethernet addresses of the translated IPv6 packet
  * are filled in by the BPF program through bpf_redirect_neigh(), i.e. from the IPv6 neighbour table. */
 #define CLAT_V4_GATEWAY_U32 UINT32_C(0xC0000002) /* 192.0.0.2 in host byte order */
+
+/* Firewall mark of the packets the TUN backend sends, and the priority of its policy rules */
+#define CLAT_FWMARK UINT32_C(0x434c4154) /* "CLAT" */
+#define CLAT_RULE_PRIORITY UINT32_C(1000)
 
 /* Route metric for the CLAT default route (high enough to not conflict with normal routes) */
 #define CLAT_ROUTE_METRIC UINT32_C(2048)
@@ -343,6 +353,79 @@ static void xlat_update_transport_checksum_6to4(
         memcpy(payload + csum_offset, &csum, sizeof(csum));
 }
 
+/* Verify the transport checksum of an IPv6 packet before it is translated. The translation computes a new
+ * checksum, so without this a corrupt packet that the kernel would have dropped turns into a valid IPv4
+ * one (RFC 7915 section 5.5). A zero UDP checksum is not valid in IPv6 either (RFC 8200 section 8.1) and
+ * would become an IPv4 datagram without checksum. */
+static bool xlat_ipv6_checksum_ok(
+                const struct ip6_hdr *ip6,
+                const uint8_t *payload,
+                size_t payload_len,
+                uint8_t protocol) {
+
+        uint32_t sum;
+        uint16_t csum;
+
+        switch (protocol) {
+        case IPPROTO_TCP:
+                if (payload_len < sizeof(struct tcphdr))
+                        return false;
+                break;
+
+        case IPPROTO_UDP:
+                if (payload_len < sizeof(struct udphdr))
+                        return false;
+
+                memcpy(&csum, payload + offsetof(struct udphdr, uh_sum), sizeof(csum));
+                if (csum == 0)
+                        return false;
+                break;
+
+        case IPPROTO_ICMPV6:
+                if (payload_len < sizeof(struct icmp6_hdr))
+                        return false;
+                break;
+
+        default:
+                return true;
+        }
+
+        sum = xlat_pseudo_header_checksum(&ip6->ip6_src, &ip6->ip6_dst, payload_len, protocol);
+
+        /* Summing all words including the checksum field gives 0xFFFF for a valid packet, i.e. 0 inverted */
+        return xlat_compute_full_checksum(sum, payload, payload_len) == 0;
+}
+
+/* RFC 6052 section 3.1: with the Well-Known Prefix 64:ff9b::/96 a translator must not translate non-global
+ * IPv4 addresses (private, shared, loopback, link-local, multicast, ...). Otherwise a spoofed source shows
+ * up as a private IPv4 host. */
+static bool xlat_ipv4_is_global(const struct in_addr *a) {
+        uint32_t v = be32toh(a->s_addr);
+        uint8_t b0 = v >> 24, b1 = (v >> 16) & 0xff, b2 = (v >> 8) & 0xff;
+
+        if (b0 == 0 || b0 == 10 || b0 == 127 || b0 >= 224)
+                return false;
+        if (b0 == 100 && (b1 & 0xc0) == 64) /* 100.64.0.0/10 */
+                return false;
+        if (b0 == 169 && b1 == 254)
+                return false;
+        if (b0 == 172 && (b1 & 0xf0) == 16)
+                return false;
+        if (b0 == 192 && b1 == 168)
+                return false;
+        if (b0 == 192 && b1 == 0 && b2 == 0) /* 192.0.0.0/24 */
+                return false;
+
+        return true;
+}
+
+static bool xlat_pref64_is_wkp(const Link *link) {
+        static const struct in6_addr wkp = { .s6_addr = { 0x00, 0x64, 0xff, 0x9b } };
+
+        return link->clat_pref64_prefix_len == 96 &&
+                in6_addr_equal(&link->clat_pref64_prefix, &wkp);
+}
+
 /* Translate ICMP Echo to ICMPv6 Echo (outbound) */
 static int xlat_translate_icmp_4to6(
                 uint8_t *payload,
@@ -408,7 +491,7 @@ static int xlat_translate_icmp_6to4(uint8_t *payload, size_t payload_len) {
 }
 
 /* Select a global unicast IPv6 address from the link for CLAT source */
-static int xlat_select_ipv6_source(Link *link, struct in6_addr *ret) {
+static int xlat_select_ipv6_source(Link *link, struct in6_addr *ret, uint8_t *ret_prefixlen) {
         Address *a;
 
         assert(link);
@@ -425,11 +508,17 @@ static int xlat_select_ipv6_source(Link *link, struct in6_addr *ret) {
                 if (!address_is_ready(a))
                         continue;
 
+                /* Deprecated addresses are not for new uses, among them the dedicated CLAT address */
+                if (FLAGS_SET(a->flags, IFA_F_DEPRECATED))
+                        continue;
+
                 *ret = a->in_addr.in6;
+                *ret_prefixlen = a->prefixlen;
                 return 0;
         }
 
-        /* Second pass: accept any non-link-local IPv6 address */
+        /* Second pass: accept any non-link-local IPv6 address that is not being removed, e.g. one that is
+         * still tentative */
         SET_FOREACH(a, link->addresses) {
                 if (a->family != AF_INET6)
                         continue;
@@ -437,7 +526,14 @@ static int xlat_select_ipv6_source(Link *link, struct in6_addr *ret) {
                 if (in6_addr_is_link_local(&a->in_addr.in6))
                         continue;
 
+                if (FLAGS_SET(a->state, NETWORK_CONFIG_STATE_REMOVING))
+                        continue;
+
+                if (FLAGS_SET(a->flags, IFA_F_DEPRECATED))
+                        continue;
+
                 *ret = a->in_addr.in6;
+                *ret_prefixlen = a->prefixlen;
                 return 0;
         }
 
@@ -503,7 +599,7 @@ static int xlat_translate_and_send_4to6(Link *link, const uint8_t *pkt4, size_t 
         ip6->ip6_plen = htobe16((uint16_t) payload_len);
         ip6->ip6_hlim = ip4->ttl;
         /* Source: cached global IPv6 address (per RFC 6877 Section 4.4) */
-        ip6->ip6_src = link->clat_ipv6_src;
+        ip6->ip6_src = link->clat_ipv6_addr;
         ip6->ip6_dst = dst6;
 
         /* Copy payload after IPv6 header */
@@ -512,13 +608,13 @@ static int xlat_translate_and_send_4to6(Link *link, const uint8_t *pkt4, size_t 
 
         /* Protocol-specific translation */
         if (protocol == IPPROTO_ICMP) {
-                r = xlat_translate_icmp_4to6(payload, payload_len, &link->clat_ipv6_src, &dst6);
+                r = xlat_translate_icmp_4to6(payload, payload_len, &link->clat_ipv6_addr, &dst6);
                 if (r < 0)
                         return r;
                 ip6->ip6_nxt = IPPROTO_ICMPV6;
         } else if (protocol == IPPROTO_TCP || protocol == IPPROTO_UDP) {
                 ip6->ip6_nxt = protocol;
-                xlat_update_transport_checksum_4to6(payload, payload_len, protocol, &link->clat_ipv6_src, &dst6);
+                xlat_update_transport_checksum_4to6(payload, payload_len, protocol, &link->clat_ipv6_addr, &dst6);
         } else {
                 return -EOPNOTSUPP;
         }
@@ -568,6 +664,12 @@ static int xlat_translate_and_send_6to4(Link *link, const uint8_t *pkt6, size_t 
 
         /* Source: extract IPv4 from PREF64-mapped source address */
         xlat_extract_ipv4_from_pref64(&ip6->ip6_src, link->clat_pref64_prefix_len, &src4);
+
+        if (xlat_pref64_is_wkp(link) && !xlat_ipv4_is_global(&src4))
+                return -EPERM;
+
+        if (!xlat_ipv6_checksum_ok(ip6, pkt6 + sizeof(struct ip6_hdr), payload_len, protocol))
+                return -EBADMSG;
 
         /* Destination: 192.0.0.1 (our CLAT address) */
         dst4.s_addr = htobe32(CLAT_V4_ADDR_U32);
@@ -626,7 +728,11 @@ static int xlat_tun_handler(sd_event_source *s, int fd, uint32_t revents, void *
         if (n < 0) {
                 if (ERRNO_IS_TRANSIENT(errno))
                         return 0;
-                log_link_warning_errno(link, errno, "CLAT: failed to read from TUN: %m");
+
+                /* E.g. the TUN device was removed from outside. The fd then keeps reporting errors, so
+                 * stop CLAT instead of spinning on it. */
+                log_link_warning_errno(link, errno, "CLAT: failed to read from TUN, stopping: %m");
+                (void) xlat_stop(link);
                 return 0;
         }
         if (n == 0)
@@ -651,7 +757,8 @@ static int xlat_recv_handler(sd_event_source *s, int fd, uint32_t revents, void 
         if (n < 0) {
                 if (ERRNO_IS_TRANSIENT(errno))
                         return 0;
-                log_link_warning_errno(link, errno, "CLAT: failed to read from packet socket: %m");
+                log_link_warning_errno(link, errno, "CLAT: failed to read from packet socket, stopping: %m");
+                (void) xlat_stop(link);
                 return 0;
         }
         if ((size_t) n > sizeof(buf))
@@ -666,6 +773,7 @@ static int xlat_recv_handler(sd_event_source *s, int fd, uint32_t revents, void 
 static int xlat_create_tun(Link *link) {
         _cleanup_close_ int fd = -EBADF;
         struct ifreq ifr = {};
+        char fallback_name[IFNAMSIZ];
         const char *tun_name;
         int r;
 
@@ -673,15 +781,20 @@ static int xlat_create_tun(Link *link) {
         assert(link->ifname);
 
         tun_name = strjoina("cl-", link->ifname);
-        if (strlen(tun_name) >= IFNAMSIZ)
-                return log_link_error_errno(link, SYNTHETIC_ERRNO(ENAMETOOLONG),
-                                            "CLAT TUN name '%s' is too long.", tun_name);
+        if (strlen(tun_name) >= IFNAMSIZ) {
+                /* E.g. predictable names of USB NICs are 15 characters long. Name the device after the
+                 * ifindex instead. */
+                xsprintf(fallback_name, "clat%i", link->ifindex);
+                tun_name = fallback_name;
+        }
 
         fd = xopenat(AT_FDCWD, TUN_DEV, O_RDWR|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
                 return log_link_error_errno(link, fd, "Failed to open " TUN_DEV ": %m");
 
-        ifr.ifr_flags = IFF_TUN | IFF_NO_PI;
+        /* IFF_TUN_EXCL: never attach to an already existing (persistent) device of that name, which may
+         * be owned by somebody else and would then carry our IPv4 default route. */
+        ifr.ifr_flags = IFF_TUN | IFF_NO_PI | IFF_TUN_EXCL;
         strncpy(ifr.ifr_name, tun_name, IFNAMSIZ - 1);
 
         if (ioctl(fd, TUNSETIFF, &ifr) < 0)
@@ -711,7 +824,7 @@ static int xlat_create_tun(Link *link) {
 
 static int xlat_create_send_socket(Link *link) {
         _cleanup_close_ int fd = -EBADF;
-        int r, one = 1;
+        int r;
 
         assert(link);
 
@@ -720,14 +833,20 @@ static int xlat_create_send_socket(Link *link) {
                 return log_link_error_errno(link, errno,
                                             "CLAT: failed to create raw IPv6 send socket: %m");
 
-        r = setsockopt(fd, IPPROTO_IPV6, IPV6_HDRINCL, &one, sizeof(one));
+        r = setsockopt_int(fd, IPPROTO_IPV6, IPV6_HDRINCL, 1);
         if (r < 0)
-                return log_link_error_errno(link, errno, "CLAT: failed to set IPV6_HDRINCL: %m");
+                return log_link_error_errno(link, r, "CLAT: failed to set IPV6_HDRINCL: %m");
+
+        /* Mark the translated packets, so that they bypass the rule that drops what the kernel itself sends
+         * from the dedicated address */
+        r = setsockopt_int(fd, SOL_SOCKET, SO_MARK, (int) CLAT_FWMARK);
+        if (r < 0)
+                return log_link_error_errno(link, r, "CLAT: failed to set SO_MARK: %m");
 
         /* Bind to the outgoing physical interface */
-        r = setsockopt(fd, SOL_SOCKET, SO_BINDTOIFINDEX, &link->ifindex, sizeof(link->ifindex));
+        r = socket_bind_to_ifindex(fd, link->ifindex);
         if (r < 0)
-                return log_link_error_errno(link, errno,
+                return log_link_error_errno(link, r,
                                             "CLAT: failed to bind send socket to interface: %m");
 
         link->clat_send_fd = TAKE_FD(fd);
@@ -753,7 +872,7 @@ static int xlat_attach_bpf_filter(Link *link, int fd) {
         size_t prefix_words = link->clat_pref64_prefix_len / 32;
         size_t prefix_remainder = (link->clat_pref64_prefix_len % 32) / 8;
         const uint8_t *prefix = link->clat_pref64_prefix.s6_addr;
-        const uint8_t *dst = link->clat_ipv6_src.s6_addr;
+        const uint8_t *dst = link->clat_ipv6_addr.s6_addr;
 
         /* Max filter size: next_header(4) + prefix(3*3 worst case /32) + dst(4*2) + accept/reject(2) = 21
          * Worst case is /32 prefix: 4 + 1*2 + 0 + 4*2 + 2 = 16. /96: 4 + 3*2 + 0 + 4*2 + 2 = 20 */
@@ -846,10 +965,20 @@ static int xlat_create_recv_socket(Link *link) {
         /* AF_PACKET SOCK_DGRAM receives IPv6 packets with L2 headers stripped.
          * A BPF socket filter ensures only relevant CLAT reply packets are delivered
          * to userspace, avoiding unnecessary context switches and copies. */
-        fd = socket(AF_PACKET, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, htobe16(ETH_P_IPV6));
+
+        /* Create the socket with protocol 0, so it is not hooked into the packet flow of all interfaces
+         * yet, attach the filter, and only then bind it to the interface and ETH_P_IPV6. Otherwise
+         * unfiltered IPv6 packets could queue up between socket() and the filter, and the receive
+         * handler relies on the filter. */
+        fd = socket(AF_PACKET, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0)
                 return log_link_error_errno(link, errno,
                                             "CLAT: failed to create packet receive socket: %m");
+
+        /* Attach BPF filter to reduce userspace packet processing */
+        r = xlat_attach_bpf_filter(link, fd);
+        if (r < 0)
+                return r;
 
         /* Bind to the physical interface */
         struct sockaddr_ll sll = {
@@ -862,11 +991,6 @@ static int xlat_create_recv_socket(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, errno,
                                             "CLAT: failed to bind packet socket to interface: %m");
-
-        /* Attach BPF filter to reduce userspace packet processing */
-        r = xlat_attach_bpf_filter(link, fd);
-        if (r < 0)
-                return r;
 
         r = sd_event_add_io(link->manager->event, &link->clat_recv_event_source,
                             fd, EPOLLIN, xlat_recv_handler, link);
@@ -1028,49 +1152,6 @@ static int xlat_configure_route(Link *link) {
  * traffic (which would generate spurious RSTs), because reverse path filtering
  * drops packets arriving on the physical interface whose source address is
  * routable only through the TUN device. */
-static int xlat_configure_pref64_route(Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        int r;
-
-        assert(link);
-        assert(link->clat_ifindex > 0);
-
-        r = sd_rtnl_message_new_route(link->manager->rtnl, &m, RTM_NEWROUTE, AF_INET6, RTPROT_STATIC);
-        if (r < 0)
-                return log_link_error_errno(link, r,
-                                            "CLAT: failed to create PREF64 route message: %m");
-
-        r = sd_rtnl_message_route_set_type(m, RTN_UNICAST);
-        if (r < 0)
-                return log_link_error_errno(link, r, "CLAT: failed to set route type: %m");
-
-        r = sd_rtnl_message_route_set_dst_prefixlen(m, link->clat_pref64_prefix_len);
-        if (r < 0)
-                return log_link_error_errno(link, r, "CLAT: failed to set dst prefixlen: %m");
-
-        r = sd_netlink_message_append_in6_addr(m, RTA_DST, &link->clat_pref64_prefix);
-        if (r < 0)
-                return log_link_error_errno(link, r, "CLAT: failed to set route destination: %m");
-
-        r = sd_netlink_message_append_u32(m, RTA_OIF, (uint32_t) link->clat_ifindex);
-        if (r < 0)
-                return log_link_error_errno(link, r, "CLAT: failed to set output interface: %m");
-
-        r = sd_netlink_message_append_u32(m, RTA_PRIORITY, CLAT_ROUTE_METRIC);
-        if (r < 0)
-                return log_link_error_errno(link, r, "CLAT: failed to set route metric: %m");
-
-        r = sd_netlink_call(link->manager->rtnl, m, 0, NULL);
-        if (r < 0)
-                return log_link_warning_errno(link, r,
-                                              "CLAT: failed to add PREF64 route via TUN: %m");
-
-        log_link_debug(link, "CLAT: added %s/%u route via TUN for reverse path filtering.",
-                       IN6_ADDR_TO_STRING(&link->clat_pref64_prefix),
-                       link->clat_pref64_prefix_len);
-        return 0;
-}
-
 #if ENABLE_CLAT_BPF
 
 static struct clat_bpf* clat_bpf_free(struct clat_bpf *obj) {
@@ -1315,7 +1396,7 @@ static int xlat_start_bpf(Link *link) {
 
         /* Configure BPF program via BSS section before loading */
         struct in_addr v4 = { .s_addr = htobe32(CLAT_V4_ADDR_U32) };
-        memcpy(obj->bss->clat_cfg.local_v6, &link->clat_ipv6_src, 16);
+        memcpy(obj->bss->clat_cfg.local_v6, &link->clat_ipv6_addr, 16);
         memcpy(obj->bss->clat_cfg.pref64, &link->clat_pref64_prefix, 16);
         memcpy(obj->bss->clat_cfg.local_v4, &v4, 4);
         obj->bss->clat_cfg.pref64_len = link->clat_pref64_prefix_len;
@@ -1379,6 +1460,214 @@ static int xlat_start_bpf(Link *link) {
 
 #endif /* ENABLE_CLAT_BPF */
 
+/* RFC 6877 section 6.3 asks for a dedicated IPv6 address for the translated traffic. Otherwise replies to
+ * native IPv6 connections of the host to NAT64 addresses (e.g. synthesized by DNS64) are mistaken for CLAT
+ * traffic, translated to IPv4, and answered with resets.
+ *
+ * Use an address in the same /64 as the host's address, derived from the machine ID, the interface name
+ * and the prefix, so that it is stable and does not clash with SLAAC addresses. If the host's address is not
+ * in a /64, no sibling address can be derived and the host's own address is used as before. */
+static void xlat_derive_clat_address(
+                Link *link,
+                const struct in6_addr *host,
+                uint8_t prefixlen,
+                struct in6_addr *ret) {
+
+        static const sd_id128_t app_id =
+                SD_ID128_MAKE(5e,2c,9a,31,b0,47,4c,d6,a1,8f,3d,72,e4,0b,96,5a);
+        struct siphash state;
+        sd_id128_t key;
+        uint64_t iid;
+        int r;
+
+        assert(link);
+        assert(host);
+        assert(ret);
+
+        *ret = *host;
+
+        if (prefixlen != 64)
+                return;
+
+        r = sd_id128_get_machine_app_specific(app_id, &key);
+        if (r < 0) {
+                log_link_debug_errno(link, r, "CLAT: failed to derive an address, using the host's: %m");
+                return;
+        }
+
+        siphash24_init(&state, key.bytes);
+        siphash24_compress_string(link->ifname, &state);
+        siphash24_compress(host->s6_addr, 8, &state);
+        iid = siphash24_finalize(&state);
+
+        memcpy(ret->s6_addr + 8, &iid, sizeof(iid));
+
+        /* Never the host's own address */
+        if (in6_addr_equal(ret, host))
+                ret->s6_addr[15] ^= 1;
+}
+
+/* The dedicated address is added to the interface, as the upstream router has to find it with neighbor
+ * discovery and Linux only answers for proxied addresses when forwarding is enabled. It is deprecated, so
+ * that applications of the host never select it as a source address, and has no duplicate address
+ * detection, as it is derived from the machine ID. */
+static int xlat_set_dedicated_address(Link *link, bool add) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        int r;
+
+        assert(link);
+
+        r = sd_rtnl_message_new_addr(link->manager->rtnl, &m, add ? RTM_NEWADDR : RTM_DELADDR,
+                                     link->ifindex, AF_INET6);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_message_addr_set_prefixlen(m, 128);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_in6_addr(m, IFA_LOCAL, &link->clat_ipv6_addr);
+        if (r < 0)
+                return r;
+
+        if (add) {
+                struct ifa_cacheinfo cinfo = {
+                        .ifa_prefered = 0, /* deprecated */
+                        .ifa_valid = UINT32_MAX,
+                };
+
+                r = sd_netlink_message_append_u32(m, IFA_FLAGS, IFA_F_NODAD);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_message_append_cache_info(m, IFA_CACHEINFO, &cinfo);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_netlink_call(link->manager->rtnl, m, 0, NULL);
+        if (add && r == -EEXIST)
+                return 0; /* e.g. left over from an earlier run, and identical */
+
+        return r;
+}
+
+/* TUN backend: the kernel also sees the return traffic that is addressed to the dedicated address, as it is
+ * a local address, and would answer it with resets and ICMP errors. Traffic that the kernel itself
+ * originates from the dedicated address is dropped by a rule. The translated packets we send are marked, and
+ * a rule with a higher priority sends those through the main table. Native traffic of the host uses
+ * other source addresses and is not affected. */
+static int xlat_set_rule(Link *link, bool add, bool mark_rule) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        int r;
+
+        assert(link);
+
+        r = sd_rtnl_message_new_routing_policy_rule(link->manager->rtnl, &m, add ? RTM_NEWRULE : RTM_DELRULE, AF_INET6);
+        if (r < 0)
+                return r;
+
+        if (mark_rule) {
+                r = sd_netlink_message_append_u32(m, FRA_PRIORITY, CLAT_RULE_PRIORITY);
+                if (r < 0)
+                        return r;
+
+                r = sd_rtnl_message_routing_policy_rule_set_action(m, FR_ACT_TO_TBL);
+                if (r < 0)
+                        return r;
+
+                r = sd_rtnl_message_routing_policy_rule_set_table(m, RT_TABLE_MAIN);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_message_append_u32(m, FRA_FWMARK, CLAT_FWMARK);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_message_append_u32(m, FRA_FWMASK, UINT32_MAX);
+                if (r < 0)
+                        return r;
+        } else {
+                r = sd_netlink_message_append_in6_addr(m, FRA_SRC, &link->clat_ipv6_addr);
+                if (r < 0)
+                        return r;
+
+                r = sd_rtnl_message_routing_policy_rule_set_src_prefixlen(m, 128);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_message_append_u32(m, FRA_PRIORITY, CLAT_RULE_PRIORITY + 1);
+                if (r < 0)
+                        return r;
+
+                r = sd_rtnl_message_routing_policy_rule_set_action(m, FR_ACT_BLACKHOLE);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_netlink_call(link->manager->rtnl, m, 0, NULL);
+}
+
+static void xlat_remove_rules(Link *link) {
+        assert(link);
+
+        if (!link->clat_rules)
+                return;
+
+        /* Ignore errors, the rules may be gone already */
+        (void) xlat_set_rule(link, /* add= */ false, /* mark_rule= */ false);
+        (void) xlat_set_rule(link, /* add= */ false, /* mark_rule= */ true);
+
+        link->clat_rules = false;
+}
+
+static int xlat_configure_rules(Link *link) {
+        int r;
+
+        assert(link);
+        assert(link->clat_dedicated);
+
+        /* Set first, so that a partially configured state is cleaned up by xlat_close() */
+        link->clat_rules = true;
+
+        r = xlat_set_rule(link, /* add= */ true, /* mark_rule= */ true);
+        if (r < 0)
+                return log_link_error_errno(link, r, "CLAT: failed to add the policy rule for translated packets: %m");
+
+        r = xlat_set_rule(link, /* add= */ true, /* mark_rule= */ false);
+        if (r < 0)
+                return log_link_error_errno(link, r, "CLAT: failed to add the policy rule for the dedicated address: %m");
+
+        return 0;
+}
+
+static void xlat_remove_dedicated_address(Link *link) {
+        assert(link);
+
+        if (!link->clat_dedicated)
+                return;
+
+        /* Ignore errors, the interface may be gone already. */
+        (void) xlat_set_dedicated_address(link, /* add= */ false);
+
+        link->clat_dedicated = false;
+}
+
+static int xlat_configure_dedicated_address(Link *link) {
+        int r;
+
+        assert(link);
+
+        /* Set first, so that a partially configured state is cleaned up by xlat_close() */
+        link->clat_dedicated = true;
+
+        r = xlat_set_dedicated_address(link, /* add= */ true);
+        if (r < 0)
+                return log_link_error_errno(link, r, "CLAT: failed to add the dedicated IPv6 address: %m");
+
+        return 0;
+}
+
 /* Clean up all CLAT resources unconditionally (does not check clat_running) */
 static void xlat_close(Link *link) {
         assert(link);
@@ -1399,6 +1688,9 @@ static void xlat_close(Link *link) {
 
                 link->clat_ifindex = 0;
         }
+
+        xlat_remove_rules(link);
+        xlat_remove_dedicated_address(link);
 
         link->clat_running = false;
 }
@@ -1438,6 +1730,7 @@ static bool xlat_link_has_native_gateway(Link *link) {
 
 int xlat_start(Link *link) {
         NDiscPREF64 *p64;
+        uint8_t src_prefixlen = 0;
         int r;
 
         assert(link);
@@ -1446,6 +1739,10 @@ int xlat_start(Link *link) {
                 return 0;
 
         if (link->clat_running)
+                return 0;
+
+        /* Callers may run this right after link_enter_failed(), or while the link is going away */
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER, LINK_STATE_UNMANAGED))
                 return 0;
 
         /* Skip CLAT if the link already has native IPv4 connectivity */
@@ -1486,16 +1783,26 @@ int xlat_start(Link *link) {
                 link->clat_pref64_prefix_len = best->prefix_len;
         }
 
-        /* Select and cache the global IPv6 source address for translation */
-        r = xlat_select_ipv6_source(link, &link->clat_ipv6_src);
+        /* Select the global IPv6 address of the host, and derive the dedicated address for translation */
+        r = xlat_select_ipv6_source(link, &link->clat_ipv6_src, &src_prefixlen);
         if (r < 0)
                 return log_link_debug_errno(link, r,
                                             "CLAT: no global IPv6 address available, deferring.");
 
+        xlat_derive_clat_address(link, &link->clat_ipv6_src, src_prefixlen, &link->clat_ipv6_addr);
+
         log_link_info(link, "CLAT: starting with PREF64 %s/%u, source %s.",
                       IN6_ADDR_TO_STRING(&link->clat_pref64_prefix),
                       link->clat_pref64_prefix_len,
-                      IN6_ADDR_TO_STRING(&link->clat_ipv6_src));
+                      IN6_ADDR_TO_STRING(&link->clat_ipv6_addr));
+
+        if (!in6_addr_equal(&link->clat_ipv6_addr, &link->clat_ipv6_src)) {
+                r = xlat_configure_dedicated_address(link);
+                if (r < 0) {
+                        xlat_close(link);
+                        return r;
+                }
+        }
 
 #if ENABLE_CLAT_BPF
         /* Try BPF TC translation first (in-kernel, zero context switches per packet) */
@@ -1509,7 +1816,14 @@ int xlat_start(Link *link) {
         log_link_info(link, "CLAT: falling back to TUN device translation.");
 #endif
 
-        /* TUN fallback: userspace packet translation */
+        /* TUN fallback: userspace packet translation. The kernel sees the return traffic here, so it needs the
+         * dedicated address, whose kernel-originated traffic is dropped, to not answer it with resets. */
+        if (!link->clat_dedicated) {
+                r = log_link_warning_errno(link, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                           "CLAT: the TUN translation needs a global IPv6 address in a /64 prefix.");
+                goto fail;
+        }
+
         r = xlat_create_tun(link);
         if (r < 0)
                 goto fail;
@@ -1530,13 +1844,13 @@ int xlat_start(Link *link) {
         if (r < 0)
                 goto fail;
 
-        r = xlat_create_recv_socket(link);
+        r = xlat_configure_rules(link);
         if (r < 0)
                 goto fail;
 
-        /* Add PREF64 route via TUN to prevent kernel TCP stack from processing
-         * CLAT return traffic and generating spurious RSTs (non-fatal if it fails) */
-        (void) xlat_configure_pref64_route(link);
+        r = xlat_create_recv_socket(link);
+        if (r < 0)
+                goto fail;
 
         log_link_info(link, "CLAT: started using TUN device translation.");
         link->clat_running = true;
@@ -1560,16 +1874,23 @@ int xlat_stop(Link *link) {
 }
 
 int xlat_check_address(Link *link) {
-        struct in6_addr current_src;
+        struct in6_addr current_src, current_addr;
+        uint8_t prefixlen = 0;
 
         assert(link);
 
         if (!link->clat_running)
                 return 0;
 
-        /* Check if the cached IPv6 source address is still valid */
-        if (xlat_select_ipv6_source(link, &current_src) < 0 ||
-            !in6_addr_equal(&current_src, &link->clat_ipv6_src)) {
+        /* Check if the address used for translation is still the one we would derive now. A host address
+         * in the same /64 gives the same dedicated address, so e.g. rotating privacy addresses do not
+         * interrupt CLAT. */
+        if (xlat_select_ipv6_source(link, &current_src, &prefixlen) < 0)
+                current_addr = (struct in6_addr) {};
+        else
+                xlat_derive_clat_address(link, &current_src, prefixlen, &current_addr);
+
+        if (!in6_addr_equal(&current_addr, &link->clat_ipv6_addr)) {
                 int r;
 
                 log_link_info(link, "CLAT: IPv6 source address changed or removed, restarting.");
@@ -1580,6 +1901,32 @@ int xlat_check_address(Link *link) {
                                                "CLAT: failed to restart after source address change, "
                                                "CLAT will remain stopped until next address change.");
                 return r;
+        }
+
+        return 0;
+}
+
+int xlat_pref64_removed(Link *link, const struct in6_addr *prefix, uint8_t prefix_len) {
+        assert(link);
+        assert(prefix);
+
+        if (!link->clat_running)
+                return 0;
+
+        /* With a manually configured Pref64Prefix=, CLAT does not depend on the discovered entries. */
+        if (link->network && link->network->clat_pref64_prefix_len > 0)
+                return 0;
+
+        if (set_isempty(link->ndisc_pref64))
+                return xlat_stop(link);
+
+        /* Another prefix is left. If the one in use was withdrawn, switch to the remaining one. */
+        if (prefix_len == link->clat_pref64_prefix_len &&
+            in6_addr_equal(prefix, &link->clat_pref64_prefix)) {
+                log_link_info(link, "CLAT: PREF64 prefix %s/%u is gone, restarting with another one.",
+                              IN6_ADDR_TO_STRING(prefix), prefix_len);
+                (void) xlat_stop(link);
+                return xlat_start(link);
         }
 
         return 0;

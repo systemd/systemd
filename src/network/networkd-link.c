@@ -665,6 +665,10 @@ void link_check_ready(Link *link) {
         }
 
         link_set_state(link, LINK_STATE_CONFIGURED);
+
+        /* CLAT is stopped when the link is reconfigured, and may also have been deferred until now. Start it
+         * if it is still wanted. This does nothing if it is running already or not enabled. */
+        (void) xlat_start(link);
 }
 
 static int link_request_static_configs(Link *link) {
@@ -1593,6 +1597,11 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
 
         /* Then, apply new .network file */
         link->network = network_ref(network);
+
+        /* CLAT depends on CLAT= and Pref64Prefix= of the .network file, and its address, route and neighbor
+         * entry are dropped below like any other configuration that is not requested by the new file. Stop it
+         * here, so that the new settings take effect. It is started again once the link is configured. */
+        (void) xlat_stop(link);
 
         if (FLAGS_SET(network->keep_configuration, KEEP_CONFIGURATION_DYNAMIC) ||
             !FLAGS_SET(flags, LINK_RECONFIGURE_CLEANLY)) {

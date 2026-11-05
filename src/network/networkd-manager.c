@@ -895,20 +895,27 @@ int manager_start(Manager *m) {
 
         (void) manager_install_sysctl_monitor(m);
 
-        /* Loading BPF programs requires CAP_SYS_ADMIN and CAP_BPF. Drop the capabilities here, regardless
-         * if the load succeeds or not. The exception is when a .network file enables CLAT=, which loads
-         * its BPF program later, once a PREF64 prefix is known. In that case keep the capabilities, as
-         * CLAT would otherwise always fall back to the slower TUN translation. */
-        if (!manager_has_clat_network(m)) {
-                r = drop_capability(CAP_SYS_ADMIN);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to drop CAP_SYS_ADMIN, ignoring: %m.");
+        /* Loading the sysctl monitor requires CAP_SYS_ADMIN and CAP_BPF. Drop the capabilities here,
+         * regardless if the load succeeds or not. */
+        r = drop_capability(CAP_SYS_ADMIN);
+        if (r < 0)
+                log_warning_errno(r, "Failed to drop CAP_SYS_ADMIN, ignoring: %m.");
 
+        /* CLAT, if enabled by a .network file, loads its BPF programs later, once a PREF64 prefix is known.
+         * That needs CAP_BPF, plus CAP_PERFMON, as without it the verifier rejects the pointer arithmetic
+         * of the programs for unprivileged callers. CAP_SYS_ADMIN is not needed. Without them CLAT would
+         * always fall back to the slower TUN translation. */
+        if (ENABLE_CLAT_BPF && manager_has_clat_network(m))
+                log_debug("CLAT= is enabled, keeping CAP_BPF and CAP_PERFMON for loading its BPF programs later.");
+        else {
                 r = drop_capability(CAP_BPF);
                 if (r < 0)
                         log_warning_errno(r, "Failed to drop CAP_BPF, ignoring: %m.");
-        } else
-                log_debug("CLAT= is enabled, keeping CAP_SYS_ADMIN and CAP_BPF for loading its BPF program later.");
+
+                r = drop_capability(CAP_PERFMON);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to drop CAP_PERFMON, ignoring: %m.");
+        }
 
         manager_set_sysctl(m);
 

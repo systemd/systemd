@@ -1220,10 +1220,14 @@ static int process_route_one(
                 }
         }
 
-        /* Stop CLAT if a native IPv4 default gateway appeared in the main table */
-        if (link && type == RTM_NEWROUTE && tmp->family == AF_INET && tmp->dst_prefixlen == 0 &&
-            tmp->table == RT_TABLE_MAIN)
-                (void) xlat_check_route(link);
+        /* Stop CLAT if a native IPv4 default gateway appeared in the main table, and start it again when
+         * the last one is gone, e.g. a lost DHCPv4 lease. */
+        if (link && tmp->family == AF_INET && tmp->dst_prefixlen == 0 && tmp->table == RT_TABLE_MAIN) {
+                if (type == RTM_NEWROUTE)
+                        (void) xlat_check_route(link);
+                else if (type == RTM_DELROUTE)
+                        (void) xlat_start(link);
+        }
 
         return 1;
 }

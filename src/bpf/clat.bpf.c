@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 /* eBPF TC program for CLAT (464XLAT) IPv4↔IPv6 translation.
  *
@@ -152,6 +152,39 @@ static __always_inline void v6addr_to_v4(
                 /* Not reachable: networkd only accepts the prefix lengths of RFC 6052. */
                 break;
         }
+}
+
+/* Is the configured prefix the Well-Known Prefix 64:ff9b::/96? */
+static __always_inline bool pref64_is_wkp(void) {
+        const __u8 *p = cfg()->pref64;
+
+        if (cfg()->pref64_len != 96)
+                return false;
+        if (p[0] != 0x00 || p[1] != 0x64 || p[2] != 0xff || p[3] != 0x9b)
+                return false;
+        for (int i = 4; i < 12; i++)
+                if (p[i] != 0)
+                        return false;
+        return true;
+}
+
+/* RFC 6052 section 3.1: a translator using the Well-Known Prefix must not translate non-global IPv4
+ * addresses: private (RFC 1918), shared (100.64/10), loopback, link-local, this-network, the IETF protocol
+ * assignments block (192.0.0.0/24), multicast and reserved. */
+static __always_inline bool ipv4_is_global(const __u8 *a) {
+        if (a[0] == 0 || a[0] == 10 || a[0] == 127 || a[0] >= 224)
+                return false;
+        if (a[0] == 100 && (a[1] & 0xc0) == 64)
+                return false;
+        if (a[0] == 169 && a[1] == 254)
+                return false;
+        if (a[0] == 172 && (a[1] & 0xf0) == 16)
+                return false;
+        if (a[0] == 192 && a[1] == 168)
+                return false;
+        if (a[0] == 192 && a[1] == 0 && a[2] == 0)
+                return false;
+        return true;
 }
 
 /* Check if IPv6 address src (16 bytes at given skb offset) matches PREF64 prefix */
@@ -313,19 +346,23 @@ int clat_egress(struct __sk_buff *skb) {
         if (__builtin_memcmp(&ip4->saddr, cfg()->local_v4, 4) != 0)
                 return TC_ACT_OK;
 
+        /* From here on the packet is from our CLAT address. If it cannot be translated (IP options,
+         * fragments, protocols other than TCP, UDP and ICMP Echo, ICMP errors) drop it: passing it on would
+         * send IPv4 to the placeholder neighbour of the gateway, which switches flood to every port. */
+
         /* Only handle standard 20-byte IPv4 headers (no options) */
         if (ip4->ihl != 5)
-                return TC_ACT_OK;
+                return TC_ACT_SHOT;
 
         /* Reject fragmented packets */
         if (bpf_ntohs(ip4->frag_off) & (IP_MF | IP_OFFMASK))
-                return TC_ACT_OK;
+                return TC_ACT_SHOT;
 
         protocol = ip4->protocol;
         if (protocol != IPPROTO_TCP &&
             protocol != IPPROTO_UDP &&
             protocol != IPPROTO_ICMP)
-                return TC_ACT_OK;
+                return TC_ACT_SHOT;
 
         /* IPv6 does not allow a zero UDP checksum (RFC 8200 section 8.1), while IPv4 does ("not
          * computed"). In that case there is nothing to update incrementally: sum up the datagram now,
@@ -338,14 +375,14 @@ int clat_egress(struct __sk_buff *skb) {
                 __be16 udp_csum;
 
                 if (bpf_skb_load_bytes(skb, ETH_H_LEN + IP_H_LEN + 6, &udp_csum, 2) < 0)
-                        return TC_ACT_OK;
+                        return TC_ACT_SHOT;
 
                 if (udp_csum == 0) {
                         udp_zero_csum = true;
                         udp_sum = payload_csum(skb, ETH_H_LEN + IP_H_LEN,
                                                bpf_ntohs(ip4->tot_len) - IP_H_LEN);
                         if (udp_sum < 0)
-                                return TC_ACT_OK;
+                                return TC_ACT_SHOT;
                 }
         }
 
@@ -366,10 +403,10 @@ int clat_egress(struct __sk_buff *skb) {
                 /* Read original type+code as 16-bit value for checksum delta */
                 __be16 old_tc;
                 if (bpf_skb_load_bytes(skb, l4_off, &old_tc, 2) < 0)
-                        return TC_ACT_OK;
+                        return TC_ACT_SHOT;
 
                 if (translate_icmp_4to6(skb, l4_off) < 0)
-                        return TC_ACT_OK;
+                        return TC_ACT_SHOT;
 
                 /* Read new type+code after translation. The type was rewritten already, so do not
                  * let a half-translated packet pass on failure. */
@@ -412,9 +449,9 @@ int clat_egress(struct __sk_buff *skb) {
         ip6h.nxt = (protocol == IPPROTO_ICMP) ? IPPROTO_ICMPV6 : protocol;
         ip6h.hlim = ttl;
 
-        if (bpf_skb_store_bytes(skb, ETH_H_LEN, &ip6h, sizeof(ip6h), 0) < 0 ||
-            bpf_skb_store_bytes(skb, ETH_H_LEN + 8, src6, 16, 0) < 0 ||
-            bpf_skb_store_bytes(skb, ETH_H_LEN + 24, dst6, 16, 0) < 0)
+        if (bpf_skb_store_bytes(skb, ETH_H_LEN, &ip6h, sizeof(ip6h), BPF_F_RECOMPUTE_CSUM) < 0 ||
+            bpf_skb_store_bytes(skb, ETH_H_LEN + 8, src6, 16, BPF_F_RECOMPUTE_CSUM) < 0 ||
+            bpf_skb_store_bytes(skb, ETH_H_LEN + 24, dst6, 16, BPF_F_RECOMPUTE_CSUM) < 0)
                 return TC_ACT_SHOT;
 
         /* Fix L4 checksums */
@@ -516,6 +553,18 @@ int clat_ingress(struct __sk_buff *skb) {
 
         if (!ensure_header(&eth, skb, &data, &data_end, 0))
                 return TC_ACT_OK;
+        if (eth->h_proto == bpf_htons(ETH_P_IP)) {
+                struct iphdr *ip4n;
+
+                /* 192.0.0.1 sits on the physical interface, so any on-link host could send native IPv4
+                 * to it from any source, skipping the PREF64 checks below. Only translated packets are
+                 * legitimate, and those never pass through here as IPv4. */
+                if (ensure_header(&ip4n, skb, &data, &data_end, ETH_H_LEN) &&
+                    __builtin_memcmp(&ip4n->daddr, cfg()->local_v4, 4) == 0)
+                        return TC_ACT_SHOT;
+
+                return TC_ACT_OK;
+        }
         if (eth->h_proto != bpf_htons(ETH_P_IPV6))
                 return TC_ACT_OK;
         if (!ensure_header(&ip6, skb, &data, &data_end, ETH_H_LEN))
@@ -538,6 +587,17 @@ int clat_ingress(struct __sk_buff *skb) {
         payload_len = ip6->payload_len;
         hop_limit = ip6->hop_limit;
 
+        /* A zero UDP checksum is not valid in IPv6. After the translation it would be an IPv4 datagram
+         * without checksum, accepted unverified, so drop it. */
+        if (nexthdr == IPPROTO_UDP) {
+                __be16 udp_csum;
+
+                if (bpf_skb_load_bytes(skb, ETH_H_LEN + IP6_H_LEN + 6, &udp_csum, 2) < 0)
+                        return TC_ACT_OK;
+                if (udp_csum == 0)
+                        return TC_ACT_SHOT;
+        }
+
         /* Extract traffic class using bpf_skb_load_bytes for safe access */
         if (bpf_skb_load_bytes(skb, ETH_H_LEN, &flow, 4) < 0)
                 return TC_ACT_OK;
@@ -548,6 +608,10 @@ int clat_ingress(struct __sk_buff *skb) {
                 return TC_ACT_OK;
         v6addr_to_v4(src6_bytes, cfg()->pref64_len, src4);
         __builtin_memcpy(dst4, cfg()->local_v4, 4);
+
+        /* RFC 6052 section 3.1: spoofed sources would show up as private IPv4 hosts */
+        if (pref64_is_wkp() && !ipv4_is_global(src4))
+                return TC_ACT_SHOT;
 
         l4_off = ETH_H_LEN + IP6_H_LEN;
 
@@ -611,7 +675,7 @@ int clat_ingress(struct __sk_buff *skb) {
         sum = (sum & 0xFFFF) + (sum >> 16);
         ip4h.check = (__be16)~sum;
 
-        if (bpf_skb_store_bytes(skb, ETH_H_LEN, &ip4h, sizeof(ip4h), 0) < 0)
+        if (bpf_skb_store_bytes(skb, ETH_H_LEN, &ip4h, sizeof(ip4h), BPF_F_RECOMPUTE_CSUM) < 0)
                 return TC_ACT_SHOT;
 
         /* Fix L4 checksums */

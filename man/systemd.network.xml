@@ -1028,8 +1028,8 @@ DuplicateAddressDetection=none</programlisting></para>
           is running, CLAT will be stopped automatically. Supported protocols are TCP, UDP (with
           checksum recalculation), and ICMP Echo requests and replies. ICMP error messages, such as
           "fragmentation needed", carry an embedded packet that would have to be translated as
-          well, which is not supported, so they are not translated and path MTU discovery through
-          the translator does not work. Other IP protocols (e.g. GRE, SCTP, ESP) are not translated
+          well, which is not supported, so they are dropped and path MTU discovery through the
+          translator does not work. Other IP protocols (e.g. GRE, SCTP, ESP) are not translated
           and will be silently dropped. Defaults to false.</para>
 
           <para>With the in-kernel (eBPF) translation, <command>systemd-networkd</command> assigns
@@ -1041,8 +1041,19 @@ DuplicateAddressDetection=none</programlisting></para>
           Router Advertisements. With the userspace (TUN) translation, the address and the route are
           configured on a separate <literal>cl-</literal> device instead.</para>
 
-          <para>Loading the eBPF program requires <constant>CAP_BPF</constant> and
-          <constant>CAP_SYS_ADMIN</constant>. <command>systemd-networkd</command> drops these
+          <para>The translated traffic uses a dedicated IPv6 address in the /64 of the address of the host,
+          derived from the machine ID, the interface name and the prefix, as recommended by
+          <ulink url="https://tools.ietf.org/html/rfc6877">RFC 6877</ulink> section 6.3. It is added to the
+          interface as a deprecated address, so that applications of the host do not select it as a source
+          address. With the userspace (TUN) translation, policy routing rules additionally keep the kernel
+          from answering the return traffic that is addressed to it with resets or ICMP errors. Native IPv6
+          traffic of the host, including connections to NAT64 addresses synthesized by DNS64, is therefore
+          not affected. The userspace translation needs such an address; if the address of the host is not in
+          a /64, only the in-kernel translation can be used, which then uses the address of the host
+          itself.</para>
+
+          <para>Loading the eBPF programs requires <constant>CAP_BPF</constant> and
+          <constant>CAP_PERFMON</constant>. <command>systemd-networkd</command> drops these
           capabilities at startup unless a loaded <filename>.network</filename> file sets
           <varname>CLAT=</varname>, so after enabling this setting for the first time,
           <command>systemd-networkd</command> needs to be restarted instead of just reloaded. Until then,

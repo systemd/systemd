@@ -190,7 +190,10 @@ typedef struct Link {
         /* CLAT (464XLAT) — common state */
         struct in6_addr clat_pref64_prefix;
         uint8_t clat_pref64_prefix_len;
-        struct in6_addr clat_ipv6_src;
+        struct in6_addr clat_ipv6_src;   /* the host address the CLAT address was derived from */
+        struct in6_addr clat_ipv6_addr;  /* the dedicated address used for the translated traffic */
+        bool clat_dedicated;             /* clat_ipv6_addr is a dedicated address that we added to the interface */
+        bool clat_rules;                 /* the policy routing rules of the TUN backend are installed */
         bool clat_running;
 
         /* CLAT BPF path */
