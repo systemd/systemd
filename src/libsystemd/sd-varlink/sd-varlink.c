@@ -187,6 +187,29 @@ static int mark_varlink_socket(int fd, const char *path, const char *role) {
         return 0;
 }
 
+static int unmark_varlink_socket(int fd) {
+        int r;
+
+        assert(fd >= 0);
+
+        /* Removes the 'user.varlink' xattr again from a connection socket, i.e. when the connection is
+         * upgraded to some other protocol, and hence isn't a Varlink socket anymore. */
+
+        r = socket_xattr_supported();
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EOPNOTSUPP;
+
+        r = xremovexattr(fd, /* path= */ NULL, AT_EMPTY_PATH, "user.varlink");
+        if (r == -ENODATA) /* Not marked in the first place? */
+                return 0;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to remove 'user.varlink' xattr: %m");
+
+        return 1;
+}
+
 _public_ int sd_varlink_connect_address(sd_varlink **ret, const char *address) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *v = NULL;
         int r;
@@ -1488,6 +1511,15 @@ static int varlink_handle_upgrade_fds(sd_varlink *v, int *ret_input_fd, int *ret
 
         _cleanup_close_ int input_fd = TAKE_FD(v->stream.input_fd),
                             output_fd = TAKE_FD(v->stream.output_fd);
+
+        /* We get here only once the last Varlink byte has been written (the reply to the upgrade request
+         * on the server side has been flushed, the upgrade request on the client side has been answered)
+         * and read (the upgrade request on the server side, the reply on the client side), and before any
+         * byte of the upgraded protocol is read or written by us. Hence this is the right moment to drop
+         * the 'user.varlink' marker from the socket(s), as they are not speaking Varlink anymore. */
+        (void) unmark_varlink_socket(input_fd);
+        if (output_fd != input_fd)
+                (void) unmark_varlink_socket(output_fd);
 
         /* Pass the connection fds to the caller, it owns them now. Reset to blocking mode
          * since callers of the upgraded protocol will generally expect normal blocking
