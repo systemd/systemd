@@ -5496,9 +5496,11 @@ int exec_invoke(
             context->std_output == EXEC_OUTPUT_SOCKET ||
             context->std_error == EXEC_OUTPUT_SOCKET) {
 
-                if (params->n_socket_fds != 1)
+                if (params->n_socket_fds != 1) {
+                        *exit_status = EXIT_FDS;
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected exactly one socket, got %zu.",
                                                params->n_socket_fds);
+                }
 
                 socket_fd = TAKE_FD(params->fds[0]);
                 free(params->fd_names[0]);
@@ -5801,8 +5803,10 @@ int exec_invoke(
                 if (r > 0) {
                         /* If there is a subcgroup required, let's make sure to create it now. */
                         r = cg_create(subcgroup);
-                        if (r < 0)
+                        if (r < 0) {
+                                *exit_status = EXIT_CGROUP;
                                 return log_error_errno(r, "Failed to create subcgroup '%s': %m", subcgroup);
+                        }
                 }
 
                 /* If we need a cgroup namespace, we cannot yet move the service to its configured subgroup,
@@ -6157,12 +6161,16 @@ int exec_invoke(
                  * of time. */
 
                 r = mountfsd_connect(&mountfsd_link);
-                if (r < 0)
+                if (r < 0) {
+                        *exit_status = EXIT_NAMESPACE;
                         return log_error_errno(r, "Failed to connect to mountfsd: %m");
+                }
 
                 r = nsresource_connect(&nsresource_link);
-                if (r < 0)
+                if (r < 0) {
+                        *exit_status = EXIT_USER;
                         return log_error_errno(r, "Failed to connect to nsresourced: %m");
+                }
         }
 
         needs_mount_namespace = exec_needs_mount_namespace(context, params);
