@@ -537,6 +537,59 @@ LOCAL"
     fi
 }
 
+testcase_varlink() {
+    local socket='/run/systemd/io.systemd.Timedate'
+    local desc orig_tz orig_ntp
+
+    : 'Describe'
+    desc="$(varlinkctl --json=short call "$socket" io.systemd.Timedate.Describe '{}')"
+    assert_in '"Timezone"' "$desc"
+    assert_in '"LocalRTC"' "$desc"
+    assert_in '"NTP"' "$desc"
+
+    : 'ListTimezones'
+    varlinkctl --json=short call "$socket" io.systemd.Timedate.ListTimezones '{}' | grep >/dev/null '"UTC"'
+
+    : 'SetTimezone round-trip'
+    orig_tz="$(readlink /etc/localtime | sed 's#^.*zoneinfo/##')" || orig_tz=
+    varlinkctl call "$socket" io.systemd.Timedate.SetTimezone '{"timezone":"Europe/Kyiv"}'
+    assert_eq "$(readlink /etc/localtime | sed 's#^.*zoneinfo/##')" "Europe/Kyiv"
+    # Invalid time zones are rejected.
+    (! varlinkctl call "$socket" io.systemd.Timedate.SetTimezone '{"timezone":"Foo/Bar"}')
+    if [[ -n "$orig_tz" ]]; then
+        varlinkctl call "$socket" io.systemd.Timedate.SetTimezone "{\"timezone\":\"$orig_tz\"}"
+    fi
+
+    : 'SetLocalRTC round-trip'
+    varlinkctl call "$socket" io.systemd.Timedate.SetLocalRTC '{"localRTC":true}'
+    assert_in "RTC in local TZ: yes" "$(timedatectl --no-pager)"
+    # An explicit null for the nullable fixSystem field is accepted.
+    varlinkctl call "$socket" io.systemd.Timedate.SetLocalRTC '{"localRTC":false,"fixSystem":null}'
+    assert_in "RTC in local TZ: no" "$(timedatectl --no-pager)"
+
+    : 'SetTime validation (without changing the clock)'
+    if [[ "$(timedatectl show -p NTP --value)" == "yes" ]]; then
+        # While NTP is active any SetTime request is refused.
+        (! varlinkctl call "$socket" io.systemd.Timedate.SetTime '{"usec":0,"relative":true}')
+    else
+        # A relative offset of zero is a no-op and succeeds.
+        varlinkctl call "$socket" io.systemd.Timedate.SetTime '{"usec":0,"relative":true}'
+    fi
+    # A non-positive absolute time is always rejected (AutomaticTimeSyncEnabled while NTP is
+    # active, otherwise an invalid parameter).
+    (! varlinkctl call "$socket" io.systemd.Timedate.SetTime '{"usec":0}')
+
+    : 'SetNTP'
+    if ! systemd-detect-virt -qc && [[ "$(timedatectl show -p CanNTP --value)" == "yes" ]]; then
+        orig_ntp="$(timedatectl show -p NTP --value)"
+        varlinkctl call "$socket" io.systemd.Timedate.SetNTP '{"useNTP":false}'
+        assert_eq "$(timedatectl show -p NTP --value)" "no"
+        if [[ "$orig_ntp" == "yes" ]]; then
+            varlinkctl call "$socket" io.systemd.Timedate.SetNTP '{"useNTP":true}'
+        fi
+    fi
+}
+
 run_testcases
 
 touch /testok
