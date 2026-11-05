@@ -401,7 +401,8 @@ static int scope_enter_running(Scope *s) {
                 log_unit_warning_errno(u, r, "Failed to add PIDs to scope's control group: %m");
                 goto fail;
         }
-        if (r == 0) {
+        /* Writing a zombie PID to cgroup.procs may succeed without moving it. */
+        if (r == 0 || unit_cgroup_is_empty(u) > 0) {
                 r = log_unit_warning_errno(u, SYNTHETIC_ERRNO(ECHILD), "No PIDs left to attach to the scope's control group, refusing.");
                 goto fail;
         }
