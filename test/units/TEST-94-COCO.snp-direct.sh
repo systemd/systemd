@@ -20,6 +20,13 @@ fi
 
 IMAGE_DIR="$(vmspawn_images_dir)"
 
+# vmspawn never selects firmware for confidential VMs on its own, whatever is installed.
+assert_fail systemd-vmspawn --coco=sev-snp --firmware=describe
+
+# Use the build from OvmfPkg/AmdSev, which verifies the kernel hashes QEMU installs for direct boot.
+# Generic OVMF builds declaring amd-sev-snp don't.
+FIRMWARE="/usr/share/qemu/firmware/61-edk2-ovmf-x64-amdsev.json"
+
 MACHINE="coco-snp-direct-$$"
 WORKDIR="$(mktemp -d)"
 mkdir -p "$WORKDIR/honest" "$WORKDIR/hostile"
@@ -42,6 +49,7 @@ trap at_exit EXIT
 vmspawn_boot_coco "$MACHINE-honest" "$COCO_TYPE" "$WORKDIR/honest" \
     'detect_virt creds_vmspawn creds_cmdline tsm_signer_varlink_snp report_pipeline' \
     --image="$IMAGE_DIR/image.raw" \
+    --firmware="$FIRMWARE" \
     --linux="$IMAGE_DIR/image.vmlinuz" \
     --initrd="$IMAGE_DIR/image.initrd" \
     --set-credential="$COCO_CRED_TRUSTED_ID:$COCO_CRED_TRUSTED_VALUE" \
@@ -66,6 +74,7 @@ SYSTEMD_VMSPAWN_QEMU_EXTRA="${QEMU_EXTRA[*]}" \
 vmspawn_boot_coco "$MACHINE-hostile" "$COCO_TYPE" "$WORKDIR/hostile" \
     'detect_virt creds_vmspawn creds_hostile_fwcfg creds_hostile_smbios creds_hostile_shadow' \
     --image="$IMAGE_DIR/image.raw" \
+    --firmware="$FIRMWARE" \
     --linux="$IMAGE_DIR/image.vmlinuz" \
     --initrd="$IMAGE_DIR/image.initrd" \
     --set-credential="$COCO_CRED_TRUSTED_ID:$COCO_CRED_TRUSTED_VALUE" \
