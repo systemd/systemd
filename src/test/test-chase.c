@@ -41,9 +41,9 @@ static void test_chase_split_prefix_filename_one(const char *path, const char *r
 }
 
 TEST(chase_split_prefix_filename) {
-        /* Relative and absolute paths must split into a directory path and filename. A path ending
-         * in ".." must retain its directory path and use "." as the filename. A temporary root prefix
-         * must remain in the returned directory path. */
+        /* Relative and absolute chase results must split into the directory path and filename used
+         * with CHASE_PARENT's fd. A result ending in ".." must retain that directory path and use "."
+         * as the filename. A temporary root prefix must remain in the returned directory path. */
         static const struct {
                 const char *path;
                 const char *dir;
@@ -101,6 +101,33 @@ TEST(chase_split_prefix_filename) {
         ASSERT_ERROR(chase_split_prefix_filename("file", root, &dir, &filename), EINVAL);
         ASSERT_PATH_EQ(dir, root);
         ASSERT_STREQ(filename, ".");
+}
+
+TEST(chase_and_unlink_root) {
+        /* A temporary root contains an empty directory with the root's basename. Removing the root
+         * must fail without removing that child. Relative ancestor lookup must reject removal too. */
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int root_fd = -EBADF, sub_fd = -EBADF;
+        struct stat st;
+
+        root_fd = ASSERT_OK(mkdtemp_open("/var/tmp/test-chase.XXXXXX", /* flags= */ 0, &t));
+        const char *name = last_path_component(t);
+        ASSERT_OK_ERRNO(mkdirat(root_fd, name, 0700));
+        ASSERT_OK_ERRNO(mkdirat(root_fd, "sub", 0700));
+        sub_fd = ASSERT_OK(xopenat(root_fd, "sub", O_PATH|O_DIRECTORY));
+
+        /* The path wrapper must recognize the configured root before extracting its filename. */
+        ASSERT_ERROR(chase_and_unlink(t, t, /* chase_flags= */ 0, AT_REMOVEDIR, /* ret_path= */ NULL), EINVAL);
+        ASSERT_ERROR(chase_and_unlink("/", t, CHASE_PREFIX_ROOT, AT_REMOVEDIR, /* ret_path= */ NULL), EINVAL);
+        ASSERT_OK_ERRNO(fstatat(root_fd, name, &st, AT_SYMLINK_NOFOLLOW));
+        ASSERT_TRUE(S_ISDIR(st.st_mode));
+
+        /* Root and ancestor results have no filename to remove relative to the returned fd. */
+        FOREACH_STRING(path, "/", ".", "")
+                ASSERT_ERROR(chase_and_unlinkat(root_fd, root_fd, path, /* chase_flags= */ 0, AT_REMOVEDIR, /* ret_path= */ NULL), EINVAL);
+        ASSERT_ERROR(chase_and_unlinkat(root_fd, sub_fd, "..", /* chase_flags= */ 0, AT_REMOVEDIR, /* ret_path= */ NULL), EINVAL);
+        ASSERT_OK_ERRNO(fstatat(root_fd, name, &st, AT_SYMLINK_NOFOLLOW));
+        ASSERT_TRUE(S_ISDIR(st.st_mode));
 }
 
 TEST(chase) {
@@ -1166,6 +1193,44 @@ TEST(trailing_dot_dot) {
         ASSERT_PATH_EQ(fdpath, expected2);
 }
 
+TEST(open_trailing_dot_dot) {
+        /* The walk starts at a leaf below a temporary root. Equivalent spellings of ".." must reopen
+         * the leaf's parent with each path-output mode. Filename extraction must return "." with or
+         * without CHASE_PARENT. Directory creation must fail for the result. */
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int root_fd = -EBADF, sub_fd = -EBADF, leaf_fd = -EBADF;
+
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/test-chase.XXXXXX", &t));
+        root_fd = ASSERT_OK(xopenat(AT_FDCWD, t, O_PATH|O_DIRECTORY));
+        ASSERT_OK_ERRNO(mkdirat(root_fd, "sub", 0700));
+        sub_fd = ASSERT_OK(xopenat(root_fd, "sub", O_PATH|O_DIRECTORY));
+        ASSERT_OK_ERRNO(mkdirat(sub_fd, "leaf", 0700));
+        leaf_fd = ASSERT_OK(xopenat(sub_fd, "leaf", O_PATH|O_DIRECTORY));
+
+        /* Filename extraction must also work when chaseat() opens the target directly. */
+        _cleanup_free_ char *direct_filename = NULL;
+        _cleanup_close_ int direct_fd = -EBADF;
+        ASSERT_OK_POSITIVE(chaseat(root_fd, leaf_fd, "..", CHASE_EXTRACT_FILENAME, &direct_filename, &direct_fd));
+        ASSERT_STREQ(direct_filename, ".");
+        ASSERT_OK_POSITIVE(fds_inode_and_mount_same(direct_fd, sub_fd));
+
+        ChaseFlags flags;
+        FOREACH_STRING(path, "..", "../leaf/..", ".././")
+                FOREACH_ARGUMENT(flags, 0, CHASE_EXTRACT_FILENAME, CHASE_TRAIL_SLASH) {
+                        _cleanup_close_ int fd = -EBADF;
+
+                        fd = ASSERT_OK(chase_and_openat(root_fd, leaf_fd, path, flags, O_PATH|O_DIRECTORY, /* ret_path= */ NULL));
+                        ASSERT_OK_POSITIVE(fds_inode_and_mount_same(fd, sub_fd));
+                        ASSERT_ERROR(chase_and_openat(root_fd, leaf_fd, path, flags, O_CREAT|O_DIRECTORY, /* ret_path= */ NULL), EISDIR);
+                }
+
+        /* Parent lookup must return a filename that opens the same resolved directory in its fd. */
+        _cleanup_free_ char *filename = NULL;
+        _cleanup_close_ int fd = ASSERT_OK(chase_and_open_parent_at(root_fd, leaf_fd, "..", /* chase_flags= */ 0, &filename));
+        ASSERT_STREQ(filename, ".");
+        ASSERT_OK_POSITIVE(fds_inode_and_mount_same(fd, sub_fd));
+}
+
 TEST(trailing_dot_dot_below_root) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int root_fd = -EBADF, a_fd = -EBADF;
@@ -1238,6 +1303,8 @@ TEST(use_chase_as_mkdir_p) {
 }
 
 TEST(chase_mode) {
+        /* A temporary tree exercises CHASE_MAX_MODE on files, directories, symlinks, and parent traversal.
+         * Unsafe mode bits must be rejected on every inode that the walk checks. */
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL, *f = NULL, *l = NULL, *al = NULL;
         _cleanup_close_ int tfd = -EBADF, bfd = -EBADF, cfd = -EBADF, fd = -EBADF;
@@ -1330,16 +1397,15 @@ TEST(chase_mode) {
                 ASSERT_OK(chaseat(tfd, tfd, "n/m", CHASE_MKDIR_0755|CHASE_MAX_MODE, /* ret_path= */ NULL, /* ret_fd= */ NULL));
         ASSERT_OK(chaseat(tfd, tfd, "n/m", CHASE_MAX_MODE, /* ret_path= */ NULL, /* ret_fd= */ NULL));
 
-        /* Starting below the root: a trailing ".." with CHASE_PARENT checks the grandparent, which the walk
-         * never entered on the way down. For "c/.." from "b", the result is ".", which refers to "b".
-         * chaseat() doesn't open "a" in that case. */
+        /* A normalized result ending in ".." returns the result itself with CHASE_PARENT. The directory
+         * above the result is not part of the walk. */
         WITH_UMASK(0022)
                 ASSERT_OK(mkdir_p(c, 0755));
         ASSERT_OK(bfd = xopenat(AT_FDCWD, b, O_PATH|O_DIRECTORY));
         ASSERT_OK(cfd = xopenat(AT_FDCWD, c, O_PATH|O_DIRECTORY));
         ASSERT_OK(chaseat(tfd, cfd, "..", CHASE_PARENT|CHASE_MAX_MODE, /* ret_path= */ NULL, /* ret_fd= */ NULL));
         ASSERT_OK_ERRNO(chmod(a, 0777));
-        ASSERT_ERROR(chaseat(tfd, cfd, "..", CHASE_PARENT|CHASE_MAX_MODE, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOLINK);
+        ASSERT_OK(chaseat(tfd, cfd, "..", CHASE_PARENT|CHASE_MAX_MODE, /* ret_path= */ NULL, /* ret_fd= */ NULL));
         ASSERT_ERROR(chaseat(tfd, bfd, "..", CHASE_MAX_MODE, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOLINK);
         ASSERT_OK(chaseat(tfd, bfd, "c/..", CHASE_PARENT|CHASE_MAX_MODE, /* ret_path= */ NULL, /* ret_fd= */ NULL));
         ASSERT_OK_ERRNO(chmod(a, 0755));

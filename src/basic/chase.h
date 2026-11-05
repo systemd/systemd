@@ -19,12 +19,14 @@ typedef enum ChaseFlags {
         CHASE_PARENT             = 1 << 10, /* Chase the parent directory of the given path. Note that the
                                              * full path is still stored in ret_path and only the returned
                                              * file descriptor will point to the parent directory. Note that
-                                             * the result path is the root or '.', then the file descriptor
-                                             * also points to the result path even if this flag is set.
+                                             * the result path is the root, '.', or ends with '..', then the
+                                             * file descriptor points to the result itself. With
+                                             * CHASE_EXTRACT_FILENAME, the filename is '.' in that case.
                                              * When this specified, chase() will succeed with 1 even if the
                                              * file points to the last path component does not exist. */
         CHASE_MKDIR_0755         = 1 << 11, /* Create any missing directories in the given path. */
-        CHASE_EXTRACT_FILENAME   = 1 << 12, /* Only return the last component of the resolved path */
+        CHASE_EXTRACT_FILENAME   = 1 << 12, /* The returned path is the last component of the resolved path.
+                                             * Results without a filename use ".". */
         CHASE_MUST_BE_DIRECTORY  = 1 << 13, /* Fail if returned inode fd is not a dir */
         CHASE_MUST_BE_REGULAR    = 1 << 14, /* Fail if returned inode fd is not a regular file */
         CHASE_MUST_BE_SOCKET     = 1 << 15, /* Fail if returned inode fd is not a socket */
