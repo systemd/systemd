@@ -20,6 +20,7 @@ int read_etc_hostname_stream(FILE *f, bool substitute_wildcards, char **ret);
 int read_etc_hostname(const char *path, bool substitute_wildcards, char **ret);
 
 void hostname_update_source_hint(const char *hostname, HostnameSource source);
+bool hostname_was_set_to_default(const char *hostname);
 int hostname_setup(bool really);
 
 int hostname_substitute_wildcards(char *name);
