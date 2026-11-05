@@ -11486,6 +11486,165 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('example.com', output)
 
+    def check_clat(self, force_tun=False):
+        copy_network_unit(
+            '25-veth.netdev',
+            '25-ipv6ra-prefix-client-clat.network',
+            '25-ipv6ra-prefix.network',
+            '12-dummy.netdev',
+            '25-ipv6ra-uplink.network',
+        )
+
+        if force_tun:
+            # Without CAP_BPF and CAP_PERFMON networkd cannot load the BPF programs, so CLAT falls back to
+            # the TUN device.
+            mkdir_p('/run/systemd/system/systemd-networkd.service.d')
+            with open(
+                '/run/systemd/system/systemd-networkd.service.d/50-clat-no-bpf.conf',
+                mode='w',
+                encoding='utf-8',
+            ) as f:
+                f.write(
+                    '[Service]\n'
+                    'AmbientCapabilities=\n'
+                    'CapabilityBoundingSet=\n'
+                    'AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW\n'
+                    'CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW\n'
+                )
+            check_output('systemctl daemon-reload')
+
+        start_networkd()
+        self.wait_online('veth99:routable', 'veth-peer:routable', 'dummy98:routable')
+
+        # Verify PREF64 was discovered
+        output = networkctl_json('veth-peer')
+        check_json(output)
+        pref64 = json.loads(output)['NDisc']['PREF64'][0]
+        prefix = socket.inet_ntop(socket.AF_INET6, bytearray(pref64['Prefix']))
+        self.assertEqual(prefix, '64:ff9b::')
+        self.assertEqual(pref64['PrefixLength'], 96)
+
+        # Verify CLAT started by checking the log. "starting with" is logged before the BPF programs are loaded
+        # and attached, so wait for "started using", which is logged by both backends once it is running.
+        self.check_networkd_log('veth-peer: CLAT: starting with PREF64 64:ff9b::/96')
+        self.check_networkd_log('veth-peer: CLAT: started using')
+
+        # Determine which CLAT backend is active (BPF TC or TUN fallback)
+        log = read_networkd_log()
+        use_bpf = 'started using BPF TC translation' in log
+        if force_tun:
+            self.assertFalse(use_bpf, 'CLAT should use the TUN device without CAP_BPF')
+
+        if use_bpf:
+            print('### CLAT using BPF TC path')
+
+            # BPF path: address and route are on the physical interface
+            output = check_output('ip -4 address show dev veth-peer')
+            print(output)
+            self.assertIn('192.0.0.1/32', output)
+
+            output = check_output('ip -4 route show dev veth-peer')
+            print(output)
+            self.assertIn('default', output)
+            self.assertIn('metric 2048', output)
+
+            # The default route goes through the on-link AFTR address, with a permanent neighbour entry
+            # for it, so that no ARP is needed for IPv4 destinations
+            self.assertIn('via 192.0.0.2', output)
+            self.assertIn('onlink', output)
+
+            output = check_output('ip -4 neighbor show dev veth-peer')
+            print(output)
+            self.assertIn('192.0.0.2', output)
+            self.assertIn('PERMANENT', output)
+
+            # No TUN device should exist
+            self.assertFalse(link_exists('cl-veth-peer'), 'TUN device should not exist in BPF mode')
+        else:
+            print('### CLAT using TUN fallback path')
+
+            # TUN path: verify TUN device was created
+            self.wait_links('cl-veth-peer')
+
+            output = check_output('ip link show cl-veth-peer')
+            print(output)
+            self.assertIn('UP', output)
+
+            # Verify CLAT IPv4 address (192.0.0.1/32 per RFC 7335)
+            output = check_output('ip -4 address show dev cl-veth-peer')
+            print(output)
+            self.assertIn('192.0.0.1/32', output)
+
+            # Verify default IPv4 route through CLAT TUN
+            output = check_output('ip -4 route show dev cl-veth-peer')
+            print(output)
+            self.assertIn('default', output)
+            self.assertIn('metric 2048', output)
+
+        # Send an IPv4 packet through CLAT and check what the NAT64 router side receives
+        self.check_clat_translation(use_bpf)
+
+        # Verify CLAT is cleaned up after stopping networkd
+        stop_networkd()
+        self.assertFalse(link_exists('cl-veth-peer'), 'CLAT TUN device should be removed after stop')
+
+        if use_bpf:
+            # Verify BPF-path resources are cleaned up
+            output = check_output('ip -4 address show dev veth-peer')
+            self.assertNotIn('192.0.0.1', output, 'CLAT address should be removed after stop')
+            output = check_output('ip -4 route show dev veth-peer')
+            self.assertNotIn('default', output, 'CLAT route should be removed after stop')
+            output = check_output('ip -4 neighbor show dev veth-peer')
+            self.assertNotIn('192.0.0.2', output, 'CLAT gateway neighbour should be removed after stop')
+
+    def check_clat_translation(self, use_bpf):
+        # veth99 is the NAT64 router side. A ping to 198.51.100.1 has to arrive there as an ICMPv6 echo
+        # request to 64:ff9b::c633:6401, i.e. with the IPv4 destination embedded in the prefix.
+        if use_bpf:
+            check_output('ip route add 198.51.100.0/24 via 192.0.0.2 dev veth-peer onlink src 192.0.0.1')
+        else:
+            check_output('ip route add 198.51.100.0/24 dev cl-veth-peer src 192.0.0.1')
+
+        expected = socket.inet_pton(socket.AF_INET6, '64:ff9b::c633:6401')
+        found = False
+
+        with socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(0x86DD)) as s:
+            s.bind(('veth99', 0))
+            s.settimeout(1)
+
+            ping = subprocess.Popen(
+                ['ping', '-c', '5', '-i', '0.5', '-W', '1', '198.51.100.1'],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            try:
+                deadline = time.monotonic() + 10
+                while not found and time.monotonic() < deadline:
+                    try:
+                        packet = s.recv(2048)
+                    except socket.timeout:
+                        continue
+
+                    # Ethernet header (14 bytes), then the IPv6 header: next header at offset 6, destination
+                    # at 24..40, followed by the ICMPv6 header, whose type 128 is an echo request.
+                    found = (
+                        len(packet) > 54
+                        and packet[20] == 58
+                        and packet[38:54] == expected
+                        and packet[54] == 128
+                    )
+            finally:
+                ping.kill()
+                ping.wait()
+
+        self.assertTrue(found, 'No ICMPv6 echo request to 64:ff9b::c633:6401 seen on veth99')
+
+    def test_clat(self):
+        self.check_clat()
+
+    def test_clat_tun(self):
+        self.check_clat(force_tun=True)
+
 
 class NetworkdMTUTests(unittest.TestCase, Utilities):
     def setUp(self):
