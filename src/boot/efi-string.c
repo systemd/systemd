@@ -118,6 +118,9 @@ DEFINE_STRCPY(char16_t, strcpy16);
                 return c ? NULL : (type *) s;      \
         }
 
+DEFINE_STRCHR(char, strchr8);
+DEFINE_STRCHR(char16_t, strchr16);
+
 #define DEFINE_STRRCHR(type, name)                 \
         type *name(const type *s, type c) {        \
                 if (!s)                            \
@@ -195,9 +198,6 @@ DEFINE_STRRCHR(char16_t, strrchr16);
 
 DEFINE_STRTOUL(char, strtoul8);
 DEFINE_STRTOUL(char16_t, strtoul16);
-
-DEFINE_STRCHR(char, strchr8);
-DEFINE_STRCHR(char16_t, strchr16);
 
 #define DEFINE_STRNDUP(type, name, len_func)              \
         type *name(const type *s, size_t n) {             \

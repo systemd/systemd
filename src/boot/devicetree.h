@@ -6,7 +6,7 @@
 struct devicetree_state {
         EFI_PHYSICAL_ADDRESS addr;
         size_t pages;
-        size_t size;  /* actual content size in bytes */
+        size_t size; /* Actual content size in bytes */
         void *orig;
 };
 

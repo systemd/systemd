@@ -23,7 +23,8 @@ struct fdt_header {
 #define FDT_V1_SIZE sizeof(struct fdt_header)
 #endif
 
-#define DEVICETREE_OVERLAY_MAX 1 * 1024 * 1024
+/* DTBOs shouldnt be greater than 1MB */
+#define DEVICETREE_OVERLAY_MAX (1 * 1024 * 1024)
 
 static EFI_STATUS devicetree_allocate(struct devicetree_state *state, size_t size) {
         size_t pages = DIV_ROUND_UP(size, EFI_PAGE_SIZE);
@@ -118,6 +119,10 @@ EFI_STATUS devicetree_load(struct devicetree_state *state, EFI_FILE *root_dir, c
         err = handle->Read(handle, &len, PHYSICAL_ADDRESS_TO_POINTER(state->addr));
         if (err != EFI_SUCCESS)
                 return err;
+
+        /* short read */
+        if (len != info->FileSize)
+                return EFI_LOAD_ERROR;
 
         state->size = len;
         return EFI_SUCCESS;
