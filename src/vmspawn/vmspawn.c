@@ -2789,18 +2789,24 @@ static int discover_ovmf_config(OvmfConfig **ret, sd_json_variant **ret_firmware
 
         assert(ret);
 
+        /* The coco firmware features only declare that firmware can run in a confidential VM, not that
+         * it is a build whose measurements can be relied upon: generic OVMF builds declare them too,
+         * but don't verify the kernel hashes under SEV-SNP, and carry a TPM driver that may divert
+         * measurements away from the RTMRs under TDX. Since the descriptors can't tell these apart,
+         * leave the choice to the user rather than guessing. */
+        if (arg_confidential_computing != COCO_NO)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--coco=%s requires a firmware descriptor selected with --firmware=PATH, "
+                                       "as firmware descriptors don't declare whether a firmware build is suitable for attestation. "
+                                       "Use --coco=%s --firmware=list to list candidates.",
+                                       confidential_computing_to_string(arg_confidential_computing),
+                                       confidential_computing_to_string(arg_confidential_computing));
+
         r = ovmf_search_criteria(&flags);
         if (r < 0)
                 return r;
 
-        const char *coco_feature = coco_firmware_feature_to_string(arg_confidential_computing);
         r = find_ovmf_config(arg_firmware_features_include, arg_firmware_features_exclude, flags, ret, ret_firmware_json);
-        if (r == -ENOENT && coco_feature)
-                return log_error_errno(r, "No suitable firmware descriptor found for --coco=%s "
-                                       "(requires stateless firmware in raw format with the '%s' firmware feature). "
-                                       "Install a suitable firmware, select a firmware descriptor with --firmware=, or "
-                                       "opt in with --secure-boot=yes if the installed firmware enforces Secure Boot.",
-                                       confidential_computing_to_string(arg_confidential_computing), coco_feature);
         if (r < 0)
                 return log_error_errno(r, "Failed to find OVMF config: %m");
 
