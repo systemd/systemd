@@ -2764,7 +2764,7 @@ static int ovmf_search_criteria(FindOvmfConfigFlags *ret_flags) {
 
 static int list_firmware(void) {
         _cleanup_strv_free_ char **l = NULL;
-        FindOvmfConfigFlags flags;
+        FindOvmfConfigFlags flags = 0;
         int r;
 
         r = ovmf_search_criteria(&flags);
@@ -2784,24 +2784,30 @@ static int list_firmware(void) {
         return 0;
 }
 
+/* The coco firmware features only declare that firmware can run in a confidential VM, not that it is a
+ * build whose measurements can be relied upon: generic OVMF builds declare them too, but don't verify the
+ * kernel hashes under SEV-SNP, and carry a TPM driver that may divert measurements away from the RTMRs
+ * under TDX. Since the descriptors can't tell these apart, leave the choice to the user rather than
+ * guessing. */
+static int log_coco_requires_firmware(void) {
+        const char *coco = confidential_computing_to_string(arg_confidential_computing);
+
+        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                               "--coco=%s requires a firmware descriptor selected with --firmware=PATH, "
+                               "as firmware descriptors don't declare whether a firmware build is suitable for attestation. "
+                               "Use --coco=%s --firmware=list to list candidates.",
+                               coco, coco);
+}
+
 static int discover_ovmf_config(OvmfConfig **ret, sd_json_variant **ret_firmware_json) {
-        FindOvmfConfigFlags flags;
         int r;
 
         assert(ret);
 
-        r = ovmf_search_criteria(&flags);
-        if (r < 0)
-                return r;
+        if (arg_confidential_computing != COCO_NO)
+                return log_coco_requires_firmware();
 
-        const char *coco_feature = coco_firmware_feature_to_string(arg_confidential_computing);
-        r = find_ovmf_config(arg_firmware_features_include, arg_firmware_features_exclude, flags, ret, ret_firmware_json);
-        if (r == -ENOENT && coco_feature)
-                return log_error_errno(r, "No suitable firmware descriptor found for --coco=%s "
-                                       "(requires stateless firmware in raw format with the '%s' firmware feature). "
-                                       "Install a suitable firmware, select a firmware descriptor with --firmware=, or "
-                                       "opt in with --secure-boot=yes if the installed firmware enforces Secure Boot.",
-                                       confidential_computing_to_string(arg_confidential_computing), coco_feature);
+        r = find_ovmf_config(arg_firmware_features_include, arg_firmware_features_exclude, /* flags= */ 0, ret, ret_firmware_json);
         if (r < 0)
                 return log_error_errno(r, "Failed to find OVMF config: %m");
 
@@ -2912,6 +2918,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                                        arg_firmware ?: ovmf_config->path);
                 }
 
+                bool sb = ovmf_config_has_feature(ovmf_config, "secure-boot");
+                if (set_contains(arg_firmware_features_include, "secure-boot") && !sb)
+                        return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                               "Secure Boot requested, but selected OVMF firmware doesn't support it.");
+
                 if (arg_confidential_computing != COCO_NO) {
                         const char *coco_feature = coco_firmware_feature_to_string(arg_confidential_computing);
 
@@ -2933,12 +2944,15 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                                        "but --coco=%s requires a raw image.",
                                                        ovmf_config->path, ovmf_config_format(ovmf_config),
                                                        confidential_computing_to_string(arg_confidential_computing));
+                        /* Secure Boot keys can't be enrolled at runtime, see ovmf_search_criteria(). */
+                        if (set_contains(arg_firmware_features_include, "secure-boot") &&
+                            !ovmf_config_has_feature(ovmf_config, "enrolled-keys"))
+                                return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                                       "Secure Boot requested, but firmware descriptor '%s' does not declare the 'enrolled-keys' feature, "
+                                                       "which --coco=%s requires as keys cannot be enrolled at runtime in stateless firmware.",
+                                                       arg_firmware ?: ovmf_config->path,
+                                                       confidential_computing_to_string(arg_confidential_computing));
                 }
-
-                bool sb = ovmf_config_has_feature(ovmf_config, "secure-boot");
-                if (set_contains(arg_firmware_features_include, "secure-boot") && !sb)
-                        return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE),
-                                               "Secure Boot requested, but selected OVMF firmware doesn't support it.");
 
                 log_debug("Using OVMF firmware %s Secure Boot support.", sb ? "with" : "without");
         }
@@ -4556,6 +4570,9 @@ static int verify_arguments(void) {
                                        "--grow-image is not supported for qcow2 images, use 'qemu-img resize FILE SIZE'.");
 
         if (arg_confidential_computing != COCO_NO) {
+                if (arg_firmware_type == FIRMWARE_UEFI && !arg_firmware)
+                        return log_coco_requires_firmware();
+
                 /* Confidential computing firmware is stateless, there is no NVRAM to instantiate from a
                  * template or to persist. */
                 if (arg_efi_nvram_template)
