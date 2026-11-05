@@ -12185,6 +12185,101 @@ static int tpm2_make_shard_array(
         return 0;
 }
 
+/* A TPM2+FIDO2 enrollment seals a random secret S in the TPM2, like any other TPM2 enrollment, but doesn't
+ * use it as the LUKS2 passphrase. Instead, the salt for the FIDO2 hmac-secret is derived from S, and the
+ * passphrase is the hmac-secret the token returns for it. The salt is only known on a system whose PCR
+ * state satisfies the policy, so tampering with the boot chain cannot reveal the token's answer for it.
+ *
+ * The public key of the FIDO2 credential is stored in the clear in the LUKS2 token, so that the token can
+ * be verified before it gets to see the salt. A tag, an HMAC keyed with S, binds the public key to the
+ * enrollment: without knowing S, nobody can replace it with a key of their own.
+ *
+ * The public key is not simply sealed in the TPM2 next to S: a sealed object doesn't prove who created it,
+ * as anybody can seal data under the SRK for a known policy, and the policy is stored in the LUKS2 token.
+ * With a sharded secret (signed PCR policy plus pcrlock), a shard holding the key could then be replaced
+ * while the shard holding the salt stays intact. The salt and the tag instead depend on all of S, so
+ * replacing any shard changes both. */
+
+int tpm2_fido2_derive_salt(const struct iovec *secret, struct iovec *ret) {
+        static const char label[] = "io.systemd.cryptsetup.tpm2-fido2.salt";
+        _cleanup_(iovec_done_erase) struct iovec salt = {};
+
+        assert(iovec_is_set(secret));
+        assert(ret);
+
+        salt.iov_base = malloc(SHA256_DIGEST_SIZE);
+        if (!salt.iov_base)
+                return -ENOMEM;
+        salt.iov_len = SHA256_DIGEST_SIZE;
+
+        hmac_sha256(secret->iov_base, secret->iov_len, label, sizeof(label), salt.iov_base);
+
+        *ret = TAKE_STRUCT(salt);
+        return 0;
+}
+
+int tpm2_fido2_calculate_public_key_tag(
+                const struct iovec *secret,
+                const char *public_key_algorithm,
+                const struct iovec *public_key,
+                struct iovec *ret) {
+
+        static const char label[] = "io.systemd.cryptsetup.tpm2-fido2.public-key";
+        _cleanup_free_ void *input = NULL;
+        _cleanup_(iovec_done) struct iovec tag = {};
+        size_t alg_size;
+
+        assert(iovec_is_set(secret));
+        assert(public_key_algorithm);
+        assert(iovec_is_set(public_key));
+        assert(ret);
+
+        /* label NUL algorithm NUL public-key: the NUL bytes make the encoding unambiguous. */
+        alg_size = strlen(public_key_algorithm) + 1;
+        input = malloc(sizeof(label) + alg_size + public_key->iov_len);
+        if (!input)
+                return -ENOMEM;
+
+        memcpy(mempcpy(mempcpy(input, label, sizeof(label)), public_key_algorithm, alg_size),
+               public_key->iov_base, public_key->iov_len);
+
+        tag.iov_base = malloc(SHA256_DIGEST_SIZE);
+        if (!tag.iov_base)
+                return -ENOMEM;
+        tag.iov_len = SHA256_DIGEST_SIZE;
+
+        hmac_sha256(secret->iov_base, secret->iov_len,
+                    input, sizeof(label) + alg_size + public_key->iov_len,
+                    tag.iov_base);
+
+        *ret = TAKE_STRUCT(tag);
+        return 0;
+}
+
+int tpm2_fido2_verify_public_key_tag(
+                const struct iovec *secret,
+                const char *public_key_algorithm,
+                const struct iovec *public_key,
+                const struct iovec *tag) {
+
+        _cleanup_(iovec_done) struct iovec expected = {};
+        int r;
+
+        assert(iovec_is_set(secret));
+
+        if (!public_key_algorithm || !iovec_is_set(public_key) || !iovec_is_set(tag))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "FIDO2 public key or its tag missing.");
+
+        r = tpm2_fido2_calculate_public_key_tag(secret, public_key_algorithm, public_key, &expected);
+        if (r < 0)
+                return r;
+
+        if (!iovec_equal(&expected, tag))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "FIDO2 public key does not match the sealed secret.");
+
+        return 0;
+}
+
 int tpm2_make_luks2_json(
                 int keyslot,
                 uint32_t hash_pcr_mask,
