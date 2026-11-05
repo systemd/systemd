@@ -34,9 +34,6 @@ void varlink_unit_send_change_signal(Unit *u);
 void varlink_job_send_change_signal(Job *j);
 void varlink_job_send_removed_signal(Job *j);
 void varlink_job_detach_client(Job *j);
-void varlink_job_stash_client(Job *j);
-void varlink_job_unstash_client(Job *j);
-void varlink_job_drop_stashed_client(Manager *m, sd_varlink *link);
-void varlink_job_flush_stashed_clients(Manager *m);
+int varlink_job_coldplug(Job *j);
 
 int varlink_error_no_such_unit(sd_varlink *v, const char *name);

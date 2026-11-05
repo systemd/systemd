@@ -11,6 +11,7 @@
 #include "metrics.h"
 #include "path-util.h"
 #include "pidref.h"
+#include "set.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -394,7 +395,7 @@ static void vl_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata
                         break;
                 }
 
-        varlink_job_drop_stashed_client(m, link);
+        sd_varlink_unref(set_remove(m->deserialized_varlink_connections, link));
 }
 
 int manager_setup_varlink_server(Manager *m) {
@@ -635,12 +636,32 @@ void manager_varlink_done(Manager *m) {
         sd_varlink_close_unref(TAKE_PTR(m->managed_oom_varlink));
 
         m->pending_reload_message_vl = sd_varlink_unref(m->pending_reload_message_vl);
-        m->stashed_varlink_job_clients = hashmap_free(m->stashed_varlink_job_clients);
+        m->deserialized_varlink_connections = set_free(m->deserialized_varlink_connections);
 
         m->varlink_server = sd_varlink_server_unref(m->varlink_server);
         m->managed_oom_varlink = sd_varlink_close_unref(m->managed_oom_varlink);
 
         m->metrics_varlink_server = sd_varlink_server_unref(m->metrics_varlink_server);
+}
+
+void manager_varlink_coldplug(Manager *m) {
+        Job *j;
+        sd_varlink *link;
+
+        assert(m);
+
+        _cleanup_set_free_ Set *connections = TAKE_PTR(m->deserialized_varlink_connections);
+        if (set_isempty(connections))
+                return;
+
+        HASHMAP_FOREACH(j, m->jobs)
+                sd_varlink_unref(set_remove(connections, j->varlink));
+
+        /* Jobs can disappear during deserialization or coldplug. Do not leave their clients waiting. */
+        SET_FOREACH(link, connections) {
+                log_info("Varlink call did not survive deserialization, cancelling.");
+                (void) sd_varlink_error_errno(link, -ECANCELED);
+        }
 }
 
 void manager_varlink_send_pending_reload_message(Manager *m) {

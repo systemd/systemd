@@ -536,7 +536,8 @@ void unit_add_to_dbus_queue(Unit *u) {
                 return;
 
         /* Shortcut things if nobody cares */
-        if (sd_bus_track_count(u->manager->subscribed) <= 0 &&
+        if (!u->varlink_unit_change &&
+            sd_bus_track_count(u->manager->subscribed) <= 0 &&
             sd_bus_track_count(u->bus_track) <= 0 &&
             set_isempty(u->manager->private_buses)) {
                 u->sent_dbus_new_signal = true;
@@ -818,7 +819,6 @@ Unit* unit_free(Unit *u) {
                 job_free(j);
         }
 
-        /* Only after the jobs are gone, as across a reload they stash whether this subscription is theirs */
         u->varlink_unit_change = sd_varlink_unref(u->varlink_unit_change);
 
         /* A unit is being dropped from the tree, make sure our family is realized properly. Do this after we
