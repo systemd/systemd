@@ -386,7 +386,7 @@ fail:
 
 static int scope_enter_running(Scope *s) {
         Unit *u = UNIT(ASSERT_PTR(s));
-        int r;
+        int empty, r;
 
         (void) bus_scope_track_controller(s);
 
@@ -405,6 +405,18 @@ static int scope_enter_running(Scope *s) {
                 r = log_unit_warning_errno(u, SYNTHETIC_ERRNO(ECHILD), "No PIDs left to attach to the scope's control group, refusing.");
                 goto fail;
         }
+
+        /* Writing a zombie PID to cgroup.procs may succeed without moving it. */
+        empty = unit_cgroup_is_empty(u);
+        if (empty < 0) {
+                r = log_unit_warning_errno(u, empty, "Failed to determine whether scope's control group is empty: %m");
+                goto fail;
+        }
+        if (empty > 0) {
+                r = log_unit_warning_errno(u, SYNTHETIC_ERRNO(ECHILD), "Scope's control group is empty after attaching PIDs, refusing.");
+                goto fail;
+        }
+
         log_unit_debug(u, "%i %s added to scope's control group.", r, r == 1 ? "process" : "processes");
 
         s->result = SCOPE_SUCCESS;
