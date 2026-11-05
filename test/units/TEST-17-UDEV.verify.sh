@@ -213,13 +213,29 @@ EOF
 test_syntax_error '=' 'Invalid key/value pair, ignoring.'
 test_syntax_error 'ACTION{a}=="b"' 'Invalid attribute for ACTION.'
 test_syntax_error 'ACTION:="b"' 'Invalid operator for ACTION.'
-test_syntax_error 'ACTION=="b"' 'The line has no effect, ignoring.'
+test_syntax_error 'ACTION=="add"' 'The line has no effect, ignoring.'
+test_syntax_error 'ACTION==""' 'ACTION is always non-empty.'
+test_syntax_error 'ACTION=="?*", NAME="a"' 'ACTION is always non-empty.'
+test_syntax_error 'ACTION!="", NAME="a"' 'ACTION is always non-empty.'
+test_syntax_error 'ACTION!="?*"' 'ACTION is always non-empty.'
 test_syntax_error 'DEVPATH{a}=="b"' 'Invalid attribute for DEVPATH.'
 test_syntax_error 'DEVPATH:="b"' 'Invalid operator for DEVPATH.'
+test_syntax_error 'DEVPATH==""' 'DEVPATH is always non-empty.'
+test_syntax_error 'DEVPATH=="?*", NAME="a"' 'DEVPATH is always non-empty.'
+test_syntax_error 'DEVPATH!="", NAME="a"' 'DEVPATH is always non-empty.'
+test_syntax_error 'DEVPATH!="?*"' 'DEVPATH is always non-empty.'
 test_syntax_error 'KERNEL{a}=="b"' 'Invalid attribute for KERNEL.'
 test_syntax_error 'KERNEL:="b"' 'Invalid operator for KERNEL.'
+test_syntax_error 'KERNEL==""' 'KERNEL is always non-empty.'
+test_syntax_error 'KERNEL=="?*", NAME="a"' 'KERNEL is always non-empty.'
+test_syntax_error 'KERNEL!="", NAME="a"' 'KERNEL is always non-empty.'
+test_syntax_error 'KERNEL!="?*"' 'KERNEL is always non-empty.'
 test_syntax_error 'KERNELS{a}=="b"' 'Invalid attribute for KERNELS.'
 test_syntax_error 'KERNELS:="b"' 'Invalid operator for KERNELS.'
+test_syntax_error 'KERNELS==""' 'KERNELS is always non-empty.'
+test_syntax_error 'KERNELS=="?*", NAME="a"' 'KERNELS is always non-empty.'
+test_syntax_error 'KERNELS!="", NAME="a"' 'KERNELS is always non-empty.'
+test_syntax_error 'KERNELS!="?*"' 'KERNELS is always non-empty.'
 test_syntax_error 'SYMLINK{a}=="b"' 'Invalid attribute for SYMLINK.'
 test_syntax_error 'SYMLINK:="%?"' 'Invalid value "%?" for SYMLINK (char 1: invalid substitution type), ignoring.'
 test_syntax_error 'NAME{a}=="b"' 'Invalid attribute for NAME.'
@@ -233,6 +249,7 @@ test_syntax_error 'ENV{a}:="b"' "ENV key takes '==', '!=', '=', or '+=' operator
 test_syntax_error 'ENV{ACTION}="b"' "Invalid ENV attribute. 'ACTION' cannot be set."
 test_syntax_error 'ENV{a}=i"b"' "Invalid prefix 'i' for 'ENV'. The 'i' prefix can be specified only for '==' or '!=' operator."
 test_syntax_error 'ENV{a}+=i"b"' "Invalid prefix 'i' for 'ENV'. The 'i' prefix can be specified only for '==' or '!=' operator."
+test_syntax_error 'ENV{a?b}=="x"' "Invalid attribute for ENV."
 test_syntax_error 'CONST=="b"' 'Invalid attribute for CONST.'
 test_syntax_error 'CONST{a}=="b"' 'Invalid attribute for CONST.'
 test_syntax_error 'CONST{arch}="b"' 'Invalid operator for CONST.'
@@ -244,6 +261,10 @@ test_syntax_error 'TAGS:="a"' 'Invalid operator for TAGS.'
 test_syntax_error 'SUBSYSTEM{a}=="b"' 'Invalid attribute for SUBSYSTEM.'
 test_syntax_error 'SUBSYSTEM:="b"' 'Invalid operator for SUBSYSTEM.'
 test_syntax_error 'SUBSYSTEM=="bus", NAME="b"' '"bus" must be specified as "subsystem".'
+test_syntax_error 'SUBSYSTEM==""' 'SUBSYSTEM is always non-empty.'
+test_syntax_error 'SUBSYSTEM=="?*", NAME="a"' 'SUBSYSTEM is always non-empty.'
+test_syntax_error 'SUBSYSTEM!="", NAME="a"' 'SUBSYSTEM is always non-empty.'
+test_syntax_error 'SUBSYSTEM!="?*"' 'SUBSYSTEM is always non-empty.'
 test_syntax_error 'SUBSYSTEMS{a}=="b"' 'Invalid attribute for SUBSYSTEMS.'
 test_syntax_error 'SUBSYSTEMS:="b"' 'Invalid operator for SUBSYSTEMS.'
 test_syntax_error 'DRIVER{a}=="b"' 'Invalid attribute for DRIVER.'
@@ -278,6 +299,8 @@ test_syntax_error 'IMPORT{a}-="b"' 'Invalid operator for IMPORT.'
 test_syntax_error 'IMPORT{file}=="%", NAME="b"' 'Invalid value "%" for IMPORT (char 1: invalid substitution type), ignoring.'
 test_syntax_error 'IMPORT{file}==i"a", NAME="b"' "Invalid prefix 'i' for IMPORT."
 test_syntax_error 'IMPORT{builtin}!="foo"' 'Unknown builtin command: foo'
+test_syntax_error 'IMPORT{db}=="a?b"' "Invalid property name 'a?b', ignoring."
+test_syntax_error 'IMPORT{cmdline}=="a?b"' "Invalid property name 'a?b', ignoring."
 test_syntax_error 'RESULT{a}=="b"' 'Invalid attribute for RESULT.'
 test_syntax_error 'RESULT:="b"' 'Invalid operator for RESULT.'
 test_syntax_error 'OPTIONS{a}="b"' 'Invalid attribute for OPTIONS.'
@@ -378,7 +401,7 @@ test_syntax_error 'LABEL{a}="b"' 'Invalid attribute for LABEL.'
 test_syntax_error 'LABEL=="b"' 'Invalid operator for LABEL.'
 test_style_error 'LABEL="b"' 'style: LABEL="b" is unused.'
 test_syntax_error 'a="b"' "Invalid key 'a'."
-test_syntax_error 'KERNEL=="", KERNEL=="?*", NAME="a"' 'conflicting match expressions, the line has no effect.'
+test_syntax_error 'TAG=="", TAG=="?*", NAME="a"' 'conflicting match expressions, the line has no effect.'
 test_syntax_error 'KERNEL=="abc", KERNEL!="abc", NAME="b"' 'conflicting match expressions, the line has no effect.'
 test_syntax_error 'KERNEL=="|a|b", KERNEL!="b|a|", NAME="c"' 'conflicting match expressions, the line has no effect.'
 test_syntax_error 'KERNEL=="a|b", KERNEL=="c|d|e", NAME="f"' 'conflicting match expressions, the line has no effect.'
@@ -387,20 +410,20 @@ test_syntax_error 'ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}!=
                   'conflicting match expressions, the line has no effect.'
 test_syntax_error 'ACTION=="a*", ACTION=="bc*", NAME="d"' 'conflicting match expressions, the line has no effect.'
 test_syntax_error 'ACTION=="a*|bc*", ACTION=="d*|ef*", NAME="g"' 'conflicting match expressions, the line has no effect.'
-test_syntax_error 'KERNEL!="", KERNEL=="?*", NAME="a"' 'duplicate expressions.'
+test_syntax_error 'TAG!="", TAG=="?*", NAME="a"' 'duplicate expressions.'
 test_syntax_error 'KERNEL=="|a|b", KERNEL=="b|a|", NAME="c"' 'duplicate expressions.'
 # shellcheck disable=SC2016
 test_syntax_error 'ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}=="?*", ENV{ID_IGNORE_DISKSEQ}!="1", SYMLINK+="disk/by-diskseq/$env{DISKSEQ}"' \
                   'duplicate expressions.'
-test_style_error ',ACTION=="a", NAME="b"' 'style: stray leading comma.'
-test_style_error ' ,ACTION=="a", NAME="b"' 'style: stray leading comma.'
-test_style_error ', ACTION=="a", NAME="b"' 'style: stray leading comma.'
-test_style_error 'ACTION=="a", NAME="b",' 'style: stray trailing comma.'
-test_style_error 'ACTION=="a", NAME="b", ' 'style: stray trailing comma.'
-test_style_error 'ACTION=="a" NAME="b"' 'style: a comma between tokens is expected.'
-test_style_error 'ACTION=="a",, NAME="b"' 'style: more than one comma between tokens.'
-test_style_error 'ACTION=="a" , NAME="b"' 'style: stray whitespace before comma.'
-test_style_error 'ACTION=="a",NAME="b"' 'style: whitespace after comma is expected.'
+test_style_error ',ACTION=="add", NAME="b"' 'style: stray leading comma.'
+test_style_error ' ,ACTION=="add", NAME="b"' 'style: stray leading comma.'
+test_style_error ', ACTION=="add", NAME="b"' 'style: stray leading comma.'
+test_style_error 'ACTION=="add", NAME="b",' 'style: stray trailing comma.'
+test_style_error 'ACTION=="add", NAME="b", ' 'style: stray trailing comma.'
+test_style_error 'ACTION=="add" NAME="b"' 'style: a comma between tokens is expected.'
+test_style_error 'ACTION=="add",, NAME="b"' 'style: more than one comma between tokens.'
+test_style_error 'ACTION=="add" , NAME="b"' 'style: stray whitespace before comma.'
+test_style_error 'ACTION=="add",NAME="b"' 'style: whitespace after comma is expected.'
 test_syntax_error 'RESULT=="a", PROGRAM="b"' 'Reordering RESULT check after PROGRAM assignment.'
 test_syntax_error 'RESULT=="a*", PROGRAM="b", RESULT=="*c", PROGRAM="d"' \
                   'Reordering RESULT check after PROGRAM assignment.'
@@ -456,7 +479,7 @@ EOF
 assert_1 "${rules}"
 
 cat >"${rules}" <<'EOF'
-KERNEL!="", KERNEL=="?*", KERNEL=="", NAME="a"
+TAG!="", TAG=="?*", TAG=="", NAME="a"
 EOF
 cat >"${exp}" <<EOF
 $(pwd)/${rules}:1 duplicate expressions.
@@ -466,7 +489,7 @@ EOF
 assert_1 "${rules}"
 
 cat >"${rules}" <<'EOF'
-ACTION=="a"NAME="b"
+ACTION=="add"NAME="b"
 EOF
 cat >"${exp}" <<EOF
 $(pwd)/${rules}:1 style: a comma between tokens is expected.
@@ -478,7 +501,7 @@ assert_1_impl "${rules}"
 next_test_number
 
 cat >"${rules}" <<'EOF'
-ACTION=="a" ,NAME="b"
+ACTION=="add" ,NAME="b"
 EOF
 cat >"${exp}" <<EOF
 $(pwd)/${rules}:1 style: stray whitespace before comma.
@@ -488,6 +511,116 @@ EOF
 assert_0_impl --no-style "${rules}"
 assert_1_impl "${rules}"
 next_test_number
+
+cat >"${rules}" <<'EOF'
+ACTION=="a", NAME="b"
+EOF
+cat >"${exp}" <<EOF
+$(pwd)/${rules}:1 Invalid ACTION value 'a', ignoring.
+$(pwd)/${rules}:1 ACTION token does not have valid value.
+$(pwd)/${rules}: udev rules check failed.
+EOF
+assert_1 "${rules}"
+
+cat >"${rules}" <<'EOF'
+ACTION=="a|b|change", NAME="b"
+EOF
+cat >"${exp}" <<EOF
+$(pwd)/${rules}:1 Invalid ACTION value 'a', ignoring.
+$(pwd)/${rules}:1 Invalid ACTION value 'b', ignoring.
+$(pwd)/${rules}: udev rules check failed.
+EOF
+assert_1 "${rules}"
+
+cat >"${rules}" <<'EOF'
+DEVPATH=="a|b|/devices/foo", NAME="b"
+EOF
+cat >"${exp}" <<EOF
+$(pwd)/${rules}:1 Invalid DEVPATH value 'a', ignoring.
+$(pwd)/${rules}:1 Invalid DEVPATH value 'b', ignoring.
+$(pwd)/${rules}: udev rules check failed.
+EOF
+assert_1 "${rules}"
+
+cat >"${rules}" <<'EOF'
+KERNEL=="/a|/b|foo", NAME="b"
+EOF
+cat >"${exp}" <<EOF
+$(pwd)/${rules}:1 Invalid KERNEL value '/a', ignoring.
+$(pwd)/${rules}:1 Invalid KERNEL value '/b', ignoring.
+$(pwd)/${rules}: udev rules check failed.
+EOF
+assert_1 "${rules}"
+
+cat >"${rules}" <<'EOF'
+KERNELS=="/a|/b|foo", NAME="b"
+EOF
+cat >"${exp}" <<EOF
+$(pwd)/${rules}:1 Invalid KERNELS value '/a', ignoring.
+$(pwd)/${rules}:1 Invalid KERNELS value '/b', ignoring.
+$(pwd)/${rules}: udev rules check failed.
+EOF
+assert_1 "${rules}"
+
+cat >"${rules}" <<'EOF'
+SYMLINK=="/a|/b|foo", NAME="b"
+EOF
+cat >"${exp}" <<EOF
+$(pwd)/${rules}:1 Invalid SYMLINK value '/a', ignoring.
+$(pwd)/${rules}:1 Invalid SYMLINK value '/b', ignoring.
+$(pwd)/${rules}: udev rules check failed.
+EOF
+assert_1 "${rules}"
+
+cat >"${rules}" <<'EOF'
+NAME=="a:b|c/d|foo", NAME="b"
+EOF
+cat >"${exp}" <<EOF
+$(pwd)/${rules}:1 Invalid NAME value 'a:b', ignoring.
+$(pwd)/${rules}:1 Invalid NAME value 'c/d', ignoring.
+$(pwd)/${rules}: udev rules check failed.
+EOF
+assert_1 "${rules}"
+
+cat >"${rules}" <<'EOF'
+SUBSYSTEM=="a/b|/c|foo", NAME="b"
+EOF
+cat >"${exp}" <<EOF
+$(pwd)/${rules}:1 Invalid SUBSYSTEM value 'a/b', ignoring.
+$(pwd)/${rules}:1 Invalid SUBSYSTEM value '/c', ignoring.
+$(pwd)/${rules}: udev rules check failed.
+EOF
+assert_1 "${rules}"
+
+cat >"${rules}" <<'EOF'
+SUBSYSTEMS=="a/b|/c|foo", NAME="b"
+EOF
+cat >"${exp}" <<EOF
+$(pwd)/${rules}:1 Invalid SUBSYSTEMS value 'a/b', ignoring.
+$(pwd)/${rules}:1 Invalid SUBSYSTEMS value '/c', ignoring.
+$(pwd)/${rules}: udev rules check failed.
+EOF
+assert_1 "${rules}"
+
+cat >"${rules}" <<'EOF'
+DRIVER=="a/b|/c|foo", NAME="b"
+EOF
+cat >"${exp}" <<EOF
+$(pwd)/${rules}:1 Invalid DRIVER value 'a/b', ignoring.
+$(pwd)/${rules}:1 Invalid DRIVER value '/c', ignoring.
+$(pwd)/${rules}: udev rules check failed.
+EOF
+assert_1 "${rules}"
+
+cat >"${rules}" <<'EOF'
+DRIVERS=="a/b|/c|foo", NAME="b"
+EOF
+cat >"${exp}" <<EOF
+$(pwd)/${rules}:1 Invalid DRIVERS value 'a/b', ignoring.
+$(pwd)/${rules}:1 Invalid DRIVERS value '/c', ignoring.
+$(pwd)/${rules}: udev rules check failed.
+EOF
+assert_1 "${rules}"
 
 # udevadm verify --root
 #sed "s|sample-[0-9]*.rules|${workdir}/${rules_dir}/&|" sample-*.exp >"${workdir}/${exp}"
