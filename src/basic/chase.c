@@ -323,7 +323,8 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
          * XAT_FDROOT, symlinks are resolved relative to the host's root directory with no containment.
          *
          * Relative paths start at dir_fd, and absolute paths start at root_fd. If dir_fd is XAT_FDROOT,
-         * relative paths also start at root_fd. An empty path is treated as ".".
+         * relative paths also start at root_fd. An empty path refers to the inode of dir_fd itself,
+         * including a file or symlink.
          *
          * Note that we do not verify that dir_fd actually points to a descendant of root_fd. If dir_fd
          * lies outside the root_fd subtree, ".." traversal and absolute symlinks may still be clamped to
@@ -355,6 +356,10 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
          *    "missing"     CHASE_NONEXISTENT                   "missing"    -EBADF            0
          *    "missing"     CHASE_PARENT                        "missing"    /image/a/b        1
          *    ""            0                                   "."          /image/a/b        1
+         *
+         * If dir_fd instead refers to /image/a/b/file, an empty input path with flags=0 returns 1,
+         * ret_path=".", and an fd for that file. The input "." fails with -ENOTDIR because it requires a
+         * directory lookup. An empty input path also preserves an O_PATH symlink fd without following it.
          *
          * Algorithmically this operates on two path buffers: "done" are the components of the path we
          * already processed and resolved symlinks, "." and ".." of. "todo" are the components of the path we
@@ -417,15 +422,12 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
         if (dir_fd == XAT_FDROOT || path_is_absolute(path))
                 dir_fd = root_fd;
 
-        if (isempty(path))
-                path = ".";
-
         bool append_trail_slash = false;
-        if (ENDSWITH_SET(path, "/", "/.")) {
+        if (!isempty(path) && ENDSWITH_SET(path, "/", "/.")) {
                 flags |= CHASE_MUST_BE_DIRECTORY;
                 if (FLAGS_SET(flags, CHASE_TRAIL_SLASH))
                         append_trail_slash = true;
-        } else if (dot_or_dot_dot(path) || endswith(path, "/.."))
+        } else if (!isempty(path) && (dot_or_dot_dot(path) || endswith(path, "/..")))
                 flags |= CHASE_MUST_BE_DIRECTORY;
 
         if (FLAGS_SET(flags, CHASE_PARENT))
@@ -435,7 +437,7 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
         if (FLAGS_SET(flags, CHASE_MUST_BE_DIRECTORY) + FLAGS_SET(flags, CHASE_MUST_BE_REGULAR) + FLAGS_SET(flags, CHASE_MUST_BE_SOCKET) > 1)
                 return -EBADSLT;
 
-        if (!ret_path) {
+        if (!ret_path && !isempty(path)) {
                 r = chase_openat2(root_fd, dir_fd, path, flags);
                 if (r >= 0) {
                         if (ret_fd)
@@ -449,7 +451,7 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                         return r;
         }
 
-        if (root_fd == XAT_FDROOT && !ret_path && (flags & CHASE_NO_SHORTCUT_MASK) == 0) {
+        if (root_fd == XAT_FDROOT && !ret_path && !isempty(path) && (flags & CHASE_NO_SHORTCUT_MASK) == 0) {
                 /* Shortcut the common case where we don't have a real root boundary and no fancy features
                  * are requested: open the target directly via xopenat_full() which applies any MUST_BE_*
                  * verification and automount triggering for us. */
@@ -487,9 +489,12 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                         return -ENOMEM;
         }
 
-        _cleanup_close_ int fd = fd_reopen(dir_fd, O_DIRECTORY|O_PATH);
+        _cleanup_close_ int fd = fd_reopen(dir_fd, O_PATH | (isempty(path) && !FLAGS_SET(flags, CHASE_PARENT) ? 0 : O_DIRECTORY));
         if (fd < 0)
                 return fd;
+
+        if (isempty(path))
+                path = ".";
 
         struct statx stx;
         r = chase_statx(fd, flags, &stx);
@@ -1357,7 +1362,10 @@ int chase_and_openat(
                 /* Shortcut this call if none of the special features of this call are requested */
                 return chase_xopenat(dir_fd, path, chase_flags, open_flags, XO_EMPTY_PATH);
 
-        r = chaseat(root_fd, dir_fd, path, (chase_flags|CHASE_PARENT)&~CHASE_MUST_BE_REGULAR, &p, &path_fd);
+        ChaseFlags flags = chase_flags;
+        if (!isempty(path))
+                flags |= CHASE_PARENT;
+        r = chaseat(root_fd, dir_fd, path, flags&~CHASE_MUST_BE_REGULAR, &p, &path_fd);
         if (r < 0)
                 return r;
 

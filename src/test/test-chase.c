@@ -1231,6 +1231,39 @@ TEST(open_trailing_dot_dot) {
         ASSERT_OK_POSITIVE(fds_inode_and_mount_same(fd, sub_fd));
 }
 
+TEST(chase_empty_path) {
+        /* A temporary root contains a file and an O_PATH symlink. Empty paths must preserve the inode
+         * identity of their fds. Nonempty relative paths must reject the file and symlink as lookup
+         * directories. Type checks must still apply to an empty-path lookup. */
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int root_fd = -EBADF, file_fd = -EBADF, link_fd = -EBADF;
+
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/test-chase.XXXXXX", &t));
+        root_fd = ASSERT_OK(xopenat(AT_FDCWD, t, O_PATH|O_DIRECTORY));
+        file_fd = ASSERT_OK(xopenat(root_fd, "file", O_CREAT|O_RDWR));
+        ASSERT_OK_ERRNO(symlinkat("file", root_fd, "link"));
+        link_fd = ASSERT_OK(xopenat(root_fd, "link", O_PATH|O_NOFOLLOW));
+
+        int start_fd;
+        FOREACH_ARGUMENT(start_fd, file_fd, link_fd) {
+                _cleanup_close_ int fd = -EBADF, opened = -EBADF;
+                _cleanup_free_ char *path = NULL;
+
+                ASSERT_OK(chaseat(root_fd, start_fd, "", /* flags= */ 0, &path, &fd));
+                ASSERT_STREQ(path, ".");
+                ASSERT_OK_POSITIVE(fds_inode_and_mount_same(fd, start_fd));
+                ASSERT_OK(chaseat(root_fd, start_fd, "", /* flags= */ 0, /* ret_path= */ NULL, /* ret_fd= */ NULL));
+                opened = ASSERT_OK(chase_and_openat(root_fd, start_fd, "", /* chase_flags= */ 0, O_PATH, /* ret_path= */ NULL));
+                ASSERT_OK_POSITIVE(fds_inode_and_mount_same(opened, start_fd));
+                ASSERT_ERROR(chaseat(root_fd, start_fd, "child", /* flags= */ 0, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOTDIR);
+        }
+
+        /* Type verification must distinguish the file and symlink even when no name is looked up. */
+        ASSERT_OK(chaseat(root_fd, file_fd, "", CHASE_MUST_BE_REGULAR, /* ret_path= */ NULL, /* ret_fd= */ NULL));
+        ASSERT_ERROR(chaseat(root_fd, file_fd, "", CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOTDIR);
+        ASSERT_ERROR(chaseat(root_fd, link_fd, "", CHASE_MUST_BE_REGULAR, /* ret_path= */ NULL, /* ret_fd= */ NULL), ELOOP);
+}
+
 TEST(trailing_dot_dot_below_root) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int root_fd = -EBADF, a_fd = -EBADF;
