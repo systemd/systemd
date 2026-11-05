@@ -701,6 +701,33 @@ TEST(format_timestamp_range) {
         test_format_timestamp_one(USEC_INFINITY, TIMESTAMP_UTC, /* result= */ NULL);
 }
 
+static void test_format_timestamp_short_buffer_one(usec_t val, TimestampStyle style, const char *result) {
+        char buf[FORMAT_TIMESTAMP_MAX];
+
+        /* Any buffer too short for the result must be refused gracefully, without writing past its end. */
+        for (size_t l = 0; l <= strlen(result); l++) {
+                memset(buf, 'x', sizeof(buf));
+                ASSERT_NULL(format_timestamp_style(buf, l, val, style));
+                for (size_t i = l; i < sizeof(buf); i++)
+                        ASSERT_EQ(buf[i], 'x');
+        }
+
+        ASSERT_STREQ(format_timestamp_style(buf, sizeof(buf), val, style), result);
+}
+
+TEST(format_timestamp_short_buffer) {
+        test_format_timestamp_short_buffer_one(USEC_PER_SEC, TIMESTAMP_UTC, "Thu 1970-01-01 00:00:01 UTC");
+        test_format_timestamp_short_buffer_one(USEC_PER_SEC, TIMESTAMP_US_UTC, "Thu 1970-01-01 00:00:01.000000 UTC");
+        test_format_timestamp_short_buffer_one(USEC_PER_SEC, TIMESTAMP_DATE, "Thu 1970-01-01");
+        test_format_timestamp_short_buffer_one(USEC_PER_SEC, TIMESTAMP_UNIX, "@1");
+
+        test_format_timestamp_short_buffer_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, TIMESTAMP_PRETTY, "--- XXXX-XX-XX XX:XX:XX");
+        test_format_timestamp_short_buffer_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, TIMESTAMP_US, "--- XXXX-XX-XX XX:XX:XX.XXXXXX");
+        test_format_timestamp_short_buffer_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, TIMESTAMP_UTC, "--- XXXX-XX-XX XX:XX:XX UTC");
+        test_format_timestamp_short_buffer_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, TIMESTAMP_US_UTC, "--- XXXX-XX-XX XX:XX:XX.XXXXXX UTC");
+        test_format_timestamp_short_buffer_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, TIMESTAMP_DATE, "--- XXXX-XX-XX");
+}
+
 TEST(parse_gmtoff) {
         long t;
 
