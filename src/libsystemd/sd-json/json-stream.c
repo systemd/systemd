@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <poll.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -14,6 +15,7 @@
 #include "io-util.h"
 #include "iovec-util.h"
 #include "json-stream.h"
+#include "json-util.h"
 #include "list.h"
 #include "log.h"
 #include "memory-util.h"
@@ -135,7 +137,7 @@ static void json_stream_clear(JsonStream *s) {
         s->input_socket_type = 0;
 
         s->peer_pidfd = safe_close(s->peer_pidfd);
-        s->ucred_acquired = false;
+        s->ucred_acquired = s->ucred_overridden = false;
         s->af = -1;
 
         close_many(s->input_fds, s->n_input_fds);
@@ -613,12 +615,13 @@ int json_stream_get_peer_ucred(const JsonStream *s, struct ucred *ret) {
         return 0;
 }
 
-void json_stream_set_peer_ucred(JsonStream *s, const struct ucred *ucred) {
+void json_stream_set_peer_ucred(JsonStream *s, const struct ucred *ucred, bool overridden) {
         assert(s);
         assert(ucred);
 
         s->ucred = *ucred;
         s->ucred_acquired = true;
+        s->ucred_overridden = overridden;
 }
 
 int json_stream_acquire_peer_pidfd(JsonStream *s) {
@@ -1433,4 +1436,448 @@ int json_stream_parse(JsonStream *s, sd_json_variant **ret) {
 
         s->input_buffer_unscanned = s->input_buffer_size;
         return 1;
+}
+
+/* ===== Serialization ===== */
+
+static int json_stream_serialize_fd(int fd, int **fds, size_t *n_fds, sd_json_variant **ret) {
+        assert(fds);
+        assert(n_fds);
+        assert(ret);
+
+        /* Duplicates the fd, appends the copy to the fds array, and returns its index as JSON. Already
+         * taken fds (i.e. negative ones) are serialized as null, so that the indexes of the others don't
+         * change. */
+
+        if (fd < 0)
+                return sd_json_variant_new_null(ret);
+
+        if (!GREEDY_REALLOC(*fds, *n_fds + 1))
+                return -ENOMEM;
+
+        int copy = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+        if (copy < 0)
+                return -errno;
+
+        (*fds)[(*n_fds)++] = copy;
+        return sd_json_variant_new_unsigned(ret, *n_fds - 1);
+}
+
+static int json_stream_serialize_fd_array(const int *array, size_t n, int **fds, size_t *n_fds, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL;
+        int r;
+
+        assert(array || n == 0);
+        assert(ret);
+
+        FOREACH_ARRAY(i, array, n) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *e = NULL;
+
+                r = json_stream_serialize_fd(*i, fds, n_fds, &e);
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_append_array(&a, e);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(a);
+        return 0;
+}
+
+static int json_stream_serialize_buffer(const char *buffer, size_t index, size_t n, bool sensitive, sd_json_variant **ret) {
+        int r;
+
+        assert(buffer || n == 0);
+        assert(ret);
+
+        /* Don't calculate buffer + index if there's nothing to serialize, the buffer might be NULL */
+        if (n == 0) {
+                *ret = NULL;
+                return 0;
+        }
+
+        r = sd_json_variant_new_base64(ret, buffer + index, n);
+        if (r < 0)
+                return r;
+
+        if (sensitive)
+                sd_json_variant_sensitive(*ret);
+
+        return 0;
+}
+
+int json_stream_serialize(const JsonStream *s, sd_json_variant **ret, int **fds, size_t *n_fds) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant
+                *input_fd = NULL, *output_fd = NULL,
+                *input_buffer = NULL, *output_buffer = NULL,
+                *input_fds = NULL, *output_fds = NULL,
+                *peer_pidfd = NULL, *queue = NULL;
+        int r;
+
+        assert(s);
+        assert(ret);
+        assert(fds);
+        assert(n_fds);
+
+        if (s->input_fd < 0 || s->output_fd < 0)
+                return -ENOTCONN;
+
+        r = json_stream_serialize_fd(s->input_fd, fds, n_fds, &input_fd);
+        if (r < 0)
+                return r;
+
+        if (s->output_fd == s->input_fd)
+                output_fd = sd_json_variant_ref(input_fd);
+        else {
+                r = json_stream_serialize_fd(s->output_fd, fds, n_fds, &output_fd);
+                if (r < 0)
+                        return r;
+        }
+
+        /* The peer might have died in the meantime, in which case we couldn't acquire the pidfd again,
+         * hence pass it on if we have it */
+        if (s->peer_pidfd >= 0) {
+                r = json_stream_serialize_fd(s->peer_pidfd, fds, n_fds, &peer_pidfd);
+                if (r < 0)
+                        return r;
+        }
+
+        r = json_stream_serialize_buffer(
+                        s->input_buffer,
+                        s->input_buffer_index,
+                        s->input_buffer_size,
+                        FLAGS_SET(s->flags, JSON_STREAM_INPUT_SENSITIVE),
+                        &input_buffer);
+        if (r < 0)
+                return r;
+
+        r = json_stream_serialize_buffer(
+                        s->output_buffer,
+                        s->output_buffer_index,
+                        s->output_buffer_size,
+                        FLAGS_SET(s->flags, JSON_STREAM_OUTPUT_BUFFER_SENSITIVE),
+                        &output_buffer);
+        if (r < 0)
+                return r;
+
+        r = json_stream_serialize_fd_array(s->input_fds, s->n_input_fds, fds, n_fds, &input_fds);
+        if (r < 0)
+                return r;
+
+        r = json_stream_serialize_fd_array(s->output_fds, s->n_output_fds, fds, n_fds, &output_fds);
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(queue, q, s->output_queue) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *qfds = NULL;
+
+                r = json_stream_serialize_fd_array(q->fds, q->n_fds, fds, n_fds, &qfds);
+                if (r < 0)
+                        return r;
+
+                /* Sensitivity is not retained by the formatted JSON, hence remember it explicitly */
+                r = sd_json_variant_append_arraybo(
+                                &queue,
+                                SD_JSON_BUILD_PAIR_VARIANT("message", q->data),
+                                JSON_BUILD_PAIR_VARIANT_NON_NULL("fds", qfds),
+                                JSON_BUILD_PAIR_CONDITION_BOOLEAN(sd_json_variant_is_sensitive_recursive(q->data), "sensitive", true));
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_VARIANT("inputFd", input_fd),
+                        SD_JSON_BUILD_PAIR_VARIANT("outputFd", output_fd),
+                        JSON_BUILD_PAIR_CONDITION_BOOLEAN(FLAGS_SET(s->flags, JSON_STREAM_CONNECTING), "connecting", true),
+                        JSON_BUILD_PAIR_CONDITION_BOOLEAN(FLAGS_SET(s->flags, JSON_STREAM_READ_DISCONNECTED), "readDisconnected", true),
+                        JSON_BUILD_PAIR_CONDITION_BOOLEAN(FLAGS_SET(s->flags, JSON_STREAM_WRITE_DISCONNECTED), "writeDisconnected", true),
+                        JSON_BUILD_PAIR_CONDITION_BOOLEAN(FLAGS_SET(s->flags, JSON_STREAM_GOT_POLLHUP), "gotPollHup", true),
+                        JSON_BUILD_PAIR_CONDITION_BOOLEAN(FLAGS_SET(s->flags, JSON_STREAM_OUTPUT_BUFFER_SENSITIVE), "outputBufferSensitive", true),
+                        JSON_BUILD_PAIR_FINITE_USEC("lastActivityUSec", s->last_activity),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        s->ucred_acquired && s->ucred_overridden,
+                                        "overrideUcred",
+                                        SD_JSON_BUILD_OBJECT(
+                                                        JSON_BUILD_PAIR_CONDITION_UNSIGNED(pid_is_valid(s->ucred.pid), "pid", s->ucred.pid),
+                                                        JSON_BUILD_PAIR_CONDITION_UNSIGNED(uid_is_valid(s->ucred.uid), "uid", s->ucred.uid),
+                                                        JSON_BUILD_PAIR_CONDITION_UNSIGNED(gid_is_valid(s->ucred.gid), "gid", s->ucred.gid))),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("peerPidfd", peer_pidfd),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("inputBuffer", input_buffer),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("inputFds", input_fds),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("outputBuffer", output_buffer),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("outputFds", output_fds),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("outputQueue", queue));
+}
+
+static int json_stream_deserialize_fd(sd_json_variant *v, const int *fds, size_t n_fds, int *ret) {
+        assert(fds || n_fds == 0);
+        assert(ret);
+
+        if (sd_json_variant_is_null(v)) {
+                *ret = -EBADF;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_unsigned(v))
+                return -EINVAL;
+
+        uint64_t i = sd_json_variant_unsigned(v);
+        if (i >= n_fds || fds[i] < 0)
+                return -EBADF;
+
+        int copy = fcntl(fds[i], F_DUPFD_CLOEXEC, 3);
+        if (copy < 0)
+                return -errno;
+
+        *ret = copy;
+        return 0;
+}
+
+static int json_stream_deserialize_fd_array(sd_json_variant *v, const int *fds, size_t n_fds, int **ret, size_t *ret_n) {
+        int *array = NULL;
+        size_t n = 0;
+        int r;
+
+        assert(ret);
+        assert(ret_n);
+
+        CLEANUP_ARRAY(array, n, close_many_and_free);
+
+        if (!v || sd_json_variant_is_blank_array(v)) {
+                *ret = NULL;
+                *ret_n = 0;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_array(v))
+                return -EINVAL;
+
+        array = new(int, sd_json_variant_elements(v));
+        if (!array)
+                return -ENOMEM;
+
+        sd_json_variant *e;
+        JSON_VARIANT_ARRAY_FOREACH(e, v) {
+                r = json_stream_deserialize_fd(e, fds, n_fds, array + n);
+                if (r < 0)
+                        return r;
+
+                n++;
+        }
+
+        *ret = TAKE_PTR(array);
+        *ret_n = TAKE_GENERIC(n, size_t, 0);
+        return 0;
+}
+
+typedef struct JsonStreamSerializedQueueItem {
+        sd_json_variant *message;
+        sd_json_variant *fds;
+        bool sensitive;
+} JsonStreamSerializedQueueItem;
+
+static int json_stream_deserialize_queue(JsonStream *s, sd_json_variant *v, const int *fds, size_t n_fds) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "message",   SD_JSON_VARIANT_OBJECT, sd_json_dispatch_variant_noref, offsetof(JsonStreamSerializedQueueItem, message),   SD_JSON_MANDATORY },
+                { "fds",       SD_JSON_VARIANT_ARRAY,  sd_json_dispatch_variant_noref, offsetof(JsonStreamSerializedQueueItem, fds),       0                 },
+                { "sensitive", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(JsonStreamSerializedQueueItem, sensitive), 0                 },
+                {}
+        };
+        int r;
+
+        assert(s);
+
+        if (!v)
+                return 0;
+
+        if (!sd_json_variant_is_array(v))
+                return -EINVAL;
+
+        sd_json_variant *e;
+        JSON_VARIANT_ARRAY_FOREACH(e, v) {
+                JsonStreamSerializedQueueItem item = {};
+
+                if (s->n_output_queue >= s->queue_max)
+                        return -ENOBUFS;
+
+                r = sd_json_dispatch(e, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &item);
+                if (r < 0)
+                        return r;
+
+                int *item_fds = NULL;
+                size_t n_item_fds = 0;
+                CLEANUP_ARRAY(item_fds, n_item_fds, close_many_and_free);
+
+                r = json_stream_deserialize_fd_array(item.fds, fds, n_fds, &item_fds, &n_item_fds);
+                if (r < 0)
+                        return r;
+
+                if (item.sensitive)
+                        sd_json_variant_sensitive(item.message);
+
+                JsonStreamQueueItem *q = json_stream_queue_item_new(item.message, item_fds, n_item_fds);
+                if (!q)
+                        return -ENOMEM;
+
+                /* The fds are owned by the queue item now */
+                n_item_fds = 0;
+                item_fds = mfree(item_fds);
+
+                LIST_INSERT_AFTER(queue, s->output_queue, s->output_queue_tail, q);
+                s->output_queue_tail = q;
+                s->n_output_queue++;
+        }
+
+        return 0;
+}
+
+typedef struct JsonStreamSerialization {
+        sd_json_variant *input_fd;
+        sd_json_variant *output_fd;
+        bool connecting;
+        bool read_disconnected;
+        bool write_disconnected;
+        bool got_pollhup;
+        bool output_buffer_sensitive;
+        usec_t last_activity;
+        sd_json_variant *override_ucred;
+        sd_json_variant *peer_pidfd;
+        struct iovec input_buffer;
+        sd_json_variant *input_fds;
+        struct iovec output_buffer;
+        sd_json_variant *output_fds;
+        sd_json_variant *output_queue;
+} JsonStreamSerialization;
+
+static void json_stream_serialization_done(JsonStreamSerialization *p) {
+        assert(p);
+
+        /* The buffers might contain sensitive data, hence always erase them */
+        iovec_done_erase(&p->input_buffer);
+        iovec_done_erase(&p->output_buffer);
+}
+
+int json_stream_deserialize(JsonStream *s, sd_json_variant *v, const int *fds, size_t n_fds) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "inputFd",               _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, input_fd),                SD_JSON_MANDATORY },
+                { "outputFd",              _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, output_fd),               SD_JSON_MANDATORY },
+                { "connecting",            SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(JsonStreamSerialization, connecting),              0                 },
+                { "readDisconnected",      SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(JsonStreamSerialization, read_disconnected),       0                 },
+                { "writeDisconnected",     SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(JsonStreamSerialization, write_disconnected),      0                 },
+                { "gotPollHup",            SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(JsonStreamSerialization, got_pollhup),             0                 },
+                { "outputBufferSensitive", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(JsonStreamSerialization, output_buffer_sensitive), 0                 },
+                { "lastActivityUSec",      _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        offsetof(JsonStreamSerialization, last_activity),           0                 },
+                { "overrideUcred",         SD_JSON_VARIANT_OBJECT,        sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, override_ucred),          0                 },
+                { "peerPidfd",             SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, peer_pidfd),              0                 },
+                { "inputBuffer",           SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,   offsetof(JsonStreamSerialization, input_buffer),            0                 },
+                { "inputFds",              SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, input_fds),               0                 },
+                { "outputBuffer",          SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,   offsetof(JsonStreamSerialization, output_buffer),           0                 },
+                { "outputFds",             SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, output_fds),              0                 },
+                { "outputQueue",           SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant_noref, offsetof(JsonStreamSerialization, output_queue),            0                 },
+                {}
+        };
+
+        _cleanup_(json_stream_serialization_done) JsonStreamSerialization p = {
+                .last_activity = USEC_INFINITY,
+        };
+        int r;
+
+        assert(s);
+        assert(s->input_fd < 0);
+        assert(s->output_fd < 0);
+        assert(v);
+
+        /* Unknown fields are ignored, so that the consumer can store its own data in the same object, and to
+         * handle serializations from newer versions gracefully. */
+        r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
+        if (r < 0)
+                return r;
+
+        if (p.input_buffer.iov_len > s->buffer_max || p.output_buffer.iov_len > s->buffer_max)
+                return -ENOBUFS;
+
+        _cleanup_close_ int input_fd = -EBADF, output_fd = -EBADF;
+        r = json_stream_deserialize_fd(p.input_fd, fds, n_fds, &input_fd);
+        if (r < 0)
+                return r;
+        if (input_fd < 0)
+                return -EBADF;
+
+        if (sd_json_variant_equal(p.input_fd, p.output_fd))
+                r = json_stream_attach_fds(s, input_fd, input_fd);
+        else {
+                r = json_stream_deserialize_fd(p.output_fd, fds, n_fds, &output_fd);
+                if (r < 0)
+                        return r;
+                if (output_fd < 0)
+                        return -EBADF;
+
+                r = json_stream_attach_fds(s, input_fd, output_fd);
+        }
+        if (r < 0)
+                return r;
+
+        TAKE_FD(input_fd);
+        TAKE_FD(output_fd);
+
+        /* Set the runtime flags only after attaching the fds, since that recomputes the read/write
+         * preference flags (which are not serialized) */
+        SET_FLAG(s->flags, JSON_STREAM_CONNECTING, p.connecting);
+        SET_FLAG(s->flags, JSON_STREAM_READ_DISCONNECTED, p.read_disconnected);
+        SET_FLAG(s->flags, JSON_STREAM_WRITE_DISCONNECTED, p.write_disconnected);
+        SET_FLAG(s->flags, JSON_STREAM_GOT_POLLHUP, p.got_pollhup);
+
+        s->last_activity = p.last_activity;
+
+        if (p.override_ucred) {
+                static const sd_json_dispatch_field ucred_dispatch_table[] = {
+                        { "pid", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int32,   offsetof(struct ucred, pid), 0 },
+                        { "uid", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid, offsetof(struct ucred, uid), 0 },
+                        { "gid", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid, offsetof(struct ucred, gid), 0 },
+                        {}
+                };
+                struct ucred ucred = UCRED_INVALID;
+
+                assert_cc(sizeof(pid_t) == sizeof(int32_t));
+
+                r = sd_json_dispatch(p.override_ucred, ucred_dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &ucred);
+                if (r < 0)
+                        return r;
+
+                json_stream_set_peer_ucred(s, &ucred, /* overridden= */ true);
+        }
+
+        if (p.peer_pidfd) {
+                r = json_stream_deserialize_fd(p.peer_pidfd, fds, n_fds, &s->peer_pidfd);
+                if (r < 0)
+                        return r;
+        }
+
+        r = json_stream_deserialize_fd_array(p.input_fds, fds, n_fds, &s->input_fds, &s->n_input_fds);
+        if (r < 0)
+                return r;
+
+        r = json_stream_deserialize_fd_array(p.output_fds, fds, n_fds, &s->output_fds, &s->n_output_fds);
+        if (r < 0)
+                return r;
+
+        /* fds are only sent along with the first byte of the output buffer */
+        if (s->n_output_fds > 0 && p.output_buffer.iov_len == 0)
+                return -EINVAL;
+
+        if (p.input_buffer.iov_len > 0) {
+                s->input_buffer = TAKE_PTR(p.input_buffer.iov_base);
+                s->input_buffer_size = s->input_buffer_unscanned = TAKE_GENERIC(p.input_buffer.iov_len, size_t, 0);
+        }
+
+        if (p.output_buffer.iov_len > 0) {
+                s->output_buffer = TAKE_PTR(p.output_buffer.iov_base);
+                s->output_buffer_size = TAKE_GENERIC(p.output_buffer.iov_len, size_t, 0);
+                SET_FLAG(s->flags, JSON_STREAM_OUTPUT_BUFFER_SENSITIVE, p.output_buffer_sensitive);
+        }
+
+        return json_stream_deserialize_queue(s, p.output_queue, fds, n_fds);
 }
