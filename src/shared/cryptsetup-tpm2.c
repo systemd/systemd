@@ -384,7 +384,13 @@ int find_tpm2_auto_data(
                                 &srk,
                                 &pcrlock_nv,
                                 &flags,
-                                &ap);
+                                &ap,
+                                /* ret_fido2_cid= */ NULL,
+                                /* ret_fido2_rp_id= */ NULL,
+                                /* ret_fido2_public_key= */ NULL,
+                                /* ret_fido2_public_key_algorithm= */ NULL,
+                                /* ret_fido2_public_key_tag= */ NULL,
+                                /* ret_fido2_flags= */ NULL);
                 if (r == -ENOMEM)
                         return log_full_errno(log_level, r, "Failed to parse TPM2 JSON data: %m");
                 if (r < 0) {
