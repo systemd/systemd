@@ -48,7 +48,7 @@ TEST(hexdump_memcmp) {
 
         /* Empty regions are fine. */
         free(s);
-        s = ASSERT_NOT_NULL(hexdump_memcmp(NULL, 0, NULL, 0));
+        s = ASSERT_NOT_NULL(hexdump_memcmp(/* m1= */ NULL, /* l1= */ 0, /* m2= */ NULL, /* l2= */ 0));
         ASSERT_STREQ(s, "");
 }
 
@@ -66,7 +66,7 @@ TEST(hexdump_memcmp_byte) {
 
         /* Empty region is fine. */
         free(s);
-        s = ASSERT_NOT_NULL(hexdump_memcmp_byte(0x00, NULL, 0));
+        s = ASSERT_NOT_NULL(hexdump_memcmp_byte(0x00, /* data= */ NULL, /* length= */ 0));
         ASSERT_STREQ(s, "");
 }
 
