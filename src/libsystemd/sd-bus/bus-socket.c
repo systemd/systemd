@@ -26,6 +26,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "time-util.h"
@@ -1476,7 +1477,6 @@ int bus_socket_read_message(sd_bus *bus) {
 
 int bus_socket_process_opening(sd_bus *b) {
         int error = 0, events, r;
-        socklen_t slen = sizeof(error);
 
         assert(b->state == BUS_OPENING);
 
@@ -1488,9 +1488,9 @@ int bus_socket_process_opening(sd_bus *b) {
         if (!(events & (POLLOUT|POLLERR|POLLHUP)))
                 return 0;
 
-        r = getsockopt(b->output_fd, SOL_SOCKET, SO_ERROR, &error, &slen);
+        r = getsockopt_int(b->output_fd, SOL_SOCKET, SO_ERROR, &error);
         if (r < 0)
-                b->last_connect_error = errno;
+                b->last_connect_error = -r;
         else if (error != 0)
                 b->last_connect_error = error;
         else if (events & (POLLERR|POLLHUP))
