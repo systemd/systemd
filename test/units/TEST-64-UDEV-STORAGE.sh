@@ -180,6 +180,11 @@ diskhealth_available() {
 }
 
 diskhealth_list() {
+    # Called in command substitution ("$(diskhealth_list)"), where errexit is not inherited
+    # (no inherit_errexit), so re-enable it to make a failing socket start abort instead of
+    # falling through to varlinkctl.
+    set -e
+
     systemctl start systemd-report-diskhealth.socket
     varlinkctl call --more --graceful=io.systemd.Metrics.NoSuchMetric /run/systemd/report/io.systemd.DiskHealth io.systemd.Metrics.List {}
 }
