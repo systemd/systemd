@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "log.h"
 #include "sysupdate-instance.h"
+#include "uapi16-manifest.h"
 
 void instance_metadata_destroy(InstanceMetadata *m) {
         assert(m);
@@ -57,6 +58,12 @@ Instance *instance_free(Instance *i) {
 
         free(i->path);
         partition_info_destroy(&i->partition_info);
+
+        FOREACH_ARRAY(s, i->sources, i->n_sources)
+                uapi16_contents_done(s);
+        free(i->sources);
+
+        uapi16_xattr_array_free(i->user_xattrs, i->n_user_xattrs);
 
         return mfree(i);
 }

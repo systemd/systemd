@@ -10,3 +10,4 @@ static inline int copy_data_fd(int fd) {
 int seekable_data_fd(int fd, uint64_t max_size);
 int open_seekable_data_fd(int dir_fd, const char *path, uint64_t max_size);
 int memfd_clone_fd(int fd, const char *name, int mode);
+int data_fd_from_iovec(const char *name, const struct iovec *iov);
