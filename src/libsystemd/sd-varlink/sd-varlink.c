@@ -3541,50 +3541,56 @@ static int count_connection(sd_varlink_server *server, const struct ucred *ucred
         return 0;
 }
 
-_public_ int sd_varlink_server_add_connection_pair(
+static int varlink_server_acquire_peer_ucred(
                 sd_varlink_server *server,
                 int input_fd,
                 int output_fd,
                 const struct ucred *override_ucred,
-                sd_varlink **ret) {
+                struct ucred *ret) {
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *v = NULL;
-        struct ucred ucred = UCRED_INVALID;
-        bool ucred_acquired;
         int r;
 
-        assert_return(server, -EINVAL);
-        assert_return(input_fd >= 0, -EBADF);
-        assert_return(output_fd >= 0, -EBADF);
+        assert(server);
+        assert(input_fd >= 0);
+        assert(output_fd >= 0);
+        assert(ret);
 
-        if ((server->flags & (SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_MYSELF_ONLY|SD_VARLINK_SERVER_ACCOUNT_UID)) != 0) {
+        /* Determines the peer credentials, if the server needs them for access control or accounting.
+         * Returns 0 if it doesn't, 1 otherwise. */
 
-                if (override_ucred)
-                        ucred = *override_ucred;
-                else {
-                        if (input_fd != output_fd)
-                                return varlink_server_log_errno(server, SYNTHETIC_ERRNO(EOPNOTSUPP), "Cannot determine peer identity of connection with separate input/output, refusing.");
+        if ((server->flags & (SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_MYSELF_ONLY|SD_VARLINK_SERVER_ACCOUNT_UID)) == 0) {
+                *ret = (struct ucred) UCRED_INVALID;
+                return 0;
+        }
 
-                        r = getpeercred(input_fd, &ucred);
-                        if (r < 0)
-                                return varlink_server_log_errno(server, r, "Failed to acquire peer credentials of incoming socket, refusing: %m");
-                }
+        if (override_ucred) {
+                *ret = *override_ucred;
+                return 1;
+        }
 
-                ucred_acquired = true;
+        if (input_fd != output_fd)
+                return varlink_server_log_errno(server, SYNTHETIC_ERRNO(EOPNOTSUPP), "Cannot determine peer identity of connection with separate input/output, refusing.");
 
-                r = validate_connection(server, &ucred);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return -EPERM;
-        } else
-                ucred_acquired = false;
-
-        r = varlink_new(&v);
+        r = getpeercred(input_fd, ret);
         if (r < 0)
-                return varlink_server_log_errno(server, r, "Failed to allocate connection object: %m");
+                return varlink_server_log_errno(server, r, "Failed to acquire peer credentials of connection, refusing: %m");
 
-        r = count_connection(server, &ucred);
+        return 1;
+}
+
+static int varlink_server_link_connection(sd_varlink_server *server, sd_varlink *v, const struct ucred *ucred) {
+        int r;
+
+        assert(server);
+        assert(v);
+        assert(!v->server);
+        assert(ucred);
+
+        /* Accounts the connection, links it up with the server, and applies the server's settings to
+         * it. Expects the fds to be attached to the connection already. After this succeeded, the caller
+         * has to undo it on failure, which sd_varlink_close() does. */
+
+        r = count_connection(server, ucred);
         if (r < 0)
                 return r;
 
@@ -3595,15 +3601,6 @@ _public_ int sd_varlink_server_add_connection_pair(
         sd_varlink_ref(v);
         LIST_PREPEND(connections, server->connections, v);
 
-        if (ucred_acquired)
-                json_stream_set_peer_ucred(&v->stream, &ucred, /* overridden= */ !!override_ucred);
-
-        r = json_stream_attach_fds(&v->stream, input_fd, output_fd);
-        if (r < 0) {
-                sd_varlink_close(v);
-                return r;
-        }
-
         if (server->flags & SD_VARLINK_SERVER_INHERIT_USERDATA)
                 v->userdata = server->userdata;
 
@@ -3613,11 +3610,64 @@ _public_ int sd_varlink_server_add_connection_pair(
                 json_stream_set_flags(&v->stream, JSON_STREAM_BOUNDED_READS, true);
 
         _cleanup_free_ char *desc = NULL;
-        if (asprintf(&desc, "%s-%i-%i", varlink_server_description(server), input_fd, output_fd) >= 0)
-                json_stream_set_description(&v->stream, desc);
+        if (asprintf(&desc, "%s-%i-%i", varlink_server_description(server), v->stream.input_fd, v->stream.output_fd) >= 0)
+                (void) json_stream_set_description(&v->stream, desc);
 
         (void) sd_varlink_set_allow_fd_passing_input(v, FLAGS_SET(server->flags, SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT));
         (void) sd_varlink_set_allow_fd_passing_output(v, FLAGS_SET(server->flags, SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT));
+
+        return 0;
+}
+
+_public_ int sd_varlink_server_add_connection_pair(
+                sd_varlink_server *server,
+                int input_fd,
+                int output_fd,
+                const struct ucred *override_ucred,
+                sd_varlink **ret) {
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *v = NULL;
+        struct ucred ucred;
+        int r;
+
+        assert_return(server, -EINVAL);
+        assert_return(input_fd >= 0, -EBADF);
+        assert_return(output_fd >= 0, -EBADF);
+
+        r = varlink_server_acquire_peer_ucred(server, input_fd, output_fd, override_ucred, &ucred);
+        if (r < 0)
+                return r;
+        bool ucred_acquired = r > 0;
+
+        if (ucred_acquired) {
+                r = validate_connection(server, &ucred);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -EPERM;
+        }
+
+        r = varlink_new(&v);
+        if (r < 0)
+                return varlink_server_log_errno(server, r, "Failed to allocate connection object: %m");
+
+        if (ucred_acquired)
+                json_stream_set_peer_ucred(&v->stream, &ucred, /* overridden= */ !!override_ucred);
+
+        /* The fds are only donated to the connection on success, hence on failure they stay with the
+         * caller */
+        r = json_stream_attach_fds(&v->stream, input_fd, output_fd);
+        if (r < 0)
+                return r;
+
+        r = varlink_server_link_connection(server, v, &ucred);
+        if (r < 0) {
+                /* Not linked up, hence the cleanup handler would close the fds, but they shall stay with
+                 * the caller */
+                TAKE_FD(v->stream.input_fd);
+                TAKE_FD(v->stream.output_fd);
+                return r;
+        }
 
         if (server->event) {
                 r = sd_varlink_attach_event(v, server->event, server->event_priority);
