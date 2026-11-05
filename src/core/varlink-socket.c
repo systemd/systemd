@@ -96,7 +96,8 @@ int socket_context_build_json(sd_json_variant **ret, const char *name, void *use
                         JSON_BUILD_PAIR_RATELIMIT("PollLimit", &s->poll_limit),
                         JSON_BUILD_PAIR_ENUM("DeferTrigger", socket_defer_trigger_to_string(s->defer_trigger)),
                         JSON_BUILD_PAIR_FINITE_USEC_NON_ZERO("DeferTriggerMaxUSec", s->defer_trigger_max_usec),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("PassFileDescriptorsToExec", s->pass_fds_to_exec));
+                        SD_JSON_BUILD_PAIR_BOOLEAN("PassFileDescriptorsToExec", s->pass_fds_to_exec),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("InheritSlice", s->inherit_slice));
 }
 
 int socket_runtime_build_json(sd_json_variant **ret, const char *name, void *userdata) {
