@@ -67,8 +67,13 @@
 
 /* volatile to prevent compiler from optimizing out BSS data that
  * userspace writes to before the program runs. Cast away volatile
- * when passing to helpers via the cfg() accessor. */
-volatile struct clat_config clat_cfg = {};
+ * when passing to helpers via the cfg() accessor.
+ *
+ * The type is anonymous on purpose: the generated skeleton then defines it inline instead of referring
+ * to a struct from a header, like for the variables of the other BPF programs. */
+volatile struct {
+        CLAT_CONFIG_FIELDS
+} clat_cfg = {};
 
 #define cfg() ((struct clat_config *)&clat_cfg)
 

@@ -28,13 +28,13 @@
 #include <linux/bpf.h>
 #include <sys/syscall.h>
 
-#include "clat.h"
 #include "clat-skel.h"
 #endif
 
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "in-addr-util.h"
 #include "networkd-address.h"
 #include "networkd-link.h"
@@ -677,9 +677,9 @@ static int xlat_create_tun(Link *link) {
                 return log_link_error_errno(link, SYNTHETIC_ERRNO(ENAMETOOLONG),
                                             "CLAT TUN name '%s' is too long.", tun_name);
 
-        fd = open(TUN_DEV, O_RDWR|O_CLOEXEC|O_NONBLOCK);
+        fd = xopenat(AT_FDCWD, TUN_DEV, O_RDWR|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
-                return log_link_error_errno(link, errno, "Failed to open " TUN_DEV ": %m");
+                return log_link_error_errno(link, fd, "Failed to open " TUN_DEV ": %m");
 
         ifr.ifr_flags = IFF_TUN | IFF_NO_PI;
         strncpy(ifr.ifr_name, tun_name, IFNAMSIZ - 1);
