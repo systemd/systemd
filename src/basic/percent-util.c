@@ -4,27 +4,35 @@
 #include "percent-util.h"
 #include "string-util.h"
 
+static int parse_parts_integer(const char *n) {
+        int r, v;
+
+        r = safe_atoi(n, &v);
+        if (r < 0)
+                return r;
+
+        /* Refuse negative values. Also check for the "-" explicitly, since safe_atoi() accepts "-0", which
+         * would otherwise turn e.g. "-0.5%" into a positive value. */
+        if (v < 0 || strchr(n, '-'))
+                return -ERANGE;
+
+        return v;
+}
+
 static int parse_parts_value_whole(const char *p, const char *symbol) {
         const char *pc, *n;
-        int r, v;
 
         pc = endswith(p, symbol);
         if (!pc)
                 return -EINVAL;
 
         n = strndupa_safe(p, pc - p);
-        r = safe_atoi(n, &v);
-        if (r < 0)
-                return r;
-        if (v < 0)
-                return -ERANGE;
-
-        return v;
+        return parse_parts_integer(n);
 }
 
 static int parse_parts_value_with_tenths_place(const char *p, const char *symbol) {
         const char *pc, *dot, *n;
-        int r, q, v;
+        int q, v;
 
         pc = endswith(p, symbol);
         if (!pc)
@@ -42,11 +50,9 @@ static int parse_parts_value_with_tenths_place(const char *p, const char *symbol
                 q = 0;
                 n = strndupa_safe(p, pc - p);
         }
-        r = safe_atoi(n, &v);
-        if (r < 0)
-                return r;
+        v = parse_parts_integer(n);
         if (v < 0)
-                return -ERANGE;
+                return v;
         if (v > (INT_MAX - q) / 10)
                 return -ERANGE;
 
@@ -56,7 +62,7 @@ static int parse_parts_value_with_tenths_place(const char *p, const char *symbol
 
 static int parse_parts_value_with_hundredths_place(const char *p, const char *symbol) {
         const char *pc, *dot, *n;
-        int r, q, v;
+        int q, v;
 
         pc = endswith(p, symbol);
         if (!pc)
@@ -86,11 +92,9 @@ static int parse_parts_value_with_hundredths_place(const char *p, const char *sy
                 q = 0;
                 n = strndupa_safe(p, pc - p);
         }
-        r = safe_atoi(n, &v);
-        if (r < 0)
-                return r;
+        v = parse_parts_integer(n);
         if (v < 0)
-                return -ERANGE;
+                return v;
         if (v > (INT_MAX - q) / 100)
                 return -ERANGE;
 
