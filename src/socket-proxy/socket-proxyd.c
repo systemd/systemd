@@ -270,15 +270,14 @@ static int connection_complete(Connection *c) {
 
 static int connect_cb(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Connection *c = ASSERT_PTR(userdata);
-        socklen_t solen;
-        int error;
+        int error, r;
 
         assert(s);
         assert(fd >= 0);
 
-        solen = sizeof(error);
-        if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &solen) < 0) {
-                log_error_errno(errno, "Failed to issue SO_ERROR: %m");
+        r = getsockopt_int(fd, SOL_SOCKET, SO_ERROR, &error);
+        if (r < 0) {
+                log_error_errno(r, "Failed to issue SO_ERROR: %m");
                 goto fail;
         }
 

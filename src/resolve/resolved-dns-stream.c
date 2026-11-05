@@ -16,6 +16,7 @@
 #include "resolved-dns-stream.h"
 #include "resolved-manager.h"
 #include "set.h"
+#include "socket-util.h"
 #include "time-util.h"
 
 #define DNS_STREAMS_MAX 128
@@ -333,9 +334,10 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
         }
 
         if (revents & EPOLLERR) {
-                socklen_t errlen = sizeof(r);
-                if (getsockopt(s->fd, SOL_SOCKET, SO_ERROR, &r, &errlen) == 0)
-                        return dns_stream_complete(s, r);
+                int error;
+
+                if (getsockopt_int(s->fd, SOL_SOCKET, SO_ERROR, &error) >= 0)
+                        return dns_stream_complete(s, error);
         }
 
         if ((revents & EPOLLOUT) &&

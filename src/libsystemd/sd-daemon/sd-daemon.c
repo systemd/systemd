@@ -210,6 +210,7 @@ _public_ int sd_is_special(int fd, const char *path) {
 
 static int is_socket_internal(int fd, int type, int listening) {
         struct stat st_fd;
+        int r;
 
         assert_return(fd >= 0, -EBADF);
         assert_return(type >= 0, -EINVAL);
@@ -221,28 +222,22 @@ static int is_socket_internal(int fd, int type, int listening) {
                 return 0;
 
         if (type != 0) {
-                int other_type = 0;
-                socklen_t l = sizeof(other_type);
+                int other_type;
 
-                if (getsockopt(fd, SOL_SOCKET, SO_TYPE, &other_type, &l) < 0)
-                        return -errno;
-
-                if (l != sizeof(other_type))
-                        return -EINVAL;
+                r = getsockopt_int(fd, SOL_SOCKET, SO_TYPE, &other_type);
+                if (r < 0)
+                        return r;
 
                 if (other_type != type)
                         return 0;
         }
 
         if (listening >= 0) {
-                int accepting = 0;
-                socklen_t l = sizeof(accepting);
+                int accepting;
 
-                if (getsockopt(fd, SOL_SOCKET, SO_ACCEPTCONN, &accepting, &l) < 0)
-                        return -errno;
-
-                if (l != sizeof(accepting))
-                        return -EINVAL;
+                r = getsockopt_int(fd, SOL_SOCKET, SO_ACCEPTCONN, &accepting);
+                if (r < 0)
+                        return r;
 
                 if (!accepting != !listening)
                         return 0;
