@@ -680,6 +680,37 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 void, trivial_hash_func, trivial_compare_func,
                 VarlinkJobClient, varlink_job_client_free);
 
+int varlink_job_stash_client_full(
+                Manager *m,
+                uint32_t job_id,
+                sd_varlink *link,
+                bool notify_job_changes,
+                bool notify_unit_changes) {
+
+        int r;
+
+        assert(m);
+        assert(link);
+
+        _cleanup_(varlink_job_client_freep) VarlinkJobClient *w = new(VarlinkJobClient, 1);
+        if (!w)
+                return -ENOMEM;
+
+        *w = (VarlinkJobClient) {
+                .varlink = sd_varlink_ref(link),
+                .notify_job_changes = notify_job_changes,
+                .notify_unit_changes = notify_unit_changes,
+        };
+
+        r = hashmap_ensure_put(&m->stashed_varlink_job_clients, &varlink_job_client_hash_ops, UINT32_TO_PTR(job_id), w);
+        if (r < 0)
+                return r;
+
+        assert(r > 0);
+        TAKE_PTR(w);
+        return 0;
+}
+
 void varlink_job_stash_client(Job *j) {
         int r;
 
@@ -688,34 +719,21 @@ void varlink_job_stash_client(Job *j) {
         assert(j->unit);
 
         /* The connection outlives the reload but the job doesn't, hence keep it by job id for job_coldplug().
-         * Unlike bus names this can't go through the serialization stream. */
+         * On reexecution the connection is serialized instead, see job_serialize(). */
         if (!j->varlink)
                 return;
 
-        _cleanup_(varlink_job_client_freep) VarlinkJobClient *w = new(VarlinkJobClient, 1);
-        if (!w) {
-                log_oom_warning();
-                (void) sd_varlink_error_errno(j->varlink, -ENOMEM);
-                varlink_job_detach_client(j);
-                return;
-        }
-
-        *w = (VarlinkJobClient) {
-                .varlink = sd_varlink_ref(j->varlink),
-                .notify_job_changes = j->varlink_notify_job_changes,
-                .notify_unit_changes = j->unit->varlink_unit_change == j->varlink,
-        };
-
-        r = hashmap_ensure_put(&j->manager->stashed_varlink_job_clients, &varlink_job_client_hash_ops, UINT32_TO_PTR(j->id), w);
+        r = varlink_job_stash_client_full(
+                        j->manager,
+                        j->id,
+                        j->varlink,
+                        j->varlink_notify_job_changes,
+                        j->unit->varlink_unit_change == j->varlink);
         if (r < 0) {
                 log_unit_warning_errno(j->unit, r, "Failed to stash varlink client of job %" PRIu32 ", sending error reply: %m", j->id);
                 (void) sd_varlink_error_errno(j->varlink, r);
                 varlink_job_detach_client(j);
-                return;
         }
-
-        assert(r > 0);
-        TAKE_PTR(w);
 }
 
 void varlink_job_unstash_client(Job *j) {
@@ -1029,6 +1047,8 @@ static int varlink_reply_or_watch_unit_job(
                 bool notify_job_changes,
                 bool notify_unit_changes) {
 
+        int r;
+
         assert(link);
         assert(u);
         assert(j);
@@ -1048,6 +1068,11 @@ static int varlink_reply_or_watch_unit_job(
         /* TODO: support multiple watchers. */
         if (j->varlink || (notify_unit_changes && u->varlink_unit_change))
                 return sd_varlink_error(link, VARLINK_ERROR_UNIT_ALREADY_BEING_WATCHED, /* parameters= */ NULL);
+
+        /* Keep the method call around across reexecution, job_serialize() takes care of it */
+        r = sd_varlink_set_serialize_pending(link, true);
+        if (r < 0)
+                return r;
 
         j->varlink = sd_varlink_ref(link);
         j->varlink_notify_job_changes = notify_job_changes;

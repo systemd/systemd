@@ -119,6 +119,17 @@ typedef struct sd_varlink {
         sd_event_source *defer_event_source;
 
         PidRef exec_pidref;
+
+        /* Kernel-derived identifier of the connection, stable across execve(), see
+         * sd_varlink_get_connection_id(). Calculated lazily. */
+        char *connection_id;
+
+        /* The method call pending on this (server side) connection shall be kept across serialization. Reset
+         * whenever the pending method call is completed. */
+        bool serialize_pending;
+
+        /* All connections of a server */
+        LIST_FIELDS(sd_varlink, connections);
 } sd_varlink;
 
 typedef struct VarlinkServerSocket VarlinkServerSocket;
@@ -139,6 +150,10 @@ typedef struct sd_varlink_server {
         sd_varlink_server_flags_t flags;
 
         LIST_HEAD(VarlinkServerSocket, sockets);
+
+        LIST_HEAD(sd_varlink, connections);
+        Hashmap *unclaimed;            /* Connection id → sd_varlink*, for deserialized connections with
+                                        * pending method calls not claimed yet */
 
         Hashmap *methods;              /* Fully qualified symbol name of a method → sd_varlink_method_t */
         Hashmap *fiber_methods;        /* Fully qualified symbol name of a fiber method → sd_varlink_method_t */

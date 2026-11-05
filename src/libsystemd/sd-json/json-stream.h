@@ -83,6 +83,7 @@ typedef struct JsonStream {
         /* Cached peer credentials */
         struct ucred ucred;
         bool ucred_acquired;
+        bool ucred_overridden;   /* ucred was supplied by the consumer, rather than acquired from the kernel */
         int peer_pidfd;
 
         /* Cached socket address family. -1 = unchecked, AF_UNSPEC = checked-not-socket,
@@ -245,7 +246,7 @@ int json_stream_acquire_peer_gid(JsonStream *s, gid_t *ret);
 int json_stream_acquire_peer_pid(JsonStream *s, pid_t *ret);
 int json_stream_acquire_peer_pidfd(JsonStream *s);
 int json_stream_get_peer_ucred(const JsonStream *s, struct ucred *ret);
-void json_stream_set_peer_ucred(JsonStream *s, const struct ucred *ucred);
+void json_stream_set_peer_ucred(JsonStream *s, const struct ucred *ucred, bool overridden);
 
 /* Per-operation idle timeout. The deadline is computed as last_activity + timeout.
  * Successful writes refresh last_activity automatically; the consumer should also call
@@ -270,3 +271,18 @@ usec_t json_stream_get_timeout(const JsonStream *s);
 int json_stream_attach_event(JsonStream *s, sd_event *event, int64_t priority);
 void json_stream_detach_event(JsonStream *s);
 sd_event* json_stream_get_event(const JsonStream *s);
+
+/* Serialization of the transport state, for passing a stream across execve(). Only state that cannot be
+ * reconstructed by the consumer is covered: the connection fds, buffered unparsed input, buffered unwritten
+ * output, the output queue, the fds attached to these, runtime transport flags, the last activity
+ * timestamp, the peer credentials if they were overridden, and the peer pidfd if it was acquired. Settings the consumer configures itself
+ * (fd passing, input sensitivity, bounded reads, timeout, description, delimiter, …) are not included.
+ *
+ * json_stream_serialize() duplicates all fds it needs and appends them to the fds array, referencing them by
+ * index in the returned JSON object. On failure fds might have been appended already, which the caller has
+ * to close.
+ *
+ * json_stream_deserialize() expects a freshly initialized stream and duplicates the fds it references, i.e.
+ * the fds array is not modified. */
+int json_stream_serialize(const JsonStream *s, sd_json_variant **ret, int **fds, size_t *n_fds);
+int json_stream_deserialize(JsonStream *s, sd_json_variant *v, const int *fds, size_t n_fds);
