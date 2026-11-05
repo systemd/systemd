@@ -38,6 +38,27 @@ ssize_t fiber_ops_write(int fd, const void *buf, size_t count) {
         return RET_NERRNO(write(fd, buf, count));
 }
 
+sd_fiber_shield fiber_ops_shield(FiberCancel level) {
+        if (!fiber_ops)
+                return (sd_fiber_shield) {};
+
+        return fiber_ops->shield(level);
+}
+
+void fiber_ops_unshield(sd_fiber_shield *shield) {
+        assert(shield);
+
+        if (!shield->fiber)
+                return;
+
+        assert(fiber_ops);
+        fiber_ops->unshield(shield);
+}
+
+bool fiber_ops_exiting(void) {
+        return fiber_ops && fiber_ops->exiting();
+}
+
 sd_future* fiber_ops_timeout(uint64_t timeout) {
         assert(fiber_ops);
 
