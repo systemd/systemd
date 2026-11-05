@@ -172,8 +172,8 @@ static int mangle_path(
                 return -ENOMEM;
 
         /* We only reference files, never directories */
-        if (endswith(c, "/")) {
-                log_syntax(NULL, LOG_WARNING, fname, line, 0, "Path in field '%s' has trailing slash, ignoring: %s", field, c);
+        if (path_implies_directory(c)) {
+                log_syntax(NULL, LOG_WARNING, fname, line, 0, "Path in field '%s' refers to a directory, ignoring: %s", field, c);
                 *ret = NULL;
                 return 0;
         }
