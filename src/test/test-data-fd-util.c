@@ -11,6 +11,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "memfd-util.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -58,6 +59,10 @@ TEST(copy_data_fd) {
         fd1 = ASSERT_OK(memfd_new_and_seal_string("data", "hallo"));
 
         fd2 = ASSERT_OK(copy_data_fd(fd1));
+
+        /* Small data ends up in a sealed memfd, which we return read-only, like the temporary files */
+        ASSERT_OK_POSITIVE(memfd_get_sealed(fd2));
+        ASSERT_EQ(ASSERT_OK_ERRNO(fcntl(fd2, F_GETFL)) & O_ACCMODE_STRICT, O_RDONLY);
 
         safe_close(fd1);
         fd1 = ASSERT_OK(memfd_new_and_seal_string("data", "hallo"));
@@ -214,6 +219,51 @@ TEST(open_seekable_data_fd) {
         ASSERT_ERROR(open_seekable_data_fd(AT_FDCWD, t, UINT64_MAX), EISDIR);
         ASSERT_ERROR(open_seekable_data_fd(AT_FDCWD, "/dev/null", UINT64_MAX), EBADFD);
         ASSERT_ERROR(open_seekable_data_fd(dir_fd, "missing", UINT64_MAX), ENOENT);
+}
+
+TEST(data_fd_from_iovec) {
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ uint8_t *large = NULL;
+        struct stat st;
+        char buf[16];
+
+        fd = ASSERT_OK(data_fd_from_iovec("data", &CONST_IOVEC_MAKE_STRING("hallo")));
+        assert_fd_contents(fd, "hallo");
+
+        /* The fd is sealed, read-only and positioned at the beginning, so that it can be passed as stdin */
+        ASSERT_OK_POSITIVE(memfd_get_sealed(fd));
+        ASSERT_EQ(ASSERT_OK_ERRNO(fcntl(fd, F_GETFL)) & O_ACCMODE_STRICT, O_RDONLY);
+        ASSERT_OK_ZERO_ERRNO(lseek(fd, 0, SEEK_CUR));
+        ASSERT_ERROR_ERRNO(write(fd, "x", 1), EBADF);
+        ASSERT_OK_EQ_ERRNO(read(fd, buf, sizeof(buf)), 5);
+        ASSERT_EQ(memcmp(buf, "hallo", 5), 0);
+        ASSERT_OK_ZERO_ERRNO(read(fd, buf, sizeof(buf)));
+        fd = safe_close(fd);
+
+        /* Empty data, with or without a buffer, and no name */
+        fd = ASSERT_OK(data_fd_from_iovec(/* name= */ NULL, &(const struct iovec) {}));
+        assert_fd_contents(fd, "");
+        ASSERT_OK_POSITIVE(memfd_get_sealed(fd));
+        fd = safe_close(fd);
+
+        fd = ASSERT_OK(data_fd_from_iovec("data", &IOVEC_MAKE(buf, 0)));
+        assert_fd_contents(fd, "");
+        fd = safe_close(fd);
+
+        /* Data larger than what copy_data_fd() places in a memfd still ends up in one */
+        size_t n = 1536 * 1024;
+        large = ASSERT_NOT_NULL(malloc(n));
+        for (size_t i = 0; i < n; i++)
+                large[i] = (uint8_t) (i * 7);
+
+        fd = ASSERT_OK(data_fd_from_iovec("large", &IOVEC_MAKE(large, n)));
+        ASSERT_OK_POSITIVE(memfd_get_sealed(fd));
+        ASSERT_OK_ERRNO(fstat(fd, &st));
+        ASSERT_EQ((uint64_t) st.st_size, (uint64_t) n);
+
+        _cleanup_free_ uint8_t *copy = ASSERT_NOT_NULL(malloc(n));
+        ASSERT_OK_EQ_ERRNO(pread(fd, copy, n, 0), (ssize_t) n);
+        ASSERT_EQ(memcmp(large, copy, n), 0);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

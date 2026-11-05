@@ -18,6 +18,21 @@
 /* If memfd didn't work out, then let's use a file in /tmp up to a size of 1M. If it's large than that use /var/tmp/ instead. */
 #define DATA_FD_TMP_LIMIT (1U * U64_MB)
 
+static int memfd_seal_and_reopen(int fd, int mode) {
+        int r;
+
+        assert(fd >= 0);
+
+        /* Seals the memfd and returns a new fd to it with the specified access mode, positioned at the
+         * beginning of the file. */
+
+        r = memfd_set_sealed(fd);
+        if (r < 0)
+                return r;
+
+        return fd_reopen(fd, mode);
+}
+
 int copy_data_fd_full(int fd, uint64_t max_size) {
         _cleanup_close_ int copy_fd = -EBADF, tmp_fd = -EBADF;
         const char *td;
@@ -67,20 +82,16 @@ int copy_data_fd_full(int fd, uint64_t max_size) {
                 if (remaining != UINT64_MAX)
                         remaining -= n;
 
+                if (r == 0)
+                        /* Did it fit into the limit? If so, we are done. (Reopening positions the new fd
+                         * at the beginning of the file, no need to seek.) */
+                        return memfd_seal_and_reopen(copy_fd, O_RDONLY);
+
                 off_t f = lseek(copy_fd, 0, SEEK_SET);
                 if (f < 0)
                         return -errno;
                 if (f != 0)
                         return -EIO;
-
-                if (r == 0) {
-                        /* Did it fit into the limit? If so, we are done. */
-                        r = memfd_set_sealed(copy_fd);
-                        if (r < 0)
-                                return r;
-
-                        return TAKE_FD(copy_fd);
-                }
         }
 
         /* If we have reason to believe this will fit fine in /tmp, then use that as first fallback. */
@@ -223,17 +234,29 @@ int memfd_clone_fd(int fd, const char *name, int mode) {
         if (r < 0)
                 return r;
 
-        if (ro) {
-                r = memfd_set_sealed(mfd);
-                if (r < 0)
-                        return r;
-
-                return fd_reopen(mfd, mode);
-        }
+        if (ro)
+                return memfd_seal_and_reopen(mfd, mode);
 
         off_t f = lseek(mfd, 0, SEEK_SET);
         if (f < 0)
                 return -errno;
 
         return TAKE_FD(mfd);
+}
+
+int data_fd_from_iovec(const char *name, const struct iovec *iov) {
+        _cleanup_close_ int fd = -EBADF;
+
+        /* Places the specified data in a sealed memfd and returns a read-only fd to it, positioned at the
+         * beginning of the file. This is useful for passing literal data to other processes, for example as
+         * standard input. Unlike copy_data_fd() this never falls back to temporary files, the data is in
+         * memory already after all. */
+
+        assert(iov);
+
+        fd = memfd_new_and_seal(name, iov->iov_base, iov->iov_len);
+        if (fd < 0)
+                return fd;
+
+        return fd_reopen(fd, O_RDONLY);
 }
