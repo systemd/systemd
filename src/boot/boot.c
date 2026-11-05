@@ -473,11 +473,17 @@ static EFI_STATUS set_reboot_into_firmware(void) {
 }
 
 _noreturn_ static EFI_STATUS call_poweroff_system(const BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image) {
+        /* Flush gcov counters before the system state changes and our memory
+         * goes away (no-op unless built with -Defi-coverage=true). */
+        efi_gcov_exit();
         RT->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, NULL);
         assert_not_reached();
 }
 
 _noreturn_ static EFI_STATUS call_reboot_system(const BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image) {
+        /* Flush gcov counters before the system state changes and our memory
+         * goes away (no-op unless built with -Defi-coverage=true). */
+        efi_gcov_exit();
         RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
         assert_not_reached();
 }
