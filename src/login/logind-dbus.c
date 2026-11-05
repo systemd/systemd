@@ -3565,8 +3565,12 @@ static int property_get_boot_loader_entries(
         assert(reply);
 
         r = boot_config_load_auto(&config, /* override_esp_path= */ NULL, /* override_xbootldr_path= */ NULL);
-        if (r < 0 && r != -ENOKEY) /* don't complain if there's no GPT found */
-                return r;
+        if (r < 0 && r != -ENOKEY) { /* don't complain if there's no GPT found */
+                /* Report no entries rather than failing GetAll() on unsupported setups, e.g. a symlinked
+                 * /boot/loader/ on ostree, see #44636. */
+                log_debug_errno(r, "Failed to load boot loader entries, ignoring: %m");
+                return sd_bus_message_append(reply, "as", 0);
+        }
 
         r = manager_read_efi_boot_loader_entries(m);
         if (r >= 0)
