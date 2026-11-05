@@ -3558,6 +3558,7 @@ static int property_get_boot_loader_entries(
 
         _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
         Manager *m = ASSERT_PTR(userdata);
+        bool auto_only = true;
         size_t i;
         int r;
 
@@ -3565,12 +3566,20 @@ static int property_get_boot_loader_entries(
         assert(reply);
 
         r = boot_config_load_auto(&config, /* override_esp_path= */ NULL, /* override_xbootldr_path= */ NULL);
-        if (r < 0 && r != -ENOKEY) /* don't complain if there's no GPT found */
+        if (ERRNO_IS_NEG_RESOURCE(r))
                 return r;
+        if (r < 0 && r != -ENOKEY) { /* don't complain if there's no GPT found */
+                /* Don't fail GetAll() on unsupported setups, e.g. a symlinked /boot/loader/ on ostree (see
+                 * #44636). Drop the partially loaded config and report all entries the boot loader sees. */
+                log_debug_errno(r, "Failed to load boot loader entries, ignoring: %m");
+                boot_config_free(&config);
+                config = (BootConfig) BOOT_CONFIG_NULL;
+                auto_only = false;
+        }
 
         r = manager_read_efi_boot_loader_entries(m);
         if (r >= 0)
-                (void) boot_config_augment_from_loader(&config, m->efi_boot_loader_entries, /* auto_only= */ true);
+                (void) boot_config_augment_from_loader(&config, m->efi_boot_loader_entries, auto_only);
 
         r = sd_bus_message_open_container(reply, 'a', "s");
         if (r < 0)
