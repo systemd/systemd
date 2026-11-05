@@ -27,6 +27,7 @@
 #include "journal-def.h"
 #include "journal-file.h"
 #include "journal-internal.h"
+#include "journal-segmented-internal.h"
 #include "list.h"
 #include "log.h"
 #include "lookup3.h"
@@ -35,7 +36,9 @@
 #include "path-util.h"
 #include "prioq.h"
 #include "replace-var.h"
+#include "random-util.h"
 #include "set.h"
+#include "siphash24.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -52,11 +55,12 @@
 #define REPLACE_VAR_MAX PATH_MAX
 
 #define DEFAULT_DATA_THRESHOLD (64*1024)
+#define UNIQUE_BATCH_VALUES_MAX 512U
 
 DEFINE_PRIVATE_ORIGIN_ID_HELPERS(sd_journal, journal);
 
 static void remove_file_real(sd_journal *j, JournalFile *f);
-static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f);
+static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f, bool refresh);
 static void journal_file_unlink_newest_by_boot_id(sd_journal *j, JournalFile *f);
 
 static int journal_put_error(sd_journal *j, int r, const char *path) {
@@ -228,6 +232,8 @@ _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) 
         assert_return(j, -EINVAL);
         assert_return(!journal_origin_changed(j), -ECHILD);
         assert_return(data, -EINVAL);
+
+        j->match_generation++;
 
         /* If the size is unspecified, assume it's a string. Note: 0 is the public value we document for
          * this, for historical reasons. Internally, we pretty widely started using SIZE_MAX for this in
@@ -441,6 +447,7 @@ _public_ void sd_journal_flush_matches(sd_journal *j) {
                 match_free(j->level0);
 
         j->level0 = j->level1 = j->level2 = NULL;
+        j->match_generation++;
 
         detach_location(j);
 }
@@ -571,8 +578,10 @@ static int journal_file_find_newest_for_boot_id(
 
                 prev = f;
 
-                /* Let's read the journal file's current timestamp once, before we return it, maybe it has changed. */
-                r = journal_file_read_tail_timestamp(j, f);
+                /* Let's read the journal file's current timestamp once, before we return it, maybe it has changed.
+                 * Do not refresh segmented files here: this runs while locations are compared, and a file
+                 * that was replaced would lose its location in the middle of that. */
+                r = journal_file_read_tail_timestamp(j, f, /* refresh= */ false);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to read tail timestamp while trying to find newest journal file for boot ID %s.", SD_ID128_TO_STRING(id));
                 if (r == 0) {
@@ -797,6 +806,32 @@ static int seek_without_match(
         }
 }
 
+/* A segmented file evaluates the whole match expression at once and caches the result. The generation changes
+ * whenever the matches change, so that the file does not return a cached result for other matches. */
+typedef struct SeekExpression {
+        Match *m;
+        uint64_t generation;
+} SeekExpression;
+
+static int seek_expression(
+                JournalFile *f,
+                void *userdata,
+                JournalSeek where,
+                sd_id128_t boot_id,
+                uint64_t needle,
+                direction_t direction,
+                Object **ret,
+                uint64_t *ret_offset) {
+
+        SeekExpression *e = ASSERT_PTR(userdata);
+
+        return segmented_seek(
+                        f, e->m,
+                        (const uint64_t[2]) { SEGMENTED_KEY_EXPRESSION, e->generation },
+                        where, boot_id, needle, direction,
+                        ret, ret_offset);
+}
+
 static int move_by_boot(
                 JournalFile *f,
                 direction_t direction,
@@ -982,6 +1017,15 @@ static int find_location_with_matches(
         assert(j);
         assert(f);
 
+        if (j->level0 && f->segmented) {
+                SeekExpression e = {
+                        .m = j->level0,
+                        .generation = j->match_generation,
+                };
+
+                return find_location_seek(j, f, direction, seek_expression, &e, ret, ret_offset);
+        }
+
         if (j->level0)
                 return find_location_for_match(j, j->level0, f, direction, ret, ret_offset);
 
@@ -1005,10 +1049,76 @@ static int next_with_matches(
 
         /* If we have a match then we look for the next matching entry
          * with an offset at least one step larger */
+
+        if (f->segmented)
+                return segmented_seek(
+                                f,
+                                j->level0,
+                                (const uint64_t[2]) { SEGMENTED_KEY_EXPRESSION, j->match_generation },
+                                JOURNAL_SEEK_OFFSET,
+                                SD_ID128_NULL,
+                                direction == DIRECTION_DOWN ? f->current_offset + 1
+                                                            : f->current_offset - 1,
+                                direction,
+                                ret, ret_offset);
+
         return next_for_match(j, j->level0, f,
                               direction == DIRECTION_DOWN ? f->current_offset + 1
                                                           : f->current_offset - 1,
                               direction, ret, ret_offset);
+}
+
+static int file_refresh(sd_journal *j, JournalFile *f, usec_t ts) {
+        int r;
+
+        assert(j);
+        assert(f);
+
+        if (FLAGS_SET(j->flags, SD_JOURNAL_ASSUME_IMMUTABLE))
+                return 0;
+
+        r = journal_file_refresh(f, ts);
+        if (r != 0)
+                j->unique_batch = false;
+        if (r == -ESTALE) {
+                /* The file shrank and was read anew, so positions in it are no longer valid. */
+                journal_file_reset_location(f);
+                f->newest_entry_offset = 0;
+                j->current_invalidate_counter++;
+                return 1;
+        }
+
+        return r;
+}
+
+static JournalFile* enumeration_file(sd_journal *j, JournalFile *f) {
+        /* Enumeration reads segmented files as of their last refresh */
+        if (f)
+                (void) file_refresh(j, f, now(CLOCK_BOOTTIME));
+
+        return f;
+}
+
+static int next_with_matches_refresh(
+                sd_journal *j,
+                JournalFile *f,
+                direction_t direction,
+                usec_t ts,
+                Object **ret,
+                uint64_t *ret_offset) {
+
+        int r;
+
+        r = next_with_matches(j, f, direction, ret, ret_offset);
+        if (r != 0 || direction != DIRECTION_DOWN)
+                return r;
+
+        /* End of the file as last seen, look for entries appended since. */
+        r = file_refresh(j, f, ts);
+        if (r <= 0)
+                return r;
+
+        return next_with_matches(j, f, direction, ret, ret_offset);
 }
 
 static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direction, usec_t ts) {
@@ -1019,12 +1129,18 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
         assert(j);
         assert(f);
 
+        if (direction == DIRECTION_DOWN && f->location_type == LOCATION_TAIL) {
+                r = file_refresh(j, f, ts);
+                if (r < 0)
+                        return r;
+        }
+
         /* Rate-limit tail timestamp refreshes during iteration. Calling this unconditionally is
          * O(N x files) volatile mmap overhead that makes large 'journalctl -n N' queries unusably
          * slow. Periodic refresh keeps cross-boot ordering reasonably fresh and provides a fallback
          * for any missed inotify events. */
         if (ratelimit_below_at(&f->tail_timestamp_ratelimit, ts))
-                (void) journal_file_read_tail_timestamp(j, f);
+                (void) journal_file_read_tail_timestamp(j, f, /* refresh= */ true);
 
         n_entries = le64toh(f->header->n_entries);
 
@@ -1042,13 +1158,18 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
                  * iteration and the current location already points to a
                  * candidate entry. */
                 if (f->location_type != LOCATION_SEEK) {
-                        r = next_with_matches(j, f, direction, &c, &cp);
+                        r = next_with_matches_refresh(j, f, direction, ts, &c, &cp);
                         if (r <= 0)
                                 return r;
 
                         journal_file_save_location(f, c, cp);
                 }
         } else {
+                /* The seek may be meant for entries appended since the file was last refreshed */
+                r = file_refresh(j, f, ts);
+                if (r < 0)
+                        return r;
+
                 r = find_location_with_matches(j, f, direction, &c, &cp);
                 /* LOCATION_SEEK specified to j->current_location.type here means that this is called first
                  * after sd_journal_seek_monotonic_usec() or friends was called. In that case, this file may
@@ -1085,7 +1206,7 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
                 if (found)
                         return 1;
 
-                r = next_with_matches(j, f, direction, &c, &cp);
+                r = next_with_matches_refresh(j, f, direction, ts, &c, &cp);
                 if (r <= 0)
                         return r;
 
@@ -1698,7 +1819,11 @@ static int add_any_file(
                                  * which are gone. */
 
                                 f->last_seen_generation = j->generation;
-                                (void) journal_file_read_tail_timestamp(j, f);
+
+                                /* This may be due to an inotify event, so skip the refresh rate limit. */
+                                journal_file_request_refresh(f);
+
+                                (void) journal_file_read_tail_timestamp(j, f, /* refresh= */ true);
                                 return 0;
                         }
 
@@ -1739,7 +1864,7 @@ static int add_any_file(
 
         track_file_disposition(j, f);
         check_network(j, f->fd);
-        (void) journal_file_read_tail_timestamp(j, f);
+        (void) journal_file_read_tail_timestamp(j, f, /* refresh= */ true);
 
         j->current_invalidate_counter++;
 
@@ -1852,6 +1977,7 @@ static void remove_file_real(sd_journal *j, JournalFile *f) {
                 /* Jump to the next unique_file or NULL if that one was last */
                 j->unique_file = ordered_hashmap_next(j->files, j->unique_file->path);
                 j->unique_offset = 0;
+                j->unique_cursor = (SegmentedCursor) {};
                 if (!j->unique_file)
                         j->unique_file_lost = true;
         }
@@ -1859,6 +1985,7 @@ static void remove_file_real(sd_journal *j, JournalFile *f) {
         if (j->fields_file == f) {
                 j->fields_file = ordered_hashmap_next(j->files, j->fields_file->path);
                 j->fields_offset = 0;
+                j->fields_cursor = (SegmentedCursor) {};
                 if (!j->fields_file)
                         j->fields_file_lost = true;
         }
@@ -2636,6 +2763,9 @@ _public_ void sd_journal_close(sd_journal *j) {
         free(j->namespace);
         free(j->unique_field);
         free(j->fields_buffer);
+        free(j->unique_buffer);
+        set_free(j->unique_seen);
+        set_free(j->fields_seen);
         free(j);
 }
 
@@ -2680,7 +2810,7 @@ static int journal_file_entry_get_machine_id(JournalFile *f, Object *o, uint64_t
         return -ENOENT;
 }
 
-static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
+static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f, bool refresh) {
         uint64_t offset, mo, rt;
         sd_id128_t id;
         ObjectType type;
@@ -2695,6 +2825,12 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
 
         if (FLAGS_SET(j->flags, SD_JOURNAL_ASSUME_IMMUTABLE) && f->newest_entry_offset != 0)
                 return 0; /* We have already read the file, and we assume that the file is immutable. */
+
+        if (refresh) {
+                r = file_refresh(j, f, USEC_INFINITY);
+                if (r < 0)
+                        return r;
+        }
 
         if (f->header->state == f->newest_state &&
             f->header->state == STATE_ARCHIVED &&
@@ -3359,6 +3495,11 @@ _public_ int sd_journal_get_cutoff_realtime_usec(sd_journal *j, uint64_t *from, 
         ORDERED_HASHMAP_FOREACH(f, j->files) {
                 usec_t fr, t;
 
+                journal_file_request_refresh(f);
+                r = file_refresh(j, f, USEC_INFINITY);
+                if (r < 0)
+                        return r;
+
                 r = journal_file_get_cutoff_realtime_usec(f, &fr, &t);
                 if (r == -ENOENT)
                         continue;
@@ -3402,6 +3543,11 @@ _public_ int sd_journal_get_cutoff_monotonic_usec(
 
         ORDERED_HASHMAP_FOREACH(f, j->files) {
                 usec_t ff, tt;
+
+                journal_file_request_refresh(f);
+                r = file_refresh(j, f, USEC_INFINITY);
+                if (r < 0)
+                        return r;
 
                 r = journal_file_get_cutoff_monotonic_usec(f, boot_id, &ff, &tt);
                 if (r == -ENOENT)
@@ -3474,9 +3620,54 @@ _public_ int sd_journal_get_usage(sd_journal *j, uint64_t *ret_bytes) {
         return 0;
 }
 
+static uint64_t enumeration_segment(JournalFile *f, const SegmentedCursor *c) {
+        if (c->stage == 0 && c->index < f->segmented->n_indexes)
+                return f->segmented->indexes[c->index].head_offset;
+
+        return c->last_index_offset ?: le64toh(f->header->header_size);
+}
+
+static sd_id128_t journal_seen_key(sd_journal *j, const void *data, size_t size) {
+        assert(j);
+
+        if (!j->seen_key_set) {
+                random_bytes(j->seen_key, sizeof(j->seen_key));
+                j->seen_key_set = true;
+        }
+
+        return (sd_id128_t) {
+                .qwords = {
+                        siphash24(data, size, j->seen_key),
+                        siphash24(data, size, j->seen_key + 16),
+                },
+        };
+}
+
+static int journal_seen(sd_journal *j, Set **seen, const void *data, size_t size) {
+        _cleanup_free_ sd_id128_t *k = NULL;
+        int r;
+
+        assert(seen);
+
+        k = new(sd_id128_t, 1);
+        if (!k)
+                return -ENOMEM;
+
+        *k = journal_seen_key(j, data, size);
+
+        r = set_ensure_consume(seen, &id128_hash_ops_free, TAKE_PTR(k));
+        if (r < 0)
+                return r;
+
+        return r == 0;
+}
+
 static int journal_seen_before(
                 sd_journal *j,
                 JournalFile *current,
+                Set **seen,
+                const SegmentedCursor *cursor,
+                bool previous_scanned,
                 const void *data,
                 size_t size,
                 int (*find)(JournalFile *f, const void *data, uint64_t size, Object **ret_object, uint64_t *ret_offset)) {
@@ -3484,9 +3675,34 @@ static int journal_seen_before(
         JournalFile *of;
         int r;
 
+        assert(seen);
+
+        if (current->segmented || previous_scanned) {
+                if (current->segmented && !previous_scanned) {
+                        r = segmented_has_value(current, data, size,
+                                                cursor->stage == 0 ? cursor->index : SIZE_MAX, /* include_tail= */ false);
+                        if (r != 0)
+                                return r;
+                }
+
+                r = journal_seen(j, seen, data, size);
+                if (r != 0)
+                        return r;
+        }
+
         ORDERED_HASHMAP_FOREACH(of, j->files) {
                 if (of == current)
                         break;
+
+                if (of->segmented) {
+                        if (previous_scanned)
+                                continue;
+
+                        r = segmented_has_value(of, data, size, SIZE_MAX, /* include_tail= */ true);
+                        if (r != 0)
+                                return r;
+                        continue;
+                }
 
                 /* Skip this file it didn't have any fields indexed */
                 if (JOURNAL_HEADER_CONTAINS(of->header, n_fields) && le64toh(of->header->n_fields) <= 0)
@@ -3517,49 +3733,174 @@ _public_ int sd_journal_query_unique(sd_journal *j, const char *field) {
         return 0;
 }
 
-static int unique_next_in_file(sd_journal *j, size_t k, const void **ret_data, size_t *ret_size) {
-        JournalFile *f = ASSERT_PTR(ASSERT_PTR(j)->unique_file);
+static int unique_next(
+                JournalFile *f,
+                const char *field,
+                size_t k,
+                uint64_t *offset,
+                SegmentedCursor *cursor,
+                const void **ret_data,
+                size_t *ret_size) {
+
         Object *o;
         int r;
 
+        assert(f);
+        assert(field);
+        assert(offset);
+        assert(cursor);
         assert(ret_data);
         assert(ret_size);
 
-        /* Proceed to next data object in the field's linked list */
-        if (j->unique_offset == 0) {
-                r = journal_file_find_field_object(f, j->unique_field, k, &o, /* ret_offset= */ NULL);
+        if (f->segmented)
+                return segmented_enumerate_unique(f, field, k, cursor, ret_data, ret_size);
+
+        if (*offset == 0) {
+                r = journal_file_find_field_object(f, field, k, &o, /* ret_offset= */ NULL);
                 if (r < 0)
                         return r;
 
-                j->unique_offset = r > 0 ? le64toh(o->field.head_data_offset) : 0;
+                *offset = r > 0 ? le64toh(o->field.head_data_offset) : 0;
         } else {
-                r = journal_file_move_to_object(f, OBJECT_DATA, j->unique_offset, &o);
+                r = journal_file_move_to_object(f, OBJECT_DATA, *offset, &o);
                 if (r < 0)
                         return r;
 
-                j->unique_offset = le64toh(o->data.next_field_offset);
+                *offset = le64toh(o->data.next_field_offset);
         }
 
-        if (j->unique_offset == 0)
+        if (*offset == 0)
                 return 0;
 
-        r = journal_file_data_payload_pinned(f, j->unique_offset, /* field= */ NULL, /* field_length= */ 0,
+        r = journal_file_data_payload_pinned(f, *offset, /* field= */ NULL, /* field_length= */ 0,
                                              ret_data, ret_size);
         if (r < 0)
                 return r;
 
-        /* Check if we have at least the field name and "=". */
         if (*ret_size <= k)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "%s:offset " OFSfmt ": object has size %zu, expected at least %zu",
-                                       f->path, j->unique_offset, *ret_size, k + 1);
+                                       f->path, *offset, *ret_size, k + 1);
 
-        if (memcmp(*ret_data, j->unique_field, k) != 0 || ((const char*) *ret_data)[k] != '=')
+        if (memcmp(*ret_data, field, k) != 0 || ((const char*) *ret_data)[k] != '=')
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "%s:offset " OFSfmt ": object does not start with \"%s=\"",
-                                       f->path, j->unique_offset, j->unique_field);
+                                       f->path, *offset, field);
 
         return 1;
+}
+
+static int unique_prepare_seen(sd_journal *j, size_t field_length, size_t value_size) {
+        _cleanup_set_free_ Set *candidates = NULL, *seen = NULL;
+        JournalFile *current = j->unique_file, *f;
+        uint64_t segment = current->segmented ? enumeration_segment(current, &j->unique_cursor) : 0, offset = 0;
+        bool scan = current->segmented && j->unique_cursor.stage != 0;
+        int r;
+
+        ORDERED_HASHMAP_FOREACH(f, j->files) {
+                if (f->segmented) {
+                        Segmented *a = f->segmented;
+                        size_t n = f == current && j->unique_cursor.stage == 0 ? j->unique_cursor.index + 1 : a->n_indexes;
+
+                        if (f != current && a->n_tail_entries > 0)
+                                scan = true;
+
+                        for (size_t k = 0; !scan && k < n; k++) {
+                                IndexFieldItem item;
+
+                                r = segmented_index_find_field(f, a->indexes + k, j->unique_field, field_length, &item);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0 && FLAGS_SET(le32toh(item.flags), INDEX_FIELD_INLINE))
+                                        scan = true;
+                        }
+                }
+                if (f == current)
+                        break;
+        }
+        if (!scan) {
+                j->unique_seen = set_new(&id128_hash_ops_free);
+                j->unique_batch_left = SIZE_MAX;
+                return j->unique_seen ? 0 : -ENOMEM;
+        }
+
+        /* Inline values have no lookup table. Checking candidates in batches avoids scanning every
+         * earlier segment again for each value. Classic files use fixed-size batches to keep memory bounded. */
+        SegmentedCursor cursor = j->unique_cursor;
+        cursor.position = current->segmented && cursor.stage != 0 ? current->segmented->tail_offset : 0;
+        cursor.item = 0;
+        size_t n = 0;
+        if (!current->segmented) {
+                r = journal_seen(j, &candidates, j->unique_buffer, value_size);
+                if (r < 0)
+                        return r;
+                offset = j->unique_offset;
+                n = 1;
+        }
+
+        while (current->segmented || n < UNIQUE_BATCH_VALUES_MAX) {
+                const void *data;
+                size_t size;
+
+                r = unique_next(current, j->unique_field, field_length, &offset, &cursor, &data, &size);
+                if (JOURNAL_ERRNO_IS_UNAVAILABLE_FIELD(r))
+                        continue;
+                if (r < 0)
+                        return r;
+                if (r == 0 || (current->segmented && enumeration_segment(current, &cursor) != segment))
+                        break;
+
+                r = journal_seen(j, &candidates, data, size);
+                if (r < 0)
+                        return r;
+                n++;
+        }
+
+        ORDERED_HASHMAP_FOREACH(f, j->files) {
+                if (f->segmented) {
+                        cursor = (SegmentedCursor) {};
+                        for (;;) {
+                                const void *data;
+                                size_t size;
+
+                                r = segmented_enumerate_unique(f, j->unique_field, field_length, &cursor, &data, &size);
+                                if (JOURNAL_ERRNO_IS_UNAVAILABLE_FIELD(r))
+                                        continue;
+                                if (r < 0)
+                                        return r;
+                                if (r == 0 || (f == current && enumeration_segment(f, &cursor) >= segment))
+                                        break;
+
+                                sd_id128_t key = journal_seen_key(j, data, size);
+                                if (!set_contains(candidates, &key))
+                                        continue;
+
+                                r = journal_seen(j, &seen, data, size);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+                if (f == current)
+                        break;
+        }
+
+        j->unique_seen = TAKE_PTR(seen);
+        j->unique_batch_left = n;
+        return 1;
+}
+
+static int unique_next_in_file(sd_journal *j, size_t k, const void **ret_data, size_t *ret_size) {
+        JournalFile *f = j->unique_file;
+        uint64_t previous = f->segmented ? enumeration_segment(f, &j->unique_cursor) : 0;
+        int r;
+
+        r = unique_next(f, j->unique_field, k, &j->unique_offset, &j->unique_cursor, ret_data, ret_size);
+        if ((f->segmented && previous != enumeration_segment(f, &j->unique_cursor)) ||
+            (!f->segmented && j->unique_batch_left == 0)) {
+                j->unique_seen = set_free(j->unique_seen);
+                j->unique_batch = false;
+        }
+        return r;
 }
 
 _public_ int sd_journal_enumerate_unique(
@@ -3581,11 +3922,13 @@ _public_ int sd_journal_enumerate_unique(
                 if (j->unique_file_lost)
                         return 0;
 
-                j->unique_file = ordered_hashmap_first(j->files);
+                j->unique_file = enumeration_file(j, ordered_hashmap_first(j->files));
                 if (!j->unique_file)
                         return 0;
 
                 j->unique_offset = 0;
+                j->unique_cursor = (SegmentedCursor) {};
+                j->unique_seen = set_free(j->unique_seen); /* Starting over returns everything again */
         }
 
         for (;;) {
@@ -3598,17 +3941,35 @@ _public_ int sd_journal_enumerate_unique(
                         return r;
                 if (r == 0) {
                         /* We reached the end of the list? Then start again, with the next file */
-                        j->unique_file = ordered_hashmap_next(j->files, j->unique_file->path);
+                        j->unique_file = enumeration_file(j, ordered_hashmap_next(j->files, j->unique_file->path));
                         j->unique_offset = 0;
+                        j->unique_cursor = (SegmentedCursor) {};
+                        j->unique_seen = set_free(j->unique_seen);
                         if (!j->unique_file)
                                 return 0;
 
                         continue;
                 }
 
-                /* OK, now let's see if we already returned this data object by checking if it exists in the
-                 * earlier traversed files. */
-                r = journal_seen_before(j, j->unique_file, odata, ol, journal_file_find_data_object);
+                if (!GREEDY_REALLOC(j->unique_buffer, ol))
+                        return -ENOMEM;
+                memcpy(j->unique_buffer, odata, ol);
+                odata = j->unique_buffer;
+
+                if (!j->unique_seen) {
+                        r = unique_prepare_seen(j, k, ol);
+                        if (r < 0)
+                                return r;
+                        j->unique_batch = r > 0;
+                }
+                if (!j->unique_file->segmented && j->unique_batch_left != SIZE_MAX) {
+                        assert(j->unique_batch_left > 0);
+                        j->unique_batch_left--;
+                }
+
+                r = journal_seen_before(j, j->unique_file, &j->unique_seen, &j->unique_cursor,
+                                        j->unique_batch,
+                                        odata, ol, journal_file_find_data_object);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -3641,6 +4002,8 @@ _public_ void sd_journal_restart_unique(sd_journal *j) {
         j->unique_file = NULL;
         j->unique_offset = 0;
         j->unique_file_lost = false;
+        j->unique_cursor = (SegmentedCursor) {};
+        j->unique_seen = set_free(j->unique_seen);
 }
 
 static int fields_next_in_file(sd_journal *j, const void **ret_name, size_t *ret_size) {
@@ -3650,6 +4013,14 @@ static int fields_next_in_file(sd_journal *j, const void **ret_name, size_t *ret
 
         assert(ret_name);
         assert(ret_size);
+
+        if (f->segmented) {
+                uint64_t previous = enumeration_segment(f, &j->fields_cursor);
+                r = segmented_enumerate_fields(f, &j->fields_cursor, ret_name, ret_size);
+                if (previous != enumeration_segment(f, &j->fields_cursor))
+                        j->fields_seen = set_free(j->fields_seen);
+                return r;
+        }
 
         for (;;) {
                 if (j->fields_offset == 0) {
@@ -3718,12 +4089,14 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **ret) {
                 if (j->fields_file_lost)
                         return 0;
 
-                j->fields_file = ordered_hashmap_first(j->files);
+                j->fields_file = enumeration_file(j, ordered_hashmap_first(j->files));
                 if (!j->fields_file)
                         return 0;
 
                 j->fields_hash_table_index = 0;
                 j->fields_offset = 0;
+                j->fields_cursor = (SegmentedCursor) {};
+                j->fields_seen = set_free(j->fields_seen); /* Starting over returns everything again */
         }
 
         for (;;) {
@@ -3735,9 +4108,10 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **ret) {
                         return r;
                 if (r == 0) {
                         /* Proceed with next file */
-                        j->fields_file = ordered_hashmap_next(j->files, j->fields_file->path);
+                        j->fields_file = enumeration_file(j, ordered_hashmap_next(j->files, j->fields_file->path));
                         j->fields_offset = 0;
                         j->fields_hash_table_index = 0;
+                        j->fields_cursor = (SegmentedCursor) {};
                         if (!j->fields_file) {
                                 *ret = NULL;
                                 return 0;
@@ -3746,8 +4120,14 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **ret) {
                         continue;
                 }
 
+                if (!GREEDY_REALLOC(j->fields_buffer, sz + 1))
+                        return -ENOMEM;
+                memcpy(j->fields_buffer, name, sz);
+                name = j->fields_buffer;
+
                 /* Let's see if we already returned this field name before. */
-                r = journal_seen_before(j, j->fields_file, name, sz, journal_file_find_field_object);
+                r = journal_seen_before(j, j->fields_file, &j->fields_seen, &j->fields_cursor,
+                                        /* previous_scanned= */ false, name, sz, journal_file_find_field_object);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -3760,10 +4140,6 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **ret) {
                 if (j->data_threshold > 0 && sz > j->data_threshold)
                         sz = j->data_threshold;
 
-                if (!GREEDY_REALLOC(j->fields_buffer, sz + 1))
-                        return -ENOMEM;
-
-                memcpy(j->fields_buffer, name, sz);
                 j->fields_buffer[sz] = 0;
 
                 if (!field_is_valid(j->fields_buffer))
@@ -3782,6 +4158,8 @@ _public_ void sd_journal_restart_fields(sd_journal *j) {
         j->fields_hash_table_index = 0;
         j->fields_offset = 0;
         j->fields_file_lost = false;
+        j->fields_cursor = (SegmentedCursor) {};
+        j->fields_seen = set_free(j->fields_seen);
 }
 
 _public_ int sd_journal_reliable_fd(sd_journal *j) {

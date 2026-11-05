@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -20,6 +21,7 @@
 #include "alloc-util.h"
 #include "chattr-util.h"
 #include "dirent-util.h"
+#include "dlopen-note.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
@@ -30,6 +32,7 @@
 #include "io-util.h"
 #include "iovec-util.h"
 #include "journal-file-util.h"
+#include "journal-segmented.h"
 #include "log.h"
 #include "main-func.h"
 #include "memory-util.h"
@@ -48,6 +51,7 @@
 #include "strv.h"
 #include "tests.h"
 #include "time-util.h"
+#include "version.h"
 #include "tmpfile-util.h"
 #include "verbs.h"
 
@@ -67,12 +71,14 @@ COMMAND(
 typedef struct Format {
         const char *name;
         const char *compact;
+        const char *segmented;
         bool nocow;
 } Format;
 
 static const Format formats[] = {
-        { "classic", "0", true },
-        { "compact", "1", true },
+        { "classic",     "0", "0", true  },
+        { "compact",     "1", "0", true  },
+        { "segmented", "1", "1", false },
 };
 
 typedef struct Entry {
@@ -128,6 +134,7 @@ typedef struct WriteResult {
         uint64_t append_p50_nsec;
         uint64_t append_p99_nsec;
         uint64_t append_max_nsec;
+        uint64_t n_indexes;
 } WriteResult;
 
 typedef struct ReadResult {
@@ -137,6 +144,7 @@ typedef struct ReadResult {
         uint64_t warm_usec;
         uint64_t cold_pages;
         uint64_t cold_read_bytes;
+        uint64_t cold_major_faults;
         uint64_t heap_bytes;
 } ReadResult;
 
@@ -697,6 +705,9 @@ static int account_file(int fd, const struct stat *st, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open journal file: %m");
 
+        if (f->segmented)
+                result->n_indexes += f->segmented->n_indexes;
+
         f->close_fd = false;
         return 0;
 }
@@ -1155,6 +1166,15 @@ static const struct {
 
 assert_cc(ELEMENTSOF(read_tests) <= N_READ_TESTS_MAX);
 
+static uint64_t major_faults_now(void) {
+        struct rusage ru;
+
+        /* A page fault that has to read the page from disk counts as a major fault. Pages that a prefetch
+         * already put into the page cache, or is still reading, count as minor faults. */
+        ASSERT_OK_ERRNO(getrusage(RUSAGE_SELF, &ru));
+        return (uint64_t) ru.ru_majflt;
+}
+
 static int read_test_once(ReadContext *c, read_test_t func, usec_t *ret_usec, uint64_t *ret_heap) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         uint64_t heap = heap_in_use();
@@ -1208,12 +1228,14 @@ static int read_test(const Workload *w, const char *path, Report *report) {
                         log_warning("%" PRIu64 " pages are still in the page cache after evicting them, the cold cache figures are not accurate.", resident);
 
                 read_bytes = proc_io_field("read_bytes");
+                uint64_t major_faults = major_faults_now();
 
                 r = read_test_once(&c, test->func, &result->cold_usec, /* ret_heap= */ NULL);
                 if (r < 0)
                         return r;
 
                 result->cold_read_bytes = proc_io_field("read_bytes") - read_bytes;
+                result->cold_major_faults = major_faults_now() - major_faults;
 
                 r = foreach_journal_file(path, count_resident, &result->cold_pages);
                 if (r < 0)
@@ -1262,7 +1284,8 @@ static int follow_writer(const Workload *w, const char *path, uint64_t n, int re
         if (r < 0)
                 return log_error_errno(r, "Failed to open %s: %m", fn);
 
-        /* Like journald, notify readers of changes at most every 250ms. */
+        /* Like journald, notify readers of changes at most every 250ms. The event loop runs after each
+         * entry, and then writes out segmented files right away, as journald does when it is idle. */
         ASSERT_OK(sd_event_default(&e));
         ASSERT_OK(journal_file_enable_post_change_timer(f, e, 250 * USEC_PER_MSEC));
 
@@ -1437,6 +1460,7 @@ static int run_format(const Workload *w, const Format *format, Report *report) {
 
                 ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_KEYED_HASH", "1", /* overwrite= */ true));
                 ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_COMPACT", format->compact, /* overwrite= */ true));
+                ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", format->segmented, /* overwrite= */ true));
 
                 if (arg_write) {
                         r = write_test(w, path, &child.write);
@@ -1581,6 +1605,7 @@ static void print_reports(const Workload *w, const Format **used, const Report *
         if (sd_json_format_enabled(arg_json_format_flags))
                 ASSERT_OK(sd_json_buildo(
                                 &json,
+                                SD_JSON_BUILD_PAIR_STRING("version", GIT_VERSION),
                                 SD_JSON_BUILD_PAIR("workload",
                                         SD_JSON_BUILD_OBJECT(
                                                 SD_JSON_BUILD_PAIR_UNSIGNED("entries", w->n_entries),
@@ -1594,7 +1619,8 @@ static void print_reports(const Workload *w, const Format **used, const Report *
                                                 SD_JSON_BUILD_PAIR_UNSIGNED("maxSize", arg_max_size),
                                                 SD_JSON_BUILD_PAIR_BOOLEAN("compress", arg_compress)))));
         else {
-                printf("\nWorkload: %zu entries, %zu fields, %s payload, %s of log time\n",
+                printf("\nVersion: %s\n", GIT_VERSION);
+                printf("Workload: %zu entries, %zu fields, %s payload, %s of log time\n",
                        w->n_entries, w->n_iovecs, FORMAT_BYTES(w->payload_bytes), FORMAT_TIMESPAN(log_usec, USEC_PER_SEC));
                 printf("Writeback every %s, sync every %s, maximum file size %s, compression %s\n",
                        FORMAT_TIMESPAN(arg_writeback_usec, USEC_PER_SEC), FORMAT_TIMESPAN(arg_sync_usec, USEC_PER_SEC),
@@ -1623,6 +1649,7 @@ static void print_reports(const Workload *w, const Format **used, const Report *
                 WRITE_ROW("file size", file_bytes, U64_MB, "MiB");
                 WRITE_ROW("disk usage", disk_bytes, U64_MB, "MiB");
                 WRITE_ROW("extents", n_extents, 1, "");
+                WRITE_ROW("indexes", n_indexes, 1, "");
                 WRITE_ROW("append CPU time", append_cpu_nsec, NSEC_PER_MSEC, "ms");
                 WRITE_ROW("append latency, median", append_p50_nsec, NSEC_PER_USEC, "us");
                 WRITE_ROW("append latency, 99th percentile", append_p99_nsec, NSEC_PER_USEC, "us");
@@ -1673,6 +1700,7 @@ static void print_read_reports(const Format **used, const Report *reports, size_
                 { "READ, cold page cache: time",        "readColdTime",  "ms",    offsetof(ReadResult, cold_usec),       USEC_PER_MSEC },
                 { "READ, cold page cache: pages read",  "readColdPages", "pages", offsetof(ReadResult, cold_pages),      1             },
                 { "READ, cold page cache: bytes read",  "readColdBytes", "KiB",   offsetof(ReadResult, cold_read_bytes), U64_KB        },
+                { "READ, cold page cache: major faults", "readColdMajorFaults", "faults", offsetof(ReadResult, cold_major_faults), 1 },
                 { "READ, warm page cache: time",        "readWarmTime",  "ms",    offsetof(ReadResult, warm_usec),       USEC_PER_MSEC },
                 { "READ: heap of the reader",           "readHeap",      "KiB",   offsetof(ReadResult, heap_bytes),      U64_KB        },
         };
@@ -1750,6 +1778,9 @@ static void print_follow_reports(const Format **used, const Report *reports, siz
 }
 
 static int run(int argc, char *argv[]) {
+        COMPRESS_JOURNAL_NOTE;
+        LIBSELINUX_NOTE(suggested);
+
         _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
         Workload w = {};
         int r;
@@ -1786,7 +1817,7 @@ static int run(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("formats", "LIST",
-                            "Comma-separated formats to compare: classic, compact (default: all)"):
+                            "Comma-separated formats to compare: classic, compact, segmented (default: all)"):
                         r = strv_split_and_extend(&arg_formats, opts.arg, ",", /* filter_duplicates= */ true);
                         if (r < 0)
                                 return log_oom();
@@ -1817,7 +1848,7 @@ static int run(int argc, char *argv[]) {
                         break;
 
                 OPTION_LONG("nocow", "BOOL",
-                            "Disable copy-on-write for the journal files (default: yes)"):
+                            "Disable copy-on-write for classic and compact files; segmented files ignore this (default: auto)"):
                         r = parse_tristate_argument_with_auto("--nocow=", opts.arg, &arg_nocow);
                         if (r < 0)
                                 return r;
