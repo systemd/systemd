@@ -37,6 +37,7 @@
 #include "signal-util.h"
 #include "socket-util.h"
 #include "special.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -1186,6 +1187,11 @@ int machine_copy_from_to_operation(
         if (isempty(host_path) || isempty(container_path))
                 return -EINVAL;
 
+        /* If either path can only refer to a directory (e.g. because of a trailing slash), the user expects
+         * a directory to be copied. Take note of that, and verify it below, since we split off the last
+         * path component, and thus the kernel won't enforce it for us. */
+        bool must_be_directory = path_implies_directory(host_path) || path_implies_directory(container_path);
+
         r = path_extract_filename(host_path, &host_basename);
         if (r < 0)
                 return log_debug_errno(r, "Failed to extract file name of '%s' path: %m", host_path);
@@ -1232,6 +1238,18 @@ int machine_copy_from_to_operation(
                 if (container_fd < 0) {
                         log_debug_errno(container_fd, "Failed to open container directory: %m");
                         report_errno_and_exit(errno_pipe_fd[1], container_fd);
+                }
+
+                if (must_be_directory) {
+                        r = is_dir_at(copy_from_container ? container_fd : host_fd,
+                                      copy_from_container ? container_basename : host_basename,
+                                      /* follow= */ false);
+                        if (r == 0)
+                                r = log_debug_errno(SYNTHETIC_ERRNO(ENOTDIR), "Path refers to a directory, but copy source is not one.");
+                        else if (r < 0)
+                                log_debug_errno(r, "Failed to check whether copy source is a directory: %m");
+                        if (r < 0)
+                                report_errno_and_exit(errno_pipe_fd[1], r);
                 }
 
                 /* Rejoin the host namespace, so that /proc/self/fd/… works, which copy_tree_at() relies on
