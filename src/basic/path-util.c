@@ -1189,7 +1189,7 @@ bool path_is_valid_full(const char *p, bool accept_dot_dot) {
         }
 }
 
-bool path_is_normalized(const char *p) {
+bool path_is_normalized_full(const char *p, PathNormalizedFlags flags) {
         if (!path_is_safe(p))
                 return false;
 
@@ -1197,6 +1197,11 @@ bool path_is_normalized(const char *p) {
                 return false;
 
         if (strstr(p, "//"))
+                return false;
+
+        /* A trailing slash is fine by default, since it carries meaning (i.e. "must be a directory"), but
+         * some users want the fully canonical form. The root directory itself is always OK. */
+        if (FLAGS_SET(flags, PATH_REFUSE_TRAILING_SLASH) && !streq(p, "/") && endswith(p, "/"))
                 return false;
 
         return true;
