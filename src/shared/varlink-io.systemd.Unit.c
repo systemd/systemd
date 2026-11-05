@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bus-polkit.h"
 #include "varlink-idl-common.h"
 #include "varlink-io.systemd.Job.h"
 #include "varlink-io.systemd.Unit.h"
@@ -1986,9 +1987,9 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(jobType, JobType, 0),
                 SD_VARLINK_FIELD_COMMENT("Job mode. Defaults to replace."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(mode, JobMode, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("If true, stream job state change notifications. Defaults to false. Requires 'more' and a single unit name."),
+                SD_VARLINK_FIELD_COMMENT("If true, stream job state change notifications. Defaults to false. Requires 'more' and a single unit name. Subscriptions survive daemon-reload and daemon-reexec."),
                 SD_VARLINK_DEFINE_INPUT(notifyJobChanges, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("If true, stream unit runtime notifications on state changes. Defaults to false. Requires 'more' and a single unit name."),
+                SD_VARLINK_FIELD_COMMENT("If true, stream unit runtime notifications on state changes. Defaults to false. Requires 'more' and a single unit name. Subscriptions survive daemon-reload and daemon-reexec."),
                 SD_VARLINK_DEFINE_INPUT(notifyUnitChanges, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Unit context. Set in the final reply."),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(context, UnitContext, SD_VARLINK_NULLABLE),
@@ -2022,9 +2023,9 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(context, UnitContext, 0),
                 SD_VARLINK_FIELD_COMMENT("Job mode. Defaults to replace."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(mode, JobMode, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("If true and 'more' is set, stream job state change notifications. Defaults to false."),
+                SD_VARLINK_FIELD_COMMENT("If true and 'more' is set, stream job state change notifications. Defaults to false. Subscriptions survive daemon-reload and daemon-reexec."),
                 SD_VARLINK_DEFINE_INPUT(notifyJobChanges, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("If true and 'more' is set, stream unit runtime notifications on state changes. Defaults to false."),
+                SD_VARLINK_FIELD_COMMENT("If true and 'more' is set, stream unit runtime notifications on state changes. Defaults to false. Subscriptions survive daemon-reload and daemon-reexec."),
                 SD_VARLINK_DEFINE_INPUT(notifyUnitChanges, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Unit context. Set in the final reply."),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(context, UnitContext, SD_VARLINK_NULLABLE),
@@ -2042,6 +2043,13 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("The runtime properties to set."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(properties, UnitProperties, 0));
 
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                AcquireReference,
+                SD_VARLINK_REQUIRES_MORE,
+                SD_VARLINK_FIELD_COMMENT("Names of units to keep loaded. Requires 'more'. An empty notification acknowledges that all references were acquired; they are released when the connection closes. Units need not exist yet, allowing a reference to be acquired before StartTransient(). References survive daemon-reload and daemon-reexec."),
+                SD_VARLINK_DEFINE_INPUT(names, SD_VARLINK_STRING, SD_VARLINK_ARRAY),
+                VARLINK_DEFINE_POLKIT_INPUT);
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Unit,
                 "io.systemd.Unit",
@@ -2053,6 +2061,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_SetProperties,
                 SD_VARLINK_SYMBOL_COMMENT("Create a transient unit and start it"),
                 &vl_method_StartTransient,
+                SD_VARLINK_SYMBOL_COMMENT("Keep units loaded for the lifetime of a streaming method call."),
+                &vl_method_AcquireReference,
                 &vl_type_RateLimit,
                 SD_VARLINK_SYMBOL_COMMENT("An object to represent a unit's conditions"),
                 &vl_type_Condition,

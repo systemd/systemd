@@ -15,6 +15,7 @@
 #include "json-util.h"
 #include "locale-util.h"
 #include "manager.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "scope.h"
@@ -33,6 +34,7 @@
 #include "varlink-mount.h"
 #include "varlink-path.h"
 #include "varlink-scope.h"
+#include "varlink-serialize.h"
 #include "varlink-service.h"
 #include "varlink-socket.h"
 #include "varlink-swap.h"
@@ -660,125 +662,29 @@ void varlink_job_send_removed_signal(Job *j) {
         varlink_job_detach_client(j);
 }
 
-typedef struct VarlinkJobClient {
-        sd_varlink *varlink;
-        bool notify_job_changes;
-        bool notify_unit_changes;
-} VarlinkJobClient;
-
-static VarlinkJobClient* varlink_job_client_free(VarlinkJobClient *w) {
-        if (!w)
-                return NULL;
-
-        sd_varlink_unref(w->varlink);
-        return mfree(w);
-}
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(VarlinkJobClient*, varlink_job_client_free);
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
-                varlink_job_client_hash_ops,
-                void, trivial_hash_func, trivial_compare_func,
-                VarlinkJobClient, varlink_job_client_free);
-
-void varlink_job_stash_client(Job *j) {
-        int r;
-
+int varlink_job_coldplug(Job *j) {
         assert(j);
         assert(j->manager);
         assert(j->unit);
 
-        /* The connection outlives the reload but the job doesn't, hence keep it by job id for job_coldplug().
-         * Unlike bus names this can't go through the serialization stream. */
-        if (!j->varlink)
-                return;
-
-        _cleanup_(varlink_job_client_freep) VarlinkJobClient *w = new(VarlinkJobClient, 1);
-        if (!w) {
-                log_oom_warning();
-                (void) sd_varlink_error_errno(j->varlink, -ENOMEM);
-                varlink_job_detach_client(j);
-                return;
-        }
-
-        *w = (VarlinkJobClient) {
-                .varlink = sd_varlink_ref(j->varlink),
-                .notify_job_changes = j->varlink_notify_job_changes,
-                .notify_unit_changes = j->unit->varlink_unit_change == j->varlink,
-        };
-
-        r = hashmap_ensure_put(&j->manager->stashed_varlink_job_clients, &varlink_job_client_hash_ops, UINT32_TO_PTR(j->id), w);
-        if (r < 0) {
-                log_unit_warning_errno(j->unit, r, "Failed to stash varlink client of job %" PRIu32 ", sending error reply: %m", j->id);
-                (void) sd_varlink_error_errno(j->varlink, r);
-                varlink_job_detach_client(j);
-                return;
-        }
-
-        assert(r > 0);
-        TAKE_PTR(w);
-}
-
-void varlink_job_unstash_client(Job *j) {
-        assert(j);
-        assert(j->manager);
-        assert(j->unit);
-
-        _cleanup_(varlink_job_client_freep) VarlinkJobClient *w = NULL;
-
-        w = hashmap_remove(j->manager->stashed_varlink_job_clients, UINT32_TO_PTR(j->id));
-        if (!w)
-                return;
+        if (j->deserialized_varlink_id == 0)
+                return 0;
 
         assert(!j->varlink);
 
-        j->varlink = sd_varlink_ref(w->varlink);
-        j->varlink_notify_job_changes = w->notify_job_changes;
+        sd_varlink *link = varlink_server_get_connection(j->manager->varlink_server, j->deserialized_varlink_id);
+        if (!link)
+                return log_unit_warning_errno(j->unit, SYNTHETIC_ERRNO(ENOENT),
+                                              "Varlink connection %" PRIu64 " of job %" PRIu32 " was not restored, ignoring.",
+                                              j->deserialized_varlink_id, j->id);
 
-        if (w->notify_unit_changes && !j->unit->varlink_unit_change)
-                j->unit->varlink_unit_change = sd_varlink_ref(w->varlink);
-}
+        j->varlink = sd_varlink_ref(link);
+        if (j->deserialized_varlink_notify_unit_changes && !j->unit->varlink_unit_change)
+                j->unit->varlink_unit_change = sd_varlink_ref(link);
 
-void varlink_job_drop_stashed_client(Manager *m, sd_varlink *link) {
-        VarlinkJobClient *w;
-        void *id;
-
-        assert(m);
-        assert(link);
-
-        HASHMAP_FOREACH_KEY(w, id, m->stashed_varlink_job_clients)
-                if (w->varlink == link) {
-                        varlink_job_client_free(hashmap_remove(m->stashed_varlink_job_clients, id));
-                        break;
-                }
-}
-
-void varlink_job_flush_stashed_clients(Manager *m) {
-        VarlinkJobClient *w;
-        void *id;
-
-        assert(m);
-
-        /* Jobs aren't guaranteed to come back after a reload, e.g. when coldplug cancels them */
-        HASHMAP_FOREACH_KEY(w, id, m->stashed_varlink_job_clients) {
-                const char *k;
-                Unit *u;
-
-                log_info("Job %" PRIu32 " did not survive the reload, cancelling its varlink client.", PTR_TO_UINT32(id));
-
-                HASHMAP_FOREACH_KEY(u, k, m->units) {
-                        if (k != u->id)
-                                continue;
-
-                        if (u->varlink_unit_change == w->varlink) {
-                                u->varlink_unit_change = sd_varlink_unref(u->varlink_unit_change);
-                                break;
-                        }
-                }
-
-                (void) sd_varlink_error_errno(w->varlink, -ECANCELED);
-        }
-
-        m->stashed_varlink_job_clients = hashmap_free(m->stashed_varlink_job_clients);
+        j->deserialized_varlink_id = 0;
+        j->deserialized_varlink_notify_unit_changes = false;
+        return 0;
 }
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_job_mode, JobMode, job_mode_from_string);
@@ -1103,6 +1009,123 @@ static int dispatch_unit_names(const char *name, sd_json_variant *variant, sd_js
                                         "JSON field '%s' contains an invalid unit name.", strna(name));
 
         return strv_free_and_replace(*ret, l);
+}
+
+int unit_add_varlink_ref(Unit *u, sd_varlink *link) {
+        int r;
+
+        assert(u);
+        assert(link);
+
+        r = set_ensure_put(&u->varlink_refs, &varlink_hash_ops, link);
+        if (r > 0)
+                sd_varlink_ref(link);
+        return r;
+}
+
+int unit_add_varlink_ref_by_id(Unit *u, const char *id) {
+        uint64_t cookie;
+        int r;
+
+        assert(u);
+        assert(id);
+
+        r = safe_atou64(id, &cookie);
+        if (r < 0)
+                return log_unit_warning_errno(u, r, "Failed to parse Varlink reference ID '%s': %m", id);
+
+        sd_varlink *link = varlink_server_get_connection(u->manager->varlink_server, cookie);
+        if (!link)
+                return log_unit_warning_errno(u, SYNTHETIC_ERRNO(ENOENT), "Varlink reference connection '%s' was not restored.", id);
+
+        r = unit_add_varlink_ref(u, link);
+        if (r < 0) {
+                (void) sd_varlink_close(link);
+                return log_unit_warning_errno(u, r, "Failed to restore Varlink unit reference: %m");
+        }
+
+        return 0;
+}
+
+void unit_remove_varlink_ref(Unit *u, sd_varlink *link) {
+        assert(u);
+        assert(link);
+
+        if (!set_remove(u->varlink_refs, link))
+                return;
+
+        sd_varlink_unref(link);
+        if (set_isempty(u->varlink_refs))
+                unit_add_to_gc_queue(u);
+}
+
+int vl_method_acquire_reference(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "names", SD_JSON_VARIANT_ARRAY, dispatch_unit_names, 0, SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_set_free_ Set *units = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        Manager *m = ASSERT_PTR(userdata);
+        Unit *u;
+        int r;
+
+        assert(link);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &names);
+        if (r != 0)
+                return r;
+
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
+
+        strv_uniq(names);
+
+        STRV_FOREACH(name, names) {
+                r = varlink_verify_polkit_async(
+                                link,
+                                m->system_bus,
+                                "org.freedesktop.systemd1.manage-units",
+                                (const char**) STRV_MAKE("unit", *name, "verb", "ref"),
+                                &m->polkit_registry);
+                if (r <= 0)
+                        return r;
+        }
+
+        STRV_FOREACH(name, names) {
+                /* Like Unit.Ref() on D-Bus, allow pinning a not-found unit before creating it transiently. */
+                r = manager_load_unit(m, *name, /* path= */ NULL, &error, &u);
+                if (r < 0)
+                        return varlink_reply_bus_error(link, r, &error);
+
+                r = mac_selinux_unit_access_check_varlink(u, link, "start");
+                if (r < 0)
+                        return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
+
+                r = set_ensure_put(&units, &trivial_hash_ops, u);
+                if (r < 0)
+                        return r;
+        }
+
+        SET_FOREACH(u, units) {
+                r = unit_add_varlink_ref(unit_follow_merge(u), link);
+                if (r < 0)
+                        goto rollback;
+        }
+
+        r = sd_varlink_notify(link, /* parameters= */ NULL);
+        if (r < 0)
+                goto rollback;
+
+        return r;
+
+rollback:
+        SET_FOREACH(u, units)
+                unit_remove_varlink_ref(unit_follow_merge(u), link);
+
+        return r;
 }
 
 int vl_method_enqueue_unit_job(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
