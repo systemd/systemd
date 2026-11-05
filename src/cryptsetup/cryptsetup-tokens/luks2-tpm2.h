@@ -26,4 +26,11 @@ int acquire_luks2_key(
                 const struct iovec *pcrlock_nv,
                 TPM2Flags flags,
                 const Argon2IdParameters *argon2id_params,
+                const char *fido2_device,
+                const struct iovec *fido2_cid,
+                const char *fido2_rp,
+                const struct iovec *fido2_public_key,
+                const char *fido2_public_key_algorithm,
+                const struct iovec *fido2_public_key_tag,
+                Fido2EnrollFlags fido2_flags,
                 struct iovec *decrypted_key);
