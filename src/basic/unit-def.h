@@ -349,3 +349,14 @@ DECLARE_STRING_TABLE_LOOKUP(exec_directory_type, ExecDirectoryType);
 DECLARE_STRING_TABLE_LOOKUP(exec_directory_type_symlink, ExecDirectoryType);
 
 Glyph unit_active_state_to_glyph(UnitActiveState state);
+
+/* The maximum lengths of tag names/values. The kernel limits names to 255 bytes (we have less available,
+ * since the user.tag.* prefix counts against that limit!) and the value to 128 KiB. Still, like the
+ * machine tags in hostname-util.h, we try to keep it relatively short */
+#define UNIT_TAG_NAME_MAX 128
+#define UNIT_TAG_VALUE_MAX 255
+/* The kernel limits us to 128 user.* xattrs per cgroup. Let's give ourselves some headroom by limiting the
+ * amount of user-defined tags to half the kernel limit */
+#define UNIT_TAGS_MAX 64
+bool unit_tag_name_is_valid(const char *name);
+bool unit_tag_value_is_valid(const char *value);

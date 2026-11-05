@@ -174,6 +174,7 @@ int cg_get_xattr(const char *path, const char *name, char **ret, size_t *ret_siz
 /* Returns negative on error, and 0 or 1 on success for the bool value */
 int cg_get_xattr_bool(const char *path, const char *name);
 int cg_remove_xattr(const char *path, const char *name);
+int cg_list_xattr(const char *path, char **ret);
 
 int cg_is_empty(const char *path);
 
@@ -193,6 +194,7 @@ static inline int cg_path_get_user_unit(const char *path, char **ret_unit) {
 int cg_path_get_machine_name(const char *path, char **ret_machine);
 int cg_path_get_slice(const char *path, char **ret_slice);
 int cg_path_get_user_slice(const char *path, char **ret_slice);
+RuntimeScope cg_path_runtime_scope(const char *path);
 
 int cg_shift_path(const char *cgroup, const char *cached_root, const char **ret_shifted);
 int cg_pid_get_path_shifted(pid_t pid, const char *cached_root, char **ret_cgroup);

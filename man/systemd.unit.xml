@@ -654,6 +654,26 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>Tags=</varname></term>
+        <listitem><para>A space-separated list of tags attached to this unit.
+        Tags are user-defined labels used to track any administrator-defined attribute
+        of a unit, often to classify and group units. For example:
+        <literal>Tags=company.backend.trigger-reason=api-event:123456789 company.foobar</literal></para>
+
+        <para>Each individual tag consists of a name and, optionally, a value. Names must be at most 128
+        characters long, and may consist only of the ASCII alphanumeric characters, <literal>-</literal>,
+        and <literal>.</literal>. The first and last characters of the name must be an alphanumeric character.
+        The tag's name is separated from the value with a <literal>=</literal>. Tag values must be at most
+        255 characters long, and may consist only of the ASCII alphanumeric characters, <literal>-</literal>,
+        <literal>.</literal>, <literal>:</literal>, and <literal>=</literal>.</para>
+
+        <para>Tags should be namespaced. In particular, tags belonging to an organization or company should
+        be prefixed with some identifier for the organization before the first dot.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Wants=</varname></term>
 
         <listitem><para>Configures (weak) requirement dependencies on other units. This option may be
@@ -1074,6 +1094,7 @@
         <ulink url="https://systemd.io/ROOT_STORAGE_DAEMONS">systemd and Storage Daemons for the Root File
         System</ulink>, which however continues to be supported.</para>
 
+        <xi:include href="system-only.xml" xpointer="singular"/>
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
 
