@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-id128.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "bpf-restrict-fsaccess.h"
@@ -28,6 +29,7 @@
 #include "user-util.h"
 #include "varlink.h"
 #include "varlink-serialize.h"
+#include "varlink-util.h"
 
 int manager_open_serialization(Manager *m, FILE **ret_f) {
         assert(ret_f);
@@ -223,6 +225,39 @@ int manager_serialize(
         r = varlink_server_serialize(m->metrics_varlink_server, "metrics", f, fds);
         if (r < 0)
                 return r;
+
+        _cleanup_set_free_ Set *varlink_connections = NULL;
+        HASHMAP_FOREACH_KEY(u, t, m->units) {
+                if (u->id != t)
+                        continue;
+
+                sd_varlink *link;
+                SET_FOREACH(link, u->varlink_refs) {
+                        r = set_ensure_put(&varlink_connections, &trivial_hash_ops, link);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        if (!switching_root) {
+                Job *j;
+
+                HASHMAP_FOREACH(j, m->jobs) {
+                        if (!j->varlink)
+                                continue;
+
+                        r = set_ensure_put(&varlink_connections, &trivial_hash_ops, j->varlink);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        sd_varlink *link;
+        SET_FOREACH(link, varlink_connections) {
+                r = varlink_serialize(link, "varlink-server-connection", f, fds);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to serialize Varlink connection: %m");
+        }
 
         r = bpf_restrict_fsaccess_serialize(m, f, fds);
         if (r < 0)
@@ -779,6 +814,37 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         r = strv_extend(&m->subscribed_as_strv, val);
                         if (r < 0)
                                 return r;
+                } else if (streq(l, "varlink-server-connection")) {
+                        sd_varlink_server *server = NULL;
+
+                        if (m->objective != MANAGER_RELOAD) {
+                                r = manager_setup_varlink_server(m);
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to setup varlink server, ignoring: %m");
+                                else
+                                        server = m->varlink_server;
+                        }
+
+                        uint64_t cookie;
+                        r = varlink_deserialize(server, f, fds, &cookie);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to restore Varlink connection, ignoring: %m");
+                                continue;
+                        }
+
+                        sd_varlink *link = varlink_server_get_connection(m->varlink_server, cookie);
+                        if (!link) {
+                                log_warning("Varlink connection %" PRIu64 " was not restored, ignoring.", cookie);
+                                continue;
+                        }
+
+                        r = set_ensure_put(&m->deserialized_varlink_connections, &varlink_hash_ops, link);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to track deserialized Varlink connection, disconnecting: %m");
+                                (void) sd_varlink_close(link);
+                        } else if (r > 0)
+                                sd_varlink_ref(link);
+
                 } else if ((val = startswith(l, "varlink-server-metrics-"))) {
                         if (m->objective == MANAGER_RELOAD)
                                 /* We don't destroy varlink server on daemon-reload (in contrast to reexec) -> skip! */
@@ -798,8 +864,11 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         r = manager_setup_varlink_server(m);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to setup varlink server, ignoring: %m");
-                        else
-                                (void) varlink_server_deserialize_one(m->varlink_server, val, fds);
+                        else {
+                                r = varlink_server_deserialize_one(m->varlink_server, val, fds);
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to restore Varlink server state, ignoring: %m");
+                        }
 
                 } else if (startswith(l, "restrict-fsaccess-"))
                         deserialize_restrict_fsaccess(m, l, fds);

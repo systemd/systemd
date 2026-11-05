@@ -1,17 +1,158 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdio.h>
+#include <sys/socket.h>
 
 #include "sd-bus.h"
+#include "sd-varlink.h"
+#include "sd-varlink-idl.h"
 
+#include "fd-util.h"
+#include "job.h"
 #include "manager.h"
 #include "manager-dump.h"
 #include "rm-rf.h"
+#include "serialize.h"
 #include "service.h"
+#include "set.h"
 #include "slice.h"
 #include "special.h"
 #include "tests.h"
 #include "unit-serialize.h"
+#include "varlink.h"
+#include "varlink-unit.h"
+#include "varlink-util.h"
+
+static SD_VARLINK_DEFINE_METHOD_FULL(Hold, SD_VARLINK_REQUIRES_MORE);
+static SD_VARLINK_DEFINE_INTERFACE(io_test_Engine, "io.test.Engine", &vl_method_Hold);
+
+static int method_hold(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        bool *called = ASSERT_PTR(userdata);
+
+        *called = true;
+        return sd_varlink_notify(link, /* parameters= */ NULL);
+}
+
+static int job_stream_reply(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
+        unsigned *n_replies = ASSERT_PTR(userdata);
+
+        if ((*n_replies)++ == 0) {
+                ASSERT_NULL(error_id);
+                ASSERT_TRUE(FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES));
+        } else {
+                ASSERT_FALSE(FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES));
+                ASSERT_ERROR(sd_varlink_error_to_errno(error_id, parameters), ECANCELED);
+        }
+
+        return 0;
+}
+
+static void verify_varlink_jobs(Manager *m) {
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        _cleanup_(sd_varlink_close_unrefp) sd_varlink *client = NULL, *server = NULL;
+        bool called = false;
+        unsigned n_replies = 0;
+
+        ASSERT_OK(manager_setup_varlink_server(m));
+        ASSERT_OK(sd_varlink_server_add_interface(m->varlink_server, &vl_interface_io_test_Engine));
+        ASSERT_OK(sd_varlink_server_bind_method(m->varlink_server, "io.test.Engine.Hold", method_hold));
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, pair));
+        ASSERT_OK(sd_varlink_server_add_connection(m->varlink_server, pair[0], &server));
+        sd_varlink_ref(server);
+        TAKE_FD(pair[0]);
+        sd_varlink_set_userdata(server, &called);
+
+        ASSERT_OK(sd_varlink_connect_fd(&client, pair[1]));
+        TAKE_FD(pair[1]);
+        sd_varlink_set_userdata(client, &n_replies);
+        ASSERT_OK(sd_varlink_bind_reply(client, job_stream_reply));
+        ASSERT_OK(sd_varlink_observe(client, "io.test.Engine.Hold", /* parameters= */ NULL));
+        ASSERT_OK(sd_varlink_flush(client));
+        while (!called)
+                ASSERT_OK_POSITIVE(sd_varlink_process(server));
+
+        const JobType types[] = { JOB_START, JOB_NOP };
+        FOREACH_ELEMENT(type, types)
+                for (unsigned flags = 0; flags < 4; flags++) {
+                        _cleanup_(unit_freep) Unit *u = NULL;
+                        _cleanup_(job_freep) Job *original = NULL, *restored = NULL;
+                        _cleanup_fclose_ FILE *f = NULL;
+
+                        ASSERT_OK(unit_new_for_name(m, sizeof(Service), "varlink-job.service", &u));
+                        original = ASSERT_NOT_NULL(job_new(u, *type));
+                        original->varlink = sd_varlink_ref(server);
+                        original->varlink_notify_job_changes = FLAGS_SET(flags, 1U);
+                        u->varlink_unit_change = sd_varlink_ref(FLAGS_SET(flags, 2U) ? server : client);
+
+                        ASSERT_OK(open_serialization_file("test-varlink-job", &f));
+                        ASSERT_OK(job_serialize(original, f));
+                        ASSERT_OK(finish_serialization_file(f));
+                        original = job_free(original);
+                        ASSERT_PTR_EQ(u->varlink_unit_change, FLAGS_SET(flags, 2U) ? NULL : client);
+
+                        restored = ASSERT_NOT_NULL(job_new_raw(u));
+                        ASSERT_OK(job_deserialize(restored, f));
+                        ASSERT_OK(job_install_deserialized(restored));
+                        ASSERT_OK(varlink_job_coldplug(restored));
+                        ASSERT_PTR_EQ(restored->varlink, server);
+                        ASSERT_TRUE(restored->varlink_notify_job_changes == FLAGS_SET(flags, 1U));
+                        ASSERT_PTR_EQ(u->varlink_unit_change, FLAGS_SET(flags, 2U) ? server : client);
+
+                        ASSERT_EQ(sd_bus_track_count(m->subscribed), 0U);
+                        ASSERT_TRUE(set_isempty(m->private_buses));
+                        u->load_state = UNIT_LOADED;
+                        unit_add_to_dbus_queue(u);
+                        ASSERT_TRUE(u->in_dbus_queue);
+
+                        ASSERT_EQ(set_ensure_put(&m->deserialized_varlink_connections, &varlink_hash_ops, server), 1);
+                        sd_varlink_ref(server);
+                        manager_varlink_coldplug(m);
+                        ASSERT_NULL(m->deserialized_varlink_connections);
+
+                        _unused_ _cleanup_(manager_reloading_stopp) Manager *reloading = manager_reloading_start(m);
+                        job_uninstall(restored);
+                }
+
+        ASSERT_EQ(set_ensure_put(&m->deserialized_varlink_connections, &varlink_hash_ops, server), 1);
+        sd_varlink_ref(server);
+        manager_varlink_coldplug(m);
+        ASSERT_NULL(m->deserialized_varlink_connections);
+        ASSERT_OK(sd_varlink_flush(server));
+        while (n_replies < 2)
+                ASSERT_OK_POSITIVE(sd_varlink_process(client));
+}
+
+static void verify_varlink_refs(Manager *m) {
+        _cleanup_(unit_freep) Unit *u = NULL, *stub = NULL;
+        _cleanup_(sd_varlink_close_unrefp) sd_varlink *first = NULL, *second = NULL;
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, pair));
+        ASSERT_OK(sd_varlink_connect_fd(&first, pair[0]));
+        TAKE_FD(pair[0]);
+        ASSERT_OK(sd_varlink_connect_fd(&second, pair[1]));
+        TAKE_FD(pair[1]);
+
+        ASSERT_OK(unit_new_for_name(m, sizeof(Service), "varlink-ref-target.service", &u));
+        ASSERT_OK(unit_new_for_name(m, sizeof(Service), "varlink-ref-stub.service", &stub));
+        ASSERT_EQ(unit_add_varlink_ref(u, first), 1);
+        ASSERT_EQ(unit_add_varlink_ref(stub, first), 1);
+        ASSERT_EQ(unit_add_varlink_ref(stub, second), 1);
+        ASSERT_EQ(unit_add_varlink_ref(stub, second), 0);
+
+        ASSERT_OK(unit_merge(u, stub));
+        ASSERT_EQ(set_size(u->varlink_refs), 2U);
+        ASSERT_TRUE(set_isempty(stub->varlink_refs));
+        stub = unit_free(stub);
+        ASSERT_GT(sd_varlink_is_connected(first), 0);
+        ASSERT_GT(sd_varlink_is_connected(second), 0);
+
+        unit_remove_varlink_ref(u, first);
+        ASSERT_EQ(set_size(u->varlink_refs), 1U);
+        ASSERT_TRUE(set_contains(u->varlink_refs, second));
+        unit_remove_varlink_ref(u, second);
+        ASSERT_TRUE(set_isempty(u->varlink_refs));
+}
 
 static void verify_dependency_atoms(void) {
         UnitDependencyAtom combined = 0, multi_use_atoms = 0;
@@ -267,6 +408,8 @@ int main(int argc, char *argv[]) {
         ASSERT_EQ(mm, 3U*5U*7U*11U*13U);
 
         verify_dependency_atoms();
+        verify_varlink_refs(m);
+        verify_varlink_jobs(m);
 
         /* Test adding multiple Slice= dependencies; only the last should remain */
         ASSERT_OK(unit_new_for_name(m, sizeof(Service), "tomato.service", &tomato));
