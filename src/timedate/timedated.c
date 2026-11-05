@@ -1014,6 +1014,8 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
                 bool valid;
                 if (utc > 0)
                         valid = INC_SAFE(&n, (usec_t) utc);
+                else if (utc == INT64_MIN)
+                        valid = false; /* subtracting 2^63 from any unsigned value is going to underflow */
                 else
                         valid = DEC_SAFE(&n, (usec_t) -utc);
                 if (!valid)
