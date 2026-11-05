@@ -22,8 +22,11 @@ policy:
           - name: coredump
             keys: ['coredumpctl', 'systemd-coredump']
 
+          - name: creds
+            keys: ['systemd-creds']
+
           - name: cryptsetup
-            keys: ['systemd-cryptsetup']
+            keys: ['systemd-cryptsetup', 'systemd-cryptenroll']
 
           - name: delta
             keys: ['systemd-delta']
