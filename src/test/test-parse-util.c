@@ -863,10 +863,14 @@ TEST(parse_loadavg_fixed_point) {
         ASSERT_ERROR(parse_loadavg_fixed_point("1.100", &fp), ERANGE);
 
         ASSERT_ERROR(parse_loadavg_fixed_point("4096.4096", &fp), ERANGE);
-        ASSERT_ERROR(parse_loadavg_fixed_point("-4000.5", &fp), ERANGE);
-        ASSERT_ERROR(parse_loadavg_fixed_point("-0.50", &fp), ERANGE);
-        ASSERT_ERROR(parse_loadavg_fixed_point("-0.00", &fp), ERANGE);
-        ASSERT_ERROR(parse_loadavg_fixed_point("1.-0", &fp), ERANGE);
+        ASSERT_ERROR(parse_loadavg_fixed_point("-4000.5", &fp), EINVAL);
+        ASSERT_ERROR(parse_loadavg_fixed_point("-0.50", &fp), EINVAL);
+        ASSERT_ERROR(parse_loadavg_fixed_point("-0.00", &fp), EINVAL);
+        ASSERT_ERROR(parse_loadavg_fixed_point("1.-0", &fp), EINVAL);
+        ASSERT_ERROR(parse_loadavg_fixed_point("+1.5", &fp), EINVAL);
+        ASSERT_ERROR(parse_loadavg_fixed_point("1.+5", &fp), EINVAL);
+        ASSERT_ERROR(parse_loadavg_fixed_point("1. 5", &fp), EINVAL);
+        ASSERT_ERROR(parse_loadavg_fixed_point("5.-3", &fp), EINVAL);
         ASSERT_ERROR(parse_loadavg_fixed_point("18446744073709551615.5", &fp), ERANGE);
 
         /* Neither part may be large enough to overflow the shift by LOADAVG_PRECISION_BITS. Derive the

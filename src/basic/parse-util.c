@@ -808,18 +808,15 @@ int parse_loadavg_fixed_point(const char *s, loadavg_t *ret) {
         i_str = strndupa_safe(s, d - s);
         f_str = d + 1;
 
-        r = safe_atolu_full(i_str, 10, &i);
+        r = safe_atolu_full(i_str, 10 | SAFE_ATO_REFUSE_PLUS_MINUS, &i);
         if (r < 0)
                 return r;
 
-        r = safe_atolu_full(f_str, 10, &f);
+        r = safe_atolu_full(f_str,
+                            10 | SAFE_ATO_REFUSE_PLUS_MINUS | SAFE_ATO_REFUSE_LEADING_WHITESPACE,
+                            &f);
         if (r < 0)
                 return r;
-
-        /* safe_atolu_full() accepts "-0", hence refuse the "-" explicitly, so that e.g. "-0.50" is not
-         * taken as 0.50. */
-        if (strchr(s, '-'))
-                return -ERANGE;
 
         return store_loadavg_fixed_point(i, f, ret);
 }
