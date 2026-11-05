@@ -44,6 +44,7 @@ _localectl_set-x11-keymap() {
         _model=( ${${${(M)${(f)_file[1]}:#  *}#  }%% *} )
         _variant=( ${${${(M)${(f)_file[3]}:#  *}#  }%% *} )
         _options=( ${${${(M)${(f)_file[4]}:#  *}#  }%% *} )
+        _options=( ${_options//:/\\:} )
         #_layout=( ${(f)"$( echo $_file[1] | awk '/^  / {print $1}' )"} )
         #_model=( ${(f)"$(echo $_file[2] | awk '/^  / {print $1}')"} )
         #_variant=( ${(f)"$(echo $_file[3] | awk '/^  / {print $1}')"} )

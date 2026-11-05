@@ -69,12 +69,19 @@ loginctl enable-linger testuser
 
 run0 -u testuser mkdir -p .config/systemd/nspawn/
 run0 -u testuser -i "echo -e \"[Exec]\nKillSignal=SIGKILL\n\" >.config/systemd/nspawn/zurps.nspawn"
+run0 -u testuser systemctl start --user systemd-machined.socket
 run0 -u testuser systemctl start --user systemd-nspawn@zurps.service
 
 machinectl status zurps
 machinectl status zurps | grep "UID:" | grep "$(id -u testuser)"
 machinectl status zurps | grep "Unit: user@" | grep "$(id -u testuser)"
 machinectl status zurps | grep "Subgroup: machine.slice/systemd-nspawn@zurps.service/payload"
+
+# The per-user machined refers to the unit in the user's service manager
+run0 -u testuser machinectl --user status zurps
+run0 -u testuser machinectl --user status zurps | grep "Unit: systemd-nspawn@zurps.service"
+run0 -u testuser machinectl --user status zurps | grep "Subgroup: payload"
+run0 -u testuser machinectl --user kill --signal=SIGCONT zurps
 machinectl terminate zurps
 
 (! run0 -u testuser systemctl is-active --user systemd-nspawn@zurps.service)

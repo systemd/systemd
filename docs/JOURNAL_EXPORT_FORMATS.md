@@ -23,7 +23,8 @@ The format is like this:
 * Journal fields consisting only of valid non-control UTF-8 codepoints are serialized as they are
   (i.e. the field name, followed by '=', followed by field data), followed by a newline as separator to the next field.
   Note that fields containing newlines cannot be formatted like this.
-  Non-control UTF-8 codepoints are the codepoints with value at or above 32 (' '), or equal to 9 (TAB).
+  Non-control UTF-8 codepoints are the codepoints with value equal to 9 (TAB), or greater than or equal to 32 (' '),
+  excluding 127 (DEL) and the range 128-159 of C1 control codepoints.
 * Other journal fields are serialized in a special binary safe way:
   field name, followed by newline, followed by a binary 64-bit little endian size value, followed by the binary field data, followed by a newline as separator to the next field.
 * Entry metadata that is not actually a field is serialized like it was a field, but beginning with two underscores.

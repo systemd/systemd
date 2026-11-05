@@ -20,6 +20,7 @@
 #include "random-util.h"
 #include "set.h"
 #include "siphash24.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -66,6 +67,13 @@ OvmfConfig* ovmf_config_free(OvmfConfig *config) {
 }
 
 DEFINE_STRING_TABLE_LOOKUP(network_stack, NetworkStack);
+
+char* format_qemu_fdset_path(char buf[static QEMU_FDSET_PATH_MAX], QemuFdset fdset) {
+        assert(buf);
+        assert(fdset >= 0 && fdset < _QEMU_FDSET_MAX);
+        assert_se(snprintf_ok(buf, QEMU_FDSET_PATH_MAX, "/dev/fdset/%i", fdset));
+        return buf;
+}
 
 int qemu_check_kvm_support(void) {
         if (access("/dev/kvm", F_OK) >= 0)

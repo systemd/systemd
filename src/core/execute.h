@@ -635,7 +635,6 @@ DECLARE_STRING_TABLE_LOOKUP(exec_preserve_mode, ExecPreserveMode);
 
 DECLARE_STRING_TABLE_LOOKUP(exec_keyring_mode, ExecKeyringMode);
 
-DECLARE_STRING_TABLE_LOOKUP(exec_directory_type_symlink, ExecDirectoryType);
 DECLARE_STRING_TABLE_LOOKUP(exec_directory_type_mode, ExecDirectoryType);
 
 DECLARE_STRING_TABLE_LOOKUP(exec_resource_type, ExecDirectoryType);

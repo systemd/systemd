@@ -1060,8 +1060,11 @@ static int update_acquire_finished(sd_bus_message *m, void *userdata, sd_bus_err
         if (r < 0)
                 log_debug_errno(r, "Failed to update hashmap: %m");
 
+        if (status != UPDATE_PROGRESS_ACQUIRED)
+                return 0;
+
         /* Renew the JobRemoved notification for the Install() call instead. */
-        sd_bus_slot_unref(op->job_finished_slot);
+        op->job_finished_slot = sd_bus_slot_unref(op->job_finished_slot);
         r = bus_match_signal_async(
                         op->bus, &op->job_finished_slot, bus_sysupdate_mgr, "JobRemoved", update_install_finished, NULL, op);
         if (r < 0)
@@ -1457,6 +1460,8 @@ static int list_features(sd_bus *bus) {
         table = table_new("", "feature", "description");
         if (!table)
                 return log_oom();
+
+        (void) table_set_sort(table, 1);
 
         r = sd_bus_call_method(bus,
                                bus_sysupdate_mgr->destination,

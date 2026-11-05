@@ -234,13 +234,18 @@ if want_tests != 'false' and conf.get('HAVE_DMI') == 1
         udev_dmi_memory_id_test = files('udev-dmi-memory-id-test.sh')
         exe = executables_by_name.get('dmi_memory_id')
 
-        if git.found() and fs.is_dir(meson.project_source_root() / '.git')
+        # In a git worktree, .git is a file that contains the path of the repository. git fails when the
+        # repository isn't at the path in .git, for example in a container that only mounts the worktree.
+        use_git = git.found() and fs.exists(meson.project_source_root() / '.git')
+        if use_git
                 out = run_command(
                         env, '-u', 'GIT_WORK_TREE',
                         git, '--git-dir=@0@/.git'.format(meson.project_source_root()),
                         'ls-files', ':/test/dmidecode-dumps/*.bin',
-                        check: true)
-        else
+                        check: false)
+                use_git = out.returncode() == 0
+        endif
+        if not use_git
                 out = run_command(
                         sh, '-c', 'cd "$1"; echo test/dmidecode-dumps/*.bin', '_', meson.project_source_root(),
                         check: true)
@@ -267,6 +272,10 @@ if want_tests != 'false' and conf.get('ENABLE_KERNEL_INSTALL') == 1
         if want_ukify and boot_stubs.length() > 0
                 args += [ukify.full_path(), ukify_install.full_path(), boot_stubs[0]]
                 deps += [ukify, ukify_install, boot_stubs[0]]
+        endif
+        # test-kernel-install.sh runs $PROJECT_BUILD_ROOT/bootctl if it exists.
+        if 'bootctl' in executables_by_name
+                deps += [executables_by_name.get('bootctl')]
         endif
 
         test('test-kernel-install',

@@ -829,6 +829,14 @@ static int api_bus_instance_id_reply(sd_bus_message *reply, void *userdata, sd_b
         assert(reply);
         assert_se(bus = sd_bus_message_get_bus(reply));
 
+        r = sd_bus_is_open(bus);
+        if (r < 0)
+                log_warning_errno(r, "Failed to check if bus is open, assuming it is, ignoring: %m");
+        else if (r == 0) {
+                log_debug("API bus connection closed before its instance ID was received.");
+                return 0; /* Let's skip the setup and wait for signal_disconnected(). */
+        }
+
         /* Whatever the outcome, we get only one shot at coldplugging the saved subscription state onto
          * this connection: consume it. */
         _cleanup_strv_free_ char **subscribed_as_strv = TAKE_PTR(m->subscribed_as_strv);

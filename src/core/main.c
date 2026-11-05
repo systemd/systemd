@@ -1658,7 +1658,6 @@ static int write_boot_or_shutdown_osc(const char *type) {
 }
 
 static int bump_unix_max_dgram_qlen(void) {
-        _cleanup_free_ char *qlen = NULL;
         unsigned long v;
         int r;
 
@@ -1666,14 +1665,10 @@ static int bump_unix_max_dgram_qlen(void) {
          * the value really really early during boot, so that it is actually applied to all our sockets,
          * including the $NOTIFY_SOCKET one. */
 
-        r = read_one_line_file("/proc/sys/net/unix/max_dgram_qlen", &qlen);
+        r = sysctl_read_lu("net/unix/max_dgram_qlen", &v);
         if (r < 0)
                 return log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                       "Failed to read AF_UNIX datagram queue length, ignoring: %m");
-
-        r = safe_atolu(qlen, &v);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to parse AF_UNIX datagram queue length '%s', ignoring: %m", qlen);
 
         if (v >= DEFAULT_UNIX_MAX_DGRAM_QLEN)
                 return 0;

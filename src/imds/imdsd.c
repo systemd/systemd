@@ -47,6 +47,7 @@
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "sysctl-util.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
 #include "utf8.h"
@@ -188,7 +189,6 @@ struct Context {
         struct curl_slist *request_header_token, *request_header_data;
         sd_event_source *retry_source;
         unsigned n_retry;
-        usec_t retry_interval_usec;
 
         /* Mode 2 "indirect": we fork off a number of children which go to the network on behalf of us,
          * because we have multiple network interfaces to deal with. */
@@ -618,8 +618,8 @@ static CacheResult context_process_cache(Context *c) {
                 return context_log_errno(c, LOG_ERR, r, "Failed to decode cached token data: %m");
 
         if (d.until > c->timestamp) {
-                c->token_string = strdup(d.token);
-                if (!c->token_string)
+                /* On retries we might still have a token */
+                if (free_and_strdup(&c->token_string, d.token) < 0)
                         return context_log_oom(c);
 
                 context_log(c, LOG_INFO, "Reusing cached token.");
@@ -629,9 +629,52 @@ static CacheResult context_process_cache(Context *c) {
         return CACHE_RESULT_MISS;
 }
 
+static int context_fail_cached_key_not_found(Context *c) {
+        int r;
+
+        assert(c);
+
+        /* Called when the cache has a negative entry for the current request */
+
+        r = context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(ENOENT), "Cache reports: key not found");
+        context_fail_full(c, r, "io.systemd.InstanceMetadata.KeyNotFound");
+        return r;
+}
+
+static int context_restart(Context *c) {
+        int r;
+
+        assert(c);
+
+        /* Restarts the current request after context_reset_for_refresh(). Failures are reported via
+         * context_fail(), which returns 0, hence this always returns 0. */
+
+        /* Maybe some other instance was successful in the meantime and already found something? */
+        CacheResult cr = context_process_cache(c);
+        if (cr < 0)
+                return context_fail(c, cr);
+        if (cr == CACHE_RESULT_HIT) {
+                context_success(c);
+                return 0;
+        }
+        if (cr == CACHE_RESULT_KEY_NOT_FOUND) {
+                (void) context_fail_cached_key_not_found(c);
+                return 0;
+        }
+
+        r = context_acquire_token(c);
+        if (r < 0)
+                return context_fail(c, r);
+
+        r = context_acquire_data(c);
+        if (r < 0)
+                return context_fail(c, r);
+
+        return 0;
+}
+
 static int on_retry(sd_event_source *s, uint64_t usec, void *userdata) {
         Context *c = ASSERT_PTR(userdata);
-        int r;
 
         assert(s);
 
@@ -639,32 +682,7 @@ static int on_retry(sd_event_source *s, uint64_t usec, void *userdata) {
 
         context_log(c, LOG_DEBUG, "Retrying...");
 
-        /* Maybe some other instance was successful in the meantime and already found something? */
-        CacheResult cr = context_process_cache(c);
-        if (cr < 0) {
-                context_fail(c, cr);
-                return 0;
-        }
-        if (cr == CACHE_RESULT_HIT) {
-                context_success(c);
-                return 0;
-        }
-        if (cr == CACHE_RESULT_KEY_NOT_FOUND) {
-                context_fail(c, context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(ENOENT), "Cache reports: key not found"));
-                return 0;
-        }
-
-        r = context_acquire_token(c);
-        if (r < 0) {
-                context_fail(c, r);
-                return 0;
-        }
-
-        r = context_acquire_data(c);
-        if (r < 0)
-                context_fail(c, r);
-
-        return 0;
+        return context_restart(c);
 }
 
 static int context_schedule_retry(Context *c) {
@@ -677,15 +695,11 @@ static int context_schedule_retry(Context *c) {
         if (c->n_retry >= RETRY_MAX)
                 return context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(EUCLEAN), "Retry limits reached, refusing.");
 
-        if (c->n_retry == 0)
-                c->retry_interval_usec = RETRY_MIN_USEC;
-        else if (c->retry_interval_usec < RETRY_MAX_USEC / 2)
-                c->retry_interval_usec *= 2;
-        else
-                c->retry_interval_usec = RETRY_MAX_USEC;
+        /* Exponential backoff, counting all retries of this request, including token refreshes */
+        usec_t interval = MIN(RETRY_MIN_USEC << c->n_retry, RETRY_MAX_USEC);
 
         c->n_retry++;
-        context_log(c, LOG_DEBUG, "Retry attempt #%u in %s...", c->n_retry, FORMAT_TIMESPAN(c->retry_interval_usec, USEC_PER_MSEC));
+        context_log(c, LOG_DEBUG, "Retry attempt #%u in %s...", c->n_retry, FORMAT_TIMESPAN(interval, USEC_PER_MSEC));
 
         context_reset_for_refresh(c);
 
@@ -693,7 +707,7 @@ static int context_schedule_retry(Context *c) {
                         c->event,
                         &c->retry_source,
                         CLOCK_BOOTTIME,
-                        c->retry_interval_usec,
+                        interval,
                         /* accuracy= */ 0,
                         on_retry,
                         c,
@@ -772,16 +786,7 @@ static int context_validate_data_http_status(Context *c, long status) {
 
                 context_flush_token(c);
                 context_reset_for_refresh(c);
-
-                r = context_acquire_token(c);
-                if (r < 0)
-                        return r;
-
-                r = context_acquire_data(c);
-                if (r < 0)
-                        return r;
-
-                return 0; /* restarted right-away */
+                return context_restart(c); /* restarted right-away */
         }
 
         if (status == 404) {
@@ -922,6 +927,8 @@ static int curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result, void *u
 
                 /* Automatically retry on some transient errors from curl itself */
                 r = context_schedule_retry(c);
+                if (r == -EUCLEAN)
+                        return context_fail_full(c, r, "io.systemd.InstanceMetadata.Timeout");
                 if (r < 0)
                         return context_fail(c, r);
 
@@ -941,10 +948,18 @@ static int curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result, void *u
         if (r < 0)
                 return context_fail(c, r);
         if (r == 0) { /* We shall retry */
-                (void) context_schedule_retry(c);
+                r = context_schedule_retry(c);
+                if (r == -EUCLEAN)
+                        return context_fail_full(c, r, "io.systemd.InstanceMetadata.Timeout");
+                if (r < 0)
+                        return context_fail(c, r);
+
                 return 0;
         }
-        if (result != CURLE_OK) /* if getting the HTTP status didn't work, propagate a generic error */
+        /* For status >= 300 the transfer was aborted on purpose to skip reading the error page. The status
+         * checks below then report the actual error. For a successful reply it means a local failure, which
+         * the callback logged already. */
+        if (result == CURLE_WRITE_ERROR && status < 300)
                 return context_fail(c, SYNTHETIC_ERRNO(ENOTRECOVERABLE));
 
         if (slot == c->slot_token) {
@@ -971,6 +986,8 @@ static int curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result, void *u
                 r = context_validate_data_http_status(c, status);
                 if (r == -ENOENT)
                         return context_fail_full(c, r, "io.systemd.InstanceMetadata.KeyNotFound");
+                if (r == -EUCLEAN)
+                        return context_fail_full(c, r, "io.systemd.InstanceMetadata.Timeout");
                 if (r < 0)
                         return context_fail(c, r);
                 if (r == 0) /* Immediately restarted */
@@ -1614,6 +1631,19 @@ static int imds_configured(int level) {
         return 0;
 }
 
+static void warn_rp_filter_all(void) {
+        int r, v;
+
+        /* The kernel applies the maximum of the link's and the "all" setting, so turning off reverse path
+         * filtering on the link does not help if "all" turns it on. */
+        r = sysctl_read_ip_property_int(AF_INET, "all", "rp_filter", &v);
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to read net.ipv4.conf.all.rp_filter, ignoring: %m");
+        if (v != 0)
+                log_warning("net.ipv4.conf.all.rp_filter=%i turns on IPv4 reverse path filtering on all links, "
+                            "which drops IMDS replies in locked mode. Set it to 0 to allow IMDS access.", v);
+}
+
 static int setup_network(void) {
         int r;
 
@@ -1663,8 +1693,18 @@ static int setup_network(void) {
               "\n"
               "[Network]\n"
               "DHCP=yes\n"
-              "LinkLocalAddressing=ipv6\n"
-              "\n"
+              "LinkLocalAddressing=ipv6\n", f);
+
+        /* IMDS's replies to imdsd carry no firewall mark. Reverse path filtering would check their source
+         * address against the main table, find the prohibit route below, and drop them. IPv6 has no
+         * reverse path filter. */
+        if (arg_network_mode != IMDS_NETWORK_UNLOCKED && in4_addr_is_set(&arg_address_ipv4)) {
+                fputs("# Reverse path filtering would drop IMDS's replies due to the prohibit route\n"
+                      "IPv4ReversePathFilter=no\n", f);
+                warn_rp_filter_all();
+        }
+
+        fputs("\n"
               "[DHCP]\n"
               "UseTimezone=yes\n"
               "UseHostname=yes\n"
@@ -2085,11 +2125,8 @@ static int vl_method_get(sd_varlink *link, sd_json_variant *parameters, sd_varli
                         context_success(c);
                         return 0;
                 }
-                if (cr == CACHE_RESULT_KEY_NOT_FOUND) {
-                        r = context_log_errno(c, LOG_ERR, SYNTHETIC_ERRNO(ENOENT), "Cache reports: key not found");
-                        context_fail_full(c, r, "io.systemd.InstanceMetadata.KeyNotFound");
-                        return r;
-                }
+                if (cr == CACHE_RESULT_KEY_NOT_FOUND)
+                        return context_fail_cached_key_not_found(c);
 
                 r = context_acquire_token(c);
                 if (r < 0)

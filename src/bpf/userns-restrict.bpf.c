@@ -15,6 +15,7 @@
 
 #include "vmlinux.h"
 
+#include <asm/ioctl.h>
 #include <errno.h>                      /* IWYU pragma: keep */
 #include <bpf/bpf_core_read.h>
 #include <bpf/bpf_helpers.h>
@@ -66,8 +67,19 @@ void* bpf_rdonly_cast(const void *, __u32) __ksym;
 #define UID_GID_INVALID ((uid_t) -1)
 
 /* From include/uapi/linux/magic.h, which vmlinux.h does not provide. */
+#define BTRFS_SUPER_MAGIC 0x9123683E
 #define OVERLAYFS_SUPER_MAGIC 0x794c7630
 #define CGROUP2_SUPER_MAGIC 0x63677270
+
+/* From include/uapi/linux/fs.h, for the same reason. */
+#define RENAME_WHITEOUT (1U << 2)
+
+/* From include/uapi/asm-generic/fcntl.h. Only archs without BPF trampolines (no LSM programs) deviate. */
+#define __O_TMPFILE (1U << 22) /* O_TMPFILE without O_DIRECTORY */
+
+/* The Btrfs UAPI header conflicts with vmlinux.h, so define the subvolume creation commands here. */
+#define BTRFS_IOC_SUBVOL_CREATE _IOC(_IOC_WRITE, 0x94, 14, 4096)
+#define BTRFS_IOC_SUBVOL_CREATE_V2 _IOC(_IOC_WRITE, 0x94, 24, 4096)
 
 struct {
         __uint(type, BPF_MAP_TYPE_HASH);
@@ -161,8 +173,8 @@ static int userns_is_below(struct user_namespace *ancestor, struct user_namespac
  * already accepts (a register that is a BTF pointer on one branch and a scalar on the other). Returns NULL
  * for an empty map or on a read failure. */
 static inline __attribute__((always_inline))
-struct uid_gid_extent *uid_gid_map_extents(struct uid_gid_map *map, bool up) {
-        struct uid_gid_extent *array;
+const struct uid_gid_extent* uid_gid_map_extents(const struct uid_gid_map *map, bool up) {
+        const struct uid_gid_extent *array;
 
         if (map->nr_extents == 0)
                 return NULL;
@@ -187,8 +199,8 @@ struct uid_gid_extent *uid_gid_map_extents(struct uid_gid_map *map, bool up) {
  * through the map, where the up flag selects which end of the extents is searched. Stores UID_GID_INVALID if
  * the ID is not mapped, and returns negative if the map could not be read, which callers must keep apart: an
  * unmapped ID records nothing on disk, whereas a map we failed to read tells us nothing at all. */
-static int uid_gid_map_translate(struct uid_gid_map *map, uid_t id, bool up, uid_t *ret) {
-        struct uid_gid_extent *array;
+static int uid_gid_map_translate(const struct uid_gid_map *map, uid_t id, bool up, uid_t *ret) {
+        const struct uid_gid_extent *array;
         unsigned n;
 
         /* All callers pass a valid pointer; the guard just satisfies the pointer-deref checker. */
@@ -233,8 +245,8 @@ static int uid_gid_map_translate(struct uid_gid_map *map, uid_t id, bool up, uid
  * Stores UID_GID_INVALID if the ID does not map, in which case the kernel refuses the operation with
  * EOVERFLOW anyway, see fsuidgid_has_mapping(). Returns negative if a map could not be read. */
 static int mount_map_id(struct vfsmount *mnt, struct user_namespace *fs_userns, uid_t id, bool gid, uid_t *ret) {
-        struct mnt_idmap *idmap;
-        struct uid_gid_map *m;
+        const struct mnt_idmap *idmap;
+        const struct uid_gid_map *m;
         int r;
 
         /* All callers pass a valid pointer; the guard just satisfies the pointer-deref checker. */
@@ -386,8 +398,8 @@ int BPF_PROG(userns_restrict_path_mkdir, struct path *dir, struct dentry *dentry
         return validate_mount(dir->mnt, ret);
 }
 
-/* The mknod hook covers all file creations, including regular files, in case the reader is looking for a
- * missing hook for open(). */
+/* The mknod hook covers all named file creations, including regular files, in case the reader is looking for
+ * a missing hook for open(). O_TMPFILE is handled by the file_open hook below. */
 SEC("lsm/path_mknod")
 int BPF_PROG(userns_restrict_path_mknod, const struct path *dir, struct dentry *dentry, umode_t mode, unsigned dev, int ret) {
         return validate_mount(dir->mnt, ret);
@@ -401,6 +413,47 @@ int BPF_PROG(userns_restrict_path_symlink, const struct path *dir, struct dentry
 SEC("lsm/path_link")
 int BPF_PROG(userns_restrict_path_link, struct dentry *old_dentry, const struct path *new_dir, struct dentry *new_dentry, int ret) {
         return validate_mount(new_dir->mnt, ret);
+}
+
+/* A host process can reopen an O_TMPFILE through /proc/self/fd without keeping the creator's user
+ * namespace alive. The inode can then outlive its transient IDs, even when O_EXCL prevents linking it. */
+SEC("lsm/file_open")
+int BPF_PROG(userns_restrict_file_open, struct file *file, int ret) {
+        if (!(file->f_flags & __O_TMPFILE))
+                return ret;
+
+        return validate_mount(file->f_path.mnt, ret);
+}
+
+/* RENAME_WHITEOUT puts a whiteout owned by the calling task in place of the source, past the mknod hook */
+SEC("lsm/path_rename")
+int BPF_PROG(userns_restrict_path_rename, const struct path *old_dir, struct dentry *old_dentry,
+             const struct path *new_dir, struct dentry *new_dentry, unsigned flags, int ret) {
+        if (!(flags & RENAME_WHITEOUT))
+                return ret;
+
+        return validate_mount(old_dir->mnt, ret);
+}
+
+/* Btrfs creates subvolume root inodes without calling the path or inode creation hooks. */
+static int validate_ioctl(struct file *file, unsigned cmd, int ret) {
+        if (cmd != BTRFS_IOC_SUBVOL_CREATE && cmd != BTRFS_IOC_SUBVOL_CREATE_V2)
+                return ret;
+
+        if (file->f_path.mnt->mnt_sb->s_magic != BTRFS_SUPER_MAGIC)
+                return ret;
+
+        return validate_mount(file->f_path.mnt, ret);
+}
+
+SEC("lsm/file_ioctl")
+int BPF_PROG(userns_restrict_file_ioctl, struct file *file, unsigned cmd, unsigned long arg, int ret) {
+        return validate_ioctl(file, cmd, ret);
+}
+
+SEC("lsm/file_ioctl_compat")
+int BPF_PROG(userns_restrict_file_ioctl_compat, struct file *file, unsigned cmd, unsigned long arg, int ret) {
+        return validate_ioctl(file, cmd, ret);
 }
 
 /* overlayfs' struct ovl_fs and struct ovl_layer are private to the module and hence absent from vmlinux.h
@@ -433,8 +486,8 @@ static bool range_hits_transient(uint64_t a, uint64_t b) {
  * any extent's on-disk range is transient, no matter which input reaches it. Ids no extent covers are left
  * unmapped, which fails the write with EOVERFLOW, so they are fine too. An empty map is the identity
  * mapping and hence neutralizes nothing. */
-static bool idmap_map_neutralizes_transient(struct uid_gid_map *map) {
-        struct uid_gid_extent *array;
+static bool idmap_map_neutralizes_transient(const struct uid_gid_map *map) {
+        const struct uid_gid_extent *array;
         unsigned n;
 
         n = map->nr_extents;
@@ -467,7 +520,7 @@ static bool idmap_map_neutralizes_transient(struct uid_gid_map *map) {
 /* True if the mount's idmapping maps the whole transient UID and GID ranges away, so a transient client
  * writing through it leaves nothing recyclable on disk. A non-idmapped mount maps them through unchanged. */
 static bool mount_neutralizes_transient(struct vfsmount *mnt) {
-        struct mnt_idmap *idmap;
+        const struct mnt_idmap *idmap;
 
         idmap = mnt->mnt_idmap;
         if (!idmap)

@@ -46,6 +46,7 @@
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "id128-util.h"
+#include "io-util.h"
 #include "kernel-image.h"
 #include "log.h"
 #include "machine-bind-user.h"
@@ -1308,6 +1309,25 @@ fallback:
         return sd_event_exit(sd_event_source_get_event(s), 0);
 }
 
+/* QEMU's stdio is the console PTY, which nothing reads before the PTY forwarder starts. When we fail before
+ * the guest runs, copy what QEMU wrote (e.g. why it refused to start) to stderr, so that error messages
+ * aren't lost. */
+static void flush_console_to_stderrp(int *master) {
+        char buf[4096];
+        ssize_t n;
+
+        assert(master);
+
+        if (*master < 0)
+                return;
+
+        /* The PTY master is non-blocking. It fails with EIO once QEMU has exited and the buffer is empty. */
+        while ((n = read(*master, buf, sizeof(buf))) > 0)
+                (void) loop_write(STDERR_FILENO, buf, n);
+        if (n < 0 && !IN_SET(errno, EAGAIN, EIO))
+                log_debug_errno(errno, "Failed to read QEMU console output, ignoring: %m");
+}
+
 static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
         assert(s);
         assert(si);
@@ -1366,6 +1386,40 @@ static int add_vsock_credential(int vsock_fd) {
                 return -ENOMEM;
 
         return machine_credential_add(&arg_credentials, "vmm.notify_socket", value, SIZE_MAX);
+}
+
+static int append_credential(const char *id, const char *data) {
+        int r;
+
+        assert(id);
+        assert(data);
+
+        MachineCredential *existing = machine_credential_find(&arg_credentials, id);
+        if (!existing) {
+                r = machine_credential_add(&arg_credentials, id, data, SIZE_MAX);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add %s credential: %m", id);
+
+                return 0;
+        }
+
+        if (existing->size >= INT_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EFBIG),
+                                       "Existing %s credential is too large (%zu bytes).",
+                                       id, existing->size);
+
+        _cleanup_free_ char *combined = NULL;
+        if (existing->size > 0 && existing->data[existing->size - 1] != '\n')
+                r = asprintf(&combined, "%.*s\n%s", (int) existing->size, existing->data, data);
+        else
+                r = asprintf(&combined, "%.*s%s", (int) existing->size, existing->data, data);
+        if (r < 0)
+                return log_oom();
+
+        free_and_replace_full(existing->data, combined, erase_and_free);
+        existing->size = r;
+
+        return 0;
 }
 
 static int cmdline_add_kernel_cmdline(char ***cmdline, int smbios_dir_fd, const char *smbios_dir) {
@@ -1763,7 +1817,8 @@ static int start_virtiofsd(
                 if (r < 0)
                         return r;
 
-        } else if (!IN_SET(source_uid, FOREIGN_UID_MIN, UID_INVALID) && target_uid != UID_INVALID && uid_range != UID_INVALID) {
+        } else if (!IN_SET(source_uid, FOREIGN_UID_MIN, UID_INVALID) && target_uid != UID_INVALID && uid_range != UID_INVALID &&
+                   source_uid != target_uid) {
                 r = strv_extend(&argv, "--translate-uid");
                 if (r < 0)
                         return log_oom();
@@ -1820,8 +1875,8 @@ static int start_virtiofsd(
                         _exit(EXIT_FAILURE);
                 }
 
-                invoke_callout_binary(argv[0], argv);
-                log_error_errno(errno, "Failed to execute '%s': %m", argv[0]);
+                r = invoke_callout_binary(argv[0], argv);
+                log_error_errno(r, "Failed to execute '%s': %m", argv[0]);
                 _exit(EXIT_FAILURE);
         }
 
@@ -2884,7 +2939,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extendf(&cmdline, "fd=%d,set=1,opaque=/dev/kvm", kvm_device_fd);
+                r = strv_extendf(&cmdline, "fd=%d,set=%i,opaque=/dev/kvm", kvm_device_fd, QEMU_FDSET_KVM);
                 if (r < 0)
                         return log_oom();
 
@@ -2895,7 +2950,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
                 r = qemu_config_section(config_file, "accel", /* id= */ NULL,
                                         "accel", "kvm",
-                                        "device", "/dev/fdset/1");
+                                        "device", FORMAT_QEMU_FDSET_PATH(QEMU_FDSET_KVM));
                 if (r < 0)
                         return r;
         } else {
@@ -3239,7 +3294,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 }
         }
 
-        _cleanup_free_ char *fstab_extra = NULL;
+        _cleanup_free_ char *fstab_extra = NULL, *fstab_extra_initrd = NULL;
 
         for (size_t j = 0; j < arg_runtime_mounts.n_mounts; j++) {
                 RuntimeMount *m = arg_runtime_mounts.mounts + j;
@@ -3280,8 +3335,24 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (!escaped_target)
                         return log_oom();
 
-                if (strextendf(&fstab_extra, "%s %s virtiofs %s,x-initrd.mount\n",
+                /* switch-root moves the initrd's /run onto /sysroot/run. The moved /run hides any mount that
+                 * the initrd placed below /sysroot/run. We therefore mount targets below /run at /run in the
+                 * initrd. switch-root then moves the mount together with /run. fstab-generator reads
+                 * fstab.extra.initrd only in the initrd. The fstab.extra entry without x-initrd.mount mounts
+                 * the target when the VM boots without an initrd. A target such as /run/x/../../srv resolves
+                 * to /srv. An fstab.extra.initrd entry for that target would mount over /srv in the initrd.
+                 * path_startswith() doesn't check the components after the prefix. path_is_safe() therefore
+                 * refuses every ".." component in the target. */
+                bool below_run = path_is_safe(m->target) && !isempty(path_startswith(m->target, "/run"));
+
+                if (below_run &&
+                    strextendf(&fstab_extra_initrd, "%s %s virtiofs %s\n",
                                id, escaped_target, m->read_only ? "ro" : "rw") < 0)
+                        return log_oom();
+
+                if (strextendf(&fstab_extra, "%s %s virtiofs %s%s\n",
+                               id, escaped_target, m->read_only ? "ro" : "rw",
+                               below_run ? "" : ",x-initrd.mount") < 0)
                         return log_oom();
 
                 if (!GREEDY_REALLOC(config.virtiofs.entries, config.virtiofs.n_entries + 1))
@@ -3295,31 +3366,15 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         if (fstab_extra) {
-                /* If the user already specified a fstab.extra credential, combine it with ours */
-                MachineCredential *existing = machine_credential_find(&arg_credentials, "fstab.extra");
-                if (existing) {
-                        _cleanup_free_ char *combined = NULL;
+                r = append_credential("fstab.extra", fstab_extra);
+                if (r < 0)
+                        return r;
+        }
 
-                        if (existing->size >= INT_MAX)
-                                return log_error_errno(SYNTHETIC_ERRNO(EFBIG),
-                                                       "Existing fstab.extra credential is too large (%zu bytes).",
-                                                       existing->size);
-
-                        if (existing->size > 0 && existing->data[existing->size - 1] != '\n')
-                                r = asprintf(&combined, "%.*s\n%s", (int) existing->size, existing->data, fstab_extra);
-                        else
-                                r = asprintf(&combined, "%.*s%s", (int) existing->size, existing->data, fstab_extra);
-                        if (r < 0)
-                                return log_oom();
-
-                        erase_and_free(existing->data);
-                        existing->data = TAKE_PTR(combined);
-                        existing->size = r;
-                } else {
-                        r = machine_credential_add(&arg_credentials, "fstab.extra", fstab_extra, SIZE_MAX);
-                        if (r < 0)
-                                return r;
-                }
+        if (fstab_extra_initrd) {
+                r = append_credential("fstab.extra.initrd", fstab_extra_initrd);
+                if (r < 0)
+                        return r;
         }
 
         _cleanup_(rm_rf_physical_and_freep) char *smbios_dir = NULL;
@@ -3698,6 +3753,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 _exit(EXIT_FAILURE);
         }
 
+        /* Not owned. Disarmed once the guest runs, as then the console has its output instead of QEMU's. */
+        _cleanup_(flush_console_to_stderrp) int early_console = master;
+
         /* Close QEMU's end of the QMP socketpair in the parent. We don't need it anymore. */
         child_pty = safe_close(child_pty);
         bridge_fds[1] = safe_close(bridge_fds[1]);
@@ -3740,6 +3798,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         r = vmspawn_qmp_start(bridge);
         if (r < 0)
                 return r;
+
+        early_console = -EBADF;
 
         /* Varlink server for VM control */
         _cleanup_(vmspawn_varlink_context_freep) VmspawnVarlinkContext *varlink_ctx = NULL;

@@ -35,6 +35,7 @@ executables += [
         test_template + {
                 'sources' : test_userns_restrict_sources,
                 'conditions' : ['HAVE_VMLINUX_H'],
+                'dependencies' : [libbpf_cflags],
                 'objects' : ['systemd-nsresourced'],
                 'bpf_programs': ['userns-restrict'],
         },

@@ -9,6 +9,10 @@
  * avoiding userspace copies. Internally uses two independent half-duplex forwarders,
  * one per direction. All four fds must be distinct - use dup()/fcntl(fd, F_DUPFD_CLOEXEC, 3) for bidirectional sockets.
  *
+ * SPLICE_F_NONBLOCK only applies to the internal pipe, not to the fds being spliced from/to. Since all
+ * forwarding runs in one event loop, sockets and ttys must be O_NONBLOCK or a single blocking splice()
+ * stalls every direction. Pipes and regular files do not need it.
+ *
  * When forwarding completes (both directions reach EOF or error), the completion callback is invoked.
  *
  * The SocketForward takes ownership of all fds - they are closed when the SocketForward is freed

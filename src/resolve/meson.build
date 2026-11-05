@@ -138,6 +138,10 @@ executables += [
                 'type' : 'manual',
         },
         resolve_test_template + {
+                'sources' : files('test-dns-scope.c'),
+                'link_args' : ['-Wl,--wrap=sendmsg', '-Wl,--wrap=__sendmsg64'],
+        },
+        resolve_test_template + {
                 'sources' : files('test-dns-search-domain.c'),
         },
         resolve_test_template + {
@@ -151,6 +155,16 @@ executables += [
         },
         resolve_test_template + {
                 'sources' : files('test-dns-query.c'),
+        },
+        resolve_test_template + {
+                'sources' : files('test-dns-server.c'),
+        },
+        resolve_test_template + {
+                'sources' : files('test-dns-stub.c'),
+        },
+        resolve_test_template + {
+                'sources' : files('test-dns-transaction.c'),
+                'conditions' : ['HAVE_OPENSSL'],
         },
         resolve_test_template + {
                 'sources' : files('test-resolved-stream.c'),
