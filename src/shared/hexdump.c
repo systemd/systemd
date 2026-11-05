@@ -129,7 +129,7 @@ char* hexdump_memcmp(const void *m1, size_t l1, const void *m2, size_t l2) {
         }
 
         char *ret;
-        if (memstream_finalize(&m, &ret, NULL) < 0)
+        if (memstream_finalize(&m, &ret, /* ret_size= */ NULL) < 0)
                 return NULL;
 
         return ret;
@@ -176,7 +176,7 @@ char* hexdump_iovw_compare(const struct iovec_wrapper *a, const struct iovec_wra
         }
 
         char *ret;
-        if (memstream_finalize(&m, &ret, NULL) < 0)
+        if (memstream_finalize(&m, &ret, /* ret_size= */ NULL) < 0)
                 return NULL;
 
         return ret;
