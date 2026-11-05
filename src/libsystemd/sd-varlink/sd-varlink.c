@@ -1852,6 +1852,8 @@ static void varlink_detach_server(sd_varlink *v, bool connected) {
         assert(v->server->n_connections > 0);
         v->server->n_connections--;
 
+        LIST_REMOVE(connections, v->server->connections, v);
+
         /* If this is a connection associated to a server, then let's disconnect the server and the
          * connection from each other. This drops the dangling reference that connect_callback() set up. But
          * before we release the references, let's call the disconnection callback if it is defined. */
@@ -3377,6 +3379,9 @@ static sd_varlink_server* varlink_server_destroy(sd_varlink_server *s) {
         hashmap_free(s->symbols);
         hashmap_free(s->by_uid);
 
+        /* Each connection keeps a reference to the server, hence there can't be any left by now */
+        assert(!s->connections);
+
         sd_event_unref(s->event);
 
         free(s->description);
@@ -3538,6 +3543,7 @@ _public_ int sd_varlink_server_add_connection_pair(
          * which happens in varlink_close(), including in the event loop quit callback. */
         v->server = sd_varlink_server_ref(server);
         sd_varlink_ref(v);
+        LIST_PREPEND(connections, server->connections, v);
 
         if (ucred_acquired)
                 json_stream_set_peer_ucred(&v->stream, &ucred, /* overridden= */ !!override_ucred);

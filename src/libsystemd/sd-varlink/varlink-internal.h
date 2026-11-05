@@ -123,6 +123,9 @@ typedef struct sd_varlink {
         /* Kernel-derived identifier of the connection, stable across execve(), see
          * sd_varlink_get_connection_id(). Calculated lazily. */
         char *connection_id;
+
+        /* All connections of a server */
+        LIST_FIELDS(sd_varlink, connections);
 } sd_varlink;
 
 typedef struct VarlinkServerSocket VarlinkServerSocket;
@@ -143,6 +146,8 @@ typedef struct sd_varlink_server {
         sd_varlink_server_flags_t flags;
 
         LIST_HEAD(VarlinkServerSocket, sockets);
+
+        LIST_HEAD(sd_varlink, connections);
 
         Hashmap *methods;              /* Fully qualified symbol name of a method → sd_varlink_method_t */
         Hashmap *fiber_methods;        /* Fully qualified symbol name of a fiber method → sd_varlink_method_t */
