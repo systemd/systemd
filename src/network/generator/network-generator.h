@@ -54,7 +54,7 @@ struct Route {
 struct Network {
         /* [Match] */
         char *ifname;
-        /* Parsed from BOOTIF= parameter. */
+        /* Parsed from BOOTIF= parameter, or from a MAC address specified in place of an interface name. */
         struct hw_addr_data match_mac;
 
         /* [Link] */
