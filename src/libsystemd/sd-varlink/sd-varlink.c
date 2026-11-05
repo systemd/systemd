@@ -78,7 +78,7 @@ static const char* const varlink_state_table[_VARLINK_STATE_MAX] = {
         [VARLINK_DISCONNECTED]              = "disconnected",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(varlink_state, VarlinkState);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(varlink_state, VarlinkState);
 
 static void varlink_server_test_exit_on_idle(sd_varlink_server *s);
 static int varlink_reply_terminator(sd_varlink *v);
@@ -675,6 +675,7 @@ static void varlink_clear_current(sd_varlink *v) {
         v->current_collected = sd_json_variant_unref(v->current_collected);
         v->current_method = NULL;
         v->current_reply_flags = 0;
+        v->serialize_pending = false;
 
         json_stream_close_input_fds(&v->stream);
 
@@ -1885,6 +1886,8 @@ static void varlink_detach_server(sd_varlink *v, bool connected) {
         v->server->n_connections--;
 
         LIST_REMOVE(connections, v->server->connections, v);
+        if (v->connection_id)
+                (void) hashmap_remove_value(v->server->unclaimed, v->connection_id, v);
 
         /* If this is a connection associated to a server, then let's disconnect the server and the
          * connection from each other. This drops the dangling reference that connect_callback() set up. But
@@ -3431,6 +3434,7 @@ static sd_varlink_server* varlink_server_destroy(sd_varlink_server *s) {
 
         /* Each connection keeps a reference to the server, hence there can't be any left by now */
         assert(!s->connections);
+        hashmap_free(s->unclaimed);
 
         sd_event_unref(s->event);
 
@@ -4619,4 +4623,550 @@ _public_ int sd_varlink_get_connection_id(sd_varlink *v, const char **ret) {
 
         *ret = v->connection_id;
         return 0;
+}
+
+_public_ int sd_varlink_set_serialize_pending(sd_varlink *v, int b) {
+        assert_return(v, -EINVAL);
+
+        /* Marks the method call currently pending on a server side connection as one that shall be kept
+         * across serialization (the program will claim it again via sd_varlink_server_claim_connection()
+         * after deserialization). If not set, connections with a pending method call are disconnected on
+         * serialization. Reset automatically once the method call is completed. */
+
+        v->serialize_pending = b;
+        return 0;
+}
+
+static int varlink_test_serializable(sd_varlink *v) {
+        assert(v);
+
+        /* Returns > 0 if the connection can be serialized, 0 if a method call is pending on it that is not
+         * supposed to be kept across serialization (i.e. the connection shall be disconnected instead), and
+         * < 0 if it cannot be serialized. */
+
+        switch (v->state) {
+
+        case VARLINK_IDLE_CLIENT:
+        case VARLINK_AWAITING_REPLY:
+        case VARLINK_AWAITING_REPLY_MORE:
+        case VARLINK_AWAITING_REPLY_UPGRADE:
+        case VARLINK_IDLE_SERVER:
+                break;
+
+        case VARLINK_PENDING_METHOD:
+        case VARLINK_PENDING_METHOD_MORE:
+        case VARLINK_PENDING_METHOD_UPGRADE:
+                if (!v->serialize_pending)
+                        return 0;
+
+                break;
+
+        case VARLINK_UPGRADING:
+                /* On the server side the connection stays in this state until the upgrade reply is
+                 * written out, which a slow peer can delay arbitrarily. Nobody could take over the
+                 * upgraded connection after deserialization, hence disconnect it. On the client side
+                 * the upgrade callback is invoked with the next dispatch, hence it's transient. */
+                return v->server ? 0 : -EBUSY;
+
+        case VARLINK_PENDING_DISCONNECT:
+        case VARLINK_PENDING_TIMEOUT:
+        case VARLINK_DISCONNECTED:
+                return -ENOTCONN;
+
+        default:
+                /* All other states are only seen while we are dispatching something, i.e. while a callback
+                 * of ours is running. Refuse serialization from these. */
+                return -EBUSY;
+        }
+
+        /* We'd have to pass on ownership of the child process too */
+        if (pidref_is_set(&v->exec_pidref))
+                return -EOPNOTSUPP;
+
+        /* These are set while a method call is being dispatched, and are flushed out before we return to
+         * the event loop, except if the method is implemented as fiber which is suspended right now, in
+         * which case they are flushed out when the fiber exits. Fibers cannot be serialized, hence refuse. */
+        if (v->sentinel || v->previous)
+                return -EBUSY;
+        assert(v->n_previous_fds == 0);
+
+        return 1;
+}
+
+static int varlink_serialize_json(sd_varlink *v, sd_json_variant **ret, int **fds, size_t *n_fds) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        int r;
+
+        assert(v);
+        assert(ret);
+
+        /* Note that pushed fds are not serialized: they are only used while putting together a message,
+         * which is not something that can happen while we are serialized. */
+
+        r = json_stream_serialize(&v->stream, &j, fds, n_fds);
+        if (r < 0)
+                return r;
+
+        r = sd_json_variant_merge_objectbo(
+                        &j,
+                        SD_JSON_BUILD_PAIR_STRING("state", varlink_state_to_string(v->state)),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("current", v->current),
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("nPending", v->n_pending));
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(j);
+        return 0;
+}
+
+static int varlink_json_to_blob(sd_json_variant *j, void **ret_data, size_t *ret_size) {
+        ssize_t n;
+
+        assert(j);
+        assert(ret_data);
+        assert(ret_size);
+
+        /* We use JSON internally, but this is not part of the API, the blob is opaque to the caller */
+        n = sd_json_variant_format(j, /* flags= */ 0, (char**) ret_data);
+        if (n < 0)
+                return n;
+
+        *ret_size = n;
+        return 0;
+}
+
+static int varlink_blob_to_json(const void *data, size_t size, sd_json_variant **ret) {
+        _cleanup_(erase_and_freep) char *text = NULL;
+        int r;
+
+        assert(data || size == 0);
+        assert(ret);
+
+        /* The buffer is not NUL terminated, and must not contain any NUL bytes */
+        r = make_cstring(data, size, MAKE_CSTRING_REFUSE_TRAILING_NUL, &text);
+        if (r == -EINVAL)
+                return -EBADMSG;
+        if (r < 0)
+                return r;
+
+        return sd_json_parse(text, SD_JSON_PARSE_MUST_BE_OBJECT, ret, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+}
+
+_public_ int sd_varlink_serialize(sd_varlink *v, void **ret_data, size_t *ret_size, int **ret_fds, size_t *ret_n_fds) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        int *fds = NULL;
+        size_t n_fds = 0;
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(ret_data, -EINVAL);
+        assert_return(ret_size, -EINVAL);
+        assert_return(ret_fds, -EINVAL);
+        assert_return(ret_n_fds, -EINVAL);
+
+        CLEANUP_ARRAY(fds, n_fds, close_many_and_free);
+
+        /* Server side connections cannot be restored on their own, but only together with their server,
+         * hence must be serialized via sd_varlink_server_serialize() */
+        if (v->server)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                         "Server side connections can only be serialized together with their server, refusing.");
+
+        r = varlink_test_serializable(v);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Connection cannot be serialized in its current state: %m");
+        assert(r > 0); /* Only server side connections can have pending method calls */
+
+        r = varlink_serialize_json(v, &j, &fds, &n_fds);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to serialize connection: %m");
+
+        r = varlink_json_to_blob(j, ret_data, ret_size);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to format serialization: %m");
+
+        *ret_fds = TAKE_PTR(fds);
+        *ret_n_fds = TAKE_GENERIC(n_fds, size_t, 0);
+        return 0;
+}
+
+typedef struct VarlinkSerialization {
+        const char *state;
+        sd_json_variant *current;
+        unsigned n_pending;
+} VarlinkSerialization;
+
+static int varlink_deserialize_json(
+                sd_varlink_server *server,
+                sd_json_variant *j,
+                const int *fds,
+                size_t n_fds,
+                sd_varlink **ret) {
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "state",    SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string,  offsetof(VarlinkSerialization, state),     SD_JSON_MANDATORY },
+                { "current",  SD_JSON_VARIANT_OBJECT,   sd_json_dispatch_variant_noref, offsetof(VarlinkSerialization, current),   0                 },
+                { "nPending", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,     offsetof(VarlinkSerialization, n_pending), 0                 },
+                {}
+        };
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *v = NULL;
+        VarlinkSerialization p = {};
+        VarlinkState state;
+        int r;
+
+        assert(j);
+        assert(ret);
+
+        /* Restores a connection, without linking it up with the server yet (if a server is specified, it's
+         * only consulted for the method symbols and its flags). */
+
+        /* The transport-level fields are in the same object, hence ignore unknown fields */
+        r = sd_json_dispatch(j, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
+        if (r < 0)
+                return r;
+
+        state = varlink_state_from_string(p.state);
+        if (state < 0)
+                return log_debug_errno(state, "Unknown serialized varlink connection state '%s', refusing.", p.state);
+
+        if (server ? !IN_SET(state, VARLINK_IDLE_SERVER, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE, VARLINK_PENDING_METHOD_UPGRADE) :
+                     !IN_SET(state, VARLINK_IDLE_CLIENT, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_AWAITING_REPLY_UPGRADE))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Serialized varlink connection in state '%s' cannot be restored as %s connection, refusing.",
+                                       p.state, server ? "server" : "client");
+
+        /* Only client connections track replies they are still waiting for */
+        if (server ? p.n_pending != 0 : (state == VARLINK_IDLE_CLIENT) != (p.n_pending == 0))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Serialized varlink connection has %u pending calls in state '%s', refusing.", p.n_pending, p.state);
+
+        if (IN_SET(state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE, VARLINK_PENDING_METHOD_UPGRADE) && !p.current)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Serialized varlink connection in state '%s' without pending method call, refusing.", p.state);
+
+        r = varlink_new(&v);
+        if (r < 0)
+                return r;
+
+        r = json_stream_deserialize(&v->stream, j, fds, n_fds);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to deserialize varlink transport state: %m");
+
+        v->current = sd_json_variant_ref(p.current);
+        v->n_pending = p.n_pending;
+
+        if (server && v->current && state != VARLINK_IDLE_SERVER) {
+                const char *method = sd_json_variant_string(sd_json_variant_by_key(v->current, "method"));
+
+                /* Needed for validating the reply */
+                if (method)
+                        v->current_method = hashmap_get(server->symbols, method);
+        }
+
+        /* Bounded reads are needed while a protocol upgrade is in progress, see varlink_dispatch_method()
+         * and sd_varlink_invoke_and_upgrade(). (For servers that may receive upgrade requests,
+         * varlink_server_link_connection() turns them on, too.) */
+        if (IN_SET(state, VARLINK_PENDING_METHOD_UPGRADE, VARLINK_AWAITING_REPLY_UPGRADE))
+                json_stream_set_flags(&v->stream, JSON_STREAM_BOUNDED_READS, true);
+
+        varlink_set_state(v, state);
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+_public_ int sd_varlink_deserialize(sd_varlink **ret, const void *data, size_t size, int *fds, size_t n_fds) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        int r;
+
+        assert_return(ret, -EINVAL);
+        assert_return(data || size == 0, -EINVAL);
+        assert_return(fds || n_fds == 0, -EINVAL);
+
+        r = varlink_blob_to_json(data, size, &j);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse varlink connection serialization: %m");
+
+        r = varlink_deserialize_json(/* server= */ NULL, j, fds, n_fds, ret);
+        if (r < 0)
+                return r;
+
+        /* All fds we needed have been duplicated, the passed fds are consumed on success */
+        close_many_unset(fds, n_fds);
+        return 0;
+}
+
+_public_ int sd_varlink_server_serialize(sd_varlink_server *s, void **ret_data, size_t *ret_size, int **ret_fds, size_t *ret_n_fds) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *connections = NULL, *j = NULL;
+        int *fds = NULL;
+        size_t n_fds = 0;
+        int r;
+
+        assert_return(s, -EINVAL);
+        assert_return(ret_data, -EINVAL);
+        assert_return(ret_size, -EINVAL);
+        assert_return(ret_fds, -EINVAL);
+        assert_return(ret_n_fds, -EINVAL);
+
+        CLEANUP_ARRAY(fds, n_fds, close_many_and_free);
+
+        /* Serializes all connections of the server. Listening sockets are not covered. */
+
+        /* First, check whether we can serialize all connections, before we change anything */
+        LIST_FOREACH(connections, v, s->connections) {
+                r = varlink_test_serializable(v);
+                if (r < 0 && r != -ENOTCONN)
+                        return varlink_log_errno(v, r, "Connection cannot be serialized in its current state: %m");
+        }
+
+        /* Second, disconnect connections with pending method calls that shall not be kept. Restart the
+         * iteration every time, since the disconnect callback might change the list arbitrarily. */
+        for (;;) {
+                sd_varlink *found = NULL;
+
+                LIST_FOREACH(connections, v, s->connections)
+                        if (varlink_test_serializable(v) == 0) {
+                                found = v;
+                                break;
+                        }
+                if (!found)
+                        break;
+
+                varlink_log(found, "Pending method call shall not be serialized, disconnecting.");
+                sd_varlink_close(found);
+        }
+
+        /* Finally, serialize what's left */
+        LIST_FOREACH(connections, v, s->connections) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *c = NULL;
+
+                r = varlink_test_serializable(v);
+                if (r == -ENOTCONN)
+                        continue;
+                assert(r > 0);
+
+                r = varlink_serialize_json(v, &c, &fds, &n_fds);
+                if (r < 0)
+                        return varlink_log_errno(v, r, "Failed to serialize connection: %m");
+
+                r = sd_json_variant_append_array(&connections, c);
+                if (r < 0)
+                        return varlink_server_log_errno(s, r, "Failed to append connection serialization: %m");
+        }
+
+        /* Always emit the array, even if empty, so that the deserializer can recognize what it is fed */
+        if (!connections) {
+                r = sd_json_variant_new_array(&connections, /* array= */ NULL, /* n= */ 0);
+                if (r < 0)
+                        return varlink_server_log_errno(s, r, "Failed to allocate empty connection array: %m");
+        }
+
+        r = sd_json_buildo(&j, SD_JSON_BUILD_PAIR_VARIANT("connections", connections));
+        if (r < 0)
+                return varlink_server_log_errno(s, r, "Failed to build server serialization: %m");
+
+        r = varlink_json_to_blob(j, ret_data, ret_size);
+        if (r < 0)
+                return varlink_server_log_errno(s, r, "Failed to format server serialization: %m");
+
+        *ret_fds = TAKE_PTR(fds);
+        *ret_n_fds = TAKE_GENERIC(n_fds, size_t, 0);
+        return 0;
+}
+
+static int varlink_server_adopt_connection(sd_varlink_server *server, sd_varlink *v) {
+        struct ucred ucred, overridden_ucred;
+        bool have_overridden_ucred;
+        int r;
+
+        assert(server);
+        assert(v);
+        assert(!v->server);
+
+        /* Links up a deserialized connection with the server, mirroring what
+         * sd_varlink_server_add_connection_pair() does for new connections. Note that we don't validate the
+         * connection against the server's access restrictions and limits again, since it has been accepted
+         * already before. */
+
+        /* Overridden credentials have been deserialized, otherwise ask the kernel again */
+        r = json_stream_get_peer_ucred(&v->stream, &overridden_ucred);
+        if (r < 0 && r != -ENODATA)
+                return r;
+        have_overridden_ucred = r >= 0;
+
+        r = varlink_server_acquire_peer_ucred(
+                        server,
+                        v->stream.input_fd,
+                        v->stream.output_fd,
+                        have_overridden_ucred ? &overridden_ucred : NULL,
+                        &ucred);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                if (FLAGS_SET(server->flags, SD_VARLINK_SERVER_ACCOUNT_UID) && !uid_is_valid(ucred.uid))
+                        return varlink_server_log_errno(server, SYNTHETIC_ERRNO(EPERM),
+                                                        "Deserialized connection has invalid UID, refusing.");
+
+                if (!have_overridden_ucred)
+                        json_stream_set_peer_ucred(&v->stream, &ucred, /* overridden= */ false);
+        }
+
+        /* From here on we have to undo this on failure, which sd_varlink_close() does for us */
+        r = varlink_server_link_connection(server, v, &ucred);
+        if (r < 0)
+                return r;
+
+        if (FLAGS_SET(server->flags, SD_VARLINK_SERVER_INPUT_SENSITIVE)) {
+                sd_varlink_set_input_sensitive(v);
+
+                /* Mirror what varlink_parse_message() does for freshly parsed messages */
+                sd_json_variant *parameters = sd_json_variant_by_key(v->current, "parameters");
+                if (parameters)
+                        sd_json_variant_sensitive(parameters);
+        }
+
+        if (server->event) {
+                /* This will also trigger processing of the connection, which is necessary since there
+                 * might be buffered input that no fd event will tell us about. */
+                r = sd_varlink_attach_event(v, server->event, server->event_priority);
+                if (r < 0) {
+                        varlink_log_errno(v, r, "Failed to attach deserialized connection: %m");
+                        goto fail;
+                }
+        }
+
+        if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE, VARLINK_PENDING_METHOD_UPGRADE)) {
+                /* It was only serialized because this was set, hence set it again */
+                v->serialize_pending = true;
+
+                const char *id;
+                r = sd_varlink_get_connection_id(v, &id);
+                if (r < 0) {
+                        varlink_log_errno(v, r, "Failed to determine connection identifier: %m");
+                        goto fail;
+                }
+
+                /* The key is owned by the connection object, and stays valid until it is removed from the
+                 * hashmap again in varlink_detach_server() */
+                r = hashmap_ensure_put(&server->unclaimed, &string_hash_ops, id, v);
+                if (r == -EEXIST) {
+                        /* Inode based identifiers might not be unique, in which case the connection
+                         * cannot be claimed, hence disconnect it right away */
+                        varlink_log(v, "Connection identifier '%s' is not unique, disconnecting.", id);
+                        sd_varlink_close(v);
+                        return 0;
+                }
+                if (r < 0) {
+                        varlink_log_errno(v, r, "Failed to register unclaimed connection: %m");
+                        goto fail;
+                }
+        }
+
+        return 0;
+
+fail:
+        sd_varlink_close(v);
+        return r;
+}
+
+static void varlink_unref_many(sd_varlink **array, size_t n) {
+        assert(array || n == 0);
+
+        FOREACH_ARRAY(v, array, n)
+                sd_varlink_unref(*v);
+
+        free(array);
+}
+
+_public_ int sd_varlink_server_deserialize(sd_varlink_server *s, const void *data, size_t size, int *fds, size_t n_fds) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        sd_varlink **restored = NULL;
+        size_t n_restored = 0, n_adopted = 0;
+        int r;
+
+        assert_return(s, -EINVAL);
+        assert_return(data || size == 0, -EINVAL);
+        assert_return(fds || n_fds == 0, -EINVAL);
+
+        CLEANUP_ARRAY(restored, n_restored, varlink_unref_many);
+
+        r = varlink_blob_to_json(data, size, &j);
+        if (r < 0)
+                return varlink_server_log_errno(s, r, "Failed to parse varlink server serialization: %m");
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "connections", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_variant_noref, 0, SD_JSON_MANDATORY },
+                {}
+        };
+
+        sd_json_variant *connections = NULL;
+        r = sd_json_dispatch(j, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &connections);
+        if (r < 0)
+                return varlink_server_log_errno(s, r, "Failed to dispatch varlink server serialization: %m");
+
+        /* First, restore all connections, without linking them up with the server yet, so that we can
+         * abort without side effects if something goes wrong */
+        restored = new0(sd_varlink*, sd_json_variant_elements(connections));
+        if (!restored)
+                return log_oom_debug();
+
+        sd_json_variant *e;
+        JSON_VARIANT_ARRAY_FOREACH(e, connections) {
+                r = varlink_deserialize_json(s, e, fds, n_fds, restored + n_restored);
+                if (r < 0)
+                        return varlink_server_log_errno(s, r, "Failed to deserialize connection: %m");
+
+                n_restored++;
+        }
+
+        /* Then, link them up */
+        FOREACH_ARRAY(v, restored, n_restored) {
+                r = varlink_server_adopt_connection(s, *v);
+                if (r < 0)
+                        goto fail;
+
+                n_adopted++;
+        }
+
+        /* All fds we needed have been duplicated, the passed fds are consumed on success */
+        close_many_unset(fds, n_fds);
+        return 0;
+
+fail:
+        FOREACH_ARRAY(v, restored, n_adopted)
+                sd_varlink_close(*v);
+
+        return r;
+}
+
+_public_ int sd_varlink_server_claim_connection(sd_varlink_server *s, const char *id, sd_varlink **ret) {
+        sd_varlink *v;
+
+        assert_return(s, -EINVAL);
+        assert_return(id, -EINVAL);
+
+        /* Takes a deserialized connection with a pending method call out of the table of unclaimed
+         * connections. */
+
+        v = hashmap_remove(s->unclaimed, id);
+        if (!v)
+                return -ESRCH;
+
+        if (ret)
+                *ret = v;
+
+        return 0;
+}
+
+_public_ int sd_varlink_server_disconnect_unclaimed_connections(sd_varlink_server *s) {
+        sd_varlink *v;
+        int n = 0;
+
+        assert_return(s, -EINVAL);
+
+        while ((v = hashmap_steal_first(s->unclaimed))) {
+                varlink_log(v, "Pending method call not claimed after deserialization, disconnecting.");
+                sd_varlink_close(v);
+                n++;
+        }
+
+        return n;
 }
