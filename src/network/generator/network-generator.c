@@ -29,6 +29,8 @@
   BOOTIF=<MAC>
   rd.bootif=0 # Causes BOOTIF= to be ignored.
 
+  # <interface> may also be a MAC address in the hyphen separated form, e.g. 00-11-22-33-44-55.
+
   # .link
   ifname=<interface>:<MAC>
   net.ifname_policy=policy1[,policy2,...][,<MAC>] # This is an original rule, not supported by other tools.
@@ -220,13 +222,19 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
 static int network_new(Context *context, const char *name, Network **ret) {
         _cleanup_(network_freep) Network *network = NULL;
         _cleanup_free_ char *ifname = NULL;
+        struct hw_addr_data mac = HW_ADDR_NULL;
         int r;
 
         assert(context);
         assert(name);
 
-        if (!isempty(name) && !ifname_valid(name))
-                return -EINVAL;
+        if (!isempty(name) && !ifname_valid(name)) {
+                /* dracut also accepts a MAC address in place of an interface name, e.g.
+                 * ip=00-11-22-33-44-55:dhcp. Note, only the hyphen separated form can be used there, as the
+                 * colon is the field separator. */
+                if (parse_hw_addr(name, &mac) < 0 || !hw_addr_is_valid(&mac, ARPHRD_ETHER))
+                        return -EINVAL;
+        }
 
         ifname = strdup(name);
         if (!ifname)
@@ -238,6 +246,7 @@ static int network_new(Context *context, const char *name, Network **ret) {
 
         *network = (Network) {
                 .ifname = TAKE_PTR(ifname),
+                .match_mac = mac,
                 .dhcp_type = _DHCP_TYPE_INVALID,
                 .dhcp_use_dns = -1,
         };
@@ -1463,7 +1472,8 @@ void network_dump(Network *network, FILE *f) {
                  * physical interfaces. */
                 fputs("Kind=!*\n"
                       "Type=!loopback\n", f);
-        else if (streq(network->ifname, "BOOTIF"))
+        else if (!hw_addr_is_null(&network->match_mac))
+                /* The interface was specified by its MAC address, or via the BOOTIF placeholder. */
                 fprintf(f, "MACAddress=%s\n", HW_ADDR_TO_STR(&network->match_mac));
         else
                 fprintf(f, "Name=%s\n", network->ifname);

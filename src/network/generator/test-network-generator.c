@@ -130,6 +130,42 @@ int main(int argc, char *argv[]) {
                          "\n[DHCP]\n"
                          );
 
+        test_network_one("00-11-22-33-44-55", "ip", "00-11-22-33-44-55:dhcp",
+                         "[Match]\n"
+                         "MACAddress=00:11:22:33:44:55\n"
+                         "\n[Link]\n"
+                         "\n[Network]\n"
+                         "DHCP=ipv4\n"
+                         "\n[DHCP]\n"
+                         );
+
+        test_network_one("00-11-22-33-44-55", "ip", "00-11-22-33-44-55:dhcp6:1530:00:aa:bb:cc:dd:ee",
+                         "[Match]\n"
+                         "MACAddress=00:11:22:33:44:55\n"
+                         "\n[Link]\n"
+                         "MACAddress=00:aa:bb:cc:dd:ee\n"
+                         "MTUBytes=1530\n"
+                         "\n[Network]\n"
+                         "DHCP=ipv6\n"
+                         "\n[DHCP]\n"
+                         );
+
+        test_network_one("00-11-22-33-44-55", "ip", "192.168.0.10::192.168.0.1:255.255.255.0:hogehoge:00-11-22-33-44-55:off",
+                         "[Match]\n"
+                         "MACAddress=00:11:22:33:44:55\n"
+                         "\n[Link]\n"
+                         "\n[Network]\n"
+                         "DHCP=no\n"
+                         "LinkLocalAddressing=no\n"
+                         "IPv6AcceptRA=no\n"
+                         "\n[DHCP]\n"
+                         "Hostname=hogehoge\n"
+                         "\n[Address]\n"
+                         "Address=192.168.0.10/24\n"
+                         "\n[Route]\n"
+                         "Gateway=192.168.0.1\n"
+                         );
+
         test_network_one("eth0", "ip", "10.99.37.44::10.99.10.1:255.255.0.0::eth0:off",
                          "[Match]\n"
                          "Name=eth0\n"
