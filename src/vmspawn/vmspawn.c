@@ -173,6 +173,7 @@ static RuntimeMountContext arg_runtime_mounts = {};
 static char *arg_firmware = NULL;
 static Firmware arg_firmware_type = _FIRMWARE_INVALID;
 static bool arg_firmware_describe = false;
+static bool arg_firmware_list = false;
 static Set *arg_firmware_features_include = NULL;
 static Set *arg_firmware_features_exclude = NULL;
 static ConfidentialComputing arg_confidential_computing = COCO_NO;
@@ -534,32 +535,26 @@ static int parse_argv(int argc, char *argv[]) {
                         if (isempty(opts.arg) || streq(opts.arg, "auto")) {
                                 arg_firmware = mfree(arg_firmware);
                                 arg_firmware_type = _FIRMWARE_INVALID;
-                                arg_firmware_describe = false;
+                                arg_firmware_describe = arg_firmware_list = false;
                                 break;
                         }
 
+                        /* "list" and "describe" are handled after argument parsing so that the options
+                         * that narrow down the firmware search are taken into account. Both only look
+                         * for UEFI firmware. */
                         if (streq(opts.arg, "list")) {
-                                _cleanup_strv_free_ char **l = NULL;
-
-                                r = list_ovmf_config(&l);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to list firmwares: %m");
-
-                                bool nl = false;
-                                fputstrv(stdout, l, "\n", &nl);
-                                if (nl)
-                                        putchar('\n');
-
-                                return 0;
+                                arg_firmware = mfree(arg_firmware);
+                                arg_firmware_type = FIRMWARE_UEFI;
+                                arg_firmware_describe = false;
+                                arg_firmware_list = true;
+                                break;
                         }
 
                         if (streq(opts.arg, "describe")) {
-                                /* Handled after argument parsing so that --firmware-features= is
-                                 * taken into account. */
                                 arg_firmware = mfree(arg_firmware);
-                                /* We only look for UEFI firmware when "describe" is specified. */
                                 arg_firmware_type = FIRMWARE_UEFI;
                                 arg_firmware_describe = true;
+                                arg_firmware_list = false;
                                 break;
                         }
 
@@ -567,7 +562,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (f >= 0) {
                                 arg_firmware = mfree(arg_firmware);
                                 arg_firmware_type = f;
-                                arg_firmware_describe = false;
+                                arg_firmware_describe = arg_firmware_list = false;
                                 break;
                         }
 
@@ -581,7 +576,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         arg_firmware_type = FIRMWARE_UEFI;
-                        arg_firmware_describe = false;
+                        arg_firmware_describe = arg_firmware_list = false;
                         break;
                 }
 
@@ -2741,10 +2736,12 @@ static const char* const coco_firmware_feature_table[_COCO_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(coco_firmware_feature, ConfidentialComputing);
 
-static int discover_ovmf_config(OvmfConfig **ret, sd_json_variant **ret_firmware_json) {
+/* Adds what the other options require of the firmware to the requested firmware features, and
+ * returns the matching search flags. */
+static int ovmf_search_criteria(FindOvmfConfigFlags *ret_flags) {
         int r;
 
-        assert(ret);
+        assert(ret_flags);
 
         const char *coco_feature = coco_firmware_feature_to_string(arg_confidential_computing);
         if (coco_feature) {
@@ -2761,10 +2758,42 @@ static int discover_ovmf_config(OvmfConfig **ret, sd_json_variant **ret_firmware
                 }
         }
 
-        FindOvmfConfigFlags flags =
-                arg_confidential_computing != COCO_NO ? FIND_OVMF_STATELESS|FIND_OVMF_REQUIRE_RAW :
-                                                        0;
+        *ret_flags = arg_confidential_computing != COCO_NO ? FIND_OVMF_STATELESS|FIND_OVMF_REQUIRE_RAW : 0;
+        return 0;
+}
 
+static int list_firmware(void) {
+        _cleanup_strv_free_ char **l = NULL;
+        FindOvmfConfigFlags flags;
+        int r;
+
+        r = ovmf_search_criteria(&flags);
+        if (r < 0)
+                return r;
+
+        r = list_eligible_ovmf_config(arg_firmware_features_include, arg_firmware_features_exclude, flags, &l);
+        if (r < 0)
+                return log_error_errno(r, "Failed to list firmwares: %m");
+
+        bool nl = false;
+        fputstrv(stdout, l, "\n", &nl);
+        if (nl)
+                putchar('\n');
+
+        return 0;
+}
+
+static int discover_ovmf_config(OvmfConfig **ret, sd_json_variant **ret_firmware_json) {
+        FindOvmfConfigFlags flags;
+        int r;
+
+        assert(ret);
+
+        r = ovmf_search_criteria(&flags);
+        if (r < 0)
+                return r;
+
+        const char *coco_feature = coco_firmware_feature_to_string(arg_confidential_computing);
         r = find_ovmf_config(arg_firmware_features_include, arg_firmware_features_exclude, flags, ret, ret_firmware_json);
         if (r == -ENOENT && coco_feature)
                 return log_error_errno(r, "No suitable firmware descriptor found for --coco=%s "
@@ -4597,6 +4626,9 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (arg_firmware_list)
+                return list_firmware();
 
         if (arg_firmware_describe) {
                 _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
