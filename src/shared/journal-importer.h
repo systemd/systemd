@@ -16,9 +16,10 @@ typedef struct JournalImporter {
         char *name;
 
         char *buf;
-        size_t offset;     /* offset to the beginning of live data in the buffer */
-        size_t scanned;    /* number of bytes since the beginning of data without a newline */
-        size_t filled;     /* total number of bytes in the buffer */
+        size_t offset;       /* offset to the beginning of live data in the buffer */
+        size_t entry_offset; /* offset at which the entry we're currently assembling started */
+        size_t scanned;      /* number of bytes since the beginning of data without a newline */
+        size_t filled;       /* total number of bytes in the buffer */
 
         size_t field_len;  /* used for binary fields: the field name length */
         size_t data_size;  /* and the size of the binary data chunk being processed */
