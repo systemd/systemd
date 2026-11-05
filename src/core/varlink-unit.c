@@ -634,6 +634,9 @@ void varlink_job_detach_client(Job *j) {
         assert(j);
         assert(j->unit);
 
+        if (!j->varlink)
+                return;
+
         /* Only drop the unit change subscription if it belongs to this very method call. A unit can carry
          * two jobs at the same time (the regular one and a NOP one), which may be watched by two different
          * connections. Detaching one client must not tear down the other one's subscription. */
@@ -728,6 +731,7 @@ int varlink_job_stash_client_full(
 }
 
 void varlink_job_stash_client(Job *j) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
         int r;
 
         assert(j);
@@ -747,8 +751,9 @@ void varlink_job_stash_client(Job *j) {
                         j->unit->varlink_unit_change == j->varlink);
         if (r < 0) {
                 log_unit_warning_errno(j->unit, r, "Failed to stash varlink client of job %" PRIu32 ", sending error reply: %m", j->id);
-                (void) sd_varlink_error_errno(j->varlink, r);
+                link = sd_varlink_ref(j->varlink);
                 varlink_job_detach_client(j);
+                varlink_error_or_close(link, r);
         }
 }
 
@@ -792,8 +797,11 @@ void varlink_job_flush_stashed_clients(Manager *m) {
 
         assert(m);
 
+        /* Closing a connection invokes vl_disconnect(), which removes entries from the manager's stash. */
+        _cleanup_hashmap_free_ Hashmap *clients = TAKE_PTR(m->stashed_varlink_job_clients);
+
         /* Jobs aren't guaranteed to come back after a reload, e.g. when coldplug cancels them */
-        HASHMAP_FOREACH_KEY(w, id, m->stashed_varlink_job_clients) {
+        HASHMAP_FOREACH_KEY(w, id, clients) {
                 const char *k;
                 Unit *u;
 
@@ -809,10 +817,8 @@ void varlink_job_flush_stashed_clients(Manager *m) {
                         }
                 }
 
-                (void) sd_varlink_error_errno(w->varlink, -ECANCELED);
+                varlink_error_or_close(w->varlink, ECANCELED);
         }
-
-        m->stashed_varlink_job_clients = hashmap_free(m->stashed_varlink_job_clients);
 }
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_job_mode, JobMode, job_mode_from_string);
