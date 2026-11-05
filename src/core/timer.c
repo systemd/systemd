@@ -313,9 +313,26 @@ static int timer_coldplug(Unit *u) {
         if (t->deserialized_state == t->state)
                 return 0;
 
+        /* A unit file that failed to load has no timer values. Recalculating from that empty list treats a
+         * previously waiting timer as elapsed, and the elapsed state is what the next reload restores, so
+         * fixing the file and issuing daemon-reload never arms the timer again (#44667). Keep the
+         * deserialized state until a reload actually loads the unit. */
+        if (UNIT_IS_LOAD_ERROR(u->load_state)) {
+                timer_set_state(t, t->deserialized_state);
+                return 0;
+        }
+
         if (t->deserialized_state == TIMER_WAITING)
                 timer_enter_waiting(t, /* time_change= */ false);
-        else
+        else if (t->deserialized_state == TIMER_ELAPSED) {
+                /* The elapsed state may itself be the stale result of the bad load above. Re-evaluate now
+                 * that the configuration is loaded. One-shot bases use the activation timestamp only while
+                 * the timer is already active; enter that state first so an
+                 * OnActiveSec=/OnBootSec=/OnStartupSec= timer that already fired is not armed again from
+                 * the current time. */
+                timer_set_state(t, TIMER_ELAPSED);
+                timer_enter_waiting(t, /* time_change= */ false);
+        } else
                 timer_set_state(t, t->deserialized_state);
 
         return 0;
