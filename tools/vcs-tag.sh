@@ -6,7 +6,11 @@ INPUT="$1"
 MODE="$2"
 ENABLED="$3"
 
-if ! ((ENABLED)) || ! [[ -d .git ]] || ! command -v git >/dev/null || git describe --tags --exact-match &>/dev/null
+# meson runs this script from the build directory, so the working directory doesn't contain the repository.
+# In a git worktree, .git is a file and not a directory.
+SOURCE_ROOT="$(dirname "$0")/.."
+
+if ! ((ENABLED)) || ! [[ -e "$SOURCE_ROOT/.git" ]] || ! command -v git >/dev/null || git -C "$SOURCE_ROOT" describe --tags --exact-match &>/dev/null
 then
     sed -e "s/@VCS_TAG@//" "$INPUT"
     exit 0
@@ -18,6 +22,6 @@ else
     DIRTY=""
 fi
 
-TAG="-g$(git describe --abbrev=7 --match="" --always $DIRTY)"
+TAG="-g$(git -C "$SOURCE_ROOT" describe --abbrev=7 --match="" --always $DIRTY)"
 
 sed -e "s/@VCS_TAG@/$TAG/" "$INPUT"
