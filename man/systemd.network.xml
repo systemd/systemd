@@ -1048,7 +1048,7 @@ DuplicateAddressDetection=none</programlisting></para>
           <command>systemd-networkd</command> needs to be restarted instead of just reloaded. Until then,
           the userspace (TUN) translation is used.</para>
 
-          <xi:include href="version-info.xml" xpointer="v261"/>
+          <xi:include href="version-info.xml" xpointer="v263"/>
         </listitem>
       </varlistentry>
 
@@ -1065,7 +1065,7 @@ DuplicateAddressDetection=none</programlisting></para>
           <varname>UsePREF64=</varname> to be enabled. When unset, the prefix is discovered via
           Router Advertisements.</para>
 
-          <xi:include href="version-info.xml" xpointer="v261"/>
+          <xi:include href="version-info.xml" xpointer="v263"/>
         </listitem>
       </varlistentry>
 

@@ -11475,8 +11475,13 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
         self.assertIn('example.com', output)
 
     def test_clat(self):
-        copy_network_unit('25-veth.netdev', '25-ipv6ra-prefix-client-clat.network', '25-ipv6ra-prefix.network',
-                          '12-dummy.netdev', '25-ipv6ra-uplink.network')
+        copy_network_unit(
+            '25-veth.netdev',
+            '25-ipv6ra-prefix-client-clat.network',
+            '25-ipv6ra-prefix.network',
+            '12-dummy.netdev',
+            '25-ipv6ra-uplink.network',
+        )
 
         start_networkd()
         self.wait_online('veth99:routable', 'veth-peer:routable', 'dummy98:routable')
