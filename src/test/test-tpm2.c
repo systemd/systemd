@@ -1142,6 +1142,51 @@ TEST(calculate_policy_auth_value) {
         ASSERT_TRUE(digest_check(&d, "759ebd5ed65100e0b4aa2d04b4b789c2672d92ecc9cdda4b5fa16a303132e008"));
 }
 
+TEST(tpm2_fido2_salt_and_public_key_tag) {
+        _cleanup_(iovec_done) struct iovec salt = {}, tag = {}, tag2 = {};
+        _cleanup_free_ char *h = NULL;
+        uint8_t secret_data[32], pk_data[64], other_data[32];
+
+        for (size_t i = 0; i < sizeof(secret_data); i++)
+                secret_data[i] = i;
+        memset(pk_data, 0x04, sizeof(pk_data));
+        memset(other_data, 0xff, sizeof(other_data));
+
+        struct iovec secret = IOVEC_MAKE(secret_data, sizeof(secret_data));
+        struct iovec pk = IOVEC_MAKE(pk_data, sizeof(pk_data));
+        struct iovec other = IOVEC_MAKE(other_data, sizeof(other_data));
+
+        /* The salt and the tag define the on-disk format of TPM2+FIDO2 enrollments, pin them:
+         * salt = HMAC-SHA256(S, label NUL), tag = HMAC-SHA256(S, label NUL alg NUL pk) */
+        ASSERT_OK(tpm2_fido2_derive_salt(&secret, &salt));
+        ASSERT_NOT_NULL(h = hexmem(salt.iov_base, salt.iov_len));
+        ASSERT_STREQ(h, "4998a6fed20e432704e300b1ed93df2b45da95a6e7503d38b3ccd2f9218e430d");
+        h = mfree(h);
+
+        ASSERT_OK(tpm2_fido2_calculate_public_key_tag(&secret, "es256", &pk, &tag));
+        ASSERT_NOT_NULL(h = hexmem(tag.iov_base, tag.iov_len));
+        ASSERT_STREQ(h, "d82484ed4d2abb567b0098448684f22bbd51d8ec60e4d42497e85ca5f6befc0e");
+
+        ASSERT_OK(tpm2_fido2_verify_public_key_tag(&secret, "es256", &pk, &tag));
+
+        /* A different public key, algorithm or sealed secret must not verify. */
+        ASSERT_ERROR(tpm2_fido2_verify_public_key_tag(&secret, "es256", &other, &tag), EBADMSG);
+        ASSERT_ERROR(tpm2_fido2_verify_public_key_tag(&secret, "eddsa", &pk, &tag), EBADMSG);
+        ASSERT_ERROR(tpm2_fido2_verify_public_key_tag(&other, "es256", &pk, &tag), EBADMSG);
+        ASSERT_ERROR(tpm2_fido2_verify_public_key_tag(&secret, "es256", &pk, /* tag= */ NULL), EBADMSG);
+        ASSERT_ERROR(tpm2_fido2_verify_public_key_tag(&secret, /* public_key_algorithm= */ NULL, &pk, &tag), EBADMSG);
+        /* An empty secret can come from a crafted LUKS2 header, and must not be trusted */
+        ASSERT_ERROR(tpm2_fido2_verify_public_key_tag(&(struct iovec) {}, "es256", &pk, &tag), EBADMSG);
+
+        /* The tag is not the salt, i.e. the labels separate the two. */
+        ASSERT_FALSE(iovec_equal(&salt, &tag));
+
+        /* Changing any part of the secret (e.g. a single shard) changes the tag. */
+        secret_data[31] ^= 1;
+        ASSERT_OK(tpm2_fido2_calculate_public_key_tag(&secret, "es256", &pk, &tag2));
+        ASSERT_FALSE(iovec_equal(&tag, &tag2));
+}
+
 TEST(calculate_policy_nv_written) {
         TPM2B_DIGEST d;
 
