@@ -1074,7 +1074,7 @@ static int get_selinux_policy_root(int rfd, const char *root, char **ret) {
                         continue;
                 }
 
-                r = chaseat_prefix_root(p, root, ret);
+                r = chaseat_make_absolute(p, root, ret);
                 if (r < 0)
                         return r;
 

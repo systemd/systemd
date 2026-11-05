@@ -914,7 +914,7 @@ int image_find(RuntimeScope scope,
                         if (r < 0)
                                 return r;
 
-                        r = chaseat_prefix_root(chased_path, root, &resolved_file);
+                        r = chaseat_make_absolute(chased_path, root, &resolved_file);
                         if (r < 0)
                                 return r;
 
@@ -1130,7 +1130,7 @@ int image_discover(
                         if (r < 0)
                                 return r;
 
-                        r = chaseat_prefix_root(chased_path, root, &resolved_file);
+                        r = chaseat_make_absolute(chased_path, root, &resolved_file);
                         if (r < 0)
                                 return r;
 
