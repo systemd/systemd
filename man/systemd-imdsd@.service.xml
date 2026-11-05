@@ -79,14 +79,10 @@
           processes can directly contact IMDS.</para>
 
           <para>Some systems set <varname>net.ipv4.conf.all.rp_filter</varname>. With
-          <literal>locked</literal>, IMDS then cannot be reached. <command>systemd-imdsd</command> warns about
-          this when setting up the network. To allow IMDS access, turn it off with a
-          <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          drop-in, e.g. <filename>/etc/sysctl.d/90-imds.conf</filename>:</para>
-          <programlisting>net.ipv4.conf.all.rp_filter = 0</programlisting>
-
-          <para>systemd's <filename>50-default.conf</filename> already turns on reverse path filtering for every
-          individual link, so all other links keep it.</para>
+          <literal>locked</literal>, IMDS then cannot be reached. <command>systemd-imdsd</command> warns
+          about this when setting up the network. That setting is not recommended, since systemd's
+          <filename>sysctl.d/50-default.conf</filename> already turns on reverse path filtering for all
+          links by default.</para>
 
           <xi:include href="version-info.xml" xpointer="v261"/>
         </listitem>
