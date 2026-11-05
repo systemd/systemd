@@ -1308,7 +1308,7 @@ bool valid_device_node_path(const char *path) {
         if (!PATH_STARTSWITH_SET(path, "/dev/", "/run/systemd/inaccessible/"))
                 return false;
 
-        if (endswith(path, "/")) /* can't be a device node if it ends in a slash */
+        if (path_implies_directory(path)) /* can't be a device node if it must be a directory */
                 return false;
 
         return path_is_normalized(path);
