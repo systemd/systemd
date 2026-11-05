@@ -1,0 +1,135 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Builds semcode for the Claude review and indexes the Linux kernel with it.
+#
+# The review agents look up functions, types and call graphs with semcode
+# instead of grepping through the trees. A cold build of semcode takes about
+# twenty minutes and a kernel index longer than that, far more than a review
+# may spend on them. Both go into the actions cache, from which the review job
+# restores them:
+#
+#   semcode-bin-<os>-<arch>-<semcode commit>                   the binaries
+#   semcode-linux-<os>-<arch>-<semcode commit>-<kernel commit> the kernel index
+#
+# The review restores the newest entry for the prefix it knows. The kernel
+# index only answers for the commit it was built from, which the review
+# therefore clones instead of the latest mainline. An index is tied to the
+# semcode that wrote it, so a new SEMCODE_REF rebuilds both. A cache nobody
+# restored for a week is evicted, and the kernel moves on, so this also runs
+# weekly.
+
+name: semcode
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/semcode.yml]
+  schedule:
+    # Mondays 03:00 UTC, before the European morning's reviews.
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: semcode
+
+permissions:
+  contents: read
+
+env:
+  # masoncl/semcode-devel main plus its pull request 10, which lets semcode-mcp
+  # answer requests concurrently, from the fork the pull request comes from.
+  SEMCODE_REPOSITORY: https://github.com/brauner/semcode-devel.git
+  SEMCODE_REF: 08a0feefd4f97fce906420ee25961c44727efac8
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # The review only runs in these two, so nobody else needs the caches.
+    if: contains(fromJSON('["systemd/systemd","daandemeyer/systemd"]'), github.repository)
+
+    outputs:
+      key: ${{ steps.key.outputs.key }}
+
+    steps:
+      - name: Compute the cache key
+        id: key
+        run: echo "key=semcode-bin-${RUNNER_OS}-${RUNNER_ARCH}-${SEMCODE_REF}" >>"$GITHUB_OUTPUT"
+
+      - name: Restore semcode
+        id: cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: ${{ runner.temp }}/semcode
+          key: ${{ steps.key.outputs.key }}
+
+      # protoc and the .proto files it reads: lance imports one of protobuf's
+      # well-known types, which ships in libprotobuf-dev and not with the
+      # compiler. gix reaches the network through curl built against openssl.
+      - name: Install build dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            protobuf-compiler libprotobuf-dev pkg-config libssl-dev libcurl4-openssl-dev
+          rustup update --no-self-update stable
+
+      - name: Build semcode
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          src="$RUNNER_TEMP/semcode-src"
+          git init --quiet "$src"
+          git -C "$src" fetch --quiet --depth 1 "$SEMCODE_REPOSITORY" "$SEMCODE_REF"
+          git -C "$src" checkout --quiet --detach FETCH_HEAD
+          cargo build --manifest-path "$src/Cargo.toml" --release --locked --bin semcode-index --bin semcode-mcp
+          install -D -s -t "$RUNNER_TEMP/semcode/bin" "$src/target/release/semcode-index" "$src/target/release/semcode-mcp"
+          echo "$SEMCODE_REF" >"$RUNNER_TEMP/semcode/ref"
+          ls -l "$RUNNER_TEMP/semcode/bin"
+
+  linux:
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 120
+
+    steps:
+      - name: Restore semcode
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: ${{ runner.temp }}/semcode
+          key: ${{ needs.build.outputs.key }}
+          fail-on-cache-miss: true
+
+      # The review runs semcode in a bubblewrap sandbox and so does this, for
+      # one less difference between the two. Ubuntu restricts the unprivileged
+      # user namespaces it needs.
+      - name: Install the sandbox
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          sudo apt-get update && sudo apt-get install -y bubblewrap
+
+      - name: Clone the Linux kernel
+        id: linux
+        run: |
+          git clone --quiet --depth 1 --single-branch https://github.com/torvalds/linux.git "$RUNNER_TEMP/linux"
+          git -C "$RUNNER_TEMP/linux" log -1 --format="Cloned linux at %H (%s)"
+          echo "commit=$(git -C "$RUNNER_TEMP/linux" rev-parse HEAD)" >>"$GITHUB_OUTPUT"
+
+      # Two analysis threads keep the indexer below nine gigabytes, which a
+      # runner has; with four it peaks above eleven.
+      - name: Index the Linux kernel
+        env:
+          LINUX_COMMIT: ${{ steps.linux.outputs.commit }}
+        run: |
+          index="$RUNNER_TEMP/semcode-linux"
+          mkdir -p "$index"
+          bwrap --ro-bind / / --tmpfs /run --dev /dev --proc /proc --tmpfs /tmp --bind "$index" "$index" \
+            --clearenv --setenv PATH /usr/bin:/bin --setenv HOME "$HOME" \
+            --unshare-all --die-with-parent --new-session -- \
+            "$RUNNER_TEMP/semcode/bin/semcode-index" --jobs 2 --source "$RUNNER_TEMP/linux" --database "$index/.semcode.db"
+          echo "$LINUX_COMMIT" >"$index/commit"
+          du -sh "$index"
+
+      - name: Save the kernel index
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: ${{ runner.temp }}/semcode-linux
+          key: semcode-linux-${{ runner.os }}-${{ runner.arch }}-${{ env.SEMCODE_REF }}-${{ steps.linux.outputs.commit }}
