@@ -375,7 +375,13 @@ int find_tpm2_auto_data(
                                 &srk,
                                 &pcrlock_nv,
                                 &flags,
-                                &ap);
+                                &ap,
+                                /* ret_fido2_cid= */ NULL,
+                                /* ret_fido2_rp_id= */ NULL,
+                                /* ret_fido2_public_key= */ NULL,
+                                /* ret_fido2_public_key_algorithm= */ NULL,
+                                /* ret_fido2_public_key_tag= */ NULL,
+                                /* ret_fido2_flags= */ NULL);
                 if (r == -EUCLEAN) /* Gracefully handle issues in JSON fields not owned by us */
                         continue;
                 if (r < 0)
