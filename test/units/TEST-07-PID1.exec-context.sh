@@ -483,6 +483,7 @@ mkdir /tmp/root
 touch /tmp/root/foo
 chmod +x /tmp/root/foo
 (! systemd-run --wait --pipe false)
+(! systemd-run --wait --unit=test-socket-stdio-no-fd -p StandardInput=socket true)
 if [[ ! -v ASAN_OPTIONS ]]; then
     # Here, -p EnvironmentFile=-/usr/lib/systemd/systemd-asan-env does not work,
     # as sd-executor loads NSS module and fails before applying the environment:

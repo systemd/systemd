@@ -5496,9 +5496,11 @@ int exec_invoke(
             context->std_output == EXEC_OUTPUT_SOCKET ||
             context->std_error == EXEC_OUTPUT_SOCKET) {
 
-                if (params->n_socket_fds != 1)
+                if (params->n_socket_fds != 1) {
+                        *exit_status = EXIT_FDS;
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected exactly one socket, got %zu.",
                                                params->n_socket_fds);
+                }
 
                 socket_fd = TAKE_FD(params->fds[0]);
                 free(params->fd_names[0]);
