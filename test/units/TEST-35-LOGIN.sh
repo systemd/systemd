@@ -78,6 +78,31 @@ EOF
     rm -rf /run/systemd/logind.conf.d
 }
 
+teardown_boot_loader_entries_symlink() (
+    set +eux
+
+    rm -rf /run/boot-loader-entries
+
+    return 0
+)
+
+testcase_boot_loader_entries_symlink() {
+    if [[ -e /run/boot-loader-entries ]]; then
+        echo "/run/boot-loader-entries already exists, skipping."
+        return 0
+    fi
+
+    trap teardown_boot_loader_entries_symlink RETURN
+
+    # Symlinks are not allowed in the boot loader entries tree (see #44636). Loading the entries fails,
+    # but reading the properties must not.
+    mkdir -p /run/boot-loader-entries/loader.0/entries
+    ln -s loader.0 /run/boot-loader-entries/loader
+
+    assert_eq "$(busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager BootLoaderEntries)" "as 0"
+    busctl call org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.DBus.Properties GetAll s org.freedesktop.login1.Manager >/dev/null
+}
+
 test_kill_user_process() {
     local su=${1:?}
     local username=${2:?}
