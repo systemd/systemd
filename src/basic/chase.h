@@ -19,12 +19,14 @@ typedef enum ChaseFlags {
         CHASE_PARENT             = 1 << 10, /* Chase the parent directory of the given path. Note that the
                                              * full path is still stored in ret_path and only the returned
                                              * file descriptor will point to the parent directory. Note that
-                                             * the result path is the root or '.', then the file descriptor
-                                             * also points to the result path even if this flag is set.
+                                             * the result path is the root, '.', or ends with '..', then the
+                                             * file descriptor points to the result itself. With
+                                             * CHASE_EXTRACT_FILENAME, the filename is '.' in that case.
                                              * When this specified, chase() will succeed with 1 even if the
                                              * file points to the last path component does not exist. */
         CHASE_MKDIR_0755         = 1 << 11, /* Create any missing directories in the given path. */
-        CHASE_EXTRACT_FILENAME   = 1 << 12, /* Only return the last component of the resolved path */
+        CHASE_EXTRACT_FILENAME   = 1 << 12, /* The returned path is the last component of the resolved path.
+                                             * Results without a filename use ".". */
         CHASE_MUST_BE_DIRECTORY  = 1 << 13, /* Fail if returned inode fd is not a dir */
         CHASE_MUST_BE_REGULAR    = 1 << 14, /* Fail if returned inode fd is not a regular file */
         CHASE_MUST_BE_SOCKET     = 1 << 15, /* Fail if returned inode fd is not a socket */
@@ -47,8 +49,13 @@ bool stat_unsafe_transition(const struct stat *a, const struct stat *b);
 
 int chase(const char *path_with_prefix, const char *root, ChaseFlags flags, char **ret_path, int *ret_fd);
 
-int chaseat_prefix_root(const char *path, const char *root, char **ret);
-int chase_extract_filename(const char *path, const char *root, char **ret);
+/* Relative chaseat() output needs the path of its starting directory as the prefix. */
+int chaseat_make_absolute(const char *path, const char *base, char **ret);
+int chase_split_prefix_filename(const char *path, const char *root, char **ret_dir, char **ret_filename);
+
+/* chase_xopenat() applies CHASE_NOFOLLOW, CHASE_MUST_BE_*, and CHASE_TRIGGER_AUTOFS. Callers must validate
+ * other chase flags while resolving the path. */
+int chase_xopenat(int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, XOpenFlags xopen_flags);
 
 int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, int open_flags, char **ret_path);
 int chase_and_opendir(const char *path, const char *root, ChaseFlags chase_flags, char **ret_path, DIR **ret_dir);
@@ -58,6 +65,7 @@ int chase_and_fopen_unlocked(const char *path, const char *root, ChaseFlags chas
 int chase_and_unlink(const char *path, const char *root, ChaseFlags chase_flags, int unlink_flags, char **ret_path);
 int chase_and_open_parent(const char *path, const char *root, ChaseFlags chase_flags, char **ret_filename);
 
+/* An empty path refers to dir_fd itself, including when it refers to a file or a symlink. */
 int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int *ret_fd);
 
 int chase_and_openat(int root_fd, int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, char **ret_path);
