@@ -25,6 +25,8 @@
 #include "string-util.h"
 #include "strv.h"
 #include "unit.h"
+#include "varlink.h"
+#include "varlink-serialize.h"
 #include "varlink-unit.h"
 #include "virt.h"
 
@@ -1262,6 +1264,14 @@ int job_serialize(Job *j, FILE *f) {
 
         bus_track_serialize(j->bus_track, f, "subscribed");
 
+        /* On reexecution the varlink server passes the connection along, hence just remember which one is
+         * ours. On reload the connection stays around anyway, see varlink_job_stash_client(). */
+        if (j->varlink && j->manager->objective != MANAGER_RELOAD) {
+                (void) varlink_server_serialize_connection_id(j->varlink, "job-varlink-connection", f);
+                (void) serialize_bool(f, "job-varlink-notify-job-changes", j->varlink_notify_job_changes);
+                (void) serialize_bool(f, "job-varlink-notify-unit-changes", j->unit->varlink_unit_change == j->varlink);
+        }
+
         activation_details_serialize(j->activation_details, f);
 
         /* End marker */
@@ -1270,6 +1280,8 @@ int job_serialize(Job *j, FILE *f) {
 }
 
 int job_deserialize(Job *j, FILE *f) {
+        _cleanup_free_ char *varlink_id = NULL;
+        bool varlink_notify_job_changes = false, varlink_notify_unit_changes = false;
         int r;
 
         assert(j);
@@ -1356,12 +1368,49 @@ int job_deserialize(Job *j, FILE *f) {
                         if (strv_extend(&j->deserialized_clients, v) < 0)
                                 return log_oom();
 
+                } else if (streq(l, "job-varlink-connection")) {
+                        if (free_and_strdup(&varlink_id, v) < 0)
+                                return log_oom();
+
+                } else if (streq(l, "job-varlink-notify-job-changes")) {
+                        r = parse_boolean(v);
+                        if (r < 0)
+                                log_debug("Failed to parse job varlink_notify_job_changes flag: %s", v);
+                        else
+                                varlink_notify_job_changes = r;
+
+                } else if (streq(l, "job-varlink-notify-unit-changes")) {
+                        r = parse_boolean(v);
+                        if (r < 0)
+                                log_debug("Failed to parse job varlink_notify_unit_changes flag: %s", v);
+                        else
+                                varlink_notify_unit_changes = r;
+
                 } else if (startswith(l, "activation-details")) {
                         if (activation_details_deserialize(l, v, &j->activation_details) < 0)
                                 log_debug("Failed to parse job ActivationDetails element: %s", v);
 
                 } else
                         log_debug("Unknown job serialization key: %s", l);
+        }
+
+        if (varlink_id) {
+                sd_varlink *link;
+
+                /* Stash the connection the same way as on reload, job_coldplug() picks it up again, and if
+                 * the job doesn't survive the client gets an error reply. */
+                if (manager_claim_varlink_connection(j->manager, varlink_id, &link) >= 0) {
+                        r = varlink_job_stash_client_full(
+                                        j->manager,
+                                        j->id,
+                                        link,
+                                        varlink_notify_job_changes,
+                                        varlink_notify_unit_changes);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to stash varlink client of job %" PRIu32 ", sending error reply: %m", j->id);
+                                (void) sd_varlink_error_errno(link, r);
+                        }
+                }
         }
 
         return 0;
