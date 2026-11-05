@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Builds semcode for the Claude review.
+#
+# The review agents look up functions, types and call graphs with semcode
+# instead of grepping through the trees. A cold build of semcode takes about
+# twenty minutes, far more than a review may spend on it, so the binaries go
+# into the actions cache under
+#
+#   semcode-bin-<os>-<arch>-<semcode commit>
+#
+# from which the review job restores the newest entry for the prefix. A cache
+# nobody restored for a week is evicted, so this also runs weekly.
+
+name: semcode
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/semcode.yml]
+  schedule:
+    # Mondays 03:00 UTC, before the European morning's reviews.
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: semcode
+
+permissions:
+  contents: read
+
+env:
+  # masoncl/semcode-devel main plus its pull request 10, which lets semcode-mcp
+  # answer requests concurrently, from the fork the pull request comes from.
+  SEMCODE_REPOSITORY: https://github.com/brauner/semcode-devel.git
+  SEMCODE_REF: 08a0feefd4f97fce906420ee25961c44727efac8
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # The review only runs in these two, so nobody else needs the caches.
+    if: contains(fromJSON('["systemd/systemd","daandemeyer/systemd"]'), github.repository)
+
+    outputs:
+      key: ${{ steps.key.outputs.key }}
+
+    steps:
+      - name: Compute the cache key
+        id: key
+        run: echo "key=semcode-bin-${RUNNER_OS}-${RUNNER_ARCH}-${SEMCODE_REF}" >>"$GITHUB_OUTPUT"
+
+      - name: Restore semcode
+        id: cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: ${{ runner.temp }}/semcode
+          key: ${{ steps.key.outputs.key }}
+
+      # protoc and the .proto files it reads: lance imports one of protobuf's
+      # well-known types, which ships in libprotobuf-dev and not with the
+      # compiler. gix reaches the network through curl built against openssl.
+      - name: Install build dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            protobuf-compiler libprotobuf-dev pkg-config libssl-dev libcurl4-openssl-dev
+          rustup update --no-self-update stable
+
+      - name: Build semcode
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          src="$RUNNER_TEMP/semcode-src"
+          git init --quiet "$src"
+          git -C "$src" fetch --quiet --depth 1 "$SEMCODE_REPOSITORY" "$SEMCODE_REF"
+          git -C "$src" checkout --quiet --detach FETCH_HEAD
+          cargo build --manifest-path "$src/Cargo.toml" --release --locked --bin semcode-index --bin semcode-mcp
+          install -D -s -t "$RUNNER_TEMP/semcode/bin" "$src/target/release/semcode-index" "$src/target/release/semcode-mcp"
+          echo "$SEMCODE_REF" >"$RUNNER_TEMP/semcode/ref"
+          ls -l "$RUNNER_TEMP/semcode/bin"
