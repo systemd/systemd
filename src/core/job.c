@@ -1408,7 +1408,7 @@ int job_deserialize(Job *j, FILE *f) {
                                         varlink_notify_unit_changes);
                         if (r < 0) {
                                 log_unit_warning_errno(j->unit, r, "Failed to stash varlink client of job %" PRIu32 ", sending error reply: %m", j->id);
-                                (void) sd_varlink_error_errno(link, r);
+                                varlink_error_or_close(link, r);
                         }
                 }
         }
