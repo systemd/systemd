@@ -863,7 +863,6 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
         Context *c = ASSERT_PTR(userdata);
         int64_t utc;
         struct timespec ts;
-        usec_t start;
         struct tm tm;
 
         assert(m);
@@ -877,9 +876,6 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
 
         if (context_ntp_service_is_active(c) > 0)
                 return sd_bus_error_set(error, BUS_ERROR_AUTOMATIC_TIME_SYNC_ENABLED, "Automatic time synchronization is enabled");
-
-        /* this only gets used if dbus does not provide a timestamp */
-        start = now(CLOCK_MONOTONIC);
 
         r = sd_bus_message_read(m, "xbb", &utc, &relative, &interactive);
         if (r < 0)
@@ -922,14 +918,6 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
                 return r;
         if (r == 0)
                 return 1;
-
-        /* adjust ts for time spent in program */
-        r = sd_bus_message_get_monotonic_usec(m, &start);
-        /* when sd_bus_message_get_monotonic_usec() returns -ENODATA it does not modify &start */
-        if (r < 0 && r != -ENODATA)
-                return r;
-
-        timespec_store(&ts, timespec_load(&ts) + usec_sub_unsigned(now(CLOCK_MONOTONIC), start));
 
         /* Set system clock */
         if (clock_settime(CLOCK_REALTIME, &ts) < 0) {
@@ -1210,8 +1198,6 @@ static int run(int argc, char *argv[]) {
         r = connect_bus(&context, event, &bus);
         if (r < 0)
                 return r;
-
-        (void) sd_bus_negotiate_timestamp(bus, true);
 
         r = context_read_data(&context);
         if (r < 0)
