@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <unistd.h>
 
 #include "capability-util.h"
+#include "fd-util.h"
 #include "fs-util.h"
 #include "mkdir.h"
 #include "path-util.h"
@@ -86,6 +88,36 @@ TEST(mkdir_p_safe) {
                 ASSERT_ERROR(mkdir_p_safe(tmp, p, 0000, UID_INVALID, GID_INVALID, /* flags= */ 0), EACCES);
                 _exit(EXIT_SUCCESS);
         }
+}
+
+TEST(mkdirat_p) {
+        _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
+        _cleanup_close_ int fd = -EBADF;
+
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-mkdir-XXXXXX", &tmp));
+        ASSERT_OK(fd = xopenat(AT_FDCWD, tmp, O_DIRECTORY));
+
+        ASSERT_OK(mkdirat_p(fd, "aaa/bbb/ccc", 0755));
+        ASSERT_OK_POSITIVE(is_dir_at(fd, "aaa/bbb/ccc", /* follow= */ false));
+
+        /* Existing directories are fine, at any level */
+        ASSERT_OK(mkdirat_p(fd, "aaa/bbb/ccc", 0755));
+        ASSERT_OK(mkdirat_p(fd, "aaa", 0755));
+        ASSERT_OK(mkdirat_p(fd, "aaa/bbb/ddd", 0755));
+        ASSERT_OK_POSITIVE(is_dir_at(fd, "aaa/bbb/ddd", /* follow= */ false));
+
+        /* Absolute paths are fine too */
+        _cleanup_free_ char *a = NULL;
+        ASSERT_NOT_NULL(a = path_join(tmp, "eee/fff"));
+        ASSERT_OK(mkdirat_p(fd, a, 0755));
+        ASSERT_OK_POSITIVE(is_dir_at(fd, "eee/fff", /* follow= */ false));
+
+        /* Existing non-directories are not */
+        _cleanup_free_ char *p = NULL;
+        ASSERT_NOT_NULL(p = path_join(tmp, "aaa/file"));
+        ASSERT_OK(touch(p));
+        ASSERT_ERROR(mkdirat_p(fd, "aaa/file", 0755), ENOTDIR);
+        ASSERT_ERROR(mkdirat_p(fd, "aaa/file/xxx", 0755), ENOTDIR);
 }
 
 TEST(mkdir_p_root) {

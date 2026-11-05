@@ -369,7 +369,9 @@ char* path_simplify_full(char *path, PathSimplifyFlags flags) {
         if (isempty(path))
                 return path;
 
-        keep_trailing_slash = FLAGS_SET(flags, PATH_SIMPLIFY_KEEP_TRAILING_SLASH) && endswith(path, "/");
+        /* A trailing "/." is dropped below just like a trailing slash, but carries the same meaning
+         * (i.e. "this must be a directory"), hence turn it into a trailing slash too, if requested. */
+        keep_trailing_slash = FLAGS_SET(flags, PATH_SIMPLIFY_KEEP_TRAILING_SLASH) && ENDSWITH_SET(path, "/", "/.");
 
         absolute = path_is_absolute(path);
         f += absolute;  /* Keep leading /, if present. */
@@ -1189,7 +1191,7 @@ bool path_is_valid_full(const char *p, bool accept_dot_dot) {
         }
 }
 
-bool path_is_normalized(const char *p) {
+bool path_is_normalized_full(const char *p, PathNormalizedFlags flags) {
         if (!path_is_safe(p))
                 return false;
 
@@ -1197,6 +1199,11 @@ bool path_is_normalized(const char *p) {
                 return false;
 
         if (strstr(p, "//"))
+                return false;
+
+        /* A trailing slash is fine by default, since it carries meaning (i.e. "must be a directory"), but
+         * some users want the fully canonical form. The root directory itself is always OK. */
+        if (FLAGS_SET(flags, PATH_REFUSE_TRAILING_SLASH) && !streq(p, "/") && endswith(p, "/"))
                 return false;
 
         return true;
@@ -1306,7 +1313,7 @@ bool valid_device_node_path(const char *path) {
         if (!PATH_STARTSWITH_SET(path, "/dev/", "/run/systemd/inaccessible/"))
                 return false;
 
-        if (endswith(path, "/")) /* can't be a device node if it ends in a slash */
+        if (path_implies_directory(path)) /* can't be a device node if it must be a directory */
                 return false;
 
         return path_is_normalized(path);

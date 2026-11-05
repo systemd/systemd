@@ -837,9 +837,11 @@ static int acquire_credentials(
 
                 if (path_is_absolute(lc->path)) {
                         sub_fd = xopenat(AT_FDCWD, lc->path, O_DIRECTORY);
-                        if (sub_fd < 0 && !IN_SET(sub_fd,
-                                                  -ENOTDIR,  /* Not a directory */
-                                                  -ENOENT))  /* Doesn't exist? */
+                        if (sub_fd < 0 &&
+                            (path_implies_directory(lc->path) || /* e.g. a trailing slash, hence must be a dir */
+                             !IN_SET(sub_fd,
+                                     -ENOTDIR,  /* Not a directory */
+                                     -ENOENT))) /* Doesn't exist? */
                                 return log_debug_errno(sub_fd, "Failed to open credential source '%s': %m", lc->path);
                 }
 

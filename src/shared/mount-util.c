@@ -1240,6 +1240,14 @@ static int mount_in_namespace(
         if (S_ISLNK(st.st_mode)) /* This shouldn't really happen, given that we just chased the symlinks above, but let's better be safe… */
                 return log_debug_errno(SYNTHETIC_ERRNO(ELOOP), "Source path '%s' can't be a symbolic link.", src);
 
+        /* If the destination can only refer to a directory (e.g. because of a trailing slash), a directory
+         * must be mounted there. (chase() already enforced the same for the source above.) Images are
+         * always mounted onto directories, hence there's nothing to check for them. */
+        if (!FLAGS_SET(flags, MOUNT_IN_NAMESPACE_IS_IMAGE) && path_implies_directory(dest) && !S_ISDIR(st.st_mode))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTDIR),
+                                       "Destination path '%s' refers to a directory, but source path '%s' is not one.",
+                                       dest, src);
+
         if (!mount_new_api_supported()) /* Fallback if we can't use the new mount API */
                 return mount_in_namespace_legacy(
                                 chased_src_path,

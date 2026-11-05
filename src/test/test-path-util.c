@@ -59,6 +59,21 @@ TEST(path_is_normalized) {
         ASSERT_FALSE(path_is_normalized("/usr/bin/."));
         ASSERT_FALSE(path_is_normalized("../usr/bin"));
         ASSERT_FALSE(path_is_normalized("/usr/../bin"));
+
+        ASSERT_TRUE(path_is_normalized("/usr/bin/"));
+        ASSERT_TRUE(path_is_normalized("usr/"));
+        ASSERT_FALSE(path_is_normalized("//"));
+        ASSERT_FALSE(path_is_normalized("/usr//"));
+        ASSERT_FALSE(path_is_normalized("/usr/./"));
+        ASSERT_FALSE(path_is_normalized("/usr/../"));
+
+        ASSERT_TRUE(path_is_normalized_full("/", PATH_REFUSE_TRAILING_SLASH));
+        ASSERT_TRUE(path_is_normalized_full("/usr/bin", PATH_REFUSE_TRAILING_SLASH));
+        ASSERT_TRUE(path_is_normalized_full("usr/bin", PATH_REFUSE_TRAILING_SLASH));
+        ASSERT_FALSE(path_is_normalized_full("/usr/bin/", PATH_REFUSE_TRAILING_SLASH));
+        ASSERT_FALSE(path_is_normalized_full("usr/bin/", PATH_REFUSE_TRAILING_SLASH));
+        ASSERT_FALSE(path_is_normalized_full("usr/", PATH_REFUSE_TRAILING_SLASH));
+        ASSERT_FALSE(path_is_normalized_full("//", PATH_REFUSE_TRAILING_SLASH));
 }
 
 TEST(is_path) {
@@ -198,6 +213,13 @@ TEST(path_simplify) {
         test_path_simplify_one("/../abc///..", "/abc/..", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
         test_path_simplify_one("/../abc///../", "/abc/../", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
         test_path_simplify_one("/../abc///../", "/abc/..", /* flags= */ 0);
+        test_path_simplify_one("/abc/.", "/abc/", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/abc/./", "/abc/", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/abc//.//.", "/abc/", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/abc/.", "/abc", /* flags= */ 0);
+        test_path_simplify_one("/.", "/", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("./.", "./", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one(".", ".", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
 
         test_path_simplify_one("/../../abc", "/abc", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
         test_path_simplify_one("/../../abc///", "/abc/", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
