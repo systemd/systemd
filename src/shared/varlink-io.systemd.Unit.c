@@ -1225,7 +1225,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.socket.html#DeferTriggerMaxSec="),
                 SD_VARLINK_DEFINE_FIELD(DeferTriggerMaxUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.socket.html#PassFileDescriptorsToExec="),
-                SD_VARLINK_DEFINE_FIELD(PassFileDescriptorsToExec, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD(PassFileDescriptorsToExec, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.socket.html#InheritSlice="),
+                SD_VARLINK_DEFINE_FIELD(InheritSlice, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
                 SocketResult,

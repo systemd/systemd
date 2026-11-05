@@ -440,6 +440,9 @@ static int socket_verify(Socket *s) {
         if (!strv_isempty(s->symlinks) && !socket_find_symlink_target(s))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Unit has symlinks set but none or more than one node in the file system. Refusing.");
 
+        if (s->inherit_slice && !s->accept)
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Unit has InheritSlice= set, but Accept=no. Refusing.");
+
         return 0;
 }
 
@@ -581,6 +584,33 @@ int socket_acquire_peer(Socket *s, int fd, SocketPeer **ret) {
 
         *ret = TAKE_PTR(remote);
         return 1;
+}
+
+static int socket_acquire_slice(Socket *s, int fd, Unit **ret) {
+        int r;
+
+        assert(s);
+        assert(fd >= 0);
+        assert(ret);
+
+        _cleanup_(pidref_done) PidRef peer = PIDREF_NULL;
+        r = getpeerpidref(fd, &peer);
+        if (r < 0)
+                return r;
+
+        // TODO: Once https://github.com/systemd/systemd/pull/44254 lands, we can switch to the pidref variant
+        _cleanup_free_ char *slice = NULL;
+        if (MANAGER_IS_SYSTEM(UNIT(s)->manager))
+                r = cg_pid_get_slice(peer.pid, &slice);
+        else
+                r = cg_pid_get_user_slice(peer.pid, &slice);
+        if (r < 0)
+                return r;
+        r = pidref_verify(&peer);
+        if (r < 0)
+                return r;
+
+        return manager_load_unit(UNIT(s)->manager, slice, /* path= */ NULL, NULL, ret);
 }
 
 static const char* listen_lookup(int family, int type) {
@@ -2555,6 +2585,22 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                 }
 
                 s->n_accepted++;
+
+                if (s->inherit_slice) {
+                        Unit *slice;
+                        r = socket_acquire_slice(s, cfd, &slice);
+                        if (ERRNO_IS_NEG_DISCONNECT(r))
+                                return;
+                        if (r < 0)
+                                log_unit_debug_errno(UNIT(s), r, "Failed to resolve slice from socket, ignoring: %m");
+                        else {
+                                r = unit_set_slice(service, slice);
+                                if (r < 0) {
+                                        log_unit_warning_errno(UNIT(s), r, "Failed to set slice on service: %m");
+                                        goto fail;
+                                }
+                        }
+                }
 
                 r = service_set_socket_fd(SERVICE(service), cfd, s, p, s->selinux_context_from_net);
                 if (ERRNO_IS_NEG_DISCONNECT(r))
