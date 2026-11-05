@@ -198,6 +198,13 @@ TEST(path_simplify) {
         test_path_simplify_one("/../abc///..", "/abc/..", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
         test_path_simplify_one("/../abc///../", "/abc/../", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
         test_path_simplify_one("/../abc///../", "/abc/..", /* flags= */ 0);
+        test_path_simplify_one("/abc/.", "/abc/", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/abc/./", "/abc/", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/abc//.//.", "/abc/", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/abc/.", "/abc", /* flags= */ 0);
+        test_path_simplify_one("/.", "/", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("./.", "./", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one(".", ".", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
 
         test_path_simplify_one("/../../abc", "/abc", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
         test_path_simplify_one("/../../abc///", "/abc/", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
