@@ -2,7 +2,6 @@
 
 #include <printf.h>
 
-#include "memory-util.h"
 #include "strv.h"
 #include "tests.h"
 
@@ -20,7 +19,7 @@ static void test_parse_printf_format_one(const char *fmt, size_t m, const int *e
                 else
                         log_debug("types[%zu]=n/a, expected[%zu]=%i", i, i, expected[i]);
 
-        ASSERT_EQ(memcmp_nn(types, n * sizeof(int), expected, m * sizeof(int)), 0);
+        ASSERT_MEMEQ_NN(types, n * sizeof(int), expected, m * sizeof(int));
 }
 
 TEST(parse_printf_format) {

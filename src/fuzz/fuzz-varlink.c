@@ -7,8 +7,9 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fuzz.h"
-#include "hexdecoct.h"
+#include "hexdump.h"
 #include "iovec-util.h"
+#include "tests.h"
 
 static FILE *null = NULL;
 
@@ -39,7 +40,7 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
                         if (ERRNO_IS_DISCONNECT(errno))
                                 write_eof = true;
                         else
-                                assert_se(errno == EAGAIN);
+                                ASSERT_EQ(errno, EAGAIN);
                 } else
                         iovec_inc(iov, n);
         }
@@ -53,7 +54,7 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
                         if (ERRNO_IS_DISCONNECT(errno))
                                 read_eof = true;
                         else
-                                assert_se(errno == EAGAIN);
+                                ASSERT_EQ(errno, EAGAIN);
                 } else if (n == 0)
                         read_eof = true;
                 else
@@ -65,9 +66,9 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
         if (write_eof || iov->iov_len == 0) {
 
                 if (read_eof)
-                        assert_se(sd_event_source_set_enabled(s, SD_EVENT_OFF) >= 0);
+                        ASSERT_OK(sd_event_source_set_enabled(s, SD_EVENT_OFF));
                 else
-                        assert_se(sd_event_source_set_io_events(s, EPOLLIN) >= 0);
+                        ASSERT_OK(sd_event_source_set_io_events(s, EPOLLIN));
         }
 
         return 0;
@@ -94,35 +95,35 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         fuzz_setup_logging();
 
-        assert_se(null = fopen("/dev/null", "we"));
+        null = ASSERT_NOT_NULL(fopen("/dev/null", "we"));
 
-        assert_se(sd_event_default(&e) >= 0);
+        ASSERT_OK(sd_event_default(&e));
 
         /* Test one: write the data as method call to a server */
-        assert_se(socketpair(AF_UNIX, SOCK_STREAM, 0, server_pair) >= 0);
-        assert_se(sd_varlink_server_new(&s, /* flags= */ 0) >= 0);
-        assert_se(sd_varlink_server_set_info(s, "Vendor", "Product", "Version", "URL") >= 0);
-        assert_se(sd_varlink_server_set_description(s, "myserver") >= 0);
-        assert_se(sd_varlink_server_attach_event(s, e, /* priority= */ 0) >= 0);
-        assert_se(sd_varlink_server_add_connection(s, server_pair[0], /* ret= */ NULL) >= 0);
+        ASSERT_OK(socketpair(AF_UNIX, SOCK_STREAM, 0, server_pair));
+        ASSERT_OK(sd_varlink_server_new(&s, /* flags= */ 0));
+        ASSERT_OK(sd_varlink_server_set_info(s, "Vendor", "Product", "Version", "URL"));
+        ASSERT_OK(sd_varlink_server_set_description(s, "myserver"));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
+        ASSERT_OK(sd_varlink_server_add_connection(s, server_pair[0], /* ret= */ NULL));
         TAKE_FD(server_pair[0]);
-        assert_se(sd_varlink_server_bind_method(s, "io.test.DoSomething", method_something) >= 0);
-        assert_se(sd_event_add_io(e, &server_event_source, server_pair[1], EPOLLIN|EPOLLOUT, io_callback, &server_iov) >= 0);
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.DoSomething", method_something));
+        ASSERT_OK(sd_event_add_io(e, &server_event_source, server_pair[1], EPOLLIN|EPOLLOUT, io_callback, &server_iov));
 
         /* Test two: write the data as method response to a client */
-        assert_se(socketpair(AF_UNIX, SOCK_STREAM, 0, client_pair) >= 0);
-        assert_se(sd_varlink_connect_fd(&c, client_pair[0]) >= 0);
+        ASSERT_OK(socketpair(AF_UNIX, SOCK_STREAM, 0, client_pair));
+        ASSERT_OK(sd_varlink_connect_fd(&c, client_pair[0]));
         TAKE_FD(client_pair[0]);
-        assert_se(sd_varlink_set_description(c, "myclient") >= 0);
-        assert_se(sd_varlink_attach_event(c, e, /* priority= */ 0) >= 0);
-        assert_se(sd_varlink_bind_reply(c, reply_callback) >= 0);
-        assert_se(sd_varlink_invoke(c, "io.test.DoSomething", /* parameters= */ NULL) >= 0);
-        assert_se(sd_event_add_io(e, &client_event_source, client_pair[1], EPOLLIN|EPOLLOUT, io_callback, &client_iov) >= 0);
+        ASSERT_OK(sd_varlink_set_description(c, "myclient"));
+        ASSERT_OK(sd_varlink_attach_event(c, e, /* priority= */ 0));
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_callback));
+        ASSERT_OK(sd_varlink_invoke(c, "io.test.DoSomething", /* parameters= */ NULL));
+        ASSERT_OK(sd_event_add_io(e, &client_event_source, client_pair[1], EPOLLIN|EPOLLOUT, io_callback, &client_iov));
 
-        assert_se(sd_event_add_defer(e, &idle_event_source, idle_callback, /* userdata= */ NULL) >= 0);
-        assert_se(sd_event_source_set_priority(idle_event_source, SD_EVENT_PRIORITY_IDLE) >= 0);
+        ASSERT_OK(sd_event_add_defer(e, &idle_event_source, idle_callback, /* userdata= */ NULL));
+        ASSERT_OK(sd_event_source_set_priority(idle_event_source, SD_EVENT_PRIORITY_IDLE));
 
-        assert_se(sd_event_loop(e) >= 0);
+        ASSERT_OK(sd_event_loop(e));
 
         null = safe_fclose(null);
 

@@ -36,7 +36,7 @@ static void test_rlimit_parse_format_one(int resource, const char *string, rlim_
         ASSERT_STREQ(formatted, f);
 
         ASSERT_OK(rlimit_parse(resource, formatted, &rl2));
-        ASSERT_EQ(memcmp(&rl, &rl2, sizeof(struct rlimit)), 0);
+        ASSERT_MEMEQ(&rl, &rl2, sizeof(struct rlimit));
 }
 
 TEST(rlimit_parse_format) {

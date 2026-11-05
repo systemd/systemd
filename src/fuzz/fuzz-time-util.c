@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "fuzz.h"
+#include "tests.h"
 #include "time-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
@@ -10,7 +11,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         fuzz_setup_logging();
 
-        assert_se(str = memdup_suffix0(data, size));
+        str = ASSERT_NOT_NULL(memdup_suffix0(data, size));
 
         (void) parse_timestamp(str, &usec);
         (void) parse_sec(str, &usec);

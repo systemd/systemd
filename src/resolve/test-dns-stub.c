@@ -3,7 +3,6 @@
 #include "dns-answer.h"
 #include "dns-packet.h"
 #include "dns-rr.h"
-#include "memory-util.h"
 #include "resolved-dns-stub.h"
 #include "string-util.h"
 #include "tests.h"
@@ -136,7 +135,7 @@ static void parse_reply(DnsPacket *reply, DnsPacket **ret_parsed, char **ret_lay
                         ASSERT_EQ(rr->key->type, DNS_TYPE_DNSKEY);
                         ASSERT_EQ(rr->dnskey.key_size, DNSKEY_KEY_SIZE);
                         fill = *(uint8_t*) rr->dnskey.key;
-                        ASSERT_TRUE(memeqbyte(fill, rr->dnskey.key, rr->dnskey.key_size));
+                        ASSERT_MEMEQ_BYTE(fill, rr->dnskey.key, rr->dnskey.key_size);
                         ASSERT_OK(strextendf(&layout, "%c", fill));
                 }
         }

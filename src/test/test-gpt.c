@@ -7,7 +7,6 @@
 #include "gpt.h"
 #include "log.h"
 #include "memfd-util.h"
-#include "memory-util.h"
 #include "pretty-print.h"
 #include "strv.h"
 #include "tests.h"
@@ -275,8 +274,8 @@ TEST(gpt_probe_sector_512) {
         ASSERT_NOT_NULL(ret_entries);
 
         GptPartitionEntry *e = ret_entries;
-        ASSERT_EQ(memcmp_nn(e[0].unique_partition_guid, sizeof(e[0].unique_partition_guid), entries[0].unique_partition_guid, sizeof(entries[0].unique_partition_guid)), 0);
-        ASSERT_EQ(memcmp_nn(e[1].unique_partition_guid, sizeof(e[1].unique_partition_guid), entries[1].unique_partition_guid, sizeof(entries[1].unique_partition_guid)), 0);
+        ASSERT_MEMEQ_NN(e[0].unique_partition_guid, sizeof(e[0].unique_partition_guid), entries[0].unique_partition_guid, sizeof(entries[0].unique_partition_guid));
+        ASSERT_MEMEQ_NN(e[1].unique_partition_guid, sizeof(e[1].unique_partition_guid), entries[1].unique_partition_guid, sizeof(entries[1].unique_partition_guid));
         ASSERT_EQ(le64toh(e[0].starting_lba), UINT64_C(100));
         ASSERT_EQ(le64toh(e[1].starting_lba), UINT64_C(300));
 }
@@ -302,7 +301,7 @@ TEST(gpt_probe_sector_4096) {
         ASSERT_EQ(n, 1u);
 
         GptPartitionEntry *e = ret_entries;
-        ASSERT_EQ(memcmp_nn(e[0].unique_partition_guid, sizeof(e[0].unique_partition_guid), entry.unique_partition_guid, sizeof(entry.unique_partition_guid)), 0);
+        ASSERT_MEMEQ_NN(e[0].unique_partition_guid, sizeof(e[0].unique_partition_guid), entry.unique_partition_guid, sizeof(entry.unique_partition_guid));
         ASSERT_EQ(le64toh(e[0].starting_lba), UINT64_C(50));
 }
 

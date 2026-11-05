@@ -1373,8 +1373,8 @@ TEST(json_iovec) {
         ASSERT_OK(json_variant_unbase64_iovec(sd_json_variant_by_key(j, "nr1"), &a));
         ASSERT_OK(json_variant_unhex_iovec(sd_json_variant_by_key(j, "nr2"), &b));
 
-        ASSERT_TRUE(iovec_equal(&iov1, &a));
-        ASSERT_TRUE(iovec_equal(&iov2, &b));
+        ASSERT_IOVEC_EQ(&iov1, &a);
+        ASSERT_IOVEC_EQ(&iov2, &b);
         ASSERT_LT(iovec_memcmp(&iov2, &a), 0);
         ASSERT_GT(iovec_memcmp(&iov1, &b), 0);
 }
@@ -2380,7 +2380,7 @@ TEST(json_dispatch_unhex_iovec32) {
 
         ASSERT_OK(sd_json_dispatch(j, table, /* flags= */ 0, &data));
         ASSERT_EQ(data.digest.iov_len, 32U);
-        ASSERT_EQ(memcmp(data.digest.iov_base, buf, 32), 0);
+        ASSERT_MEMEQ(data.digest.iov_base, buf, 32);
         ASSERT_FALSE(iovec_is_set(&data.null_digest));
 
         /* Dispatching again replaces the old value */
@@ -2388,7 +2388,7 @@ TEST(json_dispatch_unhex_iovec32) {
         ASSERT_OK(sd_json_buildo(&j, SD_JSON_BUILD_PAIR_HEX("digest", buf + 1, 32)));
         ASSERT_OK(sd_json_dispatch(j, table, /* flags= */ 0, &data));
         ASSERT_EQ(data.digest.iov_len, 32U);
-        ASSERT_EQ(memcmp(data.digest.iov_base, buf + 1, 32), 0);
+        ASSERT_MEMEQ(data.digest.iov_base, buf + 1, 32);
 
         /* Wrong sizes are refused, and leave the old value in place */
         size_t n;
@@ -2397,7 +2397,7 @@ TEST(json_dispatch_unhex_iovec32) {
                 ASSERT_OK(sd_json_buildo(&j, SD_JSON_BUILD_PAIR_HEX("digest", buf, n)));
                 ASSERT_ERROR(sd_json_dispatch(j, table, /* flags= */ 0, &data), EINVAL);
                 ASSERT_EQ(data.digest.iov_len, 32U);
-                ASSERT_EQ(memcmp(data.digest.iov_base, buf + 1, 32), 0);
+                ASSERT_MEMEQ(data.digest.iov_base, buf + 1, 32);
         }
 
         /* Invalid hex strings are refused too */

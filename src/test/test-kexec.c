@@ -133,7 +133,7 @@ TEST(gzip_round_trip) {
         /* Verify the decompressed content matches the original */
         char result[4096];
         ASSERT_OK_EQ_ERRNO(pread(kernel_fd, result, sizeof(result), 0), (ssize_t) sizeof(result));
-        ASSERT_EQ(memcmp(buf, result, sizeof(buf)), 0);
+        ASSERT_MEMEQ(buf, result, sizeof(buf));
 }
 
 TEST(zboot_synthetic) {
@@ -199,7 +199,7 @@ TEST(zboot_synthetic) {
         /* Verify decompressed content matches original payload */
         char result[512];
         ASSERT_OK_EQ_ERRNO(pread(kernel_fd, result, sizeof(result), 0), (ssize_t) sizeof(result));
-        ASSERT_EQ(memcmp(payload, result, sizeof(payload)), 0);
+        ASSERT_MEMEQ(payload, result, sizeof(payload));
 }
 
 TEST(system_kernel) {

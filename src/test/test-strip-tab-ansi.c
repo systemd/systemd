@@ -135,7 +135,7 @@ TEST(strip_tab_ansi_highlight) {
         ASSERT_STREQ(p, out);
         ASSERT_EQ(highlight[0], 11U);
         ASSERT_EQ(highlight[1], 14U);
-        ASSERT_EQ(memcmp(p + highlight[0], "bar", 3), 0);
+        ASSERT_MEMEQ(p + highlight[0], "bar", 3);
 
         /* A range past two TABs and three dropped sequences */
         p = mfree(p);
@@ -146,7 +146,7 @@ TEST(strip_tab_ansi_highlight) {
         ASSERT_STREQ(p, out);
         ASSERT_EQ(highlight[0], 25U);
         ASSERT_EQ(highlight[1], 28U);
-        ASSERT_EQ(memcmp(p + highlight[0], "qux", 3), 0);
+        ASSERT_MEMEQ(p + highlight[0], "qux", 3);
 
         /* A range that starts inside a dropped sequence collapses onto its beginning */
         p = mfree(p);
@@ -210,7 +210,7 @@ TEST(strip_tab_ansi_highlight) {
         ASSERT_STREQ(p, "ab\ncd");
         ASSERT_EQ(highlight[0], 3U);
         ASSERT_EQ(highlight[1], 5U);
-        ASSERT_EQ(memcmp(p + highlight[0], "cd", 2), 0);
+        ASSERT_MEMEQ(p + highlight[0], "cd", 2);
 
         /* A range spanning them shrinks accordingly */
         p = mfree(p);
@@ -221,7 +221,7 @@ TEST(strip_tab_ansi_highlight) {
         ASSERT_STREQ(p, "ab\ncd");
         ASSERT_EQ(highlight[0], 1U);
         ASSERT_EQ(highlight[1], 4U);
-        ASSERT_EQ(memcmp(p + highlight[0], "b\nc", 3), 0);
+        ASSERT_MEMEQ(p + highlight[0], "b\nc", 3);
 
         /* Trailing carriage returns are dropped, too: a range reaching into them is clamped to the end of
          * the output */

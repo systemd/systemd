@@ -20,7 +20,6 @@
 #include "io-util.h"
 #include "log.h"
 #include "memfd-util.h"
-#include "memory-util.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
@@ -429,7 +428,7 @@ TEST_RET(copy_bytes) {
         ASSERT_OK_ZERO_ERRNO(lseek(infd, 0, SEEK_SET));
         ASSERT_OK_EQ_ERRNO(read(infd, buf2, sizeof(buf2)), n);
 
-        ASSERT_EQ(memcmp(buf, buf2, n), 0);
+        ASSERT_MEMEQ(buf, buf2, n);
 
         /* test copy_bytes with invalid descriptors */
         ASSERT_ERROR(copy_bytes(pipefd[0], pipefd[0], 1, /* copy_flags= */ 0), EBADF);
@@ -520,7 +519,7 @@ TEST(copy_bytes_offset) {
         ASSERT_EQ(foffset, 8U);
         ASSERT_EQ(toffset, 10U);
         ASSERT_OK_EQ_ERRNO(pread(dst, buf, sizeof(buf), 0), (ssize_t) sizeof(buf));
-        ASSERT_EQ(memcmp(buf, "XXXX234567XXXXXX", sizeof(buf)), 0);
+        ASSERT_MEMEQ(buf, "XXXX234567XXXXXX", sizeof(buf));
         ASSERT_OK_EQ_ERRNO(lseek(src, 0, SEEK_CUR), (off_t) 1);
         ASSERT_OK_EQ_ERRNO(lseek(dst, 0, SEEK_CUR), (off_t) 2);
 
@@ -536,7 +535,7 @@ TEST(copy_bytes_offset) {
         toffset = 3;
         ASSERT_OK_EQ(copy_bytes_offset(src, &foffset, dst, &toffset, /* max_bytes= */ 2, COPY_TRUNCATE), 1);
         ASSERT_OK_EQ_ERRNO(pread(dst, buf, sizeof(buf), 0), (ssize_t) 5);
-        ASSERT_EQ(memcmp(buf, "XXX01", 5), 0);
+        ASSERT_MEMEQ(buf, "XXX01", 5);
         ASSERT_OK_EQ_ERRNO(lseek(dst, 0, SEEK_CUR), (off_t) 2);
 
         /* copy_file_range() refuses pipes. Copying into a pipe tests sendfile() with a source offset. */
@@ -551,7 +550,7 @@ TEST(copy_bytes_offset) {
                                        /* copy_flags= */ 0));
         ASSERT_EQ(foffset, 16U);
         ASSERT_OK_EQ_ERRNO(read(pipe_fds[0], buf, sizeof(buf)), (ssize_t) 6);
-        ASSERT_EQ(memcmp(buf, "abcdef", 6), 0);
+        ASSERT_MEMEQ(buf, "abcdef", 6);
         ASSERT_OK_EQ_ERRNO(lseek(src, 0, SEEK_CUR), (off_t) 1);
 
         /* Copying from a pipe tests the fallback to read() and pwrite(). */
@@ -567,7 +566,7 @@ TEST(copy_bytes_offset) {
                                        /* copy_flags= */ 0));
         ASSERT_EQ(toffset, 6U);
         ASSERT_OK_EQ_ERRNO(pread(dst, buf, sizeof(buf), 0), (ssize_t) 6);
-        ASSERT_EQ(memcmp(buf, "Xhello", 6), 0);
+        ASSERT_MEMEQ(buf, "Xhello", 6);
         ASSERT_OK_EQ_ERRNO(lseek(dst, 0, SEEK_CUR), (off_t) 2);
 }
 
@@ -610,9 +609,9 @@ TEST(copy_bytes_offset_reflink) {
         ASSERT_EQ(toffset, 2 * bs);
 
         ASSERT_OK_EQ_ERRNO(pread(dst, buf, 3 * bs, 0), (ssize_t) (3 * bs));
-        ASSERT_TRUE(memeqbyte('b', buf, bs));
-        ASSERT_TRUE(memeqbyte('c', buf + bs, bs));
-        ASSERT_TRUE(memeqbyte('b', buf + 2 * bs, bs));
+        ASSERT_MEMEQ_BYTE('b', buf, bs);
+        ASSERT_MEMEQ_BYTE('c', buf + bs, bs);
+        ASSERT_MEMEQ_BYTE('b', buf + 2 * bs, bs);
         ASSERT_OK_EQ_ERRNO(lseek(src, 0, SEEK_CUR), (off_t) 5);
         ASSERT_OK_EQ_ERRNO(lseek(dst, 0, SEEK_CUR), (off_t) 7);
 }
@@ -652,11 +651,11 @@ TEST_RET(copy_bytes_offset_holes) {
         ASSERT_EQ(toffset, 4 * bs + 1);
 
         ASSERT_OK_EQ_ERRNO(pread(dst, buf, 5 * bs, 0), (ssize_t) (5 * bs));
-        ASSERT_TRUE(memeqbyte('X', buf, bs + 1));
-        ASSERT_TRUE(memeqzero(buf + bs + 1, bs));
-        ASSERT_TRUE(memeqbyte('D', buf + 2 * bs + 1, bs));
-        ASSERT_TRUE(memeqzero(buf + 3 * bs + 1, bs));
-        ASSERT_TRUE(memeqbyte('X', buf + 4 * bs + 1, bs - 1));
+        ASSERT_MEMEQ_BYTE('X', buf, bs + 1);
+        ASSERT_MEMEQ_ZERO(buf + bs + 1, bs);
+        ASSERT_MEMEQ_BYTE('D', buf + 2 * bs + 1, bs);
+        ASSERT_MEMEQ_ZERO(buf + 3 * bs + 1, bs);
+        ASSERT_MEMEQ_BYTE('X', buf + 4 * bs + 1, bs - 1);
         ASSERT_OK_EQ_ERRNO(lseek(src, 0, SEEK_CUR), (off_t) 5);
         ASSERT_OK_EQ_ERRNO(lseek(dst, 0, SEEK_CUR), (off_t) 7);
 
@@ -685,7 +684,7 @@ TEST_RET(copy_bytes_offset_overflow) {
         ASSERT_EQ(foffset, 8U);
         ASSERT_EQ(toffset, (uint64_t) INT64_MAX);
         ASSERT_OK_EQ_ERRNO(pread(dst, buf, sizeof(buf), INT64_MAX - 8), (ssize_t) sizeof(buf));
-        ASSERT_EQ(memcmp(buf, "01234567", sizeof(buf)), 0);
+        ASSERT_MEMEQ(buf, "01234567", sizeof(buf));
 
         return 0;
 }
@@ -955,7 +954,7 @@ static void assert_fsverity_eq(int dirfd_a, int dirfd_b, const char *name) {
         if (enabled_a) {
                 ASSERT_EQ(digest_a->digest_algorithm, digest_b->digest_algorithm);
                 ASSERT_EQ(digest_a->digest_size, digest_b->digest_size);
-                ASSERT_EQ(memcmp(digest_a->digest, digest_b->digest, digest_a->digest_size), 0);
+                ASSERT_MEMEQ(digest_a->digest, digest_b->digest, digest_a->digest_size);
         }
 }
 

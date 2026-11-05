@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "efi-string.h"
 #include "fuzz.h"
+#include "tests.h"
 
 #define SEP_LEN 4
 
@@ -15,13 +16,13 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         fuzz_setup_logging();
 
         _cleanup_free_ char *p = memdup_suffix0(data + SEP_LEN + 1, size - SEP_LEN - 1);
-        assert_se(p);
+        ASSERT_NOT_NULL(p);
 
         size_t pos = 0;
         char *key, *value;
         while (line_get_key_value(p, (const char *) data, &pos, &key, &value)) {
-                assert_se(key);
-                assert_se(value);
+                ASSERT_NOT_NULL(key);
+                ASSERT_NOT_NULL(value);
         }
 
         return 0;

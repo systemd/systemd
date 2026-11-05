@@ -108,7 +108,7 @@ static char16_t *device_path_to_str_internal(const EFI_DEVICE_PATH *dp) {
                  * provide the EFI_DEVICE_PATH_TO_TEXT_PROTOCOL after all. */
 
                 size_t size = node->Length - sizeof(EFI_DEVICE_PATH);
-                _cleanup_free_ char16_t *hex_data = hexdump((uint8_t *) node + sizeof(EFI_DEVICE_PATH), size);
+                _cleanup_free_ char16_t *hex_data = hexdump16((uint8_t *) node + sizeof(EFI_DEVICE_PATH), size);
                 str = xasprintf("%ls%sPath(%u,%u%s%ls)",
                                 strempty(old),
                                 old ? "/" : "",

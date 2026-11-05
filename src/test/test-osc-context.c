@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "hexdecoct.h"
+#include "hexdump.h"
 #include "osc-context.h"
 #include "tests.h"
 #include "user-util.h"

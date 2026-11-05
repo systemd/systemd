@@ -257,7 +257,7 @@ TEST(option) {
 
         ASSERT_OK(dhcp6_option_append(&buf, &pos, optcode, optlen, optval));
 
-        ASSERT_EQ(memcmp(packet, buf, sizeof(packet)), 0);
+        ASSERT_MEMEQ(packet, buf, sizeof(packet));
 }
 
 TEST(option_status) {
@@ -906,7 +906,7 @@ static void test_client_verify_information_request(const DHCP6Message *msg, size
 
         ASSERT_EQ(len, sizeof(msg_information_request));
         /* The elapsed time value is not deterministic. Skip it. */
-        ASSERT_EQ(memcmp(msg, msg_information_request, len - sizeof(be16_t)), 0);
+        ASSERT_MEMEQ(msg, msg_information_request, len - sizeof(be16_t));
 }
 
 static void test_client_verify_solicit(const DHCP6Message *msg, size_t len) {
@@ -914,7 +914,7 @@ static void test_client_verify_solicit(const DHCP6Message *msg, size_t len) {
 
         ASSERT_EQ(len, sizeof(msg_solicit));
         /* The elapsed time value is not deterministic. Skip it. */
-        ASSERT_EQ(memcmp(msg, msg_solicit, len - sizeof(be16_t)), 0);
+        ASSERT_MEMEQ(msg, msg_solicit, len - sizeof(be16_t));
 }
 
 /* The FQDN set while the client is running, in the wire format. */
@@ -939,7 +939,7 @@ static void test_client_verify_solicit_with_new_fqdn(const DHCP6Message *msg, si
 
         ASSERT_EQ(len, sizeof(expected));
         /* The elapsed time value is not deterministic. Skip it. */
-        ASSERT_EQ(memcmp(msg, expected, len - sizeof(be16_t)), 0);
+        ASSERT_MEMEQ(msg, expected, len - sizeof(be16_t));
 }
 
 static void test_client_verify_renew_with_new_fqdn(const DHCP6Message *msg, size_t len) {
@@ -960,8 +960,8 @@ static void test_client_verify_release(const DHCP6Message *msg, size_t len) {
         ASSERT_EQ(len, sizeof(msg_release));
         ASSERT_EQ(msg->type, DHCP6_MESSAGE_RELEASE);
         /* The transaction ID and elapsed time value are not deterministic. Skip them. */
-        ASSERT_EQ(memcmp(msg->options, msg_release + offsetof(DHCP6Message, options),
-                         len - offsetof(DHCP6Message, options) - sizeof(be16_t)), 0);
+        ASSERT_MEMEQ(msg->options, msg_release + offsetof(DHCP6Message, options),
+                     len - offsetof(DHCP6Message, options) - sizeof(be16_t));
 }
 
 static void test_client_verify_request(const DHCP6Message *msg, size_t len) {
@@ -970,8 +970,8 @@ static void test_client_verify_request(const DHCP6Message *msg, size_t len) {
         ASSERT_EQ(len, sizeof(msg_request));
         ASSERT_EQ(msg->type, DHCP6_MESSAGE_REQUEST);
         /* The transaction ID and elapsed time value are not deterministic. Skip them. */
-        ASSERT_EQ(memcmp(msg->options, msg_request + offsetof(DHCP6Message, options),
-                         len - offsetof(DHCP6Message, options) - sizeof(be16_t)), 0);
+        ASSERT_MEMEQ(msg->options, msg_request + offsetof(DHCP6Message, options),
+                     len - offsetof(DHCP6Message, options) - sizeof(be16_t));
 }
 
 static void test_lease_common(sd_dhcp6_client *client) {
@@ -986,7 +986,7 @@ static void test_lease_common(sd_dhcp6_client *client) {
         ASSERT_OK(sd_dhcp6_client_get_lease(client, &lease));
 
         ASSERT_OK(dhcp6_lease_get_clientid(lease, &id, &len));
-        ASSERT_EQ(memcmp_nn(id, len, client_id, sizeof(client_id)), 0);
+        ASSERT_MEMEQ_NN(id, len, client_id, sizeof(client_id));
 
         ASSERT_OK_EQ(sd_dhcp6_lease_get_domains(lease, &strv), 1);
         ASSERT_STREQ(strv[0], "lab.intra");
@@ -1038,7 +1038,7 @@ static void test_lease_managed(sd_dhcp6_client *client) {
         ASSERT_OK(sd_dhcp6_client_get_lease(client, &lease));
 
         ASSERT_OK(dhcp6_lease_get_serverid(lease, &id, &len));
-        ASSERT_EQ(memcmp_nn(id, len, server_id, sizeof(server_id)), 0);
+        ASSERT_MEMEQ_NN(id, len, server_id, sizeof(server_id));
 
         ASSERT_TRUE(sd_dhcp6_lease_has_address(lease));
         ASSERT_TRUE(sd_dhcp6_lease_has_pd_prefix(lease));

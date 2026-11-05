@@ -737,8 +737,6 @@ TEST(xopenat_full) {
 
         /* Test that we can reopen an existing fd with xopenat_full() by specifying an empty path. */
 
-        assert_se((fd = xopenat_full(tfd, "def", O_PATH, /* xopen_flags= */ 0, /* mode= */ 0)) >= 0);
-        assert_se((fd2 = xopenat_full(fd, "", O_RDWR, XO_EMPTY_PATH, 0644)) >= 0);
         fd = ASSERT_OK(xopenat_full(tfd, "def", O_PATH, /* xopen_flags= */ 0, /* mode= */ 0));
         fd2 = ASSERT_OK(xopenat_full(fd, "", O_RDWR, XO_EMPTY_PATH, 0644));
 }

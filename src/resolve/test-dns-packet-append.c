@@ -178,8 +178,7 @@ TEST(packet_append_key_single_a) {
         /* IN */        0x00, 0x01
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 TEST(packet_append_key_single_soa_any_class) {
@@ -210,8 +209,7 @@ TEST(packet_append_key_single_soa_any_class) {
         /* ANY */       0x00, 0xff
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 TEST(packet_append_key_cache_flush_mdns) {
@@ -242,8 +240,7 @@ TEST(packet_append_key_cache_flush_mdns) {
                         0x80, 0x01
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 /* The cache-flush bit is defined for mDNS only. RRs taken from our mDNS zone carry
@@ -276,8 +273,7 @@ TEST(packet_append_key_cache_flush_dns) {
         /* IN */        0x00, 0x01
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 /* mDNS probes carry the proposed RRs from our mDNS zone in the Authority Section. Those items carry
@@ -309,8 +305,7 @@ TEST(packet_append_key_cache_flush_mdns_query) {
         /* IN */        0x00, 0x01
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 /* ================================================================
@@ -371,8 +366,7 @@ TEST(packet_append_question_compression) {
         /* IN */        0x00, 0x01
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 /* ================================================================
@@ -403,8 +397,7 @@ TEST(packet_append_opt_basic) {
         /* rdata */     0x00, 0x00
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 TEST(packet_append_opt_change_max_udp) {
@@ -431,8 +424,7 @@ TEST(packet_append_opt_change_max_udp) {
         /* rdata */     0x00, 0x00
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 TEST(packet_append_opt_dnssec_ok) {
@@ -459,8 +451,7 @@ TEST(packet_append_opt_dnssec_ok) {
         /* rdata */     0x00, 0x00
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 TEST(packet_append_opt_rcode) {
@@ -487,8 +478,7 @@ TEST(packet_append_opt_rcode) {
         /* rdata */     0x00, 0x00
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 TEST(packet_append_opt_nsid) {
@@ -519,8 +509,7 @@ TEST(packet_append_opt_nsid) {
                         'm', 'p', 'l', 'e', '.', 'c', 'o', 'm'
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 TEST(packet_append_key_and_opt) {
@@ -559,8 +548,7 @@ TEST(packet_append_key_and_opt) {
         /* rdata */     0x00, 0x00
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 TEST(packet_truncate_opt) {
@@ -593,8 +581,7 @@ TEST(packet_truncate_opt) {
         /* IN */        0x00, 0x01
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 /* ================================================================
@@ -627,8 +614,7 @@ TEST(packet_patch_max_udp_size) {
         /* rdata */     0x00, 0x00
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 TEST(packet_patch_max_udp_size_no_opt) {
@@ -647,8 +633,7 @@ TEST(packet_patch_max_udp_size_no_opt) {
                         0x00, 0x00,     0x00, 0x00,     0x00, 0x00,     0x00, 0x00
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 /* ================================================================
@@ -696,8 +681,7 @@ TEST(packet_dup) {
         ASSERT_OK(dns_packet_dup(&p2, p1));
         ASSERT_NOT_NULL(p2);
 
-        ASSERT_EQ(p2->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(p2), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(p2), p2->size, data, sizeof(data));
 }
 
 /* ================================================================
@@ -742,8 +726,7 @@ TEST(packet_append_answer_single_a) {
         /* ip */        0xc0, 0xa8, 0x01, 0x7f
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 TEST(packet_append_answer_single_ns) {
@@ -785,8 +768,7 @@ TEST(packet_append_answer_single_ns) {
                         0xc0, 0x0c
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 TEST(packet_append_answer_single_cname) {
@@ -828,8 +810,7 @@ TEST(packet_append_answer_single_cname) {
         /* name */      0xc0, 0x10
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 TEST(packet_append_answer_single_hinfo) {
@@ -872,8 +853,7 @@ TEST(packet_append_answer_single_hinfo) {
         /* os */        0x09, 'G', 'N', 'U', '/', 'L', 'i', 'n', 'u', 'x'
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 TEST(packet_append_answer_single_ptr) {
@@ -920,8 +900,7 @@ TEST(packet_append_answer_single_ptr) {
                         0x00
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 /* Reverse lookups for link-local addresses are answered from resolved's own mDNS zone, whose answer
@@ -972,8 +951,7 @@ TEST(packet_append_answer_single_ptr_ip6_cache_flush) {
                         0x00
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 TEST(packet_append_answer_single_mx) {
@@ -1017,8 +995,7 @@ TEST(packet_append_answer_single_mx) {
                         0xc0, 0x0c
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 TEST(packet_append_answer_single_txt) {
@@ -1072,8 +1049,7 @@ TEST(packet_append_answer_single_txt) {
                         0x05, 'w', 'o', 'r', 'l', 'd'
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 TEST(packet_append_answer_single_loc) {
@@ -1126,8 +1102,7 @@ TEST(packet_append_answer_single_loc) {
         /* altitude */  0x00, 0x98, 0x96, 0x80
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 TEST(packet_append_answer_single_srv) {
@@ -1179,8 +1154,7 @@ TEST(packet_append_answer_single_srv) {
                         0x00
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 TEST(packet_append_answer_single_naptr) {
@@ -1243,8 +1217,7 @@ TEST(packet_append_answer_single_naptr) {
                         0x00
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 TEST(packet_append_answer_rrsig_with_a) {
@@ -1325,8 +1298,7 @@ TEST(packet_append_answer_rrsig_with_a) {
         /* signature */ 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 static DnsSvcParam* add_svcb_param(DnsResourceRecord *rr, uint16_t key, const char *value, size_t len) {
@@ -1420,8 +1392,7 @@ TEST(packet_append_answer_single_svcb) {
                         0x2f, 0xd7, 0xdb, 0x7b, 0x28, 0x7e, 0x60, 0xbb
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 static void dump_packet_data(DnsPacket *packet) {

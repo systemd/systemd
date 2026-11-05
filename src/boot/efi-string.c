@@ -511,7 +511,7 @@ char* line_get_key_value(char *s, const char *sep, size_t *pos, char **ret_key, 
         }
 }
 
-char16_t *hexdump(const void *data, size_t size) {
+char16_t *hexdump16(const void *data, size_t size) {
         const char *hex = LOWERCASE_HEXDIGITS;
         const uint8_t *d = data;
 

@@ -114,13 +114,11 @@ static void test_receive_basic_packet(sd_event *e) {
 
         ASSERT_OK_ZERO(sd_lldp_neighbor_get_chassis_id(neighbors[0], &type, &data, &length));
         ASSERT_EQ(type, SD_LLDP_CHASSIS_SUBTYPE_MAC_ADDRESS);
-        ASSERT_EQ(length, (size_t) ETH_ALEN);
-        ASSERT_EQ(memcmp(data, "\x00\x01\x02\x03\x04\x05", ETH_ALEN), 0);
+        ASSERT_MEMEQ_NN(data, length, "\x00\x01\x02\x03\x04\x05", ETH_ALEN);
 
         ASSERT_OK_ZERO(sd_lldp_neighbor_get_port_id(neighbors[0], &type, &data, &length));
         ASSERT_EQ(type, SD_LLDP_PORT_SUBTYPE_INTERFACE_NAME);
-        ASSERT_EQ(length, 3U);
-        ASSERT_EQ(memcmp(data, "1/3", 3), 0);
+        ASSERT_MEMEQ_NN(data, length, "1/3", 3);
 
         ASSERT_OK_ZERO(sd_lldp_neighbor_get_port_description(neighbors[0], &str));
         ASSERT_STREQ(str, "Port");
@@ -342,14 +340,12 @@ static void test_multiple_neighbors_sorted(sd_event *e) {
                 ASSERT_OK_ZERO(sd_lldp_neighbor_get_chassis_id(neighbors[i], &type, &data, &length));
                 ASSERT_EQ(type, SD_LLDP_CHASSIS_SUBTYPE_CHASSIS_COMPONENT);
                 expected_length = strlen(expected[2 * i]);
-                ASSERT_EQ(length, expected_length);
-                ASSERT_EQ(memcmp(data, expected[2 * i], expected_length), 0);
+                ASSERT_MEMEQ_NN(data, length, expected[2 * i], expected_length);
 
                 ASSERT_OK_ZERO(sd_lldp_neighbor_get_port_id(neighbors[i], &type, &data, &length));
                 ASSERT_EQ(type, SD_LLDP_PORT_SUBTYPE_PORT_COMPONENT);
                 expected_length = strlen(expected[2 * i + 1]);
-                ASSERT_EQ(length, expected_length);
-                ASSERT_EQ(memcmp(data, expected[2 * i + 1], expected_length), 0);
+                ASSERT_MEMEQ_NN(data, length, expected[2 * i + 1], expected_length);
 
                 ASSERT_OK_ZERO(sd_lldp_neighbor_get_ttl(neighbors[i], &ttl));
                 ASSERT_EQ(ttl, 120U);

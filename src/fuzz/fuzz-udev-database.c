@@ -4,6 +4,7 @@
 #include "device-private.h"
 #include "fd-util.h"
 #include "fuzz.h"
+#include "tests.h"
 #include "tmpfile-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
@@ -13,12 +14,12 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         fuzz_setup_logging();
 
-        assert_se(fmkostemp_safe(filename, "r+", &f) == 0);
+        ASSERT_OK_ZERO(fmkostemp_safe(filename, "r+", &f));
         if (size != 0)
-                assert_se(fwrite(data, size, 1, f) == 1);
+                ASSERT_EQ(fwrite(data, size, 1, f), (size_t) 1);
 
         fflush(f);
-        assert_se(device_new_aux(&dev) >= 0);
+        ASSERT_OK(device_new_aux(&dev));
         (void) device_read_db_internal_filename(dev, filename);
         return 0;
 }

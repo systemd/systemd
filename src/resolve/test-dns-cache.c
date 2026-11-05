@@ -1341,8 +1341,7 @@ TEST(dns_cache_export_shared_to_packet) {
         /* ip */        0xc0, 0xa8, 0x01, 0x7f
         };
 
-        ASSERT_EQ(packet->size, sizeof(data));
-        ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data, sizeof(data)), 0);
+        ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data, sizeof(data));
 }
 
 TEST(dns_cache_export_shared_to_packet_multi) {
@@ -1410,17 +1409,13 @@ TEST(dns_cache_export_shared_to_packet_multi) {
         /* cache key order is not deterministic; the packets could come out in either order */
 
         if (memcmp(DNS_PACKET_DATA(packet), data1, size1) == 0) {
-                ASSERT_EQ(packet->size, size1);
-                ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data1, size1), 0);
+                ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data1, size1);
 
-                ASSERT_EQ(packet->more->size, size2);
-                ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet->more), data2, size2), 0);
+                ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet->more), packet->more->size, data2, size2);
         } else {
-                ASSERT_EQ(packet->size, size2);
-                ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet), data2, size2), 0);
+                ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet), packet->size, data2, size2);
 
-                ASSERT_EQ(packet->more->size, size1);
-                ASSERT_EQ(memcmp(DNS_PACKET_DATA(packet->more), data1, size1), 0);
+                ASSERT_MEMEQ_NN(DNS_PACKET_DATA(packet->more), packet->more->size, data1, size1);
         }
 
         ASSERT_NULL(packet->more->more);
