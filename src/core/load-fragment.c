@@ -3766,6 +3766,24 @@ int config_parse_unit_slice(
         assert(lvalue);
         assert(rvalue);
 
+        Service *service = SERVICE(u);
+        if (streq(rvalue, "socket")) {
+                if (!service || !unit_name_is_valid(u->id, UNIT_NAME_TEMPLATE|UNIT_NAME_INSTANCE)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Slice=socket is only valid for templated service units, ignoring.");
+                        return 0;
+                }
+
+                service->inherit_socket_slice = true;
+
+                r = unit_set_slice(u, /* slice= */ NULL);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to un-assign slice from unit %s, ignoring: %m", u->id);
+                        return 0;
+                }
+
+                return 0;
+        }
+
         r = unit_name_printf(u, rvalue, &k);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in %s, ignoring: %m", rvalue);
@@ -3783,6 +3801,9 @@ int config_parse_unit_slice(
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to assign slice %s to unit %s, ignoring: %m", slice->id, u->id);
                 return 0;
         }
+
+        if (service)
+                service->inherit_socket_slice = false;
 
         return 0;
 }
