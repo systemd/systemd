@@ -42,6 +42,7 @@
 #include "networkd-manager-bus.h"
 #include "networkd-manager-varlink.h"
 #include "networkd-neighbor.h"
+#include "networkd-network.h"
 #include "networkd-nexthop.h"
 #include "networkd-queue.h"
 #include "networkd-resolve-hook.h"
@@ -872,6 +873,18 @@ Manager* manager_free(Manager *m) {
         return mfree(m);
 }
 
+static bool manager_has_clat_network(Manager *m) {
+        Network *network;
+
+        assert(m);
+
+        ORDERED_HASHMAP_FOREACH(network, m->networks)
+                if (network->clat)
+                        return true;
+
+        return false;
+}
+
 int manager_start(Manager *m) {
         Link *link;
         int r;
@@ -882,15 +895,20 @@ int manager_start(Manager *m) {
 
         (void) manager_install_sysctl_monitor(m);
 
-        /* Loading BPF programs requires CAP_SYS_ADMIN and CAP_BPF.
-         * Drop the capabilities here, regardless if the load succeeds or not. */
-        r = drop_capability(CAP_SYS_ADMIN);
-        if (r < 0)
-                log_warning_errno(r, "Failed to drop CAP_SYS_ADMIN, ignoring: %m.");
+        /* Loading BPF programs requires CAP_SYS_ADMIN and CAP_BPF. Drop the capabilities here, regardless
+         * if the load succeeds or not. The exception is when a .network file enables CLAT=, which loads
+         * its BPF program later, once a PREF64 prefix is known. In that case keep the capabilities, as
+         * CLAT would otherwise always fall back to the slower TUN translation. */
+        if (!manager_has_clat_network(m)) {
+                r = drop_capability(CAP_SYS_ADMIN);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to drop CAP_SYS_ADMIN, ignoring: %m.");
 
-        r = drop_capability(CAP_BPF);
-        if (r < 0)
-                log_warning_errno(r, "Failed to drop CAP_BPF, ignoring: %m.");
+                r = drop_capability(CAP_BPF);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to drop CAP_BPF, ignoring: %m.");
+        } else
+                log_debug("CLAT= is enabled, keeping CAP_SYS_ADMIN and CAP_BPF for loading its BPF program later.");
 
         manager_set_sysctl(m);
 
