@@ -5,6 +5,7 @@
 #include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 #include <unistd.h>
 
 #include "sd-event.h"
@@ -18,6 +19,7 @@
 #include "json-util.h"
 #include "memfd-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "rm-rf.h"
 #include "socket-util.h"
 #include "string-util.h"
@@ -2190,6 +2192,38 @@ TEST(async_call_after_pinned_reply) {
         ASSERT_OK(sd_fiber_new(e, "client", pinned_reply_fiber, &t, &f));
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK(sd_future_result(f));
+}
+
+TEST(connection_id) {
+        int pipe_in[2], pipe_out[2];
+        ASSERT_OK_ERRNO(pipe2(pipe_in, O_CLOEXEC|O_NONBLOCK));
+        ASSERT_OK_ERRNO(pipe2(pipe_out, O_CLOEXEC|O_NONBLOCK));
+
+        /* Keep the other ends open while the connection is alive */
+        _unused_ _cleanup_close_ int other_in = pipe_in[1], other_out = pipe_out[0];
+
+        struct ucred ucred = {
+                .pid = getpid_cached(),
+                .uid = getuid(),
+                .gid = getgid(),
+        };
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *v = NULL;
+        ASSERT_OK(sd_varlink_connect_fd_pair(&v, pipe_in[0], pipe_out[1], &ucred));
+
+        /* Not a socket, hence identified by the inodes of the input and output pipes */
+        struct stat st_in, st_out;
+        ASSERT_OK_ERRNO(fstat(pipe_in[0], &st_in));
+        ASSERT_OK_ERRNO(fstat(pipe_out[1], &st_out));
+
+        const char *id;
+        ASSERT_OK(sd_varlink_get_connection_id(v, &id));
+
+        _cleanup_free_ char *expected = NULL;
+        ASSERT_OK(asprintf(&expected, "inode:%u:%u:%" PRIu64 ",inode:%u:%u:%" PRIu64,
+                           major(st_in.st_dev), minor(st_in.st_dev), (uint64_t) st_in.st_ino,
+                           major(st_out.st_dev), minor(st_out.st_dev), (uint64_t) st_out.st_ino));
+        ASSERT_STREQ(id, expected);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

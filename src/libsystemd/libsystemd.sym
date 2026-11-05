@@ -1118,6 +1118,7 @@ global:
         sd_device_new_from_device_node_fd;
         sd_device_trigger_with_args;
         sd_journal_get_data_to_fd;
+        sd_varlink_get_connection_id;
         sd_varlink_invoke_and_upgrade;
         sd_varlink_invoke_and_upgradeb;
         sd_varlink_wants_reply;
