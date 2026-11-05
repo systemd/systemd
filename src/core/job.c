@@ -2,7 +2,6 @@
 
 #include "sd-bus.h"
 #include "sd-messages.h"
-#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -25,6 +24,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "unit.h"
+#include "varlink-serialize.h"
 #include "varlink-unit.h"
 #include "virt.h"
 
@@ -126,7 +126,7 @@ Job* job_free(Job *j) {
         job_unlink(j);
 
         sd_bus_track_unref(j->bus_track);
-        sd_varlink_unref(j->varlink);
+        varlink_job_detach_client(j);
         strv_free(j->deserialized_clients);
 
         activation_details_unref(j->activation_details);
@@ -176,9 +176,7 @@ void job_uninstall(Job *j) {
         /* Detach from next 'bigger' objects */
 
         /* daemon-reload should be transparent to job observers */
-        if (MANAGER_IS_RELOADING(j->manager))
-                varlink_job_stash_client(j);
-        else {
+        if (!MANAGER_IS_RELOADING(j->manager)) {
                 bus_job_send_removed_signal(j);
                 varlink_job_send_removed_signal(j);
         }
@@ -1245,6 +1243,8 @@ char* job_dbus_path(Job *j) {
 }
 
 int job_serialize(Job *j, FILE *f) {
+        int r;
+
         assert(j);
         assert(f);
 
@@ -1261,6 +1261,21 @@ int job_serialize(Job *j, FILE *f) {
                 (void) serialize_usec(f, "job-begin-running", j->begin_running_usec);
 
         bus_track_serialize(j->bus_track, f, "subscribed");
+
+        if (j->varlink) {
+                uint64_t cookie;
+
+                r = varlink_get_socket_cookie(j->varlink, &cookie);
+                if (r < 0)
+                        return r;
+
+                r = serialize_item_format(f, "job-varlink", "%" PRIu64, cookie);
+                if (r < 0)
+                        return r;
+
+                (void) serialize_bool(f, "job-varlink-notify-job-changes", j->varlink_notify_job_changes);
+                (void) serialize_bool(f, "job-varlink-notify-unit-changes", j->unit->varlink_unit_change == j->varlink);
+        }
 
         activation_details_serialize(j->activation_details, f);
 
@@ -1356,6 +1371,28 @@ int job_deserialize(Job *j, FILE *f) {
                         if (strv_extend(&j->deserialized_clients, v) < 0)
                                 return log_oom();
 
+                } else if (streq(l, "job-varlink")) {
+                        if (safe_atou64(v, &j->deserialized_varlink_id) < 0)
+                                log_debug("Failed to parse job Varlink connection ID: %s", v);
+
+                } else if (streq(l, "job-varlink-notify-job-changes")) {
+                        int b;
+
+                        b = parse_boolean(v);
+                        if (b < 0)
+                                log_debug("Failed to parse job Varlink job notification flag: %s", v);
+                        else
+                                j->varlink_notify_job_changes = b;
+
+                } else if (streq(l, "job-varlink-notify-unit-changes")) {
+                        int b;
+
+                        b = parse_boolean(v);
+                        if (b < 0)
+                                log_debug("Failed to parse job Varlink unit notification flag: %s", v);
+                        else
+                                j->deserialized_varlink_notify_unit_changes = b;
+
                 } else if (startswith(l, "activation-details")) {
                         if (activation_details_deserialize(l, v, &j->activation_details) < 0)
                                 log_debug("Failed to parse job ActivationDetails element: %s", v);
@@ -1376,7 +1413,7 @@ int job_coldplug(Job *j) {
         /* After deserialization is complete and the bus connection
          * set up again, let's start watching our subscribers again */
         (void) bus_job_coldplug_bus_track(j);
-        varlink_job_unstash_client(j);
+        (void) varlink_job_coldplug(j);
 
         if (j->state == JOB_WAITING)
                 job_add_to_run_queue(j);
