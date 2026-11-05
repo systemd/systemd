@@ -296,10 +296,11 @@ jobs:
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           sudo apt-get update && sudo apt-get install -y bubblewrap socat
 
-      # The semcode workflow builds semcode into the actions cache, under a key
-      # that ends in its commit. The newest entry for the prefix is restored. The
-      # path is part of the cache version, so it is the one semcode.yml saves. A
-      # review without semcode is still a review, so a miss only logs.
+      # The semcode workflow builds semcode and indexes the kernel with it, both
+      # into the actions cache, under a key that ends in the commit of each. The
+      # newest entry for the prefix is restored. The path is part of the cache
+      # version, so it is the one semcode.yml saves. A review without semcode is
+      # still a review, so a miss only logs.
       - name: Restore semcode
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
@@ -320,12 +321,29 @@ jobs:
           echo "Using semcode ${ref}."
           echo "ref=${ref}" >>"$GITHUB_OUTPUT"
 
+      # An index is only readable by the semcode that wrote it, so the kernel
+      # index is looked up under the commit of the restored binaries.
+      - name: Restore the kernel index
+        if: steps.semcode.outputs.ref != ''
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: ${{ runner.temp }}/semcode-linux
+          key: semcode-linux-${{ runner.os }}-${{ runner.arch }}-${{ steps.semcode.outputs.ref }}-
+          restore-keys: semcode-linux-${{ runner.os }}-${{ runner.arch }}-${{ steps.semcode.outputs.ref }}-
+
       # The model's knowledge of the kernel, glibc, musl, and UAPI specifications can
       # be wrong or out of date. The review agents therefore check details in the
       # cloned repositories. A review without a repository is still useful, so a
       # failed clone does not fail the job. git clones into a temporary directory
       # first. If the timeout kills git, the final directory does not exist, and
       # the agents are not told about it.
+      #
+      # The kernel index only answers for the commit it was built from, so with an
+      # index in the cache the kernel is fetched at that commit, which mainline
+      # keeps, instead of the latest. The fetch has depth two: at startup
+      # semcode-mcp compares HEAD with its parent to see that the index covers
+      # HEAD, and without the parent it checks every file instead. When the fetch
+      # fails, the latest mainline is cloned and the index stays unused.
       - name: Clone the Linux kernel, glibc, musl, and UAPI specifications
         continue-on-error: true
         timeout-minutes: 10
@@ -337,8 +355,24 @@ jobs:
               mv "$dir.tmp" "$dir" &&
               git -C "$dir" log -1 --format="Cloned $name at %H (%s)"
           }
+          clone_linux() {
+            local url=https://github.com/torvalds/linux.git dir="$RUNNER_TEMP/claude-review/linux" commit
+            commit="$(cat "$RUNNER_TEMP/semcode-linux/commit" 2>/dev/null || :)"
+            if [[ "$commit" =~ ^[0-9a-f]{40}$ ]]; then
+              if git init --quiet "$dir.tmp" &&
+                 git -C "$dir.tmp" fetch --quiet --depth 2 "$url" "$commit" &&
+                 git -C "$dir.tmp" checkout --quiet --detach FETCH_HEAD; then
+                mv "$dir.tmp" "$dir" &&
+                  git -C "$dir" log -1 --format="Cloned linux at %H (%s), the commit of the semcode index"
+                return
+              fi
+              rm -rf "$dir.tmp"
+              echo "Fetching the indexed kernel commit ${commit} failed, cloning the latest mainline instead."
+            fi
+            clone linux "$url" --depth 1 --single-branch
+          }
           pids=()
-          clone linux https://github.com/torvalds/linux.git --depth 1 --single-branch &
+          clone_linux &
           pids+=($!)
           clone glibc https://sourceware.org/git/glibc.git --depth 1 --single-branch &
           pids+=($!)
@@ -462,7 +496,7 @@ jobs:
           cat > ~/.claude/settings.json << 'SETTINGS'
           {
             "permissions": {
-              "allow": ["Bash", "Read", "Grep", "Glob", "mcp__systemd__*"]
+              "allow": ["Bash", "Read", "Grep", "Glob", "mcp__systemd__*", "mcp__linux__*"]
             },
             "hooks": {
               "PreToolUse": [
@@ -593,7 +627,7 @@ jobs:
           if [[ -d "$linux" ]]; then
             context+="
 
-          A shallow clone of the latest mainline Linux kernel is at ${linux}. It has no history. When a
+          A shallow clone of a recent mainline Linux kernel is at ${linux}. It has no history. When a
           finding depends on kernel behavior, such as system call semantics, flags, error codes, or
           ioctl and netlink interfaces, check the kernel source there instead of relying on memory."
           fi
@@ -651,7 +685,7 @@ jobs:
           sandbox=(bwrap --ro-bind / / --tmpfs /run --dev /dev --proc /proc --tmpfs /tmp --clearenv --setenv PATH /usr/bin:/bin --setenv HOME "$HOME" --unshare-all --die-with-parent --new-session)
           if ! "${sandbox[@]}" -- /bin/true; then
             echo "bubblewrap does not work, reviewing without semcode."
-            rm -rf "$RUNNER_TEMP/claude-review/semcode-systemd"
+            rm -rf "$RUNNER_TEMP/claude-review/semcode-systemd" "$RUNNER_TEMP/semcode-linux"
           fi
           add_server() {
             local name=$1 db=$2 repo=$3 wrapper="$RUNNER_TEMP/claude-review/semcode-mcp-$1"
@@ -689,6 +723,20 @@ jobs:
           before the pull request, and find_commit with git_range=${MERGE_BASE}..${HEAD_SHA} for the
           commits under review. Object-like macros, global variables and files that are not C are not
           indexed; read those files directly."
+          fi
+
+          linux_index="$RUNNER_TEMP/semcode-linux"
+          linux_indexed=""
+          if [[ -d "$linux_index/.semcode.db" && -d "$linux" ]] &&
+             [[ "$(cat "$linux_index/commit" 2>/dev/null)" =~ ^[0-9a-f]{40}$ ]] &&
+             [[ "$(git -C "$linux" rev-parse HEAD)" == "${BASH_REMATCH[0]}" ]] &&
+             add_server linux "$linux_index/.semcode.db" "$linux"; then
+            linux_indexed="$linux"
+            context+="
+
+          The kernel tree is indexed with semcode; its tools are the mcp__linux__* tools. Use
+          find_function, find_type, find_callers, find_calls, find_callchain and grep_functions to read
+          and search kernel code instead of grep."
           fi
 
           if [[ "$servers" != "{}" ]]; then
