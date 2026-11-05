@@ -32,10 +32,11 @@ trap at_exit EXIT
 # command line. Covers:
 #
 # - detect_virt: systemd-detect-virt --cvm detects TDX as the CVM type
+# - no_host_tpm: vmspawn attached no TPM by default
 # - creds_vmspawn: credential transport by vmspawn is working (via the initrd cpio here)
 # - creds_cmdline: credential transport via the kernel command line is working (measured into RTMR 2)
 vmspawn_boot_coco "$MACHINE-honest" "$COCO_TYPE" "$WORKDIR/honest" \
-    'detect_virt creds_vmspawn creds_cmdline' \
+    'detect_virt no_host_tpm creds_vmspawn creds_cmdline' \
     --image="$IMAGE_DIR/image.raw" \
     --linux="$IMAGE_DIR/image.vmlinuz" \
     --initrd="$IMAGE_DIR/image.initrd" \

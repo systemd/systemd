@@ -53,6 +53,11 @@ testcase_coco_detect_virt() {
     assert_eq "$(systemd-detect-virt --cvm)" "${COCO_TYPE:?}"
 }
 
+# Assert the host attached no TPM: systemd-vmspawn doesn't offer one to confidential guests by default.
+testcase_coco_no_host_tpm() {
+    assert_fail test -e /sys/class/tpm/tpm0
+}
+
 # Assert a credential handed to systemd-vmspawn --set-credential lands in the trusted bucket.
 #
 # SNP: creds should be delivered via the initrd cpio channel.
