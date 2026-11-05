@@ -270,9 +270,21 @@ const char* sd_varlink_get_description(sd_varlink *v);
 /* Automatically mark the parameters part of incoming messages as security sensitive */
 int sd_varlink_set_input_sensitive(sd_varlink *v);
 
+/* Serialize/deserialize a connection's state (buffered input and output, passed fds, the pending method
+ * call, …), for passing it on across execve(). The returned data is opaque, the fds are duplicates owned by
+ * the caller. On success sd_varlink_deserialize() takes possession of all passed fds (and sets the array
+ * entries to -EBADF). Userdata, callbacks, event loop attachment and similar settings are not serialized,
+ * and need to be restored by the caller. */
+int sd_varlink_serialize(sd_varlink *v, void **ret_data, size_t *ret_size, int **ret_fds, size_t *ret_n_fds);
+int sd_varlink_deserialize(sd_varlink **ret, const void *data, size_t size, int *fds, size_t n_fds);
+
 /* Returns an identifier for the connection that remains stable across execve(). The returned string is
  * owned by the connection object, and remains valid until the connection is closed. */
 int sd_varlink_get_connection_id(sd_varlink *v, const char **ret);
+
+/* Keep the method call currently pending on this server side connection across serialization. If not
+ * set, connections with pending method calls are disconnected on serialization. */
+int sd_varlink_set_serialize_pending(sd_varlink *v, int b);
 
 /* Create a varlink server */
 int sd_varlink_server_new(sd_varlink_server **ret, sd_varlink_server_flags_t flags);
@@ -332,6 +344,14 @@ int sd_varlink_server_set_connections_max(sd_varlink_server *s, unsigned m);
 unsigned sd_varlink_server_current_connections(sd_varlink_server *s);
 
 int sd_varlink_server_set_description(sd_varlink_server *s, const char *description);
+
+/* Serialize/deserialize all connections of a server (but not its listening sockets). After deserialization,
+ * connections with a pending method call need to be claimed by the program, the ones remaining unclaimed
+ * can be disconnected with sd_varlink_server_disconnect_unclaimed_connections(). */
+int sd_varlink_server_serialize(sd_varlink_server *s, void **ret_data, size_t *ret_size, int **ret_fds, size_t *ret_n_fds);
+int sd_varlink_server_deserialize(sd_varlink_server *s, const void *data, size_t size, int *fds, size_t n_fds);
+int sd_varlink_server_claim_connection(sd_varlink_server *s, const char *id, sd_varlink **ret);
+int sd_varlink_server_disconnect_unclaimed_connections(sd_varlink_server *s);
 
 int sd_varlink_invocation(sd_varlink_invocation_flags_t flags);
 

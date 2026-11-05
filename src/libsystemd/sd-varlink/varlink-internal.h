@@ -124,6 +124,10 @@ typedef struct sd_varlink {
          * sd_varlink_get_connection_id(). Calculated lazily. */
         char *connection_id;
 
+        /* The method call pending on this (server side) connection shall be kept across serialization. Reset
+         * whenever the pending method call is completed. */
+        bool serialize_pending;
+
         /* All connections of a server */
         LIST_FIELDS(sd_varlink, connections);
 } sd_varlink;
@@ -148,6 +152,8 @@ typedef struct sd_varlink_server {
         LIST_HEAD(VarlinkServerSocket, sockets);
 
         LIST_HEAD(sd_varlink, connections);
+        Hashmap *unclaimed;            /* Connection id → sd_varlink*, for deserialized connections with
+                                        * pending method calls not claimed yet */
 
         Hashmap *methods;              /* Fully qualified symbol name of a method → sd_varlink_method_t */
         Hashmap *fiber_methods;        /* Fully qualified symbol name of a fiber method → sd_varlink_method_t */

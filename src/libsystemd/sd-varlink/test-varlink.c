@@ -19,6 +19,7 @@
 #include "json-util.h"
 #include "memfd-util.h"
 #include "path-util.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "rm-rf.h"
 #include "socket-util.h"
@@ -1946,6 +1947,393 @@ TEST(add_connection_failure_cleanup) {
         ASSERT_EQ(c, 1U); /* The disconnect callback is called when the connection is closed. */
 }
 
+static sd_varlink *serialize_stream_link = NULL, *serialize_hang_link = NULL;
+
+static int method_serialize_stream(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        /* Keep the call pending, and ask for it to be kept across serialization */
+        ASSERT_NULL(serialize_stream_link);
+        serialize_stream_link = sd_varlink_ref(link);
+        ASSERT_OK(sd_varlink_set_serialize_pending(link, true));
+
+        return sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_UNSIGNED("index", 0));
+}
+
+static int method_serialize_hang(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        /* Keep the call pending, but without asking for it to be kept */
+        ASSERT_NULL(serialize_hang_link);
+        serialize_hang_link = sd_varlink_ref(link);
+        return 0;
+}
+
+static int method_serialize_ping(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("pong", true));
+}
+
+static int method_serialize_self(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_free_ void *data = NULL;
+        _cleanup_free_ int *fds = NULL;
+        size_t size = 0, n_fds = 0;
+
+        /* Serialization is refused while we are dispatching a method call */
+        ASSERT_ERROR(sd_varlink_serialize(link, &data, &size, &fds, &n_fds), EBUSY);
+        ASSERT_ERROR(sd_varlink_server_serialize(sd_varlink_get_server(link), &data, &size, &fds, &n_fds), EBUSY);
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
+static unsigned serialize_stream_seen = 0;
+static bool serialize_stream_done = false;
+
+static int reply_serialize_stream(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
+        ASSERT_NULL(error_id);
+
+        if (FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES)) {
+                sd_json_variant *index = ASSERT_NOT_NULL(sd_json_variant_by_key(parameters, "index"));
+                ASSERT_EQ(sd_json_variant_unsigned(index), (uint64_t) serialize_stream_seen);
+
+                /* The second notification carries an fd */
+                if (serialize_stream_seen == 2) {
+                        _cleanup_close_ int fd = ASSERT_OK(sd_varlink_take_fd(link, 0));
+                        test_fd(fd, "piff", 4);
+                }
+
+                serialize_stream_seen++;
+                return 0;
+        }
+
+        ASSERT_EQ(serialize_stream_seen, 3U);
+        ASSERT_TRUE(sd_json_variant_boolean(sd_json_variant_by_key(parameters, "final")));
+
+        /* Don't exit the event loop here, since that closes all connections attached to it */
+        serialize_stream_done = true;
+        return 0;
+}
+
+static int reply_serialize_hang(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
+        unsigned *n = ASSERT_PTR(userdata);
+
+        /* Calls we didn't ask to keep across serialization get the connection closed */
+        ASSERT_STREQ(error_id, SD_VARLINK_ERROR_DISCONNECTED);
+        (*n)++;
+        return 0;
+}
+
+static void run_until(sd_event *e, bool (*condition)(void *userdata), void *userdata) {
+        while (!condition(userdata))
+                ASSERT_OK(sd_event_run(e, 5 * USEC_PER_SEC));
+}
+
+static bool stream_done(void *userdata) {
+        return serialize_stream_done;
+}
+
+static bool stream_started(void *userdata) {
+        return serialize_stream_link && serialize_stream_seen > 0;
+}
+
+static bool hang_started(void *userdata) {
+        return serialize_hang_link;
+}
+
+static bool counter_reached(void *userdata) {
+        return *(unsigned*) userdata > 0;
+}
+
+static sd_varlink_server* make_serialize_server(sd_event *e) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+
+        ASSERT_OK(sd_varlink_server_new(&s, SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
+        ASSERT_OK(sd_varlink_server_bind_method_many(
+                                  s,
+                                  "io.test.Stream",        method_serialize_stream,
+                                  "io.test.Hang",          method_serialize_hang,
+                                  "io.test.Ping",          method_serialize_ping,
+                                  "io.test.SerializeSelf", method_serialize_self));
+
+        return TAKE_PTR(s);
+}
+
+TEST(serialize_server) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_default(&e));
+
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = make_serialize_server(e);
+
+        /* Connection 1: a streaming method call, kept across serialization */
+        int stream_fds[2];
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, stream_fds));
+        ASSERT_OK(sd_varlink_server_add_connection(s, stream_fds[0], /* ret= */ NULL));
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *stream_client = NULL;
+        ASSERT_OK(sd_varlink_connect_fd(&stream_client, stream_fds[1]));
+        ASSERT_OK(sd_varlink_set_allow_fd_passing_input(stream_client, true));
+        ASSERT_OK(sd_varlink_attach_event(stream_client, e, /* priority= */ 0));
+        ASSERT_OK(sd_varlink_bind_reply(stream_client, reply_serialize_stream));
+        ASSERT_OK(sd_varlink_observe(stream_client, "io.test.Stream", /* parameters= */ NULL));
+
+        /* Connection 2: a pending method call, not kept across serialization */
+        int hang_fds[2];
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, hang_fds));
+        ASSERT_OK(sd_varlink_server_add_connection(s, hang_fds[0], /* ret= */ NULL));
+
+        unsigned hang_disconnected = 0;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *hang_client = NULL;
+        ASSERT_OK(sd_varlink_connect_fd(&hang_client, hang_fds[1]));
+        ASSERT_OK(sd_varlink_attach_event(hang_client, e, /* priority= */ 0));
+        ASSERT_OK(sd_varlink_bind_reply(hang_client, reply_serialize_hang));
+        ASSERT_NULL(sd_varlink_set_userdata(hang_client, &hang_disconnected));
+        ASSERT_OK(sd_varlink_invoke(hang_client, "io.test.Hang", /* parameters= */ NULL));
+
+        /* Connection 3: an idle connection with a partially received request, driven by hand */
+        int raw_fds[2];
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, raw_fds));
+        _cleanup_close_ int raw_fd = raw_fds[1];
+        sd_varlink *raw_server_link = NULL;
+        ASSERT_OK(sd_varlink_server_add_connection(s, raw_fds[0], &raw_server_link));
+
+        run_until(e, stream_started, NULL);
+        run_until(e, hang_started, NULL);
+
+        /* Let the server read a partial request into its input buffer */
+        static const char partial[] = "{\"method\":\"io.test.Ping\",";
+        ASSERT_OK(loop_write(raw_fd, partial, strlen(partial)));
+        while (ASSERT_OK(fd_wait_for_event(raw_fds[0], POLLIN, /* timeout= */ 0)) > 0)
+                ASSERT_OK(sd_event_run(e, 100 * USEC_PER_MSEC));
+
+        /* Queue more output on the stream, without letting the event loop write it out. The second
+         * notification carries an fd. */
+        ASSERT_OK(sd_varlink_notifybo(serialize_stream_link, SD_JSON_BUILD_PAIR_UNSIGNED("index", 1)));
+        _cleanup_close_ int passed_fd = ASSERT_OK(memfd_new_and_seal("piff", "piff", 4));
+        ASSERT_OK(sd_varlink_push_dup_fd(serialize_stream_link, passed_fd));
+        ASSERT_OK(sd_varlink_notifybo(serialize_stream_link, SD_JSON_BUILD_PAIR_UNSIGNED("index", 2)));
+
+        /* Copy the identifiers, since the connections are closed during serialization */
+        const char *id;
+        ASSERT_OK(sd_varlink_get_connection_id(serialize_stream_link, &id));
+        _cleanup_free_ char *stream_id = ASSERT_NOT_NULL(strdup(id));
+        ASSERT_TRUE(startswith(stream_id, "cookie:"));
+        ASSERT_OK(sd_varlink_get_connection_id(raw_server_link, &id));
+        _cleanup_free_ char *raw_id = ASSERT_NOT_NULL(strdup(id));
+        ASSERT_FALSE(streq(stream_id, raw_id));
+
+        /* Serialize, which disconnects the call we didn't ask to keep */
+        _cleanup_free_ void *data = NULL;
+        size_t size = 0, n_fds = 0;
+        int *fds = NULL;
+        CLEANUP_ARRAY(fds, n_fds, close_many_and_free);
+        ASSERT_OK(sd_varlink_server_serialize(s, &data, &size, &fds, &n_fds));
+        ASSERT_GT(n_fds, 0U);
+        ASSERT_FALSE(sd_varlink_is_connected(serialize_hang_link));
+        serialize_hang_link = sd_varlink_unref(serialize_hang_link);
+
+        /* Get rid of the old server, as if we went through execve() */
+        sd_varlink_close(raw_server_link);
+        sd_varlink_close(serialize_stream_link);
+        serialize_stream_link = sd_varlink_unref(serialize_stream_link);
+        ASSERT_EQ(sd_varlink_server_current_connections(s), 0U);
+        s = sd_varlink_server_unref(s);
+
+        /* The disconnected call is noticed by its client */
+        run_until(e, counter_reached, &hang_disconnected);
+
+        s = make_serialize_server(e);
+        ASSERT_OK(sd_varlink_server_deserialize(s, data, size, fds, n_fds));
+        ASSERT_EQ(sd_varlink_server_current_connections(s), 2U);
+
+        /* The fds were consumed */
+        FOREACH_ARRAY(fd, fds, n_fds)
+                ASSERT_EQ(*fd, -EBADF);
+
+        /* Only connections with a pending method call can be claimed, and only once */
+        ASSERT_ERROR(sd_varlink_server_claim_connection(s, raw_id, /* ret= */ NULL), ESRCH);
+        ASSERT_ERROR(sd_varlink_server_claim_connection(s, "cookie:4711", /* ret= */ NULL), ESRCH);
+
+        sd_varlink *claimed = NULL;
+        ASSERT_OK(sd_varlink_server_claim_connection(s, stream_id, &claimed));
+        ASSERT_NOT_NULL(claimed);
+        ASSERT_ERROR(sd_varlink_server_claim_connection(s, stream_id, /* ret= */ NULL), ESRCH);
+        ASSERT_OK_ZERO(sd_varlink_server_disconnect_unclaimed_connections(s));
+
+        /* Complete the stream: the client sees the queued notifications first, then the final reply */
+        ASSERT_OK(sd_varlink_replybo(claimed, SD_JSON_BUILD_PAIR_BOOLEAN("final", true)));
+        run_until(e, stream_done, NULL);
+
+        /* Complete the partial request on the idle connection */
+        ASSERT_OK(loop_write(raw_fd, "\"parameters\":{}}", STRLEN("\"parameters\":{}}") + 1));
+
+        char buf[LINE_MAX] = {};
+        size_t n = 0;
+        while (!memchr(buf, 0, n)) {
+                ASSERT_OK(sd_event_run(e, 100 * USEC_PER_MSEC));
+
+                ssize_t k = read(raw_fd, buf + n, sizeof(buf) - n - 1);
+                if (k < 0 && errno == EAGAIN)
+                        continue;
+                ASSERT_GT(k, 0);
+                n += k;
+        }
+        ASSERT_NOT_NULL(strstr(buf, "\"pong\":true"));
+}
+
+static bool stream_seen_reached(void *userdata) {
+        return serialize_stream_seen >= *(unsigned*) userdata;
+}
+
+TEST(serialize_client) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_default(&e));
+
+        serialize_stream_seen = 0;
+        serialize_stream_done = false;
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = make_serialize_server(e);
+
+        int sfds[2];
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, sfds));
+        ASSERT_OK(sd_varlink_server_add_connection(s, sfds[0], /* ret= */ NULL));
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        ASSERT_OK(sd_varlink_connect_fd(&c, sfds[1]));
+        ASSERT_OK(sd_varlink_set_allow_fd_passing_input(c, true));
+        ASSERT_OK(sd_varlink_attach_event(c, e, /* priority= */ 0));
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_serialize_stream));
+        ASSERT_OK(sd_varlink_observe(c, "io.test.Stream", /* parameters= */ NULL));
+
+        unsigned one = 1;
+        run_until(e, stream_seen_reached, &one);
+
+        /* Send another notification, and let it arrive in the client's input buffer, but don't let the
+         * client process it */
+        ASSERT_OK(sd_varlink_notifybo(serialize_stream_link, SD_JSON_BUILD_PAIR_UNSIGNED("index", 1)));
+        ASSERT_OK(sd_varlink_flush(serialize_stream_link));
+
+        /* Acquire the peer pidfd, so that it is passed on too (if the kernel supports SO_PEERPIDFD) */
+        bool have_pidfd = sd_varlink_get_peer_pidfd(c) >= 0;
+
+        _cleanup_free_ void *data = NULL;
+        size_t size = 0, n_fds = 0;
+        int *fds = NULL;
+        CLEANUP_ARRAY(fds, n_fds, close_many_and_free);
+        ASSERT_OK(sd_varlink_serialize(c, &data, &size, &fds, &n_fds));
+        ASSERT_EQ(n_fds, have_pidfd ? 2U : 1U);
+
+        /* Client connections cannot be restored into a server, the "connections" field is missing */
+        ASSERT_ERROR(sd_varlink_server_deserialize(s, data, size, fds, n_fds), ENXIO);
+
+        c = sd_varlink_close_unref(c);
+
+        ASSERT_OK(sd_varlink_deserialize(&c, data, size, fds, n_fds));
+        FOREACH_ARRAY(fd, fds, n_fds)
+                ASSERT_EQ(*fd, -EBADF);
+
+        if (have_pidfd) {
+                int pidfd = ASSERT_OK(sd_varlink_get_peer_pidfd(c));
+                pid_t pid;
+                ASSERT_OK(pidfd_get_pid(pidfd, &pid));
+                ASSERT_EQ(pid, getpid_cached());
+        }
+
+        ASSERT_OK(sd_varlink_set_allow_fd_passing_input(c, true));
+        ASSERT_OK(sd_varlink_attach_event(c, e, /* priority= */ 0));
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_serialize_stream));
+
+        unsigned two = 2;
+        run_until(e, stream_seen_reached, &two);
+
+        _cleanup_close_ int passed_fd = ASSERT_OK(memfd_new_and_seal("piff", "piff", 4));
+        ASSERT_OK(sd_varlink_push_dup_fd(serialize_stream_link, passed_fd));
+        ASSERT_OK(sd_varlink_notifybo(serialize_stream_link, SD_JSON_BUILD_PAIR_UNSIGNED("index", 2)));
+        ASSERT_OK(sd_varlink_replybo(serialize_stream_link, SD_JSON_BUILD_PAIR_BOOLEAN("final", true)));
+        serialize_stream_link = sd_varlink_unref(serialize_stream_link);
+
+        run_until(e, stream_done, NULL);
+}
+
+static int reply_serialize_self(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
+        ASSERT_NULL(error_id);
+        ASSERT_OK(sd_event_exit(sd_varlink_get_event(link), EXIT_SUCCESS));
+        return 0;
+}
+
+TEST(serialize_refused) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_default(&e));
+
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = make_serialize_server(e);
+
+        int sfds[2];
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, sfds));
+        ASSERT_OK(sd_varlink_server_add_connection(s, sfds[0], /* ret= */ NULL));
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        ASSERT_OK(sd_varlink_connect_fd(&c, sfds[1]));
+
+        /* Refused while the server is dispatching the method call, see method_serialize_self() */
+        ASSERT_OK(sd_varlink_attach_event(c, e, /* priority= */ 0));
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_serialize_self));
+        ASSERT_OK(sd_varlink_invoke(c, "io.test.SerializeSelf", /* parameters= */ NULL));
+        ASSERT_OK(sd_event_loop(e));
+
+        /* Connections with exec'ed peers can't be serialized */
+        _cleanup_(sd_varlink_unrefp) sd_varlink *x = NULL;
+        ASSERT_OK(sd_varlink_connect_exec(&x, "/bin/true", /* argv= */ NULL));
+
+        _cleanup_free_ void *data = NULL;
+        _cleanup_free_ int *fds = NULL;
+        size_t size = 0, n_fds = 0;
+        ASSERT_ERROR(sd_varlink_serialize(x, &data, &size, &fds, &n_fds), EOPNOTSUPP);
+
+        /* Closed connections neither */
+        ASSERT_OK(sd_varlink_close(c));
+        ASSERT_ERROR(sd_varlink_serialize(c, &data, &size, &fds, &n_fds), ENOTCONN);
+
+        /* Garbage is refused */
+        ASSERT_ERROR(sd_varlink_deserialize(&c, "{\"state\":\"idle-client\"}", STRLEN("{\"state\":\"idle-client\"}"), /* fds= */ NULL, /* n_fds= */ 0), ENXIO);
+        ASSERT_ERROR(sd_varlink_deserialize(&c, "{\"state\":\"foo\"}", STRLEN("{\"state\":\"foo\"}"), /* fds= */ NULL, /* n_fds= */ 0), EINVAL);
+        ASSERT_ERROR(sd_varlink_deserialize(&c, "{}\0", 3, /* fds= */ NULL, /* n_fds= */ 0), EBADMSG);
+}
+
+TEST(serialize_unclaimed) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_default(&e));
+
+        serialize_stream_seen = 0;
+        serialize_stream_done = false;
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = make_serialize_server(e);
+
+        int sfds[2];
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, sfds));
+        ASSERT_OK(sd_varlink_server_add_connection(s, sfds[0], /* ret= */ NULL));
+
+        /* The client is not attached to the event loop, we only care about the server side here */
+        _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+        ASSERT_OK(sd_varlink_connect_fd(&c, sfds[1]));
+        ASSERT_OK(sd_varlink_observe(c, "io.test.Stream", /* parameters= */ NULL));
+        ASSERT_OK(sd_varlink_flush(c));
+
+        while (!serialize_stream_link)
+                ASSERT_OK(sd_event_run(e, 5 * USEC_PER_SEC));
+
+        _cleanup_free_ void *data = NULL;
+        size_t size = 0, n_fds = 0;
+        int *fds = NULL;
+        CLEANUP_ARRAY(fds, n_fds, close_many_and_free);
+        ASSERT_OK(sd_varlink_server_serialize(s, &data, &size, &fds, &n_fds));
+
+        sd_varlink_close(serialize_stream_link);
+        serialize_stream_link = sd_varlink_unref(serialize_stream_link);
+        s = sd_varlink_server_unref(s);
+
+        s = make_serialize_server(e);
+        ASSERT_OK(sd_varlink_server_deserialize(s, data, size, fds, n_fds));
+        ASSERT_EQ(sd_varlink_server_current_connections(s), 1U);
+
+        /* Nobody claims the pending call, hence the connection is disconnected */
+        ASSERT_EQ(sd_varlink_server_disconnect_unclaimed_connections(s), 1);
+        ASSERT_EQ(sd_varlink_server_current_connections(s), 0U);
+        ASSERT_OK_ZERO(sd_varlink_server_disconnect_unclaimed_connections(s));
+}
+
 TEST(connection_id) {
         int pipe_in[2], pipe_out[2];
         ASSERT_OK_ERRNO(pipe2(pipe_in, O_CLOEXEC|O_NONBLOCK));
@@ -1975,6 +2363,27 @@ TEST(connection_id) {
                            major(st_in.st_dev), minor(st_in.st_dev), (uint64_t) st_in.st_ino,
                            major(st_out.st_dev), minor(st_out.st_dev), (uint64_t) st_out.st_ino));
         ASSERT_STREQ(id, expected);
+
+        /* Copy the identifier, since the connection is closed below */
+        _cleanup_free_ char *saved_id = ASSERT_NOT_NULL(strdup(id));
+
+        /* The overridden credentials are retained across serialization */
+        _cleanup_free_ void *data = NULL;
+        size_t size = 0, n_fds = 0;
+        int *fds = NULL;
+        CLEANUP_ARRAY(fds, n_fds, close_many_and_free);
+        ASSERT_OK(sd_varlink_serialize(v, &data, &size, &fds, &n_fds));
+        ASSERT_EQ(n_fds, 2U);
+        v = sd_varlink_close_unref(v);
+
+        ASSERT_OK(sd_varlink_deserialize(&v, data, size, fds, n_fds));
+
+        uid_t uid;
+        ASSERT_OK(sd_varlink_get_peer_uid(v, &uid));
+        ASSERT_EQ(uid, ucred.uid);
+
+        ASSERT_OK(sd_varlink_get_connection_id(v, &id));
+        ASSERT_STREQ(id, saved_id);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
