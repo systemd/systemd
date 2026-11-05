@@ -1129,41 +1129,85 @@ TEST(chaseat_separate_root_and_dir) {
         ASSERT_ERROR(chaseat(root_fd, XAT_FDROOT, "/nonexistent", /* flags= */ 0, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOENT);
 }
 
-TEST(chaseat_prefix_root) {
+TEST(chaseat_make_absolute) {
+        /* Absolute results must stay unchanged. Relative results must use an absolute or cwd-relative
+         * base while preserving unresolved interior ".." components. */
         _cleanup_free_ char *cwd = NULL, *ret = NULL, *expected = NULL;
 
         ASSERT_OK(safe_getcwd(&cwd));
 
-        ASSERT_OK(chaseat_prefix_root("/hoge", /* root= */ NULL, &ret));
+        ASSERT_OK(chaseat_make_absolute("/hoge", /* base= */ NULL, &ret));
         ASSERT_STREQ(ret, "/hoge");
 
         ret = mfree(ret);
 
-        ASSERT_OK(chaseat_prefix_root("/hoge", "a/b/c", &ret));
+        ASSERT_OK(chaseat_make_absolute("/hoge", "a/b/c", &ret));
         ASSERT_STREQ(ret, "/hoge");
 
         ret = mfree(ret);
 
-        ASSERT_OK(chaseat_prefix_root("hoge", "/a/b//./c///", &ret));
+        ASSERT_OK(chaseat_make_absolute("hoge", "/a/b//./c///", &ret));
         ASSERT_STREQ(ret, "/a/b/c/hoge");
 
         ret = mfree(ret);
 
-        ASSERT_OK(chaseat_prefix_root("hoge", "a/b//./c///", &ret));
+        ASSERT_OK(chaseat_make_absolute("hoge", "a/b//./c///", &ret));
         expected = ASSERT_NOT_NULL(path_join(cwd, "a/b/c/hoge"));
         ASSERT_STREQ(ret, expected);
 
         ret = mfree(ret);
         expected = mfree(expected);
 
-        ASSERT_OK(chaseat_prefix_root("./hoge/aaa/../././b", "/a/b//./c///", &ret));
+        ASSERT_OK(chaseat_make_absolute("./hoge/aaa/../././b", "/a/b//./c///", &ret));
         ASSERT_STREQ(ret, "/a/b/c/hoge/aaa/../././b");
 
         ret = mfree(ret);
 
-        ASSERT_OK(chaseat_prefix_root("./hoge/aaa/../././b", "a/b//./c///", &ret));
+        ASSERT_OK(chaseat_make_absolute("./hoge/aaa/../././b", "a/b//./c///", &ret));
         expected = ASSERT_NOT_NULL(path_join(cwd, "a/b/c/hoge/aaa/../././b"));
         ASSERT_STREQ(ret, expected);
+}
+
+TEST(chaseat_make_absolute_relative) {
+        /* Relative results must become absolute without changing unresolved interior components or resolving
+         * symlinks in the base. A "/" base must produce a single leading slash. Leading ".." components must
+         * remove matching base components and stop at "/". */
+        const struct {
+                const char *path;
+                const char *base;
+                const char *expected;
+        } cases[] = {
+                { "file",          "/",    "/file" },
+                { "./file",        "/",    "/file" },
+                { "./file/./more", "/",    "/file/./more" },
+                { "./",            "/",    "/" },
+                { "./",            "/a/b", "/a/b/" },
+                { ".",             "/",    "/" },
+                { "..",            "/",    "/" },
+                { "../file",       "/a/b", "/a/file" },
+                { "../../file",    "/a/b", "/file" },
+                { "../../../file", "/a/b", "/file" },
+                { "../..",         "/a/b", "/" },
+                { "../leaf/file",  "/a/b", "/a/leaf/file" },
+                { "..file",        "/a/b", "/a/b/..file" },
+        };
+
+        FOREACH_ELEMENT(c, cases) {
+                _cleanup_free_ char *path = NULL;
+                ASSERT_OK(chaseat_make_absolute(c->path, c->base, &path));
+                ASSERT_STREQ(path, c->expected);
+        }
+
+        /* A stored path inside another root can name an unrelated symlink in the host filesystem. */
+        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/test-chase.XXXXXX", &tmpdir));
+        _cleanup_free_ char *prefix = ASSERT_PTR(path_join(tmpdir, "root"));
+        _cleanup_free_ char *expected = ASSERT_PTR(path_join(prefix, "file"));
+        ASSERT_OK_ERRNO(symlink("/", prefix));
+
+        _cleanup_free_ char *path = NULL;
+        ASSERT_OK(chaseat_make_absolute("file", prefix, &path));
+        ASSERT_STREQ(path, expected);
 }
 
 TEST(trailing_dot_dot) {

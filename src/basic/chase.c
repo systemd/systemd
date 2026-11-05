@@ -1023,33 +1023,65 @@ int chase(const char *path, const char *root, ChaseFlags flags, char **ret_path,
         return r;
 }
 
-int chaseat_prefix_root(const char *path, const char *root, char **ret) {
+int chaseat_make_absolute(const char *path, const char *base, char **ret) {
         char *q;
         int r;
 
         assert(path);
         assert(ret);
 
-        /* This is mostly for prefixing the result of chaseat(). */
-
+        /* A relative result can start with ".." when chaseat() starts below its root. The base may
+         * describe a path inside another root. Looking it up on the host could inspect an unrelated inode.
+         *
+         * The following examples show the returned path and the function's integer return value. The
+         * helper only adjusts leading ".." components; it does not resolve symlinks or interior "..".
+         *
+         *    path              base       *ret                     return
+         *    "file"            "/a/b"     "/a/b/file"              0
+         *    "./file"          "/a/b"     "/a/b/file"              0
+         *    "."               "/a/b"     "/a/b"                   0
+         *    ".."              "/a/b"     "/a"                     0
+         *    "../file"         "/a/b"     "/a/file"                0
+         *    "../../file"      "/a/b"     "/file"                  0
+         *    "../../../file"   "/a/b"     "/file"                  0
+         *    "../.."           "/a/b"     "/"                      0
+         *    "file"            "/"        "/file"                  0
+         *    "./file"          "/"        "/file"                  0
+         *    "./"              "/"        "/"                      0
+         *    "/file"           "/a/b"     "/file"                  0
+         *    "/file"           NULL       "/file"                  0
+         *    "sub/../file"     "/a/b"     "/a/b/sub/../file"       0
+         *    "file"            NULL       unchanged                -EINVAL
+         *
+         * A relative base is made absolute using the current working directory. With cwd="/work",
+         * path="../file" and base="a/b" return *ret="/work/a/file" and 0. If "/a/b" is a host symlink to
+         * "/", the first example still returns "/a/b/file" because the prefix is not looked up.
+         */
         if (!path_is_absolute(path)) {
-                _cleanup_free_ char *root_abs = NULL;
+                _cleanup_free_ char *base_abs = NULL;
 
-                r = empty_or_root_harder_to_null(&root);
-                if (r < 0 && r != -ENOENT)
-                        return r;
-
-                /* If the dir_fd points to the root directory, chaseat() always returns an absolute path. */
-                if (empty_or_root(root))
+                if (isempty(base))
                         return -EINVAL;
 
-                r = path_make_absolute_cwd(root, &root_abs);
+                r = path_make_absolute_cwd(base, &base_abs);
                 if (r < 0)
                         return r;
 
-                root = path_simplify(root_abs);
+                path_simplify(base_abs);
 
-                q = path_join(root, path + (path[0] == '.' && IN_SET(path[1], '/', '\0')));
+                const char *suffix;
+                while ((suffix = path_startswith(path, ".."))) {
+                        char *slash = strrchr(base_abs, '/');
+                        assert(slash);
+                        if (slash == base_abs)
+                                slash[1] = 0;
+                        else
+                                *slash = 0;
+                        path = suffix;
+                }
+
+                path += path[0] == '.' && IN_SET(path[1], '/', '\0');
+                q = path_join(base_abs, streq(base_abs, "/") ? skip_leading_slash(path) : path);
         } else
                 q = strdup(path);
         if (!q)
