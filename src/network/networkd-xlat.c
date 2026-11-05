@@ -794,8 +794,8 @@ static int xlat_create_tun(Link *link) {
 
         /* IFF_TUN_EXCL: never attach to an already existing (persistent) device of that name, which may
          * be owned by somebody else and would then carry our IPv4 default route. */
-        ifr.ifr_flags = IFF_TUN | IFF_NO_PI | IFF_TUN_EXCL;
-        strncpy(ifr.ifr_name, tun_name, IFNAMSIZ - 1);
+        ifr.ifr_flags = (short) (IFF_TUN | IFF_NO_PI | IFF_TUN_EXCL);
+        strncpy_exact(ifr.ifr_name, tun_name, sizeof(ifr.ifr_name));
 
         if (ioctl(fd, TUNSETIFF, &ifr) < 0)
                 return log_link_error_errno(link, errno,
@@ -1034,7 +1034,7 @@ static int xlat_set_tun_up(Link *link) {
                         return log_link_error_errno(link, r, "CLAT: failed to set MTU: %m");
         }
 
-        r = sd_netlink_call(link->manager->rtnl, m, 0, NULL);
+        r = sd_netlink_call(link->manager->rtnl, m, /* timeout= */ 0, /* ret= */ NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "CLAT: failed to bring TUN up: %m");
 
@@ -1071,7 +1071,7 @@ static int xlat_configure_address_handler(Link *link, int ifindex, const char *d
         if (r < 0)
                 return log_link_error_errno(link, r, "CLAT: failed to append IFA_ADDRESS: %m");
 
-        r = sd_netlink_call(link->manager->rtnl, m, 0, NULL);
+        r = sd_netlink_call(link->manager->rtnl, m, /* timeout= */ 0, /* ret= */ NULL);
         if (r < 0)
                 return log_link_error_errno(link, r,
                                             "CLAT: failed to configure address 192.0.0.1/32: %m");
@@ -1105,7 +1105,7 @@ static int xlat_configure_route(Link *link) {
                 return log_link_error_errno(link, r, "CLAT: failed to set route scope: %m");
 
         /* Default route: 0.0.0.0/0 */
-        r = sd_rtnl_message_route_set_dst_prefixlen(m, 0);
+        r = sd_rtnl_message_route_set_dst_prefixlen(m, /* prefixlen= */ 0);
         if (r < 0)
                 return log_link_error_errno(link, r, "CLAT: failed to set dst prefixlen: %m");
 
@@ -1137,7 +1137,7 @@ static int xlat_configure_route(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "CLAT: failed to close RTA_METRICS: %m");
 
-        r = sd_netlink_call(link->manager->rtnl, m, 0, NULL);
+        r = sd_netlink_call(link->manager->rtnl, m, /* timeout= */ 0, /* ret= */ NULL);
         if (r < 0)
                 return log_link_error_errno(link, r,
                                             "CLAT: failed to add default route via TUN: %m");
@@ -1209,7 +1209,7 @@ static int xlat_configure_neighbor_on_link(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "CLAT: failed to set neighbour link-layer address: %m");
 
-        r = sd_netlink_call(link->manager->rtnl, m, 0, NULL);
+        r = sd_netlink_call(link->manager->rtnl, m, /* timeout= */ 0, /* ret= */ NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "CLAT: failed to add neighbour entry for the IPv4 gateway: %m");
 
@@ -1231,7 +1231,7 @@ static int xlat_remove_neighbor_from_link(Link *link) {
         if (r < 0)
                 return r;
 
-        return sd_netlink_call(link->manager->rtnl, m, 0, NULL);
+        return sd_netlink_call(link->manager->rtnl, m, /* timeout= */ 0, /* ret= */ NULL);
 }
 
 static int xlat_configure_route_on_link(Link *link) {
@@ -1264,7 +1264,7 @@ static int xlat_configure_route_on_link(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "CLAT: failed to set route scope: %m");
 
-        r = sd_rtnl_message_route_set_dst_prefixlen(m, 0);
+        r = sd_rtnl_message_route_set_dst_prefixlen(m, /* prefixlen= */ 0);
         if (r < 0)
                 return log_link_error_errno(link, r, "CLAT: failed to set dst prefixlen: %m");
 
@@ -1301,7 +1301,7 @@ static int xlat_configure_route_on_link(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "CLAT: failed to close RTA_METRICS: %m");
 
-        r = sd_netlink_call(link->manager->rtnl, m, 0, NULL);
+        r = sd_netlink_call(link->manager->rtnl, m, /* timeout= */ 0, /* ret= */ NULL);
         if (r < 0)
                 return log_link_error_errno(link, r,
                                             "CLAT: failed to add default route via physical interface: %m");
@@ -1330,7 +1330,7 @@ static int xlat_remove_address_from_link(Link *link) {
         if (r < 0)
                 return r;
 
-        return sd_netlink_call(link->manager->rtnl, m, 0, NULL);
+        return sd_netlink_call(link->manager->rtnl, m, /* timeout= */ 0, /* ret= */ NULL);
 }
 
 static int xlat_remove_route_from_link(Link *link) {
@@ -1343,7 +1343,7 @@ static int xlat_remove_route_from_link(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_message_route_set_dst_prefixlen(m, 0);
+        r = sd_rtnl_message_route_set_dst_prefixlen(m, /* prefixlen= */ 0);
         if (r < 0)
                 return r;
 
@@ -1355,7 +1355,7 @@ static int xlat_remove_route_from_link(Link *link) {
         if (r < 0)
                 return r;
 
-        return sd_netlink_call(link->manager->rtnl, m, 0, NULL);
+        return sd_netlink_call(link->manager->rtnl, m, /* timeout= */ 0, /* ret= */ NULL);
 }
 
 static void xlat_close_bpf(Link *link) {
@@ -1545,7 +1545,7 @@ static int xlat_set_dedicated_address(Link *link, bool add) {
                         return r;
         }
 
-        r = sd_netlink_call(link->manager->rtnl, m, 0, NULL);
+        r = sd_netlink_call(link->manager->rtnl, m, /* timeout= */ 0, /* ret= */ NULL);
         if (add && r == -EEXIST)
                 return 0; /* e.g. left over from an earlier run, and identical */
 
@@ -1605,7 +1605,7 @@ static int xlat_set_rule(Link *link, bool add, bool mark_rule) {
                         return r;
         }
 
-        return sd_netlink_call(link->manager->rtnl, m, 0, NULL);
+        return sd_netlink_call(link->manager->rtnl, m, /* timeout= */ 0, /* ret= */ NULL);
 }
 
 static void xlat_remove_rules(Link *link) {
