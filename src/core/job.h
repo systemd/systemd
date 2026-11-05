@@ -127,6 +127,7 @@ typedef struct Job {
 
         /* If non-NULL, a varlink connection streaming updates. */
         sd_varlink *varlink;
+        uint64_t deserialized_varlink_id;
 
         /* If the job had a specific trigger that needs to be advertised (eg: a path unit), store it. */
         ActivationDetails *activation_details;
@@ -147,6 +148,7 @@ typedef struct Job {
         bool in_gc_queue:1;
 
         bool varlink_notify_job_changes:1;
+        bool deserialized_varlink_notify_unit_changes:1;
 } Job;
 
 Job* job_new(Unit *unit, JobType type);
