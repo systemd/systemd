@@ -270,6 +270,10 @@ const char* sd_varlink_get_description(sd_varlink *v);
 /* Automatically mark the parameters part of incoming messages as security sensitive */
 int sd_varlink_set_input_sensitive(sd_varlink *v);
 
+/* Returns an identifier for the connection that remains stable across execve(). The returned string is
+ * owned by the connection object, and remains valid until the connection is closed. */
+int sd_varlink_get_connection_id(sd_varlink *v, const char **ret);
+
 /* Create a varlink server */
 int sd_varlink_server_new(sd_varlink_server **ret, sd_varlink_server_flags_t flags);
 _SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_varlink_server);

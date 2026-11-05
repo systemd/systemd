@@ -2,6 +2,7 @@
 
 #include <poll.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
@@ -10,6 +11,7 @@
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
+#include "devnum-util.h"
 #include "env-util.h"
 #include "errno-list.h"
 #include "errno-util.h"
@@ -703,6 +705,8 @@ static void varlink_clear(sd_varlink *v) {
         v->n_pushed_fds = 0;
 
         pidref_done_sigterm_wait(&v->exec_pidref);
+
+        v->connection_id = mfree(v->connection_id);
 }
 
 static sd_varlink* varlink_destroy(sd_varlink *v) {
@@ -4492,4 +4496,71 @@ _public_ int sd_varlink_error_is_invalid_parameter(const char *error, sd_json_va
                 return false;
 
         return streq(sd_json_variant_string(e), name);
+}
+
+static int fd_to_connection_id(int fd, char **ret) {
+        uint64_t cookie;
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        /* Identifies an fd in a way that is stable across execve(), based on information the kernel can
+         * tell us: the socket cookie, or, if that's not available (because this is not a socket), the
+         * inode. */
+
+        r = socket_get_cookie(fd, &cookie);
+        if (r >= 0)
+                r = asprintf(ret, "cookie:%" PRIu64, cookie);
+        else if (r == -ENOTSOCK || ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                struct stat st;
+
+                if (fstat(fd, &st) < 0)
+                        return -errno;
+
+                r = asprintf(ret, "inode:" DEVNUM_FORMAT_STR ":%" PRIu64, DEVNUM_FORMAT_VAL(st.st_dev), (uint64_t) st.st_ino);
+        } else
+                return r;
+        if (r < 0)
+                return -ENOMEM;
+
+        return 0;
+}
+
+_public_ int sd_varlink_get_connection_id(sd_varlink *v, const char **ret) {
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        /* Identifies the connection by its fds. If input and output are separate, the identifiers of both
+         * are concatenated, separated by a comma. The returned string is owned by the connection object,
+         * and remains valid until the connection is closed. */
+
+        if (!v->connection_id) {
+                _cleanup_free_ char *id = NULL;
+
+                if (v->stream.input_fd < 0 || v->stream.output_fd < 0)
+                        return -ENOTCONN;
+
+                r = fd_to_connection_id(v->stream.input_fd, &id);
+                if (r < 0)
+                        return r;
+
+                if (v->stream.output_fd != v->stream.input_fd) {
+                        _cleanup_free_ char *output_id = NULL;
+
+                        r = fd_to_connection_id(v->stream.output_fd, &output_id);
+                        if (r < 0)
+                                return r;
+
+                        if (!strextend(&id, ",", output_id))
+                                return -ENOMEM;
+                }
+
+                v->connection_id = TAKE_PTR(id);
+        }
+
+        *ret = v->connection_id;
+        return 0;
 }
