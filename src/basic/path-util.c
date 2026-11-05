@@ -369,7 +369,9 @@ char* path_simplify_full(char *path, PathSimplifyFlags flags) {
         if (isempty(path))
                 return path;
 
-        keep_trailing_slash = FLAGS_SET(flags, PATH_SIMPLIFY_KEEP_TRAILING_SLASH) && endswith(path, "/");
+        /* A trailing "/." is dropped below just like a trailing slash, but carries the same meaning
+         * (i.e. "this must be a directory"), hence turn it into a trailing slash too, if requested. */
+        keep_trailing_slash = FLAGS_SET(flags, PATH_SIMPLIFY_KEEP_TRAILING_SLASH) && ENDSWITH_SET(path, "/", "/.");
 
         absolute = path_is_absolute(path);
         f += absolute;  /* Keep leading /, if present. */
