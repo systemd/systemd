@@ -644,6 +644,22 @@ void varlink_job_detach_client(Job *j) {
         j->varlink_notify_job_changes = false;
 }
 
+void varlink_error_or_close(sd_varlink *link, int error) {
+        int r;
+
+        assert(link);
+
+        r = sd_varlink_error_errno(link, error);
+
+        /* sd_varlink_error_errno() above returns a negative errno even when it queues the reply successfully.
+         * The r < 0 check is redundant here, but matches varlink_dispatch_method(). The state check ensures
+         * we close only if the call still needs a reply, letting a queued error reach the client otherwise. */
+        if (r < 0 && sd_varlink_wants_reply(link)) {
+                log_debug_errno(r, "Failed to send varlink error reply, closing connection: %m");
+                (void) sd_varlink_close(link);
+        }
+}
+
 void varlink_job_send_removed_signal(Job *j) {
         assert(j);
 
