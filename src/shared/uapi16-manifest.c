@@ -112,7 +112,7 @@ bool uapi16_name_is_valid(const char *s) {
         if (path_is_absolute(s))
                 return false;
 
-        if (!path_is_normalized(s))
+        if (!path_is_normalized_full(s, PATH_REFUSE_TRAILING_SLASH))
                 return false;
 
         if (string_has_cc(s, /* ok= */ NULL))
