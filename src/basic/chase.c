@@ -1024,19 +1024,27 @@ int chaseat_prefix_root(const char *path, const char *root, char **ret) {
         return 0;
 }
 
-int chase_extract_filename(const char *path, const char *root, char **ret) {
+int chase_split_prefix_filename(const char *path, const char *root, char **ret_dir, char **ret_filename) {
+        _cleanup_free_ char *d = NULL, *f = NULL;
+        const char *suffix = path;
         int r;
 
-        /* This is similar to path_extract_filename(), but takes root directory.
-         * The result should be consistent with chase() with CHASE_EXTRACT_FILENAME. */
+        /* A normalized path without a final filename refers to the directory itself. Its filename is
+         * ".", and the directory path retains a trailing "..".
+         *
+         *    path           root       ret_dir        ret_filename
+         *    "sub/file"     NULL       "sub"          "file"
+         *    "file"         NULL       "."            "file"
+         *    "."            NULL       "."            "."
+         *    ".."           NULL       ".."           "."
+         *    "/image/file"  "/image"   "/image"       "file"
+         *    "/image"       "/image"   "/image"       "."
+         */
 
         assert(path);
-        assert(ret);
+        assert(ret_dir || ret_filename);
 
         if (isempty(path))
-                return -EINVAL;
-
-        if (!path_is_absolute(path))
                 return -EINVAL;
 
         r = empty_or_root_harder_to_null(&root);
@@ -1050,18 +1058,43 @@ int chase_extract_filename(const char *path, const char *root, char **ret) {
                 if (r < 0)
                         return r;
 
-                path = path_startswith(path, root_abs);
-                if (!path)
+                suffix = path_startswith(path, root_abs);
+                if (!suffix)
                         return -EINVAL;
         }
 
-        if (!isempty(path)) {
-                r = path_extract_filename(path, ret);
-                if (r != -EADDRNOTAVAIL)
+        if (empty_or_root(suffix) || path_equal(suffix, ".") || path_equal(last_path_component(suffix), "..")) {
+                if (ret_dir) {
+                        d = strdup(path);
+                        if (!d)
+                                return -ENOMEM;
+                }
+
+                if (ret_filename) {
+                        f = strdup(".");
+                        if (!f)
+                                return -ENOMEM;
+                }
+
+                r = 0;
+        } else {
+                r = path_split_prefix_filename(path, ret_dir ? &d : NULL, &f);
+                if (r < 0)
                         return r;
+
+                if (ret_dir && !d) {
+                        d = strdup(".");
+                        if (!d)
+                                return -ENOMEM;
+                }
         }
 
-        return strdup_to(ret, ".");
+        if (ret_dir)
+                *ret_dir = TAKE_PTR(d);
+        if (ret_filename)
+                *ret_filename = TAKE_PTR(f);
+
+        return r;
 }
 
 int chase_and_open(
@@ -1093,7 +1126,7 @@ int chase_and_open(
                          * p — use it directly without redundant extraction. */
                         open_name = p;
                 else {
-                        r = chase_extract_filename(p, root, &fname);
+                        r = chase_split_prefix_filename(p, root, /* ret_dir= */ NULL, &fname);
                         if (r < 0)
                                 return r;
                         open_name = fname;

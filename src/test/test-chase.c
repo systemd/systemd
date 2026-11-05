@@ -25,7 +25,9 @@
 
 static const char *arg_test_dir = NULL;
 
-static void test_chase_extract_filename_one(const char *path, const char *root, const char *expected) {
+static void test_chase_split_prefix_filename_one(const char *path, const char *root, const char *expected) {
+        /* A path in the chase fixture may resolve through a symlink or to its root. Extracting the
+         * filename from the resolved path must match CHASE_EXTRACT_FILENAME. */
         _cleanup_free_ char *ret1 = NULL, *ret2 = NULL, *fname = NULL;
 
         log_debug("/* %s(path=%s, root=%s) */", __func__, path, strnull(root));
@@ -34,11 +36,76 @@ static void test_chase_extract_filename_one(const char *path, const char *root, 
         ASSERT_STREQ(ret1, expected);
 
         ASSERT_OK_POSITIVE(chase(path, root, /* flags= */ 0, &ret2, /* ret_fd= */ NULL));
-        ASSERT_OK(chase_extract_filename(ret2, root, &fname));
+        ASSERT_OK(chase_split_prefix_filename(ret2, root, /* ret_dir= */ NULL, &fname));
         ASSERT_STREQ(fname, expected);
 }
 
+TEST(chase_split_prefix_filename) {
+        /* Relative and absolute paths must split into a directory path and filename. A path ending
+         * in ".." must retain its directory path and use "." as the filename. A temporary root prefix
+         * must remain in the returned directory path. */
+        static const struct {
+                const char *path;
+                const char *dir;
+                const char *filename;
+                int result;
+        } cases[] = {
+                { "sub/file",   "sub",   "file", 0           },
+                { "file",       ".",     "file", 0           },
+                { "./file",     ".",     "file", 0           },
+                { "/sub/file",  "/sub",  "file", 0           },
+                { "../file",    "..",    "file", 0           },
+                { "..file",     ".",     "..file", 0         },
+                { ".",          ".",     ".",    0           },
+                { "./",         ".",     ".",    0           },
+                { "..",         "..",    ".",    0           },
+                { "../..",      "../..", ".",    0           },
+                { "/",          "/",     ".",    0           },
+                { "sub/file/",  "sub",   "file", O_DIRECTORY },
+        };
+
+        FOREACH_ELEMENT(c, cases) {
+                _cleanup_free_ char *dir = NULL, *filename = NULL;
+
+                ASSERT_EQ(chase_split_prefix_filename(c->path, /* root= */ NULL, &dir, &filename), c->result);
+                ASSERT_PATH_EQ(dir, c->dir);
+                ASSERT_STREQ(filename, c->filename);
+
+                /* Callers may request the directory path or filename independently. */
+                dir = mfree(dir);
+                filename = mfree(filename);
+                ASSERT_EQ(chase_split_prefix_filename(c->path, /* root= */ NULL, &dir, /* ret_filename= */ NULL), c->result);
+                ASSERT_PATH_EQ(dir, c->dir);
+                ASSERT_EQ(chase_split_prefix_filename(c->path, /* root= */ NULL, /* ret_dir= */ NULL, &filename), c->result);
+                ASSERT_STREQ(filename, c->filename);
+        }
+
+        /* A resolved path includes its root prefix, including when the result is the root itself. */
+        _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
+        _cleanup_free_ char *dir = NULL, *filename = NULL;
+
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/test-chase.XXXXXX", &root));
+        ASSERT_OK(chase_split_prefix_filename(strjoina(root, "/file"), root, &dir, &filename));
+        ASSERT_PATH_EQ(dir, root);
+        ASSERT_STREQ(filename, "file");
+
+        dir = mfree(dir);
+        filename = mfree(filename);
+        ASSERT_OK(chase_split_prefix_filename(root, root, &dir, &filename));
+        ASSERT_PATH_EQ(dir, root);
+        ASSERT_STREQ(filename, ".");
+
+        /* Invalid input and paths outside the supplied root must leave the outputs unchanged. */
+        ASSERT_ERROR(chase_split_prefix_filename("", /* root= */ NULL, &dir, &filename), EINVAL);
+        ASSERT_ERROR(chase_split_prefix_filename(strjoina(root, "-other/file"), root, &dir, &filename), EINVAL);
+        ASSERT_ERROR(chase_split_prefix_filename("file", root, &dir, &filename), EINVAL);
+        ASSERT_PATH_EQ(dir, root);
+        ASSERT_STREQ(filename, ".");
+}
+
 TEST(chase) {
+        /* A temporary directory contains symlinks to relative paths, absolute paths, and the root.
+         * Path and fd results must match the chase flags and stay within a configured root. */
         _cleanup_free_ char *result = NULL, *pwd = NULL;
         _cleanup_close_ int pfd = -EBADF;
         char *temp;
@@ -124,18 +191,18 @@ TEST(chase) {
         ASSERT_PATH_EQ(result, temp);
         result = mfree(result);
 
-        /* Tests for CHASE_EXTRACT_FILENAME and chase_extract_filename() */
+        /* Filename extraction must match CHASE_EXTRACT_FILENAME for paths through symlinks. */
 
         p = strjoina(temp, "/start");
         pslash = strjoina(p, "/");
-        test_chase_extract_filename_one(p, /* root= */ NULL, "usr");
-        test_chase_extract_filename_one(pslash, /* root= */ NULL, "usr");
-        test_chase_extract_filename_one(p, temp, "usr");
-        test_chase_extract_filename_one(pslash, temp, "usr");
+        test_chase_split_prefix_filename_one(p, /* root= */ NULL, "usr");
+        test_chase_split_prefix_filename_one(pslash, /* root= */ NULL, "usr");
+        test_chase_split_prefix_filename_one(p, temp, "usr");
+        test_chase_split_prefix_filename_one(pslash, temp, "usr");
 
         p = strjoina(temp, "/slash");
-        test_chase_extract_filename_one(p, /* root= */ NULL, ".");
-        test_chase_extract_filename_one(p, temp, ".");
+        test_chase_split_prefix_filename_one(p, /* root= */ NULL, ".");
+        test_chase_split_prefix_filename_one(p, temp, ".");
 
         /* Paths that would "escape" outside of the "root" */
 
@@ -418,10 +485,10 @@ TEST(chase) {
 }
 
 TEST(chase_and_open) {
+        /* Host paths and a symlink under a temporary root must open the target or its parent according
+         * to CHASE_PARENT. CHASE_EXTRACT_FILENAME must change the returned path to the final filename. */
         _cleanup_free_ char *result = NULL;
         _cleanup_close_ int fd = -EBADF;
-
-        /* Test chase_and_open() with various CHASE_PARENT / CHASE_EXTRACT_FILENAME combinations. */
 
         /* No CHASE_PARENT, no CHASE_EXTRACT_FILENAME, with ret_path — opens the target, returns full path. */
         fd = ASSERT_OK(chase_and_open("/usr/lib", /* root= */ NULL, /* chase_flags= */ 0, O_PATH|O_DIRECTORY, &result));
@@ -500,7 +567,7 @@ TEST(chase_and_open) {
         result = mfree(result);
 
         /* When the resolved path equals the root directory itself, the filename should be "." — not
-         * the basename of the root directory. This is the edge case that chase_extract_filename()
+         * the basename of the root directory. This is the edge case that chase_split_prefix_filename()
          * handles by stripping the root prefix before extracting, which plain path_extract_filename()
          * would get wrong. */
         _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
