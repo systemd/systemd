@@ -60,6 +60,7 @@ int chase_and_fopen_unlocked(const char *path, const char *root, ChaseFlags chas
 int chase_and_unlink(const char *path, const char *root, ChaseFlags chase_flags, int unlink_flags, char **ret_path);
 int chase_and_open_parent(const char *path, const char *root, ChaseFlags chase_flags, char **ret_filename);
 
+/* An empty path refers to dir_fd itself, including when it refers to a file or a symlink. */
 int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int *ret_fd);
 
 int chase_and_openat(int root_fd, int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, char **ret_path);

@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "argv-util.h"
+#include "capability-util.h"
 #include "chase.h"
 #include "dirent-util.h"
 #include "fd-util.h"
@@ -13,6 +14,7 @@
 #include "id128-util.h"
 #include "mkdir.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
 #include "stat-util.h"
@@ -1229,6 +1231,94 @@ TEST(open_trailing_dot_dot) {
         _cleanup_close_ int fd = ASSERT_OK(chase_and_open_parent_at(root_fd, leaf_fd, "..", /* chase_flags= */ 0, &filename));
         ASSERT_STREQ(filename, ".");
         ASSERT_OK_POSITIVE(fds_inode_and_mount_same(fd, sub_fd));
+}
+
+TEST(chase_root_without_proc) {
+        /* A child enters a temporary root without /proc. Root lookup must preserve the pinned inode
+         * without directory search permission, including on kernels without O_EMPTYPATH. */
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int root_fd = -EBADF;
+        int r;
+
+        if (have_effective_cap(CAP_SYS_CHROOT) <= 0)
+                return (void) log_tests_skipped("CAP_SYS_CHROOT is required");
+
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/test-chase.XXXXXX", &t));
+        ASSERT_OK(mkdir_p(strjoina(t, "/root"), 0755));
+        root_fd = ASSERT_OK(xopenat(AT_FDCWD, strjoina(t, "/root"), O_PATH|O_DIRECTORY));
+
+        /* The child changes its filesystem root so /proc is absent without changing the parent process. */
+        r = ASSERT_OK(pidref_safe_fork("(chase-root)", FORK_WAIT|FORK_LOG|FORK_DEATHSIG_SIGKILL, /* ret= */ NULL));
+        if (r > 0)
+                return;
+
+        ASSERT_OK_ERRNO(chroot(t));
+        ASSERT_OK_ERRNO(chdir("/"));
+
+        /* CHASE_PREFIX_ROOT must preserve root lookup through the open wrapper without /proc. */
+        _cleanup_close_ int opened = ASSERT_OK(chase_and_open("/", "/root", CHASE_PREFIX_ROOT, O_PATH|O_DIRECTORY, /* ret_path= */ NULL));
+        ASSERT_OK_POSITIVE(fds_inode_and_mount_same(opened, root_fd));
+
+        /* Dropping DAC overrides makes a "." lookup fail after removing directory search permission. */
+        ASSERT_OK_ERRNO(chmod("/root", 0400));
+        ASSERT_OK(drop_capability(CAP_DAC_OVERRIDE));
+        ASSERT_OK(drop_capability(CAP_DAC_READ_SEARCH));
+        ASSERT_ERROR(xopenat(root_fd, ".", O_PATH|O_DIRECTORY), EACCES);
+
+        ChaseFlags flags;
+        FOREACH_ARGUMENT(flags, 0, CHASE_PARENT, CHASE_EXTRACT_FILENAME, CHASE_PARENT|CHASE_EXTRACT_FILENAME) {
+                _cleanup_free_ char *path = NULL;
+                _cleanup_close_ int fd = -EBADF;
+
+                ASSERT_OK_POSITIVE(chase("/root", "/root", flags, &path, &fd));
+                ASSERT_STREQ(path, FLAGS_SET(flags, CHASE_EXTRACT_FILENAME) ? "." : "/root");
+                ASSERT_OK_POSITIVE(fds_inode_and_mount_same(fd, root_fd));
+                ASSERT_TRUE(FLAGS_SET(ASSERT_OK_ERRNO(fcntl(fd, F_GETFD)), FD_CLOEXEC));
+        }
+
+        /* An explicit empty lookup must also preserve the inode without searching the directory. */
+        _cleanup_close_ int fd = -EBADF;
+        ASSERT_OK(chaseat(root_fd, root_fd, "", /* flags= */ 0, /* ret_path= */ NULL, &fd));
+        ASSERT_OK_POSITIVE(fds_inode_and_mount_same(fd, root_fd));
+        _exit(EXIT_SUCCESS);
+}
+
+TEST(chase_empty_path) {
+        /* A temporary root contains a file and an O_PATH symlink. Empty paths must preserve the inode
+         * identity of their fds. Nonempty relative paths must reject the file and symlink as lookup
+         * directories. Type checks must still apply to an empty-path lookup. */
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int root_fd = -EBADF, file_fd = -EBADF, path_fd = -EBADF, link_fd = -EBADF;
+
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/test-chase.XXXXXX", &t));
+        root_fd = ASSERT_OK(xopenat(AT_FDCWD, t, O_PATH|O_DIRECTORY));
+        file_fd = ASSERT_OK(xopenat(root_fd, "file", O_CREAT|O_RDWR));
+        path_fd = ASSERT_OK(xopenat(root_fd, "file", O_PATH));
+        ASSERT_OK_ERRNO(symlinkat("file", root_fd, "link"));
+        link_fd = ASSERT_OK(xopenat(root_fd, "link", O_PATH|O_NOFOLLOW));
+
+        int start_fd;
+        FOREACH_ARGUMENT(start_fd, file_fd, path_fd, link_fd) {
+                _cleanup_close_ int fd = -EBADF, opened = -EBADF;
+                _cleanup_free_ char *path = NULL;
+
+                ASSERT_OK(chaseat(root_fd, start_fd, "", /* flags= */ 0, &path, &fd));
+                ASSERT_STREQ(path, ".");
+                ASSERT_OK_POSITIVE(fds_inode_and_mount_same(fd, start_fd));
+                ASSERT_OK_POSITIVE(fd_is_opath(fd));
+                ASSERT_TRUE(FLAGS_SET(ASSERT_OK_ERRNO(fcntl(fd, F_GETFD)), FD_CLOEXEC));
+                ASSERT_OK(chaseat(root_fd, start_fd, "", /* flags= */ 0, /* ret_path= */ NULL, /* ret_fd= */ NULL));
+                opened = ASSERT_OK(chase_and_openat(root_fd, start_fd, "", /* chase_flags= */ 0, O_PATH, /* ret_path= */ NULL));
+                ASSERT_OK_POSITIVE(fds_inode_and_mount_same(opened, start_fd));
+                ASSERT_ERROR(chaseat(root_fd, start_fd, "child", /* flags= */ 0, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOTDIR);
+                ASSERT_ERROR(chaseat(root_fd, start_fd, "", CHASE_PARENT, /* ret_path= */ NULL, /* ret_fd= */ NULL),
+                             start_fd == link_fd ? ELOOP : ENOTDIR);
+        }
+
+        /* Type verification must distinguish the file and symlink even when no name is looked up. */
+        ASSERT_OK(chaseat(root_fd, file_fd, "", CHASE_MUST_BE_REGULAR, /* ret_path= */ NULL, /* ret_fd= */ NULL));
+        ASSERT_ERROR(chaseat(root_fd, file_fd, "", CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOTDIR);
+        ASSERT_ERROR(chaseat(root_fd, link_fd, "", CHASE_MUST_BE_REGULAR, /* ret_path= */ NULL, /* ret_fd= */ NULL), ELOOP);
 }
 
 TEST(trailing_dot_dot_below_root) {
