@@ -7,7 +7,7 @@ rebuild:
     event: push
     branches:
       only:
-        - v261-stable
+        - v262-stable
 ci:
   steps:
     - branch_package:
@@ -69,4 +69,4 @@ ci:
     event: pull_request
     branches:
       only:
-        - v261-stable
+        - v262-stable
