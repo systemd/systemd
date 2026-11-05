@@ -49,7 +49,8 @@ bool stat_unsafe_transition(const struct stat *a, const struct stat *b);
 
 int chase(const char *path_with_prefix, const char *root, ChaseFlags flags, char **ret_path, int *ret_fd);
 
-int chaseat_prefix_root(const char *path, const char *root, char **ret);
+/* Relative chaseat() output needs the path of its starting directory as the prefix. */
+int chaseat_make_absolute(const char *path, const char *base, char **ret);
 int chase_split_prefix_filename(const char *path, const char *root, char **ret_dir, char **ret_filename);
 
 int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, int open_flags, char **ret_path);
