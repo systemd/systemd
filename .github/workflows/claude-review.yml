@@ -289,6 +289,37 @@ jobs:
             git fetch origin "$PREVIOUS_HEAD" || echo "Previous head ${PREVIOUS_HEAD} is not fetchable, reviewing the full diff."
           fi
 
+      # Claude Code sandboxes the agents with bubblewrap. So does the review for
+      # everything semcode runs on the pull request, hence this comes first.
+      - name: Install sandbox dependencies
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          sudo apt-get update && sudo apt-get install -y bubblewrap socat
+
+      # The semcode workflow builds semcode into the actions cache, under a key
+      # that ends in its commit. The newest entry for the prefix is restored. The
+      # path is part of the cache version, so it is the one semcode.yml saves. A
+      # review without semcode is still a review, so a miss only logs.
+      - name: Restore semcode
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: ${{ runner.temp }}/semcode
+          key: semcode-bin-${{ runner.os }}-${{ runner.arch }}-
+          restore-keys: semcode-bin-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Check semcode
+        id: semcode
+        run: |
+          semcode="$RUNNER_TEMP/semcode"
+          ref="$(cat "$semcode/ref" 2>/dev/null || :)"
+          if [[ ! -x "$semcode/bin/semcode-index" || ! -x "$semcode/bin/semcode-mcp" || ! "$ref" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "No usable semcode in the cache, reviewing without it."
+            rm -rf "$semcode"
+            exit 0
+          fi
+          echo "Using semcode ${ref}."
+          echo "ref=${ref}" >>"$GITHUB_OUTPUT"
+
       # The model's knowledge of the kernel, glibc, musl, and UAPI specifications can
       # be wrong or out of date. The review agents therefore check details in the
       # cloned repositories. A review without a repository is still useful, so a
@@ -357,10 +388,39 @@ jobs:
           }' "$INPUT/pr-context.json" >"$INPUT/discussion.json"
           rm "$INPUT/pr-context.json"
 
-      - name: Install sandbox dependencies
+      # The first run indexes the files of the head. The second adds the files
+      # each commit of the pull request changed, at every commit in the range and
+      # at the merge base, and the commits themselves. Lookups at the head, at
+      # the merge base and at any commit in between then answer from the index.
+      # semcode-index parses the pull request, so it runs in a sandbox like the
+      # agents do: every file read-only but the index, nothing under /run, no
+      # network, none of the job's environment. A read-only bind does not stop
+      # a connect, and the docker socket lives in /run. The index moves into
+      # place once both runs are done, so a run the timeout kills leaves nothing
+      # behind to serve.
+      - name: Index the pull request with semcode
+        if: steps.semcode.outputs.ref != ''
+        continue-on-error: true
+        timeout-minutes: 10
+        env:
+          MERGE_BASE: ${{ steps.inputs.outputs.merge_base }}
         run: |
-          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-          sudo apt-get update && sudo apt-get install -y bubblewrap socat
+          index="$RUNNER_TEMP/claude-review/semcode-systemd"
+          rm -rf "$index.tmp"
+          mkdir -p "$index.tmp"
+          semcode_index() {
+            bwrap --ro-bind / / --tmpfs /run --dev /dev --proc /proc --tmpfs /tmp --bind "$index.tmp" "$index.tmp" \
+              --clearenv --setenv PATH /usr/bin:/bin --setenv HOME "$HOME" \
+              --unshare-all --die-with-parent --new-session -- \
+              "$RUNNER_TEMP/semcode/bin/semcode-index" \
+              --source "$GITHUB_WORKSPACE/source" --database "$index.tmp/.semcode.db" "$@"
+          }
+          if ! semcode_index || ! semcode_index --git "${MERGE_BASE}..${HEAD_SHA}"; then
+            rm -rf "$index.tmp"
+            exit 1
+          fi
+          mv "$index.tmp" "$index"
+          du -sh "$index"
 
       - name: Install Claude Code
         run: |
@@ -402,12 +462,12 @@ jobs:
           cat > ~/.claude/settings.json << 'SETTINGS'
           {
             "permissions": {
-              "allow": ["Bash", "Read", "Grep", "Glob"]
+              "allow": ["Bash", "Read", "Grep", "Glob", "mcp__systemd__*"]
             },
             "hooks": {
               "PreToolUse": [
                 {
-                  "matcher": "Bash|Read|Grep|Glob",
+                  "matcher": "Bash|Read|Grep|Glob|mcp__.*",
                   "hooks": [
                     {
                       "type": "command",
@@ -472,6 +532,7 @@ jobs:
               --max-turns 100 \
               --setting-sources user \
               --tools Bash,Read,Grep,Glob \
+              "${mcp_args[@]}" \
               --output-format stream-json \
               --verbose \
               --json-schema "$schema" \
@@ -483,21 +544,31 @@ jobs:
             # got at least one tool result other than its own structured output.
             # When the sandbox is broken, every Bash call fails while Read and Grep
             # still work. If the agent ran Bash, also require that one Bash call
-            # succeeded.
-            local worked bash_calls bash_worked
-            read -r worked bash_calls bash_worked < <(jq -Rnr '
+            # succeeded. The same goes for the semcode servers. A call a hook denied
+            # or one that ran into the time limit is an error too, but says nothing
+            # about either, so both are left out. The grep calls are counted to see
+            # how much searching still bypasses semcode.
+            local worked bash_calls bash_worked semcode_calls semcode_worked greps denied timeouts
+            read -r worked bash_calls bash_worked semcode_calls semcode_worked greps denied timeouts < <(jq -Rnr '
+              def text: (.content // "") | if type == "string" then . else map(.text? // "") | join("") end;
               [inputs | fromjson?] as $events
               | [$events[] | select(.type == "assistant") | .message.content[]?
                  | select(.type == "tool_use")] as $calls
-              | [$calls[] | select(.name == "StructuredOutput") | .id] as $ignore
-              | [$calls[] | select(.name == "Bash") | .id] as $bash
               | [$events[] | select(.type == "user") | .message.content[]?
-                 | select(.type == "tool_result" and .is_error != true) | .tool_use_id] as $ok
-              | "\($ok - $ignore | length) \($bash | length) \($ok - ($ok - $bash) | length)"' <"$OUTPUT/$name.log")
-            if [[ -s "$OUTPUT/$name.json" ]] && (( worked > 0 )) && (( bash_calls == 0 || bash_worked > 0 )); then
-              echo "${name}: done (status ${status})"
+                 | select(.type == "tool_result")] as $results
+              | [$results[] | select(text | startswith("PreToolUse:")) | .tool_use_id] as $denied
+              | [$results[] | select(text | test("^MCP server .* timed out after")) | .tool_use_id] as $timeouts
+              | [$calls[] | select(.name == "StructuredOutput") | .id] as $ignore
+              | ([$calls[] | select(.name == "Bash") | .id] - $denied) as $bash
+              | ([$calls[] | select(.name | startswith("mcp__")) | .id] - $denied - $timeouts) as $semcode
+              | [$calls[] | select(.name == "Grep" or (.name == "Bash" and (.input.command // ""
+                 | test("(^|[^[:alnum:]_./-])(grep|egrep|fgrep|rg|ag|ack|git\\s+(-C\\s+\\S+\\s+)?grep)(\\s|$)"))))] as $greps
+              | [$results[] | select(.is_error != true) | .tool_use_id] as $ok
+              | "\($ok - $ignore | length) \($bash | length) \($ok - ($ok - $bash) | length) \($semcode | length) \($ok - ($ok - $semcode) | length) \($greps | length) \($denied | length) \($timeouts | length)"' <"$OUTPUT/$name.log")
+            if [[ -s "$OUTPUT/$name.json" ]] && (( worked > 0 )) && (( bash_calls == 0 || bash_worked > 0 )) && (( semcode_calls == 0 || semcode_worked > 0 )); then
+              echo "${name}: done (status ${status}, ${semcode_worked} of ${semcode_calls} semcode call(s) succeeded, ${timeouts} timed out, ${greps} grep call(s), ${denied} call(s) denied by hooks)"
             else
-              echo "${name}: no result (status ${status}, ${worked} tool call(s) succeeded, ${bash_worked} of ${bash_calls} Bash call(s) succeeded)"
+              echo "${name}: no result (status ${status}, ${worked} tool call(s) succeeded, ${bash_worked} of ${bash_calls} Bash call(s) succeeded, ${semcode_worked} of ${semcode_calls} semcode call(s) succeeded)"
               rm -f "$OUTPUT/$name.json"
             fi
           }
@@ -555,6 +626,74 @@ jobs:
           When a finding depends on a UAPI specification, such as the Boot Loader Specification,
           Discoverable Partitions Specification, Unified Kernel Images, or extension images, check
           the specification in ${uapi}/specs instead of relying on memory."
+          fi
+
+          # semcode answers lookups by name and call graph from the indexes built
+          # above, with one server per indexed tree. semcode-mcp runs outside the
+          # Claude Code sandbox, so it gets one of its own, or does not run at all:
+          # every file read-only, nothing under /run (a read-only bind does not
+          # stop a connect, and the docker socket lives there), no network, none
+          # of the job's environment, gone with the agent. Each index is complete
+          # for the commit its tree is checked out at, so the indexing pass
+          # semcode-mcp runs at startup has nothing to write. The server files
+          # live in $RUNNER_TEMP, which the sandbox denies writes to, so a
+          # sandboxed shell cannot replace them. A server that does not answer a
+          # probe is not offered, so the agents are never pointed at tools that
+          # do not exist.
+          #
+          # A call that runs longer than the timeout fails and the agent carries
+          # on. Without one, Claude Code waits half an hour for a stdio server,
+          # longer than the agent has. The server is not told, so it finishes the
+          # call anyway; it answers requests concurrently, so the next call does
+          # not queue behind it.
+          mcp_args=()
+          servers='{}'
+          sandbox=(bwrap --ro-bind / / --tmpfs /run --dev /dev --proc /proc --tmpfs /tmp --clearenv --setenv PATH /usr/bin:/bin --setenv HOME "$HOME" --unshare-all --die-with-parent --new-session)
+          if ! "${sandbox[@]}" -- /bin/true; then
+            echo "bubblewrap does not work, reviewing without semcode."
+            rm -rf "$RUNNER_TEMP/claude-review/semcode-systemd"
+          fi
+          add_server() {
+            local name=$1 db=$2 repo=$3 wrapper="$RUNNER_TEMP/claude-review/semcode-mcp-$1"
+            cat >"$wrapper" <<EOF
+          #!/bin/bash
+          exec ${sandbox[*]} -- \\
+            "$RUNNER_TEMP/semcode/bin/semcode-mcp" --database "$db" --git-repo "$repo"
+          EOF
+            chmod +x "$wrapper"
+            # The pipe stays open long enough for the answers. A server whose
+            # index is unusable lists its tools all the same but answers a lookup
+            # with an error text instead of a search.
+            local answer
+            answer="$({ printf '%s\n' \
+                          '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"probe","version":"0"}}}' \
+                          '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+                          '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+                          '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"grep_functions","arguments":{"pattern":"probe_no_such_symbol_","limit":1}}}'
+                        sleep 3; } | timeout 30 "$wrapper" 2>/dev/null)" || answer=""
+            if ! grep -c '"find_function"' <<<"$answer" >/dev/null || ! grep -c 'Searching function bodies' <<<"$answer" >/dev/null; then
+              echo "The semcode server for $name does not answer, reviewing without it."
+              return 1
+            fi
+            servers="$(jq -c --arg name "$name" --arg command "$wrapper" '. + {($name): {command: $command, timeout: 120000}}' <<<"$servers")"
+          }
+
+          systemd_index="$RUNNER_TEMP/claude-review/semcode-systemd"
+          if [[ -d "$systemd_index/.semcode.db" ]] && add_server systemd "$systemd_index/.semcode.db" "$SOURCE"; then
+            context+="
+
+          The checkout is indexed with semcode; its tools are the mcp__systemd__* tools. Use
+          find_function, find_type, find_callers, find_calls, find_callchain and grep_functions to read
+          and search the C code of the checkout instead of grep: one call answers what grep and reading
+          files answer in many. Lookups default to the head; pass git_sha=${MERGE_BASE} for the code
+          before the pull request, and find_commit with git_range=${MERGE_BASE}..${HEAD_SHA} for the
+          commits under review. Object-like macros, global variables and files that are not C are not
+          indexed; read those files directly."
+          fi
+
+          if [[ "$servers" != "{}" ]]; then
+            jq -n --argjson servers "$servers" '{mcpServers: $servers}' >"$RUNNER_TEMP/claude-review/mcp.json"
+            mcp_args=(--mcp-config "$RUNNER_TEMP/claude-review/mcp.json" --strict-mcp-config)
           fi
 
           previous=""
