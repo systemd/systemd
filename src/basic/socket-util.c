@@ -331,7 +331,6 @@ bool socket_ipv6_is_enabled(void) {
 
 bool socket_address_matches_fd(const SocketAddress *a, int fd) {
         SocketAddress b;
-        socklen_t solen;
 
         assert(a);
         assert(fd >= 0);
@@ -343,16 +342,14 @@ bool socket_address_matches_fd(const SocketAddress *a, int fd) {
         if (b.sockaddr.sa.sa_family != a->sockaddr.sa.sa_family)
                 return false;
 
-        solen = sizeof(b.type);
-        if (getsockopt(fd, SOL_SOCKET, SO_TYPE, &b.type, &solen) < 0)
+        if (getsockopt_int(fd, SOL_SOCKET, SO_TYPE, &b.type) < 0)
                 return false;
 
         if (b.type != a->type)
                 return false;
 
         if (a->protocol != 0)  {
-                solen = sizeof(b.protocol);
-                if (getsockopt(fd, SOL_SOCKET, SO_PROTOCOL, &b.protocol, &solen) < 0)
+                if (getsockopt_int(fd, SOL_SOCKET, SO_PROTOCOL, &b.protocol) < 0)
                         return false;
 
                 if (b.protocol != a->protocol)
@@ -699,13 +696,12 @@ bool sockaddr_equal(const union sockaddr_union *a, const union sockaddr_union *b
 
 int fd_set_sndbuf(int fd, size_t n, bool increase) {
         int r, value;
-        socklen_t l = sizeof(value);
 
         if (n > INT_MAX)
                 return -ERANGE;
 
-        r = getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &value, &l);
-        if (r >= 0 && l == sizeof(value) && increase ? (size_t) value >= n*2 : (size_t) value == n*2)
+        if (getsockopt_int(fd, SOL_SOCKET, SO_SNDBUF, &value) >= 0 &&
+            (increase ? (size_t) value >= n*2 : (size_t) value == n*2))
                 return 0;
 
         /* First, try to set the buffer size with SO_SNDBUF. */
@@ -715,9 +711,8 @@ int fd_set_sndbuf(int fd, size_t n, bool increase) {
 
         /* SO_SNDBUF above may set to the kernel limit, instead of the requested size.
          * So, we need to check the actual buffer size here. */
-        l = sizeof(value);
-        r = getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &value, &l);
-        if (r >= 0 && l == sizeof(value) && increase ? (size_t) value >= n*2 : (size_t) value == n*2)
+        if (getsockopt_int(fd, SOL_SOCKET, SO_SNDBUF, &value) >= 0 &&
+            (increase ? (size_t) value >= n*2 : (size_t) value == n*2))
                 return 1;
 
         /* If we have the privileges we will ignore the kernel limit. */
@@ -730,13 +725,12 @@ int fd_set_sndbuf(int fd, size_t n, bool increase) {
 
 int fd_set_rcvbuf(int fd, size_t n, bool increase) {
         int r, value;
-        socklen_t l = sizeof(value);
 
         if (n > INT_MAX)
                 return -ERANGE;
 
-        r = getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, &l);
-        if (r >= 0 && l == sizeof(value) && increase ? (size_t) value >= n*2 : (size_t) value == n*2)
+        if (getsockopt_int(fd, SOL_SOCKET, SO_RCVBUF, &value) >= 0 &&
+            (increase ? (size_t) value >= n*2 : (size_t) value == n*2))
                 return 0;
 
         /* First, try to set the buffer size with SO_RCVBUF. */
@@ -746,9 +740,8 @@ int fd_set_rcvbuf(int fd, size_t n, bool increase) {
 
         /* SO_RCVBUF above may set to the kernel limit, instead of the requested size.
          * So, we need to check the actual buffer size here. */
-        l = sizeof(value);
-        r = getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, &l);
-        if (r >= 0 && l == sizeof(value) && increase ? (size_t) value >= n*2 : (size_t) value == n*2)
+        if (getsockopt_int(fd, SOL_SOCKET, SO_RCVBUF, &value) >= 0 &&
+            (increase ? (size_t) value >= n*2 : (size_t) value == n*2))
                 return 1;
 
         /* If we have the privileges we will ignore the kernel limit. */
@@ -1141,15 +1134,13 @@ fallback:
 int flush_accept(int fd) {
 
         int r, b;
-        socklen_t l = sizeof(b);
 
         /* Similar to flush_fd() but flushes all incoming connections by accepting and immediately closing
          * them. */
 
-        if (getsockopt(fd, SOL_SOCKET, SO_ACCEPTCONN, &b, &l) < 0)
-                return -errno;
-
-        assert(l == sizeof(b));
+        r = getsockopt_int(fd, SOL_SOCKET, SO_ACCEPTCONN, &b);
+        if (r < 0)
+                return r;
         if (!b) /* Let's check if this socket accepts connections before calling accept(). accept4() can
                  * return EOPNOTSUPP if the fd is not a listening socket, which we should treat as a fatal
                  * error, or in case the incoming TCP connection triggered a network issue, which we want to
@@ -1493,14 +1484,11 @@ ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags) {
 }
 
 int socket_get_family(int fd) {
-        int af;
-        socklen_t sl = sizeof(af);
+        int af, r;
 
-        if (getsockopt(fd, SOL_SOCKET, SO_DOMAIN, &af, &sl) < 0)
-                return -errno;
-
-        if (sl != sizeof(af))
-                return -EINVAL;
+        r = getsockopt_int(fd, SOL_SOCKET, SO_DOMAIN, &af);
+        if (r < 0)
+                return r;
 
         return af;
 }

@@ -10,6 +10,7 @@
 #include "event-util.h"
 #include "fd-util.h"
 #include "pidref.h"
+#include "socket-util.h"
 #include "time-util.h"
 
 int event_source_inherit_fiber_priority(sd_event_source *s) {
@@ -68,9 +69,8 @@ static int io_handler(sd_event_source *s, int fd, uint32_t revents, void *userda
          * directly without re-querying. */
         if (FLAGS_SET(revents, EPOLLERR)) {
                 int error = 0;
-                socklen_t len = sizeof(error);
 
-                int r = RET_NERRNO(getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &len));
+                int r = getsockopt_int(fd, SOL_SOCKET, SO_ERROR, &error);
                 if (r == -ENOTSOCK)
                         return sd_future_resolve(f, (int) revents);
                 if (r >= 0 && error != 0)

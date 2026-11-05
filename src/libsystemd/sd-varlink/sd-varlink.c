@@ -3852,17 +3852,15 @@ _public_ int sd_varlink_server_listen_name(sd_varlink_server *s, const char *nam
 
         for (int i = 0; i < m; i++) {
                 int b, fd;
-                socklen_t l = sizeof(b);
 
                 if (!streq(names[i], name))
                         continue;
 
                 fd = SD_LISTEN_FDS_START + i;
 
-                if (getsockopt(fd, SOL_SOCKET, SO_ACCEPTCONN, &b, &l) < 0)
-                        return -errno;
-
-                assert(l == sizeof(b));
+                r = getsockopt_int(fd, SOL_SOCKET, SO_ACCEPTCONN, &b);
+                if (r < 0)
+                        return r;
 
                 if (b) /* Listening socket? */
                         r = sd_varlink_server_listen_fd(s, fd);
@@ -4323,7 +4321,6 @@ _public_ int sd_varlink_server_set_description(sd_varlink_server *s, const char 
 _public_ int sd_varlink_invocation(sd_varlink_invocation_flags_t flags) {
         _cleanup_strv_free_ char **names = NULL;
         int r, b;
-        socklen_t l = sizeof(b);
 
         /* Returns true if this is a "pure" varlink server invocation, i.e. with one fd passed. */
 
@@ -4348,10 +4345,9 @@ _public_ int sd_varlink_invocation(sd_varlink_invocation_flags_t flags) {
         if ((flags & (SD_VARLINK_ALLOW_LISTEN|SD_VARLINK_ALLOW_ACCEPT)) == 0) /* Neither is set, then fail */
                 return -EISCONN;
 
-        if (getsockopt(SD_LISTEN_FDS_START, SOL_SOCKET, SO_ACCEPTCONN, &b, &l) < 0)
-                return -errno;
-
-        assert(l == sizeof(b));
+        r = getsockopt_int(SD_LISTEN_FDS_START, SOL_SOCKET, SO_ACCEPTCONN, &b);
+        if (r < 0)
+                return r;
 
         if (!FLAGS_SET(flags, b ? SD_VARLINK_ALLOW_LISTEN : SD_VARLINK_ALLOW_ACCEPT))
                 return -EISCONN;
