@@ -623,7 +623,7 @@ _public_ int sd_varlink_connect_fd_pair(sd_varlink **ret, int input_fd, int outp
         (void) mark_varlink_socket(v->stream.input_fd, /* path= */ NULL, "client");
 
         if (override_ucred)
-                json_stream_set_peer_ucred(&v->stream, override_ucred);
+                json_stream_set_peer_ucred(&v->stream, override_ucred, /* overridden= */ true);
 
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
 
@@ -3536,7 +3536,7 @@ _public_ int sd_varlink_server_add_connection_pair(
         sd_varlink_ref(v);
 
         if (ucred_acquired)
-                json_stream_set_peer_ucred(&v->stream, &ucred);
+                json_stream_set_peer_ucred(&v->stream, &ucred, /* overridden= */ !!override_ucred);
 
         r = json_stream_attach_fds(&v->stream, input_fd, output_fd);
         if (r < 0) {
