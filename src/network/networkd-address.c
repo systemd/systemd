@@ -31,6 +31,7 @@
 #include "networkd-queue.h"
 #include "networkd-route.h"
 #include "networkd-route-util.h"
+#include "networkd-xlat.h"
 #include "ordered-set.h"
 #include "parse-util.h"
 #include "set.h"
@@ -856,6 +857,13 @@ static int address_update(Address *address) {
                 }
         }
 
+        /* Try starting CLAT when a global IPv6 address becomes ready.
+         * xlat_start() is idempotent — it returns immediately if already running. */
+        if (address_is_ready(address) &&
+            address->family == AF_INET6 &&
+            !in6_addr_is_link_local(&address->in_addr.in6))
+                (void) xlat_start(link);
+
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 0;
 
@@ -967,6 +975,9 @@ static int address_drop(Address *in, bool removed_by_us) {
                                 log_link_warning_errno(link, r, "Failed to restart IPv6 services with alternate IPv6LL address, ignoring: %m");
                 }
         }
+        /* Restart CLAT if its cached source address was removed */
+        if (address->family == AF_INET6)
+                (void) xlat_check_address(link);
 
         ipv4acd_detach(link, address);
 
@@ -2117,6 +2128,9 @@ finalize:
                         log_link_warning_errno(link, r, "Failed to notify IPv6 connectivity to DHCPv4 client: %m");
                         link_enter_failed(link);
                 }
+
+                /* Try starting CLAT if it was deferred waiting for an IPv6 address */
+                (void) xlat_start(link);
         }
 
         return 1;
