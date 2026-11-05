@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-id128.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "bpf-restrict-fsaccess.h"
@@ -223,6 +224,33 @@ int manager_serialize(
         r = varlink_server_serialize(m->metrics_varlink_server, "metrics", f, fds);
         if (r < 0)
                 return r;
+
+        /* We don't destroy the varlink servers on daemon-reload (in contrast to reexec), hence only pass
+         * the connections along if we'll go away. This needs to be after the sockets are serialized,
+         * since the servers are set up when they are deserialized. Anything referencing connections
+         * needs to come after this. Failures are not fatal: the connections are dropped then, as they
+         * were before we started passing them on. */
+        if (m->objective != MANAGER_RELOAD) {
+                r = varlink_server_serialize_connections(m->varlink_server, "varlink-server-connections", f, fds);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to serialize varlink connections, ignoring: %m");
+
+                r = varlink_server_serialize_connections(m->metrics_varlink_server, "varlink-server-metrics-connections", f, fds);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to serialize metrics varlink connections, ignoring: %m");
+
+                r = varlink_serialize_connection_id(m->pending_reload_message_vl, "varlink-pending-reload-connection", f);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to serialize varlink connection of pending reload, ignoring: %m");
+
+                /* In the user manager this is a client connection to systemd-oomd, which we'll establish
+                 * anew. */
+                if (MANAGER_IS_SYSTEM(m)) {
+                        r = varlink_serialize_connection_id(m->managed_oom_varlink, "managed-oom-varlink-connection", f);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to serialize managed OOM varlink connection, ignoring: %m");
+                }
+        }
 
         r = bpf_restrict_fsaccess_serialize(m, f, fds);
         if (r < 0)
@@ -779,6 +807,16 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         r = strv_extend(&m->subscribed_as_strv, val);
                         if (r < 0)
                                 return r;
+                } else if ((val = startswith(l, "varlink-server-metrics-connections="))) {
+                        r = manager_setup_varlink_metrics_server(m);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to setup metrics varlink server, ignoring: %m");
+                        else {
+                                r = varlink_server_deserialize_connections(m->metrics_varlink_server, val, fds);
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to deserialize metrics varlink connections, ignoring: %m");
+                        }
+
                 } else if ((val = startswith(l, "varlink-server-metrics-"))) {
                         if (m->objective == MANAGER_RELOAD)
                                 /* We don't destroy varlink server on daemon-reload (in contrast to reexec) -> skip! */
@@ -789,6 +827,37 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 log_warning_errno(r, "Failed to setup metrics varlink server, ignoring: %m");
                         else
                                 (void) varlink_server_deserialize_one(m->metrics_varlink_server, val, fds);
+
+                } else if ((val = startswith(l, "varlink-server-connections="))) {
+                        r = manager_setup_varlink_server(m);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to setup varlink server, ignoring: %m");
+                        else {
+                                r = varlink_server_deserialize_connections(m->varlink_server, val, fds);
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to deserialize varlink connections, ignoring: %m");
+                        }
+
+                } else if ((val = startswith(l, "varlink-pending-reload-connection="))) {
+                        sd_varlink *link;
+
+                        r = manager_varlink_claim_connection(m, val, &link);
+                        if (r >= 0) {
+                                sd_varlink_unref(m->pending_reload_message_vl);
+                                m->pending_reload_message_vl = sd_varlink_ref(link);
+                        }
+
+                } else if ((val = startswith(l, "managed-oom-varlink-connection="))) {
+                        sd_varlink *link;
+
+                        if (!MANAGER_IS_SYSTEM(m))
+                                continue;
+
+                        r = manager_varlink_claim_connection(m, val, &link);
+                        if (r >= 0) {
+                                sd_varlink_unref(m->managed_oom_varlink);
+                                m->managed_oom_varlink = sd_varlink_ref(link);
+                        }
 
                 } else if ((val = startswith(l, "varlink-server-"))) {
                         if (m->objective == MANAGER_RELOAD)
@@ -857,5 +926,11 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 }
         }
 
-        return manager_deserialize_units(m, f, fds);
+        r = manager_deserialize_units(m, f, fds);
+
+        /* Everything that references varlink connections with pending method calls has been deserialized
+         * now. Disconnect whatever is left, so that the clients don't wait for replies that never come. */
+        manager_varlink_disconnect_unclaimed(m);
+
+        return r;
 }

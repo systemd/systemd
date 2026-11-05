@@ -364,6 +364,12 @@ static int vl_method_subscribe_managed_oom_cgroups(
 
         assert(!m->managed_oom_varlink);
         m->managed_oom_varlink = sd_varlink_ref(link);
+
+        /* Keep the subscription across reexecution */
+        r = sd_varlink_set_serialize_pending(link, true);
+        if (r < 0)
+                return r;
+
         return sd_varlink_notify(m->managed_oom_varlink, v);
 }
 
@@ -375,6 +381,9 @@ static void vl_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata
 
         if (link == m->managed_oom_varlink)
                 m->managed_oom_varlink = sd_varlink_unref(link);
+
+        if (link == m->pending_reload_message_vl)
+                m->pending_reload_message_vl = sd_varlink_unref(link);
 
         /* Drop any job varlink references for the disconnecting client.
          * A varlink link can stream at most one job, so stop after the first match. */
@@ -656,4 +665,42 @@ void manager_varlink_send_pending_reload_message(Manager *m) {
                 log_warning_errno(r, "Failed to send queued reload message, ignoring: %m");
 
         m->pending_reload_message_vl = sd_varlink_unref(m->pending_reload_message_vl);
+}
+
+int manager_varlink_claim_connection(Manager *m, const char *id, sd_varlink **ret) {
+        int r;
+
+        assert(m);
+        assert(id);
+        assert(ret);
+
+        /* Picks up a connection with a pending method call that was passed to us across reexecution. The
+         * callers handle failure gracefully, but we log about it here. */
+
+        if (!m->varlink_server)
+                return log_warning_errno(SYNTHETIC_ERRNO(ESRCH), "Varlink server not set up, cannot claim connection '%s'.", id);
+
+        r = sd_varlink_server_claim_connection(m->varlink_server, id, ret);
+        if (r == -ESRCH) /* Expected, the connection might have been closed before serialization */
+                return log_debug_errno(r, "Varlink connection '%s' not passed on across reexecution, ignoring.", id);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to claim varlink connection '%s', ignoring: %m", id);
+
+        return 0;
+}
+
+void manager_varlink_disconnect_unclaimed(Manager *m) {
+        sd_varlink_server *s;
+        int r;
+
+        assert(m);
+
+        FOREACH_ARGUMENT(s, m->varlink_server, m->metrics_varlink_server) {
+                if (!s)
+                        continue;
+
+                r = sd_varlink_server_disconnect_unclaimed_connections(s);
+                if (r > 0)
+                        log_debug("Disconnected %i varlink connections with pending method calls nobody claimed after deserialization.", r);
+        }
 }
