@@ -322,20 +322,39 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
          * absolute symlinks encountered during resolution are resolved relative to it. When the root fd is
          * XAT_FDROOT, symlinks are resolved relative to the host's root directory with no containment.
          *
-         * The given path is always resolved starting at dir_fd, regardless of whether it is absolute or
-         * relative. The leading slashes of an absolute path are ignored. The only exceptions are
-         * dir_fd == XAT_FDROOT (which starts resolution at root_fd) and dir_fd == AT_FDCWD with an absolute
-         * path (which starts resolution at "/" rather than the current working directory).
+         * Relative paths start at dir_fd, and absolute paths start at root_fd. If dir_fd is XAT_FDROOT,
+         * relative paths also start at root_fd. An empty path is treated as ".".
          *
          * Note that we do not verify that dir_fd actually points to a descendant of root_fd. If dir_fd
          * lies outside the root_fd subtree, ".." traversal and absolute symlinks may still be clamped to
          * root_fd, leading to surprising results. Callers must ensure the relationship themselves.
          *
-         * Absolute paths returned by this function are relative to the given root file descriptor. Relative
-         * paths returned by this function are relative to the given directory file descriptor. The result is
-         * absolute when root_fd is XAT_FDROOT (i.e. there is no chroot boundary, so openat()-like callers
-         * need an absolute path to reach the host inode), or when an absolute symlink made us jump to a
-         * different subtree than the one dir_fd points into. Otherwise the result is relative.
+         * Absolute output paths start at root_fd. Relative output paths start at dir_fd unless an
+         * absolute input path or dir_fd==XAT_FDROOT selected root_fd instead. An absolute symlink can
+         * change a relative lookup to return an absolute output path.
+         *
+         * The following examples assume root_fd refers to /image and dir_fd refers to /image/a/b. The
+         * directory /image/a/b/c and regular file /image/a/b/file exist. The symlink /image/a/b/link points
+         * to /a, and /image/a/b/missing does not exist. The ret_fd column names the inode the returned
+         * O_PATH fd refers to. The function's integer return value is a status, not that fd's number.
+         *
+         *    path          flags                               ret_path     ret_fd refers to  return
+         *    "file"        0                                   "file"       /image/a/b/file   1
+         *    "c/../file"   0                                   "file"       /image/a/b/file   1
+         *    ".."          0                                   ".."         /image/a          1
+         *    "/a"          0                                   "a"          /image/a          1
+         *    "link"        0                                   "/a"         /image/a          1
+         *    "file"        CHASE_PARENT                        "file"       /image/a/b        1
+         *    "c/.."        CHASE_PARENT                        "."          /image/a/b        1
+         *    ".."          CHASE_PARENT                        ".."         /image/a          1
+         *    "/a/b/.."     CHASE_PARENT                        "a"          /image            1
+         *    ".."          CHASE_EXTRACT_FILENAME              "."          /image/a          1
+         *    ".."          CHASE_PARENT|CHASE_EXTRACT_FILENAME "."          /image/a          1
+         *    "/"           CHASE_PARENT                        "."          /image            1
+         *    "missing"     0                                   unchanged    unchanged         -ENOENT
+         *    "missing"     CHASE_NONEXISTENT                   "missing"    -EBADF            0
+         *    "missing"     CHASE_PARENT                        "missing"    /image/a/b        1
+         *    ""            0                                   "."          /image/a/b        1
          *
          * Algorithmically this operates on two path buffers: "done" are the components of the path we
          * already processed and resolved symlinks, "." and ".." of. "todo" are the components of the path we
@@ -350,8 +369,8 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
          *    is returned if the file doesn't exist, > 0 otherwise. If CHASE_NONEXISTENT is not set, >= 0 is
          *    returned if the destination was found, -ENOENT if it wasn't.
          *
-         * 2. With ret_fd: in this case the destination is opened after chasing it as O_PATH and this file
-         *    descriptor is returned as return value. This is useful to open files relative to some root
+         * 2. With ret_fd: in this case the destination is opened after chasing it as O_PATH and the file
+         *    descriptor is stored in *ret_fd. This is useful to open files relative to some root
          *    directory. Note that the returned O_PATH file descriptors must be converted into a regular one
          *    (using fd_reopen() or such) before it can be used for reading/writing. If CHASE_NONEXISTENT
          *    is also set and the destination doesn't exist, 0 is returned and ret_fd is set to -EBADF.
@@ -626,12 +645,10 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                                 _cleanup_close_ int fd_grandparent = -EBADF;
                                 struct statx stx_grandparent;
 
-                                /* With CHASE_PARENT, the returned fd refers to the result itself if the
-                                 * result is "." or "/". fd_parent refers to the result in that case already.
-                                 * If fd_parent is the root directory, openat(fd_parent, "..") returns the
-                                 * directory above the root. We treat the root directory as its own parent
-                                 * instead, like we do for "/..". */
-                                bool stay = empty_or_root(done);
+                                /* A normalized path ending in ".." has no filename to open in its parent.
+                                 * The returned fd refers to the result itself, as it does for "." and "/".
+                                 * The root directory must also remain inside the root boundary. */
+                                bool stay = empty_or_root(done) || path_equal(last_path_component(done), "..");
                                 if (!stay && root_fd != XAT_FDROOT) {
                                         r = chase_statx_is_root(&stx_parent, &root_stx);
                                         if (r < 0)
@@ -825,11 +842,10 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                 if (FLAGS_SET(flags, CHASE_EXTRACT_FILENAME) && done) {
                         _cleanup_free_ char *f = NULL;
 
-                        r = path_extract_filename(done, &f);
-                        if (r < 0 && r != -EADDRNOTAVAIL)
+                        r = chase_split_prefix_filename(done, /* root= */ NULL, /* ret_dir= */ NULL, &f);
+                        if (r < 0)
                                 return r;
 
-                        /* If we get EADDRNOTAVAIL we clear done and it will get reinitialized by the next block. */
                         free_and_replace(done, f);
                 }
 
@@ -899,6 +915,20 @@ int chase(const char *path, const char *root, ChaseFlags flags, char **ret_path,
         int r;
 
         assert(path);
+
+        /* chase() includes the host path of root in ret_path unless CHASE_EXTRACT_FILENAME is set.
+         * For an existing tree /image/a/b/file, root="/image", and flags=CHASE_PARENT, the results are:
+         *
+         *    path                  ret_path              ret_fd refers to  return
+         *    "/image/a/b/file"     "/image/a/b/file"     /image/a/b        1
+         *    "/image/a/b/.."       "/image/a"            /image            1
+         *    "/image"              "/image"              /image            1
+         *
+         * CHASE_EXTRACT_FILENAME changes ret_path for "/image/a/b/file" to "file" without changing ret_fd.
+         * CHASE_PREFIX_ROOT accepts "a/b/file" as input under root="/image". With no other flags, it returns
+         * 1, ret_path="/image/a/b/file", and an fd for /image/a/b/file. An empty input path fails with
+         * -EINVAL, even though chaseat() accepts an empty path to refer to its starting fd.
+         */
 
         if (isempty(path))
                 return -EINVAL;
@@ -1029,8 +1059,8 @@ int chase_split_prefix_filename(const char *path, const char *root, char **ret_d
         const char *suffix = path;
         int r;
 
-        /* A normalized path without a final filename refers to the directory itself. Its filename is
-         * ".", and the directory path retains a trailing "..".
+        /* CHASE_PARENT returns the resolved directory itself for paths without a final filename. The
+         * filename must be "." relative to that fd, and the directory path must retain a trailing "..".
          *
          *    path           root       ret_dir        ret_filename
          *    "sub/file"     NULL       "sub"          "file"
@@ -1283,7 +1313,7 @@ int chase_and_unlink(const char *path, const char *root, ChaseFlags chase_flags,
         if (fd < 0)
                 return fd;
 
-        r = path_extract_filename(p, &fname);
+        r = chase_split_prefix_filename(p, root, /* ret_dir= */ NULL, &fname);
         if (r < 0)
                 return r;
 
@@ -1335,12 +1365,12 @@ int chase_and_openat(
                 if (FLAGS_SET(chase_flags, CHASE_EXTRACT_FILENAME))
                         /* chaseat() with CHASE_EXTRACT_FILENAME already returns just the filename in
                          * p — use it directly without redundant extraction. */
-                        open_name = p;
+                        open_name = path_equal(p, ".") ? NULL : p;
                 else {
-                        r = path_extract_filename(p, &fname);
-                        if (r < 0 && r != -EADDRNOTAVAIL)
+                        r = chase_split_prefix_filename(p, /* root= */ NULL, /* ret_dir= */ NULL, &fname);
+                        if (r < 0)
                                 return r;
-                        open_name = fname;
+                        open_name = path_equal(fname, ".") ? NULL : fname;
                 }
         }
 
@@ -1495,7 +1525,7 @@ int chase_and_unlinkat(int root_fd, int dir_fd, const char *path, ChaseFlags cha
         if (fd < 0)
                 return fd;
 
-        r = path_extract_filename(p, &fname);
+        r = chase_split_prefix_filename(p, /* root= */ NULL, /* ret_dir= */ NULL, &fname);
         if (r < 0)
                 return r;
 
