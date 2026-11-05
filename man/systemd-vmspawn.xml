@@ -366,10 +366,12 @@
           loading and lets QEMU use its built-in BIOS (e.g. SeaBIOS on x86). <literal>none</literal> disables
           firmware loading entirely and requires <option>--linux=</option> to be specified for direct kernel
           boot. Booting a UKI requires <literal>uefi</literal>. If the special string <literal>list</literal>
-          is specified, all discovered firmware definition files are listed. If the special string
-          <literal>describe</literal> is specified, the UEFI firmware that would be selected (taking
-          <option>--firmware-features=</option> and <option>--coco=</option> into account) is printed and
-          the program exits. If an empty string is specified, the option is reset to its default.</para>
+          is specified, the UEFI firmware definition files eligible for selection are listed in order of
+          preference, and the program exits. If the special string <literal>describe</literal> is specified,
+          the UEFI firmware that would be selected is printed and the program exits. Both take
+          <option>--firmware-features=</option>, <option>--secure-boot=</option> and
+          <option>--coco=</option> into account. If an empty string is specified, the option is reset to
+          its default.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>
