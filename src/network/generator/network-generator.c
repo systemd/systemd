@@ -1464,7 +1464,11 @@ void network_dump(Network *network, FILE *f) {
                 fputs("Kind=!*\n"
                       "Type=!loopback\n", f);
         else if (streq(network->ifname, "BOOTIF"))
-                fprintf(f, "MACAddress=%s\n", HW_ADDR_TO_STR(&network->match_mac));
+                /* Match only physical interfaces, as e.g. VLAN interfaces inherit the MAC address of their
+                 * parent. */
+                fprintf(f, "MACAddress=%s\n"
+                           "Kind=!*\n",
+                        HW_ADDR_TO_STR(&network->match_mac));
         else
                 fprintf(f, "Name=%s\n", network->ifname);
 
