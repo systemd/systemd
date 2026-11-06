@@ -97,6 +97,8 @@ int acquire_fido2_key(
                                 rp_id ?: "io.systemd.cryptsetup",
                                 salt.iov_base, salt.iov_len,
                                 cid, cid_size,
+                                /* public_key= */ NULL,
+                                /* public_key_algorithm= */ NULL,
                                 pins,
                                 required,
                                 ret_decrypted_key,
