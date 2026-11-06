@@ -15,6 +15,7 @@
 #include "pidref.h"
 #include "process-util.h"
 #include "socket-util.h"
+#include "time-util.h"
 
 static int lock_in_child(int fd, const char *path, LockType type, int operation, sd_event *event) {
         _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
@@ -80,6 +81,41 @@ static int lock_in_child(int fd, const char *path, LockType type, int operation,
                 return log_debug_errno(r, "Failed to acquire lock in worker: %m");
 
         return TAKE_FD(lock_fd);
+}
+
+int lock_generic_with_timeout(int fd, LockType type, int operation, usec_t timeout) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        int r;
+
+        assert(fd >= 0);
+
+        if (timeout == USEC_INFINITY)
+                return lock_generic(fd, type, operation);
+
+        if (type == LOCK_NONE)
+                return 0;
+
+        /* POSIX locks belong to the process and cannot be acquired on behalf of the parent. */
+        if (!IN_SET(type, LOCK_BSD, LOCK_UNPOSIX))
+                return -EOPNOTSUPP;
+
+        r = lock_generic(fd, type, operation|LOCK_NB);
+        if (r != -EAGAIN || timeout == 0 || FLAGS_SET(operation, LOCK_NB))
+                return r;
+
+        r = sd_event_new(&event);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create lock event loop: %m");
+
+        r = sd_event_add_time_relative(event, /* ret= */ NULL, CLOCK_MONOTONIC, timeout,
+                                       /* accuracy= */ 1, /* callback= */ NULL, INT_TO_PTR(-ETIMEDOUT));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to add lock deadline: %m");
+
+        _cleanup_close_ int lock_fd = lock_in_child(fd, /* path= */ NULL, type, operation, event);
+        /* lock_in_child() returns a duplicate fd on success, but this function returns zero or a negative error.
+         * Closing lock_fd leaves the lock held because fd still references the same open file description. */
+        return MIN(lock_fd, 0);
 }
 
 int make_lock_file_at_with_event(int dir_fd, const char *path, int operation, sd_event *event, LockFile *ret) {
