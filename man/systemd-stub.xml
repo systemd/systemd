@@ -279,6 +279,20 @@
       the initrd, regardless of the kernel version being booted. The generated <command>cpio</command>
       archive is measured into TPM PCR 12 (if a TPM is present).</para></listitem>
 
+      <listitem><para>The payload of the boot-services-only EFI variable
+      <varname>LoaderKeyringSetup</varname> (vendor UUID
+      <constant>4a67b082-0a4c-41cf-b6c7-440b29bb8c4f</constant>), if set by pre-boot provisioning tooling,
+      is unpacked into certificates that are placed in the
+      <filename>/.extra/system_credentials/</filename> directory of the initrd file hierarchy as trusted
+      system credentials, from where
+      <citerefentry><refentrytitle>systemd-keyring-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      enrolls them into the kernel keyrings. The raw payload is measured into TPM PCR 12 (if a TPM is
+      present) and mirrored in the volatile <varname>StubKeyringSetup</varname> variable, so that the OS can
+      inspect what was picked up, while the source variable remains invisible and immutable to the OS. The
+      variable is ignored in confidential VMs, where the host controls the variable store. See the
+      <ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink> for the payload
+      format.</para></listitem>
+
       <listitem><para>Additionally, files <filename>/loader/addons/*.addon.efi</filename> are loaded and
       verified as PE binaries, and <literal>.cmdline</literal>, <literal>.dtb</literal>,
       <literal>.initrd</literal>, and <literal>.ucode</literal> sections are parsed from them.
@@ -610,6 +624,17 @@
         this data.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>StubKeyringSetup</varname></term>
+
+        <listitem><para>A verbatim copy of the <varname>LoaderKeyringSetup</varname> payload picked up
+        during this boot, for inspection by the OS. This is a volatile variable, read-only once the OS
+        runs. It is informational: the data the OS acts on is passed as system credentials
+        instead.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
       <varlistentry>

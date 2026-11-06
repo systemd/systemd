@@ -12,6 +12,7 @@
 #include "graphics.h"
 #include "initrd.h"
 #include "iovec-util.h"
+#include "keyring-setup-var.h"
 #include "linux.h"
 #include "measure.h"
 #include "measure-smbios.h"
@@ -48,6 +49,7 @@ enum {
         INITRD_OSREL,
         INITRD_PROFILE,
         INITRD_BOOT_SECRET,
+        INITRD_KEYRING_SETUP,
         _INITRD_MAX,
 };
 
@@ -118,6 +120,7 @@ static void export_stub_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, unsig
                 EFI_STUB_FEATURE_REPORT_STUB_PARTITION |    /* We set StubDevicePartUUID + StubImageIdentifier */
                 EFI_STUB_FEATURE_REPORT_URL |               /* We set StubDeviceURL + LoaderDeviceURL */
                 EFI_STUB_FEATURE_SMBIOS_MEASURED |          /* We measure SMBIOS data into PCR 1 */
+                EFI_STUB_FEATURE_KEYRING_SETUP |            /* We pick up keyring certificates from an EFI variable */
                 0;
 
         assert(loaded_image);
@@ -948,6 +951,134 @@ static void generate_boot_secret_initrd(
                         /* ret_measured= */ NULL);
 }
 
+static void generate_keyring_setup_initrd(
+                struct iovec initrds[static _INITRD_MAX],
+                int *parameters_measured) {
+
+        _cleanup_free_ void *data = NULL;
+        uint32_t attributes = 0;
+        size_t size = 0;
+        EFI_STATUS err;
+
+        assert(initrds);
+        assert(parameters_measured);
+
+        /* Picks up certificates for the kernel keyrings from the LoaderKeyringSetup EFI variable, and
+         * passes them to the OS as trusted system credentials, from where systemd-keyring-setup enrolls
+         * them. The variable must be accessible to boot services only: the UEFI specification does not
+         * permit creating such a variable at runtime, hence whatever we find here was placed by pre-boot
+         * code, and the OS cannot create or modify it. (Typically it is non-volatile too, but pre-boot
+         * code may just as well set it afresh on every boot.) We mirror what we picked up in the volatile
+         * StubKeyringSetup variable, so that the OS can see it. */
+
+        /* First get rid of any StubKeyringSetup variable that is already there: a stale copy, or one the
+         * OS planted (which it can only do as a non-volatile variable, on which our volatile SetVariable()
+         * below would fail with an attribute mismatch). Passing no attributes deletes a variable regardless
+         * of the attributes it has, which the helpers don't allow for. */
+        (void) RT->SetVariable((char16_t *) u"StubKeyringSetup", MAKE_GUID_PTR(LOADER), /* attributes= */ 0, /* size= */ 0, /* data= */ NULL);
+
+        /* The variable store is controlled by the host admin and not covered by the VM attestation, so MUST
+         * NOT be trusted when in a confidential VM */
+        if (is_confidential_vm())
+                return;
+
+        err = efivar_get_raw_full(MAKE_GUID_PTR(LOADER), u"LoaderKeyringSetup", &attributes, &data, &size);
+        if (err == EFI_NOT_FOUND)
+                return;
+        if (err != EFI_SUCCESS) {
+                log_debug_status(err, "Failed to read LoaderKeyringSetup EFI variable, ignoring: %m");
+                return;
+        }
+
+        /* NB: for an empty variable no attributes are reported, hence the size condition */
+        if (size > 0 && FLAGS_SET(attributes, EFI_VARIABLE_RUNTIME_ACCESS)) {
+                /* Anything with runtime variable access, i.e. the OS, could have created this, hence don't
+                 * trust it. Don't be loud about it either, as it persists until deleted from the OS, and
+                 * each message would delay every boot. */
+                log_debug("LoaderKeyringSetup EFI variable is accessible at runtime, hence not trusted, ignoring. (Delete the variable to get rid of this message.)");
+                return;
+        }
+
+        err = keyring_setup_validate(data, size, /* ret_n_records= */ NULL);
+        if (err == EFI_BAD_BUFFER_SIZE) {
+                log_error("LoaderKeyringSetup EFI variable has unexpected size %zu, ignoring.", size);
+                return;
+        }
+        if (err == EFI_ALREADY_STARTED) {
+                log_error("LoaderKeyringSetup EFI variable carries duplicate credential names, ignoring.");
+                return;
+        }
+        if (err != EFI_SUCCESS) {
+                log_error_status(err, "LoaderKeyringSetup EFI variable is malformed, ignoring: %m");
+                return;
+        }
+
+        /* The payload is a sequence of records: a NUL terminated credential name, a 32-bit little endian
+         * length, and that many bytes of certificate data. We generate all initrd paths ourselves, so that
+         * the variable cannot place anything outside of the system credentials directory. */
+        uint32_t inode = 1;
+        _cleanup_free_ void *buffer = NULL;
+        size_t buffer_size = 0;
+
+        err = pack_cpio_prefix(&cpio_target_system_credentials, &inode, &buffer, &buffer_size);
+        if (err != EFI_SUCCESS) {
+                log_error_status(err, "Failed to pack cpio prefix: %m");
+                return;
+        }
+
+        for (size_t offset = 0;;) {
+                const char *name;
+                const void *payload;
+                size_t payload_size;
+
+                err = keyring_setup_next_record(data, size, &offset, &name, &payload, &payload_size);
+                if (err == EFI_NOT_FOUND)
+                        break;
+                assert(err == EFI_SUCCESS); /* validated above */
+
+                _cleanup_free_ char16_t *fname = xasprintf("%s.cred", name);
+                err = pack_cpio_one(
+                                fname,
+                                payload, payload_size,
+                                &cpio_target_system_credentials,
+                                &inode,
+                                &buffer, &buffer_size);
+                if (err != EFI_SUCCESS) {
+                        log_error_status(err, "Failed to pack cpio file %ls: %m", fname);
+                        return;
+                }
+        }
+
+        err = pack_cpio_trailer(&buffer, &buffer_size);
+        if (err != EFI_SUCCESS) {
+                log_error_status(err, "Failed to pack cpio trailer: %m");
+                return;
+        }
+
+        /* Measure the raw payload before acting on it. Proceed if there is simply no TPM, but not on
+         * measurement errors. */
+        bool m = false;
+        err = tpm_log_tagged_event(
+                        TPM2_PCR_KERNEL_CONFIG,
+                        POINTER_TO_PHYSICAL_ADDRESS(data),
+                        size,
+                        KEYRING_SETUP_EVENT_TAG_ID,
+                        u"Keyring setup variable",
+                        &m);
+        if (err != EFI_SUCCESS) {
+                log_error_status(err, "Failed to measure LoaderKeyringSetup EFI variable, not passing it on: %m");
+                return;
+        }
+        combine_measured_flag(parameters_measured, m);
+
+        initrds[INITRD_KEYRING_SETUP] = IOVEC_MAKE(TAKE_PTR(buffer), buffer_size);
+
+        /* Mirror the payload, so that the OS can inspect what we picked up. The copy is volatile and
+         * accessible at runtime, which the UEFI specification makes read-only once ExitBootServices() was
+         * called. It is informational nonetheless: what the OS acts on are the credentials passed above. */
+        (void) efivar_set_raw(MAKE_GUID_PTR(LOADER), u"StubKeyringSetup", data, size, 0);
+}
+
 static void lookup_embedded_initrds(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 const PeSectionVector sections[static _UNIFIED_SECTION_MAX],
@@ -1269,6 +1400,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         generate_sidecar_initrds(loaded_image, initrds, &parameters_measured, &sysext_measured, &confext_measured);
         generate_embedded_initrds(loaded_image, sections, initrds);
         generate_boot_secret_initrd(boot_secret, initrds);
+        generate_keyring_setup_initrd(initrds, &parameters_measured);
         lookup_embedded_initrds(loaded_image, sections, initrds);
 
         /* Add initrds in the right order. Generally, later initrds can overwrite files in earlier ones,

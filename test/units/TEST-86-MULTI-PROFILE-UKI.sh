@@ -64,8 +64,9 @@ systemd-cryptsetup detach multiprof
 
 if [[ "$ID" == "main" ]]; then
     # Give the UKI a mixed case name with a boot counter. Entry IDs are matched case insensitively
-    # and without the counter, so the lower case ID without counter has to keep working.
-    mv "$CURRENT_UKI" "$(dirname "$CURRENT_UKI")/Multi-Profile+3.efi"
+    # and without the counter, so the lower case ID without counter has to keep working. The counter
+    # covers the three counted boots that follow (profile1, Profile2 twice), with one try to spare.
+    mv "$CURRENT_UKI" "$(dirname "$CURRENT_UKI")/Multi-Profile+4.efi"
     bootctl set-default "multi-profile.efi@profile1"
     reboot
     exit 0
@@ -79,7 +80,34 @@ elif [[ "$ID" == "profile1" ]]; then
     exit 0
 elif [[ "$ID" == "Profile2" ]]; then
     grep testprofile2=1 /proc/cmdline
-    rm /root/encrypted.raw
+
+    KEYRING_VAR=/sys/firmware/efi/efivars/LoaderKeyringSetup-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
+    STUB_KEYRING_VAR=/sys/firmware/efi/efivars/StubKeyringSetup-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
+
+    if [[ ! -e /root/keyring-var-tested ]]; then
+        # The stub advertises the LoaderKeyringSetup pickup: bit 13 of StubFeatures, which follows the four
+        # attribute bytes efivarfs prepends
+        STUB_FEATURES=$(od -An -tu8 -j4 -N8 /sys/firmware/efi/efivars/StubFeatures-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f | tr -d ' ')
+        (( STUB_FEATURES & (1 << 13) ))
+
+        # Create the variable the only way the OS can: with EFI_VARIABLE_RUNTIME_ACCESS (0x7 = NV+BS+RT,
+        # efivarfs takes the attributes from the first four bytes). The payload itself is well-formed, so
+        # that the refusal on the next boot can only be due to the attributes.
+        printf '\x07\x00\x00\x00keyring-setup.fs-verity.evil\x00\x04\x00\x00\x00evil' >"$KEYRING_VAR"
+        test -e "$KEYRING_VAR"
+        touch /root/keyring-var-tested
+        reboot
+        exit 0
+    fi
+
+    # The OS-created variable is visible (it has runtime access), but the stub must not have consumed it:
+    # no mirror variable, no keyring-setup credentials.
+    test -e "$KEYRING_VAR"
+    test ! -e "$STUB_KEYRING_VAR"
+    (! compgen -G "/run/credentials/@system/keyring-setup.*" >/dev/null)
+
+    chattr -i "$KEYRING_VAR"
+    rm "$KEYRING_VAR" /root/keyring-var-tested /root/encrypted.raw
     # Reset the default boot entry so a subsequent re-run of the test does not
     # boot straight back into @profile2 (where encrypted.raw is now gone) and fail.
     bootctl set-default ""
