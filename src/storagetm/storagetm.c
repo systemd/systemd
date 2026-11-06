@@ -23,6 +23,7 @@
 #include "hashmap.h"
 #include "id128-util.h"
 #include "local-addresses.h"
+#include "lock-util.h"
 #include "main-func.h"
 #include "mountpoint-util.h"
 #include "os-util.h"
