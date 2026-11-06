@@ -4536,6 +4536,15 @@ static int verify_arguments(void) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "An explicit --efi-nvram-state= path cannot be used with --coco=, "
                                                "confidential computing firmware is stateless. Use 'off' or 'auto'.");
+
+                /* A TPM emulated by the host is under the host's control and adds no trust to a confidential
+                 * VM: attestation rests on the launch measurement and the VM's measurement registers, and
+                 * whatever the guest measures into or seals with such a TPM is open to the host. Hence only
+                 * attach one if explicitly requested. */
+                if (arg_tpm > 0)
+                        log_warning("A TPM attached with --tpm=yes is under the host's control and can't be trusted by the confidential VM.");
+                else
+                        arg_tpm = false;
         }
 
         if (arg_confidential_computing == COCO_SEV_SNP) {
@@ -4549,8 +4558,6 @@ static int verify_arguments(void) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "--coco=sev-snp can't be used with %s firmware",
                                                firmware_to_string(arg_firmware_type));
-                if (arg_tpm > 0)
-                        log_warning("TPM can't be trusted by the confidential computing guest");
                 /* kernel-hashes=on only covers what QEMU itself loads via -kernel/-initrd/-append.
                  * Without --linux= the kernel and initrd come off disk via OVMF and aren't part
                  * of the launch measurement, leaving the guest unattestable in any meaningful
@@ -4572,8 +4579,6 @@ static int verify_arguments(void) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "--coco=tdx can't be used with %s firmware",
                                                firmware_to_string(arg_firmware_type));
-                if (arg_tpm > 0)
-                        log_warning("TPM can't be trusted by the confidential computing guest");
         }
 
         return 0;
