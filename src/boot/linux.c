@@ -83,12 +83,16 @@ static EFI_STATUS load_via_boot_services(
                 uninstall_security_override();
 
         if (err != EFI_SUCCESS)
-                return log_error_status(EFI_LOAD_ERROR, "Error loading inner kernel with shim: %m");
+                return log_error_status(
+                                err == EFI_UNSUPPORTED ? EFI_LOAD_ERROR : err,
+                                "Error loading inner kernel with shim: %m");
 
         err = BS->HandleProtocol(
                         kernel_image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
         if (err != EFI_SUCCESS)
-                return log_error_status(EFI_LOAD_ERROR, "Error getting kernel image from protocol from shim: %m");
+                return log_error_status(
+                                err == EFI_UNSUPPORTED ? EFI_LOAD_ERROR : err,
+                                "Error getting kernel image from protocol from shim: %m");
 
         if (cmdline) {
                 loaded_image->LoadOptions = (void *) cmdline;
@@ -374,7 +378,10 @@ EFI_STATUS linux_exec(
                 EFI_IMAGE_ENTRY_POINT compat_entry =
                                 (EFI_IMAGE_ENTRY_POINT) ((const uint8_t *) parent_loaded_image->ImageBase + compat_entry_point);
                 err = compat_entry(parent_image, ST);
-        }
+        } else
+                /* pe_kernel_info() guarantees that one of the entry points is set, but let's not fall
+                 * through with err == EFI_SUCCESS if that ever changes. */
+                err = EFI_LOAD_ERROR;
 
         /* Restore */
         *parent_loaded_image = original_parent_loaded_image;
