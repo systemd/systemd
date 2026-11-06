@@ -1072,6 +1072,11 @@ units = [
           'symlinks' : ['dbus-org.freedesktop.timedate1.service'],
         },
         {
+          'file' : 'systemd-timedated.socket',
+          'conditions' : ['ENABLE_TIMEDATED'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
           'file' : 'systemd-timesyncd.service.in',
           'conditions' : ['ENABLE_TIMESYNCD'],
         },
