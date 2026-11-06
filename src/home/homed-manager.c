@@ -687,8 +687,7 @@ static int manager_acquire_uid(
                 if (r < 0)
                         continue;
                 if (r > 0) {
-                        log_debug_errno(r, "Candidate UID " UID_FMT " already owns IPC objects, let's try another: %m",
-                                        candidate);
+                        log_debug("Candidate UID " UID_FMT " already owns IPC objects, let's try another.", candidate);
                         continue;
                 }
 

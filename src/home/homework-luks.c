@@ -1344,7 +1344,7 @@ int home_setup_luks(
                                 return log_error_errno(errno, "Failed to get block device metrics of %s: %m", n);
 
                         if (fstat(setup->loop->fd, &st) < 0)
-                                return log_error_errno(r, "Failed to stat block device %s: %m", n);
+                                return log_error_errno(errno, "Failed to stat block device %s: %m", n);
                         assert(S_ISBLK(st.st_mode));
 
                         if (asprintf(&sysfs, "/sys/dev/block/" DEVNUM_FORMAT_STR "/partition", DEVNUM_FORMAT_VAL(st.st_rdev)) < 0)
@@ -2561,7 +2561,7 @@ int home_create_luks(
 
         /* Sync everything to disk before we move things into place under the final name. */
         if (fsync(setup->image_fd) < 0)
-                return log_error_errno(r, "Failed to synchronize image to disk: %m");
+                return log_error_errno(errno, "Failed to synchronize image to disk: %m");
 
         if (disk_uuid_path)
                 /* Reread partition table if this is a block device */
@@ -3914,7 +3914,7 @@ static int device_is_gone(HomeSetup *setup) {
         r = sd_device_new_from_stat_rdev(&d, &st);
         if (r < 0) {
                 if (r != -ENODEV)
-                        return log_error_errno(errno, "Failed to allocate device object from block device node %s: %m", setup->dm_node);
+                        return log_error_errno(r, "Failed to allocate device object from block device node %s: %m", setup->dm_node);
 
                 return true;
         }
@@ -4010,7 +4010,7 @@ int wait_for_block_device_gone(HomeSetup *setup, usec_t timeout_usec) {
         if (r < 0)
                 return r;
         if (r == 0)
-                return log_error_errno(r, "Device %s still around.", setup->dm_node);
+                return log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Device %s still around.", setup->dm_node);
 
         log_debug("Successfully waited until device %s disappeared.", setup->dm_node);
         return 0;

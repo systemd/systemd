@@ -1580,7 +1580,8 @@ static int start_virtiofsd(
                 if (r < 0)
                         return r;
 
-        } else if (!IN_SET(source_uid, FOREIGN_UID_MIN, UID_INVALID) && target_uid != UID_INVALID && uid_range != UID_INVALID) {
+        } else if (!IN_SET(source_uid, FOREIGN_UID_MIN, UID_INVALID) && target_uid != UID_INVALID && uid_range != UID_INVALID &&
+                   source_uid != target_uid) {
                 r = strv_extend(&argv, "--translate-uid");
                 if (r < 0)
                         return log_oom();
@@ -1637,8 +1638,8 @@ static int start_virtiofsd(
                         _exit(EXIT_FAILURE);
                 }
 
-                invoke_callout_binary(argv[0], argv);
-                log_error_errno(errno, "Failed to execute '%s': %m", argv[0]);
+                r = invoke_callout_binary(argv[0], argv);
+                log_error_errno(r, "Failed to execute '%s': %m", argv[0]);
                 _exit(EXIT_FAILURE);
         }
 

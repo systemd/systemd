@@ -12,7 +12,6 @@
 #include "bus-object.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
-#include "cgroup-util.h"
 #include "discover-image.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -681,7 +680,7 @@ static int method_create_machine(sd_bus_message *message, void *userdata, sd_bus
         assert(message);
 
         if (sd_bus_message_is_method_call(message, NULL, "CreateMachineEx"))
-                r = method_create_or_register_machine_ex(manager, message, "org.freedesktop.machine1.create-machines", &m, error);
+                r = method_create_or_register_machine_ex(manager, message, "org.freedesktop.machine1.create-machine", &m, error);
         else
                 r = method_create_or_register_machine(manager, message, "org.freedesktop.machine1.create-machine", &m, error);
         if (r < 0)
@@ -722,36 +721,12 @@ static int method_register_machine(sd_bus_message *message, void *userdata, sd_b
         if (r == 0)
                 return 1; /* Will call us back */
 
-        switch (manager->runtime_scope) {
-        case RUNTIME_SCOPE_USER:
-                r = cg_pidref_get_user_unit_full(&m->leader, &m->unit, &m->subgroup);
-                break;
-
-        case RUNTIME_SCOPE_SYSTEM:
-                r = cg_pidref_get_unit_full(&m->leader, &m->unit, &m->subgroup);
-                break;
-
-        default:
-                assert_not_reached();
-        }
+        r = machine_determine_unit(m);
         if (r < 0) {
                 r = sd_bus_error_set_errnof(error, r,
-                                            "Failed to determine unit of process "PID_FMT" : %m",
+                                            "Failed to determine unit or cgroup of process "PID_FMT": %m",
                                             m->leader.pid);
                 goto fail;
-        }
-
-        if (!empty_or_root(m->subgroup)) {
-                /* If this is not a top-level cgroup, then we need the cgroup path to be able to watch when
-                 * it empties */
-
-                r = cg_pidref_get_path(&m->leader, &m->cgroup);
-                if (r < 0) {
-                        r = sd_bus_error_set_errnof(error, r,
-                                                    "Failed to determine cgroup of process "PID_FMT" : %m",
-                                                    m->leader.pid);
-                        goto fail;
-                }
         }
 
         r = machine_start(m, NULL, error);

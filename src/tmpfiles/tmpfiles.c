@@ -896,18 +896,15 @@ static bool hardlinks_protected(void) {
         if (cached >= 0)
                 return cached;
 
-        _cleanup_free_ char *value = NULL;
-
-        r = sysctl_read("fs/protected_hardlinks", &value);
+        int v;
+        r = sysctl_read_int("fs/protected_hardlinks", &v);
         if (r < 0) {
                 log_debug_errno(r, "Failed to read fs.protected_hardlinks sysctl, assuming disabled: %m");
                 return false;
         }
 
-        cached = parse_boolean(value);
-        if (cached < 0)
-                log_debug_errno(cached, "Failed to parse fs.protected_hardlinks sysctl, assuming disabled: %m");
-        return cached > 0;
+        cached = v > 0;
+        return cached;
 }
 
 static bool hardlink_vulnerable(const struct stat *st) {
