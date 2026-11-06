@@ -594,6 +594,70 @@ static void test_vtable_partial_failure(void) {
         ASSERT_TRUE(set_isempty(bus->vtable_methods));
 }
 
+static void test_vtable_failure_preserves_existing_members(void) {
+        static const sd_bus_vtable existing_vtable[] = {
+                SD_BUS_VTABLE_START(0),
+                SD_BUS_METHOD("Existing", NULL, NULL, NULL, 0),
+                SD_BUS_PROPERTY("ExistingProperty", "t", NULL, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+                SD_BUS_VTABLE_END,
+        };
+        static const sd_bus_vtable duplicate_vtable[] = {
+                SD_BUS_VTABLE_START(0),
+                SD_BUS_METHOD("Transient", NULL, NULL, NULL, 0),
+                SD_BUS_PROPERTY("TransientProperty", "t", NULL, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+                SD_BUS_METHOD("Existing", NULL, NULL, NULL, 0),
+                SD_BUS_VTABLE_END,
+        };
+        static const sd_bus_vtable invalid_vtable[] = {
+                SD_BUS_VTABLE_START(0),
+                SD_BUS_METHOD("Transient", NULL, NULL, NULL, 0),
+                { .type = 0xff },
+                SD_BUS_VTABLE_END,
+        };
+        static const sd_bus_vtable invalid_after_duplicate_vtable[] = {
+                SD_BUS_VTABLE_START(0),
+                SD_BUS_METHOD("Existing", NULL, NULL, NULL, 0),
+                { .type = 0xff },
+                SD_BUS_VTABLE_END,
+        };
+        static const sd_bus_vtable recovery_vtable[] = {
+                SD_BUS_VTABLE_START(0),
+                SD_BUS_METHOD("Transient", NULL, NULL, NULL, 0),
+                SD_BUS_PROPERTY("TransientProperty", "t", NULL, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+                SD_BUS_VTABLE_END,
+        };
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *existing = NULL, *recovery = NULL;
+        uint64_t value = 0;
+
+        ASSERT_OK(sd_bus_new(&bus));
+        ASSERT_OK(sd_bus_add_object_vtable(bus, &existing, "/x", "org.test.iface", existing_vtable, &value));
+
+        /* A failed addition must undo both kinds of new members without removing members owned by
+         * another vtable at the same path and interface. */
+        ASSERT_ERROR(sd_bus_add_object_vtable(bus, /* ret_slot= */ NULL, "/x", "org.test.iface", duplicate_vtable, &value), EEXIST);
+        ASSERT_EQ(set_size(bus->vtable_methods), 1U);
+        ASSERT_EQ(set_size(bus->vtable_properties), 1U);
+
+        ASSERT_ERROR(sd_bus_add_object_vtable(bus, /* ret_slot= */ NULL, "/x", "org.test.iface", invalid_vtable, &value), EINVAL);
+        ASSERT_EQ(set_size(bus->vtable_methods), 1U);
+        ASSERT_EQ(set_size(bus->vtable_properties), 1U);
+
+        /* Report the first registration error, even when a later entry has an invalid type. */
+        ASSERT_ERROR(sd_bus_add_object_vtable(bus, /* ret_slot= */ NULL, "/x", "org.test.iface", invalid_after_duplicate_vtable, &value), EEXIST);
+
+        ASSERT_OK(sd_bus_add_object_vtable(bus, &recovery, "/x", "org.test.iface", recovery_vtable, &value));
+        ASSERT_EQ(set_size(bus->vtable_methods), 2U);
+        ASSERT_EQ(set_size(bus->vtable_properties), 2U);
+
+        recovery = sd_bus_slot_unref(recovery);
+        ASSERT_EQ(set_size(bus->vtable_methods), 1U);
+        ASSERT_EQ(set_size(bus->vtable_properties), 1U);
+        existing = sd_bus_slot_unref(existing);
+        ASSERT_TRUE(set_isempty(bus->vtable_methods));
+        ASSERT_TRUE(set_isempty(bus->vtable_properties));
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_future_unrefp) sd_future *f_server = NULL, *f_client = NULL;
@@ -602,6 +666,7 @@ int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
         test_vtable_partial_failure();
+        test_vtable_failure_preserves_existing_members();
 
         c.automatic_integer_property = 4711;
         ASSERT_NOT_NULL(c.automatic_string_property = strdup("dudeldu"));
