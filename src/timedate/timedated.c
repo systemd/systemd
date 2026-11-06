@@ -610,18 +610,12 @@ static bool ntp_synced(void) {
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_time, "t", now(CLOCK_REALTIME));
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_ntp_sync, "b", ntp_synced());
 
-static int property_get_rtc_time(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
+static int get_rtc_time(usec_t *ret) {
         struct tm tm = {};
         usec_t t = 0;
         int r;
+
+        assert(ret);
 
         r = hwclock_get(&tm);
         if (r == -EBUSY)
@@ -631,12 +625,32 @@ static int property_get_rtc_time(
         else if (r == -ENODATA)
                 log_debug("/dev/rtc has no valid time, power loss probably occurred?");
         else if (r < 0)
-                return sd_bus_error_set_errnof(error, r, "Failed to read RTC: %m");
+                return r;
         else {
                 r = mktime_or_timegm_usec(&tm, /* utc= */ true, &t);
                 if (r < 0)
                         log_warning_errno(r, "Failed to convert RTC time to UNIX time, ignoring: %m");
         }
+
+        *ret = t;
+        return 0;
+}
+
+static int property_get_rtc_time(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        usec_t t = 0;
+        int r;
+
+        r = get_rtc_time(&t);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to read RTC: %m");
 
         return sd_bus_message_append(reply, "t", t);
 }
