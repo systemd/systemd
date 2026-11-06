@@ -2,10 +2,13 @@
 
 #include "alloc-util.h"
 #include "escape.h"
+#include "manager.h"
+#include "rm-rf.h"
 #include "service.h"
 #include "strv.h"
 #include "tests.h"
 #include "time-util.h"
+#include "timer.h"
 #include "unit.h"
 
 static void test_unit_escape_setting_one(
@@ -142,6 +145,70 @@ TEST(service_restart_usec_nth) {
         ASSERT_EQ(service_restart_usec_nth(10 * USEC_PER_SEC, USEC_INFINITY, 4, 3), 10 * USEC_PER_SEC);
         ASSERT_EQ(service_restart_usec_nth(/* restart_usec= */ 0, 160 * USEC_PER_SEC, 4, 3), 0u);
         ASSERT_EQ(service_restart_usec_nth(160 * USEC_PER_SEC, 160 * USEC_PER_SEC, 4, 3), 160 * USEC_PER_SEC);
+}
+
+TEST(timer_coldplug) {
+        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_(unit_freep) Unit *service = NULL;
+
+        ASSERT_NOT_NULL(runtime_dir = setup_fake_runtime_dir());
+        ASSERT_OK(manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL|MANAGER_TEST_DONT_OPEN_EXECUTOR, &m));
+        m->n_reloading = 1;
+
+        ASSERT_OK(unit_new_for_name(m, sizeof(Service), "coldplug.service", &service));
+        service->load_state = UNIT_LOADED;
+
+        /* Waiting timers must not repeat a fired trigger. Elapsed timers must stay elapsed even when
+         * the loaded configuration supplies a future trigger. */
+        FOREACH_ELEMENT(state, ((const TimerState[]) { TIMER_WAITING, TIMER_ELAPSED })) {
+                _cleanup_(unit_freep) Unit *u = NULL;
+                TimerValue *v;
+
+                ASSERT_OK(unit_new_for_name(m, sizeof(Timer), "coldplug.timer", &u));
+                u->load_state = UNIT_LOADED;
+                ASSERT_OK(unit_add_dependency(u, UNIT_TRIGGERS, service, /* add_reference= */ true, UNIT_DEPENDENCY_FILE));
+
+                Timer *t = TIMER(u);
+                t->deserialized_state = *state;
+                /* Keep an already fired OnActiveSec= timer waiting for a separate trigger. */
+                t->on_clock_change = *state == TIMER_WAITING;
+                dual_timestamp_now(&t->last_trigger);
+                u->inactive_exit_timestamp = (dual_timestamp) {
+                        .monotonic = *state == TIMER_WAITING ? 1 : t->last_trigger.monotonic,
+                };
+
+                ASSERT_NOT_NULL(v = new0(TimerValue, 1));
+                v->base = TIMER_ACTIVE;
+                v->value = *state == TIMER_WAITING ? 1 : USEC_PER_HOUR;
+                LIST_PREPEND(value, t->values, v);
+
+                ASSERT_OK(unit_coldplug(u));
+                ASSERT_EQ(t->state, *state);
+                if (*state == TIMER_WAITING)
+                        ASSERT_TRUE(v->disabled);
+                ASSERT_NULL(t->monotonic_event_source);
+        }
+
+        /* A pending OnActiveSec= trigger must retain its original deadline across reloads. */
+        _cleanup_(unit_freep) Unit *u = NULL;
+        TimerValue *v;
+
+        ASSERT_OK(unit_new_for_name(m, sizeof(Timer), "pending.timer", &u));
+        u->load_state = UNIT_LOADED;
+        u->inactive_exit_timestamp = (dual_timestamp) { .monotonic = now(CLOCK_MONOTONIC) };
+        ASSERT_OK(unit_add_dependency(u, UNIT_TRIGGERS, service, /* add_reference= */ true, UNIT_DEPENDENCY_FILE));
+
+        Timer *t = TIMER(u);
+        t->deserialized_state = TIMER_WAITING;
+        ASSERT_NOT_NULL(v = new0(TimerValue, 1));
+        v->base = TIMER_ACTIVE;
+        v->value = USEC_PER_HOUR;
+        LIST_PREPEND(value, t->values, v);
+
+        ASSERT_OK(unit_coldplug(u));
+        ASSERT_EQ(t->state, TIMER_WAITING);
+        ASSERT_EQ(t->next_elapse_monotonic_or_boottime, u->inactive_exit_timestamp.monotonic + USEC_PER_HOUR);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
