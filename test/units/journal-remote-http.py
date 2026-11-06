@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+import bz2
 import contextlib
 import ctypes
+import gzip
 import hashlib
 import http.client
 import lzma
@@ -166,6 +168,23 @@ class StreamingTests:
         self.assertEqual(self.post(body, self.encoding), 202)
         self.assertEqual(self.journal(), [message])
 
+    def test_concatenated_frames(self):
+        # systemd-journal-upload compresses the data from each libcurl read
+        # callback separately, so one body holds many frames and an entry can
+        # span two of them.
+        data = entry('first') + entry('second')
+        split = len(entry('first')) + 1
+        first = self.compress(data[:split])
+        body = first + self.compress(data[split:])
+        for cut in (1, len(first), len(first) + 1):
+            with self.subTest(cut=cut), self.connect() as connection:
+                connection.begin(self.encoding)
+                connection.chunk(body[:cut])
+                connection.chunk(body[cut:])
+                connection.chunk(b'')
+                self.assertEqual(connection.status(), 202)
+        self.assertEqual(self.journal(), ['first', 'second'] * 3)
+
     def test_decoder_is_per_request(self):
         with self.connect() as connection:
             self.assertEqual(connection.post(self.compressed('first'), self.encoding, keep_alive=True), 202)
@@ -174,6 +193,20 @@ class StreamingTests:
 
     def test_truncated_upload(self):
         self.assert_rejected(self.compressed('truncated')[:-1])
+
+
+class Bzip2StreamingTests(StreamingTests, ReceiverTestCase):
+    encoding = 'bzip2'
+
+    def compress(self, data):
+        return bz2.compress(data)
+
+
+class GzipStreamingTests(StreamingTests, ReceiverTestCase):
+    encoding = 'gzip'
+
+    def compress(self, data):
+        return gzip.compress(data)
 
 
 class XzStreamingTests(StreamingTests, ReceiverTestCase):
