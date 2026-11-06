@@ -15,6 +15,8 @@
 #include "string-util.h"
 #include "strv.h"
 
+#define HASHED_PASSWORD_LENGTH_MIN 4U
+
 #if HAVE_LIBCRYPT
 #ifdef __GLIBC__
 static DLSYM_PROTOTYPE(crypt_gensalt_ra) = NULL;
@@ -92,6 +94,11 @@ int test_password_one(const char *hashed_password, const char *password) {
                 /* Unknown or unavailable hashing method or string too short */
                 return 0;
         }
+
+        /* Let's add extra protection here and never say yes if the hashed password is too short. This should
+         * protect us from vulenarabilities in style of CVE-2026-123158.  */
+        if (strlen(hashed_password) < HASHED_PASSWORD_LENGTH_MIN)
+                return 0;
 
         return streq(k, hashed_password);
 }
