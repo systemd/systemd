@@ -9,6 +9,44 @@ static SD_VARLINK_DEFINE_METHOD(Pause);
 static SD_VARLINK_DEFINE_METHOD(Resume);
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE_FULL(
+                MemoryStats,
+                SD_VARLINK_EXPERIMENTAL,
+                SD_VARLINK_FIELD_COMMENT("When the guest last reported statistics, in µs since the UNIX epoch"),
+                SD_VARLINK_DEFINE_FIELD(lastUpdateUSec, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Total memory as seen by the guest kernel"),
+                SD_VARLINK_DEFINE_FIELD(totalBytes, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Memory the guest kernel considers free"),
+                SD_VARLINK_DEFINE_FIELD(freeBytes, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Memory available without swapping, the guest kernel's MemAvailable estimate; null if not reported"),
+                SD_VARLINK_DEFINE_FIELD(availableBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Reclaimable disk caches; null if not reported"),
+                SD_VARLINK_DEFINE_FIELD(diskCachesBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Memory swapped in since guest boot; null if not reported"),
+                SD_VARLINK_DEFINE_FIELD(swapInBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Memory swapped out since guest boot; null if not reported"),
+                SD_VARLINK_DEFINE_FIELD(swapOutBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Major page faults since guest boot; null if not reported"),
+                SD_VARLINK_DEFINE_FIELD(majorFaults, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Minor page faults since guest boot; null if not reported"),
+                SD_VARLINK_DEFINE_FIELD(minorFaults, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Successful hugetlb page allocations since guest boot; null if not reported"),
+                SD_VARLINK_DEFINE_FIELD(hugetlbAllocations, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Failed hugetlb page allocations since guest boot; null if not reported"),
+                SD_VARLINK_DEFINE_FIELD(hugetlbFailures, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("OOM kills since guest boot (Linux 6.10 and newer); null if not reported"),
+                SD_VARLINK_DEFINE_FIELD(oomKills, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Allocation stalls since guest boot (Linux 6.10 and newer); null if not reported"),
+                SD_VARLINK_DEFINE_FIELD(allocationStalls, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Memory scanned by kswapd since guest boot (Linux 6.10 and newer); null if not reported"),
+                SD_VARLINK_DEFINE_FIELD(asyncScansBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Memory scanned by allocating tasks since guest boot (Linux 6.10 and newer); null if not reported"),
+                SD_VARLINK_DEFINE_FIELD(directScansBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Memory reclaimed by kswapd since guest boot (Linux 6.10 and newer); null if not reported"),
+                SD_VARLINK_DEFINE_FIELD(asyncReclaimsBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Memory reclaimed by allocating tasks since guest boot (Linux 6.10 and newer); null if not reported"),
+                SD_VARLINK_DEFINE_FIELD(directReclaimsBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE_FULL(
                 Memory,
                 SD_VARLINK_EXPERIMENTAL,
                 SD_VARLINK_FIELD_COMMENT("Memory size the machine was started with"),
@@ -16,7 +54,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE_FULL(
                 SD_VARLINK_FIELD_COMMENT("Memory size last requested via SetMemory(), rounded up to the backend's granularity. Equals configuredBytes if never called or if the backend cannot resize memory"),
                 SD_VARLINK_DEFINE_FIELD(targetBytes, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("Memory size the machine currently sees, as last reported by the backend. null if not yet known"),
-                SD_VARLINK_DEFINE_FIELD(actualBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD(actualBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Statistics the guest reports through its balloon device; null if none were reported yet. Backends may start collecting them only on the first Describe() call"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(stats, MemoryStats, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 Describe,
@@ -104,6 +144,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                                           "With 'more', sends a notification whenever the current size changes, and replies once it reached the target, moved away from it, or stopped moving short of it. "
                                           "Fails with Superseded if another call replaces the target first. Backends without a resizing mechanism return NotSupported"),
                 &vl_method_SetMemory,
+                SD_VARLINK_SYMBOL_COMMENT("Memory statistics reported by a guest, sizes in bytes, counters cumulative since guest boot"),
+                &vl_type_MemoryStats,
                 SD_VARLINK_SYMBOL_COMMENT("Memory state of a machine, all sizes in bytes"),
                 &vl_type_Memory,
                 SD_VARLINK_SYMBOL_COMMENT("The connection to the machine backend is not available"),
