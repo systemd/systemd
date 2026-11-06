@@ -131,6 +131,7 @@ int enroll_fido2(
                         &salt,
                         &cid, &cid_size,
                         &secret, &secret_size,
+                        /* ret_public_key= */ NULL,
                         /* ret_usedpin= */ NULL,
                         &lock_with);
         if (r < 0)
