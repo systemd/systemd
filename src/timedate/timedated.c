@@ -920,7 +920,7 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
         r = bus_verify_polkit_async_full(
                         m,
                         "org.freedesktop.timedate1.set-local-rtc",
-                        /* details= */ NULL,
+                        (const char**) STRV_MAKE("local_rtc", one_zero(lrtc)),
                         /* good_user= */ UID_INVALID,
                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &c->polkit_registry,
