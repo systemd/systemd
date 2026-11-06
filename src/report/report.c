@@ -171,12 +171,12 @@ static bool metric_startswith_prefix(const char *metric_name, const char *prefix
 }
 
 typedef enum {
-        VERDICT_INVALID,
+        VERDICT_INVALID = 0,
         VERDICT_MATCH,
         VERDICT_MISMATCH,
 } Verdict;
 
-static Verdict metrics_verdict(LinkInfo *li, sd_json_variant *metric) {
+static int metrics_verdict(LinkInfo *li, sd_json_variant *metric) {
         int r;
 
         assert(li);
@@ -189,17 +189,13 @@ static Verdict metrics_verdict(LinkInfo *li, sd_json_variant *metric) {
 
         const char *metric_name = NULL;
         r = sd_json_dispatch(metric, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &metric_name);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to get metric name, assuming name is not valid: %m");
-                return VERDICT_INVALID;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get metric name: %m");
 
         /* Validate metric name is generally valid */
         r = metrics_name_valid(metric_name);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to determine if '%s' is a valid metric name: %m", metric_name);
-                return VERDICT_INVALID;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine if '%s' is a valid metric name: %m", metric_name);
         if (!r) {
                 log_debug("Metric name '%s' is not valid, skipping.", metric_name);
                 return VERDICT_INVALID;
@@ -246,6 +242,7 @@ static int on_query_reply(
 
         LinkInfo *li = ASSERT_PTR(userdata);
         Context *context = ASSERT_PTR(li->context);
+        int r = 0;
 
         if (error_id) {
                 if (STR_IN_SET(error_id, SD_VARLINK_ERROR_METHOD_NOT_FOUND,
@@ -274,30 +271,41 @@ static int on_query_reply(
                 goto finish;
         }
 
-        Verdict v = metrics_verdict(li, parameters);
-        if (v == VERDICT_INVALID) {
+        r = metrics_verdict(li, parameters);
+        if (r < 0)
+                goto finish;
+        if (r == VERDICT_INVALID) {
                 context->n_invalid_metrics++;
                 goto finish;
         }
-        if (v == VERDICT_MISMATCH)
+        if (r == VERDICT_MISMATCH)
                 goto finish;
 
         /* Collect metrics for later sorting */
-        if (!GREEDY_REALLOC(context->metrics, context->n_metrics + 1))
-                return log_oom();
+        if (!GREEDY_REALLOC(context->metrics, context->n_metrics + 1)) {
+                r = log_oom_debug();
+                goto finish;
+        }
 
         context->metrics[context->n_metrics++] = sd_json_variant_ref(parameters);
         li->n_metrics++;
 
 finish:
-        if (!FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES)) {
+        if (r < 0 || !FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES)) {
+                /* Either this was the final reply or we failed. Either way this call is over: drop the
+                 * connection, so that no further replies are dispatched to us. */
                 assert_se(set_remove(context->link_infos, li) == li);
                 link_info_free(li);
-                if (set_isempty(context->link_infos))
+
+                /* sd-varlink logs and ignores errors returned by reply callbacks, hence propagate
+                 * failures via the exit code of the event loop. */
+                if (r < 0)
+                        (void) sd_event_exit(context->event, r);
+                else if (set_isempty(context->link_infos))
                         (void) sd_event_exit(context->event, EXIT_SUCCESS);
         }
 
-        return 0;
+        return r;
 }
 
 static int call_collect(Context *context, const char *name, const char *path) {
@@ -651,7 +659,9 @@ static int context_collect_metrics(Context *context) {
                 if (!p)
                         return log_oom();
 
-                (void) call_collect(context, d->d_name, p);
+                r = call_collect(context, d->d_name, p);
+                if (r == -ENOMEM)
+                        return r;
         }
 
         context->n_contacted_sources = set_size(context->link_infos);
