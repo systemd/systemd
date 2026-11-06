@@ -187,6 +187,9 @@ sensor:modalias:acpi:SMO8500:*:dmi:*:svnASUSTeK*:*:rnTP300LD:*       # Transform
 sensor:modalias:acpi:SMO8500:*:dmi:*:svnASUSTeK*:*:rnTP300LJ:*       # Transformer Book Flip (TP300LJ)
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnASUSTeK*:*:rnTP3607SH:*    # Vivobook 16 Flip (TP3607SH)
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, 1, 0; 0, 0, -1
+
 #########################################
 # Axxo
 #########################################
