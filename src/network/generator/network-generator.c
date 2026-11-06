@@ -43,6 +43,8 @@
   bootdev=<interface>
   biosdevname=0
   rd.neednet=1
+
+  <interface> may also be a MAC address in the hyphen separated form, e.g. 00-11-22-33-44-55.
 */
 
 static const char * const dracut_dhcp_type_table[_DHCP_TYPE_MAX] = {
@@ -193,6 +195,7 @@ static Network* network_free(Network *network) {
         if (!network)
                 return NULL;
 
+        free(network->key);
         free(network->ifname);
         free(network->hostname);
         strv_free(network->dns);
@@ -217,32 +220,44 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 char, string_hash_func, string_compare_func,
                 Network, network_free);
 
-static int network_new(Context *context, const char *name, Network **ret) {
+static int network_new(
+                Context *context,
+                const char *_key,
+                const char *_ifname,
+                const struct hw_addr_data *mac,
+                Network **ret) {
+
         _cleanup_(network_freep) Network *network = NULL;
-        _cleanup_free_ char *ifname = NULL;
+        _cleanup_free_ char *key = NULL, *ifname = NULL;
         int r;
 
         assert(context);
-        assert(name);
+        assert(_key);
+        assert(mac);
 
-        if (!isempty(name) && !ifname_valid(name))
-                return -EINVAL;
-
-        ifname = strdup(name);
-        if (!ifname)
+        key = strdup(_key);
+        if (!key)
                 return -ENOMEM;
+
+        if (_ifname) {
+                ifname = strdup(_ifname);
+                if (!ifname)
+                        return -ENOMEM;
+        }
 
         network = new(Network, 1);
         if (!network)
                 return -ENOMEM;
 
         *network = (Network) {
+                .key = TAKE_PTR(key),
                 .ifname = TAKE_PTR(ifname),
+                .match_mac = *mac,
                 .dhcp_type = _DHCP_TYPE_INVALID,
                 .dhcp_use_dns = -1,
         };
 
-        r = hashmap_ensure_put(&context->networks_by_name, &network_hash_ops, network->ifname, network);
+        r = hashmap_ensure_put(&context->networks_by_name, &network_hash_ops, network->key, network);
         if (r < 0)
                 return r;
 
@@ -253,21 +268,40 @@ static int network_new(Context *context, const char *name, Network **ret) {
         return 0;
 }
 
-Network* network_get(Context *context, const char *ifname) {
+Network* network_get(Context *context, const char *key) {
         assert(context);
-        assert(ifname);
-        return hashmap_get(context->networks_by_name, ifname);
+        assert(key);
+        return hashmap_get(context->networks_by_name, key);
 }
 
-static int network_acquire(Context *context, const char *ifname, Network **ret) {
+static int network_acquire(Context *context, const char *name, Network **ret) {
+        struct hw_addr_data mac = HW_ADDR_NULL;
+        char buf[HW_ADDR_TO_STRING_MAX];
+        const char *key, *ifname;
         Network *network;
 
         assert(context);
-        assert(ifname);
+        assert(name);
 
-        network = network_get(context, ifname);
+        if (isempty(name)) {
+                /* No interface specified, see network_dump(). */
+                key = "";
+                ifname = NULL;
+        } else if (ifname_valid(name))
+                key = ifname = name;
+        else {
+                /* dracut also accepts a MAC address here, e.g. ip=00-11-22-33-44-55:dhcp. Normalize it, so
+                 * that different spellings share one network. */
+                if (parse_hw_addr(name, &mac) < 0 || !hw_addr_is_valid(&mac, ARPHRD_ETHER))
+                        return -EINVAL;
+
+                key = hw_addr_to_string_full(&mac, HW_ADDR_TO_STRING_NO_COLON, buf);
+                ifname = NULL;
+        }
+
+        network = network_get(context, key);
         if (!network)
-                return network_new(context, ifname, ret);
+                return network_new(context, key, ifname, &mac, ret);
 
         if (ret)
                 *ret = network;
@@ -1458,16 +1492,16 @@ void network_dump(Network *network, FILE *f) {
 
         fputs("[Match]\n", f);
 
-        if (isempty(network->ifname))
-                /* If the interface name is not specified, then let's make the .network file match the all
-                 * physical interfaces. */
-                fputs("Kind=!*\n"
-                      "Type=!loopback\n", f);
-        else if (streq(network->ifname, "BOOTIF"))
+        if (!hw_addr_is_null(&network->match_mac))
                 /* VLAN interfaces inherit the MAC address of their parent, hence Kind=!*. */
                 fprintf(f, "MACAddress=%s\n"
                            "Kind=!*\n",
                         HW_ADDR_TO_STR(&network->match_mac));
+        else if (isempty(network->ifname))
+                /* If the interface name is not specified, then let's make the .network file match the all
+                 * physical interfaces. */
+                fputs("Kind=!*\n"
+                      "Type=!loopback\n", f);
         else
                 fprintf(f, "Name=%s\n", network->ifname);
 

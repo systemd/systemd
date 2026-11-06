@@ -52,9 +52,13 @@ struct Route {
 };
 
 struct Network {
+        /* What the network was specified by on the kernel command line. Key in Context.networks_by_name,
+         * and the generated file is named after it. */
+        char *key;
+
         /* [Match] */
         char *ifname;
-        /* Parsed from BOOTIF= parameter. */
+        /* From BOOTIF=, or a MAC address given in place of an interface name. */
         struct hw_addr_data match_mac;
 
         /* [Link] */
@@ -116,7 +120,7 @@ int context_merge_networks(Context *context);
 void context_clear(Context *context);
 void context_finalize_bootif(Context *context);
 
-Network *network_get(Context *context, const char *ifname);
+Network *network_get(Context *context, const char *key);
 void network_dump(Network *network, FILE *f);
 int network_format(Network *network, char **ret);
 
