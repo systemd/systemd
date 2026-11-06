@@ -70,7 +70,7 @@ mkdir -p /var/lib/machines
 mount --bind "$(mktemp --tmpdir=/var/tmp -d)" /var/lib/machines
 
 testcase_sanity() {
-    local template root image uuid tmpdir
+    local template root image uuid tmpdir output
 
     tmpdir="$(mktemp -d)"
     template="$(mktemp -d /tmp/nspawn-template.XXX)"
@@ -86,6 +86,14 @@ testcase_sanity() {
 
     systemd-nspawn --help --no-pager
     systemd-nspawn --version
+
+    # Explicit invalid container-side veth names must be rejected instead of
+    # silently replaced with the host-side name.
+    if output=$(SYSTEMD_LOG_TARGET=console systemd-nspawn --network-veth-extra=host0:bad/name --directory=/nonexistent 2>&1); then
+        echo >&2 "invalid --network-veth-extra= container interface name was accepted"
+        return 1
+    fi
+    assert_in "Failed to parse --network-veth-extra= parameter" "$output"
 
     # --template=
     root="$(mktemp -u -d /var/lib/machines/TEST-13-NSPAWN.sanity.XXX)"
