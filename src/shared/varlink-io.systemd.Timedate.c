@@ -4,6 +4,23 @@
 #include "varlink-io.systemd.Timedate.h"
 
 static SD_VARLINK_DEFINE_METHOD(
+                Describe,
+                SD_VARLINK_FIELD_COMMENT("The configured system time zone. Null if none could be determined."),
+                SD_VARLINK_DEFINE_OUTPUT(Timezone, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether the RTC is maintained in local time rather than UTC."),
+                SD_VARLINK_DEFINE_OUTPUT(LocalRTC, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether a network time synchronization service is installed."),
+                SD_VARLINK_DEFINE_OUTPUT(CanNTP, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether automatic time synchronization via a network time service is enabled."),
+                SD_VARLINK_DEFINE_OUTPUT(NTP, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether the system clock is synchronized."),
+                SD_VARLINK_DEFINE_OUTPUT(NTPSynchronized, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("The current system time, in µs since the UNIX epoch."),
+                SD_VARLINK_DEFINE_OUTPUT(TimeUSec, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("The current time of the RTC, in µs since the UNIX epoch. Null if it could not be read."),
+                SD_VARLINK_DEFINE_OUTPUT(RTCTimeUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
                 SetTimezone,
                 SD_VARLINK_FIELD_COMMENT("The time zone to set, e.g. 'Europe/Berlin' or 'Asia/Tokyo'. Must be a valid, installed time zone."),
                 SD_VARLINK_DEFINE_INPUT(timezone, SD_VARLINK_STRING, 0),
@@ -38,6 +55,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Timedate,
                 "io.systemd.Timedate",
                 SD_VARLINK_INTERFACE_COMMENT("APIs for querying and changing the system clock and timezone settings."),
+                SD_VARLINK_SYMBOL_COMMENT("Returns the time zone, RTC mode, NTP status and current system and RTC time in one call."),
+                &vl_method_Describe,
                 SD_VARLINK_SYMBOL_COMMENT("Sets the system time zone."),
                 &vl_method_SetTimezone,
                 SD_VARLINK_SYMBOL_COMMENT("Configures whether the RTC is maintained in local time or UTC."),

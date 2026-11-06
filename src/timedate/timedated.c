@@ -34,6 +34,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "hwclock-util.h"
+#include "json-util.h"
 #include "label-util.h"
 #include "list.h"
 #include "log.h"
@@ -720,6 +721,67 @@ static int property_get_ntp(
                 return r;
 
         return sd_bus_message_append(reply, "b", context_ntp_service_is_active(c) > 0);
+}
+
+static int context_build_json(Context *c, sd_json_variant **ret) {
+        bool can_ntp, ntp;
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        if (c->slot_job_removed)
+                /* When the previous request is not finished, then assume NTP is enabled and active. */
+                can_ntp = ntp = true;
+        else {
+                r = context_update_ntp_status(c, /* m= */ NULL);
+                if (r < 0)
+                        return r;
+
+                can_ntp = context_ntp_service_exists(c) > 0;
+                ntp = context_ntp_service_is_active(c) > 0;
+        }
+
+        usec_t rtc = 0;
+        r = get_rtc_time(&rtc);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read RTC, ignoring: %m");
+
+        return sd_json_buildo(
+                        ret,
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Timezone", c->zone),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("LocalRTC", c->local_rtc),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("CanNTP", can_ntp),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("NTP", ntp),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("NTPSynchronized", ntp_synced()),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("TimeUSec", now(CLOCK_REALTIME)),
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("RTCTimeUSec", rtc));
+}
+
+static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        /* Determining the NTP status makes synchronous calls on the (possibly watch-bound) system bus,
+         * which would block the event loop until D-Bus is up. Fail fast instead if it is not connected
+         * yet. */
+        r = bus_verify_available(c->bus);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = context_build_json(c, &v);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, v);
 }
 
 static int context_set_timezone(Context *c, const char *z) {
@@ -1495,6 +1557,7 @@ static int connect_varlink(Context *c) {
 
         r = sd_varlink_server_bind_method_many(
                         c->varlink_server,
+                        "io.systemd.Timedate.Describe",      vl_method_describe,
                         "io.systemd.Timedate.SetLocalRTC",   vl_method_set_local_rtc,
                         "io.systemd.Timedate.SetNTP",        vl_method_set_ntp,
                         "io.systemd.Timedate.SetTime",       vl_method_set_time,
