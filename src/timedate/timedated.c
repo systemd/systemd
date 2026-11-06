@@ -938,6 +938,48 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
         return sd_bus_reply_method_return(m, /* types= */ NULL);
 }
 
+static int vl_method_set_local_rtc(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        struct params {
+                bool local_rtc;
+                bool adjust_system_clock;
+        };
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "localRTC",          SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct params, local_rtc),           SD_JSON_MANDATORY },
+                { "adjustSystemClock", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct params, adjust_system_clock), SD_JSON_NULLABLE  },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        struct params p = {};
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (p.local_rtc == c->local_rtc && !p.adjust_system_clock)
+                return sd_varlink_reply(link, /* parameters= */ NULL);
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        c->bus,
+                        "org.freedesktop.timedate1.set-local-rtc",
+                        (const char**) STRV_MAKE("local_rtc", one_zero(p.local_rtc)),
+                        &c->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = context_set_local_rtc(c, p.local_rtc, p.adjust_system_clock);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
 static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         int relative, interactive, r;
         Context *c = ASSERT_PTR(userdata);
@@ -1250,6 +1292,7 @@ static int connect_varlink(Context *c) {
 
         r = sd_varlink_server_bind_method_many(
                         c->varlink_server,
+                        "io.systemd.Timedate.SetLocalRTC",   vl_method_set_local_rtc,
                         "io.systemd.Timedate.SetTimezone",   vl_method_set_timezone,
                         "io.systemd.service.Ping",           varlink_method_ping,
                         "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
