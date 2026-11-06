@@ -2453,8 +2453,6 @@ static int setup_kmsg(int fd_inner_socket) {
 }
 
 struct ExposeArgs {
-        union in_addr_union address4;
-        union in_addr_union address6;
         sd_netlink *nfnl;
 };
 
@@ -2464,8 +2462,8 @@ static int on_address_change(sd_netlink *rtnl, sd_netlink_message *m, void *user
         assert(rtnl);
         assert(m);
 
-        (void) expose_port_execute(rtnl, args->nfnl, arg_expose_ports, AF_INET, &args->address4);
-        (void) expose_port_execute(rtnl, args->nfnl, arg_expose_ports, AF_INET6, &args->address6);
+        (void) expose_port_execute(rtnl, args->nfnl, arg_expose_ports, AF_INET);
+        (void) expose_port_execute(rtnl, args->nfnl, arg_expose_ports, AF_INET6);
         return 0;
 }
 
@@ -5929,8 +5927,8 @@ static int run_container(
                 if (r < 0)
                         return r;
 
-                (void) expose_port_execute(rtnl, expose_args->nfnl, arg_expose_ports, AF_INET, &expose_args->address4);
-                (void) expose_port_execute(rtnl, expose_args->nfnl, arg_expose_ports, AF_INET6, &expose_args->address6);
+                (void) expose_port_execute(rtnl, expose_args->nfnl, arg_expose_ports, AF_INET);
+                (void) expose_port_execute(rtnl, expose_args->nfnl, arg_expose_ports, AF_INET6);
         }
 
         _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
@@ -6087,8 +6085,8 @@ static int run_container(
                 return 0; /* finito */
         }
 
-        expose_port_flush(expose_args->nfnl, arg_expose_ports, AF_INET, &expose_args->address4);
-        expose_port_flush(expose_args->nfnl, arg_expose_ports, AF_INET6, &expose_args->address6);
+        expose_port_flush(expose_args->nfnl, arg_expose_ports, AF_INET);
+        expose_port_flush(expose_args->nfnl, arg_expose_ports, AF_INET6);
 
         (void) remove_veth_links(veth_name, arg_network_veth_extra);
         *veth_created = false;
@@ -6977,8 +6975,8 @@ finish:
 
         cleanup_propagation_and_export_directories(runtime_dir);
 
-        expose_port_flush(nfnl, arg_expose_ports, AF_INET,  &expose_args.address4);
-        expose_port_flush(nfnl, arg_expose_ports, AF_INET6, &expose_args.address6);
+        expose_port_flush(nfnl, arg_expose_ports, AF_INET);
+        expose_port_flush(nfnl, arg_expose_ports, AF_INET6);
 
         if (arg_userns_mode != USER_NAMESPACE_MANAGED) {
                 if (veth_created)
