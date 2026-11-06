@@ -313,10 +313,16 @@ static int timer_coldplug(Unit *u) {
         if (t->deserialized_state == t->state)
                 return 0;
 
-        if (t->deserialized_state == TIMER_WAITING)
+        /* Restore the state first so OnActiveSec= uses the original activation timestamp, including when
+         * the timer was still waiting. Otherwise, reloading postpones pending one-shot triggers and may
+         * rearm those that already fired when another trigger keeps the timer waiting. */
+        timer_set_state(t, t->deserialized_state);
+
+        /* Recalculating with an empty value list after a load error would turn a waiting timer into an
+         * elapsed one. Keep its state until the unit loads successfully. Also recalculate elapsed timers
+         * to recover those already stuck by an earlier bad load (#44667). */
+        if (!UNIT_IS_LOAD_ERROR(u->load_state) && IN_SET(t->state, TIMER_WAITING, TIMER_ELAPSED))
                 timer_enter_waiting(t, /* time_change= */ false);
-        else
-                timer_set_state(t, t->deserialized_state);
 
         return 0;
 }
