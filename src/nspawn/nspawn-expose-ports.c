@@ -137,10 +137,9 @@ int expose_port_execute(sd_netlink *rtnl, sd_netlink *nfnl, ExposePort *l, int a
                 return expose_port_flush(nfnl, l, af, exposed);
 
         new_exposed = addresses[0].address;
-        if (in_addr_equal(af, exposed, &new_exposed))
-                return 0;
-
-        log_debug("New container IP is %s.", IN_ADDR_TO_STRING(af, &new_exposed));
+        /* Retry the DNAT entries even if the address did not change, as a previous attempt may have failed. */
+        if (!in_addr_equal(af, exposed, &new_exposed))
+                log_debug("New container IP is %s.", IN_ADDR_TO_STRING(af, &new_exposed));
 
         LIST_FOREACH(ports, p, l) {
                 r = fw_nftables_add_local_dnat(
