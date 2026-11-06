@@ -1188,13 +1188,12 @@ static int interrupted_push_pop_fiber(void *userdata) {
         sd_channel *c = ASSERT_PTR(userdata);
         void *p;
 
-        /* The channel holds an item and has room for another, so sd_channel_pop() and sd_channel_push()
-         * would not suspend. The queued cancellation must still make each call fail without moving an
-         * item. */
-        ASSERT_OK(sd_fiber_resume(sd_fiber_get_current(), -ECANCELED));
-        ASSERT_ERROR(sd_channel_pop(c, &p), ECANCELED);
+        /* The test cancels the fiber while it is suspended here. */
+        ASSERT_ERROR(sd_fiber_suspend(), ECANCELED);
 
-        ASSERT_OK(sd_fiber_resume(sd_fiber_get_current(), -ECANCELED));
+        /* The channel holds an item and has room for another, so sd_channel_pop() and sd_channel_push()
+         * would not suspend. The cancellation must still make each call fail without moving an item. */
+        ASSERT_ERROR(sd_channel_pop(c, &p), ECANCELED);
         ASSERT_ERROR(sd_channel_push(c, INT_TO_PTR(2)), ECANCELED);
         return 0;
 }
@@ -1212,6 +1211,8 @@ TEST(channel_push_pop_interrupted) {
 
         _cleanup_(sd_future_unrefp) sd_future *fiber = NULL;
         ASSERT_OK(sd_fiber_new(e, "interrupted", interrupted_push_pop_fiber, c, &fiber));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
+        ASSERT_OK_POSITIVE(sd_future_cancel(fiber));
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK_ZERO(sd_future_result(fiber));
 
