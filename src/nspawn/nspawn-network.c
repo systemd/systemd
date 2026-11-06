@@ -957,11 +957,12 @@ int veth_extra_parse(char ***l, const char *p) {
         r = extract_first_word(&p, &b, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
         if (r < 0)
                 return r;
-        if (r == 0 || !ifname_valid(b)) {
+        if (r == 0 || isempty(b)) {
                 r = free_and_strdup(&b, a);
                 if (r < 0)
                         return r;
-        }
+        } else if (!ifname_valid(b))
+                return -EINVAL;
 
         if (p)
                 return -EINVAL;

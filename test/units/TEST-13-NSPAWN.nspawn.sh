@@ -87,6 +87,14 @@ testcase_sanity() {
     systemd-nspawn --help --no-pager
     systemd-nspawn --version
 
+    # Explicit invalid container-side veth names must be rejected instead of
+    # silently replaced with the host-side name.
+    if output=$(systemd-nspawn --network-veth-extra=host0:bad/name --directory=/nonexistent 2>&1); then
+        echo >&2 "invalid --network-veth-extra= container interface name was accepted"
+        return 1
+    fi
+    assert_in "Failed to parse --network-veth-extra= parameter" "$output"
+
     # --template=
     root="$(mktemp -u -d /var/lib/machines/TEST-13-NSPAWN.sanity.XXX)"
     coverage_create_nspawn_dropin "$root"
