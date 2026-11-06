@@ -17,6 +17,7 @@
 
   <refnamediv>
     <refname>systemd-fsck@.service</refname>
+    <refname>systemd-fsck-early@.service</refname>
     <refname>systemd-fsck-root.service</refname>
     <refname>systemd-fsck-usr.service</refname>
     <refname>systemd-fsck</refname>
@@ -26,6 +27,7 @@
   <refsynopsisdiv>
     <para><simplelist>
       <member><filename>systemd-fsck@.service</filename></member>
+      <member><filename>systemd-fsck-early@.service</filename></member>
       <member><filename>systemd-fsck-root.service</filename></member>
       <member><filename>systemd-fsck-usr.service</filename></member>
       <member><filename>/usr/lib/systemd/systemd-fsck</filename></member>
@@ -41,7 +43,13 @@
     <filename>systemd-fsck-root.service</filename> and <filename>systemd-fsck-usr.service</filename> are
     responsible for file system checks on the root and /usr file system, respectively, but only if the root
     filesystem was not checked in the initrd. <filename>systemd-fsck@.service</filename> is used for all
-    other file systems and for the root file system in the initrd.</para>
+    other file systems and for the root file system in the initrd.
+    <filename>systemd-fsck-early@.service</filename> is used in the initrd for file systems that are needed
+    before the root file system is available, such as the EFI System Partition mounted to
+    <filename>/sysefi/</filename> for the software TPM, see
+    <citerefentry><refentrytitle>systemd-tpm2-swtpm.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    Unlike <filename>systemd-fsck@.service</filename>, it is not ordered after the check of the root file
+    system.</para>
 
     <para>These services are started at boot if <option>passno</option> in <filename>/etc/fstab</filename>
     for the file system is set to a value greater than zero, but only if it is also configured to be

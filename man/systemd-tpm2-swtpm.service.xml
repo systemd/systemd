@@ -49,6 +49,14 @@
 
     <para>The TPM NVRAM storage is placed on the EFI System Partition as it needs to be accessible during
     very early boot-up, in particular before the root file system is decrypted and mounted.</para>
+
+    <para>As <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    cannot measure the unified kernel image into the software TPM, OS measurements are disabled by default.
+    Set <varname>systemd.tpm2_measured_os=1</varname> on the kernel command line to enable them, see
+    <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+    This is needed for the boot phase measurements and for NvPCRs, which are used, e.g., for the runtime
+    measurements of Verity images and logins. Signed PCR policies are still not used then, as PCR 11 lacks
+    the measurement of the unified kernel image.</para>
   </refsect1>
 
   <refsect1>

@@ -397,6 +397,7 @@ units = [
           'conditions' : ['ENABLE_FIRSTBOOT'],
           'symlinks' : ['sysinit.target.wants/'],
         },
+        { 'file' : 'systemd-fsck-early@.service.in' },
         { 'file' : 'systemd-fsck-root.service.in' },
         { 'file' : 'systemd-fsck@.service.in' },
         {
