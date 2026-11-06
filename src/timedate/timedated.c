@@ -1132,7 +1132,7 @@ static int connect_bus(Context *c) {
         assert(c->event);
         assert(!c->bus);
 
-        r = sd_bus_default_system(&bus);
+        r = bus_open_system_watch_bind_with_description(&bus, "bus-api-timedate");
         if (r < 0)
                 return log_error_errno(r, "Failed to get system bus connection: %m");
 
