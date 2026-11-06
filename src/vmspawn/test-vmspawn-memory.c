@@ -93,7 +93,7 @@ TEST(memory_stats_parse) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
                 int r;
 
-                ASSERT_OK(sd_json_parse(c->json, 0, &v, NULL, NULL));
+                ASSERT_OK(sd_json_parse(c->json, /* flags= */ 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
                 r = vmspawn_memory_stats_parse(v, &stats);
                 if (c->want_error != 0) {
                         ASSERT_ERROR(r, c->want_error);
@@ -174,7 +174,7 @@ TEST(memory_build_json) {
         FOREACH_ELEMENT(c, cases) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *want = NULL;
 
-                ASSERT_OK(sd_json_parse(c->want_json, 0, &want, NULL, NULL));
+                ASSERT_OK(sd_json_parse(c->want_json, /* flags= */ 0, &want, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
                 ASSERT_OK(vmspawn_memory_build_json(&c->memory, &v));
                 ASSERT_TRUE(sd_json_variant_equal(v, want));
         }
