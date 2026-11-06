@@ -45,6 +45,8 @@ DLSYM_PROTOTYPE(fido_cred_free) = NULL;
 DLSYM_PROTOTYPE(fido_cred_id_len) = NULL;
 DLSYM_PROTOTYPE(fido_cred_id_ptr) = NULL;
 DLSYM_PROTOTYPE(fido_cred_new) = NULL;
+DLSYM_PROTOTYPE(fido_cred_pubkey_len) = NULL;
+DLSYM_PROTOTYPE(fido_cred_pubkey_ptr) = NULL;
 DLSYM_PROTOTYPE(fido_cred_set_clientdata_hash) = NULL;
 DLSYM_PROTOTYPE(fido_cred_set_extensions) = NULL;
 DLSYM_PROTOTYPE(fido_cred_set_prot) = NULL;
@@ -110,6 +112,8 @@ int dlopen_libfido2(int log_level) {
                         DLSYM_ARG(fido_cred_id_len),
                         DLSYM_ARG(fido_cred_id_ptr),
                         DLSYM_ARG(fido_cred_new),
+                        DLSYM_ARG(fido_cred_pubkey_len),
+                        DLSYM_ARG(fido_cred_pubkey_ptr),
                         DLSYM_ARG(fido_cred_set_clientdata_hash),
                         DLSYM_ARG(fido_cred_set_extensions),
                         DLSYM_ARG(fido_cred_set_prot),
@@ -633,7 +637,7 @@ static int fido2_use_hmac_hash_specific_token(
 }
 
 /* COSE_ECDH_ES256 is not usable with fido_cred_set_type() thus it's not listed here. */
-static const char *fido2_algorithm_to_string(int alg) {
+const char* fido2_algorithm_to_string(int alg) {
         switch (alg) {
                 case COSE_ES256:
                         return "es256";
@@ -767,9 +771,11 @@ int fido2_generate_hmac_hash(
                 const struct iovec *salt,
                 void **ret_cid, size_t *ret_cid_size,
                 void **ret_secret, size_t *ret_secret_size,
+                struct iovec *ret_public_key,
                 char **ret_usedpin,
                 Fido2EnrollFlags *ret_locked_with) {
 
+        _cleanup_(iovec_done) struct iovec public_key = {};
         _cleanup_(erase_and_freep) void *secret_copy = NULL;
         _cleanup_(fido_assert_free_wrapper) fido_assert_t *a = NULL;
         _cleanup_(fido_cred_free_wrapper) fido_cred_t *c = NULL;
@@ -1039,6 +1045,18 @@ int fido2_generate_hmac_hash(
 
         cid_size = sym_fido_cred_id_len(c);
 
+        if (ret_public_key) {
+                /* The public key of the credential allows verifying later that we talk to the very token
+                 * that was enrolled, see fido2_use_hmac_hash(). */
+                const void *pk = sym_fido_cred_pubkey_ptr(c);
+                size_t pk_size = sym_fido_cred_pubkey_len(c);
+                if (!pk || pk_size == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get FIDO2 credential public key.");
+
+                if (!iovec_memdup(&IOVEC_MAKE(pk, pk_size), &public_key))
+                        return log_oom();
+        }
+
         a = sym_fido_assert_new();
         if (!a)
                 return log_oom();
@@ -1189,6 +1207,9 @@ int fido2_generate_hmac_hash(
         *ret_cid_size = cid_size;
         *ret_secret = TAKE_PTR(secret_copy);
         *ret_secret_size = secret_size;
+
+        if (ret_public_key)
+                *ret_public_key = TAKE_STRUCT(public_key);
 
         if (ret_usedpin)
                 *ret_usedpin = TAKE_PTR(used_pin);
