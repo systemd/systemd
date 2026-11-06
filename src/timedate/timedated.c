@@ -107,7 +107,7 @@ static UnitStatusInfo *unit_status_info_free(UnitStatusInfo *p) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(UnitStatusInfo*, unit_status_info_free);
 
-static void context_clear(Context *c) {
+static void context_done(Context *c) {
         assert(c);
 
         free(c->zone);
@@ -1212,7 +1212,7 @@ static int context_init(Context *c) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(context_clear) Context context = {};
+        _cleanup_(context_done) Context context = {};
         int r;
 
         LIBSELINUX_NOTE(recommended);
