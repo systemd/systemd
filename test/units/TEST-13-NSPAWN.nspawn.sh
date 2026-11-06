@@ -1212,7 +1212,10 @@ done
 if [[ ! -v EXPECTED_PID ]]; then
     # sd_listen_fds() only accepts the fds if both $LISTEN_PID and $LISTEN_PIDFDID refer to the calling
     # process. exec keeps both our PID and our pidfd inode ID.
-    exec /usr/bin/test-fdstore listen exit
+    if [[ -x /usr/bin/test-fdstore ]]; then
+        exec /usr/bin/test-fdstore listen exit
+    fi
+    echo >&2 "test-fdstore not available in the minimal container, skipping sd_listen_fds() check"
 fi
 EOF
     chmod +x "$entrypoint"
