@@ -22,6 +22,7 @@
 #include "io-util.h"
 #include "iovec-util.h"
 #include "keyring-util.h"
+#include "lock-util.h"
 #include "log.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
@@ -29,6 +30,7 @@
 #include "plymouth-util.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "sha256.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -259,6 +261,124 @@ static int ask_password_keyring(const AskPasswordRequest *req, AskPasswordFlags 
 
         *ret = TAKE_PTR(l);
         return 0;
+}
+
+static int ask_password_cache_lock(
+                const AskPasswordRequest *req,
+                AskPasswordFlags flags,
+                LockFile *ret_lock,
+                char ***ret) {
+
+        _cleanup_free_ char *directory = NULL, *digest = NULL, *name = NULL;
+        _cleanup_close_ int runtime_fd = -EBADF, dfd = -EBADF, signal_fd = -EBADF;
+        _cleanup_(release_lock_file) LockFile lock = LOCK_FILE_INIT;
+        sigset_t mask, oldmask;
+        _unused_ _cleanup_(block_signals_reset) sigset_t *saved_ssp = NULL;
+        key_serial_t scope = 0;
+        int r;
+
+        assert(req);
+        assert(ret_lock);
+        assert(ret);
+
+        if (!req->keyring || !FLAGS_SET(flags, ASK_PASSWORD_ACCEPT_CACHED|ASK_PASSWORD_PUSH_CACHE) ||
+            keyring_cache_timeout() == 0)
+                return 0;
+
+        r = ask_password_keyring(req, flags, ret);
+        if (r != -ENOKEY)
+                return r < 0 ? r : 1;
+
+        r = keyring_resolve(keyring_cache_type(), &scope);
+        if (r < 0) {
+                log_debug_errno(r, "Cannot resolve password cache keyring, proceeding without a lock: %m");
+                return 0;
+        }
+
+        /* Password agents watch the request directory for writable file closes. Lock retries must
+         * use a separate directory to avoid repeatedly notifying the agents about pending requests. */
+        r = runtime_directory_generic(
+                        FLAGS_SET(flags, ASK_PASSWORD_USER) ? RUNTIME_SCOPE_USER : RUNTIME_SCOPE_SYSTEM,
+                        "systemd",
+                        &directory);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to determine password cache runtime directory, proceeding without a lock: %m");
+                return 0;
+        }
+
+        runtime_fd = open_mkdir(directory, O_CLOEXEC, 0755);
+        if (runtime_fd < 0) {
+                log_debug_errno(runtime_fd, "Failed to open runtime directory '%s', proceeding without a password cache lock: %m", directory);
+                return 0;
+        }
+
+        dfd = open_mkdir_at(runtime_fd, "ask-password-cache", O_CLOEXEC, 0755);
+        if (dfd < 0) {
+                log_debug_errno(dfd, "Failed to open password cache directory below '%s', proceeding without a lock: %m", directory);
+                return 0;
+        }
+
+        digest = sha256_direct_hex(req->keyring, strlen(req->keyring));
+        if (!digest)
+                return -ENOMEM;
+        if (asprintf(&name, ".cache-lock-%" PRIi32 "-%s", scope, digest) < 0)
+                return -ENOMEM;
+
+        assert_se(sigemptyset(&mask) >= 0);
+        assert_se(sigset_add_many(&mask, SIGINT, SIGTERM) >= 0);
+        assert_se(sigprocmask(SIG_BLOCK, &mask, &oldmask) >= 0);
+        saved_ssp = &oldmask;
+
+        signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
+        if (signal_fd < 0)
+                return -errno;
+
+        for (;;) {
+                struct pollfd pollfd[] = {
+                        { .fd = signal_fd, .events = POLLIN },
+                        { .fd = req->hup_fd, .events = POLLHUP },
+                };
+                usec_t timeout = 50 * USEC_PER_MSEC;
+
+                if (req->until > 0) {
+                        usec_t left = usec_sub_unsigned(req->until, now(CLOCK_MONOTONIC));
+                        if (left == 0)
+                                return -ETIME;
+                        timeout = MIN(timeout, left);
+                }
+                if (req->flag_file && access(req->flag_file, F_OK) < 0)
+                        return -errno;
+
+                r = ppoll_usec(pollfd, ELEMENTSOF(pollfd), 0);
+                if (r == -EINTR)
+                        continue;
+                if (r < 0)
+                        return r;
+                if (pollfd[0].revents)
+                        return -EINTR;
+                if (pollfd[1].revents & (POLLHUP|POLLERR))
+                        return -ECONNRESET;
+
+                /* make_lock_file_at() verifies the inode after locking. Waiters reopen the path on
+                 * every retry because release_lock_file() removes the file before closing it. */
+                r = make_lock_file_at(dfd, name, LOCK_EX|LOCK_NB, &lock);
+                if (r >= 0) {
+                        r = ask_password_keyring(req, flags, ret);
+                        if (r != -ENOKEY)
+                                return r < 0 ? r : 1;
+
+                        *ret_lock = TAKE_GENERIC(lock, LockFile, LOCK_FILE_INIT);
+                        return 0;
+                }
+                if (r != -EBUSY) {
+                        log_debug_errno(r, "Failed to acquire password cache lock '%s', proceeding without a lock: %m", name);
+                        return 0;
+                }
+
+                r = ppoll_usec(pollfd, ELEMENTSOF(pollfd), timeout);
+                if (r < 0 && r != -EINTR)
+                        return r;
+        }
 }
 
 static int backspace_chars(int ttyfd, size_t p) {
@@ -493,6 +613,11 @@ int ask_password_tty(
 
         if (FLAGS_SET(flags, ASK_PASSWORD_NO_TTY))
                 return -EUNATCH;
+
+        _cleanup_(release_lock_file) LockFile cache_lock = LOCK_FILE_INIT;
+        r = ask_password_cache_lock(req, flags, &cache_lock, ret);
+        if (r != 0)
+                return r < 0 ? r : 0;
 
         const char *message = req->message ?: "Password:";
         const char *keyring = req->keyring;
@@ -876,6 +1001,11 @@ int ask_password_agent(
                 return r;
         if (r == 0)
                 return -ENXIO;
+
+        _cleanup_(release_lock_file) LockFile cache_lock = LOCK_FILE_INIT;
+        r = ask_password_cache_lock(req, flags, &cache_lock, ret);
+        if (r != 0)
+                return r < 0 ? r : 0;
 
         dfd = open_mkdir(askpwdir, /* flags= */ 0, 0755);
         if (dfd < 0)
