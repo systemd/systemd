@@ -761,7 +761,7 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
         r = bus_verify_polkit_async_full(
                         m,
                         "org.freedesktop.timedate1.set-timezone",
-                        /* details= */ NULL,
+                        (const char**) STRV_MAKE("zone", z),
                         /* good_user= */ UID_INVALID,
                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &c->polkit_registry,
