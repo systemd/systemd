@@ -25,9 +25,18 @@ int dlopen_libfido2(int log_level) _dlopen_loader_;
 #endif
 
 #include <fido.h>
+#include <fido/eddsa.h>    /* IWYU pragma: export */
+#include <fido/es256.h>    /* IWYU pragma: export */
+#include <fido/rs256.h>    /* IWYU pragma: export */
 
 #include "dlfcn-util.h"
 
+extern DLSYM_PROTOTYPE(eddsa_pk_free);
+extern DLSYM_PROTOTYPE(eddsa_pk_from_ptr);
+extern DLSYM_PROTOTYPE(eddsa_pk_new);
+extern DLSYM_PROTOTYPE(es256_pk_free);
+extern DLSYM_PROTOTYPE(es256_pk_from_ptr);
+extern DLSYM_PROTOTYPE(es256_pk_new);
 extern DLSYM_PROTOTYPE(fido_assert_allow_cred);
 extern DLSYM_PROTOTYPE(fido_assert_free);
 extern DLSYM_PROTOTYPE(fido_assert_hmac_secret_len);
@@ -39,6 +48,7 @@ extern DLSYM_PROTOTYPE(fido_assert_set_hmac_salt);
 extern DLSYM_PROTOTYPE(fido_assert_set_rp);
 extern DLSYM_PROTOTYPE(fido_assert_set_up);
 extern DLSYM_PROTOTYPE(fido_assert_set_uv);
+extern DLSYM_PROTOTYPE(fido_assert_verify);
 extern DLSYM_PROTOTYPE(fido_cbor_info_extensions_len);
 extern DLSYM_PROTOTYPE(fido_cbor_info_extensions_ptr);
 extern DLSYM_PROTOTYPE(fido_cbor_info_free);
@@ -79,6 +89,9 @@ extern DLSYM_PROTOTYPE(fido_dev_open);
 extern DLSYM_PROTOTYPE(fido_init);
 extern DLSYM_PROTOTYPE(fido_set_log_handler);
 extern DLSYM_PROTOTYPE(fido_strerr);
+extern DLSYM_PROTOTYPE(rs256_pk_free);
+extern DLSYM_PROTOTYPE(rs256_pk_from_ptr);
+extern DLSYM_PROTOTYPE(rs256_pk_new);
 
 static inline void fido_cbor_info_free_wrapper(fido_cbor_info_t **p) {
         if (*p)
@@ -109,6 +122,8 @@ int fido2_use_hmac_hash(
                 size_t salt_size,
                 const void *cid,
                 size_t cid_size,
+                const struct iovec *public_key,
+                const char *public_key_algorithm,
                 char **pins,
                 Fido2EnrollFlags required,
                 void **ret_hmac,

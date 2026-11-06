@@ -10,6 +10,8 @@ int acquire_fido2_key(
                 const char *rp_id,
                 const void *cid,
                 size_t cid_size,
+                const struct iovec *public_key,
+                const char *public_key_algorithm,
                 const char *key_file,
                 size_t key_file_size,
                 uint64_t key_file_offset,
