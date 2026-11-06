@@ -480,14 +480,14 @@ int main(int argc, char *argv[]) {
         test_link_one("hogehoge", "ifname", "hogehoge:00:11:22:33:44:55",
                       "[Match]\n"
                       "MACAddress=00:11:22:33:44:55\n"
-                      "\n[Link]\n"
+                                            "\n[Link]\n"
                       "Name=hogehoge\n"
                       );
 
         test_link_one("001122334455", "net.ifname-policy", "keep,kernel,database,onboard,slot,path,mac,00:11:22:33:44:55",
                       "[Match]\n"
                       "MACAddress=00:11:22:33:44:55\n"
-                      "\n[Link]\n"
+                                            "\n[Link]\n"
                       "NamePolicy=keep kernel database onboard slot path mac\n"
                       "AlternativeNamesPolicy=database onboard slot path mac\n"
                       );
@@ -605,6 +605,7 @@ int main(int argc, char *argv[]) {
                          "BOOTIF", "01-00:11:22:33:44:55",
                          "[Match]\n"
                          "MACAddress=00:11:22:33:44:55\n"
+                         "Kind=!*\n"
                          "\n[Link]\n"
                          "\n[Network]\n"
                          "DHCP=ipv4\n"
@@ -617,6 +618,7 @@ int main(int argc, char *argv[]) {
                          "BOOTIF", "00:11:22:33:44:55",
                          "[Match]\n"
                          "MACAddress=00:11:22:33:44:55\n"
+                         "Kind=!*\n"
                          "\n[Link]\n"
                          "\n[Network]\n"
                          "DHCP=ipv4\n"
@@ -629,6 +631,7 @@ int main(int argc, char *argv[]) {
                          "BOOTIF", "01-00-11-22-33-44-55",
                          "[Match]\n"
                          "MACAddress=00:11:22:33:44:55\n"
+                         "Kind=!*\n"
                          "\n[Link]\n"
                          "\n[Network]\n"
                          "DHCP=ipv4\n"
@@ -642,6 +645,7 @@ int main(int argc, char *argv[]) {
                            "rd.bootif", "1",
                            "[Match]\n"
                            "MACAddress=00:11:22:33:44:55\n"
+                           "Kind=!*\n"
                            "\n[Link]\n"
                            "\n[Network]\n"
                            "DHCP=ipv4\n"
