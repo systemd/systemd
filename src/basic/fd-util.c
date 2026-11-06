@@ -826,6 +826,25 @@ int fd_reopen(int fd, int flags) {
         if (fd == AT_FDCWD)
                 return RET_NERRNO(openat(AT_FDCWD, ".", flags | O_DIRECTORY));
 
+        /* Duplicating an O_PATH fd needs neither directory search permission nor /proc. */
+        if (FLAGS_SET(flags, O_PATH)) {
+                int r = fd_is_opath(fd);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        if (FLAGS_SET(flags, O_DIRECTORY)) {
+                                struct stat st;
+
+                                if (fstat(fd, &st) < 0)
+                                        return -errno;
+                                if (!S_ISDIR(st.st_mode))
+                                        return -ENOTDIR;
+                        }
+
+                        return RET_NERRNO(fcntl(fd, F_DUPFD_CLOEXEC, 3));
+                }
+        }
+
         /* Kernels since 7.2 reopen the fd itself when passed an empty path with O_EMPTYPATH. Unlike "."
          * below, that needs no search permission on directories, just like /proc/self/fd/. */
         static thread_local int have_emptypath = -1;

@@ -1126,7 +1126,7 @@ static int mount_in_namespace_legacy(
 
                 _cleanup_close_ int dest_fd = -EBADF;
                 _cleanup_free_ char *dest_fn = NULL;
-                r = chase(dest, /* root= */ NULL, CHASE_PARENT|CHASE_EXTRACT_FILENAME|((flags & MOUNT_IN_NAMESPACE_MAKE_FILE_OR_DIRECTORY) ? CHASE_MKDIR_0755 : 0), &dest_fn, &dest_fd);
+                r = chase(dest, /* root= */ NULL, CHASE_PARENT|CHASE_EXTRACT_FILENAME_HARDER|((flags & MOUNT_IN_NAMESPACE_MAKE_FILE_OR_DIRECTORY) ? CHASE_MKDIR_0755 : 0), &dest_fn, &dest_fd);
                 if (r < 0)
                         log_debug_errno(r, "Failed to pin parent directory of mount '%s', ignoring: %m", dest);
                 else if (flags & MOUNT_IN_NAMESPACE_MAKE_FILE_OR_DIRECTORY) {
@@ -1316,7 +1316,7 @@ static int mount_in_namespace(
 
                 _cleanup_close_ int dest_fd = -EBADF;
                 _cleanup_free_ char *dest_fn = NULL;
-                r = chase(dest, /* root= */ NULL, CHASE_PARENT|CHASE_EXTRACT_FILENAME|((flags & MOUNT_IN_NAMESPACE_MAKE_FILE_OR_DIRECTORY) ? CHASE_MKDIR_0755 : 0), &dest_fn, &dest_fd);
+                r = chase(dest, /* root= */ NULL, CHASE_PARENT|CHASE_EXTRACT_FILENAME_HARDER|((flags & MOUNT_IN_NAMESPACE_MAKE_FILE_OR_DIRECTORY) ? CHASE_MKDIR_0755 : 0), &dest_fn, &dest_fd);
                 if (r < 0)
                         report_errno_and_exit(errno_pipe_fd[1], r);
 
