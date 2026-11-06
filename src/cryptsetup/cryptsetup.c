@@ -1625,6 +1625,8 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                                                 arg_fido2_device,
                                                 arg_fido2_rp_id,
                                                 arg_fido2_cid, arg_fido2_cid_size,
+                                                /* public_key= */ NULL,
+                                                /* public_key_algorithm= */ NULL,
                                                 key_file, arg_keyfile_size, arg_keyfile_offset,
                                                 key_data,
                                                 until,
