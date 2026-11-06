@@ -302,22 +302,12 @@ static int fido2_common_assert_error_handle(int r) {
         }
 }
 
-static int fido2_is_cred_in_specific_token(
-                const char *path,
-                const char *rp_id,
-                const void *cid,
-                size_t cid_size,
-                Fido2EnrollFlags flags) {
+static int fido2_open_device(const char *path, fido_dev_t **ret) {
+        _cleanup_(fido_dev_free_wrapper) fido_dev_t *d = NULL;
+        int r;
 
         assert(path);
-        assert(rp_id);
-        assert(cid);
-        assert(cid_size);
-
-        _cleanup_(fido_dev_free_wrapper) fido_dev_t *d = NULL;
-        _cleanup_(fido_assert_free_wrapper) fido_assert_t *a = NULL;
-        bool has_up = false, has_uv = false;
-        int r;
+        assert(ret);
 
         d = sym_fido_dev_new();
         if (!d)
@@ -327,6 +317,28 @@ static int fido2_is_cred_in_specific_token(
         if (r != FIDO_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to open FIDO2 device %s: %s", path, sym_fido_strerr(r));
+
+        *ret = TAKE_PTR(d);
+        return 0;
+}
+
+static int fido2_is_cred_in_specific_token(
+                fido_dev_t *d,
+                const char *path,
+                const char *rp_id,
+                const void *cid,
+                size_t cid_size,
+                Fido2EnrollFlags flags) {
+
+        assert(d);
+        assert(path);
+        assert(rp_id);
+        assert(cid);
+        assert(cid_size);
+
+        _cleanup_(fido_assert_free_wrapper) fido_assert_t *a = NULL;
+        bool has_up = false, has_uv = false;
+        int r;
 
         r = verify_features(d, path, LOG_ERR, /* ret_has_rk= */ NULL, /* ret_has_client_pin= */ NULL, &has_up, &has_uv, /* ret_has_always_uv= */ NULL);
         if (r == -ENODEV) { /* Not a FIDO2 device or lacking HMAC-SECRET extension */
@@ -404,6 +416,7 @@ static void plymouth_end_interaction(bool *displayed) {
 }
 
 static int fido2_use_hmac_hash_specific_token(
+                fido_dev_t *d,
                 const char *path,
                 const char *rp_id,
                 const void *salt,
@@ -417,28 +430,19 @@ static int fido2_use_hmac_hash_specific_token(
 
         _cleanup_(plymouth_end_interaction) bool plymouth_displayed = false;
         _cleanup_(fido_assert_free_wrapper) fido_assert_t *a = NULL;
-        _cleanup_(fido_dev_free_wrapper) fido_dev_t *d = NULL;
         _cleanup_(erase_and_freep) void *hmac_copy = NULL;
         bool has_up, has_client_pin, has_uv;
         size_t hmac_size;
         const void *hmac;
         int r;
 
+        assert(d);
         assert(path);
         assert(rp_id);
         assert(salt);
         assert(cid);
         assert(ret_hmac);
         assert(ret_hmac_size);
-
-        d = sym_fido_dev_new();
-        if (!d)
-                return log_oom();
-
-        r = sym_fido_dev_open(d, path);
-        if (r != FIDO_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to open FIDO2 device %s: %s", path, sym_fido_strerr(r));
 
         r = verify_features(d, path, LOG_ERR, /* ret_has_rk= */ NULL, &has_client_pin, &has_up, &has_uv, /* ret_has_always_uv= */ NULL);
         if (r < 0)
@@ -642,6 +646,38 @@ static const char *fido2_algorithm_to_string(int alg) {
         }
 }
 
+static int fido2_use_hmac_hash_try_device(
+                const char *path,
+                const char *rp_id,
+                const void *salt,
+                size_t salt_size,
+                const void *cid,
+                size_t cid_size,
+                char **pins,
+                Fido2EnrollFlags required,
+                void **ret_hmac,
+                size_t *ret_hmac_size) {
+
+        _cleanup_(fido_dev_free_wrapper) fido_dev_t *d = NULL;
+        int r;
+
+        assert(path);
+
+        /* Keep the device open between the pre-flight and the actual request, so that the token that
+         * answered the pre-flight is the one that gets the salt. */
+        r = fido2_open_device(path, &d);
+        if (r < 0)
+                return r;
+
+        r = fido2_is_cred_in_specific_token(d, path, rp_id, cid, cid_size, required);
+        if (r == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADSLT), "The credential is not in the token %s.", path);
+        if (r < 0)
+                return log_error_errno(r, "Token returned error during pre-flight: %m");
+
+        return fido2_use_hmac_hash_specific_token(d, path, rp_id, salt, salt_size, cid, cid_size, pins, required, ret_hmac, ret_hmac_size);
+}
+
 int fido2_use_hmac_hash(
                 const char *device,
                 const char *rp_id,
@@ -662,18 +698,10 @@ int fido2_use_hmac_hash(
         if (r < 0)
                 return r;
 
-        if (device) {
-                r = fido2_is_cred_in_specific_token(device, rp_id, cid, cid_size, required);
-                if (r == 0)
-                        /* The caller is expected to attempt other key slots in this case,
-                         * therefore, do not spam the console with error logs here. */
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADSLT),
-                                               "The credential is not in the token %s.", device);
-                if (r < 0)
-                        return log_error_errno(r, "Token returned error during pre-flight: %m");
-
-                return fido2_use_hmac_hash_specific_token(device, rp_id, salt, salt_size, cid, cid_size, pins, required, ret_hmac, ret_hmac_size);
-        }
+        if (device)
+                /* If the credential is not in the token, the caller is expected to attempt other key slots,
+                 * therefore, do not spam the console with error logs here. */
+                return fido2_use_hmac_hash_try_device(device, rp_id, salt, salt_size, cid, cid_size, pins, required, ret_hmac, ret_hmac_size);
 
         di = sym_fido_dev_info_new(allocated);
         if (!di)
@@ -708,17 +736,7 @@ int fido2_use_hmac_hash(
                         goto finish;
                 }
 
-                r = fido2_is_cred_in_specific_token(path, rp_id, cid, cid_size, required);
-                if (r < 0) {
-                        log_error_errno(r, "Token returned error during pre-flight: %m");
-                        goto finish;
-                }
-                if (r == 0) {
-                        log_debug("The credential is not in the token %s, skipping.", path);
-                        continue;
-                }
-
-                r = fido2_use_hmac_hash_specific_token(path, rp_id, salt, salt_size, cid, cid_size, pins, required, ret_hmac, ret_hmac_size);
+                r = fido2_use_hmac_hash_try_device(path, rp_id, salt, salt_size, cid, cid_size, pins, required, ret_hmac, ret_hmac_size);
                 if (!IN_SET(r,
                             -EBADSLT, /* device doesn't understand our credential hash */
                             -ENODEV   /* device is not a FIDO2 device with HMAC-SECRET */))
