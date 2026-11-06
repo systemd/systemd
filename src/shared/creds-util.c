@@ -964,12 +964,20 @@ int encrypt_credential_and_warn(
                 try_tpm2 = CRED_KEY_REQUIRES_TPM2(with_key);
 
         if (try_tpm2) {
+                /* A public key without PCRs to bind it to results in a credential that can't be decrypted,
+                 * as decryption refuses an empty PCR mask for it. Hence refuse it if it was explicitly
+                 * requested, and otherwise don't load it. */
+                if (tpm2_pubkey_pcr_mask == 0 && (tpm2_pubkey_path || CRED_KEY_REQUIRES_TPM2_PK(with_key)))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "TPM2 PCR public key requested, but no PCRs to bind it to, refusing.");
+
                 /* If the UKI and the OS are not measured into PCR 11, then it never reaches the signed
                  * values, hence PCR 11 public key stuff cannot work. Because of that, if PK is only wanted
                  * (but not required) we won't try it, unless a public key was explicitly specified. */
-                if ((CRED_KEY_WANTS_TPM2_PK(with_key) &&
-                     (tpm2_pubkey_path || efi_should_use_pcrsig(LOG_DEBUG) > 0)) ||
-                    CRED_KEY_REQUIRES_TPM2_PK(with_key)) {
+                if (tpm2_pubkey_pcr_mask != 0 &&
+                    ((CRED_KEY_WANTS_TPM2_PK(with_key) &&
+                      (tpm2_pubkey_path || efi_should_use_pcrsig(LOG_DEBUG) > 0)) ||
+                     CRED_KEY_REQUIRES_TPM2_PK(with_key))) {
 
                         /* Load public key for PCR policies, if one is specified, or explicitly requested */
 
