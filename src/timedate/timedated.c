@@ -1168,6 +1168,28 @@ COMMAND(
                 "Bus introspection\0",
 );
 
+static int context_init(Context *c) {
+        int r;
+
+        assert(c);
+
+        r = sd_event_default(&c->event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
+
+        (void) sd_event_set_watchdog(c->event, true);
+
+        r = sd_event_set_signal_exit(c->event, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to install SIGINT/SIGTERM handlers: %m");
+
+        r = connect_bus(c);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(context_clear) Context context = {};
         int r;
@@ -1185,17 +1207,7 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = sd_event_default(&context.event);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate event loop: %m");
-
-        (void) sd_event_set_watchdog(context.event, true);
-
-        r = sd_event_set_signal_exit(context.event, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to install SIGINT/SIGTERM handlers: %m");
-
-        r = connect_bus(&context);
+        r = context_init(&context);
         if (r < 0)
                 return r;
 
