@@ -5,18 +5,18 @@
 #include "string-util.h"
 
 static int parse_parts_integer(const char *n) {
-        int r, v;
+        unsigned v;
+        int r;
 
-        r = safe_atoi(n, &v);
+        /* Refuse signs, leading zeros and non-decimal forms: percentages are plain non-negative decimal
+         * integers, so hex or octal spellings must not be accepted either. */
+        r = safe_atou_full(n, 10 | SAFE_ATO_REFUSE_PLUS_MINUS | SAFE_ATO_REFUSE_LEADING_ZERO, &v);
         if (r < 0)
                 return r;
-
-        /* Refuse negative values. Also check for the "-" explicitly, since safe_atoi() accepts "-0", which
-         * would otherwise turn e.g. "-0.5%" into a positive value. */
-        if (v < 0 || strchr(n, '-'))
+        if (v > INT_MAX)
                 return -ERANGE;
 
-        return v;
+        return (int) v;
 }
 
 static int parse_parts_value_whole(const char *p, const char *symbol) {
