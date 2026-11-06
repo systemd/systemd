@@ -59,8 +59,8 @@ static int network_save(Network *network, const char *dest_dir) {
 
         if (asprintf(&p, "%s/%s-%s.network",
                      dest_dir,
-                     isempty(network->ifname) ? "71" : "70",
-                     isempty(network->ifname) ? "default" : network->ifname) < 0)
+                     isempty(network->key) ? "71" : "70",
+                     isempty(network->key) ? "default" : network->key) < 0)
                 return log_oom();
 
         r = conservative_rename(temp_path, p);

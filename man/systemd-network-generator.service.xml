@@ -71,6 +71,14 @@
           link-local addressing (IPv4LL, IPv6LL) only, DHCP or IPv6RA will not be enabled.</para>
 
           <xi:include href="version-info.xml" xpointer="v245"/>
+
+          <para>As with dracut, a MAC address may be specified in place of an interface name, e.g.
+          <literal>ip=00-11-22-33-44-55:dhcp</literal>. The generated
+          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          file then matches the interface by its MAC address. Note that only the hyphen separated form of
+          the address can be used, as the colon is the field separator.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
         </listitem>
       </varlistentry>
 
