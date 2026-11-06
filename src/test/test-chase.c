@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "argv-util.h"
+#include "capability-util.h"
 #include "chase.h"
 #include "dirent-util.h"
 #include "fd-util.h"
@@ -13,6 +14,7 @@
 #include "id128-util.h"
 #include "mkdir.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
 #include "stat-util.h"
@@ -25,7 +27,9 @@
 
 static const char *arg_test_dir = NULL;
 
-static void test_chase_extract_filename_one(const char *path, const char *root, const char *expected) {
+static void test_chase_split_prefix_filename_one(const char *path, const char *root, const char *expected) {
+        /* A path in the chase fixture may resolve through a symlink or to its root. Extracting the
+         * filename from the resolved path must match CHASE_EXTRACT_FILENAME. */
         _cleanup_free_ char *ret1 = NULL, *ret2 = NULL, *fname = NULL;
 
         log_debug("/* %s(path=%s, root=%s) */", __func__, path, strnull(root));
@@ -34,11 +38,103 @@ static void test_chase_extract_filename_one(const char *path, const char *root, 
         ASSERT_STREQ(ret1, expected);
 
         ASSERT_OK_POSITIVE(chase(path, root, /* flags= */ 0, &ret2, /* ret_fd= */ NULL));
-        ASSERT_OK(chase_extract_filename(ret2, root, &fname));
+        ASSERT_OK(chase_split_prefix_filename(ret2, root, /* ret_dir= */ NULL, &fname));
         ASSERT_STREQ(fname, expected);
 }
 
+TEST(chase_split_prefix_filename) {
+        /* Relative and absolute chase results must split into the directory path and filename used
+         * with CHASE_PARENT's fd. A result ending in ".." must retain that directory path and use "."
+         * as the filename. A temporary root prefix must remain in the returned directory path. */
+        static const struct {
+                const char *path;
+                const char *dir;
+                const char *filename;
+                int result;
+        } cases[] = {
+                { "sub/file",   "sub",   "file", 0           },
+                { "file",       ".",     "file", 0           },
+                { "./file",     ".",     "file", 0           },
+                { "/sub/file",  "/sub",  "file", 0           },
+                { "../file",    "..",    "file", 0           },
+                { "..file",     ".",     "..file", 0         },
+                { ".",          ".",     ".",    0           },
+                { "./",         ".",     ".",    0           },
+                { "..",         "..",    ".",    0           },
+                { "../..",      "../..", ".",    0           },
+                { "/",          "/",     ".",    0           },
+                { "sub/file/",  "sub",   "file", O_DIRECTORY },
+        };
+
+        FOREACH_ELEMENT(c, cases) {
+                _cleanup_free_ char *dir = NULL, *filename = NULL;
+
+                ASSERT_EQ(chase_split_prefix_filename(c->path, /* root= */ NULL, &dir, &filename), c->result);
+                ASSERT_PATH_EQ(dir, c->dir);
+                ASSERT_STREQ(filename, c->filename);
+
+                /* Callers may request the directory path or filename independently. */
+                dir = mfree(dir);
+                filename = mfree(filename);
+                ASSERT_EQ(chase_split_prefix_filename(c->path, /* root= */ NULL, &dir, /* ret_filename= */ NULL), c->result);
+                ASSERT_PATH_EQ(dir, c->dir);
+                ASSERT_EQ(chase_split_prefix_filename(c->path, /* root= */ NULL, /* ret_dir= */ NULL, &filename), c->result);
+                ASSERT_STREQ(filename, c->filename);
+        }
+
+        /* A resolved path includes its root prefix, including when the result is the root itself. */
+        _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
+        _cleanup_free_ char *dir = NULL, *filename = NULL;
+
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/test-chase.XXXXXX", &root));
+        ASSERT_OK(chase_split_prefix_filename(strjoina(root, "/file"), root, &dir, &filename));
+        ASSERT_PATH_EQ(dir, root);
+        ASSERT_STREQ(filename, "file");
+
+        dir = mfree(dir);
+        filename = mfree(filename);
+        ASSERT_OK(chase_split_prefix_filename(root, root, &dir, &filename));
+        ASSERT_PATH_EQ(dir, root);
+        ASSERT_STREQ(filename, ".");
+
+        /* Invalid input and paths outside the supplied root must leave the outputs unchanged. */
+        ASSERT_ERROR(chase_split_prefix_filename("", /* root= */ NULL, &dir, &filename), EINVAL);
+        ASSERT_ERROR(chase_split_prefix_filename(strjoina(root, "-other/file"), root, &dir, &filename), EINVAL);
+        ASSERT_ERROR(chase_split_prefix_filename("file", root, &dir, &filename), EINVAL);
+        ASSERT_PATH_EQ(dir, root);
+        ASSERT_STREQ(filename, ".");
+}
+
+TEST(chase_and_unlink_root) {
+        /* A temporary root contains an empty directory with the root's basename. Removing the root
+         * must fail without removing that child. Relative ancestor lookup must reject removal too. */
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int root_fd = -EBADF, sub_fd = -EBADF;
+        struct stat st;
+
+        root_fd = ASSERT_OK(mkdtemp_open("/var/tmp/test-chase.XXXXXX", /* flags= */ 0, &t));
+        const char *name = last_path_component(t);
+        ASSERT_OK_ERRNO(mkdirat(root_fd, name, 0700));
+        ASSERT_OK_ERRNO(mkdirat(root_fd, "sub", 0700));
+        sub_fd = ASSERT_OK(xopenat(root_fd, "sub", O_PATH|O_DIRECTORY));
+
+        /* The path wrapper must recognize the configured root before extracting its filename. */
+        ASSERT_ERROR(chase_and_unlink(t, t, /* chase_flags= */ 0, AT_REMOVEDIR, /* ret_path= */ NULL), EINVAL);
+        ASSERT_ERROR(chase_and_unlink("/", t, CHASE_PREFIX_ROOT, AT_REMOVEDIR, /* ret_path= */ NULL), EINVAL);
+        ASSERT_OK_ERRNO(fstatat(root_fd, name, &st, AT_SYMLINK_NOFOLLOW));
+        ASSERT_TRUE(S_ISDIR(st.st_mode));
+
+        /* Root and ancestor results have no filename to remove relative to the returned fd. */
+        FOREACH_STRING(path, "/", ".", "")
+                ASSERT_ERROR(chase_and_unlinkat(root_fd, root_fd, path, /* chase_flags= */ 0, AT_REMOVEDIR, /* ret_path= */ NULL), EINVAL);
+        ASSERT_ERROR(chase_and_unlinkat(root_fd, sub_fd, "..", /* chase_flags= */ 0, AT_REMOVEDIR, /* ret_path= */ NULL), EINVAL);
+        ASSERT_OK_ERRNO(fstatat(root_fd, name, &st, AT_SYMLINK_NOFOLLOW));
+        ASSERT_TRUE(S_ISDIR(st.st_mode));
+}
+
 TEST(chase) {
+        /* A temporary directory contains symlinks to relative paths, absolute paths, and the root.
+         * Path and fd results must match the chase flags and stay within a configured root. */
         _cleanup_free_ char *result = NULL, *pwd = NULL;
         _cleanup_close_ int pfd = -EBADF;
         char *temp;
@@ -124,18 +220,18 @@ TEST(chase) {
         ASSERT_PATH_EQ(result, temp);
         result = mfree(result);
 
-        /* Tests for CHASE_EXTRACT_FILENAME and chase_extract_filename() */
+        /* Filename extraction must match CHASE_EXTRACT_FILENAME for paths through symlinks. */
 
         p = strjoina(temp, "/start");
         pslash = strjoina(p, "/");
-        test_chase_extract_filename_one(p, /* root= */ NULL, "usr");
-        test_chase_extract_filename_one(pslash, /* root= */ NULL, "usr");
-        test_chase_extract_filename_one(p, temp, "usr");
-        test_chase_extract_filename_one(pslash, temp, "usr");
+        test_chase_split_prefix_filename_one(p, /* root= */ NULL, "usr");
+        test_chase_split_prefix_filename_one(pslash, /* root= */ NULL, "usr");
+        test_chase_split_prefix_filename_one(p, temp, "usr");
+        test_chase_split_prefix_filename_one(pslash, temp, "usr");
 
         p = strjoina(temp, "/slash");
-        test_chase_extract_filename_one(p, /* root= */ NULL, ".");
-        test_chase_extract_filename_one(p, temp, ".");
+        test_chase_split_prefix_filename_one(p, /* root= */ NULL, ".");
+        test_chase_split_prefix_filename_one(p, temp, ".");
 
         /* Paths that would "escape" outside of the "root" */
 
@@ -418,10 +514,10 @@ TEST(chase) {
 }
 
 TEST(chase_and_open) {
+        /* Host paths and a symlink under a temporary root must open the target or its parent according
+         * to CHASE_PARENT. CHASE_EXTRACT_FILENAME must change the returned path to the final filename. */
         _cleanup_free_ char *result = NULL;
         _cleanup_close_ int fd = -EBADF;
-
-        /* Test chase_and_open() with various CHASE_PARENT / CHASE_EXTRACT_FILENAME combinations. */
 
         /* No CHASE_PARENT, no CHASE_EXTRACT_FILENAME, with ret_path — opens the target, returns full path. */
         fd = ASSERT_OK(chase_and_open("/usr/lib", /* root= */ NULL, /* chase_flags= */ 0, O_PATH|O_DIRECTORY, &result));
@@ -500,7 +596,7 @@ TEST(chase_and_open) {
         result = mfree(result);
 
         /* When the resolved path equals the root directory itself, the filename should be "." — not
-         * the basename of the root directory. This is the edge case that chase_extract_filename()
+         * the basename of the root directory. This is the edge case that chase_split_prefix_filename()
          * handles by stripping the root prefix before extracting, which plain path_extract_filename()
          * would get wrong. */
         _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
@@ -1035,41 +1131,85 @@ TEST(chaseat_separate_root_and_dir) {
         ASSERT_ERROR(chaseat(root_fd, XAT_FDROOT, "/nonexistent", /* flags= */ 0, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOENT);
 }
 
-TEST(chaseat_prefix_root) {
+TEST(chaseat_make_absolute) {
+        /* Absolute results must stay unchanged. Relative results must use an absolute or cwd-relative
+         * base while preserving unresolved interior ".." components. */
         _cleanup_free_ char *cwd = NULL, *ret = NULL, *expected = NULL;
 
         ASSERT_OK(safe_getcwd(&cwd));
 
-        ASSERT_OK(chaseat_prefix_root("/hoge", /* root= */ NULL, &ret));
+        ASSERT_OK(chaseat_make_absolute("/hoge", /* base= */ NULL, &ret));
         ASSERT_STREQ(ret, "/hoge");
 
         ret = mfree(ret);
 
-        ASSERT_OK(chaseat_prefix_root("/hoge", "a/b/c", &ret));
+        ASSERT_OK(chaseat_make_absolute("/hoge", "a/b/c", &ret));
         ASSERT_STREQ(ret, "/hoge");
 
         ret = mfree(ret);
 
-        ASSERT_OK(chaseat_prefix_root("hoge", "/a/b//./c///", &ret));
+        ASSERT_OK(chaseat_make_absolute("hoge", "/a/b//./c///", &ret));
         ASSERT_STREQ(ret, "/a/b/c/hoge");
 
         ret = mfree(ret);
 
-        ASSERT_OK(chaseat_prefix_root("hoge", "a/b//./c///", &ret));
+        ASSERT_OK(chaseat_make_absolute("hoge", "a/b//./c///", &ret));
         expected = ASSERT_NOT_NULL(path_join(cwd, "a/b/c/hoge"));
         ASSERT_STREQ(ret, expected);
 
         ret = mfree(ret);
         expected = mfree(expected);
 
-        ASSERT_OK(chaseat_prefix_root("./hoge/aaa/../././b", "/a/b//./c///", &ret));
+        ASSERT_OK(chaseat_make_absolute("./hoge/aaa/../././b", "/a/b//./c///", &ret));
         ASSERT_STREQ(ret, "/a/b/c/hoge/aaa/../././b");
 
         ret = mfree(ret);
 
-        ASSERT_OK(chaseat_prefix_root("./hoge/aaa/../././b", "a/b//./c///", &ret));
+        ASSERT_OK(chaseat_make_absolute("./hoge/aaa/../././b", "a/b//./c///", &ret));
         expected = ASSERT_NOT_NULL(path_join(cwd, "a/b/c/hoge/aaa/../././b"));
         ASSERT_STREQ(ret, expected);
+}
+
+TEST(chaseat_make_absolute_relative) {
+        /* Relative results must become absolute without changing unresolved interior components or resolving
+         * symlinks in the base. A "/" base must produce a single leading slash. Leading ".." components must
+         * remove matching base components and stop at "/". */
+        const struct {
+                const char *path;
+                const char *base;
+                const char *expected;
+        } cases[] = {
+                { "file",          "/",    "/file" },
+                { "./file",        "/",    "/file" },
+                { "./file/./more", "/",    "/file/./more" },
+                { "./",            "/",    "/" },
+                { "./",            "/a/b", "/a/b/" },
+                { ".",             "/",    "/" },
+                { "..",            "/",    "/" },
+                { "../file",       "/a/b", "/a/file" },
+                { "../../file",    "/a/b", "/file" },
+                { "../../../file", "/a/b", "/file" },
+                { "../..",         "/a/b", "/" },
+                { "../leaf/file",  "/a/b", "/a/leaf/file" },
+                { "..file",        "/a/b", "/a/b/..file" },
+        };
+
+        FOREACH_ELEMENT(c, cases) {
+                _cleanup_free_ char *path = NULL;
+                ASSERT_OK(chaseat_make_absolute(c->path, c->base, &path));
+                ASSERT_STREQ(path, c->expected);
+        }
+
+        /* A stored path inside another root can name an unrelated symlink in the host filesystem. */
+        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/test-chase.XXXXXX", &tmpdir));
+        _cleanup_free_ char *prefix = ASSERT_PTR(path_join(tmpdir, "root"));
+        _cleanup_free_ char *expected = ASSERT_PTR(path_join(prefix, "file"));
+        ASSERT_OK_ERRNO(symlink("/", prefix));
+
+        _cleanup_free_ char *path = NULL;
+        ASSERT_OK(chaseat_make_absolute("file", prefix, &path));
+        ASSERT_STREQ(path, expected);
 }
 
 TEST(trailing_dot_dot) {
@@ -1097,6 +1237,132 @@ TEST(trailing_dot_dot) {
         ASSERT_PATH_EQ(path, expected1);
         ASSERT_OK(fd_get_path(fd, &fdpath));
         ASSERT_PATH_EQ(fdpath, expected2);
+}
+
+TEST(open_trailing_dot_dot) {
+        /* The walk starts at a leaf below a temporary root. Equivalent spellings of ".." must reopen
+         * the leaf's parent with each path-output mode. Filename extraction must return "." with or
+         * without CHASE_PARENT. Directory creation must fail for the result. */
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int root_fd = -EBADF, sub_fd = -EBADF, leaf_fd = -EBADF;
+
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/test-chase.XXXXXX", &t));
+        root_fd = ASSERT_OK(xopenat(AT_FDCWD, t, O_PATH|O_DIRECTORY));
+        ASSERT_OK_ERRNO(mkdirat(root_fd, "sub", 0700));
+        sub_fd = ASSERT_OK(xopenat(root_fd, "sub", O_PATH|O_DIRECTORY));
+        ASSERT_OK_ERRNO(mkdirat(sub_fd, "leaf", 0700));
+        leaf_fd = ASSERT_OK(xopenat(sub_fd, "leaf", O_PATH|O_DIRECTORY));
+
+        /* Filename extraction must also work when chaseat() opens the target directly. */
+        _cleanup_free_ char *direct_filename = NULL;
+        _cleanup_close_ int direct_fd = -EBADF;
+        ASSERT_OK_POSITIVE(chaseat(root_fd, leaf_fd, "..", CHASE_EXTRACT_FILENAME, &direct_filename, &direct_fd));
+        ASSERT_STREQ(direct_filename, ".");
+        ASSERT_OK_POSITIVE(fds_inode_and_mount_same(direct_fd, sub_fd));
+
+        ChaseFlags flags;
+        FOREACH_STRING(path, "..", "../leaf/..", ".././")
+                FOREACH_ARGUMENT(flags, 0, CHASE_EXTRACT_FILENAME, CHASE_TRAIL_SLASH) {
+                        _cleanup_close_ int fd = -EBADF;
+
+                        fd = ASSERT_OK(chase_and_openat(root_fd, leaf_fd, path, flags, O_PATH|O_DIRECTORY, /* ret_path= */ NULL));
+                        ASSERT_OK_POSITIVE(fds_inode_and_mount_same(fd, sub_fd));
+                        ASSERT_ERROR(chase_and_openat(root_fd, leaf_fd, path, flags, O_CREAT|O_DIRECTORY, /* ret_path= */ NULL), EISDIR);
+                }
+
+        /* Parent lookup must return a filename that opens the same resolved directory in its fd. */
+        _cleanup_free_ char *filename = NULL;
+        _cleanup_close_ int fd = ASSERT_OK(chase_and_open_parent_at(root_fd, leaf_fd, "..", /* chase_flags= */ 0, &filename));
+        ASSERT_STREQ(filename, ".");
+        ASSERT_OK_POSITIVE(fds_inode_and_mount_same(fd, sub_fd));
+}
+
+TEST(chase_root_without_proc) {
+        /* A child enters a temporary root without /proc. Root lookup must preserve the pinned inode
+         * without directory search permission, including on kernels without O_EMPTYPATH. */
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int root_fd = -EBADF;
+        int r;
+
+        if (have_effective_cap(CAP_SYS_CHROOT) <= 0)
+                return (void) log_tests_skipped("CAP_SYS_CHROOT is required");
+
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/test-chase.XXXXXX", &t));
+        ASSERT_OK(mkdir_p(strjoina(t, "/root"), 0755));
+        root_fd = ASSERT_OK(xopenat(AT_FDCWD, strjoina(t, "/root"), O_PATH|O_DIRECTORY));
+
+        /* The child changes its filesystem root so /proc is absent without changing the parent process. */
+        r = ASSERT_OK(pidref_safe_fork("(chase-root)", FORK_WAIT|FORK_LOG|FORK_DEATHSIG_SIGKILL, /* ret= */ NULL));
+        if (r > 0)
+                return;
+
+        ASSERT_OK_ERRNO(chroot(t));
+        ASSERT_OK_ERRNO(chdir("/"));
+
+        /* CHASE_PREFIX_ROOT must preserve root lookup through the open wrapper without /proc. */
+        _cleanup_close_ int opened = ASSERT_OK(chase_and_open("/", "/root", CHASE_PREFIX_ROOT, O_PATH|O_DIRECTORY, /* ret_path= */ NULL));
+        ASSERT_OK_POSITIVE(fds_inode_and_mount_same(opened, root_fd));
+
+        /* Dropping DAC overrides makes a "." lookup fail after removing directory search permission. */
+        ASSERT_OK_ERRNO(chmod("/root", 0400));
+        ASSERT_OK(drop_capability(CAP_DAC_OVERRIDE));
+        ASSERT_OK(drop_capability(CAP_DAC_READ_SEARCH));
+        ASSERT_ERROR(xopenat(root_fd, ".", O_PATH|O_DIRECTORY), EACCES);
+
+        ChaseFlags flags;
+        FOREACH_ARGUMENT(flags, 0, CHASE_PARENT, CHASE_EXTRACT_FILENAME, CHASE_PARENT|CHASE_EXTRACT_FILENAME) {
+                _cleanup_free_ char *path = NULL;
+                _cleanup_close_ int fd = -EBADF;
+
+                ASSERT_OK_POSITIVE(chase("/root", "/root", flags, &path, &fd));
+                ASSERT_STREQ(path, FLAGS_SET(flags, CHASE_EXTRACT_FILENAME) ? "." : "/root");
+                ASSERT_OK_POSITIVE(fds_inode_and_mount_same(fd, root_fd));
+                ASSERT_TRUE(FLAGS_SET(ASSERT_OK_ERRNO(fcntl(fd, F_GETFD)), FD_CLOEXEC));
+        }
+
+        /* An explicit empty lookup must also preserve the inode without searching the directory. */
+        _cleanup_close_ int fd = -EBADF;
+        ASSERT_OK(chaseat(root_fd, root_fd, "", /* flags= */ 0, /* ret_path= */ NULL, &fd));
+        ASSERT_OK_POSITIVE(fds_inode_and_mount_same(fd, root_fd));
+        _exit(EXIT_SUCCESS);
+}
+
+TEST(chase_empty_path) {
+        /* A temporary root contains a file and an O_PATH symlink. Empty paths must preserve the inode
+         * identity of their fds. Nonempty relative paths must reject the file and symlink as lookup
+         * directories. Type checks must still apply to an empty-path lookup. */
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int root_fd = -EBADF, file_fd = -EBADF, path_fd = -EBADF, link_fd = -EBADF;
+
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/test-chase.XXXXXX", &t));
+        root_fd = ASSERT_OK(xopenat(AT_FDCWD, t, O_PATH|O_DIRECTORY));
+        file_fd = ASSERT_OK(xopenat(root_fd, "file", O_CREAT|O_RDWR));
+        path_fd = ASSERT_OK(xopenat(root_fd, "file", O_PATH));
+        ASSERT_OK_ERRNO(symlinkat("file", root_fd, "link"));
+        link_fd = ASSERT_OK(xopenat(root_fd, "link", O_PATH|O_NOFOLLOW));
+
+        int start_fd;
+        FOREACH_ARGUMENT(start_fd, file_fd, path_fd, link_fd) {
+                _cleanup_close_ int fd = -EBADF, opened = -EBADF;
+                _cleanup_free_ char *path = NULL;
+
+                ASSERT_OK(chaseat(root_fd, start_fd, "", /* flags= */ 0, &path, &fd));
+                ASSERT_STREQ(path, ".");
+                ASSERT_OK_POSITIVE(fds_inode_and_mount_same(fd, start_fd));
+                ASSERT_OK_POSITIVE(fd_is_opath(fd));
+                ASSERT_TRUE(FLAGS_SET(ASSERT_OK_ERRNO(fcntl(fd, F_GETFD)), FD_CLOEXEC));
+                ASSERT_OK(chaseat(root_fd, start_fd, "", /* flags= */ 0, /* ret_path= */ NULL, /* ret_fd= */ NULL));
+                opened = ASSERT_OK(chase_and_openat(root_fd, start_fd, "", /* chase_flags= */ 0, O_PATH, /* ret_path= */ NULL));
+                ASSERT_OK_POSITIVE(fds_inode_and_mount_same(opened, start_fd));
+                ASSERT_ERROR(chaseat(root_fd, start_fd, "child", /* flags= */ 0, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOTDIR);
+                ASSERT_ERROR(chaseat(root_fd, start_fd, "", CHASE_PARENT, /* ret_path= */ NULL, /* ret_fd= */ NULL),
+                             start_fd == link_fd ? ELOOP : ENOTDIR);
+        }
+
+        /* Type verification must distinguish the file and symlink even when no name is looked up. */
+        ASSERT_OK(chaseat(root_fd, file_fd, "", CHASE_MUST_BE_REGULAR, /* ret_path= */ NULL, /* ret_fd= */ NULL));
+        ASSERT_ERROR(chaseat(root_fd, file_fd, "", CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOTDIR);
+        ASSERT_ERROR(chaseat(root_fd, link_fd, "", CHASE_MUST_BE_REGULAR, /* ret_path= */ NULL, /* ret_fd= */ NULL), ELOOP);
 }
 
 TEST(trailing_dot_dot_below_root) {
@@ -1171,6 +1437,8 @@ TEST(use_chase_as_mkdir_p) {
 }
 
 TEST(chase_mode) {
+        /* A temporary tree exercises CHASE_MAX_MODE on files, directories, symlinks, and parent traversal.
+         * Unsafe mode bits must be rejected on every inode that the walk checks. */
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL, *f = NULL, *l = NULL, *al = NULL;
         _cleanup_close_ int tfd = -EBADF, bfd = -EBADF, cfd = -EBADF, fd = -EBADF;
@@ -1263,16 +1531,15 @@ TEST(chase_mode) {
                 ASSERT_OK(chaseat(tfd, tfd, "n/m", CHASE_MKDIR_0755|CHASE_MAX_MODE, /* ret_path= */ NULL, /* ret_fd= */ NULL));
         ASSERT_OK(chaseat(tfd, tfd, "n/m", CHASE_MAX_MODE, /* ret_path= */ NULL, /* ret_fd= */ NULL));
 
-        /* Starting below the root: a trailing ".." with CHASE_PARENT checks the grandparent, which the walk
-         * never entered on the way down. For "c/.." from "b", the result is ".", which refers to "b".
-         * chaseat() doesn't open "a" in that case. */
+        /* A normalized result ending in ".." returns the result itself with CHASE_PARENT. The directory
+         * above the result is not part of the walk. */
         WITH_UMASK(0022)
                 ASSERT_OK(mkdir_p(c, 0755));
         ASSERT_OK(bfd = xopenat(AT_FDCWD, b, O_PATH|O_DIRECTORY));
         ASSERT_OK(cfd = xopenat(AT_FDCWD, c, O_PATH|O_DIRECTORY));
         ASSERT_OK(chaseat(tfd, cfd, "..", CHASE_PARENT|CHASE_MAX_MODE, /* ret_path= */ NULL, /* ret_fd= */ NULL));
         ASSERT_OK_ERRNO(chmod(a, 0777));
-        ASSERT_ERROR(chaseat(tfd, cfd, "..", CHASE_PARENT|CHASE_MAX_MODE, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOLINK);
+        ASSERT_OK(chaseat(tfd, cfd, "..", CHASE_PARENT|CHASE_MAX_MODE, /* ret_path= */ NULL, /* ret_fd= */ NULL));
         ASSERT_ERROR(chaseat(tfd, bfd, "..", CHASE_MAX_MODE, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOLINK);
         ASSERT_OK(chaseat(tfd, bfd, "c/..", CHASE_PARENT|CHASE_MAX_MODE, /* ret_path= */ NULL, /* ret_fd= */ NULL));
         ASSERT_OK_ERRNO(chmod(a, 0755));

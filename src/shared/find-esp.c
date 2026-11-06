@@ -542,7 +542,7 @@ int find_esp_and_warn_full(
                 return r;
 
         if (ret_path) {
-                r = chaseat_prefix_root(p, root, ret_path);
+                r = chaseat_make_absolute(p, root, ret_path);
                 if (r < 0)
                         return r;
         }
@@ -891,7 +891,7 @@ int find_xbootldr_and_warn_full(
                 return r;
 
         if (ret_path) {
-                r = chaseat_prefix_root(p, root, ret_path);
+                r = chaseat_make_absolute(p, root, ret_path);
                 if (r < 0)
                         return r;
         }

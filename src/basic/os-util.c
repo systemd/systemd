@@ -201,7 +201,7 @@ int open_os_release(const char *root, char **ret_path, int *ret_fd) {
                 return r;
 
         if (ret_path) {
-                r = chaseat_prefix_root(p, root, ret_path);
+                r = chaseat_make_absolute(p, root, ret_path);
                 if (r < 0)
                         return r;
         }
@@ -350,7 +350,7 @@ int open_extension_release(
                 return r;
 
         if (ret_path) {
-                r = chaseat_prefix_root(p, root, ret_path);
+                r = chaseat_make_absolute(p, root, ret_path);
                 if (r < 0)
                         return r;
         }

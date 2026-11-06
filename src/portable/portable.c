@@ -370,7 +370,7 @@ static int extract_now(
                         continue;
                 }
 
-                r = chaseat_prefix_root(relative, image_path, &resolved);
+                r = chaseat_make_absolute(relative, image_path, &resolved);
                 if (r < 0)
                         return r;
 
