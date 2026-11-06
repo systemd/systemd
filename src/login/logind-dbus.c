@@ -3565,8 +3565,15 @@ static int property_get_boot_loader_entries(
         assert(reply);
 
         r = boot_config_load_auto(&config, /* override_esp_path= */ NULL, /* override_xbootldr_path= */ NULL);
-        if (r < 0 && r != -ENOKEY) /* don't complain if there's no GPT found */
+        if (r == -ENOMEM)
                 return r;
+        if (r < 0 && r != -ENOKEY) { /* don't complain if there's no GPT found */
+                /* Don't fail GetAll() on unsupported setups, e.g. a symlinked /boot/loader/ on ostree (see
+                 * #44636). Drop the partially loaded config, only report what the boot loader sees. */
+                log_debug_errno(r, "Failed to load boot loader entries, ignoring: %m");
+                boot_config_free(&config);
+                config = (BootConfig) BOOT_CONFIG_NULL;
+        }
 
         r = manager_read_efi_boot_loader_entries(m);
         if (r >= 0)
