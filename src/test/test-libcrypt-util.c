@@ -69,4 +69,16 @@ TEST(hash_password) {
                 }
 }
 
+TEST(short_hashes) {
+        /* Hashed password strings that are too short to be valid must never match, regardless of what the
+         * crypt implementation returns for them (libxcrypt returns failure tokens such as "*0", musl may
+         * return "x"). */
+        FOREACH_STRING(hash, "*", "x", "*0", "*1", "!", "") {
+                ASSERT_OK_ZERO(test_password_one(hash, ""));
+                ASSERT_OK_ZERO(test_password_one(hash, "ppp"));
+                ASSERT_OK_ZERO(test_password_one(hash, hash));
+                ASSERT_OK_ZERO(test_password_many(STRV_MAKE(hash), "ppp"));
+        }
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
