@@ -980,6 +980,28 @@ static int vl_method_set_local_rtc(sd_varlink *link, sd_json_variant *parameters
         return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
+static int timespec_store_maybe_relative(struct timespec *ts, int64_t signed_usec, bool relative) {
+        assert(ts);
+
+        if (relative) {
+                usec_t n = now(CLOCK_REALTIME);
+                bool valid;
+                if (signed_usec > 0)
+                        valid = INC_SAFE(&n, (usec_t) signed_usec);
+                else if (signed_usec == INT64_MIN)
+                        valid = false; /* subtracting 2^63 from any unsigned value is going to underflow */
+                else
+                        valid = DEC_SAFE(&n, (usec_t) -signed_usec);
+                if (!valid)
+                        return -EINVAL;
+
+                timespec_store(ts, n);
+        } else
+                timespec_store(ts, (usec_t) signed_usec);
+
+        return 0;
+}
+
 static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         int relative, interactive, r;
         Context *c = ASSERT_PTR(userdata);
@@ -1009,21 +1031,9 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
         if (relative && utc == 0)
                 return sd_bus_reply_method_return(m, /* types= */ NULL);
 
-        if (relative) {
-                usec_t n = now(CLOCK_REALTIME);
-                bool valid;
-                if (utc > 0)
-                        valid = INC_SAFE(&n, (usec_t) utc);
-                else if (utc == INT64_MIN)
-                        valid = false; /* subtracting 2^63 from any unsigned value is going to underflow */
-                else
-                        valid = DEC_SAFE(&n, (usec_t) -utc);
-                if (!valid)
-                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Time value overflow");
-
-                timespec_store(&ts, n);
-        } else
-                timespec_store(&ts, (usec_t) utc);
+        r = timespec_store_maybe_relative(&ts, utc, relative);
+        if (r < 0)
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Time value overflow");
 
         /* refuse the request when the time is before systemd build date time */
         if (ts.tv_sec < TIME_EPOCH)
