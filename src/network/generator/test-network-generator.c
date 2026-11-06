@@ -130,6 +130,61 @@ int main(int argc, char *argv[]) {
                          "\n[DHCP]\n"
                          );
 
+        test_network_one("001122334455", "ip", "00-11-22-33-44-55:dhcp",
+                         "[Match]\n"
+                         "MACAddress=00:11:22:33:44:55\n"
+                         "Kind=!*\n"
+                         "\n[Link]\n"
+                         "\n[Network]\n"
+                         "DHCP=ipv4\n"
+                         "\n[DHCP]\n"
+                         );
+
+        test_network_one("001122334455", "ip", "00-11-22-33-44-55:dhcp6:1530:00:aa:bb:cc:dd:ee",
+                         "[Match]\n"
+                         "MACAddress=00:11:22:33:44:55\n"
+                         "Kind=!*\n"
+                         "\n[Link]\n"
+                         "MACAddress=00:aa:bb:cc:dd:ee\n"
+                         "MTUBytes=1530\n"
+                         "\n[Network]\n"
+                         "DHCP=ipv6\n"
+                         "\n[DHCP]\n"
+                         );
+
+        test_network_one("001122334455", "ip", "192.168.0.10::192.168.0.1:255.255.255.0:hogehoge:00-11-22-33-44-55:off",
+                         "[Match]\n"
+                         "MACAddress=00:11:22:33:44:55\n"
+                         "Kind=!*\n"
+                         "\n[Link]\n"
+                         "\n[Network]\n"
+                         "DHCP=no\n"
+                         "LinkLocalAddressing=no\n"
+                         "IPv6AcceptRA=no\n"
+                         "\n[DHCP]\n"
+                         "Hostname=hogehoge\n"
+                         "\n[Address]\n"
+                         "Address=192.168.0.10/24\n"
+                         "\n[Route]\n"
+                         "Gateway=192.168.0.1\n"
+                         );
+
+        /* Different spellings of the same address refer to the same network. */
+        test_network_two("00112233aabb",
+                         "ip", "00-11-22-33-AA-BB:dhcp",
+                         "rd.route", "10.1.2.3/16:10.0.2.3:00-11-22-33-aa-bb",
+                         "[Match]\n"
+                         "MACAddress=00:11:22:33:aa:bb\n"
+                         "Kind=!*\n"
+                         "\n[Link]\n"
+                         "\n[Network]\n"
+                         "DHCP=ipv4\n"
+                         "\n[DHCP]\n"
+                         "\n[Route]\n"
+                         "Destination=10.1.2.3/16\n"
+                         "Gateway=10.0.2.3\n"
+                         );
+
         test_network_one("eth0", "ip", "10.99.37.44::10.99.10.1:255.255.0.0::eth0:off",
                          "[Match]\n"
                          "Name=eth0\n"
@@ -480,14 +535,14 @@ int main(int argc, char *argv[]) {
         test_link_one("hogehoge", "ifname", "hogehoge:00:11:22:33:44:55",
                       "[Match]\n"
                       "MACAddress=00:11:22:33:44:55\n"
-                      "\n[Link]\n"
+                                            "\n[Link]\n"
                       "Name=hogehoge\n"
                       );
 
         test_link_one("001122334455", "net.ifname-policy", "keep,kernel,database,onboard,slot,path,mac,00:11:22:33:44:55",
                       "[Match]\n"
                       "MACAddress=00:11:22:33:44:55\n"
-                      "\n[Link]\n"
+                                            "\n[Link]\n"
                       "NamePolicy=keep kernel database onboard slot path mac\n"
                       "AlternativeNamesPolicy=database onboard slot path mac\n"
                       );
@@ -605,6 +660,7 @@ int main(int argc, char *argv[]) {
                          "BOOTIF", "01-00:11:22:33:44:55",
                          "[Match]\n"
                          "MACAddress=00:11:22:33:44:55\n"
+                         "Kind=!*\n"
                          "\n[Link]\n"
                          "\n[Network]\n"
                          "DHCP=ipv4\n"
@@ -617,6 +673,7 @@ int main(int argc, char *argv[]) {
                          "BOOTIF", "00:11:22:33:44:55",
                          "[Match]\n"
                          "MACAddress=00:11:22:33:44:55\n"
+                         "Kind=!*\n"
                          "\n[Link]\n"
                          "\n[Network]\n"
                          "DHCP=ipv4\n"
@@ -629,6 +686,7 @@ int main(int argc, char *argv[]) {
                          "BOOTIF", "01-00-11-22-33-44-55",
                          "[Match]\n"
                          "MACAddress=00:11:22:33:44:55\n"
+                         "Kind=!*\n"
                          "\n[Link]\n"
                          "\n[Network]\n"
                          "DHCP=ipv4\n"
@@ -642,6 +700,7 @@ int main(int argc, char *argv[]) {
                            "rd.bootif", "1",
                            "[Match]\n"
                            "MACAddress=00:11:22:33:44:55\n"
+                           "Kind=!*\n"
                            "\n[Link]\n"
                            "\n[Network]\n"
                            "DHCP=ipv4\n"
