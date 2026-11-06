@@ -822,18 +822,18 @@ static int vl_method_set_timezone(sd_varlink *link, sd_json_variant *parameters,
 }
 
 static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        int lrtc, fix_system, interactive;
+        int lrtc, adjust_system_clock, interactive;
         Context *c = ASSERT_PTR(userdata);
         struct timespec ts;
         int r;
 
         assert(m);
 
-        r = sd_bus_message_read(m, "bbb", &lrtc, &fix_system, &interactive);
+        r = sd_bus_message_read(m, "bbb", &lrtc, &adjust_system_clock, &interactive);
         if (r < 0)
                 return r;
 
-        if (lrtc == c->local_rtc && !fix_system)
+        if (lrtc == c->local_rtc && !adjust_system_clock)
                 return sd_bus_reply_method_return(m, /* types= */ NULL);
 
         r = bus_verify_polkit_async_full(
@@ -872,7 +872,7 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
         /* 3. Synchronize clocks */
         assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
 
-        if (fix_system) {
+        if (adjust_system_clock) {
                 struct tm tm = {
                         .tm_isdst = -1,
                 };
@@ -1157,7 +1157,7 @@ static const sd_bus_vtable timedate_vtable[] = {
                                 method_set_timezone,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("SetLocalRTC",
-                                SD_BUS_ARGS("b", local_rtc, "b", fix_system, "b", interactive),
+                                SD_BUS_ARGS("b", local_rtc, "b", adjust_system_clock, "b", interactive),
                                 SD_BUS_NO_RESULT,
                                 method_set_local_rtc,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
