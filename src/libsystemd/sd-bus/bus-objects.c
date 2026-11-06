@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <limits.h>
 #include <linux/capability.h>
 
 #include "sd-bus.h"
@@ -1918,6 +1919,7 @@ static int add_object_vtable_internal(
         BusNodeVTable *existing = NULL;
         const sd_bus_vtable *v;
         BusNode *n;
+        unsigned n_methods = 0, n_properties = 0;
         int r;
         const char *names = "";
         names_flags nf;
@@ -1972,6 +1974,49 @@ static int add_object_vtable_internal(
         if (!s->node_vtable.interface) {
                 r = -ENOMEM;
                 goto fail;
+        }
+
+        /* Avoid repeatedly growing and rehashing the member sets while
+         * registering a vtable. The public vtable contract requires an END
+         * entry; the normal per-entry validation below remains unchanged. */
+        for (v = bus_vtable_next(vtable, vtable); v->type != _SD_BUS_VTABLE_END; v = bus_vtable_next(vtable, v)) {
+                switch (v->type) {
+                case _SD_BUS_VTABLE_METHOD:
+                        if (n_methods == UINT_MAX) {
+                                r = -EOVERFLOW;
+                                goto fail;
+                        }
+                        n_methods++;
+                        break;
+                case _SD_BUS_VTABLE_PROPERTY:
+                case _SD_BUS_VTABLE_WRITABLE_PROPERTY:
+                        if (n_properties == UINT_MAX) {
+                                r = -EOVERFLOW;
+                                goto fail;
+                        }
+                        n_properties++;
+                        break;
+                default:
+                        /* Leave validation to the registration pass, which reports the first error. */
+                        break;
+                }
+        }
+
+        if (n_methods > 0) {
+                r = set_ensure_allocated(&bus->vtable_methods, &vtable_member_hash_ops);
+                if (r < 0)
+                        goto fail;
+                r = set_reserve(bus->vtable_methods, n_methods);
+                if (r < 0)
+                        goto fail;
+        }
+        if (n_properties > 0) {
+                r = set_ensure_allocated(&bus->vtable_properties, &vtable_member_hash_ops);
+                if (r < 0)
+                        goto fail;
+                r = set_reserve(bus->vtable_properties, n_properties);
+                if (r < 0)
+                        goto fail;
         }
 
         v = s->node_vtable.vtable;
