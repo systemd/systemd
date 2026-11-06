@@ -50,6 +50,15 @@ touchpad:usb:v05acp0340:name:Apple Inc. Apple Internal Keyboard / Trackpad:*
  ID_INPUT_TOUCHPAD_INTEGRATION=internal
 
 ###########################################################
+# Apple MacBook Air 11" (2014)
+###########################################################
+# The touchpad is on a USB bus, so udev classifies it as external and libinput
+# skips disable-while-typing. The touchpad is physically integrated; mark it
+# internal to enable DWT.
+touchpad:usb:v05acp0290:name:bcm5974:*
+ ID_INPUT_TOUCHPAD_INTEGRATION=internal
+
+###########################################################
 # ASUS ROG Flow Z13 (GZ302EA)
 ###########################################################
 # The USB port is reported as removable by firmware, so 65-integration.rules
