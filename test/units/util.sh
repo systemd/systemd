@@ -181,6 +181,17 @@ coverage_create_nspawn_dropin() {
     echo -ne "[Files]\nBind=$COVERAGE_BUILD_DIR\n" >"/run/systemd/nspawn/${container:?}.nspawn"
 }
 
+dummy_container_has() {
+    local binary="${1:?}"
+
+    if [[ ! -f "/usr/share/TEST-13-NSPAWN-container-template/$binary" ]]; then
+        echo "No $binary in the container template" >>/skipped
+        return 1
+    fi
+
+    return 0
+}
+
 create_dummy_container() {
     local root="${1:?}"
 
