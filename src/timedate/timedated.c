@@ -1276,7 +1276,7 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
         r = bus_verify_polkit_async_full(
                         m,
                         "org.freedesktop.timedate1.set-ntp",
-                        /* details= */ NULL,
+                        (const char**) STRV_MAKE("enable", one_zero(enable)),
                         /* good_user= */ UID_INVALID,
                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &c->polkit_registry,
