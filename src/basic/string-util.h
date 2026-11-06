@@ -58,14 +58,6 @@ static inline const char* enabled_disabled(bool b) {
         return b ? "enabled" : "disabled";
 }
 
-/* This macro's return pointer will have the "const" qualifier set or unset the same way as the input
- * pointer. */
-#define empty_to_null(p)                                \
-        ({                                              \
-                const char *_p = (p);                   \
-                (typeof(p)) (isempty(_p) ? NULL : _p);  \
-        })
-
 static inline const char* empty_to_na(const char *p) {
         return isempty(p) ? "n/a" : p;
 }

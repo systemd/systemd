@@ -84,6 +84,8 @@ char16_t *strcpy16(char16_t * restrict dest, const char16_t * restrict src);
 char* strchr8(const char *s, char c);
 char16_t *strchr16(const char16_t *s, char16_t c);
 
+const char16_t* path_filename16(const char16_t *path);
+
 char* xstrndup8(const char *s, size_t n);
 char16_t *xstrndup16(const char16_t *s, size_t n);
 

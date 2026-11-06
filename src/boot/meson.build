@@ -309,6 +309,7 @@ endif
 ############################################################
 
 libefi_sources = files(
+        'addon-media.c',
         'chid.c',
         'console.c',
         'cpio.c',
