@@ -431,13 +431,14 @@ static int process_http_upload(
                         /* For COMPRESSION_NONE, decompressor_new_limited() creates a passthrough
                          * decompressor. */
                         r = dlopen_compress(source->compression, LOG_DEBUG);
-                        if (r < 0)
-                                return mhd_respond(connection, MHD_HTTP_UNSUPPORTED_MEDIA_TYPE, "Compression is unavailable.");
-
-                        r = decompressor_new_limited(source->compression, JOURNAL_REMOTE_DECOMPRESSOR_MEMORY_MAX,
-                                                     &source->decompressor);
-                        if (r < 0)
-                                return r == -ENOMEM ? mhd_respond_oom(connection) : MHD_NO;
+                        if (r >= 0)
+                                r = decompressor_new_limited(source->compression, JOURNAL_REMOTE_DECOMPRESSOR_MEMORY_MAX,
+                                                             &source->decompressor);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to set up %s decompression, aborting connection %p: %m",
+                                                  compression_to_string(source->compression), connection);
+                                return MHD_NO;
+                        }
                 }
 
                 /* libmicrohttpd signals EOF with a zero-length call. Pushing zero bytes notifies the
@@ -446,15 +447,24 @@ static int process_http_upload(
                                       http_upload_decoded, &data);
         } else
                 r = 0;
+
+        /* libmicrohttpd can queue a response only once it has received the whole request. While body data
+         * remains, the responses below fail and the connection closes without one, so log the reason. */
         if (r == -ENOMEM)
                 return mhd_respond_oom(connection);
-        if (r == -EFBIG)
+        if (r == -EFBIG) {
+                log_warning("Decoded %s data exceeds the maximum size, aborting connection %p.",
+                            compression_to_string(source->compression), connection);
                 return mhd_respond(connection, MHD_HTTP_CONTENT_TOO_LARGE,
                                    "Decoded payload exceeds maximum size.");
+        }
         if (r < 0 && data.error < 0)
                 return MHD_NO;
-        if (r < 0)
+        if (r < 0) {
+                log_warning_errno(r, "Failed to decompress %s data, aborting connection %p: %m",
+                                  compression_to_string(source->compression), connection);
                 return mhd_respondf(connection, r, MHD_HTTP_BAD_REQUEST, "Decompression of received blob failed.");
+        }
 
         if (*upload_data_size > 0) {
                 *upload_data_size = 0;
