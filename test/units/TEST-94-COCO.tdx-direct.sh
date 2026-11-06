@@ -15,6 +15,14 @@ if [[ "${COCO_TYPE:?}" != "tdx" ]]; then
 fi
 
 IMAGE_DIR="$(vmspawn_images_dir)"
+
+# vmspawn never selects firmware for confidential VMs on its own, whatever is installed.
+assert_fail systemd-vmspawn --coco=tdx --firmware=describe
+
+# Use TDVF from OvmfPkg/IntelTdx, which has no TPM driver, so all measurements go to the RTMRs.
+# Generic OVMF builds declaring intel-tdx don't guarantee that.
+FIRMWARE="/usr/share/qemu/firmware/62-edk2-ovmf-x64-inteltdx-nosb.json"
+
 MACHINE="coco-tdx-direct-$$"
 WORKDIR="$(mktemp -d)"
 mkdir -p "$WORKDIR/honest" "$WORKDIR/hostile"
@@ -37,6 +45,7 @@ trap at_exit EXIT
 vmspawn_boot_coco "$MACHINE-honest" "$COCO_TYPE" "$WORKDIR/honest" \
     'detect_virt creds_vmspawn creds_cmdline' \
     --image="$IMAGE_DIR/image.raw" \
+    --firmware="$FIRMWARE" \
     --linux="$IMAGE_DIR/image.vmlinuz" \
     --initrd="$IMAGE_DIR/image.initrd" \
     --set-credential="$COCO_CRED_TRUSTED_ID:$COCO_CRED_TRUSTED_VALUE" \
@@ -59,6 +68,7 @@ SYSTEMD_VMSPAWN_QEMU_EXTRA="${QEMU_EXTRA[*]}" \
 vmspawn_boot_coco "$MACHINE-hostile" "$COCO_TYPE" "$WORKDIR/hostile" \
     'detect_virt creds_vmspawn creds_hostile_fwcfg creds_hostile_smbios creds_hostile_shadow' \
     --image="$IMAGE_DIR/image.raw" \
+    --firmware="$FIRMWARE" \
     --linux="$IMAGE_DIR/image.vmlinuz" \
     --initrd="$IMAGE_DIR/image.initrd" \
     --set-credential="$COCO_CRED_TRUSTED_ID:$COCO_CRED_TRUSTED_VALUE" \

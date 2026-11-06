@@ -180,6 +180,7 @@ typedef enum FindOvmfConfigFlags {
         FIND_OVMF_REQUIRE_RAW = 1 << 1, /* skip non-raw firmware executables (-bios can't load qcow2) */
 } FindOvmfConfigFlags;
 
+int list_eligible_ovmf_config(Set *features_include, Set *features_exclude, FindOvmfConfigFlags flags, char ***ret);
 int find_ovmf_config(Set *features_include, Set *features_exclude, FindOvmfConfigFlags flags, OvmfConfig **ret, sd_json_variant **ret_firmware_json);
 int native_arch_as_qemu(const char **ret);
 int find_qemu_binary(char **ret_qemu_binary);

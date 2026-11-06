@@ -496,14 +496,84 @@ int load_ovmf_config(const char *path, OvmfConfig **ret) {
         return ovmf_config_make(fwd, ret);
 }
 
-int find_ovmf_config(
+/* Checks whether the firmware described in file satisfies the search criteria, and logs why if not. */
+static bool firmware_data_is_eligible(
+                const FirmwareData *fwd,
+                const char *file,
+                const char *native_arch_qemu,
+                Set *features_include,
+                Set *features_exclude,
+                FindOvmfConfigFlags flags) {
+
+        assert(fwd);
+        assert(file);
+        assert(native_arch_qemu);
+
+        if (!strv_contains(fwd->interface_types, "uefi")) {
+                log_debug("Skipping %s, firmware is not a UEFI firmware.", file);
+                return false;
+        }
+
+        if (FLAGS_SET(flags, FIND_OVMF_STATELESS)) {
+                if (!firmware_is_stateless(fwd->device, fwd->mode, fwd->features)) {
+                        log_debug("Skipping %s, firmware is not stateless.", file);
+                        return false;
+                }
+        } else if (strv_contains(fwd->features, "host-uefi-vars")) {
+                if (!QEMU_UEFI_VARS_DEVICE) {
+                        log_debug("Skipping %s, QEMU has no host-side UEFI variable store on this architecture.", file);
+                        return false;
+                }
+                if (!fwd->uefi_vars_template) {
+                        log_debug("Skipping %s, firmware does not have a UEFI variable store template.", file);
+                        return false;
+                }
+        } else if (!fwd->vars) {
+                log_debug("Skipping %s, firmware does not have an NVRAM template.", file);
+                return false;
+        }
+
+        /* Memory-mapped firmware carries no format field and is raw by definition. */
+        if (FLAGS_SET(flags, FIND_OVMF_REQUIRE_RAW) && !streq(fwd->firmware_format ?: "raw", "raw")) {
+                log_debug("Skipping %s, firmware image is not in raw format.", file);
+                return false;
+        }
+
+        /* Check if any target matches our architecture and machine type. Machine
+         * patterns in firmware descriptions use globs like "pc-q35-*", so we do a
+         * substring check to see if our machine type (e.g. "q35") appears in any of
+         * the glob patterns. */
+        if (!firmware_data_matches_machine(fwd, native_arch_qemu, QEMU_MACHINE_TYPE)) {
+                log_debug("Skipping %s, firmware doesn't support the native architecture or machine type.", file);
+                return false;
+        }
+
+        /* Skip firmware that doesn't have all required features */
+        bool eligible = true;
+        const char *feature;
+        SET_FOREACH(feature, features_include)
+                if (!strv_contains(fwd->features, feature)) {
+                        log_debug("Skipping %s, firmware is missing required feature '%s'.", file, feature);
+                        eligible = false;
+                }
+
+        /* Skip firmware that has any excluded features (include wins over exclude) */
+        SET_FOREACH(feature, features_exclude)
+                if (strv_contains(fwd->features, feature) &&
+                    !set_contains(features_include, feature)) {
+                        log_debug("Skipping %s, firmware has excluded feature '%s'.", file, feature);
+                        eligible = false;
+                }
+
+        return eligible;
+}
+
+int list_eligible_ovmf_config(
                 Set *features_include,
                 Set *features_exclude,
                 FindOvmfConfigFlags flags,
-                OvmfConfig **ret,
-                sd_json_variant **ret_firmware_json) {
-        _cleanup_(ovmf_config_freep) OvmfConfig *config = NULL;
-        _cleanup_strv_free_ char **conf_files = NULL;
+                char ***ret) {
+        _cleanup_strv_free_ char **conf_files = NULL, **eligible = NULL;
         const char* native_arch_qemu;
         int r;
 
@@ -522,101 +592,57 @@ int find_ovmf_config(
 
         STRV_FOREACH(file, conf_files) {
                 _cleanup_(firmware_data_freep) FirmwareData *fwd = NULL;
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
 
-                r = load_firmware_data(*file, &fwd, ret_firmware_json ? &json : NULL);
+                r = load_firmware_data(*file, &fwd, /* ret_json= */ NULL);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to load JSON file '%s', skipping: %m", *file);
                         continue;
                 }
 
-                if (!strv_contains(fwd->interface_types, "uefi")) {
-                        log_debug("Skipping %s, firmware is not a UEFI firmware.", *file);
+                if (!firmware_data_is_eligible(fwd, *file, native_arch_qemu, features_include, features_exclude, flags))
                         continue;
-                }
 
-                if (FLAGS_SET(flags, FIND_OVMF_STATELESS)) {
-                        if (!firmware_is_stateless(fwd->device, fwd->mode, fwd->features)) {
-                                log_debug("Skipping %s, firmware is not stateless.", *file);
-                                continue;
-                        }
-                } else if (strv_contains(fwd->features, "host-uefi-vars")) {
-                        if (!QEMU_UEFI_VARS_DEVICE) {
-                                log_debug("Skipping %s, QEMU has no host-side UEFI variable store on this architecture.", *file);
-                                continue;
-                        }
-                        if (!fwd->uefi_vars_template) {
-                                log_debug("Skipping %s, firmware does not have a UEFI variable store template.", *file);
-                                continue;
-                        }
-                } else if (!fwd->vars) {
-                        log_debug("Skipping %s, firmware does not have an NVRAM template.", *file);
-                        continue;
-                }
-
-                /* Memory-mapped firmware carries no format field and is raw by definition. */
-                if (FLAGS_SET(flags, FIND_OVMF_REQUIRE_RAW) && !streq(fwd->firmware_format ?: "raw", "raw")) {
-                        log_debug("Skipping %s, firmware image is not in raw format.", *file);
-                        continue;
-                }
-
-                /* Check if any target matches our architecture and machine type. Machine
-                 * patterns in firmware descriptions use globs like "pc-q35-*", so we do a
-                 * substring check to see if our machine type (e.g. "q35") appears in any of
-                 * the glob patterns. */
-                if (!firmware_data_matches_machine(fwd, native_arch_qemu, QEMU_MACHINE_TYPE)) {
-                        log_debug("Skipping %s, firmware doesn't support the native architecture or machine type.", *file);
-                        continue;
-                }
-
-                /* Skip firmware that doesn't have all required features */
-                if (!set_isempty(features_include)) {
-                        const char *feature;
-                        bool skip = false;
-
-                        SET_FOREACH(feature, features_include)
-                                if (!strv_contains(fwd->features, feature)) {
-                                        log_debug("Skipping %s, firmware is missing required feature '%s'.", *file, feature);
-                                        skip = true;
-                                }
-
-                        if (skip)
-                                continue;
-                }
-
-                /* Skip firmware that has any excluded features (include wins over exclude) */
-                if (!set_isempty(features_exclude)) {
-                        const char *feature;
-                        bool skip = false;
-
-                        SET_FOREACH(feature, features_exclude)
-                                if (strv_contains(fwd->features, feature) &&
-                                    !set_contains(features_include, feature)) {
-                                        log_debug("Skipping %s, firmware has excluded feature '%s'.", *file, feature);
-                                        skip = true;
-                                }
-
-                        if (skip)
-                                continue;
-                }
-
-                r = ovmf_config_make(fwd, &config);
+                r = strv_extend(&eligible, *file);
                 if (r < 0)
                         return r;
-
-                log_debug("Selected firmware definition %s.", *file);
-
-                if (ret_firmware_json)
-                        *ret_firmware_json = TAKE_PTR(json);
-
-                break;
         }
 
-        if (!config)
+        *ret = TAKE_PTR(eligible);
+        return 0;
+}
+
+int find_ovmf_config(
+                Set *features_include,
+                Set *features_exclude,
+                FindOvmfConfigFlags flags,
+                OvmfConfig **ret,
+                sd_json_variant **ret_firmware_json) {
+        _cleanup_(firmware_data_freep) FirmwareData *fwd = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+        _cleanup_strv_free_ char **eligible = NULL;
+        int r;
+
+        assert(ret);
+
+        /* The selected firmware is by definition the first one listed as eligible. */
+        r = list_eligible_ovmf_config(features_include, features_exclude, flags, &eligible);
+        if (r < 0)
+                return r;
+        if (strv_isempty(eligible))
                 return -ENOENT;
 
-        if (ret)
-                *ret = TAKE_PTR(config);
+        r = load_firmware_data(eligible[0], &fwd, ret_firmware_json ? &json : NULL);
+        if (r < 0)
+                return r;
+
+        r = ovmf_config_make(fwd, ret);
+        if (r < 0)
+                return r;
+
+        log_debug("Selected firmware definition %s.", eligible[0]);
+
+        if (ret_firmware_json)
+                *ret_firmware_json = TAKE_PTR(json);
 
         return 0;
 }
