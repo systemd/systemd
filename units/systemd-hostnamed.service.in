@@ -14,6 +14,7 @@ Documentation=man:hostname(5)
 Documentation=man:machine-info(5)
 Documentation=man:org.freedesktop.hostname1(5)
 DefaultDependencies=no
+After=systemd-remount-fs.service
 Conflicts=shutdown.target
 Before=shutdown.target
 
