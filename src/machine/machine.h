@@ -98,6 +98,8 @@ typedef struct Machine {
         char *ssh_private_key_path;
         char *control_address;
 
+        sd_future *ssh_agent;
+
         LIST_HEAD(Operation, operations);
 
         LIST_FIELDS(Machine, gc_queue);

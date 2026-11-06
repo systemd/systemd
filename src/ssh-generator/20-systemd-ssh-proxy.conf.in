@@ -6,6 +6,18 @@ Host .host machine/.host
         ProxyUseFdpass yes
         CheckHostIP no
 
+# Use the SSH agent of systemd-machined for machine/* hosts, so that ssh offers the key that
+# systemd-vmspawn generated for the VM. systemd-machined listens on a separate socket for each
+# machine, and ssh selects the socket of the machine by appending the host name (%h) to the path.
+#
+# The path uses %i (the local UID) instead of ${XDG_RUNTIME_DIR}. ssh expands ${VAR} while it
+# parses the configuration, and fails if the variable is unset, even if the Host stanza doesn't
+# match. A path with ${XDG_RUNTIME_DIR} would break every ssh invocation without that variable,
+# for example in root sessions. pam_systemd sets XDG_RUNTIME_DIR to /run/user/$UID, so the path
+# matches the directory where the user instance of systemd-machined creates the sockets.
+Host machine/* machine%*
+        IdentityAgent /run/user/%i/systemd/ssh-agent/%h
+
 # Make sure unix/* and vsock/* can be used to connect to AF_UNIX and AF_VSOCK paths.
 # Make sure machine/* can be used to connect to local machines registered in machined.
 #
