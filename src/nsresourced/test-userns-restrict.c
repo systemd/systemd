@@ -1,19 +1,37 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/btrfs.h>
+#include <linux/magic.h>
+#include <mqueue.h>
 #include <sched.h>
+#include <stdio.h>
 #include <sys/eventfd.h>
+#include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "bpf-dlopen.h"
+#include "bpf-link.h"
+#include "btrfs-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "format-util.h"
+#include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "namespace-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "rm-rf.h"
+#include "stat-util.h"
+#include "strv.h"
+#include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
+#include "uid-classification.h"
+#include "unaligned.h"
+#include "bpf/userns-restrict/userns-restrict-skel.h"
 #include "userns-restrict.h"
 
 static int make_tmpfs_fsmount(void) {
@@ -52,11 +70,86 @@ static void test_fails_dir(int parent_fd, const char *fname) {
         assert_se(errno == EPERM);
 }
 
+static void test_userns_restrict_btrfs(struct userns_restrict_bpf *obj) {
+        _cleanup_(rm_rf_subvolume_and_freep) char *t = NULL;
+        _cleanup_close_ int dir_fd = -EBADF, host_fd = -EBADF, mapped_fd = -EBADF,
+                             mount_fd = -EBADF, idmapped_fd = -EBADF, userns_fd = -EBADF,
+                             tmpfs_mount = -EBADF, tmpfs_fd = -EBADF;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        _cleanup_free_ char *idmap = NULL;
+        struct stat st;
+        int r;
+
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/test-userns-restrict-btrfs.XXXXXX", &t));
+        dir_fd = ASSERT_OK(xopenat(AT_FDCWD, t, O_DIRECTORY|O_CLOEXEC));
+        if (ASSERT_OK(fd_is_fs_type(dir_fd, BTRFS_SUPER_MAGIC)) == 0)
+                return (void) log_tests_skipped("Temporary directory is not on Btrfs");
+
+        host_fd = ASSERT_OK(xopenat_full(dir_fd, "host", O_DIRECTORY|O_CREAT|O_CLOEXEC, /* xopen_flags= */ 0, 0700));
+        mapped_fd = ASSERT_OK(xopenat_full(dir_fd, "mapped", O_DIRECTORY|O_CREAT|O_CLOEXEC, /* xopen_flags= */ 0, 0700));
+        ASSERT_OK_ERRNO(fchown(host_fd, CONTAINER_UID_MIN, CONTAINER_UID_MIN));
+
+        ASSERT_OK(btrfs_subvol_make(host_fd, "probe"));
+        ASSERT_OK(btrfs_subvol_remove_at(host_fd, "probe", /* flags= */ 0));
+
+        ASSERT_OK(asprintf(&idmap, "0 "UID_FMT" 1", (uid_t) CONTAINER_UID_MIN));
+        userns_fd = ASSERT_OK(userns_acquire(idmap, idmap, /* setgroups_deny= */ true));
+
+        mount_fd = ASSERT_OK_ERRNO(open_tree(mapped_fd, "", OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_EMPTY_PATH));
+        ASSERT_OK_ERRNO(mount_setattr(mount_fd, "", AT_EMPTY_PATH,
+                                      &(struct mount_attr) {
+                                              .attr_set = MOUNT_ATTR_IDMAP,
+                                              .userns_fd = userns_fd,
+                                      }, sizeof(struct mount_attr)));
+        idmapped_fd = ASSERT_OK(xopenat(mount_fd, ".", O_DIRECTORY|O_CLOEXEC));
+
+        tmpfs_mount = ASSERT_OK(make_tmpfs_fsmount());
+        tmpfs_fd = ASSERT_OK(xopenat(tmpfs_mount, ".", O_DIRECTORY|O_CLOEXEC));
+
+        /* The idmapped mount must be explicitly allowlisted under the mount-based policy. */
+        ASSERT_OK(userns_restrict_put_by_fd(obj, userns_fd, /* replace= */ true, &idmapped_fd, 1));
+
+        r = ASSERT_OK(pidref_safe_fork("(btrfs)", FORK_DEATHSIG_SIGKILL, &pidref));
+        if (r == 0) {
+                struct btrfs_ioctl_vol_args legacy = { .name = "legacy" };
+                struct btrfs_ioctl_vol_args_v2 modern = { .name = "modern" };
+                struct btrfs_ioctl_fs_info_args info = {};
+
+                ASSERT_OK(namespace_enter(-EBADF, -EBADF, -EBADF, userns_fd, -EBADF));
+                ASSERT_OK_ERRNO(unshare(CLONE_NEWNS));
+
+                ASSERT_ERROR_ERRNO(ioctl(host_fd, BTRFS_IOC_SUBVOL_CREATE, &legacy), EPERM);
+                ASSERT_ERROR_ERRNO(ioctl(host_fd, BTRFS_IOC_SUBVOL_CREATE_V2, &modern), EPERM);
+                ASSERT_OK_ERRNO(ioctl(idmapped_fd, BTRFS_IOC_SUBVOL_CREATE, &legacy));
+                ASSERT_OK_ERRNO(ioctl(idmapped_fd, BTRFS_IOC_SUBVOL_CREATE_V2, &modern));
+                ASSERT_OK_ERRNO(ioctl(host_fd, BTRFS_IOC_FS_INFO, &info));
+
+                ASSERT_ERROR_ERRNO(ioctl(tmpfs_fd, BTRFS_IOC_SUBVOL_CREATE, &legacy), ENOTTY);
+                ASSERT_ERROR_ERRNO(ioctl(tmpfs_fd, BTRFS_IOC_SUBVOL_CREATE_V2, &modern), ENOTTY);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        ASSERT_OK(pidref_wait_for_terminate_and_check("(btrfs)", &pidref, WAIT_LOG));
+
+        FOREACH_STRING(name, "legacy", "modern") {
+                ASSERT_OK_ERRNO(fstatat(mapped_fd, name, &st, 0));
+                ASSERT_EQ(st.st_uid, 0U);
+                ASSERT_EQ(st.st_gid, 0U);
+        }
+
+        ASSERT_OK_ERRNO(fstat(userns_fd, &st));
+        ASSERT_OK(userns_restrict_reset_by_inode(obj, st.st_ino));
+}
+
+static int test_userns_mqueue_lifetime(struct userns_restrict_bpf *obj);
+
 static int run(int argc, char *argv[]) {
         _cleanup_(userns_restrict_bpf_freep) struct userns_restrict_bpf *obj = NULL;
         _cleanup_close_ int userns_fd = -EBADF, host_fd1 = -EBADF, host_tmpfs = -EBADF, afd = -EBADF, bfd = -EBADF;
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_(sigkill_waitp) pid_t pid = 0;
+        bool have_tmpfile;
         int r;
 
         log_set_max_level(LOG_DEBUG);
@@ -81,6 +174,18 @@ static int run(int argc, char *argv[]) {
 
         host_tmpfs = make_tmpfs_fsmount();
         assert_se(host_tmpfs >= 0);
+
+        r = RET_NERRNO(openat(host_fd1, ".", O_TMPFILE|O_RDWR|O_CLOEXEC, 0666));
+        have_tmpfile = r >= 0;
+        if (have_tmpfile)
+                safe_close(r);
+        else {
+                ASSERT_ERROR(r, EOPNOTSUPP);
+                log_notice("O_TMPFILE is not supported here, skipping host directory checks.");
+        }
+
+        /* The client cannot create a file in the host directory for the whiteout check. */
+        safe_close(ASSERT_OK_ERRNO(openat(host_fd1, "white", O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC, 0644)));
 
         userns_fd = userns_acquire("0 0 1", "0 0 1", /* setgroups_deny= */ true);
         if (userns_fd < 0)
@@ -120,6 +225,23 @@ static int run(int argc, char *argv[]) {
                 /* But this mount created locally should be fine */
                 test_works_reg(private_tmpfs, "yyy");
                 test_works_dir(private_tmpfs, "yyy2");
+
+                if (have_tmpfile) {
+                        ASSERT_ERROR_ERRNO(openat(host_fd1, ".", O_TMPFILE|O_RDWR|O_CLOEXEC, 0666), EPERM);
+                        ASSERT_ERROR_ERRNO(openat(host_fd1, ".", O_TMPFILE|O_EXCL|O_RDWR|O_CLOEXEC, 0666), EPERM);
+                }
+                ASSERT_ERROR_ERRNO(openat(host_tmpfs, ".", O_TMPFILE|O_RDWR|O_CLOEXEC, 0666), EPERM);
+                ASSERT_ERROR_ERRNO(openat(host_tmpfs, ".", O_TMPFILE|O_EXCL|O_RDWR|O_CLOEXEC, 0666), EPERM);
+
+                _cleanup_close_ int tmpfile_fd = -EBADF;
+                tmpfile_fd = ASSERT_OK_ERRNO(openat(private_tmpfs, ".", O_TMPFILE|O_RDWR|O_CLOEXEC, 0666));
+                ASSERT_OK(link_fd(tmpfile_fd, private_tmpfs, "ccc"));
+
+                safe_close(ASSERT_OK_ERRNO(openat(private_tmpfs, ".", O_TMPFILE|O_EXCL|O_RDWR|O_CLOEXEC, 0666)));
+
+                /* The whiteout RENAME_WHITEOUT leaves behind is owned by us too. */
+                ASSERT_ERROR_ERRNO(renameat2(host_fd1, "white", host_fd1, "white2", RENAME_WHITEOUT), EPERM);
+                ASSERT_OK_ERRNO(renameat2(private_tmpfs, "ccc", private_tmpfs, "ccc2", RENAME_WHITEOUT));
 
                 /* Let's sync with the parent, so that it allowlists more stuff for us */
                 assert_se(eventfd_write(afd, 1) >= 0);
@@ -180,7 +302,103 @@ static int run(int argc, char *argv[]) {
 
         assert_se(wait_for_terminate_and_check("(test)", pid, WAIT_LOG) >= 0);
 
+        test_userns_restrict_btrfs(obj);
+
+        return test_userns_mqueue_lifetime(obj);
+}
+
+static int ringbuf_userns_freed(void *userdata, void *data, size_t size) {
+        unsigned *inode = ASSERT_PTR(userdata);
+
+        ASSERT_EQ(size, sizeof(unsigned));
+        if (unaligned_read_ne32(data) == *inode)
+                *inode = 0;
+
         return 0;
+}
+
+static int test_userns_mqueue_lifetime(struct userns_restrict_bpf *obj) {
+        _cleanup_(pidref_done_sigkill_wait) PidRef supervisor = PIDREF_NULL, creator = PIDREF_NULL;
+        _cleanup_(bpf_ring_buffer_freep) struct ring_buffer *rb = NULL;
+        _cleanup_close_ int userns_fd = -EBADF;
+        _cleanup_free_ char *idmap = NULL;
+        struct stat userns_st, queue_st;
+        const struct mq_attr attr = { .mq_maxmsg = 1, .mq_msgsize = 1 };
+        mqd_t queue;
+        unsigned inode;
+        int r;
+
+        /* A separate IPC namespace prevents failed assertions from leaving queues on the host. */
+        r = ASSERT_OK(pidref_safe_fork("(test-mqueue)", FORK_DEATHSIG_SIGKILL, &supervisor));
+        if (r > 0)
+                return ASSERT_OK(pidref_wait_for_terminate_and_check("(test-mqueue)", &supervisor, WAIT_LOG));
+
+        r = RET_NERRNO(unshare(CLONE_NEWIPC));
+        if (ERRNO_IS_NEG_PRIVILEGE(r) || IN_SET(r, -EINVAL, -ENOSYS))
+                _exit(log_tests_skipped_errno(r, "Cannot create an IPC namespace"));
+        ASSERT_OK(r);
+
+        queue = mq_open("/probe", O_CREAT|O_EXCL|O_RDONLY|O_CLOEXEC, 0600, &attr);
+        if (queue < 0 && errno == ENOSYS)
+                _exit(log_tests_skipped("POSIX message queues are not supported"));
+        ASSERT_OK_ERRNO(queue);
+        ASSERT_OK_ERRNO(mq_close(queue));
+        ASSERT_OK_ERRNO(mq_unlink("/probe"));
+
+        ASSERT_OK(asprintf(&idmap, "0 "UID_FMT" 1", (uid_t) CONTAINER_UID_MIN));
+        userns_fd = ASSERT_OK(userns_acquire(idmap, idmap, /* setgroups_deny= */ true));
+        ASSERT_OK_ERRNO(fstat(userns_fd, &userns_st));
+        inode = 0;
+
+        rb = sym_ring_buffer__new(sym_bpf_map__fd(obj->maps.userns_ringbuf), ringbuf_userns_freed, &inode, /* opts= */ NULL);
+        ASSERT_NOT_NULL(rb);
+        ASSERT_OK(sym_ring_buffer__poll(rb, 0));
+        inode = (unsigned) userns_st.st_ino;
+        ASSERT_NE(inode, 0U);
+
+        /* Queue creation bypasses path hooks, so an empty mount allowlist enables free notifications. */
+        ASSERT_OK(userns_restrict_put_by_fd(
+                        obj,
+                        userns_fd,
+                        /* replace= */ true,
+                        /* mount_fds= */ NULL,
+                        /* n_mount_fds= */ 0));
+
+        r = ASSERT_OK(pidref_safe_fork("(mqueue-creator)", FORK_DEATHSIG_SIGKILL, &creator));
+        if (r == 0) {
+                ASSERT_OK(namespace_enter(-EBADF, -EBADF, -EBADF, userns_fd, -EBADF));
+                userns_fd = safe_close(userns_fd);
+                queue = ASSERT_OK_ERRNO(mq_open("/lifetime", O_CREAT|O_EXCL|O_RDONLY|O_CLOEXEC, 0600, &attr));
+                ASSERT_OK_ERRNO(mq_close(queue));
+                _exit(EXIT_SUCCESS);
+        }
+
+        ASSERT_OK(pidref_wait_for_terminate_and_check("(mqueue-creator)", &creator, WAIT_LOG));
+        queue = ASSERT_OK_ERRNO(mq_open("/lifetime", O_RDONLY|O_CLOEXEC));
+        ASSERT_OK_ERRNO(fstat(queue, &queue_st));
+        ASSERT_EQ(queue_st.st_uid, (uid_t) CONTAINER_UID_MIN);
+        ASSERT_EQ(queue_st.st_gid, (gid_t) CONTAINER_UID_MIN);
+        ASSERT_OK_ERRNO(mq_close(queue));
+        userns_fd = safe_close(userns_fd);
+
+        /* The queue's ucounts reference must keep its creator's user namespace alive after the creator exits. */
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), USEC_PER_SEC);
+        do {
+                ASSERT_OK(sym_ring_buffer__poll(rb, 100));
+                ASSERT_NE(inode, 0U);
+        } while (now(CLOCK_MONOTONIC) < end);
+
+        ASSERT_OK_ERRNO(mq_unlink("/lifetime"));
+
+        /* The kernel frees user namespaces from a workqueue, so the notification arrives asynchronously. */
+        end = usec_add(now(CLOCK_MONOTONIC), 30 * USEC_PER_SEC);
+        while (inode != 0) {
+                ASSERT_LT(now(CLOCK_MONOTONIC), end);
+                ASSERT_OK(sym_ring_buffer__poll(rb, 100));
+        }
+
+        ASSERT_OK(userns_restrict_reset_by_inode(obj, userns_st.st_ino));
+        _exit(EXIT_SUCCESS);
 }
 
 DEFINE_MAIN_FUNCTION(run);

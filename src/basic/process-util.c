@@ -1383,6 +1383,10 @@ static pid_t cached_pid = CACHED_PID_UNSET;
 void reset_cached_pid(void) {
         /* Invoked in the child after a fork(), i.e. at the first moment the PID changed */
         cached_pid = CACHED_PID_UNSET;
+
+        /* The pidfd ID cache is keyed by PID, which is not enough to detect the PID 1 → PID 1 transition
+         * when forking into a new PID namespace, hence flush it explicitly too. */
+        reset_cached_pidfd_id();
 }
 
 pid_t getpid_cached(void) {
@@ -2116,6 +2120,30 @@ int make_reaper_process(bool b) {
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(posix_spawnattr_t*, posix_spawnattr_destroy, NULL);
+
+int execvpe_safe(const char *file, char * const *argv, char * const *envp) {
+        _cleanup_free_ char *resolved = NULL;
+        int r;
+
+        assert(file);
+        assert(argv);
+        assert(envp);
+
+        /* Like execvpe(), but doesn't fall back to running the file via /bin/sh if execve() fails with
+         * ENOEXEC. Without this a truncated or otherwise broken binary would "successfully" run as an empty
+         * shell script instead of failing. Returns a negative errno on failure. */
+
+        r = find_executable(file, &resolved);
+        if (r < 0)
+                return r;
+
+        execve(resolved, argv, envp);
+        return -errno;
+}
+
+int execvp_safe(const char *file, char * const *argv) {
+        return execvpe_safe(file, argv, environ);
+}
 
 int posix_spawn_wrapper(
                 const char *path,

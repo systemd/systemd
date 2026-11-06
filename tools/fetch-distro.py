@@ -12,6 +12,9 @@ import shlex
 import subprocess
 from pathlib import Path
 
+PACKAGING = Path('tools/packaging.json')
+
+
 def parse_args():
     p = argparse.ArgumentParser(
         description=__doc__,
@@ -42,8 +45,13 @@ def read_config(distro: str):
     text = subprocess.check_output(cmd, text=True)
 
     data = json.loads(text)
-    images = {image["Image"]: image for image in data["Images"]}
-    return images["build"]
+    images = {image['Image']: image for image in data['Images']}
+    environment = images['build']['Environment']
+    return json.loads(PACKAGING.read_text())[environment['PKG_SUBDIR']] | {
+        'subdir': environment.get('GIT_SUBDIR'),
+        'pkg_subdir': environment['PKG_SUBDIR'],
+    }
+
 
 def commit_file(distro: str, files: list[Path], commit: str, changes: str):
     message = '\n'.join((
@@ -56,10 +64,10 @@ def commit_file(distro: str, files: list[Path], commit: str, changes: str):
     subprocess.check_call(cmd)
 
 def checkout_distro(args, distro: str, config: dict):
-    url = config['Environment']['GIT_URL']
-    branch = config['Environment']['GIT_BRANCH']
-    subdir = config['Environment'].get('GIT_SUBDIR')
-    pkg_subdir = config['Environment']['PKG_SUBDIR']
+    url = config['url']
+    branch = config['branch']
+    subdir = config['subdir']
+    pkg_subdir = config['pkg_subdir']
 
     dest = Path(f'pkg/{pkg_subdir}')
     if dest.exists():
@@ -97,10 +105,10 @@ def checkout_distro(args, distro: str, config: dict):
     args.fetch = False  # no need to fetch if we just cloned
 
 def update_distro(args, distro: str, config: dict):
-    branch = config['Environment']['GIT_BRANCH']
-    subdir = config['Environment'].get('GIT_SUBDIR')
-    old_commit = config['Environment']['GIT_COMMIT']
-    pkg_subdir = config['Environment']['PKG_SUBDIR']
+    branch = config['branch']
+    subdir = config['subdir']
+    old_commit = config['commit']
+    pkg_subdir = config['pkg_subdir']
 
     if args.fetch:
         cmd = ['git', '-C', f'pkg/{pkg_subdir}', 'fetch', 'origin', '-v',
@@ -131,29 +139,20 @@ def update_distro(args, distro: str, config: dict):
     print(f"+ {shlex.join(cmd)}")
     changes = subprocess.check_output(cmd, text=True).strip()
 
-    conf_dir = Path('mkosi/mkosi.pkgenv/mkosi.conf.d')
-    files = conf_dir.glob('*.conf')
-    for file in files:
-        s = file.read_text()
-        if old_commit in s:
-            print(f'{distro}: {file}: found old hash, updating…')
-            new = s.replace(old_commit, new_commit)
-            assert new != s
-            file.write_text(new)
-            tocommit = [file]
+    pins = json.loads(PACKAGING.read_text())
+    pins[pkg_subdir]['commit'] = new_commit
+    PACKAGING.write_text(json.dumps(pins, indent=2) + '\n')
+    tocommit = [PACKAGING]
 
-            if distro == "fedora":
-                packit = Path(".packit.yml")
-                s = packit.read_text()
-                assert old_commit in s
-                new = s.replace(old_commit, new_commit)
-                packit.write_text(new)
-                tocommit += [packit]
+    if pkg_subdir == 'fedora':
+        packit = Path('.packit.yml')
+        s = packit.read_text()
+        assert old_commit in s
+        new = s.replace(old_commit, new_commit)
+        packit.write_text(new)
+        tocommit += [packit]
 
-            commit_file(distro, tocommit, new_commit, changes)
-            break
-    else:
-        raise ValueError(f'{distro}: hash {new_commit} not found under {conf_dir}')
+    commit_file(distro, tocommit, new_commit, changes)
 
 if __name__ == '__main__':
     args = parse_args()

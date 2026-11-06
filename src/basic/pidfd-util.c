@@ -294,31 +294,42 @@ int pidfd_get_inode_id(int fd, uint64_t *ret) {
         return pidfd_get_inode_id_impl(fd, ret);
 }
 
+static thread_local uint64_t cached_pidfd_id = 0;
+static thread_local pid_t cached_pidfd_id_initialized = 0; /* < 0: cached error; == 0: invalid; > 0: valid and pid that was current */
+
+void reset_cached_pidfd_id(void) {
+        /* Invoked in the child after a fork()/clone(). */
+        cached_pidfd_id = 0;
+        cached_pidfd_id_initialized = 0;
+}
+
 int pidfd_get_inode_id_self_cached(uint64_t *ret) {
-        static thread_local uint64_t cached = 0;
-        static thread_local pid_t initialized = 0; /* < 0: cached error; == 0: invalid; > 0: valid and pid that was current */
         int r;
 
         assert(ret);
 
-        if (initialized == getpid_cached()) {
-                *ret = cached;
+        /* Note that matching the PID is not sufficient to detect that the cached ID is stale: if we are
+         * PID 1 in a PID namespace and clone off a child into a new PID namespace, it will be PID 1 too,
+         * but of course it's a different process with a different pidfd ID. Hence the cache is also
+         * explicitly flushed via reset_cached_pidfd_id() in the child after fork()/clone(). */
+        if (getpid_cached() == cached_pidfd_id_initialized) {
+                *ret = cached_pidfd_id;
                 return 0;
         }
-        if (initialized < 0)
-                return initialized;
+        if (cached_pidfd_id_initialized < 0)
+                return cached_pidfd_id_initialized;
 
         _cleanup_close_ int fd = pidfd_open(getpid_cached(), 0);
         if (fd < 0)
                 return -errno;
 
-        r = pidfd_get_inode_id(fd, &cached);
+        r = pidfd_get_inode_id(fd, &cached_pidfd_id);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                return (initialized = -EOPNOTSUPP);
+                return (cached_pidfd_id_initialized = -EOPNOTSUPP);
         if (r < 0)
                 return r;
 
-        *ret = cached;
-        initialized = getpid_cached();
+        *ret = cached_pidfd_id;
+        cached_pidfd_id_initialized = getpid_cached();
         return 0;
 }

@@ -192,6 +192,11 @@ static int dns_trust_anchor_add_builtin_negative(DnsTrustAnchor *d) {
                 "170.0.0.192.in-addr.arpa\0"
                 "171.0.0.192.in-addr.arpa\0";
 
+        /* RFC 9476 reserves the .alt pseudo-TLD for names that are resolved by protocols other than DNS.
+         * dns_name_dont_resolve() returns true for .alt names. We hence never send a lookup of a .alt name
+         * to a DNS server, and synthesize an NXDOMAIN reply instead. Lookups of .alt names never go through
+         * DNSSEC validation. The list above doesn't need an entry for .alt for that reason. */
+
         int r;
 
         assert(d);
