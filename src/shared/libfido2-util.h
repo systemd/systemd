@@ -39,6 +39,7 @@ extern DLSYM_PROTOTYPE(fido_assert_set_hmac_salt);
 extern DLSYM_PROTOTYPE(fido_assert_set_rp);
 extern DLSYM_PROTOTYPE(fido_assert_set_up);
 extern DLSYM_PROTOTYPE(fido_assert_set_uv);
+extern DLSYM_PROTOTYPE(fido_assert_verify);
 extern DLSYM_PROTOTYPE(fido_cbor_info_extensions_len);
 extern DLSYM_PROTOTYPE(fido_cbor_info_extensions_ptr);
 extern DLSYM_PROTOTYPE(fido_cbor_info_free);
@@ -109,6 +110,8 @@ int fido2_use_hmac_hash(
                 size_t salt_size,
                 const void *cid,
                 size_t cid_size,
+                const struct iovec *public_key,
+                const char *public_key_algorithm,
                 char **pins,
                 Fido2EnrollFlags required,
                 void **ret_hmac,
