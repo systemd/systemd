@@ -80,6 +80,12 @@ int userns_restrict_install(
         if (!obj)
                 return log_error_errno(errno, "Failed to open userns_restrict BPF object: %m");
 
+        /* Kernels without the compat ioctl hook cannot load a program attached to it. */
+        r = sym_bpf_program__set_autoload(obj->progs.userns_restrict_file_ioctl_compat,
+                                        bpf_kernel_has_kfunc("bpf_lsm_file_ioctl_compat"));
+        if (r < 0)
+                return log_error_errno(r, "Failed to select compat ioctl BPF program: %m");
+
         if (pin) {
                 struct bpf_map *map;
 
@@ -130,6 +136,9 @@ int userns_restrict_install(
                 _cleanup_free_ char *fn = NULL;
                 bool linked = false;
                 const char *e;
+
+                if (sym_bpf_program__fd(*ps->prog) < 0)
+                        continue;
 
                 e = startswith(ps->name, "userns_restrict_");
                 assert(e);
