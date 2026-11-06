@@ -2034,7 +2034,7 @@ static int auto_callback(
         if (r < 0)
                 return r;
 
-        if (!FLAGS_SET(token_info->flags, CKF_HW_SLOT|CKF_TOKEN_PRESENT))
+        if (!FLAGS_SET(slot_info->flags, CKF_HW_SLOT|CKF_TOKEN_PRESENT))
                 return -EAGAIN;
 
         if (*t)
