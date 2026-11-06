@@ -38,6 +38,8 @@ typedef enum UnitFileFlags {
         UNIT_FILE_PORTABLE                 = 1 << 2, /* Public API via DBUS, do not change */
         UNIT_FILE_DRY_RUN                  = 1 << 3,
         UNIT_FILE_IGNORE_AUXILIARY_FAILURE = 1 << 4,
+        UNIT_FILE_VENDOR                   = 1 << 5,
+        UNIT_FILE_APPLYING_PRESET          = 1 << 6,
         _UNIT_FILE_FLAGS_MASK_PUBLIC = UNIT_FILE_RUNTIME|UNIT_FILE_PORTABLE|UNIT_FILE_FORCE,
 } UnitFileFlags;
 
