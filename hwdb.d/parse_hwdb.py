@@ -27,6 +27,7 @@
 
 import glob
 import os
+import re
 import string
 import sys
 
@@ -77,6 +78,8 @@ from functools import lru_cache
 EOL = LineEnd().suppress()
 EMPTYLINE = LineEnd()
 COMMENTLINE = pythonStyleComment + EOL
+# A '#' starts a comment unless it is escaped as "\#", see hwdb(7).
+TRAILING_COMMENT_RE = re.compile(r'(?<!\\)#.*')
 INTEGER = Word(nums)
 REAL = Combine((INTEGER + Optional('.' + Optional(INTEGER))) ^ ('.' + INTEGER))
 SIGNED_REAL = Combine(Optional(Word('-+')) + REAL)
@@ -148,7 +151,10 @@ def hwdb_grammar():
     propertyline = (
         White(' ', exact=1).suppress()
         + Combine(
-            UDEV_TAG - '=' - Optional(Word(alphanums + '_=:@*.!-;, "/?&')) - Optional(pythonStyleComment)
+            UDEV_TAG
+            - '='
+            - Optional(Regex(r'([A-Za-z0-9_=:@*.!;, "/?&-]|\\#)+'))
+            - Optional(pythonStyleComment)
         )
         + EOL
     )
@@ -414,7 +420,7 @@ def check_properties(groups):
         seen_props = {}
         for prop in props:
             # print('--', prop)
-            prop = prop.partition('#')[0].rstrip()
+            prop = TRAILING_COMMENT_RE.sub('', prop, count=1).rstrip().replace('\\#', '#')
             try:
                 parsed = grammar.parseString(prop)
             except ParseBaseException:
