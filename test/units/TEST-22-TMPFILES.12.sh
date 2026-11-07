@@ -313,6 +313,14 @@ touch --date "3 minutes ago" /tmp/ageby-remove/old-dir-new-child
 systemd-tmpfiles --clean --inline "R /tmp/ageby-remove/old-dir-new-child - - - M:1m -"
 test -d /tmp/ageby-remove/old-dir-new-child/new-child
 
+# Dry-run must not report removing a directory that will retain a too-new child.
+mkdir -p /tmp/ageby-remove/old-dir-new-child-dry-run/new-child
+touch --date "3 minutes ago" /tmp/ageby-remove/old-dir-new-child-dry-run
+output="$(systemd-tmpfiles --dry-run --clean --inline \
+    "R /tmp/ageby-remove/old-dir-new-child-dry-run - - - M:1m -" 2>&1)"
+[[ "$output" != *"Would remove directory \"/tmp/ageby-remove/old-dir-new-child-dry-run\""* ]]
+test -d /tmp/ageby-remove/old-dir-new-child-dry-run/new-child
+
 (! systemd-tmpfiles --clean --inline "r /tmp/ageby-remove/new-file - - - ~1m -")
 
 # The ~ age modifier on R keeps the target and its immediate children.

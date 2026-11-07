@@ -698,9 +698,11 @@ static int dir_cleanup(
                 int maxdepth,
                 bool keep_this_level,
                 AgeBy age_by_file,
-                AgeBy age_by_dir) {
+                AgeBy age_by_dir,
+                bool *ret_empty) {
 
         bool deleted = false;
+        bool empty = true;
         int r = 0;
 
         assert(c);
@@ -728,11 +730,13 @@ static int dir_cleanup(
                         /* FUSE, NFS mounts, SELinux might return EACCES */
                         log_full_errno(k == -EACCES ? LOG_DEBUG : LOG_ERR, k,
                                        "statx(%s/%s) failed: %m", p, de->d_name);
+                        empty = false;
                         continue;
                 }
 
                 if (FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT)) {
                         log_debug("Ignoring \"%s/%s\": different mount points.", p, de->d_name);
+                        empty = false;
                         continue;
                 }
 
@@ -750,40 +754,52 @@ static int dir_cleanup(
                 /* Is there an item configured for this path? */
                 if (ordered_hashmap_get(c->items, sub_path)) {
                         log_debug("Ignoring \"%s\": a separate entry exists.", sub_path);
+                        empty = false;
                         continue;
                 }
 
                 if (find_glob(c->globs, sub_path)) {
                         log_debug("Ignoring \"%s\": a separate glob exists.", sub_path);
+                        empty = false;
                         continue;
                 }
 
                 if (S_ISDIR(sx.stx_mode)) {
                         _cleanup_closedir_ DIR *sub_dir = NULL;
+                        bool subdir_empty = false;
 
                         if (mountpoint &&
                             streq(de->d_name, "lost+found") &&
                             sx.stx_uid == 0) {
                                 log_debug("Ignoring directory \"%s\".", sub_path);
+                                empty = false;
                                 continue;
                         }
 
-                        if (maxdepth <= 0)
+                        if (maxdepth <= 0) {
                                 log_warning("Reached max depth on \"%s\".", sub_path);
-                        else {
+                                if (ret_empty) {
+                                        int q = dir_is_empty_at(dirfd(d), de->d_name, /* ignore_hidden_or_backup= */ false);
+                                        subdir_empty = q > 0;
+                                }
+                        } else {
                                 int q;
 
                                 sub_dir = xopendirat_nomod(dirfd(d), de->d_name);
                                 if (!sub_dir) {
                                         if (errno != ENOENT)
                                                 r = log_warning_errno(errno, "Opening directory \"%s\" failed, ignoring: %m", sub_path);
+                                        else
+                                                continue;
 
+                                        empty = false;
                                         continue;
                                 }
 
                                 if (!arg_dry_run &&
                                     flock(dirfd(sub_dir), LOCK_EX|LOCK_NB) < 0) {
                                         log_debug_errno(errno, "Couldn't acquire exclusive BSD lock on directory \"%s\", skipping: %m", sub_path);
+                                        empty = false;
                                         continue;
                                 }
 
@@ -792,9 +808,12 @@ static int dir_cleanup(
                                                 atime_nsec, mtime_nsec, cutoff_nsec,
                                                 rootdev_major, rootdev_minor,
                                                 /* mountpoint= */ false, maxdepth-1, /* keep_this_level= */ false,
-                                                age_by_file, age_by_dir);
-                                if (q < 0)
+                                                age_by_file, age_by_dir,
+                                                ret_empty ? &subdir_empty : NULL);
+                                if (q < 0) {
                                         r = q;
+                                        subdir_empty = false;
+                                }
                         }
 
                         /* Note: if you are wondering why we don't support the sticky bit for excluding
@@ -804,6 +823,7 @@ static int dir_cleanup(
 
                         if (keep_this_level) {
                                 log_debug("Keeping directory \"%s\".", sub_path);
+                                empty = false;
                                 continue;
                         }
 
@@ -812,16 +832,27 @@ static int dir_cleanup(
                          * given cutoff time; delete if it is older.
                          */
                         if (!needs_cleanup(atime_nsec, btime_nsec, ctime_nsec, mtime_nsec,
-                                           cutoff_nsec, sub_path, age_by_dir, /* is_dir= */ true))
+                                           cutoff_nsec, sub_path, age_by_dir, /* is_dir= */ true)) {
+                                empty = false;
                                 continue;
+                        }
+
+                        if (ret_empty && !subdir_empty) {
+                                empty = false;
+                                continue;
+                        }
 
                         log_action("Would remove", "Removing", "%s directory \"%s\"", sub_path);
                         if (!arg_dry_run &&
                             unlinkat(dirfd(d), de->d_name, AT_REMOVEDIR) < 0) {
-                                if (errno == ENOTEMPTY)
+                                if (errno == ENOTEMPTY) {
+                                        empty = false;
                                         continue;
-                                if (errno != ENOENT)
+                                }
+                                if (errno != ENOENT) {
+                                        empty = false;
                                         r = log_warning_errno(errno, "Failed to remove directory \"%s\", ignoring: %m", sub_path);
+                                }
                         }
 
                         deleted = true;
@@ -835,6 +866,7 @@ static int dir_cleanup(
                          * unknown elsewhere. See XDG_RUNTIME_DIR specification for details. */
                         if (sx.stx_mode & S_ISVTX) {
                                 log_debug("Skipping \"%s\": sticky bit set.", sub_path);
+                                empty = false;
                                 continue;
                         }
 
@@ -846,30 +878,36 @@ static int dir_cleanup(
                                        "aquota.user",
                                        "aquota.group")) {
                                 log_debug("Skipping \"%s\".", sub_path);
+                                empty = false;
                                 continue;
                         }
 
                         /* Ignore sockets that are listed in /proc/net/unix */
                         if (S_ISSOCK(sx.stx_mode) && unix_socket_alive(c, sub_path)) {
                                 log_debug("Skipping \"%s\": live socket.", sub_path);
+                                empty = false;
                                 continue;
                         }
 
                         /* Ignore device nodes */
                         if (S_ISCHR(sx.stx_mode) || S_ISBLK(sx.stx_mode)) {
                                 log_debug("Skipping \"%s\": a device.", sub_path);
+                                empty = false;
                                 continue;
                         }
 
                         /* Keep files on this level if this was requested */
                         if (keep_this_level) {
                                 log_debug("Keeping \"%s\".", sub_path);
+                                empty = false;
                                 continue;
                         }
 
                         if (!needs_cleanup(atime_nsec, btime_nsec, ctime_nsec, mtime_nsec,
-                                           cutoff_nsec, sub_path, age_by_file, /* is_dir= */ false))
+                                           cutoff_nsec, sub_path, age_by_file, /* is_dir= */ false)) {
+                                empty = false;
                                 continue;
+                        }
 
                         if (!arg_dry_run) {
                                 fd = xopenat(dirfd(d), de->d_name, O_RDONLY|O_NOFOLLOW|O_NOATIME|O_NONBLOCK|O_NOCTTY);
@@ -877,6 +915,7 @@ static int dir_cleanup(
                                         log_warning_errno(fd, "Opening file \"%s\" failed, proceeding without lock: %m", sub_path);
                                 if (fd >= 0 && flock(fd, LOCK_EX|LOCK_NB) < 0 && errno == EAGAIN) {
                                         log_debug_errno(errno, "Couldn't acquire exclusive BSD lock on file \"%s\", skipping: %m", sub_path);
+                                        empty = false;
                                         continue;
                                 }
                         }
@@ -884,14 +923,19 @@ static int dir_cleanup(
                         log_action("Would remove", "Removing", "%s \"%s\"", sub_path);
                         if (!arg_dry_run &&
                             unlinkat(dirfd(d), de->d_name, 0) < 0 &&
-                            errno != ENOENT)
+                            errno != ENOENT) {
+                                empty = false;
                                 r = log_warning_errno(errno, "Failed to remove \"%s\", ignoring: %m", sub_path);
+                        }
 
                         deleted = true;
                 }
         }
 
 finish:
+        if (ret_empty)
+                *ret_empty = empty;
+
         if (deleted && (self_atime_nsec < NSEC_INFINITY || self_mtime_nsec < NSEC_INFINITY)) {
                 struct timespec ts[2];
 
@@ -3328,7 +3372,8 @@ static int remove_recursive(
                         MAX_DEPTH,
                         /* keep_this_level= */ false,
                         /* age_by_file= */ 0,
-                        /* age_by_dir= */ 0);
+                        /* age_by_dir= */ 0,
+                        /* ret_empty= */ NULL);
         if (r < 0)
                 return r;
 
@@ -3783,7 +3828,8 @@ static int clean_item_instance_from_dir(
                 const char *instance,
                 DIR *d,
                 const struct statx *sx,
-                bool mountpoint) {
+                bool mountpoint,
+                bool *ret_empty) {
 
         assert(c);
         assert(i);
@@ -3828,7 +3874,8 @@ static int clean_item_instance_from_dir(
                            sx->stx_dev_major, sx->stx_dev_minor,
                            mountpoint,
                            MAX_DEPTH, i->keep_first_level,
-                           i->age_by_file, i->age_by_dir);
+                           i->age_by_file, i->age_by_dir,
+                           ret_empty);
 }
 
 static int clean_item_instance(
@@ -3852,7 +3899,7 @@ static int clean_item_instance(
         if (r <= 0)
                 return r;
 
-        return clean_item_instance_from_dir(c, i, instance, d, &sx, mountpoint);
+        return clean_item_instance_from_dir(c, i, instance, d, &sx, mountpoint, /* ret_empty= */ NULL);
 }
 
 static int clean_recursive_remove_item_instance(
@@ -3900,8 +3947,11 @@ static int clean_recursive_remove_item_instance(
                 return log_error_errno(r, "statx(%s) failed: %m", instance);
 
         bool cleanup_needed = item_instance_needs_cleanup(i, instance, &dir_sx);
+        bool empty_after_cleanup = false;
 
-        r = clean_item_instance_from_dir(c, i, instance, d, &dir_sx, FLAGS_SET(dir_sx.stx_attributes, STATX_ATTR_MOUNT_ROOT));
+        r = clean_item_instance_from_dir(c, i, instance, d, &dir_sx,
+                                         FLAGS_SET(dir_sx.stx_attributes, STATX_ATTR_MOUNT_ROOT),
+                                         arg_dry_run ? &empty_after_cleanup : NULL);
         if (r < 0)
                 return r;
 
@@ -3909,6 +3959,9 @@ static int clean_recursive_remove_item_instance(
                 return 0;
 
         if (!cleanup_needed)
+                return 0;
+
+        if (arg_dry_run && !empty_after_cleanup)
                 return 0;
 
         return item_instance_remove_directory_if_empty(parent_fd, name, d, instance, /* assume_empty= */ arg_dry_run);
