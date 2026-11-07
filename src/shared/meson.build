@@ -62,6 +62,7 @@ shared_sources = files(
         'dev-setup.c',
         'discover-image.c',
         'dissect-image.c',
+        'dlopen-check.c',
         'dm-util.c',
         'dns-answer.c',
         'dns-domain.c',

@@ -41,6 +41,7 @@ int proc_cmdline_filter_pid1_args(char **argv, char ***ret) {
                 { "dump-configuration-items", no_argument,      },
                 { "dump-bus-properties",      no_argument,      },
                 { "bus-introspect",           required_argument },
+                { "test-dlopen",              no_argument,      },
                 { "dump-core",                optional_argument },
                 { "crash-chvt",               required_argument },
                 { "crash-vt",                 required_argument },
