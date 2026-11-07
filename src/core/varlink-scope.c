@@ -112,7 +112,7 @@ int transient_scope_dispatch(
                 sd_bus_error *reterr_bus_error) {
 
         static const sd_json_dispatch_field scope_dispatch[] = {
-                { "OOMPolicy",                  SD_JSON_VARIANT_STRING,        dispatch_oom_policy,                               offsetof(TransientScopeParameters, oom_policy), 0                },
+                { "OOMPolicy",                  SD_JSON_VARIANT_STRING,        dispatch_oom_policy,                               offsetof(TransientScopeParameters, oom_policy), SD_JSON_NULLABLE },
                 { "RuntimeMaxUSec",             _SD_JSON_VARIANT_TYPE_INVALID, varlink_dispatch_settable_runtime_max_usec,        0,                                              SD_JSON_NULLABLE },
                 { "RuntimeRandomizedExtraUSec", _SD_JSON_VARIANT_TYPE_INVALID, varlink_dispatch_settable_runtime_rand_extra_usec, 0,                                              SD_JSON_NULLABLE },
                 { "TimeoutStopUSec",            _SD_JSON_VARIANT_TYPE_INVALID, varlink_dispatch_settable_timeout_stop_usec,       0,                                              SD_JSON_NULLABLE },
@@ -124,6 +124,11 @@ int transient_scope_dispatch(
         int r;
 
         assert(ret);
+
+        if (sd_json_variant_is_null(variant)) {
+                *ret = NULL;
+                return 0;
+        }
 
         _cleanup_(transient_scope_parameters_freep) TransientScopeParameters *p = NULL;
         p = new(TransientScopeParameters, 1);
