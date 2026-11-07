@@ -8,6 +8,7 @@
 typedef enum QDiscKind {
         QDISC_KIND_BFIFO,
         QDISC_KIND_CAKE,
+        QDISC_KIND_CBS,
         QDISC_KIND_CODEL,
         QDISC_KIND_DRR,
         QDISC_KIND_ETS,
@@ -27,6 +28,7 @@ typedef enum QDiscKind {
         QDISC_KIND_QFQ,
         QDISC_KIND_SFB,
         QDISC_KIND_SFQ,
+        QDISC_KIND_TAPRIO,
         QDISC_KIND_TBF,
         QDISC_KIND_TEQL,
         _QDISC_KIND_MAX,
@@ -54,6 +56,10 @@ typedef struct QDiscVTable {
         const char *tca_kind;
         /* called in qdisc_new() */
         int (*init)(QDisc *qdisc);
+        /* called in qdisc_free() */
+        void (*done)(QDisc *qdisc);
+        /* called in qdisc_dup() to deep-copy qdisc-specific data */
+        int (*dup)(const QDisc *src, QDisc *dst);
         int (*fill_message)(Link *link, QDisc *qdisc, sd_netlink_message *m);
         int (*verify)(QDisc *qdisc);
         int (*is_ready)(QDisc *qdisc, Link *link);
