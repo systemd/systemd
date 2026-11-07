@@ -79,7 +79,8 @@
     brokers PTYs for system services and privileged clients, the user instances do the same for the
     respective user's service manager and clients. Both instances are socket activated (via
     <filename>systemd-ptybrokerd.socket</filename>) and exit automatically again once they are idle, i.e.
-    when no client is connected and no PTY is registered anymore.</para>
+    when no client is connected, no PTY is registered, and no client retains a reference to a shell's
+    service unit anymore.</para>
 
     <para>The service provides the <constant>io.systemd.PTYBroker</constant> <ulink
     url="https://varlink.org/">Varlink</ulink> IPC interface on <filename>/run/systemd/io.systemd.PTYBroker</filename>

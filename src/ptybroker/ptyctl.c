@@ -70,7 +70,7 @@ static int verb_list(int argc, char *argv[], uintptr_t data, void *userdata) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         r = pty_broker_connect(arg_runtime_scope, &vl);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to connect to ptybrokerd: %m");
 
         sd_json_variant *reply = NULL;
         const char *error_id = NULL;
@@ -156,7 +156,7 @@ static int monitor_broker_pty(const char *name, int *ret_monitor_fd, char ***ret
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         r = pty_broker_connect(arg_runtime_scope, &vl);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to connect to ptybrokerd: %m");
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *ts = NULL;
         r = pty_broker_terminal_settings_to_json(&ts);
@@ -338,7 +338,7 @@ static int verb_hangup(int argc, char *argv[], uintptr_t data, void *userdata) {
                 _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
                 r = pty_broker_connect(arg_runtime_scope, &vl);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to connect to ptybrokerd: %m");
 
                 r = sd_varlink_set_description(vl, *name);
                 if (r < 0)

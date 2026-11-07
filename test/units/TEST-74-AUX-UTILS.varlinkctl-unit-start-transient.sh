@@ -193,15 +193,16 @@ testcase_notifications() {
 
 testcase_reload_while_streaming() {
     setup
+    local operation result
 
-    # A daemon-reload recreates every job. The streaming client must still get the final reply
-    # afterwards, and the status update sent after the reload must arrive as a plain unit
-    # notification (the final reply carries runtime too, so it can't prove that).
-    defer_transient_cleanup varlink-transient-reload.service
-    result=$(timeout 60 varlinkctl call --more "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
-        '{"context":{"ID":"varlink-transient-reload.service","Service":{"Type":"notify","ExecStart":[{"path":"/bin/sh","arguments":["sh","-ec","systemctl daemon-reload; systemd-notify --status=after-reload; sleep 1; systemd-notify --ready"]}]}},"notifyJobChanges":true,"notifyUnitChanges":true}')
-    printf '%s' "$result" | jq --seq --slurp -e 'any(.[]; .job.Result == "done")' >/dev/null
-    printf '%s' "$result" | jq --seq --slurp -e 'any(.[]; .runtime.Service.StatusText == "after-reload" and (has("job") | not))' >/dev/null
+    # Check a standalone unit notification, not just the runtime included in the final reply.
+    for operation in daemon-reload daemon-reexec; do
+        defer_transient_cleanup "varlink-transient-$operation.service"
+        result=$(timeout 60 varlinkctl call --more "$MANAGER_SOCKET" io.systemd.Unit.StartTransient \
+            '{"context":{"ID":"varlink-transient-'"$operation"'.service","Service":{"Type":"notify","ExecStart":[{"path":"/bin/sh","arguments":["sh","-ec","systemctl '"$operation"'; systemd-notify --status=after-restore; sleep 1; systemd-notify --ready"]}]}},"notifyJobChanges":true,"notifyUnitChanges":true}')
+        printf '%s' "$result" | jq --seq --slurp -e 'any(.[]; .job.Result == "done")' >/dev/null
+        printf '%s' "$result" | jq --seq --slurp -e 'any(.[]; .runtime.Service.StatusText == "after-restore" and (has("job") | not))' >/dev/null
+    done
 }
 
 testcase_exec_properties() {
