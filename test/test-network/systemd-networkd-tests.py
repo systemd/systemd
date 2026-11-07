@@ -1331,6 +1331,11 @@ class Utilities:
     def check_ipv6_sysctl_attr(self, link, attribute, expected):
         self.assertEqual(read_ipv6_sysctl_attr(link, attribute), expected)
 
+    def check_ipv6_force_forwarding(self, link, expected):
+        # The sysctl is available since kernel v6.17.
+        if os.path.exists('/proc/sys/net/ipv6/conf/all/force_forwarding'):
+            self.check_ipv6_sysctl_attr(link, 'force_forwarding', expected)
+
     def check_ipv6_neigh_sysctl_attr(self, link, attribute, expected):
         self.assertEqual(read_ipv6_neigh_sysctl_attr(link, attribute), expected)
 
@@ -5666,6 +5671,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.wait_online('dummy98:degraded')
 
         self.check_ipv6_sysctl_attr('dummy98', 'forwarding', '1')
+        self.check_ipv6_force_forwarding('dummy98', '1')
         self.check_ipv6_sysctl_attr('dummy98', 'use_tempaddr', '1')
         self.check_ipv6_sysctl_attr('dummy98', 'dad_transmits', '3')
         self.check_ipv6_sysctl_attr('dummy98', 'hop_limit', '5')
@@ -5683,6 +5689,22 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.wait_online('dummy98:degraded')
 
         self.check_ipv6_sysctl_attr('dummy98', 'use_tempaddr', '2')
+
+    def test_sysctl_ipv6_force_forwarding_reset(self):
+        copy_networkd_conf_dropin('25-global-ipv6-forwarding-no.conf')
+        copy_network_unit('25-sysctl.network', '12-dummy.netdev', copy_dropins=False)
+        start_networkd()
+        self.wait_online('dummy98:degraded')
+
+        self.check_ipv6_sysctl_attr('dummy98', 'forwarding', '1')
+        self.check_ipv6_force_forwarding('dummy98', '1')
+
+        copy_network_unit('25-sysctl.network.d/25-ipv6-forwarding-unset.conf')
+        networkctl_reload()
+        self.wait_online('dummy98:degraded')
+
+        self.check_ipv6_sysctl_attr('dummy98', 'forwarding', '0')
+        self.check_ipv6_force_forwarding('dummy98', '0')
 
     def test_sysctl_disable_ipv6(self):
         copy_network_unit('25-sysctl-disable-ipv6.network', '12-dummy.netdev')
@@ -7653,6 +7675,7 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
         # IPv6SendRA=yes implies IPv6Forwarding.
         self.check_ipv6_sysctl_attr('veth-peer', 'forwarding', '1')
+        self.check_ipv6_force_forwarding('veth-peer', '1')
 
         output = resolvectl('dns', 'veth99')
         print(output)
