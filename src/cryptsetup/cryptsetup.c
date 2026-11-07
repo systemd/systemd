@@ -1796,7 +1796,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                 return log_oom();
 
         for (;;) {
-                if (use_libcryptsetup_plugin && arg_pkcs11_uri_auto)
+                if (use_libcryptsetup_plugin && arg_pkcs11_uri_auto) {
                         r = attach_luks2_by_pkcs11_via_plugin(
                                         cd,
                                         name,
@@ -1804,7 +1804,10 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                                         until,
                                         "cryptsetup.pkcs11-pin",
                                         flags);
-                else {
+                        if (IN_SET(r, -ENOTUNIQ, -ENXIO, -ENOENT))
+                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                       "Automatic PKCS#11 metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
+                } else {
                         r = decrypt_pkcs11_key(
                                         name,
                                         friendly,
