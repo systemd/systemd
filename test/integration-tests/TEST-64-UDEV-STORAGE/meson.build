@@ -84,6 +84,18 @@ udev_storage_tests += udev_storage_test_template + {
         'qemu-args' : qemu_args,
 }
 
+cmdline = ['--drive=drivefscklock:64M::']
+qemu_args = [
+        '-device', 'virtio-scsi-pci,id=scsi0',
+        '-device', 'scsi-hd,drive=drivefscklock,vendor=systemd,product=foobar,serial=deadbeeffscklock',
+]
+
+udev_storage_tests += udev_storage_test_template + {
+        'name' : 'fsck_locking',
+        'cmdline' : cmdline,
+        'qemu-args' : qemu_args,
+}
+
 cmdline = []
 qemu_args = ['-device', 'virtio-scsi-pci,id=scsi0']
 
