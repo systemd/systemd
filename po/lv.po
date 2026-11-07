@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-08-26 10:57+0100\n"
-"PO-Revision-Date: 2026-10-10 18:18+0000\n"
+"PO-Revision-Date: 2026-11-07 20:18+0000\n"
 "Last-Translator: Rihards Prieditis <rprieditis@gmail.com>\n"
 "Language-Team: Latvian <https://translate.fedoraproject.org/projects/systemd/"
 "main/lv/>\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n % 10 == 0 || n % 100 >= 11 && n % 100 <= "
 "19) ? 0 : ((n % 10 == 1 && n % 100 != 11) ? 1 : 2);\n"
-"X-Generator: Weblate 2026.10.1\n"
+"X-Generator: Weblate 2026.11.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -73,13 +73,13 @@ msgstr "Lai pārlādētu systemd stāvokli, nepieciešama autentifikācija."
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
-msgstr "Izgāzt systemd stāvokli bez ātruma ierobežojumiem"
+msgstr "Izmest systemd stāvokli bez ātruma ierobežojumiem"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
 msgid ""
 "Authentication is required to dump the systemd state without rate limits."
 msgstr ""
-"Lai izgāzt systemd stāvokli bez ātruma ierobežojumiem, nepieciešama "
+"Lai izmestu systemd stāvokli bez ātruma ierobežojumiem, nepieciešama "
 "autentifikācija."
 
 #: src/home/org.freedesktop.home1.policy:13
@@ -174,7 +174,7 @@ msgstr ""
 #: src/home/pam_systemd_home.c:333
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr "Pārāk bieži pieteikšanās mēģinājumi lietotājam %s, mēģiniet vēlāk."
+msgstr "Pārāk bieži lietotāja %s pieteikšanās mēģinājumi, mēģiniet vēlāk."
 
 #: src/home/pam_systemd_home.c:345
 msgid "Password: "
@@ -226,7 +226,7 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:416
 msgid "Security token PIN: "
-msgstr "Drošības marķieris PIN: "
+msgstr "Drošības marķiera PIN: "
 
 #: src/home/pam_systemd_home.c:433
 #, c-format
@@ -279,15 +279,15 @@ msgstr ""
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
-"Lietotāja %s mājas direktorija pašlaik nav aktīva, lūdzu, vispirms "
-"pieslēdzieties lokāli."
+"Lietotāja %s mājas apgabals pašlaik nav aktīvs, lūdzu, vispirms piesakieties "
+"lokāli."
 
 #: src/home/pam_systemd_home.c:679
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
-"Lietotāja %s mājas direktorija pašlaik ir bloķēta, lūdzu, vispirms "
-"atbloķējiet to lokāli."
+"Lietotāja %s mājas apgabals pašlaik ir bloķēts, lūdzu, vispirms atbloķējiet "
+"to lokāli."
 
 #: src/home/pam_systemd_home.c:713
 #, c-format
@@ -630,14 +630,14 @@ msgstr "Lai pārstartētu sistēmu, nepieciešama autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:213
 msgid "Reboot the system while other users are logged in"
-msgstr "Pārstartēt sistēmu, kamēr citi lietotāji ir pieslēgušies"
+msgstr "Pārstartēt sistēmu, kamēr citi lietotāji ir pieteikušies"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
 "Authentication is required to reboot the system while other users are logged "
 "in."
 msgstr ""
-"Lai pārstartētu sistēmu, kamēr citi lietotāji ir pieslēgušies, nepieciešama "
+"Lai pārstartētu sistēmu, kamēr citi lietotāji ir pieteikušies, nepieciešama "
 "autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:224
@@ -662,14 +662,14 @@ msgstr "Lai apturētu sistēmu, nepieciešama autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:246
 msgid "Halt the system while other users are logged in"
-msgstr "Apturēt sistēmu, kamēr citi lietotāji ir pieslēgušies"
+msgstr "Apturēt sistēmu, kamēr citi lietotāji ir pieteikušies"
 
 #: src/login/org.freedesktop.login1.policy:247
 msgid ""
 "Authentication is required to halt the system while other users are logged "
 "in."
 msgstr ""
-"Lai apturētu sistēmu, kamēr citi lietotāji ir pieslēgušies, nepieciešama "
+"Lai apturētu sistēmu, kamēr citi lietotāji ir pieteikušies, nepieciešama "
 "autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:257
@@ -693,14 +693,14 @@ msgstr "Lai iemidzinātu sistēmu, nepieciešama autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:278
 msgid "Suspend the system while other users are logged in"
-msgstr "Iemidzināt sistēmu, kamēr citi lietotāji ir pieslēgušies"
+msgstr "Iemidzināt sistēmu, kamēr citi lietotāji ir pieteikušies"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
 "Authentication is required to suspend the system while other users are "
 "logged in."
 msgstr ""
-"Lai iemidzinātu sistēmu, kamēr citi lietotāji ir pieslēgušies, nepieciešama "
+"Lai iemidzinātu sistēmu, kamēr citi lietotāji ir pieteikušies, nepieciešama "
 "autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:289
@@ -737,24 +737,23 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
-msgstr "Hibernēt sistēmu, kamēr lietojumprogramma to bloķē"
+msgstr "Hibernēt sistēmu, kamēr lietotne to bloķē"
 
 #: src/login/org.freedesktop.login1.policy:322
 msgid ""
 "Authentication is required to hibernate the system while an application is "
 "inhibiting this."
 msgstr ""
-"Lai hibernētu sistēmu, kamēr lietojumprogramma to bloķē, nepieciešama "
-"autentifikācija."
+"Lai hibernētu sistēmu, kamēr lietotne to bloķē, nepieciešama autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
-msgstr "Pārvaldīt aktīvās sesijas, lietotājus un vietas"
+msgstr "Pārvaldīt aktīvās sesijas, lietotājus un sēdvietas"
 
 #: src/login/org.freedesktop.login1.policy:333
 msgid "Authentication is required to manage active sessions, users and seats."
 msgstr ""
-"Aktīvo sesiju, lietotāju un vietu pārvaldīšanai ir nepieciešama "
+"Aktīvo sesiju, lietotāju un sēdvietu pārvaldīšanai ir nepieciešama "
 "autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:342
@@ -778,38 +777,38 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the firmware to boot to setup interface"
-msgstr "Norādīt programmatūrai ielādēt iestatījumu saskarni"
+msgstr "Norādīt aparātprogrammatūrai sāknēt iestatījumu saskarni"
 
 #: src/login/org.freedesktop.login1.policy:364
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
 msgstr ""
-"Lai norādītu aparātprogrammatūrai ielādēt iestatījumu saskarni, nepieciešama "
+"Lai norādītu aparātprogrammatūrai sāknēt iestatījumu saskarni, nepieciešama "
 "autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"
-msgstr "Norādīt sāknētājam ielādēt sāknētāja izvēlni"
+msgstr "Norādīt sāknētājam sāknēt sāknētāja izvēlni"
 
 #: src/login/org.freedesktop.login1.policy:375
 msgid ""
 "Authentication is required to indicate to the boot loader to boot to the "
 "boot loader menu."
 msgstr ""
-"Lai norādītu sāknētājam ielādēt sāknētāja izvēlni, nepieciešama "
+"Lai norādītu sāknētājam sāknēt sāknētāja izvēlni, nepieciešama "
 "autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
-msgstr "Norādīt sāknētājam ielādēt konkrētu ierakstu"
+msgstr "Norādīt sāknētājam sāknēt konkrētu ierakstu"
 
 #: src/login/org.freedesktop.login1.policy:386
 msgid ""
 "Authentication is required to indicate to the boot loader to boot into a "
 "specific boot loader entry."
 msgstr ""
-"Lai norādītu sāknētājam ielādēt konkrētu sāknētāja ierakstu, nepieciešama "
+"Lai norādītu sāknētājam sāknēt konkrētu sāknētāja ierakstu, nepieciešama "
 "autentifikācija."
 
 #: src/login/org.freedesktop.login1.policy:396
@@ -862,22 +861,22 @@ msgstr "Lai iegūtu čaulu lokālajā resursdatorā, nepieciešama autentifikāc
 
 #: src/machine/org.freedesktop.machine1.policy:64
 msgid "Acquire a pseudo TTY in a local container"
-msgstr "Iegūt pseido TTY lokālajā konteinerā"
+msgstr "Iegūt pseudo TTY lokālajā konteinerā"
 
 #: src/machine/org.freedesktop.machine1.policy:65
 msgid ""
 "Authentication is required to acquire a pseudo TTY in a local container."
 msgstr ""
-"Lai iegūtu pseido TTY lokālajā konteinerā, nepieciešama autentifikācija."
+"Lai iegūtu pseudo TTY lokālajā konteinerā, nepieciešama autentifikācija."
 
 #: src/machine/org.freedesktop.machine1.policy:74
 msgid "Acquire a pseudo TTY on the local host"
-msgstr "Iegūt pseido TTY lokālajā resursdatorā"
+msgstr "Iegūt pseudo TTY lokālajā resursdatorā"
 
 #: src/machine/org.freedesktop.machine1.policy:75
 msgid "Authentication is required to acquire a pseudo TTY on the local host."
 msgstr ""
-"Lai iegūtu pseido TTY lokālajā resursdatorā, nepieciešama autentifikācija."
+"Lai iegūtu pseudo TTY lokālajā resursdatorā, nepieciešama autentifikācija."
 
 #: src/machine/org.freedesktop.machine1.policy:84
 msgid "Manage local virtual machines and containers"
@@ -1157,7 +1156,7 @@ msgstr "DNS-SD pakalpojuma dereģistrēšanai nepieciešama autentifikācija."
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
-msgstr "Atjaunot vārdu izšķiršanas iestatījumus"
+msgstr "Atiestatīt vārdu izšķiršanas iestatījumus"
 
 #: src/resolve/org.freedesktop.resolve1.policy:133
 msgid "Authentication is required to reset name resolution settings."
@@ -1349,7 +1348,7 @@ msgid ""
 "Authentication is required to control whether network time synchronization "
 "shall be enabled."
 msgstr ""
-"Lai kontrolētu, vai tīkla laika sinhronizācija ir ieslēgta, nepieciešama "
+"Lai kontrolētu, vai tīkla laika sinhronizācija ir iespējota, nepieciešama "
 "autentifikācija."
 
 #: src/core/dbus-unit.c:372
@@ -1409,11 +1408,11 @@ msgstr ""
 
 #: src/shared/libfido2-util.c:494 src/shared/libfido2-util.c:551
 msgid "Please confirm presence on security token to unlock."
-msgstr "Lūdzu, apstipriniet klātbūtni uz drošības marķiera, lai atšifrētu."
+msgstr "Lūdzu, apstipriniet klātbūtni drošības marķierī, lai atbloķētu."
 
 #: src/shared/libfido2-util.c:510
 msgid "Please verify user on security token to unlock."
-msgstr "Lūdzu, verificējiet lietotāju uz drošības marķiera, lai atšifrētu."
+msgstr "Lūdzu, verificējiet lietotāju drošības marķierī, lai atbloķētu."
 
 #: src/shared/libfido2-util.c:944
 #, c-format
