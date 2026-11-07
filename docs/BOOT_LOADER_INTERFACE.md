@@ -149,6 +149,8 @@ Variables will be listed below using the Linux efivarfs naming,
                 EFI variable `LoaderPcrSMBIOS-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`.
   * `1 << 22` → The boot loader honours `LoaderFactoryResetVariables` when set.
   * `1 << 23` → The boot loader supports installing firmware update capsules prepared by fwupd.
+  * `1 << 24` → The boot loader passes the addons of the selected entry to the started Unified Kernel Image,
+                see below.
 
 * The EFI variable `LoaderFactoryResetVariables-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
   contains a boolean, formatted as a NUL-terminated UTF-16 string
@@ -227,6 +229,23 @@ there. The `systemctl reboot --boot-loader-entry=…` and `systemctl reboot
 --boot-loader-menu=…` commands rely on the `LoaderFeatures` ,
 `LoaderConfigTimeoutOneShot`, `LoaderEntries`, `LoaderEntryOneShot`
 variables.
+
+## Passing Addons to the Stub
+
+The boot loader may pass PE addons (`*.addon.efi`) specific to the selected boot
+loader entry (for example configured via `extra` lines in Type #1 entries)
+to the stub of the Unified Kernel Image it starts.  Each addon is installed on its
+own handle as a `LoadFile2` protocol object, together with a device path consisting
+of a vendor media node with the GUID `703430c9-7b7f-4ada-b647-6c0eeb8ba48f`, followed
+by a file path node with the file name of the addon (without any directory
+components), for example:
+
+    VenMedia(703430c9-7b7f-4ada-b647-6c0eeb8ba48f)/foo.addon.efi
+
+The stub finds all `LoadFile2` handles with such a device path,
+and loads the addons in the order of their file names.
+If several addons have the same file name, only the first one is loaded.
+The boot loader should uninstall them if the started image returns.
 
 ## Boot Loader Entry Identifiers
 

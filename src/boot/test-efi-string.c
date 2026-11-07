@@ -249,6 +249,15 @@ TEST(strchr16) {
         ASSERT_PTR_EQ(strchr16(str, 0), str + strlen16(str));
 }
 
+TEST(path_filename16) {
+        ASSERT_TRUE(streq16(path_filename16(u""), u""));
+        ASSERT_TRUE(streq16(path_filename16(u"foo.addon.efi"), u"foo.addon.efi"));
+        ASSERT_TRUE(streq16(path_filename16(u"\\foo.addon.efi"), u"foo.addon.efi"));
+        ASSERT_TRUE(streq16(path_filename16(u"\\a\\b\\foo.addon.efi"), u"foo.addon.efi"));
+        ASSERT_TRUE(streq16(path_filename16(u"a\\foo.addon.efi"), u"foo.addon.efi"));
+        ASSERT_TRUE(streq16(path_filename16(u"\\a\\"), u""));
+}
+
 TEST(xstrndup8) {
         char *s = NULL;
 

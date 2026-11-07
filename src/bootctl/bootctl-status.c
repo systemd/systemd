@@ -414,6 +414,7 @@ int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         { EFI_LOADER_FEATURE_SMBIOS_MEASURED,         "Loader measures SMBIOS information"      },
                         { EFI_LOADER_FEATURE_FACTORY_RESET_VARIABLES, "Loader erases EFI variables on request"  },
                         { EFI_LOADER_FEATURE_FIRMWARE_UPDATE,         "Support for installing fwupd updates"    },
+                        { EFI_LOADER_FEATURE_ENTRY_ADDONS,            "Loader passes entry addons to stub"      },
                 };
                 static const struct {
                         uint64_t flag;
@@ -432,6 +433,7 @@ int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         { EFI_STUB_FEATURE_DEVICETREE_ADDONS,         "Pick up .dtb from addons"                                    },
                         { EFI_STUB_FEATURE_MULTI_PROFILE_UKI,         "Stub understands profile selector"                           },
                         { EFI_STUB_FEATURE_SMBIOS_MEASURED,           "Stub measures SMBIOS information"                            },
+                        { EFI_STUB_FEATURE_ENTRY_ADDONS,              "Pick up addons passed by loader for entry"                   },
                 };
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL, *stub_path = NULL,
                         *current_entry = NULL, *oneshot_entry = NULL, *preferred_entry = NULL, *default_entry = NULL, *sysfail_entry = NULL,
