@@ -207,6 +207,7 @@ typedef struct Service {
         SocketPeer *socket_peer;
         UnitRef accept_socket;
         bool socket_fd_selinux_context_net;
+        bool inherit_socket_slice;
 
         bool permissions_start_only;
         bool root_directory_start_only;

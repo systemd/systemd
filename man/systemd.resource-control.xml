@@ -1413,6 +1413,13 @@ DeviceAllow=/dev/loop-control
           <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>, section
           "Default Dependencies" for details.</para>
 
+          <para>A special value of <literal>socket</literal> is accepted in systemd service units that are
+          triggered by systemd socket units where <varname>Accept=yes</varname>. In this case, systemd will
+          try to find the slice that contains the peer, and use that as the slice for the service. This allows
+          resources used by a service on behalf of a client to count against the client's resource limits. This
+          works only for <constant>AF_UNIX</constant> sockets, and if the slice cannot be found the default
+          slice will be used instead. This variant was added in systemd v263.</para>
+
           <xi:include href="version-info.xml" xpointer="v208"/>
 
         </listitem>
