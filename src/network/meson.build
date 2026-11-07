@@ -89,6 +89,7 @@ networkctl_export_sources = files(
         'networkd-wiphy.c',
         'networkd-wwan.c',
         'networkd-wwan-bus.c',
+        'networkd-xlat.c',
         'tc/cake.c',
         'tc/codel.c',
         'tc/drr.c',
@@ -204,6 +205,7 @@ executables += [
                         libselinux_cflags,
                 ],
                 'bpf_programs': [
+                        'clat',
                         'sysctl-monitor',
                 ],
                 'install' : get_option('link-networkd-shared') ? 'yes' : 'static',
