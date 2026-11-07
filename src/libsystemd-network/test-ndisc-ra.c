@@ -277,6 +277,85 @@ TEST(ra_ifindex_mismatch) {
         test_fd[0] = safe_close(test_fd[0]);
 }
 
+static bool ra_has_prefix(const uint8_t *buf, size_t len, const struct in6_addr *address) {
+        for (size_t offset = sizeof(struct nd_router_advert); offset + 2 <= len; ) {
+                size_t optlen = buf[offset + 1] * 8;
+
+                ASSERT_GT(optlen, 0u);
+                ASSERT_LE(offset + optlen, len);
+
+                if (buf[offset] == ND_OPT_PREFIX_INFORMATION) {
+                        const struct nd_opt_prefix_info *pi =
+                                (const struct nd_opt_prefix_info*) (buf + offset);
+
+                        if (in6_addr_equal(&pi->nd_opt_pi_prefix, address))
+                                return true;
+                }
+
+                offset += optlen;
+        }
+
+        return false;
+}
+
+TEST(ra_drop_expired_prefix) {
+        static const struct nd_router_solicit rs = {
+                .nd_rs_type = ND_ROUTER_SOLICIT,
+        };
+        static const struct in6_addr
+                valid = { { { 0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef } } },
+                expired = { { { 0x20, 0x01, 0x0d, 0xb8, 0x0b, 0x16, 0xd0, 0x0d } } };
+
+        _cleanup_free_ uint8_t *buf = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_radv_unrefp) sd_radv *ra = NULL;
+        usec_t time_now;
+        ssize_t buflen;
+
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd));
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_now(e, CLOCK_BOOTTIME, &time_now));
+        ASSERT_OK(sd_radv_new(&ra));
+        ASSERT_OK(sd_radv_attach_event(ra, e, /* priority= */ 0));
+        ASSERT_OK(sd_radv_set_ifindex(ra, 42));
+
+        ASSERT_OK(sd_radv_add_prefix(ra, &valid, 64, ND_OPT_PI_FLAG_ONLINK | ND_OPT_PI_FLAG_AUTO,
+                                     RADV_DEFAULT_VALID_LIFETIME_USEC, RADV_DEFAULT_PREFERRED_LIFETIME_USEC,
+                                     USEC_INFINITY, USEC_INFINITY));
+        ASSERT_OK(sd_radv_add_prefix(ra, &expired, 64, ND_OPT_PI_FLAG_ONLINK | ND_OPT_PI_FLAG_AUTO,
+                                     RADV_DEFAULT_VALID_LIFETIME_USEC, RADV_DEFAULT_PREFERRED_LIFETIME_USEC,
+                                     time_now, time_now));
+
+        ASSERT_OK(sd_radv_start(ra));
+        ASSERT_OK(sd_event_run(e, UINT64_MAX));
+
+        buflen = ASSERT_OK(next_datagram_size_fd(test_fd[0]));
+        ASSERT_NOT_NULL((buf = new(uint8_t, buflen)));
+        ASSERT_OK_EQ_ERRNO(read(test_fd[0], buf, buflen), buflen);
+
+        ASSERT_TRUE(ra_has_prefix(buf, buflen, &valid));
+        ASSERT_FALSE(ra_has_prefix(buf, buflen, &expired));
+
+        /* Solicited RAs too. */
+        ASSERT_OK(sd_radv_add_prefix(ra, &expired, 64, ND_OPT_PI_FLAG_ONLINK | ND_OPT_PI_FLAG_AUTO,
+                                     RADV_DEFAULT_VALID_LIFETIME_USEC, RADV_DEFAULT_PREFERRED_LIFETIME_USEC,
+                                     time_now, time_now));
+        ASSERT_OK_EQ_ERRNO(write(test_fd[0], &rs, sizeof(rs)), (ssize_t) sizeof(rs));
+        ASSERT_OK(sd_event_run(e, UINT64_MAX));
+
+        buf = mfree(buf);
+        buflen = ASSERT_OK(next_datagram_size_fd(test_fd[0]));
+        ASSERT_NOT_NULL((buf = new(uint8_t, buflen)));
+        ASSERT_OK_EQ_ERRNO(read(test_fd[0], buf, buflen), buflen);
+
+        ASSERT_TRUE(ra_has_prefix(buf, buflen, &valid));
+        ASSERT_FALSE(ra_has_prefix(buf, buflen, &expired));
+
+        ASSERT_OK(sd_radv_stop(ra));
+        test_fd[0] = safe_close(test_fd[0]);
+}
+
 TEST(ra) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *recv_router_advertisement = NULL;
