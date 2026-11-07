@@ -12,6 +12,9 @@ Description=Time & Date Service
 Documentation=man:systemd-timedated.service(8)
 Documentation=man:localtime(5)
 Documentation=man:org.freedesktop.timedate1(5)
+DefaultDependencies=no
+Conflicts=shutdown.target
+Before=shutdown.target
 
 [Service]
 Type=notify
@@ -32,7 +35,7 @@ ProtectKernelLogs=yes
 ProtectKernelModules=yes
 ProtectKernelTunables=yes
 ProtectSystem=strict
-ReadWritePaths=/etc
+ReadWritePaths=/etc /run/systemd
 RestrictAddressFamilies=AF_UNIX
 RestrictNamespaces=yes
 RestrictRealtime=yes

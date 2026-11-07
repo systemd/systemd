@@ -59,6 +59,7 @@
 #include "varlink-io.systemd.SysUpdate.h"
 #include "varlink-io.systemd.SysUpdate.Notify.h"
 #include "varlink-io.systemd.SysUpdate.Provider.h"
+#include "varlink-io.systemd.Timedate.h"
 #include "varlink-io.systemd.Udev.h"
 #include "varlink-io.systemd.Unit.h"
 #include "varlink-io.systemd.UserDatabase.h"
@@ -276,6 +277,7 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_SysUpdate,
                 &vl_interface_io_systemd_SysUpdate_Notify,
                 &vl_interface_io_systemd_SysUpdate_Provider,
+                &vl_interface_io_systemd_Timedate,
                 &vl_interface_io_systemd_Udev,
                 &vl_interface_io_systemd_Unit,
                 &vl_interface_io_systemd_UserDatabase,
