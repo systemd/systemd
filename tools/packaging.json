@@ -12,7 +12,7 @@
   "fedora": {
     "url": "https://src.fedoraproject.org/rpms/systemd.git",
     "branch": "rawhide",
-    "commit": "fa6e75f6f0d04702f1bad8b86ceaec32087afa31"
+    "commit": "2b41ebfbb653d0747755d4c9c539b9d80cb05f46"
   },
   "hyperscale": {
     "url": "https://gitlab.com/CentOS/Hyperscale/rpms/systemd.git",
