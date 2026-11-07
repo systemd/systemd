@@ -2017,15 +2017,13 @@ static int context_acquire(
                 return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN), "Selected update '%s' is already acquired and partially installed. Vacuum it to try installing again.", us->version);
         } else if (FLAGS_SET(us->flags, UPDATE_PENDING)) {
                 log_info("Selected update '%s' is already acquired and pending installation.", us->version);
-
-                return context_process_partial_and_pending(c, version);
         } else if (FLAGS_SET(us->flags, UPDATE_INSTALLED)) {
                 log_info("Selected update '%s' is already installed. Skipping update.", us->version);
 
                 return 0;
         }
 
-        if (!FLAGS_SET(us->flags, UPDATE_AVAILABLE))
+        if (!FLAGS_SET(us->flags, UPDATE_AVAILABLE) && !FLAGS_SET(us->flags, UPDATE_PENDING))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected update '%s' is not available, refusing.", us->version);
         if (FLAGS_SET(us->flags, UPDATE_OBSOLETE))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected update '%s' is obsolete, refusing.", us->version);
@@ -2038,6 +2036,14 @@ static int context_acquire(
                 log_notice("Selected update '%s' is older than newest installed version, proceeding anyway.", us->version);
 
         log_info("Selected update '%s' for install.", us->version);
+
+        (void) sd_notifyf(/* unset_environment= */ false,
+                          "READY=1\n"
+                          "X_SYSUPDATE_VERSION=%s",
+                          us->version);
+
+        if (FLAGS_SET(us->flags, UPDATE_PENDING))
+                return context_process_partial_and_pending(c, version);
 
         _cleanup_free_ InstanceMetadata *metadata = new0(InstanceMetadata, c->n_transfers);
         if (!metadata)
@@ -2057,9 +2063,7 @@ static int context_acquire(
         }
 
         (void) sd_notifyf(/* unset_environment= */ false,
-                          "READY=1\n"
-                          "X_SYSUPDATE_VERSION=%s\n"
-                          "STATUS=Making room for '%s'.", us->version, us->version);
+                          "STATUS=Making room for '%s'.", us->version);
 
         /* Let's make some room. We make sure for each transfer we have one free space to fill. While
          * removing stuff we'll protect the version we are trying to acquire. Why that? Maybe an earlier
