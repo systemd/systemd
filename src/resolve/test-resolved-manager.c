@@ -4,6 +4,11 @@
 
 #include "dns-packet.h"
 #include "fd-util.h"
+#include "hashmap.h"
+#include "ordered-set.h"
+#include "resolved-dns-scope.h"
+#include "resolved-dns-server.h"
+#include "resolved-link.h"
 #include "resolved-manager.h"
 #include "tests.h"
 
@@ -27,6 +32,75 @@ TEST(manager_recv_nothing_to_read) {
 
         ASSERT_OK_ZERO(manager_recv(&manager, fd, DNS_PROTOCOL_DNS, &p));
         ASSERT_NULL(p);
+}
+
+TEST(manager_compile_dns_servers_filters_before_deduplicating) {
+        _cleanup_ordered_set_free_ OrderedSet *servers = NULL;
+        Manager manager = {};
+        Link *route_only_link, *default_route_link;
+        DnsScope *route_only_scope, *default_route_scope;
+        DnsServer *route_only_server, *default_route_server;
+        union in_addr_union address = { .in.s_addr = htobe32(0xc0000235) };
+
+        ASSERT_OK(link_new(&manager, &route_only_link, 1));
+        route_only_link->default_route = false;
+        ASSERT_OK(dns_scope_new(&manager, &route_only_scope, DNS_SCOPE_LINK, route_only_link, /* delegate= */ NULL,
+                                DNS_PROTOCOL_DNS, AF_INET));
+        route_only_link->unicast_scope = route_only_scope;
+        ASSERT_OK(dns_server_new(&manager, &route_only_server, DNS_SERVER_LINK, route_only_link,
+                                 /* delegate= */ NULL, AF_INET, &address, 53, /* ifindex= */ 0,
+                                 /* server_name= */ NULL, RESOLVE_CONFIG_SOURCE_DBUS));
+
+        ASSERT_OK(link_new(&manager, &default_route_link, 2));
+        default_route_link->default_route = true;
+        ASSERT_OK(dns_scope_new(&manager, &default_route_scope, DNS_SCOPE_LINK, default_route_link, /* delegate= */ NULL,
+                                DNS_PROTOCOL_DNS, AF_INET));
+        default_route_link->unicast_scope = default_route_scope;
+        ASSERT_OK(dns_server_new(&manager, &default_route_server, DNS_SERVER_LINK, default_route_link,
+                                 /* delegate= */ NULL, AF_INET, &address, 53, /* ifindex= */ 0,
+                                 /* server_name= */ NULL, RESOLVE_CONFIG_SOURCE_DBUS));
+
+        ASSERT_OK(manager_compile_dns_servers(&manager, &servers));
+        ASSERT_EQ(ordered_set_size(servers), 1u);
+        ASSERT_PTR_EQ(ordered_set_first(servers), default_route_server);
+
+        /* Check both assignments so the test does not depend on link iteration order. */
+        route_only_link->default_route = true;
+        default_route_link->default_route = false;
+        ordered_set_clear(servers);
+        ASSERT_OK(manager_compile_dns_servers(&manager, &servers));
+        ASSERT_EQ(ordered_set_size(servers), 1u);
+        ASSERT_PTR_EQ(ordered_set_first(servers), route_only_server);
+
+        manager.links = hashmap_free(manager.links);
+}
+
+TEST(manager_compile_dns_servers_does_not_use_fallback_for_route_only_servers) {
+        _cleanup_ordered_set_free_ OrderedSet *servers = NULL;
+        Manager manager = {};
+        Link *link;
+        DnsScope *scope;
+        DnsServer *route_only_server, *fallback_server;
+        union in_addr_union route_only_address = { .in.s_addr = htobe32(0xc0000235) },
+                          fallback_address = { .in.s_addr = htobe32(0xc0000236) };
+
+        ASSERT_OK(link_new(&manager, &link, 1));
+        link->default_route = false;
+        ASSERT_OK(dns_scope_new(&manager, &scope, DNS_SCOPE_LINK, link, /* delegate= */ NULL,
+                                DNS_PROTOCOL_DNS, AF_INET));
+        link->unicast_scope = scope;
+        ASSERT_OK(dns_server_new(&manager, &route_only_server, DNS_SERVER_LINK, link,
+                                 /* delegate= */ NULL, AF_INET, &route_only_address, 53, /* ifindex= */ 0,
+                                 /* server_name= */ NULL, RESOLVE_CONFIG_SOURCE_DBUS));
+        ASSERT_OK(dns_server_new(&manager, &fallback_server, DNS_SERVER_FALLBACK, /* link= */ NULL,
+                                 /* delegate= */ NULL, AF_INET, &fallback_address, 53, /* ifindex= */ 0,
+                                 /* server_name= */ NULL, RESOLVE_CONFIG_SOURCE_DBUS));
+
+        ASSERT_OK(manager_compile_dns_servers(&manager, &servers));
+        ASSERT_EQ(ordered_set_size(servers), 0u);
+
+        dns_server_unlink_all(manager.fallback_dns_servers);
+        manager.links = hashmap_free(manager.links);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
