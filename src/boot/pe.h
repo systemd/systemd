@@ -2,6 +2,7 @@
 #pragma once
 
 #include "efi.h"
+#include "sha256.h"
 
 /* PE flags in the Characteristics attribute of the optional header indicating executable code */
 #define PE_CODE 0x00000020U
@@ -61,6 +62,15 @@ EFI_STATUS pe_memory_locate_sections(
                 size_t base_len,
                 const char *const section_names[],
                 PeSectionVector sections[]);
+
+EFI_STATUS pe_buffer_locate_sections(
+                const void *buffer,
+                size_t size,
+                const char *const section_names[],
+                PeSectionVector sections[]);
+
+EFI_STATUS pe_buffer_has_signature(const void *buffer, size_t size, bool *ret);
+EFI_STATUS pe_buffer_authenticode_sha256(const void *buffer, size_t size, uint8_t ret[static SHA256_DIGEST_SIZE]);
 
 EFI_STATUS pe_kernel_info(
                 const void *base,
