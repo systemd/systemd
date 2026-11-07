@@ -1,0 +1,2029 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <fcntl.h>
+#include <sys/file.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include "sd-event.h"
+#include "sd-id128.h"
+#include "sd-journal.h"
+
+#include "alloc-util.h"
+#include "compress.h"
+#include "copy.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "fs-util.h"
+#include "iovec-util.h"
+#include "journal-authenticate.h"
+#include "journal-file-util.h"
+#include "journal-segmented.h"
+#include "journal-segmented-internal.h"
+#include "journal-test-util.h"
+#include "journal-vacuum.h"
+#include "journal-verify.h"
+#include "log.h"
+#include "memfd-util.h"
+#include "memory-util.h"
+#include "mmap-cache.h"
+#include "path-util.h"
+#include "random-util.h"
+#include "rm-rf.h"
+#include "siphash24.h"
+#include "stdio-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "tests.h"
+#include "time-util.h"
+#include "unaligned.h"
+#include "umask-util.h"
+
+static const uint8_t digest_key[16] = {
+        0x74, 0x65, 0x73, 0x74, 0x2d, 0x61, 0x70, 0x70, 0x65, 0x6e, 0x64, 0x2d, 0x6f, 0x6e, 0x6c, 0x79,
+};
+
+static JournalFile* open_file(MMapCache *m, const char *name, int flags, bool segmented, uint64_t max_size) {
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", one_zero(segmented), /* overwrite= */ true));
+        return journal_test_open(m, name, flags, max_size);
+}
+
+TEST(basic) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(model_done) Model model = {};
+        JournalFile *f, *g;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 128 * U64_MB);
+        ASSERT_NOT_NULL(f->segmented);
+        ASSERT_TRUE(JOURNAL_HEADER_SEGMENTED(f->header));
+        ASSERT_TRUE(JOURNAL_HEADER_COMPACT(f->header));
+        ASSERT_TRUE(JOURNAL_HEADER_KEYED_HASH(f->header));
+
+        for (uint64_t i = 0; i < 300; i++)
+                model_append_generated(f, &model, i);
+
+        ASSERT_EQ(f->segmented->n_indexes, 0U);
+        /* Everything that is neither an entry nor a data object is a context */
+        uint64_t n_contexts = le64toh(f->header->n_objects) - le64toh(f->header->n_entries) - le64toh(f->header->n_data);
+        ASSERT_GT(n_contexts, 0U);
+        ASSERT_LT(n_contexts, 20U);
+        ASSERT_EQ(f->header->state, STATE_ONLINE);
+        ASSERT_EQ(f->segmented->disk_header->state, STATE_OFFLINE);
+
+        /* A refresh tells whether there are new entries */
+        g = open_file(m, "test.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        ASSERT_NOT_NULL(g->segmented);
+        model_append_generated(f, &model, 300);
+        g->segmented->refresh_pending = true;
+        ASSERT_OK_POSITIVE(segmented_refresh(g, USEC_INFINITY));
+        g->segmented->refresh_pending = true;
+        ASSERT_OK_ZERO(segmented_refresh(g, USEC_INFINITY));
+        model_assert_file(g, &model);
+        g = journal_file_close(g);
+
+        /* Unlike a classic file, a file that was not closed properly is continued */
+        f = journal_file_close(f);
+        f = open_file(m, "test.journal", O_RDWR, /* segmented= */ false, 128 * U64_MB);
+        ASSERT_NOT_NULL(f->segmented);
+        model_assert_file(f, &model);
+        model_append_generated(f, &model, 301);
+        model_assert_file(f, &model);
+        f = journal_file_offline_close(f);
+}
+
+TEST(indexes) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(model_done) Model model = {};
+        _cleanup_free_ char *path = NULL;
+        JournalFile *f, *g, *follower;
+        size_t n_indexes;
+        uint64_t size;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        /* With a 3 MiB file, a checkpoint writes an index every 192 KiB */
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 3 * U64_MB);
+        follower = open_file(m, "test.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+
+        for (uint64_t i = 0; i < 3000; i++)
+                model_append_generated(f, &model, i);
+
+        ASSERT_GT(f->segmented->n_indexes, 2U);
+        ASSERT_LT(f->segmented->scan_offset - f->segmented->tail_offset, 384 * U64_KB);
+
+        follower->segmented->refresh_pending = true;
+        ASSERT_OK_POSITIVE(segmented_refresh(follower, USEC_INFINITY));
+        ASSERT_EQ(follower->segmented->n_indexes, f->segmented->n_indexes);
+        model_assert_file(follower, &model);
+
+        /* The header names no index yet, as nothing was synced */
+        ASSERT_EQ(le64toh(f->segmented->disk_header->synced_index_offset), 0U);
+        g = open_file(m, "test.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        ASSERT_EQ(g->segmented->n_indexes, f->segmented->n_indexes);
+        g = journal_file_close(g);
+
+        ASSERT_OK(journal_file_set_offline(f, /* wait= */ true));
+        ASSERT_EQ(le64toh(f->segmented->disk_header->synced_index_offset), f->segmented->indexes[f->segmented->n_indexes - 1].offset);
+        g = open_file(m, "test.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        ASSERT_EQ(g->segmented->n_indexes, f->segmented->n_indexes);
+        g = journal_file_close(g);
+
+        /* A continued file keeps its indexes */
+        n_indexes = f->segmented->n_indexes;
+        f = journal_file_offline_close(f);
+        f = open_file(m, "test.journal", O_RDWR, /* segmented= */ false, 3 * U64_MB);
+        ASSERT_GE(f->segmented->n_indexes, n_indexes);
+
+        for (uint64_t i = 3000; i < 6000; i++)
+                model_append_generated(f, &model, i);
+
+        /* Archiving indexes the tail */
+        ASSERT_GT(f->segmented->n_indexes, 4U);
+        n_indexes = f->segmented->n_indexes;
+        size = f->segmented->scan_offset;
+        ASSERT_OK(journal_file_archive(f, /* ret_previous_path= */ NULL));
+        ASSERT_OK(journal_file_set_offline(f, /* wait= */ true));
+        ASSERT_ERROR(journal_file_append_entry(f, /* ts= */ NULL, /* boot_id= */ NULL, &IOVEC_MAKE_STRING("A=b"), 1, /* seqnum= */ NULL, /* seqnum_id= */ NULL, /* ret_object= */ NULL, /* ret_offset= */ NULL), ESHUTDOWN);
+        ASSERT_NOT_NULL(path = strdup(f->path));
+        f = journal_file_offline_close(f);
+
+        g = open_file(m, path, O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        ASSERT_GT((uint64_t) g->last_stat.st_size, size);
+        ASSERT_GT(g->segmented->n_indexes, n_indexes);
+        ASSERT_EQ(g->segmented->n_tail_entries, 0U);
+        model_assert_file(g, &model);
+        n_indexes = g->segmented->n_indexes;
+        g = journal_file_close(g);
+
+        follower->segmented->refresh_pending = true;
+        ASSERT_OK(segmented_refresh(follower, USEC_INFINITY));
+        ASSERT_EQ(follower->segmented->n_indexes, n_indexes);
+        model_assert_file(follower, &model);
+        follower = journal_file_close(follower);
+}
+
+TEST(unique) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_strv_free_ char **values = NULL;
+        SegmentedCursor c = {};
+        sd_id128_t boot_id;
+        JournalFile *f, *g;
+        const void *d;
+        size_t l;
+        usec_t t = 0;
+        int r;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        ASSERT_OK(sd_id128_randomize(&boot_id));
+
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 128 * U64_MB);
+
+        FOREACH_STRING(segment, "UNIT=a", "UNIT=a UNIT=b", "UNIT=b", "UNIT=a") {
+                _cleanup_strv_free_ char **split = NULL;
+
+                ASSERT_NOT_NULL(split = strv_split(segment, " "));
+                STRV_FOREACH(value, split) {
+                        t++;
+                        model_append(f, /* model= */ NULL, t, t, boot_id, STRV_MAKE(*value));
+                }
+                ASSERT_OK(segmented_checkpoint(f));
+        }
+
+        g = open_file(m, "test.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        ASSERT_EQ(g->segmented->n_indexes, 4U);
+
+        /* A value is skipped if the previous index lists it */
+        while ((r = segmented_enumerate_unique(g, "UNIT", STRLEN("UNIT"), &c, &d, &l)) > 0)
+                ASSERT_OK(strv_extend(&values, strndupa_safe(d, l)));
+        ASSERT_OK(r);
+        ASSERT_TRUE(strv_equal(values, STRV_MAKE("UNIT=a", "UNIT=b", "UNIT=a")));
+
+        g = journal_file_close(g);
+        f = journal_file_offline_close(f);
+}
+
+TEST(rotate_seqnum_id) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        sd_id128_t other = SD_ID128_MAKE(c1,c2,c3,c4,c5,c6,c7,c8,c9,ca,cb,cc,cd,ce,cf,c0), id;
+        dual_timestamp ts = { .realtime = MODEL_REALTIME_BASE, .monotonic = 5000 };
+        struct iovec iovec = IOVEC_MAKE_STRING("MESSAGE=foo");
+        JournalFile *f;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        /* A segmented file never rewrites its header, so it refuses entries with another sequence number
+         * ID. The file that replaces a rotated file has to use the ID that the caller passes to the
+         * rotation. Otherwise the caller could never write again. */
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        id = SD_ID128_NULL;
+        ASSERT_OK(journal_file_append_entry(f, &ts, &MODEL_BOOT_A, &iovec, 1, /* seqnum= */ NULL, &id, /* ret_object= */ NULL, /* ret_offset= */ NULL));
+
+        id = other;
+        ASSERT_ERROR(journal_file_append_entry(f, &ts, &MODEL_BOOT_A, &iovec, 1, /* seqnum= */ NULL, &id, /* ret_object= */ NULL, /* ret_offset= */ NULL), EILSEQ);
+
+        ASSERT_OK(journal_file_rotate(&f, m, JOURNAL_COMPRESS, UINT64_MAX, &other, /* deferred_closes= */ NULL));
+        ASSERT_OK(journal_file_append_entry(f, &ts, &MODEL_BOOT_A, &iovec, 1, /* seqnum= */ NULL, &id, /* ret_object= */ NULL, /* ret_offset= */ NULL));
+        ASSERT_TRUE(sd_id128_equal(f->header->seqnum_id, other));
+
+        f = journal_file_offline_close(f);
+}
+
+static void copy_truncated(const char *from, const char *to, uint64_t size) {
+        (void) unlink(to);
+        ASSERT_OK(copy_file(from, to, O_EXCL, 0644, /* copy_flags= */ 0));
+        ASSERT_OK_ERRNO(truncate(to, size));
+}
+
+TEST(truncated) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(model_done) Model model = {};
+        _cleanup_free_ uint64_t *sizes = NULL;
+        JournalFile *f, *g;
+        uint64_t size, n_good = 0;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        /* At least one index, and enough tail behind it */
+        for (uint64_t i = 0; i < 1200 || f->segmented->scan_offset - f->segmented->tail_offset < 4000; i++) {
+                model_append_generated(f, &model, i);
+
+                ASSERT_NOT_NULL(GREEDY_REALLOC(sizes, i + 1));
+                sizes[i] = f->segmented->scan_offset;
+        }
+
+        ASSERT_GE(f->segmented->n_indexes, 1U);
+        size = f->segmented->scan_offset;
+        f = journal_file_close(f);
+
+        /* Cut the file off at all kinds of places. Whatever is complete has to be there. */
+        for (uint64_t cut = size; cut > size - 3000; cut -= cut > size - 300 ? 1 : 29) {
+                _cleanup_(model_done) Model expected = {};
+                size_t n = 0;
+                int r;
+
+                copy_truncated("test.journal", "cut.journal", cut);
+
+                while (n < model.n_entries && sizes[n] <= cut)
+                        n++;
+
+                ASSERT_NOT_NULL(expected.entries = new0(char**, n + 1));
+                ASSERT_NOT_NULL(expected.realtime = new0(usec_t, n + 1));
+                ASSERT_NOT_NULL(expected.monotonic = new0(usec_t, n + 1));
+                expected.n_entries = n;
+                for (size_t i = 0; i < n; i++) {
+                        ASSERT_NOT_NULL(expected.entries[i] = strv_copy(model.entries[i]));
+                        expected.realtime[i] = model.realtime[i];
+                        expected.monotonic[i] = model.monotonic[i];
+                }
+
+                g = open_file(m, "cut.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+                model_assert_file(g, &expected);
+                ASSERT_OK(journal_file_verify(g, /* key= */ NULL, /* ret_first_contained= */ NULL, /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false));
+                g = journal_file_close(g);
+
+                r = journal_file_open(-EBADF, "cut.journal", O_RDWR, JOURNAL_COMPRESS, 0644, UINT64_MAX, /* metrics= */ NULL, m, /* template= */ NULL, &g);
+                if (r < 0) {
+                        ASSERT_ERROR(r, EBADMSG);
+                        continue;
+                }
+
+                /* The cut was between two objects */
+                n_good++;
+                model_assert_file(g, &expected);
+                model_append_generated(g, &expected, 5000);
+                model_assert_file(g, &expected);
+                g = journal_file_offline_close(g);
+        }
+
+        ASSERT_GT(n_good, 3U);
+}
+
+static void flip(const char *path, uint64_t offset) {
+        _cleanup_close_ int fd = -EBADF;
+        uint8_t b;
+
+        ASSERT_OK(fd = xopenat(AT_FDCWD, path, O_RDWR));
+        ASSERT_EQ(pread(fd, &b, 1, offset), 1);
+        b ^= 0x40;
+        ASSERT_EQ(pwrite(fd, &b, 1, offset), 1);
+}
+
+static void set_synced_index(const char *path, uint64_t offset) {
+        _cleanup_close_ int fd = -EBADF;
+        le64_t v = htole64(offset);
+
+        ASSERT_OK(fd = xopenat(AT_FDCWD, path, O_WRONLY));
+        ASSERT_EQ(pwrite(fd, &v, sizeof(v), offsetof(Header, synced_index_offset)), (ssize_t) sizeof(v));
+}
+
+static void set_synced(const char *path, uint64_t offset) {
+        _cleanup_close_ int fd = -EBADF;
+        le64_t v = htole64(offset);
+
+        ASSERT_OK(fd = xopenat(AT_FDCWD, path, O_WRONLY));
+        ASSERT_EQ(pwrite(fd, &v, sizeof(v), offsetof(Header, synced_offset)), (ssize_t) sizeof(v));
+}
+
+TEST(synced_boundary) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        model_append_generated(f, /* model= */ NULL, 0);
+        ASSERT_OK(segmented_flush(f));
+        const uint64_t offsets[] = {
+                UINT64_MAX,
+                f->segmented->scan_offset + 8,
+                le64toh(f->header->header_size) + 1,
+                le64toh(f->header->header_size) + 8,
+        };
+        FOREACH_ELEMENT(offset, offsets) {
+                set_synced(f->path, *offset);
+                ASSERT_ERROR(journal_file_verify(f, /* key= */ NULL, /* ret_first_contained= */ NULL, /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false), EBADMSG);
+        }
+        set_synced(f->path, f->segmented->scan_offset);
+        ASSERT_OK(journal_file_verify(f, /* key= */ NULL, /* ret_first_contained= */ NULL, /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false));
+
+        ObjectHeader partial = {
+                .type = OBJECT_DATA,
+                .size = htole64(64),
+        };
+        ASSERT_EQ(pwrite(f->fd, &partial, sizeof(partial), f->segmented->scan_offset), (ssize_t) sizeof(partial));
+        set_synced(f->path, f->segmented->scan_offset + 8);
+        ASSERT_ERROR(journal_file_verify(f, /* key= */ NULL, /* ret_first_contained= */ NULL, /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false), EBADMSG);
+        set_synced(f->path, f->segmented->scan_offset);
+        ASSERT_OK(journal_file_verify(f, /* key= */ NULL, /* ret_first_contained= */ NULL, /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false));
+}
+
+static bool ok_or_damaged(int r) {
+        /* Readers fail on an index whose content is damaged, like on damaged entry arrays of classic files */
+        return r >= 0 || r == -EBADMSG;
+}
+
+TEST(damaged) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(model_done) Model model = {};
+        JournalFile *f, *g;
+        SegmentedIndex first, second, older, newest;
+        uint64_t size, tail, offset;
+        int r;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        for (uint64_t i = 0; i < 5000; i++)
+                model_append_generated(f, &model, i);
+
+        ASSERT_GT(f->segmented->n_indexes, 4U);
+        first = f->segmented->indexes[0];
+        second = f->segmented->indexes[1];
+        older = f->segmented->indexes[f->segmented->n_indexes - 2];
+        newest = f->segmented->indexes[f->segmented->n_indexes - 1];
+        tail = f->segmented->tail_offset + f->segmented->tail_entries[f->segmented->n_tail_entries / 2];
+
+        /* Syncing and closing write no index, so the file keeps a tail */
+        ASSERT_OK(journal_file_set_offline(f, /* wait= */ true));
+        size = f->segmented->scan_offset;
+
+        /* The sync made the header name the newest index */
+        ASSERT_EQ(le64toh(f->segmented->disk_header->synced_index_offset), newest.offset);
+        f = journal_file_close(f);
+
+        /* Damage in the fixed part of an index: readers drop it and the indexes that build on it. */
+        FOREACH_ARGUMENT(offset,
+                         second.offset + offsetof(IndexObject, n_index_entries),
+                         second.offset + offsetof(IndexObject, object.checksum),
+                         second.offset + offsetof(IndexObject, data_table_offset),
+                         first.offset + offsetof(IndexObject, n_entries)) {
+
+                copy_truncated("test.journal", "damaged.journal", size);
+                flip("damaged.journal", offset);
+
+                g = open_file(m, "damaged.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+                ASSERT_LT(g->segmented->n_indexes, 2U);
+                model_assert_file(g, &model);
+                g = journal_file_close(g);
+
+                /* Writers refuse to continue such a file */
+                ASSERT_ERROR(journal_file_open(-EBADF, "damaged.journal", O_RDWR, JOURNAL_COMPRESS, 0644, UINT64_MAX, /* metrics= */ NULL, m, /* template= */ NULL, &g), EBADMSG);
+        }
+
+        /* Damage in the payload of an index that no sync vouches for: caught by the payload checksum on
+         * open. */
+        for (offset = second.offset + sizeof(IndexObject); offset < second.offset + second.size; offset += 4099) {
+                copy_truncated("test.journal", "damaged.journal", size);
+                set_synced_index("damaged.journal", /* offset= */ 0);
+                flip("damaged.journal", offset);
+
+                g = open_file(m, "damaged.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+                ASSERT_EQ(g->segmented->n_indexes, 1U);
+                model_assert_file(g, &model);
+                g = journal_file_close(g);
+        }
+
+        /* The payload of an index that a sync vouches for is trusted. Damage there may or may not be noticed.
+         * Reading fails with -EBADMSG when it is noticed. */
+        for (offset = second.offset + sizeof(IndexObject); offset < second.offset + second.size; offset += 257) {
+                uint64_t p = 0, n = 0;
+                Object *o;
+
+                copy_truncated("test.journal", "damaged.journal", size);
+                flip("damaged.journal", offset);
+
+                g = open_file(m, "damaged.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+                ASSERT_GT(g->segmented->n_indexes, 2U);
+
+                while ((r = journal_file_next_entry(g, p, DIRECTION_DOWN, &o, &p)) > 0)
+                        n++;
+                ASSERT_TRUE(ok_or_damaged(r));
+                ASSERT_LE(n, model.n_entries);
+
+                FOREACH_STRING(match, "_SYSTEMD_UNIT=service3.service", "PRIORITY=5", "NUMBER=1700", "MESSAGE=This is message 3 of 17") {
+                        p = 0;
+
+                        do
+                                r = journal_file_seek_for_match(g, match, strlen(match), JOURNAL_SEEK_OFFSET, SD_ID128_NULL, p + 1, DIRECTION_DOWN, &o, &p);
+                        while (r > 0);
+                        ASSERT_TRUE(ok_or_damaged(r));
+                }
+
+                SegmentedCursor c = {};
+                const void *d;
+                size_t l;
+
+                while ((r = segmented_enumerate_fields(g, &c, &d, &l)) > 0)
+                        ;
+                ASSERT_TRUE(ok_or_damaged(r));
+
+                c = (SegmentedCursor) {};
+                while ((r = segmented_enumerate_unique(g, "_SYSTEMD_UNIT", STRLEN("_SYSTEMD_UNIT"), &c, &d, &l)) > 0)
+                        ;
+                ASSERT_TRUE(ok_or_damaged(r));
+
+                g = journal_file_close(g);
+        }
+
+        /* A field name outside of an index that a sync vouches for. Enumeration notices and fails. */
+        copy_truncated("test.journal", "damaged.journal", size);
+        flip("damaged.journal", second.offset + second.field_table_offset + offsetof(IndexFieldItem, name_offset) + 3);
+
+        g = open_file(m, "damaged.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        FOREACH_STRING(field, "PRIORITY", "_SYSTEMD_UNIT") {
+                SegmentedCursor c = {};
+                const void *d;
+                size_t l;
+
+                while ((r = segmented_enumerate_fields(g, &c, &d, &l)) > 0)
+                        ;
+                ASSERT_TRUE(ok_or_damaged(r));
+
+                c = (SegmentedCursor) {};
+                while ((r = segmented_enumerate_unique(g, field, strlen(field), &c, &d, &l)) > 0)
+                        ;
+                ASSERT_TRUE(ok_or_damaged(r));
+        }
+        g = journal_file_close(g);
+
+        /* An index whose record of the file disagrees with the log, under a checksum that matches. Readers
+         * trust it, verification must not. */
+        copy_truncated("test.journal", "damaged.journal", size);
+        {
+                _cleanup_close_ int fd = -EBADF;
+                IndexObject index;
+                Header header;
+
+                ASSERT_OK(fd = xopenat(AT_FDCWD, "damaged.journal", O_RDWR));
+                ASSERT_EQ(pread(fd, &header, sizeof(header), 0), (ssize_t) sizeof(header));
+                ASSERT_EQ(pread(fd, &index, sizeof(index), second.offset), (ssize_t) sizeof(index));
+                index.n_data = htole64(le64toh(index.n_data) - 1);
+                index.object.checksum = htole32(segmented_checksum_with_file_id(header.file_id, second.offset - second.head_offset, &index, sizeof(index)));
+                ASSERT_EQ(pwrite(fd, &index, sizeof(index), second.offset), (ssize_t) sizeof(index));
+        }
+
+        g = open_file(m, "damaged.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        ASSERT_FAIL(journal_file_verify(g, /* key= */ NULL, /* ret_first_contained= */ NULL, /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false));
+        g = journal_file_close(g);
+
+        /* Damage in the payload of the newest index, which no sync vouches for. Readers skip it, but a
+         * writer must not continue a tail that spans two segments. */
+        copy_truncated("test.journal", "damaged.journal", size);
+        set_synced_index("damaged.journal", older.offset);
+        flip("damaged.journal", newest.offset + sizeof(IndexObject) + 1);
+
+        g = open_file(m, "damaged.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        model_assert_file(g, &model);
+        g = journal_file_close(g);
+
+        ASSERT_ERROR(journal_file_open(-EBADF, "damaged.journal", O_RDWR, JOURNAL_COMPRESS, 0644, UINT64_MAX, /* metrics= */ NULL, m, /* template= */ NULL, &g), EBADMSG);
+
+        copy_truncated("test.journal", "damaged.journal", size);
+        flip("damaged.journal", tail + offsetof(ObjectHeader, checksum));
+        g = open_file(m, "damaged.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        model_assert_file(g, &model);
+        ASSERT_FAIL(journal_file_verify(g, /* key= */ NULL, /* ret_first_contained= */ NULL, /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false));
+        g = journal_file_close(g);
+
+        g = open_file(m, "test.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        uint64_t header_size = le64toh(g->header->header_size);
+        g = journal_file_close(g);
+        copy_truncated("test.journal", "damaged.journal", size);
+        set_synced_index("damaged.journal", header_size);
+        g = open_file(m, "damaged.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        model_assert_file(g, &model);
+        ASSERT_ERROR(journal_file_verify(g, /* key= */ NULL, /* ret_first_contained= */ NULL, /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false), EBADMSG);
+        g = journal_file_close(g);
+
+        /* Damage to an entry in the tail after the synced offset: the entries before it remain readable */
+        copy_truncated("test.journal", "damaged.journal", size);
+        set_synced("damaged.journal", /* offset= */ 0);
+        flip("damaged.journal", tail + offsetof(Object, entry.xor_hash));
+
+        g = open_file(m, "damaged.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        ASSERT_LT(le64toh(g->header->n_entries), model.n_entries);
+        ASSERT_GT(le64toh(g->header->n_entries), model.n_entries - 1024);
+        model.n_entries = le64toh(g->header->n_entries);
+        model_assert_file(g, &model);
+        g = journal_file_close(g);
+
+        r = journal_file_open(-EBADF, "damaged.journal", O_RDWR, JOURNAL_COMPRESS, 0644, UINT64_MAX, /* metrics= */ NULL, m, /* template= */ NULL, &g);
+        ASSERT_ERROR(r, EBADMSG);
+
+        model.n_entries = 5000;
+}
+
+TEST(vacuum_empty) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(model_done) Model model = {};
+        _cleanup_free_ char *empty = NULL, *full = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        JournalFile *f;
+        struct stat st;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        /* An archived file without entries. The two tags stand in for those of a sealed file. */
+        f = open_file(m, "empty.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        ASSERT_OK(journal_file_archive(f, /* ret_previous_path= */ NULL));
+        ASSERT_NOT_NULL(empty = strdup(f->path));
+        f = journal_file_offline_close(f);
+
+        TagObject tag = {
+                .object.type = OBJECT_TAG,
+                .object.size = htole64(sizeof(TagObject)),
+        };
+        ASSERT_OK(fd = xopenat(AT_FDCWD, empty, O_WRONLY|O_APPEND));
+        ASSERT_EQ(write(fd, &tag, sizeof(tag)), (ssize_t) sizeof(tag));
+        ASSERT_EQ(write(fd, &tag, sizeof(tag)), (ssize_t) sizeof(tag));
+
+        f = open_file(m, "full.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        model_append_generated(f, &model, 0);
+        ASSERT_OK(journal_file_archive(f, /* ret_previous_path= */ NULL));
+        ASSERT_NOT_NULL(full = strdup(f->path));
+        f = journal_file_offline_close(f);
+
+        ASSERT_OK(journal_directory_vacuum(directory, UINT64_MAX, /* n_max_files= */ 0, /* max_retention_usec= */ 0, /* oldest_usec= */ NULL, /* verbose= */ false));
+        ASSERT_ERROR_ERRNO(stat(empty, &st), ENOENT);
+        ASSERT_OK_ERRNO(stat(full, &st));
+
+        fd = safe_close(fd);
+        ASSERT_OK(fd = xopenat(AT_FDCWD, full, O_RDWR));
+        const uint64_t sizes[] = { 0, (uint64_t) st.st_size + 8, UINT64_MAX };
+        FOREACH_ELEMENT(size, sizes) {
+                le64_t value = htole64(*size);
+
+                ASSERT_EQ(pwrite(fd, &value, sizeof(value), offsetof(Header, header_size)), (ssize_t) sizeof(value));
+                ASSERT_OK(journal_directory_vacuum(directory, UINT64_MAX, /* n_max_files= */ 0, /* max_retention_usec= */ 0, /* oldest_usec= */ NULL, /* verbose= */ false));
+                ASSERT_OK_ERRNO(stat(full, &st));
+        }
+}
+
+TEST(compressed_entry_flag) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
+        _cleanup_free_ Object *copy = NULL;
+        Object *o;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        model_append_generated(f, /* model= */ NULL, 0);
+        ASSERT_OK(segmented_flush(f));
+        uint64_t offset = f->segmented->tail_offset + f->segmented->tail_entries[0];
+        ASSERT_OK(journal_file_move_to_object(f, OBJECT_ENTRY, offset, &o));
+        size_t size = le64toh(o->object.size);
+        ASSERT_NOT_NULL(copy = memdup(o, size));
+        copy->object.flags = OBJECT_COMPRESSED_XZ;
+        copy->object.checksum = htole32(segmented_checksum(f, offset - f->segmented->tail_offset, copy, size));
+        ASSERT_EQ(pwrite(f->fd, copy, size, offset), (ssize_t) size);
+        ASSERT_ERROR(journal_file_verify(f, /* key= */ NULL, /* ret_first_contained= */ NULL, /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false), EBADMSG);
+}
+
+TEST(live_cutoff) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        uint64_t from, to;
+        char boot[64];
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        ASSERT_OK(sd_journal_open_files(&j, (const char*[]) { f->path, NULL }, /* flags= */ 0));
+        ASSERT_OK_POSITIVE(sd_journal_get_fd(j));
+        ASSERT_OK_ZERO(sd_journal_get_cutoff_realtime_usec(j, &from, &to));
+        xsprintf(boot, "_BOOT_ID=%s", SD_ID128_TO_STRING(MODEL_BOOT_A));
+        for (uint64_t i = 1; i <= 2; i++) {
+                model_append(f, /* model= */ NULL, i * 1000000, i * 1000, MODEL_BOOT_A, STRV_MAKE("UNIT=a", boot));
+                ASSERT_OK(segmented_flush(f));
+                ASSERT_OK(sd_journal_process(j));
+                ASSERT_OK_POSITIVE(sd_journal_get_cutoff_realtime_usec(j, &from, &to));
+                ASSERT_EQ(from, 1000000U);
+                ASSERT_EQ(to, i * 1000000);
+                ASSERT_OK_POSITIVE(sd_journal_get_cutoff_monotonic_usec(j, MODEL_BOOT_A, &from, &to));
+                ASSERT_EQ(from, 1000U);
+                ASSERT_EQ(to, i * 1000);
+        }
+}
+
+TEST(unique_inline_segments) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        const void *data;
+        size_t size;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        FOREACH_STRING(path, "first.journal", "second.journal", "third.journal") {
+                f = open_file(m, path, O_RDWR|O_CREAT, !streq(path, "third.journal"), 128 * U64_MB);
+                for (unsigned segment = 0; segment < (f->segmented ? 3U : 7U); segment++) {
+                        for (unsigned i = segment * 100; i < (segment + 2) * 100; i++) {
+                                char value[64];
+                                unsigned value_number = i + (streq(path, "third.journal") ? 200 : 0);
+
+                                xsprintf(value, "_SOURCE_REALTIME_TIMESTAMP=%u", value_number);
+                                model_append(f, /* model= */ NULL, 1000000 + i, 1000 + i, MODEL_BOOT_A, STRV_MAKE(value));
+                        }
+                        if (f->segmented)
+                                ASSERT_OK(segmented_checkpoint(f));
+                }
+                f = journal_file_offline_close(f);
+        }
+
+        f = open_file(m, "third.journal", O_RDWR, /* segmented= */ false, 128 * U64_MB);
+        ASSERT_OK(sd_journal_open_files(&j, (const char*[]) { "first.journal", "second.journal", "third.journal", NULL }, /* flags= */ 0));
+        for (unsigned pass = 0; pass < 2; pass++) {
+                size_t n = 0;
+
+                ASSERT_OK(sd_journal_query_unique(j, "_SOURCE_REALTIME_TIMESTAMP"));
+                SD_JOURNAL_FOREACH_UNIQUE(j, data, size) {
+                        n++;
+                        if (pass == 0 && n == 401)
+                                model_append(f, /* model= */ NULL, 2000000, 2000, MODEL_BOOT_A,
+                                             STRV_MAKE("_SOURCE_REALTIME_TIMESTAMP=10"));
+                }
+                ASSERT_EQ(n, 1000U);
+        }
+}
+
+TEST(unique_unavailable_batch) {
+        bool with_prefix;
+
+        if (!compression_supported_journal(COMPRESSION_LZ4)) {
+                (void) log_tests_skipped("LZ4 support is unavailable");
+                return;
+        }
+
+        FOREACH_ARGUMENT(with_prefix, false, true) {
+                _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+                _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+                _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
+                _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+                _cleanup_free_ char *large = NULL;
+                const char *paths[4] = {};
+                const void *data;
+                size_t size, n_paths = 0;
+                uint64_t unavailable = 0;
+
+                journal_test_setup(&directory);
+                ASSERT_NOT_NULL(m = mmap_cache_new());
+                if (with_prefix) {
+                        f = open_file(m, "prefix.journal", O_RDWR|O_CREAT, /* segmented= */ true, 128 * U64_MB);
+                        model_append(f, /* model= */ NULL, 1000000, 1000, MODEL_BOOT_A, STRV_MAKE("UNIT=prefix"));
+                        f = journal_file_offline_close(f);
+                        paths[n_paths++] = "prefix.journal";
+                }
+
+                f = open_file(m, "data.journal", O_RDWR|O_CREAT, /* segmented= */ true, 128 * U64_MB);
+                uint32_t flags = le32toh(f->header->incompatible_flags);
+                flags &= ~(HEADER_INCOMPATIBLE_COMPRESSED_XZ | HEADER_INCOMPATIBLE_COMPRESSED_LZ4 |
+                           HEADER_INCOMPATIBLE_COMPRESSED_ZSTD);
+                f->header->incompatible_flags = htole32(flags | HEADER_INCOMPATIBLE_COMPRESSED_LZ4);
+                ASSERT_EQ(pwrite(f->fd, &f->header->incompatible_flags, sizeof(le32_t), offsetof(Header, incompatible_flags)),
+                          (ssize_t) sizeof(le32_t));
+                ASSERT_NOT_NULL(large = strrep("x", 2048));
+                memcpy(large, "UNIT=", STRLEN("UNIT="));
+                for (unsigned i = 0; i < 2000; i++) {
+                        char value[64];
+
+                        xsprintf(value, "UNIT=value%u", i);
+                        if (i == 500)
+                                unavailable = f->segmented->scan_offset;
+                        model_append(f, /* model= */ NULL, 1000000 + i, 1000 + i, MODEL_BOOT_A,
+                                     STRV_MAKE(i == 500 ? large : value));
+                        if (i == 999)
+                                ASSERT_OK(segmented_checkpoint(f));
+                }
+                ASSERT_OK(segmented_flush(f));
+                Object *o;
+                ASSERT_OK(journal_file_move_to_object(f, OBJECT_DATA, unavailable, &o));
+                ASSERT_EQ(o->object.flags, OBJECT_COMPRESSED_LZ4);
+                le64_t decoded_size = htole64((uint64_t) DATA_SIZE_MAX + 1);
+                ASSERT_EQ(pwrite(f->fd, &decoded_size, sizeof(decoded_size), unavailable + offsetof(SegmentedDataObject, payload)),
+                          (ssize_t) sizeof(decoded_size));
+                ASSERT_ERROR(journal_file_data_payload(f, NULL, unavailable, /* field= */ NULL, /* field_length= */ 0, &data, &size), ENOBUFS);
+                f = journal_file_offline_close(f);
+                paths[n_paths++] = "data.journal";
+
+                f = open_file(m, "classic.journal", O_RDWR|O_CREAT, /* segmented= */ false, 128 * U64_MB);
+                for (unsigned i = 0; i < 5; i++) {
+                        char value[64];
+
+                        xsprintf(value, "UNIT=classic%u", i);
+                        model_append(f, /* model= */ NULL, 2000000 + i, 2000 + i, MODEL_BOOT_A, STRV_MAKE(value));
+                }
+                f = journal_file_offline_close(f);
+                paths[n_paths++] = "classic.journal";
+                ASSERT_OK(sd_journal_open_files(&j, paths, SD_JOURNAL_ASSUME_IMMUTABLE));
+                for (unsigned pass = 0; pass < 2; pass++) {
+                        size_t n = 0;
+                        int r;
+
+                        ASSERT_OK(sd_journal_query_unique(j, "UNIT"));
+                        while ((r = sd_journal_enumerate_available_unique(j, &data, &size)) > 0)
+                                n++;
+                        ASSERT_OK(r);
+                        ASSERT_EQ(n, with_prefix ? 2005U : 2004U);
+                }
+        }
+}
+
+TEST(damaged_state) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(model_done) Model model = {};
+        _cleanup_close_ int fd = -EBADF;
+        JournalMetrics metrics = {
+                .max_size = 2 * U64_MB,
+                .min_size = UINT64_MAX,
+                .min_use = UINT64_MAX,
+                .n_max_files = UINT64_MAX,
+        };
+        JournalFile *f;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        model_append_generated(f, &model, 0);
+        f = journal_file_offline_close(f);
+
+        ASSERT_OK(fd = xopenat(AT_FDCWD, "test.journal", O_WRONLY));
+        ASSERT_EQ(pwrite(fd, &(uint8_t) { STATE_ONLINE }, 1, offsetof(Header, state)), 1);
+
+        /* Readers ignore the damaged state, a writer does not continue the file */
+        f = open_file(m, "test.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        model_assert_file(f, &model);
+        ASSERT_ERROR(journal_file_verify(f, /* key= */ NULL, /* ret_first_contained= */ NULL, /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false), EBADMSG);
+        f = journal_file_close(f);
+
+        ASSERT_ERROR(journal_file_open(/* fd= */ -EBADF, "test.journal", O_RDWR, JOURNAL_COMPRESS, 0644,
+                                       /* compress_threshold_bytes= */ UINT64_MAX, &metrics, m,
+                                       /* template= */ NULL, &f), EBADMSG);
+
+        /* journalctl --verify does not accept extensions it does not know, as for classic files */
+        le32_t flags = htole32(UINT32_C(1) << 31);
+        ASSERT_EQ(pwrite(fd, &(uint8_t) { STATE_OFFLINE }, 1, offsetof(Header, state)), 1);
+        ASSERT_EQ(pwrite(fd, &flags, sizeof(flags), offsetof(Header, compatible_flags)), (ssize_t) sizeof(flags));
+        f = open_file(m, "test.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        ASSERT_ERROR(journal_file_verify(f, /* key= */ NULL, /* ret_first_contained= */ NULL, /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false), EOPNOTSUPP);
+        f = journal_file_close(f);
+}
+
+TEST(damaged_field_name) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(model_done) Model model = {};
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_free_ char *data = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        const char *name, *p;
+        size_t size, n = 0;
+        JournalFile *f;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        f = open_file(m, "classic.journal", O_RDWR|O_CREAT, /* segmented= */ false, 2 * U64_MB);
+        model_append_generated(f, &model, 0);
+        f = journal_file_offline_close(f);
+
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        model_append_generated(f, &model, 1);
+        f = journal_file_offline_close(f);
+
+        /* Data objects in the tail whose payloads start with '=' or an invalid field name. Enumeration
+         * skips them. An empty name must not be looked up in the classic file. */
+        ASSERT_OK(read_full_file("test.journal", &data, &size));
+        ASSERT_OK(fd = xopenat(AT_FDCWD, "test.journal", O_RDWR));
+        ASSERT_NOT_NULL(p = memmem_safe(data, size, "_HOSTNAME=test", STRLEN("_HOSTNAME=test")));
+        ASSERT_EQ(pwrite(fd, "=", 1, p - data), 1);
+        ASSERT_NOT_NULL(p = memmem_safe(data, size, "_COMM=service", STRLEN("_COMM=service")));
+        ASSERT_EQ(pwrite(fd, "c", 1, p - data + 1), 1);
+
+        ASSERT_OK(sd_journal_open_files(&j, (const char*[]) { "classic.journal", "test.journal", NULL }, /* flags= */ 0));
+        while (ASSERT_OK(sd_journal_enumerate_fields(j, &name)) > 0)
+                n++;
+        ASSERT_GT(n, 0U);
+}
+
+static uint64_t digest_entry(sd_journal *j) {
+        uint64_t realtime, monotonic, h = 0;
+        sd_id128_t boot_id;
+        const void *data;
+        size_t size;
+
+        ASSERT_OK(sd_journal_get_realtime_usec(j, &realtime));
+        ASSERT_OK(sd_journal_get_monotonic_usec(j, &monotonic, &boot_id));
+
+        SD_JOURNAL_FOREACH_DATA(j, data, size)
+                h += siphash24(data, size, digest_key);
+
+        return h + realtime * 3 + monotonic * 5 + siphash24(&boot_id, sizeof(boot_id), digest_key);
+}
+
+typedef struct Query {
+        const char * const *matches; /* "" is a disjunction, "+" a conjunction */
+        int seek;                    /* 0: head, 1: tail, 2: realtime, 3: monotonic of boot a, 4: monotonic of boot b, 5: cursor */
+        uint64_t needle;
+        bool backwards;
+} Query;
+
+static void run_query(const char *path, const Query *q, const char *cursor, uint64_t **ret, size_t *ret_n, char **ret_cursor) {
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_free_ uint64_t *digests = NULL;
+        size_t n = 0;
+        int r;
+
+        assert(ret);
+        assert(ret_n);
+
+        ASSERT_OK(sd_journal_open_files(&j, (const char*[]) { path, NULL }, SD_JOURNAL_ASSUME_IMMUTABLE));
+        ASSERT_OK(sd_journal_set_data_threshold(j, /* sz= */ 0));
+
+        STRV_FOREACH(m, (char**) q->matches)
+                if (isempty(*m))
+                        ASSERT_OK(sd_journal_add_disjunction(j));
+                else if (streq(*m, "+"))
+                        ASSERT_OK(sd_journal_add_conjunction(j));
+                else
+                        ASSERT_OK(sd_journal_add_match(j, *m, SIZE_MAX));
+
+        switch (q->seek) {
+        case 0:
+                ASSERT_OK(sd_journal_seek_head(j));
+                break;
+        case 1:
+                ASSERT_OK(sd_journal_seek_tail(j));
+                break;
+        case 2:
+                ASSERT_OK(sd_journal_seek_realtime_usec(j, q->needle));
+                break;
+        case 3:
+                ASSERT_OK(sd_journal_seek_monotonic_usec(j, MODEL_BOOT_A, q->needle));
+                break;
+        case 4:
+                ASSERT_OK(sd_journal_seek_monotonic_usec(j, MODEL_BOOT_B, q->needle));
+                break;
+        case 5:
+                ASSERT_OK(sd_journal_seek_cursor(j, cursor));
+                break;
+        default:
+                assert_not_reached();
+        }
+
+        /* The first results are what matters for seeking, iteration is covered elsewhere. */
+        while (n < 150) {
+                r = q->backwards ? sd_journal_previous(j) : sd_journal_next(j);
+                ASSERT_OK(r);
+                if (r == 0)
+                        break;
+
+                ASSERT_NOT_NULL(GREEDY_REALLOC(digests, n + 1));
+                digests[n++] = digest_entry(j);
+
+                if (ret_cursor && n == 10)
+                        ASSERT_OK(sd_journal_get_cursor(j, ret_cursor));
+        }
+
+        *ret = TAKE_PTR(digests);
+        *ret_n = n;
+}
+
+static void run_unique(const char *path, const char *field, uint64_t *ret_digest, size_t *ret_n) {
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        uint64_t digest = 0;
+        const void *data;
+        size_t size, n = 0;
+        const char *name;
+
+        assert(ret_digest);
+        assert(ret_n);
+
+        ASSERT_OK(sd_journal_open_files(&j, (const char*[]) { path, NULL }, SD_JOURNAL_ASSUME_IMMUTABLE));
+        ASSERT_OK(sd_journal_set_data_threshold(j, /* sz= */ 0));
+
+        if (field) {
+                ASSERT_OK(sd_journal_query_unique(j, field));
+                SD_JOURNAL_FOREACH_UNIQUE(j, data, size) {
+                        digest += siphash24(data, size, digest_key);
+                        n++;
+                }
+        } else
+                SD_JOURNAL_FOREACH_FIELD(j, name) {
+                        digest += siphash24_string(name, digest_key);
+                        n++;
+                }
+
+        /* Enumerating again without a restart starts over, as with classic files */
+        size_t again = 0;
+        if (field)
+                while (ASSERT_OK(sd_journal_enumerate_unique(j, &data, &size)) > 0)
+                        again++;
+        else
+                while (ASSERT_OK(sd_journal_enumerate_fields(j, &name)) > 0)
+                        again++;
+        ASSERT_EQ(again, n);
+
+        *ret_digest = digest;
+        *ret_n = n;
+}
+
+static void append_both(JournalFile *classic, JournalFile *segmented, usec_t realtime, usec_t monotonic, sd_id128_t boot_id, char **fields) {
+        model_append(classic, /* model= */ NULL, realtime, monotonic, boot_id, fields);
+        model_append(segmented, /* model= */ NULL, realtime, monotonic, boot_id, fields);
+}
+
+static void test_differential_one(bool interleaved) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_free_ char *large = NULL;
+        JournalFile *classic, *segmented;
+        uint64_t seed = 4711, needle;
+        const char *field;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        classic = open_file(m, "classic.journal", O_RDWR|O_CREAT, /* segmented= */ false, 2 * U64_MB);
+        segmented = open_file(m, "segmented.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        ASSERT_NULL(classic->segmented);
+        ASSERT_NOT_NULL(segmented->segmented);
+
+        ASSERT_NOT_NULL(large = strrep("z", 19999));
+
+        for (uint64_t i = 0; i < 4000; i++) {
+                _cleanup_strv_free_ char **fields = NULL;
+                unsigned service;
+                sd_id128_t boot;
+                usec_t monotonic;
+
+                seed = seed * 6364136223846793005ULL + 1442695040888963407ULL;
+                service = (seed >> 33) % 5;
+
+                /* Either one boot after the other, or two machines that write into the same file */
+                if (interleaved)
+                        boot = service < 2 ? MODEL_BOOT_A : MODEL_BOOT_B;
+                else
+                        boot = i < 2500 ? MODEL_BOOT_A : MODEL_BOOT_B;
+                monotonic = sd_id128_equal(boot, MODEL_BOOT_A) ? 100 + i * 10 : 50 + i * 10;
+
+                ASSERT_OK(strv_extendf(&fields, "MESSAGE=Message %" PRIu64, (seed >> 40) % 64));
+                ASSERT_OK(strv_extendf(&fields, "PRIORITY=%" PRIu64, (seed >> 20) % 8));
+                ASSERT_OK(strv_extendf(&fields, "_PID=%u", 100 + service));
+                ASSERT_OK(strv_extendf(&fields, "_COMM=service%u", service));
+                ASSERT_OK(strv_extendf(&fields, "_SYSTEMD_UNIT=service%u.service", service));
+                ASSERT_OK(strv_extendf(&fields, "_SOURCE_REALTIME_TIMESTAMP=%" PRIu64, 1000000 + i * 10 - 3));
+                ASSERT_OK(strv_extendf(&fields, "_BOOT_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(boot)));
+                ASSERT_OK(strv_extend(&fields, "_HOSTNAME=test"));
+                if (i % 300 == 7)
+                        ASSERT_OK(strv_extendf(&fields, "MESSAGE=%s", large));
+                if (i % 450 == 9)
+                        ASSERT_OK(strv_extendf(&fields, "LARGE=%s", large));
+
+                append_both(classic, segmented, 1000000 + i * 10, monotonic, boot, fields);
+        }
+
+        ASSERT_GT(segmented->segmented->n_indexes, 2U);
+        ASSERT_GT(segmented->segmented->n_tail_entries, 0U);
+
+        /* Once with a file that is still written to, once with an archived one */
+        for (unsigned round = 0; round < 2; round++) {
+                const char *a = classic->path, *b = segmented->path;
+                _cleanup_free_ char *large_message = NULL, *large_field = NULL;
+
+                ASSERT_NOT_NULL(large_message = strjoin("MESSAGE=", large));
+                ASSERT_NOT_NULL(large_field = strjoin("LARGE=", large));
+
+                const char * const * const matches[] = {
+                        STRV_MAKE_CONST("_HOSTNAME=test"),
+                        STRV_MAKE_CONST("_SYSTEMD_UNIT=service1.service"),
+                        STRV_MAKE_CONST("_SYSTEMD_UNIT=service1.service", "_SYSTEMD_UNIT=service4.service"),
+                        STRV_MAKE_CONST("_SYSTEMD_UNIT=service1.service", "PRIORITY=3"),
+                        STRV_MAKE_CONST("_SYSTEMD_UNIT=service1.service", "PRIORITY=3", "PRIORITY=4", "", "_PID=103", "MESSAGE=Message 7"),
+                        STRV_MAKE_CONST("PRIORITY=0", "PRIORITY=1", "+", "_COMM=service0", "_COMM=service2", "", "_PID=104"),
+                        STRV_MAKE_CONST("_BOOT_ID=a1a2a3a4a5a6a7a8a9aaabacadaeafa0", "PRIORITY=6"),
+                        STRV_MAKE_CONST("MESSAGE=Message 7"),
+                        STRV_MAKE_CONST("MESSAGE=Message 7", "MESSAGE=Message 9", "MESSAGE=Message 100"),
+                        STRV_MAKE_CONST("MESSAGE=Message 7", "_PID=101"),
+                        STRV_MAKE_CONST(large_message),
+                        STRV_MAKE_CONST(large_field),
+                        STRV_MAKE_CONST("_SOURCE_REALTIME_TIMESTAMP=1019997"),
+                        STRV_MAKE_CONST("_SOURCE_REALTIME_TIMESTAMP=1019997", "_SOURCE_REALTIME_TIMESTAMP=1000007", "_SOURCE_REALTIME_TIMESTAMP=5"),
+                        STRV_MAKE_CONST("_SOURCE_REALTIME_TIMESTAMP=1019997", "", "_PID=102", "PRIORITY=2"),
+                        STRV_MAKE_CONST("_PID=999"),
+                        STRV_MAKE_CONST("NOSUCHFIELD=1"),
+                        STRV_MAKE_CONST("NOSUCHFIELD=1", "", "_PID=100"),
+                        NULL,
+                };
+
+                for (size_t k = 0; k < ELEMENTSOF(matches); k++)
+                        for (int seek = 0; seek <= 5; seek++)
+                                for (int backwards = 0; backwards <= 1; backwards++)
+                                        FOREACH_ARGUMENT(needle, UINT64_C(1000000) + 17 * 10 + 5, UINT64_C(1000000) + 2600 * 10, UINT64_C(100) + 1234 * 10, UINT64_C(50) + 3000 * 10 + 1, UINT64_C(1) << 30) {
+                                                _cleanup_free_ uint64_t *x = NULL, *y = NULL;
+                                                _cleanup_free_ char *cursor = NULL;
+                                                size_t n_x, n_y;
+                                                Query q = {
+                                                        .matches = matches[k],
+                                                        .seek = seek,
+                                                        .needle = needle,
+                                                        .backwards = backwards,
+                                                };
+
+                                                if (seek == 5) {
+                                                        /* Take a cursor from the middle of the results */
+                                                        Query c = q;
+                                                        c.seek = 0;
+                                                        c.backwards = false;
+
+                                                        run_query(a, &c, /* cursor= */ NULL, &x, &n_x, &cursor);
+                                                        x = mfree(x);
+                                                        if (!cursor)
+                                                                break;
+                                                }
+
+                                                /* With entries of several boots in arbitrary order,
+                                                 * seeking by monotonic time with more than one value may
+                                                 * give a different result because the boot timestamps interleave. */
+                                                if (interleaved && IN_SET(seek, 3, 4) && strv_length((char**) matches[k]) > 1)
+                                                        break;
+
+                                                log_debug("round=%u matches=%zu seek=%i backwards=%i needle=%" PRIu64, round, k, seek, backwards, needle);
+
+                                                run_query(a, &q, cursor, &x, &n_x, /* ret_cursor= */ NULL);
+                                                run_query(b, &q, cursor, &y, &n_y, /* ret_cursor= */ NULL);
+
+                                                ASSERT_EQ(n_x, n_y);
+                                                ASSERT_EQ(memcmp_nn(x, n_x * sizeof(uint64_t), y, n_y * sizeof(uint64_t)), 0);
+
+                                                if (IN_SET(seek, 0, 1, 5))
+                                                        break; /* these do not take a needle */
+                                        }
+
+                FOREACH_ARGUMENT(field, "MESSAGE", "_PID", "_SOURCE_REALTIME_TIMESTAMP", "LARGE", "NOSUCHFIELD", (const char*) NULL) {
+                        uint64_t x, y;
+                        size_t n_x, n_y;
+
+                        run_unique(a, field, &x, &n_x);
+                        run_unique(b, field, &y, &n_y);
+
+                        ASSERT_EQ(n_x, n_y);
+                        ASSERT_EQ(x, y);
+                }
+
+                if (round > 0)
+                        break;
+
+                ASSERT_OK(journal_file_archive(classic, /* ret_previous_path= */ NULL));
+                ASSERT_OK(journal_file_archive(segmented, /* ret_previous_path= */ NULL));
+                ASSERT_OK(journal_file_set_offline(classic, /* wait= */ true));
+                ASSERT_OK(journal_file_set_offline(segmented, /* wait= */ true));
+        }
+
+        classic = journal_file_offline_close(classic);
+        segmented = journal_file_offline_close(segmented);
+}
+
+TEST(differential) {
+        test_differential_one(/* interleaved= */ false);
+        test_differential_one(/* interleaved= */ true);
+}
+
+TEST(copy) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(model_done) Model model = {};
+        JournalFile *classic, *segmented, *copy;
+        uint64_t p = 0;
+        Object *o;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        segmented = open_file(m, "segmented.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        for (uint64_t i = 0; i < 1500; i++)
+                model_append_generated(segmented, &model, i);
+
+        /* From segmented to classic, and back */
+        classic = open_file(m, "classic.journal", O_RDWR|O_CREAT, /* segmented= */ false, 64 * U64_MB);
+        ASSERT_NULL(classic->segmented);
+        for (size_t i = 0; i < model.n_entries; i++) {
+                ASSERT_OK_POSITIVE(journal_file_next_entry(segmented, p, DIRECTION_DOWN, &o, &p));
+                ASSERT_OK(journal_file_copy_entry(segmented, classic, o, p, /* seqnum= */ NULL, /* seqnum_id= */ NULL));
+        }
+        model_assert_file(classic, &model);
+
+        copy = open_file(m, "copy.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        p = 0;
+        for (size_t i = 0; i < model.n_entries; i++) {
+                ASSERT_OK_POSITIVE(journal_file_next_entry(classic, p, DIRECTION_DOWN, &o, &p));
+                ASSERT_OK(journal_file_copy_entry(classic, copy, o, p, /* seqnum= */ NULL, /* seqnum_id= */ NULL));
+        }
+        model_assert_file(copy, &model);
+
+        classic = journal_file_offline_close(classic);
+        segmented = journal_file_offline_close(segmented);
+        copy = journal_file_offline_close(copy);
+}
+
+TEST(get_data_to_fd) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_free_ char *path = NULL;
+        dual_timestamp ts;
+        JournalFile *f;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        /* The writer stores _SOURCE_REALTIME_TIMESTAMP= in the entry and MESSAGE= in a data object. */
+        struct iovec iovec[] = {
+                IOVEC_MAKE_STRING("_SOURCE_REALTIME_TIMESTAMP=1234567"),
+                IOVEC_MAKE_STRING("MESSAGE=hello"),
+        };
+
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        ASSERT_NOT_NULL(path = strdup(f->path));
+        dual_timestamp_now(&ts);
+        ASSERT_OK(journal_file_append_entry(f, &ts, /* boot_id= */ NULL, iovec, ELEMENTSOF(iovec), /* seqnum= */ NULL, /* seqnum_id= */ NULL, /* ret_object= */ NULL, /* ret_offset= */ NULL));
+        f = journal_file_offline_close(f);
+
+        ASSERT_OK(sd_journal_open_files(&j, (const char*[]) { path, NULL }, SD_JOURNAL_ASSUME_IMMUTABLE));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+
+        FOREACH_ELEMENT(i, iovec) {
+                const char *eq = memchr(i->iov_base, '=', i->iov_len);
+                _cleanup_free_ char *field = NULL;
+
+                ASSERT_NOT_NULL(eq);
+                ASSERT_NOT_NULL(field = strndup(i->iov_base, eq - (const char*) i->iov_base));
+
+                sd_journal_data_flags_t flags;
+                FOREACH_ARGUMENT(flags, 0, SD_JOURNAL_DATA_SKIP_FIELD) {
+                        size_t skip = FLAGS_SET(flags, SD_JOURNAL_DATA_SKIP_FIELD) ? strlen(field) + 1 : 0;
+                        _cleanup_close_ int fd = ASSERT_OK(memfd_new("segmented-data-to-fd"));
+                        char buf[64];
+                        size_t sz;
+
+                        ASSERT_OK(sd_journal_get_data_to_fd(j, field, flags, fd, &sz));
+                        ASSERT_EQ(sz, i->iov_len - skip);
+                        ASSERT_OK_EQ_ERRNO(pread(fd, buf, sizeof(buf), 0), (ssize_t) sz);
+                        ASSERT_EQ(memcmp(buf, (const char*) i->iov_base + skip, sz), 0);
+                }
+        }
+}
+
+TEST(batch) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(model_done) Model model = {};
+        JournalFile *f, *g;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        ASSERT_OK(sd_event_new(&e));
+
+        /* The event loop never runs, so entries stay buffered until the pending change is posted. */
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        ASSERT_OK(journal_file_enable_post_change_timer(f, e, 250 * USEC_PER_MSEC));
+
+        /* Values repeat within the batch, among them large ones that are compressed */
+        for (uint64_t i = 0; i < 150; i++)
+                model_append_generated(f, &model, i);
+
+        g = open_file(m, "test.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        ASSERT_EQ(le64toh(g->header->n_entries), 0U);
+        g = journal_file_close(g);
+
+        journal_file_post_change_pending(f);
+        model_assert_file(f, &model);
+
+        g = open_file(m, "test.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        model_assert_file(g, &model);
+        g = journal_file_close(g);
+
+        /* A batch larger than the limit is written right away */
+        for (uint64_t i = 150; i < 3000; i++)
+                model_append_generated(f, &model, i);
+
+        g = open_file(m, "test.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        ASSERT_GT(le64toh(g->header->n_entries), 150U);
+        ASSERT_LT(le64toh(g->header->n_entries), model.n_entries);
+        g = journal_file_close(g);
+
+        /* Closing writes the rest */
+        f = journal_file_offline_close(f);
+
+        g = open_file(m, "test.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        model_assert_file(g, &model);
+        ASSERT_OK(journal_file_verify(g, /* key= */ NULL, /* ret_first_contained= */ NULL, /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false));
+        g = journal_file_close(g);
+}
+
+TEST(sealed_fixture) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(model_done) Model model = {};
+        _cleanup_free_ char *key = NULL;
+        JournalFile *f;
+        usec_t base = now(CLOCK_REALTIME) / USEC_PER_SEC * USEC_PER_SEC;
+
+        if (!journal_auth_supported()) {
+                log_tests_skipped("No sealing support");
+                return;
+        }
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        ASSERT_OK(asprintf(&key, "c262bd85187f0b1b04877cc5/%" PRIx64 "-%" PRIx64,
+                           base / USEC_PER_SEC, (uint64_t) USEC_PER_SEC));
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        f->header->compatible_flags |= htole32(HEADER_COMPATIBLE_SEALED|HEADER_COMPATIBLE_SEALED_CONTINUOUS);
+        ASSERT_EQ(pwrite(f->fd, &f->header->compatible_flags, sizeof(le32_t), offsetof(Header, compatible_flags)),
+                  (ssize_t) sizeof(le32_t));
+        ASSERT_OK(journal_file_auth_load_key(f, key));
+        ASSERT_OK(journal_file_auth_seek(f, /* goal= */ 0));
+        ASSERT_OK(journal_file_auth_append_tag_first(f));
+
+        for (uint64_t i = 0; i < 1500; i++)
+                model_append_generated_at(f, &model, i, base + i / 500 * USEC_PER_SEC);
+        ASSERT_GT(f->segmented->n_indexes, 0U);
+        f = journal_file_offline_close(f);
+
+        f = open_file(m, "test.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        ASSERT_TRUE(JOURNAL_HEADER_SEALED(f->header));
+        ASSERT_GT(le64toh(f->header->n_tags), 2U);
+        ASSERT_OK(journal_file_verify(f, key, /* ret_first_contained= */ NULL, /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false));
+        model_assert_file(f, &model);
+        f = journal_file_close(f);
+}
+
+TEST(unscanned_entry_items) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(journal_file_closep) JournalFile *f = NULL;
+        Object object = {};
+        Object *o = &object;
+        const size_t size = offsetof(Object, entry.items) + 8;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+
+        o->object.type = OBJECT_ENTRY;
+        o->object.size = htole64(size);
+        o->object.aux = htole16(1);
+        o->entry.seqnum = htole64(1);
+        o->entry.realtime = htole64(1000000);
+        o->entry.monotonic = htole64(1000);
+        o->entry.boot_id = MODEL_BOOT_A;
+        o->entry.items.compact[0].object_offset = htole32(UINT32_C(0xFFFFFFFA));
+
+        uint64_t offset = f->segmented->tail_offset + 8;
+        f->segmented->scan_offset = offset + size;
+        ASSERT_ERROR(segmented_check_object(f, o, offset, size), EBADMSG);
+}
+
+TEST(failed_archive_flush) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(model_done) Model model = {};
+        JournalFile *f;
+        struct stat before, after;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        ASSERT_OK(sd_event_new(&e));
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        ASSERT_OK(journal_file_enable_post_change_timer(f, e, 250 * USEC_PER_MSEC));
+        model_append_generated(f, &model, 0);
+        ASSERT_OK_ERRNO(fstat(f->fd, &before));
+
+        int saved_fd = f->fd;
+        ASSERT_OK(f->fd = xopenat(AT_FDCWD, "test.journal", O_RDONLY));
+        f->archive = true;
+        segmented_offline_prepare(f);
+        ASSERT_OK_ERRNO(close(f->fd));
+        f->fd = saved_fd;
+        segmented_offline(f);
+        ASSERT_ERROR(segmented_offline_finish(f), EIO);
+        ASSERT_EQ(f->segmented->disk_header->state, STATE_OFFLINE);
+        ASSERT_EQ(le64toh(f->segmented->disk_header->synced_offset), 0U);
+        ASSERT_FAIL(segmented_flush(f));
+        f = journal_file_close(f);
+        ASSERT_OK_ERRNO(stat("test.journal", &after));
+        ASSERT_EQ(before.st_size, after.st_size);
+}
+
+TEST(rotate_failed_flush) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
+        _cleanup_(journal_file_closep) JournalFile *g = NULL;
+        _cleanup_(model_done) Model model = {};
+        struct stat before, after;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        ASSERT_OK(sd_event_new(&e));
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        ASSERT_OK(journal_file_enable_post_change_timer(f, e, 250 * USEC_PER_MSEC));
+        model_append_generated(f, &model, 0);
+        ASSERT_OK(segmented_flush(f));
+        g = open_file(m, "test.journal", O_RDONLY, /* segmented= */ true, /* max_size= */ 0);
+        ASSERT_OK_ERRNO(fstat(f->fd, &before));
+
+        model_append_generated(f, /* model= */ NULL, 1);
+        int saved_fd = f->fd;
+        ASSERT_OK(f->fd = xopenat(AT_FDCWD, "test.journal", O_RDONLY));
+        ASSERT_ERROR(segmented_flush(f), EBADF);
+        ASSERT_OK_ERRNO(close(f->fd));
+        f->fd = saved_fd;
+        ASSERT_ERROR(segmented_flush(f), EIO);
+
+        ASSERT_OK(journal_file_rotate(&f, m, JOURNAL_COMPRESS, UINT64_MAX, /* seqnum_id= */ NULL, /* deferred_closes= */ NULL));
+        ASSERT_NOT_NULL(f);
+        ASSERT_OK_ERRNO(fstat(f->fd, &after));
+        ASSERT_NE(before.st_ino, after.st_ino);
+        ASSERT_EQ(g->segmented->disk_header->state, STATE_OFFLINE);
+        model_assert_file(g, &model);
+        model_append_generated(f, /* model= */ NULL, 2);
+        ASSERT_OK(segmented_flush(f));
+        ASSERT_EQ(le64toh(f->header->n_entries), 1U);
+        ASSERT_EQ(le64toh(f->header->tail_entry_seqnum), 3U);
+        ASSERT_OK(journal_file_verify(f, /* key= */ NULL, /* ret_first_contained= */ NULL, /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false));
+}
+
+TEST(open_during_archive) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(model_done) Model model = {};
+        JournalFile *f, *g;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        model_append_generated(f, &model, 0);
+        ASSERT_OK(segmented_flush(f));
+        g = open_file(m, "test.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        segmented_close(g);
+        ASSERT_OK(segmented_verify_header(g));
+
+        model_append_generated(f, &model, 1);
+        ASSERT_OK(journal_file_archive(f, /* ret_previous_path= */ NULL));
+        f = journal_file_offline_close(f);
+        ASSERT_EQ(g->header->state, STATE_ARCHIVED);
+
+        ASSERT_OK(segmented_open(g, /* newly_created= */ false));
+        ASSERT_EQ(g->header->state, STATE_ARCHIVED);
+        model_assert_file(g, &model);
+        g = journal_file_close(g);
+}
+
+TEST(uncached_matches) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
+        Object *o;
+        usec_t first, last;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        for (unsigned k = 0; k < 20; k++) {
+                sd_id128_t boot = k < 10 ? MODEL_BOOT_A : MODEL_BOOT_B;
+                char boot_field[STRLEN("_BOOT_ID=") + SD_ID128_STRING_MAX] = "_BOOT_ID=";
+                dual_timestamp ts = { .realtime = 1000000 + k, .monotonic = 1000 + k % 10 };
+                sd_id128_to_string(boot, boot_field + STRLEN("_BOOT_ID="));
+                struct iovec iovec[] = { IOVEC_MAKE_STRING("UNIT=cache.service"), IOVEC_MAKE_STRING(boot_field) };
+                ASSERT_OK(journal_file_append_entry(f, &ts, &boot, iovec, ELEMENTSOF(iovec), /* seqnum= */ NULL, /* seqnum_id= */ NULL, /* ret_object= */ NULL, /* ret_offset= */ NULL));
+        }
+        ASSERT_OK(segmented_flush(f));
+        ASSERT_OK_POSITIVE(segmented_move_to_entry_for_match(f, "UNIT=cache.service", STRLEN("UNIT=cache.service"),
+                                                           JOURNAL_SEEK_FIRST, SD_ID128_NULL, /* needle= */ 0, DIRECTION_DOWN, &o, /* ret_offset= */ NULL));
+        ASSERT_OK_POSITIVE(journal_file_get_cutoff_monotonic_usec(f, MODEL_BOOT_A, &first, &last));
+        ASSERT_OK_POSITIVE(journal_file_get_cutoff_monotonic_usec(f, MODEL_BOOT_B, &first, &last));
+
+        FOREACH_ELEMENT(result, f->segmented->results) {
+                posting_bitmap_done(&result->candidates);
+                result->uncached = true;
+        }
+
+        direction_t direction;
+        FOREACH_ARGUMENT(direction, DIRECTION_DOWN, DIRECTION_UP) {
+                ASSERT_OK_POSITIVE(segmented_move_to_entry_for_match(f, "UNIT=cache.service", STRLEN("UNIT=cache.service"),
+                                                                   JOURNAL_SEEK_FIRST, SD_ID128_NULL, /* needle= */ 0, direction, &o, /* ret_offset= */ NULL));
+                ASSERT_EQ(le64toh(o->entry.realtime), direction == DIRECTION_DOWN ? 1000000U : 1000019U);
+                ASSERT_OK_POSITIVE(segmented_move_to_entry_for_match(f, "UNIT=cache.service", STRLEN("UNIT=cache.service"),
+                                                                   JOURNAL_SEEK_MONOTONIC, MODEL_BOOT_A, 1005, direction, &o, /* ret_offset= */ NULL));
+                ASSERT_EQ(le64toh(o->entry.realtime), 1000005U);
+                ASSERT_OK_POSITIVE(journal_file_move_to_entry_by_monotonic(f, MODEL_BOOT_B, 1005, direction, &o, /* ret_offset= */ NULL));
+                ASSERT_EQ(le64toh(o->entry.realtime), 1000015U);
+        }
+        ASSERT_OK_POSITIVE(journal_file_get_cutoff_monotonic_usec(f, MODEL_BOOT_A, &first, &last));
+        ASSERT_EQ(first, 1000U);
+        ASSERT_EQ(last, 1009U);
+}
+
+TEST(copy_write_failure) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(journal_file_offline_closep) JournalFile *source = NULL;
+        _cleanup_(journal_file_closep) JournalFile *target = NULL;
+        Object *o;
+        uint64_t offset;
+        int saved_fd;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        source = open_file(m, "source.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        target = open_file(m, "target.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        model_append_generated(source, /* model= */ NULL, 0);
+        ASSERT_OK(segmented_flush(source));
+        ASSERT_OK_POSITIVE(journal_file_next_entry(source, 0, DIRECTION_DOWN, &o, &offset));
+
+        saved_fd = target->fd;
+        ASSERT_OK(target->fd = xopenat(AT_FDCWD, "target.journal", O_RDONLY));
+        ASSERT_ERROR(journal_file_copy_entry(source, target, o, offset, /* seqnum= */ NULL, /* seqnum_id= */ NULL), EBADF);
+        ASSERT_OK_ERRNO(close(target->fd));
+        target->fd = saved_fd;
+        ASSERT_EQ(le64toh(source->header->n_entries), 1U);
+}
+
+TEST(realtime_rollback) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
+        usec_t found;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        f->strict_order = false;
+        uint64_t realtime;
+        FOREACH_ARGUMENT(realtime, UINT64_C(1000000), UINT64_C(2000000), UINT64_C(3000000), UINT64_C(4000000), UINT64_C(500000)) {
+                dual_timestamp ts = { .realtime = realtime, .monotonic = realtime };
+
+                ASSERT_OK(journal_file_append_entry(f, &ts, &MODEL_BOOT_A, &IOVEC_MAKE_STRING("UNIT=clock.service"), 1, /* seqnum= */ NULL, /* seqnum_id= */ NULL, /* ret_object= */ NULL, /* ret_offset= */ NULL));
+        }
+        ASSERT_OK(segmented_flush(f));
+        ASSERT_OK(sd_journal_open_files(&j, (const char*[]) { "test.journal", NULL }, SD_JOURNAL_ASSUME_IMMUTABLE));
+        ASSERT_OK(sd_journal_seek_realtime_usec(j, 1000000));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        ASSERT_OK(sd_journal_get_realtime_usec(j, &found));
+        ASSERT_EQ(found, 1000000U);
+}
+
+TEST(damaged_index_entry_array) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        JournalFile *f;
+        Object *o;
+        SegmentedIndex index;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        model_append_generated(f, /* model= */ NULL, 0);
+        ASSERT_OK(segmented_checkpoint(f));
+        index = f->segmented->indexes[0];
+        f = journal_file_offline_close(f);
+
+        _cleanup_close_ int fd = xopenat(AT_FDCWD, "test.journal", O_RDWR);
+        ASSERT_OK(fd);
+        le32_t value = htole32(1);
+        ASSERT_EQ(pwrite(fd, &value, sizeof(value), index.offset + index.entry_array_offset), (ssize_t) sizeof(value));
+        f = open_file(m, "test.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        ASSERT_ERROR(journal_file_next_entry(f, 0, DIRECTION_DOWN, &o, /* ret_offset= */ NULL), EBADMSG);
+        ASSERT_ERROR(journal_file_next_entry(f, 0, DIRECTION_UP, &o, /* ret_offset= */ NULL), EBADMSG);
+        f = journal_file_close(f);
+}
+
+TEST(unique_damaged_previous) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
+        const void *data;
+        size_t size;
+        uint64_t offset;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        offset = f->segmented->scan_offset + offsetof(SegmentedDataObject, payload);
+        for (unsigned k = 0; k < 2; k++) {
+                ASSERT_OK(journal_file_append_entry(f, /* ts= */ NULL, /* boot_id= */ NULL, &IOVEC_MAKE_STRING("UNIT=a.service"), 1, /* seqnum= */ NULL, /* seqnum_id= */ NULL, /* ret_object= */ NULL, /* ret_offset= */ NULL));
+                ASSERT_OK(segmented_checkpoint(f));
+        }
+        ASSERT_EQ(pwrite(f->fd, "V", 1, offset), 1);
+        ASSERT_OK(sd_journal_open_files(&j, (const char*[]) { "test.journal", NULL }, SD_JOURNAL_ASSUME_IMMUTABLE));
+        ASSERT_OK(sd_journal_query_unique(j, "UNIT"));
+        ASSERT_OK_POSITIVE(sd_journal_enumerate_available_unique(j, &data, &size));
+        ASSERT_EQ(memcmp_nn(data, size, "UNIT=a.service", STRLEN("UNIT=a.service")), 0);
+        ASSERT_OK_ZERO(sd_journal_enumerate_available_unique(j, &data, &size));
+}
+
+TEST(idle_flush) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(model_done) Model model = {};
+        _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
+        struct stat st;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        ASSERT_OK(sd_event_new(&e));
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        ASSERT_OK(journal_file_enable_post_change_timer(f, e, 250 * USEC_PER_MSEC));
+        for (unsigned k = 0; k < 2; k++) {
+                model_append_generated(f, &model, k);
+                ASSERT_OK_POSITIVE(sd_event_source_get_enabled(f->post_change_idle, /* ret= */ NULL));
+                ASSERT_OK(sd_event_source_set_enabled(f->post_change_timer, SD_EVENT_OFF));
+                ASSERT_OK_ERRNO(fstat(f->fd, &st));
+                ASSERT_LT((uint64_t) st.st_size, f->segmented->scan_offset);
+                for (unsigned i = 0; i < 10; i++) {
+                        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
+                        ASSERT_OK_ERRNO(fstat(f->fd, &st));
+                        if ((uint64_t) st.st_size == f->segmented->scan_offset)
+                                break;
+                }
+                ASSERT_EQ((uint64_t) st.st_size, f->segmented->scan_offset);
+        }
+        ASSERT_OK(journal_file_set_offline(f, /* wait= */ true));
+        ASSERT_EQ(le64toh(f->segmented->disk_header->synced_offset), f->segmented->scan_offset);
+}
+
+TEST(replay_cross_segment_reference) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_free_ Object *copy = NULL;
+        JournalFile *f, *g;
+        Object *o;
+        uint64_t entry, data;
+        size_t size;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        model_append(f, /* model= */ NULL, 1000000, 1000, MODEL_BOOT_A, STRV_MAKE("UNIT=a"));
+        data = le64toh(f->header->header_size);
+        ASSERT_OK(journal_file_move_to_object(f, OBJECT_DATA, data, &o));
+        ASSERT_OK(segmented_checkpoint(f));
+        model_append(f, /* model= */ NULL, 1000001, 1001, MODEL_BOOT_A, STRV_MAKE("UNIT=b"));
+        entry = f->segmented->tail_offset + f->segmented->tail_entries[0];
+        ASSERT_OK(journal_file_move_to_object(f, OBJECT_ENTRY, entry, &o));
+        ASSERT_EQ(le16toh(o->object.aux), 1U);
+        size = le64toh(o->object.size);
+        ASSERT_NOT_NULL(copy = memdup(o, size));
+        copy->entry.items.compact[0].object_offset = htole32(entry - data);
+        copy->object.checksum = htole32(segmented_checksum(f, entry - f->segmented->tail_offset, copy, size));
+        ASSERT_EQ(pwrite(f->fd, copy, size, entry), (ssize_t) size);
+        f = journal_file_close(f);
+
+        g = open_file(m, "test.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        ASSERT_EQ(le64toh(g->header->n_entries), 2U);
+        g = journal_file_close(g);
+        ASSERT_ERROR(journal_file_open(-EBADF, "test.journal", O_RDWR, JOURNAL_COMPRESS, 0644,
+                                      UINT64_MAX, /* metrics= */ NULL, m, /* template= */ NULL, &g), EBADMSG);
+}
+
+TEST(single_writer) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
+        JournalFile *g;
+        struct stat before, after;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        ASSERT_OK_ERRNO(stat("test.journal", &before));
+        ASSERT_ERROR(journal_file_open(-EBADF, "test.journal", O_RDWR, JOURNAL_COMPRESS, 0644,
+                                      UINT64_MAX, /* metrics= */ NULL, m, /* template= */ NULL, &g), EAGAIN);
+        ASSERT_OK_ERRNO(stat("test.journal", &after));
+        ASSERT_EQ(before.st_ino, after.st_ino);
+        model_append_generated(f, /* model= */ NULL, 0);
+        f = journal_file_close(f);
+        ASSERT_OK(journal_file_open_reliably("test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
+                                           UINT64_MAX, /* metrics= */ NULL, m, /* seqnum_id= */ NULL, &g));
+        ASSERT_OK_ERRNO(stat("test.journal", &after));
+        ASSERT_EQ(before.st_ino, after.st_ino);
+        g = journal_file_offline_close(g);
+}
+
+TEST(reader_lock) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        struct stat before, after;
+        uint64_t seqnum;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        model_append_generated(f, /* model= */ NULL, 0);
+        seqnum = le64toh(f->header->tail_entry_seqnum);
+        f = journal_file_offline_close(f);
+
+        ASSERT_OK(fd = xopenat(AT_FDCWD, "test.journal", O_RDONLY));
+        ASSERT_OK_ERRNO(fstat(fd, &before));
+        ASSERT_OK_ERRNO(flock(fd, LOCK_EX|LOCK_NB));
+        ASSERT_ERROR(journal_file_open_reliably("test.journal", O_RDWR, JOURNAL_COMPRESS, 0644,
+                                              UINT64_MAX, /* metrics= */ NULL, m, /* seqnum_id= */ NULL, &f), EAGAIN);
+        ASSERT_OK(journal_file_open_reliably("test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
+                                           UINT64_MAX, /* metrics= */ NULL, m, /* seqnum_id= */ NULL, &f));
+        ASSERT_OK_ERRNO(fstat(f->fd, &after));
+        ASSERT_NE(before.st_ino, after.st_ino);
+        ASSERT_EQ(le64toh(f->header->tail_entry_seqnum), seqnum);
+        model_append_generated(f, /* model= */ NULL, 1);
+        ASSERT_EQ(le64toh(f->header->tail_entry_seqnum), seqnum + 1);
+        ASSERT_OK(journal_file_set_offline(f, /* wait= */ true));
+        ASSERT_OK(journal_file_verify(f, /* key= */ NULL, /* ret_first_contained= */ NULL,
+                                      /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false));
+}
+
+TEST(create_locked) {
+        _cleanup_umask_ mode_t saved_umask = umask(0027);
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_free_ char *path = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        JournalFile *g;
+        struct stat st;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(path = path_join(directory, "test.journal"));
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "1", /* overwrite= */ true));
+        ASSERT_OK(journal_file_open(-EBADF, "test.journal", O_RDWR|O_CREAT|O_EXCL, JOURNAL_COMPRESS, 0666,
+                                    UINT64_MAX, /* metrics= */ NULL, m, /* template= */ NULL, &f));
+        ASSERT_STREQ(f->path, path);
+        ASSERT_OK_ERRNO(fstat(f->fd, &st));
+        ASSERT_EQ(st.st_nlink, 1U);
+        ASSERT_EQ(st.st_mode & 0777, 0640U);
+        ASSERT_OK(fd = xopenat(AT_FDCWD, "test.journal", O_RDONLY));
+        ASSERT_ERROR_ERRNO(flock(fd, LOCK_EX|LOCK_NB), EWOULDBLOCK);
+        ASSERT_ERROR(journal_file_open(-EBADF, "test.journal", O_RDWR|O_CREAT|O_EXCL, JOURNAL_COMPRESS, 0666,
+                                       UINT64_MAX, /* metrics= */ NULL, m, /* template= */ NULL, &g), EEXIST);
+        ASSERT_OK_ERRNO(symlink("missing.journal", "dangling.journal"));
+        ASSERT_ERROR(journal_file_open(-EBADF, "dangling.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666,
+                                       UINT64_MAX, /* metrics= */ NULL, m, /* template= */ NULL, &g), ELOOP);
+        ASSERT_ERROR_ERRNO(stat("missing.journal", &st), ENOENT);
+        model_append_generated(f, /* model= */ NULL, 0);
+}
+
+TEST(committed_flush_error) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(journal_file_closep) JournalFile *f = NULL;
+        Object *o;
+        uint64_t seqnum = 0;
+        struct stat before, after;
+        dual_timestamp ts = { .realtime = 1000000, .monotonic = 1000 };
+        struct iovec iov = IOVEC_MAKE_STRING("UNIT=a");
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        ASSERT_OK(sd_event_new(&e));
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        ASSERT_OK(journal_file_enable_post_change_timer(f, e, 250 * USEC_PER_MSEC));
+        ASSERT_OK_ERRNO(fstat(f->fd, &before));
+        int saved_fd = f->fd;
+        ASSERT_OK(f->fd = xopenat(AT_FDCWD, "test.journal", O_RDONLY));
+        ASSERT_OK(journal_file_append_entry(f, &ts, &MODEL_BOOT_A, &iov, 1, &seqnum, /* seqnum_id= */ NULL, &o, /* ret_offset= */ NULL));
+        ASSERT_EQ(seqnum, 1U);
+        ASSERT_EQ(le64toh(o->entry.seqnum), 1U);
+        ASSERT_OK_ERRNO(close(f->fd));
+        f->fd = saved_fd;
+        ASSERT_ERROR(segmented_flush(f), EIO);
+        ASSERT_OK_ERRNO(fstat(f->fd, &after));
+        ASSERT_EQ(before.st_size, after.st_size);
+}
+
+TEST(enumerate_fields_across_checkpoint) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_strv_free_ char **names = NULL;
+        const char *name;
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        f = open_file(m, "test.journal", O_RDWR|O_CREAT, /* segmented= */ true, 2 * U64_MB);
+        model_append(f, /* model= */ NULL, 1000000, 1000, MODEL_BOOT_A, STRV_MAKE("ALPHA=a", "BETA=b"));
+        ASSERT_OK(sd_journal_open_files(&j, (const char*[]) { f->path, NULL }, /* flags= */ 0));
+        ASSERT_OK(sd_journal_get_fd(j));
+        ASSERT_OK_POSITIVE(sd_journal_enumerate_fields(j, &name));
+        ASSERT_OK(strv_extend(&names, name));
+        ASSERT_OK(segmented_checkpoint(f));
+        model_append(f, /* model= */ NULL, 1000001, 1001, MODEL_BOOT_A, STRV_MAKE("GAMMA=c"));
+        ASSERT_OK(usleep_safe(2 * SEGMENTED_REFRESH_USEC));
+        ASSERT_OK(sd_journal_process(j));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        while (ASSERT_OK(sd_journal_enumerate_fields(j, &name)) > 0) {
+                ASSERT_FALSE(strv_contains(names, name));
+                ASSERT_OK(strv_extend(&names, name));
+        }
+        ASSERT_EQ(strv_length(names), 3U);
+        ASSERT_TRUE(strv_contains(names, "ALPHA"));
+        ASSERT_TRUE(strv_contains(names, "BETA"));
+        ASSERT_TRUE(strv_contains(names, "GAMMA"));
+}
+
+TEST(sealed) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(model_done) Model model = {};
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_free_ char *fss = NULL;
+        JournalFile *f;
+        JournalMetrics metrics = {
+                .max_size = 2 * U64_MB,
+                .min_size = UINT64_MAX,
+                .min_use = UINT64_MAX,
+                .n_max_files = UINT64_MAX,
+        };
+        const char *key;
+        usec_t base, from, to, total;
+        sd_id128_t machine;
+        uint64_t size, offset;
+        int r;
+
+        /* The sealing key lives in /var/log/journal, which is usually not writable. Hence only run if a key
+         * was prepared and $SYSTEMD_TEST_FSS_KEY holds its verification key. */
+
+        key = getenv("SYSTEMD_TEST_FSS_KEY");
+        ASSERT_OK(sd_id128_get_machine(&machine));
+        ASSERT_OK_ERRNO(asprintf(&fss, "/var/log/journal/" SD_ID128_FORMAT_STR "/fss", SD_ID128_FORMAT_VAL(machine)));
+        if (!key || access(fss, R_OK) < 0 || !journal_auth_supported()) {
+                log_tests_skipped("No sealing key or no sealing support");
+                return;
+        }
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        /* Tags vouch for the time the entries were written, hence use the real time */
+        base = now(CLOCK_REALTIME);
+
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_JOURNAL_SEGMENTED", "1", 1));
+        ASSERT_OK(journal_file_open(-EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS|JOURNAL_SEAL, 0644, UINT64_MAX, &metrics, m, /* template= */ NULL, &f));
+        ASSERT_NOT_NULL(f->segmented);
+        ASSERT_TRUE(JOURNAL_HEADER_SEALED(f->header));
+        ASSERT_EQ(le64toh(f->header->n_tags), 1U);
+
+        /* Batch the entries, so that tags are appended while entries are not written yet */
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(journal_file_enable_post_change_timer(f, e, 250 * USEC_PER_MSEC));
+
+        for (uint64_t i = 0; i < 1500; i++) {
+                model_append_generated_at(f, &model, i, base);
+
+                if (i % 500 == 0) {
+                        /* Span a few epochs. Entry timestamps have to follow the clock. */
+                        (void) usleep_safe(USEC_PER_SEC);
+                        base += USEC_PER_SEC;
+                }
+        }
+
+        ASSERT_GT(f->segmented->n_indexes, 0U);
+        journal_file_post_change(f);
+        model_assert_file(f, &model);
+        f = journal_file_offline_close(f);
+
+        /* Continuing a sealed file requires a tag at its end. Close without appending another one: two
+         * tags with the same epoch fail verification, for either format. */
+        ASSERT_OK(journal_file_open(-EBADF, "test.journal", O_RDWR, JOURNAL_COMPRESS|JOURNAL_SEAL, 0644, UINT64_MAX, &metrics, m, /* template= */ NULL, &f));
+        model_assert_file(f, &model);
+        f = journal_file_close(f);
+
+        ASSERT_OK(journal_file_open(-EBADF, "test.journal", O_RDONLY, /* file_flags= */ 0, 0644, UINT64_MAX, /* metrics= */ NULL, m, /* template= */ NULL, &f));
+        ASSERT_GT(le64toh(f->header->n_tags), 2U);
+        ASSERT_OK(journal_file_verify(f, key, &from, &to, &total, /* show_progress= */ false));
+        ASSERT_EQ(from, model.realtime[0]);
+        ASSERT_GT(to, 0U);
+        size = f->segmented->scan_offset;
+        f = journal_file_close(f);
+
+        /* Damage things in the covered part, and see whether that is noticed */
+        FOREACH_ARGUMENT(offset, size - 100, size / 2, size / 3, size / 5 + 7) {
+                copy_truncated("test.journal", "damaged.journal", size);
+                flip("damaged.journal", offset);
+
+                r = journal_file_open(-EBADF, "damaged.journal", O_RDONLY, /* file_flags= */ 0, 0644, UINT64_MAX, /* metrics= */ NULL, m, /* template= */ NULL, &f);
+                if (r < 0) {
+                        ASSERT_ERROR(r, EBADMSG);
+                        continue;
+                }
+
+                ASSERT_FAIL(journal_file_verify(f, key, /* ret_first_contained= */ NULL, /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false));
+                f = journal_file_close(f);
+        }
+
+        /* A file that does not end with a tag is not continued */
+        copy_truncated("test.journal", "cut.journal", size - sizeof(TagObject));
+        ASSERT_ERROR(journal_file_open(-EBADF, "cut.journal", O_RDWR, JOURNAL_COMPRESS|JOURNAL_SEAL, 0644, UINT64_MAX, /* metrics= */ NULL, m, /* template= */ NULL, &f), EBUSY);
+
+        ASSERT_OK_ERRNO(unsetenv("SYSTEMD_JOURNAL_SEGMENTED"));
+}
+
+static int intro(void) {
+        /* journal_file_open() requires a valid machine id */
+        if (sd_id128_get_machine(/* ret= */ NULL) < 0)
+                return log_tests_skipped("No valid machine ID found");
+
+        journal_auth_init();
+
+        return EXIT_SUCCESS;
+}
+
+TEST(verify_large) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_free_ uint8_t *blob = NULL;
+        const size_t size = U64_MB;
+        JournalFile *f;
+
+        if (!slow_tests_enabled())
+                return (void) log_tests_skipped("slow tests are disabled");
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+        ASSERT_NOT_NULL(blob = malloc(size));
+        random_bytes(blob, size);
+        memcpy(blob, "BLOB=", STRLEN("BLOB="));
+
+        f = open_file(m, "large.journal", O_RDWR|O_CREAT, /* segmented= */ true, 256 * U64_MB);
+        for (uint64_t k = 0; k < 129; k++) {
+                unaligned_write_le64(blob + STRLEN("BLOB="), k);
+                ASSERT_OK(journal_file_append_entry(f, /* ts= */ NULL, /* boot_id= */ NULL, &IOVEC_MAKE(blob, size), 1, /* seqnum= */ NULL, /* seqnum_id= */ NULL, /* ret_object= */ NULL, /* ret_offset= */ NULL));
+        }
+        f = journal_file_offline_close(f);
+
+        f = open_file(m, "large.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        ASSERT_GT((uint64_t) f->last_stat.st_size, 128 * U64_MB);
+        ASSERT_OK(journal_file_verify(f, /* key= */ NULL, /* ret_first_contained= */ NULL, /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false));
+        f = journal_file_close(f);
+}
+
+TEST(beyond_4g) {
+        _cleanup_(rm_rf_physical_and_freep) char *directory = NULL;
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_free_ uint8_t *blob = NULL;
+        _cleanup_free_ char *path = NULL;
+        const size_t blob_size = 64 * 1024;
+        const sd_id128_t boot = SD_ID128_MAKE(b1,b2,b3,b4,b5,b6,b7,b8,b9,ba,bb,bc,bd,be,bf,b0);
+        JournalFile *f, *g;
+        uint64_t n = 0;
+        const void *d;
+        size_t l;
+
+        /* Writes a file of 4.3 GiB */
+        if (!slow_tests_enabled())
+                return (void) log_tests_skipped("slow tests are disabled");
+
+        journal_test_setup(&directory);
+        ASSERT_NOT_NULL(m = mmap_cache_new());
+
+        /* Each entry gets a distinct value that does not compress */
+        ASSERT_NOT_NULL(blob = malloc(STRLEN("BLOB=") + blob_size));
+        memcpy(blob, "BLOB=", STRLEN("BLOB="));
+        random_bytes(blob + STRLEN("BLOB="), blob_size);
+
+        f = open_file(m, "big.journal", O_RDWR|O_CREAT, /* segmented= */ true, 8 * U64_GB);
+        ASSERT_NOT_NULL(path = strdup(f->path));
+
+        while (f->segmented->scan_offset < UINT64_C(4400) * U64_MB) {
+                _cleanup_free_ char *message = NULL;
+
+                ASSERT_OK(asprintf(&message, "MESSAGE=entry %" PRIu64, n));
+                unaligned_write_le64(blob + STRLEN("BLOB="), n);
+
+                struct iovec iovec[] = {
+                        IOVEC_MAKE_STRING(message),
+                        IOVEC_MAKE(blob, STRLEN("BLOB=") + blob_size),
+                        IOVEC_MAKE_STRING("_SYSTEMD_UNIT=big.service"),
+                };
+                dual_timestamp ts = { .realtime = 1000000 + n, .monotonic = 1000 + n };
+
+                ASSERT_OK(journal_file_append_entry(f, &ts, &boot, iovec, ELEMENTSOF(iovec), /* seqnum= */ NULL, /* seqnum_id= */ NULL, /* ret_object= */ NULL, /* ret_offset= */ NULL));
+                n++;
+        }
+
+        f = journal_file_offline_close(f);
+
+        g = open_file(m, "big.journal", O_RDONLY, /* segmented= */ false, /* max_size= */ 0);
+        ASSERT_OK(journal_file_verify(g, /* key= */ NULL, /* ret_first_contained= */ NULL, /* ret_last_validated= */ NULL, /* ret_last_contained= */ NULL, /* show_progress= */ false));
+        g = journal_file_close(g);
+
+        /* Continue the file, then read it with sd-journal */
+        f = open_file(m, "big.journal", O_RDWR, /* segmented= */ false, 8 * U64_GB);
+        ASSERT_OK(journal_file_append_entry(f, /* ts= */ NULL, &boot, &IOVEC_MAKE_STRING("MESSAGE=last"), 1, /* seqnum= */ NULL, /* seqnum_id= */ NULL, /* ret_object= */ NULL, /* ret_offset= */ NULL));
+        f = journal_file_offline_close(f);
+
+        ASSERT_OK(sd_journal_open_files(&j, (const char**) STRV_MAKE(path), /* flags= */ 0));
+        ASSERT_OK(sd_journal_seek_tail(j));
+        ASSERT_OK_POSITIVE(sd_journal_previous(j));
+        ASSERT_OK(sd_journal_get_data(j, "MESSAGE", &d, &l));
+        ASSERT_EQ(memcmp_nn(d, l, "MESSAGE=last", STRLEN("MESSAGE=last")), 0);
+
+        for (uint64_t k = n; k > n - 3; k--) {
+                _cleanup_free_ char *message = NULL;
+
+                ASSERT_OK_POSITIVE(sd_journal_previous(j));
+                ASSERT_OK(asprintf(&message, "MESSAGE=entry %" PRIu64, k - 1));
+                ASSERT_OK(sd_journal_get_data(j, "MESSAGE", &d, &l));
+                ASSERT_EQ(memcmp_nn(d, l, message, strlen(message)), 0);
+                ASSERT_OK(sd_journal_get_data(j, "BLOB", &d, &l));
+                ASSERT_EQ(l, STRLEN("BLOB=") + blob_size);
+                ASSERT_EQ(unaligned_read_le64((const uint8_t*) d + STRLEN("BLOB=")), k - 1);
+        }
+
+        /* A match on an entry beyond 4 GiB */
+        _cleanup_free_ char *match = NULL;
+        ASSERT_OK(asprintf(&match, "MESSAGE=entry %" PRIu64, n - 10));
+        ASSERT_OK(sd_journal_add_match(j, match, SIZE_MAX));
+        ASSERT_OK(sd_journal_seek_head(j));
+        ASSERT_OK_POSITIVE(sd_journal_next(j));
+        ASSERT_OK(sd_journal_get_data(j, "BLOB", &d, &l));
+        ASSERT_EQ(unaligned_read_le64((const uint8_t*) d + STRLEN("BLOB=")), n - 10);
+        ASSERT_OK_ZERO(sd_journal_next(j));
+}
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, intro);
