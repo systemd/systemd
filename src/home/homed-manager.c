@@ -1920,7 +1920,7 @@ static int manager_rebalance_calculate(Manager *m) {
                         min_free = new_free;
 
                 if (new_free > UINT64_MAX - h->rebalance_usage)
-                        h->rebalance_goal = UINT64_MAX-1; /* maximum size */
+                        h->rebalance_goal = USER_DISK_SIZE_FILL_MARKER;
                 else {
                         h->rebalance_goal = h->rebalance_usage + new_free;
 
