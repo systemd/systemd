@@ -307,7 +307,8 @@
           a verbatim inline blob. They must be used together, and without specifying any other UKI section
           parameters. <command>ukify</command> will attach the pcrsig JSON blob to the UKI. This is useful
           in combination with <option>--policy-digest</option> to create a UKI and then sign the TPM2 policy
-          digests offline.</para>
+          digests offline. <option>--pcrsig=</option> may also be set with <varname>PCRSig=</varname> in the
+          <literal>[UKI]</literal> section of the configuration file.</para>
 
           <xi:include href="version-info.xml" xpointer="v258"/></listitem>
         </varlistentry>
@@ -487,6 +488,19 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>Firmware=<replaceable>DIR</replaceable>...</varname></term>
+          <term><option>--efifw=<replaceable>DIR</replaceable></option></term>
+
+          <listitem><para>Zero or more directories with UEFI firmware images. Each directory must contain
+          exactly one file. Each image is placed in a separate <literal>.efifw</literal> section, together
+          with the name of its directory as the firmware ID, which <literal>uefi-fw</literal> entries in the
+          <literal>.hwids</literal> section refer to with their <literal>fwid</literal> key. In the
+          configuration file, items are separated by whitespace.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>Uname=<replaceable>VERSION</replaceable></varname></term>
           <term><option>--uname=<replaceable>VERSION</replaceable></option></term>
 
@@ -524,7 +538,9 @@
           specified, and there's exactly one
           <varname>PCRPublicKey=</varname>/<option>--pcr-public-key=</option> or
           <varname>PCRCertificate=</varname>/<option>--pcr-certificate=</option> argument, that key will be
-          used. Otherwise, the section will not be present.</para>
+          used. Otherwise, if there's exactly one
+          <varname>PCRPrivateKey=</varname>/<option>--pcr-private-key=</option> argument, the public key is
+          derived from it. Otherwise, the section will not be present.</para>
 
           <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
@@ -538,6 +554,35 @@
           <option>--join-profile=</option>, to extend the specified UKI with an additional profile.</para>
 
           <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>EFIArch=<replaceable>ARCH</replaceable></varname></term>
+          <term><option>--efi-arch=<replaceable>ARCH</replaceable></option></term>
+
+          <listitem><para>The EFI architecture of the stub, one of <literal>ia32</literal>,
+          <literal>x64</literal>, <literal>arm</literal>, <literal>aa64</literal>,
+          <literal>riscv32</literal>, <literal>riscv64</literal>, <literal>loongarch32</literal>, and
+          <literal>loongarch64</literal>. It selects the default stub and the default directory for the
+          <literal>.hwids</literal> section. If not specified, the architecture of the local machine is
+          used. On x86-64 machines with 32-bit firmware, as reported by
+          <filename>/sys/firmware/efi/fw_platform_size</filename>, <literal>ia32</literal> is used
+          instead.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>Stub=<replaceable>STUB</replaceable></varname></term>
+          <term><option>--stub=<replaceable>STUB</replaceable></option></term>
+
+          <listitem><para>The path to the stub to build the UKI or addon from. If not specified,
+          <filename>/usr/lib/systemd/boot/efi/linux<replaceable>ARCH</replaceable>.efi.stub</filename> is
+          used for a UKI, and
+          <filename>/usr/lib/systemd/boot/efi/addon<replaceable>ARCH</replaceable>.efi.stub</filename> for an
+          addon, where <replaceable>ARCH</replaceable> is the EFI architecture.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>

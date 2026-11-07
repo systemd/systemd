@@ -1,143 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bmp.h"
 #include "graphics.h"
 #include "logarithm.h"
 #include "proto/graphics-output.h"
 #include "splash.h"
 #include "unaligned.h"
 #include "util.h"
-
-struct bmp_file {
-        char signature[2];
-        uint32_t size;
-        uint16_t reserved[2];
-        uint32_t offset;
-} _packed_;
-
-/* we require at least BITMAPINFOHEADER, later versions are
-   accepted, but their features ignored */
-struct bmp_dib {
-        uint32_t size;
-        uint32_t x;
-        uint32_t y;
-        uint16_t planes;
-        uint16_t depth;
-        uint32_t compression;
-        uint32_t image_size;
-        int32_t x_pixel_meter;
-        int32_t y_pixel_meter;
-        uint32_t colors_used;
-        uint32_t colors_important;
-        uint32_t channel_mask_r;
-        uint32_t channel_mask_g;
-        uint32_t channel_mask_b;
-        uint32_t channel_mask_a;
-} _packed_;
-
-#define SIZEOF_BMP_DIB offsetof(struct bmp_dib, channel_mask_r)
-#define SIZEOF_BMP_DIB_RGB offsetof(struct bmp_dib, channel_mask_a)
-#define SIZEOF_BMP_DIB_RGBA sizeof(struct bmp_dib)
-
-struct bmp_map {
-        uint8_t blue;
-        uint8_t green;
-        uint8_t red;
-        uint8_t reserved;
-} _packed_;
-
-static EFI_STATUS bmp_parse_header(
-                const uint8_t *bmp,
-                size_t size,
-                struct bmp_dib **ret_dib,
-                struct bmp_map **ret_map,
-                const uint8_t **pixmap) {
-
-        assert(bmp);
-        assert(ret_dib);
-        assert(ret_map);
-        assert(pixmap);
-
-        if (size < sizeof(struct bmp_file) + SIZEOF_BMP_DIB)
-                return EFI_INVALID_PARAMETER;
-
-        /* check file header */
-        struct bmp_file *file = (struct bmp_file *) bmp;
-        if (file->signature[0] != 'B' || file->signature[1] != 'M')
-                return EFI_INVALID_PARAMETER;
-        if (file->size != size)
-                return EFI_INVALID_PARAMETER;
-        if (file->size < file->offset)
-                return EFI_INVALID_PARAMETER;
-
-        /* check device-independent bitmap */
-        struct bmp_dib *dib = (struct bmp_dib *) (bmp + sizeof(struct bmp_file));
-        if (dib->size < SIZEOF_BMP_DIB)
-                return EFI_UNSUPPORTED;
-
-        switch (dib->depth) {
-        case 1:
-        case 4:
-        case 8:
-        case 24:
-                if (dib->compression != 0)
-                        return EFI_UNSUPPORTED;
-
-                break;
-
-        case 16:
-        case 32:
-                if (!IN_SET(dib->compression, 0, 3))
-                        return EFI_UNSUPPORTED;
-
-                break;
-
-        default:
-                return EFI_UNSUPPORTED;
-        }
-
-        if (dib->x == 0 || dib->y == 0)
-                return EFI_INVALID_PARAMETER;
-
-        /* Bound dimensions before computing row_size to prevent overflow
-         * in the (size_t) dib->depth * dib->x multiplication on 32-bit. */
-        if (dib->x > (size_t) 64 * 1024 * 1024 / dib->depth ||
-            dib->y > (size_t) 64 * 1024 * 1024 / dib->depth / dib->x)
-                return EFI_INVALID_PARAMETER;
-
-        size_t row_size = ((size_t) dib->depth * dib->x + 31) / 32 * 4;
-        if (file->size - file->offset < dib->y * row_size)
-                return EFI_INVALID_PARAMETER;
-
-        /* check color table */
-        struct bmp_map *map = (struct bmp_map *) (bmp + sizeof(struct bmp_file) + dib->size);
-        if (file->offset < sizeof(struct bmp_file) + dib->size)
-                return EFI_INVALID_PARAMETER;
-
-        if (file->offset > sizeof(struct bmp_file) + dib->size) {
-                uint32_t map_count = 0;
-
-                if (dib->colors_used)
-                        map_count = dib->colors_used;
-                else if (IN_SET(dib->depth, 1, 4, 8))
-                        map_count = 1 << dib->depth;
-
-                size_t map_size = file->offset - (sizeof(struct bmp_file) + dib->size);
-                if (map_size != sizeof(struct bmp_map) * map_count)
-                        return EFI_INVALID_PARAMETER;
-        }
-
-        /* Ensure there can be no OOB accesses in bmp_to_blt() due to malformed images (e.g.: color depth 8
-         * but smaller color map) via map[*in]. */
-        if (IN_SET(dib->depth, 1, 4, 8) &&
-            file->offset - (sizeof(struct bmp_file) + dib->size) < sizeof(struct bmp_map) * (1U << dib->depth))
-                return EFI_INVALID_PARAMETER;
-
-        *ret_map = map;
-        *ret_dib = dib;
-        *pixmap = bmp + file->offset;
-
-        return EFI_SUCCESS;
-}
 
 enum Channels { R, G, B, A, _CHANNELS_MAX };
 static EFI_STATUS read_channel_mask(
@@ -203,8 +72,8 @@ static EFI_STATUS read_channel_mask(
 
 static EFI_STATUS bmp_to_blt(
                 EFI_GRAPHICS_OUTPUT_BLT_PIXEL *buf,
-                struct bmp_dib *dib,
-                struct bmp_map *map,
+                const struct bmp_dib *dib,
+                const struct bmp_map *map,
                 const uint8_t *pixmap) {
 
         const uint8_t *in;
@@ -303,8 +172,8 @@ static EFI_STATUS bmp_to_blt(
 EFI_STATUS graphics_splash(const uint8_t *content, size_t len) {
         EFI_GRAPHICS_OUTPUT_BLT_PIXEL background = {};
         EFI_GRAPHICS_OUTPUT_PROTOCOL *GraphicsOutput = NULL;
-        struct bmp_dib *dib;
-        struct bmp_map *map;
+        const struct bmp_dib *dib;
+        const struct bmp_map *map;
         const uint8_t *pixmap;
         size_t x_pos = 0, y_pos = 0;
         EFI_STATUS err;
@@ -324,9 +193,8 @@ EFI_STATUS graphics_splash(const uint8_t *content, size_t len) {
         if (err != EFI_SUCCESS)
                 return err;
 
-        err = bmp_parse_header(content, len, &dib, &map, &pixmap);
-        if (err != EFI_SUCCESS)
-                return err;
+        if (bmp_parse_header(content, len, &dib, &map, &pixmap) < 0)
+                return EFI_INVALID_PARAMETER;
 
         if (dib->x < GraphicsOutput->Mode->Info->HorizontalResolution)
                 x_pos = (GraphicsOutput->Mode->Info->HorizontalResolution - dib->x) / 2;
