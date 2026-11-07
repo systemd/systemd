@@ -196,6 +196,11 @@
         <literal>allow-downgrade</literal> the resolver will
         automatically turn off DNSSEC validation in such a case.</para>
 
+        <para>DNSSEC validation requires OpenSSL's <filename>libcrypto</filename>, which is loaded on
+        demand. If it cannot be loaded, <literal>allow-downgrade</literal> behaves like
+        <literal>no</literal>, and if <varname>DNSSEC=</varname> is true, all lookups that require
+        validation fail.</para>
+
         <para>Client programs looking up DNS data will be informed
         whether lookups could be verified using DNSSEC, or whether the
         returned data could not be verified (either because the data
