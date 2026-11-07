@@ -33,3 +33,23 @@ systemd-hwdb update --root "$ROOTFS" --usr
 run_and_grep -n "$ROOTFS" strings "$ROOTFS/usr/lib/udev/hwdb.bin"
 # check the path in the rootfs does appear in hwdb.bin
 run_and_grep 99-test.hwdb strings "$ROOTFS/usr/lib/udev/hwdb.bin"
+
+# '#' only starts a trailing comment when it is surrounded by whitespace, otherwise it is part of the value
+cat >"$HWDB/99-comment.hwdb" <<EOF
+usb:v1234p5678*  # comment after a match
+ ID_MODEL_FROM_DATABASE=SB200 OHCI USB Controller #1
+ ID_TEST_BARE_HASH=value #
+ ID_TEST_COMMENT=value # comment after a property
+ ID_TEST_DOUBLE_HASH=value ## comment after a property
+ ID_TEST_HASH=Card Reader (mGuard-PCI AV#1)
+ ID_TEST_NO_SPACE=value# not a comment
+EOF
+
+systemd-hwdb update --root "$ROOTFS" --usr --strict
+assert_eq "$(systemd-hwdb query --root "$ROOTFS" usb:v1234p5678)" \
+          "ID_MODEL_FROM_DATABASE=SB200 OHCI USB Controller #1
+ID_TEST_BARE_HASH=value
+ID_TEST_COMMENT=value
+ID_TEST_DOUBLE_HASH=value
+ID_TEST_HASH=Card Reader (mGuard-PCI AV#1)
+ID_TEST_NO_SPACE=value# not a comment"
