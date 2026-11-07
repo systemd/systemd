@@ -537,6 +537,10 @@
           option is useful for creating multi-profile UKIs, and is typically used in combination with
           <option>--join-profile=</option>, to extend the specified UKI with an additional profile.</para>
 
+          <para>If this option is not specified when joining profiles with <option>--join-profile=</option>,
+          a <literal>.profile</literal> section with <literal>ID=main</literal> is added automatically,
+          defining profile <literal>@0</literal>. Joined profiles start at <literal>@1</literal>.</para>
+
           <xi:include href="version-info.xml" xpointer="v257"/></listitem>
         </varlistentry>
 
@@ -954,14 +958,8 @@ Writing public key for PCR signing to /etc/systemd/tpm2-pcr-public-key-system.pe
     <example>
       <title>Multi-Profile UKI</title>
 
-      <para>First, create a few profiles:</para>
-
-      <programlisting>$ ukify build \
-      --profile='TITLE=Base' \
-      --output=profile0.efi
-</programlisting>
-
-      <para>Add a second profile (@1):</para>
+      <para>Profile @0 (with <literal>ID=main</literal>) is created automatically when the profiles are
+      joined. First, create an additional profile (@1):</para>
 
       <programlisting>$ ukify build \
       --profile='TITLE=Boot into Storage Target Mode
@@ -985,13 +983,14 @@ ID=factory-reset' \
       --linux=/lib/modules/6.0.9-300.fc37.x86_64/vmlinuz \
       --initrd=/some/path/initramfs-6.0.9-300.fc37.x86_64.img \
       --cmdline='quiet rw' \
-      --join-profile=profile0.efi \
       --join-profile=profile1.efi \
       --join-profile=profile2.efi \
       --output=base.efi
 </programlisting>
 
-      <para>The resulting UKI <filename>base-with-profile-0-1-2.efi</filename> will now contain three profiles.</para>
+      <para>The resulting UKI <filename>base.efi</filename> will now contain three profiles: the automatic
+      profile @0 with <literal>ID=main</literal>, the storage target mode profile, and the factory reset
+      profile.</para>
     </example>
 
     <example>
