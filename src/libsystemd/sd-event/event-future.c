@@ -38,7 +38,7 @@ static void io_future_free(sd_future *f) {
         sd_event_source_unref(iof->source);
 }
 
-static int io_future_cancel(sd_future *f) {
+static int io_future_cancel(sd_future *f, sd_future_cancel_mode_t mode) {
         IoFuture *iof = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
         int r = 0;
 
@@ -168,21 +168,21 @@ static void child_future_free(sd_future *f) {
         sd_event_source_unref(cf->kill_timer);
 }
 
-static int child_future_escalate(sd_future *f);
+static int child_future_escalate(sd_future *f, sd_future_cancel_mode_t mode);
 
 static int child_kill_timer_handler(sd_event_source *s, usec_t usec, void *userdata) {
-        return child_future_escalate(ASSERT_PTR(userdata));
+        return child_future_escalate(ASSERT_PTR(userdata), SD_FUTURE_CANCEL_HARD);
 }
 
-/* Each attempt escalates, and the handler resolves the future once the process is gone. */
-static int child_future_escalate(sd_future *f) {
+static int child_future_escalate(sd_future *f, sd_future_cancel_mode_t mode) {
         ChildFuture *cf = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
         int r;
 
-        if (cf->signal == SIGKILL)
-                return 0;
+        int signo = mode == SD_FUTURE_CANCEL_HARD ||
+                    (mode == SD_FUTURE_CANCEL_DEFAULT && cf->signal == SIGTERM) ? SIGKILL : SIGTERM;
 
-        int signo = cf->signal == SIGTERM ? SIGKILL : SIGTERM;
+        if (cf->signal == SIGKILL || cf->signal == signo)
+                return 0;
 
         /* Send first: if this fails the next attempt should retry the same signal. */
         r = sd_event_source_send_child_signal(cf->source, signo, /* si= */ NULL, /* flags= */ 0);
@@ -224,11 +224,11 @@ static int child_future_escalate(sd_future *f) {
         return sd_event_source_set_priority(cf->kill_timer, priority);
 }
 
-static int child_future_cancel(sd_future *f) {
+static int child_future_cancel(sd_future *f, sd_future_cancel_mode_t mode) {
         ChildFuture *cf = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
 
         if (cf->process_own)
-                return child_future_escalate(f);
+                return child_future_escalate(f, mode);
 
         /* Drop the source rather than disabling it: sd-event keeps its per-PID slot claimed until
          * the source is disconnected, failing a later sd_event_add_child*() with -EBUSY. */
@@ -376,7 +376,7 @@ static void defer_future_free(sd_future *f) {
         sd_event_source_unref(df->source);
 }
 
-static int defer_future_cancel(sd_future *f) {
+static int defer_future_cancel(sd_future *f, sd_future_cancel_mode_t mode) {
         DeferFuture *df = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
         int r;
 
@@ -446,7 +446,7 @@ static void time_future_free(sd_future *f) {
         sd_event_source_unref(tf->source);
 }
 
-static int time_future_cancel(sd_future *f) {
+static int time_future_cancel(sd_future *f, sd_future_cancel_mode_t mode) {
         TimeFuture *tf = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
         int r;
 
@@ -553,7 +553,7 @@ int future_group_add_time_relative(sd_future *group, clockid_t clock, uint64_t u
  * only queues a cancel SQE. The future resolves when the CQE of the original SQE arrives, with -ECANCELED
  * if the kernel cancelled the operation. The buffers that the SQE references have to stay valid until then.
  * sd_future_cancel_wait_unref() keeps the fiber suspended until the future resolves. */
-static int io_uring_future_cancel(sd_future *f) {
+static int io_uring_future_cancel(sd_future *f, sd_future_cancel_mode_t mode) {
         return event_cancel_io_uring_sqe(sd_future_get_event(f), f);
 }
 

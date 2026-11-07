@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <poll.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "sd-event.h"
@@ -54,6 +55,41 @@ TEST(wait_for_terminate_fiber_basic) {
 
         ASSERT_OK(sd_event_loop(e));
         ASSERT_OK(sd_future_result(f));
+}
+
+static int cancelled_wait_cleanup_fiber(void *userdata) {
+        pid_t *pid = ASSERT_PTR(userdata);
+        _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
+        int r;
+
+        r = ASSERT_OK(pidref_safe_fork("(test-cleanup)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, &child));
+        if (r == 0) {
+                (void) usleep_safe(10 * USEC_PER_SEC);
+                _exit(EXIT_SUCCESS);
+        }
+
+        *pid = child.pid;
+        return pidref_wait_for_terminate(&child, /* ret_si= */ NULL);
+}
+
+TEST(wait_for_terminate_fiber_cancel_cleanup) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        pid_t pid = 0;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(sd_fiber_new(e, "cancelled-wait-cleanup", cancelled_wait_cleanup_fiber, &pid, &f));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
+        ASSERT_GT(pid, 0);
+        ASSERT_NOT_NULL(sd_fiber_get_awaiting(f));
+
+        ASSERT_OK_POSITIVE(sd_future_cancel(f));
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_ERROR(sd_future_result(f), ECANCELED);
+
+        siginfo_t si = {};
+        ASSERT_ERROR_ERRNO(waitid(P_PID, pid, &si, WEXITED|WNOHANG), ECHILD);
 }
 
 /* Test: wait_for_terminate with multiple children */

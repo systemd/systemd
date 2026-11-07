@@ -836,7 +836,7 @@ static void qmp_future_free(sd_future *f) {
         free(qf->error_desc);
 }
 
-static int qmp_future_cancel(sd_future *f) {
+static int qmp_future_cancel(sd_future *f, sd_future_cancel_mode_t mode) {
         QmpFuture *qf = ASSERT_PTR(sd_future_get_private(ASSERT_PTR(f)));
 
         /* Drop the pending slot so dispatch_reply won't try to fire our callback (and touch

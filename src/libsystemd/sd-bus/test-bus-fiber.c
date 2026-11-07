@@ -282,13 +282,15 @@ static int interrupted_call_fiber(void *userdata) {
         sd_bus_error_free(&error);
 
         /* Release sends the abandoned call's reply before its own. The old reply must neither
-         * access a freed future nor wake this new wait, and no interruption may leak into it. */
-        ASSERT_OK_POSITIVE(sd_bus_call_method(c->client, /* destination= */ NULL,
-                                            "/test", "test.Fiber", "Release", &error, &reply,
-                                            /* types= */ NULL));
+         * access a freed future nor wake this new wait. A cancellation stays in effect, so the call
+         * needs a shield. */
+        SD_FIBER_WITH_SHIELD()
+                ASSERT_OK_POSITIVE(sd_bus_call_method(c->client, /* destination= */ NULL,
+                                                    "/test", "test.Fiber", "Release", &error, &reply,
+                                                    /* types= */ NULL));
         ASSERT_NOT_NULL(reply);
         ASSERT_FALSE(sd_bus_error_is_set(&error));
-        ASSERT_OK_ZERO(sd_fiber_yield());
+        ASSERT_EQ(sd_fiber_yield(), c->error == ECANCELED ? -ECANCELED : 0);
         return 0;
 }
 
