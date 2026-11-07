@@ -17,6 +17,16 @@ executables += [
                 'sources' : files('timedatectl.c'),
                 'dependencies' : libm,
         },
+        test_template + {
+                'conditions' : ['ENABLE_TIMEDATED'],
+                'sources' : files('test-kernel-tz.c'),
+                'type' : 'manual',
+        },
+        test_template + {
+                'conditions' : ['ENABLE_TIMEDATED'],
+                'sources' : files('test-probe-settimeofday.c'),
+                'type' : 'manual',
+        },
 ]
 
 if conf.get('ENABLE_TIMEDATED') == 1
