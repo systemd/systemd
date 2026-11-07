@@ -245,6 +245,19 @@ static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         return 0;
 }
 
+static void radv_drop_expired_prefixes(sd_radv *ra, usec_t time_now) {
+        assert(ra);
+
+        /* Hosts that heard the prefix from us have already dropped it, so stop advertising it. */
+        sd_ndisc_option *opt;
+        SET_FOREACH(opt, ra->options)
+                if (opt->type == SD_NDISC_OPTION_PREFIX_INFORMATION && opt->prefix.valid_until <= time_now) {
+                        log_radv(ra, "Valid lifetime of prefix %s expired, no longer advertising it.",
+                                 IN6_ADDR_PREFIX_TO_STRING(&opt->prefix.address, opt->prefix.prefixlen));
+                        ndisc_option_remove(ra->options, opt);
+                }
+}
+
 int sd_radv_send(sd_radv *ra) {
         usec_t min_timeout, max_timeout, time_now, timeout;
         int r;
@@ -257,6 +270,8 @@ int sd_radv_send(sd_radv *ra) {
         r = sd_event_now(ra->event, CLOCK_BOOTTIME, &time_now);
         if (r < 0)
                 return r;
+
+        radv_drop_expired_prefixes(ra, time_now);
 
         r = radv_send_router(ra, /* dst= */ NULL);
         if (r < 0)
