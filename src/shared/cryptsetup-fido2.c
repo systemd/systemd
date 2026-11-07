@@ -21,6 +21,8 @@ int acquire_fido2_key(
                 const char *rp_id,
                 const void *cid,
                 size_t cid_size,
+                const struct iovec *public_key,
+                const char *public_key_algorithm,
                 const char *key_file,
                 size_t key_file_size,
                 uint64_t key_file_offset,
@@ -29,6 +31,7 @@ int acquire_fido2_key(
                 Fido2EnrollFlags required,
                 const char *askpw_credential,
                 AskPasswordFlags askpw_flags,
+                const char *pin,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
 
@@ -64,13 +67,19 @@ int acquire_fido2_key(
                 salt = loaded_salt;
         }
 
-        r = getenv_steal_erase("PIN", &envpw);
-        if (r < 0)
-                return log_error_errno(r, "Failed to acquire password from environment: %m");
-        if (r > 0) {
-                pins = strv_new(envpw);
+        if (pin) {
+                pins = strv_new(pin);
                 if (!pins)
                         return log_oom();
+        } else {
+                r = getenv_steal_erase("PIN", &envpw);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to acquire password from environment: %m");
+                if (r > 0) {
+                        pins = strv_new(envpw);
+                        if (!pins)
+                                return log_oom();
+                }
         }
 
         for (;;) {
@@ -97,13 +106,15 @@ int acquire_fido2_key(
                                 rp_id ?: "io.systemd.cryptsetup",
                                 salt.iov_base, salt.iov_len,
                                 cid, cid_size,
+                                public_key,
+                                public_key_algorithm,
                                 pins,
                                 required,
                                 ret_decrypted_key,
                                 ret_decrypted_key_size);
-                if (!IN_SET(r,
-                            -ENOANO,   /* needs pin */
-                            -ENOLCK))  /* pin incorrect */
+                if (pin || !IN_SET(r,
+                                   -ENOANO,   /* needs pin */
+                                   -ENOLCK))  /* pin incorrect */
                         return r;
 
                 device_exists = true; /* that a PIN is needed/wasn't correct means that we managed to
@@ -256,6 +267,8 @@ int acquire_fido2_key_auto(
                                 fido2_device,
                                 rp,
                                 cid, cid_size,
+                                /* public_key= */ NULL,
+                                /* public_key_algorithm= */ NULL,
                                 /* key_file= */ NULL, /* salt is read from LUKS header instead of key_file */
                                 /* key_file_size= */ 0,
                                 /* key_file_offset= */ 0,
@@ -264,6 +277,7 @@ int acquire_fido2_key_auto(
                                 required,
                                 "cryptsetup.fido2-pin",
                                 askpw_flags,
+                                /* pin= */ NULL,
                                 ret_decrypted_key,
                                 ret_decrypted_key_size);
                 if (ret == 0)
