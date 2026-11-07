@@ -52,6 +52,8 @@ int radv_start(Link *link);
 int radv_update_mac(Link *link);
 int radv_add_prefix(Link *link, const struct in6_addr *prefix, uint8_t prefix_len,
                     usec_t lifetime_preferred_usec, usec_t lifetime_valid_usec);
+int radv_deprecate_prefix(Link *link, const struct in6_addr *prefix, uint8_t prefix_len,
+                          usec_t lifetime_valid_usec);
 
 int link_request_radv(Link *link);
 int link_drop_radv_config(Link *link, Network *network);
