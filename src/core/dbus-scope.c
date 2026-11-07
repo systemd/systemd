@@ -305,6 +305,9 @@ int bus_scope_track_controller(Scope *s) {
         if (!s->controller || s->controller_track)
                 return 0;
 
+        if (!UNIT(s)->manager->api_bus_ready)
+                return 0;
+
         r = sd_bus_track_new(UNIT(s)->manager->api_bus, &s->controller_track, on_controller_gone, s);
         if (r < 0)
                 return r;
