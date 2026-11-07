@@ -1568,7 +1568,10 @@ PartOf=graphical-session.target
             <para>By default, all user services and applications managed by
             <command>systemd</command> are found in this slice.
             All interactively launched applications like web browsers and text editors
-            as well as non-critical services should be placed into this slice.</para>
+            as well as non-critical services should be placed into this slice.
+            Units that follow the XDG unit file naming convention for apps are
+            automatically placed in a sub-slice of <filename>app.slice</filename>
+            that is named after their app ID.</para>
 
             <xi:include href="version-info.xml" xpointer="v247"/>
           </listitem>
