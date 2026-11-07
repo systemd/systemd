@@ -13,6 +13,7 @@ import re
 import shlex
 import shutil
 import signal
+import struct
 import subprocess
 import sys
 import tempfile
@@ -43,6 +44,29 @@ FailureAction=exit
 [Service]
 ExecStart=false
 '''
+
+
+SMBIOS_TYPE0 = (
+    struct.pack(
+        '<BBHBBHBBQBBBBBB',
+        0,  # Type 0: BIOS Information
+        24,  # Length of the formatted section
+        0,  # Handle
+        0,  # Vendor string
+        0,  # BIOS version string
+        0xE800,  # BIOS starting address segment
+        0,  # BIOS release date string
+        0,  # BIOS ROM size
+        0x08,  # BIOS characteristics: not supported
+        0,  # BIOS characteristics extension byte 1
+        0x0C,  # BIOS characteristics extension byte 2: TCD/SVVP and UEFI, but not VM
+        0,  # System BIOS major release
+        0,  # System BIOS minor release
+        0,  # Embedded controller major release
+        0,  # Embedded controller minor release
+    )
+    + b'\0\0'
+)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -528,6 +552,7 @@ def main() -> None:
     parser.add_argument('--skip', action=argparse.BooleanOptionalAction)
     parser.add_argument('--suppress-sync', action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument('--tap', action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument('--hide-hypervisor', action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument('mkosi_args', nargs='*')
     args = parser.parse_args()
 
@@ -704,6 +729,16 @@ def main() -> None:
             sys.exit(f'TEST_BIND_DIRS entry is not a directory: {bind_dir}')
         bind_dirs_args += [f'--bind-ro={os.fspath(path)}:/work/{path.name}']
 
+    smbios_type0 = None
+    qemu_hide_hypervisor_args = None
+    if args.hide_hypervisor:
+        smbios_type0 = tempfile.NamedTemporaryFile(prefix='systemd-integration-test-smbios-')
+        smbios_type0.write(SMBIOS_TYPE0)
+        smbios_type0.flush()
+        qemu_hide_hypervisor_args = f'-smbios file={smbios_type0.name}'
+        if summary.architecture in ('x86', 'x86-64'):
+            qemu_hide_hypervisor_args = f'-cpu max,hypervisor=off {qemu_hide_hypervisor_args}'
+
     # Tests that boot a full guest need the mkosi-built images, which are build outputs rather than
     # installed test artifacts, and KVM for the guest. Make the output directory available at
     # /work/vm-images on request: bound read-only into the boot-mode container together with the host's
@@ -791,6 +826,7 @@ def main() -> None:
         '--credential', f'systemd.unit-dropin.{args.unit}={shlex.quote(dropin)}',
         '--runtime-network=none',
         *([f'--qemu-args=-rtc base={rtc}'] if rtc else []),
+        *([f'--qemu-args={qemu_hide_hypervisor_args}'] if qemu_hide_hypervisor_args else []),
         *args.mkosi_args,
         '--firmware', firmware,
         *(['--kvm', 'no'] if int(os.getenv('TEST_NO_KVM', '0')) else []),
