@@ -36,3 +36,12 @@ typedef enum JournalWriteSplitMode {
         _JOURNAL_WRITE_SPLIT_MAX,
         _JOURNAL_WRITE_SPLIT_INVALID = -EINVAL,
 } JournalWriteSplitMode;
+
+typedef enum JournalSplitName {
+        JOURNAL_SPLIT_NAME_FULL,
+        JOURNAL_SPLIT_NAME_COMMON,
+        JOURNAL_SPLIT_NAME_HOST,
+
+        _JOURNAL_SPLIT_NAME_MAX,
+        _JOURNAL_SPLIT_NAME_INVALID = -EINVAL,
+} JournalSplitName;
