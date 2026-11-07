@@ -108,17 +108,17 @@ static int conf_file_prefix_root(ConfFile *c, const char *root, ConfFilesFlags f
 
         int log_level = conf_files_log_level(flags);
 
-        r = chaseat_prefix_root(c->result, root, &p);
+        r = chaseat_make_absolute(c->result, root, &p);
         if (r < 0)
                 return log_full_errno(log_level, r, "Failed to prefix '%s' with root '%s': %m", c->result, root);
         free_and_replace(c->result, p);
 
-        r = chaseat_prefix_root(c->resolved_path, root, &p);
+        r = chaseat_make_absolute(c->resolved_path, root, &p);
         if (r < 0)
                 return log_full_errno(log_level, r, "Failed to prefix '%s' with root '%s': %m", c->resolved_path, root);
         free_and_replace(c->resolved_path, p);
 
-        /* Do not use chaseat_prefix_root(), as it is for the result of chaseat(), but the path is not chased. */
+        /* An absolute c->original_path refers to root, so it still needs the root prefix. */
         p = path_join(empty_to_root(root), skip_leading_slash(c->original_path));
         if (!p)
                 return log_oom_full(log_level);
@@ -548,7 +548,7 @@ static int copy_and_sort_files_from_hashmap(
                 else if (root && !FLAGS_SET(flags, CONF_FILES_DONT_PREFIX_ROOT)) {
                         _cleanup_free_ char *p = NULL;
 
-                        r = chaseat_prefix_root(c->result, root, &p);
+                        r = chaseat_make_absolute(c->result, root, &p);
                         if (r < 0)
                                 return log_full_errno(log_level, r, "Failed to prefix '%s' with root '%s': %m", c->result, root);
 
@@ -880,7 +880,7 @@ int conf_files_list_with_replacement(
                 return r;
 
         if (c) {
-                r = chaseat_prefix_root(c->result, root_abs, &inserted);
+                r = chaseat_make_absolute(c->result, root_abs, &inserted);
                 if (r < 0)
                         return log_full_errno(conf_files_log_level(flags), r,
                                               "Failed to prefix '%s' with root '%s': %m",

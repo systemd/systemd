@@ -1693,7 +1693,7 @@ int userns_mkdir(const char *root, const char *path, mode_t mode, uid_t uid, gid
 
         _cleanup_close_ int parent_fd = -EBADF;
         _cleanup_free_ char *dname = NULL;
-        r = chase(path, root, CHASE_PARENT|CHASE_PREFIX_ROOT|CHASE_EXTRACT_FILENAME, &dname, &parent_fd);
+        r = chase(path, root, CHASE_PARENT|CHASE_PREFIX_ROOT|CHASE_EXTRACT_FILENAME_HARDER, &dname, &parent_fd);
         if (r < 0)
                 return r;
 

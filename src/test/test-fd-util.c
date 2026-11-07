@@ -413,6 +413,8 @@ TEST(format_proc_fd_path) {
 }
 
 TEST(fd_reopen) {
+        /* A directory, regular file, and symlink in /proc must keep their inode across access-mode
+         * changes. O_PATH duplication must still reject O_DIRECTORY for a file or symlink. */
         _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
         struct stat st1, st2;
         int fl;
@@ -465,6 +467,7 @@ TEST(fd_reopen) {
         ASSERT_FALSE(FLAGS_SET(fl, O_DIRECTORY));
         ASSERT_TRUE(FLAGS_SET(fl, O_PATH));
 
+        ASSERT_ERROR(fd_reopen(fd1, O_PATH|O_DIRECTORY), ENOTDIR);
         ASSERT_ERROR(fd_reopen(fd1, O_RDONLY|O_DIRECTORY), ENOTDIR);
         fd2 = ASSERT_OK(fd_reopen(fd1, O_RDONLY|O_CLOEXEC));  /* drop the O_PATH */
 
@@ -499,6 +502,7 @@ TEST(fd_reopen) {
         ASSERT_OK_ERRNO(fstat(fd1, &st1));
         ASSERT_TRUE(S_ISLNK(st1.st_mode));
 
+        ASSERT_ERROR(fd_reopen(fd1, O_PATH|O_DIRECTORY), ENOTDIR);
         fd2 = ASSERT_OK(fd_reopen(fd1, O_PATH));
         ASSERT_OK_ERRNO(fstat(fd2, &st2));
         ASSERT_TRUE(S_ISLNK(st2.st_mode));
