@@ -12,6 +12,7 @@ typedef enum TPM2Flags {
         TPM2_FLAGS_USE_PIN      = 1 << 0,
         TPM2_FLAGS_USE_PCRLOCK  = 1 << 1,
         TPM2_FLAGS_USE_ARGON2ID = 1 << 2,
+        TPM2_FLAGS_USE_FIDO2    = 1 << 3,
 } TPM2Flags;
 
 /* As per https://trustedcomputinggroup.org/wp-content/uploads/TCG_PCClient_PFP_r1p05_v23_pub.pdf a
@@ -554,8 +555,12 @@ int tpm2_find_device_auto(char **ret);
 int tpm2_make_pcr_json_array(uint32_t pcr_mask, sd_json_variant **ret);
 int tpm2_parse_pcr_json_array(sd_json_variant *v, uint32_t *ret);
 
-int tpm2_make_luks2_json(int keyslot, uint32_t hash_pcr_mask, uint16_t pcr_bank, const struct iovec *pubkey, const char *pubkey_policy_ref, uint32_t pubkey_pcr_mask, uint16_t primary_alg, const struct iovec blobs[], size_t n_blobs, const struct iovec policy_hash[], size_t n_policy_hash, const struct iovec *salt, const struct iovec *srk, const struct iovec *pcrlock_nv, TPM2Flags flags, const Argon2IdParameters *argon2id_params, sd_json_variant **ret);
-int tpm2_parse_luks2_json(sd_json_variant *v, int *ret_keyslot, uint32_t *ret_hash_pcr_mask, uint16_t *ret_pcr_bank, struct iovec *ret_pubkey, char **ret_pubkey_policy_ref, uint32_t *ret_pubkey_pcr_mask, uint16_t *ret_primary_alg, struct iovec **ret_blobs, size_t *ret_n_blobs, struct iovec **ret_policy_hash, size_t *ret_n_policy_hash, struct iovec *ret_salt, struct iovec *ret_srk, struct iovec *ret_pcrlock_nv, TPM2Flags *ret_flags, Argon2IdParameters *ret_argon2id_params);
+int tpm2_make_luks2_json(int keyslot, uint32_t hash_pcr_mask, uint16_t pcr_bank, const struct iovec *pubkey, const char *pubkey_policy_ref, uint32_t pubkey_pcr_mask, uint16_t primary_alg, const struct iovec blobs[], size_t n_blobs, const struct iovec policy_hash[], size_t n_policy_hash, const struct iovec *salt, const struct iovec *srk, const struct iovec *pcrlock_nv, TPM2Flags flags, const Argon2IdParameters *argon2id_params, const struct iovec *fido2_cid, const struct iovec *fido2_public_key, const char *fido2_public_key_algorithm, const struct iovec *fido2_public_key_tag, Fido2EnrollFlags fido2_flags, sd_json_variant **ret);
+int tpm2_parse_luks2_json(sd_json_variant *v, int *ret_keyslot, uint32_t *ret_hash_pcr_mask, uint16_t *ret_pcr_bank, struct iovec *ret_pubkey, char **ret_pubkey_policy_ref, uint32_t *ret_pubkey_pcr_mask, uint16_t *ret_primary_alg, struct iovec **ret_blobs, size_t *ret_n_blobs, struct iovec **ret_policy_hash, size_t *ret_n_policy_hash, struct iovec *ret_salt, struct iovec *ret_srk, struct iovec *ret_pcrlock_nv, TPM2Flags *ret_flags, Argon2IdParameters *ret_argon2id_params, struct iovec *ret_fido2_cid, char **ret_fido2_rp_id, struct iovec *ret_fido2_public_key, char **ret_fido2_public_key_algorithm, struct iovec *ret_fido2_public_key_tag, Fido2EnrollFlags *ret_fido2_flags);
+
+int tpm2_fido2_derive_salt(const struct iovec *secret, struct iovec *ret);
+int tpm2_fido2_calculate_public_key_tag(const struct iovec *secret, const char *public_key_algorithm, const struct iovec *public_key, struct iovec *ret);
+int tpm2_fido2_verify_public_key_tag(const struct iovec *secret, const char *public_key_algorithm, const struct iovec *public_key, const struct iovec *tag);
 
 /* Before v258 we used to bind to PCR 7 by default at various places if no explicit PCR mask was set. With
  * v258 we stopped doing that (since the SecureBoot DB is as much subject to regular updates by tools such as
@@ -617,6 +622,8 @@ typedef struct systemd_tpm2_plugin_params {
         const char *device;
         const char *signature_path;
         const char *pcrlock_path;
+        const char *fido2_device;
+        const char *fido2_rp;
 } systemd_tpm2_plugin_params;
 
 typedef enum Tpm2Support {
