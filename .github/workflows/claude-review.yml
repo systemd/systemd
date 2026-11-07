@@ -403,6 +403,15 @@ jobs:
             exit 1
           fi
           git -C source show "${base_sha}:AGENTS.md" >"$INPUT/AGENTS.md" 2>/dev/null || : >"$INPUT/AGENTS.md"
+          # The review's own scripts come from the base revision as well, never
+          # from the checkout. A base without them means a review without semcode.
+          for script in semcode-probe semcode-guard; do
+            if git -C source show "${base_sha}:.github/workflows/${script}.py" >"$RUNNER_TEMP/claude-review/${script}" 2>/dev/null; then
+              chmod +x "$RUNNER_TEMP/claude-review/${script}"
+            else
+              rm -f "$RUNNER_TEMP/claude-review/${script}"
+            fi
+          done
 
           # The API's base SHA is the tip of the base branch, which drags unrelated
           # commits into a plain diff against the head.
@@ -671,9 +680,9 @@ jobs:
           # for the commit its tree is checked out at, so the indexing pass
           # semcode-mcp runs at startup has nothing to write. The server files
           # live in $RUNNER_TEMP, which the sandbox denies writes to, so a
-          # sandboxed shell cannot replace them. A server that does not answer a
-          # probe is not offered, so the agents are never pointed at tools that
-          # do not exist.
+          # sandboxed shell cannot replace them. A server that does not report
+          # itself ready is not offered, so the agents are never pointed at tools
+          # that do not exist.
           #
           # A call that runs longer than the timeout fails and the agent carries
           # on. Without one, Claude Code waits half an hour for a stdio server,
@@ -686,26 +695,24 @@ jobs:
           if ! "${sandbox[@]}" -- /bin/true; then
             echo "bubblewrap does not work, reviewing without semcode."
             rm -rf "$RUNNER_TEMP/claude-review/semcode-systemd" "$RUNNER_TEMP/semcode-linux"
+          elif [[ ! -x "$RUNNER_TEMP/claude-review/semcode-probe" ]]; then
+            echo "The base revision has no semcode probe, reviewing without semcode."
+            rm -rf "$RUNNER_TEMP/claude-review/semcode-systemd" "$RUNNER_TEMP/semcode-linux"
           fi
           add_server() {
             local name=$1 db=$2 repo=$3 wrapper="$RUNNER_TEMP/claude-review/semcode-mcp-$1"
+            # NOTIFY_SOCKET is handed in when set, so the server can report readiness
+            # to the probe; Claude Code sets none.
             cat >"$wrapper" <<EOF
           #!/bin/bash
-          exec ${sandbox[*]} -- \\
+          exec ${sandbox[*]} \${NOTIFY_SOCKET:+--setenv NOTIFY_SOCKET "\$NOTIFY_SOCKET"} -- \\
             "$RUNNER_TEMP/semcode/bin/semcode-mcp" --database "$db" --git-repo "$repo"
           EOF
             chmod +x "$wrapper"
-            # The pipe stays open long enough for the answers. A server whose
-            # index is unusable lists its tools all the same but answers a lookup
-            # with an error text instead of a search.
-            local answer
-            answer="$({ printf '%s\n' \
-                          '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"probe","version":"0"}}}' \
-                          '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
-                          '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
-                          '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"grep_functions","arguments":{"pattern":"probe_no_such_symbol_","limit":1}}}'
-                        sleep 3; } | timeout 30 "$wrapper" 2>/dev/null)" || answer=""
-            if ! grep -c '"find_function"' <<<"$answer" >/dev/null || ! grep -c 'Searching function bodies' <<<"$answer" >/dev/null; then
+            # The probe starts the server and waits for its READY=1 over sd_notify,
+            # which semcode-mcp sends once its index check is through and lookups
+            # are answered; see semcode-probe.py next to this workflow.
+            if ! "$RUNNER_TEMP/claude-review/semcode-probe" "$wrapper"; then
               echo "The semcode server for $name does not answer, reviewing without it."
               return 1
             fi
@@ -746,158 +753,21 @@ jobs:
             mcp_args=(--mcp-config "$RUNNER_TEMP/claude-review/mcp.json" --strict-mcp-config)
 
             # A recursive search of indexed C code is what the semcode tools are
-            # for, so the hook below denies it and names them: the checkout and
-            # its src/, and the kernel tree outside Documentation/, when their
-            # index is served. Single files, the rest of the checkout, searches
+            # for, so the hook denies it and names them: the checkout and its
+            # src/, and the kernel tree outside Documentation/, when their index
+            # is served. Single files, the rest of the checkout, searches
             # restricted to other file types and object-like macros, which are
-            # not indexed, stay searchable.
+            # not indexed, stay searchable. See semcode-guard.py next to this
+            # workflow.
             guard="$RUNNER_TEMP/claude-review/semcode-guard"
-            cat >"$guard" <<'GUARD'
-          #!/bin/bash
-          # PreToolUse hook: the tool call arrives as JSON on stdin, exit status 2
-          # denies it and shows stderr to the agent. $1 is the checkout and $2 the
-          # kernel tree, each empty when its index is not served.
-          set -uf
-          source=$1 linux=$2
-          input="$(cat)"
-          tool="$(jq -r '.tool_name' <<<"$input")"
-
-          # A directory of indexed C code: the checkout as a whole or below src/,
-          # the kernel tree outside Documentation/.
-          indexed() {
-            local path
-            [[ -d "$1" ]] || return 1
-            path="$(realpath -m -- "$1")"
-            [[ -n "$source" && ("$path" == "$source" || "$path" == "$source/src" || "$path" == "$source/src/"*) ]] && return 0
-            [[ -n "$linux" && ("$path" == "$linux" || "$path" == "$linux/"*) &&
-               "$path" != "$linux/Documentation" && "$path" != "$linux/Documentation/"* ]] && return 0
-            return 1
-          }
-
-          # A file pattern that selects no indexed C: a suffix other than .c, .h,
-          # .rs and .zig, or a build file.
-          non_c() {
-            local name=${1##*/}
-            [[ "$name" == *\{* ]] && return 1
-            [[ "$name" =~ \.(c|h|rs|zig)$ ]] && return 1
-            [[ "$name" =~ \.[[:alnum:]_]+$ || "$name" =~ ^(Makefile|Kconfig|Kbuild)[*]?$ ]]
-          }
-
-          deny() {
-            echo "Recursive searches of indexed C code are denied: the semcode tools answer them in one call. The checkout and its src/ are served by the mcp__systemd__* tools, the kernel tree outside Documentation/ by the mcp__linux__* tools: find_function and find_type for a definition, find_callers, find_calls and find_callchain for the call graph, grep_functions with path_pattern for a regex over function bodies. grep stays available for single files, for the parts of the checkout outside src/, for searches restricted to other file types with --include, --glob or the glob and type parameters, and for patterns containing define, as object-like macros are not indexed." >&2
-            exit 2
-          }
-
-          case "$tool" in
-          Grep)
-            path="$(jq -r '.tool_input.path // ""' <<<"$input")"
-            glob="$(jq -r '.tool_input.glob // ""' <<<"$input")"
-            type="$(jq -r '.tool_input.type // ""' <<<"$input")"
-            [[ -n "$glob" ]] && non_c "$glob" && exit 0
-            [[ -n "$type" && ! "$type" =~ ^(c|cpp|rust|zig)$ ]] && exit 0
-            [[ -n "$path" ]] && indexed "$path" && deny
-            ;;
-          Bash)
-            command="$(jq -r '.tool_input.command // ""' <<<"$input")"
-            [[ "${command,,}" == *define* ]] && exit 0
-            grep_re='(^|[^[:alnum:]_./-])(grep|egrep|fgrep|rg|ag|ack)([[:space:]]|$)'
-            gitgrep_re='(^|[^[:alnum:]_./-])git[[:space:]]+(-C[[:space:]]+([^[:space:]]+)[[:space:]]+)?grep([[:space:]]|$)'
-            # One segment per simple command, after joining continued lines and
-            # blanking the separators inside quotes. A segment after a pipe reads
-            # it instead of files. Only the operands of a segment that searches
-            # count, resolved against the directory of a cd before it or of git -C.
-            masked="" rest=${command//\\$'\n'/ }
-            while [[ "$rest" =~ ^([^\'\"]*)(\'[^\']*\'|\"[^\"]*\")(.*)$ ]]; do
-              quoted=${BASH_REMATCH[2]}
-              masked+="${BASH_REMATCH[1]}${quoted//[|&;$'\n']/ }"
-              rest=${BASH_REMATCH[3]}
-            done
-            masked+=$rest
-            segments=${masked//$'\n'/;}
-            segments=${segments//'||'/;}
-            segments=${segments//'&&'/;}
-            segments=${segments//'|'/'; __pipe__ '}
-            segments=${segments//'&'/;}
-            cwd=""
-            IFS=';' read -ra parts <<<"$segments"
-            for segment in "${parts[@]}"; do
-              # shellcheck disable=SC2206
-              words=($segment)
-              piped=0
-              if [[ "${words[0]-}" == __pipe__ ]]; then
-                piped=1
-                words=("${words[@]:1}")
-              fi
-              (( ${#words[@]} )) || continue
-              if [[ "${words[0]}" == cd ]]; then
-                target=${words[1]-}
-                target=${target//[\"\']/}
-                [[ "$target" == /* || -z "$cwd" ]] || target="$cwd/$target"
-                cwd=$target
-                continue
-              fi
-              base=$cwd
-              rest=("${words[@]:1}")
-              recursive=1
-              if [[ "$segment" =~ $gitgrep_re ]]; then
-                [[ -n "${BASH_REMATCH[3]}" ]] && base=${BASH_REMATCH[3]//[\"\']/}
-                [[ "$base" == /* || -z "$cwd" || -z "$base" ]] || base="$cwd/$base"
-                while (( ${#rest[@]} )) && [[ "${rest[0]}" != grep ]]; do rest=("${rest[@]:1}"); done
-                rest=("${rest[@]:1}")
-              elif [[ "$segment" =~ $grep_re ]]; then
-                # grep descends into directories only when told to, the others
-                # always do.
-                [[ "${BASH_REMATCH[2]}" == *grep ]] && recursive=0
-              else
-                continue
-              fi
-              # The first word that is not an option is the pattern unless -e or -f
-              # gave it, the rest are the files. A search restricted to other file
-              # types is not one semcode answers.
-              operands=() expect="" pattern=0 restricted=0 selects_c=0
-              for word in "${rest[@]}"; do
-                word=${word//[\"\']/}
-                case "$expect:$word" in
-                  filepattern:*) restricted=1; non_c "$word" || selects_c=1; expect="" ;;
-                  filetype:*) restricted=1; [[ "$word" =~ ^(c|cpp|rust|zig)$ ]] && selects_c=1; expect="" ;;
-                  regexp:*|patternfile:*) pattern=1; expect="" ;;
-                  :--include=*|:--glob=*) restricted=1; non_c "${word#*=}" || selects_c=1 ;;
-                  :-g?*) restricted=1; non_c "${word#-g}" || selects_c=1 ;;
-                  :--type=*) restricted=1; [[ "${word#*=}" =~ ^(c|cpp|rust|zig)$ ]] && selects_c=1 ;;
-                  :-t?*) restricted=1; [[ "${word#-t}" =~ ^(c|cpp|rust|zig)$ ]] && selects_c=1 ;;
-                  :--include|:--glob|:-g) expect=filepattern ;;
-                  :-t|:--type) expect=filetype ;;
-                  :-e|:--regexp) expect=regexp ;;
-                  :-f|:--file) expect=patternfile ;;
-                  :--regexp=*|:--file=*|:-e?*|:-f?*) pattern=1 ;;
-                  :--recursive|:--dereference-recursive) recursive=1 ;;
-                  :--*) ;;
-                  :-*) [[ "$word" == *[rR]* ]] && recursive=1 ;;
-                  *) if (( pattern )); then operands+=("$word"); else pattern=1; fi ;;
-                esac
-              done
-              (( restricted && ! selects_c )) && continue
-              if (( ! ${#operands[@]} )); then
-                # Without files a recursive search covers its directory, any other
-                # reads its input.
-                (( recursive && ! piped )) || continue
-                operands=("${base:-.}")
-              fi
-              for word in "${operands[@]}"; do
-                word=${word%%\**}
-                [[ "$word" == /* || -z "$base" ]] || word="$base/$word"
-                indexed "$word" && deny
-              done
-            done
-            ;;
-          esac
-          exit 0
-          GUARD
-            chmod +x "$guard"
-            jq --arg command "$guard \"$systemd_indexed\" \"$linux_indexed\"" \
-              '.hooks.PreToolUse += [{matcher: "Bash|Grep", hooks: [{type: "command", command: $command}]}]' \
-              ~/.claude/settings.json >~/.claude/settings.json.new
-            mv ~/.claude/settings.json.new ~/.claude/settings.json
+            if [[ -x "$guard" ]]; then
+              jq --arg command "$guard \"$systemd_indexed\" \"$linux_indexed\"" \
+                '.hooks.PreToolUse += [{matcher: "Bash|Grep", hooks: [{type: "command", command: $command}]}]' \
+                ~/.claude/settings.json >~/.claude/settings.json.new
+              mv ~/.claude/settings.json.new ~/.claude/settings.json
+            else
+              echo "The base revision has no semcode guard, searches stay allowed."
+            fi
           fi
 
           previous=""
