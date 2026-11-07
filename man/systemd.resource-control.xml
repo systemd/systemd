@@ -1393,15 +1393,22 @@ DeviceAllow=/dev/loop-control
 
         <listitem>
           <para>The name of the slice unit to place the unit
-          in. Defaults to <filename>system.slice</filename> for all
-          non-instantiated units of all unit types (except for slice
-          units themselves see below). Instance units are by default
-          placed in a subslice of <filename>system.slice</filename>
-          that is named after the template name.</para>
+          in. This option may be used to arrange systemd units
+          in a hierarchy of slices each of which might have
+          resource settings applied. Defaults to
+          <filename>system.slice</filename> in the system manager,
+          and <filename>app.slice</filename> in the user manager,
+          except as outlined below.</para>
 
-          <para>This option may be used to arrange systemd units in a
-          hierarchy of slices each of which might have resource
-          settings applied.</para>
+          <para>User manager units that follow the XDG Unit Naming Convention
+          for Apps (as defined in <ulink
+          url="https://systemd.io/CGROUP_DELEGATION">Desktop Environments</ulink>)
+          are by default placed in a subslice of <filename>app.slice</filename>
+          that is named after the app ID.</para>
+
+          <para>Instance units are by default placed in a subslice of
+          <filename>system.slice</filename> or <filename>app.slice</filename>
+          that is named after the template name.</para>
 
           <para>For units of type slice, the only accepted value for
           this setting is the parent slice. Since the name of a slice
