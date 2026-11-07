@@ -15,3 +15,6 @@ void manager_varlink_done(Manager *m);
 int manager_varlink_send_managed_oom_update(Unit *u);
 
 void manager_varlink_send_pending_reload_message(Manager *m);
+
+int manager_varlink_claim_connection(Manager *m, const char *id, sd_varlink **ret);
+void manager_varlink_disconnect_unclaimed(Manager *m);
