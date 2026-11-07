@@ -35,11 +35,22 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "unaligned.h"
 #include "verbs.h"
 
 #define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-remote.pem"
 #define CERT_FILE     CERTIFICATE_ROOT "/certs/journal-remote.pem"
 #define TRUST_FILE    CERTIFICATE_ROOT "/ca/trusted.pem"
+
+/* Accommodate the 64 MiB dictionary of xz preset 9 (see xz(1)), the largest that journal-upload can emit. */
+#define JOURNAL_REMOTE_DECOMPRESSOR_MEMORY_MAX (96U * 1024U * 1024U)
+/* systemd-journal-upload compresses the data from each call to its libcurl read callback into one
+ * LZ4 blob. The buffer passed to that callback is at most CURLOPT_UPLOAD_BUFFERSIZE bytes, and that
+ * option cannot exceed 2 MiB. */
+#define JOURNAL_REMOTE_LZ4_DECODED_MAX (2U * 1024U * 1024U)
+/* The blob header plus LZ4_COMPRESSBOUND(JOURNAL_REMOTE_LZ4_DECODED_MAX). */
+#define JOURNAL_REMOTE_LZ4_BLOB_MAX \
+        (8U + JOURNAL_REMOTE_LZ4_DECODED_MAX + JOURNAL_REMOTE_LZ4_DECODED_MAX / 255U + 16U)
 
 static char *arg_url = NULL;
 static char *arg_getter = NULL;
@@ -285,13 +296,123 @@ static void request_meta_free(void *cls,
         }
 }
 
+/* Per-callback context for processing decoded upload data. */
+typedef struct HttpUploadData {
+        struct MHD_Connection *connection;
+        RemoteSource *source;
+        size_t decoded_size;
+        int error;
+} HttpUploadData;
+
+static int http_upload_store(HttpUploadData *u, const void *data, size_t size) {
+        int r;
+
+        assert(u);
+
+        /* Limit decoded output per callback rather than per request to allow indefinite streaming. */
+        if (size > DATA_SIZE_MAX - u->decoded_size)
+                return -EFBIG;
+        u->decoded_size += size;
+
+        r = journal_importer_push_data(&u->source->importer, data, size);
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                r = process_source(u->source, journal_remote_server_global->file_flags);
+                if (r == -EAGAIN)
+                        return 0;
+                if (r == -ENOBUFS)
+                        return log_warning_errno(r, "Entry is above the maximum of %u, aborting connection %p.",
+                                                 DATA_SIZE_MAX, u->connection);
+                if (r == -E2BIG)
+                        return log_warning_errno(r, "Entry with more fields than the maximum of %u, aborting connection %p.",
+                                                 ENTRY_FIELD_COUNT_MAX, u->connection);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to process data, aborting connection %p: %m",
+                                                 u->connection);
+        }
+}
+
+static int http_upload_decoded(const void *data, size_t size, void *userdata) {
+        HttpUploadData *u = ASSERT_PTR(userdata);
+        int r;
+
+        /* Record failures here so the caller can tell them from decompression errors. */
+        r = http_upload_store(u, data, size);
+        if (r < 0)
+                u->error = r;
+        return r;
+}
+
+static int http_upload_push_lz4(HttpUploadData *u, const void *data, size_t size) {
+        RemoteSource *s = ASSERT_PTR(u->source);
+        size_t consumed = 0;
+        int r;
+
+        /* systemd-journal-upload sends LZ4 as compress_blob() output, one blob after another, and the data
+         * of each callback may end anywhere in a blob. Each blob is buffered until it is complete. */
+
+        if (size == 0)
+                return s->lz4_buffer_size == 0 ? 0 : -EBADMSG;
+
+        if (!GREEDY_REALLOC(s->lz4_buffer, s->lz4_buffer_size + size))
+                return -ENOMEM;
+
+        memcpy(s->lz4_buffer + s->lz4_buffer_size, data, size);
+        s->lz4_buffer_size += size;
+
+        for (;;) {
+                _cleanup_free_ void *decoded = NULL;
+                const uint8_t *blob = s->lz4_buffer + consumed;
+                size_t remaining = s->lz4_buffer_size - consumed;
+                size_t blob_size, decoded_size;
+
+                if (remaining >= 8 && unaligned_read_le64(blob) > JOURNAL_REMOTE_LZ4_DECODED_MAX)
+                        return -EFBIG;
+
+                r = lz4_blob_scan(blob, remaining, &s->lz4_scan);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                blob_size = s->lz4_scan.offset;
+
+                r = decompress_blob(COMPRESSION_LZ4, blob, blob_size,
+                                    &decoded, &decoded_size, JOURNAL_REMOTE_LZ4_DECODED_MAX);
+                if (r < 0)
+                        return r;
+
+                r = http_upload_decoded(decoded, decoded_size, u);
+                if (r < 0)
+                        return r;
+
+                consumed += blob_size;
+                s->lz4_scan = (LZ4BlobScan) {};
+        }
+
+        if (consumed > 0) {
+                s->lz4_buffer_size -= consumed;
+                memmove(s->lz4_buffer, s->lz4_buffer + consumed, s->lz4_buffer_size);
+        }
+
+        if (s->lz4_buffer_size > JOURNAL_REMOTE_LZ4_BLOB_MAX)
+                return -EFBIG;
+
+        return 0;
+}
+
 static int process_http_upload(
                 struct MHD_Connection *connection,
                 const char *upload_data,
                 size_t *upload_data_size,
                 RemoteSource *source) {
 
-        bool finished = false;
+        HttpUploadData data = {
+                .connection = connection,
+                .source = source,
+        };
         size_t remaining;
         int r;
 
@@ -300,47 +421,55 @@ static int process_http_upload(
         log_trace("%s: connection %p, %zu bytes",
                   __func__, connection, *upload_data_size);
 
-        if (*upload_data_size) {
+        if (*upload_data_size > 0)
                 log_trace("Received %zu bytes", *upload_data_size);
 
-                if (source->compression != COMPRESSION_NONE) {
-                        _cleanup_free_ char *buf = NULL;
-                        size_t buf_size;
-
-                        r = decompress_blob(source->compression, upload_data, *upload_data_size, (void **) &buf, &buf_size, DATA_SIZE_MAX);
-                        if (r < 0)
-                                return mhd_respondf(connection, r, MHD_HTTP_BAD_REQUEST, "Decompression of received blob failed.");
-
-                        r = journal_importer_push_data(&source->importer, buf, buf_size);
-                } else
-                        r = journal_importer_push_data(&source->importer, upload_data, *upload_data_size);
-                if (r < 0)
-                        return mhd_respond_oom(connection);
-
-                *upload_data_size = 0;
-        } else
-                finished = true;
-
-        for (;;) {
-                r = process_source(source, journal_remote_server_global->file_flags);
-                if (r == -EAGAIN)
-                        break;
-                if (r < 0) {
-                        if (r == -ENOBUFS)
-                                log_warning_errno(r, "Entry is above the maximum of %u, aborting connection %p.",
-                                                  DATA_SIZE_MAX, connection);
-                        else if (r == -E2BIG)
-                                log_warning_errno(r, "Entry with more fields than the maximum of %u, aborting connection %p.",
-                                                  ENTRY_FIELD_COUNT_MAX, connection);
-                        else
-                                log_warning_errno(r, "Failed to process data, aborting connection %p: %m",
-                                                  connection);
-                        return MHD_NO;
+        if (source->compression == COMPRESSION_LZ4)
+                r = http_upload_push_lz4(&data, upload_data, *upload_data_size);
+        else if (source->decompressor || *upload_data_size > 0) {
+                if (!source->decompressor) {
+                        /* For COMPRESSION_NONE, decompressor_new_limited() creates a passthrough
+                         * decompressor. */
+                        r = dlopen_compress(source->compression, LOG_DEBUG);
+                        if (r >= 0)
+                                r = decompressor_new_limited(source->compression, JOURNAL_REMOTE_DECOMPRESSOR_MEMORY_MAX,
+                                                             &source->decompressor);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to set up %s decompression, aborting connection %p: %m",
+                                                  compression_to_string(source->compression), connection);
+                                return MHD_NO;
+                        }
                 }
+
+                /* libmicrohttpd signals EOF with a zero-length call. Pushing zero bytes notifies the
+                 * decompressor of end-of-stream, failing if the compressed data was truncated. */
+                r = decompressor_push(source->decompressor, upload_data, *upload_data_size,
+                                      http_upload_decoded, &data);
+        } else
+                r = 0;
+
+        /* libmicrohttpd can queue a response only once it has received the whole request. While body data
+         * remains, the responses below fail and the connection closes without one, so log the reason. */
+        if (r == -ENOMEM)
+                return mhd_respond_oom(connection);
+        if (r == -EFBIG) {
+                log_warning("Decoded %s data exceeds the maximum size, aborting connection %p.",
+                            compression_to_string(source->compression), connection);
+                return mhd_respond(connection, MHD_HTTP_CONTENT_TOO_LARGE,
+                                   "Decoded payload exceeds maximum size.");
+        }
+        if (r < 0 && data.error < 0)
+                return MHD_NO;
+        if (r < 0) {
+                log_warning_errno(r, "Failed to decompress %s data, aborting connection %p: %m",
+                                  compression_to_string(source->compression), connection);
+                return mhd_respondf(connection, r, MHD_HTTP_BAD_REQUEST, "Decompression of received blob failed.");
         }
 
-        if (!finished)
+        if (*upload_data_size > 0) {
+                *upload_data_size = 0;
                 return MHD_YES;
+        }
 
         /* The upload is finished */
 
