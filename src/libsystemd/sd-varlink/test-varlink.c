@@ -2105,7 +2105,7 @@ static int pinned_reply_fiber(void *userdata) {
 
         p = call_pinned(c);
         t->n = 0;
-        ASSERT_OK(sd_varlink_bind_reply(c, NULL));
+        ASSERT_OK(sd_varlink_bind_reply(c, /* reply= */ NULL));
         ASSERT_OK(sd_varlink_bind_reply(c, reply_pinned_observe));
         ASSERT_OK(sd_varlink_observe(c, "io.test.DoSomethingMore", p));
         process_pinned(c, &t->n, 6);
@@ -2124,7 +2124,7 @@ static int pinned_reply_fiber(void *userdata) {
          * and dispatching a reply are separate steps, hence one of these calls is made while the first
          * reply is parsed but not dispatched yet. Unlike a pinned reply, that one must be kept. */
         t->n = 0;
-        ASSERT_OK(sd_varlink_bind_reply(c, NULL));
+        ASSERT_OK(sd_varlink_bind_reply(c, /* reply= */ NULL));
         ASSERT_OK(sd_varlink_bind_reply(c, reply_pinned_pipelined));
         invoke_pipelined(c, &n_invoked);
         while (t->n < n_invoked) {
@@ -2142,7 +2142,7 @@ static int pinned_reply_fiber(void *userdata) {
         /* Both the reply and the upgrade callback count, the latter also stores the fds in t */
         p = call_pinned(c);
         t->n = 0;
-        ASSERT_OK(sd_varlink_bind_reply(c, NULL));
+        ASSERT_OK(sd_varlink_bind_reply(c, /* reply= */ NULL));
         ASSERT_OK(sd_varlink_bind_reply(c, reply_pinned_upgrade));
         ASSERT_OK(sd_varlink_bind_upgrade(c, upgrade_pinned));
         ASSERT_OK(sd_varlink_invoke_and_upgrade(c, "io.test.Upgrade", p)); /* parameters are ignored */
@@ -2171,7 +2171,7 @@ TEST(async_call_after_pinned_reply) {
         ASSERT_OK(sd_event_default(&e));
 
         ASSERT_OK(sd_varlink_server_new(&s, SD_VARLINK_SERVER_UPGRADABLE));
-        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
         ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.DoSomething", method_something));
         ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.DoSomethingMore", method_something_more));
         ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.Echo", method_echo));
