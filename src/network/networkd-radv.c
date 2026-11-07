@@ -5,6 +5,7 @@
 
 #include <netinet/icmp6.h>
 
+#include "sd-event.h"
 #include "sd-radv.h"
 
 #include "conf-parser.h"
@@ -753,6 +754,51 @@ int radv_add_prefix(
         }
 
         return 0;
+}
+
+int radv_deprecate_prefix(
+                Link *link,
+                const struct in6_addr *prefix,
+                uint8_t prefix_len,
+                usec_t lifetime_valid_usec) {
+
+        usec_t now_usec, valid_until;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(prefix);
+
+        if (!link->radv)
+                return 0;
+
+        r = sd_event_now(link->manager->event, CLOCK_BOOTTIME, &now_usec);
+        if (r < 0)
+                return r;
+
+        /* RFC 9096 section 3.5: advertise a stale prefix with zero valid and preferred lifetimes and the
+         * same flags, for as long as hosts may still use it. radv_add_prefix() never announced more than
+         * RADV_DEFAULT_VALID_LIFETIME_USEC or the remaining lease, also before networkd was restarted, so
+         * advertise it until the earlier of the two. */
+        valid_until = MIN(lifetime_valid_usec, usec_add(now_usec, RADV_DEFAULT_VALID_LIFETIME_USEC));
+        if (valid_until <= now_usec) {
+                sd_radv_remove_prefix(link->radv, prefix, prefix_len);
+                return 0;
+        }
+
+        log_link_info(link, "Deprecating prefix %s in IPv6 Router Advertisement for %s.",
+                      IN6_ADDR_PREFIX_TO_STRING(prefix, prefix_len),
+                      FORMAT_TIMESPAN(valid_until - now_usec, USEC_PER_SEC));
+
+        return sd_radv_add_prefix(
+                        link->radv,
+                        prefix,
+                        prefix_len,
+                        ND_OPT_PI_FLAG_ONLINK | ND_OPT_PI_FLAG_AUTO,
+                        /* valid_lifetime_usec= */ 0,
+                        /* preferred_lifetime_usec= */ 0,
+                        valid_until,
+                        /* preferred_until= */ 0);
 }
 
 static int prefix_section_verify(Prefix *p) {

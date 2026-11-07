@@ -215,8 +215,40 @@ static void dhcp_pd_route_modify_nft_set(Route *route, Link *link, bool add) {
         }
 }
 
+static bool dhcp_pd_withdraw_prefix(
+                Link *link,
+                const struct in6_addr *prefix,
+                usec_t lifetime_valid_usec,
+                bool deprecate) {
+
+        int r;
+
+        assert(link);
+        assert(prefix);
+
+        if (!link->radv)
+                return false;
+
+        if (!deprecate) {
+                sd_radv_remove_prefix(link->radv, prefix, 64);
+                return false;
+        }
+
+        r = radv_deprecate_prefix(link, prefix, 64, lifetime_valid_usec);
+        if (r < 0) {
+                log_link_warning_errno(link, r,
+                                       "Failed to deprecate prefix %s in IPv6 Router Advertisement, ignoring: %m",
+                                       IN6_ADDR_PREFIX_TO_STRING(prefix, 64));
+                return false;
+        }
+
+        return true;
+}
+
 int dhcp_pd_remove(Link *link, bool only_marked) {
-        int ret = 0;
+        bool deprecate, deprecated = false;
+        Link *uplink = NULL;
+        int r, ret = 0;
 
         assert(link);
         assert(link->manager);
@@ -226,6 +258,11 @@ int dhcp_pd_remove(Link *link, bool only_marked) {
 
         if (!only_marked)
                 link->dhcp_pd_configured = false;
+
+        /* Marked prefixes were not assigned again from the current lease, so they are stale. Deprecate them
+         * where dhcp_pd_assign_subnet_prefix() announced them, see radv_deprecate_prefix(). */
+        deprecate = only_marked && link->network->dhcp_pd_announce &&
+                dhcp_pd_find_uplink(link, &uplink) >= 0 && uplink != link;
 
         if (!link->network->dhcp_pd_assign) {
                 Route *route;
@@ -238,8 +275,8 @@ int dhcp_pd_remove(Link *link, bool only_marked) {
                         if (only_marked && !route_is_marked(route))
                                 continue;
 
-                        if (link->radv)
-                                sd_radv_remove_prefix(link->radv, &route->dst.in6, 64);
+                        if (dhcp_pd_withdraw_prefix(link, &route->dst.in6, route->lifetime_usec, deprecate))
+                                deprecated = true;
 
                         link_remove_dhcp_pd_subnet_prefix(link, &route->dst.in6);
 
@@ -262,13 +299,20 @@ int dhcp_pd_remove(Link *link, bool only_marked) {
                         prefix = address->in_addr.in6;
                         in6_addr_mask(&prefix, 64);
 
-                        if (link->radv)
-                                sd_radv_remove_prefix(link->radv, &prefix, 64);
+                        if (dhcp_pd_withdraw_prefix(link, &prefix, address->lifetime_valid_usec, deprecate))
+                                deprecated = true;
 
                         link_remove_dhcp_pd_subnet_prefix(link, &prefix);
 
                         RET_GATHER(ret, address_remove_and_cancel(address, link));
                 }
+        }
+
+        if (deprecated && sd_radv_is_running(link->radv)) {
+                r = sd_radv_send(link->radv);
+                if (r < 0)
+                        log_link_warning_errno(link, r,
+                                               "Failed to announce deprecated prefixes, ignoring: %m");
         }
 
         if (!only_marked)
