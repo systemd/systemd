@@ -375,12 +375,12 @@ char* format_timestamp_style(
         utc = IN_SET(style, TIMESTAMP_UTC, TIMESTAMP_US_UTC, TIMESTAMP_DATE);
         us = IN_SET(style, TIMESTAMP_US, TIMESTAMP_US_UTC);
 
-        if (l < (size_t) (3 +                   /* week day */
-                          1 + 10 +              /* space and date */
-                          style == TIMESTAMP_DATE ? 0 :
-                          (1 + 8 +              /* space and time */
-                           (us ? 1 + 6 : 0) +   /* "." and microsecond part */
-                           1 + (utc ? 3 : 1)) + /* space and shortest possible zone */
+        if (l < (size_t) (3 +                     /* week day */
+                          1 + 10 +                /* space and date */
+                          (style == TIMESTAMP_DATE ? 0 :
+                           (1 + 8 +               /* space and time */
+                            (us ? 1 + 6 : 0) +    /* "." and microsecond part */
+                            1 + (utc ? 3 : 1))) + /* space and shortest possible zone */
                           1))
                 return NULL; /* Not enough space even for the shortest form. */
 
