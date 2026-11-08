@@ -47,7 +47,7 @@ at_exit() {
     fi
 
     rm -rf /tmp/dditest /tmp/dditest.mnt
-    rm -f /tmp/dditest.raw "${IMAGE:-}" "${PRIMARY:-}" /tmp/passphrase /tmp/pcr.dat /tmp/srk.pub /tmp/srk2.pub
+    rm -f /tmp/dditest.raw "${IMAGE:-}" "${PRIMARY:-}" /tmp/passphrase /tmp/pcr.dat /tmp/srk.pub /tmp/srk2.pub /tmp/cryptsetup.log
 }
 
 trap at_exit EXIT
@@ -101,6 +101,36 @@ fi
 # Check failure with wrong PCR (and correct PIN)
 tpm2_pcrextend 7:sha256=0000000000000000000000000000000000000000000000000000000000000000
 (! PIN=123456 systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1)
+
+# With the PCR policy no longer matching no PIN can unlock the volume, so we must not ask for one, and a PIN
+# passed anyway must not reach the TPM, where a wrong one counts towards dictionary attack lockout. Check both
+# the token module and the built-in TPM2 code, since tpm2-device=auto uses the token module if available.
+for mod in 1 0; do
+    tpm2_dictionarylockout -c
+    (! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=$mod \
+        systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1 2>/tmp/cryptsetup.log)
+    grep "not asking for PIN" /tmp/cryptsetup.log >/dev/null
+    (! grep "PIN querying disabled" /tmp/cryptsetup.log >/dev/null)
+    (! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=$mod PIN=123457 \
+        systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1)
+    tpm2_getcap properties-variable | grep -E '^TPM2_PT_LOCKOUT_COUNTER: +0x0+$' >/dev/null
+done
+rm -f /tmp/cryptsetup.log
+
+# Add a second PIN token matching the current PCR state, next to the stale one. A wrong PIN must then only be
+# tried against the token whose policy matches, i.e. cost a single dictionary attack attempt.
+PASSWORD=passphrase NEWPIN=123456 systemd-cryptenroll --tpm2-device=auto --tpm2-public-key= --tpm2-with-pin=true --tpm2-pcrs=7 "$IMAGE"
+for mod in 1 0; do
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=$mod PIN=123456 \
+        systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1
+    systemd-cryptsetup detach test-volume
+
+    tpm2_dictionarylockout -c
+    (! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=$mod PIN=123457 \
+        systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1)
+    tpm2_getcap properties-variable | grep -E '^TPM2_PT_LOCKOUT_COUNTER: +0x0*1$' >/dev/null
+done
+tpm2_dictionarylockout -c
 
 # Enroll unlock with PCR 0+7
 systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
