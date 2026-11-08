@@ -170,7 +170,13 @@ static EFI_STATUS try_gpt(
                 if (!efi_guid_equal(&entry->PartitionTypeGUID, type))
                         continue;
 
-                if (entry->EndingLBA < entry->StartingLBA) /* Bogus? */
+                if (entry->StartingLBA < gpt.FirstUsableLBA ||
+                    entry->EndingLBA > gpt.LastUsableLBA ||
+                    entry->EndingLBA < entry->StartingLBA)
+                        continue;
+
+                uint64_t partition_size;
+                if (!ADD_SAFE(&partition_size, entry->EndingLBA - entry->StartingLBA, UINT64_C(1)))
                         continue;
 
                 *ret_hd = (HARDDRIVE_DEVICE_PATH) {
@@ -181,7 +187,7 @@ static EFI_STATUS try_gpt(
                         },
                         .PartitionNumber = i + 1,
                         .PartitionStart = entry->StartingLBA,
-                        .PartitionSize = entry->EndingLBA - entry->StartingLBA + 1,
+                        .PartitionSize = partition_size,
                         .MBRType = MBR_TYPE_EFI_PARTITION_TABLE_HEADER,
                         .SignatureType = SIGNATURE_TYPE_GUID,
                 };
