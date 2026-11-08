@@ -1293,7 +1293,7 @@ static int run(int argc, char *argv[]) {
 
                 /* List enrolled slots if we are called without anything to enroll or wipe */
                 if (!wipe_requested())
-                        return list_enrolled(cd);
+                        return list_enrolled(&c, cd);
 
                 /* Only slot wiping selected */
                 return wipe_slots(&c, cd, /* ret_wiped_slots= */ NULL, /* ret_n_wiped_slots= */ NULL);
