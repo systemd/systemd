@@ -121,6 +121,19 @@ DEFINE_STRCPY(char16_t, strcpy16);
 DEFINE_STRCHR(char, strchr8);
 DEFINE_STRCHR(char16_t, strchr16);
 
+const char16_t* path_filename16(const char16_t *path) {
+        assert(path);
+
+        /* Returns the part of an EFI path after the last backslash, or the whole path if there is none */
+
+        const char16_t *filename = path;
+        for (const char16_t *p = path; *p; p++)
+                if (*p == '\\')
+                        filename = p + 1;
+
+        return filename;
+}
+
 #define DEFINE_STRNDUP(type, name, len_func)              \
         type *name(const type *s, size_t n) {             \
                 if (!s)                                   \

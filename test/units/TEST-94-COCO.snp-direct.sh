@@ -35,12 +35,13 @@ trap at_exit EXIT
 # General test case for SNP direct boot, covers:
 #
 # - detect_virt: systemd-detect-virt --cvm detects SNP as the CVM type
+# - no_host_tpm: vmspawn attached no TPM by default
 # - creds_vmspawn: credential transport by vmspawn is working (via initrd for SNP)
 # - creds_cmdline: credential transport via cmdline is working (cmdline is measured on SNP)
 # - tsm_signer_varlink_snp: the tsm report signer yields an SNP attestation report echoing the digest
 # - report_pipeline: signing a report via io.systemd.Report; the result is verified below, host-side
 vmspawn_boot_coco "$MACHINE-honest" "$COCO_TYPE" "$WORKDIR/honest" \
-    'detect_virt creds_vmspawn creds_cmdline tsm_signer_varlink_snp report_pipeline' \
+    'detect_virt no_host_tpm creds_vmspawn creds_cmdline tsm_signer_varlink_snp report_pipeline' \
     --image="$IMAGE_DIR/image.raw" \
     --linux="$IMAGE_DIR/image.vmlinuz" \
     --initrd="$IMAGE_DIR/image.initrd" \

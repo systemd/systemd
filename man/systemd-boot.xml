@@ -456,6 +456,18 @@
       <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       for details on configuration extension images. The generated <command>cpio</command> archive is
       measured into TPM PCR 12 (if a TPM is present).</para></listitem>
+
+      <listitem><para>Files with the <filename>.addon.efi</filename> suffix are not packed into a
+      <command>cpio</command> archive. Instead, each of them is passed to the UKI as a separate
+      <constant>LoadFile2</constant> object, see the
+      <ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>. The
+      <command>systemd-stub</command> UEFI stub embedded in the UKI will then load, verify and measure them
+      like any other addon, allowing to pass additional kernel command line parameters,
+      DeviceTree blobs, initrds and microcode updates specific to this entry. This means the same UKI may be
+      shared by multiple entries, each with its own set of addons. See
+      <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+      details on addons. This is only supported for entries using the <literal>uki</literal> key, not for
+      <literal>uki-url</literal>.</para></listitem>
     </itemizedlist>
 
     <para>When the booted kernel is a UKI, the <command>systemd-stub</command> UEFI stub embedded in it will
@@ -474,7 +486,8 @@ machine-id  6a9857a393724b7a981ebb5b8495b9ea
 uki         /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/img.efi
 extra       /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/foo.cred
 extra       /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/bar.sysext.raw
-extra       /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/baz.confext.raw</programlisting>
+extra       /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/baz.confext.raw
+extra       /6a9857a393724b7a981ebb5b8495b9ea/1.2.3/debug.addon.efi</programlisting>
   </refsect1>
 
   <refsect1>

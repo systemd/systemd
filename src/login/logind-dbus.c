@@ -3405,6 +3405,32 @@ static int property_get_reboot_to_boot_loader_entry(
         return sd_bus_message_append(reply, "s", x);
 }
 
+static int manager_load_boot_config(Manager *m, BootConfig *config) {
+        bool auto_only = true;
+        int r;
+
+        assert(m);
+        assert(config);
+
+        r = boot_config_load_auto(config, /* override_esp_path= */ NULL, /* override_xbootldr_path= */ NULL);
+        if (ERRNO_IS_NEG_RESOURCE(r))
+                return r;
+        if (r < 0 && r != -ENOKEY) { /* don't complain if there's no GPT found */
+                /* Don't fail on unsupported setups, e.g. a symlinked /boot/loader/ on ostree (see #44636).
+                 * Drop the partially loaded config and use all entries the boot loader reports instead. */
+                log_debug_errno(r, "Failed to load boot loader entries, ignoring: %m");
+                boot_config_free(config);
+                *config = (BootConfig) BOOT_CONFIG_NULL;
+                auto_only = false;
+        }
+
+        r = manager_read_efi_boot_loader_entries(m);
+        if (r >= 0)
+                (void) boot_config_augment_from_loader(config, m->efi_boot_loader_entries, auto_only);
+
+        return 0;
+}
+
 static int boot_loader_entry_exists(Manager *m, const char *id) {
         _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
         int r;
@@ -3412,13 +3438,9 @@ static int boot_loader_entry_exists(Manager *m, const char *id) {
         assert(m);
         assert(id);
 
-        r = boot_config_load_auto(&config, /* override_esp_path= */ NULL, /* override_xbootldr_path= */ NULL);
-        if (r < 0 && r != -ENOKEY) /* don't complain if no GPT is found, hence skip ENOKEY */
+        r = manager_load_boot_config(m, &config);
+        if (r < 0)
                 return r;
-
-        r = manager_read_efi_boot_loader_entries(m);
-        if (r >= 0)
-                (void) boot_config_augment_from_loader(&config, m->efi_boot_loader_entries, /* auto_only= */ true);
 
         return !!boot_config_find_entry(&config, id);
 }
@@ -3564,13 +3586,9 @@ static int property_get_boot_loader_entries(
         assert(bus);
         assert(reply);
 
-        r = boot_config_load_auto(&config, /* override_esp_path= */ NULL, /* override_xbootldr_path= */ NULL);
-        if (r < 0 && r != -ENOKEY) /* don't complain if there's no GPT found */
+        r = manager_load_boot_config(m, &config);
+        if (r < 0)
                 return r;
-
-        r = manager_read_efi_boot_loader_entries(m);
-        if (r >= 0)
-                (void) boot_config_augment_from_loader(&config, m->efi_boot_loader_entries, /* auto_only= */ true);
 
         r = sd_bus_message_open_container(reply, 'a', "s");
         if (r < 0)

@@ -181,7 +181,6 @@ vmspawn_boot_coco() {
         --coco="$coco_type" \
         --ram=1G \
         --ephemeral \
-        --tpm=no \
         --console=read-only \
         --set-credential="systemd.extra-unit.$COCO_GUEST_UNIT:$guest_unit" \
         --set-credential="systemd.unit-dropin.multi-user.target:$guest_dropin" \
