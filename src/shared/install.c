@@ -450,6 +450,37 @@ static int path_is_mask(const LookupPaths *lp, const char *path) {
         return r;
 }
 
+static int path_is_mask_at(int root_fd, int dir_fd, const char *dir_path, const char *name) {
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ char *absolute = NULL, *resolved = NULL;
+        struct stat st;
+        int r;
+
+        assert(wildcard_fd_is_valid(root_fd));
+        assert(dir_fd >= 0);
+        assert(path_is_absolute(dir_path));
+        assert(filename_is_valid(name));
+
+        r = chaseat(root_fd, dir_fd, name, CHASE_NONEXISTENT, &resolved, &fd);
+        if (IN_SET(r, -ENOENT, -ENOTDIR, -ELOOP))
+                return false;
+        if (r < 0)
+                return r;
+
+        int q = chaseat_make_absolute(resolved, dir_path, &absolute);
+        if (q < 0)
+                return q;
+        if (path_equal(absolute, "/dev/null"))
+                return true;
+        if (r == 0)
+                return false;
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        return null_or_empty(&st);
+}
+
 static int config_path_from_flags(LookupPaths *lp, UnitFileFlags flags, const char **ret) {
         assert(lp);
         assert(ret);
@@ -1299,6 +1330,181 @@ static int dependency_symlinks_list(
         return 0;
 }
 
+static int mask_dependency(
+                const LookupPaths *lp,
+                const char *path,
+                const char *source,
+                bool dry_run,
+                InstallChange **changes,
+                size_t *n_changes) {
+
+        _cleanup_close_ int parent_fd = -EBADF, root_fd = XAT_FDROOT;
+        _cleanup_free_ char *absolute_dir = NULL, *dir = NULL, *name = NULL, *resolved = NULL,
+                *resolved_path = NULL;
+        int r;
+
+        assert(lp);
+        assert(path);
+
+        if (dry_run) {
+                r = chase(path, lp->root_dir, CHASE_NOFOLLOW|CHASE_NONEXISTENT, &resolved, /* ret_fd= */ NULL);
+                if (r == -ENOMEM)
+                        return r;
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to resolve '%s', not masking it: %m", path);
+                        return 0;
+                }
+                path = resolved;
+
+                r = is_symlink(path);
+                if (r == 0)
+                        return 0;
+                if (r < 0 && r != -ENOENT) {
+                        log_debug_errno(r, "Failed to look at '%s', not masking it: %m", path);
+                        return 0;
+                }
+
+                r = path_is_mask(lp, path);
+                if (r != 0)
+                        return r < 0 ? r : 0;
+
+                return install_changes_add(changes, n_changes, INSTALL_CHANGE_MASK_DEPENDENCY, path, source);
+        }
+
+        const char *relative = skip_root(lp->root_dir, path);
+        if (!relative)
+                return -ECHRNG;
+
+        if (lp->root_dir) {
+                root_fd = xopenat(AT_FDCWD, lp->root_dir, O_PATH|O_DIRECTORY);
+                if (root_fd < 0)
+                        return root_fd;
+        }
+
+        r = chaseat(root_fd, root_fd, relative, CHASE_PARENT|CHASE_MKDIR_0755, &resolved, &parent_fd);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to resolve '%s', not masking it: %m", path);
+                return 0;
+        }
+
+        resolved_path = lp->root_dir ? path_join(lp->root_dir, resolved) : strdup(resolved);
+        if (!resolved_path)
+                return -ENOMEM;
+        path = resolved_path;
+
+        r = path_extract_directory(resolved, &dir);
+        if (r < 0)
+                return r;
+        r = chaseat_make_absolute(dir, "/", &absolute_dir);
+        if (r < 0)
+                return r;
+        r = path_extract_filename(resolved, &name);
+        if (r < 0)
+                return r;
+
+        /* A non-symlink already prevents PID 1 from using a lower-priority dependency. Replacing a
+         * directory would fail, and replacing a file would destroy administrator configuration. */
+        r = is_symlink_at(parent_fd, name);
+        if (r == 0)
+                return 0;
+        if (r < 0 && r != -ENOENT) {
+                log_debug_errno(r, "Failed to look at '%s', not masking it: %m", path);
+                return 0;
+        }
+
+        r = path_is_mask_at(root_fd, parent_fd, absolute_dir, name);
+        if (r != 0)
+                return r < 0 ? r : 0;
+
+        r = symlinkat_atomic_full("/dev/null", parent_fd, name, /* flags= */ 0);
+        if (r < 0)
+                return install_changes_add(changes, n_changes, r, path, /* source= */ NULL);
+
+        return install_changes_add(changes, n_changes, INSTALL_CHANGE_MASK_DEPENDENCY, path, source);
+}
+
+static int install_info_mask_install_rules(
+                RuntimeScope scope,
+                const InstallInfo *info,
+                const LookupPaths *lp,
+                const char *config_path,
+                InstallChange **changes,
+                size_t *n_changes) {
+
+        _cleanup_free_ char *instance = NULL;
+        const char *name = info->name;
+        UnitNameFlags valid_dst_type = UNIT_NAME_ANY;
+        int r, ret = 0;
+
+        if (unit_name_is_valid(name, UNIT_NAME_TEMPLATE)) {
+                if (info->default_instance) {
+                        r = unit_name_replace_instance(name, info->default_instance, &instance);
+                        if (r < 0)
+                                return r;
+
+                        name = instance;
+                } else
+                        valid_dst_type = UNIT_NAME_INSTANCE | UNIT_NAME_TEMPLATE;
+        }
+
+        const struct {
+                char **targets;
+                const char *suffix;
+        } rules[] = {
+                { info->wanted_by,   ".wants"    },
+                { info->required_by, ".requires" },
+                { info->upheld_by,   ".upholds"  },
+        };
+
+        FOREACH_ARRAY(rule, rules, ELEMENTSOF(rules))
+                STRV_FOREACH(target, rule->targets) {
+                        _cleanup_free_ char *dst = NULL, *dir = NULL, *path = NULL;
+
+                        r = install_name_printf(scope, info, *target, &dst);
+                        if (r == -ENOMEM)
+                                return r;
+                        if (r < 0 || !unit_name_is_valid(dst, valid_dst_type))
+                                continue;
+
+                        dir = strjoin(dst, rule->suffix);
+                        if (!dir)
+                                return -ENOMEM;
+
+                        path = path_join(config_path, dir, name);
+                        if (!path)
+                                return -ENOMEM;
+
+                        RET_GATHER(ret, mask_dependency(lp, path, /* source= */ NULL, /* dry_run= */ false, changes, n_changes));
+                }
+
+        STRV_FOREACH(alias, info->aliases) {
+                _cleanup_free_ char *dst = NULL, *updated = NULL, *path = NULL;
+
+                r = install_name_printf(scope, info, *alias, &dst);
+                if (r == -ENOMEM)
+                        return r;
+                if (r < 0)
+                        continue;
+
+                r = unit_file_verify_alias(info, dst, &updated, /* changes= */ NULL, /* n_changes= */ NULL);
+                if (r == -ENOMEM)
+                        return r;
+                if (r < 0)
+                        continue;
+
+                if (!strchr(dst, '/'))
+                        continue;
+
+                path = path_join(config_path, updated ?: dst);
+                if (!path)
+                        return -ENOMEM;
+
+                RET_GATHER(ret, mask_dependency(lp, path, /* source= */ NULL, /* dry_run= */ false, changes, n_changes));
+        }
+
+        return ret;
+}
+
 /* Enablement that lives in the vendor unit directories cannot be removed on behalf of the administrator:
  * /usr/ is frequently read-only, and anything we did there would be undone by the next image update. Shadow
  * it with a symlink to /dev/null instead, which is what PID 1 looks for when deciding to ignore a dependency
@@ -1376,37 +1582,7 @@ static int install_info_mask_dependencies(
                 if (!path)
                         return -ENOMEM;
 
-                /* A non-symlink sitting here already shadows the vendor symlink, and PID 1 ignores it for
-                 * not being one, so the unit is off either way. Replacing it would fail on a directory and
-                 * destroy whatever it is otherwise, so leave anything we could not identify alone too.
-                 * -ENOENT is the normal case of there being nothing here yet. */
-                r = is_symlink(path);
-                if (r == 0)
-                        continue;
-                if (r < 0 && r != -ENOENT) {
-                        log_debug_errno(r, "Failed to look at '%s', not masking it: %m", path);
-                        continue;
-                }
-
-                /* Leave an existing mask alone too, so that disabling twice stays quiet. */
-                r = path_is_mask(lp, path);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        continue;
-
-                if (!dry_run) {
-                        (void) mkdir_parents_label(path, 0755);
-
-                        r = symlink_atomic("/dev/null", path);
-                        if (r < 0) {
-                                RET_GATHER(ret, install_changes_add(changes, n_changes, r, path, /* source= */ NULL));
-                                continue;
-                        }
-                }
-
-                RET_GATHER(ret, install_changes_add(changes, n_changes,
-                                                    INSTALL_CHANGE_MASK_DEPENDENCY, path, *vendor_path));
+                RET_GATHER(ret, mask_dependency(lp, path, *vendor_path, dry_run, changes, n_changes));
         }
 
         return ret;
@@ -2516,6 +2692,7 @@ static int install_context_mask_dependencies(
                 const LookupPaths *lp,
                 const char *config_path,
                 bool dry_run,
+                bool mask_install_rules,
                 InstallChange **changes,
                 size_t *n_changes) {
 
@@ -2540,15 +2717,17 @@ static int install_context_mask_dependencies(
                                 return r;
                 }
 
-        if (strv_isempty(vendor_search_path))
-                return 0;
-
         ORDERED_HASHMAP_FOREACH(i, ctx->have_processed) {
                 if (i->install_mode != INSTALL_MODE_REGULAR)
                         continue;
 
                 RET_GATHER(ret, install_info_mask_dependencies(ctx->scope, i, lp, vendor_search_path, config_path,
                                                                dry_run, changes, n_changes));
+                /* GetUnitFileLinks uses a dry run to list existing dependencies. A mask for a dependency
+                 * that the vendor might install later must not appear in that list. */
+                if (mask_install_rules && !dry_run)
+                        RET_GATHER(ret, install_info_mask_install_rules(ctx->scope, i, lp, config_path,
+                                                                        changes, n_changes));
         }
 
         return ret;
@@ -2928,15 +3107,23 @@ static int install_info_symlink_alias(
                                 return -ENOMEM;
                 }
 
-                bool broken;
+                bool replace;
                 r = chase(alias_path, lp->root_dir, CHASE_NONEXISTENT, /* ret_path= */ NULL, /* ret_fd= */ NULL);
                 if (r < 0 && r != -ENOENT) {
                         RET_GATHER(ret, r);
                         continue;
                 }
-                broken = r == 0; /* symlink target does not exist? */
+                replace = r == 0; /* symlink target does not exist? */
 
-                r = create_symlink(lp, alias_target ?: info->path, alias_path, force || broken, changes, n_changes);
+                if (!FLAGS_SET(file_flags, UNIT_FILE_VENDOR) && !replace) {
+                        r = path_is_mask(lp, alias_path);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                replace = true;
+                }
+
+                r = create_symlink(lp, alias_target ?: info->path, alias_path, force || replace, changes, n_changes);
                 if (r == -EEXIST && FLAGS_SET(file_flags, UNIT_FILE_IGNORE_AUXILIARY_FAILURE))
                         /* We cannot realize the alias because a conflicting alias exists.
                          * Do not propagate this as error. */
@@ -3950,6 +4137,7 @@ static int do_unit_file_disable(
                 RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *config_path,
+                bool mask_install_rules,
                 char * const *names,
                 InstallChange **changes,
                 size_t *n_changes) {
@@ -3994,7 +4182,7 @@ static int do_unit_file_disable(
                                            flags & UNIT_FILE_DRY_RUN, changes, n_changes);
         if (r >= 0)
                 r = install_context_mask_dependencies(&ctx, lp, config_path, flags & UNIT_FILE_DRY_RUN,
-                                                      changes, n_changes);
+                                                      mask_install_rules, changes, n_changes);
         if (r < 0)
                 return r;
 
@@ -4025,7 +4213,7 @@ int unit_file_disable(
         if (r < 0)
                 return r;
 
-        return do_unit_file_disable(&lp, scope, flags, config_path, files, changes, n_changes);
+        return do_unit_file_disable(&lp, scope, flags, config_path, /* mask_install_rules= */ true, files, changes, n_changes);
 }
 
 static int normalize_linked_files(
@@ -4119,7 +4307,7 @@ int unit_file_reenable(
                 return r;
 
         /* First, we invoke the disable command with only the basename... */
-        r = do_unit_file_disable(&lp, scope, flags, config_path, names, changes, n_changes);
+        r = do_unit_file_disable(&lp, scope, flags, config_path, /* mask_install_rules= */ false, names, changes, n_changes);
         if (r < 0)
                 return r;
 

@@ -149,7 +149,8 @@ TEST(basic_mask_and_enable) {
         changes = NULL; n_changes = 0;
 
         ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("a.service"), &changes, &n_changes));
-        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(n_changes, 2U);
+        ASSERT_EQ(changes[1].type, INSTALL_CHANGE_MASK_DEPENDENCY);
         ASSERT_EQ(changes[0].type, INSTALL_CHANGE_UNLINK);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/a.service");
         ASSERT_STREQ(changes[0].path, p);
@@ -165,7 +166,7 @@ TEST(basic_mask_and_enable) {
         ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", &state));
         ASSERT_EQ(state, UNIT_FILE_ALIAS);
 
-        /* Disabling a disabled unit must succeed but be a NOP */
+        /* Repeating disable preserves the recorded choice without another modification. */
         ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("a.service"), &changes, &n_changes));
         ASSERT_EQ(n_changes, 0U);
         install_changes_free(changes, n_changes);
@@ -173,11 +174,12 @@ TEST(basic_mask_and_enable) {
 
         /* Let's enable this indirectly via a symlink */
         ASSERT_OK(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("d.service"), &changes, &n_changes));
-        ASSERT_EQ(n_changes, 1U);
-        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_SYMLINK);
-        ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/a.service");
+        ASSERT_EQ(n_changes, 2U);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_UNLINK);
+        ASSERT_EQ(changes[1].type, INSTALL_CHANGE_SYMLINK);
+        ASSERT_STREQ(changes[1].source, "/usr/lib/systemd/system/a.service");
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/a.service");
-        ASSERT_STREQ(changes[0].path, p);
+        ASSERT_STREQ(changes[1].path, p);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
@@ -345,7 +347,8 @@ TEST(linked_units) {
 
         /* Let's unlink it from the search path again */
         ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("linked.service"), &changes, &n_changes));
-        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(n_changes, 2U);
+        ASSERT_EQ(changes[1].type, INSTALL_CHANGE_MASK_DEPENDENCY);
         ASSERT_EQ(changes[0].type, INSTALL_CHANGE_UNLINK);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/linked.service");
         ASSERT_STREQ(changes[0].path, p);
@@ -356,11 +359,16 @@ TEST(linked_units) {
 
         /* Now, let's not just link it, but also enable it */
         ASSERT_OK(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("/opt/linked.service"), &changes, &n_changes));
-        ASSERT_EQ(n_changes, 3U);
+        ASSERT_EQ(n_changes, 4U);
+        ASSERT_EQ(changes[2].type, INSTALL_CHANGE_UNLINK);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/linked.service");
         q = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/linked.service");
         s = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/linked-alias.service");
         for (i = 0 ; i < n_changes; i++) {
+                if (changes[i].type == INSTALL_CHANGE_UNLINK) {
+                        ASSERT_STREQ(changes[i].path, p);
+                        continue;
+                }
                 ASSERT_EQ(changes[i].type, INSTALL_CHANGE_SYMLINK);
 
                 if (s && streq(changes[i].path, s))
@@ -391,11 +399,12 @@ TEST(linked_units) {
 
         /* And let's unlink it again */
         ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("linked.service"), &changes, &n_changes));
-        ASSERT_EQ(n_changes, 3U);
+        ASSERT_EQ(n_changes, 4U);
+        ASSERT_EQ(changes[3].type, INSTALL_CHANGE_MASK_DEPENDENCY);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/linked.service");
         q = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/linked.service");
         s = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/linked-alias.service");
-        for (i = 0; i < n_changes; i++) {
+        for (i = 0; i < n_changes - 1; i++) {
                 ASSERT_EQ(changes[i].type, INSTALL_CHANGE_UNLINK);
 
                 if (p && streq(changes[i].path, p))
@@ -576,7 +585,8 @@ TEST(template_enable) {
         ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
         ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("template@.service"), &changes, &n_changes));
-        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(n_changes, 2U);
+        ASSERT_EQ(changes[1].type, INSTALL_CHANGE_MASK_DEPENDENCY);
         ASSERT_EQ(changes[0].type, INSTALL_CHANGE_UNLINK);
         ASSERT_STREQ(changes[0].path, p);
         install_changes_free(changes, n_changes);
@@ -619,7 +629,8 @@ TEST(template_enable) {
         ASSERT_EQ(state, UNIT_FILE_ENABLED);
 
         ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("template@foo.service"), &changes, &n_changes));
-        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(n_changes, 2U);
+        ASSERT_EQ(changes[1].type, INSTALL_CHANGE_MASK_DEPENDENCY);
         ASSERT_EQ(changes[0].type, INSTALL_CHANGE_UNLINK);
         ASSERT_STREQ(changes[0].path, p);
         install_changes_free(changes, n_changes);
@@ -717,7 +728,8 @@ TEST(indirect) {
         ASSERT_EQ(state, UNIT_FILE_ALIAS);
 
         ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("indirectc.service"), &changes, &n_changes));
-        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(n_changes, 2U);
+        ASSERT_EQ(changes[1].type, INSTALL_CHANGE_MASK_DEPENDENCY);
         ASSERT_EQ(changes[0].type, INSTALL_CHANGE_UNLINK);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/indirectb.service");
         ASSERT_STREQ(changes[0].path, p);
@@ -785,7 +797,8 @@ TEST(preset_and_list) {
         ASSERT_EQ(state, UNIT_FILE_DISABLED);
 
         ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("preset-yes.service"), &changes, &n_changes));
-        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(n_changes, 2U);
+        ASSERT_EQ(changes[1].type, INSTALL_CHANGE_MASK_DEPENDENCY);
         ASSERT_EQ(changes[0].type, INSTALL_CHANGE_UNLINK);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/preset-yes.service");
         ASSERT_STREQ(changes[0].path, p);
@@ -1297,7 +1310,8 @@ TEST(preset_multiple_instances) {
         changes = NULL; n_changes = 0;
 
         ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, root, STRV_MAKE("foo@bar0.service"), &changes, &n_changes));
-        ASSERT_EQ(n_changes, 1U);
+        ASSERT_EQ(n_changes, 2U);
+        ASSERT_EQ(changes[1].type, INSTALL_CHANGE_MASK_DEPENDENCY);
         ASSERT_EQ(changes[0].type, INSTALL_CHANGE_UNLINK);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/foo@bar0.service");
         ASSERT_STREQ(changes[0].path, p);
@@ -1674,7 +1688,7 @@ TEST(disable_dependency_with_non_directory_target) {
         ASSERT_OK_ERRNO(symlink("/usr/lib/systemd/system/non-dir-dep.service/child", entry));
 
         do_disable(/* flags= */ 0, STRV_MAKE("non-dir-dep.service"));
-        ASSERT_FALSE(symlink_exists(entry));
+        ASSERT_TRUE(is_dependency_mask(entry));
 }
 
 TEST(disable_template_keeps_instance_mask) {
@@ -1856,6 +1870,153 @@ TEST(vendor_enable) {
         ASSERT_TRUE(symlink_exists(mask));
         ASSERT_FALSE(is_dependency_mask(mask));
         assert_state("vendor-enabled.service", UNIT_FILE_ENABLED);
+}
+
+TEST(disable_records_install_rules) {
+        /* Disabling an already-disabled unit must preserve the administrator's choice when a later image
+         * enables the unit. Start without vendor links, disable each dependency type, then apply vendor
+         * presets and check that the configuration masks keep the unit disabled. */
+        FOREACH_STRING(type, "WantedBy", "RequiredBy", "UpheldBy") {
+                _cleanup_free_ char *name = NULL, *rule = NULL, *rel = NULL, *file = NULL,
+                        *mask = NULL, *preset = NULL, *policy = NULL, *vendor = NULL;
+                const char *suffix = streq(type, "WantedBy") ? ".wants/" :
+                                     streq(type, "RequiredBy") ? ".requires/" : ".upholds/";
+
+                name = strjoin("remember-disable-", type, ".service");
+                ASSERT_NOT_NULL(name);
+                rule = strjoin("[Install]\n", type, "=multi-user.target\n");
+                ASSERT_NOT_NULL(rule);
+                rel = strjoin("multi-user.target", suffix, name);
+                ASSERT_NOT_NULL(rel);
+
+                file = strjoin("system/", name);
+                ASSERT_NOT_NULL(file);
+                write_vendor_file(file, rule);
+                assert_state(name, UNIT_FILE_DISABLED);
+
+                /* A query must neither write masks nor report a dependency that does not exist. */
+                InstallChange *changes = NULL;
+                size_t n_changes = 0;
+                CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+                ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, UNIT_FILE_DRY_RUN, vendor_root,
+                                            STRV_MAKE(name), &changes, &n_changes));
+                ASSERT_EQ(n_changes, 0u);
+                mask = path_join(vendor_root, SYSTEM_CONFIG_UNIT_DIR, rel);
+                ASSERT_NOT_NULL(mask);
+                ASSERT_FALSE(symlink_exists(mask));
+
+                do_disable(/* flags= */ 0, STRV_MAKE(name));
+                ASSERT_TRUE(is_dependency_mask(mask));
+
+                /* Repeated disables preserve the mask without reporting another modification. */
+                install_changes_free(changes, n_changes);
+                changes = NULL;
+                n_changes = 0;
+                ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, vendor_root,
+                                            STRV_MAKE(name), &changes, &n_changes));
+                ASSERT_EQ(n_changes, 0u);
+
+                preset = strjoin("system-preset/10-", name, ".preset");
+                ASSERT_NOT_NULL(preset);
+                policy = strjoin("enable ", name, "\n");
+                ASSERT_NOT_NULL(policy);
+                write_vendor_file(preset, policy);
+                do_preset(UNIT_FILE_VENDOR, STRV_MAKE(name));
+                vendor = path_join(vendor_root, SYSTEM_DATA_UNIT_DIR, rel);
+                ASSERT_NOT_NULL(vendor);
+                ASSERT_TRUE(symlink_exists(vendor));
+                ASSERT_TRUE(is_dependency_mask(mask));
+                assert_state(name, UNIT_FILE_DISABLED);
+
+                /* Explicit enablement replaces the mask and restores activation. */
+                do_enable(/* flags= */ 0, STRV_MAKE(name));
+                ASSERT_FALSE(is_dependency_mask(mask));
+                assert_state(name, UNIT_FILE_ENABLED);
+        }
+}
+
+TEST(disable_records_template_rules) {
+        /* A disabled default instance and an explicitly disabled instance must remain disabled after a
+         * vendor enable. Start with a template whose dependency uses %i, and check each instance's mask. */
+        write_vendor_file("system/remember-template@.service",
+                          "[Install]\n"
+                          "DefaultInstance=default\n"
+                          "WantedBy=remember-%i.target\n");
+
+        do_disable(/* flags= */ 0, STRV_MAKE("remember-template@.service"));
+        const char *default_mask = strjoina(vendor_root,
+                        SYSTEM_CONFIG_UNIT_DIR"/remember-default.target.wants/remember-template@default.service");
+        ASSERT_TRUE(is_dependency_mask(default_mask));
+
+        do_disable(/* flags= */ 0, STRV_MAKE("remember-template@other.service"));
+        const char *other_mask = strjoina(vendor_root,
+                        SYSTEM_CONFIG_UNIT_DIR"/remember-other.target.wants/remember-template@other.service");
+        ASSERT_TRUE(is_dependency_mask(other_mask));
+
+        /* Vendor enablement leaves the administrator's masks intact. */
+        do_enable(UNIT_FILE_VENDOR, STRV_MAKE("remember-template@.service", "remember-template@other.service"));
+        assert_state("remember-template@default.service", UNIT_FILE_DISABLED);
+        assert_state("remember-template@other.service", UNIT_FILE_DISABLED);
+        ASSERT_TRUE(is_dependency_mask(default_mask));
+        ASSERT_TRUE(is_dependency_mask(other_mask));
+
+        /* Enabling a single instance clears its mask without enabling another instance. */
+        do_enable(/* flags= */ 0, STRV_MAKE("remember-template@other.service"));
+        assert_state("remember-template@other.service", UNIT_FILE_ENABLED);
+        assert_state("remember-template@default.service", UNIT_FILE_DISABLED);
+}
+
+TEST(disable_records_rules_inside_root) {
+        /* An absolute dependency-directory symlink in an image must resolve against the image root.
+         * Disable a unit without vendor links and check that its mask appears only inside the image. */
+        _cleanup_(rm_rf_physical_and_freep) char *image = NULL, *outside = NULL;
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/disable-image-XXXXXX", &image));
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/disable-outside-XXXXXX", &outside));
+
+        const char *unit = strjoina(image, SYSTEM_DATA_UNIT_DIR"/contained.service");
+        ASSERT_OK(mkdir_parents(unit, 0755));
+        ASSERT_OK(write_string_file(unit, WANTED_BY_MULTI_USER, WRITE_STRING_FILE_CREATE));
+
+        const char *directory = strjoina(image, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants");
+        ASSERT_OK(mkdir_parents(directory, 0755));
+        ASSERT_OK_ERRNO(symlink(outside, directory));
+        const char *inside = strjoina(image, outside);
+        ASSERT_OK(mkdir_p(inside, 0755));
+
+        ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, image,
+                                    STRV_MAKE("contained.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1u);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_MASK_DEPENDENCY);
+        ASSERT_TRUE(is_dependency_mask(strjoina(inside, "/contained.service")));
+        ASSERT_FALSE(symlink_exists(strjoina(outside, "/contained.service")));
+}
+
+TEST(disable_records_legacy_dependency_alias) {
+        /* A legacy Alias= dependency must remain disabled when a vendor adds the dependency later. Its
+         * ordinary alias must remain usable, and an explicit enable must replace the dependency mask.
+         * Create /dev/null in the image so the mask is not dangling. */
+        write_vendor_file("system/remember-legacy.service",
+                          "[Install]\n"
+                          "Alias=multi-user.target.wants/remember-legacy.service remember-legacy-name.service\n");
+        ASSERT_OK(touch(strjoina(vendor_root, "/dev/null")));
+
+        do_disable(/* flags= */ 0, STRV_MAKE("remember-legacy.service"));
+        const char *mask = strjoina(vendor_root, ETC_WANTS"remember-legacy.service");
+        ASSERT_TRUE(is_dependency_mask(mask));
+        ASSERT_FALSE(symlink_exists(strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/remember-legacy-name.service")));
+
+        do_enable(UNIT_FILE_VENDOR, STRV_MAKE("remember-legacy.service"));
+        ASSERT_TRUE(is_dependency_mask(mask));
+        assert_state("remember-legacy.service", UNIT_FILE_DISABLED);
+        assert_state("remember-legacy-name.service", UNIT_FILE_ALIAS);
+
+        do_enable(/* flags= */ 0, STRV_MAKE("remember-legacy.service"));
+        ASSERT_FALSE(is_dependency_mask(mask));
+        assert_state("remember-legacy.service", UNIT_FILE_ENABLED);
 }
 
 TEST(vendor_mask_in_unrelated_target) {
@@ -2185,8 +2346,8 @@ TEST(vendor_also) {
 TEST(vendor_mask_shadows_lower_priority_dir) {
         const char *high_mask, *mask;
 
-        /* An entry in a higher priority directory shadows the one below it, so a vendor that masks its own
-         * dependency in /usr/local/ leaves nothing for us to mask in /etc/. */
+        /* Disabling records an override even if /usr/local/ already masks a vendor dependency. The
+         * administrator's choice must remain when the higher-priority vendor mask is removed. */
 
         write_vendor_file("system/vendor-shadow.service", WANTED_BY_MULTI_USER);
         write_vendor_symlink("multi-user.target.wants/vendor-shadow.service", "../vendor-shadow.service");
@@ -2200,7 +2361,7 @@ TEST(vendor_mask_shadows_lower_priority_dir) {
         do_disable(/* flags= */ 0, STRV_MAKE("vendor-shadow.service"));
 
         mask = strjoina(vendor_root, ETC_WANTS"vendor-shadow.service");
-        ASSERT_FALSE(symlink_exists(mask));
+        ASSERT_TRUE(is_dependency_mask(mask));
 }
 
 TEST(vendor_multiple_units) {
