@@ -3641,6 +3641,7 @@ static int do_crypt_activate_verity(
 
 done:
         (void) pcrextend_verity_now(
+                        "verity",
                         name,
                         &verity->root_hash,
                         measure_signature ? &verity->root_hash_sig : NULL);
