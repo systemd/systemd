@@ -23,6 +23,7 @@ typedef struct RemoteServer {
 
         JournalWriteSplitMode split_mode;
         JournalFileFlags file_flags;
+        uint64_t max_upload;                   /* total size cap for chunked uploads, 0 = no limit */
         bool check_trust;
         bool add_client_certificate_subject;
         JournalMetrics metrics;
@@ -36,7 +37,8 @@ int journal_remote_server_init(
                 RemoteServer *s,
                 const char *output,
                 JournalWriteSplitMode split_mode,
-                JournalFileFlags file_flags);
+                JournalFileFlags file_flags,
+                uint64_t max_upload);
 
 int journal_remote_get_writer(RemoteServer *s, const char *host, Writer **writer);
 
