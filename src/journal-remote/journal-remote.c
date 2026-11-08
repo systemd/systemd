@@ -305,7 +305,8 @@ int journal_remote_server_init(
                 RemoteServer *s,
                 const char *output,
                 JournalWriteSplitMode split_mode,
-                JournalFileFlags file_flags) {
+                JournalFileFlags file_flags,
+                uint64_t max_upload) {
 
         int r;
 
@@ -316,6 +317,7 @@ int journal_remote_server_init(
 
         s->split_mode = split_mode;
         s->file_flags = file_flags;
+        s->max_upload = max_upload;
 
         if (output)
                 s->output = output;

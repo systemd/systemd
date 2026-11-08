@@ -113,6 +113,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MaxUploadSize=</varname></term>
+
+        <listitem><para>Takes a data size. Uploads declaring a larger <varname>Content-Length</varname> are
+        always rejected before the body is read; uploads sent with <varname>Transfer-Encoding:
+        chunked</varname> declare no size, and with this setting in place they are cut off with 413 once the
+        configured total is reached. If unset, chunked uploads are not limited in total size, matching
+        older clients which send their whole backlog in a single request.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MaxUse=</varname></term>
         <term><varname>KeepFree=</varname></term>
         <term><varname>MaxFileSize=</varname></term>
