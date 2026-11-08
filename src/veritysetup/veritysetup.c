@@ -464,10 +464,12 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
                         return log_error_errno(r, "Failed to set up verity device '%s': %m", volume);
         }
 
-        (void) pcrextend_verity_now(
-                        volume,
-                        &IOVEC_MAKE(rh, rh_size),
-                        signature_validated ? &arg_root_hash_signature : NULL);
+        if (arg_tpm2_measure_nvpcr)
+                (void) pcrextend_verity_now(
+                                arg_tpm2_measure_nvpcr,
+                                volume,
+                                &IOVEC_MAKE(rh, rh_size),
+                                signature_validated ? &arg_root_hash_signature : NULL);
 
         return 0;
 }
