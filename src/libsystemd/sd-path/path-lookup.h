@@ -26,6 +26,8 @@ typedef struct LookupPaths {
         char *persistent_attached;
         char *runtime_attached;
 
+        char *vendor_config;
+
         /* Where to place generated unit files (i.e. those a "generator" tool generated). Note the special semantics of
          * this directory: the generators are flushed each time a "systemctl daemon-reload" is issued. The user should
          * not alter these directories directly. */

@@ -988,6 +988,11 @@ InstallClientSide install_client_side(void) {
         if (arg_runtime_scope == RUNTIME_SCOPE_GLOBAL)
                 return INSTALL_CLIENT_SIDE_GLOBAL_SCOPE;
 
+        /* The bus API cannot request vendor operations. Checking arg_vendor after the other client-side
+         * conditions identifies operations on the running system that need a manager reload. */
+        if (arg_vendor)
+                return INSTALL_CLIENT_SIDE_VENDOR;
+
         return INSTALL_CLIENT_SIDE_NO;
 }
 
@@ -1017,7 +1022,8 @@ bool show_preset_for_state(UnitFileState state) {
 
 UnitFileFlags unit_file_flags_from_args(void) {
         return (arg_runtime ? UNIT_FILE_RUNTIME : 0) |
-               (arg_force   ? UNIT_FILE_FORCE   : 0);
+               (arg_force   ? UNIT_FILE_FORCE   : 0) |
+               (arg_vendor  ? UNIT_FILE_VENDOR  : 0);
 }
 
 int mangle_names(const char *operation, char * const *original_names, char ***ret) {
