@@ -86,6 +86,9 @@ char16_t *strchr16(const char16_t *s, char16_t c);
 
 const char16_t* path_filename16(const char16_t *path);
 
+char* strstr8(const char *haystack, const char *needle);
+char16_t *strstr16(const char16_t *haystack, const char16_t *needle);
+
 char* xstrndup8(const char *s, size_t n);
 char16_t *xstrndup16(const char16_t *s, size_t n);
 
