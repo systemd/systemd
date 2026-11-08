@@ -397,11 +397,14 @@ int pcrextend_verity_word(
 }
 
 int pcrextend_verity_now(
+                const char *nvpcr,
                 const char *name,
                 const struct iovec *root_hash,
                 const struct iovec *root_hash_sig) {
 
         int r;
+
+        assert(nvpcr);
 
         _cleanup_free_ char *word = NULL;
         r = pcrextend_verity_word(
@@ -412,7 +415,7 @@ int pcrextend_verity_now(
         if (r < 0)
                 return r;
 
-        return pcrextend_nvpcr_now("verity", word, "dm_verity");
+        return pcrextend_nvpcr_now(nvpcr, word, "dm_verity");
 }
 
 #define IMDS_USERDATA_TRUNCATED_MAX 256U
