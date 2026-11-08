@@ -34,8 +34,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         fuzz_setup_logging();
 
-        ASSERT_OK(mkdtemp_malloc("/tmp/fuzz-journal-remote-XXXXXX", &tmp));
-        name = ASSERT_NOT_NULL(path_join(tmp, "fuzz-journal-remote.XXXXXX.journal"));
+        assert_se(mkdtemp_malloc("/tmp/fuzz-journal-remote-XXXXXX", &tmp) >= 0);
+        assert_se(name = path_join(tmp, "fuzz-journal-remote.XXXXXX.journal"));
 
         fdin = fdin_close = memfd_new_and_seal("fuzz-journal-remote", data, size);
         if (fdin < 0)
@@ -47,9 +47,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         /* In */
 
-        r = journal_remote_server_init(&s, name, JOURNAL_WRITE_SPLIT_NONE, /* file_flags= */ 0);
+        r = journal_remote_server_init(&s, name, JOURNAL_WRITE_SPLIT_NONE, /* file_flags= */ 0, /* max_upload= */ 0);
         if (r < 0) {
-                ASSERT_TRUE(IN_SET(r, -ENOMEM, -EMFILE, -ENFILE));
+                assert_se(IN_SET(r, -ENOMEM, -EMFILE, -ENFILE));
                 return r;
         }
 
@@ -57,19 +57,19 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         TAKE_FD(fdin_close);
 
         if (size % 3 == 2)
-                s.sources[fdin]->client_certificate_subject = ASSERT_NOT_NULL(strdup(REMOTE_CERTIFICATE_SUBJECT_FIELD "CN=fuzz"));
+                assert_se(s.sources[fdin]->client_certificate_subject = strdup(REMOTE_CERTIFICATE_SUBJECT_FIELD "CN=fuzz"));
 
         while (s.active)
                 ASSERT_OK(journal_remote_handle_raw_source(/* event= */ NULL, fdin, /* revents= */ 0, &s));
 
-        ASSERT_ERROR_ERRNO(close(fdin), EBADF); /* Check that the fd is closed already */
+        assert_se(close(fdin) < 0 && errno == EBADF); /* Check that the fd is closed already */
 
         /* Out */
 
         r = sd_journal_open_files(&j, (const char**) STRV_MAKE(name), SD_JOURNAL_ASSUME_IMMUTABLE);
         if (r < 0) {
                 log_error_errno(r, "sd_journal_open_files([\"%s\"]) failed: %m", name);
-                ASSERT_TRUE(IN_SET(r, -ENOMEM, -EMFILE, -ENFILE, -ENODATA));
+                assert_se(IN_SET(r, -ENOMEM, -EMFILE, -ENFILE, -ENODATA));
                 return r;
         }
 
