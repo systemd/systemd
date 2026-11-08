@@ -7,6 +7,7 @@
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
+#include "bitfield.h"
 #include "blockdev-list.h"
 #include "blockdev-util.h"
 #include "build.h"
@@ -83,6 +84,7 @@ static char *arg_tpm2_public_key_policyref = NULL;
 static uint32_t arg_tpm2_public_key_pcr_mask = 0;
 static char *arg_tpm2_signature = NULL;
 static char *arg_tpm2_pcrlock = NULL;
+static bool arg_tpm2_reenroll = false;
 static char *arg_node = NULL;
 static PagerFlags arg_pager_flags = 0;
 static int *arg_wipe_slots = NULL;
@@ -647,6 +649,11 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_enroll_type = ENROLL_TPM2;
                         break;
 
+                OPTION_LONG("tpm2-reenroll", NULL,
+                            "Re-enroll TPM2 tokens whose PCR values changed, with the same parameters"):
+                        arg_tpm2_reenroll = true;
+                        break;
+
                 OPTION_LONG("tpm2-seal-key-handle", "HANDLE",
                             "Specify handle of key to use for sealing"):
                         r = safe_atou32_full(opts.arg, 16, &arg_tpm2_seal_key_handle);
@@ -765,6 +772,22 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (option_parser_get_n_args(&opts) > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many arguments, refusing.");
+
+        if (arg_tpm2_reenroll) {
+                /* Re-enrolling reuses the parameters of each token, so refuse anything that would select
+                 * different ones. --tpm2-device= only picks the TPM, and --tpm2-signature= and
+                 * --tpm2-pcrlock= are needed to tell whether tokens using them are current. */
+                if (arg_firstboot || wipe_requested() ||
+                    (arg_enroll_type >= 0 && (arg_enroll_type != ENROLL_TPM2 || arg_tpm2_device_key)))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--tpm2-reenroll may not be combined with other operations, refusing.");
+                if (arg_tpm2_n_hash_pcr_values > 0 || arg_tpm2_public_key || arg_tpm2_public_key_policyref ||
+                    !auto_public_key_pcr_mask || arg_tpm2_pin >= 0 || arg_tpm2_seal_key_handle != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--tpm2-reenroll reuses the parameters of each token and may not be combined with options selecting others, refusing.");
+
+                arg_enroll_type = _ENROLL_TYPE_INVALID;
+        }
 
         if (arg_firstboot) {
                 if (arg_enroll_type >= 0)
@@ -1225,6 +1248,176 @@ static void argon2id_parameters_benchmark(Argon2IdParameters *p, usec_t target_t
                    actual_elapsed > 0 ? actual_elapsed / USEC_PER_MSEC : target_ms);
 }
 
+static bool tpm2_token_reenrollable(const Tpm2Token *t) {
+        assert(t);
+
+        /* Re-enrolling seals to the current values of the PCRs the token is bound to. Signed PCR policies
+         * and pcrlock policies are kept up to date by other means, and we can't re-enroll them from the
+         * token alone. */
+        return t->state == TPM2_TOKEN_STALE &&
+                !iovec_is_set(&t->pubkey) &&
+                !FLAGS_SET(t->flags, TPM2_FLAGS_USE_PCRLOCK);
+}
+
+static int tpm2_token_pcr_values(const Tpm2Token *t, Tpm2PCRValue **ret, size_t *ret_n) {
+        _cleanup_free_ Tpm2PCRValue *values = NULL;
+        size_t n = 0;
+
+        assert(t);
+        assert(ret);
+        assert(ret_n);
+
+        /* Tokens from before the bank was recorded used SHA256 if available, which it is nowadays. */
+        TPMI_ALG_HASH bank = t->pcr_bank == UINT16_MAX ? TPM2_ALG_SHA256 : t->pcr_bank;
+
+        values = new(Tpm2PCRValue, TPM2_PCRS_MAX);
+        if (!values)
+                return log_oom();
+
+        for (unsigned i = 0; i < TPM2_PCRS_MAX; i++)
+                if (BIT_SET(t->hash_pcr_mask, i))
+                        values[n++] = TPM2_PCR_VALUE_MAKE(i, bank, {});
+
+        *ret = TAKE_PTR(values);
+        *ret_n = n;
+        return 0;
+}
+
+static int reenroll_tpm2(const EnrollContext *c) {
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(iovec_done_erase) struct iovec vk = {};
+        Tpm2Token *tokens = NULL;
+        size_t n_tokens = 0, n_reenroll = 0;
+        bool argon2id = false;
+        int r;
+
+        CLEANUP_ARRAY(tokens, n_tokens, tpm2_token_array_free);
+
+        assert(c);
+
+        /* Finding out which tokens are stale needs no secrets, so only ask for one to unlock the volume
+         * once we know there is something to do. */
+        r = prepare_luks(c, &cd, /* ret_volume_key= */ NULL);
+        if (r < 0)
+                return r;
+
+        r = tpm2_tokens_load(c, cd, &tokens, &n_tokens);
+        if (r < 0)
+                return r;
+        if (n_tokens == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No TPM2 tokens enrolled in %s.", c->node);
+
+        FOREACH_ARRAY(t, tokens, n_tokens) {
+                switch (t->state) {
+
+                case TPM2_TOKEN_CURRENT:
+                        log_info("TPM2 token in key slot %i matches the current system state, leaving it as is.", t->keyslot);
+                        break;
+
+                case TPM2_TOKEN_OTHER_TPM:
+                        log_info("TPM2 token in key slot %i was enrolled with a different TPM, leaving it as is.", t->keyslot);
+                        break;
+
+                case TPM2_TOKEN_STALE_SIGNATURE:
+                        log_notice("TPM2 token in key slot %i is bound to a signed PCR policy, and no available signature covers "
+                                   "the current system state. Re-enrolling doesn't help, a signature for the current boot is needed. "
+                                   "Leaving it as is.", t->keyslot);
+                        break;
+
+                case TPM2_TOKEN_STALE_PCRLOCK:
+                        log_notice("TPM2 token in key slot %i is bound to a pcrlock policy that doesn't cover the current system "
+                                   "state. Use 'systemd-pcrlock make-policy' to update the policy instead. Leaving it as is.", t->keyslot);
+                        break;
+
+                case TPM2_TOKEN_UNKNOWN:
+                        log_notice("Can't tell whether the TPM2 token in key slot %i matches the current system state, "
+                                   "leaving it as is.", t->keyslot);
+                        break;
+
+                case TPM2_TOKEN_STALE:
+                        if (!tpm2_token_reenrollable(t)) {
+                                log_notice("TPM2 token in key slot %i is bound to PCR values that changed, but also to a signed PCR "
+                                           "policy or a pcrlock policy. Re-enroll it with the same options instead. Leaving it as is.",
+                                           t->keyslot);
+                                break;
+                        }
+
+                        n_reenroll++;
+                        argon2id = argon2id || FLAGS_SET(t->flags, TPM2_FLAGS_USE_ARGON2ID);
+                        break;
+
+                default:
+                        assert_not_reached();
+                }
+        }
+
+        if (n_reenroll == 0) {
+                log_info("No TPM2 token needs to be re-enrolled.");
+                return 0;
+        }
+
+        log_notice("Re-enrolling binds %zu TPM2 token(s) to the current system state, i.e. trusts it. Only do this after "
+                   "a change you expected, such as a firmware update.", n_reenroll);
+
+        sym_crypt_free(TAKE_PTR(cd));
+        r = prepare_luks(c, &cd, &vk);
+        if (r < 0)
+                return r;
+
+        Argon2IdParameters argon2id_params = c->tpm2_argon2id_params;
+        if (argon2id)
+                argon2id_parameters_benchmark(
+                                &argon2id_params,
+                                c->tpm2_argon2id_iter_time > 0
+                                        ? c->tpm2_argon2id_iter_time
+                                        : (usec_t) ARGON2ID_BENCHMARK_DEFAULT_TARGET_MS * USEC_PER_MSEC);
+
+        FOREACH_ARRAY(t, tokens, n_tokens) {
+                _cleanup_(enroll_context_done) EnrollContext e = ENROLL_CONTEXT_NULL, w = ENROLL_CONTEXT_NULL;
+                int slot;
+
+                if (!tpm2_token_reenrollable(t))
+                        continue;
+
+                e.enroll_type = ENROLL_TPM2;
+                e.interactive = c->interactive;
+                e.tpm2_load_public_key = false;
+                e.tpm2_pin = !FLAGS_SET(t->flags, TPM2_FLAGS_USE_PIN) ? TPM2_WITH_PIN_NO :
+                             FLAGS_SET(t->flags, TPM2_FLAGS_USE_ARGON2ID) ? TPM2_WITH_PIN_YES : TPM2_WITH_PIN_DIRECT;
+                e.tpm2_argon2id_params = argon2id_params;
+
+                if (strdup_to(&e.node, c->node) < 0 ||
+                    strdup_to(&e.tpm2_device, c->tpm2_device) < 0)
+                        return log_oom();
+
+                r = tpm2_token_pcr_values(t, &e.tpm2_hash_pcr_values, &e.tpm2_n_hash_pcr_values);
+                if (r < 0)
+                        return r;
+
+                log_info("Re-enrolling TPM2 token in key slot %i.", t->keyslot);
+
+                slot = enroll_now(&e, cd, &vk, /* ret_recovery_key= */ NULL);
+                if (slot < 0)
+                        return slot;
+
+                /* The old token can't unlock the volume anymore, so remove it now that its replacement is in
+                 * place. */
+                w.wipe_slots = newdup(int, &t->keyslot, 1);
+                if (!w.wipe_slots)
+                        return log_oom();
+                w.n_wipe_slots = 1;
+                w.wipe_except_slot = slot;
+
+                r = wipe_slots(&w, cd, /* ret_wiped_slots= */ NULL, /* ret_n_wiped_slots= */ NULL);
+                if (r < 0)
+                        return r;
+
+                log_info("Replaced TPM2 token in key slot %i with one in key slot %i.", t->keyslot, slot);
+        }
+
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(iovec_done_erase) struct iovec vk = {};
@@ -1271,6 +1464,9 @@ static int run(int argc, char *argv[]) {
         /* Ensure the interactive chrome (drawn by cryptenroll_run_interactive() in --firstboot mode) is
          * always torn down on exit; chrome_hide() is a no-op if no chrome was shown. */
         DEFER_VOID_CALL(chrome_hide);
+
+        if (arg_tpm2_reenroll)
+                return reenroll_tpm2(&c);
 
         if (arg_firstboot) {
                 assert(c.enroll_type < 0);
