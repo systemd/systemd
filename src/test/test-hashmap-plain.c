@@ -405,10 +405,10 @@ TEST(hashmap_foreach_key) {
                 "key 3\0"
                 "key 4\0";
 
-        m = hashmap_new(&string_hash_ops);
+        m = ASSERT_NOT_NULL(hashmap_new(&string_hash_ops));
 
         NULSTR_FOREACH(k, key_table)
-                hashmap_put(m, k, (void*) (const char*) "my dummy val");
+                ASSERT_OK_EQ(hashmap_put(m, k, (void*) (const char*) "my dummy val"), 1);
 
         HASHMAP_FOREACH_KEY(s, key, m) {
                 ASSERT_NOT_NULL(s);

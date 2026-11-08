@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <limits.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -559,6 +560,7 @@ int pe_append_signature(int fd, const void *signature, size_t size) {
 
         assert(fd >= 0);
         assert(signature || size == 0);
+        assert(size <= INT_MAX);
 
         struct stat st;
         if (fstat(fd, &st) < 0)
