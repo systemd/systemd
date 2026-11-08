@@ -1687,12 +1687,16 @@ node /org/freedesktop/systemd1 {
 #define SD_SYSTEMD_UNIT_RUNTIME  (UINT64_C(1) &lt;&lt; 0)
 #define SD_SYSTEMD_UNIT_FORCE    (UINT64_C(1) &lt;&lt; 1)
 #define SD_SYSTEMD_UNIT_PORTABLE (UINT64_C(1) &lt;&lt; 2)
+#define SD_SYSTEMD_UNIT_NO_FUTURE_MASKS (UINT64_C(1) &lt;&lt; 7)
 </programlisting>
 
       <para><varname>SD_SYSTEMD_UNIT_RUNTIME</varname> will enable or disable the unit for runtime only,
       <varname>SD_SYSTEMD_UNIT_FORCE</varname> controls whether symlinks pointing to other units shall be
       replaced if necessary. <varname>SD_SYSTEMD_UNIT_PORTABLE</varname> will add or remove the symlinks in
-      <filename>/etc/systemd/system.attached</filename> and <filename>/run/systemd/system.attached</filename>.</para>
+      <filename>/etc/systemd/system.attached</filename> and <filename>/run/systemd/system.attached</filename>.
+      <varname>SD_SYSTEMD_UNIT_NO_FUTURE_MASKS</varname> suppresses dependency masks that would otherwise
+      record disabling a unit without existing enablement. Existing vendor enablement is still masked.
+      Package removal helpers use this flag because the unit is going away.</para>
 
       <para><function>DisableUnitFilesWithFlagsAndInstallInfo()</function> is similar to
       <function>DisableUnitFilesWithFlags()</function> and takes the same arguments, but returns
