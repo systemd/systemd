@@ -7619,8 +7619,9 @@ int tpm2_seal(Tpm2Context *c,
 #define RETRY_UNSEAL_MAX 30u
 
 /* Implements tpm2_unseal() and tpm2_check_unseal_policy(). Without ret_secret only the policy is checked:
- * no primary key is needed and the blobs aren't loaded, so the policy session is neither salted nor bound
- * to the sealed object, and no PIN is needed either, only whether one was enrolled (use_pin). */
+ * the policy session is not bound to the sealed object, so no PIN is needed, only whether one was enrolled
+ * (use_pin). If blobs are passed in that mode they are loaded too, which tells whether they were sealed by
+ * this TPM, but without blobs no primary key is needed either. */
 static int tpm2_unseal_internal(
                 Tpm2Context *c,
                 uint32_t hash_pcr_mask,
@@ -7685,7 +7686,7 @@ static int tpm2_unseal_internal(
         usec_t start = now(CLOCK_MONOTONIC);
 
         size_t n_shards = pcrlock_policy && iovec_is_set(pubkey) ? 2 : 1;
-        if (!check_only && n_blobs != n_shards)
+        if (n_blobs > 0 && n_blobs != n_shards)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Number of provided key blobs (%zu) does not match policy requirements (%zu).", n_blobs, n_shards);
         if (n_known_policy_hash > 0 && n_known_policy_hash != n_shards)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Number of provided known policy hashes (%zu) does not match policy requirements (%zu or 0).", n_known_policy_hash, n_shards);
@@ -7699,7 +7700,7 @@ static int tpm2_unseal_internal(
         }
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *primary_handle = NULL;
-        if (!check_only) {
+        if (n_blobs > 0) {
                 r = tpm2_deserialize(c, srk, &primary_handle);
                 if (r < 0)
                         return r;
@@ -7748,7 +7749,7 @@ static int tpm2_unseal_internal(
 
                 for (size_t shard = 0; shard < n_shards; shard++) {
                         _cleanup_(tpm2_handle_freep) Tpm2Handle *hmac_key = NULL, *encryption_session = NULL;
-                        if (!check_only) {
+                        if (n_blobs > 0) {
                                 TPM2B_PUBLIC public;
                                 TPM2B_PRIVATE private;
                                 TPM2B_ENCRYPTED_SECRET seed = {};
@@ -7784,7 +7785,9 @@ static int tpm2_unseal_internal(
                                 r = tpm2_load(c, primary_handle, /* session= */ NULL, &public, &private, &hmac_key);
                                 if (r < 0)
                                         return r;
+                        }
 
+                        if (!check_only) {
                                 /* If a PIN is set for the seal object, use it to bind the session key
                                  * to that object. This prevents active bus interposers from faking a TPM
                                  * and seeing the unsealed value. An active interposer could fake a TPM,
@@ -7950,13 +7953,19 @@ int tpm2_check_unseal_policy(
                 const char *pubkey_policy_ref,
                 uint32_t pubkey_pcr_mask,
                 sd_json_variant *signature,
+                bool use_pin,
                 const Tpm2PCRLockPolicy *pcrlock_policy,
+                uint16_t primary_alg,
+                const struct iovec blobs[],
+                size_t n_blobs,
                 const struct iovec known_policy_hash[],
-                size_t n_known_policy_hash) {
+                size_t n_known_policy_hash,
+                const struct iovec *srk) {
 
-        /* Checks whether the policy a PIN protected secret was sealed with can be satisfied in the current
-         * system state, without needing the PIN. Callers use this to avoid asking for or trying a PIN that
-         * can't unlock anything.
+        /* Checks whether the policy a secret was sealed with can be satisfied in the current system state,
+         * without needing its PIN. Callers use this to avoid asking for or trying a PIN that can't unlock
+         * anything, and to find enrollments that need to be renewed. If blobs are passed they are loaded as
+         * well, and -EREMOTE is returned if they were sealed by a different TPM.
          *
          * Returns 0 if the policy can be satisfied, or if we can't tell: PolicyPCR doesn't fail in a real
          * policy session, so without a known policy hash a plain PCR mismatch only shows when unsealing.
@@ -7976,14 +7985,14 @@ int tpm2_check_unseal_policy(
                         pubkey_pcr_mask,
                         signature,
                         /* pin= */ NULL,
-                        /* use_pin= */ true,
+                        use_pin,
                         pcrlock_policy,
-                        /* primary_alg= */ 0,
-                        /* blobs= */ NULL,
-                        /* n_blobs= */ 0,
+                        primary_alg,
+                        blobs,
+                        n_blobs,
                         known_policy_hash,
                         n_known_policy_hash,
-                        /* srk= */ NULL,
+                        srk,
                         /* ret_secret= */ NULL);
 }
 
