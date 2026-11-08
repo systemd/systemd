@@ -19,6 +19,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 #include "unit.h"
 
 static char *runtime_dir = NULL;
@@ -159,6 +160,7 @@ TEST(executor_directory_roundtrip) {
                 _cleanup_(cgroup_context_done) CGroupContext cgroup = {};
                 _cleanup_(exec_command_done) ExecCommand command = {};
                 _cleanup_fdset_free_ FDSet *fds = NULL;
+                _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-exec-directory.XXXXXX";
                 _cleanup_fclose_ FILE *f = NULL;
                 _cleanup_(exec_shared_runtime_done) ExecSharedRuntime shared = {
                         .userns_storage_socket = EBADF_PAIR,
@@ -178,7 +180,7 @@ TEST(executor_directory_roundtrip) {
                 sd_id128_to_string(parameters.invocation_id, parameters.invocation_id_string);
                 cgroup_context_init(&cgroup);
                 ASSERT_NOT_NULL(fds = fdset_new());
-                ASSERT_NOT_NULL(f = tmpfile());
+                ASSERT_OK_ZERO(fmkostemp_safe(fn, "r+", &f));
 
                 for (ExecDirectoryType type = 0; type < _EXEC_DIRECTORY_TYPE_MAX; type++)
                         ASSERT_OK(exec_directory_add(&context.directories[type], *path,
