@@ -95,9 +95,14 @@ int acquire_luks2_key(
                                 pubkey_policy_ref,
                                 pubkey_pcr_mask,
                                 signature_json,
+                                /* use_pin= */ true,
                                 FLAGS_SET(flags, TPM2_FLAGS_USE_PCRLOCK) ? &pcrlock_policy : NULL,
+                                /* primary_alg= */ 0,
+                                /* blobs= */ NULL,
+                                /* n_blobs= */ 0,
                                 policy_hash,
-                                n_policy_hash);
+                                n_policy_hash,
+                                /* srk= */ NULL);
                 if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r)) {
                         log_warning_errno(r, "TPM policy does not match current system state, %s. Either system has been tampered with or policy out-of-date: %m",
                                           pin ? "not trying PIN" : "not asking for PIN");
