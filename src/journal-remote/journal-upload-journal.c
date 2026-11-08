@@ -5,11 +5,18 @@
 #include "sd-journal.h"
 
 #include "alloc-util.h"
+#include "journal-def.h"
 #include "journal-upload.h"
 #include "log.h"
 #include "string-util.h"
 #include "time-util.h"
 #include "utf8.h"
+
+/* journal-remote rejects uploads whose size exceeds ENTRY_SIZE_MAX. Keep each
+ * request at half that, so that a large backlog is sent as several requests
+ * that are each accepted, instead of one request that is cut off mid-stream
+ * after entries have already been written. */
+#define JOURNAL_UPLOAD_MAX_BATCH (ENTRY_SIZE_MAX / 2)
 
 /**
  * Write up to size bytes to buf. Return negative on error, and number of
@@ -301,6 +308,19 @@ static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void 
 
         while (j && filled < size * nmemb) {
                 if (u->entry_state == ENTRY_DONE) {
+                        if (u->batch_end)
+                                /* The limit for this request was reached after the last
+                                 * entry. End the request here; the next request continues
+                                 * with the following entry. */
+                                break;
+
+                        if (u->batch_bytes >= JOURNAL_UPLOAD_MAX_BATCH) {
+                                log_debug("Serialized %zu bytes for this request, ending it at an entry boundary.",
+                                          u->batch_bytes);
+                                u->batch_end = true;
+                                break;
+                        }
+
                         r = sd_journal_next(j);
                         if (r == 0) {
                                 if (u->input_event)
@@ -335,6 +355,7 @@ static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void 
                 if (w < 0)
                         return CURL_READFUNC_ABORT;
                 filled += w;
+                u->batch_bytes += w;
 
                 if (filled == 0) {
                         log_error("Buffer space is too small to write entry.");

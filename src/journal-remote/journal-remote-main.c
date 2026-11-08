@@ -303,6 +303,14 @@ static int process_http_upload(
         if (*upload_data_size) {
                 log_trace("Received %zu bytes", *upload_data_size);
 
+                /* request_handler() rejects uploads with a declared size above the limit before
+                 * they start. Apply the same limit to the raw bytes actually received, so that
+                 * chunked uploads (which declare no size) are bounded as well. */
+                if (source->raw_uploaded + *upload_data_size > ENTRY_SIZE_MAX)
+                        return mhd_respondf(connection, 0, MHD_HTTP_CONTENT_TOO_LARGE,
+                                            "Payload larger than maximum size of %u bytes", ENTRY_SIZE_MAX);
+                source->raw_uploaded += *upload_data_size;
+
                 if (source->compression != COMPRESSION_NONE) {
                         _cleanup_free_ char *buf = NULL;
                         size_t buf_size;
