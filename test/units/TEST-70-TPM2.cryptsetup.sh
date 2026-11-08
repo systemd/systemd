@@ -102,6 +102,42 @@ fi
 tpm2_pcrextend 7:sha256=0000000000000000000000000000000000000000000000000000000000000000
 (! PIN=123456 systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1)
 
+# With the PCR policy no longer matching no PIN can unlock the volume, so we must not ask for one, and a PIN
+# passed anyway must not reach the TPM, where a wrong one counts towards dictionary attack lockout.
+tpm_check_no_pin_on_policy_mismatch() {
+    local options="${1:?}"
+
+    tpm2_dictionarylockout -c
+    (! systemd-cryptsetup attach test-volume "$IMAGE" - "$options" 2>/tmp/cryptsetup.log)
+    grep "not asking for PIN" /tmp/cryptsetup.log >/dev/null
+    (! grep "PIN querying disabled" /tmp/cryptsetup.log >/dev/null)
+    (! PIN=123457 systemd-cryptsetup attach test-volume "$IMAGE" - "$options")
+    tpm2_getcap properties-variable | grep -E '^TPM2_PT_LOCKOUT_COUNTER: +0x0+$' >/dev/null
+    rm -f /tmp/cryptsetup.log
+}
+
+tpm_check_no_pin_on_policy_mismatch tpm2-device=auto,headless=1
+if cryptsetup_has_token_plugin_support; then
+    tpm_check_no_pin_on_policy_mismatch headless=1
+fi
+
+# Add a second PIN token matching the current PCR state, next to the stale one. A wrong PIN must then only be
+# tried against the token whose policy matches, i.e. cost a single dictionary attack attempt.
+PASSWORD=passphrase NEWPIN=123456 systemd-cryptenroll --tpm2-device=auto --tpm2-public-key= --tpm2-with-pin=true --tpm2-pcrs=7 "$IMAGE"
+for options in tpm2-device=auto,headless=1 headless=1; do
+    if [[ "$options" == headless=1 ]] && ! cryptsetup_has_token_plugin_support; then
+        continue
+    fi
+
+    PIN=123456 systemd-cryptsetup attach test-volume "$IMAGE" - "$options"
+    systemd-cryptsetup detach test-volume
+
+    tpm2_dictionarylockout -c
+    (! PIN=123457 systemd-cryptsetup attach test-volume "$IMAGE" - "$options")
+    tpm2_getcap properties-variable | grep -E '^TPM2_PT_LOCKOUT_COUNTER: +0x0*1$' >/dev/null
+done
+tpm2_dictionarylockout -c
+
 # Enroll unlock with PCR 0+7
 systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
 PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-public-key= --tpm2-pcrs=0+7 "$IMAGE"
