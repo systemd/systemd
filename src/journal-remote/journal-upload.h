@@ -28,6 +28,7 @@ typedef struct Uploader {
         bool uploading;
         char error[CURL_ERROR_SIZE];
         struct curl_slist *header;
+        bool header_chunked;
         char *answer;
 
         sd_event_source *input_event;
@@ -35,6 +36,12 @@ typedef struct Uploader {
 
         /* fd stuff */
         int input;
+        /* Bytes read from a size-declared input in the current request, and
+         * the declared size (UINT64_MAX when the input size is unknown). When
+         * the declared size is reached, curl stops calling the read callback
+         * without a read of EOF, so the caller must finish the upload itself. */
+        uint64_t fd_bytes_read;
+        uint64_t fd_declared_size;
 
         /* journal stuff */
         sd_journal *journal;
@@ -42,6 +49,13 @@ typedef struct Uploader {
         entry_state entry_state;
         const void *field_data;
         size_t field_pos, field_length;
+
+        /* Batching of journal input into multiple requests, see
+         * journal_input_callback(). batch_bytes counts the serialized bytes of
+         * the current request, batch_end marks that the request should be
+         * finished after the entry that was written last. */
+        size_t batch_bytes;
+        bool batch_end;
 
         /* general metrics */
         const char *state_file;
