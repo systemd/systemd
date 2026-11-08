@@ -13,6 +13,7 @@
 #include "iovec-util.h"
 #include "locale-util.h"
 #include "plymouth-util.h"
+#include "random-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -23,6 +24,12 @@
 #define FIDO_ERR_UV_BLOCKED 0x3c
 #endif
 
+DLSYM_PROTOTYPE(eddsa_pk_free) = NULL;
+DLSYM_PROTOTYPE(eddsa_pk_from_ptr) = NULL;
+DLSYM_PROTOTYPE(eddsa_pk_new) = NULL;
+DLSYM_PROTOTYPE(es256_pk_free) = NULL;
+DLSYM_PROTOTYPE(es256_pk_from_ptr) = NULL;
+DLSYM_PROTOTYPE(es256_pk_new) = NULL;
 DLSYM_PROTOTYPE(fido_assert_allow_cred) = NULL;
 DLSYM_PROTOTYPE(fido_assert_free) = NULL;
 DLSYM_PROTOTYPE(fido_assert_hmac_secret_len) = NULL;
@@ -34,6 +41,7 @@ DLSYM_PROTOTYPE(fido_assert_set_hmac_salt) = NULL;
 DLSYM_PROTOTYPE(fido_assert_set_rp) = NULL;
 DLSYM_PROTOTYPE(fido_assert_set_up) = NULL;
 DLSYM_PROTOTYPE(fido_assert_set_uv) = NULL;
+DLSYM_PROTOTYPE(fido_assert_verify) = NULL;
 DLSYM_PROTOTYPE(fido_cbor_info_extensions_len) = NULL;
 DLSYM_PROTOTYPE(fido_cbor_info_extensions_ptr) = NULL;
 DLSYM_PROTOTYPE(fido_cbor_info_free) = NULL;
@@ -45,6 +53,8 @@ DLSYM_PROTOTYPE(fido_cred_free) = NULL;
 DLSYM_PROTOTYPE(fido_cred_id_len) = NULL;
 DLSYM_PROTOTYPE(fido_cred_id_ptr) = NULL;
 DLSYM_PROTOTYPE(fido_cred_new) = NULL;
+DLSYM_PROTOTYPE(fido_cred_pubkey_len) = NULL;
+DLSYM_PROTOTYPE(fido_cred_pubkey_ptr) = NULL;
 DLSYM_PROTOTYPE(fido_cred_set_clientdata_hash) = NULL;
 DLSYM_PROTOTYPE(fido_cred_set_extensions) = NULL;
 DLSYM_PROTOTYPE(fido_cred_set_prot) = NULL;
@@ -72,6 +82,9 @@ DLSYM_PROTOTYPE(fido_dev_open) = NULL;
 DLSYM_PROTOTYPE(fido_init) = NULL;
 DLSYM_PROTOTYPE(fido_set_log_handler) = NULL;
 DLSYM_PROTOTYPE(fido_strerr) = NULL;
+DLSYM_PROTOTYPE(rs256_pk_free) = NULL;
+DLSYM_PROTOTYPE(rs256_pk_from_ptr) = NULL;
+DLSYM_PROTOTYPE(rs256_pk_new) = NULL;
 
 static void fido_log_propagate_handler(const char *s) {
         log_debug("libfido2: %s", strempty(s));
@@ -88,6 +101,12 @@ int dlopen_libfido2(int log_level) {
 
         r = dlopen_many_sym_or_warn(
                         &libfido2_dl, "libfido2.so.1", log_level,
+                        DLSYM_ARG(eddsa_pk_free),
+                        DLSYM_ARG(eddsa_pk_from_ptr),
+                        DLSYM_ARG(eddsa_pk_new),
+                        DLSYM_ARG(es256_pk_free),
+                        DLSYM_ARG(es256_pk_from_ptr),
+                        DLSYM_ARG(es256_pk_new),
                         DLSYM_ARG(fido_assert_allow_cred),
                         DLSYM_ARG(fido_assert_free),
                         DLSYM_ARG(fido_assert_hmac_secret_len),
@@ -99,6 +118,7 @@ int dlopen_libfido2(int log_level) {
                         DLSYM_ARG(fido_assert_set_rp),
                         DLSYM_ARG(fido_assert_set_up),
                         DLSYM_ARG(fido_assert_set_uv),
+                        DLSYM_ARG(fido_assert_verify),
                         DLSYM_ARG(fido_cbor_info_extensions_len),
                         DLSYM_ARG(fido_cbor_info_extensions_ptr),
                         DLSYM_ARG(fido_cbor_info_free),
@@ -110,6 +130,8 @@ int dlopen_libfido2(int log_level) {
                         DLSYM_ARG(fido_cred_id_len),
                         DLSYM_ARG(fido_cred_id_ptr),
                         DLSYM_ARG(fido_cred_new),
+                        DLSYM_ARG(fido_cred_pubkey_len),
+                        DLSYM_ARG(fido_cred_pubkey_ptr),
                         DLSYM_ARG(fido_cred_set_clientdata_hash),
                         DLSYM_ARG(fido_cred_set_extensions),
                         DLSYM_ARG(fido_cred_set_prot),
@@ -136,7 +158,10 @@ int dlopen_libfido2(int log_level) {
                         DLSYM_ARG(fido_dev_open),
                         DLSYM_ARG(fido_init),
                         DLSYM_ARG(fido_set_log_handler),
-                        DLSYM_ARG(fido_strerr));
+                        DLSYM_ARG(fido_strerr),
+                        DLSYM_ARG(rs256_pk_free),
+                        DLSYM_ARG(rs256_pk_from_ptr),
+                        DLSYM_ARG(rs256_pk_new));
         if (r < 0)
                 return r;
 
@@ -302,22 +327,121 @@ static int fido2_common_assert_error_handle(int r) {
         }
 }
 
-static int fido2_is_cred_in_specific_token(
+static inline void es256_pk_free_wrapper(es256_pk_t **p) {
+        if (*p)
+                sym_es256_pk_free(p);
+}
+
+static inline void rs256_pk_free_wrapper(rs256_pk_t **p) {
+        if (*p)
+                sym_rs256_pk_free(p);
+}
+
+static inline void eddsa_pk_free_wrapper(eddsa_pk_t **p) {
+        if (*p)
+                sym_eddsa_pk_free(p);
+}
+
+static int fido2_assert_set_random_challenge(fido_assert_t *a) {
+        uint8_t cdh[32];
+        int r;
+
+        assert(a);
+
+        /* When we verify the signature of an assertion, the client data hash is the challenge that the
+         * token has to sign. It must be fresh, so that previously recorded assertions cannot be replayed. */
+
+        r = crypto_random_bytes(cdh, sizeof(cdh));
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate FIDO2 challenge: %m");
+
+        r = sym_fido_assert_set_clientdata_hash(a, cdh, sizeof(cdh));
+        if (r != FIDO_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to set FIDO2 assertion client data hash: %s", sym_fido_strerr(r));
+
+        return 0;
+}
+
+static int fido2_assert_verify_signature(
+                const fido_assert_t *a,
                 const char *path,
-                const char *rp_id,
-                const void *cid,
-                size_t cid_size,
-                Fido2EnrollFlags flags) {
+                int alg,
+                const struct iovec *public_key) {
+
+        int r;
+
+        assert(a);
+        assert(path);
+        assert(iovec_is_set(public_key));
+
+        /* Checks that the assertion was signed with the private key of the enrolled credential, i.e. that
+         * the device we talk to is the token that was enrolled, and not something that merely claims to
+         * know the credential ID (such as a FIDO2 token emulator). */
+
+        switch (alg) {
+
+        case COSE_ES256: {
+                _cleanup_(es256_pk_free_wrapper) es256_pk_t *pk = sym_es256_pk_new();
+                if (!pk)
+                        return log_oom();
+
+                r = sym_es256_pk_from_ptr(pk, public_key->iov_base, public_key->iov_len);
+                if (r != FIDO_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Failed to load ES256 FIDO2 public key: %s", sym_fido_strerr(r));
+
+                r = sym_fido_assert_verify(a, 0, alg, pk);
+                break;
+        }
+
+        case COSE_RS256: {
+                _cleanup_(rs256_pk_free_wrapper) rs256_pk_t *pk = sym_rs256_pk_new();
+                if (!pk)
+                        return log_oom();
+
+                r = sym_rs256_pk_from_ptr(pk, public_key->iov_base, public_key->iov_len);
+                if (r != FIDO_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Failed to load RS256 FIDO2 public key: %s", sym_fido_strerr(r));
+
+                r = sym_fido_assert_verify(a, 0, alg, pk);
+                break;
+        }
+
+        case COSE_EDDSA: {
+                _cleanup_(eddsa_pk_free_wrapper) eddsa_pk_t *pk = sym_eddsa_pk_new();
+                if (!pk)
+                        return log_oom();
+
+                r = sym_eddsa_pk_from_ptr(pk, public_key->iov_base, public_key->iov_len);
+                if (r != FIDO_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Failed to load EdDSA FIDO2 public key: %s", sym_fido_strerr(r));
+
+                r = sym_fido_assert_verify(a, 0, alg, pk);
+                break;
+        }
+
+        default:
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Unsupported FIDO2 credential algorithm %i.", alg);
+        }
+        if (r != FIDO_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EKEYREJECTED),
+                                       "FIDO2 device %s failed to prove possession of the enrolled credential, refusing to use it: %s",
+                                       path, sym_fido_strerr(r));
+
+        log_debug("FIDO2 device %s proved possession of the enrolled credential.", path);
+        return 0;
+}
+
+static int fido2_open_device(const char *path, fido_dev_t **ret) {
+        _cleanup_(fido_dev_free_wrapper) fido_dev_t *d = NULL;
+        int r;
 
         assert(path);
-        assert(rp_id);
-        assert(cid);
-        assert(cid_size);
-
-        _cleanup_(fido_dev_free_wrapper) fido_dev_t *d = NULL;
-        _cleanup_(fido_assert_free_wrapper) fido_assert_t *a = NULL;
-        bool has_up = false, has_uv = false;
-        int r;
+        assert(ret);
 
         d = sym_fido_dev_new();
         if (!d)
@@ -327,6 +451,35 @@ static int fido2_is_cred_in_specific_token(
         if (r != FIDO_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to open FIDO2 device %s: %s", path, sym_fido_strerr(r));
+
+        *ret = TAKE_PTR(d);
+        return 0;
+}
+
+static int fido2_is_cred_in_specific_token(
+                fido_dev_t *d,
+                const char *path,
+                const char *rp_id,
+                const void *cid,
+                size_t cid_size,
+                const struct iovec *public_key,
+                int public_key_alg,
+                Fido2EnrollFlags flags) {
+
+        _cleanup_(fido_assert_free_wrapper) fido_assert_t *a = NULL;
+        bool has_up = false, has_uv = false, with_uv = false;
+        int r;
+
+        assert(d);
+        assert(path);
+        assert(rp_id);
+        assert(cid);
+        assert(cid_size);
+
+        /* Checks whether the credential is on the token. If a public key is specified, also checks that the
+         * token proves possession of the credential's private key, by signing a fresh challenge. Returns
+         * > 0 if so, 0 if the credential is not on the token, and -EKEYREJECTED if the token claims to have
+         * the credential but cannot prove it. */
 
         r = verify_features(d, path, LOG_ERR, /* ret_has_rk= */ NULL, /* ret_has_client_pin= */ NULL, &has_up, &has_uv, /* ret_has_always_uv= */ NULL);
         if (r == -ENODEV) { /* Not a FIDO2 device or lacking HMAC-SECRET extension */
@@ -344,15 +497,28 @@ static int fido2_is_cred_in_specific_token(
         if (r < 0)
                 return r;
 
-        /* FIDO2 devices may not support pre-flight requests with UV, at least not
-         * without user interaction [1]. As a result, let's just return true
-         * here and go ahead with trying the unlock directly.
-         * Reference:
-         * 1: https://fidoalliance.org/specs/fido-v2.1-ps-20210615/fido-client-to-authenticator-protocol-v2.1-ps-20210615.html#sctn-getAssert-authnr-alg
-         *    See section 7.4 */
         if (has_uv && FLAGS_SET(flags, FIDO2ENROLL_UV)) {
-                log_debug("Pre-flight requests with UV are unsupported, device: %s", path);
-                return true;
+                /* FIDO2 devices may not support pre-flight requests with UV, at least not
+                 * without user interaction [1]. As a result, let's just return true
+                 * here and go ahead with trying the unlock directly.
+                 * Reference:
+                 * 1: https://fidoalliance.org/specs/fido-v2.1-ps-20210615/fido-client-to-authenticator-protocol-v2.1-ps-20210615.html#sctn-getAssert-authnr-alg
+                 *    See section 7.4 */
+                if (!iovec_is_set(public_key)) {
+                        log_debug("Pre-flight requests with UV are unsupported, device: %s", path);
+                        return true;
+                }
+
+                /* … but if we have to verify the token before we hand it any secret, we cannot skip the
+                 * check. Credentials enrolled with UV are protected with credProtect=UV-required, hence the
+                 * token will only acknowledge them after verifying the user. */
+                with_uv = true;
+        }
+
+        if (iovec_is_set(public_key)) {
+                r = fido2_assert_set_random_challenge(a);
+                if (r < 0)
+                        return r;
         }
 
         /* According to CTAP 2.1 specification, to do pre-flight we need to set up option to false
@@ -371,25 +537,48 @@ static int fido2_is_cred_in_specific_token(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to set assertion user presence: %s", sym_fido_strerr(r));
 
+        if (with_uv) {
+                r = sym_fido_assert_set_uv(a, FIDO_OPT_TRUE);
+                if (r != FIDO_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Failed to enable FIDO2 user verification: %s", sym_fido_strerr(r));
+
+                log_notice("%s%sPlease verify user on security token to confirm its identity.",
+                           emoji_enabled() ? glyph(GLYPH_TOUCH) : "",
+                           emoji_enabled() ? " " : "");
+        }
+
         r = sym_fido_dev_get_assert(d, a, NULL);
+        if (r == FIDO_ERR_PIN_REQUIRED && iovec_is_set(public_key))
+                /* Never send the PIN to a device that has not proven to hold the credential yet: an emulator
+                 * would get the PIN hash, which is easy to brute-force offline. */
+                return log_error_errno(SYNTHETIC_ERRNO(EKEYREJECTED),
+                                       "FIDO2 device %s requires the client PIN before it can prove possession of the credential, refusing to disclose the PIN to it.",
+                                       path);
 
         switch (r) {
                 case FIDO_OK:
-                        return true;
+                        break;
                 case FIDO_ERR_NO_CREDENTIALS:
                         return false;
                 default:
                         return fido2_common_assert_error_handle(r);
         }
+
+        if (iovec_is_set(public_key)) {
+                r = fido2_assert_verify_signature(a, path, public_key_alg, public_key);
+                if (r < 0)
+                        return r;
+        }
+
+        return true;
 }
 
 static void plymouth_start_interaction(const char *text, bool *ret_displayed) {
         assert(ret_displayed);
 
-        if (plymouth_send_msg(text, /* pause_spinner= */ true) < 0)
-                return;
-
-        *ret_displayed = true;
+        if (plymouth_show_message(text) > 0)
+                *ret_displayed = true;
 }
 
 static void plymouth_end_interaction(bool *displayed) {
@@ -398,18 +587,19 @@ static void plymouth_end_interaction(bool *displayed) {
         if (!*displayed)
                 return;
 
-        /* In theory 'm' should hide a message, but it doesn't work (long standing issue).
-         * As a workaround, sending a single NUL byte hides the previous messages. */
-        (void) plymouth_send_msg("", /* pause_spinner= */ false);
+        plymouth_hide_message();
 }
 
 static int fido2_use_hmac_hash_specific_token(
+                fido_dev_t *d,
                 const char *path,
                 const char *rp_id,
                 const void *salt,
                 size_t salt_size,
                 const void *cid,
                 size_t cid_size,
+                const struct iovec *public_key,
+                int public_key_alg,
                 char **pins,
                 Fido2EnrollFlags required, /* client pin/user presence required */
                 void **ret_hmac,
@@ -417,28 +607,19 @@ static int fido2_use_hmac_hash_specific_token(
 
         _cleanup_(plymouth_end_interaction) bool plymouth_displayed = false;
         _cleanup_(fido_assert_free_wrapper) fido_assert_t *a = NULL;
-        _cleanup_(fido_dev_free_wrapper) fido_dev_t *d = NULL;
         _cleanup_(erase_and_freep) void *hmac_copy = NULL;
         bool has_up, has_client_pin, has_uv;
         size_t hmac_size;
         const void *hmac;
         int r;
 
+        assert(d);
         assert(path);
         assert(rp_id);
         assert(salt);
         assert(cid);
         assert(ret_hmac);
         assert(ret_hmac_size);
-
-        d = sym_fido_dev_new();
-        if (!d)
-                return log_oom();
-
-        r = sym_fido_dev_open(d, path);
-        if (r != FIDO_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to open FIDO2 device %s: %s", path, sym_fido_strerr(r));
 
         r = verify_features(d, path, LOG_ERR, /* ret_has_rk= */ NULL, &has_client_pin, &has_up, &has_uv, /* ret_has_always_uv= */ NULL);
         if (r < 0)
@@ -476,6 +657,12 @@ static int fido2_use_hmac_hash_specific_token(
         r = fido2_assert_set_basic_properties(a, rp_id, cid, cid_size);
         if (r < 0)
                 return r;
+
+        if (iovec_is_set(public_key)) {
+                r = fido2_assert_set_random_challenge(a);
+                if (r < 0)
+                        return r;
+        }
 
         log_info("Asking FIDO2 token for authentication.");
 
@@ -611,6 +798,14 @@ static int fido2_use_hmac_hash_specific_token(
         if (r < 0)
                 return r;
 
+        if (iovec_is_set(public_key)) {
+                /* The signature covers the authenticator data, which carries the hmac-secret output, hence
+                 * this binds the secret to the enrolled credential too. */
+                r = fido2_assert_verify_signature(a, path, public_key_alg, public_key);
+                if (r < 0)
+                        return r;
+        }
+
         hmac = sym_fido_assert_hmac_secret_ptr(a, 0);
         if (!hmac)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve HMAC secret.");
@@ -629,7 +824,7 @@ static int fido2_use_hmac_hash_specific_token(
 }
 
 /* COSE_ECDH_ES256 is not usable with fido_cred_set_type() thus it's not listed here. */
-static const char *fido2_algorithm_to_string(int alg) {
+const char* fido2_algorithm_to_string(int alg) {
         switch (alg) {
                 case COSE_ES256:
                         return "es256";
@@ -642,6 +837,42 @@ static const char *fido2_algorithm_to_string(int alg) {
         }
 }
 
+static int fido2_use_hmac_hash_try_device(
+                const char *path,
+                const char *rp_id,
+                const void *salt,
+                size_t salt_size,
+                const void *cid,
+                size_t cid_size,
+                const struct iovec *public_key,
+                int public_key_alg,
+                char **pins,
+                Fido2EnrollFlags required,
+                void **ret_hmac,
+                size_t *ret_hmac_size) {
+
+        _cleanup_(fido_dev_free_wrapper) fido_dev_t *d = NULL;
+        int r;
+
+        assert(path);
+
+        /* Keep the device open between the pre-flight and the actual request, so that the token that
+         * answered the pre-flight is the one that gets the salt. */
+        r = fido2_open_device(path, &d);
+        if (r < 0)
+                return r;
+
+        r = fido2_is_cred_in_specific_token(d, path, rp_id, cid, cid_size, public_key, public_key_alg, required);
+        if (r == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADSLT), "The credential is not in the token %s.", path);
+        if (r == -EKEYREJECTED)
+                return r; /* Already logged */
+        if (r < 0)
+                return log_error_errno(r, "Token returned error during pre-flight: %m");
+
+        return fido2_use_hmac_hash_specific_token(d, path, rp_id, salt, salt_size, cid, cid_size, public_key, public_key_alg, pins, required, ret_hmac, ret_hmac_size);
+}
+
 int fido2_use_hmac_hash(
                 const char *device,
                 const char *rp_id,
@@ -649,6 +880,8 @@ int fido2_use_hmac_hash(
                 size_t salt_size,
                 const void *cid,
                 size_t cid_size,
+                const struct iovec *public_key,
+                const char *public_key_algorithm,
                 char **pins,
                 Fido2EnrollFlags required, /* client pin/user presence required */
                 void **ret_hmac,
@@ -656,24 +889,29 @@ int fido2_use_hmac_hash(
 
         size_t allocated = 64, found = 0;
         fido_dev_info_t *di = NULL;
-        int r;
+        bool rejected = false;
+        int r, public_key_alg = 0;
+
+        /* If a public key is specified, the salt is only handed to a token that proves possession of the
+         * private key of the enrolled credential, and the hmac-secret is only accepted from it. */
 
         r = dlopen_libfido2(LOG_ERR);
         if (r < 0)
                 return r;
 
-        if (device) {
-                r = fido2_is_cred_in_specific_token(device, rp_id, cid, cid_size, required);
-                if (r == 0)
-                        /* The caller is expected to attempt other key slots in this case,
-                         * therefore, do not spam the console with error logs here. */
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADSLT),
-                                               "The credential is not in the token %s.", device);
-                if (r < 0)
-                        return log_error_errno(r, "Token returned error during pre-flight: %m");
+        if (iovec_is_set(public_key)) {
+                if (!public_key_algorithm)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "FIDO2 public key specified without algorithm.");
 
-                return fido2_use_hmac_hash_specific_token(device, rp_id, salt, salt_size, cid, cid_size, pins, required, ret_hmac, ret_hmac_size);
+                r = parse_fido2_algorithm(public_key_algorithm, &public_key_alg);
+                if (r < 0)
+                        return log_error_errno(r, "Unsupported FIDO2 credential algorithm: %s", public_key_algorithm);
         }
+
+        if (device)
+                /* If the credential is not in the token, the caller is expected to attempt other key slots,
+                 * therefore, do not spam the console with error logs here. */
+                return fido2_use_hmac_hash_try_device(device, rp_id, salt, salt_size, cid, cid_size, public_key, public_key_alg, pins, required, ret_hmac, ret_hmac_size);
 
         di = sym_fido_dev_info_new(allocated);
         if (!di)
@@ -708,24 +946,20 @@ int fido2_use_hmac_hash(
                         goto finish;
                 }
 
-                r = fido2_is_cred_in_specific_token(path, rp_id, cid, cid_size, required);
-                if (r < 0) {
-                        log_error_errno(r, "Token returned error during pre-flight: %m");
-                        goto finish;
-                }
-                if (r == 0) {
-                        log_debug("The credential is not in the token %s, skipping.", path);
+                r = fido2_use_hmac_hash_try_device(path, rp_id, salt, salt_size, cid, cid_size, public_key, public_key_alg, pins, required, ret_hmac, ret_hmac_size);
+                if (r == -EKEYREJECTED) {
+                        /* A device that claims to have the credential but can't prove it: never hand it
+                         * anything, but keep looking for the real token. */
+                        rejected = true;
                         continue;
                 }
-
-                r = fido2_use_hmac_hash_specific_token(path, rp_id, salt, salt_size, cid, cid_size, pins, required, ret_hmac, ret_hmac_size);
                 if (!IN_SET(r,
                             -EBADSLT, /* device doesn't understand our credential hash */
                             -ENODEV   /* device is not a FIDO2 device with HMAC-SECRET */))
                         goto finish;
         }
 
-        r = -EAGAIN;
+        r = rejected ? -EKEYREJECTED : -EAGAIN;
 
 finish:
         sym_fido_dev_info_free(&di, allocated);
@@ -749,9 +983,11 @@ int fido2_generate_hmac_hash(
                 const struct iovec *salt,
                 void **ret_cid, size_t *ret_cid_size,
                 void **ret_secret, size_t *ret_secret_size,
+                struct iovec *ret_public_key,
                 char **ret_usedpin,
                 Fido2EnrollFlags *ret_locked_with) {
 
+        _cleanup_(iovec_done) struct iovec public_key = {};
         _cleanup_(erase_and_freep) void *secret_copy = NULL;
         _cleanup_(fido_assert_free_wrapper) fido_assert_t *a = NULL;
         _cleanup_(fido_cred_free_wrapper) fido_cred_t *c = NULL;
@@ -1021,6 +1257,18 @@ int fido2_generate_hmac_hash(
 
         cid_size = sym_fido_cred_id_len(c);
 
+        if (ret_public_key) {
+                /* The public key of the credential allows verifying later that we talk to the very token
+                 * that was enrolled, see fido2_use_hmac_hash(). */
+                const void *pk = sym_fido_cred_pubkey_ptr(c);
+                size_t pk_size = sym_fido_cred_pubkey_len(c);
+                if (!pk || pk_size == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get FIDO2 credential public key.");
+
+                if (!iovec_memdup(&IOVEC_MAKE(pk, pk_size), &public_key))
+                        return log_oom();
+        }
+
         a = sym_fido_assert_new();
         if (!a)
                 return log_oom();
@@ -1171,6 +1419,9 @@ int fido2_generate_hmac_hash(
         *ret_cid_size = cid_size;
         *ret_secret = TAKE_PTR(secret_copy);
         *ret_secret_size = secret_size;
+
+        if (ret_public_key)
+                *ret_public_key = TAKE_STRUCT(public_key);
 
         if (ret_usedpin)
                 *ret_usedpin = TAKE_PTR(used_pin);
