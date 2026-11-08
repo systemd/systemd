@@ -13,11 +13,15 @@ cryptenroll_wipe_and_check() (
 
 at_exit() {
     cryptsetup close "${VAR_IMAGE_NAME:-}" >/dev/null 2>&1 || :
+    if [[ -n "${RE_IMAGE:-}" ]]; then
+        systemd-cryptsetup detach test-reenroll >/dev/null 2>&1 || :
+        tpm2_pcrreset 16 || :
+    fi
     if [[ -n "${VAR_LOOP:-}" ]]; then
         losetup --detach "$VAR_LOOP" || :
     fi
 
-    rm -f "${IMAGE:-}" "${VL_IMAGE:-}" "${VAR_IMAGE:-}" /tmp/cryptenroll.out /tmp/password /etc/polkit-1/rules.d/cryptenroll-unpriv.rules
+    rm -f "${IMAGE:-}" "${VL_IMAGE:-}" "${VAR_IMAGE:-}" "${RE_IMAGE:-}" /tmp/cryptenroll.out /tmp/password /etc/polkit-1/rules.d/cryptenroll-unpriv.rules
 
     # Ignore if polkit doesn't exist
     systemctl try-reload-or-restart polkit.service || :
@@ -217,3 +221,29 @@ EOF
 fi
 
 rm -f "$VL_IMAGE"
+
+# Re-enroll a TPM2 token whose PCR values changed. Use PCR 16, the debug PCR, so that it can be reset afterwards.
+RE_IMAGE="$(mktemp /tmp/systemd-cryptenroll-reenroll-XXX.image)"
+truncate -s 20M "$RE_IMAGE"
+cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom "$RE_IMAGE" /tmp/password
+tpm2_pcrreset 16
+NEWPIN=123456 systemd-cryptenroll --unlock-key-file=/tmp/password --tpm2-device=auto --tpm2-public-key= --tpm2-pcrlock= \
+    --tpm2-pcrs=16 --tpm2-with-pin=yes "$RE_IMAGE"
+systemd-cryptenroll "$RE_IMAGE" | grep -E 'tpm2 +current' >/dev/null
+# Nothing is stale, so this neither unlocks the volume nor needs a way to
+systemd-cryptenroll --tpm2-reenroll "$RE_IMAGE" </dev/null
+
+tpm2_pcrextend 16:sha256=0000000000000000000000000000000000000000000000000000000000000000
+systemd-cryptenroll "$RE_IMAGE" | grep -E 'tpm2 +stale' >/dev/null
+NEWPIN=654321 systemd-cryptenroll --unlock-key-file=/tmp/password --tpm2-reenroll "$RE_IMAGE"
+systemd-cryptenroll "$RE_IMAGE" | grep -E 'tpm2 +current' >/dev/null
+[[ "$(systemd-cryptenroll "$RE_IMAGE" | grep -c tpm2)" == 1 ]]
+PIN=654321 systemd-cryptsetup attach test-reenroll "$RE_IMAGE" - tpm2-device=auto,headless=1
+systemd-cryptsetup detach test-reenroll
+
+# Options selecting other enrollment parameters are refused
+(! systemd-cryptenroll --tpm2-reenroll --tpm2-pcrs=7 "$RE_IMAGE")
+(! systemd-cryptenroll --tpm2-reenroll --tpm2-with-pin=no "$RE_IMAGE")
+
+tpm2_pcrreset 16
+rm -f "$RE_IMAGE"

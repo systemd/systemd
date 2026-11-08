@@ -11,11 +11,13 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "hexdecoct.h"
+#include "iovec-util.h"
 #include "json-util.h"
 #include "log.h"
 #include "memory-util.h"
 #include "random-util.h"
 #include "sha256.h"
+#include "string-table.h"
 #include "strv.h"
 #include "tpm2-util.h"
 
@@ -667,5 +669,177 @@ int enroll_tpm2(const EnrollContext *c,
         return keyslot;
 #else
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 key enrollment not supported.");
+#endif
+}
+
+static const char* const tpm2_token_state_table[_TPM2_TOKEN_STATE_MAX] = {
+        [TPM2_TOKEN_CURRENT]         = "current",
+        [TPM2_TOKEN_STALE]           = "stale",
+        [TPM2_TOKEN_STALE_SIGNATURE] = "stale-signature",
+        [TPM2_TOKEN_STALE_PCRLOCK]   = "stale-pcrlock",
+        [TPM2_TOKEN_OTHER_TPM]       = "other-tpm",
+        [TPM2_TOKEN_UNKNOWN]         = "unknown",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(tpm2_token_state, Tpm2TokenState);
+
+static void tpm2_token_done(Tpm2Token *t) {
+        assert(t);
+
+        iovec_done(&t->pubkey);
+        t->pubkey_policy_ref = mfree(t->pubkey_policy_ref);
+        iovec_array_free(t->blobs, t->n_blobs);
+        iovec_array_free(t->policy_hash, t->n_policy_hash);
+        iovec_done(&t->salt);
+        iovec_done(&t->srk);
+        iovec_done(&t->pcrlock_nv);
+}
+
+void tpm2_token_array_free(Tpm2Token *tokens, size_t n) {
+        FOREACH_ARRAY(t, tokens, n)
+                tpm2_token_done(t);
+
+        free(tokens);
+}
+
+#if HAVE_TPM2
+static Tpm2TokenState tpm2_token_classify(Tpm2Context *tc, const EnrollContext *c, const Tpm2Token *t) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *signature_json = NULL;
+        _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy pcrlock_policy = {};
+        int r;
+
+        assert(tc);
+        assert(c);
+        assert(t);
+
+        if (t->pubkey_pcr_mask != 0) {
+                r = tpm2_load_pcr_signature(c->tpm2_signature, &signature_json);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to load PCR signature for TPM2 token %i, can't tell whether it is current: %m", t->token);
+                        return TPM2_TOKEN_UNKNOWN;
+                }
+        }
+
+        if (FLAGS_SET(t->flags, TPM2_FLAGS_USE_PCRLOCK)) {
+                r = tpm2_pcrlock_policy_load(c->tpm2_pcrlock, &pcrlock_policy);
+                if (r == 0)
+                        r = tpm2_pcrlock_policy_from_credentials(&t->srk, &t->pcrlock_nv, &pcrlock_policy);
+                if (r <= 0) {
+                        log_debug_errno(r, "Failed to load pcrlock policy for TPM2 token %i, can't tell whether it is current: %m", t->token);
+                        return TPM2_TOKEN_UNKNOWN;
+                }
+        }
+
+        /* Pass the blobs too, so that a token sealed by another TPM is recognized as such, rather than as
+         * one whose PCR policy doesn't match. */
+        r = tpm2_check_unseal_policy(
+                        tc,
+                        t->hash_pcr_mask,
+                        t->pcr_bank,
+                        &t->pubkey,
+                        t->pubkey_policy_ref,
+                        t->pubkey_pcr_mask,
+                        signature_json,
+                        FLAGS_SET(t->flags, TPM2_FLAGS_USE_PIN),
+                        FLAGS_SET(t->flags, TPM2_FLAGS_USE_PCRLOCK) ? &pcrlock_policy : NULL,
+                        t->primary_alg,
+                        t->blobs,
+                        t->n_blobs,
+                        t->policy_hash,
+                        t->n_policy_hash,
+                        &t->srk);
+        if (r == 0) {
+                /* Without a known policy hash a mismatch of literal PCR values goes unnoticed until
+                 * unsealing, so we can't tell. */
+                if (t->n_policy_hash == 0 && t->hash_pcr_mask != 0)
+                        return TPM2_TOKEN_UNKNOWN;
+                return TPM2_TOKEN_CURRENT;
+        }
+        if (r == -EREMOTE)
+                return TPM2_TOKEN_OTHER_TPM;
+        if (r == -ENOSTR)
+                return TPM2_TOKEN_STALE_SIGNATURE;
+        if (r == -EPERM && t->hash_pcr_mask != 0)
+                return TPM2_TOKEN_STALE;
+        /* The blobs were loaded before the policy was built, so this TPM sealed them, and the NV index
+         * referenced by the pcrlock policy is missing or doesn't match. */
+        if (IN_SET(r, -ENOANO, -EREMCHG, -EADDRNOTAVAIL) && FLAGS_SET(t->flags, TPM2_FLAGS_USE_PCRLOCK))
+                return TPM2_TOKEN_STALE_PCRLOCK;
+
+        log_debug_errno(r, "Failed to check the policy of TPM2 token %i, can't tell whether it is current: %m", t->token);
+        return TPM2_TOKEN_UNKNOWN;
+}
+#endif
+
+int tpm2_tokens_load(const EnrollContext *c, struct crypt_device *cd, Tpm2Token **ret, size_t *ret_n) {
+#if HAVE_TPM2
+        Tpm2Token *tokens = NULL;
+        size_t n_tokens = 0;
+        int r;
+
+        CLEANUP_ARRAY(tokens, n_tokens, tpm2_token_array_free);
+
+        assert(c);
+        assert(cd);
+        assert(ret);
+        assert(ret_n);
+
+        for (int token = 0;; token++) {
+                Tpm2Token t = {};
+
+                r = find_tpm2_auto_data(
+                                cd,
+                                UINT32_MAX,
+                                token,
+                                LOG_DEBUG,
+                                &t.hash_pcr_mask,
+                                &t.pcr_bank,
+                                &t.pubkey,
+                                &t.pubkey_policy_ref,
+                                &t.pubkey_pcr_mask,
+                                &t.primary_alg,
+                                &t.blobs,
+                                &t.n_blobs,
+                                &t.policy_hash,
+                                &t.n_policy_hash,
+                                &t.salt,
+                                &t.srk,
+                                &t.pcrlock_nv,
+                                &t.flags,
+                                &t.keyslot,
+                                &t.token,
+                                &t.argon2id_params);
+                if (r == -ENXIO)
+                        break;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read TPM2 tokens of %s: %m", c->node);
+
+                if (!GREEDY_REALLOC(tokens, n_tokens + 1)) {
+                        tpm2_token_done(&t);
+                        return log_oom();
+                }
+
+                tokens[n_tokens++] = t;
+                token = t.token;
+        }
+
+        if (n_tokens > 0) {
+                _cleanup_(tpm2_context_unrefp) Tpm2Context *tc = NULL;
+
+                r = tpm2_context_new(c->tpm2_device, &tc);
+                if (r < 0)
+                        log_notice_errno(r, "Failed to open TPM2 device, can't tell whether TPM2 tokens are current: %m");
+
+                FOREACH_ARRAY(t, tokens, n_tokens)
+                        t->state = tc ? tpm2_token_classify(tc, c, t) : TPM2_TOKEN_UNKNOWN;
+        }
+
+        *ret = TAKE_PTR(tokens);
+        *ret_n = n_tokens;
+        return 0;
+#else
+        *ret = NULL;
+        *ret_n = 0;
+        return 0;
 #endif
 }

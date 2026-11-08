@@ -192,6 +192,36 @@ int acquire_tpm2_key(
                 return r;
         }
 
+        /* Before asking for the PIN, check that the policy can be satisfied at all. If it can't, no PIN will
+         * unlock the volume, and asking for one anyway only makes the user believe they mistyped it. */
+        r = tpm2_check_unseal_policy(
+                        tpm2_context,
+                        hash_pcr_mask,
+                        pcr_bank,
+                        pubkey,
+                        pubkey_policy_ref,
+                        pubkey_pcr_mask,
+                        signature_json,
+                        /* use_pin= */ true,
+                        FLAGS_SET(flags, TPM2_FLAGS_USE_PCRLOCK) ? &pcrlock_policy : NULL,
+                        /* primary_alg= */ 0,
+                        /* blobs= */ NULL,
+                        /* n_blobs= */ 0,
+                        policy_hash,
+                        n_policy_hash,
+                        /* srk= */ NULL);
+        if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r)) {
+                log_warning_errno(r, "TPM policy does not match current system state, not asking for PIN. Either system has been tampered with or policy out-of-date: %m");
+                /* Normalize to -EPERM so callers don't confuse it with -ENOANO's "needs PIN" meaning. */
+                return -EPERM;
+        }
+        if (r == -ENOSTR)
+                return log_warning_errno(r, "No signature for current PCR policy in TPM2 signature JSON, token does not apply to current boot state, not asking for PIN: %m");
+        if (r == -EADDRNOTAVAIL)
+                return log_warning_errno(r, "NV index referenced by token is missing, unwritten, or unusable, it could be for another system, not asking for PIN: %m");
+        if (r < 0)
+                log_debug_errno(r, "Failed to check TPM2 policy before asking for PIN, ignoring: %m");
+
         bool argon2id = FLAGS_SET(flags, TPM2_FLAGS_USE_ARGON2ID);
 
         for (int i = 5;; i--) {

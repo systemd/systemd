@@ -44,7 +44,8 @@ _systemd_cryptenroll() {
     local -A OPTS=(
         [STANDALONE]='-h --help --version
                      --password --recovery-key --list-devices
-                     --unlock-empty --unlock-headless --firstboot'
+                     --unlock-empty --unlock-headless --firstboot
+                     --tpm2-reenroll'
         [ARG]='--unlock-key-file
                --unlock-fido2-device
                --unlock-tpm2-device
