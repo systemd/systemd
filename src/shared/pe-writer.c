@@ -592,10 +592,12 @@ int pe_append_signature(int fd, const void *signature, size_t size) {
                 table_size = le32toh(certificate_table->Size);
         }
 
-        uint64_t certificate_size = sizeof(WIN_CERTIFICATE_HEADER) + (uint64_t) size,
-                 write_size = padding + ALIGN_TO_U64(certificate_size, 8);
-        table_size += ALIGN_TO_U64(certificate_size, 8);
-        if (end + write_size > UINT32_MAX || table_size > UINT32_MAX)
+        uint64_t certificate_size, write_size, new_end;
+        if (!ADD_SAFE(&certificate_size, sizeof(WIN_CERTIFICATE_HEADER), size) ||
+            !ADD_SAFE(&write_size, padding, ALIGN_TO_U64(certificate_size, 8)) ||
+            !ADD_SAFE(&table_size, table_size, ALIGN_TO_U64(certificate_size, 8)) ||
+            !ADD_SAFE(&new_end, end, write_size) ||
+            new_end > UINT32_MAX || table_size > UINT32_MAX)
                 return log_debug_errno(SYNTHETIC_ERRNO(EFBIG), "PE signature is too large.");
 
         _cleanup_free_ uint8_t *buf = new0(uint8_t, write_size);
