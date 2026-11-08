@@ -33,6 +33,7 @@ tpm_check_failure_with_wrong_pin() {
 at_exit() {
     set +e
 
+    systemctl stop test-cryptsetup-prompt.service
     umount /tmp/dditest.mnt
     systemd-cryptsetup detach test-volume
     systemd-cryptsetup detach dditest
@@ -116,6 +117,16 @@ for mod in 1 0; do
     tpm2_getcap properties-variable | grep -E '^TPM2_PT_LOCKOUT_COUNTER: +0x0+$' >/dev/null
 done
 rm -f /tmp/cryptsetup.log
+
+# The passphrase prompt shown instead says why no PIN was asked for. Run without headless=1 so that it is
+# actually shown, i.e. written to an ask file, and stop it once it is there.
+for mod in 1 0; do
+    systemd-run --unit=test-cryptsetup-prompt.service --service-type=exec --collect \
+        -E SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=$mod \
+        systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto
+    timeout 30 bash -c "until grep -l '^Message=TPM2 policy mismatch, PIN skipped\. Please enter passphrase' /run/systemd/ask-password/ask.* >/dev/null 2>&1; do sleep .1; done"
+    systemctl stop test-cryptsetup-prompt.service
+done
 
 # Add a second PIN token matching the current PCR state, next to the stale one. A wrong PIN must then only be
 # tried against the token whose policy matches, i.e. cost a single dictionary attack attempt.
