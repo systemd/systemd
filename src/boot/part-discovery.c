@@ -71,6 +71,11 @@ static bool verify_gpt(/* const */ GptHeader *h, EFI_LBA lba_expected) {
         if (h->SizeOfPartitionEntry > SIZE_MAX / h->NumberOfPartitionEntries)
                 return false;
 
+        /* LBA 0 holds the protective MBR and LBA 1 the primary GPT header, hence the first usable LBA
+         * cannot be lower than 2. */
+        if (h->FirstUsableLBA < 2 || h->FirstUsableLBA > h->LastUsableLBA)
+                return false;
+
         return true;
 }
 
@@ -149,6 +154,7 @@ static EFI_STATUS try_gpt(
                 EFI_DISK_IO_PROTOCOL *disk_io,
                 uint32_t media_id,
                 uint32_t block_size,
+                EFI_LBA last_block,
                 EFI_LBA lba,
                 EFI_LBA *reterr_backup_lba, /* May be changed even on error! */
                 HARDDRIVE_DEVICE_PATH *ret_hd) {
@@ -170,8 +176,16 @@ static EFI_STATUS try_gpt(
                 if (!efi_guid_equal(&entry->PartitionTypeGUID, type))
                         continue;
 
-                if (entry->EndingLBA < entry->StartingLBA) /* Bogus? */
+                /* The usable range declared in the header comes from the same untrusted source as the
+                 * entries, hence also make sure the partition lies within the disk itself. */
+                if (entry->StartingLBA < gpt.FirstUsableLBA ||
+                    entry->EndingLBA > gpt.LastUsableLBA ||
+                    entry->EndingLBA > last_block ||
+                    entry->EndingLBA < entry->StartingLBA) {
+                        log_debug("Ignoring partition entry %zu with invalid LBA range %" PRIu64 "-%" PRIu64 ".",
+                                  i + 1, entry->StartingLBA, entry->EndingLBA);
                         continue;
+                }
 
                 *ret_hd = (HARDDRIVE_DEVICE_PATH) {
                         .Header = {
@@ -271,7 +285,8 @@ static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVI
                         continue;
 
                 HARDDRIVE_DEVICE_PATH hd;
-                err = try_gpt(type, disk_io, block_io->Media->MediaId, block_io->Media->BlockSize, lba,
+                err = try_gpt(type, disk_io, block_io->Media->MediaId, block_io->Media->BlockSize,
+                        block_io->Media->LastBlock, lba,
                         nr == 0 ? &backup_lba : NULL, /* Only get backup LBA location from first GPT header. */
                         &hd);
                 if (err != EFI_SUCCESS) {
