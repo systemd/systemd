@@ -7885,6 +7885,102 @@ int tpm2_unseal(Tpm2Context *c,
         return 0;
 }
 
+int tpm2_check_unseal_policy(
+                Tpm2Context *c,
+                uint32_t hash_pcr_mask,
+                uint16_t pcr_bank,
+                const struct iovec *pubkey,
+                const char *pubkey_policy_ref,
+                uint32_t pubkey_pcr_mask,
+                sd_json_variant *signature,
+                bool use_pin,
+                const Tpm2PCRLockPolicy *pcrlock_policy,
+                const struct iovec known_policy_hash[],
+                size_t n_known_policy_hash) {
+
+        int r;
+
+        assert(c);
+        assert(iovec_is_valid(pubkey));
+        assert(!pubkey_policy_ref || iovec_is_set(pubkey));
+        assert(TPM2_PCR_MASK_VALID(hash_pcr_mask));
+        assert(TPM2_PCR_MASK_VALID(pubkey_pcr_mask));
+
+        /* Checks whether the policy a secret was sealed with can be satisfied in the current system state,
+         * without needing the PIN. Callers use this to avoid asking for a PIN that can't unlock anything.
+         *
+         * Returns the same PCR related errors as tpm2_unseal(), i.e. ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR() or
+         * -ENOSTR, if the policy can't be satisfied, and 0 if it can or if we can't tell, for example because
+         * a PCR kept changing. The policy session is neither salted nor bound to the sealed object, hence a
+         * fake TPM could make us skip the PIN prompt. But it could just as well fail the unseal operation,
+         * so this doesn't give an attacker anything they don't have already. */
+
+        size_t n_shards = pcrlock_policy && iovec_is_set(pubkey) ? 2 : 1;
+        if (n_known_policy_hash > 0 && n_known_policy_hash != n_shards)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Number of provided known policy hashes (%zu) does not match policy requirements (%zu or 0).", n_known_policy_hash, n_shards);
+
+        if (pcr_bank == UINT16_MAX) {
+                r = tpm2_get_best_pcr_bank_legacy(c, hash_pcr_mask|pubkey_pcr_mask, &pcr_bank);
+                if (r < 0)
+                        return r;
+        }
+
+        TPM2B_PUBLIC pubkey_tpm2b;
+        _cleanup_(iovec_done) struct iovec fp = {};
+        if (iovec_is_set(pubkey)) {
+                r = tpm2_tpm2b_public_from_pem(pubkey->iov_base, pubkey->iov_len, &pubkey_tpm2b);
+                if (r < 0)
+                        return log_debug_errno(r, "Could not create TPMT_PUBLIC: %m");
+
+                r = tpm2_tpm2b_public_to_fingerprint(&pubkey_tpm2b, &fp.iov_base, &fp.iov_len);
+                if (r < 0)
+                        return log_debug_errno(r, "Could not get key fingerprint: %m");
+        }
+
+        for (size_t shard = 0; shard < n_shards; shard++) {
+                _cleanup_(tpm2_handle_freep) Tpm2Handle *policy_session = NULL;
+                r = tpm2_make_policy_session(c, /* primary= */ NULL, /* encryption_session= */ NULL, &policy_session);
+                if (r < 0)
+                        return r;
+
+                _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
+                r = tpm2_build_sealing_policy(
+                                c,
+                                policy_session,
+                                hash_pcr_mask,
+                                pcr_bank,
+                                shard == 0 && iovec_is_set(pubkey) ? &pubkey_tpm2b : NULL,
+                                shard == 0 ? pubkey_policy_ref : NULL,
+                                fp.iov_base, fp.iov_len,
+                                shard == 0 ? pubkey_pcr_mask : 0,
+                                signature,
+                                use_pin,
+                                (shard == 1 || !iovec_is_set(pubkey)) ? pcrlock_policy : NULL,
+                                &policy_digest);
+                if (r == -EUCLEAN) {
+                        log_debug_errno(r, "PCR values changed while building the TPM2 policy, can't tell whether it matches.");
+                        return 0;
+                }
+                if (r < 0)
+                        return r;
+
+                /* With a signed PCR policy the digest only covers the public key, a PCR state not covered by
+                 * any signature already failed above. Don't compare the digest here, to not have to deal with
+                 * the RSA exponent quirk tpm2_unseal() handles. */
+                if (shard == 0 && iovec_is_set(pubkey))
+                        continue;
+
+                if (n_known_policy_hash > 0 && memcmp_nn(policy_digest->buffer,
+                                                         policy_digest->size,
+                                                         known_policy_hash[shard].iov_base,
+                                                         known_policy_hash[shard].iov_len) != 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPERM),
+                                               "Current policy digest does not match stored policy digest.");
+        }
+
+        return 0;
+}
+
 static TPM2_HANDLE generate_random_pcrlock_nv_index(void) {
         return TPM2_NV_INDEX_PCRLOCK_FIRST +
                 (TPM2_HANDLE) random_u64_range(TPM2_NV_INDEX_PCRLOCK_LAST - TPM2_NV_INDEX_PCRLOCK_FIRST + 1);
