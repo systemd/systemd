@@ -882,17 +882,26 @@ int ask_password_agent(
                 return log_debug_errno(dfd, "Failed to open directory '%s': %m", askpwdir);
 
         if (FLAGS_SET(flags, ASK_PASSWORD_ACCEPT_CACHED) && req->keyring) {
-                r = ask_password_keyring(req, flags, ret);
-                if (r != -ENOKEY)
-                        return r;
+                /* Start watching before looking up the key, so that a key added by another request in
+                 * between is not missed. This watch is the only way to pick up a password entered for
+                 * another request, as we don't let the agent answer from its own cache (see below). */
+                int watch_error = 0;
 
                 inotify_fd = inotify_init1(IN_CLOEXEC | IN_NONBLOCK);
                 if (inotify_fd < 0)
-                        return -errno;
+                        watch_error = -errno;
+                else {
+                        r = inotify_add_watch_fd(inotify_fd, dfd, IN_ONLYDIR|IN_ATTRIB /* for mtime */);
+                        if (r < 0)
+                                watch_error = r;
+                }
 
-                r = inotify_add_watch_fd(inotify_fd, dfd, IN_ONLYDIR|IN_ATTRIB /* for mtime */);
-                if (r < 0)
+                /* A key that is already there is good to use even if we couldn't set up the watch. */
+                r = ask_password_keyring(req, flags, ret);
+                if (r != -ENOKEY)
                         return r;
+                if (watch_error < 0)
+                        return watch_error;
         }
 
         sigset_t mask, oldmask;
@@ -924,6 +933,12 @@ int ask_password_agent(
         if (socket_fd < 0)
                 return socket_fd;
 
+        /* If the request names a keyring, we already looked there above and keep watching it, so don't let
+         * the agent answer from its own cache too. Agent caches are not keyed by purpose: plymouth for
+         * example hands out every password entered so far, so a TPM2 PIN would be tried as a LUKS
+         * passphrase and vice versa. */
+        bool agent_accept_cached = FLAGS_SET(flags, ASK_PASSWORD_ACCEPT_CACHED) && !req->keyring;
+
         fprintf(f,
                 "[Ask]\n"
                 "PID="PID_FMT"\n"
@@ -934,7 +949,7 @@ int ask_password_agent(
                 "Silent=%i\n",
                 getpid_cached(),
                 socket_name,
-                FLAGS_SET(flags, ASK_PASSWORD_ACCEPT_CACHED),
+                agent_accept_cached,
                 FLAGS_SET(flags, ASK_PASSWORD_ECHO),
                 req->until,
                 FLAGS_SET(flags, ASK_PASSWORD_SILENT));
