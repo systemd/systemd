@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
@@ -192,6 +193,35 @@ int start_upload(Uploader *u,
         assert(u);
         assert(input_callback);
 
+        /* Regular files are uploaded with a declared size, so that the server
+         * applies its admission check before anything is received. Inputs of
+         * unknown size and compressed uploads (whose wire size differs from the
+         * input size) stay chunked. An empty input (or one already read to its
+         * end) declares nothing, so that the read callback runs and sees EOF. */
+        bool chunked = true;
+        curl_off_t size = -1;
+
+        if (u->input >= 0 && !u->compression) {
+                struct stat st;
+
+                if (fstat(u->input, &st) >= 0 && S_ISREG(st.st_mode)) {
+                        off_t offset = lseek(u->input, 0, SEEK_CUR);
+
+                        if (offset >= 0 && st.st_size > offset) {
+                                chunked = false;
+                                size = st.st_size - offset;
+                        }
+                }
+        }
+
+        u->fd_bytes_read = 0;
+        u->fd_declared_size = chunked ? UINT64_MAX : (uint64_t) size;
+
+        if (u->header && u->header_chunked != chunked) {
+                sym_curl_slist_free_all(u->header);
+                u->header = NULL;
+        }
+
         if (!u->header) {
                 _cleanup_(curl_slist_free_allp) struct curl_slist *h = NULL;
                 struct curl_slist *l;
@@ -200,10 +230,12 @@ int start_upload(Uploader *u,
                 if (!h)
                         return log_oom();
 
-                l = sym_curl_slist_append(h, "Transfer-Encoding: chunked");
-                if (!l)
-                        return log_oom();
-                h = l;
+                if (chunked) {
+                        l = sym_curl_slist_append(h, "Transfer-Encoding: chunked");
+                        if (!l)
+                                return log_oom();
+                        h = l;
+                }
 
                 l = sym_curl_slist_append(h, "Accept: text/plain");
                 if (!l)
@@ -244,7 +276,14 @@ int start_upload(Uploader *u,
                 }
 
                 u->header = TAKE_PTR(h);
+                u->header_chunked = chunked;
         }
+
+        /* The easy handle keeps a pointer to the header list; point it at the
+         * new list after a rebuild. */
+        if (u->easy &&
+            !easy_setopt(u->easy, LOG_ERR, CURLOPT_HTTPHEADER, u->header))
+                return -EXFULL;
 
         if (!u->easy) {
                 _cleanup_(curl_easy_cleanupp) CURL *curl = NULL;
@@ -317,12 +356,17 @@ int start_upload(Uploader *u,
         } else {
                 /* truncate the potential old error message */
                 u->error[0] = '\0';
-
-                u->answer = mfree(u->answer);
         }
 
         /* upload to this place */
         if (!easy_setopt(u->easy, LOG_ERR, CURLOPT_URL, u->url))
+                return -EXFULL;
+
+        /* For a POST with a read callback, the body size is taken from
+         * CURLOPT_POSTFIELDSIZE_LARGE (CURLOPT_INFILESIZE_LARGE only applies
+         * to CURLOPT_UPLOAD); (curl_off_t) -1 leaves it undeclared, which
+         * also resets the size declared for a previous request. */
+        if (!easy_setopt(u->easy, LOG_ERR, CURLOPT_POSTFIELDSIZE_LARGE, size))
                 return -EXFULL;
 
         u->uploading = true;
@@ -354,6 +398,17 @@ static size_t fd_input_callback(void *buf, size_t size, size_t nmemb, void *user
         n = read(u->input, compression_buffer ?: buf, size * nmemb);
         if (n > 0) {
                 log_debug("%s: allowed %zu, read %zd", __func__, size * nmemb, n);
+
+                /* With a declared size, curl stops calling this callback once
+                 * the declared number of bytes has been returned, without a
+                 * read hitting EOF. End the upload at that point, so that no
+                 * empty follow-up request is started. */
+                u->fd_bytes_read += n;
+                if (u->fd_bytes_read >= u->fd_declared_size) {
+                        u->uploading = false;
+                        close_fd_input(u);
+                }
+
                 if (!u->compression)
                         return n;
 
@@ -630,6 +685,12 @@ static int perform_upload(Uploader *u) {
         long status;
 
         assert(u);
+
+        /* Each curl_easy_perform() sends one request, with its own batch
+         * budget and its own answer. */
+        u->batch_bytes = 0;
+        u->batch_end = false;
+        u->answer = mfree(u->answer);
 
         u->watchdog_timestamp = now(CLOCK_MONOTONIC);
         code = sym_curl_easy_perform(u->easy);
@@ -941,7 +1002,10 @@ static int run(int argc, char **argv) {
                                 return r;
                 }
 
-                r = sd_event_run(u.event, u.timeout);
+                /* While an upload is in progress, journal_input_callback() ends
+                 * requests at entry boundaries and perform_upload() starts the
+                 * next request right away, so don't block here. */
+                r = sd_event_run(u.event, u.uploading ? 0 : u.timeout);
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
         }
