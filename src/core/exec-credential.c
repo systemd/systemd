@@ -37,6 +37,8 @@
 #include "unit.h"
 #include "user-util.h"
 
+#define CREDENTIALS_WORKSPACE_DIRECTORY "systemd/temporary-credentials"
+
 ExecSetCredential* exec_set_credential_free(ExecSetCredential *sc) {
         if (!sc)
                 return NULL;
@@ -279,6 +281,25 @@ static int get_credential_directory(
         return 1;
 }
 
+static int get_credential_workspace(
+                const char *runtime_prefix,
+                const char *unit,
+                char **ret) {
+
+        char *p;
+
+        assert(runtime_prefix);
+        assert(unit);
+        assert(ret);
+
+        p = path_join(runtime_prefix, CREDENTIALS_WORKSPACE_DIRECTORY, unit);
+        if (!p)
+                return -ENOMEM;
+
+        *ret = p;
+        return 0;
+}
+
 int exec_context_get_credential_directory(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -298,6 +319,17 @@ int exec_context_get_credential_directory(
         return get_credential_directory(params->prefix[EXEC_DIRECTORY_RUNTIME], unit, ret);
 }
 
+int exec_context_destroy_credentials_workspace(const char *runtime_prefix, const char *unit) {
+        _cleanup_free_ char *workspace = NULL;
+        int r;
+
+        r = get_credential_workspace(runtime_prefix, unit, &workspace);
+        if (r < 0)
+                return r;
+
+        return rm_rf(workspace, REMOVE_ROOT|REMOVE_CHMOD|REMOVE_MISSING_OK);
+}
+
 int exec_context_destroy_credentials(const ExecContext *c, const char *runtime_prefix, const char *unit) {
         _cleanup_free_ char *p = NULL;
         int r;
@@ -312,6 +344,9 @@ int exec_context_destroy_credentials(const ExecContext *c, const char *runtime_p
          * unmount it, and afterwards remove the mount point */
         (void) umount2(p, MNT_DETACH|UMOUNT_NOFOLLOW);
         (void) rm_rf(p, REMOVE_ROOT|REMOVE_CHMOD);
+
+        /* The preparing child's cleanup does not run if it is killed. */
+        (void) exec_context_destroy_credentials_workspace(runtime_prefix, unit);
 
         return 0;
 }
@@ -965,7 +1000,7 @@ static int setup_credentials_plain_dir(
 
         /* Temporary workspace, that remains inaccessible all the time. We prepare stuff there before moving
          * it into place, so that users can't access half-initialized credential stores. */
-        t = path_join(context->runtime_prefix, "systemd/temporary-credentials");
+        t = path_join(context->runtime_prefix, CREDENTIALS_WORKSPACE_DIRECTORY);
         if (!t)
                 return -ENOMEM;
 
@@ -973,9 +1008,9 @@ static int setup_credentials_plain_dir(
         if (r < 0 && r != -EEXIST)
                 return r;
 
-        workspace = path_join(t, context->unit);
-        if (!workspace)
-                return -ENOMEM;
+        r = get_credential_workspace(context->runtime_prefix, context->unit, &workspace);
+        if (r < 0)
+                return r;
 
         dfd = open_mkdir(workspace, O_EXCL, 0700);
         if (dfd < 0)

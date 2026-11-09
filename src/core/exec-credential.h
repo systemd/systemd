@@ -51,6 +51,7 @@ int exec_context_get_credential_directory(
                 const char *unit,
                 char **ret);
 
+int exec_context_destroy_credentials_workspace(const char *runtime_prefix, const char *unit);
 int exec_context_destroy_credentials(const ExecContext *c, const char *runtime_prefix, const char *unit);
 
 int exec_setup_credentials(
