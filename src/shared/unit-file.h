@@ -41,12 +41,12 @@ static inline bool unit_type_may_template(UnitType type) {
                       UNIT_PATH);
 }
 
-int unit_symlink_name_compatible(const char *symlink, const char *target, bool instance_propagation);
-int unit_validate_alias_symlink_or_warn(int log_level, const char *filename, const char *target);
+_sync_ int unit_symlink_name_compatible(const char *symlink, const char *target, bool instance_propagation);
+_sync_ int unit_validate_alias_symlink_or_warn(int log_level, const char *filename, const char *target);
 
 bool lookup_paths_timestamp_hash_same(const LookupPaths *lp, uint64_t timestamp_hash, uint64_t *ret_new);
 
-int unit_file_resolve_symlink(
+_sync_ int unit_file_resolve_symlink(
                 const char *root_dir,
                 char **search_path,
                 const char *dir,

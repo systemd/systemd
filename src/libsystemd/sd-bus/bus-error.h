@@ -6,9 +6,9 @@
 #include "errno-util.h"
 #include "forward.h"
 
-bool bus_error_is_dirty(sd_bus_error *e);
+_sync_ bool bus_error_is_dirty(sd_bus_error *e);
 
-const char* _bus_error_message(const sd_bus_error *e, int error, char buf[static ERRNO_BUF_LEN]);
+_sync_ const char* _bus_error_message(const sd_bus_error *e, int error, char buf[static ERRNO_BUF_LEN]);
 
 /* Note: the lifetime of the compound literal is the immediately surrounding block,
  * see C11 §6.5.2.5, and

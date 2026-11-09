@@ -19,7 +19,7 @@ int fmkostemp_safe(char *pattern, const char *mode, FILE**_f);
 void unlink_tempfilep(char (*p)[]);
 
 int tempfn_xxxxxx(const char *p, const char *extra, char **ret);
-int tempfn_random(const char *p, const char *extra, char **ret);
+_sync_ int tempfn_random(const char *p, const char *extra, char **ret);
 int tempfn_random_child(const char *p, const char *extra, char **ret);
 
 int open_tmpfile_unlinkable(const char *directory, int flags);
@@ -52,7 +52,7 @@ static inline int flink_tmpfile(FILE *f, const char *path, const char *target, L
         return flink_tmpfile_at(f, AT_FDCWD, path, target, flags);
 }
 
-int mkdtemp_malloc(const char *template, char **ret);
+_sync_ int mkdtemp_malloc(const char *template, char **ret);
 int mkdtemp_open(const char *template, int flags, char **ret);
 
 /* A helper for removing link_tmpfile_at() via _cleanup_() */

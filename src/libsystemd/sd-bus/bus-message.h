@@ -175,7 +175,7 @@ static inline void* BUS_MESSAGE_FIELDS(sd_bus_message *m) {
 
 int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz);
 
-int bus_message_from_malloc(
+_sync_ int bus_message_from_malloc(
                 sd_bus *bus,
                 void *buffer,
                 size_t length,
@@ -185,23 +185,23 @@ int bus_message_from_malloc(
                 const char *label,
                 sd_bus_message **ret);
 
-int bus_message_get_arg(sd_bus_message *m, unsigned i, const char **str);
-int bus_message_get_arg_strv(sd_bus_message *m, unsigned i, char ***strv);
+_sync_ int bus_message_get_arg(sd_bus_message *m, unsigned i, const char **str);
+_sync_ int bus_message_get_arg_strv(sd_bus_message *m, unsigned i, char ***strv);
 
 #define MESSAGE_FOREACH_PART(part, i, m) \
         for ((i) = 0, (part) = &(m)->body; (i) < (m)->n_body_parts; (i)++, (part) = (part)->next)
 
-int bus_body_part_map(BusMessageBodyPart *part);
+_sync_ int bus_body_part_map(BusMessageBodyPart *part);
 void bus_body_part_unmap(BusMessageBodyPart *part);
 
-int bus_message_new_synthetic_error(sd_bus *bus, uint64_t cookie, const sd_bus_error *e, sd_bus_message **m);
+_sync_ int bus_message_new_synthetic_error(sd_bus *bus, uint64_t cookie, const sd_bus_error *e, sd_bus_message **m);
 
-int bus_message_remarshal(sd_bus *bus, sd_bus_message **m);
+_sync_ int bus_message_remarshal(sd_bus *bus, sd_bus_message **m);
 
 void bus_message_set_sender_driver(sd_bus *bus, sd_bus_message *m);
-void bus_message_set_sender_local(sd_bus *bus, sd_bus_message *m);
+_sync_ void bus_message_set_sender_local(sd_bus *bus, sd_bus_message *m);
 
-sd_bus_message* bus_message_ref_queued(sd_bus_message *m, sd_bus *bus);
-sd_bus_message* bus_message_unref_queued(sd_bus_message *m, sd_bus *bus);
+_sync_ sd_bus_message* bus_message_ref_queued(sd_bus_message *m, sd_bus *bus);
+_sync_ sd_bus_message* bus_message_unref_queued(sd_bus_message *m, sd_bus *bus);
 
-char** bus_message_make_log_fields(sd_bus_message *m);
+_sync_ char** bus_message_make_log_fields(sd_bus_message *m);

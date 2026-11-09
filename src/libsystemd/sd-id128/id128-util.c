@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "bus-container.h"
+#include "await.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "hash-funcs.h"
@@ -85,7 +86,7 @@ int id128_read_fd(int fd, Id128Flag f, sd_id128_t *ret) {
          *     -ENOPKG:    "uninitialized" or "uninitialized\n",
          *     -EUCLEAN:   other invalid strings. */
 
-        l = loop_read(fd, buffer, sizeof(buffer), /* do_poll= */ false); /* we expect a short read of either 32/33 or 36/37 chars */
+        l = SD_BLOCKING(loop_read(fd, buffer, sizeof(buffer), /* do_poll= */ false)); /* we expect a short read of either 32/33 or 36/37 chars */
         if (l < 0)
                 return (int) l;
         if (l == 0) /* empty? */

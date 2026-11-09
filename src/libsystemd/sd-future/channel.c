@@ -428,12 +428,12 @@ int sd_channel_push(sd_channel *c, void *item) {
                 return r;
         }
 
-        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *f = NULL;
+        _cleanup_await_(sd_future_cancel_wait_unrefp) sd_future *f = NULL;
         r = sd_channel_send(c, item, &f);
         if (r < 0)
                 return r;
 
-        r = sd_fiber_await(f);
+        r = SD_AWAIT(sd_fiber_await(f));
         if (r < 0)
                 return r;
 
@@ -460,12 +460,12 @@ int sd_channel_pop(sd_channel *c, void **ret) {
                         return r;
 
                 /* Wakeups are deferred, so another receive can pop the item before this fiber runs. */
-                _cleanup_(sd_future_cancel_wait_unrefp) sd_future *f = NULL;
+                _cleanup_await_(sd_future_cancel_wait_unrefp) sd_future *f = NULL;
                 r = channel_recv_full(c, retry, &f);
                 if (r < 0)
                         return r;
 
-                r = sd_fiber_await(f);
+                r = SD_AWAIT(sd_fiber_await(f));
                 if (r < 0)
                         return r;
 

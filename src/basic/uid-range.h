@@ -12,7 +12,7 @@ typedef struct UIDRange {
         size_t n_entries;
 } UIDRange;
 
-UIDRange* uid_range_free(UIDRange *range);
+_sync_ UIDRange* uid_range_free(UIDRange *range);
 DEFINE_TRIVIAL_CLEANUP_FUNC(UIDRange*, uid_range_free);
 
 int uid_range_add_internal(UIDRange **range, uid_t start, uid_t nr, bool coalesce);
@@ -26,7 +26,7 @@ static inline int uid_range_add_str(UIDRange **range, const char *s) {
 
 int uid_range_next_lower(const UIDRange *range, uid_t *uid);
 
-bool uid_range_covers(const UIDRange *range, uid_t start, uid_t nr);
+_sync_ bool uid_range_covers(const UIDRange *range, uid_t start, uid_t nr);
 static inline bool uid_range_contains(const UIDRange *range, uid_t uid) {
         return uid_range_covers(range, uid, 1);
 }
@@ -51,7 +51,7 @@ typedef enum UIDRangeUsernsMode {
         _UID_RANGE_USERNS_MODE_INVALID = -EINVAL,
 } UIDRangeUsernsMode;
 
-int uid_range_load_userns_full(const char *path, UIDRangeUsernsMode mode, bool coalesce, UIDRange **ret);
+_sync_ int uid_range_load_userns_full(const char *path, UIDRangeUsernsMode mode, bool coalesce, UIDRange **ret);
 static inline int uid_range_load_userns(const char *path, UIDRangeUsernsMode mode, UIDRange **ret) {
         return uid_range_load_userns_full(path, mode, /* coalesce= */ true, ret);
 }

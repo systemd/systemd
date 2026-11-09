@@ -3,6 +3,7 @@
 #include <paths.h>
 #include <sys/mount.h>
 
+#include "await.h"
 #include "sd-bus.h"
 
 #include "af-list.h"
@@ -3076,10 +3077,10 @@ int bus_append_unit_property_assignment(sd_bus_message *m, UnitType t, const cha
                 for (const BusProperty *item = *tables; item->convert; item++)
                         if (item->name) {
                                 if (streq(item->name, field))
-                                        return item->convert(m, field, eq);
+                                        return SD_BLOCKING(item->convert(m, field, eq));
                         } else {
                                 /* If .name is not set, the function must be a "try" helper */
-                                r = item->convert(m, field, eq);
+                                r = SD_BLOCKING(item->convert(m, field, eq));
                                 if (r != 0)
                                         return r;
                         }
@@ -3254,7 +3255,7 @@ int bus_service_manager_reload(sd_bus *bus) {
                 return bus_log_create_error(r);
 
         /* Reloading the daemon may take long, hence set a longer timeout here */
-        r = sd_bus_call(bus, m, DAEMON_RELOAD_TIMEOUT_SEC, &error, /* ret_reply= */ NULL);
+        r = SD_AWAIT(sd_bus_call(bus, m, DAEMON_RELOAD_TIMEOUT_SEC, &error, /* ret_reply= */ NULL));
         if (r < 0)
                 return log_error_errno(r, "Failed to reload service manager: %s", bus_error_message(&error, r));
 

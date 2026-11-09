@@ -54,8 +54,8 @@ static inline bool client_id_data_size_is_valid(size_t size) {
         return size >= MIN_CLIENT_ID_DATA_LEN && size <= MAX_CLIENT_ID_DATA_LEN;
 }
 
-void client_id_hash_func(const sd_dhcp_client_id *client_id, struct siphash *state);
-int client_id_compare_func(const sd_dhcp_client_id *a, const sd_dhcp_client_id *b);
+_sync_ void client_id_hash_func(const sd_dhcp_client_id *client_id, struct siphash *state);
+_sync_ int client_id_compare_func(const sd_dhcp_client_id *a, const sd_dhcp_client_id *b);
 
 static inline bool client_id_equal(const sd_dhcp_client_id *a, const sd_dhcp_client_id *b) {
         return client_id_compare_func(a, b) == 0;

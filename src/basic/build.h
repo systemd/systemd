@@ -5,11 +5,11 @@
 
 extern const char* const systemd_features;
 
-int version(void);
+_sync_ int version(void);
 int version_only(void);
 
 #define EXPERIMENTAL_DISABLED 0
 #define EXPERIMENTAL_ENVVAR 1
 #define EXPERIMENTAL_ENABLED 2
 
-bool experimental_enabled(void);
+_sync_ bool experimental_enabled(void);

@@ -35,7 +35,7 @@ int exit_failure_if_nonzero(int result) _const_;
 #define DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(impl)                \
         _DEFINE_MAIN_FUNCTION(, impl(argc, argv), exit_failure_if_nonzero)
 
-typedef int (*main_fiber_func_t)(int argc, char *argv[]);
+typedef int (*main_fiber_func_t)(int argc, char *argv[]) _may_suspend_;
 
 /* Spawn impl as a fiber on the default event loop and run the loop until it returns. impl follows the
  * DEFINE_MAIN_FUNCTION convention: negative is failure, anything else success. sd_event_exit() picks an

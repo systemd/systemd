@@ -252,7 +252,7 @@ typedef struct OptionParser {
         const char *arg;              /* … the argument or NULL */
 } OptionParser;
 
-int option_parse(
+_sync_ int option_parse(
                 const Option options[],
                 const Option options_end[],
                 OptionParser *state);
@@ -274,20 +274,20 @@ char* option_parser_consume_next_arg(OptionParser *state);
 
 /* Those helpers are used *after* option parsing and return the positional arguments (and unparsed
  * options in case option parsing was stopped early, e.g. via "--"). */
-char** option_parser_get_args(const OptionParser *state);
-size_t option_parser_get_n_args(const OptionParser *state);
+_sync_ char** option_parser_get_args(const OptionParser *state);
+_sync_ size_t option_parser_get_n_args(const OptionParser *state);
 char* option_parser_get_arg(const OptionParser *state, size_t i);
 
 char* option_get_synopsis(const Option *opt, const char *joiner, bool show_metavar);
 
-bool options_find_namespace(
+_sync_ bool options_find_namespace(
                 const Option options[],
                 const Option options_end[],
                 const char *namespace,
                 const Option **ret_start,
                 const Option **ret_end);
 
-int options_get_help_table_group(
+_sync_ int options_get_help_table_group(
                 const Option options[],
                 const Option options_end[],
                 const char *option_groups,
@@ -296,7 +296,7 @@ int options_get_help_table_group(
 
 /* Build a JSON array of CLI-introspection option objects for the options in the given namespace.
  * Returns NULL in *ret if the namespace defines no options. */
-int options_build_json(
+_sync_ int options_build_json(
                 const Option options[],
                 const Option options_end[],
                 const char *namespace,

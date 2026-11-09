@@ -34,13 +34,13 @@ typedef enum ShellEscapeFlags {
         SHELL_ESCAPE_EMPTY = 1 << 2, /* Format empty arguments as "". */
 } ShellEscapeFlags;
 
-int cescape_char(char c, char *buf);
-char* cescape_length(const char *s, size_t n) _nonnull_if_nonzero_(1, 2);
+_sync_ int cescape_char(char c, char *buf);
+_sync_ char* cescape_length(const char *s, size_t n) _nonnull_if_nonzero_(1, 2);
 static inline char* cescape(const char *s) {
         return cescape_length(s, SIZE_MAX);
 }
 
-int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit, bool accept_nul);
+_sync_ int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit, bool accept_nul);
 
 ssize_t cunescape_length_with_prefix(const char *s, size_t length, const char *prefix, UnescapeFlags flags, char **ret);
 static inline ssize_t cunescape_length(const char *s, size_t length, UnescapeFlags flags, char **ret) {
@@ -59,13 +59,13 @@ char* xescape_full(const char *s, const char *bad, size_t console_width, XEscape
 static inline char* xescape(const char *s, const char *bad) {
         return xescape_full(s, bad, SIZE_MAX, /* flags= */ 0);
 }
-char* octescape_full(const char *s, size_t len, const char *bad);
+_sync_ char* octescape_full(const char *s, size_t len, const char *bad);
 static inline char* octescape(const char *s, size_t len) {
         return octescape_full(s, len, /* bad= */ NULL);
 }
 char* decescape(const char *s, size_t len, const char *bad) _nonnull_if_nonzero_(1, 2);
 char* escape_non_printable_full(const char *str, size_t console_width, XEscapeFlags flags);
 
-char* shell_escape(const char *s, const char *bad);
-char* shell_maybe_quote(const char *s, ShellEscapeFlags flags);
-char* quote_command_line(char * const *argv, ShellEscapeFlags flags);
+_sync_ char* shell_escape(const char *s, const char *bad);
+_sync_ char* shell_maybe_quote(const char *s, ShellEscapeFlags flags);
+_sync_ char* quote_command_line(char * const *argv, ShellEscapeFlags flags);

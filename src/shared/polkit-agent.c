@@ -17,7 +17,7 @@
 #if ENABLE_POLKIT
 static PidRef agent_pidref = PIDREF_NULL;
 
-int polkit_agent_open(void) {
+_may_suspend_ int polkit_agent_open(void) {
         _cleanup_close_pair_ int pipe_fd[2] = EBADF_PAIR;
         char notify_fd[DECIMAL_STR_MAX(int) + 1];
         int r;
@@ -47,13 +47,13 @@ int polkit_agent_open(void) {
 
         xsprintf(notify_fd, "%i", pipe_fd[1]);
 
-        r = fork_agent("(polkit-agent)",
+        r = SD_AWAIT(fork_agent("(polkit-agent)",
                        &pipe_fd[1],
                        1,
                        &agent_pidref,
                        pkttyagent,
                        "--notify-fd", notify_fd,
-                       "--fallback");
+                       "--fallback"));
         if (r < 0)
                 return log_error_errno(r, "Failed to fork polkit agent: %m");
 
@@ -61,7 +61,7 @@ int polkit_agent_open(void) {
         pipe_fd[1] = safe_close(pipe_fd[1]);
 
         /* Wait until the agent closes the fd */
-        (void) fd_wait_for_event(pipe_fd[0], POLLHUP, USEC_INFINITY);
+        (void) SD_AWAIT(fd_wait_for_event(pipe_fd[0], POLLHUP, USEC_INFINITY));
 
         return 1;
 }
@@ -73,7 +73,7 @@ void polkit_agent_close(void) {
 
 #else
 
-int polkit_agent_open(void) {
+_may_suspend_ int polkit_agent_open(void) {
         return 0;
 }
 
@@ -92,5 +92,5 @@ int polkit_agent_open_if_enabled(BusTransport transport, bool ask_password) {
         if (!ask_password)
                 return 0;
 
-        return polkit_agent_open();
+        return SD_AWAIT(polkit_agent_open());
 }

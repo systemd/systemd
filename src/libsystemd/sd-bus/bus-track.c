@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "await.h"
 #include "sd-bus.h"
 
 #include "alloc-util.h"
@@ -160,7 +161,7 @@ static sd_bus_track* track_free(sd_bus_track *track) {
         track->bus = sd_bus_unref(track->bus);
 
         if (track->destroy_callback)
-                track->destroy_callback(track->userdata);
+                SD_BLOCKING(track->destroy_callback(track->userdata));
 
         return mfree(track);
 }
@@ -401,7 +402,7 @@ void bus_track_dispatch(sd_bus_track *track) {
 
         sd_bus_track_ref(track);
 
-        r = track->handler(track, track->userdata);
+        r = SD_BLOCKING(track->handler(track, track->userdata));
         if (r < 0)
                 log_debug_errno(r, "Failed to process track handler: %m");
         else if (r == 0)

@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "await.h"
 #include "bus-common-errors.h"
 #include "chase.h"
 #include "conf-files.h"
@@ -2073,7 +2074,7 @@ static int unit_file_load(
         /* ctx is only needed if we actually load the file (it's referenced from items[] btw, in case you wonder.) */
         assert(ctx);
 
-        r = config_parse(info->name, path, f,
+        r = SD_BLOCKING(config_parse(info->name, path, f,
                          "Install\0"
                          "-Unit\0"
                          "-Automount\0"
@@ -2089,7 +2090,7 @@ static int unit_file_load(
                          "-Timer\0",
                          config_item_table_lookup, items,
                          /* flags= */ 0, info,
-                         /* ret_stat= */ NULL);
+                         /* ret_stat= */ NULL));
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse \"%s\": %m", info->name);
 

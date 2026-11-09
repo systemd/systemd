@@ -6,6 +6,7 @@
 
 #include "sd-login.h"
 
+#include "await.h"
 #include "copy.h"
 #include "env-util.h"
 #include "fd-util.h"
@@ -150,10 +151,10 @@ void pager_open(PagerFlags flags) {
         }
 
         /* We set SIGINT as PR_DEATHSIG signal here, to match the "K" parameter we set in $LESS, which enables SIGINT behaviour. */
-        r = pidref_safe_fork(
+        r = SD_AWAIT(pidref_safe_fork(
                         "(pager)",
                         FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGINT|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG,
-                        &pager_pidref);
+                        &pager_pidref));
         if (r < 0)
                 return;
         if (r == 0) {
@@ -211,7 +212,7 @@ void pager_open(PagerFlags flags) {
                                                   * secure mode. Thus, start the pager specified through
                                                   * envvars only when $SYSTEMD_PAGERSECURE was explicitly set
                                                   * as well. */
-                        r = loop_write(exe_name_pipe[1], pager_args[0], strlen(pager_args[0]) + 1);
+                        r = SD_AWAIT(loop_write(exe_name_pipe[1], pager_args[0], strlen(pager_args[0]) + 1));
                         if (r < 0) {
                                 log_error_errno(r, "Failed to write pager name to socket: %m");
                                 _exit(EXIT_FAILURE);
@@ -232,7 +233,7 @@ void pager_open(PagerFlags flags) {
                         if (use_secure_mode && !STR_IN_SET(pagers[i], "less", "(built-in)"))
                                 continue;
 
-                        r = loop_write(exe_name_pipe[1], pagers[i], strlen(pagers[i]) + 1);
+                        r = SD_AWAIT(loop_write(exe_name_pipe[1], pagers[i], strlen(pagers[i]) + 1));
                         if (r < 0) {
                                 log_error_errno(r, "Failed to write pager name to socket: %m");
                                 _exit(EXIT_FAILURE);
@@ -245,7 +246,7 @@ void pager_open(PagerFlags flags) {
                         } else {
                                 /* Close pipe to signal the parent to start sending data */
                                 safe_close_pair(exe_name_pipe);
-                                pager_fallback();
+                                SD_BLOCKING(pager_fallback());
                                 assert_not_reached();
                         }
                 }

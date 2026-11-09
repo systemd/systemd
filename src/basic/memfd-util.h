@@ -12,14 +12,14 @@ static inline int memfd_new(const char *name) {
         return memfd_new_full(name, /* extra_flags= */ 0);
 }
 
-int memfd_new_and_seal(const char *name, const void *data, size_t sz) _nonnull_if_nonzero_(2, 3);
+_sync_ int memfd_new_and_seal(const char *name, const void *data, size_t sz) _nonnull_if_nonzero_(2, 3);
 static inline int memfd_new_and_seal_string(const char *name, const char *s) {
         return memfd_new_and_seal(name, s, SIZE_MAX);
 }
 
-int memfd_set_sealed(int fd);
+_sync_ int memfd_set_sealed(int fd);
 int memfd_get_sealed(int fd);
 int memfd_set_sealed_gracefully(int fd);
 
 int memfd_get_size(int fd, uint64_t *ret);
-int memfd_set_size(int fd, uint64_t sz);
+_sync_ int memfd_set_size(int fd, uint64_t sz);

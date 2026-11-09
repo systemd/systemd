@@ -482,7 +482,7 @@ typedef int (*event_add_time_func)(
                 uint64_t usec,
                 uint64_t accuracy,
                 sd_event_time_handler_t callback,
-                void *userdata);
+                void *userdata) _sync_;
 
 static int future_new_time_internal(
                 event_add_time_func add_time,
@@ -628,7 +628,7 @@ int event_run_suspend(sd_event *e, uint64_t timeout) {
         int fd = event_get_wait_fd(e);
 
         /* Wait for the inner-loop fd to become readable OR (optionally) the timeout to fire. */
-        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *group = NULL;
+        _cleanup_await_(sd_future_cancel_wait_unrefp) sd_future *group = NULL;
         r = sd_future_group_new(outer, &group);
         if (r < 0)
                 return r;
@@ -656,7 +656,7 @@ int event_run_suspend(sd_event *e, uint64_t timeout) {
         if (r < 0)
                 return r;
 
-        r = sd_fiber_await(group);
+        r = SD_AWAIT(sd_fiber_await(group));
         if (r < 0)
                 return r;
 

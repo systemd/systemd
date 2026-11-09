@@ -34,10 +34,10 @@ typedef enum {
 } ReadFullFileFlags;
 
 int fdopen_unlocked(int fd, const char *options, FILE **ret);
-int take_fdopen_unlocked(int *fd, const char *options, FILE **ret);
-FILE* take_fdopen(int *fd, const char *options);
+_sync_ int take_fdopen_unlocked(int *fd, const char *options, FILE **ret);
+_sync_ FILE* take_fdopen(int *fd, const char *options);
 DIR* take_fdopendir(int *dfd);
-FILE* open_memstream_unlocked(char **ptr, size_t *sizeloc);
+_sync_ FILE* open_memstream_unlocked(char **ptr, size_t *sizeloc);
 FILE* fmemopen_unlocked(void *buf, size_t size, const char *mode);
 
 int write_string_stream_full(FILE *f, const char *line, WriteStringFileFlags flags, const struct timespec *ts);
@@ -63,7 +63,7 @@ int write_string_filef_at(int dir_fd, const char *fn, WriteStringFileFlags flags
 
 int write_base64_file_at(int dir_fd, const char *fn, const struct iovec *data, WriteStringFileFlags flags);
 
-int read_one_line_file_at(int dir_fd, const char *filename, char **ret);
+_sync_ int read_one_line_file_at(int dir_fd, const char *filename, char **ret);
 static inline int read_one_line_file(const char *filename, char **ret) {
         return read_one_line_file_at(AT_FDCWD, filename, ret);
 }
@@ -71,7 +71,7 @@ int read_boolean_file_at(int dir_fd, const char *filename);
 static inline int read_boolean_file(const char *filename) {
         return read_boolean_file_at(AT_FDCWD, filename);
 }
-int read_full_file_full(int dir_fd, const char *filename, uint64_t offset, size_t size, ReadFullFileFlags flags, const char *bind_name, char **ret_contents, size_t *ret_size);
+_sync_ int read_full_file_full(int dir_fd, const char *filename, uint64_t offset, size_t size, ReadFullFileFlags flags, const char *bind_name, char **ret_contents, size_t *ret_size);
 static inline int read_full_file_at(int dir_fd, const char *filename, char **ret_contents, size_t *ret_size) {
         return read_full_file_full(dir_fd, filename, UINT64_MAX, SIZE_MAX, /* flags= */ 0, /* bind_name= */ NULL, ret_contents, ret_size);
 }
@@ -79,7 +79,7 @@ static inline int read_full_file(const char *filename, char **ret_contents, size
         return read_full_file_full(AT_FDCWD, filename, UINT64_MAX, SIZE_MAX, /* flags= */ 0, /* bind_name= */ NULL, ret_contents, ret_size);
 }
 
-int read_virtual_file_at(int dir_fd, const char *filename, size_t max_size, char **ret_contents, size_t *ret_size);
+_sync_ int read_virtual_file_at(int dir_fd, const char *filename, size_t max_size, char **ret_contents, size_t *ret_size);
 static inline int read_virtual_file_fd(int fd, size_t max_size, char **ret_contents, size_t *ret_size) {
         return read_virtual_file_at(fd, /* filename= */ NULL, max_size, ret_contents, ret_size);
 }
@@ -90,7 +90,7 @@ static inline int read_full_virtual_file(const char *filename, char **ret_conten
         return read_virtual_file(filename, SIZE_MAX, ret_contents, ret_size);
 }
 
-int read_full_stream_full(FILE *f, const char *filename, uint64_t offset, size_t size, ReadFullFileFlags flags, char **ret_contents, size_t *ret_size);
+_sync_ int read_full_stream_full(FILE *f, const char *filename, uint64_t offset, size_t size, ReadFullFileFlags flags, char **ret_contents, size_t *ret_size);
 static inline int read_full_stream(FILE *f, char **ret_contents, size_t *ret_size) {
         return read_full_stream_full(f, /* filename= */ NULL, UINT64_MAX, SIZE_MAX, /* flags= */ 0, ret_contents, ret_size);
 }
@@ -99,16 +99,16 @@ int verify_file_at(int dir_fd, const char *fn, const char *blob, bool accept_ext
 
 int script_get_shebang_interpreter(const char *path, char **ret);
 
-int get_proc_field(const char *path, const char *key, char **ret);
+_sync_ int get_proc_field(const char *path, const char *key, char **ret);
 
-DIR* xopendirat(int dir_fd, const char *path, int flags);
+_sync_ DIR* xopendirat(int dir_fd, const char *path, int flags);
 
 typedef enum XfopenFlags {
         XFOPEN_UNLOCKED = 1 << 0, /* call __fsetlocking(FSETLOCKING_BYCALLER) after opened */
         XFOPEN_SOCKET   = 1 << 1, /* also try to open unix socket */
 } XfopenFlags;
 
-int xfopenat_full(
+_sync_ int xfopenat_full(
                 int dir_fd,
                 const char *path,
                 const char *mode,
@@ -126,22 +126,22 @@ static inline int fopen_unlocked(const char *path, const char *mode, FILE **ret)
         return fopen_unlocked_at(AT_FDCWD, path, mode, /* open_flags= */ 0, ret);
 }
 
-int fdopen_independent(int fd, const char *mode, FILE **ret);
+_sync_ int fdopen_independent(int fd, const char *mode, FILE **ret);
 
 int search_and_open(const char *path, int mode, const char *root, char **search, int *ret_fd, char **ret_path);
 static inline int search_and_access(const char *path, int mode, const char *root, char**search, char **ret_path) {
         return search_and_open(path, mode, root, search, /* ret_fd= */ NULL, ret_path);
 }
-int search_and_fopen(const char *path, const char *mode, const char *root, const char **search, FILE **ret_file, char **ret_path);
+_sync_ int search_and_fopen(const char *path, const char *mode, const char *root, const char **search, FILE **ret_file, char **ret_path);
 int search_and_fopen_nulstr(const char *path, const char *mode, const char *root, const char *search, FILE **ret_file, char **ret_path);
 
-int fflush_and_check(FILE *f);
+_sync_ int fflush_and_check(FILE *f);
 int fflush_sync_and_check(FILE *f);
 
 int write_timestamp_file_atomic(const char *fn, usec_t n);
 int read_timestamp_file(const char *fn, usec_t *ret);
 
-int fputs_with_separator(FILE *f, const char *s, const char *separator, bool *space);
+_sync_ int fputs_with_separator(FILE *f, const char *s, const char *separator, bool *space);
 int fputs_with_newline(FILE *f, const char *s);
 
 typedef enum ReadLineFlags {
@@ -150,7 +150,7 @@ typedef enum ReadLineFlags {
         READ_LINE_NOT_A_TTY = 1 << 2,
 } ReadLineFlags;
 
-int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret);
+_sync_ int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret);
 static inline int read_line(FILE *f, size_t limit, char **ret) {
         return read_line_full(f, limit, /* flags= */ 0, ret);
 }
@@ -158,7 +158,7 @@ static inline int read_nul_string(FILE *f, size_t limit, char **ret) {
         return read_line_full(f, limit, READ_LINE_ONLY_NUL, ret);
 }
 
-int read_stripped_line(FILE *f, size_t limit, char **ret);
+_sync_ int read_stripped_line(FILE *f, size_t limit, char **ret);
 
 static inline bool file_offset_beyond_memory_size(off_t x) {
         if (x < 0) /* off_t is signed, filter that out */
@@ -166,7 +166,7 @@ static inline bool file_offset_beyond_memory_size(off_t x) {
         return (uint64_t) x > (uint64_t) SIZE_MAX;
 }
 
-int safe_fgetc(FILE *f, char *ret);
+_sync_ int safe_fgetc(FILE *f, char *ret);
 
 int warn_file_is_world_accessible(const char *filename, struct stat *st, const char *unit, unsigned line);
 

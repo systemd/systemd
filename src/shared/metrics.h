@@ -14,7 +14,7 @@ typedef enum MetricFamilyType {
 
 typedef struct MetricFamily MetricFamily;
 
-typedef int (*metric_family_generate_func_t) (const MetricFamily *mf, sd_varlink *link, void *userdata);
+typedef int (*metric_family_generate_func_t) (const MetricFamily *mf, sd_varlink *link, void *userdata) _scoped_callback_;
 
 typedef struct MetricFamily {
         const char *name;
@@ -36,9 +36,9 @@ DECLARE_STRING_TABLE_LOOKUP_TO_STRING(metric_family_type, MetricFamilyType);
 
 int metric_family_describe(const MetricFamily *mf, sd_varlink *link);
 int metrics_method_describe(const MetricFamily mfs[], sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
-int metrics_method_list(const MetricFamily mfs[], sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
+_sync_ int metrics_method_list(const MetricFamily mfs[], sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
 
 int metric_build_send_string(const MetricFamily* mf, sd_varlink *link, const char *object, const char *value, sd_json_variant *fields);
-int metric_build_send_unsigned(const MetricFamily* mf, sd_varlink *link, const char *object, uint64_t value, sd_json_variant *fields);
-int metric_build_send_double(const MetricFamily* mf, sd_varlink *link, const char *object, double value, sd_json_variant *fields);
+_sync_ int metric_build_send_unsigned(const MetricFamily* mf, sd_varlink *link, const char *object, uint64_t value, sd_json_variant *fields);
+_sync_ int metric_build_send_double(const MetricFamily* mf, sd_varlink *link, const char *object, double value, sd_json_variant *fields);
 int metric_build_send_object(const MetricFamily* mf, sd_varlink *link, const char *object, sd_json_variant *value, sd_json_variant *fields);
