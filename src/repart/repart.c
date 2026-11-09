@@ -11981,8 +11981,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("manifest-fields", "FIELDS",
                             "Fields to include in manifests of populated partitions (mode, uid, gid, size, hash, "
-                            "symlink, device, hardlink, mtime, user-xattr, user-name, group-name, all, default, "
-                            "none, or +/- prefixed to adjust)"):
+                            "symlink, device, hardlink, mtime, user-xattr, user-name, group-name, flag-append-only, "
+                            "flag-immutable, flag-no-atime, flag-no-cow, flag-no-dump, read-only, flag-hidden, flag-system, "
+                            "flag-archive, fs-uuid, fs-label, fat-serial, all, default, none, or +/- prefixed to adjust)"):
                         r = manifest_fields_from_string(opts.arg, &arg_manifest_fields);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse field list: %s", opts.arg);
