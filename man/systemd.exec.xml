@@ -401,7 +401,13 @@
         already mounted. Note that this option has no effect unless used in conjunction with
         <varname>RootDirectory=</varname>/<varname>RootImage=</varname> as these four mounts are
         generally mounted in the host anyway, and unless the root directory is changed, the private mount namespace
-        will be a 1:1 copy of the host's, and include these four mounts. Note that the <filename>/dev/</filename> file
+        will be a 1:1 copy of the host's, and include these four mounts. A writable <filename>/run/</filename>
+        <literal>tmpfs</literal> is only set up when a separate root directory
+        (<varname>RootDirectory=</varname>/<varname>RootImage=</varname>) is used, where
+        <filename>/run/</filename> is private. Otherwise <filename>/run/</filename> is the host's and, under
+        <varname>ProtectSystem=strict</varname>, read-only like the rest of the hierarchy; request a writable
+        <filename>/run/</filename> (or a subdirectory of it) explicitly via <varname>ReadWritePaths=</varname>
+        or <varname>RuntimeDirectory=</varname> if needed. Note that the <filename>/dev/</filename> file
         system of the host is bind mounted if this option is used without <varname>PrivateDevices=</varname>. To run
         the service with a private, minimal version of <filename>/dev/</filename>, combine this option with
         <varname>PrivateDevices=</varname>.</para>
