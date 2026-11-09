@@ -11,6 +11,16 @@ CHANGES WITH 263 in spe:
 
         Feature Removals and Incompatible Changes:
 
+        * /run/ is now correctly read-only under ProtectSystem=strict. Since
+          v248, when MountAPIVFS= was in effect (which is also implied by
+          ProtectControlGroups=, ProtectKernelTunables=, ProtectProc=, and similar
+          settings), /run/ was erroneously left writable, and when the mount
+          namespace shared the host's /run/ this even left the host's /run/
+          writable. Services that relied on this and need a writable /run/ must
+          now request it explicitly via ReadWritePaths= or RuntimeDirectory=.
+          With RootDirectory=/RootImage=, /run/ remains a private writable tmpfs
+          as before.
+
         * The io.systemd.Unit.SetProperties() Varlink method now accepts a
           dedicated UnitProperties input type containing only Markers. Clients
           using generated bindings may need updates. The Markers JSON
