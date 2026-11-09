@@ -866,6 +866,27 @@ TEST(uapi16_dispatch) {
         ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"contents\":[{\"file\":\"b\",\"encoding\":\"Identity\"}]}", 1, &o), EINVAL);
         ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"contents\":[{\"file\":\"b\",\"encoding\":\"\"}]}", 1, &o), EINVAL);
 
+        /* Additional HTTP header fields, which are only permitted together with "url" */
+        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"contents\":[{\"url\":\"https://example.com/a\",\"httpHeaders\":{\"Authorization\":\"Bearer foo\",\"X-Empty\":\"\"}}]}", 1, &o));
+        ASSERT_EQ(o.n_contents, 1U);
+        ASSERT_TRUE(strv_equal(o.contents[0].http_headers, STRV_MAKE("Authorization", "Bearer foo", "X-Empty", "")));
+        uapi16_object_done(&o);
+        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"contents\":[{\"url\":\"https://example.com/a\",\"httpHeaders\":null}]}", 1, &o));
+        ASSERT_NULL(o.contents[0].http_headers);
+        uapi16_object_done(&o);
+        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"contents\":[{\"url\":\"https://example.com/a\",\"httpHeaders\":{}}]}", 1, &o));
+        ASSERT_TRUE(strv_isempty(o.contents[0].http_headers));
+        uapi16_object_done(&o);
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"contents\":[{\"file\":\"b\",\"httpHeaders\":{\"X-Foo\":\"bar\"}}]}", 1, &o), EINVAL);
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"contents\":[{\"literal\":\"\",\"httpHeaders\":{\"X-Foo\":\"bar\"}}]}", 1, &o), EINVAL);
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"contents\":[{\"httpHeaders\":{\"X-Foo\":\"bar\"}}]}", 1, &o), EINVAL);
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"contents\":[{\"url\":\"https://example.com/a\",\"httpHeaders\":[\"X-Foo\"]}]}", 1, &o), EINVAL);
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"contents\":[{\"url\":\"https://example.com/a\",\"httpHeaders\":{\"X-Foo\":1}}]}", 1, &o), EINVAL);
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"contents\":[{\"url\":\"https://example.com/a\",\"httpHeaders\":{\"\":\"bar\"}}]}", 1, &o), EINVAL);
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"contents\":[{\"url\":\"https://example.com/a\",\"httpHeaders\":{\"X Foo\":\"bar\"}}]}", 1, &o), EINVAL);
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"contents\":[{\"url\":\"https://example.com/a\",\"httpHeaders\":{\"X-Foo\":\"bar\\r\\nX-Injected: baz\"}}]}", 1, &o), EINVAL);
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"contents\":[{\"url\":\"https://example.com/a\",\"httpHeaders\":{\"X-Foo\":\"a\",\"x-foo\":\"b\"}}]}", 1, &o), ENOTUNIQ);
+
         /* Extended attributes: sorted, both encodings, unknown namespaces ignored */
         ASSERT_OK(dispatch_one("{\"name\":\"a\",\"extendedAttributes\":{\"security\":{\"selinux\":{\"text\":\"foo\"}},"
                                "\"user\":{\"b\":{\"base64\":\"AAECAw==\"},\"a\":{\"text\":\"hello\"},\"e\":{\"text\":\"\"},\"u\":{\"base64\":\"-_8=\"}}}}", 1, &o));
