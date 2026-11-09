@@ -5,6 +5,7 @@
 #include "sd-event.h"
 #include "sd-future.h"
 
+#include "await.h"
 #include "main-func.h"
 #include "tests.h"
 
@@ -57,7 +58,7 @@ static int nested_run(int argc, char *argv[]) {
         assert_test_argv(argc, argv);
 
         /* Attaching another main fiber to the running loop would leave it behind once we return. */
-        ASSERT_ERROR(run_main_fiber(argc, argv, return_argc), EBUSY);
+        ASSERT_ERROR(SD_BLOCKING(run_main_fiber(argc, argv, return_argc)), EBUSY);
         return 0;
 }
 

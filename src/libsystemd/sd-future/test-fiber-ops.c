@@ -8,6 +8,7 @@
 #include "sd-future.h"
 
 #include "alloc-util.h"
+#include "await.h"
 #include "cleanup-util.h"
 #include "fd-util.h"
 #include "io-util.h"
@@ -567,6 +568,70 @@ TEST(loop_read_write_fallback) {
         ssize_t n = loop_read(pipefd[0], buf, STRLEN("fallback"), /* do_poll= */ true);
         ASSERT_OK_EQ(n, (ssize_t) STRLEN("fallback"));
         ASSERT_MEMEQ(buf, "fallback", STRLEN("fallback"));
+}
+
+static int blocking_fiber_io(void *userdata) {
+        int *pipefd = ASSERT_PTR(userdata);
+        char buf[STRLEN("blocking")] = {};
+
+        ASSERT_OK_EQ(SD_BLOCKING(sd_fiber_write(pipefd[1], "blocking", sizeof(buf))), (ssize_t) sizeof(buf));
+        ASSERT_OK_EQ(SD_BLOCKING(sd_fiber_read(pipefd[0], buf, sizeof(buf))), (ssize_t) sizeof(buf));
+        ASSERT_MEMEQ(buf, "blocking", sizeof(buf));
+        return 0;
+}
+
+TEST(fiber_io_blocking) {
+        /* In a blocking region on a fiber, sd_fiber_write() and sd_fiber_read() run the system call
+         * directly, like they do off a fiber. With io_uring, the fiber path submits the operation and
+         * suspends even when the data is already there, and that suspension aborts in a blocking
+         * region. */
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+        _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK_ERRNO(pipe2(pipefd, O_CLOEXEC));
+        ASSERT_OK(sd_fiber_new(e, "blocking-io", blocking_fiber_io, pipefd, &f));
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_OK_ZERO(sd_future_result(f));
+}
+
+static int blocking_loop_exit(sd_event_source *source, void *userdata) {
+        return sd_event_exit(userdata, 0);
+}
+
+static int guarded_loop_fiber(void *userdata) {
+        if (userdata != NULL)
+                return SD_BLOCKING(sd_fiber_yield());
+
+        _cleanup_(sd_event_unrefp) sd_event *inner = NULL;
+        ASSERT_OK(sd_event_new(&inner));
+        ASSERT_OK(sd_event_add_defer(inner, NULL, blocking_loop_exit, inner));
+        ASSERT_OK_ZERO(SD_BLOCKING(SD_BLOCKING(sd_event_loop(inner))));
+
+        return sd_fiber_yield();
+}
+
+static void run_guarded_loop(bool fail) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *fiber = NULL;
+
+        ASSERT_OK(sd_event_new(&event));
+        ASSERT_OK(sd_event_set_exit_on_idle(event, true));
+        ASSERT_OK(sd_fiber_new(event, "guarded-loop", guarded_loop_fiber, INT_TO_PTR(fail), &fiber));
+        ASSERT_OK_ZERO(sd_event_loop(event));
+        ASSERT_OK(sd_future_result(fiber));
+}
+
+TEST(blocking_event_loop) {
+        /* A fiber must finish a separate event loop inside nested blocking guards and yield after the guards end. */
+        run_guarded_loop(false);
+}
+
+TEST(blocking_yield) {
+        /* A fiber that yields inside a blocking guard must abort before the event loop resumes. */
+        ASSERT_SIGNAL(run_guarded_loop(true), SIGABRT);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

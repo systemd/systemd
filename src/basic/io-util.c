@@ -87,7 +87,7 @@ ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll) {
          * correctly even from a fiber. Only use the fiber path when the fd is blocking (where read()
          * would otherwise block the entire event loop). */
         int flags = 0;
-        if (fiber_ops_is_set() && !do_poll) {
+        if (fiber_ops_can_suspend() && !do_poll) {
                 flags = fcntl(fd, F_GETFL);
                 if (flags < 0)
                         return -errno;
@@ -96,7 +96,7 @@ ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll) {
         do {
                 ssize_t k;
 
-                if (fiber_ops_is_set() && (do_poll || !FLAGS_SET(flags, O_NONBLOCK))) {
+                if (fiber_ops_can_suspend() && (do_poll || !FLAGS_SET(flags, O_NONBLOCK))) {
                         /* On a fiber the read op suspends on EAGAIN until data is available, so we don't
                          * need a separate poll step or the do_poll knob. */
                         k = fiber_ops_read(fd, p, nbytes);
@@ -174,13 +174,13 @@ int loop_write_full(int fd, const void *buf, size_t nbytes, usec_t timeout) {
          * semantic correctly even from a fiber. Only use the fiber path when the fd is blocking
          * (where write() would otherwise block the entire event loop). */
         int flags = 0;
-        if (fiber_ops_is_set() && timeout == 0) {
+        if (fiber_ops_can_suspend() && timeout == 0) {
                 flags = fcntl(fd, F_GETFL);
                 if (flags < 0)
                         return -errno;
         }
 
-        if (fiber_ops_is_set() && !FLAGS_SET(flags, O_NONBLOCK)) {
+        if (fiber_ops_can_suspend() && !FLAGS_SET(flags, O_NONBLOCK)) {
                 /* On a fiber the write op suspends on EAGAIN until the fd is writable; honor the
                  * caller's timeout via a deadline scope. */
                 FIBER_OPS_TIMEOUT(timestamp_is_set(timeout) ? timeout : USEC_INFINITY);
