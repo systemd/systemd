@@ -1,15 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/magic.h>
+#include <linux/msdos_fs.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "chase.h"
+#include "chattr-util.h"
 #include "crypto-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -1019,6 +1024,238 @@ static int manifest_uapi16_xattrs(ManifestContext *c, const char *path, int inod
         return 1;
 }
 
+static unsigned manifest_fields_to_inode_flags(ManifestField f) {
+        unsigned m = 0;
+
+        /* Maps the manifest fields to the Linux inode flags they cover */
+        SET_FLAG(m, FS_APPEND_FL,    FLAGS_SET(f, MANIFEST_FIELD_FLAG_APPEND_ONLY));
+        SET_FLAG(m, FS_IMMUTABLE_FL, FLAGS_SET(f, MANIFEST_FIELD_FLAG_IMMUTABLE));
+        SET_FLAG(m, FS_NOATIME_FL,   FLAGS_SET(f, MANIFEST_FIELD_FLAG_NO_ATIME));
+        SET_FLAG(m, FS_NOCOW_FL,     FLAGS_SET(f, MANIFEST_FIELD_FLAG_NO_COW));
+        SET_FLAG(m, FS_NODUMP_FL,    FLAGS_SET(f, MANIFEST_FIELD_FLAG_NO_DUMP));
+
+        return m;
+}
+
+static uint32_t manifest_fields_to_fat_attrs(ManifestField f) {
+        uint32_t m = 0;
+
+        /* Maps the manifest fields to the FAT attributes they cover */
+        SET_FLAG(m, ATTR_RO,     FLAGS_SET(f, MANIFEST_FIELD_READ_ONLY));
+        SET_FLAG(m, ATTR_HIDDEN, FLAGS_SET(f, MANIFEST_FIELD_FLAG_HIDDEN));
+        SET_FLAG(m, ATTR_SYS,    FLAGS_SET(f, MANIFEST_FIELD_FLAG_SYSTEM));
+        SET_FLAG(m, ATTR_ARCH,   FLAGS_SET(f, MANIFEST_FIELD_FLAG_ARCHIVE));
+
+        return m;
+}
+
+static int manifest_read_inode_flags(int inode_fd, unsigned *ret) {
+        unsigned f;
+        int r;
+
+        assert(inode_fd >= 0);
+        assert(ret);
+
+        /* Reads the Linux inode flags covered by UAPI.16 of the specified inode (which may be an O_PATH
+         * fd). If the file system does not support inode flags at all, the inode is considered to have
+         * none. */
+
+        r = read_attr_fd(inode_fd, &f);
+        if (ERRNO_IS_NEG_IOCTL_NOT_SUPPORTED(r))
+                f = 0;
+        else if (r < 0)
+                return r;
+
+        *ret = f & UAPI16_INODE_FLAGS_ALL;
+        return 0;
+}
+
+static int manifest_read_fat_attrs(int inode_fd, uint32_t *ret) {
+        int r;
+
+        assert(inode_fd >= 0);
+        assert(ret);
+
+        /* Reads the FAT directory entry attributes covered by UAPI.16 of the specified inode (which may be
+         * an O_PATH fd). Returns 0 if the inode is not located on a FAT file system, 1 otherwise. */
+
+        r = fd_is_fs_type(inode_fd, MSDOS_SUPER_MAGIC);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                *ret = 0;
+                return 0;
+        }
+
+        _cleanup_close_ int fd_close = -EBADF;
+        int fd = fd_reopen_condition(inode_fd, O_RDONLY|O_NOCTTY, O_PATH, &fd_close);
+        if (fd < 0)
+                return fd;
+
+        uint32_t a;
+        if (ioctl(fd, FAT_IOCTL_GET_ATTRIBUTES, &a) < 0)
+                return -errno;
+
+        *ret = a & UAPI16_FAT_ATTRS_ALL;
+        return 1;
+}
+
+typedef struct FsIdentity {
+        bool is_fat;
+        char *label;                /* NULL if not queryable, "" if the file system has no label */
+        sd_id128_t uuid;
+        bool uuid_set;
+        uint32_t fat_serial;
+        bool fat_serial_set;
+} FsIdentity;
+
+static void fs_identity_done(FsIdentity *i) {
+        assert(i);
+
+        i->label = mfree(i->label);
+}
+
+static int manifest_read_fs_identity(int dir_fd, FsIdentity *ret) {
+        int r;
+
+        assert(dir_fd >= 0);
+        assert(ret);
+
+        /* Reads the identity of the file system the specified directory (which may be an O_PATH fd) is
+         * located in. Fields the file system cannot report are left unset. */
+
+        _cleanup_close_ int fd_close = -EBADF;
+        int fd = fd_reopen_condition(dir_fd, O_RDONLY|O_DIRECTORY|O_NOCTTY, O_PATH, &fd_close);
+        if (fd < 0)
+                return fd;
+
+        _cleanup_(fs_identity_done) FsIdentity id = {};
+
+        r = fd_is_fs_type(fd, MSDOS_SUPER_MAGIC);
+        if (r < 0)
+                return r;
+        id.is_fat = r;
+
+        char label[FSLABEL_MAX] = {};
+        if (ioctl(fd, FS_IOC_GETFSLABEL, label) < 0) {
+                if (!ERRNO_IS_IOCTL_NOT_SUPPORTED(errno))
+                        return -errno;
+        } else {
+                id.label = memdup_suffix0(label, strnlen(label, sizeof(label)));
+                if (!id.label)
+                        return -ENOMEM;
+        }
+
+        if (id.is_fat) {
+                /* FAT has no UUID, but a 32-bit volume serial number instead */
+                uint32_t serial;
+                if (ioctl(fd, FAT_IOCTL_GET_VOLUME_ID, &serial) < 0) {
+                        if (!ERRNO_IS_IOCTL_NOT_SUPPORTED(errno))
+                                return -errno;
+                } else {
+                        id.fat_serial = serial;
+                        id.fat_serial_set = true;
+                }
+        } else {
+                struct fsuuid2 u = {};
+                if (ioctl(fd, FS_IOC_GETFSUUID, &u) < 0) {
+                        if (!ERRNO_IS_IOCTL_NOT_SUPPORTED(errno))
+                                return -errno;
+                } else if (u.len == sizeof(id.uuid.bytes)) {
+                        memcpy(id.uuid.bytes, u.uuid, sizeof(id.uuid.bytes));
+                        id.uuid_set = !sd_id128_is_null(id.uuid);
+                }
+        }
+
+        *ret = TAKE_STRUCT(id);
+        return 0;
+}
+
+static int manifest_uapi16_extra_fields(
+                ManifestContext *c,
+                const char *path,
+                int inode_fd,
+                const struct statx *sx,
+                sd_json_variant **j) {
+
+        bool is_root = isempty(path);
+        int r;
+
+        assert(c);
+        assert(sx);
+        assert(j);
+
+        /* Adds the Linux inode flags, FAT attributes and file system identity fields to the object, if
+         * requested. */
+
+        if (inode_fd < 0 || !FLAGS_SET(sx->stx_mask, STATX_TYPE))
+                return 0;
+
+        bool reg_or_dir = S_ISREG(sx->stx_mode) || S_ISDIR(sx->stx_mode);
+
+        unsigned inode_mask = manifest_fields_to_inode_flags(c->fields);
+        if (inode_mask != 0 && reg_or_dir) {
+                unsigned f;
+                r = manifest_read_inode_flags(inode_fd, &f);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to read inode flags of '%s', ignoring: %m", empty_to_root(path));
+                        c->n_metadata_omitted++;
+                } else {
+                        r = uapi16_inode_flags_merge_json(j, f, inode_mask);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add inode flags to JSON object: %m");
+                }
+        }
+
+        /* The root directory of a FAT file system has no directory entry, hence no attributes */
+        uint32_t fat_mask = manifest_fields_to_fat_attrs(c->fields);
+        if (fat_mask != 0 && reg_or_dir && !is_root) {
+                uint32_t a;
+                r = manifest_read_fat_attrs(inode_fd, &a);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to read FAT attributes of '%s', ignoring: %m", empty_to_root(path));
+                        c->n_metadata_omitted++;
+                } else if (r > 0) {
+                        r = uapi16_fat_attrs_merge_json(j, a, fat_mask);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add FAT attributes to JSON object: %m");
+                }
+        }
+
+        if ((c->fields & (MANIFEST_FIELD_FS_UUID|MANIFEST_FIELD_FS_LABEL|MANIFEST_FIELD_FAT_SERIAL)) != 0 && is_root) {
+                _cleanup_(fs_identity_done) FsIdentity id = {};
+                r = manifest_read_fs_identity(inode_fd, &id);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to read file system identity, ignoring: %m");
+                        c->n_metadata_omitted++;
+                } else {
+                        char sb[UAPI16_FAT_SERIAL_STRING_MAX];
+                        const char *label = NULL;
+
+                        if (FLAGS_SET(c->fields, MANIFEST_FIELD_FS_LABEL) && !isempty(id.label)) {
+                                if (uapi16_fs_label_is_valid(id.label))
+                                        label = id.label;
+                                else {
+                                        log_warning("File system label cannot be represented in a UAPI.16 manifest, omitting.");
+                                        c->n_metadata_omitted++;
+                                }
+                        }
+
+                        r = sd_json_variant_merge_objectbo(
+                                        j,
+                                        SD_JSON_BUILD_PAIR_CONDITION(!!label, "fsLabel", SD_JSON_BUILD_STRING(label)),
+                                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(c->fields, MANIFEST_FIELD_FAT_SERIAL) && id.fat_serial_set, "fatSerial", SD_JSON_BUILD_STRING(uapi16_fat_serial_to_string(id.fat_serial, sb))),
+                                        SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(c->fields, MANIFEST_FIELD_FS_UUID) && id.uuid_set, "fsUUID", SD_JSON_BUILD_UUID(id.uuid)));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add file system identity to JSON object: %m");
+                }
+        }
+
+        return 0;
+}
+
 static int manifest_uapi16_item(
                 RecurseDirEvent event,
                 const char *path,
@@ -1154,6 +1391,10 @@ static int manifest_uapi16_item(
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(c->fields, MANIFEST_FIELD_MTIME) && FLAGS_SET(sx->stx_mask, STATX_MTIME) && sx->stx_mtime.tv_sec >= 0, "mTimeNSec", SD_JSON_BUILD_UNSIGNED(statx_timestamp_load_nsec(&sx->stx_mtime))));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON object: %m");
+
+        r = manifest_uapi16_extra_fields(c, path, inode_fd, sx, &j);
+        if (r < 0)
+                return r;
 
         r = manifest_uapi16_write_object(c, j);
         if (r < 0)
