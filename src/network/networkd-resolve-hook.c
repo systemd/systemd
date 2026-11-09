@@ -244,7 +244,7 @@ int manager_varlink_init_resolve_hook(Manager *m, int fd) {
         if (fd < 0) {
                 r = sd_varlink_server_listen_address(s, "/run/systemd/resolve.hook/io.systemd.Network",
                                                      0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
-                if (ERRNO_IS_NEG_PRIVILEGE(r)) {
+                if (ERRNO_IS_NEG_PRIVILEGE(r) || r == -EROFS) {
                         log_warning_errno(r, "Failed to bind to systemd-resolved hook varlink socket, ignoring: %m");
                         return 0;
                 }
