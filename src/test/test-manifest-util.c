@@ -980,6 +980,22 @@ TEST(manifest_uapi16_timestamp_accuracy) {
         ASSERT_OK(verify_buffer(&c, tfd, buf, size));
 }
 
+TEST(uapi16_object_done_many) {
+        Uapi16Object objects[2] = { UAPI16_OBJECT_NULL, UAPI16_OBJECT_NULL };
+
+        uapi16_object_done_many(/* objects= */ NULL, /* n= */ 0);
+
+        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"contents\":[{\"file\":\"b\"}]}", 1, objects + 0));
+        ASSERT_OK(dispatch_one("{\"name\":\"c\"}", 1, objects + 1));
+        uapi16_object_done_many(objects, ELEMENTSOF(objects));
+
+        FOREACH_ELEMENT(o, objects) {
+                ASSERT_NULL(o->name);
+                ASSERT_NULL(o->contents);
+                ASSERT_EQ(o->n_contents, 0U);
+        }
+}
+
 TEST(manifest_uapi16_xattr) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF;

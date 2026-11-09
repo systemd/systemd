@@ -81,6 +81,15 @@ void uapi16_object_done(Uapi16Object *o) {
         uapi16_object_xattrs_done(o);
 }
 
+void uapi16_object_done_many(Uapi16Object *objects, size_t n) {
+        assert(objects || n == 0);
+
+        /* Releases the fields of all objects in the array, but not the array itself */
+
+        FOREACH_ARRAY(o, objects, n)
+                uapi16_object_done(o);
+}
+
 int uapi16_object_check_validity(Uapi16Object *o) {
         assert(o);
 
