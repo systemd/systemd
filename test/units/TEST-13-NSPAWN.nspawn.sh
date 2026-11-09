@@ -1119,8 +1119,11 @@ testcase_notification_socket() {
 testcase_fdstore_wipe() {
     local root commands n_fds names unit=test-nspawn-fdstore-wipe.service
 
+    dummy_container_has /usr/bin/test-fdstore || return 77
+
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.fdstore_wipe.XXX)"
     create_dummy_container "$root"
+
     cat >"$root/entrypoint.sh" <<'EOF'
 #!/usr/bin/env bash
 set -e
@@ -1185,8 +1188,11 @@ testcase_socket_activation() {
     # https://github.com/systemd/systemd/issues/43764
     local root entrypoint socket1 socket2 nspawn
 
+    dummy_container_has /usr/bin/test-fdstore || return 77
+
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.socket-activation.XXX)"
     create_dummy_container "$root"
+
     entrypoint="$root/entrypoint.sh"
     socket1="/run/TEST-13-NSPAWN-socket-activation-1.sock"
     socket2="/run/TEST-13-NSPAWN-socket-activation-2.sock"
