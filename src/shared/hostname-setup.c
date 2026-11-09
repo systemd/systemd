@@ -220,7 +220,7 @@ void hostname_update_source_hint(const char *hostname, HostnameSource source) {
 
         if (source == HOSTNAME_DEFAULT) {
                 r = write_string_file(path, hostname,
-                                      WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_ATOMIC);
+                                      WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_ATOMIC | WRITE_STRING_FILE_LABEL);
                 if (r < 0)
                         log_warning_errno(r, "Failed to create \"%s\", ignoring: %m", path);
         } else
