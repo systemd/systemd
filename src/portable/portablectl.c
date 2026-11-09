@@ -771,7 +771,9 @@ static int maybe_enable_disable(sd_bus *bus, const char *path, bool enable) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_strv_free_ char **names = NULL;
-        const uint64_t flags = UNIT_FILE_PORTABLE | (arg_runtime ? UNIT_FILE_RUNTIME : 0);
+        uint64_t flags = UNIT_FILE_PORTABLE |
+                         (arg_runtime ? UNIT_FILE_RUNTIME : 0) |
+                         (enable ? 0 : UNIT_FILE_NO_FUTURE_MASKS);
         int r;
 
         if (!arg_enable)
@@ -781,23 +783,36 @@ static int maybe_enable_disable(sd_bus *bus, const char *path, bool enable) {
         if (!names)
                 return log_oom();
 
-        r = bus_message_new_method_call(
-                bus,
-                &m,
-                bus_systemd_mgr,
-                enable ? "EnableUnitFilesWithFlags" : "DisableUnitFilesWithFlags");
-        if (r < 0)
-                return bus_log_create_error(r);
+        for (;;) {
+                m = sd_bus_message_unref(m);
+                reply = sd_bus_message_unref(reply);
+                sd_bus_error_free(&error);
 
-        r = sd_bus_message_append_strv(m, names);
-        if (r < 0)
-                return bus_log_create_error(r);
+                r = bus_message_new_method_call(
+                                bus,
+                                &m,
+                                bus_systemd_mgr,
+                                enable ? "EnableUnitFilesWithFlags" : "DisableUnitFilesWithFlags");
+                if (r < 0)
+                        return bus_log_create_error(r);
 
-        r = sd_bus_message_append(m, "t", flags);
-        if (r < 0)
-                return bus_log_create_error(r);
+                r = sd_bus_message_append_strv(m, names);
+                if (r < 0)
+                        return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
+                r = sd_bus_message_append(m, "t", flags);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
+                if (r >= 0 || enable || !FLAGS_SET(flags, UNIT_FILE_NO_FUTURE_MASKS) ||
+                    !sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS))
+                        break;
+
+                /* A service manager that predates UNIT_FILE_NO_FUTURE_MASKS still understands the other
+                 * portable-service flags. */
+                flags &= ~UNIT_FILE_NO_FUTURE_MASKS;
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to %s the portable service %s: %s",
                         enable ? "enable" : "disable", path, bus_error_message(&error, r));

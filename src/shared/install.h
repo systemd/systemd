@@ -40,7 +40,8 @@ typedef enum UnitFileFlags {
         UNIT_FILE_IGNORE_AUXILIARY_FAILURE = 1 << 4,
         UNIT_FILE_VENDOR                   = 1 << 5,
         UNIT_FILE_APPLYING_PRESET          = 1 << 6,
-        _UNIT_FILE_FLAGS_MASK_PUBLIC = UNIT_FILE_RUNTIME|UNIT_FILE_PORTABLE|UNIT_FILE_FORCE,
+        UNIT_FILE_NO_FUTURE_MASKS          = 1 << 7, /* Public API via DBUS, do not change */
+        _UNIT_FILE_FLAGS_MASK_PUBLIC = UNIT_FILE_RUNTIME|UNIT_FILE_PORTABLE|UNIT_FILE_FORCE|UNIT_FILE_NO_FUTURE_MASKS,
 } UnitFileFlags;
 
 typedef enum SearchFlags {
