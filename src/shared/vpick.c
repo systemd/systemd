@@ -342,6 +342,131 @@ static bool architecture_matches(const PickFilter *filter, Architecture a) {
         return a == _ARCHITECTURE_INVALID;
 }
 
+static int consider_entry(
+                const char *root_path,
+                int root_fd,
+                int dir_fd,
+                const char *inode_path,
+                const char *name,
+                const PickFilter *filter,
+                const XAttrMatchFilter *xattr_filter,
+                PickFlags flags,
+                PickResult *best) {
+
+        unsigned found_tries_done = UINT_MAX, found_tries_left = UINT_MAX;
+        char *e;
+        int r;
+
+        assert(inode_path);
+        assert(name);
+        assert(filter);
+        assert(best);
+
+        /* Checks if the specified entry matches the filter, and if so, replaces 'best' if it is better. */
+
+        _cleanup_free_ char *dname = strdup(name);
+        if (!dname)
+                return log_oom_debug();
+
+        if (!isempty(filter->basename)) {
+                e = startswith(dname, filter->basename);
+                if (!e)
+                        return 0;
+
+                if (e[0] != '_')
+                        return 0;
+
+                e++;
+        } else
+                e = dname;
+
+        if (!isempty(filter->suffix)) {
+                char *sfx = endswith(e, filter->suffix);
+                if (!sfx)
+                        return 0;
+
+                *sfx = 0;
+        }
+
+        if (FLAGS_SET(flags, PICK_TRIES)) {
+                char *plus = strrchr(e, '+');
+                if (plus) {
+                        r = parse_tries(plus, &found_tries_left, &found_tries_done);
+                        if (r < 0)
+                                return r;
+                        if (r > 0) /* Found and parsed, now chop off */
+                                *plus = 0;
+                }
+        }
+
+        Architecture a = _ARCHITECTURE_INVALID;
+        if (FLAGS_SET(flags, PICK_ARCHITECTURE)) {
+                char *underscore = strrchr(e, '_');
+
+                if (underscore)
+                        a = architecture_from_string(underscore + 1);
+
+                if (!architecture_matches(filter, a)) {
+                        log_debug("Found entry with architecture '%s' which is not what we are looking for, ignoring entry.",
+                                  a < 0 ? "any" : architecture_to_string(a));
+                        return 0;
+                }
+
+                /* Chop off architecture from string */
+                if (underscore)
+                        *underscore = 0;
+        }
+
+        if (!version_is_valid(e, /* flags= */ 0)) {
+                log_debug("Version string '%s' of entry '%s' is invalid, ignoring entry.", e, name);
+                return 0;
+        }
+
+        if (filter->version && !streq(filter->version, e)) {
+                log_debug("Found entry with version string '%s', but was looking for '%s', ignoring entry.", e, filter->version);
+                return 0;
+        }
+
+        _cleanup_free_ char *p = path_join(inode_path, name);
+        if (!p)
+                return log_oom_debug();
+
+        _cleanup_(pick_result_done) PickResult found = PICK_RESULT_NULL;
+        r = pin_choice(root_path,
+                       root_fd,
+                       dir_fd,
+                       p,
+                       /* _inode_fd= */ -EBADF,
+                       found_tries_left,
+                       found_tries_done,
+                       &(const PickFilter) {
+                               .type_mask = filter->type_mask,
+                               .basename = filter->basename,
+                               .version = empty_to_null(e),
+                               .architecture = a,
+                               .suffix = filter->suffix,
+                       },
+                       xattr_filter,
+                       flags,
+                       &found);
+        if (r <= 0)
+                return r;
+
+        if (!best->path) {
+                *best = TAKE_PICK_RESULT(found);
+                return 0;
+        }
+
+        if (pick_result_compare(&found, best, flags) <= 0) {
+                log_debug("Found entry '%s' but previously found entry '%s' matches better, hence skipping entry.", found.path, best->path);
+                return 0;
+        }
+
+        pick_result_done(best);
+        *best = TAKE_PICK_RESULT(found);
+        return 0;
+}
+
 static int make_choice(
                 const char *root_path,
                 int root_fd,
@@ -422,112 +547,18 @@ static int make_choice(
         _cleanup_(pick_result_done) PickResult best = PICK_RESULT_NULL;
 
         FOREACH_ARRAY(entry, de->entries, de->n_entries) {
-                unsigned found_tries_done = UINT_MAX, found_tries_left = UINT_MAX;
-                _cleanup_free_ char *dname = NULL;
-                char *e;
-
-                dname = strdup((*entry)->d_name);
-                if (!dname)
-                        return log_oom_debug();
-
-                if (!isempty(filter->basename)) {
-                        e = startswith(dname, filter->basename);
-                        if (!e)
-                                continue;
-
-                        if (e[0] != '_')
-                                continue;
-
-                        e++;
-                } else
-                        e = dname;
-
-                if (!isempty(filter->suffix)) {
-                        char *sfx = endswith(e, filter->suffix);
-                        if (!sfx)
-                                continue;
-
-                        *sfx = 0;
-                }
-
-                if (FLAGS_SET(flags, PICK_TRIES)) {
-                        char *plus = strrchr(e, '+');
-                        if (plus) {
-                                r = parse_tries(plus, &found_tries_left, &found_tries_done);
-                                if (r < 0)
-                                        return r;
-                                if (r > 0) /* Found and parsed, now chop off */
-                                        *plus = 0;
-                        }
-                }
-
-                Architecture a = _ARCHITECTURE_INVALID;
-                if (FLAGS_SET(flags, PICK_ARCHITECTURE)) {
-                        char *underscore = strrchr(e, '_');
-
-                        if (underscore)
-                                a = architecture_from_string(underscore + 1);
-
-                        if (!architecture_matches(filter, a)) {
-                                log_debug("Found entry with architecture '%s' which is not what we are looking for, ignoring entry.",
-                                          a < 0 ? "any" : architecture_to_string(a));
-                                continue;
-                        }
-
-                        /* Chop off architecture from string */
-                        if (underscore)
-                                *underscore = 0;
-                }
-
-                if (!version_is_valid(e, /* flags= */ 0)) {
-                        log_debug("Version string '%s' of entry '%s' is invalid, ignoring entry.", e, (*entry)->d_name);
-                        continue;
-                }
-
-                if (filter->version && !streq(filter->version, e)) {
-                        log_debug("Found entry with version string '%s', but was looking for '%s', ignoring entry.", e, filter->version);
-                        continue;
-                }
-
-                _cleanup_free_ char *p = path_join(inode_path, (*entry)->d_name);
-                if (!p)
-                        return log_oom_debug();
-
-                _cleanup_(pick_result_done) PickResult found = PICK_RESULT_NULL;
-                r = pin_choice(root_path,
-                               root_fd,
-                               dir_fd,
-                               p,
-                               /* _inode_fd= */ -EBADF,
-                               found_tries_left,
-                               found_tries_done,
-                               &(const PickFilter) {
-                                       .type_mask = filter->type_mask,
-                                       .basename = filter->basename,
-                                       .version = empty_to_null(e),
-                                       .architecture = a,
-                                       .suffix = filter->suffix,
-                               },
-                               xattr_filter,
-                               flags,
-                               &found);
-                if (r == 0)
-                        continue;
+                r = consider_entry(
+                                root_path,
+                                root_fd,
+                                dir_fd,
+                                inode_path,
+                                (*entry)->d_name,
+                                filter,
+                                xattr_filter,
+                                flags,
+                                &best);
                 if (r < 0)
                         return r;
-
-                if (!best.path) {
-                        best = TAKE_PICK_RESULT(found);
-                        continue;
-                }
-
-                if (pick_result_compare(&found, &best, flags) <= 0) {
-                        log_debug("Found entry '%s' but previously found entry '%s' matches better, hence skipping entry.", found.path, best.path);
-                        continue;
-                }
-
-                pick_result_done(&best);
-                best = TAKE_PICK_RESULT(found);
         }
 
         if (!best.path) { /* Everything was good, but we didn't find any suitable entry */
