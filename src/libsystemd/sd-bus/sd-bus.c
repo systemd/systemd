@@ -14,6 +14,7 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "await.h"
 #include "bus-container.h"
 #include "bus-control.h"
 #include "bus-error.h"
@@ -32,6 +33,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "future-internal.h"
 #include "glyph-util.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
@@ -2440,7 +2442,7 @@ _public_ int sd_bus_call(
         /* If the current fiber and the bus share their event loop, we can use sd_bus_call_suspend()
          * instead which does an async method call. This allows multiple invocations of sd_bus_call() to
          * happen across multiple fibers at once. */
-        if (sd_fiber_is_running() && bus->event == sd_fiber_get_event())
+        if (fiber_can_suspend() && bus->event == sd_fiber_get_event())
                 return bus_call_suspend(bus, _m, usec, reterr_error, ret_reply);
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = sd_bus_message_ref(_m);
@@ -2742,7 +2744,7 @@ static int process_timeout(sd_bus *bus) {
         bus->current_slot = sd_bus_slot_ref(slot);
         bus->current_handler = c->callback;
         bus->current_userdata = slot->userdata;
-        r = c->callback(m, slot->userdata, &error_buffer);
+        r = SD_BLOCKING(c->callback(m, slot->userdata, &error_buffer));
         bus->current_userdata = NULL;
         bus->current_handler = NULL;
         bus->current_slot = NULL;
@@ -2847,7 +2849,7 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
         bus->current_slot = sd_bus_slot_ref(slot);
         bus->current_handler = c->callback;
         bus->current_userdata = slot->userdata;
-        r = c->callback(m, slot->userdata, &error_buffer);
+        r = SD_BLOCKING(c->callback(m, slot->userdata, &error_buffer));
         bus->current_userdata = NULL;
         bus->current_handler = NULL;
         bus->current_slot = NULL;
@@ -2896,7 +2898,7 @@ static int process_filter(sd_bus *bus, sd_bus_message *m) {
                         bus->current_slot = sd_bus_slot_ref(slot);
                         bus->current_handler = l->callback;
                         bus->current_userdata = slot->userdata;
-                        r = l->callback(m, slot->userdata, &error_buffer);
+                        r = SD_BLOCKING(l->callback(m, slot->userdata, &error_buffer));
                         bus->current_userdata = NULL;
                         bus->current_handler = NULL;
                         bus->current_slot = sd_bus_slot_unref(slot);
@@ -3194,7 +3196,7 @@ static int process_closing_reply_callback(sd_bus *bus, BusReplyCallback *c) {
         bus->current_slot = sd_bus_slot_ref(slot);
         bus->current_handler = c->callback;
         bus->current_userdata = slot->userdata;
-        r = c->callback(m, slot->userdata, &error_buffer);
+        r = SD_BLOCKING(c->callback(m, slot->userdata, &error_buffer));
         bus->current_userdata = NULL;
         bus->current_handler = NULL;
         bus->current_slot = NULL;

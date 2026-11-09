@@ -10,6 +10,7 @@
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
+#include "await.h"
 #include "env-util.h"
 #include "errno-list.h"
 #include "errno-util.h"
@@ -815,7 +816,7 @@ static int varlink_dispatch_local_error(sd_varlink *v, const char *error) {
         if (r < 0)
                 return r;
 
-        r = v->reply_callback(v, empty, error, SD_VARLINK_REPLY_ERROR|SD_VARLINK_REPLY_LOCAL, v->userdata);
+        r = SD_BLOCKING(v->reply_callback(v, empty, error, SD_VARLINK_REPLY_ERROR|SD_VARLINK_REPLY_LOCAL, v->userdata));
         if (r < 0)
                 varlink_log_errno(v, r, "Reply callback returned error, ignoring: %m");
 
@@ -947,7 +948,7 @@ static int varlink_dispatch_reply(sd_varlink *v) {
                 varlink_set_state(v, VARLINK_PROCESSING_REPLY);
 
                 if (v->reply_callback) {
-                        r = v->reply_callback(v, parameters, sd_json_variant_string(error), flags, v->userdata);
+                        r = SD_BLOCKING(v->reply_callback(v, parameters, sd_json_variant_string(error), flags, v->userdata));
                         if (r < 0)
                                 varlink_log_errno(v, r, "Reply callback returned error, ignoring: %m");
                 }
@@ -1411,7 +1412,7 @@ static int varlink_dispatch_method(sd_varlink *v) {
                                  * this as a deferred reply and moves state to PENDING_METHOD. */
                                 r = varlink_dispatch_fiber(v, method, callback, parameters, flags);
                         else
-                                r = callback(v, parameters, flags, v->userdata);
+                                r = SD_BLOCKING(callback(v, parameters, flags, v->userdata));
                         if (VARLINK_STATE_WANTS_REPLY(v->state)) {
                                 if (r < 0) {
                                         varlink_log_errno(v, r, "Callback for '%s' returned error: %m", method);
@@ -1585,7 +1586,7 @@ static int varlink_dispatch_upgrade(sd_varlink *v) {
                 return -ENOPKG;
 
         /* No matter what, we donate the fds to callback */
-        r = v->upgrade_callback(v, TAKE_FD(input_fd), TAKE_FD(output_fd), v->userdata);
+        r = SD_BLOCKING(v->upgrade_callback(v, TAKE_FD(input_fd), TAKE_FD(output_fd), v->userdata));
         if (r < 0)
                 return r;
 
@@ -1887,7 +1888,7 @@ static void varlink_detach_server(sd_varlink *v, bool connected) {
         saved_server = TAKE_PTR(v->server);
 
         if (saved_server->disconnect_callback && connected)
-                saved_server->disconnect_callback(saved_server, v, saved_server->userdata);
+                SD_BLOCKING(saved_server->disconnect_callback(saved_server, v, saved_server->userdata));
 
         varlink_server_test_exit_on_idle(saved_server);
         sd_varlink_server_unref(saved_server);

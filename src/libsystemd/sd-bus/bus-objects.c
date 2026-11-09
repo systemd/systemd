@@ -3,6 +3,7 @@
 #include <limits.h>
 #include <linux/capability.h>
 
+#include "await.h"
 #include "sd-bus.h"
 #include "sd-future.h"
 
@@ -39,7 +40,7 @@ static int node_vtable_get_userdata(
         if (c->find) {
                 bus->current_slot = sd_bus_slot_ref(s);
                 bus->current_userdata = u;
-                r = c->find(bus, path, c->interface, u, &found_u, reterr_error);
+                r = SD_BLOCKING(c->find(bus, path, c->interface, u, &found_u, reterr_error));
                 bus->current_userdata = NULL;
                 bus->current_slot = sd_bus_slot_unref(s);
 
@@ -125,7 +126,7 @@ static int add_enumerated_to_set(
 
                 bus->current_slot = sd_bus_slot_ref(slot);
                 bus->current_userdata = slot->userdata;
-                r = c->callback(bus, prefix, slot->userdata, &children, reterr_error);
+                r = SD_BLOCKING(c->callback(bus, prefix, slot->userdata, &children, reterr_error));
                 bus->current_userdata = NULL;
                 bus->current_slot = sd_bus_slot_unref(slot);
 
@@ -288,7 +289,7 @@ static int node_callbacks_run(
                 bus->current_slot = sd_bus_slot_ref(slot);
                 bus->current_handler = c->callback;
                 bus->current_userdata = slot->userdata;
-                r = c->callback(m, slot->userdata, &error);
+                r = SD_BLOCKING(c->callback(m, slot->userdata, &error));
                 bus->current_userdata = NULL;
                 bus->current_handler = NULL;
                 bus->current_slot = sd_bus_slot_unref(slot);
@@ -526,7 +527,7 @@ static int method_callbacks_run(
                 bus->current_slot = sd_bus_slot_ref(slot);
                 bus->current_handler = c->vtable->x.method.handler;
                 bus->current_userdata = u;
-                r = c->vtable->x.method.handler(m, u, &error);
+                r = SD_BLOCKING(c->vtable->x.method.handler(m, u, &error));
                 bus->current_userdata = NULL;
                 bus->current_handler = NULL;
                 bus->current_slot = sd_bus_slot_unref(slot);
@@ -568,7 +569,7 @@ static int invoke_property_get(
 
                 bus->current_slot = sd_bus_slot_ref(slot);
                 bus->current_userdata = userdata;
-                r = v->x.property.get(bus, path, interface, property, reply, userdata, reterr_error);
+                r = SD_BLOCKING(v->x.property.get(bus, path, interface, property, reply, userdata, reterr_error));
                 bus->current_userdata = NULL;
                 bus->current_slot = sd_bus_slot_unref(slot);
 
@@ -631,7 +632,7 @@ static int invoke_property_set(
 
                 bus->current_slot = sd_bus_slot_ref(slot);
                 bus->current_userdata = userdata;
-                r = v->x.property.set(bus, path, interface, property, value, userdata, reterr_error);
+                r = SD_BLOCKING(v->x.property.set(bus, path, interface, property, value, userdata, reterr_error));
                 bus->current_userdata = NULL;
                 bus->current_slot = sd_bus_slot_unref(slot);
 

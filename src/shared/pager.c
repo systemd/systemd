@@ -6,6 +6,7 @@
 
 #include "sd-login.h"
 
+#include "await.h"
 #include "copy.h"
 #include "env-util.h"
 #include "fd-util.h"
@@ -245,7 +246,7 @@ void pager_open(PagerFlags flags) {
                         } else {
                                 /* Close pipe to signal the parent to start sending data */
                                 safe_close_pair(exe_name_pipe);
-                                pager_fallback();
+                                SD_BLOCKING(pager_fallback());
                                 assert_not_reached();
                         }
                 }

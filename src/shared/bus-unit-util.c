@@ -3,6 +3,7 @@
 #include <paths.h>
 #include <sys/mount.h>
 
+#include "await.h"
 #include "sd-bus.h"
 
 #include "af-list.h"
@@ -3076,10 +3077,10 @@ int bus_append_unit_property_assignment(sd_bus_message *m, UnitType t, const cha
                 for (const BusProperty *item = *tables; item->convert; item++)
                         if (item->name) {
                                 if (streq(item->name, field))
-                                        return item->convert(m, field, eq);
+                                        return SD_BLOCKING(item->convert(m, field, eq));
                         } else {
                                 /* If .name is not set, the function must be a "try" helper */
-                                r = item->convert(m, field, eq);
+                                r = SD_BLOCKING(item->convert(m, field, eq));
                                 if (r != 0)
                                         return r;
                         }

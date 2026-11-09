@@ -36,6 +36,7 @@ typedef enum VerbFlags {
         VERB_COMMAND_MARKER  = 1 << 3,  /* Header entry with command description */
         VERB_GROUP_MARKER    = 1 << 4,  /* Fake verb entry to separate groups */
         VERB_DEPRECATED      = 1 << 5,  /* The verb is deprecated and not listed in help. */
+        VERB_FIBER           = 1 << 6,  /* The verb can suspend the fiber. Other verbs run in a blocking region. */
 } VerbFlags;
 
 /* Note: see the comment on struct Option in options.h for why _alignptr_ is required here. */

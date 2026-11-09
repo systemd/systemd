@@ -4,6 +4,10 @@
 #include "forward.h"
 #include "list.h"
 
+/* sd_fiber_is_running() also returns true in a blocking region, where a suspension aborts. Fiber-aware
+ * helpers check fiber_can_suspend() before they take their suspending path. */
+bool fiber_can_suspend(void);
+
 /* A fiber waits for at most one future at a time, so each fiber contains a single FutureWaiter. */
 typedef struct FutureWaiter FutureWaiter;
 struct FutureWaiter {

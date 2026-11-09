@@ -737,9 +737,9 @@ static int run_on_managers(RuntimeScope scope, sd_bus *system_bus, const Manager
         return run_on_user_managers(system_bus, op);
 }
 
-VERB_FULL(verb_install_units, "install-units", "UNIT…\0", 1, VERB_ANY, 0, 0, "Enable and preset units");
-VERB_FULL(verb_install_units, "install-system-units", NULL, 1, VERB_ANY, 0, UPDATE_SCOPE_SYSTEM, NULL);
-VERB_FULL(verb_install_units, "install-user-units", NULL, 1, VERB_ANY, 0, UPDATE_SCOPE_GLOBAL, NULL);
+VERB_FULL(verb_install_units, "install-units", "UNIT…\0", 1, VERB_ANY, VERB_FIBER, 0, "Enable and preset units");
+VERB_FULL(verb_install_units, "install-system-units", NULL, 1, VERB_ANY, VERB_FIBER, UPDATE_SCOPE_SYSTEM, NULL);
+VERB_FULL(verb_install_units, "install-user-units", NULL, 1, VERB_ANY, VERB_FIBER, UPDATE_SCOPE_GLOBAL, NULL);
 static int verb_install_units(int argc, char **argv, uintptr_t data, void *userdata) {
         RuntimeScope scope;
         int r;
@@ -811,9 +811,9 @@ static int verb_install_units(int argc, char **argv, uintptr_t data, void *userd
         return bus_deserialize_and_dump_unit_file_changes(reply, /* quiet= */ false);
 }
 
-VERB_FULL(verb_remove_units, "remove-units", "UNIT…\0", 1, VERB_ANY, 0, 0, "Disable and stop units");
-VERB_FULL(verb_remove_units, "remove-system-units", NULL, 1, VERB_ANY, 0, UPDATE_SCOPE_SYSTEM, NULL);
-VERB_FULL(verb_remove_units, "remove-user-units", NULL, 1, VERB_ANY, 0, UPDATE_SCOPE_GLOBAL, NULL);
+VERB_FULL(verb_remove_units, "remove-units", "UNIT…\0", 1, VERB_ANY, VERB_FIBER, 0, "Disable and stop units");
+VERB_FULL(verb_remove_units, "remove-system-units", NULL, 1, VERB_ANY, VERB_FIBER, UPDATE_SCOPE_SYSTEM, NULL);
+VERB_FULL(verb_remove_units, "remove-user-units", NULL, 1, VERB_ANY, VERB_FIBER, UPDATE_SCOPE_GLOBAL, NULL);
 static int verb_remove_units(int argc, char **argv, uintptr_t data, void *userdata) {
         RuntimeScope scope;
         int r;
@@ -861,12 +861,12 @@ static int verb_remove_units(int argc, char **argv, uintptr_t data, void *userda
         });
 }
 
-VERB_FULL(verb_mark_units, "mark-restart-units", "UNIT…\0", 1, VERB_ANY, 0, 0, "Mark units for restart");
-VERB_FULL(verb_mark_units, "mark-restart-system-units", NULL, 1, VERB_ANY, 0, UPDATE_SCOPE_SYSTEM, NULL);
-VERB_FULL(verb_mark_units, "mark-restart-user-units", NULL, 1, VERB_ANY, 0, UPDATE_SCOPE_GLOBAL, NULL);
-VERB_FULL(verb_mark_units, "mark-reload-units", "UNIT…\0", 1, VERB_ANY, 0, UPDATE_RELOAD, "Mark units for reload");
-VERB_FULL(verb_mark_units, "mark-reload-system-units", NULL, 1, VERB_ANY, 0, UPDATE_RELOAD|UPDATE_SCOPE_SYSTEM, NULL);
-VERB_FULL(verb_mark_units, "mark-reload-user-units", NULL, 1, VERB_ANY, 0, UPDATE_RELOAD|UPDATE_SCOPE_GLOBAL, NULL);
+VERB_FULL(verb_mark_units, "mark-restart-units", "UNIT…\0", 1, VERB_ANY, VERB_FIBER, 0, "Mark units for restart");
+VERB_FULL(verb_mark_units, "mark-restart-system-units", NULL, 1, VERB_ANY, VERB_FIBER, UPDATE_SCOPE_SYSTEM, NULL);
+VERB_FULL(verb_mark_units, "mark-restart-user-units", NULL, 1, VERB_ANY, VERB_FIBER, UPDATE_SCOPE_GLOBAL, NULL);
+VERB_FULL(verb_mark_units, "mark-reload-units", "UNIT…\0", 1, VERB_ANY, VERB_FIBER, UPDATE_RELOAD, "Mark units for reload");
+VERB_FULL(verb_mark_units, "mark-reload-system-units", NULL, 1, VERB_ANY, VERB_FIBER, UPDATE_RELOAD|UPDATE_SCOPE_SYSTEM, NULL);
+VERB_FULL(verb_mark_units, "mark-reload-user-units", NULL, 1, VERB_ANY, VERB_FIBER, UPDATE_RELOAD|UPDATE_SCOPE_GLOBAL, NULL);
 static int verb_mark_units(int argc, char **argv, uintptr_t data, void *userdata) {
         UnitMarker marker = FLAGS_SET(data, UPDATE_RELOAD) ? UNIT_MARKER_NEEDS_RELOAD : UNIT_MARKER_NEEDS_RESTART;
         RuntimeScope scope;
@@ -948,16 +948,16 @@ static int reload_user_managers(sd_bus *system_bus) {
         return 0;
 }
 
-VERB_FULL(verb_daemon_reload_enqueue_marked, "daemon-reload", NULL, 1, 1, 0, UPDATE_RELOAD, "Reload manager configuration");
-VERB_FULL(verb_daemon_reload_enqueue_marked, "enqueue-marked", NULL, 1, 1, 0, UPDATE_ENQUEUE, "Enqueue marked units");
-VERB_FULL(verb_daemon_reload_enqueue_marked, "daemon-reload-enqueue-marked", NULL, 1, 1, 0, UPDATE_RELOAD|UPDATE_ENQUEUE, "Reload configuration and enqueue marked units");
-VERB_FULL(verb_daemon_reload_enqueue_marked, "system-reload-restart", NULL, 1, 1, 0, UPDATE_RELOAD|UPDATE_ENQUEUE|UPDATE_SCOPE_SYSTEM, NULL);
-VERB_FULL(verb_daemon_reload_enqueue_marked, "system-reload", NULL, 1, 1, 0, UPDATE_RELOAD|UPDATE_SCOPE_SYSTEM, NULL);
-VERB_FULL(verb_daemon_reload_enqueue_marked, "system-restart", NULL, 1, 1, 0, UPDATE_ENQUEUE|UPDATE_SCOPE_SYSTEM, NULL);
-VERB_FULL(verb_daemon_reload_enqueue_marked, "user-reload-restart", NULL, 1, 1, 0, UPDATE_RELOAD|UPDATE_ENQUEUE|UPDATE_SCOPE_GLOBAL, NULL);
-VERB_FULL(verb_daemon_reload_enqueue_marked, "user-reload", NULL, 1, 1, 0, UPDATE_RELOAD|UPDATE_SCOPE_GLOBAL, NULL);
-VERB_FULL(verb_daemon_reload_enqueue_marked, "user-restart", NULL, 1, 1, 0, UPDATE_ENQUEUE|UPDATE_SCOPE_GLOBAL, NULL);
-VERB_FULL(verb_daemon_reload_enqueue_marked, "user-reexec", NULL, 1, 1, 0, UPDATE_RELOAD|UPDATE_SCOPE_GLOBAL, NULL);
+VERB_FULL(verb_daemon_reload_enqueue_marked, "daemon-reload", NULL, 1, 1, VERB_FIBER, UPDATE_RELOAD, "Reload manager configuration");
+VERB_FULL(verb_daemon_reload_enqueue_marked, "enqueue-marked", NULL, 1, 1, VERB_FIBER, UPDATE_ENQUEUE, "Enqueue marked units");
+VERB_FULL(verb_daemon_reload_enqueue_marked, "daemon-reload-enqueue-marked", NULL, 1, 1, VERB_FIBER, UPDATE_RELOAD|UPDATE_ENQUEUE, "Reload configuration and enqueue marked units");
+VERB_FULL(verb_daemon_reload_enqueue_marked, "system-reload-restart", NULL, 1, 1, VERB_FIBER, UPDATE_RELOAD|UPDATE_ENQUEUE|UPDATE_SCOPE_SYSTEM, NULL);
+VERB_FULL(verb_daemon_reload_enqueue_marked, "system-reload", NULL, 1, 1, VERB_FIBER, UPDATE_RELOAD|UPDATE_SCOPE_SYSTEM, NULL);
+VERB_FULL(verb_daemon_reload_enqueue_marked, "system-restart", NULL, 1, 1, VERB_FIBER, UPDATE_ENQUEUE|UPDATE_SCOPE_SYSTEM, NULL);
+VERB_FULL(verb_daemon_reload_enqueue_marked, "user-reload-restart", NULL, 1, 1, VERB_FIBER, UPDATE_RELOAD|UPDATE_ENQUEUE|UPDATE_SCOPE_GLOBAL, NULL);
+VERB_FULL(verb_daemon_reload_enqueue_marked, "user-reload", NULL, 1, 1, VERB_FIBER, UPDATE_RELOAD|UPDATE_SCOPE_GLOBAL, NULL);
+VERB_FULL(verb_daemon_reload_enqueue_marked, "user-restart", NULL, 1, 1, VERB_FIBER, UPDATE_ENQUEUE|UPDATE_SCOPE_GLOBAL, NULL);
+VERB_FULL(verb_daemon_reload_enqueue_marked, "user-reexec", NULL, 1, 1, VERB_FIBER, UPDATE_RELOAD|UPDATE_SCOPE_GLOBAL, NULL);
 static int verb_daemon_reload_enqueue_marked(int argc, char **argv, uintptr_t data, void *userdata) {
         bool reload = FLAGS_SET(data, UPDATE_RELOAD), enqueue = FLAGS_SET(data, UPDATE_ENQUEUE);
         RuntimeScope scope;

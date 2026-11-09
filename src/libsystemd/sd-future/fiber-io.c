@@ -13,6 +13,7 @@
 #include "errno-util.h"
 #include "event-future.h"
 #include "fd-util.h"
+#include "future-internal.h"
 #include "io-uring-util.h"
 #include "io-util.h"
 #include "time-util.h"
@@ -104,7 +105,8 @@ static ssize_t fiber_io_operation(
         assert(func);
         assert(sqe);
 
-        if (!sd_fiber_is_running())
+        /* In a blocking region, the operation runs synchronously like it does off a fiber. */
+        if (!fiber_can_suspend())
                 return func(fd, args);
 
         r = sd_fiber_interrupted();
@@ -313,7 +315,7 @@ int sd_fiber_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         assert_return(sockfd >= 0, -EBADF);
         assert_return(addr, -EINVAL);
 
-        if (!sd_fiber_is_running())
+        if (!fiber_can_suspend())
                 return RET_NERRNO(connect(sockfd, addr, addrlen));
 
         r = sd_fiber_interrupted();
@@ -492,7 +494,7 @@ int sd_fiber_ppoll(struct pollfd *fds, size_t n_fds, const struct timespec *time
 
         assert_return(fds || n_fds == 0, -EINVAL);
 
-        if (!sd_fiber_is_running())
+        if (!fiber_can_suspend())
                 return RET_NERRNO(ppoll(fds, n_fds, timeout, sigmask));
 
         r = sd_fiber_interrupted();
