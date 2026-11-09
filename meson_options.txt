@@ -456,6 +456,10 @@ option('default-llmnr', type : 'combo',
        choices : ['yes', 'resolve', 'no'],
        description : 'default LLMNR mode',
        value : 'yes')
+option('default-cache', type : 'combo',
+       choices : ['yes', 'no-negative', 'no'],
+       description : 'default Cache mode',
+       value : 'yes')
 option('dns-over-tls', type : 'combo', choices : ['auto', 'gnutls', 'openssl', 'true', 'false'],
        deprecated : { 'gnutls' : 'auto' },
        description : 'DNS-over-TLS support')
