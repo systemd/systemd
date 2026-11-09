@@ -7,7 +7,7 @@
 /* HOST_NAME_MAX should be 64 on linux, but musl uses the one by POSIX (255). */
 #define LINUX_HOST_NAME_MAX CONST_MIN((size_t) HOST_NAME_MAX, (size_t) 64)
 
-char* get_default_hostname_raw(void);
+_sync_ char* get_default_hostname_raw(void);
 
 bool valid_ldh_char(char c) _const_;
 
@@ -21,7 +21,7 @@ typedef enum ValidHostnameFlags {
 bool hostname_is_valid(const char *s, ValidHostnameFlags flags) _pure_;
 char* hostname_cleanup(char *s);
 
-bool is_localhost(const char *hostname);
+_sync_ bool is_localhost(const char *hostname);
 
 static inline bool is_gateway_hostname(const char *hostname) {
         /* This tries to identify the valid syntaxes for the our synthetic "gateway" host. */
@@ -44,7 +44,7 @@ static inline bool is_dns_proxy_stub_hostname(const char *hostname) {
 const char* etc_hostname(void);
 const char* etc_machine_info(void);
 
-int get_pretty_hostname(char **ret);
+_sync_ int get_pretty_hostname(char **ret);
 
-int machine_spec_valid(const char *s);
-int split_user_at_host(const char *s, char **ret_user, char **ret_host);
+_sync_ int machine_spec_valid(const char *s);
+_sync_ int split_user_at_host(const char *s, char **ret_user, char **ret_host);

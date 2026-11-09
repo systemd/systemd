@@ -132,12 +132,12 @@ typedef enum CGroupFlags {
         CGROUP_DONT_SKIP_UNMAPPED = 1 << 2,
 } CGroupFlags;
 
-int cg_enumerate_processes(const char *path, FILE **ret);
-int cg_read_pid(FILE *f, pid_t *ret, CGroupFlags flags);
+_sync_ int cg_enumerate_processes(const char *path, FILE **ret);
+_sync_ int cg_read_pid(FILE *f, pid_t *ret, CGroupFlags flags);
 int cg_read_pidref(FILE *f, PidRef *ret, CGroupFlags flags);
 
-int cg_enumerate_subgroups(const char *path, DIR **ret);
-int cg_read_subgroup(DIR *d, char **ret);
+_sync_ int cg_enumerate_subgroups(const char *path, DIR **ret);
+_sync_ int cg_read_subgroup(DIR *d, char **ret);
 
 typedef int (*cg_kill_log_func_t)(const PidRef *pid, int sig, void *userdata);
 
@@ -147,61 +147,61 @@ int cg_kill_recursive(const char *path, int sig, CGroupFlags flags, Set *killed_
 
 int cg_split_spec(const char *spec, char **ret_controller, char **ret_path);
 
-int cg_get_path(const char *path, const char *suffix, char **ret);
+_sync_ int cg_get_path(const char *path, const char *suffix, char **ret);
 
-int cg_pid_get_path(pid_t pid, char **ret);
+_sync_ int cg_pid_get_path(pid_t pid, char **ret);
 int cg_pidref_get_path(const PidRef *pidref, char **ret);
 
 int cg_is_threaded(const char *path);
 
-int cg_is_delegated(const char *path);
+_sync_ int cg_is_delegated(const char *path);
 int cg_is_delegated_fd(int fd);
 
 int cg_has_coredump_receive(const char *path);
 
 int cg_set_attribute(const char *path, const char *attribute, const char *value);
-int cg_get_attribute(const char *path, const char *attribute, char **ret);
-int cg_get_attribute_as_uint64(const char *path, const char *attribute, uint64_t *ret);
+_sync_ int cg_get_attribute(const char *path, const char *attribute, char **ret);
+_sync_ int cg_get_attribute_as_uint64(const char *path, const char *attribute, uint64_t *ret);
 int cg_get_attribute_as_bool(const char *path, const char *attribute);
 
-int cg_get_keyed_attribute(const char *path, const char *attribute, char * const *keys, char **values);
-int cg_get_keyed_attribute_uint64(const char *path, const char *attribute, const char *key, uint64_t *ret);
+_sync_ int cg_get_keyed_attribute(const char *path, const char *attribute, char * const *keys, char **values);
+_sync_ int cg_get_keyed_attribute_uint64(const char *path, const char *attribute, const char *key, uint64_t *ret);
 
 int cg_get_owner(const char *path, uid_t *ret_uid);
 
 int cg_set_xattr(const char *path, const char *name, const void *value, size_t size, int flags);
 int cg_get_xattr(const char *path, const char *name, char **ret, size_t *ret_size);
 /* Returns negative on error, and 0 or 1 on success for the bool value */
-int cg_get_xattr_bool(const char *path, const char *name);
+_sync_ int cg_get_xattr_bool(const char *path, const char *name);
 int cg_remove_xattr(const char *path, const char *name);
 
 int cg_is_empty(const char *path);
 
-int cg_get_root_path(char **path);
+_sync_ int cg_get_root_path(char **path);
 
-int cg_path_get_session(const char *path, char **ret_session);
-int cg_path_get_owner_uid(const char *path, uid_t *ret_uid);
-int cg_path_get_unit_full(const char *path, char **ret_unit, char **ret_subgroup);
+_sync_ int cg_path_get_session(const char *path, char **ret_session);
+_sync_ int cg_path_get_owner_uid(const char *path, uid_t *ret_uid);
+_sync_ int cg_path_get_unit_full(const char *path, char **ret_unit, char **ret_subgroup);
 static inline int cg_path_get_unit(const char *path, char **ret_unit) {
         return cg_path_get_unit_full(path, ret_unit, /* ret_subgroup= */ NULL);
 }
 int cg_path_get_unit_path(const char *path, char **ret_path);
 int cg_path_get_user_unit_path(const char *path, char **ret_path);
-int cg_path_get_user_unit_full(const char *path, char **ret_unit, char **ret_subgroup);
+_sync_ int cg_path_get_user_unit_full(const char *path, char **ret_unit, char **ret_subgroup);
 static inline int cg_path_get_user_unit(const char *path, char **ret_unit) {
         return cg_path_get_user_unit_full(path, ret_unit, /* ret_subgroup= */ NULL);
 }
 int cg_path_get_machine_name(const char *path, char **ret_machine);
-int cg_path_get_slice(const char *path, char **ret_slice);
-int cg_path_get_user_slice(const char *path, char **ret_slice);
+_sync_ int cg_path_get_slice(const char *path, char **ret_slice);
+_sync_ int cg_path_get_user_slice(const char *path, char **ret_slice);
 
-int cg_shift_path(const char *cgroup, const char *cached_root, const char **ret_shifted);
+_sync_ int cg_shift_path(const char *cgroup, const char *cached_root, const char **ret_shifted);
 int cg_pid_get_path_shifted(pid_t pid, const char *cached_root, char **ret_cgroup);
 int cg_pidref_get_path_shifted(const PidRef *pidref, const char *cached_root, char **ret_cgroup);
 
 int cg_pid_get_session(pid_t pid, char **ret_session);
 int cg_pidref_get_session(const PidRef *pidref, char **ret);
-int cg_pid_get_owner_uid(pid_t pid, uid_t *ret_uid);
+_sync_ int cg_pid_get_owner_uid(pid_t pid, uid_t *ret_uid);
 int cg_pidref_get_owner_uid(const PidRef *pidref, uid_t *ret);
 int cg_pid_get_unit_full(pid_t pid, char **ret_unit, char **ret_subgroup);
 static inline int cg_pid_get_unit(pid_t pid, char **ret_unit) {
@@ -238,8 +238,8 @@ char* cg_unescape(const char *p) _pure_;
 
 int cg_slice_to_path(const char *unit, char **ret);
 
-int cg_mask_supported(CGroupMask *ret);
-int cg_mask_supported_subtree(const char *root, CGroupMask *ret);
+_sync_ int cg_mask_supported(CGroupMask *ret);
+_sync_ int cg_mask_supported_subtree(const char *root, CGroupMask *ret);
 int cg_mask_from_string(const char *s, CGroupMask *ret);
 int cg_mask_to_string(CGroupMask mask, char **ret);
 

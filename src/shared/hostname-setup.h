@@ -39,7 +39,7 @@ typedef enum GetHostnameFlags {
         GET_HOSTNAME_SHORT            = 1 << 2, /* kills the FQDN part if present. */
 } GetHostnameFlags;
 
-int gethostname_full(GetHostnameFlags flags, char **ret);
+_sync_ int gethostname_full(GetHostnameFlags flags, char **ret);
 
 static inline int gethostname_strict(char **ret) {
         return gethostname_full(/* flags= */ 0, ret);

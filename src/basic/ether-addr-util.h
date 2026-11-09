@@ -47,7 +47,7 @@ static inline char* hw_addr_to_string(const struct hw_addr_data *addr, char buff
 
 struct hw_addr_data *hw_addr_set(struct hw_addr_data *addr, const uint8_t *bytes, size_t length);
 
-void hw_addr_hash_func(const struct hw_addr_data *p, struct siphash *state);
+_sync_ void hw_addr_hash_func(const struct hw_addr_data *p, struct siphash *state);
 int hw_addr_compare(const struct hw_addr_data *a, const struct hw_addr_data *b);
 static inline bool hw_addr_equal(const struct hw_addr_data *a, const struct hw_addr_data *b) {
         return hw_addr_compare(a, b) == 0;
@@ -66,7 +66,7 @@ char* ether_addr_to_string(const struct ether_addr *addr, char buffer[ETHER_ADDR
 /* Use only as function argument, never stand-alone! */
 #define ETHER_ADDR_TO_STR(addr) ether_addr_to_string((addr), (char[ETHER_ADDR_TO_STRING_MAX]){})
 
-int ether_addr_compare(const struct ether_addr *a, const struct ether_addr *b);
+_sync_ int ether_addr_compare(const struct ether_addr *a, const struct ether_addr *b);
 static inline bool ether_addr_equal(const struct ether_addr *a, const struct ether_addr *b) {
         return ether_addr_compare(a, b) == 0;
 }

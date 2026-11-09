@@ -3,6 +3,7 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
+#include "await.h"
 #include "bus-control.h"
 #include "bus-error.h"
 #include "bus-internal.h"
@@ -462,7 +463,7 @@ _public_ int sd_bus_get_name_creds(
         /* Only query the owner if the caller wants to know it and the name is not unique anyway, or if the caller just
          * wants to check whether a name exists */
         if ((FLAGS_SET(mask, SD_BUS_CREDS_UNIQUE_NAME) && !unique) || mask == 0) {
-                r = sd_bus_call_method(
+                r = SD_AWAIT(sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.DBus",
                                 "/org/freedesktop/DBus",
@@ -471,7 +472,7 @@ _public_ int sd_bus_get_name_creds(
                                 /* reterr_error= */ NULL,
                                 &reply_unique,
                                 "s",
-                                name);
+                                name));
                 if (r < 0)
                         return r;
 
@@ -519,7 +520,7 @@ _public_ int sd_bus_get_name_creds(
 
                         /* If we need more than one of the credentials, then use GetConnectionCredentials() */
 
-                        r = sd_bus_call_method(
+                        r = SD_AWAIT(sd_bus_call_method(
                                         bus,
                                         "org.freedesktop.DBus",
                                         "/org/freedesktop/DBus",
@@ -528,7 +529,7 @@ _public_ int sd_bus_get_name_creds(
                                         &error,
                                         &reply,
                                         "s",
-                                        unique ?: name);
+                                        unique ?: name));
 
                         if (r < 0) {
 
@@ -694,7 +695,7 @@ _public_ int sd_bus_get_name_creds(
                         if (need_pid) {
                                 uint32_t u;
 
-                                r = sd_bus_call_method(
+                                r = SD_AWAIT(sd_bus_call_method(
                                                 bus,
                                                 "org.freedesktop.DBus",
                                                 "/org/freedesktop/DBus",
@@ -703,7 +704,7 @@ _public_ int sd_bus_get_name_creds(
                                                 /* reterr_error= */ NULL,
                                                 &reply,
                                                 "s",
-                                                unique ?: name);
+                                                unique ?: name));
                                 if (r < 0)
                                         return r;
 
@@ -725,7 +726,7 @@ _public_ int sd_bus_get_name_creds(
                         if (need_uid) {
                                 uint32_t u;
 
-                                r = sd_bus_call_method(
+                                r = SD_AWAIT(sd_bus_call_method(
                                                 bus,
                                                 "org.freedesktop.DBus",
                                                 "/org/freedesktop/DBus",
@@ -734,7 +735,7 @@ _public_ int sd_bus_get_name_creds(
                                                 /* reterr_error= */ NULL,
                                                 &reply,
                                                 "s",
-                                                unique ?: name);
+                                                unique ?: name));
                                 if (r < 0)
                                         return r;
 
@@ -752,7 +753,7 @@ _public_ int sd_bus_get_name_creds(
                                 const void *p = NULL;
                                 size_t sz = 0;
 
-                                r = sd_bus_call_method(
+                                r = SD_AWAIT(sd_bus_call_method(
                                                 bus,
                                                 "org.freedesktop.DBus",
                                                 "/org/freedesktop/DBus",
@@ -761,7 +762,7 @@ _public_ int sd_bus_get_name_creds(
                                                 &error,
                                                 &reply,
                                                 "s",
-                                                unique ?: name);
+                                                unique ?: name));
                                 if (r < 0) {
                                         if (!sd_bus_error_has_name(&error, SD_BUS_ERROR_SELINUX_SECURITY_CONTEXT_UNKNOWN))
                                                 return r;
@@ -993,12 +994,12 @@ int bus_add_match_internal(
         if (r < 0)
                 return r;
 
-        r = sd_bus_call(
+        r = SD_AWAIT(sd_bus_call(
                         bus,
                         m,
                         timeout_usec,
                         /* reterr_error= */ NULL,
-                        &reply);
+                        &reply));
         if (r < 0)
                 return r;
 
@@ -1042,13 +1043,13 @@ int bus_add_match_internal_async(
         if (r < 0)
                 return r;
 
-        return sd_bus_call_async(
+        return SD_AWAIT(sd_bus_call_async(
                         bus,
                         ret_slot,
                         m,
                         callback,
                         userdata,
-                        timeout_usec);
+                        timeout_usec));
 }
 
 int bus_remove_match_internal(
@@ -1065,9 +1066,10 @@ int bus_remove_match_internal(
 
         e = append_eavesdrop(bus, match);
 
-        /* Fire and forget */
+        /* Fire and forget. The message contains no file descriptors, so sending it never waits for fd
+         * negotiation. SD_BLOCKING() therefore never blocks the event loop here. */
 
-        return sd_bus_call_method_async(
+        return SD_BLOCKING(sd_bus_call_method_async(
                         bus,
                         /* ret_slot= */ NULL,
                         "org.freedesktop.DBus",
@@ -1077,7 +1079,7 @@ int bus_remove_match_internal(
                         /* callback= */ NULL,
                         /* userdata= */ NULL,
                         "s",
-                        e);
+                        e));
 }
 
 _public_ int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_t *ret) {

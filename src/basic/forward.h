@@ -84,10 +84,10 @@ typedef struct x509_st X509;
 
 /* basic/ forward declarations */
 
-typedef void (*hash_func_t)(const void *p, struct siphash *state);
-typedef int (*compare_func_t)(const void *a, const void *b);
+typedef void (*hash_func_t)(const void *p, struct siphash *state) _sync_;
+typedef int (*compare_func_t)(const void *a, const void *b) _sync_;
 typedef compare_func_t comparison_fn_t;
-typedef int (*comparison_userdata_fn_t)(const void *, const void *, void *);
+typedef int (*comparison_userdata_fn_t)(const void *, const void *, void *) _sync_;
 
 struct hash_ops;
 struct hw_addr_data;

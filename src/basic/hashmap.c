@@ -8,6 +8,7 @@
 #endif
 
 #include "alloc-util.h"
+#include "await.h"
 #include "extract-word.h"
 #include "hashmap.h"
 #include "log.h"
@@ -971,10 +972,10 @@ void _hashmap_clear(HashmapBase *h) {
                         v = _hashmap_first_key_and_value(h, /* remove= */ true, &k);
 
                         if (h->hash_ops->free_key)
-                                h->hash_ops->free_key(k);
+                                SD_BLOCKING(h->hash_ops->free_key(k));
 
                         if (h->hash_ops->free_value)
-                                h->hash_ops->free_value(v);
+                                SD_BLOCKING(h->hash_ops->free_value(v));
                 }
         }
 
@@ -1344,10 +1345,10 @@ int set_ensure_consume(Set **s, const struct hash_ops *hash_ops, void *key) {
         r = set_ensure_put(s, hash_ops, key);
         if (r <= 0) {
                 if (hash_ops && hash_ops->free_key)
-                        hash_ops->free_key(key);
+                        SD_BLOCKING(hash_ops->free_key(key));
                 else if (hash_ops && hash_ops->free_value)
                         /* Sets store their element in the key slot but may carry a value destructor. */
-                        hash_ops->free_value(key);
+                        SD_BLOCKING(hash_ops->free_value(key));
                 else
                         free(key);
         }
@@ -1856,7 +1857,7 @@ char** _hashmap_values_to_strv(HashmapBase *h) {
         void *key;
         while ((sv[n++] = _hashmap_first_key_and_value(h, /* remove= */ true, &key)))
                 if (h->hash_ops->free_key)
-                        h->hash_ops->free_key(key);
+                        SD_BLOCKING(h->hash_ops->free_key(key));
 
         return sv;
 }

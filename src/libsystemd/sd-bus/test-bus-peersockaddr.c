@@ -38,8 +38,8 @@ static bool gid_list_same(const gid_t *a, size_t n, const gid_t *b, size_t m) {
                 gid_list_contained(b, m, a, n);
 }
 
-static int server(void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+_may_suspend_ static int server(void *userdata) {
+        _cleanup_await_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_close_ int listen_fd = PTR_TO_INT(userdata), fd = -EBADF;
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
         _cleanup_free_ char *our_comm = NULL;
@@ -48,14 +48,14 @@ static int server(void *userdata) {
 
         ASSERT_OK(sd_id128_randomize(&id));
 
-        ASSERT_OK(fd = sd_fiber_accept(listen_fd, /* addr= */ NULL, /* addrlen= */ NULL, SOCK_CLOEXEC|SOCK_NONBLOCK));
+        ASSERT_OK(fd = SD_AWAIT(sd_fiber_accept(listen_fd, /* addr= */ NULL, /* addrlen= */ NULL, SOCK_CLOEXEC|SOCK_NONBLOCK)));
 
         ASSERT_OK(sd_bus_new(&bus));
         ASSERT_OK(sd_bus_set_fd(bus, fd, fd));
         TAKE_FD(fd);
         ASSERT_OK(sd_bus_set_server(bus, true, id));
         ASSERT_OK(sd_bus_negotiate_creds(bus, 1, SD_BUS_CREDS_EUID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM|SD_BUS_CREDS_DESCRIPTION|SD_BUS_CREDS_PIDFD|SD_BUS_CREDS_SUPPLEMENTARY_GIDS));
-        ASSERT_OK(sd_bus_start(bus));
+        ASSERT_OK(SD_AWAIT(sd_bus_start(bus)));
         ASSERT_OK(sd_bus_get_owner_creds(bus, SD_BUS_CREDS_EUID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM|SD_BUS_CREDS_DESCRIPTION|SD_BUS_CREDS_PIDFD|SD_BUS_CREDS_SUPPLEMENTARY_GIDS, &c));
 
         bus_creds_dump(c, /* f= */ NULL, /* terse= */ false);
@@ -101,15 +101,15 @@ static int server(void *userdata) {
         for (;;) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-                ASSERT_OK(r = sd_bus_process(bus, &m));
+                ASSERT_OK(r = SD_AWAIT(sd_bus_process(bus, &m)));
 
                 if (r == 0) {
-                        ASSERT_OK(sd_bus_wait(bus, UINT64_MAX));
+                        ASSERT_OK(SD_AWAIT(sd_bus_wait(bus, UINT64_MAX)));
                         continue;
                 }
 
                 if (m && sd_bus_message_is_method_call(m, "foo.foo", "Foo") > 0) {
-                        ASSERT_OK(sd_bus_reply_method_return(m, "s", "bar"));
+                        ASSERT_OK(SD_AWAIT(sd_bus_reply_method_return(m, "s", "bar")));
                         break;
                 }
         }
@@ -117,8 +117,8 @@ static int server(void *userdata) {
         return 0;
 }
 
-static int client(void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+_may_suspend_ static int client(void *userdata) {
+        _cleanup_await_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *z;
 
@@ -126,9 +126,9 @@ static int client(void *userdata) {
         ASSERT_OK(sd_bus_set_description(bus, "wuffwuff"));
         ASSERT_OK(sd_bus_set_address(bus, userdata));
         ASSERT_OK(sd_bus_attach_event(bus, sd_fiber_get_event(), /* priority= */ 0));
-        ASSERT_OK(sd_bus_start(bus));
+        ASSERT_OK(SD_AWAIT(sd_bus_start(bus)));
 
-        ASSERT_OK(sd_bus_call_method(bus, "foo.foo", "/foo", "foo.foo", "Foo", /* reterr_error= */ NULL, &reply, "s", "foo"));
+        ASSERT_OK(SD_AWAIT(sd_bus_call_method(bus, "foo.foo", "/foo", "foo.foo", "Foo", /* reterr_error= */ NULL, &reply, "s", "foo")));
 
         ASSERT_OK(sd_bus_message_read(reply, "s", &z));
         ASSERT_STREQ(z, "bar");

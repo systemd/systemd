@@ -3,7 +3,9 @@
 
 #include <stdbool.h>
 
-int reboot_now(void);
+#include "await.h"
+
+_may_suspend_ int reboot_now(void);
 
 #define SD_SYSUPDATE_OFFLINE   (UINT64_C(1) << 0)
 #define SD_SYSUPDATE_FLAGS_ALL (SD_SYSUPDATE_OFFLINE)

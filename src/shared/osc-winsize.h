@@ -26,4 +26,4 @@ int osc_winsize_parse(const char *seq, OscWinsize *ret);
 
 /* Generates a full sequence of the specified type, including OSC and ST. The dimensions are ignored for
  * OSC_WINSIZE_CANCEL. */
-int osc_winsize_format(OscWinsizeType type, unsigned columns, unsigned lines, char **ret);
+_sync_ int osc_winsize_format(OscWinsizeType type, unsigned columns, unsigned lines, char **ret);

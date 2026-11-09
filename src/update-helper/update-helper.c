@@ -48,7 +48,7 @@ COMMAND(
         "Helper tool for package manager integration.",
 );
 
-static int parse_argv(int argc, char *argv[], char ***ret_args) {
+_may_suspend_ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
         assert(ret_args);
@@ -58,7 +58,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         FOREACH_OPTION_OR_RETURN(c, &opts)
                 switch (c) {
                 OPTION_COMMON_HELP:
-                        return command_print_help();
+                        return SD_AWAIT(command_print_help());
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -91,7 +91,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         return 1;
 }
 
-static int list_units(sd_bus *bus, char **patterns, char ***ret) {
+_may_suspend_ static int list_units(sd_bus *bus, char **patterns, char ***ret) {
         _cleanup_strv_free_ char **units = NULL;
         int r;
 
@@ -117,7 +117,7 @@ static int list_units(sd_bus *bus, char **patterns, char ***ret) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
+        r = SD_AWAIT(sd_bus_call(bus, m, /* usec= */ 0, &error, &reply));
         if (r == -ETIME) /* The caller logs that the deadline of the user manager operation expired. */
                 return r;
         if (r < 0)
@@ -251,7 +251,7 @@ static int finalize_units(int argc, char **argv, RuntimeScope scope, char ***ret
         return !strv_isempty(*ret);
 }
 
-static int expand_template_units(sd_bus *bus, char **units, char ***ret) {
+_may_suspend_ static int expand_template_units(sd_bus *bus, char **units, char ***ret) {
         _cleanup_strv_free_ char **sv = NULL, **globs = NULL, **expanded = NULL;
         int r;
 
@@ -280,7 +280,7 @@ static int expand_template_units(sd_bus *bus, char **units, char ***ret) {
                                 return log_oom();
         }
 
-        r = list_units(bus, globs, &expanded);
+        r = SD_AWAIT(list_units(bus, globs, &expanded));
         if (r < 0)
                 return r;
 
@@ -318,7 +318,7 @@ static bool offline(void) {
         return false;
 }
 
-static int bus_connect_user_unit(const char *unit, sd_bus **ret) {
+_may_suspend_ static int bus_connect_user_unit(const char *unit, sd_bus **ret) {
         int r;
 
         assert(unit);
@@ -338,8 +338,8 @@ static int bus_connect_user_unit(const char *unit, sd_bus **ret) {
          * sd_bus_flush() waits without a timeout until the connection is established. With a frozen user
          * manager, that wait never ends. No messages are queued yet, so closing without a flush loses
          * nothing. */
-        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
-        r = bus_connect_user_systemd_by_uid(uid, unit, &bus);
+        _cleanup_await_(sd_bus_close_unrefp) sd_bus *bus = NULL;
+        r = SD_AWAIT(bus_connect_user_systemd_by_uid(uid, unit, &bus));
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
@@ -351,7 +351,7 @@ static int bus_connect_user_unit(const char *unit, sd_bus **ret) {
         /* Wait until the connection is established. A connection failure is then logged once here,
          * instead of as a failure of the first method call. */
         for (;;) {
-                r = sd_bus_process(bus, /* ret= */ NULL);
+                r = SD_AWAIT(sd_bus_process(bus, /* ret= */ NULL));
                 if (r < 0)
                         break;
                 if (r > 0)
@@ -362,7 +362,7 @@ static int bus_connect_user_unit(const char *unit, sd_bus **ret) {
                         return 1;
                 }
 
-                r = sd_bus_wait(bus, UINT64_MAX);
+                r = SD_AWAIT(sd_bus_wait(bus, UINT64_MAX));
                 if (r < 0)
                         break;
         }
@@ -405,7 +405,7 @@ static void install_changes_dump_graceful(int error, InstallChange *changes, siz
 
 typedef struct ManagerOperation ManagerOperation;
 
-typedef int (*ManagerOperationFunc)(sd_bus *bus, const ManagerOperation *op);
+typedef int (*ManagerOperationFunc)(sd_bus *bus, const ManagerOperation *op) _may_suspend_;
 
 /* When the deadline of a user manager operation expires, only the next suspension point returns -ETIME.
  * Later suspension points wait without a deadline. The operations therefore return -ETIME from a method
@@ -416,19 +416,19 @@ struct ManagerOperation {
         UnitMarker marker;
 };
 
-static int manager_stop_units(sd_bus *bus, const ManagerOperation *op) {
+_may_suspend_ static int manager_stop_units(sd_bus *bus, const ManagerOperation *op) {
         int r;
 
         assert(bus);
         assert(op);
 
         _cleanup_strv_free_ char **expanded = NULL;
-        r = expand_template_units(bus, op->units, &expanded);
+        r = SD_AWAIT(expand_template_units(bus, op->units, &expanded));
         if (r < 0)
                 return r;
 
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
-        r = bus_wait_for_jobs_new(bus, &w);
+        r = SD_AWAIT(bus_wait_for_jobs_new(bus, &w));
         if (r < 0)
                 return log_error_errno(r, "Could not watch jobs: %m");
 
@@ -440,13 +440,13 @@ static int manager_stop_units(sd_bus *bus, const ManagerOperation *op) {
 
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                r = bus_call_method(
+                r = SD_AWAIT(bus_call_method(
                                 bus,
                                 bus_systemd_mgr,
                                 "StopUnit",
                                 &error,
                                 &reply,
-                                "ss", *unit, "replace");
+                                "ss", *unit, "replace"));
                 if (r == -ETIME)
                         return r;
                 if (r < 0) {
@@ -468,11 +468,11 @@ static int manager_stop_units(sd_bus *bus, const ManagerOperation *op) {
                         return log_error_errno(r, "Failed to watch job '%s': %m", path);
         }
 
-        (void) bus_wait_for_jobs(w, BUS_WAIT_JOBS_LOG_SUCCESS|BUS_WAIT_JOBS_LOG_ERROR);
+        (void) SD_AWAIT(bus_wait_for_jobs(w, BUS_WAIT_JOBS_LOG_SUCCESS|BUS_WAIT_JOBS_LOG_ERROR));
         return 0;
 }
 
-static int manager_disable_and_stop_units(sd_bus *bus, const ManagerOperation *op) {
+_may_suspend_ static int manager_disable_and_stop_units(sd_bus *bus, const ManagerOperation *op) {
         int r;
 
         assert(bus);
@@ -497,7 +497,7 @@ static int manager_disable_and_stop_units(sd_bus *bus, const ManagerOperation *o
 
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
+                r = SD_AWAIT(sd_bus_call(bus, m, /* usec= */ 0, &error, &reply));
                 if (r == -ETIME)
                         return r;
                 if (r < 0) {
@@ -517,10 +517,10 @@ static int manager_disable_and_stop_units(sd_bus *bus, const ManagerOperation *o
                 }
         }
 
-        return manager_stop_units(bus, op);
+        return SD_AWAIT(manager_stop_units(bus, op));
 }
 
-static int unit_set_property(sd_bus *bus, const char *unit, const char *property) {
+_may_suspend_ static int unit_set_property(sd_bus *bus, const char *unit, const char *property) {
         int r;
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -549,7 +549,7 @@ static int unit_set_property(sd_bus *bus, const char *unit, const char *property
                 return bus_log_create_error(r);
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        r = sd_bus_call(bus, m, /* usec= */ 0, &error, /* ret_reply= */ NULL);
+        r = SD_AWAIT(sd_bus_call(bus, m, /* usec= */ 0, &error, /* ret_reply= */ NULL));
         if (r == -ETIME)
                 return r;
         if (r < 0)
@@ -559,7 +559,7 @@ static int unit_set_property(sd_bus *bus, const char *unit, const char *property
         return 0;
 }
 
-static int manager_set_markers(sd_bus *bus, const ManagerOperation *op) {
+_may_suspend_ static int manager_set_markers(sd_bus *bus, const ManagerOperation *op) {
         int r;
 
         assert(bus);
@@ -570,7 +570,7 @@ static int manager_set_markers(sd_bus *bus, const ManagerOperation *op) {
                 return log_oom();
 
         _cleanup_strv_free_ char **expanded = NULL;
-        r = expand_template_units(bus, op->units, &expanded);
+        r = SD_AWAIT(expand_template_units(bus, op->units, &expanded));
         if (r < 0)
                 return r;
 
@@ -580,7 +580,7 @@ static int manager_set_markers(sd_bus *bus, const ManagerOperation *op) {
                         continue;
                 }
 
-                r = unit_set_property(bus, *unit, property);
+                r = SD_AWAIT(unit_set_property(bus, *unit, property));
                 if (r < 0)
                         return r;
 
@@ -590,7 +590,7 @@ static int manager_set_markers(sd_bus *bus, const ManagerOperation *op) {
         return 0;
 }
 
-static int manager_enqueue_marked(sd_bus *bus, const ManagerOperation *op) {
+_may_suspend_ static int manager_enqueue_marked(sd_bus *bus, const ManagerOperation *op) {
         int r;
 
         assert(bus);
@@ -601,13 +601,13 @@ static int manager_enqueue_marked(sd_bus *bus, const ManagerOperation *op) {
         }
 
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
-        r = bus_wait_for_jobs_new(bus, &w);
+        r = SD_AWAIT(bus_wait_for_jobs_new(bus, &w));
         if (r < 0)
                 return log_error_errno(r, "Could not watch jobs: %m");
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        r = bus_call_method(bus, bus_systemd_mgr, "EnqueueMarkedJobs", &error, &reply, /* types= */ NULL);
+        r = SD_AWAIT(bus_call_method(bus, bus_systemd_mgr, "EnqueueMarkedJobs", &error, &reply, /* types= */ NULL));
         if (r == -ETIME)
                 return r;
         if (r < 0) {
@@ -626,7 +626,7 @@ static int manager_enqueue_marked(sd_bus *bus, const ManagerOperation *op) {
                         return log_error_errno(r, "Failed to watch job '%s': %m", *path);
         }
 
-        (void) bus_wait_for_jobs(w, BUS_WAIT_JOBS_LOG_ERROR);
+        (void) SD_AWAIT(bus_wait_for_jobs(w, BUS_WAIT_JOBS_LOG_ERROR));
         return 0;
 }
 
@@ -635,7 +635,7 @@ typedef struct UserManagerOperation {
         const ManagerOperation *op;
 } UserManagerOperation;
 
-static int user_manager_operation_fiber(void *userdata) {
+_may_suspend_ static int user_manager_operation_fiber(void *userdata) {
         UserManagerOperation *o = ASSERT_PTR(userdata);
         int r;
 
@@ -647,12 +647,12 @@ static int user_manager_operation_fiber(void *userdata) {
 
         /* Every method call waits for its reply, so no message is left to flush at the end. A flush
          * after the deadline expired would wait without a deadline. */
-        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
-        r = bus_connect_user_unit(o->unit, &bus);
+        _cleanup_await_(sd_bus_close_unrefp) sd_bus *bus = NULL;
+        r = SD_AWAIT(bus_connect_user_unit(o->unit, &bus));
         if (r <= 0)
                 return r;
 
-        r = o->op->func(bus, o->op);
+        r = SD_AWAIT(o->op->func(bus, o->op));
 
         /* The operations ignore the result of bus_wait_for_jobs(). r is therefore not -ETIME when the
          * deadline expires while waiting for the jobs. Check the timer instead. */
@@ -662,18 +662,18 @@ static int user_manager_operation_fiber(void *userdata) {
         return r;
 }
 
-static int run_on_user_managers(sd_bus *system_bus, const ManagerOperation *op) {
+_may_suspend_ static int run_on_user_managers(sd_bus *system_bus, const ManagerOperation *op) {
         int r;
 
         assert(system_bus);
         assert(op);
 
         _cleanup_strv_free_ char **users = NULL;
-        r = list_units(system_bus, STRV_MAKE("user@*.service"), &users);
+        r = SD_AWAIT(list_units(system_bus, STRV_MAKE("user@*.service"), &users));
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *g = NULL;
+        _cleanup_await_(sd_future_cancel_wait_unrefp) sd_future *g = NULL;
         r = sd_future_group_new(sd_fiber_get_event(), &g);
         if (r < 0)
                 return log_error_errno(r, "Failed to create future group: %m");
@@ -694,7 +694,7 @@ static int run_on_user_managers(sd_bus *system_bus, const ManagerOperation *op) 
                         .op = op,
                 };
 
-                _cleanup_(sd_future_cancel_wait_unrefp) sd_future *f = NULL;
+                _cleanup_await_(sd_future_cancel_wait_unrefp) sd_future *f = NULL;
                 r = sd_fiber_new(sd_fiber_get_event(), *user, user_manager_operation_fiber, o, &f);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create new fiber for '%s': %m", *user);
@@ -716,7 +716,7 @@ static int run_on_user_managers(sd_bus *system_bus, const ManagerOperation *op) 
         if (r < 0)
                 return log_error_errno(r, "Failed to seal future group: %m");
 
-        r = sd_fiber_await(g);
+        r = SD_AWAIT(sd_fiber_await(g));
         if (r < 0)
                 return log_error_errno(r, "Failed to wait for fibers: %m");
 
@@ -727,20 +727,20 @@ static int run_on_user_managers(sd_bus *system_bus, const ManagerOperation *op) 
         return 0;
 }
 
-static int run_on_managers(RuntimeScope scope, sd_bus *system_bus, const ManagerOperation *op) {
+_may_suspend_ static int run_on_managers(RuntimeScope scope, sd_bus *system_bus, const ManagerOperation *op) {
         assert(system_bus);
         assert(op);
 
         if (scope == RUNTIME_SCOPE_SYSTEM)
-                return op->func(system_bus, op);
+                return SD_AWAIT(op->func(system_bus, op));
 
-        return run_on_user_managers(system_bus, op);
+        return SD_AWAIT(run_on_user_managers(system_bus, op));
 }
 
-VERB_FULL(verb_install_units, "install-units", "UNIT…\0", 1, VERB_ANY, 0, 0, "Enable and preset units");
-VERB_FULL(verb_install_units, "install-system-units", NULL, 1, VERB_ANY, 0, UPDATE_SCOPE_SYSTEM, NULL);
-VERB_FULL(verb_install_units, "install-user-units", NULL, 1, VERB_ANY, 0, UPDATE_SCOPE_GLOBAL, NULL);
-static int verb_install_units(int argc, char **argv, uintptr_t data, void *userdata) {
+VERB_FULL(verb_install_units, "install-units", "UNIT…\0", 1, VERB_ANY, VERB_FIBER, 0, "Enable and preset units");
+VERB_FULL(verb_install_units, "install-system-units", NULL, 1, VERB_ANY, VERB_FIBER, UPDATE_SCOPE_SYSTEM, NULL);
+VERB_FULL(verb_install_units, "install-user-units", NULL, 1, VERB_ANY, VERB_FIBER, UPDATE_SCOPE_GLOBAL, NULL);
+_may_suspend_ static int verb_install_units(int argc, char **argv, uintptr_t data, void *userdata) {
         RuntimeScope scope;
         int r;
 
@@ -780,8 +780,8 @@ static int verb_install_units(int argc, char **argv, uintptr_t data, void *userd
                 return r;
         }
 
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        r = bus_connect_system_systemd(&bus);
+        _cleanup_await_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        r = SD_AWAIT(bus_connect_system_systemd(&bus));
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to private bus: %m");
 
@@ -800,7 +800,7 @@ static int verb_install_units(int argc, char **argv, uintptr_t data, void *userd
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
+        r = SD_AWAIT(sd_bus_call(bus, m, /* usec= */ 0, &error, &reply));
         if (r < 0)
                 return log_error_errno(r, "Failed to preset units: %s", bus_error_message(&error, r));
 
@@ -811,10 +811,10 @@ static int verb_install_units(int argc, char **argv, uintptr_t data, void *userd
         return bus_deserialize_and_dump_unit_file_changes(reply, /* quiet= */ false);
 }
 
-VERB_FULL(verb_remove_units, "remove-units", "UNIT…\0", 1, VERB_ANY, 0, 0, "Disable and stop units");
-VERB_FULL(verb_remove_units, "remove-system-units", NULL, 1, VERB_ANY, 0, UPDATE_SCOPE_SYSTEM, NULL);
-VERB_FULL(verb_remove_units, "remove-user-units", NULL, 1, VERB_ANY, 0, UPDATE_SCOPE_GLOBAL, NULL);
-static int verb_remove_units(int argc, char **argv, uintptr_t data, void *userdata) {
+VERB_FULL(verb_remove_units, "remove-units", "UNIT…\0", 1, VERB_ANY, VERB_FIBER, 0, "Disable and stop units");
+VERB_FULL(verb_remove_units, "remove-system-units", NULL, 1, VERB_ANY, VERB_FIBER, UPDATE_SCOPE_SYSTEM, NULL);
+VERB_FULL(verb_remove_units, "remove-user-units", NULL, 1, VERB_ANY, VERB_FIBER, UPDATE_SCOPE_GLOBAL, NULL);
+_may_suspend_ static int verb_remove_units(int argc, char **argv, uintptr_t data, void *userdata) {
         RuntimeScope scope;
         int r;
 
@@ -847,27 +847,27 @@ static int verb_remove_units(int argc, char **argv, uintptr_t data, void *userda
                         return 0;
         }
 
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        r = bus_connect_system_systemd(&bus);
+        _cleanup_await_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        r = SD_AWAIT(bus_connect_system_systemd(&bus));
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to private bus: %m");
 
         /* No service manager manages the global configuration in /etc/systemd/user/, so install.c changes
          * it above. Each service manager disables the units in its own configuration. For a user
          * manager, that is the configuration where "systemctl --user enable" creates its symlinks. */
-        return run_on_managers(scope, bus, &(const ManagerOperation) {
+        return SD_AWAIT(run_on_managers(scope, bus, &(const ManagerOperation) {
                 .func = manager_disable_and_stop_units,
                 .units = units,
-        });
+        }));
 }
 
-VERB_FULL(verb_mark_units, "mark-restart-units", "UNIT…\0", 1, VERB_ANY, 0, 0, "Mark units for restart");
-VERB_FULL(verb_mark_units, "mark-restart-system-units", NULL, 1, VERB_ANY, 0, UPDATE_SCOPE_SYSTEM, NULL);
-VERB_FULL(verb_mark_units, "mark-restart-user-units", NULL, 1, VERB_ANY, 0, UPDATE_SCOPE_GLOBAL, NULL);
-VERB_FULL(verb_mark_units, "mark-reload-units", "UNIT…\0", 1, VERB_ANY, 0, UPDATE_RELOAD, "Mark units for reload");
-VERB_FULL(verb_mark_units, "mark-reload-system-units", NULL, 1, VERB_ANY, 0, UPDATE_RELOAD|UPDATE_SCOPE_SYSTEM, NULL);
-VERB_FULL(verb_mark_units, "mark-reload-user-units", NULL, 1, VERB_ANY, 0, UPDATE_RELOAD|UPDATE_SCOPE_GLOBAL, NULL);
-static int verb_mark_units(int argc, char **argv, uintptr_t data, void *userdata) {
+VERB_FULL(verb_mark_units, "mark-restart-units", "UNIT…\0", 1, VERB_ANY, VERB_FIBER, 0, "Mark units for restart");
+VERB_FULL(verb_mark_units, "mark-restart-system-units", NULL, 1, VERB_ANY, VERB_FIBER, UPDATE_SCOPE_SYSTEM, NULL);
+VERB_FULL(verb_mark_units, "mark-restart-user-units", NULL, 1, VERB_ANY, VERB_FIBER, UPDATE_SCOPE_GLOBAL, NULL);
+VERB_FULL(verb_mark_units, "mark-reload-units", "UNIT…\0", 1, VERB_ANY, VERB_FIBER, UPDATE_RELOAD, "Mark units for reload");
+VERB_FULL(verb_mark_units, "mark-reload-system-units", NULL, 1, VERB_ANY, VERB_FIBER, UPDATE_RELOAD|UPDATE_SCOPE_SYSTEM, NULL);
+VERB_FULL(verb_mark_units, "mark-reload-user-units", NULL, 1, VERB_ANY, VERB_FIBER, UPDATE_RELOAD|UPDATE_SCOPE_GLOBAL, NULL);
+_may_suspend_ static int verb_mark_units(int argc, char **argv, uintptr_t data, void *userdata) {
         UnitMarker marker = FLAGS_SET(data, UPDATE_RELOAD) ? UNIT_MARKER_NEEDS_RELOAD : UNIT_MARKER_NEEDS_RESTART;
         RuntimeScope scope;
         int r;
@@ -884,30 +884,30 @@ static int verb_mark_units(int argc, char **argv, uintptr_t data, void *userdata
         if (offline())
                 return 0;
 
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        r = bus_connect_system_systemd(&bus);
+        _cleanup_await_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        r = SD_AWAIT(bus_connect_system_systemd(&bus));
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to private bus: %m");
 
-        return run_on_managers(scope, bus, &(const ManagerOperation) {
+        return SD_AWAIT(run_on_managers(scope, bus, &(const ManagerOperation) {
                 .func = manager_set_markers,
                 .units = units,
                 .marker = marker,
-        });
+        }));
 }
 
-static int reload_user_managers(sd_bus *system_bus) {
+_may_suspend_ static int reload_user_managers(sd_bus *system_bus) {
         int r;
 
         assert(system_bus);
 
         _cleanup_strv_free_ char **users = NULL;
-        r = list_units(system_bus, STRV_MAKE("user@*.service"), &users);
+        r = SD_AWAIT(list_units(system_bus, STRV_MAKE("user@*.service"), &users));
         if (r < 0)
                 return r;
 
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
-        r = bus_wait_for_jobs_new(system_bus, &w);
+        r = SD_AWAIT(bus_wait_for_jobs_new(system_bus, &w));
         if (r < 0)
                 return log_error_errno(r, "Could not watch jobs: %m");
 
@@ -921,13 +921,13 @@ static int reload_user_managers(sd_bus *system_bus) {
 
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                r = bus_call_method(
+                r = SD_AWAIT(bus_call_method(
                                 system_bus,
                                 bus_systemd_mgr,
                                 "ReloadUnit",
                                 &error,
                                 &reply,
-                                "ss", *user, "replace");
+                                "ss", *user, "replace"));
                 if (r < 0) {
                         log_warning_errno(r, "Failed to queue reload of %s, ignoring: %s",
                                           *user, bus_error_message(&error, r));
@@ -944,21 +944,21 @@ static int reload_user_managers(sd_bus *system_bus) {
                         return log_error_errno(r, "Failed to watch job '%s': %m", path);
         }
 
-        (void) bus_wait_for_jobs(w, BUS_WAIT_JOBS_LOG_ERROR);
+        (void) SD_AWAIT(bus_wait_for_jobs(w, BUS_WAIT_JOBS_LOG_ERROR));
         return 0;
 }
 
-VERB_FULL(verb_daemon_reload_enqueue_marked, "daemon-reload", NULL, 1, 1, 0, UPDATE_RELOAD, "Reload manager configuration");
-VERB_FULL(verb_daemon_reload_enqueue_marked, "enqueue-marked", NULL, 1, 1, 0, UPDATE_ENQUEUE, "Enqueue marked units");
-VERB_FULL(verb_daemon_reload_enqueue_marked, "daemon-reload-enqueue-marked", NULL, 1, 1, 0, UPDATE_RELOAD|UPDATE_ENQUEUE, "Reload configuration and enqueue marked units");
-VERB_FULL(verb_daemon_reload_enqueue_marked, "system-reload-restart", NULL, 1, 1, 0, UPDATE_RELOAD|UPDATE_ENQUEUE|UPDATE_SCOPE_SYSTEM, NULL);
-VERB_FULL(verb_daemon_reload_enqueue_marked, "system-reload", NULL, 1, 1, 0, UPDATE_RELOAD|UPDATE_SCOPE_SYSTEM, NULL);
-VERB_FULL(verb_daemon_reload_enqueue_marked, "system-restart", NULL, 1, 1, 0, UPDATE_ENQUEUE|UPDATE_SCOPE_SYSTEM, NULL);
-VERB_FULL(verb_daemon_reload_enqueue_marked, "user-reload-restart", NULL, 1, 1, 0, UPDATE_RELOAD|UPDATE_ENQUEUE|UPDATE_SCOPE_GLOBAL, NULL);
-VERB_FULL(verb_daemon_reload_enqueue_marked, "user-reload", NULL, 1, 1, 0, UPDATE_RELOAD|UPDATE_SCOPE_GLOBAL, NULL);
-VERB_FULL(verb_daemon_reload_enqueue_marked, "user-restart", NULL, 1, 1, 0, UPDATE_ENQUEUE|UPDATE_SCOPE_GLOBAL, NULL);
-VERB_FULL(verb_daemon_reload_enqueue_marked, "user-reexec", NULL, 1, 1, 0, UPDATE_RELOAD|UPDATE_SCOPE_GLOBAL, NULL);
-static int verb_daemon_reload_enqueue_marked(int argc, char **argv, uintptr_t data, void *userdata) {
+VERB_FULL(verb_daemon_reload_enqueue_marked, "daemon-reload", NULL, 1, 1, VERB_FIBER, UPDATE_RELOAD, "Reload manager configuration");
+VERB_FULL(verb_daemon_reload_enqueue_marked, "enqueue-marked", NULL, 1, 1, VERB_FIBER, UPDATE_ENQUEUE, "Enqueue marked units");
+VERB_FULL(verb_daemon_reload_enqueue_marked, "daemon-reload-enqueue-marked", NULL, 1, 1, VERB_FIBER, UPDATE_RELOAD|UPDATE_ENQUEUE, "Reload configuration and enqueue marked units");
+VERB_FULL(verb_daemon_reload_enqueue_marked, "system-reload-restart", NULL, 1, 1, VERB_FIBER, UPDATE_RELOAD|UPDATE_ENQUEUE|UPDATE_SCOPE_SYSTEM, NULL);
+VERB_FULL(verb_daemon_reload_enqueue_marked, "system-reload", NULL, 1, 1, VERB_FIBER, UPDATE_RELOAD|UPDATE_SCOPE_SYSTEM, NULL);
+VERB_FULL(verb_daemon_reload_enqueue_marked, "system-restart", NULL, 1, 1, VERB_FIBER, UPDATE_ENQUEUE|UPDATE_SCOPE_SYSTEM, NULL);
+VERB_FULL(verb_daemon_reload_enqueue_marked, "user-reload-restart", NULL, 1, 1, VERB_FIBER, UPDATE_RELOAD|UPDATE_ENQUEUE|UPDATE_SCOPE_GLOBAL, NULL);
+VERB_FULL(verb_daemon_reload_enqueue_marked, "user-reload", NULL, 1, 1, VERB_FIBER, UPDATE_RELOAD|UPDATE_SCOPE_GLOBAL, NULL);
+VERB_FULL(verb_daemon_reload_enqueue_marked, "user-restart", NULL, 1, 1, VERB_FIBER, UPDATE_ENQUEUE|UPDATE_SCOPE_GLOBAL, NULL);
+VERB_FULL(verb_daemon_reload_enqueue_marked, "user-reexec", NULL, 1, 1, VERB_FIBER, UPDATE_RELOAD|UPDATE_SCOPE_GLOBAL, NULL);
+_may_suspend_ static int verb_daemon_reload_enqueue_marked(int argc, char **argv, uintptr_t data, void *userdata) {
         bool reload = FLAGS_SET(data, UPDATE_RELOAD), enqueue = FLAGS_SET(data, UPDATE_ENQUEUE);
         RuntimeScope scope;
         int r;
@@ -970,8 +970,8 @@ static int verb_daemon_reload_enqueue_marked(int argc, char **argv, uintptr_t da
         if (offline())
                 return 0;
 
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        r = bus_connect_system_systemd(&bus);
+        _cleanup_await_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        r = SD_AWAIT(bus_connect_system_systemd(&bus));
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to private bus: %m");
 
@@ -982,21 +982,21 @@ static int verb_daemon_reload_enqueue_marked(int argc, char **argv, uintptr_t da
                         else {
                                 log_debug("Reloading service manager");
 
-                                r = bus_service_manager_reload(bus);
+                                r = SD_AWAIT(bus_service_manager_reload(bus));
                                 if (r < 0)
                                         return r;
                         }
                 } else {
-                        r = reload_user_managers(bus);
+                        r = SD_AWAIT(reload_user_managers(bus));
                         if (r < 0)
                                 return r;
                 }
         }
 
         if (enqueue) {
-                r = run_on_managers(scope, bus, &(const ManagerOperation) {
+                r = SD_AWAIT(run_on_managers(scope, bus, &(const ManagerOperation) {
                         .func = manager_enqueue_marked,
-                });
+                }));
                 if (r < 0)
                         return r;
         }
@@ -1004,15 +1004,15 @@ static int verb_daemon_reload_enqueue_marked(int argc, char **argv, uintptr_t da
         return 0;
 }
 
-static int run(int argc, char *argv[]) {
+_may_suspend_ static int run(int argc, char *argv[]) {
         char **args = NULL;
         int r;
 
         LIBSELINUX_NOTE(recommended);
 
-        log_setup();
+        SD_AWAIT(log_setup());
 
-        r = parse_argv(argc, argv, &args);
+        r = SD_AWAIT(parse_argv(argc, argv, &args));
         if (r <= 0)
                 return r;
 
@@ -1020,7 +1020,7 @@ static int run(int argc, char *argv[]) {
         if (arg_quiet && log_get_max_level() < LOG_DEBUG)
                 log_set_max_level(MIN(log_get_max_level(), LOG_ERR));
 
-        return dispatch_verb(args, NULL);
+        return SD_AWAIT(dispatch_verb(args, NULL));
 }
 
 DEFINE_MAIN_FUNCTION_FIBER(run);

@@ -174,8 +174,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(ConfigSection*, config_section_free);
 
 int config_section_new(const char *filename, unsigned line, ConfigSection **ret);
 
-void config_section_hash_func(const ConfigSection *c, struct siphash *state);
-int config_section_compare_func(const ConfigSection *x, const ConfigSection *y);
+_sync_ void config_section_hash_func(const ConfigSection *c, struct siphash *state);
+_sync_ int config_section_compare_func(const ConfigSection *x, const ConfigSection *y);
 extern const struct hash_ops config_section_hash_ops;
 
 int hashmap_by_section_find_unused_line(Hashmap *entries_by_section, const char *filename, unsigned *ret);

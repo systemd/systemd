@@ -26,7 +26,7 @@ typedef enum ColorMode {
 
 DECLARE_STRING_TABLE_LOOKUP(color_mode, ColorMode);
 
-ColorMode get_color_mode(void);
+_sync_ ColorMode get_color_mode(void);
 static inline bool colors_enabled(void) {
         /* Returns true if colors are considered supported on our stdout. */
         return get_color_mode() != COLOR_OFF;
@@ -34,7 +34,7 @@ static inline bool colors_enabled(void) {
 
 ColorMode parse_systemd_colors(void);
 
-bool underline_enabled(void);
+_sync_ bool underline_enabled(void);
 
 void reset_ansi_feature_caches(void);
 

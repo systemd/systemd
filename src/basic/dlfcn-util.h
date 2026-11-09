@@ -50,6 +50,6 @@ int dlopen_many_sym_or_warn_sentinel(void **dlp, const char *filename, int log_l
  * libs, if we transfer a process into a different namespace. Note that this does not work for all calls of
  * dlopen(), just those through our dlopen_safe() wrapper (which we use comprehensively in our
  * codebase). This hence has *no* effect on NSS. (Would be great if we could change that...) */
-void block_dlopen(void);
+_sync_ void block_dlopen(void);
 
 int dlopen_safe(const char *filename, void **ret, const char **reterr_dlerror);

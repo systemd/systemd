@@ -52,7 +52,7 @@ typedef void* (*mfree_func_t)(void *p);
                 if (p->n_ref > 0)                                                       \
                         return NULL;                                                    \
                                                                                         \
-                return free_func(p);                                                    \
+                return SD_AWAIT(free_func(p));                                                    \
         }
 
 #define DEFINE_TRIVIAL_REF_FUNC(type, name)     \

@@ -17,11 +17,11 @@ void print_separator(void);
 
 int file_url_from_path(const char *path, char **ret);
 
-bool urlify_enabled(void);
+_sync_ bool urlify_enabled(void);
 
-int terminal_urlify(const char *url, const char *text, char **ret);
+_sync_ int terminal_urlify(const char *url, const char *text, char **ret);
 int terminal_urlify_path(const char *path, const char *text, char **ret);
-int terminal_urlify_man_full(const char *page, const char *section, const char *suffix, char **ret);
+_sync_ int terminal_urlify_man_full(const char *page, const char *section, const char *suffix, char **ret);
 static inline int terminal_urlify_man(const char *page, const char *section, char **ret) {
         return terminal_urlify_man_full(page, section, " man page", ret);
 }
@@ -64,8 +64,8 @@ bool shall_tint_background(void);
 void draw_progress_bar(const char *prefix, double percentage);
 int draw_progress_barf(double percentage, const char *prefixf, ...) _printf_(2, 3);
 void clear_progress_bar(const char *prefix);
-void draw_progress_bar_unbuffered(const char *prefix, double percentage);
-void clear_progress_bar_unbuffered(const char *prefix);
+_sync_ void draw_progress_bar_unbuffered(const char *prefix, double percentage);
+_sync_ void clear_progress_bar_unbuffered(const char *prefix);
 
 static inline FILE* enable_buffering(FILE *f, char *buffer, size_t size) {
         assert(f);

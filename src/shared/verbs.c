@@ -3,6 +3,7 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "await.h"
 #include "build.h"
 #include "env-util.h"
 #include "extract-word.h"
@@ -222,11 +223,18 @@ int _dispatch_verb(char **args, const Verb verbs[], const Verb verbs_end[], void
                 return 0;
         }
 
-        if (!name)
-                return verb->dispatch(1, STRV_MAKE(verb->verb), verb->data, userdata);
-
         assert(left < INT_MAX);  /* args are derived from argc+argv, so their size must fit in an int. */
-        return verb->dispatch(left, args, verb->data, userdata);
+        int argc = name ? (int) left : 1;
+        char **argv = name ? args : STRV_MAKE(verb->verb);
+
+        if (FLAGS_SET(verb->flags, VERB_FIBER)) {
+                /* _VERB_DATA() checked the verb, but the table stores it without its suspension contract.
+                 * The suspension checker trusts a conversion from void*. */
+                verb_fiber_func_t dispatch = (verb_fiber_func_t) (void*) verb->dispatch;
+                return SD_AWAIT(dispatch(argc, argv, verb->data, userdata));
+        }
+
+        return SD_BLOCKING(verb->dispatch(argc, argv, verb->data, userdata));
 }
 
 #define VERB_SYNOPSIS_WIDTH_SANE 25
@@ -623,7 +631,7 @@ int _command_print_help_full(
         const Verb *verbverbs = ASSERT_PTR(verbs_find_cmd_verbs(cmdverb, verbs_end));
 
         if (cmd->pager_flags)
-                pager_open(*cmd->pager_flags);
+                SD_AWAIT(pager_open(*cmd->pager_flags));
 
         if (cmd->argspec)
                 NULSTR_FOREACH(spec, cmd->argspec) {

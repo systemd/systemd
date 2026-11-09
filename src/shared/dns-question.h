@@ -25,7 +25,9 @@ typedef struct DnsQuestion {
 } DnsQuestion;
 
 DnsQuestion *dns_question_new(size_t n);
+SYNC_BEGIN
 DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsQuestion, dns_question);
+SYNC_END
 
 int dns_question_new_address(DnsQuestion **ret, int family, const char *name, bool convert_idna);
 int dns_question_new_reverse(DnsQuestion **ret, int family, const union in_addr_union *a);

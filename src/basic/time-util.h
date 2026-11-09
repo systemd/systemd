@@ -82,8 +82,8 @@ enum {
 
 #define TIMESPEC_OMIT ((const struct timespec) { .tv_nsec = UTIME_OMIT })
 
-usec_t now(clockid_t clock);
-nsec_t now_nsec(clockid_t clock);
+_sync_ usec_t now(clockid_t clock);
+_sync_ nsec_t now_nsec(clockid_t clock);
 
 usec_t map_clock_usec_raw(usec_t from, usec_t from_base, usec_t to_base);
 usec_t map_clock_usec(usec_t from, clockid_t from_clock, clockid_t to_clock);
@@ -93,7 +93,7 @@ dual_timestamp* dual_timestamp_from_realtime(dual_timestamp *ts, usec_t u);
 dual_timestamp* dual_timestamp_from_monotonic(dual_timestamp *ts, usec_t u);
 dual_timestamp* dual_timestamp_from_boottime(dual_timestamp *ts, usec_t u);
 
-triple_timestamp* triple_timestamp_now(triple_timestamp *ts);
+_sync_ triple_timestamp* triple_timestamp_now(triple_timestamp *ts);
 triple_timestamp* triple_timestamp_from_realtime(triple_timestamp *ts, usec_t u);
 triple_timestamp* triple_timestamp_from_boottime(triple_timestamp *ts, usec_t u);
 
@@ -118,26 +118,26 @@ static inline bool triple_timestamp_is_set(const triple_timestamp *ts) {
                timestamp_is_set(ts->boottime);
 }
 
-usec_t triple_timestamp_by_clock(triple_timestamp *ts, clockid_t clock);
+_sync_ usec_t triple_timestamp_by_clock(triple_timestamp *ts, clockid_t clock);
 
 usec_t timespec_load(const struct timespec *ts) _pure_;
 nsec_t timespec_load_nsec(const struct timespec *ts) _pure_;
-struct timespec* timespec_store(struct timespec *ts, usec_t u);
+_sync_ struct timespec* timespec_store(struct timespec *ts, usec_t u);
 struct timespec* timespec_store_nsec(struct timespec *ts, nsec_t n);
 
 #define TIMESPEC_STORE(u) timespec_store(&(struct timespec) {}, (u))
 #define TIMESPEC_STORE_NSEC(n) timespec_store_nsec(&(struct timespec) {}, (n))
 
-struct __kernel_timespec* kernel_timespec_store(struct __kernel_timespec *ts, usec_t u);
+_sync_ struct __kernel_timespec* kernel_timespec_store(struct __kernel_timespec *ts, usec_t u);
 
 usec_t timeval_load(const struct timeval *tv) _pure_;
-struct timeval* timeval_store(struct timeval *tv, usec_t u);
+_sync_ struct timeval* timeval_store(struct timeval *tv, usec_t u);
 
 #define TIMEVAL_STORE(u) timeval_store(&(struct timeval) {}, (u))
 
-char* format_timestamp_style(char *buf, size_t l, usec_t t, TimestampStyle style) _warn_unused_result_;
-char* format_timestamp_relative_full(char *buf, size_t l, usec_t t, clockid_t clock, bool implicit_left) _warn_unused_result_;
-char* format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) _warn_unused_result_;
+_sync_ char* format_timestamp_style(char *buf, size_t l, usec_t t, TimestampStyle style) _warn_unused_result_;
+_sync_ char* format_timestamp_relative_full(char *buf, size_t l, usec_t t, clockid_t clock, bool implicit_left) _warn_unused_result_;
+_sync_ char* format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) _warn_unused_result_;
 
 /* Returns the abbreviated English weekday name for wd in Mon=0 … Sun=6 order
  * (matching systemd's weekdays_bits layout). */
@@ -173,7 +173,7 @@ const char* get_tzname(bool dst);
 int parse_gmtoff(const char *t, long *ret);
 int parse_timestamp(const char *t, usec_t *ret);
 
-int parse_sec(const char *t, usec_t *ret);
+_sync_ int parse_sec(const char *t, usec_t *ret);
 int parse_sec_fix_0(const char *t, usec_t *ret);
 int parse_sec_def_infinity(const char *t, usec_t *ret);
 int parse_time(const char *t, usec_t *ret, usec_t default_unit);
@@ -191,7 +191,7 @@ char* save_timezone(void);
         _unused_ _cleanup_(reset_timezonep)                             \
              char *_saved_timezone_ = save_timezone()
 
-bool clock_supported(clockid_t clock);
+_sync_ bool clock_supported(clockid_t clock);
 
 usec_t usec_shift_clock(usec_t x, clockid_t from, clockid_t to);
 
@@ -219,7 +219,7 @@ static inline int parse_birth_date(const char *s, struct tm *ret) {
         return parse_calendar_date_full(s, /* allow_pre_epoch= */ true, /* ret_usec= */ NULL, ret);
 }
 
-uint64_t sysconf_clock_ticks_cached(void);
+_sync_ uint64_t sysconf_clock_ticks_cached(void);
 
 uint32_t usec_to_jiffies(usec_t usec);
 usec_t jiffies_to_usec(uint32_t jiffies);
@@ -253,7 +253,7 @@ static inline usec_t usec_sub_signed(usec_t timestamp, int64_t delta) {
         return usec_sub_unsigned(timestamp, (usec_t) delta);
 }
 
-int usleep_safe(usec_t usec);
+_sync_ int usleep_safe(usec_t usec);
 
 /* The last second we can format is 31. Dec 9999, 1s before midnight, because otherwise we'd enter 5 digit
  * year territory. However, since we want to stay away from this in all timezones we take one day off. */
