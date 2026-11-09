@@ -77,7 +77,6 @@ typedef enum MountMode {
         MOUNT_NOEXEC,
         MOUNT_EXEC,
         MOUNT_TMPFS,
-        MOUNT_RUN,
         MOUNT_PRIVATE_TMPFS,       /* Mounted outside the root directory, and used by subsequent mounts */
         MOUNT_EXTENSION_DIRECTORY, /* Bind-mounted outside the root directory, and used by subsequent mounts */
         MOUNT_EXTENSION_IMAGE,     /* Mounted outside the root directory, and used by subsequent mounts */
@@ -137,14 +136,21 @@ static const BindMount bind_log_sockets_table[] = {
         { (char*) "/run/systemd/journal/dev-log", (char*) "/run/systemd/journal/dev-log", .read_only = true, .nosuid = true, .noexec = true, .nodev = true, .ignore_enoent = true },
 };
 
-/* If MountAPIVFS= is used, let's mount /proc/, /dev/, /sys/, and /run/, but only as a fallback if the user
- * hasn't mounted something already. These mounts are hence overridden by any other explicitly configured
- * mounts. */
+/* If MountAPIVFS= is used, let's mount /proc/, /dev/ and /sys/, but only as a fallback if the user hasn't
+ * mounted something already. These mounts are hence overridden by any other explicitly configured mounts. */
 static const MountEntry apivfs_table[] = {
         { "/proc",               MOUNT_PROCFS,       false },
         { "/dev",                MOUNT_BIND_DEV,     false },
         { "/sys",                MOUNT_BIND_SYSFS,   false },
-        { "/run",                MOUNT_RUN,          false, .options_const = "mode=0755" TMPFS_LIMITS_RUN, .flags = MS_NOSUID|MS_NODEV|MS_STRICTATIME },
+};
+
+/* The writable /run/ tmpfs of MountAPIVFS=. Only set up when a separate root directory is used: there /run/
+ * is a private tmpfs that must be writable (e.g. for /run/host/). Without a separate root directory /run/ is
+ * the host's, and left out here so that it stays subject to the read-only remount of ProtectSystem=strict
+ * (and does not leak as writable). A fresh tmpfs is always mounted here, so that even a /run/ already present
+ * in the root tree (e.g. the host's bind-mounted in) is replaced by a private one. */
+static const MountEntry apivfs_run_table[] = {
+        { "/run",                MOUNT_TMPFS,        false, .options_const = "mode=0755" TMPFS_LIMITS_RUN, .flags = MS_NOSUID|MS_NODEV|MS_STRICTATIME },
 };
 
 /* ProtectKernelTunables= option and the related filesystem APIs */
@@ -287,7 +293,6 @@ static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
         [MOUNT_NOEXEC]                = "noexec",
         [MOUNT_EXEC]                  = "exec",
         [MOUNT_TMPFS]                 = "tmpfs",
-        [MOUNT_RUN]                   = "run",
         [MOUNT_PRIVATE_TMPFS]         = "private-tmpfs",
         [MOUNT_EXTENSION_DIRECTORY]   = "extension-directory",
         [MOUNT_EXTENSION_IMAGE]       = "extension-image",
@@ -1619,20 +1624,6 @@ static int mount_tmpfs(const MountEntry *m) {
         return 1;
 }
 
-static int mount_run(const MountEntry *m) {
-        int r;
-
-        assert(m);
-
-        r = path_is_mount_point(mount_entry_path(m));
-        if (r < 0 && r != -ENOENT)
-                return log_debug_errno(r, "Unable to determine whether /run is already mounted: %m");
-        if (r > 0) /* make this a NOP if /run is already a mount point */
-                return 0;
-
-        return mount_tmpfs(m);
-}
-
 static int mount_mqueuefs(const MountEntry *m) {
         int r;
         const char *entry_path;
@@ -2138,9 +2129,6 @@ static int apply_one_mount(
 
         case MOUNT_PRIVATE_CGROUP2FS:
                 return mount_private_cgroup2fs(m, p);
-
-        case MOUNT_RUN:
-                return mount_run(m);
 
         case MOUNT_MQUEUEFS:
                 return mount_mqueuefs(m);
@@ -2944,6 +2932,19 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                                          p->ignore_protect_paths);
                 if (r < 0)
                         return r;
+
+                /* Only set up a writable /run/ tmpfs when a separate root directory is used. Without one, /run/
+                 * is the host's; leaving it out here keeps it subject to the read-only remount of
+                 * ProtectSystem=strict (and avoids leaking the host's /run/ as writable). A writable /run/ (or
+                 * a subdirectory of it) can still be requested via ReadWritePaths= or RuntimeDirectory=. */
+                if (pinned_resource_is_set(p->rootfs)) {
+                        r = append_static_mounts(&ml,
+                                                 apivfs_run_table,
+                                                 ELEMENTSOF(apivfs_run_table),
+                                                 p->ignore_protect_paths);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         /* Only mount /proc/sys/kernel/hostname and domainname read-only if ProtectHostname=yes. Otherwise,
