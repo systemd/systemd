@@ -469,7 +469,13 @@ static int verb_verify(int argc, char *argv[], uintptr_t _data, void *userdata) 
                         return log_error_errno(r, "Failed to open standard input: %m");
         }
 
-        return manifest_verify(&c, dfd, f);
+        r = manifest_verify(&c, dfd, f);
+
+        /* Show this also if verification failed, it might help understanding what was checked */
+        if (c.n_not_applicable > 0)
+                log_info("%" PRIu64 " fields listed in the manifest not verified, as they do not apply to the file system.", c.n_not_applicable);
+
+        return r;
 }
 
 static int run(int argc, char *argv[]) {

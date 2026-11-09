@@ -114,6 +114,9 @@ typedef struct ManifestContext {
         Uapi16Signer *signer;                     /* Allocated on demand by manifest_make() */
 
         uint64_t n_errors;                        /* Number of mismatches found so far */
+        uint64_t n_not_applicable;                /* Number of fields listed in the manifest we did not verify,
+                                                   * as they do not apply to the file system (e.g. FAT
+                                                   * attributes on a non-FAT file system) */
 } ManifestContext;
 
 #define MANIFEST_CONTEXT_NULL                                                            \
