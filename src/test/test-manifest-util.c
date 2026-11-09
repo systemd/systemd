@@ -9,6 +9,7 @@
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
+#include "chattr-util.h"
 #include "crypto-util.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -1105,6 +1106,66 @@ TEST(uapi16_fat_serial) {
         ASSERT_STREQ(uapi16_fat_attr_to_field(UINT32_C(0x20)), "flagArchive");
         ASSERT_STREQ(uapi16_fat_attr_to_field(UINT32_C(0x01)), "readOnly");
         ASSERT_NULL(uapi16_fat_attr_to_field(UINT32_C(0x08)));
+}
+
+TEST(manifest_uapi16_inode_flags) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+        _cleanup_free_ char *buf = NULL;
+        size_t size;
+        int r;
+
+        ASSERT_OK(tfd = make_tree(&t));
+
+        /* FS_NODUMP_FL may be set without privileges, on the file systems that support it */
+        r = chattr_at(tfd, "regular.txt", FS_NODUMP_FL, FS_NODUMP_FL);
+        if (ERRNO_IS_NEG_IOCTL_NOT_SUPPORTED(r))
+                return (void) log_tests_skipped_errno(r, "File system does not support FS_NODUMP_FL");
+        ASSERT_OK(r);
+
+        _cleanup_(manifest_context_done) ManifestContext c;
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.fields |= MANIFEST_FIELD_FLAG_NO_DUMP|MANIFEST_FIELD_FLAG_NO_ATIME|MANIFEST_FIELD_FLAG_HIDDEN|MANIFEST_FIELD_FS_UUID|MANIFEST_FIELD_FS_LABEL|MANIFEST_FIELD_FAT_SERIAL;
+        ASSERT_OK(generate(&c, tfd, &buf, &size));
+        ASSERT_EQ(c.n_metadata_omitted, 0U);
+
+        /* Only the requested flags are included, and only on regular files and directories */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reg = find_object(buf, "regular.txt"),
+                *dir = find_object(buf, "subdir"),
+                *lnk = find_object(buf, "symlink");
+        ASSERT_NOT_NULL(reg);
+        ASSERT_TRUE(sd_json_variant_boolean(sd_json_variant_by_key(reg, "flagNoDump")));
+        ASSERT_FALSE(sd_json_variant_boolean(sd_json_variant_by_key(reg, "flagNoAtime")));
+        ASSERT_NULL(sd_json_variant_by_key(reg, "flagImmutable"));
+        ASSERT_NOT_NULL(dir);
+        ASSERT_FALSE(sd_json_variant_boolean(sd_json_variant_by_key(dir, "flagNoDump")));
+        ASSERT_NOT_NULL(lnk);
+        ASSERT_NULL(sd_json_variant_by_key(lnk, "flagNoDump"));
+
+        /* Not on FAT, hence no FAT attributes and no FAT serial number. Whether the file system reports a
+         * UUID or label depends on the file system, but they are only ever recorded on the root object. */
+        ASSERT_NULL(sd_json_variant_by_key(reg, "flagHidden"));
+        ASSERT_NULL(strstr(buf, "fatSerial"));
+        ASSERT_NULL(sd_json_variant_by_key(reg, "fsUUID"));
+        ASSERT_NULL(sd_json_variant_by_key(dir, "fsLabel"));
+
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.fields |= MANIFEST_FIELD_FLAG_NO_DUMP|MANIFEST_FIELD_FLAG_NO_ATIME;
+        ASSERT_OK(verify_buffer(&c, tfd, buf, size));
+
+        /* A changed flag is detected, but only if the field is requested */
+        ASSERT_OK(chattr_at(tfd, "regular.txt", /* value= */ 0, FS_NODUMP_FL));
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.fields |= MANIFEST_FIELD_FLAG_NO_DUMP;
+        ASSERT_ERROR(verify_buffer(&c, tfd, buf, size), EBADMSG);
+        ASSERT_EQ(c.n_errors, 1U);
+
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.fields |= MANIFEST_FIELD_FLAG_NO_ATIME;
+        ASSERT_OK(verify_buffer(&c, tfd, buf, size));
 }
 
 #if HAVE_OPENSSL
