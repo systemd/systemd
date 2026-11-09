@@ -219,6 +219,10 @@ int uapi16_xattrs_build_json(const Uapi16Xattr *x, size_t n, sd_json_variant **r
 void uapi16_object_done(Uapi16Object *o);
 int uapi16_object_check_validity(Uapi16Object *o);
 
+/* Returns the name of a file (relative to the manifest's location) that carries the complete contents of the
+ * object as they are, or NULL if there's none (or if the object is NULL). */
+const char* uapi16_object_plain_file_source(const Uapi16Object *o) _pure_;
+
 /* Parses a file object. 'root' must be NULL when parsing the root file object of a manifest (i.e. its first
  * object), and point to the already parsed root file object otherwise, since the manifest-wide fields
  * declared on it (i.e. "features") govern the other file objects. */
