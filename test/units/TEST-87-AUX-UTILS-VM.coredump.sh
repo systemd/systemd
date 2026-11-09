@@ -101,6 +101,8 @@ maybe_reload_coredumpd
 "$MAKE_DUMP_SCRIPT" "$CORE_TEST_BIN" "SIGABRT"
 # Wait a bit for the coredumps to get processed
 timeout 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $CORE_TEST_BIN | wc -l) -lt 4 ]]; do sleep 1; done"
+OUT="$(coredumpctl list --field=COREDUMP_PID 'MESSAGE_ID=00000000000000000000000000000000')"
+[[ -z "$OUT" ]]
 rm -fv /run/systemd/coredump.conf.d/99-external.conf
 maybe_reload_coredumpd
 
@@ -292,6 +294,8 @@ journalctl -b -n 1 --output=export --output-fields=MESSAGE,COREDUMP COREDUMP_EXE
     /usr/lib/systemd/systemd-coredump --backtrace $$ 0 0 6 1679509902 12345 youmachine 1
 # Wait a bit for the coredumps to get processed
 timeout 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $$ | wc -l) -lt 3 ]]; do sleep 1; done"
+OUT="$(coredumpctl list --field=MESSAGE_ID 'MESSAGE_ID=1f4e0a44a88649939aaea34fc6da8c95' | sort -u)"
+[[ "$OUT" == "1f4e0a44a88649939aaea34fc6da8c95" ]]
 coredumpctl info $$
 coredumpctl info COREDUMP_TIMESTAMP=1679509900000000
 coredumpctl info COREDUMP_TIMESTAMP=1679509901000000
