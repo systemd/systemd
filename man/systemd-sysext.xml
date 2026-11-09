@@ -220,6 +220,13 @@
     same property, they should be identical; a warning is logged if they are not. These checks are
     skipped if <option>--force</option> is used.</para>
 
+    <para>Extension images may also be placed in versioned <literal>.v/</literal> directories, see
+    <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>. If such a
+    directory is located on a FAT or exFAT file system (which cannot carry extended attributes) and contains
+    a UAPI.16 manifest file <filename>Uapi16Manifest</filename>, the entries listed in the manifest are
+    considered instead of the actual directory contents, and the extended attributes defined in the manifest
+    are used in place of the ones of the inodes.</para>
+
     <para>The <command>systemd-confext</command> concept follows the same principle as the
     <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     functionality but instead of working on <filename>/usr</filename> and <filename>/opt</filename>,
