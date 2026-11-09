@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "await.h" /* IWYU pragma: export */
 #include "forward.h"
 
 typedef struct sd_future sd_future;
@@ -14,9 +15,11 @@ typedef struct FiberOps {
         ssize_t (*write)(int fd, const void *buf, size_t count);
         sd_future* (*timeout)(uint64_t timeout);
         sd_future* (*timeout_unref)(sd_future *timer);
+        void (*block_suspend)(bool block);
+        bool (*io_blocked)(void);
 } FiberOps;
 
-bool fiber_ops_is_set(void);
+bool fiber_ops_can_suspend(void);
 void fiber_ops_set(const FiberOps *fiber_ops);
 
 int fiber_ops_ppoll(struct pollfd *fds, size_t n_fds, const struct timespec *timeout, const sigset_t *sigmask);

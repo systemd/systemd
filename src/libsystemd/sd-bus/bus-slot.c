@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "await.h"
 #include "sd-bus.h"
 
 #include "alloc-util.h"
@@ -185,7 +186,7 @@ static sd_bus_slot* bus_slot_free(sd_bus_slot *slot) {
         bus_slot_disconnect(slot, /* unref= */ false);
 
         if (slot->destroy_callback)
-                slot->destroy_callback(slot->userdata);
+                SD_BLOCKING(slot->destroy_callback(slot->userdata));
 
         free(slot->description);
         return mfree(slot);

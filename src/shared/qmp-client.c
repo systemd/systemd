@@ -5,7 +5,9 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "await.h"
 #include "fd-util.h"
+#include "future-internal.h"
 #include "hash-funcs.h"
 #include "json-stream.h"
 #include "json-util.h"
@@ -191,7 +193,7 @@ static void qmp_client_dispatch_event(QmpClient *c, sd_json_variant *v) {
         if (r < 0)
                 return;
 
-        r = c->event_callback(c, p.event, p.data, c->event_userdata);
+        r = SD_BLOCKING(c->event_callback(c, p.event, p.data, c->event_userdata));
         if (r < 0)
                 json_stream_log_errno(&c->stream, r, "Event callback returned error, ignoring: %m");
 }
@@ -338,7 +340,7 @@ static int qmp_client_dispatch(QmpClient *c) {
          * out from under the callback. */
         qmp_slot_ref(slot);
 
-        r = slot->callback(c, result, desc, error, slot->userdata);
+        r = SD_BLOCKING(slot->callback(c, result, desc, error, slot->userdata));
         if (r < 0)
                 json_stream_log_errno(&c->stream, r, "Command callback returned error, ignoring: %m");
 
@@ -361,7 +363,7 @@ static void qmp_client_fail_pending(QmpClient *c, int error) {
                 qmp_slot_ref(slot);
 
                 if (slot->callback) {
-                        r = slot->callback(c, /* result= */ NULL, /* error_desc= */ NULL, error, slot->userdata);
+                        r = SD_BLOCKING(slot->callback(c, /* result= */ NULL, /* error_desc= */ NULL, error, slot->userdata));
                         if (r < 0)
                                 json_stream_log_errno(&c->stream, r, "Command callback returned error, ignoring: %m");
                 }
@@ -390,7 +392,7 @@ static void qmp_client_emit_synthetic_shutdown(QmpClient *c) {
                 return;
         }
 
-        r = c->event_callback(c, "SHUTDOWN", data, c->event_userdata);
+        r = SD_BLOCKING(c->event_callback(c, "SHUTDOWN", data, c->event_userdata));
         if (r < 0)
                 json_stream_log_errno(&c->stream, r, "Event callback returned error, ignoring: %m");
 }
@@ -410,7 +412,7 @@ static bool qmp_client_handle_disconnect(QmpClient *c) {
         qmp_client_fail_pending(c, -ECONNRESET);
         qmp_client_emit_synthetic_shutdown(c);
         if (c->disconnect_callback)
-                c->disconnect_callback(c, c->disconnect_userdata);
+                SD_BLOCKING(c->disconnect_callback(c, c->disconnect_userdata));
 
         return true;
 }
@@ -1000,7 +1002,7 @@ int qmp_client_call(
         /* If we're on a fiber sharing the QMP client's event loop, use the async + suspend path so
          * multiple concurrent qmp_client_call() invocations across fibers don't deadlock each other
          * on the process+wait pump. */
-        if (sd_fiber_is_running() && qmp_client_get_event(c) == sd_fiber_get_event())
+        if (fiber_can_suspend() && qmp_client_get_event(c) == sd_fiber_get_event())
                 return qmp_client_call_suspend(c, command, args, ret_result, reterr_error_desc);
 
         _cleanup_(qmp_slot_unrefp) QmpSlot *slot = NULL;

@@ -3,6 +3,7 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
+#include "await.h"
 #include "bus-control.h"
 #include "bus-error.h"
 #include "bus-internal.h"
@@ -1065,9 +1066,10 @@ int bus_remove_match_internal(
 
         e = append_eavesdrop(bus, match);
 
-        /* Fire and forget */
+        /* Fire and forget. The message contains no file descriptors, so sending it never waits for fd
+         * negotiation. SD_BLOCKING() therefore never blocks the event loop here. */
 
-        return sd_bus_call_method_async(
+        return SD_BLOCKING(sd_bus_call_method_async(
                         bus,
                         /* ret_slot= */ NULL,
                         "org.freedesktop.DBus",
@@ -1077,7 +1079,7 @@ int bus_remove_match_internal(
                         /* callback= */ NULL,
                         /* userdata= */ NULL,
                         "s",
-                        e);
+                        e));
 }
 
 _public_ int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_t *ret) {

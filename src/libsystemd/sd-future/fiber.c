@@ -67,6 +67,7 @@ typedef struct Fiber {
 
         FiberState state;
         int result;                     /* Either resume error code or final return value */
+        unsigned blocked;               /* The fiber is in this many nested SD_BLOCKING() regions. */
         bool result_pending;            /* sd_fiber_resume() stashed a value that fiber_swap() hasn't consumed yet */
 
         sd_future *floating;            /* Self-ref held while the fiber is floating; dropped on resolve. */
@@ -335,12 +336,30 @@ static void fiber_resolve(sd_future *f) {
         sd_future_resolve(f, fiber->result);
 }
 
+static void fiber_block_suspend(bool block) {
+        Fiber *fiber = fiber_get(sd_fiber_get_current());
+
+        if (block) {
+                assert(fiber->blocked < UINT_MAX);
+                fiber->blocked++;
+        } else {
+                assert(fiber->blocked > 0);
+                fiber->blocked--;
+        }
+}
+
+static bool fiber_io_blocked(void) {
+        return fiber_get(sd_fiber_get_current())->blocked > 0;
+}
+
 static const FiberOps fiber_ops = {
         .ppoll = sd_fiber_ppoll,
         .read = sd_fiber_read,
         .write = sd_fiber_write,
         .timeout = sd_fiber_timeout,
         .timeout_unref = sd_fiber_timeout_unref,
+        .block_suspend = fiber_block_suspend,
+        .io_blocked = fiber_io_blocked,
 };
 
 static void fiber_enter(sd_future *f, sd_future *prev, void **fake_stack_save) {
@@ -520,7 +539,7 @@ static void fiber_free(sd_future *f) {
         assert(!fiber->wait.target);
 
         if (fiber->destroy)
-                fiber->destroy(fiber->userdata);
+                SD_BLOCKING(fiber->destroy(fiber->userdata));
 
 #if HAVE_VALGRIND_VALGRIND_H
         if (fiber->stack.iov_base)
@@ -542,6 +561,10 @@ sd_future* sd_fiber_get_current(void) {
 
 int sd_fiber_is_running(void) {
         return !!current_fiber;
+}
+
+bool fiber_can_suspend(void) {
+        return current_fiber && fiber_get(current_fiber)->blocked == 0;
 }
 
 sd_event* sd_fiber_get_event(void) {
@@ -572,6 +595,7 @@ static int fiber_swap(FiberState state) {
          * through the event loop. Neither yield nor suspend changes the scheduling state in this case:
          * the caller must first observe the queued result before parking or yielding again. */
         if (!fiber->result_pending) {
+                assert_se(fiber->blocked == 0);
                 fiber->state = state;
 
                 void *fake_stack_save = NULL;
