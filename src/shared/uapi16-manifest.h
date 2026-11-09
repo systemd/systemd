@@ -138,6 +138,10 @@ int uapi16_xattrs_build_json(const Uapi16Xattr *x, size_t n, sd_json_variant **r
 void uapi16_object_done(Uapi16Object *o);
 int uapi16_object_check_validity(Uapi16Object *o);
 
+/* Returns the name of a file (relative to the manifest's location) that carries the complete contents of the
+ * object as they are, or NULL if there's none (or if the object is NULL). */
+const char* uapi16_object_plain_file_source(const Uapi16Object *o) _pure_;
+
 int dispatch_uapi16_object(sd_json_variant *v, size_t n, sd_json_dispatch_flags_t flags, Uapi16Object *ret);
 
 DECLARE_STRING_TABLE_LOOKUP(uapi16_validity, Uapi16Validity);
