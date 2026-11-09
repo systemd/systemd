@@ -26,6 +26,7 @@
 #include "uapi16-manifest.h"
 #include "utf8.h"
 #include "voa-util.h"
+#include "web-util.h"
 
 #define CONTENTS_MAX 256U
 
@@ -34,6 +35,7 @@ void uapi16_contents_done(Uapi16Contents *c) {
 
         c->file = mfree(c->file);
         c->url = mfree(c->url);
+        c->http_headers = strv_free_erase(c->http_headers);
         iovec_done(&c->literal);
         iovec_done(&c->encoded_sha256);
         iovec_done(&c->original_sha256);
@@ -497,6 +499,53 @@ static int process_sha256_and_size(
         return 0;
 }
 
+static int json_dispatch_http_headers(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        char ***headers = ASSERT_PTR(userdata);
+        int r;
+
+        /* Parses a JSON object whose keys are HTTP field names and whose values are the field values to
+         * send, as used by the UAPI.16 "httpHeaders" field. Returns them as a strv of name/value pairs. */
+
+        if (sd_json_variant_is_null(variant)) {
+                *headers = strv_free_erase(*headers);
+                return 0;
+        }
+
+        if (!sd_json_variant_is_object(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an object.", strna(name));
+
+        if (sd_json_variant_elements(variant) / 2 > HTTP_HEADERS_MAX)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(E2BIG), "Too many HTTP header fields in JSON field '%s', refusing.", strna(name));
+
+        _cleanup_strv_free_erase_ char **l = NULL;
+        const char *k;
+        sd_json_variant *e;
+        JSON_VARIANT_OBJECT_FOREACH(k, e, variant) {
+                if (!http_field_name_is_valid(k))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Invalid HTTP field name in JSON field '%s': %s", strna(name), k);
+
+                /* HTTP field names are case-insensitive, hence refuse duplicates regardless of case */
+                STRV_FOREACH_PAIR(a, b, l)
+                        if (strcaseeq(*a, k))
+                                return json_log(variant, flags, SYNTHETIC_ERRNO(ENOTUNIQ), "Duplicate HTTP field name in JSON field '%s': %s", strna(name), k);
+
+                if (!sd_json_variant_is_string(e))
+                        return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "Value of HTTP field '%s' in JSON field '%s' is not a string.", k, strna(name));
+
+                /* Don't log the value, it might carry credentials */
+                const char *v = sd_json_variant_string(e);
+                if (!http_field_value_is_valid(v))
+                        return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "Invalid value of HTTP field '%s' in JSON field '%s'.", k, strna(name));
+
+                r = strv_extend_many(&l, k, v);
+                if (r < 0)
+                        return json_log_oom(variant, flags);
+        }
+
+        free_and_replace_full(*headers, l, strv_free_erase);
+        return 0;
+}
+
 static int json_dispatch_contents(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         Uapi16Object *o = ASSERT_PTR(userdata);
         int r;
@@ -519,6 +568,7 @@ static int json_dispatch_contents(const char *name, sd_json_variant *variant, sd
                 static const sd_json_dispatch_field dispatch_table[] = {
                         { "file",           SD_JSON_VARIANT_STRING,        json_dispatch_uapi16_name,     offsetof(Uapi16Contents, file),            SD_JSON_NULLABLE },
                         { "url",            SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,       offsetof(Uapi16Contents, url),             SD_JSON_NULLABLE },
+                        { "httpHeaders",    SD_JSON_VARIANT_OBJECT,        json_dispatch_http_headers,    offsetof(Uapi16Contents, http_headers),    SD_JSON_NULLABLE },
                         { "literal",        SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,  offsetof(Uapi16Contents, literal),         SD_JSON_NULLABLE },
                         { "encoding",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,       offsetof(Uapi16Contents, encoding),        SD_JSON_NULLABLE },
                         { "encodedSize",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(Uapi16Contents, encoded_size),    0                },
@@ -538,6 +588,9 @@ static int json_dispatch_contents(const char *name, sd_json_variant *variant, sd
 
                 if (!!c.file + !!c.url + uapi16_contents_has_literal(&c) > 1)
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Only one of 'file', 'url', 'literal' may be set for '%s'.", strna(name));
+
+                if (!strv_isempty(c.http_headers) && !c.url)
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Field 'httpHeaders' may only be set together with 'url' for '%s'.", strna(name));
 
                 if (c.encoding) {
                         /* The encodings are the ones of HTTP's Content-Encoding:, which are case-insensitive,
