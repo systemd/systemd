@@ -28,18 +28,18 @@ typedef struct QmpClientArgs {
         (&(QmpClientArgs){ .arguments = (args_), .fds_consume = (int[]){ (fd_) }, .n_fds = 1 })
 
 /* Takes ownership of fd; handshake runs lazily on first invoke or from the event loop. */
-int qmp_client_connect_fd(QmpClient **ret, int fd);
+_sync_ int qmp_client_connect_fd(QmpClient **ret, int fd);
 
-int qmp_client_attach_event(QmpClient *c, sd_event *event, int64_t priority);
+_sync_ int qmp_client_attach_event(QmpClient *c, sd_event *event, int64_t priority);
 
 /* Single non-blocking pump step: write → dispatch → parse → read → disconnect. Returns >0 if
  * progress was made, 0 if idle, <0 on error (-ENOTCONN on disconnect). Same contract as
  * sd_varlink_process(). */
-int qmp_client_process(QmpClient *c);
+_sync_ int qmp_client_process(QmpClient *c);
 
 /* Block on the transport fd until readable, or until timeout (USEC_INFINITY for no timeout).
  * Same contract as sd_varlink_wait(). */
-int qmp_client_wait(QmpClient *c, uint64_t timeout_usec);
+_may_suspend_ int qmp_client_wait(QmpClient *c, uint64_t timeout_usec);
 
 /* True iff there are no outstanding command replies (slots set is empty). Useful as the pump-loop
  * exit condition for callers driving the client synchronously via process() + wait(). */
@@ -54,7 +54,7 @@ void* qmp_client_get_userdata(QmpClient *c);
 /* Async send. Returns 0 on send (callback will fire later), negative errno on failure. If
  * ret_slot is non-NULL, returns a reference to a QmpSlot which can be used to cancel the call
  * (by unreffing it before the reply arrives). */
-int qmp_client_invoke(
+_sync_ int qmp_client_invoke(
                 QmpClient *client,
                 QmpSlot **ret_slot,
                 const char *command,
@@ -62,7 +62,7 @@ int qmp_client_invoke(
                 qmp_command_callback_t callback,
                 void *userdata);
 
-int qmp_client_call(
+_may_suspend_ int qmp_client_call(
                 QmpClient *client,
                 const char *command,
                 QmpClientArgs *args,
@@ -75,30 +75,34 @@ int qmp_client_call_and_log(
                 QmpClientArgs *args,
                 sd_json_variant **ret_result);
 
-int qmp_client_call_future(
+_sync_ int qmp_client_call_future(
                 QmpClient *client,
                 const char *command,
                 QmpClientArgs *args,
                 sd_future **ret);
 
-int future_get_qmp_reply(
+_sync_ int future_get_qmp_reply(
                 sd_future *f,
                 sd_json_variant **ret_result,
                 char **reterr_error_desc);
 
-void qmp_client_bind_event(QmpClient *c, qmp_event_callback_t callback, void *userdata);
+_sync_ void qmp_client_bind_event(QmpClient *c, qmp_event_callback_t callback, void *userdata);
 void qmp_client_bind_disconnect(QmpClient *c, qmp_disconnect_callback_t callback, void *userdata);
 int qmp_client_set_description(QmpClient *c, const char *description);
-sd_event* qmp_client_get_event(QmpClient *c);
+_sync_ sd_event* qmp_client_get_event(QmpClient *c);
 uint64_t qmp_client_next_fdset_id(QmpClient *client);
 
+SYNC_BEGIN
 DECLARE_TRIVIAL_REF_UNREF_FUNC(QmpClient, qmp_client);
+SYNC_END
 DEFINE_TRIVIAL_CLEANUP_FUNC(QmpClient *, qmp_client_unref);
 
+SYNC_BEGIN
 DECLARE_TRIVIAL_REF_UNREF_FUNC(QmpSlot, qmp_slot);
+SYNC_END
 DEFINE_TRIVIAL_CLEANUP_FUNC(QmpSlot *, qmp_slot_unref);
 
-QmpClient* qmp_slot_get_client(QmpSlot *slot);
+_sync_ QmpClient* qmp_slot_get_client(QmpSlot *slot);
 
 /* Returns true iff any object entry in schema (result of query-qmp-schema) has a member with this
  * name. QEMU's introspection replaces type names with opaque numeric ids, so lookup-by-type-name is

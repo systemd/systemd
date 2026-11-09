@@ -311,11 +311,11 @@ typedef enum ExecDirectoryType {
         _EXEC_DIRECTORY_TYPE_INVALID = -EINVAL,
 } ExecDirectoryType;
 
-char* unit_dbus_path_from_name(const char *name);
+_sync_ char* unit_dbus_path_from_name(const char *name);
 int unit_name_from_dbus_path(const char *path, char **name);
 
 const char* unit_dbus_interface_from_type(UnitType t);
-const char* unit_dbus_interface_from_name(const char *name);
+_sync_ const char* unit_dbus_interface_from_name(const char *name);
 
 DECLARE_STRING_TABLE_LOOKUP(unit_type, UnitType);
 void unit_types_list(void);

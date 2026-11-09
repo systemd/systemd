@@ -30,6 +30,32 @@
 #  error "Do not include _sd-common.h directly; it is a private header."
 #endif
 
+#ifndef _SD_SUSPEND_ANNOTATE
+#  if defined(__clang__)
+#    define _SD_SUSPEND_ANNOTATE(...) __attribute__((annotate(__VA_ARGS__)))
+#  else
+#    define _SD_SUSPEND_ANNOTATE(...)
+#  endif
+
+#  define _sd_may_suspend_ _SD_SUSPEND_ANNOTATE("sd:may_suspend")
+#  define _sd_suspend_ _SD_SUSPEND_ANNOTATE("sd:suspend")
+#  define _sd_sync_ _SD_SUSPEND_ANNOTATE("sd:sync")
+#  define _sd_await_cleanup_ _SD_SUSPEND_ANNOTATE("sd:await_cleanup")
+#  define _sd_scoped_callback_ _SD_SUSPEND_ANNOTATE("sd:scoped_callback")
+#  if defined(__clang__)
+#    define _SD_SYNC_BEGIN \
+        _Pragma("clang attribute push(__attribute__((annotate(\"sd:sync_default\"))), apply_to = function)")
+#    define _SD_SYNC_END _Pragma("clang attribute pop")
+#  else
+#    define _SD_SYNC_BEGIN
+#    define _SD_SYNC_END
+#  endif
+#  define _SD_SUSPEND_JOIN_INNER(a, b) a##b
+#  define _SD_SUSPEND_JOIN(a, b) _SD_SUSPEND_JOIN_INNER(a, b)
+#  define _SD_AWAIT(expr, uniq) __extension__ (({ int _SD_SUSPEND_JOIN(_sd_await_marker_, uniq) __attribute__((unused)) _SD_SUSPEND_ANNOTATE("sd:await"); (void) 0; }), (expr))
+#  define SD_AWAIT(expr) _SD_AWAIT(expr, __COUNTER__)
+#endif
+
 typedef void (*_sd_destroy_t)(void *userdata);
 
 #ifndef _sd_printf_
@@ -116,7 +142,7 @@ typedef void (*_sd_destroy_t)(void *userdata);
 #define _SD_DEFINE_POINTER_CLEANUP_FUNC(type, func)             \
         static __inline__ void func##p(type **p) {              \
                 if (*p)                                         \
-                        func(*p);                               \
+                        SD_AWAIT(func(*p));                      \
         }                                                       \
         struct _sd_useless_struct_to_allow_trailing_semicolon_
 

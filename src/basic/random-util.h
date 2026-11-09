@@ -4,7 +4,7 @@
 #include "forward.h"
 
 /* Returns random bytes suitable for most uses, but may be insecure sometimes. */
-void random_bytes(void *p, size_t n) _nonnull_if_nonzero_(1, 2);
+_sync_ void random_bytes(void *p, size_t n) _nonnull_if_nonzero_(1, 2);
 int random_bytes_allocate_iovec(size_t n, struct iovec *ret);
 
 /* Returns secure random bytes after waiting for the RNG to initialize. */

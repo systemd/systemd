@@ -119,7 +119,7 @@ PseudoTTY* pseudo_tty_free(PseudoTTY *pty) {
                 log_debug_errno(r, "Failed to issue hangup method call replies, ignoring: %m");
 
         while (pty->monitors)
-                pseudo_tty_monitor_free(pty->monitors);
+                SD_AWAIT(pseudo_tty_monitor_free(pty->monitors));
 
         if (pty->in_free_queue) {
                 assert(pty->manager);
@@ -631,7 +631,7 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
 int pseudo_tty_new(PseudoTTY **ret) {
         assert(ret);
 
-        _cleanup_(pseudo_tty_freep) PseudoTTY *pty = new(PseudoTTY, 1);
+        _cleanup_await_(pseudo_tty_freep) PseudoTTY *pty = new(PseudoTTY, 1);
         if (!pty)
                 return -ENOMEM;
 

@@ -24,6 +24,7 @@ def process_header_file(file: IO[str]) -> str:
     text = ''
 
     for line in file:
+        line = re.sub(r'\b_sd_(?:may_suspend|suspend|sync|scoped_callback|await_cleanup)_\b\s*', '', line)
         if (
             line.startswith('#')
             or line.startswith('typedef')
@@ -39,7 +40,7 @@ def process_header_file(file: IO[str]) -> str:
         if m:
             line = m[1]
 
-        m = re.search(r'^(.*)\s*_sd_printf_', line)
+        m = re.search(r'^(.*?)\s*(?:_sd_printf_|_SD_SUSPEND_ANNOTATE)\b', line)
         if m:
             line = m[1]
 

@@ -27,7 +27,7 @@ int mac_smack_apply_at(int fd, const char *path, SmackAttr attr, const char *lab
 
 int mac_smack_apply_pid(pid_t pid, const char *label);
 
-int mac_smack_fix_full(int atfd, const char *inode_path, const char *label_path, LabelFixFlags flags);
+_sync_ int mac_smack_fix_full(int atfd, const char *inode_path, const char *label_path, LabelFixFlags flags);
 
 int mac_smack_init(void);
 

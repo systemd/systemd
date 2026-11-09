@@ -40,7 +40,7 @@ static void mock_qmp_init(JsonStream *s, int fd) {
         ASSERT_OK(json_stream_connect_fd_pair(s, fd, fd));
 }
 
-static void mock_qmp_recv(JsonStream *s, sd_json_variant **ret) {
+_may_suspend_ static void mock_qmp_recv(JsonStream *s, sd_json_variant **ret) {
         int r;
 
         for (;;) {
@@ -52,16 +52,16 @@ static void mock_qmp_recv(JsonStream *s, sd_json_variant **ret) {
                 if (r > 0)
                         continue;
 
-                ASSERT_OK(json_stream_wait(s, USEC_INFINITY));
+                ASSERT_OK(SD_AWAIT(json_stream_wait(s, USEC_INFINITY)));
         }
 }
 
-static void mock_qmp_send(JsonStream *s, sd_json_variant *v) {
+_may_suspend_ static void mock_qmp_send(JsonStream *s, sd_json_variant *v) {
         ASSERT_OK(json_stream_enqueue(s, v));
-        ASSERT_OK(json_stream_flush(s));
+        ASSERT_OK(SD_AWAIT(json_stream_flush(s)));
 }
 
-static void mock_qmp_send_greeting(JsonStream *s) {
+_may_suspend_ static void mock_qmp_send_greeting(JsonStream *s) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
         ASSERT_OK(sd_json_buildo(&v,
@@ -72,19 +72,19 @@ static void mock_qmp_send_greeting(JsonStream *s) {
                                         SD_JSON_BUILD_PAIR_UNSIGNED("minor", 2),
                                         SD_JSON_BUILD_PAIR_UNSIGNED("major", 9))))),
                         SD_JSON_BUILD_PAIR("capabilities", SD_JSON_BUILD_STRV(STRV_MAKE("oob")))))));
-        mock_qmp_send(s, v);
+        SD_AWAIT(mock_qmp_send(s, v));
 }
 
 /* Receive one command, assert it matches `expected_command`, return its id (borrowed from *cmd). */
-static sd_json_variant* mock_qmp_expect(JsonStream *s, const char *expected_command, sd_json_variant **cmd) {
-        mock_qmp_recv(s, cmd);
+_may_suspend_ static sd_json_variant* mock_qmp_expect(JsonStream *s, const char *expected_command, sd_json_variant **cmd) {
+        SD_AWAIT(mock_qmp_recv(s, cmd));
         sd_json_variant *execute = ASSERT_NOT_NULL(sd_json_variant_by_key(*cmd, "execute"));
         ASSERT_STREQ(sd_json_variant_string(execute), expected_command);
         return ASSERT_NOT_NULL(sd_json_variant_by_key(*cmd, "id"));
 }
 
 /* Send a reply for a previously-received command id. Passing NULL reply_data sends {}. */
-static void mock_qmp_reply(JsonStream *s, sd_json_variant *id, sd_json_variant *reply_data) {
+_may_suspend_ static void mock_qmp_reply(JsonStream *s, sd_json_variant *id, sd_json_variant *reply_data) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *empty = NULL, *response = NULL;
 
         if (!reply_data) {
@@ -96,17 +96,17 @@ static void mock_qmp_reply(JsonStream *s, sd_json_variant *id, sd_json_variant *
                 SD_JSON_BUILD_PAIR("return", SD_JSON_BUILD_VARIANT(reply_data)),
                 SD_JSON_BUILD_PAIR("id", SD_JSON_BUILD_VARIANT(id))));
 
-        mock_qmp_send(s, response);
+        SD_AWAIT(mock_qmp_send(s, response));
 }
 
-static void mock_qmp_expect_and_reply(JsonStream *s, const char *expected_command, sd_json_variant *reply_data) {
+_may_suspend_ static void mock_qmp_expect_and_reply(JsonStream *s, const char *expected_command, sd_json_variant *reply_data) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *cmd = NULL;
-        mock_qmp_reply(s, mock_qmp_expect(s, expected_command, &cmd), reply_data);
+        SD_AWAIT(mock_qmp_reply(s, SD_AWAIT(mock_qmp_expect(s, expected_command, &cmd)), reply_data));
 }
 
-static void mock_qmp_expect_and_reply_error(JsonStream *s, const char *expected_command, const char *error_desc) {
+_may_suspend_ static void mock_qmp_expect_and_reply_error(JsonStream *s, const char *expected_command, const char *error_desc) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *cmd = NULL, *response = NULL;
-        sd_json_variant *id = mock_qmp_expect(s, expected_command, &cmd);
+        sd_json_variant *id = SD_AWAIT(mock_qmp_expect(s, expected_command, &cmd));
 
         ASSERT_OK(sd_json_buildo(&response,
                 SD_JSON_BUILD_PAIR("error", SD_JSON_BUILD_OBJECT(
@@ -114,22 +114,22 @@ static void mock_qmp_expect_and_reply_error(JsonStream *s, const char *expected_
                         SD_JSON_BUILD_PAIR_STRING("desc", error_desc))),
                 SD_JSON_BUILD_PAIR("id", SD_JSON_BUILD_VARIANT(id))));
 
-        mock_qmp_send(s, response);
+        SD_AWAIT(mock_qmp_send(s, response));
 }
 
-static void mock_qmp_handshake(JsonStream *s) {
-        mock_qmp_send_greeting(s);
-        mock_qmp_expect_and_reply(s, "qmp_capabilities", /* reply_data= */ NULL);
+_may_suspend_ static void mock_qmp_handshake(JsonStream *s) {
+        SD_AWAIT(mock_qmp_send_greeting(s));
+        SD_AWAIT(mock_qmp_expect_and_reply(s, "qmp_capabilities", /* reply_data= */ NULL));
 }
 
 /* Reply to query-status with a running=true/status="running" payload. */
-static void mock_qmp_query_status_running(JsonStream *s) {
+_may_suspend_ static void mock_qmp_query_status_running(JsonStream *s) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
         ASSERT_OK(sd_json_buildo(&v,
                 SD_JSON_BUILD_PAIR_BOOLEAN("running", true),
                 SD_JSON_BUILD_PAIR_STRING("status", "running")));
-        mock_qmp_expect_and_reply(s, "query-status", v);
+        SD_AWAIT(mock_qmp_expect_and_reply(s, "query-status", v));
 }
 
 /* Drive a mock+client pair on a single event loop. The client fiber runs as userdata=client,
@@ -154,24 +154,24 @@ static void run_qmp_test(sd_fiber_func_t mock_fn, sd_fiber_func_t client_fn) {
         ASSERT_OK(sd_future_result(mock_f));
 }
 
-static int mock_qmp_basic_fiber(void *userdata) {
+_may_suspend_ static int mock_qmp_basic_fiber(void *userdata) {
         _cleanup_(json_stream_done) JsonStream s = {};
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *stop_event = NULL;
 
         mock_qmp_init(&s, PTR_TO_FD(userdata));
-        mock_qmp_handshake(&s);
+        SD_AWAIT(mock_qmp_handshake(&s));
 
-        mock_qmp_query_status_running(&s);
-        mock_qmp_expect_and_reply(&s, "stop", /* reply_data= */ NULL);
+        SD_AWAIT(mock_qmp_query_status_running(&s));
+        SD_AWAIT(mock_qmp_expect_and_reply(&s, "stop", /* reply_data= */ NULL));
 
         ASSERT_OK(sd_json_buildo(&stop_event,
                 SD_JSON_BUILD_PAIR_STRING("event", "STOP"),
                 SD_JSON_BUILD_PAIR("timestamp", SD_JSON_BUILD_OBJECT(
                         SD_JSON_BUILD_PAIR_UNSIGNED("seconds", 1234),
                         SD_JSON_BUILD_PAIR_UNSIGNED("microseconds", 5678)))));
-        mock_qmp_send(&s, stop_event);
+        SD_AWAIT(mock_qmp_send(&s, stop_event));
 
-        mock_qmp_expect_and_reply(&s, "cont", /* reply_data= */ NULL);
+        SD_AWAIT(mock_qmp_expect_and_reply(&s, "cont", /* reply_data= */ NULL));
         return 0;
 }
 
@@ -190,7 +190,7 @@ static int test_event_callback(
         return 0;
 }
 
-static int qmp_client_basic_fiber(void *userdata) {
+_may_suspend_ static int qmp_client_basic_fiber(void *userdata) {
         QmpClient *client = ASSERT_NOT_NULL(userdata);
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *result = NULL;
         _cleanup_free_ char *error_desc = NULL;
@@ -198,7 +198,7 @@ static int qmp_client_basic_fiber(void *userdata) {
 
         qmp_client_bind_event(client, test_event_callback, &event_received);
 
-        ASSERT_OK_POSITIVE(qmp_client_call(client, "query-status", /* args= */ NULL, &result, &error_desc));
+        ASSERT_OK_POSITIVE(SD_AWAIT(qmp_client_call(client, "query-status", /* args= */ NULL, &result, &error_desc)));
         ASSERT_NULL(error_desc);
 
         sd_json_variant *running = ASSERT_NOT_NULL(sd_json_variant_by_key(result, "running"));
@@ -206,8 +206,8 @@ static int qmp_client_basic_fiber(void *userdata) {
         sd_json_variant *status = ASSERT_NOT_NULL(sd_json_variant_by_key(result, "status"));
         ASSERT_STREQ(sd_json_variant_string(status), "running");
 
-        ASSERT_OK_POSITIVE(qmp_client_call(client, "stop", /* args= */ NULL, /* ret_result= */ NULL, /* reterr_error_desc= */ NULL));
-        ASSERT_OK_POSITIVE(qmp_client_call(client, "cont", /* args= */ NULL, /* ret_result= */ NULL, /* reterr_error_desc= */ NULL));
+        ASSERT_OK_POSITIVE(SD_AWAIT(qmp_client_call(client, "stop", /* args= */ NULL, /* ret_result= */ NULL, /* reterr_error_desc= */ NULL)));
+        ASSERT_OK_POSITIVE(SD_AWAIT(qmp_client_call(client, "cont", /* args= */ NULL, /* ret_result= */ NULL, /* reterr_error_desc= */ NULL)));
 
         ASSERT_TRUE(event_received);
         ASSERT_OK(sd_event_exit(sd_fiber_get_event(), /* code= */ 0));
@@ -367,18 +367,18 @@ TEST(json_stream_dgram_batch) {
         test_json_stream_packet_batch(SOCK_DGRAM);
 }
 
-static int mock_qmp_eof_fiber(void *userdata) {
+_may_suspend_ static int mock_qmp_eof_fiber(void *userdata) {
         _cleanup_(json_stream_done) JsonStream s = {};
 
         mock_qmp_init(&s, PTR_TO_FD(userdata));
-        mock_qmp_handshake(&s);
+        SD_AWAIT(mock_qmp_handshake(&s));
         /* Return; _cleanup_ closes the fd → client sees EOF. */
         return 0;
 }
 
-static int qmp_client_eof_fiber(void *userdata) {
+_may_suspend_ static int qmp_client_eof_fiber(void *userdata) {
         QmpClient *client = ASSERT_NOT_NULL(userdata);
-        int r = qmp_client_call(client, "query-status", /* args= */ NULL, /* ret_result= */ NULL, /* reterr_error_desc= */ NULL);
+        int r = SD_AWAIT(qmp_client_call(client, "query-status", /* args= */ NULL, /* ret_result= */ NULL, /* reterr_error_desc= */ NULL));
         ASSERT_TRUE(ERRNO_IS_NEG_DISCONNECT(r));
         ASSERT_OK(sd_event_exit(sd_fiber_get_event(), /* code= */ 0));
         return 0;
@@ -388,23 +388,23 @@ TEST(qmp_eof) {
         run_qmp_test(mock_qmp_eof_fiber, qmp_client_eof_fiber);
 }
 
-static int mock_qmp_call_fiber(void *userdata) {
+_may_suspend_ static int mock_qmp_call_fiber(void *userdata) {
         _cleanup_(json_stream_done) JsonStream s = {};
 
         mock_qmp_init(&s, PTR_TO_FD(userdata));
-        mock_qmp_handshake(&s);
+        SD_AWAIT(mock_qmp_handshake(&s));
 
         /* The client cancels the first query-status and discards the reply to it. */
-        mock_qmp_query_status_running(&s);
-        mock_qmp_query_status_running(&s);
-        mock_qmp_expect_and_reply_error(&s, "stop", "not running");
-        mock_qmp_expect_and_reply_error(&s, "stop", "still not running");
+        SD_AWAIT(mock_qmp_query_status_running(&s));
+        SD_AWAIT(mock_qmp_query_status_running(&s));
+        SD_AWAIT(mock_qmp_expect_and_reply_error(&s, "stop", "not running"));
+        SD_AWAIT(mock_qmp_expect_and_reply_error(&s, "stop", "still not running"));
         return 0;
 }
 
-static int qmp_client_call_fiber(void *userdata) {
+_may_suspend_ static int qmp_client_call_fiber(void *userdata) {
         QmpClient *client = ASSERT_NOT_NULL(userdata);
-        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *f = NULL;
+        _cleanup_await_(sd_future_cancel_wait_unrefp) sd_future *f = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *result = NULL;
         _cleanup_free_ char *error_desc = NULL;
 
@@ -420,7 +420,7 @@ static int qmp_client_call_fiber(void *userdata) {
         /* Exercise qmp_client_call_future() + sd_fiber_await() + future_get_qmp_reply()
          * directly — success path. */
         ASSERT_OK(qmp_client_call_future(client, "query-status", /* args= */ NULL, &f));
-        ASSERT_OK(sd_fiber_await(f));
+        ASSERT_OK(SD_AWAIT(sd_fiber_await(f)));
         ASSERT_OK(sd_future_result(f));
         ASSERT_OK_POSITIVE(future_get_qmp_reply(f, &result, &error_desc));
 
@@ -438,7 +438,7 @@ static int qmp_client_call_fiber(void *userdata) {
         error_desc = mfree(error_desc);
 
         ASSERT_OK(qmp_client_call_future(client, "stop", /* args= */ NULL, &f));
-        ASSERT_OK_ZERO(sd_fiber_await(f));
+        ASSERT_OK_ZERO(SD_AWAIT(sd_fiber_await(f)));
         ASSERT_ERROR(sd_future_result(f), EIO);
         ASSERT_ERROR(future_get_qmp_reply(f, &result, &error_desc), EIO);
 
@@ -447,7 +447,7 @@ static int qmp_client_call_fiber(void *userdata) {
 
         /* qmp_client_call() also surfaces QMP errors as -EIO, regardless of whether the caller
          * passed ret_error_desc. */
-        ASSERT_ERROR(qmp_client_call(client, "stop", /* args= */ NULL, /* ret_result= */ NULL, /* reterr_error_desc= */ NULL), EIO);
+        ASSERT_ERROR(SD_AWAIT(qmp_client_call(client, "stop", /* args= */ NULL, /* ret_result= */ NULL, /* reterr_error_desc= */ NULL)), EIO);
         ASSERT_OK(sd_event_exit(sd_fiber_get_event(), /* code= */ 0));
         return 0;
 }
@@ -469,22 +469,22 @@ TEST(qmp_call_future_without_event) {
         ASSERT_NULL(f);
 }
 
-static int mock_qmp_call_disconnect_fiber(void *userdata) {
+_may_suspend_ static int mock_qmp_call_disconnect_fiber(void *userdata) {
         _cleanup_(json_stream_done) JsonStream s = {};
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *stop_cmd = NULL;
 
         mock_qmp_init(&s, PTR_TO_FD(userdata));
-        mock_qmp_handshake(&s);
+        SD_AWAIT(mock_qmp_handshake(&s));
 
         /* Consume the stop command but don't reply — cleanup closes the fd and the client
          * sees a disconnect while suspended. */
-        mock_qmp_recv(&s, &stop_cmd);
+        SD_AWAIT(mock_qmp_recv(&s, &stop_cmd));
         return 0;
 }
 
-static int qmp_client_call_disconnect_fiber(void *userdata) {
+_may_suspend_ static int qmp_client_call_disconnect_fiber(void *userdata) {
         QmpClient *client = ASSERT_NOT_NULL(userdata);
-        int r = qmp_client_call(client, "stop", /* args= */ NULL, /* ret_result= */ NULL, /* reterr_error_desc= */ NULL);
+        int r = SD_AWAIT(qmp_client_call(client, "stop", /* args= */ NULL, /* ret_result= */ NULL, /* reterr_error_desc= */ NULL));
         ASSERT_TRUE(ERRNO_IS_NEG_DISCONNECT(r));
         ASSERT_OK(sd_event_exit(sd_fiber_get_event(), /* code= */ 0));
         return 0;
@@ -500,16 +500,16 @@ typedef struct QmpInterruptedCall {
         int error;
 } QmpInterruptedCall;
 
-static int mock_qmp_call_interrupted_fiber(void *userdata) {
+_may_suspend_ static int mock_qmp_call_interrupted_fiber(void *userdata) {
         QmpInterruptedCall *c = ASSERT_PTR(userdata);
         _cleanup_(json_stream_done) JsonStream s = {};
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *stop_cmd = NULL, *cont_cmd = NULL;
 
         mock_qmp_init(&s, c->fd);
-        mock_qmp_handshake(&s);
-        mock_qmp_query_status_running(&s);
+        SD_AWAIT(mock_qmp_handshake(&s));
+        SD_AWAIT(mock_qmp_query_status_running(&s));
 
-        sd_json_variant *stop_id = mock_qmp_expect(&s, "stop", &stop_cmd);
+        sd_json_variant *stop_id = SD_AWAIT(mock_qmp_expect(&s, "stop", &stop_cmd));
         if (c->error == ECANCELED)
                 ASSERT_OK(sd_future_cancel(c->caller));
         else if (c->error == EBUSY)
@@ -517,16 +517,16 @@ static int mock_qmp_call_interrupted_fiber(void *userdata) {
 
         /* Wait until the client has abandoned stop and issued another call. Delivering the late
          * reply first must not wake the new wait or touch the cancelled call's freed future. */
-        sd_json_variant *cont_id = mock_qmp_expect(&s, "cont", &cont_cmd);
-        mock_qmp_reply(&s, stop_id, /* reply_data= */ NULL);
-        mock_qmp_reply(&s, cont_id, /* reply_data= */ NULL);
+        sd_json_variant *cont_id = SD_AWAIT(mock_qmp_expect(&s, "cont", &cont_cmd));
+        SD_AWAIT(mock_qmp_reply(&s, stop_id, /* reply_data= */ NULL));
+        SD_AWAIT(mock_qmp_reply(&s, cont_id, /* reply_data= */ NULL));
         return 0;
 }
 
-static int qmp_client_call_interrupted_fiber(void *userdata) {
+_may_suspend_ static int qmp_client_call_interrupted_fiber(void *userdata) {
         int error = *(int*) ASSERT_PTR(userdata);
         _cleanup_(qmp_client_unrefp) QmpClient *client = NULL;
-        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *mock = NULL;
+        _cleanup_await_(sd_future_cancel_wait_unrefp) sd_future *mock = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *result = NULL;
         _cleanup_free_ char *error_desc = NULL;
         _cleanup_close_pair_ int fds[2] = EBADF_PAIR;
@@ -539,21 +539,21 @@ static int qmp_client_call_interrupted_fiber(void *userdata) {
                                &c, &mock));
 
         /* Finish the handshake before testing interruption of a command awaiting its reply. */
-        ASSERT_OK_POSITIVE(qmp_client_call(client, "query-status", /* args= */ NULL,
-                                          /* ret_result= */ NULL, /* reterr_error_desc= */ NULL));
+        ASSERT_OK_POSITIVE(SD_AWAIT(qmp_client_call(client, "query-status", /* args= */ NULL,
+                                          /* ret_result= */ NULL, /* reterr_error_desc= */ NULL)));
         {
                 SD_FIBER_TIMEOUT(error == ETIME ? 0 : USEC_INFINITY);
-                ASSERT_ERROR(qmp_client_call(client, "stop", /* args= */ NULL, &result, &error_desc), error);
+                ASSERT_ERROR(SD_AWAIT(qmp_client_call(client, "stop", /* args= */ NULL, &result, &error_desc)), error);
         }
         ASSERT_NULL(result);
         ASSERT_NULL(error_desc);
 
-        ASSERT_OK_POSITIVE(qmp_client_call(client, "cont", /* args= */ NULL, &result, &error_desc));
+        ASSERT_OK_POSITIVE(SD_AWAIT(qmp_client_call(client, "cont", /* args= */ NULL, &result, &error_desc)));
         ASSERT_NOT_NULL(result);
         ASSERT_NULL(error_desc);
-        ASSERT_OK_ZERO(sd_fiber_await(mock));
+        ASSERT_OK_ZERO(SD_AWAIT(sd_fiber_await(mock)));
         ASSERT_OK_ZERO(sd_future_result(mock));
-        ASSERT_OK_ZERO(sd_fiber_yield());
+        ASSERT_OK_ZERO(SD_AWAIT(sd_fiber_yield()));
         ASSERT_OK(sd_event_exit(sd_fiber_get_event(), /* code= */ 0));
         return 0;
 }
@@ -573,7 +573,7 @@ TEST(qmp_call_interrupted) {
         }
 }
 
-static int mock_qmp_fd_fiber(void *userdata) {
+_may_suspend_ static int mock_qmp_fd_fiber(void *userdata) {
         _cleanup_(json_stream_done) JsonStream s = {};
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *cap_cmd = NULL, *addfd_cmd = NULL,
                                                           *addfd_return = NULL;
@@ -581,15 +581,15 @@ static int mock_qmp_fd_fiber(void *userdata) {
         mock_qmp_init(&s, PTR_TO_FD(userdata));
         ASSERT_OK(json_stream_set_allow_fd_passing_input(&s, /* enabled= */ true, /* with_sockopt= */ true));
 
-        mock_qmp_send_greeting(&s);
+        SD_AWAIT(mock_qmp_send_greeting(&s));
 
         /* The fd may ride with either command depending on AF_UNIX coalescing; count across both. */
-        sd_json_variant *cap_id = mock_qmp_expect(&s, "qmp_capabilities", &cap_cmd);
+        sd_json_variant *cap_id = SD_AWAIT(mock_qmp_expect(&s, "qmp_capabilities", &cap_cmd));
         size_t n_fds_total = json_stream_get_n_input_fds(&s);
         json_stream_close_input_fds(&s);
-        mock_qmp_reply(&s, cap_id, /* reply_data= */ NULL);
+        SD_AWAIT(mock_qmp_reply(&s, cap_id, /* reply_data= */ NULL));
 
-        sd_json_variant *addfd_id = mock_qmp_expect(&s, "add-fd", &addfd_cmd);
+        sd_json_variant *addfd_id = SD_AWAIT(mock_qmp_expect(&s, "add-fd", &addfd_cmd));
         n_fds_total += json_stream_get_n_input_fds(&s);
         json_stream_close_input_fds(&s);
         ASSERT_EQ(n_fds_total, (size_t) 1);
@@ -597,11 +597,11 @@ static int mock_qmp_fd_fiber(void *userdata) {
         ASSERT_OK(sd_json_buildo(&addfd_return,
                 SD_JSON_BUILD_PAIR_UNSIGNED("fdset-id", 0),
                 SD_JSON_BUILD_PAIR_UNSIGNED("fd", 42)));
-        mock_qmp_reply(&s, addfd_id, addfd_return);
+        SD_AWAIT(mock_qmp_reply(&s, addfd_id, addfd_return));
         return 0;
 }
 
-static int qmp_client_invoke_with_fd_fiber(void *userdata) {
+_may_suspend_ static int qmp_client_invoke_with_fd_fiber(void *userdata) {
         QmpClient *client = ASSERT_NOT_NULL(userdata);
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
         _cleanup_close_ int fd_to_pass = -EBADF;
@@ -611,9 +611,9 @@ static int qmp_client_invoke_with_fd_fiber(void *userdata) {
 
         ASSERT_OK(sd_json_buildo(&args, SD_JSON_BUILD_PAIR_UNSIGNED("fdset-id", 0)));
 
-        ASSERT_OK_POSITIVE(qmp_client_call(client, "add-fd",
+        ASSERT_OK_POSITIVE(SD_AWAIT(qmp_client_call(client, "add-fd",
                                            QMP_CLIENT_ARGS_FD(args, TAKE_FD(fd_to_pass)),
-                                           &result, /* reterr_error_desc= */ NULL));
+                                           &result, /* reterr_error_desc= */ NULL)));
         ASSERT_NOT_NULL(result);
         ASSERT_OK(sd_event_exit(sd_fiber_get_event(), /* code= */ 0));
         return 0;
@@ -670,14 +670,14 @@ TEST(qmp_client_invoke_failure_closes_fds) {
 
 /* Shared mock for the two slot tests: the follow-up stop is what drives the event loop long
  * enough to dispatch the query-status reply. */
-static int mock_qmp_slot_fiber(void *userdata) {
+_may_suspend_ static int mock_qmp_slot_fiber(void *userdata) {
         _cleanup_(json_stream_done) JsonStream s = {};
 
         mock_qmp_init(&s, PTR_TO_FD(userdata));
-        mock_qmp_handshake(&s);
+        SD_AWAIT(mock_qmp_handshake(&s));
 
-        mock_qmp_query_status_running(&s);
-        mock_qmp_expect_and_reply(&s, "stop", /* reply_data= */ NULL);
+        SD_AWAIT(mock_qmp_query_status_running(&s));
+        SD_AWAIT(mock_qmp_expect_and_reply(&s, "stop", /* reply_data= */ NULL));
         return 0;
 }
 
@@ -704,7 +704,7 @@ static int tripwire_callback(
         return 0;
 }
 
-static int qmp_client_invoke_slot_lifecycle_fiber(void *userdata) {
+_may_suspend_ static int qmp_client_invoke_slot_lifecycle_fiber(void *userdata) {
         QmpClient *client = ASSERT_NOT_NULL(userdata);
         _cleanup_(qmp_slot_unrefp) QmpSlot *slot = NULL;
 
@@ -712,7 +712,7 @@ static int qmp_client_invoke_slot_lifecycle_fiber(void *userdata) {
         ASSERT_PTR_EQ(qmp_slot_get_client(slot), client);
 
         /* Drive the loop via a follow-up stop; its suspending call lets both replies dispatch. */
-        ASSERT_OK_POSITIVE(qmp_client_call(client, "stop", /* args= */ NULL, /* ret_result= */ NULL, /* reterr_error_desc= */ NULL));
+        ASSERT_OK_POSITIVE(SD_AWAIT(qmp_client_call(client, "stop", /* args= */ NULL, /* ret_result= */ NULL, /* reterr_error_desc= */ NULL)));
 
         /* After dispatch the slot is disconnected from the client but still owned by us. */
         ASSERT_NULL(qmp_slot_get_client(slot));
@@ -727,7 +727,7 @@ TEST(qmp_invoke_slot_lifecycle) {
         run_qmp_test(mock_qmp_slot_fiber, qmp_client_invoke_slot_lifecycle_fiber);
 }
 
-static int qmp_client_invoke_slot_cancel_fiber(void *userdata) {
+_may_suspend_ static int qmp_client_invoke_slot_cancel_fiber(void *userdata) {
         QmpClient *client = ASSERT_NOT_NULL(userdata);
         QmpSlot *slot = NULL;
         bool fired = false;
@@ -738,7 +738,7 @@ static int qmp_client_invoke_slot_cancel_fiber(void *userdata) {
          * query-status is still on the wire; its reply lands on an unknown id and is discarded. */
         slot = qmp_slot_unref(slot);
 
-        ASSERT_OK_POSITIVE(qmp_client_call(client, "stop", /* args= */ NULL, /* ret_result= */ NULL, /* reterr_error_desc= */ NULL));
+        ASSERT_OK_POSITIVE(SD_AWAIT(qmp_client_call(client, "stop", /* args= */ NULL, /* ret_result= */ NULL, /* reterr_error_desc= */ NULL)));
 
         ASSERT_FALSE(fired);
         ASSERT_OK(sd_event_exit(sd_fiber_get_event(), /* code= */ 0));

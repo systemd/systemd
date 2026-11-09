@@ -45,26 +45,28 @@ typedef struct LogContext {
         LIST_FIELDS(struct LogContext, ll);
 } LogContext;
 
-bool log_context_enabled(void);
+_sync_ bool log_context_enabled(void);
 
-LogContext* log_context_new(const char *key, const char *value);
-LogContext* log_context_new_strv(char **fields, bool owned);
+_sync_ LogContext* log_context_new(const char *key, const char *value);
+_sync_ LogContext* log_context_new_strv(char **fields, bool owned);
 LogContext* log_context_new_iov(struct iovec *input_iovec, size_t n_input_iovec, bool owned);
 
 /* Same as log_context_new(), but frees the given fields strv/iovec on failure. */
-LogContext* log_context_new_strv_consume(char **fields);
+_sync_ LogContext* log_context_new_strv_consume(char **fields);
 LogContext* log_context_new_iov_consume(struct iovec *input_iovec, size_t n_input_iovec);
 
+SYNC_BEGIN
 DECLARE_TRIVIAL_REF_UNREF_FUNC(LogContext, log_context);
+SYNC_END
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(LogContext*, log_context_unref);
 
 /* Returns the head of the log context list. */
-LogContext* log_context_head(void);
+_sync_ LogContext* log_context_head(void);
 /* Returns the number of attached log context objects. */
 size_t log_context_num_contexts(void);
 /* Returns the number of fields in all attached log contexts. */
-size_t log_context_num_fields(void);
+_sync_ size_t log_context_num_fields(void);
 
 void log_context_swap(LogContext **log_context, size_t *num_fields);
 

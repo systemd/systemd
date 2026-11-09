@@ -111,7 +111,7 @@ int unit_file_enable(
                 char * const *names_or_paths,
                 InstallChange **changes,
                 size_t *n_changes);
-int unit_file_disable(
+_sync_ int unit_file_disable(
                 RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
@@ -125,7 +125,7 @@ int unit_file_reenable(
                 char * const *names_or_paths,
                 InstallChange **changes,
                 size_t *n_changes);
-int unit_file_preset(
+_sync_ int unit_file_preset(
                 RuntimeScope scope,
                 UnitFileFlags file_flags,
                 const char *root_dir,
@@ -209,12 +209,12 @@ static inline int unit_file_exists(RuntimeScope scope, const LookupPaths *lp, co
 
 int unit_file_get_list(RuntimeScope scope, const char *root_dir, char * const *states, char * const *patterns, Hashmap **ret);
 
-InstallChangeType install_changes_add(InstallChange **changes, size_t *n_changes, InstallChangeType type, const char *path, const char *source);
-void install_changes_free(InstallChange *array, size_t n);
+_sync_ InstallChangeType install_changes_add(InstallChange **changes, size_t *n_changes, InstallChangeType type, const char *path, const char *source);
+_sync_ void install_changes_free(InstallChange *array, size_t n);
 
-void install_change_dump_success(const InstallChange *change);
-int install_change_dump_error(const InstallChange *change, char **ret_errmsg, const char **ret_bus_error);
-int install_changes_dump(
+_sync_ void install_change_dump_success(const InstallChange *change);
+_sync_ int install_change_dump_error(const InstallChange *change, char **ret_errmsg, const char **ret_bus_error);
+_sync_ int install_changes_dump(
                 int error,
                 const char *verb,
                 const InstallChange *changes,

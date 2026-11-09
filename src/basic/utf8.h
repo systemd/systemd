@@ -23,13 +23,13 @@ int utf8_to_ascii(const char *str, char replacement_char, char **ret);
 bool utf8_is_printable_newline(const char* str, size_t length, bool allow_newline) _pure_;
 #define utf8_is_printable(str, length) utf8_is_printable_newline(str, length, true)
 
-char* utf8_escape_invalid(const char *s);
-char* utf8_escape_non_printable_full(const char *str, size_t console_width, bool force_ellipsis);
+_sync_ char* utf8_escape_invalid(const char *s);
+_sync_ char* utf8_escape_non_printable_full(const char *str, size_t console_width, bool force_ellipsis);
 static inline char* utf8_escape_non_printable(const char *str) {
         return utf8_escape_non_printable_full(str, SIZE_MAX, /* force_ellipsis= */ false);
 }
 
-size_t utf8_encode_unichar(char *out_utf8, char32_t g);
+_sync_ size_t utf8_encode_unichar(char *out_utf8, char32_t g);
 size_t utf16_encode_unichar(char16_t *out, char32_t c);
 
 char* utf16_to_utf8(const char16_t *s, size_t length /* bytes! */);
@@ -42,7 +42,7 @@ int utf8_encoded_valid_unichar_full(const char *str, size_t length, char32_t *re
 static inline int _pure_ utf8_encoded_valid_unichar(const char *str, size_t length) {
         return utf8_encoded_valid_unichar_full(str, length, /* ret_unichar= */ NULL);
 }
-int utf8_encoded_to_unichar(const char *str, char32_t *ret_unichar);
+_sync_ int utf8_encoded_to_unichar(const char *str, char32_t *ret_unichar);
 
 static inline bool utf16_is_surrogate(char16_t c) {
         return c >= 0xd800U && c <= 0xdfffU;

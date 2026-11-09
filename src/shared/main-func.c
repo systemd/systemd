@@ -47,11 +47,11 @@ typedef struct MainFiberContext {
         bool exit_requested;
 } MainFiberContext;
 
-static int main_fiber_trampoline(void *userdata) {
+_may_suspend_ static int main_fiber_trampoline(void *userdata) {
         MainFiberContext *ctx = ASSERT_PTR(userdata);
         sd_event *event = ASSERT_PTR(sd_fiber_get_event());
 
-        ctx->result = ctx->func(ctx->argc, ctx->argv);
+        ctx->result = SD_AWAIT(ctx->func(ctx->argc, ctx->argv));
 
         /* impl's result is an errno, the exit code an exit status that impl's exit handlers see: keep
          * them apart. */

@@ -56,11 +56,11 @@ static inline bool VIRTUALIZATION_IS_CONTAINER(Virtualization x) {
 }
 
 Virtualization detect_vm(void);
-Virtualization detect_container(void);
+_sync_ Virtualization detect_container(void);
 Virtualization detect_virtualization(void);
 
 int running_in_userns(void);
-int running_in_chroot(void);
+_sync_ int running_in_chroot(void);
 
 DECLARE_STRING_TABLE_LOOKUP(virtualization, Virtualization);
 bool has_cpu_with_flag(const char *flag);

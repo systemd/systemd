@@ -3,7 +3,9 @@
 
 #include "forward.h"
 
-typedef int (*SpecifierCallback)(char specifier, const void *data, const char *root, const void *userdata, char **ret);
+SYNC_BEGIN
+
+typedef int (*SpecifierCallback)(char specifier, const void *data, const char *root, const void *userdata, char **ret) _scoped_callback_;
 
 typedef struct Specifier {
         const char specifier;
@@ -104,3 +106,5 @@ int specifier_escape_strv(char **l, char ***ret);
 
 /* A generic specifier table consisting of COMMON_SYSTEM_SPECIFIERS and COMMON_TMP_SPECIFIERS */
 extern const Specifier system_and_tmp_specifier_table[];
+
+SYNC_END

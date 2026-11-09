@@ -40,6 +40,8 @@ typedef enum VerbFlags {
 } VerbFlags;
 
 /* Note: see the comment on struct Option in options.h for why _alignptr_ is required here. */
+typedef int (*verb_fiber_func_t)(int argc, char *argv[], uintptr_t data, void *userdata) _may_suspend_;
+
 typedef struct _alignptr_ Verb {
         const char *verb;
         unsigned min_args, max_args;
@@ -65,7 +67,8 @@ assert_cc(sizeof(Verb) % sizeof(void*) == 0);
                 .min_args = amin,                                       \
                 .max_args = amax,                                       \
                 .flags = f,                                             \
-                .dispatch = d,                                          \
+                /* The cast lets the suspension checker verify that VERB_FIBER verbs can run on a fiber. */ \
+                .dispatch = __builtin_choose_expr(((f) & VERB_FIBER) != 0, (verb_fiber_func_t) (d), (d)), \
                 .data = dat,                                            \
                 .argspec = a,                                           \
                 .help = h,                                              \
@@ -127,11 +130,11 @@ assert_cc(sizeof(Verb) % sizeof(void*) == 0);
 extern const Verb __start_SYSTEMD_VERBS[];
 extern const Verb __stop_SYSTEMD_VERBS[];
 
-bool running_in_chroot_or_offline(void);
+_sync_ bool running_in_chroot_or_offline(void);
 
 bool should_bypass(const char *env_prefix);
 
-const Verb* _verbs_find_command(const Verb verbs[], const Verb verbs_end[], const char *name, const CommandDescription **ret_cmd);
+_sync_ const Verb* _verbs_find_command(const Verb verbs[], const Verb verbs_end[], const char *name, const CommandDescription **ret_cmd);
 #define verbs_find_command(name, ret_cmd)                               \
         _verbs_find_command(__start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS, name, ret_cmd)
 
@@ -148,11 +151,11 @@ const Verb* _verbs_find_verb(const Verb verbs[], const Verb verbs_end[], const c
 #define verbs_find_verb(name) \
         _verbs_find_verb(__start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS, name)
 
-int _dispatch_verb(char **args, const Verb verbs[], const Verb verbs_end[], void *userdata);
+_may_suspend_ int _dispatch_verb(char **args, const Verb verbs[], const Verb verbs_end[], void *userdata);
 #define dispatch_verb(args, userdata) \
         _dispatch_verb(args, __start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS, userdata)
 
-void help_section(const char *title);
+_sync_ void help_section(const char *title);
 
 #define VERB_COMMON_HELP_AUTO_FULL(program, help)                       \
         VERB_FULL(verb_help_auto, "help", NULL, VERB_ANY, VERB_ANY, 0, /* dat= */ (uintptr_t) program, /* help= */ help)
@@ -161,7 +164,7 @@ void help_section(const char *title);
 #define VERB_COMMON_HELP_AUTO() VERB_COMMON_HELP_AUTO_PROGRAM(/* program= */ NULL)
 #define VERB_COMMON_HELP_AUTO_HIDDEN() VERB_COMMON_HELP_AUTO_PROGRAM_HIDDEN(/* program= */ NULL)
 
-int _command_print_help_full(
+_may_suspend_ int _command_print_help_full(
                 const Verb verbs[],
                 const Verb verbs_end[],
                 const Option options[],
@@ -201,7 +204,7 @@ int _command_print_verb_help(
 /* Print a machine-readable description of the program's commands, verbs, and options in the format
  * defined by the CLI-Introspection Specification. One command object is emitted for each
  * VERB_COMMAND() in the verb table, so multicall binaries are described in full. */
-int _introspect_cli(
+_sync_ int _introspect_cli(
                 const Verb verbs[],
                 const Verb verbs_end[],
                 const Option options[],

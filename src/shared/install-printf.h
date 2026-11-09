@@ -3,7 +3,7 @@
 
 #include "forward.h"
 
-int install_name_printf(
+_sync_ int install_name_printf(
                 RuntimeScope scope,
                 const InstallInfo *info,
                 const char *format,

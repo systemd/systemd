@@ -34,14 +34,14 @@ void fiber_ops_blocking_end(int *guard) {
 
 int fiber_ops_ppoll(struct pollfd *fds, size_t n_fds, const struct timespec *timeout, const sigset_t *sigmask) {
         if (fiber_ops_can_suspend())
-                return fiber_ops->ppoll(fds, n_fds, timeout, sigmask);
+                return SD_AWAIT(fiber_ops->ppoll(fds, n_fds, timeout, sigmask));
 
         return RET_NERRNO(ppoll(fds, n_fds, timeout, sigmask));
 }
 
 ssize_t fiber_ops_read(int fd, void *buf, size_t count) {
         if (fiber_ops_can_suspend())
-                return fiber_ops->read(fd, buf, count);
+                return SD_AWAIT(fiber_ops->read(fd, buf, count));
 
         ssize_t n = read(fd, buf, count);
         return n < 0 ? -errno : n;
@@ -49,7 +49,7 @@ ssize_t fiber_ops_read(int fd, void *buf, size_t count) {
 
 ssize_t fiber_ops_write(int fd, const void *buf, size_t count) {
         if (fiber_ops_can_suspend())
-                return fiber_ops->write(fd, buf, count);
+                return SD_AWAIT(fiber_ops->write(fd, buf, count));
 
         return RET_NERRNO(write(fd, buf, count));
 }

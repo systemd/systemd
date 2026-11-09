@@ -53,14 +53,14 @@ typedef struct LookupPaths {
         char *temporary_dir;
 } LookupPaths;
 
-int lookup_paths_init(LookupPaths *lp, RuntimeScope scope, LookupPathsFlags flags, const char *root_dir);
+_sync_ int lookup_paths_init(LookupPaths *lp, RuntimeScope scope, LookupPathsFlags flags, const char *root_dir);
 int lookup_paths_init_or_warn(LookupPaths *lp, RuntimeScope scope, LookupPathsFlags flags, const char *root_dir);
 
 void lookup_paths_log(LookupPaths *p);
-void lookup_paths_done(LookupPaths *p);
+_sync_ void lookup_paths_done(LookupPaths *p);
 
 int config_directory_generic(RuntimeScope scope, const char *suffix, char **ret);
-int runtime_directory_generic(RuntimeScope scope, const char *suffix, char **ret);
+_sync_ int runtime_directory_generic(RuntimeScope scope, const char *suffix, char **ret);
 int runtime_directory(RuntimeScope scope, const char *fallback_suffix, char **ret);
 int runtime_directory_resolve(RuntimeScope scope, const char *suffix, const char *identifier, char **ret);
 int runtime_directory_make(RuntimeScope scope, const char *suffix, const char *identifier, char **ret);
@@ -88,7 +88,7 @@ bool path_is_user_data_dir(const char *path);
 bool path_is_user_config_dir(const char *path);
 bool path_is_valid_search_path(const char *path) _pure_;
 
-int generator_binary_paths_internal(RuntimeScope scope, bool env_generator, char ***ret);
+_sync_ int generator_binary_paths_internal(RuntimeScope scope, bool env_generator, char ***ret);
 static inline int generator_binary_paths(RuntimeScope runtime_scope, char ***ret) {
         return generator_binary_paths_internal(runtime_scope, /* env_generator= */ false, ret);
 }

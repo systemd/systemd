@@ -11,7 +11,7 @@ size_t strpcpy_full(char **dest, size_t size, const char *src, bool *ret_truncat
 static inline size_t strpcpy(char **dest, size_t size, const char *src) {
         return strpcpy_full(dest, size, src, /* ret_truncated= */ NULL);
 }
-size_t strpcpyf_full(char **dest, size_t size, bool *ret_truncated, const char *src, ...) _printf_(4, 5);
+_sync_ size_t strpcpyf_full(char **dest, size_t size, bool *ret_truncated, const char *src, ...) _printf_(4, 5);
 #define strpcpyf(dest, size, src, ...) \
         strpcpyf_full((dest), (size), NULL, (src), ##__VA_ARGS__)
 size_t strpcpyl_full(char **dest, size_t size, bool *ret_truncated, const char *src, ...) _sentinel_;
@@ -21,7 +21,7 @@ size_t strnscpy_full(char *dest, size_t size, const char *src, size_t len, bool 
 static inline size_t strnscpy(char *dest, size_t size, const char *src, size_t len) {
         return strnscpy_full(dest, size, src, len, /* ret_truncated= */ NULL);
 }
-size_t strscpy_full(char *dest, size_t size, const char *src, bool *ret_truncated);
+_sync_ size_t strscpy_full(char *dest, size_t size, const char *src, bool *ret_truncated);
 static inline size_t strscpy(char *dest, size_t size, const char *src) {
         return strscpy_full(dest, size, src, /* ret_truncated= */ NULL);
 }

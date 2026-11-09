@@ -5,7 +5,7 @@
 
 #include "forward.h"
 
-int varlink_get_peer_pidref(sd_varlink *v, PidRef *ret);
+_sync_ int varlink_get_peer_pidref(sd_varlink *v, PidRef *ret);
 
 int varlink_call_and_log(sd_varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters);
 int varlink_callb_and_log(sd_varlink *v, const char *method, sd_json_variant **ret_parameters, ...);
@@ -16,11 +16,13 @@ int varlink_many_notify(Set *s, sd_json_variant *parameters);
 int varlink_many_notifyb(Set *s, ...);
 #define varlink_many_notifybo(s, ...)                                   \
         varlink_many_notifyb((s), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
-int varlink_many_reply(Set *s, sd_json_variant *parameters);
+_sync_ int varlink_many_reply(Set *s, sd_json_variant *parameters);
 int varlink_many_error(Set *s, const char *error_id, sd_json_variant *parameters);
 
-int varlink_server_bind_fiber(sd_varlink_server *s, const char *method, sd_varlink_method_t callback);
-int varlink_server_bind_fiber_many_internal(sd_varlink_server *s, ...);
+typedef int (*varlink_fiber_method_t)(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) _may_suspend_;
+
+int varlink_server_bind_fiber(sd_varlink_server *s, const char *method, varlink_fiber_method_t callback);
+int varlink_server_bind_fiber_many_internal(sd_varlink_server *s, ...) _varargs_may_suspend_(2, 2);
 #define varlink_server_bind_fiber_many(s, ...) varlink_server_bind_fiber_many_internal(s, __VA_ARGS__, NULL)
 
 int varlink_set_info_systemd(sd_varlink_server *server);
@@ -36,7 +38,7 @@ int varlink_dispatch_fd(sd_varlink *link, const char *name, sd_json_variant *var
 
 extern const struct hash_ops varlink_hash_ops;
 
-ssize_t varlink_execute_directory_full(const char *path, const char *method, sd_json_variant *parameters, bool more, usec_t timeout_usec, sd_varlink_reply_t reply, void *userdata, char ***ret_offline_sockets);
-static inline ssize_t varlink_execute_directory(const char *path, const char *method, sd_json_variant *parameters, bool more, usec_t timeout_usec, sd_varlink_reply_t reply, void *userdata) {
-        return varlink_execute_directory_full(path, method, parameters, more, timeout_usec, reply, userdata, /* ret_offline_sockets= */ NULL);
+_may_suspend_ ssize_t varlink_execute_directory_full(const char *path, const char *method, sd_json_variant *parameters, bool more, usec_t timeout_usec, sd_varlink_reply_t reply, void *userdata, char ***ret_offline_sockets);
+_may_suspend_ static inline ssize_t varlink_execute_directory(const char *path, const char *method, sd_json_variant *parameters, bool more, usec_t timeout_usec, sd_varlink_reply_t reply, void *userdata) {
+        return SD_AWAIT(varlink_execute_directory_full(path, method, parameters, more, timeout_usec, reply, userdata, /* ret_offline_sockets= */ NULL));
 }

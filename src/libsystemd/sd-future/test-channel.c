@@ -579,21 +579,21 @@ typedef struct PushPopState {
         size_t n_received;
 } PushPopState;
 
-static int producer_fiber(void *userdata) {
+_may_suspend_ static int producer_fiber(void *userdata) {
         PushPopState *s = ASSERT_PTR(userdata);
         for (size_t i = 0; i < ELEMENTSOF(s->sent); i++) {
-                int r = sd_channel_push(s->channel, INT_TO_PTR(s->sent[i]));
+                int r = SD_AWAIT(sd_channel_push(s->channel, INT_TO_PTR(s->sent[i])));
                 if (r < 0)
                         return r;
         }
         return 0;
 }
 
-static int consumer_fiber(void *userdata) {
+_may_suspend_ static int consumer_fiber(void *userdata) {
         PushPopState *s = ASSERT_PTR(userdata);
         while (s->n_received < ELEMENTSOF(s->received)) {
                 void *p;
-                int r = sd_channel_pop(s->channel, &p);
+                int r = SD_AWAIT(sd_channel_pop(s->channel, &p));
                 if (r < 0)
                         return r;
                 s->received[s->n_received++] = PTR_TO_INT(p);
@@ -745,10 +745,10 @@ TEST(channel_slot_destroy_drops_last_ref) {
         ASSERT_OK(sd_channel_set_slot(c, /* slot= */ NULL, /* destroy= */ NULL));
 }
 
-static int blocked_pop_fiber(void *userdata) {
+_may_suspend_ static int blocked_pop_fiber(void *userdata) {
         sd_channel *c = ASSERT_PTR(userdata);
         void *p;
-        return sd_channel_pop(c, &p);
+        return SD_AWAIT(sd_channel_pop(c, &p));
 }
 
 static int close_after_idle(sd_event_source *src, void *userdata) {
@@ -932,19 +932,19 @@ typedef struct FiberOp {
         int yield_result;
 } FiberOp;
 
-static int push_fiber(void *userdata) {
+_may_suspend_ static int push_fiber(void *userdata) {
         FiberOp *op = ASSERT_PTR(userdata);
 
-        op->result = sd_channel_push(op->channel, op->item);
-        op->yield_result = sd_fiber_yield();
+        op->result = SD_AWAIT(sd_channel_push(op->channel, op->item));
+        op->yield_result = SD_AWAIT(sd_fiber_yield());
         return 0;
 }
 
-static int pop_fiber(void *userdata) {
+_may_suspend_ static int pop_fiber(void *userdata) {
         FiberOp *op = ASSERT_PTR(userdata);
 
-        op->result = sd_channel_pop(op->channel, &op->item);
-        op->yield_result = sd_fiber_yield();
+        op->result = SD_AWAIT(sd_channel_pop(op->channel, &op->item));
+        op->yield_result = SD_AWAIT(sd_fiber_yield());
         return 0;
 }
 
@@ -1184,7 +1184,7 @@ TEST(channel_pop_retries_in_order) {
         ASSERT_EQ(PTR_TO_INT(second.item), 4);
 }
 
-static int interrupted_push_pop_fiber(void *userdata) {
+_may_suspend_ static int interrupted_push_pop_fiber(void *userdata) {
         sd_channel *c = ASSERT_PTR(userdata);
         void *p;
 
@@ -1192,10 +1192,10 @@ static int interrupted_push_pop_fiber(void *userdata) {
          * would not suspend. The queued cancellation must still make each call fail without moving an
          * item. */
         ASSERT_OK(sd_fiber_resume(sd_fiber_get_current(), -ECANCELED));
-        ASSERT_ERROR(sd_channel_pop(c, &p), ECANCELED);
+        ASSERT_ERROR(SD_AWAIT(sd_channel_pop(c, &p)), ECANCELED);
 
         ASSERT_OK(sd_fiber_resume(sd_fiber_get_current(), -ECANCELED));
-        ASSERT_ERROR(sd_channel_push(c, INT_TO_PTR(2)), ECANCELED);
+        ASSERT_ERROR(SD_AWAIT(sd_channel_push(c, INT_TO_PTR(2))), ECANCELED);
         return 0;
 }
 

@@ -159,7 +159,7 @@ static bool working_directory_is_set(const WorkingDirectory *wd) {
         return wd->path || wd->home;
 }
 
-static int start_shell(
+_may_suspend_ static int start_shell(
                 Manager *m,
                 sd_varlink *link,
                 PseudoTTY *pty,
@@ -269,8 +269,8 @@ static int start_shell(
         if (r < 0)
                 return log_error_errno(r, "Failed to determine service manager socket path: %m");
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
-        r = sd_varlink_connect_address(&vl, socket_path);
+        _cleanup_await_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        r = SD_AWAIT(sd_varlink_connect_address(&vl, socket_path));
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to service manager Varlink socket: %m");
 
@@ -294,7 +294,7 @@ static int start_shell(
 
         sd_json_variant *reply;
         const char *error_id;
-        r = sd_varlink_callbo(
+        r = SD_AWAIT(sd_varlink_callbo(
                         vl,
                         "io.systemd.Unit.StartTransient",
                         &reply,
@@ -338,7 +338,7 @@ static int start_shell(
                                                                                                                         SD_JSON_BUILD_PAIR_CONDITION(working_directory->missing_ok, "missingOK", SD_JSON_BUILD_BOOLEAN(true)))),
                                                                            JSON_BUILD_PAIR_STRV_NON_EMPTY("Environment", environment),
                                                                            SD_JSON_BUILD_PAIR_BOOLEAN("IgnoreSIGPIPE", false))))),
-                        SD_JSON_BUILD_PAIR_STRING("mode", "replace"));
+                        SD_JSON_BUILD_PAIR_STRING("mode", "replace")));
         if (r < 0)
                 return log_error_errno(r, "Failed to issue io.systemd.Unit.StartTransient() call: %m");
         if (error_id) {
@@ -431,7 +431,7 @@ static const char* polkit_action_from_backend_type(BackendType type) {
         }
 }
 
-static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+_may_suspend_ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         int r;
 
@@ -652,12 +652,12 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
                 }
         }
 
-        r = varlink_verify_polkit_async(
+        r = SD_AWAIT(varlink_verify_polkit_async(
                         link,
                         /* bus= */ NULL,
                         polkit_action_from_backend_type(p.backend_type),
                         (const char**) details,
-                        &m->polkit_registry);
+                        &m->polkit_registry));
         if (r <= 0)
                 return r;
 
@@ -711,8 +711,8 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
         if (r < 0)
                 return r;
 
-        _cleanup_(pseudo_tty_freep) PseudoTTY *pty = NULL;
-        r = pseudo_tty_new(&pty);
+        _cleanup_await_(pseudo_tty_freep) PseudoTTY *pty = NULL;
+        r = SD_AWAIT(pseudo_tty_new(&pty));
         if (r < 0)
                 return r;
 
@@ -784,7 +784,7 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
         case BACKEND_SHELL:
                 assert(pty->backend_fd >= 0);
 
-                r = start_shell(m,
+                r = SD_AWAIT(start_shell(m,
                                 link,
                                 pty,
                                 p.user,
@@ -794,7 +794,7 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
                                 p.command_line,
                                 p.executable,
                                 p.via_shell != 0,
-                                p.lightweight);
+                                p.lightweight));
                 if (r < 0)
                         return r;
 
@@ -814,11 +814,11 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
         if (r < 0)
                 return r;
 
-        _cleanup_(pseudo_tty_monitor_freep) PseudoTTYMonitor *monitor = NULL;
+        _cleanup_await_(pseudo_tty_monitor_freep) PseudoTTYMonitor *monitor = NULL;
         if (p.monitor) {
                 assert(pty->frontend_fd >= 0);
 
-                r = pseudo_tty_monitor_new(link, p.osc2811, &monitor);
+                r = SD_AWAIT(pseudo_tty_monitor_new(link, p.osc2811, &monitor));
                 if (r < 0)
                         return r;
 

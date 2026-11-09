@@ -15,7 +15,7 @@ _public_ int sd_bus_message_send(sd_bus_message *m) {
         assert_return(m->bus, -EINVAL);
         assert_return(!bus_origin_changed(m->bus), -ECHILD);
 
-        return sd_bus_send(m->bus, m, /* ret_cookie= */ NULL);
+        return SD_AWAIT(sd_bus_send(m->bus, m, /* ret_cookie= */ NULL));
 }
 
 _public_ int sd_bus_emit_signal_tov(
@@ -46,7 +46,7 @@ _public_ int sd_bus_emit_signal_tov(
                         return r;
         }
 
-        return sd_bus_send(bus, m, /* ret_cookie= */ NULL);
+        return SD_AWAIT(sd_bus_send(bus, m, /* ret_cookie= */ NULL));
 }
 
 _public_ int sd_bus_emit_signal_to(
@@ -74,7 +74,7 @@ _public_ int sd_bus_emit_signalv(
                 const char *member,
                 const char *types, va_list ap) {
 
-    return sd_bus_emit_signal_tov(bus, /* destination= */ NULL, path, interface, member, types, ap);
+    return SD_AWAIT(sd_bus_emit_signal_tov(bus, /* destination= */ NULL, path, interface, member, types, ap));
 }
 
 _public_ int sd_bus_emit_signal(
@@ -88,7 +88,7 @@ _public_ int sd_bus_emit_signal(
         int r;
 
         va_start(ap, types);
-        r = sd_bus_emit_signalv(bus, path, interface, member, types, ap);
+        r = SD_AWAIT(sd_bus_emit_signalv(bus, path, interface, member, types, ap));
         va_end(ap);
 
         return r;
@@ -125,7 +125,7 @@ _public_ int sd_bus_call_method_asyncv(
                         return r;
         }
 
-        return sd_bus_call_async(bus, ret_slot, m, callback, userdata, /* usec= */ 0);
+        return SD_AWAIT(sd_bus_call_async(bus, ret_slot, m, callback, userdata, /* usec= */ 0));
 }
 
 _public_ int sd_bus_call_method_async(
@@ -143,7 +143,7 @@ _public_ int sd_bus_call_method_async(
         int r;
 
         va_start(ap, types);
-        r = sd_bus_call_method_asyncv(bus, ret_slot, destination, path, interface, member, callback, userdata, types, ap);
+        r = SD_AWAIT(sd_bus_call_method_asyncv(bus, ret_slot, destination, path, interface, member, callback, userdata, types, ap));
         va_end(ap);
 
         return r;
@@ -181,7 +181,7 @@ _public_ int sd_bus_call_methodv(
                         goto fail;
         }
 
-        return sd_bus_call(bus, m, /* usec= */ 0, reterr_error, ret_reply);
+        return SD_AWAIT(sd_bus_call(bus, m, /* usec= */ 0, reterr_error, ret_reply));
 
 fail:
         return sd_bus_error_set_errno(reterr_error, r);
@@ -201,7 +201,7 @@ _public_ int sd_bus_call_method(
         int r;
 
         va_start(ap, types);
-        r = sd_bus_call_methodv(bus, destination, path, interface, member, reterr_error, ret_reply, types, ap);
+        r = SD_AWAIT(sd_bus_call_methodv(bus, destination, path, interface, member, reterr_error, ret_reply, types, ap));
         va_end(ap);
 
         return r;
@@ -237,7 +237,7 @@ _public_ int sd_bus_reply_method_returnv(
                         return r;
         }
 
-        return sd_bus_message_send(m);
+        return SD_AWAIT(sd_bus_message_send(m));
 }
 
 _public_ int sd_bus_reply_method_return(
@@ -248,7 +248,7 @@ _public_ int sd_bus_reply_method_return(
         int r;
 
         va_start(ap, types);
-        r = sd_bus_reply_method_returnv(call, types, ap);
+        r = SD_AWAIT(sd_bus_reply_method_returnv(call, types, ap));
         va_end(ap);
 
         return r;
@@ -278,7 +278,7 @@ _public_ int sd_bus_reply_method_error(
         if (r < 0)
                 return r;
 
-        return sd_bus_message_send(m);
+        return SD_AWAIT(sd_bus_message_send(m));
 }
 
 _public_ int sd_bus_reply_method_errorfv(
@@ -303,7 +303,7 @@ _public_ int sd_bus_reply_method_errorfv(
 
         sd_bus_error_setfv(&error, name, format, ap);
 
-        return sd_bus_reply_method_error(call, &error);
+        return SD_AWAIT(sd_bus_reply_method_error(call, &error));
 }
 
 _public_ int sd_bus_reply_method_errorf(
@@ -316,7 +316,7 @@ _public_ int sd_bus_reply_method_errorf(
         int r;
 
         va_start(ap, format);
-        r = sd_bus_reply_method_errorfv(call, name, format, ap);
+        r = SD_AWAIT(sd_bus_reply_method_errorfv(call, name, format, ap));
         va_end(ap);
 
         return r;
@@ -342,11 +342,11 @@ _public_ int sd_bus_reply_method_errno(
                 return 0;
 
         if (sd_bus_error_is_set(e))
-                return sd_bus_reply_method_error(call, e);
+                return SD_AWAIT(sd_bus_reply_method_error(call, e));
 
         sd_bus_error_set_errno(&berror, error);
 
-        return sd_bus_reply_method_error(call, &berror);
+        return SD_AWAIT(sd_bus_reply_method_error(call, &berror));
 }
 
 _public_ int sd_bus_reply_method_errnofv(
@@ -416,10 +416,10 @@ _public_ int sd_bus_get_property(
                 goto fail;
         }
 
-        r = sd_bus_call_method(bus, destination, path,
+        r = SD_AWAIT(sd_bus_call_method(bus, destination, path,
                                "org.freedesktop.DBus.Properties", "Get",
                                reterr_error, &reply,
-                               "ss", strempty(interface), member);
+                               "ss", strempty(interface), member));
         if (r < 0)
                 return r;
 
@@ -504,7 +504,7 @@ _public_ int sd_bus_get_property_string(
                 goto fail;
         }
 
-        r = sd_bus_call_method(bus, destination, path, "org.freedesktop.DBus.Properties", "Get", reterr_error, &reply, "ss", strempty(interface), member);
+        r = SD_AWAIT(sd_bus_call_method(bus, destination, path, "org.freedesktop.DBus.Properties", "Get", reterr_error, &reply, "ss", strempty(interface), member));
         if (r < 0)
                 return r;
 
@@ -615,7 +615,7 @@ _public_ int sd_bus_set_propertyv(
         if (r < 0)
                 goto fail;
 
-        return sd_bus_call(bus, m, /* usec= */ 0, reterr_error, /* ret_reply= */ NULL);
+        return SD_AWAIT(sd_bus_call(bus, m, /* usec= */ 0, reterr_error, /* ret_reply= */ NULL));
 
 fail:
         return sd_bus_error_set_errno(reterr_error, r);
@@ -634,7 +634,7 @@ _public_ int sd_bus_set_property(
         int r;
 
         va_start(ap, type);
-        r = sd_bus_set_propertyv(bus, destination, path, interface, member, reterr_error, type, ap);
+        r = SD_AWAIT(sd_bus_set_propertyv(bus, destination, path, interface, member, reterr_error, type, ap));
         va_end(ap);
 
         return r;
@@ -665,7 +665,7 @@ _public_ int sd_bus_query_sender_creds(sd_bus_message *m, uint64_t mask, sd_bus_
 
         /* There's a sender, use that */
         if (m->sender && m->bus->bus_client)
-                return sd_bus_get_name_creds(m->bus, m->sender, mask, ret);
+                return SD_AWAIT(sd_bus_get_name_creds(m->bus, m->sender, mask, ret));
 
         /* There's no sender. For direct connections the credentials of the AF_UNIX peer matter, which may be
          * queried via sd_bus_get_owner_creds(). */
@@ -688,7 +688,7 @@ _public_ int sd_bus_query_sender_privilege(sd_bus_message *m, int capability) {
 
         if (capability >= 0) {
 
-                r = sd_bus_query_sender_creds(m, SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_EFFECTIVE_CAPS, &creds);
+                r = SD_AWAIT(sd_bus_query_sender_creds(m, SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_EFFECTIVE_CAPS, &creds));
                 if (r < 0)
                         return r;
 
@@ -705,7 +705,7 @@ _public_ int sd_bus_query_sender_privilege(sd_bus_message *m, int capability) {
                 if (r == 0)
                         know_caps = true;
         } else {
-                r = sd_bus_query_sender_creds(m, SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID, &creds);
+                r = SD_AWAIT(sd_bus_query_sender_creds(m, SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID, &creds));
                 if (r < 0)
                         return r;
         }
@@ -807,5 +807,5 @@ _public_ int sd_bus_match_signal_async(
 
         expression = make_expression(sender, path, interface, member);
 
-        return sd_bus_add_match_async(bus, ret, expression, callback, install_callback, userdata);
+        return SD_AWAIT(sd_bus_add_match_async(bus, ret, expression, callback, install_callback, userdata));
 }

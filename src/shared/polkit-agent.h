@@ -3,7 +3,7 @@
 
 #include "forward.h"
 
-int polkit_agent_open(void);
+_may_suspend_ int polkit_agent_open(void);
 void polkit_agent_close(void);
 
-int polkit_agent_open_if_enabled(BusTransport transport, bool ask_password);
+_may_suspend_ int polkit_agent_open_if_enabled(BusTransport transport, bool ask_password);
