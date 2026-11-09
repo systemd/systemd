@@ -32,6 +32,41 @@ xml_helper_py                  = files('xml_helper.py')
 
 #####################################################################
 
+suspend_check = get_option('suspend-check')
+if not suspend_check.disabled() and add_languages('cpp', native : true, required : suspend_check)
+        suspend_cxx = meson.get_compiler('cpp', native : true)
+        suspend_llvm = dependency('llvm', native : true, modules : ['support'], static : false, required : suspend_check)
+        suspend_clang = suspend_cxx.find_library('clang-cpp', required : suspend_check)
+        suspend_tidy_program = find_program('clang-tidy', native : true, required : suspend_check)
+        if suspend_llvm.found() and suspend_clang.found() and suspend_tidy_program.found()
+                suspend_tidy_version = run_command(suspend_tidy_program, '--version', check : true).stdout().split('LLVM version ')[-1].strip().split('\n')[0]
+                suspend_tidy_headers = suspend_cxx.has_header('clang-tidy/ClangTidyCheck.h', dependencies : suspend_llvm)
+                suspend_tidy_compatible = suspend_tidy_version == suspend_llvm.version() and suspend_tidy_headers
+                if not suspend_tidy_compatible and suspend_check.enabled()
+                        error('The suspension plugin requires matching clang-tidy and LLVM versions and clang-tidy development headers')
+                endif
+                if suspend_tidy_compatible
+                        suspend_tidy = shared_module(
+                                'suspend-tidy',
+                                'suspend-tidy.cpp',
+                                native : true,
+                                dependencies : [suspend_clang, suspend_llvm],
+                                gnu_symbol_visibility : 'hidden',
+                                # clang-tidy exports its plugin API from its executable.
+                                override_options : ['cpp_std=c++17', 'warning_level=1', 'optimization=2', 'b_lundef=false'],
+                                install : false,
+                        )
+                        test('suspend-tidy',
+                             python,
+                             args : [files('test-suspend-check.py'), suspend_tidy, meson.project_source_root(),
+                                     suspend_tidy_program.full_path()],
+                             timeout : 180)
+                endif
+        endif
+endif
+
+#####################################################################
+
 # Try to install the git pre-commit hook
 git_setup_sh = find_program('./git-setup.sh', required : false)
 if git_setup_sh.found()

@@ -84,6 +84,7 @@ typedef struct ArrayCleanup {
         free_array_func_t pfunc;
 } ArrayCleanup;
 
+static inline void array_cleanup(const ArrayCleanup *c) _SD_SUSPEND_ANNOTATE("sd:cleanup_callback:pfunc");
 static inline void array_cleanup(const ArrayCleanup *c) {
         assert(c);
         assert(!c->parray == !c->pn);
@@ -119,6 +120,7 @@ typedef struct ElementsCleanup {
         free_array_func_t pfunc;
 } ElementsCleanup;
 
+static inline void elements_cleanup(const ElementsCleanup *c) _SD_SUSPEND_ANNOTATE("sd:cleanup_callback:pfunc");
 static inline void elements_cleanup(const ElementsCleanup *c) {
         assert(c);
 
