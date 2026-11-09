@@ -490,7 +490,7 @@ static int link_context_load_etc_machine_id(LinkContext *c) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get machine-id: %m");
 
-        log_debug("Loaded machine ID %s from '%s/etc/machine-id'.", SD_ID128_TO_STRING(c->machine_id), strempty(c->root));
+        log_debug("Loaded machine ID %s from '%s/etc/machine-id'.", SD_ID128_TO_STRING(c->machine_id), empty_or_root_to_empty(c->root));
         return 0;
 }
 
