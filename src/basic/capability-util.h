@@ -45,8 +45,8 @@ static inline bool capability_is_set(uint64_t v) {
 
 int capability_get(CapabilityQuintet *ret);
 
-unsigned cap_last_cap(void);
-int have_effective_cap(unsigned cap);
+_sync_ unsigned cap_last_cap(void);
+_sync_ int have_effective_cap(unsigned cap);
 int have_inheritable_cap(unsigned cap);
 int capability_gain_cap_setpcap(void);
 int capability_bounding_set_drop(uint64_t keep, bool right_now);

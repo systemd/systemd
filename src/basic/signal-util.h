@@ -5,10 +5,10 @@
 
 #include "forward.h"
 
-int reset_all_signal_handlers(void);
-int reset_signal_mask(void);
+_sync_ int reset_all_signal_handlers(void);
+_sync_ int reset_signal_mask(void);
 
-int sigaction_many_internal(const struct sigaction *sa, ...);
+_sync_ int sigaction_many_internal(const struct sigaction *sa, ...);
 
 #define ignore_signals(...)                                             \
         sigaction_many_internal(                                        \
@@ -64,9 +64,9 @@ static inline const char* signal_to_string_with_check(int n) {
         return signal_to_string(n);
 }
 
-int signal_is_blocked(int sig);
+_sync_ int signal_is_blocked(int sig);
 
-int autoreaping_enabled(void);
+_sync_ int autoreaping_enabled(void);
 
 int pop_pending_signal_internal(int sig, ...);
 #define pop_pending_signal(...) pop_pending_signal_internal(__VA_ARGS__, -1)

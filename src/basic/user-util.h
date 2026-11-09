@@ -39,7 +39,7 @@ static inline bool gid_is_valid(gid_t gid) {
         return uid_is_valid((uid_t) gid);
 }
 
-int parse_uid(const char *s, uid_t* ret_uid);
+_sync_ int parse_uid(const char *s, uid_t* ret_uid);
 int parse_uid_range(const char *s, uid_t *ret_lower, uid_t *ret_upper);
 
 static inline int parse_gid(const char *s, gid_t *ret_gid) {
@@ -47,7 +47,7 @@ static inline int parse_gid(const char *s, gid_t *ret_gid) {
 }
 
 char* getlogname_malloc(void);
-char* getusername_malloc(void);
+_sync_ char* getusername_malloc(void);
 
 const char* default_root_shell_at(int rfd);
 const char* default_root_shell(const char *root);
@@ -71,17 +71,17 @@ int get_user_creds(
                 char **ret_shell);
 int get_group_creds(const char *groupname, UserCredsFlags flags, char **ret_name, gid_t *ret_gid);
 
-char* uid_to_name(uid_t uid);
-char* gid_to_name(gid_t gid);
+_sync_ char* uid_to_name(uid_t uid);
+_sync_ char* gid_to_name(gid_t gid);
 
 int in_gid(gid_t gid);
 int in_group(const char *name);
 
 int merge_gid_lists(const gid_t *list1, size_t size1, const gid_t *list2, size_t size2, gid_t **ret);
-int getgroups_alloc(gid_t **ret);
+_sync_ int getgroups_alloc(gid_t **ret);
 
-int get_home_dir(char **ret);
-int get_shell(char **ret);
+_sync_ int get_home_dir(char **ret);
+_sync_ int get_shell(char **ret);
 
 int fully_set_uid_gid(uid_t uid, gid_t gid, const gid_t supplementary_gids[], size_t n_supplementary_gids);
 static inline int reset_uid_gid(void) {
@@ -130,13 +130,13 @@ typedef enum ValidUserFlags {
         VALID_USER_ALLOW_NUMERIC = 1 << 2,
 } ValidUserFlags;
 
-bool valid_user_group_name(const char *u, ValidUserFlags flags);
+_sync_ bool valid_user_group_name(const char *u, ValidUserFlags flags);
 bool valid_gecos(const char *d);
 char* mangle_gecos(const char *d);
 bool valid_home(const char *p);
 bool valid_shell(const char *p);
 
-int maybe_setgroups(size_t size, const gid_t *list);
+_sync_ int maybe_setgroups(size_t size, const gid_t *list);
 
 bool synthesize_nobody(void);
 
@@ -177,7 +177,7 @@ static inline bool hashed_password_is_locked_or_invalid(const char *password) {
  */
 #define PASSWORD_UNPROVISIONED "!unprovisioned"
 
-int sysconf_ngroups_max(void);
+_sync_ int sysconf_ngroups_max(void);
 
 int lookup_pwent_in_files(
                 char * const *files,

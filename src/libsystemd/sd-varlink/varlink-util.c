@@ -225,7 +225,7 @@ DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 sd_varlink,
                 sd_varlink_unref);
 
-static int varlink_finish_idle(Set *s) {
+_may_suspend_ static int varlink_finish_idle(Set *s) {
         int r;
 
         sd_varlink *vl;
@@ -239,7 +239,9 @@ static int varlink_finish_idle(Set *s) {
                 else {
                         /* Idle? Then we can close the connection, and release some resources. */
                         assert_se(set_remove(s, vl) == vl);
-                        vl = sd_varlink_close_unref(vl);
+                        /* Only varlink_execute_directory_full() can reach the set, so no other fiber
+                         * changes it while sd_varlink_close_unref() suspends. */
+                        vl = SD_AWAIT(sd_varlink_close_unref(vl)); /* NOLINT(systemd-suspend-iterator) */
                 }
         }
 
@@ -321,8 +323,8 @@ ssize_t varlink_execute_directory_full(
                                 return log_debug_errno(r, "Failed to allocate event loop: %m");
                 }
 
-                _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
-                r = sd_varlink_connect_fd(&link, socket_fd);
+                _cleanup_await_(sd_varlink_unrefp) sd_varlink *link = NULL;
+                r = SD_AWAIT(sd_varlink_connect_fd(&link, socket_fd));
                 if (r < 0)
                         return log_debug_errno(r, "Failed to allocate Varlink connection: %m");
 
@@ -376,7 +378,7 @@ ssize_t varlink_execute_directory_full(
                         }
                 }
 
-                r = varlink_finish_idle(links);
+                r = SD_AWAIT(varlink_finish_idle(links));
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -384,7 +386,7 @@ ssize_t varlink_execute_directory_full(
 
                 assert(event);
 
-                r = sd_event_run(event, /* timeout= */ UINT64_MAX);
+                r = SD_AWAIT(sd_event_run(event, /* timeout= */ UINT64_MAX));
                 if (r < 0)
                         return r;
         }

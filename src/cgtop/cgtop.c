@@ -206,7 +206,7 @@ static void restore_console(Context *c) {
         (void) tcsetattr(STDIN_FILENO, TCSANOW, &c->saved_termios);
 }
 
-static void context_done(Context *c) {
+_may_suspend_ static void context_done(Context *c) {
         assert(c);
 
         restore_console(c);
@@ -508,7 +508,7 @@ static int process(
         return 1;
 }
 
-static int refresh(
+_may_suspend_ static int refresh(
                 const char *path,
                 Hashmap *a,
                 Hashmap *b,
@@ -559,7 +559,7 @@ static int refresh(
 
                 path_simplify(p);
 
-                r = refresh(p, a, b, iteration, depth + 1, root_children_memory_sum, &child);
+                r = SD_AWAIT(refresh(p, a, b, iteration, depth + 1, root_children_memory_sum, &child));
                 if (r < 0)
                         return r;
                 if (r > 0 &&
@@ -825,7 +825,7 @@ static int display(Context *c) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
+_may_suspend_ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
         assert(argv);
 
@@ -836,7 +836,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 OPTION_COMMON_HELP:
-                        return command_print_help();
+                        return SD_AWAIT(command_print_help());
 
                 OPTION_COMMON_VERSION:
                         return version();
@@ -969,7 +969,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int step(Context *c, usec_t t) {
+_may_suspend_ static int step(Context *c, usec_t t) {
         int r;
 
         assert(c);
@@ -983,8 +983,8 @@ static int step(Context *c, usec_t t) {
                 if (!c->groups_by_path)
                         return log_oom();
 
-                r = refresh(c->root, c->groups_by_path, previous, c->iteration++, /* depth= */ 0,
-                            &c->root_children_memory_sum, /* ret= */ NULL);
+                r = SD_AWAIT(refresh(c->root, c->groups_by_path, previous, c->iteration++, /* depth= */ 0,
+                            &c->root_children_memory_sum, /* ret= */ NULL));
                 if (r < 0)
                         return log_error_errno(r, "Failed to refresh: %m");
 
@@ -1219,7 +1219,7 @@ static int on_key(Context *c, char key) {
         return 1;
 }
 
-static int loop(Context *c) {
+_may_suspend_ static int loop(Context *c) {
         int r;
 
         assert(c);
@@ -1228,7 +1228,7 @@ static int loop(Context *c) {
                 usec_t t = now(CLOCK_MONOTONIC);
 
                 if (t >= c->next_display) {
-                        r = step(c, t);
+                        r = SD_AWAIT(step(c, t));
                         if (r <= 0)
                                 return r;
 
@@ -1241,7 +1241,7 @@ static int loop(Context *c) {
                  * Never pass a zero timeout here: the fiber would not suspend, hence the event loop would
                  * not run and signals (e.g. SIGINT) might not be processed, if redrawing takes longer than
                  * the delay. Hence wait at least 1 usec. */
-                r = fd_wait_for_event(c->poll_fd, POLLIN, MAX(usec_sub_unsigned(c->next_display, t), 1u));
+                r = SD_AWAIT(fd_wait_for_event(c->poll_fd, POLLIN, MAX(usec_sub_unsigned(c->next_display, t), 1u)));
                 if (r == -EBUSY)
                         continue; /* A signal handler called redisplay(). */
                 if (r == -ECANCELED)
@@ -1313,13 +1313,13 @@ static int setup_loop(Context *c) {
         return 0;
 }
 
-static int run(int argc, char *argv[]) {
+_may_suspend_ static int run(int argc, char *argv[]) {
         CGroupMask mask;
         int r;
 
-        log_setup();
+        SD_AWAIT(log_setup());
 
-        r = parse_argv(argc, argv);
+        r = SD_AWAIT(parse_argv(argc, argv));
         if (r <= 0)
                 return r;
 
@@ -1335,12 +1335,12 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Non-recursive counting is only supported when counting processes, not tasks. Use -P or -k.");
 
-        _cleanup_(context_done) Context c = {
+        _cleanup_await_(context_done) Context c = {
                 .immediate_refresh = true,
                 .poll_fd = arg_batch ? -EBADF : STDIN_FILENO,
         };
 
-        r = show_cgroup_get_path_and_warn(arg_machine, skip_leading_chars(arg_root, "/"), &c.root);
+        r = SD_AWAIT(show_cgroup_get_path_and_warn(arg_machine, skip_leading_chars(arg_root, "/"), &c.root));
         if (r < 0)
                 return log_error_errno(r, "Failed to get root control group path: %m");
         log_debug("CGroup path: %s", c.root);
@@ -1349,13 +1349,13 @@ static int run(int argc, char *argv[]) {
                 arg_iterations = on_tty() ? 0 : 1;
 
         if (arg_iterations == 1)
-                return step(&c, /* t= */ 0);
+                return SD_AWAIT(step(&c, /* t= */ 0));
 
         r = setup_loop(&c);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize event loop: %m");
 
-        r = loop(&c);
+        r = SD_AWAIT(loop(&c));
 
         if (on_tty()) {
                 fputs("\n", stdout);

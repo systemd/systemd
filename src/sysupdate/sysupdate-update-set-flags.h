@@ -16,9 +16,9 @@ typedef enum UpdateSetFlags {
         UPDATE_CANDIDATE  = 1 << 9, /* The version selected for updating to */
 } UpdateSetFlags;
 
-const char* update_set_flags_to_color(UpdateSetFlags flags);
-const char* update_set_flags_to_glyph(UpdateSetFlags flags);
+_sync_ const char* update_set_flags_to_color(UpdateSetFlags flags);
+_sync_ const char* update_set_flags_to_glyph(UpdateSetFlags flags);
 
 #define UPDATE_SET_FLAGS_STRING_MAX sizeof("candidate+partial+obsolete+too-new+incomplete")
-char* update_set_flags_to_string_buf(UpdateSetFlags flags, char buf[static UPDATE_SET_FLAGS_STRING_MAX]);
+_sync_ char* update_set_flags_to_string_buf(UpdateSetFlags flags, char buf[static UPDATE_SET_FLAGS_STRING_MAX]);
 #define FORMAT_UPDATE_SET_FLAGS(flags) update_set_flags_to_string_buf((flags), (char[UPDATE_SET_FLAGS_STRING_MAX]) {})

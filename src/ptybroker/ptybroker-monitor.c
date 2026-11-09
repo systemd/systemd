@@ -45,7 +45,7 @@ PseudoTTYMonitor* pseudo_tty_monitor_free(PseudoTTYMonitor *monitor) {
                 /* If the link is still around here the connection never completed its upgrade: close it, so
                  * that the client doesn't hang on to a connection nobody will ever service. */
                 sd_varlink_set_userdata(monitor->link, /* userdata= */ NULL);
-                sd_varlink_close_unref(monitor->link);
+                SD_AWAIT(sd_varlink_close_unref(monitor->link));
         }
 
         iovec_done(&monitor->buffer);
@@ -536,7 +536,7 @@ int pseudo_tty_monitor_new(sd_varlink *link, bool osc_winsize, PseudoTTYMonitor 
         assert(link);
         assert(ret);
 
-        _cleanup_(pseudo_tty_monitor_freep) PseudoTTYMonitor *monitor = new(PseudoTTYMonitor, 1);
+        _cleanup_await_(pseudo_tty_monitor_freep) PseudoTTYMonitor *monitor = new(PseudoTTYMonitor, 1);
         if (!monitor)
                 return -ENOMEM;
 

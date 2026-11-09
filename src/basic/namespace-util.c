@@ -287,7 +287,7 @@ int namespace_enter_full(
         /* Determine this before joining anything, as /proc might not be available afterwards. */
         bool keep_uid_gid = false;
         if (userns_fd >= 0 && FLAGS_SET(flags, NAMESPACE_ENTER_KEEP_UID_GID_IF_ROOT_UNMAPPED)) {
-                r = userns_has_root_mapping(userns_fd);
+                r = SD_AWAIT(userns_has_root_mapping(userns_fd));
                 if (r < 0)
                         return r;
                 keep_uid_gid = r == 0;
@@ -803,9 +803,9 @@ int userns_acquire_self_root(void) {
         return userns_acquire(uid_map, gid_map, /* setgroups_deny= */ true);
 }
 
-int userns_enter_and_pin(int userns_fd, PidRef *ret) {
+_may_suspend_ int userns_enter_and_pin(int userns_fd, PidRef *ret) {
         _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
-        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        _cleanup_await_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         ssize_t n;
         char x;
         int r;
@@ -816,12 +816,12 @@ int userns_enter_and_pin(int userns_fd, PidRef *ret) {
         if (pipe2(pfd, O_CLOEXEC) < 0)
                 return -errno;
 
-        r = pidref_safe_fork_full(
+        r = SD_AWAIT(pidref_safe_fork_full(
                         "(sd-pinuserns)",
                         /* stdio_fds= */ NULL,
                         (int[]) { pfd[1], userns_fd }, 2,
                         FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_DEATHSIG_SIGKILL,
-                        &pidref);
+                        &pidref));
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -893,14 +893,14 @@ int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid) {
         return 0;
 }
 
-int userns_has_root_mapping(int userns_fd) {
+_may_suspend_ int userns_has_root_mapping(int userns_fd) {
         _cleanup_(uid_range_freep) UIDRange *uid_range = NULL, *gid_range = NULL;
-        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        _cleanup_await_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         int r;
 
         assert(userns_fd >= 0);
 
-        r = userns_enter_and_pin(userns_fd, &pidref);
+        r = SD_AWAIT(userns_enter_and_pin(userns_fd, &pidref));
         if (r < 0)
                 return r;
 

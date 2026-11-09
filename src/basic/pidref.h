@@ -65,12 +65,12 @@ static inline bool pidref_is_remote(const PidRef *pidref) {
         return pidref_is_set(pidref) && pidref->fd == -EREMOTE;
 }
 
-int pidref_acquire_pidfd_id(PidRef *pidref);
+_sync_ int pidref_acquire_pidfd_id(PidRef *pidref);
 bool pidref_equal(PidRef *a, PidRef *b);
 
 /* This turns a pid_t into a PidRef structure, and acquires a pidfd for it, if possible. (As opposed to
  * PIDREF_MAKE_FROM_PID() above, which does not acquire a pidfd.) */
-int pidref_set_pid_full(PidRef *pidref, pid_t pid, unsigned flags);
+_sync_ int pidref_set_pid_full(PidRef *pidref, pid_t pid, unsigned flags);
 static inline int pidref_set_pid(PidRef *pidref, pid_t pid) {
         return pidref_set_pid_full(pidref, pid, /* flags= */ 0);
 }
@@ -79,17 +79,17 @@ static inline int pidref_set_pidstr(PidRef *pidref, const char *pid) {
         return pidref_set_pidstr_full(pidref, pid, /* flags= */ 0);
 }
 int pidref_set_pid_and_pidfd_id(PidRef *pidref, pid_t pid, uint64_t pidfd_id);
-int pidref_set_pidfd(PidRef *pidref, int fd);
-int pidref_set_pidfd_take(PidRef *pidref, int fd); /* takes ownership of the passed pidfd on success */
+_sync_ int pidref_set_pidfd(PidRef *pidref, int fd);
+_sync_ int pidref_set_pidfd_take(PidRef *pidref, int fd); /* takes ownership of the passed pidfd on success */
 int pidref_set_pidfd_consume(PidRef *pidref, int fd); /* takes ownership of the passed pidfd in both success and failure */
 int pidref_set_parent(PidRef *ret);
 static inline int pidref_set_self(PidRef *pidref) {
         return pidref_set_pid(pidref, /* pid= */ 0);
 }
 
-bool pidref_is_self(PidRef *pidref);
+_sync_ bool pidref_is_self(PidRef *pidref);
 
-void pidref_done(PidRef *pidref);
+_sync_ void pidref_done(PidRef *pidref);
 PidRef* pidref_free(PidRef *pidref);
 void pidref_array_free(PidRef *array, size_t n);
 DEFINE_TRIVIAL_CLEANUP_FUNC(PidRef*, pidref_free);
@@ -99,30 +99,30 @@ int pidref_dup(const PidRef *pidref, PidRef **ret);
 
 int pidref_new_from_pid(pid_t pid, PidRef **ret);
 
-int pidref_kill(const PidRef *pidref, int sig);
+_sync_ int pidref_kill(const PidRef *pidref, int sig);
 int pidref_kill_and_sigcont(const PidRef *pidref, int sig);
 int pidref_sigqueue(const PidRef *pidref, int sig, int value);
 
-int pidref_wait_for_terminate_full(PidRef *pidref, usec_t timeout, siginfo_t *ret_si);
-static inline int pidref_wait_for_terminate(PidRef *pidref, siginfo_t *ret_si) {
-        return pidref_wait_for_terminate_full(pidref, USEC_INFINITY, ret_si);
+_may_suspend_ int pidref_wait_for_terminate_full(PidRef *pidref, usec_t timeout, siginfo_t *ret_si);
+_may_suspend_ static inline int pidref_wait_for_terminate(PidRef *pidref, siginfo_t *ret_si) {
+        return SD_AWAIT(pidref_wait_for_terminate_full(pidref, USEC_INFINITY, ret_si));
 }
 
-static inline void pidref_done_sigterm_wait(PidRef *pidref) {
+_may_suspend_ static inline void pidref_done_sigterm_wait(PidRef *pidref) {
         if (!pidref_is_set(pidref))
                 return;
 
         (void) pidref_kill(pidref, SIGTERM);
-        (void) pidref_wait_for_terminate(pidref, /* ret_si= */ NULL);
+        (void) SD_AWAIT(pidref_wait_for_terminate(pidref, /* ret_si= */ NULL));
         pidref_done(pidref);
 }
 
-static inline void pidref_done_sigkill_wait(PidRef *pidref) {
+_may_suspend_ static inline void pidref_done_sigkill_wait(PidRef *pidref) {
         if (!pidref_is_set(pidref))
                 return;
 
         (void) pidref_kill(pidref, SIGKILL);
-        (void) pidref_wait_for_terminate(pidref, /* ret_si= */ NULL);
+        (void) SD_AWAIT(pidref_wait_for_terminate(pidref, /* ret_si= */ NULL));
         pidref_done(pidref);
 }
 
@@ -134,13 +134,13 @@ static inline void pidref_done_sigkill_nowait(PidRef *pidref) {
         pidref_done(pidref);
 }
 
-int pidref_verify(const PidRef *pidref);
+_sync_ int pidref_verify(const PidRef *pidref);
 
 #define TAKE_PIDREF(p) TAKE_GENERIC((p), PidRef, PIDREF_NULL)
 
 struct siphash;
-void pidref_hash_func(const PidRef *pidref, struct siphash *state);
-int pidref_compare_func(const PidRef *a, const PidRef *b);
+_sync_ void pidref_hash_func(const PidRef *pidref, struct siphash *state);
+_sync_ int pidref_compare_func(const PidRef *a, const PidRef *b);
 
 extern const struct hash_ops pidref_hash_ops;
 extern const struct hash_ops pidref_hash_ops_free; /* Has destructor call for pidref_free(), i.e. expects heap allocated PidRef as keys */

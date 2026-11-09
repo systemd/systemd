@@ -210,13 +210,13 @@ TEST(future_child_process_own_kill_timeout) {
         ASSERT_ERROR(pidref_kill(&pidref, /* sig= */ 0), ESRCH);
 }
 
-static int child_cancel_wait_fiber(void *userdata) {
+_may_suspend_ static int child_cancel_wait_fiber(void *userdata) {
         sd_future *f = ASSERT_PTR(userdata);
 
         /* The timeout interrupts the wait after SIGTERM, which makes the cleanup loop cancel again
          * and thereby escalate to SIGKILL. */
         SD_FIBER_TIMEOUT(10 * USEC_PER_MSEC);
-        sd_future_cancel_wait_unref(sd_future_ref(f));
+        SD_AWAIT(sd_future_cancel_wait_unref(sd_future_ref(f)));
         return 0;
 }
 
@@ -282,17 +282,17 @@ TEST(future_child_process_own_rejects_options) {
         }
 }
 
-static int child_await_fiber(void *userdata) {
+_may_suspend_ static int child_await_fiber(void *userdata) {
         PidRef *pidref = ASSERT_PTR(userdata);
         siginfo_t si;
         int r;
 
-        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *f = NULL;
+        _cleanup_await_(sd_future_cancel_wait_unrefp) sd_future *f = NULL;
         r = future_new_child(sd_fiber_get_event(), pidref, WEXITED, &f);
         if (r < 0)
                 return r;
 
-        r = sd_fiber_await(f);
+        r = SD_AWAIT(sd_fiber_await(f));
         if (r < 0)
                 return r;
 
@@ -345,7 +345,7 @@ typedef struct EventFuturePriorityData {
         sd_future **ret;
 } EventFuturePriorityData;
 
-static int event_future_priority_fiber(void *userdata) {
+_may_suspend_ static int event_future_priority_fiber(void *userdata) {
         EventFuturePriorityData *d = ASSERT_PTR(userdata);
 
         return new_event_future(d->type, sd_fiber_get_event(), d->fd, d->ret);
@@ -490,7 +490,7 @@ static int timer_callback(sd_event_source *s, uint64_t usec, void *userdata) {
         return 0;
 }
 
-static int event_run_fiber_func(void *userdata) {
+_may_suspend_ static int event_run_fiber_func(void *userdata) {
         _cleanup_(sd_event_unrefp) sd_event *inner = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *inner_timer = NULL;
         int r;
@@ -511,7 +511,7 @@ static int event_run_fiber_func(void *userdata) {
         if (r < 0)
                 return r;
 
-        return sd_event_loop(inner);
+        return SD_AWAIT(sd_event_loop(inner));
 }
 
 TEST(sd_event_loop_fiber) {
@@ -543,7 +543,7 @@ TEST(sd_event_loop_fiber) {
         ASSERT_GT(outer_timer_count, 0);
 }
 
-static int event_run_fiber_timeout_func(void *userdata) {
+_may_suspend_ static int event_run_fiber_timeout_func(void *userdata) {
         _cleanup_(sd_event_unrefp) sd_event *inner = NULL;
         int r;
 
@@ -553,7 +553,7 @@ static int event_run_fiber_timeout_func(void *userdata) {
                 return r;
 
         /* Run with a short timeout - should timeout since there are no events */
-        return sd_event_run(inner, 10 * USEC_PER_MSEC);
+        return SD_AWAIT(sd_event_run(inner, 10 * USEC_PER_MSEC));
 }
 
 TEST(sd_event_run_fiber_timeout) {
@@ -574,7 +574,7 @@ TEST(sd_event_run_fiber_timeout) {
 }
 
 /* Test: sd_event_run() with zero timeout returns immediately */
-static int sd_event_run_zero_timeout_fiber(void *userdata) {
+_may_suspend_ static int sd_event_run_zero_timeout_fiber(void *userdata) {
         _cleanup_(sd_event_unrefp) sd_event *inner = NULL;
         int r;
 
@@ -583,7 +583,7 @@ static int sd_event_run_zero_timeout_fiber(void *userdata) {
                 return r;
 
         /* With zero timeout on an empty event loop, should return 0 immediately */
-        r = sd_event_run(inner, /* timeout= */ 0);
+        r = SD_AWAIT(sd_event_run(inner, /* timeout= */ 0));
         if (r != 0)
                 return r < 0 ? r : -EIO;
 
@@ -615,7 +615,7 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
         return sd_event_exit(sd_event_source_get_event(s), /* code= */ 0);
 }
 
-static int sd_event_run_immediate_fiber(void *userdata) {
+_may_suspend_ static int sd_event_run_immediate_fiber(void *userdata) {
         int *pipefd = ASSERT_PTR(userdata);
         _cleanup_(sd_event_unrefp) sd_event *inner = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
@@ -632,7 +632,7 @@ static int sd_event_run_immediate_fiber(void *userdata) {
 
         /* Data is already available on the pipe (written before fiber started), so
          * sd_event_run() should dispatch immediately without suspending */
-        r = sd_event_run(inner, USEC_INFINITY);
+        r = SD_AWAIT(sd_event_run(inner, USEC_INFINITY));
         if (r < 0)
                 return r;
 
@@ -662,7 +662,7 @@ TEST(sd_event_run_immediate) {
 }
 
 /* Test: sd_event_run() with IO arriving during suspension */
-static int sd_event_run_io_fiber(void *userdata) {
+_may_suspend_ static int sd_event_run_io_fiber(void *userdata) {
         int *pipefd = ASSERT_PTR(userdata);
         _cleanup_(sd_event_unrefp) sd_event *inner = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
@@ -677,7 +677,7 @@ static int sd_event_run_io_fiber(void *userdata) {
                 return r;
 
         /* No data available yet, so this will suspend the fiber until IO arrives */
-        r = sd_event_run(inner, USEC_INFINITY);
+        r = SD_AWAIT(sd_event_run(inner, USEC_INFINITY));
         if (r < 0)
                 return r;
 
@@ -712,7 +712,7 @@ TEST(sd_event_run_io) {
 /* Test: event_run called in a loop keeps event loop state consistent.
  * This is a regression test for a bug where error paths after sd_event_prepare()
  * could leave the inner event loop stuck in SD_EVENT_ARMED state. */
-static int sd_event_run_loop_fiber(void *userdata) {
+_may_suspend_ static int sd_event_run_loop_fiber(void *userdata) {
         int *pipefd = ASSERT_PTR(userdata);
         _cleanup_(sd_event_unrefp) sd_event *inner = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
@@ -729,7 +729,7 @@ static int sd_event_run_loop_fiber(void *userdata) {
         /* Call sd_event_run() multiple times with short timeouts.
          * Each call should leave the inner event loop in a clean state for the next call. */
         for (int i = 0; i < 5; i++) {
-                r = sd_event_run(inner, 10 * USEC_PER_MSEC);
+                r = SD_AWAIT(sd_event_run(inner, 10 * USEC_PER_MSEC));
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -740,7 +740,7 @@ static int sd_event_run_loop_fiber(void *userdata) {
          * Write data and do one more run to verify. */
         if (counter == 0) {
                 /* Data wasn't written yet, do a final run with longer timeout */
-                r = sd_event_run(inner, USEC_INFINITY);
+                r = SD_AWAIT(sd_event_run(inner, USEC_INFINITY));
                 if (r < 0)
                         return r;
         }
@@ -780,7 +780,7 @@ static int inner_timer_handler(sd_event_source *s, uint64_t usec, void *userdata
         return sd_event_exit(sd_event_source_get_event(s), /* code= */ 0);
 }
 
-static int sd_event_run_timer_fiber(void *userdata) {
+_may_suspend_ static int sd_event_run_timer_fiber(void *userdata) {
         _cleanup_(sd_event_unrefp) sd_event *inner = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
         int counter = 0, r;
@@ -797,7 +797,7 @@ static int sd_event_run_timer_fiber(void *userdata) {
                 return r;
 
         /* Should suspend, then resume when the timer fires */
-        r = sd_event_run(inner, USEC_INFINITY);
+        r = SD_AWAIT(sd_event_run(inner, USEC_INFINITY));
         if (r < 0)
                 return r;
 
@@ -825,11 +825,11 @@ typedef struct EventRunInterruptedState {
         bool finite;
 } EventRunInterruptedState;
 
-static int event_run_interrupted_fiber(void *userdata) {
+_may_suspend_ static int event_run_interrupted_fiber(void *userdata) {
         EventRunInterruptedState *s = ASSERT_PTR(userdata);
 
         SD_FIBER_TIMEOUT(s->timeout ? 5 * USEC_PER_MSEC : USEC_INFINITY);
-        return sd_event_run(s->inner, s->finite ? USEC_PER_MINUTE : USEC_INFINITY);
+        return SD_AWAIT(sd_event_run(s->inner, s->finite ? USEC_PER_MINUTE : USEC_INFINITY));
 }
 
 TEST(sd_event_run_interrupted) {
@@ -887,7 +887,7 @@ typedef struct IoUringRecv {
         int got;
 } IoUringRecv;
 
-static int io_uring_recv_fiber(void *userdata) {
+_may_suspend_ static int io_uring_recv_fiber(void *userdata) {
         IoUringRecv *st = ASSERT_PTR(userdata);
         sd_event *e = sd_fiber_get_event();
         int r;
@@ -895,12 +895,12 @@ static int io_uring_recv_fiber(void *userdata) {
         struct io_uring_sqe sqe = {};
         io_uring_prep_recv(&sqe, st->fd, st->buf, sizeof(st->buf), /* flags= */ 0);
 
-        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *f = NULL;
+        _cleanup_await_(sd_future_cancel_wait_unrefp) sd_future *f = NULL;
         r = future_new_io_uring(e, &sqe, &f);
         if (r < 0)
                 return r;
 
-        r = sd_fiber_await(f);
+        r = SD_AWAIT(sd_fiber_await(f));
         if (r < 0)
                 return r;
 

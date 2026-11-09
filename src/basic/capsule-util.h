@@ -3,4 +3,4 @@
 
 #include "forward.h"
 
-int capsule_name_is_valid(const char *name);
+_sync_ int capsule_name_is_valid(const char *name);

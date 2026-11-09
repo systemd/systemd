@@ -1026,7 +1026,7 @@ static int bind_description(sd_bus *b, int fd, int family) {
         return 0;
 }
 
-static int connect_as(int fd, const struct sockaddr *sa, socklen_t salen, uid_t uid, gid_t gid) {
+_may_suspend_ static int connect_as(int fd, const struct sockaddr *sa, socklen_t salen, uid_t uid, gid_t gid) {
         _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
         ssize_t n;
         int r;
@@ -1041,10 +1041,10 @@ static int connect_as(int fd, const struct sockaddr *sa, socklen_t salen, uid_t 
         if (pipe2(pfd, O_CLOEXEC) < 0)
                 return -errno;
 
-        r = pidref_safe_fork(
+        r = SD_AWAIT(pidref_safe_fork(
                         "(sd-setresuid)",
                         FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_WAIT,
-                        /* ret= */ NULL);
+                        /* ret= */ NULL));
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -1120,7 +1120,7 @@ int bus_socket_connect(sd_bus *b) {
                 b->output_fd = b->input_fd;
                 bus_socket_setup(b);
 
-                r = connect_as(b->input_fd, &b->sockaddr.sa, b->sockaddr_size, b->connect_as_uid, b->connect_as_gid);
+                r = SD_AWAIT(connect_as(b->input_fd, &b->sockaddr.sa, b->sockaddr_size, b->connect_as_uid, b->connect_as_gid));
                 if (r < 0) {
                         if (r == -EINPROGRESS) {
 
@@ -1199,12 +1199,12 @@ int bus_socket_exec(sd_bus *b) {
         if (r < 0)
                 return -errno;
 
-        r = pidref_safe_fork_full(
+        r = SD_AWAIT(pidref_safe_fork_full(
                         "(sd-busexec)",
                         (int[]) { s[1], s[1], STDERR_FILENO },
                         /* except_fds= */ NULL, /* n_except_fds= */ 0,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO|FORK_RLIMIT_NOFILE_SAFE,
-                        &b->busexec_pidref);
+                        &b->busexec_pidref));
         if (r < 0) {
                 safe_close_pair(s);
                 return r;
@@ -1480,7 +1480,7 @@ int bus_socket_process_opening(sd_bus *b) {
 
         assert(b->state == BUS_OPENING);
 
-        events = fd_wait_for_event(b->output_fd, POLLOUT, /* timeout= */ 0);
+        events = SD_AWAIT(fd_wait_for_event(b->output_fd, POLLOUT, /* timeout= */ 0));
         if (ERRNO_IS_NEG_TRANSIENT(events))
                 return 0;
         if (events < 0)
@@ -1498,7 +1498,7 @@ int bus_socket_process_opening(sd_bus *b) {
         else
                 return bus_socket_start_auth(b);
 
-        return bus_next_address(b);
+        return SD_AWAIT(bus_next_address(b));
 }
 
 int bus_socket_process_authenticating(sd_bus *b) {
@@ -1524,7 +1524,7 @@ int bus_socket_process_watch_bind(sd_bus *b) {
         assert(b->state == BUS_WATCH_BIND);
         assert(b->inotify_fd >= 0);
 
-        r = flush_fd(b->inotify_fd);
+        r = SD_AWAIT(flush_fd(b->inotify_fd));
         if (r <= 0)
                 return r;
 
@@ -1533,7 +1533,7 @@ int bus_socket_process_watch_bind(sd_bus *b) {
         /* We flushed events out of the inotify fd. In that case, maybe the socket is valid now? Let's try to connect
          * to it again */
 
-        r = bus_socket_connect(b);
+        r = SD_AWAIT(bus_socket_connect(b));
         if (r < 0)
                 return r;
 

@@ -13,11 +13,12 @@
 #include "errno-util.h"
 #include "event-future.h"
 #include "fd-util.h"
+#include "future-internal.h"
 #include "io-uring-util.h"
 #include "io-util.h"
 #include "time-util.h"
 
-typedef ssize_t (*FiberIOFunc)(int fd, void *args);
+typedef ssize_t (*FiberIOFunc)(int fd, void *args) _sync_;
 
 /* An SQE stores the buffer length in 32 bits. A count of 4 GiB is truncated to 0. The read then returns 0,
  * and the caller treats that as EOF. The read(), write(), recv() and send() syscalls transfer at most INT_MAX
@@ -38,19 +39,19 @@ static int io_uring_result(sd_future *io) {
         return r == -EINTR ? -ECANCELED : r;
 }
 
-static ssize_t fiber_io_uring_await(sd_future *io) {
+_may_suspend_ static ssize_t fiber_io_uring_await(sd_future *io) {
         int r, n;
 
         assert(io);
 
-        r = sd_fiber_await(io);
+        r = SD_AWAIT(sd_fiber_await(io));
         if (r >= 0)
                 return io_uring_result(io);
 
         /* An interrupted wait leaves the SQE in flight, and the kernel can complete it before it processes
          * the cancellation. Wait for the CQE and return its result. Otherwise an accepted fd leaks, and
          * data that the kernel already received is lost. */
-        (void) sd_future_cancel_wait_unref(sd_future_ref(io));
+        (void) SD_AWAIT(sd_future_cancel_wait_unref(sd_future_ref(io)));
         n = io_uring_result(io);
         if (n == -ECANCELED)
                 return r;
@@ -64,8 +65,8 @@ static ssize_t fiber_io_uring_await(sd_future *io) {
 
 /* Returns true if io_uring ran the operation, with its result in *ret. Returns false if the caller has to run
  * the operation itself. */
-static bool fiber_io_uring_run(sd_event *e, const struct io_uring_sqe *sqe, ssize_t *ret) {
-        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *io = NULL;
+_may_suspend_ static bool fiber_io_uring_run(sd_event *e, const struct io_uring_sqe *sqe, ssize_t *ret) {
+        _cleanup_await_(sd_future_cancel_wait_unrefp) sd_future *io = NULL;
 
         assert(e);
         assert(sqe);
@@ -78,7 +79,7 @@ static bool fiber_io_uring_run(sd_event *e, const struct io_uring_sqe *sqe, ssiz
         if (future_new_io_uring(e, sqe, &io) < 0)
                 return false;
 
-        ssize_t n = fiber_io_uring_await(io);
+        ssize_t n = SD_AWAIT(fiber_io_uring_await(io));
 
         /* The kernel completes a recv() or send() with MSG_DONTWAIT with -EAGAIN instead of waiting for the
          * socket. It also completes a connect() of a non-blocking socket to an AF_UNIX socket with a full
@@ -90,7 +91,7 @@ static bool fiber_io_uring_run(sd_event *e, const struct io_uring_sqe *sqe, ssiz
         return true;
 }
 
-static ssize_t fiber_io_operation(
+_may_suspend_ static ssize_t fiber_io_operation(
                 int fd,
                 uint32_t events,
                 FiberIOFunc func,
@@ -104,7 +105,8 @@ static ssize_t fiber_io_operation(
         assert(func);
         assert(sqe);
 
-        if (!sd_fiber_is_running())
+        /* In a blocking region, the operation runs synchronously like it does off a fiber. */
+        if (!fiber_can_suspend())
                 return func(fd, args);
 
         r = sd_fiber_interrupted();
@@ -115,7 +117,7 @@ static ssize_t fiber_io_operation(
         assert(e);
 
         ssize_t n;
-        if (fiber_io_uring_run(e, sqe, &n))
+        if (SD_AWAIT(fiber_io_uring_run(e, sqe, &n)))
                 return n;
 
         r = fd_nonblock(fd, /* nonblock= */ true);
@@ -128,12 +130,12 @@ static ssize_t fiber_io_operation(
         if (n >= 0 || !ERRNO_IS_NEG_TRANSIENT(n))
                 return n;
 
-        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *io = NULL;
+        _cleanup_await_(sd_future_cancel_wait_unrefp) sd_future *io = NULL;
         r = future_new_io(e, fd, events, &io);
         if (r < 0)
                 return r;
 
-        r = sd_fiber_await(io);
+        r = SD_AWAIT(sd_fiber_await(io));
         if (r < 0)
                 return r;
 
@@ -164,10 +166,10 @@ ssize_t sd_fiber_read(int fd, void *buf, size_t count) {
         struct io_uring_sqe sqe = {};
         io_uring_prep_read(&sqe, fd, buf, sqe_len(count), /* offset= */ UINT64_MAX);
 
-        return fiber_io_operation(fd, EPOLLIN, read_callback, &(ReadArgs) {
+        return SD_AWAIT(fiber_io_operation(fd, EPOLLIN, read_callback, &(ReadArgs) {
                 .buf = buf,
                 .count = count,
-        }, &sqe);
+        }, &sqe));
 }
 
 typedef struct WriteArgs {
@@ -190,10 +192,10 @@ ssize_t sd_fiber_write(int fd, const void *buf, size_t count) {
         struct io_uring_sqe sqe = {};
         io_uring_prep_write(&sqe, fd, buf, sqe_len(count), /* offset= */ UINT64_MAX);
 
-        return fiber_io_operation(fd, EPOLLOUT, write_callback, &(WriteArgs) {
+        return SD_AWAIT(fiber_io_operation(fd, EPOLLOUT, write_callback, &(WriteArgs) {
                 .buf = buf,
                 .count = count,
-        }, &sqe);
+        }, &sqe));
 }
 
 typedef struct ReadvArgs {
@@ -216,10 +218,10 @@ ssize_t sd_fiber_readv(int fd, const struct iovec *iov, int iovcnt) {
         struct io_uring_sqe sqe = {};
         io_uring_prep_readv(&sqe, fd, iov, iovcnt, /* offset= */ UINT64_MAX);
 
-        return fiber_io_operation(fd, EPOLLIN, readv_callback, &(ReadvArgs) {
+        return SD_AWAIT(fiber_io_operation(fd, EPOLLIN, readv_callback, &(ReadvArgs) {
                 .iov = iov,
                 .iovcnt = iovcnt,
-        }, &sqe);
+        }, &sqe));
 }
 
 typedef struct WritevArgs {
@@ -242,10 +244,10 @@ ssize_t sd_fiber_writev(int fd, const struct iovec *iov, int iovcnt) {
         struct io_uring_sqe sqe = {};
         io_uring_prep_writev(&sqe, fd, iov, iovcnt, /* offset= */ UINT64_MAX);
 
-        return fiber_io_operation(fd, EPOLLOUT, writev_callback, &(WritevArgs) {
+        return SD_AWAIT(fiber_io_operation(fd, EPOLLOUT, writev_callback, &(WritevArgs) {
                 .iov = iov,
                 .iovcnt = iovcnt,
-        }, &sqe);
+        }, &sqe));
 }
 
 typedef struct RecvArgs {
@@ -269,11 +271,11 @@ ssize_t sd_fiber_recv(int sockfd, void *buf, size_t len, int flags) {
         struct io_uring_sqe sqe = {};
         io_uring_prep_recv(&sqe, sockfd, buf, sqe_len(len), flags);
 
-        return fiber_io_operation(sockfd, EPOLLIN, recv_callback, &(RecvArgs) {
+        return SD_AWAIT(fiber_io_operation(sockfd, EPOLLIN, recv_callback, &(RecvArgs) {
                 .buf = buf,
                 .len = len,
                 .flags = flags,
-        }, &sqe);
+        }, &sqe));
 }
 
 typedef struct SendArgs {
@@ -299,11 +301,11 @@ ssize_t sd_fiber_send(int sockfd, const void *buf, size_t len, int flags) {
         struct io_uring_sqe sqe = {};
         io_uring_prep_send(&sqe, sockfd, buf, sqe_len(len), flags);
 
-        return fiber_io_operation(sockfd, EPOLLOUT, send_callback, &(SendArgs) {
+        return SD_AWAIT(fiber_io_operation(sockfd, EPOLLOUT, send_callback, &(SendArgs) {
                 .buf = buf,
                 .len = len,
                 .flags = flags,
-        }, &sqe);
+        }, &sqe));
 }
 
 int sd_fiber_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
@@ -313,7 +315,7 @@ int sd_fiber_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         assert_return(sockfd >= 0, -EBADF);
         assert_return(addr, -EINVAL);
 
-        if (!sd_fiber_is_running())
+        if (!fiber_can_suspend())
                 return RET_NERRNO(connect(sockfd, addr, addrlen));
 
         r = sd_fiber_interrupted();
@@ -327,7 +329,7 @@ int sd_fiber_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         io_uring_prep_connect(&sqe, sockfd, addr, addrlen);
 
         ssize_t n;
-        if (fiber_io_uring_run(e, &sqe, &n))
+        if (SD_AWAIT(fiber_io_uring_run(e, &sqe, &n)))
                 return (int) n;
 
         r = fd_nonblock(sockfd, /* nonblock= */ true);
@@ -340,12 +342,12 @@ int sd_fiber_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         if (r != -EINPROGRESS)
                 return r;
 
-        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *io = NULL;
+        _cleanup_await_(sd_future_cancel_wait_unrefp) sd_future *io = NULL;
         r = future_new_io(e, sockfd, EPOLLOUT, &io);
         if (r < 0)
                 return r;
 
-        r = sd_fiber_await(io);
+        r = SD_AWAIT(sd_fiber_await(io));
         if (r < 0)
                 return r;
 
@@ -375,10 +377,10 @@ ssize_t sd_fiber_recvmsg(int sockfd, struct msghdr *msg, int flags) {
         struct io_uring_sqe sqe = {};
         io_uring_prep_recvmsg(&sqe, sockfd, msg, flags);
 
-        return fiber_io_operation(sockfd, EPOLLIN, recvmsg_callback, &(RecvmsgArgs) {
+        return SD_AWAIT(fiber_io_operation(sockfd, EPOLLIN, recvmsg_callback, &(RecvmsgArgs) {
                 .msg = msg,
                 .flags = flags,
-        }, &sqe);
+        }, &sqe));
 }
 
 typedef struct SendmsgArgs {
@@ -402,10 +404,10 @@ ssize_t sd_fiber_sendmsg(int sockfd, const struct msghdr *msg, int flags) {
         struct io_uring_sqe sqe = {};
         io_uring_prep_sendmsg(&sqe, sockfd, msg, flags);
 
-        return fiber_io_operation(sockfd, EPOLLOUT, sendmsg_callback, &(SendmsgArgs) {
+        return SD_AWAIT(fiber_io_operation(sockfd, EPOLLOUT, sendmsg_callback, &(SendmsgArgs) {
                 .msg = msg,
                 .flags = flags,
-        }, &sqe);
+        }, &sqe));
 }
 
 ssize_t sd_fiber_recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr *src_addr, socklen_t *addrlen) {
@@ -428,10 +430,10 @@ ssize_t sd_fiber_recvfrom(int sockfd, void *buf, size_t len, int flags, struct s
         struct io_uring_sqe sqe = {};
         io_uring_prep_recvmsg(&sqe, sockfd, &msg, flags);
 
-        n = fiber_io_operation(sockfd, EPOLLIN, recvmsg_callback, &(RecvmsgArgs) {
+        n = SD_AWAIT(fiber_io_operation(sockfd, EPOLLIN, recvmsg_callback, &(RecvmsgArgs) {
                 .msg = &msg,
                 .flags = flags,
-        }, &sqe);
+        }, &sqe));
         if (n < 0)
                 return n;
 
@@ -456,10 +458,10 @@ ssize_t sd_fiber_sendto(int sockfd, const void *buf, size_t len, int flags, cons
         struct io_uring_sqe sqe = {};
         io_uring_prep_sendmsg(&sqe, sockfd, &msg, flags);
 
-        return fiber_io_operation(sockfd, EPOLLOUT, sendmsg_callback, &(SendmsgArgs) {
+        return SD_AWAIT(fiber_io_operation(sockfd, EPOLLOUT, sendmsg_callback, &(SendmsgArgs) {
                 .msg = &msg,
                 .flags = flags,
-        }, &sqe);
+        }, &sqe));
 }
 
 typedef struct AcceptArgs {
@@ -480,11 +482,11 @@ int sd_fiber_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen, int f
         struct io_uring_sqe sqe = {};
         io_uring_prep_accept(&sqe, sockfd, addr, addrlen, flags);
 
-        return fiber_io_operation(sockfd, EPOLLIN, accept_callback, &(AcceptArgs) {
+        return SD_AWAIT(fiber_io_operation(sockfd, EPOLLIN, accept_callback, &(AcceptArgs) {
                 .addr = addr,
                 .addrlen = addrlen,
                 .flags = flags,
-        }, &sqe);
+        }, &sqe));
 }
 
 int sd_fiber_ppoll(struct pollfd *fds, size_t n_fds, const struct timespec *timeout, const sigset_t *sigmask) {
@@ -492,7 +494,7 @@ int sd_fiber_ppoll(struct pollfd *fds, size_t n_fds, const struct timespec *time
 
         assert_return(fds || n_fds == 0, -EINVAL);
 
-        if (!sd_fiber_is_running())
+        if (!fiber_can_suspend())
                 return RET_NERRNO(ppoll(fds, n_fds, timeout, sigmask));
 
         r = sd_fiber_interrupted();
@@ -523,7 +525,7 @@ int sd_fiber_ppoll(struct pollfd *fds, size_t n_fds, const struct timespec *time
         /* Use a WAIT_ANY group: the first child (an fd readiness or the timer) to settle resolves
          * the group, which cancels its siblings on the spot. The user-supplied event mask is in
          * poll() bits (struct pollfd), so translate to epoll bits. */
-        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *group = NULL;
+        _cleanup_await_(sd_future_cancel_wait_unrefp) sd_future *group = NULL;
         r = sd_future_group_new(e, &group);
         if (r < 0)
                 return r;
@@ -568,7 +570,7 @@ int sd_fiber_ppoll(struct pollfd *fds, size_t n_fds, const struct timespec *time
                         return r;
         }
 
-        r = sd_fiber_await(group);
+        r = SD_AWAIT(sd_fiber_await(group));
         if (r < 0 && r != -ETIME)
                 return r;
         if (r >= 0) {

@@ -71,8 +71,8 @@ static inline bool wildcard_fd_is_valid(int fd) {
 }
 
 int close_nointr(int fd);
-int safe_close(int fd);
-void safe_close_pair(int p[static 2]);
+_sync_ int safe_close(int fd);
+_sync_ void safe_close_pair(int p[static 2]);
 
 static inline int safe_close_above_stdio(int fd) {
         if (fd < 3) /* Don't close stdin/stdout/stderr, but still invalidate the fd by returning -EBADF. */
@@ -86,12 +86,12 @@ static inline void* close_fd_ptr(void *p) {
         return NULL;
 }
 
-void close_many(const int fds[], size_t n_fds);
-void close_many_unset(int fds[], size_t n_fds);
+_sync_ void close_many(const int fds[], size_t n_fds);
+_sync_ void close_many_unset(int fds[], size_t n_fds);
 void close_many_and_free(int *fds, size_t n_fds);
 
 int fclose_nointr(FILE *f);
-FILE* safe_fclose(FILE *f);
+_sync_ FILE* safe_fclose(FILE *f);
 DIR* safe_closedir(DIR *d);
 
 static inline void closep(int *fd) {
@@ -115,21 +115,21 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(DIR*, closedir, NULL);
 #define _cleanup_closedir_ _cleanup_(closedirp)
 #define _cleanup_close_pair_ _cleanup_(close_pairp)
 
-int fd_nonblock(int fd, bool nonblock);
-int stdio_disable_nonblock(void);
+_sync_ int fd_nonblock(int fd, bool nonblock);
+_sync_ int stdio_disable_nonblock(void);
 
-void nonblock_resetp(int *fd);
+_sync_ void nonblock_resetp(int *fd);
 
-int fd_cloexec(int fd, bool cloexec);
-int fd_cloexec_many(const int fds[], size_t n_fds, bool cloexec);
+_sync_ int fd_cloexec(int fd, bool cloexec);
+_sync_ int fd_cloexec_many(const int fds[], size_t n_fds, bool cloexec);
 
 int get_max_fd(void);
 
-int close_all_fds(const int except[], size_t n_except);
-int close_all_fds_without_malloc(const int except[], size_t n_except);
+_sync_ int close_all_fds(const int except[], size_t n_except);
+_sync_ int close_all_fds_without_malloc(const int except[], size_t n_except);
 int close_all_fds_frugal(const int except[], size_t n_except);
 
-int pack_fds(int fds[], size_t n);
+_sync_ int pack_fds(int fds[], size_t n);
 
 int fd_validate(int fd);
 int same_fd(int a, int b);
@@ -137,13 +137,13 @@ int same_fd(int a, int b);
 bool fdname_is_valid(const char *s);
 bool fdname_glob_is_valid(const char *s);
 
-int fd_get_path(int fd, char **ret);
+_sync_ int fd_get_path(int fd, char **ret);
 
 int move_fd(int from, int to, int cloexec);
 
-int fd_move_above_stdio(int fd);
+_sync_ int fd_move_above_stdio(int fd);
 
-int rearrange_stdio(int original_input_fd, int original_output_fd, int original_error_fd);
+_sync_ int rearrange_stdio(int original_input_fd, int original_output_fd, int original_error_fd);
 
 static inline int make_null_stdio(void) {
         return rearrange_stdio(-EBADF, -EBADF, -EBADF);
@@ -161,11 +161,11 @@ static inline int make_null_stdio(void) {
                 0;                              \
         })
 
-int fd_reopen(int fd, int flags);
+_sync_ int fd_reopen(int fd, int flags);
 int fd_dup_or_reopen_stdio_nonblock(int fd, int mode);
 int fd_reopen_condition(int fd, int flags, int mask, int *ret_new_fd);
 
-int fd_is_opath(int fd);
+_sync_ int fd_is_opath(int fd);
 int fd_vet_accmode(int fd, int mode);
 int fd_is_writable(int fd);
 
@@ -174,10 +174,10 @@ static inline int fd_verify_safe_flags(int fd) {
         return fd_verify_safe_flags_full(fd, /* extra_flags= */ 0);
 }
 
-unsigned read_nr_open(void);
+_sync_ unsigned read_nr_open(void);
 int fd_get_diskseq(int fd, uint64_t *ret);
 
-int path_is_root_at(int dir_fd, const char *path);
+_sync_ int path_is_root_at(int dir_fd, const char *path);
 static inline int path_is_root(const char *path) {
         return path_is_root_at(AT_FDCWD, path);
 }
@@ -190,13 +190,13 @@ static inline int dir_fd_is_root_or_cwd(int dir_fd) {
 
 int fds_inode_and_mount_same(int fd1, int fd2);
 
-int resolve_xat_fdroot(int *fd, const char **path, char **ret_buffer);
+_sync_ int resolve_xat_fdroot(int *fd, const char **path, char **ret_buffer);
 
 /* The maximum length a buffer for a /proc/self/fd/<fd> path needs */
 #define PROC_FD_PATH_MAX \
         (STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int))
 
-char* format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int fd);
+_sync_ char* format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int fd);
 
 #define FORMAT_PROC_FD_PATH(fd) \
         format_proc_fd_path((char[PROC_FD_PATH_MAX]) {}, (fd))
@@ -211,7 +211,7 @@ char* format_proc_pid_fd_path(char buf[static PROC_PID_FD_PATH_MAX], pid_t pid, 
 #define FORMAT_PROC_PID_FD_PATH(pid, fd)                                \
         format_proc_pid_fd_path((char[PROC_PID_FD_PATH_MAX]) {}, (pid), (fd))
 
-int proc_fd_enoent_errno(void);
+_sync_ int proc_fd_enoent_errno(void);
 
 const char* accmode_to_string(int flags);
 

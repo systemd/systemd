@@ -159,7 +159,7 @@ int dns_packet_dup(DnsPacket **ret, DnsPacket *p);
 void dns_packet_set_flags(DnsPacket *p, bool dnssec_checking_disabled, bool truncated);
 
 DnsPacket *dns_packet_ref(DnsPacket *p);
-DnsPacket *dns_packet_unref(DnsPacket *p);
+_sync_ DnsPacket *dns_packet_unref(DnsPacket *p);
 void dns_packet_unref_array(DnsPacket **array, size_t n);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsPacket*, dns_packet_unref);
@@ -187,7 +187,7 @@ int dns_packet_append_raw_string(DnsPacket *p, const void *s, size_t size, size_
 int dns_packet_append_label(DnsPacket *p, const char *d, size_t l, bool canonical_candidate, size_t *start);
 int dns_packet_append_name(DnsPacket *p, const char *name, bool allow_compression, bool canonical_candidate, size_t *start);
 int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *key, DnsAnswerFlags flags, size_t *start);
-int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, DnsAnswerFlags flags, size_t *start, size_t *rdata_start);
+_sync_ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, DnsAnswerFlags flags, size_t *start, size_t *rdata_start);
 int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, bool include_rfc6975, const char *nsid, int rcode, size_t *ret_start);
 int dns_packet_append_question(DnsPacket *p, DnsQuestion *q);
 int dns_packet_append_answer(DnsPacket *p, DnsAnswer *a, unsigned *completed);

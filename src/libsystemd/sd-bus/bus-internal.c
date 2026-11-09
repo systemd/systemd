@@ -322,7 +322,7 @@ int bus_maybe_reply_error(sd_bus_message *m, int r, const sd_bus_error *e) {
 
         if (sd_bus_error_is_set(e) || r < 0) {
                 if (m->header->type == SD_BUS_MESSAGE_METHOD_CALL)
-                        sd_bus_reply_method_errno(m, r, e);
+                        SD_AWAIT(sd_bus_reply_method_errno(m, r, e));
         } else
                 return r;
 

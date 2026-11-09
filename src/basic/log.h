@@ -33,7 +33,7 @@ assert_cc(LOG_NULL == -1);
 
 /* The callback function to be invoked when syntax warnings are seen
  * in the unit files. */
-typedef void (*log_syntax_callback_t)(const char *unit, int level, void *userdata);
+typedef void (*log_syntax_callback_t)(const char *unit, int level, void *userdata) _sync_;
 void set_log_syntax_callback(log_syntax_callback_t cb, void *userdata);
 
 static inline void clear_log_syntax_callback(dummy_t *dummy) {
@@ -45,9 +45,9 @@ void log_set_target(LogTarget target);
 void log_set_target_and_open(LogTarget target);
 int log_set_target_from_string(const char *e);
 LogTarget log_get_target(void) _pure_;
-void log_settle_target(void);
+_sync_ void log_settle_target(void);
 
-int log_set_max_level(int level);
+_sync_ int log_set_max_level(int level);
 int log_set_max_level_from_string(const char *e);
 int log_get_max_level(void) _pure_;
 int log_get_target_max_level(LogTarget target);
@@ -76,15 +76,15 @@ int log_show_executable_from_string(const char *e);
  * environment should not be called from library code — this is always a job
  * for the application itself. */
 
-bool stderr_is_journal(void);
-int log_open(void);
-void log_close(void);
-void log_forget_fds(void);
+_sync_ bool stderr_is_journal(void);
+_sync_ int log_open(void);
+_sync_ void log_close(void);
+_sync_ void log_forget_fds(void);
 
 void log_parse_environment_variables(void);
-void log_parse_environment(void);
+_may_suspend_ void log_parse_environment(void);
 
-int log_dispatch_internal(
+_sync_ int log_dispatch_internal(
                 int level,
                 int error,
                 const char *file,
@@ -96,7 +96,7 @@ int log_dispatch_internal(
                 const char *extra,
                 char *buffer);
 
-int log_internal(
+_sync_ int log_internal(
                 int level,
                 int error,
                 const char *file,
@@ -104,7 +104,7 @@ int log_internal(
                 const char *func,
                 const char *format, ...) _printf_(6,7);
 
-int log_internalv(
+_sync_ int log_internalv(
                 int level,
                 int error,
                 const char *file,
@@ -138,7 +138,7 @@ int log_object_internal(
                 const char *extra,
                 const char *format, ...) _printf_(10,11);
 
-int log_struct_internal(
+_sync_ int log_struct_internal(
                 int level,
                 int error,
                 const char *file,
@@ -146,7 +146,7 @@ int log_struct_internal(
                 const char *func,
                 const char *format, ...) _sentinel_;
 
-int log_oom_internal(
+_sync_ int log_oom_internal(
                 int level,
                 const char *file,
                 int line,
@@ -324,7 +324,7 @@ void log_set_always_reopen_console(bool b);
 
 /* If turned on, we'll open the log stream implicitly if needed on each individual log call. This is normally not
  * desired as we want to reuse our logging streams. It is useful however  */
-void log_set_open_when_needed(bool b);
+_sync_ void log_set_open_when_needed(bool b);
 
 /* If turned on, then we'll never use IPC-based logging, i.e. never log to syslog or the journal. We'll only log to
  * stderr, the console or kmsg */
@@ -332,7 +332,7 @@ void log_set_prohibit_ipc(bool b);
 
 int log_dup_console(void);
 
-int log_syntax_internal(
+_sync_ int log_syntax_internal(
                 const char *unit,
                 int level,
                 const char *config_file,
@@ -353,7 +353,7 @@ int log_syntax_invalid_utf8_internal(
                 const char *func,
                 const char *rvalue);
 
-int log_syntax_parse_error_internal(
+_sync_ int log_syntax_parse_error_internal(
                 const char *unit,
                 const char *config_file,
                 unsigned config_line,
@@ -389,9 +389,9 @@ int log_syntax_parse_error_internal(
 
 #define DEBUG_LOGGING _unlikely_(log_get_max_level() >= LOG_DEBUG)
 
-void log_setup(void);
+_may_suspend_ void log_setup(void);
 
-const char* _log_set_prefix(const char *prefix, bool force);
+_sync_ const char* _log_set_prefix(const char *prefix, bool force);
 
 void log_prefix_swap(const char **prefix);
 static inline const char* _log_unset_prefixp(const char **p) {

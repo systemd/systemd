@@ -47,7 +47,7 @@ typedef enum Architecture {
         _ARCHITECTURE_INVALID = -EINVAL,
 } Architecture;
 
-Architecture uname_architecture(void);
+_sync_ Architecture uname_architecture(void);
 
 /*
  * LIB_ARCH_TUPLE should resolve to the local library path

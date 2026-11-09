@@ -470,7 +470,7 @@ int pidref_wait_for_terminate_full(PidRef *pidref, usec_t timeout, siginfo_t *re
         if (pidref->pid == 1 || pidref_is_self(pidref))
                 return -ECHILD;
 
-        if (pidref->fd < 0 && (timeout != USEC_INFINITY || fiber_ops_is_set()))
+        if (pidref->fd < 0 && (timeout != USEC_INFINITY || fiber_ops_can_suspend()))
                 return -ENOMEDIUM;
 
         usec_t ts = timeout == USEC_INFINITY ? USEC_INFINITY : usec_add(now(CLOCK_MONOTONIC), timeout);
@@ -479,7 +479,7 @@ int pidref_wait_for_terminate_full(PidRef *pidref, usec_t timeout, siginfo_t *re
          * we're on a fiber (so fd_wait_for_event() can suspend us instead of blocking the event loop
          * inside waitid()). Otherwise let waitid() block directly. The precondition above guarantees
          * pidref->fd >= 0 in both cases. */
-        bool poll_first = ts != USEC_INFINITY || fiber_ops_is_set();
+        bool poll_first = ts != USEC_INFINITY || fiber_ops_can_suspend();
 
         for (;;) {
                 if (poll_first) {
@@ -493,7 +493,7 @@ int pidref_wait_for_terminate_full(PidRef *pidref, usec_t timeout, siginfo_t *re
                                         return -ETIMEDOUT;
                         }
 
-                        r = fd_wait_for_event(pidref->fd, POLLIN, left);
+                        r = SD_AWAIT(fd_wait_for_event(pidref->fd, POLLIN, left));
                         if (r == 0)
                                 return -ETIMEDOUT;
                         if (r == -EINTR)

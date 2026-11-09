@@ -37,7 +37,7 @@ typedef enum ChattrApplyFlags {
         CHATTR_WARN_UNSUPPORTED_FLAGS = 1 << 1,
 } ChattrApplyFlags;
 
-int chattr_full(int dir_fd, const char *path, unsigned value, unsigned mask, unsigned *ret_previous, unsigned *ret_final, ChattrApplyFlags flags);
+_sync_ int chattr_full(int dir_fd, const char *path, unsigned value, unsigned mask, unsigned *ret_previous, unsigned *ret_final, ChattrApplyFlags flags);
 static inline int chattr_at(int dir_fd, const char *path, unsigned value, unsigned mask) {
         return chattr_full(dir_fd, path, value, mask, /* ret_previous= */ NULL, /* ret_final= */ NULL, /* flags= */ 0);
 }

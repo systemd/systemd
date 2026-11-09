@@ -5,6 +5,7 @@
 #include "sd-event.h"
 #include "sd-future.h"
 
+#include "await.h"
 #include "main-func.h"
 #include "tests.h"
 
@@ -53,11 +54,11 @@ TEST(result) {
         ASSERT_ERROR(run_main_fiber_checked(return_cancelled), ECANCELED);
 }
 
-static int nested_run(int argc, char *argv[]) {
+_may_suspend_ static int nested_run(int argc, char *argv[]) {
         assert_test_argv(argc, argv);
 
         /* Attaching another main fiber to the running loop would leave it behind once we return. */
-        ASSERT_ERROR(run_main_fiber(argc, argv, return_argc), EBUSY);
+        ASSERT_ERROR(SD_BLOCKING(run_main_fiber(argc, argv, return_argc)), EBUSY);
         return 0;
 }
 
@@ -67,13 +68,13 @@ TEST(nested) {
 
 static int signal_to_raise;
 
-static int raise_signal(int argc, char *argv[]) {
+_may_suspend_ static int raise_signal(int argc, char *argv[]) {
         assert_test_argv(argc, argv);
 
         ASSERT_OK(sd_event_set_signal_exit(sd_fiber_get_event(), true));
 
         ASSERT_OK_ERRNO(raise(signal_to_raise));
-        ASSERT_ERROR(sd_fiber_suspend(), ECANCELED);
+        ASSERT_ERROR(SD_AWAIT(sd_fiber_suspend()), ECANCELED);
         return -ECANCELED;
 }
 
@@ -96,7 +97,7 @@ static void mark_fiber_unwound(bool *marker) {
         fiber_unwound = true;
 }
 
-static int event_loop_error(int argc, char *argv[]) {
+_may_suspend_ static int event_loop_error(int argc, char *argv[]) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *defer = NULL;
         _unused_ _cleanup_(mark_fiber_unwound) bool unwind_marker = false;
 
@@ -104,7 +105,7 @@ static int event_loop_error(int argc, char *argv[]) {
 
         ASSERT_OK(sd_event_add_defer(sd_fiber_get_event(), &defer, fail_event, /* userdata= */ NULL));
         ASSERT_OK(sd_event_source_set_exit_on_failure(defer, true));
-        ASSERT_ERROR(sd_fiber_suspend(), ECANCELED);
+        ASSERT_ERROR(SD_AWAIT(sd_fiber_suspend()), ECANCELED);
         return -ECANCELED;
 }
 
@@ -115,11 +116,11 @@ TEST(event_loop_error) {
         ASSERT_TRUE(fiber_unwound);
 }
 
-static int exit_event(int argc, char *argv[]) {
+_may_suspend_ static int exit_event(int argc, char *argv[]) {
         assert_test_argv(argc, argv);
 
         ASSERT_OK(sd_event_exit(sd_fiber_get_event(), 23));
-        ASSERT_ERROR(sd_fiber_suspend(), ECANCELED);
+        ASSERT_ERROR(SD_AWAIT(sd_fiber_suspend()), ECANCELED);
         return -ECANCELED;
 }
 

@@ -9,14 +9,14 @@ typedef enum DNSLabelFlags {
         DNS_LABEL_LEAVE_TRAILING_DOT = 1 << 2, /* Leave trailing dot in place */
 } DNSLabelFlags;
 
-int dns_label_unescape(const char **name, char *dest, size_t sz, DNSLabelFlags flags);
+_sync_ int dns_label_unescape(const char **name, char *dest, size_t sz, DNSLabelFlags flags);
 int dns_label_unescape_suffix(const char *name, const char **label_terminal, char *dest, size_t sz);
 int dns_label_escape(const char *p, size_t l, char *dest, size_t sz);
 int dns_label_escape_new(const char *p, size_t l, char **ret);
 
 int dns_name_parent(const char **name);
 
-int dns_name_concat(const char *a, const char *b, DNSLabelFlags flags, char **ret);
+_sync_ int dns_name_concat(const char *a, const char *b, DNSLabelFlags flags, char **ret);
 
 static inline int dns_name_normalize(const char *s, DNSLabelFlags flags, char **ret) {
         /* dns_name_concat() normalizes as a side-effect */
@@ -46,13 +46,13 @@ static inline int dns_name_is_valid_ldh(const char *s) {
         return 1;
 }
 
-void dns_name_hash_func(const char *name, struct siphash *state);
-int dns_name_compare_func(const char *a, const char *b);
+_sync_ void dns_name_hash_func(const char *name, struct siphash *state);
+_sync_ int dns_name_compare_func(const char *a, const char *b);
 extern const struct hash_ops dns_name_hash_ops;
 extern const struct hash_ops dns_name_hash_ops_free;
 
 int dns_name_between(const char *a, const char *b, const char *c);
-int dns_name_equal(const char *x, const char *y);
+_sync_ int dns_name_equal(const char *x, const char *y);
 int dns_name_endswith(const char *name, const char *suffix);
 int dns_name_startswith(const char *name, const char *prefix);
 
@@ -61,7 +61,7 @@ int dns_name_change_suffix(const char *name, const char *old_suffix, const char 
 int dns_name_reverse(int family, const union in_addr_union *a, char **ret);
 int dns_name_address(const char *p, int *family, union in_addr_union *ret);
 
-bool dns_name_is_root(const char *name);
+_sync_ bool dns_name_is_root(const char *name);
 bool dns_name_is_single_label(const char *name);
 
 int dns_name_to_wire_format(const char *domain, uint8_t *buffer, size_t len, bool canonical);

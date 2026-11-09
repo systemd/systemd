@@ -10,14 +10,14 @@ int parse_tristate_full(const char *v, const char *third, int *ret);
 static inline int parse_tristate(const char *v, int *ret) {
         return parse_tristate_full(v, /* third= */ NULL, ret);
 }
-int parse_pid(const char *s, pid_t *ret);
+_sync_ int parse_pid(const char *s, pid_t *ret);
 int parse_mode(const char *s, mode_t *ret);
 int parse_ifindex(const char *s);
 int parse_mtu(int family, const char *s, uint32_t *ret);
 
 int parse_size(const char *t, uint64_t base, uint64_t *size);
 int parse_sector_size(const char *t, uint64_t *ret);
-int parse_range(const char *t, unsigned *lower, unsigned *upper);
+_sync_ int parse_range(const char *t, unsigned *lower, unsigned *upper);
 int parse_errno(const char *t);
 int parse_fd(const char *t);
 int parse_user_shell(const char *s, char **ret_sh, bool *ret_copy);
@@ -30,15 +30,15 @@ int parse_capability_set(const char *s, uint64_t initial, uint64_t *current);
 #define SAFE_ATO_ALL_FLAGS (SAFE_ATO_REFUSE_PLUS_MINUS|SAFE_ATO_REFUSE_LEADING_ZERO|SAFE_ATO_REFUSE_LEADING_WHITESPACE)
 #define SAFE_ATO_MASK_FLAGS(base) ((base) & ~SAFE_ATO_ALL_FLAGS)
 
-int safe_atou_full(const char *s, unsigned base, unsigned *ret_u);
+_sync_ int safe_atou_full(const char *s, unsigned base, unsigned *ret_u);
 static inline int safe_atou(const char *s, unsigned *ret_u) {
         return safe_atou_full(s, /* base= */ 0, ret_u);
 }
 
-int safe_atou_bounded(const char *s, unsigned min, unsigned max, unsigned *ret);
+_sync_ int safe_atou_bounded(const char *s, unsigned min, unsigned max, unsigned *ret);
 
-int safe_atoi(const char *s, int *ret_i);
-int safe_atolli(const char *s, long long *ret_lli);
+_sync_ int safe_atoi(const char *s, int *ret_i);
+_sync_ int safe_atolli(const char *s, long long *ret_lli);
 
 int safe_atou8_full(const char *s, unsigned base, uint8_t *ret);
 
@@ -72,7 +72,7 @@ static inline int safe_atoi32(const char *s, int32_t *ret_i) {
         return safe_atoi(s, (int*) ret_i);
 }
 
-int safe_atollu_full(const char *s, unsigned base, unsigned long long *ret_llu);
+_sync_ int safe_atollu_full(const char *s, unsigned base, unsigned long long *ret_llu);
 
 static inline int safe_atollu(const char *s, unsigned long long *ret_llu) {
         return safe_atollu_full(s, /* base= */ 0, ret_llu);
@@ -133,7 +133,7 @@ static inline int safe_atozu(const char *s, size_t *ret_u) {
 }
 #endif
 
-int safe_atod(const char *s, double *ret_d);
+_sync_ int safe_atod(const char *s, double *ret_d);
 
 int parse_fractional_part_u(const char **p, size_t digits, unsigned *res);
 
@@ -155,6 +155,6 @@ int parse_oom_score_adjust(const char *s, int *ret);
 /* Given a Linux load average (e.g. decimal number 34.89 where 34 is passed as i and 89 is passed as f), convert it
  * to a loadavg_t. */
 int store_loadavg_fixed_point(unsigned long i, unsigned long f, loadavg_t *ret);
-int parse_loadavg_fixed_point(const char *s, loadavg_t *ret);
+_sync_ int parse_loadavg_fixed_point(const char *s, loadavg_t *ret);
 
 bool nft_identifier_valid(const char *id);

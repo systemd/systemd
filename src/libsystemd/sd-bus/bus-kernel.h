@@ -20,5 +20,5 @@ struct memfd_cache {
         size_t allocated;
 };
 
-void close_and_munmap(int fd, void *address, size_t size);
-void bus_flush_memfd(sd_bus *bus);
+_sync_ void close_and_munmap(int fd, void *address, size_t size);
+_sync_ void bus_flush_memfd(sd_bus *bus);

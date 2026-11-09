@@ -13,18 +13,18 @@ static inline void* MODE_TO_PTR(mode_t m) {
         return m == MODE_INVALID ? NULL : (void *) ((uintptr_t) m + 1);
 }
 
-int rmdir_parents(const char *path, const char *stop);
+_sync_ int rmdir_parents(const char *path, const char *stop);
 
 int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);
 
-int readlinkat_malloc(int fd, const char *p, char **ret);
+_sync_ int readlinkat_malloc(int fd, const char *p, char **ret);
 static inline int readlink_malloc(const char *p, char **ret) {
         return readlinkat_malloc(AT_FDCWD, p, ret);
 }
 int readlink_value(const char *p, char **ret);
 int readlink_and_make_absolute(const char *p, char **ret);
 
-int chmod_and_chown_at(int dir_fd, const char *path, mode_t mode, uid_t uid, gid_t gid);
+_sync_ int chmod_and_chown_at(int dir_fd, const char *path, mode_t mode, uid_t uid, gid_t gid);
 static inline int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid) {
         return chmod_and_chown_at(AT_FDCWD, path, mode, uid, gid);
 }
@@ -41,12 +41,12 @@ int futimens_opath(int fd, const struct timespec ts[2]);
 int fd_warn_permissions(const char *path, int fd);
 int stat_warn_permissions(const char *path, const struct stat *st);
 
-int access_nofollow(const char *path, int mode);
-int access_fd(int fd, int mode);
+_sync_ int access_nofollow(const char *path, int mode);
+_sync_ int access_fd(int fd, int mode);
 
-int touch_fd(int fd, usec_t stamp);
-int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gid, mode_t mode);
-int touch(const char *path);
+_sync_ int touch_fd(int fd, usec_t stamp);
+_sync_ int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gid, mode_t mode);
+_sync_ int touch(const char *path);
 
 int symlinkat_idempotent(const char *target, int atfd, const char *linkpath, bool make_relative);
 static inline int symlink_idempotent(const char *target, const char *linkpath, bool make_relative) {
@@ -58,7 +58,7 @@ typedef enum SymlinkFlags {
         SYMLINK_LABEL         = 1 << 1,
 } SymlinkFlags;
 
-int symlinkat_atomic_full_label(const char *target, int atfd, const char *linkpath, SymlinkFlags flags, LabelContext *label_context);
+_sync_ int symlinkat_atomic_full_label(const char *target, int atfd, const char *linkpath, SymlinkFlags flags, LabelContext *label_context);
 static inline int symlinkat_atomic_full(const char *target, int atfd, const char *linkpath, SymlinkFlags flags) {
         return symlinkat_atomic_full_label(target, atfd, linkpath, flags, /* label_context= */ NULL);
 }
@@ -78,13 +78,13 @@ static inline int mkfifo_atomic(const char *path, mode_t mode) {
 
 int get_files_in_directory(const char *path, char ***list);
 
-int tmp_dir(const char **ret);
-int var_tmp_dir(const char **ret);
+_sync_ int tmp_dir(const char **ret);
+_sync_ int var_tmp_dir(const char **ret);
 
 int unlink_or_warn(const char *filename);
 
 /* Useful for usage with _cleanup_(), removes a directory and frees the pointer */
-char *rmdir_and_free(char *p);
+_sync_ char *rmdir_and_free(char *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, rmdir_and_free);
 
 char* unlink_and_free(char *p);
@@ -134,9 +134,9 @@ static inline int open_mkdir(const char *path, int flags, mode_t mode) {
         return open_mkdir_at_full(AT_FDCWD, path, flags, /* xopen_flags= */ 0, mode);
 }
 
-int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, bool *ret_newly_created);
+_sync_ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, bool *ret_newly_created);
 
-int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode, LabelContext *label_context);
+_sync_ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode, LabelContext *label_context);
 static inline int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode) {
         return xopenat_full_label(dir_fd, path, open_flags, xopen_flags, mode, /* label_context= */ NULL);
 }

@@ -19,14 +19,14 @@ typedef struct sd_dns_resolver {
         char *dohpath;
 } sd_dns_resolver;
 
-void siphash24_compress_resolver(const sd_dns_resolver *res, struct siphash *state);
+_sync_ void siphash24_compress_resolver(const sd_dns_resolver *res, struct siphash *state);
 
 int dns_resolver_transports_to_strv(sd_dns_alpn_flags transports, char ***ret);
 
 int dns_resolvers_to_dot_addrs(const sd_dns_resolver *resolvers, size_t n_resolvers,
                 struct in_addr_full ***ret_addrs, size_t *ret_n_addrs);
 
-int dns_resolver_prio_compare(const sd_dns_resolver *a, const sd_dns_resolver *b);
+_sync_ int dns_resolver_prio_compare(const sd_dns_resolver *a, const sd_dns_resolver *b);
 
 int dnr_parse_svc_params(const uint8_t *option, size_t len, sd_dns_resolver *resolver);
 

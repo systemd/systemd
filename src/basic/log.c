@@ -7,6 +7,7 @@
 #include <threads.h>
 #include <unistd.h>
 
+#include "await.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
@@ -804,7 +805,7 @@ int log_dispatch_internal(
                                        LOG_TARGET_JOURNAL_OR_KMSG,
                                        LOG_TARGET_JOURNAL)) {
 
-                        k = write_to_journal(level, error, file, line, func, object_field, object, extra_field, extra, buffer);
+                        k = SD_BLOCKING(write_to_journal(level, error, file, line, func, object_field, object, extra_field, extra, buffer));
                         if (k < 0 && k != -EAGAIN)
                                 log_close_journal();
                 }
@@ -812,7 +813,7 @@ int log_dispatch_internal(
                 if (IN_SET(log_target, LOG_TARGET_SYSLOG_OR_KMSG,
                                        LOG_TARGET_SYSLOG)) {
 
-                        k = write_to_syslog(level, error, file, line, func, buffer);
+                        k = SD_BLOCKING(write_to_syslog(level, error, file, line, func, buffer));
                         if (k < 0 && k != -EAGAIN)
                                 log_close_syslog();
                 }
@@ -826,7 +827,7 @@ int log_dispatch_internal(
                         if (k < 0)
                                 log_open_kmsg();
 
-                        k = write_to_kmsg(level, error, file, line, func, buffer);
+                        k = SD_BLOCKING(write_to_kmsg(level, error, file, line, func, buffer));
                         if (k < 0) {
                                 log_close_kmsg();
                                 (void) log_open_console();
@@ -834,7 +835,7 @@ int log_dispatch_internal(
                 }
 
                 if (k <= 0)
-                        (void) write_to_console(level, error, file, line, func, buffer);
+                        (void) SD_BLOCKING(write_to_console(level, error, file, line, func, buffer));
 
                 buffer = e;
         } while (buffer);
@@ -1401,7 +1402,7 @@ void log_parse_environment(void) {
         /* Do not call from library code. */
 
         if (should_parse_proc_cmdline())
-                (void) proc_cmdline_parse(parse_proc_cmdline_item, /* userdata= */ NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
+                (void) SD_AWAIT(proc_cmdline_parse(parse_proc_cmdline_item, /* userdata= */ NULL, PROC_CMDLINE_STRIP_RD_PREFIX));
 
         log_parse_environment_variables();
 }
@@ -1764,7 +1765,7 @@ int log_dup_console(void) {
 
 void log_setup(void) {
         log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
+        SD_AWAIT(log_parse_environment());
         (void) log_open();
         if (log_on_console() && show_color < 0)
                 log_show_color(true);

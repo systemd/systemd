@@ -8,6 +8,7 @@
 #include <threads.h>
 #include <unistd.h>
 
+#include "await.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-future.h"
@@ -24,6 +25,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "future-internal.h"
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
@@ -404,7 +406,7 @@ static bool event_source_timer_candidate(const sd_event_source *s) {
         return !s->pending || s->ratelimited;
 }
 
-static int time_prioq_compare(const void *a, const void *b, usec_t (*time_func)(const sd_event_source *s)) {
+static int time_prioq_compare(const void *a, const void *b, usec_t (*time_func)(const sd_event_source *s) _sync_) {
         const sd_event_source *x = a, *y = b;
         int r;
 
@@ -1278,7 +1280,7 @@ static sd_event_source* source_free(sd_event_source *s) {
                 s->child.pidfd = safe_close(s->child.pidfd);
 
         if (s->destroy_callback)
-                s->destroy_callback(s->userdata);
+                SD_BLOCKING(s->destroy_callback(s->userdata));
 
         free(s->description);
         return mfree(s);
@@ -3615,7 +3617,7 @@ static int event_source_leave_ratelimit(sd_event_source *s, bool run_callback) {
 
         if (run_callback && s->ratelimit_expire_callback) {
                 s->dispatching = true;
-                r = s->ratelimit_expire_callback(s, s->userdata);
+                r = SD_BLOCKING(s->ratelimit_expire_callback(s, s->userdata));
                 s->dispatching = false;
 
                 if (r < 0) {
@@ -4399,7 +4401,7 @@ static int source_dispatch(sd_event_source *s) {
         switch (s->type) {
 
         case SOURCE_IO:
-                r = s->io.callback(s, s->io.fd, s->io.revents, s->userdata);
+                r = SD_BLOCKING(s->io.callback(s, s->io.fd, s->io.revents, s->userdata));
                 break;
 
         case SOURCE_TIME_REALTIME:
@@ -4407,17 +4409,17 @@ static int source_dispatch(sd_event_source *s) {
         case SOURCE_TIME_MONOTONIC:
         case SOURCE_TIME_REALTIME_ALARM:
         case SOURCE_TIME_BOOTTIME_ALARM:
-                r = s->time.callback(s, s->time.next, s->userdata);
+                r = SD_BLOCKING(s->time.callback(s, s->time.next, s->userdata));
                 break;
 
         case SOURCE_SIGNAL:
-                r = s->signal.callback(s, &s->signal.siginfo, s->userdata);
+                r = SD_BLOCKING(s->signal.callback(s, &s->signal.siginfo, s->userdata));
                 break;
 
         case SOURCE_CHILD: {
                 bool zombie = SIGINFO_CODE_IS_DEAD(s->child.siginfo.si_code);
 
-                r = s->child.callback(s, &s->child.siginfo, s->userdata);
+                r = SD_BLOCKING(s->child.callback(s, &s->child.siginfo, s->userdata));
 
                 /* Now, reap the PID for good (unless WNOWAIT was specified by the caller). */
                 if (zombie) {
@@ -4430,15 +4432,15 @@ static int source_dispatch(sd_event_source *s) {
         }
 
         case SOURCE_DEFER:
-                r = s->defer.callback(s, s->userdata);
+                r = SD_BLOCKING(s->defer.callback(s, s->userdata));
                 break;
 
         case SOURCE_POST:
-                r = s->post.callback(s, s->userdata);
+                r = SD_BLOCKING(s->post.callback(s, s->userdata));
                 break;
 
         case SOURCE_EXIT:
-                r = s->exit.callback(s, s->userdata);
+                r = SD_BLOCKING(s->exit.callback(s, s->userdata));
                 break;
 
         case SOURCE_INOTIFY: {
@@ -4460,7 +4462,7 @@ static int source_dispatch(sd_event_source *s) {
                  * "busy" with a counter (which will ensure it's not GC'ed away prematurely). Let's then
                  * explicitly GC it after we are done dropping the inotify event from the buffer. */
                 d->n_busy++;
-                r = s->inotify.callback(s, &d->buffer.ev, s->userdata);
+                r = SD_BLOCKING(s->inotify.callback(s, &d->buffer.ev, s->userdata));
                 d->n_busy--;
 
                 /* When no event is pending anymore on this inotify object, then let's drop the event from
@@ -4476,7 +4478,7 @@ static int source_dispatch(sd_event_source *s) {
         case SOURCE_MEMORY_PRESSURE:
         case SOURCE_CPU_PRESSURE:
         case SOURCE_IO_PRESSURE:
-                r = s->pressure.callback(s, s->userdata);
+                r = SD_BLOCKING(s->pressure.callback(s, s->userdata));
                 break;
 
         case SOURCE_WATCHDOG:
@@ -4529,7 +4531,7 @@ static int event_prepare(sd_event *e) {
 
                 assert(s->prepare);
                 s->dispatching = true;
-                r = s->prepare(s, s->userdata);
+                r = SD_BLOCKING(s->prepare(s, s->userdata));
                 s->dispatching = false;
 
                 if (r < 0) {
@@ -5199,8 +5201,8 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
          * profile_delays accounting below is intentionally skipped on that path: the suspending variant
          * drives the event loop via sd_event_prepare()/sd_event_wait()/sd_event_dispatch() itself, which
          * are the same primitives profile_delays tracks when called directly. */
-        if (sd_fiber_is_running())
-                return event_run_suspend(e, timeout);
+        if (fiber_can_suspend())
+                return SD_AWAIT(event_run_suspend(e, timeout));
 
         if (e->profile_delays && e->last_run_usec != 0) {
                 usec_t this_run;
@@ -5252,7 +5254,7 @@ _public_ int sd_event_loop(sd_event *e) {
         PROTECT_EVENT(e);
 
         while (e->state != SD_EVENT_FINISHED) {
-                r = sd_event_run(e, UINT64_MAX);
+                r = SD_AWAIT(sd_event_run(e, UINT64_MAX));
                 if (r < 0)
                         return r;
         }

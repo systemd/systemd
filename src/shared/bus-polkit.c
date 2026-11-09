@@ -221,7 +221,7 @@ typedef struct AsyncPolkitQuery {
         sd_bus_error error;                                     /* the precise error, in case error_action is set */
 } AsyncPolkitQuery;
 
-static AsyncPolkitQuery* async_polkit_query_free(AsyncPolkitQuery *q) {
+_may_suspend_ static AsyncPolkitQuery* async_polkit_query_free(AsyncPolkitQuery *q) {
         if (!q)
                 return NULL;
 
@@ -237,7 +237,7 @@ static AsyncPolkitQuery* async_polkit_query_free(AsyncPolkitQuery *q) {
         sd_bus_message_unref(q->request);
 
         sd_bus_unref(q->bus);
-        sd_varlink_unref(q->link);
+        SD_AWAIT(sd_varlink_unref(q->link));
 
         async_polkit_query_action_free(q->action);
 
@@ -254,8 +254,9 @@ static AsyncPolkitQuery* async_polkit_query_free(AsyncPolkitQuery *q) {
         return mfree(q);
 }
 
+_may_suspend_ static AsyncPolkitQuery* async_polkit_query_unref(AsyncPolkitQuery *p);
 DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(AsyncPolkitQuery, async_polkit_query, async_polkit_query_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(AsyncPolkitQuery*, async_polkit_query_unref);
+_may_suspend_ DEFINE_TRIVIAL_CLEANUP_FUNC(AsyncPolkitQuery*, async_polkit_query_unref);
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 async_polkit_query_hash_ops,
@@ -896,7 +897,7 @@ int varlink_verify_polkit_async_full(
 #if ENABLE_POLKIT
         }
 
-        _cleanup_(async_polkit_query_unrefp) AsyncPolkitQuery *q = NULL;
+        _cleanup_await_(async_polkit_query_unrefp) AsyncPolkitQuery *q = NULL;
 
         q = async_polkit_query_ref(hashmap_get(*registry, link));
         /* This is a repeated invocation of this function, hence let's check if we've already got
@@ -926,7 +927,7 @@ int varlink_verify_polkit_async_full(
 
         _cleanup_(sd_bus_unrefp) sd_bus *mybus = NULL;
         if (!bus) {
-                r = sd_bus_open_system(&mybus);
+                r = SD_AWAIT(sd_bus_open_system(&mybus));
                 if (r < 0)
                         return r;
 
@@ -977,7 +978,7 @@ int varlink_verify_polkit_async_full(
                 q->registry = *registry;
         }
 
-        r = sd_bus_call_async(bus, &q->slot, pk, async_polkit_callback, q, /* usec= */ 0);
+        r = SD_AWAIT(sd_bus_call_async(bus, &q->slot, pk, async_polkit_callback, q, /* usec= */ 0));
         if (r < 0)
                 return r;
 
