@@ -30,16 +30,16 @@ typedef struct ConfFile {
         struct stat st;      /* stat of the file. */
 } ConfFile;
 
-ConfFile* conf_file_free(ConfFile *c);
+_sync_ ConfFile* conf_file_free(ConfFile *c);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ConfFile*, conf_file_free);
 void conf_file_free_array(ConfFile **array, size_t n);
 
 int conf_file_new_at(const char *path, const char *root, int rfd, ConfFilesFlags flags, ConfFile **ret);
-int conf_file_new(const char *path, const char *root, ConfFilesFlags flags, ConfFile **ret);
+_sync_ int conf_file_new(const char *path, const char *root, ConfFilesFlags flags, ConfFile **ret);
 
 int conf_files_list(char ***ret, const char *suffix, const char *root, ConfFilesFlags flags, const char *dir);
 int conf_files_list_at(char ***ret, const char *suffix, int rfd, ConfFilesFlags flags, const char *dir);
-int conf_files_list_strv(char ***ret, const char *suffix, const char *root, ConfFilesFlags flags, const char* const* dirs);
+_sync_ int conf_files_list_strv(char ***ret, const char *suffix, const char *root, ConfFilesFlags flags, const char* const* dirs);
 int conf_files_list_strv_at(char ***ret, const char *suffix, int rfd, ConfFilesFlags flags, const char * const *dirs);
 int conf_files_list_nulstr(char ***ret, const char *suffix, const char *root, ConfFilesFlags flags, const char *dirs);
 int conf_files_list_nulstr_at(char ***ret, const char *suffix, int rfd, ConfFilesFlags flags, const char *dirs);

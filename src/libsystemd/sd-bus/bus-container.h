@@ -3,6 +3,6 @@
 
 #include "forward.h"
 
-int container_get_leader(RuntimeScope scope, const char *machine, pid_t *ret);
+_sync_ int container_get_leader(RuntimeScope scope, const char *machine, pid_t *ret);
 
-int bus_container_connect_socket(sd_bus *b);
+_may_suspend_ int bus_container_connect_socket(sd_bus *b);

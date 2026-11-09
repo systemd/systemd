@@ -29,9 +29,9 @@ int parse_devnum(const char *s, dev_t *ret);
                 _x >= _y && _x <= DEVNUM_MINOR_MAX;                     \
         })
 
-int device_path_make_major_minor(mode_t mode, dev_t devnum, char **ret);
+_sync_ int device_path_make_major_minor(mode_t mode, dev_t devnum, char **ret);
 int device_path_make_inaccessible(mode_t mode, char **ret);
-int device_path_make_canonical(mode_t mode, dev_t devnum, char **ret);
+_sync_ int device_path_make_canonical(mode_t mode, dev_t devnum, char **ret);
 int device_path_parse_major_minor(const char *path, mode_t *ret_mode, dev_t *ret_devnum);
 
 static inline bool devnum_set_and_equal(dev_t a, dev_t b) {

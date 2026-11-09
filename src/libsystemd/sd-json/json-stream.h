@@ -50,7 +50,7 @@ typedef enum JsonStreamPhase {
  *                 consumed the revents, so the consumer can drive its state machine
  *                 forward. Should return 0 on success or a negative errno; the stream logs
  *                 the failure and continues running. */
-typedef JsonStreamPhase (*json_stream_phase_t)(void *userdata);
+typedef JsonStreamPhase (*json_stream_phase_t)(void *userdata) _sync_;
 typedef int (*json_stream_dispatch_t)(void *userdata);
 
 typedef struct JsonStreamParams {
@@ -123,13 +123,13 @@ typedef struct JsonStream {
         JsonStreamFlags flags;
 } JsonStream;
 
-int json_stream_init(JsonStream *s, const JsonStreamParams *params);
-void json_stream_done(JsonStream *s);
+_sync_ int json_stream_init(JsonStream *s, const JsonStreamParams *params);
+_sync_ void json_stream_done(JsonStream *s);
 
 /* Optional description used as the prefix for the stream's debug log lines (sent/received
  * messages, POLLHUP detection, async connect completion, etc.). The string is duped. */
-int json_stream_set_description(JsonStream *s, const char *description);
-const char* json_stream_get_description(const JsonStream *s);
+_sync_ int json_stream_set_description(JsonStream *s, const char *description);
+_sync_ const char* json_stream_get_description(const JsonStream *s);
 
 static inline const char* json_stream_description(const JsonStream *s) {
         return (s ? s->description : NULL) ?: "json-stream";
@@ -142,7 +142,7 @@ static inline const char* json_stream_description(const JsonStream *s) {
         log_debug_errno((error), "%s: " fmt, json_stream_description(s), ##__VA_ARGS__)
 
 /* fd ownership */
-int json_stream_attach_fds(JsonStream *s, int input_fd, int output_fd);
+_sync_ int json_stream_attach_fds(JsonStream *s, int input_fd, int output_fd);
 
 /* Open an AF_UNIX SOCK_STREAM socket and connect to the given filesystem path, attaching
  * the resulting fd to the stream. Handles paths too long for sockaddr_un by routing through
@@ -150,27 +150,27 @@ int json_stream_attach_fds(JsonStream *s, int input_fd, int output_fd);
  * connecting state is set so that the consumer waits for POLLOUT before treating the
  * connection as established. Returns 0 on success or successfully started async connect,
  * negative errno on failure. */
-int json_stream_connect_address(JsonStream *s, const char *address);
+_sync_ int json_stream_connect_address(JsonStream *s, const char *address);
 
 /* Adopt a pre-connected pair of fds, ensuring both are non-blocking. Equivalent to
  * json_stream_attach_fds() but does the fd_nonblock() dance up front, so the caller can
  * pass in fds without having to know whether they were already configured. */
-int json_stream_connect_fd_pair(JsonStream *s, int input_fd, int output_fd);
+_sync_ int json_stream_connect_fd_pair(JsonStream *s, int input_fd, int output_fd);
 
-bool json_stream_flags_set(const JsonStream *s, JsonStreamFlags flags);
-void json_stream_set_flags(JsonStream *s, JsonStreamFlags flags, bool b);
+_sync_ bool json_stream_flags_set(const JsonStream *s, JsonStreamFlags flags);
+_sync_ void json_stream_set_flags(JsonStream *s, JsonStreamFlags flags, bool b);
 
 /* Combines the transport-level disconnect signals (write/read disconnected, buffered
  * output, POLLHUP, async connect) with the consumer's current phase (queried via the
  * registered get_phase callback) to answer "should the consumer initiate teardown right
  * now?". The decision logic mirrors what the original varlink transport did but stays
  * generic enough for other JSON-line consumers. */
-bool json_stream_should_disconnect(const JsonStream *s);
+_sync_ bool json_stream_should_disconnect(const JsonStream *s);
 
 /* Enable/disable fd passing. These verify the underlying fd is an AF_UNIX socket and
  * (for input) optionally set SO_PASSRIGHTS. */
-int json_stream_set_allow_fd_passing_input(JsonStream *s, bool enabled, bool with_sockopt);
-int json_stream_set_allow_fd_passing_output(JsonStream *s, bool enabled);
+_sync_ int json_stream_set_allow_fd_passing_input(JsonStream *s, bool enabled, bool with_sockopt);
+_sync_ int json_stream_set_allow_fd_passing_output(JsonStream *s, bool enabled);
 
 /* Output: enqueue a JSON variant together with an optional set of file descriptors. Fast
  * path concatenates into the output buffer when fds is empty and the queue is empty; if fds
@@ -179,35 +179,35 @@ int json_stream_set_allow_fd_passing_output(JsonStream *s, bool enabled);
  * ownership of the fd values transfers to the queue item (the caller must free its array
  * without closing the fds). On failure, the fds remain untouched and the caller retains
  * ownership. */
-int json_stream_enqueue_full(JsonStream *s, sd_json_variant *m, const int fds[], size_t n_fds);
+_sync_ int json_stream_enqueue_full(JsonStream *s, sd_json_variant *m, const int fds[], size_t n_fds);
 
 static inline int json_stream_enqueue(JsonStream *s, sd_json_variant *m) {
         return json_stream_enqueue_full(s, m, /* fds= */ NULL, /* n_fds= */ 0);
 }
 
-int json_stream_peek_input_fd(const JsonStream *s, size_t i);
+_sync_ int json_stream_peek_input_fd(const JsonStream *s, size_t i);
 int json_stream_take_input_fd(JsonStream *s, size_t i);
-size_t json_stream_get_n_input_fds(const JsonStream *s);
+_sync_ size_t json_stream_get_n_input_fds(const JsonStream *s);
 
 /* Close and free all currently received input fds (used after consuming a message). */
-void json_stream_close_input_fds(JsonStream *s);
+_sync_ void json_stream_close_input_fds(JsonStream *s);
 
 /* I/O steps. Same return-value contract as the original varlink_{write,read,parse_message}:
  *   1 = made progress (call again),
  *   0 = nothing to do (wait for I/O),
  *  <0 = error. */
-int json_stream_write(JsonStream *s);
-int json_stream_read(JsonStream *s);
+_sync_ int json_stream_write(JsonStream *s);
+_sync_ int json_stream_read(JsonStream *s);
 
 /* Extract the next complete JSON message from the input buffer (delimited per
  * params.delimiter). Returns 1 with *ret set on success, 0 if no full message is
  * available yet (with *ret == NULL), <0 on parse error. The buffer slot occupied by the
  * parsed message is erased if input_sensitive was set. */
-int json_stream_parse(JsonStream *s, sd_json_variant **ret);
+_sync_ int json_stream_parse(JsonStream *s, sd_json_variant **ret);
 
 /* Status accessors used by the consumer's state machine. */
-bool json_stream_has_buffered_input(const JsonStream *s);
-int json_stream_has_buffered_output(const JsonStream *s);
+_sync_ bool json_stream_has_buffered_input(const JsonStream *s);
+_sync_ int json_stream_has_buffered_output(const JsonStream *s);
 
 /* Compute the poll events the consumer should wait for. The stream queries the consumer's
  * phase via the registered get_phase callback. In JSON_STREAM_PHASE_READING the stream asks
@@ -221,14 +221,14 @@ int json_stream_get_events(const JsonStream *s);
  *   1 = some event was observed (call us again),
  *   0 = timeout,
  *  <0 = error (negative errno from ppoll_usec). */
-int json_stream_wait(JsonStream *s, usec_t timeout);
+_may_suspend_ int json_stream_wait(JsonStream *s, usec_t timeout);
 
 /* Block until the output buffer is fully drained (or the write side disconnects).
  *   1 = some bytes were written during the flush,
  *   0 = nothing to flush,
  *  -ECONNRESET if the write side became disconnected before everything could be sent,
  *  <0 on other I/O errors. */
-int json_stream_flush(JsonStream *s);
+_may_suspend_ int json_stream_flush(JsonStream *s);
 
 /* Peer credential helpers. All refuse if the stream uses different input/output fds, since
  * peer credentials are only meaningful for a bidirectional socket.
@@ -240,12 +240,12 @@ int json_stream_flush(JsonStream *s);
  *     set_peer_ucred()) without triggering a kernel query — returns -ENODATA if nothing is
  *     cached. Used by consumers that want to react to a previously-known ucred without
  *     forcing a fresh query (e.g. teardown bookkeeping). */
-int json_stream_acquire_peer_uid(JsonStream *s, uid_t *ret);
-int json_stream_acquire_peer_gid(JsonStream *s, gid_t *ret);
-int json_stream_acquire_peer_pid(JsonStream *s, pid_t *ret);
-int json_stream_acquire_peer_pidfd(JsonStream *s);
-int json_stream_get_peer_ucred(const JsonStream *s, struct ucred *ret);
-void json_stream_set_peer_ucred(JsonStream *s, const struct ucred *ucred);
+_sync_ int json_stream_acquire_peer_uid(JsonStream *s, uid_t *ret);
+_sync_ int json_stream_acquire_peer_gid(JsonStream *s, gid_t *ret);
+_sync_ int json_stream_acquire_peer_pid(JsonStream *s, pid_t *ret);
+_sync_ int json_stream_acquire_peer_pidfd(JsonStream *s);
+_sync_ int json_stream_get_peer_ucred(const JsonStream *s, struct ucred *ret);
+_sync_ void json_stream_set_peer_ucred(JsonStream *s, const struct ucred *ucred);
 
 /* Per-operation idle timeout. The deadline is computed as last_activity + timeout.
  * Successful writes refresh last_activity automatically; the consumer should also call
@@ -255,18 +255,18 @@ void json_stream_set_peer_ucred(JsonStream *s, const struct ucred *ucred);
  * When the deadline elapses the time event source attached via json_stream_attach_event()
  * fires and the consumer's dispatch callback is invoked. The consumer detects the timeout
  * by comparing now(CLOCK_MONOTONIC) against json_stream_get_timeout(). */
-void json_stream_set_timeout(JsonStream *s, usec_t timeout);
-void json_stream_mark_activity(JsonStream *s);
+_sync_ void json_stream_set_timeout(JsonStream *s, usec_t timeout);
+_sync_ void json_stream_mark_activity(JsonStream *s);
 
 /* Returns the absolute deadline (in CLOCK_MONOTONIC microseconds) currently in force for
  * the consumer's phase, or USEC_INFINITY if no timeout applies (no timeout configured, no
  * activity yet, or the current phase isn't AWAITING_REPLY). */
-usec_t json_stream_get_timeout(const JsonStream *s);
+_sync_ usec_t json_stream_get_timeout(const JsonStream *s);
 
 /* sd-event integration. JsonStream owns the input/output io event sources and the time
  * event source for its idle timeout, and installs its own internal prepare and io callbacks
  * on them. The hooks (get_phase, io_dispatch) supplied via JsonStreamParams at construction
  * are wired up automatically. */
-int json_stream_attach_event(JsonStream *s, sd_event *event, int64_t priority);
-void json_stream_detach_event(JsonStream *s);
-sd_event* json_stream_get_event(const JsonStream *s);
+_sync_ int json_stream_attach_event(JsonStream *s, sd_event *event, int64_t priority);
+_sync_ void json_stream_detach_event(JsonStream *s);
+_sync_ sd_event* json_stream_get_event(const JsonStream *s);

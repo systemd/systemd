@@ -879,7 +879,7 @@ int pidref_has_sigblk(const PidRef *pidref, int sig) {
  * A warning is emitted if the process terminates abnormally,
  * and also if it returns non-zero unless check_exit_code is true.
  */
-int pidref_wait_for_terminate_and_check(const char *name, PidRef *pidref, WaitFlags flags) {
+_may_suspend_ int pidref_wait_for_terminate_and_check(const char *name, PidRef *pidref, WaitFlags flags) {
         int r;
 
         if (!pidref_is_set(pidref))
@@ -901,7 +901,7 @@ int pidref_wait_for_terminate_and_check(const char *name, PidRef *pidref, WaitFl
         int prio = flags & WAIT_LOG_ABNORMAL ? LOG_ERR : LOG_DEBUG;
 
         siginfo_t status;
-        r = pidref_wait_for_terminate(pidref, &status);
+        r = SD_AWAIT(pidref_wait_for_terminate(pidref, &status));
         if (r < 0)
                 return log_full_errno(prio, r, "Failed to wait for '%s': %m", strna(name));
 
@@ -1512,10 +1512,10 @@ int pidref_safe_fork_full(
                                         /* Wait for the intermediary child to exit so the caller can be
                                          * certain the actual child process has been reparented by the time
                                          * this function returns. */
-                                        r = pidref_wait_for_terminate_and_check(
+                                        r = SD_AWAIT(pidref_wait_for_terminate_and_check(
                                                         name,
                                                         &PIDREF_MAKE_FROM_PID(pid),
-                                                        FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
+                                                        FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0));
                                         if (r < 0)
                                                 return log_full_errno(prio, r, "Failed to wait for intermediary process: %m");
                                         if (r != EXIT_SUCCESS) /* exit status > 0 should be treated as failure, too */
@@ -1591,10 +1591,10 @@ int pidref_safe_fork_full(
                                 (void) sigprocmask(SIG_SETMASK, &ss, NULL);
                         }
 
-                        r = pidref_wait_for_terminate_and_check(
+                        r = SD_AWAIT(pidref_wait_for_terminate_and_check(
                                         name,
                                         &PIDREF_MAKE_FROM_PID(pid),
-                                        FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
+                                        FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0));
                         if (r < 0)
                                 return r;
                         if (r != EXIT_SUCCESS) /* exit status > 0 should be treated as failure, too */
@@ -1804,7 +1804,7 @@ int pidref_safe_fork_full(
         return 0;
 }
 
-int namespace_fork_full(
+_may_suspend_ int namespace_fork_full(
                 const char *outer_name,
                 const char *inner_name,
                 int except_fds[],
@@ -1818,7 +1818,7 @@ int namespace_fork_full(
                 NamespaceEnterFlags namespace_flags,
                 PidRef *ret) {
 
-        _cleanup_(pidref_done_sigkill_wait) PidRef pidref_outer = PIDREF_NULL;
+        _cleanup_await_(pidref_done_sigkill_wait) PidRef pidref_outer = PIDREF_NULL;
         _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
         int r, prio = FLAGS_SET(flags, FORK_LOG) ? LOG_ERR : LOG_DEBUG;
 
@@ -1840,15 +1840,15 @@ int namespace_fork_full(
         if (pipe2(errno_pipe_fd, O_CLOEXEC) < 0)
                 return log_full_errno(prio, errno, "Failed to create pipe: %m");
 
-        r = pidref_safe_fork_full(
+        r = SD_AWAIT(pidref_safe_fork_full(
                         outer_name,
                         /* stdio_fds= */ NULL, /* except_fds= */ NULL, /* n_except_fds= */ 0,
                         (flags|FORK_DEATHSIG_SIGKILL) & ~(FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_REOPEN_LOG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_NEW_USERNS|FORK_NEW_NETNS|FORK_NEW_PIDNS|FORK_CLOSE_ALL_FDS|FORK_PACK_FDS|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE),
-                        &pidref_outer);
+                        &pidref_outer));
         if (r == -EPROTO && FLAGS_SET(flags, FORK_WAIT)) {
                 errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-                int k = read_errno(errno_pipe_fd[0]);
+                int k = SD_AWAIT(read_errno(errno_pipe_fd[0]));
                 if (k < 0 && k != -EIO)
                         return k;
         }
@@ -1861,21 +1861,21 @@ int namespace_fork_full(
 
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
-                r = namespace_enter_full(pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd, namespace_flags);
+                r = SD_AWAIT(namespace_enter_full(pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd, namespace_flags));
                 if (r < 0) {
                         log_full_errno(prio, r, "Failed to join namespace: %m");
-                        report_errno_and_exit(errno_pipe_fd[1], r);
+                        SD_AWAIT(report_errno_and_exit(errno_pipe_fd[1], r));
                 }
 
                 /* We mask a few flags here that either make no sense for the grandchild, or that we don't have to do again */
-                r = pidref_safe_fork_full(
+                r = SD_AWAIT(pidref_safe_fork_full(
                                 inner_name,
                                 /* stdio_fds= */ NULL,
                                 except_fds, n_except_fds,
                                 flags & ~(FORK_WAIT|FORK_RESET_SIGNALS|FORK_REARRANGE_STDIO|FORK_FLUSH_STDIO|FORK_STDOUT_TO_STDERR),
-                                &pidref_inner);
+                                &pidref_inner));
                 if (r < 0)
-                        report_errno_and_exit(errno_pipe_fd[1], r);
+                        SD_AWAIT(report_errno_and_exit(errno_pipe_fd[1], r));
                 if (r == 0) {
                         /* Child */
 
@@ -1897,10 +1897,10 @@ int namespace_fork_full(
 
                 (void) close_all_fds(&pidref_inner.fd, 1);
 
-                r = pidref_wait_for_terminate_and_check(
+                r = SD_AWAIT(pidref_wait_for_terminate_and_check(
                                 inner_name,
                                 &pidref_inner,
-                                FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
+                                FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0));
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
@@ -1909,7 +1909,7 @@ int namespace_fork_full(
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-        r = read_errno(errno_pipe_fd[0]);
+        r = SD_AWAIT(read_errno(errno_pipe_fd[0]));
         if (r < 0)
                 return r; /* the child logs about failures on its own, no need to duplicate here */
 
@@ -1932,9 +1932,9 @@ int namespace_fork(
                 int root_fd,
                 PidRef *ret) {
 
-        return namespace_fork_full(outer_name, inner_name, /* except_fds= */ NULL, /* n_except_fds= */ 0, flags,
+        return SD_AWAIT(namespace_fork_full(outer_name, inner_name, /* except_fds= */ NULL, /* n_except_fds= */ 0, flags,
                                    pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd,
-                                   /* namespace_flags= */ 0, ret);
+                                   /* namespace_flags= */ 0, ret));
 }
 
 bool oom_score_adjust_is_valid(int oa) {
@@ -2363,7 +2363,7 @@ _noreturn_ void report_errno_and_exit(int errno_fd, int error) {
 
         assert(errno_fd >= 0);
 
-        r = loop_write(errno_fd, &error, sizeof(error));
+        r = SD_AWAIT(loop_write(errno_fd, &error, sizeof(error)));
         if (r < 0)
                 log_debug_errno(r, "Failed to write errno to errno_fd=%d: %m", errno_fd);
 
@@ -2378,7 +2378,7 @@ int read_errno(int errno_fd) {
         /* The issue here is that it's impossible to distinguish between an error code returned by child and
          * IO error arose when reading it. So, the function logs errors and return EIO for the later case. */
 
-        ssize_t n = loop_read(errno_fd, &r, sizeof(r), /* do_poll= */ false);
+        ssize_t n = SD_AWAIT(loop_read(errno_fd, &r, sizeof(r), /* do_poll= */ false));
         if (n < 0) {
                 log_debug_errno(n, "Failed to read errno: %m");
                 return -EIO;

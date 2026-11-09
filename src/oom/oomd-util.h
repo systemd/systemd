@@ -16,7 +16,7 @@ typedef struct OomdCGroupContext OomdCGroupContext;
 typedef struct OomdSystemContext OomdSystemContext;
 typedef struct Manager Manager;
 
-typedef int (oomd_compare_t)(OomdCGroupContext * const *, OomdCGroupContext * const *);
+typedef int (oomd_compare_t)(OomdCGroupContext * const *, OomdCGroupContext * const *) _sync_;
 
 struct OomdCGroupContext {
         unsigned n_ref;
@@ -72,7 +72,7 @@ bool oomd_mem_available_below(const OomdSystemContext *ctx, int threshold_permyr
 bool oomd_swap_free_below(const OomdSystemContext *ctx, int threshold_permyriad);
 
 /* Returns pgscan - last_pgscan, accounting for corner cases. */
-uint64_t oomd_pgscan_rate(const OomdCGroupContext *c);
+_sync_ uint64_t oomd_pgscan_rate(const OomdCGroupContext *c);
 
 /* The compare functions will sort from largest to smallest, putting all the contexts with "avoid" at the end
  * (after the smallest values). */

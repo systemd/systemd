@@ -22,9 +22,9 @@ struct context {
         bool server_anonymous_auth;
 };
 
-static int server(void *userdata) {
+_may_suspend_ static int server(void *userdata) {
         struct context *c = ASSERT_PTR(userdata);
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_await_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         sd_id128_t id;
         bool quit = false;
         int r;
@@ -37,17 +37,17 @@ static int server(void *userdata) {
         ASSERT_OK(sd_bus_set_server(bus, 1, id));
         ASSERT_OK(sd_bus_set_anonymous(bus, c->server_anonymous_auth));
         ASSERT_OK(sd_bus_negotiate_fds(bus, c->server_negotiate_unix_fds));
-        ASSERT_OK(sd_bus_start(bus));
+        ASSERT_OK(SD_AWAIT(sd_bus_start(bus)));
 
         while (!quit) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
 
-                r = sd_bus_process(bus, &m);
+                r = SD_AWAIT(sd_bus_process(bus, &m));
                 if (r < 0)
                         return log_error_errno(r, "Failed to process requests: %m");
 
                 if (r == 0) {
-                        ASSERT_OK(sd_bus_wait(bus, UINT64_MAX));
+                        ASSERT_OK(SD_AWAIT(sd_bus_wait(bus, UINT64_MAX)));
                         continue;
                 }
 
@@ -58,7 +58,7 @@ static int server(void *userdata) {
 
                 if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "Exit")) {
 
-                        ASSERT_EQ(sd_bus_can_send(bus, 'h') >= 1,
+                        ASSERT_EQ(SD_AWAIT(sd_bus_can_send(bus, 'h')) >= 1,
                                   c->server_negotiate_unix_fds && c->client_negotiate_unix_fds);
 
                         ASSERT_OK(sd_bus_message_new_method_return(m, &reply));
@@ -72,16 +72,16 @@ static int server(void *userdata) {
                                         &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method.")));
 
                 if (reply)
-                        ASSERT_OK(sd_bus_send(bus, reply, /* ret_cookie= */ NULL));
+                        ASSERT_OK(SD_AWAIT(sd_bus_send(bus, reply, /* ret_cookie= */ NULL)));
         }
 
         return 0;
 }
 
-static int client(void *userdata) {
+_may_suspend_ static int client(void *userdata) {
         struct context *c = ASSERT_PTR(userdata);
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_await_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
         ASSERT_OK(sd_bus_new(&bus));
@@ -90,7 +90,7 @@ static int client(void *userdata) {
         ASSERT_OK(sd_bus_attach_event(bus, sd_fiber_get_event(), /* priority= */ 0));
         ASSERT_OK(sd_bus_negotiate_fds(bus, c->client_negotiate_unix_fds));
         ASSERT_OK(sd_bus_set_anonymous(bus, c->client_anonymous_auth));
-        ASSERT_OK(sd_bus_start(bus));
+        ASSERT_OK(SD_AWAIT(sd_bus_start(bus)));
 
         ASSERT_OK(sd_bus_message_new_method_call(
                         bus,
@@ -100,7 +100,7 @@ static int client(void *userdata) {
                         "org.freedesktop.systemd.test",
                         "Exit"));
 
-        return sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
+        return SD_AWAIT(sd_bus_call(bus, m, /* usec= */ 0, &error, &reply));
 }
 
 static int test_one(bool client_negotiate_unix_fds, bool server_negotiate_unix_fds,

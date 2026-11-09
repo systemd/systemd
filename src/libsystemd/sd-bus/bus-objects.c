@@ -250,7 +250,7 @@ static int get_child_nodes(
         return 0;
 }
 
-static int node_callbacks_run(
+_may_suspend_ static int node_callbacks_run(
                 sd_bus *bus,
                 sd_bus_message *m,
                 BusNodeCallback *first,
@@ -294,7 +294,7 @@ static int node_callbacks_run(
                 bus->current_handler = NULL;
                 bus->current_slot = sd_bus_slot_unref(slot);
 
-                r = bus_maybe_reply_error(m, r, &error);
+                r = SD_AWAIT(bus_maybe_reply_error(m, r, &error));
                 if (r != 0)
                         return r;
         }
@@ -304,7 +304,7 @@ static int node_callbacks_run(
 
 #define CAPABILITY_SHIFT(x) (((x) >> __builtin_ctzll(_SD_BUS_VTABLE_CAPABILITY_MASK)) & 0xFFFF)
 
-static int check_access(sd_bus *bus, sd_bus_message *m, BusVTableMember *c, sd_bus_error *reterr_error) {
+_may_suspend_ static int check_access(sd_bus *bus, sd_bus_message *m, BusVTableMember *c, sd_bus_error *reterr_error) {
         uint64_t cap;
         int r;
 
@@ -331,7 +331,7 @@ static int check_access(sd_bus *bus, sd_bus_message *m, BusVTableMember *c, sd_b
         else
                 cap--;
 
-        r = sd_bus_query_sender_privilege(m, cap);
+        r = SD_AWAIT(sd_bus_query_sender_privilege(m, cap));
         if (r < 0)
                 return r;
         if (r > 0)
@@ -344,7 +344,7 @@ typedef struct BusFiberData {
         sd_bus *bus;
         sd_bus_message *message;
         sd_bus_slot *slot;
-        sd_bus_message_handler_t handler;
+        bus_fiber_message_handler_t handler;
         void *userdata;
 } BusFiberData;
 
@@ -383,7 +383,7 @@ static int bus_fiber_resolved(sd_future *f, void *userdata) {
         return 0;
 }
 
-static int bus_fiber_entry(void *userdata) {
+_may_suspend_ static int bus_fiber_entry(void *userdata) {
         BusFiberData *d = ASSERT_PTR(userdata);
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -396,12 +396,12 @@ static int bus_fiber_entry(void *userdata) {
          * that invariant. Fiber handlers receive their slot's userdata via the handler argument, so
          * sd_bus_get_current_slot()/handler()/userdata() simply aren't meaningful inside them — the
          * handler should use the message/userdata parameters directly instead. */
-        r = d->handler(d->message, d->userdata, &error);
+        r = SD_AWAIT(d->handler(d->message, d->userdata, &error));
 
-        return bus_maybe_reply_error(d->message, r, &error);
+        return SD_AWAIT(bus_maybe_reply_error(d->message, r, &error));
 }
 
-static int method_callbacks_run(
+_may_suspend_ static int method_callbacks_run(
                 sd_bus *bus,
                 sd_bus_message *m,
                 BusVTableMember *c,
@@ -427,13 +427,13 @@ static int method_callbacks_run(
                         return r;
         }
 
-        r = check_access(bus, m, c, &error);
+        r = SD_AWAIT(check_access(bus, m, c, &error));
         if (r < 0)
-                return bus_maybe_reply_error(m, r, &error);
+                return SD_AWAIT(bus_maybe_reply_error(m, r, &error));
 
         r = node_vtable_get_userdata(bus, m->path, c->parent, &u, &error);
         if (r <= 0)
-                return bus_maybe_reply_error(m, r, &error);
+                return SD_AWAIT(bus_maybe_reply_error(m, r, &error));
         if (bus->nodes_modified)
                 return 0;
 
@@ -455,11 +455,11 @@ static int method_callbacks_run(
                 return -EINVAL;
 
         if (!streq(strempty(c->vtable->x.method.signature), signature))
-                return sd_bus_reply_method_errorf(
+                return SD_AWAIT(sd_bus_reply_method_errorf(
                                 m,
                                 SD_BUS_ERROR_INVALID_ARGS,
                                 "Invalid arguments '%s' to call %s.%s(), expecting '%s'.",
-                                signature, c->interface, c->member, strempty(c->vtable->x.method.signature));
+                                signature, c->interface, c->member, strempty(c->vtable->x.method.signature)));
 
         /* Keep track what the signature of the reply to this message
          * should be, so that this can be enforced when sealing the
@@ -486,18 +486,21 @@ static int method_callbacks_run(
                                 .bus = sd_bus_ref(bus),
                                 .message = sd_bus_message_ref(m),
                                 .slot = sd_bus_slot_ref(slot),
-                                .handler = c->vtable->x.method.handler,
+                                /* SD_BUS_METHOD_FIBER() checked the handler, but the vtable stores it
+                                 * without its suspension contract. The suspension checker trusts a
+                                 * conversion from void*. */
+                                .handler = (bus_fiber_message_handler_t) (void*) c->vtable->x.method.handler,
                                 .userdata = u,
                         };
 
                         _cleanup_(sd_future_cancel_unrefp) sd_future *f = NULL;
                         r = sd_fiber_new(bus->event, c->member, bus_fiber_entry, d, &f);
                         if (r < 0)
-                                return bus_maybe_reply_error(m, r, NULL);
+                                return SD_AWAIT(bus_maybe_reply_error(m, r, NULL));
 
                         r = sd_fiber_set_destroy_callback(f, bus_fiber_data_destroy);
                         if (r < 0)
-                                return bus_maybe_reply_error(m, r, NULL);
+                                return SD_AWAIT(bus_maybe_reply_error(m, r, NULL));
 
                         /* The fiber now owns d via bus_fiber_data_destroy. Drop our cleanup before any
                          * further fallible calls, so a later failure unwinding f doesn't double-free d. */
@@ -505,7 +508,7 @@ static int method_callbacks_run(
 
                         r = set_ensure_put(&bus->fiber_futures, &bus_fiber_future_hash_ops, f);
                         if (r < 0)
-                                return bus_maybe_reply_error(m, r, NULL);
+                                return SD_AWAIT(bus_maybe_reply_error(m, r, NULL));
                         assert(r > 0);
 
                         /* Track the future on the bus so shutdown can cancel it and wait for it.
@@ -517,7 +520,7 @@ static int method_callbacks_run(
                                  * ref; set_remove() returns the raw pointer without firing the hash_ops
                                  * destructor, and the cleanup will unref f on return. */
                                 assert_se(set_remove(bus->fiber_futures, f) == f);
-                                return bus_maybe_reply_error(m, r, NULL);
+                                return SD_AWAIT(bus_maybe_reply_error(m, r, NULL));
                         }
 
                         TAKE_PTR(f);
@@ -532,11 +535,11 @@ static int method_callbacks_run(
                 bus->current_handler = NULL;
                 bus->current_slot = sd_bus_slot_unref(slot);
 
-                return bus_maybe_reply_error(m, r, &error);
+                return SD_AWAIT(bus_maybe_reply_error(m, r, &error));
         }
 
         /* If the method callback is NULL, make this a successful NOP */
-        r = sd_bus_reply_method_return(m, /* types= */ NULL);
+        r = SD_AWAIT(sd_bus_reply_method_return(m, /* types= */ NULL));
         if (r < 0)
                 return r;
 
@@ -679,7 +682,7 @@ static int invoke_property_set(
         return 1;
 }
 
-static int property_get_set_callbacks_run(
+_may_suspend_ static int property_get_set_callbacks_run(
                 sd_bus *bus,
                 sd_bus_message *m,
                 BusVTableMember *c,
@@ -709,7 +712,7 @@ static int property_get_set_callbacks_run(
 
         r = vtable_property_get_userdata(bus, m->path, c, &u, &error);
         if (r <= 0)
-                return bus_maybe_reply_error(m, r, &error);
+                return SD_AWAIT(bus_maybe_reply_error(m, r, &error));
         if (bus->nodes_modified)
                 return 0;
 
@@ -746,7 +749,7 @@ static int property_get_set_callbacks_run(
 
                 r = invoke_property_get(bus, slot, c->vtable, m->path, c->interface, c->member, reply, u, &error);
                 if (r < 0)
-                        return bus_maybe_reply_error(m, r, &error);
+                        return SD_AWAIT(bus_maybe_reply_error(m, r, &error));
 
                 if (bus->nodes_modified)
                         return 0;
@@ -760,7 +763,7 @@ static int property_get_set_callbacks_run(
                 char type = 0;
 
                 if (c->vtable->type != _SD_BUS_VTABLE_WRITABLE_PROPERTY)
-                        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_PROPERTY_READ_ONLY, "Property '%s' is not writable.", c->member);
+                        return SD_AWAIT(sd_bus_reply_method_errorf(m, SD_BUS_ERROR_PROPERTY_READ_ONLY, "Property '%s' is not writable.", c->member));
 
                 /* Avoid that we call the set routine more than once
                  * if the processing of this message got restarted
@@ -775,25 +778,25 @@ static int property_get_set_callbacks_run(
                         return r;
 
                 if (type != 'v')
-                        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_SIGNATURE,
+                        return SD_AWAIT(sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_SIGNATURE,
                                                           "Incorrect signature when setting property '%s', expected 'v', got '%c'.",
-                                                          c->member, type);
+                                                          c->member, type));
                 if (!streq(strempty(signature), strempty(c->vtable->x.property.signature)))
-                        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS,
+                        return SD_AWAIT(sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS,
                                                           "Incorrect parameters for property '%s', expected '%s', got '%s'.",
-                                                          c->member, strempty(c->vtable->x.property.signature), strempty(signature));
+                                                          c->member, strempty(c->vtable->x.property.signature), strempty(signature)));
 
                 r = sd_bus_message_enter_container(m, 'v', c->vtable->x.property.signature);
                 if (r < 0)
                         return r;
 
-                r = check_access(bus, m, c, &error);
+                r = SD_AWAIT(check_access(bus, m, c, &error));
                 if (r < 0)
-                        return bus_maybe_reply_error(m, r, &error);
+                        return SD_AWAIT(bus_maybe_reply_error(m, r, &error));
 
                 r = invoke_property_set(bus, slot, c->vtable, m->path, c->interface, c->member, m, u, &error);
                 if (r < 0)
-                        return bus_maybe_reply_error(m, r, &error);
+                        return SD_AWAIT(bus_maybe_reply_error(m, r, &error));
 
                 if (bus->nodes_modified)
                         return 0;
@@ -803,7 +806,7 @@ static int property_get_set_callbacks_run(
                         return r;
         }
 
-        r = sd_bus_send(bus, reply, /* ret_cookie= */ NULL);
+        r = SD_AWAIT(sd_bus_send(bus, reply, /* ret_cookie= */ NULL));
         if (r < 0)
                 return r;
 
@@ -914,7 +917,7 @@ static int vtable_append_all_properties(
         return 1;
 }
 
-static int property_get_all_callbacks_run(
+_may_suspend_ static int property_get_all_callbacks_run(
                 sd_bus *bus,
                 sd_bus_message *m,
                 BusNodeVTable *first,
@@ -952,7 +955,7 @@ static int property_get_all_callbacks_run(
 
                 r = node_vtable_get_userdata(bus, m->path, c, &u, &error);
                 if (r < 0)
-                        return bus_maybe_reply_error(m, r, &error);
+                        return SD_AWAIT(bus_maybe_reply_error(m, r, &error));
                 if (bus->nodes_modified)
                         return 0;
                 if (r == 0)
@@ -966,7 +969,7 @@ static int property_get_all_callbacks_run(
 
                 r = vtable_append_all_properties(bus, reply, m->path, c, u, &error);
                 if (r < 0)
-                        return bus_maybe_reply_error(m, r, &error);
+                        return SD_AWAIT(bus_maybe_reply_error(m, r, &error));
                 if (bus->nodes_modified)
                         return 0;
         }
@@ -975,10 +978,10 @@ static int property_get_all_callbacks_run(
                 return 0;
 
         if (!found_interface) {
-                r = sd_bus_reply_method_errorf(
+                r = SD_AWAIT(sd_bus_reply_method_errorf(
                                 m,
                                 SD_BUS_ERROR_UNKNOWN_INTERFACE,
-                                "Unknown interface '%s'.", iface);
+                                "Unknown interface '%s'.", iface));
                 if (r < 0)
                         return r;
 
@@ -989,7 +992,7 @@ static int property_get_all_callbacks_run(
         if (r < 0)
                 return r;
 
-        r = sd_bus_send(bus, reply, /* ret_cookie= */ NULL);
+        r = SD_AWAIT(sd_bus_send(bus, reply, /* ret_cookie= */ NULL));
         if (r < 0)
                 return r;
 
@@ -1120,7 +1123,7 @@ int introspect_path(
         return 1;
 }
 
-static int process_introspect(
+_may_suspend_ static int process_introspect(
                 sd_bus *bus,
                 sd_bus_message *m,
                 BusNode *n,
@@ -1139,7 +1142,7 @@ static int process_introspect(
 
         r = introspect_path(bus, m->path, n, require_fallback, /* ignore_nodes_modified= */ false, found_object, &s, &error);
         if (r < 0)
-                return bus_maybe_reply_error(m, r, &error);
+                return SD_AWAIT(bus_maybe_reply_error(m, r, &error));
         if (r == 0)
                 /* nodes_modified == true */
                 return 0;
@@ -1152,7 +1155,7 @@ static int process_introspect(
         if (r < 0)
                 return r;
 
-        r = sd_bus_send(bus, reply, /* ret_cookie= */ NULL);
+        r = SD_AWAIT(sd_bus_send(bus, reply, /* ret_cookie= */ NULL));
         if (r < 0)
                 return r;
 
@@ -1341,7 +1344,7 @@ static int object_manager_serialize_path_and_fallbacks(
         return 0;
 }
 
-static int process_get_managed_objects(
+_may_suspend_ static int process_get_managed_objects(
                 sd_bus *bus,
                 sd_bus_message *m,
                 BusNode *n,
@@ -1368,7 +1371,7 @@ static int process_get_managed_objects(
 
         r = get_child_nodes(bus, m->path, n, CHILDREN_RECURSIVE, &s, &error);
         if (r < 0)
-                return bus_maybe_reply_error(m, r, &error);
+                return SD_AWAIT(bus_maybe_reply_error(m, r, &error));
         if (bus->nodes_modified)
                 return 0;
 
@@ -1383,7 +1386,7 @@ static int process_get_managed_objects(
         ORDERED_SET_FOREACH(path, s) {
                 r = object_manager_serialize_path_and_fallbacks(bus, reply, path, &error);
                 if (r < 0)
-                        return bus_maybe_reply_error(m, r, &error);
+                        return SD_AWAIT(bus_maybe_reply_error(m, r, &error));
 
                 if (bus->nodes_modified)
                         return 0;
@@ -1393,14 +1396,14 @@ static int process_get_managed_objects(
         if (r < 0)
                 return r;
 
-        r = sd_bus_send(bus, reply, /* ret_cookie= */ NULL);
+        r = SD_AWAIT(sd_bus_send(bus, reply, /* ret_cookie= */ NULL));
         if (r < 0)
                 return r;
 
         return 1;
 }
 
-static int object_find_and_run(
+_may_suspend_ static int object_find_and_run(
                 sd_bus *bus,
                 sd_bus_message *m,
                 const char *p,
@@ -1421,7 +1424,7 @@ static int object_find_and_run(
                 return 0;
 
         /* First, try object callbacks */
-        r = node_callbacks_run(bus, m, n->callbacks, require_fallback, found_object);
+        r = SD_AWAIT(node_callbacks_run(bus, m, n->callbacks, require_fallback, found_object));
         if (r != 0)
                 return r;
         if (bus->nodes_modified)
@@ -1437,7 +1440,7 @@ static int object_find_and_run(
 
         v = set_get(bus->vtable_methods, &vtable_key);
         if (v) {
-                r = method_callbacks_run(bus, m, v, require_fallback, found_object);
+                r = SD_AWAIT(method_callbacks_run(bus, m, v, require_fallback, found_object));
                 if (r != 0)
                         return r;
                 if (bus->nodes_modified)
@@ -1460,11 +1463,11 @@ static int object_find_and_run(
 
                         r = sd_bus_message_read(m, "ss", &vtable_key.interface, &vtable_key.member);
                         if (r < 0)
-                                return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Expected interface and member parameters");
+                                return SD_AWAIT(sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Expected interface and member parameters"));
 
                         v = set_get(bus->vtable_properties, &vtable_key);
                         if (v) {
-                                r = property_get_set_callbacks_run(bus, m, v, require_fallback, get, found_object);
+                                r = SD_AWAIT(property_get_set_callbacks_run(bus, m, v, require_fallback, get, found_object));
                                 if (r != 0)
                                         return r;
                         }
@@ -1478,12 +1481,12 @@ static int object_find_and_run(
 
                         r = sd_bus_message_read(m, "s", &iface);
                         if (r < 0)
-                                return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Expected interface parameter");
+                                return SD_AWAIT(sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Expected interface parameter"));
 
                         if (iface[0] == 0)
                                 iface = NULL;
 
-                        r = property_get_all_callbacks_run(bus, m, n->vtables, require_fallback, iface, found_object);
+                        r = SD_AWAIT(property_get_all_callbacks_run(bus, m, n->vtables, require_fallback, iface, found_object));
                         if (r != 0)
                                 return r;
                 }
@@ -1491,18 +1494,18 @@ static int object_find_and_run(
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus.Introspectable", "Introspect")) {
 
                 if (!isempty(sd_bus_message_get_signature(m, /* complete= */ true)))
-                        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Expected no parameters");
+                        return SD_AWAIT(sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Expected no parameters"));
 
-                r = process_introspect(bus, m, n, require_fallback, found_object);
+                r = SD_AWAIT(process_introspect(bus, m, n, require_fallback, found_object));
                 if (r != 0)
                         return r;
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus.ObjectManager", "GetManagedObjects")) {
 
                 if (!isempty(sd_bus_message_get_signature(m, /* complete= */ true)))
-                        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Expected no parameters");
+                        return SD_AWAIT(sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Expected no parameters"));
 
-                r = process_get_managed_objects(bus, m, n, require_fallback, found_object);
+                r = SD_AWAIT(process_get_managed_objects(bus, m, n, require_fallback, found_object));
                 if (r != 0)
                         return r;
         }
@@ -1513,7 +1516,7 @@ static int object_find_and_run(
         if (!*found_object) {
                 r = bus_node_exists(bus, n, m->path, require_fallback);
                 if (r < 0)
-                        return bus_maybe_reply_error(m, r, NULL);
+                        return SD_AWAIT(bus_maybe_reply_error(m, r, NULL));
                 if (bus->nodes_modified)
                         return 0;
                 if (r > 0)
@@ -1557,7 +1560,7 @@ int bus_process_object(sd_bus *bus, sd_bus_message *m) {
         do {
                 bus->nodes_modified = false;
 
-                r = object_find_and_run(bus, m, m->path, /* require_fallback= */ false, &found_object);
+                r = SD_AWAIT(object_find_and_run(bus, m, m->path, /* require_fallback= */ false, &found_object));
                 if (r != 0)
                         return r;
 
@@ -1567,7 +1570,7 @@ int bus_process_object(sd_bus *bus, sd_bus_message *m) {
                         if (bus->nodes_modified)
                                 break;
 
-                        r = object_find_and_run(bus, m, prefix, /* require_fallback= */ true, &found_object);
+                        r = SD_AWAIT(object_find_and_run(bus, m, prefix, /* require_fallback= */ true, &found_object));
                         if (r != 0)
                                 return r;
                 }
@@ -1585,15 +1588,15 @@ int bus_process_object(sd_bus *bus, sd_bus_message *m) {
                 (void) sd_bus_message_read_basic(m, 's', &interface);
                 (void) sd_bus_message_read_basic(m, 's', &property);
 
-                r = sd_bus_reply_method_errorf(
+                r = SD_AWAIT(sd_bus_reply_method_errorf(
                                 m,
                                 SD_BUS_ERROR_UNKNOWN_PROPERTY,
-                                "Unknown interface %s or property %s.", strnull(interface), strnull(property));
+                                "Unknown interface %s or property %s.", strnull(interface), strnull(property)));
         } else
-                r = sd_bus_reply_method_errorf(
+                r = SD_AWAIT(sd_bus_reply_method_errorf(
                                 m,
                                 SD_BUS_ERROR_UNKNOWN_METHOD,
-                                "Unknown method %s or interface %s.", m->member, m->interface);
+                                "Unknown method %s or interface %s.", m->member, m->interface));
 
         if (r < 0)
                 return r;

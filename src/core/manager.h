@@ -695,7 +695,7 @@ void manager_status_printf(Manager *m, StatusType type, const char *status, cons
 
 Set* manager_get_units_needing_mounts_for(Manager *m, const char *path, UnitMountDependencyType t);
 
-ManagerState manager_state(Manager *m);
+_sync_ ManagerState manager_state(Manager *m);
 
 int manager_update_failed_units(Manager *m, Unit *u, bool failed);
 

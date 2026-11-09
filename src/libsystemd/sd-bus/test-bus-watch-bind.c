@@ -42,7 +42,7 @@ static const sd_bus_vtable vtable[] = {
         SD_BUS_VTABLE_END,
 };
 
-static int server(void *userdata) {
+_may_suspend_ static int server(void *userdata) {
         _cleanup_free_ char *suffixed = NULL, *suffixed_basename = NULL, *suffixed2 = NULL, *d = NULL;
         _cleanup_close_ int fd = -EBADF;
         union sockaddr_union u;
@@ -52,23 +52,23 @@ static int server(void *userdata) {
         log_debug("Initializing server");
 
         /* Let's play some games, by slowly creating the socket directory, and renaming it in the middle */
-        ASSERT_OK(sd_fiber_sleep(100 * USEC_PER_MSEC));
+        ASSERT_OK(SD_AWAIT(sd_fiber_sleep(100 * USEC_PER_MSEC)));
 
         ASSERT_OK(mkdir_parents(path, 0755));
-        ASSERT_OK(sd_fiber_sleep(100 * USEC_PER_MSEC));
+        ASSERT_OK(SD_AWAIT(sd_fiber_sleep(100 * USEC_PER_MSEC)));
 
         ASSERT_OK(path_extract_directory(path, &d));
         ASSERT_OK(asprintf(&suffixed, "%s.%" PRIx64, d, random_u64()));
         ASSERT_OK_ERRNO(rename(d, suffixed));
-        ASSERT_OK(sd_fiber_sleep(100 * USEC_PER_MSEC));
+        ASSERT_OK(SD_AWAIT(sd_fiber_sleep(100 * USEC_PER_MSEC)));
 
         ASSERT_OK(asprintf(&suffixed2, "%s.%" PRIx64, d, random_u64()));
         ASSERT_OK_ERRNO(symlink(suffixed2, d));
-        ASSERT_OK(sd_fiber_sleep(100 * USEC_PER_MSEC));
+        ASSERT_OK(SD_AWAIT(sd_fiber_sleep(100 * USEC_PER_MSEC)));
 
         ASSERT_OK(path_extract_filename(suffixed, &suffixed_basename));
         ASSERT_OK_ERRNO(symlink(suffixed_basename, suffixed2));
-        ASSERT_OK(sd_fiber_sleep(100 * USEC_PER_MSEC));
+        ASSERT_OK(SD_AWAIT(sd_fiber_sleep(100 * USEC_PER_MSEC)));
 
         socklen_t sa_len;
         r = sockaddr_un_set_path(&u.un, path);
@@ -79,18 +79,18 @@ static int server(void *userdata) {
         ASSERT_OK_ERRNO(fd);
 
         ASSERT_OK_ERRNO(bind(fd, &u.sa, sa_len));
-        ASSERT_OK(sd_fiber_sleep(100 * USEC_PER_MSEC));
+        ASSERT_OK(SD_AWAIT(sd_fiber_sleep(100 * USEC_PER_MSEC)));
 
         ASSERT_OK_ERRNO(listen(fd, SOMAXCONN_DELUXE));
-        ASSERT_OK(sd_fiber_sleep(100 * USEC_PER_MSEC));
+        ASSERT_OK(SD_AWAIT(sd_fiber_sleep(100 * USEC_PER_MSEC)));
 
         ASSERT_OK(touch(path));
-        ASSERT_OK(sd_fiber_sleep(100 * USEC_PER_MSEC));
+        ASSERT_OK(SD_AWAIT(sd_fiber_sleep(100 * USEC_PER_MSEC)));
 
         log_debug("Initialized server");
 
         for (;;) {
-                _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+                _cleanup_await_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
                 _cleanup_(sd_event_unrefp) sd_event *event = NULL;
                 sd_id128_t id;
                 int bus_fd, code;
@@ -99,7 +99,7 @@ static int server(void *userdata) {
 
                 ASSERT_OK(sd_event_new(&event));
 
-                ASSERT_OK(bus_fd = sd_fiber_accept(fd, /* addr= */ NULL, /* addrlen= */ NULL, SOCK_NONBLOCK|SOCK_CLOEXEC));
+                ASSERT_OK(bus_fd = SD_AWAIT(sd_fiber_accept(fd, /* addr= */ NULL, /* addrlen= */ NULL, SOCK_NONBLOCK|SOCK_CLOEXEC)));
 
                 log_debug("Accepted server connection");
 
@@ -114,9 +114,9 @@ static int server(void *userdata) {
 
                 ASSERT_OK(sd_bus_add_object_vtable(bus, /* ret_slot= */ NULL, "/foo", "foo.TestInterface", vtable, /* userdata= */ NULL));
 
-                ASSERT_OK(sd_bus_start(bus));
+                ASSERT_OK(SD_AWAIT(sd_bus_start(bus)));
 
-                ASSERT_OK(sd_event_loop(event));
+                ASSERT_OK(SD_AWAIT(sd_event_loop(event)));
 
                 ASSERT_OK(sd_event_get_exit_code(event, &code));
 
@@ -129,9 +129,9 @@ static int server(void *userdata) {
         return 0;
 }
 
-static int client1(void *userdata) {
+_may_suspend_ static int client1(void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_await_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *path = ASSERT_PTR(userdata), *t;
 
         log_debug("Initializing client1");
@@ -142,17 +142,17 @@ static int client1(void *userdata) {
         t = strjoina("unix:path=", path);
         ASSERT_OK(sd_bus_set_address(bus, t));
         ASSERT_OK(sd_bus_set_watch_bind(bus, true));
-        ASSERT_OK(sd_bus_start(bus));
+        ASSERT_OK(SD_AWAIT(sd_bus_start(bus)));
 
-        ASSERT_OK(sd_bus_call_method(bus, "foo.bar", "/foo", "foo.TestInterface", "Foobar", &error, /* ret_reply= */ NULL, /* types= */ NULL));
+        ASSERT_OK(SD_AWAIT(sd_bus_call_method(bus, "foo.bar", "/foo", "foo.TestInterface", "Foobar", &error, /* ret_reply= */ NULL, /* types= */ NULL)));
 
         log_debug("Client1 done");
 
         return 0;
 }
 
-static int client2(void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+_may_suspend_ static int client2(void *userdata) {
+        _cleanup_await_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *path = ASSERT_PTR(userdata), *t;
 
         log_debug("Initializing client2");
@@ -164,10 +164,10 @@ static int client2(void *userdata) {
         ASSERT_OK(sd_bus_set_address(bus, t));
         ASSERT_OK(sd_bus_set_watch_bind(bus, true));
         ASSERT_OK(sd_bus_attach_event(bus, sd_fiber_get_event(), /* priority= */ 0));
-        ASSERT_OK(sd_bus_start(bus));
+        ASSERT_OK(SD_AWAIT(sd_bus_start(bus)));
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        ASSERT_OK(sd_bus_call_method(bus, "foo.bar", "/foo", "foo.TestInterface", "Foobar", /* reterr_error= */ NULL, &m, /* types= */ NULL));
+        ASSERT_OK(SD_AWAIT(sd_bus_call_method(bus, "foo.bar", "/foo", "foo.TestInterface", "Foobar", /* reterr_error= */ NULL, &m, /* types= */ NULL)));
 
         ASSERT_OK_ZERO(sd_bus_message_is_method_error(m, /* name= */ NULL));
         log_debug("Client2 done");
@@ -181,14 +181,14 @@ typedef struct RequestExitArgs {
         sd_future *client2;
 } RequestExitArgs;
 
-static int request_exit(void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+_may_suspend_ static int request_exit(void *userdata) {
+        _cleanup_await_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         RequestExitArgs *args = ASSERT_PTR(userdata);
         const char *t;
 
         /* Wait for all client fibers to complete before requesting exit */
-        ASSERT_OK(sd_fiber_await(args->client1));
-        ASSERT_OK(sd_fiber_await(args->client2));
+        ASSERT_OK(SD_AWAIT(sd_fiber_await(args->client1)));
+        ASSERT_OK(SD_AWAIT(sd_fiber_await(args->client2)));
         ASSERT_OK(sd_future_result(args->client1));
         ASSERT_OK(sd_future_result(args->client2));
 
@@ -198,9 +198,9 @@ static int request_exit(void *userdata) {
         ASSERT_OK(sd_bus_set_address(bus, t));
         ASSERT_OK(sd_bus_set_watch_bind(bus, true));
         ASSERT_OK(sd_bus_set_description(bus, "request-exit"));
-        ASSERT_OK(sd_bus_start(bus));
+        ASSERT_OK(SD_AWAIT(sd_bus_start(bus)));
 
-        ASSERT_OK(sd_bus_call_method(bus, "foo.bar", "/foo", "foo.TestInterface", "Exit", /* reterr_error= */ NULL, /* ret_reply= */ NULL, /* types= */ NULL));
+        ASSERT_OK(SD_AWAIT(sd_bus_call_method(bus, "foo.bar", "/foo", "foo.TestInterface", "Exit", /* reterr_error= */ NULL, /* ret_reply= */ NULL, /* types= */ NULL)));
 
         return 0;
 }

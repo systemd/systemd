@@ -348,7 +348,7 @@ typedef struct CGroupRuntime {
         int deserialized_cgroup_realized; /* tristate, for backwards compat */
 } CGroupRuntime;
 
-uint64_t cgroup_context_cpu_weight(CGroupContext *c, ManagerState state);
+_sync_ uint64_t cgroup_context_cpu_weight(CGroupContext *c, ManagerState state);
 
 usec_t cgroup_cpu_adjust_period(usec_t period, usec_t quota, usec_t resolution, usec_t max_period);
 

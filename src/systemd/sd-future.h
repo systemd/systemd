@@ -34,17 +34,17 @@ typedef struct sd_event sd_event;
 typedef struct sd_future sd_future;
 typedef struct sd_future_ops sd_future_ops;
 typedef struct sd_future_slot sd_future_slot;
-typedef int (*sd_future_func_t)(sd_future *f, void *userdata);
-typedef int (*sd_fiber_func_t)(void *userdata);
+typedef int (*sd_future_func_t)(sd_future *f, void *userdata) _sd_sync_;
+typedef int (*sd_fiber_func_t)(void *userdata) _sd_may_suspend_;
 typedef _sd_destroy_t sd_fiber_destroy_t;
-typedef _sd_destroy_t sd_channel_destroy_t;
+typedef void (*sd_channel_destroy_t)(void *userdata) _sd_sync_;
 
 struct sd_future_ops {
         size_t size;
         size_t private_size;
-        void (*free)(sd_future *f);
-        int (*cancel)(sd_future *f);
-        int (*set_priority)(sd_future *f, int64_t priority);
+        void (*free)(sd_future *f) _sd_sync_;
+        int (*cancel)(sd_future *f) _sd_sync_;
+        int (*set_priority)(sd_future *f, int64_t priority) _sd_sync_;
 };
 
 __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_future_state_t) {
@@ -54,51 +54,54 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_future_state_t) {
 } sd_future_state_t;
 
 /* SD_EVENT_DEFAULT selects the calling thread's existing default event loop, or fails with -ENOPKG. */
-int sd_future_new(sd_event *e, const sd_future_ops *ops, sd_future **ret);
-int sd_future_cancel(sd_future *f);
+_sd_sync_ int sd_future_new(sd_event *e, const sd_future_ops *ops, sd_future **ret);
+_sd_sync_ int sd_future_cancel(sd_future *f);
 /* sd_future_resolve() only fails if f is NULL or already resolved. */
-int sd_future_resolve(sd_future *f, int result);
+_sd_sync_ int sd_future_resolve(sd_future *f, int result);
 
 /* A future must be RESOLVED before its last reference is released; dropping the last reference to a
  * PENDING future is a programming error that aborts the process. Use sd_future_cancel_unref() when
  * cancellation resolves synchronously, or sd_future_cancel_wait_unref() from a fiber when it must
  * wait for resolution. Plain sd_future_unref() does not cancel the future. */
-_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_future);
+_sd_sync_ _SD_DECLARE_TRIVIAL_REF_FUNC(sd_future);
+_sd_sync_ _SD_DECLARE_TRIVIAL_UNREF_FUNC(sd_future);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_future, sd_future_unref);
 void sd_future_unref_array_clear(sd_future *array[], size_t n);
 void sd_future_unref_array(sd_future *array[], size_t n);
 
-sd_future* sd_future_cancel_unref(sd_future *f);
+_sd_sync_ sd_future* sd_future_cancel_unref(sd_future *f);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_future, sd_future_cancel_unref);
 void sd_future_cancel_unref_array_clear(sd_future *array[], size_t n);
 void sd_future_cancel_unref_array(sd_future *array[], size_t n);
 
 /* Cancel and release the caller's reference after resolution. The target must not be the calling
  * fiber. Asynchronous cancellation must be awaited from a fiber on the same event loop. */
-sd_future* sd_future_cancel_wait_unref(sd_future *f);
-_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_future, sd_future_cancel_wait_unref);
-void sd_future_cancel_wait_unref_array_clear(sd_future *array[], size_t n);
-void sd_future_cancel_wait_unref_array(sd_future *array[], size_t n);
+_sd_suspend_ sd_future* sd_future_cancel_wait_unref(sd_future *f);
+_sd_may_suspend_ _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_future, sd_future_cancel_wait_unref);
+_sd_suspend_ void sd_future_cancel_wait_unref_array_clear(sd_future *array[], size_t n);
+_sd_suspend_ void sd_future_cancel_wait_unref_array(sd_future *array[], size_t n);
 
-int sd_future_state(sd_future *f);
-int sd_future_result(sd_future *f);
-void* sd_future_get_private(sd_future *f);
+_sd_sync_ int sd_future_state(sd_future *f);
+_sd_sync_ int sd_future_result(sd_future *f);
+_sd_sync_ void* sd_future_get_private(sd_future *f);
 /* sd_future_from_private() returns the future that p is the private data of. It is the inverse of
  * sd_future_get_private(). */
-sd_future* sd_future_from_private(void *p);
-const sd_future_ops* sd_future_get_ops(sd_future *f);
-sd_event* sd_future_get_event(sd_future *f);
+_sd_sync_ sd_future* sd_future_from_private(void *p);
+_sd_sync_ const sd_future_ops* sd_future_get_ops(sd_future *f);
+_sd_sync_ sd_event* sd_future_get_event(sd_future *f);
 
-int sd_future_add_callback(sd_future *f, sd_future_slot **ret_slot, sd_future_func_t callback, void *userdata);
+_sd_sync_ int sd_future_add_callback(sd_future *f, sd_future_slot **ret_slot, sd_future_func_t callback, void *userdata);
 
-int sd_future_new_defer(sd_event *e, int result, sd_future **ret);
+_sd_sync_ int sd_future_new_defer(sd_event *e, int result, sd_future **ret);
 
+_SD_SYNC_BEGIN
 _SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_future_slot);
+_SD_SYNC_END
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_future_slot, sd_future_slot_unref);
 
-sd_future* sd_future_slot_get_future(sd_future_slot *s);
+_sd_sync_ sd_future* sd_future_slot_get_future(sd_future_slot *s);
 
-int sd_future_set_priority(sd_future *f, int64_t priority);
+_sd_sync_ int sd_future_set_priority(sd_future *f, int64_t priority);
 
 /* The policy of a group selects the outcome of the group from the results of its children.
  * With WAIT_ALL, the first child error is the outcome. If every child succeeds, the outcome is 0.
@@ -129,45 +132,45 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_future_group_policy_t) {
 /* If the calling fiber runs on e, it becomes the parent of the group. Unless IGNORE_ERRORS is set, a
  * child error cancels the parent. The parent is not cancelled while it awaits the group with
  * sd_fiber_await(). Cancelling the group does not cancel the parent. */
-int sd_future_group_new(sd_event *e, sd_future **ret);
-int sd_future_group_set_policy(sd_future *f, uint64_t policy);
+_sd_sync_ int sd_future_group_new(sd_event *e, sd_future **ret);
+_sd_sync_ int sd_future_group_set_policy(sd_future *f, uint64_t policy);
 /* The group and all its children must belong to the same event loop. sd_future_group_add() takes a
  * new reference to the child and does not drop the reference of the caller. To give the group the only
  * reference, drop the reference of the caller with sd_future_unref(). A cleanup helper that cancels the
  * child would stop the child instead. The group can drop the last reference to a child before other
  * callbacks on the child have run. A floating callback on the child then never runs. Keep a reference
  * to the child to read its result or to rely on its other callbacks. */
-int sd_future_group_add(sd_future *f, sd_future *child);
-int sd_future_group_add_many_internal(sd_future *f, ...) _sd_sentinel_;
+_sd_sync_ int sd_future_group_add(sd_future *f, sd_future *child);
+_sd_sync_ int sd_future_group_add_many_internal(sd_future *f, ...) _sd_sentinel_;
 #define sd_future_group_add_many(f, ...) sd_future_group_add_many_internal(f, __VA_ARGS__, NULL)
 /* After sealing, adding a child fails with -ESTALE. A sealed group without pending children resolves
  * right away. If the group never had a child, it resolves with 0 under WAIT_ALL and with -ECHILD
  * under WAIT_ANY. An -ECHILD result does not cancel the parent fiber. */
-int sd_future_group_seal(sd_future *f);
+_sd_sync_ int sd_future_group_seal(sd_future *f);
 /* NULL is treated as an empty group. The size does not include children that the group released. */
-size_t sd_future_group_size(sd_future *f);
+_sd_sync_ size_t sd_future_group_size(sd_future *f);
 /* sd_future_group_spawn() creates a fiber on the event loop of the group and adds it to the group. If
  * ret is not NULL, it receives a new reference to the fiber, for example to set a destroy callback with
  * sd_fiber_set_destroy_callback(). Drop that reference with sd_future_unref(). */
-int sd_future_group_spawn(sd_future *g, const char *name, sd_fiber_func_t func, void *userdata, sd_future **ret);
+_sd_sync_ int sd_future_group_spawn(sd_future *g, const char *name, sd_fiber_func_t func, void *userdata, sd_future **ret);
 
-int sd_fiber_new(sd_event *e, const char *name, sd_fiber_func_t func, void *userdata, sd_future **ret);
-int sd_fiber_set_destroy_callback(sd_future *f, sd_fiber_destroy_t callback);
+_sd_sync_ int sd_fiber_new(sd_event *e, const char *name, sd_fiber_func_t func, void *userdata, sd_future **ret);
+_sd_sync_ int sd_fiber_set_destroy_callback(sd_future *f, sd_fiber_destroy_t callback);
 int sd_fiber_get_destroy_callback(sd_future *f, sd_fiber_destroy_t *ret);
 
-int sd_fiber_set_floating(sd_future *f, int b);
+_sd_sync_ int sd_fiber_set_floating(sd_future *f, int b);
 int sd_fiber_get_floating(sd_future *f);
 
-int sd_fiber_is_running(void);
-sd_future* sd_fiber_get_current(void);
-int sd_fiber_get_priority(int64_t *ret);
-sd_event* sd_fiber_get_event(void);
+_sd_sync_ int sd_fiber_is_running(void);
+_sd_sync_ sd_future* sd_fiber_get_current(void);
+_sd_sync_ int sd_fiber_get_priority(int64_t *ret);
+_sd_sync_ sd_event* sd_fiber_get_event(void);
 /* The future a fiber is suspended in sd_fiber_await() or sd_future_cancel_wait_unref() for, if any.
  * The pointer is borrowed and only valid until the fiber runs again. */
-sd_future* sd_fiber_get_awaiting(sd_future *f);
+_sd_sync_ sd_future* sd_fiber_get_awaiting(sd_future *f);
 
-int sd_fiber_yield(void);
-int sd_fiber_sleep(uint64_t usec);
+_sd_suspend_ int sd_fiber_yield(void);
+_sd_suspend_ int sd_fiber_sleep(uint64_t usec);
 /* Suspend until the target has resolved. Returns 0 once it has, and a negative error only if the wait
  * itself did not complete: the calling fiber was interrupted (-ECANCELED, -ETIME) or woken for an
  * unrelated reason (-EBUSY). An interrupted wait does not imply that the target has resolved. If the
@@ -178,21 +181,21 @@ int sd_fiber_sleep(uint64_t usec);
  * Resolving the target queues the waiting fiber in the same event loop iteration as the target's
  * callbacks. The fiber can therefore run before callbacks of the same priority that were added with
  * sd_future_add_callback(). */
-int sd_fiber_await(sd_future *target);
+_sd_suspend_ int sd_fiber_await(sd_future *target);
 /* sd_fiber_interrupted() returns a queued -ECANCELED or -ETIME and clears it, so that no later
  * suspension point returns it again. It returns 0 if no interruption is queued. Call it before starting
  * an operation that can complete without suspending. Otherwise a cancelled fiber never sees its
  * cancellation if none of its operations suspend. To report a cleared interruption later instead,
  * queue it again with sd_fiber_resume() on the current fiber. */
-int sd_fiber_interrupted(void);
-int sd_fiber_suspend(void);
-int sd_fiber_resume(sd_future *f, int result);
+_sd_sync_ int sd_fiber_interrupted(void);
+_sd_suspend_ int sd_fiber_suspend(void);
+_sd_sync_ int sd_fiber_resume(sd_future *f, int result);
 
-sd_future* sd_fiber_timeout(uint64_t timeout);
+_sd_sync_ sd_future* sd_fiber_timeout(uint64_t timeout);
 /* sd_fiber_timeout_unref() ends the scope of a timer from sd_fiber_timeout(). It has to release every such
  * timer, in the reverse order of their creation. A queued -ETIME is dropped at the end of the scope, unless
  * the timer of an enclosing scope expired. */
-sd_future* sd_fiber_timeout_unref(sd_future *timer);
+_sd_sync_ sd_future* sd_fiber_timeout_unref(sd_future *timer);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_future, sd_fiber_timeout_unref);
 
 #define SD_FIBER_TIMEOUT(timeout) _SD_FIBER_TIMEOUT(_SD_UNIQ, (timeout))
@@ -243,28 +246,30 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_channel_overflow_t) {
         _SD_ENUM_FORCE_S64(SD_CHANNEL_OVERFLOW)
 } sd_channel_overflow_t;
 
-int sd_channel_new(sd_event *e, size_t capacity, sd_channel_overflow_t overflow, sd_channel_destroy_t destroy, sd_channel **ret);
+_sd_sync_ int sd_channel_new(sd_event *e, size_t capacity, sd_channel_overflow_t overflow, sd_channel_destroy_t destroy, sd_channel **ret);
 
 /* sd_channel_new_conflated() creates a channel with capacity 1 and SD_CHANNEL_OVERFLOW_DROP_OLDEST.
  * A send never waits. The channel holds only the most recent item and destroys each item that a newer
  * one replaces. */
-int sd_channel_new_conflated(sd_event *e, sd_channel_destroy_t destroy, sd_channel **ret);
-int sd_channel_send(sd_channel *c, void *item, sd_future **ret);
+_sd_sync_ int sd_channel_new_conflated(sd_event *e, sd_channel_destroy_t destroy, sd_channel **ret);
+_sd_sync_ int sd_channel_send(sd_channel *c, void *item, sd_future **ret);
 int sd_channel_recv(sd_channel *c, sd_future **ret);
 /* sd_channel_recv_get() returns the future's result if that is negative, and 1 with the received item
  * otherwise. It fails with -EAGAIN if the buffer is empty when it is called, and with -EPIPE if the
  * channel is also closed. It fails with -ESTALE if the future was already read. As with
  * sd_future_result(), the future has to be resolved. */
 int sd_channel_recv_get(sd_future *f, void **ret);
-int sd_channel_try_push(sd_channel *c, void *item);
-int sd_channel_try_pop(sd_channel *c, void **ret);
-int sd_channel_push(sd_channel *c, void *item);
-int sd_channel_pop(sd_channel *c, void **ret);
+_sd_sync_ int sd_channel_try_push(sd_channel *c, void *item);
+_sd_sync_ int sd_channel_try_pop(sd_channel *c, void **ret);
+_sd_suspend_ int sd_channel_push(sd_channel *c, void *item);
+_sd_suspend_ int sd_channel_pop(sd_channel *c, void **ret);
 
-int sd_channel_close(sd_channel *c);
-int sd_channel_set_slot(sd_channel *c, void *slot, sd_channel_destroy_t destroy);
+_sd_sync_ int sd_channel_close(sd_channel *c);
+_sd_sync_ int sd_channel_set_slot(sd_channel *c, void *slot, sd_channel_destroy_t destroy);
 
+_SD_SYNC_BEGIN
 _SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_channel);
+_SD_SYNC_END
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_channel, sd_channel_unref);
 
 /* The sd_fiber_*() I/O functions suspend the calling fiber instead of blocking the thread. If the event loop
@@ -279,20 +284,20 @@ _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_channel, sd_channel_unref);
  * position like read() and write(). With io_uring, the kernel doesn't serialize the update of the file
  * position, unlike read() and write() on a regular file. Two fibers that do I/O on the same open file at the
  * same time can read or write at the same position. */
-ssize_t sd_fiber_read(int fd, void *buf, size_t count);
-ssize_t sd_fiber_write(int fd, const void *buf, size_t count);
-ssize_t sd_fiber_readv(int fd, const struct iovec *iov, int iovcnt);
-ssize_t sd_fiber_writev(int fd, const struct iovec *iov, int iovcnt);
-ssize_t sd_fiber_recv(int sockfd, void *buf, size_t len, int flags);
-ssize_t sd_fiber_send(int sockfd, const void *buf, size_t len, int flags);
-int sd_fiber_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
-ssize_t sd_fiber_recvmsg(int sockfd, struct msghdr *msg, int flags);
-ssize_t sd_fiber_sendmsg(int sockfd, const struct msghdr *msg, int flags);
-ssize_t sd_fiber_recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr *src_addr, socklen_t *addrlen);
-ssize_t sd_fiber_sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen);
-int sd_fiber_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags);
+_sd_may_suspend_ ssize_t sd_fiber_read(int fd, void *buf, size_t count);
+_sd_may_suspend_ ssize_t sd_fiber_write(int fd, const void *buf, size_t count);
+_sd_may_suspend_ ssize_t sd_fiber_readv(int fd, const struct iovec *iov, int iovcnt);
+_sd_may_suspend_ ssize_t sd_fiber_writev(int fd, const struct iovec *iov, int iovcnt);
+_sd_may_suspend_ ssize_t sd_fiber_recv(int sockfd, void *buf, size_t len, int flags);
+_sd_may_suspend_ ssize_t sd_fiber_send(int sockfd, const void *buf, size_t len, int flags);
+_sd_may_suspend_ int sd_fiber_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+_sd_may_suspend_ ssize_t sd_fiber_recvmsg(int sockfd, struct msghdr *msg, int flags);
+_sd_may_suspend_ ssize_t sd_fiber_sendmsg(int sockfd, const struct msghdr *msg, int flags);
+_sd_may_suspend_ ssize_t sd_fiber_recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr *src_addr, socklen_t *addrlen);
+_sd_may_suspend_ ssize_t sd_fiber_sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen);
+_sd_may_suspend_ int sd_fiber_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags);
 #ifndef __STRICT_ANSI__
-int sd_fiber_ppoll(struct pollfd *fds, size_t n_fds, const struct timespec *timeout, const sigset_t *sigmask);
+_sd_may_suspend_ int sd_fiber_ppoll(struct pollfd *fds, size_t n_fds, const struct timespec *timeout, const sigset_t *sigmask);
 #endif
 
 _SD_END_DECLARATIONS;

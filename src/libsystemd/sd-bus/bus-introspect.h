@@ -10,12 +10,12 @@ typedef struct BusIntrospect {
         bool trusted;
 } BusIntrospect;
 
-int introspect_begin(BusIntrospect *i, bool trusted);
-int introspect_write_default_interfaces(BusIntrospect *i, bool object_manager);
-int introspect_write_child_nodes(BusIntrospect *i, OrderedSet *s, const char *prefix);
-int introspect_write_interface(
+_sync_ int introspect_begin(BusIntrospect *i, bool trusted);
+_sync_ int introspect_write_default_interfaces(BusIntrospect *i, bool object_manager);
+_sync_ int introspect_write_child_nodes(BusIntrospect *i, OrderedSet *s, const char *prefix);
+_sync_ int introspect_write_interface(
                 BusIntrospect *i,
                 const char *interface_name,
                 const sd_bus_vtable *v);
-int introspect_finish(BusIntrospect *i, char **ret);
-void introspect_done(BusIntrospect *i);
+_sync_ int introspect_finish(BusIntrospect *i, char **ret);
+_sync_ void introspect_done(BusIntrospect *i);

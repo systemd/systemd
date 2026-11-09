@@ -251,8 +251,8 @@ int bus_check_peercred(sd_bus *bus) {
         return 1;
 }
 
-int bus_connect_system_systemd(sd_bus **ret) {
-        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
+_may_suspend_ int bus_connect_system_systemd(sd_bus **ret) {
+        _cleanup_await_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         assert(ret);
@@ -265,7 +265,7 @@ int bus_connect_system_systemd(sd_bus **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_start(bus);
+        r = SD_AWAIT(sd_bus_start(bus));
         if (r < 0)
                 return r;
 
@@ -277,8 +277,8 @@ int bus_connect_system_systemd(sd_bus **ret) {
         return 0;
 }
 
-int bus_connect_user_systemd(sd_bus **ret) {
-        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
+_may_suspend_ int bus_connect_user_systemd(sd_bus **ret) {
+        _cleanup_await_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *ee = NULL;
         const char *e;
         int r;
@@ -301,7 +301,7 @@ int bus_connect_user_systemd(sd_bus **ret) {
         if (!bus->address)
                 return -ENOMEM;
 
-        r = sd_bus_start(bus);
+        r = SD_AWAIT(sd_bus_start(bus));
         if (r < 0)
                 return r;
 
@@ -374,8 +374,8 @@ int bus_set_address_capsule_bus(sd_bus *bus, const char *capsule, int *ret_pin_f
         return bus_set_address_capsule(bus, capsule, "bus", ret_pin_fd);
 }
 
-int bus_connect_capsule_systemd(const char *capsule, sd_bus **ret) {
-        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
+_may_suspend_ int bus_connect_capsule_systemd(const char *capsule, sd_bus **ret) {
+        _cleanup_await_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         _cleanup_close_ int inode_fd = -EBADF;
         int r;
 
@@ -390,7 +390,7 @@ int bus_connect_capsule_systemd(const char *capsule, sd_bus **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_start(bus);
+        r = SD_AWAIT(sd_bus_start(bus));
         if (r < 0)
                 return r;
 
@@ -399,7 +399,7 @@ int bus_connect_capsule_systemd(const char *capsule, sd_bus **ret) {
 }
 
 int bus_connect_user_systemd_by_uid(uid_t uid, const char *description, sd_bus **ret) {
-        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_await_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         _cleanup_close_ int inode_fd = -EBADF;
         _cleanup_free_ char *p = NULL, *pp = NULL;
         struct stat st;
@@ -453,7 +453,7 @@ int bus_connect_user_systemd_by_uid(uid_t uid, const char *description, sd_bus *
         if (!bus->address)
                 return -ENOMEM;
 
-        r = sd_bus_start(bus);
+        r = SD_AWAIT(sd_bus_start(bus));
         if (r < 0)
                 return r;
 
@@ -472,8 +472,8 @@ int bus_connect_user_systemd_by_uid(uid_t uid, const char *description, sd_bus *
         return 0;
 }
 
-int bus_connect_capsule_bus(const char *capsule, sd_bus **ret) {
-        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
+_may_suspend_ int bus_connect_capsule_bus(const char *capsule, sd_bus **ret) {
+        _cleanup_await_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         _cleanup_close_ int inode_fd = -EBADF;
         int r;
 
@@ -492,7 +492,7 @@ int bus_connect_capsule_bus(const char *capsule, sd_bus **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_start(bus);
+        r = SD_AWAIT(sd_bus_start(bus));
         if (r < 0)
                 return r;
 
@@ -506,7 +506,7 @@ int bus_connect_transport(
                 RuntimeScope runtime_scope,
                 sd_bus **ret) {
 
-        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_await_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         assert(transport >= 0);
@@ -521,7 +521,7 @@ int bus_connect_transport(
                 switch (runtime_scope) {
 
                 case RUNTIME_SCOPE_USER:
-                        r = sd_bus_default_user(&bus);
+                        r = SD_AWAIT(sd_bus_default_user(&bus));
                         break;
 
                 case RUNTIME_SCOPE_SYSTEM:
@@ -530,7 +530,7 @@ int bus_connect_transport(
                                 return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
                                                        "System has not been booted with systemd as init system (PID 1). Can't operate.");
 
-                        r = sd_bus_default_system(&bus);
+                        r = SD_AWAIT(sd_bus_default_system(&bus));
                         break;
 
                 default:
@@ -541,18 +541,18 @@ int bus_connect_transport(
         case BUS_TRANSPORT_REMOTE:
                 assert_return(runtime_scope == RUNTIME_SCOPE_SYSTEM, -EOPNOTSUPP);
 
-                r = sd_bus_open_system_remote(&bus, host);
+                r = SD_AWAIT(sd_bus_open_system_remote(&bus, host));
                 break;
 
         case BUS_TRANSPORT_MACHINE:
                 switch (runtime_scope) {
 
                 case RUNTIME_SCOPE_USER:
-                        r = sd_bus_open_user_machine(&bus, host);
+                        r = SD_AWAIT(sd_bus_open_user_machine(&bus, host));
                         break;
 
                 case RUNTIME_SCOPE_SYSTEM:
-                        r = sd_bus_open_system_machine(&bus, host);
+                        r = SD_AWAIT(sd_bus_open_system_machine(&bus, host));
                         break;
 
                 default:
@@ -564,7 +564,7 @@ int bus_connect_transport(
         case BUS_TRANSPORT_CAPSULE:
                 assert_return(runtime_scope == RUNTIME_SCOPE_USER, -EINVAL);
 
-                r = bus_connect_capsule_bus(host, &bus);
+                r = SD_AWAIT(bus_connect_capsule_bus(host, &bus));
                 break;
 
         default:
@@ -601,14 +601,14 @@ int bus_connect_transport_systemd(
                 switch (runtime_scope) {
 
                 case RUNTIME_SCOPE_USER:
-                        r = bus_connect_user_systemd(ret);
+                        r = SD_AWAIT(bus_connect_user_systemd(ret));
                         /* We used to always fall back to the user session bus if we couldn't connect to the
                          * private manager bus. To keep compat with existing code that was setting
                          * DBUS_SESSION_BUS_ADDRESS without setting XDG_RUNTIME_DIR, connect to the user
                          * session bus if DBUS_SESSION_BUS_ADDRESS is set and XDG_RUNTIME_DIR isn't. */
                         if (r == -ENOMEDIUM && secure_getenv("DBUS_SESSION_BUS_ADDRESS")) {
                                 log_debug_errno(r, "$XDG_RUNTIME_DIR not set, unable to connect to private bus. Falling back to session bus.");
-                                r = sd_bus_default_user(ret);
+                                r = SD_AWAIT(sd_bus_default_user(ret));
                         }
 
                         return r;
@@ -622,9 +622,9 @@ int bus_connect_transport_systemd(
                         /* If we are root then let's talk directly to the system instance, instead of
                          * going via the bus. */
                         if (geteuid() == 0)
-                                return bus_connect_system_systemd(ret);
+                                return SD_AWAIT(bus_connect_system_systemd(ret));
 
-                        return sd_bus_default_system(ret);
+                        return SD_AWAIT(sd_bus_default_system(ret));
 
                 default:
                         assert_not_reached();
@@ -634,15 +634,15 @@ int bus_connect_transport_systemd(
 
         case BUS_TRANSPORT_REMOTE:
                 assert_return(runtime_scope == RUNTIME_SCOPE_SYSTEM, -EOPNOTSUPP);
-                return sd_bus_open_system_remote(ret, host);
+                return SD_AWAIT(sd_bus_open_system_remote(ret, host));
 
         case BUS_TRANSPORT_MACHINE:
                 assert_return(runtime_scope == RUNTIME_SCOPE_SYSTEM, -EOPNOTSUPP);
-                return sd_bus_open_system_machine(ret, host);
+                return SD_AWAIT(sd_bus_open_system_machine(ret, host));
 
         case BUS_TRANSPORT_CAPSULE:
                 assert_return(runtime_scope == RUNTIME_SCOPE_USER, -EINVAL);
-                return bus_connect_capsule_systemd(host, ret);
+                return SD_AWAIT(bus_connect_capsule_systemd(host, ret));
 
         default:
                 assert_not_reached();

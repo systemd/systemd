@@ -37,7 +37,7 @@ typedef enum DependencyEntryType {
         _DEPENDENCY_ENTRY_TYPE_ERRNO_MAX = -ERRNO_MAX,
 } DependencyEntryType;
 
-DependencyEntryType unit_file_classify_dependency_entry(
+_sync_ DependencyEntryType unit_file_classify_dependency_entry(
                 const char *path,
                 const char *root,
                 char **ret_name);
@@ -51,7 +51,7 @@ int unit_file_find_dropin_paths(
                 const char *name,
                 const Set *aliases,
                 char ***ret);
-int unit_file_find_dropin_entry(
+_sync_ int unit_file_find_dropin_entry(
                 const char *original_root,
                 char **lookup_path,
                 const char *dir_suffix,

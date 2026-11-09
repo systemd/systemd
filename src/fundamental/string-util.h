@@ -129,7 +129,7 @@ static inline const sd_char* comparison_operator(int result) {
         return result < 0 ? STR_C("<") : result > 0 ? STR_C(">") : STR_C("==");
 }
 
-int strverscmp_improved(const sd_char *a, const sd_char *b);
+_sync_ int strverscmp_improved(const sd_char *a, const sd_char *b);
 
 /* Like startswith(), but operates on arbitrary memory blocks */
 static inline void *memory_startswith(const void *p, size_t sz, const sd_char *token) {

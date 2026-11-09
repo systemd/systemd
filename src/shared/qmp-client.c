@@ -498,13 +498,13 @@ finish:
         return r;
 }
 
-int qmp_client_wait(QmpClient *c, uint64_t timeout_usec) {
+_may_suspend_ int qmp_client_wait(QmpClient *c, uint64_t timeout_usec) {
         assert(c);
 
         if (c->state == QMP_CLIENT_DISCONNECTED)
                 return -ENOTCONN;
 
-        return json_stream_wait(&c->stream, timeout_usec);
+        return SD_AWAIT(json_stream_wait(&c->stream, timeout_usec));
 }
 
 bool qmp_client_is_idle(QmpClient *c) {
@@ -958,7 +958,7 @@ int future_get_qmp_reply(sd_future *f, sd_json_variant **ret_result, char **rete
         return 1;
 }
 
-static int qmp_client_call_suspend(
+_may_suspend_ static int qmp_client_call_suspend(
                 QmpClient *c,
                 const char *command,
                 QmpClientArgs *args,
@@ -971,12 +971,12 @@ static int qmp_client_call_suspend(
         assert(command);
         assert(sd_fiber_is_running());
 
-        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *call = NULL;
+        _cleanup_await_(sd_future_cancel_wait_unrefp) sd_future *call = NULL;
         r = qmp_client_call_future(c, command, args, &call);
         if (r < 0)
                 return r;
 
-        r = sd_fiber_await(call);
+        r = SD_AWAIT(sd_fiber_await(call));
         if (r < 0)
                 return r;
 
@@ -1003,7 +1003,7 @@ int qmp_client_call(
          * multiple concurrent qmp_client_call() invocations across fibers don't deadlock each other
          * on the process+wait pump. */
         if (fiber_can_suspend() && qmp_client_get_event(c) == sd_fiber_get_event())
-                return qmp_client_call_suspend(c, command, args, ret_result, reterr_error_desc);
+                return SD_AWAIT(qmp_client_call_suspend(c, command, args, ret_result, reterr_error_desc));
 
         _cleanup_(qmp_slot_unrefp) QmpSlot *slot = NULL;
 
@@ -1031,7 +1031,7 @@ int qmp_client_call(
                 if (r > 0)
                         continue;
 
-                r = qmp_client_wait(c, USEC_INFINITY);
+                r = SD_AWAIT(qmp_client_wait(c, USEC_INFINITY));
                 if (r < 0)
                         return r;
         }

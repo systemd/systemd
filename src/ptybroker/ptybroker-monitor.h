@@ -29,20 +29,20 @@ struct PseudoTTYMonitor {
         LIST_FIELDS(PseudoTTYMonitor, monitors);
 };
 
-PseudoTTYMonitor* pseudo_tty_monitor_free(PseudoTTYMonitor *monitor);
-DEFINE_TRIVIAL_CLEANUP_FUNC(PseudoTTYMonitor*, pseudo_tty_monitor_free);
+_may_suspend_ PseudoTTYMonitor* pseudo_tty_monitor_free(PseudoTTYMonitor *monitor);
+_may_suspend_ DEFINE_TRIVIAL_CLEANUP_FUNC(PseudoTTYMonitor*, pseudo_tty_monitor_free);
 
 void pseudo_tty_monitor_disconnect(PseudoTTYMonitor *monitor);
 void pseudo_tty_monitor_on_link_disconnect(PseudoTTYMonitor *monitor);
 
-int pseudo_tty_monitor_new(sd_varlink *link, bool osc_winsize, PseudoTTYMonitor **ret);
-void pseudo_tty_monitor_link(PseudoTTYMonitor *monitor, PseudoTTY *pty);
+_may_suspend_ int pseudo_tty_monitor_new(sd_varlink *link, bool osc_winsize, PseudoTTYMonitor **ret);
+_sync_ void pseudo_tty_monitor_link(PseudoTTYMonitor *monitor, PseudoTTY *pty);
 
-int pseudo_tty_monitor_push_pending(PseudoTTYMonitor *monitor);
+_sync_ int pseudo_tty_monitor_push_pending(PseudoTTYMonitor *monitor);
 
-int pseudo_tty_monitor_set_events(PseudoTTYMonitor *monitor);
+_sync_ int pseudo_tty_monitor_set_events(PseudoTTYMonitor *monitor);
 int pseudo_tty_monitor_flush(PseudoTTYMonitor *monitor);
 
-size_t pseudo_tty_monitor_space(PseudoTTYMonitor *monitor);
+_sync_ size_t pseudo_tty_monitor_space(PseudoTTYMonitor *monitor);
 
-int pseudo_tty_monitor_enqueue_output(PseudoTTYMonitor *monitor, const void *data, size_t n);
+_sync_ int pseudo_tty_monitor_enqueue_output(PseudoTTYMonitor *monitor, const void *data, size_t n);

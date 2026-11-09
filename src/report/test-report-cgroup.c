@@ -72,14 +72,14 @@ static unsigned expected_count(const TestData *data, PressureResource resource, 
         return data->n_units;
 }
 
-static int method_pressure(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+_may_suspend_ static int method_pressure(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         TestData *data = ASSERT_PTR(userdata);
 
         ASSERT_OK(sd_varlink_set_sentinel(link, "io.systemd.Metrics.NoSuchMetric"));
         for (unsigned i = 0; i < data->n_units; i++) {
                 ASSERT_OK(report_cgroup_pressure_send(
                                   test_metric_family_table, link, data->path, "test-pressure.service"));
-                ASSERT_OK(sd_varlink_flush(link));
+                ASSERT_OK(SD_AWAIT(sd_varlink_flush(link)));
         }
 
         return 0;

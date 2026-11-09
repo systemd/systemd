@@ -211,9 +211,9 @@ static int enumerator3_callback(sd_bus *bus, const char *path, void *userdata, c
         return 1;
 }
 
-static int server(void *userdata) {
+_may_suspend_ static int server(void *userdata) {
         struct context *c = ASSERT_PTR(userdata);
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_await_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         sd_id128_t id;
         int r;
 
@@ -234,19 +234,19 @@ static int server(void *userdata) {
         ASSERT_OK(sd_bus_add_object_manager(bus, /* ret_slot= */ NULL, "/value"));
         ASSERT_OK(sd_bus_add_object_manager(bus, /* ret_slot= */ NULL, "/value/a"));
 
-        ASSERT_OK(sd_bus_start(bus));
+        ASSERT_OK(SD_AWAIT(sd_bus_start(bus)));
 
         log_error("Entering event loop on server");
 
         while (!c->quit) {
                 log_error("Loop!");
 
-                r = sd_bus_process(bus, /* ret= */ NULL);
+                r = SD_AWAIT(sd_bus_process(bus, /* ret= */ NULL));
                 if (r < 0)
                         return log_error_errno(r, "Failed to process requests: %m");
 
                 if (r == 0) {
-                        r = sd_bus_wait(bus, UINT64_MAX);
+                        r = SD_AWAIT(sd_bus_wait(bus, UINT64_MAX));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to wait: %m");
 
@@ -257,10 +257,10 @@ static int server(void *userdata) {
         return 0;
 }
 
-static int client(void *p) {
+_may_suspend_ static int client(void *p) {
         struct context *c = ASSERT_PTR(p);
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_await_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_strv_free_ char **lines = NULL;
         const char *s;
@@ -268,64 +268,64 @@ static int client(void *p) {
 
         ASSERT_OK(sd_bus_new(&bus));
         ASSERT_OK(sd_bus_set_fd(bus, c->fds[1], c->fds[1]));
-        ASSERT_OK(sd_bus_start(bus));
+        ASSERT_OK(SD_AWAIT(sd_bus_start(bus)));
 
-        ASSERT_OK(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "NoOperation", &error, /* ret_reply= */ NULL, /* types= */ NULL));
+        ASSERT_OK(SD_AWAIT(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "NoOperation", &error, /* ret_reply= */ NULL, /* types= */ NULL)));
 
-        ASSERT_OK(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "AlterSomething", &error, &reply, "s", "hallo"));
+        ASSERT_OK(SD_AWAIT(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "AlterSomething", &error, &reply, "s", "hallo")));
 
         ASSERT_OK(sd_bus_message_read(reply, "s", &s));
         ASSERT_STREQ(s, "<<<hallo>>>");
 
         reply = sd_bus_message_unref(reply);
 
-        ASSERT_FAIL(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "Doesntexist", &error, &reply, ""));
+        ASSERT_FAIL(SD_AWAIT(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "Doesntexist", &error, &reply, "")));
         ASSERT_TRUE(sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD));
 
         sd_bus_error_free(&error);
 
-        ASSERT_FAIL(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "Doesntexist", &error, &reply, /* types= */ NULL)); /* NULL and "" are equivalent */
+        ASSERT_FAIL(SD_AWAIT(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "Doesntexist", &error, &reply, /* types= */ NULL))); /* NULL and "" are equivalent */
         ASSERT_TRUE(sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD));
 
         sd_bus_error_free(&error);
 
-        ASSERT_FAIL(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "AlterSomething", &error, &reply, "as", 1, "hallo"));
+        ASSERT_FAIL(SD_AWAIT(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "AlterSomething", &error, &reply, "as", 1, "hallo")));
         ASSERT_TRUE(sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS));
 
         sd_bus_error_free(&error);
 
-        ASSERT_OK(sd_bus_get_property(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "Something", &error, &reply, "s"));
+        ASSERT_OK(SD_AWAIT(sd_bus_get_property(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "Something", &error, &reply, "s")));
 
         ASSERT_OK(sd_bus_message_read(reply, "s", &s));
         ASSERT_STREQ(s, "<<<hallo>>>");
 
         reply = sd_bus_message_unref(reply);
 
-        ASSERT_OK(sd_bus_set_property(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "Something", &error, "s", "test"));
+        ASSERT_OK(SD_AWAIT(sd_bus_set_property(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "Something", &error, "s", "test")));
 
-        ASSERT_OK(sd_bus_get_property(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "Something", &error, &reply, "s"));
+        ASSERT_OK(SD_AWAIT(sd_bus_get_property(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "Something", &error, &reply, "s")));
 
         ASSERT_OK(sd_bus_message_read(reply, "s", &s));
         ASSERT_STREQ(s, "test");
 
         reply = sd_bus_message_unref(reply);
 
-        ASSERT_OK(sd_bus_set_property(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "AutomaticIntegerProperty", &error, "u", 815));
+        ASSERT_OK(SD_AWAIT(sd_bus_set_property(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "AutomaticIntegerProperty", &error, "u", 815)));
 
         ASSERT_EQ(c->automatic_integer_property, 815U);
 
-        ASSERT_OK(sd_bus_set_property(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "AutomaticStringProperty", &error, "s", "Du Dödel, Du!"));
+        ASSERT_OK(SD_AWAIT(sd_bus_set_property(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "AutomaticStringProperty", &error, "s", "Du Dödel, Du!")));
 
         ASSERT_STREQ(c->automatic_string_property, "Du Dödel, Du!");
 
-        ASSERT_OK(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.DBus.Introspectable", "Introspect", &error, &reply, ""));
+        ASSERT_OK(SD_AWAIT(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.DBus.Introspectable", "Introspect", &error, &reply, "")));
 
         ASSERT_OK(sd_bus_message_read(reply, "s", &s));
         fputs(s, stdout);
 
         reply = sd_bus_message_unref(reply);
 
-        ASSERT_OK(sd_bus_call_method(
+        ASSERT_OK(SD_AWAIT(sd_bus_call_method(
                         bus,
                         "org.freedesktop.systemd.test",
                         "/foo",
@@ -333,35 +333,35 @@ static int client(void *p) {
                         "Introspect",
                         &error,
                         &reply,
-                        /* types= */ NULL)); /* NULL and "" are equivalent */
+                        /* types= */ NULL))); /* NULL and "" are equivalent */
 
         ASSERT_OK(sd_bus_message_read(reply, "s", &s));
         fputs(s, stdout);
 
         reply = sd_bus_message_unref(reply);
 
-        ASSERT_OK(sd_bus_get_property(bus, "org.freedesktop.systemd.test", "/value/xuzz", "org.freedesktop.systemd.ValueTest", "Value", &error, &reply, "s"));
+        ASSERT_OK(SD_AWAIT(sd_bus_get_property(bus, "org.freedesktop.systemd.test", "/value/xuzz", "org.freedesktop.systemd.ValueTest", "Value", &error, &reply, "s")));
 
         ASSERT_OK(sd_bus_message_read(reply, "s", &s));
         log_info("read %s", s);
 
         reply = sd_bus_message_unref(reply);
 
-        ASSERT_OK(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/", "org.freedesktop.DBus.Introspectable", "Introspect", &error, &reply, /* types= */ NULL));
+        ASSERT_OK(SD_AWAIT(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/", "org.freedesktop.DBus.Introspectable", "Introspect", &error, &reply, /* types= */ NULL)));
 
         ASSERT_OK(sd_bus_message_read(reply, "s", &s));
         fputs(s, stdout);
 
         reply = sd_bus_message_unref(reply);
 
-        ASSERT_OK(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/value", "org.freedesktop.DBus.Introspectable", "Introspect", &error, &reply, /* types= */ NULL));
+        ASSERT_OK(SD_AWAIT(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/value", "org.freedesktop.DBus.Introspectable", "Introspect", &error, &reply, /* types= */ NULL)));
 
         ASSERT_OK(sd_bus_message_read(reply, "s", &s));
         fputs(s, stdout);
 
         reply = sd_bus_message_unref(reply);
 
-        ASSERT_OK(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/value/a", "org.freedesktop.DBus.Introspectable", "Introspect", &error, &reply, /* types= */ NULL));
+        ASSERT_OK(SD_AWAIT(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/value/a", "org.freedesktop.DBus.Introspectable", "Introspect", &error, &reply, /* types= */ NULL)));
 
         ASSERT_OK(sd_bus_message_read(reply, "s", &s));
         fputs(s, stdout);
@@ -374,7 +374,7 @@ static int client(void *p) {
 
         reply = sd_bus_message_unref(reply);
 
-        ASSERT_OK(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/value/b", "org.freedesktop.DBus.Introspectable", "Introspect", &error, &reply, /* types= */ NULL));
+        ASSERT_OK(SD_AWAIT(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/value/b", "org.freedesktop.DBus.Introspectable", "Introspect", &error, &reply, /* types= */ NULL)));
 
         ASSERT_OK(sd_bus_message_read(reply, "s", &s));
         fputs(s, stdout);
@@ -390,21 +390,21 @@ static int client(void *p) {
 
         reply = sd_bus_message_unref(reply);
 
-        ASSERT_OK(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.DBus.Properties", "GetAll", &error, &reply, "s", NULL));
+        ASSERT_OK(SD_AWAIT(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.DBus.Properties", "GetAll", &error, &reply, "s", NULL)));
 
         sd_bus_message_dump(reply, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
 
         reply = sd_bus_message_unref(reply);
 
-        ASSERT_FAIL(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/value/a", "org.freedesktop.DBus.Properties", "GetAll", &error, &reply, "s", "org.freedesktop.systemd.ValueTest2"));
+        ASSERT_FAIL(SD_AWAIT(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/value/a", "org.freedesktop.DBus.Properties", "GetAll", &error, &reply, "s", "org.freedesktop.systemd.ValueTest2")));
         ASSERT_TRUE(sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_INTERFACE));
         sd_bus_error_free(&error);
 
-        ASSERT_FAIL(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.DBus.ObjectManager", "GetManagedObjects", &error, &reply, /* types= */ NULL));
+        ASSERT_FAIL(SD_AWAIT(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.DBus.ObjectManager", "GetManagedObjects", &error, &reply, /* types= */ NULL)));
         ASSERT_TRUE(sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD));
         sd_bus_error_free(&error);
 
-        ASSERT_OK(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/value", "org.freedesktop.DBus.ObjectManager", "GetManagedObjects", &error, &reply, /* types= */ NULL));
+        ASSERT_OK(SD_AWAIT(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/value", "org.freedesktop.DBus.ObjectManager", "GetManagedObjects", &error, &reply, /* types= */ NULL)));
 
         sd_bus_message_dump(reply, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
 
@@ -457,45 +457,45 @@ static int client(void *p) {
 
         reply = sd_bus_message_unref(reply);
 
-        ASSERT_OK(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/value/a", "org.freedesktop.systemd.ValueTest", "NotifyTest", &error, /* ret_reply= */ NULL, /* types= */ NULL));
+        ASSERT_OK(SD_AWAIT(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/value/a", "org.freedesktop.systemd.ValueTest", "NotifyTest", &error, /* ret_reply= */ NULL, /* types= */ NULL)));
 
-        ASSERT_OK_POSITIVE(r = sd_bus_process(bus, &reply));
-
-        ASSERT_OK_POSITIVE(sd_bus_message_is_signal(reply, "org.freedesktop.DBus.Properties", "PropertiesChanged"));
-        sd_bus_message_dump(reply, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
-
-        reply = sd_bus_message_unref(reply);
-
-        ASSERT_OK(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/value/a", "org.freedesktop.systemd.ValueTest", "NotifyTest2", &error, /* ret_reply= */ NULL, /* types= */ NULL));
-
-        ASSERT_OK_POSITIVE(r = sd_bus_process(bus, &reply));
+        ASSERT_OK_POSITIVE(r = SD_AWAIT(sd_bus_process(bus, &reply)));
 
         ASSERT_OK_POSITIVE(sd_bus_message_is_signal(reply, "org.freedesktop.DBus.Properties", "PropertiesChanged"));
         sd_bus_message_dump(reply, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
 
         reply = sd_bus_message_unref(reply);
 
-        ASSERT_OK(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "EmitInterfacesAdded", &error, /* ret_reply= */ NULL, /* types= */ NULL));
+        ASSERT_OK(SD_AWAIT(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/value/a", "org.freedesktop.systemd.ValueTest", "NotifyTest2", &error, /* ret_reply= */ NULL, /* types= */ NULL)));
 
-        ASSERT_OK_POSITIVE(r = sd_bus_process(bus, &reply));
+        ASSERT_OK_POSITIVE(r = SD_AWAIT(sd_bus_process(bus, &reply)));
+
+        ASSERT_OK_POSITIVE(sd_bus_message_is_signal(reply, "org.freedesktop.DBus.Properties", "PropertiesChanged"));
+        sd_bus_message_dump(reply, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
+
+        reply = sd_bus_message_unref(reply);
+
+        ASSERT_OK(SD_AWAIT(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "EmitInterfacesAdded", &error, /* ret_reply= */ NULL, /* types= */ NULL)));
+
+        ASSERT_OK_POSITIVE(r = SD_AWAIT(sd_bus_process(bus, &reply)));
 
         ASSERT_OK_POSITIVE(sd_bus_message_is_signal(reply, "org.freedesktop.DBus.ObjectManager", "InterfacesAdded"));
         sd_bus_message_dump(reply, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
 
         reply = sd_bus_message_unref(reply);
 
-        ASSERT_OK(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "EmitInterfacesRemoved", &error, /* ret_reply= */ NULL, /* types= */ NULL));
+        ASSERT_OK(SD_AWAIT(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "EmitInterfacesRemoved", &error, /* ret_reply= */ NULL, /* types= */ NULL)));
 
-        ASSERT_OK_POSITIVE(r = sd_bus_process(bus, &reply));
+        ASSERT_OK_POSITIVE(r = SD_AWAIT(sd_bus_process(bus, &reply)));
 
         ASSERT_OK_POSITIVE(sd_bus_message_is_signal(reply, "org.freedesktop.DBus.ObjectManager", "InterfacesRemoved"));
         sd_bus_message_dump(reply, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
 
         reply = sd_bus_message_unref(reply);
 
-        ASSERT_OK(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "EmitObjectAdded", &error, /* ret_reply= */ NULL, /* types= */ NULL));
+        ASSERT_OK(SD_AWAIT(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "EmitObjectAdded", &error, /* ret_reply= */ NULL, /* types= */ NULL)));
 
-        ASSERT_OK_POSITIVE(r = sd_bus_process(bus, &reply));
+        ASSERT_OK_POSITIVE(r = SD_AWAIT(sd_bus_process(bus, &reply)));
 
         ASSERT_OK_POSITIVE(sd_bus_message_is_signal(reply, "org.freedesktop.DBus.ObjectManager", "InterfacesAdded"));
         sd_bus_message_dump(reply, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
@@ -519,9 +519,9 @@ static int client(void *p) {
 
         reply = sd_bus_message_unref(reply);
 
-        ASSERT_OK(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "EmitObjectWithManagerAdded", &error, /* ret_reply= */ NULL, /* types= */ NULL));
+        ASSERT_OK(SD_AWAIT(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "EmitObjectWithManagerAdded", &error, /* ret_reply= */ NULL, /* types= */ NULL)));
 
-        ASSERT_OK_POSITIVE(sd_bus_process(bus, &reply));
+        ASSERT_OK_POSITIVE(SD_AWAIT(sd_bus_process(bus, &reply)));
 
         ASSERT_OK_POSITIVE(sd_bus_message_is_signal(reply, "org.freedesktop.DBus.ObjectManager", "InterfacesAdded"));
         sd_bus_message_dump(reply, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
@@ -550,9 +550,9 @@ static int client(void *p) {
 
         reply = sd_bus_message_unref(reply);
 
-        ASSERT_OK(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "EmitObjectRemoved", &error, /* ret_reply= */ NULL, /* types= */ NULL));
+        ASSERT_OK(SD_AWAIT(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "EmitObjectRemoved", &error, /* ret_reply= */ NULL, /* types= */ NULL)));
 
-        ASSERT_OK_POSITIVE(r = sd_bus_process(bus, &reply));
+        ASSERT_OK_POSITIVE(r = SD_AWAIT(sd_bus_process(bus, &reply)));
 
         ASSERT_OK_POSITIVE(sd_bus_message_is_signal(reply, "org.freedesktop.DBus.ObjectManager", "InterfacesRemoved"));
         sd_bus_message_dump(reply, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
@@ -570,7 +570,7 @@ static int client(void *p) {
 
         reply = sd_bus_message_unref(reply);
 
-        ASSERT_OK(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "Exit", &error, /* ret_reply= */ NULL, /* types= */ NULL));
+        ASSERT_OK(SD_AWAIT(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "Exit", &error, /* ret_reply= */ NULL, /* types= */ NULL)));
 
         return 0;
 }

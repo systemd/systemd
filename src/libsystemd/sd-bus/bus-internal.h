@@ -24,6 +24,13 @@
  * reserved in sd-bus-vtable.h to make sure it never collides with a future public flag. */
 #define SD_BUS_VTABLE_METHOD_FIBER (UINT64_C(1) << 10)
 
+typedef int (*bus_fiber_message_handler_t)(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) _may_suspend_;
+
+/* The cast lets the suspension checker verify that the handler can run on a fiber. */
+#define SD_BUS_METHOD_FIBER(member, signature, result, handler, flags)  \
+        SD_BUS_METHOD(member, signature, result, (bus_fiber_message_handler_t) (handler), \
+                      (flags) | SD_BUS_VTABLE_METHOD_FIBER)
+
 typedef struct BusReplyCallback {
         sd_bus_message_handler_t callback;
         usec_t timeout_usec; /* this is a relative timeout until we reach the BUS_HELLO state, and an absolute one right after */
@@ -362,32 +369,32 @@ bool path_complex_pattern(const char *pattern, const char *value) _pure_;
 bool namespace_simple_pattern(const char *pattern, const char *value) _pure_;
 bool path_simple_pattern(const char *pattern, const char *value) _pure_;
 
-int bus_message_type_from_string(const char *s, uint8_t *u);
+_sync_ int bus_message_type_from_string(const char *s, uint8_t *u);
 const char* bus_message_type_to_string(uint8_t u) _pure_;
 
 #define error_name_is_valid interface_name_is_valid
 
-sd_bus *bus_resolve(sd_bus *bus);
+_sync_ sd_bus *bus_resolve(sd_bus *bus);
 
-int bus_ensure_running(sd_bus *bus);
-int bus_start_running(sd_bus *bus);
-int bus_next_address(sd_bus *bus);
+_may_suspend_ int bus_ensure_running(sd_bus *bus);
+_sync_ int bus_start_running(sd_bus *bus);
+_may_suspend_ int bus_next_address(sd_bus *bus);
 
-int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m);
+_sync_ int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m);
 
-int bus_rqueue_make_room(sd_bus *bus);
+_sync_ int bus_rqueue_make_room(sd_bus *bus);
 
-bool bus_origin_changed(sd_bus *bus);
+_sync_ bool bus_origin_changed(sd_bus *bus);
 
-char* bus_address_escape(const char *v);
+_sync_ char* bus_address_escape(const char *v);
 
-int bus_attach_io_events(sd_bus *b);
-int bus_attach_inotify_event(sd_bus *b);
+_sync_ int bus_attach_io_events(sd_bus *b);
+_sync_ int bus_attach_inotify_event(sd_bus *b);
 
-void bus_close_inotify_fd(sd_bus *b);
-void bus_close_io_fds(sd_bus *b);
+_sync_ void bus_close_inotify_fd(sd_bus *b);
+_sync_ void bus_close_io_fds(sd_bus *b);
 
-int bus_add_match_full(
+_may_suspend_ int bus_add_match_full(
                 sd_bus *bus,
                 sd_bus_slot **slot,
                 bool asynchronous,
@@ -408,11 +415,11 @@ int bus_add_match_full(
         _cleanup_(sd_bus_unrefp) _unused_ sd_bus *_dont_destroy_##bus = sd_bus_ref(bus)
 
 int bus_set_address_system(sd_bus *bus);
-int bus_set_address_user(sd_bus *bus);
+_sync_ int bus_set_address_user(sd_bus *bus);
 int bus_set_address_system_remote(sd_bus *b, const char *host);
-int bus_set_address_machine(sd_bus *b, RuntimeScope runtime_scope, const char *machine);
+_sync_ int bus_set_address_machine(sd_bus *b, RuntimeScope runtime_scope, const char *machine);
 
-int bus_maybe_reply_error(sd_bus_message *m, int r, const sd_bus_error *e);
+_may_suspend_ int bus_maybe_reply_error(sd_bus_message *m, int r, const sd_bus_error *e);
 
 #define bus_assert_return(expr, r, error)                               \
         do {                                                            \
@@ -420,6 +427,6 @@ int bus_maybe_reply_error(sd_bus_message *m, int r, const sd_bus_error *e);
                         return sd_bus_error_set_errno(error, r);        \
         } while (false)
 
-void bus_enter_closing(sd_bus *bus, int exit_code);
+_sync_ void bus_enter_closing(sd_bus *bus, int exit_code);
 
-void bus_set_state(sd_bus *bus, BusState state);
+_sync_ void bus_set_state(sd_bus *bus, BusState state);

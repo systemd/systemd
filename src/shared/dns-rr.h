@@ -335,7 +335,9 @@ DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *
 DnsResourceKey* dns_resource_key_new_redirect(const DnsResourceKey *key, const DnsResourceRecord *cname);
 int dns_resource_key_new_append_suffix(DnsResourceKey **ret, DnsResourceKey *key, char *name);
 DnsResourceKey* dns_resource_key_new_consume(uint16_t class, uint16_t type, char *name);
+SYNC_BEGIN
 DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsResourceKey, dns_resource_key);
+SYNC_END
 
 #define DNS_RESOURCE_KEY_REPLACE(a, b)          \
         do {                                    \
@@ -345,7 +347,7 @@ DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsResourceKey, dns_resource_key);
                 *_a = _b;                       \
         } while(0)
 
-const char* dns_resource_key_name(const DnsResourceKey *key);
+_sync_ const char* dns_resource_key_name(const DnsResourceKey *key);
 bool dns_resource_key_is_address(const DnsResourceKey *key);
 bool dns_resource_key_is_dnssd_ptr(const DnsResourceKey *key);
 bool dns_resource_key_is_dnssd_two_label_ptr(const DnsResourceKey *key);
@@ -374,7 +376,9 @@ bool dns_resource_key_reduce(DnsResourceKey **a, DnsResourceKey **b);
 
 DnsResourceRecord* dns_resource_record_new(DnsResourceKey *key);
 DnsResourceRecord* dns_resource_record_new_full(uint16_t class, uint16_t type, const char *name);
+SYNC_BEGIN
 DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsResourceRecord, dns_resource_record);
+SYNC_END
 
 #define DNS_RR_REPLACE(a, b)                    \
         do {                                    \
@@ -394,7 +398,7 @@ DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceRecord*, dns_resource_record_unref);
 
 void dns_resource_record_clear_wire_format(DnsResourceRecord *rr);
-int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical);
+_sync_ int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical);
 
 int dns_resource_record_signer(DnsResourceRecord *rr, const char **ret);
 int dns_resource_record_source(DnsResourceRecord *rr, const char **ret);
@@ -423,10 +427,10 @@ int dns_resource_key_from_json(sd_json_variant *v, DnsResourceKey **ret);
 int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret);
 int dns_resource_record_from_json(sd_json_variant *v, DnsResourceRecord **ret);
 
-void dns_resource_key_hash_func(const DnsResourceKey *k, struct siphash *state);
-int dns_resource_key_compare_func(const DnsResourceKey *x, const DnsResourceKey *y);
-void dns_resource_record_hash_func(const DnsResourceRecord *rr, struct siphash *state);
-int dns_resource_record_compare_func(const DnsResourceRecord *x, const DnsResourceRecord *y);
+_sync_ void dns_resource_key_hash_func(const DnsResourceKey *k, struct siphash *state);
+_sync_ int dns_resource_key_compare_func(const DnsResourceKey *x, const DnsResourceKey *y);
+_sync_ void dns_resource_record_hash_func(const DnsResourceRecord *rr, struct siphash *state);
+_sync_ int dns_resource_record_compare_func(const DnsResourceRecord *x, const DnsResourceRecord *y);
 
 uint16_t dnssec_keytag(DnsResourceRecord *dnskey, bool mask_revoke);
 

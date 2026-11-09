@@ -1402,7 +1402,7 @@ void log_parse_environment(void) {
         /* Do not call from library code. */
 
         if (should_parse_proc_cmdline())
-                (void) proc_cmdline_parse(parse_proc_cmdline_item, /* userdata= */ NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
+                (void) SD_AWAIT(proc_cmdline_parse(parse_proc_cmdline_item, /* userdata= */ NULL, PROC_CMDLINE_STRIP_RD_PREFIX));
 
         log_parse_environment_variables();
 }
@@ -1765,7 +1765,7 @@ int log_dup_console(void) {
 
 void log_setup(void) {
         log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
+        SD_AWAIT(log_parse_environment());
         (void) log_open();
         if (log_on_console() && show_color < 0)
                 log_show_color(true);

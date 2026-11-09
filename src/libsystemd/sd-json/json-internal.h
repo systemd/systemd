@@ -73,4 +73,4 @@ enum { /* JSON tokens */
         _JSON_TOKEN_INVALID = -EINVAL,
 };
 
-int json_tokenize(const char **p, char **ret_string, JsonValue *ret_value, unsigned *ret_line, unsigned *ret_column, void **state, unsigned *line, unsigned *column);
+_sync_ int json_tokenize(const char **p, char **ret_string, JsonValue *ret_value, unsigned *ret_line, unsigned *ret_column, void **state, unsigned *line, unsigned *column);

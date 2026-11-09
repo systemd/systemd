@@ -493,7 +493,7 @@ int pidref_wait_for_terminate_full(PidRef *pidref, usec_t timeout, siginfo_t *re
                                         return -ETIMEDOUT;
                         }
 
-                        r = fd_wait_for_event(pidref->fd, POLLIN, left);
+                        r = SD_AWAIT(fd_wait_for_event(pidref->fd, POLLIN, left));
                         if (r == 0)
                                 return -ETIMEDOUT;
                         if (r == -EINTR)

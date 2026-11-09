@@ -271,7 +271,7 @@ int bus_match_run(
                  * we won't call any. The children of the root node
                  * are compares or leaves, they will automatically
                  * call their siblings. */
-                return bus_match_run(bus, node->child, m);
+                return SD_AWAIT(bus_match_run(bus, node->child, m));
 
         case BUS_MATCH_VALUE:
 
@@ -281,7 +281,7 @@ int bus_match_run(
                  * automatically call their siblings */
 
                 assert(node->child);
-                return bus_match_run(bus, node->child, m);
+                return SD_AWAIT(bus_match_run(bus, node->child, m));
 
         case BUS_MATCH_LEAF:
 
@@ -295,7 +295,7 @@ int bus_match_run(
                         if (node->leaf.callback->install_slot ||
                             m->read_counter <= node->leaf.callback->after ||
                             node->leaf.callback->last_iteration == bus->iteration_counter)
-                                return bus_match_run(bus, node->next, m);
+                                return SD_AWAIT(bus_match_run(bus, node->next, m));
 
                         node->leaf.callback->last_iteration = bus->iteration_counter;
                 }
@@ -322,7 +322,7 @@ int bus_match_run(
                                 bus->current_slot = sd_bus_slot_unref(slot);
                         }
 
-                        r = bus_maybe_reply_error(m, r, &error_buffer);
+                        r = SD_AWAIT(bus_maybe_reply_error(m, r, &error_buffer));
                         if (r != 0)
                                 return r;
 
@@ -330,7 +330,7 @@ int bus_match_run(
                                 return 0;
                 }
 
-                return bus_match_run(bus, node->next, m);
+                return SD_AWAIT(bus_match_run(bus, node->next, m));
 
         case BUS_MATCH_MESSAGE_TYPE:
                 test_u8 = m->header->type;
@@ -389,7 +389,7 @@ int bus_match_run(
                         STRV_FOREACH(i, test_strv) {
                                 found = hashmap_get(node->compare.children, *i);
                                 if (found) {
-                                        r = bus_match_run(bus, found, m);
+                                        r = SD_AWAIT(bus_match_run(bus, found, m));
                                         if (r != 0)
                                                 return r;
 
@@ -405,7 +405,7 @@ int bus_match_run(
                         found = NULL;
 
                 if (found) {
-                        r = bus_match_run(bus, found, m);
+                        r = SD_AWAIT(bus_match_run(bus, found, m));
                         if (r != 0)
                                 return r;
                 }
@@ -415,7 +415,7 @@ int bus_match_run(
                         if (!value_node_test(c, node->type, test_u8, test_str, test_strv, m))
                                 continue;
 
-                        r = bus_match_run(bus, c, m);
+                        r = SD_AWAIT(bus_match_run(bus, c, m));
                         if (r != 0)
                                 return r;
 
@@ -427,7 +427,7 @@ int bus_match_run(
                 return 0;
 
         /* And now, let's invoke our siblings */
-        return bus_match_run(bus, node->next, m);
+        return SD_AWAIT(bus_match_run(bus, node->next, m));
 }
 
 static int bus_match_add_compare_value(

@@ -18,13 +18,13 @@
 #include "time-util.h"
 
 /* Test: wait_for_terminate basic functionality */
-static int wait_simple_fiber(void *userdata) {
-        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+_may_suspend_ static int wait_simple_fiber(void *userdata) {
+        _cleanup_await_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         siginfo_t si;
         int r;
 
         /* Fork a child that exits immediately */
-        r = pidref_safe_fork("(test-child)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &pidref);
+        r = SD_AWAIT(pidref_safe_fork("(test-child)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &pidref));
         if (r < 0)
                 return r;
 
@@ -32,7 +32,7 @@ static int wait_simple_fiber(void *userdata) {
                 _exit(42);
 
         /* Parent - wait for child */
-        r = pidref_wait_for_terminate(&pidref, &si);
+        r = SD_AWAIT(pidref_wait_for_terminate(&pidref, &si));
         if (r < 0)
                 return r;
 
@@ -58,14 +58,14 @@ TEST(wait_for_terminate_fiber_basic) {
 }
 
 /* Test: wait_for_terminate with multiple children */
-static int wait_multiple_fiber(void *userdata) {
+_may_suspend_ static int wait_multiple_fiber(void *userdata) {
         PidRef pidrefs[3] = { PIDREF_NULL, PIDREF_NULL, PIDREF_NULL };
         siginfo_t si;
         int r;
 
         /* Fork three children with different exit codes */
         for (size_t i = 0; i < 3; i++) {
-                r = pidref_safe_fork("(test-child)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &pidrefs[i]);
+                r = SD_AWAIT(pidref_safe_fork("(test-child)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &pidrefs[i]));
                 if (r < 0)
                         goto cleanup;
 
@@ -76,7 +76,7 @@ static int wait_multiple_fiber(void *userdata) {
 
         /* Wait for all three in order */
         for (size_t i = 0; i < 3; i++) {
-                r = pidref_wait_for_terminate(&pidrefs[i], &si);
+                r = SD_AWAIT(pidref_wait_for_terminate(&pidrefs[i], &si));
                 if (r < 0)
                         goto cleanup;
 
@@ -109,12 +109,12 @@ TEST(wait_for_terminate_fiber_multiple) {
         ASSERT_OK(sd_future_result(f));
 }
 
-static int concurrent_wait_fiber(void *userdata) {
-        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+_may_suspend_ static int concurrent_wait_fiber(void *userdata) {
+        _cleanup_await_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         siginfo_t si;
         int r;
 
-        r = pidref_safe_fork("(test-child)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &pidref);
+        r = SD_AWAIT(pidref_safe_fork("(test-child)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &pidref));
         if (r < 0)
                 return r;
 
@@ -122,7 +122,7 @@ static int concurrent_wait_fiber(void *userdata) {
                 /* Child exits with specified status */
                 _exit(PTR_TO_INT(userdata));
 
-        r = pidref_wait_for_terminate(&pidref, &si);
+        r = SD_AWAIT(pidref_wait_for_terminate(&pidref, &si));
         if (r < 0)
                 return r;
 
@@ -160,14 +160,14 @@ typedef struct LoopIOContext {
         int order;
 } LoopIOContext;
 
-static int loop_read_suspend_fiber(void *userdata) {
+_may_suspend_ static int loop_read_suspend_fiber(void *userdata) {
         LoopIOContext *ctx = ASSERT_PTR(userdata);
         char buf[64];
 
         ASSERT_EQ(ctx->order, 0);
         ctx->order = 1;
 
-        ssize_t n = loop_read(ctx->pipefd[0], buf, sizeof(buf), /* do_poll= */ true);
+        ssize_t n = SD_AWAIT(loop_read(ctx->pipefd[0], buf, sizeof(buf), /* do_poll= */ true));
 
         /* While we were suspended, the writer fiber should have run. */
         ASSERT_EQ(ctx->order, 2);
@@ -180,13 +180,13 @@ static int loop_read_suspend_fiber(void *userdata) {
         return (int) n;
 }
 
-static int loop_write_suspend_fiber(void *userdata) {
+_may_suspend_ static int loop_write_suspend_fiber(void *userdata) {
         LoopIOContext *ctx = ASSERT_PTR(userdata);
 
         ASSERT_EQ(ctx->order, 1);
         ctx->order = 2;
 
-        int r = loop_write(ctx->pipefd[1], ctx->data, ctx->len);
+        int r = SD_AWAIT(loop_write(ctx->pipefd[1], ctx->data, ctx->len));
         if (r < 0)
                 return r;
 
@@ -227,12 +227,12 @@ TEST(loop_read_write_suspend) {
         ASSERT_OK_ZERO(fcntl(pipefd[0], F_GETFL) & O_NONBLOCK);
 }
 
-static int loop_read_exact_short_fiber(void *userdata) {
+_may_suspend_ static int loop_read_exact_short_fiber(void *userdata) {
         int fd = PTR_TO_INT(userdata);
         char buf[16];
 
         /* Requesting more bytes than the peer writes should return -EIO once EOF is hit. */
-        return loop_read_exact(fd, buf, sizeof(buf), /* do_poll= */ true);
+        return SD_AWAIT(loop_read_exact(fd, buf, sizeof(buf), /* do_poll= */ true));
 }
 
 /* Test: loop_read_exact() returns -EIO when the peer closes early. */
@@ -262,13 +262,13 @@ typedef struct LoopWriteTimeoutContext {
         int result;
 } LoopWriteTimeoutContext;
 
-static int loop_write_timeout_fiber(void *userdata) {
+_may_suspend_ static int loop_write_timeout_fiber(void *userdata) {
         LoopWriteTimeoutContext *ctx = ASSERT_PTR(userdata);
 
         /* Try to write much more than the pipe buffer can hold with a short timeout. The write will
          * succeed partially and then hit -ETIME after exhausting the timeout while blocked. */
         static const char big_buf[128 * 1024] = { 0 };
-        ctx->result = loop_write_full(ctx->fd, big_buf, sizeof(big_buf), 100 * USEC_PER_MSEC);
+        ctx->result = SD_AWAIT(loop_write_full(ctx->fd, big_buf, sizeof(big_buf), 100 * USEC_PER_MSEC));
         return 0;
 }
 
@@ -302,7 +302,7 @@ typedef struct PpollDispatchContext {
         int order;
 } PpollDispatchContext;
 
-static int ppoll_dispatch_read_fiber(void *userdata) {
+_may_suspend_ static int ppoll_dispatch_read_fiber(void *userdata) {
         PpollDispatchContext *ctx = ASSERT_PTR(userdata);
         struct pollfd pfd = {
                 .fd = ctx->pipefd[0],
@@ -315,7 +315,7 @@ static int ppoll_dispatch_read_fiber(void *userdata) {
         /* Direct ppoll_usec() call from a fiber must dispatch through sd_fiber_poll(), suspending the
          * fiber instead of blocking the entire thread. If dispatch fails, the writer fiber never gets a
          * chance to run and the test deadlocks. */
-        int r = ppoll_usec(&pfd, 1, USEC_INFINITY);
+        int r = SD_AWAIT(ppoll_usec(&pfd, 1, USEC_INFINITY));
         if (r < 0)
                 return r;
 
@@ -327,7 +327,7 @@ static int ppoll_dispatch_read_fiber(void *userdata) {
         return 0;
 }
 
-static int ppoll_dispatch_write_fiber(void *userdata) {
+_may_suspend_ static int ppoll_dispatch_write_fiber(void *userdata) {
         PpollDispatchContext *ctx = ASSERT_PTR(userdata);
 
         ASSERT_EQ(ctx->order, 1);
@@ -362,14 +362,14 @@ TEST(ppoll_usec_dispatch) {
         ASSERT_OK(sd_future_result(fw));
 }
 
-static int loop_write_zero_timeout_nonblock_fiber(void *userdata) {
+_may_suspend_ static int loop_write_zero_timeout_nonblock_fiber(void *userdata) {
         int fd = PTR_TO_INT(userdata);
 
         /* Fill the pipe so the next write would block. The fd is non-blocking, so on a fiber
          * loop_write_full(timeout=0) must take the non-fiber path and return -EAGAIN immediately
          * rather than suspending. */
         static const char big_buf[128 * 1024] = { 0 };
-        return loop_write_full(fd, big_buf, sizeof(big_buf), /* timeout= */ 0);
+        return SD_AWAIT(loop_write_full(fd, big_buf, sizeof(big_buf), /* timeout= */ 0));
 }
 
 /* Test: timeout == 0 on a non-blocking fd from a fiber preserves the "don't wait" semantic and
@@ -397,7 +397,7 @@ typedef struct LoopWriteZeroBlockingContext {
         int order;
 } LoopWriteZeroBlockingContext;
 
-static int loop_write_zero_blocking_writer_fiber(void *userdata) {
+_may_suspend_ static int loop_write_zero_blocking_writer_fiber(void *userdata) {
         LoopWriteZeroBlockingContext *ctx = ASSERT_PTR(userdata);
 
         ASSERT_EQ(ctx->order, 0);
@@ -408,13 +408,13 @@ static int loop_write_zero_blocking_writer_fiber(void *userdata) {
          * write complete via fiber suspension/resume. */
         _cleanup_free_ char *big_buf = malloc0(ctx->total);
         ASSERT_NOT_NULL(big_buf);
-        int r = loop_write_full(ctx->pipefd[1], big_buf, ctx->total, /* timeout= */ 0);
+        int r = SD_AWAIT(loop_write_full(ctx->pipefd[1], big_buf, ctx->total, /* timeout= */ 0));
 
         ASSERT_EQ(ctx->order, 2);
         return r;
 }
 
-static int loop_write_zero_blocking_reader_fiber(void *userdata) {
+_may_suspend_ static int loop_write_zero_blocking_reader_fiber(void *userdata) {
         LoopWriteZeroBlockingContext *ctx = ASSERT_PTR(userdata);
 
         ASSERT_EQ(ctx->order, 1);
@@ -422,7 +422,7 @@ static int loop_write_zero_blocking_reader_fiber(void *userdata) {
 
         _cleanup_free_ char *buf = malloc(ctx->total);
         ASSERT_NOT_NULL(buf);
-        ssize_t n = loop_read(ctx->pipefd[0], buf, ctx->total, /* do_poll= */ true);
+        ssize_t n = SD_AWAIT(loop_read(ctx->pipefd[0], buf, ctx->total, /* do_poll= */ true));
         return (int) n;
 }
 
@@ -457,13 +457,13 @@ TEST(loop_write_zero_timeout_blocking) {
         ASSERT_OK_EQ(sd_future_result(fr), (int) ctx.total);
 }
 
-static int loop_read_no_poll_nonblock_fiber(void *userdata) {
+_may_suspend_ static int loop_read_no_poll_nonblock_fiber(void *userdata) {
         int fd = PTR_TO_INT(userdata);
         char buf[64];
 
         /* Empty non-blocking pipe + do_poll=false: on a fiber loop_read() must take the non-fiber
          * path and return -EAGAIN immediately rather than suspending. */
-        return (int) loop_read(fd, buf, sizeof(buf), /* do_poll= */ false);
+        return (int) SD_AWAIT(loop_read(fd, buf, sizeof(buf), /* do_poll= */ false));
 }
 
 /* Test: do_poll == false on a non-blocking fd from a fiber preserves the "don't wait" semantic
@@ -491,7 +491,7 @@ typedef struct LoopReadNoPollBlockingContext {
         int order;
 } LoopReadNoPollBlockingContext;
 
-static int loop_read_no_poll_blocking_reader_fiber(void *userdata) {
+_may_suspend_ static int loop_read_no_poll_blocking_reader_fiber(void *userdata) {
         LoopReadNoPollBlockingContext *ctx = ASSERT_PTR(userdata);
         char buf[64];
 
@@ -500,7 +500,7 @@ static int loop_read_no_poll_blocking_reader_fiber(void *userdata) {
 
         /* do_poll == false on a *blocking* fd from a fiber: the fast EAGAIN return isn't possible,
          * so loop_read() takes the fiber path and suspends until the writer fiber feeds data. */
-        ssize_t n = loop_read(ctx->pipefd[0], buf, sizeof(buf), /* do_poll= */ false);
+        ssize_t n = SD_AWAIT(loop_read(ctx->pipefd[0], buf, sizeof(buf), /* do_poll= */ false));
 
         ASSERT_EQ(ctx->order, 2);
 
@@ -512,13 +512,13 @@ static int loop_read_no_poll_blocking_reader_fiber(void *userdata) {
         return (int) n;
 }
 
-static int loop_read_no_poll_blocking_writer_fiber(void *userdata) {
+_may_suspend_ static int loop_read_no_poll_blocking_writer_fiber(void *userdata) {
         LoopReadNoPollBlockingContext *ctx = ASSERT_PTR(userdata);
 
         ASSERT_EQ(ctx->order, 1);
         ctx->order = 2;
 
-        int r = loop_write(ctx->pipefd[1], ctx->data, ctx->len);
+        int r = SD_AWAIT(loop_write(ctx->pipefd[1], ctx->data, ctx->len));
         if (r < 0)
                 return r;
 
@@ -570,7 +570,7 @@ TEST(loop_read_write_fallback) {
         ASSERT_MEMEQ(buf, "fallback", STRLEN("fallback"));
 }
 
-static int blocking_fiber_io(void *userdata) {
+_may_suspend_ static int blocking_fiber_io(void *userdata) {
         int *pipefd = ASSERT_PTR(userdata);
         char buf[STRLEN("blocking")] = {};
 
@@ -601,16 +601,17 @@ static int blocking_loop_exit(sd_event_source *source, void *userdata) {
         return sd_event_exit(userdata, 0);
 }
 
-static int guarded_loop_fiber(void *userdata) {
+_may_suspend_ static int guarded_loop_fiber(void *userdata) {
+        /* TEST(blocking_yield) checks that a yield in a blocking region aborts. */
         if (userdata != NULL)
-                return SD_BLOCKING(sd_fiber_yield());
+                return SD_BLOCKING(sd_fiber_yield()); /* NOLINT(systemd-suspend) */
 
         _cleanup_(sd_event_unrefp) sd_event *inner = NULL;
         ASSERT_OK(sd_event_new(&inner));
         ASSERT_OK(sd_event_add_defer(inner, NULL, blocking_loop_exit, inner));
         ASSERT_OK_ZERO(SD_BLOCKING(SD_BLOCKING(sd_event_loop(inner))));
 
-        return sd_fiber_yield();
+        return SD_AWAIT(sd_fiber_yield());
 }
 
 static void run_guarded_loop(bool fail) {

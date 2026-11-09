@@ -45,7 +45,7 @@ int flush_fd(int fd) {
                 ssize_t l;
                 int r;
 
-                r = fd_wait_for_event(fd, POLLIN, /* timeout= */ 0);
+                r = SD_AWAIT(fd_wait_for_event(fd, POLLIN, /* timeout= */ 0));
                 if (r == -EINTR)
                         continue;
                 if (r < 0)
@@ -99,7 +99,7 @@ ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll) {
                 if (fiber_ops_can_suspend() && (do_poll || !FLAGS_SET(flags, O_NONBLOCK))) {
                         /* On a fiber the read op suspends on EAGAIN until data is available, so we don't
                          * need a separate poll step or the do_poll knob. */
-                        k = fiber_ops_read(fd, p, nbytes);
+                        k = SD_AWAIT(fiber_ops_read(fd, p, nbytes));
                         if (k < 0)
                                 return n > 0 ? n : k;
                 } else {
@@ -114,7 +114,7 @@ ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll) {
                                          * and expect that any error/EOF is reported
                                          * via read() */
 
-                                        (void) fd_wait_for_event(fd, POLLIN, USEC_INFINITY);
+                                        (void) SD_AWAIT(fd_wait_for_event(fd, POLLIN, USEC_INFINITY));
                                         continue;
                                 }
 
@@ -139,7 +139,7 @@ ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll) {
 int loop_read_exact(int fd, void *buf, size_t nbytes, bool do_poll) {
         ssize_t n;
 
-        n = loop_read(fd, buf, nbytes, do_poll);
+        n = SD_AWAIT(loop_read(fd, buf, nbytes, do_poll));
         if (n < 0)
                 return (int) n;
         if ((size_t) n != nbytes)
@@ -186,7 +186,7 @@ int loop_write_full(int fd, const void *buf, size_t nbytes, usec_t timeout) {
                 FIBER_OPS_TIMEOUT(timestamp_is_set(timeout) ? timeout : USEC_INFINITY);
 
                 while (nbytes > 0) {
-                        ssize_t k = fiber_ops_write(fd, p, nbytes);
+                        ssize_t k = SD_AWAIT(fiber_ops_write(fd, p, nbytes));
                         if (k < 0)
                                 return (int) k;
                         if (_unlikely_(nbytes > 0 && k == 0)) /* Can't really happen */
@@ -226,7 +226,7 @@ int loop_write_full(int fd, const void *buf, size_t nbytes, usec_t timeout) {
                                 wait_for = usec_sub_unsigned(end, t);
                         }
 
-                        r = fd_wait_for_event(fd, POLLOUT, wait_for);
+                        r = SD_AWAIT(fd_wait_for_event(fd, POLLOUT, wait_for));
                         if (timeout == USEC_INFINITY || ERRNO_IS_NEG_TRANSIENT(r))
                                 /* If timeout == USEC_INFINITY we knowingly ignore any return value
                                  * here, and expect that any error/EOF is reported via write() */
@@ -332,7 +332,7 @@ int ppoll_usec_full(struct pollfd *fds, size_t n_fds, usec_t timeout, const sigs
         if (n_fds == 0 && timeout == 0)
                 return 0;
 
-        r = fiber_ops_ppoll(fds, n_fds, timeout == USEC_INFINITY ? NULL : TIMESPEC_STORE(timeout), ss);
+        r = SD_AWAIT(fiber_ops_ppoll(fds, n_fds, timeout == USEC_INFINITY ? NULL : TIMESPEC_STORE(timeout), ss));
         if (r <= 0)
                 return r;
 
@@ -347,7 +347,7 @@ int ppoll_usec_full(struct pollfd *fds, size_t n_fds, usec_t timeout, const sigs
         return r;
 }
 
-int fd_wait_for_event(int fd, int event, usec_t timeout) {
+_may_suspend_ int fd_wait_for_event(int fd, int event, usec_t timeout) {
         struct pollfd pollfd = {
                 .fd = fd,
                 .events = event,
@@ -357,7 +357,7 @@ int fd_wait_for_event(int fd, int event, usec_t timeout) {
         /* ⚠️ ⚠️ ⚠️ Keep in mind you almost certainly want to handle -EINTR gracefully in the caller, see
          * ppoll_usec() above! ⚠️ ⚠️ ⚠️ */
 
-        r = ppoll_usec(&pollfd, 1, timeout);
+        r = SD_AWAIT(ppoll_usec(&pollfd, 1, timeout));
         if (r <= 0)
                 return r;
 

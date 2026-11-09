@@ -13,11 +13,11 @@ int show_cgroup_and_extra(
                 size_t n_extra_pids,
                 OutputFlags flags);
 
-int show_cgroup_get_unit_path_and_warn(
+_may_suspend_ int show_cgroup_get_unit_path_and_warn(
                 sd_bus *bus,
                 const char *unit,
                 char **ret);
-int show_cgroup_get_path_and_warn(
+_may_suspend_ int show_cgroup_get_path_and_warn(
                 const char *machine,
                 const char *prefix,
                 char **ret);

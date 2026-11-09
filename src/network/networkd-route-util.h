@@ -6,7 +6,7 @@
 unsigned routes_max(void);
 
 bool route_type_is_reject(uint8_t type);
-bool route_is_reject(const Route *route);
+_sync_ bool route_is_reject(const Route *route);
 
 bool link_find_default_gateway(Link *link, int family, Route **gw);
 static inline bool link_has_default_gateway(Link *link, int family) {
