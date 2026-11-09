@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "architecture.h"
 #include "build.h"
+#include "dlopen-note.h"
 #include "format-table.h"
 #include "log.h"
 #include "main-func.h"
@@ -202,6 +203,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
 static int run(int argc, char *argv[]) {
         int r;
+
+        LIBCRYPTO_NOTE(suggested);
 
         log_setup();
 

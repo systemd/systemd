@@ -4636,6 +4636,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_strv_free_ char **names = NULL;
 
         LIBBLKID_NOTE(recommended);
+        LIBCRYPTO_NOTE(suggested);
         LIBSELINUX_NOTE(recommended);
 
         log_setup();
