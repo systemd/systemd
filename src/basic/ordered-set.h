@@ -66,7 +66,7 @@ static inline int ordered_set_reserve(OrderedSet *s, unsigned entries_add) {
         return ordered_hashmap_reserve((OrderedHashmap*) s, entries_add);
 }
 
-int ordered_set_consume(OrderedSet *s, void *p);
+_sync_ int ordered_set_consume(OrderedSet *s, void *p);
 
 int ordered_set_put_strdup_full(OrderedSet **s, const struct hash_ops *hash_ops, const char *p);
 #define ordered_set_put_strdup(s, p) ordered_set_put_strdup_full(s, &string_hash_ops_free, p)

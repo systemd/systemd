@@ -32,11 +32,11 @@ typedef struct ResourcePressure {
  *  some avg10=0.22 avg60=0.17 avg300=1.11 total=58761459
  *  full avg10=0.23 avg60=0.16 avg300=1.08 total=58464525
  */
-int read_resource_pressure_file(FILE *f, PressureType type, ResourcePressure *ret);
+_sync_ int read_resource_pressure_file(FILE *f, PressureType type, ResourcePressure *ret);
 int read_resource_pressure(const char *path, PressureType type, ResourcePressure *ret);
 
 /* Was the kernel compiled with CONFIG_PSI=y? 1 if yes, 0 if not, negative on error. */
-int is_pressure_supported(void);
+_sync_ int is_pressure_supported(void);
 
 /* Metadata for each pressure resource type, for use in sd-event and PID 1 */
 typedef struct PressureResourceInfo {

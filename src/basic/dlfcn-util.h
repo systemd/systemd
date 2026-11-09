@@ -5,6 +5,8 @@
 
 #include "forward.h"
 
+SYNC_BEGIN
+
 void* safe_dlclose(void *dl);
 
 static inline void dlclosep(void **dlp) {
@@ -53,3 +55,5 @@ int dlopen_many_sym_or_warn_sentinel(void **dlp, const char *filename, int log_l
 void block_dlopen(void);
 
 int dlopen_safe(const char *filename, void **ret, const char **reterr_dlerror);
+
+SYNC_END

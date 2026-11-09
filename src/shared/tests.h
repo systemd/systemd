@@ -92,7 +92,7 @@ int define_hex_ptr_internal(const char *hex, void **name, size_t *name_len);
         ASSERT_OK(define_hex_ptr_internal(hex, &name, &name##_len))
 
 /* Formats a strv as ["a", "b"] for assertion messages. */
-char* strv_join_quoted(char * const *l);
+_sync_ char* strv_join_quoted(char * const *l);
 
 /* Provide a convenient way to check if we're running in CI. */
 const char* ci_environment(void);
@@ -164,7 +164,7 @@ void test_prepare(int argc, char *argv[], int log_level);
 #define DEFINE_TEST_MAIN(log_level)                     \
         DEFINE_TEST_MAIN_FULL(log_level, NULL, NULL)
 
-_noreturn_ void log_test_failed_internal(const char *file, int line, const char *func, const char *format, ...) _printf_(4,5);
+_sync_ _noreturn_ void log_test_failed_internal(const char *file, int line, const char *func, const char *format, ...) _printf_(4,5);
 
 #define log_test_failed(format, ...) \
         log_test_failed_internal(PROJECT_FILE, __LINE__, __func__, "%s:%i: Assertion failed: " format, PROJECT_FILE, __LINE__, ##__VA_ARGS__)

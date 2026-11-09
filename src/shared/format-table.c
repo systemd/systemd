@@ -3268,7 +3268,7 @@ int table_print_with_pager(
          * the table header and logs about any error. */
 
         if (json_format_flags & (SD_JSON_FORMAT_OFF|SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
-                pager_open(pager_flags);
+                SD_AWAIT(pager_open(pager_flags));
 
         saved_header = t->header;
         t->header = show_header;

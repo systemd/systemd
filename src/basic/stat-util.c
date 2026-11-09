@@ -26,7 +26,7 @@ static int verify_stat_at(
                 int fd,
                 const char *path,
                 bool follow,
-                int (*verify_func)(const struct stat *st),
+                int (*verify_func)(const struct stat *st) _sync_,
                 bool verify) {
 
         struct stat st;

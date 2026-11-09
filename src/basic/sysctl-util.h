@@ -7,8 +7,8 @@
 
 char* sysctl_normalize(char *s);
 int sysctl_read(const char *property, char **ret);
-int sysctl_read_int(const char *property, int *ret);
-int sysctl_read_unsigned(const char *property, unsigned *ret);
+_sync_ int sysctl_read_int(const char *property, int *ret);
+_sync_ int sysctl_read_unsigned(const char *property, unsigned *ret);
 #define sysctl_read_uint32(property, ret) sysctl_read_unsigned(property, ret)
 int sysctl_read_uint64(const char *property, uint64_t *ret);
 

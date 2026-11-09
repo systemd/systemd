@@ -378,7 +378,7 @@ int show_cgroup_and_extra(
         return show_extra_pids(path, prefix, n_columns, extra_pids, n_extra_pids, flags);
 }
 
-int show_cgroup_get_unit_path_and_warn(
+_may_suspend_ int show_cgroup_get_unit_path_and_warn(
                 sd_bus *bus,
                 const char *unit,
                 char **ret) {
@@ -391,14 +391,14 @@ int show_cgroup_get_unit_path_and_warn(
         if (!path)
                 return log_oom();
 
-        r = sd_bus_get_property_string(
+        r = SD_AWAIT(sd_bus_get_property_string(
                         bus,
                         "org.freedesktop.systemd1",
                         path,
                         unit_dbus_interface_from_name(unit),
                         "ControlGroup",
                         &error,
-                        ret);
+                        ret));
         if (r < 0)
                 return log_error_errno(r, "Failed to query unit control group path: %s",
                                        bus_error_message(&error, r));
@@ -417,7 +417,7 @@ int show_cgroup_get_path_and_warn(
         assert(ret);
 
         if (machine) {
-                _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+                _cleanup_await_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
                 _cleanup_free_ char *unit = NULL;
                 const char *m;
 
@@ -429,11 +429,11 @@ int show_cgroup_get_path_and_warn(
                 if (r < 0)
                         return log_error_errno(r, "Failed to load machine data: %m");
 
-                r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, /* host= */ NULL, RUNTIME_SCOPE_SYSTEM, &bus);
+                r = SD_AWAIT(bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, /* host= */ NULL, RUNTIME_SCOPE_SYSTEM, &bus));
                 if (r < 0)
                         return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL, RUNTIME_SCOPE_SYSTEM);
 
-                r = show_cgroup_get_unit_path_and_warn(bus, unit, &root);
+                r = SD_AWAIT(show_cgroup_get_unit_path_and_warn(bus, unit, &root));
                 if (r < 0)
                         return r;
         } else {

@@ -32,20 +32,20 @@ typedef struct UnitInfo {
 
 int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u);
 
-int bus_append_unit_property_assignment(sd_bus_message *m, UnitType t, const char *assignment);
+_sync_ int bus_append_unit_property_assignment(sd_bus_message *m, UnitType t, const char *assignment);
 int bus_append_unit_property_assignment_many(sd_bus_message *m, UnitType t, char * const *l);
 int bus_append_log_extra_fields_strv(sd_bus_message *m, char * const *fields);
 
 int bus_append_scope_pidref(sd_bus_message *m, const PidRef *pidref, bool allow_pidfd);
 
-int bus_deserialize_unit_file_changes(sd_bus_message *m, InstallChange **ret_changes, size_t *ret_n_changes);
-int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet);
+_sync_ int bus_deserialize_unit_file_changes(sd_bus_message *m, InstallChange **ret_changes, size_t *ret_n_changes);
+_sync_ int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet);
 
 int unit_load_state(sd_bus *bus, const char *name, char **ret);
 
-int unit_info_compare(const UnitInfo *a, const UnitInfo *b);
+_sync_ int unit_info_compare(const UnitInfo *a, const UnitInfo *b);
 
-int bus_service_manager_reload(sd_bus *bus);
+_may_suspend_ int bus_service_manager_reload(sd_bus *bus);
 
 typedef struct UnitFreezer UnitFreezer;
 

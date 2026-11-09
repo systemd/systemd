@@ -5,6 +5,8 @@
 
 #include "../fundamental/strv.h"   /* IWYU pragma: export */
 
+SYNC_BEGIN
+
 char* strv_find_case(char * const *l, const char *name) _pure_;
 char* strv_find_prefix(char * const *l, const char *name) _pure_;
 char* strv_find_startswith(char * const *l, const char *name) _pure_;
@@ -145,7 +147,7 @@ bool strv_overlap(char * const *a, char * const *b) _pure_;
         _STRV_FOREACH_PAIR(x, y, l, UNIQ_T(i, UNIQ))
 
 char** strv_sort(char **l);
-char** strv_sort_uniq_full(char **l, int (*compare)(char * const *a, char * const *b));
+char** strv_sort_uniq_full(char **l, int (*compare)(char * const *a, char * const *b) _sync_);
 char** strv_sort_uniq(char **l);
 void strv_print_full(char * const *l, const char *prefix);
 static inline void strv_print(char * const *l) {
@@ -224,3 +226,5 @@ char** strv_filter_prefix(char * const *l, const char *prefix);
 extern const char* const strv_empty[1];
 
 #define STRV_EMPTY ((char**) strv_empty)
+
+SYNC_END

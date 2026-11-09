@@ -9,9 +9,9 @@ typedef struct MemStream {
         size_t sz;
 } MemStream;
 
-void memstream_done(MemStream *m);
-FILE* memstream_init(MemStream *m);
-int memstream_finalize(MemStream *m, char **ret_buf, size_t *ret_size);
+_sync_ void memstream_done(MemStream *m);
+_sync_ FILE* memstream_init(MemStream *m);
+_sync_ int memstream_finalize(MemStream *m, char **ret_buf, size_t *ret_size);
 
 /* This finalizes the passed memstream. */
 int memstream_dump_internal(

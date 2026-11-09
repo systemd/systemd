@@ -23,11 +23,11 @@ enum EndOfLine {
                               EOL_TOO_LONG|EOL_FORCE_FLUSH,
 };
 
-bool pseudo_tty_name_valid(const char *s);
-bool pseudo_tty_description_valid(const char *s);
-bool pseudo_tty_tag_valid(const char *s);
+_sync_ bool pseudo_tty_name_valid(const char *s);
+_sync_ bool pseudo_tty_description_valid(const char *s);
+_sync_ bool pseudo_tty_tag_valid(const char *s);
 
-EndOfLine end_of_line_from_char(char c);
+_sync_ EndOfLine end_of_line_from_char(char c);
 
 typedef struct TerminalSettings {
         unsigned columns;
@@ -45,10 +45,10 @@ typedef struct TerminalSettings {
 
 #define TAKE_TERMINAL_SETTINGS(var) TAKE_GENERIC(var, TerminalSettings, TERMINAL_SETTINGS_NULL)
 
-void terminal_settings_done(TerminalSettings *ts);
-int terminal_settings_from_json(sd_json_variant *v, TerminalSettings *ret);
-int terminal_settings_to_json(const TerminalSettings *ts, sd_json_variant **ret);
-int terminal_settings_settle(TerminalSettings *ts);
+_sync_ void terminal_settings_done(TerminalSettings *ts);
+_sync_ int terminal_settings_from_json(sd_json_variant *v, TerminalSettings *ret);
+_sync_ int terminal_settings_to_json(const TerminalSettings *ts, sd_json_variant **ret);
+_sync_ int terminal_settings_settle(TerminalSettings *ts);
 int terminal_settings_copy(const TerminalSettings *ts, TerminalSettings *ret);
 int terminal_settings_merge(TerminalSettings *ts, const TerminalSettings *override);
-int terminal_settings_sync_size_fd(TerminalSettings *ts, int fd, const char *path);
+_sync_ int terminal_settings_sync_size_fd(TerminalSettings *ts, int fd, const char *path);

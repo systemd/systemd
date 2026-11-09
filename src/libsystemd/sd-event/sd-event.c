@@ -406,7 +406,7 @@ static bool event_source_timer_candidate(const sd_event_source *s) {
         return !s->pending || s->ratelimited;
 }
 
-static int time_prioq_compare(const void *a, const void *b, usec_t (*time_func)(const sd_event_source *s)) {
+static int time_prioq_compare(const void *a, const void *b, usec_t (*time_func)(const sd_event_source *s) _sync_) {
         const sd_event_source *x = a, *y = b;
         int r;
 
@@ -5202,7 +5202,7 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
          * drives the event loop via sd_event_prepare()/sd_event_wait()/sd_event_dispatch() itself, which
          * are the same primitives profile_delays tracks when called directly. */
         if (fiber_can_suspend())
-                return event_run_suspend(e, timeout);
+                return SD_AWAIT(event_run_suspend(e, timeout));
 
         if (e->profile_delays && e->last_run_usec != 0) {
                 usec_t this_run;
@@ -5254,7 +5254,7 @@ _public_ int sd_event_loop(sd_event *e) {
         PROTECT_EVENT(e);
 
         while (e->state != SD_EVENT_FINISHED) {
-                r = sd_event_run(e, UINT64_MAX);
+                r = SD_AWAIT(sd_event_run(e, UINT64_MAX));
                 if (r < 0)
                         return r;
         }

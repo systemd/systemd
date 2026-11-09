@@ -15,9 +15,9 @@ static inline Set* set_free(Set *s) {
 
 #define set_copy(s) ((Set*) _hashmap_copy(HASHMAP_BASE(s)))
 
-int set_ensure_allocated(Set **s, const struct hash_ops *hash_ops);
+_sync_ int set_ensure_allocated(Set **s, const struct hash_ops *hash_ops);
 
-int set_put(Set *s, const void *key);
+_sync_ int set_put(Set *s, const void *key);
 /* no set_update */
 /* no set_replace */
 static inline void *set_get(const Set *s, const void *key) {
@@ -90,13 +90,13 @@ static inline char **set_get_strv(Set *s) {
 
 char** set_to_strv(Set **s);
 
-int set_ensure_put(Set **s, const struct hash_ops *hash_ops, const void *key);
+_sync_ int set_ensure_put(Set **s, const struct hash_ops *hash_ops, const void *key);
 
-int set_ensure_consume(Set **s, const struct hash_ops *hash_ops, void *key);
+_sync_ int set_ensure_consume(Set **s, const struct hash_ops *hash_ops, void *key);
 
-int set_consume(Set *s, void *value);
+_sync_ int set_consume(Set *s, void *value);
 
-int set_put_strndup_full(Set **s, const struct hash_ops *hash_ops, const char *p, size_t n);
+_sync_ int set_put_strndup_full(Set **s, const struct hash_ops *hash_ops, const char *p, size_t n);
 #define set_put_strdup_full(s, hash_ops, p) set_put_strndup_full(s, hash_ops, p, SIZE_MAX)
 #define set_put_strndup(s, p, n) set_put_strndup_full(s, &string_hash_ops_free, p, n)
 #define set_put_strdup(s, p) set_put_strndup(s, p, SIZE_MAX)

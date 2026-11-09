@@ -20,7 +20,7 @@ static inline bool ratelimit_configured(const RateLimit *rl) {
         return rl->interval > 0 && rl->burst > 0;
 }
 
-bool ratelimit_below(RateLimit *rl);
+_sync_ bool ratelimit_below(RateLimit *rl);
 /* Like ratelimit_below(), but takes the current CLOCK_BOOTTIME timestamp from the caller, for callers
  * that check many rate limits in a row and should not read the clock for each of them. The timestamps
  * passed for a given RateLimit must not go backwards: a ts before the one that opened the current

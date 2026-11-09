@@ -34,13 +34,13 @@ typedef enum ProcessCmdlineFlags {
         PROCESS_CMDLINE_QUOTE_POSIX   = 1 << 3,
 } ProcessCmdlineFlags;
 
-int pid_get_comm(pid_t pid, char **ret);
+_sync_ int pid_get_comm(pid_t pid, char **ret);
 int pidref_get_comm(const PidRef *pid, char **ret);
 int pid_get_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, char **ret);
 int pidref_get_cmdline(const PidRef *pid, size_t max_columns, ProcessCmdlineFlags flags, char **ret);
-int pid_get_cmdline_strv(pid_t pid, ProcessCmdlineFlags flags, char ***ret);
+_sync_ int pid_get_cmdline_strv(pid_t pid, ProcessCmdlineFlags flags, char ***ret);
 int pidref_get_cmdline_strv(const PidRef *pid, ProcessCmdlineFlags flags, char ***ret);
-int get_process_exe(pid_t pid, char **ret);
+_sync_ int get_process_exe(pid_t pid, char **ret);
 int pid_get_uid(pid_t pid, uid_t *ret);
 int pidref_get_uid(const PidRef *pid, uid_t *ret);
 int get_process_gid(pid_t pid, gid_t *ret);
@@ -68,26 +68,26 @@ typedef enum WaitFlags {
         WAIT_LOG = WAIT_LOG_ABNORMAL|WAIT_LOG_NON_ZERO_EXIT_STATUS,
 } WaitFlags;
 
-int pidref_wait_for_terminate_and_check(const char *name, PidRef *pidref, WaitFlags flags);
+_may_suspend_ int pidref_wait_for_terminate_and_check(const char *name, PidRef *pidref, WaitFlags flags);
 
 int kill_and_sigcont(pid_t pid, int sig);
 
-int procfs_get_stat_flags(const char *path, unsigned long long *ret);
+_sync_ int procfs_get_stat_flags(const char *path, unsigned long long *ret);
 
-int pid_is_kernel_thread(pid_t pid);
+_sync_ int pid_is_kernel_thread(pid_t pid);
 int pidref_is_kernel_thread(const PidRef *pid);
 
-int getenv_for_pid(pid_t pid, const char *field, char **ret);
+_sync_ int getenv_for_pid(pid_t pid, const char *field, char **ret);
 
 int pid_is_alive(pid_t pid);
 int pidref_is_alive(const PidRef *pidref);
-int pid_is_unwaited(pid_t pid);
+_sync_ int pid_is_unwaited(pid_t pid);
 int pidref_is_unwaited(PidRef *pidref);
 int pid_is_my_child(pid_t pid);
 int pidref_is_my_child(PidRef *pidref);
 int pidref_from_same_root_fs(PidRef *a, PidRef *b);
 
-bool is_main_thread(void);
+_sync_ bool is_main_thread(void);
 
 #ifndef PERSONALITY_INVALID
 /* personality(2) documents that 0xFFFFFFFFUL is used for querying the
@@ -120,7 +120,7 @@ static inline void* PID_TO_PTR(pid_t pid) {
 
 void valgrind_summary_hack(void);
 
-int pid_compare_func(const pid_t *a, const pid_t *b);
+_sync_ int pid_compare_func(const pid_t *a, const pid_t *b);
 
 bool nice_is_valid(int n) _const_;
 
@@ -139,8 +139,8 @@ static inline bool pid_is_automatic(pid_t p) {
         return p == PID_AUTOMATIC;
 }
 
-pid_t getpid_cached(void);
-void reset_cached_pid(void);
+_sync_ pid_t getpid_cached(void);
+_sync_ void reset_cached_pid(void);
 
 int must_be_root(void);
 
@@ -178,7 +178,7 @@ typedef enum ForkFlags {
         FORK_ALLOW_DLOPEN       = 1 << 23, /* Do not block dlopen() in child */
 } ForkFlags;
 
-int pidref_safe_fork_full(
+_may_suspend_ int pidref_safe_fork_full(
                 const char *name,
                 const int stdio_fds[3],
                 int except_fds[],
@@ -186,11 +186,11 @@ int pidref_safe_fork_full(
                 ForkFlags flags,
                 PidRef *ret);
 
-static inline int pidref_safe_fork(const char *name, ForkFlags flags, PidRef *ret) {
-        return pidref_safe_fork_full(name, /* stdio_fds= */ NULL, /* except_fds= */ NULL, /* n_except_fds= */ 0, flags, ret);
+_may_suspend_ static inline int pidref_safe_fork(const char *name, ForkFlags flags, PidRef *ret) {
+        return SD_AWAIT(pidref_safe_fork_full(name, /* stdio_fds= */ NULL, /* except_fds= */ NULL, /* n_except_fds= */ 0, flags, ret));
 }
 
-int namespace_fork_full(
+_may_suspend_ int namespace_fork_full(
                 const char *outer_name,
                 const char *inner_name,
                 int except_fds[],
@@ -204,7 +204,7 @@ int namespace_fork_full(
                 NamespaceEnterFlags namespace_flags,
                 PidRef *ret);
 
-int namespace_fork(
+_may_suspend_ int namespace_fork(
                 const char *outer_name,
                 const char *inner_name,
                 ForkFlags flags,
@@ -233,7 +233,7 @@ assert_cc(TASKS_MAX <= (unsigned long) PID_T_MAX);
 
 int setpriority_closest(int priority);
 
-_noreturn_ void freeze(void);
+_sync_ _noreturn_ void freeze(void);
 
 int get_process_threads(pid_t pid);
 
@@ -241,7 +241,7 @@ int is_reaper_process(void);
 int make_reaper_process(bool b);
 
 int execvpe_safe(const char *file, char * const *argv, char * const *envp);
-int execvp_safe(const char *file, char * const *argv);
+_sync_ int execvp_safe(const char *file, char * const *argv);
 
 int posix_spawn_wrapper(
                 const char *path,
@@ -256,11 +256,11 @@ int proc_dir_read_pidref(DIR *d, PidRef *ret);
 
 int safe_mlockall(int flags);
 
-_noreturn_ void report_errno_and_exit(int errno_fd, int error);
-int read_errno(int errno_fd);
+_may_suspend_ _noreturn_ void report_errno_and_exit(int errno_fd, int error);
+_may_suspend_ int read_errno(int errno_fd);
 
-int prctl_safe(int op, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5);
+_sync_ int prctl_safe(int op, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5);
 
-int proc_set_comm(const char *comm);
+_sync_ int proc_set_comm(const char *comm);
 int proc_set_nnp(void);
 nsec_t proc_get_timerslack(void);

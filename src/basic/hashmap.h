@@ -5,6 +5,8 @@
 #include "hash-funcs.h"
 #include "iterator.h"
 
+SYNC_BEGIN
+
 /*
  * A hash table implementation. As a minor optimization a NULL hashmap object
  * will be treated as empty hashmap for all read operations. That way it is not
@@ -378,5 +380,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(OrderedHashmap*, ordered_hashmap_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(IteratedCache*, iterated_cache_free);
 
 #define _cleanup_iterated_cache_free_ _cleanup_(iterated_cache_freep)
+
+SYNC_END
 
 void hashmap_trim_pools(void);

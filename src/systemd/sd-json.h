@@ -25,6 +25,8 @@
 
 _SD_BEGIN_DECLARATIONS;
 
+_SD_SYNC_BEGIN
+
 /*
   In case you wonder why we have our own JSON implementation, here are a couple of reasons why this implementation has
   benefits over various other implementations:
@@ -228,7 +230,7 @@ enum {
         _SD_JSON_BUILD_MAX
 };
 
-typedef int (*sd_json_build_callback_t)(sd_json_variant **ret, const char *name, void *userdata);
+typedef int (*sd_json_build_callback_t)(sd_json_variant **ret, const char *name, void *userdata) _sd_scoped_callback_;
 
 #define SD_JSON_BUILD_STRING(s) _SD_JSON_BUILD_STRING, (const char*) { s }
 #define SD_JSON_BUILD_INTEGER(i) _SD_JSON_BUILD_INTEGER, (int64_t) { i }
@@ -301,7 +303,7 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_json_dispatch_flags_t) {
         _SD_ENUM_FORCE_S64(JSON_DISPATCH_FLAGS)
 } sd_json_dispatch_flags_t;
 
-typedef int (*sd_json_dispatch_callback_t)(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
+typedef int (*sd_json_dispatch_callback_t)(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) _sd_scoped_callback_;
 
 typedef struct sd_json_dispatch_field {
         const char *name;
@@ -349,6 +351,8 @@ sd_json_variant_type_t sd_json_variant_type_from_string(const char *s);
 static __inline__ int sd_json_format_enabled(sd_json_format_flags_t flags) {
         return !(flags & SD_JSON_FORMAT_OFF);
 }
+
+_SD_SYNC_END
 
 _SD_END_DECLARATIONS;
 

@@ -7,10 +7,10 @@ int procfs_get_pid_max(uint64_t *ret);
 int procfs_get_threads_max(uint64_t *ret);
 
 int procfs_tasks_set_limit(uint64_t limit);
-int procfs_tasks_get_current(uint64_t *ret);
+_sync_ int procfs_tasks_get_current(uint64_t *ret);
 
-nsec_t procfs_ticks_to_nsec(uint64_t ticks);
-int procfs_cpu_get_usage(nsec_t *ret);
+_sync_ nsec_t procfs_ticks_to_nsec(uint64_t ticks);
+_sync_ int procfs_cpu_get_usage(nsec_t *ret);
 
 typedef struct ProcfsCpuTicks {
         uint64_t user;
@@ -25,7 +25,7 @@ typedef struct ProcfsCpuTicks {
 
 int procfs_cpu_get_ticks(ProcfsCpuTicks *ret);
 
-int procfs_memory_get(uint64_t *ret_total, uint64_t *ret_used);
+_sync_ int procfs_memory_get(uint64_t *ret_total, uint64_t *ret_used);
 static inline int procfs_memory_get_used(uint64_t *ret) {
         return procfs_memory_get(/* ret_total= */ NULL, ret);
 }

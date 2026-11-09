@@ -6,6 +6,8 @@
 
 #include "forward.h"
 
+SYNC_BEGIN
+
 int stat_verify_regular(const struct stat *st);
 int statx_verify_regular(const struct statx *stx);
 int verify_regular_at(int fd, const char *path, bool follow);
@@ -168,3 +170,5 @@ static inline bool inode_type_can_hardlink(mode_t m) {
 }
 
 int vfs_free_bytes(int fd, uint64_t *ret);
+
+SYNC_END

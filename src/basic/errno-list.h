@@ -12,7 +12,7 @@ static inline bool errno_is_valid(int n) {
 
 #define ERRNO_NAME_BUF_LEN DECIMAL_STR_MAX(int)
 /* Like errno_name, but always returns a string. */
-const char* errno_name(int id, char buf[static ERRNO_NAME_BUF_LEN]);
+_sync_ const char* errno_name(int id, char buf[static ERRNO_NAME_BUF_LEN]);
 
 /* A helper to print the errno "name" or number if name is not defined. */
 #define ERRNO_NAME(errnum) errno_name(errnum, (char[ERRNO_NAME_BUF_LEN]){})

@@ -78,7 +78,7 @@ typedef enum {
 
 #define FORMAT_BYTES_MAX 16U
 
-char* format_bytes_full(char *buf, size_t l, uint64_t t, FormatBytesFlag flag) _warn_unused_result_;
+_sync_ char* format_bytes_full(char *buf, size_t l, uint64_t t, FormatBytesFlag flag) _warn_unused_result_;
 
 _warn_unused_result_
 static inline char* format_bytes(char *buf, size_t l, uint64_t t) {

@@ -302,7 +302,7 @@ static int tasks_current_send(
         return metric_build_send_unsigned(mf, link, unit, val, /* fields= */ NULL);
 }
 
-static int walk_cgroups(
+_may_suspend_ static int walk_cgroups(
                 const MetricFamily mf[static _CGROUP_METRIC_FAMILY_MAX],
                 sd_varlink *link,
                 const char *path,
@@ -344,7 +344,7 @@ static int walk_cgroups(
                 }
 
                 /* Flush per unit, so that a large scrape doesn't accumulate in the output buffer. */
-                return sd_varlink_flush(link); /* Unit cgroups are leaf nodes for our purposes */
+                return SD_AWAIT(sd_varlink_flush(link)); /* Unit cgroups are leaf nodes for our purposes */
         }
 
         /* Stop at delegation boundaries — don't descend into delegated subtrees */
@@ -378,7 +378,7 @@ static int walk_cgroups(
 
                 path_simplify(child);
 
-                r = walk_cgroups(mf, link, child, pressure_supported);
+                r = SD_AWAIT(walk_cgroups(mf, link, child, pressure_supported));
                 if (r < 0)
                         return r;
         }
@@ -386,7 +386,7 @@ static int walk_cgroups(
         return 0;
 }
 
-static int cgroup_stats_send(
+_may_suspend_ static int cgroup_stats_send(
                 const MetricFamily mf[static _CGROUP_METRIC_FAMILY_MAX],
                 sd_varlink *link,
                 void *userdata) {
@@ -399,7 +399,7 @@ static int cgroup_stats_send(
         assert(link);
         assert(!userdata);
 
-        return walk_cgroups(mf, link, "", is_pressure_supported() > 0);
+        return SD_AWAIT(walk_cgroups(mf, link, "", is_pressure_supported() > 0));
 }
 
 static const MetricFamily cgroup_metric_family_table[] = {
@@ -447,8 +447,8 @@ static int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *paramet
         return metrics_method_describe(cgroup_metric_family_table, link, parameters, flags, userdata);
 }
 
-static int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        return metrics_method_list(cgroup_metric_family_table, link, parameters, flags, userdata);
+_may_suspend_ static int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return SD_AWAIT(metrics_method_list(cgroup_metric_family_table, link, parameters, flags, userdata));
 }
 
 int report_server_setup(sd_varlink_server *server) {

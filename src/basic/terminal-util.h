@@ -32,7 +32,7 @@
  * 0x1B 0x5c. */
 #define ANSI_ST "\e\\"
 
-bool isatty_safe(int fd);
+_sync_ bool isatty_safe(int fd);
 
 int terminal_reset_ansi_seq(int fd);
 
@@ -48,7 +48,7 @@ int terminal_reset_defensive_locked(int fd, TerminalResetFlags flags);
 int terminal_set_cursor_position(int fd, unsigned row, unsigned column);
 int terminal_get_cursor_position(int input_fd, int output_fd, unsigned *ret_rows, unsigned *ret_column);
 
-int open_terminal(const char *name, int mode);
+_sync_ int open_terminal(const char *name, int mode);
 
 /* Flags for tweaking the way we become the controlling process of a terminal. */
 typedef enum AcquireTerminalFlags {
@@ -80,7 +80,7 @@ void terminal_detach_session(void);
 int terminal_vhangup_fd(int fd);
 int terminal_vhangup(const char *tty);
 
-int terminal_set_size_fd(int fd, const char *ident, unsigned rows, unsigned cols);
+_sync_ int terminal_set_size_fd(int fd, const char *ident, unsigned rows, unsigned cols);
 int proc_cmdline_tty_size(const char *tty, unsigned *ret_rows, unsigned *ret_cols);
 
 int chvt(int vt);
@@ -114,31 +114,31 @@ void reset_dev_console_fd(int fd, bool switch_to_text);
 int lock_dev_console(void);
 int make_console_stdio(bool switch_to_text);
 
-int getenv_columns(void);
+_sync_ int getenv_columns(void);
 int fd_columns(int fd);
-unsigned columns(void);
+_sync_ unsigned columns(void);
 int fd_lines(int fd);
-unsigned lines(void);
+_sync_ unsigned lines(void);
 
-void columns_lines_cache_reset(int _unused_ signum);
+_sync_ void columns_lines_cache_reset(int _unused_ signum);
 void reset_terminal_feature_caches(void);
 
-bool on_tty(void);
-bool term_env_valid(const char *term);
-bool getenv_terminal_is_dumb(void);
-bool terminal_is_dumb(void);
+_sync_ bool on_tty(void);
+_sync_ bool term_env_valid(const char *term);
+_sync_ bool getenv_terminal_is_dumb(void);
+_sync_ bool terminal_is_dumb(void);
 
 bool dev_console_colors_enabled(void);
 
-int get_ctty_devnr(pid_t pid, dev_t *ret);
-int get_ctty(pid_t pid, dev_t *ret_devnr, char **ret);
+_sync_ int get_ctty_devnr(pid_t pid, dev_t *ret);
+_sync_ int get_ctty(pid_t pid, dev_t *ret_devnr, char **ret);
 
 int getttyname_malloc(int fd, char **ret);
 int getttyname_harder(int fd, char **ret);
 
 int ptsname_malloc(int fd, char **ret);
 
-int openpt_allocate(int flags, char **ret_peer_path);
+_sync_ int openpt_allocate(int flags, char **ret_peer_path);
 int openpt_allocate_in_namespace(const PidRef *pidref, int flags, char **ret_peer_path);
 
 int vt_restore(int fd);
@@ -150,7 +150,7 @@ void get_log_colors(int priority, const char **on, const char **off, const char 
 assert_cc((TTY_MODE & ~0666) == 0);
 assert_cc((TTY_MODE & 0711) == 0600);
 
-void termios_disable_echo(struct termios *termios);
+_sync_ void termios_disable_echo(struct termios *termios);
 
 /* A termios sentinel with all flag fields set to all-ones-bits. No real tcgetattr() result will ever
  * match this because no real terminal configuration uses all-ones in every flag field simultaneously. */
@@ -188,7 +188,7 @@ int query_term_for_tty(const char *tty, char **ret_term);
 
 int terminal_is_pty_fd(int fd);
 
-int pty_open_peer(int fd, int mode);
+_sync_ int pty_open_peer(int fd, int mode);
 
 static inline bool osc_char_is_valid(char c) {
         /* Checks whether the specified character is safe to be included inside an ANSI OSC sequence, as per

@@ -3,5 +3,5 @@
 
 #include "forward.h"
 
-void bus_track_dispatch(sd_bus_track *track);
-void bus_track_close(sd_bus_track *track);
+_sync_ void bus_track_dispatch(sd_bus_track *track);
+_sync_ void bus_track_close(sd_bus_track *track);

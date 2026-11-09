@@ -274,7 +274,7 @@ static void dump_capabilities(
                 FILE *f,
                 const char *name,
                 bool terse,
-                int (*has)(sd_bus_creds *c, int capability)) {
+                int (*has)(sd_bus_creds *c, int capability) _sync_) {
 
         unsigned long i, last_cap;
         unsigned n = 0;
