@@ -46,7 +46,7 @@ static int run(int argc, char *argv[]) {
         }
 
         if (ioctl(fd, VIDIOC_QUERYCAP, &v2cap) == 0) {
-                int capabilities;
+                uint32_t capabilities;
 
                 printf("ID_V4L_VERSION=2\n");
                 if (utf8_is_valid((char *)v2cap.card) && !string_has_cc((char *)v2cap.card, /* ok= */ NULL))
@@ -66,12 +66,57 @@ static int run(int argc, char *argv[]) {
                         printf("video_output:");
                 if ((capabilities & V4L2_CAP_VIDEO_OVERLAY) > 0)
                         printf("video_overlay:");
+                if ((capabilities & V4L2_CAP_VBI_CAPTURE) > 0)
+                        printf("vbi_capture:");
+                if ((capabilities & V4L2_CAP_VBI_OUTPUT) > 0)
+                        printf("vbi_output:");
+                if ((capabilities & V4L2_CAP_SLICED_VBI_CAPTURE) > 0)
+                        printf("sliced_vbi_capture:");
+                if ((capabilities & V4L2_CAP_SLICED_VBI_OUTPUT) > 0)
+                        printf("sliced_vbi_output:");
+                if ((capabilities & V4L2_CAP_RDS_CAPTURE) > 0)
+                        printf("rds_capture:");
+                if ((capabilities & V4L2_CAP_VIDEO_OUTPUT_OVERLAY) > 0)
+                        printf("video_output_overlay:");
+                if ((capabilities & V4L2_CAP_HW_FREQ_SEEK) > 0)
+                        printf("hw_freq_seek:");
+                if ((capabilities & V4L2_CAP_RDS_OUTPUT) > 0)
+                        printf("rds_output:");
+                if ((capabilities & V4L2_CAP_VIDEO_M2M) > 0 ||
+                    (capabilities & V4L2_CAP_VIDEO_M2M_MPLANE) > 0)
+                        printf("video_m2m:");
+                if ((capabilities & V4L2_CAP_VIDEO_CAPTURE_MPLANE) > 0 ||
+                    (capabilities & V4L2_CAP_VIDEO_OUTPUT_MPLANE) > 0 ||
+                    (capabilities & V4L2_CAP_VIDEO_M2M_MPLANE) > 0)
+                        printf("mplane:");
                 if ((capabilities & V4L2_CAP_AUDIO) > 0)
                         printf("audio:");
                 if ((capabilities & V4L2_CAP_TUNER) > 0)
                         printf("tuner:");
                 if ((capabilities & V4L2_CAP_RADIO) > 0)
                         printf("radio:");
+                if ((capabilities & V4L2_CAP_MODULATOR) > 0)
+                        printf("modulator:");
+                if ((capabilities & V4L2_CAP_SDR_CAPTURE) > 0)
+                        printf("sdr_capture:");
+                if ((capabilities & V4L2_CAP_EXT_PIX_FORMAT) > 0)
+                        printf("ext_pix_format:");
+                if ((capabilities & V4L2_CAP_SDR_OUTPUT) > 0)
+                        printf("sdr_output:");
+                if ((capabilities & V4L2_CAP_META_CAPTURE) > 0)
+                        printf("meta_capture:");
+                if ((capabilities & V4L2_CAP_READWRITE) > 0)
+                        printf("readwrite:");
+                if ((capabilities & V4L2_CAP_EDID) > 0)
+                        printf("edid:");
+                if ((capabilities & V4L2_CAP_STREAMING) > 0)
+                        printf("streaming:");
+                if ((capabilities & V4L2_CAP_META_OUTPUT) > 0)
+                        printf("meta_output:");
+                if ((capabilities & V4L2_CAP_TOUCH) > 0)
+                        printf("touch:");
+                if ((capabilities & V4L2_CAP_IO_MC) > 0)
+                        printf("io_mc:");
                 printf("\n");
         }
 
