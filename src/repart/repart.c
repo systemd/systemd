@@ -65,6 +65,7 @@
 #include "parse-argument.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "random-util.h"
@@ -7268,7 +7269,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                                 /* userdata= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s%s' to '%s%s': %m",
-                                                       strempty(arg_copy_source), line->source, strempty(root), line->target);
+                                                       empty_or_root_to_empty(arg_copy_source), line->source, empty_or_root_to_empty(root), line->target);
                 } else {
                         _cleanup_free_ char *dn = NULL, *fn = NULL;
 
@@ -12366,7 +12367,7 @@ static int find_root(Context *context) {
                                 if (r == -EUCLEAN)
                                         return btrfs_log_dev_root(LOG_ERR, r, p);
                                 if (r != -ENODEV)
-                                        return log_error_errno(r, "Failed to determine backing device of %s%s: %m", strempty(arg_root), p);
+                                        return log_error_errno(r, "Failed to determine backing device of %s%s: %m", empty_or_root_to_empty(arg_root), p);
                         } else
                                 return 0;
                 }
