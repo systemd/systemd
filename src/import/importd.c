@@ -2097,6 +2097,7 @@ static int run(int argc, char *argv[]) {
         RuntimeScope scope = RUNTIME_SCOPE_SYSTEM;
         int r;
 
+        LIBCRYPTO_NOTE(suggested);
         LIBSELINUX_NOTE(recommended);
 
         log_setup();
