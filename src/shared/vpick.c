@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/magic.h>
 #include <sys/stat.h>
+#include <sys/statfs.h>
 
 #include "alloc-util.h"
 #include "architecture.h"
@@ -8,6 +10,7 @@
 #include "chase.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "host-properties.h"
 #include "log.h"
 #include "parse-util.h"
@@ -15,6 +18,7 @@
 #include "recurse-dir.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "uapi16-manifest.h"
 #include "vpick.h"
 #include "xattr-match.h"
 
@@ -24,6 +28,7 @@ void pick_result_done(PickResult *p) {
         free(p->path);
         safe_close(p->fd);
         free(p->version);
+        free(p->manifest_entry);
 
         *p = PICK_RESULT_NULL;
 }
@@ -188,6 +193,7 @@ static int pin_choice(
                 unsigned tries_done,
                 const PickFilter *filter,
                 const XAttrMatchFilter *xattr_filter, /* NULL to ignore "user.uapi.match_…" xattrs */
+                const Uapi16Object *object,           /* UAPI.16 manifest object describing the inode, or NULL */
                 PickFlags flags,
                 PickResult *ret) {
 
@@ -228,7 +234,40 @@ static int pin_choice(
                 return 0;
         }
 
-        if (xattr_filter) {
+        if (object) {
+                /* If the inode is described by a manifest, make sure the manifest and the inode agree */
+
+                if (((object->type ^ st.st_mode) & S_IFMT) != 0) {
+                        log_debug("Inode '%s/%s' is of type '%s', but manifest says '%s', ignoring.",
+                                  empty_or_root_to_empty(root_path), skip_leading_slash(inode_path),
+                                  inode_type_to_string(st.st_mode), strna(inode_type_to_string(object->type)));
+                        *ret = PICK_RESULT_NULL;
+                        return 0;
+                }
+
+                /* We only support sources that cover the full file, hence if the size is known insist that
+                 * it matches. */
+                if (S_ISREG(st.st_mode) && object->size != UINT64_MAX && (uint64_t) st.st_size != object->size) {
+                        log_debug("File '%s/%s' has size %" PRIu64 ", but manifest says %" PRIu64 ", ignoring.",
+                                  empty_or_root_to_empty(root_path), skip_leading_slash(inode_path),
+                                  (uint64_t) st.st_size, object->size);
+                        *ret = PICK_RESULT_NULL;
+                        return 0;
+                }
+
+                /* The manifest carries the extended attributes in place of the inode (after all it's
+                 * typically used on file systems that do not support them). */
+                r = xattr_match_filter_test_uapi16_object(xattr_filter, object);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        log_debug("Inode '%s/%s' is not suitable for this system according to manifest, ignoring.",
+                                  empty_or_root_to_empty(root_path), skip_leading_slash(inode_path));
+                        *ret = PICK_RESULT_NULL;
+                        return 0;
+                }
+
+        } else if (xattr_filter) {
                 _cleanup_(xattr_match_lists_done) XAttrMatchLists lists = {};
                 r = xattr_match_lists_read(inode_fd, "", xattr_filter->mask, &lists);
                 if (ERRNO_IS_NEG_PRIVILEGE(r)) {
@@ -347,7 +386,8 @@ static int consider_entry(
                 int root_fd,
                 int dir_fd,
                 const char *inode_path,
-                const char *name,
+                const char *name,           /* The name to match against the filter */
+                const Uapi16Object *object, /* The manifest object, if the entry is from a manifest */
                 const PickFilter *filter,
                 const XAttrMatchFilter *xattr_filter,
                 PickFlags flags,
@@ -427,7 +467,11 @@ static int consider_entry(
                 return 0;
         }
 
-        _cleanup_free_ char *p = path_join(inode_path, name);
+        /* For manifest entries the contents might be located in a different file than the entry's name
+         * suggests, but we only collect entries for which we know such a file. */
+        const char *fname = object ? ASSERT_PTR(uapi16_object_plain_file_source(object)) : name;
+
+        _cleanup_free_ char *p = path_join(inode_path, fname);
         if (!p)
                 return log_oom_debug();
 
@@ -447,10 +491,26 @@ static int consider_entry(
                                .suffix = filter->suffix,
                        },
                        xattr_filter,
+                       object,
                        flags,
                        &found);
+        if (object && IN_SET(r, -ENOENT, -ENOTDIR, -ELOOP)) {
+                /* Manifests might reference files that do not exist (anymore), or whose path is obstructed
+                 * by something else, handle that gracefully */
+                log_debug_errno(r, "File '%s/%s' referenced by manifest entry '%s' is not accessible, ignoring: %m",
+                                empty_or_root_to_empty(root_path), skip_leading_slash(p), name);
+                return 0;
+        }
         if (r <= 0)
                 return r;
+
+        if (object) {
+                /* The path of the result refers to the file with the contents, hence remember the name of
+                 * the entry too, as that's the name it is known by. */
+                found.manifest_entry = strdup(name);
+                if (!found.manifest_entry)
+                        return log_oom_debug();
+        }
 
         if (!best->path) {
                 *best = TAKE_PICK_RESULT(found);
@@ -465,6 +525,192 @@ static int consider_entry(
         pick_result_done(best);
         *best = TAKE_PICK_RESULT(found);
         return 0;
+}
+
+static int open_manifest(
+                const char *root_path,
+                int inode_fd,
+                const char *inode_path,
+                PickFlags flags,
+                FILE **ret) {
+
+        int r;
+
+        assert(inode_fd >= 0);
+        assert(inode_path);
+        assert(ret);
+
+        /* Opens the UAPI.16 manifest in the .v/ directory, if we shall use it. Returns 0 if not. */
+
+        if (!FLAGS_SET(flags, PICK_UAPI16_MANIFEST)) {
+                if (!FLAGS_SET(flags, PICK_UAPI16_MANIFEST_AUTO)) {
+                        *ret = NULL;
+                        return 0;
+                }
+
+                /* In automatic mode only use the manifest on file systems that do not support extended
+                 * attributes and such, i.e. where the manifest is the only way to convey such metadata. */
+                struct statfs sfs;
+                r = xstatfsat(inode_fd, /* path= */ NULL, &sfs);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to determine file system type of '%s/%s': %m",
+                                               empty_or_root_to_empty(root_path), skip_leading_slash(inode_path));
+
+                if (!is_fs_type(&sfs, MSDOS_SUPER_MAGIC) && !is_fs_type(&sfs, EXFAT_SUPER_MAGIC)) {
+                        *ret = NULL;
+                        return 0;
+                }
+        }
+
+        FILE *f;
+        r = xfopenat_full(
+                        inode_fd,
+                        UAPI16_MANIFEST_FILENAME,
+                        "re",
+                        O_NOCTTY|O_NOFOLLOW,
+                        XFOPEN_REGULAR,
+                        /* bind_name= */ NULL,
+                        &f);
+        if (r == -ENOENT) {
+                *ret = NULL;
+                return 0;
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open '%s/%s/" UAPI16_MANIFEST_FILENAME "': %m",
+                                       empty_or_root_to_empty(root_path), skip_leading_slash(inode_path));
+
+        *ret = f;
+        return 1;
+}
+
+typedef struct PickManifestEntries {
+        Uapi16Object *objects;
+        size_t n_objects;
+        bool invalid;
+} PickManifestEntries;
+
+static void pick_manifest_entries_done(PickManifestEntries *e) {
+        assert(e);
+
+        uapi16_object_done_many(e->objects, e->n_objects);
+        e->objects = mfree(e->objects);
+        e->n_objects = 0;
+}
+
+static int manifest_object_handler(Uapi16Object *o, size_t index, void *userdata) {
+        PickManifestEntries *e = ASSERT_PTR(userdata);
+        int r;
+
+        assert(o);
+
+        if (index == 0) {
+                /* The leading object describes the manifest itself. Honour its validity, by ignoring all
+                 * entries of an invalid manifest. */
+                r = uapi16_object_check_validity(o);
+                if (r < 0) {
+                        log_debug_errno(r, "Manifest is %s, ignoring all its entries.",
+                                        r == -EHWPOISON ? "revoked" : "outside of its validity time window");
+                        e->invalid = true;
+                }
+
+                return 0;
+        }
+
+        if (e->invalid)
+                return 0;
+
+        /* We only care for direct children of the .v/ directory */
+        if (!filename_is_valid(o->name)) {
+                log_debug("Manifest entry '%s' does not refer to a direct child of the directory, ignoring.", o->name);
+                return 0;
+        }
+
+        if (!IN_SET(o->type, S_IFREG, S_IFDIR)) {
+                log_debug("Manifest entry '%s' is of type '%s', which is not supported, ignoring.",
+                          o->name, strna(inode_type_to_string(o->type)));
+                return 0;
+        }
+
+        r = uapi16_object_check_validity(o);
+        if (r < 0) {
+                log_debug_errno(r, "Manifest entry '%s' is %s, ignoring.",
+                                o->name, r == -EHWPOISON ? "revoked" : "outside of its validity time window");
+                return 0;
+        }
+
+        if (!uapi16_object_plain_file_source(o)) {
+                log_debug("Manifest entry '%s' has no source that is a complete, unencoded local file, ignoring.", o->name);
+                return 0;
+        }
+
+        if (!GREEDY_REALLOC(e->objects, e->n_objects + 1))
+                return log_oom_debug();
+
+        e->objects[e->n_objects++] = TAKE_GENERIC(*o, Uapi16Object, UAPI16_OBJECT_NULL);
+
+        return 0;
+}
+
+static int make_choice_from_manifest(
+                const char *root_path,
+                int root_fd,
+                int dir_fd,
+                const char *inode_path,
+                FILE *manifest,
+                const PickFilter *filter,
+                const XAttrMatchFilter *xattr_filter,
+                PickFlags flags,
+                PickResult *ret) {
+
+        int r;
+
+        assert(inode_path);
+        assert(manifest);
+        assert(filter);
+        assert(ret);
+
+        log_debug("Using manifest '%s/%s/" UAPI16_MANIFEST_FILENAME "' instead of directory listing.",
+                  empty_or_root_to_empty(root_path), skip_leading_slash(inode_path));
+
+        /* Note that we collect all entries first, and only consider them once the whole manifest is
+         * successfully read, since uapi16_manifest_read() only validates the manifest's structure at the
+         * end. */
+        _cleanup_(pick_manifest_entries_done) PickManifestEntries e = {};
+        r = uapi16_manifest_read(
+                        manifest,
+                        /* certificates= */ NULL,
+                        /* n_certificates= */ 0,
+                        LOG_DEBUG,
+                        manifest_object_handler,
+                        &e);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read manifest '%s/%s/" UAPI16_MANIFEST_FILENAME "': %m",
+                                       empty_or_root_to_empty(root_path), skip_leading_slash(inode_path));
+
+        _cleanup_(pick_result_done) PickResult best = PICK_RESULT_NULL;
+        FOREACH_ARRAY(o, e.objects, e.n_objects) {
+                r = consider_entry(
+                                root_path,
+                                root_fd,
+                                dir_fd,
+                                inode_path,
+                                o->name,
+                                o,
+                                filter,
+                                xattr_filter,
+                                flags,
+                                &best);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!best.path) {
+                *ret = PICK_RESULT_NULL;
+                return 0;
+        }
+
+        *ret = TAKE_PICK_RESULT(best);
+        return 1;
 }
 
 static int make_choice(
@@ -492,6 +738,24 @@ static int make_choice(
                 if (r < 0)
                         return r;
         }
+
+        /* If there's a manifest (and we are told to use it), then it replaces the directory listing
+         * entirely, hence check for it before anything else, including the direct lookup below. */
+        _cleanup_fclose_ FILE *manifest = NULL;
+        r = open_manifest(root_path, inode_fd, inode_path, flags, &manifest);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return make_choice_from_manifest(
+                                root_path,
+                                root_fd,
+                                dir_fd,
+                                inode_path,
+                                manifest,
+                                filter,
+                                xattr_filter,
+                                flags,
+                                ret);
 
         /* Maybe the filter is fully specified? Then we can generate the file name directly */
         _cleanup_free_ char *j = NULL;
@@ -524,6 +788,7 @@ static int make_choice(
                                 /* tries_done= */ UINT_MAX,
                                 filter,
                                 xattr_filter,
+                                /* object= */ NULL,
                                 flags & ~PICK_RESOLVE,
                                 ret);
 
@@ -553,6 +818,7 @@ static int make_choice(
                                 dir_fd,
                                 inode_path,
                                 (*entry)->d_name,
+                                /* object= */ NULL,
                                 filter,
                                 xattr_filter,
                                 flags,
@@ -727,6 +993,7 @@ bypass:
                         /* tries_done= */ UINT_MAX,
                         filter,
                         /* xattr_filter= */ NULL,
+                        /* object= */ NULL,
                         flags,
                         ret);
 }
