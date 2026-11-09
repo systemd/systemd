@@ -8,6 +8,8 @@
 
 #include "../fundamental/string-util.h" /* IWYU pragma: export */
 
+SYNC_BEGIN
+
 static inline char* strstr_ptr_internal(const char *haystack, const char *needle) {
         if (!haystack || !needle)
                 return NULL;
@@ -327,3 +329,5 @@ char* strrstr_no_case_internal(const char *haystack, const char *needle) _pure_;
         const_generic(haystack, strrstr_no_case_internal(haystack, needle))
 
 size_t str_common_prefix(const char *a, const char *b) _pure_;
+
+SYNC_END

@@ -32,7 +32,7 @@ char* cpu_set_to_range_string(const CPUSet *c);
 char* cpu_set_to_mask_string(const CPUSet *c);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_cpu_set);
-int parse_cpu_set(const char *s, CPUSet *ret);
+_sync_ int parse_cpu_set(const char *s, CPUSet *ret);
 
 int cpu_set_to_dbus(const CPUSet *c, uint8_t **ret, size_t *ret_size);
 int cpu_set_from_dbus(const uint8_t *bits, size_t size, CPUSet *ret);
@@ -47,4 +47,4 @@ static inline size_t cpu_set_count(const CPUSet *c) {
         return CPU_COUNT_S(c->allocated, c->set);
 }
 
-int cpus_online(unsigned *ret);
+_sync_ int cpus_online(unsigned *ret);

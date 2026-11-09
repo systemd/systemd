@@ -627,7 +627,7 @@ typedef struct UnitVTable {
 
         /* Boils down the more complex internal state of this unit to
          * a simpler one that the engine can understand */
-        UnitActiveState (*active_state)(Unit *u);
+        UnitActiveState (*active_state)(Unit *u) _sync_;
 
         /* Returns the substate specific to this unit type as
          * string. This is purely information so that we can give the
@@ -891,7 +891,7 @@ const char* unit_status_string(Unit *u, char **ret_combined_buffer);
 
 bool unit_has_name(const Unit *u, const char *name);
 
-UnitActiveState unit_active_state(Unit *u);
+_sync_ UnitActiveState unit_active_state(Unit *u);
 
 const char* unit_sub_state_to_string(Unit *u);
 
@@ -947,7 +947,7 @@ const char* unit_slice_name(Unit *u);
 
 bool unit_stop_pending(Unit *u) _pure_;
 bool unit_inactive_or_pending(Unit *u) _pure_;
-bool unit_active_or_pending(Unit *u);
+_sync_ bool unit_active_or_pending(Unit *u);
 bool unit_will_restart_default(Unit *u);
 bool unit_will_restart(Unit *u);
 
@@ -1100,7 +1100,7 @@ int unit_arm_timer(Unit *u, sd_event_source **source, bool relative, usec_t usec
 
 bool unit_passes_filter(Unit *u, char * const *states, char * const *patterns);
 
-int unit_compare_priority(Unit *a, Unit *b);
+_sync_ int unit_compare_priority(Unit *a, Unit *b);
 
 const char* unit_log_field(const Unit *u);
 const char* unit_invocation_log_field(const Unit *u);

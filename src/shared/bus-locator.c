@@ -126,7 +126,7 @@ int bus_call_method(
         assert(locator);
 
         va_start(ap, types);
-        r = sd_bus_call_methodv(bus, locator->destination, locator->path, locator->interface, member, reterr_error, ret_reply, types, ap);
+        r = SD_AWAIT(sd_bus_call_methodv(bus, locator->destination, locator->path, locator->interface, member, reterr_error, ret_reply, types, ap));
         va_end(ap);
 
         return r;
@@ -237,8 +237,8 @@ int bus_match_signal_channel(
 
         assert(locator);
 
-        return bus_signal_channel_new(bus, locator->destination, locator->path,
-                                      locator->interface, member, capacity, ret);
+        return SD_AWAIT(bus_signal_channel_new(bus, locator->destination, locator->path,
+                                      locator->interface, member, capacity, ret));
 }
 
 int bus_match_signal_channel_conflated(

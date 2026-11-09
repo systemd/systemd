@@ -90,52 +90,53 @@ typedef void (*sd_varlink_disconnect_t)(sd_varlink_server *server, sd_varlink *l
 
 struct ucred; /* forward declaration of the Linux structure */
 
-int sd_varlink_connect_address(sd_varlink **ret, const char *address);
+_sd_may_suspend_ int sd_varlink_connect_address(sd_varlink **ret, const char *address);
 int sd_varlink_connect_exec(sd_varlink **ret, const char *command, char **argv);
 int sd_varlink_connect_url(sd_varlink **ret, const char *url);
-int sd_varlink_connect_fd(sd_varlink **ret, int fd);
-int sd_varlink_connect_fd_pair(sd_varlink **ret, int input_fd, int output_fd, const struct ucred *override_ucred);
+_sd_may_suspend_ int sd_varlink_connect_fd(sd_varlink **ret, int fd);
+_sd_may_suspend_ int sd_varlink_connect_fd_pair(sd_varlink **ret, int input_fd, int output_fd, const struct ucred *override_ucred);
 
-_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_varlink);
+_sd_sync_ _SD_DECLARE_TRIVIAL_REF_FUNC(sd_varlink);
+_sd_may_suspend_ _SD_DECLARE_TRIVIAL_UNREF_FUNC(sd_varlink);
 
 int sd_varlink_get_fd(sd_varlink *v);
-int sd_varlink_get_input_fd(sd_varlink *v);
+_sd_sync_ int sd_varlink_get_input_fd(sd_varlink *v);
 int sd_varlink_get_output_fd(sd_varlink *v);
 int sd_varlink_get_events(sd_varlink *v);
 int sd_varlink_get_timeout(sd_varlink *v, uint64_t *ret);
 
-int sd_varlink_attach_event(sd_varlink *v, sd_event *e, int64_t priority);
-void sd_varlink_detach_event(sd_varlink *v);
-sd_event *sd_varlink_get_event(sd_varlink *v);
+_sd_sync_ int sd_varlink_attach_event(sd_varlink *v, sd_event *e, int64_t priority);
+_sd_sync_ void sd_varlink_detach_event(sd_varlink *v);
+_sd_sync_ sd_event *sd_varlink_get_event(sd_varlink *v);
 
-int sd_varlink_process(sd_varlink *v);
-int sd_varlink_wait(sd_varlink *v, uint64_t timeout);
+_sd_may_suspend_ int sd_varlink_process(sd_varlink *v);
+_sd_may_suspend_ int sd_varlink_wait(sd_varlink *v, uint64_t timeout);
 
-int sd_varlink_is_idle(sd_varlink *v);
+_sd_sync_ int sd_varlink_is_idle(sd_varlink *v);
 int sd_varlink_is_connected(sd_varlink *v);
-int sd_varlink_wants_reply(sd_varlink *v);
+_sd_sync_ int sd_varlink_wants_reply(sd_varlink *v);
 
-int sd_varlink_flush(sd_varlink *v);
-int sd_varlink_close(sd_varlink *v);
+_sd_may_suspend_ int sd_varlink_flush(sd_varlink *v);
+_sd_may_suspend_ int sd_varlink_close(sd_varlink *v);
 
-sd_varlink* sd_varlink_flush_close_unref(sd_varlink *v);
-sd_varlink* sd_varlink_close_unref(sd_varlink *v);
+_sd_may_suspend_ sd_varlink* sd_varlink_flush_close_unref(sd_varlink *v);
+_sd_may_suspend_ sd_varlink* sd_varlink_close_unref(sd_varlink *v);
 
 /* Enqueue method call, not expecting a reply */
-int sd_varlink_send(sd_varlink *v, const char *method, sd_json_variant *parameters);
-int sd_varlink_sendb(sd_varlink *v, const char *method, ...);
+_sd_sync_ int sd_varlink_send(sd_varlink *v, const char *method, sd_json_variant *parameters);
+_sd_sync_ int sd_varlink_sendb(sd_varlink *v, const char *method, ...);
 #define sd_varlink_sendbo(v, method, ...)                          \
         sd_varlink_sendb((v), (method), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
 /* Send method call and wait for reply */
-int sd_varlink_call_full(sd_varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters, const char **ret_error_id, sd_varlink_reply_flags_t *ret_flags);
-int sd_varlink_call(sd_varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters, const char **ret_error_id);
+_sd_may_suspend_ int sd_varlink_call_full(sd_varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters, const char **ret_error_id, sd_varlink_reply_flags_t *ret_flags);
+_sd_may_suspend_ int sd_varlink_call(sd_varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters, const char **ret_error_id);
 
-int sd_varlink_callb_ap(sd_varlink *v, const char *method, sd_json_variant **ret_parameters, const char **ret_error_id, sd_varlink_reply_flags_t *ret_flags, va_list ap);
+_sd_may_suspend_ int sd_varlink_callb_ap(sd_varlink *v, const char *method, sd_json_variant **ret_parameters, const char **ret_error_id, sd_varlink_reply_flags_t *ret_flags, va_list ap);
 int sd_varlink_callb_full(sd_varlink *v, const char *method, sd_json_variant **ret_parameters, const char **ret_error_id, sd_varlink_reply_flags_t *ret_flags, ...);
 #define sd_varlink_callbo_full(v, method, ret_parameters, ret_error_id, ret_flags, ...) \
         sd_varlink_callb_full((v), (method), (ret_parameters), (ret_error_id), (ret_flags), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
-int sd_varlink_callb(sd_varlink *v, const char *method, sd_json_variant **ret_parameters, const char **ret_error_id, ...);
+_sd_may_suspend_ int sd_varlink_callb(sd_varlink *v, const char *method, sd_json_variant **ret_parameters, const char **ret_error_id, ...);
 #define sd_varlink_callbo(v, method, ret_parameters, ret_error_id, ...)    \
         sd_varlink_callb((v), (method), (ret_parameters), (ret_error_id), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
@@ -145,21 +146,21 @@ int sd_varlink_callb(sd_varlink *v, const char *method, sd_json_variant **ret_pa
  * references valid only until v is closed or unreffed.
  * Returns > 0 if the connection was upgraded, 0 if a Varlink error occurred (and ret_error_id was set),
  * or < 0 on local failure. */
-int sd_varlink_call_and_upgrade(sd_varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters, const char **ret_error_id, int *ret_input_fd, int *ret_output_fd);
+_sd_may_suspend_ int sd_varlink_call_and_upgrade(sd_varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters, const char **ret_error_id, int *ret_input_fd, int *ret_output_fd);
 int sd_varlink_call_and_upgradeb(sd_varlink *v, const char *method, sd_json_variant **ret_parameters, const char **ret_error_id, int *ret_input_fd, int *ret_output_fd, ...);
 #define sd_varlink_call_and_upgradebo(v, method, ret_parameters, ret_error_id, ret_input_fd, ret_output_fd, ...) \
         sd_varlink_call_and_upgradeb((v), (method), (ret_parameters), (ret_error_id), (ret_input_fd), (ret_output_fd), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
 /* Send method call and begin collecting all 'more' replies into an array, finishing when a final reply is sent */
-int sd_varlink_collect_full(sd_varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters, const char **ret_error_id, sd_varlink_reply_flags_t *ret_flags);
-int sd_varlink_collect(sd_varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters, const char **ret_error_id);
+_sd_may_suspend_ int sd_varlink_collect_full(sd_varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters, const char **ret_error_id, sd_varlink_reply_flags_t *ret_flags);
+_sd_may_suspend_ int sd_varlink_collect(sd_varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters, const char **ret_error_id);
 int sd_varlink_collectb(sd_varlink *v, const char *method, sd_json_variant **ret_parameters, const char **ret_error_id, ...);
 #define sd_varlink_collectbo(v, method, ret_parameters, ret_error_id, ...) \
         sd_varlink_collectb((v), (method), (ret_parameters), (ret_error_id), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
 /* Enqueue method call, expect a reply, which is eventually delivered to the reply callback */
-int sd_varlink_invoke(sd_varlink *v, const char *method, sd_json_variant *parameters);
-int sd_varlink_invokeb(sd_varlink *v, const char *method, ...);
+_sd_sync_ int sd_varlink_invoke(sd_varlink *v, const char *method, sd_json_variant *parameters);
+_sd_sync_ int sd_varlink_invokeb(sd_varlink *v, const char *method, ...);
 #define sd_varlink_invokebo(v, method, ...)                                \
         sd_varlink_invokeb((v), (method), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
@@ -167,20 +168,20 @@ int sd_varlink_invokeb(sd_varlink *v, const char *method, ...);
  * accepted the upgrade, the connection is disconnected from the Varlink protocol afterwards and its fds are
  * handed to the upgrade callback, see sd_varlink_bind_upgrade(). The asynchronous counterpart of
  * sd_varlink_call_and_upgrade(). */
-int sd_varlink_invoke_and_upgrade(sd_varlink *v, const char *method, sd_json_variant *parameters);
+_sd_sync_ int sd_varlink_invoke_and_upgrade(sd_varlink *v, const char *method, sd_json_variant *parameters);
 int sd_varlink_invoke_and_upgradeb(sd_varlink *v, const char *method, ...);
 #define sd_varlink_invoke_and_upgradebo(v, method, ...)                    \
         sd_varlink_invoke_and_upgradeb((v), (method), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
 /* Enqueue method call, expect a reply now, and possibly more later, which are all delivered to the reply callback */
-int sd_varlink_observe(sd_varlink *v, const char *method, sd_json_variant *parameters);
+_sd_sync_ int sd_varlink_observe(sd_varlink *v, const char *method, sd_json_variant *parameters);
 int sd_varlink_observeb(sd_varlink *v, const char *method, ...);
 #define sd_varlink_observebo(v, method, ...)                               \
         sd_varlink_observeb((v), (method), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
 /* Enqueue a final reply */
-int sd_varlink_reply(sd_varlink *v, sd_json_variant *parameters);
-int sd_varlink_replyb(sd_varlink *v, ...);
+_sd_sync_ int sd_varlink_reply(sd_varlink *v, sd_json_variant *parameters);
+_sd_sync_ int sd_varlink_replyb(sd_varlink *v, ...);
 #define sd_varlink_replybo(v, ...)                         \
         sd_varlink_replyb((v), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
@@ -194,22 +195,22 @@ int sd_varlink_replyb(sd_varlink *v, ...);
  * usually fine as flush is fast but a misbehaving/adversary client that stops reading
  * could stall the caller. So do not use in servers that multiplex many varlink
  * connections. */
-int sd_varlink_reply_and_upgrade(sd_varlink *v, sd_json_variant *parameters, int *ret_input_fd, int *ret_output_fd);
+_sd_may_suspend_ int sd_varlink_reply_and_upgrade(sd_varlink *v, sd_json_variant *parameters, int *ret_input_fd, int *ret_output_fd);
 
 /* Like sd_varlink_reply_and_upgrade() but asynchronous */
-int sd_varlink_respond_and_upgrade(sd_varlink *v, sd_json_variant *parameters);
+_sd_sync_ int sd_varlink_respond_and_upgrade(sd_varlink *v, sd_json_variant *parameters);
 int sd_varlink_respond_and_upgradeb(sd_varlink *v, ...);
 #define sd_varlink_respond_and_upgradebo(v, ...)                           \
         sd_varlink_respond_and_upgradeb((v), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
 /* Enqueue a (final) error */
-int sd_varlink_error(sd_varlink *v, const char *error_id, sd_json_variant *parameters);
-int sd_varlink_errorb(sd_varlink *v, const char *error_id, ...);
+_sd_sync_ int sd_varlink_error(sd_varlink *v, const char *error_id, sd_json_variant *parameters);
+_sd_sync_ int sd_varlink_errorb(sd_varlink *v, const char *error_id, ...);
 #define sd_varlink_errorbo(v, error_id, ...)                               \
         sd_varlink_errorb((v), (error_id), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 int sd_varlink_error_invalid_parameter(sd_varlink *v, sd_json_variant *parameters);
-int sd_varlink_error_invalid_parameter_name(sd_varlink *v, const char *name);
-int sd_varlink_error_errno(sd_varlink *v, int error);
+_sd_sync_ int sd_varlink_error_invalid_parameter_name(sd_varlink *v, const char *name);
+_sd_sync_ int sd_varlink_error_errno(sd_varlink *v, int error);
 
 /* Enqueue a "more" reply */
 int sd_varlink_notify(sd_varlink *v, sd_json_variant *parameters);
@@ -222,49 +223,49 @@ int sd_varlink_dispatch_again(sd_varlink *v);
 
 /* Get the currently processed incoming message */
 int sd_varlink_get_current_method(sd_varlink *v, const char **ret);
-int sd_varlink_get_current_parameters(sd_varlink *v, sd_json_variant **ret);
+_sd_sync_ int sd_varlink_get_current_parameters(sd_varlink *v, sd_json_variant **ret);
 
 /* Parsing incoming data via json_dispatch() and generate a nice error on parse errors */
-int sd_varlink_dispatch(sd_varlink *v, sd_json_variant *parameters, const sd_json_dispatch_field dispatch_table[], void *userdata);
+_sd_sync_ int sd_varlink_dispatch(sd_varlink *v, sd_json_variant *parameters, const sd_json_dispatch_field dispatch_table[], void *userdata);
 
 /* Write outgoing fds into the socket (to be associated with the next enqueued message) */
-int sd_varlink_push_fd(sd_varlink *v, int fd);
-int sd_varlink_push_dup_fd(sd_varlink *v, int fd);
+_sd_sync_ int sd_varlink_push_fd(sd_varlink *v, int fd);
+_sd_sync_ int sd_varlink_push_dup_fd(sd_varlink *v, int fd);
 int sd_varlink_reset_fds(sd_varlink *v);
 
 /* Read incoming fds from the socket (associated with the currently handled message) */
-int sd_varlink_peek_fd(sd_varlink *v, size_t i);
+_sd_sync_ int sd_varlink_peek_fd(sd_varlink *v, size_t i);
 int sd_varlink_peek_dup_fd(sd_varlink *v, size_t i);
 int sd_varlink_take_fd(sd_varlink *v, size_t i);
 int sd_varlink_get_n_fds(sd_varlink *v);
 
-int sd_varlink_set_allow_fd_passing_input(sd_varlink *v, int b);
-int sd_varlink_set_allow_fd_passing_output(sd_varlink *v, int b);
+_sd_sync_ int sd_varlink_set_allow_fd_passing_input(sd_varlink *v, int b);
+_sd_sync_ int sd_varlink_set_allow_fd_passing_output(sd_varlink *v, int b);
 
 /* Bind a disconnect, reply or timeout callback */
-int sd_varlink_bind_reply(sd_varlink *v, sd_varlink_reply_t reply);
+_sd_sync_ int sd_varlink_bind_reply(sd_varlink *v, sd_varlink_reply_t reply);
 
 /* Bind an upgrade callback (server side) */
-int sd_varlink_bind_upgrade(sd_varlink *v, sd_varlink_upgrade_t upgrade);
+_sd_sync_ int sd_varlink_bind_upgrade(sd_varlink *v, sd_varlink_upgrade_t upgrade);
 
-void* sd_varlink_set_userdata(sd_varlink *v, void *userdata);
+_sd_sync_ void* sd_varlink_set_userdata(sd_varlink *v, void *userdata);
 void* sd_varlink_get_userdata(sd_varlink *v);
 
 /* Queue a reply to be sent if no other reply was sent by a method callback.
  * Useful when implementing services which send a (possibly empty) series
  * of objects and terminate. */
-int sd_varlink_set_sentinel(sd_varlink *v, const char *error_id);
+_sd_sync_ int sd_varlink_set_sentinel(sd_varlink *v, const char *error_id);
 
-int sd_varlink_get_peer_uid(sd_varlink *v, uid_t *ret);
-int sd_varlink_get_peer_gid(sd_varlink *v, gid_t *ret);
-int sd_varlink_get_peer_pid(sd_varlink *v, pid_t *ret);
-int sd_varlink_get_peer_pidfd(sd_varlink *v);
+_sd_sync_ int sd_varlink_get_peer_uid(sd_varlink *v, uid_t *ret);
+_sd_sync_ int sd_varlink_get_peer_gid(sd_varlink *v, gid_t *ret);
+_sd_sync_ int sd_varlink_get_peer_pid(sd_varlink *v, pid_t *ret);
+_sd_sync_ int sd_varlink_get_peer_pidfd(sd_varlink *v);
 
-int sd_varlink_set_relative_timeout(sd_varlink *v, uint64_t timeout);
+_sd_sync_ int sd_varlink_set_relative_timeout(sd_varlink *v, uint64_t timeout);
 
 sd_varlink_server* sd_varlink_get_server(sd_varlink *v);
 
-int sd_varlink_set_description(sd_varlink *v, const char *d);
+_sd_sync_ int sd_varlink_set_description(sd_varlink *v, const char *d);
 const char* sd_varlink_get_description(sd_varlink *v);
 
 /* Automatically mark the parameters part of incoming messages as security sensitive */
@@ -288,7 +289,9 @@ int sd_varlink_set_serialize_pending(sd_varlink *v, int b);
 
 /* Create a varlink server */
 int sd_varlink_server_new(sd_varlink_server **ret, sd_varlink_server_flags_t flags);
+_SD_SYNC_BEGIN
 _SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_varlink_server);
+_SD_SYNC_END
 
 int sd_varlink_server_set_info(
                 sd_varlink_server *s,
@@ -355,14 +358,14 @@ int sd_varlink_server_disconnect_unclaimed_connections(sd_varlink_server *s);
 
 int sd_varlink_invocation(sd_varlink_invocation_flags_t flags);
 
-int sd_varlink_error_to_errno(const char *error, sd_json_variant *parameters);
+_sd_sync_ int sd_varlink_error_to_errno(const char *error, sd_json_variant *parameters);
 
-int sd_varlink_error_is_invalid_parameter(const char *error, sd_json_variant *parameter, const char *name);
+_sd_sync_ int sd_varlink_error_is_invalid_parameter(const char *error, sd_json_variant *parameter, const char *name);
 
 /* Define helpers so that __attribute__((cleanup(sd_varlink_unrefp))) and similar may be used. */
-_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_varlink, sd_varlink_unref);
-_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_varlink, sd_varlink_close_unref);
-_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_varlink, sd_varlink_flush_close_unref);
+_sd_may_suspend_ _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_varlink, sd_varlink_unref);
+_sd_may_suspend_ _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_varlink, sd_varlink_close_unref);
+_sd_may_suspend_ _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_varlink, sd_varlink_flush_close_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_varlink_server, sd_varlink_server_unref);
 
 /* These are local errors that never cross the wire, and are our own invention */

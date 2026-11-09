@@ -95,25 +95,25 @@ int bus_wait_for_jobs_new(sd_bus *bus, BusWaitForJobs **ret) {
 
         /* When we are a bus client we match by sender. Direct connections OTOH have no initialized sender
          * field, and hence we ignore the sender then */
-        r = sd_bus_match_signal_async(
+        r = SD_AWAIT(sd_bus_match_signal_async(
                         bus,
                         &d->slot_job_removed,
                         bus->bus_client ? "org.freedesktop.systemd1" : NULL,
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         "JobRemoved",
-                        match_job_removed, /* install_callback= */ NULL, d);
+                        match_job_removed, /* install_callback= */ NULL, d));
         if (r < 0)
                 return r;
 
-        r = sd_bus_match_signal_async(
+        r = SD_AWAIT(sd_bus_match_signal_async(
                         bus,
                         &d->slot_disconnected,
                         "org.freedesktop.DBus.Local",
                         /* path= */ NULL,
                         "org.freedesktop.DBus.Local",
                         "Disconnected",
-                        match_disconnected, /* install_callback= */ NULL, d);
+                        match_disconnected, /* install_callback= */ NULL, d));
         if (r < 0)
                 return r;
 
@@ -122,23 +122,23 @@ int bus_wait_for_jobs_new(sd_bus *bus, BusWaitForJobs **ret) {
         return 0;
 }
 
-static int bus_process_wait(sd_bus *bus) {
+_may_suspend_ static int bus_process_wait(sd_bus *bus) {
         int r;
 
         for (;;) {
-                r = sd_bus_process(bus, /* ret= */ NULL);
+                r = SD_AWAIT(sd_bus_process(bus, /* ret= */ NULL));
                 if (r < 0)
                         return r;
                 if (r > 0)
                         return 0;
 
-                r = sd_bus_wait(bus, UINT64_MAX);
+                r = SD_AWAIT(sd_bus_wait(bus, UINT64_MAX));
                 if (r < 0)
                         return r;
         }
 }
 
-static int bus_job_get_service_result(BusWaitForJobs *d, char **ret) {
+_may_suspend_ static int bus_job_get_service_result(BusWaitForJobs *d, char **ret) {
         _cleanup_free_ char *dbus_path = NULL;
 
         assert(d);
@@ -152,13 +152,13 @@ static int bus_job_get_service_result(BusWaitForJobs *d, char **ret) {
         if (!dbus_path)
                 return -ENOMEM;
 
-        return sd_bus_get_property_string(d->bus,
+        return SD_AWAIT(sd_bus_get_property_string(d->bus,
                                           "org.freedesktop.systemd1",
                                           dbus_path,
                                           "org.freedesktop.systemd1.Service",
                                           "Result",
                                           /* reterr_error= */ NULL,
-                                          ret);
+                                          ret));
 }
 
 static int log_job_error_with_service_result(
@@ -232,7 +232,7 @@ extra:
         return r;
 }
 
-static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const char* const* extra_args) {
+_may_suspend_ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const char* const* extra_args) {
         int r;
 
         assert(d);
@@ -284,7 +284,7 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
 
         /* For services, let's also try Result property. */
         _cleanup_free_ char *result = NULL;
-        r = bus_job_get_service_result(d, &result);
+        r = SD_AWAIT(bus_job_get_service_result(d, &result));
         if (r < 0)
                 log_debug_errno(r, "Failed to get Result property of unit %s, ignoring: %m", d->name);
 
@@ -302,7 +302,7 @@ int bus_wait_for_jobs_full(BusWaitForJobs *d, WaitJobsFlags flags, const char* c
         while (!set_isempty(d->jobs)) {
                 int q;
 
-                q = bus_process_wait(d->bus);
+                q = SD_AWAIT(bus_process_wait(d->bus));
                 /* A fiber that waits for jobs gets -ETIME when its SD_FIBER_TIMEOUT() scope expires, and
                  * -ECANCELED when the fiber is cancelled. The caller reports both errors. */
                 if (IN_SET(q, -ETIME, -ECANCELED))
@@ -311,7 +311,7 @@ int bus_wait_for_jobs_full(BusWaitForJobs *d, WaitJobsFlags flags, const char* c
                         return log_error_errno(q, "Failed to wait for response: %m");
 
                 if (d->name && d->result) {
-                        q = check_wait_response(d, flags, extra_args);
+                        q = SD_AWAIT(check_wait_response(d, flags, extra_args));
                         /* Return the first error as it is most likely to be meaningful. */
                         RET_GATHER(r, q);
 

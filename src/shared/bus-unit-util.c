@@ -3255,7 +3255,7 @@ int bus_service_manager_reload(sd_bus *bus) {
                 return bus_log_create_error(r);
 
         /* Reloading the daemon may take long, hence set a longer timeout here */
-        r = sd_bus_call(bus, m, DAEMON_RELOAD_TIMEOUT_SEC, &error, /* ret_reply= */ NULL);
+        r = SD_AWAIT(sd_bus_call(bus, m, DAEMON_RELOAD_TIMEOUT_SEC, &error, /* ret_reply= */ NULL));
         if (r < 0)
                 return log_error_errno(r, "Failed to reload service manager: %s", bus_error_message(&error, r));
 

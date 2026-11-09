@@ -30,5 +30,5 @@ bool inotify_event_next(
                 struct inotify_event **iterator,
                 int log_level);
 
-int inotify_add_watch_fd(int fd, int what, uint32_t mask);
+_sync_ int inotify_add_watch_fd(int fd, int what, uint32_t mask);
 int inotify_add_watch_and_warn(int fd, const char *pathname, uint32_t mask);

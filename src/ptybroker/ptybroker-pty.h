@@ -77,22 +77,22 @@ struct PseudoTTY {
         LIST_FIELDS(PseudoTTY, free_queue);
 };
 
-PseudoTTY* pseudo_tty_free(PseudoTTY *pty);
-DEFINE_TRIVIAL_CLEANUP_FUNC(PseudoTTY*, pseudo_tty_free);
+_may_suspend_ PseudoTTY* pseudo_tty_free(PseudoTTY *pty);
+_may_suspend_ DEFINE_TRIVIAL_CLEANUP_FUNC(PseudoTTY*, pseudo_tty_free);
 
-int pseudo_tty_new(PseudoTTY **ret);
-int pseudo_tty_link(PseudoTTY *pty, Manager *m);
+_may_suspend_ int pseudo_tty_new(PseudoTTY **ret);
+_sync_ int pseudo_tty_link(PseudoTTY *pty, Manager *m);
 
-int pseudo_tty_set_events(PseudoTTY *pty);
+_sync_ int pseudo_tty_set_events(PseudoTTY *pty);
 
-int pseudo_tty_watch_frontend_fd(PseudoTTY *pty, sd_event *event);
-int pseudo_tty_watch_backend_node(PseudoTTY *pty, sd_event *event);
+_sync_ int pseudo_tty_watch_frontend_fd(PseudoTTY *pty, sd_event *event);
+_sync_ int pseudo_tty_watch_backend_node(PseudoTTY *pty, sd_event *event);
 
 int pseudo_tty_track_buffer_to_json(PseudoTTY *pty, size_t n_lines, sd_json_variant **ret);
 
 int pseudo_tty_vhangup(PseudoTTY *pty);
 
-int pseudo_tty_sync_winsize(PseudoTTY *pty);
+_sync_ int pseudo_tty_sync_winsize(PseudoTTY *pty);
 
 DECLARE_STRING_TABLE_LOOKUP(frontend_type, FrontendType);
 DECLARE_STRING_TABLE_LOOKUP(backend_type, BackendType);

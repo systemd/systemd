@@ -89,7 +89,7 @@ static inline void* mempmem_safe(const void *haystack, size_t haystacklen, const
         return (uint8_t*) p + needlelen;
 }
 
-void* erase_and_free(void *p);
+_sync_ void* erase_and_free(void *p);
 
 static inline void erase_and_freep(void *p) {
         erase_and_free(*(void**) p);

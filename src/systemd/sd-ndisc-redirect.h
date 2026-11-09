@@ -33,7 +33,7 @@ _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_ndisc_redirect, sd_ndisc_redirect_unref);
 int sd_ndisc_redirect_set_sender_address(sd_ndisc_redirect *rd, const struct in6_addr *addr);
 int sd_ndisc_redirect_get_sender_address(sd_ndisc_redirect *rd, struct in6_addr *ret);
 int sd_ndisc_redirect_get_target_address(sd_ndisc_redirect *rd, struct in6_addr *ret);
-int sd_ndisc_redirect_get_destination_address(sd_ndisc_redirect *rd, struct in6_addr *ret);
+_sd_sync_ int sd_ndisc_redirect_get_destination_address(sd_ndisc_redirect *rd, struct in6_addr *ret);
 int sd_ndisc_redirect_get_target_mac(sd_ndisc_redirect *rd, struct ether_addr *ret);
 int sd_ndisc_redirect_get_redirected_header(sd_ndisc_redirect *rd, struct ip6_hdr *ret);
 

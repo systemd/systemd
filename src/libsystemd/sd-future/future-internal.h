@@ -6,7 +6,7 @@
 
 /* sd_fiber_is_running() also returns true in a blocking region, where a suspension aborts. Fiber-aware
  * helpers check fiber_can_suspend() before they take their suspending path. */
-bool fiber_can_suspend(void);
+_sync_ bool fiber_can_suspend(void) _suspend_guard_;
 
 /* A fiber waits for at most one future at a time, so each fiber contains a single FutureWaiter. */
 typedef struct FutureWaiter FutureWaiter;
@@ -16,6 +16,6 @@ struct FutureWaiter {
         LIST_FIELDS(FutureWaiter, waiters);
 };
 
-void future_add_waiter(sd_future *target, FutureWaiter *waiter);
+_sync_ void future_add_waiter(sd_future *target, FutureWaiter *waiter);
 /* Returns the target together with the reference that the wait held on it. */
-sd_future* future_remove_waiter(FutureWaiter *waiter);
+_sync_ sd_future* future_remove_waiter(FutureWaiter *waiter);

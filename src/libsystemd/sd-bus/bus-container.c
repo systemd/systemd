@@ -67,19 +67,19 @@ int container_get_leader(RuntimeScope scope, const char *machine, pid_t *ret) {
         return 0;
 }
 
-static int bus_container_connect_namespace(sd_bus *b, int pidnsfd, int mntnsfd, int usernsfd, int rootfd) {
+_may_suspend_ static int bus_container_connect_namespace(sd_bus *b, int pidnsfd, int mntnsfd, int usernsfd, int rootfd) {
         _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
         int r;
 
         if (pipe2(errno_pipe_fd, O_CLOEXEC) < 0)
                 return log_debug_errno(errno, "Failed to create pipe: %m");
 
-        r = namespace_fork("(sd-buscntrns)", "(sd-buscntr)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_WAIT,
-                           pidnsfd, mntnsfd, /* netns_fd= */ -EBADF, usernsfd, rootfd, /* ret= */ NULL);
+        r = SD_AWAIT(namespace_fork("(sd-buscntrns)", "(sd-buscntr)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_WAIT,
+                           pidnsfd, mntnsfd, /* netns_fd= */ -EBADF, usernsfd, rootfd, /* ret= */ NULL));
         if (r == -EPROTO) {
                 errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-                int k = read_errno(errno_pipe_fd[0]);
+                int k = SD_AWAIT(read_errno(errno_pipe_fd[0]));
                 if (k < 0 && k != -EIO)
                         return k;
         }
@@ -89,7 +89,7 @@ static int bus_container_connect_namespace(sd_bus *b, int pidnsfd, int mntnsfd, 
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
                 r = RET_NERRNO(connect(b->input_fd, &b->sockaddr.sa, b->sockaddr_size));
-                report_errno_and_exit(errno_pipe_fd[1], r);
+                SD_AWAIT(report_errno_and_exit(errno_pipe_fd[1], r));
         }
 
         return 0;
@@ -137,7 +137,7 @@ int bus_container_connect_socket(sd_bus *b) {
         if (r > 0)
                 r = RET_NERRNO(connect(b->input_fd, &b->sockaddr.sa, b->sockaddr_size));
         else
-                r = bus_container_connect_namespace(b, pidnsfd, mntnsfd, usernsfd, rootfd);
+                r = SD_AWAIT(bus_container_connect_namespace(b, pidnsfd, mntnsfd, usernsfd, rootfd));
         if (r == -EINPROGRESS)
                 return 1;
         if (r < 0)

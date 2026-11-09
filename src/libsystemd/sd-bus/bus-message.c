@@ -3823,7 +3823,7 @@ static int message_peek_field_uint32(
 
 static int message_peek_field_string(
                 sd_bus_message *m,
-                bool (*validate)(const char *p),
+                bool (*validate)(const char *p) _sync_,
                 size_t *ri,
                 size_t item_size,
                 const char **ret) {

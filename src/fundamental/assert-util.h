@@ -20,8 +20,8 @@
         #define assert_se(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE__, __LINE__, __func__); })
 #else
 
-_noreturn_ void log_assert_failed(const char *text, const char *file, int line, const char *func);
-_noreturn_ void log_assert_failed_unreachable(const char *file, int line, const char *func);
+_sync_ _noreturn_ void log_assert_failed(const char *text, const char *file, int line, const char *func);
+_sync_ _noreturn_ void log_assert_failed_unreachable(const char *file, int line, const char *func);
 
 #ifdef __COVERITY__
 

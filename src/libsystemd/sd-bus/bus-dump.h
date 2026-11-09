@@ -3,7 +3,7 @@
 
 #include "forward.h"
 
-int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse);
+_sync_ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse);
 
 int bus_pcap_header(size_t snaplen, const char *os, const char *info, FILE *f);
 int bus_message_pcap_frame(sd_bus_message *m, size_t snaplen, FILE *f);

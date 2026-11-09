@@ -102,7 +102,7 @@ static int server_init(sd_bus **ret) {
         return 0;
 }
 
-static int server(void *userdata) {
+_may_suspend_ static int server(void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         bool client1_gone = false, client2_gone = false;
         int r;
@@ -113,11 +113,11 @@ static int server(void *userdata) {
                 pid_t pid = 0;
                 const char *label = NULL;
 
-                r = sd_bus_process(bus, &m);
+                r = SD_AWAIT(sd_bus_process(bus, &m));
                 if (r < 0)
                         return log_error_errno(r, "Failed to process requests: %m");
                 if (r == 0) {
-                        r = sd_bus_wait(bus, UINT64_MAX);
+                        r = SD_AWAIT(sd_bus_wait(bus, UINT64_MAX));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to wait: %m");
 
@@ -126,7 +126,7 @@ static int server(void *userdata) {
                 if (!m)
                         continue;
 
-                r = sd_bus_query_sender_creds(m, SD_BUS_CREDS_AUGMENT | SD_BUS_CREDS_PID | SD_BUS_CREDS_SELINUX_CONTEXT, &creds);
+                r = SD_AWAIT(sd_bus_query_sender_creds(m, SD_BUS_CREDS_AUGMENT | SD_BUS_CREDS_PID | SD_BUS_CREDS_SELINUX_CONTEXT, &creds));
                 if (r < 0)
                         log_debug_errno(r, "Failed to query sender credentials, ignoring: %m");
                 else {
@@ -159,31 +159,31 @@ static int server(void *userdata) {
 
                         ascii_strlower(lowercase);
 
-                        r = sd_bus_reply_method_return(m, "s", lowercase);
+                        r = SD_AWAIT(sd_bus_reply_method_return(m, "s", lowercase));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to send reply: %m");
 
                 } else if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "ExitClient1")) {
 
-                        r = sd_bus_reply_method_return(m, /* types= */ NULL);
+                        r = SD_AWAIT(sd_bus_reply_method_return(m, /* types= */ NULL));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to send reply: %m");
 
                         client1_gone = true;
                 } else if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "ExitClient2")) {
 
-                        r = sd_bus_reply_method_return(m, /* types= */ NULL);
+                        r = SD_AWAIT(sd_bus_reply_method_return(m, /* types= */ NULL));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to send reply: %m");
 
                         client2_gone = true;
                 } else if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "Slow")) {
 
-                        r = sd_fiber_sleep(1 * USEC_PER_SEC);
+                        r = SD_AWAIT(sd_fiber_sleep(1 * USEC_PER_SEC));
                         if (r < 0)
                                 return r;
 
-                        r = sd_bus_reply_method_return(m, /* types= */ NULL);
+                        r = SD_AWAIT(sd_bus_reply_method_return(m, /* types= */ NULL));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to send reply: %m");
 
@@ -197,21 +197,21 @@ static int server(void *userdata) {
 
                         log_info("Received fd=%d", fd);
 
-                        ssize_t n = sd_fiber_write(fd, &x, 1);
+                        ssize_t n = SD_AWAIT(sd_fiber_write(fd, &x, 1));
                         if (n < 0) {
                                 safe_close(fd);
                                 return log_error_errno(n, "Failed to write to fd: %m");
                         }
 
-                        r = sd_bus_reply_method_return(m, /* types= */ NULL);
+                        r = SD_AWAIT(sd_bus_reply_method_return(m, /* types= */ NULL));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to send reply: %m");
 
                 } else if (sd_bus_message_is_method_call(m, /* interface= */ NULL, /* member= */ NULL)) {
 
-                        r = sd_bus_reply_method_error(
+                        r = SD_AWAIT(sd_bus_reply_method_error(
                                         m,
-                                        &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method."));
+                                        &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method.")));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to send reply: %m");
                 }
@@ -220,22 +220,22 @@ static int server(void *userdata) {
         return 0;
 }
 
-static int client1(void *userdata) {
+_may_suspend_ static int client1(void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_await_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *hello;
         int r;
         _cleanup_close_pair_ int pp[2] = EBADF_PAIR;
         char x;
 
-        r = sd_bus_open_user(&bus);
+        r = SD_AWAIT(sd_bus_open_user(&bus));
         if (r < 0) {
                 log_error_errno(r, "Failed to connect to user bus: %m");
                 goto finish;
         }
 
-        r = sd_bus_call_method(
+        r = SD_AWAIT(sd_bus_call_method(
                         bus,
                         "org.freedesktop.systemd.test",
                         "/",
@@ -244,7 +244,7 @@ static int client1(void *userdata) {
                         &error,
                         &reply,
                         "s",
-                        "HELLO");
+                        "HELLO"));
         if (r < 0) {
                 log_error_errno(r, "Failed to issue method call: %m");
                 goto finish;
@@ -265,7 +265,7 @@ static int client1(void *userdata) {
 
         log_info("Sending fd=%d", pp[1]);
 
-        r = sd_bus_call_method(
+        r = SD_AWAIT(sd_bus_call_method(
                         bus,
                         "org.freedesktop.systemd.test",
                         "/",
@@ -274,13 +274,13 @@ static int client1(void *userdata) {
                         &error,
                         /* ret_reply= */ NULL,
                         "h",
-                        pp[1]);
+                        pp[1]));
         if (r < 0) {
                 log_error_errno(r, "Failed to issue method call: %m");
                 goto finish;
         }
 
-        ssize_t n = sd_fiber_read(pp[0], &x, 1);
+        ssize_t n = SD_AWAIT(sd_fiber_read(pp[0], &x, 1));
         if (n <= 0) {
                 log_error("Failed to read from pipe: %s", STRERROR_OR_EOF(n));
                 goto finish;
@@ -302,7 +302,7 @@ finish:
                 if (r < 0)
                         log_error_errno(r, "Failed to allocate method call: %m");
                 else
-                        sd_bus_send(bus, q, /* ret_cookie= */ NULL);
+                        SD_AWAIT(sd_bus_send(bus, q, /* ret_cookie= */ NULL));
 
         }
 
@@ -318,15 +318,15 @@ static int quit_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_er
         return 1;
 }
 
-static int client2(void *userdata) {
+_may_suspend_ static int client2(void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_await_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         bool quit = false;
         const char *mid;
         int r;
 
-        r = sd_bus_open_user(&bus);
+        r = SD_AWAIT(sd_bus_open_user(&bus));
         if (r < 0) {
                 log_error_errno(r, "Failed to connect to user bus: %m");
                 goto finish;
@@ -344,7 +344,7 @@ static int client2(void *userdata) {
                 goto finish;
         }
 
-        r = sd_bus_send(bus, m, /* ret_cookie= */ NULL);
+        r = SD_AWAIT(sd_bus_send(bus, m, /* ret_cookie= */ NULL));
         if (r < 0) {
                 log_error("Failed to issue method call: %s", bus_error_message(&error, r));
                 goto finish;
@@ -363,7 +363,7 @@ static int client2(void *userdata) {
                 goto finish;
         }
 
-        r = sd_bus_send(bus, m, /* ret_cookie= */ NULL);
+        r = SD_AWAIT(sd_bus_send(bus, m, /* ret_cookie= */ NULL));
         if (r < 0) {
                 log_error("Failed to issue signal: %s", bus_error_message(&error, r));
                 goto finish;
@@ -383,7 +383,7 @@ static int client2(void *userdata) {
                 goto finish;
         }
 
-        r = sd_bus_send(bus, m, /* ret_cookie= */ NULL);
+        r = SD_AWAIT(sd_bus_send(bus, m, /* ret_cookie= */ NULL));
         if (r < 0) {
                 log_error("Failed to issue signal to: %s", bus_error_message(&error, r));
                 goto finish;
@@ -403,7 +403,7 @@ static int client2(void *userdata) {
                 goto finish;
         }
 
-        r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
+        r = SD_AWAIT(sd_bus_call(bus, m, /* usec= */ 0, &error, &reply));
         if (r < 0) {
                 log_error("Failed to issue method call: %s", bus_error_message(&error, r));
                 goto finish;
@@ -433,7 +433,7 @@ static int client2(void *userdata) {
 
         reply = sd_bus_message_unref(reply);
 
-        r = sd_bus_call(bus, m, 200 * USEC_PER_MSEC, &error, &reply);
+        r = SD_AWAIT(sd_bus_call(bus, m, 200 * USEC_PER_MSEC, &error, &reply));
         if (r < 0)
                 log_debug("Failed to issue method call: %s", bus_error_message(&error, r));
         else {
@@ -455,20 +455,20 @@ static int client2(void *userdata) {
                 goto finish;
         }
 
-        r = sd_bus_call_async(bus, /* ret_slot= */ NULL, m, quit_callback, &quit, 200 * USEC_PER_MSEC);
+        r = SD_AWAIT(sd_bus_call_async(bus, /* ret_slot= */ NULL, m, quit_callback, &quit, 200 * USEC_PER_MSEC));
         if (r < 0) {
                 log_info("Failed to issue method call: %s", bus_error_message(&error, r));
                 goto finish;
         }
 
         while (!quit) {
-                r = sd_bus_process(bus, /* ret= */ NULL);
+                r = SD_AWAIT(sd_bus_process(bus, /* ret= */ NULL));
                 if (r < 0) {
                         log_error_errno(r, "Failed to process requests: %m");
                         goto finish;
                 }
                 if (r == 0) {
-                        r = sd_bus_wait(bus, UINT64_MAX);
+                        r = SD_AWAIT(sd_bus_wait(bus, UINT64_MAX));
                         if (r < 0) {
                                 log_error_errno(r, "Failed to wait: %m");
                                 goto finish;
@@ -494,7 +494,7 @@ finish:
                         goto finish;
                 }
 
-                (void) sd_bus_send(bus, q, /* ret_cookie= */ NULL);
+                (void) SD_AWAIT(sd_bus_send(bus, q, /* ret_cookie= */ NULL));
         }
 
         return r;

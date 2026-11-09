@@ -48,8 +48,8 @@
 #define free_and_replace(a, b)                  \
         free_and_replace_full(a, b, free)
 
-void* memdup(const void *p, size_t l) _alloc_(2);
-void* memdup_suffix0(const void *p, size_t l); /* We can't use _alloc_() here, since we return a buffer one byte larger than the specified size */
+_sync_ void* memdup(const void *p, size_t l) _alloc_(2);
+_sync_ void* memdup_suffix0(const void *p, size_t l); /* We can't use _alloc_() here, since we return a buffer one byte larger than the specified size */
 
 #define memdupa(p, l)                           \
         ({                                      \
@@ -108,7 +108,7 @@ static inline void *memdup_suffix0_multiply(const void *p, size_t need, size_t s
         return memdup_suffix0(p, size * need);
 }
 
-size_t malloc_sizeof_safe(void **xp);
+_sync_ size_t malloc_sizeof_safe(void **xp);
 
 /* This returns the number of usable bytes in a malloc()ed region as per malloc_usable_size(), which may
  * return a value larger than the size that was actually allocated. Access to that additional memory is
@@ -132,7 +132,7 @@ size_t malloc_sizeof_safe(void **xp);
  * be inlined (hence a non-static function with _noinline_ because LTO otherwise tries to inline it) because
  * gcc then loses the attributes on the function.
  * See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=96503 */
-void *expand_to_usable(void *p, size_t newsize) _alloc_(2) _returns_nonnull_ _noinline_;
+_sync_ void *expand_to_usable(void *p, size_t newsize) _alloc_(2) _returns_nonnull_ _noinline_;
 
 void* realloc0(void *p, size_t new_size) _alloc_(2);
 
@@ -159,9 +159,9 @@ static inline size_t GREEDY_ALLOC_ROUND_UP(size_t l) {
         return m;
 }
 
-void* greedy_realloc(void **p, size_t need, size_t size);
-void* greedy_realloc0(void **p, size_t need, size_t size);
-void* greedy_realloc_append(void **p, size_t *n_p, const void *from, size_t n_from, size_t size);
+_sync_ void* greedy_realloc(void **p, size_t need, size_t size);
+_sync_ void* greedy_realloc0(void **p, size_t need, size_t size);
+_sync_ void* greedy_realloc_append(void **p, size_t *n_p, const void *from, size_t n_from, size_t size);
 
 #define GREEDY_REALLOC(array, need)                                     \
         greedy_realloc((void**) &(array), (need), sizeof((array)[0]))

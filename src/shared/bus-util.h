@@ -28,20 +28,20 @@ bool bus_error_is_connection(const sd_bus_error *error);
 
 int bus_check_peercred(sd_bus *bus);
 
-int bus_set_address_capsule_bus(sd_bus *bus, const char *capsule, int *ret_pin_fd);
+_sync_ int bus_set_address_capsule_bus(sd_bus *bus, const char *capsule, int *ret_pin_fd);
 
-int bus_connect_system_systemd(sd_bus **ret);
-int bus_connect_user_systemd(sd_bus **ret);
-int bus_connect_user_systemd_by_uid(uid_t uid, const char *description, sd_bus **ret);
-int bus_connect_capsule_systemd(const char *capsule, sd_bus **ret);
-int bus_connect_capsule_bus(const char *capsule, sd_bus **ret);
+_may_suspend_ int bus_connect_system_systemd(sd_bus **ret);
+_may_suspend_ int bus_connect_user_systemd(sd_bus **ret);
+_may_suspend_ int bus_connect_user_systemd_by_uid(uid_t uid, const char *description, sd_bus **ret);
+_may_suspend_ int bus_connect_capsule_systemd(const char *capsule, sd_bus **ret);
+_may_suspend_ int bus_connect_capsule_bus(const char *capsule, sd_bus **ret);
 
-int bus_connect_transport(BusTransport transport, const char *host, RuntimeScope runtime_scope, sd_bus **ret);
-int bus_connect_transport_systemd(BusTransport transport, const char *host, RuntimeScope runtime_scope, sd_bus **ret);
+_may_suspend_ int bus_connect_transport(BusTransport transport, const char *host, RuntimeScope runtime_scope, sd_bus **ret);
+_may_suspend_ int bus_connect_transport_systemd(BusTransport transport, const char *host, RuntimeScope runtime_scope, sd_bus **ret);
 
 int bus_log_address_error(int r, BusTransport transport);
 int bus_log_connect_full(int log_level, int r, BusTransport transport, RuntimeScope scope);
-int bus_log_connect_error(int r, BusTransport transport, RuntimeScope scope);
+_sync_ int bus_log_connect_error(int r, BusTransport transport, RuntimeScope scope);
 
 #define bus_log_parse_error(r)                                  \
         log_error_errno(r, "Failed to parse bus message: %m")

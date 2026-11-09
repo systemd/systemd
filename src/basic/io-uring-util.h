@@ -35,19 +35,19 @@ typedef struct IoUring {
 
 #define IO_URING_NULL (IoUring) { .ring_fd = -EBADF }
 
-int io_uring_init(IoUring *ring, unsigned entries, unsigned flags);
-void io_uring_done(IoUring *ring);
+_sync_ int io_uring_init(IoUring *ring, unsigned entries, unsigned flags);
+_sync_ void io_uring_done(IoUring *ring);
 
 static inline bool io_uring_is_initialized(const IoUring *ring) {
         assert(ring);
         return ring->ring_fd >= 0;
 }
 
-struct io_uring_sqe* io_uring_get_sqe(IoUring *ring);
-int io_uring_submit(IoUring *ring);
+_sync_ struct io_uring_sqe* io_uring_get_sqe(IoUring *ring);
+_sync_ int io_uring_submit(IoUring *ring);
 /* Submits the queued SQEs and waits until a CQE is ready or the timeout elapsed. Returns -ETIME if the
  * timeout elapsed first, unless SQEs were submitted. The kernel then returns the number of submitted SQEs. */
-int io_uring_submit_and_wait(IoUring *ring, usec_t timeout);
+_sync_ int io_uring_submit_and_wait(IoUring *ring, usec_t timeout);
 
 static inline uint32_t io_uring_cq_tail(const IoUring *ring) {
         assert(ring);

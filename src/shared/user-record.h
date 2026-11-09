@@ -466,7 +466,7 @@ uint64_t user_record_ratelimit_burst(UserRecord *h);
 bool user_record_can_authenticate(UserRecord *h);
 bool user_record_drop_caches(UserRecord *h);
 AutoResizeMode user_record_auto_resize_mode(UserRecord *h);
-uint64_t user_record_rebalance_weight(UserRecord *h);
+_sync_ uint64_t user_record_rebalance_weight(UserRecord *h);
 uint64_t user_record_capability_bounding_set(UserRecord *h);
 uint64_t user_record_capability_ambient_set(UserRecord *h);
 int user_record_languages(UserRecord *h, char ***ret);

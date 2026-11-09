@@ -28,17 +28,17 @@ NamespaceType clone_flag_to_namespace_type(unsigned long clone_flag);
 
 bool namespace_type_supported(NamespaceType type);
 
-int pidref_namespace_open_by_type(const PidRef *pidref, NamespaceType type);
-int namespace_open_by_type(NamespaceType type);
+_sync_ int pidref_namespace_open_by_type(const PidRef *pidref, NamespaceType type);
+_sync_ int namespace_open_by_type(NamespaceType type);
 
-int pidref_namespace_open(
+_sync_ int pidref_namespace_open(
                 const PidRef *pidref,
                 int *ret_pidns_fd,
                 int *ret_mntns_fd,
                 int *ret_netns_fd,
                 int *ret_userns_fd,
                 int *ret_root_fd);
-int namespace_open(
+_sync_ int namespace_open(
                 pid_t pid,
                 int *ret_pidns_fd,
                 int *ret_mntns_fd,
@@ -54,7 +54,7 @@ typedef enum NamespaceEnterFlags {
 } NamespaceEnterFlags;
 
 /* If a user namespace is entered we become root in it, and fail if that's not possible. */
-int namespace_enter_full(
+_may_suspend_ int namespace_enter_full(
                 int pidns_fd,
                 int mntns_fd,
                 int netns_fd,
@@ -66,12 +66,12 @@ static inline int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int 
         return namespace_enter_full(pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd, /* flags= */ 0);
 }
 
-int fd_is_namespace(int fd, NamespaceType type);
-int is_our_namespace(int fd, NamespaceType type);
-int are_our_namespaces(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd);
+_sync_ int fd_is_namespace(int fd, NamespaceType type);
+_sync_ int is_our_namespace(int fd, NamespaceType type);
+_sync_ int are_our_namespaces(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd);
 
 int network_namespace_is_init(int socket_fd);
-int namespace_is_init(NamespaceType type);
+_sync_ int namespace_is_init(NamespaceType type);
 
 int pidref_in_same_namespace(PidRef *pid1, PidRef *pid2, NamespaceType type);
 int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type);
@@ -102,11 +102,11 @@ int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_r
 int userns_acquire_empty(void);
 int userns_acquire(const char *uid_map, const char *gid_map, bool setgroups_deny);
 int userns_acquire_self_root(void);
-int userns_enter_and_pin(int userns_fd, PidRef *ret);
+_may_suspend_ int userns_enter_and_pin(int userns_fd, PidRef *ret);
 bool userns_supported(void);
 
 int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid);
-int userns_has_root_mapping(int userns_fd);
+_may_suspend_ int userns_has_root_mapping(int userns_fd);
 
 int namespace_open_by_id(uint64_t ns_id);
 

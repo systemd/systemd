@@ -52,7 +52,7 @@ int sd_pid_get_session(pid_t pid, char **ret_session);
  * returned). This will not return the UID of the process, but rather
  * the UID of the owner of the cgroup that the process is in. This will
  * return an error for system processes. */
-int sd_pid_get_owner_uid(pid_t pid, uid_t *ret_uid);
+_sd_sync_ int sd_pid_get_owner_uid(pid_t pid, uid_t *ret_uid);
 
 /* Get systemd non-slice unit (i.e. service) name from PID, for system
  * services. This will return an error for non-service processes. */

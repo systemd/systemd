@@ -7,4 +7,4 @@ typedef struct MetricFamily MetricFamily;
 
 #define METRIC_IO_SYSTEMD_CGROUP_PREFIX "io.systemd.CGroup."
 
-int report_cgroup_pressure_send(const MetricFamily *mf, sd_varlink *link, const char *cgroup_fs_path, const char *unit);
+_sync_ int report_cgroup_pressure_send(const MetricFamily *mf, sd_varlink *link, const char *cgroup_fs_path, const char *unit);

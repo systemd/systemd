@@ -39,7 +39,7 @@
  * in <setjmp.h>'s declaration of siglongjmp; we sidestep it by declaring our own alias that links
  * directly to the unchecked "siglongjmp" symbol. musl doesn't fortify setjmp.h, so the alias is a plain
  * synonym there. */
-_noreturn_ extern void siglongjmp_unchecked(sigjmp_buf env, int val) __asm__("siglongjmp");
+_sync_ _noreturn_ extern void siglongjmp_unchecked(sigjmp_buf env, int val) __asm__("siglongjmp");
 
 static thread_local sd_future *current_fiber = NULL;
 
@@ -195,7 +195,7 @@ static inline void finish_switch_stack(void *fake_stack_save, struct iovec *ret_
 #endif
 }
 
-_noreturn_ static void fiber_entry_point(void) {
+_may_suspend_ _noreturn_ static void fiber_entry_point(void) {
         Fiber *fiber = fiber_get(sd_fiber_get_current());
         void *fake_stack_save = NULL;
 
@@ -224,7 +224,7 @@ _noreturn_ static void fiber_entry_point(void) {
                 LOG_SET_PREFIX(fiber->name);
                 LOG_CONTEXT_PUSH_KEY_VALUE("FIBER=", fiber->name);
 
-                fiber->result = fiber->func(fiber->userdata);
+                fiber->result = SD_AWAIT(fiber->func(fiber->userdata));
                 /* The function returned, so no suspension point is left to report a queued interruption.
                  * Drop it. */
                 fiber->result_pending = false;
@@ -241,7 +241,7 @@ _noreturn_ static void fiber_entry_point(void) {
         assert_not_reached();
 }
 
-static int fiber_init(sd_future *f) {
+_sync_ static int fiber_init(sd_future *f) {
         Fiber *fiber = fiber_get(f);
         ucontext_t uc;
         void *fake_stack_save = NULL;
@@ -259,7 +259,8 @@ static int fiber_init(sd_future *f) {
         sd_future *prev = sd_fiber_get_current();
         fiber_set_current(f);
 
-        makecontext(&uc, fiber_entry_point, /* argc= */ 0);
+        /* makecontext() only stores the entry point, which runs once we switch to the new fiber. */
+        makecontext(&uc, fiber_entry_point, /* argc= */ 0); /* NOLINT(systemd-suspend) */
 
         if (sigsetjmp(fiber->resume_context, /* savemask= */ 0) == 0) {
                 start_switch_stack(&fake_stack_save, &fiber_stack);
@@ -584,7 +585,7 @@ int sd_fiber_get_priority(int64_t *ret) {
         return 0;
 }
 
-static int fiber_swap(FiberState state) {
+_suspend_ static int fiber_swap(FiberState state) {
         Fiber *fiber = fiber_get(sd_fiber_get_current());
 
         assert(fiber->state == FIBER_STATE_RUNNING);
@@ -620,12 +621,12 @@ static int fiber_swap(FiberState state) {
 
 int sd_fiber_yield(void) {
         assert_return(sd_fiber_get_current(), -ESRCH);
-        return fiber_swap(FIBER_STATE_READY);
+        return SD_AWAIT(fiber_swap(FIBER_STATE_READY));
 }
 
 int sd_fiber_suspend(void) {
         assert_return(sd_fiber_get_current(), -ESRCH);
-        return fiber_swap(FIBER_STATE_SUSPENDED);
+        return SD_AWAIT(fiber_swap(FIBER_STATE_SUSPENDED));
 }
 
 int sd_fiber_interrupted(void) {
@@ -874,14 +875,14 @@ int sd_fiber_sleep(uint64_t usec) {
                 return usleep_safe(usec);
 
         if (usec == 0)
-                return sd_fiber_yield();
+                return SD_AWAIT(sd_fiber_yield());
 
         /* Match usleep_safe(USEC_INFINITY): suspend indefinitely. Passing USEC_INFINITY to
          * sd_event_add_time_relative() would overflow into -EOVERFLOW. */
         if (usec == USEC_INFINITY)
-                return sd_fiber_suspend();
+                return SD_AWAIT(sd_fiber_suspend());
 
-        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *timer = NULL;
+        _cleanup_await_(sd_future_cancel_wait_unrefp) sd_future *timer = NULL;
         r = future_new_time_relative(
                         sd_future_get_event(f),
                         CLOCK_MONOTONIC,
@@ -892,7 +893,7 @@ int sd_fiber_sleep(uint64_t usec) {
         if (r < 0)
                 return r;
 
-        r = sd_fiber_await(timer);
+        r = SD_AWAIT(sd_fiber_await(timer));
         if (r < 0)
                 return r;
 
@@ -923,7 +924,7 @@ int sd_fiber_await(sd_future *target) {
         assert(sd_event_get_state(sd_future_get_event(f)) != SD_EVENT_FINISHED);
 
         future_add_waiter(target, &fiber_get(f)->wait);
-        r = sd_fiber_suspend();
+        r = SD_AWAIT(sd_fiber_suspend());
 
         /* The caller does not have to own a reference to the target. The reference that the wait held
          * may then be the last one. Release it only after the checks below, or they read freed memory. */
@@ -981,7 +982,7 @@ sd_future* sd_future_cancel_wait_unref(sd_future *f) {
                         break;
                 }
 
-                r = sd_fiber_await(f);
+                r = SD_AWAIT(sd_fiber_await(f));
 
                 if (sd_future_state(f) == SD_FUTURE_RESOLVED) {
                         int fr = sd_future_result(f);
