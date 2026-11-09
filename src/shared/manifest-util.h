@@ -25,22 +25,37 @@ typedef enum ManifestFormat {
 /* Optional per-inode fields to include in a manifest, as bitmask. Note that the inode type is not
  * covered by this: it is always included if the format can express it. */
 typedef enum ManifestField {
-        MANIFEST_FIELD_MODE       = 1 << 0, /* Access mode bits */
-        MANIFEST_FIELD_UID        = 1 << 1, /* Owning UID */
-        MANIFEST_FIELD_GID        = 1 << 2, /* Owning GID */
-        MANIFEST_FIELD_SIZE       = 1 << 3, /* File size (regular files, symlinks) */
-        MANIFEST_FIELD_HASH       = 1 << 4, /* Hash of file contents, see ManifestHash for the algorithm */
-        MANIFEST_FIELD_SYMLINK    = 1 << 5, /* Symlink target */
-        MANIFEST_FIELD_DEVICE     = 1 << 6, /* Major/minor of device nodes */
-        MANIFEST_FIELD_HARDLINK   = 1 << 7, /* Hardlink grouping information (only UAPI.16 supports this) */
-        MANIFEST_FIELD_MTIME      = 1 << 8, /* Modification time (not in the default set, opt-in) */
-        MANIFEST_FIELD_USER_XATTR = 1 << 9, /* Extended attributes in the "user." namespace (only UAPI.16, opt-in) */
-        MANIFEST_FIELD_USER_NAME  = 1 << 10, /* Owning user name, resolved via the host's user database (opt-in) */
-        MANIFEST_FIELD_GROUP_NAME = 1 << 11, /* Owning group name, resolved via the host's user database (opt-in) */
-        _MANIFEST_FIELD_ALL       = (1 << 12) - 1,
-        _MANIFEST_FIELD_DEFAULT   = MANIFEST_FIELD_MODE|MANIFEST_FIELD_UID|MANIFEST_FIELD_GID|MANIFEST_FIELD_SIZE|
-                                    MANIFEST_FIELD_HASH|MANIFEST_FIELD_SYMLINK|MANIFEST_FIELD_DEVICE|MANIFEST_FIELD_HARDLINK,
-        _MANIFEST_FIELD_INVALID   = -EINVAL,
+        MANIFEST_FIELD_MODE             = 1 << 0, /* Access mode bits */
+        MANIFEST_FIELD_UID              = 1 << 1, /* Owning UID */
+        MANIFEST_FIELD_GID              = 1 << 2, /* Owning GID */
+        MANIFEST_FIELD_SIZE             = 1 << 3, /* File size (regular files, symlinks) */
+        MANIFEST_FIELD_HASH             = 1 << 4, /* Hash of file contents, see ManifestHash for the algorithm */
+        MANIFEST_FIELD_SYMLINK          = 1 << 5, /* Symlink target */
+        MANIFEST_FIELD_DEVICE           = 1 << 6, /* Major/minor of device nodes */
+        MANIFEST_FIELD_HARDLINK         = 1 << 7, /* Hardlink grouping information (only UAPI.16 supports this) */
+        MANIFEST_FIELD_MTIME            = 1 << 8, /* Modification time (not in the default set, opt-in) */
+        MANIFEST_FIELD_USER_XATTR       = 1 << 9, /* Extended attributes in the "user." namespace (only UAPI.16, opt-in) */
+        MANIFEST_FIELD_USER_NAME        = 1 << 10, /* Owning user name, resolved via the host's user database (opt-in) */
+        MANIFEST_FIELD_GROUP_NAME       = 1 << 11, /* Owning group name, resolved via the host's user database (opt-in) */
+        /* Linux inode flags, see chattr(1) (only UAPI.16, opt-in) */
+        MANIFEST_FIELD_FLAG_APPEND_ONLY = 1 << 12, /* FS_APPEND_FL */
+        MANIFEST_FIELD_FLAG_IMMUTABLE   = 1 << 13, /* FS_IMMUTABLE_FL */
+        MANIFEST_FIELD_FLAG_NO_ATIME    = 1 << 14, /* FS_NOATIME_FL */
+        MANIFEST_FIELD_FLAG_NO_COW      = 1 << 15, /* FS_NOCOW_FL */
+        MANIFEST_FIELD_FLAG_NO_DUMP     = 1 << 16, /* FS_NODUMP_FL */
+        /* FAT directory entry attributes (only UAPI.16, opt-in) */
+        MANIFEST_FIELD_READ_ONLY        = 1 << 17, /* ATTR_RO, encoded in the generic "readOnly" field */
+        MANIFEST_FIELD_FLAG_HIDDEN      = 1 << 18, /* ATTR_HIDDEN */
+        MANIFEST_FIELD_FLAG_SYSTEM      = 1 << 19, /* ATTR_SYS */
+        MANIFEST_FIELD_FLAG_ARCHIVE     = 1 << 20, /* ATTR_ARCH */
+        /* File system identity, on the top-level object (only UAPI.16, opt-in) */
+        MANIFEST_FIELD_FS_UUID          = 1 << 21, /* File system UUID, see FS_IOC_GETFSUUID */
+        MANIFEST_FIELD_FS_LABEL         = 1 << 22, /* File system label, see FS_IOC_GETFSLABEL */
+        MANIFEST_FIELD_FAT_SERIAL       = 1 << 23, /* FAT volume serial number, see FAT_IOCTL_GET_VOLUME_ID */
+        _MANIFEST_FIELD_ALL             = (1 << 24) - 1,
+        _MANIFEST_FIELD_DEFAULT         = MANIFEST_FIELD_MODE|MANIFEST_FIELD_UID|MANIFEST_FIELD_GID|MANIFEST_FIELD_SIZE|
+                                          MANIFEST_FIELD_HASH|MANIFEST_FIELD_SYMLINK|MANIFEST_FIELD_DEVICE|MANIFEST_FIELD_HARDLINK,
+        _MANIFEST_FIELD_INVALID         = -EINVAL,
 } ManifestField;
 
 /* The hash algorithm to use for MANIFEST_FIELD_HASH. Only the mtree format supports anything but SHA256. */
