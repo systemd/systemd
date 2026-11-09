@@ -150,6 +150,18 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         SET_FLAG(arg_flags, PICK_IGNORE_XATTR_MATCH, !r);
                         break;
 
+                OPTION_LONG("manifest", "BOOL|auto", "Enumerate the UAPI.16 manifest of the directory instead of its contents (default: no)"): {
+                        int b;
+
+                        r = parse_tristate_argument_with_auto("--manifest=", opts.arg, &b);
+                        if (r < 0)
+                                return r;
+
+                        SET_FLAG(arg_flags, PICK_UAPI16_MANIFEST, b > 0);
+                        SET_FLAG(arg_flags, PICK_UAPI16_MANIFEST_AUTO, b < 0);
+                        break;
+                }
+
                 OPTION_GROUP("Output"): {}
 
                 OPTION_COMMON_HELP:
@@ -254,6 +266,13 @@ static int run(int argc, char *argv[]) {
 
                 case PRINT_FILENAME: {
                         _cleanup_free_ char *fname = NULL;
+
+                        /* If the result was picked via a manifest, print the entry's name, not the name of
+                         * the file the contents are stored in. */
+                        if (result.manifest_entry) {
+                                puts(result.manifest_entry);
+                                break;
+                        }
 
                         r = path_extract_filename(result.path, &fname);
                         if (r < 0)
