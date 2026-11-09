@@ -924,6 +924,12 @@ int varlink_verify_polkit_async_full(
                 }
         }
 
+        /* One-way requests are not kept after the handler returns, so we cannot retry them when polkit replies.
+         * Reject them unless the checks above already granted access. */
+        if (!sd_varlink_wants_reply(link))
+                return log_debug_errno(SYNTHETIC_ERRNO(EACCES),
+                                       "Cannot query polkit for '%s' on a one-way call, refusing.", action);
+
         _cleanup_(sd_bus_unrefp) sd_bus *mybus = NULL;
         if (!bus) {
                 r = sd_bus_open_system(&mybus);
