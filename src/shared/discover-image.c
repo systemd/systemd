@@ -963,7 +963,7 @@ int image_find(RuntimeScope scope,
                                               &filter,
                                               /* n_filters= */ 1,
                                               /* match_root= */ root,
-                                              PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
+                                              PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE|PICK_UAPI16_MANIFEST_AUTO,
                                               &result);
                                 if (r < 0) {
                                         log_debug_errno(r, "Failed to pick versioned image on '%s/%s', skipping: %m", empty_or_root_to_empty(root), skip_leading_slash(fname_path));
@@ -1186,7 +1186,7 @@ int image_discover(
                                                       &filter,
                                                       /* n_filters= */ 1,
                                                       /* match_root= */ root,
-                                                      PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
+                                                      PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE|PICK_UAPI16_MANIFEST_AUTO,
                                                       &result);
                                         if (r < 0) {
                                                 log_debug_errno(r, "Failed to pick versioned image on '%s/%s', skipping: %m", empty_or_root_to_empty(root), skip_leading_slash(fname_path));
