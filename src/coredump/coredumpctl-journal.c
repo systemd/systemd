@@ -56,9 +56,17 @@ static int add_matches(sd_journal *j, char * const *matches) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add match \"%s\": %m", "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR);
 
+        r = sd_journal_add_disjunction(j);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add disjunction: %m");
+
         r = sd_journal_add_match(j, "MESSAGE_ID=" SD_MESSAGE_BACKTRACE_STR, SIZE_MAX);
         if (r < 0)
                 return log_error_errno(r, "Failed to add match \"%s\": %m", "MESSAGE_ID=" SD_MESSAGE_BACKTRACE_STR);
+
+        r = sd_journal_add_conjunction(j);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add conjunction: %m");
 
         STRV_FOREACH(match, matches) {
                 r = add_match(j, *match);

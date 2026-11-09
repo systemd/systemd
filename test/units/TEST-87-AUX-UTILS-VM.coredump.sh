@@ -101,6 +101,7 @@ maybe_reload_coredumpd
 "$MAKE_DUMP_SCRIPT" "$CORE_TEST_BIN" "SIGABRT"
 # Wait a bit for the coredumps to get processed
 timeout 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $CORE_TEST_BIN | wc -l) -lt 4 ]]; do sleep 1; done"
+[[ -z "$(coredumpctl list --field=COREDUMP_PID 'MESSAGE_ID=00000000000000000000000000000000')" ]]
 rm -fv /run/systemd/coredump.conf.d/99-external.conf
 maybe_reload_coredumpd
 
