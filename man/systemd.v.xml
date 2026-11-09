@@ -128,6 +128,21 @@
       filtered this way.</para></listitem>
     </itemizedlist>
 
+    <para>Optionally (and only if enabled by the tool or setting making use of the <literal>.v/</literal>
+    logic, e.g. via <option>--manifest=</option> of
+    <citerefentry><refentrytitle>systemd-vpick</refentrytitle><manvolnum>1</manvolnum></citerefentry>), a
+    UAPI.16 manifest file <filename>Uapi16Manifest</filename> placed inside the <literal>.v/</literal>
+    directory may be used to enumerate the entries, in place of the directory listing. This is primarily
+    useful on file systems such as FAT that cannot carry extended attributes: the manifest may define
+    <literal>user.uapi.match_…</literal> extended attributes for its entries, which are then used instead of
+    the ones of the inodes. If a manifest is used, the actual directory contents are entirely ignored, except
+    for the files referenced by the manifest. The file names listed in the manifest are subject to the same
+    rules as described above. Entries that are not direct children of the directory, are neither regular
+    files nor directories, or are marked invalid are ignored. Entries may reference their contents via a
+    <literal>contents</literal> field, but only sources that refer to a complete, unencoded file in the same
+    directory or below it are supported, entries with other sources (URLs, literal data, encoded files, or
+    sections of files) are ignored. Manifest signatures are not checked.</para>
+
     <para>Or in other words, the files in the <literal>.v/</literal> directories should follow one of these
     naming structures:</para>
 
