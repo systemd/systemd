@@ -770,6 +770,17 @@ static int uapi16_object_resolve_sources(Resource *rr, Uapi16Object *o) {
                         }
                 }
 
+                if (usable) {
+                        /* Header fields that relate to how we talk HTTP are managed by us (or curl), hence
+                         * refuse them. The specification says to consider such sources unsuitable. */
+                        STRV_FOREACH_PAIR(a, b, c->http_headers)
+                                if (http_field_name_is_client_owned(*a)) {
+                                        log_warning("File '%s' has a source with HTTP header field '%s' we manage ourselves, ignoring source.", o->name, *a);
+                                        usable = false;
+                                        break;
+                                }
+                }
+
                 if (usable && c->encoding && !uapi16_encoding_is_supported(c->encoding)) {
                         log_warning("File '%s' has a source with unsupported encoding '%s', ignoring source.", o->name, c->encoding);
                         usable = false;
