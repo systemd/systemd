@@ -3223,7 +3223,7 @@ clang_tidy = find_program('clang-tidy', required : false)
 clang_tidy_args = ['-p', meson.project_build_root()]
 clang_tidy_depends = generated_sources
 if is_variable('suspend_tidy')
-        clang_tidy_args += ['--load=' + suspend_tidy.full_path(), '--checks=systemd-suspend', '--header-filter=.*']
+        clang_tidy_args += ['--load=' + suspend_tidy.full_path(), '--checks=systemd-suspend*', '--header-filter=.*']
         clang_tidy_depends += suspend_tidy
 endif
 if meson.version().version_compare('>=1.4.0')

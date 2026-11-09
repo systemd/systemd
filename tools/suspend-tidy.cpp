@@ -10,10 +10,12 @@
 
 #include <clang-tidy/ClangTidyCheck.h>
 #include <clang-tidy/ClangTidyModule.h>
+#include <clang-tidy/utils/OptionsUtils.h>
 #include <clang/AST/Attr.h>
 #include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/Analysis/AnalysisDeclContext.h>
 #include <clang/Analysis/Analyses/ExprMutationAnalyzer.h>
+#include <clang/Analysis/Analyses/LiveVariables.h>
 #include <clang/Analysis/CFG.h>
 #include <clang/ASTMatchers/ASTMatchFinder.h>
 #include <clang/ASTMatchers/ASTMatchers.h>
@@ -110,6 +112,13 @@ static bool scopeAnnotation(const StmtExpr *statement, llvm::StringRef name) {
                                 if (hasAnnotation(decl, name))
                                         return true;
         return false;
+}
+
+/* SD_AWAIT(call) expands to a comma expression whose left operand declares the marker. */
+static const CallExpr *awaitedCall(const BinaryOperator *binary) {
+        if (!binary->isCommaOp() || !scopeAnnotation(dyn_cast<StmtExpr>(binary->getLHS()->IgnoreParenCasts()), "sd:await"))
+                return nullptr;
+        return dyn_cast<CallExpr>(binary->getRHS()->IgnoreParenImpCasts());
 }
 
 static bool skipTranslationUnit(const SourceManager &sm, Preprocessor &preprocessor) {
@@ -1324,10 +1333,128 @@ public:
         }
 };
 
+/* Another fiber can run while a fiber is suspended, and it can modify a hashmap that the suspended fiber
+ * iterates. The iterator of the suspended fiber can then skip or repeat entries after the fiber resumes. */
+class IteratorCheck : public clang::tidy::ClangTidyCheck {
+        Preprocessor *preprocessor = nullptr;
+        std::vector<llvm::StringRef> types;
+
+        class Collector : public RecursiveASTVisitor<Collector> {
+        public:
+                const IteratorCheck &check;
+                std::vector<const CallExpr *> suspensions;
+                std::vector<const VarDecl *> variables;
+
+                explicit Collector(const IteratorCheck &check) : check(check) {}
+
+                bool VisitBinaryOperator(BinaryOperator *binary) {
+                        if (const auto *call = awaitedCall(binary))
+                                suspensions.push_back(call);
+                        return true;
+                }
+
+                bool VisitVarDecl(VarDecl *variable) {
+                        if (variable->hasLocalStorage() && check.matches(variable->getType()))
+                                variables.push_back(variable);
+                        return true;
+                }
+        };
+
+        bool matches(QualType type) const {
+                for (QualType t = type; !t.isNull();) {
+                        if (const auto *alias = t->getAs<TypedefType>(); alias && llvm::is_contained(types, alias->getDecl()->getName()))
+                                return true;
+                        auto desugared = t->getLocallyUnqualifiedSingleStepDesugaredType();
+                        if (desugared.getTypePtr() == t.getTypePtr())
+                                break;
+                        t = desugared;
+                }
+                const auto *record = type->getAsRecordDecl();
+                return record && llvm::is_contained(types, record->getName());
+        }
+
+        /* FOREACH macros declare their iterator with a generated name, so the diagnostic names the macro
+         * instead. */
+        std::string describe(const VarDecl *variable, const SourceManager &sm, const LangOptions &options) const {
+                auto location = variable->getLocation();
+                llvm::StringRef macro;
+                while (location.isMacroID()) {
+                        if (sm.isMacroArgExpansion(location)) {
+                                location = sm.getImmediateSpellingLoc(location);
+                                continue;
+                        }
+                        macro = Lexer::getImmediateMacroName(location, sm, options);
+                        location = sm.getImmediateExpansionRange(location).getBegin();
+                }
+                if (!macro.empty())
+                        return "the iterator of " + macro.str() + "()";
+                return "'" + variable->getNameAsString() + "'";
+        }
+
+public:
+        IteratorCheck(llvm::StringRef name, clang::tidy::ClangTidyContext *context)
+                : ClangTidyCheck(name, context), types(clang::tidy::utils::options::parseStringList(Options.get("Types", "Iterator"))) {}
+
+        void storeOptions(clang::tidy::ClangTidyOptions::OptionMap &options) override {
+                Options.store(options, "Types", clang::tidy::utils::options::serializeStringList(types));
+        }
+
+        bool isLanguageVersionSupported(const LangOptions &options) const override {
+                return !options.CPlusPlus && !options.ObjC;
+        }
+
+        void registerPPCallbacks(const SourceManager &, Preprocessor *pp, Preprocessor *) override {
+                preprocessor = pp;
+        }
+
+        void registerMatchers(ast_matchers::MatchFinder *finder) override {
+                using namespace ast_matchers;
+                finder->addMatcher(functionDecl(isDefinition()).bind("function"), this);
+        }
+
+        void check(const ast_matchers::MatchFinder::MatchResult &result) override {
+                const auto *function = result.Nodes.getNodeAs<FunctionDecl>("function");
+                auto &sm = *result.SourceManager;
+                if (result.Context->getDiagnostics().hasErrorOccurred() || sm.isInSystemHeader(function->getLocation()) ||
+                    skipTranslationUnit(sm, *preprocessor))
+                        return;
+                if (!llvm::any_of(function->redecls(), [](const FunctionDecl *redeclaration) {
+                            return hasAnnotation(redeclaration, "sd:may_suspend") || hasAnnotation(redeclaration, "sd:suspend");
+                    }))
+                        return;
+
+                Collector collector(*this);
+                collector.TraverseStmt(function->getBody());
+                if (collector.suspensions.empty() || collector.variables.empty())
+                        return;
+
+                /* LiveVariables only records liveness after statements that are CFG elements. isLive()
+                 * returns false for any other statement, which would hide every report. setAllAlwaysAdd()
+                 * makes each call a CFG element. */
+                AnalysisDeclContextManager manager(*result.Context);
+                manager.getCFGBuildOptions().setAllAlwaysAdd();
+                auto *liveness = manager.getContext(function)->getAnalysis<LiveVariables>();
+                if (!liveness)
+                        return;
+
+                for (const auto *suspension : collector.suspensions)
+                        for (const auto *variable : collector.variables) {
+                                if (!liveness->isLive(suspension, variable))
+                                        continue;
+                                auto name = describe(variable, sm, result.Context->getLangOpts());
+                                diag(sm.getExpansionLoc(suspension->getBeginLoc()),
+                                     "%0 is used after this suspension point, and another fiber can invalidate it while this fiber is suspended")
+                                        << name;
+                                diag(sm.getExpansionLoc(variable->getLocation()), "%0 is declared here", DiagnosticIDs::Note) << name;
+                        }
+        }
+};
+
 class SystemdModule : public clang::tidy::ClangTidyModule {
 public:
         void addCheckFactories(clang::tidy::ClangTidyCheckFactories &checks) override {
                 checks.registerCheck<SuspendCheck>("systemd-suspend");
+                checks.registerCheck<IteratorCheck>("systemd-suspend-iterator");
         }
 };
 

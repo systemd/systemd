@@ -239,7 +239,9 @@ _may_suspend_ static int varlink_finish_idle(Set *s) {
                 else {
                         /* Idle? Then we can close the connection, and release some resources. */
                         assert_se(set_remove(s, vl) == vl);
-                        vl = SD_AWAIT(sd_varlink_close_unref(vl));
+                        /* Only varlink_execute_directory_full() can reach the set, so no other fiber
+                         * changes it while sd_varlink_close_unref() suspends. */
+                        vl = SD_AWAIT(sd_varlink_close_unref(vl)); /* NOLINT(systemd-suspend-iterator) */
                 }
         }
 

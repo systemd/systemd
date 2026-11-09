@@ -13,13 +13,18 @@ sys.argv[1:4] = []
 HEADER = '#include "src/basic/await.h"\n'
 SEED = '_may_suspend_ int pause_io(void);\nint unannotated(void);\n_sync_ int quick(void);\n'
 DIAGNOSTIC = re.compile(r'^(.+?):(\d+):\d+: (?:warning|error): (.+) \[systemd-suspend[^\]]*\]$', re.MULTILINE)
+ITERATOR = SEED + '''
+typedef struct Iterator { unsigned idx; } Iterator;
+_sync_ int iterate(void *h, Iterator *i, void **v);
+#define FOREACH(v, h) for (Iterator _i = {}; iterate(h, &_i, &(v)); )
+'''
 EXPECT = re.compile(r'// expect: (.+?)(?= // (?:expect|note): |$)')
 NOTE = re.compile(r'^(.+?):(\d+):\d+: note: (.+)$', re.MULTILINE)
 EXPECT_NOTE = re.compile(r'// note: (.+?)(?= // (?:expect|note): |$)')
 
 
 class SuspensionChecks(unittest.TestCase):
-    def check(self, sources, args=(), tidy_args=(), fixed=None, notes=False):
+    def check(self, sources, args=(), tidy_args=(), fixed=None, notes=False, checks='-*,systemd-suspend'):
         # Every "// expect: <message>" comment must match a diagnostic on its line, and no line may get a
         # diagnostic without one. Only the first file is passed to clang-tidy, the others are headers.
         # "{dir}" in compiler arguments refers to the directory of the sources. When "fixed" is given,
@@ -40,7 +45,7 @@ class SuspensionChecks(unittest.TestCase):
 
             main = directory / next(iter(sources))
             result = subprocess.run(
-                [CLANG_TIDY, f'--load={PLUGIN}', '--checks=-*,systemd-suspend', '--header-filter=.*', *tidy_args,
+                [CLANG_TIDY, f'--load={PLUGIN}', f'--checks={checks}', '--header-filter=.*', *tidy_args,
                  str(main), '--', '-std=gnu17', '-I', ROOT, '-I', temporary, *(a.format(dir=temporary) for a in args)],
                 text=True, capture_output=True, timeout=60,
             )
@@ -56,7 +61,7 @@ class SuspensionChecks(unittest.TestCase):
 
             if fixed is not None:
                 result = subprocess.run(
-                    [CLANG_TIDY, f'--load={PLUGIN}', '--checks=-*,systemd-suspend', '--header-filter=.*', '--fix',
+                    [CLANG_TIDY, f'--load={PLUGIN}', f'--checks={checks}', '--header-filter=.*', '--fix',
                      *tidy_args, str(main), '--', '-std=gnu17', '-I', ROOT, '-I', temporary,
                      *(a.format(dir=temporary) for a in args)],
                     text=True, capture_output=True, timeout=60,
@@ -605,6 +610,73 @@ void store(void) {
         quick_cb = local; // expect: 'unannotated' is unchecked, but 'quick_cb' requires a _sync_ callback
 }
 '''}, notes=True)
+
+    def test_iterator(self):
+        # An iterator that is used after a suspension point in a _may_suspend_ function gets a
+        # diagnostic, because another fiber can modify the iterated hashmap meanwhile. A loop that leaves
+        # right after the suspension, an iterator that is declared again after it, and functions that
+        # aren't _may_suspend_ get none. An iterator that is assigned again after the suspension gets
+        # none either.
+        self.check({'a.c': ITERATOR + '''
+_may_suspend_ void loop(void *h) {
+        void *v;
+        FOREACH(v, h) // note: the iterator of FOREACH() is declared here
+                SD_AWAIT(pause_io()); // expect: the iterator of FOREACH() is used after this suspension point, and another fiber can invalidate it while this fiber is suspended
+}
+_may_suspend_ int local(void *h) {
+        void *v;
+        Iterator it = {}; // note: 'it' is declared here
+        SD_AWAIT(pause_io()); // expect: 'it' is used after this suspension point, and another fiber can invalidate it while this fiber is suspended
+        return iterate(h, &it, &v);
+}
+_may_suspend_ int reset(void *h) {
+        void *v;
+        Iterator it = {};
+        iterate(h, &it, &v);
+        SD_AWAIT(pause_io());
+        it = (Iterator) {};
+        return iterate(h, &it, &v);
+}
+_may_suspend_ void leave(void *h) {
+        void *v;
+        FOREACH(v, h) {
+                SD_AWAIT(pause_io());
+                break;
+        }
+}
+_may_suspend_ int fresh(void *h) {
+        void *v;
+        for (;;) {
+                SD_AWAIT(pause_io());
+                Iterator i = {};
+                if (iterate(h, &i, &v))
+                        return 0;
+        }
+}
+void synchronous(void *h) {
+        void *v;
+        FOREACH(v, h)
+                pause_io();
+}
+'''}, checks='-*,systemd-suspend-iterator', notes=True)
+
+    def test_iterator_types(self):
+        # The Types option replaces the list of iterator types.
+        self.check({'a.c': ITERATOR + '''
+typedef struct Cursor { int position; } Cursor;
+_sync_ int advance(Cursor *c);
+_may_suspend_ void loop(void *h) {
+        void *v;
+        FOREACH(v, h)
+                SD_AWAIT(pause_io());
+}
+_may_suspend_ int cursor(void) {
+        Cursor c = {};
+        SD_AWAIT(pause_io()); // expect: 'c' is used after this suspension point, and another fiber can invalidate it while this fiber is suspended
+        return advance(&c);
+}
+'''}, checks='-*,systemd-suspend-iterator',
+           tidy_args=['--config={CheckOptions: {systemd-suspend-iterator.Types: Cursor}}'])
 
     def test_nolint(self):
         # NOLINT suppresses a diagnostic on its line.

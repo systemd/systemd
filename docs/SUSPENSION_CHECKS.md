@@ -26,7 +26,8 @@ tine box -- meson configure build -Dsuspend-check=enabled
 tine box -- meson test -C build -v suspend-tidy
 ```
 
-The `suspend-tidy` test checks the diagnostics of the plugin. With the plugin
+The plugin contains the `systemd-suspend` and `systemd-suspend-iterator` checks.
+The `suspend-tidy` test checks their diagnostics. With the plugin
 enabled, Meson's `clang-tidy` tests also load it, so the suite of a directory
 checks its suspension points as well:
 
@@ -38,7 +39,7 @@ To check one source file:
 
 ```sh
 tine box -- clang-tidy --load=build/tools/libsuspend-tidy.so \
-    --checks='-*,systemd-suspend' --header-filter='.*' \
+    --checks='-*,systemd-suspend*' --header-filter='.*' \
     -p build src/sysupdate/updatectl.c
 ```
 
@@ -248,6 +249,27 @@ so most scoped callbacks need no annotations.
 
 The function that receives scoped callbacks can call them, or pass them on,
 without a contract of its own.
+
+## Keep iterators valid across suspension points
+
+While a fiber is suspended, other fibers and event sources run and can add or
+remove hashmap entries. A hashmap iterator that the suspended fiber uses again
+afterwards can then skip or repeat entries. The `systemd-suspend-iterator` check
+reports each `SD_AWAIT` in a `_may_suspend_` function after which a local
+`Iterator` can be used again, for example in the body of `HASHMAP_FOREACH()`:
+
+```c
+HASHMAP_FOREACH(unit, m->units)
+        r = SD_AWAIT(unit_refresh(unit));
+```
+
+A loop that leaves with `break` or `return` right after the suspension point is
+not reported, and neither is an iterator that the function assigns again after
+the suspension point. To fix a report, copy the entries before the loop, take a
+reference on each entry, and iterate over the copy.
+
+The `systemd-suspend-iterator.Types` option contains the semicolon-separated
+names of the types to check, `Iterator` by default.
 
 ## Interpret the result
 
