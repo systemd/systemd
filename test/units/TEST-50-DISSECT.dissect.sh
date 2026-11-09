@@ -281,6 +281,12 @@ systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" mountpoint /run/systemd/jou
 (! systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p BindLogSockets=no ls /run/systemd/journal/socket)
 (! systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p MountAPIVFS=no ls /run/systemd/journal/socket)
 
+# Test that ProtectSystem=strict does not leak the host's /run/ into a service running off a RootImage=.
+host_run_marker="$(mktemp /run/test-50-host-run.XXXXXX)"
+systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p ProtectSystem=strict \
+    bash -xec "test ! -e $host_run_marker"
+rm -f "$host_run_marker"
+
 # Test that the notify socket is bind mounted to /run/host/notify in sandboxed environments and
 # $NOTIFY_SOCKET is set correctly.
 systemd-run \
