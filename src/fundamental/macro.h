@@ -6,6 +6,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "await.h" /* IWYU pragma: export */
+
 /* Temporarily disable some warnings */
 #define DISABLE_WARNING_DEPRECATED_DECLARATIONS                         \
         _Pragma("GCC diagnostic push");                                 \
