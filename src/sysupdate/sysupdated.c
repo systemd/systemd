@@ -19,6 +19,7 @@
 #include "common-signal.h"
 #include "constants.h"
 #include "discover-image.h"
+#include "dlopen-note.h"
 #include "dropin.h"
 #include "env-util.h"
 #include "escape.h"
@@ -2175,6 +2176,8 @@ COMMAND(
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
+
+        LIBCRYPTO_NOTE(suggested);
 
         log_setup();
 
