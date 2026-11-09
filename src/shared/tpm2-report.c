@@ -555,6 +555,10 @@ int tpm2_generate_report(
                 r = tpm2_nv_index_to_handle(c, nv_index, /* session= */ NULL, &nv_public, /* ret_name= */ NULL, &nv_handle);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to obtain handle and public area for NvPCR '%s'", name);
+                if (r == 0) {
+                        log_debug("NvPCR '%s' is not initialized, skipping.", name);
+                        continue;
+                }
 
                 _cleanup_free_ char *authenticated_data = NULL;
                 r = make_nvpcr_report_authenticated_data(name, priority, &authenticated_data);
