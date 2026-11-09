@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/magic.h>
 #include <sys/stat.h>
+#include <sys/statfs.h>
 
 #include "alloc-util.h"
 #include "architecture.h"
@@ -8,6 +10,7 @@
 #include "chase.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "host-properties.h"
 #include "log.h"
 #include "parse-util.h"
@@ -15,6 +18,7 @@
 #include "recurse-dir.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "uapi16-manifest.h"
 #include "vpick.h"
 #include "xattr-match.h"
 
@@ -188,6 +192,7 @@ static int pin_choice(
                 unsigned tries_done,
                 const PickFilter *filter,
                 const XAttrMatchFilter *xattr_filter, /* NULL to ignore "user.uapi.match_…" xattrs */
+                const Uapi16Object *object,           /* UAPI.16 manifest object describing the inode, or NULL */
                 PickFlags flags,
                 PickResult *ret) {
 
@@ -217,38 +222,71 @@ static int pin_choice(
 
         struct stat st;
         if (fstat(inode_fd, &st) < 0)
-                return log_debug_errno(errno, "Failed to stat discovered inode '%s%s': %m",
-                                       empty_to_root(root_path), skip_leading_slash(inode_path));
+                return log_debug_errno(errno, "Failed to stat discovered inode '%s/%s': %m",
+                                       empty_or_root_to_empty(root_path), skip_leading_slash(inode_path));
 
         if (filter->type_mask != 0 && !BIT_SET(filter->type_mask, IFTODT(st.st_mode))) {
                 log_debug("Inode '%s/%s' has wrong type, found '%s'.",
-                          empty_to_root(root_path), skip_leading_slash(inode_path),
+                          empty_or_root_to_empty(root_path), skip_leading_slash(inode_path),
                           inode_type_to_string(st.st_mode));
                 *ret = PICK_RESULT_NULL;
                 return 0;
         }
 
-        if (xattr_filter) {
+        if (object) {
+                /* If the inode is described by a manifest, make sure the manifest and the inode agree */
+
+                if (((object->type ^ st.st_mode) & S_IFMT) != 0) {
+                        log_debug("Inode '%s/%s' is of type '%s', but manifest says '%s', ignoring.",
+                                  empty_or_root_to_empty(root_path), skip_leading_slash(inode_path),
+                                  inode_type_to_string(st.st_mode), strna(inode_type_to_string(object->type)));
+                        *ret = PICK_RESULT_NULL;
+                        return 0;
+                }
+
+                /* We only support sources that cover the full file, hence if the size is known insist that
+                 * it matches. */
+                if (S_ISREG(st.st_mode) && object->size != UINT64_MAX && (uint64_t) st.st_size != object->size) {
+                        log_debug("File '%s/%s' has size %" PRIu64 ", but manifest says %" PRIu64 ", ignoring.",
+                                  empty_or_root_to_empty(root_path), skip_leading_slash(inode_path),
+                                  (uint64_t) st.st_size, object->size);
+                        *ret = PICK_RESULT_NULL;
+                        return 0;
+                }
+
+                /* The manifest carries the extended attributes in place of the inode (after all it's
+                 * typically used on file systems that do not support them). */
+                r = xattr_match_filter_test_uapi16_object(xattr_filter, object);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        log_debug("Inode '%s/%s' is not suitable for this system according to manifest, ignoring.",
+                                  empty_or_root_to_empty(root_path), skip_leading_slash(inode_path));
+                        *ret = PICK_RESULT_NULL;
+                        return 0;
+                }
+
+        } else if (xattr_filter) {
                 _cleanup_(xattr_match_lists_done) XAttrMatchLists lists = {};
                 r = xattr_match_lists_read(inode_fd, "", xattr_filter->mask, &lists);
                 if (ERRNO_IS_NEG_PRIVILEGE(r)) {
                         /* Unlike fstat() on the O_PATH fd, reading user xattrs requires read access to the
                          * inode. Don't let a single inaccessible entry fail the whole operation. */
                         log_debug_errno(r, "Not allowed to read 'user.uapi.match_*' extended attributes of '%s/%s', ignoring entry: %m",
-                                        empty_to_root(root_path), skip_leading_slash(inode_path));
+                                        empty_or_root_to_empty(root_path), skip_leading_slash(inode_path));
                         *ret = PICK_RESULT_NULL;
                         return 0;
                 }
                 if (r < 0)
                         return log_debug_errno(r, "Failed to read 'user.uapi.match_*' extended attributes of '%s/%s': %m",
-                                               empty_to_root(root_path), skip_leading_slash(inode_path));
+                                               empty_or_root_to_empty(root_path), skip_leading_slash(inode_path));
 
                 r = xattr_match_filter_test_lists(xattr_filter, lists, inode_path);
                 if (r < 0)
                         return r;
                 if (r == 0) {
                         log_debug("Inode '%s/%s' is not suitable for this system, ignoring.",
-                                  empty_to_root(root_path), skip_leading_slash(inode_path));
+                                  empty_or_root_to_empty(root_path), skip_leading_slash(inode_path));
                         *ret = PICK_RESULT_NULL;
                         return 0;
                 }
@@ -342,6 +380,322 @@ static bool architecture_matches(const PickFilter *filter, Architecture a) {
         return a == _ARCHITECTURE_INVALID;
 }
 
+static int consider_entry(
+                const char *root_path,
+                int root_fd,
+                int dir_fd,
+                const char *inode_path,
+                const char *name,           /* The name to match against the filter */
+                const Uapi16Object *object, /* The manifest object, if the entry is from a manifest */
+                const PickFilter *filter,
+                const XAttrMatchFilter *xattr_filter,
+                PickFlags flags,
+                PickResult *best) {
+
+        unsigned found_tries_done = UINT_MAX, found_tries_left = UINT_MAX;
+        char *e;
+        int r;
+
+        assert(inode_path);
+        assert(name);
+        assert(filter);
+        assert(best);
+
+        /* Checks if the specified entry matches the filter, and if so, replaces 'best' if it is better. */
+
+        _cleanup_free_ char *dname = strdup(name);
+        if (!dname)
+                return log_oom_debug();
+
+        if (!isempty(filter->basename)) {
+                e = startswith(dname, filter->basename);
+                if (!e)
+                        return 0;
+
+                if (e[0] != '_')
+                        return 0;
+
+                e++;
+        } else
+                e = dname;
+
+        if (!isempty(filter->suffix)) {
+                char *sfx = endswith(e, filter->suffix);
+                if (!sfx)
+                        return 0;
+
+                *sfx = 0;
+        }
+
+        if (FLAGS_SET(flags, PICK_TRIES)) {
+                char *plus = strrchr(e, '+');
+                if (plus) {
+                        r = parse_tries(plus, &found_tries_left, &found_tries_done);
+                        if (r < 0)
+                                return r;
+                        if (r > 0) /* Found and parsed, now chop off */
+                                *plus = 0;
+                }
+        }
+
+        Architecture a = _ARCHITECTURE_INVALID;
+        if (FLAGS_SET(flags, PICK_ARCHITECTURE)) {
+                char *underscore = strrchr(e, '_');
+
+                if (underscore)
+                        a = architecture_from_string(underscore + 1);
+
+                if (!architecture_matches(filter, a)) {
+                        log_debug("Found entry with architecture '%s' which is not what we are looking for, ignoring entry.",
+                                  a < 0 ? "any" : architecture_to_string(a));
+                        return 0;
+                }
+
+                /* Chop off architecture from string */
+                if (underscore)
+                        *underscore = 0;
+        }
+
+        if (!version_is_valid(e, /* flags= */ 0)) {
+                log_debug("Version string '%s' of entry '%s' is invalid, ignoring entry.", e, name);
+                return 0;
+        }
+
+        if (filter->version && !streq(filter->version, e)) {
+                log_debug("Found entry with version string '%s', but was looking for '%s', ignoring entry.", e, filter->version);
+                return 0;
+        }
+
+        /* For manifest entries the contents might be located in a different file than the entry's name
+         * suggests, but we only collect entries for which we know such a file. */
+        const char *fname = object ? ASSERT_PTR(uapi16_object_plain_file_source(object)) : name;
+
+        _cleanup_free_ char *p = path_join(inode_path, fname);
+        if (!p)
+                return log_oom_debug();
+
+        _cleanup_(pick_result_done) PickResult found = PICK_RESULT_NULL;
+        r = pin_choice(root_path,
+                       root_fd,
+                       dir_fd,
+                       p,
+                       /* _inode_fd= */ -EBADF,
+                       found_tries_left,
+                       found_tries_done,
+                       &(const PickFilter) {
+                               .type_mask = filter->type_mask,
+                               .basename = filter->basename,
+                               .version = empty_to_null(e),
+                               .architecture = a,
+                               .suffix = filter->suffix,
+                       },
+                       xattr_filter,
+                       object,
+                       flags,
+                       &found);
+        if (object && r == -ENOENT) {
+                /* Manifests might reference files that do not exist (anymore), handle that gracefully */
+                log_debug_errno(r, "File '%s/%s' referenced by manifest entry '%s' does not exist, ignoring.",
+                                empty_or_root_to_empty(root_path), skip_leading_slash(p), name);
+                return 0;
+        }
+        if (r <= 0)
+                return r;
+
+        if (!best->path) {
+                *best = TAKE_PICK_RESULT(found);
+                return 0;
+        }
+
+        if (pick_result_compare(&found, best, flags) <= 0) {
+                log_debug("Found entry '%s' but previously found entry '%s' matches better, hence skipping entry.", found.path, best->path);
+                return 0;
+        }
+
+        pick_result_done(best);
+        *best = TAKE_PICK_RESULT(found);
+        return 0;
+}
+
+static int open_manifest(
+                const char *root_path,
+                int inode_fd,
+                const char *inode_path,
+                PickFlags flags,
+                FILE **ret) {
+
+        int r;
+
+        assert(inode_fd >= 0);
+        assert(inode_path);
+        assert(ret);
+
+        /* Opens the UAPI.16 manifest in the .v/ directory, if we shall use it. Returns 0 if not. */
+
+        if (!FLAGS_SET(flags, PICK_UAPI16_MANIFEST)) {
+                if (!FLAGS_SET(flags, PICK_UAPI16_MANIFEST_AUTO)) {
+                        *ret = NULL;
+                        return 0;
+                }
+
+                /* In automatic mode only use the manifest on file systems that do not support extended
+                 * attributes and such, i.e. where the manifest is the only way to convey such metadata. */
+                struct statfs sfs;
+                r = xstatfsat(inode_fd, /* path= */ NULL, &sfs);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to determine file system type of '%s/%s': %m",
+                                               empty_or_root_to_empty(root_path), skip_leading_slash(inode_path));
+
+                if (!is_fs_type(&sfs, MSDOS_SUPER_MAGIC) && !is_fs_type(&sfs, EXFAT_SUPER_MAGIC)) {
+                        *ret = NULL;
+                        return 0;
+                }
+        }
+
+        FILE *f;
+        r = xfopenat_full(
+                        inode_fd,
+                        UAPI16_MANIFEST_FILENAME,
+                        "re",
+                        O_NOCTTY|O_NOFOLLOW,
+                        XFOPEN_REGULAR,
+                        /* bind_name= */ NULL,
+                        &f);
+        if (r == -ENOENT) {
+                *ret = NULL;
+                return 0;
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open '%s/%s/" UAPI16_MANIFEST_FILENAME "': %m",
+                                       empty_or_root_to_empty(root_path), skip_leading_slash(inode_path));
+
+        *ret = f;
+        return 1;
+}
+
+typedef struct ManifestContext {
+        Uapi16Object *objects;
+        size_t n_objects;
+} ManifestContext;
+
+static void manifest_context_done(ManifestContext *c) {
+        assert(c);
+
+        uapi16_object_done_many(c->objects, c->n_objects);
+        c->objects = mfree(c->objects);
+        c->n_objects = 0;
+}
+
+static int manifest_object_handler(Uapi16Object *o, size_t index, void *userdata) {
+        ManifestContext *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(o);
+
+        if (index == 0) {
+                /* The leading object describes the manifest itself. Honour its validity, by ignoring all
+                 * entries of an invalid manifest. */
+                r = uapi16_object_check_validity(o);
+                if (r < 0)
+                        return log_debug_errno(r, "Manifest is %s, refusing.",
+                                               r == -EHWPOISON ? "revoked" : "outside of its validity time window");
+
+                return 0;
+        }
+
+        /* We only care for direct children of the .v/ directory */
+        if (!filename_is_valid(o->name)) {
+                log_debug("Manifest entry '%s' does not refer to a direct child of the directory, ignoring.", o->name);
+                return 0;
+        }
+
+        if (!IN_SET(o->type, S_IFREG, S_IFDIR)) {
+                log_debug("Manifest entry '%s' is of type '%s', which is not supported, ignoring.",
+                          o->name, strna(inode_type_to_string(o->type)));
+                return 0;
+        }
+
+        r = uapi16_object_check_validity(o);
+        if (r < 0) {
+                log_debug("Manifest entry '%s' is %s, ignoring.",
+                          o->name, r == -EHWPOISON ? "revoked" : "outside of its validity time window");
+                return 0;
+        }
+
+        if (!uapi16_object_plain_file_source(o)) {
+                log_debug("Manifest entry '%s' has no source that is a complete, unencoded local file, ignoring.", o->name);
+                return 0;
+        }
+
+        if (!GREEDY_REALLOC(c->objects, c->n_objects + 1))
+                return log_oom_debug();
+
+        c->objects[c->n_objects++] = TAKE_GENERIC(*o, Uapi16Object, UAPI16_OBJECT_NULL);
+
+        return 0;
+}
+
+static int make_choice_from_manifest(
+                const char *root_path,
+                int root_fd,
+                int dir_fd,
+                const char *inode_path,
+                FILE *manifest,
+                const PickFilter *filter,
+                const XAttrMatchFilter *xattr_filter,
+                PickFlags flags,
+                PickResult *ret) {
+
+        int r;
+
+        assert(inode_path);
+        assert(manifest);
+        assert(filter);
+        assert(ret);
+
+        log_debug("Using manifest '%s/%s/" UAPI16_MANIFEST_FILENAME "' instead of directory listing.",
+                  empty_or_root_to_empty(root_path), skip_leading_slash(inode_path));
+
+        /* Note that we collect all entries first, and only consider them once the whole manifest is
+         * successfully read, since uapi16_manifest_read() only validates the manifest's structure at the
+         * end. */
+        _cleanup_(manifest_context_done) ManifestContext c = {};
+        r = uapi16_manifest_read(
+                        manifest,
+                        /* certificates= */ NULL,
+                        /* n_certificates= */ 0,
+                        manifest_object_handler,
+                        &c);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read manifest '%s/%s/" UAPI16_MANIFEST_FILENAME "': %m",
+                                       empty_or_root_to_empty(root_path), skip_leading_slash(inode_path));
+
+        _cleanup_(pick_result_done) PickResult best = PICK_RESULT_NULL;
+        FOREACH_ARRAY(o, c.objects, c.n_objects) {
+                r = consider_entry(
+                                root_path,
+                                root_fd,
+                                dir_fd,
+                                inode_path,
+                                o->name,
+                                o,
+                                filter,
+                                xattr_filter,
+                                flags,
+                                &best);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!best.path) {
+                *ret = PICK_RESULT_NULL;
+                return 0;
+        }
+
+        *ret = TAKE_PICK_RESULT(best);
+        return 1;
+}
+
 static int make_choice(
                 const char *root_path,
                 int root_fd,
@@ -368,6 +722,24 @@ static int make_choice(
                         return r;
         }
 
+        /* If there's a manifest (and we are told to use it), then it replaces the directory listing
+         * entirely, hence check for it before anything else, including the direct lookup below. */
+        _cleanup_fclose_ FILE *manifest = NULL;
+        r = open_manifest(root_path, inode_fd, inode_path, flags, &manifest);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return make_choice_from_manifest(
+                                root_path,
+                                root_fd,
+                                dir_fd,
+                                inode_path,
+                                manifest,
+                                filter,
+                                xattr_filter,
+                                flags,
+                                ret);
+
         /* Maybe the filter is fully specified? Then we can generate the file name directly */
         _cleanup_free_ char *j = NULL;
         r = format_fname(filter, flags, &j);
@@ -387,7 +759,7 @@ static int make_choice(
                 }
                 if (r < 0)
                         return log_debug_errno(r, "Failed to open '%s/%s': %m",
-                                               empty_to_root(root_path), skip_leading_slash(p));
+                                               empty_or_root_to_empty(root_path), skip_leading_slash(p));
 
                 return pin_choice(
                                 root_path,
@@ -399,6 +771,7 @@ static int make_choice(
                                 /* tries_done= */ UINT_MAX,
                                 filter,
                                 xattr_filter,
+                                /* object= */ NULL,
                                 flags & ~PICK_RESOLVE,
                                 ret);
 
@@ -411,123 +784,30 @@ static int make_choice(
         _cleanup_close_ int enumerate_fd = fd_reopen(inode_fd, O_DIRECTORY|O_RDONLY);
         if (enumerate_fd < 0)
                 return log_debug_errno(enumerate_fd, "Failed to reopen '%s/%s' as directory: %m",
-                                       empty_to_root(root_path), skip_leading_slash(inode_path));
+                                       empty_or_root_to_empty(root_path), skip_leading_slash(inode_path));
 
         _cleanup_free_ DirectoryEntries *de = NULL;
         r = readdir_all(enumerate_fd, /* flags= */ 0, &de);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read directory '%s/%s': %m",
-                                       empty_to_root(root_path), skip_leading_slash(inode_path));
+                                       empty_or_root_to_empty(root_path), skip_leading_slash(inode_path));
 
         _cleanup_(pick_result_done) PickResult best = PICK_RESULT_NULL;
 
         FOREACH_ARRAY(entry, de->entries, de->n_entries) {
-                unsigned found_tries_done = UINT_MAX, found_tries_left = UINT_MAX;
-                _cleanup_free_ char *dname = NULL;
-                char *e;
-
-                dname = strdup((*entry)->d_name);
-                if (!dname)
-                        return log_oom_debug();
-
-                if (!isempty(filter->basename)) {
-                        e = startswith(dname, filter->basename);
-                        if (!e)
-                                continue;
-
-                        if (e[0] != '_')
-                                continue;
-
-                        e++;
-                } else
-                        e = dname;
-
-                if (!isempty(filter->suffix)) {
-                        char *sfx = endswith(e, filter->suffix);
-                        if (!sfx)
-                                continue;
-
-                        *sfx = 0;
-                }
-
-                if (FLAGS_SET(flags, PICK_TRIES)) {
-                        char *plus = strrchr(e, '+');
-                        if (plus) {
-                                r = parse_tries(plus, &found_tries_left, &found_tries_done);
-                                if (r < 0)
-                                        return r;
-                                if (r > 0) /* Found and parsed, now chop off */
-                                        *plus = 0;
-                        }
-                }
-
-                Architecture a = _ARCHITECTURE_INVALID;
-                if (FLAGS_SET(flags, PICK_ARCHITECTURE)) {
-                        char *underscore = strrchr(e, '_');
-
-                        if (underscore)
-                                a = architecture_from_string(underscore + 1);
-
-                        if (!architecture_matches(filter, a)) {
-                                log_debug("Found entry with architecture '%s' which is not what we are looking for, ignoring entry.",
-                                          a < 0 ? "any" : architecture_to_string(a));
-                                continue;
-                        }
-
-                        /* Chop off architecture from string */
-                        if (underscore)
-                                *underscore = 0;
-                }
-
-                if (!version_is_valid(e, /* flags= */ 0)) {
-                        log_debug("Version string '%s' of entry '%s' is invalid, ignoring entry.", e, (*entry)->d_name);
-                        continue;
-                }
-
-                if (filter->version && !streq(filter->version, e)) {
-                        log_debug("Found entry with version string '%s', but was looking for '%s', ignoring entry.", e, filter->version);
-                        continue;
-                }
-
-                _cleanup_free_ char *p = path_join(inode_path, (*entry)->d_name);
-                if (!p)
-                        return log_oom_debug();
-
-                _cleanup_(pick_result_done) PickResult found = PICK_RESULT_NULL;
-                r = pin_choice(root_path,
-                               root_fd,
-                               dir_fd,
-                               p,
-                               /* _inode_fd= */ -EBADF,
-                               found_tries_left,
-                               found_tries_done,
-                               &(const PickFilter) {
-                                       .type_mask = filter->type_mask,
-                                       .basename = filter->basename,
-                                       .version = empty_to_null(e),
-                                       .architecture = a,
-                                       .suffix = filter->suffix,
-                               },
-                               xattr_filter,
-                               flags,
-                               &found);
-                if (r == 0)
-                        continue;
+                r = consider_entry(
+                                root_path,
+                                root_fd,
+                                dir_fd,
+                                inode_path,
+                                (*entry)->d_name,
+                                /* object= */ NULL,
+                                filter,
+                                xattr_filter,
+                                flags,
+                                &best);
                 if (r < 0)
                         return r;
-
-                if (!best.path) {
-                        best = TAKE_PICK_RESULT(found);
-                        continue;
-                }
-
-                if (pick_result_compare(&found, &best, flags) <= 0) {
-                        log_debug("Found entry '%s' but previously found entry '%s' matches better, hence skipping entry.", found.path, best.path);
-                        continue;
-                }
-
-                pick_result_done(&best);
-                best = TAKE_PICK_RESULT(found);
         }
 
         if (!best.path) { /* Everything was good, but we didn't find any suitable entry */
@@ -696,6 +976,7 @@ bypass:
                         /* tries_done= */ UINT_MAX,
                         filter,
                         /* xattr_filter= */ NULL,
+                        /* object= */ NULL,
                         flags,
                         ret);
 }

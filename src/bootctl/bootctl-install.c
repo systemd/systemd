@@ -260,7 +260,7 @@ static int load_etc_machine_id(InstallContext *c) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get machine-id: %m");
 
-        log_debug("Loaded machine ID %s from '%s/etc/machine-id'.", strempty(c->root), SD_ID128_TO_STRING(c->machine_id));
+        log_debug("Loaded machine ID %s from '%s/etc/machine-id'.", SD_ID128_TO_STRING(c->machine_id), empty_or_root_to_empty(c->root));
         return 0;
 }
 
@@ -301,7 +301,7 @@ static int load_etc_machine_info(InstallContext *c) {
         if (!isempty(s)) {
                 if (!arg_quiet)
                         log_notice("Read $KERNEL_INSTALL_MACHINE_ID from '%s'. "
-                                   "Please move it to '%s/etc/kernel/entry-token'.", j, strempty(c->root));
+                                   "Please move it to '%s/etc/kernel/entry-token'.", j, empty_or_root_to_empty(c->root));
 
                 r = sd_id128_from_string(s, &c->machine_id);
                 if (r < 0)
@@ -314,7 +314,7 @@ static int load_etc_machine_info(InstallContext *c) {
         if (!isempty(layout)) {
                 if (!arg_quiet)
                         log_notice("Read $KERNEL_INSTALL_LAYOUT from '%s'. "
-                                   "Please move it to the layout= setting of '%s/etc/kernel/install.conf'.", j, strempty(c->root));
+                                   "Please move it to the layout= setting of '%s/etc/kernel/install.conf'.", j, empty_or_root_to_empty(c->root));
 
                 log_debug("KERNEL_INSTALL_LAYOUT=\"%s\" is specified in '%s'.", layout, j);
                 free_and_replace(c->install_layout, layout);

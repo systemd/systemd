@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -918,6 +919,35 @@ TEST(read_boolean_file) {
         _cleanup_free_ char *bn = NULL;
         ASSERT_OK(path_extract_filename(fn, &bn));
         ASSERT_OK_EQ(read_boolean_file_at(dfd, bn), true);
+}
+
+TEST(xfopenat_full_regular) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+        _cleanup_free_ char *line = NULL;
+
+        ASSERT_OK(tfd = mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &t));
+        ASSERT_OK(write_string_file_at(tfd, "file", "hello", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "dir", 0755));
+        ASSERT_OK_ERRNO(mkfifoat(tfd, "fifo", 0600));
+
+        ASSERT_OK(xfopenat_full(tfd, "file", "re", /* open_flags= */ 0, XFOPEN_REGULAR, /* bind_name= */ NULL, &f));
+        ASSERT_OK(read_line(f, SIZE_MAX, &line));
+        ASSERT_STREQ(line, "hello");
+        f = safe_fclose(f);
+
+        ASSERT_ERROR(xfopenat_full(tfd, "dir", "re", /* open_flags= */ 0, XFOPEN_REGULAR, /* bind_name= */ NULL, &f), EISDIR);
+
+        /* Opening a FIFO for reading would block, make sure we refuse it without opening it */
+        ASSERT_ERROR(xfopenat_full(tfd, "fifo", "re", /* open_flags= */ 0, XFOPEN_REGULAR, /* bind_name= */ NULL, &f), EBADFD);
+
+        /* The fopen() shortcut for AT_FDCWD must not bypass the check */
+        _cleanup_free_ char *d = ASSERT_NOT_NULL(path_join(t, "dir"));
+        ASSERT_ERROR(xfopenat_full(AT_FDCWD, d, "re", /* open_flags= */ 0, XFOPEN_REGULAR, /* bind_name= */ NULL, &f), EISDIR);
+
+        _cleanup_free_ char *p = ASSERT_NOT_NULL(path_join(t, "file"));
+        ASSERT_OK(xfopenat_full(AT_FDCWD, p, "re", /* open_flags= */ 0, XFOPEN_REGULAR, /* bind_name= */ NULL, &f));
 }
 
 TEST(xfopenat_dangling_symlink) {
