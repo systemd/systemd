@@ -2227,7 +2227,7 @@ Ports=eth2</programlisting>
           <para>Note that this only affects <emphasis>routing inside the network interface itself</emphasis>,
           i.e. the packets that pass through the tunnel itself. To cause packets to be sent via the tunnel in
           the first place, an appropriate route needs to be added as well — either in the
-          <literal>[Routes]</literal> section on the <literal>.network</literal> matching the wireguard
+          <literal>[Route]</literal> section on the <literal>.network</literal> matching the wireguard
           interface, or externally to <command>systemd-networkd</command>.</para>
 
           <xi:include href="version-info.xml" xpointer="v237"/>
