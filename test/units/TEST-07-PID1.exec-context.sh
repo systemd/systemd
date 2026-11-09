@@ -44,13 +44,22 @@ if [[ -z "${COVERAGE_BUILD_DIR:-}" ]]; then
     fi
 
     systemd-run --wait --pipe -p ProtectSystem=yes \
-        bash -xec "test ! -w /usr; ${boot_path:+"test ! -w $boot_path; test ! -w $esp_path;"} test -w /etc; test -w /var"
+        bash -xec "test ! -w /usr; ${boot_path:+"test ! -w $boot_path; test ! -w $esp_path;"} test -w /etc; test -w /var; test -w /run"
     systemd-run --wait --pipe -p ProtectSystem=full \
-        bash -xec "test ! -w /usr; ${boot_path:+"test ! -w $boot_path; test ! -w $esp_path;"} test ! -w /etc; test -w /var"
+        bash -xec "test ! -w /usr; ${boot_path:+"test ! -w $boot_path; test ! -w $esp_path;"} test ! -w /etc; test -w /var; test -w /run"
     systemd-run --wait --pipe -p ProtectSystem=strict \
-        bash -xec "test ! -w /; test ! -w /etc; test ! -w /var; test -w /dev; test -w /proc"
+        bash -xec "test ! -w /; test ! -w /etc; test ! -w /var; test ! -w /run; test -w /dev; test -w /proc"
     systemd-run --wait --pipe -p ProtectSystem=no \
-        bash -xec "test -w /; test -w /etc; test -w /var; test -w /dev; test -w /proc"
+        bash -xec "test -w /; test -w /etc; test -w /var; test -w /run; test -w /dev; test -w /proc"
+
+    # /run/ stays read-only under ProtectSystem=strict even when MountAPIVFS= sets up a writable tmpfs there ...
+    systemd-run --wait --pipe -p ProtectSystem=strict -p MountAPIVFS=yes \
+        bash -xec "test ! -w /run"
+    # ... but ReadWritePaths= can still make a subdirectory of /run/ writable.
+    mkdir -p /run/test-exec-run-rw
+    systemd-run --wait --pipe -p ProtectSystem=strict -p MountAPIVFS=yes -p ReadWritePaths=/run/test-exec-run-rw \
+        bash -xec "test ! -w /run; test -w /run/test-exec-run-rw"
+    rm -rf /run/test-exec-run-rw
 
     MARK="$(mktemp /root/.exec-context.XXX)"
     systemd-run --wait --pipe -p ProtectHome=yes \
