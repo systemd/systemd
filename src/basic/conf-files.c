@@ -322,7 +322,7 @@ int conf_file_new_at(
                             CHASE_MUST_BE_DIRECTORY | conf_files_chase_flags(flags),
                             &resolved_dirpath, /* ret_fd= */ NULL);
                 if (r < 0)
-                        return log_full_errno(log_level, r, "Failed to chase '%s%s': %m", empty_to_root(root), skip_leading_slash(dirpath));
+                        return log_full_errno(log_level, r, "Failed to chase '%s/%s': %m", empty_or_root_to_empty(root), skip_leading_slash(dirpath));
         }
 
         c->result = path_join(resolved_dirpath, c->filename);

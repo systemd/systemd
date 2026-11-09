@@ -217,12 +217,12 @@ static int pin_choice(
 
         struct stat st;
         if (fstat(inode_fd, &st) < 0)
-                return log_debug_errno(errno, "Failed to stat discovered inode '%s%s': %m",
-                                       empty_to_root(root_path), skip_leading_slash(inode_path));
+                return log_debug_errno(errno, "Failed to stat discovered inode '%s/%s': %m",
+                                       empty_or_root_to_empty(root_path), skip_leading_slash(inode_path));
 
         if (filter->type_mask != 0 && !BIT_SET(filter->type_mask, IFTODT(st.st_mode))) {
                 log_debug("Inode '%s/%s' has wrong type, found '%s'.",
-                          empty_to_root(root_path), skip_leading_slash(inode_path),
+                          empty_or_root_to_empty(root_path), skip_leading_slash(inode_path),
                           inode_type_to_string(st.st_mode));
                 *ret = PICK_RESULT_NULL;
                 return 0;
@@ -235,20 +235,20 @@ static int pin_choice(
                         /* Unlike fstat() on the O_PATH fd, reading user xattrs requires read access to the
                          * inode. Don't let a single inaccessible entry fail the whole operation. */
                         log_debug_errno(r, "Not allowed to read 'user.uapi.match_*' extended attributes of '%s/%s', ignoring entry: %m",
-                                        empty_to_root(root_path), skip_leading_slash(inode_path));
+                                        empty_or_root_to_empty(root_path), skip_leading_slash(inode_path));
                         *ret = PICK_RESULT_NULL;
                         return 0;
                 }
                 if (r < 0)
                         return log_debug_errno(r, "Failed to read 'user.uapi.match_*' extended attributes of '%s/%s': %m",
-                                               empty_to_root(root_path), skip_leading_slash(inode_path));
+                                               empty_or_root_to_empty(root_path), skip_leading_slash(inode_path));
 
                 r = xattr_match_filter_test_lists(xattr_filter, lists, inode_path);
                 if (r < 0)
                         return r;
                 if (r == 0) {
                         log_debug("Inode '%s/%s' is not suitable for this system, ignoring.",
-                                  empty_to_root(root_path), skip_leading_slash(inode_path));
+                                  empty_or_root_to_empty(root_path), skip_leading_slash(inode_path));
                         *ret = PICK_RESULT_NULL;
                         return 0;
                 }
@@ -387,7 +387,7 @@ static int make_choice(
                 }
                 if (r < 0)
                         return log_debug_errno(r, "Failed to open '%s/%s': %m",
-                                               empty_to_root(root_path), skip_leading_slash(p));
+                                               empty_or_root_to_empty(root_path), skip_leading_slash(p));
 
                 return pin_choice(
                                 root_path,
@@ -411,13 +411,13 @@ static int make_choice(
         _cleanup_close_ int enumerate_fd = fd_reopen(inode_fd, O_DIRECTORY|O_RDONLY);
         if (enumerate_fd < 0)
                 return log_debug_errno(enumerate_fd, "Failed to reopen '%s/%s' as directory: %m",
-                                       empty_to_root(root_path), skip_leading_slash(inode_path));
+                                       empty_or_root_to_empty(root_path), skip_leading_slash(inode_path));
 
         _cleanup_free_ DirectoryEntries *de = NULL;
         r = readdir_all(enumerate_fd, /* flags= */ 0, &de);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read directory '%s/%s': %m",
-                                       empty_to_root(root_path), skip_leading_slash(inode_path));
+                                       empty_or_root_to_empty(root_path), skip_leading_slash(inode_path));
 
         _cleanup_(pick_result_done) PickResult best = PICK_RESULT_NULL;
 
