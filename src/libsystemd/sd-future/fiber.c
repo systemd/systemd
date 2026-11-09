@@ -1030,7 +1030,7 @@ sd_future* sd_fiber_timeout(uint64_t timeout) {
         if (timeout == USEC_INFINITY)
                 return NULL;
 
-        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *timer = NULL;
+        _cleanup_(sd_future_cancel_unrefp) sd_future *timer = NULL;
         r = future_new_time_relative(
                         sd_future_get_event(f),
                         CLOCK_MONOTONIC,
@@ -1083,5 +1083,5 @@ sd_future* sd_fiber_timeout_unref(sd_future *timer) {
                 fiber->result = 0;
         }
 
-        return sd_future_cancel_wait_unref(timer);
+        return sd_future_cancel_unref(timer);
 }
