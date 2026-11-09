@@ -88,7 +88,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                 return log_error_errno(arg_format, "Unknown manifest format: %s", opts.arg);
                         break;
 
-                OPTION_LONG("field", "FIELDS", "Fields to include (mode, uid, gid, size, hash, symlink, device, hardlink, mtime, user-xattr, user-name, group-name, all, default, none, or +/- prefixed to adjust)"):
+                OPTION_LONG("field", "FIELDS", "Fields to include (mode, uid, gid, size, hash, symlink, device, hardlink, mtime, user-xattr, user-name, group-name, flag-append-only, flag-immutable, flag-no-atime, flag-no-cow, flag-no-dump, read-only, flag-hidden, flag-system, flag-archive, fs-uuid, fs-label, fat-serial, all, default, none, or +/- prefixed to adjust)"):
                         r = manifest_fields_from_string(opts.arg, &arg_fields);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse field list: %s", opts.arg);
