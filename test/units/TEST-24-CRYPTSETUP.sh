@@ -60,7 +60,7 @@ cryptsetup_start_and_check() {
                 return 1
             fi
 
-            return 0
+            continue
         fi
 
         if [[ "$ec" -ne 0 ]]; then
