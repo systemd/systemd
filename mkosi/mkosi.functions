@@ -7,6 +7,12 @@
 # - $MKOSI_RUSTFLAGS
 # - $MKOSI_MESON_OPTIONS
 
+# Git refuses to run in a checkout owned by a different user than the one running the build, which breaks
+# the VCS tag in the version string, so explicitly mark the source directory as safe.
+export GIT_CONFIG_COUNT=1
+export GIT_CONFIG_KEY_0=safe.directory
+export GIT_CONFIG_VALUE_0="$PWD"
+
 MKOSI_CFLAGS="-O0 -g"
 if ((LLVM)); then
     # TODO: Remove -fno-sanitize-function when https://github.com/systemd/systemd/issues/29972 is fixed.
