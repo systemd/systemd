@@ -398,10 +398,11 @@
         <listitem><para>Takes a boolean argument. If on, a private mount namespace for the unit's processes is created
         and the API file systems <filename>/proc/</filename>, <filename>/sys/</filename>, <filename>/dev/</filename> and
         <filename>/run/</filename> (as an empty <literal>tmpfs</literal>) are mounted inside of it, unless they are
-        already mounted. Note that this option has no effect unless used in conjunction with
-        <varname>RootDirectory=</varname>/<varname>RootImage=</varname> as these four mounts are
-        generally mounted in the host anyway, and unless the root directory is changed, the private mount namespace
-        will be a 1:1 copy of the host's, and include these four mounts. Note that the <filename>/dev/</filename> file
+        already mounted. These four file systems are generally present on the host already. Thus, unless this
+        option is combined with <varname>RootDirectory=</varname>/<varname>RootImage=</varname> to switch to a
+        different root directory, the private mount namespace is a 1:1 copy of the host's and includes them.
+        Even then, <filename>/run/</filename> is not covered by <varname>ProtectSystem=strict</varname> and
+        stays writable (see below). Note that the <filename>/dev/</filename> file
         system of the host is bind mounted if this option is used without <varname>PrivateDevices=</varname>. To run
         the service with a private, minimal version of <filename>/dev/</filename>, combine this option with
         <varname>PrivateDevices=</varname>.</para>
@@ -1534,6 +1535,15 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <para>Note that if <varname>ProtectSystem=</varname> is set to <literal>strict</literal> and
         <varname>PrivateTmp=</varname> is enabled, then <filename>/tmp/</filename> and
         <filename>/var/tmp/</filename> will be writable.</para>
+
+        <para>Similarly, <filename>/run/</filename> is not made read-only by
+        <varname>ProtectSystem=strict</varname> when <varname>MountAPIVFS=</varname> is in
+        effect — which is implied by <varname>ProtectControlGroups=</varname>,
+        <varname>ProtectKernelTunables=</varname>, <varname>ProtectProc=</varname> and several other settings
+        (see <varname>MountAPIVFS=</varname> above). In that case <filename>/run/</filename> stays writable,
+        and unless the mount namespace uses a separate root directory it remains
+        the host's <filename>/run/</filename>. Use <varname>ReadOnlyPaths=/run/</varname>
+        or <varname>TemporaryFileSystem=/run/</varname> to override this.</para>
 
         <xi:include href="version-info.xml" xpointer="v214"/></listitem>
       </varlistentry>
