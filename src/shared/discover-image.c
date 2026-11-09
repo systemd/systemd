@@ -966,11 +966,11 @@ int image_find(RuntimeScope scope,
                                               PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                                               &result);
                                 if (r < 0) {
-                                        log_debug_errno(r, "Failed to pick versioned image on '%s%s', skipping: %m", empty_to_root(root), skip_leading_slash(fname_path));
+                                        log_debug_errno(r, "Failed to pick versioned image on '%s/%s', skipping: %m", empty_or_root_to_empty(root), skip_leading_slash(fname_path));
                                         continue;
                                 }
                                 if (!result.path) {
-                                        log_debug("Found versioned directory '%s%s', without matching entry, skipping.", empty_to_root(root), skip_leading_slash(fname_path));
+                                        log_debug("Found versioned directory '%s/%s', without matching entry, skipping.", empty_or_root_to_empty(root), skip_leading_slash(fname_path));
                                         continue;
                                 }
 
@@ -1189,11 +1189,11 @@ int image_discover(
                                                       PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                                                       &result);
                                         if (r < 0) {
-                                                log_debug_errno(r, "Failed to pick versioned image on '%s%s', skipping: %m", empty_to_root(root), skip_leading_slash(fname_path));
+                                                log_debug_errno(r, "Failed to pick versioned image on '%s/%s', skipping: %m", empty_or_root_to_empty(root), skip_leading_slash(fname_path));
                                                 continue;
                                         }
                                         if (!result.path) {
-                                                log_debug("Found versioned directory '%s%s', without matching entry, skipping.", empty_to_root(root), skip_leading_slash(fname_path));
+                                                log_debug("Found versioned directory '%s/%s', without matching entry, skipping.", empty_or_root_to_empty(root), skip_leading_slash(fname_path));
                                                 continue;
                                         }
 
