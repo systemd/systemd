@@ -77,6 +77,10 @@ typedef enum MountMode {
         MOUNT_NOEXEC,
         MOUNT_EXEC,
         MOUNT_TMPFS,
+        MOUNT_BIND_RUN,            /* A bind mount of /run/. Ordered after MOUNT_TMPFS and before MOUNT_RUN,
+                                    * so that under ProtectSystem=strict it takes precedence over the writable
+                                    * MountAPIVFS= tmpfs (MOUNT_RUN), while explicit user mounts such as
+                                    * ReadWritePaths= still take precedence over it. */
         MOUNT_RUN,
         MOUNT_PRIVATE_TMPFS,       /* Mounted outside the root directory, and used by subsequent mounts */
         MOUNT_EXTENSION_DIRECTORY, /* Bind-mounted outside the root directory, and used by subsequent mounts */
@@ -287,6 +291,7 @@ static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
         [MOUNT_NOEXEC]                = "noexec",
         [MOUNT_EXEC]                  = "exec",
         [MOUNT_TMPFS]                 = "tmpfs",
+        [MOUNT_BIND_RUN]              = "bind-run",
         [MOUNT_RUN]                   = "run",
         [MOUNT_PRIVATE_TMPFS]         = "private-tmpfs",
         [MOUNT_EXTENSION_DIRECTORY]   = "extension-directory",
@@ -1633,6 +1638,27 @@ static int mount_run(const MountEntry *m) {
         return mount_tmpfs(m);
 }
 
+static int mount_bind_run(const MountEntry *m) {
+        int r;
+
+        assert(m);
+
+        /* Bind-mounts /run/ (the host's, or the one from RootDirectory=/RootImage=) onto itself, so that it
+         * becomes a distinct mount of its own. Used under ProtectSystem=strict, where it takes precedence over
+         * the writable tmpfs that MountAPIVFS= would otherwise set up (see the mode ordering). If /run/ does
+         * not exist, this is skipped (ignore handles -ENOENT). */
+
+        r = mount_nofollow_verbose(LOG_DEBUG, mount_entry_path(m), mount_entry_path(m),
+                                   /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
+        if (r < 0) {
+                if (r == -ENOENT && m->ignore)
+                        return 0;
+                return r;
+        }
+
+        return 1;
+}
+
 static int mount_mqueuefs(const MountEntry *m) {
         int r;
         const char *entry_path;
@@ -2141,6 +2167,9 @@ static int apply_one_mount(
 
         case MOUNT_RUN:
                 return mount_run(m);
+
+        case MOUNT_BIND_RUN:
+                return mount_bind_run(m);
 
         case MOUNT_MQUEUEFS:
                 return mount_mqueuefs(m);
@@ -2932,6 +2961,24 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         r = append_protect_system(&ml, p->protect_system, /* ignore_protect= */ false);
         if (r < 0)
                 return r;
+
+        /* Keep /run/ read-only under ProtectSystem=strict, overriding the writable tmpfs that MountAPIVFS=
+         * would otherwise set up. We only do this when no separate root directory is used: in that case /run/
+         * is the host's and must not leak as writable. With RootDirectory=/RootImage= /run/ is a private tmpfs
+         * (not the host's, so nothing to leak) that MountAPIVFS= needs writable, e.g. for /run/host/. */
+        if (p->protect_system == PROTECT_SYSTEM_STRICT && !pinned_resource_is_set(p->rootfs)) {
+                MountEntry *me = mount_list_extend(&ml);
+                if (!me)
+                        return log_oom_debug();
+
+                *me = (MountEntry) {
+                        .path_const = "/run",
+                        .mode = MOUNT_BIND_RUN,
+                        .ignore = true,
+                        .read_only = true,
+                        .nosuid = true,
+                };
+        }
 
         r = append_private_bpf(&ml, p->private_bpf, p->protect_kernel_tunables, /* ignore_protect= */ false, p);
         if (r < 0)
