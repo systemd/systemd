@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+
 #include "alloc-util.h"
+#include "fileio.h"
+#include "memory-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "string-util.h"
@@ -124,6 +128,211 @@ bool http_etag_is_valid(const char *etag) {
                 return false;
 
         return true;
+}
+
+/* The characters permitted in an HTTP field name, i.e. "tchar" as per RFC 9110, section 5.6.2 */
+#define HTTP_TCHAR LETTERS DIGITS "!#$%&'*+-.^_`|~"
+
+bool http_field_name_is_valid(const char *name) {
+        /* Checks whether the specified string is a valid HTTP field name (i.e. header name) as per RFC
+         * 9110, section 5.1 */
+
+        return !isempty(name) && in_charset(name, HTTP_TCHAR);
+}
+
+bool http_field_value_is_valid(const char *value) {
+        /* Checks whether the specified string is a valid HTTP field value as per RFC 9110, section 5.5,
+         * i.e. consists of visible characters, spaces and horizontal tabs only. In particular this refuses
+         * CR and LF, so that a value cannot be used to inject additional fields. Bytes ≥ 0x80 are permitted
+         * ("obs-text"), so that UTF-8 is passed through. An empty value is valid. */
+
+        if (!value)
+                return false;
+
+        for (const char *p = value; *p; p++)
+                if (*p == 0x7f || ((uint8_t) *p < ' ' && *p != '\t'))
+                        return false;
+
+        return true;
+}
+
+bool http_field_name_is_client_owned(const char *name) {
+        /* Returns true for HTTP request fields we manage ourselves (or that curl manages on our behalf),
+         * because they relate to connection management, transfer and content encoding, ranges,
+         * caching or proxying, and which hence must not be set from external sources, i.e. via the
+         * "httpHeaders" field of UAPI.16 manifests. */
+
+        return name && STRCASE_IN_SET(name,
+                                      "Accept-Encoding",
+                                      "Connection",
+                                      "Content-Encoding",
+                                      "Content-Length",
+                                      "Expect",
+                                      "Host",
+                                      "If-None-Match",
+                                      "If-Range",
+                                      "Keep-Alive",
+                                      "Proxy-Authorization",
+                                      "Proxy-Connection",
+                                      "Range",
+                                      "TE",
+                                      "Trailer",
+                                      "Transfer-Encoding",
+                                      "Upgrade");
+}
+
+int http_url_get_origin(const char *url, char **ret) {
+        const char *p, *scheme;
+        uint16_t port;
+
+        assert(ret);
+
+        /* Determines the origin (as per RFC 6454) of an http:// or https:// URL, and returns it in
+         * normalized form, i.e. as "scheme://host:port", with scheme and host lowercased and the port always
+         * spelled out explicitly. Two URLs have the same origin if the returned strings are equal. Any user
+         * information in the URL is dropped, as it is not part of the origin. Returns -EINVAL for URLs of
+         * other schemes or that we cannot parse. Note that we deliberately do not attempt to normalize
+         * host names further (i.e. no IDNA or percent-decoding), as the origin is used to decide whether to
+         * send sensitive data to a host, and hence it is safer to consider equivalent but differently
+         * spelled hosts as different. */
+
+        if (!url)
+                return -EINVAL;
+
+        if ((p = startswith_no_case(url, "http://"))) {
+                scheme = "http";
+                port = 80;
+        } else if ((p = startswith_no_case(url, "https://"))) {
+                scheme = "https";
+                port = 443;
+        } else
+                return -EINVAL;
+
+        _cleanup_free_ char *authority = strndup(p, strcspn(p, "/?#"));
+        if (!authority)
+                return -ENOMEM;
+
+        /* Drop the user information, if there is any. Note that the user information may contain an
+         * unescaped "@" in practice, hence split at the last one, as the host part may not contain any. */
+        char *host = strrchr(authority, '@');
+        host = host ? host + 1 : authority;
+
+        char *port_string = NULL;
+        if (host[0] == '[') {
+                /* An IPv6 address literal, possibly followed by a port */
+                char *e = strchr(host, ']');
+                if (!e)
+                        return -EINVAL;
+
+                if (e[1] == ':') {
+                        e[1] = 0;
+                        port_string = e + 2;
+                } else if (e[1] != 0)
+                        return -EINVAL;
+        } else {
+                port_string = strrchr(host, ':');
+                if (port_string)
+                        *(port_string++) = 0;
+        }
+
+        if (isempty(host) || string_has_cc(host, /* ok= */ NULL) || !ascii_is_valid(host))
+                return -EINVAL;
+
+        /* An empty port is equivalent to the scheme's default port as per RFC 3986, section 3.2.3 */
+        if (!isempty(port_string)) {
+                if (!in_charset(port_string, DIGITS))
+                        return -EINVAL;
+
+                if (safe_atou16_full(port_string, 10, &port) < 0 || port == 0)
+                        return -EINVAL;
+        }
+
+        if (asprintf(ret, "%s://%s:%" PRIu16, scheme, ascii_strlower(host), port) < 0)
+                return -ENOMEM;
+
+        return 0;
+}
+
+int http_headers_parse(FILE *f, char ***ret) {
+        int r;
+
+        assert(f);
+        assert(ret);
+
+        /* Reads HTTP header fields in the format HTTP itself uses (RFC 9110, section 5), i.e. one
+         * "Name: value" field per line, into a strv of name/value pairs. Lines may be terminated by LF or
+         * CRLF, empty lines are ignored. Optional whitespace around the value is dropped. Field names must
+         * be unique (compared case-insensitively). Obsolete line folding is not supported. Note that we
+         * deliberately do not log the values here, they might carry credentials. */
+
+        _cleanup_strv_free_erase_ char **l = NULL;
+        size_t n = 0;
+        for (;;) {
+                _cleanup_(erase_and_freep) char *line = NULL;
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                if (isempty(line))
+                        continue;
+
+                _cleanup_free_ char *name = NULL;
+                _cleanup_(erase_and_freep) char *value = NULL;
+                r = split_pair(line, ":", &name, &value);
+                if (r < 0)
+                        return r;
+
+                if (!http_field_name_is_valid(name))
+                        return -EINVAL;
+
+                /* Drop the optional whitespace ("OWS") around the value */
+                const char *v = delete_trailing_chars(skip_leading_chars(value, " \t"), " \t");
+                if (!http_field_value_is_valid(v))
+                        return -EINVAL;
+
+                STRV_FOREACH_PAIR(a, b, l)
+                        if (strcaseeq(*a, name))
+                                return -ENOTUNIQ;
+
+                if (n >= HTTP_HEADERS_MAX)
+                        return -E2BIG;
+
+                r = strv_extend_many(&l, name, v);
+                if (r < 0)
+                        return r;
+
+                n++;
+        }
+
+        *ret = TAKE_PTR(l);
+        return 0;
+}
+
+int http_headers_format(char * const *headers, char **ret) {
+        assert(ret);
+
+        /* The inverse of http_headers_parse(): formats a strv of name/value pairs as one "Name: value"
+         * line per field */
+
+        _cleanup_(erase_and_freep) char *s = NULL;
+        STRV_FOREACH_PAIR(a, b, headers) {
+                if (!http_field_name_is_valid(*a) || !http_field_value_is_valid(*b))
+                        return -EINVAL;
+
+                if (!strextend(&s, *a, ": ", *b, "\n"))
+                        return -ENOMEM;
+        }
+
+        if (!s) {
+                s = strdup("");
+                if (!s)
+                        return -ENOMEM;
+        }
+
+        *ret = TAKE_PTR(s);
+        return 0;
 }
 
 int parse_content_range(const char *s, uint64_t *ret_start, uint64_t *ret_end, uint64_t *ret_total) {

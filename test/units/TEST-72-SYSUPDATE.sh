@@ -66,6 +66,7 @@ at_exit() {
     set +e
 
     systemctl stop test-sysupdate-notify-recorder.socket
+    systemctl stop test-72-http-a.service test-72-http-b.service
     rm -f /run/systemd/system/test-sysupdate-notify-recorder.socket \
           /run/systemd/system/test-sysupdate-notify-recorder@.service
 
@@ -1179,6 +1180,158 @@ grep -F "File 'tree-v1.tar' has a source that carries more than the file, which 
 grep -F "File 'enc-v1.bin' has encoded inline data that carries more than the file, ignoring source." "$WORKDIR/uapi16/ranged/update.log" >/dev/null
 cmp "$WORKDIR/uapi16/ranged/tree/file.txt" "$WORKDIR/uapi16/ranged/dirs/tree-v1/file.txt"
 cmp "$WORKDIR/uapi16/ranged/enc-v1.bin" "$WORKDIR/uapi16/ranged/target/enc-v1.bin"
+
+# The "httpHeaders" field of "contents" entries lists additional HTTP header fields to send when acquiring
+# the "url", but only to its origin, i.e. never to wherever a redirect to another origin points to. Two
+# minimal HTTP servers (i.e. two origins, as they listen on different ports), where the first path component
+# selects the behaviour: "auth" serves the file only if the expected header fields are sent, "same"
+# requires them too and redirects to "auth" on the same origin, "cross" requires them too and redirects to
+# "open" on the other origin, "open" serves the file unconditionally, "hop" redirects to "open" on the other
+# origin unconditionally, and "loop" redirects to itself forever. Each request is logged with its
+# "Authorization:" header.
+HH="$WORKDIR/uapi16/http-headers"
+mkdir -p "$HH/srv" "$HH/target" "$HH/definitions" "$HH/bad-definitions"
+cat >"$HH/server.py" <<'EOF'
+import http.server, os, socketserver, sys
+
+port, root, log, peer = int(sys.argv[1]), sys.argv[2], sys.argv[3], sys.argv[4]
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        mode, _, name = self.path.lstrip('/').partition('/')
+        auth = self.headers.get('Authorization')
+        with open(log, 'a') as f:
+            print(port, mode, name, auth or '-', file=f)
+
+        if mode not in ('open', 'hop', 'loop') and (auth != 'Bearer s3cret' or self.headers.get('X-Test') != 'foo'):
+            self.send_error(401)
+            return
+
+        location = {
+            'same': f'/auth/{name}',
+            'cross': f'{peer}/open/{name}',
+            'hop': f'{peer}/open/{name}',
+            'loop': f'/loop/{name}',
+        }.get(mode)
+        if location:
+            # Send a body, which must not end up in the downloaded file
+            body = b'<html>Moved</html>'
+            self.send_response(301 if mode == 'hop' else 302)
+            self.send_header('Location', location)
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        try:
+            with open(os.path.join(root, os.path.basename(name)), 'rb') as f:
+                data = f.read()
+        except FileNotFoundError:
+            self.send_error(404)
+            return
+
+        self.send_response(200)
+        self.send_header('Content-Length', str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+# See TEST-25-IMPORT for why we use TCPServer with SO_REUSEADDR rather than HTTPServer
+class Server(socketserver.TCPServer):
+    allow_reuse_address = True
+
+Server(('127.0.0.1', port), Handler).serve_forever()
+EOF
+systemd-run --unit=test-72-http-a -p Type=exec python3 "$HH/server.py" 8072 "$HH/srv" "$HH/requests.log" http://127.0.0.1:8073
+systemd-run --unit=test-72-http-b -p Type=exec python3 "$HH/server.py" 8073 "$HH/srv" "$HH/requests.log" http://127.0.0.1:8072
+head -c 3000 /dev/urandom >"$HH/srv/probe"
+for port in 8072 8073; do
+    timeout 30 bash -c "until curl -sf -o /dev/null http://127.0.0.1:$port/open/probe; do sleep .5; done"
+done
+
+HH_HEADERS='{"Authorization":"Bearer s3cret","X-Test":"foo"}'
+for f in auth same cross noauth; do
+    head -c 3000 /dev/urandom >"$HH/srv/hh$f-v1.bin"
+done
+{
+    printf '\036{"mediaType":"application/vnd.uapi.16.manifest"}\n'
+    # The first source asks for a header field we manage ourselves, and hence is ignored
+    printf '\036{"name":"hhauth-v1.bin","size":%s,"sha256":"%s","contents":[{"url":"http://127.0.0.1:8072/never/hhauth-v1.bin","httpHeaders":{"Range":"bytes=0-"}},{"url":"http://127.0.0.1:8072/auth/hhauth-v1.bin","httpHeaders":%s}]}\n' \
+        "$(stat -c %s "$HH/srv/hhauth-v1.bin")" "$(sha256_of "$HH/srv/hhauth-v1.bin")" "$HH_HEADERS"
+    for f in same cross; do
+        printf '\036{"name":"hh%s-v1.bin","size":%s,"sha256":"%s","contents":[{"url":"http://127.0.0.1:8072/%s/hh%s-v1.bin","httpHeaders":%s}]}\n' \
+            "$f" "$(stat -c %s "$HH/srv/hh$f-v1.bin")" "$(sha256_of "$HH/srv/hh$f-v1.bin")" "$f" "$f" "$HH_HEADERS"
+    done
+    # Without the header fields the server refuses access
+    printf '\036{"name":"hhnoauth-v1.bin","size":%s,"sha256":"%s","contents":[{"url":"http://127.0.0.1:8072/auth/hhnoauth-v1.bin"}]}\n' \
+        "$(stat -c %s "$HH/srv/hhnoauth-v1.bin")" "$(sha256_of "$HH/srv/hhnoauth-v1.bin")"
+    printf '\036{"mediaType":"application/vnd.uapi.16.trailer"}\n'
+} >"$HH/Uapi16Manifest"
+for f in auth same cross noauth; do
+    cat >"$HH/definitions/01-hh$f.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$HH/srv
+ManifestFormat=uapi16
+ManifestPath=file://$HH/Uapi16Manifest
+MatchPattern=hh$f-@v.bin
+
+[Target]
+Type=regular-file
+Path=$HH/target
+MatchPattern=hh$f-@v.bin
+EOF
+done
+mv "$HH/definitions/01-hhnoauth.transfer" "$HH/bad-definitions/"
+
+: >"$HH/requests.log"
+"$SYSUPDATE" --definitions="$HH/definitions" --verify=no update &>"$HH/update.log"
+for f in auth same cross; do
+    cmp "$HH/srv/hh$f-v1.bin" "$HH/target/hh$f-v1.bin"
+done
+grep -F "File 'hhauth-v1.bin' has a source with HTTP header field 'Range' we manage ourselves, ignoring source." "$HH/update.log" >/dev/null
+# The ignored source is never requested
+(! grep -F ' never ' "$HH/requests.log")
+grep -x '8072 auth hhauth-v1.bin Bearer s3cret' "$HH/requests.log" >/dev/null
+# Redirects to the same origin keep the header fields…
+grep -x '8072 same hhsame-v1.bin Bearer s3cret' "$HH/requests.log" >/dev/null
+grep -x '8072 auth hhsame-v1.bin Bearer s3cret' "$HH/requests.log" >/dev/null
+# …but redirects to another origin do not
+grep -x '8072 cross hhcross-v1.bin Bearer s3cret' "$HH/requests.log" >/dev/null
+grep -x '8073 open hhcross-v1.bin -' "$HH/requests.log" >/dev/null
+(! grep -F 's3cret' <(grep '^8073 ' "$HH/requests.log"))
+
+: >"$HH/requests.log"
+(! "$SYSUPDATE" --definitions="$HH/bad-definitions" --verify=no update)
+test ! -e "$HH/target/hhnoauth-v1.bin"
+grep -x '8072 auth hhnoauth-v1.bin -' "$HH/requests.log" >/dev/null
+
+# systemd-pull reads the header fields in HTTP's own format (one "Name: value" line each) from a file (or
+# from a file descriptor passed in via the socket activation protocol, which is how sysupdate does it)
+printf 'Authorization: Bearer s3cret\r\nX-Test:   foo \n\n' >"$HH/headers"
+: >"$HH/requests.log"
+/usr/lib/systemd/systemd-pull raw --verify=no --direct --http-headers="$HH/headers" http://127.0.0.1:8072/cross/hhauth-v1.bin "$HH/pulled.bin"
+cmp "$HH/srv/hhauth-v1.bin" "$HH/pulled.bin"
+grep -x '8072 cross hhauth-v1.bin Bearer s3cret' "$HH/requests.log" >/dev/null
+grep -x '8073 open hhauth-v1.bin -' "$HH/requests.log" >/dev/null
+printf 'Host: example.com\n' >"$HH/bad-headers"
+(! /usr/lib/systemd/systemd-pull raw --verify=no --direct --http-headers="$HH/bad-headers" http://127.0.0.1:8072/auth/hhauth-v1.bin "$HH/pulled2.bin") |& \
+    grep -F "HTTP header field 'Host' is managed by systemd-pull itself, refusing." >/dev/null
+printf 'X-Foo: a\nx-foo: b\n' >"$HH/bad-headers"
+(! /usr/lib/systemd/systemd-pull raw --verify=no --direct --http-headers="$HH/bad-headers" http://127.0.0.1:8072/auth/hhauth-v1.bin "$HH/pulled2.bin") |& \
+    grep -F "contain duplicate fields" >/dev/null
+test ! -e "$HH/pulled2.bin"
+
+# systemd-pull always follows redirects itself, also if there are no header fields to send…
+: >"$HH/requests.log"
+/usr/lib/systemd/systemd-pull raw --verify=no --direct http://127.0.0.1:8072/hop/hhauth-v1.bin "$HH/pulled3.bin"
+cmp "$HH/srv/hhauth-v1.bin" "$HH/pulled3.bin"
+grep -x '8072 hop hhauth-v1.bin -' "$HH/requests.log" >/dev/null
+grep -x '8073 open hhauth-v1.bin -' "$HH/requests.log" >/dev/null
+# …and gives up eventually
+(! /usr/lib/systemd/systemd-pull raw --verify=no --direct http://127.0.0.1:8072/loop/hhauth-v1.bin "$HH/pulled4.bin") |& \
+    grep -F "Too many HTTP redirects" >/dev/null
+
+systemctl stop test-72-http-a.service test-72-http-b.service
 
 # UAPI.16 manifests carry their signature inline, which is verified against the certificates in the VOA
 # hierarchy (role "manifest", context "sysupdate") if verification is enabled
