@@ -11,6 +11,7 @@
 
 #include "alloc-util.h"
 #include "ansi-color.h"
+#include "bitfield.h"
 #include "chase.h"
 #include "chattr-util.h"
 #include "crypto-util.h"
@@ -2154,6 +2155,118 @@ static int verify_user_xattrs(ManifestContext *c, const Uapi16Object *o, int fd)
         return 0;
 }
 
+static int verify_inode_flags(ManifestContext *c, const Uapi16Object *o, int fd) {
+        unsigned value, mask, f;
+        int r;
+
+        assert(c);
+        assert(o);
+        assert(fd >= 0);
+
+        uapi16_object_inode_flags(o, &value, &mask);
+        mask &= manifest_fields_to_inode_flags(c->fields);
+        if (mask == 0)
+                return 0;
+
+        r = manifest_read_inode_flags(fd, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read inode flags of '%s': %m", o->name ?: ".");
+
+        BIT_FOREACH(b, (value ^ f) & mask) {
+                unsigned flag = 1U << b;
+                manifest_verify_error(c, o->name, "Expected inode flag '%s' to be %s, but it is not.",
+                                      uapi16_inode_flag_to_field(flag), FLAGS_SET(value, flag) ? "set" : "unset");
+        }
+
+        return 0;
+}
+
+static int verify_fat_attrs(ManifestContext *c, const Uapi16Object *o, int fd) {
+        uint32_t value, mask, a;
+        int r;
+
+        assert(c);
+        assert(o);
+        assert(fd >= 0);
+
+        /* Only directory entries of regular files and directories carry attributes. The dispatcher refuses
+         * the FAT specific fields elsewhere, but the generic "readOnly" field may show up anywhere. */
+        if (!o->name || !IN_SET(o->type, S_IFREG, S_IFDIR))
+                return 0;
+
+        uapi16_object_fat_attrs(o, &value, &mask);
+        mask &= manifest_fields_to_fat_attrs(c->fields);
+        if (mask == 0)
+                return 0;
+
+        r = manifest_read_fat_attrs(fd, &a);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read FAT attributes of '%s': %m", o->name ?: ".");
+        if (r == 0) {
+                /* The specification says these fields have no effect on other file systems */
+                log_debug("'%s' is not located on a FAT file system, not verifying FAT attributes.", o->name ?: ".");
+                return 0;
+        }
+
+        BIT_FOREACH(b, (value ^ a) & mask) {
+                uint32_t attr = UINT32_C(1) << b;
+                manifest_verify_error(c, o->name, "Expected FAT attribute '%s' to be %s, but it is not.",
+                                      uapi16_fat_attr_to_field(attr), FLAGS_SET(value, attr) ? "set" : "unset");
+        }
+
+        return 0;
+}
+
+static int verify_fs_identity(ManifestContext *c, const Uapi16Object *o, int fd) {
+        int r;
+
+        assert(c);
+        assert(o);
+        assert(fd >= 0);
+
+        bool check_uuid = FLAGS_SET(c->fields, MANIFEST_FIELD_FS_UUID) && o->fs_uuid_set,
+                check_label = FLAGS_SET(c->fields, MANIFEST_FIELD_FS_LABEL) && o->fs_label,
+                check_serial = FLAGS_SET(c->fields, MANIFEST_FIELD_FAT_SERIAL) && o->fat_serial_set;
+        if (!check_uuid && !check_label && !check_serial)
+                return 0;
+
+        _cleanup_(fs_identity_done) FsIdentity id = {};
+        r = manifest_read_fs_identity(fd, &id);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
+                return log_error_errno(r, "Failed to read file system identity: %m");
+
+        if (check_label) {
+                if (!id.label)
+                        log_warning("File system label cannot be queried, not verifying it.");
+                else if (!streq(id.label, o->fs_label))
+                        manifest_verify_error(c, o->name, "Expected file system label '%s', but found '%s'.", o->fs_label, id.label);
+        }
+
+        if (id.is_fat && check_serial) {
+                char a[UAPI16_FAT_SERIAL_STRING_MAX], b[UAPI16_FAT_SERIAL_STRING_MAX];
+
+                if (!id.fat_serial_set)
+                        log_warning("FAT volume serial number cannot be queried, not verifying it.");
+                else if (id.fat_serial != o->fat_serial)
+                        manifest_verify_error(c, o->name, "Expected FAT volume serial number %s, but found %s.",
+                                              uapi16_fat_serial_to_string(o->fat_serial, a),
+                                              uapi16_fat_serial_to_string(id.fat_serial, b));
+        }
+
+        /* FAT has no UUID, the specification says to use "fatSerial" instead */
+        if (!id.is_fat && check_uuid) {
+                if (!id.uuid_set)
+                        log_warning("File system UUID cannot be queried, not verifying it.");
+                else if (!sd_id128_equal(id.uuid, o->fs_uuid))
+                        manifest_verify_error(c, o->name, "Expected file system UUID " SD_ID128_UUID_FORMAT_STR ", but found " SD_ID128_UUID_FORMAT_STR ".",
+                                              SD_ID128_FORMAT_VAL(o->fs_uuid), SD_ID128_FORMAT_VAL(id.uuid));
+        }
+
+        return 0;
+}
+
 static int verify_object(ManifestContext *c, int dir_fd, const Uapi16Object *o) {
         int r;
 
@@ -2218,6 +2331,18 @@ static int verify_object(ManifestContext *c, int dir_fd, const Uapi16Object *o) 
                 if (r < 0)
                         return r;
         }
+
+        r = verify_inode_flags(c, o, fd);
+        if (r < 0)
+                return r;
+
+        r = verify_fat_attrs(c, o, fd);
+        if (r < 0)
+                return r;
+
+        r = verify_fs_identity(c, o, fd);
+        if (r < 0)
+                return r;
 
         if (FLAGS_SET(c->fields, MANIFEST_FIELD_DEVICE) && (S_ISBLK(o->type) || S_ISCHR(o->type))) {
                 if (o->major != UINT64_MAX && sx.stx_rdev_major != o->major)
