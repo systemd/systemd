@@ -1522,7 +1522,7 @@ EOF
                             --split=yes \
                             --manifest=yes \
                             --manifest-gpt=yes \
-                            --manifest-fields=size,hash \
+                            --manifest-fields=size,hash,fs-uuid,fs-label,fat-serial \
                             --manifest-private-key="$defs/manifest.key" \
                             --manifest-certificate="$defs/manifest.crt" \
                             "${match_args[@]}" \
@@ -1554,6 +1554,11 @@ EOF
     jq --seq -s -e ".[] | select(.name == \"${defs#/}/verity-data.conf\")" <"$root_manifest" >/dev/null
     # Only the requested fields are included
     jq --seq -s -e ".[] | select(.name == \"${defs#/}/verity-data.conf\") | has(\"size\") and has(\"sha256\") and (has(\"mode\") | not)" <"$root_manifest" >/dev/null
+    # In offline mode the tree is populated from a staging directory, whose file system identity has nothing
+    # to do with the one of the partition, hence it must not be recorded
+    if [[ "$OFFLINE" == "yes" ]]; then
+        jq --seq -s -e '.[0] | (has("fsUUID") or has("fsLabel") or has("fatSerial")) | not' <"$root_manifest" >/dev/null
+    fi
     # The manifest is signed with the manifest key, not the verity key
     systemd-manifest verify --certificate="$defs/manifest.crt" / "$root_manifest"
     (! systemd-manifest verify --certificate="$defs/verity.crt" / "$root_manifest")
