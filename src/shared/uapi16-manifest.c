@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/msdos_fs.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -20,6 +21,7 @@
 #include "sha256.h"
 #include "sort-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "strv.h"
 #include "time-util.h"
@@ -71,6 +73,7 @@ void uapi16_object_done(Uapi16Object *o) {
         o->user_name = mfree(o->user_name);
         o->group_name = mfree(o->group_name);
         o->gpt_label = mfree(o->gpt_label);
+        o->fs_label = mfree(o->fs_label);
         iovec_done(&o->sha256);
 
         FOREACH_ARRAY(c, o->contents, o->n_contents)
@@ -131,6 +134,166 @@ bool uapi16_xattr_name_is_valid(const char *s) {
         return !isempty(s) &&
                 utf8_is_valid(s) &&
                 !string_has_cc(s, /* ok= */ NULL);
+}
+
+bool uapi16_fs_label_is_valid(const char *s) {
+        /* The specification requires the label to be valid UTF-8 without control characters. Any further
+         * restrictions are file system specific, and are enforced when the label is applied. */
+
+        return s &&
+                utf8_is_valid(s) &&
+                !string_has_cc(s, /* ok= */ NULL);
+}
+
+int uapi16_fat_serial_from_string(const char *s, uint32_t *ret) {
+        uint32_t v = 0;
+
+        assert(s);
+
+        /* Exactly two groups of four hex digits, separated by a hyphen, parsed case-insensitively. Nothing
+         * else is permitted by the specification. */
+
+        if (strlen(s) != 9 || s[4] != '-')
+                return -EINVAL;
+
+        for (size_t i = 0; i < 9; i++) {
+                if (i == 4)
+                        continue;
+
+                int d = unhexchar(s[i]);
+                if (d < 0)
+                        return -EINVAL;
+
+                v = (v << 4) | (uint32_t) d;
+        }
+
+        if (ret)
+                *ret = v;
+
+        return 0;
+}
+
+char* uapi16_fat_serial_to_string(uint32_t serial, char buf[static UAPI16_FAT_SERIAL_STRING_MAX]) {
+        assert(buf);
+
+        /* Formatted in uppercase, as the specification asks for */
+        assert_se(snprintf_ok(buf, UAPI16_FAT_SERIAL_STRING_MAX, "%04" PRIX32 "-%04" PRIX32, serial >> 16, serial & 0xFFFFU));
+        return buf;
+}
+
+assert_cc(UAPI16_FAT_ATTRS_ALL == (ATTR_RO|ATTR_HIDDEN|ATTR_SYS|ATTR_ARCH));
+
+static const struct {
+        unsigned flag;
+        const char *field;
+        size_t offset;
+} inode_flag_table[] = {
+        { FS_APPEND_FL,    "flagAppendOnly", offsetof(Uapi16Object, flag_append_only) },
+        { FS_IMMUTABLE_FL, "flagImmutable",  offsetof(Uapi16Object, flag_immutable)   },
+        { FS_NOATIME_FL,   "flagNoAtime",    offsetof(Uapi16Object, flag_no_atime)    },
+        { FS_NOCOW_FL,     "flagNoCow",      offsetof(Uapi16Object, flag_no_cow)      },
+        { FS_NODUMP_FL,    "flagNoDump",     offsetof(Uapi16Object, flag_no_dump)     },
+};
+
+static const struct {
+        uint32_t attr;
+        const char *field;
+        size_t offset;
+} fat_attr_table[] = {
+        { ATTR_RO,     "readOnly",    offsetof(Uapi16Object, read_only)    }, /* the generic read-only marker */
+        { ATTR_HIDDEN, "flagHidden",  offsetof(Uapi16Object, flag_hidden)  },
+        { ATTR_SYS,    "flagSystem",  offsetof(Uapi16Object, flag_system)  },
+        { ATTR_ARCH,   "flagArchive", offsetof(Uapi16Object, flag_archive) },
+};
+
+const char* uapi16_inode_flag_to_field(unsigned flag) {
+        FOREACH_ELEMENT(i, inode_flag_table)
+                if (i->flag == flag)
+                        return i->field;
+
+        return NULL;
+}
+
+const char* uapi16_fat_attr_to_field(uint32_t attr) {
+        FOREACH_ELEMENT(i, fat_attr_table)
+                if (i->attr == attr)
+                        return i->field;
+
+        return NULL;
+}
+
+void uapi16_object_inode_flags(const Uapi16Object *o, unsigned *ret_value, unsigned *ret_mask) {
+        unsigned value = 0, mask = 0;
+
+        assert(o);
+
+        FOREACH_ELEMENT(i, inode_flag_table) {
+                int b = *(const int*) ((const uint8_t*) o + i->offset);
+                if (b < 0)
+                        continue;
+
+                mask |= i->flag;
+                SET_FLAG(value, i->flag, b);
+        }
+
+        if (ret_value)
+                *ret_value = value;
+        if (ret_mask)
+                *ret_mask = mask;
+}
+
+void uapi16_object_fat_attrs(const Uapi16Object *o, uint32_t *ret_value, uint32_t *ret_mask) {
+        uint32_t value = 0, mask = 0;
+
+        assert(o);
+
+        FOREACH_ELEMENT(i, fat_attr_table) {
+                int b = *(const int*) ((const uint8_t*) o + i->offset);
+                if (b < 0)
+                        continue;
+
+                mask |= i->attr;
+                SET_FLAG(value, i->attr, b);
+        }
+
+        if (ret_value)
+                *ret_value = value;
+        if (ret_mask)
+                *ret_mask = mask;
+}
+
+int uapi16_inode_flags_merge_json(sd_json_variant **v, unsigned flags, unsigned mask) {
+        int r;
+
+        assert(v);
+
+        FOREACH_ELEMENT(i, inode_flag_table) {
+                if (!FLAGS_SET(mask, i->flag))
+                        continue;
+
+                r = sd_json_variant_set_field_boolean(v, i->field, FLAGS_SET(flags, i->flag));
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int uapi16_fat_attrs_merge_json(sd_json_variant **v, uint32_t attrs, uint32_t mask) {
+        int r;
+
+        assert(v);
+
+        FOREACH_ELEMENT(i, fat_attr_table) {
+                if (!FLAGS_SET(mask, i->attr))
+                        continue;
+
+                r = sd_json_variant_set_field_boolean(v, i->field, FLAGS_SET(attrs, i->attr));
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static int json_dispatch_uapi16_name(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -260,6 +423,73 @@ static int json_dispatch_gpt_flags(const char *name, sd_json_variant *variant, s
                 return r;
 
         o->gpt_flags_set = true;
+        return 0;
+}
+
+static int json_dispatch_fat_serial(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Uapi16Object *o = ASSERT_PTR(userdata);
+        int r;
+
+        if (sd_json_variant_is_null(variant)) {
+                o->fat_serial_set = false;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        r = uapi16_fat_serial_from_string(sd_json_variant_string(variant), &o->fat_serial);
+        if (r < 0)
+                return json_log(variant, flags, r, "JSON field '%s' is not a valid FAT volume serial number.", strna(name));
+
+        o->fat_serial_set = true;
+        return 0;
+}
+
+static int json_dispatch_fs_uuid(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Uapi16Object *o = ASSERT_PTR(userdata);
+        int r;
+
+        if (sd_json_variant_is_null(variant)) {
+                o->fs_uuid_set = false;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        /* The specification requires RFC 9562 formatting, i.e. with hyphens, hence refuse the plain hex
+         * formatting sd_id128_from_string() also accepts */
+        const char *t = sd_json_variant_string(variant);
+        if (strlen(t) != SD_ID128_UUID_STRING_MAX - 1)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a UUID in RFC 9562 formatting.", strna(name));
+
+        r = sd_id128_from_string(t, &o->fs_uuid);
+        if (r < 0)
+                return json_log(variant, flags, r, "JSON field '%s' is not a valid UUID.", strna(name));
+
+        o->fs_uuid_set = true;
+        return 0;
+}
+
+static int json_dispatch_fs_label(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        char **n = ASSERT_PTR(userdata);
+
+        if (sd_json_variant_is_null(variant)) {
+                *n = mfree(*n);
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        const char *label = sd_json_variant_string(variant);
+        if (!uapi16_fs_label_is_valid(label))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid file system label.", strna(name));
+
+        if (free_and_strdup(n, label) < 0)
+                return json_log_oom(variant, flags);
+
         return 0;
 }
 
@@ -630,6 +860,24 @@ static int uapi16_object_validate(sd_json_variant *v, sd_json_dispatch_flags_t f
         if (o->read_only >= 0 && o->mode != MODE_INVALID && (o->read_only == 0) != ((o->mode & 0222) != 0))
                 return json_log(v, flags, SYNTHETIC_ERRNO(EBADMSG), "Fields 'readOnly' and 'mode' contradict each other, refusing.");
 
+        /* NB: the generic "readOnly" field is not subject to these restrictions, even though it also encodes
+         * the FAT read-only attribute */
+        if (o->flag_hidden >= 0 || o->flag_system >= 0 || o->flag_archive >= 0) {
+                /* The root directory of a FAT file system has no directory entry, hence no attributes */
+                if (is_root)
+                        return json_log(v, flags, SYNTHETIC_ERRNO(EBADMSG), "FAT attribute fields are not permitted on the root object, refusing.");
+                if (!IN_SET(o->type, S_IFREG, S_IFDIR))
+                        return json_log(v, flags, SYNTHETIC_ERRNO(EBADMSG), "FAT attribute fields are not permitted on inode type '%s', refusing.", t);
+        }
+
+        if ((o->fat_serial_set || o->fs_uuid_set || o->fs_label) && !is_root)
+                return json_log(v, flags, SYNTHETIC_ERRNO(EBADMSG), "Fields 'fatSerial', 'fsUUID' and 'fsLabel' are only permitted on the root object, refusing.");
+
+        unsigned inode_mask;
+        uapi16_object_inode_flags(o, /* ret_value= */ NULL, &inode_mask);
+        if (inode_mask != 0 && !IN_SET(o->type, S_IFREG, S_IFDIR))
+                return json_log(v, flags, SYNTHETIC_ERRNO(EBADMSG), "Inode flag fields are not permitted on inode type '%s', refusing.", t);
+
         if (o->gpt_flags_set &&
             ((o->gpt_no_auto >= 0 && FLAGS_SET(o->gpt_flags, SD_GPT_FLAG_NO_AUTO) != o->gpt_no_auto) ||
              (o->gpt_growfs >= 0 && FLAGS_SET(o->gpt_flags, SD_GPT_FLAG_GROWFS) != o->gpt_growfs)))
@@ -666,6 +914,17 @@ int dispatch_uapi16_object(sd_json_variant *v, size_t n, sd_json_dispatch_flags_
                 { "gptFlagNoAuto",         SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,         offsetof(Uapi16Object, gpt_no_auto),      SD_JSON_NULLABLE },
                 { "gptFlagGrowFileSystem", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,         offsetof(Uapi16Object, gpt_growfs),       SD_JSON_NULLABLE },
                 { "readOnly",              SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,         offsetof(Uapi16Object, read_only),        SD_JSON_NULLABLE },
+                { "flagHidden",            SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,         offsetof(Uapi16Object, flag_hidden),      SD_JSON_NULLABLE },
+                { "flagSystem",            SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,         offsetof(Uapi16Object, flag_system),      SD_JSON_NULLABLE },
+                { "flagArchive",           SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,         offsetof(Uapi16Object, flag_archive),     SD_JSON_NULLABLE },
+                { "fatSerial",             SD_JSON_VARIANT_STRING,        json_dispatch_fat_serial,          0,                                        SD_JSON_NULLABLE },
+                { "fsUUID",                SD_JSON_VARIANT_STRING,        json_dispatch_fs_uuid,             0,                                        SD_JSON_NULLABLE },
+                { "fsLabel",               SD_JSON_VARIANT_STRING,        json_dispatch_fs_label,            offsetof(Uapi16Object, fs_label),         SD_JSON_NULLABLE },
+                { "flagAppendOnly",        SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,         offsetof(Uapi16Object, flag_append_only), SD_JSON_NULLABLE },
+                { "flagImmutable",         SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,         offsetof(Uapi16Object, flag_immutable),   SD_JSON_NULLABLE },
+                { "flagNoAtime",           SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,         offsetof(Uapi16Object, flag_no_atime),    SD_JSON_NULLABLE },
+                { "flagNoCow",             SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,         offsetof(Uapi16Object, flag_no_cow),      SD_JSON_NULLABLE },
+                { "flagNoDump",            SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,         offsetof(Uapi16Object, flag_no_dump),     SD_JSON_NULLABLE },
                 { "contents",              SD_JSON_VARIANT_ARRAY,         json_dispatch_contents,            0,                                        SD_JSON_NULLABLE },
                 { "sha256",                SD_JSON_VARIANT_STRING,        json_dispatch_unhex_iovec32,       offsetof(Uapi16Object, sha256),           SD_JSON_NULLABLE },
                 { "validSinceUSec",        _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,           offsetof(Uapi16Object, valid_since_usec), 0                },

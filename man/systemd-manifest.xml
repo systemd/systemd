@@ -251,12 +251,85 @@
                 <entry>mtree, uapi16</entry>
                 <entry>Owning group name</entry>
               </row>
+              <row>
+                <entry><option>flag-append-only</option></entry>
+                <entry><emphasis>no</emphasis></entry>
+                <entry>uapi16</entry>
+                <entry>Linux inode flag <constant>FS_APPEND_FL</constant></entry>
+              </row>
+              <row>
+                <entry><option>flag-immutable</option></entry>
+                <entry><emphasis>no</emphasis></entry>
+                <entry>uapi16</entry>
+                <entry>Linux inode flag <constant>FS_IMMUTABLE_FL</constant></entry>
+              </row>
+              <row>
+                <entry><option>flag-no-atime</option></entry>
+                <entry><emphasis>no</emphasis></entry>
+                <entry>uapi16</entry>
+                <entry>Linux inode flag <constant>FS_NOATIME_FL</constant></entry>
+              </row>
+              <row>
+                <entry><option>flag-no-cow</option></entry>
+                <entry><emphasis>no</emphasis></entry>
+                <entry>uapi16</entry>
+                <entry>Linux inode flag <constant>FS_NOCOW_FL</constant></entry>
+              </row>
+              <row>
+                <entry><option>flag-no-dump</option></entry>
+                <entry><emphasis>no</emphasis></entry>
+                <entry>uapi16</entry>
+                <entry>Linux inode flag <constant>FS_NODUMP_FL</constant></entry>
+              </row>
+              <row>
+                <entry><option>read-only</option></entry>
+                <entry><emphasis>no</emphasis></entry>
+                <entry>uapi16</entry>
+                <entry>FAT attribute <constant>ATTR_READ_ONLY</constant> (encoded in the generic <literal>readOnly</literal> field)</entry>
+              </row>
+              <row>
+                <entry><option>flag-hidden</option></entry>
+                <entry><emphasis>no</emphasis></entry>
+                <entry>uapi16</entry>
+                <entry>FAT attribute <constant>ATTR_HIDDEN</constant></entry>
+              </row>
+              <row>
+                <entry><option>flag-system</option></entry>
+                <entry><emphasis>no</emphasis></entry>
+                <entry>uapi16</entry>
+                <entry>FAT attribute <constant>ATTR_SYSTEM</constant></entry>
+              </row>
+              <row>
+                <entry><option>flag-archive</option></entry>
+                <entry><emphasis>no</emphasis></entry>
+                <entry>uapi16</entry>
+                <entry>FAT attribute <constant>ATTR_ARCHIVE</constant></entry>
+              </row>
+              <row>
+                <entry><option>fs-uuid</option></entry>
+                <entry><emphasis>no</emphasis></entry>
+                <entry>uapi16</entry>
+                <entry>File system UUID</entry>
+              </row>
+              <row>
+                <entry><option>fs-label</option></entry>
+                <entry><emphasis>no</emphasis></entry>
+                <entry>uapi16</entry>
+                <entry>File system label</entry>
+              </row>
+              <row>
+                <entry><option>fat-serial</option></entry>
+                <entry><emphasis>no</emphasis></entry>
+                <entry>uapi16</entry>
+                <entry>FAT volume serial number</entry>
+              </row>
             </tbody>
           </tgroup>
         </table>
 
-        <para><emphasis>The fields <option>mtime</option>, <option>user-name</option> and
-        <option>group-name</option> are not included by default, and have to be enabled
+        <para><emphasis>The fields <option>mtime</option>, <option>user-name</option>,
+        <option>group-name</option>, as well as the inode flag, FAT attribute and file system identity
+        fields are not included by default, and have to be enabled
         explicitly</emphasis>, for example with <literal>--field=+user-name,+group-name</literal>.
         Modification times typically complicate reproducibility. User and group names are resolved via the
         user database of the host (i.e. via NSS, like
@@ -271,6 +344,20 @@
         unrecorded ones. On file systems that do not support extended attributes, inodes are considered to
         have none. Extended attributes in other namespaces (such as security labels) are never
         included.</para>
+
+        <para>The Linux inode flag fields (<option>flag-append-only</option>, <option>flag-immutable</option>,
+        <option>flag-no-atime</option>, <option>flag-no-cow</option>, <option>flag-no-dump</option>, see
+        <citerefentry project='man-pages'><refentrytitle>chattr</refentrytitle><manvolnum>1</manvolnum></citerefentry>)
+        are recorded for regular files and directories. On file systems that do not support inode flags,
+        inodes are considered to have none of them set. The FAT attribute fields
+        (<option>read-only</option>, <option>flag-hidden</option>, <option>flag-system</option>,
+        <option>flag-archive</option>) are recorded for regular files and directories located on FAT file
+        systems, except for the top-level directory (which has no directory entry on FAT). When verifying,
+        they are ignored for inodes not located on a FAT file system. The file system identity fields
+        (<option>fs-uuid</option>, <option>fs-label</option>, <option>fat-serial</option>) are recorded on
+        the top-level object, and describe the file system the top-level directory is located on. FAT file systems have no UUID, but a volume serial number instead, hence
+        <option>fs-uuid</option> only applies to non-FAT file systems, and <option>fat-serial</option> only
+        to FAT file systems.</para>
 
         <para>The same default set of fields is used by
         <citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry>
