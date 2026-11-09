@@ -156,6 +156,12 @@ coredumpctl --directory=/var/log/journal
 coredumpctl --file="/var/log/journal/$(</etc/machine-id)"/*.journal
 coredumpctl --since=@0
 coredumpctl --since=yesterday --until=tomorrow
+(! coredumpctl --since=tomorrow -1)
+(! coredumpctl info --since=tomorrow)
+(! coredumpctl --until=@0 -1)
+(! coredumpctl info --until=@0)
+# Date bounds must preserve the implicit -1 for info without matches.
+coredumpctl info --since=@0 --until=tomorrow --json=short | jq -se 'length == 1'
 # We should have a couple of externally stored coredumps
 coredumpctl --field=COREDUMP_FILENAME | tee /tmp/coredumpctl.out
 grep "/var/lib/systemd/coredump/core" /tmp/coredumpctl.out
