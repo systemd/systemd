@@ -44,7 +44,12 @@ int verb_dump_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 pager_open(arg_pager_flags);
 
         /* "info" without pattern implies "-1" */
-        if ((arg_rows_max == 1 && arg_reverse) || (verb_is_info && argc == 1)) {
+        if (verb_is_info && argc == 1) {
+                arg_rows_max = 1;
+                arg_reverse = true;
+        }
+
+        if (arg_rows_max == 1 && arg_reverse) {
                 r = focus(j);
                 if (r < 0)
                         return r;
