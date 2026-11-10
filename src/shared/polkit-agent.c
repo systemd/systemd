@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "bus-util.h"
+#include "env-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "io-util.h"
@@ -42,6 +43,11 @@ int polkit_agent_open(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether pkttyagent binary exists: %m");
 
+        r = secure_getenv_bool("SYSTEMD_POLKIT_AGENT_FALLBACK");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_POLKIT_AGENT_FALLBACK, ignoring: %m");
+        bool fallback = r != 0;
+
         if (pipe2(pipe_fd, O_CLOEXEC) < 0)
                 return -errno;
 
@@ -53,7 +59,7 @@ int polkit_agent_open(void) {
                        &agent_pidref,
                        pkttyagent,
                        "--notify-fd", notify_fd,
-                       "--fallback");
+                       fallback ? "--fallback" : NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork polkit agent: %m");
 
