@@ -1454,6 +1454,11 @@ static int process_kernel_cmdline(Context *c, int rfd) {
         assert(c);
         assert(rfd >= 0);
 
+        if (!c->kernel_cmdline) {
+                log_debug("Creation of /etc/kernel/cmdline was not requested, skipping.");
+                return 0;
+        }
+
         pfd = chase_and_open_parent_at(rfd, rfd, "/etc/kernel/cmdline",
                                        CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
                                        &f);
@@ -1465,11 +1470,6 @@ static int process_kernel_cmdline(Context *c, int rfd) {
                 log_debug("Found /etc/kernel/cmdline, assuming kernel command line has been configured.");
         if (r <= 0)
                 return r;
-
-        if (!c->kernel_cmdline) {
-                log_debug("Creation of /etc/kernel/cmdline was not requested, skipping.");
-                return 0;
-        }
 
         r = write_string_file_full_label(pfd, "cmdline", c->kernel_cmdline,
                                    WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL,
