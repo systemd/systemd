@@ -31,6 +31,7 @@
 #include "set.h"
 #include "socket-netlink.h"
 #include "string-util.h"
+#include "strv.h"
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Link.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
@@ -1558,6 +1559,54 @@ static int vl_method_link_set_dns(sd_varlink *link, sd_json_variant *parameters,
         return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
+static int vl_method_link_set_domains(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                { "ifindex",      _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,                offsetof(DNSConfiguration, ifindex),        SD_JSON_MANDATORY|SD_JSON_RELAX },
+                { "searchDomains", SD_JSON_VARIANT_ARRAY,        dispatch_search_domain_context_array, offsetof(DNSConfiguration, search_domains), SD_JSON_MANDATORY               },
+                {},
+        };
+        int r;
+
+        assert(link);
+
+        _cleanup_(dns_configuration_freep) DNSConfiguration *c = new0(DNSConfiguration, 1);
+        if (!c)
+                return log_oom();
+
+        r = sd_json_dispatch(parameters, dispatch_table, SD_JSON_LOG, c);
+        if (r < 0)
+                return r;
+
+        Link *l = NULL;
+        r = vl_get_link(link, c->ifindex, &l);
+        if (r < 0)
+                return r;
+
+        r = verify_polkit_full(
+                        link,
+                        parameters,
+                        "org.freedesktop.resolve1.set-domains",
+                        SD_JSON_ALLOW_EXTENSIONS,
+                        (const char**) STRV_MAKE("interface", l->ifname));
+        if (r <= 0)
+                return r;
+
+        _cleanup_strv_free_ char **domains = NULL;
+        SearchDomain *d;
+        ORDERED_SET_FOREACH(d, c->search_domains) {
+                r = strv_extend(&domains, d->route_only ? strjoina("~", d->name) : d->name);
+                if (r < 0)
+                        return r;
+        }
+
+        r = link_set_search_domains(l, domains, RESOLVE_CONFIG_SOURCE_VARLINK);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
 static int varlink_monitor_server_init(Manager *m) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
         int r;
@@ -1643,7 +1692,8 @@ static int varlink_main_server_init(Manager *m) {
                         "io.systemd.service.GetEnvironment",       varlink_method_get_environment,
                         "io.systemd.Resolve.BrowseServices",       vl_method_browse_services,
                         "io.systemd.Resolve.DumpDNSConfiguration", vl_method_dump_dns_configuration,
-                        "io.systemd.Resolve.Link.SetDNS",          vl_method_link_set_dns);
+                        "io.systemd.Resolve.Link.SetDNS",          vl_method_link_set_dns,
+                        "io.systemd.Resolve.Link.SetDomains",      vl_method_link_set_domains);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 

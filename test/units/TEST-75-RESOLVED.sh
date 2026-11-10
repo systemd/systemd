@@ -1812,6 +1812,20 @@ do_test_varlink_link_methods() {
 
     [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
     assert_eq "$(resolvectl --json=short dns "$ifname" | jq -rc '.[0].servers')" 'null'
+
+    # io.systemd.Resolve.Link.SetDomains
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetDomains \
+        '{"ifindex":"'"$ifindex"'","searchDomains":[{"name":"example.test","routeOnly":false},{"name":"internal.test","routeOnly":true}]}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'example.test' "$(resolvectl domain "$ifindex")"
+    assert_in '~internal.test' "$(resolvectl domain "$ifindex")"
+
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetDomains \
+        '{"ifindex":"'"$ifindex"'","searchDomains":[]}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_eq "$(resolvectl --json=short domain "$ifname" | jq -rc '.[0].searchDomains')" 'null'
 }
 
 do_test_varlink_link_error () {
@@ -1826,6 +1840,11 @@ do_test_varlink_link_error () {
         "$error" \
         "$(varlinkctl call --graceful="$error" "$socket" io.systemd.Resolve.Link.SetDNS \
             '{"ifindex":"'"$ifindex"'","servers":[{"family":2,"address":[10,0,0,2],"port":53},{"family":10,"address":[253,0,222,173,190,239,202,254,0,0,0,0,0,0,0,2]}]}' 2>&1)"
+
+    assert_in \
+        "$error" \
+        "$(varlinkctl call --graceful="$error" "$socket" io.systemd.Resolve.Link.SetDomains \
+        '{"ifindex":"'"$ifindex"'","searchDomains":[{"name":"example.test","routeOnly":false},{"name":"internal.test","routeOnly":true}]}' 2>&1)"
 }
 
 testcase_16_varlink_link_methods() {
