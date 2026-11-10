@@ -13152,14 +13152,6 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = context_fstab(context);
-        if (r < 0)
-                return r;
-
-        r = context_crypttab(context, /* late= */ false);
-        if (r < 0)
-                return r;
-
         r = context_update_verity_size(context);
         if (r < 0)
                 return r;
@@ -13206,6 +13198,14 @@ static int run(int argc, char *argv[]) {
                 (void) determine_auto_size(context, LOG_INFO, /* ret_current_size= */ NULL, /* ret_foreign_size= */ NULL, /* ret_minimal_size= */ NULL);
                 return r;
         }
+        if (r < 0)
+                return r;
+
+        r = context_fstab(context);
+        if (r < 0)
+                return r;
+
+        r = context_crypttab(context, /* late= */ false);
         if (r < 0)
                 return r;
 
