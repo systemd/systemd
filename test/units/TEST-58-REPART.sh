@@ -3440,12 +3440,13 @@ EOF
 }
 
 testcase_generate_fstab_dry_run() {
-    local defs root
+    local defs root imgs
 
     defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
     root="$(mktemp --directory "/var/test-repart.root.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
     # shellcheck disable=SC2064
-    trap "rm -rf '$defs' '$root'" RETURN
+    trap "rm -rf '$defs' '$root' '$imgs'" RETURN
     chmod 0755 "$defs"
 
     echo "*** testcase for skipping generated fstab in dry-run mode ***"
@@ -3458,14 +3459,53 @@ Format=ext4
 MountPoint=/
 EOF
 
+    truncate -s 100M "$imgs/dry-run.img"
+
     systemd-repart --pretty=yes \
                    --definitions "$defs" \
                    --dry-run=yes \
+                   --empty=allow \
                    --seed="$seed" \
                    --generate-fstab="$root/etc/fstab" \
-                   -
+                   "$imgs/dry-run.img"
 
     test ! -e "$root/etc/fstab"
+}
+
+testcase_generate_fstab_crypttab_no_space() {
+    local defs imgs
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** testcase for not generating fstab/crypttab when partitions don't fit ***"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=ext4
+SizeMinBytes=100M
+Encrypt=key-file
+EncryptedVolume=test-repart-no-space
+MountPoint=/mnt/volume
+EOF
+
+    (! systemd-repart --pretty=yes \
+                      --definitions "$defs" \
+                      --empty=create \
+                      --size=10M \
+                      --seed="$seed" \
+                      --dry-run=no \
+                      --offline="$OFFLINE" \
+                      --generate-fstab="$imgs/fstab" \
+                      --generate-crypttab="$imgs/crypttab" \
+                      "$imgs/no-space.img")
+
+    test ! -e "$imgs/fstab"
+    test ! -e "$imgs/crypttab"
 }
 
 testcase_encrypted_volume_empty_name() {

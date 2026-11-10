@@ -13152,14 +13152,6 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = context_fstab(context);
-        if (r < 0)
-                return r;
-
-        r = context_crypttab(context, /* late= */ false);
-        if (r < 0)
-                return r;
-
         r = context_update_verity_size(context);
         if (r < 0)
                 return r;
@@ -13210,6 +13202,14 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         r = context_check_names_early(context);
+        if (r < 0)
+                return r;
+
+        r = context_fstab(context);
+        if (r < 0)
+                return r;
+
+        r = context_crypttab(context, /* late= */ false);
         if (r < 0)
                 return r;
 
