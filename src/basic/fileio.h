@@ -106,6 +106,7 @@ DIR* xopendirat(int dir_fd, const char *path, int flags);
 typedef enum XfopenFlags {
         XFOPEN_UNLOCKED = 1 << 0, /* call __fsetlocking(FSETLOCKING_BYCALLER) after opened */
         XFOPEN_SOCKET   = 1 << 1, /* also try to open unix socket */
+        XFOPEN_REGULAR  = 1 << 2, /* fail if the inode is not a regular file, without opening it */
 } XfopenFlags;
 
 int xfopenat_full(
