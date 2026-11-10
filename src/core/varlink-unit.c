@@ -1604,8 +1604,17 @@ int vl_method_set_unit_properties(sd_varlink *link, sd_json_variant *parameters,
         if (r <= 0)
                 return r;
 
-        if (p.markers_set)
+        if (p.markers_set) {
+                /* If the unit is not active or activating, setting needs-restart should be noop. */
+                if (FLAGS_SET(p.markers, 1u << UNIT_MARKER_NEEDS_RESTART) &&
+                    !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(unit))) {
+                        log_unit_debug(unit, "Ignoring needs-restart marker: unit is not active.");
+                        p.markers &= ~(1u << UNIT_MARKER_NEEDS_RESTART);
+                        p.markers_mask &= ~(1u << UNIT_MARKER_NEEDS_RESTART);
+                }
+
                 unit->markers = unit_normalize_markers((unit->markers & ~p.markers_mask), p.markers);
+        }
 
         return sd_varlink_reply(link, /* parameters= */ NULL);
 }
