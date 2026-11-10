@@ -60,6 +60,8 @@ int fido2_use_token(
                         "io.systemd.home",
                         salt->salt, salt->salt_size,
                         salt->credential.id, salt->credential.size,
+                        /* public_key= */ NULL,
+                        /* public_key_algorithm= */ NULL,
                         secret->token_pin,
                         flags,
                         &hmac,
