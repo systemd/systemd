@@ -509,6 +509,12 @@ static const sd_json_dispatch_field search_domain_runtime_dispatch_table[] = {
         {},
 };
 
+static const sd_json_dispatch_field search_domain_context_dispatch_table[] = {
+        { "name",      SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,  offsetof(SearchDomain, name),       SD_JSON_MANDATORY },
+        { "routeOnly", SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool, offsetof(SearchDomain, route_only), 0                 },
+        {},
+};
+
 static int dispatch_search_domain(const sd_json_dispatch_field table[], const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         SearchDomain **ret = ASSERT_PTR(userdata);
         int r;
@@ -570,6 +576,10 @@ static int dispatch_search_domain_array(const sd_json_dispatch_field table[], co
 
 static int dispatch_search_domain_runtime_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         return dispatch_search_domain_array(search_domain_runtime_dispatch_table, name, variant, flags, userdata);
+}
+
+int dispatch_search_domain_context_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        return dispatch_search_domain_array(search_domain_context_dispatch_table, name, variant, flags, userdata);
 }
 
 static DNSScope* dns_scope_free(DNSScope *s) {
