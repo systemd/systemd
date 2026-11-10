@@ -3,6 +3,9 @@
 
 # Utility functions for metric tests
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "${BASH_SOURCE[0]}")"/util.sh
+
 metric_select_full() {
     local metrics="${1?}"
     local condition=true i=0
@@ -57,4 +60,54 @@ metric_value() {
 
 metric_count() {
     metric_select_full "$@" | jq -s 'length'
+}
+
+assert_metric_count_eq() {
+    local metrics="${1?}" expected="${2:?}"
+    local count
+    shift 2
+
+    count="$(metric_count "$metrics" "$@")" || return
+    assert_eq "$count" "$expected"
+}
+
+assert_metric_value_eq() {
+    local metrics="${1?}" name="${2:?}" expected="${3?}"
+    local value
+    shift 3
+
+    value="$(metric_value "$metrics" "$name" "$@")" || return
+    assert_eq "$value" "$expected"
+}
+
+assert_metric_type_eq() {
+    local metrics="${1?}" name="${2:?}" expected="${3:?}"
+    local type
+    shift 3
+
+    type="$(metric_select "$metrics" "$name" "$@" | jq -r '.type')" || return
+    assert_eq "$type" "$expected"
+}
+
+assert_metric_object_eq() {
+    local metrics="${1?}" name="${2:?}" expected="${3:?}"
+    local object
+    shift 3
+
+    object="$(metric_select "$metrics" "$name" "$@" | jq -r '.object')" || return
+    assert_eq "$object" "$expected"
+}
+
+assert_metric_field_eq() {
+    local metrics="${1?}" field="${2:?}" expected="${3?}"
+    local result
+    shift 3
+
+    result="$(metric_select_full "$metrics" "$@" |
+        jq -rs --arg field "$field" --arg expected "$expected" '
+            length > 0 and all(.[];
+                (.fields | has($field)) and
+                (.fields[$field] | tostring) == $expected)
+        ')" || return
+    assert_eq "$result" true
 }
