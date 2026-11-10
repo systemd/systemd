@@ -52,6 +52,12 @@ int parse_openssl_key_source_argument(const char *argument, char **private_key_s
 
 #  include "dlfcn-util.h"
 
+/* Resolve these OpenSSL 4.1 APIs at runtime, even when building against older headers. */
+#  if OPENSSL_VERSION_NUMBER < 0x40100000L
+size_t ASN1_STRING_get_length(const ASN1_STRING *x);
+int ASN1_STRING_set1_data(ASN1_STRING *str, const uint8_t *data, size_t len);
+#  endif
+
 extern DLSYM_PROTOTYPE(ASN1_ANY_it);
 extern DLSYM_PROTOTYPE(ASN1_BIT_STRING_it);
 extern DLSYM_PROTOTYPE(ASN1_BMPSTRING_it);
@@ -62,10 +68,10 @@ extern DLSYM_PROTOTYPE(ASN1_OCTET_STRING_free);
 extern DLSYM_PROTOTYPE(ASN1_OCTET_STRING_it);
 extern DLSYM_PROTOTYPE(ASN1_OCTET_STRING_set);
 extern DLSYM_PROTOTYPE(ASN1_STRING_get0_data);
-extern DLSYM_PROTOTYPE(ASN1_STRING_length);
+extern DLSYM_PROTOTYPE(ASN1_STRING_get_length);
 extern DLSYM_PROTOTYPE(ASN1_STRING_new);
-extern DLSYM_PROTOTYPE(ASN1_STRING_set);
 extern DLSYM_PROTOTYPE(ASN1_STRING_set0);
+extern DLSYM_PROTOTYPE(ASN1_STRING_set1_data);
 extern DLSYM_PROTOTYPE(ASN1_STRING_type);
 extern DLSYM_PROTOTYPE(ASN1_TIME_free);
 extern DLSYM_PROTOTYPE(ASN1_TIME_set);

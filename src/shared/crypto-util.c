@@ -33,6 +33,12 @@
 int OSSL_set_max_threads(OSSL_LIB_CTX *ctx, uint64_t max_threads);
 uint64_t OSSL_get_max_threads(OSSL_LIB_CTX *ctx);
 
+/* Newer headers may hide the legacy APIs, but we may still load an older libcrypto at runtime. */
+#  ifdef OPENSSL_NO_DEPRECATED_4_1
+int ASN1_STRING_length(const ASN1_STRING *x);
+int ASN1_STRING_set(ASN1_STRING *str, const void *data, int len);
+#  endif
+
 struct OpenSSLAskPasswordUI {
         AskPasswordRequest request;
         UI_METHOD *method;
@@ -52,10 +58,16 @@ DLSYM_PROTOTYPE(ASN1_OCTET_STRING_free) = NULL;
 DLSYM_PROTOTYPE(ASN1_OCTET_STRING_it) = NULL;
 DLSYM_PROTOTYPE(ASN1_OCTET_STRING_set) = NULL;
 DLSYM_PROTOTYPE(ASN1_STRING_get0_data) = NULL;
-DLSYM_PROTOTYPE(ASN1_STRING_length) = NULL;
+DLSYM_PROTOTYPE(ASN1_STRING_get_length) = NULL;
+DISABLE_WARNING_DEPRECATED_DECLARATIONS;
+static DLSYM_PROTOTYPE(ASN1_STRING_length) = NULL;
+REENABLE_WARNING;
 DLSYM_PROTOTYPE(ASN1_STRING_new) = NULL;
-DLSYM_PROTOTYPE(ASN1_STRING_set) = NULL;
+DISABLE_WARNING_DEPRECATED_DECLARATIONS;
+static DLSYM_PROTOTYPE(ASN1_STRING_set) = NULL;
+REENABLE_WARNING;
 DLSYM_PROTOTYPE(ASN1_STRING_set0) = NULL;
+DLSYM_PROTOTYPE(ASN1_STRING_set1_data) = NULL;
 DLSYM_PROTOTYPE(ASN1_STRING_type) = NULL;
 DLSYM_PROTOTYPE(ASN1_TIME_free) = NULL;
 DLSYM_PROTOTYPE(ASN1_TIME_set) = NULL;
@@ -396,6 +408,24 @@ static DLSYM_PROTOTYPE(UI_set_result) = NULL;
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(UI_METHOD*, sym_UI_destroy_method, UI_destroy_methodp, NULL);
 #endif
 
+static size_t missing_ASN1_STRING_get_length(const ASN1_STRING *x) {
+        return MAX(sym_ASN1_STRING_length(x), 0);
+}
+
+static int missing_ASN1_STRING_set1_data(ASN1_STRING *str, const uint8_t *data, size_t len) {
+        if (sym_ASN1_STRING_type(str) == V_ASN1_BIT_STRING) {
+                log_debug("Cannot set ASN.1 bit string data with ASN1_STRING_set1_data().");
+                return 0;
+        }
+
+        if (len > INT_MAX) {
+                log_debug("ASN.1 string data is too large for ASN1_STRING_set(): %zu bytes.", len);
+                return 0;
+        }
+
+        return sym_ASN1_STRING_set(str, data, (int) len);
+}
+
 #endif
 
 int dlopen_libcrypto(int log_level) {
@@ -405,9 +435,14 @@ int dlopen_libcrypto(int log_level) {
 
         LIBCRYPTO_NOTE(suggested);
 
+        if (libcrypto_dl)
+                return 0;
+
         FOREACH_STRING(soname, "libcrypto.so.4", "libcrypto.so.3") {
+                _cleanup_(dlclosep) void *dl = NULL;
+
                 r = dlopen_many_sym_or_warn(
-                        &libcrypto_dl,
+                        &dl,
                         soname,
                         LOG_DEBUG,
                         DLSYM_ARG(ASN1_ANY_it),
@@ -423,9 +458,7 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(ASN1_OCTET_STRING_it),
                         DLSYM_ARG(ASN1_OCTET_STRING_set),
                         DLSYM_ARG(ASN1_STRING_get0_data),
-                        DLSYM_ARG(ASN1_STRING_length),
                         DLSYM_ARG(ASN1_STRING_new),
-                        DLSYM_ARG(ASN1_STRING_set),
                         DLSYM_ARG(ASN1_STRING_set0),
                         DLSYM_ARG(ASN1_STRING_type),
                         DLSYM_ARG(ASN1_TIME_free),
@@ -728,8 +761,36 @@ int dlopen_libcrypto(int log_level) {
                         DLSYM_ARG(i2d_PublicKey),
                         DLSYM_ARG(i2d_X509),
                         DLSYM_ARG(i2d_X509_NAME));
-                if (r >= 0)
-                        break;
+                if (r < 0)
+                        continue;
+
+                sym_ASN1_STRING_get_length = NULL;
+                sym_ASN1_STRING_set1_data = NULL;
+                sym_ASN1_STRING_length = NULL;
+                sym_ASN1_STRING_set = NULL;
+
+                DLSYM_OPTIONAL(dl, ASN1_STRING_get_length);
+                DLSYM_OPTIONAL(dl, ASN1_STRING_set1_data);
+                if (!sym_ASN1_STRING_get_length)
+                        DLSYM_OPTIONAL(dl, ASN1_STRING_length);
+                if (!sym_ASN1_STRING_set1_data)
+                        DLSYM_OPTIONAL(dl, ASN1_STRING_set);
+
+                if ((!sym_ASN1_STRING_get_length && !sym_ASN1_STRING_length) ||
+                    (!sym_ASN1_STRING_set1_data && !sym_ASN1_STRING_set)) {
+                        r = log_debug_errno(SYNTHETIC_ERRNO(ELIBBAD),
+                                            "Required ASN.1 string APIs are missing from '%s'.", soname);
+                        continue;
+                }
+
+                /* The new APIs use size_t rather than int, so the legacy symbols need wrappers. */
+                if (!sym_ASN1_STRING_get_length)
+                        sym_ASN1_STRING_get_length = missing_ASN1_STRING_get_length;
+                if (!sym_ASN1_STRING_set1_data)
+                        sym_ASN1_STRING_set1_data = missing_ASN1_STRING_set1_data;
+
+                libcrypto_dl = TAKE_PTR(dl);
+                break;
         }
         if (r < 0) {
                 log_full_errno(log_level, r, "Neither libcrypto.so.4 nor libcrypto.so.3 could be loaded");
