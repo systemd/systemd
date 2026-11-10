@@ -20,9 +20,6 @@
 # request, without involving the model: a finding is checked once its thread is
 # resolved, whether by the validator, the author, or a reviewer. A resolved
 # finding the validator still sees in the code is struck through as dismissed.
-# A finding the validator reports fixed while its thread stays open, for example
-# because resolving it failed or a human replied to it, is marked as likely fixed
-# until its thread is resolved or a later validator sees it in the code again.
 
 name: Claude Review
 
@@ -79,7 +76,6 @@ jobs:
       previous_head: ${{ steps.context.outputs.previous_head }}
       review_count: ${{ steps.context.outputs.review_count }}
       dismissed: ${{ steps.context.outputs.dismissed }}
-      likely_fixed: ${{ steps.context.outputs.likely_fixed }}
       allowed_severities: ${{ steps.context.outputs.allowed_severities }}
 
     steps:
@@ -118,7 +114,7 @@ jobs:
                * model or pull request text. */
               const match = [...(body ?? "").matchAll(new RegExp(STATE_RE, "g"))].at(-1);
               if (!match)
-                return { count: 0, head: null, dismissed: [], likely_fixed: [] };
+                return { count: 0, head: null, dismissed: [] };
               try {
                 const state = JSON.parse(match[1]);
                 return {
@@ -127,12 +123,9 @@ jobs:
                   dismissed: Array.isArray(state.dismissed)
                     ? state.dismissed.filter((id) => Number.isSafeInteger(id) && id > 0).slice(0, 1000)
                     : [],
-                  likely_fixed: Array.isArray(state.likely_fixed)
-                    ? state.likely_fixed.filter((id) => Number.isSafeInteger(id) && id > 0).slice(0, 1000)
-                    : [],
                 };
               } catch {
-                return { count: 0, head: null, dismissed: [], likely_fixed: [] };
+                return { count: 0, head: null, dismissed: [] };
               }
             };
 
@@ -180,7 +173,7 @@ jobs:
             const existing = issueComments.find((c) =>
               c.user?.login === "github-actions[bot]" && c.body?.includes(MARKER));
             let commentId;
-            let state = { count: 0, head: null, dismissed: [], likely_fixed: [] };
+            let state = { count: 0, head: null, dismissed: [] };
 
             if (existing) {
               console.log(`Updating existing tracking comment ${existing.id}.`);
@@ -209,8 +202,8 @@ jobs:
 
             if (/@claude review full\b/.test(process.env.TRIGGER_BODY)) {
               console.log("Full review requested, resetting the review count.");
-              /* Dismissals and likely fixes are about earlier findings, not about
-               * the review round, so they are kept. */
+              /* Dismissals are decisions about earlier findings, not about the
+               * review round, so they are kept. */
               state = { ...state, count: 0, head: null };
             }
 
@@ -225,7 +218,6 @@ jobs:
             core.setOutput("previous_head", state.head === pr.data.head.sha ? "" : state.head ?? "");
             core.setOutput("review_count", state.count);
             core.setOutput("dismissed", state.dismissed.join(","));
-            core.setOutput("likely_fixed", state.likely_fixed.join(","));
             core.setOutput("allowed_severities", severities.join(","));
 
             /* Build context JSON for Claude. */
@@ -1030,7 +1022,6 @@ jobs:
           HEAD_SHA: ${{ needs.setup.outputs.head_sha }}
           REVIEW_COUNT: ${{ needs.setup.outputs.review_count }}
           DISMISSED: ${{ needs.setup.outputs.dismissed }}
-          LIKELY_FIXED: ${{ needs.setup.outputs.likely_fixed }}
           ALLOWED_SEVERITIES: ${{ needs.setup.outputs.allowed_severities }}
         with:
           script: |
@@ -1183,13 +1174,6 @@ jobs:
              * not check. */
             const previouslyDismissed = new Set(
               (process.env.DISMISSED || "").split(",").map(Number)
-                .filter((id) => Number.isSafeInteger(id) && id > 0),
-            );
-            /* Findings reported fixed in earlier runs while their thread stayed
-             * open. They stay likely fixed until the validator sees them in the
-             * code again, as it may leave out findings it did not check. */
-            const previouslyLikelyFixed = new Set(
-              (process.env.LIKELY_FIXED || "").split(",").map(Number)
                 .filter((id) => Number.isSafeInteger(id) && id > 0),
             );
 
@@ -1462,7 +1446,7 @@ jobs:
                   resolved++;
                   console.log(`  Resolved thread for comment ${firstCommentId}`);
                 } catch (e) {
-                  core.warning(`Failed to resolve review thread for comment ${firstCommentId}: ${e.message}`);
+                  console.log(`  Warning: failed to resolve thread for comment ${firstCommentId}: ${e.message}`);
                 }
               }
 
@@ -1505,10 +1489,6 @@ jobs:
                   body: first.body.slice(match[0].length),
                   url: first.url,
                   resolved: thread.isResolved,
-                  /* Reported fixed by the validator while the thread is still open,
-                   * because it could not be resolved or has human replies. */
-                  likelyFixed: !thread.isResolved && !stillPresent.has(first.databaseId) &&
-                    (fixed.has(first.databaseId) || previouslyLikelyFixed.has(first.databaseId)),
                   dismissed: thread.isResolved && !fixed.has(first.databaseId) &&
                     (stillPresent.has(first.databaseId) || previouslyDismissed.has(first.databaseId)),
                   outdated: thread.isOutdated,
@@ -1526,17 +1506,13 @@ jobs:
              * behind, so the next run reviews the full diff again. */
             const complete = review.lenses.failed.length === 0;
             const open = findings.filter((c) => !c.resolved).length;
-            const likelyFixed = findings.filter((c) => c.likelyFixed).length;
             /* Without the threads, earlier findings are unknown, so nothing can
              * be said about what is still open. */
             const status =
               !complete || threads === null ? ""
               : findings.length === 0 ? " No issues found :tada:"
               : open === 0 ? " All findings are resolved :tada:"
-              : listed.length === 0 ? ` No new issues found, ${open} still open` +
-                  (likelyFixed === 0 ? "."
-                   : likelyFixed === open ? ", all likely fixed."
-                   : `, ${likelyFixed} of them likely fixed.`)
+              : listed.length === 0 ? ` No new issues found, ${open} still open.`
               : "";
 
             const lenses = review.lenses.completed.join(", ") +
@@ -1558,8 +1534,7 @@ jobs:
                 const body = sanitizeMarkdown(c.body).split("\n")[0];
                 const notes = [
                   c.unposted && "could not be posted inline",
-                  c.likelyFixed && "likely fixed",
-                  c.outdated && !c.resolved && !c.likelyFixed && "outdated",
+                  c.outdated && !c.resolved && "outdated",
                 ].filter(Boolean);
                 const text = `${c.url ? `[${where}](${c.url})` : where} ${body}`;
                 /* A dismissed finding was resolved while its issue is still in the
@@ -1588,14 +1563,9 @@ jobs:
             const dismissed = threads === null
               ? [...previouslyDismissed]
               : findings.filter((c) => c.dismissed).map((c) => c.id);
-            /* Unlike dismissals, the validator's verdicts don't depend on the
-             * threads, so this run's are applied even if they could not be fetched. */
-            const likely_fixed = threads === null
-              ? [...new Set([...previouslyLikelyFixed, ...fixed])].filter((id) => !stillPresent.has(id))
-              : findings.filter((c) => c.likelyFixed).map((c) => c.id);
             const state = JSON.stringify(complete
-              ? { count: reviewCount + 1, head: headSha, dismissed, likely_fixed }
-              : { count: reviewCount, head: null, dismissed, likely_fixed });
+              ? { count: reviewCount + 1, head: headSha, dismissed }
+              : { count: reviewCount, head: null, dismissed });
             summary += `\n\n${MARKER}\n<!-- claude-review-state ${state} -->\n\n[Workflow run](${runUrl})`;
 
             await github.rest.issues.updateComment({
