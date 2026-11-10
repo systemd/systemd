@@ -7,6 +7,9 @@ shopt -s nullglob
 # shellcheck source=test/units/test-control.sh
 . "$(dirname "$0")"/test-control.sh
 
+# shellcheck source=test/units/metric-util.sh
+. "$(dirname "$0")"/metric-util.sh
+
 # Unset $PAGER so we don't have to use --no-pager everywhere
 export PAGER=
 
