@@ -7,14 +7,9 @@
 #include "errno-util.h"
 #include "tests.h"
 
-int main(int argc, char *argv[]) {
+TEST(creds) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         int r;
-
-        test_setup_logging(LOG_DEBUG);
-
-        if (cg_is_available() <= 0)
-                return log_tests_skipped("cgroupfs v2 is not mounted");
 
         r = sd_bus_creds_new_from_pid(&creds, /* pid= */ 0, _SD_BUS_CREDS_ALL);
         log_full_errno(r < 0 ? LOG_ERR : LOG_DEBUG, r, "sd_bus_creds_new_from_pid: %m");
@@ -49,6 +44,13 @@ int main(int argc, char *argv[]) {
                 putchar('\n');
                 bus_creds_dump(creds, NULL, /* terse= */ true);
         }
-
-        return 0;
 }
+
+static int intro(void) {
+        if (cg_is_available() <= 0)
+                return log_tests_skipped("cgroupfs v2 is not mounted");
+
+        return EXIT_SUCCESS;
+}
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);
