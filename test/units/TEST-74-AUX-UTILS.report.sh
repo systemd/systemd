@@ -113,7 +113,7 @@ testcase_network() {
     assert_metric_type_eq "$net_describe" io.systemd.Network.Address string
     # we do not send "lo"
     net_metrics="$(varlinkctl call --more --json=short /run/systemd/report/io.systemd.Network io.systemd.Metrics.List {})"
-    (! echo "$net_metrics" | grep '"name":"io.systemd.Network.Address"' | grep '"object":"lo"' >/dev/null)
+    assert_metric_absent "$net_metrics" io.systemd.Network.Address --object lo
     # add a scratch address and check that it shows up.
     ip address add 192.0.2.1/32 dev lo
     timeout 30 bash -c 'until varlinkctl call --more --json=short /run/systemd/report/io.systemd.Network io.systemd.Metrics.List {} | grep -F "192.0.2.1/32" >/dev/null; do sleep .5; done'
@@ -192,10 +192,6 @@ testcase_network_statistics() {
     ip -n report-netstat link set report-ns1 up
     ping -c 5 -i 0.2 -W 5 192.0.2.11
 
-    netstat_value() {
-        echo "$1" | jq --seq -r --arg n "io.systemd.NetworkStatistics.$2" --arg o "$3" 'select(.name == $n and .object == $o) | .value | tostring'
-    }
-
     netstat_tx_bytes_before="$(cat /sys/class/net/report-ns0/statistics/tx_bytes)"
     netstat_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.NetworkStatistics io.systemd.Metrics.List {})"
     netstat_tx_bytes_after="$(cat /sys/class/net/report-ns0/statistics/tx_bytes)"
@@ -205,7 +201,7 @@ testcase_network_statistics() {
     assert_metric_field_eq "$netstat_metrics" kind veth --object report-ns0
     assert_metric_field_eq "$netstat_metrics" type ether --object report-ns0
     assert_metric_count_eq "$netstat_metrics" 14 --object report-ns0
-    (! echo "$netstat_metrics" | jq --seq -r '.object' | grep -Fx report-ns1 >/dev/null)
+    assert_metric_absent_full "$netstat_metrics" --object report-ns1
 
     assert_metric_value_eq "$netstat_metrics" io.systemd.NetworkStatistics.MTU 1400 --object report-ns0
     # veth reports a fixed link speed of 10 Gbit/s
@@ -215,7 +211,7 @@ testcase_network_statistics() {
     assert_metric_value_eq "$netstat_metrics" io.systemd.NetworkStatistics.ReceiveErrors 0 --object report-ns0
     assert_metric_value_eq "$netstat_metrics" io.systemd.NetworkStatistics.TransmitErrors 0 --object report-ns0
     # The interface may still see some traffic (IPv6 router solicitations, …), hence only check the bounds
-    netstat_tx_bytes="$(netstat_value "$netstat_metrics" TransmitBytes report-ns0)"
+    netstat_tx_bytes="$(metric_value "$netstat_metrics" io.systemd.NetworkStatistics.TransmitBytes --object report-ns0)"
     assert_metric_value_ge "$netstat_metrics" io.systemd.NetworkStatistics.TransmitBytes "$netstat_tx_bytes_before" --object report-ns0
     assert_metric_value_le "$netstat_metrics" io.systemd.NetworkStatistics.TransmitBytes "$netstat_tx_bytes_after" --object report-ns0
     assert_metric_value_ge "$netstat_metrics" io.systemd.NetworkStatistics.TransmitBytes $((5 * 84)) --object report-ns0
@@ -223,7 +219,7 @@ testcase_network_statistics() {
     # Loopback is reported too, but has no link speed
     assert_metric_field_eq "$netstat_metrics" type loopback --object lo
     assert_metric_value_is_number "$netstat_metrics" io.systemd.NetworkStatistics.ReceivePackets --object lo
-    [[ -z "$(netstat_value "$netstat_metrics" SpeedBitsPerSecond lo)" ]]
+    assert_metric_absent "$netstat_metrics" io.systemd.NetworkStatistics.SpeedBitsPerSecond --object lo
 
     # Counters must not go backwards
     netstat_tx_packets="$(metric_value "$netstat_metrics" io.systemd.NetworkStatistics.TransmitPackets --object report-ns0)"
@@ -236,7 +232,7 @@ testcase_network_statistics() {
     netstat_cleanup
     trap - EXIT
     netstat_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.NetworkStatistics io.systemd.Metrics.List {})"
-    (! echo "$netstat_metrics" | jq --seq -r '.object' | grep -Fx report-ns0 >/dev/null)
+    assert_metric_absent_full "$netstat_metrics" --object report-ns0
 
     "$REPORT" describe io.systemd.NetworkStatistics
     "$REPORT" metrics io.systemd.NetworkStatistics
@@ -266,7 +262,6 @@ testcase_diskhealth() {
     done
 
     diskhealth_metrics="$(varlinkctl call --more --graceful=io.systemd.Metrics.NoSuchMetric /run/systemd/report/io.systemd.DiskHealth io.systemd.Metrics.List {})"
-    diskhealth_value() { echo "$diskhealth_metrics" | jq --seq -r --arg n "io.systemd.DiskHealth.$1" --arg o "$2" 'select(.name == $n and .object == $o) | .value | tostring'; }
 
     # Every whole hardware disk with a medium must be reported, with the numbers from sysfs and the strings
     # from the udev database, and nothing else may be reported.
@@ -303,7 +298,7 @@ testcase_diskhealth() {
         if [[ -n "$serial" ]]; then
             assert_metric_value_eq "$diskhealth_metrics" io.systemd.DiskHealth.DiskSerial "$serial" --object "$devname"
         else
-            [[ -z "$(diskhealth_value DiskSerial "$devname")" ]]
+            assert_metric_absent "$diskhealth_metrics" io.systemd.DiskHealth.DiskSerial --object "$devname"
         fi
     done
     diff <(echo -n "$diskhealth_expected" | sort) <(echo "$diskhealth_metrics" | jq --seq -r '.object' | sort -u)
@@ -367,14 +362,14 @@ diskspace_mount_tests() {
     # Both rows must carry the file system type as field, and no originating source, as a loop device is not
     # stacked on anything
     assert_metric_field_eq "$diskspace_metrics" fileSystemType ext4 --object "$DISKSPACE_WORK/b"
-    [[ "$(echo "$diskspace_metrics" | jq --seq -r --arg o "$DISKSPACE_WORK/b" 'select(.object == $o) | .fields | has("originatingSource") | tostring' | sort -u)" == "false" ]]
+    assert_metric_field_absent "$diskspace_metrics" originatingSource --object "$DISKSPACE_WORK/b"
     # The tmpfs may not be reported
-    (! echo "$diskspace_metrics" | jq --seq -r '.object' | grep -Fx "$DISKSPACE_WORK/tmpfs" >/dev/null)
+    assert_metric_absent_full "$diskspace_metrics" --object "$DISKSPACE_WORK/tmpfs"
 
     # Once remounted read-only the file system must no longer be reported, regardless of the mount path
     mount -o remount,ro "$DISKSPACE_WORK/ext4"
     diskspace_metrics="$(varlinkctl call --more --graceful=io.systemd.Metrics.NoSuchMetric /run/systemd/report/io.systemd.DiskSpace io.systemd.Metrics.List {})"
-    (! echo "$diskspace_metrics" | jq --seq -r '.fields.source' | grep -Fx "$DISKSPACE_LOOP" >/dev/null)
+    assert_metric_absent_full "$diskspace_metrics" --field source "$DISKSPACE_LOOP"
 
     # Now stack a (linear) device mapper device on top of the loop device, and mount the file system through
     # that: the DM device must be reported as source, and the loop device it sits on as originating source. The
@@ -425,12 +420,6 @@ testcase_basic() {
 
     # test io.systemd.Basic load average and swap metrics
     basic_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.List {})"
-    # NB: '| tostring' turns the numeric value into a raw string, so 'jq -r' prints it cleanly
-    # (numbers, unlike strings, are otherwise still emitted with the json-seq record separator).
-    # The value must be a JSON number (jq's 'numbers' filter emits the value
-    # only if it is one, so a non-empty result confirms both presence and type), and an optional
-    # second argument gives a jq condition further restricting the match, e.g. on .object or .fields.
-    basic_number() { echo "$basic_metrics" | jq --seq -r "select(.name == \"io.systemd.Basic.$1\" and ${2:-true}) | .value | numbers | tostring"; }
 
     # The three classic load average fields must be present and numeric.
     for field in LoadAverage1Min LoadAverage5Min LoadAverage15Min; do
@@ -477,9 +466,9 @@ testcase_basic() {
                 assert_metric_value_is_number "$basic_metrics" "io.systemd.Basic.$family" \
                     --field resource "$resource" --field type some
                 # "full" is deliberately not emitted for cpu, where the kernel always reports 0.
-                full="$(basic_number "$family" ".fields.resource == \"$resource\" and .fields.type == \"full\"")"
                 if [ "$resource" = cpu ]; then
-                    test -z "$full"
+                    assert_metric_absent "$basic_metrics" "io.systemd.Basic.$family" \
+                        --field resource "$resource" --field type full
                 else
                     assert_metric_value_is_number "$basic_metrics" "io.systemd.Basic.$family" \
                         --field resource "$resource" --field type full
@@ -547,13 +536,12 @@ testcase_basic() {
     # second above the expected birth time.
     if mountpoint -q /var/; then deploy_dir=/var/; else deploy_dir=/; fi
     deploy_expected_s="$(stat -c %W "$deploy_dir")"
-    deploy_s="$(echo "$basic_metrics" | jq --seq -r 'select(.name == "io.systemd.Basic.DeploymentTimestampNSec") | .value | numbers | . / 1000000000 | floor | tostring')"
     if [ "$deploy_expected_s" -gt 0 ]; then
         assert_metric_value_is_number "$basic_metrics" io.systemd.Basic.DeploymentTimestampNSec
         assert_metric_value_ge "$basic_metrics" io.systemd.Basic.DeploymentTimestampNSec $(( (deploy_expected_s - 1) * 1000000000 ))
         assert_metric_value_lt "$basic_metrics" io.systemd.Basic.DeploymentTimestampNSec $(( (deploy_expected_s + 2) * 1000000000 ))
     else
-        test -z "$deploy_s"
+        assert_metric_absent "$basic_metrics" io.systemd.Basic.DeploymentTimestampNSec
     fi
 
     # Every new metric family must be described, even those whose values depend on the environment.
@@ -565,8 +553,9 @@ testcase_basic() {
 
 testcase_manager() {
     # io.systemd.Manager.Version should be non-empty and match what `systemctl --version` reports
-    metrics_version="$(varlinkctl call --more /run/systemd/report/io.systemd.Manager io.systemd.Metrics.List {} | jq --seq -r 'select(.name == "io.systemd.Manager.Version") | .value')"
-    [ -n "$metrics_version" ]
+    manager_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Manager io.systemd.Metrics.List {})"
+    assert_metric_value_not_empty "$manager_metrics" io.systemd.Manager.Version
+    metrics_version="$(metric_value "$manager_metrics" io.systemd.Manager.Version)"
     systemctl --version | grep -F "($metrics_version)" >/dev/null
 
     # Boot timeline timestamps. The kernel CLOCK_MONOTONIC is 0 by definition, so only its realtime is
@@ -721,7 +710,6 @@ testcase_files() {
 
     # The metric value must be the exact file contents.
     files_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Files io.systemd.Metrics.List {})"
-    files_value() { echo "$files_metrics" | jq --seq -r "select(.name == \"$1\") | .value"; }
     assert_metric_value_eq "$files_metrics" io.systemd.Files.testreportfile "$REPORT_FILE_CONTENT"
 
     # Describe must list the very same metric, of type string.
@@ -732,7 +720,7 @@ testcase_files() {
     # JSON string, so only text files can be reported).
     printf '\xff\xfe binary garbage' >/run/systemd/report.files/binaryfile
     files_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Files io.systemd.Metrics.List {})"
-    [ -z "$(files_value io.systemd.Files.binaryfile)" ]
+    assert_metric_absent "$files_metrics" io.systemd.Files.binaryfile
     rm -f /run/systemd/report.files/binaryfile
 
     # An entry in an earlier directory that is a symlink to /dev/null masks the one
@@ -747,8 +735,8 @@ testcase_files() {
     mkfifo /run/systemd/report.files/fifoshadowed
     files_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Files io.systemd.Metrics.List {})"
     files_describe="$(varlinkctl call --more /run/systemd/report/io.systemd.Files io.systemd.Metrics.Describe {})"
-    [ -z "$(files_value io.systemd.Files.maskedfile)" ]
-    (! echo "$files_describe" | jq --seq -r .name | grep -wx io.systemd.Files.maskedfile >/dev/null)
+    assert_metric_absent "$files_metrics" io.systemd.Files.maskedfile
+    assert_metric_absent "$files_describe" io.systemd.Files.maskedfile
     assert_metric_value_eq "$files_metrics" io.systemd.Files.dirshadowed "shadowed"
     assert_metric_value_eq "$files_metrics" io.systemd.Files.fifoshadowed "fifo-shadowed"
     rm -f /run/systemd/report.files/fifoshadowed /var/lib/systemd/report.files/fifoshadowed
@@ -793,7 +781,6 @@ EOF
     varlinkctl list-methods /run/systemd/report/io.systemd.GeoIP
 
     geoip_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.GeoIP io.systemd.Metrics.List {})"
-    geoip_value() { echo "$geoip_metrics" | jq --seq -r "select(.name == \"$1\") | .value | tostring"; }
 
     # The address must be reported in normalized form, not as the server sent it.
     assert_metric_value_eq "$geoip_metrics" io.systemd.GeoIP.PublicAddress "2001:db8::1"
@@ -865,7 +852,7 @@ Endpoint=http://localhost:8091/json/
 RefreshSec=0
 EOF
     geoip_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.GeoIP io.systemd.Metrics.List {})"
-    [ -z "$(geoip_value io.systemd.GeoIP.PublicAddress)" ]
+    assert_metric_absent "$geoip_metrics" io.systemd.GeoIP.PublicAddress
     assert_metric_value_eq "$geoip_metrics" io.systemd.GeoIP.City "Berlin"
     systemctl stop fake-geoip-server-bogus
 
@@ -954,7 +941,7 @@ testcase_sign_plain() {
 
     # The exposed public key must be the very key persisted on disk.
     sign_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Report.SignPlain io.systemd.Metrics.List {})"
-    echo "$sign_metrics" | jq --seq -r 'select(.name == "io.systemd.Report.SignPlain.PublicKey") | .value' >"$SIGN_WORK/metric-pub.pem"
+    metric_value "$sign_metrics" io.systemd.Report.SignPlain.PublicKey >"$SIGN_WORK/metric-pub.pem"
     diff <(openssl pkey -pubin -in "$SIGN_WORK/metric-pub.pem" -pubout) \
          <(openssl pkey -pubin -in /var/lib/systemd/report.sign.plain/local.public -pubout)
 
