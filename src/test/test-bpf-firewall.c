@@ -17,7 +17,7 @@
 #include "unit-serialize.h"
 #include "virt.h"
 
-int main(int argc, char *argv[]) {
+TEST(bpf_firewall) {
         const struct bpf_insn exit_insn[] = {
                 BPF_MOV64_IMM(BPF_REG_0, 0), /* drop */
                 BPF_EXIT_INSN()
@@ -29,33 +29,7 @@ int main(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *u;
         char log_buf[65535];
-        struct rlimit rl;
         int r;
-
-        test_setup_logging(LOG_DEBUG);
-
-        if (detect_container() > 0)
-                return log_tests_skipped("test-bpf-firewall fails inside LXC and Docker containers: https://github.com/systemd/systemd/issues/9666");
-
-        r = bpf_program_supported();
-        if (r < 0)
-                return log_tests_skipped_errno(r, "BPF firewalling not supported");
-        ASSERT_TRUE(r);
-
-        ASSERT_OK(getrlimit(RLIMIT_MEMLOCK, &rl));
-        rl.rlim_cur = rl.rlim_max = MAX(rl.rlim_max, CAN_MEMLOCK_SIZE);
-        (void) setrlimit(RLIMIT_MEMLOCK, &rl);
-
-        if (!can_memlock())
-                return log_tests_skipped("Can't use mlock()");
-
-        r = enter_cgroup_subroot(/* ret_cgroup= */ NULL);
-        if (r == -ENOMEDIUM)
-                return log_tests_skipped("cgroupfs v2 is not mounted");
-
-        r = find_executable("ping", /* ret_filename= */ NULL);
-        if (r < 0)
-                return log_tests_skipped_errno(r, "Can't find ping binary: %m");
 
         _cleanup_free_ char *unit_dir = NULL;
         ASSERT_OK(get_testdata_dir("units", &unit_dir));
@@ -134,7 +108,7 @@ int main(int argc, char *argv[]) {
 
         r = bpf_firewall_compile(u);
         if (IN_SET(r, -ENOTTY, -ENOSYS, -EPERM))
-                return log_tests_skipped("Kernel doesn't support the necessary bpf bits (masked out via seccomp?)");
+                return (void) log_tests_skipped("Kernel doesn't support the necessary bpf bits (masked out via seccomp?)");
         ASSERT_OK(r);
 
         ASSERT_NOT_NULL(crt->ip_bpf_ingress);
@@ -195,6 +169,37 @@ int main(int argc, char *argv[]) {
 
         (void) unlink(test_prog);
         ASSERT_EQ(SERVICE(u)->state, SERVICE_DEAD);
-
-        return 0;
 }
+
+static int intro(void) {
+        struct rlimit rl;
+        int r;
+
+        if (detect_container() > 0)
+                return log_tests_skipped("test-bpf-firewall fails inside LXC and Docker containers: https://github.com/systemd/systemd/issues/9666");
+
+        r = bpf_program_supported();
+        if (r < 0)
+                return log_tests_skipped_errno(r, "BPF firewalling not supported");
+        ASSERT_TRUE(r);
+
+        ASSERT_OK(getrlimit(RLIMIT_MEMLOCK, &rl));
+        rl.rlim_cur = rl.rlim_max = MAX(rl.rlim_max, CAN_MEMLOCK_SIZE);
+        (void) setrlimit(RLIMIT_MEMLOCK, &rl);
+
+        if (!can_memlock())
+                return log_tests_skipped("Can't use mlock()");
+
+        r = enter_cgroup_subroot(/* ret_cgroup= */ NULL);
+        if (r == -ENOMEDIUM)
+                return log_tests_skipped("cgroupfs v2 is not mounted");
+        ASSERT_OK(r);
+
+        r = find_executable("ping", /* ret_filename= */ NULL);
+        if (r < 0)
+                return log_tests_skipped_errno(r, "Can't find ping binary");
+
+        return EXIT_SUCCESS;
+}
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);
