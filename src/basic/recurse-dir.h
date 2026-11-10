@@ -29,7 +29,7 @@ typedef struct DirectoryEntries {
         struct dirent buffer[];
 } DirectoryEntries;
 
-int readdir_all(int dir_fd, RecurseDirFlags flags, DirectoryEntries **ret);
+_sync_ int readdir_all(int dir_fd, RecurseDirFlags flags, DirectoryEntries **ret);
 int readdir_all_at(int fd, const char *path, RecurseDirFlags flags, DirectoryEntries **ret);
 
 typedef enum RecurseDirEvent {

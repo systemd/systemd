@@ -211,7 +211,7 @@ static char *mangle_word(const char *word, ProcCmdlineFlags flags) {
 
 #define mangle_word(word, flags) const_generic(word, mangle_word(word, flags))
 
-static int proc_cmdline_parse_strv(char **args, proc_cmdline_parse_t parse_item, void *data, ProcCmdlineFlags flags) {
+_may_suspend_ static int proc_cmdline_parse_strv(char **args, proc_cmdline_parse_t parse_item, void *data, ProcCmdlineFlags flags) {
         int r;
 
         assert(parse_item);
@@ -249,7 +249,7 @@ int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, ProcCmdlineF
         if (r < 0)
                 return r;
 
-        return proc_cmdline_parse_strv(args, parse_item, data, flags);
+        return SD_AWAIT(proc_cmdline_parse_strv(args, parse_item, data, flags));
 }
 
 static bool relaxed_equal_char(char a, char b) {

@@ -22,7 +22,7 @@ typedef int (*push_env_func_t)(
                 unsigned line,
                 const char *key,
                 char *value,
-                void *userdata);
+                void *userdata) _sync_;
 
 static int parse_env_file_internal(
                 FILE *f,

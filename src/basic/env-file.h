@@ -3,9 +3,9 @@
 
 #include "forward.h"
 
-int parse_env_filev(FILE *f, const char *fname, va_list ap);
-int parse_env_file_fdv(int fd, const char *fname, va_list ap);
-int parse_env_file_sentinel(FILE *f, const char *fname, ...) _sentinel_;
+_sync_ int parse_env_filev(FILE *f, const char *fname, va_list ap);
+_sync_ int parse_env_file_fdv(int fd, const char *fname, va_list ap);
+_sync_ int parse_env_file_sentinel(FILE *f, const char *fname, ...) _sentinel_;
 #define parse_env_file(f, fname, ...) parse_env_file_sentinel(f, fname, __VA_ARGS__, NULL)
 int parse_env_file_fd_sentinel(int fd, const char *fname, ...) _sentinel_;
 #define parse_env_file_fd(fd, fname, ...) parse_env_file_fd_sentinel(fd, fname, __VA_ARGS__, NULL)

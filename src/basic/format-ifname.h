@@ -3,13 +3,15 @@
 
 #include <net/if.h>
 
+#include "forward.h"
+
 typedef enum {
         FORMAT_IFNAME_IFINDEX              = 1 << 0,
         FORMAT_IFNAME_IFINDEX_WITH_PERCENT = (1 << 1) | FORMAT_IFNAME_IFINDEX,
 } FormatIfnameFlag;
 
-int format_ifname_full(int ifindex, FormatIfnameFlag flag, char buf[static IF_NAMESIZE]);
-int format_ifname_full_alloc(int ifindex, FormatIfnameFlag flag, char **ret);
+_sync_ int format_ifname_full(int ifindex, FormatIfnameFlag flag, char buf[static IF_NAMESIZE]);
+_sync_ int format_ifname_full_alloc(int ifindex, FormatIfnameFlag flag, char **ret);
 
 static inline int format_ifname(int ifindex, char buf[static IF_NAMESIZE]) {
         return format_ifname_full(ifindex, /* flag= */ 0, buf);

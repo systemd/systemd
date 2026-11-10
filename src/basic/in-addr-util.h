@@ -81,14 +81,14 @@ int in_addr_prefix_range(
                 union in_addr_union *ret_start,
                 union in_addr_union *ret_end);
 
-int in_addr_to_string(int family, const union in_addr_union *u, char **ret);
+_sync_ int in_addr_to_string(int family, const union in_addr_union *u, char **ret);
 static inline int in6_addr_to_string(const struct in6_addr *u, char **ret) {
         return in_addr_to_string(AF_INET6, (const union in_addr_union*) u, ret);
 }
 
-const char* typesafe_inet_ntop(int family, const union in_addr_union *a, char *buf, size_t len);
+_sync_ const char* typesafe_inet_ntop(int family, const union in_addr_union *a, char *buf, size_t len);
 const char* typesafe_inet_ntop4(const struct in_addr *a, char *buf, size_t len);
-const char* typesafe_inet_ntop6(const struct in6_addr *a, char *buf, size_t len);
+_sync_ const char* typesafe_inet_ntop6(const struct in6_addr *a, char *buf, size_t len);
 
 /* Note: the lifetime of the compound literal is the immediately surrounding block,
  * see C11 §6.5.2.5, and
@@ -146,7 +146,7 @@ struct in6_addr* in6_addr_prefixlen_to_netmask(struct in6_addr *addr, unsigned c
 int in_addr_prefixlen_to_netmask(int family, union in_addr_union *addr, unsigned char prefixlen);
 int in4_addr_default_prefixlen(const struct in_addr *addr, unsigned char *prefixlen);
 int in4_addr_default_subnet_mask(const struct in_addr *addr, struct in_addr *mask);
-int in4_addr_mask(struct in_addr *addr, unsigned char prefixlen);
+_sync_ int in4_addr_mask(struct in_addr *addr, unsigned char prefixlen);
 int in6_addr_mask(struct in6_addr *addr, unsigned char prefixlen);
 int in_addr_mask(int family, union in_addr_union *addr, unsigned char prefixlen);
 int in4_addr_prefix_covers_full(const struct in_addr *prefix, unsigned char prefixlen, const struct in_addr *address, unsigned char address_prefixlen);
@@ -196,11 +196,11 @@ static inline size_t FAMILY_ADDRESS_SIZE(int family) {
  * See also oss-fuzz#11344. */
 #define IN_ADDR_NULL ((union in_addr_union) { .in6 = {} })
 
-void in_addr_hash_func(const union in_addr_union *u, int family, struct siphash *state);
-void in_addr_data_hash_func(const struct in_addr_data *a, struct siphash *state);
-int in_addr_data_compare_func(const struct in_addr_data *x, const struct in_addr_data *y);
-void in6_addr_hash_func(const struct in6_addr *addr, struct siphash *state);
-int in6_addr_compare_func(const struct in6_addr *a, const struct in6_addr *b);
+_sync_ void in_addr_hash_func(const union in_addr_union *u, int family, struct siphash *state);
+_sync_ void in_addr_data_hash_func(const struct in_addr_data *a, struct siphash *state);
+_sync_ int in_addr_data_compare_func(const struct in_addr_data *x, const struct in_addr_data *y);
+_sync_ void in6_addr_hash_func(const struct in6_addr *addr, struct siphash *state);
+_sync_ int in6_addr_compare_func(const struct in6_addr *a, const struct in6_addr *b);
 
 extern const struct hash_ops in_addr_data_hash_ops;
 extern const struct hash_ops in_addr_data_hash_ops_free;

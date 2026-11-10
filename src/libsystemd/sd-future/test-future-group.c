@@ -6,17 +6,17 @@
 #include "tests.h"
 
 /* Body for "I exist to be cancelled" siblings: suspends until something cancels us. */
-static int suspend_fiber(void *userdata) {
-        return sd_fiber_suspend();
+_may_suspend_ static int suspend_fiber(void *userdata) {
+        return SD_AWAIT(sd_fiber_suspend());
 }
 
 /* Body for "let other things make progress before I return": yields once (giving the event
  * loop a chance to dispatch other pending sources) then returns the configured result.
  * Useful for sequencing without a real timer — sd-event dispatches at the same priority by
  * pending iteration, so a rearmed source goes to the back of the queue. */
-static int yield_then_return_fiber(void *userdata) {
+_may_suspend_ static int yield_then_return_fiber(void *userdata) {
         int *result = ASSERT_PTR(userdata);
-        int r = sd_fiber_yield();
+        int r = SD_AWAIT(sd_fiber_yield());
         if (r < 0)
                 return r;
         return *result;
@@ -445,7 +445,7 @@ static int wake_parent_cb(sd_future *f, void *userdata) {
         return sd_fiber_resume(userdata, /* result= */ 0);
 }
 
-static int parent_cancel_driver(void *userdata) {
+_may_suspend_ static int parent_cancel_driver(void *userdata) {
         ParentCancelState *s = ASSERT_PTR(userdata);
         _cleanup_(sd_future_unrefp) sd_future *group = NULL, *errorer = NULL;
 
@@ -462,7 +462,7 @@ static int parent_cancel_driver(void *userdata) {
         _cleanup_(sd_future_slot_unrefp) sd_future_slot *wake_slot = NULL;
         ASSERT_OK(sd_future_add_callback(group, &wake_slot, wake_parent_cb, sd_fiber_get_current()));
 
-        s->suspend_result = sd_fiber_suspend();
+        s->suspend_result = SD_AWAIT(sd_fiber_suspend());
         s->group_result = sd_future_result(group);
         return 0;
 }
@@ -489,11 +489,11 @@ typedef struct SealParentState {
         int group_result;
 } SealParentState;
 
-static int seal_from_peer(void *userdata) {
+_may_suspend_ static int seal_from_peer(void *userdata) {
         return sd_future_group_seal(userdata);
 }
 
-static int seal_parent_driver(void *userdata) {
+_may_suspend_ static int seal_parent_driver(void *userdata) {
         SealParentState *s = ASSERT_PTR(userdata);
         _cleanup_(sd_future_unrefp) sd_future *group = NULL, *peer = NULL;
         _cleanup_(sd_future_slot_unrefp) sd_future_slot *wake_slot = NULL;
@@ -503,10 +503,10 @@ static int seal_parent_driver(void *userdata) {
         ASSERT_OK(sd_future_add_callback(group, &wake_slot, wake_parent_cb, sd_fiber_get_current()));
         ASSERT_OK(sd_fiber_new(sd_fiber_get_event(), "seal", seal_from_peer, group, &peer));
 
-        s->suspend_result = sd_fiber_suspend();
+        s->suspend_result = SD_AWAIT(sd_fiber_suspend());
         s->group_result = sd_future_result(group);
 
-        ASSERT_OK_ZERO(sd_fiber_await(peer));
+        ASSERT_OK_ZERO(SD_AWAIT(sd_fiber_await(peer)));
         ASSERT_OK_ZERO(sd_future_result(peer));
         return 0;
 }
@@ -527,7 +527,7 @@ TEST(future_group_seal_does_not_cancel_parent) {
 }
 
 /* Awaiting a group must complete with the child's error instead of cancelling the waiting parent. */
-static int await_gets_error_driver(void *userdata) {
+_may_suspend_ static int await_gets_error_driver(void *userdata) {
         _cleanup_(sd_future_unrefp) sd_future *group = NULL, *errorer = NULL;
         int *await_result = ASSERT_PTR(userdata);
 
@@ -535,9 +535,9 @@ static int await_gets_error_driver(void *userdata) {
         ASSERT_OK(sd_future_new_defer(sd_fiber_get_event(), -EINVAL, &errorer));
         ASSERT_OK(sd_future_group_add(group, errorer));
 
-        ASSERT_OK_ZERO(sd_fiber_await(group));
+        ASSERT_OK_ZERO(SD_AWAIT(sd_fiber_await(group)));
         *await_result = sd_future_result(group);
-        ASSERT_OK_ZERO(sd_fiber_yield());
+        ASSERT_OK_ZERO(SD_AWAIT(sd_fiber_yield()));
         return 0;
 }
 
@@ -582,12 +582,12 @@ typedef struct AddResolvedState {
         int await_result;
 } AddResolvedState;
 
-static int add_resolved_driver(void *userdata) {
+_may_suspend_ static int add_resolved_driver(void *userdata) {
         AddResolvedState *s = ASSERT_PTR(userdata);
 
         /* Drive the pre-built child to completion. The defer resolves with -EINVAL, but the wait
          * itself succeeds. The child is now RESOLVED and we can add it to the group. */
-        ASSERT_OK_ZERO(sd_fiber_await(s->child));
+        ASSERT_OK_ZERO(SD_AWAIT(sd_fiber_await(s->child)));
         ASSERT_EQ(sd_future_state(s->child), SD_FUTURE_RESOLVED);
 
         s->add_result = sd_future_group_add(s->group, s->child);
@@ -595,7 +595,7 @@ static int add_resolved_driver(void *userdata) {
 
         /* Await drives the loop one more tick so the defer that wraps the RESOLVED child can
          * fire group_child_resolved and settle the group. */
-        ASSERT_OK_ZERO(sd_fiber_await(s->group));
+        ASSERT_OK_ZERO(SD_AWAIT(sd_fiber_await(s->group)));
         s->await_result = sd_future_result(s->group);
         return 0;
 }
@@ -630,11 +630,11 @@ typedef struct AddManyState {
         int join_result;
 } AddManyState;
 
-static int add_many_driver(void *userdata) {
+_may_suspend_ static int add_many_driver(void *userdata) {
         AddManyState *s = ASSERT_PTR(userdata);
         ASSERT_OK(sd_future_group_add_many(s->group, s->a, s->b, s->c));
         ASSERT_OK(sd_future_group_seal(s->group));
-        ASSERT_OK_ZERO(sd_fiber_await(s->group));
+        ASSERT_OK_ZERO(SD_AWAIT(sd_fiber_await(s->group)));
         s->join_result = sd_future_result(s->group);
         return 0;
 }
@@ -772,7 +772,7 @@ TEST(future_group_cancel_reentrant_child_terminates) {
 /* The motivating case: sd_future_cancel_wait_unref() on a group drives a child that only settles on
  * a repeated cancellation. The first cancel leaves the child pending, the fiber is interrupted while
  * waiting for the group, and the loop's second cancel has to reach the child through the group. */
-static int cancel_wait_group_fiber(void *userdata) {
+_may_suspend_ static int cancel_wait_group_fiber(void *userdata) {
         unsigned *cancels = ASSERT_PTR(userdata);
         _cleanup_(sd_future_unrefp) sd_future *stubborn = NULL;
         sd_future *group = NULL;
@@ -781,14 +781,14 @@ static int cancel_wait_group_fiber(void *userdata) {
         ASSERT_OK(sd_future_new(sd_fiber_get_event(), &stubborn_child_ops, &stubborn));
         ASSERT_OK(sd_future_group_add(group, stubborn));
 
-        sd_future_cancel_wait_unref(group);
+        SD_AWAIT(sd_future_cancel_wait_unref(group));
         ASSERT_ERROR(sd_future_result(stubborn), ECANCELED);
 
         StubbornChild *sc = sd_future_get_private(stubborn);
         *cancels = sc->cancels;
 
         /* The interruption that woke the wait is re-queued on us. */
-        return sd_fiber_suspend();
+        return SD_AWAIT(sd_fiber_suspend());
 }
 
 TEST(future_group_cancel_wait_unref_drives_stubborn_child) {
@@ -954,7 +954,7 @@ typedef struct SelfCancelState {
         int yield_result;
 } SelfCancelState;
 
-static int self_cancel_fiber(void *userdata) {
+_may_suspend_ static int self_cancel_fiber(void *userdata) {
         SelfCancelState *s = ASSERT_PTR(userdata);
         _cleanup_(sd_future_unrefp) sd_future *group = NULL, *child = NULL;
         int r;
@@ -976,7 +976,7 @@ static int self_cancel_fiber(void *userdata) {
 
         /* If the parent-cancel guard didn't work, -ECANCELED would be queued on us by
          * finalize() and surface here. Expect a clean yield (0). */
-        s->yield_result = sd_fiber_yield();
+        s->yield_result = SD_AWAIT(sd_fiber_yield());
         return 0;
 }
 
@@ -1005,7 +1005,7 @@ typedef struct ParentAwaitState {
         int result;
 } ParentAwaitState;
 
-static int parent_await_driver(void *userdata) {
+_may_suspend_ static int parent_await_driver(void *userdata) {
         ParentAwaitState *s = ASSERT_PTR(userdata);
 
         ASSERT_OK(sd_future_group_new(sd_fiber_get_event(), &s->group));
@@ -1013,19 +1013,19 @@ static int parent_await_driver(void *userdata) {
         ASSERT_OK(sd_future_group_add(s->group, s->child));
 
         if (s->await)
-                ASSERT_ERROR(sd_fiber_await(s->group), ECANCELED);
+                ASSERT_ERROR(SD_AWAIT(sd_fiber_await(s->group)), ECANCELED);
         else
-                ASSERT_EQ(sd_fiber_suspend(), 42);
+                ASSERT_EQ(SD_AWAIT(sd_fiber_suspend()), 42);
 
         s->ready = true;
-        ASSERT_EQ(sd_fiber_suspend(), s->result);
+        ASSERT_EQ(SD_AWAIT(sd_fiber_suspend()), s->result);
 
         /* Parent cancellation does not replace the group's result, and a later await of the
          * resolved group completes immediately. */
         if (s->result == -ECANCELED) {
                 ASSERT_EQ(sd_future_state(s->group), SD_FUTURE_RESOLVED);
                 ASSERT_ERROR(sd_future_result(s->group), EIO);
-                ASSERT_OK_ZERO(sd_fiber_await(s->group));
+                ASSERT_OK_ZERO(SD_AWAIT(sd_fiber_await(s->group)));
         }
         return 0;
 }
@@ -1044,7 +1044,8 @@ TEST(future_group_parent_await_scope) {
                 if (s.await)
                         ASSERT_OK(sd_future_cancel(parent));
                 else {
-                        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_fiber_await(s.group)), ESRCH);
+                        /* sd_fiber_await() fails with -ESRCH off a fiber. */
+                        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_fiber_await(s.group)), ESRCH); /* NOLINT(systemd-suspend) */
                         ASSERT_OK(sd_fiber_resume(parent, 42));
                 }
                 while (!s.ready)
@@ -1063,7 +1064,7 @@ TEST(future_group_parent_await_scope) {
         }
 }
 
-static int cancel_group_from_peer(void *userdata) {
+_may_suspend_ static int cancel_group_from_peer(void *userdata) {
         ParentAwaitState *s = ASSERT_PTR(userdata);
 
         sd_future_cancel_unref(sd_future_ref(s->group));
@@ -1102,11 +1103,11 @@ TEST(future_group_external_cancel_leaves_parent_running) {
         }
 }
 
-static int peer_await_driver(void *userdata) {
+_may_suspend_ static int peer_await_driver(void *userdata) {
         sd_future *group = ASSERT_PTR(userdata);
         int r;
 
-        r = sd_fiber_await(group);
+        r = SD_AWAIT(sd_fiber_await(group));
         if (r < 0)
                 return r;
 
@@ -1352,11 +1353,11 @@ typedef struct CrossEventParentState {
         sd_future *group;
 } CrossEventParentState;
 
-static int cross_event_parent_driver(void *userdata) {
+_may_suspend_ static int cross_event_parent_driver(void *userdata) {
         CrossEventParentState *s = ASSERT_PTR(userdata);
 
         ASSERT_OK(sd_future_group_new(s->event, &s->group));
-        ASSERT_EQ(sd_fiber_suspend(), 42);
+        ASSERT_EQ(SD_AWAIT(sd_fiber_suspend()), 42);
         return 0;
 }
 
@@ -1392,7 +1393,7 @@ typedef struct ParentLifetimeState {
         bool parent_freed;
 } ParentLifetimeState;
 
-static int parent_returns_before_child(void *userdata) {
+_may_suspend_ static int parent_returns_before_child(void *userdata) {
         ParentLifetimeState *s = ASSERT_PTR(userdata);
 
         ASSERT_OK(sd_future_group_new(sd_fiber_get_event(), &s->group));
@@ -1579,9 +1580,9 @@ TEST(future_group_spawn_sealed) {
         ASSERT_OK_ZERO(sd_future_result(group));
 }
 
-static int spawner_fiber(void *userdata) {
+_may_suspend_ static int spawner_fiber(void *userdata) {
         SpawnState *s = ASSERT_PTR(userdata);
-        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *group = NULL;
+        _cleanup_await_(sd_future_cancel_wait_unrefp) sd_future *group = NULL;
 
         ASSERT_OK(sd_future_group_new(sd_fiber_get_event(), &group));
         ASSERT_OK(sd_future_group_set_policy(group, SD_FUTURE_GROUP_IGNORE_ERRORS));
@@ -1594,7 +1595,7 @@ static int spawner_fiber(void *userdata) {
 
                 for (unsigned n = 0; sd_future_group_size(group) > 0; n++) {
                         ASSERT_LT(n, 10U);
-                        ASSERT_OK(sd_fiber_yield());
+                        ASSERT_OK(SD_AWAIT(sd_fiber_yield()));
                 }
 
                 ASSERT_EQ(sd_future_state(group), SD_FUTURE_PENDING);
@@ -1602,7 +1603,7 @@ static int spawner_fiber(void *userdata) {
 
         /* The cleanup of the group cancels the suspended child and waits until it has finished. */
         spawn_with_destroy(group, "sleep", suspend_fiber, s);
-        ASSERT_OK(sd_fiber_yield());
+        ASSERT_OK(SD_AWAIT(sd_fiber_yield()));
         ASSERT_EQ(sd_future_group_size(group), 1U);
 
         return 0;

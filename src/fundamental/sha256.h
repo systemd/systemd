@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "await.h"
+
 #define SHA256_DIGEST_SIZE 32
 
 struct sha256_ctx {
@@ -25,9 +27,9 @@ struct sha256_ctx {
         };
 };
 
-void sha256_init_ctx(struct sha256_ctx *ctx);
-uint8_t *sha256_finish_ctx(struct sha256_ctx *ctx, uint8_t resbuf[static SHA256_DIGEST_SIZE]);
-void sha256_process_bytes(const void *buffer, size_t len, struct sha256_ctx *ctx);
+_sync_ void sha256_init_ctx(struct sha256_ctx *ctx);
+_sync_ uint8_t *sha256_finish_ctx(struct sha256_ctx *ctx, uint8_t resbuf[static SHA256_DIGEST_SIZE]);
+_sync_ void sha256_process_bytes(const void *buffer, size_t len, struct sha256_ctx *ctx);
 
 static inline void sha256_process_bytes_and_size(const void *buffer, size_t len, struct sha256_ctx *ctx) {
         sha256_process_bytes(&len, sizeof(len), ctx);

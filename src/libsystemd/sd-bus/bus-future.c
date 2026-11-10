@@ -67,7 +67,7 @@ int bus_call_future(sd_bus *bus, sd_bus_message *m, uint64_t usec, sd_future **r
 
         BusFuture *bf = sd_future_get_private(f);
 
-        r = sd_bus_call_async(bus, &bf->slot, m, bus_future_handler, f, usec);
+        r = SD_AWAIT(sd_bus_call_async(bus, &bf->slot, m, bus_future_handler, f, usec));
         if (r < 0)
                 return r;
 
@@ -151,7 +151,7 @@ static int bus_signal_channel_install_handler(sd_bus_message *m, void *userdata,
         return 0;
 }
 
-static int bus_signal_channel_attach_match(
+_may_suspend_ static int bus_signal_channel_attach_match(
                 sd_bus *bus,
                 sd_channel *c,
                 const char *sender,
@@ -167,10 +167,10 @@ static int bus_signal_channel_attach_match(
         /* The match callback gets the channel pointer without a reference. The channel releases the match
          * slot when it is closed or freed, so the callback never runs with a freed channel. */
         _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
-        r = sd_bus_match_signal_async(bus, &slot, sender, path, interface, member,
+        r = SD_AWAIT(sd_bus_match_signal_async(bus, &slot, sender, path, interface, member,
                                       bus_signal_channel_handler,
                                       bus_signal_channel_install_handler,
-                                      c);
+                                      c));
         if (r < 0)
                 return r;
 
@@ -202,7 +202,7 @@ int bus_signal_channel_new(
         if (r < 0)
                 return r;
 
-        r = bus_signal_channel_attach_match(bus, c, sender, path, interface, member);
+        r = SD_AWAIT(bus_signal_channel_attach_match(bus, c, sender, path, interface, member));
         if (r < 0)
                 return r;
 
@@ -229,7 +229,7 @@ int bus_signal_channel_new_conflated(
         if (r < 0)
                 return r;
 
-        r = bus_signal_channel_attach_match(bus, c, sender, path, interface, member);
+        r = SD_AWAIT(bus_signal_channel_attach_match(bus, c, sender, path, interface, member));
         if (r < 0)
                 return r;
 
@@ -250,12 +250,12 @@ int bus_call_suspend(
         assert(m);
         assert(sd_fiber_is_running());
 
-        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *f = NULL;
-        r = bus_call_future(bus, m, usec, &f);
+        _cleanup_await_(sd_future_cancel_wait_unrefp) sd_future *f = NULL;
+        r = SD_AWAIT(bus_call_future(bus, m, usec, &f));
         if (r < 0)
                 return sd_bus_error_set_errno(reterr_error, r);
 
-        r = sd_fiber_await(f);
+        r = SD_AWAIT(sd_fiber_await(f));
         if (r < 0)
                 return sd_bus_error_set_errno(reterr_error, r);
 

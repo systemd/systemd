@@ -110,7 +110,7 @@ int sd_is_special(int fd, const char *path);
 
   See sd_is_socket(3) for more information.
 */
-int sd_is_socket(int fd, int family, int type, int listening);
+_sd_sync_ int sd_is_socket(int fd, int family, int type, int listening);
 
 /*
   Helper call for identifying a passed file descriptor. Returns 1 if
@@ -252,7 +252,7 @@ int sd_is_mq(int fd, const char *path);
 
   See sd_notify(3) for more information.
 */
-int sd_notify(int unset_environment, const char *state);
+_sd_sync_ int sd_notify(int unset_environment, const char *state);
 
 /*
   Similar to sd_notify() but takes a format string.
@@ -331,7 +331,7 @@ int sd_pidfd_get_inode_id(int pidfd, uint64_t *ret);
 
   See sd_booted(3) for more information.
 */
-int sd_booted(void);
+_sd_sync_ int sd_booted(void);
 
 /*
   Returns > 0 if the service manager expects watchdog keep-alive

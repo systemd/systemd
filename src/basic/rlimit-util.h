@@ -25,6 +25,6 @@ void rlimit_free_all(struct rlimit **rl);
 #define RLIMIT_MAKE_CONST(lim) ((struct rlimit) { lim, lim })
 
 int rlimit_nofile_bump(int limit);
-int rlimit_nofile_safe(void);
+_sync_ int rlimit_nofile_safe(void);
 
 int pid_getrlimit(pid_t pid, int resource, struct rlimit *ret);

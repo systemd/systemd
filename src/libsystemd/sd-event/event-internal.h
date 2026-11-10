@@ -10,12 +10,12 @@
  * fail with EINVAL, and every worker thread counts against the task limit of the process. An event loop
  * therefore only uses io_uring after the program enabled it with event_set_use_io_uring(). */
 void event_set_use_io_uring(sd_event *e, bool b);
-bool event_io_uring_available(sd_event *e);
-int event_get_wait_fd(sd_event *e);
+_sync_ bool event_io_uring_available(sd_event *e);
+_sync_ int event_get_wait_fd(sd_event *e);
 
 /* Submits a copy of the SQE and resolves f with the res of its CQE. Internal only: handing out io_uring
  * SQEs comes with contracts (the buffers that the SQE references stay valid until the CQE arrives, and the
  * SQE posts exactly one CQE, so no multishot operations) that we can't support as a stable API across
  * kernels and opcodes. */
-int event_add_io_uring_sqe(sd_event *e, const struct io_uring_sqe *sqe, sd_future *f);
-int event_cancel_io_uring_sqe(sd_event *e, sd_future *f);
+_sync_ int event_add_io_uring_sqe(sd_event *e, const struct io_uring_sqe *sqe, sd_future *f);
+_sync_ int event_cancel_io_uring_sqe(sd_event *e, sd_future *f);

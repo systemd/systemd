@@ -138,8 +138,8 @@ __extension__ enum {
         _SD_PATH_INVALID = UINT64_MAX
 };
 
-int sd_path_lookup(uint64_t type, const char *suffix, char **ret);
-int sd_path_lookup_strv(uint64_t type, const char *suffix, char ***ret);
+_sd_sync_ int sd_path_lookup(uint64_t type, const char *suffix, char **ret);
+_sd_sync_ int sd_path_lookup_strv(uint64_t type, const char *suffix, char ***ret);
 
 _SD_END_DECLARATIONS;
 

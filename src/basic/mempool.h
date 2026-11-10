@@ -13,8 +13,8 @@ struct mempool {
 };
 
 void* mempool_alloc_tile(struct mempool *mp);
-void* mempool_alloc0_tile(struct mempool *mp);
-void* mempool_free_tile(struct mempool *mp, void *p);
+_sync_ void* mempool_alloc0_tile(struct mempool *mp);
+_sync_ void* mempool_free_tile(struct mempool *mp, void *p);
 
 #define DEFINE_MEMPOOL(pool_name, tile_type, alloc_at_least) \
 static struct mempool pool_name = { \

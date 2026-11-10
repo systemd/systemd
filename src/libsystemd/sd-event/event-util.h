@@ -13,9 +13,9 @@
 
 extern const struct hash_ops event_source_hash_ops;
 
-sd_event* event_resolve(sd_event *e);
+_sync_ sd_event* event_resolve(sd_event *e);
 
-bool event_origin_changed(sd_event *e);
+_sync_ bool event_origin_changed(sd_event *e);
 
 int event_reset_time(
                 sd_event *e,
@@ -45,7 +45,7 @@ static inline int event_source_disable(sd_event_source *s) {
 
 int event_add_time_change(sd_event *e, sd_event_source **ret, sd_event_io_handler_t callback, void *userdata);
 
-int event_add_child_pidref(sd_event *e, sd_event_source **ret, const PidRef *pid, int options, sd_event_child_handler_t callback, void *userdata);
+_sync_ int event_add_child_pidref(sd_event *e, sd_event_source **ret, const PidRef *pid, int options, sd_event_child_handler_t callback, void *userdata);
 
 int event_source_get_child_pidref(sd_event_source *s, PidRef *ret);
 

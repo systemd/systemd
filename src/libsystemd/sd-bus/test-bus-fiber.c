@@ -22,7 +22,7 @@ typedef struct Context {
         sd_bus_message *pending_call;
 } Context;
 
-static int method_concurrent(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
+_may_suspend_ static int method_concurrent(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
         Context *c = ASSERT_PTR(userdata);
 
         ASSERT_OK_POSITIVE(sd_fiber_is_running());
@@ -39,32 +39,32 @@ static int method_concurrent(sd_bus_message *m, void *userdata, sd_bus_error *re
         if (c->in_flight < 2) {
                 assert(!c->waiter);
                 c->waiter = sd_fiber_get_current();
-                ASSERT_OK(sd_fiber_suspend());
+                ASSERT_OK(SD_AWAIT(sd_fiber_suspend()));
         } else {
                 ASSERT_OK(sd_fiber_resume(TAKE_PTR(c->waiter), /* result= */ 0));
-                ASSERT_OK(sd_fiber_yield());
+                ASSERT_OK(SD_AWAIT(sd_fiber_yield()));
         }
 
         c->in_flight--;
 
-        return sd_bus_reply_method_return(m, /* types= */ NULL);
+        return SD_AWAIT(sd_bus_reply_method_return(m, /* types= */ NULL));
 }
 
-static int method_fail_errno(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
+_may_suspend_ static int method_fail_errno(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
         ASSERT_OK_POSITIVE(sd_fiber_is_running());
 
         /* Yielding first exercises the deferred-error path in the fiber entry: the handler returns
          * a negative errno after suspending, and bus_maybe_reply_error() must still turn that into
          * a matching sd_bus error reply. */
-        ASSERT_OK(sd_fiber_sleep(1 * USEC_PER_MSEC));
+        ASSERT_OK(SD_AWAIT(sd_fiber_sleep(1 * USEC_PER_MSEC)));
 
         return -EACCES;
 }
 
-static int method_fail_error(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
+_may_suspend_ static int method_fail_error(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
         ASSERT_OK_POSITIVE(sd_fiber_is_running());
 
-        ASSERT_OK(sd_fiber_sleep(1 * USEC_PER_MSEC));
+        ASSERT_OK(SD_AWAIT(sd_fiber_sleep(1 * USEC_PER_MSEC)));
 
         return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "bad arguments from fiber");
 }
@@ -90,12 +90,9 @@ static int method_release(sd_bus_message *m, void *userdata, sd_bus_error *reter
 
 static const sd_bus_vtable vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_METHOD("Concurrent", NULL, NULL, method_concurrent,
-                      SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_METHOD_FIBER),
-        SD_BUS_METHOD("FailErrno", NULL, NULL, method_fail_errno,
-                      SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_METHOD_FIBER),
-        SD_BUS_METHOD("FailError", NULL, NULL, method_fail_error,
-                      SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_METHOD_FIBER),
+        SD_BUS_METHOD_FIBER("Concurrent", NULL, NULL, method_concurrent, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_FIBER("FailErrno", NULL, NULL, method_fail_errno, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_FIBER("FailError", NULL, NULL, method_fail_error, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Hold", NULL, NULL, method_hold, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Release", NULL, NULL, method_release, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END,
@@ -106,8 +103,8 @@ typedef struct Setup {
         Context *c;
 } Setup;
 
-static int attach_pair(Setup *s, sd_bus **ret_server, sd_bus **ret_client) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *server = NULL, *client = NULL;
+_may_suspend_ static int attach_pair(Setup *s, sd_bus **ret_server, sd_bus **ret_client) {
+        _cleanup_await_(sd_bus_flush_close_unrefp) sd_bus *server = NULL, *client = NULL;
         sd_id128_t id;
 
         assert(ret_server);
@@ -120,35 +117,35 @@ static int attach_pair(Setup *s, sd_bus **ret_server, sd_bus **ret_client) {
         ASSERT_OK(sd_bus_set_server(server, true, id));
         ASSERT_OK(sd_bus_attach_event(server, sd_fiber_get_event(), /* priority= */ 0));
         ASSERT_OK(sd_bus_add_object_vtable(server, /* ret_slot= */ NULL, "/test", "test.Fiber", vtable, s->c));
-        ASSERT_OK(sd_bus_start(server));
+        ASSERT_OK(SD_AWAIT(sd_bus_start(server)));
 
         ASSERT_OK(sd_bus_new(&client));
         ASSERT_OK(sd_bus_set_description(client, "client"));
         ASSERT_OK(sd_bus_set_fd(client, s->fds[1], s->fds[1]));
         ASSERT_OK(sd_bus_attach_event(client, sd_fiber_get_event(), /* priority= */ 0));
-        ASSERT_OK(sd_bus_start(client));
+        ASSERT_OK(SD_AWAIT(sd_bus_start(client)));
 
         *ret_server = TAKE_PTR(server);
         *ret_client = TAKE_PTR(client);
         return 0;
 }
 
-static int call_concurrent_fiber(void *userdata) {
+_may_suspend_ static int call_concurrent_fiber(void *userdata) {
         sd_bus *client = ASSERT_PTR(userdata);
 
         /* A plain suspending sd_bus_call() — on a fiber this goes through sd_bus_call_suspend()
          * which multiplexes onto the single client connection, so multiple caller fibers can have
          * calls in flight at the same time. */
-        return sd_bus_call_method(client, /* destination= */ NULL, "/test", "test.Fiber", "Concurrent",
-                                  /* reterr_error= */ NULL, /* ret_reply= */ NULL, /* types= */ NULL);
+        return SD_AWAIT(sd_bus_call_method(client, /* destination= */ NULL, "/test", "test.Fiber", "Concurrent",
+                                  /* reterr_error= */ NULL, /* ret_reply= */ NULL, /* types= */ NULL));
 }
 
-static int concurrency_fiber(void *userdata) {
+_may_suspend_ static int concurrency_fiber(void *userdata) {
         Setup *s = ASSERT_PTR(userdata);
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *server = NULL, *client = NULL;
-        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *f_a = NULL, *f_b = NULL;
+        _cleanup_await_(sd_bus_flush_close_unrefp) sd_bus *server = NULL, *client = NULL;
+        _cleanup_await_(sd_future_cancel_wait_unrefp) sd_future *f_a = NULL, *f_b = NULL;
 
-        ASSERT_OK(attach_pair(s, &server, &client));
+        ASSERT_OK(SD_AWAIT(attach_pair(s, &server, &client)));
 
         /* Two concurrent calls on the shared client bus. Each lands in method_concurrent which
          * blocks on the peer; if fiber dispatch works the second is entered while the first is
@@ -156,8 +153,8 @@ static int concurrency_fiber(void *userdata) {
         ASSERT_OK(sd_fiber_new(sd_fiber_get_event(), "call-a", call_concurrent_fiber, client, &f_a));
         ASSERT_OK(sd_fiber_new(sd_fiber_get_event(), "call-b", call_concurrent_fiber, client, &f_b));
 
-        ASSERT_OK(sd_fiber_await(f_a));
-        ASSERT_OK(sd_fiber_await(f_b));
+        ASSERT_OK(SD_AWAIT(sd_fiber_await(f_a)));
+        ASSERT_OK(SD_AWAIT(sd_fiber_await(f_b)));
 
         ASSERT_OK(sd_future_result(f_a));
         ASSERT_OK(sd_future_result(f_b));
@@ -183,11 +180,11 @@ TEST(fiber_method_concurrency) {
         ASSERT_GE(c.max_in_flight, 2);
 }
 
-static int errors_fiber(void *userdata) {
+_may_suspend_ static int errors_fiber(void *userdata) {
         Setup *s = ASSERT_PTR(userdata);
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *server = NULL, *client = NULL;
+        _cleanup_await_(sd_bus_flush_close_unrefp) sd_bus *server = NULL, *client = NULL;
 
-        ASSERT_OK(attach_pair(s, &server, &client));
+        ASSERT_OK(SD_AWAIT(attach_pair(s, &server, &client)));
 
         /* A detached bus must report the missing loop at the future API boundary. Reattaching
          * it restores the regular suspending call path used below. */
@@ -196,14 +193,14 @@ static int errors_fiber(void *userdata) {
         ASSERT_OK(sd_bus_message_new_method_call(client, &call, /* destination= */ NULL,
                                                 "/test", "test.Fiber", "FailErrno"));
         ASSERT_OK(sd_bus_detach_event(client));
-        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(bus_call_future(client, call, USEC_INFINITY, &future)), ENOPKG);
+        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(SD_AWAIT(bus_call_future(client, call, USEC_INFINITY, &future))), ENOPKG);
         ASSERT_NULL(future);
         ASSERT_OK(sd_bus_attach_event(client, sd_fiber_get_event(), /* priority= */ 0));
 
         /* The getter returns -EBUSY for a pending call, and -ECANCELED for a cancelled call that has no
          * reply. */
         _cleanup_(sd_bus_error_free) sd_bus_error cancelled_error = SD_BUS_ERROR_NULL;
-        ASSERT_OK(bus_call_future(client, call, USEC_INFINITY, &future));
+        ASSERT_OK(SD_AWAIT(bus_call_future(client, call, USEC_INFINITY, &future)));
         ASSERT_ERROR(ASSERT_RETURN_EXPECTED(future_get_bus_reply(future, &cancelled_error, /* ret_reply= */ NULL)), EBUSY);
         ASSERT_FALSE(sd_bus_error_is_set(&cancelled_error));
         ASSERT_OK(sd_future_cancel(future));
@@ -216,23 +213,23 @@ static int errors_fiber(void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error reply_error = SD_BUS_ERROR_NULL;
         ASSERT_OK(sd_bus_message_new_method_call(client, &failing, /* destination= */ NULL,
                                                 "/test", "test.Fiber", "FailErrno"));
-        ASSERT_OK(bus_call_future(client, failing, USEC_INFINITY, &failed));
-        ASSERT_OK_ZERO(sd_fiber_await(failed));
+        ASSERT_OK(SD_AWAIT(bus_call_future(client, failing, USEC_INFINITY, &failed)));
+        ASSERT_OK_ZERO(SD_AWAIT(sd_fiber_await(failed)));
         ASSERT_ERROR(future_get_bus_reply(failed, &reply_error, /* ret_reply= */ NULL), EACCES);
         ASSERT_TRUE(sd_bus_error_has_name(&reply_error, SD_BUS_ERROR_ACCESS_DENIED));
 
         /* A fiber handler that returns a negative errno gets turned into a matching sd_bus error
          * reply (bus_maybe_reply_error → sd_bus_reply_method_errno). */
         _cleanup_(sd_bus_error_free) sd_bus_error e1 = SD_BUS_ERROR_NULL;
-        ASSERT_ERROR(sd_bus_call_method(client, /* destination= */ NULL, "/test", "test.Fiber", "FailErrno",
-                                        &e1, /* ret_reply= */ NULL, /* types= */ NULL),
+        ASSERT_ERROR(SD_AWAIT(sd_bus_call_method(client, /* destination= */ NULL, "/test", "test.Fiber", "FailErrno",
+                                        &e1, /* ret_reply= */ NULL, /* types= */ NULL)),
                      EACCES);
         ASSERT_TRUE(sd_bus_error_has_name(&e1, SD_BUS_ERROR_ACCESS_DENIED));
 
         /* A fiber handler that populates sd_bus_error directly propagates both name and message. */
         _cleanup_(sd_bus_error_free) sd_bus_error e2 = SD_BUS_ERROR_NULL;
-        ASSERT_FAIL(sd_bus_call_method(client, /* destination= */ NULL, "/test", "test.Fiber", "FailError",
-                                       &e2, /* ret_reply= */ NULL, /* types= */ NULL));
+        ASSERT_FAIL(SD_AWAIT(sd_bus_call_method(client, /* destination= */ NULL, "/test", "test.Fiber", "FailError",
+                                       &e2, /* ret_reply= */ NULL, /* types= */ NULL)));
         ASSERT_TRUE(sd_bus_error_has_name(&e2, SD_BUS_ERROR_INVALID_ARGS));
         ASSERT_STREQ(e2.message, "bad arguments from fiber");
 
@@ -262,16 +259,16 @@ typedef struct InterruptedCall {
         int error;
 } InterruptedCall;
 
-static int interrupted_call_fiber(void *userdata) {
+_may_suspend_ static int interrupted_call_fiber(void *userdata) {
         InterruptedCall *c = ASSERT_PTR(userdata);
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
 
         {
                 SD_FIBER_TIMEOUT(c->error == ETIME ? 0 : USEC_INFINITY);
-                ASSERT_ERROR(sd_bus_call_method(c->client, /* destination= */ NULL,
+                ASSERT_ERROR(SD_AWAIT(sd_bus_call_method(c->client, /* destination= */ NULL,
                                                "/test", "test.Fiber", "Hold", &error, &reply,
-                                               /* types= */ NULL), c->error);
+                                               /* types= */ NULL)), c->error);
         }
         /* D-Bus maps both ETIME and ETIMEDOUT to its Timeout error name; the call's return value
          * above still preserves the original interruption errno. */
@@ -283,24 +280,24 @@ static int interrupted_call_fiber(void *userdata) {
 
         /* Release sends the abandoned call's reply before its own. The old reply must neither
          * access a freed future nor wake this new wait, and no interruption may leak into it. */
-        ASSERT_OK_POSITIVE(sd_bus_call_method(c->client, /* destination= */ NULL,
+        ASSERT_OK_POSITIVE(SD_AWAIT(sd_bus_call_method(c->client, /* destination= */ NULL,
                                             "/test", "test.Fiber", "Release", &error, &reply,
-                                            /* types= */ NULL));
+                                            /* types= */ NULL)));
         ASSERT_NOT_NULL(reply);
         ASSERT_FALSE(sd_bus_error_is_set(&error));
-        ASSERT_OK_ZERO(sd_fiber_yield());
+        ASSERT_OK_ZERO(SD_AWAIT(sd_fiber_yield()));
         return 0;
 }
 
-static int interrupted_calls_fiber(void *userdata) {
+_may_suspend_ static int interrupted_calls_fiber(void *userdata) {
         Setup *s = ASSERT_PTR(userdata);
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *server = NULL, *client = NULL;
+        _cleanup_await_(sd_bus_flush_close_unrefp) sd_bus *server = NULL, *client = NULL;
         int error;
 
-        ASSERT_OK(attach_pair(s, &server, &client));
+        ASSERT_OK(SD_AWAIT(attach_pair(s, &server, &client)));
 
         FOREACH_ARGUMENT(error, ECANCELED, ETIME, EBUSY) {
-                _cleanup_(sd_future_cancel_wait_unrefp) sd_future *caller = NULL;
+                _cleanup_await_(sd_future_cancel_wait_unrefp) sd_future *caller = NULL;
                 InterruptedCall c = { .client = client, .error = error };
 
                 s->c->waiter = error == ETIME ? NULL : sd_fiber_get_current();
@@ -309,7 +306,7 @@ static int interrupted_calls_fiber(void *userdata) {
 
                 if (error != ETIME) {
                         /* Interrupt only once the server has the call in hand and withheld its reply. */
-                        ASSERT_OK_ZERO(sd_fiber_suspend());
+                        ASSERT_OK_ZERO(SD_AWAIT(sd_fiber_suspend()));
                         ASSERT_NOT_NULL(s->c->pending_call);
                         if (error == ECANCELED)
                                 ASSERT_OK(sd_future_cancel(caller));
@@ -317,7 +314,7 @@ static int interrupted_calls_fiber(void *userdata) {
                                 ASSERT_OK(sd_fiber_resume(caller, 42));
                 }
 
-                ASSERT_OK_ZERO(sd_fiber_await(caller));
+                ASSERT_OK_ZERO(SD_AWAIT(sd_fiber_await(caller)));
                 ASSERT_OK_ZERO(sd_future_result(caller));
                 ASSERT_NULL(s->c->pending_call);
                 ASSERT_NULL(s->c->waiter);
@@ -340,15 +337,15 @@ TEST(fiber_method_interrupted) {
         ASSERT_OK_ZERO(sd_future_result(f));
 }
 
-static void emit_changed(sd_bus *server, sd_bus *client, uint32_t first, uint32_t last) {
+_may_suspend_ static void emit_changed(sd_bus *server, sd_bus *client, uint32_t first, uint32_t last) {
         for (uint32_t i = first; i <= last; i++)
-                ASSERT_OK(sd_bus_emit_signal(server, "/test", "test.Fiber", "Changed", "u", i));
+                ASSERT_OK(SD_AWAIT(sd_bus_emit_signal(server, "/test", "test.Fiber", "Changed", "u", i)));
 
         /* The server sends the signals before the reply to Ping, so the client dispatches the signals
          * before the call returns. */
-        ASSERT_OK(sd_bus_call_method(client, /* destination= */ NULL, "/test", "org.freedesktop.DBus.Peer",
+        ASSERT_OK(SD_AWAIT(sd_bus_call_method(client, /* destination= */ NULL, "/test", "org.freedesktop.DBus.Peer",
                                      "Ping", /* reterr_error= */ NULL, /* ret_reply= */ NULL,
-                                     /* types= */ NULL));
+                                     /* types= */ NULL)));
 }
 
 static void assert_pop_changed(sd_channel *c, uint32_t expected) {
@@ -362,33 +359,33 @@ static void assert_pop_changed(sd_channel *c, uint32_t expected) {
         ASSERT_EQ(u, expected);
 }
 
-static int signal_channel_fiber(void *userdata) {
+_may_suspend_ static int signal_channel_fiber(void *userdata) {
         Setup *s = ASSERT_PTR(userdata);
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *server = NULL, *client = NULL;
+        _cleanup_await_(sd_bus_flush_close_unrefp) sd_bus *server = NULL, *client = NULL;
         _cleanup_(sd_channel_unrefp) sd_channel *signals = NULL, *latest = NULL, *freed = NULL;
         void *item;
 
-        ASSERT_OK(attach_pair(s, &server, &client));
+        ASSERT_OK(SD_AWAIT(attach_pair(s, &server, &client)));
 
         ASSERT_OK(sd_bus_detach_event(client));
-        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(bus_signal_channel_new(client, /* sender= */ NULL, "/test",
+        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(SD_AWAIT(bus_signal_channel_new(client, /* sender= */ NULL, "/test",
                                                                    "test.Fiber", "Changed",
-                                                                   /* capacity= */ 2, &signals)),
+                                                                   /* capacity= */ 2, &signals))),
                      ENOPKG);
-        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(bus_signal_channel_new_conflated(client, /* sender= */ NULL,
+        ASSERT_ERROR(ASSERT_RETURN_EXPECTED(SD_AWAIT(bus_signal_channel_new_conflated(client, /* sender= */ NULL,
                                                                              "/test", "test.Fiber",
-                                                                             "Changed", &latest)),
+                                                                             "Changed", &latest))),
                      ENOPKG);
         ASSERT_OK(sd_bus_attach_event(client, sd_fiber_get_event(), /* priority= */ 0));
 
-        ASSERT_OK(bus_signal_channel_new(client, /* sender= */ NULL, "/test", "test.Fiber", "Changed",
-                                         /* capacity= */ 2, &signals));
-        ASSERT_OK(bus_signal_channel_new_conflated(client, /* sender= */ NULL, "/test", "test.Fiber",
-                                                   "Changed", &latest));
-        ASSERT_OK(bus_signal_channel_new(client, /* sender= */ NULL, "/test", "test.Fiber", "Changed",
-                                         /* capacity= */ 2, &freed));
+        ASSERT_OK(SD_AWAIT(bus_signal_channel_new(client, /* sender= */ NULL, "/test", "test.Fiber", "Changed",
+                                         /* capacity= */ 2, &signals)));
+        ASSERT_OK(SD_AWAIT(bus_signal_channel_new_conflated(client, /* sender= */ NULL, "/test", "test.Fiber",
+                                                   "Changed", &latest)));
+        ASSERT_OK(SD_AWAIT(bus_signal_channel_new(client, /* sender= */ NULL, "/test", "test.Fiber", "Changed",
+                                         /* capacity= */ 2, &freed)));
 
-        emit_changed(server, client, 1, 3);
+        SD_AWAIT(emit_changed(server, client, 1, 3));
         assert_pop_changed(signals, 1);
         assert_pop_changed(signals, 2);
         ASSERT_ERROR(sd_channel_try_pop(signals, &item), ENODATA);
@@ -399,7 +396,7 @@ static int signal_channel_fiber(void *userdata) {
          * freed memory. */
         ASSERT_OK(sd_channel_close(signals));
         freed = sd_channel_unref(freed);
-        emit_changed(server, client, 4, 4);
+        SD_AWAIT(emit_changed(server, client, 4, 4));
         ASSERT_ERROR(sd_channel_try_pop(signals, &item), EPIPE);
         assert_pop_changed(latest, 4);
 

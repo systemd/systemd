@@ -75,7 +75,7 @@ int sd_device_get_devtype(sd_device *device, const char **ret);
 int sd_device_get_devnum(sd_device *device, dev_t *ret);
 int sd_device_get_ifindex(sd_device *device, int *ret);
 int sd_device_get_driver(sd_device *device, const char **ret);
-int sd_device_get_devpath(sd_device *device, const char **ret);
+_sd_sync_ int sd_device_get_devpath(sd_device *device, const char **ret);
 int sd_device_get_devname(sd_device *device, const char **ret);
 int sd_device_get_sysname(sd_device *device, const char **ret);
 int sd_device_get_sysnum(sd_device *device, const char **ret);

@@ -3,6 +3,8 @@
 
 #include "forward.h"
 
+SYNC_BEGIN
+
 #define PATH_SPLIT_BIN(x) x "sbin:" x "bin"
 #define PATH_SPLIT_BIN_NULSTR(x) x "sbin\0" x "bin\0"
 
@@ -191,3 +193,5 @@ bool path_strv_contains(char * const *l, const char *path);
 bool prefixed_path_strv_contains(char * const *l, const char *path);
 
 int path_glob_can_match(const char *pattern, const char *prefix, char **ret);
+
+SYNC_END

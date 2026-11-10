@@ -35,7 +35,7 @@ int locale_is_installed(const char *name);
 #define _(String) dgettext(GETTEXT_PACKAGE, String)
 #define N_(String) String
 
-bool is_locale_utf8(void);
+_sync_ bool is_locale_utf8(void);
 
 DECLARE_STRING_TABLE_LOOKUP(locale_variable, LocaleVariable);
 

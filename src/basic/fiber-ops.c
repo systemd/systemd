@@ -8,32 +8,51 @@
 
 static thread_local const FiberOps *fiber_ops = NULL;
 
-bool fiber_ops_is_set(void) {
-        return fiber_ops != NULL;
+bool fiber_ops_can_suspend(void) {
+        return fiber_ops && (!fiber_ops->io_blocked || !fiber_ops->io_blocked());
 }
 
 void fiber_ops_set(const FiberOps *ops) {
         fiber_ops = ops;
 }
 
+int fiber_ops_blocking_begin(void) {
+        if (!fiber_ops || !fiber_ops->block_suspend)
+                return 0;
+
+        fiber_ops->block_suspend(true);
+        return 1;
+}
+
+void fiber_ops_blocking_end(int *guard) {
+        assert(guard);
+
+        /* The atfork child handler clears the hooks before copied guards leave scope. */
+        if (!*guard || !fiber_ops)
+                return;
+
+        assert(fiber_ops->block_suspend);
+        fiber_ops->block_suspend(false);
+}
+
 int fiber_ops_ppoll(struct pollfd *fds, size_t n_fds, const struct timespec *timeout, const sigset_t *sigmask) {
-        if (fiber_ops)
-                return fiber_ops->ppoll(fds, n_fds, timeout, sigmask);
+        if (fiber_ops_can_suspend())
+                return SD_AWAIT(fiber_ops->ppoll(fds, n_fds, timeout, sigmask));
 
         return RET_NERRNO(ppoll(fds, n_fds, timeout, sigmask));
 }
 
 ssize_t fiber_ops_read(int fd, void *buf, size_t count) {
-        if (fiber_ops)
-                return fiber_ops->read(fd, buf, count);
+        if (fiber_ops_can_suspend())
+                return SD_AWAIT(fiber_ops->read(fd, buf, count));
 
         ssize_t n = read(fd, buf, count);
         return n < 0 ? -errno : n;
 }
 
 ssize_t fiber_ops_write(int fd, const void *buf, size_t count) {
-        if (fiber_ops)
-                return fiber_ops->write(fd, buf, count);
+        if (fiber_ops_can_suspend())
+                return SD_AWAIT(fiber_ops->write(fd, buf, count));
 
         return RET_NERRNO(write(fd, buf, count));
 }

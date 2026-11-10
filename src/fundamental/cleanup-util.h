@@ -7,14 +7,14 @@
  * Only useful when a void-returning function is required by some API. */
 #define DEFINE_TRIVIAL_DESTRUCTOR(name, type, func)     \
         static inline void name(type *p) {              \
-                func(p);                                \
+                SD_AWAIT(func(p));                      \
         }
 
 /* When func() returns the void value (NULL, -1, …) of the appropriate type */
 #define DEFINE_TRIVIAL_CLEANUP_FUNC(type, func)         \
         static inline void func##p(type *p) {           \
                 if (*p)                                 \
-                        *p = func(*p);                  \
+                        *p = SD_AWAIT(func(*p));        \
         }
 
 /* When func() doesn't return the appropriate type, set variable to empty afterwards. The func() may be
@@ -25,7 +25,7 @@
                         DISABLE_WARNING_ADDRESS;                        \
                         assert(func);                                   \
                         REENABLE_WARNING;                               \
-                        func(*p);                                       \
+                        SD_AWAIT(func(*p));                             \
                         *p = (empty);                                   \
                 }                                                       \
         }
@@ -52,7 +52,7 @@
         void helper ## _array(type *array, size_t n) {          \
                 assert(array || n == 0);                        \
                 FOREACH_ARRAY(item, array, n)                   \
-                        helper(*item);                          \
+                        SD_AWAIT(helper(*item));                \
                 free(array);                                    \
         }
 
@@ -62,7 +62,7 @@
         void helper ## _array_clear(type *array, size_t n) {    \
                 assert(array || n == 0);                        \
                 FOREACH_ARRAY(item, array, n)                   \
-                        *item = helper(*item);                  \
+                        *item = SD_AWAIT(helper(*item));        \
         }
 
 /* Clean up an array of objects of known size by dropping all the items in it.
@@ -71,7 +71,7 @@
         void name(type *array, size_t n) {                      \
                 assert(array || n == 0);                        \
                 FOREACH_ARRAY(item, array, n)                   \
-                        helper(item);                           \
+                        SD_AWAIT(helper(item));                 \
                 free(array);                                    \
         }
 
@@ -84,6 +84,7 @@ typedef struct ArrayCleanup {
         free_array_func_t pfunc;
 } ArrayCleanup;
 
+static inline void array_cleanup(const ArrayCleanup *c) _SD_SUSPEND_ANNOTATE("sd:cleanup_callback:pfunc");
 static inline void array_cleanup(const ArrayCleanup *c) {
         assert(c);
         assert(!c->parray == !c->pn);
@@ -119,6 +120,7 @@ typedef struct ElementsCleanup {
         free_array_func_t pfunc;
 } ElementsCleanup;
 
+static inline void elements_cleanup(const ElementsCleanup *c) _SD_SUSPEND_ANNOTATE("sd:cleanup_callback:pfunc");
 static inline void elements_cleanup(const ElementsCleanup *c) {
         assert(c);
 

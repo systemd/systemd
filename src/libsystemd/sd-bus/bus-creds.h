@@ -74,8 +74,8 @@ typedef struct sd_bus_creds {
         .pidfd = -EBADF,                \
         .audit_login_uid = UID_INVALID
 
-sd_bus_creds* bus_creds_new(void);
+_sync_ sd_bus_creds* bus_creds_new(void);
 
-void bus_creds_done(sd_bus_creds *c);
+_sync_ void bus_creds_done(sd_bus_creds *c);
 
-int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, PidRef *pidref, pid_t tid);
+_sync_ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, PidRef *pidref, pid_t tid);

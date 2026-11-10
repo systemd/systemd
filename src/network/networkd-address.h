@@ -81,8 +81,8 @@ void link_get_address_states(
                 LinkAddressState *ret_ipv6,
                 LinkAddressState *ret_all);
 
-void address_hash_func(const Address *a, struct siphash *state);
-int address_compare_func(const Address *a1, const Address *a2);
+_sync_ void address_hash_func(const Address *a, struct siphash *state);
+_sync_ int address_compare_func(const Address *a1, const Address *a2);
 extern const struct hash_ops address_hash_ops;
 
 bool address_can_update(const Address *existing, const Address *requesting);

@@ -32,11 +32,11 @@
 #define TMPFS_LIMITS_ROOTFS          TMPFS_LIMITS_VAR
 #define TMPFS_LIMITS_VOLATILE_STATE  TMPFS_LIMITS_VAR
 
-bool is_name_to_handle_at_fatal_error(int err);
+_sync_ bool is_name_to_handle_at_fatal_error(int err);
 
 int name_to_handle_at_loop(int fd, const char *path, struct file_handle **ret_handle, int *ret_mnt_id, uint64_t *ret_unique_mnt_id, int flags);
-int name_to_handle_at_try_fid(int fd, const char *path, struct file_handle **ret_handle, int *ret_mnt_id, uint64_t *ret_unique_mnt_id, int flags);
-int name_to_handle_at_u64(int fd, const char *path, uint64_t *ret);
+_sync_ int name_to_handle_at_try_fid(int fd, const char *path, struct file_handle **ret_handle, int *ret_mnt_id, uint64_t *ret_unique_mnt_id, int flags);
+_sync_ int name_to_handle_at_u64(int fd, const char *path, uint64_t *ret);
 static inline int path_to_handle_u64(const char *path, uint64_t *ret) {
         return name_to_handle_at_u64(AT_FDCWD, path, ret);
 }
@@ -44,7 +44,7 @@ static inline int fd_to_handle_u64(int fd, uint64_t *ret) {
         return name_to_handle_at_u64(fd, /* path= */ NULL, ret);
 }
 
-bool file_handle_equal(const struct file_handle *a, const struct file_handle *b);
+_sync_ bool file_handle_equal(const struct file_handle *a, const struct file_handle *b);
 struct file_handle* file_handle_dup(const struct file_handle *fh);
 
 int path_get_mnt_id_at(int dir_fd, const char *path, int *ret);
@@ -64,7 +64,7 @@ bool fstype_needs_quota(const char *fstype);
 bool fstype_has_internal_quota(const char *fstype);
 bool fstype_is_api_vfs(const char *fstype);
 bool fstype_is_blockdev_backed(const char *fstype);
-bool fstype_is_ro(const char *fsype);
+_sync_ bool fstype_is_ro(const char *fsype);
 bool fstype_can_discard(const char *fstype);
 bool fstype_can_ownership(const char *fstype);
 bool fstype_can_uid_gid(const char *fstype);
@@ -74,7 +74,7 @@ const char* fstype_norecovery_option(const char *fstype);
 
 int dev_is_devtmpfs(void);
 
-int mount_nofollow(
+_sync_ int mount_nofollow(
                 const char *source,
                 const char *target,
                 const char *filesystemtype,
