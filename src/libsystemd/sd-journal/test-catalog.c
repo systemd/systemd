@@ -37,14 +37,14 @@ static OrderedHashmap* test_import(const char* contents, ssize_t size, int code)
         return h;
 }
 
-static void test_catalog_import_invalid(void) {
+TEST(catalog_import_invalid) {
         _cleanup_ordered_hashmap_free_ OrderedHashmap *h = NULL;
 
         h = test_import("xxx", -1, -EINVAL);
         ASSERT_TRUE(ordered_hashmap_isempty(h));
 }
 
-static void test_catalog_import_badid(void) {
+TEST(catalog_import_badid) {
         _unused_ _cleanup_ordered_hashmap_free_ OrderedHashmap *h = NULL;
         const char *input =
 "-- 0027229ca0644181a76c4e92458afaff dededededededededededededededede\n" \
@@ -54,7 +54,7 @@ static void test_catalog_import_badid(void) {
         h = test_import(input, -1, -EINVAL);
 }
 
-static void test_catalog_import_one(void) {
+TEST(catalog_import_one) {
         _cleanup_ordered_hashmap_free_ OrderedHashmap *h = NULL;
         char *payload;
 
@@ -78,7 +78,7 @@ static void test_catalog_import_one(void) {
         }
 }
 
-static void test_catalog_import_merge(void) {
+TEST(catalog_import_merge) {
         _cleanup_ordered_hashmap_free_ OrderedHashmap *h = NULL;
         char *payload;
 
@@ -110,7 +110,7 @@ static void test_catalog_import_merge(void) {
                 ASSERT_STREQ(combined, payload);
 }
 
-static void test_catalog_import_merge_no_body(void) {
+TEST(catalog_import_merge_no_body) {
         _cleanup_ordered_hashmap_free_ OrderedHashmap *h = NULL;
         char *payload;
 
@@ -153,7 +153,7 @@ static void test_catalog_update(const char *database) {
         ASSERT_OK_ZERO(catalog_update(database, /* root= */ NULL, (const char * const *) catalog_dirs));
 }
 
-static void test_catalog_file_lang(void) {
+TEST(catalog_file_lang) {
         _cleanup_free_ char *lang = NULL, *lang2 = NULL, *lang3 = NULL, *lang4 = NULL;
 
         ASSERT_EQ(catalog_file_lang("systemd.de_DE.catalog", &lang), 1);
@@ -233,7 +233,7 @@ static void test_catalog_oob_offset_one(uint64_t item_offset, size_t strings_siz
         }
 }
 
-static void test_catalog_oob_offset(void) {
+TEST(catalog_oob_offset) {
         /* Offset lands far past EOF: rejected by the bounds check. */
         test_catalog_oob_offset_one(/* item_offset= */ UINT64_C(0x4000000000), /* strings_size= */ 0);
 
@@ -289,31 +289,10 @@ static void test_catalog_fallback_language(const char *database) {
         ASSERT_NOT_NULL(setlocale(LC_MESSAGES, saved));
 }
 
-int main(int argc, char *argv[]) {
+TEST(catalog_database) {
         _cleanup_(unlink_tempfilep) char database[] = "/tmp/test-catalog.XXXXXX";
         _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *text = NULL;
-
-        setlocale(LC_ALL, "de_DE.UTF-8");
-
-        test_setup_logging(LOG_DEBUG);
-
-        /* If test-catalog is located at the build directory, then use catalogs in that.
-         * If it is not, e.g. installed by systemd-tests package, then use installed catalogs. */
-        catalog_dirs = STRV_MAKE(get_catalog_dir());
-
-        ASSERT_OK_ERRNO(access(catalog_dirs[0], F_OK));
-        log_notice("Using catalog directory '%s'", catalog_dirs[0]);
-
-        test_catalog_file_lang();
-
-        test_catalog_oob_offset();
-
-        test_catalog_import_invalid();
-        test_catalog_import_badid();
-        test_catalog_import_one();
-        test_catalog_import_merge();
-        test_catalog_import_merge_no_body();
 
         ASSERT_OK(fd = mkostemp_safe(database));
 
@@ -328,6 +307,19 @@ int main(int argc, char *argv[]) {
 
         test_catalog_file(database);
         test_catalog_fallback_language(database);
+}
+
+static int intro(void) {
+        setlocale(LC_ALL, "de_DE.UTF-8");
+
+        /* If test-catalog is located at the build directory, then use catalogs in that.
+         * If it is not, e.g. installed by systemd-tests package, then use installed catalogs. */
+        catalog_dirs = STRV_MAKE(get_catalog_dir());
+
+        ASSERT_OK_ERRNO(access(catalog_dirs[0], F_OK));
+        log_notice("Using catalog directory '%s'", catalog_dirs[0]);
 
         return 0;
 }
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);
