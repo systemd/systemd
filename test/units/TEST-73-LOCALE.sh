@@ -672,6 +672,7 @@ testcase_localed_alternate_paths() {
 [Service]
 Environment=SYSTEMD_ETC_LOCALE_CONF=/run/alternate-path/mylocale.conf
 Environment=SYSTEMD_ETC_VCONSOLE_CONF=/run/alternate-path/myvconsole.conf
+ReadWritePaths=/run/alternate-path
 EOF
     systemctl daemon-reload
     systemctl restart systemd-localed
