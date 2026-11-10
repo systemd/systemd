@@ -22,15 +22,13 @@ int io_uring_init(IoUring *ring, unsigned entries, unsigned flags) {
 
         assert(ring);
         assert(!io_uring_is_initialized(ring));
-        /* io_uring_get_sqe() and IO_URING_FOREACH_CQE() assume 64-byte SQEs and 16-byte CQEs. With bigger
-         * or mixed entry sizes, they would return pointers into the middle of an entry. */
-        assert((flags & (IORING_SETUP_SQE128|IORING_SETUP_CQE32|IORING_SETUP_CQE_MIXED|IORING_SETUP_SQE_MIXED)) == 0);
+        assert((flags & (IORING_SETUP_CQE_MIXED|IORING_SETUP_SQE_MIXED)) == 0);
         /* With SQPOLL, a kernel thread reads the SQ ring and has to be woken up with
          * IORING_ENTER_SQ_WAKEUP. io_uring_submit() never passes that flag. */
         assert((flags & IORING_SETUP_SQPOLL) == 0);
 
         struct io_uring_params p = {
-                .flags = flags,
+                .flags = flags | IORING_SETUP_SQE128 | IORING_SETUP_CQE32,
         };
 
         fd = io_uring_setup(entries, &p);
@@ -42,12 +40,12 @@ int io_uring_init(IoUring *ring, unsigned entries, unsigned flags) {
         /* The kernel limits the SQ ring to 32768 entries and the CQ ring to 65536 entries, so the sizes
          * can't overflow. */
         size_t ring_size = MAX(p.sq_off.array + p.sq_entries * sizeof(uint32_t),
-                               p.cq_off.cqes + p.cq_entries * sizeof(struct io_uring_cqe));
+                               p.cq_off.cqes + p.cq_entries * sizeof(union io_uring_cqe32));
         void *rings = mmap(NULL, ring_size, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_POPULATE, fd, IORING_OFF_SQ_RING);
         if (rings == MAP_FAILED)
                 return -errno;
 
-        size_t sqes_size = p.sq_entries * sizeof(struct io_uring_sqe);
+        size_t sqes_size = p.sq_entries * sizeof(union io_uring_sqe128);
         void *sqes = mmap(NULL, sqes_size, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_POPULATE, fd, IORING_OFF_SQES);
         if (sqes == MAP_FAILED) {
                 int k = -errno;
@@ -69,7 +67,7 @@ int io_uring_init(IoUring *ring, unsigned entries, unsigned flags) {
                 .cq_head = (uint32_t*) ((uint8_t*) rings + p.cq_off.head),
                 .cq_tail = (uint32_t*) ((uint8_t*) rings + p.cq_off.tail),
                 .cq_mask = *(uint32_t*) ((uint8_t*) rings + p.cq_off.ring_mask),
-                .cqes = (struct io_uring_cqe*) ((uint8_t*) rings + p.cq_off.cqes),
+                .cqes = (union io_uring_cqe32*) ((uint8_t*) rings + p.cq_off.cqes),
                 .sqe_tail = *(uint32_t*) ((uint8_t*) rings + p.sq_off.tail),
         };
 
@@ -95,7 +93,7 @@ void io_uring_done(IoUring *ring) {
         *ring = IO_URING_NULL;
 }
 
-struct io_uring_sqe* io_uring_get_sqe(IoUring *ring) {
+union io_uring_sqe128* io_uring_get_sqe(IoUring *ring) {
         assert(ring);
         assert(io_uring_is_initialized(ring));
 
@@ -105,10 +103,10 @@ struct io_uring_sqe* io_uring_get_sqe(IoUring *ring) {
         if (ring->sqe_tail - head >= ring->sq_entries)
                 return NULL;
 
-        struct io_uring_sqe *sqe = &ring->sqes[ring->sqe_tail & ring->sq_mask];
+        union io_uring_sqe128 *sqe = &ring->sqes[ring->sqe_tail & ring->sq_mask];
         ring->sqe_tail++;
 
-        *sqe = (struct io_uring_sqe) {};
+        *sqe = (union io_uring_sqe128) {};
         return sqe;
 }
 

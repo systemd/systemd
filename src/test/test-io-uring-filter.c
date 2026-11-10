@@ -18,17 +18,17 @@
 #include "tmpfile-util.h"
 
 static int ring_submit(IoUring *ring, const struct io_uring_sqe *template) {
-        struct io_uring_cqe *cqe;
+        union io_uring_cqe32 *cqe;
         unsigned n = 0;
         int res = 0;
 
-        struct io_uring_sqe *sqe = ASSERT_NOT_NULL(io_uring_get_sqe(ring));
-        *sqe = *template;
+        union io_uring_sqe128 *sqe = ASSERT_NOT_NULL(io_uring_get_sqe(ring));
+        sqe->sqe = *template;
 
         ASSERT_OK(io_uring_submit_and_wait(ring, USEC_INFINITY));
 
         IO_URING_FOREACH_CQE(cqe, ring) {
-                res = cqe->res;
+                res = cqe->cqe.res;
                 n++;
         }
         ASSERT_EQ(n, 1u);
