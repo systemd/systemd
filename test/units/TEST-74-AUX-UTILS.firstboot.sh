@@ -192,6 +192,13 @@ systemd-firstboot --root="$ROOT" --root-password-hashed="$ROOT_HASHED_PASSWORD1"
 grep -q "^root:x:0:0:.*:/bin/fooshell$" "$ROOT/etc/passwd"
 grep -q "^root:$ROOT_HASHED_PASSWORD1:" "$ROOT/etc/shadow"
 
+# Unless a kernel command line is requested, /etc/kernel/ must not be created at all
+WROOT=test-root-kernel-cmdline
+rm -rf "$WROOT"; mkdir -p "$WROOT"
+systemd-firstboot --root="$WROOT" --hostname=foobar
+[[ ! -e "$WROOT/etc/kernel" ]]
+rm -rf "$WROOT"
+
 systemd-firstboot --root="$ROOT" --kernel-command-line="foo.bar=42"
 grep -q "foo.bar=42" "$ROOT/etc/kernel/cmdline"
 
