@@ -164,6 +164,8 @@ def header(file, *sources):
 
 
 def add_item(items, key, value):
+    # '#' starts a comment in hwdb files, escape it so that it is kept in the value
+    value = value.replace('#', '\\#')
     if key in items:
         print(f'Ignoring duplicate entry: {key} = "{items[key]}", "{value}"')
     else:
