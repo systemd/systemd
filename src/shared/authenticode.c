@@ -212,7 +212,7 @@ int authenticode_spc_indirect_data_content_new(const void *digest, size_t digest
         if (!link->value.file->value.unicode)
                 return log_oom_debug();
 
-        if (sym_ASN1_STRING_set(link->value.file->value.unicode, obsolete, sizeof(obsolete)) == 0)
+        if (sym_ASN1_STRING_set1_data(link->value.file->value.unicode, obsolete, sizeof(obsolete)) == 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to set ASN1 string");
 
         _cleanup_(SpcPeImageData_freep) SpcPeImageData *peid = SpcPeImageData_new();
@@ -243,7 +243,7 @@ int authenticode_spc_indirect_data_content_new(const void *digest, size_t digest
         if (!idc->data->type)
                 return log_openssl_errors(LOG_DEBUG, "Failed to get SpcPeImageData object");
 
-        if (!sym_ASN1_STRING_set(idc->data->value->value.sequence, peidraw, peidrawsz))
+        if (!sym_ASN1_STRING_set1_data(idc->data->value->value.sequence, peidraw, peidrawsz))
                 return log_openssl_errors(LOG_DEBUG, "Failed to set ASN1_STRING data");
 
         idc->messageDigest->digestAlgorithm->algorithm = sym_OBJ_nid2obj(NID_sha256);
@@ -421,7 +421,7 @@ int authenticode_pkcs7_finalize(PKCS7 *p7, const void *idc, size_t idc_size, uin
         if (!p7c->d.other->value.sequence)
                 return log_oom_debug();
 
-        if (sym_ASN1_STRING_set(p7c->d.other->value.sequence, idc, idc_size) == 0)
+        if (sym_ASN1_STRING_set1_data(p7c->d.other->value.sequence, idc, idc_size) == 0)
                 return log_openssl_errors(LOG_DEBUG, "Failed to set ASN1 string");
 
         if (sym_PKCS7_set_content(p7, p7c) == 0)
