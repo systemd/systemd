@@ -617,6 +617,13 @@ static int daemon_reload(void) {
         return bus_service_manager_reload(bus);
 }
 
+static bool unit_is_masked(sd_bus *bus, const char *unit) {
+        _cleanup_free_ char *load_state = NULL;
+
+        /* A job is also refused as masked when only a dependency of the unit is masked. */
+        return unit_load_state(bus, unit, &load_state) >= 0 && streq(load_state, "masked");
+}
+
 static int dispatch_unit_method(sd_bus *bus, BusWaitForJobs *w, Set *units, const char *method) {
         const char *unit;
         int r;
@@ -627,7 +634,8 @@ static int dispatch_unit_method(sd_bus *bus, BusWaitForJobs *w, Set *units, cons
 
         /* Issue the given method for each unit and wait for the jobs to complete. Fall back to StopUnit
          * when the call reports that the unit's file is gone, e.g., on unmerge when the unit was part of
-         * the extension, because otherwise the running service is leaked. */
+         * the extension, because otherwise the running service is leaked. The same holds for a masked
+         * unit, which the service manager otherwise keeps running across the reload. */
 
         SET_FOREACH(unit, units) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -635,7 +643,9 @@ static int dispatch_unit_method(sd_bus *bus, BusWaitForJobs *w, Set *units, cons
                 const char *m = method, *job;
 
                 r = bus_call_method(bus, bus_systemd_mgr, m, &error, &reply, "ss", unit, "replace");
-                if (r < 0 && sd_bus_error_has_names(&error, BUS_ERROR_NO_SUCH_UNIT, BUS_ERROR_LOAD_FAILED)) {
+                if (r < 0 &&
+                    (sd_bus_error_has_names(&error, BUS_ERROR_NO_SUCH_UNIT, BUS_ERROR_LOAD_FAILED) ||
+                     (sd_bus_error_has_name(&error, BUS_ERROR_UNIT_MASKED) && unit_is_masked(bus, unit)))) {
                         sd_bus_error_free(&error);
                         m = "StopUnit";
                         r = bus_call_method(bus, bus_systemd_mgr, m, &error, &reply, "ss", unit, "replace");
