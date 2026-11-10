@@ -36,7 +36,9 @@ static size_t entry_serialized_size(Uploader *u) {
                 }
                 if (r == 0)
                         break;
-                size += len + 16;
+                size = size_add(size, size_add(len, 16));
+                if (size == SIZE_MAX)
+                        break;
         }
 
         /* Leave the field enumeration fresh for write_entry(). */
@@ -374,7 +376,7 @@ static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void 
                         size_t entry_size = entry_serialized_size(u);
 
                         if (u->batch_bytes > 0 &&
-                            (entry_size == SIZE_MAX || u->batch_bytes + entry_size > JOURNAL_UPLOAD_MAX_BATCH)) {
+                            (entry_size == SIZE_MAX || size_add(u->batch_bytes, entry_size) > JOURNAL_UPLOAD_MAX_BATCH)) {
                                 log_debug("Serialized %zu bytes for this request, ending it at an entry boundary.",
                                           u->batch_bytes);
                                 u->batch_end = true;
@@ -460,6 +462,11 @@ static int process_journal_input(Uploader *u, int skip) {
 }
 
 int check_journal_input(Uploader *u) {
+        /* Keep the journal position stable until a pending entry has been sent
+         * by the next request, even if the journal rotates in the meantime. */
+        if (u->uploading)
+                return 0;
+
         if (u->input_event) {
                 int r;
 

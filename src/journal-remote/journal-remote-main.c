@@ -69,7 +69,7 @@ static uint64_t arg_max_use = UINT64_MAX;
 static uint64_t arg_max_size = UINT64_MAX;
 static uint64_t arg_n_max_files = UINT64_MAX;
 static uint64_t arg_keep_free = UINT64_MAX;
-static uint64_t arg_max_upload = 0;
+static uint64_t arg_max_upload = UINT64_MAX;
 
 static OrderedHashmap *arg_compression = NULL;
 
@@ -307,13 +307,19 @@ static int process_http_upload(
                 /* Chunked uploads declare no size, so request_handler() cannot
                  * reject them upfront. If a total limit is configured, count
                  * the raw (pre-decompression) bytes received and answer with
-                 * 413 once they exceed it. */
-                if (journal_remote_server_global->max_upload > 0 &&
-                    source->raw_uploaded + *upload_data_size > journal_remote_server_global->max_upload)
-                        return mhd_respondf(connection, 0, MHD_HTTP_CONTENT_TOO_LARGE,
-                                            "Payload larger than maximum size of %" PRIu64 " bytes",
-                                            journal_remote_server_global->max_upload);
-                source->raw_uploaded += *upload_data_size;
+                 * HTTP 413 once they exceed it. */
+                if (journal_remote_server_global->max_upload != UINT64_MAX) {
+                        uint64_t max_upload = journal_remote_server_global->max_upload;
+
+                        /* Subtract rather than adding first: the total is an untrusted byte count
+                         * and must not wrap around UINT64_MAX. */
+                        if (source->raw_uploaded > max_upload ||
+                            *upload_data_size > max_upload - source->raw_uploaded)
+                                return mhd_respondf(connection, 0, MHD_HTTP_CONTENT_TOO_LARGE,
+                                                    "Payload larger than maximum size of %" PRIu64 " bytes",
+                                                    max_upload);
+                        source->raw_uploaded += *upload_data_size;
+                }
 
                 if (source->compression != COMPRESSION_NONE) {
                         _cleanup_free_ char *buf = NULL;
@@ -447,7 +453,7 @@ static mhd_result request_handler(
                         return mhd_respondf(connection, 0, MHD_HTTP_CONTENT_TOO_LARGE,
                                             "Payload larger than maximum size of %u bytes", ENTRY_SIZE_MAX);
 
-                if (journal_remote_server_global->max_upload > 0 &&
+                if (journal_remote_server_global->max_upload != UINT64_MAX &&
                     len > journal_remote_server_global->max_upload)
                         return mhd_respondf(connection, 0, MHD_HTTP_CONTENT_TOO_LARGE,
                                             "Payload larger than maximum size of %" PRIu64 " bytes",

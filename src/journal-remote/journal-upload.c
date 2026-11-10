@@ -23,6 +23,7 @@
 #include "fs-util.h"
 #include "glob-util.h"
 #include "hashmap.h"
+#include "journal-def.h"
 #include "journal-header-util.h"
 #include "journal-upload.h"
 #include "journal-util.h"
@@ -193,11 +194,10 @@ int start_upload(Uploader *u,
         assert(u);
         assert(input_callback);
 
-        /* Regular files are uploaded with a declared size, so that the server
-         * applies its admission check before anything is received. Inputs of
-         * unknown size and compressed uploads (whose wire size differs from the
-         * input size) stay chunked. An empty input (or one already read to its
-         * end) declares nothing, so that the read callback runs and sees EOF. */
+        /* Regular files small enough for the server's Content-Length admission check
+         * declare their size. Larger files must remain chunked to preserve the
+         * existing behavior when no upload limit is configured. Unknown-size,
+         * compressed, and empty inputs are also sent chunked. */
         bool chunked = true;
         curl_off_t size = -1;
 
@@ -207,7 +207,8 @@ int start_upload(Uploader *u,
                 if (fstat(u->input, &st) >= 0 && S_ISREG(st.st_mode)) {
                         off_t offset = lseek(u->input, 0, SEEK_CUR);
 
-                        if (offset >= 0 && st.st_size > offset) {
+                        if (offset >= 0 && st.st_size > offset &&
+                            st.st_size - offset <= ENTRY_SIZE_MAX) {
                                 chunked = false;
                                 size = st.st_size - offset;
                         }

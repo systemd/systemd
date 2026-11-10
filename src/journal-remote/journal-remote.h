@@ -23,7 +23,7 @@ typedef struct RemoteServer {
 
         JournalWriteSplitMode split_mode;
         JournalFileFlags file_flags;
-        uint64_t max_upload;                   /* total size cap for chunked uploads, 0 = no limit */
+        uint64_t max_upload;                   /* total size cap for chunked uploads, UINT64_MAX = no limit */
         bool check_trust;
         bool add_client_certificate_subject;
         JournalMetrics metrics;
