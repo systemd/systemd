@@ -41,6 +41,14 @@ if [ ! -e "$D/etc/udev/hwdb.bin" ]; then
     exit 1
 fi
 
+# A '#' escaped as "\#" in the imported databases is kept in the value
+out=$("$SYSTEMD_HWDB" query --root "$D" pci:v00001002d00004347)
+if ! printf '%s\n' "$out" | grep -Fx 'ID_MODEL_FROM_DATABASE=SB200 OHCI USB Controller #1' >/dev/null; then
+    echo "Unexpected properties for pci:v00001002d00004347:"
+    echo "$out"
+    exit 1
+fi
+
 # Test "bad" properties" — warnings required, errors not allowed
 rm -rf "$D/etc/udev/hwdb.bin" "$D/etc/udev/hwdb.d"
 

@@ -323,11 +323,11 @@ cmp /var/tmp/mangletest/mangletest-0.1/usr/lib/os-release /home/testuser/.local/
 #   -> system PID 1 (user@<UID>.service fd store)
 # Then restart the nspawn service and verify the inner payload actually
 # receives the preserved fds back via LISTEN_FDS, with their original content.
+
+dummy_container_has /usr/bin/test-fdstore || exit 77
+
 create_dummy_container /home/testuser/.local/state/machines/fdstore
-if [[ ! -x /home/testuser/.local/state/machines/fdstore/usr/bin/test-fdstore ]]; then
-    echo >&2 "test-fdstore not available in the minimal container, skipping fdstore tests"
-    exit 0
-fi
+
 # The container init execs the helper directly so the FDSTORE notification is
 # sent from PID 1 (nspawn rejects notify messages from anyone but the inner
 # payload's init). The helper itself execs sleep on success to keep the

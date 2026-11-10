@@ -370,10 +370,13 @@
           loading and lets QEMU use its built-in BIOS (e.g. SeaBIOS on x86). <literal>none</literal> disables
           firmware loading entirely and requires <option>--linux=</option> to be specified for direct kernel
           boot. Booting a UKI requires <literal>uefi</literal>. If the special string <literal>list</literal>
-          is specified, all discovered firmware definition files are listed. If the special string
-          <literal>describe</literal> is specified, the UEFI firmware that would be selected (taking
-          <option>--firmware-features=</option> and <option>--coco=</option> into account) is printed and
-          the program exits. If an empty string is specified, the option is reset to its default.</para>
+          is specified, the UEFI firmware definition files eligible for selection are listed in order of
+          preference, and the program exits. If the special string <literal>describe</literal> is specified,
+          the UEFI firmware that would be selected is printed and the program exits. Both take
+          <option>--firmware-features=</option> and <option>--secure-boot=</option> into account.
+          <literal>list</literal> also takes <option>--coco=</option> into account, while
+          <literal>describe</literal> is refused with it, as firmware is not selected automatically for
+          confidential VMs. If an empty string is specified, the option is reset to its default.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>
@@ -403,11 +406,15 @@
           <literal>no</literal>, <literal>sev-snp</literal> or <literal>tdx</literal>. Defaults to
           <literal>no</literal>.</para>
 
+          <para>Firmware is not selected automatically for confidential VMs; a firmware descriptor file
+          must be passed to <option>--firmware=</option>. The firmware features in the QEMU firmware
+          descriptors only declare that a firmware can run in a confidential VM, not whether the build is
+          suitable for attestation, e.g. whether it verifies the kernel hashes under SEV-SNP. Use
+          <option>--firmware=list</option> together with this option to list the candidates.</para>
+
           <para><literal>sev-snp</literal> enables AMD SEV-SNP. This requires KVM on an x86_64 host with
-          SNP-capable hardware and firmware. A suitable SNP-built OVMF firmware is picked automatically
-          from the installed QEMU firmware descriptors, by requiring the <literal>amd-sev-snp</literal>
-          firmware feature; use <option>--firmware=</option> with a path to a firmware descriptor file to
-          select a specific one. Secure Boot is effectively off by default (see
+          SNP-capable hardware and firmware, and firmware declaring the <literal>amd-sev-snp</literal>
+          firmware feature. Secure Boot is effectively off by default (see
           <option>--secure-boot=</option>). Direct kernel boot via
           <option>--linux=</option> is required so that the kernel, initrd and command line are hashed
           into the launch measurement (<literal>kernel-hashes=on</literal>); booting the kernel off the
@@ -424,14 +431,11 @@
           <filename>/.extra/system_credentials/</filename>).</para>
 
           <para><literal>tdx</literal> enables Intel TDX. This requires KVM on an x86_64 host with
-          TDX-capable hardware and a TDX-enabled host kernel. As with <literal>sev-snp</literal>, a
-          TDX-built OVMF (TDVF) firmware is picked automatically from the installed QEMU firmware
-          descriptors, by requiring the <literal>intel-tdx</literal> firmware feature; use
-          <option>--firmware=</option> with a path to a firmware descriptor file to select a specific
-          one. The CPU model is fixed to <literal>host</literal>. Firmware is measured into MRTD when the
-          TD is built. Secure Boot cannot be enrolled at runtime (there is no writable NVRAM); its state
-          is fixed by the selected TDVF image and is part of the measured firmware (see
-          <option>--secure-boot=</option>).
+          TDX-capable hardware and a TDX-enabled host kernel, and TDX-built OVMF (TDVF) firmware
+          declaring the <literal>intel-tdx</literal> firmware feature. The CPU model is fixed to
+          <literal>host</literal>. Firmware is measured into MRTD when the TD is built. Secure Boot cannot
+          be enrolled at runtime (there is no writable NVRAM); its state is fixed by the selected TDVF image
+          and is part of the measured firmware (see <option>--secure-boot=</option>).
           When booting a UKI, the whole UKI PE is measured into RTMR 1, and the loaded sections are
           measured individually by <command>systemd-stub</command> into RTMR 2. For direct linux boot,
           firmware measures the kernel PE into RTMR 1, and the Linux EFI stub measures initrd and
