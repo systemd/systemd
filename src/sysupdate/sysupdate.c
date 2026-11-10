@@ -1986,7 +1986,7 @@ static int context_on_acquire_progress(const Transfer *t, const Instance *inst, 
                                               overall, n - i, i, inst->metadata.version, overall);
 }
 
-static int context_process_partial_and_pending(Context *c, const char *version);
+static int context_install_pending(Context *c, UpdateSet *us);
 
 static int context_acquire(
                 Context *c,
@@ -2018,7 +2018,7 @@ static int context_acquire(
         } else if (FLAGS_SET(us->flags, UPDATE_PENDING)) {
                 log_info("Selected update '%s' is already acquired and pending installation.", us->version);
 
-                return context_process_partial_and_pending(c, version);
+                return context_install_pending(c, us);
         } else if (FLAGS_SET(us->flags, UPDATE_INSTALLED)) {
                 log_info("Selected update '%s' is already installed. Skipping update.", us->version);
 
@@ -2108,7 +2108,6 @@ static int context_process_partial_and_pending(
                 const char *version) {
 
         UpdateSet *us = NULL;
-        int r;
 
         assert(c);
 
@@ -2151,7 +2150,14 @@ static int context_process_partial_and_pending(
 
         log_info("Selected update '%s' for install.", us->version);
 
-        /* There should now be one instance picked for each transfer, and the order is the same */
+        return context_install_pending(c, us);
+}
+
+static int context_install_pending(Context *c, UpdateSet *us) {
+        int r;
+
+        assert(c);
+        assert(us);
         assert(us->n_instances == c->n_transfers);
 
         for (size_t i = 0; i < c->n_transfers; i++) {
