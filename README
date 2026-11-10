@@ -297,8 +297,13 @@ REQUIREMENTS:
                 NOTE: If using dbus < 1.9.18, you should override the default
                 policy directory (--with-dbuspolicydir=/etc/dbus-1/system.d).
         polkit (optional)
-        gnupg >= 2.4 (optional, for signature verification in: importctl,
-                      systemd-sysupdate)
+        gnupg >= 2.4.8 or >= 2.5.5 (optional, for signature verification in:
+                      importctl, systemd-sysupdate)
+                NOTE: Older versions accept a signature made with any key that
+                is included in the signature itself, even if that key is not
+                in the keyring: with --auto-key-import, when
+                --import-options=merge-only skips importing the key, they do
+                not verify the signature again against the keyring.
 
         To build in directory build/:
           meson setup build/ && ninja -C build/
