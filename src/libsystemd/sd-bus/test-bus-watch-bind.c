@@ -205,13 +205,11 @@ static int request_exit(void *userdata) {
         return 0;
 }
 
-int main(int argc, char *argv[]) {
+TEST(watch_bind) {
         _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_future_unrefp) sd_future *f_server = NULL, *f_client1 = NULL, *f_client2 = NULL, *f_exit = NULL;
         char *path;
-
-        test_setup_logging(LOG_DEBUG);
 
         /* We use /dev/shm here rather than /tmp, since some weird distros might set up /tmp as some weird fs that
          * doesn't support inotify properly. */
@@ -240,6 +238,6 @@ int main(int argc, char *argv[]) {
         ASSERT_OK(sd_future_result(f_client2));
         ASSERT_OK(sd_future_result(f_exit));
         ASSERT_OK(sd_future_result(f_server));
-
-        return EXIT_SUCCESS;
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);
