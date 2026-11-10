@@ -1527,6 +1527,28 @@ jobs:
             const headings = { "must-fix": "Must fix", "suggestion": "Suggestions", "nit": "Nits" };
             /* Stay well below GitHub's 65536 character limit for comments. */
             const MAX_SUMMARY_LENGTH = 60000;
+            /* Each item stays on a single line, the full text is in its review
+             * thread. Counts the path as well, but leaves room for some text
+             * even if the path is long. Findings without a link are exempt. */
+            const MAX_ITEM_LENGTH = 100;
+            const MIN_BODY_LENGTH = 40;
+            /* Takes the first line, cut at a word boundary to at most max
+             * characters, and marks it with an ellipsis if anything was left
+             * out. A code span that was cut open is closed again. */
+            const shorten = (text, max) => {
+              const lines = text.trim().split("\n");
+              let line = lines[0].trimEnd();
+              if (line.length <= max && lines.length === 1)
+                return line;
+              if (line.length > max) {
+                const space = line.lastIndexOf(" ", max);
+                line = line.slice(0, space > 0 ? space : max);
+              }
+              line = line.replace(/[\s.,;:]+$/, "");
+              if ((line.match(/`/g) || []).length % 2 === 1)
+                line += "`";
+              return `${line}…`;
+            };
             let omitted = 0;
             for (const severity of Object.keys(headings)) {
               const items = findings.filter((c) => c.severity === severity);
@@ -1537,7 +1559,13 @@ jobs:
               for (const c of items) {
                 const path = sanitizeMarkdown(c.path || "").replace(/[`\r\n]/g, "");
                 const where = `\`${path}${c.line ? `:${c.line}` : ""}\``;
-                const body = sanitizeMarkdown(c.body).split("\n")[0];
+                /* Without a link, nothing leads to the full text, so findings that
+                 * could not be posted, or whose threads could not be fetched, are
+                 * not shortened. */
+                const body = !c.url
+                  ? sanitizeMarkdown(c.body).split("\n")[0]
+                  : shorten(sanitizeMarkdown(c.body),
+                            Math.max(MIN_BODY_LENGTH, MAX_ITEM_LENGTH - path.length));
                 const notes = [
                   c.unposted && "could not be posted inline",
                   c.outdated && !c.resolved && "outdated",
