@@ -1983,19 +1983,24 @@ test_zero_fill() {
     fi
 }
 
+gpg_has_working_merge_only() {
+    # Older gpg accepts embedded keys missing from the keyring despite merge-only with --auto-key-import.
+    # Fixed in 2.4.8 and 2.5.5.
+    systemd-analyze compare-versions "$1" ge 2.4.8 &&
+        { systemd-analyze compare-versions "$1" lt 2.5 ||
+          systemd-analyze compare-versions "$1" ge 2.5.5; }
+}
+
 test_signature_verification() {
     if ! command -v gpg >/dev/null; then
         echo "gpg not available, skipping signature verification test"
         return 0
     fi
 
-    # Checking for --auto-key-import is not enough because the merge-only/import-clean guarantee we rely on
-    # only works correctly with gpg 2.4
-    local gpg_version gpg_rest
+    local gpg_version
     gpg_version="$(gpg --version | sed -n '1p' | awk '{print $NF}')"
-    gpg_rest="${gpg_version#*.}"
-    if [ "${gpg_version%%.*}" -lt 2 ] || { [ "${gpg_version%%.*}" -eq 2 ] && [ "${gpg_rest%%.*}" -lt 4 ]; }; then
-        echo "gpg $gpg_version too old (need >= 2.4), skipping signature verification test"
+    if ! gpg_has_working_merge_only "$gpg_version"; then
+        echo "gpg $gpg_version has broken merge-only support, skipping signature verification test"
         return 0
     fi
 
@@ -2108,11 +2113,10 @@ test_signature_keyring_overlay() (
         exit 0
     fi
 
-    local gpg_version gpg_rest
+    local gpg_version
     gpg_version="$(gpg --version | sed -n '1p' | awk '{print $NF}')"
-    gpg_rest="${gpg_version#*.}"
-    if [ "${gpg_version%%.*}" -lt 2 ] || { [ "${gpg_version%%.*}" -eq 2 ] && [ "${gpg_rest%%.*}" -lt 4 ]; }; then
-        echo "gpg $gpg_version too old (need >= 2.4), skipping signature overlay test"
+    if ! gpg_has_working_merge_only "$gpg_version"; then
+        echo "gpg $gpg_version has broken merge-only support, skipping signature overlay test"
         exit 0
     fi
 
