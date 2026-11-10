@@ -3,6 +3,7 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "dns-domain.h"
 #include "dns-packet.h"
 #include "hash-funcs.h"
 #include "in-addr-util.h"
@@ -510,16 +511,30 @@ static const sd_json_dispatch_field search_domain_runtime_dispatch_table[] = {
 
 static int dispatch_search_domain(const sd_json_dispatch_field table[], const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         SearchDomain **ret = ASSERT_PTR(userdata);
-        _cleanup_(search_domain_freep) SearchDomain *d = NULL;
         int r;
 
-        d = new0(SearchDomain, 1);
+        _cleanup_(search_domain_freep) SearchDomain *d = new0(SearchDomain, 1);
         if (!d)
                 return log_oom();
 
         r = sd_json_dispatch(variant, table, flags, d);
         if (r < 0)
                 return r;
+
+        r = dns_name_is_valid(d->name);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Invalid search domain %s", d->name);
+
+        if (!d->route_only && dns_name_is_root(d->name))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Root domain is not suitable as search domain %s", d->name);
+
+        _cleanup_free_ char *normalized = NULL;
+        r = dns_name_normalize(d->name, /* flags= */ 0, &normalized);
+        if (r < 0)
+                return r;
+        free_and_replace(d->name, normalized);
 
         *ret = TAKE_PTR(d);
 
