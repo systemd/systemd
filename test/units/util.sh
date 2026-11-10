@@ -48,11 +48,47 @@ assert_neq() (
     fi
 )
 
+assert_empty() (
+    set +ex
+
+    if [[ -n "${1?}" ]]; then
+        echo "FAIL: expected an empty string, actual: '$1'" >&2
+        exit 1
+    fi
+)
+
+assert_not_empty() (
+    set +ex
+
+    if [[ -z "${1?}" ]]; then
+        echo "FAIL: expected a non-empty string" >&2
+        exit 1
+    fi
+)
+
+assert_lt() (
+    set +ex
+
+    if [[ "${1:?}" -ge "${2:?}" ]]; then
+        echo "FAIL: '$1' >= '$2'" >&2
+        exit 1
+    fi
+)
+
 assert_le() (
     set +ex
 
     if [[ "${1:?}" -gt "${2:?}" ]]; then
         echo "FAIL: '$1' > '$2'" >&2
+        exit 1
+    fi
+)
+
+assert_gt() (
+    set +ex
+
+    if [[ "${1:?}" -le "${2:?}" ]]; then
+        echo "FAIL: '$1' <= '$2'" >&2
         exit 1
     fi
 )
