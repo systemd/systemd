@@ -129,6 +129,7 @@ shared_sources = files(
         'libfido2-util.c',
         'libmount-util.c',
         'local-addresses.c',
+        'lock-util.c',
         'locale-setup.c',
         'log-assert-critical.c',
         'logs-show.c',
