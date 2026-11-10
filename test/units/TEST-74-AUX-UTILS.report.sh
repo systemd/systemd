@@ -152,10 +152,10 @@ testcase_hwmon() {
         fi
     done
     hwmon_reported="$(metric_count "$hwmon_metrics" --name io.systemd.HWMon.TemperatureCelsius)"
-    [[ "$hwmon_reported" -le "$hwmon_expected" ]]
+    assert_le "$hwmon_reported" "$hwmon_expected"
     if [[ "$hwmon_reported" -gt 0 ]]; then
         # Every row must carry a numeric value, an object and a sensor field of the form temp<N>
-        [[ "$(echo "$hwmon_metrics" | jq --seq -r 'select(.name == "io.systemd.HWMon.TemperatureCelsius") | ((.value | type) == "number") and ((.object | type) == "string") and (.fields.sensor | test("^temp[0-9]+$")) | tostring' | sort -u)" == "true" ]]
+        assert_eq "$(echo "$hwmon_metrics" | jq --seq -r 'select(.name == "io.systemd.HWMon.TemperatureCelsius") | ((.value | type) == "number") and ((.object | type) == "string") and (.fields.sensor | test("^temp[0-9]+$")) | tostring' | sort -u)" "true"
     fi
     "$REPORT" describe io.systemd.HWMon
     "$REPORT" metrics io.systemd.HWMon
@@ -637,8 +637,8 @@ testcase_generate() {
     # Without --nonce= no nonce field is included, with it the nonce is included verbatim
     "$REPORT" generate io.systemd.Manager.UnitsTotal | jq -e 'has("nonce") | not' >/dev/null
     NONCE="$(openssl rand -base64 32)"
-    [ "$("$REPORT" generate --nonce="$NONCE" io.systemd.Manager.UnitsTotal | jq -r .nonce)" = "$NONCE" ]
-    (! "$REPORT" generate --nonce='!!!not base64!!!' io.systemd.Manager.UnitsTotal)
+    assert_eq "$("$REPORT" generate --nonce="$NONCE" io.systemd.Manager.UnitsTotal | jq -r .nonce)" "$NONCE"
+    assert_fail "$REPORT" generate --nonce='!!!not base64!!!' io.systemd.Manager.UnitsTotal
 }
 
 testcase_upload_http() {
@@ -859,7 +859,7 @@ EOF
     # An unreachable endpoint and no cache: nothing is reported, which the metrics helpers signal with
     # the NoSuchMetric sentinel error (as any source without metrics does).
     rm -f /var/lib/systemd/report-geoip/cache.json
-    (! varlinkctl call --more /run/systemd/report/io.systemd.GeoIP io.systemd.Metrics.List {} 2>&1) | grep NoSuchMetric >/dev/null
+    assert_fail varlinkctl call --more /run/systemd/report/io.systemd.GeoIP io.systemd.Metrics.List {} 2>&1 | grep NoSuchMetric >/dev/null
 }
 
 testcase_sign_plain() {
@@ -900,11 +900,11 @@ testcase_sign_plain() {
     # The remaining record(s) are signature objects. With only the plain backend
     # enabled there is exactly one, with mechanism "plain".
     sig_json="$(tail -n +2 "$SIGN_WORK/report.seq" | tr -d '\036')"
-    [ "$(echo "$sig_json" | jq -r .mechanism)" = "plain" ]
-    [ "$(echo "$sig_json" | jq -r .mediaType)" = "application/vnd.io.systemd.report.signature" ]
+    assert_eq "$(echo "$sig_json" | jq -r .mechanism)" "plain"
+    assert_eq "$(echo "$sig_json" | jq -r .mediaType)" "application/vnd.io.systemd.report.signature"
 
     # The sha256 recorded in the signature must match the digest of the report bytes.
-    [ "$(echo "$sig_json" | jq -r .sha256)" = "$(sha256sum "$SIGN_WORK/message.bin" | cut -d' ' -f1)" ]
+    assert_eq "$(echo "$sig_json" | jq -r .sha256)" "$(sha256sum "$SIGN_WORK/message.bin" | cut -d' ' -f1)"
 
     # Extract the embedded public key and the raw Ed25519 signature.
     echo "$sig_json" | jq -r .data.key >"$SIGN_WORK/pub.pem"
@@ -924,11 +924,8 @@ testcase_sign_plain() {
     # A tampered report must no longer verify against the signature.
     printf 'x' >>"$SIGN_WORK/message.bin"
     openssl dgst -sha256 -binary "$SIGN_WORK/message.bin" >"$SIGN_WORK/digest-bad.bin"
-    if openssl pkeyutl -verify -pubin -inkey "$SIGN_WORK/pub.pem" -rawin \
-        -in "$SIGN_WORK/digest-bad.bin" -sigfile "$SIGN_WORK/sig.bin"; then
-        echo "Signature verification unexpectedly succeeded for tampered report" >&2
-        exit 1
-    fi
+    assert_fail openssl pkeyutl -verify -pubin -inkey "$SIGN_WORK/pub.pem" -rawin \
+        -in "$SIGN_WORK/digest-bad.bin" -sigfile "$SIGN_WORK/sig.bin"
 
     # -----------------------------------------------------------------------------
     # The plain backend also acts as a metric provider, exposing its public signing
