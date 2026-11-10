@@ -438,29 +438,24 @@ static int split_unit_string(const char *s, const char *field, const char *exten
 
 static int get_extension_release_metadata(
                 const Context *c,
-                bool *ret_need_reload,
-                Set **ret_restart_units,
-                Set **ret_reload_or_restart_units) {
+                bool *need_reload,
+                Set **restart_units,
+                Set **reload_or_restart_units) {
 
         /* Parse the mounted images to find out if we need to reload the daemon, and which units to
-         * restart or reload-or-restart afterwards. */
-        _cleanup_set_free_ Set *restart_units = NULL, *reload_or_restart_units = NULL;
-        bool need_to_reload = false;
+         * restart or reload-or-restart afterwards. The results are added to what the caller passes in, so
+         * that a refresh can combine the metadata of the extensions merged before and after it. */
         int r;
 
         assert(c);
+        assert(need_reload);
+        assert(restart_units);
+        assert(reload_or_restart_units);
 
-        if (c->no_reload || !isempty(c->root)) {
+        if (c->no_reload || !isempty(c->root))
                 /* With --root= we'd be talking to the host service manager about extensions merged
                  * into a foreign root, which is never what we want. */
-                if (ret_need_reload)
-                        *ret_need_reload = false;
-                if (ret_restart_units)
-                        *ret_restart_units = NULL;
-                if (ret_reload_or_restart_units)
-                        *ret_reload_or_restart_units = NULL;
                 return 0;
-        }
 
         STRV_FOREACH(p, c->hierarchies) {
                 _cleanup_free_ char *f = NULL, *buf = NULL, *resolved = NULL;
@@ -510,43 +505,39 @@ static int get_extension_release_metadata(
                                 if (b < 0)
                                         log_warning_errno(b, "Failed to parse EXTENSION_RELOAD_MANAGER= of %s, ignoring: %m", *extension);
                                 else if (b)
-                                        need_to_reload = true;
+                                        *need_reload = true;
                         }
 
-                        if (ret_restart_units) {
-                                value = strv_env_pairs_get(extension_release, "EXTENSION_RESTART_UNITS");
-                                r = split_unit_string(value, "EXTENSION_RESTART_UNITS", *extension, &restart_units);
-                                if (r < 0)
-                                        return r;
-                                if (!isempty(value))
-                                        /* Listing units to restart implies a manager reload because a unit
-                                         * shipped (and later removed) by the extension would otherwise not
-                                         * be visible to the manager when RestartUnit/StopUnit is issued. */
-                                        need_to_reload = true;
-                        }
+                        value = strv_env_pairs_get(extension_release, "EXTENSION_RESTART_UNITS");
+                        r = split_unit_string(value, "EXTENSION_RESTART_UNITS", *extension, restart_units);
+                        if (r < 0)
+                                return r;
+                        if (!isempty(value))
+                                /* Listing units to restart implies a manager reload because a unit
+                                 * shipped (and later removed) by the extension would otherwise not
+                                 * be visible to the manager when RestartUnit/StopUnit is issued. */
+                                *need_reload = true;
 
-                        if (ret_reload_or_restart_units) {
-                                value = strv_env_pairs_get(extension_release, "EXTENSION_RELOAD_OR_RESTART_UNITS");
-                                r = split_unit_string(value, "EXTENSION_RELOAD_OR_RESTART_UNITS", *extension, &reload_or_restart_units);
-                                if (r < 0)
-                                        return r;
-                                if (!isempty(value))
-                                        need_to_reload = true;
-                        }
+                        value = strv_env_pairs_get(extension_release, "EXTENSION_RELOAD_OR_RESTART_UNITS");
+                        r = split_unit_string(
+                                        value,
+                                        "EXTENSION_RELOAD_OR_RESTART_UNITS",
+                                        *extension,
+                                        reload_or_restart_units);
+                        if (r < 0)
+                                return r;
+                        if (!isempty(value))
+                                *need_reload = true;
                 }
         }
 
-        /* If a unit is listed in both, restart takes precedence over reload-or-restart. */
+        /* If a unit is listed in both, restart takes precedence over reload-or-restart. This also holds for
+         * a unit that the extensions merged before and after a refresh list differently, because a binary
+         * that the old extension shipped is gone or replaced either way. */
         const char *u;
-        SET_FOREACH(u, restart_units)
-                free(set_remove(reload_or_restart_units, u));
+        SET_FOREACH(u, *restart_units)
+                free(set_remove(*reload_or_restart_units, u));
 
-        if (ret_need_reload)
-                *ret_need_reload = need_to_reload;
-        if (ret_restart_units)
-                *ret_restart_units = TAKE_PTR(restart_units);
-        if (ret_reload_or_restart_units)
-                *ret_reload_or_restart_units = TAKE_PTR(reload_or_restart_units);
         return 0;
 }
 
@@ -1927,7 +1918,7 @@ static int unmerge_subprocess(
 static int unmerge(const Context *c) {
 
         _cleanup_set_free_ Set *units_to_restart = NULL, *units_to_reload_or_restart = NULL;
-        bool need_to_reload;
+        bool need_to_reload = false;
         int r;
 
         assert(c);
@@ -2551,6 +2542,21 @@ static int merge(const Context *c, Hashmap *images) {
         (void) dlopen_libblkid(LOG_DEBUG);
         (void) dlopen_libmount(LOG_DEBUG);
 
+        /* On refresh, first look at the extensions that are merged right now. A unit that only they list
+         * has to be handled as well, e.g., stopped when it was part of an extension that is gone or
+         * replaced afterwards. */
+        _cleanup_set_free_ Set *units_to_restart = NULL, *units_to_reload_or_restart = NULL;
+        bool need_to_reload = false;
+        r = get_extension_release_metadata(
+                        c,
+                        &need_to_reload,
+                        &units_to_restart,
+                        &units_to_reload_or_restart);
+        if (r == -ENOMEM)
+                return r;
+        if (r < 0)
+                log_warning_errno(r, "Failed to read metadata of the merged extensions, ignoring: %m");
+
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork("(sd-merge)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_NEW_MOUNTNS, &pidref);
         if (r < 0)
@@ -2581,13 +2587,19 @@ static int merge(const Context *c, Hashmap *images) {
         if (r == MERGE_EXIT_SKIP_REFRESH)
                 return 1; /* Same return code as below when we have merged new */
         if (r > 0)
+                /* The old extensions may be unmerged already at this point, without their units being
+                 * handled. The atomic refresh will solve this by leaving the old extensions alive. */
                 return log_error_errno(SYNTHETIC_ERRNO(EPROTO), "Failed to merge hierarchies");
 
-        _cleanup_set_free_ Set *units_to_restart = NULL, *units_to_reload_or_restart = NULL;
-        bool need_to_reload;
-        r = get_extension_release_metadata(c, &need_to_reload, &units_to_restart, &units_to_reload_or_restart);
-        if (r < 0)
-                return r;
+        /* Add what the extensions that are merged now ask for. On failure we still handle what we got
+         * so far, because the metadata of the replaced extensions is gone by now. */
+        int ret = get_extension_release_metadata(
+                        c,
+                        &need_to_reload,
+                        &units_to_restart,
+                        &units_to_reload_or_restart);
+        if (ret == -ENOMEM)
+                return ret;
         if (need_to_reload) {
                 r = daemon_reload();
                 if (r < 0)
@@ -2598,6 +2610,8 @@ static int merge(const Context *c, Hashmap *images) {
         r = restart_units(units_to_restart, units_to_reload_or_restart);
         if (r < 0)
                 return r;
+        if (ret < 0)
+                return ret;
 
         return 1;
 }
