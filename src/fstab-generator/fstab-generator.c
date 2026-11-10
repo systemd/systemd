@@ -730,12 +730,13 @@ static int add_mount(
         }
 
         if (flags & MOUNT_QUOTA) {
-                r = generator_hook_up_quotacheck(dest, what, where, target_unit, fstype);
+                const char *quota_target_unit = FLAGS_SET(flags, MOUNT_NOFAIL) ? NULL : target_unit;
+                r = generator_hook_up_quotacheck(dest, what, where, quota_target_unit, fstype);
                 if (r < 0) {
                         if (r != -EOPNOTSUPP)
                                 return r;
                 } else if (r > 0) {
-                        r = generator_hook_up_quotaon(dest, where, target_unit);
+                        r = generator_hook_up_quotaon(dest, where, quota_target_unit);
                         if (r < 0)
                                 return r;
                 }
