@@ -24,6 +24,11 @@ TOFU_STAGE=/root/tofu-stage
 # The TOFU record is in NVRAM and cannot be removed from the OS, hence remember that the TOFU stages ran, so
 # that a rerun of the test doesn't expect to enroll again. Not removed by tofu_cleanup on purpose.
 TOFU_TESTED=/root/tofu-tested
+# The test provisions this certificate via the key addon. The TOFU stages only check the keyring if this
+# file exists, because systemd-keyring-setup is not built everywhere.
+TOFU_CRT=/root/tofu-keyring.crt
+# The modified stage replaces the key addon with one that contains this certificate instead.
+TOFU_PLANTED_CRT=/root/tofu-planted.crt
 
 # Prints a string (list) EFI variable of systemd-stub, one entry per line
 stub_variable() {
@@ -60,8 +65,92 @@ tofu_addon() {
         "$@"
 }
 
+# This function succeeds if the test can provision a certificate in an addon and check that it arrives in
+# the kernel keyring. That needs systemd-keyring-setup, a kernel with a .dm-verity keyring, and the tools to
+# build the addon with systemd-firstboot.
+tofu_keys_supported() {
+    [[ -x /usr/lib/systemd/systemd-keyring-setup ]] || return 1
+    # The tofu profile boots with dm_verity.keyring_unsealed=1, so that systemd-keyring-setup may provision
+    # the keyring. The parameter only exists if the kernel has a .dm-verity keyring.
+    modinfo -p dm_verity 2>/dev/null | grep keyring_unsealed >/dev/null \
+        || [[ -e /sys/module/dm_verity/parameters/keyring_unsealed ]] || return 1
+    command -v systemd-firstboot >/dev/null || return 1
+    command -v systemd-repart >/dev/null || return 1
+    command -v keyctl >/dev/null || return 1
+    command -v mcopy >/dev/null || return 1
+    command -v sfdisk >/dev/null || return 1
+    command -v jq >/dev/null || return 1
+}
+
+# This function provisions a certificate for the .dm-verity keyring in an unsigned addon that
+# systemd-firstboot builds. systemd-firstboot --addon= only writes into a disk image file, hence the function
+# builds the addon in a scratch image and copies it onto the mounted ESP.
+tofu_key_addon() {
+    local crt="${1:?}" wrk start
+    wrk="$(mktemp -d)"
+
+    mkdir "$wrk/defs"
+    cat >"$wrk/defs/10-esp.conf" <<EOF
+[Partition]
+Type=esp
+Format=vfat
+EOF
+    systemd-repart --empty=create --size=auto --dry-run=no --offline=yes \
+        --definitions="$wrk/defs" "$wrk/image.raw"
+    systemd-firstboot --image="$wrk/image.raw" --addon=tofu-keys --key=dm-verity:tofu-key="$crt"
+
+    start="$(sfdisk --json "$wrk/image.raw" | jq -r '.partitiontable.partitions[0].start')"
+    mcopy -n -i "$wrk/image.raw@@$((start * 512))" ::/loader/addons/tofu-keys.addon.efi \
+        "$(bootctl --print-esp-path)/loader/addons/tofu-keys.addon.efi"
+    rm -rf "$wrk"
+}
+
+# This function checks that the certificate from the trusted key addon is a system credential, and that
+# systemd-keyring-setup enrolled it into the .dm-verity keyring before the switch to the host.
+tofu_keys_check() {
+    local enrolled switched
+    local pem="/run/voa/[^/]+/kernel-keyring/dm-verity/x509/tofu-key-certificate.pem"
+    local re="^Enrolled .$pem. into keyring .dm-verity"
+
+    cmp <(systemd-creds --system cat keyring-setup.dm-verity.tofu-key) "$TOFU_CRT"
+    keyctl list %:.dm-verity >/tmp/tofu-keyring.list
+    grep -F tofu-enrolled-key /tmp/tofu-keyring.list >/dev/null
+
+    # journalctl -u does not find the messages of the initrd run, because the process has exited by the
+    # time journald reads them, and they hence carry no _SYSTEMD_UNIT= field.
+    journalctl -b -o json -t systemd-keyring-setup >/tmp/tofu-keyring-setup.json
+    enrolled="$(jq -rn --arg re "$re" 'first(inputs | select(.MESSAGE | test($re)) | .__MONOTONIC_TIMESTAMP)' \
+        /tmp/tofu-keyring-setup.json)"
+    journalctl -b -o json _PID=1 >/tmp/tofu-pid1.json
+    switched="$(jq -rn 'first(inputs | select(.MESSAGE | startswith("Switching root")) | .__MONOTONIC_TIMESTAMP)' \
+        /tmp/tofu-pid1.json)"
+    rm -f /tmp/tofu-keyring.list /tmp/tofu-keyring-setup.json /tmp/tofu-pid1.json
+    [[ -n "$enrolled" && -n "$switched" && "$enrolled" -lt "$switched" ]]
+}
+
+# This function checks which addons the stub trusted on first use on a boot where the modified addon is
+# not on the ESP yet.
+tofu_addons_check() {
+    if [[ -e "$TOFU_CRT" ]]; then
+        [[ "$(stub_variable StubTofuAddons)" == "$(printf '%s\n' \
+            '\loader\addons\tofu-keys.addon.efi' '\loader\addons\tofu-unsigned.addon.efi')" ]]
+        tofu_keys_check
+    else
+        [[ "$(stub_variable StubTofuAddons)" == '\loader\addons\tofu-unsigned.addon.efi' ]]
+    fi
+}
+
 tofu_cleanup() {
-    rm -f "$(bootctl --print-esp-path)"/loader/addons/tofu-*.addon.efi "$TOFU_STAGE"
+    rm -f "$(bootctl --print-esp-path)"/loader/addons/tofu-*.addon.efi "$TOFU_STAGE" \
+        "$TOFU_CRT" "$TOFU_PLANTED_CRT"
+}
+
+tofu_done() {
+    tofu_cleanup
+    touch "$TOFU_TESTED"
+    bootctl set-default ""
+    touch /testok
+    exit 0
 }
 
 echo "CURRENT UKI ($CURRENT_UKI):"
@@ -99,7 +188,7 @@ if [[ "$ID" == "tofu" ]]; then
             # The unsigned addon is trusted on first use and used, the one signed with an untrusted key
             # isn't, even though it was there on the first boot too.
             [[ "$(stub_variable StubTofuState)" == enrolled ]]
-            [[ "$(stub_variable StubTofuAddons)" == '\loader\addons\tofu-unsigned.addon.efi' ]]
+            tofu_addons_check
             grep tofuunsigned=1 /proc/cmdline
             (! grep tofuwrongkey=1 /proc/cmdline)
             echo verify >"$TOFU_STAGE"
@@ -109,7 +198,7 @@ if [[ "$ID" == "tofu" ]]; then
         verify)
             # The same addon is trusted again via the record
             [[ "$(stub_variable StubTofuState)" == verified ]]
-            [[ "$(stub_variable StubTofuAddons)" == '\loader\addons\tofu-unsigned.addon.efi' ]]
+            tofu_addons_check
             grep tofuunsigned=1 /proc/cmdline
             (! grep tofuwrongkey=1 /proc/cmdline)
 
@@ -121,15 +210,43 @@ if [[ "$ID" == "tofu" ]]; then
             ;;
         modified)
             [[ "$(stub_variable StubTofuState)" == verified ]]
+            (! grep tofuunsigned= /proc/cmdline)
+            (! grep tofuwrongkey=1 /proc/cmdline)
+
+            if [[ -e "$TOFU_CRT" ]]; then
+                # The untouched key addon is unaffected by the rejection of its modified neighbour
+                [[ "$(stub_variable StubTofuAddons)" == '\loader\addons\tofu-keys.addon.efi' ]]
+                tofu_keys_check
+
+                # Replace the key addon with one carrying a different certificate, as an attacker with
+                # access to the ESP would. Nothing of it may reach the OS on the next boot.
+                openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes \
+                    -subj /CN=tofu-planted-key -days 2 -keyout /dev/null -out "$TOFU_PLANTED_CRT"
+                rm -f "$(bootctl --print-esp-path)/loader/addons/tofu-keys.addon.efi"
+                tofu_key_addon "$TOFU_PLANTED_CRT"
+                echo planted >"$TOFU_STAGE"
+                reboot
+                exit 0
+            fi
+
+            (! stub_variable StubTofuAddons)
+            tofu_done
+            ;;
+        planted)
+            [[ "$(stub_variable StubTofuState)" == verified ]]
             (! stub_variable StubTofuAddons)
             (! grep tofuunsigned= /proc/cmdline)
             (! grep tofuwrongkey=1 /proc/cmdline)
 
-            tofu_cleanup
-            touch "$TOFU_TESTED"
-            bootctl set-default ""
-            touch /testok
-            exit 0
+            # The planted certificate and the certificate enrolled on the earlier boots are neither a
+            # credential nor in the keyring. keyctl writes into a file, so that a failure to list the
+            # keyring fails the test.
+            (! systemd-creds --system cat keyring-setup.dm-verity.tofu-key)
+            keyctl list %:.dm-verity >/tmp/tofu-keyring.list
+            (! grep tofu- /tmp/tofu-keyring.list)
+            rm -f /tmp/tofu-keyring.list
+
+            tofu_done
             ;;
         *)
             exit 1
@@ -184,6 +301,12 @@ elif [[ "$ID" == "Profile2" ]]; then
             -keyout /tmp/tofu.key -out /tmp/tofu.crt
         tofu_addon tofu-wrongkey tofuwrongkey=1 \
             --signtool=systemd-sbsign --secureboot-private-key=/tmp/tofu.key --secureboot-certificate=/tmp/tofu.crt
+        if tofu_keys_supported; then
+            # A certificate provisioned for the kernel keyring, in an addon built by systemd-firstboot
+            openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes \
+                -subj /CN=tofu-enrolled-key -days 2 -keyout /dev/null -out "$TOFU_CRT"
+            tofu_key_addon "$TOFU_CRT"
+        fi
         echo enroll >"$TOFU_STAGE"
         bootctl set-default "multi-profile.efi@tofu"
         reboot
