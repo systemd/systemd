@@ -414,7 +414,14 @@ systemctl reload-or-restart --marked
 (! systemctl show -P Markers "$UNIT_NAME" | grep needs-stop)
 (! systemctl is-active "$UNIT_NAME")
 
-# Test marker normalization with incremental (+) syntax
+# needs-restart should be silently ignored on inactive units (D-Bus)
+systemctl set-property "$UNIT_NAME" "Markers=needs-restart"
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-restart)
+systemctl set-property "$UNIT_NAME" "Markers=+needs-restart"
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-restart)
+
+# Test marker normalization with incremental (+) syntax (needs-restart is only kept on active units)
+systemctl start "$UNIT_NAME"
 
 # needs-start + +needs-restart → needs-restart (restart wins against start)
 systemctl set-property "$UNIT_NAME" "Markers=needs-start"
@@ -491,7 +498,15 @@ timeout 30 bash -c "until systemctl list-jobs $UNIT_NAME | grep \"No jobs\" 2>/d
 (! systemctl show -P Markers "$UNIT_NAME" | grep needs-stop)
 (! systemctl is-active "$UNIT_NAME")
 
+# needs-restart should be silently ignored on inactive units (Varlink)
+(! systemctl is-active "$UNIT_NAME")
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": [\"needs-restart\"]}}"
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-restart)
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": [\"+needs-restart\"]}}"
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-restart)
+
 # Test marker normalization with incremental (+) syntax via varlinkctl
+systemctl start "$UNIT_NAME"
 
 # needs-start + +needs-restart → needs-restart (restart wins against start)
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": [\"needs-start\"]}}"
