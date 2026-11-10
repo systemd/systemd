@@ -1646,6 +1646,10 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                                                 &decrypted_key_size);
                         if (r >= 0)
                                 break;
+                        if (r == -ENXIO && !arg_fido2_cid)
+                                /* Same as the plugin path above: the volume has no FIDO2 token enrolled */
+                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                       "No FIDO2 token enrolled, falling back to traditional unlocking.");
                 }
 
                 if (r != -EAGAIN) /* EAGAIN means: token not found */
