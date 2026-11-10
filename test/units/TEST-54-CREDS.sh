@@ -607,6 +607,14 @@ run0 -u testuser --pipe systemd-run --user --pipe -p ImportCredential=brummbaer 
 # https://github.com/systemd/systemd/pull/40108
 run0 -u testuser --pipe systemd-run --user --wait -p ImportCredential=brummbaer -p ExecStartPre='ls -l $CREDENTIALS_DIRECTORY' bash -c 'systemd-creds cat brummbaer | cmp /tmp/brummbaer.data'
 
+# https://github.com/systemd/systemd/issues/44728
+# Leftover temporary credential workspaces must be removed when the unit is destroyed.
+STALE_WORKSPACE="/run/user/$(id -u testuser)/systemd/temporary-credentials/stale-creds.service"
+run0 -u testuser --pipe mkdir -p "$STALE_WORKSPACE"
+(! systemd-run -M testuser@ --user --wait --collect --unit=stale-creds.service -p LoadCredential=brummbaer:/tmp/brummbaer.data /bin/true)
+timeout 10 bash -c 'until [[ ! -e "$1" ]]; do sleep .1; done' _ "$STALE_WORKSPACE"
+systemd-run -M testuser@ --user --wait --collect --unit=stale-creds.service -p LoadCredential=brummbaer:/tmp/brummbaer.data /bin/true
+
 # https://github.com/systemd/systemd/pull/39651
 TESTUSER_CRED_DIR="/run/user/$(id -u testuser)/credentials"
 

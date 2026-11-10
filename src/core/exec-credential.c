@@ -299,7 +299,7 @@ int exec_context_get_credential_directory(
 }
 
 int exec_context_destroy_credentials(const ExecContext *c, const char *runtime_prefix, const char *unit) {
-        _cleanup_free_ char *p = NULL;
+        _cleanup_free_ char *p = NULL, *workspace = NULL;
         int r;
 
         assert(c);
@@ -312,6 +312,14 @@ int exec_context_destroy_credentials(const ExecContext *c, const char *runtime_p
          * unmount it, and afterwards remove the mount point */
         (void) umount2(p, MNT_DETACH|UMOUNT_NOFOLLOW);
         (void) rm_rf(p, REMOVE_ROOT|REMOVE_CHMOD);
+
+        /* Remove any leftover temporary workspace: the preparing child's cleanup
+         * does not run if it is killed, and a leftover would fail the next start. */
+        workspace = path_join(runtime_prefix, "systemd/temporary-credentials", unit);
+        if (!workspace)
+                return -ENOMEM;
+
+        (void) rm_rf(workspace, REMOVE_ROOT|REMOVE_CHMOD);
 
         return 0;
 }
