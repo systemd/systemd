@@ -28,6 +28,22 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("DNS servers to configure on the link"),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(servers, DNSServerContext, SD_VARLINK_ARRAY));
 
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                SearchDomainContext,
+                /* The domain name is always required, so not nullable. */
+                SD_VARLINK_FIELD_COMMENT("DNS search or route domain name"),
+                SD_VARLINK_DEFINE_FIELD(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Indicates if this is a routing-only domain."),
+                SD_VARLINK_DEFINE_FIELD(routeOnly, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetDomains,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("Index of the interface to configure."),
+                SD_VARLINK_DEFINE_INPUT(ifindex, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("DNS search or route domains to configure on the link."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(searchDomains, SearchDomainContext, SD_VARLINK_ARRAY));
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Resolve_Link,
                 "io.systemd.Resolve.Link",
@@ -38,4 +54,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("DNS server configuration input."),
                 &vl_type_DNSServerContext,
                 SD_VARLINK_SYMBOL_COMMENT("Set the per-link DNS server list."),
-                &vl_method_SetDNS);
+                &vl_method_SetDNS,
+                SD_VARLINK_SYMBOL_COMMENT("Search domain configuration input."),
+                &vl_type_SearchDomainContext,
+                SD_VARLINK_SYMBOL_COMMENT("Set the per-link search domain list."),
+                &vl_method_SetDomains);
