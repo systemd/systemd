@@ -573,7 +573,7 @@ int pkcs11_token_read_public_key(
                          * modified below. But we'll not modify ec_params[0]. */
                         OSSL_PARAM_octet_string(OSSL_PKEY_PARAM_PUB_KEY,
                                                 (unsigned char *) sym_ASN1_STRING_get0_data(os),
-                                                sym_ASN1_STRING_length(os)),
+                                                sym_ASN1_STRING_get_length(os)),
                 };
 
                 _cleanup_free_ void *order = NULL, *p = NULL, *a = NULL, *b = NULL, *generator = NULL;

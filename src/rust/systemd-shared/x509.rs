@@ -38,13 +38,13 @@ impl<'a> Asn1String<'a> {
         unsafe { sym!(sym_ASN1_STRING_type)(self.s) }
     }
 
-    /// `ASN1_STRING_get0_data()` and `ASN1_STRING_length()`.
+    /// `ASN1_STRING_get0_data()` and `ASN1_STRING_get_length()`.
     pub fn data(&self) -> &'a [u8] {
         // SAFETY: the string is alive for 'a, and came from an X509, so libcrypto is loaded.
         let (p, n) = unsafe {
             (
                 sym!(sym_ASN1_STRING_get0_data)(self.s),
-                sym!(sym_ASN1_STRING_length)(self.s),
+                sym!(sym_ASN1_STRING_get_length)(self.s),
             )
         };
         match usize::try_from(n) {
