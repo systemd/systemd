@@ -80,6 +80,69 @@ assert_metric_value_eq() {
     assert_eq "$value" "$expected"
 }
 
+assert_metric_value_ge() {
+    local metrics="${1?}" name="${2:?}" expected="${3:?}"
+    local value
+    shift 3
+
+    value="$(metric_value "$metrics" "$name" "$@")" || return
+    assert_ge "$value" "$expected"
+}
+
+assert_metric_value_le() {
+    local metrics="${1?}" name="${2:?}" expected="${3:?}"
+    local value
+    shift 3
+
+    value="$(metric_value "$metrics" "$name" "$@")" || return
+    assert_le "$value" "$expected"
+}
+
+assert_metric_value_gt() {
+    local metrics="${1?}" name="${2:?}" expected="${3:?}"
+    local value
+    shift 3
+
+    value="$(metric_value "$metrics" "$name" "$@")" || return
+    assert_gt "$value" "$expected"
+}
+
+assert_metric_value_lt() {
+    local metrics="${1?}" name="${2:?}" expected="${3:?}"
+    local value
+    shift 3
+
+    value="$(metric_value "$metrics" "$name" "$@")" || return
+    assert_lt "$value" "$expected"
+}
+
+assert_metric_value_is_number() {
+    local type
+
+    type="$(metric_select "$@" | jq -r '.value | type' | sort -u)" || return
+    assert_eq "$type" number
+}
+
+assert_metric_values_in_range() {
+    local metrics="${1?}" name="${2:?}" min="${3:?}" max="${4:?}"
+    local result
+    shift 4
+
+    result="$(metric_select "$metrics" "$name" "$@" | jq -rs --argjson min "$min" --argjson max "$max" '
+        length > 0 and all(.[]; (.value | type) == "number" and .value >= $min and .value <= $max)')" || return
+    assert_eq "$result" true
+}
+
+assert_metric_value_float_eq() {
+    local metrics="${1?}" name="${2:?}" expected="${3:?}" tolerance="${4:?}"
+    local result
+    shift 4
+
+    result="$(metric_select "$metrics" "$name" "$@" | jq -r --argjson expected "$expected" --argjson tolerance "$tolerance" '
+        (.value | type) == "number" and ((.value - $expected | fabs) < $tolerance)')" || return
+    assert_eq "$result" true
+}
+
 assert_metric_type_eq() {
     local metrics="${1?}" name="${2:?}" expected="${3:?}"
     local type

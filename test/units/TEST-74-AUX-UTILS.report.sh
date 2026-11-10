@@ -57,11 +57,11 @@ testcase_cgroup() {
     done
 
     # CpuUsage emits one row per (cgroup, type) where type is total, user, or system.
-    # Confirm all three are present.
+    # Confirm all three are present and numeric.
     cgroup_metrics=$(varlinkctl --more --json=short call /run/systemd/report/io.systemd.CGroup io.systemd.Metrics.List {})
-    echo "$cgroup_metrics" | grep '"name":"io.systemd.CGroup.CpuUsage"' | grep '"type":"total"' >/dev/null
-    echo "$cgroup_metrics" | grep '"name":"io.systemd.CGroup.CpuUsage"' | grep '"type":"user"' >/dev/null
-    echo "$cgroup_metrics" | grep '"name":"io.systemd.CGroup.CpuUsage"' | grep '"type":"system"' >/dev/null
+    assert_metric_value_is_number "$cgroup_metrics" io.systemd.CGroup.CpuUsage --field type total
+    assert_metric_value_is_number "$cgroup_metrics" io.systemd.CGroup.CpuUsage --field type user
+    assert_metric_value_is_number "$cgroup_metrics" io.systemd.CGroup.CpuUsage --field type system
 
     PSI_UNIT="test-report-psi-$RANDOM.service"
     trap 'systemctl stop "$PSI_UNIT"' EXIT
@@ -72,14 +72,6 @@ testcase_cgroup() {
            cpu_pressure=$(cat "$psi_cgroup/cpu.pressure" 2>/dev/null); then
         cgroup_metrics=$(varlinkctl --more --json=short call /run/systemd/report/io.systemd.CGroup io.systemd.Metrics.List {})
 
-        cgroup_pressure_number() {
-            echo "$cgroup_metrics" | jq --seq -r \
-                --arg family "io.systemd.CGroup.$1" --arg unit "$PSI_UNIT" --arg resource "$2" --arg type "$3" '
-                select(.name == $family and .object == $unit and
-                       .fields.resource == $resource and .fields.type == $type) |
-                .value | numbers | tostring'
-        }
-
         for resource in cpu memory io; do
             types=(some)
             # No full for cpu prior to 5.13
@@ -88,19 +80,20 @@ testcase_cgroup() {
             fi
 
             for type in "${types[@]}"; do
-                avg10="$(cgroup_pressure_number PressureAvg10 "$resource" "$type")"
-                stall="$(cgroup_pressure_number PressureStallSeconds "$resource" "$type")"
-                test -n "$avg10"
-                test -n "$stall"
-
-                awk -v v="$avg10" 'BEGIN { exit !(v >= 0 && v <= 100) }'
+                assert_metric_values_in_range "$cgroup_metrics" io.systemd.CGroup.PressureAvg10 0 100 \
+                    --object "$PSI_UNIT" --field resource "$resource" --field type "$type"
 
                 # The stall counter only grows, so the value sampled above cannot exceed what the unit's
                 # own pressure file (in microseconds) shows now. Allow 1us for floating-point rounding
-                # when converting the reported seconds back to microseconds.
-                awk -v v="$stall" -v type="$type" '
-                    $1 == type { for (i = 2; i <= NF; i++) if (sub(/^total=/, "", $i)) { found = 1; ok = (v >= 0 && v * 1e6 <= $i + 1) } }
-                    END { exit !(found && ok) }' "$psi_cgroup/$resource.pressure"
+                # when converting the kernel's microseconds to seconds.
+                stall_max="$(awk -v type="$type" '
+                    $1 == type {
+                        for (i = 2; i <= NF; i++)
+                            if (sub(/^total=/, "", $i)) { printf "%.17g\n", ($i + 1) / 1e6; found = 1; exit }
+                    }
+                    END { exit !found }' "$psi_cgroup/$resource.pressure")"
+                assert_metric_values_in_range "$cgroup_metrics" io.systemd.CGroup.PressureStallSeconds 0 "$stall_max" \
+                    --object "$PSI_UNIT" --field resource "$resource" --field type "$type"
             done
         done
     fi
@@ -217,26 +210,27 @@ testcase_network_statistics() {
     assert_metric_value_eq "$netstat_metrics" io.systemd.NetworkStatistics.MTU 1400 --object report-ns0
     # veth reports a fixed link speed of 10 Gbit/s
     assert_metric_value_eq "$netstat_metrics" io.systemd.NetworkStatistics.SpeedBitsPerSecond 10000000000 --object report-ns0
-    [[ "$(netstat_value "$netstat_metrics" TransmitPackets report-ns0)" -ge 5 ]]
-    [[ "$(netstat_value "$netstat_metrics" ReceivePackets report-ns0)" -ge 5 ]]
+    assert_metric_value_ge "$netstat_metrics" io.systemd.NetworkStatistics.TransmitPackets 5 --object report-ns0
+    assert_metric_value_ge "$netstat_metrics" io.systemd.NetworkStatistics.ReceivePackets 5 --object report-ns0
     assert_metric_value_eq "$netstat_metrics" io.systemd.NetworkStatistics.ReceiveErrors 0 --object report-ns0
     assert_metric_value_eq "$netstat_metrics" io.systemd.NetworkStatistics.TransmitErrors 0 --object report-ns0
     # The interface may still see some traffic (IPv6 router solicitations, …), hence only check the bounds
     netstat_tx_bytes="$(netstat_value "$netstat_metrics" TransmitBytes report-ns0)"
-    [[ "$netstat_tx_bytes" -ge "$netstat_tx_bytes_before" ]]
-    [[ "$netstat_tx_bytes" -le "$netstat_tx_bytes_after" ]]
-    [[ "$netstat_tx_bytes" -ge $((5 * 84)) ]]
+    assert_metric_value_ge "$netstat_metrics" io.systemd.NetworkStatistics.TransmitBytes "$netstat_tx_bytes_before" --object report-ns0
+    assert_metric_value_le "$netstat_metrics" io.systemd.NetworkStatistics.TransmitBytes "$netstat_tx_bytes_after" --object report-ns0
+    assert_metric_value_ge "$netstat_metrics" io.systemd.NetworkStatistics.TransmitBytes $((5 * 84)) --object report-ns0
 
     # Loopback is reported too, but has no link speed
     assert_metric_field_eq "$netstat_metrics" type loopback --object lo
-    netstat_value "$netstat_metrics" ReceivePackets lo | grep -E '^[0-9]+$' >/dev/null
+    assert_metric_value_is_number "$netstat_metrics" io.systemd.NetworkStatistics.ReceivePackets --object lo
     [[ -z "$(netstat_value "$netstat_metrics" SpeedBitsPerSecond lo)" ]]
 
     # Counters must not go backwards
+    netstat_tx_packets="$(metric_value "$netstat_metrics" io.systemd.NetworkStatistics.TransmitPackets --object report-ns0)"
     ping -c 2 -i 0.2 -W 5 192.0.2.11
     netstat_metrics2="$(varlinkctl call --more /run/systemd/report/io.systemd.NetworkStatistics io.systemd.Metrics.List {})"
-    [[ "$(netstat_value "$netstat_metrics2" TransmitPackets report-ns0)" -ge "$(( $(netstat_value "$netstat_metrics" TransmitPackets report-ns0) + 2 ))" ]]
-    [[ "$(netstat_value "$netstat_metrics2" TransmitBytes report-ns0)" -gt "$netstat_tx_bytes" ]]
+    assert_metric_value_ge "$netstat_metrics2" io.systemd.NetworkStatistics.TransmitPackets "$((netstat_tx_packets + 2))" --object report-ns0
+    assert_metric_value_gt "$netstat_metrics2" io.systemd.NetworkStatistics.TransmitBytes "$netstat_tx_bytes" --object report-ns0
 
     # Once removed, the interface is not reported anymore
     netstat_cleanup
@@ -360,18 +354,16 @@ diskspace_mount_tests() {
     # Exactly one row per metric for the scratch file system, reported under the shortest writable mount path
     assert_metric_object_eq "$diskspace_metrics" io.systemd.DiskSpace.SizeBytes "$DISKSPACE_WORK/b" --field source "$DISKSPACE_LOOP"
     assert_metric_object_eq "$diskspace_metrics" io.systemd.DiskSpace.FreeBytes "$DISKSPACE_WORK/b" --field source "$DISKSPACE_LOOP"
-    diskspace_size="$(echo "$diskspace_metrics" | jq --seq -r --arg o "$DISKSPACE_WORK/b" 'select(.name == "io.systemd.DiskSpace.SizeBytes" and .object == $o) | .value | tostring')"
-    diskspace_free="$(echo "$diskspace_metrics" | jq --seq -r --arg o "$DISKSPACE_WORK/b" 'select(.name == "io.systemd.DiskSpace.FreeBytes" and .object == $o) | .value | tostring')"
-    # The file system cannot be larger than the image, and at least the 8M we wrote must be missing from the
-    # free space.
-    [[ "$diskspace_size" -gt 0 ]]
-    [[ "$diskspace_size" -le $((64 * 1024 * 1024)) ]]
-    [[ "$diskspace_free" -gt 0 ]]
-    [[ $((diskspace_free + 8 * 1024 * 1024)) -le "$diskspace_size" ]]
     # df(1) derives the same two numbers from statfs(), hence they must match exactly.
     read -r diskspace_df_size diskspace_df_avail < <(df -B1 --output=size,avail "$DISKSPACE_WORK/ext4" | sed 1d)
-    [[ "$diskspace_size" == "$diskspace_df_size" ]]
-    [[ "$diskspace_free" == "$diskspace_df_avail" ]]
+    assert_metric_value_eq "$diskspace_metrics" io.systemd.DiskSpace.SizeBytes "$diskspace_df_size" --object "$DISKSPACE_WORK/b"
+    assert_metric_value_eq "$diskspace_metrics" io.systemd.DiskSpace.FreeBytes "$diskspace_df_avail" --object "$DISKSPACE_WORK/b"
+    # The file system cannot be larger than the image, and at least the 8M we wrote must be missing from the
+    # free space.
+    assert_metric_value_gt "$diskspace_metrics" io.systemd.DiskSpace.SizeBytes 0 --object "$DISKSPACE_WORK/b"
+    assert_metric_value_le "$diskspace_metrics" io.systemd.DiskSpace.SizeBytes $((64 * 1024 * 1024)) --object "$DISKSPACE_WORK/b"
+    assert_metric_value_gt "$diskspace_metrics" io.systemd.DiskSpace.FreeBytes 0 --object "$DISKSPACE_WORK/b"
+    assert_metric_value_le "$diskspace_metrics" io.systemd.DiskSpace.FreeBytes $((diskspace_df_size - 8 * 1024 * 1024)) --object "$DISKSPACE_WORK/b"
     # Both rows must carry the file system type as field, and no originating source, as a loop device is not
     # stacked on anything
     assert_metric_field_eq "$diskspace_metrics" fileSystemType ext4 --object "$DISKSPACE_WORK/b"
@@ -435,71 +427,69 @@ testcase_basic() {
     basic_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.List {})"
     # NB: '| tostring' turns the numeric value into a raw string, so 'jq -r' prints it cleanly
     # (numbers, unlike strings, are otherwise still emitted with the json-seq record separator).
-    basic_value() { echo "$basic_metrics" | jq --seq -r "select(.name == \"io.systemd.Basic.$1\") | .value | tostring"; }
-    # Like basic_value, but the value must be a JSON number (jq's 'numbers' filter emits the value
+    # The value must be a JSON number (jq's 'numbers' filter emits the value
     # only if it is one, so a non-empty result confirms both presence and type), and an optional
     # second argument gives a jq condition further restricting the match, e.g. on .object or .fields.
     basic_number() { echo "$basic_metrics" | jq --seq -r "select(.name == \"io.systemd.Basic.$1\" and ${2:-true}) | .value | numbers | tostring"; }
 
     # The three classic load average fields must be present and numeric.
     for field in LoadAverage1Min LoadAverage5Min LoadAverage15Min; do
-        test -n "$(basic_number "$field")"
+        assert_metric_value_is_number "$basic_metrics" "io.systemd.Basic.$field"
     done
 
     # SwapBytes must match the total the kernel reports in /proc/meminfo (which is in kB).
-    swap_reported="$(basic_value SwapBytes)"
     swap_expected=$(( $(awk '/^SwapTotal:/ { print $2; found=1 } END { if (!found) print 0 }' /proc/meminfo) * 1024 ))
     assert_metric_value_eq "$basic_metrics" io.systemd.Basic.SwapBytes "$swap_expected"
 
     # SwapUsedBytes must be numeric and cannot exceed the configured total.
-    swap_used="$(basic_number SwapUsedBytes)"
-    test -n "$swap_used"
-    [ "$swap_used" -le "$swap_reported" ]
+    assert_metric_value_is_number "$basic_metrics" io.systemd.Basic.SwapUsedBytes
+    assert_metric_value_le "$basic_metrics" io.systemd.Basic.SwapUsedBytes "$swap_expected"
 
     # Those fields must be reported with a numeric nanoseconds value.
     for type in user system; do
-        test -n "$(basic_number CPUUsage ".fields.type == \"$type\"")"
+        assert_metric_value_is_number "$basic_metrics" io.systemd.Basic.CPUUsage --field type "$type"
+    done
+
+    # iowait/idle/steal must be valid nanoseconds values, but can go up and down.
+    for type in idle iowait steal; do
+        assert_metric_value_is_number "$basic_metrics" io.systemd.Basic.CPUWait --field type "$type"
     done
 
     # The values are USER_HZ ticks converted to nanoseconds. The metrics were sampled before the
     # current /proc/stat state, and the idle counter mostly grows, so the reported idle time
     # should be positive and no larger than what /proc/stat shows now with some margin.
-    cpu_idle_reported="$(basic_number CPUWait '.fields.type == "idle"')"
-    awk -v hz="$(getconf CLK_TCK)" -v sampled="$cpu_idle_reported" \
-        '/^cpu / { exit !(sampled > 0 && sampled <= ($5 + 1) / hz * 1e9 ) }' /proc/stat
-
-    # iowait/idle/steal must be valid nanoseconds values, but can go up and down.
-    for type in idle iowait steal; do
-        test -n "$(basic_number CPUWait ".fields.type == \"$type\"")"
-    done
+    cpu_idle_max="$(awk -v hz="$(getconf CLK_TCK)" \
+        '/^cpu / { printf "%.0f\n", int(($5 + 1) / hz * 1e9); found = 1; exit } END { exit !found }' /proc/stat)"
+    assert_metric_value_gt "$basic_metrics" io.systemd.Basic.CPUWait 0 --field type idle
+    assert_metric_value_le "$basic_metrics" io.systemd.Basic.CPUWait "$cpu_idle_max" --field type idle
 
     # MemoryUsedBytes is MemTotal − MemAvailable, so it cannot exceed the MemTotal reported by the
     # same file. (PhysicalMemoryBytes is not a valid bound here: it is capped by the root cgroup's
     # memory limit, so it can legitimately be smaller than the value computed from /proc/meminfo.)
-    mem_used="$(basic_number MemoryUsedBytes)"
     mem_total=$(( $(awk '/^MemTotal:/ { print $2 }' /proc/meminfo) * 1024 ))
-    test -n "$mem_used"
-    [ "$mem_used" -le "$mem_total" ]
+    assert_metric_value_is_number "$basic_metrics" io.systemd.Basic.MemoryUsedBytes
+    assert_metric_value_le "$basic_metrics" io.systemd.Basic.MemoryUsedBytes "$mem_total"
 
     # Pressure metrics are only reported if the kernel supports PSI.
     if cat /proc/pressure/cpu >/dev/null 2>&1; then
         for family in PressureAvg10 PressureStallSeconds; do
             for resource in cpu memory io; do
-                test -n "$(basic_number "$family" ".fields.resource == \"$resource\" and .fields.type == \"some\"")"
+                assert_metric_value_is_number "$basic_metrics" "io.systemd.Basic.$family" \
+                    --field resource "$resource" --field type some
                 # "full" is deliberately not emitted for cpu, where the kernel always reports 0.
                 full="$(basic_number "$family" ".fields.resource == \"$resource\" and .fields.type == \"full\"")"
                 if [ "$resource" = cpu ]; then
                     test -z "$full"
                 else
-                    test -n "$full"
+                    assert_metric_value_is_number "$basic_metrics" "io.systemd.Basic.$family" \
+                        --field resource "$resource" --field type full
                 fi
             done
         done
 
         # The avg10 values are percentages, so they must lie in the 0…100 range. This would catch a
         # wrong fixed-point conversion, which would inflate the value 2048x.
-        echo "$basic_metrics" | jq --seq -r 'select(.name == "io.systemd.Basic.PressureAvg10") | .value | tostring' |
-            awk '{ if ($1 < 0 || $1 > 100) exit 1 }'
+        assert_metric_values_in_range "$basic_metrics" io.systemd.Basic.PressureAvg10 0 100
     fi
 
     # Every whole physical block device (not partitions, not virtual or stacked devices) must be
@@ -512,14 +502,12 @@ testcase_basic() {
 
         [[ "$devpath" =~ "/devices/virtual/" ]] && continue
 
-        read_bytes="$(basic_number DiskReadBytes ".object == \"${devname}\"")"
-        write_bytes="$(basic_number DiskWriteBytes ".object == \"${devname}\"")"
-        test -n "$read_bytes"
-        test -n "$write_bytes"
+        assert_metric_value_is_number "$basic_metrics" io.systemd.Basic.DiskReadBytes --object "$devname"
+        assert_metric_value_is_number "$basic_metrics" io.systemd.Basic.DiskWriteBytes --object "$devname"
 
         read -r _ _ read_sectors _ _ _ write_sectors _ <"$dev/stat"
-        [ "$read_bytes" -le "$(( read_sectors * 512 ))" ]
-        [ "$write_bytes" -le "$(( write_sectors * 512 ))" ]
+        assert_metric_value_le "$basic_metrics" io.systemd.Basic.DiskReadBytes "$(( read_sectors * 512 ))" --object "$devname"
+        assert_metric_value_le "$basic_metrics" io.systemd.Basic.DiskWriteBytes "$(( write_sectors * 512 ))" --object "$devname"
     done
 
     # Sample the clock metrics anew, right before comparing them against /proc/uptime and date, so that the
@@ -527,42 +515,43 @@ testcase_basic() {
     basic_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.List {})"
 
     # The clock metrics are sampled together, hence boottime (which includes time spent suspended) can
-    # never be smaller than monotonic. Uptime in the test VM is far below 2^53 ns, so jq reproduces those
-    # values exactly. Realtime is not (it's ~1.8e18), hence compare that one in whole seconds only.
-    boottime_ns="$(basic_number ClockBoottimeNSec)"
-    monotonic_ns="$(basic_number ClockMonotonicNSec)"
-    realtime_s="$(echo "$basic_metrics" | jq --seq -r 'select(.name == "io.systemd.Basic.ClockRealtimeNSec") | .value | numbers | . / 1000000000 | floor | tostring')"
-    test -n "$boottime_ns"
-    test -n "$monotonic_ns"
-    test -n "$realtime_s"
-    [ "$monotonic_ns" -gt 0 ]
-    [ "$boottime_ns" -ge "$monotonic_ns" ]
+    # never be smaller than monotonic. Use whole-second bounds for the system clock comparisons below
+    # to allow for rounding of large realtime values by jq.
+    assert_metric_value_is_number "$basic_metrics" io.systemd.Basic.ClockBoottimeNSec
+    assert_metric_value_is_number "$basic_metrics" io.systemd.Basic.ClockMonotonicNSec
+    assert_metric_value_is_number "$basic_metrics" io.systemd.Basic.ClockRealtimeNSec
+    monotonic_ns="$(metric_value "$basic_metrics" io.systemd.Basic.ClockMonotonicNSec)"
+    assert_metric_value_gt "$basic_metrics" io.systemd.Basic.ClockMonotonicNSec 0
+    assert_metric_value_ge "$basic_metrics" io.systemd.Basic.ClockBoottimeNSec "$monotonic_ns"
 
     # /proc/uptime is CLOCK_BOOTTIME too, read after the metrics were sampled; allow for a generous margin.
     uptime_s="$(cut -d. -f1 /proc/uptime)"
-    [ $(( boottime_ns / 1000000000 )) -le "$uptime_s" ]
-    [ $(( boottime_ns / 1000000000 )) -ge $(( uptime_s - 60 )) ]
+    assert_metric_value_lt "$basic_metrics" io.systemd.Basic.ClockBoottimeNSec $(( (uptime_s + 1) * 1000000000 ))
+    assert_metric_value_ge "$basic_metrics" io.systemd.Basic.ClockBoottimeNSec $(( (uptime_s - 60) * 1000000000 ))
 
     now_s="$(date +%s)"
-    [ "$realtime_s" -le "$now_s" ]
-    [ "$realtime_s" -ge $(( now_s - 60 )) ]
+    assert_metric_value_lt "$basic_metrics" io.systemd.Basic.ClockRealtimeNSec $(( (now_s + 1) * 1000000000 ))
+    assert_metric_value_ge "$basic_metrics" io.systemd.Basic.ClockRealtimeNSec $(( (now_s - 60) * 1000000000 ))
 
     # Boottime and monotonic are counters, hence must not go backwards between two calls.
+    boottime_ns="$(metric_value "$basic_metrics" io.systemd.Basic.ClockBoottimeNSec)"
     basic_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Basic io.systemd.Metrics.List {})"
-    [ "$(basic_number ClockBoottimeNSec)" -ge "$boottime_ns" ]
-    [ "$(basic_number ClockMonotonicNSec)" -ge "$monotonic_ns" ]
+    assert_metric_value_is_number "$basic_metrics" io.systemd.Basic.ClockBoottimeNSec
+    assert_metric_value_ge "$basic_metrics" io.systemd.Basic.ClockBoottimeNSec "$boottime_ns"
+    assert_metric_value_is_number "$basic_metrics" io.systemd.Basic.ClockMonotonicNSec
+    assert_metric_value_ge "$basic_metrics" io.systemd.Basic.ClockMonotonicNSec "$monotonic_ns"
 
     # DeploymentTimestampNSec is the birth time of the file system backing /var/, or of the root file system
     # if /var/ is not a mount point of its own. It is only reported if the file system records birth times
-    # (which stat reports as 0 otherwise). The value is ~1.8e18, beyond what jq represents exactly, hence
-    # compare in whole seconds and allow for one second of rounding error.
+    # (which stat reports as 0 otherwise). Allow one second of rounding error, including the entire
+    # second above the expected birth time.
     if mountpoint -q /var/; then deploy_dir=/var/; else deploy_dir=/; fi
     deploy_expected_s="$(stat -c %W "$deploy_dir")"
     deploy_s="$(echo "$basic_metrics" | jq --seq -r 'select(.name == "io.systemd.Basic.DeploymentTimestampNSec") | .value | numbers | . / 1000000000 | floor | tostring')"
     if [ "$deploy_expected_s" -gt 0 ]; then
-        test -n "$deploy_s"
-        [ "$deploy_s" -ge $(( deploy_expected_s - 1 )) ]
-        [ "$deploy_s" -le $(( deploy_expected_s + 1 )) ]
+        assert_metric_value_is_number "$basic_metrics" io.systemd.Basic.DeploymentTimestampNSec
+        assert_metric_value_ge "$basic_metrics" io.systemd.Basic.DeploymentTimestampNSec $(( (deploy_expected_s - 1) * 1000000000 ))
+        assert_metric_value_lt "$basic_metrics" io.systemd.Basic.DeploymentTimestampNSec $(( (deploy_expected_s + 2) * 1000000000 ))
     else
         test -z "$deploy_s"
     fi
@@ -586,12 +575,11 @@ testcase_manager() {
     # timestamp is unset (the metric is then suppressed). Likewise KernelTimestamp is cleared when
     # systemd runs inside a container (see main.c), so the metric is suppressed there too.
     manager_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.Manager io.systemd.Metrics.List {})"
-    metric_value() { echo "$manager_metrics" | jq --seq -r "select(.name == \"io.systemd.Manager.$1\") | .value | tostring"; }
     if ! systemd-detect-virt --quiet --container; then
-        [ "$(metric_value KernelTimestamp.Realtime)" -gt 0 ]
+        assert_metric_value_gt "$manager_metrics" io.systemd.Manager.KernelTimestamp.Realtime 0
     fi
-    [ "$(metric_value UserspaceTimestamp.Realtime)" -gt 0 ]
-    [ "$(metric_value UserspaceTimestamp.Monotonic)" -gt 0 ]
+    assert_metric_value_gt "$manager_metrics" io.systemd.Manager.UserspaceTimestamp.Realtime 0
+    assert_metric_value_gt "$manager_metrics" io.systemd.Manager.UserspaceTimestamp.Monotonic 0
 
     # These startup phases are captured unconditionally by manager_startup() on every boot (in containers
     # too, where they are not redirected to the InitRD* variants), so both clocks are always set on the
@@ -600,8 +588,8 @@ testcase_manager() {
     # which depend on the boot environment and may legitimately be unset (the metric is then suppressed).
     for phase in GeneratorsStartTimestamp GeneratorsFinishTimestamp \
                  UnitsLoadStartTimestamp UnitsLoadFinishTimestamp; do
-        [ "$(metric_value "$phase.Realtime")" -gt 0 ]
-        [ "$(metric_value "$phase.Monotonic")" -gt 0 ]
+        assert_metric_value_gt "$manager_metrics" "io.systemd.Manager.$phase.Realtime" 0
+        assert_metric_value_gt "$manager_metrics" "io.systemd.Manager.$phase.Monotonic" 0
     done
 
     # The sub_state field on UnitActiveState is what tells a running unit from one that stayed active after exiting
@@ -806,9 +794,6 @@ EOF
 
     geoip_metrics="$(varlinkctl call --more /run/systemd/report/io.systemd.GeoIP io.systemd.Metrics.List {})"
     geoip_value() { echo "$geoip_metrics" | jq --seq -r "select(.name == \"$1\") | .value | tostring"; }
-    # Numbers are emitted in exponent notation with full precision, and jq preserves (and compares) the
-    # literal, so compare them numerically with a tolerance rather than textually.
-    geoip_number_is() { echo "$geoip_metrics" | jq --seq -r "select(.name == \"$1\") | (.value - $2 | fabs) < 1e-9 | tostring" | grep -wx true >/dev/null; }
 
     # The address must be reported in normalized form, not as the server sent it.
     assert_metric_value_eq "$geoip_metrics" io.systemd.GeoIP.PublicAddress "2001:db8::1"
@@ -824,10 +809,11 @@ EOF
     assert_metric_value_eq "$geoip_metrics" io.systemd.GeoIP.City "Berlin"
     assert_metric_value_eq "$geoip_metrics" io.systemd.GeoIP.ZipCode "10785"
     assert_metric_value_eq "$geoip_metrics" io.systemd.GeoIP.Timezone "Europe/Berlin"
-    geoip_number_is io.systemd.GeoIP.Latitude 52.5061
-    geoip_number_is io.systemd.GeoIP.Longitude 13.3684
+    # Coordinates use exponent notation, so compare numerically with a tolerance.
+    assert_metric_value_float_eq "$geoip_metrics" io.systemd.GeoIP.Latitude 52.5061 1e-9
+    assert_metric_value_float_eq "$geoip_metrics" io.systemd.GeoIP.Longitude 13.3684 1e-9
     # Freshly downloaded: the acquisition timestamp is "now", i.e. not older than a minute.
-    [ "$(geoip_value io.systemd.GeoIP.Timestamp)" -gt "$(( ($(date +%s) - 60) * 1000000 ))" ]
+    assert_metric_value_gt "$geoip_metrics" io.systemd.GeoIP.Timestamp "$(( ($(date +%s) - 60) * 1000000 ))"
 
     # The obsolete metro_code field must not be reported.
     (! echo "$geoip_metrics" | grep -i metro >/dev/null)
@@ -854,7 +840,10 @@ EOF
     assert_metric_value_eq "$geoip_metrics" io.systemd.GeoIP.PublicAddress "2001:db8::1"
     assert_metric_value_eq "$geoip_metrics" io.systemd.GeoIP.ASN "AS3320"
     assert_metric_value_eq "$geoip_metrics" io.systemd.GeoIP.City "Berlin"
-    [ "$(( $(geoip_value io.systemd.GeoIP.Timestamp) / 1000000 ))" = "$(stat -c %Y /var/lib/systemd/report-geoip/cache.json)" ]
+    cache_mtime_s="$(stat -c %Y /var/lib/systemd/report-geoip/cache.json)"
+    assert_metric_value_is_number "$geoip_metrics" io.systemd.GeoIP.Timestamp
+    assert_metric_value_ge "$geoip_metrics" io.systemd.GeoIP.Timestamp $(( cache_mtime_s * 1000000 ))
+    assert_metric_value_lt "$geoip_metrics" io.systemd.GeoIP.Timestamp $(( (cache_mtime_s + 1) * 1000000 ))
 
     # Force a refresh: the download fails, so the stale cache must be used.
     cat >/run/systemd/report-geoip.conf.d/99-test.conf <<EOF
