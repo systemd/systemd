@@ -1706,6 +1706,11 @@ conf.set('DEFAULT_LLMNR_MODE',
          'RESOLVE_SUPPORT_' + default_llmnr.to_upper())
 conf.set_quoted('DEFAULT_LLMNR_MODE_STR', default_llmnr)
 
+default_cache = get_option('default-cache')
+conf.set('DEFAULT_CACHE_MODE',
+         'DNS_CACHE_MODE_' + default_cache.underscorify().to_upper())
+conf.set_quoted('DEFAULT_CACHE_MODE_STR', default_cache)
+
 have = get_option('measure').require(
         conf.get('HAVE_BLKID') == 1 and
         conf.get('HAVE_OPENSSL') == 1 and
@@ -3448,6 +3453,7 @@ summary({
         'default DNS-over-TLS mode'                 : default_dns_over_tls,
         'default mDNS mode'                         : default_mdns,
         'default LLMNR mode'                        : default_llmnr,
+        'default Cache mode'                        : default_cache,
         'default DNS servers'                       : dns_servers.split(' '),
         'default NTP servers'                       : ntp_servers.split(' '),
         'default GeoIP endpoint'                    : geoip_endpoint,
