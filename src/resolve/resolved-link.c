@@ -19,7 +19,6 @@
 #include "mkdir.h"
 #include "netif-util.h"
 #include "parse-util.h"
-#include "resolve-varlink-util.h"
 #include "resolved-bus.h"
 #include "resolved-dns-browse-services.h"
 #include "resolved-dns-scope.h"
