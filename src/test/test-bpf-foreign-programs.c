@@ -268,35 +268,10 @@ static int test_bpf_cgroup_programs(Manager *m, const char *unit_name, const Tes
         return r;
 }
 
-int main(int argc, char *argv[]) {
+TEST(bpf_foreign_programs) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         _cleanup_free_ char *unit_dir = NULL;
-        struct rlimit rl;
-        int r;
-
-        test_setup_logging(LOG_DEBUG);
-
-        if (detect_container() > 0)
-                return log_tests_skipped("test-bpf fails inside LXC and Docker containers: https://github.com/systemd/systemd/issues/9666");
-
-        if (getuid() != 0)
-                return log_tests_skipped("not running as root");
-
-        r = bpf_program_supported();
-        if (r < 0)
-                return log_tests_skipped_errno(r, "BPF programs not supported");
-
-        ASSERT_OK(getrlimit(RLIMIT_MEMLOCK, &rl));
-        rl.rlim_cur = rl.rlim_max = MAX(rl.rlim_max, CAN_MEMLOCK_SIZE);
-        (void) setrlimit_closest(RLIMIT_MEMLOCK, &rl);
-
-        if (!can_memlock())
-                return log_tests_skipped("Can't use mlock()");
-
-        r = enter_cgroup_subroot(/* ret_cgroup= */ NULL);
-        if (r == -ENOMEDIUM)
-                return log_tests_skipped("cgroupfs not available");
 
         ASSERT_OK(get_testdata_dir("units", &unit_dir));
         ASSERT_OK(setenv_unit_path(unit_dir));
@@ -327,5 +302,35 @@ int main(int argc, char *argv[]) {
                                 "path_split_test.service",
                                 path_split_test,
                                 ELEMENTSOF(path_split_test)));
-        return 0;
 }
+
+static int intro(void) {
+        struct rlimit rl;
+        int r;
+
+        if (detect_container() > 0)
+                return log_tests_skipped("test-bpf fails inside LXC and Docker containers: https://github.com/systemd/systemd/issues/9666");
+
+        if (getuid() != 0)
+                return log_tests_skipped("not running as root");
+
+        r = bpf_program_supported();
+        if (r < 0)
+                return log_tests_skipped_errno(r, "BPF programs not supported");
+
+        ASSERT_OK(getrlimit(RLIMIT_MEMLOCK, &rl));
+        rl.rlim_cur = rl.rlim_max = MAX(rl.rlim_max, CAN_MEMLOCK_SIZE);
+        (void) setrlimit_closest(RLIMIT_MEMLOCK, &rl);
+
+        if (!can_memlock())
+                return log_tests_skipped("Can't use mlock()");
+
+        r = enter_cgroup_subroot(/* ret_cgroup= */ NULL);
+        if (r == -ENOMEDIUM)
+                return log_tests_skipped("cgroupfs not available");
+        ASSERT_OK(r);
+
+        return EXIT_SUCCESS;
+}
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);
