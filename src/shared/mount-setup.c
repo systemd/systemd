@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/mount.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -19,6 +20,7 @@
 #include "path-util.h"
 #include "recurse-dir.h"
 #include "smack-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -474,7 +476,7 @@ static int relabel_extra(void) {
 }
 #endif
 
-int mount_setup(bool loaded_policy, bool leave_propagation) {
+int mount_setup(bool loaded_policy, bool skip_setup) {
         int r;
 
         r = mount_points_setup(ELEMENTSOF(mount_table), loaded_policy);
@@ -516,9 +518,31 @@ int mount_setup(bool loaded_policy, bool leave_propagation) {
          * needed. Note that we set this only when we are invoked directly by the kernel. If we are invoked by a
          * container manager we assume the container manager knows what it is doing (for example, because it set up
          * some directories with different propagation modes). */
-        if (detect_container() <= 0 && !leave_propagation)
+        if (detect_container() <= 0 && !skip_setup)
                 if (mount(/* source= */ NULL, "/", /* filesystemtype= */ NULL, MS_REC|MS_SHARED, /* data= */ NULL) < 0)
                         log_warning_errno(errno, "Failed to set up the root directory for shared mount propagation: %m");
+
+        /* The kernel mounts its rootfs as a tmpfs unless root= or rootfstype= is specified on the kernel
+         * command line. The root directory of a tmpfs has mode 1777 by default. chase() with CHASE_MAX_MODE
+         * fails for every path below a root directory that is writable for group or others, hence
+         * systemd-keyring-setup cannot read any certificate while the mode is 1777. tmpfiles.d/root.conf
+         * sets the final mode, but systemd-tmpfiles-setup.service runs after systemd-keyring-setup.service.
+         * Remove the write and sticky bits here already. Other bits are not changed. skip_setup is set on
+         * daemon-reexec and after the switch from the initrd. The mode is not changed then, because an
+         * administrator may have set it since boot. */
+        if (detect_container() <= 0 && !skip_setup && path_is_temporary_fs("/") > 0) {
+                struct stat st;
+
+                if (stat("/", &st) < 0)
+                        log_warning_errno(errno, "Failed to stat the root directory, ignoring: %m");
+                else if (st.st_mode & (S_IWGRP|S_IWOTH)) {
+                        mode_t m = st.st_mode & 07777 & ~(S_IWGRP|S_IWOTH|S_ISVTX);
+
+                        log_debug("Root directory has mode %04o, changing to %04o.", st.st_mode & 07777, m);
+                        if (chmod("/", m) < 0)
+                                log_warning_errno(errno, "Failed to change the mode of the root directory, ignoring: %m");
+                }
+        }
 
         /* Create a few directories we always want around, Note that sd_booted() checks for /run/systemd/system, so
          * this mkdir really needs to stay for good, otherwise software that copied sd-daemon.c into their sources will
