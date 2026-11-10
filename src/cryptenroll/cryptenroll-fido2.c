@@ -44,6 +44,8 @@ int load_volume_key_fido2(
                         &decrypted_key_size);
         if (r == -EAGAIN)
                 return log_error_errno(r, "FIDO2 token does not exist, or UV is blocked. Please try again.");
+        if (r == -ENXIO)
+                return log_error_errno(r, "No valid FIDO2 token data found.");
         if (r < 0)
                 return r;
 
