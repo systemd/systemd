@@ -106,6 +106,10 @@ All tools:
   are understood, too (us, ms, s, min, h, d, w, month, y). If it is not set or set
   to 0, then the built-in default is used.
 
+* `$SYSTEMD_POLKIT_AGENT_FALLBACK=` — takes a boolean. If false, the polkit
+  agent spawned on the terminal takes precedence over any agent registered for
+  the session.
+
 * `$SYSTEMD_MEMPOOL=0` — if set, the internal memory caching logic employed by
   hash tables is turned off, and libc `malloc()` is used for all allocations.
 
