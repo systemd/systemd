@@ -113,7 +113,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>MaxUploadSize=</varname></term>
+        <term><varname>MaxUploadSizeBytes=</varname></term>
 
         <listitem><para>Takes a data size. Uploads declaring a larger <varname>Content-Length</varname> are
         rejected with HTTP status 413 before the body is read; uploads sent with <varname>Transfer-Encoding:

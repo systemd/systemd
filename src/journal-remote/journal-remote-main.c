@@ -315,7 +315,7 @@ static int process_http_upload(
                          * and must not wrap around UINT64_MAX. */
                         if (source->raw_uploaded > max_upload ||
                             *upload_data_size > max_upload - source->raw_uploaded)
-                                return mhd_respondf(connection, 0, MHD_HTTP_CONTENT_TOO_LARGE,
+                                return mhd_respondf(connection, /* error= */ 0, MHD_HTTP_CONTENT_TOO_LARGE,
                                                     "Payload larger than maximum size of %" PRIu64 " bytes",
                                                     max_upload);
                         source->raw_uploaded += *upload_data_size;
@@ -884,7 +884,7 @@ static int parse_config(void) {
                 { "Remote",  "MaxFileSize",            config_parse_iec_uint64,       0, &arg_max_size    },
                 { "Remote",  "MaxFiles",               config_parse_uint64,           0, &arg_n_max_files },
                 { "Remote",  "KeepFree",               config_parse_iec_uint64,       0, &arg_keep_free   },
-                { "Remote",  "MaxUploadSize",          config_parse_iec_uint64,       0, &arg_max_upload  },
+                { "Remote",  "MaxUploadSizeBytes",          config_parse_iec_uint64,       0, &arg_max_upload  },
                 { "Remote",  "Compression",            config_parse_compression,      0, &arg_compression },
                 { "Remote",  "AddClientCertificateSubject", config_parse_bool,         0, &arg_add_client_certificate_subject },
                 {}

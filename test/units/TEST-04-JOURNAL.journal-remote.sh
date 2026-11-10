@@ -372,8 +372,10 @@ done
 
 # Exercise the regular file, empty file, and stdin paths in one uploader
 # instance, including switching from Content-Length back to chunked encoding.
-printf 'MESSAGE=regular-upload-test\n\n' >/run/systemd/remote-pki/regular.export
-printf 'MESSAGE=stdin-upload-test\n\n' >/run/systemd/remote-pki/stdin.export
+printf '%s\n' '__REALTIME_TIMESTAMP=1700000000000000' '__MONOTONIC_TIMESTAMP=1000000' \
+    '_BOOT_ID=0123456789abcdef0123456789abcdef' 'MESSAGE=regular-upload-test' '' >/run/systemd/remote-pki/regular.export
+printf '%s\n' '__REALTIME_TIMESTAMP=1700000000000000' '__MONOTONIC_TIMESTAMP=1000000' \
+    '_BOOT_ID=0123456789abcdef0123456789abcdef' 'MESSAGE=stdin-upload-test' '' >/run/systemd/remote-pki/stdin.export
 : >/run/systemd/remote-pki/empty.export
 systemctl restart systemd-journal-remote.socket
 timeout 30 /usr/lib/systemd/systemd-journal-upload \

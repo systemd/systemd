@@ -313,7 +313,7 @@ int journal_remote_server_init(
         assert(s);
 
         if (max_upload == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "MaxUploadSize=0 is not valid.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "MaxUploadSizeBytes=0 is not valid.");
 
         assert(journal_remote_server_global == NULL);
         journal_remote_server_global = s;
