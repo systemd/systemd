@@ -2142,6 +2142,89 @@ fi
 )
 
 ( init_trap
+: "Check that running units an extension masks are stopped when listed for restart or reload"
+# Talks to the real service manager, skip the --root= variant (it is a no-op there)
+if [ "$roots_dir" != "" ]; then
+    exit 0
+fi
+
+unit_ext_name="test-mask-unit-extension"
+unit_ext_dir="/var/lib/extensions/$unit_ext_name"
+mask_ext_name="test-mask-extension"
+mask_ext_dir="/var/lib/extensions/$mask_ext_name"
+unit="test-mask.service"
+restart_unit="test-mask-restart.service"
+dep_unit="test-mask-dep.service"
+requiring_unit="test-mask-requiring.service"
+
+# The units come from an extension as well, because a mask below /usr/ cannot override a unit file in /run/
+mkdir -p "$unit_ext_dir/usr/lib/extension-release.d" "$unit_ext_dir/usr/lib/systemd/system"
+prepend_trap "rm -rf ${unit_ext_dir@Q}"
+prepend_trap "systemctl stop ${unit@Q} ${restart_unit@Q} ${requiring_unit@Q} ${dep_unit@Q} 2>/dev/null || :"
+cat >"$unit_ext_dir/usr/lib/extension-release.d/extension-release.$unit_ext_name" <<EOF
+ID=_any
+ARCHITECTURE=_any
+EXTENSION_RELOAD_MANAGER=1
+EOF
+for u in "$unit" "$restart_unit" "$dep_unit"; do
+    cat >"$unit_ext_dir/usr/lib/systemd/system/$u" <<EOF
+[Service]
+Type=simple
+ExecStart=sleep 9999
+EOF
+done
+cat >"$unit_ext_dir/usr/lib/systemd/system/$requiring_unit" <<EOF
+[Unit]
+Requires=$dep_unit
+
+[Service]
+Type=simple
+ExecStart=sleep 9999
+EOF
+
+systemd-sysext merge
+systemctl start "$unit" "$restart_unit" "$requiring_unit"
+requiring_pid_before=$(systemctl show -P MainPID "$requiring_unit")
+
+# The masks go to /usr/local/lib/systemd/system/, which has a higher priority than /usr/lib/systemd/system/
+mkdir -p "$mask_ext_dir/usr/lib/extension-release.d" "$mask_ext_dir/usr/local/lib/systemd/system"
+prepend_trap "rm -rf ${mask_ext_dir@Q}"
+cat >"$mask_ext_dir/usr/lib/extension-release.d/extension-release.$mask_ext_name" <<EOF
+ID=_any
+ARCHITECTURE=_any
+EXTENSION_RESTART_UNITS="$restart_unit $requiring_unit"
+EXTENSION_RELOAD_OR_RESTART_UNITS="$unit"
+EOF
+for u in "$unit" "$restart_unit" "$dep_unit"; do
+    ln -s /dev/null "$mask_ext_dir/usr/local/lib/systemd/system/$u"
+done
+
+# refresh: the service manager keeps the masked units running -> fallback to StopUnit
+systemd-sysext refresh
+for u in "$unit" "$restart_unit"; do
+    if [ "$(systemctl show -P LoadState "$u")" != "masked" ]; then
+        echo >&2 "Missing mask of unit $u"
+        exit 1
+    fi
+    if systemctl --quiet is-active "$u"; then
+        echo >&2 "Missing stop of masked unit $u"
+        exit 1
+    fi
+done
+# The restart of a unit is also refused as masked when only a dependency is masked -> no fallback to StopUnit
+if ! systemctl --quiet is-active "$requiring_unit"; then
+    echo >&2 "Unexpected stop of unit with masked dependency"
+    exit 1
+fi
+if [ "$(systemctl show -P MainPID "$requiring_unit")" != "$requiring_pid_before" ]; then
+    echo >&2 "Unexpected restart of unit with masked dependency"
+    exit 1
+fi
+
+systemd-sysext unmerge
+)
+
+( init_trap
 : "Nested tmpfs submounts under the hierarchy survive merge/refresh/unmerge round-trip"
 fake_root=${roots_dir:+"$roots_dir/nested-submounts"}
 hierarchy=/opt
