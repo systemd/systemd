@@ -126,6 +126,14 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## Features
 
+- vpick: honour manifest
+
+- sysupdate: add http header to sources in uapi16
+
+- systemd-repart: support squashing DDIs in sysext/confext overlayfs style, so
+  that we take a combination of base DDI plus multiple sysext/confext and turn
+  into into a single squashed DDI.
+
 - sysupdate: add mode where download entries can be explicitly revoked or
   implicitly by removing them from the listings, which would cause local
   removal.
@@ -229,16 +237,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   and which allows us to put together a map about which node runs as payload of
   which other node. in particular useful for transient nodes, as it gives them
   a better location
-
-- add a small varlink service that wraps the raw sftp logic (without ssh) after a
-  varlink protocol upgrade, which enables varlink clients to do file transfers,
-  which is in particular useful when accessing a system via http varlink proxy
-
-- add a small varlink service that allocates a pty and then does ptyfwd stuff
-  after a protocol upgrade on the incoming connection. Then spawn a shell/getty
-  on it. This enables varlink clients to acquire a fully featured ssh-like
-  interactive tty/shell via varlink, which is again useful via http varlink
-  proxy.
 
 - add something like podman's conmon as a native systemd subsystem:
   i.e. allocate ptys, that can be bound to stdio/console of containers and VMs,
@@ -352,9 +350,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   what it was signed.
 
 - add --vacuum-xyz options to coredumpctl, matching those journalctl already has.
-
-- sysupdate: in .transfer files have a 2nd url that is used if we
-  auto-rollbacked the OS before.
 
 - sysupdate: optionally enrich URL with countme=1 once a week
 
@@ -571,22 +566,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   cmdline, and maybe even support a syntax such as
   root=nvme:\<trtype>:\<traddr>:\<trsvcid>:\<nqn>:\<partition> to boot directly from
   nvme-oF
-
-- allow preparing an encrypted image on some host for a specific other host,
-  so that only the TPM2 chip of that host can decrypt the volume key and
-  activate the volume. The sealing side exists (--tpm2-device-key= of
-  systemd-cryptenroll and systemd-repart seal to an SRK public area without
-  access to the TPM), and systemd-report-sign-tpm2 certifies the SRK, so that
-  a verifier of a report can trust the public area it carries. Missing: teach
-  systemd-repart to build such DDIs end-to-end, and pin the PCRs listed in the
-  report via a deny list of volatile PCRs. Use case: systemd-confext for a
-  central orchestrator to generate confext images securely that can only be
-  activated on one specific host (which can be used for installing a bunch of
-  creds in /etc/credstore/ for example). Extending on this: allow binding LUKS2
-  TPM based encryption also to the TPM2 internal clock. Net result: prepare a
-  confext image that can only be activated on a specific host that runs a
-  specific software in a specific time window. confext would be automatically
-  invalidated outside of it.
 
 - Add support for extra verity configuration options to systemd-repart (FEC,
   hash type, etc)
