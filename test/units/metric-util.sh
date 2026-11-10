@@ -71,6 +71,20 @@ assert_metric_count_eq() {
     assert_eq "$count" "$expected"
 }
 
+assert_metric_absent_full() {
+    local matches
+
+    matches="$(metric_select_full "$@")" || return
+    assert_empty "$matches"
+}
+
+assert_metric_absent() {
+    local metrics="${1?}" name="${2:?}"
+    shift 2
+
+    assert_metric_absent_full "$metrics" --name "$name" "$@"
+}
+
 assert_metric_value_eq() {
     local metrics="${1?}" name="${2:?}" expected="${3?}"
     local value
@@ -114,6 +128,13 @@ assert_metric_value_lt() {
 
     value="$(metric_value "$metrics" "$name" "$@")" || return
     assert_lt "$value" "$expected"
+}
+
+assert_metric_value_not_empty() {
+    local value
+
+    value="$(metric_value "$@")" || return
+    assert_not_empty "$value"
 }
 
 assert_metric_value_is_number() {
@@ -172,5 +193,15 @@ assert_metric_field_eq() {
                 (.fields | has($field)) and
                 (.fields[$field] | tostring) == $expected)
         ')" || return
+    assert_eq "$result" true
+}
+
+assert_metric_field_absent() {
+    local metrics="${1?}" field="${2:?}"
+    local result
+    shift 2
+
+    result="$(metric_select_full "$metrics" "$@" | jq -rs --arg field "$field" '
+        length > 0 and all(.[]; .fields | has($field) | not)')" || return
     assert_eq "$result" true
 }
