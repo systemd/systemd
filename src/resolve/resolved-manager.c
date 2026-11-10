@@ -1625,8 +1625,48 @@ int manager_is_own_hostname(Manager *m, const char *name) {
         return 0;
 }
 
+static int compile_dns_server(OrderedSet *servers, DnsServer *server, bool *have_servers) {
+        DnsScope *scope;
+        const char *server_string;
+        int r;
+
+        assert(servers);
+        assert(server);
+        assert(have_servers);
+
+        *have_servers = true;
+
+        server_string = dns_server_string(server);
+        if (!server_string) {
+                log_warning("Out of memory, or invalid DNS address. Ignoring server.");
+                return 0;
+        }
+
+        /* resolv.conf simply doesn't support any other ports than 53, hence there's nothing much we can
+         * do — we have to suppress these entries */
+        if (dns_server_port(server) != 53) {
+                log_debug("DNS server %s with non-standard UDP port number, suppressing from generated resolv.conf.", server_string);
+                return 0;
+        }
+
+        scope = dns_server_scope(server);
+        if (scope && !dns_scope_is_default_route(scope)) {
+                log_debug("Scope of DNS server %s has only route-only domains, not using as global name server.", server_string);
+                return 0;
+        }
+
+        r = ordered_set_put(servers, server);
+        if (r == -EEXIST)
+                return 0;
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int manager_compile_dns_servers(Manager *m, OrderedSet **servers) {
         Link *l;
+        bool have_servers = false;
         int r;
 
         assert(m);
@@ -1636,11 +1676,11 @@ int manager_compile_dns_servers(Manager *m, OrderedSet **servers) {
         if (r < 0)
                 return r;
 
-        /* First add the system-wide servers and domains */
+        /* Filter out DNS servers that cannot be represented in resolv.conf before deduplicating them. Otherwise,
+         * a server on a link that is not a default route might hide the same server on a default-route link.
+         * First add the system-wide servers. */
         LIST_FOREACH(servers, s, m->dns_servers) {
-                r = ordered_set_put(*servers, s);
-                if (r == -EEXIST)
-                        continue;
+                r = compile_dns_server(*servers, s, &have_servers);
                 if (r < 0)
                         return r;
         }
@@ -1648,9 +1688,7 @@ int manager_compile_dns_servers(Manager *m, OrderedSet **servers) {
         /* Then, add the per-link servers */
         HASHMAP_FOREACH(l, m->links)
                 LIST_FOREACH(servers, s, l->dns_servers) {
-                        r = ordered_set_put(*servers, s);
-                        if (r == -EEXIST)
-                                continue;
+                        r = compile_dns_server(*servers, s, &have_servers);
                         if (r < 0)
                                 return r;
                 }
@@ -1659,19 +1697,15 @@ int manager_compile_dns_servers(Manager *m, OrderedSet **servers) {
         DnsDelegate *d;
         HASHMAP_FOREACH(d, m->delegates)
                 LIST_FOREACH(servers, s, d->dns_servers) {
-                        r = ordered_set_put(*servers, s);
-                        if (r == -EEXIST)
-                                continue;
+                        r = compile_dns_server(*servers, s, &have_servers);
                         if (r < 0)
                                 return r;
                 }
 
         /* If we found nothing, add the fallback servers */
-        if (ordered_set_isempty(*servers)) {
+        if (!have_servers) {
                 LIST_FOREACH(servers, s, m->fallback_dns_servers) {
-                        r = ordered_set_put(*servers, s);
-                        if (r == -EEXIST)
-                                continue;
+                        r = compile_dns_server(*servers, s, &have_servers);
                         if (r < 0)
                                 return r;
                 }
