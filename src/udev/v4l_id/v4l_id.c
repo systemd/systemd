@@ -24,6 +24,41 @@ COMMAND(
         .option_namespace = "common",
 );
 
+static const struct {
+        uint32_t flag;
+        const char *name;
+} capabilities_table[] = {
+        { V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_CAPTURE_MPLANE, "capture"              },
+        { V4L2_CAP_VIDEO_OUTPUT | V4L2_CAP_VIDEO_OUTPUT_MPLANE,   "video_output"         },
+        { V4L2_CAP_VIDEO_OVERLAY,                                 "video_overlay"        },
+        { V4L2_CAP_VBI_CAPTURE,                                   "vbi_capture"          },
+        { V4L2_CAP_VBI_OUTPUT,                                    "vbi_output"           },
+        { V4L2_CAP_SLICED_VBI_CAPTURE,                            "sliced_vbi_capture"   },
+        { V4L2_CAP_SLICED_VBI_OUTPUT,                             "sliced_vbi_output"    },
+        { V4L2_CAP_RDS_CAPTURE,                                   "rds_capture"          },
+        { V4L2_CAP_VIDEO_OUTPUT_OVERLAY,                          "video_output_overlay" },
+        { V4L2_CAP_HW_FREQ_SEEK,                                  "hw_freq_seek"         },
+        { V4L2_CAP_RDS_OUTPUT,                                    "rds_output"           },
+        { V4L2_CAP_VIDEO_M2M | V4L2_CAP_VIDEO_M2M_MPLANE,         "video_m2m"            },
+        { V4L2_CAP_VIDEO_CAPTURE_MPLANE |
+          V4L2_CAP_VIDEO_OUTPUT_MPLANE |
+          V4L2_CAP_VIDEO_M2M_MPLANE,                              "mplane"               },
+        { V4L2_CAP_AUDIO,                                         "audio"                },
+        { V4L2_CAP_TUNER,                                         "tuner"                },
+        { V4L2_CAP_RADIO,                                         "radio"                },
+        { V4L2_CAP_MODULATOR,                                     "modulator"            },
+        { V4L2_CAP_SDR_CAPTURE,                                   "sdr_capture"          },
+        { V4L2_CAP_EXT_PIX_FORMAT,                                "ext_pix_format"       },
+        { V4L2_CAP_SDR_OUTPUT,                                    "sdr_output"           },
+        { V4L2_CAP_META_CAPTURE,                                  "meta_capture"         },
+        { V4L2_CAP_READWRITE,                                     "readwrite"            },
+        { V4L2_CAP_EDID,                                          "edid"                 },
+        { V4L2_CAP_STREAMING,                                     "streaming"            },
+        { V4L2_CAP_META_OUTPUT,                                   "meta_output"          },
+        { V4L2_CAP_TOUCH,                                         "touch"                },
+        { V4L2_CAP_IO_MC,                                         "io_mc"                },
+};
+
 static int run(int argc, char *argv[]) {
         _cleanup_close_ int fd = -EBADF;
         struct v4l2_capability v2cap;
@@ -46,7 +81,7 @@ static int run(int argc, char *argv[]) {
         }
 
         if (ioctl(fd, VIDIOC_QUERYCAP, &v2cap) == 0) {
-                int capabilities;
+                uint32_t capabilities;
 
                 printf("ID_V4L_VERSION=2\n");
                 if (utf8_is_valid((char *)v2cap.card) && !string_has_cc((char *)v2cap.card, /* ok= */ NULL))
@@ -58,20 +93,10 @@ static int run(int argc, char *argv[]) {
                 else
                         capabilities = v2cap.capabilities;
 
-                if ((capabilities & V4L2_CAP_VIDEO_CAPTURE) > 0 ||
-                    (capabilities & V4L2_CAP_VIDEO_CAPTURE_MPLANE) > 0)
-                        printf("capture:");
-                if ((capabilities & V4L2_CAP_VIDEO_OUTPUT) > 0 ||
-                    (capabilities & V4L2_CAP_VIDEO_OUTPUT_MPLANE) > 0)
-                        printf("video_output:");
-                if ((capabilities & V4L2_CAP_VIDEO_OVERLAY) > 0)
-                        printf("video_overlay:");
-                if ((capabilities & V4L2_CAP_AUDIO) > 0)
-                        printf("audio:");
-                if ((capabilities & V4L2_CAP_TUNER) > 0)
-                        printf("tuner:");
-                if ((capabilities & V4L2_CAP_RADIO) > 0)
-                        printf("radio:");
+                FOREACH_ELEMENT(i, capabilities_table)
+                        if ((capabilities & i->flag) > 0)
+                                printf("%s:", i->name);
+
                 printf("\n");
         }
 
