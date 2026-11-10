@@ -564,7 +564,7 @@ void fwupdate_install(const EFI_DEVICE_PATH *boot_disk_path) {
         if (n_capsules == 0)
                 return (void) log_error("No capsules could be prepared out of %zu updates.", n_updates);
 
-        log_info("Applying %zu updates, and then resetting system.", n_capsules);
+        log_debug("Applying %zu updates, and then resetting system.", n_capsules);
         log_wait();
 
         EFI_RESET_TYPE reset_type = EfiResetWarm;
@@ -573,7 +573,7 @@ void fwupdate_install(const EFI_DEVICE_PATH *boot_disk_path) {
                 return;
 
         /* The update might already reboot, so might not get to this point. */
-        log_info("Applied %zu updates, resetting system.", n_capsules);
+        log_debug("Applied %zu updates, resetting system.", n_capsules);
         log_wait();
 
         RT->ResetSystem(reset_type, EFI_SUCCESS, /* DataSize= */ 0, /* ResetData= */ NULL);
