@@ -305,17 +305,26 @@ int journal_remote_server_init(
                 RemoteServer *s,
                 const char *output,
                 JournalWriteSplitMode split_mode,
-                JournalFileFlags file_flags) {
+                JournalFileFlags file_flags,
+                uint64_t max_upload) {
 
         int r;
 
         assert(s);
+
+        if (max_upload == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "MaxUploadSize=0 is not valid.");
 
         assert(journal_remote_server_global == NULL);
         journal_remote_server_global = s;
 
         s->split_mode = split_mode;
         s->file_flags = file_flags;
+
+        /* journal-upload ends its requests at ENTRY_SIZE_MAX/2, so a smaller
+         * limit would cut them mid-stream after entries have already been
+         * written. UINT64_MAX keeps chunked uploads unlimited. */
+        s->max_upload = MAX(max_upload, (uint64_t) ENTRY_SIZE_MAX);
 
         if (output)
                 s->output = output;
