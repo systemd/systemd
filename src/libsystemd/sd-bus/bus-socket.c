@@ -5,6 +5,7 @@
 #include <poll.h>
 #include <stdlib.h>
 #include <sys/inotify.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -1176,39 +1177,116 @@ int bus_socket_connect(sd_bus *b) {
         return bus_socket_start_auth(b);
 }
 
-static int bus_socket_prepare_notify(char **ret_dir, char **ret_path) {
-        _cleanup_(rmdir_and_freep) char *dir = NULL;
+static int bus_socket_notify_cleanup_fork(const char *dir, const char *path, PidRef *ret_pidref) {
+        PidRef parent_pidref = PIDREF_NULL;
+        int r;
+
+        assert(dir);
+        assert(path);
+        assert(ret_pidref);
+
+        r = pidref_set_pid(&parent_pidref, /* pid= */ 0);
+        if (r < 0)
+                return r;
+        if (parent_pidref.fd < 0) {
+                pidref_done(&parent_pidref);
+                return -EOPNOTSUPP;
+        }
+
+        r = pidref_safe_fork_full(
+                        "(sd-busexec-cleanup)",
+                        /* stdio_fds= */ (int[]) { STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO },
+                        /* except_fds= */ &parent_pidref.fd, /* n_except_fds= */ 1,
+                        /* flags= */ FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO|FORK_RLIMIT_NOFILE_SAFE|FORK_DETACH,
+                        /* ret= */ ret_pidref);
+        if (r < 0) {
+                pidref_done(&parent_pidref);
+                return r;
+        }
+        if (r == 0) {
+                struct pollfd pfd = {
+                        .fd = parent_pidref.fd,
+                        .events = POLLIN,
+                };
+
+                do
+                        r = poll(&pfd, /* nfds= */ 1, /* timeout= */ -1);
+                while (r < 0 && errno == EINTR);
+
+                if (r > 0) {
+                        (void) unlink(path);
+                        (void) rmdir(dir);
+                }
+                _exit(EXIT_SUCCESS);
+        }
+
+        pidref_done(&parent_pidref);
+        return 0;
+}
+
+static int bus_socket_prepare_notify(char **ret_dir, char **ret_path, PidRef *ret_cleanup_pidref) {
+        assert(ret_dir);
+        assert(ret_path);
+        assert(ret_cleanup_pidref);
+
+        _cleanup_free_ char *dir = NULL;
         _cleanup_(unlink_and_freep) char *path = NULL;
         _cleanup_free_ char *template = NULL;
         const char *tmp;
+        PidRef cleanup_pidref = PIDREF_NULL;
         int r;
 
         r = tmp_dir(&tmp);
         if (r < 0)
                 return r;
-        template = path_join(tmp, "sd-busexec-XXXXXX");
+        template = path_join(tmp, "sd-busexec");
         if (!template)
                 return -ENOMEM;
-        r = mkdtemp_malloc(template, &dir);
+        r = tempfn_random(template, /* extra= */ NULL, &dir);
         if (r < 0)
                 return r;
         path = path_join(dir, "notify");
         if (!path)
                 return -ENOMEM;
 
+        /* Keep a helper around so the private socket directory is removed even if our process is killed
+         * before bus_close_fds() gets a chance to clean it up. Create the helper before the directory
+         * itself, so it can also clean up if we are killed immediately after mkdir(). */
+        r = bus_socket_notify_cleanup_fork(dir, path, &cleanup_pidref);
+        if (r < 0)
+                return r;
+
+        if (mkdir(dir, /* mode= */ 0700) < 0) {
+                r = -errno;
+                (void) pidref_kill(&cleanup_pidref, SIGTERM);
+                pidref_done(&cleanup_pidref);
+                return r;
+        }
+
         _cleanup_close_ int fd = notify_socket_prepare_fd(path, /* accept_fds= */ false, /* ret_path= */ NULL);
-        if (fd < 0)
-                return fd;
+        if (fd < 0) {
+                r = fd;
+                goto fail;
+        }
 
         *ret_dir = TAKE_PTR(dir);
         *ret_path = TAKE_PTR(path);
+        *ret_cleanup_pidref = TAKE_PIDREF(cleanup_pidref);
         return TAKE_FD(fd);
+
+fail:
+        (void) unlink(path);
+        (void) rmdir(dir);
+        (void) pidref_kill(&cleanup_pidref, SIGTERM);
+        pidref_done(&cleanup_pidref);
+        return r;
 }
 
 int bus_socket_exec(sd_bus *b) {
         _cleanup_close_ int notify_fd = -EBADF;
         _cleanup_(rmdir_and_freep) char *notify_dir = NULL;
         _cleanup_(unlink_and_freep) char *notify_path = NULL;
+        PidRef notify_cleanup_pidref = PIDREF_NULL;
         int s[2], r;
 
         assert(b);
@@ -1236,7 +1314,7 @@ int bus_socket_exec(sd_bus *b) {
 
         /* A private directory prevents other users from filling the notification queue and blocking
          * the transport's sd_notify() calls. */
-        notify_fd = bus_socket_prepare_notify(&notify_dir, &notify_path);
+        notify_fd = bus_socket_prepare_notify(&notify_dir, &notify_path, &notify_cleanup_pidref);
         if (notify_fd < 0)
                 log_debug_errno(notify_fd, "Failed to prepare exec transport notification socket, proceeding without it: %m");
 
@@ -1248,6 +1326,10 @@ int bus_socket_exec(sd_bus *b) {
                         &b->busexec_pidref);
         if (r < 0) {
                 safe_close_pair(s);
+                (void) unlink(notify_path);
+                (void) rmdir(notify_dir);
+                (void) pidref_kill(&notify_cleanup_pidref, SIGTERM);
+                pidref_done(&notify_cleanup_pidref);
                 return r;
         }
         if (r == 0) {
@@ -1271,6 +1353,7 @@ int bus_socket_exec(sd_bus *b) {
         b->busexec_notify_fd = TAKE_FD(notify_fd);
         b->busexec_notify_path = TAKE_PTR(notify_path);
         b->busexec_notify_dir = TAKE_PTR(notify_dir);
+        b->busexec_notify_cleanup_pidref = TAKE_PIDREF(notify_cleanup_pidref);
         safe_close(s[1]);
         b->output_fd = b->input_fd = fd_move_above_stdio(s[0]);
 
