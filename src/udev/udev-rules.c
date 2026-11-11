@@ -599,6 +599,120 @@ static int rule_resolve_group(UdevRuleLine *rule_line, const char *name, gid_t *
         return 0;
 }
 
+static int validate_action(const UdevRuleToken *token, const char *s) {
+        assert(token);
+        assert(s);
+
+        _cleanup_free_ char *v = NULL;
+        if (FLAGS_SET(token->match_type, MATCH_CASE_INSENSITIVE)) {
+                v = strdup(s);
+                if (!v)
+                        return log_oom();
+
+                s = ascii_strlower(v);
+        }
+
+        return device_action_from_string(s) >= 0;
+}
+
+static int validate_absolute_path(const UdevRuleToken *token, const char *s) {
+        return path_is_absolute(s) && path_is_normalized(s);
+}
+
+static int validate_relative_path(const UdevRuleToken *token, const char *s) {
+        return !path_is_absolute(s) && path_is_normalized(s);
+}
+
+static int validate_ifname(const UdevRuleToken *token, const char *s) {
+        return ifname_valid(s);
+}
+
+static int validate_filename(const UdevRuleToken *token, const char *s) {
+        return filename_is_valid(s);
+}
+
+static int verify_match_token(
+                const UdevRuleToken *token,
+                const char *name,
+                bool allow_empty,
+                int (*validator)(const UdevRuleToken *token, const char *s)) {
+
+        int r;
+
+        assert(token);
+
+        UdevRuleMatchType match_type = token->match_type & _MATCH_TYPE_MASK;
+        UdevRuleLine *line = token->rule_line;
+
+        switch (match_type) {
+        case MATCH_TYPE_EMPTY:
+                if (allow_empty)
+                        return true;
+
+                log_line_full(line, token->op == OP_MATCH ? LOG_ERR : LOG_WARNING,
+                              "%s is always non-empty.", name);
+                return token->op != OP_MATCH;
+
+        case MATCH_TYPE_SUBSYSTEM:
+                assert(token->type == TK_M_SUBSYSTEM);
+                return true;
+
+        case MATCH_TYPE_PLAIN_WITH_EMPTY:
+        case MATCH_TYPE_PLAIN: {
+                bool has = allow_empty && match_type == MATCH_TYPE_PLAIN_WITH_EMPTY;
+                NULSTR_FOREACH(i, token->value) {
+                        r = validator(token, i);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                log_line_warning(line, "Invalid %s value '%s', ignoring.", name, i);
+                        else
+                                has = true;
+                }
+                if (has)
+                        return true;
+
+                log_line_full(line, token->op == OP_MATCH ? LOG_ERR : LOG_WARNING,
+                              "%s token does not have valid value.", name);
+                return token->op != OP_MATCH;
+        }
+        case MATCH_TYPE_GLOB_WITH_EMPTY:
+        case MATCH_TYPE_GLOB:
+                return true;
+        default:
+                assert_not_reached();
+        }
+}
+
+static int verify_token(const UdevRuleToken *token) {
+        assert(token);
+
+        switch (token->type) {
+        case TK_M_ACTION:
+                return verify_match_token(token, "ACTION", /* allow_empty= */ false, validate_action);
+        case TK_M_DEVPATH:
+                return verify_match_token(token, "DEVPATH", /* allow_empty= */ false, validate_absolute_path);
+        case TK_M_KERNEL:
+                return verify_match_token(token, "KERNEL", /* allow_empty= */ false, validate_relative_path);
+        case TK_M_DEVLINK:
+                return verify_match_token(token, "SYMLINK", /* allow_empty= */ true, validate_relative_path);
+        case TK_M_NAME:
+                return verify_match_token(token, "NAME", /* allow_empty= */ true, validate_ifname);
+        case TK_M_SUBSYSTEM:
+                return verify_match_token(token, "SUBSYSTEM", /* allow_empty= */ false, validate_filename);
+        case TK_M_DRIVER:
+                return verify_match_token(token, "DRIVER", /* allow_empty= */ true, validate_filename);
+        case TK_M_PARENTS_KERNEL:
+                return verify_match_token(token, "KERNELS", /* allow_empty= */ false, validate_relative_path);
+        case TK_M_PARENTS_SUBSYSTEM:
+                return verify_match_token(token, "SUBSYSTEMS", /* allow_empty= */ true, validate_filename);
+        case TK_M_PARENTS_DRIVER:
+                return verify_match_token(token, "DRIVERS", /* allow_empty= */ true, validate_filename);
+        default:
+                return true;
+        }
+}
+
 static UdevRuleSubstituteType rule_get_substitution_type(const char *str) {
         assert(str);
 
@@ -610,7 +724,7 @@ static UdevRuleSubstituteType rule_get_substitution_type(const char *str) {
 }
 
 static bool type_has_nulstr_value(UdevRuleTokenType type) {
-        return type < TK_M_TEST || type == TK_M_RESULT;
+        return (type >= 0 && type < TK_M_TEST) || type == TK_M_RESULT;
 }
 
 static int rule_line_add_token(
@@ -625,12 +739,13 @@ static int rule_line_add_token(
         _cleanup_(udev_rule_token_freep) UdevRuleToken *token = NULL;
         UdevRuleMatchType match_type = _MATCH_TYPE_INVALID;
         UdevRuleSubstituteType subst_type = _SUBST_TYPE_INVALID;
+        int r;
 
         assert(rule_line);
         assert(type >= 0 && type < _TK_TYPE_MAX);
         assert(op >= 0 && op < _OP_TYPE_MAX);
 
-        if (type < _TK_M_MAX) {
+        if (type_has_nulstr_value(type)) {
                 assert(value);
                 assert(IN_SET(op, OP_MATCH, OP_NOMATCH));
 
@@ -647,38 +762,36 @@ static int rule_line_add_token(
                 else
                         match_type = MATCH_TYPE_PLAIN;
 
-                if (type_has_nulstr_value(type)) {
-                        /* Convert value string to nulstr. */
-                        bool bar = true, empty = false;
-                        char *a, *b;
+                /* Convert value string to nulstr. */
+                bool bar = true, empty = false;
+                char *a, *b;
 
-                        for (a = b = value; *a != '\0'; a++) {
-                                if (*a != '|') {
-                                        *b++ = *a;
-                                        bar = false;
-                                } else {
-                                        if (bar)
-                                                empty = true;
-                                        else
-                                                *b++ = '\0';
-                                        bar = true;
-                                }
+                for (a = b = value; *a != '\0'; a++) {
+                        if (*a != '|') {
+                                *b++ = *a;
+                                bar = false;
+                        } else {
+                                if (bar)
+                                        empty = true;
+                                else
+                                        *b++ = '\0';
+                                bar = true;
                         }
-                        *b = '\0';
+                }
+                *b = '\0';
 
-                        /* Make sure the value is end, so NULSTR_FOREACH can read correct match */
-                        if (b < a)
-                                b[1] = '\0';
+                /* Make sure the value is end, so NULSTR_FOREACH can read correct match */
+                if (b < a)
+                        b[1] = '\0';
 
-                        if (bar)
-                                empty = true;
+                if (bar)
+                        empty = true;
 
-                        if (empty) {
-                                if (match_type == MATCH_TYPE_GLOB)
-                                        match_type = MATCH_TYPE_GLOB_WITH_EMPTY;
-                                if (match_type == MATCH_TYPE_PLAIN)
-                                        match_type = MATCH_TYPE_PLAIN_WITH_EMPTY;
-                        }
+                if (empty) {
+                        if (match_type == MATCH_TYPE_GLOB)
+                                match_type = MATCH_TYPE_GLOB_WITH_EMPTY;
+                        if (match_type == MATCH_TYPE_PLAIN)
+                                match_type = MATCH_TYPE_PLAIN_WITH_EMPTY;
                 }
         }
 
@@ -700,7 +813,7 @@ static int rule_line_add_token(
 
         token = new(UdevRuleToken, 1);
         if (!token)
-                return -ENOMEM;
+                return log_oom();
 
         *token = (UdevRuleToken) {
                 .type = type,
@@ -714,6 +827,12 @@ static int rule_line_add_token(
         };
 
         LIST_APPEND(tokens, rule_line->tokens, token);
+
+        r = verify_token(token);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EINVAL;
 
         if (token->type == TK_A_NAME)
                 SET_FLAG(rule_line->type, LINE_HAS_NAME, true);
@@ -829,7 +948,7 @@ static int parse_token(
                 } else
                         r = rule_line_add_token(rule_line, TK_M_NAME, op, value, /* data= */ NULL, is_case_insensitive, token_str);
         } else if (streq(key, "ENV")) {
-                if (isempty(attr))
+                if (!device_property_name_is_valid(attr))
                         return log_line_invalid_attr(rule_line, key);
                 if (op == OP_REMOVE)
                         return log_line_invalid_op(rule_line, key);
@@ -972,7 +1091,7 @@ static int parse_token(
                 if (is_case_insensitive)
                         return log_line_invalid_prefix(rule_line, key);
 
-                r = rule_line_add_token(rule_line, TK_M_TEST, op, value, MODE_TO_PTR(mode), is_case_insensitive, token_str);
+                r = rule_line_add_token(rule_line, TK_M_TEST, op, value, MODE_TO_PTR(mode), /* is_case_insensitive= */ false, token_str);
         } else if (streq(key, "PROGRAM")) {
                 if (attr)
                         return log_line_invalid_attr(rule_line, key);
@@ -1015,11 +1134,15 @@ static int parse_token(
                                 return log_line_error_errno(rule_line, SYNTHETIC_ERRNO(EINVAL),
                                                             "Unknown builtin command: %s", value);
                         r = rule_line_add_token(rule_line, TK_M_IMPORT_BUILTIN, op, value, UDEV_BUILTIN_CMD_TO_PTR(cmd), /* is_case_insensitive= */ false, token_str);
-                } else if (streq(attr, "db"))
+                } else if (streq(attr, "db")) {
+                        if (!device_property_name_is_valid(value))
+                                return log_line_error_errno(rule_line, SYNTHETIC_ERRNO(EINVAL), "Invalid property name '%s', ignoring.", value);
                         r = rule_line_add_token(rule_line, TK_M_IMPORT_DB, op, value, /* data= */ NULL, /* is_case_insensitive= */ false, token_str);
-                else if (streq(attr, "cmdline"))
+                } else if (streq(attr, "cmdline")) {
+                        if (!device_property_name_is_valid(value))
+                                return log_line_error_errno(rule_line, SYNTHETIC_ERRNO(EINVAL), "Invalid property name '%s', ignoring.", value);
                         r = rule_line_add_token(rule_line, TK_M_IMPORT_CMDLINE, op, value, /* data= */ NULL, /* is_case_insensitive= */ false, token_str);
-                else if (streq(attr, "parent"))
+                } else if (streq(attr, "parent"))
                         r = rule_line_add_token(rule_line, TK_M_IMPORT_PARENT, op, value, /* data= */ NULL, /* is_case_insensitive= */ false, token_str);
                 else
                         return log_line_invalid_attr(rule_line, key);
@@ -1208,7 +1331,7 @@ static int parse_token(
         } else
                 return log_line_error_errno(rule_line, SYNTHETIC_ERRNO(EINVAL), "Invalid key '%s'.", key);
         if (r < 0)
-                return log_oom();
+                return r;
 
         return 1;
 }
@@ -2264,11 +2387,21 @@ static int udev_rule_apply_token_to_event(
 
                 return token_match_string(event, token, val, /* log_result= */ true);
         }
-        case TK_M_DEVLINK:
-                FOREACH_DEVICE_DEVLINK(dev, val)
+        case TK_M_DEVLINK: {
+                bool have_devlink = false;
+
+                FOREACH_DEVICE_DEVLINK(dev, val) {
+                        have_devlink = true;
                         if (token_match_string(event, token, strempty(startswith(val, "/dev/")), /* log_result= */ false) == (token->op == OP_MATCH))
                                 return log_event_result(event, token, token->op == OP_MATCH);
+                }
+
+                /* If no devlink is set, match against the empty string, so that e.g. SYMLINK=="" matches. */
+                if (!have_devlink)
+                        return token_match_string(event, token, "", /* log_result= */ true);
+
                 return log_event_result(event, token, token->op == OP_NOMATCH);
+        }
 
         case TK_M_NAME:
                 return token_match_string(event, token, event->name, /* log_result= */ true);
@@ -2294,11 +2427,21 @@ static int udev_rule_apply_token_to_event(
                 return token_match_string(event, token, val, /* log_result= */ true);
         }
         case TK_M_TAG:
-        case TK_M_PARENTS_TAG:
-                FOREACH_DEVICE_CURRENT_TAG(dev, val)
+        case TK_M_PARENTS_TAG: {
+                bool have_tag = false;
+
+                FOREACH_DEVICE_CURRENT_TAG(dev, val) {
+                        have_tag = true;
                         if (token_match_string(event, token, val, /* log_result= */ false) == (token->op == OP_MATCH))
                                 return log_event_result(event, token, token->op == OP_MATCH);
+                }
+
+                /* If no tag is set, match against the empty string, so that e.g. TAG=="" matches. */
+                if (!have_tag)
+                        return token_match_string(event, token, "", /* log_result= */ true);
+
                 return log_event_result(event, token, token->op == OP_NOMATCH);
+        }
 
         case TK_M_SUBSYSTEM:
         case TK_M_PARENTS_SUBSYSTEM: {
@@ -2607,6 +2750,11 @@ static int udev_rule_apply_token_to_event(
 
                 if (!apply_format_value(event, token, buf, sizeof(buf), "property name"))
                         return false;
+
+                if (!string_is_glob(buf) && !device_property_name_is_valid(buf)) {
+                        log_event_warning(event, token, "Invalid property name '%s', ignoring.", buf);
+                        return log_event_result(event, token, token->op == OP_NOMATCH);
+                }
 
                 sd_device *parent;
                 r = sd_device_get_parent(dev, &parent);

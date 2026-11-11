@@ -203,6 +203,21 @@ CHANGES WITH 263 in spe:
           systemd-cryptsetup may not find the device, so the activation may no
           longer work.
 
+        * In udev rules, the SYMLINK, TAG and TAGS match keys now compare an
+          empty match against an empty string instead of skipping it when the
+          device has no symlink or tag. As a result SYMLINK=="", TAG=="" and
+          TAGS=="", as well as match lists with an empty alternative such as
+          SYMLINK=="foo|", now match a device that has no device symlink or tag
+          (for TAGS, the device and its parent devices are considered).
+          Previously such matches never succeeded. The negated forms, e.g.
+          SYMLINK!="", change accordingly.
+
+        * systemd-udevd now validates more of a rule's keys when the rule file
+          is parsed, rather than only when the rule is applied. Rules that were
+          previously accepted but could never match, or that used an invalid
+          name, value or path, may now be rejected or warned about. Check
+          existing rules with "udevadm verify".
+
         Changes in the system and service manager:
 
         * LockPersonality= no longer refuses querying the personality with
