@@ -11031,6 +11031,40 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         self.teardown_nftset('addr6', 'network6', 'ifindex')
 
+    @unittest.skipUnless(shutil.which('dhcpd'), reason='dhcpd is not available')
+    def test_dhcp6pd_renumber(self):
+        copy_network_unit(
+            '25-veth.netdev',
+            '25-dhcp6pd-server.network',
+            '25-dhcp6pd-upstream.network',
+            '25-veth-downstream-veth97.netdev',
+            '25-dhcp-pd-downstream-veth97.network',
+            '25-dhcp-pd-downstream-veth97-peer.network',
+        )
+
+        start_networkd()
+        self.wait_online('veth-peer:routable')
+        start_isc_dhcpd(conf_file='isc-dhcpd-dhcp6pd.conf', ipv='-6')
+        self.wait_online('veth99:routable', 'veth97:routable', 'veth97-peer:routable')
+
+        # NDisc address (Token=static)
+        old_address = 'inet6 3ffe:501:ffff:[2-9a-f]08:1a:2b:3c:4e/64 (metric 256 |)scope global'
+        self.wait_address('veth97-peer', f'{old_address} dynamic', ipv='-6')
+
+        # The new invocation solicits a new lease, and the server hands out a different prefix.
+        stop_isc_dhcpd()
+        start_isc_dhcpd(conf_file='isc-dhcpd-dhcp6pd-renumbered.conf', ipv='-6')
+        restart_networkd()
+        self.wait_online('veth99:routable', 'veth97:routable', 'veth97-peer:routable')
+
+        self.wait_address(
+            'veth97-peer',
+            'inet6 3ffe:501:fffe:[2-9a-f]08:1a:2b:3c:4e/64 (metric 256 |)scope global dynamic',
+            ipv='-6',
+        )
+        # The old prefix is still announced with zero lifetimes.
+        self.wait_address('veth97-peer', f'{old_address} deprecated dynamic', ipv='-6')
+
     def verify_dhcp4_6rd(self, tunnel_name, address_prefix, address_prefix_re, border_router):
         print('### ip -4 address show dev veth-peer scope global')
         output = check_output('ip -4 address show dev veth-peer scope global')

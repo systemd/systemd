@@ -215,8 +215,58 @@ static void dhcp_pd_route_modify_nft_set(Route *route, Link *link, bool add) {
         }
 }
 
-int dhcp_pd_remove(Link *link, bool only_marked) {
-        int ret = 0;
+static bool dhcp_pd_withdraw_prefix(
+                Link *link,
+                const struct in6_addr *prefix,
+                usec_t lifetime_valid_usec,
+                bool deprecate) {
+
+        int r;
+
+        assert(link);
+        assert(prefix);
+
+        if (!link->radv)
+                return false;
+
+        if (!deprecate) {
+                sd_radv_remove_prefix(link->radv, prefix, 64);
+                return false;
+        }
+
+        r = radv_deprecate_prefix(link, prefix, 64, lifetime_valid_usec);
+        if (r < 0) {
+                log_link_warning_errno(link, r,
+                                       "Failed to deprecate prefix %s in IPv6 Router Advertisement, ignoring: %m",
+                                       IN6_ADDR_PREFIX_TO_STRING(prefix, 64));
+                return false;
+        }
+
+        return r > 0;
+}
+
+static bool dhcp_pd_prefix_in_use(Link *link, const struct in6_addr *prefix) {
+        Address *a;
+
+        assert(link);
+        assert(prefix);
+
+        /* Marking is per address, e.g. one with a changed Token= may replace a marked one in the same
+         * /64. */
+        SET_FOREACH(a, link->addresses)
+                if (a->source == NETWORK_CONFIG_SOURCE_DHCP_PD && !address_is_marked(a) &&
+                    (address_exists(a) || address_is_requesting(a)) &&
+                    in6_addr_prefix_covers(prefix, 64, &a->in_addr.in6) > 0)
+                        return true;
+
+        return false;
+}
+
+/* When stale is true, deprecate the prefixes where dhcp_pd_assign_subnet_prefix() announced them, see
+ * radv_deprecate_prefix(), instead of dropping them from the RA. */
+static int dhcp_pd_remove_full(Link *link, bool only_marked, bool stale) {
+        bool deprecate, deprecated = false;
+        int r, ret = 0;
 
         assert(link);
         assert(link->manager);
@@ -226,6 +276,8 @@ int dhcp_pd_remove(Link *link, bool only_marked) {
 
         if (!only_marked)
                 link->dhcp_pd_configured = false;
+
+        deprecate = stale && link->network->dhcp_pd_announce;
 
         if (!link->network->dhcp_pd_assign) {
                 Route *route;
@@ -238,8 +290,8 @@ int dhcp_pd_remove(Link *link, bool only_marked) {
                         if (only_marked && !route_is_marked(route))
                                 continue;
 
-                        if (link->radv)
-                                sd_radv_remove_prefix(link->radv, &route->dst.in6, 64);
+                        if (dhcp_pd_withdraw_prefix(link, &route->dst.in6, route->lifetime_usec, deprecate))
+                                deprecated = true;
 
                         link_remove_dhcp_pd_subnet_prefix(link, &route->dst.in6);
 
@@ -262,13 +314,23 @@ int dhcp_pd_remove(Link *link, bool only_marked) {
                         prefix = address->in_addr.in6;
                         in6_addr_mask(&prefix, 64);
 
-                        if (link->radv)
-                                sd_radv_remove_prefix(link->radv, &prefix, 64);
+                        if (!only_marked || !dhcp_pd_prefix_in_use(link, &prefix)) {
+                                if (dhcp_pd_withdraw_prefix(link, &prefix,
+                                                            address->lifetime_valid_usec, deprecate))
+                                        deprecated = true;
 
-                        link_remove_dhcp_pd_subnet_prefix(link, &prefix);
+                                link_remove_dhcp_pd_subnet_prefix(link, &prefix);
+                        }
 
                         RET_GATHER(ret, address_remove_and_cancel(address, link));
                 }
+        }
+
+        if (deprecated && sd_radv_is_running(link->radv)) {
+                r = sd_radv_send(link->radv);
+                if (r < 0)
+                        log_link_warning_errno(link, r,
+                                               "Failed to announce deprecated prefixes, ignoring: %m");
         }
 
         if (!only_marked)
@@ -276,6 +338,19 @@ int dhcp_pd_remove(Link *link, bool only_marked) {
                 RET_GATHER(ret, link_drop_requests(link, NETWORK_CONFIG_SOURCE_DHCP_PD));
 
         return ret;
+}
+
+int dhcp_pd_remove(Link *link, bool only_marked) {
+        Link *uplink;
+
+        assert(link);
+
+        if (!link_dhcp_pd_is_enabled(link))
+                return 0;
+
+        /* Marked prefixes were not assigned again from the current lease, so they are stale. */
+        return dhcp_pd_remove_full(link, only_marked,
+                                   only_marked && dhcp_pd_find_uplink(link, &uplink) >= 0 && uplink != link);
 }
 
 static int dhcp_pd_check_ready(Link *link);
@@ -745,7 +820,7 @@ static void dhcp_pd_prefix_lost(Link *uplink, NetworkConfigSource source) {
                 if (!dhcp_pd_is_uplink(link, uplink, /* accept_auto= */ true))
                         continue;
 
-                r = dhcp_pd_remove(link, /* only_marked= */ false);
+                r = dhcp_pd_remove_full(link, /* only_marked= */ false, /* stale= */ link != uplink);
                 if (r < 0)
                         link_enter_failed(link);
         }

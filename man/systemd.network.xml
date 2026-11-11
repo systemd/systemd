@@ -3438,7 +3438,9 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
           <para>Takes a boolean. When enabled, and <varname>IPv6SendRA=</varname> in [Network] section
           is enabled, the delegated prefixes are distributed through the IPv6 Router Advertisement.
           This setting will be ignored when the <varname>DHCPPrefixDelegation=</varname> setting is
-          enabled on the upstream interface. Defaults to yes.</para>
+          enabled on the upstream interface. When a delegated prefix is replaced, the old one is still
+          advertised with zero lifetimes for as long as hosts may use it, as required by RFC 9096, so
+          that they stop using it right away. Defaults to yes.</para>
 
         <xi:include href="version-info.xml" xpointer="v247"/>
         </listitem>
