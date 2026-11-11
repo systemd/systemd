@@ -6011,6 +6011,34 @@ static void tpm2_make_policy_ref(const char *policy_ref, TPM2B_NONCE *ret_policy
         ret_policy_ref->size = SHA256_DIGEST_SIZE;
 }
 
+static int signature_to_tpm2_tpmt(
+                const TPM2B_PUBLIC *public,
+                const void *signature_raw,
+                const size_t signature_size,
+                TPMT_SIGNATURE *ret_signature) {
+        int r;
+        switch (public->publicArea.type) {
+        case TPM2_ALG_RSA: {
+                r = TPM2B_PUBLIC_KEY_RSA_CHECK_SIZE(signature_size);
+                if (r < 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Signature larger than buffer.");
+
+                *ret_signature = (TPMT_SIGNATURE) {
+                        .sigAlg = TPM2_ALG_RSASSA,
+                        .signature.rsassa = {
+                                .hash = TPM2_ALG_SHA256,
+                                .sig = TPM2B_PUBLIC_KEY_RSA_MAKE(signature_raw, signature_size),
+                        },
+                };
+                return 0;
+        }
+        default:
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Unsupported signing key type 0x%" PRIx16, public->publicArea.type);
+        }
+}
+
 static int tpm2_policy_authorize(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
@@ -6072,8 +6100,8 @@ static int tpm2_policy_authorize(
                 if (r < 0)
                         return r;
 
-                /* TPM2_VerifySignature() will only verify the RSA part of the RSA+SHA256 signature,
-                 * hence we need to do the SHA256 part ourselves, first */
+                /* TPM2_VerifySignature() will only verify asymmetric crypto part of the signature, hence we
+                 * need to do the SHA256 part ourselves, first */
                 _cleanup_(iovec_done) struct iovec tbs_data = {};
                 r = tpm2_make_policy_authorize_tbs_data(approved_policy, policy_ref, &tbs_data);
                 if (r < 0)
@@ -6084,17 +6112,10 @@ static int tpm2_policy_authorize(
                 if (r < 0)
                         return r;
 
-                r = TPM2B_PUBLIC_KEY_RSA_CHECK_SIZE(signature_size);
-                if (r < 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Signature larger than buffer.");
-
-                TPMT_SIGNATURE policy_signature = {
-                        .sigAlg = TPM2_ALG_RSASSA,
-                        .signature.rsassa = {
-                                .hash = TPM2_ALG_SHA256,
-                                .sig = TPM2B_PUBLIC_KEY_RSA_MAKE(signature_raw, signature_size),
-                        },
-                };
+                TPMT_SIGNATURE policy_signature;
+                r = signature_to_tpm2_tpmt(public, signature_raw, signature_size, &policy_signature);
+                if (r != 0)
+                        return r;
 
                 rc = sym_Esys_VerifySignature(
                                 c->esys_context,
