@@ -874,7 +874,13 @@
 
         <para>The extended attributes are taken from the <literal>extendedAttributes</literal> field of the
         file objects in UAPI.16 manifests (see <varname>ManifestFormat=</varname>), as well as from the files
-        and directories in the file system, for local sources. When an instance is installed from a source
+        and directories in the file system, for local sources. Note that
+        <citerefentry><refentrytitle>systemd-manifest</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <command>systemd-dissect --uapi16</command> and <command>systemd-repart --manifest=</command> do not
+        include extended attributes in generated manifests by default, hence use
+        <command>systemd-manifest make --field=+user-xattr</command> (or
+        <command>systemd-repart --manifest-fields=+user-xattr</command>) to generate manifests that carry
+        them. When an instance is installed from a source
         with a UAPI.16 manifest, the <literal>user</literal> extended attributes listed in the manifest are
         applied to the file or directory created (see <varname>ManifestFormat=</varname> above), hence the
         restrictions are retained. Installed instances are checked only if <varname>MatchXAttr=</varname> is
