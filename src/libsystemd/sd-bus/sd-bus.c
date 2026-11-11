@@ -31,6 +31,7 @@
 #include "cgroup-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fiber-ops.h"
 #include "fs-util.h"
 #include "format-util.h"
 #include "glyph-util.h"
@@ -1794,7 +1795,8 @@ static void bus_receive_busexec_errno(sd_bus *bus) {
         /* EOF can precede the child's final ERRNO= notification. Only wait on disconnect, and bound
          * the wait so an uncooperative transport cannot indefinitely stall the caller. Without a
          * pidfd, reporting a more specific error is best effort. */
-        (void) pidref_wait_for_terminate_full(&bus->busexec_pidref, 50 * USEC_PER_MSEC, NULL);
+        if (!fiber_ops_is_set())
+                (void) pidref_wait_for_terminate_full(&bus->busexec_pidref, 50 * USEC_PER_MSEC, NULL);
 
         for (unsigned i = 0; i < 64; i++) {
                 _cleanup_free_ char *text = NULL;
