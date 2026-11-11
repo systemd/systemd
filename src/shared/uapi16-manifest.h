@@ -193,13 +193,25 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Uapi16Signer*, uapi16_signer_free);
  * leading object describing the manifest itself. The handler may take possession of fields of the object. */
 typedef int (*uapi16_object_handler_t)(Uapi16Object *o, size_t index, void *userdata);
 
+typedef enum Uapi16ReadStatus {
+        UAPI16_READ_UNSIGNED             = 0,     /* manifest carries no signature object */
+        UAPI16_READ_SIGNED               = 1,     /* manifest carries a signature that was successfully verified */
+        UAPI16_READ_UNVERIFIED_SIGNATURE = 2,     /* manifest carries signature objects, but none was verified */
+        _UAPI16_READ_STATUS_MAX,
+        _UAPI16_READ_STATUS_INVALID = -EINVAL,
+        _UAPI16_READ_STATUS_ERRNO_MAX = -ERRNO_MAX, /* ensure full range of errno fits into this enum */
+} Uapi16ReadStatus;
+
 /* Reads a UAPI.16 manifest from the specified stream, record by record, without ever holding more than one
  * record in memory, and enforces the structure of the manifest (leading object, signature objects only
  * after file objects, trailer last). Objects of unknown media types are skipped. If certificates are
  * specified, a PKCS#7 signature by one of them is required. Note that it is only known at the very end
  * whether the signature checks out, i.e. after the handler has been called for all file objects: callers
- * must discard what they collected if this returns an error. */
-int uapi16_manifest_read(
+ * must discard what they collected if this returns an error. Returns UAPI16_READ_SIGNED if certificates
+ * were specified and a signature verified against one of them, UAPI16_READ_UNVERIFIED_SIGNATURE if no
+ * certificates were specified but the manifest carries signature objects (of any mechanism, which are
+ * not checked in that case), UAPI16_READ_UNSIGNED if it carries none, or a negative errno on failure. */
+Uapi16ReadStatus uapi16_manifest_read(
                 FILE *f,
                 X509 *const *certificates,
                 size_t n_certificates,
