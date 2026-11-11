@@ -37,6 +37,7 @@ typedef struct Context {
         dual_timestamp previous_ts_output;
         sd_event *event;
         sd_varlink *synchronize_varlink;
+        char *newest_cursor;
 } Context;
 
 static void context_done(Context *c) {
@@ -45,6 +46,7 @@ static void context_done(Context *c) {
         sd_varlink_flush_close_unref(c->synchronize_varlink);
         sd_event_unref(c->event);
         sd_journal_close(c->journal);
+        c->newest_cursor = mfree(c->newest_cursor);
 }
 
 static int seek_journal(Context *c) {
@@ -65,8 +67,33 @@ static int seek_journal(Context *c) {
                 if (r < 0 && r != -ENOENT)
                         return log_error_errno(r, "Failed to read cursor file %s: %m", arg_cursor_file);
                 if (r > 0) {
-                        cursor = cursor_from_file;
                         after_cursor = true;
+
+                        /* Store the cursor-file's contents as the "newest cursor",
+                         * used to update --cursor-file= at the end in case no messages are displayed. */
+                        c->newest_cursor = TAKE_PTR(cursor_from_file);
+                        cursor = c->newest_cursor;
+                }
+        }
+
+        /* Capture the current "newest cursor" for --cursor-file= or --show-cursor,
+         * needed in case we end up not displaying any journal messages. */
+        if ((arg_show_cursor || arg_cursor_file) && !c->newest_cursor) {
+                _cleanup_free_ char *tail_cursor = NULL;
+
+                r = sd_journal_seek_tail(j);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to seek to tail: %m");
+
+                r = sd_journal_previous(j);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to iterate through journal: %m");
+                if (r > 0) {
+                        r = sd_journal_get_cursor(j, &tail_cursor);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get cursor: %m");
+
+                        c->newest_cursor = TAKE_PTR(tail_cursor);
                 }
         }
 
@@ -493,19 +520,24 @@ static int setup_event(Context *c, int fd) {
         return 0;
 }
 
-static int update_cursor(sd_journal *j) {
+static int update_cursor(Context *c) {
         _cleanup_free_ char *cursor = NULL;
         int r;
 
-        assert(j);
+        assert(c);
 
         if (!arg_show_cursor && !arg_cursor_file)
                 return 0;
 
-        r = sd_journal_get_cursor(j, &cursor);
-        if (r == -EADDRNOTAVAIL)
-                return 0;
-        if (r < 0)
+        r = sd_journal_get_cursor(c->journal, &cursor);
+        if (r == -EADDRNOTAVAIL) {
+                /* No journal messages were displayed, so we fall back on the cursor
+                 * that was the newest cursor just before we started displaying messages. */
+                if (!c->newest_cursor)
+                        /* Journal is completely empty, so we cannot print or store any cursor. */
+                        return 0;
+                cursor = TAKE_PTR(c->newest_cursor);
+        } else if (r < 0)
                 return log_error_errno(r, "Failed to get cursor: %m");
 
         if (arg_show_cursor)
@@ -587,7 +619,7 @@ int action_show(char **matches) {
                 if (r < 0)
                         return r;
 
-                r = update_cursor(c.journal);
+                r = update_cursor(&c);
                 if (r < 0)
                         return r;
 
@@ -605,7 +637,7 @@ int action_show(char **matches) {
         if (n_shown == 0 && !arg_quiet)
                 printf("-- No entries --\n");
 
-        r = update_cursor(c.journal);
+        r = update_cursor(&c);
         if (r < 0)
                 return r;
 
