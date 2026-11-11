@@ -1,10 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/mman.h>
+
 #include "alloc-util.h"
+#include "data-fd-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fdset.h"
+#include "iovec-util.h"
 #include "log.h"
+#include "memfd-util.h"
+#include "memory-util.h"
 #include "serialize.h"
 #include "socket-util.h"
 #include "string-util.h"
@@ -86,6 +92,140 @@ int varlink_server_deserialize_one(sd_varlink_server *s, const char *value, FDSe
         TAKE_FD(fd); /* ownership is now transferred to varlink server */
 
         return 0;
+}
+
+int varlink_server_serialize_connections(sd_varlink_server *s, const char *key, FILE *f, FDSet *fds) {
+        _cleanup_(iovec_done_erase) struct iovec data = {};
+        _cleanup_free_ char *value = NULL;
+        size_t n_conn_fds = 0;
+        int *conn_fds = NULL, r;
+
+        assert(key);
+        assert(f);
+        assert(fds);
+
+        if (!s || sd_varlink_server_current_connections(s) == 0)
+                return 0;
+
+        CLEANUP_ARRAY(conn_fds, n_conn_fds, close_many_and_free);
+
+        r = sd_varlink_server_serialize(s, &data.iov_base, &data.iov_len, &conn_fds, &n_conn_fds);
+        if (r < 0)
+                return varlink_server_log_errno(s, r, "Failed to serialize varlink connections: %m");
+
+        /* The serialization might be large (it contains all unprocessed input and unwritten output of all
+         * connections), and serialization lines are limited to LONG_LINE_MAX, hence pass it in a memfd
+         * instead of inline. Since it might contain sensitive data, erase our copy afterwards. */
+        int data_fd = data_fd_from_iovec(key, &data);
+        if (data_fd < 0)
+                return varlink_server_log_errno(s, data_fd, "Failed to allocate memfd for varlink connection serialization: %m");
+
+        r = fdset_consume(fds, data_fd);
+        if (r < 0)
+                return varlink_server_log_errno(s, r, "Failed to add varlink connection serialization memfd to fd set: %m");
+
+        if (asprintf(&value, "%i", data_fd) < 0)
+                return log_oom_debug();
+
+        /* The memfd is followed by the fds referenced by the serialization, in order */
+        FOREACH_ARRAY(i, conn_fds, n_conn_fds) {
+                int fd = TAKE_FD(*i);
+
+                r = fdset_consume(fds, fd);
+                if (r < 0)
+                        return varlink_server_log_errno(s, r, "Failed to add varlink connection fd to fd set: %m");
+
+                if (strextendf(&value, " %i", fd) < 0)
+                        return log_oom_debug();
+        }
+
+        return serialize_item(f, key, value);
+}
+
+int varlink_server_deserialize_connections(sd_varlink_server *s, const char *value, FDSet *fds) {
+        _cleanup_close_ int data_fd = -EBADF;
+        size_t n_conn_fds = 0;
+        uint64_t size;
+        int *conn_fds = NULL, r;
+
+        /* This function expects the value of a serialization line written by
+         * varlink_server_serialize_connections() */
+
+        assert(s);
+        assert(value);
+        assert(fds);
+
+        CLEANUP_ARRAY(conn_fds, n_conn_fds, close_many_and_free);
+
+        for (const char *p = value;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
+                if (r < 0)
+                        return varlink_server_log_errno(s, r, "Failed to parse varlink connection serialization: %s", value);
+                if (r == 0)
+                        break;
+
+                _cleanup_close_ int fd = deserialize_fd(fds, word);
+                if (fd < 0)
+                        return varlink_server_log_errno(s, fd, "Failed to deserialize varlink connection fd: %m");
+
+                if (data_fd < 0) {
+                        data_fd = TAKE_FD(fd);
+                        continue;
+                }
+
+                if (!GREEDY_REALLOC(conn_fds, n_conn_fds + 1))
+                        return log_oom_debug();
+
+                conn_fds[n_conn_fds++] = TAKE_FD(fd);
+        }
+
+        if (data_fd < 0)
+                return varlink_server_log_errno(s, SYNTHETIC_ERRNO(EBADMSG), "Varlink connection serialization lacks memfd, refusing.");
+
+        /* Map the memfd instead of reading it, since it might be large (it contains all unprocessed input
+         * and unwritten output of all connections), and this way we neither need to copy it nor are
+         * subject to the size limits of read_full_file(). */
+        r = memfd_get_size(data_fd, &size);
+        if (r < 0)
+                return varlink_server_log_errno(s, r, "Failed to determine size of varlink connection serialization: %m");
+        if (size == 0)
+                return varlink_server_log_errno(s, SYNTHETIC_ERRNO(EBADMSG), "Varlink connection serialization is empty, refusing.");
+        if (size > SIZE_MAX)
+                return varlink_server_log_errno(s, SYNTHETIC_ERRNO(EFBIG), "Varlink connection serialization too large, refusing.");
+
+        void *data = mmap(/* addr= */ NULL, size, PROT_READ, MAP_PRIVATE, data_fd, /* offset= */ 0);
+        if (data == MAP_FAILED)
+                return varlink_server_log_errno(s, errno, "Failed to map varlink connection serialization: %m");
+
+        /* On success this closes the passed fds and sets them to -EBADF, which our cleanup handler
+         * then ignores */
+        r = sd_varlink_server_deserialize(s, data, size, conn_fds, n_conn_fds);
+        assert_se(munmap(data, size) >= 0);
+        return r;
+}
+
+int varlink_serialize_connection_id(sd_varlink *link, const char *key, FILE *f) {
+        const char *id;
+        int r;
+
+        assert(key);
+        assert(f);
+
+        if (!link)
+                return 0;
+
+        r = sd_varlink_get_connection_id(link, &id);
+        if (r == -ENOTCONN) {
+                /* The peer went away already, nothing to pass on */
+                varlink_log(link, "Connection is disconnected, not serializing its identifier.");
+                return 0;
+        }
+        if (r < 0)
+                return varlink_log_errno(link, r, "Failed to get varlink connection id: %m");
+
+        return serialize_item(f, key, id);
 }
 
 bool varlink_server_contains_socket(sd_varlink_server *s, const char *address) {
