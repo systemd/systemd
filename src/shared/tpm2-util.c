@@ -6018,6 +6018,55 @@ static int signature_to_tpm2_tpmt(
                 TPMT_SIGNATURE *policy_signature) {
         int r;
         switch (public->publicArea.type) {
+#if HAVE_OPENSSL
+        case TPM2_ALG_ECC: {
+                /* d2i_ECDSA_SIG updates the pointer to right after the parsed structure. Make a copy that
+                 * can be modified without side effects. */
+                const unsigned char *sigp = signature_raw;
+                _cleanup_(ECDSA_SIG_freep) ECDSA_SIG *esig = NULL;
+                esig = sym_d2i_ECDSA_SIG(/* a= */ NULL, &sigp, signature_size);
+                if (!esig)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to parse ECC signature (should be DER).");
+
+                const BIGNUM *bn_r = sym_ECDSA_SIG_get0_r(esig);
+                if (!bn_r)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to get R.");
+                _cleanup_(iovec_done) struct iovec iov_r = {};
+                if (iovec_alloc(sym_BN_num_bytes(bn_r), &iov_r))
+                        return log_oom_debug();
+                r = sym_BN_bn2bin(bn_r, iov_r.iov_base);
+                if (r != (int) iov_r.iov_len)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to format R.");
+
+                const BIGNUM *bn_s = sym_ECDSA_SIG_get0_s(esig);
+                if (!bn_s)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to get S.");
+                _cleanup_(iovec_done) struct iovec iov_s = {};
+                if (iovec_alloc(sym_BN_num_bytes(bn_s), &iov_s))
+                        return log_oom_debug();
+                r = sym_BN_bn2bin(bn_s, iov_s.iov_base);
+                if (r != (int) iov_s.iov_len)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to format S.");
+
+                r = TPM2B_ECC_PARAMETER_CHECK_SIZE(iov_r.iov_len);
+                if (r < 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "R is larger than buffer.");
+                r = TPM2B_ECC_PARAMETER_CHECK_SIZE(iov_s.iov_len);
+                if (r < 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "S is larger than buffer.");
+
+                policy_signature->sigAlg = TPM2_ALG_ECDSA;
+                policy_signature->signature.ecdsa = (TPMS_SIGNATURE_ECDSA) {
+                        .hash = TPM2_ALG_SHA256,
+                        .signatureR = TPM2B_ECC_PARAMETER_MAKE(iov_r.iov_base, iov_r.iov_len),
+                        .signatureS = TPM2B_ECC_PARAMETER_MAKE(iov_s.iov_base, iov_s.iov_len),
+                };
+                return 0;
+        }
+#endif /* HAVE_OPENSSL */
         case TPM2_ALG_RSA: {
                 r = TPM2B_PUBLIC_KEY_RSA_CHECK_SIZE(signature_size);
                 if (r < 0)
