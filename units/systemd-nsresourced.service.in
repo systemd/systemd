@@ -34,6 +34,7 @@ ProtectHostname=yes
 ProtectKernelLogs=yes
 ProtectKernelModules=yes
 ProtectSystem=strict
+ReadWritePaths=/run/systemd
 RestrictAddressFamilies=AF_UNIX AF_NETLINK
 RestrictRealtime=yes
 RestrictSUIDSGID=yes

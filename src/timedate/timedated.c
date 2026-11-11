@@ -1610,9 +1610,16 @@ static int connect_varlink(Context *c) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind to passed Varlink sockets: %m");
         if (r == 0) {
+                /* When our .socket unit is active, sd_varlink_server_listen_auto() above already picks up the
+                 * passed socket and returns a positive value, so this fallback is mostly redundant. On top of
+                 * that, binding here typically fails anyway, because we run with ProtectSystem=strict, which
+                 * makes /run/systemd/ read-only. Still, try it (and ignore failures) to cover running timedated
+                 * directly, or a service setup that keeps /run/systemd/ writable. */
                 r = sd_varlink_server_listen_address(server, "/run/systemd/io.systemd.Timedate", 0666);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to bind to Varlink socket: %m");
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to bind to Varlink socket, ignoring: %m");
+                        return 0; /* Don't keep an unbound Varlink server around. */
+                }
         }
 
         c->varlink_server = TAKE_PTR(server);
