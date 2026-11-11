@@ -2460,6 +2460,14 @@ int manager_init(Manager *m) {
 
         if (!fdset_isempty(fds)) {
                 log_warning("%u unknown file descriptors passed, closing.", fdset_size(fds));
+
+                /* These are most likely streams from our fd store whose state file is gone. PID 1 still has
+                 * them, see stdout_stream_terminate(), so shut them down. Leave anything else alone. */
+                int fd;
+                FDSET_FOREACH(fd, fds)
+                        if (sd_is_socket_unix(fd, SOCK_STREAM, /* listening= */ 0, NULL, 0) > 0)
+                                (void) shutdown(fd, SHUT_RDWR);
+
                 fds = fdset_free(fds);
         }
 
