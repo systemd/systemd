@@ -64,6 +64,7 @@ _systemd_creds() {
         [CAT]='cat'
         [ENCRYPT]='encrypt'
         [DECRYPT]='decrypt'
+        [MAKE_ADDON]='make-addon'
     )
 
     local -A OPTS_FOR_VERB=(
@@ -105,6 +106,9 @@ _systemd_creds() {
                    --name
                    --timestamp
                    --allow-null'
+        [MAKE_ADDON]='--help
+                      --version
+                      --name'
     )
 
     _init_completion || return
@@ -173,6 +177,13 @@ _systemd_creds() {
     elif __contains_word "$verb" ${VERBS[DECRYPT]}; then
         if [[ $cur = -* ]]; then
             comps=${OPTS_FOR_VERB[DECRYPT]}
+        else
+            comps=$( compgen -A file -- "$cur" )
+            compopt -o filenames
+        fi
+    elif __contains_word "$verb" ${VERBS[MAKE_ADDON]}; then
+        if [[ $cur = -* ]]; then
+            comps=${OPTS_FOR_VERB[MAKE_ADDON]}
         else
             comps=$( compgen -A file -- "$cur" )
             compopt -o filenames
