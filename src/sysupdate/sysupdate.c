@@ -1137,9 +1137,9 @@ static int context_show_version(Context *c, const char *version) {
                 if (r < 0)
                         return table_log_add_error(r);
 
-                if (i->metadata.mtime != USEC_INFINITY) {
+                if (i->metadata.mtime_nsec != NSEC_INFINITY) {
                         have_fs_attributes = true;
-                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_TIMESTAMP, &i->metadata.mtime);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_TIMESTAMP, &(usec_t) { i->metadata.mtime_nsec / NSEC_PER_USEC });
                 } else
                         r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                 if (r < 0)

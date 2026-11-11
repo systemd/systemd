@@ -3,6 +3,7 @@
 
 #include "sd-id128.h"
 
+#include "manifest-util.h"
 #include "sysupdate-forward.h"
 #include "sysupdate-partition.h"
 #include "sysupdate-resource.h"
@@ -21,6 +22,9 @@ typedef struct Transfer {
         bool enabled;
 
         Resource source, target;
+
+        /* The format of the manifest to write to and keep up-to-date in the target directory, if any. */
+        ManifestFormat write_manifest;
 
         uint64_t instances_max;
         int remove_temporary; /* tristate, unset means yes */

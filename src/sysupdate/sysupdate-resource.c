@@ -239,8 +239,8 @@ static int resource_load_from_directory_recursive(
                         return r;
 
                 /* Inherit these from the source, if not explicitly overwritten */
-                if (instance->metadata.mtime == USEC_INFINITY)
-                        instance->metadata.mtime = timespec_load(&st.st_mtim) ?: USEC_INFINITY;
+                if (instance->metadata.mtime_nsec == NSEC_INFINITY)
+                        instance->metadata.mtime_nsec = timespec_load_nsec(&st.st_mtim) ?: NSEC_INFINITY;
 
                 if (instance->metadata.mode == MODE_INVALID)
                         instance->metadata.mode = st.st_mode & 0775; /* mask out world-writability and suid and stuff, for safety */
@@ -691,8 +691,8 @@ static int instance_copy_uapi16(Instance *instance, const Uapi16Object *object) 
 
         if (instance->metadata.mode == MODE_INVALID)
                 instance->metadata.mode = object->mode;
-        if (instance->metadata.mtime == USEC_INFINITY && object->mtime_nsec < (NSEC_INFINITY / NSEC_PER_USEC) * NSEC_PER_USEC)
-                instance->metadata.mtime = object->mtime_nsec / NSEC_PER_USEC;
+        if (instance->metadata.mtime_nsec == NSEC_INFINITY)
+                instance->metadata.mtime_nsec = object->mtime_nsec;
         if (!instance->metadata.partition_uuid_set && object->gpt_uuid_set) {
                 instance->metadata.partition_uuid = object->gpt_uuid;
                 instance->metadata.partition_uuid_set = true;
@@ -935,6 +935,9 @@ static int uapi16_process_object(Uapi16Object *object, size_t index, void *userd
         instance->user_xattrs = TAKE_PTR(object->user_xattrs);
         instance->n_user_xattrs = object->n_user_xattrs;
         object->n_user_xattrs = 0;
+
+        /* And the object itself, in case we maintain a UAPI.16 manifest in the target */
+        instance->manifest_object = TAKE_PTR(object->json);
 
         return 0;
 }
