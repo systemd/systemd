@@ -936,6 +936,9 @@ static int uapi16_process_object(Uapi16Object *object, size_t index, void *userd
         instance->n_user_xattrs = object->n_user_xattrs;
         object->n_user_xattrs = 0;
 
+        /* And the object itself, in case we maintain a UAPI.16 manifest in the target */
+        instance->manifest_object = TAKE_PTR(object->json);
+
         return 0;
 }
 

@@ -111,7 +111,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The path of a symlink to maintain pointing to the newest instance, see CurrentSymlink= in the [Target] section of sysupdate.d(5). No specifier expansion is applied."),
                 SD_VARLINK_DEFINE_FIELD(currentSymlink, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Whether to match the user.uapi.match_* extended attributes of instances against the local system, see MatchXAttr= in the [Target] section of sysupdate.d(5). If unset, defaults to false."),
-                SD_VARLINK_DEFINE_FIELD(matchXAttr, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD(matchXAttr, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The format of the manifest to maintain in the target directory, see WriteManifest= in the [Target] section of sysupdate.d(5). Only 'uapi16' is supported. If unset, no manifest is maintained."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(writeManifest, ManifestFormat, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Transfer,

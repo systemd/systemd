@@ -25,6 +25,7 @@
 #include "install-file.h"
 #include "json-util.h"
 #include "iovec-util.h"
+#include "manifest-util.h"
 #include "memory-util.h"
 #include "mkdir.h"
 #include "notify-recv.h"
@@ -35,6 +36,7 @@
 #include "pidref.h"
 #include "process-util.h"
 #include "rm-rf.h"
+#include "set.h"
 #include "sha256.h"
 #include "signal-util.h"
 #include "specifier.h"
@@ -50,6 +52,8 @@
 #include "sysupdate-resource.h"
 #include "sysupdate-transfer.h"
 #include "time-util.h"
+#include "tmpfile-util.h"
+#include "uapi16-manifest.h"
 #include "web-util.h"
 #include "xattr-util.h"
 
@@ -103,6 +107,7 @@ Transfer* transfer_new(Context *ctx) {
                 .source.manifest_format = MANIFEST_FORMAT_SHA256SUMS,
                 .target.type = _RESOURCE_TYPE_INVALID,
                 .target.manifest_format = _MANIFEST_FORMAT_INVALID,
+                .write_manifest = _MANIFEST_FORMAT_INVALID,
                 .remove_temporary = -1,
                 .mode = MODE_INVALID,
                 .tries_left = UINT64_MAX,
@@ -404,6 +409,8 @@ static int config_parse_resource_path(
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_resource_type, resource_type, ResourceType);
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_resource_manifest_format, manifest_format, ManifestFormat,
                                              MANIFEST_FORMAT_SHA256SUMS);
+static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_write_manifest, manifest_format, ManifestFormat,
+                                             _MANIFEST_FORMAT_INVALID);
 
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_resource_path_relto, path_relative_to, PathRelativeTo,
                                              PATH_RELATIVE_TO_ROOT);
@@ -619,6 +626,19 @@ static int transfer_finalize(Transfer *t, const char *origin, unsigned line, Has
                                   "Target type '%s' is incompatible with source type '%s', refusing.",
                                   resource_type_to_string(t->target.type), resource_type_to_string(t->source.type));
 
+        /* We can only maintain manifests of files, and only in UAPI.16 format. (Note that in contrast to the
+         * source side, the target side manifest format defaults to "none".) */
+        if (t->write_manifest >= 0) {
+                if (t->write_manifest != MANIFEST_FORMAT_UAPI16)
+                        return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "Manifest format '%s' not supported for WriteManifest=, refusing.",
+                                          manifest_format_to_string(t->write_manifest));
+
+                if (t->target.type != RESOURCE_REGULAR_FILE)
+                        return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "WriteManifest= in the [Target] section is only supported for regular-file targets, refusing.");
+        }
+
         /* Partitions carry no extended attributes */
         if (t->target.type == RESOURCE_PARTITION && resource_xattr_match_mask(&t->target) != 0)
                 return log_syntax(NULL, LOG_ERR, origin, line, SYNTHETIC_ERRNO(EINVAL),
@@ -741,6 +761,7 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                 { "Target",      "MatchPattern",            config_parse_resource_pattern,             MATCH_PATTERN_TARGET, &t->target.patterns         },
                 { "Target",      "MatchPartitionType",      config_parse_resource_ptype,               0,                    &t->target                  },
                 { "Target",      "MatchXAttr",              config_parse_bool,                         0,                    &t->target.match_xattr      },
+                { "Target",      "WriteManifest",           config_parse_write_manifest,               0,                    &t->write_manifest          },
                 { "Target",      "PartitionUUID",           config_parse_partition_uuid,               0,                    t                           },
                 { "Target",      "PartitionFlags",          config_parse_partition_flags,              0,                    t                           },
                 { "Target",      "PartitionNoAuto",         config_parse_tristate,                     0,                    &t->no_auto                 },
@@ -998,6 +1019,7 @@ static int dispatch_transfer_target(const char *name, sd_json_variant *variant, 
                 { "removeTemporary",         SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate, offsetof(Transfer, remove_temporary),        SD_JSON_NULLABLE },
                 { "currentSymlink",          SD_JSON_VARIANT_STRING,        dispatch_current_symlink,  offsetof(Transfer, current_symlink),         SD_JSON_NULLABLE },
                 { "matchXAttr",              SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,  offsetof(Transfer, target.match_xattr),      SD_JSON_NULLABLE },
+                { "writeManifest",           SD_JSON_VARIANT_STRING,        dispatch_manifest_format,  offsetof(Transfer, write_manifest),          SD_JSON_NULLABLE },
                 {},
         };
 
@@ -1178,6 +1200,452 @@ static int transfer_instance_vacuum(
         return 0;
 }
 
+typedef struct TargetManifest {
+        /* objects[0] is the manifest's leading object, describing the manifest itself. Initially the objects
+         * of the existing manifest, then edited into the objects of the new one. */
+        Uapi16Object *objects;
+        size_t n_objects;
+
+        /* The names of the objects retained or added so far, for quick lookups. Not owned, the strings are
+         * the "name" fields of the objects above. */
+        Set *names;
+} TargetManifest;
+
+static void target_manifest_done(TargetManifest *m) {
+        assert(m);
+
+        m->names = set_free(m->names);
+        uapi16_object_done_many(m->objects, m->n_objects);
+        m->objects = mfree(m->objects);
+        m->n_objects = 0;
+}
+
+static int target_manifest_object_handler(Uapi16Object *o, size_t index, void *userdata) {
+        TargetManifest *m = ASSERT_PTR(userdata);
+
+        assert(o);
+        assert(index == m->n_objects);
+
+        if (!GREEDY_REALLOC(m->objects, m->n_objects + 1))
+                return log_oom();
+
+        m->objects[m->n_objects++] = TAKE_GENERIC(*o, Uapi16Object, UAPI16_OBJECT_NULL);
+        return 0;
+}
+
+static int target_manifest_load(int dir_fd, const char *dir, TargetManifest *ret) {
+        int r;
+
+        assert(dir_fd >= 0);
+        assert(dir);
+        assert(ret);
+
+        /* Loads the existing UAPI.16 manifest in the target directory, if there is one. If it cannot be
+         * parsed we start from scratch, after all it's not our source of truth anyway: it's just a
+         * reflection of what is in the directory. If it is signed however we refuse, since we cannot sign
+         * the updated manifest, and we don't want to silently degrade a signed manifest to an unsigned
+         * one. */
+
+        _cleanup_fclose_ FILE *f = NULL;
+        r = xfopenat(dir_fd, UAPI16_MANIFEST_FILENAME, "r", O_NOFOLLOW, &f);
+        if (r == -ENOENT) {
+                *ret = (TargetManifest) {};
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to open '%s/" UAPI16_MANIFEST_FILENAME "': %m", dir);
+
+        _cleanup_(target_manifest_done) TargetManifest m = {};
+        r = uapi16_manifest_read(
+                        f,
+                        /* certificates= */ NULL,
+                        /* n_certificates= */ 0,
+                        target_manifest_object_handler,
+                        &m);
+        if (r == -ENOMEM)
+                return r;
+        if (r < 0) {
+                log_warning_errno(r, "Failed to parse existing manifest '%s/" UAPI16_MANIFEST_FILENAME "', replacing it: %m", dir);
+                *ret = (TargetManifest) {};
+                return 0;
+        }
+        if (r != UAPI16_READ_UNSIGNED)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                       "Existing manifest '%s/" UAPI16_MANIFEST_FILENAME "' is signed, refusing to replace it by an unsigned one.", dir);
+
+        *ret = TAKE_STRUCT(m);
+        return 1;
+}
+
+static int target_manifest_file_exists(int dir_fd, const char *dir, const char *name) {
+        int r;
+
+        assert(dir_fd >= 0);
+        assert(dir);
+        assert(name);
+
+        r = RET_NERRNO(faccessat(dir_fd, name, F_OK, AT_SYMLINK_NOFOLLOW));
+        if (r == -ENOENT)
+                return false;
+        if (r < 0) /* Let's be conservative, and keep entries we cannot check */
+                log_debug_errno(r, "Failed to check if '%s/%s' exists, assuming it does: %m", dir, name);
+
+        return true;
+}
+
+static int target_manifest_object_has_local_source(int dir_fd, const char *dir, const Uapi16Object *o) {
+        int r;
+
+        assert(dir_fd >= 0);
+        assert(dir);
+        assert(o);
+
+        /* Checks whether any of the sources the object lists is available locally, i.e. is literal data or a
+         * file that exists. If the object lists no "contents" it refers to the file of its own name.
+         * Otherwise each "contents" entry is an alternative source, and entries that refer to neither a
+         * file, a URL nor literal data refer to the file of the object's name too, see the UAPI.16
+         * specification. URL sources are not considered local. */
+
+        if (o->n_contents == 0)
+                return target_manifest_file_exists(dir_fd, dir, o->name);
+
+        FOREACH_ARRAY(c, o->contents, o->n_contents) {
+                if (uapi16_contents_has_literal(c))
+                        return true;
+
+                const char *fn = c->file ?: (c->url ? NULL : o->name);
+                if (!fn)
+                        continue;
+
+                r = target_manifest_file_exists(dir_fd, dir, fn);
+                if (r != 0)
+                        return r;
+        }
+
+        return false;
+}
+
+static int target_manifest_build_object(const char *name, const struct stat *st, sd_json_variant **ret) {
+        int r;
+
+        assert(name);
+        assert(st);
+        assert(ret);
+
+        /* Generates a manifest object from what we know about the file anyway, i.e. without reading it */
+
+        r = sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("name", name),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("size", st->st_size),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("mTimeNSec", timespec_load_nsec(&st->st_mtim)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build manifest object: %m");
+
+        return 0;
+}
+
+static int target_manifest_copy_object(
+                const Instance *i,
+                const char *name,
+                const struct stat *st,
+                sd_json_variant **ret) {
+
+        int r;
+
+        assert(i);
+        assert(i->manifest_object);
+        assert(name);
+        assert(st);
+        assert(ret);
+
+        /* Copies the object from the source manifest, but drops the "contents" field, since the file is
+         * now available locally under the object's name, and the sources listed in the source manifest are
+         * relative to the source. Since the size and digest of the object might have been derived from the
+         * "contents" field, set them explicitly. Also patch in the name and access mode the file actually
+         * has here. */
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = sd_json_variant_ref(i->manifest_object);
+        r = sd_json_variant_filter(&j, STRV_MAKE("contents"));
+        if (r < 0)
+                return log_error_errno(r, "Failed to remove 'contents' field from manifest object: %m");
+
+        r = sd_json_variant_merge_objectbo(
+                        &j,
+                        SD_JSON_BUILD_PAIR_STRING("name", name),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("size", st->st_size),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("mode", st->st_mode & 07777),
+                        SD_JSON_BUILD_PAIR_CONDITION(i->metadata.sha256sum_set, "sha256",
+                                                     SD_JSON_BUILD_HEX(i->metadata.sha256sum, sizeof(i->metadata.sha256sum))));
+        if (r < 0)
+                return log_error_errno(r, "Failed to patch manifest object: %m");
+
+        *ret = TAKE_PTR(j);
+        return 0;
+}
+
+static int target_manifest_add_raw(TargetManifest *m, const char *name, sd_json_variant *object) {
+        assert(m);
+        assert(object);
+
+        /* Appends an object to the manifest, without adding the leading object first, see
+         * target_manifest_add() for that. Note that this doesn't add a proper Uapi16Object to the array, but
+         * merely a skeleton of one: only the .name and .json fields are initialized, the fields of the JSON
+         * object are not parsed into the other fields. That's sufficient for writing out the manifest, as
+         * only .json is written, and .name is used for sorting and the collision checks. */
+
+        _cleanup_free_ char *n = NULL;
+        if (name) {
+                n = strdup(name);
+                if (!n)
+                        return log_oom();
+        }
+
+        if (!GREEDY_REALLOC(m->objects, m->n_objects + 1))
+                return log_oom();
+
+        Uapi16Object *o = m->objects + m->n_objects++;
+        *o = UAPI16_OBJECT_NULL;
+        o->name = TAKE_PTR(n);
+        o->json = sd_json_variant_ref(object);
+
+        if (o->name && set_ensure_put(&m->names, &string_hash_ops, o->name) < 0)
+                return log_oom();
+
+        return 0;
+}
+
+static int target_manifest_add(TargetManifest *m, const char *name, sd_json_variant *object) {
+        int r;
+
+        assert(m);
+        assert(name);
+        assert(object);
+
+        /* Adds an object to the manifest. If the manifest is empty so far, adds the leading object of the
+         * manifest, describing the manifest itself, first. */
+
+        if (m->n_objects == 0) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *header = NULL;
+                r = sd_json_buildo(
+                                &header,
+                                SD_JSON_BUILD_PAIR("mediaType", JSON_BUILD_CONST_STRING(UAPI16_MANIFEST_MEDIA_TYPE)));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build manifest header object: %m");
+
+                r = target_manifest_add_raw(m, /* name= */ NULL, header);
+                if (r < 0)
+                        return r;
+        }
+
+        return target_manifest_add_raw(m, name, object);
+}
+
+static int transfer_update_manifest(
+                Transfer *t,
+                const Instance *added,      /* The instance we just installed, or NULL */
+                const char *added_path) {   /* … and where we installed it to */
+
+        int r;
+
+        assert(t);
+        assert(!added == !added_path);
+
+        /* Updates the UAPI.16 manifest in the target directory, after we changed the directory's contents.
+         * Note that we never consult the manifest to determine which instances are installed, we always
+         * look at the directory itself for that. The manifest is just maintained for the benefit of other
+         * consumers. Entries already in the manifest are retained as long as any of their sources is
+         * available locally, and entries for the files that match our patterns but are not listed yet are
+         * appended, as is an entry for the file we just installed, if any. If no entries remain, the
+         * manifest is removed instead. The manifest is placed in the target directory (i.e. Path=), and
+         * lists everything matching any of the patterns, hence entries might refer to files in
+         * subdirectories. */
+
+        if (t->write_manifest < 0)
+                return 0;
+
+        assert(t->write_manifest == MANIFEST_FORMAT_UAPI16);
+        assert(t->target.type == RESOURCE_REGULAR_FILE);
+        assert(!strv_isempty(t->target.patterns));
+
+        const char *dir = ASSERT_PTR(t->target.path);
+        _cleanup_close_ int dir_fd = xopenat(AT_FDCWD, dir, O_DIRECTORY);
+        if (dir_fd == -ENOENT && !added) {
+                log_debug_errno(dir_fd, "Target directory '%s' does not exist, not updating manifest.", dir);
+                return 0;
+        }
+        if (dir_fd < 0)
+                return log_error_errno(dir_fd, "Failed to open target directory '%s': %m", dir);
+
+        _cleanup_(target_manifest_done) TargetManifest m = {};
+        r = target_manifest_load(dir_fd, dir, &m);
+        if (r < 0)
+                return r;
+
+        const char *added_name = NULL;
+        if (added) {
+                added_name = path_startswith(added_path, dir);
+                if (!uapi16_name_is_valid(added_name)) {
+                        log_warning("Installed file '%s' cannot be listed in manifest of '%s', skipping.", added_path, dir);
+                        added_name = NULL;
+                }
+        }
+
+        /* First, retain the existing entries (in place), unless they refer to files that are gone. We drop
+         * the entry for the file we just installed, since we'll add a new one below. The leading object is
+         * always retained. */
+        size_t k = MIN(m.n_objects, 1U);
+        for (size_t i = 1; i < m.n_objects; i++) {
+                Uapi16Object *o = m.objects + i;
+                bool keep = false;
+
+                if (streq_ptr(o->name, added_name))
+                        log_debug("Replacing manifest entry '%s'.", o->name);
+                else if (set_contains(m.names, o->name))
+                        log_debug("Dropping duplicate manifest entry '%s'.", o->name);
+                else {
+                        r = target_manifest_object_has_local_source(dir_fd, dir, o);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                log_debug("No local source of manifest entry '%s' exists anymore, dropping entry.", o->name);
+                        keep = r > 0;
+                }
+
+                if (!keep) {
+                        uapi16_object_done(o);
+                        continue;
+                }
+
+                if (set_ensure_put(&m.names, &string_hash_ops, o->name) < 0)
+                        return log_oom();
+
+                if (k != i)
+                        m.objects[k] = TAKE_GENERIC(*o, Uapi16Object, UAPI16_OBJECT_NULL);
+                k++;
+        }
+        m.n_objects = k;
+
+        /* Second, add entries for the installed instances that are not listed yet */
+        FOREACH_ARRAY(ii, t->target.instances, t->target.n_instances) {
+                Instance *i = *ii;
+
+                if (i->is_partial || i->is_pending)
+                        continue;
+
+                const char *name = path_startswith(i->path, dir);
+                if (!uapi16_name_is_valid(name)) {
+                        log_debug("Instance '%s' cannot be listed in manifest of '%s', skipping.", i->path, dir);
+                        continue;
+                }
+
+                if (streq_ptr(name, added_name) || set_contains(m.names, name))
+                        continue;
+
+                struct stat st;
+                if (fstatat(dir_fd, name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
+                        if (errno == ENOENT)
+                                continue;
+
+                        return log_error_errno(errno, "Failed to stat '%s': %m", i->path);
+                }
+                if (!S_ISREG(st.st_mode))
+                        continue;
+
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+                r = target_manifest_build_object(name, &st, &j);
+                if (r < 0)
+                        return r;
+
+                log_debug("Adding manifest entry '%s'.", name);
+
+                r = target_manifest_add(&m, name, j);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Finally, add the entry for the file we just installed. If the source was a UAPI.16 manifest, copy
+         * the object from there, otherwise generate one ourselves. */
+        if (added_name) {
+                struct stat st;
+                if (fstatat(dir_fd, added_name, &st, AT_SYMLINK_NOFOLLOW) < 0)
+                        return log_error_errno(errno, "Failed to stat '%s': %m", added_path);
+
+                /* If we install an instance acquired earlier, look for the object in the source manifest */
+                const Instance *origin = added;
+                if (!origin->manifest_object && origin->resource != &t->source) {
+                        Instance *si = resource_find_instance(&t->source, added->metadata.version);
+                        if (si && si->manifest_object)
+                                origin = si;
+                }
+
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+                if (origin->manifest_object)
+                        r = target_manifest_copy_object(origin, added_name, &st, &j);
+                else
+                        r = target_manifest_build_object(added_name, &st, &j);
+                if (r < 0)
+                        return r;
+
+                log_debug("Adding manifest entry '%s'.", added_name);
+
+                r = target_manifest_add(&m, added_name, j);
+                if (r < 0)
+                        return r;
+        }
+
+        /* If there's nothing to list, remove the manifest altogether instead of writing an empty one */
+        if (m.n_objects <= 1) {
+                if (unlinkat(dir_fd, UAPI16_MANIFEST_FILENAME, 0) < 0) {
+                        if (errno != ENOENT)
+                                return log_error_errno(errno, "Failed to remove empty manifest '%s/" UAPI16_MANIFEST_FILENAME "': %m", dir);
+                } else
+                        log_info("Removed manifest '%s/" UAPI16_MANIFEST_FILENAME "', since it would be empty.", dir);
+
+                return 0;
+        }
+
+        /* Now write the new manifest, atomically replacing the old one */
+        _cleanup_free_ char *tmp = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        r = fopen_tmpfile_linkable_at_full(dir_fd, UAPI16_MANIFEST_FILENAME, O_WRONLY, 0644, &tmp, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create temporary file for manifest in '%s': %m", dir);
+
+        CLEANUP_TMPFILE_AT(dir_fd, tmp);
+
+        _cleanup_(manifest_context_done) ManifestContext mc = MANIFEST_CONTEXT_NULL;
+        mc.format = MANIFEST_FORMAT_UAPI16;
+        mc.output = f;
+        mc.json_format_flags = 0;
+
+        r = manifest_uapi16_begin(&mc);
+        if (r < 0)
+                return r;
+
+        /* Sort the entries the same way "systemd-manifest make" does. The leading object stays first. */
+        uapi16_object_sort_many(m.objects, m.n_objects);
+
+        FOREACH_ARRAY(o, m.objects, m.n_objects) {
+                r = manifest_uapi16_write_object(&mc, ASSERT_PTR(o->json));
+                if (r < 0)
+                        return r;
+        }
+
+        r = manifest_uapi16_end(&mc);
+        if (r < 0)
+                return r;
+
+        r = flink_tmpfile_at(f, dir_fd, tmp, UAPI16_MANIFEST_FILENAME, LINK_TMPFILE_REPLACE|(t->context->sync ? LINK_TMPFILE_SYNC : 0));
+        if (r < 0)
+                return log_error_errno(r, "Failed to install manifest '%s/" UAPI16_MANIFEST_FILENAME "': %m", dir);
+
+        tmp = mfree(tmp); /* disarm CLEANUP_TMPFILE_AT() */
+
+        log_info("Updated manifest '%s/" UAPI16_MANIFEST_FILENAME "' (%zu entries).", dir, m.n_objects - 1);
+        return 0;
+}
+
 int transfer_vacuum(
                 Transfer *t,
                 uint64_t space,
@@ -1328,6 +1796,12 @@ int transfer_vacuum(
                 t->target.n_instances--;
 
                 count++;
+        }
+
+        if (count > 0) {
+                r = transfer_update_manifest(t, /* added= */ NULL, /* added_path= */ NULL);
+                if (r < 0)
+                        return r;
         }
 
         return count;
@@ -2302,6 +2776,10 @@ int transfer_install_instance(
                 t->temporary_pending_path = mfree(t->temporary_pending_path);
 
                 (void) context_installdb_record(t->context, t->target.path, t->target.patterns);
+
+                r = transfer_update_manifest(t, i, t->final_path);
+                if (r < 0)
+                        return r;
         }
 
         if (t->final_partition_label) {

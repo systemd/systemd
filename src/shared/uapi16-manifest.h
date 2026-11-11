@@ -122,7 +122,8 @@ static inline bool uapi16_manifest_filename_is_suffixed(const char *name) {
                 (endswith(name, UAPI16_MANIFEST_SUFFIX) || !isempty(strstr(name, UAPI16_MANIFEST_SUFFIX ".")));
 }
 
-/* Validates the "name" field of a file object: a normalized relative path, that is not reserved. */
+/* Validates the "name" field of a file object: a normalized relative path, that is not reserved. Returns
+ * false for NULL. */
 bool uapi16_name_is_valid(const char *s) _pure_;
 
 /* Validates the name of an extended attribute (without namespace prefix) */
