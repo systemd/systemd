@@ -5,15 +5,17 @@ set -o pipefail
 
 # Check that stdout streams are restored from the right state file on journald restart: state files include
 # the socket cookie, state files named without it by older versions are still used, and state files of other
-# streams with the same inode number, with or without cookie, are not used.
+# streams with the same inode number, with or without cookie, are not used. A stream that can't be restored
+# is shut down, unless the state files couldn't be read.
 
 STREAMS=/run/systemd/journal/streams
 
 start_logger() {
     local id="${1:?}"
 
+    # Stop once a write fails, so that a stream that is shut down ends the service
     systemd-run --unit="$id.service" -p SyslogIdentifier="$id" \
-                bash -c "i=0; while :; do echo \"$id \$((i++))\"; sleep .2; done"
+                bash -c "i=0; while echo \"$id \$((i++))\"; do sleep .2; done"
 }
 
 # Print the state file of the stream with the given identifier, once PID 1 has the stream in its fd store
@@ -63,10 +65,21 @@ restart_and_wait_for_logs() {
 }
 
 at_exit() {
+    # Put the state files back if we failed while they were moved away, and let journald restore the
+    # streams from them
+    if [[ -e "$STREAMS.saved" ]]; then
+        rm -f "$STREAMS" || :
+        mv -T "$STREAMS.saved" "$STREAMS" || :
+        systemctl reset-failed systemd-journald.service || :
+        systemctl restart systemd-journald || :
+    fi
+
     systemctl stop stream-restore-cookie.service \
                    stream-restore-legacy.service \
                    stream-restore-other.service \
-                   stream-restore-legacy-other.service || :
+                   stream-restore-legacy-other.service \
+                   stream-restore-lost.service \
+                   stream-restore-unreadable.service || :
     systemctl reset-failed systemd-journald.service || :
 }
 
@@ -110,3 +123,29 @@ restart_and_wait_for_logs -t stream-restore-legacy-other
 [[ -e "$F" ]]
 [[ -z "$(journalctl -q -t stream-restore-legacy-other-bogus)" ]]
 systemctl stop stream-restore-legacy-other.service
+
+# A stream whose state file is gone can't be restored, and is shut down: otherwise PID 1 would keep it open
+# in the fd store with nothing reading from it, and the writer would block forever once its buffer is full
+start_logger stream-restore-lost
+F="$(state_file_of stream-restore-lost)"
+INO="$(basename "$F" | cut -d: -f2)"
+rm "$F"
+systemctl reset-failed systemd-journald.service
+systemctl restart systemd-journald
+# The writer gets EPIPE, which ends the loop
+timeout 30 bash -c 'while systemctl is-active -q stream-restore-lost.service; do sleep .2; done'
+[[ -z "$(find /proc/1/fd -lname "socket:\[$INO\]")" ]]
+
+# If the state files can't be read, streams are not shut down, as they might still have a state file: here
+# they do, and the next restart restores them
+start_logger stream-restore-unreadable
+state_file_of stream-restore-unreadable >/dev/null
+mv "$STREAMS" "$STREAMS.saved"
+touch "$STREAMS"
+systemctl reset-failed systemd-journald.service
+systemctl restart systemd-journald
+rm "$STREAMS"
+mv -T "$STREAMS.saved" "$STREAMS"
+restart_and_wait_for_logs -t stream-restore-unreadable
+systemctl is-active stream-restore-unreadable.service
+systemctl stop stream-restore-unreadable.service
