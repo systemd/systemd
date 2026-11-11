@@ -34,9 +34,9 @@
 #include "json-util.h"
 #include "label-util.h"
 #include "log.h"
-#include "machine-tags.h"
 #include "main-func.h"
 #include "nulstr-util.h"
+#include "object-tags.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "service-util.h"
@@ -1677,14 +1677,14 @@ static int method_set_tags(sd_bus_message *m, void *userdata, sd_bus_error *erro
 
         strv_sort_uniq(tags);
 
-        if (strv_length(tags) > MACHINE_TAGS_MAX)
+        if (strv_length(tags) > OBJECT_TAGS_MAX)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Too many machine tags specified.");
 
         _cleanup_free_ char *j = strv_join(tags, ":");
         if (!j)
                 return log_oom();
 
-        r = machine_tag_list_is_valid(tags, /* to_add= */ true);
+        r = object_tag_list_is_valid(tags, /* to_add= */ true);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1735,7 +1735,7 @@ static int method_add_and_remove_tags(sd_bus_message *m, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        r = machine_tag_list_is_valid(add, /* to_add= */ true);
+        r = object_tag_list_is_valid(add, /* to_add= */ true);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -1743,7 +1743,7 @@ static int method_add_and_remove_tags(sd_bus_message *m, void *userdata, sd_bus_
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tags to add '%s'", strna(j));
         }
 
-        r = machine_tag_list_is_valid(remove, /* to_add= */ false);
+        r = object_tag_list_is_valid(remove, /* to_add= */ false);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1758,7 +1758,7 @@ static int method_add_and_remove_tags(sd_bus_message *m, void *userdata, sd_bus_
                 return log_error_errno(r, "Failed to parse current machine tags: %m");
 
         _cleanup_strv_free_ char **tags = NULL;
-        r = machine_tags_edit(current, add, remove, &tags);
+        r = object_tags_edit(current, add, remove, &tags);
         if (r == -E2BIG)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Too many machine tags specified.");
         if (r < 0)
@@ -2539,20 +2539,20 @@ static int vl_method_set_tags(sd_varlink *link, sd_json_variant *parameters, sd_
         bool reset = sd_json_variant_by_key(parameters, "set");
 
         if (reset) {
-                r = machine_tag_list_is_valid(p.set, /* to_add= */ true);
+                r = object_tag_list_is_valid(p.set, /* to_add= */ true);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         return sd_varlink_error_invalid_parameter_name(link, "set");
         }
 
-        r = machine_tag_list_is_valid(p.add, /* to_add= */ true);
+        r = object_tag_list_is_valid(p.add, /* to_add= */ true);
         if (r < 0)
                 return r;
         if (r == 0)
                 return sd_varlink_error_invalid_parameter_name(link, "add");
 
-        r = machine_tag_list_is_valid(p.remove, /* to_add= */ false);
+        r = object_tag_list_is_valid(p.remove, /* to_add= */ false);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -2568,7 +2568,7 @@ static int vl_method_set_tags(sd_varlink *link, sd_json_variant *parameters, sd_
         /* Use either the explicitly specified tag list or the current one as the basis, then apply the
          * additions and removals on top. */
         _cleanup_strv_free_ char **tags = NULL;
-        r = machine_tags_edit(reset ? p.set : current, p.add, p.remove, &tags);
+        r = object_tags_edit(reset ? p.set : current, p.add, p.remove, &tags);
         if (r == -E2BIG)
                 return sd_varlink_error_invalid_parameter_name(link, "add");
         if (r < 0)
