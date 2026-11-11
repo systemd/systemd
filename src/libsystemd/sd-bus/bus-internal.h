@@ -207,6 +207,7 @@ typedef struct sd_bus {
         int busexec_notify_fd;
         char *busexec_notify_path;
         char *busexec_notify_dir;
+        PidRef busexec_notify_cleanup_pidref;
 
         void *rbuffer;
         size_t rbuffer_size;
