@@ -39,6 +39,7 @@ _arguments \
     '--format=[Manifest format]:format:(list sha256sums mtree uapi16)' \
     '--field=[Fields to include]:fields:_systemd-manifest_fields' \
     '--hash=[Hash algorithm to use for mtree manifests]:algorithm:(sha256 sha512)' \
+    '--timestamp-accuracy-sec=[Maximum deviation of timestamps to accept when verifying]:timespan' \
     "--graceful[Don't fail if inodes had to be skipped or metadata omitted]" \
     '--private-key=[Private key to sign the manifest with]:private key:_files' \
     '--private-key-source=[How to use the private key]:source:(file provider: engine:)' \
