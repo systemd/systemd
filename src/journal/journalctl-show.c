@@ -503,8 +503,23 @@ static int update_cursor(sd_journal *j) {
                 return 0;
 
         r = sd_journal_get_cursor(j, &cursor);
-        if (r == -EADDRNOTAVAIL)
-                return 0;
+        if (r == -EADDRNOTAVAIL) {
+                /* There's no current entry, either because the journal is empty, or because we
+                 * used options that did not yield any results (e.g. --since or --grep).
+                 * Seek to the newest journal entry and report its cursor instead. */
+                r = sd_journal_seek_tail(j);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to seek to tail: %m");
+
+                r = sd_journal_previous(j);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to seek to newest entry: %m");
+                if (r == 0)
+                        /* The journal is genuinely empty, there's nothing we can record. */
+                        return 0;
+
+                r = sd_journal_get_cursor(j, &cursor);
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to get cursor: %m");
 
