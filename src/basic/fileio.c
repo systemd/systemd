@@ -1735,7 +1735,15 @@ int write_data_file_atomic_at(
         }
 
         _cleanup_free_ char *t = NULL;
-        _cleanup_close_ int fd = open_tmpfile_linkable_at(dir_fd, fn, O_WRONLY, &t);
+        /* If the file shall end up with restrictive access mode, create it like that right away, so that
+         * it is never accessible to others, not even transiently (which matters if O_TMPFILE is not
+         * supported and a named temporary file is used) */
+        _cleanup_close_ int fd = open_tmpfile_linkable_at_full(
+                        dir_fd,
+                        fn,
+                        O_WRONLY,
+                        FLAGS_SET(flags, WRITE_DATA_FILE_MODE_0400) ? 0400 : 0640,
+                        &t);
         if (fd < 0)
                 return fd;
 
