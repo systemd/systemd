@@ -66,6 +66,8 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(workingDirectory, WorkingDirectory, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("For shell backend: environment variables for the shell, as a list of assignments in the usual VAR=VALUE syntax"),
                 SD_VARLINK_DEFINE_INPUT(environment, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("For shell backend: additional journal fields as NAME=VALUE strings, passed as LogExtraFields= to the service. An empty array clears the fields."),
+                SD_VARLINK_DEFINE_INPUT(logExtraFields, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
                 SD_VARLINK_FIELD_COMMENT("For shell backend: whether to allocate a 'lightweight' session"),
                 SD_VARLINK_DEFINE_INPUT(lightweight, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("For shell backend: command line to invoke as main service process. If unset an interactive login shell is invoked."),
