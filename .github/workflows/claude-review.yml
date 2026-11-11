@@ -296,6 +296,12 @@ jobs:
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           sudo apt-get update && sudo apt-get install -y bubblewrap socat
 
+          # Ubuntu 26.04's bwrap profile denies capabilities to child processes,
+          # including in nested user namespaces used by Claude's seccomp helper.
+          if [[ -f /etc/apparmor.d/bwrap-userns-restrict ]]; then
+            sudo apparmor_parser -R /etc/apparmor.d/bwrap-userns-restrict
+          fi
+
       # The semcode workflow builds semcode and indexes the kernel with it, both
       # into the actions cache, under a key that ends in the commit of each. The
       # newest entry for the prefix is restored. The path is part of the cache
