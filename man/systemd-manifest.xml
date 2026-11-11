@@ -235,7 +235,7 @@
               </row>
               <row>
                 <entry><option>user-xattr</option></entry>
-                <entry>yes</entry>
+                <entry><emphasis>no</emphasis></entry>
                 <entry>uapi16</entry>
                 <entry>Extended attributes in the <literal>user.</literal> namespace</entry>
               </row>
@@ -255,17 +255,18 @@
           </tgroup>
         </table>
 
-        <para><emphasis>The fields <option>mtime</option>, <option>user-name</option> and
-        <option>group-name</option> are not included by default, and have to be enabled
-        explicitly</emphasis>, for example with <literal>--field=+user-name,+group-name</literal>.
-        Modification times typically complicate reproducibility. User and group names are resolved via the
+        <para><emphasis>The fields <option>mtime</option>, <option>user-xattr</option>,
+        <option>user-name</option> and <option>group-name</option> are not included by default, and have to
+        be enabled explicitly</emphasis>, for example with <literal>--field=+user-name,+group-name</literal>.
+        Modification times typically complicate reproducibility. Extended attributes are frequently used to
+        store local state, and are not supported by all file systems. User and group names are resolved via the
         user database of the host (i.e. via NSS, like
         <citerefentry project='man-pages'><refentrytitle>tar</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         does), hence reflect the host's view, which is not necessarily the one of the tree or image the
         manifest describes. IDs that cannot be resolved to a name are counted as omitted metadata. When
         verifying, the names are compared with the ones the host resolves the IDs to.</para>
 
-        <para>If <option>user-xattr</option> is enabled (which it is by default), the extended attributes in
+        <para>If <option>user-xattr</option> is enabled, the extended attributes in
         the <literal>user.</literal> namespace of all inodes except symlinks are recorded, including for
         inodes that have no such attributes, so that a verifier can tell missing attributes apart from
         unrecorded ones. On file systems that do not support extended attributes, inodes are considered to
