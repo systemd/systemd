@@ -177,6 +177,51 @@
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><command>make-addon</command> <replaceable>input</replaceable> <replaceable>output</replaceable></term>
+
+        <listitem><para>Loads the specified (unencrypted plaintext) input credential file, and wraps it in a
+        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        addon, which is written to the specified output file. The addon carries the credential in a cpio
+        archive in its <literal>.initrd</literal> section, as
+        <filename>/.extra/system_credentials/<replaceable>name</replaceable>.cred</filename>, i.e. in the
+        same way as addons written by
+        <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        Once the addon is placed in the <filename>/loader/addons/</filename> directory of the EFI System
+        Partition (or of the XBOOTLDR partition), or in the <filename>.extra.d/</filename> directory of a
+        unified kernel image, and the system is booted, the credential is passed to the system as system
+        credential, see
+        <ulink url="https://systemd.io/CREDENTIALS">System and Service Credentials</ulink> for
+        details.</para>
+
+        <para>Takes two file system paths, in the same way as <command>encrypt</command>. Either may be
+        specified as <literal>-</literal>, in which case the plaintext credential is read from standard
+        input, or the addon is written to standard output, respectively. The credential name is derived from
+        the file name part of the output path, with the suffix <filename>.addon.efi</filename> (or
+        <filename>.efi</filename>, both matched case-insensitively) removed, i.e. an output path
+        <filename>foo.addon.efi</filename> results in a credential <literal>foo</literal>, and
+        <filename>FOO.ADDON.EFI</filename> in <literal>FOO</literal>. The credential name may be overridden with the
+        <option>--name=</option> setting, and must be specified this way if the output path is specified as
+        <literal>-</literal>. Since the credential name is used as file name, it cannot be suppressed by
+        specifying <option>--name=</option> with an empty string.</para>
+
+        <para>Note that neither the credential nor the addon are encrypted or signed, and the credential is
+        hence embedded in plaintext. Since the addon is not signed, it is not used by
+        <command>systemd-stub</command> when UEFI SecureBoot is enabled, unless the booted unified kernel
+        image (or profile thereof) trusts addons on first use, see the "Trusting Addons On First Use" section
+        of <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        The output file is created with access mode 0400, since it carries the credential in plaintext. The
+        options controlling encryption (e.g. <option>--with-key=</option>, <option>--tpm2-device=</option>,
+        <option>--timestamp=</option>, <option>--not-after=</option>, <option>--uid=</option>) are not
+        supported with this command.</para>
+
+        <para>The addon is built from the addon stub that is installed as
+        <filename>/usr/lib/systemd/boot/efi/addon<replaceable>ARCH</replaceable>.efi.stub</filename> for the
+        architecture of the local system.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-ask-password" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
@@ -283,6 +328,11 @@
         is embedded in the encrypted credential file (i.e. the <option>--name=</option> with an empty string
         was used when encrypted) the specified name has no effect as no credential name validation is
         done.</para>
+
+        <para>When specified with the <command>make-addon</command> command controls the name of the
+        credential embedded in the addon. If not specified, the name is chosen automatically from the
+        filename component of the specified output path, with the <filename>.addon.efi</filename> suffix
+        removed.</para>
 
         <para>Embedding the credential name in the encrypted credential is done in order to protect against
         reuse of credentials for purposes they were not originally intended for, under the assumption the
@@ -514,6 +564,18 @@ SetCredentialEncrypted=mysql-password: \
 # systemctl daemon-reload
 # systemctl restart xyz.service</programlisting>
     </example>
+
+    <example>
+      <title>Pass a credential to a system via an addon</title>
+
+      <para>The following command line wraps a plaintext credential file in an addon, and places it in the
+      EFI System Partition (here mounted to <filename>/efi/</filename>), from where
+      <command>systemd-stub</command> picks it up on the next boot, and passes it to the system as system
+      credential <literal>ssh.authorized_keys.root</literal>, see
+      <citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry>:</para>
+
+      <programlisting># systemd-creds make-addon ~/.ssh/id_ed25519.pub /efi/loader/addons/ssh.authorized_keys.root.addon.efi</programlisting>
+    </example>
   </refsect1>
 
   <refsect1>
@@ -522,6 +584,8 @@ SetCredentialEncrypted=mysql-password: \
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 

@@ -469,6 +469,10 @@
     whose hash is in the written record are used, on the first and on subsequent boots, any other unsigned
     addon is ignored with an error message. Signed addons are unaffected.</para>
 
+    <para>Unsigned addons that pass credentials to the system may be generated with
+    <command>systemd-creds make-addon</command>, see
+    <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
     <para>Addons trusted on first use are read and parsed by <command>systemd-stub</command> itself rather
     than loaded by the firmware, and are never executed. As the firmware hence does not measure them into TPM
     PCR 4, the whole addon file is measured into PCR 12 (if a TPM is present) with an event tag of its own,
