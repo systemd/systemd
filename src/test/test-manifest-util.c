@@ -9,6 +9,7 @@
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
+#include "chattr-util.h"
 #include "crypto-util.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -834,6 +835,56 @@ TEST(uapi16_dispatch) {
         ASSERT_OK(dispatch_one("{\"name\":\"a\",\"readOnly\":true,\"mode\":292,\"gptFlags\":9223372036854775808,\"gptFlagNoAuto\":true}", 1, &o));
         uapi16_object_done(&o);
 
+        /* FAT attributes, Linux inode flags and the file system identity. The FAT read-only attribute is
+         * encoded in the generic "readOnly" field. */
+        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"readOnly\":true,\"flagHidden\":false,\"flagSystem\":null,\"flagArchive\":true,"
+                               "\"flagAppendOnly\":false,\"flagImmutable\":true,\"flagNoAtime\":null,\"flagNoCow\":true,\"flagNoDump\":false}", 1, &o));
+        uint32_t fat_value, fat_mask;
+        uapi16_object_fat_attrs(&o, &fat_value, &fat_mask);
+        ASSERT_EQ(fat_value, UINT32_C(0x21));
+        ASSERT_EQ(fat_mask, UINT32_C(0x23));
+        unsigned inode_value, inode_mask;
+        uapi16_object_inode_flags(&o, &inode_value, &inode_mask);
+        ASSERT_EQ(inode_value, (unsigned) (FS_IMMUTABLE_FL|FS_NOCOW_FL));
+        ASSERT_EQ(inode_mask, (unsigned) (FS_APPEND_FL|FS_IMMUTABLE_FL|FS_NOCOW_FL|FS_NODUMP_FL));
+        uapi16_object_done(&o);
+        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"type\":\"dir\",\"flagHidden\":true,\"flagNoCow\":true}", 1, &o));
+        uapi16_object_done(&o);
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"type\":\"lnk\",\"flagHidden\":true}", 1, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"type\":\"fifo\",\"flagNoDump\":true}", 1, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"flagHidden\":true}", 0, &o), EBADMSG);
+        /* The generic "readOnly" field is not restricted like the FAT specific ones */
+        ASSERT_OK(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"readOnly\":true}", 0, &o));
+        uapi16_object_done(&o);
+        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"type\":\"fifo\",\"readOnly\":false}", 1, &o));
+        uapi16_object_done(&o);
+        /* "flagReadOnly" and "fatLabel" are not part of the specification (anymore) */
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"flagReadOnly\":true}", 1, &o), EADDRNOTAVAIL);
+        ASSERT_ERROR(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"fatLabel\":\"ESP\"}", 0, &o), EADDRNOTAVAIL);
+
+        ASSERT_OK(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"flagNoDump\":true,\"fatSerial\":\"12ab-CD34\","
+                               "\"fsUUID\":\"0fc63daf-8483-4772-8e79-3d69d8477de4\",\"fsLabel\":\"root fs ä\"}", 0, &o));
+        ASSERT_TRUE(o.fat_serial_set);
+        ASSERT_EQ(o.fat_serial, UINT32_C(0x12ABCD34));
+        ASSERT_TRUE(o.fs_uuid_set);
+        ASSERT_TRUE(sd_id128_equal(o.fs_uuid, SD_ID128_MAKE(0f,c6,3d,af,84,83,47,72,8e,79,3d,69,d8,47,7d,e4)));
+        ASSERT_STREQ(o.fs_label, "root fs ä");
+        uapi16_object_done(&o);
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"fatSerial\":\"1234-ABCD\"}", 1, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"fsUUID\":\"0fc63daf-8483-4772-8e79-3d69d8477de4\"}", 1, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_one("{\"name\":\"a\",\"fsLabel\":\"foo\"}", 1, &o), EBADMSG);
+        ASSERT_ERROR(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"fatSerial\":\"1234ABCD\"}", 0, &o), EINVAL);
+        ASSERT_ERROR(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"fatSerial\":\"123-ABCDE\"}", 0, &o), EINVAL);
+        ASSERT_ERROR(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"fatSerial\":\"1234-ABCG\"}", 0, &o), EINVAL);
+        ASSERT_ERROR(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"fsUUID\":\"0fc63daf848347728e793d69d8477de4\"}", 0, &o), EINVAL);
+        ASSERT_ERROR(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"fsLabel\":\"a\\u007fb\"}", 0, &o), EINVAL);
+        ASSERT_ERROR(dispatch_one("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"fsLabel\":\"a\\nb\"}", 0, &o), EINVAL);
+        /* Length limits are file system specific, hence not enforced when parsing */
+        _cleanup_free_ char *longlabel = strjoin("{\"mediaType\":\"" UAPI16_MANIFEST_MEDIA_TYPE "\",\"fsLabel\":\"", strrepa("a", 300), "\"}");
+        ASSERT_NOT_NULL(longlabel);
+        ASSERT_OK(dispatch_one(longlabel, 0, &o));
+        uapi16_object_done(&o);
+
         /* The GPT label limit is in UTF-16 code units, not bytes */
         _cleanup_free_ char *label36 = NULL, *label37 = NULL;
         for (unsigned i = 0; i < 36; i++)
@@ -1025,6 +1076,96 @@ TEST(manifest_uapi16_xattr) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *empty2 = find_object(buf2, "empty.txt");
         ASSERT_NOT_NULL(empty2);
         ASSERT_NULL(sd_json_variant_by_key(empty2, "extendedAttributes"));
+}
+
+TEST(uapi16_fat_serial) {
+        char buf[UAPI16_FAT_SERIAL_STRING_MAX];
+        uint32_t v;
+
+        ASSERT_STREQ(uapi16_fat_serial_to_string(/* serial= */ 0, buf), "0000-0000");
+        ASSERT_STREQ(uapi16_fat_serial_to_string(UINT32_C(0x1234abcd), buf), "1234-ABCD");
+        ASSERT_STREQ(uapi16_fat_serial_to_string(UINT32_MAX, buf), "FFFF-FFFF");
+
+        ASSERT_OK(uapi16_fat_serial_from_string("1234-abcd", &v));
+        ASSERT_EQ(v, UINT32_C(0x1234ABCD));
+        ASSERT_OK(uapi16_fat_serial_from_string("FFFF-0000", &v));
+        ASSERT_EQ(v, UINT32_C(0xFFFF0000));
+        ASSERT_ERROR(uapi16_fat_serial_from_string("", &v), EINVAL);
+        ASSERT_ERROR(uapi16_fat_serial_from_string("1234-ABCDE", &v), EINVAL);
+        ASSERT_ERROR(uapi16_fat_serial_from_string("1234:ABCD", &v), EINVAL);
+        ASSERT_ERROR(uapi16_fat_serial_from_string("-1234ABCD", &v), EINVAL);
+
+        ASSERT_TRUE(uapi16_fs_label_is_valid("ESP"));
+        ASSERT_TRUE(uapi16_fs_label_is_valid(""));
+        ASSERT_TRUE(uapi16_fs_label_is_valid("räksmörgås"));
+        ASSERT_FALSE(uapi16_fs_label_is_valid("E\tSP"));
+        ASSERT_FALSE(uapi16_fs_label_is_valid("\xff"));
+
+        ASSERT_STREQ(uapi16_inode_flag_to_field(FS_NOCOW_FL), "flagNoCow");
+        ASSERT_NULL(uapi16_inode_flag_to_field(FS_EXTENT_FL));
+        ASSERT_STREQ(uapi16_fat_attr_to_field(UINT32_C(0x20)), "flagArchive");
+        ASSERT_STREQ(uapi16_fat_attr_to_field(UINT32_C(0x01)), "readOnly");
+        ASSERT_NULL(uapi16_fat_attr_to_field(UINT32_C(0x08)));
+}
+
+TEST(manifest_uapi16_inode_flags) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+        _cleanup_free_ char *buf = NULL;
+        size_t size;
+        int r;
+
+        ASSERT_OK(tfd = make_tree(&t));
+
+        /* FS_NODUMP_FL may be set without privileges, on the file systems that support it */
+        r = chattr_at(tfd, "regular.txt", FS_NODUMP_FL, FS_NODUMP_FL);
+        if (ERRNO_IS_NEG_IOCTL_NOT_SUPPORTED(r))
+                return (void) log_tests_skipped_errno(r, "File system does not support FS_NODUMP_FL");
+        ASSERT_OK(r);
+
+        _cleanup_(manifest_context_done) ManifestContext c;
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.fields |= MANIFEST_FIELD_FLAG_NO_DUMP|MANIFEST_FIELD_FLAG_NO_ATIME|MANIFEST_FIELD_FLAG_HIDDEN|MANIFEST_FIELD_FS_UUID|MANIFEST_FIELD_FS_LABEL|MANIFEST_FIELD_FAT_SERIAL;
+        ASSERT_OK(generate(&c, tfd, &buf, &size));
+        ASSERT_EQ(c.n_metadata_omitted, 0U);
+
+        /* Only the requested flags are included, and only on regular files and directories */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reg = find_object(buf, "regular.txt"),
+                *dir = find_object(buf, "subdir"),
+                *lnk = find_object(buf, "symlink");
+        ASSERT_NOT_NULL(reg);
+        ASSERT_TRUE(sd_json_variant_boolean(sd_json_variant_by_key(reg, "flagNoDump")));
+        ASSERT_FALSE(sd_json_variant_boolean(sd_json_variant_by_key(reg, "flagNoAtime")));
+        ASSERT_NULL(sd_json_variant_by_key(reg, "flagImmutable"));
+        ASSERT_NOT_NULL(dir);
+        ASSERT_FALSE(sd_json_variant_boolean(sd_json_variant_by_key(dir, "flagNoDump")));
+        ASSERT_NOT_NULL(lnk);
+        ASSERT_NULL(sd_json_variant_by_key(lnk, "flagNoDump"));
+
+        /* Not on FAT, hence no FAT attributes and no FAT serial number. Whether the file system reports a
+         * UUID or label depends on the file system, but they are only ever recorded on the root object. */
+        ASSERT_NULL(sd_json_variant_by_key(reg, "flagHidden"));
+        ASSERT_NULL(strstr(buf, "fatSerial"));
+        ASSERT_NULL(sd_json_variant_by_key(reg, "fsUUID"));
+        ASSERT_NULL(sd_json_variant_by_key(dir, "fsLabel"));
+
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.fields |= MANIFEST_FIELD_FLAG_NO_DUMP|MANIFEST_FIELD_FLAG_NO_ATIME;
+        ASSERT_OK(verify_buffer(&c, tfd, buf, size));
+
+        /* A changed flag is detected, but only if the field is requested */
+        ASSERT_OK(chattr_at(tfd, "regular.txt", /* value= */ 0, FS_NODUMP_FL));
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.fields |= MANIFEST_FIELD_FLAG_NO_DUMP;
+        ASSERT_ERROR(verify_buffer(&c, tfd, buf, size), EBADMSG);
+        ASSERT_EQ(c.n_errors, 1U);
+
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.fields |= MANIFEST_FIELD_FLAG_NO_ATIME;
+        ASSERT_OK(verify_buffer(&c, tfd, buf, size));
 }
 
 #if HAVE_OPENSSL
