@@ -1070,33 +1070,44 @@ static int resolve_openpgp(const char *address) {
         if (r < 0)
                 return log_error_errno(r, "Failed to join DNS suffix: %m");
 
-        _cleanup_free_ char *full = NULL;
-        r = dns_name_concat(hashed, suffix, /* flags= */ 0, &full);
+        _cleanup_free_ char *full_sha256 = NULL;
+        r = dns_name_concat(hashed, suffix, /* flags= */ 0, &full_sha256);
         if (r < 0)
                 return log_error_errno(r, "Failed to join OPENPGPKEY name: %m");
-        log_debug("Looking up \"%s\".", full);
+        log_debug("Looking up \"%s\".", full_sha256);
 
         r = resolve_record(
-                        full,
+                        full_sha256,
                         arg_class ?: DNS_CLASS_IN,
                         arg_type ?: DNS_TYPE_OPENPGPKEY,
                         /* warn_missing= */ false);
         if (!IN_SET(r, -ENXIO, -ESRCH)) /* Not NXDOMAIN or NODATA? Then fail immediately. */
                 return r;
 
+        /* Fall back to older draft-03 SHA-224 hashsum for compatibility */
         hashed = mfree(hashed);
         r = string_hashsum_sha224(address, domain - 1 - address, &hashed);
         if (r < 0)
                 return log_error_errno(r, "Hashing failed: %m");
 
-        full = mfree(full);
-        r = dns_name_concat(hashed, suffix, /* flags= */ 0, &full);
+        _cleanup_free_ char *full_sha224 = NULL;
+        r = dns_name_concat(hashed, suffix, /* flags= */ 0, &full_sha224);
         if (r < 0)
                 return log_error_errno(r, "Failed to join OPENPGPKEY name: %m");
-        log_debug("Looking up \"%s\".", full);
+        log_debug("Looking up \"%s\".", full_sha224);
 
+        int r2 = resolve_record(
+                        full_sha224,
+                        arg_class ?: DNS_CLASS_IN,
+                        arg_type ?: DNS_TYPE_OPENPGPKEY,
+                        /* warn_missing= */ false);
+        if (!IN_SET(r2, -ENXIO, -ESRCH))
+                return r2;
+
+        /* Neither the standard RFC 7929 SHA-256 nor the draft-03 SHA-224 record exists.
+         * Report the missing record using the canonical RFC 7929 SHA-256 name. */
         return resolve_record(
-                        full,
+                        full_sha256,
                         arg_class ?: DNS_CLASS_IN,
                         arg_type ?: DNS_TYPE_OPENPGPKEY,
                         /* warn_missing= */ true);
