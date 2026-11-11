@@ -109,7 +109,7 @@ echo "$digest" | jq -r '.sha256 | to_entries[] | [.value.pol, .value.tbs] | @tsv
     test "$offline_sig" = "$online_sig"
 done
 
-if ! tpm_has_pcr sha1 11 || ! tpm_has_pcr sha256 11; then
+if ! tpm_has_pcr sha256 11; then
     echo "PCR sysfs files not found, skipping signed PCR policy tests"
     exit 0
 fi
@@ -119,7 +119,7 @@ MEASURE_BANKS=("--bank=sha256")
 #
 # Some distros have started phasing out SHA1, so make sure the SHA1
 # signatures are supported before trying to use them.
-if echo hello | openssl dgst -sign /tmp/pcrsign-private.pem -sha1 >/dev/null; then
+if tpm_has_pcr sha1 11 && echo hello | openssl dgst -sign /tmp/pcrsign-private.pem -sha1 >/dev/null; then
     MEASURE_BANKS+=("--bank=sha1")
 fi
 
