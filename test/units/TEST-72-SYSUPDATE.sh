@@ -1062,8 +1062,9 @@ gzip -k -f "$WORKDIR/uapi16/remote/disk.raw"
 sha256_of() { sha256sum "$1" | cut -d' ' -f1; }
 {
     printf '\036{"mediaType":"application/vnd.uapi.16.manifest"}\n'
-    # The first source does not exist, the second one is found relative to Path=
-    printf '\036{"name":"alt-v1.bin","size":%s,"sha256":"%s","contents":[{"file":"blobs/missing-v1.bin"},{"file":"blobs/alt-v1.bin"}]}\n' \
+    # The first source does not exist, the second one is found relative to Path=. The modification time is
+    # applied to the installed file, with nanosecond precision.
+    printf '\036{"name":"alt-v1.bin","size":%s,"sha256":"%s","mTimeNSec":1700000000123456789,"contents":[{"file":"blobs/missing-v1.bin"},{"file":"blobs/alt-v1.bin"}]}\n' \
         "$(stat -c %s "$WORKDIR/uapi16/alt-v1.bin")" "$(sha256_of "$WORKDIR/uapi16/alt-v1.bin")"
     # The source refers to the file of the object's name relative to Path= implicitly
     printf '\036{"name":"implied-v1.bin","size":%s,"sha256":"%s","contents":[{}]}\n' \
@@ -1121,6 +1122,7 @@ done
 for f in alt implied empty remote inline plain slice rawslice; do
     cmp "$WORKDIR/uapi16/$f-v1.bin" "$WORKDIR/uapi16/target/$f-v1.bin"
 done
+[[ "$(LC_ALL=C stat -c %.9Y "$WORKDIR/uapi16/target/alt-v1.bin")" == "1700000000.123456789" ]]
 
 # The decoded data is verified against the file's digest, not just the encoded data against its own
 mkdir -p "$WORKDIR/uapi16/bad-definitions"

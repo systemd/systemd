@@ -15,7 +15,7 @@ typedef struct InstanceMetadata {
         bool partition_uuid_set;
         uint64_t partition_flags;          /* GPT partition flags */
         bool partition_flags_set;
-        usec_t mtime;
+        nsec_t mtime_nsec;                 /* in nanoseconds, so that we can propagate it precisely */
         mode_t mode;
         uint64_t size;                     /* uncompressed size of the file */
         uint64_t tries_done, tries_left;   /* for boot assessment counters */
@@ -28,7 +28,7 @@ typedef struct InstanceMetadata {
 
 #define INSTANCE_METADATA_NULL                  \
         {                                       \
-                .mtime = USEC_INFINITY,         \
+                .mtime_nsec = NSEC_INFINITY,    \
                 .mode = MODE_INVALID,           \
                 .size = UINT64_MAX,             \
                 .tries_done = UINT64_MAX,       \
