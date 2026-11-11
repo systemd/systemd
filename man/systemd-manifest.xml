@@ -17,7 +17,7 @@
 
   <refnamediv>
     <refname>systemd-manifest</refname>
-    <refpurpose>Generate and verify file manifests of directory trees</refpurpose>
+    <refpurpose>Generate, verify and join file manifests of directory trees</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -35,13 +35,20 @@
       <arg choice="opt"><replaceable>DIRECTORY</replaceable>
         <arg choice="opt"><replaceable>MANIFEST</replaceable></arg></arg>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-manifest</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">join</arg>
+      <arg choice="plain" rep="repeat"><replaceable>INPUT</replaceable></arg>
+      <arg choice="plain"><replaceable>OUTPUT</replaceable></arg>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
     <para><command>systemd-manifest</command> generates file manifests of directory trees, and verifies
-    directory trees against such manifests. Four manifest formats are supported:</para>
+    directory trees against such manifests. It can also join multiple manifests into one. Four manifest formats are supported:</para>
 
     <variablelist>
       <varlistentry>
@@ -90,7 +97,9 @@
     </variablelist>
 
     <para>Manifests are generated and verified in a streaming fashion, i.e. one file at a time, and never
-    loaded into memory as a whole, so that very large trees can be processed.</para>
+    loaded into memory as a whole, so that very large trees can be processed. When joining manifests, their
+    objects are collected in a temporary directory below <filename>/var/tmp/</filename> for the same
+    reason.</para>
   </refsect1>
 
   <refsect1>
@@ -129,6 +138,53 @@
         as described, but the tree may contain additional files that the manifest does not list. These are
         not reported, and do not cause verification to fail. Hence a successful verification shows that the
         tree contains everything the manifest describes, but not that it contains nothing else.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>join</command> <replaceable>INPUT</replaceable>… <replaceable>OUTPUT</replaceable></term>
+
+        <listitem><para>Joins the specified <option>uapi16</option> manifests into one, and writes it to the
+        manifest file specified last. If <literal>-</literal> is specified as output, the joined manifest is
+        written to standard output. The output file is replaced atomically, i.e. it is only put in place once
+        it has been written completely, and may hence also be one of the inputs. Only the
+        <option>uapi16</option> format is supported.</para>
+
+        <para>The joined manifest contains the union of all objects of the inputs. Objects that are listed
+        in more than one input (i.e. carry the same name, or are the leading object describing the top-level
+        inode) must be identical in all of them, with the exception of their inode tokens (see below) and
+        modification times. If they differ in any other field, including fields not otherwise processed by
+        this tool, the conflict is reported, and the command fails without writing the output. If they only
+        differ in their modification times, the newest one is used. An object without modification time is
+        considered older than any with one. This means that manifests including modification times (see
+        <option>--field=</option>) may be joined, even if the trees they describe differ in their contents,
+        and hence the modification times of their directories differ.</para>
+
+        <para>Hardlink information is combined: if any input lists two objects as hardlinks of each other,
+        they are hardlinks of each other in the joined manifest too, and this is applied transitively. Hence,
+        if one input lists the files <filename>X</filename> and <filename>Y</filename> as hardlinked, and
+        another lists <filename>Y</filename> and <filename>Z</filename> as hardlinked, all three are
+        hardlinked in the joined manifest. Differences in the hardlink information of the inputs never
+        cause a conflict.</para>
+
+        <para>The objects are written in the same order <command>make</command> generates them, regardless
+        of the order in the inputs, and inode tokens are renumbered accordingly. Hence joining a manifest of
+        a directory tree with a manifest of the same tree after additional files have been added to it
+        results in the latter manifest.</para>
+
+        <para>The output only depends on the set of objects in the inputs, not on the order of the inputs,
+        or the order of the objects within them. If only a single input is specified, this is hence a way
+        to sign a manifest, re-sign it with a different key (with <option>--private-key=</option>), or remove
+        its signature, and to bring it into canonical form along the way.</para>
+
+        <para>Note that <command>join</command> <emphasis>does not verify the inputs</emphasis> in any way:
+        signatures of the inputs are neither checked nor copied into the output, and beyond the identity of
+        objects listed in multiple inputs no consistency checks are made (for example, it is not checked that
+        the parent directories of all objects are listed). The output is unsigned, unless
+        <option>--private-key=</option> is specified, in which case it is signed with that key. Hence, if the
+        inputs are not trusted, verify them with <command>verify</command> first, and only then join
+        them.</para>
 
         <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
@@ -312,7 +368,8 @@
         <term><option>--certificate-source=<replaceable>TYPE</replaceable>[:<replaceable>NAME</replaceable>]</option></term>
 
         <listitem><para>Set the private key and certificate to use for signing. When generating a
-        <option>uapi16</option> manifest with <command>make</command>, the manifest is signed if (and only
+        <option>uapi16</option> manifest with <command>make</command> or <command>join</command>, the
+        manifest is signed if (and only
         if) <option>--private-key=</option> is specified, in which case <option>--certificate=</option> must
         be specified too. A signature object is then appended to the manifest, carrying a detached PKCS#7
         (CMS) signature in DER format. The signature covers the exact bytes of the manifest preceding the
@@ -321,6 +378,9 @@
         the digest of the manifest, for Ed25519 keys it is made over a set of signed attributes carrying the
         SHA-512 digest of the manifest, as required by <ulink
         url="https://www.rfc-editor.org/rfc/rfc8419">RFC 8419</ulink>. Signing requires OpenSSL.</para>
+
+        <para>With <command>join</command>, these options only apply to the output: the inputs are never
+        verified, see above.</para>
 
         <para>When verifying, only <option>--certificate=</option> is used: if specified, the manifest must
         carry a signature that verifies against this certificate, instead of one of the certificates found in
@@ -358,7 +418,8 @@
         trust anchors. Verification fails if no certificates are found. If disabled, signature objects in the
         manifest are ignored. The <option>list</option> and <option>sha256sums</option> formats carry no
         signatures, hence for these this option has no effect, except that explicitly enabling it results in
-        an error. Requires OpenSSL.</para>
+        an error. Not supported with <command>join</command>, which never verifies its inputs. Requires
+        OpenSSL.</para>
 
         <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
