@@ -7,10 +7,12 @@
 #include "forward.h"
 
 typedef enum PickFlags {
-        PICK_ARCHITECTURE       = 1 << 0, /* Look for an architecture suffix */
-        PICK_TRIES              = 1 << 1, /* Look for tries left/tries done counters */
-        PICK_RESOLVE            = 1 << 2, /* Return the fully resolved (chased) path, rather than the path to the entry */
-        PICK_IGNORE_XATTR_MATCH = 1 << 3, /* Don't skip entries whose "user.uapi.match_…" xattrs don't match the system */
+        PICK_ARCHITECTURE         = 1 << 0, /* Look for an architecture suffix */
+        PICK_TRIES                = 1 << 1, /* Look for tries left/tries done counters */
+        PICK_RESOLVE              = 1 << 2, /* Return the fully resolved (chased) path, rather than the path to the entry */
+        PICK_IGNORE_XATTR_MATCH   = 1 << 3, /* Don't skip entries whose "user.uapi.match_…" xattrs don't match the system */
+        PICK_UAPI16_MANIFEST      = 1 << 4, /* If the .v/ directory contains a "Uapi16Manifest" file, enumerate it instead of the directory */
+        PICK_UAPI16_MANIFEST_AUTO = 1 << 5, /* Same, but only if the .v/ directory is located on FAT/exFAT */
 } PickFlags;
 
 typedef struct PickFilter {

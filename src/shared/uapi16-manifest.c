@@ -81,6 +81,15 @@ void uapi16_object_done(Uapi16Object *o) {
         uapi16_object_xattrs_done(o);
 }
 
+void uapi16_object_done_many(Uapi16Object *objects, size_t n) {
+        assert(objects || n == 0);
+
+        /* Releases the fields of all objects in the array, but not the array itself */
+
+        FOREACH_ARRAY(o, objects, n)
+                uapi16_object_done(o);
+}
+
 int uapi16_object_check_validity(Uapi16Object *o) {
         assert(o);
 
@@ -97,6 +106,40 @@ int uapi16_object_check_validity(Uapi16Object *o) {
                 return -EHWPOISON;
 
         return 0;
+}
+
+const char* uapi16_object_plain_file_source(const Uapi16Object *o) {
+        /* Returns the name of a file (relative to the location of the manifest) that carries the complete
+         * contents of the object as they are, i.e. without having to decode them, and without having to
+         * extract a section of the file. If no sources are listed, this is the file named after the object
+         * itself. Otherwise it is the first "contents" entry that refers to a file (or to none of a file, a
+         * URL or literal data, which according to the specification refers to the object's name too), is
+         * not encoded, starts at offset zero, and is not larger than the object. Returns NULL if there's no
+         * such source, or if no object is specified (a NULL object has no name, hence no file either). */
+
+        if (!o)
+                return NULL;
+
+        if (o->n_contents == 0)
+                return o->name;
+
+        FOREACH_ARRAY(c, o->contents, o->n_contents) {
+                const char *f = c->file;
+                if (!f && !c->url && !uapi16_contents_has_literal(c))
+                        f = o->name;
+                if (!f)
+                        continue;
+
+                if (c->encoding || c->offset != 0)
+                        continue;
+
+                if (c->original_size != UINT64_MAX && o->size != UINT64_MAX && c->original_size != o->size)
+                        continue;
+
+                return f;
+        }
+
+        return NULL;
 }
 
 bool uapi16_name_is_valid(const char *s) {

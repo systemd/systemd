@@ -472,10 +472,10 @@ int conf_files_cat(const char *root, const char *name, CatFlags flags) {
                 log_debug("Looking for configuration in:");
                 if (!is_collection)
                         STRV_FOREACH(prefix, prefixes)
-                                log_debug("   %s%s%s", strempty(root), *prefix, name);
+                                log_debug("   %s%s%s", empty_or_root_to_empty(root), *prefix, name);
 
                 STRV_FOREACH(t, dirs)
-                        log_debug("   %s%s/*%s", strempty(root), *t, extension);
+                        log_debug("   %s%s/*%s", empty_or_root_to_empty(root), *t, extension);
         }
 
         /* First locate the main config file, if any */

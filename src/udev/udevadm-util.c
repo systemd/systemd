@@ -224,13 +224,13 @@ static int search_rules_file_in_conf_dirs(const char *s, const char *root, ConfF
                 _cleanup_(conf_file_freep) ConfFile *c = NULL;
                 r = conf_file_new(path, root, CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED, &c);
                 if (r == -ERFKILL) {
-                        log_warning_errno(r, "File '%s%s' is a mask, ignoring.", empty_to_root(root), skip_leading_slash(path));
+                        log_warning_errno(r, "File '%s/%s' is a mask, ignoring.", empty_or_root_to_empty(root), skip_leading_slash(path));
                         return 1; /* Found masked file. */
                 }
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
-                        return log_error_errno(r, "Failed to chase '%s%s': %m", empty_to_root(root), skip_leading_slash(path));
+                        return log_error_errno(r, "Failed to chase '%s/%s': %m", empty_or_root_to_empty(root), skip_leading_slash(path));
 
                 if (!GREEDY_REALLOC_APPEND(*files, *n_files, &c, 1))
                         return log_oom();
@@ -258,7 +258,7 @@ static int search_rules_file(const char *s, const char *root, ConfFile ***files,
         _cleanup_(conf_file_freep) ConfFile *c = NULL;
         r = conf_file_new(s, root, CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED, &c);
         if (r == -ERFKILL) {
-                log_warning_errno(r, "File '%s%s' is a mask, ignoring.", empty_to_root(root), skip_leading_slash(s));
+                log_warning_errno(r, "File '%s/%s' is a mask, ignoring.", empty_or_root_to_empty(root), skip_leading_slash(s));
                 return 0; /* Found masked file. */
         }
         if (r >= 0) {
@@ -270,7 +270,7 @@ static int search_rules_file(const char *s, const char *root, ConfFile ***files,
         }
 
         if (r != -EISDIR)
-                return log_error_errno(r, "Failed to chase '%s%s': %m", empty_to_root(root), skip_leading_slash(s));
+                return log_error_errno(r, "Failed to chase '%s/%s': %m", empty_or_root_to_empty(root), skip_leading_slash(s));
 
         /* If a directory is specified, then find all rules file in the directory. */
         ConfFile **f = NULL;
@@ -280,7 +280,7 @@ static int search_rules_file(const char *s, const char *root, ConfFile ***files,
 
         r = conf_files_list_strv_full(".rules", root, CONF_FILES_REGULAR | CONF_FILES_WARN, (const char* const*) STRV_MAKE_CONST(s), &f, &n);
         if (r < 0)
-                return log_error_errno(r, "Failed to enumerate rules files in '%s%s': %m", empty_to_root(root), skip_leading_slash(s));
+                return log_error_errno(r, "Failed to enumerate rules files in '%s/%s': %m", empty_or_root_to_empty(root), skip_leading_slash(s));
 
         if (!GREEDY_REALLOC_APPEND(*files, *n_files, f, n))
                 return log_oom();

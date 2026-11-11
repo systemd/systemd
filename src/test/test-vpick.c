@@ -475,3 +475,95 @@ TEST(path_pick_xattr_match) {
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
+
+TEST(path_pick_manifest) {
+        _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
+        _cleanup_close_ int dfd = -EBADF, sub_dfd = -EBADF;
+
+        dfd = ASSERT_OK(mkdtemp_open(/* template= */ NULL, O_DIRECTORY, &p));
+        sub_dfd = ASSERT_OK(open_mkdir_at(dfd, "foo.v", /* flags= */ 0, 0777));
+
+        ASSERT_OK(write_string_file_at(sub_dfd, "foo_1.raw", "1", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file_at(sub_dfd, "foo_2.raw", "2", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file_at(sub_dfd, "foo_3.raw", "3", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file_at(sub_dfd, "foo_9.raw", "9", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file_at(sub_dfd, "blob", "4", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file_at(sub_dfd, "sub/blob", "4", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755));
+
+        ASSERT_OK(write_string_file_at(
+                        sub_dfd,
+                        "Uapi16Manifest",
+                        /* The manifest itself */
+                        "\x1e{\"mediaType\":\"application/vnd.uapi.16.manifest\"}\n"
+                        /* Plain entry, file is located at its name */
+                        "\x1e{\"name\":\"foo_1.raw\"}\n"
+                        /* Restricted to a machine ID no system has */
+                        "\x1e{\"name\":\"foo_2.raw\",\"extendedAttributes\":{\"user\":{\"uapi.match_machine_id\":{\"text\":\"00000000000000000000000000000000\"}}}}\n"
+                        /* Contents are in another file, further down the tree */
+                        "\x1e{\"name\":\"foo_4.raw\",\"contents\":[{\"url\":\"https://example.com/foo_4.raw\"},{\"file\":\"sub/blob\"}]}\n"
+                        /* Sources we do not support */
+                        "\x1e{\"name\":\"foo_5.raw\",\"contents\":[{\"url\":\"https://example.com/foo_5.raw\"}]}\n"
+                        "\x1e{\"name\":\"foo_6.raw\",\"contents\":[{\"file\":\"blob\",\"offset\":1}]}\n"
+                        "\x1e{\"name\":\"foo_7.raw\",\"contents\":[{\"file\":\"blob\"}],\"size\":1}\n"
+                        "\x1e{\"name\":\"foo_8.raw\",\"contents\":[{\"file\":\"blob\",\"encoding\":\"zstd\"}]}\n"
+                        "\x1e{\"name\":\"foo_11.raw\",\"contents\":[{\"literal\":\"MTEK\"}]}\n"
+                        /* Revoked */
+                        "\x1e{\"name\":\"foo_12.raw\",\"validity\":\"revoked\"}\n"
+                        /* Not a direct child */
+                        "\x1e{\"name\":\"sub/foo_13.raw\"}\n"
+                        /* Doesn't exist */
+                        "\x1e{\"name\":\"foo_14.raw\"}\n"
+                        /* Wrong inode type */
+                        "\x1e{\"name\":\"foo_15.raw\",\"type\":\"dir\",\"contents\":[{\"file\":\"blob\"}]}\n"
+                        "\x1e{\"mediaType\":\"application/vnd.uapi.16.trailer\"}\n",
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE));
+
+        _cleanup_free_ char *pp = ASSERT_NOT_NULL(path_join(p, "foo.v"));
+        _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+        PickFilter filter = {
+                .architecture = _ARCHITECTURE_INVALID,
+                .suffix = ".raw",
+        };
+
+        /* Without the flag the manifest is ignored */
+        ASSERT_OK_POSITIVE(path_pick(/* root_path= */ NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* match_root= */ NULL, PICK_ARCHITECTURE|PICK_TRIES, &result));
+        ASSERT_STREQ(result.version, "9");
+        pick_result_done(&result);
+
+        /* The temporary directory is not on FAT, hence automatic mode ignores the manifest too */
+        ASSERT_OK_POSITIVE(path_pick(/* root_path= */ NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* match_root= */ NULL, PICK_ARCHITECTURE|PICK_TRIES|PICK_UAPI16_MANIFEST_AUTO, &result));
+        ASSERT_STREQ(result.version, "9");
+        pick_result_done(&result);
+
+        /* With the manifest only the listed entries are considered, and the contents are found in "sub/blob" */
+        ASSERT_OK_POSITIVE(path_pick(/* root_path= */ NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* match_root= */ NULL, PICK_ARCHITECTURE|PICK_TRIES|PICK_UAPI16_MANIFEST, &result));
+        ASSERT_STREQ(result.version, "4");
+        _cleanup_free_ char *blob = ASSERT_NOT_NULL(path_join(pp, "sub/blob"));
+        ASSERT_STREQ(result.path, blob);
+        ASSERT_TRUE(S_ISREG(result.st.st_mode));
+        pick_result_done(&result);
+
+        /* Fully specified versions are looked up in the manifest too */
+        filter.version = "3";
+        ASSERT_OK_ZERO(path_pick(/* root_path= */ NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* match_root= */ NULL, PICK_UAPI16_MANIFEST, &result));
+        ASSERT_OK_POSITIVE(path_pick(/* root_path= */ NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* match_root= */ NULL, /* flags= */ 0, &result));
+        ASSERT_STREQ(result.version, "3");
+        pick_result_done(&result);
+
+        /* The extended attributes are taken from the manifest */
+        filter.version = "2";
+        ASSERT_OK_ZERO(path_pick(/* root_path= */ NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* match_root= */ NULL, PICK_UAPI16_MANIFEST, &result));
+        ASSERT_OK_POSITIVE(path_pick(/* root_path= */ NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* match_root= */ NULL, PICK_UAPI16_MANIFEST|PICK_IGNORE_XATTR_MATCH, &result));
+        ASSERT_STREQ(result.version, "2");
+        pick_result_done(&result);
+
+        filter.version = "1";
+        ASSERT_OK_POSITIVE(path_pick(/* root_path= */ NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* match_root= */ NULL, PICK_UAPI16_MANIFEST, &result));
+        ASSERT_STREQ(result.version, "1");
+        pick_result_done(&result);
+        filter.version = NULL;
+
+        /* A broken manifest is an error */
+        ASSERT_OK(write_string_file_at(sub_dfd, "Uapi16Manifest", "\x1e{\"mediaType\":\"application/vnd.uapi.16.manifest\"}\n", WRITE_STRING_FILE_TRUNCATE|WRITE_STRING_FILE_AVOID_NEWLINE));
+        ASSERT_ERROR(path_pick(/* root_path= */ NULL, AT_FDCWD, AT_FDCWD, pp, &filter, /* n_filters= */ 1, /* match_root= */ NULL, PICK_UAPI16_MANIFEST, &result), EBADMSG);
+}

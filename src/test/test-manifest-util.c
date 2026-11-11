@@ -925,6 +925,64 @@ static void assert_special_xattr(const char *buf, const char *name, bool have) {
         ASSERT_STREQ(s, have ? "{\"user\":{\"special\":{\"text\":\"yes\"}}}" : "{\"user\":{}}");
 }
 
+TEST(uapi16_object_done_many) {
+        Uapi16Object objects[2] = { UAPI16_OBJECT_NULL, UAPI16_OBJECT_NULL };
+
+        uapi16_object_done_many(/* objects= */ NULL, /* n= */ 0);
+
+        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"contents\":[{\"file\":\"b\"}]}", 1, objects + 0));
+        ASSERT_OK(dispatch_one("{\"name\":\"c\"}", 1, objects + 1));
+        uapi16_object_done_many(objects, ELEMENTSOF(objects));
+
+        FOREACH_ELEMENT(o, objects) {
+                ASSERT_NULL(o->name);
+                ASSERT_NULL(o->contents);
+                ASSERT_EQ(o->n_contents, 0U);
+        }
+}
+
+TEST(uapi16_object_plain_file_source) {
+        _cleanup_(uapi16_object_done) Uapi16Object o = UAPI16_OBJECT_NULL;
+
+        /* No object, no name */
+        ASSERT_NULL(uapi16_object_plain_file_source(NULL));
+
+        /* No sources listed: the object's own name */
+        ASSERT_OK(dispatch_one("{\"name\":\"a\"}", 1, &o));
+        ASSERT_STREQ(uapi16_object_plain_file_source(&o), "a");
+        uapi16_object_done(&o);
+
+        ASSERT_OK(dispatch_one("{\"name\":\"sub/a\"}", 1, &o));
+        ASSERT_STREQ(uapi16_object_plain_file_source(&o), "sub/a");
+        uapi16_object_done(&o);
+
+        /* An empty contents entry refers to the object's own name too */
+        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"contents\":[{\"url\":\"https://example.com/a\"},{}]}", 1, &o));
+        ASSERT_STREQ(uapi16_object_plain_file_source(&o), "a");
+        uapi16_object_done(&o);
+
+        /* The first usable source wins, unusable ones are skipped */
+        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"contents\":["
+                               "{\"url\":\"https://example.com/a\"},"
+                               "{\"literal\":\"YQo=\"},"
+                               "{\"file\":\"b\",\"encoding\":\"zstd\"},"
+                               "{\"file\":\"c\",\"offset\":1},"
+                               "{\"file\":\"sub/d\"},"
+                               "{\"file\":\"e\"},"
+                               "{\"file\":\"f\"}]}", 1, &o));
+        ASSERT_STREQ(uapi16_object_plain_file_source(&o), "sub/d");
+        uapi16_object_done(&o);
+
+        /* Sources larger than the object are only sections of it */
+        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"size\":1,\"contents\":[{\"file\":\"b\",\"originalSize\":2},{\"file\":\"c\",\"originalSize\":1}]}", 1, &o));
+        ASSERT_STREQ(uapi16_object_plain_file_source(&o), "c");
+        uapi16_object_done(&o);
+
+        /* Nothing usable */
+        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"contents\":[{\"url\":\"https://example.com/a\"}]}", 1, &o));
+        ASSERT_NULL(uapi16_object_plain_file_source(&o));
+}
+
 TEST(manifest_uapi16_xattr) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF;
