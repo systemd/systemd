@@ -1177,6 +1177,9 @@ int bus_socket_connect(sd_bus *b) {
 }
 
 static int bus_socket_prepare_notify(char **ret_dir, char **ret_path) {
+        assert(ret_dir);
+        assert(ret_path);
+
         _cleanup_(rmdir_and_freep) char *dir = NULL;
         _cleanup_(unlink_and_freep) char *path = NULL;
         _cleanup_free_ char *template = NULL;
