@@ -434,6 +434,7 @@ static int start_shell(
                 const char *group,
                 const WorkingDirectory *working_directory,
                 char **environment,
+                sd_json_variant *log_extra_fields,
                 char **command_line,
                 const char *executable,
                 bool via_shell,
@@ -614,6 +615,7 @@ static int start_shell(
                                                                                                                         SD_JSON_BUILD_PAIR_CONDITION(working_directory->home, "home", SD_JSON_BUILD_BOOLEAN(true)),
                                                                                                                         SD_JSON_BUILD_PAIR_CONDITION(working_directory->missing_ok, "missingOK", SD_JSON_BUILD_BOOLEAN(true)))),
                                                                            JSON_BUILD_PAIR_STRV_NON_EMPTY("Environment", environment),
+                                                                           JSON_BUILD_PAIR_VARIANT_NON_NULL("LogExtraFields", log_extra_fields),
                                                                            SD_JSON_BUILD_PAIR_BOOLEAN("IgnoreSIGPIPE", false))))),
                         SD_JSON_BUILD_PAIR_STRING("mode", "replace"));
         if (r < 0)
@@ -644,6 +646,7 @@ typedef struct AcquirePtyParameters {
         const char *group;
         WorkingDirectory working_directory;
         char **environment;
+        sd_json_variant *log_extra_fields; /* no reference */
         char **command_line;
         const char *executable;
         int via_shell;
@@ -735,6 +738,7 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
                 { "group",              SD_JSON_VARIANT_STRING,        json_dispatch_const_user_group_name, voffsetof(p, group),                 0                 },
                 { "workingDirectory",   SD_JSON_VARIANT_OBJECT,        dispatch_working_directory,          voffsetof(p, working_directory),     0                 },
                 { "environment",        _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_strv_environment,      voffsetof(p, environment),           0                 },
+                { "logExtraFields",     SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant_noref,      voffsetof(p, log_extra_fields),      0                 },
                 { "commandLine",        SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,               voffsetof(p, command_line),          0                 },
                 { "executable",         SD_JSON_VARIANT_STRING,        json_dispatch_const_path,            voffsetof(p, executable),            0                 },
                 { "viaShell",           SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,           voffsetof(p, via_shell),             0                 },
@@ -802,6 +806,8 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
                         return sd_varlink_error_invalid_parameter_name(link, "workingDirectory");
                 if (!strv_isempty(p.environment))
                         return sd_varlink_error_invalid_parameter_name(link, "environment");
+                if (p.log_extra_fields)
+                        return sd_varlink_error_invalid_parameter_name(link, "logExtraFields");
                 if (!strv_isempty(p.command_line))
                         return sd_varlink_error_invalid_parameter_name(link, "commandLine");
                 if (p.executable)
@@ -1078,6 +1084,7 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
                                 p.group,
                                 &p.working_directory,
                                 p.environment,
+                                p.log_extra_fields,
                                 p.command_line,
                                 p.executable,
                                 p.via_shell != 0,
