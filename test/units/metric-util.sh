@@ -205,3 +205,48 @@ assert_metric_field_absent() {
         length > 0 and all(.[]; .fields | has($field) | not)')" || return
     assert_eq "$result" true
 }
+
+metric_sources_cleanup() {
+    local log
+    set +e
+
+    if ((${#metric_pids[@]})); then
+        kill -KILL "${metric_pids[@]}" 2>/dev/null
+        wait
+    fi
+
+    for log in "$metric_tmpdir"/*.err; do
+        cat "$log"
+    done
+
+    rm -f /run/systemd/report/io.test.*
+    rm -rf "$metric_tmpdir"
+}
+
+metric_sources_setup() {
+    metric_pids=()
+    metric_tmpdir=$(mktemp -d /tmp/report-XXXXXX)
+    trap metric_sources_cleanup EXIT
+    mkdir -p /run/systemd/report
+}
+
+metric_sources_start() {
+    local name=$1 replies=$2
+
+    # Varlink messages are NUL-terminated; the fixture has one JSON reply per line.
+    cat "$replies" | tr '\n' '\0' >"$metric_tmpdir/$name.varlink"
+
+    socat -u "OPEN:$metric_tmpdir/$name.varlink" "UNIX-LISTEN:/run/systemd/report/io.test.$name" 2>"$metric_tmpdir/$name.err" &
+    metric_pids+=("$!")
+    timeout 10 bash -c 'until [[ -S "$1" ]]; do sleep .05; done' bash "/run/systemd/report/io.test.$name"
+}
+
+metric_sources_wait() {
+    local pid
+
+    for pid in "${metric_pids[@]}"; do
+        wait "$pid"
+    done
+
+    metric_pids=()
+}
