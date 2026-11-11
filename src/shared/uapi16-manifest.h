@@ -80,7 +80,10 @@ typedef struct Uapi16Object {
         usec_t valid_since_usec, valid_until_usec;
         Uapi16Validity validity;
 
-        /* NB: we omit a bunch of UAPI.16 specified fields we currently don't intend to consume.  */
+        /* NB: we omit a bunch of UAPI.16 specified fields we currently don't intend to consume. For
+         * consumers that need them anyway, the complete JSON object the above was parsed from is
+         * referenced here. */
+        sd_json_variant *json;
 } Uapi16Object;
 
 #define UAPI16_OBJECT_NULL (const Uapi16Object) {     \
@@ -119,7 +122,8 @@ static inline bool uapi16_manifest_filename_is_suffixed(const char *name) {
                 (endswith(name, UAPI16_MANIFEST_SUFFIX) || !isempty(strstr(name, UAPI16_MANIFEST_SUFFIX ".")));
 }
 
-/* Validates the "name" field of a file object: a normalized relative path, that is not reserved. */
+/* Validates the "name" field of a file object: a normalized relative path, that is not reserved. Returns
+ * false for NULL. */
 bool uapi16_name_is_valid(const char *s) _pure_;
 
 /* Validates the name of an extended attribute (without namespace prefix) */
@@ -136,6 +140,11 @@ int uapi16_xattr_array_sort(Uapi16Xattr *x, size_t n);
 int uapi16_xattrs_build_json(const Uapi16Xattr *x, size_t n, sd_json_variant **ret);
 
 void uapi16_object_done(Uapi16Object *o);
+void uapi16_object_done_many(Uapi16Object *objects, size_t n);
+
+/* Sorts the objects by name, component by component, i.e. in the order manifest_make() generates them in.
+ * Objects without a name (i.e. the leading object of a manifest) are sorted first. */
+void uapi16_object_sort_many(Uapi16Object *objects, size_t n);
 int uapi16_object_check_validity(Uapi16Object *o);
 
 int dispatch_uapi16_object(sd_json_variant *v, size_t n, sd_json_dispatch_flags_t flags, Uapi16Object *ret);
@@ -185,13 +194,25 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Uapi16Signer*, uapi16_signer_free);
  * leading object describing the manifest itself. The handler may take possession of fields of the object. */
 typedef int (*uapi16_object_handler_t)(Uapi16Object *o, size_t index, void *userdata);
 
+typedef enum Uapi16ReadStatus {
+        UAPI16_READ_UNSIGNED             = 0,     /* manifest carries no signature object */
+        UAPI16_READ_SIGNED               = 1,     /* manifest carries a signature that was successfully verified */
+        UAPI16_READ_UNVERIFIED_SIGNATURE = 2,     /* manifest carries signature objects, but none was verified */
+        _UAPI16_READ_STATUS_MAX,
+        _UAPI16_READ_STATUS_INVALID = -EINVAL,
+        _UAPI16_READ_STATUS_ERRNO_MAX = -ERRNO_MAX, /* ensure full range of errno fits into this enum */
+} Uapi16ReadStatus;
+
 /* Reads a UAPI.16 manifest from the specified stream, record by record, without ever holding more than one
  * record in memory, and enforces the structure of the manifest (leading object, signature objects only
  * after file objects, trailer last). Objects of unknown media types are skipped. If certificates are
  * specified, a PKCS#7 signature by one of them is required. Note that it is only known at the very end
  * whether the signature checks out, i.e. after the handler has been called for all file objects: callers
- * must discard what they collected if this returns an error. */
-int uapi16_manifest_read(
+ * must discard what they collected if this returns an error. Returns UAPI16_READ_SIGNED if certificates
+ * were specified and a signature verified against one of them, UAPI16_READ_UNVERIFIED_SIGNATURE if no
+ * certificates were specified but the manifest carries signature objects (of any mechanism, which are
+ * not checked in that case), UAPI16_READ_UNSIGNED if it carries none, or a negative errno on failure. */
+Uapi16ReadStatus uapi16_manifest_read(
                 FILE *f,
                 X509 *const *certificates,
                 size_t n_certificates,

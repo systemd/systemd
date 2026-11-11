@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "log.h"
 #include "sysupdate-instance.h"
@@ -64,6 +66,7 @@ Instance *instance_free(Instance *i) {
         free(i->sources);
 
         uapi16_xattr_array_free(i->user_xattrs, i->n_user_xattrs);
+        sd_json_variant_unref(i->manifest_object);
 
         return mfree(i);
 }

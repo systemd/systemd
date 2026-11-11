@@ -923,7 +923,7 @@
           <citerefentry><refentrytitle>systemd-manifest</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
           see there for details. Defaults to the same set as <command>systemd-manifest</command>, see there
           for which fields are included by default and which are not (in particular, owning user and group
-          names and modification times are not). Has no effect
+          names, extended attributes and modification times are not). Has no effect
           on the partition table manifest generated with <option>--manifest-gpt=</option>, whose fields are
           fixed.</para>
 
