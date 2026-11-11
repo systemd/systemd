@@ -313,9 +313,11 @@ int pattern_match(const char *pattern, const char *s, InstanceMetadata *ret) {
                                 goto nope;
                         if (v / 1000000U > TIME_T_MAX) /* Make sure this fits in a timespec structure */
                                 goto nope;
+                        if (v >= NSEC_INFINITY / NSEC_PER_USEC) /* Make sure this fits in nsec_t */
+                                goto nope;
 
-                        assert(found.mtime == USEC_INFINITY);
-                        found.mtime = v;
+                        assert(found.mtime_nsec == NSEC_INFINITY);
+                        found.mtime_nsec = v * NSEC_PER_USEC;
                         break;
                 }
 
@@ -582,10 +584,10 @@ int pattern_format(
                         break;
 
                 case PATTERN_MTIME:
-                        if (fields->mtime == USEC_INFINITY)
+                        if (fields->mtime_nsec == NSEC_INFINITY)
                                 return -ENXIO;
 
-                        r = strextendf(&j, "%" PRIu64, fields->mtime);
+                        r = strextendf(&j, "%" PRIu64, fields->mtime_nsec / NSEC_PER_USEC);
                         if (r < 0)
                                 return r;
 

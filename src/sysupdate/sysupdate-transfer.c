@@ -1352,7 +1352,7 @@ static void compile_pattern_fields(
                 .partition_uuid_set = t->partition_uuid_set || i->metadata.partition_uuid_set,
                 .partition_flags = t->partition_flags_set ? t->partition_flags : i->metadata.partition_flags,
                 .partition_flags_set = t->partition_flags_set || i->metadata.partition_flags_set,
-                .mtime = RESOURCE_IS_TAR(i->resource->type) ? USEC_INFINITY : i->metadata.mtime,
+                .mtime_nsec = RESOURCE_IS_TAR(i->resource->type) ? NSEC_INFINITY : i->metadata.mtime_nsec,
                 .mode = t->mode != MODE_INVALID ? t->mode : (RESOURCE_IS_TAR(i->resource->type) ? MODE_INVALID : i->metadata.mode),
                 .size = i->metadata.size,
                 .tries_done = t->tries_done != UINT64_MAX ? t->tries_done :
@@ -2126,10 +2126,10 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                 assert(t->temporary_pending_path);
 
                 /* Apply file attributes if set */
-                if (f->mtime != USEC_INFINITY) {
+                if (f->mtime_nsec != NSEC_INFINITY) {
                         struct timespec ts;
 
-                        timespec_store(&ts, f->mtime);
+                        timespec_store_nsec(&ts, f->mtime_nsec);
 
                         if (utimensat(AT_FDCWD, t->temporary_partial_path, (struct timespec[2]) { ts, ts }, AT_SYMLINK_NOFOLLOW) < 0)
                                 return log_error_errno(errno, "Failed to adjust mtime of '%s': %m", t->temporary_partial_path);
