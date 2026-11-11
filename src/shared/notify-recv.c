@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "async.h"
 #include "fdset.h"
+#include "extract-word.h"
 #include "log.h"
 #include "notify-recv.h"
 #include "pidref.h"
@@ -74,8 +75,8 @@ int notify_recv_with_fds_strv(
                 return r;
 
         if (ret_list) {
-                char **l = strv_split_newlines(text);
-                if (!l) {
+                char **l;
+                if (strv_split_newlines_full(&l, text, EXTRACT_RETAIN_ESCAPE) < 0) {
                         log_oom_warning();
                         return -EAGAIN;
                 }
