@@ -89,6 +89,19 @@ jq -s -e '.[] | select(.name == "subdir") | .type == "dir"' "$WORK/minimal.jsonl
 systemd-manifest make --field=+mtime "$ROOT" | tr -d '\036' | jq -s -e '.[] | select(.name == "regular.txt") | has("mTimeNSec")' >/dev/null
 systemd-manifest make "$ROOT" | tr -d '\036' | jq -s -e '.[] | select(.name == "regular.txt") | has("mTimeNSec") | not' >/dev/null
 systemd-manifest make --format=mtree --field=+mtime "$ROOT" | grep -F " time=" >/dev/null
+
+: "Modification times are verified with an accuracy of 2s by default (as FAT has), which is configurable"
+touch -d @1700000000.5 "$ROOT/regular.txt"
+systemd-manifest make --field=+mtime "$ROOT" >"$WORK/mtime.Uapi16Manifest"
+touch -d @1700000002.5 "$ROOT/regular.txt"
+systemd-manifest verify --verify-signature=no --field=+mtime "$ROOT" "$WORK/mtime.Uapi16Manifest"
+(! systemd-manifest verify --verify-signature=no --field=+mtime --timestamp-accuracy-sec=1s "$ROOT" "$WORK/mtime.Uapi16Manifest")
+touch -d @1700000002.500000001 "$ROOT/regular.txt"
+(! systemd-manifest verify --verify-signature=no --field=+mtime "$ROOT" "$WORK/mtime.Uapi16Manifest")
+systemd-manifest verify --verify-signature=no --field=+mtime --timestamp-accuracy-sec=1min "$ROOT" "$WORK/mtime.Uapi16Manifest"
+touch -d @1700000000.5 "$ROOT/regular.txt"
+systemd-manifest verify --verify-signature=no --field=+mtime --timestamp-accuracy-sec=0 "$ROOT" "$WORK/mtime.Uapi16Manifest"
+(! systemd-manifest verify --verify-signature=no --field=+mtime --timestamp-accuracy-sec=foo "$ROOT" "$WORK/mtime.Uapi16Manifest")
 systemd-manifest make --format=mtree --field=none "$ROOT" | grep -F "./regular.txt type=file" >/dev/null
 (! systemd-manifest make --format=mtree --field=none "$ROOT" | grep -F "mode=")
 (! systemd-manifest make --field=foobar "$ROOT")
