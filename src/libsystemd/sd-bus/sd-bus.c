@@ -31,6 +31,7 @@
 #include "cgroup-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fiber-ops.h"
 #include "fs-util.h"
 #include "format-util.h"
 #include "glyph-util.h"
@@ -164,6 +165,7 @@ static void bus_close_fds(sd_bus *b) {
         b->busexec_notify_fd = safe_close(b->busexec_notify_fd);
         b->busexec_notify_path = unlink_and_free(b->busexec_notify_path);
         b->busexec_notify_dir = rmdir_and_free(b->busexec_notify_dir);
+        pidref_done_sigterm_wait(&b->busexec_notify_cleanup_pidref);
 }
 
 static void bus_reset_queues(sd_bus *b) {
@@ -276,6 +278,7 @@ _public_ int sd_bus_new(sd_bus **ret) {
                 .accept_fd = true,
                 .origin_id = origin_id_query(),
                 .busexec_pidref = PIDREF_NULL,
+                .busexec_notify_cleanup_pidref = PIDREF_NULL,
                 .n_groups = SIZE_MAX,
                 .close_on_exit = true,
                 .ucred = UCRED_INVALID,
@@ -1794,7 +1797,8 @@ static void bus_receive_busexec_errno(sd_bus *bus) {
         /* EOF can precede the child's final ERRNO= notification. Only wait on disconnect, and bound
          * the wait so an uncooperative transport cannot indefinitely stall the caller. Without a
          * pidfd, reporting a more specific error is best effort. */
-        (void) pidref_wait_for_terminate_full(&bus->busexec_pidref, 50 * USEC_PER_MSEC, NULL);
+        if (!fiber_ops_is_set())
+                (void) pidref_wait_for_terminate_full(&bus->busexec_pidref, 50 * USEC_PER_MSEC, /* ret_si= */ NULL);
 
         for (unsigned i = 0; i < 64; i++) {
                 _cleanup_free_ char *text = NULL;
