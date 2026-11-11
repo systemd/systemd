@@ -295,6 +295,21 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--timestamp-accuracy-sec=<replaceable>TIMESPAN</replaceable></option></term>
+
+        <listitem><para>Configures the maximum deviation of the timestamps of an inode from the ones
+        recorded in the manifest, that is accepted when verifying a directory tree. Currently, the only
+        timestamp checked is the modification time. Takes a time span in the usual syntax, see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+        with a default unit of seconds. Defaults to 2s, since the FAT file system stores modification
+        times with a granularity of 2s only. Use <literal>0</literal> to require timestamps to match
+        exactly. Only has an effect if the <option>mtime</option> field is enabled with
+        <option>--field=</option>, and only for <option>uapi16</option> manifests.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--graceful</option></term>
 
         <listitem><para>When generating a manifest with <command>make</command>, do not fail if some inodes

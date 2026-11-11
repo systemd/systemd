@@ -4,9 +4,14 @@
 #include "sd-json.h"
 
 #include "forward.h"
+#include "time-util.h"
 #include "uapi16-manifest.h"
 
 /* Generic helpers for generating (and verifying) file manifests of directory trees, in various formats. */
+
+/* By default, accept timestamps that deviate by up to 2s when verifying, since that's the granularity FAT
+ * stores modification times in */
+#define MANIFEST_TIMESTAMP_ACCURACY_DEFAULT_NSEC (2 * NSEC_PER_SEC)
 
 typedef enum ManifestFormat {
         MANIFEST_FORMAT_LIST,       /* A simple list of file names, one per line */
@@ -82,6 +87,10 @@ typedef struct ManifestContext {
 
         sd_json_format_flags_t json_format_flags;
 
+        /* When verifying, the maximum deviation of timestamps (currently only the modification time) from
+         * the manifest we accept */
+        nsec_t timestamp_accuracy_nsec;
+
         /* Signing (generation) and signature verification (verification), UAPI.16 only */
         X509 *certificate;                        /* Not owned. Used for signing */
         X509 *const *certificates;                /* Not owned. If set a signature by one of these is required */
@@ -92,13 +101,14 @@ typedef struct ManifestContext {
         uint64_t n_errors;                        /* Number of mismatches found so far */
 } ManifestContext;
 
-#define MANIFEST_CONTEXT_NULL                              \
-        (const ManifestContext) {                          \
-                .format = _MANIFEST_FORMAT_INVALID,        \
-                .fields = _MANIFEST_FIELD_DEFAULT,         \
-                .hash = MANIFEST_HASH_SHA256,              \
-                .db_fd = -EBADF,                           \
-                .json_format_flags = SD_JSON_FORMAT_OFF,   \
+#define MANIFEST_CONTEXT_NULL                                                            \
+        (const ManifestContext) {                                                        \
+                .format = _MANIFEST_FORMAT_INVALID,                                      \
+                .fields = _MANIFEST_FIELD_DEFAULT,                                       \
+                .hash = MANIFEST_HASH_SHA256,                                            \
+                .db_fd = -EBADF,                                                         \
+                .json_format_flags = SD_JSON_FORMAT_OFF,                                 \
+                .timestamp_accuracy_nsec = MANIFEST_TIMESTAMP_ACCURACY_DEFAULT_NSEC,     \
         }
 
 void manifest_context_done(ManifestContext *c);
