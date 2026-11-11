@@ -2474,6 +2474,7 @@ static int start_via_ptybroker(sd_varlink *vl) {
                                                                      SD_JSON_BUILD_PAIR_CONDITION(streq_ptr(arg_working_directory, "~"), "home", SD_JSON_BUILD_BOOLEAN(true)),
                                                                      JSON_BUILD_PAIR_STRING_NON_EMPTY("path", streq_ptr(arg_working_directory, "~") ? NULL : arg_working_directory))),
                         SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(arg_environment), "environment", SD_JSON_BUILD_STRV(arg_environment)),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("logExtraFields", arg_log_extra_fields),
                         SD_JSON_BUILD_PAIR_CONDITION(!arg_via_shell, "commandLine", SD_JSON_BUILD_STRV(arg_cmdline)),
                         SD_JSON_BUILD_PAIR_CONDITION(!arg_via_shell, "viaShell", SD_JSON_BUILD_BOOLEAN(false)),
                         SD_JSON_BUILD_PAIR_CONDITION(!arg_via_shell && arg_exec_path, "executable", SD_JSON_BUILD_STRING(arg_exec_path)),
