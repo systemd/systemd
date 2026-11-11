@@ -250,12 +250,12 @@ TransientServiceParameters* transient_service_parameters_free(TransientServicePa
 static int dispatch_transient_exec_command(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field exec_command_dispatch[] = {
                 { "path",          SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(TransientExecCommandItem, path),           SD_JSON_MANDATORY },
-                { "arguments",     SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,         offsetof(TransientExecCommandItem, arguments),      0                 },
-                { "ignoreFailure", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(TransientExecCommandItem, ignore_failure), 0                 },
-                { "privileged",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(TransientExecCommandItem, privileged),     0                 },
-                { "noSetuid",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(TransientExecCommandItem, no_setuid),      0                 },
-                { "noEnvExpand",   SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(TransientExecCommandItem, no_env_expand),  0                 },
-                { "viaShell",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(TransientExecCommandItem, via_shell),      0                 },
+                { "arguments",     SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_strv,         offsetof(TransientExecCommandItem, arguments),      SD_JSON_NULLABLE  },
+                { "ignoreFailure", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(TransientExecCommandItem, ignore_failure), SD_JSON_NULLABLE  },
+                { "privileged",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(TransientExecCommandItem, privileged),     SD_JSON_NULLABLE  },
+                { "noSetuid",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(TransientExecCommandItem, no_setuid),      SD_JSON_NULLABLE  },
+                { "noEnvExpand",   SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(TransientExecCommandItem, no_env_expand),  SD_JSON_NULLABLE  },
+                { "viaShell",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(TransientExecCommandItem, via_shell),      SD_JSON_NULLABLE  },
                 {}
         };
 
@@ -265,6 +265,9 @@ static int dispatch_transient_exec_command(const char *name, sd_json_variant *va
         int r;
 
         assert(c >= 0);
+
+        if (sd_json_variant_is_null(variant))
+                return 0;
 
         if (!sd_json_variant_is_array(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Expected JSON array for %s.", name);
@@ -302,19 +305,19 @@ int transient_service_dispatch(
                 char **reterr_bad_field) {
 
         static const sd_json_dispatch_field service_dispatch[] = {
-                { "Type",                         SD_JSON_VARIANT_STRING,        dispatch_service_type,           offsetof(TransientServiceParameters, type),              0 },
-                { "ExecCondition",                SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       0 },
-                { "ExecStartPre",                 SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       0 },
-                { "ExecStart",                    SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       0 },
-                { "ExecStartPost",                SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       0 },
-                { "ExecReload",                   SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       0 },
-                { "ExecReloadPost",               SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       0 },
-                { "ExecStop",                     SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       0 },
-                { "ExecStopPost",                 SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       0 },
-                { "RemainAfterExit",              SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,       offsetof(TransientServiceParameters, remain_after_exit), 0 },
-                { "StandardInputFileDescriptor",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,           offsetof(TransientServiceParameters, stdin_fd_index),    0 },
-                { "StandardOutputFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,           offsetof(TransientServiceParameters, stdout_fd_index),   0 },
-                { "StandardErrorFileDescriptor",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,           offsetof(TransientServiceParameters, stderr_fd_index),   0 },
+                { "Type",                         SD_JSON_VARIANT_STRING,        dispatch_service_type,           offsetof(TransientServiceParameters, type),              SD_JSON_NULLABLE  },
+                { "ExecCondition",                SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       SD_JSON_NULLABLE  },
+                { "ExecStartPre",                 SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       SD_JSON_NULLABLE  },
+                { "ExecStart",                    SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       SD_JSON_NULLABLE  },
+                { "ExecStartPost",                SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       SD_JSON_NULLABLE  },
+                { "ExecReload",                   SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       SD_JSON_NULLABLE  },
+                { "ExecReloadPost",               SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       SD_JSON_NULLABLE  },
+                { "ExecStop",                     SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       SD_JSON_NULLABLE  },
+                { "ExecStopPost",                 SD_JSON_VARIANT_ARRAY,         dispatch_transient_exec_command, 0,                                                       SD_JSON_NULLABLE  },
+                { "RemainAfterExit",              SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,       offsetof(TransientServiceParameters, remain_after_exit), SD_JSON_NULLABLE  },
+                { "StandardInputFileDescriptor",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,           offsetof(TransientServiceParameters, stdin_fd_index),    SD_JSON_NULLABLE  },
+                { "StandardOutputFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,           offsetof(TransientServiceParameters, stdout_fd_index),   SD_JSON_NULLABLE  },
+                { "StandardErrorFileDescriptor",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,           offsetof(TransientServiceParameters, stderr_fd_index),   SD_JSON_NULLABLE  },
                 {}
         };
 
@@ -322,6 +325,11 @@ int transient_service_dispatch(
         int r;
 
         assert(ret);
+
+        if (sd_json_variant_is_null(variant)) {
+                *ret = NULL;
+                return 0;
+        }
 
         _cleanup_(transient_service_parameters_freep) TransientServiceParameters *p = NULL;
         p = new(TransientServiceParameters, 1);
