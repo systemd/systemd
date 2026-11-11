@@ -2462,7 +2462,10 @@ int manager_init(Manager *m) {
                 log_warning("%u unknown file descriptors passed, closing.", fdset_size(fds));
 
                 /* These are most likely streams from our fd store whose state file is gone. PID 1 still has
-                 * them, see stdout_stream_terminate(), so shut them down. Leave anything else alone. */
+                 * them, see stdout_stream_terminate(), so shut them down. Leave anything else alone though:
+                 * shutdown() acts on the socket, which PID 1 shares with us, not just on our fd. On a
+                 * listening or datagram socket we don't know about (e.g. from an extra ListenStream= line),
+                 * it would make connect() or sendmsg() fail for everyone until the socket unit restarts. */
                 int fd;
                 FDSET_FOREACH(fd, fds)
                         if (sd_is_socket_unix(fd, SOCK_STREAM, /* listening= */ 0,
