@@ -894,7 +894,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(StandardInputData, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#LogLevelMax="),
                 SD_VARLINK_DEFINE_FIELD(LogLevelMax, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#LogExtraFields="),
+                SD_VARLINK_FIELD_COMMENT("Additional journal fields as UTF-8 NAME=VALUE strings. At unit creation, entries are appended to existing fields; an empty array clears them."),
                 SD_VARLINK_DEFINE_FIELD(LogExtraFields, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#LogRateLimitIntervalSec="),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(LogRateLimit, RateLimit, SD_VARLINK_NULLABLE),
