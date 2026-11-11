@@ -43,6 +43,40 @@ testcase_cli() {
     "$REPORT" describe piff
 }
 
+testcase_cli_stream() {
+    local metrics
+    metric_sources_setup
+
+    echo '{"parameters":{"name":"io.test.First.One","value":1},"continues":true}' >"$metric_tmpdir/first.json"
+    echo '{"parameters":{"name":"io.test.First.Two","value":2}}' >>"$metric_tmpdir/first.json"
+    echo '{"parameters":{"name":"io.test.Second.One","value":3}}' >"$metric_tmpdir/second.json"
+    metric_sources_start First "$metric_tmpdir/first.json"
+    metric_sources_start Second "$metric_tmpdir/second.json"
+
+    metrics=$(timeout 30 "$REPORT" --json=short metrics io.test)
+    metric_sources_wait
+
+    assert_metric_count_eq "$metrics" 3
+    assert_metric_value_eq "$metrics" io.test.First.One 1
+    assert_metric_value_eq "$metrics" io.test.First.Two 2
+    assert_metric_value_eq "$metrics" io.test.Second.One 3
+}
+
+testcase_cli_failed_provider() {
+    local metrics
+    metric_sources_setup
+
+    ln -s "$metric_tmpdir/missing" /run/systemd/report/io.test.First
+    echo '{"parameters":{"name":"io.test.Second.One","value":3}}' >"$metric_tmpdir/second.json"
+    metric_sources_start Second "$metric_tmpdir/second.json"
+
+    metrics=$(timeout 30 "$REPORT" --json=short metrics io.test)
+    metric_sources_wait
+
+    assert_metric_count_eq "$metrics" 1
+    assert_metric_value_eq "$metrics" io.test.Second.One 3
+}
+
 testcase_cgroup() {
     # test io.systemd.CGroup Metrics
     systemctl start systemd-report-cgroup.socket
