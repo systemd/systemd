@@ -996,6 +996,34 @@ TEST(uapi16_object_done_many) {
         }
 }
 
+TEST(uapi16_object_sort_many) {
+        Uapi16Object o[6] = {
+                UAPI16_OBJECT_NULL, UAPI16_OBJECT_NULL, UAPI16_OBJECT_NULL,
+                UAPI16_OBJECT_NULL, UAPI16_OBJECT_NULL, UAPI16_OBJECT_NULL,
+        };
+        CLEANUP_ELEMENTS(o, uapi16_object_done_many);
+
+        /* Nothing to sort */
+        uapi16_object_sort_many(/* objects= */ NULL, /* n= */ 0);
+
+        /* o[3] has no name, like the leading object of a manifest */
+        ASSERT_NOT_NULL(o[0].name = strdup("other.txt"));
+        ASSERT_NOT_NULL(o[1].name = strdup("old/x"));
+        ASSERT_NOT_NULL(o[2].name = strdup("a.txt"));
+        ASSERT_NOT_NULL(o[4].name = strdup("b"));
+        ASSERT_NOT_NULL(o[5].name = strdup("a/x"));
+        uapi16_object_sort_many(o, ELEMENTSOF(o));
+
+        /* The object without a name goes first, and names are compared component by component, i.e. the
+         * files in "a/" are sorted before "a.txt", as manifest_make() would list them */
+        ASSERT_NULL(o[0].name);
+        ASSERT_STREQ(o[1].name, "a/x");
+        ASSERT_STREQ(o[2].name, "a.txt");
+        ASSERT_STREQ(o[3].name, "b");
+        ASSERT_STREQ(o[4].name, "old/x");
+        ASSERT_STREQ(o[5].name, "other.txt");
+}
+
 TEST(manifest_uapi16_xattr) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF;

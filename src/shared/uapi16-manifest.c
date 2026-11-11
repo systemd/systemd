@@ -91,6 +91,25 @@ void uapi16_object_done_many(Uapi16Object *objects, size_t n) {
                 uapi16_object_done(o);
 }
 
+static int uapi16_object_compare(const Uapi16Object *a, const Uapi16Object *b) {
+        int r;
+
+        /* Objects without a name go first */
+        r = CMP(!!a->name, !!b->name);
+        if (r != 0)
+                return r;
+        if (!a->name)
+                return 0;
+
+        return path_compare(a->name, b->name);
+}
+
+void uapi16_object_sort_many(Uapi16Object *objects, size_t n) {
+        assert(objects || n == 0);
+
+        typesafe_qsort(objects, n, uapi16_object_compare);
+}
+
 int uapi16_object_check_validity(Uapi16Object *o) {
         assert(o);
 

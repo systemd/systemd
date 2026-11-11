@@ -140,6 +140,10 @@ int uapi16_xattrs_build_json(const Uapi16Xattr *x, size_t n, sd_json_variant **r
 
 void uapi16_object_done(Uapi16Object *o);
 void uapi16_object_done_many(Uapi16Object *objects, size_t n);
+
+/* Sorts the objects by name, component by component, i.e. in the order manifest_make() generates them in.
+ * Objects without a name (i.e. the leading object of a manifest) are sorted first. */
+void uapi16_object_sort_many(Uapi16Object *objects, size_t n);
 int uapi16_object_check_validity(Uapi16Object *o);
 
 int dispatch_uapi16_object(sd_json_variant *v, size_t n, sd_json_dispatch_flags_t flags, Uapi16Object *ret);
