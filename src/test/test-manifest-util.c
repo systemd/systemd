@@ -1269,7 +1269,7 @@ static int count_objects(Uapi16Object *o, size_t index, void *userdata) {
         return 0;
 }
 
-static int read_buffer(const char *buf, size_t size, X509 *const *certificates, size_t n_certificates, size_t *ret_n_objects) {
+static Uapi16ReadStatus read_buffer(const char *buf, size_t size, X509 *const *certificates, size_t n_certificates, size_t *ret_n_objects) {
         _cleanup_fclose_ FILE *f = NULL;
 
         ASSERT_NOT_NULL(f = fmemopen_unlocked((void*) buf, size, "r"));
@@ -1340,10 +1340,11 @@ static void test_signed_one(
         /* The generic reader accepts the signature if any of the specified certificates matches, and
          * reports all file objects (including the leading one) to the handler */
         size_t n_objects;
-        ASSERT_OK(read_buffer(buf, size, (X509*[]) { other_certificate, certificate }, 2, &n_objects));
+        ASSERT_OK_EQ(read_buffer(buf, size, (X509*[]) { other_certificate, certificate }, 2, &n_objects), UAPI16_READ_SIGNED);
         ASSERT_GT(n_objects, 1U);
         size_t n_objects_unverified;
-        ASSERT_OK(read_buffer(buf, size, /* certificates= */ NULL, /* n_certificates= */ 0, &n_objects_unverified));
+        /* Also when not verifying, the reader reports that the manifest is signed */
+        ASSERT_OK_EQ(read_buffer(buf, size, /* certificates= */ NULL, /* n_certificates= */ 0, &n_objects_unverified), UAPI16_READ_UNVERIFIED_SIGNATURE);
         ASSERT_EQ(n_objects_unverified, n_objects);
         ASSERT_ERROR(read_buffer(buf, size, &other_certificate, 1, &n_objects), EBADMSG);
 
@@ -1358,12 +1359,13 @@ static void test_signed_one(
         c.certificates = &certificate;
         c.n_certificates = 1;
         ASSERT_ERROR(verify_buffer(&c, tfd, unsigned_buf, unsigned_size), EBADMSG);
+        ASSERT_OK_EQ(read_buffer(unsigned_buf, unsigned_size, /* certificates= */ NULL, /* n_certificates= */ 0, &n_objects), UAPI16_READ_UNSIGNED);
 
         /* Changing the payload breaks the signature. Use the generic reader here, which doesn't compare
          * the manifest with the tree, so that only the signature check can catch the modification. */
         _cleanup_free_ char *tampered = NULL;
         ASSERT_NOT_NULL(tampered = strreplace(buf, "\"size\":11", "\"size\":12"));
-        ASSERT_OK(read_buffer(tampered, strlen(tampered), /* certificates= */ NULL, /* n_certificates= */ 0, &n_objects));
+        ASSERT_OK_EQ(read_buffer(tampered, strlen(tampered), /* certificates= */ NULL, /* n_certificates= */ 0, &n_objects), UAPI16_READ_UNVERIFIED_SIGNATURE);
         ASSERT_ERROR(read_buffer(tampered, strlen(tampered), &certificate, 1, &n_objects), EBADMSG);
 
         /* Objects between the signature object and the trailer are not covered by the signature, and
@@ -1394,11 +1396,12 @@ static void test_signed_one(
         c.certificates = &certificate;
         c.n_certificates = 1;
         ASSERT_OK(verify_buffer(&c, tfd, openpgp_after, strlen(openpgp_after)));
-        ASSERT_OK(read_buffer(openpgp_before, strlen(openpgp_before), &certificate, 1, &n_objects));
+        ASSERT_OK_EQ(read_buffer(openpgp_before, strlen(openpgp_before), &certificate, 1, &n_objects), UAPI16_READ_SIGNED);
 
         /* … and if there's only an OpenPGP signature this is as if there was no signature at all */
         ASSERT_ERROR(read_buffer(openpgp_only, strlen(openpgp_only), &certificate, 1, &n_objects), EBADMSG);
-        ASSERT_OK(read_buffer(openpgp_only, strlen(openpgp_only), /* certificates= */ NULL, /* n_certificates= */ 0, &n_objects));
+        /* (It's still reported as signed though) */
+        ASSERT_OK_EQ(read_buffer(openpgp_only, strlen(openpgp_only), /* certificates= */ NULL, /* n_certificates= */ 0, &n_objects), UAPI16_READ_UNVERIFIED_SIGNATURE);
 
         /* A PKCS#7 signature made with the same key, but over a different payload, is skipped, and the
          * next one is used. If there's no other one, verification fails. */
@@ -1429,7 +1432,7 @@ static void test_signed_one(
         c.certificates = &certificate;
         c.n_certificates = 1;
         ASSERT_OK(verify_buffer(&c, tfd, stale_before, strlen(stale_before)));
-        ASSERT_OK(read_buffer(stale_before, strlen(stale_before), &certificate, 1, &n_objects));
+        ASSERT_OK_EQ(read_buffer(stale_before, strlen(stale_before), &certificate, 1, &n_objects), UAPI16_READ_SIGNED);
         manifest_context_done(&c);
         context_init(&c, MANIFEST_FORMAT_UAPI16);
         c.certificates = &certificate;

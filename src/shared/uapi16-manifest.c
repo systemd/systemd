@@ -1317,7 +1317,7 @@ static int uapi16_manifest_next_record(
         }
 }
 
-int uapi16_manifest_read(
+Uapi16ReadStatus uapi16_manifest_read(
                 FILE *f,
                 X509 *const *certificates,
                 size_t n_certificates,
@@ -1463,7 +1463,10 @@ int uapi16_manifest_read(
                                        "Manifest carries no signature, but signature verification requested, refusing.");
         }
 
-        return 0;
+        if (signature_verified)
+                return UAPI16_READ_SIGNED;
+
+        return signature_seen ? UAPI16_READ_UNVERIFIED_SIGNATURE : UAPI16_READ_UNSIGNED;
 }
 
 void uapi16_certificates_free(X509 **certificates, size_t n) {
