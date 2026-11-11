@@ -220,6 +220,10 @@ CHANGES WITH 263 in spe:
 
         Changes in the system and service manager:
 
+        * systemd-inhibit gained a new --signal= option. Used together with
+          --mode=delay it sends the specified signal to the invoked command
+          when the system is about to go to sleep or shut down.
+
         * LockPersonality= no longer refuses querying the personality with
           personality(0xffffffff).
 

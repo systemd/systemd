@@ -34,5 +34,6 @@ _arguments \
     '--who=[A descriptive string who is inhibiting]:who is inhibiting:' \
     '--why=[A descriptive string why is being inhibited]:reason for the lock:' \
     '--mode=[One of block, block-weak, or delay]:lock mode:( block block-weak delay )' \
+    '--signal=[Signal to send to the command once the delayed operation is about to be executed]:signal:_signals' \
     '--list[List active inhibitors]' \
     '*:commands:_systemd-inhibit_commands'
