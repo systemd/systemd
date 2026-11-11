@@ -256,8 +256,11 @@ TEST(manifest_fields_from_string) {
         ASSERT_OK(manifest_fields_from_string("+mtime", &f));
         ASSERT_EQ(f, _MANIFEST_FIELD_DEFAULT|MANIFEST_FIELD_MTIME);
 
-        /* User and group names are opt-in */
-        ASSERT_FALSE(_MANIFEST_FIELD_DEFAULT & (MANIFEST_FIELD_USER_NAME|MANIFEST_FIELD_GROUP_NAME));
+        /* User and group names and extended attributes are opt-in */
+        ASSERT_FALSE(_MANIFEST_FIELD_DEFAULT & (MANIFEST_FIELD_USER_NAME|MANIFEST_FIELD_GROUP_NAME|MANIFEST_FIELD_USER_XATTR));
+        f = _MANIFEST_FIELD_DEFAULT;
+        ASSERT_OK(manifest_fields_from_string("+user-xattr", &f));
+        ASSERT_EQ(f, _MANIFEST_FIELD_DEFAULT|MANIFEST_FIELD_USER_XATTR);
         f = _MANIFEST_FIELD_DEFAULT;
         ASSERT_OK(manifest_fields_from_string("+user-name,+group-name", &f));
         ASSERT_EQ(f, _MANIFEST_FIELD_DEFAULT|MANIFEST_FIELD_USER_NAME|MANIFEST_FIELD_GROUP_NAME);
@@ -576,9 +579,7 @@ TEST(manifest_uapi16) {
         ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(reg, "sha256")), "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9");
         ASSERT_NULL(sd_json_variant_by_key(reg, "inodeToken"));
         ASSERT_NULL(sd_json_variant_by_key(reg, "mTimeNSec"));
-        _cleanup_free_ char *xattrs = NULL; /* Included by default, the file has none */
-        ASSERT_OK(sd_json_variant_format(sd_json_variant_by_key(reg, "extendedAttributes"), /* flags= */ 0, &xattrs));
-        ASSERT_STREQ(xattrs, "{\"user\":{}}");
+        ASSERT_NULL(sd_json_variant_by_key(reg, "extendedAttributes")); /* Not included by default */
         ASSERT_NULL(sd_json_variant_by_key(reg, "userName"));
         ASSERT_NULL(sd_json_variant_by_key(reg, "groupName"));
         ASSERT_TRUE(sd_json_variant_is_normalized(reg)); /* Fields are sorted */
@@ -993,7 +994,7 @@ TEST(manifest_uapi16_xattr) {
         c.fields |= MANIFEST_FIELD_USER_XATTR;
         ASSERT_OK(verify_buffer(&c, tfd, buf, size));
 
-        /* Changed, added and removed attributes are detected (by default), but not if turned off */
+        /* Changed, added and removed attributes are detected if enabled, but not by default */
         ASSERT_OK(xsetxattr(tfd, "regular.txt", /* at_flags= */ 0, "user.mime_type", "text/x-c"));
         ASSERT_OK(xsetxattr(tfd, "empty.txt", /* at_flags= */ 0, "user.new", "x"));
         ASSERT_OK(xremovexattr(tfd, "subdir", /* at_flags= */ 0, "user.dir"));
@@ -1005,12 +1006,6 @@ TEST(manifest_uapi16_xattr) {
 
         manifest_context_done(&c);
         context_init(&c, MANIFEST_FORMAT_UAPI16);
-        ASSERT_ERROR(verify_buffer(&c, tfd, buf, size), EBADMSG);
-        ASSERT_EQ(c.n_errors, 3U);
-
-        manifest_context_done(&c);
-        context_init(&c, MANIFEST_FORMAT_UAPI16);
-        c.fields &= ~MANIFEST_FIELD_USER_XATTR;
         ASSERT_OK(verify_buffer(&c, tfd, buf, size));
 
         /* Attribute names we cannot represent cause the attributes of the inode to be omitted */
