@@ -9,7 +9,7 @@
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "log.h"
-#include "machine-tags.h"
+#include "object-tags.h"
 #include "os-util.h"
 #include "path-util.h"
 #include "string-util.h"
