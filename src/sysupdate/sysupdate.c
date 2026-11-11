@@ -2286,6 +2286,21 @@ static int context_install(
                         return r;
         }
 
+        /* Update the manifests only once everything else is in place, so that failing to do so does not
+         * leave the update half-installed. */
+        for (size_t i = 0; i < c->n_transfers; i++) {
+                Instance *inst = us->instances[i];
+                Transfer *t = c->transfers[i];
+
+                if (inst->resource == &t->target &&
+                    !inst->is_pending)
+                        continue;
+
+                r = transfer_install_instance_manifest(t, inst);
+                if (r < 0)
+                        return r;
+        }
+
         log_info("%s Successfully installed update '%s'.", glyph(GLYPH_SPARKLES), us->version);
 
         if (!c->root)

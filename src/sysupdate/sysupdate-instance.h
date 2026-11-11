@@ -58,6 +58,11 @@ struct Instance {
         Uapi16Xattr *user_xattrs;
         size_t n_user_xattrs;
 
+        /* The UAPI.16 manifest object describing this instance (for web backed sources with UAPI.16
+         * manifests), as it is, which we copy into the UAPI.16 manifest of the target, if one is
+         * maintained */
+        sd_json_variant *manifest_object;
+
         /* The current state of this instance */
         bool is_partial;
         bool is_pending;

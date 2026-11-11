@@ -1065,6 +1065,58 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>WriteManifest=</varname></term>
+
+        <listitem><para>Takes <constant>uapi16</constant> or an empty string. If set to
+        <constant>uapi16</constant>, a <filename>Uapi16Manifest</filename> file following the
+        <ulink url="https://uapi-group.org/specifications/specs/file_manifest/">UAPI.16 File
+        Manifest</ulink> specification is written to the target directory and kept up-to-date, listing the
+        installed instances. This is useful for consumers of the directory that cannot rely on the file
+        system to convey the metadata of the files, for example on file systems that do not support extended
+        attributes. Defaults to the empty string, in which case no manifest is maintained. Only supported for
+        <constant>regular-file</constant> targets.</para>
+
+        <para>The manifest is placed in the target directory, i.e. the one configured with
+        <varname>Path=</varname>, and lists the files matching any of the <varname>MatchPattern=</varname>
+        expressions, hence its entries may refer to files in subdirectories of it. It is updated whenever the
+        directory is modified, i.e. whenever an instance is installed or removed. A pre-existing manifest is
+        taken into account: its entries are retained, as long as at least one of the sources they list is
+        available locally, i.e. is literal data or a file that exists. Entries whose sources are all missing
+        files or remote URLs are dropped (regardless whether the files were removed by
+        <command>systemd-sysupdate</command> or by someone else, and regardless whether they match any of the
+        patterns). Entries are added for newly installed instances, as well as for other installed instances
+        (i.e. files matching any of the <varname>MatchPattern=</varname> expressions) that are not listed yet.
+        If the newly installed instance was acquired from a source with a UAPI.16 manifest (see
+        <varname>ManifestFormat=</varname> in the [Source] section above), its object is copied from there,
+        except for the <literal>contents</literal> field, as the file is now available locally under its name,
+        and the <literal>readOnly</literal> and <literal>inodeToken</literal> fields, as they might not apply
+        to the local copy.
+        Otherwise (or if the source is not consulted when installing a previously acquired instance, see
+        <option>--offline</option> in
+        <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
+        the object is generated locally, and carries the name, size and modification time of the
+        file.</para>
+
+        <para>If no entries remain (for example because all instances have been removed, and the existing
+        manifest listed nothing else that still exists), no empty manifest is written, but any existing
+        manifest is removed instead.</para>
+
+        <para>Since <command>systemd-sysupdate</command> cannot sign the manifests it writes, updating the
+        manifest fails if the existing manifest is signed, so that a signed manifest is never replaced by an
+        unsigned one. Note that this is only detected when the manifest is updated, i.e. after the directory
+        has already been modified. The manifests are updated last, after all transfers have been installed
+        (including their <varname>CurrentSymlink=</varname>). An existing manifest that cannot be parsed is
+        replaced, regardless of whether it was signed.</para>
+
+        <para>Note that <command>systemd-sysupdate</command> itself does not read the manifest to determine
+        the installed instances, it always enumerates the directory for that. The manifest is merely kept
+        up-to-date with the changes <command>systemd-sysupdate</command> makes to the directory, and with
+        what else is found in it.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>PartitionUUID=</varname></term>
         <term><varname>PartitionFlags=</varname></term>
         <term><varname>PartitionNoAuto=</varname></term>
