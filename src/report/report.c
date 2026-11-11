@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <signal.h>
+#include <stdlib.h>
+
 #include "sd-event.h"
+#include "sd-future.h"
 #include "sd-json.h"
 #include "sd-varlink.h"
 
@@ -24,7 +28,6 @@
 #include "report-sign.h"
 #include "report-upload.h"
 #include "runtime-scope.h"
-#include "set.h"
 #include "sort-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -71,39 +74,21 @@ COMMAND(
 
 typedef struct LinkInfo {
         Context *context;
-        sd_varlink *link;
-        char *name;
+        const char *directory, *name;
         size_t n_metrics;
         bool logged_metrics_per_source_max_reached;
 } LinkInfo;
-
-static LinkInfo* link_info_free(LinkInfo *li) {
-        if (!li)
-                return NULL;
-
-        sd_varlink_close_unref(li->link);
-        free(li->name);
-        return mfree(li);
-}
 
 static void context_done(Context *context) {
         if (!context)
                 return;
 
-        context->event = sd_event_unref(context->event);
-        context->link_infos = set_free(context->link_infos);
         context->matches = strv_free(context->matches);
         sd_json_variant_unref_many(context->metrics, context->n_metrics);
         context->metrics = NULL;
         context->n_metrics = 0;
         iovw_done_free(&context->upload_answer);
 }
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(LinkInfo*, link_info_free);
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
-                link_info_hash_ops,
-                void, trivial_hash_func, trivial_compare_func,
-                LinkInfo, link_info_free);
 
 static int metric_compare(sd_json_variant *const *a, sd_json_variant *const *b) {
         const char *name_a, *name_b, *object_a, *object_b;
@@ -189,8 +174,15 @@ static int metrics_verdict(LinkInfo *li, sd_json_variant *metric) {
 
         const char *metric_name = NULL;
         r = sd_json_dispatch(metric, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &metric_name);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to get metric name: %m");
+        if (r < 0) {
+                /* Treat these errors as invalid metrics:
+                 * - EINVAL: name has the wrong type, or the metric is not a JSON object.
+                 * - ENOTUNIQ: duplicate name fields.
+                 * - ENXIO: mandatory name field is missing. */
+                return IN_SET(r, -EINVAL, -ENOTUNIQ, -ENXIO)
+                        ? VERDICT_INVALID
+                        : log_debug_errno(r, "Failed to get metric name: %m");
+        }
 
         /* Validate metric name is generally valid */
         r = metrics_name_valid(metric_name);
@@ -231,7 +223,7 @@ static int metrics_verdict(LinkInfo *li, sd_json_variant *metric) {
         return VERDICT_MATCH;
 }
 
-static int on_query_reply(
+static int metrics_query_reply(
                 sd_varlink *link,
                 sd_json_variant *parameters,
                 const char *error_id,
@@ -257,7 +249,7 @@ static int on_query_reply(
                 else
                         log_warning("Varlink error from '%s', ignoring: %s", li->name, error_id);
 
-                goto finish;
+                return 0;
         }
 
         if (li->n_metrics >= METRICS_PER_SOURCE_MAX) {
@@ -268,58 +260,46 @@ static int on_query_reply(
                 }
 
                 context->n_skipped_metrics++;
-                goto finish;
+                return 0;
         }
 
         r = metrics_verdict(li, parameters);
+        if (r == -ENOMEM)
+                /* treat ENOMEM as fatal, abort */
+                return sd_fiber_resume(sd_fiber_get_current(), log_oom_debug());
         if (r < 0)
-                goto finish;
+                return r;
         if (r == VERDICT_INVALID) {
                 context->n_invalid_metrics++;
-                goto finish;
+                return 0;
         }
         if (r == VERDICT_MISMATCH)
-                goto finish;
+                return 0;
 
         /* Collect metrics for later sorting */
-        if (!GREEDY_REALLOC(context->metrics, context->n_metrics + 1)) {
-                r = log_oom_debug();
-                goto finish;
-        }
+        if (!GREEDY_REALLOC(context->metrics, context->n_metrics + 1))
+                /* treat ENOMEM as fatal, abort */
+                return sd_fiber_resume(sd_fiber_get_current(), log_oom_debug());
 
         context->metrics[context->n_metrics++] = sd_json_variant_ref(parameters);
         li->n_metrics++;
-
-finish:
-        if (r < 0 || !FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES)) {
-                /* Either this was the final reply or we failed. Either way this call is over: drop the
-                 * connection, so that no further replies are dispatched to us. */
-                assert_se(set_remove(context->link_infos, li) == li);
-                link_info_free(li);
-
-                /* sd-varlink logs and ignores errors returned by reply callbacks, hence propagate
-                 * failures via the exit code of the event loop. */
-                if (r < 0)
-                        (void) sd_event_exit(context->event, r);
-                else if (set_isempty(context->link_infos))
-                        (void) sd_event_exit(context->event, EXIT_SUCCESS);
-        }
-
-        return r;
+        return 0;
 }
 
-static int call_collect(Context *context, const char *name, const char *path) {
+static int metrics_query_source(LinkInfo *li) {
+        Context *context = ASSERT_PTR(li->context);
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
-        assert(context);
-        assert(path);
+        _cleanup_free_ char *path = path_join(li->directory, li->name);
+        if (!path)
+                return log_oom();
 
         r = sd_varlink_connect_address(&vl, path);
         if (r < 0)
                 return log_error_errno(r, "Unable to connect to %s: %m", path);
 
-        r = sd_varlink_set_description(vl, name);
+        r = sd_varlink_set_description(vl, li->name);
         if (r < 0)
                 return log_error_errno(r, "Failed to set varlink description: %m");
 
@@ -327,13 +307,11 @@ static int call_collect(Context *context, const char *name, const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set varlink timeout: %m");
 
-        r = sd_varlink_attach_event(vl, context->event, SD_EVENT_PRIORITY_NORMAL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
-
-        r = sd_varlink_bind_reply(vl, on_query_reply);
+        r = sd_varlink_bind_reply(vl, metrics_query_reply);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind reply callback: %m");
+
+        (void) sd_varlink_set_userdata(vl, li);
 
         const char *method = context->action == ACTION_DESCRIBE_METRICS ?
                 "io.systemd.Metrics.Describe" :
@@ -343,24 +321,73 @@ static int call_collect(Context *context, const char *name, const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to issue %s() call: %m", method);
 
-        _cleanup_(link_info_freep) LinkInfo *li = new(LinkInfo, 1);
+        context->n_contacted_sources++;
+
+        while (!sd_varlink_is_idle(vl)) {
+                r = sd_fiber_interrupted();
+                if (r < 0)
+                        return r;
+
+                r = sd_varlink_process(vl);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to process metrics from '%s', stopping query: %m", li->name);
+                if (r > 0) {
+                        /* Let other sources, timers and signals run even when replies are buffered.
+                         * Also consume errors queued by the reply callback, including on the final reply. */
+                        r = sd_fiber_yield();
+                        if (r < 0)
+                                return r;
+
+                        continue;
+                }
+
+                r = sd_varlink_wait(vl, USEC_INFINITY);
+                if (r == -ECANCELED)
+                        return r;
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to wait for metrics from '%s', stopping query: %m", li->name);
+        }
+
+        return 0;
+}
+
+static int metrics_query_fiber(void *userdata) {
+        LinkInfo *li = ASSERT_PTR(userdata);
+        int r;
+
+        r = metrics_query_source(li);
+        /* Abort collection on OOM or cancellation; other failures affect only this source. */
+        return IN_SET(r, -ENOMEM, -ECANCELED) ? r : 0;
+}
+
+static int metrics_query_start(Context *context, sd_future *group, const char *directory, const char *name) {
+        int r;
+
+        assert(context);
+        assert(group);
+        assert(directory);
+
+        _cleanup_free_ LinkInfo *li = new(LinkInfo, 1);
         if (!li)
                 return log_oom();
 
         *li = (LinkInfo) {
                 .context = context,
-                .link = sd_varlink_ref(vl),
-                .name = strdup(name),
+                .directory = directory,
+                .name = name,
         };
-        if (!li->name)
-                return log_oom();
 
-        if (set_ensure_put(&context->link_infos, &link_info_hash_ops, li) < 0)
-                return log_oom();
+        _cleanup_(sd_future_cancel_unrefp) sd_future *fiber = NULL;
+        r = sd_future_group_spawn(group, name, metrics_query_fiber, li, &fiber);
+        if (r < 0)
+                return log_error_errno(r, "Failed to spawn metrics collection fiber: %m");
 
-        (void) sd_varlink_set_userdata(vl, li);
+        r = sd_fiber_set_destroy_callback(fiber, free);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set metrics collection cleanup: %m");
 
         TAKE_PTR(li);
+        fiber = sd_future_unref(fiber);
         return 0;
 }
 
@@ -629,15 +656,13 @@ static int readdir_sources(char **matches, char **ret_directory, DirectoryEntrie
         return m > 0;
 }
 
-static int context_collect_metrics(Context *context) {
+static int metrics_query_sources(Context *context) {
         int r;
 
-        /* Contacts all known metrics sources, issues the appropriate Varlink call on each and runs the
-         * event loop until all replies came in. Expects the caller to have set up context->event
-         * beforehand. The collected metrics end up in context->metrics. */
+        /* Contacts all known metrics sources and waits for their replies. The collected metrics end up
+         * in context->metrics. */
 
         assert(context);
-        assert(context->event);
 
         _cleanup_free_ DirectoryEntries *de = NULL;
         _cleanup_free_ char *sources_path = NULL;
@@ -647,33 +672,33 @@ static int context_collect_metrics(Context *context) {
         if (r == 0)
                 return 0;
 
-        FOREACH_ARRAY(i, de->entries, de->n_entries) {
-                struct dirent *d = *i;
+        size_t n_sources = MIN(de->n_entries, (size_t) METRICS_LINKS_MAX);
+        context->n_skipped_sources += de->n_entries - n_sources;
 
-                if (set_size(context->link_infos) >= METRICS_LINKS_MAX) {
-                        context->n_skipped_sources++;
-                        break;
-                }
+        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *group = NULL;
+        r = sd_future_group_new(sd_fiber_get_event(), &group);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate metrics collection group: %m");
 
-                _cleanup_free_ char *p = path_join(sources_path, d->d_name);
-                if (!p)
-                        return log_oom();
-
-                r = call_collect(context, d->d_name, p);
-                if (r == -ENOMEM)
+        FOREACH_ARRAY(i, de->entries, n_sources) {
+                r = metrics_query_start(context, group, sources_path, (*i)->d_name);
+                if (r < 0)
                         return r;
         }
 
-        context->n_contacted_sources = set_size(context->link_infos);
-
-        if (context->n_contacted_sources == 0)
-                return 0;
-
-        r = sd_event_loop(context->event);
+        r = sd_future_group_seal(group);
         if (r < 0)
-                return log_error_errno(r, "Failed to run event loop: %m");
+                return log_error_errno(r, "Failed to seal metrics collection group: %m");
 
-        return 1;
+        r = sd_fiber_await(group);
+        if (r < 0)
+                return r;
+
+        r = sd_future_result(group);
+        if (r < 0)
+                return r;
+
+        return context->n_contacted_sources > 0;
 }
 
 VERB_FULL(verb_metrics, "metrics", "[MATCH…]\0", VERB_ANY, VERB_ANY, 0, ACTION_LIST_METRICS,
@@ -706,15 +731,17 @@ static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) 
         if (r < 0)
                 return r;
 
-        r = sd_event_default(&context.event);
+        r = sd_event_add_signal(sd_fiber_get_event(), /* ret= */ NULL, SIGINT|SD_EVENT_SIGNAL_PROCMASK,
+                                /* callback= */ NULL, INT_TO_PTR(EXIT_FAILURE));
         if (r < 0)
-                return log_error_errno(r, "Failed to get event loop: %m");
+                return log_error_errno(r, "Failed to add SIGINT handler: %m");
 
-        r = sd_event_set_signal_exit(context.event, true);
+        r = sd_event_add_signal(sd_fiber_get_event(), /* ret= */ NULL, SIGTERM|SD_EVENT_SIGNAL_PROCMASK,
+                                /* callback= */ NULL, INT_TO_PTR(EXIT_FAILURE));
         if (r < 0)
-                return log_error_errno(r, "Failed to enable exit on SIGINT/SIGTERM: %m");
+                return log_error_errno(r, "Failed to add SIGTERM handler: %m");
 
-        r = context_collect_metrics(&context);
+        r = metrics_query_sources(&context);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -879,11 +906,7 @@ static int vl_method_generate_internal(
         if (r < 0)
                 return sd_varlink_error_invalid_parameter_name(link, "matches");
 
-        r = sd_event_new(&context.event);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate event loop: %m");
-
-        r = context_collect_metrics(&context);
+        r = metrics_query_sources(&context);
         if (r < 0)
                 return r;
 
@@ -944,7 +967,7 @@ static int vl_server(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add Varlink interface: %m");
 
-        r = sd_varlink_server_bind_method_many(
+        r = varlink_server_bind_fiber_many(
                         vs,
                         "io.systemd.Report.Generate",       vl_method_generate,
                         "io.systemd.Report.GenerateSigned", vl_method_generate_signed);
@@ -1085,8 +1108,18 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         return 1;
 }
 
-static int run(int argc, char *argv[]) {
+static int run_cli(int argc, char *argv[]) {
         char **args = NULL;
+        int r;
+
+        r = parse_argv(argc, argv, &args);
+        if (r <= 0)
+                return r;
+
+        return dispatch_verb(args, NULL);
+}
+
+static int run(int argc, char *argv[]) {
         int r;
 
         LIBCURL_NOTE(required);
@@ -1101,11 +1134,7 @@ static int run(int argc, char *argv[]) {
         if (r > 0)
                 return vl_server();
 
-        r = parse_argv(argc, argv, &args);
-        if (r <= 0)
-                return r;
-
-        return dispatch_verb(args, NULL);
+        return run_main_fiber(argc, argv, run_cli);
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
