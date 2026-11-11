@@ -19,6 +19,7 @@
 #include "escape.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "hashmap.h"
 #include "json-util.h"
 #include "log.h"
@@ -521,6 +522,21 @@ static int start_shell(
         assert(pty->backend_path);
         assert(!pty->unit);
 
+        _cleanup_free_ char *owner_name = uid_to_name(pty->owner_uid);
+        if (!owner_name)
+                return log_oom();
+
+        _cleanup_strv_free_ char **log_extra_fields = NULL;
+        r = strv_env_assignf(&log_extra_fields, "ELEVATED_UID", UID_FMT, pty->owner_uid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set ELEVATED_UID log field: %m");
+        r = strv_env_assignf(&log_extra_fields, "ELEVATED_GID", GID_FMT, pty->owner_gid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set ELEVATED_GID log field: %m");
+        r = strv_env_assign(&log_extra_fields, "ELEVATED_USER", owner_name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set ELEVATED_USER log field: %m");
+
         const char *d;
         _cleanup_free_ char *description = NULL;
         if (user) {
@@ -680,6 +696,7 @@ static int start_shell(
                                                                                                                         SD_JSON_BUILD_PAIR_CONDITION(working_directory->home, "home", SD_JSON_BUILD_BOOLEAN(true)),
                                                                                                                         SD_JSON_BUILD_PAIR_CONDITION(working_directory->missing_ok, "missingOK", SD_JSON_BUILD_BOOLEAN(true)))),
                                                                            JSON_BUILD_PAIR_STRV_NON_EMPTY("Environment", environment),
+                                                                           SD_JSON_BUILD_PAIR_STRV("LogExtraFields", log_extra_fields),
                                                                            SD_JSON_BUILD_PAIR_BOOLEAN("IgnoreSIGPIPE", false))))),
                         SD_JSON_BUILD_PAIR_STRING("mode", "replace"));
         if (r < 0)
