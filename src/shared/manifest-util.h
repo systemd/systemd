@@ -29,13 +29,12 @@ typedef enum ManifestField {
         MANIFEST_FIELD_DEVICE     = 1 << 6, /* Major/minor of device nodes */
         MANIFEST_FIELD_HARDLINK   = 1 << 7, /* Hardlink grouping information (only UAPI.16 supports this) */
         MANIFEST_FIELD_MTIME      = 1 << 8, /* Modification time (not in the default set, opt-in) */
-        MANIFEST_FIELD_USER_XATTR = 1 << 9, /* Extended attributes in the "user." namespace (only UAPI.16) */
+        MANIFEST_FIELD_USER_XATTR = 1 << 9, /* Extended attributes in the "user." namespace (only UAPI.16, opt-in) */
         MANIFEST_FIELD_USER_NAME  = 1 << 10, /* Owning user name, resolved via the host's user database (opt-in) */
         MANIFEST_FIELD_GROUP_NAME = 1 << 11, /* Owning group name, resolved via the host's user database (opt-in) */
         _MANIFEST_FIELD_ALL       = (1 << 12) - 1,
         _MANIFEST_FIELD_DEFAULT   = MANIFEST_FIELD_MODE|MANIFEST_FIELD_UID|MANIFEST_FIELD_GID|MANIFEST_FIELD_SIZE|
-                                    MANIFEST_FIELD_HASH|MANIFEST_FIELD_SYMLINK|MANIFEST_FIELD_DEVICE|MANIFEST_FIELD_HARDLINK|
-                                    MANIFEST_FIELD_USER_XATTR,
+                                    MANIFEST_FIELD_HASH|MANIFEST_FIELD_SYMLINK|MANIFEST_FIELD_DEVICE|MANIFEST_FIELD_HARDLINK,
         _MANIFEST_FIELD_INVALID   = -EINVAL,
 } ManifestField;
 
