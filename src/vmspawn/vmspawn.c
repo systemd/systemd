@@ -2051,28 +2051,9 @@ static int merge_initrds(char **ret) {
         if (ofd < 0)
                 return log_error_errno(ofd, "Failed to create regular file %s: %m", merged_initrd);
 
-        STRV_FOREACH(i, arg_initrds) {
-                _cleanup_close_ int ifd = -EBADF;
-                off_t off, to_seek;
-
-                off = lseek(ofd, 0, SEEK_CUR);
-                if (off < 0)
-                        return log_error_errno(errno, "Failed to get file offset of %s: %m", merged_initrd);
-
-                to_seek = (4 - (off % 4)) % 4;
-
-                /* seek to assure 4 byte alignment for each initrd */
-                if (to_seek != 0 && lseek(ofd, to_seek, SEEK_CUR) < 0)
-                        return log_error_errno(errno, "Failed to seek %s: %m", merged_initrd);
-
-                ifd = xopenat(AT_FDCWD, *i, O_RDONLY);
-                if (ifd < 0)
-                        return log_error_errno(ifd, "Failed to open %s: %m", *i);
-
-                r = copy_bytes(ifd, ofd, UINT64_MAX, /* copy_flags= */ 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to copy bytes from %s to %s: %m", *i, merged_initrd);
-        }
+        r = initrd_concatenate(arg_initrds, ofd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to merge initrds into %s: %m", merged_initrd);
 
         *ret = TAKE_PTR(merged_initrd);
         return 0;
