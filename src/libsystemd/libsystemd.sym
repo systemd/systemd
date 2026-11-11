@@ -1118,8 +1118,16 @@ global:
         sd_device_new_from_device_node_fd;
         sd_device_trigger_with_args;
         sd_journal_get_data_to_fd;
+        sd_varlink_deserialize;
+        sd_varlink_get_connection_id;
         sd_varlink_invoke_and_upgrade;
         sd_varlink_invoke_and_upgradeb;
+        sd_varlink_serialize;
+        sd_varlink_server_claim_connection;
+        sd_varlink_server_deserialize;
+        sd_varlink_server_disconnect_unclaimed_connections;
+        sd_varlink_server_serialize;
+        sd_varlink_set_serialize_pending;
         sd_varlink_wants_reply;
         sd_pid_get_unit_cgroup;
         sd_pid_get_user_unit_cgroup;

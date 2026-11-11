@@ -34,6 +34,7 @@ void varlink_unit_send_change_signal(Unit *u);
 void varlink_job_send_change_signal(Job *j);
 void varlink_job_send_removed_signal(Job *j);
 void varlink_job_detach_client(Job *j);
+int varlink_job_stash_client_full(Manager *m, uint32_t job_id, sd_varlink *link, bool notify_job_changes, bool notify_unit_changes);
 void varlink_job_stash_client(Job *j);
 void varlink_job_unstash_client(Job *j);
 void varlink_job_drop_stashed_client(Manager *m, sd_varlink *link);

@@ -7,12 +7,12 @@ set -o pipefail
 . "$(dirname "$0")"/test-control.sh
 
 at_exit() {
-    systemctl stop varlink-test-enqueue{,-2}.service varlink-test-slow.service 2>/dev/null || true
+    systemctl stop varlink-test-enqueue{,-2}.service varlink-test-slow.service varlink-test-reexec.service 2>/dev/null || true
     if [[ -n ${watcher_pid:-} ]]; then
         kill "$watcher_pid" 2>/dev/null || true
         wait "$watcher_pid" 2>/dev/null || true
     fi
-    rm -f /run/systemd/system/varlink-test-enqueue{,-2}.service /run/systemd/system/varlink-test-slow.service
+    rm -f /run/systemd/system/varlink-test-enqueue{,-2}.service /run/systemd/system/varlink-test-slow.service /run/systemd/system/varlink-test-reexec.service
     rm -f /tmp/enqueue-notifications.json
     systemctl daemon-reload
 }
@@ -130,6 +130,33 @@ UNIT
     systemctl stop varlink-test-slow.service
     wait "$watcher_pid" 2>/dev/null || true
     watcher_pid=
+}
+
+testcase_reexec_while_streaming() {
+    trap at_exit EXIT
+
+    # The service manager passes the varlink connection across reexecution, hence the streaming client
+    # must still get the final reply afterwards, and the status update sent after the reexecution must
+    # arrive as a plain unit notification (the final reply carries runtime too, so it can't prove that).
+    cat >/run/systemd/system/varlink-test-reexec.service <<UNIT
+[Service]
+Type=notify
+NotifyAccess=all
+RemainAfterExit=yes
+ExecStart=/bin/sh -ec 'systemctl daemon-reexec; systemd-notify --status=after-reexec; sleep 1; systemd-notify --ready'
+UNIT
+    systemctl daemon-reload
+
+    result=$(timeout 60 varlinkctl call --more /run/systemd/io.systemd.Manager io.systemd.Unit.EnqueueJob \
+        '{"names": ["varlink-test-reexec.service"], "jobType": "start", "notifyJobChanges": true, "notifyUnitChanges": true}')
+    printf '%s' "$result" | jq --seq --slurp -e 'any(.[]; .job.Result == "done")' >/dev/null
+    printf '%s' "$result" | jq --seq --slurp -e 'any(.[]; .runtime.Service.StatusText == "after-reexec" and (has("job") | not))' >/dev/null
+    systemctl is-active varlink-test-reexec.service
+
+    # Reexecute and Reload reply once they are complete
+    timeout 60 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Reexecute '{}'
+    timeout 60 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Reload '{}'
+    systemctl is-active varlink-test-reexec.service
 }
 
 run_testcases

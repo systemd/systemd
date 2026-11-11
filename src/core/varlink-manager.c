@@ -317,13 +317,26 @@ int vl_method_reexecute_manager(sd_varlink *link, sd_json_variant *parameters, s
 
         varlink_log_caller(link, manager, "Reexecute");
 
+        /* See method_reload(). */
+        if (manager->pending_reload_message_vl || manager->pending_reload_message_dbus) {
+                log_warning("Reexecution request rejected, reply to previous reload still pending.");
+                return sd_varlink_error_errno(link, -EBUSY);
+        }
+
         /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
         if (!ratelimit_below(&manager->reload_reexec_ratelimit)) {
                 log_warning("Reexecution request rejected due to rate limit.");
                 return sd_varlink_error(link, VARLINK_ERROR_MANAGER_RATE_LIMIT_REACHED, /* parameters= */ NULL);
         }
 
-        /* We don't send a reply back here, the client should just wait for us disconnecting. */
+        /* The connection is passed across the reexecution, and we send the reply once the new manager
+         * process is up, the same way as for reloads. That way the caller knows when the reexecution
+         * finished. */
+        r = sd_varlink_set_serialize_pending(link, true);
+        if (r < 0)
+                return r;
+
+        manager->pending_reload_message_vl = sd_varlink_ref(link);
 
         manager->objective = MANAGER_REEXECUTE;
 

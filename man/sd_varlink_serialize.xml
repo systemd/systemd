@@ -1,0 +1,299 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_varlink_serialize" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_varlink_serialize</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_varlink_serialize</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_varlink_serialize</refname>
+    <refname>sd_varlink_deserialize</refname>
+    <refname>sd_varlink_get_connection_id</refname>
+    <refname>sd_varlink_set_serialize_pending</refname>
+    <refname>sd_varlink_server_serialize</refname>
+    <refname>sd_varlink_server_deserialize</refname>
+    <refname>sd_varlink_server_claim_connection</refname>
+    <refname>sd_varlink_server_disconnect_unclaimed_connections</refname>
+
+    <refpurpose>Serialize and deserialize Varlink connections</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-varlink.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_serialize</function></funcdef>
+        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>void **<parameter>ret_data</parameter></paramdef>
+        <paramdef>size_t *<parameter>ret_size</parameter></paramdef>
+        <paramdef>int **<parameter>ret_fds</parameter></paramdef>
+        <paramdef>size_t *<parameter>ret_n_fds</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_deserialize</function></funcdef>
+        <paramdef>sd_varlink **<parameter>ret</parameter></paramdef>
+        <paramdef>const void *<parameter>data</parameter></paramdef>
+        <paramdef>size_t <parameter>size</parameter></paramdef>
+        <paramdef>int *<parameter>fds</parameter></paramdef>
+        <paramdef>size_t <parameter>n_fds</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_get_connection_id</function></funcdef>
+        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>const char **<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_set_serialize_pending</function></funcdef>
+        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>int <parameter>b</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_server_serialize</function></funcdef>
+        <paramdef>sd_varlink_server *<parameter>server</parameter></paramdef>
+        <paramdef>void **<parameter>ret_data</parameter></paramdef>
+        <paramdef>size_t *<parameter>ret_size</parameter></paramdef>
+        <paramdef>int **<parameter>ret_fds</parameter></paramdef>
+        <paramdef>size_t *<parameter>ret_n_fds</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_server_deserialize</function></funcdef>
+        <paramdef>sd_varlink_server *<parameter>server</parameter></paramdef>
+        <paramdef>const void *<parameter>data</parameter></paramdef>
+        <paramdef>size_t <parameter>size</parameter></paramdef>
+        <paramdef>int *<parameter>fds</parameter></paramdef>
+        <paramdef>size_t <parameter>n_fds</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_server_claim_connection</function></funcdef>
+        <paramdef>sd_varlink_server *<parameter>server</parameter></paramdef>
+        <paramdef>const char *<parameter>id</parameter></paramdef>
+        <paramdef>sd_varlink **<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_server_disconnect_unclaimed_connections</function></funcdef>
+        <paramdef>sd_varlink_server *<parameter>server</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>These functions allow the state of Varlink connections (either of individual client side
+    connections, or of all connections of a server object) to be serialized into an opaque data blob and
+    an array of file descriptors, and subsequently deserialized again into new connection objects. The
+    connections themselves, any buffered input and output, and any ongoing method calls are preserved,
+    so that the peers do not notice. The listening sockets of a server object are not covered. This may be
+    used by programs that reexecute themselves (i.e. invoke
+    <citerefentry project='man-pages'><refentrytitle>execve</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+    on their own binary) to keep their Varlink connections across the reexecution, or to hand
+    connections over to a different process, for example a worker process.</para>
+
+    <para><function>sd_varlink_serialize()</function> serializes the transport state of a client side
+    Varlink connection object: the input that has been read from the connection but not processed yet, the
+    output that has been generated but not written yet, the file descriptors passed along with either,
+    which replies are still expected, and the connection file descriptors themselves. It
+    returns an opaque, freshly allocated data blob in <parameter>ret_data</parameter> and
+    <parameter>ret_size</parameter>, and an array of file descriptors in <parameter>ret_fds</parameter> and
+    <parameter>ret_n_fds</parameter>. The file descriptors are duplicates owned by the caller, and need to
+    be passed on along with the data blob to wherever the connection shall be deserialized, in the order
+    they are returned in.
+    The caller is responsible for freeing the data blob and the array, and for closing the file
+    descriptors. Settings the program chooses itself, such as the userdata pointer, the callbacks, the
+    event loop attachment, the description, the timeout, whether file descriptor passing is allowed, or
+    whether input is security sensitive, are not serialized and need to be configured again by the program
+    after deserialization. Peer credentials are not serialized either, unless they have been explicitly
+    specified when the connection was established, since they can be acquired from the kernel
+    again. The peer's PID file descriptor is passed on, however, if it has been acquired already (for
+    example via <function>sd_varlink_get_peer_pidfd()</function>), since it cannot be acquired again once
+    the peer has exited.</para>
+
+    <para><function>sd_varlink_deserialize()</function> is the inverse of
+    <function>sd_varlink_serialize()</function>, and allocates a new Varlink connection object from the
+    data blob in <parameter>data</parameter> and <parameter>size</parameter> and the file descriptors in
+    <parameter>fds</parameter> and <parameter>n_fds</parameter>. On success, it takes possession of all
+    passed file descriptors: those it needs are duplicated, and all of them are closed and their array
+    entries set to <constant>-EBADF</constant>. On failure the file descriptors are left untouched. This
+    function may only be used for client side connections, server side connections need to be restored via
+    <function>sd_varlink_server_deserialize()</function>.</para>
+
+    <para>Server side connections cannot be serialized individually with
+    <function>sd_varlink_serialize()</function>, since they can only be restored together with the server
+    object they belong to. Use <function>sd_varlink_server_serialize()</function> (see below) to serialize
+    them.</para>
+
+    <para>Serialization is refused while a method call or reply is being dispatched, i.e. it may not be
+    invoked from a method or reply callback for the connection being serialized, or while a method call
+    implemented as fiber is suspended. Connections that have been disconnected already cannot be
+    serialized, and neither can connections to programs forked off via
+    <citerefentry><refentrytitle>sd_varlink_connect_exec</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+    <para>A server side connection with a pending method call (i.e. one that has not been replied to yet,
+    with the connection object referenced by the program in order to reply later) is only serialized if
+    <function>sd_varlink_set_serialize_pending()</function> has been called on it with a true
+    <parameter>b</parameter> parameter while the method call was dispatched. Otherwise, the connection is
+    disconnected on serialization, since the program would not be able to reply to the method call after
+    deserialization. The setting is reset whenever a method call is completed, and defaults to off. The program
+    is expected to remember an identifier of the connection, as returned by
+    <function>sd_varlink_get_connection_id()</function>, in its own serialization, so that it can claim the
+    connection again after deserialization. Server side connections that are in the process of being upgraded
+    to a different protocol are always disconnected on serialization.</para>
+
+    <para><function>sd_varlink_get_connection_id()</function> returns an identifier string for the
+    connection that remains stable across serialization. The string should be considered opaque. It is
+    owned by the connection object and remains valid until the connection is closed, hence the caller needs
+    to copy it if it shall be used beyond that. The identifier is derived from the underlying socket or
+    pipe, and is unique among all such objects existing at the same time. It might be reused once the
+    underlying object has been destroyed, though.</para>
+
+    <para><function>sd_varlink_server_serialize()</function> serializes all connections of a Varlink
+    server object, in the same way as <function>sd_varlink_serialize()</function> does for client side
+    connections, including the method call currently pending on each connection. Connections with
+    pending method calls that have not been marked with
+    <function>sd_varlink_set_serialize_pending()</function> are disconnected first. The listening sockets
+    of the server are not included in the serialization, and need to be passed on by the program
+    itself.</para>
+
+    <para><function>sd_varlink_server_deserialize()</function> restores the connections serialized with
+    <function>sd_varlink_server_serialize()</function> into the specified server object. Before this
+    function is called, the server object should be fully set up already, i.e. its flags set, its method
+    callbacks bound, and the event loop attached. It does not have to be configured identically to the
+    server object the connections were serialized from: the restored connections are configured
+    according to the settings of the server object they are restored into, as for any new connection. For
+    example, a newer version of a program may enable file descriptor passing on its server object, which
+    then applies to the restored connections too, even if the older version did not allow it. Similarly, if
+    <constant>SD_VARLINK_SERVER_INHERIT_USERDATA</constant> is set, the restored connections inherit the
+    userdata pointer of the server object they are restored into (and not the one of the server object
+    they were serialized from). Restored connections with buffered input are processed once
+    the event loop runs. Ownership of the file descriptors is handled the same way as for
+    <function>sd_varlink_deserialize()</function>.</para>
+
+    <para>Restored connections with a pending method call are put in a table of unclaimed connections,
+    keyed by their identifier. If two such connections share the same identifier (which is only possible
+    for identifiers derived from inode numbers), the second one is disconnected right away.
+    <function>sd_varlink_server_claim_connection()</function> looks up the connection with the specified
+    identifier (as previously returned by <function>sd_varlink_get_connection_id()</function>) in this
+    table, and removes it from there. The connection is returned in <parameter>ret</parameter>, without
+    taking a reference to it, and the program should take a reference before replying, the same way it
+    would while dispatching a method call. Once the program has deserialized all of its state,
+    <function>sd_varlink_server_disconnect_unclaimed_connections()</function> should be called to disconnect
+    all connections with pending method calls that no one claimed, so that their peers do not wait for a
+    reply that never comes.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_varlink_server_disconnect_unclaimed_connections()</function> returns the
+    number of disconnected connections, and all other functions return a non-negative integer. On failure,
+    they return a negative errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>An argument is invalid, or a field of the serialized data has an invalid
+          value.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENXIO</constant></term>
+
+          <listitem><para>A mandatory field is missing from the serialized data, for example because
+          data serialized with <function>sd_varlink_serialize()</function> is passed to
+          <function>sd_varlink_server_deserialize()</function>, or vice versa.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EBUSY</constant></term>
+
+          <listitem><para>The connection is currently dispatching a method call or a reply, and hence
+          cannot be serialized.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOTCONN</constant></term>
+
+          <listitem><para>The connection has been disconnected.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EOPNOTSUPP</constant></term>
+
+          <listitem><para>The connection is to a program forked off via
+          <function>sd_varlink_connect_exec()</function>, or is a server side connection passed to
+          <function>sd_varlink_serialize()</function>, and hence cannot be serialized
+          individually.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EBADMSG</constant></term>
+
+          <listitem><para>The serialized data is not valid.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ESRCH</constant></term>
+
+          <listitem><para>No unclaimed connection with the specified identifier exists.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_varlink_serialize()</function>,
+    <function>sd_varlink_deserialize()</function>,
+    <function>sd_varlink_get_connection_id()</function>,
+    <function>sd_varlink_set_serialize_pending()</function>,
+    <function>sd_varlink_server_serialize()</function>,
+    <function>sd_varlink_server_deserialize()</function>,
+    <function>sd_varlink_server_claim_connection()</function>, and
+    <function>sd_varlink_server_disconnect_unclaimed_connections()</function> were added in version
+    263.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-varlink</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_varlink_server_new</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_varlink_send</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
