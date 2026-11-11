@@ -1367,6 +1367,7 @@ static int method_reset_failed(sd_bus_message *message, void *userdata, sd_bus_e
 }
 
 static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error, char **states, char **patterns) {
+        _cleanup_(mac_selinux_access_check_context_done) MacSelinuxAccessCheckContext selinux_context = {};
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = ASSERT_PTR(userdata);
         const char *k;
@@ -1397,7 +1398,7 @@ static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_e
                 if (k != u->id)
                         continue;
 
-                r = mac_selinux_unit_access_check(u, message, "status", /* reterr_error= */ NULL);
+                r = mac_selinux_unit_access_check_cached(u, message, &selinux_context, "status", /* reterr_error= */ NULL);
                 if (r < 0)
                         continue; /* silently skip units the caller is not allowed to see */
 

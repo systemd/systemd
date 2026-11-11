@@ -23,6 +23,12 @@
 
 static bool initialized = false;
 
+#define SELINUX_BUS_CREDS_MASK                                         \
+        (SD_BUS_CREDS_PID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_EGID|        \
+         SD_BUS_CREDS_CMDLINE|SD_BUS_CREDS_AUDIT_LOGIN_UID|           \
+         SD_BUS_CREDS_SELINUX_CONTEXT|                                \
+         SD_BUS_CREDS_AUGMENT /* get more bits from /proc */)
+
 struct audit_info {
         sd_bus_creds *creds;
         sd_varlink *link;
@@ -30,6 +36,14 @@ struct audit_info {
         const char *cmdline;
         const char *function;
 };
+
+void mac_selinux_access_check_context_done(MacSelinuxAccessCheckContext *context) {
+        if (!context)
+                return;
+
+        context->creds = sd_bus_creds_unref(context->creds);
+        context->cmdline = mfree(context->cmdline);
+}
 
 /*
    Any time an access gets denied this callback will be called
@@ -245,28 +259,63 @@ static int check_access(
                               empty_to_na(audit_info->cmdline));
 }
 
+static int access_check_context_init(
+                sd_bus_message *message,
+                MacSelinuxAccessCheckContext *context) {
+
+        char **cmdline = NULL;
+        int r;
+
+        assert(message);
+        assert(context);
+
+        if (context->initialized)
+                return context->result;
+
+        context->initialized = true;
+
+        r = sd_bus_query_sender_creds(message, SELINUX_BUS_CREDS_MASK, &context->creds);
+        if (r < 0)
+                return context->result = r;
+
+        /* The SELinux context is something we really should have gotten directly from the message or sender,
+         * and not be an augmented field. If it was augmented we cannot use it for authorization, since this
+         * is racy and vulnerable. Let's add an extra check, just in case, even though this really shouldn't
+         * be possible. */
+        if (sd_bus_creds_get_augmented_mask(context->creds) & SD_BUS_CREDS_SELINUX_CONTEXT)
+                return context->result = -EPERM;
+
+        r = sd_bus_creds_get_selinux_context(context->creds, &context->selinux_context);
+        if (r < 0)
+                return context->result = r;
+
+        (void) sd_bus_creds_get_cmdline(context->creds, &cmdline);
+        context->cmdline = strv_join(cmdline, " ");
+
+        return context->result = 0;
+}
+
 /*
    This function communicates with the kernel to check whether or not it should
    allow the access.
    If the machine is in permissive mode it will return ok.  Audit messages will
    still be generated if the access would be denied in enforcing mode.
 */
-int mac_selinux_access_check_bus_internal(
+int mac_selinux_access_check_bus_internal_cached(
                 sd_bus_message *message,
                 const Unit *unit,
+                MacSelinuxAccessCheckContext *context,
                 const char *permission,
                 const char *function,
                 sd_bus_error *reterr_error) {
 
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        const char *tclass, *scon, *acon;
-        _cleanup_free_ char *cl = NULL;
+        const char *tclass, *acon;
         _cleanup_freecon_ char *fcon = NULL;
-        char **cmdline = NULL;
         bool enforce;
         int r = 0;
 
         assert(message);
+        assert(context);
         assert(permission);
         assert(function);
 
@@ -277,23 +326,7 @@ int mac_selinux_access_check_bus_internal(
         /* delay call until we checked in `access_init()` if SELinux is actually enabled */
         enforce = mac_selinux_enforcing();
 
-        r = sd_bus_query_sender_creds(
-                        message,
-                        SD_BUS_CREDS_PID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_EGID|
-                        SD_BUS_CREDS_CMDLINE|SD_BUS_CREDS_AUDIT_LOGIN_UID|
-                        SD_BUS_CREDS_SELINUX_CONTEXT|
-                        SD_BUS_CREDS_AUGMENT /* get more bits from /proc */,
-                        &creds);
-        if (r < 0)
-                return r;
-
-        /* The SELinux context is something we really should have gotten directly from the message or sender,
-         * and not be an augmented field. If it was augmented we cannot use it for authorization, since this
-         * is racy and vulnerable. Let's add an extra check, just in case, even though this really shouldn't
-         * be possible. */
-        assert_return((sd_bus_creds_get_augmented_mask(creds) & SD_BUS_CREDS_SELINUX_CONTEXT) == 0, -EPERM);
-
-        r = sd_bus_creds_get_selinux_context(creds, &scon);
+        r = access_check_context_init(message, context);
         if (r < 0)
                 return r;
 
@@ -314,17 +347,32 @@ int mac_selinux_access_check_bus_internal(
                 return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get current context: %s", STRERROR(r));
         }
 
-        (void) sd_bus_creds_get_cmdline(creds, &cmdline);
-        cl = strv_join(cmdline, " ");
-
         struct audit_info audit_info = {
-                .creds = creds,
+                .creds = context->creds,
                 .path = unit ? unit->fragment_path : NULL,
-                .cmdline = cl,
+                .cmdline = context->cmdline,
                 .function = function,
         };
 
-        return check_access(scon, acon, tclass, permission, &audit_info, reterr_error);
+        return check_access(context->selinux_context, acon, tclass, permission, &audit_info, reterr_error);
+}
+
+int mac_selinux_access_check_bus_internal(
+                sd_bus_message *message,
+                const Unit *unit,
+                const char *permission,
+                const char *function,
+                sd_bus_error *reterr_error) {
+
+        _cleanup_(mac_selinux_access_check_context_done) MacSelinuxAccessCheckContext context = {};
+
+        return mac_selinux_access_check_bus_internal_cached(
+                        message,
+                        unit,
+                        &context,
+                        permission,
+                        function,
+                        reterr_error);
 }
 
 int mac_selinux_access_check_varlink_internal(
@@ -385,9 +433,23 @@ int mac_selinux_access_check_varlink_internal(
 
 #else /* HAVE_SELINUX */
 
+void mac_selinux_access_check_context_done(MacSelinuxAccessCheckContext *context) {
+}
+
 int mac_selinux_access_check_bus_internal(
                 sd_bus_message *message,
                 const Unit *unit,
+                const char *permission,
+                const char *function,
+                sd_bus_error *reterr_error) {
+
+        return 0;
+}
+
+int mac_selinux_access_check_bus_internal_cached(
+                sd_bus_message *message,
+                const Unit *unit,
+                MacSelinuxAccessCheckContext *context,
                 const char *permission,
                 const char *function,
                 sd_bus_error *reterr_error) {
