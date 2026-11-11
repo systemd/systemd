@@ -19,5 +19,5 @@ int notify_recv_with_fds_strv(
                 FDSet **ret_fds);
 
 static inline int notify_recv_strv(int fd, char ***ret_list, struct ucred *ret_ucred, PidRef *ret_pidref) {
-        return notify_recv_with_fds_strv(fd, ret_list, ret_ucred, ret_pidref, NULL);
+        return notify_recv_with_fds_strv(fd, ret_list, ret_ucred, ret_pidref, /* ret_fds= */ NULL);
 }

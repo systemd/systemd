@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <limits.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -17,6 +18,7 @@
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 
@@ -169,6 +171,57 @@ TEST(unixexec_notify_unavailable) {
         }
 }
 
+TEST(unixexec_notify_cleanup_on_kill) {
+        _cleanup_close_pair_ int pipe_fds[2] = EBADF_PAIR;
+        _cleanup_free_ char *notify_dir = NULL;
+        PidRef child = PIDREF_NULL;
+        char buffer[PATH_MAX];
+        size_t n = 0;
+        int r;
+
+        ASSERT_OK_ERRNO(pipe2(pipe_fds, O_CLOEXEC));
+        r = pidref_safe_fork("(test-bus-notify-cleanup)", /* flags= */ 0, /* ret= */ &child);
+        ASSERT_OK(r);
+        if (r == 0) {
+                _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
+
+                pipe_fds[0] = safe_close(pipe_fds[0]);
+                ASSERT_OK(sd_bus_new(&bus));
+                ASSERT_OK(sd_bus_set_address(bus, "unixexec:path=/proc/self/exe,argv1=--notify-test,argv2=wait"));
+                ASSERT_OK(sd_bus_set_bus_client(bus, true));
+                ASSERT_OK(sd_bus_start(bus));
+                ASSERT_NOT_NULL(bus->busexec_notify_dir);
+                ASSERT_OK_ERRNO(write(pipe_fds[1], bus->busexec_notify_dir, strlen(bus->busexec_notify_dir)));
+                ASSERT_OK_ERRNO(write(pipe_fds[1], "\n", 1));
+                for (;;)
+                        pause();
+        }
+
+        pipe_fds[1] = safe_close(pipe_fds[1]);
+        for (;;) {
+                char c;
+
+                ASSERT_EQ(read(pipe_fds[0], &c, 1), 1);
+                if (c == '\n')
+                        break;
+                ASSERT_LT(n, sizeof(buffer) - 1);
+                buffer[n++] = c;
+        }
+        buffer[n] = 0;
+        notify_dir = strdup(buffer);
+        ASSERT_NOT_NULL(notify_dir);
+        ASSERT_OK_ERRNO(access(notify_dir, F_OK));
+
+        ASSERT_OK(pidref_kill(&child, SIGKILL));
+        ASSERT_OK(pidref_wait_for_terminate(&child, /* ret_si= */ NULL));
+        pidref_done(&child);
+
+        usec_t until = usec_add(now(CLOCK_MONOTONIC), USEC_PER_SEC);
+        while (access(notify_dir, F_OK) >= 0 && now(CLOCK_MONOTONIC) < until)
+                (void) usleep_safe(10 * USEC_PER_MSEC);
+        ASSERT_ERROR_ERRNO(access(notify_dir, F_OK), ENOENT);
+}
+
 static int intro(void) {
         if (strv_length(saved_argv) == 3 && streq(saved_argv[1], "--notify-test")) {
                 char byte;
@@ -200,6 +253,10 @@ static int intro(void) {
                         ASSERT_EQ(sendto(fd, malformed, sizeof(malformed) - 1, 0, &sa.sa, size),
                                   (ssize_t) sizeof(malformed) - 1);
                         ASSERT_OK_POSITIVE(sd_notify(/* unset_environment= */ false, "ERRNO=3"));
+                } else if (streq(saved_argv[2], "wait")) {
+                        while (read(STDIN_FILENO, &byte, sizeof(byte)) > 0)
+                                ;
+                        _exit(EXIT_SUCCESS);
                 } else
                         ASSERT_OK_POSITIVE(sd_notify(/* unset_environment= */ false, saved_argv[2]));
                 _exit(EXIT_FAILURE);

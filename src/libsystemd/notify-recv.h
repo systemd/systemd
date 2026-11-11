@@ -19,7 +19,7 @@ static inline int notify_socket_prepare(
                 void *userdata,
                 char **ret_path) {
 
-        return notify_socket_prepare_full(event, priority, handler, userdata, false, ret_path, NULL);
+        return notify_socket_prepare_full(event, priority, handler, userdata, /* accept_fds= */ false, ret_path, /* ret_event_source= */ NULL);
 }
 
 int notify_recv_with_fd_array(
