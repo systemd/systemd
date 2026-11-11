@@ -189,8 +189,15 @@ static int metrics_verdict(LinkInfo *li, sd_json_variant *metric) {
 
         const char *metric_name = NULL;
         r = sd_json_dispatch(metric, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &metric_name);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to get metric name: %m");
+        if (r < 0) {
+                /* Treat these errors as invalid metrics:
+                 * - EINVAL: name has the wrong type, or the metric is not a JSON object.
+                 * - ENOTUNIQ: duplicate name fields.
+                 * - ENXIO: mandatory name field is missing. */
+                return IN_SET(r, -EINVAL, -ENOTUNIQ, -ENXIO)
+                        ? VERDICT_INVALID
+                        : log_debug_errno(r, "Failed to get metric name: %m");
+        }
 
         /* Validate metric name is generally valid */
         r = metrics_name_valid(metric_name);
