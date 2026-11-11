@@ -634,6 +634,9 @@ void varlink_job_detach_client(Job *j) {
         assert(j);
         assert(j->unit);
 
+        if (!j->varlink)
+                return;
+
         /* Only drop the unit change subscription if it belongs to this very method call. A unit can carry
          * two jobs at the same time (the regular one and a NOP one), which may be watched by two different
          * connections. Detaching one client must not tear down the other one's subscription. */
@@ -644,20 +647,47 @@ void varlink_job_detach_client(Job *j) {
         j->varlink_notify_job_changes = false;
 }
 
+void varlink_error_or_close(sd_varlink *link, int error) {
+        int r;
+
+        assert(link);
+
+        r = sd_varlink_error_errno(link, error);
+
+        /* sd_varlink_error_errno() above returns a negative errno even when it queues the reply successfully.
+         * The r < 0 check is redundant here, but matches varlink_dispatch_method(). The state check ensures
+         * we close only if the call still needs a reply, letting a queued error reach the client otherwise. */
+        if (r < 0 && sd_varlink_wants_reply(link)) {
+                log_debug_errno(r, "Failed to send varlink error reply, closing connection: %m");
+                (void) sd_varlink_close(link);
+        }
+}
+
 void varlink_job_send_removed_signal(Job *j) {
+        int r;
+
         assert(j);
 
         if (!j->varlink)
                 return;
 
+        /* Keep the connection alive across subscription cleanup. */
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = sd_varlink_ref(j->varlink);
+
         /* Send the final reply, which completes the method call */
-        (void) sd_varlink_replybo(
+        r = sd_varlink_replybo(
                         j->varlink,
                         SD_JSON_BUILD_PAIR_CALLBACK("context", unit_context_build_json, j->unit),
                         SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, j->unit),
                         SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j));
 
         varlink_job_detach_client(j);
+
+        if (r < 0) {
+                log_unit_debug_errno(j->unit, r, "Failed to send final varlink job reply, sending error reply: %m");
+                /* The job is going away, so complete the call with an error or disconnect the client. */
+                varlink_error_or_close(link, r);
+        }
 }
 
 typedef struct VarlinkJobClient {
@@ -712,6 +742,7 @@ int varlink_job_stash_client_full(
 }
 
 void varlink_job_stash_client(Job *j) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
         int r;
 
         assert(j);
@@ -731,8 +762,9 @@ void varlink_job_stash_client(Job *j) {
                         j->unit->varlink_unit_change == j->varlink);
         if (r < 0) {
                 log_unit_warning_errno(j->unit, r, "Failed to stash varlink client of job %" PRIu32 ", sending error reply: %m", j->id);
-                (void) sd_varlink_error_errno(j->varlink, r);
+                link = sd_varlink_ref(j->varlink);
                 varlink_job_detach_client(j);
+                varlink_error_or_close(link, r);
         }
 }
 
@@ -776,8 +808,11 @@ void varlink_job_flush_stashed_clients(Manager *m) {
 
         assert(m);
 
+        /* Closing a connection invokes vl_disconnect(), which removes entries from the manager's stash. */
+        _cleanup_hashmap_free_ Hashmap *clients = TAKE_PTR(m->stashed_varlink_job_clients);
+
         /* Jobs aren't guaranteed to come back after a reload, e.g. when coldplug cancels them */
-        HASHMAP_FOREACH_KEY(w, id, m->stashed_varlink_job_clients) {
+        HASHMAP_FOREACH_KEY(w, id, clients) {
                 const char *k;
                 Unit *u;
 
@@ -793,10 +828,8 @@ void varlink_job_flush_stashed_clients(Manager *m) {
                         }
                 }
 
-                (void) sd_varlink_error_errno(w->varlink, -ECANCELED);
+                varlink_error_or_close(w->varlink, ECANCELED);
         }
-
-        m->stashed_varlink_job_clients = hashmap_free(m->stashed_varlink_job_clients);
 }
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_job_mode, JobMode, job_mode_from_string);
@@ -1082,10 +1115,13 @@ static int varlink_reply_or_watch_unit_job(
         /* Send initial job state notification if requested. Unit state change notifications are not sent
          * here; they will arrive via varlink_unit_send_change_signal() when the unit actually transitions,
          * matching D-Bus PropertiesChanged behavior. */
-        if (notify_job_changes)
-                return sd_varlink_notifybo(
+        if (notify_job_changes) {
+                r = sd_varlink_notifybo(
                                 link,
                                 SD_JSON_BUILD_PAIR_CALLBACK("job", job_build_json, j));
+                if (r < 0)
+                        log_unit_debug_errno(u, r, "Failed to send varlink job notification, ignoring: %m");
+        }
 
         return 0;
 }
