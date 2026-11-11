@@ -6,6 +6,7 @@
 #include "sd-varlink.h"
 
 #include "bus-polkit.h"
+#include "dns-domain.h"
 #include "json-util.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
@@ -322,6 +323,67 @@ int vl_method_link_set_dns(sd_varlink *vlink, sd_json_variant *parameters, sd_va
         }
 
         link_set_dns(link, TAKE_PTR(dns_servers), n_dns_servers);
+
+        r = link_save_and_clean_full(link, /* also_save_manager= */ true);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(vlink, /* parameters= */ NULL);
+}
+
+int vl_method_link_set_domains(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                { "ifindex",       _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,                offsetof(DNSConfiguration, ifindex),        SD_JSON_MANDATORY|SD_JSON_RELAX },
+                { "searchDomains", SD_JSON_VARIANT_ARRAY,         dispatch_search_domain_context_array, offsetof(DNSConfiguration, search_domains), SD_JSON_MANDATORY               },
+                {},
+        };
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(vlink);
+
+        Link *link = NULL;
+        r = dispatch_resolve_link(vlink, parameters, manager, &link);
+        if (r < 0)
+                return r;
+
+        _cleanup_(dns_configuration_freep) DNSConfiguration *c = new0(DNSConfiguration, 1);
+        if (!c)
+                return log_oom();
+
+        r = sd_json_dispatch(parameters, dispatch_table, SD_JSON_LOG, c);
+        if (r < 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        vlink,
+                        manager->bus,
+                        "org.freedesktop.network1.set-domains",
+                        (const char**) STRV_MAKE("interface", link->ifname),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        /* The method accepts an empty strv, to override the domains set in .network.
+         * Hence, we need to explicitly allocate empty sets here. */
+        _cleanup_ordered_set_free_ OrderedSet *search_domains = ordered_set_new(&dns_name_hash_ops_free);
+        if (!search_domains)
+                return log_oom();
+
+        _cleanup_ordered_set_free_ OrderedSet *route_domains = ordered_set_new(&dns_name_hash_ops_free);
+        if (!route_domains)
+                return log_oom();
+
+        SearchDomain *d;
+        ORDERED_SET_FOREACH(d, c->search_domains) {
+                r = ordered_set_consume(d->route_only ? route_domains : search_domains, TAKE_PTR(d->name));
+                if (r < 0)
+                        return r;
+        }
+
+        free_and_replace_full(link->route_domains, route_domains, ordered_set_free);
+        free_and_replace_full(link->search_domains, search_domains, ordered_set_free);
 
         r = link_save_and_clean_full(link, /* also_save_manager= */ true);
         if (r < 0)
