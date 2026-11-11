@@ -203,6 +203,14 @@ CHANGES WITH 263 in spe:
           systemd-cryptsetup may not find the device, so the activation may no
           longer work.
 
+        * timedated now respects and maintains the kernel timezone configuration
+          set by systemd on early boot: if RTC is in UTC, the kernel timezone is
+          also UTC; if RTC is localtime, the kernel timezone follows it. This
+          change fixes an inconsistency with vfat timestamps on RTC=UTC systems:
+          the timestamps were interpreted in UTC after boot, but any timezone
+          change used to cause them to be interpreted in localtime, until the
+          next reboot.
+
         Changes in the system and service manager:
 
         * LockPersonality= no longer refuses querying the personality with
