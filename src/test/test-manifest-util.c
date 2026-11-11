@@ -256,8 +256,11 @@ TEST(manifest_fields_from_string) {
         ASSERT_OK(manifest_fields_from_string("+mtime", &f));
         ASSERT_EQ(f, _MANIFEST_FIELD_DEFAULT|MANIFEST_FIELD_MTIME);
 
-        /* User and group names are opt-in */
-        ASSERT_FALSE(_MANIFEST_FIELD_DEFAULT & (MANIFEST_FIELD_USER_NAME|MANIFEST_FIELD_GROUP_NAME));
+        /* User and group names and extended attributes are opt-in */
+        ASSERT_FALSE(_MANIFEST_FIELD_DEFAULT & (MANIFEST_FIELD_USER_NAME|MANIFEST_FIELD_GROUP_NAME|MANIFEST_FIELD_USER_XATTR));
+        f = _MANIFEST_FIELD_DEFAULT;
+        ASSERT_OK(manifest_fields_from_string("+user-xattr", &f));
+        ASSERT_EQ(f, _MANIFEST_FIELD_DEFAULT|MANIFEST_FIELD_USER_XATTR);
         f = _MANIFEST_FIELD_DEFAULT;
         ASSERT_OK(manifest_fields_from_string("+user-name,+group-name", &f));
         ASSERT_EQ(f, _MANIFEST_FIELD_DEFAULT|MANIFEST_FIELD_USER_NAME|MANIFEST_FIELD_GROUP_NAME);
@@ -576,9 +579,7 @@ TEST(manifest_uapi16) {
         ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(reg, "sha256")), "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9");
         ASSERT_NULL(sd_json_variant_by_key(reg, "inodeToken"));
         ASSERT_NULL(sd_json_variant_by_key(reg, "mTimeNSec"));
-        _cleanup_free_ char *xattrs = NULL; /* Included by default, the file has none */
-        ASSERT_OK(sd_json_variant_format(sd_json_variant_by_key(reg, "extendedAttributes"), /* flags= */ 0, &xattrs));
-        ASSERT_STREQ(xattrs, "{\"user\":{}}");
+        ASSERT_NULL(sd_json_variant_by_key(reg, "extendedAttributes")); /* Not included by default */
         ASSERT_NULL(sd_json_variant_by_key(reg, "userName"));
         ASSERT_NULL(sd_json_variant_by_key(reg, "groupName"));
         ASSERT_TRUE(sd_json_variant_is_normalized(reg)); /* Fields are sorted */
@@ -925,6 +926,104 @@ static void assert_special_xattr(const char *buf, const char *name, bool have) {
         ASSERT_STREQ(s, have ? "{\"user\":{\"special\":{\"text\":\"yes\"}}}" : "{\"user\":{}}");
 }
 
+TEST(manifest_uapi16_timestamp_accuracy) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+        _cleanup_free_ char *buf = NULL;
+        size_t size;
+
+        ASSERT_OK(tfd = make_tree(&t));
+
+        const nsec_t base = 1700000000 * NSEC_PER_SEC + 123456789;
+        ASSERT_OK_ERRNO(utimensat(tfd, "regular.txt", (struct timespec[2]) { *TIMESPEC_STORE_NSEC(base), *TIMESPEC_STORE_NSEC(base) }, 0));
+
+        _cleanup_(manifest_context_done) ManifestContext c;
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.fields |= MANIFEST_FIELD_MTIME;
+        ASSERT_OK(generate(&c, tfd, &buf, &size));
+
+        /* Deviations up to the accuracy are accepted (2s by default, as on FAT), larger ones are not */
+        static const struct {
+                nsec_t offset, accuracy;
+                bool good;
+        } tests[] = {
+                { 0,                     MANIFEST_TIMESTAMP_ACCURACY_DEFAULT_NSEC, true  },
+                { 2 * NSEC_PER_SEC,      MANIFEST_TIMESTAMP_ACCURACY_DEFAULT_NSEC, true  },
+                { 2 * NSEC_PER_SEC + 1,  MANIFEST_TIMESTAMP_ACCURACY_DEFAULT_NSEC, false },
+                { 0,                     0,                                    true  },
+                { 1,                     0,                                    false },
+                { 1,                     1,                                    true  },
+        };
+
+        nsec_t m;
+        FOREACH_ELEMENT(test, tests)
+                /* Also try deviations into the past */
+                FOREACH_ARGUMENT(m, base + test->offset, base - test->offset) {
+                        ASSERT_OK_ERRNO(utimensat(tfd, "regular.txt", (struct timespec[2]) { *TIMESPEC_STORE_NSEC(m), *TIMESPEC_STORE_NSEC(m) }, 0));
+
+                        manifest_context_done(&c);
+                        context_init(&c, MANIFEST_FORMAT_UAPI16);
+                        c.fields |= MANIFEST_FIELD_MTIME;
+                        c.timestamp_accuracy_nsec = test->accuracy;
+                        if (test->good)
+                                ASSERT_OK(verify_buffer(&c, tfd, buf, size));
+                        else {
+                                ASSERT_ERROR(verify_buffer(&c, tfd, buf, size), EBADMSG);
+                                ASSERT_EQ(c.n_errors, 1U);
+                        }
+                }
+
+        /* Without the mtime field, modification times are not checked at all */
+        manifest_context_done(&c);
+        context_init(&c, MANIFEST_FORMAT_UAPI16);
+        c.timestamp_accuracy_nsec = 0;
+        ASSERT_OK(verify_buffer(&c, tfd, buf, size));
+}
+
+TEST(uapi16_object_done_many) {
+        Uapi16Object objects[2] = { UAPI16_OBJECT_NULL, UAPI16_OBJECT_NULL };
+
+        uapi16_object_done_many(/* objects= */ NULL, /* n= */ 0);
+
+        ASSERT_OK(dispatch_one("{\"name\":\"a\",\"contents\":[{\"file\":\"b\"}]}", 1, objects + 0));
+        ASSERT_OK(dispatch_one("{\"name\":\"c\"}", 1, objects + 1));
+        uapi16_object_done_many(objects, ELEMENTSOF(objects));
+
+        FOREACH_ELEMENT(o, objects) {
+                ASSERT_NULL(o->name);
+                ASSERT_NULL(o->contents);
+                ASSERT_EQ(o->n_contents, 0U);
+        }
+}
+
+TEST(uapi16_object_sort_many) {
+        Uapi16Object o[6] = {
+                UAPI16_OBJECT_NULL, UAPI16_OBJECT_NULL, UAPI16_OBJECT_NULL,
+                UAPI16_OBJECT_NULL, UAPI16_OBJECT_NULL, UAPI16_OBJECT_NULL,
+        };
+        CLEANUP_ELEMENTS(o, uapi16_object_done_many);
+
+        /* Nothing to sort */
+        uapi16_object_sort_many(NULL, 0);
+
+        /* o[3] has no name, like the leading object of a manifest */
+        ASSERT_NOT_NULL(o[0].name = strdup("other.txt"));
+        ASSERT_NOT_NULL(o[1].name = strdup("old/x"));
+        ASSERT_NOT_NULL(o[2].name = strdup("a.txt"));
+        ASSERT_NOT_NULL(o[4].name = strdup("b"));
+        ASSERT_NOT_NULL(o[5].name = strdup("a/x"));
+        uapi16_object_sort_many(o, ELEMENTSOF(o));
+
+        /* The object without a name goes first, and names are compared component by component, i.e. the
+         * files in "a/" are sorted before "a.txt", as manifest_make() would list them */
+        ASSERT_NULL(o[0].name);
+        ASSERT_STREQ(o[1].name, "a/x");
+        ASSERT_STREQ(o[2].name, "a.txt");
+        ASSERT_STREQ(o[3].name, "b");
+        ASSERT_STREQ(o[4].name, "old/x");
+        ASSERT_STREQ(o[5].name, "other.txt");
+}
+
 TEST(manifest_uapi16_xattr) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF;
@@ -993,7 +1092,7 @@ TEST(manifest_uapi16_xattr) {
         c.fields |= MANIFEST_FIELD_USER_XATTR;
         ASSERT_OK(verify_buffer(&c, tfd, buf, size));
 
-        /* Changed, added and removed attributes are detected (by default), but not if turned off */
+        /* Changed, added and removed attributes are detected if enabled, but not by default */
         ASSERT_OK(xsetxattr(tfd, "regular.txt", /* at_flags= */ 0, "user.mime_type", "text/x-c"));
         ASSERT_OK(xsetxattr(tfd, "empty.txt", /* at_flags= */ 0, "user.new", "x"));
         ASSERT_OK(xremovexattr(tfd, "subdir", /* at_flags= */ 0, "user.dir"));
@@ -1005,12 +1104,6 @@ TEST(manifest_uapi16_xattr) {
 
         manifest_context_done(&c);
         context_init(&c, MANIFEST_FORMAT_UAPI16);
-        ASSERT_ERROR(verify_buffer(&c, tfd, buf, size), EBADMSG);
-        ASSERT_EQ(c.n_errors, 3U);
-
-        manifest_context_done(&c);
-        context_init(&c, MANIFEST_FORMAT_UAPI16);
-        c.fields &= ~MANIFEST_FIELD_USER_XATTR;
         ASSERT_OK(verify_buffer(&c, tfd, buf, size));
 
         /* Attribute names we cannot represent cause the attributes of the inode to be omitted */
@@ -1176,7 +1269,7 @@ static int count_objects(Uapi16Object *o, size_t index, void *userdata) {
         return 0;
 }
 
-static int read_buffer(const char *buf, size_t size, X509 *const *certificates, size_t n_certificates, size_t *ret_n_objects) {
+static Uapi16ReadStatus read_buffer(const char *buf, size_t size, X509 *const *certificates, size_t n_certificates, size_t *ret_n_objects) {
         _cleanup_fclose_ FILE *f = NULL;
 
         ASSERT_NOT_NULL(f = fmemopen_unlocked((void*) buf, size, "r"));
@@ -1247,10 +1340,11 @@ static void test_signed_one(
         /* The generic reader accepts the signature if any of the specified certificates matches, and
          * reports all file objects (including the leading one) to the handler */
         size_t n_objects;
-        ASSERT_OK(read_buffer(buf, size, (X509*[]) { other_certificate, certificate }, 2, &n_objects));
+        ASSERT_OK_EQ(read_buffer(buf, size, (X509*[]) { other_certificate, certificate }, 2, &n_objects), UAPI16_READ_SIGNED);
         ASSERT_GT(n_objects, 1U);
         size_t n_objects_unverified;
-        ASSERT_OK(read_buffer(buf, size, /* certificates= */ NULL, /* n_certificates= */ 0, &n_objects_unverified));
+        /* Also when not verifying, the reader reports that the manifest is signed */
+        ASSERT_OK_EQ(read_buffer(buf, size, /* certificates= */ NULL, /* n_certificates= */ 0, &n_objects_unverified), UAPI16_READ_UNVERIFIED_SIGNATURE);
         ASSERT_EQ(n_objects_unverified, n_objects);
         ASSERT_ERROR(read_buffer(buf, size, &other_certificate, 1, &n_objects), EBADMSG);
 
@@ -1265,12 +1359,13 @@ static void test_signed_one(
         c.certificates = &certificate;
         c.n_certificates = 1;
         ASSERT_ERROR(verify_buffer(&c, tfd, unsigned_buf, unsigned_size), EBADMSG);
+        ASSERT_OK_EQ(read_buffer(unsigned_buf, unsigned_size, /* certificates= */ NULL, /* n_certificates= */ 0, &n_objects), UAPI16_READ_UNSIGNED);
 
         /* Changing the payload breaks the signature. Use the generic reader here, which doesn't compare
          * the manifest with the tree, so that only the signature check can catch the modification. */
         _cleanup_free_ char *tampered = NULL;
         ASSERT_NOT_NULL(tampered = strreplace(buf, "\"size\":11", "\"size\":12"));
-        ASSERT_OK(read_buffer(tampered, strlen(tampered), /* certificates= */ NULL, /* n_certificates= */ 0, &n_objects));
+        ASSERT_OK_EQ(read_buffer(tampered, strlen(tampered), /* certificates= */ NULL, /* n_certificates= */ 0, &n_objects), UAPI16_READ_UNVERIFIED_SIGNATURE);
         ASSERT_ERROR(read_buffer(tampered, strlen(tampered), &certificate, 1, &n_objects), EBADMSG);
 
         /* Objects between the signature object and the trailer are not covered by the signature, and
@@ -1301,11 +1396,12 @@ static void test_signed_one(
         c.certificates = &certificate;
         c.n_certificates = 1;
         ASSERT_OK(verify_buffer(&c, tfd, openpgp_after, strlen(openpgp_after)));
-        ASSERT_OK(read_buffer(openpgp_before, strlen(openpgp_before), &certificate, 1, &n_objects));
+        ASSERT_OK_EQ(read_buffer(openpgp_before, strlen(openpgp_before), &certificate, 1, &n_objects), UAPI16_READ_SIGNED);
 
         /* … and if there's only an OpenPGP signature this is as if there was no signature at all */
         ASSERT_ERROR(read_buffer(openpgp_only, strlen(openpgp_only), &certificate, 1, &n_objects), EBADMSG);
-        ASSERT_OK(read_buffer(openpgp_only, strlen(openpgp_only), /* certificates= */ NULL, /* n_certificates= */ 0, &n_objects));
+        /* (It's still reported as signed though) */
+        ASSERT_OK_EQ(read_buffer(openpgp_only, strlen(openpgp_only), /* certificates= */ NULL, /* n_certificates= */ 0, &n_objects), UAPI16_READ_UNVERIFIED_SIGNATURE);
 
         /* A PKCS#7 signature made with the same key, but over a different payload, is skipped, and the
          * next one is used. If there's no other one, verification fails. */
@@ -1336,7 +1432,7 @@ static void test_signed_one(
         c.certificates = &certificate;
         c.n_certificates = 1;
         ASSERT_OK(verify_buffer(&c, tfd, stale_before, strlen(stale_before)));
-        ASSERT_OK(read_buffer(stale_before, strlen(stale_before), &certificate, 1, &n_objects));
+        ASSERT_OK_EQ(read_buffer(stale_before, strlen(stale_before), &certificate, 1, &n_objects), UAPI16_READ_SIGNED);
         manifest_context_done(&c);
         context_init(&c, MANIFEST_FORMAT_UAPI16);
         c.certificates = &certificate;

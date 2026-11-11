@@ -72,6 +72,7 @@ void uapi16_object_done(Uapi16Object *o) {
         o->group_name = mfree(o->group_name);
         o->gpt_label = mfree(o->gpt_label);
         iovec_done(&o->sha256);
+        o->json = sd_json_variant_unref(o->json);
 
         FOREACH_ARRAY(c, o->contents, o->n_contents)
                 uapi16_contents_done(c);
@@ -79,6 +80,34 @@ void uapi16_object_done(Uapi16Object *o) {
         o->n_contents = 0;
 
         uapi16_object_xattrs_done(o);
+}
+
+void uapi16_object_done_many(Uapi16Object *objects, size_t n) {
+        assert(objects || n == 0);
+
+        /* Releases the fields of all objects in the array, but not the array itself */
+
+        FOREACH_ARRAY(o, objects, n)
+                uapi16_object_done(o);
+}
+
+static int uapi16_object_compare(const Uapi16Object *a, const Uapi16Object *b) {
+        int r;
+
+        /* Objects without a name go first */
+        r = CMP(!!a->name, !!b->name);
+        if (r != 0)
+                return r;
+        if (!a->name)
+                return 0;
+
+        return path_compare(a->name, b->name);
+}
+
+void uapi16_object_sort_many(Uapi16Object *objects, size_t n) {
+        assert(objects || n == 0);
+
+        typesafe_qsort(objects, n, uapi16_object_compare);
 }
 
 int uapi16_object_check_validity(Uapi16Object *o) {
@@ -101,7 +130,8 @@ int uapi16_object_check_validity(Uapi16Object *o) {
 
 bool uapi16_name_is_valid(const char *s) {
         /* The specification requires the "name" field to be a normalized, relative UTF-8 path without
-         * control characters, that does not clash with the name of the manifest file itself. */
+         * control characters, that does not clash with the name of the manifest file itself. Returns false
+         * for NULL, so that the result of functions such as path_startswith() may be passed in directly. */
 
         if (isempty(s))
                 return false;
@@ -760,6 +790,8 @@ int dispatch_uapi16_object(sd_json_variant *v, size_t n, sd_json_dispatch_flags_
                 }
         }
 
+        object.json = sd_json_variant_ref(v);
+
         *ret = TAKE_GENERIC(object, Uapi16Object, UAPI16_OBJECT_NULL);
         return 1;
 }
@@ -1286,7 +1318,7 @@ static int uapi16_manifest_next_record(
         }
 }
 
-int uapi16_manifest_read(
+Uapi16ReadStatus uapi16_manifest_read(
                 FILE *f,
                 X509 *const *certificates,
                 size_t n_certificates,
@@ -1432,7 +1464,10 @@ int uapi16_manifest_read(
                                        "Manifest carries no signature, but signature verification requested, refusing.");
         }
 
-        return 0;
+        if (signature_verified)
+                return UAPI16_READ_SIGNED;
+
+        return signature_seen ? UAPI16_READ_UNVERIFIED_SIGNATURE : UAPI16_READ_UNSIGNED;
 }
 
 void uapi16_certificates_free(X509 **certificates, size_t n) {
