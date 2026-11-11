@@ -1032,6 +1032,150 @@ sed -e 's|^Type=url-file|Type=regular-file|' -e "s|^Path=file://|Path=|" "$MP/de
 (! "$SYSUPDATE" --definitions="$MP/bad-definitions" --verify=no list) |& grep -F "ManifestPath= is only supported for URL sources" >/dev/null
 rm -rf "$MP"
 
+# WriteManifest=uapi16 in [Target] maintains a UAPI.16 manifest in the target directory (i.e. Path=), which
+# lists the files we install and those matching the patterns (also in subdirectories), keeps unrelated entries
+# whose files still exist, and drops entries whose files are gone. Objects acquired from a UAPI.16 manifest
+# are copied from there (without "contents"), others are generated locally.
+TM="$WORKDIR/target-manifest"
+rm -rf "$TM"
+mkdir -p "$TM/definitions" "$TM/bad-definitions" "$TM/payload/blobs" "$TM/target/old" "$TM/sums-payload" "$TM/sums-target"
+tm_sha256() { sha256sum "$1" | cut -d' ' -f1; }
+# Validates the manifest we wrote against the directory it describes. Ownership is copied from the source
+# manifest but deliberately not applied to the installed files, hence don't check it.
+tm_verify() { systemd-manifest verify --verify-signature=no --field=mode,size,hash,mtime "$1" "$1/Uapi16Manifest"; }
+tm_source_manifest() {
+    {
+        printf '\036{"mediaType":"application/vnd.uapi.16.manifest"}\n'
+        for v in "$@"; do
+            printf '\036{"name":"tm-%s.bin","size":%s,"sha256":"%s","uid":0,"mTimeNSec":1700000000123456789,"contents":[{"file":"blobs/tm-%s.raw"}]}\n' \
+                "$v" "$(stat -c %s "$TM/payload/blobs/tm-$v.raw")" "$(tm_sha256 "$TM/payload/blobs/tm-$v.raw")" "$v"
+        done
+        printf '\036{"mediaType":"application/vnd.uapi.16.trailer"}\n'
+    } >"$TM/payload/Uapi16Manifest"
+}
+head -c 1500 /dev/urandom >"$TM/payload/blobs/tm-v1.raw"
+tm_source_manifest v1
+# Pre-existing files: one matching the second pattern, one not matching any pattern
+head -c 700 /dev/urandom >"$TM/target/old/tm-v0.bin"
+echo unrelated >"$TM/target/other.txt"
+# systemd-manifest verify checks entries by name, hence create files of the names of the pre-existing entries
+# below that are retained (the retention logic only looks at their "contents" though)
+touch "$TM/target/aliased" "$TM/target/alt" "$TM/target/inline"
+# Pre-existing manifest: entries with at least one local source (an existing file or literal data) are
+# retained (even if not matching), entries whose sources are all missing files or remote URLs are dropped
+{
+    printf '\036{"mediaType":"application/vnd.uapi.16.manifest","comment":"keep me"}\n'
+    printf '\036{"name":"other.txt"}\n'
+    # A duplicate entry, which is dropped
+    printf '\036{"name":"other.txt","size":99}\n'
+    printf '\036{"name":"gone.bin","size":5}\n'
+    printf '\036{"name":"aliased","contents":[{"file":"other.txt"}]}\n'
+    printf '\036{"name":"stale","contents":[{"file":"missing.dat"}]}\n'
+    printf '\036{"name":"alt","contents":[{"file":"missing.dat"},{"url":"https://example.com/alt"},{"file":"other.txt"}]}\n'
+    printf '\036{"name":"remote","contents":[{"url":"https://example.com/remote"},{"file":"missing.dat"}]}\n'
+    printf '\036{"name":"inline","contents":[{"url":"https://example.com/inline"},{"literal":"aGVsbG8K"}]}\n'
+    printf '\036{"mediaType":"application/vnd.uapi.16.trailer"}\n'
+} >"$TM/target/Uapi16Manifest"
+cat >"$TM/definitions/01-tm.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$TM/payload
+ManifestFormat=uapi16
+MatchPattern=tm-@v.bin
+
+[Target]
+Type=regular-file
+Path=$TM/target
+MatchPattern=tm-@v.bin
+MatchPattern=old/tm-@v.bin
+WriteManifest=uapi16
+InstancesMax=3
+EOF
+"$SYSUPDATE" --definitions="$TM/definitions" --verify=no update
+cmp "$TM/payload/blobs/tm-v1.raw" "$TM/target/tm-v1.bin"
+# Only placed in Path=, not in the subdirectories patterns refer to
+[[ ! -e "$TM/target/old/Uapi16Manifest" ]]
+[[ "$(jq --seq -r 'select(.name != null) | .name' "$TM/target/Uapi16Manifest" | tr '\n' ' ')" == "aliased alt inline old/tm-v0.bin other.txt tm-v1.bin " ]]
+# The object from the source manifest is copied, but without "contents"
+jq --seq -e "select(.name == \"tm-v1.bin\") | .uid == 0 and .mTimeNSec == 1700000000123456789 and .contents == null and .size == 1500 and .sha256 == \"$(tm_sha256 "$TM/target/tm-v1.bin")\"" "$TM/target/Uapi16Manifest"
+# Files we did not install get an entry generated from what we know about them
+jq --seq -e 'select(.name == "old/tm-v0.bin") | .size == 700 and .mode == null and .uid == null' "$TM/target/Uapi16Manifest"
+# The leading object of the pre-existing manifest is retained
+jq --seq -e 'select(.mediaType == "application/vnd.uapi.16.manifest") | .comment == "keep me"' "$TM/target/Uapi16Manifest"
+tm_verify "$TM/target"
+# The trailer is in place
+[[ "$(jq --seq -r '.mediaType // empty' "$TM/target/Uapi16Manifest" | tail -n 1)" == "application/vnd.uapi.16.trailer" ]]
+
+# Removing old versions drops their entries, also if someone else removed the file
+head -c 1700 /dev/urandom >"$TM/payload/blobs/tm-v2.raw"
+tm_source_manifest v1 v2
+sed -i 's/^InstancesMax=.*/InstancesMax=2/' "$TM/definitions/01-tm.transfer"
+rm "$TM/target/other.txt"
+"$SYSUPDATE" --definitions="$TM/definitions" --verify=no acquire
+# Pending instances are not listed
+[[ "$(jq --seq -r 'select(.name != null) | .name' "$TM/target/Uapi16Manifest" | tr '\n' ' ')" == "inline tm-v1.bin " ]]
+"$SYSUPDATE" --definitions="$TM/definitions" --verify=no update
+cmp "$TM/payload/blobs/tm-v2.raw" "$TM/target/tm-v2.bin"
+[[ ! -e "$TM/target/old/tm-v0.bin" ]]
+[[ "$(jq --seq -r 'select(.name != null) | .name' "$TM/target/Uapi16Manifest" | tr '\n' ' ')" == "inline tm-v1.bin tm-v2.bin " ]]
+# The object is copied from the source manifest also if the instance was acquired earlier
+jq --seq -e 'select(.name == "tm-v2.bin") | .uid == 0 and .contents == null' "$TM/target/Uapi16Manifest"
+tm_verify "$TM/target"
+
+# Without a UAPI.16 manifest as source we generate the object ourselves
+head -c 900 /dev/urandom >"$TM/sums-payload/sums-v1.bin"
+(cd "$TM/sums-payload" && sha256sum sums-v1.bin >SHA256SUMS)
+cat >"$TM/definitions/02-sums.transfer" <<EOF
+[Source]
+Type=url-file
+Path=file://$TM/sums-payload
+MatchPattern=sums-@v.bin
+
+[Target]
+Type=regular-file
+Path=$TM/sums-target
+MatchPattern=sub/sums-@v.bin
+WriteManifest=uapi16
+EOF
+rm "$TM/definitions/01-tm.transfer"
+"$SYSUPDATE" --definitions="$TM/definitions" --verify=no update
+# The manifest is placed in Path=, even though the pattern refers to a subdirectory
+[[ ! -e "$TM/sums-target/sub/Uapi16Manifest" ]]
+jq --seq -e 'select(.name == "sub/sums-v1.bin") | .size == 900 and .mode == null and .mTimeNSec != null' "$TM/sums-target/Uapi16Manifest"
+tm_verify "$TM/sums-target"
+
+# A signed manifest is not replaced by an unsigned one: updating it fails, and it is left as it is. (Any
+# signature counts, regardless of its mechanism.)
+cp "$TM/sums-target/Uapi16Manifest" "$TM/unsigned.Uapi16Manifest"
+{
+    grep -v -F '"application/vnd.uapi.16.trailer"' "$TM/unsigned.Uapi16Manifest"
+    printf '\036{"mediaType":"application/vnd.uapi.16.signature","mechanism":"openpgp","data":"AAEC"}\n'
+    printf '\036{"mediaType":"application/vnd.uapi.16.trailer"}\n'
+} >"$TM/sums-target/Uapi16Manifest"
+cp "$TM/sums-target/Uapi16Manifest" "$TM/signed.Uapi16Manifest"
+head -c 950 /dev/urandom >"$TM/sums-payload/sums-v2.bin"
+(cd "$TM/sums-payload" && sha256sum sums-v1.bin sums-v2.bin >SHA256SUMS)
+(! "$SYSUPDATE" --definitions="$TM/definitions" --verify=no update) |& grep -F "is signed, refusing to replace it by an unsigned one" >/dev/null
+cmp "$TM/signed.Uapi16Manifest" "$TM/sums-target/Uapi16Manifest"
+mv "$TM/unsigned.Uapi16Manifest" "$TM/sums-target/Uapi16Manifest"
+rm -f "$TM/sums-target/sub/sums-v2.bin" "$TM/sums-payload/sums-v2.bin" "$TM/signed.Uapi16Manifest"
+(cd "$TM/sums-payload" && sha256sum sums-v1.bin >SHA256SUMS)
+
+# If nothing is left to list, the manifest is removed: disable the transfer via a feature, so that vacuuming
+# removes all its instances
+sed -i 's/^\[Source\]$/[Transfer]\nFeatures=tm-gone\n\n[Source]/' "$TM/definitions/02-sums.transfer"
+printf '[Feature]\nDescription=Gone\n' >"$TM/definitions/tm-gone.feature"
+"$SYSUPDATE" --definitions="$TM/definitions" --verify=no vacuum
+[[ ! -e "$TM/sums-target/sub/sums-v1.bin" ]]
+[[ ! -e "$TM/sums-target/Uapi16Manifest" ]]
+
+# Only UAPI.16 manifests are supported, and only for regular file targets
+sed 's|^WriteManifest=.*|WriteManifest=sha256sums|' "$TM/definitions/02-sums.transfer" >"$TM/bad-definitions/02-sums.transfer"
+(! "$SYSUPDATE" --definitions="$TM/bad-definitions" --verify=no list) |& grep -F "Manifest format 'sha256sums' not supported for WriteManifest=" >/dev/null
+sed 's|^Type=regular-file|Type=partition|' "$TM/definitions/02-sums.transfer" >"$TM/bad-definitions/02-sums.transfer"
+(! "$SYSUPDATE" --definitions="$TM/bad-definitions" --verify=no list) |& grep -F "only supported for regular-file targets" >/dev/null
+rm -rf "$TM"
+
 # Check that the sources listed in the "contents" arrays of a UAPI.16 manifest are honoured: "file"
 # entries are fetched relative to Path= (not relative to ManifestPath=), "url" entries from the specified
 # URL, "literal" and "url" entries may carry the file embedded in more data (at "offset"), and alternative

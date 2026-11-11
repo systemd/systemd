@@ -130,7 +130,8 @@ int uapi16_object_check_validity(Uapi16Object *o) {
 
 bool uapi16_name_is_valid(const char *s) {
         /* The specification requires the "name" field to be a normalized, relative UTF-8 path without
-         * control characters, that does not clash with the name of the manifest file itself. */
+         * control characters, that does not clash with the name of the manifest file itself. Returns false
+         * for NULL, so that the result of functions such as path_startswith() may be passed in directly. */
 
         if (isempty(s))
                 return false;
