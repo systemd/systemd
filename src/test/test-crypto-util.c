@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "ask-password-api.h"
 #include "crypto-util.h"
 #include "iovec-util.h"
 #include "memory-util.h"
@@ -722,6 +723,18 @@ TEST(x509_new_self_signed) {
         ASSERT_EQ(sym_X509_verify(cert, key), 1);
 
         ASSERT_ERROR(x509_new_self_signed(key, "systemd test", UINT_MAX, &cert2), ERANGE);
+
+        _cleanup_free_ char *cert_pem = NULL;
+        ASSERT_OK(x509_to_pem(cert, &cert_pem));
+        ASSERT_TRUE(startswith(cert_pem, "-----BEGIN CERTIFICATE-----\n"));
+
+        _cleanup_(X509_freep) X509 *cert3 = NULL;
+        ASSERT_OK(openssl_load_x509_certificate_from_pem(&IOVEC_MAKE_STRING(cert_pem), &cert3, /* ret_more= */ NULL));
+
+        uint8_t fp[X509_FINGERPRINT_SIZE], fp3[X509_FINGERPRINT_SIZE];
+        ASSERT_OK(x509_fingerprint(cert, fp));
+        ASSERT_OK(x509_fingerprint(cert3, fp3));
+        ASSERT_EQ(memcmp(fp, fp3, sizeof(fp)), 0);
 }
 
 TEST(x509_new_self_signed_no_digest) {
@@ -747,6 +760,22 @@ TEST(x509_new_self_signed_no_digest) {
                 ASSERT_OK(x509_new_self_signed(key, "systemd test", 30, &cert));
                 ASSERT_EQ(sym_X509_verify(cert, key), 1);
         }
+}
+
+TEST(openssl_ask_password_ui_nested) {
+        OpenSSLAskPasswordUI *ui1 = NULL, *ui2 = NULL;
+        AskPasswordRequest request = {
+                .tty_fd = -EBADF,
+                .hup_fd = -EBADF,
+        };
+
+        /* ukify loads the PCR signing key while the UI of the Secure Boot key still exists. Freeing the
+         * inner UI must not reset the default UI method of the outer UI. openssl_ask_password_ui_free()
+         * asserts that the UI it frees is still the default. */
+        ASSERT_OK(openssl_ask_password_ui_new(&request, &ui1));
+        ASSERT_OK(openssl_ask_password_ui_new(&request, &ui2));
+        ui2 = openssl_ask_password_ui_free(ui2);
+        ui1 = openssl_ask_password_ui_free(ui1);
 }
 
 static int intro(void) {
