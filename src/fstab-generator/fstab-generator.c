@@ -706,8 +706,10 @@ static int add_mount(
                         return r;
         }
 
+        /* nofail mounts are not ordered before the target, so neither should their helper services be. */
+        const char *hook_up_target = FLAGS_SET(flags, MOUNT_NOFAIL) ? NULL : target_unit;
         if (flags & MOUNT_GROWFS) {
-                r = generator_hook_up_growfs(dest, where, target_unit);
+                r = generator_hook_up_growfs(dest, where, hook_up_target);
                 if (r < 0)
                         return r;
         }
@@ -717,25 +719,25 @@ static int add_mount(
                 if (r == 0)
                         log_debug("OS measurements not explicitly requested and kernel stub did not measure kernel image into PCR, skipping userspace measurement, too.");
                 else if (r > 0) {
-                        r = generator_hook_up_pcrfs(dest, where, target_unit);
+                        r = generator_hook_up_pcrfs(dest, where, hook_up_target);
                         if (r < 0)
                                 return r;
                 }
         }
 
         if (flags & MOUNT_VALIDATEFS) {
-                r = generator_hook_up_validatefs(dest, where, target_unit);
+                r = generator_hook_up_validatefs(dest, where, hook_up_target);
                 if (r < 0)
                         return r;
         }
 
         if (flags & MOUNT_QUOTA) {
-                r = generator_hook_up_quotacheck(dest, what, where, target_unit, fstype);
+                r = generator_hook_up_quotacheck(dest, what, where, hook_up_target, fstype);
                 if (r < 0) {
                         if (r != -EOPNOTSUPP)
                                 return r;
                 } else if (r > 0) {
-                        r = generator_hook_up_quotaon(dest, where, target_unit);
+                        r = generator_hook_up_quotaon(dest, where, hook_up_target);
                         if (r < 0)
                                 return r;
                 }
