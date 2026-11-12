@@ -1957,8 +1957,13 @@ static int verify_object(ManifestContext *c, int dir_fd, const Uapi16Object *o) 
                         manifest_verify_error(c, o->name, "Expected group name '%s', but found %s%s%s.", o->group_name, n ? "'" : "", n ?: "unresolvable GID", n ? "'" : "");
         }
 
-        if (FLAGS_SET(c->fields, MANIFEST_FIELD_MTIME) && o->mtime_nsec != NSEC_INFINITY && statx_timestamp_load_nsec(&sx.stx_mtime) != o->mtime_nsec)
-                manifest_verify_error(c, o->name, "Modification time mismatch.");
+        if (FLAGS_SET(c->fields, MANIFEST_FIELD_MTIME) && o->mtime_nsec != NSEC_INFINITY) {
+                nsec_t d = ABS_DIFF(statx_timestamp_load_nsec(&sx.stx_mtime), o->mtime_nsec);
+
+                if (d > c->timestamp_accuracy_nsec)
+                        manifest_verify_error(c, o->name, "Modification time deviates by %" PRIu64 "ns, which is more than the accepted %" PRIu64 "ns.",
+                                              d, c->timestamp_accuracy_nsec);
+        }
 
         if (FLAGS_SET(c->fields, MANIFEST_FIELD_USER_XATTR) && o->user_xattrs_set) {
                 r = verify_user_xattrs(c, o, fd);

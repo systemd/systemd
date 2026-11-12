@@ -1137,9 +1137,9 @@ static int context_show_version(Context *c, const char *version) {
                 if (r < 0)
                         return table_log_add_error(r);
 
-                if (i->metadata.mtime != USEC_INFINITY) {
+                if (i->metadata.mtime_nsec != NSEC_INFINITY) {
                         have_fs_attributes = true;
-                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_TIMESTAMP, &i->metadata.mtime);
+                        r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_TIMESTAMP, &(usec_t) { i->metadata.mtime_nsec / NSEC_PER_USEC });
                 } else
                         r = table_add_cell(t, /* ret_cell= */ NULL, TABLE_EMPTY, /* data= */ NULL);
                 if (r < 0)
@@ -2282,6 +2282,21 @@ static int context_install(
                         continue;
 
                 r = transfer_install_instance(t, inst, c->root);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Update the manifests only once everything else is in place, so that failing to do so does not
+         * leave the update half-installed. */
+        for (size_t i = 0; i < c->n_transfers; i++) {
+                Instance *inst = us->instances[i];
+                Transfer *t = c->transfers[i];
+
+                if (inst->resource == &t->target &&
+                    !inst->is_pending)
+                        continue;
+
+                r = transfer_install_instance_manifest(t, inst);
                 if (r < 0)
                         return r;
         }

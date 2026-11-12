@@ -95,6 +95,21 @@ systemd-manifest make --format=mtree --field=none "$ROOT" | grep -F "./regular.t
 # sha256sums needs the hash field
 (! systemd-manifest make --graceful --format=sha256sums --field=-hash "$ROOT")
 
+: "Modification times are verified with an accuracy of 2s by default (as FAT has), which is configurable"
+touch -d @1700000000.5 "$ROOT/regular.txt"
+systemd-manifest make --field=+mtime "$ROOT" >"$WORK/mtime.Uapi16Manifest"
+touch -d @1700000002.5 "$ROOT/regular.txt"
+systemd-manifest verify --verify-signature=no --field=+mtime "$ROOT" "$WORK/mtime.Uapi16Manifest"
+(! systemd-manifest verify --verify-signature=no --field=+mtime --timestamp-accuracy-sec=1s "$ROOT" "$WORK/mtime.Uapi16Manifest")
+touch -d @1700000002.500000001 "$ROOT/regular.txt"
+(! systemd-manifest verify --verify-signature=no --field=+mtime "$ROOT" "$WORK/mtime.Uapi16Manifest")
+systemd-manifest verify --verify-signature=no --field=+mtime --timestamp-accuracy-sec=1min "$ROOT" "$WORK/mtime.Uapi16Manifest"
+# Without a unit the value is in seconds
+systemd-manifest verify --verify-signature=no --field=+mtime --timestamp-accuracy-sec=3 "$ROOT" "$WORK/mtime.Uapi16Manifest"
+touch -d @1700000000.5 "$ROOT/regular.txt"
+systemd-manifest verify --verify-signature=no --field=+mtime --timestamp-accuracy-sec=0 "$ROOT" "$WORK/mtime.Uapi16Manifest"
+(! systemd-manifest verify --verify-signature=no --field=+mtime --timestamp-accuracy-sec=foo "$ROOT" "$WORK/mtime.Uapi16Manifest")
+
 : "Hash algorithm selection"
 systemd-manifest make --format=mtree --hash=sha512 "$ROOT" | grep -F " sha512sum=$(sha512sum "$ROOT/regular.txt" | cut -d' ' -f1)" >/dev/null
 systemd-manifest make --format=mtree --hash=sha256 "$ROOT" | cmp - "$WORK/tree.mtree"
