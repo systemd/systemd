@@ -284,7 +284,7 @@ bool proc_cmdline_key_streq(const char *x, const char *y) {
         return true;
 }
 
-static int cmdline_get_key(char **args, const char *key, ProcCmdlineFlags flags, char **ret_value) {
+static int cmdline_get_key_strv(char **args, const char *key, ProcCmdlineFlags flags, char **ret_value) {
         _cleanup_free_ char *v = NULL;
         bool found = false;
         int r;
@@ -359,7 +359,31 @@ int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **ret_val
         if (r < 0)
                 return r;
 
-        return cmdline_get_key(args, key, flags, ret_value);
+        return cmdline_get_key_strv(args, key, flags, ret_value);
+}
+
+int cmdline_get_key(const char *cmdline, const char *key, ProcCmdlineFlags flags, char **ret_value) {
+        _cleanup_strv_free_ char **args = NULL;
+        int r;
+
+        /* Like proc_cmdline_get_key(), but operates on the specified kernel command line string, rather than
+         * on the one of the running system. The string is split into words the same way as /proc/cmdline
+         * is. Note that the "rd." prefix handling (see ProcCmdlineFlags) still refers to the running
+         * system. */
+
+        assert(!FLAGS_SET(flags, PROC_CMDLINE_TRUE_WHEN_MISSING));
+
+        if (isempty(key))
+                return -EINVAL;
+
+        if (FLAGS_SET(flags, PROC_CMDLINE_VALUE_OPTIONAL) && !ret_value)
+                return -EINVAL;
+
+        r = strv_split_full(&args, strempty(cmdline), /* separators= */ NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
+        if (r < 0)
+                return r;
+
+        return cmdline_get_key_strv(args, key, flags, ret_value);
 }
 
 int proc_cmdline_get_bool(const char *key, ProcCmdlineFlags flags, bool *ret) {
