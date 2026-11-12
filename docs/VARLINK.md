@@ -7,6 +7,11 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 # General guideline
 
+- New Varlink APIs and extensions to existing APIs must follow the
+  [UAPI Varlink specification](https://uapi-group.org/specifications/specs/varlink/),
+  respecting its requirements, recommendations and permitted exceptions. The
+  guidelines below supplement it with systemd-specific conventions.
+
 - Varlink field names should use camelCase. This guideline does not apply to
   well-known and documented configuration options, such as those defined in
   [systemd.unit](https://www.freedesktop.org/software/systemd/man/latest/systemd.unit.html),
@@ -60,32 +65,32 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   as their underlying integer representations. Use `SD_VARLINK_DEFINE_ENUM_TYPE`
   to declare an enum type in the Varlink specification.
 
-- The Varlink IDL validator does not permit enum values that contain dashes.
-  Therefore, when defining an enum for Varlink, replace dashes with underscores.
+- Enum inputs and outputs must use the values declared in the IDL. When deriving
+  enum values from internal names, replace dashes with underscores.
+  `JSON_BUILD_STRING_UNDERSCORIFY` outputs a stringified enum value with dashes
+  converted to underscores. Use `JSON_DISPATCH_ENUM_DEFINE` for input
+  conversion: it first tries the value as-is via the supplied conversion
+  function, and if that fails, replaces underscores with dashes and retries.
 
-- Varlink interface should output enum values using the underscore form. For
-  input, it should accept both the original dash-containing form and the
-  underscore form. The following helpers simplify this:
-  * `JSON_BUILD_STRING_UNDERSCORIFY` - outputs a stringified enum value
-    with dashes converted to underscores.
-  * `JSON_DISPATCH_ENUM_DEFINE` - creates a `json_dispatch_*` function that
-    accepts both the original and the underscorified enum value as valid input.
-
-  For example, a `LogTarget` field outputs `"journal_or_kmsg"` (underscore
-  form), but on input both `"journal_or_kmsg"` and `"journal-or-kmsg"` are
-  accepted. This is handled automatically by `JSON_DISPATCH_ENUM_DEFINE`:
-  it first tries the value as-is via `_from_string()`, and if that fails,
-  replaces underscores with dashes and retries.
+- Existing string-typed inputs may continue accepting dashed aliases for
+  compatibility. Converting such an input to an enum would break clients that
+  use the dashed spelling.
 
 - An internal enum may be exposed as a simple string field instead of a Varlink
   enum type when the field is output-only and never provided or controlled by
-  the user. However, such fields should avoid using dashes to prevent breaking
-  changes if they are later converted into enums (see below).
+  the user. However, such fields should avoid using dashes to keep values
+  representable as enum members.
 
   For example, in `io.systemd.Unit`, configuration settings that users select
   in unit files (e.g. `ProtectSystem`, `ExecInputType`) should be proper varlink
   enum types. Runtime state fields that only the engine determines (e.g.
   `ActiveState`, `SubState`) may remain plain strings.
+
+- Under these rules, new inputs exposing internal enums accept only the declared
+  spelling. Accepting both dashed and underscored forms is limited to existing
+  string-typed inputs. Supporting both forms in new inputs would require either
+  adding alias support to IDL validation or an explicit exception permitting
+  string-typed inputs.
 
 - A varlink string field that has a finite set of possible values may later be
   converted into an enum without introducing a breaking change. This allows the
