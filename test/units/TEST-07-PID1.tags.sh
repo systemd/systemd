@@ -6,11 +6,18 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+rule=/etc/polkit-1/rules.d/00-unit-tags-bus-policy.rules
+
 at_exit() {
     set +e
-    systemctl stop test-tags.service test-tags-transient.service 2>/dev/null
-    rm -f /run/systemd/system/test-tags.service
+    systemctl stop test-tags{,-transient,-polkit}.service 2>/dev/null
+    rm -f /run/systemd/system/test-tags{,-polkit}.service
     systemctl daemon-reload
+
+    if [[ -e "$rule" ]]; then
+        rm -f "$rule"
+        systemctl try-reload-or-restart polkit.service
+    fi
 }
 
 trap at_exit EXIT
@@ -64,3 +71,27 @@ systemd-run -u test-tags-transient.service \
             -p "Tags=company.foobar company.backend.trigger-reason=api-event-123456789 app.tier=db" \
             sleep infinity
 validate_tags test-tags-transient.service
+
+mkdir -p "$(dirname "$rule")"
+cat >"$rule" <<EOF
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" && subject.user == "testuser") {
+        if (action.lookup("unit") == "test-tags-polkit.service" &&
+            action.lookup("verb") == "start" &&
+            action.lookup("tag.systemd.test") == "bypass-polkit" &&
+            action.lookup("btag.systemd.test") == "1")
+            return polkit.Result.YES;
+        return polkit.Result.NO;
+    }
+});
+EOF
+systemctl reload-or-restart polkit.service
+cat >/run/systemd/system/test-tags-polkit.service <<EOF
+[Unit]
+Tags=systemd.test=bypass-polkit systemd.test
+
+[Service]
+ExecStart=sleep infinity
+EOF
+systemctl daemon-reload
+runas testuser systemctl start test-tags.service

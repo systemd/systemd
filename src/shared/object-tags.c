@@ -60,6 +60,34 @@ static int object_tag_key(const char *tag, char **ret) {
         return 0;
 }
 
+int object_tag_split(const char *tag, char **ret_key, char **ret_value) {
+        assert(tag);
+
+        const char *eq = strchr(tag, '=');
+        if (!eq)
+                return -ENODATA;
+
+        _cleanup_free_ char *key = NULL;
+        if (ret_key) {
+                key = strndup(tag, eq - tag);
+                if (!key)
+                        return -ENOMEM;
+        }
+
+        _cleanup_free_ char *value = NULL;
+        if (ret_value) {
+                value = strdup(eq + 1);
+                if (!value)
+                        return -ENOMEM;
+        }
+
+        if (ret_key)
+                *ret_key = TAKE_PTR(key);
+        if (ret_value)
+                *ret_value = TAKE_PTR(value);
+        return 0;
+}
+
 int object_tag_list_is_valid(char **l, bool to_add) {
         int r;
 

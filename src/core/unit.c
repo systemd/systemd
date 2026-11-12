@@ -7374,6 +7374,35 @@ int unit_polkit_details(const UnitPolkitDetails *details, char ***ret) {
                         return -ENOMEM;
         }
 
+        if (!details->unit) {
+                *ret = TAKE_PTR(out);
+                return 0;
+        }
+
+        STRV_FOREACH(tag, details->unit->tags) {
+                _cleanup_free_ char *tag_name = NULL, *tag_value = NULL;
+                r = object_tag_split(*tag, &tag_name, &tag_value);
+                if (r < 0 && r != -ENODATA)
+                        return r;
+
+                if (r == -ENODATA) {
+                        /* machine-tags were designed with a quirk, that it's permissible for un-parameterized
+                         * and parameterized tags to have colliding names. This means we must use different
+                         * namespaces */
+                        tag_name = strjoin("btag.", *tag);
+                        tag_value = strdup("1");
+                } else {
+                        _cleanup_free_ char *prefixed_name = strjoin("tag.", tag_name);
+                        free_and_replace(tag_name, prefixed_name);
+                }
+                if (!tag_name || !tag_value)
+                        return -ENOMEM;
+
+                r = strv_consume_pair(&out, TAKE_PTR(tag_name), TAKE_PTR(tag_value));
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
         *ret = TAKE_PTR(out);
         return 0;
 }
