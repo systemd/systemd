@@ -16,6 +16,7 @@
 #include "in-addr-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
+#include "log-link.h"
 #include "resolve-varlink-util.h"
 #include "resolved-dns-browse-services.h"
 #include "resolved-dns-dnssec.h"
@@ -1607,6 +1608,64 @@ static int vl_method_link_set_domains(sd_varlink *link, sd_json_variant *paramet
         return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
+static int vl_method_link_set_dnssec_negative_trust_anchors(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                { "ifindex",              _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,           offsetof(DNSConfiguration, ifindex),                SD_JSON_MANDATORY|SD_JSON_RELAX },
+                { "negativeTrustAnchors", SD_JSON_VARIANT_ARRAY,         dispatch_negative_trust_anchors, offsetof(DNSConfiguration, negative_trust_anchors), SD_JSON_MANDATORY               },
+                {},
+        };
+        int r;
+
+        assert(link);
+
+        _cleanup_(dns_configuration_freep) DNSConfiguration *c = new0(DNSConfiguration, 1);
+        if (!c)
+                return log_oom();
+
+        r = sd_json_dispatch(parameters, dispatch_table, SD_JSON_LOG, c);
+        if (r < 0)
+                return r;
+
+        Link *l = NULL;
+        r = vl_get_link(link, c->ifindex, &l);
+        if (r < 0)
+                return r;
+
+        _cleanup_set_free_ Set *ns = NULL;
+        _cleanup_free_ char *list = NULL;
+        STRV_FOREACH(a, c->negative_trust_anchors) {
+                r = set_put_strdup_full(&ns, &dns_name_hash_ops_free, *a);
+                if (r < 0)
+                        return r;
+
+                if (!strextend_with_separator(&list, ", ", *a))
+                        return log_oom();
+        }
+
+        r = verify_polkit_full(
+                        link,
+                        parameters,
+                        "org.freedesktop.resolve1.set-dnssec-negative-trust-anchors",
+                        SD_JSON_ALLOW_EXTENSIONS,
+                        (const char**) STRV_MAKE("interface", l->ifname));
+        if (r <= 0)
+                return r;
+
+        if (!set_equal(ns, l->dnssec_negative_trust_anchors)) {
+                set_free_and_replace(l->dnssec_negative_trust_anchors, ns);
+
+                (void) link_save_user(l);
+
+                if (list)
+                        log_link_info(l, "Varlink client set NTA list to: %s", list);
+                else
+                        log_link_info(l, "Varlink client reset NTA list.");
+        }
+
+        return sd_varlink_reply(link, NULL);
+}
+
 static int varlink_monitor_server_init(Manager *m) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
         int r;
@@ -1682,18 +1741,19 @@ static int varlink_main_server_init(Manager *m) {
 
         r = sd_varlink_server_bind_method_many(
                         s,
-                        "io.systemd.Resolve.ResolveHostname",      vl_method_resolve_hostname,
-                        "io.systemd.Resolve.ResolveAddress",       vl_method_resolve_address,
-                        "io.systemd.Resolve.ResolveService",       vl_method_resolve_service,
-                        "io.systemd.Resolve.ResolveRecord",        vl_method_resolve_record,
-                        "io.systemd.service.Ping",                 varlink_method_ping,
-                        "io.systemd.service.SetLogLevel",          varlink_method_set_log_level,
-                        "io.systemd.service.GetLogLevel",          varlink_method_get_log_level,
-                        "io.systemd.service.GetEnvironment",       varlink_method_get_environment,
-                        "io.systemd.Resolve.BrowseServices",       vl_method_browse_services,
-                        "io.systemd.Resolve.DumpDNSConfiguration", vl_method_dump_dns_configuration,
-                        "io.systemd.Resolve.Link.SetDNS",          vl_method_link_set_dns,
-                        "io.systemd.Resolve.Link.SetDomains",      vl_method_link_set_domains);
+                        "io.systemd.Resolve.ResolveHostname",                    vl_method_resolve_hostname,
+                        "io.systemd.Resolve.ResolveAddress",                     vl_method_resolve_address,
+                        "io.systemd.Resolve.ResolveService",                     vl_method_resolve_service,
+                        "io.systemd.Resolve.ResolveRecord",                      vl_method_resolve_record,
+                        "io.systemd.service.Ping",                               varlink_method_ping,
+                        "io.systemd.service.SetLogLevel",                        varlink_method_set_log_level,
+                        "io.systemd.service.GetLogLevel",                        varlink_method_get_log_level,
+                        "io.systemd.service.GetEnvironment",                     varlink_method_get_environment,
+                        "io.systemd.Resolve.BrowseServices",                     vl_method_browse_services,
+                        "io.systemd.Resolve.DumpDNSConfiguration",               vl_method_dump_dns_configuration,
+                        "io.systemd.Resolve.Link.SetDNS",                        vl_method_link_set_dns,
+                        "io.systemd.Resolve.Link.SetDomains",                    vl_method_link_set_domains,
+                        "io.systemd.Resolve.Link.SetDNSSECNegativeTrustAnchors", vl_method_link_set_dnssec_negative_trust_anchors);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 

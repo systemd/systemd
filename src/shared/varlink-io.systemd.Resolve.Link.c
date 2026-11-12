@@ -44,6 +44,14 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("DNS search or route domains to configure on the link."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(searchDomains, SearchDomainContext, SD_VARLINK_ARRAY));
 
+static SD_VARLINK_DEFINE_METHOD(
+                SetDNSSECNegativeTrustAnchors,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("Index of the interface to configure."),
+                SD_VARLINK_DEFINE_INPUT(ifindex, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("DNSSEC negative trust anchors to configure on the link"),
+                SD_VARLINK_DEFINE_INPUT(negativeTrustAnchors, SD_VARLINK_STRING, SD_VARLINK_ARRAY));
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Resolve_Link,
                 "io.systemd.Resolve.Link",
@@ -58,4 +66,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("Search domain configuration input."),
                 &vl_type_SearchDomainContext,
                 SD_VARLINK_SYMBOL_COMMENT("Set the per-link search domain list."),
-                &vl_method_SetDomains);
+                &vl_method_SetDomains,
+                SD_VARLINK_SYMBOL_COMMENT("Set the per-link DNSSEC negative trust anchors."),
+                &vl_method_SetDNSSECNegativeTrustAnchors);
