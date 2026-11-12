@@ -878,9 +878,12 @@
         <citerefentry><refentrytitle>systemd-manifest</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <command>systemd-dissect --uapi16</command> and <command>systemd-repart --manifest=</command> do not
         include extended attributes in generated manifests by default, hence use
-        <command>systemd-manifest make --field=+user-xattr</command> (or
-        <command>systemd-repart --manifest-fields=+user-xattr</command>) to generate manifests that carry
-        them. When an instance is installed from a source
+        <command>systemd-manifest make --field=+user-xattr</command> to generate manifests that carry
+        them. The partition table manifest generated with <command>systemd-repart --manifest-gpt=</command>
+        (which is the one suitable for consumption by <command>systemd-sysupdate</command>) always carries
+        the extended attributes set with <option>--match-xattr-image-id=</option> and related options of
+        <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        regardless of <option>--manifest-fields=</option>. When an instance is installed from a source
         with a UAPI.16 manifest, the <literal>user</literal> extended attributes listed in the manifest are
         applied to the file or directory created (see <varname>ManifestFormat=</varname> above), hence the
         restrictions are retained. Installed instances are checked only if <varname>MatchXAttr=</varname> is
