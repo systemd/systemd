@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/mount.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -10,6 +11,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "initrd-util.h"
 #include "label-util.h"
 #include "log.h"
 #include "mkdir.h"
@@ -474,7 +476,7 @@ static int relabel_extra(void) {
 }
 #endif
 
-int mount_setup(bool loaded_policy, bool leave_propagation) {
+int mount_setup(bool loaded_policy, bool skip_setup) {
         int r;
 
         r = mount_points_setup(ELEMENTSOF(mount_table), loaded_policy);
@@ -516,9 +518,30 @@ int mount_setup(bool loaded_policy, bool leave_propagation) {
          * needed. Note that we set this only when we are invoked directly by the kernel. If we are invoked by a
          * container manager we assume the container manager knows what it is doing (for example, because it set up
          * some directories with different propagation modes). */
-        if (detect_container() <= 0 && !leave_propagation)
+        if (detect_container() <= 0 && !skip_setup)
                 if (mount(/* source= */ NULL, "/", /* filesystemtype= */ NULL, MS_REC|MS_SHARED, /* data= */ NULL) < 0)
                         log_warning_errno(errno, "Failed to set up the root directory for shared mount propagation: %m");
+
+        /* The kernel mounts its rootfs as a tmpfs if neither root= nor rootfstype= is specified on the kernel
+         * command line, or if rootfstype= contains "tmpfs". The root directory of a tmpfs has mode 1777 by
+         * default, hence the initrd of a UKI boot runs with a world-writable root directory. chase() with
+         * CHASE_MAX_MODE fails for every path below a directory that is writable for others, hence
+         * systemd-keyring-setup cannot read any certificate in such an initrd. Remove the write bit for
+         * others before any service starts. On the host, tmpfiles.d/root.conf sets the mode of the root
+         * directory. skip_setup is set on daemon-reexec, the mode is not changed then. */
+        if (!skip_setup && in_initrd()) {
+                struct stat st;
+
+                if (stat("/", &st) < 0)
+                        log_warning_errno(errno, "Failed to stat the root directory, ignoring: %m");
+                else if (st.st_mode & S_IWOTH) {
+                        mode_t m = st.st_mode & 07777 & ~S_IWOTH;
+
+                        log_debug("Root directory has mode %04o, changing to %04o.", st.st_mode & 07777, m);
+                        if (chmod("/", m) < 0)
+                                log_warning_errno(errno, "Failed to change the mode of the root directory, ignoring: %m");
+                }
+        }
 
         /* Create a few directories we always want around, Note that sd_booted() checks for /run/systemd/system, so
          * this mkdir really needs to stay for good, otherwise software that copied sd-daemon.c into their sources will
