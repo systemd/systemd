@@ -947,6 +947,16 @@ units = [
           'file' : 'systemd-rfkill.socket',
           'conditions' : ['ENABLE_RFKILL'],
         },
+        {
+          'file' : 'systemd-rtwatchd.service.in',
+          'conditions' : ['ENABLE_RTWATCH'],
+          'symlinks' : ['dbus-org.freedesktop.RealtimeKit1.service'],
+        },
+        {
+          'file' : 'systemd-rtwatchd.socket',
+          'conditions' : ['ENABLE_RTWATCH'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
         { 'file' : 'systemd-soft-reboot.service' },
         {
           'file' : 'systemd-suspend-then-hibernate.service.in',

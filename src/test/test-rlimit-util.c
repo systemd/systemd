@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "capability-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "string-util.h"
@@ -185,6 +186,47 @@ TEST(pid_getrlimit) {
                         _exit(EXIT_SUCCESS);
                 }
         }
+}
+
+TEST(pidref_getrlimit) {
+        _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
+        struct rlimit direct, indirect;
+        int r;
+
+        ASSERT_ERROR(pidref_getrlimit(&PIDREF_NULL, RLIMIT_NOFILE, &indirect), ESRCH);
+        ASSERT_ERROR(pidref_getrlimit(&(const PidRef) { .pid = 1, .fd = -EREMOTE }, RLIMIT_NOFILE, &indirect), EREMOTE);
+
+        for (int resource = 0; resource < _RLIMIT_MAX; resource++) {
+                ASSERT_OK_ERRNO(getrlimit(resource, &direct));
+                ASSERT_OK(pidref_getrlimit(&PIDREF_MAKE_FROM_PID(getpid_cached()), resource, &indirect));
+                ASSERT_EQ(direct.rlim_cur, indirect.rlim_cur);
+                ASSERT_EQ(direct.rlim_max, indirect.rlim_max);
+        }
+
+        /* Read the limits of a child with RLIMIT_RTTIME changed */
+        r = pidref_safe_fork("(getrlimit)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_LOG, &child);
+        ASSERT_OK(r);
+        if (r == 0) {
+                /* child */
+                ASSERT_OK_ERRNO(setrlimit(RLIMIT_RTTIME, &RLIMIT_MAKE_CONST(4711)));
+                freeze();
+        }
+
+        /* Wait until the child changed its limit */
+        for (;;) {
+                ASSERT_OK(pidref_getrlimit(&child, RLIMIT_RTTIME, &indirect));
+                if (indirect.rlim_max == 4711)
+                        break;
+
+                usleep_safe(10 * USEC_PER_MSEC);
+        }
+        ASSERT_EQ(indirect.rlim_cur, (rlim_t) 4711);
+
+        /* Once the child is gone, this fails with ESRCH */
+        ASSERT_OK(pidref_kill(&child, SIGKILL));
+        ASSERT_OK(pidref_wait_for_terminate(&child, /* ret_si= */ NULL));
+        ASSERT_ERROR(pidref_getrlimit(&child, RLIMIT_RTTIME, &indirect), ESRCH);
+        pidref_done(&child);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

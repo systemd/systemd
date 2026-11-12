@@ -1,0 +1,49 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Realtime Scheduling Policy Service
+Documentation=man:systemd-rtwatchd.service(8) man:rtwatchd.conf(5)
+After=systemd-sysusers.service
+
+[Service]
+Type=notify
+BusName=org.freedesktop.RealtimeKit1
+ExecStart={{LIBEXECDIR}}/systemd-rtwatchd
+User=systemd-rtwatch
+# CAP_SYS_NICE is needed to change scheduling parameters of other users' threads, CAP_DAC_READ_SEARCH to
+# verify their resource limits.
+AmbientCapabilities=CAP_SYS_NICE CAP_DAC_READ_SEARCH
+CapabilityBoundingSet=CAP_SYS_NICE CAP_DAC_READ_SEARCH
+IPAddressDeny=any
+LimitFSIZE=0
+LimitMEMLOCK=0
+LimitMSGQUEUE=0
+LimitRTPRIO=0
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+PrivateTmp=disconnected
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectSystem=strict
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service
+{{SERVICE_WATCHDOG}}
