@@ -23,6 +23,7 @@
 # ServerCertificateFile={{CERTIFICATE_ROOT}}/certs/journal-remote.pem
 # TrustedCertificateFile={{CERTIFICATE_ROOT}}/ca/trusted.pem
 # AddClientCertificateSubject=false
+# MaxUploadSizeBytes=
 # MaxUse=
 # KeepFree=
 # MaxFileSize=
