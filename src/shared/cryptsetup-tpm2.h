@@ -30,8 +30,11 @@ int acquire_tpm2_key(
                 usec_t until,
                 const char *askpw_credential,
                 AskPasswordFlags askpw_flags,
+                const char *pin,
                 const Argon2IdParameters *argon2id_params,
                 struct iovec *ret_decrypted_key);
+
+bool tpm2_slot_needs_pin(TPM2Flags flags);
 
 int cryptsetup_tpm2_unlock_auto(
                 struct crypt_device *cd,

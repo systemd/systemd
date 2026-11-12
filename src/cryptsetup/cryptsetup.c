@@ -1979,6 +1979,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
         _cleanup_(iovec_done_erase) struct iovec decrypted_key = {};
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(erase_and_freep) char *pin = NULL;
         _cleanup_free_ char *friendly = NULL;
         int keyslot = arg_key_slot, r;
 
@@ -1989,6 +1990,16 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
         friendly = friendly_disk_name(sym_crypt_get_device_name(cd), name);
         if (!friendly)
                 return log_oom();
+
+        /* Every TPM2 slot tried below gets the same $PIN. It is removed from the environment once a slot that
+         * needs a PIN has tried it, so that the fallback methods don't hand it to e.g. a FIDO2 token. A slot
+         * whose hardware is missing (-EAGAIN) has not tried it. */
+        const char *e = secure_getenv("PIN");
+        if (e) {
+                pin = strdup(e);
+                if (!pin)
+                        return log_oom();
+        }
 
         for (;;) {
                 if (key_file || iovec_is_set(key_data)) {
@@ -2016,8 +2027,11 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         until,
                                         "cryptsetup.tpm2-pin",
                                         arg_ask_password_flags,
+                                        pin,
                                         /* argon2id_params= */ NULL,
                                         &decrypted_key);
+                        if (arg_tpm2_pin && r != -EAGAIN)
+                                (void) getenv_steal_erase("PIN", /* ret= */ NULL);
                         if (r >= 0)
                                 break;
                         if (IN_SET(r, -EACCES, -ENOLCK))
@@ -2129,8 +2143,11 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 until,
                                                 "cryptsetup.tpm2-pin",
                                                 arg_ask_password_flags,
+                                                pin,
                                                 &argon2id_params,
                                                 &decrypted_key);
+                                if (r != -EAGAIN && tpm2_slot_needs_pin(tpm2_flags))
+                                        (void) getenv_steal_erase("PIN", /* ret= */ NULL);
                                 if (IN_SET(r, -EACCES, -ENOLCK))
                                         return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 PIN unlock failed, falling back to traditional unlocking.");
                                 /* Stop unless we should keep iterating to next token because the tried one
