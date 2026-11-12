@@ -11,6 +11,8 @@ int object_tag_list_is_valid(char **l, bool to_add);
 int object_tags_from_string(const char *s, const char *separators, bool graceful, char ***ret);
 int object_tags_from_strv(char **l, bool graceful, char ***ret);
 
+int object_tag_split(const char *tag, char **ret_key, char **ret_value);
+
 int object_tags_edit(char* const *base, char* const *add, char* const *remove, char ***ret);
 
 static inline int machine_tags_from_string(const char *s, bool graceful, char ***ret) {
