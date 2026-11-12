@@ -668,8 +668,10 @@ jobs:
 
           A clone of the latest UAPI Group specifications with full history is at ${uapi}.
           When a finding depends on a UAPI specification, such as the Boot Loader Specification,
-          Discoverable Partitions Specification, Unified Kernel Images, or extension images, check
-          the specification in ${uapi}/specs instead of relying on memory."
+          Discoverable Partitions Specification, Unified Kernel Images, extension images, or Varlink IPC,
+          check the specification in ${uapi}/specs instead of relying on memory.
+          Cite the section supporting each specification-based finding.
+          Distinguish requirements from recommendations and respect permitted exceptions."
           fi
 
           # semcode answers lookups by name and call graph from the indexes built
@@ -922,7 +924,8 @@ jobs:
             [correctness]="logic errors, edge cases, error paths, invalid memory access, leaks, integer and buffer errors, and wrong return-value handling"
             [lifetimes]="ownership, reference counting, cleanup, reentrancy, event-loop and asynchronous behavior, locking, signal safety, and state machine invariants"
             [security]="untrusted input, parsing, bounds, denial of service, privilege boundaries, filesystem attacks, format strings, and TOCTOU races"
-            [architecture]="subsystem design, public and internal interfaces, behavioral compatibility, layering, and integration with existing systemd components"
+            [architecture]="subsystem design, internal interfaces, layering, and integration with existing systemd components"
+            [api]="public API and ABI compatibility, caller-visible behavior, CLI and configuration contracts (including unit files), D-Bus and Varlink contracts, protocol compliance, and consistency between definitions and implementations"
             [style]="docs/CODING_STYLE.md, the rules in AGENTS.md, systemd idioms, naming, error propagation, cleanup patterns, dead code, and needless complexity"
             [tests]="whether tests exercise the changed behavior and its failure paths, and whether existing tests or fixtures need updating"
           )

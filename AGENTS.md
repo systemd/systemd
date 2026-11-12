@@ -24,6 +24,7 @@ Always consult these files as needed:
 - `docs/HACKING.md` — development workflow with mkosi
 - `docs/CODING_STYLE.md` — full style guide (must-read before writing code)
 - `docs/CONTRIBUTING.md` — contribution guidelines and PR workflow
+- `docs/PORTABILITY_AND_STABILITY.md` — interface stability guarantees and compatibility policy
 - `docs/VARLINK.md` — Varlink API guidelines. Read in full before writing or reviewing changes to
   Varlink APIs, and apply its requirements, recommendations, and exceptions to interface definitions
   and implementations.
