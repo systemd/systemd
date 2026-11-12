@@ -179,6 +179,7 @@ void termios_reset(const TermiosResetContext *c);
 #define FALLBACK_TERM "vt220"
 
 int get_default_background_color(double *ret_red, double *ret_green, double *ret_blue);
+int terminal_query(int input_fd, int output_fd, unsigned *ret_rows, unsigned *ret_columns, char **ret_terminfo);
 int terminal_get_size(int input_fd, int output_fd, unsigned *ret_rows, unsigned *ret_columns, bool try_dsr, bool try_csi18);
 int terminal_fix_size(int input_fd, int output_fd);
 

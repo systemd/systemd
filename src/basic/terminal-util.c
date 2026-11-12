@@ -16,6 +16,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "ansi-seq.h"
 #include "ansi-color.h"
 #include "chase.h"
 #include "devnum-util.h"
@@ -2506,13 +2507,6 @@ static int terminal_prepare_query(
         assert(ret_nonblock_fd);
         assert(ret_saved_termios);
 
-        /* Use getenv_terminal_is_dumb() instead of terminal_is_dumb() here since we operate on an
-         * explicitly passed fd, not on stdio. terminal_is_dumb() additionally checks on_tty() which
-         * tests whether *stderr* is a tty — that's irrelevant when we're querying a directly opened
-         * terminal such as /dev/console. */
-        if (getenv_terminal_is_dumb())
-                return -EOPNOTSUPP;
-
         r = terminal_verify_same(input_fd, output_fd);
         if (r < 0)
                 return log_debug_errno(r, "Called with distinct input/output fds: %m");
@@ -2646,6 +2640,9 @@ int terminal_get_size(
 
         assert(try_dsr || try_csi18);
 
+        if (getenv_terminal_is_dumb())
+                return -EOPNOTSUPP;
+
         r = terminal_prepare_query(input_fd, output_fd, &nonblock_input_fd, &old_termios);
         if (r < 0)
                 return r;
@@ -2683,6 +2680,336 @@ int terminal_get_size(
         }
 
         return r;
+}
+
+/* The queries we pipeline in terminal_query(), in the order we submit them: the ones least likely to be
+ * supported first, the one most likely to be supported last. Terminals process their input strictly in
+ * order, hence once the reply to the last query arrived, all replies to earlier queries that will ever
+ * arrive have arrived too, and we don't have to wait for a timeout. */
+
+/* XTGETTCAP for the "name" capability, i.e. the terminfo name, see
+ * https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h3-Device-Control-functions. The reply is
+ * either DCS 1+r <hex name>=<hex value> ST (OK) or DCS 0+r… ST (unsupported).
+ *
+ * python -c 'print("".join(hex(ord(i))[2:] for i in "name").upper())' */
+#define XTGETTCAP_NAME_HEX "6E616D65"
+#define XTGETTCAP_NAME_QUERY ANSI_DCS "+q" XTGETTCAP_NAME_HEX ANSI_ST
+#define XTGETTCAP_NAME_REPLY "1+r" XTGETTCAP_NAME_HEX "="
+#define MAX_TERMINFO_LENGTH 64 /* in hex characters */
+
+/* Report the size of the text area in characters, see https://terminalguide.namepad.de/seq/csi_st-18/ and
+ * https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h3-Functions-using-CSI-_-ordered-by-the-final-character_s_.
+ * The reply is CSI 8;<rows>;<columns>t. */
+#define CSI18_QUERY "\x1B[18t"
+
+/* Determine terminal dimensions by moving the cursor far to the bottom right (which is clamped to the actual
+ * terminal dimensions), and then read back via DSR where we ended up. Use DECSC/DECRC to save/restore the
+ * cursor, so that it is always restored, even if we never read the reply. The reply is CSI <row>;<column>R
+ * (CPR). */
+#define DSR_SIZE_QUERY                                                  \
+        "\x1B" "7"              /* DECSC: save cursor position */      \
+        "\x1B[32766;32766H"     /* CUP: position cursor far to the right and to the bottom, staying within 16bit signed range */ \
+        "\x1B[6n"               /* DSR: request cursor position (CPR) */ \
+        "\x1B" "8"              /* DECRC: restore cursor position */
+#define DSR_SIZE_REPLY_MIN "\x1B[1;1R"
+
+/* Primary Device Attributes (DA1), only used as end marker if we do not query the size, since it has no side
+ * effects and is supported by pretty much any terminal. The reply is CSI ?…c. */
+#define DA1_QUERY "\x1B[c"
+#define DA1_REPLY_MIN "\x1B[?c"
+
+typedef struct TerminalQueryContext {
+        AnsiSeqParser parser;
+        bool want_size;
+        bool want_terminfo;
+        unsigned csi18_rows, csi18_columns;   /* UINT_MAX if not received */
+        unsigned dsr_rows, dsr_columns;       /* ditto */
+        char *terminfo;                       /* NULL if not received */
+        bool done;                            /* reply to last query received */
+} TerminalQueryContext;
+
+static void terminal_query_context_done(TerminalQueryContext *c) {
+        assert(c);
+
+        ansi_seq_parser_done(&c->parser);
+        c->terminfo = mfree(c->terminfo);
+}
+
+static int parse_csi_number_pair(const char *s, char final, unsigned *ret_a, unsigned *ret_b) {
+        int r;
+
+        assert(s);
+        assert(ret_a);
+        assert(ret_b);
+
+        /* Parses "<a>;<b><final>", where a and b are unsigned decimal numbers > 0 */
+
+        const char *e = endswith(s, CHAR_TO_STR(final));
+        if (!e)
+                return -EINVAL;
+
+        _cleanup_free_ char *a = strndup(s, e - s);
+        if (!a)
+                return -ENOMEM;
+
+        char *b = strchr(a, ';');
+        if (!b)
+                return -EINVAL;
+        *(b++) = 0;
+
+        unsigned x, y;
+        r = safe_atou_full(a, 10 | SAFE_ATO_ALL_FLAGS, &x);
+        if (r < 0)
+                return r;
+        r = safe_atou_full(b, 10 | SAFE_ATO_ALL_FLAGS, &y);
+        if (r < 0)
+                return r;
+        if (x == 0 || y == 0)
+                return -EINVAL;
+
+        *ret_a = x;
+        *ret_b = y;
+        return 0;
+}
+
+static int terminal_query_process_terminfo(TerminalQueryContext *c, const char *s) {
+        int r;
+
+        assert(c);
+        assert(s);
+
+        if (!c->want_terminfo || c->terminfo)
+                return 0;
+
+        const char *p = startswith(s, XTGETTCAP_NAME_REPLY);
+        if (!p) {
+                log_debug("Terminal does not report terminfo name via XTGETTCAP, ignoring.");
+                return 0;
+        }
+
+        size_t l = strlen(p);
+        if (l == 0 || l > MAX_TERMINFO_LENGTH) {
+                log_debug("Terminal reported terminfo name of invalid length via XTGETTCAP, ignoring.");
+                return 0;
+        }
+
+        _cleanup_free_ char *dec = NULL;
+        r = unhexmem_full(p, l, /* secure= */ false, (void**) &dec, &l);
+        if (r == -ENOMEM)
+                return r;
+        if (r < 0) {
+                log_debug_errno(r, "Terminal reported terminfo name that is not valid hex, ignoring: %m");
+                return 0;
+        }
+
+        /* unhexmem appends NUL for our convenience, but term_env_valid() can't see embedded NULs, hence
+         * check for them explicitly. */
+        assert(dec[l] == '\0');
+        if (memchr(dec, '\0', l) || !term_env_valid(dec)) {
+                log_debug("Terminal reported invalid terminfo name via XTGETTCAP, ignoring.");
+                return 0;
+        }
+
+        c->terminfo = TAKE_PTR(dec);
+        return 0;
+}
+
+static int terminal_query_process_csi(TerminalQueryContext *c, const char *s) {
+        unsigned a, b;
+        int r;
+
+        assert(c);
+        assert(s);
+
+        if (c->want_size) {
+                const char *p = startswith(s, "8;");
+                if (p) {
+                        r = parse_csi_number_pair(p, 't', &a, &b);
+                        if (r == -ENOMEM)
+                                return r;
+                        if (r >= 0) {
+                                c->csi18_rows = a;
+                                c->csi18_columns = b;
+                                return 0;
+                        }
+                }
+
+                r = parse_csi_number_pair(s, 'R', &a, &b);
+                if (r == -ENOMEM)
+                        return r;
+                if (r >= 0) {
+                        /* Superficial validity checks (no particular reason to check for < 4, it's just a way
+                         * to look for unreasonably small values). Note that this also filters out keypresses
+                         * that look like a CPR, such as Ctrl-F3 (CSI 1;5R). Hence if this check fails, we
+                         * don't consider the query done, but keep waiting for the real reply. */
+                        if (a < 4 || b < 4 || a >= 32766 || b >= 32766)
+                                return 0;
+
+                        c->dsr_rows = a;
+                        c->dsr_columns = b;
+                        c->done = true;
+                }
+
+                return 0;
+        }
+
+        /* If we don't query the size, DA1 is the last query */
+        if (s[0] == '?' && endswith(s, "c"))
+                c->done = true;
+
+        return 0;
+}
+
+static int terminal_query_feed(TerminalQueryContext *c, char ch) {
+        int r;
+
+        assert(c);
+
+        r = ansi_seq_parser_feed_harder(&c->parser, ch);
+        if (r < 0)
+                return r;
+        if (r != ANSI_SEQ_EVENT_END)
+                return 0;
+
+        const char *s = ansi_seq_parser_string(&c->parser);
+        if (!s)
+                return 0;
+
+        switch (c->parser.introducer) {
+        case 'P':
+                return terminal_query_process_terminfo(c, s);
+        case '[':
+                return terminal_query_process_csi(c, s);
+        default:
+                return 0; /* Something else, ignore */
+        }
+}
+
+int terminal_query(
+                int input_fd,
+                int output_fd,
+                unsigned *ret_rows,
+                unsigned *ret_columns,
+                char **ret_terminfo) {
+
+        _cleanup_close_ int nonblock_input_fd = -EBADF;
+        struct termios old_termios = TERMIOS_NULL;
+        CLEANUP_TERMIOS_RESET(nonblock_input_fd, old_termios);
+        _cleanup_(nonblock_resetp) int nonblock_reset = -EBADF;
+        _cleanup_(terminal_query_context_done) TerminalQueryContext c = {
+                .parser.capture = true,
+                .want_size = ret_rows || ret_columns,
+                .want_terminfo = ret_terminfo,
+                .csi18_rows = UINT_MAX,
+                .csi18_columns = UINT_MAX,
+                .dsr_rows = UINT_MAX,
+                .dsr_columns = UINT_MAX,
+        };
+        int r;
+
+        assert(input_fd >= 0);
+        assert(output_fd >= 0);
+        assert(c.want_size || c.want_terminfo);
+
+        /* Queries the terminal dimensions and/or the terminfo name of the terminal by means of ANSI
+         * sequences. All queries are submitted at once, and we only wait for a single timeout. Returns 0 if
+         * at least one of the requested pieces of information was acquired, in which case the others are
+         * initialized to UINT_MAX/NULL. Returns -EOPNOTSUPP if none was acquired.
+         *
+         * Use getenv_terminal_is_dumb() instead of terminal_is_dumb() here since we operate on an
+         * explicitly passed fd, not on stdio. terminal_is_dumb() additionally checks on_tty() which tests
+         * whether *stderr* is a tty — that's irrelevant when we're querying a directly opened terminal such
+         * as /dev/console. If the terminfo is requested, the caller doesn't know what $TERM should be, hence
+         * don't check it in that case (getenv_terminal_is_dumb() returns true if $TERM is unset). */
+        if (!c.want_terminfo && getenv_terminal_is_dumb())
+                return -EOPNOTSUPP;
+
+        r = terminal_prepare_query(input_fd, output_fd, &nonblock_input_fd, &old_termios);
+        if (r < 0)
+                return r;
+
+        /* Put the output fd in non-blocking mode with a write timeout, to avoid blocking indefinitely on
+         * write if the terminal is not consuming data (e.g. serial console with flow control). */
+        r = fd_nonblock(output_fd, /* nonblock= */ true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to set terminal to non-blocking mode: %m");
+        if (r > 0)
+                nonblock_reset = output_fd;
+
+        /* Flush any stale input that might confuse the response parser. */
+        (void) tcflush(nonblock_input_fd, TCIFLUSH);
+
+        const char *query = strjoina(
+                        c.want_terminfo ? XTGETTCAP_NAME_QUERY : "",
+                        c.want_size ? CSI18_QUERY DSR_SIZE_QUERY : DA1_QUERY);
+
+        r = loop_write_full(output_fd, query, SIZE_MAX, CONSOLE_ANSI_SEQUENCE_TIMEOUT_USEC);
+        if (r < 0)
+                return r;
+
+        /* The shortest reply possible to the last query. Since that one always comes last, we can read that
+         * much in one go, without risking to read beyond the end of the replies, and drop characters from
+         * the input queue that are not ours. */
+        size_t min_reply = c.want_size ? STRLEN(DSR_SIZE_REPLY_MIN) : STRLEN(DA1_REPLY_MIN);
+
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_ANSI_SEQUENCE_TIMEOUT_USEC);
+        for (size_t total = 0; !c.done;) {
+                char buf[MAX(STRLEN(DSR_SIZE_REPLY_MIN), STRLEN(DA1_REPLY_MIN))];
+
+                usec_t n = now(CLOCK_MONOTONIC);
+                if (n >= end)
+                        break;
+
+                /* After the first read, read byte-wise, since we don't want to read too much */
+                ssize_t l = read(nonblock_input_fd, buf, total == 0 ? min_reply : 1);
+                if (l < 0) {
+                        if (errno != EAGAIN)
+                                return -errno;
+
+                        r = fd_wait_for_event(nonblock_input_fd, POLLIN, usec_sub_unsigned(end, n));
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        continue;
+                }
+                if (l == 0)
+                        break;
+
+                assert((size_t) l <= sizeof(buf));
+                total += l;
+
+                FOREACH_ARRAY(ch, buf, l) {
+                        r = terminal_query_feed(&c, *ch);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        /* Flush whatever might still be coming in, if we timed out */
+        if (!c.done)
+                (void) tcflush(nonblock_input_fd, TCIFLUSH);
+
+        /* Prefer the CSI 18 reply, since it reports the size of the text area directly */
+        unsigned rows = c.csi18_rows, columns = c.csi18_columns;
+        if (rows == UINT_MAX || columns == UINT_MAX) {
+                rows = c.dsr_rows;
+                columns = c.dsr_columns;
+        }
+
+        bool have_size = rows != UINT_MAX && columns != UINT_MAX;
+        if (!(c.want_size && have_size) && !c.terminfo)
+                return -EOPNOTSUPP;
+
+        if (ret_rows)
+                *ret_rows = rows;
+        if (ret_columns)
+                *ret_columns = columns;
+        if (ret_terminfo)
+                *ret_terminfo = TAKE_PTR(c.terminfo);
+
+        return 0;
 }
 
 static int fd_is_vc(int fd) {
@@ -2735,7 +3062,6 @@ int terminal_fix_size(int input_fd, int output_fd) {
         return 1;
 }
 
-#define MAX_TERMINFO_LENGTH 64
 /* python -c 'print("".join(hex(ord(i))[2:] for i in "name").upper())' */
 #define DCS_TERMINFO_Q ANSI_DCS "+q" "6E616D65" ANSI_ST
 /* The answer is either 0+r… (invalid) or 1+r… (OK). */
