@@ -52,6 +52,14 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("DNSSEC negative trust anchors to configure on the link"),
                 SD_VARLINK_DEFINE_INPUT(negativeTrustAnchors, SD_VARLINK_STRING, SD_VARLINK_ARRAY));
 
+static SD_VARLINK_DEFINE_METHOD(
+                SetDNSDefaultRoute,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("Index of the interface to configure."),
+                SD_VARLINK_DEFINE_INPUT(ifindex, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether this link can be used as a default route for DNS lookups."),
+                SD_VARLINK_DEFINE_INPUT(defaultRoute, SD_VARLINK_BOOL, 0));
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Resolve_Link,
                 "io.systemd.Resolve.Link",
@@ -68,4 +76,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("Set the per-link search domain list."),
                 &vl_method_SetDomains,
                 SD_VARLINK_SYMBOL_COMMENT("Set the per-link DNSSEC negative trust anchors."),
-                &vl_method_SetDNSSECNegativeTrustAnchors);
+                &vl_method_SetDNSSECNegativeTrustAnchors,
+                SD_VARLINK_SYMBOL_COMMENT("Set the per-link DNS default route setting."),
+                &vl_method_SetDNSDefaultRoute,
+                SD_VARLINK_SYMBOL_COMMENT("Set the per-link LLMNR mode."));
