@@ -153,3 +153,4 @@ extern const struct hash_ops dns_configuration_hash_ops;
 
 int dispatch_dns_server_context_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int dispatch_search_domain_context_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
+int dispatch_negative_trust_anchors(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);

@@ -653,7 +653,7 @@ static int dispatch_dns_scope_array(const char *name, sd_json_variant *variant, 
         return 0;
 }
 
-static int dispatch_negative_trust_anchors(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+int dispatch_negative_trust_anchors(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         char ***ret = ASSERT_PTR(userdata);
         int r;
 
