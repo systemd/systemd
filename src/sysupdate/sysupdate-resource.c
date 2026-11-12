@@ -961,6 +961,7 @@ static int uapi16_process(
                         f,
                         certificates,
                         n_certificates,
+                        LOG_ERR,
                         uapi16_process_object,
                         &(Uapi16ProcessContext) {
                                 .resource = rr,

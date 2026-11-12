@@ -1249,7 +1249,7 @@ static int read_records(const char *root_fields, char * const *names) {
         ASSERT_NOT_NULL(strextend(&buf, "\x1e{\"mediaType\":\"" UAPI16_TRAILER_MEDIA_TYPE "\"}\n"));
 
         ASSERT_NOT_NULL(f = fmemopen_unlocked(buf, strlen(buf), "r"));
-        return uapi16_manifest_read(f, /* certificates= */ NULL, /* n_certificates= */ 0, ignore_object, /* userdata= */ NULL);
+        return uapi16_manifest_read(f, /* certificates= */ NULL, /* n_certificates= */ 0, LOG_ERR, ignore_object, /* userdata= */ NULL);
 }
 
 TEST(uapi16_manifest_read_placement) {
@@ -1864,7 +1864,7 @@ static int read_buffer(const char *buf, size_t size, X509 *const *certificates, 
         ASSERT_NOT_NULL(f = fmemopen_unlocked((void*) buf, size, "r"));
 
         *ret_n_objects = 0;
-        return uapi16_manifest_read(f, certificates, n_certificates, count_objects, ret_n_objects);
+        return uapi16_manifest_read(f, certificates, n_certificates, LOG_ERR, count_objects, ret_n_objects);
 }
 
 static void test_signed_one(
