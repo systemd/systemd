@@ -279,6 +279,7 @@ size_t option_parser_get_n_args(const OptionParser *state);
 char* option_parser_get_arg(const OptionParser *state, size_t i);
 
 char* option_get_synopsis(const Option *opt, const char *joiner, bool show_metavar);
+bool option_group_selected(const char *option_groups, const char *group);
 
 bool options_find_namespace(
                 const Option options[],
