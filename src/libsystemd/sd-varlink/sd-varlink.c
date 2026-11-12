@@ -1257,7 +1257,7 @@ static int varlink_dispatch_fiber(sd_varlink *v, const char *method, sd_varlink_
 
 static int varlink_dispatch_method(sd_varlink *v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
-        sd_varlink_method_flags_t flags = 0;
+        sd_varlink_method_flags_t flags = 0, seen_flags = 0;
         const char *method = NULL;
         sd_json_variant *e;
         sd_varlink_method_t callback;
@@ -1294,8 +1294,9 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                 } else if (streq(k, "oneway")) {
 
-                        if ((flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE|SD_VARLINK_METHOD_UPGRADE)) != 0)
+                        if (FLAGS_SET(seen_flags, SD_VARLINK_METHOD_ONEWAY))
                                 goto invalid;
+                        seen_flags |= SD_VARLINK_METHOD_ONEWAY;
 
                         if (!sd_json_variant_is_boolean(e))
                                 goto invalid;
@@ -1305,8 +1306,9 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                 } else if (streq(k, "more")) {
 
-                        if ((flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE|SD_VARLINK_METHOD_UPGRADE)) != 0)
+                        if (FLAGS_SET(seen_flags, SD_VARLINK_METHOD_MORE))
                                 goto invalid;
+                        seen_flags |= SD_VARLINK_METHOD_MORE;
 
                         if (!sd_json_variant_is_boolean(e))
                                 goto invalid;
@@ -1316,8 +1318,9 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                 } else if (streq(k, "upgrade")) {
 
-                        if ((flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE|SD_VARLINK_METHOD_UPGRADE)) != 0)
+                        if (FLAGS_SET(seen_flags, SD_VARLINK_METHOD_UPGRADE))
                                 goto invalid;
+                        seen_flags |= SD_VARLINK_METHOD_UPGRADE;
 
                         if (!sd_json_variant_is_boolean(e))
                                 goto invalid;
@@ -1328,6 +1331,11 @@ static int varlink_dispatch_method(sd_varlink *v) {
                 } else
                         goto invalid;
         }
+
+        if (FLAGS_SET(flags, SD_VARLINK_METHOD_ONEWAY) +
+            FLAGS_SET(flags, SD_VARLINK_METHOD_MORE) +
+            FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE) > 1)
+                goto invalid;
 
         if (!method)
                 goto invalid;
