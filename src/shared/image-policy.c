@@ -319,6 +319,14 @@ ImagePolicy* image_policy_new_from_dissected(const DissectedImage *image, const 
                                         f |= PARTITION_POLICY_VERITY;
                         }
 
+                        /* A policy without use flags also permits "absent". We pin a data partition without
+                         * known protection as "unprotected", "verity" or "signed", so that the policy requires
+                         * the partition. Replacing the partition with one that uses Verity doesn't weaken its
+                         * protection. The policy therefore permits such a replacement. */
+                        if (!(f & (PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED)) &&
+                            !partition_designator_is_verity(pd))
+                                f |= PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED;
+
                         if (image->partition_table_type != PARTITION_BARE) {
                                 if (image->partitions[pd].growfs)
                                         f |= PARTITION_POLICY_GROWFS_ON;
