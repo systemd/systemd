@@ -714,3 +714,32 @@ int vl_method_link_set_dnssec(sd_varlink *vlink, sd_json_variant *parameters, sd
 
         return sd_varlink_reply(vlink, /* parameters= */ NULL);
 }
+
+int vl_method_link_revert_dns(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(vlink);
+
+        Link *link = NULL;
+        r = dispatch_resolve_link(vlink, parameters, manager, &link);
+        if (r < 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        vlink,
+                        manager->bus,
+                        "org.freedesktop.network1.revert-dns",
+                        (const char**) STRV_MAKE("interface", link->ifname),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        link_dns_settings_clear(link);
+
+        r = link_save_and_clean_full(link, /* also_save_manager= */ true);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(vlink, /* parameters= */ NULL);
+}
