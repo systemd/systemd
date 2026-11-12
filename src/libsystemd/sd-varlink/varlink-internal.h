@@ -82,6 +82,13 @@ typedef enum VarlinkState {
                VARLINK_PROCESSING_METHOD_MORE,          \
                VARLINK_PROCESSING_METHOD_UPGRADE)
 
+/* Tests whether a method call still needs a reply after dispatch has returned. */
+#define VARLINK_STATE_IS_PENDING_METHOD(state)          \
+        IN_SET(state,                                   \
+               VARLINK_PENDING_METHOD,                  \
+               VARLINK_PENDING_METHOD_MORE,             \
+               VARLINK_PENDING_METHOD_UPGRADE)
+
 typedef struct sd_varlink {
         unsigned n_ref;
 
