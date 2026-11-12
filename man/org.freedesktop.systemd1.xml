@@ -2107,6 +2107,11 @@ node /org/freedesktop/systemd1 {
       state require <interfacename>org.freedesktop.systemd1.bypass-dump-ratelimit</interfacename> to avoid
       rate limits.
       </para>
+
+      <para>The <interfacename>org.freedesktop.systemd1.manage-units</interfacename> polkit action may sometimes
+      pass some additional variables that can be used by polkit policies for more precise targeting. The
+      <literal>unit</literal> variable may be set to the name of the systemd unit being managed. The <literal>verb</literal>
+      variable may be set to the specific action being performed.</para>
     </refsect2>
   </refsect1>
 
