@@ -333,6 +333,7 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Resolve.Link.SetDNS",                        vl_method_link_set_dns,
                         "io.systemd.Resolve.Link.SetDomains",                    vl_method_link_set_domains,
                         "io.systemd.Resolve.Link.SetDNSSECNegativeTrustAnchors", vl_method_link_set_dnssec_negative_trust_anchors,
+                        "io.systemd.Resolve.Link.SetDNSDefaultRoute",            vl_method_link_set_dns_default_route,
                         "io.systemd.service.Ping",                               varlink_method_ping,
                         "io.systemd.service.Reload",                             vl_method_reload,
                         "io.systemd.service.SetLogLevel",                        varlink_method_set_log_level,
