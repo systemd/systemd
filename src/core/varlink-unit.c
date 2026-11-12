@@ -1225,18 +1225,12 @@ int vl_method_enqueue_unit_job(sd_varlink *link, sd_json_variant *parameters, sd
                 if (r < 0)
                         return r;
 
-                const char **details = (const char**) STRV_MAKE(
-                                "unit", u->id,
-                                "verb", job_type_to_string(p.job_type),
-                                "polkit.message", N_("Authentication is required to manage unit '$(unit)'."),
-                                "polkit.gettext_domain", GETTEXT_PACKAGE);
-
-                r = varlink_verify_polkit_async(
-                                link,
-                                manager->system_bus,
-                                "org.freedesktop.systemd1.manage-units",
-                                details,
-                                &manager->polkit_registry);
+                const UnitPolkitDetails details = {
+                        .unit = u,
+                        .verb = job_type_to_string(p.job_type),
+                        .message = N_("Authentication is required to manage unit '$(unit)'."),
+                };
+                r = varlink_verify_manage_units_async(link, manager, &details);
                 if (r <= 0)
                         return r;
         }
@@ -1368,16 +1362,12 @@ int vl_method_start_transient_unit(sd_varlink *link, sd_json_variant *parameters
                 return r;
         }
 
-        r = varlink_verify_polkit_async(
-                        link,
-                        manager->system_bus,
-                        "org.freedesktop.systemd1.manage-units",
-                        (const char**) STRV_MAKE(
-                                        "unit", p.context.id,
-                                        "verb", "start",
-                                        "polkit.message", N_("Authentication is required to start transient unit '$(unit)'."),
-                                        "polkit.gettext_domain", GETTEXT_PACKAGE),
-                        &manager->polkit_registry);
+        const UnitPolkitDetails details = {
+                .id = p.context.id,
+                .verb = "start",
+                .message = N_("Authentication is required to start transient unit '$(unit)'."),
+        };
+        r = varlink_verify_manage_units_async(link, manager, &details);
         if (r <= 0)
                 return r;
 
@@ -1602,12 +1592,12 @@ int vl_method_set_unit_properties(sd_varlink *link, sd_json_variant *parameters,
         if (r < 0)
                 return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
 
-        r = varlink_verify_polkit_async(
-                        link,
-                        manager->system_bus,
-                        "org.freedesktop.systemd1.manage-units",
-                        /* details= */ NULL,
-                        &manager->polkit_registry);
+        const UnitPolkitDetails details = {
+                .unit = unit,
+                .verb = "set-property",
+                .message = N_("Authentication is required to set properties on '$(unit)'."),
+        };
+        r = varlink_verify_manage_units_async(link, manager, &details);
         if (r <= 0)
                 return r;
 
