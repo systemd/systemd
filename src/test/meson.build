@@ -198,6 +198,7 @@ simple_tests += files(
         'test-procfs-util.c',
         'test-progress-bar.c',
         'test-psi-util.c',
+        'test-ptyfwd.c',
         'test-qmp-client.c',
         'test-qrcode-util.c',
         'test-ratelimit.c',

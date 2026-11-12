@@ -17,6 +17,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "glyph-util.h"
+#include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "io-util.h"
 #include "log.h"
@@ -116,11 +117,27 @@ struct PTYForward {
         /* OSC 2811 (UAPI.17 terminal size change notification): we implement the emulator side towards the
          * pty, i.e. we answer subscribe sequences arriving via the master fd with reply sequences carrying
          * the current dimensions. */
-        AnsiSeqParser osc2811_input_parser;       /* Tracks ANSI sequence boundaries on the input (stdin → master) stream */
         char *osc2811_reply;                      /* A generated reply sequence, waiting for insertion into the input stream */
         bool osc2811_subscribed;                  /* A dimension change subscription is pending */
         unsigned osc2811_columns, osc2811_lines;  /* The dimensions declared in the pending subscription */
+
+        /* Tracks ANSI sequence boundaries on the input (stdin → master) stream, so that we know where
+         * generated replies (OSC 2811, terminal query replies) may be inserted safely */
+        AnsiSeqParser input_parser;
+
+        /* PTY_FORWARD_ANSWER_QUERIES: we answer terminal queries arriving via the master fd ourselves */
+        AnsiSeqParser query_parser;               /* Tracks + captures sequences on the output (master → stdout) stream */
+        char *query_replies;                      /* Generated replies, waiting for insertion into the input stream */
+        char *term;                               /* The terminfo name to report via XTGETTCAP, if any */
+        bool cursor_known;                        /* Whether we know the cursor position for sure (directly after CUP) */
+        unsigned cursor_row, cursor_column;
 };
+
+/* The hex encoded XTGETTCAP "name" capability, i.e. the terminfo name */
+#define XTGETTCAP_NAME_HEX "6E616D65"
+
+/* Our reply to DA1: VT220 with ANSI color */
+#define DA1_REPLY "\x1B[?62;22c"
 
 #define ESCAPE_USEC (1*USEC_PER_SEC)
 
@@ -193,7 +210,11 @@ static void pty_forward_disconnect(PTYForward *f) {
 
         f->osc2811_reply = mfree(f->osc2811_reply);
         f->osc2811_subscribed = false;
-        ansi_seq_parser_done(&f->osc2811_input_parser);
+        ansi_seq_parser_done(&f->input_parser);
+
+        f->query_replies = mfree(f->query_replies);
+        f->cursor_known = false;
+        ansi_seq_parser_done(&f->query_parser);
 }
 
 static int pty_forward_done(PTYForward *f, int rcode) {
@@ -475,29 +496,55 @@ static int insert_window_title_fix(PTYForward *f, size_t offset) {
         return insert_string(f, offset, joined);
 }
 
-static int pty_forward_osc2811_flush(PTYForward *f) {
+static int pty_forward_flush_reply(PTYForward *f, char **reply) {
         assert(f);
+        assert(reply);
 
-        /* Inserts a pending OSC 2811 reply sequence into the input stream, but only at a safe position,
-         * i.e. never in the middle of an ANSI sequence the terminal is currently sending us, and only if
-         * there's room in the input buffer. */
+        /* Inserts a pending generated reply into the input stream, but only at a safe position, i.e. never
+         * in the middle of an ANSI sequence the terminal is currently sending us, and only if there's room
+         * in the input buffer. Returns > 0 if the reply was inserted (and freed), 0 otherwise. */
 
-        if (!f->osc2811_reply)
+        if (!*reply)
                 return 0;
 
-        if (f->osc2811_input_parser.state != ANSI_SEQ_STATE_GROUND)
+        if (f->input_parser.state != ANSI_SEQ_STATE_GROUND)
                 return 0;
 
-        size_t l = strlen(f->osc2811_reply);
+        size_t l = strlen(*reply);
         if (f->in_buffer_full + l > LINE_MAX)
                 return 0;
 
-        memcpy(f->in_buffer + f->in_buffer_full, f->osc2811_reply, l);
+        memcpy(f->in_buffer + f->in_buffer_full, *reply, l);
         f->in_buffer_full += l;
 
-        f->osc2811_reply = mfree(f->osc2811_reply);
-        f->osc2811_subscribed = false; /* The subscription is consumed by the reply, now that it's really on its way */
+        *reply = mfree(*reply);
         return 1;
+}
+
+static int pty_forward_osc2811_flush(PTYForward *f) {
+        int r;
+
+        assert(f);
+
+        r = pty_forward_flush_reply(f, &f->osc2811_reply);
+        if (r > 0)
+                f->osc2811_subscribed = false; /* The subscription is consumed by the reply, now that it's
+                                                * really on its way */
+        return r;
+}
+
+static int pty_forward_get_winsize(PTYForward *f, struct winsize *ret) {
+        assert(f);
+        assert(ret);
+
+        /* Take the dimensions from the master if we can (it's authoritative: explicitly set dimensions end
+         * up there), with a fallback to the output fd (the master might not be a tty at all, for example
+         * when we are forwarding a monitor stream of ptybrokerd). */
+        if (ioctl(f->master, TIOCGWINSZ, ret) < 0 &&
+            ioctl(f->output_fd, TIOCGWINSZ, ret) < 0)
+                return -errno;
+
+        return 0;
 }
 
 static int pty_forward_osc2811_maybe_reply(PTYForward *f) {
@@ -511,13 +558,10 @@ static int pty_forward_osc2811_maybe_reply(PTYForward *f) {
         if (!f->osc2811_subscribed)
                 return 0;
 
-        /* Take the dimensions from the master if we can (it's authoritative: explicitly set dimensions end
-         * up there), with a fallback to the output fd (the master might not be a tty at all, for example
-         * when we are forwarding a monitor stream of ptybrokerd). */
         struct winsize ws;
-        if (ioctl(f->master, TIOCGWINSZ, &ws) < 0 &&
-            ioctl(f->output_fd, TIOCGWINSZ, &ws) < 0) {
-                log_debug_errno(errno, "Failed to query terminal dimensions, ignoring: %m");
+        r = pty_forward_get_winsize(f, &ws);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to query terminal dimensions, ignoring: %m");
                 return 0;
         }
 
@@ -601,6 +645,209 @@ static int pty_forward_osc2811_process(PTYForward *f, size_t *i, size_t n_termin
         return 1;
 }
 
+static bool pty_forward_answers_queries(PTYForward *f) {
+        assert(f);
+
+        return FLAGS_SET(f->flags, PTY_FORWARD_ANSWER_QUERIES) &&
+                !FLAGS_SET(f->flags, PTY_FORWARD_TRANSPARENT);
+}
+
+static int pty_forward_queue_reply(PTYForward *f, const char *reply) {
+        assert(f);
+        assert(reply);
+
+        /* Safety check: don't queue unbounded replies if the program never reads them */
+        if (strlen_ptr(f->query_replies) + strlen(reply) > LINE_MAX) {
+                log_debug("Too many pending terminal query replies, not answering query.");
+                return 0;
+        }
+
+        if (!strextend(&f->query_replies, reply))
+                return -ENOMEM;
+
+        return 1;
+}
+
+static bool parse_cup_parameters(const char *s, unsigned *ret_row, unsigned *ret_column) {
+        unsigned v[2] = {};
+        size_t k = 0;
+
+        assert(s);
+        assert(ret_row);
+        assert(ret_column);
+
+        /* Parses the payload of a CUP or HVP sequence, i.e. "[<row>][;<column>]H" (or …f). Missing or zero
+         * parameters default to 1. */
+
+        size_t n = strlen(s);
+        if (n == 0 || !IN_SET(s[n-1], 'H', 'f'))
+                return false;
+
+        for (const char *q = s; q < s + n - 1; q++) {
+                if (*q == ';') {
+                        if (++k >= ELEMENTSOF(v))
+                                return false;
+                        continue;
+                }
+
+                int d = undecchar(*q);
+                if (d < 0 || v[k] > (UINT_MAX - d) / 10)
+                        return false;
+
+                v[k] = v[k] * 10 + d;
+        }
+
+        *ret_row = MAX(v[0], 1U);
+        *ret_column = MAX(v[1], 1U);
+        return true;
+}
+
+static int pty_forward_answer_query(PTYForward *f, char introducer, const char *s) {
+        _cleanup_free_ char *reply = NULL;
+        struct winsize ws;
+
+        assert(f);
+        assert(s);
+
+        /* Checks if the sequence that just completed is a terminal query we can answer, and if so, queues
+         * the reply. Returns > 0 if so, in which case the query shall not be forwarded. */
+
+        switch (introducer) {
+
+        case 'P': { /* DCS */
+                const char *p = startswith(s, "+q");
+                if (!p)
+                        return 0;
+
+                /* XTGETTCAP: we only know the "name" capability, and only if we have a terminfo name to
+                 * report. In all other cases we report the capability as unsupported, so that the program
+                 * can apply its fallback logic right away. */
+                if (f->term && ascii_strcasecmp_nn(p, strlen(p), XTGETTCAP_NAME_HEX, STRLEN(XTGETTCAP_NAME_HEX)) == 0) {
+                        _cleanup_free_ char *hex = hexmem(f->term, strlen(f->term));
+                        if (!hex)
+                                return -ENOMEM;
+
+                        reply = strjoin(ANSI_DCS "1+r" XTGETTCAP_NAME_HEX "=", hex, ANSI_ST);
+                } else
+                        reply = strdup(ANSI_DCS "0+r" ANSI_ST);
+                if (!reply)
+                        return -ENOMEM;
+
+                break;
+        }
+
+        case '[': /* CSI */
+                if (streq(s, "18t")) {
+                        /* Report the size of the text area in characters */
+                        if (pty_forward_get_winsize(f, &ws) < 0 || ws.ws_row == 0 || ws.ws_col == 0)
+                                return 0;
+
+                        if (asprintf(&reply, "\x1B[8;%u;%ut", ws.ws_row, ws.ws_col) < 0)
+                                return -ENOMEM;
+
+                } else if (STR_IN_SET(s, "c", "0c")) {
+                        /* DA1 */
+                        reply = strdup(DA1_REPLY);
+                        if (!reply)
+                                return -ENOMEM;
+
+                } else if (streq(s, "6n")) {
+                        /* DSR, cursor position report (CPR). We don't track the cursor position in general,
+                         * hence we can only answer this directly after an absolute cursor positioning, which
+                         * is what programs determining the terminal size do. */
+                        if (!f->cursor_known)
+                                return 0;
+
+                        if (asprintf(&reply, "\x1B[%u;%uR", f->cursor_row, f->cursor_column) < 0)
+                                return -ENOMEM;
+                } else
+                        return 0;
+
+                break;
+
+        default:
+                return 0;
+        }
+
+        return pty_forward_queue_reply(f, reply);
+}
+
+static int pty_forward_query_process(PTYForward *f, size_t *i) {
+        int r;
+
+        assert(f);
+        assert(i);
+        assert(*i < f->out_buffer_full);
+
+        /* Feeds the character at offset *i of the output buffer into our sequence tracker, and if it
+         * completes a terminal query we can answer, answers it and excises the query from the output buffer.
+         * Returns > 0 in that case, 0 otherwise. */
+
+        if (!pty_forward_answers_queries(f))
+                return 0;
+
+        AnsiSeqState previous_state = f->query_parser.state;
+
+        r = ansi_seq_parser_feed_harder(&f->query_parser, f->out_buffer[*i]);
+        if (r < 0)
+                return r;
+        if (r == ANSI_SEQ_EVENT_TEXT) {
+                /* Regular output moves the cursor, and we don't track where to */
+                f->cursor_known = false;
+                return 0;
+        }
+        if (r != ANSI_SEQ_EVENT_END)
+                return 0;
+
+        char introducer = f->query_parser.introducer;
+        const char *s = ansi_seq_parser_string(&f->query_parser);
+        if (!s) {
+                f->cursor_known = false;
+                return 0;
+        }
+
+        unsigned row, column;
+        if (introducer == '[' && parse_cup_parameters(s, &row, &column)) {
+                /* An absolute cursor positioning: now we know where the cursor is, taking into account
+                 * that it is clamped to the terminal dimensions. */
+                struct winsize ws;
+                if (pty_forward_get_winsize(f, &ws) >= 0 && ws.ws_row > 0 && ws.ws_col > 0) {
+                        f->cursor_known = true;
+                        f->cursor_row = MIN(row, (unsigned) ws.ws_row);
+                        f->cursor_column = MIN(column, (unsigned) ws.ws_col);
+                } else
+                        f->cursor_known = false;
+
+                return 0;
+        }
+
+        r = pty_forward_answer_query(f, introducer, s);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* Any other sequence might move the cursor, except for DECSC (save cursor) */
+                if (introducer != '7')
+                        f->cursor_known = false;
+                return 0;
+        }
+
+        /* Excise the full query from the output buffer: introducer (2 bytes) + payload + terminator (for
+         * string sequences: BEL or ST). None of it can have been flushed yet, since out_buffer_write_len is
+         * only advanced outside of ANSI sequences. */
+        size_t l = 2 + strlen(s);
+        if (introducer == 'P')
+                l += previous_state == ANSI_SEQ_STATE_STRING_ESC ? 2 : 1;
+        assert(*i + 1 >= l);
+        size_t begin = *i + 1 - l;
+        assert(f->out_buffer_write_len <= begin);
+
+        memmove(f->out_buffer + begin, f->out_buffer + *i + 1, f->out_buffer_full - *i - 1);
+        f->out_buffer_full -= l;
+        *i = begin - 1; /* NB: this may wrap around to SIZE_MAX if the sequence started the buffer, which the
+                         * caller's loop increment brings back to 0 */
+        return 1;
+}
+
 static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
         int r;
 
@@ -608,6 +855,18 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
         assert(offset <= f->out_buffer_full);
 
         for (size_t i = offset; i < f->out_buffer_full; i++) {
+                r = pty_forward_query_process(f, &i);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        /* The query has been excised, reset the color tracking state machine, which might
+                         * still be in the middle of it. */
+                        f->csi_sequence = mfree(f->csi_sequence);
+                        f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
+                        f->out_buffer_write_len = i + 1;
+                        continue;
+                }
+
                 char c = f->out_buffer[i];
 
                 switch (f->ansi_color_state) {
@@ -755,7 +1014,10 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                         assert_not_reached();
                 }
 
-                if (f->ansi_color_state == ANSI_COLOR_STATE_TEXT)
+                /* Hold back output while we are in the middle of a sequence, so that we can still patch or
+                 * excise it once it is complete */
+                if (f->ansi_color_state == ANSI_COLOR_STATE_TEXT &&
+                    (!pty_forward_answers_queries(f) || f->query_parser.state == ANSI_SEQ_STATE_GROUND))
                         f->out_buffer_write_len = i + 1;
         }
 
@@ -830,6 +1092,13 @@ static int do_shovel(PTYForward *f) {
                 if (r > 0)
                         did_something = true;
 
+                /* Same for replies to terminal queries */
+                r = pty_forward_flush_reply(f, &f->query_replies);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        did_something = true;
+
                 if (f->stdin_readable && f->in_buffer_full < LINE_MAX) {
 
                         k = read(f->input_fd, f->in_buffer + f->in_buffer_full, LINE_MAX - f->in_buffer_full);
@@ -853,9 +1122,9 @@ static int do_shovel(PTYForward *f) {
                         } else {
                                 if (!FLAGS_SET(f->flags, PTY_FORWARD_TRANSPARENT)) {
                                         /* Keep the input ANSI sequence tracker up-to-date, so that we know
-                                         * where OSC 2811 replies may be inserted safely */
+                                         * where generated replies may be inserted safely */
                                         for (ssize_t j = 0; j < k; j++)
-                                                (void) ansi_seq_parser_feed_harder(&f->osc2811_input_parser, f->in_buffer[f->in_buffer_full + j]);
+                                                (void) ansi_seq_parser_feed_harder(&f->input_parser, f->in_buffer[f->in_buffer_full + j]);
 
                                         /* Check if ^] has been pressed three times within one second. If we get this we quit
                                          * immediately. */
@@ -1146,7 +1415,18 @@ int pty_forward_new(
                 .master = -EBADF,
                 .input_fd = -EBADF,
                 .output_fd = -EBADF,
+                .query_parser.capture = true,
         };
+
+        if (FLAGS_SET(flags, PTY_FORWARD_ANSWER_QUERIES)) {
+                /* Report our own $TERM as terminfo name, if we have a meaningful one */
+                const char *t = getenv("TERM");
+                if (term_env_valid(t) && !streq(t, "dumb")) {
+                        f->term = strdup(t);
+                        if (!f->term)
+                                return -ENOMEM;
+                }
+        }
 
         if (event)
                 f->event = sd_event_ref(event);
@@ -1299,6 +1579,7 @@ PTYForward* pty_forward_free(PTYForward *f) {
         free(f->background_color);
         free(f->title);
         free(f->title_prefix);
+        free(f->term);
 
         return mfree(f);
 }
