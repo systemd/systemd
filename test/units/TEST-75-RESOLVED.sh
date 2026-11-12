@@ -1841,6 +1841,19 @@ do_test_varlink_link_methods() {
 
     [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
     assert_eq "$(resolvectl --json=short nta "$ifindex" | jq -rc '.[0].negativeTrustAnchors')" 'null'
+
+    # io.systemd.Resolve.Link.SetDNSDefaultRoute
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetDNSDefaultRoute \
+        '{"ifindex":"'"$ifindex"'","defaultRoute":true}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'yes' "$(resolvectl default-route "$ifname")"
+
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetDNSDefaultRoute \
+        '{"ifindex":"'"$ifindex"'","defaultRoute":false}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'no' "$(resolvectl default-route "$ifname")"
 }
 
 do_test_varlink_link_error () {
@@ -1865,6 +1878,11 @@ do_test_varlink_link_error () {
         "$error" \
         "$(varlinkctl call --graceful="$error" "$socket" io.systemd.Resolve.Link.SetDNSSECNegativeTrustAnchors \
         '{"ifindex":"'"$ifindex"'","negativeTrustAnchors":["local","test"]}' 2>&1)"
+
+    assert_in \
+        "$error" \
+        "$(varlinkctl call --graceful="$error" "$socket" io.systemd.Resolve.Link.SetDNSDefaultRoute \
+            '{"ifindex":"'"$ifindex"'","defaultRoute":true}' 2>&1)"
 }
 
 testcase_16_varlink_link_methods() {
