@@ -3043,7 +3043,7 @@ int terminal_fix_size(int input_fd, int output_fd) {
         if (ioctl(output_fd, TIOCGWINSZ, &ws) < 0)
                 return log_debug_errno(errno, "Failed to query terminal dimensions, ignoring: %m");
 
-        r = terminal_get_size(input_fd, output_fd, &rows, &columns, /* try_dsr= */ true, /* try_csi18= */ true);
+        r = terminal_query(input_fd, output_fd, &rows, &columns, /* ret_terminfo= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to acquire terminal dimensions via ANSI sequences, not adjusting terminal dimensions: %m");
 
@@ -3208,7 +3208,7 @@ int query_term_for_tty(const char *tty, char **ret_term) {
         if (tty_fd < 0)
                 return log_debug_errno(tty_fd, "Failed to open %s to query terminfo: %m", tty);
 
-        r = terminal_get_terminfo_by_dcs(tty_fd, &dcs_term);
+        r = terminal_query(tty_fd, tty_fd, /* ret_rows= */ NULL, /* ret_columns= */ NULL, &dcs_term);
         if (r < 0)
                 return log_debug_errno(r, "Failed to query %s for terminfo: %m", tty);
 
