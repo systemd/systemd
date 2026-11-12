@@ -9,6 +9,7 @@
 #include "cryptsetup-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
+#include "libfido2-util.h"
 #include "log.h"
 #include "random-util.h"
 #include "strv.h"
@@ -17,6 +18,7 @@
 #if HAVE_LIBCRYPTSETUP && HAVE_TPM2
 static int get_pin(
                 usec_t until,
+                const char *askpw_message,
                 const char *askpw_credential,
                 AskPasswordFlags askpw_flags,
                 const char **pin_once,
@@ -25,6 +27,7 @@ static int get_pin(
         _cleanup_strv_free_erase_ char **pin = NULL;
         int r;
 
+        assert(askpw_message);
         assert(pin_once);
         assert(ret_pin_str);
 
@@ -45,7 +48,7 @@ static int get_pin(
 
                 AskPasswordRequest req = {
                         .tty_fd = -EBADF,
-                        .message = "Please enter TPM2 PIN:",
+                        .message = askpw_message,
                         .icon = "drive-harddisk",
                         .keyring = "tpm2-pin",
                         .credential = askpw_credential,
@@ -67,6 +70,133 @@ static int get_pin(
         *ret_pin_str = TAKE_PTR(pin_str);
 
         return r;
+}
+
+static int unlock_with_fido2(
+                const char *fido2_device,
+                const struct iovec *fido2_cid,
+                const char *fido2_rp,
+                const struct iovec *fido2_public_key,
+                const char *fido2_public_key_algorithm,
+                const struct iovec *fido2_public_key_tag,
+                Fido2EnrollFlags fido2_flags,
+                usec_t until,
+                AskPasswordFlags askpw_flags,
+                const char *pin,
+                bool pin_verified,
+                const struct iovec *unsealed,
+                struct iovec *ret_secret) {
+
+        _cleanup_(iovec_done_erase) struct iovec fido2_salt = {};
+        _cleanup_strv_free_erase_ char **pins = NULL;
+        _cleanup_(erase_and_freep) void *secret = NULL;
+        size_t secret_size;
+        int r;
+
+        assert(fido2_cid);
+        assert(unsealed);
+        assert(ret_secret);
+
+        /* For TPM2+FIDO2 slots the unsealed secret is not the passphrase. Instead, the passphrase is the
+         * FIDO2 token's hmac-secret for a salt derived from the unsealed secret, see
+         * tpm2_fido2_derive_salt(). */
+
+        /* Only hand the salt to a FIDO2 token after making sure that the public key we are going to verify
+         * the token with belongs to this enrollment. */
+        r = tpm2_fido2_verify_public_key_tag(unsealed, fido2_public_key_algorithm, fido2_public_key, fido2_public_key_tag);
+        if (r == -EBADMSG) {
+                log_error_errno(r, "The FIDO2 public key in the TPM2+FIDO2 slot does not match the sealed secret, "
+                                "the LUKS2 header was tampered with or is corrupted. Refusing to unlock with this slot.");
+                return -EPERM;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to verify FIDO2 public key: %m");
+
+        r = tpm2_fido2_derive_salt(unsealed, &fido2_salt);
+        if (r < 0)
+                return log_error_errno(r, "Failed to derive FIDO2 salt: %m");
+
+        if ((fido2_flags & (FIDO2ENROLL_PIN | FIDO2ENROLL_UP | FIDO2ENROLL_UV)) && FLAGS_SET(askpw_flags, ASK_PASSWORD_HEADLESS))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOPKG),
+                                       "Local verification is required to unlock this volume, but the 'headless' parameter was set.");
+
+        /* The PIN passed in is tried first. If it was verified by the TPM2 already (a PIN shared by both),
+         * the token has to accept it too. Otherwise the user is asked for the token's PIN if it is needed or
+         * wrong. */
+        if (pin) {
+                pins = strv_new(pin);
+                if (!pins)
+                        return log_oom();
+        }
+
+        for (;;) {
+                r = fido2_use_hmac_hash(
+                                fido2_device,
+                                fido2_rp ?: "io.systemd.cryptsetup",
+                                fido2_salt.iov_base, fido2_salt.iov_len,
+                                fido2_cid->iov_base, fido2_cid->iov_len,
+                                fido2_public_key,
+                                fido2_public_key_algorithm,
+                                pins,
+                                fido2_flags,
+                                &secret,
+                                &secret_size);
+                if (!IN_SET(r,
+                            -ENOANO,   /* needs PIN */
+                            -ENOLCK))  /* PIN incorrect */
+                        break;
+
+                if (pin_verified)
+                        return log_error_errno(SYNTHETIC_ERRNO(EACCES),
+                                               "The FIDO2 token rejected the PIN that the TPM2 accepted, the enrollment "
+                                               "metadata is inconsistent or out of date.");
+
+                if (FLAGS_SET(askpw_flags, ASK_PASSWORD_HEADLESS))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOPKG),
+                                               "PIN querying disabled via 'headless' option. Use the '$PIN' environment variable.");
+
+                AskPasswordRequest req = {
+                        .tty_fd = -EBADF,
+                        .message = "Please enter security token PIN:",
+                        .icon = "drive-harddisk",
+                        .keyring = "fido2-pin",
+                        .credential = "cryptsetup.fido2-pin",
+                        .until = until,
+                        .hup_fd = -EBADF,
+                };
+
+                pins = strv_free_erase(pins);
+                r = ask_password_auto(&req, askpw_flags, &pins);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to ask for user password: %m");
+
+                askpw_flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
+        }
+        if (IN_SET(r, -EAGAIN, -EBADSLT))
+                /* None of the plugged-in FIDO2 tokens holds the credential of this slot (-EAGAIN), or the
+                 * configured one does not (-EBADSLT). Use -ENOMEDIUM for both, to distinguish them from the
+                 * "no TPM2 chip" -EAGAIN: callers then try the other slots, and wait for the token to show
+                 * up if none of them works. */
+                return -ENOMEDIUM;
+        if (r == -EKEYREJECTED) {
+                /* A device claimed to have the credential, but couldn't prove it: a FIDO2 token emulator, or
+                 * a header that was tampered with. The salt was not handed out. Report it like a slot that
+                 * doesn't match, so that callers move on to other slots (e.g. a recovery key). */
+                log_error_errno(r, "No FIDO2 token proved possession of the enrolled credential, refusing to unlock with this slot.");
+                return -EPERM;
+        }
+        /* The FIDO2 code reports a touch timeout as -ENOSTR, and a blocked PIN or user verification as
+         * -EPERM. Callers would take both for a TPM2 token that does not match the system state (see
+         * ERRNO_IS_NEG_TPM2_TOKEN_MISMATCH()) and silently move on to the next one, hence remap them. */
+        if (r == -ENOSTR)
+                return -ETIMEDOUT;
+        if (r == -EPERM)
+                return -EACCES;
+        if (r < 0)
+                return r;
+
+        *ret_secret = IOVEC_MAKE(TAKE_PTR(secret), secret_size);
+        return 0;
 }
 #endif
 
@@ -92,6 +222,13 @@ int acquire_tpm2_key(
                 const struct iovec *srk,
                 const struct iovec *pcrlock_nv,
                 TPM2Flags flags,
+                const char *fido2_device,
+                const struct iovec *fido2_cid,
+                const char *fido2_rp,
+                const struct iovec *fido2_public_key,
+                const char *fido2_public_key_algorithm,
+                const struct iovec *fido2_public_key_tag,
+                Fido2EnrollFlags fido2_flags,
                 usec_t until,
                 const char *askpw_credential,
                 AskPasswordFlags askpw_flags,
@@ -103,6 +240,9 @@ int acquire_tpm2_key(
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *signature_json = NULL;
         _cleanup_(iovec_done) struct iovec loaded_blob = {};
         _cleanup_free_ char *auto_device = NULL;
+        bool fido2 = FLAGS_SET(flags, TPM2_FLAGS_USE_FIDO2);
+        /* With TPM2+FIDO2, if both want a PIN, it's the same one, see enroll_tpm2(). */
+        bool shared_pin = fido2 && FLAGS_SET(flags, TPM2_FLAGS_USE_PIN) && FLAGS_SET(fido2_flags, FIDO2ENROLL_PIN);
         int r;
 
         if (!device) {
@@ -113,6 +253,25 @@ int acquire_tpm2_key(
                         return log_error_errno(r, "Could not find TPM2 device: %m");
 
                 device = auto_device;
+        }
+
+        if (fido2) {
+                /* Check that a FIDO2 token is plugged in at all, before asking for any PIN. -ENOMEDIUM tells
+                 * the caller to wait for one to show up. An unconfigured device is left unset, so that the
+                 * token holding the credential is looked for among all plugged-in ones. */
+                r = dlopen_libfido2(LOG_DEBUG);
+                if (r < 0)
+                        /* No FIDO2 support (libfido2 is an optional dependency). Report the slot like one
+                         * that doesn't match, so that callers move on to the next one. Check this
+                         * first and quietly, as fido2_have_device() would log at error level. */
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPERM),
+                                               "FIDO2 support not available, skipping TPM2+FIDO2 slot.");
+
+                r = fido2_have_device(fido2_device);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -ENOMEDIUM;
         }
 
         if (n_blobs == 0) {
@@ -164,6 +323,8 @@ int acquire_tpm2_key(
                 return r;
 
         if (!(flags & TPM2_FLAGS_USE_PIN)) {
+                _cleanup_(iovec_done_erase) struct iovec unsealed = {};
+
                 r = tpm2_unseal(tpm2_context,
                                 hash_pcr_mask,
                                 pcr_bank,
@@ -179,7 +340,7 @@ int acquire_tpm2_key(
                                 policy_hash,
                                 n_policy_hash,
                                 srk,
-                                ret_decrypted_key);
+                                fido2 ? &unsealed : ret_decrypted_key);
                 if (r == -EREMOTE)
                         return log_warning_errno(r, "TPM key integrity check failed. Key enrolled in superblock most likely does not belong to this TPM.");
                 if (r == -EADDRNOTAVAIL)
@@ -196,11 +357,27 @@ int acquire_tpm2_key(
                 if (r < 0)
                         return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
 
+                if (fido2)
+                        /* Without a TPM2 PIN, the PIN passed in can only be the token's. */
+                        r = unlock_with_fido2(
+                                        fido2_device,
+                                        fido2_cid,
+                                        fido2_rp,
+                                        fido2_public_key,
+                                        fido2_public_key_algorithm,
+                                        fido2_public_key_tag,
+                                        fido2_flags,
+                                        until,
+                                        askpw_flags,
+                                        pin,
+                                        /* pin_verified= */ false,
+                                        &unsealed,
+                                        ret_decrypted_key);
+
                 return r;
         }
 
         bool argon2id = FLAGS_SET(flags, TPM2_FLAGS_USE_ARGON2ID);
-
         const char *pin_once = pin;
 
         for (int i = 5;; i--) {
@@ -211,7 +388,9 @@ int acquire_tpm2_key(
                 if (i <= 0)
                         return -EACCES;
 
-                r = get_pin(until, askpw_credential, askpw_flags, &pin_once, &input_str);
+                r = get_pin(until,
+                            shared_pin ? "Please enter TPM2 and FIDO2 token PIN:" : "Please enter TPM2 PIN:",
+                            askpw_credential, askpw_flags, &pin_once, &input_str);
                 if (r < 0)
                         return r;
 
@@ -263,7 +442,7 @@ int acquire_tpm2_key(
                                 policy_hash,
                                 n_policy_hash,
                                 srk,
-                                argon2id ? &unsealed : ret_decrypted_key);
+                                argon2id || fido2 ? &unsealed : ret_decrypted_key);
                 if (r == -EREMOTE)
                         return log_warning_errno(r, "TPM key integrity check failed. Key enrolled in superblock most likely does not belong to this TPM.");
                 if (r == -EADDRNOTAVAIL)
@@ -285,6 +464,38 @@ int acquire_tpm2_key(
                 }
                 if (r < 0)
                         return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
+
+                if (fido2) {
+                        _cleanup_(iovec_done_erase) struct iovec secret = {};
+
+                        /* A PIN shared by both was just verified by the TPM2. Otherwise the TPM2 PIN is not the
+                         * token's, and the token is not expected to need one. */
+                        r = unlock_with_fido2(
+                                        fido2_device,
+                                        fido2_cid,
+                                        fido2_rp,
+                                        fido2_public_key,
+                                        fido2_public_key_algorithm,
+                                        fido2_public_key_tag,
+                                        fido2_flags,
+                                        until,
+                                        askpw_flags,
+                                        shared_pin ? input_str : NULL,
+                                        /* pin_verified= */ shared_pin,
+                                        &unsealed,
+                                        &secret);
+                        if (r < 0)
+                                return r;
+
+                        if (!argon2id) {
+                                *ret_decrypted_key = TAKE_STRUCT(secret);
+                                return 0;
+                        }
+
+                        /* The Argon2id step below applies to the FIDO2 secret instead. */
+                        iovec_done_erase(&unsealed);
+                        unsealed = TAKE_STRUCT(secret);
+                }
 
                 if (argon2id) {
                         _cleanup_(iovec_done_erase) struct iovec volume_key = {};
@@ -321,6 +532,12 @@ int find_tpm2_auto_data(
                 struct iovec *ret_srk,
                 struct iovec *ret_pcrlock_nv,
                 TPM2Flags *ret_flags,
+                struct iovec *ret_fido2_cid,
+                char **ret_fido2_rp,
+                struct iovec *ret_fido2_public_key,
+                char **ret_fido2_public_key_algorithm,
+                struct iovec *ret_fido2_public_key_tag,
+                Fido2EnrollFlags *ret_fido2_flags,
                 int *ret_keyslot,
                 int *ret_token,
                 Argon2IdParameters *ret_argon2id_params) {
@@ -347,8 +564,9 @@ int find_tpm2_auto_data(
         assert(ret_token);
 
         for (token = start_token; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
-                _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
-                _cleanup_free_ char *pubkey_policy_ref = NULL;
+                _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {}, fido2_cid = {},
+                        fido2_public_key = {}, fido2_public_key_tag = {};
+                _cleanup_free_ char *pubkey_policy_ref = NULL, *fido2_public_key_algorithm = NULL;
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
                 struct iovec *blobs = NULL, *policy_hash = NULL;
                 size_t n_blobs = 0, n_policy_hash = 0;
@@ -356,6 +574,8 @@ int find_tpm2_auto_data(
                 uint16_t pcr_bank, primary_alg;
                 Argon2IdParameters ap = {};
                 TPM2Flags flags;
+                Fido2EnrollFlags fido2_flags;
+                _cleanup_free_ char *fido2_rp = NULL;
                 int keyslot;
 
                 CLEANUP_ARRAY(blobs, n_blobs, iovec_array_free);
@@ -385,12 +605,12 @@ int find_tpm2_auto_data(
                                 &pcrlock_nv,
                                 &flags,
                                 &ap,
-                                /* ret_fido2_cid= */ NULL,
-                                /* ret_fido2_rp_id= */ NULL,
-                                /* ret_fido2_public_key= */ NULL,
-                                /* ret_fido2_public_key_algorithm= */ NULL,
-                                /* ret_fido2_public_key_tag= */ NULL,
-                                /* ret_fido2_flags= */ NULL);
+                                &fido2_cid,
+                                &fido2_rp,
+                                &fido2_public_key,
+                                &fido2_public_key_algorithm,
+                                &fido2_public_key_tag,
+                                &fido2_flags);
                 if (r == -ENOMEM)
                         return log_full_errno(log_level, r, "Failed to parse TPM2 JSON data: %m");
                 if (r < 0) {
@@ -427,6 +647,18 @@ int find_tpm2_auto_data(
                         *ret_flags = flags;
                         if (ret_argon2id_params)
                                 *ret_argon2id_params = ap;
+                        if (ret_fido2_cid)
+                                *ret_fido2_cid = TAKE_STRUCT(fido2_cid);
+                        if (ret_fido2_rp)
+                                *ret_fido2_rp = TAKE_PTR(fido2_rp);
+                        if (ret_fido2_public_key)
+                                *ret_fido2_public_key = TAKE_STRUCT(fido2_public_key);
+                        if (ret_fido2_public_key_algorithm)
+                                *ret_fido2_public_key_algorithm = TAKE_PTR(fido2_public_key_algorithm);
+                        if (ret_fido2_public_key_tag)
+                                *ret_fido2_public_key_tag = TAKE_STRUCT(fido2_public_key_tag);
+                        if (ret_fido2_flags)
+                                *ret_fido2_flags = fido2_flags;
                         return 0;
                 }
 
@@ -458,9 +690,9 @@ int cryptsetup_tpm2_unlock_auto(
          * "systemd-tpm2" tokens in the LUKS2 header and returns the first one that unseals against the
          * local TPM2 (auto-detected), as the base64-encoded keyslot passphrase (which is how
          * systemd-cryptenroll and systemd-repart enroll the sealed secret) plus the keyslot it belongs to.
-         * PIN-protected tokens are skipped, we never prompt. Logs at debug level only, except that the
-         * pcrlock policy helpers log on their own for pcrlock-bound tokens. Returns -ENXIO if no token could
-         * be used. */
+         * PIN-protected and FIDO2-bound tokens are skipped, we never prompt. Logs at debug level only,
+         * except that the pcrlock policy helpers log on their own for pcrlock-bound tokens. Returns -ENXIO
+         * if no token could be used. */
 
         for (int token = 0;; token++) {
                 _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
@@ -497,6 +729,12 @@ int cryptsetup_tpm2_unlock_auto(
                                 &srk,
                                 &pcrlock_nv,
                                 &flags,
+                                /* ret_fido2_cid= */ NULL,
+                                /* ret_fido2_rp= */ NULL,
+                                /* ret_fido2_public_key= */ NULL,
+                                /* ret_fido2_public_key_algorithm= */ NULL,
+                                /* ret_fido2_public_key_tag= */ NULL,
+                                /* ret_fido2_flags= */ NULL,
                                 &keyslot,
                                 &token,
                                 /* ret_argon2id_params= */ NULL);
@@ -507,6 +745,11 @@ int cryptsetup_tpm2_unlock_auto(
 
                 if (flags & (TPM2_FLAGS_USE_PIN|TPM2_FLAGS_USE_ARGON2ID)) {
                         log_debug("TPM2 token %i requires a PIN (or Argon2id), skipping.", token);
+                        continue;
+                }
+
+                if (FLAGS_SET(flags, TPM2_FLAGS_USE_FIDO2)) {
+                        log_debug("TPM2 token %i requires a FIDO2 token, skipping.", token);
                         continue;
                 }
 
