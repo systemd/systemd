@@ -186,7 +186,7 @@ int load_volume_key_tpm2(
 
 #if HAVE_TPM2
         _cleanup_(iovec_done_erase) struct iovec decrypted_key = {};
-        _cleanup_(erase_and_freep) char *passphrase = NULL;
+        _cleanup_(erase_and_freep) char *passphrase = NULL, *pin = NULL;
         ssize_t passphrase_size;
         int r;
 
@@ -194,6 +194,16 @@ int load_volume_key_tpm2(
         assert_se(c->node);
         assert_se(cd);
         assert_se(ret_vk);
+
+        /* Every TPM2 slot tried below gets the same $PIN. It is removed from the environment once a slot that
+         * needs a PIN has tried it, and left alone otherwise, as it might be meant for e.g. a PKCS#11 token
+         * that is enrolled next. A slot whose hardware is missing (-EAGAIN) has not tried it. */
+        const char *e = secure_getenv("PIN");
+        if (e) {
+                pin = strdup(e);
+                if (!pin)
+                        return log_oom();
+        }
 
         bool found_some = false;
         int token = 0; /* first token to look at */
@@ -271,8 +281,11 @@ int load_volume_key_tpm2(
                                 /* until= */ 0,
                                 "cryptenroll.tpm2-pin",
                                 c->interactive ? 0 : ASK_PASSWORD_HEADLESS,
+                                pin,
                                 /* argon2id_params= */ FLAGS_SET(tpm2_flags, TPM2_FLAGS_USE_ARGON2ID) ? &ap : NULL,
                                 &decrypted_key);
+                if (r != -EAGAIN && tpm2_slot_needs_pin(tpm2_flags))
+                        (void) getenv_steal_erase("PIN", /* ret= */ NULL);
                 if (IN_SET(r, -EACCES, -ENOLCK))
                         return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 PIN unlock failed");
                 /* Stop unless we should keep iterating to next token because the tried one
