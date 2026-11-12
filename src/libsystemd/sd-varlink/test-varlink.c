@@ -1925,6 +1925,138 @@ static void disconnect_callback(sd_varlink_server *server, sd_varlink *link, voi
         (*counter)++;
 }
 
+static void test_method_flags_one(const char *flags, bool valid) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_(sd_varlink_close_unrefp) sd_varlink *v = NULL;
+        _cleanup_close_pair_ int fds[2] = EBADF_PAIR;
+        int r;
+
+        ASSERT_OK(sd_varlink_server_new(&s, /* flags= */ 0));
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, fds));
+        ASSERT_OK(sd_varlink_server_add_connection(s, fds[0], &v));
+        TAKE_FD(fds[0]);
+        sd_varlink_ref(v);
+
+        _cleanup_free_ char *request = ASSERT_NOT_NULL(strjoin(
+                        "{\"method\":\"org.varlink.service.GetInfo\",", flags, "}"));
+        ASSERT_OK(loop_write(fds[1], request, strlen(request) + 1));
+
+        while ((r = sd_varlink_process(v)) > 0)
+                ;
+        ASSERT_EQ(r, valid ? 0 : -EINVAL);
+        ASSERT_EQ(sd_varlink_is_connected(v), valid);
+
+        if (valid) {
+                char buffer[4096];
+                ssize_t n = ASSERT_OK_POSITIVE(recv(fds[1], buffer, sizeof(buffer), MSG_DONTWAIT));
+                ASSERT_EQ(buffer[n - 1], 0);
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+                ASSERT_OK(sd_json_parse(buffer, /* flags= */ 0, &reply, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+                ASSERT_NOT_NULL(sd_json_variant_by_key(reply, "parameters"));
+                ASSERT_NULL(sd_json_variant_by_key(reply, "error"));
+        }
+}
+
+TEST(method_flags) {
+        FOREACH_STRING(flags,
+                       "\"more\":true,\"oneway\":false,\"upgrade\":false",
+                       "\"oneway\":false,\"more\":true,\"upgrade\":false",
+                       "\"upgrade\":false,\"oneway\":false,\"more\":true",
+                       "\"more\":false,\"oneway\":false,\"upgrade\":false")
+                test_method_flags_one(flags, /* valid= */ true);
+
+        FOREACH_STRING(flags,
+                       "\"more\":true,\"oneway\":true",
+                       "\"oneway\":true,\"more\":true",
+                       "\"more\":true,\"upgrade\":true",
+                       "\"upgrade\":true,\"oneway\":true",
+                       "\"oneway\":false,\"oneway\":false",
+                       "\"oneway\":false,\"oneway\":true",
+                       "\"oneway\":true,\"oneway\":false",
+                       "\"oneway\":true,\"oneway\":true",
+                       "\"more\":false,\"more\":false",
+                       "\"more\":false,\"more\":true",
+                       "\"more\":true,\"more\":false",
+                       "\"more\":true,\"more\":true",
+                       "\"upgrade\":false,\"upgrade\":false",
+                       "\"upgrade\":false,\"upgrade\":true",
+                       "\"upgrade\":true,\"upgrade\":false",
+                       "\"upgrade\":true,\"upgrade\":true",
+                       "\"more\":null",
+                       "\"more\":1")
+                test_method_flags_one(flags, /* valid= */ false);
+}
+
+static void test_method_reply(sd_varlink_server *s, const char *request, const char *error) {
+        _cleanup_(sd_varlink_close_unrefp) sd_varlink *v = NULL;
+        _cleanup_close_pair_ int fds[2] = EBADF_PAIR;
+        int r;
+
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, fds));
+        ASSERT_OK(sd_varlink_server_add_connection(s, fds[0], &v));
+        TAKE_FD(fds[0]);
+        sd_varlink_ref(v);
+
+        ASSERT_OK(loop_write(fds[1], request, strlen(request) + 1));
+        while ((r = sd_varlink_process(v)) > 0)
+                ;
+        ASSERT_OK(r);
+
+        char buffer[4096];
+        ssize_t n = ASSERT_OK_POSITIVE(recv(fds[1], buffer, sizeof(buffer), MSG_DONTWAIT));
+        ASSERT_EQ(buffer[n - 1], 0);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        ASSERT_OK(sd_json_parse(buffer, /* flags= */ 0, &reply, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+        ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(reply, "error")), error);
+        ASSERT_TRUE(sd_varlink_is_connected(v));
+}
+
+static int method_unexpected(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        assert_not_reached();
+}
+
+static int method_ordinary_reply(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
+TEST(required_method_flags) {
+        static SD_VARLINK_DEFINE_METHOD_FULL(More, SD_VARLINK_REQUIRES_MORE);
+        static SD_VARLINK_DEFINE_METHOD_FULL(Upgrade, SD_VARLINK_REQUIRES_UPGRADE);
+        static SD_VARLINK_DEFINE_INTERFACE(test_flags, "io.test.Flags", &vl_method_More, &vl_method_Upgrade);
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+
+        ASSERT_OK(sd_varlink_server_new(&s, /* flags= */ 0));
+        ASSERT_OK(sd_varlink_server_add_interface(s, &vl_interface_test_flags));
+        ASSERT_OK(sd_varlink_server_bind_method_many(s,
+                                                   "io.test.Flags.More", method_ordinary_reply,
+                                                   "io.test.Flags.Upgrade", method_ordinary_reply));
+
+        test_method_reply(s, "{\"method\":\"io.test.Flags.More\"}", SD_VARLINK_ERROR_EXPECTED_MORE);
+        test_method_reply(s, "{\"method\":\"io.test.Flags.More\",\"upgrade\":true}", SD_VARLINK_ERROR_EXPECTED_MORE);
+        test_method_reply(s, "{\"method\":\"io.test.Flags.More\",\"more\":true}", /* error= */ NULL);
+        test_method_reply(s, "{\"method\":\"io.test.Flags.Upgrade\"}", SD_VARLINK_ERROR_EXPECTED_UPGRADE);
+        test_method_reply(s, "{\"method\":\"io.test.Flags.Upgrade\",\"more\":true}", SD_VARLINK_ERROR_EXPECTED_UPGRADE);
+}
+
+TEST(unsupported_upgrade) {
+        static SD_VARLINK_DEFINE_METHOD(Plain);
+        static SD_VARLINK_DEFINE_INTERFACE(test_plain, "io.test.Plain", &vl_method_Plain);
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+
+        ASSERT_OK(sd_varlink_server_new(&s, /* flags= */ 0));
+        ASSERT_OK(sd_varlink_server_add_interface(s, &vl_interface_test_plain));
+        ASSERT_OK(sd_varlink_server_bind_method_many(s,
+                                                   "io.test.Plain.Plain", method_unexpected,
+                                                   "io.test.Unspecified", method_ordinary_reply));
+
+        test_method_reply(s, "{\"method\":\"org.varlink.service.GetInfo\",\"upgrade\":true}",
+                          SD_VARLINK_ERROR_OPERATION_NOT_SUPPORTED);
+        test_method_reply(s, "{\"method\":\"io.test.Plain.Plain\",\"upgrade\":true}",
+                          SD_VARLINK_ERROR_OPERATION_NOT_SUPPORTED);
+        test_method_reply(s, "{\"method\":\"io.test.Unspecified\",\"upgrade\":true}",
+                          SD_VARLINK_ERROR_OPERATION_NOT_SUPPORTED);
+}
+
 TEST(is_connected_null) {
         /* A non-existent connection is not connected */
         ASSERT_OK_ZERO(sd_varlink_is_connected(NULL));
