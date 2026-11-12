@@ -20,6 +20,7 @@
 #include "parse-argument.h"
 #include "path-util.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "uapi16-manifest.h"
 #include "verbs.h"
@@ -38,6 +39,7 @@ static char *arg_certificate_source = NULL;
 static CertificateSourceType arg_certificate_source_type = OPENSSL_CERTIFICATE_SOURCE_FILE;
 static bool arg_graceful = false;
 static int arg_verify_signature = -1;
+static nsec_t arg_timestamp_accuracy = MANIFEST_TIMESTAMP_ACCURACY_DEFAULT_NSEC;
 static char *arg_voa_context = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
@@ -99,6 +101,18 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         if (arg_hash < 0)
                                 return log_error_errno(arg_hash, "Unknown hash algorithm: %s", opts.arg);
                         break;
+
+                OPTION_LONG("timestamp-accuracy-sec", "TIMESPAN", "Maximum deviation of timestamps to accept when verifying (default: 2s)"): {
+                        usec_t u;
+
+                        r = parse_sec(opts.arg, &u);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --timestamp-accuracy-sec= value: %s", opts.arg);
+
+                        /* Parse as seconds by default (as the name suggests), but store in nsec */
+                        arg_timestamp_accuracy = u >= NSEC_INFINITY / NSEC_PER_USEC ? NSEC_INFINITY : u * NSEC_PER_USEC;
+                        break;
+                }
 
                 OPTION_LONG("graceful", NULL, "Don't fail if inodes had to be skipped or metadata omitted"):
                         arg_graceful = true;
@@ -255,6 +269,7 @@ static void context_from_args(ManifestContext *c) {
         c->fields = arg_fields;
         c->hash = arg_hash >= 0 ? arg_hash : MANIFEST_HASH_SHA256;
         c->json_format_flags = arg_json_format_flags;
+        c->timestamp_accuracy_nsec = arg_timestamp_accuracy;
         c->color = colors_enabled();
 }
 
