@@ -130,6 +130,7 @@ bool sched_policy_is_valid(int policy) _const_;
 bool sched_policy_supported(int policy);
 int sched_get_priority_min_safe(int policy);
 int sched_get_priority_max_safe(int policy);
+bool sched_priority_is_valid(int policy, int priority);
 
 #define PID_AUTOMATIC ((pid_t) INT_MIN) /* special value indicating "acquire pid from connection peer" */
 

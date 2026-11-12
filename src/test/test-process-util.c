@@ -1167,6 +1167,35 @@ TEST(sched_policy_to_string) {
         }
 }
 
+TEST(sched_priority_is_valid) {
+        int policy, min, max;
+
+        ASSERT_TRUE(sched_priority_is_valid(SCHED_OTHER, 0));
+        ASSERT_FALSE(sched_priority_is_valid(SCHED_OTHER, 1));
+        ASSERT_FALSE(sched_priority_is_valid(SCHED_OTHER, -1));
+        ASSERT_TRUE(sched_priority_is_valid(SCHED_BATCH, 0));
+        ASSERT_TRUE(sched_priority_is_valid(SCHED_IDLE, 0));
+
+        FOREACH_ARGUMENT(policy, SCHED_FIFO, SCHED_RR) {
+                min = sched_get_priority_min_safe(policy);
+                max = sched_get_priority_max_safe(policy);
+
+                ASSERT_TRUE(sched_priority_is_valid(policy, min));
+                ASSERT_TRUE(sched_priority_is_valid(policy, max));
+                ASSERT_TRUE(sched_priority_is_valid(policy | SCHED_RESET_ON_FORK, max));
+                ASSERT_FALSE(sched_priority_is_valid(policy, min - 1));
+                ASSERT_FALSE(sched_priority_is_valid(policy, max + 1));
+                ASSERT_FALSE(sched_priority_is_valid(policy, INT_MAX));
+                ASSERT_FALSE(sched_priority_is_valid(policy, INT_MIN));
+        }
+
+        /* Unknown policies accept no priority at all */
+        ASSERT_FALSE(sched_priority_is_valid(4711, 0));
+        ASSERT_FALSE(sched_priority_is_valid(4711, 1));
+        ASSERT_FALSE(sched_priority_is_valid(-1, 0));
+        ASSERT_FALSE(sched_priority_is_valid(4711 | SCHED_RESET_ON_FORK, 0));
+}
+
 TEST(invoked_as) {
         ASSERT_FALSE(invoked_as(/* argv= */ NULL, "foobar"));
         ASSERT_FALSE(invoked_as(/* argv= */ NULL, "barbar"));

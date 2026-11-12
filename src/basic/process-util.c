@@ -1313,6 +1313,20 @@ int sched_get_priority_max_safe(int policy) {
         return 0;
 }
 
+bool sched_priority_is_valid(int policy, int priority) {
+        /* Checks whether the specified static priority is valid for the specified scheduling policy, as
+         * reported by the kernel. SCHED_RESET_ON_FORK may be included in the policy, and is ignored. Returns
+         * false for unknown policies. */
+
+        policy &= ~SCHED_RESET_ON_FORK;
+
+        if (!sched_policy_is_valid(policy))
+                return false;
+
+        return priority >= sched_get_priority_min_safe(policy) &&
+                priority <= sched_get_priority_max_safe(policy);
+}
+
 /* The cached PID, possible values:
  *
  *     == UNSET [0]  → cache not initialized yet
