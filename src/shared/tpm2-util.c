@@ -328,9 +328,11 @@ int dlopen_tpm2(int log_level) {
         if (r < 0)
                 return r;
 
-        r = dlopen_tpm2_tcti_device(log_level);
-        if (r < 0)
-                return r;
+        /* The device TCTI is only needed to talk to a TPM, not for offline calculations (for example
+         * systemd-measure or ukify --policy-digest, often used in build environments without a TPM). Load
+         * it if available, so that tpm2_context_new() still finds it once dlopen() is blocked, but don't
+         * fail without it: tpm2_context_new() returns -ENOPKG if a TPM is actually accessed. */
+        (void) dlopen_tpm2_tcti_device(LOG_DEBUG);
 
         return 0;
 #else
