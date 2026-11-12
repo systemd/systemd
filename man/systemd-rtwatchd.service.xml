@@ -115,6 +115,10 @@
     <function>Watch()</function> is authorized via <literal>io.systemd.rtwatch.watch</literal>, since its events include
     information about the processes of all users. By default both require administrator authentication;
     root is always allowed.</para>
+
+    <para>The tool
+    <citerefentry><refentrytitle>systemd-rtwatch</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    is a command line client to this interface.</para>
   </refsect1>
 
   <refsect1>
@@ -270,6 +274,7 @@
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-rtwatch</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>rtwatchd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>org.freedesktop.RealtimeKit1</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry project='man-pages'><refentrytitle>sched</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
