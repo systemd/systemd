@@ -369,6 +369,26 @@ for setting in '' yes; do
             .[0]._REMOTE_CERTIFICATE_SUBJECT == $expected and .[0]._HOSTNAME == "sender-claimed-host")'
     rm /run/systemd/remote-pki/import*.journal
 done
+
+# Exercise the regular file, empty file, and stdin paths in one uploader
+# instance, including switching from Content-Length back to chunked encoding.
+printf '%s\n' '__REALTIME_TIMESTAMP=1700000000000000' '__MONOTONIC_TIMESTAMP=1000000' \
+    '_BOOT_ID=0123456789abcdef0123456789abcdef' 'MESSAGE=regular-upload-test' '' >/run/systemd/remote-pki/regular.export
+printf '%s\n' '__REALTIME_TIMESTAMP=1700000000000000' '__MONOTONIC_TIMESTAMP=1000000' \
+    '_BOOT_ID=0123456789abcdef0123456789abcdef' 'MESSAGE=stdin-upload-test' '' >/run/systemd/remote-pki/stdin.export
+: >/run/systemd/remote-pki/empty.export
+systemctl restart systemd-journal-remote.socket
+timeout 30 /usr/lib/systemd/systemd-journal-upload \
+    --url=https://localhost:19532 \
+    --key=/run/systemd/remote-pki/client.key \
+    --cert=/run/systemd/remote-pki/client.crt \
+    --trust=/run/systemd/remote-pki/ca.crt \
+    /run/systemd/remote-pki/regular.export /run/systemd/remote-pki/empty.export - \
+    </run/systemd/remote-pki/stdin.export
+journalctl --directory=/var/log/journal/remote --grep='regular-upload-test'
+journalctl --directory=/var/log/journal/remote --grep='stdin-upload-test'
+systemctl stop systemd-journal-remote.{socket,service}
+rm -rf /var/log/journal/remote/*
 rm /run/systemd/journal-remote.conf.d/99-test.conf
 
 DOS_DIR="$(mktemp -d)"
