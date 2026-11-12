@@ -1867,6 +1867,19 @@ do_test_varlink_link_methods() {
 
     [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
     assert_in 'resolve' "$(resolvectl llmnr "$ifname")"
+
+    # io.systemd.Resolve.Link.SetMulticastDNS
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetMulticastDNS \
+        '{"ifindex":"'"$ifindex"'","mDNS":"yes"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'yes' "$(resolvectl mdns "$ifname")"
+
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetMulticastDNS \
+        '{"ifindex":"'"$ifindex"'","mDNS":"resolve"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'resolve' "$(resolvectl mdns "$ifname")"
 }
 
 do_test_varlink_link_error () {
@@ -1901,6 +1914,11 @@ do_test_varlink_link_error () {
         "$error" \
         "$(varlinkctl call --graceful="$error" "$socket" io.systemd.Resolve.Link.SetLLMNR \
             '{"ifindex":"'"$ifindex"'","llmnr":"yes"}' 2>&1)"
+
+    assert_in \
+        "$error" \
+        "$(varlinkctl call --graceful="$error" "$socket" io.systemd.Resolve.Link.SetMulticastDNS \
+            '{"ifindex":"'"$ifindex"'","mDNS":"yes"}' 2>&1)"
 }
 
 testcase_16_varlink_link_methods() {
