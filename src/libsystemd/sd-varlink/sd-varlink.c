@@ -1401,6 +1401,10 @@ static int varlink_dispatch_method(sd_varlink *v) {
                                         if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state))
                                                 goto fail;
                                 }
+                        } else if (r == -EOPNOTSUPP) {
+                                r = sd_varlink_error(v, SD_VARLINK_ERROR_OPERATION_NOT_SUPPORTED, /* parameters= */ NULL);
+                                if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state))
+                                        goto fail;
                         } else if (r < 0) {
                                 /* Please adjust test/units/end.sh when updating the log message. */
                                 varlink_log_errno(v, r, "Parameters for method %s() didn't pass validation on field '%s': %m",
@@ -2602,6 +2606,11 @@ static int varlink_reply_internal(sd_varlink *v, sd_json_variant *parameters, bo
 
         if (!sd_varlink_wants_reply(v))
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
+
+        /* A successful upgrade reply hands the connection over to another protocol. Ordinary replies
+         * must refuse the upgrade, including for handlers without an interface description. */
+        if (IN_SET(v->state, VARLINK_PROCESSING_METHOD_UPGRADE, VARLINK_PENDING_METHOD_UPGRADE))
+                return sd_varlink_error(v, SD_VARLINK_ERROR_OPERATION_NOT_SUPPORTED, /* parameters= */ NULL);
 
         bool more = IN_SET(v->state, VARLINK_PROCESSING_METHOD_MORE, VARLINK_PENDING_METHOD_MORE);
 

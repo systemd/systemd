@@ -2011,6 +2011,10 @@ static void test_method_reply(sd_varlink_server *s, const char *request, const c
         ASSERT_TRUE(sd_varlink_is_connected(v));
 }
 
+static int method_unexpected(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        assert_not_reached();
+}
+
 static int method_ordinary_reply(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return sd_varlink_reply(link, /* parameters= */ NULL);
 }
@@ -2032,6 +2036,25 @@ TEST(required_method_flags) {
         test_method_reply(s, "{\"method\":\"io.test.Flags.More\",\"more\":true}", /* error= */ NULL);
         test_method_reply(s, "{\"method\":\"io.test.Flags.Upgrade\"}", SD_VARLINK_ERROR_EXPECTED_UPGRADE);
         test_method_reply(s, "{\"method\":\"io.test.Flags.Upgrade\",\"more\":true}", SD_VARLINK_ERROR_EXPECTED_UPGRADE);
+}
+
+TEST(unsupported_upgrade) {
+        static SD_VARLINK_DEFINE_METHOD(Plain);
+        static SD_VARLINK_DEFINE_INTERFACE(test_plain, "io.test.Plain", &vl_method_Plain);
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+
+        ASSERT_OK(sd_varlink_server_new(&s, /* flags= */ 0));
+        ASSERT_OK(sd_varlink_server_add_interface(s, &vl_interface_test_plain));
+        ASSERT_OK(sd_varlink_server_bind_method_many(s,
+                                                   "io.test.Plain.Plain", method_unexpected,
+                                                   "io.test.Unspecified", method_ordinary_reply));
+
+        test_method_reply(s, "{\"method\":\"org.varlink.service.GetInfo\",\"upgrade\":true}",
+                          SD_VARLINK_ERROR_OPERATION_NOT_SUPPORTED);
+        test_method_reply(s, "{\"method\":\"io.test.Plain.Plain\",\"upgrade\":true}",
+                          SD_VARLINK_ERROR_OPERATION_NOT_SUPPORTED);
+        test_method_reply(s, "{\"method\":\"io.test.Unspecified\",\"upgrade\":true}",
+                          SD_VARLINK_ERROR_OPERATION_NOT_SUPPORTED);
 }
 
 TEST(is_connected_null) {
