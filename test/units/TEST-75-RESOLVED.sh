@@ -731,6 +731,12 @@ testcase_08_resolved() {
     grep -qF '"data":"' "$RUN_OUT"
     (! run resolvectl openpgp mr.smith@signed.test --json=short --type=A)
     grep -qF -- "The openpgp command may only be combined with --type=OPENPGPKEY." "$RUN_OUT"
+    (! run resolvectl openpgp nobody@signed.test)
+    grep -qF "6382b3cc881412b77bfcaeed026001c00d9e3025e66c20f6e7e92f07._openpgpkey.signed.test" "$RUN_OUT"
+    ! grep -qF "efc75004" "$RUN_OUT"
+    (! run resolvectl openpgp nobody@signed.test --json=short)
+    grep -qF "6382b3cc881412b77bfcaeed026001c00d9e3025e66c20f6e7e92f07._openpgpkey.signed.test" "$RUN_OUT"
+    ! grep -qF "efc75004" "$RUN_OUT"
     (! run resolvectl tlsa tcp)
     grep -qF -- "The tlsa command requires at least one domain." "$RUN_OUT"
     (! run resolvectl tlsa signed.test:invalid --json=short)
