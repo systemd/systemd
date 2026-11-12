@@ -1148,6 +1148,11 @@ int transient_cgroup_context_dispatch(
 
         assert(ret);
 
+        if (sd_json_variant_is_null(variant)) {
+                *ret = NULL;
+                return 0;
+        }
+
         if (!cgroup_dispatch_set) {
                 FOREACH_ELEMENT(prop, cgroup_properties)
                         cgroup_dispatch[prop - cgroup_properties] = (sd_json_dispatch_field) {
