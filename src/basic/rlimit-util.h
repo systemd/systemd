@@ -28,3 +28,4 @@ int rlimit_nofile_bump(int limit);
 int rlimit_nofile_safe(void);
 
 int pid_getrlimit(pid_t pid, int resource, struct rlimit *ret);
+int pidref_getrlimit(const PidRef *pid, int resource, struct rlimit *ret);
