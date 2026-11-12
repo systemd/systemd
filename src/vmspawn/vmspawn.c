@@ -3315,7 +3315,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         case CONSOLE_READ_ONLY:
                 if (arg_console_mode == CONSOLE_READ_ONLY)
-                        ptyfwd_flags |= PTY_FORWARD_READ_ONLY;
+                        /* Nothing can answer terminal queries in read-only mode, hence do so ourselves */
+                        ptyfwd_flags |= PTY_FORWARD_READ_ONLY|PTY_FORWARD_ANSWER_QUERIES;
 
                 _fallthrough_;
 

@@ -5986,7 +5986,8 @@ static int run_container(
                 switch (arg_console_mode) {
 
                 case CONSOLE_READ_ONLY:
-                        flags |= PTY_FORWARD_READ_ONLY;
+                        /* Nothing can answer terminal queries in read-only mode, hence do so ourselves */
+                        flags |= PTY_FORWARD_READ_ONLY|PTY_FORWARD_ANSWER_QUERIES;
 
                         _fallthrough_;
 
