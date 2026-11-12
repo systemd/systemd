@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?> <!--*-nxml-*-->
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+        "https://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+
+  This file is part of systemd.
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+-->
+
+<policyconfig>
+
+        <vendor>The systemd Project</vendor>
+        <vendor_url>https://systemd.io</vendor_url>
+
+        <!-- Note: the action IDs are kept compatible with RealtimeKit, so that existing local polkit rules
+             continue to apply. -->
+
+        <action id="org.freedesktop.RealtimeKit1.acquire-high-priority">
+                <description gettext-domain="systemd">Grant high priority scheduling to a user process</description>
+                <message gettext-domain="systemd">Authentication is required to grant an application high priority scheduling.</message>
+                <defaults>
+                        <allow_any>no</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.RealtimeKit1.acquire-real-time">
+                <description gettext-domain="systemd">Grant realtime scheduling to a user process</description>
+                <message gettext-domain="systemd">Authentication is required to grant an application realtime scheduling.</message>
+                <defaults>
+                        <allow_any>no</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="io.systemd.rtwatch.manage">
+                <description gettext-domain="systemd">Manage realtime scheduling of the system</description>
+                <message gettext-domain="systemd">Authentication is required to demote, suspend or resume realtime and high priority threads.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+        <action id="io.systemd.rtwatch.watch">
+                <description gettext-domain="systemd">Watch realtime scheduling events</description>
+                <message gettext-domain="systemd">Authentication is required to watch realtime scheduling events of all users.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+</policyconfig>

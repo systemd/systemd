@@ -1064,3 +1064,60 @@ that component is not installed on this system.
 As a result @FEATURE@ is unavailable, and is either skipped, disabled, or
 degraded to a fallback mode. Refer to the accompanying log message for the
 specific dependency that is missing, then install it to enable @FEATURE@.
+
+-- 6e8429295baa4dc1a9a45464a064fa58
+Subject: Thread @RTWATCH_TID@ of process @RTWATCH_PID@ has been made realtime
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-rtwatchd.service(8)
+
+On request, systemd-rtwatchd.service granted realtime scheduling at priority
+@RTWATCH_PRIORITY@ to thread @RTWATCH_TID@ of process @RTWATCH_PID@, owned
+by UID @RTWATCH_UID@.
+
+Threads are made realtime with SCHED_RESET_ON_FORK set, so that the realtime
+scheduling is not inherited by child processes. The service supervises the
+thread, and demotes it again if it is detected that the system is starved of
+CPU time.
+
+-- 3a428967a13e4d08ac81a3f2d31715d2
+Subject: Thread @RTWATCH_TID@ of process @RTWATCH_PID@ has been made high priority
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-rtwatchd.service(8)
+
+On request, systemd-rtwatchd.service set the nice level of thread
+@RTWATCH_TID@ of process @RTWATCH_PID@, owned by UID @RTWATCH_UID@, to
+@RTWATCH_NICE_LEVEL@.
+
+-- 246eb1ce01f240da846d5000898fbeb6
+Subject: Thread @RTWATCH_TID@ of process @RTWATCH_PID@ has been demoted
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-rtwatchd.service(8)
+
+systemd-rtwatchd.service reset thread @RTWATCH_TID@ of process
+@RTWATCH_PID@, owned by UID @RTWATCH_UID@, to regular scheduling (i.e.
+SCHED_OTHER at nice level 0).
+
+This happens when the service is asked to demote threads by an administrator,
+when the system is about to go to sleep (the thread is promoted again when the
+system woke up), when the service shuts down, or when the canary based watchdog
+detected that the system is starved of CPU time.
+
+-- 582751e9d8d545c3a476bafa7522f9bd
+Subject: Realtime threads are starving the system
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-rtwatchd.service(8)
+
+The canary based watchdog of systemd-rtwatchd.service detected that the system
+is starved of CPU time, most likely because one or more realtime threads are
+running away and do not yield the CPU anymore. To recover the system,
+@RTWATCH_DEMOTED_THREADS@ realtime threads have been demoted to regular
+scheduling. Requests for realtime scheduling will be refused for
+@RTWATCH_REFUSE_USEC@ µs.
+
+If this happens regularly, a realtime application on the system is likely
+broken. Check the preceding log messages to determine which threads have been
+demoted.

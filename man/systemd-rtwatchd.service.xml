@@ -1,0 +1,281 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-rtwatchd.service" conditional='ENABLE_RTWATCH'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-rtwatchd.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-rtwatchd.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-rtwatchd.service</refname>
+    <refname>systemd-rtwatchd</refname>
+    <refpurpose>Realtime scheduling policy and watchdog service</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-rtwatchd.service</filename></para>
+    <para><filename>systemd-rtwatchd.socket</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-rtwatchd</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-rtwatchd</command> is a system service that changes the scheduling policy of
+    threads of unprivileged processes to realtime scheduling (<constant>SCHED_RR</constant> or
+    <constant>SCHED_FIFO</constant>) or to a negative nice level on request. It is intended as a safe
+    mechanism to make realtime scheduling available to unprivileged applications, such as audio servers,
+    without granting them <constant>RLIMIT_RTPRIO</constant>. It implements the D-Bus API of RealtimeKit,
+    and is a drop-in replacement for it.</para>
+
+    <para>The service enforces the following policies when handing out realtime scheduling:</para>
+
+    <itemizedlist>
+      <listitem><para>Only clients which have set <constant>RLIMIT_RTTIME</constant> to a value no larger
+      than the one configured with <option>--rttime-max=</option> are granted realtime
+      scheduling.</para></listitem>
+
+      <listitem><para>Realtime scheduling and high priority are always handed out with
+      <constant>SCHED_RESET_ON_FORK</constant> set, so that the scheduling parameters do not leak into child
+      processes. This ensures realtime fork bombs cannot be used to circumvent
+      <constant>RLIMIT_RTTIME</constant>.</para></listitem>
+
+      <listitem><para>The number of users, processes per user and threads per user that may be supervised
+      at the same time is limited, as is the number of requests per user per time
+      window.</para></listitem>
+
+      <listitem><para>Clients are authorized with polkit.</para></listitem>
+    </itemizedlist>
+
+    <para>In addition, the service runs a canary based watchdog: its main loop regularly signals a
+    watchdog thread that runs at a very high realtime priority. If the main loop does not get any CPU time
+    for a while (which suggests that realtime threads are starving the system), the watchdog demotes all
+    realtime threads the service handed out back to <constant>SCHED_OTHER</constant>, and refuses further
+    requests for a while.</para>
+
+    <para>The service also integrates with
+    <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>:
+    before the system is suspended all realtime and high priority threads are demoted, and they are promoted
+    again after the system resumed.</para>
+
+    <para>The service is activated on demand and runs as the unprivileged
+    <literal>systemd-rtwatch</literal> user, with only the <constant>CAP_SYS_NICE</constant> and
+    <constant>CAP_DAC_READ_SEARCH</constant> capabilities. When it exits it demotes all threads it
+    promoted.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>D-Bus API</title>
+
+    <para>The service implements the <literal>org.freedesktop.RealtimeKit1</literal> D-Bus interface,
+    compatible with the one implemented by RealtimeKit, under the bus name of the same name. See
+    <citerefentry><refentrytitle>org.freedesktop.RealtimeKit1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for details.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Varlink API</title>
+
+    <para>The service also implements the <literal>io.systemd.RTWatch</literal> Varlink interface, on the
+    <filename>/run/systemd/io.systemd.RTWatch</filename> socket. It provides functionality equivalent to the
+    D-Bus API: <function>MakeThreadRealtime()</function> and
+    <function>MakeThreadHighPriority()</function> take an optional thread (a <literal>ThreadId</literal>
+    object, defaulting to the main thread of the calling process), and the requested priority or nice
+    level. A <literal>ThreadId</literal> object consists of the process the thread belongs to (a
+    <literal>ProcessId</literal> object, defaulting to the calling process), the kernel thread ID (defaulting
+    to the main thread), and optionally the inode number of the thread's pidfd (on kernels that support
+    thread pidfds), which, if specified, is used to verify that the thread ID has not been recycled.
+    <function>ResetKnown()</function>,
+    <function>ResetAll()</function>, <function>Suspend()</function> and <function>Resume()</function>
+    correspond to the D-Bus methods of the same names.
+    <function>Describe()</function> returns the enforced policy and current state.
+    <function>List()</function>, which must be called with the <literal>more</literal> flag, enumerates the
+    threads currently made realtime or high priority, one reply per thread, including the unit and command
+    line of the process and the name of the thread. Unprivileged clients only see their own threads.
+    <function>Watch()</function>, which must be called with the <literal>more</literal> flag, reports
+    events as they happen: threads being made realtime or high
+    priority (with the same thread information as <function>List()</function> returns), threads being
+    demoted or promoted again (via the calls above, or because the system goes to sleep or wakes up), and
+    the canary based watchdog taking action. Use <command>varlinkctl introspect
+    /run/systemd/io.systemd.RTWatch io.systemd.RTWatch</command> to see the full interface definition.</para>
+
+    <para>The same polkit actions as for the D-Bus API are used for <function>MakeThreadRealtime()</function>,
+    <function>MakeThreadHighPriority()</function>, <function>ResetKnown()</function>,
+    <function>ResetAll()</function>, <function>Suspend()</function> and <function>Resume()</function>.
+    <function>Watch()</function> is authorized via <literal>io.systemd.rtwatch.watch</literal>, since its events include
+    information about the processes of all users. By default both require administrator authentication;
+    root is always allowed.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood. Most of them correspond to settings in
+    <citerefentry><refentrytitle>rtwatchd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    and take precedence over them. In order to change them, override <varname>ExecStart=</varname> of
+    <filename>systemd-rtwatchd.service</filename> with a drop-in file, though using the configuration file
+    is generally preferable.</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--scheduling-policy=</option></term>
+
+        <listitem><para>Overrides <varname>SchedulingPolicy=</varname> in
+        <citerefentry><refentrytitle>rtwatchd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        see there for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--our-realtime-priority=</option></term>
+
+        <listitem><para>Overrides <varname>OurRealtimePriority=</varname> in
+        <citerefentry><refentrytitle>rtwatchd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        see there for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--our-nice-level=</option></term>
+
+        <listitem><para>Overrides <varname>OurNiceLevel=</varname> in
+        <citerefentry><refentrytitle>rtwatchd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        see there for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--max-realtime-priority=</option></term>
+
+        <listitem><para>Overrides <varname>MaxRealtimePriority=</varname> in
+        <citerefentry><refentrytitle>rtwatchd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        see there for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--min-nice-level=</option></term>
+
+        <listitem><para>Overrides <varname>MinNiceLevel=</varname> in
+        <citerefentry><refentrytitle>rtwatchd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        see there for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--rttime-max=</option></term>
+
+        <listitem><para>Overrides <varname>RTTimeMax=</varname> in
+        <citerefentry><refentrytitle>rtwatchd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        see there for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--users-max=</option></term>
+        <term><option>--processes-per-user-max=</option></term>
+        <term><option>--threads-per-user-max=</option></term>
+
+        <listitem><para>Override <varname>UsersMax=</varname>, <varname>ProcessesPerUserMax=</varname>, and <varname>ThreadsPerUserMax=</varname> in
+        <citerefentry><refentrytitle>rtwatchd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        see there for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--actions-burst-sec=</option></term>
+        <term><option>--actions-per-burst-max=</option></term>
+
+        <listitem><para>Override <varname>ActionsBurstSec=</varname> and <varname>ActionsPerBurstMax=</varname> in
+        <citerefentry><refentrytitle>rtwatchd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        see there for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--canary=</option></term>
+
+        <listitem><para>Overrides <varname>Canary=</varname> in
+        <citerefentry><refentrytitle>rtwatchd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        see there for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--canary-cheep-sec=</option></term>
+        <term><option>--canary-watchdog-sec=</option></term>
+
+        <listitem><para>Override <varname>CanaryCheepSec=</varname> and <varname>CanaryWatchdogSec=</varname> in
+        <citerefentry><refentrytitle>rtwatchd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        see there for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--canary-refuse-sec=</option></term>
+
+        <listitem><para>Overrides <varname>CanaryRefuseSec=</varname> in
+        <citerefentry><refentrytitle>rtwatchd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        see there for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--canary-demote-root=</option></term>
+        <term><option>--canary-demote-unknown=</option></term>
+
+        <listitem><para>Override <varname>CanaryDemoteRoot=</varname> and <varname>CanaryDemoteUnknown=</varname> in
+        <citerefentry><refentrytitle>rtwatchd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        see there for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--bus-introspect=</option></term>
+
+        <listitem><para>Write D-Bus introspection data of the specified object path to standard output, and
+        exit.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>rtwatchd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>org.freedesktop.RealtimeKit1</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>sched</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>polkit</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
