@@ -1893,6 +1893,19 @@ do_test_varlink_link_methods() {
 
     [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
     assert_in 'yes' "$(resolvectl dnsovertls "$ifname")"
+
+    # io.systemd.Resolve.Link.SetDNSSEC
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetDNSSEC \
+        '{"ifindex":"'"$ifindex"'","dnssec":"allow-downgrade"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'allow-downgrade' "$(resolvectl dnssec "$ifname")"
+
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetDNSSEC \
+        '{"ifindex":"'"$ifindex"'","dnssec":"yes"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'yes' "$(resolvectl dnssec "$ifname")"
 }
 
 do_test_varlink_link_error () {
@@ -1937,6 +1950,11 @@ do_test_varlink_link_error () {
         "$error" \
         "$(varlinkctl call --graceful="$error" "$socket" io.systemd.Resolve.Link.SetDNSOverTLS \
             '{"ifindex":"'"$ifindex"'","dnsOverTLS":"yes"}' 2>&1)"
+
+    assert_in \
+        "$error" \
+        "$(varlinkctl call --graceful="$error" "$socket" io.systemd.Resolve.Link.SetDNSSEC \
+            '{"ifindex":"'"$ifindex"'","dnssec":"yes"}' 2>&1)"
 }
 
 testcase_16_varlink_link_methods() {
