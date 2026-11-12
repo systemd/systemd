@@ -20,6 +20,11 @@ executables += [
                 'sources' : files('test-threadref.c'),
                 'import' : ['systemd-rtwatchd'],
         },
+        executable_template + {
+                'name' : 'systemd-rtwatch',
+                'sources' : files('rtwatch-tool.c'),
+                'import' : ['systemd-rtwatchd'],
+        },
 ]
 
 install_data('org.freedesktop.RealtimeKit1.conf',
