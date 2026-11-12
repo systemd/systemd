@@ -98,24 +98,36 @@ test_pcrsign() {
     openssl pkey -pubout -in "/tmp/pcrsign-private.pem" -out "/tmp/pcrsign-public.pem"
     openssl pkey -pubin -text -in "/tmp/pcrsign-public.pem"
 
+    signed_digest="$("$SD_MEASURE" sign --json=short --linux=/tmp/tpmdata1 --initrd=/tmp/tpmdata2 --bank=sha256 --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --policyref=foo)"
+    # Verify that the signature created by systemd-measure is valid.
+    echo "$signed_digest" | jq -r '.sha256 | to_entries[] | [.value.pol, .value.ref, .value.sig] | @tsv' | while read -r pol ref sig; do
+        openssl dgst -sha256 -verify "/tmp/pcrsign-public.pem" \
+            -signature <(base64 -d <<<"$sig") \
+            <(basenc --base16 -d <<<"$pol"; printf '%s' "$ref" | openssl dgst -sha256 -binary)
+    done
     # Verify that the offline signature obtained via policy-digests is the same
     # as an online signature created with the same key and policy reference by
     # systemd-measure
-    digest="$("$SD_MEASURE" policy-digest --json=short --linux=/tmp/tpmdata1 --initrd=/tmp/tpmdata2 --bank=sha256 --public-key="/tmp/pcrsign-public.pem" --phase=: --policyref=foo)"
-    signed_digest="$("$SD_MEASURE" sign --json=short --linux=/tmp/tpmdata1 --initrd=/tmp/tpmdata2 --bank=sha256 --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --policyref=foo)"
-    echo "$digest" | jq -r '.sha256 | to_entries[] | [.value.pol, .value.tbs] | @tsv' | while read -r pol tbs; do
-        # Note: basenc before coreutils 9.5 refuses lowercase hex input strings
-        offline_sig="$(echo -n "$tbs" | \
-            tr '[:lower:]' '[:upper:]' | \
-            basenc --base16 --decode | \
-            openssl dgst -sign /tmp/pcrsign-private.pem -sha256 | \
-            base64 -w0)"
-        online_sig="$(echo "$signed_digest" | jq -r --arg pol "$pol" '.sha256[] | select(.pol == $pol) | .sig')"
-        test "$tbs" != "$pol"
-        test -n "$offline_sig"
-        test -n "$online_sig"
-        test "$offline_sig" = "$online_sig"
-    done
+    #
+    # This cannot not work for ECDSA signatures unless sd-measure is changed to
+    # produce deterministic ECDSA signatures (RFC 6979) and OpenSSL 3.2 is
+    # available, see https://github.com/systemd/systemd/issues/44788
+    if [ "$algorithm" != "EC" ]; then
+        digest="$("$SD_MEASURE" policy-digest --json=short --linux=/tmp/tpmdata1 --initrd=/tmp/tpmdata2 --bank=sha256 --public-key="/tmp/pcrsign-public.pem" --phase=: --policyref=foo)"
+        echo "$digest" | jq -r '.sha256 | to_entries[] | [.value.pol, .value.tbs] | @tsv' | while read -r pol tbs; do
+            # Note: basenc before coreutils 9.5 refuses lowercase hex input strings
+            offline_sig="$(echo -n "$tbs" | \
+                tr '[:lower:]' '[:upper:]' | \
+                basenc --base16 --decode | \
+                openssl dgst -sign /tmp/pcrsign-private.pem -sha256 | \
+                base64 -w0)"
+            online_sig="$(echo "$signed_digest" | jq -r --arg pol "$pol" '.sha256[] | select(.pol == $pol) | .sig')"
+            test "$tbs" != "$pol"
+            test -n "$offline_sig"
+            test -n "$online_sig"
+            test "$offline_sig" = "$online_sig"
+        done
+    fi
 
     if ! tpm_has_pcr sha256 11; then
         echo "PCR sysfs files not found, skipping signed PCR policy tests"
@@ -177,22 +189,28 @@ test_pcrsign() {
     SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig3",headless=1
     systemd-cryptsetup detach test-volume2
 
-    # Test --append mode and de-duplication. With the same parameters signing should not add a new entry
-    "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --append="/tmp/pcrsign.sig3" >"/tmp/pcrsign.sig4"
-    cmp "/tmp/pcrsign.sig3" "/tmp/pcrsign.sig4"
+    # De-duplication is broken for EC, see https://github.com/systemd/systemd/issues/44788
+    if [ "$algorithm" != "EC" ]; then
+        # Test --append mode and de-duplication. With the same parameters signing should not add a new entry
+        "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --append="/tmp/pcrsign.sig3" >"/tmp/pcrsign.sig4"
+        cmp "/tmp/pcrsign.sig3" "/tmp/pcrsign.sig4"
+    fi
 
     # Sign one more phase, this should
-    "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=quux:waldo --append="/tmp/pcrsign.sig4" >"/tmp/pcrsign.sig5"
-    (! cmp "/tmp/pcrsign.sig4" "/tmp/pcrsign.sig5")
+    "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=quux:waldo --append="/tmp/pcrsign.sig3" >"/tmp/pcrsign.sig5"
+    (! cmp "/tmp/pcrsign.sig3" "/tmp/pcrsign.sig5")
 
     # Should still be good to unlock, given the old entry still exists
     SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig5",headless=1
     systemd-cryptsetup detach test-volume2
 
-    # Adding both signatures once more should not change anything, due to the deduplication
-    "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --append="/tmp/pcrsign.sig5" >"/tmp/pcrsign.sig6"
-    "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=quux:waldo --append="/tmp/pcrsign.sig6" >"/tmp/pcrsign.sig7"
-    cmp "/tmp/pcrsign.sig5" "/tmp/pcrsign.sig7"
+    # De-duplication is broken for EC, see https://github.com/systemd/systemd/issues/44788
+    if [ "$algorithm" != "EC" ]; then
+        # Adding both signatures once more should not change anything, due to the deduplication
+        "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --append="/tmp/pcrsign.sig5" >"/tmp/pcrsign.sig6"
+        "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=quux:waldo --append="/tmp/pcrsign.sig6" >"/tmp/pcrsign.sig7"
+        cmp "/tmp/pcrsign.sig5" "/tmp/pcrsign.sig7"
+    fi
 
     # Enroll a keyslot bound to a policyref
     systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
@@ -258,3 +276,6 @@ EOF
 }
 
 test_pcrsign RSA -pkeyopt rsa_keygen_bits:2048
+test_pcrsign EC -pkeyopt ec_paramgen_curve:P-256
+test_pcrsign EC -pkeyopt ec_paramgen_curve:P-384
+test_pcrsign EC -pkeyopt ec_paramgen_curve:P-521
