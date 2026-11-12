@@ -1993,7 +1993,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
 
         /* Every TPM2 slot tried below gets the same $PIN. It is removed from the environment once a slot that
          * needs a PIN has tried it, so that the fallback methods don't hand it to e.g. a FIDO2 token. A slot
-         * whose hardware is missing (-EAGAIN) has not tried it. */
+         * whose hardware is missing (-EAGAIN, -ENOMEDIUM) has not tried it. */
         const char *e = secure_getenv("PIN");
         if (e) {
                 pin = strdup(e);
@@ -2024,6 +2024,13 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         /* srk= */ NULL,
                                         /* pcrlock_nv= */ NULL,
                                         arg_tpm2_pin ? TPM2_FLAGS_USE_PIN : 0,
+                                        /* fido2_device= */ NULL,
+                                        /* fido2_cid= */ NULL,
+                                        /* fido2_rp= */ NULL,
+                                        /* fido2_public_key= */ NULL,
+                                        /* fido2_public_key_algorithm= */ NULL,
+                                        /* fido2_public_key_tag= */ NULL,
+                                        /* fido2_flags= */ 0,
                                         until,
                                         "cryptsetup.tpm2-pin",
                                         arg_ask_password_flags,
@@ -2070,14 +2077,17 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                          * works. */
 
                         for (;;) {
-                                _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+                                _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {}, fido2_cid = {},
+                                        fido2_public_key = {}, fido2_public_key_tag = {};
                                 _cleanup_free_ char *pubkey_policy_ref = NULL;
                                 struct iovec *blobs = NULL, *policy_hash = NULL;
+                                _cleanup_free_ char *fido2_rp = NULL, *fido2_public_key_algorithm = NULL;
                                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                                 size_t n_blobs = 0, n_policy_hash = 0;
                                 uint16_t pcr_bank, primary_alg;
                                 Argon2IdParameters argon2id_params = {};
                                 TPM2Flags tpm2_flags;
+                                Fido2EnrollFlags fido2_flags;
 
                                 CLEANUP_ARRAY(blobs, n_blobs, iovec_array_free);
                                 CLEANUP_ARRAY(policy_hash, n_policy_hash, iovec_array_free);
@@ -2101,6 +2111,12 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &srk,
                                                 &pcrlock_nv,
                                                 &tpm2_flags,
+                                                &fido2_cid,
+                                                &fido2_rp,
+                                                &fido2_public_key,
+                                                &fido2_public_key_algorithm,
+                                                &fido2_public_key_tag,
+                                                &fido2_flags,
                                                 &keyslot,
                                                 &token,
                                                 &argon2id_params);
@@ -2140,13 +2156,26 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &srk,
                                                 &pcrlock_nv,
                                                 tpm2_flags,
+                                                arg_fido2_device,
+                                                &fido2_cid,
+                                                /* The relying party a TPM2+FIDO2 slot was enrolled under is
+                                                 * recorded in the token; the crypttab fido2-rp= option is
+                                                 * scoped to standalone systemd-fido2 slots and only serves
+                                                 * as a fallback for tokens that predate the field. */
+                                                fido2_rp ?: arg_fido2_rp_id,
+                                                &fido2_public_key,
+                                                fido2_public_key_algorithm,
+                                                &fido2_public_key_tag,
+                                                fido2_flags,
                                                 until,
                                                 "cryptsetup.tpm2-pin",
                                                 arg_ask_password_flags,
                                                 pin,
                                                 &argon2id_params,
                                                 &decrypted_key);
-                                if (r != -EAGAIN && FLAGS_SET(tpm2_flags, TPM2_FLAGS_USE_PIN))
+                                if (!IN_SET(r, -EAGAIN, -ENOMEDIUM) &&
+                                    (FLAGS_SET(tpm2_flags, TPM2_FLAGS_USE_PIN) ||
+                                     (FLAGS_SET(tpm2_flags, TPM2_FLAGS_USE_FIDO2) && FLAGS_SET(fido2_flags, FIDO2ENROLL_PIN))))
                                         (void) getenv_steal_erase("PIN", /* ret= */ NULL);
                                 if (IN_SET(r, -EACCES, -ENOLCK))
                                         return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 PIN unlock failed, falling back to traditional unlocking.");
