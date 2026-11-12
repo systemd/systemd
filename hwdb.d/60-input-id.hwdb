@@ -99,6 +99,8 @@ id-input:modalias:input:b0003v04B3p301Ee0100-e0,1,2,4*
  ID_INPUT_POINTINGSTICK=1
 
 # Logitech gaming mice (wired); the macro/G-key interface is not a keyboard
+# G Pro Wireless
+id-input:modalias:input:b0003v046DpC088e0111-e0,1,2,3,*
 # G502 X Lightspeed
 id-input:modalias:input:b0003v046DpC098e0111-e0,1,2,3,*
 # PRO X3 SUPERSTRIKE
