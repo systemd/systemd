@@ -159,6 +159,23 @@
         <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--manifest=</option></term>
+
+        <listitem><para>Takes a boolean argument or the special value <literal>auto</literal>. If true and
+        the <literal>.v/</literal> directory contains a UAPI.16 manifest file named
+        <filename>Uapi16Manifest</filename>, the entries listed in the manifest are considered instead of
+        the actual directory contents. If <literal>auto</literal>, this is done only if the
+        <literal>.v/</literal> directory is located on a FAT or exFAT file system (which cannot carry
+        extended attributes and similar inode metadata). If false (the default), the manifest is not used.
+        Note that the contents of a manifest entry may be stored in a file of a different name, in which
+        case <option>--print=path</option> shows the path to that file, while
+        <option>--print=filename</option> shows the name of the manifest entry. See <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>

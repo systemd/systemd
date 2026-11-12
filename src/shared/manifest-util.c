@@ -2050,6 +2050,7 @@ static int uapi16_manifest_verify(ManifestContext *c, int dir_fd, FILE *f) {
                         f,
                         c->certificates,
                         c->n_certificates,
+                        LOG_ERR,
                         verify_object_handler,
                         &(VerifyObjectContext) {
                                 .context = c,

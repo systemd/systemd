@@ -136,7 +136,12 @@ int uapi16_xattr_array_sort(Uapi16Xattr *x, size_t n);
 int uapi16_xattrs_build_json(const Uapi16Xattr *x, size_t n, sd_json_variant **ret);
 
 void uapi16_object_done(Uapi16Object *o);
+void uapi16_object_done_many(Uapi16Object *objects, size_t n);
 int uapi16_object_check_validity(Uapi16Object *o);
+
+/* Returns the name of a file (relative to the manifest's location) that carries the complete contents of the
+ * object as they are, or NULL if there's none (or if the object is NULL). */
+const char* uapi16_object_plain_file_source(const Uapi16Object *o) _pure_;
 
 int dispatch_uapi16_object(sd_json_variant *v, size_t n, sd_json_dispatch_flags_t flags, Uapi16Object *ret);
 
@@ -190,11 +195,13 @@ typedef int (*uapi16_object_handler_t)(Uapi16Object *o, size_t index, void *user
  * after file objects, trailer last). Objects of unknown media types are skipped. If certificates are
  * specified, a PKCS#7 signature by one of them is required. Note that it is only known at the very end
  * whether the signature checks out, i.e. after the handler has been called for all file objects: callers
- * must discard what they collected if this returns an error. */
+ * must discard what they collected if this returns an error. Problems with the manifest are logged at
+ * 'log_level', except for those found during signature verification. */
 int uapi16_manifest_read(
                 FILE *f,
                 X509 *const *certificates,
                 size_t n_certificates,
+                int log_level,
                 uapi16_object_handler_t handler,
                 void *userdata);
 

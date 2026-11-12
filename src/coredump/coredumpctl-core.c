@@ -2,6 +2,7 @@
 
 #include "sd-journal.h"
 
+#include "alloc-util.h"
 #include "chase.h"
 #include "compress.h"
 #include "copy.h"
@@ -14,7 +15,6 @@
 #include "fs-util.h"
 #include "log.h"
 #include "path-util.h"
-#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
@@ -108,7 +108,7 @@ int acquire_core(sd_journal *j, int fd, char **ret_tmpfile, char **ret_path) {
         _cleanup_close_ int fdf_opath = -EBADF;
         r = chase(filename, arg_root, CHASE_PREFIX_ROOT | CHASE_MUST_BE_REGULAR, &path, &fdf_opath);
         if (r < 0)
-                return log_error_errno(r, "Failed to chase '%s%s': %m", strempty(arg_root), filename);
+                return log_error_errno(r, "Failed to chase '%s%s': %m", empty_or_root_to_empty(arg_root), filename);
 
         Compression c = compression_from_filename(path);
         if (c == COMPRESSION_NONE) {

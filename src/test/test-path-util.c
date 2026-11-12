@@ -1288,6 +1288,16 @@ TEST(empty_or_root) {
         ASSERT_FALSE(empty_or_root("//yy//"));
 }
 
+TEST(empty_or_root_to_empty) {
+        ASSERT_STREQ(empty_or_root_to_empty(/* path= */ NULL), "");
+        ASSERT_STREQ(empty_or_root_to_empty(""), "");
+        ASSERT_STREQ(empty_or_root_to_empty("/"), "");
+        ASSERT_STREQ(empty_or_root_to_empty("///"), "");
+        ASSERT_STREQ(empty_or_root_to_empty("/xxx"), "/xxx");
+        ASSERT_STREQ(empty_or_root_to_empty("/xxx/"), "/xxx/");
+        ASSERT_STREQ(empty_or_root_to_empty("xxx"), "xxx");
+}
+
 TEST(empty_or_root_harder_to_null) {
         const char *p;
 

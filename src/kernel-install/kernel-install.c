@@ -1334,7 +1334,7 @@ static int verb_add_all(int argc, char *argv[], uintptr_t _data, void *userdata)
 
         fd = chase_and_openat(c.rfd, c.rfd, "/usr/lib/modules", /* chase_flags= */ 0, O_DIRECTORY|O_RDONLY, /* ret_path= */ NULL);
         if (fd < 0)
-                return log_error_errno(fd, "Failed to open %s/usr/lib/modules/: %m", strempty(arg_root));
+                return log_error_errno(fd, "Failed to open %s/usr/lib/modules/: %m", empty_or_root_to_empty(arg_root));
 
         _cleanup_free_ DirectoryEntries *de = NULL;
         r = readdir_all(fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_MUST_BE_DIRECTORY, &de);
@@ -1348,7 +1348,7 @@ static int verb_add_all(int argc, char *argv[], uintptr_t _data, void *userdata)
 
                 if (faccessat(fd, fn, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
                         if (errno != ENOENT)
-                                log_debug_errno(errno, "Failed to check if '%s/usr/lib/modules/%s/vmlinuz' exists, ignoring: %m", strempty(arg_root), (*d)->d_name);
+                                log_debug_errno(errno, "Failed to check if '%s/usr/lib/modules/%s/vmlinuz' exists, ignoring: %m", empty_or_root_to_empty(arg_root), (*d)->d_name);
 
                         log_notice("Not adding version '%s', because kernel image not found.", (*d)->d_name);
                         continue;
@@ -1564,7 +1564,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         fd = chase_and_openat(c.rfd, c.rfd, "/usr/lib/modules", /* chase_flags= */ 0, O_DIRECTORY|O_RDONLY, /* ret_path= */ NULL);
         if (fd < 0)
-                return log_error_errno(fd, "Failed to open %s/usr/lib/modules/: %m", strempty(arg_root));
+                return log_error_errno(fd, "Failed to open %s/usr/lib/modules/: %m", empty_or_root_to_empty(arg_root));
 
         _cleanup_free_ DirectoryEntries *de = NULL;
         r = readdir_all(fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_MUST_BE_DIRECTORY, &de);
@@ -1592,7 +1592,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 bool exists;
                 if (faccessat(fd, fn, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
                         if (errno != ENOENT)
-                                log_debug_errno(errno, "Failed to check if '%s/usr/lib/modules/%s/vmlinuz' exists, ignoring: %m", strempty(arg_root), (*d)->d_name);
+                                log_debug_errno(errno, "Failed to check if '%s/usr/lib/modules/%s/vmlinuz' exists, ignoring: %m", empty_or_root_to_empty(arg_root), (*d)->d_name);
 
                         exists = false;
                 } else
