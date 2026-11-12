@@ -706,7 +706,8 @@ static int add_mount(
                         return r;
         }
 
-        /* nofail mounts are not ordered before the target, so neither should their helper services be. */
+        /* validatefs and pcrfs are integrity checks, so they keep the target ordering.
+         * growfs and quota are not, so nofail mounts don't wait for them. */
         const char *hook_up_target = FLAGS_SET(flags, MOUNT_NOFAIL) ? NULL : target_unit;
         if (flags & MOUNT_GROWFS) {
                 r = generator_hook_up_growfs(dest, where, hook_up_target);
@@ -719,14 +720,14 @@ static int add_mount(
                 if (r == 0)
                         log_debug("OS measurements not explicitly requested and kernel stub did not measure kernel image into PCR, skipping userspace measurement, too.");
                 else if (r > 0) {
-                        r = generator_hook_up_pcrfs(dest, where, hook_up_target);
+                        r = generator_hook_up_pcrfs(dest, where, target_unit);
                         if (r < 0)
                                 return r;
                 }
         }
 
         if (flags & MOUNT_VALIDATEFS) {
-                r = generator_hook_up_validatefs(dest, where, hook_up_target);
+                r = generator_hook_up_validatefs(dest, where, target_unit);
                 if (r < 0)
                         return r;
         }
