@@ -1315,13 +1315,25 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
                 if (FLAGS_SET(xopen_flags, XO_AUTO_RW_RO)) {
                         /* First try: in r/w mode */
                         fd = fd_reopen(dir_fd, open_flags|O_RDWR);
-                        if (!ERRNO_IS_NEG_FS_WRITE_REFUSED(fd) && fd != -EISDIR)
-                                return TAKE_FD(fd);
-
-                        open_flags |= O_RDONLY;
+                        if (ERRNO_IS_NEG_FS_WRITE_REFUSED(fd) || fd == -EISDIR)
+                                open_flags |= O_RDONLY;
+                        else if (fd < 0)
+                                return fd;
                 }
 
-                return fd_reopen(dir_fd, open_flags);
+                if (fd < 0) {
+                        fd = fd_reopen(dir_fd, open_flags);
+                        if (fd < 0)
+                                return fd;
+                }
+
+                if (xopen_flags & (XO_COW|XO_NOCOW)) {
+                        r = chattr_fd(fd, FLAGS_SET(xopen_flags, XO_NOCOW) ? FS_NOCOW_FL : 0, FS_NOCOW_FL);
+                        if (r < 0 && !ERRNO_IS_IOCTL_NOT_SUPPORTED(r))
+                                return r;
+                }
+
+                return TAKE_FD(fd);
         }
 
         _cleanup_close_ int _dir_fd = -EBADF;
