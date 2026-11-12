@@ -665,6 +665,14 @@ int dispatch_negative_trust_anchors(const char *name, sd_json_variant *variant, 
         if (r < 0)
                 return r;
 
+        STRV_FOREACH(a, nta) {
+                r = dns_name_is_valid(*a);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Invalid negative trust anchor domain: %s", *a);
+        }
+
         strv_sort(nta);
         *ret = TAKE_PTR(nta);
         return 0;
