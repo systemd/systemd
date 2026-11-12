@@ -99,3 +99,5 @@ int varlink_apply_usec_empty_on_infinity(Unit *u, const char *name, usec_t *p, u
                 unit_write_settingf(u, flags, name, "%s=%s", name, s);                         \
                 return 1;                                                                      \
         }
+
+int varlink_verify_manage_units_async(sd_varlink *link, Manager *manager, const UnitPolkitDetails *details);

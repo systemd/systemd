@@ -912,12 +912,12 @@ static int method_enqueue_unit_job_many(sd_bus_message *message, void *userdata,
                 if (r < 0)
                         return r;
 
-                r = bus_verify_manage_units_async_full(
-                                u,
-                                jtype,
-                                N_("Authentication is required to manage unit '$(unit)'."),
-                                message,
-                                reterr_error);
+                const UnitPolkitDetails details = {
+                        .unit = u,
+                        .verb = jtype,
+                        .message = N_("Authentication is required to manage unit '$(unit)'."),
+                };
+                r = bus_verify_manage_units_async(m, message, &details, reterr_error);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1251,13 +1251,12 @@ static int method_start_transient_unit(sd_bus_message *message, void *userdata, 
         if (mode < 0)
                 return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Job mode %s is invalid.", smode);
 
-        r = bus_verify_manage_units_async_impl(
-                        m,
-                        name,
-                        "start",
-                        N_("Authentication is required to start transient unit '$(unit)'."),
-                        message,
-                        reterr_error);
+        const UnitPolkitDetails details = {
+                .id = name,
+                .verb = "start",
+                .message = N_("Authentication is required to start transient unit '$(unit)'."),
+        };
+        r = bus_verify_manage_units_async(m, message, &details, reterr_error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1334,7 +1333,7 @@ static int method_clear_jobs(sd_bus_message *message, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        r = bus_verify_manage_units_async(m, message, reterr_error);
+        r = bus_verify_manage_units_async(m, message, /* details= */ NULL, reterr_error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1355,7 +1354,7 @@ static int method_reset_failed(sd_bus_message *message, void *userdata, sd_bus_e
         if (r < 0)
                 return r;
 
-        r = bus_verify_manage_units_async(m, message, reterr_error);
+        r = bus_verify_manage_units_async(m, message, /* details= */ NULL, reterr_error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -2255,7 +2254,7 @@ static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        r = bus_verify_manage_units_async(m, message, reterr_error);
+        r = bus_verify_manage_units_async(m, message, /* details= */ NULL, reterr_error);
         if (r < 0)
                 return r;
         if (r == 0)
