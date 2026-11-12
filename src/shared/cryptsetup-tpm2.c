@@ -7,7 +7,6 @@
 #include "crypto-util.h"
 #include "cryptsetup-tpm2.h"
 #include "cryptsetup-util.h"
-#include "env-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
 #include "log.h"
@@ -20,17 +19,24 @@ static int get_pin(
                 usec_t until,
                 const char *askpw_credential,
                 AskPasswordFlags askpw_flags,
+                const char **pin_once,
                 char **ret_pin_str) {
         _cleanup_(erase_and_freep) char *pin_str = NULL;
         _cleanup_strv_free_erase_ char **pin = NULL;
         int r;
 
+        assert(pin_once);
         assert(ret_pin_str);
 
-        r = getenv_steal_erase("PIN", &pin_str);
-        if (r < 0)
-                return log_error_errno(r, "Failed to acquire PIN from environment: %m");
-        if (!r) {
+        /* The PIN passed in by the caller (typically from $PIN) is tried first, but only once: if it is
+         * wrong, the user is asked. */
+        if (*pin_once) {
+                pin_str = strdup(*pin_once);
+                if (!pin_str)
+                        return log_oom();
+                *pin_once = NULL;
+                r = 1;
+        } else {
                 if (FLAGS_SET(askpw_flags, ASK_PASSWORD_HEADLESS))
                         return log_error_errno(
                                         SYNTHETIC_ERRNO(ENOPKG),
@@ -89,6 +95,7 @@ int acquire_tpm2_key(
                 usec_t until,
                 const char *askpw_credential,
                 AskPasswordFlags askpw_flags,
+                const char *pin,
                 const Argon2IdParameters *argon2id_params,
                 struct iovec *ret_decrypted_key) {
 
@@ -194,6 +201,8 @@ int acquire_tpm2_key(
 
         bool argon2id = FLAGS_SET(flags, TPM2_FLAGS_USE_ARGON2ID);
 
+        const char *pin_once = pin;
+
         for (int i = 5;; i--) {
                 _cleanup_(erase_and_freep) char *input_str = NULL, *b64_key2 = NULL;
                 _cleanup_(iovec_done_erase) struct iovec key1 = {};
@@ -202,7 +211,7 @@ int acquire_tpm2_key(
                 if (i <= 0)
                         return -EACCES;
 
-                r = get_pin(until, askpw_credential, askpw_flags, &input_str);
+                r = get_pin(until, askpw_credential, askpw_flags, &pin_once, &input_str);
                 if (r < 0)
                         return r;
 

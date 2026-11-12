@@ -30,6 +30,7 @@ int acquire_tpm2_key(
                 usec_t until,
                 const char *askpw_credential,
                 AskPasswordFlags askpw_flags,
+                const char *pin,
                 const Argon2IdParameters *argon2id_params,
                 struct iovec *ret_decrypted_key);
 

@@ -186,7 +186,7 @@ int load_volume_key_tpm2(
 
 #if HAVE_TPM2
         _cleanup_(iovec_done_erase) struct iovec decrypted_key = {};
-        _cleanup_(erase_and_freep) char *passphrase = NULL;
+        _cleanup_(erase_and_freep) char *passphrase = NULL, *pin = NULL;
         ssize_t passphrase_size;
         int r;
 
@@ -194,6 +194,11 @@ int load_volume_key_tpm2(
         assert_se(c->node);
         assert_se(cd);
         assert_se(ret_vk);
+
+        /* The PIN for unlocking, tried on every TPM2 slot below before asking for one */
+        r = getenv_steal_erase("PIN", &pin);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire PIN from environment: %m");
 
         bool found_some = false;
         int token = 0; /* first token to look at */
@@ -271,6 +276,7 @@ int load_volume_key_tpm2(
                                 /* until= */ 0,
                                 "cryptenroll.tpm2-pin",
                                 c->interactive ? 0 : ASK_PASSWORD_HEADLESS,
+                                pin,
                                 /* argon2id_params= */ FLAGS_SET(tpm2_flags, TPM2_FLAGS_USE_ARGON2ID) ? &ap : NULL,
                                 &decrypted_key);
                 if (IN_SET(r, -EACCES, -ENOLCK))
