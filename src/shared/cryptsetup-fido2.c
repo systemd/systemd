@@ -97,6 +97,8 @@ int acquire_fido2_key(
                                 rp_id ?: "io.systemd.cryptsetup",
                                 salt.iov_base, salt.iov_len,
                                 cid, cid_size,
+                                /* public_key= */ NULL,
+                                /* public_key_algorithm= */ NULL,
                                 pins,
                                 required,
                                 ret_decrypted_key,
@@ -270,8 +272,8 @@ int acquire_fido2_key_auto(
                         break;
         }
 
-        if (!cid)
-                return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
+        if (!cid) /* Callers decide whether this is an error, or whether they fall back to something else */
+                return log_debug_errno(SYNTHETIC_ERRNO(ENXIO),
                                        "No valid FIDO2 token data found.");
 
         if (ret == -EAGAIN) /* fido2 device does not exist, or UV is blocked; caller will prompt for retry */
