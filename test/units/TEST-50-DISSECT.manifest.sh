@@ -14,6 +14,10 @@ WORK="$(mktemp -d /tmp/manifest-tool-work.XXXXXX)"
 
 at_exit() {
     set +e
+    if [[ -n "${FSMNT:-}" ]]; then
+        umount "$FSMNT"
+        rmdir "$FSMNT"
+    fi
     rm -rf "$ROOT" "$WORK"
     if [[ -n "${VOA_OS:-}" ]]; then
         rm -rf "/etc/voa/$VOA_OS/manifest" "/run/voa/$VOA_OS/manifest"
@@ -305,6 +309,108 @@ systemd-manifest make "$HASHFAIL" >"$WORK/hashfail.manifest"
 runas testuser systemd-manifest verify --verify-signature=no --field=size "$HASHFAIL" "$WORK/hashfail.manifest"
 (! runas testuser systemd-manifest verify --verify-signature=no --field=hash "$HASHFAIL" "$WORK/hashfail.manifest")
 (! runas testuser systemd-manifest verify --verify-signature=no "$HASHFAIL" "$WORK/hashfail.manifest")
+
+: "Linux inode flags are recorded and verified per flag"
+INODE="$WORK/inodeflags"
+mkdir "$INODE"
+echo -n "x" >"$INODE/nodump.txt"
+echo -n "y" >"$INODE/plain.txt"
+if chattr +d "$INODE/nodump.txt"; then
+    systemd-manifest make --field=+flag-no-dump,+flag-no-atime "$INODE" >"$WORK/inodeflags.manifest"
+    jq --seq -s -e '.[] | select(.name == "nodump.txt") | .flagNoDump == true and .flagNoAtime == false and (has("flagImmutable") | not)' "$WORK/inodeflags.manifest" >/dev/null
+    jq --seq -s -e '.[] | select(.name == "plain.txt") | .flagNoDump == false' "$WORK/inodeflags.manifest" >/dev/null
+    systemd-manifest make "$INODE" >"$WORK/inodeflags-default.manifest"
+    (! grep -F flagNoDump "$WORK/inodeflags-default.manifest" >/dev/null)
+    systemd-manifest verify --verify-signature=no --field=+flag-no-dump,+flag-no-atime "$INODE" "$WORK/inodeflags.manifest"
+    chattr -d "$INODE/nodump.txt"
+    (! systemd-manifest verify --verify-signature=no --field=+flag-no-dump "$INODE" "$WORK/inodeflags.manifest")
+    systemd-manifest verify --verify-signature=no --field=+flag-no-atime "$INODE" "$WORK/inodeflags.manifest"
+    systemd-manifest verify --verify-signature=no "$INODE" "$WORK/inodeflags.manifest"
+fi
+
+: "FAT attributes, volume serial number and label are recorded and verified"
+FSMNT="$(mktemp -d /tmp/manifest-tool-mnt.XXXXXX)"
+truncate -s 64M "$WORK/fat.img"
+mkfs.vfat -n MANIFEST -i 12ABCD34 "$WORK/fat.img"
+echo -n "hidden" >"$WORK/hidden.txt"
+echo -n "system" >"$WORK/system.txt"
+mcopy -i "$WORK/fat.img" "$WORK/hidden.txt" "$WORK/system.txt" ::/
+mattrib -i "$WORK/fat.img" +h -a ::/hidden.txt
+mattrib -i "$WORK/fat.img" +s +r -a ::/system.txt
+mount -o loop "$WORK/fat.img" "$FSMNT"
+FATFIELDS="+read-only,+flag-hidden,+flag-system,+flag-archive,+fat-serial,+fs-label,+fs-uuid"
+systemd-manifest make --field="$FATFIELDS" "$FSMNT" >"$WORK/fat.manifest"
+jq --seq -s -e '.[0].fatSerial == "12AB-CD34" and (.[0] | has("flagHidden") | not) and (.[0] | has("fsUUID") | not)' "$WORK/fat.manifest" >/dev/null
+jq --seq -s -e '.[] | select(.name == "hidden.txt") | .flagHidden == true and .flagSystem == false and .readOnly == false and .flagArchive == false' "$WORK/fat.manifest" >/dev/null
+jq --seq -s -e '.[] | select(.name == "system.txt") | .flagHidden == false and .flagSystem == true and .readOnly == true and .flagArchive == false' "$WORK/fat.manifest" >/dev/null
+jq --seq -s -e 'all(.[]; has("flagReadOnly") | not)' "$WORK/fat.manifest" >/dev/null
+jq --seq -s -e '.[0] | has("readOnly") | not' "$WORK/fat.manifest" >/dev/null
+# Only the FAT attributes that are asked for are recorded
+systemd-manifest make --field=+flag-hidden "$FSMNT" >"$WORK/flag-hidden.manifest"
+jq --seq -s -e '.[] | select(.name == "hidden.txt") | .flagHidden == true and (has("flagSystem") | not) and (has("flagArchive") | not)' "$WORK/flag-hidden.manifest" >/dev/null
+(! jq --seq -s -e '.[0] | has("fatSerial")' "$WORK/flag-hidden.manifest" >/dev/null)
+systemd-manifest make --field=+fat-serial "$FSMNT" | jq --seq -s -e '.[0].fatSerial == "12AB-CD34"' >/dev/null
+# The label is only recorded if the kernel can report it for FAT, and then as generic "fsLabel", as is
+if jq --seq -s -e '.[0] | has("fsLabel")' "$WORK/fat.manifest" >/dev/null; then
+    jq --seq -s -e '.[0].fsLabel | startswith("MANIFEST")' "$WORK/fat.manifest" >/dev/null
+fi
+systemd-manifest verify --verify-signature=no --field="$FATFIELDS" "$FSMNT" "$WORK/fat.manifest"
+# A changed serial number is detected
+sed 's/"12AB-CD34"/"12AB-CD35"/' "$WORK/fat.manifest" >"$WORK/fat-serial.manifest"
+(! systemd-manifest verify --verify-signature=no --field="$FATFIELDS" "$FSMNT" "$WORK/fat-serial.manifest")
+(! systemd-manifest verify --verify-signature=no --field=+fat-serial "$FSMNT" "$WORK/fat-serial.manifest")
+systemd-manifest verify --verify-signature=no --field=+fs-uuid,+fs-label "$FSMNT" "$WORK/fat-serial.manifest"
+systemd-manifest verify --verify-signature=no "$FSMNT" "$WORK/fat-serial.manifest"
+# A UUID cannot be verified on FAT, which is a mismatch if it is asked for
+sed 's/"fatSerial" *: *"12AB-CD34"/&,"fsUUID":"0fc63daf-8483-4772-8e79-3d69d8477de4"/' "$WORK/fat.manifest" >"$WORK/fat-uuid.manifest"
+jq --seq -s -e '.[0] | has("fsUUID")' "$WORK/fat-uuid.manifest" >/dev/null
+(! systemd-manifest verify --verify-signature=no --field=+fs-uuid "$FSMNT" "$WORK/fat-uuid.manifest")
+systemd-manifest verify --verify-signature=no --field=+fat-serial "$FSMNT" "$WORK/fat-uuid.manifest"
+umount "$FSMNT"
+mattrib -i "$WORK/fat.img" -h ::/hidden.txt
+mount -o loop "$WORK/fat.img" "$FSMNT"
+(! systemd-manifest verify --verify-signature=no --field="$FATFIELDS" "$FSMNT" "$WORK/fat.manifest")
+(! systemd-manifest verify --verify-signature=no --field=+flag-hidden "$FSMNT" "$WORK/fat.manifest")
+systemd-manifest verify --verify-signature=no --field=+flag-system,+read-only,+flag-archive,+fat-serial "$FSMNT" "$WORK/fat.manifest"
+# FAT attributes are ignored when verifying against a non-FAT file system, but a FAT volume serial number
+# is a mismatch there, since it cannot be verified
+mkdir "$WORK/fatcopy"
+cp "$FSMNT/hidden.txt" "$FSMNT/system.txt" "$WORK/fatcopy/"
+umount "$FSMNT"
+systemd-manifest verify --verify-signature=no --field=-mode,-uid,-gid,-hash,-size,+read-only,+flag-hidden,+flag-system,+flag-archive "$WORK/fatcopy" "$WORK/fat.manifest"
+(! systemd-manifest verify --verify-signature=no --field=-mode,-uid,-gid,-hash,-size,"$FATFIELDS" "$WORK/fatcopy" "$WORK/fat.manifest")
+
+: "File system UUID and label are recorded and verified"
+truncate -s 64M "$WORK/ext4.img"
+mkfs.ext4 -q -L manifesttest -U 0fc63daf-8483-4772-8e79-3d69d8477de4 "$WORK/ext4.img"
+mount -o loop "$WORK/ext4.img" "$FSMNT"
+echo -n "x" >"$FSMNT/file.txt"
+systemd-manifest make --field=+fs-uuid,+fs-label,+fat-serial "$FSMNT" >"$WORK/ext4.manifest"
+jq --seq -s -e '.[0].fsLabel == "manifesttest" and (.[0] | has("fatSerial") | not)' "$WORK/ext4.manifest" >/dev/null
+systemd-manifest make --field=+fs-label "$FSMNT" | jq --seq -s -e '(.[0] | has("fsLabel")) and (.[0] | has("fsUUID") | not)' >/dev/null
+systemd-manifest verify --verify-signature=no --field=+fs-uuid,+fs-label "$FSMNT" "$WORK/ext4.manifest"
+sed 's/"manifesttest"/"othertest"/' "$WORK/ext4.manifest" >"$WORK/ext4-label.manifest"
+(! systemd-manifest verify --verify-signature=no --field=+fs-label "$FSMNT" "$WORK/ext4-label.manifest")
+systemd-manifest verify --verify-signature=no --field=+fs-uuid "$FSMNT" "$WORK/ext4-label.manifest"
+# A FAT volume serial number cannot be verified on ext4, which is a mismatch if it is asked for
+sed 's/"fsLabel" *: *"manifesttest"/&,"fatSerial":"12AB-CD34"/' "$WORK/ext4.manifest" >"$WORK/ext4-serial.manifest"
+jq --seq -s -e '.[0].fatSerial == "12AB-CD34"' "$WORK/ext4-serial.manifest" >/dev/null
+(! systemd-manifest verify --verify-signature=no --field=+fat-serial "$FSMNT" "$WORK/ext4-serial.manifest")
+systemd-manifest verify --verify-signature=no --field=+fs-label "$FSMNT" "$WORK/ext4-serial.manifest"
+# The generic FS_IOC_GETFSUUID ioctl is only available since kernel 6.9, before that no UUID is recorded
+if systemd-analyze compare-versions "$(uname -r)" ge 6.9; then
+    jq --seq -s -e '.[0].fsUUID == "0fc63daf-8483-4772-8e79-3d69d8477de4"' "$WORK/ext4.manifest" >/dev/null
+    # Each field may be selected on its own
+    systemd-manifest make --field=+fs-uuid "$FSMNT" | jq --seq -s -e '(.[0] | has("fsUUID")) and (.[0] | has("fsLabel") | not)' >/dev/null
+    sed 's/0fc63daf-8483/0fc63daf-8484/' "$WORK/ext4.manifest" >"$WORK/ext4-uuid.manifest"
+    (! systemd-manifest verify --verify-signature=no --field=+fs-uuid "$FSMNT" "$WORK/ext4-uuid.manifest")
+    systemd-manifest verify --verify-signature=no --field=+fs-label "$FSMNT" "$WORK/ext4-uuid.manifest"
+else
+    jq --seq -s -e '.[0] | has("fsUUID") | not' "$WORK/ext4.manifest" >/dev/null
+fi
+umount "$FSMNT"
+rmdir "$FSMNT"
+FSMNT=
 
 : "Help and introspection work"
 systemd-manifest --help >/dev/null

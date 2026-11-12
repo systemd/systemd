@@ -925,7 +925,13 @@
           for which fields are included by default and which are not (in particular, owning user and group
           names and modification times are not). Has no effect
           on the partition table manifest generated with <option>--manifest-gpt=</option>, whose fields are
-          fixed.</para>
+          fixed. For file systems that are populated from a staging directory rather than by mounting them
+          (which is always the case for read-only file systems, and for others if no loop device is used, see
+          <option>--offline=</option>), the file system identity fields (<option>fs-uuid</option>,
+          <option>fs-label</option>, <option>fat-serial</option>) and the FAT attribute fields
+          (<option>read-only</option>, <option>flag-hidden</option>, <option>flag-system</option>,
+          <option>flag-archive</option>) are never recorded, since the staging directory does not carry
+          them.</para>
 
           <xi:include href="version-info.xml" xpointer="v263"/></listitem>
         </varlistentry>
