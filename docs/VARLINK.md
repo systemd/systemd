@@ -7,6 +7,11 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 # General guideline
 
+- New Varlink APIs and extensions to existing APIs must follow the
+  [UAPI Varlink specification](https://uapi-group.org/specifications/specs/varlink/),
+  respecting its requirements, recommendations and permitted exceptions. The
+  guidelines below supplement it with systemd-specific conventions.
+
 - Varlink field names should use camelCase. This guideline does not apply to
   well-known and documented configuration options, such as those defined in
   [systemd.unit](https://www.freedesktop.org/software/systemd/man/latest/systemd.unit.html),
