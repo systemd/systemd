@@ -41,3 +41,4 @@ void varlink_job_drop_stashed_client(Manager *m, sd_varlink *link);
 void varlink_job_flush_stashed_clients(Manager *m);
 
 int varlink_error_no_such_unit(sd_varlink *v, const char *name);
+void varlink_error_or_close(sd_varlink *link, int error);
