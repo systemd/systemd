@@ -1240,7 +1240,7 @@ static int read_buffer(const char *buf, size_t size, X509 *const *certificates, 
         ASSERT_NOT_NULL(f = fmemopen_unlocked((void*) buf, size, "r"));
 
         *ret_n_objects = 0;
-        return uapi16_manifest_read(f, certificates, n_certificates, count_objects, ret_n_objects);
+        return uapi16_manifest_read(f, certificates, n_certificates, LOG_ERR, count_objects, ret_n_objects);
 }
 
 static void test_signed_one(
