@@ -2354,6 +2354,7 @@ static const char* const sched_policy_table[] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sched_policy, int, INT_MAX);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(sched_policy, int);
 
 _noreturn_ void report_errno_and_exit(int errno_fd, int error) {
         int r;
