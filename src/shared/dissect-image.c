@@ -5598,6 +5598,7 @@ typedef struct MountImageReplyParameters {
         sd_json_variant *partitions;
         bool single_file_system;
         char *image_policy;
+        char *pinned_image_policy;
         uint64_t image_size;
         uint32_t sector_size;
         sd_id128_t image_uuid;
@@ -5607,6 +5608,7 @@ static void mount_image_reply_parameters_done(MountImageReplyParameters *p) {
         assert(p);
 
         p->image_policy = mfree(p->image_policy);
+        p->pinned_image_policy = mfree(p->pinned_image_policy);
         p->partitions = sd_json_variant_unref(p->partitions);
 }
 
@@ -5634,7 +5636,7 @@ int mountfsd_connect(sd_varlink **ret) {
         return 0;
 }
 
-int mountfsd_mount_image_fd(
+int mountfsd_mount_image_fd_full(
                 sd_varlink *vl,
                 int image_fd,
                 int userns_fd,
@@ -5642,18 +5644,21 @@ int mountfsd_mount_image_fd(
                 const ImagePolicy *image_policy,
                 const VeritySettings *verity,
                 DissectImageFlags flags,
-                DissectedImage **ret) {
+                bool pin_image_policy,
+                DissectedImage **ret,
+                ImagePolicy **ret_pinned_image_policy) {
 
 #if HAVE_BLKID
         _cleanup_(mount_image_reply_parameters_done) MountImageReplyParameters p = {};
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "partitions",         SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant, offsetof(struct MountImageReplyParameters, partitions),         SD_JSON_MANDATORY },
-                { "singleFileSystem",   SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool, offsetof(struct MountImageReplyParameters, single_file_system), 0                 },
-                { "imagePolicy",        SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(struct MountImageReplyParameters, image_policy),       0                 },
-                { "imageSize",          _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,  offsetof(struct MountImageReplyParameters, image_size),         SD_JSON_MANDATORY },
-                { "sectorSize",         _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,  offsetof(struct MountImageReplyParameters, sector_size),        SD_JSON_MANDATORY },
-                { "imageUuid",          SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,   offsetof(struct MountImageReplyParameters, image_uuid),         0                 },
+                { "partitions",        SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant, offsetof(struct MountImageReplyParameters, partitions),          SD_JSON_MANDATORY },
+                { "singleFileSystem",  SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool, offsetof(struct MountImageReplyParameters, single_file_system),  0                 },
+                { "imagePolicy",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(struct MountImageReplyParameters, image_policy),        0                 },
+                { "pinnedImagePolicy", SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(struct MountImageReplyParameters, pinned_image_policy), 0                 },
+                { "imageSize",         _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,  offsetof(struct MountImageReplyParameters, image_size),          SD_JSON_MANDATORY },
+                { "sectorSize",        _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,  offsetof(struct MountImageReplyParameters, sector_size),         SD_JSON_MANDATORY },
+                { "imageUuid",         SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,   offsetof(struct MountImageReplyParameters, image_uuid),          0                 },
                 {}
         };
 
@@ -5756,6 +5761,7 @@ int mountfsd_mount_image_fd(
                         SD_JSON_BUILD_PAIR_CONDITION(verity_data_fd >= 0, "verityDataFileDescriptor", SD_JSON_BUILD_UNSIGNED(userns_fd >= 0 ? 2 : 1)),
                         SD_JSON_BUILD_PAIR_CONDITION(verity && iovec_is_set(&verity->root_hash), "verityRootHash", JSON_BUILD_IOVEC_HEX(&verity->root_hash)),
                         SD_JSON_BUILD_PAIR_CONDITION(verity && iovec_is_set(&verity->root_hash_sig), "verityRootHashSignature", JSON_BUILD_IOVEC_BASE64(&verity->root_hash_sig)),
+                        SD_JSON_BUILD_PAIR_CONDITION(pin_image_policy, "pinImagePolicy", SD_JSON_BUILD_BOOLEAN(true)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", FLAGS_SET(flags, DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH)));
         if (r < 0)
                 return log_error_errno(r, "Failed to issue MountImage() varlink call: %m");
@@ -5853,6 +5859,25 @@ int mountfsd_mount_image_fd(
         di->image_size = p.image_size;
         di->sector_size = p.sector_size;
         di->image_uuid = p.image_uuid;
+
+        if (ret_pinned_image_policy) {
+                _cleanup_(image_policy_freep) ImagePolicy *pinned = NULL;
+
+                if (p.pinned_image_policy) {
+                        r = image_policy_from_string(p.pinned_image_policy, /* graceful= */ false, &pinned);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to parse pinned image policy '%s': %m", p.pinned_image_policy);
+                } else {
+                        /* Older versions of mountfsd don't return the pinned image policy. The reply only
+                         * lists the partitions that mountfsd mounted. The policy that we derive from the reply
+                         * therefore lacks the verity and signature partitions. */
+                        pinned = image_policy_new_from_dissected(di, verity);
+                        if (!pinned)
+                                return -ENOMEM;
+                }
+
+                *ret_pinned_image_policy = TAKE_PTR(pinned);
+        }
 
         *ret = TAKE_PTR(di);
         return 0;

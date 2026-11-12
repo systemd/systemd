@@ -140,6 +140,18 @@ grep "no trusted key validates its signature" /tmp/unpriv.err >/dev/null
 (! runas testuser systemd-dissect --image-policy='root=verity+signed:=absent+unused' --mtree /var/tmp/unpriv.raw >/dev/null 2>/tmp/unpriv.err)
 grep InteractiveAuthenticationRequired /tmp/unpriv.err >/dev/null
 
+# mountfsd returns an image policy that pins the partitions and the protection found in the image. For root,
+# mountfsd uses the policy for trusted images, which allows Verity without a signature. The image therefore
+# mounts, although no trusted key validates its signature. With pinImagePolicy, mountfsd also enforces the
+# pinned policy and refuses the image.
+varlinkctl --exec --push-fd=/var/tmp/unpriv.raw call \
+    /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.MountImage '{"imageFileDescriptor":0}' -- \
+    jq -e '.pinnedImagePolicy | test("(^|:)root=signed\\+[^:]*squashfs")' >/dev/null
+(! varlinkctl --push-fd=/var/tmp/unpriv.raw call \
+    /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.MountImage '{"imageFileDescriptor":0,"pinImagePolicy":true}' \
+    >/dev/null 2>/tmp/unpriv.out)
+grep -F "io.systemd.MountFileSystem.KeyNotFound" /tmp/unpriv.out >/dev/null
+
 # Unprivileged user units can use signed verity images if the kernel supports signature verification.
 if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
     SYSTEMD_VERITY_SHARING=1 systemd-dissect --mkdir --mount "$MINIMAL_IMAGE.gpt" "$IMAGE_DIR/verity-shared"

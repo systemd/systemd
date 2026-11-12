@@ -121,6 +121,7 @@ typedef struct MountImageParameters {
         MountOptions *options;
         bool relax_extension_release_check;
         bool verity_sharing;
+        bool pin_image_policy;
         struct iovec verity_root_hash;
         struct iovec verity_root_hash_sig;
         unsigned verity_data_fd_idx;
@@ -371,6 +372,7 @@ static int vl_method_mount_image(
                 { "verityDataFileDescriptor",    SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        offsetof(MountImageParameters, verity_data_fd_idx),            0 },
                 { "verityRootHash",              SD_JSON_VARIANT_STRING,   json_dispatch_unhex_iovec,    offsetof(MountImageParameters, verity_root_hash),              0 },
                 { "verityRootHashSignature",     SD_JSON_VARIANT_STRING,   json_dispatch_unbase64_iovec, offsetof(MountImageParameters, verity_root_hash_sig),          0 },
+                { "pinImagePolicy",              SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool,     offsetof(MountImageParameters, pin_image_policy),              0 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
@@ -387,9 +389,9 @@ static int vl_method_mount_image(
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *aj = NULL;
         _cleanup_close_ int image_fd = -EBADF, userns_fd = -EBADF, verity_data_fd = -EBADF;
-        _cleanup_(image_policy_freep) ImagePolicy *use_policy = NULL;
+        _cleanup_(image_policy_freep) ImagePolicy *use_policy = NULL, *pinned_policy = NULL;
         Hashmap **polkit_registry = ASSERT_PTR(userdata);
-        _cleanup_free_ char *ps = NULL;
+        _cleanup_free_ char *ps = NULL, *pinned_ps = NULL;
         bool image_is_trusted = false;
         int r;
 
@@ -554,6 +556,7 @@ static int vl_method_mount_image(
 
         for (;;) {
                 use_policy = image_policy_free(use_policy);
+                pinned_policy = image_policy_free(pinned_policy);
                 ps = mfree(ps);
                 di = dissected_image_unref(di);
 
@@ -618,6 +621,35 @@ static int vl_method_mount_image(
                         if (r < 0)
                                 return r;
 
+                        pinned_policy = image_policy_new_from_dissected(di, &verity);
+                        if (!pinned_policy)
+                                return -ENOMEM;
+
+                        /* The image policy can allow Verity without a signature. The intersection with the
+                         * pinned policy makes a signed image require a trusted key that validates its
+                         * signature. */
+                        if (p.pin_image_policy) {
+                                _cleanup_(image_policy_freep) ImagePolicy *t = NULL;
+
+                                r = image_policy_intersect(use_policy, pinned_policy, &t);
+                                if (r == -ENAVAIL)
+                                        r = log_debug_errno(SYNTHETIC_ERRNO(ERFKILL),
+                                                            "Image policy doesn't permit what we found in the image.");
+                                else if (r < 0)
+                                        return r;
+                                else {
+                                        free_and_replace_full(use_policy, t, image_policy_free);
+
+                                        ps = mfree(ps);
+                                        r = image_policy_to_string(use_policy, /* simplify= */ true, &ps);
+                                        if (r < 0)
+                                                return r;
+
+                                        log_debug("Using pinned image policy: %s", ps);
+                                }
+                        }
+                }
+                if (r >= 0) {
                         r = dissected_image_decrypt(
                                         di,
                                         /* root= */ NULL,
@@ -645,7 +677,9 @@ static int vl_method_mount_image(
                          * the policy for trusted images refuses the image too. A polkit prompt then can't
                          * change the result. */
                         if (!use_trusted_policy &&
-                            !(key_not_found && policy_requires_signature(p.image_policy, &verity))) {
+                            !(key_not_found &&
+                              (policy_requires_signature(p.image_policy, &verity) ||
+                               (p.pin_image_policy && policy_requires_signature(pinned_policy, &verity))))) {
                                 log_debug("%s. Trying a stronger polkit authentication before continuing.",
                                           key_not_found ? "Missing verity key in kernel and userspace" : "Denied by image policy");
                                 r = varlink_verify_polkit_async_full(
@@ -680,6 +714,10 @@ static int vl_method_mount_image(
                 /* Success */
                 break;
         }
+
+        r = image_policy_to_string(pinned_policy, /* simplify= */ true, &pinned_ps);
+        if (r < 0)
+                return r;
 
         r = dissected_image_mount(
                         di,
@@ -754,6 +792,7 @@ static int vl_method_mount_image(
                         SD_JSON_BUILD_PAIR_VARIANT("partitions", aj),
                         SD_JSON_BUILD_PAIR_BOOLEAN("singleFileSystem", di->partition_table_type == PARTITION_BARE),
                         SD_JSON_BUILD_PAIR_STRING("imagePolicy", ps),
+                        SD_JSON_BUILD_PAIR_STRING("pinnedImagePolicy", pinned_ps),
                         SD_JSON_BUILD_PAIR_UNSIGNED("imageSize", di->image_size),
                         SD_JSON_BUILD_PAIR_UNSIGNED("sectorSize", di->sector_size),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("imageName", di->image_name),
