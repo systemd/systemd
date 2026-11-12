@@ -1224,6 +1224,19 @@ static int xopen_verify_type(int fd, XOpenFlags flags) {
         return FLAGS_SET(flags, XO_REGULAR) ? statx_verify_regular(&stx) : statx_verify_socket(&stx);
 }
 
+static int xopen_apply_cow(int fd, XOpenFlags xopen_flags) {
+        int r;
+
+        if (!(xopen_flags & (XO_COW|XO_NOCOW)))
+                return 0;
+
+        r = chattr_fd(fd, FLAGS_SET(xopen_flags, XO_NOCOW) ? FS_NOCOW_FL : 0, FS_NOCOW_FL);
+        if (r < 0 && !ERRNO_IS_IOCTL_NOT_SUPPORTED(r))
+                return r;
+
+        return 0;
+}
+
 static int xopen_reopen_pinned(int inode_fd, int dir_fd, const char *path, int open_flags, int lookup_flags) {
         struct stat a, b;
         int r;
@@ -1356,13 +1369,23 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
                 if (FLAGS_SET(xopen_flags, XO_AUTO_RW_RO)) {
                         /* First try: in r/w mode */
                         fd = fd_reopen(dir_fd, open_flags|O_RDWR);
-                        if (!ERRNO_IS_NEG_FS_WRITE_REFUSED(fd) && fd != -EISDIR)
-                                return TAKE_FD(fd);
-
-                        open_flags |= O_RDONLY;
+                        if (ERRNO_IS_NEG_FS_WRITE_REFUSED(fd) || fd == -EISDIR)
+                                open_flags |= O_RDONLY;
+                        else if (fd < 0)
+                                return fd;
                 }
 
-                return fd_reopen(dir_fd, open_flags);
+                if (fd < 0) {
+                        fd = fd_reopen(dir_fd, open_flags);
+                        if (fd < 0)
+                                return fd;
+                }
+
+                r = xopen_apply_cow(fd, xopen_flags);
+                if (r < 0)
+                        return r;
+
+                return TAKE_FD(fd);
         }
 
         _cleanup_close_ int _dir_fd = -EBADF;
@@ -1565,11 +1588,9 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
                         goto error;
         }
 
-        if (xopen_flags & (XO_COW|XO_NOCOW)) {
-                r = chattr_fd(fd, FLAGS_SET(xopen_flags, XO_NOCOW) ? FS_NOCOW_FL : 0, FS_NOCOW_FL);
-                if (r < 0 && !ERRNO_IS_IOCTL_NOT_SUPPORTED(r))
-                        goto error;
-        }
+        r = xopen_apply_cow(fd, xopen_flags);
+        if (r < 0)
+                goto error;
 
         return TAKE_FD(fd);
 
