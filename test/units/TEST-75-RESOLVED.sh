@@ -1826,6 +1826,21 @@ do_test_varlink_link_methods() {
 
     [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
     assert_eq "$(resolvectl --json=short domain "$ifname" | jq -rc '.[0].searchDomains')" 'null'
+
+    # io.systemd.Resolve.Link.SetDNSSECNegativeTrustAnchors
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetDNSSECNegativeTrustAnchors \
+        '{"ifindex":"'"$ifindex"'","negativeTrustAnchors":["local","test"]}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_eq \
+        "$(resolvectl --json=short nta "$ifindex" | jq -rc '.[0].negativeTrustAnchors')" \
+        '["local","test"]'
+
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetDNSSECNegativeTrustAnchors \
+        '{"ifindex":"'"$ifindex"'","negativeTrustAnchors":[]}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_eq "$(resolvectl --json=short nta "$ifindex" | jq -rc '.[0].negativeTrustAnchors')" 'null'
 }
 
 do_test_varlink_link_error () {
@@ -1845,6 +1860,11 @@ do_test_varlink_link_error () {
         "$error" \
         "$(varlinkctl call --graceful="$error" "$socket" io.systemd.Resolve.Link.SetDomains \
         '{"ifindex":"'"$ifindex"'","searchDomains":[{"name":"example.test","routeOnly":false},{"name":"internal.test","routeOnly":true}]}' 2>&1)"
+
+    assert_in \
+        "$error" \
+        "$(varlinkctl call --graceful="$error" "$socket" io.systemd.Resolve.Link.SetDNSSECNegativeTrustAnchors \
+        '{"ifindex":"'"$ifindex"'","negativeTrustAnchors":["local","test"]}' 2>&1)"
 }
 
 testcase_16_varlink_link_methods() {
