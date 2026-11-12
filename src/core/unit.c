@@ -46,6 +46,7 @@
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "netlink-internal.h"
+#include "object-tags.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "quota-util.h"
@@ -7340,4 +7341,38 @@ unsigned unit_normalize_markers(unsigned existing_markers, unsigned new_markers)
                 CLEAR_BIT(markers, UNIT_MARKER_NEEDS_START);
 
         return markers;
+}
+
+int unit_polkit_details(const UnitPolkitDetails *details, char ***ret) {
+        _cleanup_strv_free_ char **out = NULL;
+        int r;
+
+        assert(details);
+        assert(ret);
+
+        const char *id = details->id;
+        if (!id && details->unit)
+                id = details->unit->id;
+        if (id) {
+                r = strv_extend_many(&out, "unit", id);
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        if (details->verb) {
+                r = strv_extend_many(&out, "verb", details->verb);
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        if (details->message) {
+                r = strv_extend_many(&out,
+                                     "polkit.message", details->message,
+                                     "polkit.gettext_domain", GETTEXT_PACKAGE);
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        *ret = TAKE_PTR(out);
+        return 0;
 }
