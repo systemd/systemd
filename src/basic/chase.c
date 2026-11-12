@@ -39,6 +39,7 @@
          CHASE_PROHIBIT_SYMLINKS |                      \
          CHASE_PARENT |                                 \
          CHASE_MKDIR_0755 |                             \
+         CHASE_MKDIR_0755_LABEL |                       \
          CHASE_MAX_MODE |                               \
          CHASE_NO_SYNC)
 
@@ -303,6 +304,7 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
         assert(!FLAGS_SET(flags, CHASE_PREFIX_ROOT));
         assert(!FLAGS_SET(flags, CHASE_STEP|CHASE_EXTRACT_FILENAME));
         assert(!FLAGS_SET(flags, CHASE_NO_AUTOFS|CHASE_TRIGGER_AUTOFS));
+        assert(!FLAGS_SET(flags, CHASE_MKDIR_0755_LABEL) || FLAGS_SET(flags, CHASE_MKDIR_0755));
         assert(wildcard_fd_is_valid(dir_fd));
         assert(wildcard_fd_is_valid(root_fd));
         /* AT_FDCWD for dir_fd is only allowed when there is no chroot boundary: otherwise the current
@@ -710,9 +712,12 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                                 return r;
 
                         if (FLAGS_SET(flags, CHASE_MKDIR_0755) && (!isempty(todo) || !(flags & (CHASE_PARENT|CHASE_NONEXISTENT)))) {
-                                child = xopenat(fd,
+                                child = xopenat_full(
+                                                fd,
                                                 first,
-                                                O_DIRECTORY|O_CREAT|O_EXCL|O_NOFOLLOW|O_PATH);
+                                                O_DIRECTORY|O_CREAT|O_EXCL|O_NOFOLLOW|O_PATH,
+                                                FLAGS_SET(flags, CHASE_MKDIR_0755_LABEL) ? XO_LABEL : 0,
+                                                0755);
                                 if (child < 0)
                                         return child;
                         } else if (FLAGS_SET(flags, CHASE_PARENT) && isempty(todo)) {
