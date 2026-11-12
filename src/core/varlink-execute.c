@@ -14,6 +14,7 @@
 #include "io-uring-filter.h"
 #include "ioprio-util.h"
 #include "iovec-util.h"
+#include "journal-file.h"
 #include "json-util.h"
 #include "manager.h"
 #include "mountpoint-util.h"
@@ -1044,6 +1045,7 @@ struct TransientExecContextParameters {
         const char *user;
         const char *group;
         char **supplementary_groups;
+        char **log_extra_fields;
         bool io_uring_filter_set;
         bool io_uring_filter_allow_list;
         char **io_uring_filter;
@@ -1123,6 +1125,7 @@ TransientExecContextParameters* transient_exec_context_parameters_free(Transient
 
         strv_free(p->environment);
         strv_free(p->supplementary_groups);
+        strv_free(p->log_extra_fields);
         strv_free(p->io_uring_filter);
         transient_set_credential_array_free(p->set_credentials, p->n_set_credentials);
         transient_set_credential_array_free(p->set_credentials_encrypted, p->n_set_credentials_encrypted);
@@ -1323,6 +1326,49 @@ static int apply_exec_environment(Unit *u, ExecContext *c, TransientExecContextP
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        r == -E2BIG ? "Too many environment assignments." : "Invalid Environment list.");
         return r;
+}
+
+static int apply_exec_log_extra_fields(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
+        assert(c);
+        assert(p);
+
+        if (!p->log_extra_fields)
+                return 0;
+
+        size_t n = strv_length(p->log_extra_fields);
+        if (n == 0) {
+                exec_context_free_log_extra_fields(c);
+                unit_write_setting(u, UNIT_RUNTIME|UNIT_PRIVATE, "LogExtraFields", "LogExtraFields=");
+                return 0;
+        }
+        if (n > LOG_EXTRA_FIELDS_MAX || c->n_log_extra_fields > LOG_EXTRA_FIELDS_MAX - n)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Too many extra log fields.");
+
+        STRV_FOREACH(field, p->log_extra_fields) {
+                const char *eq = strchr(*field, '=');
+
+                if (!eq || !journal_field_valid(*field, eq - *field, /* allow_protected= */ false))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid extra log field: %s", *field);
+        }
+
+        if (!GREEDY_REALLOC(c->log_extra_fields, c->n_log_extra_fields + n))
+                return -ENOMEM;
+
+        STRV_FOREACH(field, p->log_extra_fields) {
+                _cleanup_free_ char *quoted = unit_concat_strv(STRV_MAKE(*field), UNIT_ESCAPE_SPECIFIERS|UNIT_ESCAPE_C);
+                if (!quoted)
+                        return -ENOMEM;
+
+                unit_write_settingf(u, UNIT_RUNTIME|UNIT_PRIVATE, "LogExtraFields", "LogExtraFields=%s", quoted);
+        }
+
+        STRV_FOREACH(field, p->log_extra_fields) {
+                char *value = TAKE_PTR(*field);
+
+                c->log_extra_fields[c->n_log_extra_fields++] = IOVEC_MAKE_STRING(value);
+        }
+
+        return 0;
 }
 
 static int apply_exec_nice(Unit *u, ExecContext *c, TransientExecContextParameters *p) {
@@ -1654,6 +1700,7 @@ static const TransientExecProperty exec_properties[] = {
         EXEC_PROPERTY_ENUM         ("StandardInput",          std_input,  dispatch_exec_input),
         EXEC_PROPERTY_ENUM         ("StandardOutput",         std_output, dispatch_exec_output),
         EXEC_PROPERTY_ENUM         ("StandardError",          std_error,  dispatch_exec_output),
+        EXEC_PROPERTY_STRV         ("LogExtraFields",         log_extra_fields),
         EXEC_PROPERTY_STRING       ("TTYPath",                tty_path),
         EXEC_PROPERTY_SETTABLE_APPLY("SetCredential",          set_credentials,           SD_JSON_VARIANT_ARRAY),
         EXEC_PROPERTY_SETTABLE_APPLY("SetCredentialEncrypted", set_credentials_encrypted, SD_JSON_VARIANT_ARRAY),
