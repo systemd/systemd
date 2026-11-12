@@ -109,6 +109,7 @@ int opinionated_personality(unsigned long *ret);
 
 DECLARE_STRING_TABLE_LOOKUP(sigchld_code, int);
 DECLARE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sched_policy, int);
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING(sched_policy, int);
 
 static inline pid_t PTR_TO_PID(const void *p) {
         return (pid_t) ((uintptr_t) p);
