@@ -87,163 +87,194 @@ EOF
               --bank=sha1 --phase=foo | cmp - /tmp/result
 rm /tmp/result /tmp/result.json
 
-# Generate key pair
-openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "/tmp/pcrsign-private.pem"
-openssl rsa -pubout -in "/tmp/pcrsign-private.pem" -out "/tmp/pcrsign-public.pem"
+# This function is parametrized so different types of key can be tested
+# easily. First parameter is the key algorithm (RSA/EC), optionally followed by
+# additional parameters for "openssl genpkey" (e.g. to set key size or curve).
+test_pcrsign() {
+    local algorithm="${1}"
+    shift
+    # Generate key pair
+    openssl genpkey -algorithm "${algorithm}" "${@}" -out "/tmp/pcrsign-private.pem"
+    openssl pkey -pubout -in "/tmp/pcrsign-private.pem" -out "/tmp/pcrsign-public.pem"
+    openssl pkey -pubin -text -in "/tmp/pcrsign-public.pem"
 
-# Verify that the offline signature obtained via policy-digests is the same as an online signature created
-# with the same key and policy reference by systemd-measure
-digest="$("$SD_MEASURE" policy-digest --json=short --linux=/tmp/tpmdata1 --initrd=/tmp/tpmdata2 --bank=sha256 --public-key="/tmp/pcrsign-public.pem" --phase=: --policyref=foo)"
-signed_digest="$("$SD_MEASURE" sign --json=short --linux=/tmp/tpmdata1 --initrd=/tmp/tpmdata2 --bank=sha256 --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --policyref=foo)"
-echo "$digest" | jq -r '.sha256 | to_entries[] | [.value.pol, .value.tbs] | @tsv' | while read -r pol tbs; do
-    # Note: basenc before coreutils 9.5 refuses lowercase hex input strings
-    offline_sig="$(echo -n "$tbs" | \
-        tr '[:lower:]' '[:upper:]' | \
-        basenc --base16 --decode | \
-        openssl dgst -sign /tmp/pcrsign-private.pem -sha256 | \
-        base64 -w0)"
-    online_sig="$(echo "$signed_digest" | jq -r --arg pol "$pol" '.sha256[] | select(.pol == $pol) | .sig')"
-    test "$tbs" != "$pol"
-    test -n "$offline_sig"
-    test -n "$online_sig"
-    test "$offline_sig" = "$online_sig"
-done
+    signed_digest="$("$SD_MEASURE" sign --json=short --linux=/tmp/tpmdata1 --initrd=/tmp/tpmdata2 --bank=sha256 --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --policyref=foo)"
+    # Verify that the signature created by systemd-measure is valid.
+    echo "$signed_digest" | jq -r '.sha256 | to_entries[] | [.value.pol, .value.ref, .value.sig] | @tsv' | while read -r pol ref sig; do
+        openssl dgst -sha256 -verify "/tmp/pcrsign-public.pem" \
+            -signature <(base64 -d <<<"$sig") \
+            <(basenc --base16 -d <<<"$pol"; printf '%s' "$ref" | openssl dgst -sha256 -binary)
+    done
+    # Verify that the offline signature obtained via policy-digests is the same
+    # as an online signature created with the same key and policy reference by
+    # systemd-measure
+    #
+    # This cannot not work for ECDSA signatures unless sd-measure is changed to
+    # produce deterministic ECDSA signatures (RFC 6979)
+    if [ "$algorithm" != "EC" ]; then
+        digest="$("$SD_MEASURE" policy-digest --json=short --linux=/tmp/tpmdata1 --initrd=/tmp/tpmdata2 --bank=sha256 --public-key="/tmp/pcrsign-public.pem" --phase=: --policyref=foo)"
+        echo "$digest" | jq -r '.sha256 | to_entries[] | [.value.pol, .value.tbs] | @tsv' | while read -r pol tbs; do
+            # Note: basenc before coreutils 9.5 refuses lowercase hex input strings
+            offline_sig="$(echo -n "$tbs" | \
+                tr '[:lower:]' '[:upper:]' | \
+                basenc --base16 --decode | \
+                openssl dgst -sign /tmp/pcrsign-private.pem -sha256 | \
+                base64 -w0)"
+            online_sig="$(echo "$signed_digest" | jq -r --arg pol "$pol" '.sha256[] | select(.pol == $pol) | .sig')"
+            test "$tbs" != "$pol"
+            test -n "$offline_sig"
+            test -n "$online_sig"
+            test "$offline_sig" = "$online_sig"
+        done
+    fi
 
-if ! tpm_has_pcr sha1 11 || ! tpm_has_pcr sha256 11; then
-    echo "PCR sysfs files not found, skipping signed PCR policy tests"
-    exit 0
-fi
+    if ! tpm_has_pcr sha256 11; then
+        echo "PCR sysfs files not found, skipping signed PCR policy tests"
+        exit 0
+    fi
 
-MEASURE_BANKS=("--bank=sha256")
-# Check if SHA1 signatures are supported
-#
-# Some distros have started phasing out SHA1, so make sure the SHA1
-# signatures are supported before trying to use them.
-if echo hello | openssl dgst -sign /tmp/pcrsign-private.pem -sha1 >/dev/null; then
-    MEASURE_BANKS+=("--bank=sha1")
-fi
+    MEASURE_BANKS=("--bank=sha256")
+    # Check if SHA1 signatures are supported
+    #
+    # Some distros have started phasing out SHA1, so make sure the SHA1
+    # signatures are supported before trying to use them.
+    if tpm_has_pcr sha1 11 && echo hello | openssl dgst -sign /tmp/pcrsign-private.pem -sha1 >/dev/null; then
+        MEASURE_BANKS+=("--bank=sha1")
+    fi
 
-# Sign current PCR state with it
-"$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: | tee "/tmp/pcrsign.sig"
-dd if=/dev/urandom of=/tmp/pcrtestdata bs=1024 count=64
-systemd-creds encrypt /tmp/pcrtestdata /tmp/pcrtestdata.encrypted --with-key=host+tpm2-with-public-key --tpm2-public-key="/tmp/pcrsign-public.pem"
-systemd-creds decrypt /tmp/pcrtestdata.encrypted - --tpm2-signature="/tmp/pcrsign.sig" | cmp - /tmp/pcrtestdata
+    # Sign current PCR state with it
+    "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: | tee "/tmp/pcrsign.sig"
+    dd if=/dev/urandom of=/tmp/pcrtestdata bs=1024 count=64
+    systemd-creds encrypt /tmp/pcrtestdata /tmp/pcrtestdata.encrypted --with-key=host+tpm2-with-public-key --tpm2-public-key="/tmp/pcrsign-public.pem"
+    systemd-creds decrypt /tmp/pcrtestdata.encrypted - --tpm2-signature="/tmp/pcrsign.sig" | cmp - /tmp/pcrtestdata
 
-# Invalidate PCR, decrypting should fail now
-tpm2_pcrextend 11:sha256=0000000000000000000000000000000000000000000000000000000000000000
-(! systemd-creds decrypt /tmp/pcrtestdata.encrypted - --tpm2-signature="/tmp/pcrsign.sig" >/dev/null)
+    # Invalidate PCR, decrypting should fail now
+    tpm2_pcrextend 11:sha256=0000000000000000000000000000000000000000000000000000000000000000
+    (! systemd-creds decrypt /tmp/pcrtestdata.encrypted - --tpm2-signature="/tmp/pcrsign.sig" >/dev/null)
 
-# Sign new PCR state, decrypting should work now.
-"$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: >"/tmp/pcrsign.sig2"
-systemd-creds decrypt /tmp/pcrtestdata.encrypted - --tpm2-signature="/tmp/pcrsign.sig2" | cmp - /tmp/pcrtestdata
+    # Sign new PCR state, decrypting should work now.
+    "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: >"/tmp/pcrsign.sig2"
+    systemd-creds decrypt /tmp/pcrtestdata.encrypted - --tpm2-signature="/tmp/pcrsign.sig2" | cmp - /tmp/pcrtestdata
 
-# Now, do the same, but with a cryptsetup binding
-dd if=/dev/urandom of=/tmp/passphrase bs=32 count=1
-truncate -s 20M "$IMAGE"
-cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom "$IMAGE" /tmp/passphrase
-# Ensure that an unrelated signature, when not requested, is not used
-touch /run/systemd/tpm2-pcr-signature.json
-systemd-cryptenroll --unlock-key-file=/tmp/passphrase --tpm2-device=auto --tpm2-public-key="/tmp/pcrsign-public.pem" "$IMAGE"
-# Reset and use the signature now
-rm -f /run/systemd/tpm2-pcr-signature.json
-systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
-systemd-cryptenroll --unlock-key-file=/tmp/passphrase --tpm2-device=auto --tpm2-public-key="/tmp/pcrsign-public.pem" --tpm2-signature="/tmp/pcrsign.sig2" "$IMAGE"
+    # Now, do the same, but with a cryptsetup binding
+    dd if=/dev/urandom of=/tmp/passphrase bs=32 count=1
+    truncate -s 20M "$IMAGE"
+    cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom "$IMAGE" /tmp/passphrase
+    # Ensure that an unrelated signature, when not requested, is not used
+    touch /run/systemd/tpm2-pcr-signature.json
+    systemd-cryptenroll --unlock-key-file=/tmp/passphrase --tpm2-device=auto --tpm2-public-key="/tmp/pcrsign-public.pem" "$IMAGE"
+    # Reset and use the signature now
+    rm -f /run/systemd/tpm2-pcr-signature.json
+    systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
+    systemd-cryptenroll --unlock-key-file=/tmp/passphrase --tpm2-device=auto --tpm2-public-key="/tmp/pcrsign-public.pem" --tpm2-signature="/tmp/pcrsign.sig2" "$IMAGE"
 
-# Check if we can activate that (without the token module stuff)
-SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1
-SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup detach test-volume2
+    # Check if we can activate that (without the token module stuff)
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup detach test-volume2
 
-# Check if we can activate that (and a second time with the token module stuff enabled)
-SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1
-SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup detach test-volume2
+    # Check if we can activate that (and a second time with the token module stuff enabled)
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup detach test-volume2
 
-# After extending the PCR things should fail
-tpm2_pcrextend 11:sha256=0000000000000000000000000000000000000000000000000000000000000000
-(! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1)
-(! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1)
+    # After extending the PCR things should fail
+    tpm2_pcrextend 11:sha256=0000000000000000000000000000000000000000000000000000000000000000
+    (! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1)
+    (! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1)
 
-# But once we sign the current PCRs, we should be able to unlock again
-"$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: >"/tmp/pcrsign.sig3"
-SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig3",headless=1
-systemd-cryptsetup detach test-volume2
-SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig3",headless=1
-systemd-cryptsetup detach test-volume2
+    # But once we sign the current PCRs, we should be able to unlock again
+    "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: >"/tmp/pcrsign.sig3"
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig3",headless=1
+    systemd-cryptsetup detach test-volume2
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig3",headless=1
+    systemd-cryptsetup detach test-volume2
 
-# Test --append mode and de-duplication. With the same parameters signing should not add a new entry
-"$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --append="/tmp/pcrsign.sig3" >"/tmp/pcrsign.sig4"
-cmp "/tmp/pcrsign.sig3" "/tmp/pcrsign.sig4"
+    # De-duplication is broken for EC, see https://github.com/systemd/systemd/issues/44788
+    if [ "$algorithm" != "EC" ]; then
+        # Test --append mode and de-duplication. With the same parameters signing should not add a new entry
+        "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --append="/tmp/pcrsign.sig3" >"/tmp/pcrsign.sig4"
+        cmp "/tmp/pcrsign.sig3" "/tmp/pcrsign.sig4"
+    fi
 
-# Sign one more phase, this should
-"$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=quux:waldo --append="/tmp/pcrsign.sig4" >"/tmp/pcrsign.sig5"
-(! cmp "/tmp/pcrsign.sig4" "/tmp/pcrsign.sig5")
+    # Sign one more phase, this should
+    "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=quux:waldo --append="/tmp/pcrsign.sig3" >"/tmp/pcrsign.sig5"
+    (! cmp "/tmp/pcrsign.sig3" "/tmp/pcrsign.sig5")
 
-# Should still be good to unlock, given the old entry still exists
-SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig5",headless=1
-systemd-cryptsetup detach test-volume2
+    # Should still be good to unlock, given the old entry still exists
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig5",headless=1
+    systemd-cryptsetup detach test-volume2
 
-# Adding both signatures once more should not change anything, due to the deduplication
-"$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --append="/tmp/pcrsign.sig5" >"/tmp/pcrsign.sig6"
-"$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=quux:waldo --append="/tmp/pcrsign.sig6" >"/tmp/pcrsign.sig7"
-cmp "/tmp/pcrsign.sig5" "/tmp/pcrsign.sig7"
+    # De-duplication is broken for EC, see https://github.com/systemd/systemd/issues/44788
+    if [ "$algorithm" != "EC" ]; then
+        # Adding both signatures once more should not change anything, due to the deduplication
+        "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --append="/tmp/pcrsign.sig5" >"/tmp/pcrsign.sig6"
+        "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=quux:waldo --append="/tmp/pcrsign.sig6" >"/tmp/pcrsign.sig7"
+        cmp "/tmp/pcrsign.sig5" "/tmp/pcrsign.sig7"
+    fi
 
-# Enroll a keyslot bound to a policyref
-systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
-systemd-cryptenroll --unlock-key-file=/tmp/passphrase --tpm2-device=auto --tpm2-public-key="/tmp/pcrsign-public.pem" --tpm2-public-key-policyref="foo" "$IMAGE"
+    # Enroll a keyslot bound to a policyref
+    systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
+    systemd-cryptenroll --unlock-key-file=/tmp/passphrase --tpm2-device=auto --tpm2-public-key="/tmp/pcrsign-public.pem" --tpm2-public-key-policyref="foo" "$IMAGE"
 
-# Unlocking should fail initially as there is no signature for this policyref
-(! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig3",headless=1)
-(! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig3",headless=1)
+    # Unlocking should fail initially as there is no signature for this policyref
+    (! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig3",headless=1)
+    (! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig3",headless=1)
 
-# Create a signature for a new phase with the enrolled policyref
-"$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --policyref="foo" --append="/tmp/pcrsign.sig3" >"/tmp/pcrsign.sig8"
-(! cmp "/tmp/pcrsign.sig3" "/tmp/pcrsign.sig8")
+    # Create a signature for a new phase with the enrolled policyref
+    "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --policyref="foo" --append="/tmp/pcrsign.sig3" >"/tmp/pcrsign.sig8"
+    (! cmp "/tmp/pcrsign.sig3" "/tmp/pcrsign.sig8")
 
-# Unlocking should work now
-SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig8",headless=1
-SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup detach test-volume2
+    # Unlocking should work now
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig8",headless=1
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup detach test-volume2
 
-SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig8",headless=1
-SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup detach test-volume2
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig8",headless=1
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup detach test-volume2
 
-# After extending the PCR things should fail
-tpm2_pcrextend 11:sha256=0000000000000000000000000000000000000000000000000000000000000000
-(! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig8",headless=1)
-(! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig8",headless=1)
+    # After extending the PCR things should fail
+    tpm2_pcrextend 11:sha256=0000000000000000000000000000000000000000000000000000000000000000
+    (! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig8",headless=1)
+    (! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig8",headless=1)
 
-# Let systemd-repart bind a keyslot to a policyref from the partition definition
-REPART_DEFS="$(mktemp -d /tmp/systemd-measure-defs-XXX)"
-cat >"$REPART_DEFS/root.conf" <<EOF
+    # Let systemd-repart bind a keyslot to a policyref from the partition definition
+    REPART_DEFS="$(mktemp -d /tmp/systemd-measure-defs-XXX)"
+    cat >"$REPART_DEFS/root.conf" <<EOF
 [Partition]
 Type=root
 Format=ext4
 Encrypt=tpm2
 TPM2PublicKeyPolicyRef=foo
 EOF
-rm -f "$IMAGE"
-# Use --tpm2-pcrlock= and --tpm2-pcrs= to only bind to the signed PCR policy
-systemd-repart --definitions="$REPART_DEFS" \
-               --empty=create \
-               --size=80M \
-               --dry-run=no \
-               --offline=no \
-               --tpm2-device=auto \
-               --tpm2-public-key="/tmp/pcrsign-public.pem" \
-               --tpm2-pcrlock= \
-               --tpm2-pcrs= \
-               "$IMAGE"
-DEVICE="$(systemd-dissect --attach "$IMAGE")"
-udevadm wait --settle --timeout=10 "${DEVICE}p1"
-cryptsetup luksDump --dump-json-metadata "${DEVICE}p1" | jq -e '[.tokens[] | select(.type == "systemd-tpm2")] | length == 1 and .[0].tpm2_pubkey_ref == "foo"'
+    rm -f "$IMAGE"
+    # Use --tpm2-pcrlock= and --tpm2-pcrs= to only bind to the signed PCR policy
+    systemd-repart --definitions="$REPART_DEFS" \
+                   --empty=create \
+                   --size=80M \
+                   --dry-run=no \
+                   --offline=no \
+                   --tpm2-device=auto \
+                   --tpm2-public-key="/tmp/pcrsign-public.pem" \
+                   --tpm2-pcrlock= \
+                   --tpm2-pcrs= \
+                   "$IMAGE"
+    DEVICE="$(systemd-dissect --attach "$IMAGE")"
+    udevadm wait --settle --timeout=10 "${DEVICE}p1"
+    cryptsetup luksDump --dump-json-metadata "${DEVICE}p1" | jq -e '[.tokens[] | select(.type == "systemd-tpm2")] | length == 1 and .[0].tpm2_pubkey_ref == "foo"'
 
-# Unlocking should fail with a signature for the current PCR state without the policyref
-"$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: >"/tmp/pcrsign.sig9"
-(! systemd-cryptsetup attach test-volume2 "${DEVICE}p1" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig9",headless=1)
+    # Unlocking should fail with a signature for the current PCR state without the policyref
+    "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: >"/tmp/pcrsign.sig9"
+    (! systemd-cryptsetup attach test-volume2 "${DEVICE}p1" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig9",headless=1)
 
-# And work once there is one with it
-"$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --policyref="foo" --append="/tmp/pcrsign.sig9" >"/tmp/pcrsign.sig10"
-systemd-cryptsetup attach test-volume2 "${DEVICE}p1" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig10",headless=1
-systemd-cryptsetup detach test-volume2
-systemd-dissect --detach "$DEVICE"
-DEVICE=""
+    # And work once there is one with it
+    "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --policyref="foo" --append="/tmp/pcrsign.sig9" >"/tmp/pcrsign.sig10"
+    systemd-cryptsetup attach test-volume2 "${DEVICE}p1" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig10",headless=1
+    systemd-cryptsetup detach test-volume2
+    systemd-dissect --detach "$DEVICE"
+    DEVICE=""
 
-rm -f "$IMAGE"
+    rm -f "$IMAGE"
+}
+
+test_pcrsign RSA -pkeyopt rsa_keygen_bits:2048
+test_pcrsign EC -pkeyopt ec_paramgen_curve:P-256
+test_pcrsign EC -pkeyopt ec_paramgen_curve:P-384
+test_pcrsign EC -pkeyopt ec_paramgen_curve:P-521
