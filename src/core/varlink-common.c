@@ -5,9 +5,11 @@
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
+#include "bus-polkit.h"
 #include "cpu-set-util.h"
 #include "execute.h"
 #include "json-util.h"
+#include "manager.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -391,4 +393,25 @@ int varlink_dispatch_strv_preserve_empty(
         }
 
         return sd_json_dispatch_strv(name, variant, flags, p);
+}
+
+int varlink_verify_manage_units_async(sd_varlink *link, Manager *manager, const UnitPolkitDetails *details) {
+        int r;
+
+        assert(link);
+        assert(manager);
+
+        _cleanup_strv_free_ char **details_strv = NULL;
+        if (details) {
+                r = unit_polkit_details(details, &details_strv);
+                if (r < 0)
+                        return r;
+        }
+
+        return varlink_verify_polkit_async(
+                        link,
+                        manager->system_bus,
+                        "org.freedesktop.systemd1.manage-units",
+                        (const char**) details_strv,
+                        &manager->polkit_registry);
 }

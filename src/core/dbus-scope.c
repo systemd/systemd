@@ -26,7 +26,7 @@ int bus_scope_method_abandon(sd_bus_message *message, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        r = bus_verify_manage_units_async(UNIT(s)->manager, message, reterr_error);
+        r = bus_verify_manage_units_async(UNIT(s)->manager, message, /* details= */ NULL, reterr_error);
         if (r < 0)
                 return r;
         if (r == 0)
