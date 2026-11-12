@@ -93,14 +93,18 @@ static int get_process_state(pid_t pid) {
         return (unsigned char) state;
 }
 
-int pid_get_comm(pid_t pid, char **ret) {
+int pid_get_thread_comm(pid_t pid, pid_t tid, char **ret) {
         _cleanup_free_ char *escaped = NULL, *comm = NULL;
         int r;
 
         assert(pid >= 0);
+        assert(tid >= 0);
         assert(ret);
 
-        if (pid == 0 || pid == getpid_cached()) {
+        /* If tid is specified, reads the name of the thread from /proc/$PID/task/$TID/comm, which also
+         * verifies that the thread is actually part of the specified process. */
+
+        if (tid == 0 && (pid == 0 || pid == getpid_cached())) {
                 comm = new0(char, TASK_COMM_LEN + 1); /* Must fit in 16 byte according to prctl(2) */
                 if (!comm)
                         return -ENOMEM;
@@ -109,9 +113,18 @@ int pid_get_comm(pid_t pid, char **ret) {
                 if (r < 0)
                         return r;
         } else {
+                char path[STRLEN("/proc//task//comm") + DECIMAL_STR_MAX(pid_t) * 2];
                 const char *p;
 
-                p = procfs_file_alloca(pid, "comm");
+                if (tid > 0) {
+                        if (pid == 0)
+                                xsprintf(path, "/proc/self/task/" PID_FMT "/comm", tid);
+                        else
+                                xsprintf(path, "/proc/" PID_FMT "/task/" PID_FMT "/comm", pid, tid);
+
+                        p = path;
+                } else
+                        p = procfs_file_alloca(pid, "comm");
 
                 /* Note that process names of kernel threads can be much longer than TASK_COMM_LEN */
                 r = read_one_line_file(p, &comm);
@@ -130,6 +143,10 @@ int pid_get_comm(pid_t pid, char **ret) {
 
         *ret = TAKE_PTR(escaped);
         return 0;
+}
+
+int pid_get_comm(pid_t pid, char **ret) {
+        return pid_get_thread_comm(pid, /* tid= */ 0, ret);
 }
 
 int pidref_get_comm(const PidRef *pid, char **ret) {
