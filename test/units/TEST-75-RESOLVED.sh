@@ -1854,6 +1854,19 @@ do_test_varlink_link_methods() {
 
     [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
     assert_in 'no' "$(resolvectl default-route "$ifname")"
+
+    # io.systemd.Resolve.Link.SetLLMNR
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetLLMNR \
+        '{"ifindex":"'"$ifindex"'","llmnr":"yes"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'yes' "$(resolvectl llmnr "$ifname")"
+
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetLLMNR \
+        '{"ifindex":"'"$ifindex"'","llmnr":"resolve"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'resolve' "$(resolvectl llmnr "$ifname")"
 }
 
 do_test_varlink_link_error () {
@@ -1883,6 +1896,11 @@ do_test_varlink_link_error () {
         "$error" \
         "$(varlinkctl call --graceful="$error" "$socket" io.systemd.Resolve.Link.SetDNSDefaultRoute \
             '{"ifindex":"'"$ifindex"'","defaultRoute":true}' 2>&1)"
+
+    assert_in \
+        "$error" \
+        "$(varlinkctl call --graceful="$error" "$socket" io.systemd.Resolve.Link.SetLLMNR \
+            '{"ifindex":"'"$ifindex"'","llmnr":"yes"}' 2>&1)"
 }
 
 testcase_16_varlink_link_methods() {
