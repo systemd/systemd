@@ -16,6 +16,7 @@
 #include "in-addr-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
+#include "log-link.h"
 #include "resolve-varlink-util.h"
 #include "resolved-dns-browse-services.h"
 #include "resolved-dns-dnssec.h"
@@ -26,7 +27,10 @@
 #include "resolved-dns-synthesize.h"
 #include "resolved-dns-transaction.h"
 #include "resolved-link.h"
+#include "resolved-llmnr.h"
 #include "resolved-manager.h"
+#include "resolved-mdns.h"
+#include "resolved-resolv-conf.h"
 #include "resolved-varlink.h"
 #include "set.h"
 #include "socket-netlink.h"
@@ -1607,6 +1611,377 @@ static int vl_method_link_set_domains(sd_varlink *link, sd_json_variant *paramet
         return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
+static int vl_method_link_set_dnssec_negative_trust_anchors(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                { "ifindex",              _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,           offsetof(DNSConfiguration, ifindex),                SD_JSON_MANDATORY|SD_JSON_RELAX },
+                { "negativeTrustAnchors", SD_JSON_VARIANT_ARRAY,         dispatch_negative_trust_anchors, offsetof(DNSConfiguration, negative_trust_anchors), SD_JSON_MANDATORY               },
+                {},
+        };
+        int r;
+
+        assert(link);
+
+        _cleanup_(dns_configuration_freep) DNSConfiguration *c = new0(DNSConfiguration, 1);
+        if (!c)
+                return log_oom();
+
+        r = sd_json_dispatch(parameters, dispatch_table, SD_JSON_LOG, c);
+        if (r < 0)
+                return r;
+
+        Link *l = NULL;
+        r = vl_get_link(link, c->ifindex, &l);
+        if (r < 0)
+                return r;
+
+        _cleanup_set_free_ Set *ns = NULL;
+        _cleanup_free_ char *list = NULL;
+        STRV_FOREACH(a, c->negative_trust_anchors) {
+                r = set_put_strdup_full(&ns, &dns_name_hash_ops_free, *a);
+                if (r < 0)
+                        return r;
+
+                if (!strextend_with_separator(&list, ", ", *a))
+                        return log_oom();
+        }
+
+        r = verify_polkit_full(
+                        link,
+                        parameters,
+                        "org.freedesktop.resolve1.set-dnssec-negative-trust-anchors",
+                        SD_JSON_ALLOW_EXTENSIONS,
+                        (const char**) STRV_MAKE("interface", l->ifname));
+        if (r <= 0)
+                return r;
+
+        if (!set_equal(ns, l->dnssec_negative_trust_anchors)) {
+                set_free_and_replace(l->dnssec_negative_trust_anchors, ns);
+
+                (void) link_save_user(l);
+
+                if (list)
+                        log_link_info(l, "Varlink client set NTA list to: %s", list);
+                else
+                        log_link_info(l, "Varlink client reset NTA list.");
+        }
+
+        return sd_varlink_reply(link, NULL);
+}
+
+
+static int vl_method_link_set_dns_default_route(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        struct {
+                bool default_route;
+                int ifindex;
+        } p = {};
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                { "ifindex",      _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,    voffsetof(p, ifindex),       SD_JSON_MANDATORY|SD_JSON_RELAX },
+                { "defaultRoute", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool, voffsetof(p, default_route), SD_JSON_MANDATORY               },
+                {},
+        };
+        int r;
+
+        assert(link);
+
+        r = sd_json_dispatch(parameters, dispatch_table, SD_JSON_LOG, &p);
+        if (r < 0)
+                return r;
+
+        Link *l = NULL;
+        r = vl_get_link(link, p.ifindex, &l);
+        if (r < 0)
+                return r;
+
+        r = verify_polkit_full(
+                        link,
+                        parameters,
+                        "org.freedesktop.resolve1.set-default-route",
+                        SD_JSON_ALLOW_EXTENSIONS,
+                        (const char**) STRV_MAKE("interface", l->ifname));
+        if (r <= 0)
+                return r;
+
+        if (l->default_route != p.default_route) {
+                link_set_default_route(l, p.default_route);
+                (void) link_save_user(l);
+                (void) manager_write_resolv_conf(l->manager);
+
+                log_link_info(l, "Varlink client set default route setting: %s", yes_no(p.default_route));
+        }
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
+static int vl_method_link_set_llmnr(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        struct {
+                const char *mode;
+                int ifindex;
+        } p = {};
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                { "ifindex",  _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         voffsetof(p, ifindex), SD_JSON_MANDATORY|SD_JSON_RELAX },
+                { "llmnr",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, mode),    SD_JSON_MANDATORY               },
+                {},
+        };
+        int r;
+
+        assert(link);
+
+        r = sd_json_dispatch(parameters, dispatch_table, SD_JSON_LOG, &p);
+        if (r < 0)
+                return r;
+
+        ResolveSupport mode;
+        if (isempty(p.mode))
+                mode = RESOLVE_SUPPORT_YES;
+        else {
+                mode = resolve_support_from_string(p.mode);
+                if (mode < 0)
+                        return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("llmnr"));
+        }
+
+        Link *l = NULL;
+        r = vl_get_link(link, p.ifindex, &l);
+        if (r < 0)
+                return r;
+
+        r = verify_polkit_full(
+                        link,
+                        parameters,
+                        "org.freedesktop.resolve1.set-llmnr",
+                        SD_JSON_ALLOW_EXTENSIONS,
+                        (const char**) STRV_MAKE("interface", l->ifname));
+        if (r <= 0)
+                return r;
+
+        if (l->llmnr_support != mode) {
+                l->llmnr_support = mode;
+                link_allocate_scopes(l);
+                link_add_rrs(l, /* force_remove= */ false);
+
+                (void) link_save_user(l);
+
+                manager_llmnr_maybe_stop(l->manager);
+
+                log_link_info(l, "Varlink client set LLMNR setting: %s", resolve_support_to_string(mode));
+        }
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
+static int vl_method_link_set_mdns(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        struct {
+                const char *mode;
+                int ifindex;
+        } p = {};
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         voffsetof(p, ifindex), SD_JSON_MANDATORY|SD_JSON_RELAX },
+                { "mDNS",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, mode),    SD_JSON_MANDATORY               },
+                {},
+        };
+        int r;
+
+        assert(link);
+
+        r = sd_json_dispatch(parameters, dispatch_table, SD_JSON_LOG, &p);
+        if (r < 0)
+                return r;
+
+        ResolveSupport mode;
+        if (isempty(p.mode))
+                mode = RESOLVE_SUPPORT_YES;
+        else {
+                mode = resolve_support_from_string(p.mode);
+                if (mode < 0)
+                        return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("mDNS"));
+        }
+
+        Link *l = NULL;
+        r = vl_get_link(link, p.ifindex, &l);
+        if (r < 0)
+                return r;
+
+        r = verify_polkit_full(
+                        link,
+                        parameters,
+                        "org.freedesktop.resolve1.set-mdns",
+                        SD_JSON_ALLOW_EXTENSIONS,
+                        (const char**) STRV_MAKE("interface", l->ifname));
+        if (r <= 0)
+                return r;
+
+        if (l->mdns_support != mode) {
+                l->mdns_support = mode;
+                link_allocate_scopes(l);
+                link_add_rrs(l, /* force_remove= */ false);
+
+                (void) link_save_user(l);
+
+                manager_mdns_maybe_stop(l->manager);
+
+                log_link_info(l, "Varlink client set MulticastDNS setting: %s", resolve_support_to_string(mode));
+        }
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
+static int vl_method_link_set_dns_over_tls(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        struct {
+                const char *mode;
+                int ifindex;
+        } p = {};
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                { "ifindex",       _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         voffsetof(p, ifindex), SD_JSON_MANDATORY|SD_JSON_RELAX },
+                { "dnsOverTLS",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, mode),    SD_JSON_MANDATORY               },
+                {},
+        };
+        int r;
+
+        assert(link);
+
+        r = sd_json_dispatch(parameters, dispatch_table, SD_JSON_LOG, &p);
+        if (r < 0)
+                return r;
+
+        DnsOverTlsMode mode;
+        if (isempty(p.mode))
+                mode = _DNS_OVER_TLS_MODE_INVALID;
+        else {
+                mode = dns_over_tls_mode_from_string(p.mode);
+                if (mode < 0)
+                        return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("dnsOverTLS"));
+        }
+
+        Link *l = NULL;
+        r = vl_get_link(link, p.ifindex, &l);
+        if (r < 0)
+                return r;
+
+        r = verify_polkit_full(
+                        link,
+                        parameters,
+                        "org.freedesktop.resolve1.set-dns-over-tls",
+                        SD_JSON_ALLOW_EXTENSIONS,
+                        (const char**) STRV_MAKE("interface", l->ifname));
+        if (r <= 0)
+                return r;
+
+        if (l->dns_over_tls_mode != mode) {
+                link_set_dns_over_tls_mode(l, mode);
+                link_allocate_scopes(l);
+
+                (void) link_save_user(l);
+
+                log_link_info(l, "Varlink client set DNSOverTLS setting: %s",
+                              mode < 0 ? "default" : dns_over_tls_mode_to_string(mode));
+        }
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
+static int vl_method_link_set_dnssec(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        struct {
+                const char *mode;
+                int ifindex;
+        } p = {};
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         voffsetof(p, ifindex), SD_JSON_MANDATORY|SD_JSON_RELAX },
+                { "dnssec",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, mode),    SD_JSON_MANDATORY               },
+                {},
+        };
+        int r;
+
+        assert(link);
+
+        r = sd_json_dispatch(parameters, dispatch_table, SD_JSON_LOG, &p);
+        if (r < 0)
+                return r;
+
+        DnssecMode mode;
+        if (isempty(p.mode))
+                mode = _DNSSEC_MODE_INVALID;
+        else {
+                mode = dnssec_mode_from_string(p.mode);
+                if (mode < 0)
+                        return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("dnssec"));
+        }
+
+        Link *l = NULL;
+        r = vl_get_link(link, p.ifindex, &l);
+        if (r < 0)
+                return r;
+
+        r = verify_polkit_full(
+                        link,
+                        parameters,
+                        "org.freedesktop.resolve1.set-dnssec",
+                        SD_JSON_ALLOW_EXTENSIONS,
+                        (const char**) STRV_MAKE("interface", l->ifname));
+        if (r <= 0)
+                return r;
+
+        if (l->dnssec_mode != mode) {
+                link_set_dnssec_mode(l, mode);
+                link_allocate_scopes(l);
+
+                (void) link_save_user(l);
+
+                log_link_info(l, "Varlink client set DNSSEC setting: %s",
+                              mode < 0 ? "default" : dnssec_mode_to_string(mode));
+        }
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
+static int vl_method_link_revert_dns(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        struct {
+                int ifindex;
+        } p = {};
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex, voffsetof(p, ifindex), SD_JSON_MANDATORY|SD_JSON_RELAX },
+                {},
+        };
+        int r;
+
+        assert(link);
+
+        r = sd_json_dispatch(parameters, dispatch_table, SD_JSON_LOG, &p);
+        if (r < 0)
+                return r;
+
+        Link *l = NULL;
+        r = vl_get_link(link, p.ifindex, &l);
+        if (r < 0)
+                return r;
+
+        r = verify_polkit_full(
+                        link,
+                        parameters,
+                        "org.freedesktop.resolve1.revert",
+                        SD_JSON_ALLOW_EXTENSIONS,
+                        (const char**) STRV_MAKE("interface", l->ifname));
+        if (r <= 0)
+                return r;
+
+        link_flush_settings(l);
+        link_allocate_scopes(l);
+        link_add_rrs(l, /* force_remove= */ false);
+
+        (void) link_save_user(l);
+
+        (void) manager_write_resolv_conf(l->manager);
+
+        log_link_info(l, "Varlink client reverted per-link DNS settings.");
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
 static int varlink_monitor_server_init(Manager *m) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
         int r;
@@ -1682,18 +2057,25 @@ static int varlink_main_server_init(Manager *m) {
 
         r = sd_varlink_server_bind_method_many(
                         s,
-                        "io.systemd.Resolve.ResolveHostname",      vl_method_resolve_hostname,
-                        "io.systemd.Resolve.ResolveAddress",       vl_method_resolve_address,
-                        "io.systemd.Resolve.ResolveService",       vl_method_resolve_service,
-                        "io.systemd.Resolve.ResolveRecord",        vl_method_resolve_record,
-                        "io.systemd.service.Ping",                 varlink_method_ping,
-                        "io.systemd.service.SetLogLevel",          varlink_method_set_log_level,
-                        "io.systemd.service.GetLogLevel",          varlink_method_get_log_level,
-                        "io.systemd.service.GetEnvironment",       varlink_method_get_environment,
-                        "io.systemd.Resolve.BrowseServices",       vl_method_browse_services,
-                        "io.systemd.Resolve.DumpDNSConfiguration", vl_method_dump_dns_configuration,
-                        "io.systemd.Resolve.Link.SetDNS",          vl_method_link_set_dns,
-                        "io.systemd.Resolve.Link.SetDomains",      vl_method_link_set_domains);
+                        "io.systemd.Resolve.ResolveHostname",                    vl_method_resolve_hostname,
+                        "io.systemd.Resolve.ResolveAddress",                     vl_method_resolve_address,
+                        "io.systemd.Resolve.ResolveService",                     vl_method_resolve_service,
+                        "io.systemd.Resolve.ResolveRecord",                      vl_method_resolve_record,
+                        "io.systemd.service.Ping",                               varlink_method_ping,
+                        "io.systemd.service.SetLogLevel",                        varlink_method_set_log_level,
+                        "io.systemd.service.GetLogLevel",                        varlink_method_get_log_level,
+                        "io.systemd.service.GetEnvironment",                     varlink_method_get_environment,
+                        "io.systemd.Resolve.BrowseServices",                     vl_method_browse_services,
+                        "io.systemd.Resolve.DumpDNSConfiguration",               vl_method_dump_dns_configuration,
+                        "io.systemd.Resolve.Link.SetDNS",                        vl_method_link_set_dns,
+                        "io.systemd.Resolve.Link.SetDomains",                    vl_method_link_set_domains,
+                        "io.systemd.Resolve.Link.SetDNSSECNegativeTrustAnchors", vl_method_link_set_dnssec_negative_trust_anchors,
+                        "io.systemd.Resolve.Link.SetDNSDefaultRoute",            vl_method_link_set_dns_default_route,
+                        "io.systemd.Resolve.Link.SetLLMNR",                      vl_method_link_set_llmnr,
+                        "io.systemd.Resolve.Link.SetMulticastDNS",               vl_method_link_set_mdns,
+                        "io.systemd.Resolve.Link.SetDNSOverTLS",                 vl_method_link_set_dns_over_tls,
+                        "io.systemd.Resolve.Link.SetDNSSEC",                     vl_method_link_set_dnssec,
+                        "io.systemd.Resolve.Link.RevertDNS",                     vl_method_link_revert_dns);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
