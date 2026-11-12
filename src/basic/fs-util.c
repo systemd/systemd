@@ -1208,6 +1208,20 @@ static int openat_with_automount(int dir_fd, const char *path, int open_flags, m
         return RET_NERRNO(openat(dir_fd, path, open_flags, mode));
 }
 
+static int xopen_verify_type(int fd, XOpenFlags flags) {
+        struct statx stx;
+        int r;
+
+        if (!(flags & (XO_REGULAR|XO_SOCKET)))
+                return 0;
+
+        r = xstatx(fd, /* path= */ NULL, FLAGS_SET(flags, XO_NO_SYNC) ? AT_STATX_DONT_SYNC : 0, STATX_TYPE, &stx);
+        if (r < 0)
+                return r;
+
+        return FLAGS_SET(flags, XO_REGULAR) ? statx_verify_regular(&stx) : statx_verify_socket(&stx);
+}
+
 int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode, LabelContext *label_context) {
         _cleanup_close_ int fd = -EBADF;
         bool made_dir = false, made_file = false, dir_exists = false;
@@ -1294,28 +1308,32 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
 
                 open_flags &= ~O_NOFOLLOW;
 
-                if (FLAGS_SET(xopen_flags, XO_REGULAR)) {
-                        r = fd_verify_regular(dir_fd);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (FLAGS_SET(xopen_flags, XO_SOCKET)) {
-                        r = fd_verify_socket(dir_fd);
-                        if (r < 0)
-                                return r;
-                }
+                r = xopen_verify_type(dir_fd, xopen_flags);
+                if (r < 0)
+                        return r;
 
                 if (FLAGS_SET(xopen_flags, XO_AUTO_RW_RO)) {
                         /* First try: in r/w mode */
                         fd = fd_reopen(dir_fd, open_flags|O_RDWR);
-                        if (!ERRNO_IS_NEG_FS_WRITE_REFUSED(fd) && fd != -EISDIR)
-                                return TAKE_FD(fd);
-
-                        open_flags |= O_RDONLY;
+                        if (ERRNO_IS_NEG_FS_WRITE_REFUSED(fd) || fd == -EISDIR)
+                                open_flags |= O_RDONLY;
+                        else if (fd < 0)
+                                return fd;
                 }
 
-                return fd_reopen(dir_fd, open_flags);
+                if (fd < 0) {
+                        fd = fd_reopen(dir_fd, open_flags);
+                        if (fd < 0)
+                                return fd;
+                }
+
+                if (xopen_flags & (XO_COW|XO_NOCOW)) {
+                        r = chattr_fd(fd, FLAGS_SET(xopen_flags, XO_NOCOW) ? FS_NOCOW_FL : 0, FS_NOCOW_FL);
+                        if (r < 0 && !ERRNO_IS_IOCTL_NOT_SUPPORTED(r))
+                                return r;
+                }
+
+                return TAKE_FD(fd);
         }
 
         _cleanup_close_ int _dir_fd = -EBADF;
@@ -1372,7 +1390,7 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
                                 goto error;
                         }
 
-                        r = fd_verify_regular(fd);
+                        r = xopen_verify_type(fd, xopen_flags);
                         if (r < 0)
                                 goto error;
 
@@ -1440,7 +1458,7 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
                                 made_file = true;
                         } else {
                                 /* OK, we pinned it. Now verify it's actually a regular file, and then reopen it */
-                                r = fd_verify_regular(inode_fd);
+                                r = xopen_verify_type(inode_fd, xopen_flags);
                                 if (r < 0)
                                         goto error;
 
@@ -1473,7 +1491,7 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
                 }
         } else {
                 /* XO_SOCKET also lands here: it requires O_PATH (see asserts above) so openat() pins
-                 * the inode without connecting, and fd_verify_socket() below enforces the type. */
+                 * the inode without connecting, and xopen_verify_type() below enforces the type. */
                 if (FLAGS_SET(xopen_flags, XO_AUTO_RW_RO)) {
                         fd = openat_report_new(dir_fd, path, O_RDWR|open_flags, mode, &made_file);
                         if (ERRNO_IS_NEG_FS_WRITE_REFUSED(fd) || fd == -EISDIR)
@@ -1504,7 +1522,7 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
         }
 
         if (FLAGS_SET(xopen_flags, XO_SOCKET)) {
-                r = fd_verify_socket(fd);
+                r = xopen_verify_type(fd, xopen_flags);
                 if (r < 0)
                         goto error;
         }

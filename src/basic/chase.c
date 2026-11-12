@@ -174,6 +174,8 @@ int chase_xopenat(int dir_fd, const char *path, ChaseFlags chase_flags, int open
                 xopen_flags |= XO_REGULAR;
         if (FLAGS_SET(chase_flags, CHASE_MUST_BE_SOCKET))
                 xopen_flags |= XO_SOCKET;
+        if (FLAGS_SET(chase_flags, CHASE_NO_SYNC))
+                xopen_flags |= XO_NO_SYNC;
         /* Only needed for O_PATH since plain open() already triggers automounts */
         if (FLAGS_SET(chase_flags, CHASE_TRIGGER_AUTOFS) && FLAGS_SET(open_flags, O_PATH))
                 xopen_flags |= XO_TRIGGER_AUTOMOUNT;
@@ -758,6 +760,11 @@ int chaseat(int root_fd, int dir_fd, const char *path, ChaseFlags flags, char **
                         if (isempty(destination))
                                 return -EINVAL;
 
+                        if (FLAGS_SET(flags, CHASE_TRAIL_SLASH) &&
+                            isempty(todo) &&
+                            ENDSWITH_SET(destination, "/", "/."))
+                                append_trail_slash = true;
+
                         if (path_is_absolute(destination)) {
 
                                 /* An absolute destination. Start the loop from the beginning, but use the
@@ -1165,6 +1172,21 @@ int chase_split_prefix_filename(const char *path, const char *root, char **ret_d
         return r;
 }
 
+/* A path that ends in a slash must refer to a directory. open() with O_CREAT and without O_DIRECTORY
+ * creates a regular file at it. We return EISDIR instead, like open(2) does for such a path. The slash is
+ * removed from p afterwards, because callers that request the path expect it without a trailing slash. */
+static int chase_trail_slash_open_flags(char *p, ChaseFlags chase_flags, int open_flags) {
+        if (!endswith(p, "/"))
+                return open_flags;
+
+        if (FLAGS_SET(open_flags, O_CREAT) && !FLAGS_SET(open_flags, O_DIRECTORY) &&
+            !FLAGS_SET(chase_flags, CHASE_MUST_BE_DIRECTORY))
+                return -EISDIR;
+
+        path_simplify(p);
+        return open_flags | O_DIRECTORY;
+}
+
 int chase_and_open(
                 const char *path,
                 const char *root,
@@ -1186,10 +1208,15 @@ int chase_and_open(
                 /* Shortcut this call if none of the special features of this call are requested */
                 return chase_xopenat(AT_FDCWD, path, chase_flags, open_flags, XO_EMPTY_PATH);
 
-        r = chase(path, root, (CHASE_PARENT|chase_flags)&~CHASE_MUST_BE_REGULAR, &p, &path_fd);
+        r = chase(path, root, (CHASE_PARENT|CHASE_TRAIL_SLASH|chase_flags)&~CHASE_MUST_BE_REGULAR,
+                  &p, &path_fd);
         if (r < 0)
                 return r;
         assert(path_fd >= 0);
+
+        open_flags = chase_trail_slash_open_flags(p, chase_flags, open_flags);
+        if (open_flags < 0)
+                return open_flags;
 
         if (!FLAGS_SET(chase_flags, CHASE_PARENT)) {
                 if (FLAGS_SET(chase_flags, CHASE_EXTRACT_FILENAME))
@@ -1404,9 +1431,14 @@ int chase_and_openat(
         ChaseFlags flags = chase_flags;
         if (!isempty(path))
                 flags |= CHASE_PARENT;
-        r = chaseat(root_fd, dir_fd, path, flags&~CHASE_MUST_BE_REGULAR, &p, &path_fd);
+        r = chaseat(root_fd, dir_fd, path, (flags|CHASE_TRAIL_SLASH)&~CHASE_MUST_BE_REGULAR,
+                    &p, &path_fd);
         if (r < 0)
                 return r;
+
+        open_flags = chase_trail_slash_open_flags(p, chase_flags, open_flags);
+        if (open_flags < 0)
+                return open_flags;
 
         if (!FLAGS_SET(chase_flags, CHASE_PARENT)) {
                 if (FLAGS_SET(chase_flags, CHASE_EXTRACT_FILENAME))
