@@ -111,15 +111,27 @@ int acquire_journal(sd_journal **ret, char * const *matches) {
 }
 
 int focus(sd_journal *j) {
+        usec_t usec;
         int r;
 
-        r = sd_journal_seek_tail(j);
+        if (arg_until != USEC_INFINITY)
+                r = sd_journal_seek_realtime_usec(j, arg_until);
+        else
+                r = sd_journal_seek_tail(j);
         if (r == 0)
                 r = sd_journal_previous(j);
         if (r < 0)
                 return log_error_errno(r, "Failed to search journal: %m");
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "No match found.");
+
+        if (arg_since != USEC_INFINITY) {
+                r = sd_journal_get_realtime_usec(j, &usec);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine timestamp: %m");
+                if (usec < arg_since)
+                        return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "No match found.");
+        }
 
         return 0;
 }
