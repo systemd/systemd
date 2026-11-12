@@ -1307,6 +1307,7 @@ manpages = [
   '8',
   ['systemd-rfkill', 'systemd-rfkill.socket'],
   'ENABLE_RFKILL'],
+ ['systemd-rtwatch', '1', [], 'ENABLE_RTWATCH'],
  ['systemd-rtwatchd.service', '8', ['systemd-rtwatchd'], 'ENABLE_RTWATCH'],
  ['systemd-run-generator', '8', [], ''],
  ['systemd-run', '1', [], ''],
