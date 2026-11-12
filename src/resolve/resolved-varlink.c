@@ -27,6 +27,7 @@
 #include "resolved-dns-synthesize.h"
 #include "resolved-dns-transaction.h"
 #include "resolved-link.h"
+#include "resolved-llmnr.h"
 #include "resolved-manager.h"
 #include "resolved-resolv-conf.h"
 #include "resolved-varlink.h"
@@ -1712,6 +1713,63 @@ static int vl_method_link_set_dns_default_route(sd_varlink *link, sd_json_varian
         return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
+static int vl_method_link_set_llmnr(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        struct {
+                const char *mode;
+                int ifindex;
+        } p = {};
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                { "ifindex",  _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         voffsetof(p, ifindex), SD_JSON_MANDATORY|SD_JSON_RELAX },
+                { "llmnr",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, mode),    SD_JSON_MANDATORY               },
+                {},
+        };
+        int r;
+
+        assert(link);
+
+        r = sd_json_dispatch(parameters, dispatch_table, SD_JSON_LOG, &p);
+        if (r < 0)
+                return r;
+
+        ResolveSupport mode;
+        if (isempty(p.mode))
+                mode = RESOLVE_SUPPORT_YES;
+        else {
+                mode = resolve_support_from_string(p.mode);
+                if (mode < 0)
+                        return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("llmnr"));
+        }
+
+        Link *l = NULL;
+        r = vl_get_link(link, p.ifindex, &l);
+        if (r < 0)
+                return r;
+
+        r = verify_polkit_full(
+                        link,
+                        parameters,
+                        "org.freedesktop.resolve1.set-llmnr",
+                        SD_JSON_ALLOW_EXTENSIONS,
+                        (const char**) STRV_MAKE("interface", l->ifname));
+        if (r <= 0)
+                return r;
+
+        if (l->llmnr_support != mode) {
+                l->llmnr_support = mode;
+                link_allocate_scopes(l);
+                link_add_rrs(l, /* force_remove= */ false);
+
+                (void) link_save_user(l);
+
+                manager_llmnr_maybe_stop(l->manager);
+
+                log_link_info(l, "Varlink client set LLMNR setting: %s", resolve_support_to_string(mode));
+        }
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
 static int varlink_monitor_server_init(Manager *m) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
         int r;
@@ -1800,7 +1858,8 @@ static int varlink_main_server_init(Manager *m) {
                         "io.systemd.Resolve.Link.SetDNS",                        vl_method_link_set_dns,
                         "io.systemd.Resolve.Link.SetDomains",                    vl_method_link_set_domains,
                         "io.systemd.Resolve.Link.SetDNSSECNegativeTrustAnchors", vl_method_link_set_dnssec_negative_trust_anchors,
-                        "io.systemd.Resolve.Link.SetDNSDefaultRoute",            vl_method_link_set_dns_default_route);
+                        "io.systemd.Resolve.Link.SetDNSDefaultRoute",            vl_method_link_set_dns_default_route,
+                        "io.systemd.Resolve.Link.SetLLMNR",                      vl_method_link_set_llmnr);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
