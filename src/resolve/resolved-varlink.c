@@ -28,6 +28,7 @@
 #include "resolved-dns-transaction.h"
 #include "resolved-link.h"
 #include "resolved-manager.h"
+#include "resolved-resolv-conf.h"
 #include "resolved-varlink.h"
 #include "set.h"
 #include "socket-netlink.h"
@@ -1666,6 +1667,51 @@ static int vl_method_link_set_dnssec_negative_trust_anchors(sd_varlink *link, sd
         return sd_varlink_reply(link, NULL);
 }
 
+
+static int vl_method_link_set_dns_default_route(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        struct {
+                bool default_route;
+                int ifindex;
+        } p = {};
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                { "ifindex",      _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,    voffsetof(p, ifindex),       SD_JSON_MANDATORY|SD_JSON_RELAX },
+                { "defaultRoute", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool, voffsetof(p, default_route), SD_JSON_MANDATORY               },
+                {},
+        };
+        int r;
+
+        assert(link);
+
+        r = sd_json_dispatch(parameters, dispatch_table, SD_JSON_LOG, &p);
+        if (r < 0)
+                return r;
+
+        Link *l = NULL;
+        r = vl_get_link(link, p.ifindex, &l);
+        if (r < 0)
+                return r;
+
+        r = verify_polkit_full(
+                        link,
+                        parameters,
+                        "org.freedesktop.resolve1.set-default-route",
+                        SD_JSON_ALLOW_EXTENSIONS,
+                        (const char**) STRV_MAKE("interface", l->ifname));
+        if (r <= 0)
+                return r;
+
+        if (l->default_route != p.default_route) {
+                link_set_default_route(l, p.default_route);
+                (void) link_save_user(l);
+                (void) manager_write_resolv_conf(l->manager);
+
+                log_link_info(l, "Varlink client set default route setting: %s", yes_no(p.default_route));
+        }
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
 static int varlink_monitor_server_init(Manager *m) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
         int r;
@@ -1753,7 +1799,8 @@ static int varlink_main_server_init(Manager *m) {
                         "io.systemd.Resolve.DumpDNSConfiguration",               vl_method_dump_dns_configuration,
                         "io.systemd.Resolve.Link.SetDNS",                        vl_method_link_set_dns,
                         "io.systemd.Resolve.Link.SetDomains",                    vl_method_link_set_domains,
-                        "io.systemd.Resolve.Link.SetDNSSECNegativeTrustAnchors", vl_method_link_set_dnssec_negative_trust_anchors);
+                        "io.systemd.Resolve.Link.SetDNSSECNegativeTrustAnchors", vl_method_link_set_dnssec_negative_trust_anchors,
+                        "io.systemd.Resolve.Link.SetDNSDefaultRoute",            vl_method_link_set_dns_default_route);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
