@@ -109,6 +109,15 @@ echo "$digest" | jq -r '.sha256 | to_entries[] | [.value.pol, .value.tbs] | @tsv
     test "$offline_sig" = "$online_sig"
 done
 
+# Calculating a policy doesn't need the device TCTI, and udev skips identifying the TPM2 device without it
+TCTI_DEVICE="$(ldconfig -p | awk '$1 == "libtss2-tcti-device.so.0" { print $NF; exit }')"
+if [[ -n "$TCTI_DEVICE" ]]; then
+    TCTI_DEVICE="$(readlink -f "$TCTI_DEVICE")"
+    systemd-run -p InaccessiblePaths="$TCTI_DEVICE" --pipe --wait "$SD_MEASURE" policy-digest --json=short --linux=/tmp/tpmdata1 --initrd=/tmp/tpmdata2 --bank=sha256 --public-key="/tmp/pcrsign-public.pem" --phase=: --policyref=foo | cmp - <(echo "$digest")
+    output="$(systemd-run -p InaccessiblePaths="$TCTI_DEVICE" -E SYSTEMD_LOG_LEVEL=debug --pipe --wait udevadm test-builtin 'tpm2_id identify' /dev/tpmrm0 2>&1)"
+    assert_in "skipping identification of TPM2 device" "$output"
+fi
+
 if ! tpm_has_pcr sha1 11 || ! tpm_has_pcr sha256 11; then
     echo "PCR sysfs files not found, skipping signed PCR policy tests"
     exit 0

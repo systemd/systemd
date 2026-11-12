@@ -21,7 +21,7 @@ static int builtin_tpm2_id(UdevEvent *event, int argc, char *argv[]) {
 
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         r = tpm2_context_new(dn, &c);
-        if (ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r) || r == -ENOPKG) { /* -ENOPKG: the TCTI library is missing */
                 log_device_debug_errno(dev, r, "Full TPM2 support is not available, skipping identification of TPM2 device '%s'.", dn);
                 return 0;
         }
