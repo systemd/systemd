@@ -1880,6 +1880,19 @@ do_test_varlink_link_methods() {
 
     [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
     assert_in 'resolve' "$(resolvectl mdns "$ifname")"
+
+    # io.systemd.Resolve.Link.SetDNSOverTLS
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetDNSOverTLS \
+        '{"ifindex":"'"$ifindex"'","dnsOvertTLS":"opportunistic"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'opportunistic' "$(resolvectl dnsovertls "$ifname")"
+
+    varlinkctl call "$socket" io.systemd.Resolve.Link.SetDNSOverTLS \
+        '{"ifindex":"'"$ifindex"'","dnsOvertTLS":"yes"}'
+
+    [[ "$socket" == "/run/systemd/resolve/io.systemd.Resolve" ]] || systemctl reload systemd-resolved
+    assert_in 'yes' "$(resolvectl dnsovertls "$ifname")"
 }
 
 do_test_varlink_link_error () {
@@ -1919,6 +1932,11 @@ do_test_varlink_link_error () {
         "$error" \
         "$(varlinkctl call --graceful="$error" "$socket" io.systemd.Resolve.Link.SetMulticastDNS \
             '{"ifindex":"'"$ifindex"'","mDNS":"yes"}' 2>&1)"
+
+    assert_in \
+        "$error" \
+        "$(varlinkctl call --graceful="$error" "$socket" io.systemd.Resolve.Link.SetDNSOverTLS \
+            '{"ifindex":"'"$ifindex"'","dnsOverTLS":"yes"}' 2>&1)"
 }
 
 testcase_16_varlink_link_methods() {
