@@ -1205,7 +1205,9 @@ evdev:name:Ideapad extra buttons:dmi:*:svnLENOVO:pn21MV:pvrThinkBook14G7ARP:*
  KEYBOARD_KEY_13e=unknown                               # Fn+F4 mic mute, also emitted as scan code 0x8, ignore
 
 # Lenovo ThinkBook 16 G7 ARP (Type 21MW)
+# Lenovo ThinkBook 14 G7 IML (Type 21MR)
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn21MW*:pvr*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn21MR*:pvr*
  KEYBOARD_KEY_ae=!volumedown
  KEYBOARD_KEY_b0=!volumeup
 
