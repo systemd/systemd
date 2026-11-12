@@ -1925,6 +1925,68 @@ static void disconnect_callback(sd_varlink_server *server, sd_varlink *link, voi
         (*counter)++;
 }
 
+static void test_method_flags_one(const char *flags, bool valid) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_(sd_varlink_close_unrefp) sd_varlink *v = NULL;
+        _cleanup_close_pair_ int fds[2] = EBADF_PAIR;
+        int r;
+
+        ASSERT_OK(sd_varlink_server_new(&s, /* flags= */ 0));
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, fds));
+        ASSERT_OK(sd_varlink_server_add_connection(s, fds[0], &v));
+        TAKE_FD(fds[0]);
+        sd_varlink_ref(v);
+
+        _cleanup_free_ char *request = ASSERT_NOT_NULL(strjoin(
+                        "{\"method\":\"org.varlink.service.GetInfo\",", flags, "}"));
+        ASSERT_OK(loop_write(fds[1], request, strlen(request) + 1));
+
+        while ((r = sd_varlink_process(v)) > 0)
+                ;
+        ASSERT_EQ(r, valid ? 0 : -EINVAL);
+        ASSERT_EQ(sd_varlink_is_connected(v), valid);
+
+        if (valid) {
+                char buffer[4096];
+                ssize_t n = ASSERT_OK_POSITIVE(recv(fds[1], buffer, sizeof(buffer), MSG_DONTWAIT));
+                ASSERT_EQ(buffer[n - 1], 0);
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+                ASSERT_OK(sd_json_parse(buffer, /* flags= */ 0, &reply, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+                ASSERT_NOT_NULL(sd_json_variant_by_key(reply, "parameters"));
+                ASSERT_NULL(sd_json_variant_by_key(reply, "error"));
+        }
+}
+
+TEST(method_flags) {
+        FOREACH_STRING(flags,
+                       "\"more\":true,\"oneway\":false,\"upgrade\":false",
+                       "\"oneway\":false,\"more\":true,\"upgrade\":false",
+                       "\"upgrade\":false,\"oneway\":false,\"more\":true",
+                       "\"more\":false,\"oneway\":false,\"upgrade\":false")
+                test_method_flags_one(flags, /* valid= */ true);
+
+        FOREACH_STRING(flags,
+                       "\"more\":true,\"oneway\":true",
+                       "\"oneway\":true,\"more\":true",
+                       "\"more\":true,\"upgrade\":true",
+                       "\"upgrade\":true,\"oneway\":true",
+                       "\"oneway\":false,\"oneway\":false",
+                       "\"oneway\":false,\"oneway\":true",
+                       "\"oneway\":true,\"oneway\":false",
+                       "\"oneway\":true,\"oneway\":true",
+                       "\"more\":false,\"more\":false",
+                       "\"more\":false,\"more\":true",
+                       "\"more\":true,\"more\":false",
+                       "\"more\":true,\"more\":true",
+                       "\"upgrade\":false,\"upgrade\":false",
+                       "\"upgrade\":false,\"upgrade\":true",
+                       "\"upgrade\":true,\"upgrade\":false",
+                       "\"upgrade\":true,\"upgrade\":true",
+                       "\"more\":null",
+                       "\"more\":1")
+                test_method_flags_one(flags, /* valid= */ false);
+}
+
 TEST(is_connected_null) {
         /* A non-existent connection is not connected */
         ASSERT_OK_ZERO(sd_varlink_is_connected(NULL));
