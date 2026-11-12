@@ -119,7 +119,7 @@ static JsonStreamPhase varlink_phase(void *userdata) {
         if (v->state == VARLINK_IDLE_CLIENT)
                 return JSON_STREAM_PHASE_IDLE_CLIENT;
 
-        if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE, VARLINK_PENDING_METHOD_UPGRADE))
+        if (VARLINK_STATE_IS_PENDING_METHOD(v->state))
                 return JSON_STREAM_PHASE_PENDING_OUTPUT;
 
         return JSON_STREAM_PHASE_OTHER;
@@ -1162,7 +1162,7 @@ static int varlink_fiber_entry(void *userdata) {
          * VARLINK_PROCESSING_METHOD{,_MORE} to VARLINK_PENDING_METHOD{,_MORE}, so that's what we match
          * here to decide whether the call still needs a reply. Any other state (e.g. IDLE_SERVER after
          * the callback replied, or DISCONNECTED after sd_varlink_close()) means no fixup is needed. */
-        if (!IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE, VARLINK_PENDING_METHOD_UPGRADE))
+        if (!VARLINK_STATE_IS_PENDING_METHOD(v->state))
                 return r;
 
         if (r < 0) {
@@ -1184,7 +1184,7 @@ static int varlink_fiber_entry(void *userdata) {
                 r = 0;
 
         /* If we didn't manage to enqueue a response, then fail the connection completely. */
-        if (r < 0 && IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE, VARLINK_PENDING_METHOD_UPGRADE))
+        if (r < 0 && VARLINK_STATE_IS_PENDING_METHOD(v->state))
                 goto fail;
 
         return r;
@@ -1698,7 +1698,7 @@ _public_ int sd_varlink_dispatch_again(sd_varlink *v) {
 
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
-        if (!IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE, VARLINK_PENDING_METHOD_UPGRADE))
+        if (!VARLINK_STATE_IS_PENDING_METHOD(v->state))
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection has no pending method.");
 
         varlink_set_state(v, VARLINK_IDLE_SERVER);
@@ -1774,11 +1774,7 @@ _public_ int sd_varlink_is_connected(sd_varlink *v) {
 }
 
 _public_ int sd_varlink_wants_reply(sd_varlink *v) {
-        return v && (VARLINK_STATE_WANTS_REPLY(v->state) ||
-                     IN_SET(v->state,
-                            VARLINK_PENDING_METHOD,
-                            VARLINK_PENDING_METHOD_MORE,
-                            VARLINK_PENDING_METHOD_UPGRADE));
+        return v && (VARLINK_STATE_WANTS_REPLY(v->state) || VARLINK_STATE_IS_PENDING_METHOD(v->state));
 }
 
 _public_ int sd_varlink_get_fd(sd_varlink *v) {
@@ -2596,9 +2592,7 @@ static int varlink_reply_internal(sd_varlink *v, sd_json_variant *parameters, bo
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
 
-        if (!IN_SET(v->state,
-                    VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE, VARLINK_PROCESSING_METHOD_UPGRADE,
-                    VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE, VARLINK_PENDING_METHOD_UPGRADE))
+        if (!sd_varlink_wants_reply(v))
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
 
         bool more = IN_SET(v->state, VARLINK_PROCESSING_METHOD_MORE, VARLINK_PENDING_METHOD_MORE);
@@ -2650,7 +2644,7 @@ static int varlink_reply_internal(sd_varlink *v, sd_json_variant *parameters, bo
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
-        if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE, VARLINK_PENDING_METHOD_UPGRADE)) {
+        if (VARLINK_STATE_IS_PENDING_METHOD(v->state)) {
                 /* We just replied to a method call that was let hanging for a while (i.e. we were outside of
                  * the varlink_dispatch_method() stack frame), which means with this reply we are ready to
                  * process further messages. */
@@ -2836,9 +2830,7 @@ _public_ int sd_varlink_error(sd_varlink *v, const char *error_id, sd_json_varia
 
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
-        if (!IN_SET(v->state,
-                    VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE, VARLINK_PROCESSING_METHOD_UPGRADE,
-                    VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE, VARLINK_PENDING_METHOD_UPGRADE))
+        if (!sd_varlink_wants_reply(v))
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
 
         if (v->previous) {
@@ -2890,7 +2882,7 @@ _public_ int sd_varlink_error(sd_varlink *v, const char *error_id, sd_json_varia
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
-        if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE, VARLINK_PENDING_METHOD_UPGRADE)) {
+        if (VARLINK_STATE_IS_PENDING_METHOD(v->state)) {
                 varlink_clear_current(v);
                 varlink_set_state(v, VARLINK_IDLE_SERVER);
         } else
@@ -4845,7 +4837,7 @@ static int varlink_deserialize_json(
         if (server ? p.n_pending != 0 : (state == VARLINK_IDLE_CLIENT) != (p.n_pending == 0))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Serialized varlink connection has %u pending calls in state '%s', refusing.", p.n_pending, varlink_state_to_string(state));
 
-        if (IN_SET(state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE, VARLINK_PENDING_METHOD_UPGRADE) && !p.current)
+        if (VARLINK_STATE_IS_PENDING_METHOD(state) && !p.current)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Serialized varlink connection in state '%s' without pending method call, refusing.", varlink_state_to_string(state));
 
         r = varlink_new(&v);
@@ -5039,7 +5031,7 @@ static int varlink_server_adopt_connection(sd_varlink_server *server, sd_varlink
                 }
         }
 
-        if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE, VARLINK_PENDING_METHOD_UPGRADE)) {
+        if (VARLINK_STATE_IS_PENDING_METHOD(v->state)) {
                 /* It was only serialized because this was set, hence set it again */
                 v->serialize_pending = true;
 
