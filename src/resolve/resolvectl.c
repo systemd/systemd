@@ -2290,7 +2290,7 @@ static int call_set_dns(char **dns) {
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON parameters: %m");
 
-        /* If only argument is the empty string, then call io.systemd.Network.Link.SetDNS
+        /* If only argument is the empty string, then call io.systemd.Resolve.Link.SetDNS
          * with an empty list, which will clear the list of DNS for an interface. */
         if (!strv_equal(dns, STRV_MAKE(""))) {
                 STRV_FOREACH(p, dns) {
@@ -2706,7 +2706,7 @@ static int call_set_domains(char **domain) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add domains to JSON parameters: %m");
 
-        /* If only argument is the empty string, then call io.systemd.Network.Link.SetDomains
+        /* If only argument is the empty string, then call io.systemd.Resolve.Link.SetDomains
          * with an empty list, which will clear the list of domains for an interface. */
         if (!strv_equal(domain, STRV_MAKE(""))) {
                 STRV_FOREACH(p, domain) {
