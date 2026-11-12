@@ -77,6 +77,14 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("MulticastDNS mode to configure on the link."),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(mDNS, ResolveSupport, 0));
 
+static SD_VARLINK_DEFINE_METHOD(
+                SetDNSOverTLS,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("Index of the interface to configure."),
+                SD_VARLINK_DEFINE_INPUT(ifindex, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("DNSOverTLS mode to configure on the link."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(dnsOverTLS, DNSOverTLSMode, 0));
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Resolve_Link,
                 "io.systemd.Resolve.Link",
@@ -99,4 +107,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("Set the per-link LLMNR mode."),
                 &vl_method_SetLLMNR,
                 SD_VARLINK_SYMBOL_COMMENT("Set the per-link MulticastDNS mode."),
-                &vl_method_SetMulticastDNS);
+                &vl_method_SetMulticastDNS,
+                SD_VARLINK_SYMBOL_COMMENT("Set the per-link DNS-over-TLS mode."),
+                &vl_method_SetDNSOverTLS);
