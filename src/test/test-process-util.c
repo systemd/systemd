@@ -1112,6 +1112,20 @@ TEST(getenv_for_pid) {
         }
 }
 
+TEST(sched_policy_to_string) {
+        ASSERT_STREQ(sched_policy_to_string(SCHED_OTHER), "other");
+        ASSERT_STREQ(sched_policy_to_string(SCHED_FIFO), "fifo");
+        ASSERT_STREQ(sched_policy_to_string(SCHED_RR), "rr");
+        ASSERT_NULL(sched_policy_to_string(-1));
+        ASSERT_NULL(sched_policy_to_string(4711));
+
+        for (int p = 0; p < 16; p++) {
+                const char *s = sched_policy_to_string(p);
+                if (s)
+                        ASSERT_EQ(sched_policy_from_string(s), p);
+        }
+}
+
 TEST(invoked_as) {
         ASSERT_FALSE(invoked_as(/* argv= */ NULL, "foobar"));
         ASSERT_FALSE(invoked_as(/* argv= */ NULL, "barbar"));
