@@ -243,6 +243,15 @@ static int verify_trusted_image_fd_by_path(int fd) {
         return false;
 }
 
+static bool policy_requires_signature(const ImagePolicy *policy, const VeritySettings *verity) {
+        PartitionPolicyFlags f;
+
+        assert(verity);
+
+        f = image_policy_get_exhaustively(policy, verity->designator >= 0 ? verity->designator : PARTITION_ROOT);
+        return f >= 0 && !FLAGS_SET(f, PARTITION_POLICY_VERITY);
+}
+
 static int determine_image_policy(
                 int image_fd,
                 bool trusted,
@@ -631,8 +640,12 @@ static int vl_method_mount_image(
                         bool key_not_found = r == -EDESTADDRREQ;
 
                         /* If we use the policy for trusted images already, a polkit authorization wouldn't
-                         * change the policy. */
-                        if (!use_trusted_policy) {
+                         * change the policy. We intersect the policy for trusted images with the client's
+                         * policy. If the client's policy requires a signature that no trusted key validates,
+                         * the policy for trusted images refuses the image too. A polkit prompt then can't
+                         * change the result. */
+                        if (!use_trusted_policy &&
+                            !(key_not_found && policy_requires_signature(p.image_policy, &verity))) {
                                 log_debug("%s. Trying a stronger polkit authentication before continuing.",
                                           key_not_found ? "Missing verity key in kernel and userspace" : "Denied by image policy");
                                 r = varlink_verify_polkit_async_full(

@@ -26,7 +26,7 @@ at_exit() {
     rmdir /tmp/unpriv
     rm -f /tmp/test-50-unpriv-privkey.key /tmp/test-50-unpriv-cert.crt /run/verity.d/test-50-unpriv-cert.crt
     rm -f /var/tmp/unpriv.raw /tmp/unpriv.raw.mtree /tmp/unpriv2.raw.mtree
-    rm -f /tmp/unpriv.out /tmp/unpriv.out2 /tmp/unpriv.out3
+    rm -f /tmp/unpriv.out /tmp/unpriv.out2 /tmp/unpriv.out3 /tmp/unpriv.err
     rm -f /etc/polkit-1/rules.d/untrusted.rules /var/tmp/test-50-badsig.gpt
     rm -rf /var/tmp/test-50-badsig-srv.gpt /var/tmp/test-50-srv.repart.d
 }
@@ -127,6 +127,18 @@ systemd-dissect --image-policy='root=verity+signed:=absent+unused' --mtree /var/
 
 # This should fail before we install the key
 (! systemd-dissect --image-policy='root=signed:=absent+unused' --mtree /var/tmp/unpriv.raw >/dev/null)
+
+# If the client's image policy requires a signature that no trusted key validates, the policy for trusted
+# images refuses the image too. mountfsd must not ask polkit for the policy for trusted images then. mountfsd
+# returns KeyNotFound instead. If mountfsd asks polkit, polkit refuses testuser and the client gets
+# InteractiveAuthenticationRequired.
+(! runas testuser systemd-dissect --image-policy='root=signed:=absent+unused' --mtree /var/tmp/unpriv.raw >/dev/null 2>/tmp/unpriv.err)
+grep "no trusted key validates its signature" /tmp/unpriv.err >/dev/null
+(! grep InteractiveAuthenticationRequired /tmp/unpriv.err >/dev/null)
+# If the client's image policy allows Verity without a signature, the policy for trusted images can allow the
+# image. mountfsd asks polkit in that case.
+(! runas testuser systemd-dissect --image-policy='root=verity+signed:=absent+unused' --mtree /var/tmp/unpriv.raw >/dev/null 2>/tmp/unpriv.err)
+grep InteractiveAuthenticationRequired /tmp/unpriv.err >/dev/null
 
 # Unprivileged user units can use signed verity images if the kernel supports signature verification.
 if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
