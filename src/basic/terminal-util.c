@@ -1746,10 +1746,13 @@ bool term_env_valid(const char *term) {
         /* Checks if the specified $TERM value is suitable for propagation, i.e. is not empty, not set to
          * "unknown" (as is common in CI), and only contains characters valid in terminal type names.
          * Valid $TERM values are things like "xterm-256color", "linux", "screen.xterm-256color", i.e.
-         * alphanumeric characters, hyphens, underscores, dots, and plus signs. */
+         * alphanumeric characters, hyphens, underscores, dots, and plus signs. Since the value is used to
+         * look up terminfo files, it must also be a valid file name, i.e. not "." or ".." and not overly
+         * long. */
         return !isempty(term) &&
                 !streq(term, "unknown") &&
-                in_charset(term, ALPHANUMERICAL "-_+.");
+                in_charset(term, ALPHANUMERICAL "-_+.") &&
+                filename_is_valid(term);
 }
 
 bool getenv_terminal_is_dumb(void) {

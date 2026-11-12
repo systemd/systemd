@@ -285,6 +285,34 @@ TEST(terminal_get_terminfo_by_dcs) {
         log_info("terminal terminfo via DCS: %s, $TERM: %s", name, strnull(getenv("TERM")));
 }
 
+TEST(term_env_valid) {
+        ASSERT_TRUE(term_env_valid("linux"));
+        ASSERT_TRUE(term_env_valid("vt220"));
+        ASSERT_TRUE(term_env_valid("xterm-256color"));
+        ASSERT_TRUE(term_env_valid("screen.xterm-256color"));
+        ASSERT_TRUE(term_env_valid("foo_bar+baz"));
+        ASSERT_TRUE(term_env_valid("dumb"));
+
+        ASSERT_FALSE(term_env_valid(NULL));
+        ASSERT_FALSE(term_env_valid(""));
+        ASSERT_FALSE(term_env_valid("unknown"));
+        ASSERT_FALSE(term_env_valid("."));
+        ASSERT_FALSE(term_env_valid(".."));
+        ASSERT_FALSE(term_env_valid("a/b"));
+        ASSERT_FALSE(term_env_valid("x y"));
+        ASSERT_FALSE(term_env_valid("x\ty"));
+        ASSERT_FALSE(term_env_valid("\"xterm\""));
+        ASSERT_FALSE(term_env_valid("xterm\\"));
+        ASSERT_FALSE(term_env_valid("xterm*"));
+        ASSERT_FALSE(term_env_valid("xtérm"));
+
+        _cleanup_free_ char *s = strrep("x", NAME_MAX);
+        ASSERT_NOT_NULL(s);
+        ASSERT_TRUE(term_env_valid(s));
+        ASSERT_NOT_NULL(strextend(&s, "x"));
+        ASSERT_FALSE(term_env_valid(s));
+}
+
 TEST(have_terminfo_file) {
         int r;
 
