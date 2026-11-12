@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-daemon.h"
 #include "sd-id128.h"
 #include "sd-json.h"
 
@@ -13,6 +14,7 @@
 #include "conf-parser.h"
 #include "data-fd-util.h"
 #include "dirent-util.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "event-util.h"
 #include "extract-word.h"
@@ -1498,6 +1500,8 @@ static int run_callout(
                 const char *name,
                 char *cmdline[],
                 int stdin_fd,
+                int pass_fd,
+                const char *pass_fd_name,
                 const Transfer *transfer,
                 const Instance *instance,
                 TransferProgress callback,
@@ -1508,6 +1512,7 @@ static int run_callout(
         assert(name);
         assert(cmdline);
         assert(cmdline[0]);
+        assert(pass_fd < 0 || pass_fd_name);
 
         _cleanup_(callout_context_freep) CalloutContext *ctx = NULL;
         r = callout_context_new(transfer, instance, callback, name, userdata, &ctx);
@@ -1537,12 +1542,17 @@ static int run_callout(
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare notify socket: %m");
 
-        /* Optionally connect the helper's stdin to the specified fd, otherwise it inherits ours */
+        /* Optionally connect the helper's stdin to the specified fd, otherwise it inherits ours. Optionally
+         * pass another fd to it as fd 3, via the socket activation protocol, in which case close everything
+         * else. */
         r = pidref_safe_fork_full(
                         ctx->name,
                         stdin_fd >= 0 ? (int[]) { stdin_fd, STDOUT_FILENO, STDERR_FILENO } : NULL,
-                        /* except_fds= */ NULL, /* n_except_fds= */ 0,
-                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG|(stdin_fd >= 0 ? FORK_REARRANGE_STDIO : 0),
+                        pass_fd >= 0 ? &pass_fd : NULL,
+                        pass_fd >= 0 ? 1 : 0,
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG|
+                        (stdin_fd >= 0 ? FORK_REARRANGE_STDIO : 0)|
+                        (pass_fd >= 0 ? FORK_CLOSE_ALL_FDS|FORK_PACK_FDS|FORK_CLOEXEC_OFF|FORK_REOPEN_LOG : 0),
                         &ctx->pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork process %s: %m", ctx->name);
@@ -1551,6 +1561,21 @@ static int run_callout(
                 if (setenv("NOTIFY_SOCKET", bind_name, 1) < 0) {
                         log_error_errno(errno, "setenv() failed: %m");
                         _exit(EXIT_FAILURE);
+                }
+
+                if (pass_fd >= 0) {
+                        /* FORK_PACK_FDS moved the fd to fd 3 */
+                        assert(pass_fd == SD_LISTEN_FDS_START);
+
+                        r = setenvf("LISTEN_PID", /* overwrite= */ true, PID_FMT, getpid_cached());
+                        if (r >= 0)
+                                r = RET_NERRNO(setenv("LISTEN_FDS", "1", /* overwrite= */ true));
+                        if (r >= 0)
+                                r = RET_NERRNO(setenv("LISTEN_FDNAMES", pass_fd_name, /* overwrite= */ true));
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to set socket activation environment variables: %m");
+                                _exit(EXIT_FAILURE);
+                        }
                 }
                 r = invoke_callout_binary(cmdline[0], (char *const*) cmdline);
                 log_error_errno(r, "Failed to execute %s tool: %m", cmdline[0]);
@@ -1679,7 +1704,7 @@ static int transfer_acquire_source(
 
         _cleanup_strv_free_ char **cmdline = NULL;
         _cleanup_free_ char *digest = NULL;
-        _cleanup_close_ int literal_fd = -EBADF;
+        _cleanup_close_ int literal_fd = -EBADF, http_headers_fd = -EBADF;
         const char *from, *to;
         int r;
 
@@ -1746,6 +1771,21 @@ static int transfer_acquire_source(
                         r = strv_extendf(&cmdline, "--source-size=%" PRIu64, i->metadata.size);
                         if (r < 0)
                                 return log_oom();
+                }
+
+                if (!strv_isempty(s->http_headers)) {
+                        /* The additional HTTP header fields might carry credentials, hence don't pass them
+                         * on the command line (where everyone could see them), but via a sealed memory file,
+                         * which we hand over via the socket activation protocol. We use the format HTTP
+                         * itself uses for header fields, i.e. one "Name: value" line per field. */
+                        _cleanup_(erase_and_freep) char *text = NULL;
+                        r = http_headers_format(s->http_headers, &text);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to format HTTP header fields: %m");
+
+                        http_headers_fd = data_fd_from_iovec("sysupdate-http-headers", &IOVEC_MAKE_STRING(text));
+                        if (http_headers_fd < 0)
+                                return log_error_errno(http_headers_fd, "Failed to allocate memory file for HTTP header fields: %m");
                 }
         } else {
                 struct iovec data = s->literal;
@@ -1856,7 +1896,9 @@ static int transfer_acquire_source(
         return run_callout(
                         s->url ? (tar ? "(sd-pull-tar)" : "(sd-pull-raw)") : (tar ? "(sd-import-tar)" : "(sd-import-raw)"),
                         cmdline,
-                        literal_fd,
+                        /* stdin_fd= */ literal_fd,
+                        /* pass_fd= */ http_headers_fd,
+                        /* pass_fd_name= */ "http-headers",
                         t, i, cb, userdata);
 }
 
@@ -2005,7 +2047,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                                t->context->sync ? "--sync=yes" : "--sync=no",
                                                i->path,
                                                t->temporary_partial_path),
-                                        /* stdin_fd= */ -EBADF, t, i, cb, userdata);
+                                        /* stdin_fd= */ -EBADF, /* pass_fd= */ -EBADF, /* pass_fd_name= */ NULL, t, i, cb, userdata);
                         break;
 
                 case RESOURCE_PARTITION:
@@ -2023,7 +2065,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                                t->context->sync ? "--sync=yes" : "--sync=no",
                                                i->path,
                                                t->target.path),
-                                        /* stdin_fd= */ -EBADF, t, i, cb, userdata);
+                                        /* stdin_fd= */ -EBADF, /* pass_fd= */ -EBADF, /* pass_fd_name= */ NULL, t, i, cb, userdata);
                         break;
 
                 default:
@@ -2047,7 +2089,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                        t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
                                        i->path,
                                        t->temporary_partial_path),
-                                /* stdin_fd= */ -EBADF, t, i, cb, userdata);
+                                /* stdin_fd= */ -EBADF, /* pass_fd= */ -EBADF, /* pass_fd_name= */ NULL, t, i, cb, userdata);
                 break;
 
         case RESOURCE_TAR:
@@ -2064,7 +2106,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                        t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
                                        i->path,
                                        t->temporary_partial_path),
-                                /* stdin_fd= */ -EBADF, t, i, cb, userdata);
+                                /* stdin_fd= */ -EBADF, /* pass_fd= */ -EBADF, /* pass_fd_name= */ NULL, t, i, cb, userdata);
                 break;
 
         case RESOURCE_URL_FILE:
