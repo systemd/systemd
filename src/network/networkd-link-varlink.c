@@ -448,3 +448,49 @@ int vl_method_link_set_dnssec_negative_trust_anchors(sd_varlink *vlink, sd_json_
 
         return sd_varlink_reply(vlink, /* parameters= */ NULL);
 }
+
+int vl_method_link_set_dns_default_route(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(vlink);
+
+        Link *link = NULL;
+        r = dispatch_resolve_link(vlink, parameters, manager, &link);
+        if (r < 0)
+                return r;
+
+        struct {
+                bool default_route;
+                int ifindex;
+        } p = {};
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                { "ifindex",      _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,    voffsetof(p, ifindex),       SD_JSON_RELAX     },
+                { "defaultRoute", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool, voffsetof(p, default_route), SD_JSON_MANDATORY },
+                {},
+        };
+
+        r = sd_json_dispatch(parameters, dispatch_table, SD_JSON_LOG, &p);
+        if (r < 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        vlink,
+                        manager->bus,
+                        "org.freedesktop.network1.set-default-route",
+                        (const char**) STRV_MAKE("interface", link->ifname),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        if (p.default_route != link->dns_default_route) {
+                link->dns_default_route = p.default_route;
+
+                r = link_save_and_clean_full(link, /* also_save_manager= */ true);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_varlink_reply(vlink, /* parameters= */ NULL);
+}
