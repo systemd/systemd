@@ -192,6 +192,7 @@ typedef struct UnitStatusInfo {
         const char *following;
 
         char **documentation;
+        char **tags;
 
         const char *fragment_path;
         const char *source_path;
@@ -312,6 +313,7 @@ typedef struct UnitStatusInfo {
 
 static void unit_status_info_done(UnitStatusInfo *info) {
         strv_free(info->documentation);
+        strv_free(info->tags);
         strv_free(info->dropin_paths);
         strv_free(info->triggered_by);
         strv_free(info->triggers);
@@ -620,6 +622,9 @@ static void print_status_info(
 
                 printf("   %*s %s\n", 9, t == i->documentation ? "Docs:" : "", q);
         }
+
+        STRV_FOREACH(t, i->tags)
+                printf("   %*s %s\n", 9, t == i->tags ? "Tags:" : "", *t);
 
         STRV_FOREACH_PAIR(t, t2, i->listen)
                 printf("   %*s %s (%s)\n", 9, t == i->listen ? "Listen:" : "", *t2, *t);
@@ -2228,6 +2233,7 @@ static int show_one(
                 { "Description",                    "s",               NULL,           offsetof(UnitStatusInfo, description)                       },
                 { "Following",                      "s",               NULL,           offsetof(UnitStatusInfo, following)                         },
                 { "Documentation",                  "as",              NULL,           offsetof(UnitStatusInfo, documentation)                     },
+                { "Tags",                           "as",              NULL,           offsetof(UnitStatusInfo, tags)                              },
                 { "FragmentPath",                   "s",               NULL,           offsetof(UnitStatusInfo, fragment_path)                     },
                 { "SourcePath",                     "s",               NULL,           offsetof(UnitStatusInfo, source_path)                       },
                 { "ControlGroup",                   "s",               NULL,           offsetof(UnitStatusInfo, control_group)                     },

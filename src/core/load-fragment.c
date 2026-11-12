@@ -48,6 +48,7 @@
 #include "mountpoint-util.h"
 #include "nsflags.h"
 #include "nulstr-util.h"
+#include "object-tags.h"
 #include "open-file.h"
 #include "ordered-set.h"
 #include "parse-helpers.h"
@@ -3259,6 +3260,73 @@ int config_parse_documentation(
         return 0;
 }
 
+int config_parse_tags(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Unit *u = ASSERT_PTR(userdata);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                u->tags = strv_free(u->tags);
+                return 0;
+        }
+
+        _cleanup_strv_free_ char **added_tags = NULL;
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *word = NULL;
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                _cleanup_free_ char *tag = NULL;
+                r = unit_full_printf(u, word, &tag);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", word);
+                        continue;
+                }
+
+                if (!object_tag_is_valid(tag)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Unit tag is invalid, ignoring: %s", tag);
+                        continue;
+                }
+
+                r = strv_consume(&added_tags, TAKE_PTR(tag));
+                if (r < 0)
+                        return log_oom();
+        }
+
+        _cleanup_strv_free_ char **tags = NULL;
+        r = object_tags_edit(u->tags, added_tags, /* remove= */ NULL, &tags);
+        if (r == -E2BIG) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Too many machine tags specified, ignoring.");
+                return 0;
+        }
+        if (r < 0)
+                return log_oom();
+
+        strv_free_and_replace(u->tags, tags);
+        return 0;
+}
+
 #if HAVE_SECCOMP
 int config_parse_syscall_filter(
                 const char *unit,
@@ -6416,6 +6484,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_unit_condition_string, "CONDITION" },
                 { config_parse_unit_slice,            "SLICE" },
                 { config_parse_documentation,         "URL" },
+                { config_parse_tags,                  "TAGS" },
                 { config_parse_service_timeout,       "SECONDS" },
                 { config_parse_emergency_action,      "ACTION" },
                 { config_parse_set_status,            "STATUS" },

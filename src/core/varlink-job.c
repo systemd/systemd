@@ -2,7 +2,6 @@
 
 #include "sd-varlink.h"
 
-#include "bus-polkit.h"
 #include "job.h"
 #include "json-util.h"
 #include "locale-util.h"
@@ -10,6 +9,7 @@
 #include "selinux-access.h"
 #include "strv.h"
 #include "unit.h"
+#include "varlink-common.h"
 #include "varlink-job.h"
 
 static int activation_details_build_json(sd_json_variant **ret, const char *name, void *userdata) {
@@ -201,16 +201,12 @@ int vl_method_cancel_job(sd_varlink *link, sd_json_variant *parameters, sd_varli
         if (r < 0)
                 return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
 
-        r = varlink_verify_polkit_async(
-                        link,
-                        manager->system_bus,
-                        "org.freedesktop.systemd1.manage-units",
-                        (const char**) STRV_MAKE(
-                                        "unit", j->unit ? j->unit->id : NULL,
-                                        "verb", "cancel",
-                                        "polkit.message", N_("Authentication is required to cancel job for unit '$(unit)'."),
-                                        "polkit.gettext_domain", GETTEXT_PACKAGE),
-                        &manager->polkit_registry);
+        const UnitPolkitDetails details = {
+                .unit = j->unit,
+                .verb = "cancel",
+                .message = N_("Authentication is required to cancel job for unit '$(unit)'."),
+        };
+        r = varlink_verify_manage_units_async(link, manager, &details);
         if (r <= 0)
                 return r;
 
@@ -234,15 +230,11 @@ int vl_method_clear_all_jobs(sd_varlink *link, sd_json_variant *parameters, sd_v
         if (r < 0)
                 return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
 
-        r = varlink_verify_polkit_async(
-                        link,
-                        manager->system_bus,
-                        "org.freedesktop.systemd1.manage-units",
-                        (const char**) STRV_MAKE(
-                                        "verb", "clear-jobs",
-                                        "polkit.message", N_("Authentication is required to clear all pending jobs."),
-                                        "polkit.gettext_domain", GETTEXT_PACKAGE),
-                        &manager->polkit_registry);
+        const UnitPolkitDetails details = {
+                .verb = "clear-jobs",
+                .message = N_("Authentication is required to clear all pending jobs."),
+        };
+        r = varlink_verify_manage_units_async(link, manager, &details);
         if (r <= 0)
                 return r;
 
