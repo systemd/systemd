@@ -174,6 +174,8 @@ int chase_xopenat(int dir_fd, const char *path, ChaseFlags chase_flags, int open
                 xopen_flags |= XO_REGULAR;
         if (FLAGS_SET(chase_flags, CHASE_MUST_BE_SOCKET))
                 xopen_flags |= XO_SOCKET;
+        if (FLAGS_SET(chase_flags, CHASE_NO_SYNC))
+                xopen_flags |= XO_NO_SYNC;
         /* Only needed for O_PATH since plain open() already triggers automounts */
         if (FLAGS_SET(chase_flags, CHASE_TRIGGER_AUTOFS) && FLAGS_SET(open_flags, O_PATH))
                 xopen_flags |= XO_TRIGGER_AUTOMOUNT;
