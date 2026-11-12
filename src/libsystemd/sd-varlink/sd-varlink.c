@@ -1391,7 +1391,7 @@ static int varlink_dispatch_method(sd_varlink *v) {
                                 varlink_log_errno(v, r, "Method %s() called without '%s' flag, but flag needs to be set.",
                                                   method, missing_upgrade ? "upgrade" : "more");
 
-                                if (v->state == VARLINK_PROCESSING_METHOD) {
+                                if (VARLINK_STATE_WANTS_REPLY(v->state)) {
                                         r = sd_varlink_error(v, missing_upgrade ? SD_VARLINK_ERROR_EXPECTED_UPGRADE
                                                                                 : SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
                                         /* If we didn't manage to enqueue an error response, then fail the
