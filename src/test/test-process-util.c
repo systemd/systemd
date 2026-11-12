@@ -204,6 +204,47 @@ TEST(pid_get_comm_escape) {
         ASSERT_OK(proc_set_comm(saved));
 }
 
+static void* thread_comm_thread(void *userdata) {
+        int *fds = ASSERT_PTR(userdata);
+        pid_t tid = gettid();
+        char c;
+
+        assert_se(pthread_setname_np(pthread_self(), "threadcomm") == 0);
+        assert_se(write(fds[1], &tid, sizeof(tid)) == sizeof(tid));
+        (void) read(fds[2], &c, sizeof(c)); /* Returns once the write end is closed */
+        return NULL;
+}
+
+TEST(pid_get_thread_comm) {
+        _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL, *d = NULL;
+        int tid_pipe[2] = EBADF_PAIR, quit_pipe[2] = EBADF_PAIR;
+        pthread_t thread;
+        pid_t tid;
+
+        /* The main thread has the same name as the process */
+        ASSERT_OK(pid_get_comm(/* pid= */ 0, &a));
+        ASSERT_OK(pid_get_thread_comm(getpid_cached(), getpid_cached(), &b));
+        ASSERT_STREQ(a, b);
+        ASSERT_OK(pid_get_thread_comm(/* pid= */ 0, gettid(), &c));
+        ASSERT_STREQ(a, c);
+
+        /* Other threads may have their own names */
+        ASSERT_OK_ERRNO(pipe2(tid_pipe, O_CLOEXEC));
+        ASSERT_OK_ERRNO(pipe2(quit_pipe, O_CLOEXEC));
+        int fds[3] = { tid_pipe[0], tid_pipe[1], quit_pipe[0] };
+        ASSERT_EQ(pthread_create(&thread, /* attr= */ NULL, thread_comm_thread, fds), 0);
+        ASSERT_EQ(read(tid_pipe[0], &tid, sizeof(tid)), (ssize_t) sizeof(tid));
+        ASSERT_OK(pid_get_thread_comm(getpid_cached(), tid, &d));
+        ASSERT_STREQ(d, "threadcomm");
+        quit_pipe[1] = safe_close(quit_pipe[1]);
+        ASSERT_EQ(pthread_join(thread, /* retval= */ NULL), 0);
+        safe_close_pair(tid_pipe);
+        safe_close_pair(quit_pipe);
+
+        /* PID 1's main thread is not one of our threads */
+        ASSERT_ERROR(pid_get_thread_comm(getpid_cached(), /* tid= */ 1, &d), ESRCH);
+}
+
 TEST(pid_is_unwaited) {
         pid_t pid;
 

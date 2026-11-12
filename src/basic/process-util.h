@@ -34,6 +34,7 @@ typedef enum ProcessCmdlineFlags {
         PROCESS_CMDLINE_QUOTE_POSIX   = 1 << 3,
 } ProcessCmdlineFlags;
 
+int pid_get_thread_comm(pid_t pid, pid_t tid, char **ret);
 int pid_get_comm(pid_t pid, char **ret);
 int pidref_get_comm(const PidRef *pid, char **ret);
 int pid_get_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, char **ret);
