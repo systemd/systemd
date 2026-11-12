@@ -5215,6 +5215,9 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
         case SERVICE_RELOAD_POST:
                 log_unit_warning(UNIT(s), "Reload operation timed out. Killing reload process.");
                 service_kill_control_process(s);
+                if (s->state == SERVICE_REFRESH_CREDENTIALS)
+                        (void) exec_context_destroy_credentials_workspace(
+                                        UNIT(s)->manager->prefix[EXEC_DIRECTORY_RUNTIME], UNIT(s)->id);
                 service_reload_finish(s, SERVICE_FAILURE_TIMEOUT);
                 break;
 
