@@ -266,6 +266,7 @@ shared_sources = files(
         'varlink-io.systemd.Report.c',
         'varlink-io.systemd.Report.Signer.c',
         'varlink-io.systemd.Report.Uploader.c',
+        'varlink-io.systemd.RTWatch.c',
         'varlink-io.systemd.Resolve.c',
         'varlink-io.systemd.Resolve.Hook.c',
         'varlink-io.systemd.Resolve.Link.c',
