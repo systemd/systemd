@@ -29,7 +29,7 @@ _systemd_manifest() {
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
     local -A OPTS=(
         [STANDALONE]='-h --help --version --no-pager --graceful'
-        [ARG]='--json --format --field --hash --private-key --private-key-source
+        [ARG]='--json --format --field --hash --timestamp-accuracy-sec --private-key --private-key-source
                --certificate --certificate-source --verify-signature --voa-context'
     )
 
