@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "ansi-color.h"
+#include "hexdecoct.h"
 #include "json-util.h"
 #include "log.h"
 #include "predict-measure.h"
@@ -193,6 +194,19 @@ static void evp_md_ctx_free_all(EVP_MD_CTX **md[]) {
         *md = mfree(*md);
 }
 
+static void pcr_state_debug(PcrState *pcr_state, unsigned index, const char *msg) {
+        if (!DEBUG_LOGGING || !pcr_state)
+                return;
+        assert(msg);
+
+        _cleanup_free_ char *h = hexmem(pcr_state->value, pcr_state->value_size);
+        if (!h) {
+                log_oom_debug();
+                return;
+        }
+        log_debug("PCR %u:%s=%s (%s)", index, pcr_state->bank, strna(h), msg);
+}
+
 #define BUFFER_SIZE (16U * 1024U)
 
 int pcr_states_measure_uki(PcrState *pcr_states, size_t n, const int section_fds[static _UNIFIED_SECTION_MAX]) {
@@ -229,6 +243,7 @@ int pcr_states_measure_uki(PcrState *pcr_states, size_t n, const int section_fds
                                                        "Failed to initialize data %s context.", pcr_states[i].bank);
                 }
 
+                log_debug("Measuring UKI section %s", unified_sections[c]);
                 for (;;) {
                         ssize_t sz = pread(section_fds[c], buffer, BUFFER_SIZE, m);
                         /* pread() fails with ESPIPE on pipes and sockets. read() consumes the data of a
@@ -268,6 +283,7 @@ int pcr_states_measure_uki(PcrState *pcr_states, size_t n, const int section_fds
                         r = pcr_state_extend(pcr_states + i, data_hash, data_hash_size);
                         if (r < 0)
                                 return r;
+                        pcr_state_debug(pcr_states + i, TPM2_PCR_KERNEL_BOOT, unified_sections[c]);
 
                         /* Retrieve hash of data and measure it */
                         if (sym_EVP_DigestFinal_ex(mdctx[i], data_hash, &data_hash_size) != 1)
@@ -278,6 +294,7 @@ int pcr_states_measure_uki(PcrState *pcr_states, size_t n, const int section_fds
                         r = pcr_state_extend(pcr_states + i, data_hash, data_hash_size);
                         if (r < 0)
                                 return r;
+                        pcr_state_debug(pcr_states + i, TPM2_PCR_KERNEL_BOOT, "section data");
                 }
         }
 
@@ -296,6 +313,7 @@ static int pcr_states_measure_phase(PcrState *pcr_states, size_t n, const char *
         l = strv_split(phase, ":");
         if (!l)
                 return log_oom_debug();
+        log_debug("Measuring phase: %s", phase);
 
         STRV_FOREACH(word, l) {
                 if (isempty(*word))
@@ -303,6 +321,7 @@ static int pcr_states_measure_phase(PcrState *pcr_states, size_t n, const char *
 
                 size_t wl = strlen(*word);
 
+                log_debug("Measuring phase word: %s", *word);
                 for (size_t i = 0; i < n; i++) {
                         int bsz = sym_EVP_MD_get_size(pcr_states[i].md);
                         assert(bsz > 0);
@@ -317,6 +336,7 @@ static int pcr_states_measure_phase(PcrState *pcr_states, size_t n, const char *
                         r = pcr_state_extend(pcr_states + i, b, bsz);
                         if (r < 0)
                                 return r;
+                        pcr_state_debug(pcr_states + i, TPM2_PCR_KERNEL_BOOT, *word);
                 }
         }
 
