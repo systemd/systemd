@@ -2111,7 +2111,12 @@ node /org/freedesktop/systemd1 {
       <para>The <interfacename>org.freedesktop.systemd1.manage-units</interfacename> polkit action may sometimes
       pass some additional variables that can be used by polkit policies for more precise targeting. The
       <literal>unit</literal> variable may be set to the name of the systemd unit being managed. The <literal>verb</literal>
-      variable may be set to the specific action being performed.</para>
+      variable may be set to the specific action being performed. Units that have <varname>Tags</varname>
+      configured will also expose the tags: parameterized tags will be prefixed with <literal>tag.</literal>
+      and their value will be the variable's value, and un-parameterized tags will be prefixed with <literal>btag.</literal>
+      and the variable's value will be <literal>1</literal>. For instance, a unit tagged with <literal>example=value</literal>
+      and <literal>otherexample</literal> will have the <literal>tag.example</literal> variable set to
+      <literal>value</literal> and the <literal>btag.otherexample</literal> variable set to <literal>1</literal>.</para>
     </refsect2>
   </refsect1>
 
