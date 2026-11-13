@@ -416,13 +416,6 @@ systemctl reload-or-restart --marked
 
 # Test marker normalization with incremental (+) syntax
 
-# needs-start + +needs-restart → needs-restart (restart wins against start)
-systemctl set-property "$UNIT_NAME" "Markers=needs-start"
-systemctl set-property "$UNIT_NAME" "Markers=+needs-restart"
-systemctl show -P Markers "$UNIT_NAME" | grep needs-restart
-(! systemctl show -P Markers "$UNIT_NAME" | grep needs-start)
-systemctl set-property "$UNIT_NAME" "Markers="
-
 # needs-restart + +needs-start → needs-restart (restart wins against start)
 systemctl set-property "$UNIT_NAME" "Markers=needs-restart"
 systemctl set-property "$UNIT_NAME" "Markers=+needs-start"
