@@ -56,6 +56,12 @@ EOF
 
 systemctl daemon-reload
 
+# Don't crash when no targets are defined
+if [[ -x "$UPDATECTL" ]]; then
+    (! "$UPDATECTL" update |& tee "$WORKDIR"/updatectl-update-no-targets)
+    grep "No targets found" "$WORKDIR"/updatectl-update-no-targets >/dev/null
+fi
+
 SIGTEST_GPGHOME=
 SIGTEST_OTHERHOME=
 ZEROFILL_LOOP=
