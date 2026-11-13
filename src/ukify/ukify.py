@@ -894,11 +894,23 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
             if dtbauto is not None:
                 to_measure[dtbauto.name] = dtbauto
 
-            policy_groups: list[tuple[list[str], str]] = [
-                (list(itertools.chain.from_iterable(opts.phase_path_groups or [])), ''),
-            ]
-            if opts.policy_digest and opts.sign_initrd_pcrs:
-                policy_groups += [INITRD_PCR_POLICY]
+            policy_groups: list[tuple[list[str], str]]
+            if opts.policy_digest:
+                # One policy for each pair of --phases= and --policyref=, like for each
+                # --pcr-private-key= when signing, but all for the same public key
+                policy_groups = [
+                    (phases or [], policyref or '')
+                    for phases, policyref in itertools.zip_longest(
+                        opts.phase_path_groups or [[]],
+                        opts.policyrefs or [''],
+                    )
+                ]
+                if opts.sign_initrd_pcrs:
+                    policy_groups += [INITRD_PCR_POLICY]
+            else:
+                policy_groups = [
+                    (list(itertools.chain.from_iterable(opts.phase_path_groups or [])), ''),
+                ]
 
             for phase_paths, policyref in policy_groups:
                 cmd = [
@@ -2848,10 +2860,19 @@ def finalize_options(opts: argparse.Namespace) -> None:
         raise ValueError('--pcr-certificate= specifications must match --pcr-private-key=')
     if n_pcr_pub is not None and n_pcr_cert is not None:
         raise ValueError('--pcr-public-key= and --pcr-certificate= cannot be used at the same time')
-    if n_phase_path_groups is not None and n_phase_path_groups != n_pcr_priv:
-        raise ValueError('--phases= specifications must match --pcr-private-key=')
-    if n_policyrefs is not None and n_policyrefs != n_pcr_priv:
-        raise ValueError('--policyref= specifications must match --pcr-private-key=')
+    if opts.policy_digest:
+        # Each pair of --phases= and --policyref= is a policy for the same public key
+        if (
+            n_phase_path_groups is not None
+            and n_policyrefs is not None
+            and n_phase_path_groups != n_policyrefs
+        ):
+            raise ValueError('--phases= specifications must match --policyref= with --policy-digest')
+    else:
+        if n_phase_path_groups is not None and n_phase_path_groups != n_pcr_priv:
+            raise ValueError('--phases= specifications must match --pcr-private-key=')
+        if n_policyrefs is not None and n_policyrefs != n_pcr_priv:
+            raise ValueError('--policyref= specifications must match --pcr-private-key=')
     if opts.sign_initrd_pcrs and not (n_pcr_priv or opts.policy_digest):
         raise ValueError('--sign-initrd-pcrs requires --pcr-private-key= or --policy-digest')
 
