@@ -87,9 +87,7 @@ static void test_link_one(const char *filename, const char *key, const char *val
         ASSERT_STREQ(output, expected);
 }
 
-int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
+TEST(network_generator) {
         test_network_one("", "ip", "dhcp6",
                          "[Match]\n"
                          "Kind=!*\n"
@@ -713,6 +711,6 @@ int main(int argc, char *argv[]) {
                            "rd.bootif", "0",
                            /* expected= */ NULL
                            );
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

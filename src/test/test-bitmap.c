@@ -3,11 +3,9 @@
 #include "bitmap.h"
 #include "tests.h"
 
-int main(int argc, const char *argv[]) {
+TEST(bitmap) {
         _cleanup_bitmap_free_ Bitmap *b = NULL, *b2 = NULL;
         unsigned n = UINT_MAX, i = 0;
-
-        test_setup_logging(LOG_DEBUG);
 
         b = ASSERT_NOT_NULL(bitmap_new());
 
@@ -109,6 +107,6 @@ int main(int argc, const char *argv[]) {
         ASSERT_EQ(bitmap_set(b, 0), 0);
         ASSERT_EQ(bitmap_set(b2, 0), 0);
         ASSERT_TRUE(bitmap_equal(b, b2));
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

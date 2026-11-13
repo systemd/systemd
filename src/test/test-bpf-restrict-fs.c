@@ -58,14 +58,42 @@ static int test_restrict_filesystems(Manager *m, const char *unit_name, const ch
         return 0;
 }
 
-int main(int argc, char *argv[]) {
+TEST(bpf_restrict_fs) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         _cleanup_free_ char *unit_dir = NULL;
-        struct rlimit rl;
         int r;
 
-        test_setup_logging(LOG_DEBUG);
+        ASSERT_OK(get_testdata_dir("units", &unit_dir));
+        ASSERT_OK(setenv_unit_path(unit_dir));
+        ASSERT_NOT_NULL((runtime_dir = setup_fake_runtime_dir()));
+
+        r = manager_new(RUNTIME_SCOPE_SYSTEM, MANAGER_TEST_RUN_BASIC, &m);
+        if (manager_errno_skip_test(r))
+                return (void) log_tests_skipped_errno(r, "manager_new");
+        ASSERT_OK(r);
+
+        r = manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL);
+        if (manager_errno_skip_test(r))
+                return (void) log_tests_skipped_errno(r, "manager_startup");
+        ASSERT_OK(r);
+
+        if (!m->restrict_fs)
+                return (void) log_tests_skipped("LSM BPF hooks are not supported");
+
+        /* We need to enable access to the filesystem where the binary is so we
+         * add @common-block and @application */
+        ASSERT_FAIL(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("@common-block", "@application")));
+        ASSERT_OK(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("tracefs", "@common-block", "@application")));
+        ASSERT_FAIL(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("tracefs", "@common-block", "@application", "~tracefs")));
+        ASSERT_FAIL(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/debug/sleep_time", STRV_MAKE("@common-block", "@application")));
+        ASSERT_OK(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/debug/sleep_time", STRV_MAKE("debugfs", "@common-block", "@application")));
+        ASSERT_FAIL(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/debug/sleep_time", STRV_MAKE("~debugfs")));
+}
+
+static int intro(void) {
+        struct rlimit rl;
+        int r;
 
         ASSERT_OK(getrlimit(RLIMIT_MEMLOCK, &rl));
         rl.rlim_cur = rl.rlim_max = MAX(rl.rlim_max, CAN_MEMLOCK_SIZE);
@@ -77,32 +105,9 @@ int main(int argc, char *argv[]) {
         r = enter_cgroup_subroot(/* ret_cgroup= */ NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
-
-        ASSERT_OK(get_testdata_dir("units", &unit_dir));
-        ASSERT_OK(setenv_unit_path(unit_dir));
-        ASSERT_NOT_NULL((runtime_dir = setup_fake_runtime_dir()));
-
-        r = manager_new(RUNTIME_SCOPE_SYSTEM, MANAGER_TEST_RUN_BASIC, &m);
-        if (manager_errno_skip_test(r))
-                return log_tests_skipped_errno(r, "manager_new");
         ASSERT_OK(r);
 
-        r = manager_startup(m, /* serialization= */ NULL, /* fds= */ NULL, /* named_listen_fds= */ NULL, /* root= */ NULL);
-        if (manager_errno_skip_test(r))
-                return log_tests_skipped_errno(r, "manager_startup");
-        ASSERT_OK(r);
-
-        if (!m->restrict_fs)
-                return log_tests_skipped("LSM BPF hooks are not supported");
-
-        /* We need to enable access to the filesystem where the binary is so we
-         * add @common-block and @application */
-        ASSERT_FAIL(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("@common-block", "@application")));
-        ASSERT_OK(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("tracefs", "@common-block", "@application")));
-        ASSERT_FAIL(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("tracefs", "@common-block", "@application", "~tracefs")));
-        ASSERT_FAIL(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/debug/sleep_time", STRV_MAKE("@common-block", "@application")));
-        ASSERT_OK(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/debug/sleep_time", STRV_MAKE("debugfs", "@common-block", "@application")));
-        ASSERT_FAIL(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/debug/sleep_time", STRV_MAKE("~debugfs")));
-
-        return 0;
+        return EXIT_SUCCESS;
 }
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);

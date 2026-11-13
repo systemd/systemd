@@ -124,7 +124,7 @@ static void test_match_run_strv_modified(sd_bus *bus) {
         bus_match_free(&root);
 }
 
-int main(int argc, char *argv[]) {
+TEST(match) {
         BusMatchNode root = {
                 .type = BUS_MATCH_ROOT,
         };
@@ -134,13 +134,11 @@ int main(int argc, char *argv[]) {
         sd_bus_slot slots[19] = {};
         int r;
 
-        test_setup_logging(LOG_INFO);
-
         r = sd_bus_open_user(&bus);
         if (r < 0)
                 r = sd_bus_open_system(&bus);
         if (r < 0)
-                return log_tests_skipped("Failed to connect to bus");
+                return (void) log_tests_skipped_errno(r, "Failed to connect to bus");
 
         ASSERT_OK(match_add(slots, &root, "arg2='wal\\'do',sender='foo',type='signal',interface='bar.x',", 1));
         ASSERT_OK(match_add(slots, &root, "arg2='wal\\'do2',sender='foo',type='signal',interface='bar.x',", 2));
@@ -200,6 +198,6 @@ int main(int argc, char *argv[]) {
         test_match_scope("arg2='piep',sender='org.freedesktop.DBus',member='waldo'", BUS_MATCH_DRIVER);
 
         test_match_run_strv_modified(bus);
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_INFO);
