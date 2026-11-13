@@ -18,11 +18,11 @@
 #include "socket-netlink.h"
 #include "socket-util.h"
 #include "special.h"
-#include "ssh-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "verbs.h"
 #include "virt.h"
+#include "vsock-util.h"
 
 COMMAND(
         "systemd-ssh-generator\0",
