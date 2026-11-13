@@ -2657,6 +2657,55 @@ TEST(reenable_reports_no_shadowed) {
         assert_state("reenable-shadow.service", UNIT_FILE_ENABLED);
 }
 
+TEST(vendor_revert_removes_dependency_masks) {
+        /* Reverting a unit returns its enablement to the vendor state. Disable a unit the vendor enabled,
+         * mask one of its static vendor dependencies by hand, and check that revert removes the mask from
+         * disable but keeps the hand-written one. Then do the same for an instance of a template. */
+        const char *mask = strjoina(vendor_root, ETC_WANTS"revert-masks.service");
+        const char *static_mask = strjoina(vendor_root, SYSTEM_CONFIG_UNIT_DIR"/sysinit.target.wants/revert-masks.service");
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
+        write_vendor_file("system/revert-masks.service", WANTED_BY_MULTI_USER);
+        write_vendor_symlink("multi-user.target.wants/revert-masks.service", "../revert-masks.service");
+        write_vendor_symlink("sysinit.target.wants/revert-masks.service", "../revert-masks.service");
+        do_disable(/* flags= */ 0, STRV_MAKE("revert-masks.service"));
+        ASSERT_TRUE(is_dependency_mask(mask));
+        ASSERT_OK(mkdir_parents(static_mask, 0755));
+        ASSERT_OK_ERRNO(symlink("/dev/null", static_mask));
+        assert_state("revert-masks.service", UNIT_FILE_DISABLED);
+
+        /* Passing the unit twice must not fail. */
+        ASSERT_OK(unit_file_revert(RUNTIME_SCOPE_SYSTEM, vendor_root,
+                                   STRV_MAKE("revert-masks.service", "revert-masks.service"),
+                                   &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1u);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_UNMASK_DEPENDENCY);
+        ASSERT_STREQ(changes[0].path, mask);
+        ASSERT_FALSE(symlink_exists(mask));
+        ASSERT_TRUE(is_dependency_mask(static_mask));
+        assert_state("revert-masks.service", UNIT_FILE_ENABLED);
+
+        /* An instance is loaded from the vendor's template. */
+        const char *instance_mask = strjoina(vendor_root, ETC_WANTS"revert-masks@def.service");
+        write_vendor_file("system/revert-masks@.service", WANTED_BY_MULTI_USER "DefaultInstance=def\n");
+        write_vendor_symlink("multi-user.target.wants/revert-masks@def.service", "../revert-masks@.service");
+        do_disable(/* flags= */ 0, STRV_MAKE("revert-masks@.service"));
+        ASSERT_TRUE(is_dependency_mask(instance_mask));
+
+        install_changes_free(changes, n_changes);
+        changes = NULL;
+        n_changes = 0;
+        ASSERT_OK(unit_file_revert(RUNTIME_SCOPE_SYSTEM, vendor_root, STRV_MAKE("revert-masks@def.service"),
+                                   &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1u);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_UNMASK_DEPENDENCY);
+        ASSERT_FALSE(symlink_exists(instance_mask));
+        assert_state("revert-masks@def.service", UNIT_FILE_ENABLED);
+}
+
 TEST(vendor_legacy_alias_dependency) {
         FOREACH_STRING(suffix, "wants", "requires") {
                 const char *name = strjoina("vendor-legacy-", suffix, ".service");

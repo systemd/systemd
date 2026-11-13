@@ -2608,9 +2608,10 @@ static int install_context_unmask_dependencies(
         assert(config_path);
 
         /* Called after install_context_apply(), which is what discovers the Also= units and moves everything
-         * into have_processed. No dry run parameter unlike the masking side: nothing on the enabling path
-         * implements one, see create_symlink(), and honouring it here alone would make a dry run that is
-         * asked for anyway do half the work. */
+         * into have_processed, or by revert_dependency_masks(), which moves the units into have_processed
+         * itself. No dry run parameter unlike the masking side: nothing on the enabling path implements one,
+         * see create_symlink(), and honouring it here alone would make a dry run that is asked for anyway do
+         * half the work. */
 
         if (ordered_hashmap_isempty(ctx->have_processed))
                 return 0;
@@ -3803,6 +3804,63 @@ static int path_shall_revert(const LookupPaths *lp, const char *path) {
         return path_is_transient(lp, path);
 }
 
+/* The masks that disable places over the vendor's dependency symlinks are part of the configuration that
+ * revert removes. The caller removes the overriding unit files first, so that we load the vendor's
+ * [Install] section. We don't follow Also=, so each unit listed there needs its own revert. */
+static int revert_dependency_masks(
+                RuntimeScope scope,
+                const LookupPaths *lp,
+                char * const *names,
+                InstallChange **changes,
+                size_t *n_changes) {
+
+        _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
+        int r, ret = 0;
+
+        assert(lp);
+
+        r = ordered_hashmap_ensure_allocated(&ctx.have_processed, &install_info_hash_ops);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(name, names) {
+                InstallInfo *info, *target;
+
+                r = install_info_add_auto(&ctx, lp, *name, &info);
+                if (r >= 0)
+                        r = install_info_traverse(&ctx, lp, info, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, &target);
+                if (r == -ENOMEM)
+                        return r;
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to load %s, not removing its dependency masks: %m", *name);
+                        continue;
+                }
+
+                if (target->install_mode != INSTALL_MODE_REGULAR || !target->path ||
+                    !path_is_vendor(lp, target->path))
+                        continue;
+
+                /* Two names can resolve to the same unit, which the first name already moved. */
+                if (ordered_hashmap_contains(ctx.have_processed, target->name))
+                        continue;
+
+                r = ordered_hashmap_move_one(ctx.have_processed, ctx.will_process, target->name);
+                if (r < 0)
+                        return r;
+        }
+
+        const char *config_paths[] = { lp->runtime_config, lp->persistent_config };
+        FOREACH_ELEMENT(config_path, config_paths) {
+                /* runtime_config is unset for --user without $XDG_RUNTIME_DIR. */
+                if (!*config_path)
+                        continue;
+
+                RET_GATHER(ret, install_context_unmask_dependencies(&ctx, lp, *config_path, changes, n_changes));
+        }
+
+        return ret;
+}
+
 int unit_file_revert(
                 RuntimeScope scope,
                 const char *root_dir,
@@ -3955,6 +4013,10 @@ int unit_file_revert(
 
         q = remove_marked_symlinks(remove_symlinks_to, /* vendor= */ NULL,
                                    lp.persistent_config, &lp, /* dry_run= */ false, changes, n_changes);
+        if (r >= 0)
+                r = q;
+
+        q = revert_dependency_masks(scope, &lp, names, changes, n_changes);
         if (r >= 0)
                 r = q;
 

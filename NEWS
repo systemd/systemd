@@ -190,6 +190,9 @@ CHANGES WITH 263 in spe:
           warning for each symlink of the unit that an entry with a higher
           priority hides this way.
 
+          "systemctl revert" removes these symlinks to /dev/null again, so
+          that the symlinks below /usr/ take effect.
+
           "systemctl disable" no longer removes masks. Previously, disabling a
           template unit removed the masks of its instances, which unmasked
           them.

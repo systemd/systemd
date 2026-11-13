@@ -1318,8 +1318,16 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             file stored below <filename>/usr/</filename>), then it is not removed. Also, if a unit is masked, it is
             unmasked.</para>
 
+            <para>If the unit file has a vendor-supplied version, this command also removes the
+            <filename>/dev/null</filename> entries that <command>disable</command> placed in the
+            <filename>.wants/</filename>, <filename>.requires/</filename> and <filename>.upholds/</filename>
+            directories named by the [Install] section, so that the symlinks below <filename>/usr/</filename>
+            take effect again. Symlinks that <command>enable</command> created stay. Units listed in
+            <varname>Also=</varname> are not reverted.</para>
+
             <para>Effectively, this command may be used to undo all changes made with <command>systemctl
-            edit</command>, <command>systemctl set-property</command> and <command>systemctl mask</command> and puts
+            edit</command>, <command>systemctl set-property</command>, <command>systemctl mask</command> and the
+            masks of <command>systemctl disable</command>, and puts
             the original unit file with its settings back in effect.</para>
 
             <xi:include href="version-info.xml" xpointer="v230"/>
