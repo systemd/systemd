@@ -228,9 +228,11 @@ static int do_execute(
                 t = ASSERT_PTR(hashmap_steal_first_key_and_value(pids, (void**) &pidref));
 
                 r = pidref_wait_for_terminate_and_check(t, pidref, WAIT_LOG);
-                if (r < 0)
-                        return r;
-                if (!FLAGS_SET(flags, EXEC_DIR_IGNORE_ERRORS) && r > 0)
+                if (r < 0) {
+                        if (!FLAGS_SET(flags, EXEC_DIR_IGNORE_ERRORS))
+                                return r;
+                        log_warning_errno(r, "%s terminated abnormally, ignoring.", t);
+                } else if (r > 0 && !FLAGS_SET(flags, EXEC_DIR_IGNORE_ERRORS))
                         return r;
         }
 
