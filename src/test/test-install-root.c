@@ -2562,6 +2562,101 @@ TEST(vendor_mask_dependency_directory_symlink_stays_inside_root) {
         ASSERT_FALSE(symlink_exists(strjoina(outside, "/contained.service")));
 }
 
+static size_t count_changes(const InstallChange *changes, size_t n_changes, InstallChangeType type, const char *path) {
+        size_t n = 0;
+
+        FOREACH_ARRAY(c, changes, n_changes)
+                if (c->type == type && path_equal(c->path, path))
+                        n++;
+
+        return n;
+}
+
+TEST(vendor_mask_shadows_runtime_enable) {
+        /* A runtime enable must leave a persistent mask alone and report that the mask hides the new
+         * symlink. Disable a unit the vendor enabled, enable it with --runtime twice, and check that both
+         * calls report the /run/ symlink as shadowed by the /etc/ mask and that the unit stays disabled. */
+        const char *mask = strjoina(vendor_root, ETC_WANTS"shadowed-runtime.service");
+        const char *runtime_link = strjoina(vendor_root, "/run/systemd/system/multi-user.target.wants/shadowed-runtime.service");
+
+        write_vendor_file("system/shadowed-runtime.service", WANTED_BY_MULTI_USER);
+        write_vendor_symlink("multi-user.target.wants/shadowed-runtime.service", "../shadowed-runtime.service");
+        do_disable(/* flags= */ 0, STRV_MAKE("shadowed-runtime.service"));
+        ASSERT_TRUE(is_dependency_mask(mask));
+
+        for (unsigned attempt = 0; attempt < 2; attempt++) {
+                InstallChange *changes = NULL;
+                size_t n_changes = 0;
+
+                CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+                ASSERT_OK(unit_file_enable(RUNTIME_SCOPE_SYSTEM, UNIT_FILE_RUNTIME, vendor_root,
+                                           STRV_MAKE("shadowed-runtime.service"), &changes, &n_changes));
+                ASSERT_EQ(count_changes(changes, n_changes, INSTALL_CHANGE_SHADOWED, runtime_link), 1u);
+                FOREACH_ARRAY(c, changes, n_changes)
+                        if (c->type == INSTALL_CHANGE_SHADOWED)
+                                ASSERT_STREQ(c->source, mask);
+                ASSERT_TRUE(is_dependency_mask(mask));
+                ASSERT_TRUE(symlink_exists(runtime_link));
+                assert_state("shadowed-runtime.service", UNIT_FILE_DISABLED);
+        }
+
+        /* A persistent enable removes the mask, so nothing hides the runtime symlink anymore. */
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+        ASSERT_OK(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, vendor_root,
+                                   STRV_MAKE("shadowed-runtime.service"), &changes, &n_changes));
+        ASSERT_EQ(count_changes(changes, n_changes, INSTALL_CHANGE_SHADOWED, runtime_link), 0u);
+        assert_state("shadowed-runtime.service", UNIT_FILE_ENABLED);
+}
+
+TEST(vendor_mask_shadows_existing_runtime_link) {
+        /* Masking a vendor symlink in /etc/ also hides a symlink in /run/ with the same name. Enable a unit
+         * the vendor enabled with --runtime, disable it persistently, and check that the disable reports the
+         * /run/ symlink as shadowed. */
+        const char *mask = strjoina(vendor_root, ETC_WANTS"shadowed-existing.service");
+        const char *runtime_link = strjoina(vendor_root, "/run/systemd/system/multi-user.target.wants/shadowed-existing.service");
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
+        write_vendor_file("system/shadowed-existing.service", WANTED_BY_MULTI_USER);
+        write_vendor_symlink("multi-user.target.wants/shadowed-existing.service", "../shadowed-existing.service");
+        do_enable(UNIT_FILE_RUNTIME, STRV_MAKE("shadowed-existing.service"));
+        ASSERT_TRUE(symlink_exists(runtime_link));
+
+        ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, vendor_root,
+                                    STRV_MAKE("shadowed-existing.service"), &changes, &n_changes));
+        ASSERT_EQ(count_changes(changes, n_changes, INSTALL_CHANGE_MASK_DEPENDENCY, mask), 1u);
+        ASSERT_EQ(count_changes(changes, n_changes, INSTALL_CHANGE_SHADOWED, runtime_link), 1u);
+        assert_state("shadowed-existing.service", UNIT_FILE_DISABLED);
+}
+
+TEST(reenable_reports_no_shadowed) {
+        /* Reenabling disables the unit, which masks the vendor symlink, and then enables it again, which
+         * removes the mask. The /run/ symlink is in effect afterwards, so reenable must not report it as
+         * shadowed. */
+        const char *runtime_link = strjoina(vendor_root, "/run/systemd/system/multi-user.target.wants/reenable-shadow.service");
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
+        write_vendor_file("system/reenable-shadow.service", WANTED_BY_MULTI_USER);
+        write_vendor_symlink("multi-user.target.wants/reenable-shadow.service", "../reenable-shadow.service");
+        do_enable(/* flags= */ 0, STRV_MAKE("reenable-shadow.service"));
+        do_enable(UNIT_FILE_RUNTIME, STRV_MAKE("reenable-shadow.service"));
+        ASSERT_TRUE(symlink_exists(runtime_link));
+
+        ASSERT_OK(unit_file_reenable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, vendor_root,
+                                     STRV_MAKE("reenable-shadow.service"), &changes, &n_changes));
+        FOREACH_ARRAY(c, changes, n_changes)
+                ASSERT_NE(c->type, INSTALL_CHANGE_SHADOWED);
+        assert_state("reenable-shadow.service", UNIT_FILE_ENABLED);
+}
+
 TEST(vendor_legacy_alias_dependency) {
         FOREACH_STRING(suffix, "wants", "requires") {
                 const char *name = strjoina("vendor-legacy-", suffix, ".service");

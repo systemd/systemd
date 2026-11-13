@@ -984,6 +984,13 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             vendor enabled the unit with below <filename>/usr/</filename>, see <command>disable</command>
             below.</para>
 
+            <para>The service manager uses only the dependency entry with the highest priority for each name.
+            A symlink that <option>--runtime</option> creates in <filename>/run/</filename> therefore has no
+            effect while <filename>/etc/</filename> contains a <filename>/dev/null</filename> entry with the
+            same name. <option>--runtime</option> never changes <filename>/etc/</filename>, so in this case
+            <command>enable</command> prints a warning that names both entries. To enable the unit, run
+            <command>enable</command> without <option>--runtime</option>.</para>
+
             <para>When using this operation on units without install information, a warning about it is shown.
             <option>--no-warn</option> can be used to suppress the warning.</para>
 
@@ -1027,6 +1034,11 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             Any other dependency symlink below <filename>/usr/</filename> is a static dependency and stays in
             effect. Existing masks stay too, including the masks of instances when a template unit is
             disabled.</para>
+
+            <para>The <filename>/dev/null</filename> entry in <filename>/etc/</filename> also hides a
+            symlink with the same name in <filename>/run/</filename>, for example one that
+            <command>enable --runtime</command> created. <command>disable</command> prints a warning for
+            each symlink of the unit that it hides this way.</para>
 
             <para>This command expects valid unit names only, it does not accept paths to unit files.</para>
 

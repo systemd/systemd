@@ -23,6 +23,7 @@ typedef enum InstallChangeType {
         INSTALL_CHANGE_IS_DANGLING,
         INSTALL_CHANGE_DESTINATION_NOT_PRESENT,
         INSTALL_CHANGE_AUXILIARY_FAILED,
+        INSTALL_CHANGE_SHADOWED,
         _INSTALL_CHANGE_TYPE_MAX,
         _INSTALL_CHANGE_INVALID = -EINVAL,
         _INSTALL_CHANGE_ERRNO_MAX = -ERRNO_MAX, /* Ensure this type covers the whole negative errno range */

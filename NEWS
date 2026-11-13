@@ -184,6 +184,12 @@ CHANGES WITH 263 in spe:
           below /usr/ stays, as /usr/ is frequently read-only and the next
           image update would restore it.
 
+          The symlink to /dev/null in /etc/ also hides a symlink with the
+          same name in /run/, so "systemctl enable --runtime" of such a unit
+          has no effect. "systemctl enable", "disable" and "preset" print a
+          warning for each symlink of the unit that an entry with a higher
+          priority hides this way.
+
           "systemctl disable" no longer removes masks. Previously, disabling a
           template unit removed the masks of its instances, which unmasked
           them.

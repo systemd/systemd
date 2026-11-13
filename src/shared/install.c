@@ -571,6 +571,10 @@ void install_change_dump_success(const InstallChange *change) {
         case INSTALL_CHANGE_AUXILIARY_FAILED:
                 return log_warning("Failed to enable auxiliary unit %s, ignoring.", change->path);
 
+        case INSTALL_CHANGE_SHADOWED:
+                return log_warning("Symlink '%s' has no effect, because '%s' has a higher priority.",
+                                   change->path, change->source);
+
         default:
                 assert_not_reached();
         }
@@ -2676,6 +2680,115 @@ static int install_context_unmask_dependencies(
         return ret;
 }
 
+/* PID 1 uses only the entry with the highest priority for each name in the dependency directories of a unit.
+ * A mask in /etc/ therefore hides a symlink with the same name in /run/, and that symlink has no effect.
+ * Disabling a unit hides vendor symlinks on purpose, so we don't report them. The report only adds warnings
+ * after the operation finished. A failed lookup therefore skips the entry instead of failing the operation. */
+static int install_context_report_shadowed(
+                InstallContext *ctx,
+                const LookupPaths *lp,
+                InstallChange **changes,
+                size_t *n_changes) {
+
+        InstallInfo *i;
+        int r;
+
+        assert(ctx);
+        assert(lp);
+
+        if (ordered_hashmap_isempty(ctx->have_processed))
+                return 0;
+
+        STRV_FOREACH(p, lp->search_path) {
+                _cleanup_strv_free_ char **symlinks = NULL;
+
+                if (path_is_vendor(lp, *p))
+                        continue;
+
+                r = dependency_symlinks_list(*p, lp->root_dir, /* follow_symlinks= */ true, &symlinks);
+                if (r == -ENOMEM)
+                        return r;
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to list dependency symlinks in '%s', ignoring: %m", *p);
+                        continue;
+                }
+
+                STRV_FOREACH(symlink, symlinks) {
+                        _cleanup_free_ char *dir_path = NULL, *dir = NULL, *entry = NULL, *unit = NULL,
+                                *winner = NULL;
+                        bool matches = false;
+
+                        r = path_extract_filename(*symlink, &entry);
+                        if (r < 0)
+                                return r;
+
+                        r = path_extract_directory(*symlink, &dir_path);
+                        if (r < 0)
+                                return r;
+
+                        r = path_extract_filename(dir_path, &dir);
+                        if (r < 0)
+                                return r;
+
+                        ORDERED_HASHMAP_FOREACH(i, ctx->have_processed) {
+                                if (i->install_mode != INSTALL_MODE_REGULAR)
+                                        continue;
+
+                                r = dependency_name_matches(i, entry);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        continue;
+
+                                r = dependency_is_enablement(ctx->scope, i, dir, entry);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0) {
+                                        matches = true;
+                                        break;
+                                }
+                        }
+                        if (!matches)
+                                continue;
+
+                        r = dependency_entry_is_symlink(lp, *symlink);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                continue;
+
+                        r = dependency_entry_is_used(lp, lp->search_path, dir_path, entry);
+                        if (r == -ENOMEM)
+                                return r;
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to look up '%s', ignoring: %m", *symlink);
+                        if (r != 0)
+                                continue;
+
+                        const char *suffix = ASSERT_PTR(dependency_dir_suffix(dir));
+                        unit = strndup(dir, suffix - dir);
+                        if (!unit)
+                                return -ENOMEM;
+
+                        r = unit_file_find_dropin_entry(lp->root_dir, lp->search_path, suffix, unit,
+                                                        /* aliases= */ NULL, entry, /* ret_lookup_path= */ NULL,
+                                                        &winner);
+                        if (r == -ENOMEM)
+                                return r;
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to look up the entry that hides '%s', ignoring: %m", *symlink);
+                        if (r <= 0)
+                                continue;
+
+                        r = install_changes_add(changes, n_changes, INSTALL_CHANGE_SHADOWED, *symlink, winner);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
+}
+
 static int install_info_discover_and_check(
                 InstallContext *ctx,
                 const LookupPaths *lp,
@@ -3959,6 +4072,10 @@ static int do_unit_file_enable(
         if (q < 0)
                 return q;
 
+        q = install_context_report_shadowed(&ctx, lp, changes, n_changes);
+        if (q < 0)
+                return q;
+
         return r;
 }
 
@@ -3993,6 +4110,7 @@ static int do_unit_file_disable(
                 RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *config_path,
+                bool reenable,
                 char * const *names,
                 InstallChange **changes,
                 size_t *n_changes) {
@@ -4038,6 +4156,10 @@ static int do_unit_file_disable(
         if (r >= 0)
                 r = install_context_mask_dependencies(&ctx, lp, config_path, flags & UNIT_FILE_DRY_RUN,
                                                       changes, n_changes);
+        /* In a dry run the masks don't exist, so they can't hide anything yet. When reenabling, the enable
+         * step removes the masks again, so a warning about them would be wrong. */
+        if (r >= 0 && !FLAGS_SET(flags, UNIT_FILE_DRY_RUN) && !reenable)
+                r = install_context_report_shadowed(&ctx, lp, changes, n_changes);
         if (r < 0)
                 return r;
 
@@ -4068,7 +4190,7 @@ int unit_file_disable(
         if (r < 0)
                 return r;
 
-        return do_unit_file_disable(&lp, scope, flags, config_path, files, changes, n_changes);
+        return do_unit_file_disable(&lp, scope, flags, config_path, /* reenable= */ false, files, changes, n_changes);
 }
 
 static int normalize_linked_files(
@@ -4162,7 +4284,7 @@ int unit_file_reenable(
                 return r;
 
         /* First, we invoke the disable command with only the basename... */
-        r = do_unit_file_disable(&lp, scope, flags, config_path, names, changes, n_changes);
+        r = do_unit_file_disable(&lp, scope, flags, config_path, /* reenable= */ true, names, changes, n_changes);
         if (r < 0)
                 return r;
 
@@ -4737,6 +4859,7 @@ static int execute_preset(
                 }
 
                 RET_GATHER(r, install_context_unmask_dependencies(plus, lp, config_path, changes, n_changes));
+                RET_GATHER(r, install_context_report_shadowed(plus, lp, changes, n_changes));
         }
 
         return r;
@@ -5027,6 +5150,7 @@ static const char* const install_change_type_table[_INSTALL_CHANGE_TYPE_MAX] = {
         [INSTALL_CHANGE_IS_DANGLING]             = "dangling",
         [INSTALL_CHANGE_DESTINATION_NOT_PRESENT] = "destination not present",
         [INSTALL_CHANGE_AUXILIARY_FAILED]        = "auxiliary unit failed",
+        [INSTALL_CHANGE_SHADOWED]                = "shadowed",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(install_change_type, InstallChangeType);
