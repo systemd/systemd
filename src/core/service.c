@@ -1252,6 +1252,10 @@ static int service_add_extras(Service *s) {
         if (r < 0)
                 return r;
 
+        r = unit_maybe_override_slice(UNIT(s));
+        if (r < 0)
+                log_unit_warning_errno(UNIT(s), r, "Failed to apply slice override, ignoring: %m");
+
         r = unit_set_default_slice(UNIT(s));
         if (r < 0)
                 return r;
