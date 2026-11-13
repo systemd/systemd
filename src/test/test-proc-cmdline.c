@@ -177,6 +177,40 @@ TEST(proc_cmdline_get_key) {
         ASSERT_STREQ(value, "uuu");
 }
 
+TEST(cmdline_get_key) {
+        _cleanup_free_ char *value = NULL;
+        const char *line = "foo_bar=quux wuff-piep=tuet zumm-ghh spaaace='ö ü ß' ticks=\"''\"\n\nkkk=uuu\n\n\n";
+
+        ASSERT_ERROR(cmdline_get_key(line, "", /* flags= */ 0, &value), EINVAL);
+        ASSERT_ERROR(cmdline_get_key(line, "foo_bar", PROC_CMDLINE_VALUE_OPTIONAL, /* ret_value= */ NULL), EINVAL);
+
+        ASSERT_OK_ZERO(cmdline_get_key(NULL, "foo_bar", /* flags= */ 0, &value));
+        ASSERT_NULL(value);
+        ASSERT_OK_ZERO(cmdline_get_key("", "foo_bar", /* flags= */ 0, &value));
+        ASSERT_NULL(value);
+        ASSERT_OK_ZERO(cmdline_get_key(line, "abc", PROC_CMDLINE_VALUE_OPTIONAL, &value));
+        ASSERT_NULL(value);
+
+        ASSERT_OK_POSITIVE(cmdline_get_key(line, "foo-bar", /* flags= */ 0, &value));
+        ASSERT_STREQ(value, "quux");
+        value = mfree(value);
+
+        ASSERT_OK_POSITIVE(cmdline_get_key(line, "spaaace", /* flags= */ 0, &value));
+        ASSERT_STREQ(value, "ö ü ß");
+        value = mfree(value);
+
+        ASSERT_OK_POSITIVE(cmdline_get_key(line, "kkk", /* flags= */ 0, &value));
+        ASSERT_STREQ(value, "uuu");
+        value = mfree(value);
+
+        /* A key without value is only found if that's explicitly allowed */
+        ASSERT_OK_ZERO(cmdline_get_key(line, "zumm-ghh", /* flags= */ 0, &value));
+        ASSERT_NULL(value);
+        ASSERT_OK_POSITIVE(cmdline_get_key(line, "zumm-ghh", PROC_CMDLINE_VALUE_OPTIONAL, &value));
+        ASSERT_NULL(value);
+        ASSERT_OK_POSITIVE(cmdline_get_key(line, "zumm_ghh", /* flags= */ 0, /* ret_value= */ NULL));
+}
+
 TEST(proc_cmdline_get_bool) {
         bool value = false;
 

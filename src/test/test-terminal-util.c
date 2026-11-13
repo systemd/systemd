@@ -14,8 +14,10 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "io-util.h"
 #include "memfd-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -176,18 +178,21 @@ TEST(get_default_background_color) {
                 log_notice("R=%g G=%g B=%g", red, green, blue);
 }
 
-TEST(terminal_get_size_csi18) {
+TEST(terminal_query) {
         unsigned rows, columns;
+        _cleanup_free_ char *terminfo = NULL;
         int r;
 
         usec_t n = now(CLOCK_MONOTONIC);
-        r = terminal_get_size(STDIN_FILENO, STDOUT_FILENO, &rows, &columns, /* try_dsr= */ false, /* try_csi18= */ true);
+        r = terminal_query(STDIN_FILENO, STDOUT_FILENO, &rows, &columns, &terminfo);
         log_info("%s took %s", __func__+5,
                  FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), n), USEC_PER_MSEC));
         if (r < 0)
-                return (void) log_notice_errno(r, "Can't get screen dimensions via CSI 18: %m");
+                return (void) log_notice_errno(r, "Can't query terminal: %m");
 
-        log_notice("terminal size via CSI 18: rows=%u columns=%u", rows, columns);
+        if (rows != UINT_MAX)
+                log_notice("terminal size via ANSI sequences: rows=%u columns=%u", rows, columns);
+        log_notice("terminal terminfo via DCS: %s, $TERM: %s", strna(terminfo), strnull(getenv("TERM")));
 
         struct winsize ws = {};
 
@@ -197,25 +202,118 @@ TEST(terminal_get_size_csi18) {
                 log_notice("terminal size via ioctl: rows=%u columns=%u", ws.ws_row, ws.ws_col);
 }
 
-TEST(terminal_get_size_dsr) {
-        unsigned rows, columns;
+static void test_terminal_query_one(
+                bool want_size,
+                bool want_terminfo,
+                const char *reply,
+                int expected_r,
+                unsigned expected_rows,
+                unsigned expected_columns,
+                const char *expected_terminfo) {
+
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         int r;
 
+        log_debug("/* %s(want_size=%s, want_terminfo=%s) */", __func__, yes_no(want_size), yes_no(want_terminfo));
+
+        _cleanup_close_ int pty_fd = ASSERT_OK(openpt_allocate(O_RDWR|O_NOCTTY, /* ret_peer_path= */ NULL));
+        _cleanup_close_ int peer_fd = ASSERT_OK(pty_open_peer(pty_fd, O_RDWR|O_NOCTTY));
+
+        /* Play terminal emulator on the master side: wait until the full query arrived, then send the canned
+         * reply (if any) */
+        r = ASSERT_OK(pidref_safe_fork("(term-emu)", FORK_DEATHSIG_SIGKILL|FORK_LOG, &pidref));
+        if (r == 0) {
+                const char *marker = want_size ? "\x1B" "8" : "\x1B[c";
+                char buf[256];
+                size_t n = 0;
+
+                for (;;) {
+                        ASSERT_LT(n, sizeof(buf) - 1);
+
+                        ssize_t l = read(pty_fd, buf + n, sizeof(buf) - 1 - n);
+                        ASSERT_OK_ERRNO(l);
+                        ASSERT_GT(l, 0);
+                        n += l;
+                        buf[n] = 0;
+
+                        if (endswith(buf, marker))
+                                break;
+                }
+
+                ASSERT_EQ(!!strstr(buf, "\x1BP+q"), want_terminfo);
+                ASSERT_EQ(!!strstr(buf, "\x1B[18t"), want_size);
+
+                if (reply)
+                        ASSERT_OK(loop_write(pty_fd, reply, SIZE_MAX));
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        unsigned rows = 0, columns = 0;
+        _cleanup_free_ char *terminfo = NULL;
+
         usec_t n = now(CLOCK_MONOTONIC);
-        r = terminal_get_size(STDIN_FILENO, STDOUT_FILENO, &rows, &columns, /* try_dsr= */ true, /* try_csi18= */ false);
-        log_info("%s took %s", __func__+5,
-                 FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), n), USEC_PER_MSEC));
-        if (r < 0)
-                return (void) log_notice_errno(r, "Can't get screen dimensions via DSR: %m");
+        r = terminal_query(peer_fd, peer_fd,
+                           want_size ? &rows : NULL,
+                           want_size ? &columns : NULL,
+                           want_terminfo ? &terminfo : NULL);
+        log_debug("terminal_query() took %s", FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), n), USEC_PER_MSEC));
 
-        log_notice("terminal size via DSR: rows=%u columns=%u", rows, columns);
+        ASSERT_OK(pidref_wait_for_terminate_and_check("(term-emu)", &pidref, WAIT_LOG));
+        pidref_done(&pidref);
 
-        struct winsize ws = {};
+        if (expected_r < 0) {
+                ASSERT_ERROR(r, -expected_r);
+                return;
+        }
 
-        if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) < 0)
-                log_warning_errno(errno, "Can't get terminal size via ioctl, ignoring: %m");
-        else
-                log_notice("terminal size via ioctl: rows=%u columns=%u", ws.ws_row, ws.ws_col);
+        ASSERT_OK(r);
+        if (want_size) {
+                ASSERT_EQ(rows, expected_rows);
+                ASSERT_EQ(columns, expected_columns);
+        }
+        if (want_terminfo)
+                ASSERT_STREQ(terminfo, expected_terminfo);
+}
+
+#define DSR_REPLY "\x1B[39;99R"
+#define DA1_REPLY "\x1B[?62;22c"
+#define CSI18_REPLY "\x1B[8;40;100t"
+#define XTGETTCAP_REPLY ANSI_DCS "1+r6E616D65=787465726D" ANSI_ST /* "xterm" */
+
+TEST(terminal_query_pty) {
+        _cleanup_free_ char *saved_term = NULL;
+
+        /* Size queries are refused on dumb terminals, hence pretend we are not on one */
+        ASSERT_OK(strdup_to(&saved_term, getenv("TERM")));
+        ASSERT_OK_ERRNO(setenv("TERM", "xterm", /* overwrite= */ true));
+
+        /* Everything is answered */
+        test_terminal_query_one(true, true, XTGETTCAP_REPLY CSI18_REPLY DSR_REPLY, 0, 40, 100, "xterm");
+        test_terminal_query_one(true, false, CSI18_REPLY DSR_REPLY, 0, 40, 100, NULL);
+        test_terminal_query_one(false, true, XTGETTCAP_REPLY DA1_REPLY, 0, 0, 0, "xterm");
+
+        /* Only the last query is answered, which must suffice to finish without waiting for a timeout */
+        test_terminal_query_one(true, false, DSR_REPLY, 0, 39, 99, NULL);
+        test_terminal_query_one(true, true, DSR_REPLY, 0, 39, 99, NULL);
+        test_terminal_query_one(true, true, XTGETTCAP_REPLY DSR_REPLY, 0, 39, 99, "xterm");
+        test_terminal_query_one(false, true, DA1_REPLY, -EOPNOTSUPP, 0, 0, NULL);
+
+        /* XTGETTCAP explicitly refused, or reporting an invalid name ("a/b", "x y", "x\0y") */
+        test_terminal_query_one(false, true, ANSI_DCS "0+r6E616D65" ANSI_ST DA1_REPLY, -EOPNOTSUPP, 0, 0, NULL);
+        test_terminal_query_one(false, true, ANSI_DCS "1+r6E616D65=612F62" ANSI_ST DA1_REPLY, -EOPNOTSUPP, 0, 0, NULL);
+        test_terminal_query_one(false, true, ANSI_DCS "1+r6E616D65=782079" ANSI_ST DA1_REPLY, -EOPNOTSUPP, 0, 0, NULL);
+        test_terminal_query_one(false, true, ANSI_DCS "1+r6E616D65=780079" ANSI_ST DA1_REPLY, -EOPNOTSUPP, 0, 0, NULL);
+
+        /* Stray keypresses mixed in, including Ctrl-F3 which looks like a CPR (CSI 1;5R), and a broken CSI 18
+         * reply */
+        test_terminal_query_one(true, false, "ab\x1B[1;5Rc\x1B[8;x;yt" DSR_REPLY, 0, 39, 99, NULL);
+
+        /* Nothing is answered: we must time out */
+        test_terminal_query_one(true, true, NULL, -EOPNOTSUPP, 0, 0, NULL);
+        test_terminal_query_one(false, true, NULL, -EOPNOTSUPP, 0, 0, NULL);
+
+        ASSERT_OK(set_unset_env("TERM", saved_term, /* overwrite= */ true));
 }
 
 TEST(terminal_fix_size_vc) {
@@ -266,23 +364,32 @@ TEST(terminal_fix_size) {
                 log_notice("Fixed terminal size.");
 }
 
-TEST(terminal_get_terminfo_by_dcs) {
-        _cleanup_free_ char *name = NULL;
-        int r;
+TEST(term_env_valid) {
+        ASSERT_TRUE(term_env_valid("linux"));
+        ASSERT_TRUE(term_env_valid("vt220"));
+        ASSERT_TRUE(term_env_valid("xterm-256color"));
+        ASSERT_TRUE(term_env_valid("screen.xterm-256color"));
+        ASSERT_TRUE(term_env_valid("foo_bar+baz"));
+        ASSERT_TRUE(term_env_valid("dumb"));
 
-        /* We need a non-blocking read-write fd. */
-        _cleanup_close_ int fd = fd_reopen(STDIN_FILENO, O_RDWR|O_NONBLOCK|O_NOCTTY);
-        if (fd < 0)
-                return (void) log_info_errno(fd, "Cannot reopen stdin in read-write mode: %m");
+        ASSERT_FALSE(term_env_valid(NULL));
+        ASSERT_FALSE(term_env_valid(""));
+        ASSERT_FALSE(term_env_valid("unknown"));
+        ASSERT_FALSE(term_env_valid("."));
+        ASSERT_FALSE(term_env_valid(".."));
+        ASSERT_FALSE(term_env_valid("a/b"));
+        ASSERT_FALSE(term_env_valid("x y"));
+        ASSERT_FALSE(term_env_valid("x\ty"));
+        ASSERT_FALSE(term_env_valid("\"xterm\""));
+        ASSERT_FALSE(term_env_valid("xterm\\"));
+        ASSERT_FALSE(term_env_valid("xterm*"));
+        ASSERT_FALSE(term_env_valid("xtérm"));
 
-        usec_t n = now(CLOCK_MONOTONIC);
-
-        r = terminal_get_terminfo_by_dcs(fd, &name);
-        log_info("%s took %s", __func__+5,
-                 FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), n), USEC_PER_MSEC));
-        if (r < 0)
-                return (void) log_info_errno(r, "Can't get terminal terminfo via DCS: %m");
-        log_info("terminal terminfo via DCS: %s, $TERM: %s", name, strnull(getenv("TERM")));
+        _cleanup_free_ char *s = strrep("x", NAME_MAX);
+        ASSERT_NOT_NULL(s);
+        ASSERT_TRUE(term_env_valid(s));
+        ASSERT_NOT_NULL(strextend(&s, "x"));
+        ASSERT_FALSE(term_env_valid(s));
 }
 
 TEST(have_terminfo_file) {

@@ -217,7 +217,12 @@ static int run(int argc, char *argv[]) {
         if (!arg_quiet)
                 log_info("Press ^] three times within 1s to disconnect TTY.");
 
-        r = pty_forward_new(event, pty_fd, arg_console == CONSOLE_READ_ONLY ? PTY_FORWARD_READ_ONLY : 0, &forward);
+        /* Nothing can answer terminal queries in read-only mode, hence do so ourselves */
+        r = pty_forward_new(
+                        event,
+                        pty_fd,
+                        arg_console == CONSOLE_READ_ONLY ? PTY_FORWARD_READ_ONLY|PTY_FORWARD_ANSWER_QUERIES : 0,
+                        &forward);
         if (r < 0)
                 return log_error_errno(r, "Failed to create PTY forwarder: %m");
 
