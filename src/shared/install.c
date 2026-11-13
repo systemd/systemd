@@ -1299,6 +1299,59 @@ static int dependency_symlinks_list(
         return 0;
 }
 
+/* Returns 1 if the mask was created, or would be created in a dry run, 0 if path was left alone, and a
+ * negative errno if creating the mask failed. */
+static int mask_dependency(const LookupPaths *lp, const char *path, bool dry_run) {
+        _cleanup_free_ char *resolved = NULL;
+        int r;
+
+        assert(lp);
+        assert(path);
+
+        /* A dependency directory in an image can be an absolute symlink, which must resolve inside the image. */
+        r = chase(path, lp->root_dir, CHASE_NOFOLLOW|CHASE_NONEXISTENT, &resolved, /* ret_fd= */ NULL);
+        if (r == -ENOMEM)
+                return r;
+        if (r < 0) {
+                log_debug_errno(r, "Failed to resolve '%s', not masking it: %m", path);
+                return 0;
+        }
+
+        /* PID 1 ignores an entry that is not a symlink, and the entry hides the vendor symlink with the same
+         * name. Replacing a directory fails, and replacing a file deletes its contents, so we leave such an
+         * entry alone. We also leave an entry alone that we can't inspect. -ENOENT means that path doesn't
+         * exist yet. */
+        r = is_symlink(resolved);
+        if (r == 0)
+                return 0;
+        if (r < 0 && r != -ENOENT) {
+                log_debug_errno(r, "Failed to look at '%s', not masking it: %m", path);
+                return 0;
+        }
+
+        /* An existing mask stays, so that disabling a unit twice reports no change. */
+        r = path_is_mask(lp, resolved);
+        if (r == -ENOMEM)
+                return r;
+        if (r < 0) {
+                log_debug_errno(r, "Failed to check whether '%s' is a mask, not masking it: %m", path);
+                return 0;
+        }
+        if (r > 0)
+                return 0;
+
+        if (dry_run)
+                return 1;
+
+        (void) mkdir_parents_label(resolved, 0755);
+
+        r = symlink_atomic("/dev/null", resolved);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 /* Enablement that lives in the vendor unit directories cannot be removed on behalf of the administrator:
  * /usr/ is frequently read-only, and anything we did there would be undone by the next image update. Shadow
  * it with a symlink to /dev/null instead, which is what PID 1 looks for when deciding to ignore a dependency
@@ -1376,37 +1429,14 @@ static int install_info_mask_dependencies(
                 if (!path)
                         return -ENOMEM;
 
-                /* A non-symlink sitting here already shadows the vendor symlink, and PID 1 ignores it for
-                 * not being one, so the unit is off either way. Replacing it would fail on a directory and
-                 * destroy whatever it is otherwise, so leave anything we could not identify alone too.
-                 * -ENOENT is the normal case of there being nothing here yet. */
-                r = is_symlink(path);
-                if (r == 0)
-                        continue;
-                if (r < 0 && r != -ENOENT) {
-                        log_debug_errno(r, "Failed to look at '%s', not masking it: %m", path);
-                        continue;
-                }
-
-                /* Leave an existing mask alone too, so that disabling twice stays quiet. */
-                r = path_is_mask(lp, path);
-                if (r < 0)
+                r = mask_dependency(lp, path, dry_run);
+                if (r == -ENOMEM)
                         return r;
-                if (r > 0)
-                        continue;
-
-                if (!dry_run) {
-                        (void) mkdir_parents_label(path, 0755);
-
-                        r = symlink_atomic("/dev/null", path);
-                        if (r < 0) {
-                                RET_GATHER(ret, install_changes_add(changes, n_changes, r, path, /* source= */ NULL));
-                                continue;
-                        }
-                }
-
-                RET_GATHER(ret, install_changes_add(changes, n_changes,
-                                                    INSTALL_CHANGE_MASK_DEPENDENCY, path, *vendor_path));
+                if (r < 0)
+                        RET_GATHER(ret, install_changes_add(changes, n_changes, r, path, /* source= */ NULL));
+                else if (r > 0)
+                        RET_GATHER(ret, install_changes_add(changes, n_changes,
+                                                            INSTALL_CHANGE_MASK_DEPENDENCY, path, *vendor_path));
         }
 
         return ret;

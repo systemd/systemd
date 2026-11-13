@@ -2525,6 +2525,43 @@ TEST(vendor_dependency_directory_symlink_stays_inside_root) {
         ASSERT_TRUE(symlink_exists(host_entry));
 }
 
+TEST(vendor_mask_dependency_directory_symlink_stays_inside_root) {
+        /* An absolute symlink to a dependency directory in /etc/ of an image must resolve against the image
+         * root. Enable a unit with a vendor link in the image, replace the /etc/ dependency directory with an
+         * absolute symlink, disable the unit, and check that the mask appears only inside the image. */
+        _cleanup_(rm_rf_physical_and_freep) char *image = NULL, *outside = NULL;
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/vendor-image-XXXXXX", &image));
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/vendor-outside-XXXXXX", &outside));
+
+        const char *unit = strjoina(image, SYSTEM_DATA_UNIT_DIR"/contained.service");
+        ASSERT_OK(mkdir_parents(unit, 0755));
+        ASSERT_OK(write_string_file(unit, WANTED_BY_MULTI_USER, WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(unit_file_enable(RUNTIME_SCOPE_SYSTEM, UNIT_FILE_VENDOR, image,
+                                   STRV_MAKE("contained.service"), &changes, &n_changes));
+        ASSERT_TRUE(symlink_exists(strjoina(image, SYSTEM_DATA_UNIT_DIR"/multi-user.target.wants/contained.service")));
+
+        const char *directory = strjoina(image, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants");
+        ASSERT_OK(mkdir_parents(directory, 0755));
+        ASSERT_OK_ERRNO(symlink(outside, directory));
+        const char *inside = strjoina(image, outside);
+        ASSERT_OK(mkdir_p(inside, 0755));
+
+        install_changes_free(changes, n_changes);
+        changes = NULL;
+        n_changes = 0;
+        ASSERT_OK(unit_file_disable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, image,
+                                    STRV_MAKE("contained.service"), &changes, &n_changes));
+        ASSERT_EQ(n_changes, 1u);
+        ASSERT_EQ(changes[0].type, INSTALL_CHANGE_MASK_DEPENDENCY);
+        ASSERT_TRUE(is_dependency_mask(strjoina(inside, "/contained.service")));
+        ASSERT_FALSE(symlink_exists(strjoina(outside, "/contained.service")));
+}
+
 TEST(vendor_legacy_alias_dependency) {
         FOREACH_STRING(suffix, "wants", "requires") {
                 const char *name = strjoina("vendor-legacy-", suffix, ".service");
