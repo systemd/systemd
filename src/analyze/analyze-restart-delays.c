@@ -405,7 +405,7 @@ int verb_restart_delays(int argc, char *argv[], uintptr_t _data, void *userdata)
         if (!arg_offline) {
                 r = acquire_bus(&bus, /* use_full_bus= */ NULL);
                 if (r < 0)
-                        return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
+                        return bus_log_connect_error(r, arg_transport, arg_host, arg_runtime_scope);
         }
 
         pager_open(arg_pager_flags);
