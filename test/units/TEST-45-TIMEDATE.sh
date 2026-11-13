@@ -496,6 +496,7 @@ testcase_timedated_alternate_paths() {
 [Service]
 Environment=SYSTEMD_ETC_LOCALTIME=/run/alternate-path/mylocaltime
 Environment=SYSTEMD_ETC_ADJTIME=/run/alternate-path/myadjtime
+ReadWritePaths=/run/alternate-path
 EOF
     systemctl daemon-reload
     systemctl restart systemd-timedated
