@@ -4170,6 +4170,9 @@ static int pin_rootfs(
         assert(ret);
         assert(reterr_path);
 
+        /* If more than one root is configured, the first one that is set is used:
+         * RootDirectoryFileDescriptor=, RootImage=, RootDirectory=, RootMStack=. */
+
         if (!FLAGS_SET(params->flags, EXEC_APPLY_CHROOT)) {
                 *ret = PINNED_RESOURCE_NULL;
                 return 0;

@@ -152,6 +152,20 @@
         are available in the new root. Note that setting this parameter might result in additional
         dependencies to be added to the unit (see above).</para>
 
+        <para>If multiple root settings are configured, the first one that is set is used, in this
+        order:</para>
+
+        <orderedlist>
+          <listitem><para><varname>RootDirectoryFileDescriptor=</varname> (the transient unit property set by
+          <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+          <option>--root-directory=</option>)</para></listitem>
+          <listitem><para><varname>RootImage=</varname></para></listitem>
+          <listitem><para><varname>RootDirectory=</varname></para></listitem>
+          <listitem><para><varname>RootMStack=</varname></para></listitem>
+        </orderedlist>
+
+        <para>The other settings are ignored, but still shown by <command>systemctl show</command>.</para>
+
         <para>The <varname>MountAPIVFS=</varname> and <varname>PrivateUsers=</varname> settings are particularly useful
         in conjunction with <varname>RootDirectory=</varname>. For details, see below.</para>
 
@@ -214,6 +228,20 @@
         It will be updated automatically on soft reboot (see:
         <citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>),
         in case the service is configured to survive it.</para>
+
+        <para>If multiple root settings are configured, the first one that is set is used, in this
+        order:</para>
+
+        <orderedlist>
+          <listitem><para><varname>RootDirectoryFileDescriptor=</varname> (the transient unit property set by
+          <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+          <option>--root-directory=</option>)</para></listitem>
+          <listitem><para><varname>RootImage=</varname></para></listitem>
+          <listitem><para><varname>RootDirectory=</varname></para></listitem>
+          <listitem><para><varname>RootMStack=</varname></para></listitem>
+        </orderedlist>
+
+        <para>The other settings are ignored, but still shown by <command>systemctl show</command>.</para>
 
         <xi:include href="vpick.xml" xpointer="image"/>
 
@@ -388,6 +416,20 @@
         directory encapsulating a mount stack consisting of layers and bind mounts. Similar to
         <varname>RootDirectory=</varname> and <varname>RootImage=</varname> this runs the service off a
         distinct root file system, in this case set up via <literal>overlayfs</literal>.</para>
+
+        <para>If multiple root settings are configured, the first one that is set is used, in this
+        order:</para>
+
+        <orderedlist>
+          <listitem><para><varname>RootDirectoryFileDescriptor=</varname> (the transient unit property set by
+          <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+          <option>--root-directory=</option>)</para></listitem>
+          <listitem><para><varname>RootImage=</varname></para></listitem>
+          <listitem><para><varname>RootDirectory=</varname></para></listitem>
+          <listitem><para><varname>RootMStack=</varname></para></listitem>
+        </orderedlist>
+
+        <para>The other settings are ignored, but still shown by <command>systemctl show</command>.</para>
 
         <para>Since <filename>.mstack/</filename> directories may reference disk images (DDIs) similar device
         policy extensions and dependencies are in effect when <varname>RootMStack=</varname> is used as are
