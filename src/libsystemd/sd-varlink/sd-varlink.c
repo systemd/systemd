@@ -1692,10 +1692,22 @@ finish:
         }
 
         if (r < 0) {
-                if (VARLINK_STATE_IS_ALIVE(v->state))
-                        /* Initiate disconnection */
+                if (VARLINK_STATE_IS_ALIVE(v->state)) {
+                        /* Initiate disconnection, and make sure we get called again soon to finish it, so
+                         * that we don't linger in VARLINK_PENDING_DISCONNECT. If we are not attached to an
+                         * event loop, it's up to the caller to call us again, or to close the connection. */
                         varlink_set_state(v, VARLINK_PENDING_DISCONNECT);
-                else
+
+                        if (v->defer_event_source) {
+                                int q;
+
+                                q = sd_event_source_set_enabled(v->defer_event_source, SD_EVENT_ON);
+                                if (q < 0) {
+                                        varlink_log_errno(v, q, "Failed to enable deferred event source, disconnecting right away: %m");
+                                        varlink_dispatch_disconnect(v);
+                                }
+                        }
+                } else
                         /* We failed while disconnecting, in that case close right away */
                         sd_varlink_close(v);
         }
@@ -1928,6 +1940,7 @@ _public_ int sd_varlink_close(sd_varlink *v) {
         bool connected = v->state >= 0;
 
         varlink_set_state(v, VARLINK_DISCONNECTED);
+        v->n_pending = 0; /* Nothing can be pending anymore on a closed connection */
 
         /* Let's take a reference first, since varlink_detach_server() might drop the final (dangling) ref
          * which would destroy us before we can call varlink_clear() */
@@ -2191,8 +2204,31 @@ _public_ int sd_varlink_observeb(sd_varlink *v, const char *method, ...) {
         return sd_varlink_observe(v, method, parameters);
 }
 
+static int varlink_sync_call_fail(sd_varlink *v, int error) {
+        assert(v);
+        assert(error < 0);
+
+        /* If a synchronous call fails after we enqueued the method call, the connection is not reusable
+         * anymore: either it is already dead, or a reply might still arrive later that we cannot match up
+         * with anything. Hence close it right away, so that it ends up in VARLINK_DISCONNECTED and
+         * subsequent calls fail cleanly with ENOTCONN, instead of finding the connection stuck in
+         * VARLINK_PENDING_DISCONNECT/VARLINK_PENDING_TIMEOUT/VARLINK_CALLING and failing with EBUSY. Note
+         * that we do not dispatch anything to the reply callback here, since the error is returned
+         * directly to the caller of the synchronous call.
+         *
+         * There's one exception: if the final reply was already received (and we are hence back in
+         * VARLINK_IDLE_CLIENT) and we fail only when processing it locally, the connection is still in sync
+         * and remains usable, hence leave it open in that case. */
+
+        if (v->state != VARLINK_IDLE_CLIENT)
+                sd_varlink_close(v);
+
+        return error;
+}
+
 /* On success v->state will equal VARLINK_CALLED, the caller is responsible to adjust the state further if
- * needed */
+ * needed. If we fail after the request was enqueued the connection is closed, if we fail before that (for
+ * example because the connection is busy or not connected) it is left as it is. */
 static int varlink_call_internal(sd_varlink *v, sd_json_variant *request) {
         int r;
 
@@ -2221,13 +2257,13 @@ static int varlink_call_internal(sd_varlink *v, sd_json_variant *request) {
         while (v->state == VARLINK_CALLING) {
                 r = sd_varlink_process(v);
                 if (r < 0)
-                        return r;
+                        return varlink_sync_call_fail(v, r);
                 if (r > 0)
                         continue;
 
                 r = sd_varlink_wait(v, USEC_INFINITY);
                 if (r < 0)
-                        return r;
+                        return varlink_sync_call_fail(v, r);
         }
 
         switch (v->state) {
@@ -2238,10 +2274,10 @@ static int varlink_call_internal(sd_varlink *v, sd_json_variant *request) {
 
         case VARLINK_PENDING_DISCONNECT:
         case VARLINK_DISCONNECTED:
-                return varlink_log_errno(v, SYNTHETIC_ERRNO(ECONNRESET), "Connection was closed.");
+                return varlink_sync_call_fail(v, varlink_log_errno(v, SYNTHETIC_ERRNO(ECONNRESET), "Connection was closed."));
 
         case VARLINK_PENDING_TIMEOUT:
-                return varlink_log_errno(v, SYNTHETIC_ERRNO(ETIME), "Connection timed out.");
+                return varlink_sync_call_fail(v, varlink_log_errno(v, SYNTHETIC_ERRNO(ETIME), "Connection timed out."));
 
         default:
                 assert_not_reached();
@@ -2506,13 +2542,13 @@ _public_ int sd_varlink_collect_full(
                 while (v->state == VARLINK_COLLECTING) {
                         r = sd_varlink_process(v);
                         if (r < 0)
-                                return r;
+                                return varlink_sync_call_fail(v, r);
                         if (r > 0)
                                 continue;
 
                         r = sd_varlink_wait(v, USEC_INFINITY);
                         if (r < 0)
-                                return r;
+                                return varlink_sync_call_fail(v, r);
                 }
 
                 switch (v->state) {
@@ -2545,11 +2581,11 @@ _public_ int sd_varlink_collect_full(
                         }
 
                         if (sd_json_variant_elements(collected) >= VARLINK_COLLECT_MAX)
-                                return varlink_log_errno(v, SYNTHETIC_ERRNO(E2BIG), "Number of reply messages grew too large (%zu) while collecting.", sd_json_variant_elements(collected));
+                                return varlink_sync_call_fail(v, varlink_log_errno(v, SYNTHETIC_ERRNO(E2BIG), "Number of reply messages grew too large (%zu) while collecting.", sd_json_variant_elements(collected)));
 
                         r = sd_json_variant_append_array(&collected, p);
                         if (r < 0)
-                                return varlink_log_errno(v, r, "Failed to append JSON object to array: %m");
+                                return varlink_sync_call_fail(v, varlink_log_errno(v, r, "Failed to append JSON object to array: %m"));
 
                         if (FLAGS_SET(v->current_reply_flags, SD_VARLINK_REPLY_CONTINUES)) {
                                 /* There's more to collect, continue */
@@ -2573,10 +2609,10 @@ _public_ int sd_varlink_collect_full(
 
                 case VARLINK_PENDING_DISCONNECT:
                 case VARLINK_DISCONNECTED:
-                        return varlink_log_errno(v, SYNTHETIC_ERRNO(ECONNRESET), "Connection was closed.");
+                        return varlink_sync_call_fail(v, varlink_log_errno(v, SYNTHETIC_ERRNO(ECONNRESET), "Connection was closed."));
 
                 case VARLINK_PENDING_TIMEOUT:
-                        return varlink_log_errno(v, SYNTHETIC_ERRNO(ETIME), "Connection timed out.");
+                        return varlink_sync_call_fail(v, varlink_log_errno(v, SYNTHETIC_ERRNO(ETIME), "Connection timed out."));
 
                 default:
                         assert_not_reached();
