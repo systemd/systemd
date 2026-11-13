@@ -885,6 +885,7 @@ int unit_load(Unit *unit);
 
 int unit_set_slice(Unit *u, Unit *slice);
 int unit_set_default_slice(Unit *u);
+int unit_maybe_override_slice(Unit *u);
 
 const char* unit_description(Unit *u) _pure_;
 const char* unit_status_string(Unit *u, char **ret_combined_buffer);
