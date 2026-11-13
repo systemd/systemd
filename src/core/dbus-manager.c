@@ -849,6 +849,7 @@ static int method_enqueue_unit_job(sd_bus_message *message, void *userdata, sd_b
 
 static int method_enqueue_unit_job_many(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         Manager *m = ASSERT_PTR(userdata);
+        _cleanup_(mac_selinux_access_check_context_done) MacSelinuxAccessCheckContext selinux_context = {};
         _cleanup_strv_free_ char **names = NULL;
         _cleanup_set_free_ Set *jobs = NULL;
         const char *jtype, *smode;
@@ -899,6 +900,10 @@ static int method_enqueue_unit_job_many(sd_bus_message *message, void *userdata,
                                         (unsigned) MANAGER_MAX_POLKIT_NAMES);
         }
 
+        r = mac_selinux_access_check_context_init(message, &selinux_context, reterr_error);
+        if (r < 0)
+                return r;
+
         /* Authorize every requested unit before enqueuing any jobs. In particular, pass the unit and
          * verb to polkit just as the single-unit methods do. */
         STRV_FOREACH(name, names) {
@@ -908,7 +913,7 @@ static int method_enqueue_unit_job_many(sd_bus_message *message, void *userdata,
                 if (r < 0)
                         return r;
 
-                r = mac_selinux_unit_access_check(u, message, job_type_to_access_method(type), reterr_error);
+                r = mac_selinux_unit_access_check_full(u, message, &selinux_context, job_type_to_access_method(type), reterr_error);
                 if (r < 0)
                         return r;
 
@@ -1367,6 +1372,7 @@ static int method_reset_failed(sd_bus_message *message, void *userdata, sd_bus_e
 }
 
 static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error, char **states, char **patterns) {
+        _cleanup_(mac_selinux_access_check_context_done) MacSelinuxAccessCheckContext selinux_context = {};
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = ASSERT_PTR(userdata);
         const char *k;
@@ -1393,11 +1399,13 @@ static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_e
         if (r < 0)
                 return r;
 
+        (void) mac_selinux_access_check_context_init(message, &selinux_context, /* reterr_error= */ NULL);
+
         HASHMAP_FOREACH_KEY(u, k, m->units) {
                 if (k != u->id)
                         continue;
 
-                r = mac_selinux_unit_access_check(u, message, "status", /* reterr_error= */ NULL);
+                r = mac_selinux_unit_access_check_full(u, message, &selinux_context, "status", /* reterr_error= */ NULL);
                 if (r < 0)
                         continue; /* silently skip units the caller is not allowed to see */
 
@@ -2247,11 +2255,16 @@ static int method_get_dynamic_users(sd_bus_message *message, void *userdata, sd_
 
 static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         Manager *m = ASSERT_PTR(userdata);
+        _cleanup_(mac_selinux_access_check_context_done) MacSelinuxAccessCheckContext selinux_context = {};
         int r;
 
         assert(message);
 
-        r = mac_selinux_access_check(message, "start", reterr_error);
+        r = mac_selinux_access_check_context_init(message, &selinux_context, reterr_error);
+        if (r < 0)
+                return r;
+
+        r = mac_selinux_access_check_full(message, &selinux_context, "start", reterr_error);
         if (r < 0)
                 return r;
 
@@ -2299,7 +2312,7 @@ static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, s
                 } else
                         continue;
 
-                r = mac_selinux_unit_access_check(u, message, job_type_to_access_method(job), &error);
+                r = mac_selinux_unit_access_check_full(u, message, &selinux_context, job_type_to_access_method(job), &error);
                 if (r >= 0)
                         r = bus_unit_queue_job_one(message, u,
                                                    job, JOB_FAIL, flags,

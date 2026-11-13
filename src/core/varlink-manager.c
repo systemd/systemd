@@ -345,6 +345,7 @@ int vl_method_reexecute_manager(sd_varlink *link, sd_json_variant *parameters, s
 
 int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
+        _cleanup_(mac_selinux_access_check_context_done) MacSelinuxAccessCheckContext selinux_context = {};
         int r;
 
         assert(link);
@@ -354,7 +355,11 @@ int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *par
         if (r != 0)
                 return r;
 
-        r = mac_selinux_access_check_varlink(link, "start");
+        r = mac_selinux_access_check_varlink_context_init(link, &selinux_context);
+        if (r < 0)
+                return r;
+
+        r = mac_selinux_access_check_varlink_full(link, &selinux_context, "start");
         if (r < 0)
                 return r;
 
@@ -395,7 +400,7 @@ int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *par
                 else
                         job = JOB_TRY_RESTART;
 
-                r = mac_selinux_unit_access_check_varlink(u, link, job_type_to_access_method(job));
+                r = mac_selinux_unit_access_check_varlink_full(u, link, &selinux_context, job_type_to_access_method(job));
                 if (r < 0)
                         error_id = SD_VARLINK_ERROR_PERMISSION_DENIED;
                 else
