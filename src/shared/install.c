@@ -2545,11 +2545,254 @@ static int install_info_collect_vendor_symlinks(
         return 0;
 }
 
+static bool install_changes_have_error(const InstallChange *changes, size_t n_changes, const char *path) {
+        FOREACH_ARRAY(change, changes, n_changes)
+                if (change->type < 0 && path_equal(change->path, path))
+                        return true;
+
+        return false;
+}
+
+/* A vendor can only enable a unit later through a symlink below /usr/ if it supplies the unit file. */
+static int install_info_is_vendor_supplied(const InstallInfo *info, const LookupPaths *lp) {
+        _cleanup_free_ char *template = NULL;
+        int r;
+
+        assert(info);
+        assert(lp);
+
+        if (unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
+                r = unit_name_template(info->name, &template);
+                if (r < 0)
+                        return r;
+        }
+
+        STRV_FOREACH(p, lp->search_path) {
+                if (!path_is_vendor(lp, *p))
+                        continue;
+
+                FOREACH_STRING(name, info->name, template) {
+                        _cleanup_free_ char *path = NULL;
+
+                        path = path_join(*p, name);
+                        if (!path)
+                                return -ENOMEM;
+
+                        if (faccessat(AT_FDCWD, path, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
+                                return true;
+                        if (errno != ENOENT)
+                                log_debug_errno(errno, "Failed to check for '%s', ignoring: %m", path);
+                }
+        }
+
+        return false;
+}
+
+/* Returns > 0 if the entry that PID 1 uses for dir/entry is a symlink in a directory other than
+ * config_path, i.e. if something other than config_path enables the unit through this entry. */
+static int dependency_entry_is_used_elsewhere(
+                const LookupPaths *lp,
+                const char *config_path,
+                const char *dir,
+                const char *entry) {
+
+        _cleanup_strv_free_ char **search_path = NULL;
+        _cleanup_free_ char *unit = NULL, *winner = NULL;
+        const char *suffix;
+        int r;
+
+        assert(lp);
+        assert(config_path);
+        assert(dir);
+        assert(entry);
+
+        STRV_FOREACH(p, lp->search_path)
+                if (!path_equal(*p, config_path)) {
+                        r = strv_extend(&search_path, *p);
+                        if (r < 0)
+                                return r;
+                }
+
+        suffix = ASSERT_PTR(dependency_dir_suffix(dir));
+        unit = strndup(dir, suffix - dir);
+        if (!unit)
+                return -ENOMEM;
+
+        r = unit_file_find_dropin_entry(lp->root_dir, search_path, suffix, unit, /* aliases= */ NULL, entry,
+                                        /* ret_lookup_path= */ NULL, &winner);
+        if (r <= 0)
+                return r;
+
+        return dependency_entry_is_symlink(lp, winner);
+}
+
+static int install_info_mask_install_rule(
+                const LookupPaths *lp,
+                const char *config_path,
+                const char *dir,
+                const char *entry,
+                bool dry_run,
+                InstallChange **changes,
+                size_t *n_changes) {
+
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        path = path_join(config_path, dir, entry);
+        if (!path)
+                return -ENOMEM;
+
+        /* Replacing an entry that disable failed to remove would hide the failure. */
+        if (install_changes_have_error(*changes, *n_changes, path))
+                return 0;
+
+        /* Masking an entry that another directory enables the unit with would turn the unit off, for
+         * example after "systemctl enable --runtime" or for a symlink a generator created. A vendor
+         * symlink is masked by install_info_mask_dependencies() instead. */
+        r = dependency_entry_is_used_elsewhere(lp, config_path, dir, entry);
+        if (r == -ENOMEM)
+                return r;
+        if (r < 0)
+                log_debug_errno(r, "Failed to look up '%s/%s', not masking it: %m", dir, entry);
+        if (r != 0)
+                return 0;
+
+        /* The unit is disabled whether or not the mask can be created, so a failure is not an error. */
+        r = mask_dependency(lp, path, dry_run);
+        if (r == -ENOMEM)
+                return r;
+        if (r < 0) {
+                log_warning_errno(r, "Failed to mask '%s', ignoring: %m", path);
+                return 0;
+        }
+        if (r == 0)
+                return 0;
+
+        return install_changes_add(changes, n_changes, INSTALL_CHANGE_MASK_DEPENDENCY, path, /* source= */ NULL);
+}
+
+/* Loading an instance ignores DefaultInstance=, so we load the template to find it. */
+static int template_default_instance(RuntimeScope scope, const LookupPaths *lp, const char *name, char **ret) {
+        _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
+        _cleanup_free_ char *template = NULL;
+        InstallInfo *info, *target;
+        int r;
+
+        assert(lp);
+        assert(name);
+        assert(ret);
+
+        r = unit_name_template(name, &template);
+        if (r < 0)
+                return r;
+
+        r = install_info_add_auto(&ctx, lp, template, &info);
+        if (r >= 0)
+                r = install_info_traverse(&ctx, lp, info, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, &target);
+        if (r == -ENOMEM)
+                return r;
+        if (r < 0) {
+                log_debug_errno(r, "Failed to load %s, assuming it has no DefaultInstance=: %m", template);
+                *ret = NULL;
+                return 0;
+        }
+
+        return strdup_to(ret, target->default_instance);
+}
+
+/* The vendor might enable the unit later with a symlink below /usr/. Mask every entry that enabling the
+ * unit with its current [Install] section would create, so that the administrator's choice stays. A
+ * vendor does not install symlinks for local instance names such as the name of a container, so of the
+ * instances only the DefaultInstance= of a template is masked. */
+static int install_info_mask_install_rules(
+                RuntimeScope scope,
+                const InstallInfo *info,
+                const LookupPaths *lp,
+                const char *config_path,
+                bool dry_run,
+                InstallChange **changes,
+                size_t *n_changes) {
+
+        _cleanup_free_ char *instance = NULL;
+        const char *name = info->name;
+        UnitNameFlags valid_dst_type = UNIT_NAME_ANY;
+        int r;
+
+        assert(info);
+        assert(lp);
+        assert(config_path);
+        assert(changes);
+        assert(n_changes);
+
+        if (unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
+                _cleanup_free_ char *default_instance = NULL;
+
+                r = unit_name_to_instance(info->name, &instance);
+                if (r < 0)
+                        return r;
+
+                r = template_default_instance(scope, lp, info->name, &default_instance);
+                if (r < 0)
+                        return r;
+
+                if (!streq_ptr(instance, default_instance))
+                        return 0;
+
+        } else if (unit_name_is_valid(info->name, UNIT_NAME_TEMPLATE)) {
+                if (info->default_instance) {
+                        r = unit_name_replace_instance(info->name, info->default_instance, &instance);
+                        if (r == -ENOMEM)
+                                return r;
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to build the default instance of %s, not masking its rules: %m",
+                                                info->name);
+                                return 0;
+                        }
+
+                        name = instance;
+                } else
+                        /* Like install_info_symlink_wants(): a template without DefaultInstance= can only be
+                         * a dependency of another template or of an instance. */
+                        valid_dst_type = UNIT_NAME_INSTANCE | UNIT_NAME_TEMPLATE;
+        }
+
+        const struct {
+                char **targets;
+                const char *suffix;
+        } rules[] = {
+                { info->wanted_by,   ".wants"    },
+                { info->required_by, ".requires" },
+                { info->upheld_by,   ".upholds"  },
+        };
+
+        FOREACH_ELEMENT(rule, rules)
+                STRV_FOREACH(target, rule->targets) {
+                        _cleanup_free_ char *dst = NULL, *dir = NULL;
+
+                        r = install_name_printf(scope, info, *target, &dst);
+                        if (r == -ENOMEM)
+                                return r;
+                        if (r < 0 || !unit_name_is_valid(dst, valid_dst_type))
+                                continue;
+
+                        dir = strjoin(dst, rule->suffix);
+                        if (!dir)
+                                return -ENOMEM;
+
+                        r = install_info_mask_install_rule(lp, config_path, dir, name, dry_run, changes, n_changes);
+                        if (r < 0)
+                                return r;
+                }
+
+        return 0;
+}
+
 static int install_context_mask_dependencies(
                 InstallContext *ctx,
                 const LookupPaths *lp,
                 const char *config_path,
                 bool dry_run,
+                bool mask_install_rules,
                 InstallChange **changes,
                 size_t *n_changes) {
 
@@ -2583,6 +2826,19 @@ static int install_context_mask_dependencies(
 
                 RET_GATHER(ret, install_info_mask_dependencies(ctx->scope, i, lp, vendor_search_path, config_path,
                                                                dry_run, changes, n_changes));
+
+                if (!mask_install_rules)
+                        continue;
+
+                r = install_info_is_vendor_supplied(i, lp);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                r = install_info_mask_install_rules(ctx->scope, i, lp, config_path, dry_run, changes, n_changes);
+                if (r < 0)
+                        return r;
         }
 
         return ret;
@@ -4181,6 +4437,10 @@ static int do_unit_file_disable(
         bool has_install_info = false;
         int r;
 
+        /* Reenabling creates the symlinks again right away. A mask in /run/ is gone after a reboot, so it
+         * can't keep a later vendor symlink from enabling the unit. */
+        bool mask_install_rules = !reenable && !FLAGS_SET(flags, UNIT_FILE_RUNTIME);
+
         assert(changes);
         assert(n_changes);
 
@@ -4215,9 +4475,11 @@ static int do_unit_file_disable(
         if (r >= 0)
                 r = remove_marked_symlinks(remove_symlinks_to, &vendor, config_path, lp,
                                            flags & UNIT_FILE_DRY_RUN, changes, n_changes);
-        if (r >= 0)
+        /* Package removal also removes the vendor symlinks, so a mask would only keep the unit disabled
+         * after the package is installed again. */
+        if (r >= 0 && !FLAGS_SET(flags, UNIT_FILE_REMOVE_ONLY))
                 r = install_context_mask_dependencies(&ctx, lp, config_path, flags & UNIT_FILE_DRY_RUN,
-                                                      changes, n_changes);
+                                                      mask_install_rules, changes, n_changes);
         /* In a dry run the masks don't exist, so they can't hide anything yet. When reenabling, the enable
          * step removes the masks again, so a warning about them would be wrong. */
         if (r >= 0 && !FLAGS_SET(flags, UNIT_FILE_DRY_RUN) && !reenable)
