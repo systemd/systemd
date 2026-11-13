@@ -487,6 +487,7 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
                         close_many(section_fds, c);
                         return r;
                 }
+                log_debug("Opened for UKI section %s: %s", unified_sections[c], arg_sections[c]);
         }
 
         r = pcr_states_measure_uki(pcr_states, n, section_fds);
