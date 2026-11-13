@@ -2220,6 +2220,11 @@ bool exec_context_with_separate_rootfs(const ExecContext *c) {
          * directory counts as a separate tree, too, as the mount id is compared. This is intentional,
          * as this function is used to determine the PrivateTmp= behaviour. */
 
+        /* The settings are checked in the same order as pin_rootfs() resolves them: when several
+         * roots are configured, the first one that is set is used and the others are ignored,
+         * e.g. with both RootDirectory= and RootImage= configured, whether RootDirectory=
+         * resolves to our own root is irrelevant. Hence, do not reorder the checks. */
+
         if (c->root_directory_as_fd || c->root_image)
                 return true;
 
