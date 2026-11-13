@@ -814,7 +814,9 @@
           will be used.</para>
 
           <para>On the command line, when this argument is present, it must appear the same number of times as
-          the <option>--pcr-private-key=</option> option. </para>
+          the <option>--pcr-private-key=</option> option. With <option>--policy-digest</option>, each
+          occurrence results in a separate policy for the given public key, and if
+          <option>--policyref=</option> is also used, both must appear the same number of times.</para>
 
           <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
@@ -833,7 +835,9 @@
           they are produced with the same signing key.</para>
 
           <para>On the command line, when this argument is present, it must appear the same number of times as
-          the <option>--pcr-private-key=</option> option. </para>
+          the <option>--pcr-private-key=</option> option. With <option>--policy-digest</option>, each
+          occurrence results in a separate policy for the given public key, paired with the
+          <option>--phases=</option> at the same position.</para>
 
           <xi:include href="version-info.xml" xpointer="v262"/></listitem>
         </varlistentry>

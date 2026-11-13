@@ -16,6 +16,7 @@
 
 import base64
 import glob
+import hashlib
 import io
 import json
 import os
@@ -390,6 +391,33 @@ def test_parse_args_sign_initrd_pcrs(signing_args):
         match='--sign-initrd-pcrs requires --pcr-private-key= or --policy-digest',
     ):
         ukify.parse_args(args)
+
+
+def test_parse_args_policy_digest_phases_policyref():
+    args = ['build', '--linux=LINUX', '--output=OUTPUT', '--policy-digest', '--pcr-public-key=PKEY']
+
+    opts = ukify.parse_args([*args, '--phases=enter-initrd', '--policyref=initrd'])
+    assert opts.phase_path_groups == [['enter-initrd']]
+    assert opts.policyrefs == ['initrd']
+
+    opts = ukify.parse_args(
+        [
+            *args,
+            '--phases=enter-initrd',
+            '--policyref=initrd',
+            '--phases=enter-initrd:leave-initrd',
+            '--policyref=host',
+        ]
+    )
+    assert opts.phase_path_groups == [['enter-initrd'], ['enter-initrd:leave-initrd']]
+    assert opts.policyrefs == ['initrd', 'host']
+
+    opts = ukify.parse_args([*args, '--policyref=a', '--policyref=b'])
+    assert opts.phase_path_groups is None
+    assert opts.policyrefs == ['a', 'b']
+
+    with pytest.raises(ValueError, match='--phases= specifications must match --policyref= with --policy-digest'):
+        ukify.parse_args([*args, '--phases=enter-initrd', '--phases=enter-initrd:leave-initrd', '--policyref=a'])
 
 
 def test_parse_sections():
@@ -1322,6 +1350,75 @@ def test_pcr_signing_initrd_pcrs(kernel_initrd, tmp_path, policy_digest):
         assert all('pkfp' in policy and 'sig' not in policy for policy in policies)
     else:
         assert all('sig' in policy for policy in policies)
+
+    shutil.rmtree(tmp_path)
+
+
+def test_policy_digest_phases_policyref(kernel_initrd, tmp_path):
+    if kernel_initrd is None:
+        pytest.skip('linux+initrd not found')
+    try:
+        systemd_measure()
+    except ValueError:
+        pytest.skip('systemd-measure not found')
+
+    ourdir = pathlib.Path(__file__).parent
+    pub = unbase64(ourdir / 'example.tpm2-pcr-public.pem.base64')
+
+    def build(name, extra):
+        output = f'{tmp_path}/{name}.efi'
+        args = [
+            'build',
+            *kernel_initrd,
+            f'--output={output}',
+            '--uname=1.2.3',
+            '--cmdline=ARG1 ARG2 ARG3',
+            '--os-release=ID=foobar\n',
+            '--pcr-banks=sha384',
+            '--policy-digest',
+            f'--pcr-public-key={pub.name}',
+            *extra,
+        ] + arg_tools
+        opts = ukify.parse_args(args)
+        try:
+            ukify.check_inputs(opts)
+        except OSError as e:
+            pytest.skip(str(e))
+        ukify.make_uki(opts)
+        subprocess.check_call(
+            ['objcopy', f'--dump-section=.pcrsig={tmp_path}/{name}.pcrsig', output, tmp_path / 'dummy'],
+            text=True,
+        )
+        return json.loads(open(tmp_path / f'{name}.pcrsig').read())['sha384']
+
+    # A single phase path, without policy reference: a single policy, the data to sign is the digest
+    initrd = build('phases', ['--phases=enter-initrd'])
+    assert len(initrd) == 1
+    assert 'ref' not in initrd[0]
+    assert initrd[0]['tbs'] == initrd[0]['pol']
+
+    # TPM2_PolicyAuthorize signs the policy digest followed by the policy reference (its SHA256)
+    with_ref = build('policyref', ['--phases=enter-initrd', '--policyref=initrd'])
+    assert len(with_ref) == 1
+    assert with_ref[0]['ref'] == 'initrd'
+    assert with_ref[0]['pol'] == initrd[0]['pol']
+    assert with_ref[0]['tbs'] == initrd[0]['pol'] + hashlib.sha256(b'initrd').hexdigest()
+
+    # One policy for each pair of --phases= and --policyref=
+    pairs = build(
+        'pairs',
+        [
+            '--phases=enter-initrd',
+            '--policyref=initrd',
+            '--phases=enter-initrd:leave-initrd',
+            '--policyref=host',
+        ],
+    )
+    assert len(pairs) == 2
+    by_ref = {policy['ref']: policy for policy in pairs}
+    assert by_ref['initrd'] == with_ref[0]
+    assert by_ref['host']['pol'] != initrd[0]['pol']
+    assert by_ref['host']['tbs'] == by_ref['host']['pol'] + hashlib.sha256(b'host').hexdigest()
 
     shutil.rmtree(tmp_path)
 
