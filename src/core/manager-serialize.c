@@ -7,6 +7,7 @@
 #include "bpf-restrict-fsaccess.h"
 #include "dbus.h"
 #include "dynamic-user.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
@@ -117,6 +118,16 @@ static void manager_serialize_gid_refs(Manager *m, FILE *f) {
         manager_serialize_uid_refs_internal(f, m->gid_refs, "destroy-ipc-gid");
 }
 
+static void manager_serialize_unit_slice_overrides(Manager *m, FILE *f) {
+        assert(m);
+        assert(f);
+
+        const char *slice_name, *unit_name;
+        HASHMAP_FOREACH_KEY(slice_name, unit_name, m->unit_slice_overrides) {
+                (void) serialize_item_format(f, "unit-slice-override", "%s %s", unit_name, slice_name);
+        }
+}
+
 int manager_serialize(
                 Manager *m,
                 FILE *f,
@@ -212,6 +223,8 @@ int manager_serialize(
 
         manager_serialize_uid_refs(m, f);
         manager_serialize_gid_refs(m, f);
+
+        manager_serialize_unit_slice_overrides(m, f);
 
         r = exec_shared_runtime_serialize(m, f, fds);
         if (r < 0)
@@ -545,6 +558,24 @@ static void manager_deserialize_gid_refs_one(Manager *m, const char *value) {
         manager_deserialize_uid_refs_one_internal(&m->gid_refs, value);
 }
 
+static void manager_deserialize_unit_slice_overrides_one(Manager *m, const char *value) {
+        int r;
+
+        assert(m);
+        assert(value);
+
+        _cleanup_free_ char *unit_name = NULL, *slice_name = NULL;
+        r = extract_many_words(&value, /* separators= */ NULL, /* flags= */ 0, &unit_name, &slice_name);
+        if (r != 2 || !isempty(value)) {
+                log_debug("Unable to parse unit slice override line.");
+                return;
+        }
+
+        r = manager_set_unit_slice_override(m, unit_name, slice_name);
+        if (r < 0)
+                log_debug_errno(r, "Failed to reload unit slice override: %m");
+}
+
 static void deserialize_restrict_fsaccess(Manager *m, const char *l, FDSet *fds) {
         const char *val;
         int fd, r;
@@ -795,6 +826,8 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         manager_deserialize_uid_refs_one(m, val);
                 else if ((val = startswith(l, "destroy-ipc-gid=")))
                         manager_deserialize_gid_refs_one(m, val);
+                else if ((val = startswith(l, "unit-slice-override=")))
+                        manager_deserialize_unit_slice_overrides_one(m, val);
                 else if ((val = startswith(l, "exec-runtime=")))
                         (void) exec_shared_runtime_deserialize_one(m, val, fds);
                 else if ((val = startswith(l, "bus-id="))) {
