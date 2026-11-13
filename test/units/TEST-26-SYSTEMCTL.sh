@@ -414,7 +414,8 @@ systemctl reload-or-restart --marked
 (! systemctl show -P Markers "$UNIT_NAME" | grep needs-stop)
 (! systemctl is-active "$UNIT_NAME")
 
-# Test marker normalization with incremental (+) syntax
+# Test marker normalization with incremental (+) syntax (needs-restart is only kept on active units)
+systemctl start "$UNIT_NAME"
 
 # needs-start + +needs-restart → needs-restart (restart wins against start)
 systemctl set-property "$UNIT_NAME" "Markers=needs-start"
