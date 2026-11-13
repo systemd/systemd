@@ -105,6 +105,12 @@ at_exit() {
 
 trap at_exit EXIT
 
+# Don't crash when no targets are defined
+if [[ -x "$UPDATECTL" ]]; then
+    (! "$UPDATECTL" update |& tee "$WORKDIR"/updatectl-update-no-targets)
+    grep "No targets found" "$WORKDIR"/updatectl-update-no-targets >/dev/null
+fi
+
 update_checksums() {
     (cd "$WORKDIR/source" && rm -f BEST-BEFORE-* && sha256sum uki* part* dir-*.tar.gz linux* >SHA256SUMS)
 }
