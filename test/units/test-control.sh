@@ -222,7 +222,8 @@ run_subtests_with_signals_and_exit() {
     _finalize_subtests
 }
 
-# Run all test cases (i.e. functions prefixed with testcase_ in the current namespace)
+# Run all test cases (i.e. functions prefixed with testcase_ in the current namespace). A test case may
+# return $_SUBTEST_SKIP_RC to skip itself.
 run_testcases() {
     local testcase testcases rc
 
@@ -256,7 +257,9 @@ run_testcases() {
         (set -e; "$testcase")
         rc=$?
         set -e
-        if [[ "$rc" -ne 0 ]]; then
+        if [[ "$rc" -eq "$_SUBTEST_SKIP_RC" ]]; then
+            echo "+++ $testcase SKIPPED +++"
+        elif [[ "$rc" -ne 0 ]]; then
             echo "+++ $testcase FAILED +++"
             exit 1
         fi
