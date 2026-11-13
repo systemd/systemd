@@ -430,6 +430,58 @@ static int reply_invalid(sd_varlink *link, sd_json_variant *parameters, const ch
         return 0;
 }
 
+TEST(sync_call_disconnect) {
+        /* Regression test for https://github.com/systemd/systemd/issues/41883: after a synchronous call
+         * failed due to a connection error the connection must end up fully disconnected, so that
+         * subsequent calls fail with ENOTCONN rather than EBUSY. */
+
+        FOREACH_STRING(method, "call", "collect") {
+                _cleanup_close_pair_ int connfd[2] = EBADF_PAIR;
+                _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+
+                ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd));
+                ASSERT_OK(sd_varlink_connect_fd(&c, TAKE_FD(connfd[1])));
+
+                /* Close the server side, so that the call fails */
+                connfd[0] = safe_close(connfd[0]);
+
+                if (streq(method, "call")) {
+                        ASSERT_FAIL(sd_varlink_call(c, "io.test.DoSomething", /* parameters= */ NULL, /* ret_parameters= */ NULL, /* ret_error_id= */ NULL));
+                        ASSERT_ERROR(sd_varlink_call(c, "io.test.DoSomething", /* parameters= */ NULL, /* ret_parameters= */ NULL, /* ret_error_id= */ NULL), ENOTCONN);
+                } else {
+                        ASSERT_FAIL(sd_varlink_collect(c, "io.test.DoSomething", /* parameters= */ NULL, /* ret_parameters= */ NULL, /* ret_error_id= */ NULL));
+                        ASSERT_ERROR(sd_varlink_collect(c, "io.test.DoSomething", /* parameters= */ NULL, /* ret_parameters= */ NULL, /* ret_error_id= */ NULL), ENOTCONN);
+                }
+
+                ASSERT_FALSE(sd_varlink_is_connected(c));
+                ASSERT_TRUE(sd_varlink_is_idle(c));
+        }
+}
+
+TEST(sync_call_timeout) {
+        /* Same as above, but for a call that times out because the server never replies */
+
+        FOREACH_STRING(method, "call", "collect") {
+                _cleanup_close_pair_ int connfd[2] = EBADF_PAIR;
+                _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
+
+                ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd));
+                ASSERT_OK(sd_varlink_connect_fd(&c, TAKE_FD(connfd[1])));
+                ASSERT_OK(sd_varlink_set_relative_timeout(c, 50 * USEC_PER_MSEC));
+
+                if (streq(method, "call")) {
+                        ASSERT_ERROR(sd_varlink_call(c, "io.test.DoSomething", /* parameters= */ NULL, /* ret_parameters= */ NULL, /* ret_error_id= */ NULL), ETIME);
+                        ASSERT_ERROR(sd_varlink_call(c, "io.test.DoSomething", /* parameters= */ NULL, /* ret_parameters= */ NULL, /* ret_error_id= */ NULL), ENOTCONN);
+                } else {
+                        ASSERT_ERROR(sd_varlink_collect(c, "io.test.DoSomething", /* parameters= */ NULL, /* ret_parameters= */ NULL, /* ret_error_id= */ NULL), ETIME);
+                        ASSERT_ERROR(sd_varlink_collect(c, "io.test.DoSomething", /* parameters= */ NULL, /* ret_parameters= */ NULL, /* ret_error_id= */ NULL), ENOTCONN);
+                }
+
+                ASSERT_FALSE(sd_varlink_is_connected(c));
+                ASSERT_TRUE(sd_varlink_is_idle(c));
+        }
+}
+
 TEST(invalid_parameter) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         ASSERT_OK(sd_event_default(&e));
