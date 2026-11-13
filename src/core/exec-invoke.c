@@ -4022,9 +4022,21 @@ static int setup_ephemeral(
         CLEANUP_POSIX_UNLOCK(runtime->ephemeral_storage_socket[0]);
 
         fd = receive_one_fd(runtime->ephemeral_storage_socket[0], MSG_PEEK|MSG_DONTWAIT);
-        if (fd >= 0)
-                /* We got an fd! That means ephemeral has already been set up, so nothing to do here. */
-                return 0;
+        if (fd >= 0) {
+                /* We got an fd! That means ephemeral has already been set up. Switch the pinned root fs
+                 * over to the existing ephemeral copy, and reuse it. */
+                if (rootfs->image) {
+                        free_and_replace(rootfs->image, new_root);
+                        close_and_replace(rootfs->image_fd, fd);
+                } else {
+                        assert(rootfs->directory);
+
+                        free_and_replace(rootfs->directory, new_root);
+                        close_and_replace(rootfs->directory_fd, fd);
+                }
+
+                return 1;
+        }
         if (fd != -EAGAIN)
                 return log_debug_errno(fd, "Failed to receive file descriptor queued on ephemeral storage socket: %m");
 
