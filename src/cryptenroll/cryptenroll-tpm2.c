@@ -12,6 +12,7 @@
 #include "errno-util.h"
 #include "hexdecoct.h"
 #include "json-util.h"
+#include "libfido2-util.h"
 #include "log.h"
 #include "memory-util.h"
 #include "random-util.h"
@@ -197,7 +198,7 @@ int load_volume_key_tpm2(
 
         /* Every TPM2 slot tried below gets the same $PIN. It is removed from the environment once a slot that
          * needs a PIN has tried it, and left alone otherwise, as it might be meant for e.g. a PKCS#11 token
-         * that is enrolled next. A slot whose hardware is missing (-EAGAIN) has not tried it. */
+         * that is enrolled next. A slot whose hardware is missing (-EAGAIN, -ENOMEDIUM) has not tried it. */
         const char *e = secure_getenv("PIN");
         if (e) {
                 pin = strdup(e);
@@ -205,18 +206,21 @@ int load_volume_key_tpm2(
                         return log_oom();
         }
 
-        bool found_some = false;
+        bool found_some = false, fido2_missing = false;
         int token = 0; /* first token to look at */
 
         for (;;) {
-                _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+                _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {}, fido2_cid = {},
+                        fido2_public_key = {}, fido2_public_key_tag = {};
                 _cleanup_free_ char *pubkey_policy_ref = NULL;
                 struct iovec *blobs = NULL, *policy_hash = NULL;
+                _cleanup_free_ char *fido2_rp = NULL, *fido2_public_key_algorithm = NULL;
                 size_t n_blobs = 0, n_policy_hash = 0;
                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                 uint16_t pcr_bank, primary_alg;
                 Argon2IdParameters ap = {};
                 TPM2Flags tpm2_flags;
+                Fido2EnrollFlags fido2_flags;
                 int keyslot;
 
                 CLEANUP_ARRAY(policy_hash, n_policy_hash, iovec_array_free);
@@ -241,15 +245,29 @@ int load_volume_key_tpm2(
                                 &srk,
                                 &pcrlock_nv,
                                 &tpm2_flags,
+                                &fido2_cid,
+                                &fido2_rp,
+                                &fido2_public_key,
+                                &fido2_public_key_algorithm,
+                                &fido2_public_key_tag,
+                                &fido2_flags,
                                 &keyslot,
                                 &token,
                                 &ap);
-                if (r == -ENXIO)
+                if (r == -ENXIO) {
+                        /* No further TPM2 tokens. If we skipped one because its FIDO2 token is not plugged
+                         * in, report that, as plugging it in might help. */
+                        if (fido2_missing) {
+                                r = -ENOMEDIUM;
+                                break;
+                        }
+
                         return log_full_errno(LOG_NOTICE,
                                               SYNTHETIC_ERRNO(EAGAIN),
                                               found_some
                                               ? "No TPM2 metadata matching the current system state found in LUKS2 header."
                                               : "No TPM2 metadata enrolled in LUKS2 header.");
+                }
                 if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                         /* TPM2 support not compiled in? */
                         return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 support not available.");
@@ -278,16 +296,30 @@ int load_volume_key_tpm2(
                                 &srk,
                                 &pcrlock_nv,
                                 tpm2_flags,
+                                c->unlock_fido2_device,
+                                &fido2_cid,
+                                fido2_rp,
+                                &fido2_public_key,
+                                fido2_public_key_algorithm,
+                                &fido2_public_key_tag,
+                                fido2_flags,
                                 /* until= */ 0,
                                 "cryptenroll.tpm2-pin",
                                 c->interactive ? 0 : ASK_PASSWORD_HEADLESS,
                                 pin,
                                 /* argon2id_params= */ FLAGS_SET(tpm2_flags, TPM2_FLAGS_USE_ARGON2ID) ? &ap : NULL,
                                 &decrypted_key);
-                if (r != -EAGAIN && tpm2_slot_needs_pin(tpm2_flags))
+                if (!IN_SET(r, -EAGAIN, -ENOMEDIUM) && tpm2_slot_needs_pin(tpm2_flags, fido2_flags))
                         (void) getenv_steal_erase("PIN", /* ret= */ NULL);
                 if (IN_SET(r, -EACCES, -ENOLCK))
                         return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 PIN unlock failed");
+                /* The FIDO2 token of this TPM2+FIDO2 enrollment is not plugged in, but a later token might
+                 * not need it, hence try those first. */
+                if (r == -ENOMEDIUM) {
+                        fido2_missing = true;
+                        token++;
+                        continue;
+                }
                 /* Stop unless we should keep iterating to next token because the tried one
                  * does not match boot state. For now without -EUCLEAN because currently the
                  * only error it reports won't be solved by moving to another token. */
@@ -297,6 +329,8 @@ int load_volume_key_tpm2(
                 token++; /* try a different token next time */
         }
 
+        if (r == -ENOMEDIUM)
+                return log_error_errno(r, "The FIDO2 token used for this volume is not plugged in.");
         if (r < 0)
                 return log_error_errno(r, "Unlocking via TPM2 device failed: %m");
 
