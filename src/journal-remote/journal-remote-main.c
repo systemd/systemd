@@ -11,6 +11,7 @@
 #include "conf-parser.h"
 #include "daemon-util.h"
 #include "dlopen-note.h"
+#include "event-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -21,6 +22,7 @@
 #include "journal-compression-util.h"
 #include "journal-remote.h"
 #include "journal-remote-write.h"
+#include "journal-vacuum.h"
 #include "logs-show.h"
 #include "main-func.h"
 #include "microhttpd-util.h"
@@ -35,6 +37,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "verbs.h"
 
 #define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-remote.pem"
@@ -69,6 +72,8 @@ static uint64_t arg_max_use = UINT64_MAX;
 static uint64_t arg_max_size = UINT64_MAX;
 static uint64_t arg_n_max_files = UINT64_MAX;
 static uint64_t arg_keep_free = UINT64_MAX;
+static usec_t arg_max_retention_usec = 0;
+static usec_t arg_max_file_usec = 0;
 
 static OrderedHashmap *arg_compression = NULL;
 
@@ -861,6 +866,8 @@ static int parse_config(void) {
                 { "Remote",  "KeepFree",               config_parse_iec_uint64,       0, &arg_keep_free   },
                 { "Remote",  "Compression",            config_parse_compression,      0, &arg_compression },
                 { "Remote",  "AddClientCertificateSubject", config_parse_bool,         0, &arg_add_client_certificate_subject },
+                { "Remote",  "MaxRetentionSec",        config_parse_sec,              0, &arg_max_retention_usec },
+                { "Remote",  "MaxFileSec",             config_parse_sec,              0, &arg_max_file_usec },
                 {}
         };
 
@@ -1149,6 +1156,40 @@ static int load_certificates(char **key, char **cert, char **trust) {
         return 0;
 }
 
+static int maintenance_handler(sd_event_source *event, uint64_t usec, void *userdata) {
+        RemoteServer *s = ASSERT_PTR(userdata);
+        Writer *w;
+        int r;
+
+        HASHMAP_FOREACH(w, s->writers) {
+                r = writer_maintain(w);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to maintain remote journal, ignoring: %m");
+        }
+
+        r = writer_maintain_directory(s);
+        if (r < 0 && r != -ENOENT)
+                log_warning_errno(r, "Failed to maintain idle remote journals, ignoring: %m");
+
+        if (s->max_retention_usec > 0) {
+                r = journal_directory_vacuum_full(s->_single_writer ? s->_single_writer->output : s->output,
+                                                  /* max_use= */ 0, /* n_max_files= */ 0,
+                                                  s->max_retention_usec, /* oldest_usec= */ NULL,
+                                                  JOURNAL_VACUUM_USE_MTIME);
+                if (r < 0 && r != -ENOENT)
+                        log_warning_errno(r, "Failed to vacuum remote journals, ignoring: %m");
+        }
+
+        r = event_reset_time_relative(s->event, &s->maintenance_event, CLOCK_MONOTONIC,
+                                      CLAMP(s->max_file_usec, USEC_PER_SEC, USEC_PER_MINUTE), USEC_PER_SEC,
+                                      maintenance_handler, s, SD_EVENT_PRIORITY_NORMAL, "journal-maintenance",
+                                      /* force_reset= */ true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to schedule journal maintenance: %m");
+
+        return 0;
+}
+
 static int run(int argc, char **argv) {
         _cleanup_(journal_remote_server_destroy) RemoteServer s = {};
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
@@ -1206,10 +1247,22 @@ static int run(int argc, char **argv) {
         s.metrics.max_size = arg_max_size;
         s.metrics.keep_free = arg_keep_free;
         s.metrics.n_max_files = arg_n_max_files;
+        s.max_retention_usec = arg_max_retention_usec == USEC_INFINITY ? 0 : arg_max_retention_usec;
+        s.max_file_usec = arg_max_file_usec == USEC_INFINITY ? 0 : arg_max_file_usec;
+
+        /* Rotate before the retention cutoff so vacuuming does not discard the entire current history. */
+        if (s.max_retention_usec > 0)
+                s.max_file_usec = MIN(s.max_file_usec ?: USEC_INFINITY, MAX(s.max_retention_usec / 2, (usec_t) 1));
 
         r = create_remoteserver(&s, key, cert, trust);
         if (r < 0)
                 return r;
+
+        if (s.max_file_usec > 0) {
+                r = maintenance_handler(/* event= */ NULL, /* usec= */ 0, &s);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_event_set_watchdog(s.event, true);
         if (r < 0)
