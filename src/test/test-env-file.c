@@ -292,7 +292,7 @@ TEST(parse_env_file) {
         ASSERT_STREQ(seven, "sevenval#nocomment");
         ASSERT_STREQ(eight, "eightval #nocomment");
         ASSERT_STREQ(nine, "nineval");
-        ASSERT_NULL(ten);
+        ASSERT_STREQ(ten, "");
         ASSERT_STREQ(eleven, "value");
         ASSERT_STREQ(twelve, "\\value");
         ASSERT_STREQ(thirteen, "\\value");
