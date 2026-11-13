@@ -123,13 +123,13 @@ static int journal_file_empty(int dir_fd, const char *name) {
         return le64toh(n_entries) <= 0;
 }
 
-int journal_directory_vacuum(
+int journal_directory_vacuum_full(
                 const char *directory,
                 uint64_t max_use,
                 uint64_t n_max_files,
                 usec_t max_retention_usec,
                 usec_t *oldest_usec,
-                bool verbose) {
+                JournalVacuumFlags flags) {
 
         uint64_t sum = 0, freed = 0, n_active_files = 0;
         size_t n_list = 0, i;
@@ -261,7 +261,7 @@ int journal_directory_vacuum(
                         r = unlinkat_deallocate(dirfd(d), p, /* flags= */ 0);
                         if (r >= 0) {
 
-                                log_full(verbose ? LOG_INFO : LOG_DEBUG,
+                                log_full(FLAGS_SET(flags, JOURNAL_VACUUM_VERBOSE) ? LOG_INFO : LOG_DEBUG,
                                          "Deleted empty archived journal %s/%s (%s).", directory, p, FORMAT_BYTES(size));
 
                                 freed += size;
@@ -273,7 +273,11 @@ int journal_directory_vacuum(
                         continue;
                 }
 
-                patch_realtime(dirfd(d), p, &st, &realtime);
+                if (FLAGS_SET(flags, JOURNAL_VACUUM_USE_MTIME)) {
+                        realtime = timespec_load(&st.st_mtim);
+                        have_seqnum = false;
+                } else
+                        patch_realtime(dirfd(d), p, &st, &realtime);
 
                 if (!GREEDY_REALLOC(list, n_list + 1))
                         return -ENOMEM;
@@ -304,7 +308,7 @@ int journal_directory_vacuum(
 
                 r = unlinkat_deallocate(dirfd(d), list[i].filename, /* flags= */ 0);
                 if (r >= 0) {
-                        log_full(verbose ? LOG_INFO : LOG_DEBUG, "Deleted archived journal %s/%s (%s).",
+                        log_full(FLAGS_SET(flags, JOURNAL_VACUUM_VERBOSE) ? LOG_INFO : LOG_DEBUG, "Deleted archived journal %s/%s (%s).",
                                  directory, list[i].filename, FORMAT_BYTES(list[i].usage));
                         freed += list[i].usage;
 
@@ -322,7 +326,7 @@ int journal_directory_vacuum(
         if (oldest_usec && i < n_list && (*oldest_usec == 0 || list[i].realtime < *oldest_usec))
                 *oldest_usec = list[i].realtime;
 
-        log_full(verbose ? LOG_INFO : LOG_DEBUG, "Vacuuming done, freed %s of archived journals from %s.",
+        log_full(FLAGS_SET(flags, JOURNAL_VACUUM_VERBOSE) ? LOG_INFO : LOG_DEBUG, "Vacuuming done, freed %s of archived journals from %s.",
                  FORMAT_BYTES(freed), directory);
 
         return 0;

@@ -13,6 +13,7 @@ typedef struct RemoteServer {
 
         sd_event *event;
         sd_event_source *listen_event;
+        sd_event_source *maintenance_event;
 
         Hashmap *writers;
         Writer *_single_writer;
@@ -26,6 +27,8 @@ typedef struct RemoteServer {
         bool check_trust;
         bool add_client_certificate_subject;
         JournalMetrics metrics;
+        usec_t max_retention_usec;
+        usec_t max_file_usec;
 } RemoteServer;
 extern RemoteServer *journal_remote_server_global;
 
