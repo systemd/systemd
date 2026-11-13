@@ -1924,10 +1924,15 @@ StateDirectory=aaa/bbb ccc</programlisting>
         <varname>InaccessiblePaths=</varname>, <varname>ExecPaths=</varname> and
         <varname>NoExecPaths=</varname> may be prefixed with <literal>-</literal>, in which case they will be
         ignored when they do not exist. If prefixed with <literal>+</literal> the paths are taken relative to the root
-        directory of the unit, as configured with <varname>RootDirectory=</varname>/<varname>RootImage=</varname>,
-        instead of relative to the root directory of the host (see above). When combining <literal>-</literal> and
+        directory of the unit, as configured with <varname>RootDirectory=</varname>, instead of relative to the root
+        directory of the host (see above). When combining <literal>-</literal> and
         <literal>+</literal> on the same path make sure to specify <literal>-</literal> first, and <literal>+</literal>
         second.</para>
+
+        <para>Note that this distinction only exists for <varname>RootDirectory=</varname>. If the root is
+        configured differently (for example with <varname>RootImage=</varname>), plain paths are taken relative
+        to the root directory of the unit as well, and the <literal>+</literal> prefix makes no
+        difference.</para>
 
         <para>Note that these settings will disconnect propagation of mounts from the unit's processes to the
         host. This means that this setting may not be used for services which shall be able to install mount points in
