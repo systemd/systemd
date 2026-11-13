@@ -17,6 +17,7 @@
 #include "log.h"
 #include "socket-util.h"
 #include "stdio-util.h"
+#include "time-util.h"
 
 #define REMOTE_JOURNAL_PATH "/var/log/journal/remote"
 
@@ -69,6 +70,7 @@ static int open_output(RemoteServer *s, Writer *w, const char *host) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open output journal %s: %m", filename);
 
+        w->file_opened_usec = now(CLOCK_MONOTONIC);
         log_debug("Opened output file %s", w->journal->path);
         return 0;
 }
@@ -116,9 +118,14 @@ int journal_remote_get_writer(RemoteServer *s, const char *host, Writer **writer
         }
 
         w = hashmap_get(s->writers, key);
-        if (w)
+        if (w) {
                 writer_ref(w);
-        else {
+                if (!w->journal) {
+                        r = open_output(s, w, host);
+                        if (r < 0)
+                                return r;
+                }
+        } else {
                 r = writer_new(s, &w);
                 if (r < 0)
                         return r;
@@ -136,6 +143,10 @@ int journal_remote_get_writer(RemoteServer *s, const char *host, Writer **writer
                 r = hashmap_put(s->writers, w->hashmap_key ?: key, w);
                 if (r < 0)
                         return r;
+
+                /* Keep idle host writers until maintenance can archive them by age. */
+                if (s->split_mode == JOURNAL_WRITE_SPLIT_HOST && s->max_file_usec > 0)
+                        writer_ref(w);
         }
 
         *writer = TAKE_PTR(w);
@@ -338,6 +349,7 @@ int journal_remote_server_init(
 }
 
 void journal_remote_server_destroy(RemoteServer *s) {
+        Writer *w;
         size_t i;
 
         if (!s)
@@ -349,9 +361,13 @@ void journal_remote_server_destroy(RemoteServer *s) {
                 remove_source(s, i);
         free(s->sources);
 
+        if (s->split_mode == JOURNAL_WRITE_SPLIT_HOST && s->max_file_usec > 0)
+                HASHMAP_FOREACH(w, s->writers)
+                        writer_unref(w);
         writer_unref(s->_single_writer);
         hashmap_free(s->writers);
 
+        sd_event_source_unref(s->maintenance_event);
         sd_event_source_unref(s->listen_event);
         sd_event_unref(s->event);
 

@@ -8,21 +8,19 @@
 #include "log.h"
 #include "path-util.h"
 #include "stat-util.h"
+#include "time-util.h"
 
-static int do_rotate(JournalFile **f, MMapCache *m, JournalFileFlags file_flags) {
+static int do_rotate(Writer *w, JournalFileFlags file_flags) {
         int r;
 
-        assert(f);
+        assert(w);
 
-        r = journal_file_rotate(f, m, file_flags, UINT64_MAX, /* seqnum_id= */ NULL, /* deferred_closes= */ NULL);
-        if (r < 0) {
-                if (*f)
-                        log_error_errno(r, "Failed to rotate %s: %m", (*f)->path);
-                else
-                        log_error_errno(r, "Failed to create rotated journal: %m");
-        }
+        r = journal_file_rotate(&w->journal, w->mmap, file_flags, UINT64_MAX, /* seqnum_id= */ NULL, /* deferred_closes= */ NULL);
+        if (r < 0)
+                return r;
 
-        return r;
+        w->file_opened_usec = now(CLOCK_MONOTONIC);
+        return 0;
 }
 
 int writer_new(RemoteServer *server, Writer **ret) {
@@ -84,6 +82,49 @@ static Writer* writer_free(Writer *w) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(Writer, writer, writer_free);
 
+static bool writer_file_age_reached(Writer *w) {
+        assert(w);
+        assert(w->journal);
+
+        return w->server->max_file_usec > 0 &&
+                le64toh(w->journal->header->n_entries) > 0 &&
+                now(CLOCK_MONOTONIC) >= usec_add(w->file_opened_usec, w->server->max_file_usec);
+}
+
+int writer_maintain(Writer *w) {
+        bool idle;
+        int r;
+
+        assert(w);
+        assert(w->server);
+
+        idle = w->server->split_mode == JOURNAL_WRITE_SPLIT_HOST && w->n_ref == 1;
+        if (!w->journal || le64toh(w->journal->header->n_entries) == 0)
+                return idle;
+        if (!writer_file_age_reached(w))
+                return 0;
+
+        log_info("%s: File age limit reached, %s", w->journal->path, idle ? "archiving" : "rotating");
+        if (idle) {
+                r = journal_file_archive(w->journal, /* ret_previous_path= */ NULL);
+                if (r < 0)
+                        return r;
+
+                w->journal = journal_file_offline_close(w->journal);
+        } else {
+                r = do_rotate(w, w->server->file_flags);
+                if (r < 0)
+                        return r;
+        }
+
+        r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files,
+                                     w->server->max_retention_usec, /* oldest_usec= */ NULL, /* verbose= */ true);
+        if (r < 0)
+                return r;
+
+        return idle;
+}
+
 int writer_write(Writer *w,
                  const struct iovec_wrapper *iovw,
                  const dual_timestamp *ts,
@@ -94,15 +135,19 @@ int writer_write(Writer *w,
         assert(w);
         assert(!iovw_isempty(iovw));
 
-        if (journal_file_rotate_suggested(w->journal, /* max_file_usec= */ 0, LOG_DEBUG)) {
-                log_info("%s: Journal header limits reached or header out-of-date, rotating",
+        if (!w->journal)
+                return -EIO;
+
+        if (journal_file_rotate_suggested(w->journal, /* max_file_usec= */ 0, LOG_DEBUG) ||
+            writer_file_age_reached(w)) {
+                log_info("%s: Journal limits reached or header out-of-date, rotating",
                          w->journal->path);
 
-                r = do_rotate(&w->journal, w->mmap, file_flags);
+                r = do_rotate(w, file_flags);
                 if (r < 0)
                         return r;
 
-                r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files, /* max_retention_usec= */ 0, /* oldest_usec= */ NULL, /* verbose= */ true);
+                r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files, w->server->max_retention_usec, /* oldest_usec= */ NULL, /* verbose= */ true);
                 if (r < 0)
                         return r;
         }
@@ -126,12 +171,12 @@ int writer_write(Writer *w,
                 return r;
 
         log_debug_errno(r, "%s: Write failed, rotating: %m", w->journal->path);
-        r = do_rotate(&w->journal, w->mmap, file_flags);
+        r = do_rotate(w, file_flags);
         if (r < 0)
                 return r;
 
         log_debug("%s: Successfully rotated journal", w->journal->path);
-        r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files, /* max_retention_usec= */ 0, /* oldest_usec= */ NULL, /* verbose= */ true);
+        r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files, w->server->max_retention_usec, /* oldest_usec= */ NULL, /* verbose= */ true);
         if (r < 0)
                 return r;
 
