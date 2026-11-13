@@ -113,6 +113,23 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MaxRetentionSec=</varname></term>
+        <term><varname>MaxFileSec=</varname></term>
+
+        <listitem><para>Set the maximum retention time and file rotation age, respectively, using the time
+        syntax described in <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        Both default to 0 (disabled); <literal>infinity</literal> also disables the limit. Size and file count
+        limits still apply.</para>
+
+        <para>Rotation uses elapsed time since the receiver opened the file; retention uses journal
+        timestamps supplied by the sender. With retention enabled, the rotation age is capped at half
+        the retention period. Only archived files are deleted, as a whole. Maintenance runs every one second
+        to one minute, including for idle or disconnected uploaders while the receiver is running.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MaxUse=</varname></term>
         <term><varname>KeepFree=</varname></term>
         <term><varname>MaxFileSize=</varname></term>

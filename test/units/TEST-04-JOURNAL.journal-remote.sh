@@ -369,6 +369,95 @@ for setting in '' yes; do
             .[0]._REMOTE_CERTIFICATE_SUBJECT == $expected and .[0]._HOSTNAME == "sender-claimed-host")'
     rm /run/systemd/remote-pki/import*.journal
 done
+mkdir -p /run/systemd/system/systemd-journal-remote.service.d
+cat >/run/systemd/system/systemd-journal-remote.service.d/99-retention.conf <<EOF
+[Service]
+ExecStart=
+ExecStart=/usr/lib/systemd/systemd-journal-remote --listen-https=-3
+EOF
+systemctl daemon-reload
+curl_args=(--silent --show-error --fail --max-time 15
+           --cacert /run/systemd/remote-pki/ca.crt
+           --cert /run/systemd/remote-pki/client.crt --key /run/systemd/remote-pki/client.key
+           --header 'Content-Type: application/vnd.fdo.journal'
+           --data-binary @/run/systemd/remote-pki/retention.export https://localhost:19532/upload)
+while read -r split file_age retention expected; do
+    cat >>/run/systemd/journal-remote.conf.d/99-test.conf <<EOF_CONFIG
+SplitMode=$split
+MaxFileSec=$file_age
+MaxRetentionSec=$retention
+EOF_CONFIG
+    systemctl restart systemd-journal-remote.socket
+    systemctl start systemd-journal-remote.service
+    printf '%s\n' "__REALTIME_TIMESTAMP=$(date +%s%6N)" '__MONOTONIC_TIMESTAMP=1000000' \
+        '_BOOT_ID=0123456789abcdef0123456789abcdef' "MESSAGE=retention-test-$expected" '' \
+        >/run/systemd/remote-pki/retention.export
+    curl "${curl_args[@]}"
+    journalctl --directory=/var/log/journal/remote -o cat --quiet | grep -Fx "retention-test-$expected"
+    case "$expected" in
+        retained)
+            sleep 3
+            journalctl --directory=/var/log/journal/remote -o cat --quiet | grep -Fx "retention-test-$expected"
+            (! compgen -G '/var/log/journal/remote/*@*.journal')
+            ;;
+        rotated)
+            timeout 30 bash -xec 'until compgen -G "/var/log/journal/remote/*@*.journal"; do sleep .2; done'
+            journalctl --directory=/var/log/journal/remote -o cat --quiet | grep -Fx "retention-test-$expected"
+            ;;
+        expired)
+            timeout 30 bash -xec 'while journalctl --directory=/var/log/journal/remote -o cat --quiet | grep -F retention-test-expired; do sleep .2; done'
+            (! compgen -G '/var/log/journal/remote/*@*.journal')
+            ;;
+        batches)
+            curl "${curl_args[@]}"
+            curl "${curl_args[@]}"
+            journalctl --directory=/var/log/journal/remote -o json --all | jq -se 'length == 3'
+            (! compgen -G '/var/log/journal/remote/*@*.journal')
+            ;;
+        history)
+            timeout 30 bash -xec 'until compgen -G "/var/log/journal/remote/*@*.journal"; do sleep .2; done'
+            printf '%s\n' "__REALTIME_TIMESTAMP=$(date +%s%6N)" '__MONOTONIC_TIMESTAMP=1000000' \
+                '_BOOT_ID=0123456789abcdef0123456789abcdef' 'MESSAGE=recent-history' '' \
+                >/run/systemd/remote-pki/retention.export
+            curl "${curl_args[@]}"
+            timeout 30 bash -xec 'while journalctl --directory=/var/log/journal/remote -o cat --quiet | grep -Fx retention-test-history; do sleep .2; done'
+            journalctl --directory=/var/log/journal/remote -o cat --quiet | grep -Fx recent-history
+            ;;
+    esac
+    systemctl is-active systemd-journal-remote.service
+    systemctl stop systemd-journal-remote.{socket,service}
+    rm -rf /var/log/journal/remote/*
+done <<EOF_CASES
+none 0 0 retained
+none infinity infinity retained
+none 5s 0 rotated
+host 5s 0 rotated
+none 1h 10s expired
+host 1h 10s expired
+host 1h 1h batches
+none 1h 10s history
+EOF_CASES
+
+cat >>/run/systemd/journal-remote.conf.d/99-test.conf <<EOF
+SplitMode=none
+MaxFileSec=1h
+MaxRetentionSec=1h
+EOF
+{
+    for i in {1..8}; do
+        printf '%s\n' '__REALTIME_TIMESTAMP=1700000000000000' '__MONOTONIC_TIMESTAMP=1000000' \
+            '_BOOT_ID=0123456789abcdef0123456789abcdef' "MESSAGE=backlog-$i" ''
+    done
+} >/run/systemd/remote-pki/retention.export
+/usr/lib/systemd/systemd-journal-remote --output=/run/systemd/remote-pki/backlog.journal \
+    /run/systemd/remote-pki/retention.export
+[[ -f /run/systemd/remote-pki/backlog.journal ]]
+(! compgen -G '/run/systemd/remote-pki/backlog@*.journal')
+journalctl --file=/run/systemd/remote-pki/backlog.journal -o json --all | jq -se 'length == 8'
+rm /run/systemd/remote-pki/backlog.journal
+rm /run/systemd/system/systemd-journal-remote.service.d/99-retention.conf
+systemctl daemon-reload
+
 rm /run/systemd/journal-remote.conf.d/99-test.conf
 
 DOS_DIR="$(mktemp -d)"

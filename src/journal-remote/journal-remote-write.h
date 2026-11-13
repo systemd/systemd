@@ -15,6 +15,7 @@ typedef struct Writer {
         char *hashmap_key;
 
         uint64_t seqnum;
+        usec_t file_opened_usec;
 
         unsigned n_ref;
 } Writer;
@@ -23,6 +24,8 @@ int writer_new(RemoteServer *server, Writer **ret);
 DECLARE_TRIVIAL_REF_UNREF_FUNC(Writer, writer);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Writer*, writer_unref);
+
+int writer_maintain(Writer *w);
 
 int writer_write(Writer *w,
                  const struct iovec_wrapper *iovw,
