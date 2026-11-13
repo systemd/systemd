@@ -4,8 +4,9 @@
 #include "build-path.h"
 #include "log.h"
 #include "string-util.h"
+#include "tests.h"
 
-int main(int argc, char* argv[]) {
+TEST(build_exec_dir) {
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -16,6 +17,6 @@ int main(int argc, char* argv[]) {
                 log_error_errno(r, "Failed to find build dir: %m");
         else
                 log_info("%s", strna(p));
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_INFO);

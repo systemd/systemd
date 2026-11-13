@@ -64,12 +64,7 @@ static void test_one_noutc(const char *p) {
         test_should_fail(with_utc);
 }
 
-int main(int argc, char *argv[]) {
-        /* Tests have hard-coded results that do not expect a specific timezone to be set by the caller */
-        ASSERT_OK_ERRNO(unsetenv("TZ"));
-
-        test_setup_logging(LOG_DEBUG);
-
+TEST(parse_timestamp) {
         test_one("17:41");
         test_one("18:42:44");
         test_one("18:42:44.0");
@@ -114,6 +109,12 @@ int main(int argc, char *argv[]) {
         test_should_pass("2038-01-18 03:14:07 UTC");
         test_should_fail("2038-01-18 03:14:08 UTC");
 #endif
-
-        return 0;
 }
+
+static int intro(void) {
+        /* Tests have hard-coded results that do not expect a specific timezone to be set by the caller */
+        ASSERT_OK_ERRNO(unsetenv("TZ"));
+        return EXIT_SUCCESS;
+}
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);

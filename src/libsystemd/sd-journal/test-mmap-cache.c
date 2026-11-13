@@ -8,15 +8,13 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
-int main(int argc, char *argv[]) {
+TEST(mmap_cache) {
         MMapFileDescriptor *fx;
         int x, y, z;
         char px[] = "/tmp/testmmapXXXXXXX", py[] = "/tmp/testmmapYXXXXXX", pz[] = "/tmp/testmmapZXXXXXX";
         MMapCache *m;
         void *p, *q;
         size_t sp, sq;
-
-        test_setup_logging(LOG_DEBUG);
 
         ASSERT_NOT_NULL(m = mmap_cache_new());
 
@@ -58,6 +56,6 @@ int main(int argc, char *argv[]) {
         safe_close(x);
         safe_close(y);
         safe_close(z);
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);
