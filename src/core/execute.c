@@ -2208,17 +2208,9 @@ bool exec_context_io_uring_filter_set(const ExecContext *c) {
 bool exec_context_with_rootfs(const ExecContext *c) {
         assert(c);
 
-        /* Checks if RootDirectory=, RootImage=, RootMStack= or RootDirectoryFileDescriptor= are used */
-
-        return !empty_or_root(c->root_directory) || c->root_image || c->root_directory_as_fd || c->root_mstack;
-}
-
-bool exec_context_with_rootfs_strict(const ExecContext *c) {
-        assert(c);
-
-        /* just like exec_context_with_rootfs(), but doesn't suppress a root directory of "/", i.e. returns
-         * true in more cases: when a root directory is explicitly configured, even if it's our usual
-         * root. */
+        /* Checks if RootDirectory=, RootImage=, RootMStack=, or RootDirectoryFileDescriptor= are used.
+         * Note that RootDirectory=/ counts, too: it is treated like any other root directory, even
+         * though it refers to our usual root. */
 
         return c->root_directory || c->root_image || c->root_directory_as_fd || c->root_mstack;
 }

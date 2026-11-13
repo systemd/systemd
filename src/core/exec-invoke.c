@@ -5056,7 +5056,7 @@ static bool exec_needs_cap_sys_admin(const ExecContext *context, const ExecParam
                context->bind_log_sockets > 0 ||
                context->n_bind_mounts > 0 ||
                context->n_temporary_filesystems > 0 ||
-               exec_context_with_rootfs_strict(context) ||
+               exec_context_with_rootfs(context) ||
                !strv_isempty(context->extension_directories) ||
                context->n_mount_images > 0 ||
                context->n_extension_images > 0 ||
