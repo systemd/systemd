@@ -169,7 +169,7 @@ static int acquire_bus(bool set_monitor, sd_bus **ret) {
 
         r = sd_bus_start(bus);
         if (r < 0)
-                return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
+                return bus_log_connect_error(r, arg_transport, arg_host, arg_runtime_scope);
 
         *ret = TAKE_PTR(bus);
 
@@ -1466,9 +1466,10 @@ static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) 
                         printf("BusScope=%s%s%s\n", ansi_highlight(), scope, ansi_normal());
 
                 r = sd_bus_get_bus_id(bus, &bus_id);
-                if (r >= 0)
-                        printf("BusID=%s" SD_ID128_FORMAT_STR "%s\n",
-                               ansi_highlight(), SD_ID128_FORMAT_VAL(bus_id), ansi_normal());
+                if (r < 0)
+                        return bus_log_connect_error(r, arg_transport, arg_host, arg_runtime_scope);
+                printf("BusID=%s" SD_ID128_FORMAT_STR "%s\n",
+                       ansi_highlight(), SD_ID128_FORMAT_VAL(bus_id), ansi_normal());
 
                 r = sd_bus_get_owner_creds(
                                 bus,
