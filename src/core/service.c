@@ -4409,6 +4409,13 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                                 TAKE_FD(fd);
                 }
 
+        } else if (streq(key, "exec-fd-hot")) {
+                r = parse_boolean(value);
+                if (r < 0)
+                        log_unit_debug_errno(u, r, "Failed to parse exec-fd-hot value: %s", value);
+                else
+                        s->exec_fd_hot = r;
+
         } else if (streq(key, "status-text")) {
                 char *t;
                 ssize_t l;
