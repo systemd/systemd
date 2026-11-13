@@ -24,6 +24,8 @@ DECLARE_TRIVIAL_REF_UNREF_FUNC(Writer, writer);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Writer*, writer_unref);
 
+int writer_maintain(Writer *w);
+
 int writer_write(Writer *w,
                  const struct iovec_wrapper *iovw,
                  const dual_timestamp *ts,

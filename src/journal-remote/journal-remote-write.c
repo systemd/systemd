@@ -65,6 +65,13 @@ static Writer* writer_free(Writer *w) {
                 return NULL;
 
         if (w->journal) {
+                /* Without an uploader, this file would otherwise never become eligible for vacuuming. */
+                if (w->server->max_retention_usec > 0 && le64toh(w->journal->header->n_entries) > 0) {
+                        int r = journal_file_archive(w->journal, /* ret_previous_path= */ NULL);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to archive journal '%s', ignoring: %m", w->journal->path);
+                }
+
                 log_debug("Closing journal file %s.", w->journal->path);
                 journal_file_offline_close(w->journal);
         }
@@ -84,6 +91,30 @@ static Writer* writer_free(Writer *w) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(Writer, writer, writer_free);
 
+int writer_maintain(Writer *w) {
+        usec_t age;
+        int r;
+
+        assert(w);
+        assert(w->server);
+
+        age = w->server->max_file_usec;
+        if (w->server->max_retention_usec > 0)
+                age = age > 0 ? MIN(age, w->server->max_retention_usec) : w->server->max_retention_usec;
+
+        /* Empty journals have nothing to expire and must not be rotated on every wakeup. */
+        if (le64toh(w->journal->header->n_entries) == 0 ||
+            !journal_file_rotate_suggested(w->journal, age, LOG_DEBUG))
+                return 0;
+
+        r = do_rotate(&w->journal, w->mmap, w->server->file_flags);
+        if (r < 0)
+                return r;
+
+        return journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files,
+                                        w->server->max_retention_usec, /* oldest_usec= */ NULL, /* verbose= */ false);
+}
+
 int writer_write(Writer *w,
                  const struct iovec_wrapper *iovw,
                  const dual_timestamp *ts,
@@ -94,7 +125,7 @@ int writer_write(Writer *w,
         assert(w);
         assert(!iovw_isempty(iovw));
 
-        if (journal_file_rotate_suggested(w->journal, /* max_file_usec= */ 0, LOG_DEBUG)) {
+        if (journal_file_rotate_suggested(w->journal, w->server->max_file_usec, LOG_DEBUG)) {
                 log_info("%s: Journal header limits reached or header out-of-date, rotating",
                          w->journal->path);
 
@@ -102,7 +133,7 @@ int writer_write(Writer *w,
                 if (r < 0)
                         return r;
 
-                r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files, /* max_retention_usec= */ 0, /* oldest_usec= */ NULL, /* verbose= */ true);
+                r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files, w->server->max_retention_usec, /* oldest_usec= */ NULL, /* verbose= */ true);
                 if (r < 0)
                         return r;
         }
@@ -131,7 +162,7 @@ int writer_write(Writer *w,
                 return r;
 
         log_debug("%s: Successfully rotated journal", w->journal->path);
-        r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files, /* max_retention_usec= */ 0, /* oldest_usec= */ NULL, /* verbose= */ true);
+        r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files, w->server->max_retention_usec, /* oldest_usec= */ NULL, /* verbose= */ true);
         if (r < 0)
                 return r;
 
