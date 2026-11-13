@@ -152,6 +152,8 @@
         are available in the new root. Note that setting this parameter might result in additional
         dependencies to be added to the unit (see above).</para>
 
+        <xi:include href="root-settings.xml" xpointer="precedence"/>
+
         <para>The <varname>MountAPIVFS=</varname> and <varname>PrivateUsers=</varname> settings are particularly useful
         in conjunction with <varname>RootDirectory=</varname>. For details, see below.</para>
 
@@ -208,6 +210,8 @@
         <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         file will be made available for the service as a private copy at
         <filename>/run/host/os-release</filename>.</para>
+
+        <xi:include href="root-settings.xml" xpointer="precedence"/>
 
         <xi:include href="vpick.xml" xpointer="image"/>
 
@@ -382,6 +386,8 @@
         directory encapsulating a mount stack consisting of layers and bind mounts. Similar to
         <varname>RootDirectory=</varname> and <varname>RootImage=</varname> this runs the service off a
         distinct root file system, in this case set up via <literal>overlayfs</literal>.</para>
+
+        <xi:include href="root-settings.xml" xpointer="precedence"/>
 
         <para>Since <filename>.mstack/</filename> directories may reference disk images (DDIs) similar device
         policy extensions and dependencies are in effect when <varname>RootMStack=</varname> is used as are
