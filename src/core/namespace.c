@@ -404,13 +404,13 @@ static MountEntry* mount_list_extend(MountList *ml) {
         return ml->mounts + ml->n_mounts++;
 }
 
-static int append_access_mounts(MountList *ml, char **strv, MountMode mode, bool forcibly_require_prefix) {
+static int append_access_mounts(MountList *ml, char **strv, MountMode mode, const char *root_directory) {
         assert(ml);
 
         /* Adds a list of user-supplied READ_WRITE/READ_WRITE_IMPLICIT/READ_ONLY/INACCESSIBLE entries */
 
         STRV_FOREACH(i, strv) {
-                bool ignore = false, needs_prefix = false;
+                bool ignore = false, root_relative = false;
                 const char *e = *i;
 
                 /* Look for any prefixes */
@@ -420,11 +420,29 @@ static int append_access_mounts(MountList *ml, char **strv, MountMode mode, bool
                 }
                 if (startswith(e, "+")) {
                         e++;
-                        needs_prefix = true;
+                        root_relative = true;
                 }
 
                 if (!path_is_absolute(e))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Path is not absolute: %s", e);
+
+                if (root_directory && !root_relative) {
+                        /* The path is relative to the host's root directory. As the mount namespace is
+                         * assembled in the staging copy of the root directory, translate it into that:
+                         * strip the root directory prefix. Paths outside the root directory are ignored,
+                         * as nothing below them is visible inside the root anyway (and always were).
+                         * Note that path_startswith_full() also returns NULL for an exact match, hence
+                         * the special case for the root directory itself. */
+                        const char *translated = path_startswith_full(e, root_directory, PATH_STARTSWITH_RETURN_LEADING_SLASH);
+                        if (translated)
+                                e = translated;
+                        else if (path_equal(e, root_directory))
+                                e = "/";
+                        else {
+                                log_debug("%s is outside of root directory, ignoring.", e);
+                                continue;
+                        }
+                }
 
                 MountEntry *me = mount_list_extend(ml);
                 if (!me)
@@ -434,7 +452,6 @@ static int append_access_mounts(MountList *ml, char **strv, MountMode mode, bool
                         .path_const = e,
                         .mode = mode,
                         .ignore = ignore,
-                        .has_prefix = !needs_prefix && !forcibly_require_prefix,
                 };
         }
 
@@ -2607,8 +2624,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         _cleanup_strv_free_ char **hierarchies = NULL;
         _cleanup_(mount_list_done) MountList ml = {};
         _cleanup_close_ int userns_fd = -EBADF;
-        bool require_prefix = false;
-        const char *root;
+        const char *root, *host_root = NULL;
         DissectImageFlags dissect_image_flags =
                 DISSECT_IMAGE_GENERIC_ROOT |
                 DISSECT_IMAGE_REQUIRE_ROOT |
@@ -2793,25 +2809,25 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 }
         }
 
-        if (p->rootfs && p->rootfs->directory)
-                root = p->rootfs->directory;
-        else {
-                /* /run/systemd should have been created by PID 1 early on already, but in some cases, like
-                 * when running tests (test-execute), it might not have been created yet so let's make sure
-                 * we create it if it doesn't already exist. */
-                (void) mkdir_p_label("/run/systemd", 0755);
+        /* /run/systemd should have been created by PID 1 early on already, but in some cases, like
+         * when running tests (test-execute), it might not have been created yet so let's make sure
+         * we create it if it doesn't already exist. */
+        (void) mkdir_p_label("/run/systemd", 0755);
 
-                /* Always create the mount namespace in a temporary directory, instead of operating directly
-                 * in the root. The temporary directory prevents any mounts from being potentially obscured
-                 * my other mounts we already applied.  We use the same mount point for all images, which is
-                 * safe, since they all live in their own namespaces after all, and hence won't see each
-                 * other. (Note: this directory is also created by PID 1 early on, we create it here for
-                 * similar reasons as /run/systemd/ first.) */
-                root = "/run/systemd/mount-rootfs";
-                (void) mkdir_label(root, 0555);
+        /* Always create the mount namespace in a temporary directory, instead of operating directly
+         * in the root (also when a root directory is configured). The temporary directory prevents any
+         * mounts from being potentially obscured by other mounts we already applied — in particular,
+         * bind mount sources below paths that are overmounted before them, such as the log sockets
+         * below /run/, whose sources are resolved at application time. We use the same mount point
+         * for all images, which is safe, since they all live in their own namespaces after all, and
+         * hence won't see each other. (Note: this directory is also created by PID 1 early on, we
+         * create it here for similar reasons as /run/systemd/ first.) */
+        root = "/run/systemd/mount-rootfs";
+        (void) mkdir_label(root, 0555);
 
-                require_prefix = true;
-        }
+        /* Plain (non-'+') access paths are relative to the host's root directory: pass the configured
+         * root directory so that they can be translated into the staging copy of it. */
+        host_root = p->rootfs && p->rootfs->directory ? p->rootfs->directory : NULL;
 
         if (p->n_extension_images > 0 || !strv_isempty(p->extension_directories)) {
                 /* Hierarchy population needs to be done for sysext and confext extension images */
@@ -2820,23 +2836,23 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         return r;
         }
 
-        r = append_access_mounts(&ml, p->read_write_paths, MOUNT_READ_WRITE, require_prefix);
+        r = append_access_mounts(&ml, p->read_write_paths, MOUNT_READ_WRITE, host_root);
         if (r < 0)
                 return r;
 
-        r = append_access_mounts(&ml, p->read_only_paths, MOUNT_READ_ONLY, require_prefix);
+        r = append_access_mounts(&ml, p->read_only_paths, MOUNT_READ_ONLY, host_root);
         if (r < 0)
                 return r;
 
-        r = append_access_mounts(&ml, p->inaccessible_paths, MOUNT_INACCESSIBLE, require_prefix);
+        r = append_access_mounts(&ml, p->inaccessible_paths, MOUNT_INACCESSIBLE, host_root);
         if (r < 0)
                 return r;
 
-        r = append_access_mounts(&ml, p->exec_paths, MOUNT_EXEC, require_prefix);
+        r = append_access_mounts(&ml, p->exec_paths, MOUNT_EXEC, host_root);
         if (r < 0)
                 return r;
 
-        r = append_access_mounts(&ml, p->no_exec_paths, MOUNT_NOEXEC, require_prefix);
+        r = append_access_mounts(&ml, p->no_exec_paths, MOUNT_NOEXEC, host_root);
         if (r < 0)
                 return r;
 
@@ -3149,20 +3165,6 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 if (r < 0)
                         return r;
 
-        } else if (p->rootfs && p->rootfs->directory) {
-
-                /* If we do not have root_mount_fd, but a directory was specified, then we can use it directly. */
-
-                /* A root directory is specified. Turn its directory into bind mount, if it isn't one yet. */
-                r = path_is_mount_point_full(root, /* root = */ NULL, AT_SYMLINK_FOLLOW);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to detect that %s is a mount point or not: %m", root);
-                if (r == 0) {
-                        r = mount_nofollow_verbose(LOG_DEBUG, root, root, /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
-                        if (r < 0)
-                                return r;
-                }
-
         } else if (dissected_image) {
 
                 /* A root image is specified, mount it to the right place */
@@ -3199,8 +3201,12 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         return r;
 
         } else {
-                /* Let's mount the main root directory to the root directory to use */
-                r = mount_nofollow_verbose(LOG_DEBUG, "/", root, /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
+                /* Bind the main root directory (the configured one, or our own root when none is
+                 * configured) to the staging directory. This is the fallback for a root directory when
+                 * we could not get a detached mount of it, e.g. in an unprivileged user manager. */
+                r = mount_nofollow_verbose(LOG_DEBUG,
+                                           p->rootfs && p->rootfs->directory ? p->rootfs->directory : "/",
+                                           root, /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -3216,18 +3222,6 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
 
         /* MS_MOVE does not work on MS_SHARED so the remount MS_SHARED will be done later */
         r = mount_switch_root(root, /* mount_propagation_flag = */ 0);
-        if (r == -EINVAL && p->rootfs && p->rootfs->directory) {
-                /* If we are using root_directory and we don't have privileges (ie: user manager in a user
-                 * namespace) and the root_directory is already a mount point in the parent namespace,
-                 * MS_MOVE will fail as we don't have permission to change it (with EINVAL rather than
-                 * EPERM). Attempt to bind-mount it over itself (like we do above if it's not already a
-                 * mount point) and try again. */
-                r = mount_nofollow_verbose(LOG_DEBUG, root, root, /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
-                if (r < 0)
-                        return r;
-
-                r = mount_switch_root(root, /* mount_propagation_flag= */ 0);
-        }
         if (r < 0)
                 return log_debug_errno(r, "Failed to mount root with MS_MOVE: %m");
 

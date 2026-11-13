@@ -27,6 +27,13 @@ CHANGES WITH 263 in spe:
           foo:bar. Unit file syntax and the signature of the plain D-Bus
           string array property are unchanged.
 
+        * RootDirectory=/ is now treated like any other root directory: it
+          implies MountAPIVFS=yes and BindLogSockets=yes, and /run/ is a
+          private tmpfs in the resulting mount namespace. Previously it was
+          inconsistently half-ignored: the mount namespace machinery used it
+          as the root, but the settings derived from "a root is configured"
+          (MountAPIVFS=, BindLogSockets=, …) suppressed it.
+
         * Empty transient assignments to RuntimeDirectory=, StateDirectory=,
           CacheDirectory= and LogsDirectory= now reset the corresponding
           directory list instead of being ignored. ConfigurationDirectory=

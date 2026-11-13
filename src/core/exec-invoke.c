@@ -4002,7 +4002,7 @@ static int setup_ephemeral(
         assert(rootfs);
         assert(reterr_path);
 
-        if (!rootfs->image && !rootfs->directory)
+        if (!rootfs->image && !rootfs->directory && rootfs->directory_fd < 0)
                 return 0;
 
         if (!runtime->ephemeral_copy)
@@ -4022,9 +4022,24 @@ static int setup_ephemeral(
         CLEANUP_POSIX_UNLOCK(runtime->ephemeral_storage_socket[0]);
 
         fd = receive_one_fd(runtime->ephemeral_storage_socket[0], MSG_PEEK|MSG_DONTWAIT);
-        if (fd >= 0)
-                /* We got an fd! That means ephemeral has already been set up, so nothing to do here. */
-                return 0;
+        if (fd >= 0) {
+                /* We got an fd! That means ephemeral has already been set up. Switch the pinned root fs
+                 * over to the existing ephemeral copy, and reuse it. */
+                if (rootfs->image) {
+                        free_and_replace(rootfs->image, new_root);
+                        close_and_replace(rootfs->image_fd, fd);
+                } else if (rootfs->directory) {
+                        free_and_replace(rootfs->directory, new_root);
+                        close_and_replace(rootfs->directory_fd, fd);
+                } else {
+                        /* RootDirectoryFileDescriptor=: keep this an fd-based root (i.e. don't set the
+                         * path), so that the mount namespace semantics stay the same as without
+                         * Ephemeral=. */
+                        close_and_replace(rootfs->directory_fd, fd);
+                }
+
+                return 1;
+        }
         if (fd != -EAGAIN)
                 return log_debug_errno(fd, "Failed to receive file descriptor queued on ephemeral storage socket: %m");
 
@@ -4039,21 +4054,38 @@ static int setup_ephemeral(
                                                rootfs->image, new_root);
                 }
         } else {
-                assert(rootfs->directory);
+                int src_fd;
+                const char *src_path;
 
-                log_debug("Making ephemeral snapshot of %s to %s", rootfs->directory, new_root);
+                if (rootfs->directory) {
+                        src_fd = AT_FDCWD;
+                        src_path = rootfs->directory;
+
+                        log_debug("Making ephemeral snapshot of %s to %s", rootfs->directory, new_root);
+                } else {
+                        /* RootDirectoryFileDescriptor= */
+                        assert(rootfs->directory_fd >= 0);
+                        src_fd = rootfs->directory_fd;
+                        src_path = NULL;
+
+                        log_debug("Making ephemeral snapshot of the root directory to %s", new_root);
+                }
 
                 fd = btrfs_subvol_snapshot_at(
-                                AT_FDCWD, rootfs->directory,
+                                src_fd, src_path,
                                 AT_FDCWD, new_root,
                                 BTRFS_SNAPSHOT_FALLBACK_COPY |
                                 BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
                                 BTRFS_SNAPSHOT_RECURSIVE |
                                 BTRFS_SNAPSHOT_LOCK_BSD);
                 if (fd < 0) {
-                        *reterr_path = strdup(rootfs->directory);
-                        return log_debug_errno(fd, "Failed to snapshot directory %s to %s: %m",
-                                               rootfs->directory, new_root);
+                        if (rootfs->directory) {
+                                *reterr_path = strdup(rootfs->directory);
+                                return log_debug_errno(fd, "Failed to snapshot directory %s to %s: %m",
+                                                       rootfs->directory, new_root);
+                        }
+
+                        return log_debug_errno(fd, "Failed to snapshot the root directory to %s: %m", new_root);
                 }
         }
 
@@ -4064,10 +4096,12 @@ static int setup_ephemeral(
         if (rootfs->image) {
                 free_and_replace(rootfs->image, new_root);
                 close_and_replace(rootfs->image_fd, fd);
-        } else {
-                assert(rootfs->directory);
-
+        } else if (rootfs->directory) {
                 free_and_replace(rootfs->directory, new_root);
+                close_and_replace(rootfs->directory_fd, fd);
+        } else {
+                /* RootDirectoryFileDescriptor=: keep this an fd-based root (i.e. don't set the path),
+                 * so that the mount namespace semantics stay the same as without Ephemeral=. */
                 close_and_replace(rootfs->directory_fd, fd);
         }
 
@@ -4135,6 +4169,9 @@ static int pin_rootfs(
         assert(params);
         assert(ret);
         assert(reterr_path);
+
+        /* If more than one root is configured, the first one that is set is used:
+         * RootDirectoryFileDescriptor=, RootImage=, RootDirectory=, RootMStack=. */
 
         if (!FLAGS_SET(params->flags, EXEC_APPLY_CHROOT)) {
                 *ret = PINNED_RESOURCE_NULL;
@@ -5056,7 +5093,7 @@ static bool exec_needs_cap_sys_admin(const ExecContext *context, const ExecParam
                context->bind_log_sockets > 0 ||
                context->n_bind_mounts > 0 ||
                context->n_temporary_filesystems > 0 ||
-               exec_context_with_rootfs_strict(context) ||
+               exec_context_with_rootfs(context) ||
                !strv_isempty(context->extension_directories) ||
                context->n_mount_images > 0 ||
                context->n_extension_images > 0 ||

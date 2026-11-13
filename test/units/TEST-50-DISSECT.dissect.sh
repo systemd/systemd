@@ -1491,6 +1491,37 @@ systemd-run --wait --pipe --root-directory=/tmp/img -- grep -q 'MARKER=1' /usr/l
 # Make sure the same root file descriptor can be reused multiple times.
 systemd-run --wait --pipe --same-root-dir -p ExecStartPre=true true
 
+# Test the precedence of the root settings:
+# RootDirectoryFileDescriptor= > RootImage= > RootDirectory=.
+# The unused RootDirectory= is nonexistent, and the unused RootImage= is not an image, so the
+# service would fail if the respective setting were used.
+systemd-run --wait --pipe --root-directory=/tmp/img -p RootDirectory=/nonexistent \
+    -- grep -q 'MARKER=1' /usr/lib/os-release
+systemd-run --wait --pipe --root-directory=/tmp/img -p RootImage=/dev/null \
+    -- grep -q 'MARKER=1' /usr/lib/os-release
+# RootImage= wins over RootDirectory=: /dev/null is not an image, so this must fail.
+(! systemd-run --wait --pipe -p RootDirectory=/tmp/img -p RootImage=/dev/null true)
+
+# Test RootEphemeral= with RootDirectoryFileDescriptor=: all spawns of the activation run
+# in the same ephemeral copy (ExecStartPre= creates the file, ExecStart= sees it), and the
+# copy is discarded afterwards.
+systemd-run --wait --pipe --root-directory=/tmp/img -p RootEphemeral=yes \
+    -p "ExecStartPre=bash -c 'touch /pre'" \
+    bash -xec '[[ -e /pre ]]'
+test ! -e /tmp/img/pre
+
+# Plain paths in ReadWritePaths= and friends are relative to the host's root directory,
+# '+'-prefixed paths are relative to the root directory. Both make /hoge inside the root
+# writable, a plain path outside the root directory is ignored.
+mkdir -p /tmp/img/hoge
+systemd-run --wait --pipe -p RootDirectory=/tmp/img -p ProtectSystem=strict \
+    -p ReadWritePaths=/tmp/img/hoge -- bash -xec '! test -w /etc && test -w /hoge'
+systemd-run --wait --pipe -p RootDirectory=/tmp/img -p ProtectSystem=strict \
+    -p ReadWritePaths=+/hoge -- bash -xec '! test -w /etc && test -w /hoge'
+systemd-run --wait --pipe -p RootDirectory=/tmp/img -p ProtectSystem=strict \
+    -p ReadWritePaths=/hoge -- bash -xec '! test -w /hoge'
+rm -rf /tmp/img/hoge
+
 systemd-dissect --mtree /tmp/img >/dev/null
 systemd-dissect --list /tmp/img >/dev/null
 
