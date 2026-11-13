@@ -15,21 +15,11 @@
 #include "sigbus.h"
 #include "tests.h"
 
-int main(int argc, char *argv[]) {
+TEST(sigbus) {
         _cleanup_close_ int fd = -EBADF;
         char template[] = "/tmp/sigbus-test-XXXXXX";
         void *addr = NULL;
         uint8_t *p;
-
-        test_setup_logging(LOG_INFO);
-
-#if HAS_FEATURE_ADDRESS_SANITIZER
-        return log_tests_skipped("address-sanitizer is enabled");
-#endif
-#if HAVE_VALGRIND_VALGRIND_H
-        if (RUNNING_ON_VALGRIND)
-                return log_tests_skipped("This test cannot run on valgrind");
-#endif
 
         sigbus_install();
 
@@ -61,3 +51,17 @@ int main(int argc, char *argv[]) {
 
         sigbus_reset();
 }
+
+static int intro(void) {
+#if HAS_FEATURE_ADDRESS_SANITIZER
+        return log_tests_skipped("address-sanitizer is enabled");
+#endif
+#if HAVE_VALGRIND_VALGRIND_H
+        if (RUNNING_ON_VALGRIND)
+                return log_tests_skipped("This test cannot run on valgrind");
+#endif
+
+        return EXIT_SUCCESS;
+}
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, intro);

@@ -7,42 +7,44 @@
 #include "tests.h"
 #include "virt.h"
 
-int main(int argc, char *argv[]) {
-        Virtualization v;
-        Architecture a;
-        const char *p;
-
-        test_setup_logging(LOG_INFO);
-
+TEST(architecture_from_string) {
         ASSERT_LT(architecture_from_string(""), 0);
         ASSERT_LT(architecture_from_string(NULL), 0);
         ASSERT_LT(architecture_from_string("hoge"), 0);
         ASSERT_NULL(architecture_to_string(-1));
         ASSERT_EQ(architecture_from_string(architecture_to_string(0)), 0);
         ASSERT_EQ(architecture_from_string(architecture_to_string(1)), 1);
+}
 
-        v = detect_virtualization();
+TEST(detect_virtualization) {
+        Virtualization v = detect_virtualization();
         if (ERRNO_IS_NEG_PRIVILEGE(v))
-                return log_tests_skipped("Cannot detect virtualization");
+                return (void) log_tests_skipped("Cannot detect virtualization");
         ASSERT_OK(v);
 
         log_info("virtualization=%s id=%s",
                  VIRTUALIZATION_IS_CONTAINER(v) ? "container" :
                  VIRTUALIZATION_IS_VM(v)        ? "vm" : "n/a",
                  virtualization_to_string(v));
+}
 
-        a = ASSERT_OK(uname_architecture());
-        p = ASSERT_NOT_NULL(architecture_to_string(a));
+TEST(uname_architecture) {
+        Architecture a = ASSERT_OK(uname_architecture());
+        const char *p = ASSERT_NOT_NULL(architecture_to_string(a));
         log_info("uname architecture=%s", p);
         ASSERT_EQ(architecture_from_string(p), a);
+}
 
-        a = ASSERT_OK(native_architecture());
-        p = ASSERT_NOT_NULL(architecture_to_string(a));
+TEST(native_architecture) {
+        Architecture a = ASSERT_OK(native_architecture());
+        const char *p = ASSERT_NOT_NULL(architecture_to_string(a));
         log_info("native architecture=%s", p);
         ASSERT_EQ(architecture_from_string(p), a);
 
         log_info("primary library architecture=" LIB_ARCH_TUPLE);
+}
 
+TEST(filename_part) {
         for (Architecture i = 0; i < _ARCHITECTURE_MAX; i++) {
                 const char *n = ASSERT_PTR(architecture_to_string(i));
 
@@ -54,6 +56,6 @@ int main(int argc, char *argv[]) {
 
                 log_info("Good for inclusion in .v/ filenames: %s", n);
         }
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_INFO);
