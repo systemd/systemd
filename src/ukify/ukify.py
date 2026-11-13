@@ -894,9 +894,21 @@ def call_systemd_measure(uki: UKI, opts: UkifyConfig, profile_start: int = 0) ->
             if dtbauto is not None:
                 to_measure[dtbauto.name] = dtbauto
 
-            policy_groups: list[tuple[list[str], str]] = [
-                (list(itertools.chain.from_iterable(opts.phase_path_groups or [])), ''),
-            ]
+            policy_groups: list[tuple[list[str], str]]
+            if opts.policy_digest:
+                # One policy for each pair of --phases= and --policyref=, like for each
+                # --pcr-private-key= when signing, but all for the same public key
+                policy_groups = [
+                    (phases or [], policyref or '')
+                    for phases, policyref in itertools.zip_longest(
+                        opts.phase_path_groups or [None],
+                        opts.policyrefs or [None],
+                    )
+                ]
+            else:
+                policy_groups = [
+                    (list(itertools.chain.from_iterable(opts.phase_path_groups or [])), ''),
+                ]
             if opts.policy_digest and opts.sign_initrd_pcrs:
                 policy_groups += [INITRD_PCR_POLICY]
 
