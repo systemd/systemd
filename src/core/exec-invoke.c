@@ -4002,7 +4002,7 @@ static int setup_ephemeral(
         assert(rootfs);
         assert(reterr_path);
 
-        if (!rootfs->image && !rootfs->directory)
+        if (!rootfs->image && !rootfs->directory && rootfs->directory_fd < 0)
                 return 0;
 
         if (!runtime->ephemeral_copy)
@@ -4028,10 +4028,13 @@ static int setup_ephemeral(
                 if (rootfs->image) {
                         free_and_replace(rootfs->image, new_root);
                         close_and_replace(rootfs->image_fd, fd);
-                } else {
-                        assert(rootfs->directory);
-
+                } else if (rootfs->directory) {
                         free_and_replace(rootfs->directory, new_root);
+                        close_and_replace(rootfs->directory_fd, fd);
+                } else {
+                        /* RootDirectoryFileDescriptor=: keep this an fd-based root (i.e. don't set the
+                         * path), so that the mount namespace semantics stay the same as without
+                         * Ephemeral=. */
                         close_and_replace(rootfs->directory_fd, fd);
                 }
 
@@ -4051,21 +4054,38 @@ static int setup_ephemeral(
                                                rootfs->image, new_root);
                 }
         } else {
-                assert(rootfs->directory);
+                int src_fd;
+                const char *src_path;
 
-                log_debug("Making ephemeral snapshot of %s to %s", rootfs->directory, new_root);
+                if (rootfs->directory) {
+                        src_fd = AT_FDCWD;
+                        src_path = rootfs->directory;
+
+                        log_debug("Making ephemeral snapshot of %s to %s", rootfs->directory, new_root);
+                } else {
+                        /* RootDirectoryFileDescriptor= */
+                        assert(rootfs->directory_fd >= 0);
+                        src_fd = rootfs->directory_fd;
+                        src_path = NULL;
+
+                        log_debug("Making ephemeral snapshot of the root directory to %s", new_root);
+                }
 
                 fd = btrfs_subvol_snapshot_at(
-                                AT_FDCWD, rootfs->directory,
+                                src_fd, src_path,
                                 AT_FDCWD, new_root,
                                 BTRFS_SNAPSHOT_FALLBACK_COPY |
                                 BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
                                 BTRFS_SNAPSHOT_RECURSIVE |
                                 BTRFS_SNAPSHOT_LOCK_BSD);
                 if (fd < 0) {
-                        *reterr_path = strdup(rootfs->directory);
-                        return log_debug_errno(fd, "Failed to snapshot directory %s to %s: %m",
-                                               rootfs->directory, new_root);
+                        if (rootfs->directory) {
+                                *reterr_path = strdup(rootfs->directory);
+                                return log_debug_errno(fd, "Failed to snapshot directory %s to %s: %m",
+                                                       rootfs->directory, new_root);
+                        }
+
+                        return log_debug_errno(fd, "Failed to snapshot the root directory to %s: %m", new_root);
                 }
         }
 
@@ -4076,10 +4096,12 @@ static int setup_ephemeral(
         if (rootfs->image) {
                 free_and_replace(rootfs->image, new_root);
                 close_and_replace(rootfs->image_fd, fd);
-        } else {
-                assert(rootfs->directory);
-
+        } else if (rootfs->directory) {
                 free_and_replace(rootfs->directory, new_root);
+                close_and_replace(rootfs->directory_fd, fd);
+        } else {
+                /* RootDirectoryFileDescriptor=: keep this an fd-based root (i.e. don't set the path),
+                 * so that the mount namespace semantics stay the same as without Ephemeral=. */
                 close_and_replace(rootfs->directory_fd, fd);
         }
 
