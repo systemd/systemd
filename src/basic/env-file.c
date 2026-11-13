@@ -283,8 +283,6 @@ static int parse_env_file_internal(
                 r = push(fname, line, key, value, userdata);
                 if (r < 0)
                         return r;
-
-                value = NULL;
         }
 
         return 0;
@@ -341,14 +339,18 @@ static int parse_env_file_push(
 
                 if (streq(key, k)) {
                         va_end(aq);
-                        free_and_replace(*v, value);
+
+                        char *n = strdup(value);
+                        if (!n)
+                                return -ENOMEM;
+
+                        free_and_replace(*v, n);
 
                         return 1;
                 }
         }
 
         va_end(aq);
-        free(value);
 
         return 0;
 }
@@ -477,7 +479,6 @@ static int load_env_file_push(
         if (r < 0)
                 return r;
 
-        free(value);
         return 0;
 }
 
@@ -563,7 +564,7 @@ static int merge_env_file_push(
                 void *userdata) {
 
         char ***env = ASSERT_PTR(userdata);
-        char *expanded_value;
+        _cleanup_free_ char *expanded_value;
         int r;
 
         assert(key);
@@ -586,11 +587,9 @@ static int merge_env_file_push(
         if (r < 0)
                 return log_error_errno(r, "%s:%u: Failed to expand variable '%s': %m", strna(filename), line, value);
 
-        free_and_replace(value, expanded_value);
+        log_debug("%s:%u: setting %s=%s", filename, line, key, expanded_value);
 
-        log_debug("%s:%u: setting %s=%s", filename, line, key, value);
-
-        return load_env_file_push(filename, line, key, value, env);
+        return load_env_file_push(filename, line, key, expanded_value, env);
 }
 
 int merge_env_file(
