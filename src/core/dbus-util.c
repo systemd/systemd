@@ -159,55 +159,25 @@ int bus_set_transient_usec_fix_0(Unit *u, const char *name, usec_t *p, sd_bus_me
         return bus_set_transient_usec_internal(u, name, p, /* fix_0= */ true, message, flags, reterr_error);
 }
 
-int bus_verify_manage_units_async_impl(
-                Manager *manager,
-                const char *id,
-                const char *verb,
-                const char *polkit_message,
-                sd_bus_message *call,
-                sd_bus_error *reterr_error) {
-
-        const char *details[9];
-        size_t n_details = 0;
+int bus_verify_manage_units_async(Manager *manager, sd_bus_message *call, const UnitPolkitDetails *details, sd_bus_error *reterr_error) {
+        int r;
 
         assert(manager);
         assert(call);
 
-        if (id) {
-                details[n_details++] = "unit";
-                details[n_details++] = id;
+        _cleanup_strv_free_ char **details_strv = NULL;
+        if (details) {
+               r = unit_polkit_details(details, &details_strv);
+                if (r < 0)
+                        return r;
         }
-
-        if (verb) {
-                details[n_details++] = "verb";
-                details[n_details++] = verb;
-        };
-
-        if (polkit_message) {
-                details[n_details++] = "polkit.message";
-                details[n_details++] = polkit_message;
-                details[n_details++] = "polkit.gettext_domain";
-                details[n_details++] = GETTEXT_PACKAGE;
-        }
-
-        assert(n_details < ELEMENTSOF(details));
-        details[n_details] = NULL;
 
         return bus_verify_polkit_async(
                         call,
                         "org.freedesktop.systemd1.manage-units",
-                        n_details > 0 ? details : NULL,
+                        (const char**) details_strv,
                         &manager->polkit_registry,
                         reterr_error);
-}
-
-int bus_verify_manage_units_async_full(Unit *u, const char *verb, const char *polkit_message, sd_bus_message *call, sd_bus_error *reterr_error) {
-        assert(u);
-        return bus_verify_manage_units_async_impl(u->manager, u->id, verb, polkit_message, call, reterr_error);
-}
-
-int bus_verify_manage_units_async(Manager *manager, sd_bus_message *call, sd_bus_error *reterr_error) {
-        return bus_verify_manage_units_async_impl(manager, /* id= */ NULL, /* verb= */ NULL, /* polkit_message= */ NULL, call, reterr_error);
 }
 
 int bus_verify_manage_unit_files_async(Manager *m, sd_bus_message *call, sd_bus_error *reterr_error) {

@@ -23,6 +23,7 @@
 #include "log.h"
 #include "manager.h"
 #include "namespace-util.h"
+#include "object-tags.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -425,12 +426,12 @@ int bus_unit_method_start_generic(
                                                           input_flags);
         }
 
-        r = bus_verify_manage_units_async_full(
-                        u,
-                        verb,
-                        polkit_message_for_job[job_type],
-                        message,
-                        reterr_error);
+        const UnitPolkitDetails details = {
+                .unit = u,
+                .verb = verb,
+                .message = polkit_message_for_job[job_type],
+        };
+        r = bus_verify_manage_units_async(u->manager, message, &details, reterr_error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -532,12 +533,12 @@ int bus_unit_method_enqueue_job(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        r = bus_verify_manage_units_async_full(
-                        u,
-                        jtype,
-                        polkit_message_for_job[type],
-                        message,
-                        reterr_error);
+        const UnitPolkitDetails details = {
+                .unit = u,
+                .verb = jtype,
+                .message = polkit_message_for_job[type],
+        };
+        r = bus_verify_manage_units_async(u->manager, message, &details, reterr_error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -588,12 +589,12 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
                 return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Value parameter only accepted for realtime signals (SIGRTMIN…SIGRTMAX), refusing for signal SIG%s.", signal_to_string(signo));
 
-        r = bus_verify_manage_units_async_full(
-                        u,
-                        "kill",
-                        N_("Authentication is required to send a UNIX signal to the processes of '$(unit)'."),
-                        message,
-                        reterr_error);
+        const UnitPolkitDetails details = {
+                .unit = u,
+                .verb = "kill",
+                .message = N_("Authentication is required to send a UNIX signal to the processes of '$(unit)'."),
+        };
+        r = bus_verify_manage_units_async(u->manager, message, &details, reterr_error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -641,12 +642,12 @@ int bus_unit_method_kill_subgroup(sd_bus_message *message, void *userdata, sd_bu
         if (!SIGNAL_VALID(signo))
                 return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Signal number out of range.");
 
-        r = bus_verify_manage_units_async_full(
-                        u,
-                        "kill-subgroup",
-                        N_("Authentication is required to send a UNIX signal to the processes of subgroup of '$(unit)'."),
-                        message,
-                        reterr_error);
+        const UnitPolkitDetails details = {
+                .unit = u,
+                .verb = "kill-subgroup",
+                .message = N_("Authentication is required to send a UNIX signal to the processes of subgroup of '$(unit)'."),
+        };
+        r = bus_verify_manage_units_async(u->manager, message, &details, reterr_error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -669,12 +670,12 @@ int bus_unit_method_reset_failed(sd_bus_message *message, void *userdata, sd_bus
         if (r < 0)
                 return r;
 
-        r = bus_verify_manage_units_async_full(
-                        u,
-                        "reset-failed",
-                        N_("Authentication is required to reset the \"failed\" state of '$(unit)'."),
-                        message,
-                        reterr_error);
+        const UnitPolkitDetails details = {
+                .unit = u,
+                .verb = "reset-failed",
+                .message = N_("Authentication is required to reset the \"failed\" state of '$(unit)'."),
+        };
+        r = bus_verify_manage_units_async(u->manager, message, &details, reterr_error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -699,12 +700,12 @@ int bus_unit_method_set_properties(sd_bus_message *message, void *userdata, sd_b
         if (r < 0)
                 return r;
 
-        r = bus_verify_manage_units_async_full(
-                        u,
-                        "set-property",
-                        N_("Authentication is required to set properties on '$(unit)'."),
-                        message,
-                        reterr_error);
+        const UnitPolkitDetails details = {
+                .unit = u,
+                .verb = "set-property",
+                .message = N_("Authentication is required to set properties on '$(unit)'."),
+        };
+        r = bus_verify_manage_units_async(u->manager, message, &details, reterr_error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -727,12 +728,11 @@ int bus_unit_method_ref(sd_bus_message *message, void *userdata, sd_bus_error *r
         if (r < 0)
                 return r;
 
-        r = bus_verify_manage_units_async_full(
-                        u,
-                        "ref",
-                        /* polkit_message= */ NULL,
-                        message,
-                        reterr_error);
+        const UnitPolkitDetails details = {
+                .unit = u,
+                .verb = "ref",
+        };
+        r = bus_verify_manage_units_async(u->manager, message, &details, reterr_error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -796,12 +796,12 @@ int bus_unit_method_clean(sd_bus_message *message, void *userdata, sd_bus_error 
         if (r < 0)
                 return r;
 
-        r = bus_verify_manage_units_async_full(
-                        u,
-                        "clean",
-                        N_("Authentication is required to delete files and directories associated with '$(unit)'."),
-                        message,
-                        reterr_error);
+        const UnitPolkitDetails details = {
+                .unit = u,
+                .verb = "clean",
+                .message = N_("Authentication is required to delete files and directories associated with '$(unit)'."),
+        };
+        r = bus_verify_manage_units_async(u->manager, message, &details, reterr_error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -833,12 +833,12 @@ static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userda
         if (r < 0)
                 return r;
 
-        r = bus_verify_manage_units_async_full(
-                        u,
-                        perm,
-                        N_("Authentication is required to freeze or thaw the processes of '$(unit)' unit."),
-                        message,
-                        reterr_error);
+        const UnitPolkitDetails details = {
+                .unit = u,
+                .verb = perm,
+                .message = N_("Authentication is required to freeze or thaw the processes of '$(unit)' unit."),
+        };
+        r = bus_verify_manage_units_async(u->manager, message, &details, reterr_error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -959,6 +959,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("WantsMountsFor", "as", property_get_mounts_for, offsetof(Unit, mounts_for[UNIT_MOUNT_WANTS]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Documentation", "as", NULL, offsetof(Unit, documentation), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Description", "s", property_get_description, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Tags", "as", NULL, offsetof(Unit, tags), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("AccessSELinuxContext", "s", NULL, offsetof(Unit, access_selinux_context), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LoadState", "s", property_get_load_state, offsetof(Unit, load_state), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ActiveState", "s", property_get_active_state, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -2446,6 +2447,38 @@ static int bus_unit_set_transient_property(
                                 STRV_FOREACH(p, l)
                                         unit_write_settingf(u, flags, name, "%s=%s", name, *p);
                         }
+                }
+
+                return 1;
+        }
+
+        if (streq(name, "Tags")) {
+                _cleanup_strv_free_ char **add_tags = NULL;
+                r = sd_bus_message_read_strv(message, &add_tags);
+                if (r < 0)
+                        return r;
+
+                STRV_FOREACH(tag, add_tags)
+                        if (!object_tag_is_valid(*tag))
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid tag in %s: %s", name, *tag);
+
+                if (!strv_isempty(add_tags)) {
+                        _cleanup_strv_free_ char **tags = NULL;
+                        r = object_tags_edit(u->tags, add_tags, /* remove= */ NULL, &tags);
+                        if (r == -E2BIG)
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Too many tags in %s", name);
+                        if (r < 0)
+                                return r;
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                strv_free_and_replace(u->tags, tags);
+
+                                STRV_FOREACH(tag, add_tags)
+                                        unit_write_settingf(u, flags, name, "%s=%s", name, *tag);
+                        }
+                } else if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        u->tags = strv_free(u->tags);
+                        unit_write_settingf(u, flags, name, "%s=", name);
                 }
 
                 return 1;
