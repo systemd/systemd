@@ -5632,7 +5632,7 @@ int exec_invoke(
                 keep_seccomp_privileges = false;
 #if HAVE_SELINUX
         _cleanup_free_ char *mac_selinux_context_net = NULL;
-        bool use_selinux = false;
+        bool use_selinux = false, use_selinux_exec_helper = false;
 #endif
 #if ENABLE_SMACK
         bool use_smack = false;
@@ -6983,7 +6983,8 @@ int exec_invoke(
                                                 return log_error_errno(r, "Failed to change SELinux context to %s: %m", exec_context);
                                         }
                                         log_debug_errno(r, "Failed to change SELinux context to %s, ignoring: %m", exec_context);
-                                }
+                                } else
+                                        use_selinux_exec_helper = true;
                         }
                 }
 #endif
@@ -7267,6 +7268,46 @@ int exec_invoke(
 
                 final_argv = argv_via_shell;
         }
+
+#if HAVE_SELINUX
+        _cleanup_free_ char *selinux_helper_path = NULL;
+        _cleanup_close_ int selinux_helper_fd = -EBADF;
+        _cleanup_strv_free_ char **argv_via_selinux_helper = NULL;
+
+        if (use_selinux_exec_helper) {
+                r = find_executable_full(
+                                SYSTEMD_SELINUX_EXEC_BINARY_PATH,
+                                /* root= */ NULL,
+                                /* search_path= */ NULL,
+                                /* use_path_envvar= */ false,
+                                &selinux_helper_path,
+                                &selinux_helper_fd);
+                if (r < 0) {
+                        if (!context->selinux_context_ignore) {
+                                *exit_status = EXIT_EXEC;
+                                return log_error_errno(r, "Failed to find SELinux transition helper '%s': %m",
+                                                       SYSTEMD_SELINUX_EXEC_BINARY_PATH);
+                        }
+                        log_debug_errno(r, "Failed to find SELinux transition helper, executing command directly: %m");
+                } else {
+                        argv_via_selinux_helper = strv_new("systemd-selinux-exec", executable);
+                        if (!argv_via_selinux_helper) {
+                                *exit_status = EXIT_MEMORY;
+                                return log_oom();
+                        }
+
+                        r = strv_extend_strv(&argv_via_selinux_helper, final_argv, /* filter_duplicates= */ false);
+                        if (r < 0) {
+                                *exit_status = EXIT_MEMORY;
+                                return log_oom();
+                        }
+
+                        final_argv = argv_via_selinux_helper;
+                        free_and_replace(executable, selinux_helper_path);
+                        close_and_replace(executable_fd, selinux_helper_fd);
+                }
+        }
+#endif
 
         log_command_line(context, params, "Executing", executable, final_argv);
 

@@ -56,6 +56,7 @@
 #include "ptyfwd.h"
 #include "run-polkit.h"
 #include "runtime-scope.h"
+#include "selinux-util.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -1104,6 +1105,19 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         r = free_and_strdup_warn(&arg_pam_name, "systemd-run0");
         if (r < 0)
                 return r;
+
+        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                _cleanup_free_ char *ctx = NULL;
+
+                r = mac_selinux_get_run0_context(arg_exec_user, &ctx);
+                if (r == -EOPNOTSUPP)
+                        log_debug("SELinux not enabled, not setting execution context.");
+                else if (r < 0)
+                        log_warning_errno(r, "Failed to compute SELinux context for user '%s', ignoring: %m",
+                                          arg_exec_user);
+                else if (strv_extendf(&arg_property, "SELinuxContext=%s", ctx) < 0)
+                        return log_oom();
+        }
 
         /* The service manager ignores SIGPIPE for all spawned processes by default. Let's explicitly override
          * that here, since we're primarily invoked in interactive environments where this does matter. */

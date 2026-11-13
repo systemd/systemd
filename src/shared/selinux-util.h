@@ -117,5 +117,7 @@ void mac_selinux_create_socket_clear(void);
 
 int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen);
 
+int mac_selinux_get_run0_context(const char *user, char **ret_label);
+
 int mac_selinux_label_context_new(const char *root, LabelContext **ret);
 LabelContext* mac_selinux_label_context_free(LabelContext *c);
