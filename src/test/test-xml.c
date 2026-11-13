@@ -32,9 +32,7 @@ static void test_one(const char *data, ...) {
         va_end(ap);
 }
 
-int main(int argc, char *argv[]) {
-
-        test_setup_logging(LOG_DEBUG);
+TEST(tokenize) {
 
         test_one("", XML_END);
 
@@ -60,6 +58,6 @@ int main(int argc, char *argv[]) {
                  XML_TEXT, "  ",
                  XML_TAG_CLOSE, "foo",
                  XML_END);
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);
