@@ -21,6 +21,7 @@
 #include "journal-compression-util.h"
 #include "journal-remote.h"
 #include "journal-remote-write.h"
+#include "journal-vacuum.h"
 #include "logs-show.h"
 #include "main-func.h"
 #include "microhttpd-util.h"
@@ -35,6 +36,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "verbs.h"
 
 #define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-remote.pem"
@@ -69,6 +71,8 @@ static uint64_t arg_max_use = UINT64_MAX;
 static uint64_t arg_max_size = UINT64_MAX;
 static uint64_t arg_n_max_files = UINT64_MAX;
 static uint64_t arg_keep_free = UINT64_MAX;
+static usec_t arg_max_retention_usec = 0;
+static usec_t arg_max_file_usec = 0;
 
 static OrderedHashmap *arg_compression = NULL;
 
@@ -861,6 +865,8 @@ static int parse_config(void) {
                 { "Remote",  "KeepFree",               config_parse_iec_uint64,       0, &arg_keep_free   },
                 { "Remote",  "Compression",            config_parse_compression,      0, &arg_compression },
                 { "Remote",  "AddClientCertificateSubject", config_parse_bool,         0, &arg_add_client_certificate_subject },
+                { "Remote",  "MaxRetentionSec",         config_parse_sec,              0, &arg_max_retention_usec },
+                { "Remote",  "MaxFileSec",              config_parse_sec,              0, &arg_max_file_usec },
                 {}
         };
 
@@ -1154,6 +1160,7 @@ static int run(int argc, char **argv) {
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         _cleanup_(erase_and_freep) char *key = NULL;
         _cleanup_free_ char *cert = NULL, *trust = NULL;
+        usec_t maintenance_interval = USEC_INFINITY, next_maintenance = 0;
         int r;
 
         COMPRESS_DEFAULT_NOTE;
@@ -1206,6 +1213,12 @@ static int run(int argc, char **argv) {
         s.metrics.max_size = arg_max_size;
         s.metrics.keep_free = arg_keep_free;
         s.metrics.n_max_files = arg_n_max_files;
+        s.max_retention_usec = arg_max_retention_usec == USEC_INFINITY ? 0 : arg_max_retention_usec;
+        s.max_file_usec = arg_max_file_usec == USEC_INFINITY ? 0 : arg_max_file_usec;
+        if (s.max_retention_usec > 0)
+                maintenance_interval = MIN(USEC_PER_MINUTE, s.max_retention_usec);
+        if (s.max_file_usec > 0)
+                maintenance_interval = MIN3(maintenance_interval, USEC_PER_MINUTE, s.max_file_usec);
 
         r = create_remoteserver(&s, key, cert, trust);
         if (r < 0)
@@ -1223,13 +1236,38 @@ static int run(int argc, char **argv) {
         notify_message = notify_start(NOTIFY_READY_MESSAGE, NOTIFY_STOPPING_MESSAGE);
 
         while (s.active) {
+                usec_t timeout = USEC_INFINITY;
+
                 r = sd_event_get_state(s.event);
                 if (r < 0)
                         return r;
                 if (r == SD_EVENT_FINISHED)
                         break;
 
-                r = sd_event_run(s.event, -1);
+                if (maintenance_interval != USEC_INFINITY) {
+                        if (now(CLOCK_MONOTONIC) >= next_maintenance) {
+                                Writer *w;
+
+                                HASHMAP_FOREACH(w, s.writers) {
+                                        r = writer_maintain(w);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to maintain remote journals: %m");
+                                }
+
+                                /* Split-mode writers disappear when their last uploader disconnects. */
+                                if (s.max_retention_usec > 0) {
+                                        r = journal_directory_vacuum(s._single_writer ? s._single_writer->output : s.output,
+                                                                     /* max_use= */ 0, /* n_max_files= */ 0,
+                                                                     s.max_retention_usec, /* oldest_usec= */ NULL, /* verbose= */ false);
+                                        if (r < 0 && r != -ENOENT)
+                                                return log_error_errno(r, "Failed to vacuum remote journals: %m");
+                                }
+                                next_maintenance = usec_add(now(CLOCK_MONOTONIC), maintenance_interval);
+                        }
+                        timeout = usec_sub_unsigned(next_maintenance, now(CLOCK_MONOTONIC));
+                }
+
+                r = sd_event_run(s.event, timeout);
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
         }
