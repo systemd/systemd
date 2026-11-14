@@ -327,6 +327,9 @@ static int varlink_log_resolve_error(const char *name, const char *error_id, sd_
         if (error.rcode == DNS_RCODE_NXDOMAIN && !warn_missing)
                 return -ENXIO;
 
+        if (streq(error_id, "io.systemd.Resolve.NoSuchResourceRecord") && !warn_missing)
+                return -ESRCH;
+
         if (sd_json_format_enabled(arg_json_format_flags))
                 return dump_resolve_error_json(
                                 name,
@@ -649,10 +652,22 @@ static bool single_label_nonsynthetic(const char *name) {
         return !streq(name, first_label);
 }
 
-static int resolve_record(const char *name, uint16_t class, uint16_t type, bool warn_missing) {
+static int call_resolve_record(
+                const char *name,
+                uint16_t class,
+                uint16_t type,
+                sd_varlink **ret_vl,
+                const char **ret_error_id,
+                sd_json_variant **ret_reply,
+                usec_t *ret_ts) {
+
         int r;
 
         assert(name);
+        assert(ret_vl);
+        assert(ret_error_id);
+        assert(ret_reply);
+        assert(ret_ts);
 
         log_debug("Resolving %s %s %s (interface %s).", name, dns_class_to_string(class), dns_type_to_string(type), isempty(arg_ifname) ? "*" : arg_ifname);
 
@@ -692,6 +707,26 @@ static int resolve_record(const char *name, uint16_t class, uint16_t type, bool 
                 return log_error_errno(r, "Failed to issue varlink call: %m");
 
         ts = now(CLOCK_MONOTONIC) - ts;
+
+        *ret_vl = TAKE_PTR(vl);
+        *ret_error_id = error_id;
+        *ret_reply = v;
+        *ret_ts = ts;
+
+        return 0;
+}
+
+static int process_resolve_record(
+                const char *name,
+                uint16_t type,
+                const char *error_id,
+                sd_json_variant *v,
+                usec_t ts,
+                bool warn_missing) {
+
+        int r;
+
+        assert(name);
 
         if (!isempty(error_id)) {
                 if (streq(error_id, "io.systemd.Resolve.ResourceRecordTypeInvalidForQuery"))
@@ -769,6 +804,20 @@ static int resolve_record(const char *name, uint16_t class, uint16_t type, bool 
         }
 
         return 0;
+}
+
+static int resolve_record(const char *name, uint16_t class, uint16_t type, bool warn_missing) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        const char *error_id = NULL;
+        sd_json_variant *v = NULL;
+        usec_t ts = 0;
+        int r;
+
+        r = call_resolve_record(name, class, type, &vl, &error_id, &v, &ts);
+        if (r < 0)
+                return r;
+
+        return process_resolve_record(name, type, error_id, v, ts, warn_missing);
 }
 
 static int resolve_rfc4501(const char *name) {
@@ -1070,35 +1119,67 @@ static int resolve_openpgp(const char *address) {
         if (r < 0)
                 return log_error_errno(r, "Failed to join DNS suffix: %m");
 
-        _cleanup_free_ char *full = NULL;
-        r = dns_name_concat(hashed, suffix, /* flags= */ 0, &full);
+        _cleanup_free_ char *full_sha256 = NULL;
+        r = dns_name_concat(hashed, suffix, /* flags= */ 0, &full_sha256);
         if (r < 0)
                 return log_error_errno(r, "Failed to join OPENPGPKEY name: %m");
-        log_debug("Looking up \"%s\".", full);
+        log_debug("Looking up \"%s\".", full_sha256);
 
-        r = resolve_record(
-                        full,
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl_sha256 = NULL;
+        const char *error_id_sha256 = NULL;
+        sd_json_variant *v_sha256 = NULL;
+        usec_t ts_sha256 = 0;
+
+        r = call_resolve_record(
+                        full_sha256,
                         arg_class ?: DNS_CLASS_IN,
                         arg_type ?: DNS_TYPE_OPENPGPKEY,
+                        &vl_sha256,
+                        &error_id_sha256,
+                        &v_sha256,
+                        &ts_sha256);
+        if (r < 0)
+                return r;
+
+        r = process_resolve_record(
+                        full_sha256,
+                        arg_type ?: DNS_TYPE_OPENPGPKEY,
+                        error_id_sha256,
+                        v_sha256,
+                        ts_sha256,
                         /* warn_missing= */ false);
         if (!IN_SET(r, -ENXIO, -ESRCH)) /* Not NXDOMAIN or NODATA? Then fail immediately. */
                 return r;
 
+        /* Fall back to older draft-03 SHA-224 hashsum for compatibility */
         hashed = mfree(hashed);
         r = string_hashsum_sha224(address, domain - 1 - address, &hashed);
         if (r < 0)
                 return log_error_errno(r, "Hashing failed: %m");
 
-        full = mfree(full);
-        r = dns_name_concat(hashed, suffix, /* flags= */ 0, &full);
+        _cleanup_free_ char *full_sha224 = NULL;
+        r = dns_name_concat(hashed, suffix, /* flags= */ 0, &full_sha224);
         if (r < 0)
                 return log_error_errno(r, "Failed to join OPENPGPKEY name: %m");
-        log_debug("Looking up \"%s\".", full);
+        log_debug("Looking up \"%s\".", full_sha224);
 
-        return resolve_record(
-                        full,
+        r = resolve_record(
+                        full_sha224,
                         arg_class ?: DNS_CLASS_IN,
                         arg_type ?: DNS_TYPE_OPENPGPKEY,
+                        /* warn_missing= */ false);
+        if (!IN_SET(r, -ENXIO, -ESRCH))
+                return r;
+
+        /* Neither the standard RFC 7929 SHA-256 nor the draft-03 SHA-224 record exists.
+         * Report the missing record using the canonical RFC 7929 SHA-256 name and the
+         * saved reply from the first query. */
+        return process_resolve_record(
+                        full_sha256,
+                        arg_type ?: DNS_TYPE_OPENPGPKEY,
+                        error_id_sha256,
+                        v_sha256,
+                        ts_sha256,
                         /* warn_missing= */ true);
 }
 #endif
