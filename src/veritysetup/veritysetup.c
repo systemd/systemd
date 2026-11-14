@@ -42,6 +42,7 @@ static struct iovec arg_root_hash_signature = {};
 static bool arg_root_hash_signature_auto = false;
 static bool arg_root_hash_signature_required = false;
 static char *arg_tpm2_measure_nvpcr = NULL;
+static bool arg_tpm2_measure_nvpcr_set = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_salt, freep);
@@ -285,6 +286,8 @@ static int parse_options(const char *options) {
                         r = isempty(val) ? 0 : parse_boolean(val);
                         if (r == 0) {
                                 arg_tpm2_measure_nvpcr = mfree(arg_tpm2_measure_nvpcr);
+                                arg_tpm2_measure_nvpcr_set = true;
+
                                 continue;
                         }
                         if (r > 0)
@@ -296,6 +299,8 @@ static int parse_options(const char *options) {
 
                         if (free_and_strdup(&arg_tpm2_measure_nvpcr, val) < 0)
                                 return log_oom();
+
+                        arg_tpm2_measure_nvpcr_set = true;
                 } else
                         log_warning("Encountered unknown option '%s', ignoring.", word);
         }
@@ -464,10 +469,12 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
                         return log_error_errno(r, "Failed to set up verity device '%s': %m", volume);
         }
 
-        (void) pcrextend_verity_now(
-                        volume,
-                        &IOVEC_MAKE(rh, rh_size),
-                        signature_validated ? &arg_root_hash_signature : NULL);
+        if (!arg_tpm2_measure_nvpcr_set || arg_tpm2_measure_nvpcr)
+                (void) pcrextend_verity_now(
+                                arg_tpm2_measure_nvpcr ?: "verity",
+                                volume,
+                                &IOVEC_MAKE(rh, rh_size),
+                                signature_validated ? &arg_root_hash_signature : NULL);
 
         return 0;
 }
