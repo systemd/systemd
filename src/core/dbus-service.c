@@ -225,12 +225,12 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
                         return r;
         }
 
-        r = bus_verify_manage_units_async_full(
-                        u,
-                        is_image ? "mount-image" : "bind-mount",
-                        N_("Authentication is required to mount on '$(unit)'."),
-                        message,
-                        reterr_error);
+        const UnitPolkitDetails details = {
+                .unit = u,
+                .verb = is_image ? "mount-image" : "bind-mount",
+                .message = N_("Authentication is required to mount on '$(unit)'."),
+        };
+        r = bus_verify_manage_units_async(u->manager, message, &details, reterr_error);
         if (r < 0)
                 return r;
         if (r == 0)
