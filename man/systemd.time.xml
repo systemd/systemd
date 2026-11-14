@@ -306,7 +306,8 @@ Wed..Sat,Tue 12-10-15 1:2:3 → Tue..Sat 2012-10-15 01:02:03
 
       <para>Calendar events are used by timer units, see
       <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-      for details.</para>
+      for details. Schedules that skip some of the matching events, such as "every second Monday", can be
+      implemented with the <varname>MinIntervalSec=</varname> setting of timer units.</para>
 
       <para>Use the <command>calendar</command> command of
       <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry> to validate
