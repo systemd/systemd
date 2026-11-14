@@ -509,6 +509,11 @@ executables += [
                 'dependencies' : libopenssl_cflags,
         },
         test_template + {
+                'sources' : files('test-pkcs11-util.c'),
+                'dependencies' : libp11kit_cflags,
+                'conditions' : ['HAVE_P11KIT'],
+        },
+        test_template + {
                 'sources' : files('test-pkcs7-util.c'),
                 'dependencies' : libopenssl_cflags,
                 'conditions' : ['HAVE_OPENSSL'],
