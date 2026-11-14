@@ -1131,6 +1131,75 @@ TEST(chaseat_separate_root_and_dir) {
         ASSERT_ERROR(chaseat(root_fd, XAT_FDROOT, "/nonexistent", /* flags= */ 0, /* ret_path= */ NULL, /* ret_fd= */ NULL), ENOENT);
 }
 
+TEST(chaseat_symlink_trailing_slash) {
+        /* A symlink target ending in a slash requires a directory. Chase the target's parent while preserving
+         * the slash, then check that splitting the result returns the directory-open requirement. */
+        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
+        _cleanup_close_ int root_fd = ASSERT_OK(mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &tmpdir));
+        _cleanup_close_ int file_fd = ASSERT_OK(xopenat(root_fd, "file", O_CREAT|O_WRONLY));
+        ASSERT_OK_ERRNO(close(TAKE_FD(file_fd)));
+        ASSERT_OK_ERRNO(symlinkat("file/", root_fd, "alias"));
+
+        _cleanup_free_ char *path = NULL, *filename = NULL;
+        _cleanup_close_ int parent_fd = -EBADF;
+        ASSERT_OK(chaseat(root_fd, root_fd, "alias", CHASE_PARENT|CHASE_TRAIL_SLASH, &path, &parent_fd));
+        ASSERT_STREQ(path, "file/");
+        ASSERT_OK_POSITIVE(chase_split_prefix_filename(path, /* root= */ NULL, /* ret_dir= */ NULL, &filename));
+        ASSERT_STREQ(filename, "file");
+        ASSERT_OK_POSITIVE(fds_inode_and_mount_same(root_fd, parent_fd));
+}
+
+TEST(chase_and_open_trailing_slash) {
+        /* A trailing slash in the path or in the target of the last symlink requires a directory. Create a
+         * file, a directory, and symlinks to "file/" and "file/.". Opening the file through any of them
+         * must fail with ENOTDIR, the directory must open, and creating a path that ends in a slash must
+         * fail with EISDIR without creating anything. Check both chase_and_openat() and chase_and_open(). */
+        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
+        _cleanup_close_ int root_fd = ASSERT_OK(mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &tmpdir));
+        _cleanup_close_ int fd = ASSERT_OK(xopenat(root_fd, "file", O_CREAT|O_WRONLY|O_CLOEXEC));
+        fd = safe_close(fd);
+        ASSERT_OK_ERRNO(mkdirat(root_fd, "dir", 0755));
+        ASSERT_OK_ERRNO(symlinkat("file/", root_fd, "file-slash"));
+        ASSERT_OK_ERRNO(symlinkat("file/.", root_fd, "file-dot"));
+
+        FOREACH_STRING(path, "file/", "file/.", "file-slash", "file-dot") {
+                _cleanup_free_ char *abs = ASSERT_PTR(path_join(tmpdir, path));
+
+                ASSERT_ERROR(chase_and_openat(root_fd, root_fd, path, /* chase_flags= */ 0, O_RDONLY|O_CLOEXEC,
+                                              /* ret_path= */ NULL), ENOTDIR);
+                ASSERT_ERROR(chase_and_open(abs, tmpdir, /* chase_flags= */ 0, O_RDONLY|O_CLOEXEC,
+                                            /* ret_path= */ NULL), ENOTDIR);
+        }
+
+        fd = ASSERT_OK(chase_and_openat(root_fd, root_fd, "dir/", /* chase_flags= */ 0, O_RDONLY|O_CLOEXEC,
+                                        /* ret_path= */ NULL));
+        fd = safe_close(fd);
+
+        _cleanup_free_ char *missing = ASSERT_PTR(path_join(tmpdir, "missing/"));
+        ASSERT_ERROR(chase_and_openat(root_fd, root_fd, "missing/", /* chase_flags= */ 0,
+                                      O_CREAT|O_WRONLY|O_CLOEXEC, /* ret_path= */ NULL), EISDIR);
+        ASSERT_ERROR(chase_and_open(missing, tmpdir, /* chase_flags= */ 0, O_CREAT|O_WRONLY|O_CLOEXEC,
+                                    /* ret_path= */ NULL), EISDIR);
+        ASSERT_ERROR(chase_and_openat(root_fd, root_fd, "file/", CHASE_NOFOLLOW, O_CREAT|O_WRONLY|O_CLOEXEC,
+                                      /* ret_path= */ NULL), EISDIR);
+        ASSERT_ERROR_ERRNO(faccessat(root_fd, "missing", F_OK, AT_SYMLINK_NOFOLLOW), ENOENT);
+
+        /* The returned path must not end in a slash. */
+        FOREACH_STRING(path, "dir/", "dir/.") {
+                _cleanup_free_ char *result = NULL;
+
+                fd = ASSERT_OK(chase_and_openat(root_fd, root_fd, path, /* chase_flags= */ 0, O_RDONLY|O_CLOEXEC,
+                                                &result));
+                fd = safe_close(fd);
+                ASSERT_STREQ(result, "dir");
+        }
+
+        _cleanup_free_ char *result = NULL;
+        fd = ASSERT_OK(chase_and_openat(XAT_FDROOT, XAT_FDROOT, "/", /* chase_flags= */ 0, O_RDONLY|O_CLOEXEC,
+                                        &result));
+        ASSERT_STREQ(result, "/");
+}
+
 TEST(chaseat_make_absolute) {
         /* Absolute results must stay unchanged. Relative results must use an absolute or cwd-relative
          * base while preserving unresolved interior ".." components. */

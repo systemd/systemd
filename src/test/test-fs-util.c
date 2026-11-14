@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/magic.h>
 #include <stdlib.h>
 #include <sys/file.h>
 #include <sys/stat.h>
@@ -833,6 +834,8 @@ TEST(xopenat_empty_path) {
 }
 
 TEST(xopenat_nocow) {
+        /* A temporary directory contains regular files. Named and empty-path XO_NOCOW opens must apply
+         * the inode flag when the directory is on btrfs, while unsupported filesystems may ignore it. */
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
 
@@ -846,6 +849,20 @@ TEST(xopenat_nocow) {
         /* XO_NOCOW goes through chattr_fd(), a failure there removes the file again */
         ASSERT_OK(fd = xopenat_full(tfd, "nocow", O_RDWR|O_CREAT|O_EXCL, XO_NOCOW, 0644));
         ASSERT_OK_ERRNO(faccessat(tfd, "nocow", F_OK, AT_SYMLINK_NOFOLLOW));
+        fd = safe_close(fd);
+
+        if (ASSERT_OK(fd_is_fs_type(tfd, BTRFS_SUPER_MAGIC)) > 0) {
+                ASSERT_OK(fd = xopenat_full(tfd, "empty-nocow", O_RDWR|O_CREAT|O_EXCL, XO_COW, 0644));
+                fd = safe_close(fd);
+
+                _cleanup_close_ int path_fd = ASSERT_OK(xopenat(tfd, "empty-nocow", O_PATH));
+                ASSERT_OK(fd = xopenat_full(path_fd, /* path= */ NULL, O_RDWR, XO_EMPTY_PATH|XO_NOCOW,
+                                            /* mode= */ 0));
+
+                unsigned attrs;
+                ASSERT_OK(read_attr_fd(fd, &attrs));
+                ASSERT_TRUE(FLAGS_SET(attrs, FS_NOCOW_FL));
+        }
 }
 
 TEST(xopenat_socket) {
@@ -891,6 +908,41 @@ TEST(xopenat_socket) {
         fd = ASSERT_OK(xopenat_full(tfd, "dir", O_PATH, /* xopen_flags= */ 0, /* mode= */ 0));
         ASSERT_ERROR(xopenat_full(fd, /* path= */ NULL, O_PATH, XO_SOCKET|XO_EMPTY_PATH, /* mode= */ 0), EISDIR);
         fd = safe_close(fd);
+}
+
+TEST(xopenat_no_sync) {
+        /* XO_NO_SYNC only changes how the type of the inode is checked. Create a regular file, a directory,
+         * and a socket, and check that XO_REGULAR and XO_SOCKET accept and reject the same inodes with and
+         * without XO_NO_SYNC, for named opens and for reopens through an empty path. */
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF, sock = -EBADF;
+
+        tfd = ASSERT_OK(mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &t));
+        fd = ASSERT_OK(xopenat_full(tfd, "reg", O_CREAT|O_CLOEXEC, /* xopen_flags= */ 0, 0600));
+        fd = safe_close(fd);
+        ASSERT_OK_ERRNO(mkdirat(tfd, "dir", 0755));
+
+        sock = ASSERT_OK_ERRNO(socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0));
+        const char *sockpath = strjoina(t, "/sock");
+        union sockaddr_union sa = { .un.sun_family = AF_UNIX };
+        strncpy(sa.un.sun_path, sockpath, sizeof(sa.un.sun_path) - 1);
+        ASSERT_OK_ERRNO(bind(sock, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sockpath) + 1));
+
+        FOREACH_ELEMENT(flags, ((const XOpenFlags[]) { 0, XO_NO_SYNC })) {
+                fd = ASSERT_OK(xopenat_full(tfd, "reg", O_RDONLY|O_CLOEXEC, XO_REGULAR|*flags, /* mode= */ 0));
+                fd = safe_close(fd);
+                ASSERT_ERROR(xopenat_full(tfd, "dir", O_RDONLY|O_CLOEXEC, XO_REGULAR|*flags, /* mode= */ 0), EISDIR);
+                fd = ASSERT_OK(xopenat_full(tfd, "sock", O_PATH|O_CLOEXEC, XO_SOCKET|*flags, /* mode= */ 0));
+                fd = safe_close(fd);
+                ASSERT_ERROR(xopenat_full(tfd, "reg", O_PATH|O_CLOEXEC, XO_SOCKET|*flags, /* mode= */ 0), ENOTSOCK);
+
+                _cleanup_close_ int path_fd = ASSERT_OK(xopenat(tfd, "reg", O_PATH|O_CLOEXEC));
+                fd = ASSERT_OK(xopenat_full(path_fd, /* path= */ NULL, O_RDONLY|O_CLOEXEC,
+                                            XO_EMPTY_PATH|XO_REGULAR|*flags, /* mode= */ 0));
+                fd = safe_close(fd);
+                ASSERT_ERROR(xopenat_full(path_fd, /* path= */ NULL, O_PATH|O_CLOEXEC,
+                                          XO_EMPTY_PATH|XO_SOCKET|*flags, /* mode= */ 0), ENOTSOCK);
+        }
 }
 
 TEST(xopenat_trigger_automount) {
