@@ -1635,6 +1635,53 @@ EOF
     grep -qF "1.2.3.4" "$RUN_OUT"
 }
 
+# Issue: https://github.com/systemd/systemd/issues/44813
+testcase_search_domain_special_use_names() {
+    # Cleanup
+    # shellcheck disable=SC2317,SC2329
+    cleanup() {
+        knotc zone-begin unsigned.test
+        knotc zone-unset unsigned.test onion A
+        knotc zone-unset unsigned.test alt A
+        knotc zone-unset unsigned.test invalid A
+        knotc zone-commit unsigned.test
+        knotc reload
+        resolvectl revert dns0
+    }
+
+    trap cleanup RETURN
+
+    knotc zone-begin unsigned.test
+    knotc zone-set unsigned.test onion 3600 A 10.0.0.150
+    knotc zone-set unsigned.test alt 3600 A 10.0.0.151
+    knotc zone-set unsigned.test invalid 3600 A 10.0.0.152
+    knotc zone-commit unsigned.test
+    knotc reload
+    sleep 2
+
+    # Single-label names that match special-use TLDs must still be resolvable via a search domain
+    resolvectl domain dns0 unsigned.test
+
+    run resolvectl query onion
+    grep -qF "10.0.0.150" "$RUN_OUT"
+    grep -qF "onion.unsigned.test" "$RUN_OUT"
+
+    run resolvectl query alt
+    grep -qF "10.0.0.151" "$RUN_OUT"
+    grep -qF "alt.unsigned.test" "$RUN_OUT"
+
+    run resolvectl query invalid
+    grep -qF "10.0.0.152" "$RUN_OUT"
+    grep -qF "invalid.unsigned.test" "$RUN_OUT"
+
+    # Without a search domain, these names must all be refused
+    resolvectl domain dns0 ""
+    for name in hello.onion hello.alt hello.invalid onion alt invalid; do
+        (! run resolvectl query "$name")
+        grep -qF "not found" "$RUN_OUT"
+    done
+}
+
 # Regression test for CVE/strict-DoT verification: when the global
 # DNSOverTLS= is "no" or "opportunistic" but a specific link is configured
 # with DNSOverTLS=yes (per-link strict mode), resolved must still enable

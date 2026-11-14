@@ -725,8 +725,11 @@ DnsScopeMatch dns_scope_good_domain(
             dns_name_equal(domain, "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0)
                 return DNS_SCOPE_NO;
 
-        /* Never respond to some of the domains listed in RFC6303 + RFC6761 */
-        if (dns_name_dont_resolve(domain))
+        /* Never respond to some of the domains listed in RFC6303 + RFC6761 + RFC7686 + RFC9476.
+         * Names without a dot (like "onion") are let through for normal DNS, since a search domain may
+         * still be added to them. They are checked again later, in dns_scope_good_key(). */
+        if (dns_name_dont_resolve(domain) &&
+            !(s->protocol == DNS_PROTOCOL_DNS && dns_name_is_single_label(domain)))
                 return DNS_SCOPE_NO;
 
         /* Avoid asking invalid questions of some special use domains */
@@ -913,6 +916,10 @@ bool dns_scope_good_key(DnsScope *s, const DnsResourceKey *key) {
                 return false;
 
         if (s->protocol == DNS_PROTOCOL_DNS) {
+                /* Never send special names like "foo.onion" to the network
+                 * (checked after search domains are added). */
+                if (dns_name_dont_resolve(dns_resource_key_name(key)))
+                        return false;
 
                 /* On classic DNS, looking up non-address RRs is always fine. (Specifically, we want to
                  * permit looking up DNSKEY and DS records on the root and top-level domains.) */
