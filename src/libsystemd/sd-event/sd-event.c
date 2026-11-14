@@ -174,6 +174,8 @@ struct sd_event {
         pid_t tid;
         sd_event **default_event_ptr;
 
+        void *userdata;
+
         usec_t watchdog_last, watchdog_period;
 
         unsigned n_sources;
@@ -3511,6 +3513,27 @@ _public_ int sd_event_source_set_prepare(sd_event_source *s, sd_event_handler_t 
                 prioq_remove(s->event->prepare, s, &s->prepare_index);
 
         return 0;
+}
+
+_public_ void* sd_event_get_userdata(sd_event *e) {
+        assert_return(e, NULL);
+        assert_return(e = event_resolve(e), NULL);
+        assert_return(!event_origin_changed(e), NULL);
+
+        return e->userdata;
+}
+
+_public_ void* sd_event_set_userdata(sd_event *e, void *userdata) {
+        void *ret;
+
+        assert_return(e, NULL);
+        assert_return(e = event_resolve(e), NULL);
+        assert_return(!event_origin_changed(e), NULL);
+
+        ret = e->userdata;
+        e->userdata = userdata;
+
+        return ret;
 }
 
 _public_ void* sd_event_source_get_userdata(sd_event_source *s) {

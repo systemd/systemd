@@ -4,14 +4,12 @@
 #include <linux/rtnetlink.h>
 #include <netinet/in.h>
 
-#include "sd-bus.h"
 #include "sd-dhcp6-lease.h"
 #include "sd-dhcp6-option.h"
 
 #include "alloc-util.h"
-#include "bus-error.h"
-#include "bus-locator.h"
 #include "dhcp6-option.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "extract-word.h"
 #include "hexdecoct.h"
@@ -19,6 +17,7 @@
 #include "iovec-util.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp-prefix-delegation.h"
+#include "networkd-hostname.h"
 #include "networkd-ipv6ll.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -153,82 +152,6 @@ const DUID *link_get_duid(Link *link, int family) {
                 return &fallback_duid;
 
         return duid;
-}
-
-static int get_product_uuid_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
-        Manager *manager = ASSERT_PTR(userdata);
-        const sd_bus_error *e;
-        const void *a;
-        size_t sz;
-        int r;
-
-        assert(m);
-
-        /* To avoid calling GetProductUUID() bus method so frequently, set the flag below
-         * even if the method fails. */
-        manager->has_product_uuid = true;
-
-        e = sd_bus_message_get_error(m);
-        if (e) {
-                r = sd_bus_error_get_errno(e);
-                log_warning_errno(r, "Could not get product UUID. Falling back to use machine-app-specific ID as DUID-UUID: %s",
-                                  bus_error_message(e, r));
-                return 0;
-        }
-
-        r = sd_bus_message_read_array(m, 'y', &a, &sz);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to get product UUID. Falling back to use machine-app-specific ID as DUID-UUID: %m");
-                return 0;
-        }
-
-        if (sz != sizeof(sd_id128_t)) {
-                log_warning("Invalid product UUID. Falling back to use machine-app-specific ID as DUID-UUID.");
-                return 0;
-        }
-
-        log_debug("Successfully obtained product UUID");
-
-        memcpy(&manager->duid_product_uuid.raw_data, a, sz);
-        manager->duid_product_uuid.raw_data_len = sz;
-
-        return 0;
-}
-
-int manager_request_product_uuid(Manager *m) {
-        static bool bus_method_is_called = false;
-        int r;
-
-        assert(m);
-
-        if (bus_method_is_called)
-                return 0;
-
-        if (sd_bus_is_ready(m->bus) <= 0 && !m->product_uuid_requested) {
-                log_debug("Not connected to system bus, requesting product UUID later.");
-                m->product_uuid_requested = true;
-                return 0;
-        }
-
-        m->product_uuid_requested = false;
-
-        r = bus_call_method_async(
-                        m->bus,
-                        /* ret_slot= */ NULL,
-                        bus_hostname,
-                        "GetProductUUID",
-                        get_product_uuid_handler,
-                        m,
-                        "b",
-                        false);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to get product UUID: %m");
-
-        log_debug("Requesting product UUID.");
-
-        bus_method_is_called = true;
-
-        return 0;
 }
 
 int dhcp_configure_duid(Link *link, const DUID *duid) {

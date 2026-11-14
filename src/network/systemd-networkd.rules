@@ -3,9 +3,12 @@
 
 // Allow systemd-networkd to set timezone, get product UUID,
 // transient hostname and control ModemManager
+//
+// The product UUID is obtained through the io.systemd.Hostname.Describe()
+// Varlink method, which is gated behind the get-hardware-serial action.
 polkit.addRule(function(action, subject) {
     if ((action.id == "org.freedesktop.hostname1.set-hostname" ||
-         action.id == "org.freedesktop.hostname1.get-product-uuid" ||
+         action.id == "org.freedesktop.hostname1.get-hardware-serial" ||
          action.id == "org.freedesktop.timedate1.set-timezone" ||
          action.id == "org.freedesktop.ModemManager1.Device.Control") &&
         subject.user == "systemd-network") {

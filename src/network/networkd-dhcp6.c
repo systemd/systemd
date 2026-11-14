@@ -18,6 +18,7 @@
 #include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp6.h"
 #include "networkd-dhcp6-bus.h"
+#include "networkd-hostname.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-ntp.h"
@@ -910,7 +911,7 @@ int dhcp6_update_hostname(Link *link) {
          * here may make the server of this link provide another hostname, which then makes the other
          * link renew its lease, and so on. */
         if (link->network->dhcp6_use_hostname &&
-            streq_ptr(link->manager->kernel_hostname, link->manager->dynamic_hostname))
+            streq_ptr(link->manager->kernel_hostname, manager_get_dynamic_hostname(link->manager)))
                 return 0;
 
         /* Send the new hostname to the server now, rather than on the next renewal. If no lease is

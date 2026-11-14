@@ -1783,4 +1783,24 @@ TEST(io_uring_drain_on_exit_skips_ratelimit_expiry) {
         ASSERT_FALSE(left_ratelimit);
 }
 
+TEST(userdata) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        int x = 0, y = 0;
+
+        ASSERT_OK(sd_event_new(&e));
+
+        /* No userdata attached initially. */
+        ASSERT_NULL(sd_event_get_userdata(e));
+
+        /* set returns the previous value. */
+        ASSERT_NULL(sd_event_set_userdata(e, &x));
+        ASSERT_PTR_EQ(sd_event_get_userdata(e), &x);
+
+        ASSERT_PTR_EQ(sd_event_set_userdata(e, &y), &x);
+        ASSERT_PTR_EQ(sd_event_get_userdata(e), &y);
+
+        ASSERT_PTR_EQ(sd_event_set_userdata(e, NULL), &y);
+        ASSERT_NULL(sd_event_get_userdata(e));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
