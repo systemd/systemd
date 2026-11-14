@@ -454,6 +454,7 @@ The directory part is optional. If missing the top-level directory of the CIFS s
 `imagePath` → A string with an absolute file system path to the file, directory
 or block device to use for storage backing the home directory.
 If the `luks` storage is used, this refers to the loopback file or block device node to store the LUKS volume on.
+That device may be a whole disk, an existing partition or an LVM volume or similar.
 For `fscrypt`, `directory`, `subvolume` this refers to the directory to bind mount as home directory on login.
 Not defined for `classic` or `cifs`.
 
@@ -480,6 +481,10 @@ LUKS container must be selected.
 `partitionUuid` → A string containing a lower-case, text-formatted UUID, referencing
 the GPT partition UUID the home directory is located in.
 This is primarily relevant when the storage mechanism used is `luks`.
+It is not set if the LUKS volume is placed directly on a block device that isn't partitioned
+by `systemd-homed`, such as an existing partition or an LVM volume. In that case the home directory always
+uses all of the device, and the partition table of the whole disk, if there's any, is not changed,
+unless the partition is the only one on a GPT disk.
 
 `luksUuid` → A string containing a lower-case, text-formatted UUID, referencing
 the LUKS volume UUID the home directory is located in. This is primarily

@@ -27,6 +27,7 @@ DLSYM_PROTOTYPE(fdisk_get_devfd) = NULL;
 DLSYM_PROTOTYPE(fdisk_get_disklabel_id) = NULL;
 DLSYM_PROTOTYPE(fdisk_get_first_lba) = NULL;
 DLSYM_PROTOTYPE(fdisk_get_grain_size) = NULL;
+DLSYM_PROTOTYPE(fdisk_get_label) = NULL;
 DLSYM_PROTOTYPE(fdisk_get_last_lba) = NULL;
 DLSYM_PROTOTYPE(fdisk_get_npartitions) = NULL;
 DLSYM_PROTOTYPE(fdisk_get_nsectors) = NULL;
@@ -35,6 +36,7 @@ DLSYM_PROTOTYPE(fdisk_get_partitions) = NULL;
 DLSYM_PROTOTYPE(fdisk_get_sector_size) = NULL;
 DLSYM_PROTOTYPE(fdisk_has_label) = NULL;
 DLSYM_PROTOTYPE(fdisk_is_labeltype) = NULL;
+DLSYM_PROTOTYPE(fdisk_label_is_changed) = NULL;
 DLSYM_PROTOTYPE(fdisk_new_context) = NULL;
 DLSYM_PROTOTYPE(fdisk_new_partition) = NULL;
 DLSYM_PROTOTYPE(fdisk_new_parttype) = NULL;
@@ -75,6 +77,7 @@ DLSYM_PROTOTYPE(fdisk_unref_context) = NULL;
 DLSYM_PROTOTYPE(fdisk_unref_partition) = NULL;
 DLSYM_PROTOTYPE(fdisk_unref_parttype) = NULL;
 DLSYM_PROTOTYPE(fdisk_unref_table) = NULL;
+DLSYM_PROTOTYPE(fdisk_verify_disklabel) = NULL;
 DLSYM_PROTOTYPE(fdisk_write_disklabel) = NULL;
 #endif
 
@@ -100,6 +103,7 @@ int dlopen_fdisk(int log_level) {
                         DLSYM_ARG(fdisk_get_disklabel_id),
                         DLSYM_ARG(fdisk_get_first_lba),
                         DLSYM_ARG(fdisk_get_grain_size),
+                        DLSYM_ARG(fdisk_get_label),
                         DLSYM_ARG(fdisk_get_last_lba),
                         DLSYM_ARG(fdisk_get_npartitions),
                         DLSYM_ARG(fdisk_get_nsectors),
@@ -108,6 +112,7 @@ int dlopen_fdisk(int log_level) {
                         DLSYM_ARG(fdisk_get_sector_size),
                         DLSYM_ARG(fdisk_has_label),
                         DLSYM_ARG(fdisk_is_labeltype),
+                        DLSYM_ARG(fdisk_label_is_changed),
                         DLSYM_ARG(fdisk_new_context),
                         DLSYM_ARG(fdisk_new_partition),
                         DLSYM_ARG(fdisk_new_parttype),
@@ -148,6 +153,7 @@ int dlopen_fdisk(int log_level) {
                         DLSYM_ARG(fdisk_unref_partition),
                         DLSYM_ARG(fdisk_unref_parttype),
                         DLSYM_ARG(fdisk_unref_table),
+                        DLSYM_ARG(fdisk_verify_disklabel),
                         DLSYM_ARG(fdisk_write_disklabel));
 #else
         return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),

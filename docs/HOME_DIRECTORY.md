@@ -91,6 +91,8 @@ Linux file system inside a LUKS2 volume inside a loopback file (or on removable 
   and that partition must have the type UUID
   `773f91ef-66d4-49b5-bd83-d683bf40ad16`.
   Its partition label must be the user name.
+  If the image is placed on a block device that cannot have partitions of its own, there's no such envelope,
+  see below.
 
 * This partition must contain a LUKS2 volume, whose label must be the user name.
   The LUKS2 volume must contain a LUKS2 token field of type `systemd-homed`.
@@ -126,6 +128,36 @@ Moreover, when copied onto a USB stick the GPT envelope makes sure
 the stick is properly recognizable as a portable home directory medium.
 (Moreover, it allows embedding additional partitions later on, for
 example on a multi-purpose USB stick that contains both a home directory and a generic storage volume.)
+
+A home directory may also be placed on a partition of an existing disk, or on another block device
+that the kernel doesn't scan for partitions, such as an LVM volume.
+There's no point in a partition table on these, as the kernel wouldn't find the partition inside it.
+Hence, the LUKS2 volume is placed directly on the device, with everything inside of it as described above.
+Such a home directory has no `partitionUuid` in its user record, and it always uses all of the device:
+it is not shrunk on logout, a smaller size is refused, and it follows the device if that has grown.
+`systemd-homed` doesn't change the partition table of the disk when resizing such a home directory.
+The exception is a partition that is the only one on a GPT disk:
+that's the same as the envelope described above, and hence it's treated that way.
+This is also how an envelope is recognized on another machine, where its user record has no `partitionUuid`.
+
+If the device is a partition on a GPT disk, then its type UUID and its label are set as described above,
+leaving everything else in the partition table alone.
+This way the partition is recognizable as a home directory,
+which is then a home directory that shares a GPT partition table with other partitions.
+Moreover, if it was of the type for `/home/` before, this makes sure that
+[`systemd-gpt-auto-generator`](https://www.freedesktop.org/software/systemd/man/latest/systemd-gpt-auto-generator.html)
+doesn't try to use it as `/home/` of the whole system.
+Other devices, such as LVM volumes, cannot be automatically discovered as home directories,
+since there's no place to record this.
+They work based on the user record stored on the system.
+
+These devices are not formatted if they are in use or if anything is found on them.
+Use [`wipefs(8)`](https://man7.org/linux/man-pages/man8/wipefs.8.html) first if their contents shall be destroyed,
+adding `--force` if what is to be removed is a partition table nested in a partition.
+The same applies when reusing such a device after removing a home directory on it,
+since removing a home directory leaves the backing block device untouched.
+As with a home directory on a whole disk, this means it is discovered again right away
+if it is on a partition with the type UUID described above, until it is wiped.
 
 Rationale for including the encrypted user record in the LUKS2 header:
 Linux kernel file system implementations are generally not robust towards
