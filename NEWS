@@ -114,6 +114,13 @@ CHANGES WITH 263 in spe:
           with Address=. The previous behaviour may be restored with
           LinkLocalAddressing=no.
 
+        * IPv6Forwarding=yes in a .network file now makes the kernel forward
+          IPv6 packets received on the interface, even if the global setting
+          is disabled, by also setting the force_forwarding sysctl, which is
+          available since kernel v6.17. Previously, it only enabled router
+          behaviour on the interface. The same applies to settings that imply
+          IPv6Forwarding=, that is, IPv6SendRA= and IPMasquerade=.
+
         * The "appStream" key of
           org.freedesktop.sysupdate1.Target.DescribeFeature() is now an array of
           strings rather than a single optional string.
