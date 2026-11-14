@@ -22,6 +22,8 @@ at_exit() {
     [ "${REPART_DEFS:-}" != "" ] && rm -rf "$REPART_DEFS"
     rm -f "${IMAGE:-}" \
         /tmp/passphrase \
+        /tmp/pcrsign-pin.img \
+        /tmp/pcrsign-pin.log \
         /tmp/pcrsign-private.pem \
         /tmp/pcrsign-public.pem \
         /tmp/pcrsign.sig \
@@ -167,10 +169,32 @@ SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup detach test-volume2
 SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1
 SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup detach test-volume2
 
+# The same with a PIN, on a separate image
+truncate -s 20M /tmp/pcrsign-pin.img
+cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom /tmp/pcrsign-pin.img /tmp/passphrase
+NEWPIN=123456 systemd-cryptenroll --unlock-key-file=/tmp/passphrase --tpm2-device=auto --tpm2-public-key="/tmp/pcrsign-public.pem" --tpm2-signature="/tmp/pcrsign.sig2" --tpm2-with-pin=yes /tmp/pcrsign-pin.img
+for mod in 0 1; do
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=$mod PIN=123456 \
+        systemd-cryptsetup attach test-volume2 /tmp/pcrsign-pin.img - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1
+    systemd-cryptsetup detach test-volume2
+done
+
 # After extending the PCR things should fail
 tpm2_pcrextend 11:sha256=0000000000000000000000000000000000000000000000000000000000000000
 (! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1)
 (! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup attach test-volume2 "$IMAGE" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1)
+
+# With no signature matching PCR 11 anymore, the PIN must neither be asked for nor tried against the TPM
+for mod in 0 1; do
+    tpm2_dictionarylockout -c
+    (! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=$mod \
+        systemd-cryptsetup attach test-volume2 /tmp/pcrsign-pin.img - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1 2>/tmp/pcrsign-pin.log)
+    grep "not asking for PIN" /tmp/pcrsign-pin.log >/dev/null
+    (! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=$mod PIN=123457 \
+        systemd-cryptsetup attach test-volume2 /tmp/pcrsign-pin.img - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1)
+    tpm2_getcap properties-variable | grep -E '^TPM2_PT_LOCKOUT_COUNTER: +0x0+$' >/dev/null
+done
+rm -f /tmp/pcrsign-pin.img /tmp/pcrsign-pin.log
 
 # But once we sign the current PCRs, we should be able to unlock again
 "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: >"/tmp/pcrsign.sig3"
