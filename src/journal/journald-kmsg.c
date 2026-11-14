@@ -369,11 +369,13 @@ int manager_flush_dev_kmsg(Manager *m) {
 
         for (;;) {
                 r = manager_read_dev_kmsg(m);
+                /* Read messages until end or an error */
                 if (r <= 0)
                         return r;
         }
 
-        return 0;
+        /* Function returns in the for loop */
+        assert_not_reached();
 }
 
 static int dispatch_dev_kmsg(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
