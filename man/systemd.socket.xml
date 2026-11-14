@@ -1042,6 +1042,18 @@
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>PropagateSlice=</varname></term>
+
+        <listitem><para>Takes a boolean argument. Defaults to off. If enabled, systemd will attempt to find
+        the slice that contains the peer, and use that as the slice for the instantiated service started to
+        handle the new connection. This allows the resources used by a service on behalf of the peer to count
+        against the peer's resource limits. Requires that <varname>Accept=yes</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+
     </variablelist>
 
     <xi:include href="systemd.service.xml" xpointer="shared-unit-options" />
