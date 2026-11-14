@@ -154,7 +154,8 @@
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         also maintains per-link Multicast DNS settings. Multicast DNS will be
         enabled on a link only if the per-link and the
-        global setting is on.</para>
+        global setting is on. If no per-link setting is configured, Multicast DNS
+        is disabled on that link.</para>
 
         <xi:include href="version-info.xml" xpointer="v234"/></listitem>
       </varlistentry>
