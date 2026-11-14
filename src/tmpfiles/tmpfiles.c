@@ -630,6 +630,14 @@ static int opendir_and_stat(
         return 1;
 }
 
+static bool timestamp_is_too_new(nsec_t timestamp, nsec_t cutoff, bool age_zero, nsec_t now_nsec) {
+        if (timestamp == NSEC_INFINITY || timestamp < cutoff)
+                return false;
+
+        /* Allow for small clock differences on network filesystems. */
+        return !age_zero || timestamp <= now_nsec + NSEC_PER_SEC;
+}
+
 static bool needs_cleanup(
                 nsec_t atime,
                 nsec_t btime,
@@ -638,9 +646,12 @@ static bool needs_cleanup(
                 nsec_t cutoff,
                 const char *sub_path,
                 AgeBy age_by,
-                bool is_dir) {
+                bool is_dir,
+                bool age_zero) {
 
-        if (FLAGS_SET(age_by, AGE_BY_MTIME) && mtime != NSEC_INFINITY && mtime >= cutoff) {
+        nsec_t checked_now_nsec = age_zero ? now_nsec(CLOCK_REALTIME) : 0;
+
+        if (FLAGS_SET(age_by, AGE_BY_MTIME) && timestamp_is_too_new(mtime, cutoff, age_zero, checked_now_nsec)) {
                 /* Follows spelling in stat(1). */
                 log_debug("%s \"%s\": modify time %s is too new.",
                           is_dir ? "Directory" : "File",
@@ -650,7 +661,7 @@ static bool needs_cleanup(
                 return false;
         }
 
-        if (FLAGS_SET(age_by, AGE_BY_ATIME) && atime != NSEC_INFINITY && atime >= cutoff) {
+        if (FLAGS_SET(age_by, AGE_BY_ATIME) && timestamp_is_too_new(atime, cutoff, age_zero, checked_now_nsec)) {
                 log_debug("%s \"%s\": access time %s is too new.",
                           is_dir ? "Directory" : "File",
                           sub_path,
@@ -663,7 +674,7 @@ static bool needs_cleanup(
          * Note: Unless explicitly specified by the user, "ctime" is ignored
          * by default for directories, because we change it when deleting.
          */
-        if (FLAGS_SET(age_by, AGE_BY_CTIME) && ctime != NSEC_INFINITY && ctime >= cutoff) {
+        if (FLAGS_SET(age_by, AGE_BY_CTIME) && timestamp_is_too_new(ctime, cutoff, age_zero, checked_now_nsec)) {
                 log_debug("%s \"%s\": change time %s is too new.",
                           is_dir ? "Directory" : "File",
                           sub_path,
@@ -672,7 +683,7 @@ static bool needs_cleanup(
                 return false;
         }
 
-        if (FLAGS_SET(age_by, AGE_BY_BTIME) && btime != NSEC_INFINITY && btime >= cutoff) {
+        if (FLAGS_SET(age_by, AGE_BY_BTIME) && timestamp_is_too_new(btime, cutoff, age_zero, checked_now_nsec)) {
                 log_debug("%s \"%s\": birth time %s is too new.",
                           is_dir ? "Directory" : "File",
                           sub_path,
@@ -698,7 +709,8 @@ static int dir_cleanup(
                 int maxdepth,
                 bool keep_this_level,
                 AgeBy age_by_file,
-                AgeBy age_by_dir) {
+                AgeBy age_by_dir,
+                bool age_zero) {
 
         bool deleted = false;
         int r = 0;
@@ -792,7 +804,7 @@ static int dir_cleanup(
                                                 atime_nsec, mtime_nsec, cutoff_nsec,
                                                 rootdev_major, rootdev_minor,
                                                 /* mountpoint= */ false, maxdepth-1, /* keep_this_level= */ false,
-                                                age_by_file, age_by_dir);
+                                                age_by_file, age_by_dir, age_zero);
                                 if (q < 0)
                                         r = q;
                         }
@@ -812,7 +824,7 @@ static int dir_cleanup(
                          * given cutoff time; delete if it is older.
                          */
                         if (!needs_cleanup(atime_nsec, btime_nsec, ctime_nsec, mtime_nsec,
-                                           cutoff_nsec, sub_path, age_by_dir, /* is_dir= */ true))
+                                           cutoff_nsec, sub_path, age_by_dir, /* is_dir= */ true, age_zero))
                                 continue;
 
                         log_action("Would remove", "Removing", "%s directory \"%s\"", sub_path);
@@ -868,7 +880,7 @@ static int dir_cleanup(
                         }
 
                         if (!needs_cleanup(atime_nsec, btime_nsec, ctime_nsec, mtime_nsec,
-                                           cutoff_nsec, sub_path, age_by_file, /* is_dir= */ false))
+                                           cutoff_nsec, sub_path, age_by_file, /* is_dir= */ false, age_zero))
                                 continue;
 
                         if (!arg_dry_run) {
@@ -3328,7 +3340,8 @@ static int remove_recursive(
                         MAX_DEPTH,
                         /* keep_this_level= */ false,
                         /* age_by_file= */ 0,
-                        /* age_by_dir= */ 0);
+                        /* age_by_dir= */ 0,
+                        /* age_zero= */ false);
         if (r < 0)
                 return r;
 
@@ -3397,10 +3410,12 @@ static int remove_item_instance(
 }
 
 static bool item_instance_needs_cleanup(
+                Context *c,
                 Item *i,
                 const char *instance,
                 const struct statx *sx) {
 
+        assert(c);
         assert(i);
         assert(instance);
         assert(sx);
@@ -3413,6 +3428,7 @@ static bool item_instance_needs_cleanup(
                 return false;
 
         usec_t cutoff = n - i->age;
+        nsec_t cutoff_nsec = cutoff * NSEC_PER_USEC;
         nsec_t atime_nsec = FLAGS_SET(sx->stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx->stx_atime) : NSEC_INFINITY;
         nsec_t mtime_nsec = FLAGS_SET(sx->stx_mask, STATX_MTIME) ? statx_timestamp_load_nsec(&sx->stx_mtime) : NSEC_INFINITY;
         nsec_t ctime_nsec = FLAGS_SET(sx->stx_mask, STATX_CTIME) ? statx_timestamp_load_nsec(&sx->stx_ctime) : NSEC_INFINITY;
@@ -3420,8 +3436,8 @@ static bool item_instance_needs_cleanup(
         bool is_dir = S_ISDIR(sx->stx_mode);
 
         return needs_cleanup(atime_nsec, btime_nsec, ctime_nsec, mtime_nsec,
-                             cutoff * NSEC_PER_USEC, instance,
-                             is_dir ? i->age_by_dir : i->age_by_file, is_dir);
+                             cutoff_nsec, instance,
+                             is_dir ? i->age_by_dir : i->age_by_file, is_dir, i->age == 0);
 }
 
 static int item_instance_open_parent(
@@ -3644,6 +3660,7 @@ static int item_instance_remove_directory_if_empty(
 }
 
 static int clean_remove_item_instance_at(
+                Context *c,
                 Item *i,
                 int parent_fd,
                 const char *name,
@@ -3654,6 +3671,7 @@ static int clean_remove_item_instance_at(
 
         int r;
 
+        assert(c);
         assert(i);
         assert(parent_fd >= 0);
         assert(name);
@@ -3664,7 +3682,7 @@ static int clean_remove_item_instance_at(
         if (must_be_directory && !S_ISDIR(sx->stx_mode))
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR), "\"%s\" is not a directory.", instance);
 
-        if (!item_instance_needs_cleanup(i, instance, sx))
+        if (!item_instance_needs_cleanup(c, i, instance, sx))
                 return 0;
 
         if (S_ISDIR(sx->stx_mode)) {
@@ -3737,7 +3755,7 @@ static int clean_remove_item_instance(
         if (r <= 0)
                 return r;
 
-        return clean_remove_item_instance_at(i, parent_fd, name, fd, instance, &sx, must_be_directory);
+        return clean_remove_item_instance_at(c, i, parent_fd, name, fd, instance, &sx, must_be_directory);
 }
 
 static int remove_item(Context *c, Item *i) {
@@ -3800,6 +3818,7 @@ static int clean_item_instance_from_dir(
                 return 0;
 
         usec_t cutoff = n - i->age;
+        nsec_t cutoff_nsec = cutoff * NSEC_PER_USEC;
         nsec_t atime_nsec = FLAGS_SET(sx->stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx->stx_atime) : NSEC_INFINITY;
         nsec_t mtime_nsec = FLAGS_SET(sx->stx_mask, STATX_MTIME) ? statx_timestamp_load_nsec(&sx->stx_mtime) : NSEC_INFINITY;
 
@@ -3817,18 +3836,18 @@ static int clean_item_instance_from_dir(
                 log_debug("Cleanup threshold for %s \"%s\" is %s; age-by: %s%s",
                           mountpoint ? "mount point" : "directory",
                           instance,
-                          FORMAT_TIMESTAMP_STYLE(cutoff, TIMESTAMP_US),
+                          i->age == 0 ? "the current time" : FORMAT_TIMESTAMP_STYLE(cutoff, TIMESTAMP_US),
                           ab_f, ab_d);
         }
 
         return dir_cleanup(c, i, instance, d,
                            atime_nsec,
                            mtime_nsec,
-                           cutoff * NSEC_PER_USEC,
+                           cutoff_nsec,
                            sx->stx_dev_major, sx->stx_dev_minor,
                            mountpoint,
                            MAX_DEPTH, i->keep_first_level,
-                           i->age_by_file, i->age_by_dir);
+                           i->age_by_file, i->age_by_dir, i->age == 0);
 }
 
 static int clean_item_instance(
@@ -3880,7 +3899,7 @@ static int clean_recursive_remove_item_instance(
         if (r <= 0)
                 return r;
         if (!S_ISDIR(sx.stx_mode))
-                return clean_remove_item_instance_at(i, parent_fd, name, fd, instance, &sx, must_be_directory);
+                return clean_remove_item_instance_at(c, i, parent_fd, name, fd, instance, &sx, must_be_directory);
 
         _cleanup_closedir_ DIR *d = NULL;
         r = item_instance_open_directory_and_lock(parent_fd, name, fd, instance, &d);
@@ -3899,7 +3918,7 @@ static int clean_recursive_remove_item_instance(
         if (r < 0)
                 return log_error_errno(r, "statx(%s) failed: %m", instance);
 
-        bool cleanup_needed = item_instance_needs_cleanup(i, instance, &dir_sx);
+        bool cleanup_needed = item_instance_needs_cleanup(c, i, instance, &dir_sx);
 
         r = clean_item_instance_from_dir(c, i, instance, d, &dir_sx, FLAGS_SET(dir_sx.stx_attributes, STATX_ATTR_MOUNT_ROOT));
         if (r < 0)
