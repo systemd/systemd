@@ -7,6 +7,9 @@ executables += [
                 'symlinks' : [
                         { 'name' : 'run0' },
                 ],
+                'dependencies' : [
+                        libselinux_cflags,
+                ],
         },
 ]
 
