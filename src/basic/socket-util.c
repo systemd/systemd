@@ -236,7 +236,8 @@ bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) {
                         if (a->size != b->size)
                                 return false;
 
-                        if (memcmp(a->sockaddr.un.sun_path, b->sockaddr.un.sun_path, a->size) != 0)
+                        if (memcmp(a->sockaddr.un.sun_path, b->sockaddr.un.sun_path,
+                                   a->size - offsetof(struct sockaddr_un, sun_path)) != 0)
                                 return false;
                 }
 
