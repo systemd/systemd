@@ -17,8 +17,8 @@
 /dev/sdx17 /mnt/wantedby-automount auto x-systemd.wanted-by=foo.service,x-systemd.automount 0 0
 /dev/sdx18 /mnt/onfailure          auto x-systemd.onfailure=foo.service                     0 0
 /dev/sdx19 /mnt/onfailuremulti     auto x-systemd.onfailure=foo.service,x-systemd.onfailure=bar.service 0 0
-/dev/sdx20 /mnt/growfsnofail     auto x-systemd.growfs,nofail                             0 0
-/dev/sdx21 /mnt/validatefs        auto x-systemd.validatefs                                0 0
-/dev/sdx22 /mnt/validatefsnofail auto x-systemd.validatefs,nofail                         0 0
-/dev/sdx23 /mnt/quota             ext4 usrquota                                            0 0
-/dev/sdx24 /mnt/quotanofail      ext4 usrquota,nofail                                     0 0
+/dev/sdx20 /mnt/growfsnofail       auto x-systemd.growfs,nofail                             0 0
+/dev/sdx21 /mnt/validatefs         auto x-systemd.validatefs                                0 0
+/dev/sdx22 /mnt/validatefsnofail   auto x-systemd.validatefs,nofail                         0 0
+/dev/sdx23 /mnt/quota              ext4 usrquota                                            0 0
+/dev/sdx24 /mnt/quotanofail        ext4 usrquota,nofail                                     0 0
