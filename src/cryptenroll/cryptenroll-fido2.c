@@ -14,6 +14,7 @@
 #include "libfido2-util.h"
 #include "pretty-print.h"
 #include "string-util.h"
+#include "strv.h"
 
 int load_volume_key_fido2(
                 const EnrollContext *c,
@@ -96,7 +97,35 @@ int enroll_fido2(
 
         un = strempty(sym_crypt_get_uuid(cd));
 
-        if (c->fido2_salt_file)
+     if (c->fido2_salt_prompt) {
+    _cleanup_strv_free_erase_ char **salt_passphrases = NULL;
+    AskPasswordRequest req = {
+        .message = "Please enter FIDO2 salt passphrase (will be SHA-256'd):",
+        .icon = "drive-harddisk",
+        .id = node,
+        .keyring = NULL,          /* no caching */
+        .credential = NULL,
+        .until = 0,
+        .hup_fd = -EBADF,
+    };
+
+    r = ask_password_auto(&req,
+                          c->interactive ? 0 : ASK_PASSWORD_HEADLESS,
+                          &salt_passphrases);
+    if (r < 0)
+        return log_error_errno(r, "Failed to ask for FIDO2 salt: %m");
+
+    if (strv_isempty(salt_passphrases))
+        return log_error_errno(SYNTHETIC_ERRNO(ENOKEY), "No salt passphrase provided.");
+
+    /* SHA-256 → 32-byte salt */
+    salt = IOVEC_MAKE(NULL, SHA256_DIGEST_SIZE);
+    salt.iov_base = malloc(SHA256_DIGEST_SIZE);
+    if (!salt.iov_base)
+        return log_oom();
+
+    sha256_direct(salt_passphrases[0], strlen(salt_passphrases[0]), salt.iov_base);
+} else   if (c->fido2_salt_file)
                 r = fido2_read_salt_file(
                                 c->fido2_salt_file,
                                 /* offset= */ UINT64_MAX,
@@ -158,12 +187,22 @@ int enroll_fido2(
         if (c->fido2_parameters_in_header) {
                 if (asprintf(&keyslot_as_string, "%i", keyslot) < 0)
                         return log_oom();
+_cleanup_(iovec_done_erase) struct iovec salt_to_store = {};
 
+if (c->fido2_salt_prompt) {
+        salt_to_store.iov_base = calloc(1, 32);
+        if (!salt_to_store.iov_base)
+                return log_oom();
+        salt_to_store.iov_len = 32;
+} else {
+        salt_to_store = salt;   /* shallow copy */
+}
                 r = sd_json_buildo(&v,
                                 SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-fido2")),
                                 SD_JSON_BUILD_PAIR("keyslots", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_as_string))),
                                 SD_JSON_BUILD_PAIR("fido2-credential", SD_JSON_BUILD_BASE64(cid, cid_size)),
-                                SD_JSON_BUILD_PAIR("fido2-salt", JSON_BUILD_IOVEC_BASE64(&salt)),
+                                SD_JSON_BUILD_PAIR("fido2-salt", JSON_BUILD_IOVEC_BASE64(&salt_to_store)),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("fido2-salt-prompt", c->fido2_salt_prompt),
                                 SD_JSON_BUILD_PAIR("fido2-rp", JSON_BUILD_CONST_STRING("io.systemd.cryptsetup")),
                                 SD_JSON_BUILD_PAIR_BOOLEAN("fido2-clientPin-required", FLAGS_SET(lock_with, FIDO2ENROLL_PIN)),
                                 SD_JSON_BUILD_PAIR_BOOLEAN("fido2-up-required", FLAGS_SET(lock_with, FIDO2ENROLL_UP)),
