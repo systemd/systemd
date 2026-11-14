@@ -348,3 +348,33 @@ journalctl -q -n 0 --cursor-file="$CURSOR_FILE"
 TIMESTAMP="$(journalctl -q -n 1 --cursor="$(<"$CURSOR_FILE")" --output=short-unix | cut -d ' ' -f 1 | cut -d '.' -f 1)"
 [[ -z "$(journalctl -q -n 10 --after-cursor="$(<"$CURSOR_FILE")" --until "@$((TIMESTAMP - 3))")" ]]
 rm -f "$CURSOR_FILE"
+
+# Check that --cursor-file= can be combined with --since=
+# even when the --since= timestamp is newer than the last available entry
+# See: https://github.com/systemd/systemd/issues/20523
+# and: https://github.com/systemd/systemd/issues/44771
+CURSOR_FILE="$(mktemp -u)"
+ID="issue-20523-$(systemd-id128 new)"
+systemd-cat -t "$ID" echo "hello"
+journalctl --sync
+journalctl -q -t "$ID" --cursor-file="$CURSOR_FILE" --since "@$(($(date +%s) + 3600))"
+# The (previously missing) cursor file must have been created with the cursor of the last matching entry.
+[[ -s "$CURSOR_FILE" ]]
+CURSOR_FROM_JOURNAL="$(journalctl -q -o export -t "$ID" -n 1 | sed -n 's/^__CURSOR=//p')"
+[[ -n "$CURSOR_FROM_JOURNAL" ]]
+[[ "$(<"$CURSOR_FILE")" == "$CURSOR_FROM_JOURNAL" ]]
+
+# Check that --cursor-file= correctly ignores --since= when the cursor-file exists.
+sleep 1
+systemd-cat -t "$ID" echo "world"
+journalctl --sync
+SINCE="@$(( $(date +%s) - 3600 ))"
+OUTPUT="$(journalctl -q -t "$ID" --cursor-file="$CURSOR_FILE" --since="$SINCE")"
+# We expect that the first message (hello) is NOT displayed, but the second message (world) IS.
+[[ "$OUTPUT" != *"hello"* ]]
+[[ "$OUTPUT" == *"world"* ]]
+CURSOR_FROM_JOURNAL="$(journalctl -q -o export -t "$ID" -n 1 | sed -n 's/^__CURSOR=//p')"
+[[ "$(<"$CURSOR_FILE")" == "$CURSOR_FROM_JOURNAL" ]]
+# Running again with the advanced cursor must not replay "world".
+[[ "$(journalctl -q -t "$ID" --cursor-file="$CURSOR_FILE" --since="$SINCE")" == "" ]]
+rm -f "$CURSOR_FILE"
