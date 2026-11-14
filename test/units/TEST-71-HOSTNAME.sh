@@ -367,6 +367,7 @@ testcase_hostnamed_alternate_paths() {
 [Service]
 Environment=SYSTEMD_ETC_HOSTNAME=/run/alternate-path/myhostname
 Environment=SYSTEMD_ETC_MACHINE_INFO=/run/alternate-path/mymachine-info
+ReadWritePaths=/run/alternate-path
 EOF
     systemctl daemon-reload
     systemctl restart systemd-hostnamed
