@@ -2587,7 +2587,8 @@ static int method_enable_unit_files_generic(
                 r = sd_bus_message_read(message, "t", &raw_flags);
                 if (r < 0)
                         return r;
-                if ((raw_flags & ~_UNIT_FILE_FLAGS_MASK_PUBLIC) != 0)
+                if ((raw_flags & ~_UNIT_FILE_FLAGS_MASK_PUBLIC) != 0 ||
+                    FLAGS_SET(raw_flags, UNIT_FILE_NO_FUTURE_MASKS))
                         return -EINVAL;
                 flags = raw_flags;
         } else {

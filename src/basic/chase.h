@@ -40,6 +40,7 @@ typedef enum ChaseFlags {
                                              * chase_and_stat*(). Keep this in mind */
         CHASE_EXTRACT_FILENAME_HARDER = CHASE_EXTRACT_FILENAME | (1 << 18), /* Return "." if there is no filename. */
         CHASE_EMPTY_PATH         = 1 << 19, /* An empty path refers to the inode of dir_fd itself. */
+        CHASE_MKDIR_0755_LABEL   = 1 << 20,
 } ChaseFlags;
 
 int statx_unsafe_transition(const struct statx *a, const struct statx *b);

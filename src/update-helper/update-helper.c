@@ -472,6 +472,35 @@ static int manager_stop_units(sd_bus *bus, const ManagerOperation *op) {
         return 0;
 }
 
+static int manager_disable_units(
+                sd_bus *bus,
+                char **units,
+                UnitFileFlags flags,
+                sd_bus_error *error,
+                sd_bus_message **ret_reply) {
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        int r;
+
+        assert(bus);
+        assert(error);
+        assert(ret_reply);
+
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "DisableUnitFilesWithFlags");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_strv(m, units);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "t", (uint64_t) flags);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return sd_bus_call(bus, m, /* usec= */ 0, error, ret_reply);
+}
+
 static int manager_disable_and_stop_units(sd_bus *bus, const ManagerOperation *op) {
         int r;
 
@@ -482,22 +511,16 @@ static int manager_disable_and_stop_units(sd_bus *bus, const ManagerOperation *o
                 STRV_FOREACH(unit, op->units)
                         log_info("Would disable unit '%s'", *unit);
         else {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-                r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "DisableUnitFilesWithFlags");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_append_strv(m, op->units);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_append(m, "t", UINT64_C(0));
-                if (r < 0)
-                        return bus_log_create_error(r);
-
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                r = sd_bus_call(bus, m, /* usec= */ 0, &error, &reply);
+                r = manager_disable_units(bus, op->units, UNIT_FILE_NO_FUTURE_MASKS, &error, &reply);
+                if (r < 0 && sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS)) {
+                        /* PID 1 keeps the pre-update code until reexecution. User managers can also keep a
+                         * version that does not accept UNIT_FILE_NO_FUTURE_MASKS. */
+                        sd_bus_error_free(&error);
+                        reply = sd_bus_message_unref(reply);
+                        r = manager_disable_units(bus, op->units, /* flags= */ 0, &error, &reply);
+                }
                 if (r == -ETIME)
                         return r;
                 if (r < 0) {
@@ -835,7 +858,7 @@ static int verb_remove_units(int argc, char **argv, uintptr_t data, void *userda
 
                 r = unit_file_disable(
                                 scope,
-                                (arg_dry_run ? UNIT_FILE_DRY_RUN : 0),
+                                UNIT_FILE_NO_FUTURE_MASKS|(arg_dry_run ? UNIT_FILE_DRY_RUN : 0),
                                 /* root_dir= */ NULL,
                                 units,
                                 &changes,
