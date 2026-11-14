@@ -247,10 +247,6 @@ static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVI
         if (err != EFI_SUCCESS)
                 return log_debug_status(err, "Failed to locate disk device: %m");
 
-        /* The drivers for other partitions on this drive may not be initialized on fastboot firmware, so we
-         * have to ask the firmware to do just that. */
-        (void) BS->ConnectController(disk_handle, NULL, NULL, true);
-
         err = BS->HandleProtocol(disk_handle, MAKE_GUID_PTR(EFI_BLOCK_IO_PROTOCOL), (void **) &block_io);
         if (err != EFI_SUCCESS)
                 return log_debug_status(err, "Failed to get block I/O protocol: %m");
@@ -298,6 +294,10 @@ static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVI
                         /* Bad GPT, try next one. */
                         continue;
                 }
+
+                /* Fastboot firmware may leave other partitions unconnected. Only initialize their drivers after
+                 * finding a matching GPT entry; reading the disk itself does not require them. */
+                (void) BS->ConnectController(disk_handle, /* DriverImageHandle= */ NULL, /* RemainingDevicePath= */ NULL, /* Recursive= */ true);
 
                 /* Patch in the data we found */
                 *ret_device_path = device_path_replace_node(partition_path, part_node, &hd.Header);
