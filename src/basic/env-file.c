@@ -117,7 +117,7 @@ static int parse_env_file_internal(
                                         return r;
 
                                 n_key = 0;
-                                value = NULL;
+                                value = mfree(value);
                                 n_value = 0;
 
                         } else if (c == '\'')
@@ -160,7 +160,7 @@ static int parse_env_file_internal(
                                         return r;
 
                                 n_key = 0;
-                                value = NULL;
+                                value = mfree(value);
                                 n_value = 0;
 
                         } else if (c == '\\') {
@@ -283,8 +283,6 @@ static int parse_env_file_internal(
                 r = push(fname, line, key, value, userdata);
                 if (r < 0)
                         return r;
-
-                value = NULL;
         }
 
         return 0;
@@ -341,14 +339,13 @@ static int parse_env_file_push(
 
                 if (streq(key, k)) {
                         va_end(aq);
-                        free_and_replace(*v, value);
+                        free_and_strdup(v, strempty(value));
 
                         return 1;
                 }
         }
 
         va_end(aq);
-        free(value);
 
         return 0;
 }
@@ -477,7 +474,6 @@ static int load_env_file_push(
         if (r < 0)
                 return r;
 
-        free(value);
         return 0;
 }
 
@@ -512,21 +508,14 @@ static int load_env_file_push_pairs(
 
         /* Check if the key is present */
         for (char **t = *m; t && *t; t += 2)
-                if (streq(t[0], key)) {
-                        if (value)
-                                return free_and_replace(t[1], value);
-                        else
-                                return free_and_strdup(t+1, "");
-                }
+                if (streq(t[0], key))
+                        return free_and_strdup(t+1, strempty(value));
 
         r = strv_extend(m, key);
         if (r < 0)
                 return r;
 
-        if (value)
-                return strv_push(m, value);
-        else
-                return strv_extend(m, "");
+        return strv_extend(m, strempty(value));
 }
 
 int load_env_file_pairs(FILE *f, const char *fname, char ***ret) {
@@ -563,7 +552,7 @@ static int merge_env_file_push(
                 void *userdata) {
 
         char ***env = ASSERT_PTR(userdata);
-        char *expanded_value;
+        _cleanup_free_ char *expanded_value = NULL;
         int r;
 
         assert(key);
@@ -575,7 +564,6 @@ static int merge_env_file_push(
 
         if (!env_name_is_valid(key)) {
                 log_error("%s:%u: invalid variable name \"%s\", ignoring.", strna(filename), line, key);
-                free(value);
                 return 0;
         }
 
@@ -586,11 +574,9 @@ static int merge_env_file_push(
         if (r < 0)
                 return log_error_errno(r, "%s:%u: Failed to expand variable '%s': %m", strna(filename), line, value);
 
-        free_and_replace(value, expanded_value);
+        log_debug("%s:%u: setting %s=%s", filename, line, key, expanded_value);
 
-        log_debug("%s:%u: setting %s=%s", filename, line, key, value);
-
-        return load_env_file_push(filename, line, key, value, env);
+        return load_env_file_push(filename, line, key, expanded_value, env);
 }
 
 int merge_env_file(
