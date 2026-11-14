@@ -182,11 +182,14 @@
     names (e.g. <literal>EXTENSION_RESTART_UNITS="my.service other.service"</literal>) that
     <command>systemd-sysext</command>/<command>systemd-confext</command> should restart resp. reload (or
     restart, if the unit does not support reloading) after merging or refreshing the extension, and after
-    unmerging it. Use <varname>EXTENSION_RESTART_UNITS=</varname> for units whose binary the extension
-    replaces (a reload would not pick up the new binary), and <varname>EXTENSION_RELOAD_OR_RESTART_UNITS=</varname>
+    unmerging it. A refresh also covers the units listed by the extensions that were merged before it, so
+    that a unit is handled as well when the extension listing it is removed or replaced by a version that
+    does not list it anymore. Use <varname>EXTENSION_RESTART_UNITS=</varname> for units whose binary the
+    extension replaces (a reload would not pick up the new binary), and
+    <varname>EXTENSION_RELOAD_OR_RESTART_UNITS=</varname>
     for units the extension extends with configuration drop-ins only (so reload-capable services are not
     needlessly interrupted). If a unit has disappeared, e.g., on unmerge because it was part of the
-    extension, it is stopped instead. If the same unit is listed in both fields,
+    extension, or if it is masked, it is stopped instead. If the same unit is listed in both fields,
     <varname>EXTENSION_RESTART_UNITS=</varname> takes precedence. Listing any unit in either field implies
     <varname>EXTENSION_RELOAD_MANAGER=1</varname>, as the service manager would otherwise not yet (or no
     longer) see the unit files shipped by the extension. Note that these settings do not take effect when
