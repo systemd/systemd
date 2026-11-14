@@ -25,6 +25,7 @@ int proc_cmdline_strv(char ***ret);
 int proc_cmdline_parse(proc_cmdline_parse_t parse, void *userdata, ProcCmdlineFlags flags);
 
 int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **ret_value);
+int cmdline_get_key(const char *cmdline, const char *key, ProcCmdlineFlags flags, char **ret_value);
 int proc_cmdline_get_bool(const char *key, ProcCmdlineFlags flags, bool *ret);
 
 int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...);

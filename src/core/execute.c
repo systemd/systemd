@@ -112,14 +112,14 @@ int exec_context_apply_tty_size(
 
         /* If we got nothing so far and we are talking to a physical device, then let's query dimensions from
          * the ANSI terminal driver. Note that we will not bother with this in case terminal reset via ansi
-         * sequences is not enabled, as the DSR logic relies on ANSI sequences after all, and if we shall not
+         * sequences is not enabled, as the size query logic relies on ANSI sequences after all, and if we shall not
          * use those during initialization we need to skip it. */
         if (rows == UINT_MAX && cols == UINT_MAX &&
             exec_context_shall_ansi_seq_reset(context) &&
             isatty_safe(input_fd)) {
-                r = terminal_get_size(input_fd, output_fd, &rows, &cols, /* try_dsr= */ true, /* try_csi18= */ false);
+                r = terminal_query(input_fd, output_fd, &rows, &cols, /* ret_terminfo= */ NULL);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to get terminal size by DSR, ignoring: %m");
+                        log_debug_errno(r, "Failed to get terminal size via ANSI sequences, ignoring: %m");
         }
 
         return terminal_set_size_fd(output_fd, tty_path, rows, cols);

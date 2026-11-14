@@ -5569,10 +5569,12 @@ static int setup_term_environment(const ExecContext *context, char ***env) {
                                         return -ENOMEM;
 
                                 r = proc_cmdline_get_key(key, /* flags= */ 0, &cmdline);
-                                if (r > 0)
-                                        return strv_env_assign(env, "TERM", cmdline);
                                 if (r < 0)
                                         log_debug_errno(r, "Failed to read '%s' from kernel cmdline, ignoring: %m", key);
+                                else if (term_env_valid(cmdline))
+                                        return strv_env_assign(env, "TERM", cmdline);
+                                else if (r > 0)
+                                        log_debug("Invalid %s= setting on kernel command line, ignoring.", key);
                         }
 
                         /* This handles real virtual terminals (returning "linux") and
