@@ -49,6 +49,7 @@
 #include "varlink-io.systemd.Report.h"
 #include "varlink-io.systemd.Report.Signer.h"
 #include "varlink-io.systemd.Report.Uploader.h"
+#include "varlink-io.systemd.RTWatch.h"
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Hook.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
@@ -267,6 +268,7 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_Report,
                 &vl_interface_io_systemd_Report_Signer,
                 &vl_interface_io_systemd_Report_Uploader,
+                &vl_interface_io_systemd_RTWatch,
                 &vl_interface_io_systemd_Resolve,
                 &vl_interface_io_systemd_Resolve_Hook,
                 &vl_interface_io_systemd_Resolve_Monitor,

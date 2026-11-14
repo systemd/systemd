@@ -34,6 +34,7 @@ typedef enum ProcessCmdlineFlags {
         PROCESS_CMDLINE_QUOTE_POSIX   = 1 << 3,
 } ProcessCmdlineFlags;
 
+int pid_get_thread_comm(pid_t pid, pid_t tid, char **ret);
 int pid_get_comm(pid_t pid, char **ret);
 int pidref_get_comm(const PidRef *pid, char **ret);
 int pid_get_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, char **ret);
@@ -109,6 +110,7 @@ int opinionated_personality(unsigned long *ret);
 
 DECLARE_STRING_TABLE_LOOKUP(sigchld_code, int);
 DECLARE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sched_policy, int);
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING(sched_policy, int);
 
 static inline pid_t PTR_TO_PID(const void *p) {
         return (pid_t) ((uintptr_t) p);
@@ -128,6 +130,7 @@ bool sched_policy_is_valid(int policy) _const_;
 bool sched_policy_supported(int policy);
 int sched_get_priority_min_safe(int policy);
 int sched_get_priority_max_safe(int policy);
+bool sched_priority_is_valid(int policy, int priority);
 
 #define PID_AUTOMATIC ((pid_t) INT_MIN) /* special value indicating "acquire pid from connection peer" */
 

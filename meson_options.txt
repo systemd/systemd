@@ -252,6 +252,8 @@ option('resolve', type : 'boolean',
        description : 'systemd-resolved stack')
 option('rfkill', type : 'boolean',
        description : 'support for the rfkill tools')
+option('rtwatch', type : 'boolean',
+       description : 'install the systemd-rtwatchd realtime scheduling policy service')
 option('sleep', type : 'feature',
        description : 'install systemd-sleep and associated files')
 option('storage', type : 'feature',
