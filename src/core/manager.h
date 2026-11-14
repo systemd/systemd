@@ -498,6 +498,8 @@ typedef struct Manager {
         sd_varlink_server *varlink_server;
         /* Varlink clients streaming a job, by job id, carried across a reload since connections can't be serialized */
         Hashmap *stashed_varlink_job_clients;
+        /* Unit reference connections, by ID, shared while restoring multiple units. */
+        Hashmap *stashed_varlink_unit_refs;
         /* When we're a system manager, this object manages the subscription from systemd-oomd to PID1 that's
          * used to report changes in ManagedOOM settings (systemd server - oomd client). When
          * we're a user manager, this object manages the client connection from the user manager to
