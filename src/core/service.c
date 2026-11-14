@@ -3377,6 +3377,14 @@ static void service_enter_refresh_credentials(Service *s) {
                 goto fail;
         }
 
+        /* Remove leftovers from a previous helper that did not exit cleanly. */
+        r = exec_context_destroy_credentials_workspace(
+                        UNIT(s)->manager->prefix[EXEC_DIRECTORY_RUNTIME], UNIT(s)->id);
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(s), r, "Failed to remove stale credentials workspace: %m");
+                goto fail;
+        }
+
         r = unit_fork_helper_process_full(UNIT(s), "(sd-refresh-creds)", /* into_cgroup = */ false,
                                           FORK_ALLOW_DLOPEN, /* allow loading libacl to avoid doing so in pid1 */
                                           &worker);
