@@ -29,7 +29,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("Which kind of credential to enroll. Only 'password', 'recovery' and 'fido2' may be enrolled via this interface for now; 'pkcs11' and 'tpm2' are rejected with an InvalidParameter error, currently."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(mechanism, EnrollMechanism, 0),
 
-                SD_VARLINK_FIELD_COMMENT("How to unlock the volume for the enrollment operation is inferred from which of the following fields are set: setting unlockPassword unlocks via that password, unlockKeyFile/unlockKeyFileDescriptor via a key file, unlockFido2Device via FIDO2, unlockTpm2Device via TPM2. Exactly one must be set."),
+                SD_VARLINK_FIELD_COMMENT("How to unlock the volume for the enrollment operation is inferred from which of the following fields are set: setting unlockPassword unlocks via that password, unlockKeyFile/unlockKeyFileDescriptor via a key file, unlockFido2Device via FIDO2, unlockTpm2Device via TPM2, unlockPkcs11TokenUri via PKCS#11. Exactly one must be set."),
                 SD_VARLINK_DEFINE_INPUT(unlockPassword, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Path to a key file to unlock the volume with."),
                 SD_VARLINK_DEFINE_INPUT(unlockKeyFile, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
@@ -39,6 +39,8 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_INPUT(unlockFido2Device, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Path to a TPM2 device to unlock the volume with. Leave the path empty to automatically discover a suitable device."),
                 SD_VARLINK_DEFINE_INPUT(unlockTpm2Device, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("PKCS#11 URI of the token to unlock the volume with. Leave empty ('auto') to automatically discover the token enrolled in the LUKS2 header."),
+                SD_VARLINK_DEFINE_INPUT(unlockPkcs11TokenUri, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
 
                 SD_VARLINK_FIELD_COMMENT("The passphrase to enroll, when mechanism is 'password'. Contains key material."),
                 SD_VARLINK_DEFINE_INPUT(password, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),

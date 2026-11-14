@@ -20,6 +20,7 @@ typedef enum UnlockType {
         UNLOCK_KEYFILE,
         UNLOCK_FIDO2,
         UNLOCK_TPM2,
+        UNLOCK_PKCS11,
         UNLOCK_EMPTY,
         UNLOCK_HEADLESS,
         _UNLOCK_TYPE_MAX,
@@ -59,6 +60,7 @@ typedef struct EnrollContext {
         char *unlock_keyfile;
         char *unlock_fido2_device;
         char *unlock_tpm2_device;
+        char *unlock_pkcs11_token_uri;
         char *unlock_password;          /* used by Varlink; NULL on CLI path */
 
         /* New password to enroll (mechanism == password). When NULL the helpers fall back to
