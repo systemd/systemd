@@ -382,3 +382,178 @@ for export_file in "$DOS_DIR"/no-separator.export "$DOS_DIR"/long-field-name.exp
                     "$export_file" || [[ $? -lt 124 ]]
 done
 rm -rf "$DOS_DIR"
+
+# Let's test incorrect SplitName / ListenHTTP combinations
+for c in common full; do
+    cat >/run/systemd/journal-remote.conf.d/99-test.conf <<EOF
+[Remote]
+SplitMode=host
+SplitName=${c}
+ServerKeyFile=-
+ServerCertificateFile=-
+TrustedCertificateFile=-
+EOF
+    systemd-analyze cat-config systemd/journal-remote.conf
+
+    systemctl restart systemd-journal-remote.service
+    timeout 10 bash -xec 'while [[ "$(systemctl show -P ActiveState systemd-journal-remote.service)" != failed ]]; do sleep 1; done'
+    (! systemctl status systemd-journal-remote)
+done
+
+systemctl stop systemd-journal-remote.{socket,service}
+rm -rf /var/log/journal/remote/*
+
+# Let's test correct SplitName / ListenHTTP combinations
+for c in "-" host; do
+    cat >/run/systemd/journal-remote.conf.d/99-test.conf <<EOF
+[Remote]
+SplitMode=host
+SplitName=${c}
+ServerKeyFile=-
+ServerCertificateFile=-
+TrustedCertificateFile=-
+EOF
+    systemd-analyze cat-config systemd/journal-remote.conf
+
+    systemctl restart systemd-journal-remote.socket
+    systemctl restart systemd-journal-remote.service
+    timeout 10 bash -xec 'while [[ "$(systemctl show -P ActiveState systemd-journal-remote.service)" != active ]]; do sleep 1; done'
+    systemctl status systemd-journal-remote
+done
+
+systemctl stop systemd-journal-remote.{socket,service}
+rm -rf /var/log/journal/remote/*
+
+# Let's test incorrect SplitName / ListenHTTPS / TrustedCertificateFile combinations
+for c in common full; do
+    cat >/run/systemd/journal-remote.conf.d/99-test.conf <<EOF
+[Remote]
+SplitMode=host
+SplitName=${c}
+ServerKeyFile=/run/systemd/remote-pki/server.key
+ServerCertificateFile=/run/systemd/remote-pki/server.crt
+TrustedCertificateFile=-
+EOF
+    systemd-analyze cat-config systemd/journal-remote.conf
+
+    systemctl restart systemd-journal-remote.socket
+    systemctl restart systemd-journal-remote.service
+    timeout 10 bash -xec 'while [[ "$(systemctl show -P ActiveState systemd-journal-remote.service)" != failed ]]; do sleep 1; done'
+    (! systemctl status systemd-journal-remote)
+done
+
+systemctl stop systemd-journal-remote.{socket,service}
+rm -rf /var/log/journal/remote/*
+
+# Let's test SplitName=common mode with TrustedCertificateFile
+# journal-upload keeps the cursor of the last uploaded message, so let's send a fresh one
+echo "$TEST_MESSAGE" | systemd-cat -t "$TEST_TAG"
+journalctl --sync
+
+cat >/run/systemd/journal-remote.conf.d/99-test.conf <<EOF
+[Remote]
+SplitMode=host
+SplitName=common
+ServerKeyFile=/run/systemd/remote-pki/server.key
+ServerCertificateFile=/run/systemd/remote-pki/server.crt
+TrustedCertificateFile=/run/systemd/remote-pki/ca.crt
+EOF
+cat >/run/systemd/journal-upload.conf.d/99-test.conf <<EOF
+[Upload]
+URL=https://localhost:19532
+ServerKeyFile=/run/systemd/remote-pki/client.key
+ServerCertificateFile=/run/systemd/remote-pki/client.crt
+TrustedCertificateFile=/run/systemd/remote-pki/ca.crt
+EOF
+systemd-analyze cat-config systemd/journal-remote.conf
+systemd-analyze cat-config systemd/journal-upload.conf
+
+systemctl restart systemd-journal-remote.socket
+systemctl restart systemd-journal-upload
+timeout 15 bash -xec 'until systemctl -q is-active systemd-journal-remote.service; do sleep 1; done'
+systemctl status systemd-journal-{remote,upload}
+
+# It may take a bit until the whole journal is transferred
+timeout 30 bash -xec "until journalctl --directory=/var/log/journal/remote --identifier='$TEST_TAG' --grep='$TEST_MESSAGE'; do sleep 1; done"
+
+# Check if the correct journal file exists
+test -f "/var/log/journal/remote/remote-Test\x20Client.journal"
+
+systemctl stop systemd-journal-remote.{socket,service}
+systemctl stop systemd-journal-upload
+rm -rf /var/log/journal/remote/*
+
+# Let's test SplitName=full mode with TrustedCertificateFile
+# journal-upload keeps the cursor of the last uploaded message, so let's send a fresh one
+echo "$TEST_MESSAGE" | systemd-cat -t "$TEST_TAG"
+journalctl --sync
+
+cat >/run/systemd/journal-remote.conf.d/99-test.conf <<EOF
+[Remote]
+SplitMode=host
+SplitName=full
+ServerKeyFile=/run/systemd/remote-pki/server.key
+ServerCertificateFile=/run/systemd/remote-pki/server.crt
+TrustedCertificateFile=/run/systemd/remote-pki/ca.crt
+EOF
+cat >/run/systemd/journal-upload.conf.d/99-test.conf <<EOF
+[Upload]
+URL=https://localhost:19532
+ServerKeyFile=/run/systemd/remote-pki/client.key
+ServerCertificateFile=/run/systemd/remote-pki/client.crt
+TrustedCertificateFile=/run/systemd/remote-pki/ca.crt
+EOF
+systemd-analyze cat-config systemd/journal-remote.conf
+systemd-analyze cat-config systemd/journal-upload.conf
+
+systemctl restart systemd-journal-remote.socket
+systemctl restart systemd-journal-upload
+timeout 15 bash -xec 'until systemctl -q is-active systemd-journal-remote.service; do sleep 1; done'
+systemctl status systemd-journal-{remote,upload}
+
+# It may take a bit until the whole journal is transferred
+timeout 30 bash -xec "until journalctl --directory=/var/log/journal/remote --identifier='$TEST_TAG' --grep='$TEST_MESSAGE'; do sleep 1; done"
+
+# Check if the correct journal file exists
+test -f "/var/log/journal/remote/remote-C=CZ,L=Brno,O=Foo,OU=Bar,CN=Test\x20Client.journal"
+
+systemctl stop systemd-journal-remote.{socket,service}
+systemctl stop systemd-journal-upload
+rm -rf /var/log/journal/remote/*
+
+# Let's test SplitName=host mode with TrustedCertificateFile
+# journal-upload keeps the cursor of the last uploaded message, so let's send a fresh one
+echo "$TEST_MESSAGE" | systemd-cat -t "$TEST_TAG"
+journalctl --sync
+
+cat >/run/systemd/journal-remote.conf.d/99-test.conf <<EOF
+[Remote]
+SplitMode=host
+SplitName=host
+ServerKeyFile=/run/systemd/remote-pki/server.key
+ServerCertificateFile=/run/systemd/remote-pki/server.crt
+TrustedCertificateFile=/run/systemd/remote-pki/ca.crt
+EOF
+cat >/run/systemd/journal-upload.conf.d/99-test.conf <<EOF
+[Upload]
+URL=https://localhost:19532
+ServerKeyFile=/run/systemd/remote-pki/client.key
+ServerCertificateFile=/run/systemd/remote-pki/client.crt
+TrustedCertificateFile=/run/systemd/remote-pki/ca.crt
+EOF
+systemd-analyze cat-config systemd/journal-remote.conf
+systemd-analyze cat-config systemd/journal-upload.conf
+
+systemctl restart systemd-journal-remote.socket
+systemctl restart systemd-journal-upload
+timeout 15 bash -xec 'until systemctl -q is-active systemd-journal-remote.service; do sleep 1; done'
+systemctl status systemd-journal-{remote,upload}
+
+# It may take a bit until the whole journal is transferred
+timeout 30 bash -xec "until journalctl --directory=/var/log/journal/remote --identifier='$TEST_TAG' --grep='$TEST_MESSAGE'; do sleep 1; done"
+
+# Check if the correct journal file exists
+test -f "/var/log/journal/remote/remote-::1.journal"
+
+systemctl stop systemd-journal-upload
+systemctl stop systemd-journal-remote.{socket,service}
