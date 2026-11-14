@@ -16,7 +16,8 @@ TEST(parse_percent) {
         ASSERT_OK_EQ(parse_percent("0%"), 0);
         ASSERT_OK_EQ(parse_percent("55%"), 55);
         ASSERT_OK_EQ(parse_percent("100%"), 100);
-        ASSERT_ERROR(parse_percent("-7%"), ERANGE);
+        ASSERT_ERROR(parse_percent("-7%"), EINVAL);
+        ASSERT_ERROR(parse_percent("-0%"), EINVAL);
         ASSERT_ERROR(parse_percent("107%"), ERANGE);
         ASSERT_ERROR(parse_percent("%"), EINVAL);
         ASSERT_ERROR(parse_percent("%%"), EINVAL);
@@ -45,7 +46,8 @@ TEST(parse_permille) {
         ASSERT_OK_EQ(parse_permille("0‰"), 0);
         ASSERT_OK_EQ(parse_permille("555‰"), 555);
         ASSERT_OK_EQ(parse_permille("1000‰"), 1000);
-        ASSERT_ERROR(parse_permille("-7‰"), ERANGE);
+        ASSERT_ERROR(parse_permille("-7‰"), EINVAL);
+        ASSERT_ERROR(parse_permille("-0‰"), EINVAL);
         ASSERT_ERROR(parse_permille("1007‰"), ERANGE);
         ASSERT_ERROR(parse_permille("‰"), EINVAL);
         ASSERT_ERROR(parse_permille("‰‰"), EINVAL);
@@ -58,7 +60,9 @@ TEST(parse_permille) {
         ASSERT_OK_EQ(parse_permille("55%"), 550);
         ASSERT_OK_EQ(parse_permille("55.5%"), 555);
         ASSERT_OK_EQ(parse_permille("100%"), 1000);
-        ASSERT_ERROR(parse_permille("-7%"), ERANGE);
+        ASSERT_ERROR(parse_permille("-7%"), EINVAL);
+        ASSERT_ERROR(parse_permille("-0.5%"), EINVAL);
+        ASSERT_ERROR(parse_permille(" -0.5%"), EINVAL);
         ASSERT_ERROR(parse_permille("107%"), ERANGE);
         ASSERT_ERROR(parse_permille("%"), EINVAL);
         ASSERT_ERROR(parse_permille("%%"), EINVAL);
@@ -82,6 +86,7 @@ TEST(parse_permille_unbounded) {
         ASSERT_ERROR(parse_permille_unbounded("214748364.8%"), ERANGE);
         ASSERT_ERROR(parse_permille_unbounded("429496729.5%"), ERANGE);
         ASSERT_ERROR(parse_permille_unbounded("429496729.6%"), ERANGE);
+        ASSERT_ERROR(parse_permille_unbounded("-0.1%"), EINVAL);
 }
 
 TEST(parse_permyriad) {
@@ -95,7 +100,8 @@ TEST(parse_permyriad) {
         ASSERT_OK_EQ(parse_permyriad("0‱"), 0);
         ASSERT_OK_EQ(parse_permyriad("555‱"), 555);
         ASSERT_OK_EQ(parse_permyriad("1000‱"), 1000);
-        ASSERT_ERROR(parse_permyriad("-7‱"), ERANGE);
+        ASSERT_ERROR(parse_permyriad("-7‱"), EINVAL);
+        ASSERT_ERROR(parse_permyriad("-0‱"), EINVAL);
         ASSERT_ERROR(parse_permyriad("10007‱"), ERANGE);
         ASSERT_ERROR(parse_permyriad("‱"), EINVAL);
         ASSERT_ERROR(parse_permyriad("‱‱"), EINVAL);
@@ -106,7 +112,8 @@ TEST(parse_permyriad) {
         ASSERT_OK_EQ(parse_permyriad("0‰"), 0);
         ASSERT_OK_EQ(parse_permyriad("555.5‰"), 5555);
         ASSERT_OK_EQ(parse_permyriad("1000.0‰"), 10000);
-        ASSERT_ERROR(parse_permyriad("-7‰"), ERANGE);
+        ASSERT_ERROR(parse_permyriad("-7‰"), EINVAL);
+        ASSERT_ERROR(parse_permyriad("-0.5‰"), EINVAL);
         ASSERT_ERROR(parse_permyriad("1007‰"), ERANGE);
         ASSERT_ERROR(parse_permyriad("‰"), EINVAL);
         ASSERT_ERROR(parse_permyriad("‰‰"), EINVAL);
@@ -120,7 +127,9 @@ TEST(parse_permyriad) {
         ASSERT_OK_EQ(parse_permyriad("55.50%"), 5550);
         ASSERT_OK_EQ(parse_permyriad("55.53%"), 5553);
         ASSERT_OK_EQ(parse_permyriad("100%"), 10000);
-        ASSERT_ERROR(parse_permyriad("-7%"), ERANGE);
+        ASSERT_ERROR(parse_permyriad("-7%"), EINVAL);
+        ASSERT_ERROR(parse_permyriad("-0.5%"), EINVAL);
+        ASSERT_ERROR(parse_permyriad("-0.05%"), EINVAL);
         ASSERT_ERROR(parse_permyriad("107%"), ERANGE);
         ASSERT_ERROR(parse_permyriad("%"), EINVAL);
         ASSERT_ERROR(parse_permyriad("%%"), EINVAL);
@@ -150,6 +159,8 @@ TEST(parse_permyriad_unbounded) {
         ASSERT_ERROR(parse_permyriad_unbounded("21474836.48%"), ERANGE);
         ASSERT_ERROR(parse_permyriad_unbounded("42949672.95%"), ERANGE);
         ASSERT_ERROR(parse_permyriad_unbounded("42949672.96%"), ERANGE);
+        ASSERT_ERROR(parse_permyriad_unbounded("-0.5‰"), EINVAL);
+        ASSERT_ERROR(parse_permyriad_unbounded("-0.01%"), EINVAL);
 }
 
 TEST(scale) {
