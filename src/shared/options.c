@@ -12,11 +12,18 @@
 #include "string-util.h"
 #include "strv.h"
 
+const char* const option_json_choices[] = {
+        "pretty",
+        "short",
+        "off",
+        NULL
+};
+
 static bool option_takes_arg(const Option *opt) {
         return ASSERT_PTR(opt)->metavar;
 }
 
-static bool option_arg_optional(const Option *opt) {
+bool option_arg_optional(const Option *opt) {
         return option_takes_arg(opt) && FLAGS_SET(opt->flags, OPTION_OPTIONAL_ARG);
 }
 
@@ -24,13 +31,19 @@ static bool option_arg_required(const Option *opt) {
         return option_takes_arg(opt) && !FLAGS_SET(opt->flags, OPTION_OPTIONAL_ARG);
 }
 
-static bool option_is_metadata(const Option *opt) {
+bool option_is_metadata(const Option *opt) {
         /* A metadata entry that is not a real option, like the group marker */
         return ASSERT_PTR(opt)->flags & (OPTION_NAMESPACE_MARKER |
                                          OPTION_GROUP_MARKER |
                                          OPTION_POSITIONAL_ENTRY |
                                          OPTION_HELP_ENTRY |
                                          OPTION_HELP_ENTRY_VERBATIM);
+}
+
+bool option_group_selected(const char *option_groups, const char *group) {
+        /* The unnamed group can't be listed in the option_groups nulstr, so it's only selected when
+         * option_groups isn't specified. */
+        return !option_groups || (group && nulstr_contains(option_groups, group));
 }
 
 static void shift_arg(char* argv[], int target, int source) {
@@ -214,7 +227,7 @@ int option_parse(
                                 /* If state.option_groups are specified, ignore options outside of the group */
                                 if (FLAGS_SET(option->flags, OPTION_GROUP_MARKER))  /* Start of a new option group */
                                         group = option->long_code;
-                                if (state->option_groups && !(group && nulstr_contains(state->option_groups, group)))
+                                if (!option_group_selected(state->option_groups, group))
                                         continue;
 
                                 if (FLAGS_SET(option->flags, OPTION_POSITIONAL_ENTRY))
@@ -279,7 +292,7 @@ int option_parse(
                                 /* If state.option_groups are specified, ignore options outside of the group */
                                 if (FLAGS_SET(option->flags, OPTION_GROUP_MARKER))  /* Start of a new option group */
                                         group = option->long_code;
-                                if (state->option_groups && !(group && nulstr_contains(state->option_groups, group)))
+                                if (!option_group_selected(state->option_groups, group))
                                         continue;
 
                                 if (option_is_metadata(option) || !option->long_code)
@@ -324,7 +337,7 @@ int option_parse(
                         /* If state.option_groups are specified, ignore options outside of the group */
                         if (FLAGS_SET(option->flags, OPTION_GROUP_MARKER))  /* Start of a new option group */
                                 group = option->long_code;
-                        if (state->option_groups && !(group && nulstr_contains(state->option_groups, group)))
+                        if (!option_group_selected(state->option_groups, group))
                                 continue;
 
                         if (option_is_metadata(option) || optchar != option->short_code)
@@ -590,10 +603,7 @@ int options_get_help_table_group(
         bool group_marker = FLAGS_SET(options[0].flags, OPTION_GROUP_MARKER);
         const char *group = group_marker ? ASSERT_PTR(options[0].long_code) : NULL;
 
-        /* Determine if we should ignore the whole option group. We do this if the option_groups option is
-         * specified and the current group name is not listed. The unnamed group cannot be specified by the
-         * nulstr, so always ignore it. */
-        bool ignore_group = option_groups && !(group && nulstr_contains(option_groups, group));
+        bool ignore_group = !option_group_selected(option_groups, group);
 
         if (!ignore_group) {
                 table = table_new("names", "help");
@@ -749,8 +759,7 @@ int options_build_json(
                         /* Positional and help entries are only used for display */
                         continue;
 
-                if (option_groups && !(group && nulstr_contains(option_groups, group)))
-                        /* This group shall be ignored */
+                if (!option_group_selected(option_groups, group))
                         continue;
 
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *o = NULL;

@@ -214,6 +214,7 @@ simple_tests += files(
         'test-set-disable-mempool.c',
         'test-sha1.c',
         'test-sha256.c',
+        'test-shell-completion.c',
         'test-sigbus.c',
         'test-signal-util.c',
         'test-siphash24.c',

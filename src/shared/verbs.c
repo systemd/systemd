@@ -68,7 +68,11 @@ bool should_bypass(const char *env_prefix) {
         return true;
 }
 
-static bool verb_is_metadata(const Verb *verb) {
+bool verb_is_hidden(const Verb *verb) {
+        return FLAGS_SET(ASSERT_PTR(verb)->flags, VERB_DEPRECATED) || !verb->help;
+}
+
+bool verb_is_metadata(const Verb *verb) {
         /* A metadata entry that is not a real verb, i.e. either the command and group markers. */
         return  FLAGS_SET(ASSERT_PTR(verb)->flags, VERB_COMMAND_MARKER) ||
                 FLAGS_SET(ASSERT_PTR(verb)->flags, VERB_GROUP_MARKER);
@@ -384,8 +388,7 @@ static int verbs_get_help_table(
                 if (group_marker)
                         break;  /* End of group */
 
-                if (FLAGS_SET(verb->flags, VERB_DEPRECATED) || !verb->help)
-                        /* Marked as deprecated or no help string — we do not show the verb */
+                if (verb_is_hidden(verb))
                         continue;
 
                 r = verb_add_help_one(table, verb);
@@ -524,7 +527,7 @@ static bool verbs_array_has_verbs(const Verb verbs[], const Verb verbs_end[]) {
         for (const Verb *verb = verbs; verb < verbs_end; verb++) {
                 if (FLAGS_SET(verb->flags, VERB_COMMAND_MARKER))  /* start of another command section */
                         break;
-                if (!verb->help)  /* a hidden verb */
+                if (verb_is_hidden(verb))
                         continue;
                 return true;
         }
@@ -569,7 +572,7 @@ static int print_wrapped(const char *text, const char *ansi_seq) {
         return 0;
 }
 
-static const Verb* verbs_find_cmd_verbs(const Verb *cmdverb, const Verb verbs_end[]) {
+const Verb* verbs_find_cmd_verbs(const Verb *cmdverb, const Verb verbs_end[]) {
         assert(cmdverb);
         assert(FLAGS_SET(cmdverb->flags, VERB_COMMAND_MARKER));
         assert(cmdverb < verbs_end);
