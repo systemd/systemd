@@ -128,6 +128,43 @@ systemd-dissect --image-policy='root=verity+signed:=absent+unused' --mtree /var/
 # This should fail before we install the key
 (! systemd-dissect --image-policy='root=signed:=absent+unused' --mtree /var/tmp/unpriv.raw >/dev/null)
 
+# If the client's image policy requires a signature that no trusted key validates, the policy for trusted
+# images refuses the image too. mountfsd must not ask polkit for the policy for trusted images then. A polkit
+# rule logs each request for it, and we check the polkit journal for that log message.
+mkdir -p /etc/polkit-1/rules.d
+cat >/etc/polkit-1/rules.d/untrusted.rules <<'EOF'
+polkit.addRule(function(action, subject) {
+    if (action.id == "io.systemd.mount-file-system.mount-untrusted-image-privately") {
+        polkit.log("TEST-50: polkit was asked for " + action.id);
+    }
+});
+EOF
+systemctl try-reload-or-restart polkit.service
+journalctl --sync
+cursor="$(journalctl -q -n 0 --show-cursor | awk '{ print $3; }')"
+(! runas testuser systemd-dissect --image-policy='root=signed:=absent+unused' --mtree /var/tmp/unpriv.raw >/dev/null)
+journalctl --sync
+(! journalctl -u polkit.service --after-cursor="$cursor" --grep="TEST-50: polkit was asked")
+# If the client's image policy allows Verity without a signature, the policy for trusted images can allow the
+# image. mountfsd asks polkit in that case.
+(! runas testuser systemd-dissect --image-policy='root=verity+signed:=absent+unused' --mtree /var/tmp/unpriv.raw >/dev/null)
+journalctl --sync
+journalctl -u polkit.service --after-cursor="$cursor" --grep="TEST-50: polkit was asked"
+rm -f /etc/polkit-1/rules.d/untrusted.rules
+systemctl try-reload-or-restart polkit.service
+
+# mountfsd returns an image policy that pins the partitions and the protection found in the image. For root,
+# mountfsd uses the policy for trusted images, which allows Verity without a signature. The image therefore
+# mounts, although no trusted key validates its signature. With pinImagePolicy, mountfsd also enforces the
+# pinned policy and refuses the image.
+varlinkctl --exec --push-fd=/var/tmp/unpriv.raw call \
+    /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.MountImage '{"imageFileDescriptor":0}' -- \
+    jq -e '.pinnedImagePolicy | test("(^|:)root=signed\\+[^:]*squashfs")' >/dev/null
+(! varlinkctl --push-fd=/var/tmp/unpriv.raw call \
+    /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.MountImage '{"imageFileDescriptor":0,"pinImagePolicy":true}' \
+    >/dev/null 2>/tmp/unpriv.out)
+grep -F "io.systemd.MountFileSystem.KeyNotFound" /tmp/unpriv.out >/dev/null
+
 # Unprivileged user units can use signed verity images if the kernel supports signature verification.
 if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
     SYSTEMD_VERITY_SHARING=1 systemd-dissect --mkdir --mount "$MINIMAL_IMAGE.gpt" "$IMAGE_DIR/verity-shared"

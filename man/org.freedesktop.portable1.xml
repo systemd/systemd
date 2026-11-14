@@ -323,12 +323,18 @@ node /org/freedesktop/portable1 {
       the safety checks that ensure the units are not running while the image is attached or detached.
       <varname>SD_SYSTEMD_PORTABLE_FORCE_EXTENSION</varname> will bypass the check that ensures the
       <filename>extension-release.<replaceable>NAME</replaceable></filename> file in the extension image
-      matches the image name. They are defined as follows:</para>
+      matches the image name. For <function>AttachImageWithExtensions()</function> and
+      <function>ReattachImageWithExtensions()</function>, <varname>SD_SYSTEMD_PORTABLE_PIN_PROTECTION</varname>
+      adds the dm-verity protection and the signature of the images to the generated image policies, see
+      the <option>--pin-protection=</option> option of
+      <citerefentry><refentrytitle>portablectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. They
+      are defined as follows:</para>
 
       <programlisting>
 #define SD_SYSTEMD_PORTABLE_RUNTIME            (UINT64_C(1) &lt;&lt; 0)
 #define SD_SYSTEMD_PORTABLE_FORCE_ATTACH       (UINT64_C(1) &lt;&lt; 1)
 #define SD_SYSTEMD_PORTABLE_FORCE_EXTENSION    (UINT64_C(1) &lt;&lt; 2)
+#define SD_SYSTEMD_PORTABLE_PIN_PROTECTION     (UINT64_C(1) &lt;&lt; 3)
 </programlisting>
     </refsect2>
 
