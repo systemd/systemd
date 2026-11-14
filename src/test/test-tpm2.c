@@ -1335,12 +1335,15 @@ TEST(calculate_policy_or) {
 
         /* The empty input must be rejected before the flat/tree split. */
         actual = (TPM2B_DIGEST) { .size = SHA256_DIGEST_SIZE };
+        ASSERT_FALSE(tpm2_policy_or_branches_supported(0));
         ASSERT_ERROR(tpm2_calculate_policy_or(leaves, /* n_branches= */ 0, &actual), EINVAL);
 
         /* For n<=8 the flat form must be used unchanged; for n>8 the result must match the balanced tree
          * reference implementation. */
         const size_t ns[] = { 1, 2, 5, 8, 9, 16, 17, 64, 65 };
         FOREACH_ELEMENT(n, ns) {
+                ASSERT_TRUE(tpm2_policy_or_branches_supported(*n));
+
                 reference = (TPM2B_DIGEST) { .size = SHA256_DIGEST_SIZE };
                 ASSERT_OK(policy_or_tree_reference(leaves, *n, &reference));
 
@@ -1371,6 +1374,9 @@ TEST(calculate_policy_or) {
         size_t max_branches = 1;
         for (size_t i = 0; i < TPM2_POLICY_OR_MAX_DEPTH; i++)
                 max_branches *= TPM2_POLICY_OR_MAX_BRANCHES;
+
+        ASSERT_TRUE(tpm2_policy_or_branches_supported(max_branches));
+        ASSERT_FALSE(tpm2_policy_or_branches_supported(max_branches + 1));
 
         _cleanup_free_ TPM2B_DIGEST *many = new0(TPM2B_DIGEST, max_branches + 1);
         ASSERT_NOT_NULL(many);
