@@ -21,6 +21,7 @@
 #include "iovec-wrapper.h"
 #include "ip-util.h"
 #include "network-common.h"
+#include "path-util.h"
 #include "random-util.h"
 #include "set.h"
 #include "socket-util.h"
@@ -889,6 +890,10 @@ static int client_timeout_expire(sd_event_source *s, uint64_t usec, void *userda
         if (client->state == DHCP_STATE_STOPPED)
                 return 0; /* The notify callback stopped the client. */
 
+        /* If we may keep using the expired lease, do not restart the client. */
+        if (client->keep_expired_lease)
+                return 0;
+
         r = client_start(client);
         if (r < 0)
                 client_stop(client, r);
@@ -1080,6 +1085,10 @@ static int client_enter_bound(sd_dhcp_client *client, sd_dhcp_lease *lease) {
                         notify_event = SD_DHCP_CLIENT_EVENT_RENEW;
                 else
                         notify_event = SD_DHCP_CLIENT_EVENT_IP_CHANGE;
+                break;
+        case DHCP_STATE_STOPPED:
+                /* Entering bound state with a lease loaded from persistent storage. */
+                notify_event = SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
                 break;
         default:
                 assert_not_reached();
@@ -1408,6 +1417,10 @@ static sd_dhcp_client* dhcp_client_free(sd_dhcp_client *client) {
         iovw_done_free(&client->user_class);
         tlv_unref(client->extra_options);
         tlv_unref(client->vendor_options);
+
+        safe_close(client->lease_dir_fd);
+        free(client->lease_file);
+
         free(client->ifname);
         return mfree(client);
 }
@@ -1433,6 +1446,7 @@ int sd_dhcp_client_new(sd_dhcp_client **ret) {
                 .max_discover_attempts = UINT64_MAX,
                 .ip_service_type = IPTOS_CLASS_CS6, /* Defaults to CS6 (Internetwork Control). */
                 .socket_priority = tos_to_priority(IPTOS_CLASS_CS6),
+                .lease_dir_fd = -EBADF,
         };
 
         FOREACH_ELEMENT(opt, default_req_opts) {
@@ -1444,4 +1458,111 @@ int sd_dhcp_client_new(sd_dhcp_client **ret) {
         *ret = TAKE_PTR(client);
 
         return 0;
+}
+
+int sd_dhcp_client_set_lease_file(sd_dhcp_client *client, int dir_fd, const char *path) {
+        int r;
+
+        assert_return(client, -EINVAL);
+        assert_return(!path || (dir_fd >= 0 || dir_fd == AT_FDCWD), -EBADF);
+
+        if (!path) {
+                /* When NULL, clear the previous assignment. */
+                client->lease_file = mfree(client->lease_file);
+                client->lease_dir_fd = safe_close(client->lease_dir_fd);
+                return 0;
+        }
+
+        if (!path_is_safe(path))
+                return -EINVAL;
+
+        _cleanup_close_ int fd = AT_FDCWD; /* Unlike our usual coding style, AT_FDCWD needs to be set,
+                                            * to pass a 'valid' fd. */
+        if (dir_fd >= 0) {
+                fd = fd_reopen(dir_fd, O_CLOEXEC | O_DIRECTORY | O_PATH);
+                if (fd < 0)
+                        return fd;
+        }
+
+        r = free_and_strdup(&client->lease_file, path);
+        if (r < 0)
+                return r;
+
+        close_and_replace(client->lease_dir_fd, fd);
+
+        return 0;
+}
+
+int sd_dhcp_client_load_lease(sd_dhcp_client *client, sd_dhcp_lease **ret) {
+        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
+        int r;
+
+        assert(client);
+        assert(client->lease_dir_fd >= 0 || client->lease_dir_fd == AT_FDCWD);
+        assert(client->lease_file);
+        assert(ret);
+
+        r = dhcp_lease_load_at(client, client->lease_dir_fd, client->lease_file, &lease);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(lease);
+
+        return 0;
+}
+
+int sd_dhcp_client_save_lease(sd_dhcp_client *client) {
+        assert(client);
+
+        if (!client->lease_file || !client->lease)
+                return 0;
+
+        return dhcp_lease_save_at(client->lease, client->lease_dir_fd, client->lease_file);
+}
+
+int sd_dhcp_client_update_lease_lifetime(sd_dhcp_client *client, sd_dhcp_lease *lease, uint64_t lifetime) {
+        /* This function does the job of updating a lease lifetime and resetting the timeout values.
+           In the case of loading a saved lease, the new lease time is how much left was available since
+           reboot, t1 & t2 will be allocated based off that. */
+        triple_timestamp ts;
+        int r;
+
+        assert_return(client, -EINVAL);
+        assert_return(lease, -EUNATCH);
+
+        triple_timestamp_now(&ts);
+        dhcp_lease_set_timestamp(lease, &ts);
+
+        lease->t1 = 0;
+        lease->t2 = 0;
+        lease->lifetime = lifetime;
+
+        dhcp_set_default_t1_t2(lease);
+
+        unref_and_replace_new_ref(client->lease, lease, sd_dhcp_lease_ref, sd_dhcp_lease_unref);
+
+        r = client_set_lease_timeouts(client);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int sd_dhcp_client_set_keep_expired_lease(sd_dhcp_client *client, int keep) {
+        assert_return(client, -EINVAL);
+        client->keep_expired_lease = keep;
+        return 0;
+}
+
+int sd_dhcp_client_enter_bound_with_lease(sd_dhcp_client *client) {
+        assert_return(client, -EINVAL);
+        assert_return(client->lease, -EINVAL);
+        assert_return(client->state == DHCP_STATE_STOPPED, -EBUSY);
+
+        /* The client did not acquire the lease through the normal ack process,
+         * so the start time needs to be set before entering BOUND state. */
+        client->xid = random_u32();
+        client->start_time = now(CLOCK_BOOTTIME);
+
+        return client_enter_bound(client, client->lease);
 }
