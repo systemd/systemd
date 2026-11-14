@@ -358,6 +358,8 @@ int tpm2_policy_pcr(Tpm2Context *c, const Tpm2Handle *session, const TPML_PCR_SE
 #define TPM2_POLICY_OR_MAX_BRANCHES 8U
 #define TPM2_POLICY_OR_MAX_DEPTH 5U
 
+bool tpm2_policy_or_branches_supported(size_t n);
+
 /* TPM2_PolicyOR() has a single parameter, pHashList. When the TPM rejects the command it does so with
  * TPM_RC_VALUE on that parameter: a format-one code with TPM_RC_P set and the 1-based parameter number in N.
  * Classify those fields explicitly instead of masking N away the way we do for other commands: TPM_RC_S

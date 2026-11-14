@@ -99,6 +99,7 @@ simple_tests += files(
         'test-dirent-util.c',
         'test-dns-domain.c',
         'test-dropin.c',
+        'test-efi-signature-util.c',
         'test-ellipsize.c',
         'test-env-file.c',
         'test-env-util.c',

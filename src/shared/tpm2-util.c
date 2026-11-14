@@ -5533,7 +5533,7 @@ static size_t tpm2_policy_or_tree_depth(size_t n) {
 /* Whether a PolicyOR expression over 'n' branches stays within TPM2_POLICY_OR_MAX_DEPTH levels. Callers use
  * this to reject overly large branch lists before they build them, so that the offending PCR can be named
  * and no work is wasted on the TPM round trips preceding it. */
-static bool tpm2_policy_or_branches_supported(size_t n) {
+bool tpm2_policy_or_branches_supported(size_t n) {
         return n > 0 && tpm2_policy_or_tree_depth(n) <= TPM2_POLICY_OR_MAX_DEPTH;
 }
 

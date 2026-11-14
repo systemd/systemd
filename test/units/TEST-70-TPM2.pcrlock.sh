@@ -47,6 +47,8 @@ at_exit() {
     fi
 
     rm -rf /tmp/fakexbootldr /var/lib/pcrlock.d/123-empty.pcrlock.d /var/lib/pcrlock.d/930-many.pcrlock.d /run/systemd/system/systemd-pcrlock.socket.d
+    rm -f /var/lib/pcrlock.d/250-firmware-config-early.pcrlock.d/test70-fwupd.pcrlock \
+          /var/lib/pcrlock.d/550-firmware-config-late.pcrlock.d/test70-fwupd.pcrlock
     if [[ -n "${img:-}" ]]; then
         rm -f "$img" "$img".private.pem "$img".public.pem "$img".pcrsign
     fi
@@ -304,6 +306,25 @@ if [[ -e /sys/kernel/security/tpm0/binary_bios_measurements ]]; then
         jq -e ".[0].record | $SPEC_ID_EVENT_CHECK" >/dev/null
 fi
 varlinkctl call --collect --json=pretty /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.ListComponents '{}'
+early=/var/lib/pcrlock.d/250-firmware-config-early.pcrlock.d
+late=/var/lib/pcrlock.d/550-firmware-config-late.pcrlock.d
+varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"firmwareConfig"}'
+checksum="$(sha256sum "$early/generated.pcrlock" "$late/generated.pcrlock")"
+varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock \
+    '{"category":"firmwareConfig","filename":"test70-fwupd.pcrlock"}'
+cmp "$early/generated.pcrlock" "$early/test70-fwupd.pcrlock"
+cmp "$late/generated.pcrlock" "$late/test70-fwupd.pcrlock"
+varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock \
+    '{"category":"firmwareConfig","filename":"test70-fwupd.pcrlock","lock":false}'
+test ! -e "$early/test70-fwupd.pcrlock"
+test ! -e "$late/test70-fwupd.pcrlock"
+test "$(sha256sum "$early/generated.pcrlock" "$late/generated.pcrlock")" = "$checksum"
+for category in firmwareCode firmwareConfig secureBootPolicy secureBootAuthority; do
+    for filename in '' .. .pcrlock fwupd ../fwupd.pcrlock /tmp/fwupd.pcrlock; do
+        (! varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock \
+            "{\"category\":\"$category\",\"filename\":\"$filename\"}")
+    done
+done
 varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"firmwareConfig"}'
 varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"firmwareConfig","lock":false}'
 varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.Lock '{"category":"firmwareCode","lock":false}'
