@@ -82,7 +82,7 @@ _systemd_manifest() {
         return 0
     fi
 
-    local VERBS='help make verify'
+    local VERBS='help make verify join'
     local n_args=0
 
     for ((i=1; i < COMP_CWORD; i++)); do
@@ -108,6 +108,9 @@ _systemd_manifest() {
         else
             comps=''
         fi
+    elif __contains_word "$verb" join; then
+        comps=$(compgen -A file -- "$cur")
+        compopt -o filenames
     else
         comps=''
     fi
