@@ -839,7 +839,7 @@ DnssecMode link_get_dnssec_mode(Link *l) {
         assert(l);
 
         if (l->dnssec_mode != _DNSSEC_MODE_INVALID)
-                return l->dnssec_mode;
+                return manager_dnssec_mode_effective(l->manager, l->dnssec_mode);
 
         return manager_get_dnssec_mode(l->manager);
 }
