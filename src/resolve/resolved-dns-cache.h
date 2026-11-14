@@ -11,6 +11,12 @@
 /* The max TTL for stale data is set to 30 seconds. See RFC 8767, Section 6. */
 #define CACHE_STALE_TTL_MAX_USEC (30 * USEC_PER_SEC)
 
+/* The longest lifetime the cache grants an entry, whatever TTL the record carried on the wire (and
+ * unless StaleRetentionSec extends it). Anything deriving a schedule from a record's lifetime has to
+ * use this bound rather than the raw TTL, or it computes against a lifetime the cache never
+ * granted. */
+#define CACHE_TTL_MAX_USEC (2 * USEC_PER_HOUR)
+
 typedef struct DnsCache {
         Hashmap *by_key;
         Prioq *by_expiry;
