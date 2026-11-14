@@ -779,7 +779,10 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   marked for measurement) even if not booted on a kernel equipped with
   systemd-stub. Normally, requested measurement of resources is conditionalized
   on kernels that have booted with `systemd-stub`. With this environment
-  variable the test for that my be bypassed, for testing purposes.
+  variable the test for that my be bypassed, for testing purposes. It also
+  makes signed PCR 11 policies be used (e.g., by `systemd-cryptenroll`,
+  `systemd-repart`, `systemd-creds`, and for NvPCR initialization) even if
+  `systemd-stub` did not measure the kernel image into PCR 11.
 
 `systemd-repart`:
 
