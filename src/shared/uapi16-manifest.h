@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <linux/fs.h>
 #include <sys/uio.h>
 
 #include "sd-id128.h"
@@ -74,6 +75,23 @@ typedef struct Uapi16Object {
         int gpt_no_auto;
         int gpt_growfs;
         int read_only;
+        /* FAT directory entry attributes (only reg + dir, never on the root object). Note that
+         * ATTR_RO has no field of its own, the generic "readOnly" field is used for it. */
+        int flag_hidden;
+        int flag_system;
+        int flag_archive;
+        /* File system identity (only on the root object) */
+        uint32_t fat_serial;
+        bool fat_serial_set;
+        sd_id128_t fs_uuid;
+        bool fs_uuid_set;
+        char *fs_label;
+        /* Linux inode flags, see FS_IOC_GETFLAGS (only reg + dir) */
+        int flag_append_only;
+        int flag_immutable;
+        int flag_no_atime;
+        int flag_no_cow;
+        int flag_no_dump;
         Uapi16Contents *contents;
         size_t n_contents;
         struct iovec sha256;
@@ -95,6 +113,14 @@ typedef struct Uapi16Object {
                 .read_only = -1,                      \
                 .gpt_no_auto = -1,                    \
                 .gpt_growfs = -1,                     \
+                .flag_hidden = -1,                    \
+                .flag_system = -1,                    \
+                .flag_archive = -1,                   \
+                .flag_append_only = -1,               \
+                .flag_immutable = -1,                 \
+                .flag_no_atime = -1,                  \
+                .flag_no_cow = -1,                    \
+                .flag_no_dump = -1,                   \
                 .valid_until_usec = USEC_INFINITY,    \
                 .validity = _UAPI16_VALIDITY_INVALID, \
         }
@@ -124,6 +150,32 @@ bool uapi16_name_is_valid(const char *s) _pure_;
 
 /* Validates the name of an extended attribute (without namespace prefix) */
 bool uapi16_xattr_name_is_valid(const char *s) _pure_;
+
+/* Validates the "fsLabel" field: valid UTF-8, no control characters */
+bool uapi16_fs_label_is_valid(const char *s) _pure_;
+
+/* Parses/formats the "fatSerial" field, i.e. a 32-bit FAT volume serial number formatted as "XXXX-XXXX" */
+int uapi16_fat_serial_from_string(const char *s, uint32_t *ret);
+#define UAPI16_FAT_SERIAL_STRING_MAX 10U
+char* uapi16_fat_serial_to_string(uint32_t serial, char buf[static UAPI16_FAT_SERIAL_STRING_MAX]);
+
+/* The Linux inode flags (FS_*_FL) and the FAT attributes (ATTR_*) the specification covers */
+#define UAPI16_INODE_FLAGS_ALL (FS_APPEND_FL|FS_IMMUTABLE_FL|FS_NOATIME_FL|FS_NOCOW_FL|FS_NODUMP_FL)
+#define UAPI16_FAT_ATTRS_ALL UINT32_C(0x27) /* ATTR_RO|ATTR_HIDDEN|ATTR_SYS|ATTR_ARCH, see linux/msdos_fs.h */
+
+/* Maps a single Linux inode flag or FAT attribute to the name of the manifest field it is encoded in. Note
+ * that ATTR_RO maps to the generic "readOnly" field. */
+const char* uapi16_inode_flag_to_field(unsigned flag) _const_;
+const char* uapi16_fat_attr_to_field(uint32_t attr) _const_;
+
+/* Returns the Linux inode flags and FAT attributes an object requests in *ret_value, and the subset it
+ * defines at all (i.e. where the field is set) in *ret_mask */
+void uapi16_object_inode_flags(const Uapi16Object *o, unsigned *ret_value, unsigned *ret_mask);
+void uapi16_object_fat_attrs(const Uapi16Object *o, uint32_t *ret_value, uint32_t *ret_mask);
+
+/* Sets the boolean fields for all Linux inode flags or FAT attributes covered by the mask */
+int uapi16_inode_flags_merge_json(sd_json_variant **v, unsigned flags, unsigned mask);
+int uapi16_fat_attrs_merge_json(sd_json_variant **v, uint32_t attrs, uint32_t mask);
 
 void uapi16_contents_done(Uapi16Contents *c);
 void uapi16_xattr_done(Uapi16Xattr *x);

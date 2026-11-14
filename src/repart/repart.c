@@ -7580,7 +7580,7 @@ static int partition_manifest_prepare(Context *context, Partition *p) {
         return 0;
 }
 
-static int partition_manifest_write(Context *context, Partition *p, const char *root) {
+static int partition_manifest_write(Context *context, Partition *p, const char *root, bool staging) {
         int r;
 
         assert(context);
@@ -7588,10 +7588,30 @@ static int partition_manifest_write(Context *context, Partition *p, const char *
         assert(root);
 
         /* Generates a UAPI.16 manifest of the (fully populated) file system tree at 'root' into the temporary
-         * file set up by partition_manifest_prepare(). Called from whichever process populated the tree. */
+         * file set up by partition_manifest_prepare(). Called from whichever process populated the tree.
+         *
+         * If 'staging' is true, 'root' is a staging directory the file system is later created from, rather
+         * than the mounted file system itself. In that case the fields describing the file system (rather
+         * than the tree) would describe the file system the staging directory is located on, hence omit
+         * them. The same applies to the FAT attributes and the inode flags: the former are not carried by
+         * the staging directory at all, and the latter are not carried over into the file system by mkfs
+         * (and might be set on the staging tree for unrelated reasons, e.g. NOCOW inherited from /var/tmp/
+         * or set by copy_tree()). */
 
         if (!partition_wants_manifest(p))
                 return 0;
+
+        ManifestField fields = arg_manifest_fields;
+        if (staging) {
+                ManifestField m = fields & (MANIFEST_FIELD_FS_UUID|MANIFEST_FIELD_FS_LABEL|MANIFEST_FIELD_FAT_SERIAL|
+                                            MANIFEST_FIELD_READ_ONLY|MANIFEST_FIELD_FLAG_HIDDEN|MANIFEST_FIELD_FLAG_SYSTEM|MANIFEST_FIELD_FLAG_ARCHIVE|
+                                            MANIFEST_FIELD_FLAG_APPEND_ONLY|MANIFEST_FIELD_FLAG_IMMUTABLE|MANIFEST_FIELD_FLAG_NO_ATIME|
+                                            MANIFEST_FIELD_FLAG_NO_COW|MANIFEST_FIELD_FLAG_NO_DUMP);
+                if (m != 0) {
+                        log_notice("%s file system is populated from a staging directory, not recording file system identity, FAT attributes and inode flags in manifest.", p->format);
+                        fields &= ~m;
+                }
+        }
 
         assert(p->manifest_fd >= 0);
 
@@ -7611,7 +7631,7 @@ static int partition_manifest_write(Context *context, Partition *p, const char *
 
         _cleanup_(manifest_context_done) ManifestContext c = MANIFEST_CONTEXT_NULL;
         c.format = MANIFEST_FORMAT_UAPI16;
-        c.fields = arg_manifest_fields;
+        c.fields = fields;
         c.output = f;
 #if HAVE_OPENSSL
         c.certificate = context->manifest_certificate;
@@ -7698,7 +7718,7 @@ static int partition_populate_directory(Context *context, Partition *p, char **r
         if (r < 0)
                 return r;
 
-        r = partition_manifest_write(context, p, root);
+        r = partition_manifest_write(context, p, root, /* staging= */ true);
         if (r < 0)
                 return r;
 
@@ -7768,7 +7788,7 @@ static int partition_populate_filesystem(Context *context, Partition *p, const c
                 if (set_default_subvolume(p, fs) < 0)
                         _exit(EXIT_FAILURE);
 
-                if (final && partition_manifest_write(context, p, fs) < 0)
+                if (final && partition_manifest_write(context, p, fs, /* staging= */ false) < 0)
                         _exit(EXIT_FAILURE);
 
                 r = syncfs_path(AT_FDCWD, fs);
@@ -11962,8 +11982,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 OPTION_LONG("manifest-fields", "FIELDS",
                             "Fields to include in manifests of populated partitions (mode, uid, gid, size, hash, "
-                            "symlink, device, hardlink, mtime, user-xattr, user-name, group-name, all, default, "
-                            "none, or +/- prefixed to adjust)"):
+                            "symlink, device, hardlink, mtime, user-xattr, user-name, group-name, flag-append-only, "
+                            "flag-immutable, flag-no-atime, flag-no-cow, flag-no-dump, read-only, flag-hidden, flag-system, "
+                            "flag-archive, fs-uuid, fs-label, fat-serial, all, default, none, or +/- prefixed to adjust)"):
                         r = manifest_fields_from_string(opts.arg, &arg_manifest_fields);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse field list: %s", opts.arg);
