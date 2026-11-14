@@ -168,6 +168,39 @@ int device_add_property_aux(sd_device *device, const char *key, const char *valu
         return 0;
 }
 
+static int sysfs_open_resolved(const char *path, char **ret_resolved, int *ret_fd) {
+        /* Fast path for chase(): for a path below /sys, let the kernel resolve the path in a single call and
+         * read the canonical result back from /proc/self/fd/. chase() walks the path component by component
+         * with an openat(), fstat() and close() for each of them (several dozens of syscalls per device,
+         * which dominates the time udevadm trigger and the udev workers spend on slow CPUs). Returns > 0 and
+         * the O_PATH fd plus the canonical path on success, 0 if the caller has to fall back to chase()
+         * (not below /sys, missing file, result outside of /sys, ...). */
+
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ char *resolved = NULL;
+
+        assert(path);
+        assert(ret_resolved);
+        assert(ret_fd);
+
+        if (!path_startswith(path, "/sys/"))
+                return 0;
+
+        fd = xopenat(AT_FDCWD, path, O_PATH);
+        if (fd < 0)
+                return 0;
+
+        if (fd_get_path(fd, &resolved) < 0)
+                return 0;
+
+        if (!path_startswith(resolved, "/sys/") || endswith(resolved, " (deleted)"))
+                return 0;
+
+        *ret_resolved = TAKE_PTR(resolved);
+        *ret_fd = TAKE_FD(fd);
+        return 1;
+}
+
 int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
         _cleanup_free_ char *syspath = NULL;
         const char *devpath;
@@ -182,7 +215,11 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                 /* The input path maybe a symlink located outside of /sys. Let's try to chase the symlink at first.
                  * The primary use case is that e.g. /proc/device-tree is a symlink to /sys/firmware/devicetree/base.
                  * By chasing symlinks in the path at first, we can call sd_device_new_from_path() with such path. */
-                r = chase(_syspath, /* root= */ NULL, /* flags= */ 0, &syspath, &fd);
+                r = sysfs_open_resolved(_syspath, &syspath, &fd);
+                if (r > 0)
+                        r = 0;
+                else
+                        r = chase(_syspath, /* root= */ NULL, /* flags= */ 0, &syspath, &fd);
                 if (r == -ENOENT)
                          /* the device does not exist (any more?) */
                         return log_trace_errno(SYNTHETIC_ERRNO(ENODEV),
@@ -2517,9 +2554,11 @@ int device_chase(sd_device *device, const char *path, ChaseFlags flags, char **r
 
         _cleanup_free_ char *resolved = NULL;
         _cleanup_close_ int fd = -EBADF;
-        r = chase(path, /* root= */ NULL, CHASE_NO_AUTOFS | flags, &resolved, ret_fd ? &fd : NULL);
-        if (r < 0)
-                return r;
+        if ((flags & ~CHASE_NO_AUTOFS) != 0 || sysfs_open_resolved(path, &resolved, &fd) <= 0) {
+                r = chase(path, /* root= */ NULL, CHASE_NO_AUTOFS | flags, &resolved, ret_fd ? &fd : NULL);
+                if (r < 0)
+                        return r;
+        }
 
         /* Refuse to reading/writing files outside of sysfs. */
         if (!path_startswith(resolved, "/sys/"))
