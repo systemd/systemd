@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
+#include "dirent-util.h"
 #include "discover-image.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -15,6 +18,8 @@
 #include "machined.h"
 #include "operation.h"
 #include "process-util.h"
+#include "set.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "tmpfile-util.h"
 
@@ -93,6 +98,65 @@ int clean_pool_read_next_entry(FILE *file, char **ret_name, uint64_t *ret_usage)
         return 1;
 }
 
+static int collect_mstack_layers(Hashmap *images, Set **ret) {
+        _cleanup_set_free_ Set *inodes = NULL;
+        Image *image;
+        int r;
+
+        assert(ret);
+
+        /* Collects the inodes of everything that is symlinked from a .mstack/ directory, so that we don't
+         * remove hidden images that are still referenced as layers of an existing mstack. */
+
+        HASHMAP_FOREACH(image, images) {
+                if (image->type != IMAGE_MSTACK)
+                        continue;
+
+                _cleanup_closedir_ DIR *d = opendir(image->path);
+                if (!d) {
+                        log_debug_errno(errno, "Failed to open mstack directory '%s', ignoring: %m", image->path);
+                        continue;
+                }
+
+                FOREACH_DIRENT(de, d, return log_debug_errno(errno, "Failed to read mstack directory '%s': %m", image->path)) {
+                        if (de->d_type != DT_LNK)
+                                continue;
+
+                        _cleanup_free_ struct stat *st = new(struct stat, 1);
+                        if (!st)
+                                return log_oom_debug();
+
+                        if (fstatat(dirfd(d), de->d_name, st, 0) < 0) {
+                                log_debug_errno(errno, "Failed to stat '%s/%s', ignoring: %m", image->path, de->d_name);
+                                continue;
+                        }
+
+                        r = set_ensure_consume(&inodes, &inode_hash_ops, TAKE_PTR(st));
+                        if (r < 0)
+                                return log_oom_debug();
+                }
+        }
+
+        *ret = TAKE_PTR(inodes);
+        return 0;
+}
+
+static bool image_is_mstack_layer(const Image *image, const Set *mstack_layers) {
+        struct stat st;
+
+        assert(image);
+
+        if (set_isempty(mstack_layers))
+                return false;
+
+        if (stat(image->path, &st) < 0) {
+                log_debug_errno(errno, "Failed to stat '%s', ignoring: %m", image->path);
+                return false;
+        }
+
+        return set_contains(mstack_layers, &st);
+}
+
 int image_clean_pool_operation(Manager *manager, ImageCleanPoolMode mode, Operation **ret_operation) {
         _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
         _cleanup_close_ int result_fd = -EBADF;
@@ -126,6 +190,13 @@ int image_clean_pool_operation(Manager *manager, ImageCleanPoolMode mode, Operat
                         report_errno_and_exit(errno_pipe_fd[1], r);
                 }
 
+                _cleanup_set_free_ Set *mstack_layers = NULL;
+                if (mode == IMAGE_CLEAN_POOL_REMOVE_HIDDEN) {
+                        r = collect_mstack_layers(images, &mstack_layers);
+                        if (r < 0)
+                                report_errno_and_exit(errno_pipe_fd[1], r);
+                }
+
                 bool success = true;
                 ssize_t n = loop_write(result_fd, &success, sizeof(success));
                 if (n < 0) {
@@ -140,8 +211,14 @@ int image_clean_pool_operation(Manager *manager, ImageCleanPoolMode mode, Operat
                                 continue;
                         if (image_is_host(image))
                                 continue;
-                        if (mode == IMAGE_CLEAN_POOL_REMOVE_HIDDEN && !image_is_hidden(image))
-                                continue;
+                        if (mode == IMAGE_CLEAN_POOL_REMOVE_HIDDEN) {
+                                if (!image_is_hidden(image))
+                                        continue;
+                                if (image_is_mstack_layer(image, mstack_layers)) {
+                                        log_debug("Keeping image '%s' because it's referenced by an mstack.", image->name);
+                                        continue;
+                                }
+                        }
 
                         r = image_remove(image, manager->runtime_scope);
                         if (r == -EBUSY) {
