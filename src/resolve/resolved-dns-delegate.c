@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-event.h"
+
 #include "alloc-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
@@ -108,6 +110,8 @@ DnsServer* dns_delegate_set_dns_server(DnsDelegate *d, DnsServer *s) {
         if (s)
                 log_debug("Switching delegate '%s' to DNS server %s.", d->id, strna(dns_server_string_full(s)));
 
+        assert_se(sd_event_now(d->manager->event, CLOCK_BOOTTIME, &d->current_dns_server_switched_usec) >= 0);
+
         dns_server_unref(d->current_dns_server);
         d->current_dns_server = dns_server_ref(s);
 
@@ -123,6 +127,16 @@ DnsServer *dns_delegate_get_dns_server(DnsDelegate *d) {
 
         if (!d->current_dns_server)
                 dns_delegate_set_dns_server(d, d->dns_servers);
+
+        if (d->current_dns_server && d->current_dns_server != d->dns_servers &&
+            d->manager->retry_primary_dns_server_usec > 0) {
+                usec_t ts;
+
+                assert_se(sd_event_now(d->manager->event, CLOCK_BOOTTIME, &ts) >= 0);
+
+                if (d->current_dns_server_switched_usec + d->manager->retry_primary_dns_server_usec <= ts)
+                        dns_delegate_set_dns_server(d, d->dns_servers);
+        }
 
         return d->current_dns_server;
 }

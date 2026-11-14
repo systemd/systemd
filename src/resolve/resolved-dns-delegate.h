@@ -17,6 +17,7 @@ typedef struct DnsDelegate {
         LIST_HEAD(DnsServer, dns_servers);
         unsigned n_dns_servers;
         DnsServer *current_dns_server;
+        usec_t current_dns_server_switched_usec;
 
         LIST_HEAD(DnsSearchDomain, search_domains);
         unsigned n_search_domains;
