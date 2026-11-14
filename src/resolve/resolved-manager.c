@@ -635,7 +635,7 @@ static void manager_set_defaults(Manager *m) {
         m->mdns_support = DEFAULT_MDNS_MODE;
         m->dnssec_mode = DEFAULT_DNSSEC_MODE;
         m->dns_over_tls_mode = DEFAULT_DNS_OVER_TLS_MODE;
-        m->enable_cache = DNS_CACHE_MODE_YES;
+        m->enable_cache = DEFAULT_CACHE_MODE;
         m->dns_stub_listener_mode = DNS_STUB_LISTENER_YES;
         m->read_etc_hosts = true;
         m->read_static_records = true;
