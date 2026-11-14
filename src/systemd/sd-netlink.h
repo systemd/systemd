@@ -223,6 +223,8 @@ int sd_rtnl_message_new_traffic_control(sd_netlink *rtnl, sd_netlink_message **r
 int sd_rtnl_message_traffic_control_get_ifindex(sd_netlink_message *m, int *ret); /* tcm_ifindex */
 int sd_rtnl_message_traffic_control_get_handle(sd_netlink_message *m, uint32_t *ret); /* tcm_handle */
 int sd_rtnl_message_traffic_control_get_parent(sd_netlink_message *m, uint32_t *ret); /* tcm_parent */
+int sd_rtnl_message_traffic_control_set_info(sd_netlink_message *m, uint16_t protocol, uint16_t priority); /* tcm_info */
+int sd_rtnl_message_traffic_control_get_info(sd_netlink_message *m, uint16_t *ret_protocol, uint16_t *ret_priority); /* tcm_info */
 
 int sd_rtnl_message_new_mdb(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int ifindex);
 
