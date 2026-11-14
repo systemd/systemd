@@ -706,8 +706,11 @@ static int add_mount(
                         return r;
         }
 
+        /* validatefs and pcrfs are integrity checks, so they keep the target ordering.
+         * growfs and quota are not, so nofail mounts don't wait for them. */
+        const char *hook_up_target = FLAGS_SET(flags, MOUNT_NOFAIL) ? NULL : target_unit;
         if (flags & MOUNT_GROWFS) {
-                r = generator_hook_up_growfs(dest, where, target_unit);
+                r = generator_hook_up_growfs(dest, where, hook_up_target);
                 if (r < 0)
                         return r;
         }
@@ -730,12 +733,12 @@ static int add_mount(
         }
 
         if (flags & MOUNT_QUOTA) {
-                r = generator_hook_up_quotacheck(dest, what, where, target_unit, fstype);
+                r = generator_hook_up_quotacheck(dest, what, where, hook_up_target, fstype);
                 if (r < 0) {
                         if (r != -EOPNOTSUPP)
                                 return r;
                 } else if (r > 0) {
-                        r = generator_hook_up_quotaon(dest, where, target_unit);
+                        r = generator_hook_up_quotaon(dest, where, hook_up_target);
                         if (r < 0)
                                 return r;
                 }
