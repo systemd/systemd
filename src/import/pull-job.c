@@ -29,6 +29,9 @@
 #include "web-util.h"
 #include "xattr-util.h"
 
+/* The same limit as libcurl's default for CURLOPT_MAXREDIRS, for the redirects we follow ourselves */
+#define PULL_JOB_REDIRECTS_MAX 30U
+
 static int http_status_ok(CURLcode status) {
         /* Consider all HTTP status code in the 2xx range as OK */
         return status >= 200 && status <= 299;
@@ -41,6 +44,11 @@ static int http_status_etag_exists(CURLcode status) {
 
 static int http_status_need_authentication(CURLcode status) {
         return status == 401;
+}
+
+static bool http_status_redirect(long status) {
+        /* The redirect status codes that come with a "Location:" header, see RFC 9110, section 15.4 */
+        return IN_SET(status, 301, 302, 303, 307, 308);
 }
 
 void pull_job_close_disk_fd(PullJob *j) {
@@ -71,6 +79,8 @@ PullJob* pull_job_unref(PullJob *j) {
         pull_job_provider_done(j);
         if (j->request_header) /* libcurl might not even be loaded if we never had a curl transfer */
                 sym_curl_slist_free_all(j->request_header);
+        if (j->request_header_effective)
+                sym_curl_slist_free_all(j->request_header_effective);
         sd_event_unref(j->event);
 
         j->compress = compressor_free(j->compress);
@@ -79,6 +89,9 @@ PullJob* pull_job_unref(PullJob *j) {
                 sym_EVP_MD_CTX_free(j->checksum_ctx);
 
         free(j->url);
+        free(j->redirect_url);
+        strv_free_erase(j->http_headers);
+        free(j->http_headers_origin);
         free(j->main_filename);
         uapi16_certificates_free(j->uapi16_certificates, j->n_uapi16_certificates);
         free(j->etag);
@@ -131,19 +144,10 @@ static int pull_job_finish(PullJob *j, int ret) {
         return 0;
 }
 
-int pull_job_restart(PullJob *j, const char *new_url) {
+static int pull_job_reset_and_begin(PullJob *j) {
         int r;
 
         assert(j);
-
-        /* If an URL is specified we retry the same request, just towards a different URL. If the URL is NULL
-         * then we'll fire the same request again (which is useful if some parameters have been changed) */
-
-        if (new_url) {
-                r = free_and_strdup(&j->url, new_url);
-                if (r < 0)
-                        return r;
-        }
 
         j->state = PULL_JOB_INIT;
         j->error = 0;
@@ -158,12 +162,6 @@ int pull_job_restart(PullJob *j, const char *new_url) {
         j->mtime = 0;
         iovec_done(&j->checksum);
         j->content_type = mfree(j->content_type);
-
-        if (new_url) {
-                /* Reset expectations if the URL changes */
-                iovec_done(&j->expected_checksum);
-                j->expected_content_length = UINT64_MAX;
-        }
 
         j->slot = curl_slot_unref(j->slot);
         pull_job_provider_done(j);
@@ -180,6 +178,62 @@ int pull_job_restart(PullJob *j, const char *new_url) {
                 return r;
 
         return 0;
+}
+
+int pull_job_restart(PullJob *j, const char *new_url) {
+        int r;
+
+        assert(j);
+
+        /* If an URL is specified we retry the same request, just towards a different URL. If the URL is NULL
+         * then we'll fire the same request again (which is useful if some parameters have been changed) */
+
+        if (new_url) {
+                r = free_and_strdup(&j->url, new_url);
+                if (r < 0)
+                        return r;
+
+                /* Reset expectations if the URL changes */
+                iovec_done(&j->expected_checksum);
+                j->expected_content_length = UINT64_MAX;
+        }
+
+        /* Start from the beginning, i.e. forget any redirects we followed */
+        j->redirect_url = mfree(j->redirect_url);
+        j->n_redirects = 0;
+
+        return pull_job_reset_and_begin(j);
+}
+
+static int pull_job_follow_redirect(PullJob *j, CURL *curl) {
+        char *location = NULL;
+
+        assert(j);
+        assert(curl);
+
+        if (sym_curl_easy_getinfo(curl, CURLINFO_REDIRECT_URL, &location) != CURLE_OK || !location)
+                return log_error_errno(SYNTHETIC_ERRNO(EPROTO), "HTTP redirect without target for %s, refusing.", pull_job_description(j));
+
+        /* Same restriction as CURLOPT_REDIR_PROTOCOLS in curl_glue_make() */
+        if (!http_url_is_valid(location))
+                return log_error_errno(SYNTHETIC_ERRNO(EPROTO), "HTTP redirect to unsupported URL '%s' for %s, refusing.", location, pull_job_description(j));
+
+        if (j->n_redirects >= PULL_JOB_REDIRECTS_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(ELOOP), "Too many HTTP redirects for %s, refusing.", pull_job_description(j));
+
+        /* Copy the URL, as it is owned by the curl handle, which is released when we restart the job */
+        _cleanup_free_ char *u = strdup(location);
+        if (!u)
+                return log_oom();
+
+        log_debug("Following HTTP redirect for %s to %s.", pull_job_description(j), u);
+
+        free_and_replace(j->redirect_url, u);
+        j->n_redirects++;
+
+        /* Note that the job keeps its URL, as well as its expectations about the data, as it is still the
+         * same resource we are acquiring */
+        return pull_job_reset_and_begin(j);
 }
 
 static uint64_t pull_job_content_length_effective(PullJob *j) {
@@ -564,6 +618,14 @@ static int pull_job_curl_on_finished(CurlSlot *slot, CURL *curl, CURLcode result
                 if (code != CURLE_OK)
                         return pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", sym_curl_easy_strerror(code)));
 
+                if (http_status_redirect(status)) {
+                        r = pull_job_follow_redirect(j, curl);
+                        if (r < 0)
+                                return pull_job_finish(j, r);
+
+                        return 0;
+                }
+
                 if (http_status_etag_exists(status)) {
                         log_info("Image already downloaded. Skipping download.");
                         j->etag_exists = true;
@@ -707,16 +769,20 @@ static size_t pull_job_write_callback(void *contents, size_t size, size_t nmemb,
 
         assert(contents);
 
+        /* We follow redirects ourselves, and the body of a redirect response is not what we asked for (but
+         * typically a short HTML page pointing to the new location), hence drop it */
+        long status;
+        if (sym_curl_easy_getinfo(curl_slot_get_easy(j->slot), CURLINFO_RESPONSE_CODE, &status) != CURLE_OK)
+                status = 0;
+
+        if (http_status_redirect(status))
+                return sz;
+
         /* If the server replied with partial content we must know where it starts. (If it replied with the
          * full content instead, we cut out the range ourselves.) */
-        if (j->range_requested && !j->range_applied) {
-                long status;
-
-                if (sym_curl_easy_getinfo(curl_slot_get_easy(j->slot), CURLINFO_RESPONSE_CODE, &status) == CURLE_OK &&
-                    status == 206) {
-                        pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EPROTO), "Server returned partial content without range information for %s, refusing.", pull_job_description(j)));
-                        return 0;
-                }
+        if (j->range_requested && !j->range_applied && status == 206) {
+                pull_job_finish(j, log_error_errno(SYNTHETIC_ERRNO(EPROTO), "Server returned partial content without range information for %s, refusing.", pull_job_description(j)));
+                return 0;
         }
 
         r = pull_job_process_data(j, contents, sz);
@@ -1194,6 +1260,42 @@ static int pull_job_begin_provider(PullJob *j) {
         return 0;
 }
 
+static int pull_job_append_http_headers(PullJob *j, const char *url, struct curl_slist **list) {
+        int r;
+
+        assert(j);
+        assert(url);
+        assert(list);
+
+        if (strv_isempty(j->http_headers))
+                return 0;
+
+        /* The additional header fields might carry credentials, hence only send them to the origin they
+         * are intended for, and never to whatever a redirect points to. */
+        _cleanup_free_ char *origin = NULL;
+        r = http_url_get_origin(url, &origin);
+        if (r < 0 && r != -EINVAL)
+                return r;
+        if (r == -EINVAL || !streq(origin, j->http_headers_origin)) {
+                log_debug("Not sending additional HTTP header fields to %s, as it is not of origin %s.", url, j->http_headers_origin);
+                return 0;
+        }
+
+        STRV_FOREACH_PAIR(a, b, j->http_headers) {
+                /* curl drops a header field if it is specified without value ("Name:"), and expects the
+                 * "Name;" syntax for fields with an empty value instead. */
+                _cleanup_(erase_and_freep) char *f = isempty(*b) ? strjoin(*a, ";") : strjoin(*a, ": ", *b);
+                if (!f)
+                        return -ENOMEM;
+
+                r = curl_append_to_header(list, STRV_MAKE(f));
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int pull_job_begin(PullJob *j) {
         int r;
 
@@ -1208,10 +1310,22 @@ int pull_job_begin(PullJob *j) {
         /* Everything else is transported via curl */
         assert(j->glue);
 
+        /* If we have been redirected (and follow redirects ourselves), talk to the new location */
+        const char *url = j->redirect_url ?: j->url;
+
         _cleanup_(curl_easy_cleanupp) CURL *easy = NULL;
-        r = curl_glue_make(&easy, j->url);
+        r = curl_glue_make(&easy, url);
         if (r < 0)
                 return r;
+
+        /* Build the list of header fields for this specific request from scratch, so that per-request fields
+         * don't accumulate if the job is restarted */
+        _cleanup_(curl_slist_free_allp) struct curl_slist *header = NULL;
+        for (struct curl_slist *i = j->request_header; i; i = i->next) {
+                r = curl_append_to_header(&header, STRV_MAKE(i->data));
+                if (r < 0)
+                        return r;
+        }
 
         if (!strv_isempty(j->old_etags)) {
                 _cleanup_free_ char *cc = NULL, *hdr = NULL;
@@ -1224,15 +1338,25 @@ int pull_job_begin(PullJob *j) {
                 if (!hdr)
                         return -ENOMEM;
 
-                r = pull_job_add_request_header(j, hdr);
+                r = curl_append_to_header(&header, STRV_MAKE(hdr));
                 if (r < 0)
                         return r;
         }
 
-        if (j->request_header) {
-                if (sym_curl_easy_setopt(easy, CURLOPT_HTTPHEADER, j->request_header) != CURLE_OK)
+        r = pull_job_append_http_headers(j, url, &header);
+        if (r < 0)
+                return r;
+
+        if (header) {
+                if (sym_curl_easy_setopt(easy, CURLOPT_HTTPHEADER, header) != CURLE_OK)
                         return -EIO;
         }
+
+        /* Always follow redirects ourselves, never let curl do it: curl would send our additional header
+         * fields to wherever a redirect points to, while we only send them to the origin they are intended
+         * for, see pull_job_append_http_headers(). */
+        if (sym_curl_easy_setopt(easy, CURLOPT_FOLLOWLOCATION, 0L) != CURLE_OK)
+                return -EIO;
 
         /* If we only need a range of the data, let's ask the server for just that. This is only possible if
          * the data is not encoded (as we cannot decode from the middle of a stream), and if we don't have to
@@ -1285,6 +1409,11 @@ int pull_job_begin(PullJob *j) {
                 return r;
         TAKE_PTR(easy);
 
+        /* The header list needs to stay around as long as the request is running */
+        if (j->request_header_effective)
+                sym_curl_slist_free_all(j->request_header_effective);
+        j->request_header_effective = TAKE_PTR(header);
+
         j->state = PULL_JOB_ANALYZING;
 
         return 0;
@@ -1309,10 +1438,72 @@ int pull_job_set_accept(PullJob *j, char * const *l) {
 
 int pull_job_set_bearer_token(PullJob *j, const char *token) {
         assert(j);
+        assert(token);
 
-        _cleanup_free_ char *f = strjoin("Authorization: Bearer ", token);
-        if (!f)
+        /* The token is intended for the server the job talks to, hence bind it to its origin, so that it is
+         * not sent to wherever a redirect points to (e.g. a CDN serving the blobs of an OCI registry) */
+        _cleanup_(erase_and_freep) char *v = strjoin("Bearer ", token);
+        if (!v)
                 return -ENOMEM;
 
-        return pull_job_add_request_header(j, f);
+        return pull_job_set_http_headers(j, STRV_MAKE("Authorization", v), j->url);
+}
+
+int pull_job_set_http_headers(PullJob *j, char * const *headers, const char *origin_url) {
+        int r;
+
+        assert(j);
+        assert(origin_url);
+
+        /* Configures additional HTTP header fields to send, but only in requests to the origin of the
+         * specified URL. (This is typically the URL of the main download, also for auxiliary jobs.) Fields
+         * that are already configured are replaced. All fields of a job must be bound to the same origin. */
+
+        if (strv_isempty(headers))
+                return 0;
+
+        _cleanup_free_ char *origin = NULL;
+        r = http_url_get_origin(origin_url, &origin);
+        if (r == -EINVAL) {
+                log_debug("Not an HTTP URL, not sending additional HTTP header fields: %s", origin_url);
+                return 0;
+        }
+        if (r < 0)
+                return r;
+
+        if (j->http_headers_origin && !streq(j->http_headers_origin, origin))
+                return -EXDEV;
+
+        _cleanup_strv_free_erase_ char **l = strv_copy(j->http_headers);
+        if (!l && j->http_headers)
+                return -ENOMEM;
+
+        STRV_FOREACH_PAIR(a, b, headers) {
+                bool found = false;
+
+                STRV_FOREACH_PAIR(c, d, l)
+                        if (strcaseeq(*a, *c)) {
+                                /* The value might be a credential, hence erase the old one */
+                                char *t = strdup(*b);
+                                if (!t)
+                                        return -ENOMEM;
+
+                                erase_and_free(*d);
+                                *d = t;
+
+                                found = true;
+                                break;
+                        }
+
+                if (!found) {
+                        r = strv_extend_many(&l, *a, *b);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        free_and_replace_full(j->http_headers, l, strv_free_erase);
+        free_and_replace(j->http_headers_origin, origin);
+
+        return 0;
 }
