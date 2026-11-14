@@ -99,6 +99,13 @@ void stdout_stream_terminate(StdoutStream *s) {
         if (s->state_file)
                 (void) unlink(s->state_file);
 
+        /* PID 1 keeps a copy of the connection in our fd store, which would keep it open after we close
+         * ours, with nothing reading from it anymore: once the socket buffer is full, the writer would
+         * block forever. Shut it down, so that the writer gets EPIPE instead, as for a stream that isn't
+         * in the fd store, and PID 1 sees EPOLLHUP and drops its copy. */
+        if (s->fdstore)
+                (void) shutdown(s->fd, SHUT_RDWR);
+
         StreamSyncReq *ssr;
         while ((ssr = s->stream_sync_reqs)) {
                 SyncReq *req = ssr->req;
@@ -881,8 +888,14 @@ static int restore_stream_from_file(Manager *m, DIR *d, const char *path, const 
                 fdset_remove(fds, fd);
 
                 r = stdout_stream_restore(m, fname, fd);
-                if (r < 0)
+                if (r < 0) {
+                        /* PID 1 still has the stream in our fd store, see stdout_stream_terminate() */
+                        (void) shutdown(fd, SHUT_RDWR);
                         safe_close(fd);
+
+                        if (unlinkat(dirfd(d), fname, 0) < 0)
+                                log_warning_errno(errno, "Failed to remove %s/%s: %m", path, fname);
+                }
 
                 return 0;
         }
