@@ -138,6 +138,7 @@ int vl_method_list_jobs(sd_varlink *link, sd_json_variant *parameters, sd_varlin
         };
 
         Manager *manager = ASSERT_PTR(userdata);
+        _cleanup_(mac_selinux_access_check_context_done) MacSelinuxAccessCheckContext selinux_context = {};
         JobLookupParameters p = {};
         Job *job;
         int r;
@@ -163,8 +164,10 @@ int vl_method_list_jobs(sd_varlink *link, sd_json_variant *parameters, sd_varlin
         if (r < 0)
                 return r;
 
+        (void) mac_selinux_access_check_varlink_context_init(link, &selinux_context);
+
         HASHMAP_FOREACH(job, manager->jobs) {
-                r = mac_selinux_unit_access_check_varlink(job->unit, link, "status");
+                r = mac_selinux_unit_access_check_varlink_full(job->unit, link, &selinux_context, "status");
                 if (r < 0)
                         continue;
 

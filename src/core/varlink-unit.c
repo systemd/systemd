@@ -524,8 +524,9 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
         };
 
         Manager *manager = ASSERT_PTR(userdata);
-         _cleanup_(unit_lookup_parameters_done) UnitLookupParameters p = {
-                 .pidref = PIDREF_NULL,
+        _cleanup_(mac_selinux_access_check_context_done) MacSelinuxAccessCheckContext selinux_context = {};
+        _cleanup_(unit_lookup_parameters_done) UnitLookupParameters p = {
+                .pidref = PIDREF_NULL,
         };
         Unit *unit;
         const char *k;
@@ -551,12 +552,14 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
         if (r < 0)
                 return r;
 
+        (void) mac_selinux_access_check_varlink_context_init(link, &selinux_context);
+
         HASHMAP_FOREACH_KEY(unit, k, manager->units) {
                 /* ignore aliases */
                 if (k != unit->id)
                         continue;
 
-                r = mac_selinux_unit_access_check_varlink(unit, link, "status");
+                r = mac_selinux_unit_access_check_varlink_full(unit, link, &selinux_context, "status");
                 if (r < 0)
                         continue; /* silently skip units the caller is not allowed to see */
 
@@ -1183,6 +1186,7 @@ int vl_method_enqueue_unit_job(sd_varlink *link, sd_json_variant *parameters, sd
                 .notify_job_changes = -1,
                 .notify_unit_changes = -1,
         };
+        _cleanup_(mac_selinux_access_check_context_done) MacSelinuxAccessCheckContext selinux_context = {};
         _cleanup_(sd_bus_error_free) sd_bus_error bus_error = SD_BUS_ERROR_NULL;
         Manager *manager = ASSERT_PTR(userdata);
         int r;
@@ -1241,6 +1245,8 @@ int vl_method_enqueue_unit_job(sd_varlink *link, sd_json_variant *parameters, sd
                         return r;
         }
 
+        (void) mac_selinux_access_check_varlink_context_init(link, &selinux_context);
+
         Unit *first = NULL;
         STRV_FOREACH(name, p.names) {
                 Unit *u;
@@ -1249,7 +1255,7 @@ int vl_method_enqueue_unit_job(sd_varlink *link, sd_json_variant *parameters, sd
                 if (r < 0)
                         return r;
 
-                r = mac_selinux_unit_access_check_varlink(u, link, job_type_to_access_method(p.job_type));
+                r = mac_selinux_unit_access_check_varlink_full(u, link, &selinux_context, job_type_to_access_method(p.job_type));
                 if (r < 0)
                         return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
 
