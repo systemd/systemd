@@ -441,7 +441,7 @@ static void service_extend_event_source_timeout(Service *s, sd_event_source *sou
         r = sd_event_source_get_time(source, &current);
         if (r < 0) {
                 const char *desc;
-                (void) sd_event_source_get_description(s->timer_event_source, &desc);
+                (void) sd_event_source_get_description(source, &desc);
                 log_unit_warning_errno(UNIT(s), r, "Failed to retrieve timeout time for event source '%s', ignoring: %m", strna(desc));
                 return;
         }
@@ -452,7 +452,7 @@ static void service_extend_event_source_timeout(Service *s, sd_event_source *sou
         r = sd_event_source_set_time(source, extended);
         if (r < 0) {
                 const char *desc;
-                (void) sd_event_source_get_description(s->timer_event_source, &desc);
+                (void) sd_event_source_get_description(source, &desc);
                 log_unit_warning_errno(UNIT(s), r, "Failed to set timeout time for event source '%s', ignoring: %m", strna(desc));
         }
 }
