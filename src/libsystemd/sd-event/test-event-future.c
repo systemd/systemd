@@ -177,7 +177,11 @@ TEST(future_child_process_own_escalates) {
         ASSERT_EQ(sd_future_state(f), SD_FUTURE_PENDING);
         ASSERT_OK(pidref_kill(&pidref, /* sig= */ 0));
 
-        /* The second attempt escalates to SIGKILL. */
+        ASSERT_OK(sd_future_cancel_full(f, SD_FUTURE_CANCEL_SOFT));
+        ASSERT_OK_ZERO(sd_event_run(e, 10 * USEC_PER_MSEC));
+        ASSERT_OK(pidref_kill(&pidref, /* sig= */ 0));
+
+        /* The next default request escalates to SIGKILL. */
         ASSERT_OK(sd_future_cancel(f));
         ASSERT_OK(sd_event_loop(e));
         ASSERT_ERROR(sd_future_result(f), ECANCELED);
@@ -213,11 +217,10 @@ TEST(future_child_process_own_kill_timeout) {
 static int child_cancel_wait_fiber(void *userdata) {
         sd_future *f = ASSERT_PTR(userdata);
 
-        /* The timeout interrupts the wait after SIGTERM, which makes the cleanup loop cancel again
-         * and thereby escalate to SIGKILL. */
-        SD_FIBER_TIMEOUT(10 * USEC_PER_MSEC);
+        /* The test cancels this fiber twice while the wait runs after SIGTERM. The second cancel is
+         * hard. The wait passes it on to the child future, which escalates to SIGKILL. */
         sd_future_cancel_wait_unref(sd_future_ref(f));
-        return 0;
+        return sd_fiber_suspend();
 }
 
 TEST(future_child_process_own_cancel_wait) {
@@ -232,8 +235,13 @@ TEST(future_child_process_own_cancel_wait) {
         ASSERT_OK(future_new_child(e, &pidref, WEXITED, &f));
         ASSERT_OK(future_child_set_process_own(f, /* own= */ true));
         ASSERT_OK(sd_fiber_new(e, "child-cancel-wait", child_cancel_wait_fiber, f, &fiber));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
+        ASSERT_PTR_EQ(sd_fiber_get_awaiting(fiber), f);
+        ASSERT_OK_POSITIVE(sd_future_cancel(fiber));
+        ASSERT_OK_POSITIVE(sd_future_cancel(fiber));
 
         ASSERT_OK(sd_event_loop(e));
+        ASSERT_ERROR(sd_future_result(fiber), ECANCELED);
         ASSERT_ERROR(sd_future_result(f), ECANCELED);
         ASSERT_OK(future_child_get_siginfo(f, &si));
         ASSERT_EQ(si.si_code, CLD_KILLED);

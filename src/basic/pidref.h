@@ -108,12 +108,18 @@ static inline int pidref_wait_for_terminate(PidRef *pidref, siginfo_t *ret_si) {
         return pidref_wait_for_terminate_full(pidref, USEC_INFINITY, ret_si);
 }
 
+/* On a fiber, a wait returns -ECANCELED or -ETIME when the fiber is cancelled or times out, without reaping
+ * the process. Cleanup code has to reap the process anyway. This variant waits under a shield, and keeps
+ * waiting until the process is gone. If a hard cancellation interrupts the shield, it kills the process with
+ * SIGKILL and waits for it with every interruption hidden. Returns the result of the wait. */
+int pidref_wait_for_terminate_uninterruptible(PidRef *pidref);
+
 static inline void pidref_done_sigterm_wait(PidRef *pidref) {
         if (!pidref_is_set(pidref))
                 return;
 
         (void) pidref_kill(pidref, SIGTERM);
-        (void) pidref_wait_for_terminate(pidref, /* ret_si= */ NULL);
+        (void) pidref_wait_for_terminate_uninterruptible(pidref);
         pidref_done(pidref);
 }
 
@@ -122,7 +128,7 @@ static inline void pidref_done_sigkill_wait(PidRef *pidref) {
                 return;
 
         (void) pidref_kill(pidref, SIGKILL);
-        (void) pidref_wait_for_terminate(pidref, /* ret_si= */ NULL);
+        (void) pidref_wait_for_terminate_uninterruptible(pidref);
         pidref_done(pidref);
 }
 

@@ -4,6 +4,7 @@
 #include "sd-future.h"
 
 #include "tests.h"
+#include "time-util.h"
 
 /* Body for "I exist to be cancelled" siblings: suspends until something cancels us. */
 static int suspend_fiber(void *userdata) {
@@ -457,8 +458,8 @@ static int parent_cancel_driver(void *userdata) {
         ASSERT_OK(sd_future_group_seal(group));
 
         /* Wake-up slot so we don't hang in the IGNORE_ERRORS case (where the parent isn't
-         * cancelled). In the fail-fast case the queued -ECANCELED takes precedence over this
-         * callback's normal resume value. */
+         * cancelled). In the fail-fast case the cancellation takes precedence over the resume value
+         * of this callback. */
         _cleanup_(sd_future_slot_unrefp) sd_future_slot *wake_slot = NULL;
         ASSERT_OK(sd_future_add_callback(group, &wake_slot, wake_parent_cb, sd_fiber_get_current()));
 
@@ -481,9 +482,110 @@ TEST(future_group_cancels_parent_on_child_error) {
         ASSERT_ERROR(s.group_result, EINVAL);
 }
 
+/* Test: a child error cancels the other children of the group once. The first cancel of the group after
+ * that doesn't cancel them again, which would cancel a fiber child hard and interrupt the shield of its
+ * cleanup code. */
+typedef struct ShieldedCleanup {
+        bool cancelled;
+        int result;
+} ShieldedCleanup;
+
+static int shielded_cleanup_fiber(void *userdata) {
+        ShieldedCleanup *c = ASSERT_PTR(userdata);
+
+        ASSERT_ERROR(sd_fiber_suspend(), ECANCELED);
+        c->cancelled = true;
+
+        SD_FIBER_WITH_SHIELD()
+                c->result = sd_fiber_sleep(10 * USEC_PER_MSEC);
+        return 0;
+}
+
+TEST(future_group_cancel_after_child_error) {
+        FOREACH_ELEMENT(duplicate, ((const bool[]) { false, true })) {
+                _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+                ASSERT_OK(sd_event_new(&e));
+
+                _cleanup_(sd_future_unrefp) sd_future *group = NULL, *cleanup = NULL, *errorer = NULL;
+                ShieldedCleanup c = { .result = 1 };
+                int error = -EINVAL;
+                ASSERT_OK(sd_future_group_new(e, &group));
+                ASSERT_OK(sd_fiber_new(e, "shielded-cleanup", shielded_cleanup_fiber, &c, &cleanup));
+                ASSERT_OK(sd_future_group_add(group, cleanup));
+                if (*duplicate)
+                        ASSERT_OK(sd_future_group_add(group, cleanup));
+                ASSERT_OK(sd_fiber_new(e, "errorer", yield_then_return_fiber, &error, &errorer));
+                ASSERT_OK(sd_future_group_add(group, errorer));
+
+                while (!c.cancelled)
+                        ASSERT_OK(sd_event_run(e, UINT64_MAX));
+
+                ASSERT_OK(sd_future_cancel(group));
+                while (sd_future_state(group) == SD_FUTURE_PENDING)
+                        ASSERT_OK(sd_event_run(e, UINT64_MAX));
+
+                ASSERT_ERROR(sd_future_result(group), EINVAL);
+                ASSERT_OK_ZERO(c.result);
+        }
+}
+
+TEST(future_group_cancel_duplicate_child) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *group = NULL, *child = NULL;
+        ShieldedCleanup c = { .result = 1 };
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(sd_future_group_new(e, &group));
+        ASSERT_OK(sd_fiber_new(e, "duplicate-child", shielded_cleanup_fiber, &c, &child));
+        ASSERT_OK(sd_future_group_add(group, child));
+        ASSERT_OK(sd_future_group_add(group, child));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
+
+        ASSERT_OK(sd_future_cancel(group));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
+        ASSERT_TRUE(c.cancelled);
+        ASSERT_NOT_NULL(sd_fiber_get_awaiting(child));
+        ASSERT_EQ(c.result, 1);
+
+        ASSERT_OK(sd_future_cancel(group));
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_ERROR(c.result, ECANCELED);
+        ASSERT_ERROR(sd_future_result(group), ECANCELED);
+}
+
+TEST(future_group_cancel_shared_descendant) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *group = NULL, *left = NULL, *right = NULL, *child = NULL;
+        ShieldedCleanup c = { .result = 1 };
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK(sd_future_group_new(e, &group));
+        ASSERT_OK(sd_future_group_new(e, &left));
+        ASSERT_OK(sd_future_group_new(e, &right));
+        ASSERT_OK(sd_fiber_new(e, "shared-child", shielded_cleanup_fiber, &c, &child));
+        ASSERT_OK(sd_future_group_add(left, child));
+        ASSERT_OK(sd_future_group_add(right, child));
+        ASSERT_OK(sd_future_group_add(group, left));
+        ASSERT_OK(sd_future_group_add(group, right));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
+
+        ASSERT_OK(sd_future_cancel(group));
+        ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
+        ASSERT_TRUE(c.cancelled);
+        ASSERT_NOT_NULL(sd_fiber_get_awaiting(child));
+        ASSERT_EQ(c.result, 1);
+
+        ASSERT_OK(sd_future_cancel(group));
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_ERROR(c.result, ECANCELED);
+        ASSERT_ERROR(sd_future_result(group), ECANCELED);
+}
+
 /* Sealing an empty WAIT_ANY group resolves it with -ECHILD. No child failed, so the group must not
- * cancel its parent fiber. A peer fiber seals the group because the group never cancels the fiber
- * that is currently running. */
+ * cancel its parent fiber. A peer fiber seals the group because the group never cancels its parent
+ * while the parent runs. */
 typedef struct SealParentState {
         int suspend_result;
         int group_result;
@@ -670,7 +772,7 @@ typedef struct StubbornChild {
         unsigned cancels;
 } StubbornChild;
 
-static int stubborn_child_cancel(sd_future *f) {
+static int stubborn_child_cancel(sd_future *f, sd_future_cancel_mode_t mode) {
         StubbornChild *sc = ASSERT_PTR(sd_future_get_private(f));
         if (++sc->cancels >= 2)
                 return sd_future_resolve(f, -ECANCELED);
@@ -683,7 +785,7 @@ static const sd_future_ops stubborn_child_ops = {
         .cancel = stubborn_child_cancel,
 };
 
-static int failing_child_cancel(sd_future *f) {
+static int failing_child_cancel(sd_future *f, sd_future_cancel_mode_t mode) {
         StubbornChild *sc = ASSERT_PTR(sd_future_get_private(f));
 
         sc->cancels++;
@@ -730,7 +832,7 @@ typedef struct ReentrantChild {
         unsigned cancels;
 } ReentrantChild;
 
-static int reentrant_child_cancel(sd_future *f) {
+static int reentrant_child_cancel(sd_future *f, sd_future_cancel_mode_t mode) {
         ReentrantChild *rc = ASSERT_PTR(sd_future_get_private(f));
 
         rc->cancels++;
@@ -770,8 +872,9 @@ TEST(future_group_cancel_reentrant_child_terminates) {
 }
 
 /* The motivating case: sd_future_cancel_wait_unref() on a group drives a child that only settles on
- * a repeated cancellation. The first cancel leaves the child pending, the fiber is interrupted while
- * waiting for the group, and the loop's second cancel has to reach the child through the group. */
+ * a repeated cancellation. The first cancel leaves the child pending. The exit of the event loop
+ * cancels the fiber hard while it waits for the group. The wait passes that on as a second cancel of
+ * the group, which has to reach the child. */
 static int cancel_wait_group_fiber(void *userdata) {
         unsigned *cancels = ASSERT_PTR(userdata);
         _cleanup_(sd_future_unrefp) sd_future *stubborn = NULL;
@@ -787,7 +890,7 @@ static int cancel_wait_group_fiber(void *userdata) {
         StubbornChild *sc = sd_future_get_private(stubborn);
         *cancels = sc->cancels;
 
-        /* The interruption that woke the wait is re-queued on us. */
+        /* The cancellation stays in effect. */
         return sd_fiber_suspend();
 }
 
@@ -945,9 +1048,8 @@ TEST(future_group_set_policy_rejected_after_child_resolved) {
 }
 
 /* When the parent fiber itself drives the cancel of its own group, future_group_finalize() must
- * skip the parent-cancel path — fiber_cancel asserts against self-cancellation, and even if that
- * assertion were relaxed, queuing -ECANCELED on the parent would surface on a later suspend the
- * caller didn't expect. */
+ * skip the parent-cancel path. Otherwise the parent would get -ECANCELED from a later suspension
+ * point that the caller doesn't expect. */
 typedef struct SelfCancelState {
         int cancel_return;
         int group_result;
@@ -974,8 +1076,8 @@ static int self_cancel_fiber(void *userdata) {
         s->cancel_return = sd_future_cancel(group);
         s->group_result = sd_future_result(group);
 
-        /* If the parent-cancel guard didn't work, -ECANCELED would be queued on us by
-         * finalize() and surface here. Expect a clean yield (0). */
+        /* If the parent-cancel guard didn't work, finalize() would cancel this fiber and the yield
+         * would return -ECANCELED. Expect a clean yield (0). */
         s->yield_result = sd_fiber_yield();
         return 0;
 }
@@ -1012,8 +1114,9 @@ static int parent_await_driver(void *userdata) {
         ASSERT_OK(sd_future_group_new(sd_fiber_get_event(), &s->child));
         ASSERT_OK(sd_future_group_add(s->group, s->child));
 
+        /* An unrelated wakeup ends the await without cancelling the parent. */
         if (s->await)
-                ASSERT_ERROR(sd_fiber_await(s->group), ECANCELED);
+                ASSERT_ERROR(sd_fiber_await(s->group), EBUSY);
         else
                 ASSERT_EQ(sd_fiber_suspend(), 42);
 
@@ -1042,7 +1145,7 @@ TEST(future_group_parent_await_scope) {
                 ASSERT_OK(sd_fiber_new(e, "parent-await", parent_await_driver, &s, &parent));
                 ASSERT_OK_POSITIVE(sd_event_run(e, /* timeout= */ 0));
                 if (s.await)
-                        ASSERT_OK(sd_future_cancel(parent));
+                        ASSERT_OK(sd_fiber_resume(parent, 42));
                 else {
                         ASSERT_ERROR(ASSERT_RETURN_EXPECTED(sd_fiber_await(s.group)), ESRCH);
                         ASSERT_OK(sd_fiber_resume(parent, 42));
