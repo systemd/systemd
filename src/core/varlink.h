@@ -14,6 +14,8 @@ void manager_varlink_done(Manager *m);
  * - A unit with ManagedOOM*= properties changes unit active state */
 int manager_varlink_send_managed_oom_update(Unit *u);
 
+void manager_varlink_send_managed_oom_update_recursive(Unit *u);
+
 void manager_varlink_send_pending_reload_message(Manager *m);
 
 int manager_varlink_claim_connection(Manager *m, const char *id, sd_varlink **ret);
