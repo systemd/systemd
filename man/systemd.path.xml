@@ -158,7 +158,13 @@
         when permissions allow that. </para>
 
         <para>Note that files whose name starts with a dot (i.e. hidden files) are generally ignored when
-        monitoring these paths.</para></listitem>
+        monitoring these paths.</para>
+
+        <para>Directories are not watched recursively. If <varname>PathChanged=</varname> or
+        <varname>PathModified=</varname> specifies a directory, only changes to the directory itself and to
+        the entries directly inside it are noticed. Changes further down the tree, for example to a file in a
+        subdirectory, do not activate the unit. To watch such a file, specify its path or the path of its
+        parent directory explicitly.</para></listitem>
       </varlistentry>
 
       <varlistentry>
