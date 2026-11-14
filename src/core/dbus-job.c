@@ -347,6 +347,9 @@ int bus_job_coldplug_bus_track(Job *j) {
 
         assert(j);
 
+        if (j->manager->api_bus && !j->manager->api_bus_ready)
+                return 0;
+
         deserialized_clients = TAKE_PTR(j->deserialized_clients);
 
         if (strv_isempty(deserialized_clients))
