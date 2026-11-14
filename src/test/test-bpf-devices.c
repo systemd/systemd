@@ -14,6 +14,10 @@
 #include "strv.h"
 #include "tests.h"
 
+static char *cgroup = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(cgroup, freep);
+
 static void test_policy_closed(const char *cgroup_path, BPFProgram **installed_prog) {
         _cleanup_(bpf_program_freep) BPFProgram *prog = NULL;
         unsigned wrong = 0;
@@ -247,32 +251,11 @@ static void test_policy_empty(bool add_mismatched, const char *cgroup_path, BPFP
         ASSERT_EQ(wrong, 0U);
 }
 
-int main(int argc, char *argv[]) {
-        _cleanup_free_ char *cgroup = NULL, *parent = NULL;
+TEST(bpf_devices) {
+        _cleanup_free_ char *parent = NULL;
         _cleanup_(rmdir_and_freep) char *controller_path = NULL;
         CGroupMask supported;
-        struct rlimit rl;
         int r;
-
-        test_setup_logging(LOG_DEBUG);
-
-        r = bpf_program_supported();
-        if (r < 0)
-                return log_tests_skipped_errno(r, "BPF device filter not supported");
-        ASSERT_TRUE(r);
-
-        ASSERT_OK(getrlimit(RLIMIT_MEMLOCK, &rl));
-        rl.rlim_cur = rl.rlim_max = MAX(rl.rlim_max, CAN_MEMLOCK_SIZE);
-        (void) setrlimit(RLIMIT_MEMLOCK, &rl);
-
-        if (!can_memlock())
-                return log_tests_skipped("Can't use mlock()");
-
-        r = enter_cgroup_subroot(&cgroup);
-        if (r == -ENOMEDIUM)
-                return log_tests_skipped("cgroupfs not available");
-        if (r < 0)
-                return log_tests_skipped_errno(r, "Failed to prepare cgroup subtree");
 
         r = cg_get_path(cgroup, /* suffix= */ NULL, &controller_path);
         ASSERT_OK(r);
@@ -295,6 +278,31 @@ int main(int argc, char *argv[]) {
 
         ASSERT_OK(cg_mask_supported(&supported));
         ASSERT_OK(cg_attach(parent, /* pid= */ 0));
-
-        return 0;
 }
+
+static int intro(void) {
+        struct rlimit rl;
+        int r;
+
+        r = bpf_program_supported();
+        if (r < 0)
+                return log_tests_skipped_errno(r, "BPF device filter not supported");
+        ASSERT_TRUE(r);
+
+        ASSERT_OK(getrlimit(RLIMIT_MEMLOCK, &rl));
+        rl.rlim_cur = rl.rlim_max = MAX(rl.rlim_max, CAN_MEMLOCK_SIZE);
+        (void) setrlimit(RLIMIT_MEMLOCK, &rl);
+
+        if (!can_memlock())
+                return log_tests_skipped("Can't use mlock()");
+
+        r = enter_cgroup_subroot(&cgroup);
+        if (r == -ENOMEDIUM)
+                return log_tests_skipped("cgroupfs not available");
+        if (r < 0)
+                return log_tests_skipped_errno(r, "Failed to prepare cgroup subtree");
+
+        return EXIT_SUCCESS;
+}
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);
