@@ -4245,6 +4245,9 @@ switch_over:
                 close_and_replace(rootfs->directory_fd, fd);
         }
 
+        /* The pinned directory switched over to the ephemeral copy, invalidate the host root cache. */
+        rootfs->directory_fd_is_host_root = -1;
+
         return 1;
 }
 
@@ -4322,6 +4325,7 @@ static int pin_rootfs(
 
                 *ret = (PinnedResource) {
                         .directory_fd = TAKE_FD(fd),
+                        .directory_fd_is_host_root = -1,
                         .image_fd = -EBADF,
                 };
 
@@ -4366,6 +4370,7 @@ static int pin_rootfs(
                         .image = TAKE_PTR(result.path),
                         .image_fd = TAKE_FD(reopened_fd),
                         .directory_fd = -EBADF,
+                        .directory_fd_is_host_root = -1,
                 };
 
                 return r;
@@ -4396,6 +4401,7 @@ static int pin_rootfs(
                 *ret = (PinnedResource) {
                         .directory = TAKE_PTR(result.path),
                         .directory_fd = TAKE_FD(result.fd),
+                        .directory_fd_is_host_root = -1,
                         .image_fd = -EBADF,
                 };
 
@@ -4436,6 +4442,7 @@ static int pin_rootfs(
                         .mstack_loaded = TAKE_PTR(mstack),
                         .image_fd = -EBADF,
                         .directory_fd = -EBADF,
+                        .directory_fd_is_host_root = -1,
                 };
 
                 return r;
