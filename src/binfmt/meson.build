@@ -8,6 +8,9 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-binfmt',
                 'sources' : files('binfmt.c'),
+                'dependencies' : [
+                        libbpf_cflags,
+                ],
         },
 ]
 

@@ -52,6 +52,26 @@
     Note that this means you may not use those symbols as the delimiter in binary format rules.</para>
   </refsect1>
 
+  <refsect1>
+    <title>BPF Handlers</title>
+
+    <para>Rules of type <literal>B</literal> are matched and dispatched by a BPF handler, which the rule
+    names in its interpreter field, see <ulink
+    url="https://docs.kernel.org/admin-guide/binfmt-misc.html#bpf-backed-handlers">bpf-backed
+    handlers</ulink>. The handler has to be registered before the rule can be. If a file
+    <filename><replaceable>handler</replaceable>.bpf.o</filename> exists in one of the directories listed
+    above, the <literal>binfmt_misc_ops</literal> struct_ops map in this BPF object is registered as the
+    handler right before the rule is written. The object must contain exactly one struct_ops map, and the
+    name the map sets for the handler must match the file name. The rule keeps the handler alive on its own,
+    so nothing else is left registered once the rule is written. If no such file exists, the handler is
+    expected to have been registered by other means already.</para>
+
+    <para>Registering a handler from a BPF object requires libbpf and a kernel built with
+    <option>CONFIG_BINFMT_MISC_BPF</option> (Linux 7.3 or newer).</para>
+
+    <xi:include href="version-info.xml" xpointer="v263"/>
+  </refsect1>
+
   <xi:include href="standard-conf.xml" xpointer="confd" />
 
   <refsect1>
@@ -61,6 +81,13 @@
 
       <programlisting># Start WINE on Windows executables
 :DOSWin:M::MZ::/usr/bin/wine:</programlisting>
+    </example>
+
+    <example>
+      <title>/etc/binfmt.d/elf-origin.conf example:</title>
+
+      <programlisting># Let the BPF handler from /usr/lib/binfmt.d/elf_origin.bpf.o pick the loader
+:elf-origin:B::::elf_origin:</programlisting>
     </example>
   </refsect1>
 
