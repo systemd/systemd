@@ -34,15 +34,24 @@ case "$service" in
         _arguments \
             '(-)'{-h,--help}'[Show this help]' \
             '(-)--version[Print version and exit]' \
-            '(-c -m -i -t)-p[Order by path]' \
-            '(-c -p -m -i)-t[Order by number of tasks]' \
-            '(-m -p -i -t)-c[Order by CPU load]' \
-            '(-c -p -i -t)-m[Order by memory load]' \
-            '(-c -m -p -t)-i[Order by IO load]' \
+            '(-c -m -i -t -p)--order=[Order by specified property]:property:(path tasks cpu memory io)' \
+            '(-c -m -i -t --order)-p[Order by path]' \
+            '(-c -p -m -i --order)-t[Order by number of tasks]' \
+            '(-m -p -i -t --order)-c[Order by CPU load]' \
+            '(-c -p -i -t --order)-m[Order by memory load]' \
+            '(-c -m -p -t --order)-i[Order by IO load]' \
+            '(-r --raw)'{-r,--raw}'[Provide raw (not human-readable) numbers]' \
+            '--cpu=-[Show CPU usage as percentage (default) or time]:format:(percentage time)' \
+            '(-k)-P[Count userspace processes instead of tasks (excl. kernel)]' \
+            '(-P)-k[Count all processes instead of tasks (incl. kernel)]' \
+            '--recursive=[Sum up process count recursively]:boolean:(yes no)' \
             '(-d --delay)'{-d+,--delay=}'[Specify delay]:delay:' \
             '(-n --iterations)'{-n+,--iterations=}'[Run for N iterations before exiting]:number of iterations:' \
+            '(-n --iterations)-1[Shortcut for --iterations=1]' \
             '(-b --batch)'{-b,--batch}'[Run in batch mode, accepting no input]' \
-            '--depth=[Maximum traversal depth]:maximum depth:'
+            '--depth=[Maximum traversal depth]:maximum depth:' \
+            '--root-memory=[Root row memory source]:mode:(cgroup system)' \
+            '(-M --machine)'{-M+,--machine=}'[Operate on local container]:machine:_sd_machines'
         ;;
     systemd-detect-virt)
         _arguments \
