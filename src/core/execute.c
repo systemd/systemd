@@ -2206,12 +2206,35 @@ bool exec_context_io_uring_filter_set(const ExecContext *c) {
 }
 
 bool exec_context_with_separate_rootfs(const ExecContext *c) {
+        int r;
+
         assert(c);
 
-        /* Checks if a root file system other than our own root directory is used: RootDirectory= pointing
-         * somewhere else than /, RootImage=, RootMStack= or RootDirectoryFileDescriptor=. */
+        /* Checks if the root file system is a tree separate from our own root directory. This is always
+         * the case for RootImage=, RootMStack= and RootDirectoryFileDescriptor=. For RootDirectory=, check
+         * if the configured directory resolves to our own root, following symlinks, so that
+         * RootDirectory=/ and RootDirectory= pointing to a symlink to our root count as our own root,
+         * too. The file descriptor of RootDirectoryFileDescriptor= is not available in the ExecContext,
+         * so it is simply assumed to refer to a separate tree. Note that a bind mount of our own root
+         * directory counts as a separate tree, too, as the mount id is compared. This is intentional,
+         * as this function is used to determine the PrivateTmp= behaviour. */
 
-        return !empty_or_root(c->root_directory) || c->root_image || c->root_directory_as_fd || c->root_mstack;
+        if (c->root_directory_as_fd || c->root_image)
+                return true;
+
+        if (c->root_directory) {
+                r = path_is_root(c->root_directory);
+                if (r < 0) {
+                        log_debug_errno(r,
+                                        "Failed to check if the path '%s' specified in RootDirectory= is identical to the host root directory, assuming it is not: %m",
+                                        c->root_directory);
+                        return true;
+                }
+
+                return r == 0;
+        }
+
+        return c->root_mstack;
 }
 
 bool exec_context_with_rootfs(const ExecContext *c) {
