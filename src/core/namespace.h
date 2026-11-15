@@ -97,16 +97,20 @@ typedef struct PinnedResource {
          * otherwise. */
         int directory_fd;
         char *directory;
+        /* Tri-state cache for pinned_resource_is_host_root(): positive if the pinned directory is our
+         * own root directory, zero if not, negative if not determined yet. */
+        int directory_fd_is_host_root;
         int image_fd;
         char *image;
         MStack *mstack_loaded;
         char *mstack;
 } PinnedResource;
 
-#define PINNED_RESOURCE_NULL                    \
-        (PinnedResource) {                      \
-                .directory_fd = -EBADF,         \
-                .image_fd = -EBADF,             \
+#define PINNED_RESOURCE_NULL                            \
+        (PinnedResource) {                              \
+                .directory_fd = -EBADF,                 \
+                .directory_fd_is_host_root = -1,        \
+                .image_fd = -EBADF,                     \
         }
 
 typedef struct BindMount {
@@ -333,3 +337,4 @@ int refresh_extensions_in_namespace(
 
 void pinned_resource_done(PinnedResource *p);
 bool pinned_resource_is_set(const PinnedResource *p);
+bool pinned_resource_is_host_root(PinnedResource *p);
