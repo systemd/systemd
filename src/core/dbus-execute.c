@@ -66,7 +66,6 @@ static BUS_DEFINE_PROPERTY_GET(property_get_bind_log_sockets, "b", ExecContext, 
 static BUS_DEFINE_PROPERTY_GET2(property_get_ioprio_class, "i", ExecContext, exec_context_get_effective_ioprio, ioprio_prio_class);
 static BUS_DEFINE_PROPERTY_GET2(property_get_ioprio_priority, "i", ExecContext, exec_context_get_effective_ioprio, ioprio_prio_data);
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_empty_string, "s", NULL);
-static BUS_DEFINE_PROPERTY_GET_REF(property_get_private_tmp_ex, "s", PrivateTmp, private_tmp_to_string);
 static BUS_DEFINE_PROPERTY_GET_REF(property_get_private_users_ex, "s", PrivateUsers, private_users_to_string);
 static BUS_DEFINE_PROPERTY_GET_REF(property_get_protect_control_groups_ex, "s", ProtectControlGroups, protect_control_groups_to_string);
 static BUS_DEFINE_PROPERTY_GET_REF(property_get_private_pids, "s", PrivatePIDs, private_pids_to_string);
@@ -1081,9 +1080,27 @@ static int property_get_private_tmp(
                 sd_bus_error *reterr_error) {
 
         PrivateTmp *p = ASSERT_PTR(userdata);
-        int b = *p != PRIVATE_TMP_NO;
+
+        /* Defaults to false when not resolved yet, e.g. when the unit is not fully loaded. */
+        int b = *p >= 0 && *p != PRIVATE_TMP_NO;
 
         return sd_bus_message_append_basic(reply, 'b', &b);
+}
+
+static int property_get_private_tmp_ex(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *reterr_error) {
+
+        PrivateTmp *p = ASSERT_PTR(userdata);
+
+        /* Defaults to "no" when not resolved yet, e.g. when the unit is not fully loaded,
+         * matching property_get_private_tmp() above. */
+        return sd_bus_message_append(reply, "s", *p >= 0 ? private_tmp_to_string(*p) : "no");
 }
 
 static int property_get_private_users(
