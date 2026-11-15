@@ -3,6 +3,7 @@
 #include <linux/magic.h>
 #include <sys/vfs.h>
 
+#include "alloc-util.h"
 #include "binfmt-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -10,6 +11,7 @@
 #include "fs-util.h"
 #include "log.h"
 #include "stat-util.h"
+#include "string-table.h"
 
 int binfmt_mounted_and_writable(void) {
         _cleanup_close_ int fd = -EBADF;
@@ -62,5 +64,71 @@ int disable_binfmt(void) {
                 return log_warning_errno(r, "Failed to unregister binfmt_misc entries: %m");
 
         log_debug("Unregistered all remaining binfmt_misc entries.");
+        return 0;
+}
+
+void binfmt_rule_done(BinfmtRule *rule) {
+        assert(rule);
+
+        rule->buffer = mfree(rule->buffer);
+}
+
+static const char* const binfmt_rule_type_table[_BINFMT_RULE_TYPE_MAX] = {
+        [BINFMT_RULE_MAGIC]     = "M",
+        [BINFMT_RULE_EXTENSION] = "E",
+        [BINFMT_RULE_BPF]       = "B",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(binfmt_rule_type, BinfmtRuleType);
+
+int binfmt_rule_parse(const char *s, BinfmtRule *ret) {
+        enum {
+                FIELD_NAME,
+                FIELD_TYPE,
+                FIELD_OFFSET,
+                FIELD_MAGIC,
+                FIELD_MASK,
+                FIELD_INTERPRETER,
+                _FIELD_MAX,
+        };
+        _cleanup_free_ char *buffer = NULL;
+        const char *fields[_FIELD_MAX];
+        BinfmtRuleType type;
+        char *p;
+
+        assert(s);
+        assert(ret);
+
+        /* The first character of the rule is the delimiter of its fields. */
+        if (s[0] == 0)
+                return -EINVAL;
+
+        buffer = strdup(s + 1);
+        if (!buffer)
+                return -ENOMEM;
+
+        /* Split the fields like create_entry() in the kernel's fs/binfmt_misc.c does. The kernel pads the
+         * rule with delimiters before parsing it, hence a field missing at the end of the rule is empty
+         * rather than an error. The flags field is not looked at. */
+        p = buffer;
+        for (size_t i = 0; i < _FIELD_MAX; i++) {
+                fields[i] = p;
+
+                p += strcspn(p, CHAR_TO_STR(s[0]));
+                if (*p != 0)
+                        *(p++) = 0;
+        }
+
+        /* An unknown type is not an error here, the kernel refuses the rule when it is written. As in the
+         * kernel, the interpreter field of a bpf-backed rule carries the name of its handler instead. */
+        type = binfmt_rule_type_from_string(fields[FIELD_TYPE]);
+
+        *ret = (BinfmtRule) {
+                .buffer = TAKE_PTR(buffer),
+                .name = fields[FIELD_NAME],
+                .type = type,
+                .interpreter = type == BINFMT_RULE_BPF ? NULL : fields[FIELD_INTERPRETER],
+                .bpf_handler = type == BINFMT_RULE_BPF ? fields[FIELD_INTERPRETER] : NULL,
+        };
         return 0;
 }
