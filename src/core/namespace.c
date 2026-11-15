@@ -409,37 +409,28 @@ static MountEntry* mount_list_extend(MountList *ml) {
         return ml->mounts + ml->n_mounts++;
 }
 
-static int append_access_mounts(MountList *ml, char **strv, MountMode mode, bool forcibly_require_prefix) {
+static int append_access_mounts(MountList *ml, const AccessMount *access_mounts, size_t n) {
+        static const MountMode mode_table[_ACCESS_MOUNT_MAX] = {
+                [ACCESS_MOUNT_READ_WRITE]   = MOUNT_READ_WRITE,
+                [ACCESS_MOUNT_READ_ONLY]    = MOUNT_READ_ONLY,
+                [ACCESS_MOUNT_INACCESSIBLE] = MOUNT_INACCESSIBLE,
+                [ACCESS_MOUNT_EXEC]         = MOUNT_EXEC,
+                [ACCESS_MOUNT_NOEXEC]       = MOUNT_NOEXEC,
+        };
+
         assert(ml);
 
-        /* Adds a list of user-supplied READ_WRITE/READ_WRITE_IMPLICIT/READ_ONLY/INACCESSIBLE entries */
+        /* Adds the compiled user-supplied READ_WRITE/READ_ONLY/INACCESSIBLE/EXEC/NOEXEC entries */
 
-        STRV_FOREACH(i, strv) {
-                bool ignore = false, needs_prefix = false;
-                const char *e = *i;
-
-                /* Look for any prefixes */
-                if (startswith(e, "-")) {
-                        e++;
-                        ignore = true;
-                }
-                if (startswith(e, "+")) {
-                        e++;
-                        needs_prefix = true;
-                }
-
-                if (!path_is_absolute(e))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Path is not absolute: %s", e);
-
+        FOREACH_ARRAY(a, access_mounts, n) {
                 MountEntry *me = mount_list_extend(ml);
                 if (!me)
                         return log_oom_debug();
 
                 *me = (MountEntry) {
-                        .path_const = e,
-                        .mode = mode,
-                        .ignore = ignore,
-                        .has_prefix = !needs_prefix && !forcibly_require_prefix,
+                        .path_const = a->path,
+                        .mode = mode_table[a->mode],
+                        .ignore = a->ignore,
                 };
         }
 
@@ -2543,49 +2534,43 @@ static int apply_mounts(
         return 1;
 }
 
-static bool root_read_only(
-                char **read_only_paths,
-                ProtectSystem protect_system) {
+static bool root_read_only(const NamespaceParameters *p) {
 
         /* Determine whether the root directory is going to be read-only given the configured settings. */
 
-        if (protect_system == PROTECT_SYSTEM_STRICT)
+        if (p->protect_system == PROTECT_SYSTEM_STRICT)
                 return true;
 
-        if (prefixed_path_strv_contains(read_only_paths, "/"))
-                return true;
+        FOREACH_ARRAY(a, p->access_mounts, p->n_access_mounts)
+                if (a->mode == ACCESS_MOUNT_READ_ONLY && path_equal(a->path, "/"))
+                        return true;
 
         return false;
 }
 
-static bool home_read_only(
-                char * const *read_only_paths,
-                char * const *inaccessible_paths,
-                char * const *empty_directories,
-                const BindMount *bind_mounts,
-                size_t n_bind_mounts,
-                const TemporaryFileSystem *temporary_filesystems,
-                size_t n_temporary_filesystems,
-                ProtectHome protect_home) {
+static bool home_read_only(const NamespaceParameters *p) {
 
         /* Determine whether the /home directory is going to be read-only given the configured settings. Yes,
          * this is a bit sloppy, since we don't bother checking for cases where / is affected by multiple
          * settings. */
 
-        if (protect_home != PROTECT_HOME_NO)
+        if (p->protect_home != PROTECT_HOME_NO)
                 return true;
 
-        if (prefixed_path_strv_contains(read_only_paths, "/home") ||
-            prefixed_path_strv_contains(inaccessible_paths, "/home") ||
-            prefixed_path_strv_contains(empty_directories, "/home"))
+        FOREACH_ARRAY(a, p->access_mounts, p->n_access_mounts)
+                if (IN_SET(a->mode, ACCESS_MOUNT_READ_ONLY, ACCESS_MOUNT_INACCESSIBLE) &&
+                    path_equal(a->path, "/home"))
+                        return true;
+
+        if (prefixed_path_strv_contains(p->empty_directories, "/home"))
                 return true;
 
-        FOREACH_ARRAY(i, temporary_filesystems, n_temporary_filesystems)
+        FOREACH_ARRAY(i, p->temporary_filesystems, p->n_temporary_filesystems)
                 if (path_equal(i->path, "/home"))
                         return true;
 
         /* If /home is overmounted with some dir from the host it's not writable. */
-        FOREACH_ARRAY(i, bind_mounts, n_bind_mounts)
+        FOREACH_ARRAY(i, p->bind_mounts, p->n_bind_mounts)
                 if (path_equal(i->destination, "/home"))
                         return true;
 
@@ -2595,12 +2580,11 @@ static bool home_read_only(
 static bool namespace_read_only(const NamespaceParameters *p) {
         assert(p);
 
-        return root_read_only(p->read_only_paths,
-                              p->protect_system) &&
-                home_read_only(p->read_only_paths, p->inaccessible_paths, p->empty_directories,
-                               p->bind_mounts, p->n_bind_mounts, p->temporary_filesystems, p->n_temporary_filesystems,
-                               p->protect_home) &&
-                strv_isempty(p->read_write_paths);
+        FOREACH_ARRAY(a, p->access_mounts, p->n_access_mounts)
+                if (a->mode == ACCESS_MOUNT_READ_WRITE)
+                        return false;
+
+        return root_read_only(p) && home_read_only(p);
 }
 
 int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
@@ -2610,7 +2594,6 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         _cleanup_strv_free_ char **hierarchies = NULL;
         _cleanup_(mount_list_done) MountList ml = {};
         _cleanup_close_ int userns_fd = -EBADF;
-        bool require_prefix = false;
         const char *root;
         DissectImageFlags dissect_image_flags =
                 DISSECT_IMAGE_GENERIC_ROOT |
@@ -2812,8 +2795,6 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                  * similar reasons as /run/systemd/ first.) */
                 root = "/run/systemd/mount-rootfs";
                 (void) mkdir_label(root, 0555);
-
-                require_prefix = true;
         }
 
         if (p->n_extension_images > 0 || !strv_isempty(p->extension_directories)) {
@@ -2823,23 +2804,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         return r;
         }
 
-        r = append_access_mounts(&ml, p->read_write_paths, MOUNT_READ_WRITE, require_prefix);
-        if (r < 0)
-                return r;
-
-        r = append_access_mounts(&ml, p->read_only_paths, MOUNT_READ_ONLY, require_prefix);
-        if (r < 0)
-                return r;
-
-        r = append_access_mounts(&ml, p->inaccessible_paths, MOUNT_INACCESSIBLE, require_prefix);
-        if (r < 0)
-                return r;
-
-        r = append_access_mounts(&ml, p->exec_paths, MOUNT_EXEC, require_prefix);
-        if (r < 0)
-                return r;
-
-        r = append_access_mounts(&ml, p->no_exec_paths, MOUNT_NOEXEC, require_prefix);
+        r = append_access_mounts(&ml, p->access_mounts, p->n_access_mounts);
         if (r < 0)
                 return r;
 
@@ -3269,6 +3234,15 @@ void bind_mount_free_many(BindMount *b, size_t n) {
         }
 
         free(b);
+}
+
+void access_mount_free_many(AccessMount *a, size_t n) {
+        assert(a || n == 0);
+
+        FOREACH_ARRAY(i, a, n)
+                free(i->path);
+
+        free(a);
 }
 
 int bind_mount_add(BindMount **b, size_t *n, const BindMount *item) {
