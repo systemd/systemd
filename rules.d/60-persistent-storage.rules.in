@@ -29,6 +29,12 @@ ENV{DEVTYPE}=="partition", \
   IMPORT{parent}="ID_F[!S]*", IMPORT{parent}="ID_F", \
   IMPORT{parent}="ID_FS[!_]*", IMPORT{parent}="ID_FS"
 
+# ID_PART_GPT_AUTO_ROOT_DISK_NEEDS_LOOP is specific to the device probed by blkid. Drop it when
+# imported from the parent, so that partitions of a disk that needs a loop device do not trigger
+# a loop device each. A partition that holds a nested GPT gets the flag set again by its own
+# blkid probe below.
+ENV{DEVTYPE}=="partition", ENV{ID_PART_GPT_AUTO_ROOT_DISK_NEEDS_LOOP}=""
+
 ENV{DEVTYPE}=="partition", ENV{.PART_SUFFIX}="-part%n"
 ENV{DEVTYPE}!="partition", ENV{.PART_SUFFIX}=""
 
