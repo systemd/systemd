@@ -2204,20 +2204,22 @@ bool exec_context_io_uring_filter_set(const ExecContext *c) {
                 !set_isempty(c->io_uring_filter);
 }
 
-bool exec_context_with_rootfs(const ExecContext *c) {
+bool exec_context_with_separate_rootfs(const ExecContext *c) {
         assert(c);
 
-        /* Checks if RootDirectory=, RootImage=, RootMStack= or RootDirectoryFileDescriptor= are used */
+        /* Checks if a root file system other than our own root directory is used: RootDirectory= pointing
+         * somewhere else than /, RootImage=, RootMStack= or RootDirectoryFileDescriptor=. */
 
         return !empty_or_root(c->root_directory) || c->root_image || c->root_directory_as_fd || c->root_mstack;
 }
 
-bool exec_context_with_rootfs_strict(const ExecContext *c) {
+bool exec_context_with_rootfs(const ExecContext *c) {
         assert(c);
 
-        /* just like exec_context_with_rootfs(), but doesn't suppress a root directory of "/", i.e. returns
-         * true in more cases: when a root directory is explicitly configured, even if it's our usual
-         * root. */
+        /* Checks if RootDirectory=, RootImage=, RootMStack=, or RootDirectoryFileDescriptor= are used.
+         * Note that RootDirectory=/ counts, too: it is treated like any other root directory, even
+         * though it refers to our usual root. For checks that care about the root being a separate
+         * tree, use exec_context_with_separate_rootfs() above. */
 
         return c->root_directory || c->root_image || c->root_directory_as_fd || c->root_mstack;
 }
