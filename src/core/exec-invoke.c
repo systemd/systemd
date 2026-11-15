@@ -3946,6 +3946,159 @@ static int compile_symlinks(
         return 0;
 }
 
+static int access_mounts_add(
+                const ExecContext *context,
+                const char *e,
+                AccessMountMode mode,
+                AccessMount **access_mounts,
+                size_t *n_access_mounts) {
+
+        bool ignore = false, root_relative = false;
+
+        assert(context);
+        assert(e);
+        assert(access_mounts);
+        assert(n_access_mounts);
+
+        /* Look for any prefixes */
+        if (startswith(e, "-")) {
+                e++;
+                ignore = true;
+        }
+        if (startswith(e, "+")) {
+                e++;
+                root_relative = true;
+        }
+
+        if (!path_is_absolute(e))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Path is not absolute: %s", e);
+
+        if (context->root_directory && !root_relative) {
+                /* The path is relative to the host's root directory, hence translate it into one
+                 * relative to the root directory: strip the root directory prefix. Paths outside
+                 * the root directory are ignored, as nothing below them is visible inside the root
+                 * anyway (and always were). Use the configured root directory rather than the
+                 * pinned one: the latter is resolved (symlinks followed) and replaced by the
+                 * ephemeral copy when RootEphemeral= is used, while the paths are spelled like in
+                 * the unit file. Note that path_startswith_full() also returns NULL for an exact
+                 * match, hence the special case for the root directory itself. */
+                const char *translated = path_startswith_full(e, context->root_directory,
+                                                              PATH_STARTSWITH_RETURN_LEADING_SLASH);
+                if (translated)
+                        e = translated;
+                else if (path_equal(e, context->root_directory))
+                        e = "/";
+                else {
+                        log_debug("%s is outside of root directory, ignoring.", e);
+                        return 0;
+                }
+        }
+
+        _cleanup_free_ char *path = strdup(e);
+        if (!path)
+                return -ENOMEM;
+
+        if (!GREEDY_REALLOC(*access_mounts, *n_access_mounts + 1))
+                return -ENOMEM;
+
+        (*access_mounts)[(*n_access_mounts)++] = (AccessMount) {
+                .path = TAKE_PTR(path),
+                .mode = mode,
+                .ignore = ignore,
+        };
+
+        return 0;
+}
+
+static int access_mounts_add_many(
+                const ExecContext *context,
+                char * const *paths,
+                AccessMountMode mode,
+                AccessMount **access_mounts,
+                size_t *n_access_mounts) {
+
+        int r;
+
+        assert(context);
+        assert(access_mounts);
+        assert(n_access_mounts);
+
+        STRV_FOREACH(i, paths) {
+                r = access_mounts_add(context, *i, mode, access_mounts, n_access_mounts);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+/* Compile ReadWritePaths= and friends: parse the '-'/'+' prefixes, and translate the paths that are
+ * relative to the host's root directory into paths relative to the root directory, as the mount
+ * namespace is assembled in a staging copy of the root directory. */
+static int compile_access_mounts(
+                const ExecContext *context,
+                char * const *pressure_path,
+                bool needs_sandboxing,
+                AccessMount **ret_access_mounts,
+                size_t *ret_n_access_mounts) {
+
+        AccessMount *access_mounts = NULL;
+        size_t n_access_mounts = 0;
+        int r;
+
+        assert(context);
+        assert(pressure_path);
+        assert(ret_access_mounts);
+        assert(ret_n_access_mounts);
+
+        CLEANUP_ARRAY(access_mounts, n_access_mounts, access_mount_free_many);
+
+        r = access_mounts_add_many(context, context->read_write_paths, ACCESS_MOUNT_READ_WRITE,
+                                   &access_mounts, &n_access_mounts);
+        if (r < 0)
+                return r;
+
+        /* We need to make the pressure paths writable even if /sys/fs/cgroups is made read-only, as
+         * the service will need to write to them in order to start the notifications. */
+        if (exec_is_cgroup_mount_read_only(context))
+                for (PressureResource t = 0; t < _PRESSURE_RESOURCE_MAX; t++) {
+                        if (!pressure_path[t] || streq(pressure_path[t], "/dev/null"))
+                                continue;
+
+                        r = access_mounts_add(context, pressure_path[t], ACCESS_MOUNT_READ_WRITE,
+                                              &access_mounts, &n_access_mounts);
+                        if (r < 0)
+                                return r;
+                }
+
+        if (needs_sandboxing) {
+                r = access_mounts_add_many(context, context->read_only_paths, ACCESS_MOUNT_READ_ONLY,
+                                           &access_mounts, &n_access_mounts);
+                if (r < 0)
+                        return r;
+
+                r = access_mounts_add_many(context, context->inaccessible_paths, ACCESS_MOUNT_INACCESSIBLE,
+                                           &access_mounts, &n_access_mounts);
+                if (r < 0)
+                        return r;
+
+                r = access_mounts_add_many(context, context->exec_paths, ACCESS_MOUNT_EXEC,
+                                           &access_mounts, &n_access_mounts);
+                if (r < 0)
+                        return r;
+
+                r = access_mounts_add_many(context, context->no_exec_paths, ACCESS_MOUNT_NOEXEC,
+                                           &access_mounts, &n_access_mounts);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret_access_mounts = TAKE_PTR(access_mounts);
+        *ret_n_access_mounts = n_access_mounts;
+
+        return 0;
+}
+
 static bool insist_on_sandboxing(
                 const ExecContext *context,
                 const PinnedResource *rootfs,
@@ -4288,15 +4441,15 @@ static int apply_mount_namespace(
                 char **reterr_path) {
 
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
-        _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
-                        **read_write_paths_cleanup = NULL;
+        _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL;
         _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
                 *private_namespace_dir = NULL, *host_os_release_stage = NULL;
         const char *tmp_dir = NULL, *var_tmp_dir = NULL;
-        char **read_write_paths;
         bool setup_os_release_symlink;
         BindMount *bind_mounts = NULL;
         size_t n_bind_mounts = 0;
+        AccessMount *access_mounts = NULL;
+        size_t n_access_mounts = 0;
         int r;
 
         assert(context);
@@ -4308,37 +4461,15 @@ static int apply_mount_namespace(
         assert(reterr_path);
 
         CLEANUP_ARRAY(bind_mounts, n_bind_mounts, bind_mount_free_many);
+        CLEANUP_ARRAY(access_mounts, n_access_mounts, access_mount_free_many);
 
         r = compile_bind_mounts(context, params, exec_directory_uid, exec_directory_gid, &bind_mounts, &n_bind_mounts, &empty_directories);
         if (r < 0)
                 return r;
 
-        /* We need to make the pressure paths writable even if /sys/fs/cgroups is made read-only, as the
-         * service will need to write to them in order to start the notifications. */
-        bool need_pressure_rw = false;
-        for (PressureResource t = 0; t < _PRESSURE_RESOURCE_MAX; t++)
-                if (pressure_path[t] && !streq(pressure_path[t], "/dev/null")) {
-                        need_pressure_rw = true;
-                        break;
-                }
-
-        if (exec_is_cgroup_mount_read_only(context) && need_pressure_rw) {
-                read_write_paths_cleanup = strv_copy(context->read_write_paths);
-                if (!read_write_paths_cleanup)
-                        return -ENOMEM;
-
-                for (PressureResource t = 0; t < _PRESSURE_RESOURCE_MAX; t++) {
-                        if (!pressure_path[t] || streq(pressure_path[t], "/dev/null"))
-                                continue;
-
-                        r = strv_extend(&read_write_paths_cleanup, pressure_path[t]);
-                        if (r < 0)
-                                return r;
-                }
-
-                read_write_paths = read_write_paths_cleanup;
-        } else
-                read_write_paths = context->read_write_paths;
+        r = compile_access_mounts(context, pressure_path, needs_sandboxing, &access_mounts, &n_access_mounts);
+        if (r < 0)
+                return r;
 
         if (needs_sandboxing) {
                 /* The runtime struct only contains the parent of the private /tmp, which is non-accessible
@@ -4426,12 +4557,8 @@ static int apply_mount_namespace(
                 .root_image_options = context->root_image_options,
                 .root_image_policy = context->root_image_policy ?: &image_policy_service,
 
-                .read_write_paths = read_write_paths,
-                .read_only_paths = needs_sandboxing ? context->read_only_paths : NULL,
-                .inaccessible_paths = needs_sandboxing ? context->inaccessible_paths : NULL,
-
-                .exec_paths = needs_sandboxing ? context->exec_paths : NULL,
-                .no_exec_paths = needs_sandboxing ? context->no_exec_paths : NULL,
+                .access_mounts = access_mounts,
+                .n_access_mounts = n_access_mounts,
 
                 .empty_directories = empty_directories,
                 .symlinks = symlinks,

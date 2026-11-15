@@ -123,6 +123,23 @@ typedef struct BindMount {
         gid_t gid;
 } BindMount;
 
+typedef enum AccessMountMode {
+        ACCESS_MOUNT_READ_WRITE,
+        ACCESS_MOUNT_READ_ONLY,
+        ACCESS_MOUNT_INACCESSIBLE,
+        ACCESS_MOUNT_EXEC,
+        ACCESS_MOUNT_NOEXEC,
+        _ACCESS_MOUNT_MAX,
+        _ACCESS_MOUNT_INVALID = -EINVAL,
+} AccessMountMode;
+
+typedef struct AccessMount {
+        /* Path relative to the root directory of the mount namespace. */
+        char *path; /* '+' prefix is resolved. */
+        AccessMountMode mode;
+        bool ignore; /* if '-' prefix is specified */
+} AccessMount;
+
 typedef struct TemporaryFileSystem {
         char *path;
         char *options;
@@ -150,12 +167,8 @@ typedef struct NamespaceParameters {
         const MountOptions *root_image_options;
         const ImagePolicy *root_image_policy;
 
-        char **read_write_paths;
-        char **read_only_paths;
-        char **inaccessible_paths;
-
-        char **exec_paths;
-        char **no_exec_paths;
+        const AccessMount *access_mounts;
+        size_t n_access_mounts;
 
         char **empty_directories;
         char **symlinks;
@@ -301,6 +314,7 @@ DECLARE_STRING_TABLE_LOOKUP(protect_control_groups, ProtectControlGroups);
 DECLARE_STRING_TABLE_LOOKUP(private_pids, PrivatePIDs);
 
 void bind_mount_free_many(BindMount *b, size_t n);
+void access_mount_free_many(AccessMount *a, size_t n);
 int bind_mount_add(BindMount **b, size_t *n, const BindMount *item);
 
 void mount_image_free_array(MountImage *array, size_t n);
