@@ -770,7 +770,9 @@
         leave files around after unit termination. Furthermore
         <varname>NoNewPrivileges=</varname> and <varname>RestrictSUIDSGID=</varname> are implicitly enabled
         (and cannot be disabled), to ensure that processes invoked cannot take benefit or create SUID/SGID
-        files or directories. Moreover, <varname>ProtectSystem=strict</varname> and
+        files or directories; unfortunately, this can introduce security holes or undesirable failures in
+        applications that use <function>openat2()</function> to fix security-relevant races.
+        Moreover, <varname>ProtectSystem=strict</varname> and
         <varname>ProtectHome=read-only</varname> are implied, thus prohibiting the service to write to
         arbitrary file system locations. In order to allow the service to write to certain directories, they
         have to be allow-listed using <varname>ReadWritePaths=</varname>, but care must be taken so that
@@ -2895,7 +2897,8 @@ RestrictNamespaces=~cgroup net</programlisting>
         project='man-pages'><refentrytitle>inode</refentrytitle><manvolnum>7</manvolnum></citerefentry>).
         As the SUID/SGID bits are mechanisms to elevate privileges, and allow users to acquire the
         identity of other users, it is recommended to restrict creation of SUID/SGID files to the few
-        programs that actually require them. Note that this restricts marking of any type of file system
+        programs that actually require them, such as programs that use <function>openat2()</function>.
+        Note that this restricts marking of any type of file system
         object with these bits, including both regular files and directories (where the SGID is a different
         meaning than for files, see documentation). This option is implied if <varname>DynamicUser=</varname>
         is enabled.</para>
@@ -2907,7 +2910,10 @@ RestrictNamespaces=~cgroup net</programlisting>
         <para>This setting is implemented using seccomp filtering. For system calls where the mode bits are
         passed directly as arguments, the call is denied only when the SUID or SGID bits are set. For system
         calls where those bits are passed indirectly and cannot be inspected by the filter, such as
-        <function>openat2()</function>, the call is blocked entirely, regardless of the requested mode.</para>
+        <function>openat2()</function>, the call is blocked entirely, regardless of the requested mode.
+        Unfortunately this means <varname>RestrictSUIDSGID=yes</varname> can introduce security holes or
+        undesirable failures in applications that use <function>openat2()</function> to fix security-relevant
+        races.</para>
 
         <para>On kernels that support io_uring BPF filters (Linux 7.0 and newer), this setting also applies
         to the <constant>IORING_OP_OPENAT</constant> and <constant>IORING_OP_OPENAT2</constant> operations of
