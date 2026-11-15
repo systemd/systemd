@@ -39,6 +39,46 @@
     for information about the configuration of this service.</para>
   </refsect1>
 
+  <refsect1>
+    <title>BPF Handlers</title>
+
+    <para>A binary format can also be matched and dispatched by a BPF handler, see <ulink
+    url="https://docs.kernel.org/admin-guide/binfmt-misc.html#bpf-backed-handlers">bpf-backed
+    handlers</ulink>. Each BPF object <filename><replaceable>name</replaceable>.bpf.o</filename> found in
+    the directories below is registered as the handler <replaceable>name</replaceable>, together with a
+    rule <replaceable>name</replaceable> of type <literal>B</literal> that hands binaries to it. These
+    rules are registered in the order of the file names, before the rules from
+    <citerefentry><refentrytitle>binfmt.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
+    kernel tries the rule registered last first, so a rule from
+    <citerefentry><refentrytitle>binfmt.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> is matched
+    before the rule of an object.</para>
+
+    <programlisting>/etc/systemd/binfmt/*.bpf.o
+/run/systemd/binfmt/*.bpf.o
+/usr/local/lib/systemd/binfmt/*.bpf.o
+/usr/lib/systemd/binfmt/*.bpf.o</programlisting>
+
+    <para>Packages should install their objects into <filename>/usr/lib/systemd/binfmt/</filename>. An
+    object in <filename>/etc/</filename> overrides an object with the same file name in
+    <filename>/run/</filename> and <filename>/usr/lib/</filename>, and an object in
+    <filename>/run/</filename> overrides one in <filename>/usr/lib/</filename>. A symlink to
+    <filename>/dev/null</filename> or an empty file masks the object of the same name, and neither the
+    handler nor the rule is registered.</para>
+
+    <para>The <replaceable>name</replaceable> has at most 15 characters, each alphanumeric,
+    <literal>_</literal> or <literal>.</literal>, as the kernel requires for the name of a handler. The
+    object must contain exactly one struct_ops map, of type <literal>binfmt_misc_ops</literal>, and the
+    name the map sets for the handler must match the file name. If a handler of that name is
+    registered already, the rule is written for the registered one. The rule keeps the handler alive on its
+    own, so nothing but the rule is left registered.</para>
+
+    <para>Registering BPF handlers requires libbpf and a kernel built with
+    <option>CONFIG_BINFMT_MISC_BPF</option> (Linux 7.3 or newer). Without either, the objects are skipped
+    with a notice.</para>
+
+    <xi:include href="version-info.xml" xpointer="v263"/>
+  </refsect1>
+
   <refsect1><title>Options</title>
     <variablelist>
 
