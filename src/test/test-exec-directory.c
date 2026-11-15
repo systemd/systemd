@@ -176,6 +176,7 @@ TEST(executor_directory_roundtrip) {
 
                 exec_context_init(&context);
                 exec_context_init(&parsed);
+                context.private_tmp = PRIVATE_TMP_DISCONNECTED;
                 context.private_var_tmp = PRIVATE_TMP_DISCONNECTED;
                 sd_id128_to_string(parameters.invocation_id, parameters.invocation_id_string);
                 cgroup_context_init(&cgroup);

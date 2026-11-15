@@ -1964,7 +1964,11 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         and privileges apply as for <varname>ReadOnlyPaths=</varname> and related calls, see above. This
         setting is useful to secure access to temporary files of the process, but makes sharing between
         processes via <filename>/tmp/</filename> or <filename>/var/tmp/</filename> impossible. If
-        <varname>DynamicUser=</varname> is enabled, <literal>disconnected</literal> is implied. Otherwise,
+        <varname>DynamicUser=</varname> is enabled, <literal>disconnected</literal> is implied. If one of
+        <varname>RootDirectory=</varname>, <varname>RootImage=</varname>,
+        <varname>RootDirectoryFileDescriptor=</varname>, or <varname>RootMStack=</varname> is configured, it
+        also defaults to <literal>disconnected</literal>, as the root directory or image does not necessarily
+        provide usable <filename>/tmp/</filename> and <filename>/var/tmp/</filename> directories. Otherwise,
         defaults to false.</para>
 
         <para>If <literal>true</literal>, the backing storage of the private temporary directories will
