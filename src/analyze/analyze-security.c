@@ -1369,8 +1369,10 @@ static const struct security_assessor security_assessor_table[] = {
                 .id = "RestrictSUIDSGID=",
                 .json_field = "RestrictSUIDSGID",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictSUIDSGID=",
-                .description_good = "SUID/SGID file creation by service is restricted",
-                .description_bad = "Service may create SUID/SGID files",
+                /* The "good" here is actually both good and bad,
+                   and likewise for the "bad" here.  */
+                .description_good = "Service cannot create SUID/SGID files, and cannot use openat2() to avoid security races",
+                .description_bad = "Service may create SUID/SGID files, and may use openat2() to avoid security races",
                 .weight = 1000,
                 .range = 1,
                 .assess = assess_bool,
