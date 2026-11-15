@@ -2765,23 +2765,21 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 }
         }
 
-        if (p->rootfs && p->rootfs->directory)
-                root = p->rootfs->directory;
-        else {
-                /* /run/systemd should have been created by PID 1 early on already, but in some cases, like
-                 * when running tests (test-execute), it might not have been created yet so let's make sure
-                 * we create it if it doesn't already exist. */
-                (void) mkdir_p_label("/run/systemd", 0755);
+        /* /run/systemd should have been created by PID 1 early on already, but in some cases, like
+         * when running tests (test-execute), it might not have been created yet so let's make sure
+         * we create it if it doesn't already exist. */
+        (void) mkdir_p_label("/run/systemd", 0755);
 
-                /* Always create the mount namespace in a temporary directory, instead of operating directly
-                 * in the root. The temporary directory prevents any mounts from being potentially obscured
-                 * my other mounts we already applied.  We use the same mount point for all images, which is
-                 * safe, since they all live in their own namespaces after all, and hence won't see each
-                 * other. (Note: this directory is also created by PID 1 early on, we create it here for
-                 * similar reasons as /run/systemd/ first.) */
-                root = "/run/systemd/mount-rootfs";
-                (void) mkdir_label(root, 0555);
-        }
+        /* Always create the mount namespace in a temporary directory, instead of operating directly
+         * in the root (also when a root directory is configured). The temporary directory prevents any
+         * mounts from being potentially obscured by other mounts we already applied — in particular,
+         * bind mount sources below paths that are overmounted before them, such as the log sockets
+         * below /run/, whose sources are resolved at application time. We use the same mount point
+         * for all images, which is safe, since they all live in their own namespaces after all, and
+         * hence won't see each other. (Note: this directory is also created by PID 1 early on, we
+         * create it here for similar reasons as /run/systemd/ first.) */
+        root = "/run/systemd/mount-rootfs";
+        (void) mkdir_label(root, 0555);
 
         if (p->n_extension_images > 0 || !strv_isempty(p->extension_directories)) {
                 /* Hierarchy population needs to be done for sysext and confext extension images */
@@ -3116,20 +3114,6 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 if (r < 0)
                         return r;
 
-        } else if (p->rootfs && p->rootfs->directory) {
-
-                /* If we do not have root_mount_fd, but a directory was specified, then we can use it directly. */
-
-                /* A root directory is specified. Turn its directory into bind mount, if it isn't one yet. */
-                r = path_is_mount_point_full(root, /* root = */ NULL, AT_SYMLINK_FOLLOW);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to detect that %s is a mount point or not: %m", root);
-                if (r == 0) {
-                        r = mount_nofollow_verbose(LOG_DEBUG, root, root, /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
-                        if (r < 0)
-                                return r;
-                }
-
         } else if (dissected_image) {
 
                 /* A root image is specified, mount it to the right place */
@@ -3166,8 +3150,15 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         return r;
 
         } else {
-                /* Let's mount the main root directory to the root directory to use */
-                r = mount_nofollow_verbose(LOG_DEBUG, "/", root, /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
+                /* Bind the main root directory (the configured one, or our own root when none is
+                 * configured) to the staging directory. This is the fallback for a root directory when
+                 * we could not get a detached mount of it, e.g. in an unprivileged user manager. Bind
+                 * by path: the pinned fd was opened before the mount namespace was unshared, and binds
+                 * through /proc/self/fd/ of such an fd fail with EINVAL as the fd references a mount of
+                 * the old mount namespace. */
+                r = mount_nofollow_verbose(LOG_DEBUG,
+                                           p->rootfs && p->rootfs->directory ? p->rootfs->directory : "/",
+                                           root, /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -3183,18 +3174,6 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
 
         /* MS_MOVE does not work on MS_SHARED so the remount MS_SHARED will be done later */
         r = mount_switch_root(root, /* mount_propagation_flag = */ 0);
-        if (r == -EINVAL && p->rootfs && p->rootfs->directory) {
-                /* If we are using root_directory and we don't have privileges (ie: user manager in a user
-                 * namespace) and the root_directory is already a mount point in the parent namespace,
-                 * MS_MOVE will fail as we don't have permission to change it (with EINVAL rather than
-                 * EPERM). Attempt to bind-mount it over itself (like we do above if it's not already a
-                 * mount point) and try again. */
-                r = mount_nofollow_verbose(LOG_DEBUG, root, root, /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
-                if (r < 0)
-                        return r;
-
-                r = mount_switch_root(root, /* mount_propagation_flag= */ 0);
-        }
         if (r < 0)
                 return log_debug_errno(r, "Failed to mount root with MS_MOVE: %m");
 
