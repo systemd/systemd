@@ -410,6 +410,11 @@
     "url": "https://lea-linux.org/documentations/Systemd"
   },
   {
+    "category": "Documentation for Developers - external links",
+    "title": "Understanding NvPCRs in systemd v262",
+    "url": "https://katexochen.aro.bz/posts/systemd-v262-nvpcrs/"
+  },
+  {
     "category": "The various distributions",
     "title": "Fedora packages",
     "url": "https://packages.fedoraproject.org/pkgs/systemd/systemd/"
