@@ -669,6 +669,7 @@ void exec_context_init(ExecContext *c) {
                 .mount_apivfs = -1,
                 .bind_log_sockets = -1,
                 .memory_ksm = -1,
+                .private_tmp = _PRIVATE_TMP_INVALID,
                 .private_var_tmp = _PRIVATE_TMP_INVALID,
                 .set_login_environment = -1,
         };
@@ -1238,7 +1239,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, empty_to_root(c->root_directory),
                 prefix, yes_no(c->root_ephemeral),
                 prefix, yes_no(c->non_blocking),
-                prefix, private_tmp_to_string(c->private_tmp),
+                prefix, c->private_tmp >= 0 ? private_tmp_to_string(c->private_tmp) : "no",
                 prefix, yes_no(c->private_devices),
                 prefix, yes_no(c->protect_kernel_tunables),
                 prefix, yes_no(c->protect_kernel_modules),
