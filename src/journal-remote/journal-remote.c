@@ -396,16 +396,15 @@ int journal_remote_handle_raw_source(
                 remove_source(s, source->importer.fd);
                 log_debug("%zu active sources remaining", s->active);
                 return 0;
-        } else if (r == -E2BIG) {
-                log_notice("Entry with too many fields, skipped");
-                return 1;
-        } else if (r == -ENOBUFS) {
-                log_notice("Entry too big, skipped");
-                return 1;
         } else if (r == -EAGAIN) {
                 return 0;
         } else if (r < 0) {
-                log_debug_errno(r, "Closing connection: %m");
+                /* Close the connection on any error, like the HTTP path does: the raw stream has no
+                 * framing to resynchronize on. ENOBUFS (an entry bigger than DATA_SIZE_MAX, or read()
+                 * itself failing) would come straight back, and after E2BIG (too many fields) the
+                 * importer would read the rest of the entry out of step. */
+                log_notice_errno(r, "Failed to process data, closing connection with source %s: %m",
+                                 source->importer.name);
                 remove_source(s, fd);
                 return 0;
         } else
