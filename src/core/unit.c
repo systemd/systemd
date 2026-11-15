@@ -1336,7 +1336,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                 r = unit_add_mounts_for(u, "/var/tmp/", UNIT_DEPENDENCY_FILE, UNIT_MOUNT_WANTS);
                 if (r < 0)
                         return r;
-        } else if (c->private_var_tmp == PRIVATE_TMP_DISCONNECTED && !exec_context_with_rootfs(c)) {
+        } else if (c->private_var_tmp == PRIVATE_TMP_DISCONNECTED && !exec_context_with_separate_rootfs(c)) {
                 /* Even if PrivateTmp=disconnected, we still require /var/tmp/ mountpoint to be present,
                  * i.e. /var/ needs to be mounted. See comments in unit_patch_contexts(). */
                 r = unit_add_mounts_for(u, "/var/", UNIT_DEPENDENCY_FILE, UNIT_MOUNT_WANTS);
@@ -4432,9 +4432,9 @@ static PrivateTmp unit_get_private_var_tmp(const Unit *u, const ExecContext *c) 
         if (u->default_dependencies)
                 return PRIVATE_TMP_DISCONNECTED;
 
-        /* When RootImage=/RootDirectory= is enabled, /var/ should be prepared by the image or directory,
-         * hence we can mount a disconnected tmpfs on /var/tmp/. */
-        if (exec_context_with_rootfs(c))
+        /* When RootImage=/RootDirectory= (with a path other than "/") is enabled, /var/ should be
+         * prepared by the image or directory, hence we can mount a disconnected tmpfs on /var/tmp/. */
+        if (exec_context_with_separate_rootfs(c))
                 return PRIVATE_TMP_DISCONNECTED;
 
         /* Even if DefaultDependencies=no, enable disconnected tmpfs when
@@ -4467,7 +4467,7 @@ static PrivateTmp unit_get_private_tmp(const Unit *u, const ExecContext *c) {
 
         if (c->private_tmp != PRIVATE_TMP_CONNECTED ||
             u->default_dependencies ||
-            exec_context_with_rootfs(c))
+            exec_context_with_separate_rootfs(c))
                 return c->private_tmp;
 
         /* Even if DefaultDependencies=no, honour tmpfs setting when
