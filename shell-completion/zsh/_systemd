@@ -35,11 +35,11 @@ case "$service" in
             '(-)'{-h,--help}'[Show this help]' \
             '(-)--version[Print version and exit]' \
             '(-c -m -i -t -p)--order=[Order by specified property]:property:(path tasks cpu memory io)' \
-            '(-c -m -i -t)-p[Order by path]' \
-            '(-c -p -m -i)-t[Order by number of tasks]' \
-            '(-m -p -i -t)-c[Order by CPU load]' \
-            '(-c -p -i -t)-m[Order by memory load]' \
-            '(-c -m -p -t)-i[Order by IO load]' \
+            '(-c -m -i -t --order)-p[Order by path]' \
+            '(-c -p -m -i --order)-t[Order by number of tasks]' \
+            '(-m -p -i -t --order)-c[Order by CPU load]' \
+            '(-c -p -i -t --order)-m[Order by memory load]' \
+            '(-c -m -p -t --order)-i[Order by IO load]' \
             '(-r --raw)'{-r,--raw}'[Provide raw (not human-readable) numbers]' \
             '--cpu=-[Show CPU usage as percentage (default) or time]:format:(percentage time)' \
             '(-k)-P[Count userspace processes instead of tasks (excl. kernel)]' \
