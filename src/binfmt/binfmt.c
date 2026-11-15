@@ -7,6 +7,8 @@
 
 #include "alloc-util.h"
 #include "binfmt-util.h"
+#include "bpf-link.h"
+#include "bpf-util.h"
 #include "build.h"
 #include "conf-files.h"
 #include "constants.h"
@@ -39,6 +41,186 @@ static int delete_rule(const char *rulename) {
         return write_string_file(fn, "-1", WRITE_STRING_FILE_DISABLE_BUFFER);
 }
 
+/* A BPF object "<name>.bpf.o" in one of these directories is registered as the binfmt_misc handler <name>,
+ * together with a rule <name> that hands binaries to it. */
+#define BPF_OBJECT_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/binfmt"))
+#define BPF_OBJECT_SUFFIX ".bpf.o"
+
+static bool rule_name_is_valid(const char *name) {
+        return filename_is_valid(name) && !STR_IN_SET(name, "register", "status");
+}
+
+#if HAVE_LIBBPF
+/* The struct_ops type a binfmt_misc handler is an instance of, and its member holding the handler's name. See
+ * https://docs.kernel.org/admin-guide/binfmt-misc.html#bpf-backed-handlers */
+#define BINFMT_MISC_OPS_TYPE "binfmt_misc_ops"
+#define BINFMT_MISC_OPS_NAME_MEMBER "name"
+
+static int find_handler_map(struct bpf_object *obj, const char *path, struct bpf_map **ret) {
+        struct bpf_map *found = NULL;
+
+        assert(obj);
+        assert(path);
+        assert(ret);
+
+        /* The handler is the one struct_ops map of the object. */
+        for (struct bpf_map *map = sym_bpf_object__next_map(obj, /* map= */ NULL); map;
+             map = sym_bpf_object__next_map(obj, map)) {
+
+                if (sym_bpf_map__type(map) != BPF_MAP_TYPE_STRUCT_OPS)
+                        continue;
+
+                if (found)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "BPF object '%s' contains more than one struct_ops map, refusing.",
+                                               path);
+                found = map;
+        }
+        if (!found)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "BPF object '%s' contains no struct_ops map, refusing.", path);
+
+        *ret = found;
+        return 0;
+}
+
+static int check_handler_map(struct bpf_object *obj, struct bpf_map *map, const char *path, const char *handler) {
+        const struct btf_member *member;
+        const struct btf_type *type;
+        const char *data, *name;
+        struct btf *btf;
+        size_t size, offset;
+
+        assert(obj);
+        assert(map);
+        assert(path);
+        assert(handler);
+
+        /* Only a binfmt_misc_ops map is a handler. Any other struct_ops, a scheduler say, is refused rather
+         * than registered. */
+        btf = sym_bpf_object__btf(obj);
+        if (!btf)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "BPF object '%s' carries no BTF, refusing.", path);
+
+        type = sym_btf__type_by_id(btf, sym_bpf_map__btf_value_type_id(map));
+        if (!type || !streq_ptr(sym_btf__name_by_offset(btf, type->name_off), BINFMT_MISC_OPS_TYPE))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "struct_ops map '%s' in BPF object '%s' is not a " BINFMT_MISC_OPS_TYPE ", refusing.",
+                                       sym_bpf_map__name(map), path);
+
+        /* The kernel registers the handler under the name in the map, but the rule references it by the
+         * file name. Check that both agree, so that a mismatch is reported here rather than as a missing
+         * handler when the rule is written. */
+        member = btf_members(type);
+        for (unsigned i = 0; i < btf_vlen(type); i++, member++) {
+                if (!streq_ptr(sym_btf__name_by_offset(btf, member->name_off), BINFMT_MISC_OPS_NAME_MEMBER))
+                        continue;
+
+                data = sym_bpf_map__initial_value(map, &size);
+                offset = btf_member_bit_offset(type, i) / 8;
+                if (!data || offset >= size)
+                        break;
+
+                name = data + offset;
+                if (strnlen(name, size - offset) >= size - offset)
+                        break;
+
+                if (!streq(name, handler))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Handler name '%s' in BPF object '%s' does not match the file name, refusing.",
+                                               name, path);
+                return 0;
+        }
+
+        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                               "Failed to read the handler name from BPF object '%s', refusing.", path);
+}
+#endif
+
+static int apply_bpf_object(const char *path) {
+#if HAVE_LIBBPF
+        /* The object is declared first so that it is closed last. Without a BPF link libbpf registers the
+         * handler by updating the map, and freeing the link unregisters it through the map's file
+         * descriptor, which closing the object closes. */
+        _cleanup_(sym_bpf_object__closep) struct bpf_object *obj = NULL;
+        _cleanup_(bpf_link_freep) struct bpf_link *link = NULL;
+        _cleanup_free_ char *handler = NULL, *rule = NULL;
+        struct bpf_map *map;
+        int r;
+
+        assert(path);
+
+        /* The rule and the handler are both named after the file. */
+        r = path_extract_filename(path, &handler);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract file name from '%s': %m", path);
+
+        *ASSERT_PTR(endswith(handler, BPF_OBJECT_SUFFIX)) = 0;
+        if (!rule_name_is_valid(handler))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Name '%s' of BPF object '%s' is not a valid rule name, refusing.",
+                                       handler, path);
+
+        LIBBPF_NOTE(suggested);
+        r = dlopen_bpf(LOG_ERR);
+        if (r < 0)
+                return r;
+
+        if (!sym_bpf_object__next_map || !sym_bpf_object__btf || !sym_bpf_map__btf_value_type_id ||
+            !sym_bpf_map__initial_value || !sym_btf__type_by_id || !sym_btf__name_by_offset)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "libbpf is too old to load BPF object '%s'.", path);
+
+        obj = sym_bpf_object__open_file(path, /* opts= */ NULL);
+        r = bpf_get_error_translated(obj);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open BPF object '%s': %m", path);
+
+        /* Check the object before loading it, so that nothing of an object that is refused reaches the
+         * kernel. */
+        r = find_handler_map(obj, path, &map);
+        if (r < 0)
+                return r;
+
+        r = check_handler_map(obj, map, path, handler);
+        if (r < 0)
+                return r;
+
+        r = sym_bpf_object__load(obj);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load BPF object '%s': %m", path);
+
+        /* Registers the handler under its name. If a handler of that name is registered already, by another
+         * service or by hand, the rule is written for that one. */
+        link = sym_bpf_map__attach_struct_ops(map);
+        r = bpf_get_error_translated(link);
+        if (r == -EEXIST)
+                log_notice("Handler '%s' is registered already, writing rule for it instead of the one in '%s'.",
+                           handler, path);
+        else if (r < 0)
+                return log_error_errno(r, "Failed to register handler from BPF object '%s': %m", path);
+        else
+                log_debug("Handler '%s' registered from '%s'.", handler, path);
+
+        rule = strjoin(":", handler, ":B::::", handler, ":");
+        if (!rule)
+                return log_oom();
+
+        /* The rule takes its own reference on the handler. The link, and with it the registration of the
+         * handler's name, is dropped again once the rule is written, so that nothing but the rule is left
+         * behind and the handler can be registered again on the next run. */
+        r = write_string_file("/proc/sys/fs/binfmt_misc/register", rule, WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add binary format '%s' for BPF object '%s': %m", handler, path);
+
+        log_debug("Binary format '%s' registered for BPF object '%s'.", handler, path);
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "Found BPF object '%s', but libbpf support is not compiled in.", path);
+#endif
+}
+
 static int apply_rule(const char *filename, unsigned line, const char *rule) {
         assert(filename);
         assert(line > 0);
@@ -52,8 +234,7 @@ static int apply_rule(const char *filename, unsigned line, const char *rule) {
         if (r < 0)
                 return log_error_errno(r, "%s:%u: Failed to parse rule: %m", filename, line);
 
-        if (!filename_is_valid(parsed.name) ||
-            STR_IN_SET(parsed.name, "register", "status"))
+        if (!rule_name_is_valid(parsed.name))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s:%u: Rule name '%s' is not valid, refusing.",
                                        filename, line, parsed.name);
@@ -223,6 +404,20 @@ static int run(int argc, char *argv[]) {
 
                 STRV_FOREACH(f, files)
                         RET_GATHER(r, apply_file(*f, /* ignore_enoent= */ true));
+
+                /* BPF objects are registered after the rules from binfmt.d, so that those rules are matched
+                 * first. A /dev/null symlink or an empty file masks an object of the same name. */
+                _cleanup_strv_free_ char **objects = NULL;
+                int k;
+
+                k = conf_files_list_strv(&objects, BPF_OBJECT_SUFFIX, /* root= */ NULL,
+                                         CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED | CONF_FILES_WARN,
+                                         (const char**) BPF_OBJECT_DIRS);
+                if (k < 0)
+                        RET_GATHER(r, log_error_errno(k, "Failed to enumerate BPF objects: %m"));
+
+                STRV_FOREACH(o, objects)
+                        RET_GATHER(r, apply_bpf_object(*o));
         }
 
         return r;
