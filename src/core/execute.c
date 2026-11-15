@@ -203,7 +203,7 @@ bool exec_needs_network_namespace(const ExecContext *context) {
 }
 
 static bool exec_needs_ephemeral(const ExecContext *context) {
-        return (context->root_image || context->root_directory) && context->root_ephemeral;
+        return (context->root_image || context->root_directory || context->root_directory_as_fd) && context->root_ephemeral;
 }
 
 bool exec_needs_ipc_namespace(const ExecContext *context) {
