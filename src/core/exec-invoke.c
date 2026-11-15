@@ -3758,6 +3758,7 @@ static int setup_smack(
 static int compile_bind_mounts(
                 const ExecContext *context,
                 const ExecParameters *params,
+                PinnedResource *rootfs,
                 uid_t exec_directory_uid, /* only used for id-mapped mounts Exec directories */
                 gid_t exec_directory_gid, /* only used for id-mapped mounts Exec directories */
                 BindMount **ret_bind_mounts,
@@ -3771,6 +3772,7 @@ static int compile_bind_mounts(
 
         assert(context);
         assert(params);
+        assert(rootfs);
         assert(ret_bind_mounts);
         assert(ret_n_bind_mounts);
         assert(ret_empty_directories);
@@ -3811,7 +3813,7 @@ static int compile_bind_mounts(
                         continue;
 
                 if (exec_directory_is_private(context, t) &&
-                    !exec_context_with_rootfs(context)) {
+                    pinned_resource_is_host_root(rootfs)) {
                         char *private_root;
 
                         /* So this is for a dynamic user, and we need to make sure the process can access its own
@@ -3845,7 +3847,7 @@ static int compile_bind_mounts(
                                 return -ENOMEM;
 
                         if (exec_directory_is_private(context, t) &&
-                            exec_context_with_rootfs(context))
+                            !pinned_resource_is_host_root(rootfs))
                                 /* When RootDirectory= or RootImage= are set, then the symbolic link to the private
                                  * directory is not created on the root directory. So, let's bind-mount the directory
                                  * on the 'non-private' place. */
@@ -3883,6 +3885,7 @@ static int compile_bind_mounts(
 static int compile_symlinks(
                 const ExecContext *context,
                 const ExecParameters *params,
+                PinnedResource *rootfs,
                 bool setup_os_release_symlink,
                 char ***ret_symlinks) {
 
@@ -3891,6 +3894,7 @@ static int compile_symlinks(
 
         assert(context);
         assert(params);
+        assert(rootfs);
         assert(ret_symlinks);
 
         for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++)
@@ -3911,7 +3915,7 @@ static int compile_symlinks(
                         }
 
                         if (!exec_directory_is_private(context, dt) ||
-                            exec_context_with_rootfs(context) ||
+                            !pinned_resource_is_host_root(rootfs) ||
                             FLAGS_SET(i->flags, EXEC_DIRECTORY_ONLY_CREATE))
                                 continue;
 
@@ -4488,7 +4492,7 @@ static int apply_mount_namespace(
                 const ExecContext *context,
                 const ExecParameters *params,
                 const ExecRuntime *runtime,
-                const PinnedResource *rootfs,
+                PinnedResource *rootfs,
                 char *const *pressure_path,
                 bool needs_sandboxing,
                 uid_t exec_directory_uid,
@@ -4524,7 +4528,8 @@ static int apply_mount_namespace(
         CLEANUP_ARRAY(bind_mounts, n_bind_mounts, bind_mount_free_many);
         CLEANUP_ARRAY(access_mounts, n_access_mounts, access_mount_free_many);
 
-        r = compile_bind_mounts(context, params, exec_directory_uid, exec_directory_gid, &bind_mounts, &n_bind_mounts, &empty_directories);
+        r = compile_bind_mounts(context, params, rootfs, exec_directory_uid, exec_directory_gid,
+                                &bind_mounts, &n_bind_mounts, &empty_directories);
         if (r < 0)
                 return r;
 
@@ -4555,7 +4560,7 @@ static int apply_mount_namespace(
 
         /* Symlinks (exec dirs, os-release) are set up after other mounts, before they are made read-only. */
         setup_os_release_symlink = needs_sandboxing && exec_context_get_effective_mount_apivfs(context) && pinned_resource_is_set(rootfs);
-        r = compile_symlinks(context, params, setup_os_release_symlink, &symlinks);
+        r = compile_symlinks(context, params, rootfs, setup_os_release_symlink, &symlinks);
         if (r < 0)
                 return r;
 
@@ -5347,7 +5352,7 @@ static int setup_delegated_namespaces(
                 const ExecContext *context,
                 ExecParameters *params,
                 const ExecRuntime *runtime,
-                const PinnedResource *rootfs,
+                PinnedResource *rootfs,
                 bool delegate,
                 char *const *pressure_path,
                 uid_t uid,
