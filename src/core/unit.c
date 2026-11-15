@@ -4530,6 +4530,16 @@ int unit_patch_contexts(Unit *u) {
                 if (ec->protect_clock)
                         ec->capability_bounding_set &= ~((UINT64_C(1) << CAP_SYS_TIME) | (UINT64_C(1) << CAP_WAKE_ALARM));
 
+                /* If not explicitly configured, default PrivateTmp= to a disconnected tmpfs when a
+                 * root file system is configured: the root tree does not necessarily provide usable
+                 * /tmp/ and /var/tmp/ directories, for example when it is read-only or they do not
+                 * exist at all. This matches what nspawn does for containers. Otherwise, keep
+                 * defaulting to no private /tmp/ and /var/tmp/. Explicitly configured PrivateTmp= is
+                 * honoured as-is, including PrivateTmp=no. */
+                if (ec->private_tmp < 0)
+                        ec->private_tmp = exec_context_with_rootfs(ec) ?
+                                PRIVATE_TMP_DISCONNECTED : PRIVATE_TMP_NO;
+
                 if (ec->dynamic_user) {
                         if (!ec->user) {
                                 r = user_from_unit_name(u, &ec->user);

@@ -933,7 +933,8 @@ int unit_exec_context_build_json(sd_json_variant **ret, const char *name, void *
                         JSON_BUILD_PAIR_STRV_NON_EMPTY("NoExecPaths", c->no_exec_paths),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("TemporaryFileSystem", temporary_filesystems_build_json, c),
                         /* XXX should we make all these Private/Protect strings??? */
-                        JSON_BUILD_PAIR_ENUM("PrivateTmp", private_tmp_to_string(c->private_tmp)),
+                        /* Defaults to "no" when not resolved yet, like the D-Bus property getter. */
+                        JSON_BUILD_PAIR_ENUM("PrivateTmp", c->private_tmp >= 0 ? private_tmp_to_string(c->private_tmp) : "no"),
                         JSON_BUILD_PAIR_YES_NO("PrivateDevices", c->private_devices),
                         JSON_BUILD_PAIR_YES_NO("PrivateNetwork", c->private_network),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("NetworkNamespacePath", c->network_namespace_path),
