@@ -72,6 +72,9 @@ static Hook *hook_unlink(Hook *h) {
                 hashmap_remove(h->manager->hooks, h->socket_path);
         h->manager = NULL;
 
+        /* Pending queries may keep the hook alive, but it must no longer monitor its filter. */
+        h->filter_link = sd_varlink_unref(h->filter_link);
+
         return hook_unref(h);
 }
 
@@ -124,23 +127,21 @@ static int on_filter_reply(
 
         if (error_id) {
                 if (streq(error_id, SD_VARLINK_ERROR_DISCONNECTED)) {
-                        /* When we are are disconnected, that's fine, maybe the other side wants to clean up
+                        /* When we are disconnected, that's fine, maybe the other side wants to clean up
                          * open connections every now and then, or is being restarted and thus a moment
-                         * offline. Try to reconnect immediately to recover. However, a service that
-                         * continuously fails should not be able to get us into a busy loop, hence we apply a
-                         * ratelimit, and when it is hit we stop reconnecting. */
-                        if (ratelimit_below(&h->reconnect_ratelimit)) {
-                                log_debug("Connection terminated while querying filter of hook '%s', trying to reconnect.", h->socket_path);
+                         * offline. Try to reconnect immediately to recover. */
+                        log_debug("Connection terminated while querying filter of hook '%s'.", h->socket_path);
 
-                                h->filter_link = sd_varlink_unref(h->filter_link);
+                        h->filter_link = sd_varlink_unref(h->filter_link);
 
-                                r = hook_acquire_filter(h);
-                                if (r < 0)
-                                        goto terminate;
-                        } else
-                                log_warning("Connection terminated while querying filter of hook '%s', and reconnection attempts failed too quickly, giving up.", h->socket_path);
+                        /* Filters from the old connection must not block queries while reconnecting. */
+                        hook_reset_filter(h);
 
-                        goto terminate;
+                        r = hook_acquire_filter(h);
+                        if (r < 0)
+                                goto terminate;
+
+                        return 1;
                 }
 
                 if (streq(error_id, SD_VARLINK_ERROR_METHOD_NOT_FOUND)) {
@@ -221,6 +222,13 @@ static int hook_acquire_filter(Hook *h) {
 
         if (h->filter_link)
                 return 0;
+
+        /* Apply the same limit to immediate reconnects and retries on later lookups. */
+        if (!ratelimit_below(&h->reconnect_ratelimit)) {
+                if (ratelimit_num_dropped(&h->reconnect_ratelimit) == 1)
+                        log_warning("Filter connections to hook '%s' failed too quickly, not reconnecting for now.", h->socket_path);
+                return 0;
+        }
 
         _cleanup_(sd_varlink_unrefp) sd_varlink *v = NULL;
         r = hook_varlink_connect(h, SD_EVENT_PRIORITY_NORMAL-10, &v); /* Give the querying of the filter a bit of priority */
@@ -406,6 +414,11 @@ static int manager_hook_discover(Manager *m) {
                 r = log_warning_errno(errno, "Failed to fstat %s/: %m", dp);
                 goto finish;
         }
+
+        /* A socket-activated hook can restart without changing the directory. */
+        Hook *h;
+        HASHMAP_FOREACH(h, m->hooks)
+                (void) hook_acquire_filter(h);
 
         if (stat_inode_unmodified(&st, &m->hook_stat))
                 return 0;
