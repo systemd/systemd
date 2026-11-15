@@ -4255,3 +4255,39 @@ bool pinned_resource_is_set(const PinnedResource *p) {
                 p->mstack_loaded ||
                 p->mstack;
 }
+
+bool pinned_resource_is_host_root(PinnedResource *p) {
+        int r;
+
+        assert(p);
+
+        /* Returns true if the service runs with our own root directory, i.e. if nothing is pinned
+         * (no root configured), or if the pinned directory is the same directory (same inode on the
+         * same device) as our own root. Meant to be called when the service is invoked, not when the
+         * resource is pinned: the file descriptor of RootDirectoryFileDescriptor= is a detached
+         * snapshot taken when it was received, which may refer to a tree that only becomes our own
+         * root later, e.g. in the initrd before switching root. If we cannot check, assume a
+         * separate root. The result is cached in .directory_fd_is_host_root, so that all calls
+         * return the same answer, even if the check failed. */
+
+        if (!pinned_resource_is_set(p))
+                return true;
+
+        if (p->directory_fd < 0)
+                /* An image or mount stack, always a separate tree. */
+                return false;
+
+        if (p->directory_fd_is_host_root < 0) {
+                /* AT_NO_AUTOMOUNT is passed to bypass the mount id comparison in inode_same_at(): a
+                 * detached snapshot of our own root (like RootDirectoryFileDescriptor= provides)
+                 * always has its own mount id, hence only the inode is compared. */
+                r = inode_same_at(p->directory_fd, /* filea= */ NULL, AT_FDCWD, "/",
+                                  AT_EMPTY_PATH|AT_NO_AUTOMOUNT);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to check if the pinned root directory is identical to the host root directory, assuming it is not: %m");
+
+                p->directory_fd_is_host_root = r > 0;
+        }
+
+        return p->directory_fd_is_host_root;
+}
