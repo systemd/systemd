@@ -3502,7 +3502,7 @@ EOF
         "$imgs/crypttab"
 }
 
-testcase_block_device_replace() {
+testcase_block_device_replace_btrfs() {
     if [[ "$OFFLINE" == "yes" ]]; then
         return 0
     fi
@@ -3597,6 +3597,91 @@ EOF
     assert_eq "$(udevadm info --query=property --property=DEVNAME --value "${encrypted_device}")" "${loop}p2"
     grep -q tada "${btrfs_mntpoint_plain}/magic-plain"
     grep -q tada "${btrfs_mntpoint_encrypted}/magic-encrypted"
+}
+
+testcase_block_device_replace_dm_verity() {
+    if [[ "$OFFLINE" == "yes" ]]; then
+        return 0
+    fi
+
+    if ! command -v mkfs.erofs >/dev/null; then
+        echo "btrfs not found, skipping."
+        return 0
+    fi
+
+    local erofs_template dm_verity_mntpoint
+    local imgs defs
+    local loop_source loop_target
+
+    erofs_template="$(mktemp --directory "/tmp/test-repart.erofs-template.XXXXXXXXXX")"
+    dm_verity_mntpoint="$(mktemp --directory "/tmp/test-repart.dm-verity-mntpoint.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$erofs_template' '$dm_verity_mntpoint' '$imgs' '$defs'" RETURN
+
+    echo tada >"${erofs_template}/magic"
+    mkfs.erofs "${imgs}/erofs.img" "${erofs_template}"
+    veritysetup format "${imgs}/erofs.img" "${imgs}/hash.img" --root-hash-file "${imgs}/root-hash"
+
+    truncate -s 13M "$imgs/verity.img"
+    sfdisk "$imgs/verity.img" <<EOF
+label: gpt
+grain: 1M
+size=5M, uuid=21937215-B917-4C85-B15F-BFE0F49BA53D, name="data"
+uuid=4772305B-18C6-4B4B-9555-01423719024D, name="hash"
+EOF
+    loop_source="$(losetup -P --show --find "${imgs}/verity.img")"
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop_source}p1" "${loop_source}p2"
+    # shellcheck disable=SC2064
+    trap "losetup -d '${loop_source}'; rm -rf '$erofs_template' '$dm_verity_mntpoint' '$imgs' '$defs'" RETURN
+
+    dd if="${imgs}/erofs.img" of="${loop_source}p1"
+    dd if="${imgs}/hash.img" of="${loop_source}p2"
+
+    volume="test-repart-$RANDOM"
+    veritysetup open "${loop_source}p1" "${volume}" "${loop_source}p2" --root-hash-file "${imgs}/root-hash"
+    # shellcheck disable=SC2064
+    trap "veritysetup close '${volume}'; losetup -d '${loop_source}'; rm -rf '$erofs_template' '$dm_verity_mntpoint' '$imgs' '$defs'" RETURN
+
+    mount -o ro -t erofs "/dev/mapper/${volume}" "${dm_verity_mntpoint}"
+    # shellcheck disable=SC2064
+    trap "umount -l '${dm_verity_mntpoint}'; veritysetup close '${volume}'; losetup -d '${loop_source}'; rm -rf '$erofs_template' '$dm_verity_mntpoint' '$imgs' '$defs'" RETURN
+
+    truncate -s 15M "$imgs/target.img"
+    loop_target="$(losetup -P --show --find "${imgs}/target.img")"
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop_target}"
+
+    # shellcheck disable=SC2064
+    trap "umount -l '${dm_verity_mntpoint}'; veritysetup close '${volume}'; losetup -d '${loop_target}'; losetup -d '${loop_source}'; rm -rf '$erofs_template' '$dm_verity_mntpoint' '$imgs' '$defs'" RETURN
+
+    tee "$defs/01-data.conf" <<EOF
+[Partition]
+Type=usr
+BlockDeviceReplace=data:${dm_verity_mntpoint}
+EOF
+
+    tee "$defs/02-verity.conf" <<EOF
+[Partition]
+Type=usr-verity
+BlockDeviceReplace=verity:${dm_verity_mntpoint}
+EOF
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --empty=require \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   "${loop_target}"
+
+
+    assert_eq "$(veritysetup status "${volume}" | sed -n "/^ *data device: */s///p")" "${loop_target}p1"
+    assert_eq "$(veritysetup status "${volume}" | sed -n "/^ *hash device: */s///p")" "${loop_target}p2"
+
+    assert_eq "$(blkid -p -o value --match-tag PART_ENTRY_UUID "${loop_target}p1")" 21937215-b917-4c85-b15f-bfe0f49ba53d
+    assert_eq "$(blkid -p -o value --match-tag PART_ENTRY_UUID "${loop_target}p2")" 4772305b-18c6-4b4b-9555-01423719024d
+
+    grep -q tada "${dm_verity_mntpoint}/magic"
 }
 
 testcase_insert_into_gap() {
