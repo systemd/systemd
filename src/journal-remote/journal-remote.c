@@ -17,6 +17,7 @@
 #include "log.h"
 #include "socket-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 
 #define REMOTE_JOURNAL_PATH "/var/log/journal/remote"
 
@@ -400,8 +401,14 @@ int journal_remote_handle_raw_source(
                 log_notice("Entry with too many fields, skipped");
                 return 1;
         } else if (r == -ENOBUFS) {
-                log_notice("Entry too big, skipped");
-                return 1;
+                /* Either an entry is bigger than DATA_SIZE_MAX, or read() itself failed with ENOBUFS
+                 * (e.g. the kernel reset a vsock connection whose receive queue overflowed). Neither can
+                 * be skipped: the importer would return ENOBUFS again without reading anything, and we
+                 * would spin on it forever. Close the connection, like the HTTP path does. */
+                log_notice("Entry too big or no buffer space, closing connection with source %s (fd=%d).",
+                           strna(source->importer.name), fd);
+                remove_source(s, fd);
+                return 0;
         } else if (r == -EAGAIN) {
                 return 0;
         } else if (r < 0) {
