@@ -45,31 +45,31 @@ static int apply_rule(const char *filename, unsigned line, const char *rule) {
         assert(rule);
         assert(rule[0]);
 
-        _cleanup_free_ char *rulename = NULL;
+        _cleanup_(binfmt_rule_done) BinfmtRule parsed = {};
         int r;
 
-        rulename = strdupcspn(rule + 1, CHAR_TO_STR(rule[0]));
-        if (!rulename)
-                return log_oom();
+        r = binfmt_rule_parse(rule, &parsed);
+        if (r < 0)
+                return log_error_errno(r, "%s:%u: Failed to parse rule: %m", filename, line);
 
-        if (!filename_is_valid(rulename) ||
-            STR_IN_SET(rulename, "register", "status"))
+        if (!filename_is_valid(parsed.name) ||
+            STR_IN_SET(parsed.name, "register", "status"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s:%u: Rule name '%s' is not valid, refusing.",
-                                       filename, line, rulename);
-        r = delete_rule(rulename);
+                                       filename, line, parsed.name);
+        r = delete_rule(parsed.name);
         if (r < 0 && r != -ENOENT)
                 log_warning_errno(r, "%s:%u: Failed to delete rule '%s', ignoring: %m",
-                                  filename, line, rulename);
+                                  filename, line, parsed.name);
         if (r >= 0)
-                log_debug("%s:%u: Rule '%s' deleted.", filename, line, rulename);
+                log_debug("%s:%u: Rule '%s' deleted.", filename, line, parsed.name);
 
         r = write_string_file("/proc/sys/fs/binfmt_misc/register", rule, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return log_error_errno(r, "%s:%u: Failed to add binary format '%s': %m",
-                                       filename, line, rulename);
+                                       filename, line, parsed.name);
 
-        log_debug("%s:%u: Binary format '%s' registered.", filename, line, rulename);
+        log_debug("%s:%u: Binary format '%s' registered.", filename, line, parsed.name);
         return 0;
 }
 
