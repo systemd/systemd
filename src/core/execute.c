@@ -2211,7 +2211,13 @@ bool exec_context_with_separate_rootfs(const ExecContext *c) {
         /* Checks if a root file system other than our own root directory is used: RootDirectory= pointing
          * somewhere else than /, RootImage=, RootMStack= or RootDirectoryFileDescriptor=. */
 
-        return !empty_or_root(c->root_directory) || c->root_image || c->root_directory_as_fd || c->root_mstack;
+        if (c->root_directory_as_fd || c->root_image)
+                return true;
+
+        if (c->root_directory)
+                return !empty_or_root(c->root_directory);
+
+        return c->root_mstack;
 }
 
 bool exec_context_with_rootfs(const ExecContext *c) {
