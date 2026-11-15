@@ -4500,10 +4500,11 @@ static int lock_firmware(bool is_code) {
         FOREACH_ARRAY(rr, el->records, el->n_records) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *digests = NULL;
                 EventLogRecord *rec = *rr;
-                uint32_t bit = UINT32_C(1) << rec->pcr;
 
                 if (!EVENT_LOG_RECORD_IS_FIRMWARE(rec))
                         continue;
+
+                uint32_t bit = UINT32_C(1) << rec->pcr;
 
                 if (!FLAGS_SET(always_mask, bit) &&
                     !(FLAGS_SET(separator_mask, bit) && !FLAGS_SET(separator_seen_mask|action_seen_mask, bit)))
