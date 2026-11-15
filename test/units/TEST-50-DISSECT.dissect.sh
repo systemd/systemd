@@ -1497,6 +1497,52 @@ systemd-run --wait --pipe --root-directory=/tmp/img -- grep -q 'MARKER=1' /usr/l
 # Make sure the same root file descriptor can be reused multiple times.
 systemd-run --wait --pipe --same-root-dir -p ExecStartPre=true true
 
+# Test the precedence of the root settings:
+# RootDirectoryFileDescriptor= > RootImage= > RootDirectory=.
+# The unused RootDirectory= is nonexistent, and the unused RootImage= is not an image, so the
+# service would fail if the respective setting were used.
+systemd-run --wait --pipe --root-directory=/tmp/img -p RootDirectory=/nonexistent \
+    -- grep -q 'MARKER=1' /usr/lib/os-release
+systemd-run --wait --pipe --root-directory=/tmp/img -p RootImage=/dev/null \
+    -- grep -q 'MARKER=1' /usr/lib/os-release
+# RootImage= wins over RootDirectory=: the nonexistent RootDirectory= is ignored.
+systemd-run --wait --pipe -p RootDirectory=/nonexistent -p RootImage="$MINIMAL_IMAGE.raw" \
+    -- grep -q 'MARKER=1' /usr/lib/os-release
+
+# Test RootEphemeral= with RootDirectoryFileDescriptor= and with RootDirectory=: all spawns
+# of the activation run in the same ephemeral copy (ExecStartPre= creates the file,
+# ExecStart= sees it), and the copy is discarded when the service stops.
+systemd-run --wait --pipe --root-directory=/tmp/img -p RootEphemeral=yes \
+    -p "ExecStartPre=bash -c 'touch /pre'" \
+    bash -xec '[[ -e /pre ]]'
+systemd-run --wait --pipe -p RootDirectory=/tmp/img -p RootEphemeral=yes \
+    -p "ExecStartPre=bash -c 'touch /pre'" \
+    bash -xec '[[ -e /pre ]]'
+test ! -e /tmp/img/pre
+timeout 10 bash -c 'until test -z "$(ls -A /var/lib/systemd/ephemeral-trees)"; do sleep .5; done'
+
+# Plain paths in ReadWritePaths= and friends are relative to the host's root directory,
+# '+'-prefixed paths are relative to the root directory. Both select the same path inside
+# the root, a plain path outside the root directory is ignored.
+mkdir -p /tmp/img/hoge
+systemd-run --wait --pipe -p RootDirectory=/tmp/img \
+    -p ReadOnlyPaths=/tmp/img/hoge -- bash -xec '! test -w /hoge'
+systemd-run --wait --pipe -p RootDirectory=/tmp/img \
+    -p ReadOnlyPaths=+/hoge -- bash -xec '! test -w /hoge'
+systemd-run --wait --pipe -p RootDirectory=/tmp/img \
+    -p ReadOnlyPaths=/hoge -- bash -xec 'test -w /hoge'
+rm -rf /tmp/img/hoge
+
+# PrivateTmp= defaults to disconnected when a root is configured, and an explicit
+# PrivateTmp=no keeps using the root's own /tmp/.
+mkdir -p /tmp/img/tmp
+touch /tmp/img/tmp/keepme
+systemd-run --wait --pipe -p RootDirectory=/tmp/img \
+    bash -xec 'touch /tmp/works && [[ ! -e /tmp/keepme ]]'
+systemd-run --wait --pipe -p RootDirectory=/tmp/img -p PrivateTmp=no \
+    bash -xec '[[ -e /tmp/keepme ]]'
+rm -rf /tmp/img/tmp
+
 systemd-dissect --mtree /tmp/img >/dev/null
 systemd-dissect --list /tmp/img >/dev/null
 
