@@ -964,6 +964,13 @@ testcase_quota_disk_status() {
     NEWPASSWORD=quux homectl create quotatest --storage=directory --image-path="$MNT/quotatest"
     homectl inspect quotatest
     homectl inspect --json=short quotatest | jq -e '.status[].diskSize > 0' >/dev/null
+    homectl remove quotatest
+    umount "$MNT"
+
+    # Without UID quota the disk usage is unknown, which must not be reported as zero
+    mount -t tmpfs -o grpquota tmpfs "$MNT"
+    NEWPASSWORD=quux homectl create quotatest --storage=directory --image-path="$MNT/quotatest"
+    homectl inspect --json=short quotatest | jq -e '.status[] | has("diskUsage") | not' >/dev/null
 }
 
 testcase_subarea() {
