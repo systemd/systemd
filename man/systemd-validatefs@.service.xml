@@ -48,7 +48,10 @@
       <listitem><para><varname>user.validatefs.mount_point</varname>: this extended attribute shall contain
       one or more absolute, normalized paths, separated by NUL bytes. If set and the specified file system is
       mounted to a location not matching any of the listed paths the validation check will
-      fail.</para></listitem>
+      fail. Symbolic links in the listed paths are resolved first, so that e.g. a file system listing
+      <filename>/home/</filename> may be mounted on <filename>/var/home/</filename> if
+      <filename>/home/</filename> is a symbolic link to it. Symbolic links inside the file system that is
+      validated are not followed for this.</para></listitem>
 
       <listitem><para><varname>user.validatefs.gpt_label</varname>: this extended attribute may contain one
       or more free-form strings, separated by NUL bytes. If set, all backing partitions of the file system
