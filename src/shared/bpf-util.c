@@ -26,12 +26,16 @@ DLSYM_PROTOTYPE(bpf_link__destroy) = NULL;
 DLSYM_PROTOTYPE(bpf_link__fd) = NULL;
 DLSYM_PROTOTYPE(bpf_link__open) = NULL;
 DLSYM_PROTOTYPE(bpf_link__pin) = NULL;
+DLSYM_PROTOTYPE(bpf_map__attach_struct_ops) = NULL;
+DLSYM_PROTOTYPE(bpf_map__btf_value_type_id) = NULL;
 DLSYM_PROTOTYPE(bpf_map__fd) = NULL;
+DLSYM_PROTOTYPE(bpf_map__initial_value) = NULL;
 DLSYM_PROTOTYPE(bpf_map__name) = NULL;
 DLSYM_PROTOTYPE(bpf_map__set_inner_map_fd) = NULL;
 DLSYM_PROTOTYPE(bpf_map__set_max_entries) = NULL;
 DLSYM_PROTOTYPE(bpf_map__set_pin_path) = NULL;
 DLSYM_PROTOTYPE(bpf_map__set_type) = NULL;
+DLSYM_PROTOTYPE(bpf_map__type) = NULL;
 DLSYM_PROTOTYPE(bpf_map_create) = NULL;
 DLSYM_PROTOTYPE(bpf_map_delete_elem) = NULL;
 DLSYM_PROTOTYPE(bpf_map_get_fd_by_id) = NULL;
@@ -39,11 +43,15 @@ DLSYM_PROTOTYPE(bpf_map_lookup_elem) = NULL;
 DLSYM_PROTOTYPE(bpf_map_update_elem) = NULL;
 DLSYM_PROTOTYPE(bpf_obj_get_info_by_fd) = NULL;
 DLSYM_PROTOTYPE(bpf_object__attach_skeleton) = NULL;
+DLSYM_PROTOTYPE(bpf_object__btf) = NULL;
+DLSYM_PROTOTYPE(bpf_object__close) = NULL;
 DLSYM_PROTOTYPE(bpf_object__destroy_skeleton) = NULL;
 DLSYM_PROTOTYPE(bpf_object__detach_skeleton) = NULL;
+DLSYM_PROTOTYPE(bpf_object__load) = NULL;
 DLSYM_PROTOTYPE(bpf_object__load_skeleton) = NULL;
 DLSYM_PROTOTYPE(bpf_object__name) = NULL;
 DLSYM_PROTOTYPE(bpf_object__next_map) = NULL;
+DLSYM_PROTOTYPE(bpf_object__open_file) = NULL;
 DLSYM_PROTOTYPE(bpf_object__open_skeleton) = NULL;
 DLSYM_PROTOTYPE(bpf_object__pin_maps) = NULL;
 DLSYM_PROTOTYPE(bpf_program__attach) = NULL;
@@ -59,6 +67,7 @@ DLSYM_PROTOTYPE(bpf_token_create) = missing_bpf_token_create;
 DLSYM_PROTOTYPE(btf__find_by_name_kind) = NULL;
 DLSYM_PROTOTYPE(btf__free) = NULL;
 DLSYM_PROTOTYPE(btf__load_vmlinux_btf) = NULL;
+DLSYM_PROTOTYPE(btf__name_by_offset) = NULL;
 DLSYM_PROTOTYPE(btf__type_by_id) = NULL;
 DLSYM_PROTOTYPE(libbpf_set_print) = NULL;
 DLSYM_PROTOTYPE(ring_buffer__epoll_fd) = NULL;
@@ -105,22 +114,27 @@ int dlopen_bpf(int log_level) {
                                 DLSYM_ARG(bpf_link__fd),
                                 DLSYM_ARG(bpf_link__open),
                                 DLSYM_ARG(bpf_link__pin),
+                                DLSYM_ARG(bpf_map__attach_struct_ops),
                                 DLSYM_ARG(bpf_map__fd),
                                 DLSYM_ARG(bpf_map__name),
                                 DLSYM_ARG(bpf_map__set_inner_map_fd),
                                 DLSYM_ARG(bpf_map__set_max_entries),
                                 DLSYM_ARG(bpf_map__set_pin_path),
                                 DLSYM_ARG(bpf_map__set_type),
+                                DLSYM_ARG(bpf_map__type),
                                 DLSYM_ARG(bpf_map_delete_elem),
                                 DLSYM_ARG(bpf_map_get_fd_by_id),
                                 DLSYM_ARG(bpf_map_lookup_elem),
                                 DLSYM_ARG(bpf_map_update_elem),
                                 DLSYM_ARG(bpf_obj_get_info_by_fd),
                                 DLSYM_ARG(bpf_object__attach_skeleton),
+                                DLSYM_ARG(bpf_object__close),
                                 DLSYM_ARG(bpf_object__destroy_skeleton),
                                 DLSYM_ARG(bpf_object__detach_skeleton),
+                                DLSYM_ARG(bpf_object__load),
                                 DLSYM_ARG(bpf_object__load_skeleton),
                                 DLSYM_ARG(bpf_object__name),
+                                DLSYM_ARG(bpf_object__open_file),
                                 DLSYM_ARG(bpf_object__open_skeleton),
                                 DLSYM_ARG(bpf_object__pin_maps),
 #if MODERN_LIBBPF
@@ -163,7 +177,14 @@ int dlopen_bpf(int log_level) {
         DLSYM_OPTIONAL(bpf_dl, btf__find_by_name_kind);
         DLSYM_OPTIONAL(bpf_dl, btf__free);
         DLSYM_OPTIONAL(bpf_dl, btf__load_vmlinux_btf);
+        DLSYM_OPTIONAL(bpf_dl, btf__name_by_offset);
         DLSYM_OPTIONAL(bpf_dl, btf__type_by_id);
+
+        /* Only used by systemd-binfmt to check the handler in a BPF object before registering it, which
+         * refuses the object if any of them is missing. */
+        DLSYM_OPTIONAL(bpf_dl, bpf_map__btf_value_type_id);
+        DLSYM_OPTIONAL(bpf_dl, bpf_map__initial_value);
+        DLSYM_OPTIONAL(bpf_dl, bpf_object__btf);
 
         /* We set the print helper unconditionally. Otherwise libbpf will emit not useful log messages. */
         (void) sym_libbpf_set_print(bpf_print_func);
