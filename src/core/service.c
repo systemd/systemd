@@ -3514,6 +3514,7 @@ static void service_enter_refresh_extensions(Service *s) {
                         .n_extension_images = s->exec_context.n_extension_images,
                         .extension_directories = s->exec_context.extension_directories,
                         .extension_image_policy = s->exec_context.extension_image_policy,
+                        .host_os_release_fd = -EBADF,
                 };
 
                 /* Only reload confext, and not sysext as they also typically contain the executable(s) used
