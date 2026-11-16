@@ -6,6 +6,7 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "ansi-color.h"
 #include "binfmt-util.h"
 #include "bpf-link.h"
 #include "bpf-util.h"
@@ -51,16 +52,6 @@ static bool rule_name_is_valid(const char *name) {
         return filename_is_valid(name) && !STR_IN_SET(name, "register", "status");
 }
 
-#if HAVE_LIBBPF
-/* The struct_ops type a binfmt_misc handler is an instance of, and its member holding the handler's name. See
- * https://docs.kernel.org/admin-guide/binfmt-misc.html#bpf-backed-handlers */
-#define BINFMT_MISC_OPS_TYPE "binfmt_misc_ops"
-#define BINFMT_MISC_OPS_NAME_MEMBER "name"
-
-/* The kernel emits this type into its BTF when it registers binfmt_misc_ops as a struct_ops, which it does
- * only when built with CONFIG_BINFMT_MISC_BPF. */
-#define BINFMT_MISC_OPS_VALUE_TYPE "bpf_struct_ops_" BINFMT_MISC_OPS_TYPE
-
 /* The kernel takes at most 15 characters for the name of a handler, each alphanumeric, '_' or '.'. See
  * bpf_obj_name_cpy() in the kernel's kernel/bpf/syscall.c. */
 #define HANDLER_NAME_MAX 15U
@@ -71,6 +62,46 @@ static bool handler_name_is_valid(const char *name) {
                 strlen(name) <= HANDLER_NAME_MAX &&
                 in_charset(name, HANDLER_NAME_CHARS);
 }
+
+static int bpf_object_rule(const char *path, char **ret_name, char **ret_rule) {
+        _cleanup_free_ char *name = NULL;
+        char *rule;
+        int r;
+
+        assert(path);
+        assert(ret_name);
+        assert(ret_rule);
+
+        /* The rule and the handler are both named after the file. */
+        r = path_extract_filename(path, &name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract file name from '%s': %m", path);
+
+        *ASSERT_PTR(endswith(name, BPF_OBJECT_SUFFIX)) = 0;
+        if (!handler_name_is_valid(name))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Name '%s' of BPF object '%s' is not a valid handler name, refusing. "
+                                       "It must have at most %u characters, each alphanumeric, '_' or '.'.",
+                                       name, path, HANDLER_NAME_MAX);
+
+        rule = strjoin(":", name, ":B::::", name, ":");
+        if (!rule)
+                return log_oom();
+
+        *ret_name = TAKE_PTR(name);
+        *ret_rule = rule;
+        return 0;
+}
+
+#if HAVE_LIBBPF
+/* The struct_ops type a binfmt_misc handler is an instance of, and its member holding the handler's name. See
+ * https://docs.kernel.org/admin-guide/binfmt-misc.html#bpf-backed-handlers */
+#define BINFMT_MISC_OPS_TYPE "binfmt_misc_ops"
+#define BINFMT_MISC_OPS_NAME_MEMBER "name"
+
+/* The kernel emits this type into its BTF when it registers binfmt_misc_ops as a struct_ops, which it does
+ * only when built with CONFIG_BINFMT_MISC_BPF. */
+#define BINFMT_MISC_OPS_VALUE_TYPE "bpf_struct_ops_" BINFMT_MISC_OPS_TYPE
 
 static int find_handler_map(struct bpf_object *obj, const char *path, struct bpf_map **ret) {
         struct bpf_map *found = NULL;
@@ -166,17 +197,9 @@ static int apply_bpf_object(const char *path) {
 
         assert(path);
 
-        /* The rule and the handler are both named after the file. */
-        r = path_extract_filename(path, &handler);
+        r = bpf_object_rule(path, &handler, &rule);
         if (r < 0)
-                return log_error_errno(r, "Failed to extract file name from '%s': %m", path);
-
-        *ASSERT_PTR(endswith(handler, BPF_OBJECT_SUFFIX)) = 0;
-        if (!handler_name_is_valid(handler))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Name '%s' of BPF object '%s' is not a valid handler name, refusing. "
-                                       "It must have at most %u characters, each alphanumeric, '_' or '.'.",
-                                       handler, path, HANDLER_NAME_MAX);
+                return r;
 
         LIBBPF_NOTE(suggested);
         r = dlopen_bpf(LOG_ERR);
@@ -218,10 +241,6 @@ static int apply_bpf_object(const char *path) {
                 return log_error_errno(r, "Failed to register handler from BPF object '%s': %m", path);
         else
                 log_debug("Handler '%s' registered from '%s'.", handler, path);
-
-        rule = strjoin(":", handler, ":B::::", handler, ":");
-        if (!rule)
-                return log_oom();
 
         /* Replace a rule of the same name. Only needed when the object was named on the command line, a full
          * run flushes all rules first. */
@@ -377,10 +396,28 @@ static int apply_file(const char *filename, bool ignore_enoent) {
         return r;
 }
 
-static int cat_config(char **files) {
+static int cat_config(char **files, char **objects) {
+        int r;
+
         pager_open(arg_pager_flags);
 
-        return cat_files(/* file= */ NULL, files, arg_cat_flags);
+        r = cat_files(/* file= */ NULL, files, arg_cat_flags);
+
+        /* A BPF object is not shown itself, but as the rule it registers, under the object's path. */
+        STRV_FOREACH(o, objects) {
+                _cleanup_free_ char *name = NULL, *rule = NULL;
+
+                if (o != objects || !strv_isempty(files))
+                        putc('\n', stdout);
+
+                printf("%s# %s%s\n", ansi_highlight_blue(), *o, ansi_normal());
+
+                RET_GATHER(r, bpf_object_rule(*o, &name, &rule));
+                if (rule)
+                        puts(rule);
+        }
+
+        return r;
 }
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
@@ -475,8 +512,16 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to enumerate binfmt.d files: %m");
 
+                /* A /dev/null symlink or an empty file masks an object of the same name. */
+                _cleanup_strv_free_ char **objects = NULL;
+                r = conf_files_list_strv(&objects, BPF_OBJECT_SUFFIX, /* root= */ NULL,
+                                         CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED | CONF_FILES_WARN,
+                                         (const char**) BPF_OBJECT_DIRS);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enumerate BPF objects: %m");
+
                 if (arg_cat_flags != CAT_CONFIG_OFF)
-                        return cat_config(files);
+                        return cat_config(files, objects);
 
                 r = binfmt_mounted_and_writable_warn();
                 if (r <= 0)
@@ -492,17 +537,7 @@ static int run(int argc, char *argv[]) {
                 r = 0;
 
                 /* The kernel tries the rule registered last first. BPF objects are registered before the
-                 * rules from binfmt.d, so that those rules are matched first. A /dev/null symlink or an
-                 * empty file masks an object of the same name. */
-                _cleanup_strv_free_ char **objects = NULL;
-                int k;
-
-                k = conf_files_list_strv(&objects, BPF_OBJECT_SUFFIX, /* root= */ NULL,
-                                         CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED | CONF_FILES_WARN,
-                                         (const char**) BPF_OBJECT_DIRS);
-                if (k < 0)
-                        RET_GATHER(r, log_error_errno(k, "Failed to enumerate BPF objects: %m"));
-
+                 * rules from binfmt.d, so that those rules are matched first. */
                 if (!strv_isempty(objects) && bpf_handlers_supported())
                         STRV_FOREACH(o, objects)
                                 RET_GATHER(r, apply_bpf_object(*o));
