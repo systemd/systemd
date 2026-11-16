@@ -47,6 +47,15 @@ typedef struct NDiscPREF64 {
         struct in6_addr prefix;
 } NDiscPREF64;
 
+typedef struct NDiscPrefix {
+        /* This is an absolute point in time, and NOT a timespan/duration.
+         * Must be specified with CLOCK_BOOTTIME. */
+        usec_t lifetime_usec;
+        bool deprecated;
+        uint8_t prefixlen;
+        struct in6_addr prefix;
+} NDiscPrefix;
+
 typedef struct NDiscDNR {
         struct in6_addr router;
         usec_t lifetime_usec;

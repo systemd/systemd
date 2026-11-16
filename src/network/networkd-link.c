@@ -257,6 +257,7 @@ static void link_free_engines(Link *link) {
 
         link->ndisc = sd_ndisc_unref(link->ndisc);
         link->ndisc_expire = sd_event_source_disable_unref(link->ndisc_expire);
+        link->ndisc_dhcp6_renew = sd_event_source_disable_unref(link->ndisc_dhcp6_renew);
         ndisc_flush(link);
 
         link->radv = sd_radv_unref(link->radv);
