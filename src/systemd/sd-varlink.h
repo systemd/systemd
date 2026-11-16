@@ -76,6 +76,11 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_server_flags_t) {
         _SD_ENUM_FORCE_S64(SD_VARLINK_SERVER)
 } sd_varlink_server_flags_t;
 
+__extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_server_claim_flags_t) {
+        SD_VARLINK_SERVER_CLAIM_AGAIN = 1 << 0,
+        _SD_ENUM_FORCE_S64(SD_VARLINK_SERVER_CLAIM)
+} sd_varlink_server_claim_flags_t;
+
 __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_invocation_flags_t) {
         SD_VARLINK_ALLOW_LISTEN = 1 << 0,
         SD_VARLINK_ALLOW_ACCEPT = 1 << 1,
@@ -350,7 +355,7 @@ int sd_varlink_server_set_description(sd_varlink_server *s, const char *descript
  * can be disconnected with sd_varlink_server_disconnect_unclaimed_connections(). */
 int sd_varlink_server_serialize(sd_varlink_server *s, void **ret_data, size_t *ret_size, int **ret_fds, size_t *ret_n_fds);
 int sd_varlink_server_deserialize(sd_varlink_server *s, const void *data, size_t size, int *fds, size_t n_fds);
-int sd_varlink_server_claim_connection(sd_varlink_server *s, const char *id, sd_varlink **ret);
+int sd_varlink_server_claim_connection(sd_varlink_server *s, const char *id, sd_varlink_server_claim_flags_t flags, sd_varlink **ret);
 int sd_varlink_server_disconnect_unclaimed_connections(sd_varlink_server *s);
 
 int sd_varlink_invocation(sd_varlink_invocation_flags_t flags);

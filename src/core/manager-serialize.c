@@ -841,7 +841,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 } else if ((val = startswith(l, "varlink-pending-reload-connection="))) {
                         sd_varlink *link;
 
-                        r = manager_varlink_claim_connection(m, val, &link);
+                        r = manager_varlink_claim_connection(m, val, /* flags= */ 0, &link);
                         if (r >= 0) {
                                 sd_varlink_unref(m->pending_reload_message_vl);
                                 m->pending_reload_message_vl = sd_varlink_ref(link);
@@ -853,7 +853,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (!MANAGER_IS_SYSTEM(m))
                                 continue;
 
-                        r = manager_varlink_claim_connection(m, val, &link);
+                        r = manager_varlink_claim_connection(m, val, /* flags= */ 0, &link);
                         if (r >= 0) {
                                 sd_varlink_unref(m->managed_oom_varlink);
                                 m->managed_oom_varlink = sd_varlink_ref(link);
