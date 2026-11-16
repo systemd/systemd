@@ -2542,6 +2542,69 @@ TEST(vendor_legacy_alias_dependency) {
         }
 }
 
+TEST(enable_replaces_legacy_alias_dependency_mask) {
+        /* Disable masks a vendor symlink that a legacy Alias= in a dependency directory creates, and
+         * enable must replace that mask again. Ship such a symlink below /usr/, disable the unit, enable
+         * it again, and expect enable to succeed and the unit to be enabled. The test creates /dev/null
+         * in the root. Without it, the mask is a dangling symlink, and enable replaces a dangling alias
+         * symlink in any case. */
+        const char *mask = strjoina(vendor_root, ETC_WANTS"legacy-alias-mask.service");
+        const char *null = strjoina(vendor_root, "/dev/null");
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
+        ASSERT_OK(mkdir_parents(null, 0755));
+        ASSERT_OK(touch(null));
+
+        write_vendor_file("system/legacy-alias-mask.service",
+                          "[Install]\nAlias=multi-user.target.wants/legacy-alias-mask.service\n");
+        write_vendor_symlink("multi-user.target.wants/legacy-alias-mask.service", "../legacy-alias-mask.service");
+        assert_state("legacy-alias-mask.service", UNIT_FILE_ENABLED);
+
+        do_disable(/* flags= */ 0, STRV_MAKE("legacy-alias-mask.service"));
+        ASSERT_TRUE(is_dependency_mask(mask));
+        assert_state("legacy-alias-mask.service", UNIT_FILE_DISABLED);
+
+        ASSERT_OK(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, vendor_root,
+                                   STRV_MAKE("legacy-alias-mask.service"), &changes, &n_changes));
+        ASSERT_FALSE(is_dependency_mask(mask));
+        assert_state("legacy-alias-mask.service", UNIT_FILE_ENABLED);
+
+        ASSERT_OK_ERRNO(unlink(null));
+}
+
+TEST(enable_keeps_plain_alias_mask) {
+        /* A plain Alias= can name a masked unit. Mask the alias, try to enable the source unit, and expect
+         * enablement to fail without replacing the unit mask. */
+        _cleanup_(rm_rf_physical_and_freep) char *image = NULL;
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+        const char *mask, *null, *unit;
+
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
+        ASSERT_OK(mkdtemp_malloc("/var/tmp/enable-alias-mask-XXXXXX", &image));
+        unit = strjoina(image, SYSTEM_DATA_UNIT_DIR"/plain-alias-source.service");
+        ASSERT_OK(mkdir_parents(unit, 0755));
+        ASSERT_OK(write_string_file(unit,
+                                    "[Install]\n"
+                                    "Alias=plain-alias-name.service\n",
+                                    WRITE_STRING_FILE_CREATE));
+
+        null = strjoina(image, "/dev/null");
+        ASSERT_OK(mkdir_parents(null, 0755));
+        ASSERT_OK(touch(null));
+        mask = strjoina(image, SYSTEM_CONFIG_UNIT_DIR"/plain-alias-name.service");
+        ASSERT_OK(mkdir_parents(mask, 0755));
+        ASSERT_OK_ERRNO(symlink("/dev/null", mask));
+
+        ASSERT_ERROR(unit_file_enable(RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, image,
+                                      STRV_MAKE("plain-alias-source.service"), &changes, &n_changes), EEXIST);
+        ASSERT_TRUE(is_dependency_mask(mask));
+}
+
 TEST(vendor_disable_removes_linked_unit) {
         const char *unit, *link, *alias;
 

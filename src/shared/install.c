@@ -2928,15 +2928,28 @@ static int install_info_symlink_alias(
                                 return -ENOMEM;
                 }
 
-                bool broken;
+                bool replace;
                 r = chase(alias_path, lp->root_dir, CHASE_NONEXISTENT, /* ret_path= */ NULL, /* ret_fd= */ NULL);
                 if (r < 0 && r != -ENOENT) {
                         RET_GATHER(ret, r);
                         continue;
                 }
-                broken = r == 0; /* symlink target does not exist? */
+                replace = r == 0; /* symlink target does not exist? */
 
-                r = create_symlink(lp, alias_target ?: info->path, alias_path, force || broken, changes, n_changes);
+                /* Disabling the unit masks a vendor symlink for an alias in a dependency directory. Enabling
+                 * the unit replaces that mask, like it replaces the masks of WantedBy=. A mask of a plain
+                 * alias name masks another unit, so enabling the unit keeps that mask. */
+                if (!replace && !FLAGS_SET(file_flags, UNIT_FILE_VENDOR) && strchr(dst, '/')) {
+                        r = path_is_mask(lp, alias_path);
+                        if (r < 0) {
+                                RET_GATHER(ret, r);
+                                continue;
+                        }
+                        if (r > 0)
+                                replace = true;
+                }
+
+                r = create_symlink(lp, alias_target ?: info->path, alias_path, force || replace, changes, n_changes);
                 if (r == -EEXIST && FLAGS_SET(file_flags, UNIT_FILE_IGNORE_AUXILIARY_FAILURE))
                         /* We cannot realize the alias because a conflicting alias exists.
                          * Do not propagate this as error. */
