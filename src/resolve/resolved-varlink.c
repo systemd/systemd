@@ -1862,6 +1862,54 @@ static int vl_method_link_set_dns_over_tls(sd_varlink *link, sd_json_variant *pa
         return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
+static int vl_method_link_set_dnssec(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        struct {
+                DnssecMode mode;
+                int ifindex;
+        } p = {
+                .mode = _DNSSEC_MODE_INVALID,
+        };
+        static const sd_json_dispatch_field dispatch_table[] = {
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex, voffsetof(p, ifindex), SD_JSON_MANDATORY|SD_JSON_RELAX },
+                { "dnssec",  SD_JSON_VARIANT_STRING,        dispatch_dnssec_mode,  voffsetof(p, mode),    SD_JSON_NULLABLE                },
+                {},
+        };
+        int r;
+
+        assert(link);
+
+        r = sd_json_dispatch(parameters, dispatch_table, SD_JSON_LOG, &p);
+        if (r < 0)
+                return r;
+
+        Link *l = NULL;
+        r = vl_get_link(link, p.ifindex, &l);
+        if (r < 0)
+                return r;
+
+        r = verify_polkit_full(
+                        link,
+                        parameters,
+                        "org.freedesktop.resolve1.set-dnssec",
+                        SD_JSON_ALLOW_EXTENSIONS,
+                        (const char**) STRV_MAKE("interface", l->ifname));
+        if (r <= 0)
+                return r;
+
+        if (l->dnssec_mode != p.mode) {
+                link_set_dnssec_mode(l, p.mode);
+                link_allocate_scopes(l);
+
+                (void) link_save_user(l);
+
+                log_link_info(l, "Varlink client set DNSSEC setting: %s",
+                              p.mode < 0 ? "default" : dnssec_mode_to_string(p.mode));
+        }
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
 static int varlink_monitor_server_init(Manager *m) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
         int r;
@@ -1953,7 +2001,8 @@ static int varlink_main_server_init(Manager *m) {
                         "io.systemd.Resolve.Link.SetDNSDefaultRoute",            vl_method_link_set_dns_default_route,
                         "io.systemd.Resolve.Link.SetLLMNR",                      vl_method_link_set_llmnr,
                         "io.systemd.Resolve.Link.SetMulticastDNS",               vl_method_link_set_mdns,
-                        "io.systemd.Resolve.Link.SetDNSOverTLS",                 vl_method_link_set_dns_over_tls);
+                        "io.systemd.Resolve.Link.SetDNSOverTLS",                 vl_method_link_set_dns_over_tls,
+                        "io.systemd.Resolve.Link.SetDNSSEC",                     vl_method_link_set_dnssec);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
