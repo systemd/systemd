@@ -93,6 +93,12 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("DNSSEC mode to configure on the link. Passing null resets to the default."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(dnssec, DNSSECMode, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_METHOD(
+                RevertDNS,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("Index of the interface to configure."),
+                SD_VARLINK_DEFINE_INPUT(ifindex, SD_VARLINK_INT, 0));
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Resolve_Link,
                 "io.systemd.Resolve.Link",
@@ -123,4 +129,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("The mode of DNSSEC."),
                 &vl_type_DNSSECMode,
                 SD_VARLINK_SYMBOL_COMMENT("Set the per-link DNSSEC mode."),
-                &vl_method_SetDNSSEC);
+                &vl_method_SetDNSSEC,
+                SD_VARLINK_SYMBOL_COMMENT("Revert per-link DNS settings."),
+                &vl_method_RevertDNS);
