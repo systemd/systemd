@@ -3886,7 +3886,6 @@ static int compile_symlinks(
                 const ExecContext *context,
                 const ExecParameters *params,
                 PinnedResource *rootfs,
-                bool setup_os_release_symlink,
                 char ***ret_symlinks) {
 
         _cleanup_strv_free_ char **symlinks = NULL;
@@ -3931,19 +3930,6 @@ static int compile_symlinks(
                         if (r < 0)
                                 return r;
                 }
-
-        /* We make the host's os-release available via a symlink, so that we can copy it atomically
-         * and readers will never get a half-written version. Note that, while the paths specified here are
-         * absolute, when they are processed in namespace.c they will be made relative automatically, i.e.:
-         * 'os-release -> .os-release-stage/os-release' is what will be created. */
-        if (setup_os_release_symlink) {
-                r = strv_extend_many(
-                                &symlinks,
-                                "/run/host/.os-release-stage/os-release",
-                                "/run/host/os-release");
-                if (r < 0)
-                        return r;
-        }
 
         *ret_symlinks = TAKE_PTR(symlinks);
 
@@ -4500,6 +4486,7 @@ static int apply_mount_namespace(
                 bool needs_sandboxing,
                 uid_t exec_directory_uid,
                 gid_t exec_directory_gid,
+                int host_os_release_fd,
                 PidRef *bpffs_pidref,
                 int bpffs_socket_fd,
                 int bpffs_errno_pipe,
@@ -4509,9 +4496,8 @@ static int apply_mount_namespace(
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL;
         _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
-                *private_namespace_dir = NULL, *host_os_release_stage = NULL;
+                *private_namespace_dir = NULL;
         const char *tmp_dir = NULL, *var_tmp_dir = NULL;
-        bool setup_os_release_symlink;
         BindMount *bind_mounts = NULL;
         size_t n_bind_mounts = 0;
         AccessMount *access_mounts = NULL;
@@ -4559,9 +4545,8 @@ static int apply_mount_namespace(
                 }
         }
 
-        /* Symlinks (exec dirs, os-release) are set up after other mounts, before they are made read-only. */
-        setup_os_release_symlink = needs_sandboxing && exec_context_get_effective_mount_apivfs(context) && pinned_resource_is_set(rootfs);
-        r = compile_symlinks(context, params, rootfs, setup_os_release_symlink, &symlinks);
+        /* Symlinks (exec dirs) are set up after other mounts, before they are made read-only. */
+        r = compile_symlinks(context, params, rootfs, &symlinks);
         if (r < 0)
                 return r;
 
@@ -4586,24 +4571,10 @@ static int apply_mount_namespace(
                 private_namespace_dir = strdup("/run/systemd");
                 if (!private_namespace_dir)
                         return -ENOMEM;
-
-                /* If running under a different root filesystem, propagate the host's os-release. We make a
-                 * copy rather than just bind mounting it, so that it can be updated on soft-reboot. */
-                if (setup_os_release_symlink) {
-                        host_os_release_stage = strdup("/run/systemd/propagate/.os-release-stage");
-                        if (!host_os_release_stage)
-                                return -ENOMEM;
-                }
         } else {
                 assert(params->runtime_scope == RUNTIME_SCOPE_USER);
 
                 if (asprintf(&private_namespace_dir, "/run/user/" UID_FMT "/systemd", geteuid()) < 0)
-                        return -ENOMEM;
-
-                if (setup_os_release_symlink &&
-                    asprintf(&host_os_release_stage,
-                             "/run/user/" UID_FMT "/systemd/propagate/.os-release-stage",
-                             geteuid()) < 0)
                         return -ENOMEM;
         }
 
@@ -4660,7 +4631,7 @@ static int apply_mount_namespace(
                 .private_namespace_dir = private_namespace_dir,
                 .host_notify_socket = params->notify_socket,
                 .notify_socket_path = exec_get_private_notify_socket_path(context, params, needs_sandboxing),
-                .host_os_release_stage = host_os_release_stage,
+                .host_os_release_fd = host_os_release_fd,
 
                 /* If DynamicUser=no and RootDirectory= is set then lets pass a relaxed sandbox info,
                  * otherwise enforce it, don't ignore protected paths and fail if we are enable to apply the
@@ -5330,6 +5301,7 @@ static int setup_delegated_namespaces(
                 char *const *pressure_path,
                 uid_t uid,
                 gid_t gid,
+                int host_os_release_fd,
                 const ExecCommand *command,
                 bool needs_sandboxing,
                 bool have_cap_sys_admin,
@@ -5467,6 +5439,7 @@ static int setup_delegated_namespaces(
                                 needs_sandboxing,
                                 uid,
                                 gid,
+                                host_os_release_fd,
                                 bpffs_pidref,
                                 bpffs_socket_fd,
                                 bpffs_errno_pipe,
@@ -5802,6 +5775,47 @@ static int setup_term_environment(const ExecContext *context, char ***env) {
 
 static inline void free_pressure_paths(char *(*p)[_PRESSURE_RESOURCE_MAX]) {
         free_many_charp(*p, _PRESSURE_RESOURCE_MAX);
+}
+
+static int open_host_os_release(
+                const ExecContext *context,
+                const ExecParameters *params,
+                const PinnedResource *rootfs,
+                bool needs_sandboxing,
+                int *ret_fd) {
+
+        _cleanup_free_ char *stage = NULL;
+        int fd;
+
+        assert(context);
+        assert(params);
+        assert(rootfs);
+        assert(ret_fd);
+
+        if (!needs_sandboxing ||
+            !exec_context_get_effective_mount_apivfs(context) ||
+            !pinned_resource_is_set(rootfs)) {
+                *ret_fd = -EBADF;
+                return 0;
+        }
+
+        if (params->runtime_scope == RUNTIME_SCOPE_SYSTEM)
+                stage = strdup("/run/systemd/propagate/.os-release-stage/os-release");
+        else {
+                assert(params->runtime_scope == RUNTIME_SCOPE_USER);
+
+                stage = asprintf_safe("/run/user/" UID_FMT "/systemd/propagate/.os-release-stage/os-release",
+                                      geteuid());
+        }
+        if (!stage)
+                return -ENOMEM;
+
+        fd = xopenat(AT_FDCWD, stage, O_RDONLY|O_NOCTTY);
+        if (fd < 0)
+                return fd;
+
+        *ret_fd = fd;
+        return 0;
 }
 
 int exec_invoke(
@@ -6747,6 +6761,14 @@ int exec_invoke(
          * shenanigans, and do not want to mix resources from host and namespace */
         block_dlopen();
 
+        /* Open the staged copy of the host's os-release here, before the user namespace is entered: with
+         * PrivateUsers=managed, the uid owning the staging directory is not mapped in it, and the
+         * directory cannot be reached by path anymore. The fd can still be read from afterwards. */
+        _cleanup_close_ int host_os_release_fd = -EBADF;
+        r = open_host_os_release(context, params, &rootfs, needs_sandboxing, &host_os_release_fd);
+        if (r < 0)
+                log_debug_errno(r, "Failed to open os-release for propagation, ignoring: %m");
+
         if (needs_sandboxing && !have_cap_sys_admin && exec_needs_cap_sys_admin(context, params)) {
                 /* If we're unprivileged, set up the user namespace first to enable use of the other namespaces.
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
@@ -6799,6 +6821,7 @@ int exec_invoke(
                         pressure_path,
                         uid,
                         gid,
+                        host_os_release_fd,
                         command,
                         needs_sandboxing,
                         have_cap_sys_admin,
@@ -6901,6 +6924,7 @@ int exec_invoke(
                         pressure_path,
                         uid,
                         gid,
+                        host_os_release_fd,
                         command,
                         needs_sandboxing,
                         have_cap_sys_admin,
