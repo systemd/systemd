@@ -729,7 +729,8 @@ DnsScopeMatch dns_scope_good_domain(
          * Names without a dot (like "onion") are let through for normal DNS, since a search domain may
          * still be added to them. They are checked again later, in dns_scope_good_key(). */
         if (dns_name_dont_resolve(domain) &&
-            !(s->protocol == DNS_PROTOCOL_DNS && dns_name_is_single_label(domain)))
+            (FLAGS_SET(flags, SD_RESOLVED_NO_SEARCH) ||
+             !dns_scope_name_wants_search_domain(s, domain)))
                 return DNS_SCOPE_NO;
 
         /* Avoid asking invalid questions of some special use domains */
@@ -916,9 +917,11 @@ bool dns_scope_good_key(DnsScope *s, const DnsResourceKey *key) {
                 return false;
 
         if (s->protocol == DNS_PROTOCOL_DNS) {
+                const char *name = dns_resource_key_name(key);
+
                 /* Never send special names like "foo.onion" to the network
                  * (checked after search domains are added). */
-                if (dns_name_dont_resolve(dns_resource_key_name(key)))
+                if (dns_name_dont_resolve(name))
                         return false;
 
                 /* On classic DNS, looking up non-address RRs is always fine. (Specifically, we want to
@@ -929,8 +932,6 @@ bool dns_scope_good_key(DnsScope *s, const DnsResourceKey *key) {
                 /* Unless explicitly overridden, we refuse to look up A and AAAA RRs on the root and
                  * single-label domains, under the assumption that those should be resolved via LLMNR or
                  * search path only, and should not be leaked onto the internet. */
-                const char* name = dns_resource_key_name(key);
-
                 if (!s->manager->resolve_unicast_single_label &&
                     dns_name_is_single_label(name))
                         return false;
