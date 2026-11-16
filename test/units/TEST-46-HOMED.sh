@@ -280,7 +280,11 @@ testcase_basic() {
     /usr/lib/systemd/tests/unit-tests/manual/test-homed-regression-31896 test-user
 
     wait_for_state test-user inactive
+    # The reference FIFO created by the test above must be removed together with the home
+    test -p /run/systemd/home/test-user.please-suspend
     /usr/lib/systemd/tests/unit-tests/manual/test-homed-regression-44837 test-user
+    test ! -e /run/systemd/home/test-user.please-suspend
+    test ! -e /run/systemd/home/test-user.dont-suspend
 }
 
 testcase_recovery_key_file() (
