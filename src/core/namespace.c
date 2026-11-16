@@ -64,6 +64,7 @@ typedef enum MountMode {
         MOUNT_IMAGE,
         MOUNT_BIND,
         MOUNT_BIND_RECURSIVE,
+        MOUNT_PRIVATE_TMPFS,       /* A private tmpfs mounted directly on the mount point (PrivateTmp=disconnected) */
         MOUNT_PRIVATE_TMP,
         MOUNT_PRIVATE_DEV,
         MOUNT_BIND_DEV,
@@ -77,7 +78,6 @@ typedef enum MountMode {
         MOUNT_NOEXEC,
         MOUNT_EXEC,
         MOUNT_TMPFS,
-        MOUNT_PRIVATE_TMPFS,       /* Mounted outside the root directory, and used by subsequent mounts */
         MOUNT_EXTENSION_DIRECTORY, /* Bind-mounted outside the root directory, and used by subsequent mounts */
         MOUNT_EXTENSION_IMAGE,     /* Mounted outside the root directory, and used by subsequent mounts */
         MOUNT_MQUEUEFS,
@@ -784,7 +784,7 @@ static int append_private_tmp_one(
                 *me = (MountEntry) {
                         .path_const = path,
                         .mode = MOUNT_PRIVATE_TMPFS,
-                        .options_const = "mode=0700" NESTED_TMPFS_LIMITS,
+                        .options_const = "mode=1777" NESTED_TMPFS_LIMITS,
                         .flags = MS_NODEV|MS_STRICTATIME,
                 };
 
@@ -799,64 +799,11 @@ static int append_private_tmp(MountList *ml, const NamespaceParameters *p) {
         assert(p->private_tmp >= 0 && p->private_tmp < _PRIVATE_TMP_MAX);
         assert(p->private_var_tmp >= 0 && p->private_var_tmp < _PRIVATE_TMP_MAX);
 
-        if (p->private_tmp != PRIVATE_TMP_DISCONNECTED || p->private_var_tmp != PRIVATE_TMP_DISCONNECTED) {
-                r = append_private_tmp_one(ml, p->private_tmp, "/tmp/", p->tmp_dir);
-                if (r < 0)
-                        return r;
+        r = append_private_tmp_one(ml, p->private_tmp, "/tmp/", p->tmp_dir);
+        if (r < 0)
+                return r;
 
-                r = append_private_tmp_one(ml, p->private_var_tmp, "/var/tmp/", p->var_tmp_dir);
-                if (r < 0)
-                        return r;
-
-                return 0;
-        }
-
-        /* Fully disconnected private tmp: we mount a single tmpfs instance with two subdirs which are
-         * bind mounted to /tmp/ and /var/tmp/. */
-
-        MountEntry *me;
-
-        _cleanup_free_ char *tmpfs_dir = NULL, *tmp_dir = NULL, *var_tmp_dir = NULL;
-        tmpfs_dir = path_join(p->private_namespace_dir, "unit-private-tmp");
-        tmp_dir = path_join(tmpfs_dir, "tmp");
-        var_tmp_dir = path_join(tmpfs_dir, "var-tmp");
-        if (!tmpfs_dir || !tmp_dir || !var_tmp_dir)
-                return log_oom_debug();
-
-        me = mount_list_extend(ml);
-        if (!me)
-                return log_oom_debug();
-        *me = (MountEntry) {
-                .path_malloc = TAKE_PTR(tmpfs_dir),
-                .mode = MOUNT_PRIVATE_TMPFS,
-                .options_const = "mode=0700" NESTED_TMPFS_LIMITS,
-                .flags = MS_NODEV|MS_STRICTATIME,
-                .has_prefix = true,
-        };
-
-        me = mount_list_extend(ml);
-        if (!me)
-                return log_oom_debug();
-        *me = (MountEntry) {
-                .source_malloc = TAKE_PTR(tmp_dir),
-                .path_const = "/tmp/",
-                .mode = MOUNT_BIND,
-                .source_dir_mode = 01777,
-                .create_source_dir = true,
-        };
-
-        me = mount_list_extend(ml);
-        if (!me)
-                return log_oom_debug();
-        *me = (MountEntry) {
-                .source_malloc = TAKE_PTR(var_tmp_dir),
-                .path_const = "/var/tmp/",
-                .mode = MOUNT_BIND,
-                .source_dir_mode = 01777,
-                .create_source_dir = true,
-        };
-
-        return 0;
+        return append_private_tmp_one(ml, p->private_var_tmp, "/var/tmp/", p->var_tmp_dir);
 }
 
 static int append_static_mounts(MountList *ml, const MountEntry *mounts, size_t n, bool ignore_protect) {
@@ -991,11 +938,6 @@ static int mount_path_compare(const MountEntry *a, const MountEntry *b) {
         if (d != 0)
                 return d;
         d = -CMP(a->mode == MOUNT_EXTENSION_DIRECTORY, b->mode == MOUNT_EXTENSION_DIRECTORY);
-        if (d != 0)
-                return d;
-
-        /* MOUNT_PRIVATE_TMPFS needs to be set up earlier, especially than MOUNT_BIND. */
-        d = -CMP(a->mode == MOUNT_PRIVATE_TMPFS, b->mode == MOUNT_PRIVATE_TMPFS);
         if (d != 0)
                 return d;
 
@@ -1173,10 +1115,8 @@ static void drop_outside_root(MountList *ml, const char *root_directory) {
         for (f = ml->mounts, t = ml->mounts; f < ml->mounts + ml->n_mounts; f++) {
 
                 /* ExtensionImages/Directories bases are opened in /run/[user/xyz/]systemd/unit-extensions
-                 * on the host, and a private (invisible to the guest) tmpfs instance is mounted on
-                 * /run/[user/xyz/]systemd/unit-private-tmp as the storage backend of private /tmp and
-                 * /var/tmp. */
-                if (!IN_SET(f->mode, MOUNT_EXTENSION_IMAGE, MOUNT_EXTENSION_DIRECTORY, MOUNT_PRIVATE_TMPFS) &&
+                 * on the host. */
+                if (!IN_SET(f->mode, MOUNT_EXTENSION_IMAGE, MOUNT_EXTENSION_DIRECTORY) &&
                     !path_startswith(mount_entry_path(f), root_directory)) {
                         log_debug("%s is outside of root directory.", mount_entry_path(f));
                         mount_entry_done(f);
@@ -2435,10 +2375,8 @@ static int apply_mounts(
                                 continue;
 
                         /* ExtensionImages/Directories are first opened in the propagate directory, not in
-                         * the root_directory. A private (invisible to the guest) tmpfs instance is mounted
-                         * on /run/[user/xyz/]systemd/unit-private-tmp as the storage backend of private
-                         * /tmp and /var/tmp. */
-                        r = follow_symlink(!IN_SET(m->mode, MOUNT_EXTENSION_IMAGE, MOUNT_EXTENSION_DIRECTORY, MOUNT_PRIVATE_TMPFS) ? root : NULL, m);
+                         * the root_directory. */
+                        r = follow_symlink(!IN_SET(m->mode, MOUNT_EXTENSION_IMAGE, MOUNT_EXTENSION_DIRECTORY) ? root : NULL, m);
                         if (r < 0) {
                                 mount_entry_path_debug_string(root, m, reterr_path);
                                 return r;
