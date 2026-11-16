@@ -3717,6 +3717,34 @@ static int profile_wants_pcrlock(const char *text, unsigned profile, const char 
         return r;
 }
 
+static int booted_profile_wants_pcrlock(void) {
+        _cleanup_free_ char *s = NULL, *text = NULL;
+        unsigned profile;
+        int r;
+
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("StubProfile"), &s);
+        if (r < 0) {
+                /* systemd-stub older than v257 and other boot paths do not set the variable. */
+                log_debug_errno(r, "Failed to read StubProfile EFI variable, assuming profile @0: %m");
+                return true;
+        }
+
+        r = safe_atou(s, &profile);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse StubProfile EFI variable '%s': %m", s);
+
+        const char *path = in_initrd() ? "/.extra/profile" : "/run/systemd/stub/profile";
+        r = read_full_file(path, &text, /* ret_size= */ NULL);
+        if (r == -ENOENT)
+                /* systemd-stub only passes the file to userspace if the booted profile has a .profile
+                 * section. lock-uki applies the default of PCRLOCK= to a profile without such a section. */
+                log_debug_errno(r, "Failed to read %s, assuming that profile @%u does not set PCRLOCK=: %m", path, profile);
+        else if (r < 0)
+                return log_error_errno(r, "Failed to read %s: %m", path);
+
+        return profile_wants_pcrlock(text, profile, path);
+}
+
 static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
         int r;
 
@@ -3752,6 +3780,9 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
         _cleanup_(tpm2_pcr_prediction_done) Tpm2PCRPrediction new_prediction = {
                 arg_pcr_mask != 0 ? arg_pcr_mask : DEFAULT_PCR_MASK,
         };
+
+        uint32_t requested_pcrs = new_prediction.pcrs;
+
         r = event_log_reduce_to_safe_pcrs(el, &new_prediction.pcrs);
         if (r < 0)
                 return r;
@@ -3803,6 +3834,21 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
         if (have_old_policy) {
                 if (arg_nv_index != 0 && old_policy.nv_index != arg_nv_index)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Stored policy references different NV index (0x%x) than specified (0x%x), refusing.", old_policy.nv_index, arg_nv_index);
+
+                /* A UKI profile that is excluded from PCR locking has no .pcrlock file, hence the event log
+                 * of this boot contains measurements that match no component. The next boot of an included
+                 * profile does not contain them, and still satisfies the current policy. A policy generated
+                 * now would not cover the PCRs of these measurements anymore. */
+                uint32_t dropped_pcrs = old_policy.prediction.pcrs & requested_pcrs & ~new_prediction.pcrs;
+                if (!force && dropped_pcrs != 0) {
+                        r = booted_profile_wants_pcrlock();
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                log_notice("The booted UKI profile is excluded from PCR locking and a new policy would not cover PCRs that the current policy covers (mask 0x%" PRIx32 "), not updating policy.", dropped_pcrs);
+                                return 0;
+                        }
+                }
 
                 if (!force &&
                     old_policy.algorithm == el->primary_algorithm &&
