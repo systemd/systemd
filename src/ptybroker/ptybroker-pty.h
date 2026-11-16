@@ -48,6 +48,10 @@ struct PseudoTTY {
         int pin_fd;      /* O_PATH on backend_fd */
         char *backend_path;
         char *unit;
+        UnitReference *unit_reference;
+        Set *watch_links;
+        bool acquiring;
+        bool hung_up;
 
         /* Identity of the client that allocated this PTY */
         PidRef owner_pidref;
@@ -93,6 +97,9 @@ int pseudo_tty_track_buffer_to_json(PseudoTTY *pty, size_t n_lines, sd_json_vari
 int pseudo_tty_vhangup(PseudoTTY *pty);
 
 int pseudo_tty_sync_winsize(PseudoTTY *pty);
+void pseudo_tty_add_to_free_queue(PseudoTTY *pty);
+int pseudo_tty_notify_watchers(PseudoTTY *pty);
+void pseudo_tty_close_watchers(PseudoTTY *pty);
 
 DECLARE_STRING_TABLE_LOOKUP(frontend_type, FrontendType);
 DECLARE_STRING_TABLE_LOOKUP(backend_type, BackendType);

@@ -66,6 +66,8 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(workingDirectory, WorkingDirectory, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("For shell backend: environment variables for the shell, as a list of assignments in the usual VAR=VALUE syntax"),
                 SD_VARLINK_DEFINE_INPUT(environment, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("For shell backend: additional journal fields as NAME=VALUE strings, passed as LogExtraFields= to the service. An empty array clears the fields."),
+                SD_VARLINK_DEFINE_INPUT(logExtraFields, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
                 SD_VARLINK_FIELD_COMMENT("For shell backend: whether to allocate a 'lightweight' session"),
                 SD_VARLINK_DEFINE_INPUT(lightweight, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("For shell backend: command line to invoke as main service process. If unset an interactive login shell is invoked."),
@@ -184,6 +186,25 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("Settings for the terminal"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(terminalSettings, TerminalSettings, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                WatchPty,
+                SD_VARLINK_REQUIRES_MORE,
+
+                SD_VARLINK_FIELD_COMMENT("The name of the PTY allocation to watch."),
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("If true and the name is not allocated, reserve it for a subsequent AcquirePty() by the same user. Defaults to false. The reservation is released when the watch connection closes."),
+                SD_VARLINK_DEFINE_INPUT(wait, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_POLKIT_INPUT,
+
+                SD_VARLINK_FIELD_COMMENT("Name of the watched PTY."),
+                SD_VARLINK_DEFINE_OUTPUT(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether AcquirePty() has completed. The first notification acknowledges the watch; further notifications report allocation and hangup."),
+                SD_VARLINK_DEFINE_OUTPUT(allocated, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether the PTY has hung up. The allocation and its shell unit remain referenced until the watch closes."),
+                SD_VARLINK_DEFINE_OUTPUT(hungUp, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("The unit backing the PTY, if known. Its reference survives service manager reload and reexecution. The watch disconnects if the reference is lost."),
+                SD_VARLINK_DEFINE_OUTPUT(unit, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_METHOD(
                 ConfigurePty,
                 SD_VARLINK_FIELD_COMMENT("The name of the PTY allocation to reconfigure to."),
@@ -235,6 +256,7 @@ static SD_VARLINK_DEFINE_ERROR(PtyExists);
 static SD_VARLINK_DEFINE_ERROR(TrackingNotEnabled);
 static SD_VARLINK_DEFINE_ERROR(TooManyPtys);
 static SD_VARLINK_DEFINE_ERROR(TooManyMonitors);
+static SD_VARLINK_DEFINE_ERROR(TooManyWatchers);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_PTYBroker,
@@ -246,6 +268,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_EnrollPty,
                 SD_VARLINK_SYMBOL_COMMENT("Monitor frontend side of the pty."),
                 &vl_method_MonitorPty,
+                SD_VARLINK_SYMBOL_COMMENT("Watch allocation and hangup changes and keep the PTY and its shell unit referenced for the lifetime of the call."),
+                &vl_method_WatchPty,
                 SD_VARLINK_SYMBOL_COMMENT("Reconfigure pseudo terminal"),
                 &vl_method_ConfigurePty,
                 SD_VARLINK_SYMBOL_COMMENT("List allocated pseudo-terminals"),
@@ -270,5 +294,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_error_TooManyPtys,
                 SD_VARLINK_SYMBOL_COMMENT("Limit on number of monitors of a PTY reached."),
                 &vl_error_TooManyMonitors,
+                SD_VARLINK_SYMBOL_COMMENT("Limit on number of watchers of a PTY reached."),
+                &vl_error_TooManyWatchers,
                 SD_VARLINK_SYMBOL_COMMENT("Tracking of PTY state not enabled for specified PTY."),
                 &vl_error_TrackingNotEnabled);
