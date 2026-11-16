@@ -949,6 +949,23 @@ testcase_quota() {
     homectl remove tmpfsquota
 }
 
+testcase_quota_disk_status() {
+    local MNT
+    MNT="$(mktemp -d /tmp/quota-mnt.XXXXXX)"
+    # shellcheck disable=SC2064
+    trap "homectl remove quotatest 2>/dev/null || true; umount '$MNT' 2>/dev/null || true; rm -rf '$MNT'" RETURN ERR
+
+    if ! mount -t tmpfs -o usrquota tmpfs "$MNT"; then
+        echo "tmpfs doesn't support quota, skipping."
+        return 0
+    fi
+
+    # Without a disk size there's no quota hard limit, which must not be taken as a disk size of zero
+    NEWPASSWORD=quux homectl create quotatest --storage=directory --image-path="$MNT/quotatest"
+    homectl inspect quotatest
+    homectl inspect --json=short quotatest | jq -e '.status[].diskSize > 0' >/dev/null
+}
+
 testcase_subarea() {
     # 'run0 -u' requires systemd NSS module.
     if ! check_nss_module systemd; then

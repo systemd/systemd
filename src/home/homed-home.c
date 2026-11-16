@@ -2591,7 +2591,8 @@ static int home_get_disk_status_directory(
                                         disk_ceiling = disk_size;
                         }
 
-                        if (FLAGS_SET(req.dqb_valid, QIF_BLIMITS)) {
+                        /* A hard limit of zero means there's no limit */
+                        if (FLAGS_SET(req.dqb_valid, QIF_BLIMITS) && req.dqb_bhardlimit > 0) {
                                 uint64_t q;
 
                                 /* Take the minimum of the quota and the available disk space here */
@@ -2604,12 +2605,10 @@ static int home_get_disk_status_directory(
                         if (FLAGS_SET(req.dqb_valid, QIF_SPACE)) {
                                 disk_usage = req.dqb_curspace;
 
-                                if (disk_size != UINT64_MAX) {
-                                        if (disk_size > disk_usage)
-                                                disk_free = disk_size - disk_usage;
-                                        else
-                                                disk_free = 0;
-                                }
+                                /* Other users may use the file system too, hence don't report more than is
+                                 * free on it */
+                                if (disk_size != UINT64_MAX)
+                                        disk_free = MIN(disk_free, LESS_BY(disk_size, disk_usage));
                         }
                 }
         }
