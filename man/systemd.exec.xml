@@ -1979,9 +1979,10 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         is added.</para>
 
-        <para>If <literal>disconnected</literal>, the directories will be backed by a completely new tmpfs
-        instance, meaning that the storage is fully disconnected from the host namespace. The tmpfs instance
-        does not shared with other units even if the <varname>JoinsNamespaceOf=</varname> directive is used.
+        <para>If <literal>disconnected</literal>, the directories will each be backed by a completely new
+        tmpfs instance, meaning that the storage is fully disconnected from the host namespace. The tmpfs
+        instances are not shared with other units even if the <varname>JoinsNamespaceOf=</varname>
+        directive is used.
         If <varname>DefaultDependencies=no</varname> is specified,
         <varname>RequiresMountsFor=/WantsMountsFor=</varname> for <filename>/var/</filename> is not
         specified, and <varname>RootDirectory=/RootImage=</varname> is not specified, then a new tmpfs is
