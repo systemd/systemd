@@ -678,6 +678,8 @@ int dispatch_negative_trust_anchors(const char *name, sd_json_variant *variant, 
         return 0;
 }
 
+JSON_DISPATCH_ENUM_DEFINE(dispatch_resolve_support_mode, ResolveSupport, resolve_support_from_string);
+
 DNSConfiguration* dns_configuration_free(DNSConfiguration *c) {
         if (!c)
                 return NULL;
