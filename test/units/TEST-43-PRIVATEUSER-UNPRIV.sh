@@ -118,6 +118,15 @@ runas testuser systemd-run --wait --user --unit=test-root-dir \
     -p RootDirectory=/tmp/img \
     grep MARKER=1 /etc/os-release
 
+# PrivateUsers=managed maps the service to root inside the user namespace, in which the uid
+# owning /run/user/<uid>/ is not mapped anymore; the backing directory of the private /tmp/
+# must be set up before the user namespace is entered.
+if can_do_rootless_nspawn; then
+    runas testuser systemd-run --wait --user --unit=test-root-dir-managed \
+        -p PrivateUsers=managed -p RootDirectory=/tmp/img -p PrivateTmp=disconnected \
+        grep MARKER=1 /etc/os-release
+fi
+
 mkdir /tmp/img_bind
 mount --bind /tmp/img /tmp/img_bind
 runas testuser systemd-run --wait --user --unit=test-root-dir-bind \

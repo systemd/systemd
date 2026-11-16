@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<!DOCTYPE refsect1 PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+-->
+
+<refsect1>
+  <title/>
+
+  <!-- The informalexample wrapper is only used to bundle the three tags below into a single
+       include target; it should not have any formatting effect. -->
+  <informalexample id="precedence">
+    <para>If multiple root settings are configured, the first one that is set is used, in this
+    order:</para>
+
+    <orderedlist>
+      <listitem><para><varname>RootDirectoryFileDescriptor=</varname> (the transient unit property set by
+      <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+      <option>--root-directory=</option>)</para></listitem>
+      <listitem><para><varname>RootImage=</varname></para></listitem>
+      <listitem><para><varname>RootDirectory=</varname></para></listitem>
+      <listitem><para><varname>RootMStack=</varname></para></listitem>
+    </orderedlist>
+
+    <para>The other settings are ignored, but still shown by <command>systemctl
+    show</command>.</para>
+  </informalexample>
+</refsect1>
