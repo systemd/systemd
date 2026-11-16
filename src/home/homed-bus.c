@@ -110,8 +110,7 @@ int bus_message_read_blobs(sd_bus_message *m, Hashmap **ret, sd_bus_error *error
                 if (fd < 0)
                         return -errno;
 
-                r = suitable_blob_filename(filename);
-                if (r < 0)
+                if (!suitable_blob_filename(filename))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid blob directory filename: %s", filename);
 
                 r = fd_verify_regular(fd);
