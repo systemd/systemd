@@ -396,12 +396,17 @@ int journal_remote_handle_raw_source(
                 remove_source(s, source->importer.fd);
                 log_debug("%zu active sources remaining", s->active);
                 return 0;
-        } else if (r == -E2BIG) {
-                log_notice("Entry with too many fields, skipped");
-                return 1;
-        } else if (r == -ENOBUFS) {
-                log_notice("Entry too big, skipped");
-                return 1;
+        } else if (IN_SET(r, -E2BIG, -ENOBUFS)) {
+                /* The current entry is unprocessable and, since we've consumed partial data for it, the
+                 * stream is now desynchronized: we cannot reliably locate the next entry boundary. Drop the
+                 * source instead of re-arming it, otherwise we'd busy-loop on the same state (-ENOBUFS) or
+                 * keep growing the buffer without bound (-E2BIG while reading a binary field). This mirrors
+                 * how the HTTP path aborts the connection in such cases. */
+                log_warning_errno(r, r == -E2BIG ?
+                                  "Entry with too many fields, closing connection." :
+                                  "Entry too big, closing connection.");
+                remove_source(s, fd);
+                return 0;
         } else if (r == -EAGAIN) {
                 return 0;
         } else if (r < 0) {
