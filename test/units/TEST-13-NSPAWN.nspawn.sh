@@ -1119,7 +1119,10 @@ testcase_notification_socket() {
 testcase_fdstore_wipe() {
     local root commands n_fds names unit=test-nspawn-fdstore-wipe.service
 
-    dummy_container_has /usr/bin/test-fdstore || return 77
+    if ! dummy_container_has /usr/bin/test-fdstore; then
+        echo "test-fdstore is not available in the container template, skipping the test..."
+        return 0
+    fi
 
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.fdstore_wipe.XXX)"
     create_dummy_container "$root"
@@ -1188,7 +1191,10 @@ testcase_socket_activation() {
     # https://github.com/systemd/systemd/issues/43764
     local root entrypoint socket1 socket2 nspawn
 
-    dummy_container_has /usr/bin/test-fdstore || return 77
+    if ! dummy_container_has /usr/bin/test-fdstore; then
+        echo "test-fdstore is not available in the container template, skipping the test..."
+        return 0
+    fi
 
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.socket-activation.XXX)"
     create_dummy_container "$root"
