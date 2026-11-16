@@ -7,6 +7,7 @@
 
 #include "sd-dhcp6-lease.h"
 
+#include "dhcp-rkap.h"
 #include "dhcp6-option.h"
 #include "dhcp6-protocol.h"
 #include "forward.h"
@@ -21,6 +22,7 @@ struct sd_dhcp6_lease {
         size_t serverid_len;
         uint8_t preference;
         bool rapid_commit;
+        DHCPRKAPKey reconfigure_key; /* set if the Reply carried a reconfigure key (RFC 9915 section 20.4) */
         triple_timestamp timestamp;
         usec_t lifetime_t1;
         usec_t lifetime_t2;
@@ -80,6 +82,7 @@ int dhcp6_lease_new_from_message(
                 const triple_timestamp *timestamp,
                 const struct in6_addr *server_address,
                 sd_dhcp6_lease **ret);
+void dhcp6_lease_take_bindings(sd_dhcp6_lease *lease, sd_dhcp6_lease *from);
 
 #define _FOREACH_DHCP6_ADDRESS(lease, it)                               \
         for (int it = sd_dhcp6_lease_address_iterator_reset(lease);     \

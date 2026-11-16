@@ -97,6 +97,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         ASSERT_OK(sd_dhcp6_option_new(456, v2_data, strlen(v2_data), 45678, &v2));
         ASSERT_OK(sd_dhcp6_client_add_vendor_option(client, v1));
         ASSERT_OK(sd_dhcp6_client_add_vendor_option(client, v2));
+        ASSERT_OK(sd_dhcp6_client_set_accept_reconfigure(client, /* enable= */ true));
 
         fuzz_client(client, data, size, DHCP6_STATE_INFORMATION_REQUEST);
         fuzz_client(client, data, size, DHCP6_STATE_SOLICITATION);

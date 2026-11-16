@@ -6,6 +6,7 @@
 #include "sd-dhcp6-option.h"
 
 #include "alloc-util.h"
+#include "dhcp-rkap.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "dns-domain.h"
@@ -853,6 +854,7 @@ static int dhcp6_lease_parse_message(
                 size_t len) {
 
         usec_t irt = IRT_DEFAULT;
+        bool auth_seen = false;
         int r;
 
         assert(client);
@@ -981,6 +983,28 @@ static int dhcp6_lease_parse_message(
 
                         break;
 
+                case SD_DHCP6_OPTION_AUTH:
+                        /* The reconfigure key (RFC 9915 section 20.4.2), in the Reply to a Request,
+                         * Solicit (rapid commit) or Information-request. */
+                        if (!client->accept_reconfigure || message->type != DHCP6_MESSAGE_REPLY)
+                                break;
+
+                        /* RFC 9915 section 20.2: Any DHCP message MUST NOT include more than one
+                         * Authentication option. */
+                        if (auth_seen) {
+                                log_dhcp6_client(client, "Received multiple authentication options, ignoring them.");
+                                dhcp_rkap_key_clear(&lease->reconfigure_key);
+                                break;
+                        }
+                        auth_seen = true;
+
+                        r = dhcp_rkap_key_set_from_auth(&lease->reconfigure_key, optval, optlen);
+                        if (r == -EOPNOTSUPP)
+                                log_dhcp6_client(client, "Received authentication option with unsupported protocol, ignoring.");
+                        else if (r < 0)
+                                log_dhcp6_client_errno(client, r, "Received invalid reconfigure key, ignoring: %m");
+                        break;
+
                 case SD_DHCP6_OPTION_DNS_SERVER:
                         r = dhcp6_lease_add_dns(lease, optval, optlen);
                         if (r < 0)
@@ -1105,6 +1129,7 @@ static sd_dhcp6_lease *dhcp6_lease_free(sd_dhcp6_lease *lease) {
         if (!lease)
                 return NULL;
 
+        dhcp_rkap_key_clear(&lease->reconfigure_key);
         set_free(lease->vendor_options);
         free(lease->sorted_vendor_options);
         free(lease->clientid);
@@ -1174,4 +1199,19 @@ int dhcp6_lease_new_from_message(
 
         *ret = TAKE_PTR(lease);
         return 0;
+}
+
+void dhcp6_lease_take_bindings(sd_dhcp6_lease *lease, sd_dhcp6_lease *from) {
+        assert(lease);
+        assert(from);
+
+        /* Move the IAs, with the timestamp and the lifetimes that are relative to it. */
+        free_and_replace_full(lease->ia_na, from->ia_na, dhcp6_ia_free);
+        free_and_replace_full(lease->ia_pd, from->ia_pd, dhcp6_ia_free);
+        lease->addr_iter = lease->prefix_iter = from->addr_iter = from->prefix_iter = NULL;
+
+        lease->timestamp = from->timestamp;
+        lease->lifetime_t1 = from->lifetime_t1;
+        lease->lifetime_t2 = from->lifetime_t2;
+        lease->lifetime_valid = from->lifetime_valid;
 }

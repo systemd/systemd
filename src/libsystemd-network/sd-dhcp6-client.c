@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "device-util.h"
 #include "dhcp-duid-internal.h"
+#include "dhcp-rkap.h"
 #include "dhcp6-client-internal.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
@@ -524,6 +525,14 @@ int sd_dhcp6_client_set_send_release(sd_dhcp6_client *client, int enable) {
         return 0;
 }
 
+int sd_dhcp6_client_set_accept_reconfigure(sd_dhcp6_client *client, int enable) {
+        assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp6_client_is_running(client), -EBUSY);
+
+        client->accept_reconfigure = enable;
+        return 0;
+}
+
 int sd_dhcp6_client_get_lease(sd_dhcp6_client *client, sd_dhcp6_lease **ret) {
         assert_return(client, -EINVAL);
 
@@ -582,6 +591,8 @@ static void client_cleanup(sd_dhcp6_client *client) {
         assert(client);
 
         client->lease = sd_dhcp6_lease_unref(client->lease);
+        dhcp_rkap_key_clear(&client->reconfigure_key);
+        client->reconfigure_information_request = false;
 
         /* Reset IRT here. Otherwise, we cannot restart the client in the information requesting mode,
          * even though the lease is freed below. */
@@ -775,6 +786,15 @@ int dhcp6_client_send_message(sd_dhcp6_client *client) {
 
         switch (client->state) {
         case DHCP6_STATE_INFORMATION_REQUEST:
+                /* RFC 9915 section 18.2.6: when responding to a Reconfigure, the client includes the
+                 * Server Identifier option from the Reconfigure message. */
+                if (client->reconfigure_information_request && client->lease && client->lease->serverid) {
+                        r = dhcp6_option_append(&buf, &offset, SD_DHCP6_OPTION_SERVERID,
+                                                client->lease->serverid_len,
+                                                client->lease->serverid);
+                        if (r < 0)
+                                return r;
+                }
                 break;
 
         case DHCP6_STATE_SOLICITATION:
@@ -819,6 +839,16 @@ int dhcp6_client_send_message(sd_dhcp6_client *client) {
         r = client_append_mudurl(client, &buf, &offset);
         if (r < 0)
                 return r;
+
+        /* RFC 9915 sections 18.2.1, 18.2.2 and 21.20: the client includes a Reconfigure Accept option if it
+         * is willing to accept Reconfigure messages. Also include it in Renew, Rebind and
+         * Information-request messages, so that a server that creates or moves the binding then (e.g.
+         * another server when rebinding), or a server in the stateless mode, knows it. */
+        if (client->accept_reconfigure && client->state != DHCP6_STATE_STOPPING) {
+                r = dhcp6_option_append(&buf, &offset, SD_DHCP6_OPTION_RECONF_ACCEPT, /* optlen= */ 0, /* optval= */ NULL);
+                if (r < 0)
+                        return r;
+        }
 
         r = client_append_oro(client, &buf, &offset);
         if (r < 0)
@@ -953,6 +983,9 @@ static int client_start_transaction(sd_dhcp6_client *client, DHCP6State state) {
 
         switch (state) {
         case DHCP6_STATE_INFORMATION_REQUEST:
+                /* In the managed mode, only in response to a Reconfigure message. */
+                assert(client->state == (client->information_request ? DHCP6_STATE_STOPPED : DHCP6_STATE_BOUND));
+                break;
         case DHCP6_STATE_SOLICITATION:
                 assert(client->state == DHCP6_STATE_STOPPED);
                 break;
@@ -960,10 +993,10 @@ static int client_start_transaction(sd_dhcp6_client *client, DHCP6State state) {
                 assert(client->state == DHCP6_STATE_SOLICITATION);
                 break;
         case DHCP6_STATE_RENEW:
-                assert(client->state == DHCP6_STATE_BOUND);
+                assert(IN_SET(client->state, DHCP6_STATE_BOUND, DHCP6_STATE_INFORMATION_REQUEST));
                 break;
         case DHCP6_STATE_REBIND:
-                assert(IN_SET(client->state, DHCP6_STATE_BOUND, DHCP6_STATE_RENEW));
+                assert(IN_SET(client->state, DHCP6_STATE_BOUND, DHCP6_STATE_RENEW, DHCP6_STATE_INFORMATION_REQUEST));
                 break;
         case DHCP6_STATE_STOPPED:
         case DHCP6_STATE_STOPPING:
@@ -973,6 +1006,9 @@ static int client_start_transaction(sd_dhcp6_client *client, DHCP6State state) {
         }
 
         client_set_state(client, state);
+
+        if (state != DHCP6_STATE_INFORMATION_REQUEST)
+                client->reconfigure_information_request = false;
 
         client->retransmit_time = 0;
         client->retransmit_count = 0;
@@ -1059,7 +1095,9 @@ static int client_enter_bound_state(sd_dhcp6_client *client) {
                       DHCP6_STATE_RENEW,
                       DHCP6_STATE_REBIND));
 
-        (void) event_source_disable(client->receive_message);
+        /* Keep listening for Reconfigure messages if the server gave us a reconfigure key. */
+        if (!client->reconfigure_key.set)
+                (void) event_source_disable(client->receive_message);
         (void) event_source_disable(client->timeout_resend);
 
         r = sd_dhcp6_lease_get_t1(client->lease, &lifetime_t1);
@@ -1144,6 +1182,167 @@ static int log_invalid_message_type(sd_dhcp6_client *client, const DHCP6Message 
                                               "Received unsupported message type %u, ignoring.", message->type);
 }
 
+static void client_update_reconfigure_key(sd_dhcp6_client *client, sd_dhcp6_lease *lease) {
+        assert(client);
+        assert(lease);
+
+        /* RFC 9915 section 20.4.3: the client records the reconfigure key from the initial Reply. Replies to
+         * Renew or Rebind usually do not carry the key, so keep the current one, unless the new lease comes
+         * from a different server (e.g. after Rebind), whose Reconfigure messages the old key cannot
+         * authenticate. */
+        if (lease->reconfigure_key.set) {
+                /* RFC 9915 section 20.3: the replay detection value from the same server must increase. */
+                if (client->reconfigure_key.set && client->lease &&
+                    memcmp_nn(client->lease->serverid, client->lease->serverid_len,
+                              lease->serverid, lease->serverid_len) == 0 &&
+                    lease->reconfigure_key.replay <= client->reconfigure_key.replay) {
+                        log_dhcp6_client(client, "Received reconfigure key with an old replay detection value, ignoring it.");
+                        dhcp_rkap_key_clear(&lease->reconfigure_key);
+                        return;
+                }
+
+                if (!client->reconfigure_key.set)
+                        log_dhcp6_client(client, "Received reconfigure key, accepting Reconfigure messages.");
+                client->reconfigure_key = lease->reconfigure_key;
+                dhcp_rkap_key_clear(&lease->reconfigure_key);
+                return;
+        }
+
+        if (!client->reconfigure_key.set || !client->lease)
+                return;
+
+        if (memcmp_nn(client->lease->serverid, client->lease->serverid_len, lease->serverid, lease->serverid_len) == 0)
+                return;
+
+        log_dhcp6_client(client, "Received lease from a different server without reconfigure key, forgetting the previous key.");
+        dhcp_rkap_key_clear(&client->reconfigure_key);
+}
+
+static int client_process_reconfigure(sd_dhcp6_client *client, DHCP6Message *message, size_t len) {
+        const uint8_t *serverid = NULL, *clientid = NULL, *auth = NULL;
+        size_t serverid_len = 0, clientid_len = 0, auth_len = 0;
+        int msg_type = -1;
+        int r;
+
+        assert(client);
+        assert(message);
+        assert(len >= sizeof(DHCP6Message));
+
+        /* RFC 9915 section 18.2.11: while a transaction is in progress, the client discards any Reconfigure
+         * messages it receives. In the stateless mode, the client is stopped after it received the
+         * information (and keeps the lease), otherwise it is bound. */
+        bool stateless = client->information_request && client->state == DHCP6_STATE_STOPPED && client->lease;
+        if (client->state != DHCP6_STATE_BOUND && !stateless)
+                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EBUSY),
+                                              "Received Reconfigure message while in %s state, ignoring.",
+                                              dhcp6_state_to_string(client->state));
+
+        if (!client->reconfigure_key.set)
+                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(ENOKEY),
+                                              "Received Reconfigure message, but the server did not provide a reconfigure key, ignoring.");
+
+        assert(client->lease);
+
+        /* Note, the socket is bound to the link-local address, hence only unicast messages are received
+         * (RFC 9915 section 16.11: the client MUST discard Reconfigure messages not unicast to it). */
+
+        size_t optlen_total = len - sizeof(DHCP6Message);
+        for (size_t offset = 0; offset < optlen_total;) {
+                const uint8_t *optval;
+                uint16_t optcode;
+                size_t optlen;
+
+                r = dhcp6_option_parse(message->options, optlen_total, &offset, &optcode, &optlen, &optval);
+                if (r < 0)
+                        return log_dhcp6_client_errno(client, r, "Failed to parse Reconfigure message, ignoring: %m");
+
+                switch (optcode) {
+                case SD_DHCP6_OPTION_SERVERID:
+                        if (serverid)
+                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EBADMSG),
+                                                              "Reconfigure message contains multiple server IDs, ignoring.");
+                        serverid = optval;
+                        serverid_len = optlen;
+                        break;
+
+                case SD_DHCP6_OPTION_CLIENTID:
+                        if (clientid)
+                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EBADMSG),
+                                                              "Reconfigure message contains multiple client IDs, ignoring.");
+                        clientid = optval;
+                        clientid_len = optlen;
+                        break;
+
+                case SD_DHCP6_OPTION_RECONF_MSG:
+                        if (msg_type >= 0 || optlen != 1)
+                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EBADMSG),
+                                                              "Reconfigure message contains an invalid Reconfigure Message option, ignoring.");
+                        msg_type = optval[0];
+                        break;
+
+                case SD_DHCP6_OPTION_AUTH:
+                        if (auth)
+                                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EBADMSG),
+                                                              "Reconfigure message contains multiple authentication options, ignoring.");
+                        auth = optval;
+                        auth_len = optlen;
+                        break;
+                }
+        }
+
+        /* RFC 9915 section 16.11 */
+        if (!serverid)
+                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EBADMSG),
+                                              "Reconfigure message does not contain a server ID, ignoring.");
+        if (memcmp_nn(serverid, serverid_len, client->lease->serverid, client->lease->serverid_len) != 0)
+                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EBADMSG),
+                                              "Reconfigure message from a different server, ignoring.");
+        if (!clientid || memcmp_nn(clientid, clientid_len, &client->duid.duid, client->duid.size) != 0)
+                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EBADMSG),
+                                              "Reconfigure message does not contain our client ID, ignoring.");
+        if (msg_type < 0)
+                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EBADMSG),
+                                              "Reconfigure message does not contain a Reconfigure Message option, ignoring.");
+        /* RFC 9915 section 21.19: Renew, Rebind or Information-request. A stateless client has no bindings
+         * to renew or rebind. */
+        if (!IN_SET(msg_type, DHCP6_MESSAGE_RENEW, DHCP6_MESSAGE_REBIND, DHCP6_MESSAGE_INFORMATION_REQUEST) ||
+            (stateless && msg_type != DHCP6_MESSAGE_INFORMATION_REQUEST))
+                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EBADMSG),
+                                              "Reconfigure message requests unexpected message type %i in the %s mode, ignoring.",
+                                              msg_type, stateless ? "information request" : "managed");
+        if (!auth)
+                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EBADMSG),
+                                              "Reconfigure message is not authenticated, ignoring.");
+
+        r = dhcp_rkap_verify(&client->reconfigure_key, message, len, auth, auth_len);
+        if (r == -ENOMEM)
+                return log_oom_debug();
+        if (r == -ESTALE)
+                return log_dhcp6_client_errno(client, r, "Reconfigure message has an old replay detection value, ignoring.");
+        if (r == -EPERM)
+                return log_dhcp6_client_errno(client, r, "Reconfigure message failed authentication, ignoring.");
+        if (r < 0)
+                return log_dhcp6_client_errno(client, r, "Reconfigure message has an invalid authentication option, ignoring: %m");
+
+        log_dhcp6_client(client, "Received Reconfigure message, sending %s.", dhcp6_message_type_to_string(msg_type));
+
+        if (msg_type == DHCP6_MESSAGE_INFORMATION_REQUEST) {
+                /* Same as sd_dhcp6_client_send_renew() in the information request mode. In the managed
+                 * mode, the bindings are kept, and T1 and T2 keep running. */
+                if (stateless)
+                        client->information_request_time_usec = now(CLOCK_MONOTONIC);
+                client->reconfigure_information_request = true;
+                return client_start_transaction(client, DHCP6_STATE_INFORMATION_REQUEST);
+        }
+
+        /* Same as when T1 or T2 expires. */
+        (void) event_source_disable(client->timeout_t1);
+        if (msg_type == DHCP6_MESSAGE_REBIND)
+                (void) event_source_disable(client->timeout_t2);
+
+        return client_start_transaction(client, msg_type == DHCP6_MESSAGE_RENEW ? DHCP6_STATE_RENEW : DHCP6_STATE_REBIND);
+}
+
 static int client_process_information(
                 sd_dhcp6_client *client,
                 DHCP6Message *message,
@@ -1164,14 +1363,39 @@ static int client_process_information(
         if (r < 0)
                 return log_dhcp6_client_errno(client, r, "Failed to process received reply message, ignoring: %m");
 
+        /* In the managed mode, this answers an Information-request sent in response to a Reconfigure
+         * message. Keep the bindings, and take the other information from the Reply. */
+        if (!client->information_request) {
+                assert(client->lease);
+
+                if (memcmp_nn(lease->serverid, lease->serverid_len, client->lease->serverid, client->lease->serverid_len) != 0)
+                        return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
+                                                      "Received Reply from a different server, ignoring.");
+
+                dhcp6_lease_take_bindings(lease, client->lease);
+        }
+
         log_dhcp6_client(client, "Processed %s message", dhcp6_message_type_to_string(message->type));
+
+        client_update_reconfigure_key(client, lease);
+        client->reconfigure_information_request = false;
 
         sd_dhcp6_lease_unref(client->lease);
         client->lease = TAKE_PTR(lease);
 
-        /* Do not call client_stop() here, as it frees the acquired lease. */
-        (void) event_source_disable(client->receive_message);
+        /* Do not call client_stop() here, as it frees the acquired lease. Keep listening for Reconfigure
+         * messages if the server gave us a reconfigure key. */
+        if (!client->reconfigure_key.set)
+                (void) event_source_disable(client->receive_message);
         (void) event_source_disable(client->timeout_resend);
+
+        if (!client->information_request) {
+                /* T1, T2 and the lifetimes of the bindings are unchanged. */
+                client_set_state(client, DHCP6_STATE_BOUND);
+                client_notify(client, SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE);
+                return 0;
+        }
+
         client_set_state(client, DHCP6_STATE_STOPPED);
 
         client_notify(client, SD_DHCP6_CLIENT_EVENT_INFORMATION_REQUEST);
@@ -1213,6 +1437,8 @@ static int client_process_reply(
                 return log_dhcp6_client_errno(client, r, "Failed to process received reply message, ignoring: %m");
 
         log_dhcp6_client(client, "Processed %s message", dhcp6_message_type_to_string(message->type));
+
+        client_update_reconfigure_key(client, lease);
 
         sd_dhcp6_lease_unref(client->lease);
         client->lease = TAKE_PTR(lease);
@@ -1258,6 +1484,8 @@ static int client_process_advertise_or_rapid_commit_reply(
                                                       "Received reply message without rapid commit flag, ignoring.");
 
                 log_dhcp6_client(client, "Processed %s message", dhcp6_message_type_to_string(message->type));
+
+                client_update_reconfigure_key(client, lease);
 
                 sd_dhcp6_lease_unref(client->lease);
                 client->lease = TAKE_PTR(lease);
@@ -1353,6 +1581,12 @@ static int client_receive_message(
 
         triple_timestamp_from_cmsg(&t, &msg);
 
+        /* RFC 9915 section 18.2.11: the client ignores the transaction-id field of Reconfigure messages. */
+        if (message->type == DHCP6_MESSAGE_RECONFIGURE) {
+                (void) client_process_reconfigure(client, message, len);
+                return 0;
+        }
+
         if (client->transaction_id != (message->transaction_id & htobe32(0x00ffffff)))
                 return 0;
 
@@ -1376,6 +1610,13 @@ static int client_receive_message(
 
         case DHCP6_STATE_BOUND:
         case DHCP6_STATE_STOPPED:
+                /* When bound, or stopped in the information request mode, we only listen for Reconfigure
+                 * messages, handled above. This is e.g. a retransmitted Reply of the completed exchange. */
+                log_dhcp6_client(client, "Received %s message while %s, ignoring.",
+                                 strna(dhcp6_message_type_to_string(message->type)),
+                                 dhcp6_state_to_string(client->state));
+                break;
+
         case DHCP6_STATE_STOPPING:
         default:
                 assert_not_reached();
@@ -1434,8 +1675,9 @@ int sd_dhcp6_client_send_renew(sd_dhcp6_client *client) {
                 return client_start_transaction(client, DHCP6_STATE_INFORMATION_REQUEST);
         }
 
-        /* A lease can be renewed only when it is acquired. Otherwise, this does nothing. */
-        if (client->state != DHCP6_STATE_BOUND)
+        /* A lease can be renewed only when it is acquired, also while requesting information in response to
+         * a Reconfigure message. Otherwise, this does nothing. */
+        if (client->information_request || !IN_SET(client->state, DHCP6_STATE_BOUND, DHCP6_STATE_INFORMATION_REQUEST))
                 return 0;
 
         /* Same as when T1 expires. */
@@ -1511,8 +1753,10 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
         }
 
         /* Even if the client is in the STOPPED state, the lease acquired in the previous information
-         * request may be stored. */
+         * request may be stored, with the reconfigure key. */
         client->lease = sd_dhcp6_lease_unref(client->lease);
+        dhcp_rkap_key_clear(&client->reconfigure_key);
+        client->reconfigure_information_request = false;
 
         log_dhcp6_client(client, "Starting in %s mode",
                          client->information_request ? "Information request" : "Solicit");
@@ -1566,6 +1810,7 @@ static sd_dhcp6_client *dhcp6_client_free(sd_dhcp6_client *client) {
                 return NULL;
 
         sd_dhcp6_lease_unref(client->lease);
+        dhcp_rkap_key_clear(&client->reconfigure_key);
 
         sd_event_source_disable_unref(client->receive_message);
         sd_event_source_disable_unref(client->timeout_resend);

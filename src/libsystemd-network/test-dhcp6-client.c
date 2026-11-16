@@ -17,6 +17,7 @@
 #include "dhcp6-lease-internal.h"
 #include "dhcp6-protocol.h"
 #include "fd-util.h"
+#include "hmac.h"
 #include "in-addr-util.h"
 #include "memory-util.h"
 #include "strv.h"
@@ -90,6 +91,9 @@ static sd_dhcp6_option vendor_suboption = {
 static int test_ifindex = 42;
 static unsigned test_client_sent_message_count = 0;
 static sd_dhcp6_client *client_ref = NULL;
+static bool test_reconfigure = false;
+static bool test_reconfigure_stateless = false;
+static unsigned test_reconfigure_count = 0;
 
 TEST(client_basic) {
         _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
@@ -1170,7 +1174,12 @@ static void test_client_callback(sd_dhcp6_client *client, int event, void *userd
         }
 }
 
+static int test_reconfigure_send(const void *packet, size_t len);
+
 int dhcp6_network_send_udp_socket(int s, const struct in6_addr *a, const void *packet, size_t len) {
+        if (test_reconfigure)
+                return test_reconfigure_send(packet, len);
+
         log_debug("/* %s(count=%u) */", __func__, test_client_sent_message_count);
 
         ASSERT_NOT_NULL(a);
@@ -1231,7 +1240,9 @@ int dhcp6_network_bind_udp_socket(int ifindex, const struct in6_addr *a) {
         ASSERT_NOT_NULL(a);
         ASSERT_TRUE(in6_addr_equal(a, &local_address));
 
-        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd));
+        /* The Reconfigure test queues several messages at once, which must not be merged. */
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, (test_reconfigure ? SOCK_DGRAM : SOCK_STREAM) | SOCK_CLOEXEC | SOCK_NONBLOCK,
+                                   0, test_fd));
         return TAKE_FD(test_fd[0]);
 }
 
@@ -1276,6 +1287,373 @@ TEST(dhcp6_client) {
 
         ASSERT_NULL(sd_dhcp6_client_unref(client_ref));
         test_fd[1] = safe_close(test_fd[1]);
+}
+
+static const uint8_t reconfigure_key[DHCP_RKAP_KEY_SIZE] = {
+        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
+};
+static const uint8_t reconfigure_key_other[DHCP_RKAP_KEY_SIZE] = {
+        0x10, 0x0f, 0x0e, 0x0d, 0x0c, 0x0b, 0x0a, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01,
+};
+
+static bool test_message_has_option(const DHCP6Message *msg, size_t len, uint16_t code) {
+        size_t options_len = len - offsetof(DHCP6Message, options);
+
+        for (size_t offset = 0; offset < options_len;) {
+                const uint8_t *optval;
+                uint16_t optcode;
+                size_t optlen;
+
+                ASSERT_OK(dhcp6_option_parse(msg->options, options_len, &offset, &optcode, &optlen, &optval));
+                if (optcode == code)
+                        return true;
+        }
+
+        return false;
+}
+
+static void test_reconfigure_write_reply(const uint8_t *key, uint64_t replay) {
+        uint8_t buf[sizeof(msg_reply) + offsetof(DHCP6Option, data) + sizeof(DHCPRKAPAuth)];
+        size_t len = sizeof(msg_reply);
+
+        memcpy(buf, msg_reply, sizeof(msg_reply));
+
+        if (key) {
+                DHCPRKAPAuth auth = {
+                        .protocol = DHCP_RKAP_PROTOCOL,
+                        .algorithm = DHCP_RKAP_ALGORITHM_HMAC_MD5,
+                        .rdm = DHCP_RKAP_RDM_MONOTONIC,
+                        .replay = htobe64(replay),
+                        .type = DHCP_RKAP_TYPE_KEY,
+                };
+
+                memcpy(auth.value, key, sizeof(auth.value));
+                unaligned_write_be16(buf + len, SD_DHCP6_OPTION_AUTH);
+                unaligned_write_be16(buf + len + 2, sizeof(auth));
+                memcpy(buf + len + offsetof(DHCP6Option, data), &auth, sizeof(auth));
+                len += offsetof(DHCP6Option, data) + sizeof(auth);
+        }
+
+        ASSERT_OK(dhcp6_client_set_transaction_id(client_ref, ((const DHCP6Message*) msg_reply)->transaction_id));
+        ASSERT_OK_EQ_ERRNO(write(test_fd[1], buf, len), (ssize_t) len);
+}
+
+typedef enum ReconfigureFlaw {
+        RECONFIGURE_VALID,
+        RECONFIGURE_BAD_DIGEST,
+        RECONFIGURE_NO_AUTH,
+        RECONFIGURE_OTHER_SERVER,
+        RECONFIGURE_OTHER_CLIENT,
+        RECONFIGURE_WRONG_PROTOCOL,
+} ReconfigureFlaw;
+
+static void test_reconfigure_write(uint8_t msg_type, uint64_t replay, ReconfigureFlaw flaw) {
+        uint8_t sid[] = { SERVER_ID_BYTES }, cid[] = { CLIENT_ID_BYTES };
+        uint8_t buf[256];
+        size_t len = 0;
+
+        log_debug("/* %s(%s, replay=%" PRIu64 ", flaw=%u) */", __func__,
+                  dhcp6_message_type_to_string(msg_type), replay, flaw);
+
+        if (flaw == RECONFIGURE_OTHER_SERVER)
+                sid[sizeof(sid) - 1] ^= 0xff;
+        if (flaw == RECONFIGURE_OTHER_CLIENT)
+                cid[sizeof(cid) - 1] ^= 0xff;
+
+        /* RFC 9915 section 18.3.11: the transaction ID is zero. */
+        buf[len++] = DHCP6_MESSAGE_RECONFIGURE;
+        buf[len++] = 0;
+        buf[len++] = 0;
+        buf[len++] = 0;
+
+        unaligned_write_be16(buf + len, SD_DHCP6_OPTION_SERVERID);
+        unaligned_write_be16(buf + len + 2, sizeof(sid));
+        memcpy(buf + len + 4, sid, sizeof(sid));
+        len += 4 + sizeof(sid);
+
+        unaligned_write_be16(buf + len, SD_DHCP6_OPTION_CLIENTID);
+        unaligned_write_be16(buf + len + 2, sizeof(cid));
+        memcpy(buf + len + 4, cid, sizeof(cid));
+        len += 4 + sizeof(cid);
+
+        unaligned_write_be16(buf + len, SD_DHCP6_OPTION_RECONF_MSG);
+        unaligned_write_be16(buf + len + 2, 1);
+        buf[len + 4] = msg_type;
+        len += 5;
+
+        if (flaw != RECONFIGURE_NO_AUTH) {
+                DHCPRKAPAuth auth = {
+                        .protocol = flaw == RECONFIGURE_WRONG_PROTOCOL ? 2 : DHCP_RKAP_PROTOCOL,
+                        .algorithm = DHCP_RKAP_ALGORITHM_HMAC_MD5,
+                        .rdm = DHCP_RKAP_RDM_MONOTONIC,
+                        .replay = htobe64(replay),
+                        .type = DHCP_RKAP_TYPE_HMAC_MD5,
+                };
+                size_t auth_offset = len + 4;
+
+                unaligned_write_be16(buf + len, SD_DHCP6_OPTION_AUTH);
+                unaligned_write_be16(buf + len + 2, sizeof(auth));
+                memcpy(buf + auth_offset, &auth, sizeof(auth));
+                len += 4 + sizeof(auth);
+
+                /* The digest is computed with the digest field zeroed (RFC 9915 section 20.4.2). */
+                hmac_md5(reconfigure_key, sizeof(reconfigure_key), buf, len,
+                         buf + auth_offset + offsetof(DHCPRKAPAuth, value));
+                if (flaw == RECONFIGURE_BAD_DIGEST)
+                        buf[auth_offset + offsetof(DHCPRKAPAuth, value)] ^= 0x01;
+        }
+
+        ASSERT_OK_EQ_ERRNO(write(test_fd[1], buf, len), (ssize_t) len);
+}
+
+static int test_reconfigure_stateless_send(const void *packet, size_t len) {
+        const DHCP6Message *msg = packet;
+
+        log_debug("/* %s(count=%u, type=%s) */", __func__, test_reconfigure_count,
+                  dhcp6_message_type_to_string(msg->type));
+
+        ASSERT_GE(len, sizeof(DHCP6Message));
+        ASSERT_EQ(msg->type, DHCP6_MESSAGE_INFORMATION_REQUEST);
+        ASSERT_TRUE(test_message_has_option(msg, len, SD_DHCP6_OPTION_RECONF_ACCEPT));
+
+        switch (test_reconfigure_count) {
+        case 0:
+                /* The initial Information-request. The server hands out the key in the Reply. */
+                ASSERT_FALSE(test_message_has_option(msg, len, SD_DHCP6_OPTION_SERVERID));
+                test_reconfigure_write_reply(reconfigure_key, /* replay= */ 10);
+                break;
+
+        case 1:
+        case 2:
+                /* Triggered by a Reconfigure message: RFC 9915 section 18.2.6 requires the Server
+                 * Identifier. Only the valid Reconfigure message must have been accepted, see
+                 * test_reconfigure_stateless_callback(). */
+                ASSERT_TRUE(test_message_has_option(msg, len, SD_DHCP6_OPTION_SERVERID));
+                ASSERT_EQ(client_ref->reconfigure_key.replay, test_reconfigure_count == 1 ? 11u : 12u);
+                test_reconfigure_write_reply(/* key= */ NULL, /* replay= */ 0);
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        test_reconfigure_count++;
+        return len;
+}
+
+static int test_reconfigure_send(const void *packet, size_t len) {
+        const DHCP6Message *msg = packet;
+
+        if (test_reconfigure_stateless)
+                return test_reconfigure_stateless_send(packet, len);
+
+        log_debug("/* %s(count=%u, type=%s) */", __func__, test_reconfigure_count,
+                  dhcp6_message_type_to_string(msg->type));
+
+        ASSERT_GE(len, sizeof(DHCP6Message));
+
+        switch (test_reconfigure_count) {
+        case 0:
+                /* The client announces that it accepts Reconfigure messages, and the server hands out the
+                 * key in the (rapid commit) Reply. */
+                ASSERT_EQ(msg->type, DHCP6_MESSAGE_SOLICIT);
+                ASSERT_TRUE(test_message_has_option(msg, len, SD_DHCP6_OPTION_RECONF_ACCEPT));
+                test_reconfigure_write_reply(reconfigure_key, /* replay= */ 10);
+                break;
+
+        case 1:
+                /* Triggered by the valid Reconfigure message. The Reply does not carry the key again. */
+                ASSERT_EQ(msg->type, DHCP6_MESSAGE_RENEW);
+                ASSERT_TRUE(test_message_has_option(msg, len, SD_DHCP6_OPTION_RECONF_ACCEPT));
+                test_reconfigure_write_reply(/* key= */ NULL, /* replay= */ 0);
+                break;
+
+        case 2:
+                ASSERT_EQ(msg->type, DHCP6_MESSAGE_REBIND);
+                ASSERT_TRUE(test_message_has_option(msg, len, SD_DHCP6_OPTION_RECONF_ACCEPT));
+                test_reconfigure_write_reply(/* key= */ NULL, /* replay= */ 0);
+                break;
+
+        case 3:
+                /* Triggered by a Reconfigure message: the bindings are not included, but the Server
+                 * Identifier is (RFC 9915 section 18.2.6). The Reply carries a new key with an old replay
+                 * detection value, which must be ignored (RFC 9915 section 20.3). */
+                ASSERT_EQ(msg->type, DHCP6_MESSAGE_INFORMATION_REQUEST);
+                ASSERT_TRUE(test_message_has_option(msg, len, SD_DHCP6_OPTION_RECONF_ACCEPT));
+                ASSERT_TRUE(test_message_has_option(msg, len, SD_DHCP6_OPTION_SERVERID));
+                ASSERT_FALSE(test_message_has_option(msg, len, SD_DHCP6_OPTION_IA_NA));
+                ASSERT_FALSE(test_message_has_option(msg, len, SD_DHCP6_OPTION_IA_PD));
+                test_reconfigure_write_reply(reconfigure_key_other, /* replay= */ 10);
+                break;
+
+        case 4:
+                /* Release, when stopping the client. */
+                ASSERT_EQ(msg->type, DHCP6_MESSAGE_RELEASE);
+                ASSERT_FALSE(test_message_has_option(msg, len, SD_DHCP6_OPTION_RECONF_ACCEPT));
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        test_reconfigure_count++;
+        return len;
+}
+
+static void test_reconfigure_callback(sd_dhcp6_client *client, int event, void *userdata) {
+        if (event == SD_DHCP6_CLIENT_EVENT_STOP)
+                return;
+
+        ASSERT_EQ(event, SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE);
+        ASSERT_TRUE(client->reconfigure_key.set);
+
+        switch (test_reconfigure_count) {
+        case 1:
+                /* All but the last one must be ignored. They request Rebind, the valid one Renew, so that an
+                 * accepted invalid message would make the client send Rebind next. */
+                test_reconfigure_write(DHCP6_MESSAGE_REBIND, 11, RECONFIGURE_BAD_DIGEST);
+                test_reconfigure_write(DHCP6_MESSAGE_REBIND, 11, RECONFIGURE_NO_AUTH);
+                test_reconfigure_write(DHCP6_MESSAGE_REBIND, 11, RECONFIGURE_OTHER_SERVER);
+                test_reconfigure_write(DHCP6_MESSAGE_REBIND, 11, RECONFIGURE_OTHER_CLIENT);
+                test_reconfigure_write(DHCP6_MESSAGE_REBIND, 11, RECONFIGURE_WRONG_PROTOCOL);
+                /* The replay detection value must be larger than the one of the key. */
+                test_reconfigure_write(DHCP6_MESSAGE_REBIND, 10, RECONFIGURE_VALID);
+                test_reconfigure_write(DHCP6_MESSAGE_RENEW, 11, RECONFIGURE_VALID);
+                /* Received while renewing, hence ignored (RFC 9915 section 18.2.11). */
+                test_reconfigure_write(DHCP6_MESSAGE_REBIND, 12, RECONFIGURE_VALID);
+                break;
+
+        case 2:
+                /* The key is kept over the Renew. A replayed message is ignored. */
+                test_reconfigure_write(DHCP6_MESSAGE_RENEW, 11, RECONFIGURE_VALID);
+                test_reconfigure_write(DHCP6_MESSAGE_REBIND, 13, RECONFIGURE_VALID);
+                break;
+
+        case 3:
+                /* A bound client can also be asked to request the other information again. */
+                test_reconfigure_write(DHCP6_MESSAGE_INFORMATION_REQUEST, 14, RECONFIGURE_VALID);
+                break;
+
+        case 4:
+                /* The bindings are kept, and so is the previous key. */
+                ASSERT_EQ(client->state, DHCP6_STATE_BOUND);
+                ASSERT_NOT_NULL(client->lease->ia_na);
+                ASSERT_NOT_NULL(client->lease->ia_pd);
+                ASSERT_EQ(memcmp(client->reconfigure_key.key, reconfigure_key, sizeof(reconfigure_key)), 0);
+                ASSERT_EQ(client->reconfigure_key.replay, 14u);
+
+                ASSERT_OK(sd_dhcp6_client_stop(client));
+                ASSERT_FALSE(client->reconfigure_key.set);
+                ASSERT_OK(sd_event_exit(sd_dhcp6_client_get_event(client), /* code= */ 0));
+                break;
+
+        default:
+                assert_not_reached();
+        }
+}
+
+static void test_reconfigure_stateless_callback(sd_dhcp6_client *client, int event, void *userdata) {
+        if (event == SD_DHCP6_CLIENT_EVENT_STOP)
+                return;
+
+        ASSERT_EQ(event, SD_DHCP6_CLIENT_EVENT_INFORMATION_REQUEST);
+        ASSERT_TRUE(client->reconfigure_key.set);
+        ASSERT_FALSE(sd_dhcp6_client_is_running(client));
+
+        switch (test_reconfigure_count) {
+        case 1:
+                /* A stateless client can only send an Information-request. */
+                test_reconfigure_write(DHCP6_MESSAGE_RENEW, 11, RECONFIGURE_VALID);
+                test_reconfigure_write(DHCP6_MESSAGE_INFORMATION_REQUEST, 11, RECONFIGURE_BAD_DIGEST);
+                test_reconfigure_write(DHCP6_MESSAGE_INFORMATION_REQUEST, 11, RECONFIGURE_OTHER_SERVER);
+                test_reconfigure_write(DHCP6_MESSAGE_INFORMATION_REQUEST, 10, RECONFIGURE_VALID);
+                test_reconfigure_write(DHCP6_MESSAGE_INFORMATION_REQUEST, 11, RECONFIGURE_VALID);
+                break;
+
+        case 2:
+                /* The key is kept, a replayed message is ignored. */
+                test_reconfigure_write(DHCP6_MESSAGE_INFORMATION_REQUEST, 11, RECONFIGURE_VALID);
+                test_reconfigure_write(DHCP6_MESSAGE_INFORMATION_REQUEST, 12, RECONFIGURE_VALID);
+                break;
+
+        case 3:
+                ASSERT_OK(sd_dhcp6_client_stop(client));
+                ASSERT_FALSE(client->reconfigure_key.set);
+                ASSERT_OK(sd_event_exit(sd_dhcp6_client_get_event(client), /* code= */ 0));
+                break;
+
+        default:
+                assert_not_reached();
+        }
+}
+
+TEST(dhcp6_client_reconfigure_stateless) {
+        _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        test_reconfigure = true;
+        test_reconfigure_stateless = true;
+        test_reconfigure_count = 0;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_add_time_relative(e, /* ret= */ NULL, CLOCK_BOOTTIME,
+                                             30 * USEC_PER_SEC, /* accuracy= */ 0,
+                                             /* callback= */ NULL, INT_TO_PTR(-ETIMEDOUT)));
+
+        ASSERT_OK(sd_dhcp6_client_new(&client));
+        ASSERT_OK(sd_dhcp6_client_attach_event(client, e, /* priority= */ 0));
+        ASSERT_OK_ZERO(sd_dhcp6_client_set_ifindex(client, test_ifindex));
+        ASSERT_OK(sd_dhcp6_client_set_local_address(client, &local_address));
+        ASSERT_OK(sd_dhcp6_client_set_information_request(client, /* enabled= */ true));
+        ASSERT_OK(sd_dhcp6_client_set_accept_reconfigure(client, /* enable= */ true));
+        ASSERT_OK(sd_dhcp6_client_set_callback(client, test_reconfigure_stateless_callback, /* userdata= */ NULL));
+
+        ASSERT_NOT_NULL(client_ref = sd_dhcp6_client_ref(client));
+
+        ASSERT_OK(sd_dhcp6_client_start(client));
+
+        ASSERT_OK(sd_event_loop(e));
+
+        ASSERT_EQ(test_reconfigure_count, 3u);
+
+        ASSERT_NULL(sd_dhcp6_client_unref(client_ref));
+        test_fd[1] = safe_close(test_fd[1]);
+        test_reconfigure = false;
+        test_reconfigure_stateless = false;
+}
+
+TEST(dhcp6_client_reconfigure) {
+        _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        test_reconfigure = true;
+        test_reconfigure_count = 0;
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_add_time_relative(e, /* ret= */ NULL, CLOCK_BOOTTIME,
+                                             30 * USEC_PER_SEC, /* accuracy= */ 0,
+                                             /* callback= */ NULL, INT_TO_PTR(-ETIMEDOUT)));
+
+        ASSERT_OK(sd_dhcp6_client_new(&client));
+        ASSERT_OK(sd_dhcp6_client_attach_event(client, e, /* priority= */ 0));
+        ASSERT_OK_ZERO(sd_dhcp6_client_set_ifindex(client, test_ifindex));
+        ASSERT_OK(sd_dhcp6_client_set_local_address(client, &local_address));
+        ASSERT_OK(sd_dhcp6_client_set_iaid(client, unaligned_read_be32((uint8_t[]) { IA_ID_BYTES })));
+        ASSERT_OK(sd_dhcp6_client_set_send_release(client, /* enable= */ true));
+        ASSERT_OK(sd_dhcp6_client_set_accept_reconfigure(client, /* enable= */ true));
+        ASSERT_OK(sd_dhcp6_client_set_callback(client, test_reconfigure_callback, /* userdata= */ NULL));
+
+        ASSERT_NOT_NULL(client_ref = sd_dhcp6_client_ref(client));
+
+        ASSERT_OK(sd_dhcp6_client_start(client));
+
+        ASSERT_OK(sd_event_loop(e));
+
+        ASSERT_EQ(test_reconfigure_count, 5u);
+
+        ASSERT_NULL(sd_dhcp6_client_unref(client_ref));
+        test_fd[1] = safe_close(test_fd[1]);
+        test_reconfigure = false;
 }
 
 static int intro(void) {
