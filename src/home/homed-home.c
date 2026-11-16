@@ -409,7 +409,11 @@ int home_unlink_record(Home *h) {
         if (unlink(fn) < 0 && errno != ENOENT)
                 return -errno;
 
-        fn = strjoina("/run/systemd/home/", h->user_name, ".ref");
+        fn = strjoina("/run/systemd/home/", h->user_name, ".please-suspend");
+        if (unlink(fn) < 0 && errno != ENOENT)
+                return -errno;
+
+        fn = strjoina("/run/systemd/home/", h->user_name, ".dont-suspend");
         if (unlink(fn) < 0 && errno != ENOENT)
                 return -errno;
 
