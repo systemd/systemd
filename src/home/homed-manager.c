@@ -1986,7 +1986,7 @@ static int manager_rebalance_apply(Manager *m) {
         return c;
 }
 
-static void manager_rebalance_reply_messages(Manager *m) {
+static void manager_rebalance_reply_messages(Manager *m, int result) {
         int r;
 
         assert(m);
@@ -1998,7 +1998,10 @@ static void manager_rebalance_reply_messages(Manager *m) {
                 if (!msg)
                         break;
 
-                r = sd_bus_reply_method_return(msg, /* types= */ NULL);
+                if (result < 0)
+                        r = sd_bus_reply_method_errno(msg, result, /* e= */ NULL);
+                else
+                        r = sd_bus_reply_method_return(msg, /* types= */ NULL);
                 if (r < 0)
                         log_debug_errno(r, "Failed to reply to rebalance method call, ignoring: %m");
         }
@@ -2081,7 +2084,7 @@ static int manager_rebalance_now(Manager *m) {
 finish:
         /* Reset state and schedule next rebalance */
         m->rebalance_state = REBALANCE_IDLE;
-        manager_rebalance_reply_messages(m);
+        manager_rebalance_reply_messages(m, r);
         (void) manager_schedule_rebalance(m, /* immediately= */ false);
         return r;
 }
@@ -2188,7 +2191,7 @@ int manager_schedule_rebalance(Manager *m, bool immediately) {
 turn_off:
         m->rebalance_event_source = sd_event_source_disable_unref(m->rebalance_event_source);
         m->rebalance_state = REBALANCE_OFF;
-        manager_rebalance_reply_messages(m);
+        manager_rebalance_reply_messages(m, r);
         return r;
 }
 
