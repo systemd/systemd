@@ -2920,7 +2920,7 @@ static int apply_resize_partition(
                 sd_id128_t disk_uuids,
                 struct fdisk_table *t,
                 struct fdisk_partition *p,
-                size_t new_partition_size) {
+                uint64_t new_partition_size) {
 
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         uint32_t ssz;
