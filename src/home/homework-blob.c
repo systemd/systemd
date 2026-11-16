@@ -178,7 +178,12 @@ static int replace_blob_at(
                 const char *name = de->entries[i]->d_name;
                 _cleanup_close_ int src_fd = -EBADF;
 
-                src_fd = xopenat(src_dfd, name, O_RDONLY|O_NOCTTY|O_NOFOLLOW);
+                /* Pin and verify the inode before opening it, so that we never open FIFOs or such */
+                src_fd = xopenat_full(src_dfd, name, O_RDONLY|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, MODE_INVALID);
+                if (IN_SET(src_fd, -EISDIR, -ELOOP, -EBADFD)) {
+                        log_warning_errno(src_fd, "Blob %s is not a regular file. Skipping.", name);
+                        continue;
+                }
                 if (src_fd < 0) {
                         r = log_debug_errno(src_fd, "Failed to open %s in src blob dir: %m", name);
                         goto fail;
