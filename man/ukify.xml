@@ -1037,6 +1037,12 @@ ID=factory-reset' \
 </programlisting>
 
       <para>The resulting UKI <filename>base-with-profile-0-1-2.efi</filename> will now contain three profiles.</para>
+
+      <para><command>systemd-pcrlock lock-uki</command> only generates a <filename>.pcrlock</filename> file
+      for profile @0 of this UKI. TPM2 objects bound to the <command>systemd-pcrlock</command> policy hence
+      stay locked when any other profile is booted, for example the storage target mode profile. Add
+      <literal>PCRLOCK=yes</literal> to the <option>--profile=</option> text of a profile to change that,
+      see <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
     </example>
 
     <example>
