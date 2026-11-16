@@ -183,6 +183,11 @@ typedef struct Link {
         Set *ndisc_pref64;
         Set *ndisc_redirects;
         Set *ndisc_dnr;
+        Set *ndisc_prefixes;
+        sd_event_source *ndisc_dhcp6_renew;
+        usec_t ndisc_dhcp6_renew_usec;
+        bool ndisc_prefixes_changed;
+        bool ndisc_router_received;
         uint32_t ndisc_mtu;
         unsigned ndisc_messages;
         bool ndisc_configured;
