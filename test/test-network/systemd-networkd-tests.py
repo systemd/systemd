@@ -10017,6 +10017,57 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('DHCPRENEW(veth-peer)', output)
 
+    def test_dhcp6_client_renew_on_prefix_change(self):
+        # RFC 8415 section 18.2.12: the lease must be renewed when a new prefix is announced on the link.
+        check_output('ip netns add ns-server')
+        check_output('ip link add veth99 type veth peer veth-peer')
+        check_output('ip link set veth-peer netns ns-server')
+        check_output('ip netns exec ns-server ip link set veth-peer up')
+        check_output('ip netns exec ns-server ip address add 192.168.5.1/24 dev veth-peer')
+        check_output('ip netns exec ns-server ip address add 2600::1/64 dev veth-peer')
+
+        copy_network_unit('25-dhcp6-client-renew-on-prefix-change.network')
+
+        # dnsmasq announces 2601::/64 only when veth-peer has an address in that prefix, and only in its
+        # next periodic RA, hence the short RA interval. Even so, that RA may take about 15 seconds.
+        start_dnsmasq('--dhcp-range=2601::,ra-only', '--ra-param=veth-peer,5', namespace='ns-server')
+        start_networkd()
+        self.wait_online('veth99:routable')
+        self.wait_address('veth99', r'inet6 2600::[0-9a-f:]*/128', ipv='-6')
+
+        # Periodic RAs with unchanged prefixes must not trigger a renewal. Wait for one more RA, which may
+        # take about 15 seconds, and stay well below T1 (1 minute).
+        count = read_dnsmasq_log_file().count('RTR-ADVERT(veth-peer)')
+        for _ in range(40):
+            if read_dnsmasq_log_file().count('RTR-ADVERT(veth-peer)') > count:
+                break
+            time.sleep(0.5)
+        time.sleep(1)
+
+        output = read_dnsmasq_log_file()
+        print('## dnsmasq log before adding a prefix')
+        print(output)
+        self.assertGreater(output.count('RTR-ADVERT(veth-peer)'), count)
+        self.assertNotIn('DHCPRENEW(veth-peer)', output)
+
+        since = datetime.datetime.now()
+        check_output('ip netns exec ns-server ip address add 2601::1/64 dev veth-peer')
+
+        # The lease time is 2 minutes, hence the lease must be renewed much earlier than on the regular
+        # renewal.
+        for _ in range(60):
+            output = read_dnsmasq_log_file()
+            if 'DHCPRENEW(veth-peer)' in output:
+                break
+            time.sleep(0.5)
+
+        print('## dnsmasq log after adding a prefix')
+        print(output)
+        self.assertIn('DHCPRENEW(veth-peer)', output)
+
+        if enable_debug:
+            self.check_networkd_log('New prefix 2601::/64', since=since)
+
     def test_dhcp_keep_configuration_dynamic(self):
         copy_network_unit(
             '25-veth.netdev',
