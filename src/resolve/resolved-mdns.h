@@ -23,6 +23,12 @@ void manager_mdns_stop(Manager *m);
 void manager_mdns_maybe_stop(Manager *m);
 int manager_mdns_start(Manager *m);
 
+bool mdns_known_answers_suppress(
+                DnsAnswer *known_answers,
+                DnsAnswer *answer,
+                DnsResourceRecord *rr,
+                DnsAnswerFlags flags);
+
 void mdns_announcement_max_sizes(
                 int family,
                 size_t link_mtu,
