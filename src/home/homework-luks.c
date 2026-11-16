@@ -2316,10 +2316,12 @@ int home_create_luks(
                 if (h->disk_size == UINT64_MAX) {
 
                         /* If a relative disk size is requested, apply it relative to the block device size */
-                        if (h->disk_size_relative < UINT32_MAX)
-                                host_size = CLAMP(DISK_SIZE_ROUND_DOWN(block_device_size * h->disk_size_relative / UINT32_MAX),
+                        if (h->disk_size_relative < UINT32_MAX) {
+                                double f = (double) h->disk_size_relative / UINT32_MAX;
+
+                                host_size = CLAMP(DISK_SIZE_ROUND_DOWN((uint64_t) (block_device_size * f)),
                                                   USER_DISK_SIZE_MIN, USER_DISK_SIZE_MAX);
-                        else
+                        } else
                                 host_size = block_device_size; /* Otherwise, take the full device */
 
                 } else if (h->disk_size > block_device_size)
