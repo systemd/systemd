@@ -13,10 +13,13 @@
 #include "sd-event.h"
 
 #include "dhcp-client-internal.h"
+#include "dhcp-lease-internal.h"  /* IWYU pragma: keep */
 #include "dhcp-message.h"
+#include "dhcp-rkap.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
+#include "hmac.h"
 #include "in-addr-util.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
@@ -789,6 +792,216 @@ TEST(init_reboot) {
         _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
         setup(init_reboot_io_handler, init_reboot_client_handler, &client);
         ASSERT_OK(sd_dhcp_client_set_request_address(client, &client_address.in));
+        ASSERT_OK(sd_dhcp_client_start(client));
+        ASSERT_OK(sd_event_loop(sd_dhcp_client_get_event(client)));
+}
+
+static const uint8_t forcerenew_nonce[DHCP_RKAP_KEY_SIZE] = {
+        0x10, 0x0f, 0x0e, 0x0d, 0x0c, 0x0b, 0x0a, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01,
+};
+static int forcerenew_server_fd = -EBADF;
+
+static void forcerenew_append_nonce(sd_dhcp_message *m) {
+        DHCPRKAPAuth auth = {
+                .protocol = DHCP_RKAP_PROTOCOL,
+                .algorithm = DHCP_RKAP_ALGORITHM_HMAC_MD5,
+                .rdm = DHCP_RKAP_RDM_MONOTONIC,
+                .replay = htobe64(10),
+                .type = DHCP_RKAP_TYPE_KEY,
+        };
+
+        memcpy(auth.value, forcerenew_nonce, sizeof(auth.value));
+        ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_AUTHENTICATION, sizeof(auth), &auth));
+}
+
+typedef enum ForceRenewFlaw {
+        FORCERENEW_VALID,
+        FORCERENEW_BAD_DIGEST,
+        FORCERENEW_NO_AUTH,
+        FORCERENEW_OTHER_SERVER,
+        FORCERENEW_OTHER_CLIENT,
+} ForceRenewFlaw;
+
+static void forcerenew_send(sd_dhcp_client *client, uint64_t replay, ForceRenewFlaw flaw) {
+        log_debug("%s: replay=%" PRIu64 ", flaw=%u", __func__, replay, flaw);
+
+        struct hw_addr_data hw = hw_addr;
+        if (flaw == FORCERENEW_OTHER_CLIENT)
+                hw.bytes[hw.length - 1] ^= 0xff;
+
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m = NULL;
+        ASSERT_OK(dhcp_message_new(&m));
+        /* The xid is chosen by the server, and does not match the one of the client. */
+        ASSERT_OK(dhcp_message_init_header(m, BOOTREPLY, client->xid ^ 0x5a5a5a5a, ARPHRD_ETHER, &hw));
+        ASSERT_OK(dhcp_message_append_option_u8(m, SD_DHCP_OPTION_MESSAGE_TYPE, DHCP_FORCERENEW));
+
+        if (flaw == FORCERENEW_OTHER_SERVER)
+                ASSERT_OK(dhcp_message_append_option_address(m, SD_DHCP_OPTION_SERVER_IDENTIFIER, &client_address.in));
+        else
+                ASSERT_OK(dhcp_message_append_option_address(m, SD_DHCP_OPTION_SERVER_IDENTIFIER, &server_address.in));
+
+        if (flaw != FORCERENEW_NO_AUTH) {
+                DHCPRKAPAuth auth = {
+                        .protocol = DHCP_RKAP_PROTOCOL,
+                        .algorithm = DHCP_RKAP_ALGORITHM_HMAC_MD5,
+                        .rdm = DHCP_RKAP_RDM_MONOTONIC,
+                        .replay = htobe64(replay),
+                        .type = DHCP_RKAP_TYPE_HMAC_MD5,
+                };
+                ASSERT_OK(dhcp_message_append_option(m, SD_DHCP_OPTION_AUTHENTICATION, sizeof(auth), &auth));
+        }
+
+        _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
+        ASSERT_OK(dhcp_message_build(m, &iovw));
+        _cleanup_(iovec_done) struct iovec packet = {};
+        ASSERT_OK(iovw_concat(&iovw, &packet));
+
+        if (flaw != FORCERENEW_NO_AUTH) {
+                /* The digest is computed over the whole message with the digest field zeroed (RFC 6704). */
+                struct iovec auth;
+                ASSERT_OK(dhcp_message_find_raw_option(&packet, SD_DHCP_OPTION_AUTHENTICATION, &auth));
+                ASSERT_EQ(auth.iov_len, sizeof(DHCPRKAPAuth));
+
+                uint8_t *digest = (uint8_t*) auth.iov_base + offsetof(DHCPRKAPAuth, value);
+                hmac_md5(forcerenew_nonce, sizeof(forcerenew_nonce), packet.iov_base, packet.iov_len, digest);
+                if (flaw == FORCERENEW_BAD_DIGEST)
+                        digest[0] ^= 0x01;
+        }
+
+        ASSERT_OK_EQ_ERRNO(send(forcerenew_server_fd, packet.iov_base, packet.iov_len, MSG_NOSIGNAL),
+                           (ssize_t) packet.iov_len);
+}
+
+static void verify_forcerenew_nonce_capable(sd_dhcp_message *m) {
+        uint8_t algorithm;
+        ASSERT_OK(dhcp_message_get_option_u8(m, SD_DHCP_OPTION_FORCERENEW_NONCE_CAPABLE, &algorithm));
+        ASSERT_EQ(algorithm, DHCP_RKAP_ALGORITHM_HMAC_MD5);
+}
+
+static int forcerenew_io_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        sd_dhcp_client *client = ASSERT_PTR(userdata);
+        static unsigned count = 0;
+
+        count++;
+        log_debug("%s: count=%u", __func__, count);
+
+        forcerenew_server_fd = fd;
+
+        switch (count) {
+        case 1: {
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *request = NULL;
+                receive_message(fd, /* raw= */ true, /* check_xid= */ true, client, &request);
+
+                verify_request(request, DHCP_DISCOVER);
+                verify_forcerenew_nonce_capable(request);
+
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *reply = NULL;
+                create_reply(client, request, DHCP_OFFER, &reply);
+                ASSERT_OK(dhcp_message_append_option_u8(reply, SD_DHCP_OPTION_FORCERENEW_NONCE_CAPABLE, DHCP_RKAP_ALGORITHM_HMAC_MD5));
+
+                send_message(fd, /* raw= */ true, client, reply);
+                break;
+        }
+        case 2:
+        case 3: {
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *request = NULL;
+                receive_message(fd, /* raw= */ true, /* check_xid= */ true, client, &request);
+
+                verify_request(request, DHCP_REQUEST);
+                verify_forcerenew_nonce_capable(request);
+
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *reply = NULL;
+                create_reply(client, request, DHCP_ACK, &reply);
+                /* RFC 6704 section 3.1.4: the DHCPACK must contain the nonce if the DHCPOFFER announced the
+                 * capability. The first DHCPACK lacks it, hence must be ignored. */
+                if (count == 3)
+                        forcerenew_append_nonce(reply);
+
+                send_message(fd, /* raw= */ true, client, reply);
+                break;
+        }
+        case 4:
+        case 5: {
+                /* DHCPREQUEST triggered by DHCPFORCERENEW, unicast. */
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *request = NULL;
+                receive_message(fd, /* raw= */ false, /* check_xid= */ true, client, &request);
+
+                verify_request(request, DHCP_REQUEST);
+                verify_request_client_address(request, /* header= */ true);
+                ASSERT_EQ(client->state, DHCP_STATE_RENEWING);
+
+                /* Only the last, valid DHCPFORCERENEW was accepted: if an earlier one had been accepted, the
+                 * valid one would have been received while renewing, and the value would not be recorded. */
+                ASSERT_EQ(client->forcerenew_nonce.replay, count == 4 ? 11u : 12u);
+
+                /* No nonce in the DHCPACK to the renewal, the previous one must be kept. */
+                _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *reply = NULL;
+                create_reply(client, request, DHCP_ACK, &reply);
+
+                send_message(fd, /* raw= */ false, client, reply);
+                break;
+        }
+        default:
+                assert_not_reached();
+        }
+
+        return 0;
+}
+
+static int forcerenew_client_handler(sd_dhcp_client *client, int event, void *userdata) {
+        sd_event *e = ASSERT_PTR(userdata);
+        static unsigned count = 0;
+
+        if (event == SD_DHCP_CLIENT_EVENT_SELECTING)
+                return 0;
+
+        count++;
+        log_debug("%s: count=%u, event=%i", __func__, count, event);
+
+        switch (count) {
+        case 1:
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_IP_ACQUIRE);
+                verify_reply(client, DHCP_STATE_BOUND);
+                ASSERT_TRUE(client->forcerenew_nonce.set);
+                ASSERT_EQ(client->forcerenew_nonce.replay, 10u);
+                ASSERT_MEMEQ(client->forcerenew_nonce.key, forcerenew_nonce, sizeof(forcerenew_nonce));
+                /* The nonce must not be kept in the lease message. */
+                ASSERT_FALSE(dhcp_message_has_option(client->lease->message, SD_DHCP_OPTION_AUTHENTICATION));
+
+                forcerenew_send(client, 11, FORCERENEW_BAD_DIGEST);
+                forcerenew_send(client, 11, FORCERENEW_NO_AUTH);
+                forcerenew_send(client, 11, FORCERENEW_OTHER_SERVER);
+                forcerenew_send(client, 11, FORCERENEW_OTHER_CLIENT);
+                forcerenew_send(client, 10, FORCERENEW_VALID); /* replay detection */
+                forcerenew_send(client, 11, FORCERENEW_VALID);
+                break;
+
+        case 2:
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_RENEW);
+                verify_reply(client, DHCP_STATE_BOUND);
+                ASSERT_TRUE(client->forcerenew_nonce.set);
+
+                forcerenew_send(client, 11, FORCERENEW_VALID); /* replayed */
+                forcerenew_send(client, 12, FORCERENEW_VALID);
+                break;
+
+        case 3:
+                ASSERT_EQ(event, SD_DHCP_CLIENT_EVENT_RENEW);
+                verify_reply(client, DHCP_STATE_BOUND);
+                ASSERT_OK(sd_event_exit(e, /* code= */ 0));
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        return 0;
+}
+
+TEST(forcerenew) {
+        _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
+        setup(forcerenew_io_handler, forcerenew_client_handler, &client);
+        ASSERT_OK(sd_dhcp_client_set_accept_reconfigure(client, /* enable= */ true));
         ASSERT_OK(sd_dhcp_client_start(client));
         ASSERT_OK(sd_event_loop(sd_dhcp_client_get_event(client)));
 }

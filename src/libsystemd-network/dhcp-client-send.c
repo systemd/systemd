@@ -9,6 +9,7 @@
 #include "dhcp-client-send.h"
 #include "dhcp-lease-internal.h"  /* IWYU pragma: keep */
 #include "dhcp-message.h"
+#include "dhcp-rkap.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "ip-util.h"
@@ -202,6 +203,11 @@ static int client_open_udp_socket(sd_dhcp_client *client) {
         if (r < 0)
                 return r;
 
+        /* To check the destination of DHCPFORCERENEW messages, see client_receive_message(). */
+        r = setsockopt_int(fd, IPPROTO_IP, IP_PKTINFO, /* value= */ true);
+        if (r < 0)
+                return r;
+
         /* Do not bind to the leased address: a server refusing the renewal broadcasts the DHCPNAK
          * (RFC2131, section 4.1). */
         union sockaddr_union sa = {
@@ -376,6 +382,35 @@ static int client_send_udp(
 
         if (fd_close < 0 && fd != client->socket_fd)
                 return 0; /* Already opened socket is reused. Not necessary to setup new IO event source. */
+
+        r = client_setup_io_event(client, fd, client_receive_message_udp, "dhcp4-receive-message-udp");
+        if (r < 0)
+                return r;
+
+        TAKE_FD(fd_close);
+        return 0;
+}
+
+int dhcp_client_listen_forcerenew(sd_dhcp_client *client) {
+        _cleanup_close_ int fd_close = -EBADF;
+        int r, fd;
+
+        assert(client);
+        assert(client->state == DHCP_STATE_BOUND);
+
+        /* DHCPFORCERENEW is unicast to the leased address (RFC 3203 section 2). The socket is also used to
+         * send DHCPREQUEST when renewing. */
+
+        if (client->receive_message)
+                return 0; /* Already listening. */
+
+        if (client->socket_fd >= 0)
+                fd = client->socket_fd;
+        else {
+                fd = fd_close = client_open_udp_socket(client);
+                if (fd < 0)
+                        return fd;
+        }
 
         r = client_setup_io_event(client, fd, client_receive_message_udp, "dhcp4-receive-message-udp");
         if (r < 0)
@@ -645,6 +680,17 @@ static int client_new_message(sd_dhcp_client *client, uint8_t type, sd_dhcp_mess
         /* Rapid Commit (80): only for DHCPDISCOVER */
         if (client->rapid_commit && type == DHCP_DISCOVER) {
                 r = dhcp_message_append_option_flag(message, SD_DHCP_OPTION_RAPID_COMMIT);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Forcerenew Nonce Capable (145): RFC 6704 section 3.1.4, in all DHCPDISCOVER and DHCPREQUEST
+         * messages. RFC 6704 only defines HMAC-MD5. */
+        if (client->accept_reconfigure) {
+                r = dhcp_message_append_option_u8(
+                                message,
+                                SD_DHCP_OPTION_FORCERENEW_NONCE_CAPABLE,
+                                DHCP_RKAP_ALGORITHM_HMAC_MD5);
                 if (r < 0)
                         return r;
         }

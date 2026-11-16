@@ -565,6 +565,15 @@ int sd_dhcp_client_set_send_release(sd_dhcp_client *client, int enable) {
         return 0;
 }
 
+int sd_dhcp_client_set_accept_reconfigure(sd_dhcp_client *client, int enable) {
+        assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
+
+        client->accept_reconfigure = enable;
+
+        return 0;
+}
+
 static void client_set_state(sd_dhcp_client *client, DHCPState state) {
         assert(client);
 
@@ -639,6 +648,7 @@ static void client_initialize(sd_dhcp_client *client) {
         client->xid = 0;
 
         client->lease = sd_dhcp_lease_unref(client->lease);
+        dhcp_rkap_key_clear(&client->forcerenew_nonce);
 }
 
 static void client_stop(sd_dhcp_client *client, int error) {
@@ -832,6 +842,7 @@ static int client_start_delayed(sd_dhcp_client *client) {
 
         client_disable_event_sources(client);
         client->lease = sd_dhcp_lease_unref(client->lease);
+        dhcp_rkap_key_clear(&client->forcerenew_nonce);
 
         client->xid = random_u32();
         client->start_time = now(CLOCK_BOOTTIME);
@@ -1060,6 +1071,31 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
         return 0;
 }
 
+static void client_update_forcerenew_nonce(sd_dhcp_client *client, sd_dhcp_lease *lease) {
+        assert(client);
+        assert(lease);
+
+        /* RFC 6704 section 3.1.4: the client MUST record the nonce from any valid DHCPACK, if it contains
+         * one. A DHCPACK to a renewal usually does not contain one, then keep the current nonce, unless the
+         * lease comes from a different server (e.g. when rebinding). */
+        if (lease->forcerenew_nonce.set) {
+                if (!client->forcerenew_nonce.set)
+                        log_dhcp_client(client, "Received forcerenew nonce, accepting DHCPFORCERENEW messages.");
+                client->forcerenew_nonce = lease->forcerenew_nonce;
+                dhcp_rkap_key_clear(&lease->forcerenew_nonce);
+                return;
+        }
+
+        if (!client->forcerenew_nonce.set || !client->lease)
+                return;
+
+        if (client->lease->server_address == lease->server_address)
+                return;
+
+        log_dhcp_client(client, "Received lease from a different server without forcerenew nonce, forgetting the previous nonce.");
+        dhcp_rkap_key_clear(&client->forcerenew_nonce);
+}
+
 static int client_enter_bound(sd_dhcp_client *client, sd_dhcp_lease *lease) {
         int r;
 
@@ -1085,6 +1121,11 @@ static int client_enter_bound(sd_dhcp_client *client, sd_dhcp_lease *lease) {
                 assert_not_reached();
         }
 
+        if (IN_SET(client->state, DHCP_STATE_SELECTING, DHCP_STATE_REQUESTING, DHCP_STATE_REBOOTING))
+                /* A new lease, do not compare with the server of the DHCPOFFER. */
+                dhcp_rkap_key_clear(&client->forcerenew_nonce);
+        client_update_forcerenew_nonce(client, lease);
+
         unref_and_replace_new_ref(client->lease, lease, sd_dhcp_lease_ref, sd_dhcp_lease_unref);
 
         client_disable_event_sources(client);
@@ -1098,6 +1139,12 @@ static int client_enter_bound(sd_dhcp_client *client, sd_dhcp_lease *lease) {
         r = client_set_lease_timeouts(client);
         if (r < 0)
                 return log_dhcp_client_errno(client, r, "Failed to set lease timeouts: %m");
+
+        if (client->forcerenew_nonce.set) {
+                r = dhcp_client_listen_forcerenew(client);
+                if (r < 0)
+                        log_dhcp_client_errno(client, r, "Failed to listen for DHCPFORCERENEW messages, ignoring: %m");
+        }
 
         client_notify(client, notify_event);
         return 0;
@@ -1136,6 +1183,10 @@ static int client_handle_message(sd_dhcp_client *client, const struct iovec *iov
         case DHCP_NAK:
                 return client_restart(client);
 
+        case DHCP_FORCERENEW:
+                /* RFC 3203 section 2: the client changes to the RENEW state. */
+                return sd_dhcp_client_send_renew(client);
+
         default:
                 assert_not_reached();
         }
@@ -1162,7 +1213,8 @@ static int client_receive_message(sd_dhcp_client *client, int fd, bool raw) {
         /* This needs to be initialized with zero. See #20741.
          * The issue is fixed on glibc-2.35 (8fba672472ae0055387e9315fc2eddfa6775ca79). */
         CMSG_BUFFER_TYPE(CMSG_SPACE_TIMEVAL +
-                         CMSG_SPACE(sizeof(struct tpacket_auxdata))) control = {};
+                         CMSG_SPACE(sizeof(struct tpacket_auxdata)) +
+                         CMSG_SPACE(sizeof(struct in_pktinfo))) control = {};
         struct msghdr msg = {
                 .msg_iov = &IOVEC_MAKE(buf, buflen),
                 .msg_iovlen = 1,
@@ -1186,6 +1238,16 @@ static int client_receive_message(sd_dhcp_client *client, int fd, bool raw) {
                 bool checksum = !aux || !(aux->tp_status & TP_STATUS_CSUMNOTREADY);
 
                 if (udp_packet_verify(&payload, client->port, checksum, &payload) < 0)
+                        return 0;
+        }
+
+        if (!raw && client->state == DHCP_STATE_BOUND) {
+                /* When bound, we only listen for DHCPFORCERENEW, which is unicast to the leased address.
+                 * RFC 3203 section 2: receipt of a multicast FORCERENEW message by the client should be
+                 * silently discarded. The socket is not bound to the address, see client_open_udp_socket().
+                 * No packet info when the socket is given externally (unit tests). */
+                struct in_pktinfo *pktinfo = CMSG_FIND_DATA(&msg, IPPROTO_IP, IP_PKTINFO, struct in_pktinfo);
+                if (pktinfo && pktinfo->ipi_addr.s_addr != client->lease->address)
                         return 0;
         }
 
