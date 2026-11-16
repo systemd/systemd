@@ -1362,6 +1362,7 @@ int home_setup_luks(
                         } else {
                                 _cleanup_free_ char *buffer = NULL;
 
+                                sysfs = mfree(sysfs);
                                 if (asprintf(&sysfs, "/sys/dev/block/" DEVNUM_FORMAT_STR "/start", DEVNUM_FORMAT_VAL(st.st_rdev)) < 0)
                                         return log_oom();
 
