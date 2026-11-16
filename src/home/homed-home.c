@@ -1147,7 +1147,7 @@ finish:
         /* If a specific home doesn't know the concept of locking, then that's totally OK, don't propagate
          * the error if we are executing a LockAllHomes() operation. */
 
-        if (h->current_operation->type == OPERATION_LOCK_ALL && r == -ENOTTY)
+        if (h->current_operation && h->current_operation->type == OPERATION_LOCK_ALL && r == -ENOTTY)
                 h->current_operation = operation_result_unref(h->current_operation, /* ret= */ 0, /* error= */ NULL);
         else
                 h->current_operation = operation_result_unref(h->current_operation, r, &error);
