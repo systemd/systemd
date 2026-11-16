@@ -20,6 +20,7 @@
 #include "pager.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "verbs.h"
@@ -206,6 +207,14 @@ static int apply_bpf_object(const char *path) {
         if (!rule)
                 return log_oom();
 
+        /* Replace a rule of the same name. Only needed when the object was named on the command line, a full
+         * run flushes all rules first. */
+        r = delete_rule(handler);
+        if (r < 0 && r != -ENOENT)
+                log_warning_errno(r, "Failed to delete rule '%s', ignoring: %m", handler);
+        if (r >= 0)
+                log_debug("Rule '%s' deleted.", handler);
+
         /* The rule takes its own reference on the handler. The link, and with it the registration of the
          * handler's name, is dropped again once the rule is written, so that nothing but the rule is left
          * behind and the handler can be registered again on the next run. */
@@ -219,6 +228,29 @@ static int apply_bpf_object(const char *path) {
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "Found BPF object '%s', but libbpf support is not compiled in.", path);
 #endif
+}
+
+static int apply_bpf_object_arg(const char *name) {
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        assert(name);
+
+        /* Like a configuration file, an object named on the command line is looked up in the search path
+         * unless it is given as a path, and the first match wins, so a mask in /etc/ applies to it too. */
+        r = search_and_access(name, F_OK, /* root= */ NULL, (char**) BPF_OBJECT_DIRS, &path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to find BPF object '%s': %m", name);
+
+        r = null_or_empty_path(path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if BPF object '%s' is masked: %m", path);
+        if (r > 0) {
+                log_debug("BPF object '%s' is masked, skipping.", path);
+                return 0;
+        }
+
+        return apply_bpf_object(path);
 }
 
 static int apply_rule(const char *filename, unsigned line, const char *rule) {
@@ -377,7 +409,10 @@ static int run(int argc, char *argv[]) {
                         return r;
 
                 STRV_FOREACH(f, args)
-                        RET_GATHER(r, apply_file(*f, /* ignore_enoent= */ false));
+                        if (endswith(*f, BPF_OBJECT_SUFFIX))
+                                RET_GATHER(r, apply_bpf_object_arg(*f));
+                        else
+                                RET_GATHER(r, apply_file(*f, /* ignore_enoent= */ false));
 
         } else {
                 _cleanup_strv_free_ char **files = NULL;
