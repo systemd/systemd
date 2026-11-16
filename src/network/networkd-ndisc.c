@@ -50,6 +50,11 @@
 #define NDISC_ROUTE_MAX 512U
 #define NDISC_ADDRESS_MAX 64U
 #define NDISC_REDIRECT_MAX 64U
+#define NDISC_PREFIX_MAX 64U
+
+/* RFC 8415 section 18.2.12: a client MUST rate-limit the Renew/Information-request exchanges it starts
+ * when the prefixes on the link change, e.g. at most one every 30 seconds. */
+#define NDISC_DHCP6_RENEW_INTERVAL_USEC (30 * USEC_PER_SEC)
 
 static int ndisc_drop_outdated(Link *link, const struct in6_addr *router, usec_t timestamp_usec);
 
@@ -1791,6 +1796,195 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
+typedef struct NDiscPrefix {
+        struct in6_addr router;
+        /* This is an absolute point in time, and NOT a timespan/duration.
+         * Must be specified with CLOCK_BOOTTIME. */
+        usec_t lifetime_usec;
+        bool deprecated;
+        uint8_t prefixlen;
+        struct in6_addr prefix;
+} NDiscPrefix;
+
+static void ndisc_prefix_hash_func(const NDiscPrefix *x, struct siphash *state) {
+        siphash24_compress_typesafe(x->router, state);
+        siphash24_compress_typesafe(x->prefixlen, state);
+        siphash24_compress_typesafe(x->prefix, state);
+}
+
+static int ndisc_prefix_compare_func(const NDiscPrefix *a, const NDiscPrefix *b) {
+        int r;
+
+        r = memcmp(&a->router, &b->router, sizeof(a->router));
+        if (r != 0)
+                return r;
+
+        r = CMP(a->prefixlen, b->prefixlen);
+        if (r != 0)
+                return r;
+
+        return memcmp(&a->prefix, &b->prefix, sizeof(a->prefix));
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                ndisc_prefix_hash_ops,
+                NDiscPrefix,
+                ndisc_prefix_hash_func,
+                ndisc_prefix_compare_func,
+                free);
+
+typedef enum NDiscPrefixState {
+        NDISC_PREFIX_ABSENT,
+        NDISC_PREFIX_DEPRECATED,
+        NDISC_PREFIX_PREFERRED,
+} NDiscPrefixState;
+
+static NDiscPrefixState ndisc_prefix_get_state(Link *link, const struct in6_addr *prefix, uint8_t prefixlen) {
+        NDiscPrefixState state = NDISC_PREFIX_ABSENT;
+        NDiscPrefix *p;
+
+        assert(link);
+        assert(prefix);
+
+        /* The state of the prefix on the link: preferred if any router announces it as preferred,
+         * deprecated if all routers announcing it deprecate it. */
+        SET_FOREACH(p, link->ndisc_prefixes) {
+                if (p->prefixlen != prefixlen || !in6_addr_equal(&p->prefix, prefix))
+                        continue;
+
+                if (!p->deprecated)
+                        return NDISC_PREFIX_PREFERRED;
+
+                state = NDISC_PREFIX_DEPRECATED;
+        }
+
+        return state;
+}
+
+static int ndisc_prefix_update(
+                Link *link,
+                const struct in6_addr *router,
+                const struct in6_addr *prefix,
+                uint8_t prefixlen,
+                usec_t lifetime_usec,
+                bool deprecated) {
+
+        NDiscPrefix *p;
+        int r;
+
+        assert(link);
+        assert(router);
+        assert(prefix);
+
+        p = set_get(link->ndisc_prefixes,
+                    &(NDiscPrefix) {
+                            .router = *router,
+                            .prefixlen = prefixlen,
+                            .prefix = *prefix,
+                    });
+
+        if (lifetime_usec == 0) {
+                if (p)
+                        free(set_remove(link->ndisc_prefixes, p));
+                return 0;
+        }
+
+        if (p) {
+                p->lifetime_usec = lifetime_usec;
+                p->deprecated = deprecated;
+                return 0;
+        }
+
+        if (set_size(link->ndisc_prefixes) >= NDISC_PREFIX_MAX) {
+                log_link_debug(link, "Too many prefixes on the link, not tracking prefix %s.",
+                               IN6_ADDR_PREFIX_TO_STRING(prefix, prefixlen));
+                return 0;
+        }
+
+        p = new(NDiscPrefix, 1);
+        if (!p)
+                return log_oom();
+
+        *p = (NDiscPrefix) {
+                .router = *router,
+                .lifetime_usec = lifetime_usec,
+                .deprecated = deprecated,
+                .prefixlen = prefixlen,
+                .prefix = *prefix,
+        };
+
+        r = set_ensure_consume(&link->ndisc_prefixes, &ndisc_prefix_hash_ops, p);
+        if (r < 0)
+                return log_oom();
+        assert(r > 0);
+
+        return 0;
+}
+
+static int ndisc_router_track_prefix(
+                Link *link,
+                sd_ndisc_router *rt,
+                const struct in6_addr *prefix,
+                uint8_t prefixlen) {
+        usec_t lifetime_usec, lifetime_preferred_usec, lifetime_valid_usec;
+        NDiscPrefixState old_state, new_state;
+        struct in6_addr router;
+        int r;
+
+        assert(link);
+        assert(rt);
+        assert(prefix);
+
+        /* Remember the prefixes announced on the link, to detect when one is added, deprecated, or
+         * withdrawn. RFC 8415 section 18.2.12: the client SHOULD then refresh its DHCPv6 configuration, as
+         * this may indicate a configuration change. Prefixes are tracked regardless of the A and L flags,
+         * e.g. on links where addresses are only assigned by DHCPv6. They are tracked per router, and a
+         * change is the change of a prefix's state on the link as a whole, so that routers announcing the
+         * same prefix with different lifetimes do not look like a change. */
+
+        r = sd_ndisc_router_get_sender_address(rt, &router);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get router address from RA: %m");
+
+        r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime_valid_usec);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get prefix valid lifetime: %m");
+
+        r = sd_ndisc_router_prefix_get_preferred_lifetime(rt, &lifetime_preferred_usec);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get prefix preferred lifetime: %m");
+
+        /* RFC 4862 section 5.5.3 (c) */
+        if (lifetime_preferred_usec > lifetime_valid_usec)
+                return 0;
+
+        r = sd_ndisc_router_prefix_get_valid_lifetime_timestamp(rt, CLOCK_BOOTTIME, &lifetime_usec);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get prefix lifetime: %m");
+
+        old_state = ndisc_prefix_get_state(link, prefix, prefixlen);
+
+        r = ndisc_prefix_update(link, &router, prefix, prefixlen,
+                                lifetime_valid_usec == 0 ? 0 : lifetime_usec,
+                                /* deprecated= */ lifetime_preferred_usec == 0);
+        if (r < 0)
+                return r;
+
+        new_state = ndisc_prefix_get_state(link, prefix, prefixlen);
+
+        if (old_state == NDISC_PREFIX_ABSENT && new_state != NDISC_PREFIX_ABSENT)
+                log_link_debug(link, "New prefix %s.", IN6_ADDR_PREFIX_TO_STRING(prefix, prefixlen));
+        else if (old_state != NDISC_PREFIX_ABSENT && new_state == NDISC_PREFIX_ABSENT)
+                log_link_debug(link, "Prefix %s was withdrawn.", IN6_ADDR_PREFIX_TO_STRING(prefix, prefixlen));
+        else if (old_state == NDISC_PREFIX_PREFERRED && new_state == NDISC_PREFIX_DEPRECATED)
+                log_link_debug(link, "Prefix %s was deprecated.", IN6_ADDR_PREFIX_TO_STRING(prefix, prefixlen));
+        else
+                return 0;
+
+        link->ndisc_prefixes_changed = true;
+        return 0;
+}
+
 static int ndisc_router_process_prefix(Link *link, sd_ndisc_router *rt, bool zero_lifetime) {
         uint8_t flags, prefixlen;
         struct in6_addr a;
@@ -1833,6 +2027,10 @@ static int ndisc_router_process_prefix(Link *link, sd_ndisc_router *rt, bool zer
                                        IN6_ADDR_PREFIX_TO_STRING(&a, prefixlen));
                 return 0;
         }
+
+        r = ndisc_router_track_prefix(link, rt, &a, prefixlen);
+        if (r < 0)
+                return r;
 
         r = sd_ndisc_router_prefix_get_flags(rt, &flags);
         if (r < 0)
@@ -2564,6 +2762,7 @@ static int ndisc_drop_outdated(Link *link, const struct in6_addr *router, usec_t
         NDiscCaptivePortal *cp;
         NDiscPREF64 *p64;
         NDiscDNR *dnr;
+        NDiscPrefix *prefix;
         Address *address;
         Route *route;
         int r, ret = 0;
@@ -2670,6 +2869,18 @@ static int ndisc_drop_outdated(Link *link, const struct in6_addr *router, usec_t
 
                 ndisc_dnr_free(set_remove(link->ndisc_dnr, dnr));
                 updated = true;
+        }
+
+        /* Prefixes that expired are only forgotten, so they are considered new when they are announced
+         * again. Their expiry is not treated as a change on the link, as no router announced it. */
+        SET_FOREACH(prefix, link->ndisc_prefixes) {
+                if (prefix->lifetime_usec > timestamp_usec)
+                        continue; /* the prefix is still valid */
+
+                if (router && !in6_addr_equal(&prefix->router, router))
+                        continue;
+
+                free(set_remove(link->ndisc_prefixes, prefix));
         }
 
         RET_GATHER(ret, link_request_stacked_netdevs(link, NETDEV_LOCAL_ADDRESS_SLAAC));
@@ -2811,6 +3022,65 @@ static int ndisc_start_dhcp6_client(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
+static int ndisc_dhcp6_renew_now(Link *link) {
+        int r;
+
+        assert(link);
+        assert(link->manager);
+
+        assert_se(sd_event_now(link->manager->event, CLOCK_BOOTTIME, &link->ndisc_dhcp6_renew_usec) >= 0);
+
+        log_link_debug(link, "Prefixes on the link changed, refreshing DHCPv6 configuration.");
+
+        r = dhcp6_renew(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r,
+                                              "Failed to refresh DHCPv6 configuration after prefix change: %m");
+
+        return 0;
+}
+
+static int ndisc_dhcp6_renew_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+        Link *link = ASSERT_PTR(userdata);
+
+        (void) ndisc_dhcp6_renew_now(link);
+        return 0;
+}
+
+static int ndisc_request_dhcp6_renew(Link *link) {
+        usec_t now_usec, next_usec;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+
+        /* Nothing to refresh if no reply is received yet. The prefixes are then requested anyway. */
+        if (!link->dhcp6_client || !link->dhcp6_lease)
+                return 0;
+
+        /* Already scheduled. */
+        if (sd_event_source_get_enabled(link->ndisc_dhcp6_renew, /* ret= */ NULL) > 0)
+                return 0;
+
+        assert_se(sd_event_now(link->manager->event, CLOCK_BOOTTIME, &now_usec) >= 0);
+
+        next_usec = usec_add(link->ndisc_dhcp6_renew_usec, NDISC_DHCP6_RENEW_INTERVAL_USEC);
+        if (link->ndisc_dhcp6_renew_usec == 0 || next_usec <= now_usec)
+                return ndisc_dhcp6_renew_now(link);
+
+        log_link_debug(link, "Prefixes on the link changed, refreshing DHCPv6 configuration in %s.",
+                       FORMAT_TIMESPAN(next_usec - now_usec, USEC_PER_SEC));
+
+        r = event_reset_time(link->manager->event, &link->ndisc_dhcp6_renew, CLOCK_BOOTTIME,
+                             next_usec, /* accuracy= */ 0, ndisc_dhcp6_renew_handler, link,
+                             /* priority= */ 0, "ndisc-dhcp6-renew", /* force_reset= */ true);
+        if (r < 0)
+                return log_link_warning_errno(link, r,
+                                              "Failed to set up timer for refreshing DHCPv6 configuration: %m");
+
+        return 0;
+}
+
 static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         struct in6_addr router;
         usec_t timestamp_usec;
@@ -2849,6 +3119,8 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
+        link->ndisc_prefixes_changed = false;
+
         r = ndisc_remember_router(link, rt);
         if (r < 0)
                 return r;
@@ -2884,6 +3156,11 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         r = ndisc_router_process_options(link, rt, /* zero_lifetime= */ false);
         if (r < 0)
                 return r;
+
+        /* The prefixes in the first RA are not a change, they are what the DHCPv6 client starts with. */
+        if (link->ndisc_prefixes_changed && link->ndisc_router_received)
+                (void) ndisc_request_dhcp6_renew(link);
+        link->ndisc_router_received = true;
 
         r = ndisc_setup_expire(link);
         if (r < 0)
@@ -3351,6 +3628,7 @@ int ndisc_stop(Link *link) {
         assert(link);
 
         link->ndisc_expire = sd_event_source_disable_unref(link->ndisc_expire);
+        link->ndisc_dhcp6_renew = sd_event_source_disable_unref(link->ndisc_dhcp6_renew);
 
         return sd_ndisc_stop(link->ndisc);
 }
@@ -3372,6 +3650,8 @@ void ndisc_flush(Link *link) {
         link->ndisc_pref64 = set_free(link->ndisc_pref64);
         link->ndisc_redirects = set_free(link->ndisc_redirects);
         link->ndisc_dnr = set_free(link->ndisc_dnr);
+        link->ndisc_prefixes = set_free(link->ndisc_prefixes);
+        link->ndisc_router_received = false;
         link->ndisc_mtu = 0;
 }
 
