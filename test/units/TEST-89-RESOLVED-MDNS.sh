@@ -347,6 +347,18 @@ testcase_known_answer_no_cache() {
     rm -f "$listener_log"
 }
 
+testcase_known_answer_suppression() {
+    : "Test mDNS Known-Answer suppression (RFC 6762, Sections 7.1 and 7.2)"
+    local host_address
+
+    # The querier sends hand-crafted queries from the host into the container zone and checks whether
+    # the first container answers them
+    host_address="$(ip -4 -o address show dev "vz-$CONTAINER_ZONE" scope global | awk '{ split($4, a, "/"); print a[1]; exit }')"
+    [[ -n "$host_address" ]]
+
+    python3 "$(dirname "$0")/TEST-89-RESOLVED-MDNS.querier.py" "$host_address" "$KNOWN_ANSWER_SERVICE_TYPE.local"
+}
+
 testcase_second_unreachable() {
     : "Test each service type while the second container is unreachable"
     systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl down host0
