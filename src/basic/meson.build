@@ -68,6 +68,7 @@ basic_sources = files(
         'log-context.c',
         'login-util.c',
         'math-util.c',
+        'md5.c',
         'memfd-util.c',
         'memory-util.c',
         'mempool.c',

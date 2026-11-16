@@ -64,4 +64,34 @@ TEST(hmac) {
         hex_result = mfree(hex_result);
 }
 
+static void test_hmac_md5_one(const void *key, size_t key_size, const void *input, size_t input_size, const char *expect) {
+        uint8_t result[MD5_DIGEST_SIZE];
+
+        hmac_md5(key, key_size, input, input_size, result);
+        _cleanup_free_ char *hex_result = hexmem(result, sizeof(result));
+        ASSERT_STREQ(hex_result, expect);
+}
+
+TEST(hmac_md5) {
+        uint8_t key[80], data[50];
+
+        /* Test cases 1-3, 6 and 7 from RFC 2202, section 2 */
+        memset(key, 0x0b, 16);
+        test_hmac_md5_one(key, 16, "Hi There", 8, "9294727a3638bb1c13f48ef8158bfc9d");
+
+        test_hmac_md5_one("Jefe", 4, "what do ya want for nothing?", 28, "750c783e6ab0b503eaa86e310a5db738");
+
+        memset(key, 0xaa, 16);
+        memset(data, 0xdd, sizeof(data));
+        test_hmac_md5_one(key, 16, data, sizeof(data), "56be34521d144c88dbb8c733f0e8b3f6");
+
+        memset(key, 0xaa, sizeof(key));
+        test_hmac_md5_one(key, sizeof(key),
+                          "Test Using Larger Than Block-Size Key - Hash Key First", 54,
+                          "6b1ab7fe4bd7bf8f0b62e6ce61b9d0cd");
+        test_hmac_md5_one(key, sizeof(key),
+                          "Test Using Larger Than Block-Size Key and Larger Than One Block-Size Data", 73,
+                          "6f630fad67cda0ee1fb1f562db3aa53e");
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
