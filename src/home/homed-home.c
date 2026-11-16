@@ -2128,7 +2128,7 @@ int home_passwd(Home *h,
                         return r;
         }
 
-        r = user_record_update_last_changed(c, /* with_password= */ true);
+        r = user_record_update_last_changed(c, /* with_password= */ !strv_isempty(new_secret->password));
         if (r == -ECHRNG)
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_RECORD_MISMATCH, "Record last change time of %s is newer than current time, cannot update.", h->user_name);
         if (r < 0)
