@@ -206,7 +206,7 @@ typedef struct NamespaceParameters {
         const char *private_namespace_dir;
         const char *host_notify_socket;
         const char *notify_socket_path;
-        const char *host_os_release_stage;
+        int host_os_release_fd;
 
         bool ignore_protect_paths;
 
