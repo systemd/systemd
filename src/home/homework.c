@@ -1556,8 +1556,13 @@ static int home_remove(UserRecord *h) {
 
         if (hd) {
                 if (rmdir(hd) < 0) {
-                        if (errno != ENOENT)
-                                return log_error_errno(errno, "Failed to remove %s, ignoring: %m", hd);
+                        if (errno != ENOENT) {
+                                /* If we already removed the image, there's no point in failing now */
+                                if (!deleted)
+                                        return log_error_errno(errno, "Failed to remove %s: %m", hd);
+
+                                log_warning_errno(errno, "Failed to remove %s, ignoring: %m", hd);
+                        }
                 } else
                         deleted = true;
         }
