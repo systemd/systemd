@@ -103,6 +103,7 @@ bool link_get_default_route(Link *l);
 int link_save_user(Link *l);
 int link_load_user(Link *l);
 void link_remove_user(Link *l);
+void link_revert_settings(Link *l);
 
 int link_address_new(Link *l,
                 LinkAddress **ret,
