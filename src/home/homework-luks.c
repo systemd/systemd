@@ -2378,6 +2378,11 @@ int home_create_luks(
                 if (r < 0)
                         return r;
 
+                /* resize_image_loop() might have picked a smaller size if disk space is short, recheck */
+                if (!supported_fs_size(fstype, LESS_BY(host_size, GPT_LUKS2_OVERHEAD)))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
+                                               "Not enough disk space for minimal %s file system.", fstype);
+
                 log_info("Allocating image file completed.");
         }
 
