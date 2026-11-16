@@ -1427,6 +1427,13 @@ int home_setup_luks(
                 if (r < 0)
                         return log_error_errno(r, "Failed to validate disk label: %m");
 
+                /* If the home partition was found within a partition table on the block device, the image
+                 * path refers to the whole device rather than to the partition itself, and we'd have to
+                 * stack a loop device on top of the block device. Refuse that. */
+                if (S_ISBLK(st.st_mode) && (offset != 0 || size != UINT64_MAX))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Block device '%s' has a partition table, refusing.", ip);
+
                 /* Everything before this point left the image untouched. We are now starting to make
                  * changes, hence mark the image dirty */
                 if (run_mark_dirty(setup->image_fd, true) > 0)
@@ -1437,11 +1444,6 @@ int home_setup_luks(
                         if (r < 0)
                                 return r;
                 }
-
-                /* Before we make the loop device, make sure offset is zero & we are using the full partition
-                 * If our offset is not zero, loop_device_make will create a loop device on top of the block device */
-                if (S_ISBLK(st.st_mode))
-                        assert(offset == 0 && size == UINT64_MAX);
 
                 r = loop_device_make(
                                 setup->image_fd,
