@@ -1986,20 +1986,17 @@ static int manager_rebalance_apply(Manager *m) {
         return c;
 }
 
-static void manager_rebalance_reply_messages(Manager *m, int result) {
+static void manager_rebalance_reply_messages(Set *method_calls, int result, const sd_bus_error *error) {
         int r;
 
-        assert(m);
-
         for (;;) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *msg =
-                        set_steal_first(m->rebalance_pending_method_calls);
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *msg = set_steal_first(method_calls);
 
                 if (!msg)
                         break;
 
                 if (result < 0)
-                        r = sd_bus_reply_method_errno(msg, result, /* e= */ NULL);
+                        r = sd_bus_reply_method_errno(msg, result, error);
                 else
                         r = sd_bus_reply_method_return(msg, /* types= */ NULL);
                 if (r < 0)
@@ -2084,7 +2081,7 @@ static int manager_rebalance_now(Manager *m) {
 finish:
         /* Reset state and schedule next rebalance */
         m->rebalance_state = REBALANCE_IDLE;
-        manager_rebalance_reply_messages(m, r);
+        manager_rebalance_reply_messages(m->rebalance_pending_method_calls, r, /* error= */ NULL);
         (void) manager_schedule_rebalance(m, /* immediately= */ false);
         return r;
 }
@@ -2191,7 +2188,19 @@ int manager_schedule_rebalance(Manager *m, bool immediately) {
 turn_off:
         m->rebalance_event_source = sd_event_source_disable_unref(m->rebalance_event_source);
         m->rebalance_state = REBALANCE_OFF;
-        manager_rebalance_reply_messages(m, r);
+        manager_rebalance_reply_messages(m->rebalance_pending_method_calls, r, /* error= */ NULL);
+
+        /* No further run will pick up the queued calls, hence reply to them too. If no rebalancing is needed
+         * anymore, tell them so, the same way method_rebalance() does. */
+        if (r == 0)
+                manager_rebalance_reply_messages(
+                                m->rebalance_queued_method_calls,
+                                -EALREADY,
+                                &SD_BUS_ERROR_MAKE_CONST(BUS_ERROR_REBALANCE_NOT_NEEDED,
+                                                         "No home directories need rebalancing."));
+        else
+                manager_rebalance_reply_messages(m->rebalance_queued_method_calls, r, /* error= */ NULL);
+
         return r;
 }
 
