@@ -7,7 +7,8 @@ int home_setup_fscrypt(UserRecord *h, HomeSetupFlags flags, HomeSetup *setup, co
 
 int home_create_fscrypt(UserRecord *h, HomeSetup *setup, char **effective_passwords, UserRecord **ret_home);
 
-int home_passwd_fscrypt(UserRecord *h, HomeSetup *setup, const PasswordCache *cache, char **effective_passwords);
+int home_passwd_fscrypt(UserRecord *h, HomeSetup *setup, const PasswordCache *cache, char **effective_passwords, uint32_t *ret_first_new_slot);
+void home_remove_slots_fscrypt(HomeSetup *setup, uint32_t from, uint32_t to);
 
 int home_flush_keyring_fscrypt(UserRecord *h);
 

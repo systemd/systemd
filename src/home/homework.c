@@ -1764,6 +1764,7 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         HomeSetupFlags flags = 0;
+        uint32_t fscrypt_first_new_slot = 0;
         int r, reconciled;
 
         assert(h);
@@ -1801,7 +1802,7 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
                 break;
 
         case USER_FSCRYPT:
-                r = home_passwd_fscrypt(h, &setup, &cache, effective_passwords);
+                r = home_passwd_fscrypt(h, &setup, &cache, effective_passwords, &fscrypt_first_new_slot);
                 if (r < 0)
                         return r;
                 break;
@@ -1815,8 +1816,12 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
                 return r;
 
         r = home_store_embedded_identity(new_home, setup.root_fd, embedded_home);
-        if (r < 0)
+        if (r < 0) {
+                /* The old record is still in place, hence drop the new fscrypt key slots again */
+                if (user_record_storage(h) == USER_FSCRYPT)
+                        home_remove_slots_fscrypt(&setup, fscrypt_first_new_slot, UINT32_MAX);
                 return r;
+        }
 
         r = home_reconcile_blob_dirs(new_home, setup.root_fd, reconciled);
         if (r < 0)
@@ -1825,6 +1830,10 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         r = home_extend_embedded_identity(new_home, h, &setup);
         if (r < 0)
                 return r;
+
+        /* Only remove the old fscrypt key slots now that the new record has been written */
+        if (user_record_storage(h) == USER_FSCRYPT)
+                home_remove_slots_fscrypt(&setup, 0, fscrypt_first_new_slot);
 
         r = home_sync_and_statfs(setup.root_fd, /* ret= */ NULL);
         if (r < 0)
