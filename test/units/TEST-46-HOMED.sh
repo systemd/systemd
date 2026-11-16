@@ -1346,7 +1346,8 @@ sync
 
 UPDATE_TS=$((TS + 1))
 UPDATE_RECORD="$(printf '%s' "$RECORD" | jq -c --argjson ts "$UPDATE_TS" --arg p foobar 'del(.binding, .status, .signature) | .lastChangeUSec = $ts | .secret = {password: [$p]}')"
-(! busctl call org.freedesktop.home1 /org/freedesktop/home1 org.freedesktop.home1.Manager UpdateHomeEx "sa{sh}t" "$UPDATE_RECORD" 0 0 )
+# The embedded record is newer than the update, hence homework refuses it
+[[ "$(busctl call org.freedesktop.home1 /org/freedesktop/home1 org.freedesktop.home1.Manager UpdateHomeEx "sa{sh}t" "$UPDATE_RECORD" 0 0 2>&1 || :)" == *"equally new or newer than the supplied record"* ]]
 EOF
     chmod +x /tmp/idgrouptest-add-group.sh
     machinectl shell idgrouptest2@ /tmp/idgrouptest-add-group.sh
