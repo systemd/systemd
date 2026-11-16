@@ -9,6 +9,7 @@ libsystemd_network_sources = files(
         'dhcp-relay-downstream.c',
         'dhcp-relay-interface.c',
         'dhcp-relay-upstream.c',
+        'dhcp-rkap.c',
         'dhcp-route.c',
         'dhcp-server-request.c',
         'dhcp-server-send.c',
@@ -53,7 +54,10 @@ libsystemd_network = static_library(
         libsystemd_network_sources,
         include_directories : includes,
         implicit_include_directories : false,
-        dependencies : userspace,
+        dependencies : [
+                libopenssl_cflags,
+                userspace,
+        ],
         build_by_default : false)
 
 libsystemd_network_includes = [include_directories('.'), includes]
@@ -94,6 +98,9 @@ executables += [
         },
         network_test_template + {
                 'sources' : files('test-dhcp-relay.c'),
+        },
+        network_test_template + {
+                'sources' : files('test-dhcp-rkap.c'),
         },
         network_test_template + {
                 'sources' : files('test-dhcp-server.c'),
