@@ -17,6 +17,8 @@ SERVICE_COUNT=20
 CONTAINER_ZONE="test-$RANDOM"
 CONTAINER_1="test-mdns-1"
 CONTAINER_2="test-mdns-2"
+# Service type published only by the first container, used by the Known-Answer suppression test
+KNOWN_ANSWER_SERVICE_TYPE="_testKnownAnswer._udp"
 
 # Prepare containers
 create_container() {
@@ -315,6 +317,18 @@ testcase_browse_ifindex_zero_no_flap() {
     echo testcase_end
 }
 
+testcase_known_answer_suppression() {
+    : "Test mDNS Known-Answer suppression (RFC 6762, Sections 7.1 and 7.2)"
+    local host_address
+
+    # The querier sends hand-crafted queries from the host into the container zone and checks whether
+    # the first container answers them
+    host_address="$(ip -4 -o address show dev "vz-$CONTAINER_ZONE" scope global | awk '{ split($4, a, "/"); print a[1]; exit }')"
+    [[ -n "$host_address" ]]
+
+    python3 "$(dirname "$0")/TEST-89-RESOLVED-MDNS.querier.py" "$host_address" "$KNOWN_ANSWER_SERVICE_TYPE.local"
+}
+
 testcase_second_unreachable() {
     : "Test each service type while the second container is unreachable"
     systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl down host0
@@ -348,6 +362,14 @@ systemctl reload systemd-resolved.service systemd-networkd.service
 
 for container in "$CONTAINER_1" "$CONTAINER_2"; do
     create_container "$container"
+    if [[ "$container" == "$CONTAINER_1" ]]; then
+        cat >"/var/lib/machines/$container/etc/systemd/dnssd/test-known-answer.dnssd" <<EOF
+[Service]
+Name=Test Known Answer on %H
+Type=$KNOWN_ANSWER_SERVICE_TYPE
+Port=9811
+EOF
+    fi
     mkdir -p "/var/lib/machines/$container/etc/systemd/resolved.conf.d/"
     cp /run/systemd/resolved.conf.d/99-mdns-llmnr.conf "/var/lib/machines/$container/etc/systemd/resolved.conf.d/"
     touch "/var/lib/machines/$container/etc/hostname"
