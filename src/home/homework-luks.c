@@ -36,6 +36,7 @@
 #include "fs-util.h"
 #include "fsck-util.h"
 #include "glyph-util.h"
+#include "gpt.h"
 #include "home-util.h"
 #include "homework.h"
 #include "homework-blob.h"
@@ -2223,6 +2224,12 @@ int home_create_luks(
                 return r;
 
         assert_se(ip = user_record_image_path(h));
+
+        /* The partition is looked up by its label on activation, hence refuse if it would be truncated */
+        if (!gpt_label_is_valid(user_record_user_name_and_realm(h)))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "User name '%s' not valid as GPT partition label, refusing.",
+                                       user_record_user_name_and_realm(h));
 
         fstype = user_record_file_system_type(h);
         if (!supported_fstype(fstype))
