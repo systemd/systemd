@@ -4281,6 +4281,7 @@ static int apply_mount_namespace(
                 bool needs_sandboxing,
                 uid_t exec_directory_uid,
                 gid_t exec_directory_gid,
+                int private_namespace_dir_fd,
                 PidRef *bpffs_pidref,
                 int bpffs_socket_fd,
                 int bpffs_errno_pipe,
@@ -4291,7 +4292,7 @@ static int apply_mount_namespace(
         _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
                         **read_write_paths_cleanup = NULL;
         _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
-                *private_namespace_dir = NULL, *host_os_release_stage = NULL;
+                *host_os_release_stage = NULL;
         const char *tmp_dir = NULL, *var_tmp_dir = NULL;
         char **read_write_paths;
         bool setup_os_release_symlink;
@@ -4304,6 +4305,7 @@ static int apply_mount_namespace(
         assert(runtime);
         assert(rootfs);
         assert(pressure_path);
+        assert(private_namespace_dir_fd >= 0);
         assert(bpffs_pidref);
         assert(reterr_path);
 
@@ -4383,28 +4385,16 @@ static int apply_mount_namespace(
                         if (!incoming_dir)
                                 return -ENOMEM;
                 }
+        }
 
-                private_namespace_dir = strdup("/run/systemd");
-                if (!private_namespace_dir)
-                        return -ENOMEM;
+        /* The directory may not be reachable by path anymore, see open_private_namespace_dir(). */
+        const char *private_namespace_dir = FORMAT_PROC_FD_PATH(private_namespace_dir_fd);
 
-                /* If running under a different root filesystem, propagate the host's os-release. We make a
-                 * copy rather than just bind mounting it, so that it can be updated on soft-reboot. */
-                if (setup_os_release_symlink) {
-                        host_os_release_stage = strdup("/run/systemd/propagate/.os-release-stage");
-                        if (!host_os_release_stage)
-                                return -ENOMEM;
-                }
-        } else {
-                assert(params->runtime_scope == RUNTIME_SCOPE_USER);
-
-                if (asprintf(&private_namespace_dir, "/run/user/" UID_FMT "/systemd", geteuid()) < 0)
-                        return -ENOMEM;
-
-                if (setup_os_release_symlink &&
-                    asprintf(&host_os_release_stage,
-                             "/run/user/" UID_FMT "/systemd/propagate/.os-release-stage",
-                             geteuid()) < 0)
+        /* If running under a different root filesystem, propagate the host's os-release. We make a
+         * copy rather than just bind mounting it, so that it can be updated on soft-reboot. */
+        if (setup_os_release_symlink) {
+                host_os_release_stage = path_join(private_namespace_dir, "propagate/.os-release-stage");
+                if (!host_os_release_stage)
                         return -ENOMEM;
         }
 
@@ -5126,6 +5116,46 @@ static bool exec_namespace_is_delegated(
         return false;
 }
 
+static int open_private_namespace_dir(
+                const ExecContext *context,
+                const ExecParameters *params,
+                uid_t manager_uid) {
+
+        _cleanup_free_ char *dir = NULL;
+        _cleanup_close_ int fd = -EBADF;
+
+        assert(context);
+        assert(params);
+
+        if (params->runtime_scope == RUNTIME_SCOPE_SYSTEM)
+                dir = strdup("/run/systemd");
+        else {
+                assert(params->runtime_scope == RUNTIME_SCOPE_USER);
+
+                if (asprintf(&dir, "/run/user/" UID_FMT "/systemd", manager_uid) < 0)
+                        return -ENOMEM;
+        }
+        if (!dir)
+                return -ENOMEM;
+
+        /* The mount points and bind mount sources below this directory are set up when the mount
+         * namespace is assembled, i.e. after we may have entered a user namespace
+         * (PrivateUsers=managed) in which the UID owning it is not mapped, so that the directory
+         * cannot be reached by path anymore. Hence, let's create what we need below it, and pin
+         * it with an fd while we still can, so that it can be reached through /proc/self/fd/<fd>
+         * later on, which needs no path resolution. */
+        fd = xopenat(AT_FDCWD, dir, O_PATH|O_DIRECTORY);
+        if (fd < 0)
+                return log_debug_errno(fd, "Failed to open '%s': %m", dir);
+
+        if (context->private_tmp == PRIVATE_TMP_DISCONNECTED ||
+            context->private_var_tmp == PRIVATE_TMP_DISCONNECTED)
+                if (mkdirat(fd, "unit-private-tmp", 0755) < 0 && errno != EEXIST)
+                        return log_debug_errno(errno, "Failed to create '%s/unit-private-tmp': %m", dir);
+
+        return TAKE_FD(fd);
+}
+
 static int setup_delegated_namespaces(
                 const ExecContext *context,
                 ExecParameters *params,
@@ -5135,6 +5165,7 @@ static int setup_delegated_namespaces(
                 char *const *pressure_path,
                 uid_t uid,
                 gid_t gid,
+                int private_namespace_dir_fd,
                 const ExecCommand *command,
                 bool needs_sandboxing,
                 bool have_cap_sys_admin,
@@ -5272,6 +5303,7 @@ static int setup_delegated_namespaces(
                                 needs_sandboxing,
                                 uid,
                                 gid,
+                                private_namespace_dir_fd,
                                 bpffs_pidref,
                                 bpffs_socket_fd,
                                 bpffs_errno_pipe,
@@ -5622,6 +5654,7 @@ int exec_invoke(
         const char *username = NULL;
         _cleanup_free_ char *pwent_home = NULL, *shell = NULL, *_own_user = NULL, *_username = NULL;
         _cleanup_(free_pressure_paths) char *pressure_path[_PRESSURE_RESOURCE_MAX] = {};
+        _cleanup_close_ int private_namespace_dir_fd = -EBADF;
         dev_t journal_stream_dev = 0;
         ino_t journal_stream_ino = 0;
         bool needs_sandboxing,          /* Do we need to set up full sandboxing? (i.e. all namespacing, all MAC stuff, caps, yadda yadda */
@@ -6552,6 +6585,15 @@ int exec_invoke(
          * shenanigans, and do not want to mix resources from host and namespace */
         block_dlopen();
 
+        if (needs_mount_namespace) {
+                private_namespace_dir_fd = open_private_namespace_dir(context, params, saved_uid);
+                if (private_namespace_dir_fd < 0) {
+                        *exit_status = EXIT_NAMESPACE;
+                        return log_error_errno(private_namespace_dir_fd,
+                                                "Failed to set up private namespace directory: %m");
+                }
+        }
+
         if (needs_sandboxing && !have_cap_sys_admin && exec_needs_cap_sys_admin(context, params)) {
                 /* If we're unprivileged, set up the user namespace first to enable use of the other namespaces.
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
@@ -6604,6 +6646,7 @@ int exec_invoke(
                         pressure_path,
                         uid,
                         gid,
+                        private_namespace_dir_fd,
                         command,
                         needs_sandboxing,
                         have_cap_sys_admin,
@@ -6706,6 +6749,7 @@ int exec_invoke(
                         pressure_path,
                         uid,
                         gid,
+                        private_namespace_dir_fd,
                         command,
                         needs_sandboxing,
                         have_cap_sys_admin,
