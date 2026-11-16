@@ -2735,7 +2735,7 @@ static int ext4_offline_resize_fs(
                 r = execvp_safe("e2fsck", STRV_MAKE("e2fsck", "-fp", setup->dm_node));
                 log_open();
                 log_error_errno(r, "Failed to execute e2fsck: %m");
-                _exit(EXIT_FAILURE);
+                _exit(FSCK_OPERATIONAL_ERROR);
         }
 
         exit_status = pidref_wait_for_terminate_and_check("e2fsck", &fsck_pidref, WAIT_LOG_ABNORMAL);
