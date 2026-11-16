@@ -2233,10 +2233,6 @@ int home_unlock(Home *h, UserRecord *secret, sd_bus_error *error) {
         assert(h);
         assert(secret);
 
-        r = home_ratelimit(h, error);
-        if (r < 0)
-                return r;
-
         switch (home_get_state(h)) {
         case HOME_UNFIXATED:
         case HOME_ABSENT:
@@ -2250,6 +2246,10 @@ int home_unlock(Home *h, UserRecord *secret, sd_bus_error *error) {
         default:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
         }
+
+        r = home_ratelimit(h, error);
+        if (r < 0)
+                return r;
 
         return home_unlock_internal(h, secret, HOME_UNLOCKING, error);
 }
