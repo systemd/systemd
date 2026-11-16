@@ -653,7 +653,7 @@ static int dispatch_dns_scope_array(const char *name, sd_json_variant *variant, 
         return 0;
 }
 
-static int dispatch_negative_trust_anchors(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+int dispatch_negative_trust_anchors(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         char ***ret = ASSERT_PTR(userdata);
         int r;
 
@@ -665,10 +665,22 @@ static int dispatch_negative_trust_anchors(const char *name, sd_json_variant *va
         if (r < 0)
                 return r;
 
+        STRV_FOREACH(a, nta) {
+                r = dns_name_is_valid(*a);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Invalid negative trust anchor domain: %s", *a);
+        }
+
         strv_sort(nta);
         *ret = TAKE_PTR(nta);
         return 0;
 }
+
+JSON_DISPATCH_ENUM_DEFINE(dispatch_resolve_support_mode, ResolveSupport, resolve_support_from_string);
+JSON_DISPATCH_ENUM_DEFINE(dispatch_dns_over_tls_mode, DnsOverTlsMode, dns_over_tls_mode_from_string);
+JSON_DISPATCH_ENUM_DEFINE(dispatch_dnssec_mode, DnssecMode, dnssec_mode_from_string);
 
 DNSConfiguration* dns_configuration_free(DNSConfiguration *c) {
         if (!c)
