@@ -141,6 +141,76 @@ if [[ -n "$SD_STUB" ]]; then
     [[ "$uki_stdin" == "$uki_pipe" ]]
 fi
 
+# lock-uki writes one .pcrlock file for each profile of a multi-profile UKI that enables PCRLOCK=. Profile @0
+# enables it by default, all other profiles do not.
+LINUX_STUB="/usr/lib/systemd/boot/efi/linux$(bootctl --print-efi-architecture || :).efi.stub"
+KERNEL="/usr/lib/modules/$(uname -r)/vmlinuz"
+if command -v ukify >/dev/null && [[ -f "$LINUX_STUB" && -f "$KERNEL" ]]; then
+    UKI_DIR="$(mktemp -d)"
+    UKI_LOCK="$UKI_DIR/650-uki.pcrlock.d/test.pcrlock"
+
+    ukify build --profile=$'TITLE=Storage Target Mode\nID=storagetm' --cmdline="rd.systemd.unit=storage-target-mode.target" --output="$UKI_DIR/profile1.efi"
+    ukify build --profile=$'TITLE=Debug\nID=debug\nPCRLOCK=yes' --cmdline="debug" --output="$UKI_DIR/profile2.efi"
+    ukify build --profile=$'TITLE=Broken\nID=broken\nPCRLOCK=maybe' --cmdline="broken" --output="$UKI_DIR/profile-broken.efi"
+    echo "ID=pcrlock-test" >"$UKI_DIR/os-release"
+    ukify build \
+          --stub="$LINUX_STUB" \
+          --linux="$KERNEL" \
+          --os-release="@$UKI_DIR/os-release" \
+          --cmdline="quiet" \
+          --profile=$'TITLE=Base\nID=base' \
+          --join-profile="$UKI_DIR/profile1.efi" \
+          --join-profile="$UKI_DIR/profile2.efi" \
+          --output="$UKI_DIR/multi.efi"
+
+    # Without --pcrlock= one JSON object per enabled profile is written to standard output.
+    [[ "$("$SD_PCRLOCK" lock-uki --json=short "$UKI_DIR/multi.efi" | wc -l)" -eq 2 ]]
+
+    "$SD_PCRLOCK" lock-uki --pcrlock="$UKI_LOCK" "$UKI_DIR/multi.efi"
+    test -f "$UKI_LOCK"
+    test ! -e "${UKI_LOCK%.pcrlock}@1.pcrlock"
+    test -f "${UKI_LOCK%.pcrlock}@2.pcrlock"
+    (! cmp "$UKI_LOCK" "${UKI_LOCK%.pcrlock}@2.pcrlock")
+
+    # The firmware measures the same PE binary into PCR 4 for every profile.
+    [[ "$(jq -c '.records[] | select(.pcr == 4)' "$UKI_LOCK")" == "$(jq -c '.records[] | select(.pcr == 4)' "${UKI_LOCK%.pcrlock}@2.pcrlock")" ]]
+
+    # Files of profiles that are not enabled anymore are removed. Files with names that lock-uki does not
+    # generate are kept.
+    touch "${UKI_LOCK%.pcrlock}@1.pcrlock" "${UKI_LOCK%.pcrlock}@7.pcrlock" "${UKI_LOCK%.pcrlock}@other.pcrlock" \
+          "${UKI_LOCK%.pcrlock}@0.pcrlock" "${UKI_LOCK%.pcrlock}@010.pcrlock" "${UKI_LOCK%.pcrlock}@999.pcrlock"
+    "$SD_PCRLOCK" lock-uki --pcrlock="$UKI_LOCK" "$UKI_DIR/multi.efi"
+    test ! -e "${UKI_LOCK%.pcrlock}@1.pcrlock"
+    test ! -e "${UKI_LOCK%.pcrlock}@7.pcrlock"
+    test -f "${UKI_LOCK%.pcrlock}@2.pcrlock"
+    test -f "${UKI_LOCK%.pcrlock}@other.pcrlock"
+    test -f "${UKI_LOCK%.pcrlock}@0.pcrlock"
+    test -f "${UKI_LOCK%.pcrlock}@010.pcrlock"
+    test -f "${UKI_LOCK%.pcrlock}@999.pcrlock"
+
+    "$SD_PCRLOCK" unlock-uki --pcrlock="$UKI_LOCK"
+    test ! -e "$UKI_LOCK"
+    test ! -e "${UKI_LOCK%.pcrlock}@2.pcrlock"
+    test -f "${UKI_LOCK%.pcrlock}@other.pcrlock"
+    test -f "${UKI_LOCK%.pcrlock}@010.pcrlock"
+
+    # Outside of a *.pcrlock.d/ directory the file of profile @2 would be a component of its own.
+    (! "$SD_PCRLOCK" lock-uki --pcrlock="$UKI_DIR/650-uki.pcrlock" "$UKI_DIR/multi.efi")
+    test ! -e "$UKI_DIR/650-uki.pcrlock"
+    test ! -e "$UKI_DIR/650-uki@2.pcrlock"
+
+    ukify build \
+          --stub="$LINUX_STUB" \
+          --linux="$KERNEL" \
+          --os-release="@$UKI_DIR/os-release" \
+          --profile=$'TITLE=Base\nID=base' \
+          --join-profile="$UKI_DIR/profile-broken.efi" \
+          --output="$UKI_DIR/broken.efi"
+    (! "$SD_PCRLOCK" lock-uki "$UKI_DIR/broken.efi")
+
+    rm -rf "$UKI_DIR"
+fi
+
 if "$SD_PCRLOCK" is-supported; then
     PIN=huhu "$SD_PCRLOCK" make-policy --pcr="$PCRS" --recovery-pin=query
     # Repeat immediately (this call will have to reuse the nvindex, rather than create it)
