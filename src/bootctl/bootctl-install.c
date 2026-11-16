@@ -1044,9 +1044,15 @@ static int install_entry_token(InstallContext *c) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open '%s': %m", j);
 
-        r = write_string_file_at(dfd, "entry-token", c->entry_token, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755);
-        if (r < 0)
-                return log_error_errno(r, "Failed to write entry token '%s' to '%s/entry-token': %m", c->entry_token, j);
+        /* First check if the correct token is already in place, to avoid error on read-only filesystems
+         * when they have the token file. */
+        if (verify_file_at(dfd, "entry-token", c->entry_token, true) != 1) {
+                r = write_string_file_at(dfd, "entry-token", c->entry_token,
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write entry token '%s' to '%s/entry-token': %m",
+                                c->entry_token, j);
+        }
 
         return 0;
 }
