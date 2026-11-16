@@ -4151,6 +4151,57 @@ static bool insist_on_sandboxing(
         return false;
 }
 
+static int make_ephemeral_copy(
+                ExecRuntime *runtime,
+                const PinnedResource *rootfs,
+                const char *new_root,
+                char **reterr_path) {
+
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert(runtime);
+        assert(rootfs);
+        assert(new_root);
+        assert(reterr_path);
+
+        if (rootfs->image) {
+                log_debug("Making ephemeral copy of %s to %s", rootfs->image, new_root);
+
+                fd = copy_file(rootfs->image, new_root, O_EXCL, 0600,
+                               COPY_LOCK_BSD|COPY_CRTIME|COPY_NOCOW_AFTER);
+                if (fd < 0) {
+                        *reterr_path = strdup(rootfs->image);
+                        return log_debug_errno(fd, "Failed to copy image %s to %s: %m",
+                                               rootfs->image, new_root);
+                }
+        } else {
+                assert(rootfs->directory);
+
+                log_debug("Making ephemeral snapshot of %s to %s", rootfs->directory, new_root);
+
+                fd = btrfs_subvol_snapshot_at(
+                                AT_FDCWD, rootfs->directory,
+                                AT_FDCWD, new_root,
+                                BTRFS_SNAPSHOT_FALLBACK_COPY |
+                                BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
+                                BTRFS_SNAPSHOT_RECURSIVE |
+                                BTRFS_SNAPSHOT_LOCK_BSD);
+                if (fd < 0) {
+                        *reterr_path = strdup(rootfs->directory);
+                        return log_debug_errno(fd, "Failed to snapshot directory %s to %s: %m",
+                                               rootfs->directory, new_root);
+                }
+        }
+
+        /* Queue the fd, so that subsequent spawns of the service can reuse the copy. */
+        r = send_one_fd(runtime->ephemeral_storage_socket[1], fd, MSG_DONTWAIT);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to queue file descriptor on ephemeral storage socket: %m");
+
+        return TAKE_FD(fd);
+}
+
 static int setup_ephemeral(
                 const ExecContext *context,
                 ExecRuntime *runtime,
@@ -4185,46 +4236,17 @@ static int setup_ephemeral(
 
         CLEANUP_POSIX_UNLOCK(runtime->ephemeral_storage_socket[0]);
 
+        /* Either an fd is queued already, i.e. the ephemeral copy is set up and we reuse it, or
+         * nothing is queued yet and we make the copy now. */
         fd = receive_one_fd(runtime->ephemeral_storage_socket[0], MSG_PEEK|MSG_DONTWAIT);
-        if (fd >= 0)
-                /* We got an fd! That means ephemeral has already been set up, so nothing to do here. */
-                return 0;
-        if (fd != -EAGAIN)
+        if (fd == -EAGAIN) {
+                fd = make_ephemeral_copy(runtime, rootfs, new_root, reterr_path);
+                if (fd < 0)
+                        return fd;
+        } else if (fd < 0)
                 return log_debug_errno(fd, "Failed to receive file descriptor queued on ephemeral storage socket: %m");
 
-        if (rootfs->image) {
-                log_debug("Making ephemeral copy of %s to %s", rootfs->image, new_root);
-
-                fd = copy_file(rootfs->image, new_root, O_EXCL, 0600,
-                               COPY_LOCK_BSD|COPY_CRTIME|COPY_NOCOW_AFTER);
-                if (fd < 0) {
-                        *reterr_path = strdup(rootfs->image);
-                        return log_debug_errno(fd, "Failed to copy image %s to %s: %m",
-                                               rootfs->image, new_root);
-                }
-        } else {
-                assert(rootfs->directory);
-
-                log_debug("Making ephemeral snapshot of %s to %s", rootfs->directory, new_root);
-
-                fd = btrfs_subvol_snapshot_at(
-                                AT_FDCWD, rootfs->directory,
-                                AT_FDCWD, new_root,
-                                BTRFS_SNAPSHOT_FALLBACK_COPY |
-                                BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
-                                BTRFS_SNAPSHOT_RECURSIVE |
-                                BTRFS_SNAPSHOT_LOCK_BSD);
-                if (fd < 0) {
-                        *reterr_path = strdup(rootfs->directory);
-                        return log_debug_errno(fd, "Failed to snapshot directory %s to %s: %m",
-                                               rootfs->directory, new_root);
-                }
-        }
-
-        r = send_one_fd(runtime->ephemeral_storage_socket[1], fd, MSG_DONTWAIT);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to queue file descriptor on ephemeral storage socket: %m");
-
+        /* Switch the pinned root fs over to the ephemeral copy. */
         if (rootfs->image) {
                 free_and_replace(rootfs->image, new_root);
                 close_and_replace(rootfs->image_fd, fd);
