@@ -1203,15 +1203,13 @@ StartLimitBurst=5</programlisting>
 
       <varlistentry>
         <term><varname>NonBlocking=</varname></term>
-        <listitem><para>Set the <constant>O_NONBLOCK</constant> flag for all file descriptors passed via
-        socket-based activation. If true, all file descriptors >= 3 (i.e. all except stdin, stdout, stderr),
-        excluding those passed in via the file descriptor storage logic (see
-        <varname>FileDescriptorStoreMax=</varname> for details), will have the
-        <constant>O_NONBLOCK</constant> flag set and hence are in non-blocking mode. This option is only
-        useful in conjunction with a socket unit, as described in
-        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        and has no effect on file descriptors which were previously saved in the file-descriptor store for
-        example.  Defaults to false.</para>
+        <listitem><para>Set the <constant>O_NONBLOCK</constant> flag for all file descriptors >= 3 passed
+        from socket units (as described in
+        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        Standard input, output, and error are not affected, nor are descriptors from other sources,
+        such as those from file descriptor storage (see <varname>FileDescriptorStoreMax=</varname>),
+        <varname>OpenFile=</varname>, or the <varname>ExtraFileDescriptors</varname> D-Bus property.
+        Defaults to false.</para>
 
         <para>Note that if the same socket unit is configured to be passed to multiple service units (via the
         <varname>Sockets=</varname> setting, see below), and these services have different
