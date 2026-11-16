@@ -1613,7 +1613,7 @@ int home_activate(Home *h, bool if_referenced, UserRecord *secret, sd_bus_error 
                 /* If we are lingering, i.e. active but are supposed to be deactivated, then cancel this
                  * timer if the user explicitly asks us to be active */
                 h->retry_deactivate_event_source = sd_event_source_disable_unref(h->retry_deactivate_event_source);
-                return 0;
+                return 1; /* done, no worker started */
         case HOME_LOCKED:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_LOCKED, "Home %s is currently locked.", h->user_name);
         case HOME_INACTIVE:
