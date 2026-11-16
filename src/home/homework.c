@@ -136,7 +136,7 @@ int user_record_authenticate(
                 log_info("None of the supplied plaintext passwords unlock the user record's hashed passwords or recovery keys.");
         else if (need_password)
                 log_info("None of the supplied plaintext passwords unlock the user record's hashed passwords.");
-        else
+        else if (need_recovery_key)
                 log_info("None of the supplied plaintext passwords unlock the user record's hashed recovery keys.");
 
         /* Next, test cached PKCS#11 passwords */
