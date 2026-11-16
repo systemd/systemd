@@ -261,35 +261,16 @@ static bool sender_on_local_subnet(DnsScope *s, DnsPacket *p) {
         return false;
 }
 
-static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
+static int mdns_scope_build_answer(DnsScope *s, DnsPacket *p, bool legacy_query, DnsAnswer **ret) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *full_answer = NULL;
-        _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
         DnsResourceKey *key = NULL;
         DnsResourceRecord *rr;
         bool tentative = false;
-        bool legacy_query = p->sender_port != MDNS_PORT;
-        bool unicast_reply;
         int r;
 
         assert(s);
         assert(p);
-
-        r = dns_packet_extract(p);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to extract resource records from incoming packet: %m");
-
-        /* TODO: Support Known-Answers only packets gracefully. */
-        if (dns_question_size(p->question) <= 0)
-                return 0;
-
-        unicast_reply = mdns_should_reply_using_unicast(p);
-        if (unicast_reply && !sender_on_local_subnet(s, p)) {
-                /* RFC 6762, section 5.5 recommends silently ignoring unicast queries
-                 * from senders outside the local network, so that we don't reveal our
-                 * internal network structure to outsiders. */
-                log_debug("Sender wants a unicast reply, but is not on a local subnet. Ignoring.");
-                return 0;
-        }
+        assert(ret);
 
         DNS_QUESTION_FOREACH(key, p->question) {
                 _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
@@ -350,11 +331,29 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
                 }
         }
 
-        if (dns_answer_isempty(full_answer))
+        *ret = TAKE_PTR(full_answer);
+        return 0;
+}
+
+static int mdns_scope_send_reply(
+                DnsScope *s,
+                uint16_t id,
+                DnsQuestion *question,
+                DnsAnswer *answer,
+                bool unicast_reply,
+                const union in_addr_union *destination,
+                uint16_t destination_port) {
+
+        _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
+        int r;
+
+        assert(s);
+        assert(destination);
+
+        if (dns_answer_isempty(answer))
                 return 0;
 
-        r = dns_scope_make_reply_packet(s, DNS_PACKET_ID(p), DNS_RCODE_SUCCESS,
-                                        legacy_query ? p->question : NULL, full_answer,
+        r = dns_scope_make_reply_packet(s, id, DNS_RCODE_SUCCESS, question, answer,
                                         /* soa= */ NULL, /* tentative= */ false, &reply);
         if (r < 0)
                 return log_debug_errno(r, "Failed to build reply packet: %m");
@@ -363,14 +362,49 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
                 return 0;
 
         if (unicast_reply) {
-                reply->destination = p->sender;
-                reply->destination_port = p->sender_port;
+                reply->destination = *destination;
+                reply->destination_port = destination_port;
         }
         r = dns_scope_emit_udp(s, -1, AF_UNSPEC, reply);
         if (r < 0)
                 return log_debug_errno(r, "Failed to send reply packet: %m");
 
         return 0;
+}
+
+static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        bool legacy_query = p->sender_port != MDNS_PORT;
+        bool unicast_reply;
+        int r;
+
+        assert(s);
+        assert(p);
+
+        r = dns_packet_extract(p);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to extract resource records from incoming packet: %m");
+
+        /* TODO: Support Known-Answers only packets gracefully. */
+        if (dns_question_size(p->question) <= 0)
+                return 0;
+
+        unicast_reply = mdns_should_reply_using_unicast(p);
+        if (unicast_reply && !sender_on_local_subnet(s, p)) {
+                /* RFC 6762, section 5.5 recommends silently ignoring unicast queries
+                 * from senders outside the local network, so that we don't reveal our
+                 * internal network structure to outsiders. */
+                log_debug("Sender wants a unicast reply, but is not on a local subnet. Ignoring.");
+                return 0;
+        }
+
+        r = mdns_scope_build_answer(s, p, legacy_query, &answer);
+        if (r < 0)
+                return r;
+
+        return mdns_scope_send_reply(s, DNS_PACKET_ID(p),
+                                     legacy_query ? p->question : NULL, answer,
+                                     unicast_reply, &p->sender, p->sender_port);
 }
 
 static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userdata) {
