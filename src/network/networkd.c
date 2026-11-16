@@ -36,6 +36,7 @@ int run_networkd(int argc, char *argv[]) {
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         int r;
 
+        LIBCRYPTO_NOTE(suggested);
         LIBIDN2_NOTE(suggested);
         LIBMOUNT_NOTE(recommended);
         LIBSELINUX_NOTE(recommended);
