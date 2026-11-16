@@ -489,8 +489,10 @@ int home_setup_done(HomeSetup *setup) {
         setup->volume_key = erase_and_free(setup->volume_key);
         setup->volume_key_size = 0;
 
-        if (setup->do_drop_caches)
+        if (setup->do_drop_caches) {
+                setup->do_drop_caches = false;
                 drop_caches_now();
+        }
 
         setup->mount_suffix = mfree(setup->mount_suffix);
 
