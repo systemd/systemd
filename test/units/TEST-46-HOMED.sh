@@ -1130,9 +1130,17 @@ EOF
     homectl unregister signtest
     mv /home/elsewhere2/signtest.homedir /home/
     rmdir /home/elsewhere2
+    wait_for_exist signtest
+
+    # Authenticating against an unfixated home fixates it, which requires a valid signature
+    homectl remove-signing-key signtest.public
+    (! PASSWORD="test" homectl authenticate signtest)
+    [[ ! -e /var/lib/systemd/home/signtest.identity ]]
+    print_public_key | homectl add-signing-key --key-name=signtest.public
+    PASSWORD="test" homectl authenticate signtest
+    [[ -e /var/lib/systemd/home/signtest.identity ]]
 
     # Remove it all again
-    wait_for_exist signtest
     homectl remove-signing-key signtest.public
     homectl remove signtest
 }

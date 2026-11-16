@@ -1634,6 +1634,11 @@ int home_authenticate(Home *h, UserRecord *secret, sd_bus_error *error) {
         if (r < 0)
                 return r;
 
+        /* Authenticating against an unfixated home means fixating it, so that the record's signature is
+         * validated and the home stays unfixated if that fails. */
+        if (state == HOME_UNFIXATED)
+                return home_fixate_internal(h, secret, HOME_FIXATING, error);
+
         return home_authenticate_internal(h, secret, HOME_STATE_IS_ACTIVE(state) ? HOME_AUTHENTICATING_WHILE_ACTIVE : HOME_AUTHENTICATING, error);
 }
 
