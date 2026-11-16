@@ -22,9 +22,11 @@
 #include "crypto-util.h"
 #include "data-fd-util.h"
 #include "device-private.h"
+#include "dirent-util.h"
 #include "dlopen-note.h"
 #include "efi-api.h"
 #include "efivars.h"
+#include "env-file.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -3093,10 +3095,9 @@ static const char *pcrlock_path(const char *default_pcrlock_path) {
         return arg_pcrlock_path ?: arg_pcrlock_auto ? default_pcrlock_path : NULL;
 }
 
-static int write_pcrlock(sd_json_variant *array, const char *default_pcrlock_path) {
+static int write_pcrlock_at(sd_json_variant *array, const char *p) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *a = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        const char *p;
         int r;
 
         if (!array) {
@@ -3113,7 +3114,6 @@ static int write_pcrlock(sd_json_variant *array, const char *default_pcrlock_pat
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON object: %m");
 
-        p = pcrlock_path(default_pcrlock_path);
         if (p) {
                 (void) mkdir_parents_label(p, 0755);
 
@@ -3130,6 +3130,10 @@ static int write_pcrlock(sd_json_variant *array, const char *default_pcrlock_pat
                 log_debug("%s written.", p);
 
         return 0;
+}
+
+static int write_pcrlock(sd_json_variant *array, const char *default_pcrlock_path) {
+        return write_pcrlock_at(array, pcrlock_path(default_pcrlock_path));
 }
 
 static int unlink_pcrlock(const char *default_pcrlock_path) {
@@ -3687,6 +3691,30 @@ static int write_boot_policy_file(const char *json_text) {
 
         log_info("Written new boot policy to '%s'.", boot_policy_file);
         return 1;
+}
+
+static int profile_wants_pcrlock(const char *text, unsigned profile, const char *origin) {
+        _cleanup_free_ char *value = NULL;
+        int r;
+
+        assert(origin);
+
+        if (text) {
+                r = parse_env_data(text, /* size= */ SIZE_MAX, origin, "PCRLOCK", &value);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse profile data from %s: %m", origin);
+        }
+
+        /* A non-default profile must opt in explicitly, so that booting it does not unlock the secrets
+         * bound to the policy by accident. */
+        if (!value)
+                return profile == 0;
+
+        r = parse_boolean(value);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse PCRLOCK= setting '%s' from %s: %m", value, origin);
+
+        return r;
 }
 
 static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
@@ -5001,53 +5029,180 @@ static int verb_unlock_simple(int argc, char *argv[], uintptr_t _data, void *use
         return unlink_pcrlock(/* default_pcrlock_path= */ NULL);
 }
 
-typedef void* SectionHashArray[_UNIFIED_SECTION_MAX * TPM2_N_HASH_ALGORITHMS];
+typedef struct UkiHashCache {
+        /* hashes contains one digest per PE section and hash algorithm. Several profiles use the same
+         * section if they inherit it from the base profile. */
+        void **hashes;
+        size_t n_hashes;
+        size_t hash_sizes[TPM2_N_HASH_ALGORITHMS];
+} UkiHashCache;
 
-static void section_hashes_array_done(SectionHashArray *array) {
-        assert(array);
+static void uki_hash_cache_done(UkiHashCache *cache) {
+        assert(cache);
 
-        for (size_t i = 0; i < _UNIFIED_SECTION_MAX * TPM2_N_HASH_ALGORITHMS; i++)
-                free((*array)[i]);
+        free_many(cache->hashes, cache->n_hashes);
+        cache->hashes = mfree(cache->hashes);
+        cache->n_hashes = 0;
 }
 
-VERB(verb_lock_uki, "lock-uki", "[UKI]\0", VERB_ANY, 2, 0,
-     "Generate a .pcrlock file from UKI PE binary");
-static int verb_lock_uki(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL, *pe_digests = NULL;
-        _cleanup_(section_hashes_array_done) SectionHashArray section_hashes = {};
-        size_t hash_sizes[TPM2_N_HASH_ALGORITHMS];
-        _cleanup_close_ int fd = -EBADF;
+static int pcrlock_path_is_variant(const char *path) {
+        _cleanup_free_ char *absolute = NULL, *dir = NULL, *dir_name = NULL;
         int r;
 
-        if (arg_pcr_mask != 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "PCR not configurable for UKI lock down.");
+        assert(path);
 
-        fd = acquire_pe_fd(argc >= 2 ? argv[1] : NULL);
-        if (fd < 0)
-                return fd;
+        r = path_make_absolute_cwd(path, &absolute);
+        if (r < 0)
+                return log_error_errno(r, "Failed to make path '%s' absolute: %m", path);
 
-        for (size_t i = 0; i < TPM2_N_HASH_ALGORITHMS; i++) {
-                _cleanup_free_ void *peh = NULL;
-                const EVP_MD *md;
-                const char *a;
+        r = path_extract_directory(absolute, &dir);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract directory from '%s': %m", absolute);
 
-                assert_se(a = tpm2_hash_alg_to_string(tpm2_hash_algorithms[i]));
-                assert_se(md = sym_EVP_get_digestbyname(a));
+        r = path_extract_filename(dir, &dir_name);
+        if (r == -EADDRNOTAVAIL) /* The file is located in the root directory. */
+                return false;
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract file name from '%s': %m", dir);
 
-                r = pe_hash(fd, md, &peh, hash_sizes + i);
+        return !!endswith(dir_name, ".pcrlock.d");
+}
+
+static int pcrlock_profile_path(const char *path, unsigned profile, char **ret) {
+        char *s;
+
+        assert(path);
+        assert(profile > 0);
+        assert(ret);
+
+        const char *e = endswith(path, ".pcrlock");
+        if (e) {
+                if (asprintf(&s, "%.*s@%u.pcrlock", (int) (e - path), path, profile) < 0)
+                        return log_oom();
+        } else if (asprintf(&s, "%s@%u", path, profile) < 0)
+                return log_oom();
+
+        *ret = s;
+        return 0;
+}
+
+static int unlink_pcrlock_profiles(const char *path, const bool *keep) {
+        _cleanup_free_ char *dir = NULL, *fn = NULL, *prefix = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
+        int r;
+
+        assert(path);
+
+        /* The UKI might be gone already, hence unlink_pcrlock_profiles() finds the files of the profiles
+         * above @0 by the names that pcrlock_profile_path() generates. */
+
+        r = path_extract_filename(path, &fn);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract file name from '%s': %m", path);
+
+        r = path_extract_directory(path, &dir);
+        if (r < 0 && r != -EDESTADDRREQ)
+                return log_error_errno(r, "Failed to extract directory from '%s': %m", path);
+
+        const char *e = endswith(fn, ".pcrlock"), *suffix = e ? ".pcrlock" : "";
+        const char *stem = e ? strndupa_safe(fn, e - fn) : fn;
+        prefix = strjoin(stem, "@");
+        if (!prefix)
+                return log_oom();
+
+        d = opendir(dir ?: ".");
+        if (!d) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_error_errno(errno, "Failed to open directory '%s': %m", dir ?: ".");
+        }
+
+        /* The file name of the .pcrlock file may start with a dot, and FOREACH_DIRENT() skips such files. */
+        FOREACH_DIRENT_ALL(de, d, return log_error_errno(errno, "Failed to read directory '%s': %m", dir ?: ".")) {
+                const char *n = startswith(de->d_name, prefix);
+                if (!n)
+                        continue;
+
+                const char *x = endswith(n, suffix);
+                if (!x || x == n)
+                        continue;
+
+                _cleanup_free_ char *number = strndup(n, x - n);
+                if (!number)
+                        return log_oom();
+
+                /* pcrlock_profile_path() only generates decimal profile numbers above 0 without leading
+                 * zeroes. A file with any other name was not written by lock-uki. */
+                unsigned profile;
+                if (!in_charset(number, DIGITS) || number[0] == '0' ||
+                    safe_atou_full(number, 10, &profile) < 0 || profile >= UNIFIED_PROFILES_MAX)
+                        continue;
+
+                if (keep && keep[profile])
+                        continue;
+
+                if (unlinkat(dirfd(d), de->d_name, 0) < 0 && errno != ENOENT)
+                        return log_error_errno(errno, "Failed to delete %s/%s: %m", dir ?: ".", de->d_name);
+
+                log_info("%s/%s deleted.", dir ?: ".", de->d_name);
+        }
+
+        return 0;
+}
+
+static int uki_profile_wants_pcrlock(
+                int fd,
+                const PeHeader *pe_header,
+                const IMAGE_SECTION_HEADER *sections,
+                unsigned profile) {
+
+        _cleanup_free_ char *text = NULL;
+        int r;
+
+        assert(fd >= 0);
+        assert(pe_header);
+
+        /* The section table of a profile starts with its .profile section. Profile @0 has none if the UKI
+         * has no .profile section at all. */
+        const IMAGE_SECTION_HEADER *psections = pe_find_profile_section_table(pe_header, sections, profile, /* ret_n_sections= */ NULL);
+        if (psections) {
+                r = pe_read_section_data(fd, psections, PE_SECTION_SIZE_MAX, (void**) &text, /* ret_size= */ NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to hash PE binary: %m");
+                        return log_error_errno(r, "Failed to read .profile section of profile @%u: %m", profile);
+        }
 
-                r = sd_json_variant_append_arraybo(
-                                &pe_digests,
-                                SD_JSON_BUILD_PAIR_STRING("hashAlg", a),
-                                SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(peh, hash_sizes[i])));
-                if (r < 0)
-                        return log_error_errno(r, "Failed to build JSON digest object: %m");
+        return profile_wants_pcrlock(text, profile, ".profile");
+}
 
-                r = uki_hash(fd, md, /* profile= */ 0, section_hashes + (i * _UNIFIED_SECTION_MAX), hash_sizes + i);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to UKI hash PE binary: %m");
+static int uki_profile_records(
+                int fd,
+                const PeHeader *pe_header,
+                const IMAGE_SECTION_HEADER *sections,
+                UkiHashCache *cache,
+                unsigned profile,
+                sd_json_variant *pe_digests,
+                sd_json_variant **ret) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        const IMAGE_SECTION_HEADER *selected[_UNIFIED_SECTION_MAX];
+        int r;
+
+        assert(fd >= 0);
+        assert(pe_header);
+        assert(cache);
+        assert(pe_digests);
+        assert(ret);
+
+        /* uki_profile_records() returns the records for the measurements of one boot of the specified
+         * profile. It returns 0 if the UKI does not contain the profile. */
+
+        r = uki_profile_sections(pe_header, sections, profile, selected);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                *ret = NULL;
+                return 0;
         }
 
         r = sd_json_variant_append_arraybo(
@@ -5060,29 +5215,32 @@ static int verb_lock_uki(int argc, char *argv[], uintptr_t _data, void *userdata
         for (UnifiedSection section = 0; section < _UNIFIED_SECTION_MAX; section++) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *section_digests = NULL, *record = NULL;
 
-                if (!unified_section_measure(section))
+                if (!unified_section_measure(section) || !selected[section])
                         continue;
 
                 for (size_t i = 0; i < TPM2_N_HASH_ALGORITHMS; i++) {
+                        void **hash = cache->hashes + (selected[section] - sections) * TPM2_N_HASH_ALGORITHMS + i;
                         const char *a;
-                        void *hash;
-
-                        hash = section_hashes[i * _UNIFIED_SECTION_MAX + section];
-                        if (!hash)
-                                continue;
 
                         assert_se(a = tpm2_hash_alg_to_string(tpm2_hash_algorithms[i]));
+
+                        if (!*hash) {
+                                const EVP_MD *md;
+
+                                assert_se(md = sym_EVP_get_digestbyname(a));
+
+                                r = uki_hash_section(fd, md, selected[section], hash, cache->hash_sizes + i);
+                                if (r < 0)
+                                        return log_debug_errno(r, "Failed to hash section %s: %m", unified_sections[section]);
+                        }
 
                         r = sd_json_variant_append_arraybo(
                                         &section_digests,
                                         SD_JSON_BUILD_PAIR_STRING("hashAlg", a),
-                                        SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(hash, hash_sizes[i])));
+                                        SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(*hash, cache->hash_sizes[i])));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build JSON digest object: %m");
                 }
-
-                if (!section_digests)
-                        continue;
 
                 /* So we have digests for this section, hence generate a record for the section name first. */
                 r = make_pcrlock_record(TPM2_PCR_KERNEL_BOOT /* =11 */, unified_sections[section], strlen(unified_sections[section]) + 1, &record);
@@ -5102,11 +5260,166 @@ static int verb_lock_uki(int argc, char *argv[], uintptr_t _data, void *userdata
                         return log_error_errno(r, "Failed to append record object: %m");
         }
 
-        return write_pcrlock(array, /* default_pcrlock_path= */ NULL);
+        *ret = TAKE_PTR(array);
+        return 1;
 }
 
-VERB_NOARG(verb_unlock_simple, "unlock-uki",
-           "Remove .pcrlock file for UKI PE binary");
+VERB(verb_lock_uki, "lock-uki", "[UKI]\0", VERB_ANY, 2, 0,
+     "Generate .pcrlock files from UKI PE binary");
+static int verb_lock_uki(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *profiles = NULL, *pe_digests = NULL;
+        _cleanup_(uki_hash_cache_done) UkiHashCache cache = {};
+        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
+        _cleanup_free_ PeHeader *pe_header = NULL;
+        bool wanted[UNIFIED_PROFILES_MAX] = {};
+        _cleanup_close_ int fd = -EBADF;
+        unsigned n_profiles = 0, first_extra_profile = 0;
+        int r;
+
+        if (arg_pcr_mask != 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "PCR not configurable for UKI lock down.");
+
+        fd = acquire_pe_fd(argc >= 2 ? argv[1] : NULL);
+        if (fd < 0)
+                return fd;
+
+        r = pe_load_headers_and_sections(fd, &pe_header, &sections);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load PE headers: %m");
+
+        size_t n_hashes = (size_t) le16toh(pe_header->pe.NumberOfSections) * TPM2_N_HASH_ALGORITHMS;
+        cache.hashes = new0(void*, n_hashes);
+        if (!cache.hashes)
+                return log_oom();
+        cache.n_hashes = n_hashes;
+
+        /* The firmware measures the whole PE binary into PCR 4, regardless of the profile that is booted. */
+        for (size_t i = 0; i < TPM2_N_HASH_ALGORITHMS; i++) {
+                _cleanup_free_ void *peh = NULL;
+                size_t hash_size;
+                const EVP_MD *md;
+                const char *a;
+
+                assert_se(a = tpm2_hash_alg_to_string(tpm2_hash_algorithms[i]));
+                assert_se(md = sym_EVP_get_digestbyname(a));
+
+                r = pe_hash(fd, md, &peh, &hash_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to hash PE binary: %m");
+
+                r = sd_json_variant_append_arraybo(
+                                &pe_digests,
+                                SD_JSON_BUILD_PAIR_STRING("hashAlg", a),
+                                SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(peh, hash_size)));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build JSON digest object: %m");
+        }
+
+        /* systemd-stub measures a different set of sections into PCR 11 for each profile, hence each
+         * profile is one variant of the component. */
+        for (; n_profiles < UNIFIED_PROFILES_MAX; n_profiles++) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+
+                int q = uki_profile_records(fd, pe_header, sections, &cache, n_profiles, pe_digests, &array);
+                if (q == 0)
+                        break;
+
+                r = uki_profile_wants_pcrlock(fd, pe_header, sections, n_profiles);
+                if (r < 0)
+                        return r;
+                wanted[n_profiles] = r;
+
+                if (wanted[n_profiles] && n_profiles > 0 && first_extra_profile == 0)
+                        first_extra_profile = n_profiles;
+
+                if (q < 0) {
+                        /* The records of an excluded profile are only needed for the comparison below, hence
+                         * an excluded profile may have a section table that uki_profile_sections() rejects. */
+                        if (wanted[n_profiles] || q != -EBADMSG)
+                                return log_error_errno(q, "Failed to predict the measurements of profile @%u: %m", n_profiles);
+
+                        log_notice_errno(q, "Failed to predict the measurements of profile @%u, which is excluded from PCR locking. Not comparing it against the included profiles: %m", n_profiles);
+
+                        r = sd_json_variant_new_null(&array);
+                        if (r < 0)
+                                return log_oom();
+                }
+
+                r = sd_json_variant_append_array(&profiles, array);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append JSON record array: %m");
+        }
+
+        /* An excluded profile only stays locked if it is measured differently than every included profile. */
+        for (unsigned i = 0; i < n_profiles; i++) {
+                if (wanted[i])
+                        continue;
+
+                for (unsigned j = 0; j < n_profiles; j++)
+                        if (wanted[j] && sd_json_variant_equal(sd_json_variant_by_index(profiles, i), sd_json_variant_by_index(profiles, j)))
+                                log_warning("Profile @%u is excluded from PCR locking, but is measured identically to the included profile @%u. Booting profile @%u will satisfy the policy.", i, j, i);
+        }
+
+        const char *p = pcrlock_path(/* default_pcrlock_path= */ NULL);
+
+        /* The files of the profiles above @0 are only variants of the same component as the file of profile
+         * @0 if all of the files are located in the same *.pcrlock.d/ directory. Outside of such a directory
+         * each file is a component of its own, and no boot matches all of the components. */
+        if (p && first_extra_profile > 0) {
+                r = pcrlock_path_is_variant(p);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Profile @%u needs a .pcrlock file of its own, but '%s' is not located in a *.pcrlock.d/ directory, refusing.", first_extra_profile, p);
+        }
+
+        for (unsigned i = 0; i < n_profiles; i++) {
+                _cleanup_free_ char *pp = NULL;
+
+                if (!wanted[i]) {
+                        log_debug("Profile @%u is excluded from PCR locking, not generating a .pcrlock file for it.", i);
+                        continue;
+                }
+
+                if (p && i > 0) {
+                        r = pcrlock_profile_path(p, i, &pp);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = write_pcrlock_at(sd_json_variant_by_index(profiles, i), pp ?: p);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!p)
+                return 0;
+
+        /* A previous invocation might have written files for profiles that are excluded or gone now. Such
+         * a file would keep the profile included. */
+        if (!wanted[0] && unlink(p) < 0 && errno != ENOENT)
+                return log_error_errno(errno, "Failed to delete %s: %m", p);
+
+        return unlink_pcrlock_profiles(p, wanted);
+}
+
+VERB_NOARG(verb_unlock_uki, "unlock-uki",
+           "Remove .pcrlock files for UKI PE binary");
+static int verb_unlock_uki(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        const char *p;
+        int r;
+
+        p = pcrlock_path(/* default_pcrlock_path= */ NULL);
+        if (!p)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No .pcrlock path specified, refusing.");
+
+        r = unlink_pcrlock_profiles(p, /* keep= */ NULL);
+        if (r < 0)
+                return r;
+
+        return unlink_pcrlock(/* default_pcrlock_path= */ NULL);
+}
 
 VERB_NOARG(verb_lock_machine_id, "lock-machine-id",
            "Generate a .pcrlock file from current machine ID");
