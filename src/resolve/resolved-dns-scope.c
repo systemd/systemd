@@ -163,6 +163,9 @@ DnsScope* dns_scope_free(DnsScope *s) {
 
         sd_event_source_disable_unref(s->mdns_goodbye_event_source);
 
+        while (s->mdns_pending_replies)
+                mdns_pending_reply_free(s->mdns_pending_replies);
+
         dns_cache_flush(&s->cache);
         dns_zone_flush(&s->zone);
 

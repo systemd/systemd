@@ -13,9 +13,13 @@
 #include "dns-question.h"
 #include "dns-rr.h"
 #include "fd-util.h"
+#include "in-addr-util.h"
+#include "list.h"
 #include "log.h"
+#include "random-util.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-transaction.h"
+#include "resolved-dns-zone.h"
 #include "resolved-link.h"
 #include "resolved-manager.h"
 #include "resolved-mdns.h"
@@ -23,6 +27,29 @@
 #include "time-util.h"
 
 #define CLEAR_CACHE_FLUSH(x) (~MDNS_RR_CACHE_FLUSH_OR_QU & (x))
+
+/* RFC 6762, Section 7.2: delay replies to queries with the TC bit set by 400-500ms */
+#define MDNS_TC_DELAY_MIN_USEC (400 * USEC_PER_MSEC)
+#define MDNS_TC_DELAY_MAX_USEC (500 * USEC_PER_MSEC)
+
+/* Upper bound on replies deferred per scope, so that a flood of TC queries can't make us hold arbitrary
+ * amounts of state */
+#define MDNS_PENDING_REPLIES_MAX 64U
+
+struct MdnsPendingReply {
+        DnsScope *scope;
+
+        int family;
+        union in_addr_union sender;
+        uint16_t sender_port;
+        uint16_t id;
+        bool unicast_reply;
+
+        DnsAnswer *answer;
+        sd_event_source *timer_event_source;
+
+        LIST_FIELDS(MdnsPendingReply, pending_replies);
+};
 
 void manager_mdns_stop(Manager *m) {
         assert(m);
@@ -373,6 +400,202 @@ static int mdns_scope_send_reply(
         return 0;
 }
 
+int mdns_answer_suppress_known(DnsAnswer **answer, DnsAnswer *known) {
+        DnsAnswerItem *k;
+        int r;
+
+        assert(answer);
+
+        /* RFC 6762, Section 7.1: drop any record from our answer that the querier already listed in the
+         * Answer section of its query, with a TTL at least half of the correct value. Records from the
+         * Authority and Additional sections (e.g. the proposed records of a probe) don't count. */
+
+        DNS_ANSWER_FOREACH_ITEM(k, known) {
+                DnsResourceRecord *rr;
+                bool suppress = false;
+
+                if (!FLAGS_SET(k->flags, DNS_ANSWER_SECTION_ANSWER))
+                        continue;
+
+                DNS_ANSWER_FOREACH(rr, *answer) {
+                        r = dns_resource_record_equal(rr, k->rr);
+                        if (r < 0)
+                                return r;
+                        if (r > 0) {
+                                suppress = k->rr->ttl >= rr->ttl / 2;
+                                break;
+                        }
+                }
+
+                if (suppress) {
+                        r = dns_answer_remove_by_rr(answer, k->rr);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
+}
+
+MdnsPendingReply* mdns_pending_reply_free(MdnsPendingReply *pr) {
+        if (!pr)
+                return NULL;
+
+        if (pr->scope) {
+                LIST_REMOVE(pending_replies, pr->scope->mdns_pending_replies, pr);
+                assert(pr->scope->n_mdns_pending_replies > 0);
+                pr->scope->n_mdns_pending_replies--;
+        }
+
+        sd_event_source_disable_unref(pr->timer_event_source);
+        dns_answer_unref(pr->answer);
+        return mfree(pr);
+}
+
+static MdnsPendingReply* mdns_pending_reply_find(DnsScope *s, const DnsPacket *p) {
+        assert(s);
+        assert(p);
+
+        LIST_FOREACH(pending_replies, pr, s->mdns_pending_replies)
+                if (pr->family == p->family &&
+                    pr->sender_port == p->sender_port &&
+                    in_addr_equal(p->family, &pr->sender, &p->sender) > 0)
+                        return pr;
+
+        return NULL;
+}
+
+static int mdns_answer_drop_stale(DnsScope *s, DnsAnswer **answer) {
+        DnsResourceRecord *rr;
+        int r;
+
+        assert(s);
+        assert(answer);
+
+        /* Our zone might have changed while the reply was pending (e.g. a conflict was detected or a
+         * service was removed). Don't announce anything we no longer own. */
+
+        for (bool again = true; again;) {
+                again = false;
+
+                DNS_ANSWER_FOREACH(rr, *answer) {
+                        DnsZoneItem *i;
+
+                        i = dns_zone_get(&s->zone, rr);
+                        if (i && i->state != DNS_ZONE_ITEM_WITHDRAWN)
+                                continue;
+
+                        r = dns_answer_remove_by_rr(answer, rr);
+                        if (r < 0)
+                                return r;
+
+                        again = true;
+                        break;
+                }
+        }
+
+        return 0;
+}
+
+static int on_mdns_pending_reply_timeout(sd_event_source *es, usec_t usec, void *userdata) {
+        MdnsPendingReply *pr = ASSERT_PTR(userdata);
+        int r;
+
+        r = mdns_answer_drop_stale(pr->scope, &pr->answer);
+        if (r < 0)
+                log_debug_errno(r, "Failed to drop stale records from deferred mDNS reply, ignoring: %m");
+        else if (dns_answer_isempty(pr->answer))
+                log_debug("All answers of deferred mDNS reply were suppressed, not replying.");
+        else
+                (void) mdns_scope_send_reply(pr->scope, pr->id, /* question= */ NULL, pr->answer,
+                                             pr->unicast_reply, &pr->sender, pr->sender_port);
+
+        mdns_pending_reply_free(pr);
+        return 0;
+}
+
+static int mdns_scope_defer_reply(DnsScope *s, DnsPacket *p, DnsAnswer *answer, bool unicast_reply) {
+        _cleanup_free_ MdnsPendingReply *pr = NULL;
+        MdnsPendingReply *existing;
+        int r;
+
+        assert(s);
+        assert(p);
+
+        /* RFC 6762, Section 7.2: the querier set the TC bit, so more Known-Answer packets are on their way.
+         * Wait a random 400-500ms for them before replying. */
+
+        existing = mdns_pending_reply_find(s, p);
+        if (existing) {
+                /* The querier sent another TC query before we replied. Merge the answers but keep the
+                 * timer, so that a querier can't postpone our reply indefinitely. */
+                r = dns_answer_extend(&existing->answer, answer);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to merge deferred mDNS reply: %m");
+
+                existing->unicast_reply = existing->unicast_reply && unicast_reply;
+                return 0;
+        }
+
+        pr = new(MdnsPendingReply, 1);
+        if (!pr)
+                return log_oom();
+
+        *pr = (MdnsPendingReply) {
+                .family = p->family,
+                .sender = p->sender,
+                .sender_port = p->sender_port,
+                .id = DNS_PACKET_ID(p),
+                .unicast_reply = unicast_reply,
+        };
+
+        r = sd_event_add_time_relative(
+                        s->manager->event,
+                        &pr->timer_event_source,
+                        CLOCK_BOOTTIME,
+                        MDNS_TC_DELAY_MIN_USEC +
+                        random_u64_range(MDNS_TC_DELAY_MAX_USEC - MDNS_TC_DELAY_MIN_USEC),
+                        /* accuracy= */ USEC_PER_MSEC,
+                        on_mdns_pending_reply_timeout,
+                        pr);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to schedule deferred mDNS reply: %m");
+
+        (void) sd_event_source_set_description(pr->timer_event_source, "mdns-pending-reply");
+
+        pr->answer = dns_answer_ref(answer);
+        pr->scope = s;
+        LIST_PREPEND(pending_replies, s->mdns_pending_replies, pr);
+        s->n_mdns_pending_replies++;
+
+        log_debug("Query has TC bit set, deferring mDNS reply for more Known-Answer packets.");
+
+        TAKE_PTR(pr);
+        return 0;
+}
+
+static int mdns_scope_process_known_answers(DnsScope *s, DnsPacket *p) {
+        MdnsPendingReply *pr;
+        int r;
+
+        assert(s);
+        assert(p);
+
+        /* A packet with no questions, only Known-Answers: the continuation of an earlier query with the TC
+         * bit set (RFC 6762, Section 7.2). If we have no reply pending for the sender, there's nothing to
+         * suppress. */
+
+        pr = mdns_pending_reply_find(s, p);
+        if (!pr)
+                return 0;
+
+        r = mdns_answer_suppress_known(&pr->answer, p->answer);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to apply Known-Answer suppression: %m");
+
+        return 0;
+}
+
 static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         bool legacy_query = p->sender_port != MDNS_PORT;
@@ -386,9 +609,8 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to extract resource records from incoming packet: %m");
 
-        /* TODO: Support Known-Answers only packets gracefully. */
         if (dns_question_size(p->question) <= 0)
-                return 0;
+                return mdns_scope_process_known_answers(s, p);
 
         unicast_reply = mdns_should_reply_using_unicast(p);
         if (unicast_reply && !sender_on_local_subnet(s, p)) {
@@ -402,6 +624,23 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         r = mdns_scope_build_answer(s, p, &answer);
         if (r < 0)
                 return r;
+
+        /* Known-Answer suppression is a feature of multicast queriers, legacy queriers don't use it. */
+        if (!legacy_query) {
+                r = mdns_answer_suppress_known(&answer, p->answer);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to apply Known-Answer suppression: %m");
+        }
+
+        if (dns_answer_isempty(answer))
+                return 0;
+
+        if (DNS_PACKET_TC(p) && !legacy_query) {
+                if (s->n_mdns_pending_replies < MDNS_PENDING_REPLIES_MAX)
+                        return mdns_scope_defer_reply(s, p, answer, unicast_reply);
+
+                log_debug("Too many deferred mDNS replies, replying immediately.");
+        }
 
         return mdns_scope_send_reply(s, DNS_PACKET_ID(p),
                                      legacy_query ? p->question : NULL, answer,
