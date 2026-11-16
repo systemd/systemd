@@ -89,6 +89,15 @@ testcase_basic() {
         --skel="$TMP_SKEL"
     inspect test-user
 
+    # Authenticating without any password (as pam_systemd_home does first, to find out whether a security
+    # token suffices) must not count as bad authentication, while a wrong password must
+    (! busctl call org.freedesktop.home1 /org/freedesktop/home1 org.freedesktop.home1.Manager \
+          AuthenticateHome ss test-user '{}')
+    [[ "$(homectl inspect -j test-user | jq ".status.\"$(cat /etc/machine-id)\".badAuthenticationCounter // 0")" -eq 0 ]]
+    (! busctl call org.freedesktop.home1 /org/freedesktop/home1 org.freedesktop.home1.Manager \
+          AuthenticateHome ss test-user '{"password":["wrongpass"]}')
+    [[ "$(homectl inspect -j test-user | jq ".status.\"$(cat /etc/machine-id)\".badAuthenticationCounter // 0")" -eq 1 ]]
+
     PASSWORD=xEhErW0ndafV4s homectl authenticate test-user
 
     PASSWORD=xEhErW0ndafV4s homectl activate test-user

@@ -711,6 +711,12 @@ static void home_count_bad_authentication(Home *h, int error, bool save) {
                     -EREMOTEIO))   /* Recovery key incorrect */
                 return;
 
+        /* Clients such as pam_systemd_home first try to authenticate without any password, to find out
+         * whether a security token alone suffices. A password or recovery key can only be incorrect if one
+         * was supplied, hence don't count such attempts as bad authentication. */
+        if (!h->worker_got_password)
+                return;
+
         r = user_record_bad_authentication(h->record);
         if (r < 0)
                 return (void) log_warning_errno(r, "Failed to increase bad authentication counter, ignoring: %m");
@@ -1445,6 +1451,7 @@ static int home_start_work(
 
         h->worker_stdout_fd = TAKE_FD(stdout_fd);
         h->worker_error_code = 0;
+        h->worker_got_password = secret && !strv_isempty(secret->password);
 
         return 0;
 }
