@@ -3628,8 +3628,14 @@ int home_resize_luks(
                 }
 
                 r = apply_resize_partition(image_fd, disk_uuid, table, partition, new_partition_size);
-                if (r < 0)
+                if (r < 0) {
+                        /* The old partition table refers to space beyond the shrunk image, restore the
+                         * original image size so that it remains usable. */
+                        if (S_ISREG(st.st_mode) && ftruncate(image_fd, old_image_size) < 0)
+                                log_warning_errno(errno, "Failed to restore size of '%s', ignoring: %m", ip);
+
                         return r;
+                }
                 if (r > 0)
                         log_info("Shrinking of partition completed.");
 
