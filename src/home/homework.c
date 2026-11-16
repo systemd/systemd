@@ -1764,6 +1764,7 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         HomeSetupFlags flags = 0;
+        uint32_t fscrypt_first_new_slot = 0;
         int r, reconciled;
 
         assert(h);
@@ -1801,7 +1802,7 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
                 break;
 
         case USER_FSCRYPT:
-                r = home_passwd_fscrypt(h, &setup, &cache, effective_passwords);
+                r = home_passwd_fscrypt(h, &setup, &cache, effective_passwords, &fscrypt_first_new_slot);
                 if (r < 0)
                         return r;
                 break;
@@ -1829,6 +1830,13 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         r = home_sync_and_statfs(setup.root_fd, /* ret= */ NULL);
         if (r < 0)
                 return r;
+
+        /* Only remove the old fscrypt key slots now that the new record has been written */
+        if (user_record_storage(h) == USER_FSCRYPT) {
+                r = home_passwd_fscrypt_remove_old_slots(&setup, fscrypt_first_new_slot);
+                if (r < 0)
+                        return r;
+        }
 
         r = home_setup_done(&setup);
         if (r < 0)
