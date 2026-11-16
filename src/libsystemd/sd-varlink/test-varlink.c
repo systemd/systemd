@@ -2410,19 +2410,23 @@ TEST(serialize_server) {
         FOREACH_ARRAY(fd, fds, n_fds)
                 ASSERT_EQ(*fd, -EBADF);
 
-        /* Only connections with a pending method call can be claimed, and only once */
-        ASSERT_ERROR(sd_varlink_server_claim_connection(s, raw_id, /* ret= */ NULL), ESRCH);
-        ASSERT_ERROR(sd_varlink_server_claim_connection(s, "cookie:4711", /* ret= */ NULL), ESRCH);
+        /* Only connections with a pending method call can be claimed. */
+        ASSERT_ERROR(sd_varlink_server_claim_connection(s, raw_id, /* flags= */ 0, /* ret= */ NULL), ESRCH);
+        ASSERT_ERROR(sd_varlink_server_claim_connection(s, "cookie:4711", /* flags= */ 0, /* ret= */ NULL), ESRCH);
 
         sd_varlink *claimed = NULL;
-        ASSERT_OK(sd_varlink_server_claim_connection(s, stream_id, &claimed));
+        ASSERT_OK(sd_varlink_server_claim_connection(s, stream_id, /* flags= */ 0, &claimed));
         ASSERT_NOT_NULL(claimed);
-        ASSERT_ERROR(sd_varlink_server_claim_connection(s, stream_id, /* ret= */ NULL), ESRCH);
+        ASSERT_ERROR(sd_varlink_server_claim_connection(s, stream_id, /* flags= */ 0, /* ret= */ NULL), EALREADY);
+        sd_varlink *claimed_again = NULL;
+        ASSERT_OK(sd_varlink_server_claim_connection(s, stream_id, SD_VARLINK_SERVER_CLAIM_AGAIN, &claimed_again));
+        ASSERT_PTR_EQ(claimed, claimed_again);
         ASSERT_OK_ZERO(sd_varlink_server_disconnect_unclaimed_connections(s));
 
         /* Complete the stream: the client sees the queued notifications first, then the final reply */
         ASSERT_OK(sd_varlink_replybo(claimed, SD_JSON_BUILD_PAIR_BOOLEAN("final", true)));
         run_until(e, stream_done, /* userdata= */ NULL);
+        ASSERT_ERROR(sd_varlink_server_claim_connection(s, stream_id, SD_VARLINK_SERVER_CLAIM_AGAIN, /* ret= */ NULL), ESRCH);
 
         /* Complete the partial request on the idle connection */
         ASSERT_OK(loop_write(raw_fd, "\"parameters\":{}}", STRLEN("\"parameters\":{}}") + 1));
