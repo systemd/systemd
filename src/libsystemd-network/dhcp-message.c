@@ -1445,6 +1445,62 @@ int dhcp_message_parse(
         return 0;
 }
 
+int dhcp_message_find_raw_option(const struct iovec *iov, uint8_t code, struct iovec *ret) {
+        struct iovec found = {};
+
+        assert(iov);
+        assert(iovec_is_valid(iov));
+        assert(!IN_SET(code, SD_DHCP_OPTION_PAD, SD_DHCP_OPTION_END));
+        assert(ret);
+
+        /* Finds the option in a received message as it is on the wire, e.g. to verify a digest over the
+         * message (RFC 6704). Only the options field is searched, not overloaded sname or file fields. The
+         * option must be present exactly once, i.e. it must not be split as described in RFC 3396. */
+
+        if (iov->iov_len < sizeof(DHCPMessageHeader))
+                return -EBADMSG;
+
+        const DHCPMessageHeader *header = iov->iov_base;
+        if (be32toh(header->magic) != DHCP_MAGIC_COOKIE)
+                return -ENODATA;
+
+        const uint8_t *p = (const uint8_t*) iov->iov_base + sizeof(DHCPMessageHeader);
+        size_t len = iov->iov_len - sizeof(DHCPMessageHeader);
+
+        for (size_t offset = 0; offset < len;) {
+                uint8_t c = p[offset];
+
+                if (c == SD_DHCP_OPTION_END)
+                        break;
+                if (c == SD_DHCP_OPTION_PAD) {
+                        offset++;
+                        continue;
+                }
+
+                if (len - offset < 2)
+                        return -EBADMSG;
+
+                size_t l = p[offset + 1];
+                if (len - offset - 2 < l)
+                        return -EBADMSG;
+
+                if (c == code) {
+                        if (iovec_is_set(&found))
+                                return -ENOTUNIQ;
+
+                        found = IOVEC_MAKE((void*) (p + offset + 2), l);
+                }
+
+                offset += 2 + l;
+        }
+
+        if (!iovec_is_set(&found))
+                return -ENODATA;
+
+        *ret = found;
+        return 0;
+}
+
 size_t dhcp_message_payload_size(sd_dhcp_message *message) {
         assert(message);
 
