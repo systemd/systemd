@@ -737,6 +737,8 @@ static int convert_worker_errno(Home *h, int e, sd_bus_error *error) {
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_IN_USE, "Home %s is currently being used elsewhere.", h->user_name);
         case -ENETUNREACH:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_ABSENT, "Backing storage for %s currently absent.", h->user_name);
+        case -ESTALE:
+                return sd_bus_error_setf(error, BUS_ERROR_HOME_RECORD_DOWNGRADE, "Record embedded in home %s is equally new or newer than the supplied record.", h->user_name);
         }
 
         return 0;
