@@ -227,7 +227,7 @@ int user_record_authenticate(
 #if HAVE_LIBFIDO2
                 _cleanup_(erase_and_freep) char *decrypted_password = NULL;
 
-                r = fido2_use_token(h, secret, i, &decrypted_password);
+                r = fido2_use_token(secret, i, &decrypted_password);
                 switch (r) {
                 case -EAGAIN:
                         need_token = true;
@@ -1262,7 +1262,7 @@ static int user_record_compile_effective_passwords(
 #if HAVE_LIBFIDO2
                 _cleanup_(erase_and_freep) char *decrypted_password = NULL;
 
-                r = fido2_use_token(h, h, i, &decrypted_password);
+                r = fido2_use_token(h, i, &decrypted_password);
                 if (r < 0)
                         return r;
 
