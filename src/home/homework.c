@@ -1075,6 +1075,8 @@ static int copy_skel(UserRecord *h, int root_fd, const char *skel) {
                 log_info("Skeleton directory %s missing, ignoring.", skel);
                 return 0;
         }
+        if (r < 0)
+                return log_error_errno(r, "Failed to open skeleton directory %s: %m", skel);
 
         r = copy_tree_at(
                         skel_fd, /* from= */ NULL,
