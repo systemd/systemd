@@ -2192,6 +2192,10 @@ turn_off:
         m->rebalance_event_source = sd_event_source_disable_unref(m->rebalance_event_source);
         m->rebalance_state = REBALANCE_OFF;
         manager_rebalance_reply_messages(m, r);
+
+        /* No further run will pick up the calls queued for it, hence reply to them too */
+        SWAP_TWO(m->rebalance_pending_method_calls, m->rebalance_queued_method_calls);
+        manager_rebalance_reply_messages(m, r);
         return r;
 }
 
