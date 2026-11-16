@@ -2573,43 +2573,42 @@ static int home_get_disk_status_directory(
         if (IN_SET(h->record->storage, USER_CLASSIC, USER_DIRECTORY, USER_FSCRYPT)) {
                 r = quotactl_fd_with_fallback(fd, QCMD_FIXED(Q_GETQUOTA, USRQUOTA), h->uid, &req);
                 if (r < 0) {
-                        if (ERRNO_IS_NOT_SUPPORTED(r)) {
+                        if (ERRNO_IS_NOT_SUPPORTED(r))
                                 log_debug_errno(r, "No UID quota support on %s.", path);
-                                goto finish;
-                        }
-                        if (r != -ESRCH) {
+                        else if (r == -ESRCH) /* The kernel returns ESRCH if UID quota is not enabled */
+                                log_debug_errno(r, "UID quota not enabled on %s.", path);
+                        else if (r == -ENOENT) /* XFS returns ENOENT if the UID has no quota record */
+                                disk_usage = 0;
+                        else
                                 log_debug_errno(r, "Failed to query disk quota for UID " UID_FMT ": %m", h->uid);
-                                goto finish;
-                        }
+                        goto finish;
+                }
 
-                        disk_usage = 0; /* No record of this user? then nothing was used */
-                } else {
-                        if (FLAGS_SET(req.dqb_valid, QIF_SPACE) && disk_free != UINT64_MAX) {
-                                disk_ceiling = req.dqb_curspace + disk_free;
+                if (FLAGS_SET(req.dqb_valid, QIF_SPACE) && disk_free != UINT64_MAX) {
+                        disk_ceiling = req.dqb_curspace + disk_free;
 
-                                if (disk_size != UINT64_MAX && disk_ceiling > disk_size)
-                                        disk_ceiling = disk_size;
-                        }
+                        if (disk_size != UINT64_MAX && disk_ceiling > disk_size)
+                                disk_ceiling = disk_size;
+                }
 
-                        /* A hard limit of zero means there's no limit */
-                        if (FLAGS_SET(req.dqb_valid, QIF_BLIMITS) && req.dqb_bhardlimit > 0) {
-                                uint64_t q;
+                /* A hard limit of zero means there's no limit */
+                if (FLAGS_SET(req.dqb_valid, QIF_BLIMITS) && req.dqb_bhardlimit > 0) {
+                        uint64_t q;
 
-                                /* Take the minimum of the quota and the available disk space here */
-                                q = req.dqb_bhardlimit * QIF_DQBLKSIZE;
-                                if (disk_size != UINT64_MAX)
-                                        disk_size = MIN(disk_size, q);
-                                else
-                                        disk_size = q;
-                        }
-                        if (FLAGS_SET(req.dqb_valid, QIF_SPACE)) {
-                                disk_usage = req.dqb_curspace;
+                        /* Take the minimum of the quota and the available disk space here */
+                        q = req.dqb_bhardlimit * QIF_DQBLKSIZE;
+                        if (disk_size != UINT64_MAX)
+                                disk_size = MIN(disk_size, q);
+                        else
+                                disk_size = q;
+                }
+                if (FLAGS_SET(req.dqb_valid, QIF_SPACE)) {
+                        disk_usage = req.dqb_curspace;
 
-                                /* Other users may use the file system too, hence don't report more than is
-                                 * free on it */
-                                if (disk_size != UINT64_MAX)
-                                        disk_free = MIN(disk_free, LESS_BY(disk_size, disk_usage));
-                        }
+                        /* Other users may use the file system too, hence don't report more than is
+                         * free on it */
+                        if (disk_size != UINT64_MAX)
+                                disk_free = MIN(disk_free, LESS_BY(disk_size, disk_usage));
                 }
         }
 
