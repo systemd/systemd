@@ -84,6 +84,7 @@
         <funcdef>int <function>sd_varlink_server_claim_connection</function></funcdef>
         <paramdef>sd_varlink_server *<parameter>server</parameter></paramdef>
         <paramdef>const char *<parameter>id</parameter></paramdef>
+        <paramdef>sd_varlink_server_claim_flags_t <parameter>flags</parameter></paramdef>
         <paramdef>sd_varlink **<parameter>ret</parameter></paramdef>
       </funcprototype>
 
@@ -191,7 +192,11 @@
     for identifiers derived from inode numbers), the second one is disconnected right away.
     <function>sd_varlink_server_claim_connection()</function> looks up the connection with the specified
     identifier (as previously returned by <function>sd_varlink_get_connection_id()</function>) in this
-    table, and removes it from there. The connection is returned in <parameter>ret</parameter>, without
+    table, and moves it to the table of claimed connections. By default, claiming the same connection again
+    returns <constant>-EALREADY</constant>. If <constant>SD_VARLINK_SERVER_CLAIM_AGAIN</constant> is set in
+    <parameter>flags</parameter>, a previously claimed connection is returned again instead. A connection is
+    removed from these tables when its pending method call is completed or the connection is closed.
+    The connection is returned in <parameter>ret</parameter>, without
     taking a reference to it, and the program should take a reference before replying, the same way it
     would while dispatching a method call. Once the program has deserialized all of its state,
     <function>sd_varlink_server_disconnect_unclaimed_connections()</function> should be called to disconnect
@@ -215,7 +220,7 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>An argument is invalid, or a field of the serialized data has an invalid
+          <listitem><para>An argument is invalid, an unknown flag was specified, or a field of the serialized data has an invalid
           value.</para></listitem>
         </varlistentry>
 
@@ -258,7 +263,14 @@
         <varlistentry>
           <term><constant>-ESRCH</constant></term>
 
-          <listitem><para>No unclaimed connection with the specified identifier exists.</para></listitem>
+          <listitem><para>No restored connection with a pending method call and the specified identifier exists.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EALREADY</constant></term>
+
+          <listitem><para>The connection has already been claimed, and
+          <constant>SD_VARLINK_SERVER_CLAIM_AGAIN</constant> was not specified.</para></listitem>
         </varlistentry>
 
         <varlistentry>
