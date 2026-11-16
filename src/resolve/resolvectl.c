@@ -3072,13 +3072,7 @@ static int verb_dns_over_tls(int argc, char *argv[], uintptr_t _data, void *user
 VERB(verb_dnssec, "dnssec", "[LINK [MODE]]\0", VERB_ANY, 3, 0,
      "Get/set per-interface DNSSEC mode");
 static int verb_dnssec(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
 
         if (argc >= 2) {
                 r = ifname_mangle(argv[1]);
@@ -3092,23 +3086,26 @@ static int verb_dnssec(int argc, char *argv[], uintptr_t _data, void *userdata) 
         if (argc < 3)
                 return status_ifindex(arg_ifindex, STATUS_DNSSEC);
 
+        /* An empty/NULL value will reset to the default. */
+        const char *mode_str = NULL;
+        if (!isempty(argv[2])) {
+                DnssecMode mode = dnssec_mode_from_string(argv[2]);
+                if (mode < 0)
+                        return log_error_errno(mode, "Invalid DNSSEC mode '%s'", argv[2]);
+
+                mode_str = dnssec_mode_to_string(mode);
+        }
+
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
-        r = bus_call_method(bus, bus_resolve_mgr, "SetLinkDNSSEC", &error, /* ret_reply= */ NULL, "is", arg_ifindex, argv[2]);
-        if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
-                sd_bus_error_free(&error);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        r = sd_json_buildo(
+                        &parameters,
+                        SD_JSON_BUILD_PAIR_STRING("dnssec", mode_str));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON parameters: %m");
 
-                r = bus_call_method(bus, bus_network_mgr, "SetLinkDNSSEC", &error, /* ret_reply= */ NULL, "is", arg_ifindex, argv[2]);
-        }
-        if (r < 0) {
-                if (arg_ifindex_permissive &&
-                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
-                        return 0;
-
-                return log_error_errno(r, "Failed to set DNSSEC configuration: %s", bus_error_message(&error, r));
-        }
-
-        return 0;
+        return varlink_call_link_method("io.systemd.Resolve.Link.SetDNSSEC", parameters);
 }
 
 static int call_set_nta(char **ntas) {
