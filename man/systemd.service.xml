@@ -1206,7 +1206,7 @@ StartLimitBurst=5</programlisting>
         <listitem><para>Set the <constant>O_NONBLOCK</constant> flag for all file descriptors passed via
         socket-based activation. If true, all file descriptors >= 3 (i.e. all except stdin, stdout, stderr),
         excluding those passed in via the file descriptor storage logic (see
-        <varname>FileDescriptorStoreMax=</varname> for details), will have the
+        <varname>FileDescriptorStoreMax=</varname> for details) or <varname>OpenFile=</varname>, will have the
         <constant>O_NONBLOCK</constant> flag set and hence are in non-blocking mode. This option is only
         useful in conjunction with a socket unit, as described in
         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
