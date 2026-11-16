@@ -1410,7 +1410,7 @@ static int home_create(UserRecord *h, Hashmap *blobs, UserRecord **ret_home) {
                                 UID_INVALID,
                                 GID_INVALID);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to change storage type to LUKS: %m");
+                        return log_error_errno(r, "Failed to add default storage binding to record: %m");
         }
 
         r = user_record_test_image_path_and_warn(h);
