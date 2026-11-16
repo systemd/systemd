@@ -39,7 +39,8 @@ static int copy_one_blob(
         assert(name);
         assert(total_size);
         assert(uid_is_valid(uid));
-        assert(manifest);
+        /* Note that 'manifest' may be NULL here, if the record has no blob manifest, in which case all files
+         * are refused below. */
 
         if (!suitable_blob_filename(name)) {
                 log_warning("Blob %s has invalid filename. Skipping.", name);
