@@ -5045,7 +5045,7 @@ static int verb_lock_uki(int argc, char *argv[], uintptr_t _data, void *userdata
                 if (r < 0)
                         return log_error_errno(r, "Failed to build JSON digest object: %m");
 
-                r = uki_hash(fd, md, section_hashes + (i * _UNIFIED_SECTION_MAX), hash_sizes + i);
+                r = uki_hash(fd, md, /* profile= */ 0, section_hashes + (i * _UNIFIED_SECTION_MAX), hash_sizes + i);
                 if (r < 0)
                         return log_error_errno(r, "Failed to UKI hash PE binary: %m");
         }
