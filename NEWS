@@ -51,6 +51,16 @@ CHANGES WITH 263 in spe:
           read-only. Explicitly configured PrivateTmp=, including PrivateTmp=no,
           continues to be honoured as-is.
 
+        * The host's os-release file is now made available to services that use
+          one of the root directory settings as a private copy at
+          /run/host/os-release, taken when the service is spawned, rather than
+          as a read-only bind mount of a file shared with the manager. A service
+          can therefore only modify its own copy, which dies with its mount
+          namespace. As a consequence, the file is no longer refreshed on soft
+          reboot for services that are configured to survive it. It is now also
+          available for user-manager services running with PrivateUsers=managed,
+          which never got it before.
+
         * Empty transient assignments to RuntimeDirectory=, StateDirectory=,
           CacheDirectory= and LogsDirectory= now reset the corresponding
           directory list instead of being ignored. ConfigurationDirectory=
