@@ -509,6 +509,11 @@ static int home_on_retry_deactivate(sd_event_source *s, uint64_t usec, void *use
 
         h->retry_deactivate_event_source = sd_event_source_disable_unref(h->retry_deactivate_event_source);
 
+        /* The home might have been referenced again in the meantime, in which case it's not ours to
+         * deactivate anymore. */
+        if (home_is_referenced(h))
+                return 0;
+
         state = home_get_state(h);
         if (!HOME_STATE_MAY_RETRY_DEACTIVATE(state))
                 return 0;
