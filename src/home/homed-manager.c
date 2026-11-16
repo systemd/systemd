@@ -2060,6 +2060,13 @@ static int manager_rebalance_now(Manager *m) {
                          * tells us what to do next. */
                         log_debug("Can't enter phase, busy.");
                         m->rebalance_state = busy_state;
+
+                        /* If we didn't manage to start the cycle, move the method calls back into the queue,
+                         * so that they are processed (and replied to) by the next attempt. */
+                        if (busy_state == REBALANCE_PENDING)
+                                SWAP_TWO(m->rebalance_pending_method_calls,
+                                         m->rebalance_queued_method_calls);
+
                         return r;
                 }
                 if (r < 0)
