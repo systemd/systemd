@@ -209,12 +209,45 @@ int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
         return 0;
 }
 
+static void home_complete_pending_operations(Home *h) {
+        Operation *o;
+        int r;
+
+        assert(h);
+
+        /* The home is going away. Complete the operations still queued for it, so that nobody is left
+         * waiting for a reply. */
+
+        while ((o = ordered_set_steal_first(h->pending_operations))) {
+                if (o->result < 0) {
+                        if (IN_SET(o->type, OPERATION_LOCK_ALL, OPERATION_DEACTIVATE_ALL))
+                                /* There's nothing to lock or deactivate anymore. Note that these operations
+                                 * are shared between homes, hence don't touch them if another home already
+                                 * reported a result. */
+                                operation_result(o, /* ret= */ 0, /* error= */ NULL);
+                        else if (o->message) {
+                                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                                r = sd_bus_error_setf(&error, BUS_ERROR_NO_SUCH_HOME,
+                                                      "Home %s no longer exists.", h->user_name);
+                                operation_result(o, r, &error);
+                        }
+                }
+
+                operation_unref(o);
+        }
+}
+
 Home *home_free(Home *h) {
 
         if (!h)
                 return NULL;
 
         if (h->manager) {
+                /* Don't bother replying if we are shutting down, the bus connection is already gone then */
+                if (h->manager->bus)
+                        home_complete_pending_operations(h);
+
                 (void) bus_home_emit_remove(h);
                 (void) bus_manager_emit_auto_login_changed(h->manager);
 

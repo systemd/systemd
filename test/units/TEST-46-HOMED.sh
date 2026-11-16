@@ -280,7 +280,7 @@ testcase_basic() {
     /usr/lib/systemd/tests/unit-tests/manual/test-homed-regression-31896 test-user
 
     wait_for_state test-user inactive
-    homectl remove test-user
+    /usr/lib/systemd/tests/unit-tests/manual/test-homed-regression-44837 test-user
 }
 
 testcase_recovery_key_file() (
