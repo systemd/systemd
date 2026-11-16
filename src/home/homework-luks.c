@@ -1136,7 +1136,8 @@ int run_fitrim(int root_fd) {
                         return 0;
                 }
 
-                return log_warning_errno(errno, "Failed to invoke FITRIM, ignoring: %m");
+                log_warning_errno(errno, "Failed to invoke FITRIM, ignoring: %m");
+                return 0;
         }
 
         log_info("Discarded unused %s.", FORMAT_BYTES(range.len));
