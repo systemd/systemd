@@ -1641,6 +1641,165 @@ EOF
     grep -qF "1.2.3.4" "$RUN_OUT"
 }
 
+# Issue: https://github.com/systemd/systemd/issues/44813
+testcase_search_domain_special_use_names() {
+    # Cleanup
+    # shellcheck disable=SC2317,SC2329
+    cleanup() {
+        resolvectl revert dns0
+    }
+
+    trap cleanup RETURN
+
+    # Single-label names that match special-use TLDs must still be resolvable via a search domain
+    resolvectl domain dns0 unsigned.test
+
+    run resolvectl query onion
+    grep -qF "10.0.0.150" "$RUN_OUT"
+    grep -qF "onion.unsigned.test" "$RUN_OUT"
+
+    run resolvectl query alt
+    grep -qF "10.0.0.151" "$RUN_OUT"
+    grep -qF "alt.unsigned.test" "$RUN_OUT"
+
+    run resolvectl query invalid
+    grep -qF "10.0.0.152" "$RUN_OUT"
+    grep -qF "invalid.unsigned.test" "$RUN_OUT"
+
+    # Without a search domain, these names must all be refused
+    resolvectl domain dns0 ""
+    for name in hello.onion hello.alt hello.invalid onion alt invalid; do
+        (! run resolvectl query "$name")
+        grep -qF "not found" "$RUN_OUT"
+    done
+}
+
+# Issue: https://github.com/systemd/systemd/issues/44813
+# Even with ResolveUnicastSingleLabel=yes, a bare "onion" must never be sent to the DNS server.
+testcase_special_use_names_single_label_not_sent() {
+    local cursor_file
+
+    # shellcheck disable=SC2317,SC2329
+    cleanup() {
+        rm -f /run/systemd/resolved.conf.d/90-single-label.conf "${cursor_file:-}"
+        systemctl reload systemd-resolved.service
+        resolvectl revert dns0
+    }
+
+    trap cleanup RETURN
+
+    mkdir -p /run/systemd/resolved.conf.d
+    {
+        echo "[Resolve]"
+        echo "ResolveUnicastSingleLabel=yes"
+    } >/run/systemd/resolved.conf.d/90-single-label.conf
+    systemctl reload systemd-resolved.service
+
+    resolvectl domain dns0 ""
+
+    cursor_file="$(mktemp)"
+    journalctl --sync
+    journalctl -n0 -q --cursor-file="$cursor_file"
+
+    # A normal single-label name is sent to the DNS server. This also shows that the log message below
+    # appears at all.
+    (! run resolvectl query mail)
+
+    # A bare "onion" is not.
+    (! run resolvectl query onion)
+    grep -qF "not found" "$RUN_OUT"
+
+    journalctl --sync
+    journalctl -u systemd-resolved.service --after-cursor="$(cat "$cursor_file")" --grep "Firing .* transaction .* for <mail IN A>"
+    (! journalctl -u systemd-resolved.service --after-cursor="$(cat "$cursor_file")" --grep "Firing .* transaction .* for <onion IN ")
+}
+
+# Issue: https://github.com/systemd/systemd/issues/44813
+# If the lookup of "onion.<search domain>" fails, that failure must be reported, and must not be replaced
+# by a synthesized NXDOMAIN for the bare name "onion".
+testcase_special_use_names_search_domain_failure() {
+    local cursor_file
+
+    # shellcheck disable=SC2317,SC2329
+    cleanup() {
+        rm -f "${cursor_file:-}"
+        resolvectl revert dns0
+    }
+
+    trap cleanup RETURN
+
+    resolvectl flush-caches
+    # There is no "onion" record in signed.test, so "onion.signed.test" gives NXDOMAIN.
+    resolvectl domain dns0 signed.test
+
+    cursor_file="$(mktemp)"
+    journalctl --sync
+    journalctl -n0 -q --cursor-file="$cursor_file"
+
+    (! run resolvectl query onion)
+    grep -qF "not found" "$RUN_OUT"
+
+    journalctl --sync
+    # The lookup through the search domain really happened.
+    journalctl -u systemd-resolved.service --after-cursor="$(cat "$cursor_file")" --grep "Firing .* transaction .* for <onion.signed.test IN A>"
+    (! journalctl -u systemd-resolved.service --after-cursor="$(cat "$cursor_file")" --grep "Found synthetic NXDOMAIN response")
+}
+
+# If every expansion with a search domain is refused, nothing is sent, and the synthesized NXDOMAIN is correct.
+testcase_special_use_names_search_domain_refused() {
+    local cursor_file
+
+    # shellcheck disable=SC2317,SC2329
+    cleanup() {
+        rm -f "${cursor_file:-}"
+        resolvectl revert dns0
+    }
+
+    trap cleanup RETURN
+
+    resolvectl flush-caches
+    resolvectl domain dns0 corp.alt
+
+    cursor_file="$(mktemp)"
+    journalctl --sync
+    journalctl -n0 -q --cursor-file="$cursor_file"
+
+    (! run resolvectl query onion)
+    grep -qF "not found" "$RUN_OUT"
+
+    journalctl --sync
+    journalctl -u systemd-resolved.service --after-cursor="$(cat "$cursor_file")" --grep "Found synthetic NXDOMAIN response"
+    (! journalctl -u systemd-resolved.service --after-cursor="$(cat "$cursor_file")" --grep "Firing .* transaction .* for <onion")
+}
+
+# Several refused search domains in a row must not stop the lookup of a later, valid one.
+# and a refused search domain after a real lookup must not replace that lookup's result.
+testcase_special_use_names_search_domain_skip_refused() {
+    local cursor_file
+
+    # shellcheck disable=SC2317,SC2329
+    cleanup() {
+        rm -f "${cursor_file:-}"
+        resolvectl revert dns0
+    }
+
+    trap cleanup RETURN
+
+    resolvectl flush-caches
+    resolvectl domain dns0 corp.alt corp2.alt signed.test corp3.alt
+
+    cursor_file="$(mktemp)"
+    journalctl --sync
+    journalctl -n0 -q --cursor-file="$cursor_file"
+
+    (! run resolvectl query onion)
+    grep -qF "not found" "$RUN_OUT"
+
+    journalctl --sync
+    journalctl -u systemd-resolved.service --after-cursor="$(cat "$cursor_file")" --grep "Firing .* transaction .* for <onion.signed.test IN A>"
+    (! journalctl -u systemd-resolved.service --after-cursor="$(cat "$cursor_file")" --grep "Found synthetic NXDOMAIN response")
+}
+
 # Regression test for CVE/strict-DoT verification: when the global
 # DNSOverTLS= is "no" or "opportunistic" but a specific link is configured
 # with DNSOverTLS=yes (per-link strict mode), resolved must still enable
