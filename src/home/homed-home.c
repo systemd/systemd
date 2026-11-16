@@ -2582,7 +2582,9 @@ static int home_get_disk_status_directory(
                                 goto finish;
                         }
 
-                        disk_usage = 0; /* No record of this user? then nothing was used */
+                        /* The kernel returns ESRCH if UID quota is not enabled on the file system */
+                        log_debug_errno(r, "UID quota not enabled on %s.", path);
+                        goto finish;
                 } else {
                         if (FLAGS_SET(req.dqb_valid, QIF_SPACE) && disk_free != UINT64_MAX) {
                                 disk_ceiling = req.dqb_curspace + disk_free;
