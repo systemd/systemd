@@ -304,6 +304,8 @@ Manager* manager_free(Manager *m) {
         m->deferred_gc_event_source = sd_event_source_unref(m->deferred_gc_event_source);
         m->deferred_auto_login_event_source = sd_event_source_unref(m->deferred_auto_login_event_source);
         m->rebalance_event_source = sd_event_source_unref(m->rebalance_event_source);
+        m->rebalance_pending_method_calls = set_free(m->rebalance_pending_method_calls);
+        m->rebalance_queued_method_calls = set_free(m->rebalance_queued_method_calls);
 
         m->event = sd_event_unref(m->event);
 
