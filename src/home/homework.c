@@ -2256,8 +2256,15 @@ static int run(int argc, char *argv[]) {
         /* We always pass the new record back, regardless if it changed or not. This allows our caller to
          * prepare a fresh record, send to us, and only if it works use it without having to keep a local
          * copy. */
-        if (c.new_home)
-                sd_json_variant_dump(c.new_home->json, SD_JSON_FORMAT_NEWLINE, stdout, /* prefix= */ NULL);
+        if (c.new_home) {
+                /* stdout is how we pass the resulting record to homed, make sure it was fully written */
+                r = sd_json_variant_dump(c.new_home->json,
+                                         SD_JSON_FORMAT_NEWLINE|SD_JSON_FORMAT_FLUSH,
+                                         stdout,
+                                         /* prefix= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write resulting user record: %m");
+        }
 
         return 0;
 }
