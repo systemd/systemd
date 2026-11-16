@@ -1355,6 +1355,7 @@ static int manager_load_key_pair(Manager *m) {
 
 static int manager_generate_key_pair(Manager *m) {
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = NULL;
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
         _cleanup_(unlink_and_freep) char *temp_public = NULL, *temp_private = NULL;
         _cleanup_fclose_ FILE *fpublic = NULL, *fprivate = NULL;
         int r;
@@ -1373,7 +1374,7 @@ static int manager_generate_key_pair(Manager *m) {
 
         log_info("Generating key pair for signing local user identity records.");
 
-        if (sym_EVP_PKEY_keygen(ctx, &m->private_key) <= 0)
+        if (sym_EVP_PKEY_keygen(ctx, &pkey) <= 0)
                 return log_openssl_errors(LOG_ERR, "Failed to generate Ed25519 key pair");
 
         log_info("Successfully created Ed25519 key pair.");
@@ -1385,14 +1386,14 @@ static int manager_generate_key_pair(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open key file for writing: %m");
 
-        if (sym_PEM_write_PUBKEY(fpublic, m->private_key) <= 0)
+        if (sym_PEM_write_PUBKEY(fpublic, pkey) <= 0)
                 return log_openssl_errors(LOG_ERR, "Failed to write public key.");
 
         (void) fchmod(fileno(fpublic), 0444); /* Make public key world readable */
 
         r = fflush_sync_and_check(fpublic);
         if (r < 0)
-                return log_error_errno(r, "Failed to write private key: %m");
+                return log_error_errno(r, "Failed to write public key: %m");
 
         fpublic = safe_fclose(fpublic);
 
@@ -1401,7 +1402,7 @@ static int manager_generate_key_pair(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open key file for writing: %m");
 
-        if (sym_PEM_write_PrivateKey(fprivate, m->private_key, /* enc= */ NULL, /* kstr= */ NULL, /* klen= */ 0, /* cb= */ NULL, NULL) <= 0)
+        if (sym_PEM_write_PrivateKey(fprivate, pkey, /* enc= */ NULL, /* kstr= */ NULL, /* klen= */ 0, /* cb= */ NULL, NULL) <= 0)
                 return log_openssl_errors(LOG_ERR, "Failed to write private key pair.");
 
         (void) fchmod(fileno(fprivate), 0400); /* Make private key root readable */
@@ -1429,6 +1430,8 @@ static int manager_generate_key_pair(Manager *m) {
         if (r < 0)
                 log_warning_errno(r, "Failed to sync /var/lib/systemd/home/, ignoring: %m");
 
+        /* Only start using the key once it has been written to disk */
+        m->private_key = TAKE_PTR(pkey);
         return 1;
 }
 

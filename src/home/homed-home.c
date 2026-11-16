@@ -2007,6 +2007,8 @@ static int home_may_change_password(
         r = user_record_test_password_change_required(h->record);
         if (IN_SET(r, -EKEYREVOKED, -EOWNERDEAD, -EKEYEXPIRED, -ESTALE))
                 return 0; /* expired in some form, but changing is allowed */
+        if (r == -ENETDOWN)
+                return 0; /* no password change timestamp known, changing the password will establish one */
         if (IN_SET(r, -EKEYREJECTED, -EROFS))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Expiration settings of account %s do not allow changing of password.", h->user_name);
         if (r < 0)
@@ -2086,7 +2088,7 @@ int home_passwd(Home *h,
                         return r;
         }
 
-        r = user_record_update_last_changed(c, /* with_password= */ true);
+        r = user_record_update_last_changed(c, /* with_password= */ !strv_isempty(new_secret->password));
         if (r == -ECHRNG)
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_RECORD_MISMATCH, "Record last change time of %s is newer than current time, cannot update.", h->user_name);
         if (r < 0)
@@ -2451,7 +2453,9 @@ static int home_get_disk_status_luks(
                 disk_usage = stat_used;
 
         /* If we have the magic, determine floor preferably by magic */
-        disk_floor = minimal_size_by_fs_magic(sfs.f_type) + header_size;
+        disk_floor = minimal_size_by_fs_magic(sfs.f_type);
+        if (disk_floor != UINT64_MAX)
+                disk_floor += header_size;
 
 finish:
         /* If we don't know the magic, go by file system name */
@@ -2582,7 +2586,9 @@ static int home_get_disk_status_directory(
                                 goto finish;
                         }
 
-                        disk_usage = 0; /* No record of this user? then nothing was used */
+                        /* The kernel returns ESRCH if UID quota is not enabled on the file system */
+                        log_debug_errno(r, "UID quota not enabled on %s.", path);
+                        goto finish;
                 } else {
                         if (FLAGS_SET(req.dqb_valid, QIF_SPACE) && disk_free != UINT64_MAX) {
                                 disk_ceiling = req.dqb_curspace + disk_free;
@@ -2591,7 +2597,8 @@ static int home_get_disk_status_directory(
                                         disk_ceiling = disk_size;
                         }
 
-                        if (FLAGS_SET(req.dqb_valid, QIF_BLIMITS)) {
+                        /* A hard limit of zero means there's no limit */
+                        if (FLAGS_SET(req.dqb_valid, QIF_BLIMITS) && req.dqb_bhardlimit > 0) {
                                 uint64_t q;
 
                                 /* Take the minimum of the quota and the available disk space here */
