@@ -2493,7 +2493,9 @@ static int home_get_disk_status_luks(
                 disk_usage = stat_used;
 
         /* If we have the magic, determine floor preferably by magic */
-        disk_floor = minimal_size_by_fs_magic(sfs.f_type) + header_size;
+        disk_floor = minimal_size_by_fs_magic(sfs.f_type);
+        if (disk_floor != UINT64_MAX)
+                disk_floor += header_size;
 
 finish:
         /* If we don't know the magic, go by file system name */
