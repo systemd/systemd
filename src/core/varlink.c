@@ -670,7 +670,7 @@ void manager_varlink_send_pending_reload_message(Manager *m) {
         m->pending_reload_message_vl = sd_varlink_unref(m->pending_reload_message_vl);
 }
 
-int manager_varlink_claim_connection(Manager *m, const char *id, sd_varlink **ret) {
+int manager_varlink_claim_connection(Manager *m, const char *id, sd_varlink_server_claim_flags_t flags, sd_varlink **ret) {
         int r;
 
         assert(m);
@@ -683,7 +683,7 @@ int manager_varlink_claim_connection(Manager *m, const char *id, sd_varlink **re
         if (!m->varlink_server)
                 return log_warning_errno(SYNTHETIC_ERRNO(ESRCH), "Varlink server not set up, cannot claim connection '%s'.", id);
 
-        r = sd_varlink_server_claim_connection(m->varlink_server, id, ret);
+        r = sd_varlink_server_claim_connection(m->varlink_server, id, flags, ret);
         if (r == -ESRCH) /* Expected, the connection might have been closed before serialization */
                 return log_debug_errno(r, "Varlink connection '%s' not passed on across reexecution, ignoring.", id);
         if (r < 0)

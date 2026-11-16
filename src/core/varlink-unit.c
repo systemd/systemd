@@ -1242,16 +1242,10 @@ int unit_add_varlink_ref_by_id(Unit *u, const char *id) {
 
         sd_varlink *link = hashmap_get(u->manager->stashed_varlink_unit_refs, id);
         if (!link) {
-                r = manager_varlink_claim_connection(u->manager, id, &link);
+                /* The same connection can appear in several units' state. */
+                r = manager_varlink_claim_connection(u->manager, id, SD_VARLINK_SERVER_CLAIM_AGAIN, &link);
                 if (r < 0)
                         return r;
-
-                /* Claiming is one-shot, but the same connection can appear in several units' state. */
-                r = varlink_unit_stash_ref(u->manager, link);
-                if (r < 0) {
-                        (void) sd_varlink_close(link);
-                        return log_unit_warning_errno(u, r, "Failed to stash Varlink unit reference, disconnecting: %m");
-                }
         }
 
         r = unit_add_varlink_ref(u, link);
