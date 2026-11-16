@@ -1978,18 +1978,21 @@ static int home_unlock(UserRecord *h) {
         if (r < 0)
                 return r;
 
+        /* Connect to the service manager before resuming the device, so that we fail while the device is
+         * still suspended if that doesn't work. */
+        _cleanup_(unit_freezer_freep) UnitFreezer *f = NULL;
+        r = user_session_freezer_new(h->uid, &f);
+        if (r < 0)
+                return r;
+
         r = home_unlock_luks(h, &setup, &cache);
         if (r < 0)
                 return r;
 
-        _cleanup_(unit_freezer_freep) UnitFreezer *f = NULL;
-
-        /* We want to thaw the session only after it's safe to access $HOME */
-        r = user_session_freezer_new(h->uid, &f);
-        if (r > 0)
-                r = unit_freezer_thaw(f);
-        if (r < 0)
-                return r;
+        /* We want to thaw the session only after it's safe to access $HOME. The device is resumed at this
+         * point, hence don't fail if this doesn't work, unit_freezer_thaw() logs on its own. */
+        if (f)
+                (void) unit_freezer_thaw(f);
 
         log_info("Everything completed.");
         return 1;
