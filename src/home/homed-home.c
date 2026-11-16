@@ -1913,6 +1913,7 @@ int home_update(Home *h, UserRecord *hr, Hashmap *blobs, uint64_t flags, sd_bus_
 int home_resize(Home *h,
                 uint64_t disk_size,
                 UserRecord *secret,
+                bool automatic,
                 sd_bus_error *error) {
 
         _cleanup_(user_record_unrefp) UserRecord *c = NULL;
@@ -1969,10 +1970,13 @@ int home_resize(Home *h,
                 if (r < 0)
                         return r;
 
-                /* If user picked an explicit size, then turn off rebalancing, so that we don't undo what user chose */
-                r = user_record_set_rebalance_weight(c, REBALANCE_WEIGHT_OFF);
-                if (r < 0)
-                        return r;
+                /* If user picked an explicit size, then turn off rebalancing, so that we don't undo what
+                 * user chose. Don't do that if the size was picked by rebalancing itself. */
+                if (!automatic) {
+                        r = user_record_set_rebalance_weight(c, REBALANCE_WEIGHT_OFF);
+                        if (r < 0)
+                                return r;
+                }
 
                 r = user_record_update_last_changed(c, /* with_password= */ false);
                 if (r == -ECHRNG)
