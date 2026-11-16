@@ -597,6 +597,14 @@ testcase_blob() {
     (! PASSWORD=EMJuc3zQaMibJo homectl update blob-user -b файл=/tmp/external-test3 )
     (! PASSWORD=EMJuc3zQaMibJo homectl update blob-user -b special@chars=/tmp/external-test3 )
 
+    # homectl refuses invalid filenames by itself, hence also check that homed does
+    local record
+    record="$(homectl inspect --json=short blob-user | jq -c 'del(.binding, .status)')"
+    (! busctl call org.freedesktop.home1 /org/freedesktop/home1 org.freedesktop.home1.Manager \
+            UpdateHomeEx 'sa{sh}t' "$record" 1 .hidden 3 0 3</tmp/external-test3 2>/tmp/blob-error)
+    grep -F 'Call failed: Invalid blob directory filename: .hidden' /tmp/blob-error >/dev/null
+    rm /tmp/blob-error
+
     # Make sure offline updates to blobs get propagated in
     homectl deactivate blob-user
     inspect blob-user
