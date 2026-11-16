@@ -2234,7 +2234,7 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         r = dispatch_verb(args, &c);
-        if (IN_SET(r, -ENOKEY, -EREMOTEIO) && c.home && !strv_isempty(c.home->password)) {
+        if (IN_SET(r, -ENOKEY, -EBADSLT, -EREMOTEIO) && c.home && !strv_isempty(c.home->password)) {
                 /* There were passwords specified but they were incorrect */
                 usec_t end, n, d;
 
