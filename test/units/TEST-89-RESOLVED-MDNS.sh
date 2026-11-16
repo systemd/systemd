@@ -338,6 +338,15 @@ testcase_known_answer_suppression() {
     python3 "$(dirname "$0")/TEST-89-RESOLVED-MDNS.querier.py" "$host_address" "$KNOWN_ANSWER_SERVICE_TYPE.local"
 }
 
+testcase_known_answer_no_cache() {
+    : "Test that a query bypassing the cache doesn't list cached records as Known-Answers"
+
+    # Get the PTR record into the cache, then query it again without the cache. If we listed the cached
+    # record as a Known-Answer, the container would leave it out of its reply and the query would fail.
+    timeout 30 resolvectl query -t PTR "$KNOWN_ANSWER_SERVICE_TYPE.local" | grep "$CONTAINER_1" >/dev/null
+    timeout 30 resolvectl query --cache=no -t PTR "$KNOWN_ANSWER_SERVICE_TYPE.local" | grep "$CONTAINER_1" >/dev/null
+}
+
 testcase_second_unreachable() {
     : "Test each service type while the second container is unreachable"
     systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl down host0

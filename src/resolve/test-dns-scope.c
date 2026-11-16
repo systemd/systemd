@@ -304,4 +304,21 @@ TEST(dns_scope_check_conflicts_mdns_own_record) {
         ASSERT_NULL(env.scope.conflict_event_source);
 }
 
+TEST(dns_scope_find_transaction_continuous) {
+        _cleanup_(scope_env_teardown) ScopeEnv env = {};
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        DnsTransaction *t;
+
+        scope_env_setup(&env, DNS_PROTOCOL_MDNS);
+        key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_PTR, "_http._tcp.local");
+        ASSERT_NOT_NULL(key);
+        ASSERT_OK(dns_transaction_new(&t, &env.scope, key, /* bypass= */ NULL,
+                                      SD_RESOLVED_NO_CACHE|SD_RESOLVED_QUERY_CONTINUOUS));
+
+        /* A one-shot query must not join a continuous one, but another continuous query may */
+        ASSERT_NULL(dns_scope_find_transaction(&env.scope, key, SD_RESOLVED_NO_CACHE));
+        ASSERT_NULL(dns_scope_find_transaction(&env.scope, key, 0));
+        ASSERT_PTR_EQ(dns_scope_find_transaction(&env.scope, key, SD_RESOLVED_NO_CACHE|SD_RESOLVED_QUERY_CONTINUOUS), t);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
