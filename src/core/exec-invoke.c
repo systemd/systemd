@@ -4281,6 +4281,7 @@ static int apply_mount_namespace(
                 bool needs_sandboxing,
                 uid_t exec_directory_uid,
                 gid_t exec_directory_gid,
+                uid_t manager_uid, /* the uid of the service manager, i.e. outside of any user namespace */
                 PidRef *bpffs_pidref,
                 int bpffs_socket_fd,
                 int bpffs_errno_pipe,
@@ -4398,13 +4399,16 @@ static int apply_mount_namespace(
         } else {
                 assert(params->runtime_scope == RUNTIME_SCOPE_USER);
 
-                if (asprintf(&private_namespace_dir, "/run/user/" UID_FMT "/systemd", geteuid()) < 0)
+                /* Use the uid of the service manager rather than our own euid: with
+                 * PrivateUsers=managed we are mapped to root inside the user namespace
+                 * already, and /run/user/0/ does not exist on the host. */
+                if (asprintf(&private_namespace_dir, "/run/user/" UID_FMT "/systemd", manager_uid) < 0)
                         return -ENOMEM;
 
                 if (setup_os_release_symlink &&
                     asprintf(&host_os_release_stage,
                              "/run/user/" UID_FMT "/systemd/propagate/.os-release-stage",
-                             geteuid()) < 0)
+                             manager_uid) < 0)
                         return -ENOMEM;
         }
 
@@ -5135,6 +5139,7 @@ static int setup_delegated_namespaces(
                 char *const *pressure_path,
                 uid_t uid,
                 gid_t gid,
+                uid_t manager_uid, /* the uid of the service manager, i.e. outside of any user namespace */
                 const ExecCommand *command,
                 bool needs_sandboxing,
                 bool have_cap_sys_admin,
@@ -5272,6 +5277,7 @@ static int setup_delegated_namespaces(
                                 needs_sandboxing,
                                 uid,
                                 gid,
+                                manager_uid,
                                 bpffs_pidref,
                                 bpffs_socket_fd,
                                 bpffs_errno_pipe,
@@ -6604,6 +6610,7 @@ int exec_invoke(
                         pressure_path,
                         uid,
                         gid,
+                        saved_uid,
                         command,
                         needs_sandboxing,
                         have_cap_sys_admin,
@@ -6706,6 +6713,7 @@ int exec_invoke(
                         pressure_path,
                         uid,
                         gid,
+                        saved_uid,
                         command,
                         needs_sandboxing,
                         have_cap_sys_admin,

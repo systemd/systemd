@@ -118,6 +118,13 @@ runas testuser systemd-run --wait --user --unit=test-root-dir \
     -p RootDirectory=/tmp/img \
     grep MARKER=1 /etc/os-release
 
+# PrivateUsers=managed maps the service to root inside the user namespace; the backing
+# directory of the private /tmp/ must still be based on the user manager's uid, not on
+# the euid inside the user namespace.
+runas testuser systemd-run --wait --user --unit=test-root-dir-managed \
+    -p PrivateUsers=managed -p RootDirectory=/tmp/img -p PrivateTmp=disconnected \
+    grep MARKER=1 /etc/os-release
+
 mkdir /tmp/img_bind
 mount --bind /tmp/img /tmp/img_bind
 runas testuser systemd-run --wait --user --unit=test-root-dir-bind \
