@@ -720,10 +720,14 @@ static int fscrypt_slot_try_one(
                 r = unbase64mem_full(xattr_value, e - xattr_value, /* secure= */ false, &salt, &salt_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode legacy salt: %m");
+                if (salt_size == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid legacy salt size.");
 
                 r = unbase64mem_full(e + 1, xattr_size - (e - xattr_value) - 1, /* secure= */ false, &encrypted, &encrypted_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode legacy ciphertext: %m");
+                if (encrypted_size == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Empty legacy ciphertext.");
 
                 return fscrypt_slot_try_v1(password,
                                            salt, salt_size,
