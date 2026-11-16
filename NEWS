@@ -89,7 +89,19 @@ CHANGES WITH 263 in spe:
 
         * systemd-mountfsd now asks polkit if the image policy denies
           setting up Verity, or if the client's image policy doesn't
-          overlap with its own.
+          overlap with its own. It doesn't ask polkit if the client's image
+          policy requires a dm-verity signature that no trusted key
+          validates, because the policy for trusted images refuses such an
+          image too.
+
+        * By default, the image policies that portablectl attach and reattach
+          generate only pin the file system type of each partition, the
+          partition flags and which data partitions exist. The new
+          --pin-protection=yes option also pins the dm-verity protection and
+          the signature of the attached images, as before. With
+          --pin-protection=yes, portablectl attach refuses images whose
+          dm-verity signature the host doesn't trust, instead of failing when
+          the service starts.
 
         * systemd-networkd and networkctl have been merged into a single
           multi-call binary, with the former becoming a symlink to the latter.

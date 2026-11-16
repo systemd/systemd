@@ -144,6 +144,26 @@ test -L /run/systemd/system.attached/app0.service.d/10-profile.conf
 test -L /run/systemd/system.attached/app1.service.d/10-profile.conf
 portablectl detach --runtime --extension /tmp/app0 --extension /tmp/app1 /tmp/rootdir app0 app1
 
+# A reattach by image name picks the copy that --copy=mixed made in /run/portables/. The reattach must keep
+# that copy, because the reattached units use it.
+portablectl "${ARGS[@]}" attach --copy=mixed --runtime /tmp/rootdir minimal-app0
+test -d /run/portables/rootdir
+portablectl "${ARGS[@]}" reattach --copy=mixed --runtime rootdir minimal-app0
+test -d /run/portables/rootdir
+grep -F "RootDirectory=/run/portables/rootdir" /run/systemd/system.attached/minimal-app0.service.d/20-portable.conf >/dev/null
+portablectl detach --runtime rootdir minimal-app0
+rm -rf /run/portables/rootdir
+
+# A reattach that gets an extension by image name must keep the copy of the extension that --copy=mixed
+# made in /run/portables/.
+portablectl "${ARGS[@]}" attach --copy=mixed --runtime --extension /tmp/app0 /tmp/rootdir app0
+test -d /run/portables/app0
+portablectl "${ARGS[@]}" reattach --copy=mixed --runtime --extension app0 rootdir app0
+test -d /run/portables/app0
+grep -F "ExtensionDirectories=/run/portables/app0" /run/systemd/system.attached/app0.service.d/20-portable.conf >/dev/null
+portablectl detach --runtime --extension app0 rootdir app0
+rm -rf /run/portables/rootdir /run/portables/app0
+
 # Ensure that --force works with directory extensions, and that ExtensionDirectories=
 # is not decorated with :x-systemd.relax-extension-release-check
 portablectl "${ARGS[@]}" attach --force --copy=symlink --now --runtime --extension /tmp/app0 /tmp/rootdir app0

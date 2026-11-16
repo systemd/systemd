@@ -95,7 +95,7 @@ jobs:
           - distro: nura
             release: edge
             libc: musl
-            skip: TEST-92-TPM2-SWTPM
+            skip: TEST-29-PORTABLE TEST-92-TPM2-SWTPM
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

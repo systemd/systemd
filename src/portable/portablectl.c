@@ -48,6 +48,7 @@ static bool arg_no_block = false;
 static char **arg_extension_images = NULL;
 static bool arg_force = false;
 static bool arg_clean = false;
+static bool arg_pin_protection = false;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 
 STATIC_DESTRUCTOR_REGISTER(arg_extension_images, strv_freep);
@@ -1271,7 +1272,9 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
                 return bus_log_create_error(r);
 
         if (STR_IN_SET(method, "AttachImageWithExtensions", "ReattachImageWithExtensions")) {
-                uint64_t flags = (arg_runtime ? PORTABLE_RUNTIME : 0) | (arg_force ? PORTABLE_FORCE_ATTACH | PORTABLE_FORCE_EXTENSION : 0);
+                uint64_t flags = (arg_runtime ? PORTABLE_RUNTIME : 0) |
+                                 (arg_force ? PORTABLE_FORCE_ATTACH | PORTABLE_FORCE_EXTENSION : 0) |
+                                 (arg_pin_protection ? PORTABLE_PIN_PROTECTION : 0);
 
                 r = sd_bus_message_append(m, "st", arg_copy_mode, flags);
         } else
@@ -1301,7 +1304,9 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
 VERB(verb_attach_image, "attach", "NAME|PATH [PREFIX…]\0", 2, VERB_ANY, 0,
      "Attach the specified portable service image");
 static int verb_attach_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return attach_reattach_image(argc, argv, strv_isempty(arg_extension_images) && !arg_force ? "AttachImage" : "AttachImageWithExtensions");
+        return attach_reattach_image(argc, argv,
+                                     strv_isempty(arg_extension_images) && !arg_force && !arg_pin_protection ?
+                                     "AttachImage" : "AttachImageWithExtensions");
 }
 
 VERB(verb_detach_image, "detach", "NAME|PATH [PREFIX…]\0", 2, VERB_ANY, 0,
@@ -1363,7 +1368,9 @@ static int verb_detach_image(int argc, char *argv[], uintptr_t _data, void *user
 VERB(verb_reattach_image, "reattach", "NAME|PATH [PREFIX…]\0", 2, VERB_ANY, 0,
      "Reattach the specified portable service image");
 static int verb_reattach_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return attach_reattach_image(argc, argv, strv_isempty(arg_extension_images) && !arg_force ? "ReattachImage" : "ReattachImageWithExtensions");
+        return attach_reattach_image(argc, argv,
+                                     strv_isempty(arg_extension_images) && !arg_force && !arg_pin_protection ?
+                                     "ReattachImage" : "ReattachImageWithExtensions");
 }
 
 VERB(verb_is_image_attached, "is-attached", "NAME|PATH\0", 2, 2, 0,
@@ -1668,6 +1675,13 @@ static int parse_argv(int argc, char *argv[], char ***remaining_args) {
                 OPTION_LONG("force", NULL,
                             "Skip 'already active' check when attaching or detaching an image (with extensions)"):
                         arg_force = true;
+                        break;
+
+                OPTION_LONG("pin-protection", "BOOL",
+                            "Pin dm-verity protection and the signature in the generated image policies"):
+                        r = parse_boolean_argument("--pin-protection=", opts.arg, &arg_pin_protection);
+                        if (r < 0)
+                                return r;
                         break;
 
                 OPTION_LONG("clean", NULL,
