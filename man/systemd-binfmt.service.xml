@@ -65,6 +65,9 @@
     <filename>/dev/null</filename> or an empty file masks the object of the same name, and neither the
     handler nor the rule is registered.</para>
 
+    <para>An object can also be passed on the command line, by file name or by path, to register its handler
+    and rule without touching any other rule. A file name is looked up in the directories above.</para>
+
     <para>The <replaceable>name</replaceable> has at most 15 characters, each alphanumeric,
     <literal>_</literal> or <literal>.</literal>, as the kernel requires for the name of a handler. The
     object must contain exactly one struct_ops map, of type <literal>binfmt_misc_ops</literal>, and the
