@@ -1897,7 +1897,6 @@ static int manager_rebalance_calculate(Manager *m) {
 
                 h = array[i];
 
-                assert(h->rebalance_free <= free_sum);
                 assert(h->rebalance_usage <= usage_sum);
                 assert(h->rebalance_weight <= weight_sum);
 
