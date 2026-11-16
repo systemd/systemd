@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test that ReadWritePaths= overrides the read-only /run/ of ProtectSystem=strict
+
+[Service]
+ProtectSystem=strict
+MountAPIVFS=yes
+# The target is created on the host by the test harness beforehand.
+ReadWritePaths=/run/test-exec-run-readwrite
+Type=oneshot
+# /run/ itself stays read-only, but the ReadWritePaths= subdirectory is writable.
+ExecStart=bash -x -c '! touch /run/thisshouldnotwork && touch /run/test-exec-run-readwrite/thisworks'

@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test ProtectSystem=full
+
+[Service]
+ProtectSystem=full
+Type=oneshot
+# /usr/ and /etc/ are read-only, while /run/ stays writable.
+ExecStart=bash -x -c '! touch /usr/thisshouldnotwork'
+ExecStart=bash -x -c '! touch /etc/thisshouldnotwork'
+ExecStart=bash -x -c 'touch /run/.test-exec-protectsystem-full && rm /run/.test-exec-protectsystem-full'
