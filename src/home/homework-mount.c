@@ -70,6 +70,10 @@ int home_mount_node(
         }
 
         r = mount_nofollow_verbose(LOG_ERR, node, HOME_RUNTIME_WORK_DIR, fstype, flags|MS_RELATIME, joined);
+        /* EUCLEAN is EFSCORRUPTED here. Report it as EIO like run_fsck() does, since homed interprets
+         * EUCLEAN as a security token PIN error. */
+        if (r == -EUCLEAN)
+                return -EIO;
         if (r < 0)
                 return r;
 
