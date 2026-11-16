@@ -13,6 +13,7 @@
 #include "base-filesystem.h"
 #include "bitfield.h"
 #include "chase.h"
+#include "copy.h"
 #include "cryptsetup-util.h"
 #include "dev-setup.h"
 #include "devnum-util.h"
@@ -2336,6 +2337,39 @@ static void mount_entry_path_debug_string(const char *root, MountEntry *m, char 
         return;
 }
 
+static int setup_host_os_release(const NamespaceParameters *p, const char *root) {
+        int r;
+
+        assert(p);
+        assert(root);
+
+        /* Make the host's os-release available to the unit. */
+        if (p->host_os_release_fd < 0)
+                return 0;
+
+        /* Open the root directory, so that the destination can be resolved relative to it, and
+         * symlinks in the root cannot make us write outside of it. */
+        _cleanup_close_ int root_fd = xopenat(AT_FDCWD, root, O_PATH);
+        if (root_fd < 0)
+                return root_fd;
+
+        _cleanup_close_ int dir_fd = -EBADF;
+        r = chaseat(root_fd, root_fd, "run/host", CHASE_MKDIR_0755, /* ret_path= */ NULL, &dir_fd);
+        if (r < 0)
+                return r;
+
+        /* Replace the file if the image ships one, and refuse to write through a symlink. */
+        if (unlinkat(dir_fd, "os-release", /* flags= */ 0) < 0 && errno != ENOENT)
+                return -errno;
+
+        _cleanup_close_ int fdt = xopenat_full(dir_fd, "os-release", O_WRONLY|O_CREAT|O_EXCL|O_NOCTTY, XO_LABEL, 0644);
+        if (fdt < 0)
+                return fdt;
+
+        return copy_bytes(p->host_os_release_fd, fdt,
+                          /* max_bytes = */ UINT64_MAX, /* copy_flags = */ 0);
+}
+
 static int apply_mounts(
                 MountList *ml,
                 const char *root,
@@ -2412,6 +2446,10 @@ static int apply_mounts(
         r = create_symlinks_from_tuples(root, p->symlinks);
         if (r < 0)
                 return log_debug_errno(r, "Failed to set up symlinks inside mount namespace: %m");
+
+        r = setup_host_os_release(p, root);
+        if (r < 0)
+                log_debug_errno(r, "Failed to set up the host's os-release, ignoring: %m");
 
         /* Create a deny list we can pass to bind_mount_recursive() */
         deny_list = new(char*, ml->n_mounts+1);
@@ -2984,20 +3022,6 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         .source_const = p->host_notify_socket,
                         .mode = MOUNT_BIND,
                         .read_only = true,
-                };
-        }
-
-        if (p->host_os_release_stage) {
-                MountEntry *me = mount_list_extend(&ml);
-                if (!me)
-                        return log_oom_debug();
-
-                *me = (MountEntry) {
-                        .path_const = "/run/host/.os-release-stage/",
-                        .source_const = p->host_os_release_stage,
-                        .mode = MOUNT_BIND,
-                        .read_only = true,
-                        .ignore = true, /* Live copy, don't hard-fail if it goes missing */
                 };
         }
 

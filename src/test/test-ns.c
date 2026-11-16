@@ -90,6 +90,7 @@ int main(int argc, char *argv[]) {
                 .protect_kernel_modules = true,
                 .protect_proc = PROTECT_PROC_NOACCESS,
                 .proc_subset = PROC_SUBSET_PID,
+                .host_os_release_fd = -EBADF,
         };
 
         r = setup_namespace(&p, /* reterr_path= */ NULL);
