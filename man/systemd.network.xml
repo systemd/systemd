@@ -3083,6 +3083,22 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>AcceptReconfigure=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, the DHCPv4 client announces support for the Forcerenew Nonce
+          Authentication protocol (<ulink url="https://tools.ietf.org/html/rfc6704">RFC 6704</ulink>) to the
+          server. If the server then provides a nonce, the client accepts <constant>DHCPFORCERENEW</constant>
+          messages (<ulink url="https://tools.ietf.org/html/rfc3203">RFC 3203</ulink>) from it that are
+          authenticated with that nonce, and renews the lease immediately when it receives one. This lets the
+          server push configuration changes to the client before the lease is due for renewal.
+          <constant>DHCPFORCERENEW</constant> messages without valid authentication are always ignored. Has no
+          effect when <varname>Anonymize=</varname> is enabled. Defaults to true.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SendDecline=</varname></term>
         <listitem>
           <para>A boolean. When true, <command>systemd-networkd</command> performs IPv4 Duplicate
@@ -3360,6 +3376,23 @@ MultiPathRoute=2001:db8::1@eth0</programlisting>
           <para>As in the [DHCPv4] section.</para>
 
         <xi:include href="version-info.xml" xpointer="v243"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>AcceptReconfigure=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, the DHCPv6 client includes the Reconfigure Accept option in its
+          messages. If the server then provides a reconfigure key, the client accepts Reconfigure messages
+          from it that are authenticated with that key (Reconfigure Key Authentication Protocol, see
+          <ulink url="https://tools.ietf.org/html/rfc9915#section-20.4">RFC 9915 section 20.4</ulink>), and
+          immediately renews or rebinds the lease, or requests the other information again, as requested by
+          the server. In the information request mode, only the latter is possible. This lets the server
+          push changes, e.g. of the prefixes on the link or of the DNS servers, to the client before the
+          lease is due for renewal or the information is due for refresh. Reconfigure messages without
+          valid authentication are always ignored. Defaults to true.</para>
+
+          <xi:include href="version-info.xml" xpointer="v263"/>
         </listitem>
       </varlistentry>
 

@@ -166,6 +166,7 @@ typedef struct Network {
         bool dhcp_use_6rd;
         uint8_t dhcp_6rd_prefix_route_type;
         bool dhcp_send_release;
+        bool dhcp_accept_reconfigure;
         bool dhcp_send_decline;
         UseDomains dhcp_use_domains;
         Set *dhcp_deny_listed_ip;
@@ -208,6 +209,7 @@ typedef struct Network {
         Set *dhcp6_request_options;
         char *dhcp6_netlabel;
         bool dhcp6_send_release;
+        bool dhcp6_accept_reconfigure;
         NFTSetContext dhcp6_nft_set_context;
         uint32_t dhcp6_route_table;
         bool dhcp6_route_table_set;
