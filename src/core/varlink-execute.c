@@ -1350,12 +1350,9 @@ static int apply_exec_log_extra_fields(Unit *u, ExecContext *c, TransientExecCon
         if (n > LOG_EXTRA_FIELDS_MAX || c->n_log_extra_fields > LOG_EXTRA_FIELDS_MAX - n)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Too many extra log fields.");
 
-        STRV_FOREACH(field, p->log_extra_fields) {
-                const char *eq = strchr(*field, '=');
-
-                if (!eq || !journal_field_valid(*field, eq - *field, /* allow_protected= */ false))
+        STRV_FOREACH(field, p->log_extra_fields)
+                if (!journal_field_and_data_valid(*field, SIZE_MAX, /* allow_protected= */ false))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid extra log field: %s", *field);
-        }
 
         if (!GREEDY_REALLOC(c->log_extra_fields, c->n_log_extra_fields + n))
                 return -ENOMEM;
