@@ -1875,17 +1875,6 @@ static int luks_format(
                 slot++;
         }
 
-        r = sym_crypt_activate_by_volume_key(
-                        cd,
-                        dm_name,
-                        volume_key,
-                        volume_key_size,
-                        discard ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to activate LUKS superblock: %m");
-
-        log_info("LUKS activation by volume key succeeded.");
-
         r = user_record_clone(hr, USER_RECORD_EXTRACT_EMBEDDED|USER_RECORD_PERMISSIVE, &reduced);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare home record for LUKS: %m");
@@ -1899,6 +1888,19 @@ static int luks_format(
                 return log_error_errno(r, "Failed to set LUKS JSON token: %m");
 
         log_info("Writing user record as LUKS token completed.");
+
+        /* Activate last, so that nothing can fail after the device is activated, as our caller only takes
+         * care of deactivating it once we returned successfully. */
+        r = sym_crypt_activate_by_volume_key(
+                        cd,
+                        dm_name,
+                        volume_key,
+                        volume_key_size,
+                        discard ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to activate LUKS superblock: %m");
+
+        log_info("LUKS activation by volume key succeeded.");
 
         if (ret)
                 *ret = TAKE_PTR(cd);
