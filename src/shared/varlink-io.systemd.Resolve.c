@@ -22,6 +22,15 @@ SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(opportunistic));
 
 SD_VARLINK_DEFINE_ENUM_TYPE(
+                DNSSECMode,
+                SD_VARLINK_FIELD_COMMENT("DNSSEC is disabled."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(no),
+                SD_VARLINK_FIELD_COMMENT("DNSSEC is enabled."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(yes),
+                SD_VARLINK_FIELD_COMMENT("Try to use DNSSEC, but downgrade to non-DNSSEC when the server does not support it."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(allow_downgrade));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
                 ResolveSupport,
                 SD_VARLINK_FIELD_COMMENT("The protocol is disabled."),
                 SD_VARLINK_DEFINE_ENUM_VALUE(no),
@@ -368,6 +377,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_DNSProtocol,
                 SD_VARLINK_SYMBOL_COMMENT("The mode of DNSOverTLS."),
                 &vl_type_DNSOverTLSMode,
+                SD_VARLINK_SYMBOL_COMMENT("The mode of DNSSEC."),
+                &vl_type_DNSSECMode,
                 SD_VARLINK_SYMBOL_COMMENT("Whether the protocol is enabled."),
                 &vl_type_ResolveSupport,
                 SD_VARLINK_SYMBOL_COMMENT("The management mode of /etc/resolve.conf file."),
