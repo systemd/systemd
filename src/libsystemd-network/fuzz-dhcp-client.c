@@ -44,6 +44,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         ASSERT_OK(sd_dhcp_client_set_ifindex(client, 42));
         ASSERT_OK(sd_dhcp_client_set_mac(client, hw_addr.bytes, bcast_addr.bytes, hw_addr.length, ARPHRD_ETHER));
+        ASSERT_OK(sd_dhcp_client_set_accept_reconfigure(client, /* enable= */ true));
 
         ASSERT_OK(sd_dhcp_client_start(client));
         client->xid = 2;
@@ -76,6 +77,18 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                         ASSERT_IOVW_EQ(&iovw, &iovw2);
                 }
         }
+
+        /* Parse the input again in the bound state, where only DHCPFORCERENEW is accepted. */
+        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *bound = NULL;
+        ASSERT_OK(dhcp_lease_new(&bound));
+        bound->server_address = htobe32(UINT32_C(0xc0000201));
+        unref_and_replace_new_ref(client->lease, bound, sd_dhcp_lease_ref, sd_dhcp_lease_unref);
+        client->state = DHCP_STATE_BOUND;
+        client->forcerenew_nonce = (DHCPRKAPKey) { .set = true, .key = { 1, 2, 3 } };
+
+        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease3 = NULL;
+        (void) dhcp_client_parse_message(client, &IOVEC_MAKE(data, size), &lease3);
+        client->state = DHCP_STATE_SELECTING;
 
         ASSERT_OK(sd_dhcp_client_stop(client));
         return 0;
