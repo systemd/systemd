@@ -118,6 +118,15 @@ runas testuser systemd-run --wait --user --unit=test-root-dir \
     -p RootDirectory=/tmp/img \
     grep MARKER=1 /etc/os-release
 
+# With PrivateUsers=managed, the uid owning /run/user/<uid>/ is not mapped in the user namespace
+# anymore, hence the staged copy of the host's os-release cannot be reached by path inside it.
+# Still, the host's os-release must be available at /run/host/os-release.
+if can_do_rootless_nspawn; then
+    runas testuser systemd-run --wait --user -P --unit=test-root-dir-managed \
+        -p PrivateUsers=managed -p RootDirectory=/tmp/img \
+        cat /run/host/os-release | cmp /etc/os-release
+fi
+
 mkdir /tmp/img_bind
 mount --bind /tmp/img /tmp/img_bind
 runas testuser systemd-run --wait --user --unit=test-root-dir-bind \
