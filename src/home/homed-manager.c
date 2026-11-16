@@ -2089,10 +2089,12 @@ static int manager_rebalance_now(Manager *m) {
         return 0;
 
 finish:
-        /* Reset state and schedule next rebalance */
+        /* Reset state and schedule next rebalance. If method calls got queued while we were running, they
+         * want a new cycle, hence schedule that right-away. */
         m->rebalance_state = REBALANCE_IDLE;
         manager_rebalance_reply_messages(m, r);
-        (void) manager_schedule_rebalance(m, /* immediately= */ false);
+        (void) manager_schedule_rebalance(m,
+                                          /* immediately= */ !set_isempty(m->rebalance_queued_method_calls));
         return r;
 }
 
