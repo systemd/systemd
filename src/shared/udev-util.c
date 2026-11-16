@@ -11,12 +11,10 @@
 #include "device-nodes.h"
 #include "device-private.h"
 #include "device-util.h"
-#include "errno-util.h"
 #include "format-util.h"
 #include "hashmap.h"
 #include "log.h"
 #include "parse-util.h"
-#include "path-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -64,7 +62,6 @@ int udev_parse_config(void) {
 
 struct DeviceMonitorData {
         const char *sysname;
-        const char *devlink;
         sd_device *device;
 };
 
@@ -79,7 +76,7 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
         const char *sysname;
 
         assert(device);
-        assert(data->sysname || data->devlink);
+        assert(data->sysname);
         assert(!data->device);
 
         /* Ignore REMOVE events here. We are waiting for initialization after all, not de-initialization. We
@@ -98,61 +95,28 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
         if (device_for_action(device, SD_DEVICE_REMOVE))
                 return 0;
 
-        if (data->sysname && sd_device_get_sysname(device, &sysname) >= 0 && streq(sysname, data->sysname))
-                goto found;
+        if (sd_device_get_sysname(device, &sysname) < 0 || !streq(sysname, data->sysname))
+                return 0;
 
-        if (data->devlink) {
-                const char *devlink;
-
-                FOREACH_DEVICE_DEVLINK(device, link)
-                        if (path_equal(link, data->devlink))
-                                goto found;
-
-                if (sd_device_get_devname(device, &devlink) >= 0 && path_equal(devlink, data->devlink))
-                        goto found;
-        }
-
-        return 0;
-
-found:
         data->device = sd_device_ref(device);
         return sd_event_exit(sd_device_monitor_get_event(monitor), /* code= */ 0);
 }
 
-static int device_wait_for_initialization_internal(
-                sd_device *_device,
-                const char *devlink,
-                const char *subsystem,
-                usec_t timeout_usec,
-                sd_device **ret) {
-
+int device_wait_for_initialization(sd_device *device, const char *subsystem, usec_t timeout_usec, sd_device **ret) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        /* Ensure that if !_device && devlink, device gets unrefd on errors since it will be new */
-        _cleanup_(sd_device_unrefp) sd_device *device = sd_device_ref(_device);
-        _cleanup_(device_monitor_data_free) struct DeviceMonitorData data = {
-                .devlink = devlink,
-        };
+        _cleanup_(device_monitor_data_free) struct DeviceMonitorData data = {};
         int r;
 
-        assert(device || (subsystem && devlink));
+        assert(device);
 
-        /* Devlink might already exist, if it does get the device to use the sysname filtering */
-        if (!device && devlink) {
-                r = sd_device_new_from_devname(&device, devlink);
-                if (r < 0 && !ERRNO_IS_DEVICE_ABSENT(r))
-                        return log_error_errno(r, "Failed to create sd-device object from %s: %m", devlink);
+        if (device_is_processed(device) > 0) {
+                if (ret)
+                        *ret = sd_device_ref(device);
+                return 0;
         }
 
-        if (device) {
-                if (device_is_processed(device) > 0) {
-                        if (ret)
-                                *ret = sd_device_ref(device);
-                        return 0;
-                }
-                /* We need either the sysname or the devlink for filtering */
-                assert_se(sd_device_get_sysname(device, &data.sysname) >= 0 || devlink);
-        }
+        assert_se(sd_device_get_sysname(device, &data.sysname) >= 0);
 
         /* Wait until the device is initialized, so that we can get access to the ID_PATH property */
 
@@ -164,7 +128,7 @@ static int device_wait_for_initialization_internal(
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire monitor: %m");
 
-        if (device && !subsystem) {
+        if (!subsystem) {
                 r = sd_device_get_subsystem(device, &subsystem);
                 if (r < 0 && r != -ENOENT)
                         return log_device_error_errno(device, r, "Failed to get subsystem: %m");
@@ -176,12 +140,7 @@ static int device_wait_for_initialization_internal(
                         return log_error_errno(r, "Failed to add %s subsystem match to monitor: %m", subsystem);
         }
 
-        _cleanup_free_ char *desc = NULL;
-        const char *sysname = NULL;
-        if (device)
-                (void) sd_device_get_sysname(device, &sysname);
-
-        desc = strjoin(sysname ?: subsystem, devlink ? ":" : ":initialization", devlink);
+        _cleanup_free_ char *desc = strjoin(data.sysname, ":initialization");
         if (desc)
                 (void) sd_device_monitor_set_description(monitor, desc);
 
@@ -203,12 +162,7 @@ static int device_wait_for_initialization_internal(
         }
 
         /* Check again, maybe things changed. Udev will re-read the db if the device wasn't initialized yet. */
-        if (!device && devlink) {
-                r = sd_device_new_from_devname(&device, devlink);
-                if (r < 0 && !ERRNO_IS_DEVICE_ABSENT(r))
-                        return log_error_errno(r, "Failed to create sd-device object from %s: %m", devlink);
-        }
-        if (device && device_is_processed(device) > 0) {
+        if (device_is_processed(device) > 0) {
                 if (ret)
                         *ret = sd_device_ref(device);
                 return 0;
@@ -221,14 +175,6 @@ static int device_wait_for_initialization_internal(
         if (ret)
                 *ret = TAKE_PTR(data.device);
         return 0;
-}
-
-int device_wait_for_initialization(sd_device *device, const char *subsystem, usec_t timeout_usec, sd_device **ret) {
-        return device_wait_for_initialization_internal(device, /* devlink= */ NULL, subsystem, timeout_usec, ret);
-}
-
-int device_wait_for_devlink(const char *devlink, const char *subsystem, usec_t timeout_usec, sd_device **ret) {
-        return device_wait_for_initialization_internal(/* _device= */ NULL, devlink, subsystem, timeout_usec, ret);
 }
 
 int device_is_renaming(sd_device *dev) {
