@@ -113,10 +113,19 @@ if sysctl kernel.dmesg_restrict=0; then
         dmesg)
 fi
 
-unsquashfs -force -no-xattrs -d /tmp/img /usr/share/minimal_0.raw
+# Extracted as testuser, so that mountfsd considers the directory trusted when it is
+# mounted into a private user namespace below.
+runas testuser unsquashfs -force -no-xattrs -d /tmp/img /usr/share/minimal_0.raw
 runas testuser systemd-run --wait --user --unit=test-root-dir \
     -p RootDirectory=/tmp/img \
     grep MARKER=1 /etc/os-release
+
+# Also test with PrivateUsers=managed.
+if can_do_rootless_nspawn; then
+    runas testuser systemd-run --wait --user -P --unit=test-root-dir-managed \
+        -p PrivateUsers=managed -p RootDirectory=/tmp/img \
+        cat /run/host/os-release | cmp /etc/os-release
+fi
 
 mkdir /tmp/img_bind
 mount --bind /tmp/img /tmp/img_bind
