@@ -247,7 +247,7 @@ int user_record_reconcile(
 
                 /* The embedded version is newer */
 
-                if (mode == USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL)
+                if (IN_SET(mode, USER_RECONCILE_REQUIRE_NEWER, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL))
                         return -ESTALE;
 
                 /* Copy in the binding data */
