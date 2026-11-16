@@ -159,6 +159,15 @@
         <para>If the new prediction matches the old this command terminates quickly and executes no further
         operation. (Unless <option>--force</option> is specified, see below.)</para>
 
+        <para>If the booted UKI profile has no <filename>.pcrlock</filename> file because its
+        <literal>.profile</literal> section does not enable <literal>PCRLOCK=</literal> (see
+        <command>lock-uki</command> below), this command leaves an existing policy unchanged if the new
+        policy would not cover a PCR that the existing policy covers. The measurements of such a boot match
+        no <filename>.pcrlock</filename> file of the UKI, and a policy generated from them would not cover
+        PCR 4 and PCR 11. If no policy exists yet, this command creates one without these PCRs, and the next
+        invocation from a profile that enables <literal>PCRLOCK=</literal> adds them. (Unless
+        <option>--force</option> is specified, see below.)</para>
+
         <para>Starting with v256, a copy of the <filename>/var/lib/systemd/pcrlock.json</filename> policy
         file is encoded in a credential (see
         <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry> for

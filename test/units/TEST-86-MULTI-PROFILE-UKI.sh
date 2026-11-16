@@ -19,6 +19,15 @@ if [[ ! -f "$CURRENT_UKI" ]]; then
     CURRENT_UKI="${CURRENT_UKI%+*}.efi"
 fi
 MEASURE=/usr/lib/systemd/systemd-measure
+SD_PCRLOCK=/usr/lib/systemd/systemd-pcrlock
+PCRLOCK_UKI=/var/lib/pcrlock.d/650-uki.pcrlock.d/multi-profile.pcrlock
+PCRLOCK_POLICY=/var/lib/systemd/pcrlock.json
+PCRLOCK_LOADER=/var/lib/pcrlock.d/630-boot-loader-code.pcrlock.d/test86.pcrlock
+PCRLOCK_ADDON=/var/lib/pcrlock.d/660-addon.pcrlock
+# This policy covers PCR 4 and PCR 7, but not PCR 11.
+PCRLOCK_POLICY_PCR4=/var/lib/systemd/pcrlock-pcr4.json
+# This disk image is bound to the systemd-pcrlock policy. It only exists if systemd-pcrlock is supported.
+PCRLOCK_IMAGE=/root/pcrlocked.raw
 LOADER_GUID=4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
 TOFU_STAGE=/root/tofu-stage
 # The TOFU record is in NVRAM and cannot be removed from the OS, hence remember that the TOFU stages ran, so
@@ -272,6 +281,42 @@ systemd-cryptsetup attach multiprof /root/encrypted.raw - tpm2-device=auto,headl
 systemd-cryptsetup detach multiprof
 
 if [[ "$ID" == "main" ]]; then
+    if "$SD_PCRLOCK" is-supported; then
+        # lock-uki generates a .pcrlock file for each profile that enables PCRLOCK=. Profile @0 enables it
+        # by default, and Profile2 (@2) sets PCRLOCK=yes.
+        "$SD_PCRLOCK" lock-uki --pcrlock="$PCRLOCK_UKI" "$CURRENT_UKI"
+        test -f "$PCRLOCK_UKI"
+        test ! -e "${PCRLOCK_UKI%.pcrlock}@1.pcrlock"
+        test -f "${PCRLOCK_UKI%.pcrlock}@2.pcrlock"
+        test ! -e "${PCRLOCK_UKI%.pcrlock}@3.pcrlock"
+
+        # make-policy picks a random NV index out of 24 if none is specified. Each policy that is created
+        # here gets an NV index of its own, so that the NV index of one policy is never picked for another.
+        "$SD_PCRLOCK" make-policy --pcr=11 --nv-index=0x1d1020d
+        jq -e '.pcrValues | any(.pcr == 11)' "$PCRLOCK_POLICY" >/dev/null
+
+        # Prepare a second disk image, bound to the systemd-pcrlock policy only
+        truncate -s 32M "$PCRLOCK_IMAGE"
+        echo -n "geheim" >/root/pcrlocked.secret
+        cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom "$PCRLOCK_IMAGE" --key-file=/root/pcrlocked.secret
+        systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs= --tpm2-public-key= --tpm2-pcrlock="$PCRLOCK_POLICY" --unlock-key-file=/root/pcrlocked.secret "$PCRLOCK_IMAGE"
+        rm -f /root/pcrlocked.secret
+
+        systemd-cryptsetup attach pcrlocked "$PCRLOCK_IMAGE" - tpm2-device=auto,tpm2-pcrlock="$PCRLOCK_POLICY",headless=1
+        systemd-cryptsetup detach pcrlocked
+
+        # The firmware measures the boot loader, the UKI and the global addon into PCR 4, and the result is
+        # the same for every profile of the UKI.
+        "$SD_PCRLOCK" lock-pe --pcrlock="$PCRLOCK_LOADER" "$(bootctl --print-loader-path)"
+        "$SD_PCRLOCK" lock-pe --pcrlock="$PCRLOCK_ADDON" "$(bootctl --print-esp-path)/loader/addons/test.addon.efi"
+        "$SD_PCRLOCK" lock-secureboot-policy
+        "$SD_PCRLOCK" lock-secureboot-authority
+        "$SD_PCRLOCK" log --pcr=4+7
+        "$SD_PCRLOCK" make-policy --policy="$PCRLOCK_POLICY_PCR4" --pcr=4+7 --nv-index=0x1d1020e
+        jq -e '.pcrValues | any(.pcr == 4)' "$PCRLOCK_POLICY_PCR4" >/dev/null
+        jq -e '.pcrValues | any(.pcr == 7)' "$PCRLOCK_POLICY_PCR4" >/dev/null
+    fi
+
     # Give the UKI a mixed case name with a boot counter. Entry IDs are matched case insensitively
     # and without the counter, so the lower case ID without counter has to keep working.
     mv "$CURRENT_UKI" "$(dirname "$CURRENT_UKI")/Multi-Profile+3.efi"
@@ -280,6 +325,38 @@ if [[ "$ID" == "main" ]]; then
     exit 0
 elif [[ "$ID" == "profile1" ]]; then
     grep testprofile1=1 /proc/cmdline
+
+    if [[ -f "$PCRLOCK_IMAGE" ]]; then
+        # profile1 does not enable PCRLOCK=, hence it has no .pcrlock file and does not satisfy the policy.
+        (! systemd-cryptsetup attach pcrlocked "$PCRLOCK_IMAGE" - tpm2-device=auto,tpm2-pcrlock="$PCRLOCK_POLICY",headless=1)
+
+        # make-policy must not replace the policy with one that does not cover PCR 11.
+        cp "$PCRLOCK_POLICY" /tmp/pcrlock.json
+        "$SD_PCRLOCK" make-policy --pcr=11 2>&1 | tee /tmp/make-policy.log
+        grep "excluded from PCR locking" /tmp/make-policy.log >/dev/null
+        cmp "$PCRLOCK_POLICY" /tmp/pcrlock.json
+
+        # --force skips the check in make-policy. The TPM refuses the update then, because the recovery PIN
+        # is sealed against the policy that this boot does not satisfy.
+        (! "$SD_PCRLOCK" make-policy --pcr=11 --force)
+        cmp "$PCRLOCK_POLICY" /tmp/pcrlock.json
+        rm -f /tmp/pcrlock.json /tmp/make-policy.log
+
+        # profile1 satisfies the policy for PCR 4 and PCR 7. make-policy must not replace it with a policy
+        # that does not cover PCR 4, although PCR 11 is not among the selected PCRs.
+        cp "$PCRLOCK_POLICY_PCR4" /tmp/pcrlock-pcr4.json
+        "$SD_PCRLOCK" make-policy --policy="$PCRLOCK_POLICY_PCR4" --pcr=4+7 2>&1 | tee /tmp/make-policy.log
+        grep "excluded from PCR locking" /tmp/make-policy.log >/dev/null
+        cmp "$PCRLOCK_POLICY_PCR4" /tmp/pcrlock-pcr4.json
+        rm -f /tmp/pcrlock-pcr4.json /tmp/make-policy.log
+
+        # If no policy exists yet, make-policy creates one from the PCRs that the event log of profile1 allows.
+        "$SD_PCRLOCK" make-policy --policy=/tmp/pcrlock-new.json --pcr=4+7+11 --nv-index=0x1d1020f
+        jq -e '.pcrValues | any(.pcr == 7)' /tmp/pcrlock-new.json >/dev/null
+        jq -e '.pcrValues | any(.pcr == 4 or .pcr == 11) | not' /tmp/pcrlock-new.json >/dev/null
+        "$SD_PCRLOCK" remove-policy --policy=/tmp/pcrlock-new.json
+    fi
+
     # The renamed UKI with the boot counter has to be what systemd-boot booted.
     [[ "$(basename "$STUB_PATH")" == Multi-Profile+* ]]
     # The profile ID is "Profile2", the lower case entry ID has to match it anyway.
@@ -289,6 +366,28 @@ elif [[ "$ID" == "profile1" ]]; then
 elif [[ "$ID" == "Profile2" ]]; then
     grep testprofile2=1 /proc/cmdline
     rm /root/encrypted.raw
+
+    if [[ -f "$PCRLOCK_IMAGE" ]]; then
+        # Profile2 sets PCRLOCK=yes, hence it satisfies the policy and make-policy works.
+        systemd-cryptsetup attach pcrlocked "$PCRLOCK_IMAGE" - tpm2-device=auto,tpm2-pcrlock="$PCRLOCK_POLICY",headless=1
+        systemd-cryptsetup detach pcrlocked
+        "$SD_PCRLOCK" make-policy --pcr=11
+        jq -e '.pcrValues | any(.pcr == 11)' "$PCRLOCK_POLICY" >/dev/null
+
+        "$SD_PCRLOCK" make-policy --policy="$PCRLOCK_POLICY_PCR4" --pcr=4+7
+        jq -e '.pcrValues | any(.pcr == 4)' "$PCRLOCK_POLICY_PCR4" >/dev/null
+
+        rm "$PCRLOCK_IMAGE"
+        "$SD_PCRLOCK" remove-policy --policy="$PCRLOCK_POLICY_PCR4"
+        "$SD_PCRLOCK" unlock-pe --pcrlock="$PCRLOCK_LOADER"
+        "$SD_PCRLOCK" unlock-pe --pcrlock="$PCRLOCK_ADDON"
+        "$SD_PCRLOCK" unlock-secureboot-policy
+        "$SD_PCRLOCK" unlock-secureboot-authority
+        "$SD_PCRLOCK" remove-policy
+        "$SD_PCRLOCK" unlock-uki --pcrlock="$PCRLOCK_UKI"
+        test ! -e "$PCRLOCK_UKI"
+        test ! -e "${PCRLOCK_UKI%.pcrlock}@2.pcrlock"
+    fi
 
     if [[ -e "$TOFU_TESTED" ]]; then
         echo "Trusting addons on first use was tested on a previous run already, its record persists, skipping it"
