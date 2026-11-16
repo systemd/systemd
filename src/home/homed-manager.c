@@ -1389,7 +1389,7 @@ static int manager_generate_key_pair(Manager *m) {
 
         r = fflush_sync_and_check(fpublic);
         if (r < 0)
-                return log_error_errno(r, "Failed to write private key: %m");
+                return log_error_errno(r, "Failed to write public key: %m");
 
         fpublic = safe_fclose(fpublic);
 
