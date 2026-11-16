@@ -209,10 +209,41 @@ int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
         return 0;
 }
 
+static void home_complete_pending_operations(Home *h) {
+        Operation *o;
+
+        assert(h);
+
+        /* The home is going away. Complete the operations still queued for it, so that nobody is left
+         * waiting for a reply. */
+
+        while ((o = ordered_set_steal_first(h->pending_operations))) {
+                if (o->result < 0) {
+                        if (IN_SET(o->type, OPERATION_LOCK_ALL, OPERATION_DEACTIVATE_ALL))
+                                /* There's nothing to lock or deactivate anymore. Note that these operations
+                                 * are shared between homes, hence don't touch them if another home already
+                                 * reported a result. */
+                                operation_result(o, 0, /* error= */ NULL);
+                        else if (o->message) {
+                                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                                (void) sd_bus_error_setf(&error, BUS_ERROR_NO_SUCH_HOME, "Home %s has been removed.", strna(h->user_name));
+                                operation_result(o, -ESRCH, &error);
+                        }
+                }
+
+                operation_unref(o);
+        }
+}
+
 Home *home_free(Home *h) {
 
         if (!h)
                 return NULL;
+
+        /* Don't bother replying if we are shutting down, the bus connection is already gone then */
+        if (h->manager && h->manager->bus)
+                home_complete_pending_operations(h);
 
         if (h->manager) {
                 (void) bus_home_emit_remove(h);
@@ -376,9 +407,11 @@ int home_unlink_record(Home *h) {
         if (unlink(fn) < 0 && errno != ENOENT)
                 return -errno;
 
-        fn = strjoina("/run/systemd/home/", h->user_name, ".ref");
-        if (unlink(fn) < 0 && errno != ENOENT)
-                return -errno;
+        FOREACH_STRING(suffix, ".please-suspend", ".dont-suspend") {
+                fn = strjoina("/run/systemd/home/", h->user_name, suffix);
+                if (unlink(fn) < 0 && errno != ENOENT)
+                        return -errno;
+        }
 
         blob = path_join(home_system_blob_dir(), h->user_name);
         if (!blob)
@@ -475,6 +508,11 @@ static int home_on_retry_deactivate(sd_event_source *s, uint64_t usec, void *use
         /* 15s after the last attempt to deactivate the home directory passed. Let's try it one more time. */
 
         h->retry_deactivate_event_source = sd_event_source_disable_unref(h->retry_deactivate_event_source);
+
+        /* The home might have been referenced again in the meantime, in which case it's not ours to
+         * deactivate anymore. */
+        if (home_is_referenced(h))
+                return 0;
 
         state = home_get_state(h);
         if (!HOME_STATE_MAY_RETRY_DEACTIVATE(state))
@@ -1109,7 +1147,7 @@ finish:
         /* If a specific home doesn't know the concept of locking, then that's totally OK, don't propagate
          * the error if we are executing a LockAllHomes() operation. */
 
-        if (h->current_operation->type == OPERATION_LOCK_ALL && r == -ENOTTY)
+        if (h->current_operation && h->current_operation->type == OPERATION_LOCK_ALL && r == -ENOTTY)
                 h->current_operation = operation_result_unref(h->current_operation, /* ret= */ 0, /* error= */ NULL);
         else
                 h->current_operation = operation_result_unref(h->current_operation, r, &error);
@@ -1575,7 +1613,7 @@ int home_activate(Home *h, bool if_referenced, UserRecord *secret, sd_bus_error 
                 /* If we are lingering, i.e. active but are supposed to be deactivated, then cancel this
                  * timer if the user explicitly asks us to be active */
                 h->retry_deactivate_event_source = sd_event_source_disable_unref(h->retry_deactivate_event_source);
-                return 0;
+                return 1; /* done, no worker started */
         case HOME_LOCKED:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_LOCKED, "Home %s is currently locked.", h->user_name);
         case HOME_INACTIVE:
@@ -2195,10 +2233,6 @@ int home_unlock(Home *h, UserRecord *secret, sd_bus_error *error) {
         assert(h);
         assert(secret);
 
-        r = home_ratelimit(h, error);
-        if (r < 0)
-                return r;
-
         switch (home_get_state(h)) {
         case HOME_UNFIXATED:
         case HOME_ABSENT:
@@ -2212,6 +2246,10 @@ int home_unlock(Home *h, UserRecord *secret, sd_bus_error *error) {
         default:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
         }
+
+        r = home_ratelimit(h, error);
+        if (r < 0)
+                return r;
 
         return home_unlock_internal(h, secret, HOME_UNLOCKING, error);
 }
