@@ -2589,7 +2589,8 @@ static int home_get_disk_status_directory(
                                         disk_ceiling = disk_size;
                         }
 
-                        if (FLAGS_SET(req.dqb_valid, QIF_BLIMITS)) {
+                        /* A hard limit of zero means there's no limit */
+                        if (FLAGS_SET(req.dqb_valid, QIF_BLIMITS) && req.dqb_bhardlimit > 0) {
                                 uint64_t q;
 
                                 /* Take the minimum of the quota and the available disk space here */
