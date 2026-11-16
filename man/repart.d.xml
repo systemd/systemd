@@ -1079,6 +1079,35 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>DetachedHeader=</varname></term>
+
+        <listitem><para>Takes an absolute file system path. If set, the LUKS2 header of a newly created
+        encrypted partition is written to this file instead of to the partition itself, and the encrypted
+        data starts at the very beginning of the partition. The partition then carries no LUKS2 metadata at
+        all: it cannot be identified as a LUKS2 volume, and the header (which includes the encryption
+        parameters and the key slots) cannot be modified or replaced by whoever controls the underlying
+		storage. A use case for this setting would be Confidential Computing environments where the storage
+		is provided by an untrusted host, and the header should be kept in encrypted memory (e.g. below
+        <filename>/run/</filename>) for volumes that are recreated on every boot.</para>
+
+        <para>Requires <varname>Encrypt=</varname> to be enabled and cannot be used with
+        <option>--offline=yes</option>. The file must not exist yet, it is created with access mode 0600,
+		implicitly adding missing parent directories. Should formatting the partition fails, the detached
+		header file is removed again.
+
+        <para>If <option>--generate-crypttab=</option> is used, the generated entry refers to the partition
+        by its partition UUID (as there's no LUKS2 UUID stored on the partition), and the
+        <option>header=</option> option pointing to this file is added, see
+        <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <para>Note that without the header file the partition's contents cannot be decrypted anymore, even
+		with the correct key. It is the responsibility of the user to make sure the header file is available
+		whenever the volume shall be activated.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>TPM2PCRs=</varname></term>
 
         <listitem><para>Configures the list of PCRs to use for LUKS2 volumes configured with

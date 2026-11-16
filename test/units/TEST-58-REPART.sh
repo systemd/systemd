@@ -3191,6 +3191,107 @@ EOF
     losetup -d "$loop"
 }
 
+_test_detached_header() {
+    local defs imgs header volume loop line dev opts partuuid luksuuid
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** testcase for DetachedHeader= ${1:+($1)} ***"
+
+    volume="test-repart-detached-$RANDOM"
+    # Parent directory doesn't exist yet, repart is expected to create it
+    header="$imgs/hdr/data.hdr"
+
+    tee "$defs/data.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=ext4
+Encrypt=key-file
+DetachedHeader=$header
+EncryptedVolume=$volume:::fixate-volume-key
+$1
+EOF
+
+    if [[ "$OFFLINE" != "no" ]]; then
+        # Detached headers are only supported in online mode
+        (! systemd-repart --definitions "$defs" \
+                          --empty=create \
+                          --size=100M \
+                          --dry-run=no \
+                          --offline="$OFFLINE" \
+                          "$imgs/detached.img")
+        [[ ! -e "$header" ]]
+        return 0
+    fi
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=100M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline=no \
+                   --generate-crypttab="$imgs/crypttab" \
+                   "$imgs/detached.img"
+
+    # The header is a private file outside of the image...
+    [[ "$(stat --format=%a "$header")" == "600" ]]
+    cryptsetup luksDump "$header" | grep -E '^\s+offset: 0 \[bytes\]' >/dev/null
+
+    loop="$(losetup -P --show --find "$imgs/detached.img")"
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "${loop:?}p1"
+
+    # ...and the partition itself must not carry any LUKS metadata
+    (! cryptsetup isLuks "${loop}p1")
+    [[ "$(blkid -p -s TYPE -o value "${loop}p1" || :)" != "crypto_LUKS" ]]
+
+    # The crypttab entry must reference the partition by PARTUUID and point to the header
+    cat "$imgs/crypttab"
+    line="$(grep -v '^#' "$imgs/crypttab" | grep "^$volume ")"
+    dev="$(echo "$line" | awk '{ print $2 }')"
+    opts="$(echo "$line" | awk '{ print $4 }')"
+    partuuid="$(blkid -p -s PART_ENTRY_UUID -o value "${loop}p1")"
+    [[ "$dev" == "PARTUUID=$partuuid" ]]
+    [[ ",$opts," == *",header=$header,"* ]]
+    [[ ",$opts," == *",fixate-volume-key="* ]]
+
+	# Check the comment referencing the LUKS uuid
+	luksuuid="$(cryptsetup luksUUID "$header")"
+    grep -q "^# LUKS2 volume $luksuuid with detached header" "$imgs/crypttab"
+
+    # Activate the volume exactly as the generated crypttab says, and check the file system is there
+    touch "$imgs/empty-password"
+    systemd-cryptsetup attach "$volume" "${loop}p1" "$imgs/empty-password" "$opts"
+    udevadm wait --timeout="$UDEVADM_WAIT_TIMEOUT" --settle "/dev/mapper/$volume"
+    [[ "$(blkid -p -s TYPE -o value "/dev/mapper/$volume")" == "ext4" ]]
+    systemd-cryptsetup detach "$volume"
+
+    # Without the header the volume cannot be activated
+    (! systemd-cryptsetup attach "$volume" "${loop}p1" "$imgs/empty-password" "header=$imgs/nonexistent.hdr")
+    [[ ! -e "/dev/mapper/$volume" ]]
+
+    losetup -d "$loop"
+
+    # An existing header file must never be overwritten
+    cp "$header" "$imgs/header.orig"
+    (! systemd-repart --definitions "$defs" \
+                      --empty=force \
+                      --size=100M \
+                      --dry-run=no \
+                      --offline=no \
+                      "$imgs/detached.img")
+    cmp "$header" "$imgs/header.orig"
+}
+
+testcase_detached_header() {
+    _test_detached_header ""
+    _test_detached_header "Integrity=inline"
+}
+
 testcase_encrypt_add_token() {
     local defs imgs loop token_json metadata_json metadata_b64
 

@@ -594,6 +594,7 @@ typedef struct Partition {
         PartitionEncryptedVolume *encrypted_volume;
         PartitionEncryptAddToken *encrypt_add_tokens;
         size_t n_encrypt_add_tokens;
+        char *detached_header;   /* If set, the LUKS2 header is written to this file instead of the partition */
 
         unsigned last_percent;
         RateLimit progress_ratelimit;
@@ -947,6 +948,7 @@ static Partition* partition_free(Partition *p) {
 
         partition_encrypted_volume_free(p->encrypted_volume);
         partition_encrypt_add_token_free_many(p->encrypt_add_tokens, p->n_encrypt_add_tokens);
+        free(p->detached_header);
 
         partition_unlink_supplement(p);
 
@@ -1011,6 +1013,7 @@ static void partition_foreignize(Partition *p) {
         partition_encrypt_add_token_free_many(p->encrypt_add_tokens, p->n_encrypt_add_tokens);
         p->encrypt_add_tokens = NULL;
         p->n_encrypt_add_tokens = 0;
+        p->detached_header = mfree(p->detached_header);
 
         partition_unlink_supplement(p);
 }
@@ -3234,6 +3237,7 @@ static int partition_read_definition(
                 { "Partition", "VerityHashBlockSizeBytes", config_parse_block_size,        0,                                  &p->verity_hash_block_size  },
                 { "Partition", "MountPoint",               config_parse_mountpoint,        0,                                  p                           },
                 { "Partition", "EncryptedVolume",          config_parse_encrypted_volume,  0,                                  p                           },
+                { "Partition", "DetachedHeader",           config_parse_path,              0,                                  &p->detached_header         },
                 { "Partition", "EncryptAddToken",          config_parse_encrypt_add_token, 0,                                  p                           },
                 { "Partition", "TPM2PCRs",                 config_parse_tpm2_pcrs,         0,                                  p                           },
                 { "Partition", "TPM2PublicKeyPolicyRef",   config_parse_string,            CONFIG_PARSE_STRING_SAFE,           &p->tpm2_public_key_policyref },
@@ -3424,6 +3428,16 @@ static int partition_read_definition(
         if (p->integrity == INTEGRITY_INLINE && p->encrypt == ENCRYPT_OFF)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Integrity=inline requires Encrypt=.");
+
+        if (p->detached_header) {
+                if (p->encrypt == ENCRYPT_OFF)
+                        return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                          "DetachedHeader= requires Encrypt=.");
+
+                if (arg_offline == 1)
+                        return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                          "DetachedHeader= is incompatible with --offline=yes.");
+        }
 
         if (p->default_subvolume && !ordered_hashmap_contains(p->subvolumes, p->default_subvolume))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
@@ -5767,6 +5781,53 @@ static int partition_add_tokens_for_keyslot(Partition *p, struct crypt_device *c
 }
 #endif
 
+static int partition_create_detached_header(const Partition *p, const char *node, uint32_t sector_size,
+                                            char **ret_path, struct crypt_device **ret_cd) {
+
+        /* Remove again if we fail, so no half-initialized header is left behind. */
+        _cleanup_(unlink_and_freep) char *path_owned = NULL;
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert(p);
+        assert(p->detached_header);
+        assert(node);
+        assert(ret_path);
+        assert(ret_cd);
+
+        r = mkdir_parents(p->detached_header, 0700);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create parent directories of '%s': %m", p->detached_header);
+
+        /* Never overwrite, we risk accidentially losing a header-file required to unlock another volume. */
+        fd = open(p->detached_header, O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to create detached LUKS header file '%s': %m", p->detached_header);
+
+        path_owned = strdup(p->detached_header);
+        if (!path_owned)
+                return log_oom();
+
+        /* libcryptsetup requires the header file to be at least one sector in size, so we grow it to that size. */
+        if (ftruncate(fd, sector_size) < 0)
+                return log_error_errno(errno, "Failed to grow detached LUKS header file '%s': %m", p->detached_header);
+
+        r = sym_crypt_init_data_device(&cd, path_owned, node);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate libcryptsetup context for %s with detached header %s: %m",
+                                       node, path_owned);
+
+        /* With the header stored elsewhere, the encrypted data starts at the beginning of the partition. */
+        r = sym_crypt_set_data_offset(cd, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set data offset: %m");
+
+        *ret_path = TAKE_PTR(path_owned);
+        *ret_cd = TAKE_PTR(cd);
+        return 0;
+}
+
 static int partition_encrypt(Context *context, Partition *p, PartitionTarget *target, bool offline, bool temporary) {
 #if HAVE_LIBCRYPTSETUP
 #if HAVE_TPM2
@@ -5816,6 +5877,10 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 if (p->integrity == INTEGRITY_INLINE)
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Integrity=inline cannot be enabled in offline mode.");
 
+                /* Offline encryption with a detached header (in-place without shifting data) isn't supported yet */
+                if (p->detached_header)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "DetachedHeader= cannot be used in offline mode.");
+
                 r = var_tmp_dir(&vt);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine temporary files directory: %m");
@@ -5843,10 +5908,22 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         return log_oom();
         }
 
+        /* Remove again if we fail, so a half-initialized header isn't left behind. */
+        _cleanup_(unlink_and_freep) char *header_created = NULL;
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
-        r = sym_crypt_init(&cd, offline ? hp : node);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate libcryptsetup context for %s: %m", hp);
+
+        if (p->detached_header) {
+                assert(!offline);
+
+                r = partition_create_detached_header(p, node, luks_params.sector_size, &header_created, &cd);
+                if (r < 0)
+                        return r;
+
+        } else {
+                r = sym_crypt_init(&cd, offline ? hp : node);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate libcryptsetup context for %s: %m", offline ? hp : node);
+        }
 
         cryptsetup_enable_logging(cd);
 
@@ -6308,6 +6385,10 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
 
                 target->decrypted = TAKE_PTR(t);
         }
+
+        if (header_created)
+                log_info("Detached LUKS header for future partition %" PRIu64 " written to %s.", p->partno, header_created);
+        header_created = mfree(header_created); /* Keep the header file from now on. */
 
         log_info("Successfully encrypted future partition %" PRIu64 ".", p->partno);
 
@@ -10803,7 +10884,7 @@ static int context_crypttab(Context *context, bool late) {
         fprintf(f, "# Automatically generated by systemd-repart\n\n");
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_free_ char *volume = NULL;
+                _cleanup_free_ char *volume = NULL, *options = NULL;
 
                 if (!need_crypttab_one(p))
                         continue;
@@ -10811,11 +10892,35 @@ static int context_crypttab(Context *context, bool late) {
                 if (!p->encrypted_volume->name && asprintf(&volume, "luks-%s", SD_ID128_TO_UUID_STRING(p->luks_uuid)) < 0)
                         return log_oom();
 
-                fprintf(f, "%s UUID=%s %s %s\n",
-                        p->encrypted_volume->name ?: volume,
-                        SD_ID128_TO_UUID_STRING(p->luks_uuid),
-                        isempty(p->encrypted_volume->keyfile) ? "-" : p->encrypted_volume->keyfile,
-                        strempty(p->encrypted_volume->options));
+                if (p->detached_header) {
+                        /* With a detached header there's no LUKS superblock on the partition, hence nothing
+                         * that would provide a LUKS UUID. Reference the partition by its GPT UUID instead, and
+                         * tell systemd-cryptsetup where the header is. */
+                        options = strdup(strempty(p->encrypted_volume->options));
+                        if (!options)
+                                return log_oom();
+
+                        r = strextendf_with_separator(&options, ",", "header=%s", p->detached_header);
+                        if (r < 0)
+                                return log_oom();
+
+                        /* Nothing on the partition identifies as LUKS, to make the entry self-explanatory, add
+                         * a comment to the crypttab entry. */
+                        fprintf(f,
+                                "# LUKS2 volume %s with detached header; the partition carries no LUKS metadata.\n",
+                                SD_ID128_TO_UUID_STRING(p->luks_uuid));
+
+                        fprintf(f, "%s PARTUUID=%s %s %s\n",
+                                p->encrypted_volume->name ?: volume,
+                                SD_ID128_TO_UUID_STRING(p->new_uuid),
+                                isempty(p->encrypted_volume->keyfile) ? "-" : p->encrypted_volume->keyfile,
+                                options);
+                } else
+                        fprintf(f, "%s UUID=%s %s %s\n",
+                                p->encrypted_volume->name ?: volume,
+                                SD_ID128_TO_UUID_STRING(p->luks_uuid),
+                                isempty(p->encrypted_volume->keyfile) ? "-" : p->encrypted_volume->keyfile,
+                                strempty(p->encrypted_volume->options));
         }
 
         r = flink_tmpfile(f, t, path, late ? LINK_TMPFILE_REPLACE : 0);
