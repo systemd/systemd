@@ -670,6 +670,11 @@ _public_ int sd_varlink_connect_fd(sd_varlink **ret, int fd) {
 static void varlink_clear_current(sd_varlink *v) {
         assert(v);
 
+        if (v->server && v->connection_id) {
+                (void) hashmap_remove_value(v->server->unclaimed, v->connection_id, v);
+                (void) hashmap_remove_value(v->server->claimed, v->connection_id, v);
+        }
+
         /* Clears the currently processed incoming message */
         v->current = sd_json_variant_unref(v->current);
         v->current_collected = sd_json_variant_unref(v->current_collected);
@@ -1882,8 +1887,10 @@ static void varlink_detach_server(sd_varlink *v, bool connected) {
         v->server->n_connections--;
 
         LIST_REMOVE(connections, v->server->connections, v);
-        if (v->connection_id)
+        if (v->connection_id) {
                 (void) hashmap_remove_value(v->server->unclaimed, v->connection_id, v);
+                (void) hashmap_remove_value(v->server->claimed, v->connection_id, v);
+        }
 
         /* If this is a connection associated to a server, then let's disconnect the server and the
          * connection from each other. This drops the dangling reference that connect_callback() set up. But
@@ -3427,6 +3434,7 @@ static sd_varlink_server* varlink_server_destroy(sd_varlink_server *s) {
         /* Each connection keeps a reference to the server, hence there can't be any left by now */
         assert(!s->connections);
         hashmap_free(s->unclaimed);
+        hashmap_free(s->claimed);
 
         sd_event_unref(s->event);
 
@@ -5044,7 +5052,8 @@ static int varlink_server_adopt_connection(sd_varlink_server *server, sd_varlink
 
                 /* The key is owned by the connection object, and stays valid until it is removed from the
                  * hashmap again in varlink_detach_server() */
-                r = hashmap_ensure_put(&server->unclaimed, &string_hash_ops, id, v);
+                r = hashmap_contains(server->claimed, id) ? -EEXIST :
+                        hashmap_ensure_put(&server->unclaimed, &string_hash_ops, id, v);
                 if (r == -EEXIST) {
                         /* Inode based identifiers might not be unique, in which case the connection
                          * cannot be claimed, hence disconnect it right away */
@@ -5135,18 +5144,35 @@ fail:
         return r;
 }
 
-_public_ int sd_varlink_server_claim_connection(sd_varlink_server *s, const char *id, sd_varlink **ret) {
+_public_ int sd_varlink_server_claim_connection(
+                sd_varlink_server *s,
+                const char *id,
+                sd_varlink_server_claim_flags_t flags,
+                sd_varlink **ret) {
+
         sd_varlink *v;
+        int r;
 
         assert_return(s, -EINVAL);
         assert_return(id, -EINVAL);
+        assert_return((flags & ~SD_VARLINK_SERVER_CLAIM_AGAIN) == 0, -EINVAL);
 
-        /* Takes a deserialized connection with a pending method call out of the table of unclaimed
-         * connections. */
+        v = hashmap_get(s->unclaimed, id);
+        if (v) {
+                r = hashmap_ensure_allocated(&s->claimed, &string_hash_ops);
+                if (r < 0)
+                        return r;
 
-        v = hashmap_remove(s->unclaimed, id);
-        if (!v)
-                return -ESRCH;
+                r = hashmap_move_one(s->claimed, s->unclaimed, id);
+                if (r < 0)
+                        return r;
+        } else {
+                v = hashmap_get(s->claimed, id);
+                if (!v)
+                        return -ESRCH;
+                if (!FLAGS_SET(flags, SD_VARLINK_SERVER_CLAIM_AGAIN))
+                        return -EALREADY;
+        }
 
         if (ret)
                 *ret = v;
