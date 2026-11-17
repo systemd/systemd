@@ -2051,6 +2051,7 @@ static int varlink_idl_validate_symbol(const sd_varlink_symbol *symbol, sd_json_
                 }
 
                 assert_se(s = sd_json_variant_string(v));
+                _cleanup_free_ char *underscorified = json_underscorify(strdup(s));
 
                 for (const sd_varlink_field *field = symbol->fields; field->field_type != _SD_VARLINK_FIELD_TYPE_END_MARKER; field++) {
 
@@ -2059,7 +2060,7 @@ static int varlink_idl_validate_symbol(const sd_varlink_symbol *symbol, sd_json_
 
                         assert(field->field_type == SD_VARLINK_ENUM_VALUE);
 
-                        if (streq_ptr(field->name, s)) {
+                        if (streq_ptr(field->name, underscorified)) {
                                 found = true;
                                 break;
                         }
@@ -2068,7 +2069,7 @@ static int varlink_idl_validate_symbol(const sd_varlink_symbol *symbol, sd_json_
                 if (!found) {
                         if (reterr_bad_field)
                                 *reterr_bad_field = s;
-                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Passed unrecognized string '%s' to enum field '%s', refusing.", s, strna(symbol->name));
+                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Passed unrecognized string '%s' to enum field '%s', refusing.", underscorified, strna(symbol->name));
                 }
 
                 break;
