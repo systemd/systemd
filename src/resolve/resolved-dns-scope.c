@@ -163,6 +163,9 @@ DnsScope* dns_scope_free(DnsScope *s) {
 
         sd_event_source_disable_unref(s->mdns_goodbye_event_source);
 
+        while (s->mdns_pending_replies)
+                mdns_pending_reply_free(s->mdns_pending_replies);
+
         dns_cache_flush(&s->cache);
         dns_zone_flush(&s->zone);
 
@@ -1227,6 +1230,12 @@ DnsTransaction *dns_scope_find_transaction(
                 /* Don't reuse a transaction that allowed caching when we got told not to use it */
                 if ((query_flags & SD_RESOLVED_NO_CACHE) &&
                     !(t->query_flags & SD_RESOLVED_NO_CACHE))
+                        continue;
+
+                /* A continuous query is only tried once and lists the cached records as Known-Answers,
+                 * so don't let a one-shot query join it */
+                if (!(query_flags & SD_RESOLVED_QUERY_CONTINUOUS) &&
+                    (t->query_flags & SD_RESOLVED_QUERY_CONTINUOUS))
                         continue;
 
                 /* If we are asked to clamp ttls and the existing transaction doesn't do it, we can't

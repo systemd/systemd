@@ -17,6 +17,8 @@ SERVICE_COUNT=20
 CONTAINER_ZONE="test-$RANDOM"
 CONTAINER_1="test-mdns-1"
 CONTAINER_2="test-mdns-2"
+# Service type published only by the first container, used by the Known-Answer tests
+KNOWN_ANSWER_SERVICE_TYPE="_testKnownAnswer._udp"
 
 # Prepare containers
 create_container() {
@@ -43,6 +45,15 @@ TxtText=DC=Device PN=123456 SN=1234567890
 EOF
         done
     done
+
+    if [[ "$container" == "$CONTAINER_1" ]]; then
+        cat >"/var/lib/machines/$container/etc/systemd/dnssd/test-known-answer.dnssd" <<EOF
+[Service]
+Name=Test Known Answer on %H
+Type=$KNOWN_ANSWER_SERVICE_TYPE
+Port=9811
+EOF
+    fi
 
     # To make things fast, spawn the container with a transient version of what's currently the host's
     # rootfs, with a couple of tweaks to make the container unique enough
@@ -313,6 +324,39 @@ testcase_browse_ifindex_zero_no_flap() {
     fi
 
     echo testcase_end
+}
+
+testcase_known_answer_no_cache() {
+    : "Test that a query bypassing the cache doesn't list cached records as Known-Answers"
+    local host_address listener_log listener_pid
+
+    host_address="$(ip -4 -o address show dev "vz-$CONTAINER_ZONE" scope global | awk '{ split($4, a, "/"); print a[1]; exit }')"
+    [[ -n "$host_address" ]]
+
+    # Get the PTR record into the cache
+    timeout 30 resolvectl query -t PTR "$KNOWN_ANSWER_SERVICE_TYPE.local" | grep "$CONTAINER_1" >/dev/null
+
+    # Query it again without the cache, while the listener checks that the query lists no Known-Answers. A
+    # responder that honours Known-Answers would leave the record out of its reply, and the query would fail.
+    listener_log="$(mktemp)"
+    python3 "$(dirname "$0")/TEST-89-RESOLVED-MDNS.listener.py" "$host_address" "$KNOWN_ANSWER_SERVICE_TYPE.local" >"$listener_log" &
+    listener_pid=$!
+    timeout 10 bash -c "until grep ready '$listener_log' >/dev/null; do sleep .1; done"
+    timeout 30 resolvectl query --cache=no -t PTR "$KNOWN_ANSWER_SERVICE_TYPE.local" | grep "$CONTAINER_1" >/dev/null
+    wait "$listener_pid"
+    rm -f "$listener_log"
+}
+
+testcase_known_answer_suppression() {
+    : "Test mDNS Known-Answer suppression (RFC 6762, Sections 7.1 and 7.2)"
+    local host_address
+
+    # The querier sends hand-crafted queries from the host into the container zone and checks whether
+    # the first container answers them
+    host_address="$(ip -4 -o address show dev "vz-$CONTAINER_ZONE" scope global | awk '{ split($4, a, "/"); print a[1]; exit }')"
+    [[ -n "$host_address" ]]
+
+    python3 "$(dirname "$0")/TEST-89-RESOLVED-MDNS.querier.py" "$host_address" "$KNOWN_ANSWER_SERVICE_TYPE.local"
 }
 
 testcase_second_unreachable() {

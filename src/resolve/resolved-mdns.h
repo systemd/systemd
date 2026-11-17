@@ -16,6 +16,11 @@
  * stronger guarantee: no link fragments a datagram that size.) */
 #define MDNS_PACKET_UNKNOWN_MTU_IPV4 576U
 
+MdnsPendingReply* mdns_pending_reply_free(MdnsPendingReply *pr);
+DEFINE_TRIVIAL_CLEANUP_FUNC(MdnsPendingReply*, mdns_pending_reply_free);
+
+int mdns_answer_suppress_known(DnsAnswer **answer, DnsAnswer *known);
+
 int manager_mdns_ipv4_fd(Manager *m);
 int manager_mdns_ipv6_fd(Manager *m);
 
