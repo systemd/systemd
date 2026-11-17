@@ -4495,8 +4495,7 @@ static int apply_mount_namespace(
 
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL;
-        _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
-                *private_namespace_dir = NULL;
+        _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL;
         const char *tmp_dir = NULL, *var_tmp_dir = NULL;
         BindMount *bind_mounts = NULL;
         size_t n_bind_mounts = 0;
@@ -4557,24 +4556,13 @@ static int apply_mount_namespace(
         if (r < 0)
                 return r;
 
-        if (params->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
-                if (!mount_new_api_supported()) {
-                        propagate_dir = path_join("/run/systemd/propagate/", params->unit_id);
-                        if (!propagate_dir)
-                                return -ENOMEM;
-
-                        incoming_dir = strdup("/run/systemd/incoming");
-                        if (!incoming_dir)
-                                return -ENOMEM;
-                }
-
-                private_namespace_dir = strdup("/run/systemd");
-                if (!private_namespace_dir)
+        if (params->runtime_scope == RUNTIME_SCOPE_SYSTEM && !mount_new_api_supported()) {
+                propagate_dir = path_join("/run/systemd/propagate/", params->unit_id);
+                if (!propagate_dir)
                         return -ENOMEM;
-        } else {
-                assert(params->runtime_scope == RUNTIME_SCOPE_USER);
 
-                if (asprintf(&private_namespace_dir, "/run/user/" UID_FMT "/systemd", geteuid()) < 0)
+                incoming_dir = strdup("/run/systemd/incoming");
+                if (!incoming_dir)
                         return -ENOMEM;
         }
 
@@ -4628,7 +4616,6 @@ static int apply_mount_namespace(
 
                 .propagate_dir = propagate_dir,
                 .incoming_dir = incoming_dir,
-                .private_namespace_dir = private_namespace_dir,
                 .host_notify_socket = params->notify_socket,
                 .notify_socket_path = exec_get_private_notify_socket_path(context, params, needs_sandboxing),
                 .host_os_release_fd = host_os_release_fd,
