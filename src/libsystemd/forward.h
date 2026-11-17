@@ -96,6 +96,7 @@ enum ENUM_TYPE_S64(sd_varlink_field_flags_t);
 enum ENUM_TYPE_S64(sd_varlink_idl_format_flags_t);
 enum ENUM_TYPE_S64(sd_varlink_reply_flags_t);
 enum ENUM_TYPE_S64(sd_varlink_server_flags_t);
+enum ENUM_TYPE_S64(sd_varlink_server_claim_flags_t);
 enum ENUM_TYPE_S64(sd_varlink_invocation_flags_t);
 
 typedef enum sd_varlink_method_flags_t sd_varlink_method_flags_t;
@@ -107,6 +108,7 @@ typedef enum sd_varlink_field_flags_t sd_varlink_field_flags_t;
 typedef enum sd_varlink_idl_format_flags_t sd_varlink_idl_format_flags_t;
 typedef enum sd_varlink_reply_flags_t sd_varlink_reply_flags_t;
 typedef enum sd_varlink_server_flags_t sd_varlink_server_flags_t;
+typedef enum sd_varlink_server_claim_flags_t sd_varlink_server_claim_flags_t;
 typedef enum sd_varlink_invocation_flags_t sd_varlink_invocation_flags_t;
 
 typedef struct sd_varlink sd_varlink;

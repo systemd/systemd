@@ -1399,7 +1399,7 @@ int job_deserialize(Job *j, FILE *f) {
 
                 /* Stash the connection the same way as on reload, job_coldplug() picks it up again, and if
                  * the job doesn't survive the client gets an error reply. */
-                if (manager_varlink_claim_connection(j->manager, varlink_id, &link) >= 0) {
+                if (manager_varlink_claim_connection(j->manager, varlink_id, /* flags= */ 0, &link) >= 0) {
                         r = varlink_job_stash_client_full(
                                         j->manager,
                                         j->id,
