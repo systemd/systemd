@@ -848,6 +848,14 @@ TEST(xopenat_nocow) {
         /* XO_NOCOW goes through chattr_fd(), a failure there removes the file again */
         ASSERT_OK(fd = xopenat_full(tfd, "nocow", O_RDWR|O_CREAT|O_EXCL, XO_NOCOW, 0644));
         ASSERT_OK_ERRNO(faccessat(tfd, "nocow", F_OK, AT_SYMLINK_NOFOLLOW));
+
+        /* chattr_fd() on an O_PATH fd of a FIFO must fail with ENOTTY instead of blocking in open() until
+         * a writer opens the FIFO. chattr_at() must do the same for the FIFO's name. */
+        fd = safe_close(fd);
+        ASSERT_OK_ERRNO(mkfifoat(tfd, "fifo", 0600));
+        ASSERT_OK(fd = xopenat(tfd, "fifo", O_PATH));
+        ASSERT_ERROR(chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL), ENOTTY);
+        ASSERT_ERROR(chattr_at(tfd, "fifo", FS_NOCOW_FL, FS_NOCOW_FL), ENOTTY);
 }
 
 TEST(xopenat_socket) {
@@ -929,6 +937,36 @@ TEST(xopenat_regular_without_proc) {
                 ASSERT_EQ(st.st_size, 0);
 
                 ASSERT_ERROR(xopenat_full(tfd, "fifo", O_RDONLY|O_CLOEXEC, XO_REGULAR, /* mode= */ 0), EBADFD);
+                _exit(EXIT_SUCCESS);
+        }
+}
+
+TEST(chattr_without_proc) {
+        /* chattr_at() must not need /proc. Unmount /proc in a new mount namespace and read the flags of a
+         * regular file and a directory by name. A FIFO must still fail with ENOTTY. */
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+        int r;
+
+        if (!have_effective_cap(CAP_SYS_ADMIN))
+                return (void) log_tests_skipped("Lacking CAP_SYS_ADMIN to unmount /proc");
+
+        tfd = ASSERT_OK(mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &t));
+        ASSERT_OK(write_string_file_at(tfd, "file", "data", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "dir", 0755));
+        ASSERT_OK_ERRNO(mkfifoat(tfd, "fifo", 0600));
+
+        r = ASSERT_OK(pidref_safe_fork("(noproc)", FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, /* ret= */ NULL));
+        if (r == 0) {
+                ASSERT_OK_ERRNO(umount2("/proc", MNT_DETACH));
+
+                unsigned attrs;
+                FOREACH_STRING(name, "file", "dir") {
+                        r = chattr_full(tfd, name, /* value= */ 0, /* mask= */ 0, &attrs, /* ret_final= */ NULL, /* flags= */ 0);
+                        if (!ERRNO_IS_NEG_IOCTL_NOT_SUPPORTED(r))
+                                ASSERT_OK(r);
+                }
+                ASSERT_ERROR(chattr_at(tfd, "fifo", FS_NOCOW_FL, FS_NOCOW_FL), ENOTTY);
                 _exit(EXIT_SUCCESS);
         }
 }
