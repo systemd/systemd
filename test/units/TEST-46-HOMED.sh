@@ -920,6 +920,23 @@ testcase_alias() {
     homectl remove aliastest
 }
 
+testcase_password_change_min() {
+    NEWPASSWORD=foobar homectl create pwchangetest --storage=directory --password-change-min=1d --enforce-password-policy=no
+
+    # Syncing the record without a new password is no password change, hence it is allowed and keeps the
+    # password change time
+    local ts
+    ts="$(homectl inspect --json=short pwchangetest | jq '.lastPasswordChangeUSec')"
+    busctl call org.freedesktop.home1 /org/freedesktop/home1 org.freedesktop.home1.Manager \
+            ChangePasswordHome sss pwchangetest '{}' '{"password":["foobar"]}'
+    [[ "$(homectl inspect --json=short pwchangetest | jq '.lastPasswordChangeUSec')" == "$ts" ]]
+
+    # An actual password change is still refused
+    (! PASSWORD=foobar NEWPASSWORD=barfoo homectl passwd pwchangetest)
+
+    homectl remove pwchangetest
+}
+
 testcase_quota() {
     # 'run0 -u' requires systemd NSS module.
     if ! check_nss_module systemd; then
