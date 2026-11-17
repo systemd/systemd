@@ -418,8 +418,18 @@ typedef enum Tpm2EKTemplateProfile {
         _TPM2_EK_TEMPLATE_INVALID = -EINVAL,
 } Tpm2EKTemplateProfile;
 
+const char* tpm2_ek_template_profile_to_string(Tpm2EKTemplateProfile i) _const_;
+Tpm2EKTemplateProfile tpm2_ek_template_profile_from_string(const char *s) _pure_;
+
 void tpm2_get_default_ek_template(Tpm2EKTemplateProfile profile, TPMT_PUBLIC *ret_template);
 int tpm2_get_ek_template(Tpm2Context *c, const Tpm2Handle *session, Tpm2EKTemplateProfile profile, TPMT_PUBLIC *ret_template);
+
+#if HAVE_OPENSSL
+int tpm2_read_ek_cert(Tpm2Context *c, const Tpm2Handle *session, Tpm2EKTemplateProfile profile, X509 **ret_cert);
+int tpm2_check_ek_matches_cert(const TPM2B_PUBLIC *public, const X509 *cert);
+int tpm2_check_ek_matches_profile_cert(Tpm2Context *c, const Tpm2Handle *session, Tpm2EKTemplateProfile profile, const TPM2B_PUBLIC *public);
+int tpm2_check_ek_is_default_primary(Tpm2EKTemplateProfile profile, const TPM2B_PUBLIC *public, const TPM2B_NAME *name, const TPM2B_NAME *qname);
+#endif
 
 int tpm2_get_ek(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
 int tpm2_get_or_create_ek(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
