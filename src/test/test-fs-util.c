@@ -846,6 +846,14 @@ TEST(xopenat_nocow) {
         /* XO_NOCOW goes through chattr_fd(), a failure there removes the file again */
         ASSERT_OK(fd = xopenat_full(tfd, "nocow", O_RDWR|O_CREAT|O_EXCL, XO_NOCOW, 0644));
         ASSERT_OK_ERRNO(faccessat(tfd, "nocow", F_OK, AT_SYMLINK_NOFOLLOW));
+
+        /* chattr_fd() on an O_PATH fd of a FIFO must fail with ENOTTY instead of blocking in open() until
+         * a writer opens the FIFO. chattr_at() must do the same for the FIFO's name. */
+        fd = safe_close(fd);
+        ASSERT_OK_ERRNO(mkfifoat(tfd, "fifo", 0600));
+        ASSERT_OK(fd = xopenat(tfd, "fifo", O_PATH));
+        ASSERT_ERROR(chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL), ENOTTY);
+        ASSERT_ERROR(chattr_at(tfd, "fifo", FS_NOCOW_FL, FS_NOCOW_FL), ENOTTY);
 }
 
 TEST(xopenat_socket) {

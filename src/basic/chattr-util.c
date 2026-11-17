@@ -22,7 +22,7 @@ int chattr_full(
               unsigned *ret_final,
               ChattrApplyFlags flags) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_close_ int inode_fd = -EBADF, fd = -EBADF;
         unsigned old_attr, new_attr;
         int set_flags_errno = 0;
         struct stat st;
@@ -30,20 +30,26 @@ int chattr_full(
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
         /* path may be NULL */
-        fd = xopenat_full(dir_fd, path, O_RDONLY|O_NOCTTY|O_NOFOLLOW, XO_EMPTY_PATH, MODE_INVALID);
-        if (fd < 0)
-                return fd;
+        inode_fd = xopenat_full(dir_fd, path, O_PATH|O_NOFOLLOW, XO_EMPTY_PATH, MODE_INVALID);
+        if (inode_fd < 0)
+                return inode_fd;
 
-        if (fstat(fd, &st) < 0)
+        if (fstat(inode_fd, &st) < 0)
                 return -errno;
 
         /* Explicitly check whether this is a regular file or directory. If it is anything else (such
          * as a device node or fifo), then the ioctl will not hit the file systems but possibly
          * drivers, where the ioctl might have different effects. Notably, DRM is using the same
-         * ioctl() number. */
+         * ioctl() number. We check the type on an O_PATH fd before we open the inode for reading.
+         * Opening a FIFO for reading blocks until a writer opens it. Opening a device node runs its
+         * driver. */
 
         if (!inode_type_can_chattr(st.st_mode))
                 return -ENOTTY;
+
+        fd = fd_reopen(inode_fd, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return fd;
 
         if (mask == 0 && !ret_previous && !ret_final)
                 return 0;
