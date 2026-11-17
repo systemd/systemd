@@ -2,6 +2,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
+# git describe --dirty opportunistically refreshes and rewrites .git/index, which
+# changes its ownership when the build runs as a different user (e.g. root under
+# mkosi). Tell git not to update the index.
+export GIT_OPTIONAL_LOCKS=0
+
 INPUT="$1"
 MODE="$2"
 ENABLED="$3"
