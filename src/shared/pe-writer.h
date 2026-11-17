@@ -6,7 +6,15 @@
 typedef struct PeWriter PeWriter;
 typedef struct PeWriterSection PeWriterSection;
 
-int pe_writer_new(int fd, PeWriter **ret);
+typedef enum PeWriterFlags {
+        /* PE_WRITER_ALIGN_DATA starts the data of new sections at multiples of 4096 bytes where the layout
+         * of the input allows it. The extents of the first file of each new section can then be shared with
+         * the output. Every new section grows by up to 4095 bytes. A memfd never shares extents with the
+         * output, so the flag only helps callers that add sections from files on disk. */
+        PE_WRITER_ALIGN_DATA = 1 << 0,
+} PeWriterFlags;
+
+int pe_writer_new(int fd, PeWriterFlags flags, PeWriter **ret);
 PeWriter* pe_writer_free(PeWriter *w);
 DEFINE_TRIVIAL_CLEANUP_FUNC(PeWriter*, pe_writer_free);
 
