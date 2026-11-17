@@ -85,6 +85,14 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("DNSOverTLS mode to configure on the link. Passing null resets to the default."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(dnsOverTLS, DNSOverTLSMode, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_METHOD(
+                SetDNSSEC,
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("Index of the interface to configure."),
+                SD_VARLINK_DEFINE_INPUT(ifindex, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("DNSSEC mode to configure on the link. Passing null resets to the default."),
+                SD_VARLINK_DEFINE_INPUT(dnssec, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Resolve_Link,
                 "io.systemd.Resolve.Link",
@@ -111,4 +119,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_SetMulticastDNS,
                 &vl_type_DNSOverTLSMode,
                 SD_VARLINK_SYMBOL_COMMENT("Set the per-link DNS-over-TLS mode."),
-                &vl_method_SetDNSOverTLS);
+                &vl_method_SetDNSOverTLS,
+                SD_VARLINK_SYMBOL_COMMENT("Set the per-link DNSSEC mode."),
+                &vl_method_SetDNSSEC);
