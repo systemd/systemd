@@ -117,6 +117,7 @@ bool unit_has_startup_cgroup_constraints(Unit *u) {
                 return false;
 
         return c->startup_io_weight != CGROUP_WEIGHT_INVALID ||
+               c->startup_cpu_weight != CGROUP_WEIGHT_INVALID ||
                c->startup_cpuset_cpus.set ||
                c->startup_cpuset_mems.set ||
                c->startup_memory_high_set ||
