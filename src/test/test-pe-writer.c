@@ -20,6 +20,7 @@
 
 #define FILE_ALIGNMENT 0x200U
 #define SECTION_ALIGNMENT 0x1000U
+#define DATA_ALIGNMENT 0x1000U
 #define STUB_SIZE 0x800U
 #define STUB_DLL_CHARACTERISTICS UINT16_C(0x0160)
 
@@ -136,20 +137,21 @@ TEST(add_sections) {
         ASSERT_NOT_NULL(cmdline_section);
         ASSERT_EQ(le32toh(cmdline_section->VirtualAddress), 0x3000U);
         ASSERT_EQ(le32toh(cmdline_section->VirtualSize), strlen(cmdline));
-        ASSERT_EQ(le32toh(cmdline_section->PointerToRawData), STUB_SIZE);
-        ASSERT_EQ(le32toh(cmdline_section->SizeOfRawData), FILE_ALIGNMENT);
+        ASSERT_EQ(le32toh(cmdline_section->PointerToRawData), DATA_ALIGNMENT);
+        ASSERT_EQ(le32toh(cmdline_section->SizeOfRawData), DATA_ALIGNMENT);
         ASSERT_EQ(le32toh(cmdline_section->Characteristics), IMAGE_SCN_CNT_INITIALIZED_DATA|IMAGE_SCN_MEM_READ);
 
         const IMAGE_SECTION_HEADER *linux_section = pe_header_find_section(pe_header, sections, ".linux");
         ASSERT_NOT_NULL(linux_section);
         ASSERT_EQ(le32toh(linux_section->VirtualAddress), 0x4000U);
-        ASSERT_EQ(le32toh(linux_section->PointerToRawData), STUB_SIZE + FILE_ALIGNMENT);
-        ASSERT_EQ(le32toh(linux_section->SizeOfRawData), ALIGN_TO(linux_size, FILE_ALIGNMENT));
+        ASSERT_EQ(le32toh(linux_section->PointerToRawData), 2 * DATA_ALIGNMENT);
+        ASSERT_EQ(le32toh(linux_section->SizeOfRawData), ALIGN_TO(linux_size, DATA_ALIGNMENT));
         ASSERT_EQ(le32toh(linux_section->Characteristics), IMAGE_SCN_CNT_CODE|IMAGE_SCN_MEM_READ);
 
         const IMAGE_SECTION_HEADER *initrd_section = pe_header_find_section(pe_header, sections, ".initrd");
         ASSERT_NOT_NULL(initrd_section);
         ASSERT_EQ(le32toh(initrd_section->VirtualAddress), 0x6000U);
+        ASSERT_EQ(le32toh(initrd_section->PointerToRawData), 4 * DATA_ALIGNMENT);
         ASSERT_EQ(le32toh(pe_header->optional.SizeOfImage), 0x7000U);
 
         assert_section_data(out, pe_header, sections, ".text", (const uint8_t[0x180]) { [0 ... 0x17f] = 0xcc }, 0x180);
@@ -160,7 +162,16 @@ TEST(add_sections) {
 
         uint64_t end = le32toh(initrd_section->PointerToRawData) + le32toh(initrd_section->SizeOfRawData);
         ASSERT_OK_EQ_ERRNO(lseek(out, 0, SEEK_END), (off_t) end);
-        assert_zero(out, le32toh(initrd_section->PointerToRawData) + 8, FILE_ALIGNMENT - 8);
+        assert_zero(out, le32toh(initrd_section->PointerToRawData) + 8, DATA_ALIGNMENT - 8);
+
+        /* The raw data of .sbat, the last section of the stub, grows up to the data alignment, so that
+         * there is no gap between the stub's sections and the new sections. */
+        const IMAGE_SECTION_HEADER *sbat_section = pe_header_find_section(pe_header, sections, ".sbat");
+        ASSERT_NOT_NULL(sbat_section);
+        ASSERT_EQ(le32toh(sbat_section->PointerToRawData), 0x600U);
+        ASSERT_EQ(le32toh(sbat_section->SizeOfRawData), DATA_ALIGNMENT - 0x600U);
+        ASSERT_EQ(le32toh(sbat_section->VirtualSize), strlen(stub_sbat));
+        assert_zero(out, 0x600 + strlen(stub_sbat), DATA_ALIGNMENT - 0x600 - strlen(stub_sbat));
 
         /* Writing twice gives the same result, even if the output file contains data already. The padding
          * must not contain the old data. */
@@ -175,6 +186,136 @@ TEST(add_sections) {
         ASSERT_OK_EQ_ERRNO(pread(out, first, end, 0), (ssize_t) end);
         ASSERT_OK_EQ_ERRNO(pread(out2, second, end, 0), (ssize_t) end);
         ASSERT_MEMEQ(first, second, end);
+}
+
+/* Adds a .cmdline section and a .linux section, writes the image, and returns the output. */
+static int write_with_sections(int fd, PeHeader **ret_pe_header, IMAGE_SECTION_HEADER **ret_sections) {
+        _cleanup_(pe_writer_freep) PeWriter *w = NULL;
+        ASSERT_OK(pe_writer_new(fd, &w));
+
+        _cleanup_close_ int cmdline_fd = ASSERT_OK(memfd_new_and_seal_string("cmdline", "quiet")),
+                            linux_fd = ASSERT_OK(memfd_new_and_seal_string("linux", "kernel"));
+        PeWriterSection *ws;
+        ASSERT_OK(pe_writer_add_section(w, ".cmdline", IMAGE_SCN_CNT_INITIALIZED_DATA|IMAGE_SCN_MEM_READ, &ws));
+        ASSERT_OK(pe_writer_section_append_fd(ws, cmdline_fd, /* offset= */ 0, 5));
+        ASSERT_OK(pe_writer_add_section(w, ".linux", IMAGE_SCN_CNT_CODE|IMAGE_SCN_MEM_READ, &ws));
+        ASSERT_OK(pe_writer_section_append_fd(ws, linux_fd, /* offset= */ 0, 6));
+
+        _cleanup_close_ int out = ASSERT_OK(memfd_new("output"));
+        ASSERT_OK(pe_writer_write(w, out));
+        ASSERT_OK(pe_load_headers_and_sections(out, ret_pe_header, ret_sections));
+        assert_section_data(out, *ret_pe_header, *ret_sections, ".cmdline", "quiet", 5);
+        assert_section_data(out, *ret_pe_header, *ret_sections, ".linux", "kernel", 6);
+
+        return TAKE_FD(out);
+}
+
+TEST(data_alignment_stub_aligned) {
+        /* The stub ends at a multiple of the data alignment, so no section needs padding. */
+        _cleanup_free_ uint8_t *stub = build_stub(DATA_ALIGNMENT, 0x400);
+        IMAGE_SECTION_HEADER *s = (IMAGE_SECTION_HEADER*) (stub + PE_TEST_SECTION_TABLE_OFFSET);
+        s[1].SizeOfRawData = htole32(DATA_ALIGNMENT - 0x600);
+
+        _cleanup_close_ int fd = ASSERT_OK(memfd_new_and_seal("stub", stub, DATA_ALIGNMENT));
+        _cleanup_free_ PeHeader *pe_header = NULL;
+        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
+        _cleanup_close_ int out = write_with_sections(fd, &pe_header, &sections);
+
+        ASSERT_EQ(le32toh(sections[1].SizeOfRawData), DATA_ALIGNMENT - 0x600);
+        ASSERT_EQ(le32toh(sections[2].PointerToRawData), DATA_ALIGNMENT);
+        ASSERT_EQ(le32toh(sections[2].SizeOfRawData), DATA_ALIGNMENT);
+        ASSERT_EQ(le32toh(sections[3].PointerToRawData), 2 * DATA_ALIGNMENT);
+}
+
+TEST(data_alignment_memory) {
+        /* .sbat is mapped in front of .text, and the address of .text is not a multiple of the section
+         * alignment. The padding grows the raw data of .sbat from 0x200 to 0xa00 bytes. If .text starts
+         * exactly 0xa00 bytes after .sbat in memory, the raw data of .sbat fits. If .text starts 0x9ff bytes
+         * after .sbat, the raw data of .sbat doesn't fit, and the padding is added to .cmdline instead. */
+        _cleanup_free_ uint8_t *stub = build_stub(STUB_SIZE, 0x400);
+        IMAGE_SECTION_HEADER *s = (IMAGE_SECTION_HEADER*) (stub + PE_TEST_SECTION_TABLE_OFFSET);
+        s[1].VirtualAddress = htole32(0x1000);
+        s[0].VirtualAddress = htole32(0x1a00);
+
+        _cleanup_close_ int fd = ASSERT_OK(memfd_new_and_seal("stub", stub, STUB_SIZE));
+        _cleanup_free_ PeHeader *pe_header = NULL;
+        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
+        _cleanup_close_ int out = write_with_sections(fd, &pe_header, &sections);
+
+        ASSERT_EQ(le32toh(sections[1].SizeOfRawData), DATA_ALIGNMENT - 0x600);
+        ASSERT_EQ(le32toh(sections[2].PointerToRawData), DATA_ALIGNMENT);
+        ASSERT_EQ(le32toh(sections[3].PointerToRawData), 2 * DATA_ALIGNMENT);
+
+        s[0].VirtualAddress = htole32(0x19ff);
+        _cleanup_close_ int fd2 = ASSERT_OK(memfd_new_and_seal("stub", stub, STUB_SIZE));
+        _cleanup_free_ PeHeader *pe_header2 = NULL;
+        _cleanup_free_ IMAGE_SECTION_HEADER *sections2 = NULL;
+        _cleanup_close_ int out2 = write_with_sections(fd2, &pe_header2, &sections2);
+
+        ASSERT_EQ(le32toh(sections2[1].SizeOfRawData), FILE_ALIGNMENT);
+        ASSERT_EQ(le32toh(sections2[2].PointerToRawData), STUB_SIZE);
+        ASSERT_EQ(le32toh(sections2[2].SizeOfRawData), DATA_ALIGNMENT - STUB_SIZE);
+        ASSERT_EQ(le32toh(sections2[3].PointerToRawData), DATA_ALIGNMENT);
+}
+
+TEST(data_alignment_fallback) {
+        /* .sbat has a VirtualSize of 0, so it has no memory to grow its raw data into. .cmdline is empty,
+         * so it has no memory either. The padding is added to the raw data of .linux, and the data of
+         * .initrd starts at a multiple of the data alignment. */
+        _cleanup_free_ uint8_t *stub = build_stub(STUB_SIZE, 0x400);
+        IMAGE_SECTION_HEADER *s = (IMAGE_SECTION_HEADER*) (stub + PE_TEST_SECTION_TABLE_OFFSET);
+        s[1].VirtualSize = 0;
+
+        _cleanup_close_ int fd = ASSERT_OK(memfd_new_and_seal("stub", stub, STUB_SIZE));
+        _cleanup_(pe_writer_freep) PeWriter *w = NULL;
+        ASSERT_OK(pe_writer_new(fd, &w));
+
+        _cleanup_close_ int linux_fd = ASSERT_OK(memfd_new_and_seal_string("linux", "kernel")),
+                            initrd_fd = ASSERT_OK(memfd_new_and_seal_string("initrd", "initrd"));
+        PeWriterSection *ws;
+        ASSERT_OK(pe_writer_add_section(w, ".cmdline", IMAGE_SCN_CNT_INITIALIZED_DATA|IMAGE_SCN_MEM_READ, /* ret= */ NULL));
+        ASSERT_OK(pe_writer_add_section(w, ".linux", IMAGE_SCN_CNT_CODE|IMAGE_SCN_MEM_READ, &ws));
+        ASSERT_OK(pe_writer_section_append_fd(ws, linux_fd, /* offset= */ 0, 6));
+        ASSERT_OK(pe_writer_add_section(w, ".initrd", IMAGE_SCN_CNT_INITIALIZED_DATA|IMAGE_SCN_MEM_READ, &ws));
+        ASSERT_OK(pe_writer_section_append_fd(ws, initrd_fd, /* offset= */ 0, 6));
+
+        _cleanup_close_ int out = ASSERT_OK(memfd_new("output"));
+        ASSERT_OK(pe_writer_write(w, out));
+
+        _cleanup_free_ PeHeader *pe_header = NULL;
+        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
+        ASSERT_OK(pe_load_headers_and_sections(out, &pe_header, &sections));
+        ASSERT_EQ(le32toh(sections[1].SizeOfRawData), FILE_ALIGNMENT);
+        ASSERT_EQ(le32toh(sections[2].PointerToRawData), STUB_SIZE);
+        ASSERT_EQ(le32toh(sections[2].SizeOfRawData), 0U);
+        ASSERT_EQ(le32toh(sections[3].PointerToRawData), STUB_SIZE);
+        ASSERT_EQ(le32toh(sections[3].SizeOfRawData), DATA_ALIGNMENT - STUB_SIZE);
+        ASSERT_EQ(le32toh(sections[4].PointerToRawData), DATA_ALIGNMENT);
+        assert_section_data(out, pe_header, sections, ".linux", "kernel", 6);
+        assert_section_data(out, pe_header, sections, ".initrd", "initrd", 6);
+}
+
+TEST(data_alignment_misaligned_section) {
+        /* The .sbat data of the stub is misaligned like in the misaligned_section test, and the file ends
+         * after it. The writer moves the .sbat data to 0x800, and then grows its raw data up to the data
+         * alignment. */
+        _cleanup_free_ uint8_t *stub = build_stub(STUB_SIZE, 0x400);
+        IMAGE_SECTION_HEADER *s = (IMAGE_SECTION_HEADER*) (stub + PE_TEST_SECTION_TABLE_OFFSET);
+        memmove(stub + 0x608, stub + 0x600, 0x100);
+        memset(stub + 0x600, 0xaa, 8);
+        s[1].PointerToRawData = htole32(0x608);
+        s[1].SizeOfRawData = htole32(0x100);
+
+        _cleanup_close_ int fd = ASSERT_OK(memfd_new_and_seal("stub", stub, 0x708));
+        _cleanup_free_ PeHeader *pe_header = NULL;
+        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
+        _cleanup_close_ int out = write_with_sections(fd, &pe_header, &sections);
+
+        ASSERT_EQ(le32toh(sections[1].PointerToRawData), 0x800U);
+        ASSERT_EQ(le32toh(sections[1].SizeOfRawData), DATA_ALIGNMENT - 0x800);
+        assert_section_data(out, pe_header, sections, ".sbat", stub_sbat, strlen(stub_sbat));
+        assert_zero(out, 0x800 + strlen(stub_sbat), DATA_ALIGNMENT - 0x800 - strlen(stub_sbat));
+        ASSERT_EQ(le32toh(sections[2].PointerToRawData), DATA_ALIGNMENT);
 }
 
 TEST(find_and_replace_section) {
@@ -395,7 +536,9 @@ TEST(trailing_data) {
         ASSERT_OK(pe_writer_section_append_fd(s, cmdline_fd, /* offset= */ 0, 5));
         _cleanup_close_ int out2 = ASSERT_OK(memfd_new("output"));
         ASSERT_OK(pe_writer_write(w, out2));
-        ASSERT_OK_EQ_ERRNO(lseek(out2, 0, SEEK_END), (off_t) (STUB_SIZE + 2 * FILE_ALIGNMENT));
+        /* No stub section ends where .cmdline starts, so the raw data of .cmdline contains the padding up to
+         * the data alignment. */
+        ASSERT_OK_EQ_ERRNO(lseek(out2, 0, SEEK_END), (off_t) DATA_ALIGNMENT);
 
         uint8_t trailing[0x10];
         ASSERT_OK_EQ_ERRNO(pread(out2, trailing, sizeof(trailing), STUB_SIZE), (ssize_t) sizeof(trailing));
@@ -428,7 +571,7 @@ TEST(short_file) {
 
         _cleanup_close_ int out = ASSERT_OK(memfd_new("output"));
         ASSERT_OK(pe_writer_write(w, out));
-        ASSERT_OK_EQ_ERRNO(lseek(out, 0, SEEK_END), (off_t) (0x400 + FILE_ALIGNMENT));
+        ASSERT_OK_EQ_ERRNO(lseek(out, 0, SEEK_END), (off_t) DATA_ALIGNMENT);
 
         _cleanup_free_ PeHeader *pe_header = NULL;
         _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
