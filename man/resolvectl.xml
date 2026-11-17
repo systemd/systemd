@@ -248,8 +248,9 @@
         <term><command>monitor</command></term>
 
         <listitem><para>Show a continuous stream of local client resolution queries and their
-        responses. Whenever a local query is completed the query's DNS resource lookup key and resource
-        records are shown. Note that this displays queries issued locally only, and does not immediately
+        responses. When a local query completes, its DNS question, transport, and answer records are shown.
+        The client's PID and UID, or its socket address and port, are also shown when available.
+        Note that this displays queries issued locally only, and does not immediately
         relate to DNS requests submitted to configured DNS servers or the LLMNR or MulticastDNS zones, as
         lookups may be answered from the local cache, or might result in multiple DNS transactions (for
         example to validate DNSSEC information). If CNAME/CNAME redirection chains are followed, a separate

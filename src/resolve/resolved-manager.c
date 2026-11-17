@@ -32,9 +32,12 @@
 #include "missing-network.h"
 #include "ordered-set.h"
 #include "parse-util.h"
+#include "pidfd-util.h"
+#include "pidref.h"
 #include "random-util.h"
 #include "resolved-bus.h"
 #include "resolved-conf.h"
+#include "resolved-dns-browse-services.h"
 #include "resolved-dns-delegate.h"
 #include "resolved-dns-query.h"
 #include "resolved-dns-scope.h"
@@ -57,6 +60,7 @@
 #include "socket-util.h"
 #include "string-util.h"
 #include "time-util.h"
+#include "user-util.h"
 #include "varlink-util.h"
 
 #define SEND_TIMEOUT_USEC (200 * USEC_PER_MSEC)
@@ -1261,8 +1265,64 @@ static int dns_question_to_json(DnsQuestion *q, sd_json_variant **ret) {
         return 0;
 }
 
+/* Must be called before q->complete() releases the client handle. */
+static int dns_query_client_to_json(const DnsQuery *q, sd_json_variant **ret) {
+        assert(q);
+        assert(ret);
+
+        /* Get original query if this is an auxiliary query. */
+        const DnsQuery *origin = q->auxiliary_for ?: q;
+
+        if (origin->varlink_request || origin->service_browser_request) {
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                uid_t uid = UID_INVALID;
+                uint64_t cgroup_id = 0;
+                sd_varlink *link = origin->varlink_request ?: origin->service_browser_request->link;
+
+                /* Read peer credentials only while the varlink
+                 * connection is open, to avoid reading from a closed
+                 * socket. */
+                if (link && sd_varlink_is_connected(link) > 0) {
+                        (void) sd_varlink_get_peer_uid(link, &uid);
+
+                        if (varlink_get_peer_pidref(link, &pidref) > 0 && pidref.fd >= 0)
+                                (void) pidfd_get_cgroupid(pidref.fd, &cgroup_id);
+                }
+
+                return sd_json_buildo(
+                                ret,
+                                SD_JSON_BUILD_PAIR_STRING("transport", "varlink"),
+                                JSON_BUILD_PAIR_PIDREF_NON_NULL("pid", &pidref),
+                                JSON_BUILD_PAIR_CONDITION_UNSIGNED(uid_is_valid(uid), "uid", uid),
+                                JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("controlGroupId", cgroup_id));
+        }
+
+        if (origin->bus_request || origin->bus_track)
+                return sd_json_buildo(
+                                ret,
+                                SD_JSON_BUILD_PAIR_STRING("transport", "dbus"));
+
+        if (origin->request_packet) {
+                const DnsPacket *p = origin->request_packet;
+
+                return sd_json_buildo(
+                                ret,
+                                SD_JSON_BUILD_PAIR_STRING("transport", origin->request_stream ? "stub_tcp" : "stub_udp"),
+                                SD_JSON_BUILD_PAIR_INTEGER("family", p->family),
+                                JSON_BUILD_PAIR_IN_ADDR_NON_NULL("address", p->family, &p->sender),
+                                JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("port", p->sender_port),
+                                JSON_BUILD_PAIR_IN_ADDR_NON_NULL("listenerAddress", p->family, &p->destination),
+                                JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("listenerPort", p->destination_port),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("dnsPacketId", be16toh(DNS_PACKET_ID(p))));
+        }
+
+        /* Not one of the recognized transports. */
+        *ret = NULL;
+        return 0;
+}
+
 int manager_monitor_send(Manager *m, DnsQuery *q) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *jquestion = NULL, *jcollected_questions = NULL, *janswer = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *jquestion = NULL, *jcollected_questions = NULL, *janswer = NULL, *jclient = NULL;
         _cleanup_(dns_question_unrefp) DnsQuestion *merged = NULL;
         DnsAnswerItem *rri;
         int r;
@@ -1318,6 +1378,10 @@ int manager_monitor_send(Manager *m, DnsQuery *q) {
                         return log_debug_errno(r, "Failed to append notification entry to array: %m");
         }
 
+        r = dns_query_client_to_json(q, &jclient);
+        if (r < 0)
+                log_debug_errno(r, "Failed to build client metadata JSON, ignoring: %m");
+
         r = varlink_many_notifybo(
                         m->varlink_query_results_subscription,
                         SD_JSON_BUILD_PAIR_STRING("state", dns_transaction_state_to_string(q->state)),
@@ -1341,7 +1405,8 @@ int manager_monitor_send(Manager *m, DnsQuery *q) {
                         SD_JSON_BUILD_PAIR_CONDITION(!!jcollected_questions,
                                                      "collectedQuestions", SD_JSON_BUILD_VARIANT(jcollected_questions)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!janswer,
-                                                             "answer", SD_JSON_BUILD_VARIANT(janswer)));
+                                                             "answer", SD_JSON_BUILD_VARIANT(janswer)),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("client", jclient));
         if (r < 0)
                 log_debug_errno(r, "Failed to send monitor event, ignoring: %m");
 

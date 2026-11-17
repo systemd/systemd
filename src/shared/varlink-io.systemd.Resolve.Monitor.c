@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "bus-polkit.h"
+#include "varlink-idl-common.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
 
 /* We want to reuse several structures from the io.systemd.Resolve interface, namely:
@@ -30,6 +31,29 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(raw, SD_VARLINK_STRING, 0),
                 SD_VARLINK_DEFINE_FIELD(ifindex, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_ENUM_TYPE_FULL(
+                QueryClientTransport,
+                SD_VARLINK_EXPERIMENTAL,
+                SD_VARLINK_DEFINE_ENUM_VALUE(varlink),
+                SD_VARLINK_DEFINE_ENUM_VALUE(dbus),
+                SD_VARLINK_DEFINE_ENUM_VALUE(stub_udp),
+                SD_VARLINK_DEFINE_ENUM_VALUE(stub_tcp));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE_FULL(
+                QueryClient,
+                SD_VARLINK_EXPERIMENTAL,
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(transport, QueryClientTransport, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(pid, ProcessId, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(uid, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(controlGroupId, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(family, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(address, SD_VARLINK_INT, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                SD_VARLINK_DEFINE_FIELD(port, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(listenerAddress, SD_VARLINK_INT, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                SD_VARLINK_DEFINE_FIELD(listenerPort, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Client request's DNS ID"),
+                SD_VARLINK_DEFINE_FIELD(dnsPacketId, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 SubscribeQueryResults,
                 SD_VARLINK_REQUIRES_MORE,
@@ -45,7 +69,8 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_OUTPUT(extendedDNSErrorMessage, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(question, ResourceKey, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(collectedQuestions, ResourceKey, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
-                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(answer, Answer, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY));
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(answer, Answer, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(client, QueryClient, SD_VARLINK_NULLABLE|SD_VARLINK_EXPERIMENTAL));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 CacheEntry,
@@ -157,6 +182,9 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_ResourceRecord,
                 &vl_type_ResourceRecordArray,
                 &vl_type_Answer,
+                &vl_type_ProcessId,
+                &vl_type_QueryClientTransport,
+                &vl_type_QueryClient,
                 &vl_type_CacheEntry,
                 &vl_type_ScopeCache,
                 &vl_type_TransactionStatistics,
