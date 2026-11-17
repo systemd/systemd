@@ -800,6 +800,7 @@ static const uint8_t forcerenew_nonce[DHCP_RKAP_KEY_SIZE] = {
         0x10, 0x0f, 0x0e, 0x0d, 0x0c, 0x0b, 0x0a, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01,
 };
 static int forcerenew_server_fd = -EBADF;
+static uint32_t forcerenew_last_xid = 0;
 
 static void forcerenew_append_nonce(sd_dhcp_message *m) {
         DHCPRKAPAuth auth = {
@@ -909,6 +910,7 @@ static int forcerenew_io_handler(sd_event_source *s, int fd, uint32_t revents, v
 
                 verify_request(request, DHCP_REQUEST);
                 verify_forcerenew_nonce_capable(request);
+                forcerenew_last_xid = be32toh(request->header.xid);
 
                 _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *reply = NULL;
                 create_reply(client, request, DHCP_ACK, &reply);
@@ -929,6 +931,10 @@ static int forcerenew_io_handler(sd_event_source *s, int fd, uint32_t revents, v
                 verify_request(request, DHCP_REQUEST);
                 verify_request_client_address(request, /* header= */ true);
                 ASSERT_EQ(client->state, DHCP_STATE_RENEWING);
+
+                /* Each renewal uses a new transaction ID. */
+                ASSERT_NE(be32toh(request->header.xid), forcerenew_last_xid);
+                forcerenew_last_xid = be32toh(request->header.xid);
 
                 /* Only the last, valid DHCPFORCERENEW was accepted: if an earlier one had been accepted, the
                  * valid one would have been received while renewing, and the value would not be recorded. */

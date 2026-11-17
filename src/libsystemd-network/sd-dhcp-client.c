@@ -593,10 +593,18 @@ static void client_set_state(sd_dhcp_client *client, DHCPState state) {
                 client->discover_attempt = 0;
                 break;
 
-        case DHCP_STATE_REBOOTING:
-        case DHCP_STATE_REQUESTING:
         case DHCP_STATE_RENEWING:
         case DHCP_STATE_REBINDING:
+                /* These start a new exchange with the server(s), hence use a new transaction ID. Otherwise,
+                 * an attacker who saw the broadcast DHCPDISCOVER knows the transaction ID of all later
+                 * renewals, and only needs to win the race against the server with a spoofed DHCPACK (see
+                 * TALOS-2020-1142, CVE-2020-13529). Note, DHCPREQUEST in the requesting state answers the
+                 * DHCPOFFER, hence keeps the transaction ID of the DHCPDISCOVER. */
+                client->xid = random_u32();
+                _fallthrough_;
+
+        case DHCP_STATE_REBOOTING:
+        case DHCP_STATE_REQUESTING:
                 /* In these cases, the next DHCPREQUEST message will be the first message in this new state.
                  * Hence, clear the counter for DHCPREQUEST messages. */
                 client->request_attempt = 0;
@@ -913,7 +921,8 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
 
         /* Explicitly close the unicast socket opened during renewing. On success path, the socket will be
          * closed anyway on sending broadcast DHCPREQUEST, but let's explicitly close it here for failure
-         * path to ignore all unicast replies from now on. */
+         * path to ignore all unicast replies from now on. This also makes rebinding open a new raw socket,
+         * whose filter matches the new transaction ID. */
         client->receive_message = sd_event_source_disable_unref(client->receive_message);
 
         client_set_state(client, DHCP_STATE_REBINDING);
