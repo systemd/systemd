@@ -2,6 +2,7 @@
 
 #include "sd-event.h"
 
+#include "dhcp-rkap.h"
 #include "dhcp-server-internal.h"
 #include "dhcp-server-lease-internal.h"
 #include "dhcp-server-request.h"
@@ -9,6 +10,8 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "in-addr-util.h"
+#include "iovec-util.h"
+#include "iovec-wrapper.h"
 #include "random-util.h"
 #include "set.h"
 #include "socket-util.h"
@@ -164,6 +167,85 @@ bool dhcp_server_want_ipv6_only_preferred(sd_dhcp_server *server, DHCPRequest *r
 
         return set_contains(req->parameter_request_list, UINT_TO_PTR(SD_DHCP_OPTION_IPV6_ONLY_PREFERRED)) &&
                 server->ipv6_only_preferred_usec > 0;
+}
+
+static uint64_t dhcp_server_next_replay(sd_dhcp_server *server) {
+        assert(server);
+
+        /* RFC 6704 refers to RFC 3118 section 2: with RDM 0, the replay detection value must be strictly
+         * monotonically increasing. Base it on the wall clock, so that it most likely also increases across
+         * restarts of the server. */
+        server->forcerenew_replay = MAX(now(CLOCK_REALTIME), server->forcerenew_replay + 1);
+        return server->forcerenew_replay;
+}
+
+static int dhcp_server_append_forcerenew_nonce(
+                sd_dhcp_server *server,
+                sd_dhcp_message *message,
+                const DHCPRKAPKey *nonce) {
+
+        assert(server);
+        assert(message);
+        assert(nonce);
+        assert(nonce->set);
+
+        DHCPRKAPAuth auth = {
+                .protocol = DHCP_RKAP_PROTOCOL,
+                .algorithm = DHCP_RKAP_ALGORITHM_HMAC_MD5,
+                .rdm = DHCP_RKAP_RDM_MONOTONIC,
+                .replay = htobe64(dhcp_server_next_replay(server)),
+                .type = DHCP_RKAP_TYPE_KEY,
+        };
+        memcpy(auth.value, nonce->key, sizeof(auth.value));
+
+        int r = dhcp_message_append_option(message, SD_DHCP_OPTION_AUTHENTICATION, sizeof(auth), &auth);
+        explicit_bzero_safe(&auth, sizeof(auth));
+        return r;
+}
+
+static int dhcp_server_append_forcerenew_digest(
+                sd_dhcp_server *server,
+                sd_dhcp_message *message,
+                const DHCPRKAPKey *nonce) {
+
+        int r;
+
+        assert(server);
+        assert(message);
+        assert(nonce);
+        assert(nonce->set);
+
+        /* RFC 6704 section 3.1.3: the HMAC-MD5 is computed over the whole message, with the digest
+         * field set to zero. Options are emitted sorted by their code, hence replacing the option with
+         * the one carrying the digest does not change the layout of the message. */
+        DHCPRKAPAuth auth = {
+                .protocol = DHCP_RKAP_PROTOCOL,
+                .algorithm = DHCP_RKAP_ALGORITHM_HMAC_MD5,
+                .rdm = DHCP_RKAP_RDM_MONOTONIC,
+                .replay = htobe64(dhcp_server_next_replay(server)),
+                .type = DHCP_RKAP_TYPE_HMAC_MD5,
+        };
+
+        r = dhcp_message_append_option(message, SD_DHCP_OPTION_AUTHENTICATION, sizeof(auth), &auth);
+        if (r < 0)
+                return r;
+
+        _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
+        r = dhcp_message_build(message, &iovw);
+        if (r < 0)
+                return r;
+
+        _cleanup_(iovec_done) struct iovec packet = {};
+        r = iovw_concat(&iovw, &packet);
+        if (r < 0)
+                return r;
+
+        r = dhcp_rkap_hmac_md5(nonce->key, packet.iov_base, packet.iov_len, auth.value);
+        if (r < 0)
+                return r;
+
+        dhcp_message_remove_option(message, SD_DHCP_OPTION_AUTHENTICATION);
+        return dhcp_message_append_option(message, SD_DHCP_OPTION_AUTHENTICATION, sizeof(auth), &auth);
 }
 
 static int dhcp_server_new_reply(
@@ -369,6 +451,23 @@ static int dhcp_server_new_reply(
                         return r;
         }
 
+        /* RFC 6704 section 3.1.3: announce the capability in the DHCPOFFER, and hand out the nonce in
+         * the DHCPACK (see dhcp_server_set_lease()). */
+        if (type == DHCP_OFFER && req->forcerenew_nonce_capable && dhcp_rkap_supported()) {
+                r = dhcp_message_append_option_u8(
+                                message,
+                                SD_DHCP_OPTION_FORCERENEW_NONCE_CAPABLE,
+                                DHCP_RKAP_ALGORITHM_HMAC_MD5);
+                if (r < 0)
+                        return r;
+        }
+
+        if (type == DHCP_ACK && req->forcerenew_nonce) {
+                r = dhcp_server_append_forcerenew_nonce(server, message, req->forcerenew_nonce);
+                if (r < 0)
+                        return r;
+        }
+
         r = dhcp_message_append_option_tlv(message, server->extra_options);
         if (r < 0)
                 return r;
@@ -440,6 +539,15 @@ static int dhcp_server_send_forcerenew(
         if (r < 0)
                 return r;
 
+        /* RFC 3203 section 6: the message MUST be authenticated, clients ignore it otherwise. Use the
+         * Forcerenew Nonce Authentication protocol (RFC 6704) if the client supports it. Otherwise the
+         * message is sent unauthenticated, as before, also when HMAC-MD5 is not available. */
+        if (lease->forcerenew_nonce.set && dhcp_rkap_supported()) {
+                r = dhcp_server_append_forcerenew_digest(server, message, &lease->forcerenew_nonce);
+                if (r < 0)
+                        return r;
+        }
+
         r = dhcp_server_send_udp(server, lease->address, DHCP_PORT_CLIENT, message);
         if (r < 0)
                 return r;
@@ -456,5 +564,11 @@ int sd_dhcp_server_forcerenew(sd_dhcp_server *server) {
 
         HASHMAP_FOREACH(lease, server->bound_leases_by_client_id)
                 RET_GATHER(r, dhcp_server_send_forcerenew(server, lease));
+
+        /* Save the last replay detection value sent. */
+        int k = dhcp_server_save_leases(server);
+        if (k < 0)
+                log_dhcp_server_errno(server, k, "Failed to save leases, ignoring: %m");
+
         return r;
 }
