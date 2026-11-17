@@ -103,6 +103,7 @@ sd_varlink_idl_interface_sources = files(
 sd_varlink_sources = files(
         'sd-varlink/sd-varlink.c',
         'sd-varlink/sd-varlink-idl.c',
+        'sd-varlink/varlink-idl-json.c',
         'sd-varlink/varlink-future.c',
         'sd-varlink/varlink-util.c',
 ) + sd_varlink_idl_interface_sources
