@@ -327,6 +327,8 @@ option('docdir', type : 'string',
        description : 'documentation directory')
 option('libcryptsetup-plugins-dir', type : 'string',
        description : 'directory for libcryptsetup plugins')
+option('varlink-interfaces-dir', type : 'string',
+       description : 'export Varlink IDL interface definitions as standalone files')
 option('pamlibdir', type : 'string',
        description : 'directory for PAM modules')
 option('pamconfdir', type : 'string',
