@@ -1055,6 +1055,151 @@ TEST(fiber_stash) {
         ASSERT_OK(sd_event_loop(e));
 }
 
+static sd_future *disconnect_fiber = NULL;
+static int disconnect_fiber_result = 1;
+
+static int method_fiber_suspend(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        disconnect_fiber = sd_fiber_get_current();
+        disconnect_fiber_result = sd_fiber_suspend();
+        disconnect_fiber = NULL;
+
+        /* The connection is closed at this point and has no event loop anymore. If the test times out,
+         * on_fiber_disconnect_timeout() calls sd_event_exit() with EXIT_FAILURE. The exit event source of
+         * the fiber then cancels the fiber, and sd_fiber_suspend() returns. Overwriting the exit code with
+         * EXIT_SUCCESS would make the test pass. */
+        sd_event *e = sd_fiber_get_event();
+        if (sd_event_get_exit_code(e, /* ret= */ NULL) == -ENODATA)
+                ASSERT_OK(sd_event_exit(e, EXIT_SUCCESS));
+        return disconnect_fiber_result;
+}
+
+static int on_fiber_disconnect_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
+        return sd_event_exit(sd_event_source_get_event(s), EXIT_FAILURE);
+}
+
+TEST(fiber_cancel_on_disconnect) {
+        /* When the client disconnects while a fiber method waits without having replied, the server can't
+         * answer the call anymore and has to cancel the fiber. Suspend the fiber, close the client
+         * connection, and check that the fiber resumes with -ECANCELED. */
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_default(&e));
+
+        ASSERT_OK(sd_event_add_time_relative(e, /* ret= */ NULL, CLOCK_MONOTONIC, 5 * USEC_PER_SEC, /* accuracy= */ 0,
+                                             on_fiber_disconnect_timeout, /* userdata= */ NULL));
+
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        ASSERT_OK(sd_varlink_server_new(&s, /* flags= */ 0));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
+        ASSERT_OK(varlink_server_bind_fiber(s, "io.test.FiberSuspend", method_fiber_suspend));
+
+        int connfd[2];
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd));
+        ASSERT_OK(sd_varlink_server_add_connection(s, connfd[0], /* ret= */ NULL));
+
+        _cleanup_(sd_varlink_close_unrefp) sd_varlink *c = NULL;
+        ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
+        ASSERT_OK(sd_varlink_attach_event(c, e, /* priority= */ 0));
+
+        /* Run the event loop until the method fiber is suspended. */
+        disconnect_fiber_result = 1;
+        ASSERT_OK(sd_varlink_invoke(c, "io.test.FiberSuspend", /* parameters= */ NULL));
+        while (!disconnect_fiber)
+                ASSERT_OK(sd_event_run(e, UINT64_MAX));
+
+        /* Close the client connection. The server sees the hangup while the call is still pending. */
+        c = sd_varlink_close_unref(c);
+
+        ASSERT_OK_ZERO(sd_event_loop(e));
+        ASSERT_ERROR(disconnect_fiber_result, ECANCELED);
+}
+
+static void on_fiber_disconnect_resume(sd_varlink_server *s, sd_varlink *link, void *userdata) {
+        if (disconnect_fiber)
+                ASSERT_OK(sd_fiber_resume(disconnect_fiber, /* result= */ 0));
+}
+
+static int method_fiber_reply_then_suspend(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        ASSERT_OK(sd_varlink_reply(link, /* parameters= */ NULL));
+
+        return method_fiber_suspend(link, parameters, flags, userdata);
+}
+
+static int reply_fiber_reply_then_suspend(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
+        ASSERT_NULL(error_id);
+        ASSERT_OK(sd_varlink_close(link));
+        return 0;
+}
+
+TEST(fiber_no_cancel_after_reply) {
+        /* A fiber method that already replied doesn't depend on the connection anymore, so a disconnect
+         * must not cancel it. The fiber replies and suspends, and the client closes the connection once it
+         * gets the reply. The disconnect callback resumes the fiber, which has to see 0 and not
+         * -ECANCELED. */
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_default(&e));
+
+        ASSERT_OK(sd_event_add_time_relative(e, /* ret= */ NULL, CLOCK_MONOTONIC, 5 * USEC_PER_SEC, /* accuracy= */ 0,
+                                             on_fiber_disconnect_timeout, /* userdata= */ NULL));
+
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        ASSERT_OK(sd_varlink_server_new(&s, /* flags= */ 0));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
+        ASSERT_OK(sd_varlink_server_bind_disconnect(s, on_fiber_disconnect_resume));
+        ASSERT_OK(varlink_server_bind_fiber(s, "io.test.FiberReplyThenSuspend", method_fiber_reply_then_suspend));
+
+        int connfd[2];
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd));
+        ASSERT_OK(sd_varlink_server_add_connection(s, connfd[0], /* ret= */ NULL));
+
+        _cleanup_(sd_varlink_close_unrefp) sd_varlink *c = NULL;
+        ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
+        ASSERT_OK(sd_varlink_attach_event(c, e, /* priority= */ 0));
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_fiber_reply_then_suspend));
+
+        disconnect_fiber_result = 1;
+        ASSERT_OK(sd_varlink_invoke(c, "io.test.FiberReplyThenSuspend", /* parameters= */ NULL));
+
+        ASSERT_OK_ZERO(sd_event_loop(e));
+        ASSERT_OK_ZERO(disconnect_fiber_result);
+}
+
+TEST(fiber_no_cancel_oneway) {
+        /* A oneway call never gets a reply, so a client may disconnect right after sending it. The disconnect
+         * must not cancel the fiber that runs the oneway call. Suspend the fiber, close the client
+         * connection, and let the disconnect callback resume the fiber. The fiber has to see 0 and not
+         * -ECANCELED. */
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_default(&e));
+
+        ASSERT_OK(sd_event_add_time_relative(e, /* ret= */ NULL, CLOCK_MONOTONIC, 5 * USEC_PER_SEC, /* accuracy= */ 0,
+                                             on_fiber_disconnect_timeout, /* userdata= */ NULL));
+
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        ASSERT_OK(sd_varlink_server_new(&s, /* flags= */ 0));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
+        ASSERT_OK(sd_varlink_server_bind_disconnect(s, on_fiber_disconnect_resume));
+        ASSERT_OK(varlink_server_bind_fiber(s, "io.test.FiberSuspend", method_fiber_suspend));
+
+        int connfd[2];
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd));
+        ASSERT_OK(sd_varlink_server_add_connection(s, connfd[0], /* ret= */ NULL));
+
+        _cleanup_(sd_varlink_close_unrefp) sd_varlink *c = NULL;
+        ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
+        ASSERT_OK(sd_varlink_attach_event(c, e, /* priority= */ 0));
+
+        /* Run the event loop until the method fiber is suspended. */
+        disconnect_fiber_result = 1;
+        ASSERT_OK(sd_varlink_send(c, "io.test.FiberSuspend", /* parameters= */ NULL));
+        while (!disconnect_fiber)
+                ASSERT_OK(sd_event_run(e, UINT64_MAX));
+
+        c = sd_varlink_close_unref(c);
+
+        ASSERT_OK_ZERO(sd_event_loop(e));
+        ASSERT_OK_ZERO(disconnect_fiber_result);
+}
+
 static int method_with_fd_sentinel(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
 
