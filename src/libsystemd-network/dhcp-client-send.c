@@ -207,10 +207,12 @@ static int client_open_udp_socket(sd_dhcp_client *client) {
         if (r < 0)
                 return r;
 
+        /* Do not bind to the leased address: a server refusing the renewal broadcasts the DHCPNAK
+         * (RFC2131, section 4.1). */
         union sockaddr_union sa = {
                 .in.sin_family = AF_INET,
                 .in.sin_port = htobe16(client->port),
-                .in.sin_addr.s_addr = client->lease->address,
+                .in.sin_addr.s_addr = INADDR_ANY,
         };
 
         if (bind(fd, &sa.sa, sizeof(sa.in)) < 0)
@@ -361,10 +363,11 @@ static int client_send_udp(
                         return fd;
         }
 
+        /* The socket is not bound to the leased address (see client_open_udp_socket()). */
         r = dhcp_message_send_udp(
                         message,
                         fd,
-                        INADDR_ANY,
+                        client->lease->address,
                         client->lease->server_address,
                         client->server_port);
         if (r < 0)
