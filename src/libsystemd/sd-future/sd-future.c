@@ -217,6 +217,19 @@ int sd_future_new(sd_event *e, const sd_future_ops *ops, sd_future **ret) {
         return 0;
 }
 
+static int promise_cancel(sd_future *f) {
+        return sd_future_resolve(f, -ECANCELED);
+}
+
+static const sd_future_ops promise_ops = {
+        .size = sizeof(sd_future_ops),
+        .cancel = promise_cancel,
+};
+
+int sd_future_new_promise(sd_event *e, sd_future **ret) {
+        return sd_future_new(e, &promise_ops, ret);
+}
+
 sd_event* sd_future_get_event(sd_future *f) {
         assert_return(f, NULL);
         return f->event;
