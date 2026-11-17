@@ -1586,6 +1586,106 @@ TEST(tpm2_get_default_ek_template) {
         memset(&template, 0, sizeof(template));
 }
 
+#if HAVE_OPENSSL
+static void load_test_cert(const char *pem, X509 **ret) {
+        ASSERT_OK(openssl_load_x509_certificate_from_pem(&IOVEC_MAKE_STRING(pem), ret, /* ret_more= */ NULL));
+}
+
+static void test_public_from_cert(const X509 *cert, TPM2B_PUBLIC *ret) {
+        EVP_PKEY *pkey = sym_X509_get0_pubkey(cert);
+        ASSERT_NOT_NULL(pkey);
+        ASSERT_OK(tpm2_tpm2b_public_from_openssl_pkey(pkey, ret));
+}
+
+TEST(tpm2_check_ek_matches_cert) {
+        /* Self-signed test certificates, generated with "openssl req -x509 -new -newkey ...". */
+        static const char p256a_pem[] =
+                "-----BEGIN CERTIFICATE-----\n"
+                "MIIBbDCCAROgAwIBAgIUP8ad+p0mpUONjXUlgpUD4IFH1XYwCgYIKoZIzj0EAwIw\n"
+                "DDEKMAgGA1UEAwwBYTAeFw0yNjExMjAxODI0MzhaFw0yNjExMjExODI0MzhaMAwx\n"
+                "CjAIBgNVBAMMAWEwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAQB5mz7Hb9Uyb2O\n"
+                "kyV4cT94Hnl7JHL3FHPJk8LwioXCmkN3n8RLACzuEEVu+VASOyJY0/gDGAsACmP+\n"
+                "sMfSbCQgo1MwUTAdBgNVHQ4EFgQUkje1mMxfmmMKFt0g4R1Z6aI/4sAwHwYDVR0j\n"
+                "BBgwFoAUkje1mMxfmmMKFt0g4R1Z6aI/4sAwDwYDVR0TAQH/BAUwAwEB/zAKBggq\n"
+                "hkjOPQQDAgNHADBEAiANvihhZEcelCLGS/bamU2H/A4eMa3F/exj+pGmsUfewAIg\n"
+                "DLv4LZonz9Yp9Ztg7Saxpsk7Z5ZwR26ceTm+ahGa1jg=\n"
+                "-----END CERTIFICATE-----\n";
+        static const char p256b_pem[] =
+                "-----BEGIN CERTIFICATE-----\n"
+                "MIIBbDCCAROgAwIBAgIUVt7XkVrdL0G3vLtorGLbouByieUwCgYIKoZIzj0EAwIw\n"
+                "DDEKMAgGA1UEAwwBYjAeFw0yNjExMjAxODI0MzhaFw0yNjExMjExODI0MzhaMAwx\n"
+                "CjAIBgNVBAMMAWIwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAQsI9sHWUVmFEff\n"
+                "qwvtKaGYv81FCIHb+Z7qQHUt1GF2yMZ7ParmNjHRTXt0RuLWUnJm6glgILNgKIJe\n"
+                "7lKSH8ALo1MwUTAdBgNVHQ4EFgQUg2bk7rFOnm3Ht+cevmsWpKz/8vMwHwYDVR0j\n"
+                "BBgwFoAUg2bk7rFOnm3Ht+cevmsWpKz/8vMwDwYDVR0TAQH/BAUwAwEB/zAKBggq\n"
+                "hkjOPQQDAgNHADBEAiBkcXoL+OsiuWsJjPqLVagVDrwfRTZ0c0aX1gEojBrfcAIg\n"
+                "F+uw0V641d9LgoyTxjz4T63Tqpi4nEMLiBGEC04+ucU=\n"
+                "-----END CERTIFICATE-----\n";
+        static const char rsa_pem[] =
+                "-----BEGIN CERTIFICATE-----\n"
+                "MIIC+TCCAeGgAwIBAgIUCXVvVs7hsjFjamCadoGVjOZBEycwDQYJKoZIhvcNAQEL\n"
+                "BQAwDDEKMAgGA1UEAwwBYzAeFw0yNjExMjAxODI0MzhaFw0yNjExMjExODI0Mzha\n"
+                "MAwxCjAIBgNVBAMMAWMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCy\n"
+                "IHJKdBhJybF/nDnXBaE8RRdYIUAsj1iZkyekZMSz+p3f579bCovFHcZOGxzlj2VX\n"
+                "AQxIaIMjcp5aZjWgT6j5tqKzyrX829/NRP/wPsTSTJAM8zWYf0sfU8IXSDiSvJvp\n"
+                "W8S48GSMO7rsx0xCklusOVUEO/LN71iYX1o/zdTOZkWAFti6JbLatZaKXsf3pMHU\n"
+                "bv9fhvWLa6ql60gR/DZO0t/AF5v8WvwYWHIyyZ4Hdnb9IX+HN9kGw4RmPRzk89Iv\n"
+                "Hjuzc75m1tsVSyOk9v+TACwHpjwJndiNziiRKYycFeG+xewt4A3kD0Mr1MwLaNGo\n"
+                "RSkHvgN5eJ+ROyPQlfzBAgMBAAGjUzBRMB0GA1UdDgQWBBSfdCz0h09asmXE/mmF\n"
+                "0v03kaksNzAfBgNVHSMEGDAWgBSfdCz0h09asmXE/mmF0v03kaksNzAPBgNVHRMB\n"
+                "Af8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQAAPFaLA3aSteMUEO6+a375aAYR\n"
+                "pySgtRTLySTPyaRgWqXEh/7LXpytjWLGWYmZE+SlnDwnPw1fUnNvwW50FEENDTum\n"
+                "40xM2vSVCdLJIEKmZMJJKAfdJtG83xbWgDAKY5iyki+2jB0Jvkezqyd7p8T4HzHD\n"
+                "0wn8WiwnHOfT/vUL6uAXTtovEWLTxAAURdAJrDE3Cr42K8p5Vk6csKu9gklAKdLE\n"
+                "qKUHKIQH/P+TwS7lSjsOC3/FkdfAon1UZ+hzDpHp+aiQDWfkUXILF0OLs/laAnQr\n"
+                "KZMYwJHTfStaPkeCqxnbCcFBSuf5l1fq3i3rHSojln+NSAsqUZDJ00A2G/V8\n"
+                "-----END CERTIFICATE-----\n";
+
+        if (dlopen_libcrypto(LOG_DEBUG) < 0)
+                return (void) log_tests_skipped("libcrypto not available");
+
+        _cleanup_(X509_freep) X509 *p256a = NULL, *p256b = NULL, *rsa = NULL;
+        load_test_cert(p256a_pem, &p256a);
+        load_test_cert(p256b_pem, &p256b);
+        load_test_cert(rsa_pem, &rsa);
+
+        TPM2B_PUBLIC p256a_public, p256b_public, rsa_public;
+        test_public_from_cert(p256a, &p256a_public);
+        test_public_from_cert(p256b, &p256b_public);
+        test_public_from_cert(rsa, &rsa_public);
+
+        /* Keys match their own certificate. */
+        ASSERT_OK_EQ(tpm2_check_ek_matches_cert(&p256a_public, p256a), 1);
+        ASSERT_OK_EQ(tpm2_check_ek_matches_cert(&p256b_public, p256b), 1);
+        ASSERT_OK_EQ(tpm2_check_ek_matches_cert(&rsa_public, rsa), 1);
+
+        /* A different key of the same type doesn't match. */
+        ASSERT_OK_ZERO(tpm2_check_ek_matches_cert(&p256a_public, p256b));
+        ASSERT_OK_ZERO(tpm2_check_ek_matches_cert(&p256b_public, p256a));
+
+        /* A key of a different type doesn't match. */
+        ASSERT_OK_ZERO(tpm2_check_ek_matches_cert(&rsa_public, p256a));
+        ASSERT_OK_ZERO(tpm2_check_ek_matches_cert(&p256a_public, rsa));
+
+        /* An RSA key with a different modulus doesn't match. */
+        TPM2B_PUBLIC modified = rsa_public;
+        modified.publicArea.unique.rsa.buffer[modified.publicArea.unique.rsa.size - 1] ^= 0x02;
+        ASSERT_OK_ZERO(tpm2_check_ek_matches_cert(&modified, rsa));
+}
+#endif
+
+TEST(tpm2_ek_template_profile_from_string) {
+        for (Tpm2EKTemplateProfile p = 0; p < _TPM2_EK_TEMPLATE_MAX; p++)
+                ASSERT_EQ(tpm2_ek_template_profile_from_string(tpm2_ek_template_profile_to_string(p)), p);
+
+        ASSERT_EQ(tpm2_ek_template_profile_from_string("rsa-2048-legacy"), TPM2_EK_TEMPLATE_RSA_2048_LEGACY);
+        ASSERT_EQ(tpm2_ek_template_profile_from_string("ecc-nist-p256-legacy"), TPM2_EK_TEMPLATE_ECC_NIST_P256_LEGACY);
+        ASSERT_EQ(tpm2_ek_template_profile_from_string("rsa-2048"), TPM2_EK_TEMPLATE_RSA_2048);
+        ASSERT_EQ(tpm2_ek_template_profile_from_string("ecc-nist-p384"), TPM2_EK_TEMPLATE_ECC_NIST_P384);
+        ASSERT_EQ(tpm2_ek_template_profile_from_string("rsa-2048-l"), _TPM2_EK_TEMPLATE_INVALID);
+        ASSERT_EQ(tpm2_ek_template_profile_from_string(NULL), _TPM2_EK_TEMPLATE_INVALID);
+}
+
 static void check_test_parms(Tpm2Context *c) {
         assert(c);
 
@@ -2044,6 +2144,139 @@ static void check_get_ek_template(Tpm2Context *c) {
         check_ek_rsa_template_b(&template, TPM2_ALG_SHA384, 3072);
         memset(&template, 0, sizeof(template));
 }
+
+#if HAVE_OPENSSL
+/* Creates a primary key in the specified hierarchy from the default template for the specified EK profile
+ * (optionally with modified object attributes), and checks tpm2_check_ek_is_default_primary() against it
+ * for the specified profile. */
+static void check_ek_is_default_primary_one(
+                Tpm2Context *c,
+                Tpm2EKTemplateProfile key_profile,
+                TPMA_OBJECT clear_attributes,
+                ESYS_TR hierarchy,
+                Tpm2EKTemplateProfile check_profile,
+                int expected) {
+
+        TPM2B_PUBLIC template = {
+                .size = sizeof(TPMT_PUBLIC),
+        };
+        tpm2_get_default_ek_template(key_profile, &template.publicArea);
+        template.publicArea.objectAttributes &= ~clear_attributes;
+
+        if (template.publicArea.type == TPM2_ALG_ECC &&
+            !tpm2_supports_ecc_curve(c, template.publicArea.parameters.eccDetail.curveID)) {
+                log_tests_skipped("TPM does not support the ECC curve for this EK template");
+                return;
+        }
+        if (!tpm2_test_parms(c, template.publicArea.type, &template.publicArea.parameters)) {
+                log_tests_skipped("TPM does not support this EK template");
+                return;
+        }
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        ASSERT_OK(tpm2_create_primary(c, /* session= */ NULL, hierarchy, &template, /* sensitive= */ NULL, /* ret_public= */ NULL, &handle));
+
+        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
+        _cleanup_(Esys_Freep) TPM2B_NAME *name = NULL, *qname = NULL;
+        ASSERT_OK(tpm2_read_public(c, /* session= */ NULL, handle, &public, &name, &qname));
+
+        ASSERT_OK_EQ(tpm2_check_ek_is_default_primary(check_profile, public, name, qname), expected);
+}
+
+static void check_ek_is_default_primary(Tpm2Context *c) {
+        assert(c);
+
+        TEST_LOG_FUNC();
+
+        Tpm2EKTemplateProfile profile;
+        FOREACH_ARGUMENT(profile,
+                         TPM2_EK_TEMPLATE_ECC_NIST_P256, /* SHA256 nameAlg */
+                         TPM2_EK_TEMPLATE_ECC_NIST_P384) /* SHA384 nameAlg */ {
+                /* A primary key in the endorsement hierarchy created from the default template. */
+                check_ek_is_default_primary_one(c, profile, 0, ESYS_TR_RH_ENDORSEMENT, profile, 1);
+
+                /* The same key in the owner hierarchy isn't an EK. */
+                check_ek_is_default_primary_one(c, profile, 0, ESYS_TR_RH_OWNER, profile, 0);
+
+                /* A primary key in the endorsement hierarchy with a non-default template isn't an EK for
+                 * this profile. */
+                check_ek_is_default_primary_one(c, profile, TPMA_OBJECT_ADMINWITHPOLICY, ESYS_TR_RH_ENDORSEMENT, profile, 0);
+        }
+
+        /* An EK for one profile doesn't match another profile. */
+        check_ek_is_default_primary_one(c, TPM2_EK_TEMPLATE_ECC_NIST_P256, 0, ESYS_TR_RH_ENDORSEMENT, TPM2_EK_TEMPLATE_ECC_NIST_P384, 0);
+        check_ek_is_default_primary_one(c, TPM2_EK_TEMPLATE_ECC_NIST_P384, 0, ESYS_TR_RH_ENDORSEMENT, TPM2_EK_TEMPLATE_ECC_NIST_P256, 0);
+        check_ek_is_default_primary_one(c, TPM2_EK_TEMPLATE_ECC_NIST_P256, 0, ESYS_TR_RH_ENDORSEMENT, TPM2_EK_TEMPLATE_ECC_NIST_P256_LEGACY, 0);
+}
+#endif
+
+#if HAVE_OPENSSL
+/* Creates a primary key from the (possibly customized) EK template for the specified profile in the specified
+ * hierarchy, and checks tpm2_check_ek_matches_profile_cert() against it. Returns false if the TPM doesn't
+ * support the template. */
+static bool check_ek_matches_profile_cert_one(
+                Tpm2Context *c,
+                Tpm2EKTemplateProfile profile,
+                ESYS_TR hierarchy,
+                int expected) {
+
+        int r;
+
+        TPM2B_PUBLIC template = {
+                .size = sizeof(TPMT_PUBLIC),
+        };
+        r = tpm2_get_ek_template(c, /* session= */ NULL, profile, &template.publicArea);
+        if (r == -EBADMSG)
+                return false; /* Custom template or nonce is invalid. */
+        ASSERT_OK(r);
+
+        if (template.publicArea.type == TPM2_ALG_ECC &&
+            !tpm2_supports_ecc_curve(c, template.publicArea.parameters.eccDetail.curveID))
+                return false;
+        if (!tpm2_test_parms(c, template.publicArea.type, &template.publicArea.parameters))
+                return false;
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        ASSERT_OK(tpm2_create_primary(c, /* session= */ NULL, hierarchy, &template, /* sensitive= */ NULL, /* ret_public= */ NULL, &handle));
+
+        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
+        ASSERT_OK(tpm2_read_public(c, /* session= */ NULL, handle, &public, /* ret_name= */ NULL, /* ret_qname= */ NULL));
+
+        ASSERT_OK_EQ(tpm2_check_ek_matches_profile_cert(c, /* session= */ NULL, profile, public), expected);
+        return true;
+}
+
+static void check_ek_matches_profile_cert(Tpm2Context *c) {
+        int r;
+
+        assert(c);
+
+        TEST_LOG_FUNC();
+
+        /* This test relies on the existence of EK certificates in the TPM. Skip any profile without one. */
+        bool any = false;
+        for (Tpm2EKTemplateProfile profile = 0; profile < _TPM2_EK_TEMPLATE_MAX; profile++) {
+                _cleanup_(X509_freep) X509 *cert = NULL;
+                r = tpm2_read_ek_cert(c, /* session= */ NULL, profile, &cert);
+                if (r == -EBADMSG || r == 0)
+                        continue;
+                ASSERT_OK(r);
+
+                /* The EK for this profile matches its certificate. */
+                if (!check_ek_matches_profile_cert_one(c, profile, ESYS_TR_RH_ENDORSEMENT, 1))
+                        continue;
+
+                /* A key created from the same template in the owner hierarchy uses a different primary seed,
+                 * and so doesn't match. */
+                ASSERT_TRUE(check_ek_matches_profile_cert_one(c, profile, ESYS_TR_RH_OWNER, 0));
+
+                any = true;
+        }
+
+        if (!any)
+                log_tests_skipped("No usable EK certificate found");
+}
+#endif
 
 static void check_get_or_create_ek(Tpm2Context *c) {
         int r;
@@ -3218,6 +3451,10 @@ TEST_RET(tests_which_require_tpm) {
         check_seal_unseal(c);
         check_nv_index_read(c);
         check_get_ek_template(c);
+#if HAVE_OPENSSL
+        check_ek_is_default_primary(c);
+        check_ek_matches_profile_cert(c);
+#endif
         check_get_or_create_ek(c);
         check_max_data_size(c);
         check_context_saving(c);
