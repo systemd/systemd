@@ -28,6 +28,7 @@
 #include "tests.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
+#include "varlink-internal.h"
 #include "varlink-util.h"
 #include "xattr-util.h"
 
@@ -1198,6 +1199,63 @@ TEST(fiber_no_cancel_oneway) {
 
         ASSERT_OK_ZERO(sd_event_loop(e));
         ASSERT_OK_ZERO(disconnect_fiber_result);
+}
+
+static sd_varlink *idle_server_link = NULL;
+
+static int method_notify_and_wait(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        ASSERT_OK(sd_varlink_notify(link, /* parameters= */ NULL));
+        idle_server_link = sd_varlink_ref(link);
+        return 0;
+}
+
+static int reply_notify_and_wait(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
+        bool *got_reply = ASSERT_PTR(userdata);
+
+        ASSERT_NULL(error_id);
+        ASSERT_TRUE(FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES));
+        *got_reply = true;
+        return 0;
+}
+
+TEST(idle_connection_frees_input_buffer) {
+        /* A connection that keeps a "more" call open without any traffic must not keep its read buffer.
+         * The server answers the call with one notification and leaves the call pending. Once the event
+         * loop has nothing left to do, the read buffers of the server and the client connection have to be
+         * freed. */
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_default(&e));
+
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        ASSERT_OK(sd_varlink_server_new(&s, /* flags= */ 0));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.NotifyAndWait", method_notify_and_wait));
+
+        int connfd[2];
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd));
+        ASSERT_OK(sd_varlink_server_add_connection(s, connfd[0], /* ret= */ NULL));
+
+        _cleanup_(sd_varlink_close_unrefp) sd_varlink *c = NULL;
+        ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
+        ASSERT_OK(sd_varlink_attach_event(c, e, /* priority= */ 0));
+
+        bool got_reply = false;
+        sd_varlink_set_userdata(c, &got_reply);
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_notify_and_wait));
+        ASSERT_OK(sd_varlink_observe(c, "io.test.NotifyAndWait", /* parameters= */ NULL));
+
+        /* Run the event loop until the client got the notification. Then run it until the server and the
+         * client connection have nothing left to process. */
+        while (!got_reply)
+                ASSERT_OK(sd_event_run(e, UINT64_MAX));
+        while (ASSERT_OK(sd_event_run(e, /* timeout= */ 0)) > 0)
+                ;
+
+        ASSERT_NOT_NULL(idle_server_link);
+        ASSERT_NULL(idle_server_link->stream.input_buffer);
+        ASSERT_NULL(c->stream.input_buffer);
+
+        idle_server_link = sd_varlink_close_unref(idle_server_link);
 }
 
 static int method_with_fd_sentinel(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
