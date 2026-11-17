@@ -38,4 +38,5 @@ typedef struct HookQuery HookQuery;
 typedef struct Link Link;
 typedef struct LinkAddress LinkAddress;
 typedef struct Manager Manager;
+typedef struct MdnsPendingReply MdnsPendingReply;
 typedef struct SocketGraveyard SocketGraveyard;
