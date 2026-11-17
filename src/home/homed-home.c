@@ -2052,9 +2052,12 @@ int home_passwd(Home *h,
         if (r < 0)
                 return r;
 
-        r = home_may_change_password(h, error);
-        if (r < 0)
-                return r;
+        /* Without a new password the record is only synced to storage, no password ageing applies */
+        if (!strv_isempty(new_secret->password)) {
+                r = home_may_change_password(h, error);
+                if (r < 0)
+                        return r;
+        }
 
         r = user_record_clone(h->record, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_PERMISSIVE, &c);
         if (r < 0)
