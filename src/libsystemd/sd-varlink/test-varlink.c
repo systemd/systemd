@@ -28,6 +28,7 @@
 #include "tests.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
+#include "varlink-future.h"
 #include "varlink-util.h"
 #include "xattr-util.h"
 
@@ -1053,6 +1054,198 @@ TEST(fiber_stash) {
         ASSERT_OK(sd_varlink_invoke(c, "io.test.FiberStash", /* parameters= */ NULL));
 
         ASSERT_OK(sd_event_loop(e));
+}
+
+static int method_count(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        ASSERT_TRUE(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
+
+        ASSERT_OK(sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_UNSIGNED("n", 1)));
+        ASSERT_OK(sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_UNSIGNED("n", 2)));
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_UNSIGNED("n", 3));
+}
+
+static int method_count_fail(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        ASSERT_OK(sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_UNSIGNED("n", 1)));
+        return sd_varlink_error(link, "io.test.Failed", /* parameters= */ NULL);
+}
+
+static sd_varlink *notify_once_link = NULL;
+
+static int method_notify_once(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        ASSERT_OK(sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_UNSIGNED("n", 1)));
+
+        /* sd-varlink fails a method call that returns without a reply, unless the callback keeps a
+         * reference to the link. */
+        notify_once_link = sd_varlink_ref(link);
+        return 0;
+}
+
+static void on_observe_channel_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata) {
+        bool *disconnected = ASSERT_PTR(sd_varlink_server_get_userdata(s));
+        *disconnected = true;
+}
+
+static int observe_channel_pop(sd_event *e, sd_channel *ch, VarlinkReply **ret) {
+        void *p;
+        int r;
+
+        while ((r = sd_channel_try_pop(ch, &p)) == -ENODATA)
+                ASSERT_OK(sd_event_run(e, UINT64_MAX));
+        if (r < 0)
+                return r;
+
+        *ret = p;
+        return 0;
+}
+
+static void observe_channel_setup(sd_event *e, sd_varlink_server **ret_server, sd_varlink **ret_client) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        ASSERT_OK(sd_varlink_server_new(&s, /* flags= */ 0));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, /* priority= */ 0));
+        ASSERT_OK(sd_varlink_server_bind_method_many(
+                        s,
+                        "io.test.Count",      method_count,
+                        "io.test.CountFail",  method_count_fail,
+                        "io.test.NotifyOnce", method_notify_once));
+
+        int connfd[2];
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd));
+        ASSERT_OK(sd_varlink_server_add_connection(s, connfd[0], /* ret= */ NULL));
+
+        _cleanup_(sd_varlink_close_unrefp) sd_varlink *c = NULL;
+        ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
+        ASSERT_OK(sd_varlink_attach_event(c, e, /* priority= */ 0));
+
+        *ret_server = TAKE_PTR(s);
+        *ret_client = TAKE_PTR(c);
+}
+
+TEST(observe_channel_replies) {
+        /* The channel has to deliver every reply of a "more" call in order, with the flags of the reply.
+         * After the final reply, a receive has to fail with -EPIPE. */
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_(sd_varlink_close_unrefp) sd_varlink *c = NULL;
+        observe_channel_setup(e, &s, &c);
+
+        _cleanup_(sd_channel_unrefp) sd_channel *ch = NULL;
+        ASSERT_OK(varlink_observe_channel_new(c, "io.test.Count", /* parameters= */ NULL, /* capacity= */ 8, &ch));
+
+        for (unsigned i = 1; i <= 3; i++) {
+                _cleanup_(varlink_reply_freep) VarlinkReply *reply = NULL;
+                ASSERT_OK(observe_channel_pop(e, ch, &reply));
+                ASSERT_NULL(reply->error_id);
+                ASSERT_EQ(sd_json_variant_unsigned(sd_json_variant_by_key(reply->parameters, "n")), i);
+                ASSERT_EQ(FLAGS_SET(reply->flags, SD_VARLINK_REPLY_CONTINUES), i < 3);
+        }
+
+        VarlinkReply *reply;
+        ASSERT_ERROR(observe_channel_pop(e, ch, &reply), EPIPE);
+
+        /* The channel closes the link once the call is over. */
+        ASSERT_OK_ZERO(sd_varlink_is_connected(c));
+}
+
+TEST(observe_channel_conflated) {
+        /* A conflated channel only keeps the most recent reply. The server sends two notifications and a
+         * final reply. The test runs the event loop until the call is over without receiving anything,
+         * and checks that only the final reply is left in the channel. */
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_(sd_varlink_close_unrefp) sd_varlink *c = NULL;
+        observe_channel_setup(e, &s, &c);
+
+        _cleanup_(sd_channel_unrefp) sd_channel *ch = NULL;
+        ASSERT_OK(varlink_observe_channel_new_conflated(c, "io.test.Count", /* parameters= */ NULL, &ch));
+
+        /* The channel closes the link after the final reply. */
+        while (ASSERT_OK(sd_varlink_is_connected(c)) > 0)
+                ASSERT_OK(sd_event_run(e, UINT64_MAX));
+
+        _cleanup_(varlink_reply_freep) VarlinkReply *reply = NULL;
+        ASSERT_OK(observe_channel_pop(e, ch, &reply));
+        ASSERT_NULL(reply->error_id);
+        ASSERT_EQ(sd_json_variant_unsigned(sd_json_variant_by_key(reply->parameters, "n")), 3u);
+        ASSERT_FALSE(FLAGS_SET(reply->flags, SD_VARLINK_REPLY_CONTINUES));
+
+        VarlinkReply *last;
+        ASSERT_ERROR(observe_channel_pop(e, ch, &last), EPIPE);
+}
+
+TEST(observe_channel_error) {
+        /* An error reply ends the call. The channel has to deliver the notification before the error and
+         * then the error itself. A receive after the error has to fail with -EPIPE. */
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_(sd_varlink_close_unrefp) sd_varlink *c = NULL;
+        observe_channel_setup(e, &s, &c);
+
+        _cleanup_(sd_channel_unrefp) sd_channel *ch = NULL;
+        ASSERT_OK(varlink_observe_channel_new(c, "io.test.CountFail", /* parameters= */ NULL, /* capacity= */ 8, &ch));
+
+        _cleanup_(varlink_reply_freep) VarlinkReply *first = NULL, *error = NULL;
+        ASSERT_OK(observe_channel_pop(e, ch, &first));
+        ASSERT_NULL(first->error_id);
+        ASSERT_TRUE(FLAGS_SET(first->flags, SD_VARLINK_REPLY_CONTINUES));
+
+        ASSERT_OK(observe_channel_pop(e, ch, &error));
+        ASSERT_STREQ(error->error_id, "io.test.Failed");
+
+        VarlinkReply *reply;
+        ASSERT_ERROR(observe_channel_pop(e, ch, &reply), EPIPE);
+}
+
+TEST(observe_channel_close_ends_call) {
+        /* Freeing the channel has to close the link. The server has to see the closed link as a
+         * disconnect. The server notifies once and leaves the call pending. After the client got the
+         * notification, the test frees the channel and checks that the server sees the disconnect. */
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_(sd_varlink_close_unrefp) sd_varlink *c = NULL;
+        observe_channel_setup(e, &s, &c);
+
+        bool disconnected = false;
+        sd_varlink_server_set_userdata(s, &disconnected);
+        ASSERT_OK(sd_varlink_server_bind_disconnect(s, on_observe_channel_disconnect));
+
+        _cleanup_(sd_channel_unrefp) sd_channel *ch = NULL;
+        ASSERT_OK(varlink_observe_channel_new(c, "io.test.NotifyOnce", /* parameters= */ NULL, /* capacity= */ 8, &ch));
+
+        _cleanup_(varlink_reply_freep) VarlinkReply *reply = NULL;
+        ASSERT_OK(observe_channel_pop(e, ch, &reply));
+        ASSERT_TRUE(FLAGS_SET(reply->flags, SD_VARLINK_REPLY_CONTINUES));
+
+        ch = sd_channel_unref(ch);
+        ASSERT_OK_ZERO(sd_varlink_is_connected(c));
+
+        while (!disconnected)
+                ASSERT_OK(sd_event_run(e, UINT64_MAX));
+
+        notify_once_link = sd_varlink_unref(notify_once_link);
+}
+
+TEST(observe_channel_no_event) {
+        /* The channel needs the event loop of the link, so a link without one has to be refused with
+         * -ENOPKG. The link has to stay usable after the failure. */
+        int connfd[2];
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd));
+        _cleanup_close_ int server_fd = connfd[0];
+
+        _cleanup_(sd_varlink_close_unrefp) sd_varlink *c = NULL;
+        ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
+
+        sd_channel *ch = NULL;
+        ASSERT_ERROR(varlink_observe_channel_new(c, "io.test.Count", /* parameters= */ NULL, /* capacity= */ 8, &ch), ENOPKG);
+        ASSERT_NULL(ch);
+        ASSERT_OK_POSITIVE(sd_varlink_is_idle(c));
 }
 
 static int method_with_fd_sentinel(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
