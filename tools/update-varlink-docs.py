@@ -530,9 +530,9 @@ def escape(text):
 
 def idl_to_docbook(text):
     """Renders canonical IDL text as docbook inline markup with light syntax highlighting:
-    comments and IDL keywords are wrapped in <emphasis> elements. Both the man page and HTML
-    renderings then show the structure (italics/bold), without embedding any presentation
-    into the build artifacts themselves."""
+    comments and IDL keywords are wrapped in <emphasis> elements, which the HTML stylesheet
+    colors. The man pages stay plain: the DocBook manpages stylesheet does not apply inline
+    markup inside a programlisting."""
     out = []
     for line in text.rstrip('\n').split('\n'):
         stripped = line.lstrip()
