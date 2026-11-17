@@ -22,10 +22,13 @@
 #include "dns-rr.h"
 #include "errno-list.h"
 #include "errno-util.h"
+#include "escape.h"
 #include "format-ifname.h"
 #include "format-table.h"
+#include "format-util.h"
 #include "glyph-util.h"
 #include "hostname-util.h"
+#include "in-addr-util.h"
 #include "json-util.h"
 #include "main-func.h"
 #include "missing-network.h"
@@ -35,6 +38,7 @@
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "pidref.h"
 #include "polkit-agent.h"
 #include "resolvconf-compat.h"
 #include "resolve-util.h"
@@ -49,6 +53,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
+#include "user-util.h"
 #include "utf8.h"
 #include "varlink-util.h"
 #include "verb-log-control.h"
@@ -2134,10 +2139,83 @@ static int print_answer(sd_json_variant *answer) {
         return 0;
 }
 
+typedef struct MonitorClientParams {
+        const char *transport;
+        const char *cgroup;
+        PidRef pidref;
+        uid_t uid;
+        struct in_addr_data address;
+        uint16_t port;
+} MonitorClientParams;
+
+static void monitor_client_params_done(MonitorClientParams *p) {
+        assert(p);
+
+        pidref_done(&p->pidref);
+}
+
+static int print_client(sd_json_variant *client) {
+        static const sd_json_dispatch_field client_dispatch_table[] = {
+                { "transport",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MonitorClientParams, transport), SD_JSON_MANDATORY    },
+                { "pid",          _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_pidref,          offsetof(MonitorClientParams, pidref),    0                    },
+                { "uid",          _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,      offsetof(MonitorClientParams, uid),       0                    },
+                { "address",      _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_in_addr_data,    offsetof(MonitorClientParams, address),   0                    },
+                { "port",         _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,       offsetof(MonitorClientParams, port),      SD_JSON_NULL_TO_ZERO },
+                { "controlGroup", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MonitorClientParams, cgroup),    SD_JSON_NULLABLE     },
+                {}
+        };
+
+        _cleanup_(monitor_client_params_done) MonitorClientParams p = {
+                .pidref = PIDREF_NULL,
+                .uid = UID_INVALID,
+        };
+        _cleanup_free_ char *s = NULL, *cgroup = NULL;
+        int r;
+
+        if (!client || sd_json_variant_is_null(client))
+                return 0;
+
+        r = sd_json_dispatch(client, client_dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &p);
+        if (r < 0)
+                return r;
+
+        if (p.cgroup) {
+                cgroup = cescape(p.cgroup);
+                if (!cgroup)
+                        return log_oom();
+        }
+
+        if (IN_SET(p.address.family, AF_INET, AF_INET6)) {
+                r = in_addr_port_to_string(p.address.family, &p.address.address, p.port, &s);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        printf("%s%s O%s: %s",
+               ansi_highlight_grey(),
+               glyph(GLYPH_ARROW_RIGHT),
+               ansi_normal(),
+               p.transport);
+
+        if (pidref_is_set(&p.pidref))
+                printf(" pid=" PID_FMT, p.pidref.pid);
+        if (uid_is_valid(p.uid))
+                printf(" uid=" UID_FMT, p.uid);
+        if (cgroup)
+                printf(" cgroup=%s", cgroup);
+
+        if (s)
+                printf(" %s", s);
+
+        puts("");
+        return 0;
+}
+
 typedef struct MonitorQueryParams {
         sd_json_variant *question;
         sd_json_variant *answer;
         sd_json_variant *collected_questions;
+        sd_json_variant *client;
         int rcode;
         int error;
         int ede_code;
@@ -2152,6 +2230,7 @@ static void monitor_query_params_done(MonitorQueryParams *p) {
         sd_json_variant_unref(p->question);
         sd_json_variant_unref(p->answer);
         sd_json_variant_unref(p->collected_questions);
+        sd_json_variant_unref(p->client);
 }
 
 static void monitor_query_dump(sd_json_variant *v) {
@@ -2159,6 +2238,7 @@ static void monitor_query_dump(sd_json_variant *v) {
                 { "question",                SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant,      offsetof(MonitorQueryParams, question),            SD_JSON_MANDATORY },
                 { "answer",                  SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant,      offsetof(MonitorQueryParams, answer),              0                 },
                 { "collectedQuestions",      SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant,      offsetof(MonitorQueryParams, collected_questions), 0                 },
+                { "client",                  SD_JSON_VARIANT_OBJECT,        sd_json_dispatch_variant,      offsetof(MonitorQueryParams, client),              SD_JSON_NULLABLE  },
                 { "state",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MonitorQueryParams, state),               SD_JSON_MANDATORY },
                 { "result",                  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MonitorQueryParams, result),              0                 },
                 { "rcode",                   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          offsetof(MonitorQueryParams, rcode),               0                 },
@@ -2183,6 +2263,8 @@ static void monitor_query_dump(sd_json_variant *v) {
 
         /* And then show the questions that led to this one in case this was a CNAME chain */
         print_question('C', ansi_highlight_grey(), p.collected_questions);
+
+        (void) print_client(p.client);
 
         printf("%s%s S%s: %s",
                streq_ptr(p.state, "success") ? ansi_highlight_green() : ansi_highlight_red(),
