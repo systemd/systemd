@@ -409,50 +409,132 @@ bool locale_gen_check_available(void) {
 #endif
 }
 
-#if HAVE_LOCALEGEN
-static bool locale_encoding_is_utf8_or_unspecified(const char *locale) {
-        const char *c = strchr(locale, '.');
-        return !c || strcaseeq(c, ".UTF-8") || strcasestr(locale, ".UTF-8@");
+const char* locale_utf8_codeset_end(const char *dot) {
+        /* If the codeset starting at the given '.' is a UTF-8 codeset, i.e. ".UTF-8" or
+         * ".utf8" in any case, followed by the end of the string or a modifier ('@'),
+         * return the position just after the codeset. Otherwise, return NULL. */
+
+        assert(dot);
+        assert(*dot == '.');
+
+        const char *e = startswith_no_case(dot, ".UTF-8");
+        if (!e)
+                e = startswith_no_case(dot, ".utf8");
+        return e && IN_SET(*e, '\0', '@') ? e : NULL;
 }
 
-static int locale_gen_locale_supported(const char *locale_entry) {
-        /* Returns an error value <= 0 if the locale-gen entry is invalid or unsupported,
-         * 1 in case the locale entry is valid, and -EOPNOTSUPP specifically in case
-         * the distributor has not provided us with a SUPPORTED file to check
-         * locale for validity. */
+#if HAVE_LOCALEGEN
+static bool locale_encoding_is_utf8_or_unspecified(const char *locale) {
+        /* Only a '.' before the modifier ('@') starts the codeset. */
 
-        _cleanup_fclose_ FILE *f = NULL;
+        assert(locale);
+
+        const char *c = memchr(locale, '.', strchrnul(locale, '@') - locale);
+        if (!c)
+                return true;
+
+        return locale_utf8_codeset_end(c);
+}
+#endif
+
+int locale_strip_utf8_codeset(const char *name, char **ret) {
+        /* Returns a copy of the locale name with the UTF-8 codeset removed, e.g. "sr_RS.UTF-8"
+         * → "sr_RS" or "ca_ES.UTF-8@valencia" → "ca_ES@valencia". The name is copied
+         * unmodified if it has no or a non-UTF-8 codeset. */
+
+        assert(name);
+        assert(ret);
+
+        _cleanup_free_ char *s = strdup(name);
+        if (!s)
+                return -ENOMEM;
+
+        /* Only a '.' before the modifier ('@') starts the codeset. */
+        char *dot = memchr(s, '.', strchrnul(s, '@') - s);
+        if (dot) {
+                const char *e = locale_utf8_codeset_end(dot);
+                if (e)
+                        memmove(dot, e, strlen(e) + 1);
+        }
+
+        *ret = TAKE_PTR(s);
+        return 0;
+}
+
+int locale_gen_locale_supported(const char *locale, const char *supported_file, char **ret_entry) {
+        /* Check whether the given locale is listed in the given SUPPORTED file, and return
+         * the corresponding locale-gen entry (e.g. "sr_RS.UTF-8 UTF-8") in *ret_entry.
+         *
+         * Distributions list locale names in SUPPORTED with or without the codeset (e.g.
+         * "sr_RS.UTF-8 UTF-8" or "sr_RS UTF-8"). The codeset spelling does not matter, as
+         * localedef normalizes it, but a locale listed with a codeset is not installed
+         * under the name without one, so the requested name must have a codeset, too.
+         *
+         * Returns 1 if the locale is supported, 0 if it is not (with *ret_entry set to NULL),
+         * -EINVAL for locale templates without country code, -EOPNOTSUPP specifically in case
+         * the distributor has not provided us with a SUPPORTED file to check the locale for
+         * validity, and another negative errno on failure. */
+
         int r;
 
-        assert(locale_entry);
+        assert(locale);
+        assert(supported_file);
+        assert(ret_entry);
 
         /* Locale templates without country code are never supported */
-        if (!strstr(locale_entry, "_"))
+        if (!strstr(locale, "_"))
                 return -EINVAL;
 
-        f = fopen("/usr/share/i18n/SUPPORTED", "re");
+        _cleanup_free_ char *name = NULL;
+        r = locale_strip_utf8_codeset(locale, &name);
+        if (r < 0)
+                return r;
+
+        _cleanup_fclose_ FILE *f = fopen(supported_file, "re");
         if (!f) {
                 if (errno == ENOENT)
                         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "Unable to check validity of locale entry %s: /usr/share/i18n/SUPPORTED does not exist",
-                                               locale_entry);
+                                               "Unable to check validity of locale %s: %s does not exist",
+                                               locale, supported_file);
                 return -errno;
         }
 
         for (;;) {
-                _cleanup_free_ char *line = NULL;
-
+                _cleanup_free_ char *line = NULL, *listed_name = NULL, *listed = NULL, *codeset = NULL;
                 r = read_stripped_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to read /usr/share/i18n/SUPPORTED: %m");
-                if (r == 0)
+                        return log_debug_errno(r, "Failed to read %s: %m", supported_file);
+                if (r == 0) {
+                        *ret_entry = NULL;
                         return 0;
+                }
 
-                if (strcaseeq_ptr(line, locale_entry))
-                        return 1;
+                /* Each line in SUPPORTED is "<locale name> <codeset>", e.g. "sr_RS.UTF-8 UTF-8"
+                 * or "sr_RS UTF-8". Only consider UTF-8 entries, as we only ever generate
+                 * UTF-8 locales. */
+                const char *p = line;
+                r = extract_many_words(&p, /* separateors= */ NULL, /* flags= */ 0, &listed_name, &codeset);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse %s: %m", supported_file);
+                if (r != 2 || !strcaseeq(codeset, "UTF-8"))
+                        continue;
+
+                r = locale_strip_utf8_codeset(listed_name, &listed);
+                if (r < 0)
+                        return r;
+
+                /* localedef normalizes the codeset, so its spelling does not matter, but a
+                 * locale listed with a codeset is not installed under the name without one. */
+                if (!strcaseeq(listed, name) || (strchr(listed_name, '.') && !strchr(locale, '.')))
+                        continue;
+
+                char *entry = strjoin(listed_name, " UTF-8");
+                if (!entry)
+                        return -ENOMEM;
+                *ret_entry = entry;
+                return 1;
         }
 }
-#endif
 
 int locale_gen_enable_locale(const char *locale) {
 #if HAVE_LOCALEGEN
@@ -466,17 +548,19 @@ int locale_gen_enable_locale(const char *locale) {
         if (isempty(locale))
                 return 0;
 
-        if (locale_encoding_is_utf8_or_unspecified(locale)) {
+        if (!locale_encoding_is_utf8_or_unspecified(locale))
+                return -ENOEXEC; /* We do not process non-UTF-8 locale */
+
+        r = locale_gen_locale_supported(locale, "/usr/share/i18n/SUPPORTED", &locale_entry);
+        if (r == 0)
+                return -EINVAL;
+        if (r == -EOPNOTSUPP) {
+                /* Without a SUPPORTED file we cannot check or canonicalize the entry, so
+                 * just append the codeset to the requested locale name. */
                 locale_entry = strjoin(locale, " UTF-8");
                 if (!locale_entry)
                         return -ENOMEM;
-        } else
-                return -ENOEXEC; /* We do not process non-UTF-8 locale */
-
-        r = locale_gen_locale_supported(locale_entry);
-        if (r == 0)
-                return -EINVAL;
-        if (r < 0 && r != -EOPNOTSUPP)
+        } else if (r < 0)
                 return r;
 
         fr = fopen("/etc/locale.gen", "re");

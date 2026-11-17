@@ -3,10 +3,14 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
+#include "fileio.h"
 #include "localed-util.h"
 #include "log.h"
+#include "path-util.h"
+#include "rm-rf.h"
 #include "string-util.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 TEST(find_language_fallback) {
         _cleanup_free_ char *ans = NULL, *ans2 = NULL;
@@ -256,6 +260,156 @@ TEST(x11_context_normalize) {
         x11_context_normalize(&xc);
         ASSERT_NULL(xc.layout);
         ASSERT_TRUE(x11_context_isempty(&xc));
+}
+
+TEST(locale_utf8_codeset_end) {
+        /* Returns the position just after the codeset, i.e. the rest of the string. */
+        ASSERT_STREQ(locale_utf8_codeset_end(".UTF-8"), "");
+        ASSERT_STREQ(locale_utf8_codeset_end(".utf8"), "");
+        ASSERT_STREQ(locale_utf8_codeset_end(".UTF-8@valencia"), "@valencia");
+        ASSERT_STREQ(locale_utf8_codeset_end(".utf8@valencia"), "@valencia");
+
+        /* Non-UTF-8 codesets, of any length and in any case. */
+        ASSERT_NULL(locale_utf8_codeset_end(".ISO-8859-1"));
+        ASSERT_NULL(locale_utf8_codeset_end(".eucKR"));
+        ASSERT_NULL(locale_utf8_codeset_end(".UTF-16"));
+
+        /* The codeset must end at the modifier or at the end of the string. */
+        ASSERT_NULL(locale_utf8_codeset_end(".UTF-8foo"));
+}
+
+TEST(locale_strip_utf8_codeset) {
+        _cleanup_free_ char *s = NULL;
+
+        /* Names without codeset are copied as-is. */
+        ASSERT_OK(locale_strip_utf8_codeset("sr_RS", &s));
+        ASSERT_STREQ(s, "sr_RS");
+        s = mfree(s);
+
+        ASSERT_OK(locale_strip_utf8_codeset("ca_ES@valencia", &s));
+        ASSERT_STREQ(s, "ca_ES@valencia");
+        s = mfree(s);
+
+        /* The UTF-8 codeset is stripped in both of its spellings. */
+        ASSERT_OK(locale_strip_utf8_codeset("sr_RS.UTF-8", &s));
+        ASSERT_STREQ(s, "sr_RS");
+        s = mfree(s);
+
+        ASSERT_OK(locale_strip_utf8_codeset("sr_RS.utf8", &s));
+        ASSERT_STREQ(s, "sr_RS");
+        s = mfree(s);
+
+        ASSERT_OK(locale_strip_utf8_codeset("C.UTF-8", &s));
+        ASSERT_STREQ(s, "C");
+        s = mfree(s);
+
+        /* The codeset is stripped from before the modifier. */
+        ASSERT_OK(locale_strip_utf8_codeset("ca_ES.UTF-8@valencia", &s));
+        ASSERT_STREQ(s, "ca_ES@valencia");
+        s = mfree(s);
+
+        ASSERT_OK(locale_strip_utf8_codeset("ca_ES.utf8@valencia", &s));
+        ASSERT_STREQ(s, "ca_ES@valencia");
+        s = mfree(s);
+
+        /* A '.' after the modifier belongs to the modifier, not the codeset. */
+        ASSERT_OK(locale_strip_utf8_codeset("sr_RS@latin.UTF-8", &s));
+        ASSERT_STREQ(s, "sr_RS@latin.UTF-8");
+        s = mfree(s);
+
+        /* Non-UTF-8 codesets are kept, also when of the same length as ".UTF-8". */
+        ASSERT_OK(locale_strip_utf8_codeset("ko_KR.eucKR", &s));
+        ASSERT_STREQ(s, "ko_KR.eucKR");
+        s = mfree(s);
+
+        ASSERT_OK(locale_strip_utf8_codeset("de_DE.ISO-8859-1", &s));
+        ASSERT_STREQ(s, "de_DE.ISO-8859-1");
+        s = mfree(s);
+
+        ASSERT_OK(locale_strip_utf8_codeset("de_DE.ISO-8859-15@euro", &s));
+        ASSERT_STREQ(s, "de_DE.ISO-8859-15@euro");
+}
+
+TEST(locale_gen_locale_supported) {
+        _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
+        _cleanup_free_ char *supported = NULL, *missing = NULL, *entry = NULL;
+
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-localed-util.XXXXXX", &tmp));
+
+        supported = path_join(tmp, "SUPPORTED");
+        ASSERT_NOT_NULL(supported);
+
+        missing = path_join(tmp, "nonexistent");
+        ASSERT_NOT_NULL(missing);
+
+        ASSERT_OK(write_string_file(supported,
+                        "en_US.UTF-8 UTF-8\n"
+                        "de_DE ISO-8859-1\n"
+                        "sr_RS UTF-8\n"
+                        "ca_ES@valencia UTF-8\n"
+                        "\n"
+                        "# comment\n",
+                        WRITE_STRING_FILE_CREATE));
+
+        /* Exact match, with the codeset in the listed name. */
+        ASSERT_OK_POSITIVE(locale_gen_locale_supported("en_US.UTF-8", supported, &entry));
+        ASSERT_STREQ(entry, "en_US.UTF-8 UTF-8");
+        entry = mfree(entry);
+
+        /* The codeset spelling does not matter, as localedef normalizes it. */
+        ASSERT_OK_POSITIVE(locale_gen_locale_supported("en_US.utf8", supported, &entry));
+        ASSERT_STREQ(entry, "en_US.UTF-8 UTF-8");
+        entry = mfree(entry);
+
+        /* Locale listed without the codeset, but requested with it. See issue #44823. */
+        ASSERT_OK_POSITIVE(locale_gen_locale_supported("sr_RS.UTF-8", supported, &entry));
+        ASSERT_STREQ(entry, "sr_RS UTF-8");
+        entry = mfree(entry);
+
+        ASSERT_OK_POSITIVE(locale_gen_locale_supported("sr_RS.utf8", supported, &entry));
+        ASSERT_STREQ(entry, "sr_RS UTF-8");
+        entry = mfree(entry);
+
+        /* Same, with a modifier. */
+        ASSERT_OK_POSITIVE(locale_gen_locale_supported("ca_ES.UTF-8@valencia", supported, &entry));
+        ASSERT_STREQ(entry, "ca_ES@valencia UTF-8");
+        entry = mfree(entry);
+
+        /* The modifier must not be dropped when the codeset is stripped. */
+        ASSERT_OK_ZERO(locale_gen_locale_supported("ca_ES.UTF-8", supported, &entry));
+        ASSERT_NULL(entry);
+        ASSERT_OK_ZERO(locale_gen_locale_supported("sr_RS.UTF-8@latin", supported, &entry));
+        ASSERT_NULL(entry);
+
+        /* Locale listed without the codeset, and requested without it, too. */
+        ASSERT_OK_POSITIVE(locale_gen_locale_supported("sr_RS", supported, &entry));
+        ASSERT_STREQ(entry, "sr_RS UTF-8");
+        entry = mfree(entry);
+
+        /* A locale listed with the codeset must also be requested with it, as localedef
+         * does not install it under the name without the codeset. */
+        ASSERT_OK_ZERO(locale_gen_locale_supported("en_US", supported, &entry));
+        ASSERT_NULL(entry);
+
+        /* Locale names are compared case-insensitively. */
+        ASSERT_OK_POSITIVE(locale_gen_locale_supported("SR_RS.UTF-8", supported, &entry));
+        ASSERT_STREQ(entry, "sr_RS UTF-8");
+        entry = mfree(entry);
+
+        /* Locales only listed with a non-UTF-8 codeset are not supported. */
+        ASSERT_OK_ZERO(locale_gen_locale_supported("de_DE", supported, &entry));
+        ASSERT_NULL(entry);
+        ASSERT_OK_ZERO(locale_gen_locale_supported("de_DE.UTF-8", supported, &entry));
+        ASSERT_NULL(entry);
+
+        /* Unknown locales are not supported. */
+        ASSERT_OK_ZERO(locale_gen_locale_supported("xx_XX.UTF-8", supported, &entry));
+
+        /* Locale templates without country code are never supported. */
+        ASSERT_ERROR(locale_gen_locale_supported("en", supported, &entry), EINVAL);
+
+        /* A missing SUPPORTED file cannot be used to check the locale. */
+        ASSERT_ERROR(locale_gen_locale_supported("sr_RS.UTF-8", missing, &entry), EOPNOTSUPP);
 }
 
 static int intro(void) {
