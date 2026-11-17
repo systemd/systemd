@@ -188,6 +188,23 @@ TEST(is_symlink_at) {
         ASSERT_ERROR(is_symlink_at(fd, "file"), ENOTDIR);
 }
 
+TEST(xstatfsat) {
+        /* A temporary directory contains a dangling symlink. Without AT_SYMLINK_NOFOLLOW, xstatfsat() must
+         * follow the symlink and fail with ENOENT. With AT_SYMLINK_NOFOLLOW, it must report the file system
+         * of the directory that contains the symlink. */
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+        struct statfs dir_sfs, link_sfs;
+
+        ASSERT_OK(tfd = mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &t));
+        ASSERT_OK_ERRNO(symlinkat("missing", tfd, "dangling"));
+
+        ASSERT_OK(xstatfsat(tfd, /* path= */ NULL, /* flags= */ 0, &dir_sfs));
+        ASSERT_ERROR(xstatfsat(tfd, "dangling", /* flags= */ 0, &link_sfs), ENOENT);
+        ASSERT_OK(xstatfsat(tfd, "dangling", AT_SYMLINK_NOFOLLOW, &link_sfs));
+        ASSERT_TRUE(F_TYPE_EQUAL(link_sfs.f_type, dir_sfs.f_type));
+}
+
 TEST(path_is_fs_type) {
         /* run might not be a mount point in build chroots */
         if (path_is_mount_point_full("/run", /* root= */ NULL, AT_SYMLINK_FOLLOW) > 0) {

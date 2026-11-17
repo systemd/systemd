@@ -499,14 +499,15 @@ static int xfstatfs(int fd, struct statfs *ret) {
         return RET_NERRNO(fstatfs(fd, ret));
 }
 
-int xstatfsat(int dir_fd, const char *path, struct statfs *ret) {
+int xstatfsat(int dir_fd, const char *path, int flags, struct statfs *ret) {
         _cleanup_close_ int fd = -EBADF;
 
         assert(wildcard_fd_is_valid(dir_fd));
+        assert((flags & ~AT_SYMLINK_NOFOLLOW) == 0);
         assert(ret);
 
         if (!isempty(path)) {
-                fd = xopenat(dir_fd, path, O_PATH);
+                fd = xopenat(dir_fd, path, O_PATH|(FLAGS_SET(flags, AT_SYMLINK_NOFOLLOW) ? O_NOFOLLOW : 0));
                 if (fd < 0)
                         return fd;
                 dir_fd = fd;
@@ -668,7 +669,7 @@ int is_fs_type_at(int dir_fd, const char *path, statfs_f_type_t magic_value) {
         int r;
 
         struct statfs s;
-        r = xstatfsat(dir_fd, path, &s);
+        r = xstatfsat(dir_fd, path, /* flags= */ 0, &s);
         if (r < 0)
                 return r;
 

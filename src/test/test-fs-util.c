@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/magic.h>
 #include <stdlib.h>
 #include <sys/file.h>
+#include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <unistd.h>
@@ -13,6 +15,7 @@
 #include "copy.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "mkdir.h"
 #include "path-util.h"
@@ -833,6 +836,9 @@ TEST(xopenat_empty_path) {
 }
 
 TEST(xopenat_nocow) {
+        /* A temporary directory contains regular files and a FIFO. Named and empty-path XO_NOCOW opens must
+         * apply the inode flag when the directory is on btrfs, while unsupported filesystems may ignore it.
+         * chattr_fd(), chattr_at(), and XO_NOCOW must not open the FIFO for reading. */
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
 
@@ -846,6 +852,32 @@ TEST(xopenat_nocow) {
         /* XO_NOCOW goes through chattr_fd(), a failure there removes the file again */
         ASSERT_OK(fd = xopenat_full(tfd, "nocow", O_RDWR|O_CREAT|O_EXCL, XO_NOCOW, 0644));
         ASSERT_OK_ERRNO(faccessat(tfd, "nocow", F_OK, AT_SYMLINK_NOFOLLOW));
+        fd = safe_close(fd);
+
+        if (ASSERT_OK(fd_is_fs_type(tfd, BTRFS_SUPER_MAGIC)) > 0) {
+                ASSERT_OK(fd = xopenat_full(tfd, "empty-nocow", O_RDWR|O_CREAT|O_EXCL, XO_COW, 0644));
+                fd = safe_close(fd);
+
+                _cleanup_close_ int path_fd = ASSERT_OK(xopenat(tfd, "empty-nocow", O_PATH));
+                ASSERT_OK(fd = xopenat_full(path_fd, /* path= */ NULL, O_RDWR, XO_EMPTY_PATH|XO_NOCOW,
+                                            /* mode= */ 0));
+
+                unsigned attrs;
+                ASSERT_OK(read_attr_fd(fd, &attrs));
+                ASSERT_TRUE(FLAGS_SET(attrs, FS_NOCOW_FL));
+        }
+
+        /* chattr_fd() on an O_PATH fd of a FIFO must fail with ENOTTY instead of blocking in open() until
+         * a writer opens the FIFO. chattr_at() must do the same for the FIFO's name. */
+        fd = safe_close(fd);
+        ASSERT_OK_ERRNO(mkfifoat(tfd, "fifo", 0600));
+        ASSERT_OK(fd = xopenat(tfd, "fifo", O_PATH));
+        ASSERT_ERROR(chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL), ENOTTY);
+        ASSERT_ERROR(chattr_at(tfd, "fifo", FS_NOCOW_FL, FS_NOCOW_FL), ENOTTY);
+
+        /* Reopening the O_PATH fd of the FIFO with XO_NOCOW must ignore the FIFO instead of blocking. */
+        _cleanup_close_ int fifo_fd = ASSERT_OK(xopenat_full(fd, /* path= */ NULL, O_PATH,
+                                                             XO_EMPTY_PATH|XO_NOCOW, /* mode= */ 0));
 }
 
 TEST(xopenat_socket) {
@@ -891,6 +923,67 @@ TEST(xopenat_socket) {
         fd = ASSERT_OK(xopenat_full(tfd, "dir", O_PATH, /* xopen_flags= */ 0, /* mode= */ 0));
         ASSERT_ERROR(xopenat_full(fd, /* path= */ NULL, O_PATH, XO_SOCKET|XO_EMPTY_PATH, /* mode= */ 0), EISDIR);
         fd = safe_close(fd);
+}
+
+TEST(xopenat_regular_without_proc) {
+        /* XO_REGULAR pins the inode with O_PATH, checks its type, and then reopens it. Unmount /proc in a
+         * new mount namespace. The reopen must still return a readable regular file without O_NONBLOCK,
+         * and XO_REGULAR must still refuse a FIFO without blocking. */
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+        int r;
+
+        if (!have_effective_cap(CAP_SYS_ADMIN))
+                return (void) log_tests_skipped("Lacking CAP_SYS_ADMIN to unmount /proc");
+
+        tfd = ASSERT_OK(mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &t));
+        ASSERT_OK(write_string_file_at(tfd, "file", "data", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ERRNO(mkfifoat(tfd, "fifo", 0600));
+
+        r = ASSERT_OK(pidref_safe_fork("(noproc)", FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, /* ret= */ NULL));
+        if (r == 0) {
+                ASSERT_OK_ERRNO(umount2("/proc", MNT_DETACH));
+
+                _cleanup_close_ int fd = ASSERT_OK(xopenat_full(tfd, "file", O_RDONLY|O_CLOEXEC, XO_REGULAR, /* mode= */ 0));
+                ASSERT_FALSE(FLAGS_SET(ASSERT_OK_ERRNO(fcntl(fd, F_GETFL)), O_NONBLOCK));
+
+                char buf[4];
+                ASSERT_OK_EQ_ERRNO(read(fd, buf, sizeof(buf)), (ssize_t) sizeof(buf));
+                ASSERT_EQ(memcmp(buf, "data", sizeof(buf)), 0);
+
+                ASSERT_ERROR(xopenat_full(tfd, "fifo", O_RDONLY|O_CLOEXEC, XO_REGULAR, /* mode= */ 0), EBADFD);
+                _exit(EXIT_SUCCESS);
+        }
+}
+
+TEST(chattr_without_proc) {
+        /* chattr_at() must not need /proc. Unmount /proc in a new mount namespace and read the flags of a
+         * regular file and a directory by name. A FIFO must still fail with ENOTTY. */
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+        int r;
+
+        if (!have_effective_cap(CAP_SYS_ADMIN))
+                return (void) log_tests_skipped("Lacking CAP_SYS_ADMIN to unmount /proc");
+
+        tfd = ASSERT_OK(mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &t));
+        ASSERT_OK(write_string_file_at(tfd, "file", "data", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "dir", 0755));
+        ASSERT_OK_ERRNO(mkfifoat(tfd, "fifo", 0600));
+
+        r = ASSERT_OK(pidref_safe_fork("(noproc)", FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, /* ret= */ NULL));
+        if (r == 0) {
+                ASSERT_OK_ERRNO(umount2("/proc", MNT_DETACH));
+
+                unsigned attrs;
+                FOREACH_STRING(name, "file", "dir") {
+                        r = chattr_full(tfd, name, /* value= */ 0, /* mask= */ 0, &attrs, /* ret_final= */ NULL, /* flags= */ 0);
+                        if (!ERRNO_IS_NEG_IOCTL_NOT_SUPPORTED(r))
+                                ASSERT_OK(r);
+                }
+                ASSERT_ERROR(chattr_at(tfd, "fifo", FS_NOCOW_FL, FS_NOCOW_FL), ENOTTY);
+                _exit(EXIT_SUCCESS);
+        }
 }
 
 TEST(xopenat_trigger_automount) {
