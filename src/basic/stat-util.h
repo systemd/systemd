@@ -127,7 +127,7 @@ bool stat_inode_unmodified(const struct stat *a, const struct stat *b);
 bool statx_inode_same(const struct statx *a, const struct statx *b);
 int statx_mount_same(const struct statx *a, const struct statx *b);
 
-int xstatfsat(int dir_fd, const char *path, struct statfs *ret);
+int xstatfsat(int dir_fd, const char *path, int flags, struct statfs *ret);
 
 usec_t statx_timestamp_load(const struct statx_timestamp *ts) _pure_;
 nsec_t statx_timestamp_load_nsec(const struct statx_timestamp *ts) _pure_;
