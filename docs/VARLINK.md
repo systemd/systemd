@@ -28,6 +28,50 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   * prefer string values over numeric codes when possible,
     to make interfaces more self-descriptive and easier to understand.
 
+# Documentation
+
+Each interface needs a manual page. The page holds the description, the security
+notes, the examples, the IDL, the cross-references, and the history.
+
+Add a page for a new interface:
+
+1. Add the interface to `man/rules/meson.build`. Use the build condition that
+   provides the interface.
+2. Create the page:
+
+   ```
+   tools/update-varlink-docs.py --build-dir build --scaffold man/io.systemd.Foo.xml
+   ```
+
+3. Write the description, the security section, and the examples.
+4. Document each method, type, and error on the page. If you cannot write the
+   text yet, add the symbol to `tools/varlink_ignorelist`.
+5. Regenerate the IDL and the cross-references:
+
+   ```
+   ninja -C build update-varlink-docs
+   ```
+
+6. Write the history section:
+
+   ```
+   tools/update-varlink-docs.py --build-dir build --backfill-history man/io.systemd.Foo.xml
+   ```
+
+7. Check the result:
+
+   ```
+   meson test -C build varlink-docs-fresh
+   ```
+
+The test fails in these cases:
+
+- A page does not match the compiled IDL.
+- An interface has no page.
+- A page is not in `man/rules/meson.build`.
+- A symbol is undocumented and not in the ignore list.
+- A symbol has no history entry.
+
 # Interface structure
 
 - Varlink methods should consider splitting their output into 'context' and

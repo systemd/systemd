@@ -190,6 +190,9 @@
         Varlink interface names. If no interface names are specified, shows all provided interfaces by the
         service.</para>
 
+        <para>By default the interface definitions are shown in the Varlink interface definition language;
+        <option>--format=json</option> requests the JSON rendering instead.</para>
+
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
 
@@ -374,6 +377,26 @@
 
         <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--format=<replaceable>FORMAT</replaceable></option></term>
+
+        <listitem>
+          <para>Selects the rendering of the interface descriptions returned by the
+          <command>introspect</command> verb, either <literal>idl</literal> for the Varlink interface
+          definition language, or <literal>json</literal> for the JSON representation defined by the
+          <ulink url="https://uapi-group.org/specifications/specs/varlink/">UAPI Varlink specification</ulink>.
+          Defaults to <literal>idl</literal>.</para>
+
+          <para>This option may only be used with the <command>introspect</command> verb. A service
+          that predates the <varname>format</varname> parameter of
+          <function>GetInterfaceDescription()</function> (see
+          <citerefentry><refentrytitle>org.varlink.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
+          cannot provide the JSON rendering: in that case the IDL rendering is shown instead, a
+          warning is emitted and the command fails.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
 
       <varlistentry>
