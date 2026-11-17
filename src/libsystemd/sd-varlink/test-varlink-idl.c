@@ -51,6 +51,7 @@
 #include "varlink-io.systemd.Report.Uploader.h"
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Hook.h"
+#include "varlink-io.systemd.Resolve.Link.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
 #include "varlink-io.systemd.ResourceProvider.h"
 #include "varlink-io.systemd.Shutdown.h"
@@ -269,6 +270,7 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_Report_Uploader,
                 &vl_interface_io_systemd_Resolve,
                 &vl_interface_io_systemd_Resolve_Hook,
+                &vl_interface_io_systemd_Resolve_Link,
                 &vl_interface_io_systemd_Resolve_Monitor,
                 &vl_interface_io_systemd_ResourceProvider,
                 &vl_interface_io_systemd_Shutdown,
@@ -886,6 +888,7 @@ TEST(enums_idl) {
 
         TEST_IDL_ENUM(DnsOverTlsMode, dns_over_tls_mode, vl_type_DNSOverTLSMode);
         TEST_IDL_ENUM(ResolveSupport, resolve_support, vl_type_ResolveSupport);
+        TEST_IDL_ENUM(DnssecMode, dnssec_mode, vl_type_DNSSECMode);
 
         TEST_IDL_ENUM(ImageType, image_type, vl_type_ImageType);
         TEST_IDL_ENUM_TO_STRING(ImageType, image_type, vl_type_ImageType);

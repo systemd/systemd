@@ -5,6 +5,7 @@
 
 extern const sd_varlink_symbol vl_type_DNSProtocol;
 extern const sd_varlink_symbol vl_type_DNSOverTLSMode;
+extern const sd_varlink_symbol vl_type_DNSSECMode;
 extern const sd_varlink_symbol vl_type_ResolveSupport;
 extern const sd_varlink_symbol vl_type_ResolvConfMode;
 extern const sd_varlink_symbol vl_type_ResourceKey;
