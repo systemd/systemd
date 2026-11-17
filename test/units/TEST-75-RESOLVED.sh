@@ -1005,20 +1005,38 @@ testcase_09_resolvectl_showcache() {
 }
 
 testcase_10_resolvectl_json() {
-    local status_json
+    local expected_pid has_cgroup_id=false since_ts status_json
 
     # Cleanup
     # shellcheck disable=SC2317,SC2329
     cleanup() {
-        rm -f /run/systemd/resolved.conf.d/90-fallback.conf
+        rm -f /run/test-monitor-client.pid /run/systemd/resolved.conf.d/90-fallback.conf
         systemctl reload systemd-resolved.service
         resolvectl revert dns0
     }
 
     trap cleanup RETURN ERR
 
+    # check for PIDFD_INFO_CGROUPID.
+    if systemd-analyze compare-versions "$(uname -r)" ge 6.13; then
+        has_cgroup_id=true
+    fi
+
+    since_ts="$(date '+%F %T.%N')"
+    systemd-run --wait --expand-environment=no \
+        sh -c 'echo $$ >/run/test-monitor-client.pid; exec resolvectl query unsigned.test'
+    expected_pid="$(</run/test-monitor-client.pid)"
+    dig +qid=12345 @127.0.0.53 unsigned.test
+    dig +tcp +qid=23456 @127.0.0.53 unsigned.test
+
     # Issue: https://github.com/systemd/systemd/issues/29580 (part #1)
     dig @127.0.0.54 signed.test
+
+    monitor_check_rr "$since_ts" '[[:space:]]signed[.]test IN A 10[.]0[.]0[.]10$'
+    (
+        set +o pipefail
+        timeout -v 30s journalctl -u resolvectl-monitor-json.service --since "$since_ts" -f --full | grep -m1 '"signed.test"' >/dev/null
+    )
 
     systemctl stop resolvectl-monitor.service
     systemctl stop resolvectl-monitor-json.service
@@ -1037,6 +1055,42 @@ testcase_10_resolvectl_json() {
         echo "$line" | jq -e '[. | .question, (select(has("answer")) | .answer) | type == "array"] | all'
     done
 
+    journalctl -p info -o cat _SYSTEMD_UNIT="resolvectl-monitor-json.service" --since "$since_ts" |
+        jq -e -s --argjson pid "$expected_pid" --argjson has_cg "$has_cgroup_id" '
+            2 as $AF_INET |
+            any(.[];
+                any(.question[]?; .name == "unsigned.test") and
+                .client.transport == "varlink" and
+                .client.pid.pid == $pid and
+                .client.uid == 0 and
+                (($has_cg | not) or .client.controlGroupId > 0)) and
+            any(.[];
+                any(.question[]?; .name == "unsigned.test") and
+                .client.transport == "stub_udp" and
+                .client.family == $AF_INET and
+                .client.address == [127, 0, 0, 1] and
+                .client.port > 0 and
+                .client.listenerAddress == [127, 0, 0, 53] and
+                .client.listenerPort == 53 and
+                .client.dnsPacketId == 12345) and
+            any(.[];
+                any(.question[]?; .name == "unsigned.test") and
+                .client.transport == "stub_tcp" and
+                .client.family == $AF_INET and
+                .client.address == [127, 0, 0, 1] and
+                .client.port > 0 and
+                .client.listenerAddress == [127, 0, 0, 53] and
+                .client.listenerPort == 53 and
+                .client.dnsPacketId == 23456) and
+            any(.[];
+                any(.question[]?; .name == "signed.test") and
+                .client.transport == "stub_udp" and
+                .client.listenerAddress == [127, 0, 0, 54] and
+                .client.listenerPort == 53)'
+
+    journalctl -p info -o cat _SYSTEMD_UNIT="resolvectl-monitor.service" --since "$since_ts" | grep "O: varlink pid=${expected_pid} uid=0" >/dev/null
+    journalctl -p info -o cat _SYSTEMD_UNIT="resolvectl-monitor.service" --since "$since_ts" | grep "O: stub_udp 127.0.0.1:" >/dev/null
+    journalctl -p info -o cat _SYSTEMD_UNIT="resolvectl-monitor.service" --since "$since_ts" | grep "O: stub_tcp 127.0.0.1:" >/dev/null
 
     # Test some global-only settings.
     mkdir -p /run/systemd/resolved.conf.d
