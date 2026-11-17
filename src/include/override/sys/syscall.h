@@ -15,8 +15,6 @@
 #include <asm/sgidefs.h>
 #endif
 
-#include <assert.h>
-
 /* Note: if this code looks strange, this is because it is derived from the same
  * template as the per-syscall blocks below. */
 #  if defined(__aarch64__)
@@ -112,7 +110,7 @@
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_fchmodat2 && __NR_fchmodat2 >= 0
 #    if defined systemd_NR_fchmodat2
-static_assert(__NR_fchmodat2 == systemd_NR_fchmodat2, "");
+_Static_assert(__NR_fchmodat2 == systemd_NR_fchmodat2, "");
 #    endif
 #  else
 #    if defined __NR_fchmodat2
@@ -182,7 +180,7 @@ static_assert(__NR_fchmodat2 == systemd_NR_fchmodat2, "");
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_kexec_file_load && __NR_kexec_file_load >= 0
 #    if defined systemd_NR_kexec_file_load
-static_assert(__NR_kexec_file_load == systemd_NR_kexec_file_load, "");
+_Static_assert(__NR_kexec_file_load == systemd_NR_kexec_file_load, "");
 #    endif
 #  else
 #    if defined __NR_kexec_file_load
@@ -252,7 +250,7 @@ static_assert(__NR_kexec_file_load == systemd_NR_kexec_file_load, "");
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_open_tree_attr && __NR_open_tree_attr >= 0
 #    if defined systemd_NR_open_tree_attr
-static_assert(__NR_open_tree_attr == systemd_NR_open_tree_attr, "");
+_Static_assert(__NR_open_tree_attr == systemd_NR_open_tree_attr, "");
 #    endif
 #  else
 #    if defined __NR_open_tree_attr
@@ -322,7 +320,7 @@ static_assert(__NR_open_tree_attr == systemd_NR_open_tree_attr, "");
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_quotactl_fd && __NR_quotactl_fd >= 0
 #    if defined systemd_NR_quotactl_fd
-static_assert(__NR_quotactl_fd == systemd_NR_quotactl_fd, "");
+_Static_assert(__NR_quotactl_fd == systemd_NR_quotactl_fd, "");
 #    endif
 #  else
 #    if defined __NR_quotactl_fd
@@ -392,7 +390,7 @@ static_assert(__NR_quotactl_fd == systemd_NR_quotactl_fd, "");
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_removexattrat && __NR_removexattrat >= 0
 #    if defined systemd_NR_removexattrat
-static_assert(__NR_removexattrat == systemd_NR_removexattrat, "");
+_Static_assert(__NR_removexattrat == systemd_NR_removexattrat, "");
 #    endif
 #  else
 #    if defined __NR_removexattrat
@@ -462,7 +460,7 @@ static_assert(__NR_removexattrat == systemd_NR_removexattrat, "");
 /* may be an (invalid) negative number due to libseccomp, see PR 13319 */
 #  if defined __NR_setxattrat && __NR_setxattrat >= 0
 #    if defined systemd_NR_setxattrat
-static_assert(__NR_setxattrat == systemd_NR_setxattrat, "");
+_Static_assert(__NR_setxattrat == systemd_NR_setxattrat, "");
 #    endif
 #  else
 #    if defined __NR_setxattrat

@@ -3,25 +3,23 @@
 
 #include_next <sys/mman.h>      /* IWYU pragma: export */
 
-#include <assert.h>
-
 /* since glibc-2.38 */
 #ifndef MFD_NOEXEC_SEAL
 #  define MFD_NOEXEC_SEAL 0x0008U
 #else
-static_assert(MFD_NOEXEC_SEAL == 0x0008U, "");
+_Static_assert(MFD_NOEXEC_SEAL == 0x0008U, "");
 #endif
 
 /* since glibc-2.38 */
 #ifndef MFD_EXEC
 #  define MFD_EXEC 0x0010U
 #else
-static_assert(MFD_EXEC == 0x0010U, "");
+_Static_assert(MFD_EXEC == 0x0010U, "");
 #endif
 
 /* since Linux 6.13 / glibc-2.42 */
 #ifndef MADV_GUARD_INSTALL
 #  define MADV_GUARD_INSTALL 102
 #else
-static_assert(MADV_GUARD_INSTALL == 102, "");
+_Static_assert(MADV_GUARD_INSTALL == 102, "");
 #endif
