@@ -506,7 +506,7 @@ int rm_rf_at(int dir_fd, const char *path, RemoveFlags flags) {
                 if (!FLAGS_SET(flags, REMOVE_PHYSICAL)) {
                         struct statfs s;
 
-                        r = xstatfsat(dir_fd, path, &s);
+                        r = xstatfsat(dir_fd, path, /* flags= */ 0, &s);
                         if (r < 0)
                                 return r;
                         if (is_physical_fs(&s))
