@@ -3500,7 +3500,6 @@ static void service_enter_refresh_extensions(Service *s) {
                 }
 
                 NamespaceParameters p = {
-                        .private_namespace_dir = "/run/systemd",
                         .incoming_dir = "/run/systemd/incoming",
                         .propagate_dir = propagate_dir,
                         .runtime_scope = UNIT(s)->manager->runtime_scope,
