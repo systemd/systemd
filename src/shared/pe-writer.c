@@ -22,6 +22,10 @@
 
 #define COFF_SYMBOL_SIZE 18U
 
+/* FICLONERANGE and copy_file_range() only share extents between two files if the source and destination
+ * offsets are multiples of the file system block size. */
+#define PE_WRITER_DATA_ALIGNMENT 4096U
+
 typedef struct PeWriterChunk {
         int fd;
         uint64_t offset;
@@ -79,6 +83,8 @@ struct PeWriter {
         size_t n_new_sections;
 
         uint16_t dll_characteristics_clear;
+
+        PeWriterFlags flags;
 };
 
 static PeWriterSection* pe_writer_section_free(PeWriterSection *s) {
@@ -114,7 +120,7 @@ PeWriter* pe_writer_free(PeWriter *w) {
 /* 'fd' must refer to a regular file that contains a PE image. pe_writer_new() reads the headers, and
  * pe_writer_write() copies the rest of the file from 'fd'. The file must not change in between, otherwise
  * the output does not match the headers. */
-int pe_writer_new(int fd, PeWriter **ret) {
+int pe_writer_new(int fd, PeWriterFlags flags, PeWriter **ret) {
         _cleanup_free_ IMAGE_DOS_HEADER *dos_header = NULL;
         _cleanup_free_ PeHeader *pe_header = NULL;
         int r;
@@ -307,6 +313,7 @@ int pe_writer_new(int fd, PeWriter **ret) {
                 .gaps_size = gaps_size,
                 .file_alignment = file_alignment,
                 .section_alignment = section_alignment,
+                .flags = flags,
         };
 
         w->replacements = new0(PeWriterReplacement, n_sections);
@@ -535,13 +542,23 @@ int pe_writer_write(const PeWriter *w, int output_fd) {
         uint64_t file_end = MAX(w->data_end + w->gaps_size, (uint64_t) w->headers_size),
                  initialized_data = le32toh(pe_header->optional.SizeOfInitializedData),
                  va = ALIGN_TO_U64(image_end, w->section_alignment),
-                 raw = ALIGN_TO_U64(file_end, w->file_alignment);
+                 raw = ALIGN_TO_U64(file_end, w->file_alignment),
+                 alignment = w->file_alignment;
+
+        /* If the section alignment is smaller than the page size, the PE format requires the file offset of
+         * each section to match its virtual address. Moving the data of a new section would break that.
+         *
+         * The zeroes in front of a moved section don't belong to any section. Authenticode hashes them
+         * together with the data after the last section. */
+        if (FLAGS_SET(w->flags, PE_WRITER_ALIGN_DATA) && w->section_alignment >= PE_WRITER_DATA_ALIGNMENT)
+                alignment = MAX(alignment, PE_WRITER_DATA_ALIGNMENT);
 
         IMAGE_SECTION_HEADER *new_sections = sections + w->n_sections;
         for (size_t i = 0; i < w->n_new_sections; i++) {
                 const PeWriterSection *s = w->new_sections[i];
                 uint64_t raw_size = ALIGN_TO_U64(s->size, w->file_alignment);
 
+                raw = ALIGN_TO_U64(raw, alignment);
                 if (raw + raw_size > UINT32_MAX || va + s->size > UINT32_MAX)
                         return log_debug_errno(SYNTHETIC_ERRNO(EFBIG), "PE image is too large.");
 
@@ -576,12 +593,10 @@ int pe_writer_write(const PeWriter *w, int output_fd) {
         if (ftruncate(output_fd, 0) < 0)
                 return log_debug_errno(errno, "Failed to truncate output file: %m");
 
-        r = pwrite_full(output_fd, headers, w->headers_size, /* offset= */ 0);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to write PE headers: %m");
-
-        /* The data between two gaps is copied in one piece. The zeroes of the gaps aren't written. */
-        uint64_t from = w->headers_size, shift = 0;
+        /* The data between two gaps is copied in one piece. The zeroes of the gaps aren't written. The copy
+         * starts at offset 0 instead of at the end of the headers, so that the extents of the input can be
+         * shared with the output. The headers are written over the copy below. */
+        uint64_t from = 0, shift = 0;
         for (size_t i = 0; i <= w->n_gaps; i++) {
                 uint64_t to = i < w->n_gaps ? w->gaps[i].offset : w->data_end;
 
@@ -599,6 +614,10 @@ int pe_writer_write(const PeWriter *w, int output_fd) {
                 if (i < w->n_gaps)
                         shift += w->gaps[i].size;
         }
+
+        r = pwrite_full(output_fd, headers, w->headers_size, /* offset= */ 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write PE headers: %m");
 
         for (size_t i = 0; i < w->n_sections; i++) {
                 const PeWriterReplacement *replacement = w->replacements + i;
