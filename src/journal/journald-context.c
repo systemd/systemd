@@ -433,7 +433,7 @@ static int client_context_read_extra_fields(
 
         q = data, left = size;
         while (left > 0) {
-                uint8_t *field, *eq;
+                uint8_t *field;
                 uint64_t v, n;
 
                 if (left < sizeof(uint64_t))
@@ -452,11 +452,7 @@ static int client_context_read_extra_fields(
 
                 field = q + sizeof(uint64_t);
 
-                eq = memchr(field, '=', v);
-                if (!eq)
-                        return -EBADMSG;
-
-                if (!journal_field_valid((const char *) field, eq - field, /* allow_protected= */ false))
+                if (!journal_field_and_data_valid(field, v, /* allow_protected= */ false))
                         return -EBADMSG;
 
                 if (!GREEDY_REALLOC(iovec, n_iovec+1))
