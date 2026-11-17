@@ -58,6 +58,10 @@
 
 #define DEV_MOUNT_OPTIONS (MS_NOSUID|MS_STRICTATIME|MS_NOEXEC)
 
+/* Fixed mount point that units overmount with a private tmpfs when they need a staging area for
+ * mounts that shall stay private to their mount namespace, e.g. the extension images. */
+#define UNIT_STAGING_DIR "/run/systemd/staging"
+
 typedef enum MountMode {
         /* This is ordered by priority! */
         MOUNT_INACCESSIBLE,
@@ -522,7 +526,6 @@ static int append_mount_images(MountList *ml, const MountImage *mount_images, si
 static int append_extensions(
                 MountList *ml,
                 const char *root,
-                const char *private_namespace_dir,
                 char **hierarchies,
                 const MountImage *mount_images,
                 size_t n_mount_images,
@@ -536,8 +539,6 @@ static int append_extensions(
 
         if (n_mount_images == 0 && strv_isempty(extension_directories))
                 return 0;
-
-        assert(private_namespace_dir);
 
         n_overlays = strv_length(hierarchies);
         if (n_overlays == 0)
@@ -588,7 +589,7 @@ static int append_extensions(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to check verity root hash of %s: %m", result.path);
 
-                if (asprintf(&mount_point, "%s/unit-extensions/%zu", private_namespace_dir, i) < 0)
+                if (asprintf(&mount_point, UNIT_STAGING_DIR "/unit-extensions/%zu", i) < 0)
                         return -ENOMEM;
 
                 for (size_t j = 0; hierarchies && hierarchies[j]; ++j) {
@@ -659,7 +660,7 @@ static int append_extensions(
                 }
 
                 /* Pick up the counter where the ExtensionImages left it. */
-                if (asprintf(&mount_point, "%s/unit-extensions/%zu", private_namespace_dir, n_mount_images++) < 0)
+                if (asprintf(&mount_point, UNIT_STAGING_DIR "/unit-extensions/%zu", n_mount_images++) < 0)
                         return -ENOMEM;
 
                 for (size_t j = 0; hierarchies && hierarchies[j]; ++j) {
@@ -1115,8 +1116,8 @@ static void drop_outside_root(MountList *ml, const char *root_directory) {
 
         for (f = ml->mounts, t = ml->mounts; f < ml->mounts + ml->n_mounts; f++) {
 
-                /* ExtensionImages/Directories bases are opened in /run/[user/xyz/]systemd/unit-extensions
-                 * on the host. */
+                /* ExtensionImages/Directories bases are staged in a private tmpfs below
+                 * /run/systemd/staging, outside of the root directory. */
                 if (!IN_SET(f->mode, MOUNT_EXTENSION_IMAGE, MOUNT_EXTENSION_DIRECTORY) &&
                     !path_startswith(mount_entry_path(f), root_directory)) {
                         log_debug("%s is outside of root directory.", mount_entry_path(f));
@@ -2751,6 +2752,10 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         root = "/run/systemd/mount-rootfs";
         (void) mkdir_label(root, 0555);
 
+        /* Same as above: the mount point for the private staging tmpfs is created by PID 1 early
+         * on, but let's make sure it exists also in the cases where that did not happen. */
+        (void) mkdir_label(UNIT_STAGING_DIR, 0555);
+
         if (p->n_extension_images > 0 || !strv_isempty(p->extension_directories)) {
                 /* Hierarchy population needs to be done for sysext and confext extension images */
                 r = parse_env_extension_hierarchies(&hierarchies, "SYSTEMD_SYSEXT_AND_CONFEXT_HIERARCHIES");
@@ -2782,7 +2787,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         if (r < 0)
                 return r;
 
-        r = append_extensions(&ml, root, p->private_namespace_dir, hierarchies, p->extension_images, p->n_extension_images, p->extension_directories);
+        r = append_extensions(&ml, root, hierarchies, p->extension_images, p->n_extension_images, p->extension_directories);
         if (r < 0)
                 return r;
 
@@ -3047,18 +3052,25 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         if (setup_propagate)
                 (void) mkdir_p(p->propagate_dir, 0600);
 
-        if (p->n_extension_images > 0 || !strv_isempty(p->extension_directories)) {
-                /* ExtensionImages/Directories mountpoint directories will be created while parsing the
-                 * mounts to create, so have the parent ready */
-                char *extension_dir = strjoina(p->private_namespace_dir, "/unit-extensions");
-                (void) mkdir_p(extension_dir, 0600);
-        }
-
         /* Remount / as SLAVE so that nothing now mounted in the namespace
          * shows up in the parent */
         r = mount_nofollow_verbose(LOG_DEBUG, /* what= */ NULL, "/", /* fstype= */ NULL, MS_SLAVE|MS_REC, /* options= */ NULL);
         if (r < 0)
                 return r;
+
+        if (p->n_extension_images > 0 || !strv_isempty(p->extension_directories)) {
+                /* Mount a private tmpfs to stage the extensions in. This is done in the mount
+                 * namespace we just unshared and made a slave, hence it stays private to the
+                 * unit, and it works no matter which user namespace the unit runs in. */
+                r = mount_nofollow_verbose(LOG_DEBUG, "tmpfs", UNIT_STAGING_DIR, "tmpfs",
+                                           MS_NODEV|MS_NOSUID, "mode=0700" TMPFS_LIMITS_EMPTY_OR_ALMOST);
+                if (r < 0)
+                        return r;
+
+                /* ExtensionImages/Directories mountpoint directories will be created while parsing the
+                 * mounts to create, so have the parent ready */
+                (void) mkdir_p(UNIT_STAGING_DIR "/unit-extensions", 0600);
+        }
 
         if (root_mount_fd >= 0) {
                 /* If we have root_mount_fd we have a ready-to-use detached mount. Attach it. */
@@ -3912,7 +3924,6 @@ int refresh_extensions_in_namespace(
         _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF;
         const char *overlay_prefix = "/run/systemd/mount-rootfs";
         _cleanup_(mount_list_done) MountList ml = {};
-        _cleanup_free_ char *extension_dir = NULL;
         _cleanup_strv_free_ char **hierarchies = NULL;
         int r;
 
@@ -3934,10 +3945,6 @@ int refresh_extensions_in_namespace(
 
         (void) dlopen_cryptsetup(LOG_DEBUG);
 
-        extension_dir = path_join(p->private_namespace_dir, "unit-extensions");
-        if (!extension_dir)
-                return log_oom_debug();
-
         r = parse_env_extension_hierarchies(&hierarchies, hierarchy_env);
         if (r < 0)
                 return r;
@@ -3945,7 +3952,6 @@ int refresh_extensions_in_namespace(
         r = append_extensions(
                         &ml,
                         overlay_prefix,
-                        p->private_namespace_dir,
                         hierarchies,
                         p->extension_images,
                         p->n_extension_images,
