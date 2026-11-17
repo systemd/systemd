@@ -1224,6 +1224,39 @@ static int xopen_verify_type(int fd, XOpenFlags flags) {
         return FLAGS_SET(flags, XO_REGULAR) ? statx_verify_regular(&stx) : statx_verify_socket(&stx);
 }
 
+static int xopen_reopen_pinned(int inode_fd, int dir_fd, const char *path, int open_flags, int lookup_flags) {
+        struct stat a, b;
+        int r;
+
+        assert(inode_fd >= 0);
+        assert(path);
+
+        int fd = fd_reopen(inode_fd, open_flags);
+        if (fd != -ENOSYS)
+                return fd;
+
+        /* fd_reopen() needs /proc for a non-directory on kernels without O_EMPTYPATH, and returns ENOSYS
+         * when /proc isn't mounted. We open the path again and check that it still refers to the pinned
+         * inode. Another process can replace the inode in between. O_NONBLOCK keeps the open from blocking
+         * when a FIFO replaced it. */
+        _cleanup_close_ int new_fd = RET_NERRNO(openat(dir_fd, path, open_flags|lookup_flags|O_NONBLOCK|O_NOCTTY));
+        if (new_fd < 0)
+                return new_fd;
+
+        if (fstat(inode_fd, &a) < 0 || fstat(new_fd, &b) < 0)
+                return -errno;
+        if (!stat_inode_same(&a, &b))
+                return -ESTALE;
+
+        if (!FLAGS_SET(open_flags, O_NONBLOCK)) {
+                r = fd_nonblock(new_fd, false);
+                if (r < 0)
+                        return r;
+        }
+
+        return TAKE_FD(new_fd);
+}
+
 int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode, LabelContext *label_context) {
         _cleanup_close_ int fd = -EBADF;
         bool made_dir = false, made_file = false, dir_exists = false;
@@ -1452,10 +1485,11 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
                                 if (r < 0)
                                         goto error;
 
+                                int lookup_flags = open_flags & O_NOFOLLOW;
                                 open_flags &= ~(O_NOFOLLOW|O_CREAT);
 
                                 if (FLAGS_SET(xopen_flags, XO_AUTO_RW_RO)) {
-                                        fd = fd_reopen(inode_fd, open_flags|O_RDWR);
+                                        fd = xopen_reopen_pinned(inode_fd, dir_fd, path, open_flags|O_RDWR, lookup_flags);
                                         if (ERRNO_IS_NEG_FS_WRITE_REFUSED(fd))
                                                 open_flags |= O_RDONLY;
                                         else if (fd < 0) {
@@ -1465,7 +1499,7 @@ int xopenat_full_label(int dir_fd, const char *path, int open_flags, XOpenFlags 
                                 }
 
                                 if (fd < 0) {
-                                        fd = fd_reopen(inode_fd, open_flags);
+                                        fd = xopen_reopen_pinned(inode_fd, dir_fd, path, open_flags, lookup_flags);
                                         if (fd < 0) {
                                                 r = fd;
                                                 goto error;

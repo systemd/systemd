@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <sys/file.h>
+#include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <unistd.h>
@@ -13,6 +14,7 @@
 #include "copy.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "mkdir.h"
 #include "path-util.h"
@@ -891,6 +893,37 @@ TEST(xopenat_socket) {
         fd = ASSERT_OK(xopenat_full(tfd, "dir", O_PATH, /* xopen_flags= */ 0, /* mode= */ 0));
         ASSERT_ERROR(xopenat_full(fd, /* path= */ NULL, O_PATH, XO_SOCKET|XO_EMPTY_PATH, /* mode= */ 0), EISDIR);
         fd = safe_close(fd);
+}
+
+TEST(xopenat_regular_without_proc) {
+        /* XO_REGULAR pins the inode with O_PATH, checks its type, and then reopens it. Unmount /proc in a
+         * new mount namespace. The reopen must still return a readable regular file without O_NONBLOCK,
+         * and XO_REGULAR must still refuse a FIFO without blocking. */
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+        int r;
+
+        if (!have_effective_cap(CAP_SYS_ADMIN))
+                return (void) log_tests_skipped("Lacking CAP_SYS_ADMIN to unmount /proc");
+
+        tfd = ASSERT_OK(mkdtemp_open(/* template= */ NULL, /* flags= */ 0, &t));
+        ASSERT_OK(write_string_file_at(tfd, "file", "data", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK_ERRNO(mkfifoat(tfd, "fifo", 0600));
+
+        r = ASSERT_OK(pidref_safe_fork("(noproc)", FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, /* ret= */ NULL));
+        if (r == 0) {
+                ASSERT_OK_ERRNO(umount2("/proc", MNT_DETACH));
+
+                _cleanup_close_ int fd = ASSERT_OK(xopenat_full(tfd, "file", O_RDONLY|O_CLOEXEC, XO_REGULAR, /* mode= */ 0));
+                ASSERT_FALSE(FLAGS_SET(ASSERT_OK_ERRNO(fcntl(fd, F_GETFL)), O_NONBLOCK));
+
+                char buf[4];
+                ASSERT_OK_EQ_ERRNO(read(fd, buf, sizeof(buf)), (ssize_t) sizeof(buf));
+                ASSERT_EQ(memcmp(buf, "data", sizeof(buf)), 0);
+
+                ASSERT_ERROR(xopenat_full(tfd, "fifo", O_RDONLY|O_CLOEXEC, XO_REGULAR, /* mode= */ 0), EBADFD);
+                _exit(EXIT_SUCCESS);
+        }
 }
 
 TEST(xopenat_trigger_automount) {
