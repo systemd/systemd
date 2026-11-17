@@ -1,0 +1,136 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.VarlinkMonitor"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.VarlinkMonitor</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.VarlinkMonitor</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.VarlinkMonitor</refname>
+    <refpurpose>Monitor Varlink socket traffic via BPF</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.VarlinkMonitor</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+    <para>The monitor observes Varlink traffic on the machine and streams it to the caller.
+    <function>Acquire()</function> takes an array of <varname>MonitorFilter</varname> entries that
+    are ORed together, where each entry ANDs its fields: <varname>uid</varname> (sender or peer
+    user), <varname>pid</varname> (a <varname>ProcessId</varname>, i.e. a PID together with the
+    pending <varname>pidfdId</varname> and <varname>bootId</varname> that disambiguate PID reuse),
+    and <varname>path</varname> (socket path, with the empty string matching sockets without one).
+    Without filters all traffic is captured. The reply carries a BPF ring buffer file descriptor, and
+    the connection stays open until the client disconnects. Invalid filters are refused with
+    <varname>BadFilter</varname>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Security</title>
+
+    <para>The interface is served by <filename>systemd-varlink-monitord.socket</filename>, which
+    starts one <filename>systemd-varlink-monitord@.service</filename> instance per connection, on the
+    <filename>/run/systemd/io.systemd.VarlinkMonitor</filename> socket, which is world-connectable
+    (<constant>SocketMode=0666</constant>). Since the capture is machine-wide and may contain
+    sensitive payloads, <function>Acquire()</function> authenticates through polkit, selecting
+    between the actions <varname>io.systemd.varlink-monitor.monitor</varname> and
+    <varname>io.systemd.varlink-monitor.monitor-self</varname>, the latter for captures whose filters
+    only match the caller's own user. The broker does not prompt interactively, so authorization has
+    to be granted by policy.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.VarlinkMonitor">
+<emphasis role="varlink-comment"># Monitor Varlink socket traffic via BPF.</emphasis>
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.VarlinkMonitor
+
+<emphasis role="varlink-comment"># An object for referencing UNIX processes</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ProcessId(
+	<emphasis role="varlink-comment"># Numeric UNIX PID value</emphasis>
+	pid: int,
+	<emphasis role="varlink-comment"># 64bit inode number of pidfd if known</emphasis>
+	pidfdId: ?int,
+	<emphasis role="varlink-comment"># Boot ID of the system the inode number belongs to</emphasis>
+	bootId: ?string
+)
+
+<emphasis role="varlink-comment"># A filter for matching varlink traffic.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> MonitorFilter(
+	<emphasis role="varlink-comment"># Match traffic where sender or peer has this UID.</emphasis>
+	uid: ?int,
+	<emphasis role="varlink-comment"># Match traffic where sender or peer has this PID.</emphasis>
+	pid: ?ProcessId,
+	<emphasis role="varlink-comment"># Match traffic on this socket path. Empty string matches sockets without a path.</emphasis>
+	path: ?string
+)
+
+<emphasis role="varlink-comment"># Start monitoring varlink traffic with the given filters. Returns a BPF ring buffer fd and keeps the connection open until the client disconnects.</emphasis>
+<emphasis role="varlink-comment"># [Supports 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> Acquire(
+	<emphasis role="varlink-comment"># Capture filters. Each filter's fields are ANDed; the array is ORed. If unset, captures all traffic.</emphasis>
+	filters: ?[]MonitorFilter,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; (
+	<emphasis role="varlink-comment"># File descriptor index for the BPF ring buffer.</emphasis>
+	ringbufFileDescriptor: ?int
+)
+
+<emphasis role="varlink-comment"># A filter parameter is invalid.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> BadFilter(
+	parameter: string
+)
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.VarlinkMonitor"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ProcessId"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="MonitorFilter"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="BadFilter"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="Acquire()"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.VarlinkMonitor</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.VarlinkMonitor.Acquire '{}'</screen>
+    invokes its <function>Acquire()</function> method.</para>
+  </refsect1>
+
+  <refsect1><title>History</title><para>The io.systemd.VarlinkMonitor interface was added in version 263.</para><para><function>Acquire()</function>, <varname>BadFilter</varname>, <varname>MonitorFilter</varname>, and <varname>ProcessId</varname> were added in version 263.</para></refsect1><refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

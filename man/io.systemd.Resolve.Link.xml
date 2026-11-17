@@ -1,0 +1,287 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.Resolve.Link"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.Resolve.Link</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.Resolve.Link</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.Resolve.Link</refname>
+    <refpurpose>Configure the DNS settings of a link</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.Resolve.Link</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+    <para>This is the per-link half of
+    <citerefentry><refentrytitle>io.systemd.Resolve</refentrytitle><manvolnum>5</manvolnum></citerefentry>:
+    it lets a network configuration manager push the DNS configuration of a link to the resolver.
+    Implementations exist in both
+    <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>:
+    on the former the settings are applied to the resolver state of the link, on the latter they are
+    applied to the link configuration and saved, so that a later restart of networkd restores them.
+    <function>SetDNS()</function> replaces the DNS server list of the link identified by
+    <varname>ifindex</varname>, taking <varname>DNSServerContext</varname> entries (server address,
+    address family, optional port, interface index and TLS server name), and
+    <function>SetDomains()</function> replaces its search and route domain list, taking
+    <varname>SearchDomainContext</varname> entries (<varname>name</varname>, and
+    <varname>routeOnly</varname> for routing-only domains).</para>
+
+    <para><function>SetLLMNR()</function> and <function>SetMulticastDNS()</function> set the link
+    protocol mode. The <varname>ResolveSupport</varname> enumeration selects disabled
+    (<literal>no</literal>), enabled (<literal>yes</literal>) or resolve-only
+    (<literal>resolve</literal>). <function>SetDNSOverTLS()</function> sets the DNS-over-TLS mode.
+    <varname>DNSOverTLSMode</varname> selects <literal>no</literal>, <literal>yes</literal> or
+    <literal>opportunistic</literal>. <function>SetDNSSEC()</function> sets the DNSSEC mode.
+    <function>SetDNSSECNegativeTrustAnchors()</function> replaces the negative trust anchors of the
+    link, and <function>SetDNSDefaultRoute()</function> makes the link usable as default route for
+    DNS lookups. <function>RevertDNS()</function> resets all per-link DNS settings to their defaults.
+    A link that is not ready yet is reported with <varname>InterfaceNotReady</varname>, and the
+    request can be retried later. The resulting state is visible through
+    <citerefentry><refentrytitle>resolvectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+    and <varname>IsLoopback</varname> and <varname>ManagedByNetworkd</varname> report how the link is
+    set up.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Security</title>
+
+    <para>The interface is served by
+    <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    on the <filename>/run/systemd/resolve/io.systemd.Resolve</filename> socket and by
+    <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    on the <filename>/run/systemd/netif/io.systemd.Network</filename> socket; both are
+    world-connectable (<constant>SocketMode=0666</constant>). Both methods authenticate through
+    polkit, and interactive authentication is requested when the caller sets
+    <varname>allowInteractiveAuthentication</varname>; the resolver uses the actions
+    <varname>org.freedesktop.resolve1.set-dns-servers</varname> and
+    <varname>org.freedesktop.resolve1.set-domains</varname>, networkd the corresponding
+    <varname>org.freedesktop.network1.set-dns-servers</varname> and
+    <varname>org.freedesktop.network1.set-domains</varname> actions. In practice the caller of the
+    resolver's copy is
+    <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    which forwards the DNS configuration it learned from the network.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.Resolve.Link">
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.Resolve.Link
+
+<emphasis role="varlink-keyword">type</emphasis> ResolveSupport(
+	<emphasis role="varlink-comment"># The protocol is disabled.</emphasis>
+	no,
+	<emphasis role="varlink-comment"># The protocol is enabled.</emphasis>
+	yes,
+	<emphasis role="varlink-comment"># The protocol is used only for resolving.</emphasis>
+	resolve
+)
+
+<emphasis role="varlink-keyword">type</emphasis> DNSOverTLSMode(
+	<emphasis role="varlink-comment"># DNSOverTLS is disabled.</emphasis>
+	no,
+	<emphasis role="varlink-comment"># DNSOverTLS is enabled.</emphasis>
+	yes,
+	<emphasis role="varlink-comment"># Try to use DNSOverTLS, but disabled when the server does not support it.</emphasis>
+	opportunistic
+)
+
+<emphasis role="varlink-comment"># DNS server configuration input.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> DNSServerContext(
+	<emphasis role="varlink-comment"># IPv4 or IPv6 address of the server.</emphasis>
+	address: []int,
+	<emphasis role="varlink-comment"># Address family of the server, one of AF_INET or AF_INET6.</emphasis>
+	family: int,
+	<emphasis role="varlink-comment"># Port number of the server.</emphasis>
+	port: ?int,
+	<emphasis role="varlink-comment"># Interface index for which this server is configured.</emphasis>
+	ifindex: ?int,
+	<emphasis role="varlink-comment"># Server Name Indication (SNI) of the server.</emphasis>
+	name: ?string
+)
+
+<emphasis role="varlink-comment"># Search domain configuration input.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> SearchDomainContext(
+	<emphasis role="varlink-comment"># DNS search or route domain name</emphasis>
+	name: string,
+	<emphasis role="varlink-comment"># Indicates if this is a routing-only domain.</emphasis>
+	routeOnly: ?bool
+)
+
+<emphasis role="varlink-comment"># Set the per-link DNS server list.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SetDNS(
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool,
+	<emphasis role="varlink-comment"># Index of the interface to configure.</emphasis>
+	ifindex: int,
+	<emphasis role="varlink-comment"># DNS servers to configure on the link</emphasis>
+	servers: []DNSServerContext
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Set the per-link search domain list.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SetDomains(
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool,
+	<emphasis role="varlink-comment"># Index of the interface to configure.</emphasis>
+	ifindex: int,
+	<emphasis role="varlink-comment"># DNS search or route domains to configure on the link.</emphasis>
+	searchDomains: []SearchDomainContext
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Set the per-link DNSSEC negative trust anchors.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SetDNSSECNegativeTrustAnchors(
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool,
+	<emphasis role="varlink-comment"># Index of the interface to configure.</emphasis>
+	ifindex: int,
+	<emphasis role="varlink-comment"># DNSSEC negative trust anchors to configure on the link</emphasis>
+	negativeTrustAnchors: []string
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Set the per-link DNS default route setting.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SetDNSDefaultRoute(
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool,
+	<emphasis role="varlink-comment"># Index of the interface to configure.</emphasis>
+	ifindex: int,
+	<emphasis role="varlink-comment"># Whether this link can be used as a default route for DNS lookups.</emphasis>
+	defaultRoute: bool
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Set the per-link LLMNR mode.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SetLLMNR(
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool,
+	<emphasis role="varlink-comment"># Index of the interface to configure.</emphasis>
+	ifindex: int,
+	<emphasis role="varlink-comment"># LLMNR mode to configure on the link.</emphasis>
+	llmnr: ResolveSupport
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Set the per-link MulticastDNS mode.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SetMulticastDNS(
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool,
+	<emphasis role="varlink-comment"># Index of the interface to configure.</emphasis>
+	ifindex: int,
+	<emphasis role="varlink-comment"># MulticastDNS mode to configure on the link.</emphasis>
+	mDNS: ResolveSupport
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Set the per-link DNS-over-TLS mode.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SetDNSOverTLS(
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool,
+	<emphasis role="varlink-comment"># Index of the interface to configure.</emphasis>
+	ifindex: int,
+	<emphasis role="varlink-comment"># DNSOverTLS mode to configure on the link. Passing null resets to the default.</emphasis>
+	dnsOverTLS: ?DNSOverTLSMode
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Set the per-link DNSSEC mode.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> SetDNSSEC(
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool,
+	<emphasis role="varlink-comment"># Index of the interface to configure.</emphasis>
+	ifindex: int,
+	<emphasis role="varlink-comment"># DNSSEC mode to configure on the link. Passing null resets to the default.</emphasis>
+	dnssec: ?string
+) -&gt; ()
+
+<emphasis role="varlink-comment"># Revert per-link DNS settings.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> RevertDNS(
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool,
+	<emphasis role="varlink-comment"># Index of the interface to configure.</emphasis>
+	ifindex: int
+) -&gt; ()
+
+<emphasis role="varlink-comment"># The specified interface is managed by systemd-networkd. The request should be re-directed to systemd-networkd.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> ManagedByNetworkd()
+
+<emphasis role="varlink-comment"># The specified interface is a loopback interface, and cannot be configured.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> IsLoopback()
+
+<emphasis role="varlink-comment"># The specified interface is not ready yet, e.g. its name is not known. The request should be retried later.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> InterfaceNotReady()
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.Resolve.Link"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="ManagedByNetworkd"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="IsLoopback"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="InterfaceNotReady"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DNSServerContext"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetDNS()"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="SearchDomainContext"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetDomains()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetDNSSECNegativeTrustAnchors()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetDNSDefaultRoute()"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResolveSupport"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetLLMNR()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetMulticastDNS()"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="DNSOverTLSMode"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetDNSOverTLS()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="SetDNSSEC()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="RevertDNS()"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.Resolve.Link</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.Resolve.Link.SetDNS \
+    '{"ifindex": 2, "servers": [{"address": [127, 0, 0, 1], "family": 2, "port": 53}]}'</screen>
+    invokes its <function>SetDNS()</function> method.</para>
+  </refsect1>
+
+  <refsect1><title>History</title><para>The io.systemd.Resolve.Link interface was added in version 263.</para><para><varname>DNSOverTLSMode</varname>, <varname>DNSServerContext</varname>, <varname>InterfaceNotReady</varname>, <varname>IsLoopback</varname>, <varname>ManagedByNetworkd</varname>, <varname>ResolveSupport</varname>, <function>RevertDNS()</function>, <varname>SearchDomainContext</varname>, <function>SetDNS()</function>, <function>SetDNSDefaultRoute()</function>, <function>SetDNSOverTLS()</function>, <function>SetDNSSEC()</function>, <function>SetDNSSECNegativeTrustAnchors()</function>, <function>SetDomains()</function>, <function>SetLLMNR()</function>, and <function>SetMulticastDNS()</function> were added in version 263.</para></refsect1><refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>
