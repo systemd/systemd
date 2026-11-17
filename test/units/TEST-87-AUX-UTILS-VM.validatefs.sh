@@ -102,6 +102,24 @@ getfattr --dump /tmp/validatefs-test.mount/home | grep user.validatefs.mount_poi
 /usr/lib/systemd/systemd-validatefs --root=/tmp/validatefs-test.mount /tmp/validatefs-test.mount/home
 (! /usr/lib/systemd/systemd-validatefs /tmp/validatefs-test.mount/home )
 
+# If /home is a symlink (as on OSTree), the file system recorded for /home is accepted where it points to,
+# but nowhere else
+umount /tmp/validatefs-test.mount/home
+rmdir /tmp/validatefs-test.mount/home
+mkdir -p /tmp/validatefs-test.mount/var/home /tmp/validatefs-test.mount/srv
+ln -s var/home /tmp/validatefs-test.mount/home
+udevadm wait --settle --timeout=30 /dev/disk/by-label/rupft
+mount /dev/disk/by-label/rupft /tmp/validatefs-test.mount/var/home
+/usr/lib/systemd/systemd-validatefs --root=/tmp/validatefs-test.mount /tmp/validatefs-test.mount/var/home
+umount /tmp/validatefs-test.mount/var/home
+mount /dev/disk/by-label/rupft /tmp/validatefs-test.mount/srv
+(! /usr/lib/systemd/systemd-validatefs --root=/tmp/validatefs-test.mount /tmp/validatefs-test.mount/srv )
+umount /tmp/validatefs-test.mount/srv
+rm /tmp/validatefs-test.mount/home
+rmdir /tmp/validatefs-test.mount/var/home /tmp/validatefs-test.mount/var /tmp/validatefs-test.mount/srv
+mkdir /tmp/validatefs-test.mount/home
+mount /dev/disk/by-label/rupft /tmp/validatefs-test.mount/home
+
 getfattr --dump /tmp/validatefs-test.mount/efi
 (! getfattr --dump /tmp/validatefs-test.mount/efi | grep user.validatefs.gpt_type_uuid= >/dev/null )
 (! getfattr --dump /tmp/validatefs-test.mount/efi | grep user.validatefs.gpt_label= >/dev/null )

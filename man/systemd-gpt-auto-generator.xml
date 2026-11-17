@@ -47,6 +47,11 @@
     <filename>/boot/</filename> or <filename>/efi/</filename> hierarchies in <citerefentry
     project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
+    <para>If the mount point for the home, server data, variable data or temporary data partition is a
+    symbolic link, it is resolved and the mount unit is generated for the resulting path. For example, if
+    <filename>/home/</filename> is a symbolic link to <filename>/var/home/</filename>, the home partition is
+    mounted on <filename>/var/home/</filename> via <filename>var-home.mount</filename>.</para>
+
     <para>If the units this generator creates are overridden, for example by units in directories with higher
     precedence, drop-ins and additional dependencies created by this generator might still be used.</para>
 
