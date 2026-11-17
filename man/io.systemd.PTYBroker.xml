@@ -1,0 +1,405 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.PTYBroker"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.PTYBroker</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.PTYBroker</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.PTYBroker</refname>
+    <refpurpose>An API for acquiring a pseudo-terminal</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.PTYBroker</interfacename> is a Varlink interface implemented by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+    <para>The broker hands out pseudo-terminal (PTY) pairs and tracks them across processes.
+    <function>AcquirePty()</function> allocates a new PTY pair, optionally backed by a command line
+    or an interactive shell (<varname>viaShell</varname>), and returns file descriptors for the
+    frontend (the caller's side) and the backend, plus the unit that runs the backend.
+    <function>EnrollPty()</function> adopts an already existing PTY pair.
+    <function>ListPty()</function>, <function>ConfigurePty()</function>,
+    <function>MonitorPty()</function> and <function>HangUpPty()</function> inspect, reconfigure,
+    monitor and terminate tracked PTYs. <varname>TerminalSettings</varname> carries the window size,
+    the terminal type and similar per-PTY state.</para>
+
+    <para><varname>FrontendType</varname> selects what happens with the frontend (master) side: hand the
+    file descriptor to the caller (<literal>take</literal>), read from it and forward the output to
+    monitors and discard it (<literal>null</literal>), or additionally log it
+    (<literal>log</literal>). <varname>BackendType</varname> selects whether the backend (slave) side
+    is handed to the caller as well (<literal>take</literal>) or whether the broker invokes a shell
+    on it (<literal>shell</literal>). <varname>WorkingDirectory</varname> names the initial directory
+    for such a shell, either as an absolute <varname>path</varname> or as the <varname>home</varname>
+    directory of the user, and <varname>ProcessId</varname> refers to a process by PID, together with
+    the <varname>pidfdId</varname>/<varname>bootId</varname> pair that disambiguates it across PID
+    reuse.</para>
+
+    <para>Names are unique: <varname>PtyExists</varname> is returned if a name is taken,
+    <varname>NoSuchPty</varname> if the named PTY is unknown, <varname>TooManyPtys</varname> and
+    <varname>TooManyMonitors</varname> when local limits are reached, and
+    <varname>TrackingNotEnabled</varname> if the broker was started without PTY tracking. This is the
+    mechanism
+    <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    and PID 1 use to attach a PTY to a service.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Security</title>
+
+    <para>The interface is served by
+    <citerefentry><refentrytitle>systemd-ptybrokerd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    on the <filename>/run/systemd/io.systemd.PTYBroker</filename> socket, which is world-connectable
+    (<constant>SocketMode=0666</constant>); a per-user instance is available as
+    <filename>%t/systemd/io.systemd.PTYBroker</filename>. Acquiring a PTY authenticates through the
+    polkit action <varname>io.systemd.PTYBroker.acquire-pty</varname>, or
+    <varname>io.systemd.PTYBroker.acquire-pty-with-shell</varname> when a shell backend is requested,
+    and interactive authentication is requested when the caller sets
+    <varname>allowInteractiveAuthentication</varname>. The matching polkit policy is installed with
+    the service.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.PTYBroker">
+<emphasis role="varlink-comment"># An API for acquiring a pseudo-terminal</emphasis>
+<emphasis role="varlink-comment"># [Experimental]</emphasis>
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.PTYBroker
+
+<emphasis role="varlink-comment"># What to do with the PTY frontend.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> FrontendType(
+	<emphasis role="varlink-comment"># Return the file descriptor of the frontend side of the pty to the caller, do not keep a duplicate.</emphasis>
+	take,
+	<emphasis role="varlink-comment"># Read any data received from the backend and send it to monitors, afterwards discard it</emphasis>
+	null,
+	<emphasis role="varlink-comment"># Read any data received from the backend and write it to monitors and the logs</emphasis>
+	log
+)
+
+<emphasis role="varlink-comment"># What to do with the PTY backend.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> BackendType(
+	<emphasis role="varlink-comment"># Return the file descriptor of the backend side of the pty to the caller, do not keep a duplicate.</emphasis>
+	take,
+	<emphasis role="varlink-comment"># Invoke a shell on the backend side.</emphasis>
+	shell
+)
+
+<emphasis role="varlink-comment"># Details about terminal settings.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> TerminalSettings(
+	<emphasis role="varlink-comment"># Terminal type ($TERM)</emphasis>
+	envTERM: ?string,
+	<emphasis role="varlink-comment"># Terminal type ($COLORTERM)</emphasis>
+	envCOLORTERM: ?string,
+	<emphasis role="varlink-comment"># Whether $NO_COLOR is set to a non-empty value, i.e. color output shall be suppressed (see no-color.org)</emphasis>
+	envNO_COLOR: ?bool,
+	<emphasis role="varlink-comment"># Width (in character cell columns) for the pty</emphasis>
+	columns: ?int,
+	<emphasis role="varlink-comment"># Height (in character cell lines) for the pty</emphasis>
+	lines: ?int
+)
+
+<emphasis role="varlink-comment"># The working directory of the shell.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> WorkingDirectory(
+	<emphasis role="varlink-comment"># The path to the working directory. Mutually exclusive with 'home'</emphasis>
+	path: ?string,
+	<emphasis role="varlink-comment"># If true, use the configured user's home directory as the working directory. Mutually exclusive with 'path'</emphasis>
+	home: ?bool,
+	<emphasis role="varlink-comment"># Whether the path to the working directory is allowed to not exist</emphasis>
+	missingOK: ?bool
+)
+
+<emphasis role="varlink-comment"># An object for referencing UNIX processes</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ProcessId(
+	<emphasis role="varlink-comment"># Numeric UNIX PID value</emphasis>
+	pid: int,
+	<emphasis role="varlink-comment"># 64bit inode number of pidfd if known</emphasis>
+	pidfdId: ?int,
+	<emphasis role="varlink-comment"># Boot ID of the system the inode number belongs to</emphasis>
+	bootId: ?string
+)
+
+<emphasis role="varlink-comment"># Allocates a PTY pair, and configures what to do with each side.</emphasis>
+<emphasis role="varlink-comment"># [Supports 'upgrade' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> AcquirePty(
+	<emphasis role="varlink-comment"># What to do with the 'frontend' of the pty, also known as the pty 'master'</emphasis>
+	frontendType: FrontendType,
+	<emphasis role="varlink-comment"># What to do with the 'backend' of the pty, also known the pty 'slave'</emphasis>
+	backendType: BackendType,
+	<emphasis role="varlink-comment"># A unique name to identify the pty allocation with</emphasis>
+	name: ?string,
+	<emphasis role="varlink-comment"># A descriptive string to identify the pty allocation with (doesn't have to be unique)</emphasis>
+	description: ?string,
+	<emphasis role="varlink-comment"># The syslog 'tag' to use for this pseudo TTY output when connected to logging</emphasis>
+	tag: ?string,
+	<emphasis role="varlink-comment"># For shell backend: user to run the shell as</emphasis>
+	user: ?string,
+	<emphasis role="varlink-comment"># For shell backend: group to run the shell as</emphasis>
+	group: ?string,
+	<emphasis role="varlink-comment"># For shell backend: initial directory for the shell, either an absolute path or the home directory of the user</emphasis>
+	workingDirectory: ?WorkingDirectory,
+	<emphasis role="varlink-comment"># For shell backend: environment variables for the shell, as a list of assignments in the usual VAR=VALUE syntax</emphasis>
+	environment: ?[]string,
+	<emphasis role="varlink-comment"># For shell backend: whether to allocate a 'lightweight' session</emphasis>
+	lightweight: ?bool,
+	<emphasis role="varlink-comment"># For shell backend: command line to invoke as main service process. If unset an interactive login shell is invoked.</emphasis>
+	commandLine: ?[]string,
+	<emphasis role="varlink-comment"># For shell backend: whether to invoke the command line via the target user's native shell. Defaults to true. If false a command line must be specified, and is invoked directly.</emphasis>
+	viaShell: ?bool,
+	<emphasis role="varlink-comment"># For shell backend: absolute path of the binary to execute. Only valid if viaShell is false. If unset the first element of the command line is used, otherwise the first element of the command line is only passed as argv[0] (e.g. to request login shell semantics by prefixing it with a dash).</emphasis>
+	executable: ?string,
+	<emphasis role="varlink-comment"># Convert the connection into a monitor connection once done</emphasis>
+	monitor: ?bool,
+	<emphasis role="varlink-comment"># If true, hang up the pty once this monitor connection is disconnected. If null defaults to false.</emphasis>
+	hangUpOnDisconnect: ?bool,
+	<emphasis role="varlink-comment"># If true, a hangup of the backend side of the pty (e.g. because the last process having it open closed it, or called vhangup() on it) does not release the pty, since the backend might be reopened later. Only valid in combination with the monitor and hangUpOnDisconnect flags, as the monitor connection going away then defines the lifetime of the pty. If null defaults to false.</emphasis>
+	ignoreHangup: ?bool,
+	<emphasis role="varlink-comment"># If true, track the dimensions of the monitor's terminal via in-band window resize notifications (CSI 2048/48) on the monitor stream, and propagate the minimum dimensions of all monitors to the pty. Only valid in combination with the monitor flag. If null defaults to false.</emphasis>
+	inBandResize: ?bool,
+	<emphasis role="varlink-comment"># Initial settings for the terminal</emphasis>
+	terminalSettings: ?TerminalSettings,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; (
+	<emphasis role="varlink-comment"># Selected name for the pty allocation</emphasis>
+	name: string,
+	<emphasis role="varlink-comment"># A descriptive string to identify the pty allocation with (doesn't have to be unique)</emphasis>
+	description: ?string,
+	<emphasis role="varlink-comment"># The frontend type for this PTY</emphasis>
+	frontendType: FrontendType,
+	<emphasis role="varlink-comment"># The backend type for this PTY</emphasis>
+	backendType: BackendType,
+	<emphasis role="varlink-comment"># The syslog 'tag' to use for this pseudo TTY output when connected to logging</emphasis>
+	tag: ?string,
+	<emphasis role="varlink-comment"># The index of the PTY frontend (i.e. 'master')</emphasis>
+	frontendFileDescriptor: ?int,
+	<emphasis role="varlink-comment"># The index of the PTY backend (i.e. 'slave')</emphasis>
+	backendFileDescriptor: ?int,
+	<emphasis role="varlink-comment"># The TTY path name of the allocate pseudo TTY</emphasis>
+	backendPath: string,
+	<emphasis role="varlink-comment"># The name of the transient service unit that runs the shell or login on the PTY backend side.</emphasis>
+	unit: ?string,
+	<emphasis role="varlink-comment"># Settled settings for the terminal</emphasis>
+	terminalSettings: ?TerminalSettings
+)
+
+<emphasis role="varlink-comment"># Enrolls a pre-allocated PTY frontend (i.e. the master).</emphasis>
+<emphasis role="varlink-comment"># [Supports 'upgrade' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> EnrollPty(
+	<emphasis role="varlink-comment"># The index of the PTY frontend (i.e. 'master')</emphasis>
+	frontendFileDescriptor: int,
+	<emphasis role="varlink-comment"># What to do with the 'frontend' of the pty, also known as the pty 'master'</emphasis>
+	frontendType: FrontendType,
+	<emphasis role="varlink-comment"># The TTY path name of the pre-allocated pseudo TTY, if known and meaningful to the broker. Leave unset if the path only makes sense within the caller's namespace.</emphasis>
+	backendPath: ?string,
+	<emphasis role="varlink-comment"># A unique name to identify the pty allocation with</emphasis>
+	name: ?string,
+	<emphasis role="varlink-comment"># A descriptive string to identify the pty allocation with (doesn't have to be unique)</emphasis>
+	description: ?string,
+	<emphasis role="varlink-comment"># The syslog 'tag' to use for this pseudo TTY output when connected to logging</emphasis>
+	tag: ?string,
+	<emphasis role="varlink-comment"># Convert the connection into a monitor connection once done</emphasis>
+	monitor: ?bool,
+	<emphasis role="varlink-comment"># If true, hang up the pty once this monitor connection is disconnected. If null defaults to false.</emphasis>
+	hangUpOnDisconnect: ?bool,
+	<emphasis role="varlink-comment"># If true, a hangup of the backend side of the pty (e.g. because the last process having it open closed it, or called vhangup() on it) does not release the pty, since the backend might be reopened later. Only valid in combination with the monitor and hangUpOnDisconnect flags, as the monitor connection going away then defines the lifetime of the pty. If null defaults to false.</emphasis>
+	ignoreHangup: ?bool,
+	<emphasis role="varlink-comment"># If true, track the dimensions of the monitor's terminal via in-band window resize notifications (CSI 2048/48) on the monitor stream, and propagate the minimum dimensions of all monitors to the pty. Only valid in combination with the monitor flag. If null defaults to false.</emphasis>
+	inBandResize: ?bool,
+	<emphasis role="varlink-comment"># Initial settings for the terminal</emphasis>
+	terminalSettings: ?TerminalSettings,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; (
+	<emphasis role="varlink-comment"># Selected name for the pty allocation</emphasis>
+	name: string,
+	<emphasis role="varlink-comment"># A descriptive string to identify the pty allocation with (doesn't have to be unique)</emphasis>
+	description: ?string,
+	<emphasis role="varlink-comment"># The frontend type for this PTY</emphasis>
+	frontendType: FrontendType,
+	<emphasis role="varlink-comment"># The backend type for this PTY</emphasis>
+	backendType: BackendType,
+	<emphasis role="varlink-comment"># The syslog 'tag' to use for this pseudo TTY output when connected to logging</emphasis>
+	tag: ?string,
+	<emphasis role="varlink-comment"># Settled settings for the terminal</emphasis>
+	terminalSettings: ?TerminalSettings
+)
+
+<emphasis role="varlink-comment"># Monitor frontend side of the pty.</emphasis>
+<emphasis role="varlink-comment"># [Requires 'upgrade' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> MonitorPty(
+	<emphasis role="varlink-comment"># The name of the PTY allocation to connect to.</emphasis>
+	name: string,
+	<emphasis role="varlink-comment"># How many lines of track buffer to return. If null defaults to 0.</emphasis>
+	trackBufferLines: ?int,
+	<emphasis role="varlink-comment"># If true, hang up the pty once this monitor connection is disconnected. If null defaults to false.</emphasis>
+	hangUpOnDisconnect: ?bool,
+	<emphasis role="varlink-comment"># If true, track the dimensions of the monitor's terminal via in-band window resize notifications (CSI 2048/48) on the monitor stream, and propagate the minimum dimensions of all monitors to the pty. If null defaults to false.</emphasis>
+	inBandResize: ?bool,
+	<emphasis role="varlink-comment"># New settings for the terminal (not that the environment based settings will not be propagated to the backend processes)</emphasis>
+	terminalSettings: ?TerminalSettings,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; (
+	<emphasis role="varlink-comment"># Name of the allocated PTY</emphasis>
+	name: string,
+	<emphasis role="varlink-comment"># A descriptive string to identify the pty allocation with (doesn't have to be unique)</emphasis>
+	description: ?string,
+	<emphasis role="varlink-comment"># The frontend type for this PTY</emphasis>
+	frontendType: FrontendType,
+	<emphasis role="varlink-comment"># The backend type for this PTY</emphasis>
+	backendType: BackendType,
+	<emphasis role="varlink-comment"># The syslog 'tag' to use for this pseudo TTY output when connected to logging</emphasis>
+	tag: ?string,
+	<emphasis role="varlink-comment"># The TTY path name of the allocate pseudo TTY</emphasis>
+	backendPath: ?string,
+	<emphasis role="varlink-comment"># The unit backing the PTY if known</emphasis>
+	unit: ?string,
+	<emphasis role="varlink-comment"># Current contents of the track buffer, line by line.</emphasis>
+	trackBuffer: ?[]string,
+	<emphasis role="varlink-comment"># Settings for the terminal</emphasis>
+	terminalSettings: ?TerminalSettings
+)
+
+<emphasis role="varlink-comment"># Reconfigure pseudo terminal</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ConfigurePty(
+	<emphasis role="varlink-comment"># The name of the PTY allocation to reconfigure to.</emphasis>
+	name: string,
+	<emphasis role="varlink-comment"># New settings for the terminal (not that the environment based settings will not be propagated to the backend processes)</emphasis>
+	terminalSettings: ?TerminalSettings,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; (
+	<emphasis role="varlink-comment"># Complete configured settings</emphasis>
+	terminalSettings: ?TerminalSettings
+)
+
+<emphasis role="varlink-comment"># List allocated pseudo-terminals</emphasis>
+<emphasis role="varlink-comment"># [Supports 'more' flag]</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ListPty(
+	<emphasis role="varlink-comment"># The name of the PTY allocation to list.</emphasis>
+	name: ?string,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; (
+	<emphasis role="varlink-comment"># Name of the allocated PTY</emphasis>
+	name: string,
+	<emphasis role="varlink-comment"># A descriptive string to identify the pty allocation with (doesn't have to be unique)</emphasis>
+	description: ?string,
+	<emphasis role="varlink-comment"># The frontend type for this PTY</emphasis>
+	frontendType: FrontendType,
+	<emphasis role="varlink-comment"># The backend type for this PTY</emphasis>
+	backendType: BackendType,
+	<emphasis role="varlink-comment"># The syslog 'tag' to use for this pseudo TTY output when connected to logging</emphasis>
+	tag: ?string,
+	<emphasis role="varlink-comment"># The backend path for this PTY</emphasis>
+	backendPath: ?string,
+	<emphasis role="varlink-comment"># The unit backing the PTY if known</emphasis>
+	unit: ?string,
+	<emphasis role="varlink-comment"># The process of the client that allocated this PTY</emphasis>
+	owner: ?ProcessId,
+	<emphasis role="varlink-comment"># The UID of the client that allocated this PTY</emphasis>
+	ownerUID: ?int,
+	<emphasis role="varlink-comment"># The GID of the client that allocated this PTY</emphasis>
+	ownerGID: ?int
+)
+
+<emphasis role="varlink-comment"># Hang up pseudo terminal</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> HangUpPty(
+	<emphasis role="varlink-comment"># Name of the allocated PTY to hang up</emphasis>
+	name: string,
+	<emphasis role="varlink-comment"># Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false.</emphasis>
+	allowInteractiveAuthentication: ?bool
+) -&gt; ()
+
+<emphasis role="varlink-comment"># No PTY by the given name known</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoSuchPty()
+
+<emphasis role="varlink-comment"># A PTY by the given name already exists.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> PtyExists()
+
+<emphasis role="varlink-comment"># Limit on number of PTYs reached.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> TooManyPtys()
+
+<emphasis role="varlink-comment"># Limit on number of monitors of a PTY reached.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> TooManyMonitors()
+
+<emphasis role="varlink-comment"># Tracking of PTY state not enabled for specified PTY.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> TrackingNotEnabled()
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.PTYBroker"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="AcquirePty()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="EnrollPty()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="MonitorPty()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ConfigurePty()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ListPty()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="HangUpPty()"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="FrontendType"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="BackendType"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="TerminalSettings"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="WorkingDirectory"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ProcessId"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoSuchPty"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="PtyExists"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="TooManyPtys"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="TooManyMonitors"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="TrackingNotEnabled"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.PTYBroker</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.PTYBroker.AcquirePty \
+    '{"frontendType": "take", "backendType": "take"}'</screen>
+    invokes its <function>AcquirePty()</function> method.</para>
+  </refsect1>
+
+  <refsect1><title>History</title><para>The io.systemd.PTYBroker interface was added in version 263.</para><para><function>AcquirePty()</function>, <varname>BackendType</varname>, <function>ConfigurePty()</function>, <function>EnrollPty()</function>, <varname>FrontendType</varname>, <function>HangUpPty()</function>, <function>ListPty()</function>, <function>MonitorPty()</function>, <varname>NoSuchPty</varname>, <varname>ProcessId</varname>, <varname>PtyExists</varname>, <varname>TerminalSettings</varname>, <varname>TooManyMonitors</varname>, <varname>TooManyPtys</varname>, <varname>TrackingNotEnabled</varname>, and <varname>WorkingDirectory</varname> were added in version 263.</para></refsect1><refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

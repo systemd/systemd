@@ -1,0 +1,360 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="io.systemd.SysUpdate.Provider"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>io.systemd.SysUpdate.Provider</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>io.systemd.SysUpdate.Provider</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>io.systemd.SysUpdate.Provider</refname>
+    <refpurpose>Interface for services providing component definitions to systemd-sysupdate</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><interfacename>io.systemd.SysUpdate.Provider</interfacename> is a Varlink interface implemented
+    by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-related
+    components. It can be introspected and called with
+    <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+    <para>Services implementing this interface provide component definitions to
+    <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    The tool connects to every socket bound in <filename>/run/systemd/sysupdate/provider/</filename>
+    and merges the components they describe with those defined in the file system: file system
+    definitions take precedence, and among providers claiming the same component the one whose socket
+    name sorts first wins. No specifier expansion is applied to the strings a provider returns.
+    <function>ListTargets()</function> enumerates the components a provider knows about,
+    <function>DescribeTarget()</function> reports the resources of one of them, where
+    <varname>ResourceType</varname> distinguishes URL files and tarballs, local tarballs and GPT
+    partitions; <function>Transfer()</function> transfers one of them.
+    <varname>TargetIdentifier</varname>, <varname>TargetClass</varname>, <varname>Target</varname>,
+    <varname>TransferSource</varname>, <varname>TransferTarget</varname>,
+    <varname>Transfer</varname>, <varname>ManifestFormat</varname>, <varname>Feature</varname>,
+    <varname>PathRelativeTo</varname>, <varname>ComponentSuccessAction</varname> and
+    <varname>ComponentFailureAction</varname> describe what to fetch from where and how to proceed
+    afterwards. Unknown targets are reported as <varname>NoSuchTarget</varname>. The interface is
+    experimental.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Security</title>
+
+    <para>Provider sockets are collected from <filename>/run/systemd/sysupdate/provider/</filename>, which
+    only the superuser may create entries in, and systemd-sysupdate runs as the superuser. The
+    protocol performs no further authentication, so a provider that can bind a socket there is
+    trusted as much as the component definitions in the file system it extends.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Interface Definition</title>
+
+    <para>The following interface definition is exposed:</para>
+
+    <programlisting varlink-interface="io.systemd.SysUpdate.Provider">
+<emphasis role="varlink-comment"># Interface implemented by services that provide component definitions to systemd-sysupdate(8). systemd-sysupdate connects to all sockets bound in /run/systemd/sysupdate/provider/ and merges the components they provide with those defined in the file system. Components defined in the file system take precedence; among providers claiming the same component the one whose socket name sorts first wins. Unlike in the configuration files no specifier expansion is applied to any of the strings returned by a provider.</emphasis>
+<emphasis role="varlink-comment"># [Experimental]</emphasis>
+<emphasis role="varlink-keyword">interface</emphasis> io.systemd.SysUpdate.Provider
+
+<emphasis role="varlink-comment"># Class of a target.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> TargetClass(
+	<emphasis role="varlink-comment"># Container or machine managed by systemd-machined.service(8).</emphasis>
+	machine,
+	<emphasis role="varlink-comment"># Portable service.</emphasis>
+	portable,
+	<emphasis role="varlink-comment"># System extension managed by systemd-sysext.service(8).</emphasis>
+	sysext,
+	<emphasis role="varlink-comment"># Configuration extension managed by systemd-confext.service(8).</emphasis>
+	confext,
+	<emphasis role="varlink-comment"># Host system.</emphasis>
+	host,
+	<emphasis role="varlink-comment"># Component managed by systemd-sysupdate.service(8).</emphasis>
+	component
+)
+
+<emphasis role="varlink-comment"># Action to take after a component has been updated successfully.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ComponentSuccessAction(
+	<emphasis role="varlink-comment"># Continue with the next component</emphasis>
+	continue,
+	<emphasis role="varlink-comment"># Finish the current update iteration, and start the next one</emphasis>
+	restart
+)
+
+<emphasis role="varlink-comment"># Action to take if updating a component failed.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ComponentFailureAction(
+	<emphasis role="varlink-comment"># Continue with the next component, but fail at the very end</emphasis>
+	continue,
+	<emphasis role="varlink-comment"># Fail immediately</emphasis>
+	fail
+)
+
+<emphasis role="varlink-comment"># The type of a source or target resource of a transfer.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ResourceType(
+	<emphasis role="varlink-comment"># A file downloaded from a URL, see Type=url-file in sysupdate.d(5).</emphasis>
+	url_file,
+	<emphasis role="varlink-comment"># A tarball downloaded from a URL, see Type=url-tar in sysupdate.d(5).</emphasis>
+	url_tar,
+	<emphasis role="varlink-comment"># A local tarball, see Type=tar in sysupdate.d(5).</emphasis>
+	tar,
+	<emphasis role="varlink-comment"># A partition in a GPT partition table, see Type=partition in sysupdate.d(5).</emphasis>
+	partition,
+	<emphasis role="varlink-comment"># A regular file, see Type=regular-file in sysupdate.d(5).</emphasis>
+	regular_file,
+	<emphasis role="varlink-comment"># A directory, see Type=directory in sysupdate.d(5).</emphasis>
+	directory,
+	<emphasis role="varlink-comment"># A btrfs subvolume, see Type=subvolume in sysupdate.d(5).</emphasis>
+	subvolume
+)
+
+<emphasis role="varlink-comment"># What a resource path is relative to.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> PathRelativeTo(
+	<emphasis role="varlink-comment"># The path is relative to the root directory, see PathRelativeTo=root in sysupdate.d(5).</emphasis>
+	root,
+	<emphasis role="varlink-comment"># The path is relative to the EFI System Partition, see PathRelativeTo=esp in sysupdate.d(5).</emphasis>
+	esp,
+	<emphasis role="varlink-comment"># The path is relative to the Extended Boot Loader partition, see PathRelativeTo=xbootldr in sysupdate.d(5).</emphasis>
+	xbootldr,
+	<emphasis role="varlink-comment"># The path is relative to $BOOT as defined by the Boot Loader Specification, see PathRelativeTo=boot in sysupdate.d(5).</emphasis>
+	boot,
+	<emphasis role="varlink-comment"># The path is relative to the directory specified with --transfer-source= on the systemd-sysupdate command line, see PathRelativeTo=explicit in sysupdate.d(5).</emphasis>
+	explicit
+)
+
+<emphasis role="varlink-comment"># The format of a manifest file listing the source files of a transfer.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> ManifestFormat(
+	<emphasis role="varlink-comment"># A SHA256SUMS file, see ManifestFormat=sha256sums in sysupdate.d(5).</emphasis>
+	sha256sums,
+	<emphasis role="varlink-comment"># A UAPI.16 manifest, see ManifestFormat=uapi16 in sysupdate.d(5).</emphasis>
+	uapi16
+)
+
+<emphasis role="varlink-comment"># Identifier of a target.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> TargetIdentifier(
+	<emphasis role="varlink-comment"># Where the target was enumerated.</emphasis>
+	class: TargetClass,
+	<emphasis role="varlink-comment"># Name of the target, unique within a class.</emphasis>
+	name: ?string
+)
+
+<emphasis role="varlink-comment"># A target, i.e. a component offered by the provider along with its metadata, mirroring sysupdate.components(5).</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> Target(
+	<emphasis role="varlink-comment"># Identifier for the target.</emphasis>
+	id: TargetIdentifier,
+	<emphasis role="varlink-comment"># The currently installed version of the target, if any.</emphasis>
+	currentVersion: ?string,
+	<emphasis role="varlink-comment"># All locally-known versions of the target.</emphasis>
+	allVersions: ?[]string,
+	<emphasis role="varlink-comment"># Whether the current version is installed but pending a reboot to become active. Always set when returned by ListTargets(). Not set by component providers, since this is a property of the local installation.</emphasis>
+	currentVersionIsPending: ?bool,
+	<emphasis role="varlink-comment"># URLs to zero or more AppStream catalog XML files describing the target.</emphasis>
+	appStream: ?[]string,
+	<emphasis role="varlink-comment"># The following fields carry the metadata of targets of class 'component', mirroring the settings of sysupdate.components(5). They are unset for targets of other classes. A short human readable description of the component.</emphasis>
+	description: ?string,
+	<emphasis role="varlink-comment"># URLs to documentation for the component.</emphasis>
+	documentation: ?[]string,
+	<emphasis role="varlink-comment"># Whether the component is enabled. When returned by ListTargets() this is the effective state and always set for components. If unset, the component is enabled.</emphasis>
+	enabled: ?bool,
+	<emphasis role="varlink-comment"># What to do after the component has been updated successfully, see SuccessAction= in sysupdate.components(5).</emphasis>
+	successAction: ?ComponentSuccessAction,
+	<emphasis role="varlink-comment"># What to do if updating the component failed, see FailureAction= in sysupdate.components(5).</emphasis>
+	failureAction: ?ComponentFailureAction,
+	<emphasis role="varlink-comment"># Whether the component is suggested for enablement. When returned by ListTargets() this is the evaluated state and always set for components. If unset, the component is not suggested.</emphasis>
+	suggested: ?bool,
+	<emphasis role="varlink-comment"># The minimum version to permit for all transfers of the component, see MinVersion= in sysupdate.components(5).</emphasis>
+	minVersion: ?string,
+	<emphasis role="varlink-comment"># The maximum version to permit for all transfers of the component, see MaxVersion= in sysupdate.components(5).</emphasis>
+	maxVersion: ?string,
+	<emphasis role="varlink-comment"># Versions to protect from removal for all transfers of the component, see ProtectVersion= in sysupdate.components(5).</emphasis>
+	protectVersion: ?[]string
+)
+
+<emphasis role="varlink-comment"># An optional feature, mirroring sysupdate.features(5).</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> Feature(
+	<emphasis role="varlink-comment"># Identifier of the feature. Corresponds to the file name of a sysupdate.features(5) file, without the .feature suffix.</emphasis>
+	id: string,
+	<emphasis role="varlink-comment"># A short human readable description of the feature, see Description= in sysupdate.features(5).</emphasis>
+	description: ?string,
+	<emphasis role="varlink-comment"># URLs to documentation about the feature, see Documentation= in sysupdate.features(5).</emphasis>
+	documentation: ?[]string,
+	<emphasis role="varlink-comment"># URLs to AppStream catalog XML files describing the feature, see AppStream= in sysupdate.features(5). Currently at most one URL is supported.</emphasis>
+	appStream: ?[]string,
+	<emphasis role="varlink-comment"># Whether the feature is enabled, see Enabled= in sysupdate.features(5). If unset, the feature is disabled.</emphasis>
+	enabled: ?bool,
+	<emphasis role="varlink-comment"># Whether the feature is suggested for enablement, see Suggest= in sysupdate.features(5). If unset, the feature is not suggested.</emphasis>
+	suggested: ?bool
+)
+
+<emphasis role="varlink-comment"># The source of a transfer, mirroring the [Source] section of sysupdate.d(5).</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> TransferSource(
+	<emphasis role="varlink-comment"># The resource type of the source, see Type= in the [Source] section of sysupdate.d(5).</emphasis>
+	type: ResourceType,
+	<emphasis role="varlink-comment"># The path or URL of the source, see Path= in the [Source] section of sysupdate.d(5). Unlike in the configuration file no specifier expansion is applied.</emphasis>
+	path: string,
+	<emphasis role="varlink-comment"># What the path is relative to, see PathRelativeTo= in the [Source] section of sysupdate.d(5). If unset, the path is relative to the root directory.</emphasis>
+	pathRelativeTo: ?PathRelativeTo,
+	<emphasis role="varlink-comment"># Patterns to match the source against, see MatchPattern= in the [Source] section of sysupdate.d(5). No specifier expansion is applied.</emphasis>
+	matchPattern: []string,
+	<emphasis role="varlink-comment"># The format of the manifest file listing the available source files, see ManifestFormat= in the [Source] section of sysupdate.d(5). If unset, defaults to 'sha256sums'.</emphasis>
+	manifestFormat: ?ManifestFormat,
+	<emphasis role="varlink-comment"># The URL of the manifest file, see ManifestPath= in the [Source] section of sysupdate.d(5). If unset, the manifest is acquired from the source URL, under the file name appropriate for the manifest format. No specifier expansion is applied.</emphasis>
+	manifestPath: ?string,
+	<emphasis role="varlink-comment"># Whether to match the user.uapi.match_* extended attributes of instances against the local system, see MatchXAttr= in the [Source] section of sysupdate.d(5). If unset, defaults to true.</emphasis>
+	matchXAttr: ?bool
+)
+
+<emphasis role="varlink-comment"># The target of a transfer, mirroring the [Target] section of sysupdate.d(5).</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> TransferTarget(
+	<emphasis role="varlink-comment"># The resource type of the target, see Type= in the [Target] section of sysupdate.d(5). If unset, it is derived from the source type.</emphasis>
+	type: ?ResourceType,
+	<emphasis role="varlink-comment"># The path of the target, see Path= in the [Target] section of sysupdate.d(5). No specifier expansion is applied.</emphasis>
+	path: string,
+	<emphasis role="varlink-comment"># What the path is relative to, see PathRelativeTo= in the [Target] section of sysupdate.d(5). If unset, the path is relative to the root directory.</emphasis>
+	pathRelativeTo: ?PathRelativeTo,
+	<emphasis role="varlink-comment"># Patterns to match the target against, see MatchPattern= in the [Target] section of sysupdate.d(5). If unset, the source patterns are used. No specifier expansion is applied.</emphasis>
+	matchPattern: ?[]string,
+	<emphasis role="varlink-comment"># The GPT partition type to match, see MatchPartitionType= in the [Target] section of sysupdate.d(5).</emphasis>
+	matchPartitionType: ?string,
+	<emphasis role="varlink-comment"># The partition UUID to use for newly created partitions, see PartitionUUID= in the [Target] section of sysupdate.d(5).</emphasis>
+	partitionUUID: ?string,
+	<emphasis role="varlink-comment"># The partition flags to use for newly created partitions, see PartitionFlags= in the [Target] section of sysupdate.d(5).</emphasis>
+	partitionFlags: ?int,
+	<emphasis role="varlink-comment"># Whether to set the NoAuto partition flag, see PartitionNoAuto= in the [Target] section of sysupdate.d(5).</emphasis>
+	partitionNoAuto: ?bool,
+	<emphasis role="varlink-comment"># Whether to set the GrowFileSystem partition flag, see PartitionGrowFileSystem= in the [Target] section of sysupdate.d(5).</emphasis>
+	partitionGrowFileSystem: ?bool,
+	<emphasis role="varlink-comment"># Whether to zero out the remainder of the target partition after writing the payload, see PartitionZeroFill= in the [Target] section of sysupdate.d(5). If unset, defaults to on for Verity signature partitions and off otherwise.</emphasis>
+	partitionZeroFill: ?bool,
+	<emphasis role="varlink-comment"># Whether to mark the target read-only, see ReadOnly= in the [Target] section of sysupdate.d(5).</emphasis>
+	readOnly: ?bool,
+	<emphasis role="varlink-comment"># The UNIX file access mode to use for the target, see Mode= in the [Target] section of sysupdate.d(5).</emphasis>
+	mode: ?int,
+	<emphasis role="varlink-comment"># The boot counting tries left, see TriesLeft= in the [Target] section of sysupdate.d(5).</emphasis>
+	triesLeft: ?int,
+	<emphasis role="varlink-comment"># The boot counting tries done, see TriesDone= in the [Target] section of sysupdate.d(5).</emphasis>
+	triesDone: ?int,
+	<emphasis role="varlink-comment"># The maximum number of instances to keep, see InstancesMax= in the [Target] section of sysupdate.d(5).</emphasis>
+	instancesMax: ?int,
+	<emphasis role="varlink-comment"># Whether to remove temporary files from previous runs, see RemoveTemporary= in the [Target] section of sysupdate.d(5).</emphasis>
+	removeTemporary: ?bool,
+	<emphasis role="varlink-comment"># The path of a symlink to maintain pointing to the newest instance, see CurrentSymlink= in the [Target] section of sysupdate.d(5). No specifier expansion is applied.</emphasis>
+	currentSymlink: ?string,
+	<emphasis role="varlink-comment"># Whether to match the user.uapi.match_* extended attributes of instances against the local system, see MatchXAttr= in the [Target] section of sysupdate.d(5). If unset, defaults to false.</emphasis>
+	matchXAttr: ?bool
+)
+
+<emphasis role="varlink-comment"># A transfer, mirroring a sysupdate.d(5) transfer file.</emphasis>
+<emphasis role="varlink-keyword">type</emphasis> Transfer(
+	<emphasis role="varlink-comment"># Identifier of the transfer. Corresponds to the file name of a sysupdate.d(5) transfer file, without the .transfer suffix.</emphasis>
+	id: string,
+	<emphasis role="varlink-comment"># The minimum version to permit, see MinVersion= in the [Transfer] section of sysupdate.d(5). No specifier expansion is applied.</emphasis>
+	minVersion: ?string,
+	<emphasis role="varlink-comment"># The maximum version to permit, see MaxVersion= in the [Transfer] section of sysupdate.d(5). No specifier expansion is applied.</emphasis>
+	maxVersion: ?string,
+	<emphasis role="varlink-comment"># Versions to protect from removal, see ProtectVersion= in the [Transfer] section of sysupdate.d(5). No specifier expansion is applied.</emphasis>
+	protectVersion: ?[]string,
+	<emphasis role="varlink-comment"># Whether to cryptographically verify downloads, see Verify= in the [Transfer] section of sysupdate.d(5). If unset, verification is enabled.</emphasis>
+	verify: ?bool,
+	<emphasis role="varlink-comment"># URLs to changelogs, see ChangeLog= in the [Transfer] section of sysupdate.d(5). No specifier expansion is applied.</emphasis>
+	changeLog: ?[]string,
+	<emphasis role="varlink-comment"># URLs to AppStream catalog XML files, see AppStream= in the [Transfer] section of sysupdate.d(5). No specifier expansion is applied.</emphasis>
+	appStream: ?[]string,
+	<emphasis role="varlink-comment"># Identifiers of the optional features the transfer belongs to, see Features= in the [Transfer] section of sysupdate.d(5).</emphasis>
+	features: ?[]string,
+	<emphasis role="varlink-comment"># Identifiers of the optional features the transfer requires, see RequisiteFeatures= in the [Transfer] section of sysupdate.d(5).</emphasis>
+	requisiteFeatures: ?[]string,
+	<emphasis role="varlink-comment"># The source of the transfer, see the [Source] section of sysupdate.d(5).</emphasis>
+	source: TransferSource,
+	<emphasis role="varlink-comment"># The target of the transfer, see the [Target] section of sysupdate.d(5).</emphasis>
+	target: TransferTarget
+)
+
+<emphasis role="varlink-comment"># Lists the components this provider offers, as targets.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> ListTargets() -&gt; (
+	<emphasis role="varlink-comment"># The components this provider offers, as targets of class 'component', in the same format as returned by ListTargets() of the io.systemd.SysUpdate interface. Targets of other classes are ignored. Metadata fields left unset take their documented defaults.</emphasis>
+	targets: []Target
+)
+
+<emphasis role="varlink-comment"># Returns the full definition of one target: the target object with its metadata, and for components their features and transfers.</emphasis>
+<emphasis role="varlink-keyword">method</emphasis> DescribeTarget(
+	<emphasis role="varlink-comment"># The identifier of the target to describe. Currently only targets of class 'component' are supported.</emphasis>
+	id: TargetIdentifier
+) -&gt; (
+	<emphasis role="varlink-comment"># The target object, carrying the component's metadata, as also returned by ListTargets().</emphasis>
+	target: Target,
+	<emphasis role="varlink-comment"># The optional features of the component, equivalent to the *.feature files of a component defined in the file system.</emphasis>
+	features: []Feature,
+	<emphasis role="varlink-comment"># The transfers of the component, equivalent to the *.transfer files of a component defined in the file system.</emphasis>
+	transfers: []Transfer
+)
+
+<emphasis role="varlink-comment"># The provider does not offer the specified target.</emphasis>
+<emphasis role="varlink-keyword">error</emphasis> NoSuchTarget()
+</programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="varlink-interface" generated="True" extra-ref="io.systemd.SysUpdate.Provider"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="ListTargets()"/>
+
+    <variablelist class="varlink-method" generated="True" extra-ref="DescribeTarget()"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="TargetClass"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="TargetIdentifier"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ComponentSuccessAction"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ComponentFailureAction"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Target"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Feature"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ResourceType"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="PathRelativeTo"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="ManifestFormat"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="TransferSource"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="TransferTarget"/>
+
+    <variablelist class="varlink-type" generated="True" extra-ref="Transfer"/>
+
+    <variablelist class="varlink-error" generated="True" extra-ref="NoSuchTarget"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><screen>varlinkctl introspect <replaceable>SERVICE</replaceable> io.systemd.SysUpdate.Provider</screen> shows the
+    interface definition as served by <replaceable>SERVICE</replaceable>, and
+    <screen>varlinkctl call <replaceable>SERVICE</replaceable> io.systemd.SysUpdate.Provider.ListTargets '{}'</screen>
+    invokes its <function>ListTargets()</function> method.</para>
+  </refsect1>
+
+  <refsect1><title>History</title><para>The io.systemd.SysUpdate.Provider interface was added in version 263.</para><para><varname>ComponentFailureAction</varname>, <varname>ComponentSuccessAction</varname>, <function>DescribeTarget()</function>, <varname>Feature</varname>, <function>ListTargets()</function>, <varname>ManifestFormat</varname>, <varname>NoSuchTarget</varname>, <varname>PathRelativeTo</varname>, <varname>ResourceType</varname>, <varname>Target</varname>, <varname>TargetClass</varname>, <varname>TargetIdentifier</varname>, <varname>Transfer</varname>, <varname>TransferSource</varname>, and <varname>TransferTarget</varname> were added in version 263.</para></refsect1><refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.varlink</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>
