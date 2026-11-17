@@ -50,7 +50,9 @@ static void exec_fuzz_one(FILE *f, FDSet *fdset) {
         cgroup_context_init(&cgroup_context);
 
         (void) exec_deserialize_invocation(f, fdset, &exec_context, &command, &params, &runtime, &cgroup_context);
-        exec_context.private_var_tmp = PRIVATE_TMP_DISCONNECTED; /* The deserialization in the above may set an invalid value. */
+        /* The deserialization in the above may leave these unset. */
+        exec_context.private_tmp = PRIVATE_TMP_DISCONNECTED;
+        exec_context.private_var_tmp = PRIVATE_TMP_DISCONNECTED;
         (void) exec_serialize_invocation(f, fdset, &exec_context, &command, &params, &runtime, &cgroup_context);
         (void) exec_deserialize_invocation(f, fdset, &exec_context, &command, &params, &runtime, &cgroup_context);
 
