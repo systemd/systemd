@@ -1889,6 +1889,19 @@ bool journal_field_valid(const char *p, size_t l, bool allow_protected) {
         return true;
 }
 
+bool journal_field_and_data_valid(const void *p, size_t sz, bool allow_protected) {
+        assert(p);
+
+        if (sz == SIZE_MAX)
+                sz = strlen(p);
+
+        const char *eq = memchr(p, '=', sz);
+        if (!eq)
+                return false;
+
+        return journal_field_valid(p, eq - (const char*) p, allow_protected);
+}
+
 static int journal_file_append_field(
                 JournalFile *f,
                 const void *field,

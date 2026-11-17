@@ -161,6 +161,7 @@ typedef struct sd_varlink_server {
         LIST_HEAD(sd_varlink, connections);
         Hashmap *unclaimed;            /* Connection id → sd_varlink*, for deserialized connections with
                                         * pending method calls not claimed yet */
+        Hashmap *claimed;              /* Same, for connections already claimed */
 
         Hashmap *methods;              /* Fully qualified symbol name of a method → sd_varlink_method_t */
         Hashmap *fiber_methods;        /* Fully qualified symbol name of a fiber method → sd_varlink_method_t */
