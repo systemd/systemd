@@ -3,12 +3,40 @@
 # Use "systemd-analyze identify-tpm2" to generate the modalias string for your
 # hardware. Don't forget to prefix it with "tpm2:" for inclusion in a match here.
 #
-# Currently, the only relevant property to set here is TPM2_BROKEN_NVPCR=1,
-# which should be set on TPMs where NvPCRs don't work. Specifically, because
-# on some hardware the combination of TPMA_NV_ORDERLY + TPM2_NT_EXTEND cause
-# NV_Extend() operations to time out. For details, see:
+# The following properties may be set here:
+#
+# TPM2_BROKEN_NVPCR=1 should be set on TPMs where NvPCRs don't work.
+# Specifically, because on some hardware the combination of TPMA_NV_ORDERLY +
+# TPM2_NT_EXTEND cause NV_Extend() operations to time out. For details, see:
 # https://github.com/systemd/systemd/issues/40485
+#
+# TPM2_EK_TEMPLATES= takes a space-separated list of the EK templates supported
+# by TPMs that have no provisioned EK certificate (from which the template would
+# otherwise be determined). These are used to find an EK pre-provisioned by the
+# platform, or to create the persistent EK. If this property is set, any EK
+# certificates are ignored entirely. The default templates are always used in
+# this case, i.e. any template customization via NV indexes is ignored.
+# This is suitable for environments where the EK authenticity is demonstrated in
+# ways other than with a certificate, which is often the case in environments
+# with virtual TPMs. The order of the list has no meaning: the first supported
+# template in systemd's own order of preference is used, which is the order of
+# the supported templates (as defined in the "TCG EK Credential Profile for TPM
+# Family 2.0" spec) below:
+#   ecc-nist-p384        ECC NIST P384, high range (H-3)
+#   ecc-nist-p256        ECC NIST P256, high range (H-2)
+#   rsa-3072             RSA 3072, high range (H-6)
+#   rsa-2048             RSA 2048, high range (H-1)
+#   ecc-nist-p256-legacy ECC NIST P256, low range (L-2)
+#   rsa-2048-legacy      RSA 2048, low range (L-1)
 
 # ST33TPHF2ESPI Firmware 73.4
 tpm2:*:mfSTM:*:fw73.4.*:
  TPM2_BROKEN_NVPCR=1
+
+# AWS EC2 NitroTPM. The EKs are implicitly certified by them being available
+# via the EC2 GetInstanceTpmEkPub API. Currently the L-1 and H-3 templates
+# are supported.
+# https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/retrieve-ekpub.html
+# https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetInstanceTpmEkPub.html
+tpm2:*:mfAMZN:vsNitroTPMv1.0:*
+ TPM2_EK_TEMPLATES=ecc-nist-p384 rsa-2048-legacy

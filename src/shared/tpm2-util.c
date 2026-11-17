@@ -1944,7 +1944,7 @@ int tpm2_get_best_attestation_key_template(Tpm2Context *c, TPMT_PUBLIC *ret) {
                         continue;
 
                 *ret = template;
-                return 0;
+             return 0;
         }
 
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "No supported attestation key template");
@@ -2178,6 +2178,17 @@ static const TPM2_HANDLE ek_cert_nv_indexes[_TPM2_EK_TEMPLATE_MAX] = {
         [TPM2_EK_TEMPLATE_RSA_3072]             = 0x01C0001C,
 };
 
+/* Identifiers used to refer to EK profiles in the TPM2_EK_TEMPLATES= hwdb property. */
+static const char* const tpm2_ek_template_profile_table[_TPM2_EK_TEMPLATE_MAX] = {
+        [TPM2_EK_TEMPLATE_RSA_2048_LEGACY]      = "rsa-2048-legacy",
+        [TPM2_EK_TEMPLATE_ECC_NIST_P256_LEGACY] = "ecc-nist-p256-legacy",
+        [TPM2_EK_TEMPLATE_RSA_2048]             = "rsa-2048",
+        [TPM2_EK_TEMPLATE_ECC_NIST_P256]        = "ecc-nist-p256",
+        [TPM2_EK_TEMPLATE_ECC_NIST_P384]        = "ecc-nist-p384",
+        [TPM2_EK_TEMPLATE_RSA_3072]             = "rsa-3072",
+};
+DEFINE_STRING_TABLE_LOOKUP(tpm2_ek_template_profile, Tpm2EKTemplateProfile);
+
 #if HAVE_OPENSSL
 
 static const char* const ek_template_names[_TPM2_EK_TEMPLATE_MAX] = {
@@ -2189,10 +2200,89 @@ static const char* const ek_template_names[_TPM2_EK_TEMPLATE_MAX] = {
         [TPM2_EK_TEMPLATE_RSA_3072]             = "RSA 3072 (H-6)",
 };
 
+/* Acquires the udev device for the TPM this context is connected to, so that hwdb properties can be
+ * queried. Returns 1 on success, 0 if no device is available (i.e. not using the 'device' TCTI), or < 0 on
+ * error. */
+static int tpm2_context_get_device(Tpm2Context *c, sd_device **ret) {
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        if (!streq_ptr(c->tcti_driver, "device")) {
+                log_debug("Not checking udev database, because not using 'device' TCTI.");
+                *ret = NULL;
+                return 0;
+        }
+
+        if (!c->tcti_param) {
+                log_debug("No device specified, not checking udev database.");
+                *ret = NULL;
+                return 0;
+        }
+
+        r = sd_device_new_from_devname(ret, c->tcti_param);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire udev entry for device '%s': %m", c->tcti_param);
+
+        return 1;
+}
+
+/* Reads the TPM2_EK_TEMPLATES= hwdb property, which lists the EK templates supported by TPMs that do not
+ * have any provisioned EK certificate. The listed order has no meaning: we always use our own order of
+ * preference (see ek_template_preferences[] below). Unknown identifiers are ignored. If the property is set,
+ * it takes precedence over any EK certificates, which are then ignored entirely. Returns 1 if the property
+ * is set, with the supported profiles as a bitmask in ret, 0 if the property is not set or the udev device
+ * cannot be acquired, with ret set to 0, or < 0 on error. */
+static int tpm2_get_hwdb_ek_templates(Tpm2Context *c, uint32_t *ret) {
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        *ret = 0;
+
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        r = tpm2_context_get_device(c, &d);
+        if (r <= 0)
+                return 0;
+
+        const char *v;
+        r = sd_device_get_property_value(d, "TPM2_EK_TEMPLATES", &v);
+        if (r == -ENOENT) {
+                log_device_debug(d, "No TPM2_EK_TEMPLATES property for '%s'.", c->tcti_param);
+                return 0;
+        }
+        if (r < 0)
+                return log_device_debug_errno(d, r, "Failed to query TPM2_EK_TEMPLATES for '%s': %m", c->tcti_param);
+
+        uint32_t mask = 0;
+        for (const char *p = v;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, /* separators= */ NULL, /* flags= */ 0);
+                if (r < 0)
+                        return log_device_debug_errno(d, r, "Failed to parse TPM2_EK_TEMPLATES property '%s': %m", v);
+                if (r == 0)
+                        break;
+
+                Tpm2EKTemplateProfile profile = tpm2_ek_template_profile_from_string(word);
+                if (profile < 0) {
+                        log_device_debug(d, "Ignoring unknown EK template '%s' in TPM2_EK_TEMPLATES property.", word);
+                        continue;
+                }
+
+                mask |= INDEX_TO_MASK(uint32_t, profile);
+        }
+
+        *ret = mask;
+        return 1;
+}
+
 /* Read the EK certificate from its NV index for the specified EK profile. This returns 1 if there is a
  * valid certificate, 0 if no valid NV index exists, or < 0 if an error occurs. Note that this doesn't check
  * that the obtained certificate has the expected public key algorithm. */
-static int tpm2_read_ek_cert(
+int tpm2_read_ek_cert(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
                 Tpm2EKTemplateProfile profile,
@@ -2577,8 +2667,296 @@ int tpm2_get_ek_template(
         return 0;
 }
 
-/* Get the EK. Returns 1 if found, 0 if there is no EK, or < 0 on error. Also see
- * tpm2_get_or_create_ek() below. */
+#if HAVE_OPENSSL
+/* Persistent handles where a pre-provisioned EK for each profile may be found. The "Registry of Reserved TPM
+ * 2.0 Handles and Localities" spec suggests that a persistent EK uses the same offset within the EK handle
+ * range as its certificate does within the EK certificate NV index range. We never persist EKs at these
+ * handles ourselves; they are only used to pick up EKs that were provisioned by the platform.
+ *
+ * The RSA 2048 (L-1) profile has no entry here: by convention, an EK with this profile lives at
+ * TPM2_EK_HANDLE (the only EK handle reserved by the "TCG TPM v2.0 Provisioning Guidance" spec) rather than
+ * at the handle its certificate offset would suggest. That's also where we persist the EK we create
+ * ourselves, and it is handled separately in tpm2_get_ek().
+ *
+ * https://trustedcomputinggroup.org/resource/registry/ */
+static const TPM2_HANDLE ek_persistent_handles[_TPM2_EK_TEMPLATE_MAX] = {
+        [TPM2_EK_TEMPLATE_ECC_NIST_P256_LEGACY] = 0x8101000AU,
+        [TPM2_EK_TEMPLATE_RSA_2048]             = 0x81010012U,
+        [TPM2_EK_TEMPLATE_ECC_NIST_P256]        = 0x81010014U,
+        [TPM2_EK_TEMPLATE_ECC_NIST_P384]        = 0x81010016U,
+        [TPM2_EK_TEMPLATE_RSA_3072]             = 0x8101001CU,
+};
+
+/* Our order of preference for EK templates, used both when looking for a pre-provisioned EK and when
+ * creating one. */
+static const Tpm2EKTemplateProfile ek_template_preferences[] = {
+        TPM2_EK_TEMPLATE_ECC_NIST_P384,
+        TPM2_EK_TEMPLATE_ECC_NIST_P256,
+        TPM2_EK_TEMPLATE_RSA_3072,
+        TPM2_EK_TEMPLATE_RSA_2048,
+        TPM2_EK_TEMPLATE_ECC_NIST_P256_LEGACY,
+        TPM2_EK_TEMPLATE_RSA_2048_LEGACY,
+};
+
+/* Checks that an object's public area matches the default EK template for the specified profile, ignoring
+ * the unique field. */
+static bool ek_public_matches_default_template(const TPMT_PUBLIC *public, Tpm2EKTemplateProfile profile) {
+        assert(public);
+        assert(profile >= 0);
+        assert(profile < _TPM2_EK_TEMPLATE_MAX);
+
+        TPMT_PUBLIC template;
+        tpm2_get_default_ek_template(profile, &template);
+
+        if (public->type != template.type ||
+            public->nameAlg != template.nameAlg ||
+            public->objectAttributes != template.objectAttributes)
+                return false;
+
+        if (memcmp_nn(public->authPolicy.buffer, public->authPolicy.size,
+                      template.authPolicy.buffer, template.authPolicy.size) != 0)
+                return false;
+
+        switch (public->type) {
+
+        case TPM2_ALG_RSA: {
+                const TPMS_RSA_PARMS *a = &public->parameters.rsaDetail, *b = &template.parameters.rsaDetail;
+
+                return a->symmetric.algorithm == b->symmetric.algorithm &&
+                        a->symmetric.keyBits.sym == b->symmetric.keyBits.sym &&
+                        a->symmetric.mode.sym == b->symmetric.mode.sym &&
+                        a->scheme.scheme == b->scheme.scheme &&
+                        a->keyBits == b->keyBits &&
+                        a->exponent == b->exponent;
+        }
+
+        case TPM2_ALG_ECC: {
+                const TPMS_ECC_PARMS *a = &public->parameters.eccDetail, *b = &template.parameters.eccDetail;
+
+                return a->symmetric.algorithm == b->symmetric.algorithm &&
+                        a->symmetric.keyBits.sym == b->symmetric.keyBits.sym &&
+                        a->symmetric.mode.sym == b->symmetric.mode.sym &&
+                        a->scheme.scheme == b->scheme.scheme &&
+                        a->curveID == b->curveID &&
+                        a->kdf.scheme == b->kdf.scheme;
+        }
+
+        default:
+                return false;
+        }
+}
+
+/* Checks that an object's public key matches the public key in the supplied EK certificate. Returns 1 if it
+ * matches, 0 if it doesn't or the certificate has no usable public key, or < 0 on error. */
+int tpm2_check_ek_matches_cert(const TPM2B_PUBLIC *public, const X509 *cert) {
+        int r;
+
+        assert(public);
+        assert(cert);
+
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        EVP_PKEY *cert_pkey = sym_X509_get0_pubkey(cert);
+        if (!cert_pkey) {
+                log_debug("Cannot get public key from EK certificate.");
+                return 0;
+        }
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *tpm_pkey = NULL;
+        r = tpm2_tpm2b_public_to_openssl_pkey(public, &tpm_pkey);
+        if (r == -EOPNOTSUPP)
+                return 0; /* Unsupported public key type, so we can't compare. */
+        if (r < 0)
+                return r;
+
+        if (sym_EVP_PKEY_eq(tpm_pkey, cert_pkey) != 1) {
+                log_debug("Object does not match EK certificate public key.");
+                return 0;
+        }
+
+        return 1;
+}
+
+/* Checks that an object is an EK for the specified profile, by comparing its public key with the profile's
+ * EK certificate stored in the TPM. Returns 1 if it matches, 0 if it doesn't or there is no usable
+ * certificate, or < 0 on error. */
+int tpm2_check_ek_matches_profile_cert(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                Tpm2EKTemplateProfile profile,
+                const TPM2B_PUBLIC *public) {
+
+        int r;
+
+        assert(c);
+        assert(profile >= 0);
+        assert(profile < _TPM2_EK_TEMPLATE_MAX);
+        assert(public);
+
+        _cleanup_(X509_freep) X509 *cert = NULL;
+        r = tpm2_read_ek_cert(c, session, profile, &cert);
+        if (r == -EBADMSG)
+                return 0; /* Certificate populated but invalid. */
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                log_debug("No EK certificate for template '%s'.", ek_template_names[profile]);
+                return 0;
+        }
+
+        return tpm2_check_ek_matches_cert(public, cert);
+}
+
+/* Checks that an object looks like an EK for the specified profile without an EK certificate, for TPMs where
+ * hwdb tells us there are none. The object must match the profile's default template, and must be a primary
+ * object in the endorsement hierarchy. Note that this cannot prove that the object is definitely a valid EK,
+ * because we don't know what unique area the key was created with. Returns 1 if the object is usable, 0 if
+ * not, or < 0 on error. */
+int tpm2_check_ek_is_default_primary(
+                Tpm2EKTemplateProfile profile,
+                const TPM2B_PUBLIC *public,
+                const TPM2B_NAME *name,
+                const TPM2B_NAME *qname) {
+
+        int r;
+
+        assert(profile >= 0);
+        assert(profile < _TPM2_EK_TEMPLATE_MAX);
+        assert(public);
+        assert(name);
+        assert(qname);
+
+        if (!ek_public_matches_default_template(&public->publicArea, profile)) {
+                log_debug("Object does not match default EK template '%s'.", ek_template_names[profile]);
+                return 0;
+        }
+
+        uint8_t hierarchy[sizeof(uint32_t)];
+        unaligned_write_be32(hierarchy, TPM2_RH_ENDORSEMENT);
+
+        struct iovec data[] = {
+                IOVEC_MAKE(hierarchy, sizeof(hierarchy)),
+                IOVEC_MAKE(name->name, name->size),
+        };
+        TPM2B_DIGEST digest = {};
+        r = tpm2_digest_many(public->publicArea.nameAlg, &digest, data, ELEMENTSOF(data), /* extend= */ false);
+        if (r < 0)
+                return r;
+
+        TPM2B_NAME expected_qname = {};
+        assert(sizeof(uint16_t) + digest.size <= sizeof(expected_qname.name));
+        unaligned_write_be16(expected_qname.name, public->publicArea.nameAlg);
+        memcpy(expected_qname.name + sizeof(uint16_t), digest.buffer, digest.size);
+        expected_qname.size = sizeof(uint16_t) + digest.size;
+
+        if (memcmp_nn(expected_qname.name, expected_qname.size, qname->name, qname->size) != 0) {
+                log_debug("Object is not a primary key in the endorsement hierarchy.");
+                return 0;
+        }
+
+        return 1;
+}
+
+/* Looks for an EK that was pre-provisioned by the platform at one of the profile specific persistent
+ * handles (see ek_persistent_handles[] above), in our order of preference, mirroring what
+ * tpm2_get_or_create_ek() does when creating a new EK. If TPM2_EK_TEMPLATES= is set in hwdb, only the handles
+ * for the listed profiles are checked, accepting an object that is a primary endorsement key created from
+ * the profile's default template, and EK certificates are ignored entirely. Otherwise, the handles for all
+ * profiles are checked, accepting an object whose public key matches the profile's EK certificate.
+ *
+ * Returns 1 if one was found, 0 if not, or < 0 on error. The return parameters are only set if one was
+ * found. */
+static int tpm2_find_preprovisioned_ek(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_NAME **ret_name,
+                TPM2B_NAME **ret_qname,
+                Tpm2Handle **ret_handle) {
+
+        int r;
+
+        assert(c);
+
+        /* Enumerate the populated handles in the EK range in one go, so that we don't have to probe each
+         * candidate individually. */
+        _cleanup_free_ TPM2_HANDLE *handles = NULL;
+        size_t n_handles = 0;
+        r = tpm2_get_capability_handles(c, TPM2_EK_HANDLE & ~UINT32_C(0xFFFF), 0x100, &handles, &n_handles);
+        if (r < 0)
+                return r;
+        if (n_handles == 0)
+                return 0;
+
+        uint32_t hwdb_profiles;
+        r = tpm2_get_hwdb_ek_templates(c, &hwdb_profiles);
+        if (r < 0)
+                return r;
+        bool use_hwdb = r > 0;
+
+        FOREACH_ELEMENT(p, ek_template_preferences) {
+                Tpm2EKTemplateProfile profile = *p;
+                TPM2_HANDLE index = ek_persistent_handles[profile];
+
+                if (use_hwdb && !BIT_SET(hwdb_profiles, profile))
+                        continue;
+
+                if (index == 0) /* RSA 2048 (L-1), see above. */
+                        continue;
+
+                bool populated = false;
+                for (size_t j = 0; j < n_handles; j++)
+                        if (handles[j] == index) {
+                                populated = true;
+                                break;
+                        }
+                if (!populated)
+                        continue;
+
+                _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
+                _cleanup_(Esys_Freep) TPM2B_NAME *name = NULL, *qname = NULL;
+                _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+                r = tpm2_object_index_to_handle(c, index, session, &public, &name, &qname, &handle);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                if (use_hwdb)
+                        r = tpm2_check_ek_is_default_primary(profile, public, name, qname);
+                else
+                        r = tpm2_check_ek_matches_profile_cert(c, session, profile, public);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        log_debug("Ignoring object at 0x%08" PRIx32 " for template '%s'.",
+                                  index, ek_template_names[profile]);
+                        continue;
+                }
+
+                log_debug("Using pre-provisioned EK with template '%s' at 0x%08" PRIx32 "%s.",
+                          ek_template_names[profile], index, use_hwdb ? " from hwdb, without EK certificate" : "");
+
+                if (ret_public)
+                        *ret_public = TAKE_PTR(public);
+                if (ret_name)
+                        *ret_name = TAKE_PTR(name);
+                if (ret_qname)
+                        *ret_qname = TAKE_PTR(qname);
+                if (ret_handle)
+                        *ret_handle = TAKE_PTR(handle);
+                return 1;
+        }
+
+        return 0;
+}
+#endif
+
+/* Get the EK. This first looks for an EK that was pre-provisioned by the platform at a profile specific
+ * handle (see tpm2_find_preprovisioned_ek() above), and otherwise uses the one at TPM2_EK_HANDLE. Returns 1
+ * if found, 0 if there is no EK, or < 0 on error. Also see tpm2_get_or_create_ek() below. */
 int tpm2_get_ek(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
@@ -2587,12 +2965,108 @@ int tpm2_get_ek(
                 TPM2B_NAME **ret_qname,
                 Tpm2Handle **ret_handle) {
 
+#if HAVE_OPENSSL
+        int r;
+
+        r = dlopen_libcrypto(LOG_DEBUG);
+        if (r < 0)
+                return r;
+
+        r = tpm2_find_preprovisioned_ek(c, session, ret_public, ret_name, ret_qname, ret_handle);
+        if (r != 0)
+                return r;
+
+        /* Note that, unlike the pre-provisioned EKs found above, whatever object is persisted at
+         * TPM2_EK_HANDLE is returned without any validation. This is inconsistent, but matches the
+         * behaviour from before pre-provisioned EKs were supported: if we rejected the object here,
+         * tpm2_get_or_create_ek() would try to persist a new EK at TPM2_EK_HANDLE, which would fail because
+         * the handle is occupied. We don't want to automatically evict an object that's already persisted
+         * there, in case it is in use by something else. */
         return tpm2_object_index_to_handle(c, TPM2_EK_HANDLE, session, ret_public, ret_name, ret_qname, ret_handle);
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
+#endif
 }
+
+#if HAVE_OPENSSL
+/* Creates a transient EK with the supplied template for the specified profile. If cert is non-NULL, the
+ * created EK must match its public key. Returns 1 and the transient handle on success, 0 if the template
+ * cannot be used, or < 0 on error. */
+static int tpm2_create_ek_for_profile(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                Tpm2EKTemplateProfile profile,
+                const TPM2B_PUBLIC *template,
+                const X509 *cert,
+                Tpm2Handle **ret_handle) {
+
+        int r;
+
+        assert(c);
+        assert(profile >= 0);
+        assert(profile < _TPM2_EK_TEMPLATE_MAX);
+        assert(template);
+        assert(ret_handle);
+
+        /* Check that this template is supported. */
+        if (!tpm2_supports_alg(c, template->publicArea.type)) {
+                log_debug("Skipping EK creation with template '%s': unsupported object type", ek_template_names[profile]);
+                return 0;
+        }
+        if (!tpm2_supports_tpmt_public(c, &template->publicArea)) {
+                log_debug("Skipping EK creation with template '%s': unsupported template", ek_template_names[profile]);
+                return 0;
+        }
+        if (template->publicArea.type == TPM2_ALG_ECC && !tpm2_supports_ecc_curve(c, template->publicArea.parameters.eccDetail.curveID)) {
+                log_debug("Skipping EK creation with template '%s': unsupported curve", ek_template_names[profile]);
+                return 0;
+        }
+
+        /* Create the transient EK now. */
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *transient_handle = NULL;
+        r = tpm2_create_primary(
+                        c,
+                        session,
+                        ESYS_TR_RH_ENDORSEMENT,
+                        template,
+                        /* sensitive= */ NULL,
+                        /* ret_public= */ NULL,
+                        &transient_handle);
+        if (r < 0)
+                return r;
+
+        if (cert) {
+                _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
+                r = tpm2_read_public(c, session, transient_handle, &public, /* ret_name= */ NULL, /* ret_qname= */ NULL);
+                if (r < 0)
+                        return r;
+
+                /* Check that the created EK has a public key that matches the one in the certificate. */
+                r = tpm2_check_ek_matches_cert(public, cert);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        log_debug("EK created with template '%s' does not match EKcert public key", ek_template_names[profile]);
+                        return 0;
+                }
+        }
+
+        *ret_handle = TAKE_PTR(transient_handle);
+        return 1;
+}
+#endif
 
 /* Get the EK, creating one if needed. This tries each of the supported templates in order of preference,
  * and will persist and return an EK created with the first template that has an EK certificate, and where
  * the created EK matches the certificate's public key.
+ *
+ * If the TPM2_EK_TEMPLATES= hwdb property is set for this TPM, EK certificates are ignored entirely, and
+ * the EK is instead created with the first of the listed templates in our order of preference, using the
+ * default templates (i.e. ignoring any template customization via NV indexes). This is intended for
+ * environments that don't have a provisioned EK certificate, such as some VMs.
+ *
+ * An existing EK is looked up with tpm2_get_ek(), which also picks up EKs pre-provisioned by the platform
+ * at profile specific handles. A newly created EK is only ever persisted at TPM2_EK_HANDLE.
  *
  * Returns 1 if a new EK was created and persisted, 0 if an EK already exists, or < 0 on error. */
 int tpm2_get_or_create_ek(
@@ -2617,107 +3091,75 @@ int tpm2_get_or_create_ek(
                 return 0; /* 0 → EK already set up */
 
         /* No EK, create and persist one */
-        static const Tpm2EKTemplateProfile profile_preferences[] = {
-                TPM2_EK_TEMPLATE_ECC_NIST_P384,
-                TPM2_EK_TEMPLATE_ECC_NIST_P256,
-                TPM2_EK_TEMPLATE_RSA_3072,
-                TPM2_EK_TEMPLATE_RSA_2048,
-                TPM2_EK_TEMPLATE_ECC_NIST_P256_LEGACY,
-                TPM2_EK_TEMPLATE_RSA_2048_LEGACY,
-        };
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *transient_handle = NULL;
 
-        FOREACH_ELEMENT(p, profile_preferences) {
+        uint32_t hwdb_profiles;
+        r = tpm2_get_hwdb_ek_templates(c, &hwdb_profiles);
+        if (r < 0)
+                return r;
+        bool use_hwdb = r > 0;
+
+        FOREACH_ELEMENT(p, ek_template_preferences) {
                 Tpm2EKTemplateProfile profile = *p;
-
-                log_debug("Trying to create EK with template '%s'", ek_template_names[profile]);
-
-                /* Check if there is a certificate for this profile. */
-                _cleanup_(X509_freep) X509 *cert = NULL;
-                r = tpm2_read_ek_cert(c, session, profile, &cert);
-                if (r == -EBADMSG)
-                        continue; /* Certificate populated but invalid. */
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        continue; /* No certificate populated. */
-
-                EVP_PKEY *cert_pkey = sym_X509_get0_pubkey(cert);
-                if (!cert_pkey) {
-                        log_debug("Skipping EK creation with template '%s': cannot get EKcert public key", ek_template_names[profile]);
-                        continue;
-                }
-
-                /* Obtain the template for this profile. */
                 TPM2B_PUBLIC template = {
                         .size = sizeof(TPMT_PUBLIC),
                 };
-                r = tpm2_get_ek_template(c, session, profile, &template.publicArea);
-                if (r == -EBADMSG)
-                        continue; /* Custom template or nonce is invalid. */
-                if (r < 0)
-                        return r;
 
-                /* Check that this profile is supported. */
-                if (!tpm2_supports_alg(c, template.publicArea.type)) {
-                        log_debug("Skipping EK creation with template '%s': unsupported object type", ek_template_names[profile]);
-                        continue;
+                if (use_hwdb) {
+                        /* hwdb tells us which templates this TPM supports, ignore any EK certificates. */
+                        if (!BIT_SET(hwdb_profiles, profile))
+                                continue;
+
+                        log_debug("Trying to create EK with template '%s' from hwdb, without EK certificate", ek_template_names[profile]);
+
+                        tpm2_get_default_ek_template(profile, &template.publicArea);
+
+                        r = tpm2_create_ek_for_profile(c, session, profile, &template, /* cert= */ NULL, &transient_handle);
+                } else {
+                        log_debug("Trying to create EK with template '%s'", ek_template_names[profile]);
+
+                        /* Check if there is a certificate for this profile. */
+                        _cleanup_(X509_freep) X509 *cert = NULL;
+                        r = tpm2_read_ek_cert(c, session, profile, &cert);
+                        if (r == -EBADMSG)
+                                continue; /* Certificate populated but invalid. */
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                continue; /* No certificate populated. */
+
+                        /* Obtain the template for this profile, honouring any customization via NV indexes. */
+                        r = tpm2_get_ek_template(c, session, profile, &template.publicArea);
+                        if (r == -EBADMSG)
+                                continue; /* Custom template or nonce is invalid. */
+                        if (r < 0)
+                                return r;
+
+                        r = tpm2_create_ek_for_profile(c, session, profile, &template, cert, &transient_handle);
                 }
-                if (!tpm2_supports_tpmt_public(c, &template.publicArea)) {
-                        log_debug("Skipping EK creation with template '%s': unsupported template", ek_template_names[profile]);
-                        continue;
-                }
-                if (template.publicArea.type == TPM2_ALG_ECC && !tpm2_supports_ecc_curve(c, template.publicArea.parameters.eccDetail.curveID)) {
-                        log_debug("Skipping EK creation with template '%s': unsupported curve", ek_template_names[profile]);
-                        continue;
-                }
-
-                /* Create the transient EK now. */
-                _cleanup_(tpm2_handle_freep) Tpm2Handle *transient_handle = NULL;
-                r = tpm2_create_primary(
-                                c,
-                                session,
-                                ESYS_TR_RH_ENDORSEMENT,
-                                &template,
-                                /* sensitive= */ NULL,
-                                /* ret_public= */ NULL,
-                                &transient_handle);
                 if (r < 0)
                         return r;
-
-                _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
-                r = tpm2_read_public(c, session, transient_handle, &public, /* ret_name= */ NULL, /* ret_qname= */ NULL);
-                if (r < 0)
-                        return r;
-
-                /* Check that the created EK has a public key that matches the one in the certificate. */
-                _cleanup_(EVP_PKEY_freep) EVP_PKEY *tpm_pkey = NULL;
-                r = tpm2_tpm2b_public_to_openssl_pkey(public, &tpm_pkey);
-                if (r < 0)
-                        return r;
-
-                if (sym_EVP_PKEY_eq(tpm_pkey, cert_pkey) != 1) {
-                        log_debug("EK created with template '%s' does not match EKcert public key", ek_template_names[profile]);
-                        continue;
-                }
-
-                /* We've created a valid EK that is consistent with the supplied certificate, so persist this
-                 * one and return it. */
-                r = tpm2_persist_handle(c, transient_handle, session, TPM2_EK_HANDLE, /* ret_persistent_handle= */ NULL);
-                if (r < 0)
-                        return r;
-
-                r = tpm2_get_ek(c, session, ret_public, ret_name, ret_qname, ret_handle);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        /* This should never happen. */
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "EK we just persisted couldn't be found.");
-
-                return 1; /* > 0 → EK newly set up */
+                if (r > 0)
+                        break;
         }
 
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                               "No usable EK certificate found for any supported template.");
+        if (!transient_handle)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "No usable EK certificate or hwdb EK template found for any supported template.");
+
+        /* We've created a valid EK, so persist this one and return it. */
+        r = tpm2_persist_handle(c, transient_handle, session, TPM2_EK_HANDLE, /* ret_persistent_handle= */ NULL);
+        if (r < 0)
+                return r;
+
+        r = tpm2_object_index_to_handle(c, TPM2_EK_HANDLE, session, ret_public, ret_name, ret_qname, ret_handle);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                /* This should never happen. */
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "EK we just persisted couldn't be found.");
+
+        return 1; /* > 0 → EK newly set up */
 #else
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
 #endif
@@ -9720,20 +10162,10 @@ static int tpm2_context_can_nvindex(Tpm2Context *c) {
 
         assert(c);
 
-        if (!streq_ptr(c->tcti_driver, "device")) {
-                log_debug("Not checking udev database, because not using 'device' TCTI.");
-                return 1;
-        }
-
-        if (!c->tcti_param) {
-                log_debug("No device specified, not checking udev database.");
-                return 1;
-        }
-
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
-        r = sd_device_new_from_devname(&d, c->tcti_param);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to acquire udev entry for device '%s': %m", c->tcti_param);
+        r = tpm2_context_get_device(c, &d);
+        if (r <= 0)
+                return r < 0 ? r : 1;
 
         r = device_get_property_bool(d, "TPM2_BROKEN_NVPCR");
         if (r == -ENOENT) {
