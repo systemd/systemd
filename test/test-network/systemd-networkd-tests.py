@@ -9599,6 +9599,41 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         else:
             self.fail('Timed out waiting for DHCPRELEASE in dnsmasq log (on bringing down interface)')
 
+    def setup_veth_ns_server(self):
+        # The REQUEST message on renewal is unicast, hence the server needs to be in another network
+        # namespace, otherwise the message would not be delivered to a local address.
+        check_output('ip netns add ns-server')
+        check_output('ip link add veth99 type veth peer veth-peer')
+        check_output('ip link set veth-peer netns ns-server')
+        check_output('ip netns exec ns-server ip link set veth-peer up')
+        check_output('ip netns exec ns-server ip address add 192.168.5.1/24 dev veth-peer')
+        check_output('ip netns exec ns-server ip address add 2600::1/64 dev veth-peer')
+
+    def test_dhcp_client_renew_nak(self):
+        self.setup_veth_ns_server()
+
+        copy_network_unit('25-dhcp-client-simple-hostname.network')
+        start_dnsmasq(namespace='ns-server', ipv4_range='192.168.5.110,192.168.5.119')
+        start_networkd()
+        self.wait_online('veth99:routable')
+        self.wait_address('veth99', r'inet 192\.168\.5\.11[0-9]/24', ipv='-4')
+
+        # Restart the server with another range and without the lease, so that it refuses the renewal.
+        # It then broadcasts the DHCPNAK (RFC 2131 section 4.1).
+        stop_dnsmasq()
+        start_dnsmasq(namespace='ns-server', ipv4_range='192.168.5.120,192.168.5.129')
+
+        # T2 of the 2 minute lease is about 100 s away. Without noticing the DHCPNAK, the client would
+        # only acquire the new address after that.
+        networkctl('renew', 'veth99')
+        try:
+            self.wait_address('veth99', r'inet 192\.168\.5\.12[0-9]/24', ipv='-4', timeout_sec=30)
+            self.wait_address_dropped('veth99', r'inet 192\.168\.5\.11[0-9]/24', ipv='-4', timeout_sec=10)
+        finally:
+            output = read_dnsmasq_log_file()
+            print(output)
+        self.assertIn('DHCPNAK', output)
+
     def test_dhcp_client_ipv4_dbus_status(self):
         copy_network_unit(
             '25-veth.netdev',
@@ -9911,14 +9946,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertNotIn('26:mtu', output)
 
     def setup_dhcp_client_send_system_hostname(self, network_unit):
-        # The REQUEST message on renewal is unicast, hence the server needs to be in another network
-        # namespace, otherwise the message would not be delivered to a local address.
-        check_output('ip netns add ns-server')
-        check_output('ip link add veth99 type veth peer veth-peer')
-        check_output('ip link set veth-peer netns ns-server')
-        check_output('ip netns exec ns-server ip link set veth-peer up')
-        check_output('ip netns exec ns-server ip address add 192.168.5.1/24 dev veth-peer')
-        check_output('ip netns exec ns-server ip address add 2600::1/64 dev veth-peer')
+        self.setup_veth_ns_server()
 
         copy_network_unit(network_unit)
 
