@@ -1050,6 +1050,7 @@ testcase_10_resolvectl_json() {
     # Issue: https://github.com/systemd/systemd/issues/29580 (part #1)
     dig @127.0.0.54 signed.test
 
+    monitor_check_rr "$since_ts" '[[:space:]]signed[.]test IN A 10[.]0[.]0[.]10$'
     (
         set +o pipefail
         timeout -v 30s journalctl -p info -o cat _SYSTEMD_UNIT=resolvectl-monitor-json.service --since "$since_ts" -f |
@@ -1121,6 +1122,14 @@ testcase_10_resolvectl_json() {
                 .client.listenerAddress == [127, 0, 0, 54] and
                 .client.listenerPort == 53)'
 
+    journalctl -p info -o cat _SYSTEMD_UNIT="resolvectl-monitor.service" --since "$since_ts" |
+        grep -F "O: varlink pid=${expected_pid} uid=0" >/dev/null
+    if "$expect_peer_pidfd"; then
+        journalctl -p info -o cat _SYSTEMD_UNIT="resolvectl-monitor.service" --since "$since_ts" |
+            grep -F "O: varlink pid=${expected_pid} uid=0 cgroup=/system.slice/resolved-monitor-client.service" >/dev/null
+    fi
+    journalctl -p info -o cat _SYSTEMD_UNIT="resolvectl-monitor.service" --since "$since_ts" | grep "O: stub_udp 127.0.0.1:" >/dev/null
+    journalctl -p info -o cat _SYSTEMD_UNIT="resolvectl-monitor.service" --since "$since_ts" | grep "O: stub_tcp 127.0.0.1:" >/dev/null
 
     # Test some global-only settings.
     mkdir -p /run/systemd/resolved.conf.d
