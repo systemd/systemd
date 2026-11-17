@@ -508,7 +508,11 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
           <replaceable>DEVICE…</replaceable>
         </term>
         <listitem><para>Send a FORCERENEW message to all connected clients, triggering DHCP reconfiguration.
-        Takes interface name or index number.</para>
+        Takes interface name or index number. The message is authenticated with the Forcerenew Nonce
+        Authentication protocol (<ulink url="https://tools.ietf.org/html/rfc6704">RFC 6704</ulink>) if the client
+        supports it. Clients ignore unauthenticated FORCERENEW messages, including the DHCP client of
+        <command>systemd-networkd</command>, see <varname>AcceptReconfigure=</varname> in the [DHCPv4] section of
+        <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>

@@ -55,6 +55,8 @@ typedef struct sd_dhcp_server {
         usec_t ipv6_only_preferred_usec;
         bool rapid_commit;
 
+        uint64_t forcerenew_replay; /* the last replay detection value sent (RFC 6704) */
+
         sd_dhcp_server_callback_t callback;
         void *callback_userdata;
 
