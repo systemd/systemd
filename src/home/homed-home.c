@@ -2052,9 +2052,14 @@ int home_passwd(Home *h,
         if (r < 0)
                 return r;
 
-        r = home_may_change_password(h, error);
-        if (r < 0)
-                return r;
+        /* Without a new password the record is only synced to storage, no password ageing or quality
+         * checks apply */
+        bool new_password = !strv_isempty(new_secret->password);
+        if (new_password) {
+                r = home_may_change_password(h, error);
+                if (r < 0)
+                        return r;
+        }
 
         r = user_record_clone(h->record, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_PERMISSIVE, &c);
         if (r < 0)
@@ -2072,7 +2077,7 @@ int home_passwd(Home *h,
         if (r < 0)
                 return r;
 
-        if (!strv_isempty(new_secret->password)) {
+        if (new_password) {
                 /* Update the password only if one is specified, otherwise let's just reuse the old password
                  * data. This is useful as a way to propagate updated user records into the LUKS backends
                  * properly. */
@@ -2086,7 +2091,7 @@ int home_passwd(Home *h,
                         return r;
         }
 
-        r = user_record_update_last_changed(c, /* with_password= */ !strv_isempty(new_secret->password));
+        r = user_record_update_last_changed(c, /* with_password= */ new_password);
         if (r == -ECHRNG)
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_RECORD_MISMATCH, "Record last change time of %s is newer than current time, cannot update.", h->user_name);
         if (r < 0)
@@ -2098,7 +2103,7 @@ int home_passwd(Home *h,
 
         if (c->enforce_password_policy == false)
                 log_debug("Password quality check turned off for account, skipping.");
-        else {
+        else if (new_password) {
                 r = user_record_check_password_quality(c, merged_secret, error);
                 if (r < 0)
                         return r;
