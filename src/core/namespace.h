@@ -203,7 +203,6 @@ typedef struct NamespaceParameters {
         const char *propagate_dir;
         const char *incoming_dir;
 
-        const char *private_namespace_dir;
         const char *host_notify_socket;
         const char *notify_socket_path;
         int host_os_release_fd;
