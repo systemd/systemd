@@ -1005,20 +1005,60 @@ testcase_09_resolvectl_showcache() {
 }
 
 testcase_10_resolvectl_json() {
-    local status_json
+    local expected_pid has_cgroup_id=false expect_peer_pidfd=false since_ts status_json tcp_id udp_id
 
     # Cleanup
     # shellcheck disable=SC2317,SC2329
     cleanup() {
-        rm -f /run/systemd/resolved.conf.d/90-fallback.conf
+        rm -f /run/test-monitor-client.pid /run/systemd/resolved.conf.d/{90-fallback,90-monitor}.conf
         systemctl reload systemd-resolved.service
         resolvectl revert dns0
     }
 
     trap cleanup RETURN ERR
 
+    if systemd-analyze compare-versions "$(uname -r)" ge 6.13; then
+        has_cgroup_id=true
+    fi
+
+    if systemd-analyze compare-versions "$(uname -r)" ge 6.5; then
+        expect_peer_pidfd=true
+    fi
+
+    {
+        echo "[Resolve]"
+        echo "DNSStubListenerExtra=udp:127.0.0.155:9953"
+    } >/run/systemd/resolved.conf.d/90-monitor.conf
+    systemctl reload systemd-resolved.service
+
+    since_ts="$(date '+%F %T.%N')"
+    systemd-run --unit=resolved-monitor-client --collect --wait --expand-environment=no \
+        sh -c 'echo $$ >/run/test-monitor-client.pid; exec resolvectl query unsigned.test'
+    expected_pid="$(</run/test-monitor-client.pid)"
+    # Parse the query ID from dig's reply. Newer dig versions support
+    # +qid=12345, but CentOS 9's dig does not. Consider using +qid
+    # once the CentOS 9 suite is dropped.
+    udp_id="$(dig @127.0.0.155 -p 9953 unsigned.test. A |
+        sed -nE 's/^;; ->>HEADER<<-.* id: ([0-9]+)[[:space:]]*$/\1/p')"
+    tcp_id="$(dig +tcp @127.0.0.53 unsigned.test. A |
+        sed -nE 's/^;; ->>HEADER<<-.* id: ([0-9]+)[[:space:]]*$/\1/p')"
+    [[ "$udp_id" =~ ^[0-9]+$ ]]
+    [[ "$tcp_id" =~ ^[0-9]+$ ]]
+    busctl call org.freedesktop.resolve1 /org/freedesktop/resolve1 \
+        org.freedesktop.resolve1.Manager ResolveService isssit 0 '' _mysvc._tcp signed.test 0 0
+
     # Issue: https://github.com/systemd/systemd/issues/29580 (part #1)
     dig @127.0.0.54 signed.test
+
+    (
+        set +o pipefail
+        timeout -v 30s journalctl -p info -o cat _SYSTEMD_UNIT=resolvectl-monitor-json.service --since "$since_ts" -f |
+            jq -ne 'first(inputs | select(
+                any(.question[]?; .name == "signed.test") and
+                .client.transport == "stub_udp" and
+                .client.listenerAddress == [127, 0, 0, 54] and
+                .client.listenerPort == 53) | true) // false' >/dev/null
+    )
 
     systemctl stop resolvectl-monitor.service
     systemctl stop resolvectl-monitor-json.service
@@ -1036,6 +1076,50 @@ testcase_10_resolvectl_json() {
         # so we need to select it only if it's present, otherwise the type == "array" check would fail
         echo "$line" | jq -e '[. | .question, (select(has("answer")) | .answer) | type == "array"] | all'
     done
+
+    journalctl -p info -o cat _SYSTEMD_UNIT="resolvectl-monitor-json.service" --since "$since_ts" |
+        jq -e -s --argjson pid "$expected_pid" --argjson expect_peer_pidfd "$expect_peer_pidfd" --argjson has_cg "$has_cgroup_id" \
+            --argjson udp_id "$udp_id" --argjson tcp_id "$tcp_id" '
+            2 as $AF_INET |
+            any(.[];
+                any(.question[]?; .name == "unsigned.test") and
+                .client.transport == "varlink" and
+                .client.pid.pid == $pid and
+                .client.uid == 0 and
+                (($expect_peer_pidfd | not) or (
+                    (($has_cg | not) or .client.controlGroupId > 0) and
+                    .client.controlGroup == "/system.slice/resolved-monitor-client.service" and
+                    .client.commandLine == ["resolvectl", "query", "unsigned.test"]))) and
+            any(.[];
+                any(.question[]?; .name == "unsigned.test") and
+                .state == "success" and
+                .client.transport == "stub_udp" and
+                .client.family == $AF_INET and
+                .client.address == [127, 0, 0, 1] and
+                .client.port > 0 and
+                .client.listenerAddress == [127, 0, 0, 155] and
+                .client.listenerPort == 9953 and
+                .client.dnsPacketId == $udp_id) and
+            any(.[];
+                any(.question[]?; .name == "unsigned.test") and
+                .state == "success" and
+                .client.transport == "stub_tcp" and
+                .client.family == $AF_INET and
+                .client.address == [127, 0, 0, 1] and
+                .client.port > 0 and
+                .client.listenerAddress == [127, 0, 0, 53] and
+                .client.listenerPort == 53 and
+                .client.dnsPacketId == $tcp_id) and
+            any(.[];
+                any(.question[]?;
+                    .name == "myservice.signed.test" and (.type == 1 or .type == 28)) and
+                .state == "success" and
+                .client == {"transport": "dbus"}) and
+            any(.[];
+                any(.question[]?; .name == "signed.test") and
+                .client.transport == "stub_udp" and
+                .client.listenerAddress == [127, 0, 0, 54] and
+                .client.listenerPort == 53)'
 
 
     # Test some global-only settings.
