@@ -87,6 +87,14 @@ EOF
               --bank=sha1 --phase=foo | cmp - /tmp/result
 rm /tmp/result /tmp/result.json
 
+openssl_has_rfc6979() {
+    # "-sigopt nonce-type:1" enables deterministic ECDSA, note it will fail
+    # with non-EC key
+    echo "test" | openssl dgst -sha256 -sigopt nonce-type:1 -sigopt digest:sha256 -sign /tmp/pcrsign-private.pem >/dev/null
+    echo "OpenSSL supports deterministic ECDSA (RFC 6979)."
+    return 0
+}
+
 # This function is parametrized so different types of key can be tested
 # easily. First parameter is the key algorithm (RSA/EC), optionally followed by
 # additional parameters for "openssl genpkey" (e.g. to set key size or curve).
@@ -112,14 +120,19 @@ test_pcrsign() {
     # This cannot not work for ECDSA signatures unless sd-measure is changed to
     # produce deterministic ECDSA signatures (RFC 6979) and OpenSSL 3.2 is
     # available, see https://github.com/systemd/systemd/issues/44788
-    if [ "$algorithm" != "EC" ]; then
+    if [ "$algorithm" != "EC" ] || openssl_has_rfc6979; then
         digest="$("$SD_MEASURE" policy-digest --json=short --linux=/tmp/tpmdata1 --initrd=/tmp/tpmdata2 --bank=sha256 --public-key="/tmp/pcrsign-public.pem" --phase=: --policyref=foo)"
+        if [ "$algorithm" = "EC" ]; then
+            sigopts=( -sigopt nonce-type:1 -sigopt digest:sha256 )
+        else
+            sigopts=()
+        fi
         echo "$digest" | jq -r '.sha256 | to_entries[] | [.value.pol, .value.tbs] | @tsv' | while read -r pol tbs; do
             # Note: basenc before coreutils 9.5 refuses lowercase hex input strings
             offline_sig="$(echo -n "$tbs" | \
                 tr '[:lower:]' '[:upper:]' | \
                 basenc --base16 --decode | \
-                openssl dgst -sign /tmp/pcrsign-private.pem -sha256 | \
+                openssl dgst "${sigopts[@]}" -sign /tmp/pcrsign-private.pem -sha256 | \
                 base64 -w0)"
             online_sig="$(echo "$signed_digest" | jq -r --arg pol "$pol" '.sha256[] | select(.pol == $pol) | .sig')"
             test "$tbs" != "$pol"
@@ -200,7 +213,7 @@ test_pcrsign() {
     systemd-cryptsetup detach test-volume2
 
     # De-duplication is broken for EC, see https://github.com/systemd/systemd/issues/44788
-    if [ "$algorithm" != "EC" ]; then
+    if [ "$algorithm" != "EC" ] || openssl_has_rfc6979; then
         # Test --append mode and de-duplication. With the same parameters signing should not add a new entry
         "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --append="/tmp/pcrsign.sig3" >"/tmp/pcrsign.sig4"
         cmp "/tmp/pcrsign.sig3" "/tmp/pcrsign.sig4"
@@ -215,7 +228,7 @@ test_pcrsign() {
     systemd-cryptsetup detach test-volume2
 
     # De-duplication is broken for EC, see https://github.com/systemd/systemd/issues/44788
-    if [ "$algorithm" != "EC" ]; then
+    if [ "$algorithm" != "EC" ] || openssl_has_rfc6979; then
         # Adding both signatures once more should not change anything, due to the deduplication
         "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --append="/tmp/pcrsign.sig5" >"/tmp/pcrsign.sig6"
         "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=quux:waldo --append="/tmp/pcrsign.sig6" >"/tmp/pcrsign.sig7"
