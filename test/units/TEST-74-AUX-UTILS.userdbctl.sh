@@ -94,6 +94,8 @@ systemctl stop "$UNIT"
 # Probe specific user records
 echo '{"userName":"weightmin","cpuWeight":1,"ioWeight":1}' | userdbctl -F -
 echo '{"userName":"weightmax","cpuWeight":10000,"ioWeight":10000}' | userdbctl -F -
+# A disk size of zero must not result in a division by zero
+printf '{"userName":"disksizezero","status":{"%s":{"diskSize":0,"diskUsage":1024,"diskFree":1024}}}' "$(</etc/machine-id)" | userdbctl -F -
 
 # Avoid creating an empty bind mount destination on the host, which would hide openSUSE's fallback
 # /usr/etc/nsswitch.conf and break NSS lookups in subsequent tests.
