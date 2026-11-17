@@ -8,7 +8,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 # General guideline
 
 - New Varlink APIs and extensions to existing APIs must follow the
-  [UAPI Varlink specification](https://uapi-group.org/specifications/specs/varlink/),
+  [UAPI.20 Varlink IPC](https://uapi-group.org/specifications/specs/varlink/),
   respecting its requirements, recommendations and permitted exceptions. The
   guidelines below supplement it with systemd-specific conventions.
 
@@ -21,7 +21,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - Every field and method should include meaningful documentation. It's
   acceptable to reference existing documentation where appropriate.
   Documentation may be omitted only when the meaning is self-evident, even to
-  someone not already familiar with varlink interface/method.
+  someone not already familiar with Varlink interface/method.
 
 - Varlink fields should optimize toward clarity:
   * avoid abbreviations: `cacheDir` -> `cacheDirectory`
@@ -71,6 +71,11 @@ The test fails in these cases:
 - A page is not in `man/rules/meson.build`.
 - A symbol is undocumented and not in the ignore list.
 - A symbol has no history entry.
+
+Use `varlinkctl introspect --format=json` to read a definition as JSON. A service
+also returns JSON when the caller sets the `format=json` input of
+`org.varlink.service.GetInterfaceDescription()`. Process that data directly. Do
+not parse the IDL text.
 
 # Interface structure
 
@@ -126,7 +131,7 @@ The test fails in these cases:
   representable as enum members.
 
   For example, in `io.systemd.Unit`, configuration settings that users select
-  in unit files (e.g. `ProtectSystem`, `ExecInputType`) should be proper varlink
+  in unit files (e.g. `ProtectSystem`, `ExecInputType`) should be proper Varlink
   enum types. Runtime state fields that only the engine determines (e.g.
   `ActiveState`, `SubState`) may remain plain strings.
 
@@ -136,7 +141,7 @@ The test fails in these cases:
   adding alias support to IDL validation or an explicit exception permitting
   string-typed inputs.
 
-- A varlink string field that has a finite set of possible values may later be
+- A Varlink string field that has a finite set of possible values may later be
   converted into an enum without introducing a breaking change. This allows the
   interface to evolve from loosely defined string values to a more explicit and
   type-safe enumeration once the valid options are well established.
