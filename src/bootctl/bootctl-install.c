@@ -1044,7 +1044,8 @@ static int install_entry_token(InstallContext *c) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open '%s': %m", j);
 
-        r = write_string_file_at(dfd, "entry-token", c->entry_token, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755);
+        r = write_string_file_at(dfd, "entry-token", c->entry_token,
+                WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_VERIFY_ON_FAILURE);
         if (r < 0)
                 return log_error_errno(r, "Failed to write entry token '%s' to '%s/entry-token': %m", c->entry_token, j);
 
