@@ -19,10 +19,9 @@ static void test_uid_to_name_one(uid_t uid, const char *name) {
         log_info("/* %s("UID_FMT", \"%s\") */", __func__, uid, name);
 
         t = ASSERT_NOT_NULL(uid_to_name(uid));
-        if (!synthesize_nobody() && streq(name, NOBODY_USER_NAME)) {
-                log_info("(skipping detailed tests because nobody is not synthesized)");
-                return;
-        }
+        if (!synthesize_nobody() && streq(name, NOBODY_USER_NAME))
+                return (void) log_info("(skipping detailed tests because nobody is not synthesized)");
+
         ASSERT_STREQ(t, name);
 }
 
@@ -39,10 +38,9 @@ static void test_gid_to_name_one(gid_t gid, const char *name) {
         log_info("/* %s("GID_FMT", \"%s\") */", __func__, gid, name);
 
         t = ASSERT_NOT_NULL(gid_to_name(gid));
-        if (!synthesize_nobody() && streq(name, NOBODY_GROUP_NAME)) {
-                log_info("(skipping detailed tests because nobody is not synthesized)");
-                return;
-        }
+        if (!synthesize_nobody() && streq(name, NOBODY_GROUP_NAME))
+                return (void) log_info("(skipping detailed tests because nobody is not synthesized)");
+
         ASSERT_STREQ(t, name);
 }
 
@@ -300,10 +298,9 @@ static void test_get_user_creds_one(const char *id, const char *name, uid_t uid,
         r = get_user_creds(id, /* flags= */ 0, &rname, &ruid, &rgid, &rhome, &rshell);
         log_info_errno(r, "got \"%s\", "UID_FMT", "GID_FMT", \"%s\", \"%s\": %m",
                        strnull(rname), ruid, rgid, strnull(rhome), strnull(rshell));
-        if (!synthesize_nobody() && streq(name, NOBODY_USER_NAME)) {
-                log_info("(skipping detailed tests because nobody is not synthesized)");
-                return;
-        }
+        if (!synthesize_nobody() && streq(name, NOBODY_USER_NAME))
+                return (void) log_info("(skipping detailed tests because nobody is not synthesized)");
+
         ASSERT_OK(r);
         ASSERT_STREQ(rname, name);
         ASSERT_EQ(ruid, uid);
@@ -327,10 +324,9 @@ static void test_get_group_creds_one(const char *id, const char *expected_name, 
 
         r = get_group_creds(id, /* flags= */ 0, &rnam, &rgid);
         log_info_errno(r, "→ \"%s\", "GID_FMT": %m", strnull(rnam), rgid);
-        if (!synthesize_nobody() && streq(expected_name, NOBODY_GROUP_NAME)) {
-                log_info("(skipping detailed tests because nobody is not synthesized)");
-                return;
-        }
+        if (!synthesize_nobody() && streq(expected_name, NOBODY_GROUP_NAME))
+                return (void) log_info("(skipping detailed tests because nobody is not synthesized)");
+
         ASSERT_OK(r);
         ASSERT_STREQ(rnam, expected_name);
         ASSERT_EQ(rgid, expected_gid);

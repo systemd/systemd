@@ -33,10 +33,9 @@ static void test_libmount_unescaping_one(
         /* We allow this call and the checks below to fail in some cases. See the case definitions below. */
 
         r = sym_mnt_table_next_fs(table, iter, &fs);
-        if (r != 0 && may_fail) {
-                log_error_errno(r, "mnt_table_next_fs failed: %m");
-                return;
-        }
+        if (r != 0 && may_fail)
+                return (void) log_error_errno(r, "mnt_table_next_fs failed: %m");
+
         ASSERT_OK_ZERO(r);
 
         ASSERT_NOT_NULL(x = cescape(string));

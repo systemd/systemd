@@ -32,20 +32,16 @@ void manager_forward_wall(
                         identifier = ident_buf;
                 }
 
-                if (asprintf(&l_buf, "%s["PID_FMT"]: %s", strempty(identifier), ucred->pid, message) < 0) {
-                        log_oom();
-                        return;
-                }
+                if (asprintf(&l_buf, "%s["PID_FMT"]: %s", strempty(identifier), ucred->pid, message) < 0)
+                        return (void) log_oom();
 
                 l = l_buf;
 
         } else if (identifier) {
 
                 l = l_buf = strjoin(identifier, ": ", message);
-                if (!l_buf) {
-                        log_oom();
-                        return;
-                }
+                if (!l_buf)
+                        return (void) log_oom();
         } else
                 l = message;
 

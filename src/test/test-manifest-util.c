@@ -1416,10 +1416,9 @@ static void test_signed_one(
         c.certificate = certificate;
         c.private_key = private_key;
         r = generate(&c, tfd, &buf, &size);
-        if (r == -EOPNOTSUPP) {
-                log_notice("Key type not supported for signing by this OpenSSL version, skipping.");
-                return;
-        }
+        if (r == -EOPNOTSUPP)
+                return (void) log_notice("Key type not supported for signing by this OpenSSL version, skipping.");
+
         ASSERT_OK(r);
 
         /* The signature object is the second to last record, the trailer the last */

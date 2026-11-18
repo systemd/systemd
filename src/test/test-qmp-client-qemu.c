@@ -111,10 +111,9 @@ TEST(qmp_client_qemu_handshake_and_schema) {
         _cleanup_close_pair_ int qmp_fds[2] = EBADF_PAIR;
         int r;
 
-        if (find_qemu_binary(&qemu) < 0) {
-                log_tests_skipped("QEMU not found");
-                return;
-        }
+        if (find_qemu_binary(&qemu) < 0)
+                return (void) log_tests_skipped("QEMU not found");
+
         log_info("Using QEMU: %s", qemu);
 
         ASSERT_OK(sd_event_new(&event));
@@ -124,20 +123,17 @@ TEST(qmp_client_qemu_handshake_and_schema) {
         qmp_fds[1] = safe_close(qmp_fds[1]);
 
         r = qmp_client_connect_fd(&client, TAKE_FD(qmp_fds[0]));
-        if (r < 0) {
-                log_tests_skipped_errno(r, "QMP connect failed (QEMU may not support -machine none)");
-                return;
-        }
+        if (r < 0)
+                return (void) log_tests_skipped_errno(r, "QMP connect failed (QEMU may not support -machine none)");
 
         ASSERT_OK(qmp_client_attach_event(client, event, SD_EVENT_PRIORITY_NORMAL));
 
         /* query-qmp-schema returns ~200KB -- validates the buffered reader handles large multi-read()
          * responses correctly. The handshake completes transparently inside invoke(). */
         r = qmp_client_invoke(client, /* ret_slot= */ NULL, "query-qmp-schema", /* args= */ NULL, on_test_result, &t);
-        if (r < 0) {
-                log_tests_skipped_errno(r, "QMP invoke failed (handshake or send)");
-                return;
-        }
+        if (r < 0)
+                return (void) log_tests_skipped_errno(r, "QMP invoke failed (handshake or send)");
+
         qmp_test_wait(event, &t);
         ASSERT_EQ(t.error, 0);
         ASSERT_NOT_NULL(t.result);
@@ -175,10 +171,8 @@ TEST(qmp_client_qemu_query_status) {
         _cleanup_close_pair_ int qmp_fds[2] = EBADF_PAIR;
         int r;
 
-        if (find_qemu_binary(&qemu) < 0) {
-                log_tests_skipped("QEMU not found");
-                return;
-        }
+        if (find_qemu_binary(&qemu) < 0)
+                return (void) log_tests_skipped("QEMU not found");
 
         ASSERT_OK(sd_event_new(&event));
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, qmp_fds));
@@ -187,20 +181,17 @@ TEST(qmp_client_qemu_query_status) {
         qmp_fds[1] = safe_close(qmp_fds[1]);
 
         r = qmp_client_connect_fd(&client, TAKE_FD(qmp_fds[0]));
-        if (r < 0) {
-                log_tests_skipped_errno(r, "QMP connect failed");
-                return;
-        }
+        if (r < 0)
+                return (void) log_tests_skipped_errno(r, "QMP connect failed");
 
         ASSERT_OK(qmp_client_attach_event(client, event, SD_EVENT_PRIORITY_NORMAL));
 
         /* query-status validates response parsing against real QEMU output format.
          * The handshake completes transparently inside invoke(). */
         r = qmp_client_invoke(client, /* ret_slot= */ NULL, "query-status", /* args= */ NULL, on_test_result, &t);
-        if (r < 0) {
-                log_tests_skipped_errno(r, "QMP invoke failed (handshake or send)");
-                return;
-        }
+        if (r < 0)
+                return (void) log_tests_skipped_errno(r, "QMP invoke failed (handshake or send)");
+
         qmp_test_wait(event, &t);
         ASSERT_EQ(t.error, 0);
         ASSERT_NOT_NULL(t.result);
@@ -264,10 +255,8 @@ TEST(qmp_client_qemu_add_fd) {
         _cleanup_close_pair_ int qmp_fds[2] = EBADF_PAIR;
         int r;
 
-        if (find_qemu_binary(&qemu) < 0) {
-                log_tests_skipped("QEMU not found");
-                return;
-        }
+        if (find_qemu_binary(&qemu) < 0)
+                return (void) log_tests_skipped("QEMU not found");
 
         ASSERT_OK(sd_event_new(&event));
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, qmp_fds));
@@ -276,10 +265,8 @@ TEST(qmp_client_qemu_add_fd) {
         qmp_fds[1] = safe_close(qmp_fds[1]);
 
         r = qmp_client_connect_fd(&client, TAKE_FD(qmp_fds[0]));
-        if (r < 0) {
-                log_tests_skipped_errno(r, "QMP connect failed");
-                return;
-        }
+        if (r < 0)
+                return (void) log_tests_skipped_errno(r, "QMP connect failed");
 
         ASSERT_OK(qmp_client_attach_event(client, event, SD_EVENT_PRIORITY_NORMAL));
 
@@ -294,10 +281,9 @@ TEST(qmp_client_qemu_add_fd) {
         r = qmp_client_invoke(client, /* ret_slot= */ NULL, "add-fd",
                               QMP_CLIENT_ARGS_FD(args, TAKE_FD(fd_to_pass)),
                               on_test_result, &t);
-        if (r < 0) {
-                log_tests_skipped_errno(r, "QMP add-fd invoke failed");
-                return;
-        }
+        if (r < 0)
+                return (void) log_tests_skipped_errno(r, "QMP add-fd invoke failed");
+
         qmp_test_wait(event, &t);
         ASSERT_EQ(t.error, 0);
         ASSERT_NOT_NULL(t.result);

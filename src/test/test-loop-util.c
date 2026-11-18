@@ -233,15 +233,11 @@ TEST(loop_block) {
         dissected = dissected_image_unref(dissected);
 #endif
 
-        if (have_effective_cap(CAP_SYS_ADMIN) <= 0) {
-                log_tests_skipped("not running privileged");
-                return;
-        }
+        if (have_effective_cap(CAP_SYS_ADMIN) <= 0)
+                return (void) log_tests_skipped("not running privileged");
 
-        if (detect_container() != 0 || running_in_chroot() != 0) {
-                log_tests_skipped("Test not supported in a container/chroot, requires udev/uevent notifications");
-                return;
-        }
+        if (detect_container() != 0 || running_in_chroot() != 0)
+                return (void) log_tests_skipped("Test not supported in a container/chroot, requires udev/uevent notifications");
 
         ASSERT_OK(loop_device_make(fd, O_RDWR, /* offset= */ 0, UINT64_MAX, /* sector_size= */ 0, LO_FLAGS_PARTSCAN, LOCK_EX, &loop));
 
@@ -257,10 +253,8 @@ TEST(loop_block) {
         verify_dissected_image(dissected);
 
         FOREACH_STRING(fs, "vfat", "ext4") {
-                if (ASSERT_OK(mkfs_exists(fs)) == 0) {
-                        log_tests_skipped("mkfs.{vfat|ext4} not installed");
-                        return;
-                }
+                if (ASSERT_OK(mkfs_exists(fs)) == 0)
+                        return (void) log_tests_skipped("mkfs.{vfat|ext4} not installed");
         }
 
         ASSERT_OK(sd_id128_randomize(&id));
@@ -441,15 +435,11 @@ TEST(sector_size_regular_file) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
         _cleanup_close_ int fd = -EBADF;
 
-        if (have_effective_cap(CAP_SYS_ADMIN) <= 0) {
-                log_tests_skipped("not running privileged");
-                return;
-        }
+        if (have_effective_cap(CAP_SYS_ADMIN) <= 0)
+                return (void) log_tests_skipped("not running privileged");
 
-        if (detect_container() != 0 || running_in_chroot() != 0) {
-                log_tests_skipped("Test not supported in a container/chroot");
-                return;
-        }
+        if (detect_container() != 0 || running_in_chroot() != 0)
+                return (void) log_tests_skipped("Test not supported in a container/chroot");
 
         ASSERT_OK(make_test_image(&fd));
 
@@ -478,15 +468,11 @@ TEST(make_by_path_at_fd) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
         _cleanup_close_ int fd = -EBADF;
 
-        if (have_effective_cap(CAP_SYS_ADMIN) <= 0) {
-                log_tests_skipped("not running privileged");
-                return;
-        }
+        if (have_effective_cap(CAP_SYS_ADMIN) <= 0)
+                return (void) log_tests_skipped("not running privileged");
 
-        if (detect_container() != 0 || running_in_chroot() != 0) {
-                log_tests_skipped("Test not supported in a container/chroot");
-                return;
-        }
+        if (detect_container() != 0 || running_in_chroot() != 0)
+                return (void) log_tests_skipped("Test not supported in a container/chroot");
 
         ASSERT_OK(make_test_image(&fd));
 
@@ -499,15 +485,11 @@ TEST(sector_size_block_device) {
         _cleanup_(loop_device_unrefp) LoopDevice *block_loop = NULL, *loop = NULL;
         _cleanup_close_ int fd = -EBADF;
 
-        if (have_effective_cap(CAP_SYS_ADMIN) <= 0) {
-                log_tests_skipped("not running privileged");
-                return;
-        }
+        if (have_effective_cap(CAP_SYS_ADMIN) <= 0)
+                return (void) log_tests_skipped("not running privileged");
 
-        if (detect_container() != 0 || running_in_chroot() != 0) {
-                log_tests_skipped("Test not supported in a container/chroot, requires udev/uevent notifications");
-                return;
-        }
+        if (detect_container() != 0 || running_in_chroot() != 0)
+                return (void) log_tests_skipped("Test not supported in a container/chroot, requires udev/uevent notifications");
 
         ASSERT_OK(make_test_image(&fd));
 
@@ -555,15 +537,11 @@ TEST(sector_size_mismatch) {
         _cleanup_(loop_device_unrefp) LoopDevice *block_loop = NULL, *loop = NULL;
         _cleanup_close_ int fd = -EBADF;
 
-        if (have_effective_cap(CAP_SYS_ADMIN) <= 0) {
-                log_tests_skipped("not running privileged");
-                return;
-        }
+        if (have_effective_cap(CAP_SYS_ADMIN) <= 0)
+                return (void) log_tests_skipped("not running privileged");
 
-        if (detect_container() != 0 || running_in_chroot() != 0) {
-                log_tests_skipped("Test not supported in a container/chroot");
-                return;
-        }
+        if (detect_container() != 0 || running_in_chroot() != 0)
+                return (void) log_tests_skipped("Test not supported in a container/chroot");
 
         /* Create an image with a GPT written at 512-byte sectors, then create a loop device with
          * 4096-byte sectors on top. This simulates the CD-ROM scenario where the device has large
@@ -606,15 +584,11 @@ TEST(partscan_required) {
         _cleanup_(loop_device_unrefp) LoopDevice *block_loop = NULL, *loop = NULL;
         _cleanup_close_ int fd = -EBADF;
 
-        if (have_effective_cap(CAP_SYS_ADMIN) <= 0) {
-                log_tests_skipped("not running privileged");
-                return;
-        }
+        if (have_effective_cap(CAP_SYS_ADMIN) <= 0)
+                return (void) log_tests_skipped("not running privileged");
 
-        if (detect_container() != 0 || running_in_chroot() != 0) {
-                log_tests_skipped("Test not supported in a container/chroot, requires udev/uevent notifications");
-                return;
-        }
+        if (detect_container() != 0 || running_in_chroot() != 0)
+                return (void) log_tests_skipped("Test not supported in a container/chroot, requires udev/uevent notifications");
 
         ASSERT_OK(make_test_image(&fd));
 
@@ -641,15 +615,11 @@ TEST(partscan_not_needed_without_partition_table) {
         _cleanup_free_ char *p = NULL;
         _cleanup_close_ int fd = -EBADF;
 
-        if (have_effective_cap(CAP_SYS_ADMIN) <= 0) {
-                log_tests_skipped("not running privileged");
-                return;
-        }
+        if (have_effective_cap(CAP_SYS_ADMIN) <= 0)
+                return (void) log_tests_skipped("not running privileged");
 
-        if (detect_container() != 0 || running_in_chroot() != 0) {
-                log_tests_skipped("Test not supported in a container/chroot, requires udev/uevent notifications");
-                return;
-        }
+        if (detect_container() != 0 || running_in_chroot() != 0)
+                return (void) log_tests_skipped("Test not supported in a container/chroot, requires udev/uevent notifications");
 
         /* The regression in 663f0bf5cb allocated a loop device whenever partition scanning was requested but
          * couldn't be enabled, regardless of the device's contents. That's harmless for most file systems but
@@ -694,15 +664,11 @@ static void test_nested_partition_table_one(const char *nested_table) {
 
         assert(nested_table);
 
-        if (have_effective_cap(CAP_SYS_ADMIN) <= 0) {
-                log_tests_skipped("not running privileged");
-                return;
-        }
+        if (have_effective_cap(CAP_SYS_ADMIN) <= 0)
+                return (void) log_tests_skipped("not running privileged");
 
-        if (detect_container() != 0 || running_in_chroot() != 0) {
-                log_tests_skipped("Test not supported in a container/chroot, requires udev/uevent notifications");
-                return;
-        }
+        if (detect_container() != 0 || running_in_chroot() != 0)
+                return (void) log_tests_skipped("Test not supported in a container/chroot, requires udev/uevent notifications");
 
         /* Build an image with a single root partition spanning the whole disk. */
         ASSERT_OK(tempfn_random_child("/var/tmp", "sfdisk", &p));

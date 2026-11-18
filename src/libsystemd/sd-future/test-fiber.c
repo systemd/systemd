@@ -2112,10 +2112,8 @@ TEST(fiber_stack_guard) {
         return;
 #endif
 #if HAVE_VALGRIND_VALGRIND_H
-        if (RUNNING_ON_VALGRIND) {
-                (void) log_tests_skipped("Valgrind intercepts deliberate stack OOB writes");
-                return;
-        }
+        if (RUNNING_ON_VALGRIND)
+                return (void) log_tests_skipped("Valgrind intercepts deliberate stack OOB writes");
 #endif
 
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;

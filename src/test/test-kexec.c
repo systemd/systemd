@@ -106,10 +106,8 @@ TEST(gzip_round_trip) {
         int r;
 
         r = dlopen_zlib(LOG_DEBUG);
-        if (r < 0) {
-                log_tests_skipped("zlib not available");
-                return;
-        }
+        if (r < 0)
+                return (void) log_tests_skipped("zlib not available");
 
         /* Create a source file with known content */
         ASSERT_OK(src_fd = mkostemp_safe(src_path));
@@ -146,10 +144,8 @@ TEST(zboot_synthetic) {
         int r;
 
         r = dlopen_zlib(LOG_DEBUG);
-        if (r < 0) {
-                log_tests_skipped("zlib not available");
-                return;
-        }
+        if (r < 0)
+                return (void) log_tests_skipped("zlib not available");
 
         /* Create and compress a payload */
         char payload[512];
@@ -208,26 +204,20 @@ TEST(system_kernel) {
         int r;
 
         r = find_kernel_image(&path);
-        if (r < 0) {
-                log_tests_skipped_errno(r, "No kernel image found on this system");
-                return;
-        }
+        if (r < 0)
+                return (void) log_tests_skipped_errno(r, "No kernel image found on this system");
 
         log_info("Found kernel image: %s", path);
 
         fd = xopenat(AT_FDCWD, path, O_RDONLY);
-        if (fd < 0) {
-                log_tests_skipped_errno(fd, "Cannot open kernel image '%s'", path);
-                return;
-        }
+        if (fd < 0)
+                return (void) log_tests_skipped_errno(fd, "Cannot open kernel image '%s'", path);
 
         _cleanup_close_ int kernel_fd = -EBADF, initrd_fd = -EBADF;
         ASSERT_OK(r = kexec_maybe_decompress_kernel(path, fd, &kernel_fd, &initrd_fd));
 
-        if (r == 0) {
-                log_info("Kernel image was not compressed (passed through as-is).");
-                return;
-        }
+        if (r == 0)
+                return (void) log_info("Kernel image was not compressed (passed through as-is).");
 
         log_info("Kernel image was decompressed/extracted successfully.");
         ASSERT_GE(kernel_fd, 0);

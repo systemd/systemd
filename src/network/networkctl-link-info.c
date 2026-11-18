@@ -306,10 +306,8 @@ static void acquire_wlan_link_info(LinkInfo *link) {
                 return;
 
         r = sd_genl_socket_open(&genl);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to open generic netlink socket: %m");
-                return;
-        }
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to open generic netlink socket: %m");
 
         (void) sd_netlink_increase_rxbuf(genl, RCVBUF_SIZE);
 

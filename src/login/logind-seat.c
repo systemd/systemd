@@ -215,10 +215,9 @@ int seat_preallocate_vts(Seat *s) {
 static void seat_triggered_uevents_done(Seat *s) {
         assert(s);
 
-        if (!set_isempty(s->uevents)) {
-                log_debug("%s: waiting for %u events being processed by udevd.", s->id, set_size(s->uevents));
-                return;
-        }
+        if (!set_isempty(s->uevents))
+                return (void) log_debug("%s: waiting for %u events being processed by udevd.", s->id,
+                                        set_size(s->uevents));
 
         Session *session = s->active;
 

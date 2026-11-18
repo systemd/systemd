@@ -942,22 +942,16 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
         if (!l && /* l == NULL if this is the main stub */
             !address_is_proxy(p->family, &p->destination) && /* don't restrict needlessly for 127.0.0.54 */
             (in_addr_is_localhost(p->family, &p->sender) <= 0 ||
-             in_addr_is_localhost(p->family, &p->destination) <= 0)) {
-                log_warning("Got packet on unexpected (i.e. non-localhost) IP range, ignoring.");
-                return;
-        }
+             in_addr_is_localhost(p->family, &p->destination) <= 0))
+                return (void) log_warning("Got packet on unexpected (i.e. non-localhost) IP range, ignoring.");
 
-        if (manager_packet_from_our_transaction(m, p)) {
-                log_debug("Got our own packet looped back, ignoring.");
-                return;
-        }
+        if (manager_packet_from_our_transaction(m, p))
+                return (void) log_debug("Got our own packet looped back, ignoring.");
 
         queries_by_packet = l ? &l->queries_by_packet : &m->stub_queries_by_packet;
         existing = hashmap_get(*queries_by_packet, p);
-        if (existing && dns_packet_equal(existing->request_packet, p)) {
-                log_debug("Got repeat packet from client, ignoring.");
-                return;
-        }
+        if (existing && dns_packet_equal(existing->request_packet, p))
+                return (void) log_debug("Got repeat packet from client, ignoring.");
 
         r = dns_packet_extract(p);
         if (r < 0) {
@@ -992,10 +986,8 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
         }
 
         r = hashmap_ensure_allocated(queries_by_packet, &stub_packet_hash_ops);
-        if (r < 0) {
-                log_oom();
-                return;
-        }
+        if (r < 0)
+                return (void) log_oom();
 
         if (address_is_proxy(p->family, &p->destination)) {
                 _cleanup_free_ char *dipa = NULL;
@@ -1046,10 +1038,9 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                  * is disconnected early */
 
                 r = set_ensure_put(&s->queries, /* hash_ops= */ NULL, q);
-                if (r < 0) {
-                        log_oom();
-                        return;
-                }
+                if (r < 0)
+                        return (void) log_oom();
+
                 assert(r > 0);
         }
 
