@@ -747,8 +747,9 @@ SUBSYSTEM=="net", OPTIONS="log_level=debug"</programlisting></para>
         <para>The <varname>ENV</varname>, <varname>GROUP</varname>,
         <varname>MODE</varname>, <varname>NAME</varname>,
         <varname>OWNER</varname>, <varname>PROGRAM</varname>,
-        <varname>RUN</varname>, <varname>SECLABEL</varname>, and
-        <varname>SYMLINK</varname> fields support simple string substitutions.
+        <varname>RUN</varname>, <varname>SECLABEL</varname>,
+        <varname>SYMLINK</varname>, and <varname>TEST</varname>
+        fields support simple string substitutions.
         The <varname>RUN</varname> substitutions are performed after all rules
         have been processed, right before the program is executed, allowing for
         the use of device properties set by earlier matching rules. For all
