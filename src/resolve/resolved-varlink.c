@@ -1677,7 +1677,6 @@ static int vl_method_link_set_dnssec_negative_trust_anchors(sd_varlink *link, sd
         return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
-
 static int vl_method_link_set_dns_default_route(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         struct {
                 bool default_route;
