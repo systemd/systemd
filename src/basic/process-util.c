@@ -536,6 +536,83 @@ int pidref_get_uid(const PidRef *pid, uid_t *ret) {
         return 0;
 }
 
+int pid_get_euid(pid_t pid, uid_t *ret) {
+        _cleanup_free_ char *status = NULL;
+        const char *p;
+        int r;
+
+        assert(pid >= 0);
+        assert(ret);
+
+        if (pid == 0 || pid == getpid_cached()) {
+                *ret = geteuid();
+                return 0;
+        }
+
+        /* The "Uid:" line of /proc/$PID/status lists the real, effective, saved and filesystem UIDs, in
+         * this order. Note that we don't use the owner of /proc/$PID/ here, since that is root for
+         * non-dumpable processes. */
+
+        r = read_full_virtual_file(procfs_file_alloca(pid, "status"), &status, /* ret_size= */ NULL);
+        if (r == -ENOENT)
+                return -ESRCH;
+        if (r < 0)
+                return r;
+
+        p = find_line_startswith(status, "Uid:");
+        if (!p)
+                return -EIO;
+
+        /* Skip the real UID */
+        p += strspn(p, WHITESPACE);
+        p += strcspn(p, WHITESPACE);
+        p += strspn(p, WHITESPACE);
+
+        _cleanup_free_ char *euid = strndup(p, strcspn(p, WHITESPACE));
+        if (!euid)
+                return -ENOMEM;
+
+        return parse_uid(euid, ret);
+}
+
+int pidref_get_euid(const PidRef *pid, uid_t *ret) {
+        int r;
+
+        assert(ret);
+
+        if (!pidref_is_set(pid))
+                return -ESRCH;
+
+        if (pidref_is_remote(pid))
+                return -EREMOTE;
+
+        if (pid->fd >= 0) {
+                struct pidfd_info info = { .mask = PIDFD_INFO_CREDS };
+
+                r = pidfd_get_info(pid->fd, &info);
+                if (r >= 0) {
+                        assert(FLAGS_SET(info.mask, PIDFD_INFO_CREDS));
+                        *ret = info.euid;
+                        return 0;
+                }
+                if (!ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        return r;
+        }
+
+        uid_t uid;
+        r = pid_get_euid(pid->pid, &uid);
+        if (r < 0)
+                return r;
+
+        /* Make sure the PID wasn't recycled before we use the UID we just read */
+        r = pidref_verify(pid);
+        if (r < 0)
+                return r;
+
+        *ret = uid;
+        return 0;
+}
+
 int get_process_gid(pid_t pid, gid_t *ret) {
         int r;
 
