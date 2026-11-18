@@ -5394,6 +5394,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly u GID = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PassFileDescriptorsToExec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b PropagateSlice = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
       readonly a(sasbttttuii) ExecStartPre = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
@@ -6114,6 +6116,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property PassFileDescriptorsToExec is not documented!-->
 
+    <!--property PropagateSlice is not documented!-->
+
     <!--property ExecStopPre is not documented!-->
 
     <!--property Slice is not documented!-->
@@ -6779,6 +6783,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="GID"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PassFileDescriptorsToExec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PropagateSlice"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExecStartPre"/>
 
@@ -13142,7 +13148,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>XAttrListen</varname>, and
       <varname>XAttrAccept</varname> were added in version 262.</para>
       <para><varname>ConfigurationDirectorySymlink</varname> was added in version 263.</para>
-      <para><varname>IOUringFilter</varname> was added in version 263.</para>
+      <para><varname>IOUringFilter</varname> and
+      <varname>PropagateSlice</varname> were added in version 263.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
