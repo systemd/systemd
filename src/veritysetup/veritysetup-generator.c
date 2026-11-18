@@ -5,11 +5,13 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fstab-util.h"
 #include "generator.h"
 #include "hexdecoct.h"
+#include "image-policy.h"
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -40,6 +42,7 @@ static char *arg_usr_hash = NULL;
 static char *arg_usr_data_what = NULL;
 static char *arg_usr_hash_what = NULL;
 static char *arg_usr_options = NULL;
+static ImagePolicy *arg_image_policy = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root_hash, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_data_what, freep);
@@ -49,15 +52,17 @@ STATIC_DESTRUCTOR_REGISTER(arg_usr_hash, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_data_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_hash_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_options, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 static int create_special_device(
                 const char *name,
+                PartitionDesignator designator,
                 const char *roothash,
                 const char *data_what,
                 const char *hash_what,
                 const char *options) {
 
-        _cleanup_free_ char *u = NULL, *v = NULL, *d = NULL, *e = NULL;
+        _cleanup_free_ char *u = NULL, *v = NULL, *d = NULL, *e = NULL, *o = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -82,7 +87,35 @@ static int create_special_device(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        log_debug("Using %s verity data device %s, hash device %s, options %s, and hash %s.", name, data_what, hash_what, options, roothash);
+        /* systemd-veritysetup reads the signature from the ID_DISSECT_PART_ROOTHASH_SIG udev property of the
+         * data device for root-hash-signature=auto. Options that come later override this default. */
+        o = strdup("root-hash-signature=auto");
+        if (!o)
+                return log_oom();
+
+        if (options && (startswith(options, "base64:") || path_is_absolute(options))) {
+                /* systemd-veritysetup also accepts a signature as the whole option string, but not together
+                 * with other options. We turn such a signature into a root-hash-signature= option.
+                 * systemd-veritysetup splits the options at commas, so we escape commas and backslashes in
+                 * the signature. */
+                log_warning("Passing a root hash signature as the whole systemd.verity_%s_options= value is deprecated, use root-hash-signature= instead.", name);
+
+                _cleanup_free_ char *escaped = shell_escape(options, ",");
+                if (!escaped)
+                        return log_oom();
+
+                if (!strextend(&o, ",root-hash-signature=", escaped))
+                        return log_oom();
+        } else if (!isempty(options) && !strextend(&o, ",", options))
+                return log_oom();
+
+        /* We add root-hash-signature-required=yes after the options from the kernel command line, so that
+         * they can't turn off a signature that the image policy requires. */
+        if (image_policy_requires_signature(arg_image_policy ?: &image_policy_host, designator) &&
+            !strextend(&o, ",root-hash-signature-required=yes"))
+                return log_oom();
+
+        log_debug("Using %s verity data device %s, hash device %s, options %s, and hash %s.", name, data_what, hash_what, o, roothash);
 
         u = fstab_node_to_udev_node(data_what);
         if (!u)
@@ -112,7 +145,7 @@ static int create_special_device(
                 "After=%1$s %2$s\n",
                 d, e);
 
-        r = generator_write_veritysetup_service_section(f, name, u, v, roothash, options);
+        r = generator_write_veritysetup_service_section(f, name, u, v, roothash, o);
         if (r < 0)
                 return r;
 
@@ -128,11 +161,11 @@ static int create_special_device(
 }
 
 static int create_root_device(void) {
-        return create_special_device("root", arg_root_hash, arg_root_data_what, arg_root_hash_what, arg_root_options);
+        return create_special_device("root", PARTITION_ROOT, arg_root_hash, arg_root_data_what, arg_root_hash_what, arg_root_options);
 }
 
 static int create_usr_device(void) {
-        return create_special_device("usr", arg_usr_hash, arg_usr_data_what, arg_usr_hash_what, arg_usr_options);
+        return create_special_device("usr", PARTITION_USR, arg_usr_hash, arg_usr_data_what, arg_usr_hash_what, arg_usr_options);
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
@@ -486,6 +519,27 @@ static int add_veritytab_devices(void) {
         return 0;
 }
 
+static int acquire_image_policy(void) {
+        _cleanup_free_ char *value = NULL;
+        int r;
+
+        /* systemd-gpt-auto-generator and the udev dissect_image builtin ignore rd.systemd.image_policy=, so
+         * we read the switch without PROC_CMDLINE_STRIP_RD_PREFIX. */
+        r = proc_cmdline_get_key("systemd.image_policy", /* flags= */ 0, &value);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to read systemd.image_policy= kernel command line switch: %m");
+        if (r == 0)
+                return 0;
+
+        /* systemd-gpt-auto-generator falls back to the default policy if it can't parse the policy. We do
+         * the same, so that one invalid switch doesn't stop us from setting up any device. */
+        r = image_policy_from_string(value, /* graceful= */ false, &arg_image_policy);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse image policy '%s', using the default policy: %m", value);
+
+        return 0;
+}
+
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
         int r;
 
@@ -499,6 +553,10 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         if (!arg_enabled)
                 return 0;
+
+        r = acquire_image_policy();
+        if (r < 0)
+                return r;
 
         r = add_veritytab_devices();
         if (r < 0)

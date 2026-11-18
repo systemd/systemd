@@ -119,6 +119,16 @@
         <citerefentry project='man-pages'><refentrytitle>veritysetup</refentrytitle><manvolnum>8</manvolnum></citerefentry> for more
         details.</para>
 
+        <para>The generator adds <option>root-hash-signature=auto</option> in front of these options.
+        systemd-veritysetup then reads the root hash signature from the
+        <literal>ID_DISSECT_PART_ROOTHASH_SIG=</literal> udev property of the data device, if the data
+        device has this property. udev sets this property only on partitions of the boot disk that the
+        boot loader reports. udev doesn't set it if the kernel command line contains both
+        <varname>roothash=</varname> and <varname>usrhash=</varname>. See
+        <citerefentry><refentrytitle>veritytab</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details. Specify <option>root-hash-signature=</option> in these options to use a different
+        signature.</para>
+
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
@@ -132,6 +142,23 @@
         apply to the <filename>/usr/</filename> file system instead.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.image_policy=</varname></term>
+
+        <listitem><para>Takes an image dissection policy string as argument (as per
+        <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>).
+        If the policy for the root or <filename>/usr/</filename> partition allows <option>signed</option>
+        but not <option>verity</option>, the unit for <varname>roothash=</varname> or
+        <varname>usrhash=</varname> uses the <option>root-hash-signature-required=yes</option> option (see
+        <citerefentry><refentrytitle>veritytab</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        systemd-veritysetup then only activates the device if the kernel or userspace validates its root
+        hash signature. Options in <varname>systemd.verity_root_options=</varname> and
+        <varname>systemd.verity_usr_options=</varname> can't turn this requirement off. If the generator
+        can't parse the policy, it uses the default policy.</para>
+
+        <xi:include href="version-info.xml" xpointer="v263"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
