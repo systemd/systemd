@@ -377,6 +377,8 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
+        (void) ignore_signals(SIGPIPE);
+
         umask(0022);
 
         /* Always create the directories people can create inotify watches in. Note that some applications might check
