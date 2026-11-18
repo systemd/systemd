@@ -292,15 +292,6 @@ int vl_method_link_set_dns(sd_varlink *vlink, sd_json_variant *parameters, sd_va
         if (r < 0)
                 return r;
 
-        r = varlink_verify_polkit_async(
-                        vlink,
-                        manager->bus,
-                        "org.freedesktop.network1.set-dns-servers",
-                        (const char**) STRV_MAKE("interface", link->ifname),
-                        &manager->polkit_registry);
-        if (r <= 0)
-                return r;
-
         struct in_addr_full **dns_servers = NULL;
         size_t n_dns_servers = 0;
         CLEANUP_ARRAY(dns_servers, n_dns_servers, in_addr_full_free_array);
@@ -323,6 +314,15 @@ int vl_method_link_set_dns(sd_varlink *vlink, sd_json_variant *parameters, sd_va
                 if (r < 0)
                         return r;
         }
+
+        r = varlink_verify_polkit_async(
+                        vlink,
+                        manager->bus,
+                        "org.freedesktop.network1.set-dns-servers",
+                        (const char**) STRV_MAKE("interface", link->ifname),
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
 
         link_set_dns(link, TAKE_PTR(dns_servers), n_dns_servers);
 
