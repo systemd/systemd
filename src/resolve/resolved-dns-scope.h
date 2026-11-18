@@ -52,6 +52,9 @@ typedef struct DnsScope {
         sd_event_source *announce_event_source;
 
         sd_event_source *mdns_goodbye_event_source;
+        /* When the records of the last goodbye received expire: the passes of the goodbye timer go on
+         * until then. */
+        usec_t mdns_goodbye_until;
 
         RateLimit ratelimit;
 
