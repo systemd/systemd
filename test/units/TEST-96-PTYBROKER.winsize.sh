@@ -3,7 +3,8 @@
 set -eux
 set -o pipefail
 
-# Tests for OSC 2811 based window size propagation: dimension changes on the
+# Tests for window size propagation via in-band window resize notifications
+# (private mode 2048): dimension changes on the
 # terminal a "ptyctl monitor" runs on must reach the frontend (master) of the
 # monitored PTY in systemd-ptybrokerd. Runs "ptyctl monitor" on a synthetic
 # pty, resizes it, and verifies the broker's pty follows, including the
@@ -91,8 +92,8 @@ def wait_for(rows, cols, timeout=30):
         if get_size(bfd) == (rows, cols):
             print(f'OK: broker pty is now {rows}x{cols}', file=sys.stderr)
             return
-        # Recover from any lost SIGWINCH: a pending OSC 2811 subscription is
-        # (re-)answered from the forwarder's signal handler
+        # Recover from any lost SIGWINCH: while mode 2048 is enabled, the
+        # forwarder's signal handler reports the current size
         for pid in monitors:
             os.kill(pid, signal.SIGWINCH)
         time.sleep(0.2)
@@ -179,24 +180,27 @@ wait_for(22, 77)
 set_size(m1, 50, 200)
 wait_for(50, 200)
 
-# An OSC 2811 cancel sequence reaching the monitor's forwarder must drop its pending
-# subscription: further resizes of that monitor's terminal must go unreported. (The
-# marker written after it tells us when the forwarder has processed the cancel.)
-os.write(bwfd, b'\x1b]2811;?\x1b\\' + b'pty96-winsize-marker-2\n')
+# A request disabling mode 2048 reaching the monitor's forwarder must turn off its
+# reports: further resizes of that monitor's terminal must go unreported. (The marker
+# written after it tells us when the forwarder has processed the request.) The request
+# also covers another mode, which the forwarder has to pass on to the terminal.
+os.write(bwfd, b'\x1b[?2048;1049l' + b'pty96-winsize-marker-2\n')
 wait_for_output(b'pty96-winsize-marker-2')
 set_size(m1, 30, 90)
 expect_unchanged(50, 200)
 
-# A fresh monitor subscribes anew, and is not affected by the cancel
+# A fresh monitor enables reports anew, and is not affected by the disable request
 pid3, m3 = spawn_monitor()
 set_size(m3, 30, 90)
 wait_for(30, 90)
 kill_monitor(pid3)
 
-# Neither the OSC 2811 subscribe sequences nor the cancel sequence may leak to the
-# monitor's terminal. Make sure we actually saw output before concluding that.
+# Neither the enable nor the disable requests for mode 2048 may leak to the monitor's
+# terminal, but the other mode covered by the disable request must. Make sure we actually
+# saw output before concluding that.
 assert b'pty96-winsize-marker-1' in drained and b'pty96-winsize-marker-2' in drained
-assert b'2811' not in drained, f'OSC 2811 sequence leaked into monitor output: {drained!r}'
+assert b'2048' not in drained, f'Mode 2048 request leaked into monitor output: {drained!r}'
+assert b'\x1b[?1049l' in drained, f'Rewritten mode request missing from monitor output: {drained!r}'
 
 kill_monitor(pid1)
 EOF
