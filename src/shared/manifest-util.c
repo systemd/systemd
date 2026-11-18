@@ -1491,6 +1491,10 @@ static int manifest_uapi16_item(
                         &j,
                         SD_JSON_BUILD_PAIR_CONDITION(is_root, "mediaType", JSON_BUILD_CONST_STRING(UAPI16_MANIFEST_MEDIA_TYPE)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!jf, "features", SD_JSON_BUILD_VARIANT(jf)),
+                        /* recurse_dir() with RECURSE_DIR_SORT sorts the entries of every directory by strcmp(),
+                         * and lists the entries of a directory right after it, i.e. the order of complete
+                         * names is the code point ordering, hence declare it */
+                        SD_JSON_BUILD_PAIR_CONDITION(is_root, "order", JSON_BUILD_CONST_STRING("codepoint")),
                         SD_JSON_BUILD_PAIR_CONDITION(!is_root, "name", SD_JSON_BUILD_STRING(path)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!type, "type", SD_JSON_BUILD_STRING(type)),
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(c->fields, MANIFEST_FIELD_SIZE) && have_size, "size", SD_JSON_BUILD_UNSIGNED(size)),
