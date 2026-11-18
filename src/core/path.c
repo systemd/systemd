@@ -44,7 +44,7 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
                 [PATH_DIRECTORY_NOT_EMPTY] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CREATE|IN_MOVED_TO,
         };
 
-        bool exists = false;
+        bool exists = false, parent_unwatchable = false;
         char *slash, *oldslash = NULL;
         int r;
 
@@ -72,8 +72,8 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
         assert(!strstr(s->path, "//"));
 
         for (slash = strchr(s->path, '/'); ; slash = strchr(slash+1, '/')) {
-                bool incomplete = false;
-                int flags, wd = -1;
+                bool incomplete = false, unwatchable = false;
+                int flags, wd = -1, incomplete_errno = 0;
                 char tmp, *cut;
 
                 if (slash) {
@@ -97,10 +97,21 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
 
                         wd = inotify_add_watch(s->inotify_fd, s->path, f);
                         if (wd < 0) {
+                                if (errno == EACCES && slash) {
+                                        /* inotify needs read access to the inode, but walking through a
+                                         * directory only needs search access. A directory that we may
+                                         * search but not read (e.g. mode 0711, or an ACL entry granting
+                                         * only 'x') cannot be watched itself, but whatever lies below it
+                                         * may still be. Skip it and continue with the next component. */
+                                        unwatchable = true;
+                                        break;
+                                }
+
                                 if (IN_SET(errno, EACCES, ENOENT)) {
                                         incomplete = true; /* This is an expected error, let's accept this
                                                             * quietly: we have an incomplete watch for
                                                             * now. */
+                                        incomplete_errno = errno;
                                         break;
                                 }
 
@@ -120,10 +131,36 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
                 }
 
                 if (incomplete) {
+                        /* Usually the watches on the parent directories will tell us when the missing
+                         * component shows up. That is not the case if we may not read the path itself,
+                         * or if its parent directory could not be watched: the watch will then stay
+                         * incomplete, and the unit will never trigger. Say so, but only once: we are
+                         * called again on every event on the directories we do watch. */
+                        if (!s->warned_incomplete) {
+                                if (incomplete_errno == EACCES) {
+                                        log_unit_warning_errno(s->unit, incomplete_errno,
+                                                               "Cannot watch %s, changes to it will not be noticed: %m",
+                                                               s->path);
+                                        s->warned_incomplete = true;
+                                } else if (parent_unwatchable) {
+                                        log_unit_warning(s->unit,
+                                                         "%s does not exist and its parent directory is not readable, its creation will not be noticed.",
+                                                         s->path);
+                                        s->warned_incomplete = true;
+                                }
+                        }
+
                         if (cut)
                                 *cut = tmp;
 
                         break;
+                }
+
+                parent_unwatchable = unwatchable;
+                if (unwatchable) {
+                        *cut = tmp;
+                        oldslash = slash;
+                        continue;
                 }
 
                 exists = true;
@@ -148,6 +185,7 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
                 else {
                         /* whole path has been iterated over */
                         s->primary_wd = wd;
+                        s->warned_incomplete = false;
                         break;
                 }
         }
