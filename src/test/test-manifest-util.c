@@ -243,7 +243,7 @@ TEST(manifest_fields_from_string) {
 
         f = 0;
         ASSERT_OK(manifest_fields_from_string("all", &f));
-        ASSERT_EQ(f, _MANIFEST_FIELD_ALL);
+        ASSERT_EQ(f, _MANIFEST_FIELD_FSTREE_ALL);
 
         f = _MANIFEST_FIELD_ALL;
         ASSERT_OK(manifest_fields_from_string("none", &f));
@@ -287,6 +287,24 @@ TEST(manifest_fields_from_string) {
         ASSERT_STREQ(manifest_field_to_string(MANIFEST_FIELD_HARDLINK), "hardlink");
         ASSERT_EQ(manifest_field_from_string("device"), MANIFEST_FIELD_DEVICE);
         ASSERT_EQ(manifest_field_from_string("nope"), _MANIFEST_FIELD_INVALID);
+
+        /* The GPT fields cannot be generated from directory trees, hence have no name of their own */
+        ASSERT_NULL(manifest_field_to_string(MANIFEST_FIELD_GPT_LABEL));
+        ASSERT_EQ(manifest_field_from_string("gpt-label"), _MANIFEST_FIELD_INVALID);
+        f = _MANIFEST_FIELD_DEFAULT;
+        ASSERT_ERROR(manifest_fields_from_string("+gpt-label", &f), EINVAL);
+        s = mfree(s);
+        ASSERT_OK(manifest_fields_to_string(MANIFEST_FIELD_SIZE|MANIFEST_FIELD_GPT_FLAGS, &s));
+        ASSERT_STREQ(s, "size");
+
+        /* The names of the UAPI.16 features only differ for the hash, and cover the GPT fields too */
+        ASSERT_STREQ(manifest_field_to_uapi16_feature(MANIFEST_FIELD_HASH), "sha256");
+        ASSERT_STREQ(manifest_field_to_uapi16_feature(MANIFEST_FIELD_READ_ONLY), "read-only");
+        ASSERT_STREQ(manifest_field_to_uapi16_feature(MANIFEST_FIELD_GPT_FLAG_GROWFS), "gpt-flag-grow-file-system");
+        ASSERT_EQ(manifest_field_from_uapi16_feature("sha256"), MANIFEST_FIELD_HASH);
+        ASSERT_EQ(manifest_field_from_uapi16_feature("hash"), _MANIFEST_FIELD_INVALID);
+        ASSERT_EQ(manifest_field_from_uapi16_feature("gpt-disk-uuid"), MANIFEST_FIELD_GPT_DISK_UUID);
+        ASSERT_EQ(manifest_field_from_uapi16_feature("fat-serial"), MANIFEST_FIELD_FAT_SERIAL);
 }
 
 TEST(manifest_list) {
@@ -571,6 +589,7 @@ TEST(manifest_uapi16) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *root = find_object(buf, /* name= */ NULL);
         ASSERT_NOT_NULL(root);
         ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(root, "mediaType")), UAPI16_MANIFEST_MEDIA_TYPE);
+        ASSERT_NULL(sd_json_variant_by_key(root, "features")); /* The default set is not declared explicitly */
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *reg = find_object(buf, "regular.txt");
         ASSERT_NOT_NULL(reg);
@@ -614,6 +633,12 @@ TEST(manifest_uapi16) {
         context_init(&c, MANIFEST_FORMAT_UAPI16);
         c.fields = MANIFEST_FIELD_SIZE|MANIFEST_FIELD_MTIME;
         ASSERT_OK(generate(&c, tfd, &buf2, &size2));
+        /* … and is declared in the root object */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *root2 = find_object(buf2, /* name= */ NULL);
+        ASSERT_NOT_NULL(root2);
+        _cleanup_free_ char *features2 = NULL;
+        ASSERT_OK(sd_json_variant_format(sd_json_variant_by_key(root2, "features"), /* flags= */ 0, &features2));
+        ASSERT_STREQ(features2, "[\"mtime\",\"size\"]");
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *reg2 = find_object(buf2, "regular.txt");
         ASSERT_NOT_NULL(reg2);
         ASSERT_NULL(sd_json_variant_by_key(reg2, "mode"));

@@ -94,32 +94,41 @@ size_t manifest_hash_size(ManifestHash h) {
 static const struct {
         ManifestField field;
         const char *name;
+        const char *uapi16_feature; /* The name in the "features" field of UAPI.16 manifests */
 } manifest_field_table[] = {
         /* This is a bitfield, hence not a simple array indexed by the enum */
-        { MANIFEST_FIELD_MODE,             "mode"             },
-        { MANIFEST_FIELD_UID,              "uid"              },
-        { MANIFEST_FIELD_GID,              "gid"              },
-        { MANIFEST_FIELD_SIZE,             "size"             },
-        { MANIFEST_FIELD_HASH,             "hash"             },
-        { MANIFEST_FIELD_SYMLINK,          "symlink"          },
-        { MANIFEST_FIELD_DEVICE,           "device"           },
-        { MANIFEST_FIELD_HARDLINK,         "hardlink"         },
-        { MANIFEST_FIELD_MTIME,            "mtime"            },
-        { MANIFEST_FIELD_USER_XATTR,       "user-xattr"       },
-        { MANIFEST_FIELD_USER_NAME,        "user-name"        },
-        { MANIFEST_FIELD_GROUP_NAME,       "group-name"       },
-        { MANIFEST_FIELD_FLAG_APPEND_ONLY, "flag-append-only" },
-        { MANIFEST_FIELD_FLAG_IMMUTABLE,   "flag-immutable"   },
-        { MANIFEST_FIELD_FLAG_NO_ATIME,    "flag-no-atime"    },
-        { MANIFEST_FIELD_FLAG_NO_COW,      "flag-no-cow"      },
-        { MANIFEST_FIELD_FLAG_NO_DUMP,     "flag-no-dump"     },
-        { MANIFEST_FIELD_READ_ONLY,        "read-only"        },
-        { MANIFEST_FIELD_FLAG_HIDDEN,      "flag-hidden"      },
-        { MANIFEST_FIELD_FLAG_SYSTEM,      "flag-system"      },
-        { MANIFEST_FIELD_FLAG_ARCHIVE,     "flag-archive"     },
-        { MANIFEST_FIELD_FS_UUID,          "fs-uuid"          },
-        { MANIFEST_FIELD_FS_LABEL,         "fs-label"         },
-        { MANIFEST_FIELD_FAT_SERIAL,       "fat-serial"       },
+        { MANIFEST_FIELD_MODE,              "mode",             "mode"                      },
+        { MANIFEST_FIELD_UID,               "uid",              "uid"                       },
+        { MANIFEST_FIELD_GID,               "gid",              "gid"                       },
+        { MANIFEST_FIELD_SIZE,              "size",             "size"                      },
+        { MANIFEST_FIELD_HASH,              "hash",             "sha256"                    }, /* UAPI.16 only supports SHA256 */
+        { MANIFEST_FIELD_SYMLINK,           "symlink",          "symlink"                   },
+        { MANIFEST_FIELD_DEVICE,            "device",           "device"                    },
+        { MANIFEST_FIELD_HARDLINK,          "hardlink",         "hardlink"                  },
+        { MANIFEST_FIELD_MTIME,             "mtime",            "mtime"                     },
+        { MANIFEST_FIELD_USER_XATTR,        "user-xattr",       "user-xattr"                },
+        { MANIFEST_FIELD_USER_NAME,         "user-name",        "user-name"                 },
+        { MANIFEST_FIELD_GROUP_NAME,        "group-name",       "group-name"                },
+        { MANIFEST_FIELD_FLAG_APPEND_ONLY,  "flag-append-only", "flag-append-only"          },
+        { MANIFEST_FIELD_FLAG_IMMUTABLE,    "flag-immutable",   "flag-immutable"            },
+        { MANIFEST_FIELD_FLAG_NO_ATIME,     "flag-no-atime",    "flag-no-atime"             },
+        { MANIFEST_FIELD_FLAG_NO_COW,       "flag-no-cow",      "flag-no-cow"               },
+        { MANIFEST_FIELD_FLAG_NO_DUMP,      "flag-no-dump",     "flag-no-dump"              },
+        { MANIFEST_FIELD_READ_ONLY,         "read-only",        "read-only"                 },
+        { MANIFEST_FIELD_FLAG_HIDDEN,       "flag-hidden",      "flag-hidden"               },
+        { MANIFEST_FIELD_FLAG_SYSTEM,       "flag-system",      "flag-system"               },
+        { MANIFEST_FIELD_FLAG_ARCHIVE,      "flag-archive",     "flag-archive"              },
+        { MANIFEST_FIELD_FS_UUID,           "fs-uuid",          "fs-uuid"                   },
+        { MANIFEST_FIELD_FS_LABEL,          "fs-label",         "fs-label"                  },
+        { MANIFEST_FIELD_FAT_SERIAL,        "fat-serial",       "fat-serial"                },
+        /* Not generated from directory trees, hence not selectable by name */
+        { MANIFEST_FIELD_GPT_LABEL,         NULL,               "gpt-label"                 },
+        { MANIFEST_FIELD_GPT_UUID,          NULL,               "gpt-uuid"                  },
+        { MANIFEST_FIELD_GPT_TYPE_UUID,     NULL,               "gpt-type-uuid"             },
+        { MANIFEST_FIELD_GPT_DISK_UUID,     NULL,               "gpt-disk-uuid"             },
+        { MANIFEST_FIELD_GPT_FLAGS,         NULL,               "gpt-flags"                 },
+        { MANIFEST_FIELD_GPT_FLAG_NO_AUTO,  NULL,               "gpt-flag-no-auto"          },
+        { MANIFEST_FIELD_GPT_FLAG_GROWFS,   NULL,               "gpt-flag-grow-file-system" },
 };
 
 const char* manifest_field_to_string(ManifestField f) {
@@ -135,7 +144,26 @@ ManifestField manifest_field_from_string(const char *s) {
                 return _MANIFEST_FIELD_INVALID;
 
         FOREACH_ELEMENT(i, manifest_field_table)
-                if (streq(i->name, s))
+                if (streq_ptr(i->name, s))
+                        return i->field;
+
+        return _MANIFEST_FIELD_INVALID;
+}
+
+const char* manifest_field_to_uapi16_feature(ManifestField f) {
+        FOREACH_ELEMENT(i, manifest_field_table)
+                if (i->field == f)
+                        return i->uapi16_feature;
+
+        return NULL;
+}
+
+ManifestField manifest_field_from_uapi16_feature(const char *s) {
+        if (!s)
+                return _MANIFEST_FIELD_INVALID;
+
+        FOREACH_ELEMENT(i, manifest_field_table)
+                if (streq_ptr(i->uapi16_feature, s))
                         return i->field;
 
         return _MANIFEST_FIELD_INVALID;
@@ -178,7 +206,7 @@ int manifest_fields_from_string(const char *s, ManifestField *fields) {
 
                 ManifestField f;
                 if (streq(n, "all"))
-                        f = _MANIFEST_FIELD_ALL;
+                        f = _MANIFEST_FIELD_FSTREE_ALL;
                 else if (streq(n, "default"))
                         f = _MANIFEST_FIELD_DEFAULT;
                 else if (streq(n, "none"))
@@ -205,7 +233,7 @@ int manifest_fields_to_string(ManifestField f, char **ret) {
         assert(ret);
 
         FOREACH_ELEMENT(i, manifest_field_table) {
-                if (!FLAGS_SET(f, i->field))
+                if (!i->name || !FLAGS_SET(f, i->field))
                         continue;
 
                 if (!strextend_with_separator(&s, ",", i->name))
@@ -848,8 +876,13 @@ static int hardlink_data_lookup(
         r = inode_fid_hex(inode_fd, &fhs);
         if (r < 0)
                 return r;
-        if (r == 0)
+        if (r == 0) {
+                /* We declare the "hardlink" feature in the manifest, which means a missing inode token
+                 * indicates the file is not hardlinked. Which is not true here, hence count. */
+                log_warning("Cannot identify hardlinked inode '%s', as the file system does not support file handles, omitting hardlink information.", empty_to_root(path));
+                c->n_metadata_omitted++;
                 goto nope;
+        }
 
         r = hardlink_db_acquire(c);
         if (r < 0)
@@ -1383,10 +1416,21 @@ static int manifest_uapi16_item(
         if (r < 0)
                 return r;
 
+        /* The root object declares the features the manifest records, i.e. which fields the file objects
+         * may carry. Unless they are the default ones, as the specification asks us not to set fields to
+         * their default. */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *jf = NULL;
+        if (is_root && c->fields != _MANIFEST_FIELD_DEFAULT) {
+                r = uapi16_features_build_json(c->fields, &jf);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build features JSON array: %m");
+        }
+
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
         r = sd_json_buildo(
                         &j,
                         SD_JSON_BUILD_PAIR_CONDITION(is_root, "mediaType", JSON_BUILD_CONST_STRING(UAPI16_MANIFEST_MEDIA_TYPE)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!jf, "features", SD_JSON_BUILD_VARIANT(jf)),
                         SD_JSON_BUILD_PAIR_CONDITION(!is_root, "name", SD_JSON_BUILD_STRING(path)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!type, "type", SD_JSON_BUILD_STRING(type)),
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(c->fields, MANIFEST_FIELD_SIZE) && have_size, "size", SD_JSON_BUILD_UNSIGNED(size)),

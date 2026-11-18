@@ -7,8 +7,9 @@
 #include "sd-id128.h"
 #include "sd-json.h"
 
-#include "string-util.h"
+#include "manifest-util.h"
 #include "path-util.h"
+#include "string-util.h"
 
 typedef struct Uapi16Contents {
         char *file;
@@ -46,6 +47,13 @@ typedef enum Uapi16Validity {
         _UAPI16_VALIDITY_MAX,
         _UAPI16_VALIDITY_INVALID = -EINVAL,
 } Uapi16Validity;
+
+/* The features of a manifest, i.e. which fields its file objects may carry, are expressed as ManifestField
+ * bitmask. The features implied if the root file object does not declare any are exactly
+ * _MANIFEST_FIELD_DEFAULT. */
+
+/* Builds the JSON array for the "features" field, sorted as the specification recommends */
+int uapi16_features_build_json(ManifestField features, sd_json_variant **ret);
 
 typedef struct Uapi16Object {
         char *name;
