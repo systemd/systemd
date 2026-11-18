@@ -112,6 +112,10 @@ typedef struct sd_varlink {
         sd_varlink_reply_flags_t current_reply_flags;
         sd_varlink_symbol *current_method;
 
+        /* The fiber that runs the method call pending on this (server side) connection. We don't take a
+         * reference on the fiber. The fiber clears this field when it is freed. */
+        sd_future *fiber;
+
         int *pushed_fds;
         size_t n_pushed_fds;
 

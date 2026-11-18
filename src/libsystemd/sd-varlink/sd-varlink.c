@@ -96,6 +96,11 @@ static void varlink_set_state(sd_varlink *v, VarlinkState state) {
                             glyph(GLYPH_ARROW_RIGHT),
                             varlink_state_to_string(state));
 
+        /* A fiber that answered its method call can keep running, but sd_varlink_close() must not cancel
+         * it anymore. */
+        if (VARLINK_STATE_IS_PENDING_METHOD(v->state) && IN_SET(state, VARLINK_IDLE_SERVER, VARLINK_UPGRADING))
+                v->fiber = NULL;
+
         v->state = state;
 }
 
@@ -1135,6 +1140,7 @@ static int varlink_dispatch_sentinel(sd_varlink *v) {
 
 typedef struct VarlinkFiberData {
         sd_varlink *link;
+        sd_future *fiber;
         sd_json_variant *parameters;
         sd_varlink_method_flags_t flags;
         void *userdata;
@@ -1144,6 +1150,9 @@ typedef struct VarlinkFiberData {
 static VarlinkFiberData* varlink_fiber_data_free(VarlinkFiberData *d) {
         if (!d)
                 return NULL;
+
+        if (d->fiber && d->link->fiber == d->fiber)
+                d->link->fiber = NULL;
 
         sd_json_variant_unref(d->parameters);
         sd_varlink_unref(d->link);
@@ -1235,6 +1244,10 @@ static int varlink_dispatch_fiber(sd_varlink *v, const char *method, sd_varlink_
         if (r < 0)
                 return r;
 
+        /* A client doesn't wait for a reply to a oneway call and can disconnect right after sending the
+         * call. We don't cancel the fiber of a oneway call when the client disconnects. */
+        if (VARLINK_STATE_WANTS_REPLY(v->state))
+                d->fiber = v->fiber = f;
         TAKE_PTR(d); /* The fiber owns the data now. */
 
         /* Run the fiber at a higher priority than the connection's quit event source, so that on event
@@ -1919,6 +1932,19 @@ _public_ int sd_varlink_close(sd_varlink *v) {
         /* Let's take a reference first, since varlink_detach_server() might drop the final (dangling) ref
          * which would destroy us before we can call varlink_clear() */
         sd_varlink_ref(v);
+
+        /* Nobody can answer the pending method call anymore, so we cancel the fiber that runs it.
+         * fiber_cancel() asserts that a fiber doesn't cancel itself. The fiber is the caller when the method
+         * callback closes its own connection. After sd_event_exit() is called, the exit event source of the
+         * fiber cancels the fiber. A second cancellation would interrupt the cleanup of the fiber.
+         * sd_event_get_state() only returns SD_EVENT_EXITING while an exit event source runs.
+         * sd_event_get_exit_code() succeeds from the moment sd_event_exit() is called. sd_future_cancel()
+         * frees a fiber that didn't start yet, and the destroy callback of the fiber clears v->fiber. */
+        if (v->fiber &&
+            v->fiber != sd_fiber_get_current() &&
+            sd_event_get_exit_code(sd_future_get_event(v->fiber), /* ret= */ NULL) == -ENODATA)
+                (void) sd_future_cancel(v->fiber);
+
         varlink_detach_server(v, connected);
         varlink_clear(v);
         sd_varlink_unref(v);

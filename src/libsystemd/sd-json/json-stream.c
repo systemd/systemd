@@ -122,6 +122,13 @@ int json_stream_init(JsonStream *s, const JsonStreamParams *params) {
         return 0;
 }
 
+static void json_stream_free_input_buffer(JsonStream *s) {
+        assert(s);
+
+        s->input_buffer = FLAGS_SET(s->flags, JSON_STREAM_INPUT_SENSITIVE) ? erase_and_free(s->input_buffer) : mfree(s->input_buffer);
+        s->input_buffer_index = s->input_buffer_size = s->input_buffer_unscanned = 0;
+}
+
 static void json_stream_clear(JsonStream *s) {
         if (!s)
                 return;
@@ -146,8 +153,7 @@ static void json_stream_clear(JsonStream *s) {
         s->input_fds = mfree(s->input_fds);
         s->n_input_fds = 0;
 
-        s->input_buffer = FLAGS_SET(s->flags, JSON_STREAM_INPUT_SENSITIVE) ? erase_and_free(s->input_buffer) : mfree(s->input_buffer);
-        s->input_buffer_index = s->input_buffer_size = s->input_buffer_unscanned = 0;
+        json_stream_free_input_buffer(s);
 
         s->output_buffer = FLAGS_SET(s->flags, JSON_STREAM_OUTPUT_BUFFER_SENSITIVE) ? erase_and_free(s->output_buffer) : mfree(s->output_buffer);
         s->output_buffer_index = s->output_buffer_size = 0;
@@ -1319,8 +1325,13 @@ int json_stream_read(JsonStream *s) {
                 n = RET_NERRNO(read(s->input_fd, p, rs));
         else
                 n = RET_NERRNO(recv(s->input_fd, p, rs, MSG_DONTWAIT));
-        if (ERRNO_IS_NEG_TRANSIENT(n))
+        if (ERRNO_IS_NEG_TRANSIENT(n)) {
+                /* json_stream_read() allocates the read buffer before it reads from the fd. The read
+                 * returned no data, so we free the buffer again, like json_stream_parse() does. */
+                if (s->input_buffer_size == 0)
+                        json_stream_free_input_buffer(s);
                 return 0;
+        }
         if (ERRNO_IS_NEG_DISCONNECT(n)) {
                 s->flags |= JSON_STREAM_READ_DISCONNECTED;
                 return 1;
@@ -1431,8 +1442,12 @@ int json_stream_parse(JsonStream *s, sd_json_variant **ret) {
 
         s->input_buffer_size -= sz;
 
+        /* The read buffer has room for read_chunk bytes (64K by default). An empty buffer that stays
+         * allocated uses that memory until the connection closes. A server like PID 1 keeps many connections
+         * open that only wait for the end of a method call. We free the buffer once it is empty.
+         * json_stream_read() allocates a new buffer for the next message. */
         if (s->input_buffer_size == 0)
-                s->input_buffer_index = 0;
+                json_stream_free_input_buffer(s);
         else
                 s->input_buffer_index += sz;
 
