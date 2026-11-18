@@ -1527,15 +1527,6 @@ static int vl_method_link_set_dns(sd_varlink *link, sd_json_variant *parameters,
         if (r < 0)
                 return r;
 
-        r = verify_polkit_full(
-                        link,
-                        parameters,
-                        "org.freedesktop.resolve1.set-dns-servers",
-                        SD_JSON_ALLOW_EXTENSIONS,
-                        (const char**) STRV_MAKE("interface", l->ifname));
-        if (r <= 0)
-                return r;
-
         struct in_addr_full **dns_servers = NULL;
         size_t n_dns_servers = 0;
         CLEANUP_ARRAY(dns_servers, n_dns_servers, in_addr_full_free_array);
@@ -1555,6 +1546,15 @@ static int vl_method_link_set_dns(sd_varlink *link, sd_json_variant *parameters,
                 if (r < 0)
                         return r;
         }
+
+        r = verify_polkit_full(
+                        link,
+                        parameters,
+                        "org.freedesktop.resolve1.set-dns-servers",
+                        SD_JSON_ALLOW_EXTENSIONS,
+                        (const char**) STRV_MAKE("interface", l->ifname));
+        if (r <= 0)
+                return r;
 
         r = link_set_dns_servers(l, dns_servers, n_dns_servers, RESOLVE_CONFIG_SOURCE_VARLINK);
         if (r < 0)
