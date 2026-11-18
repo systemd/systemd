@@ -531,7 +531,7 @@ static const sd_json_dispatch_field search_domain_runtime_dispatch_table[] = {
 
 static const sd_json_dispatch_field search_domain_context_dispatch_table[] = {
         { "name",      SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,  offsetof(SearchDomain, name),       SD_JSON_MANDATORY },
-        { "routeOnly", SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool, offsetof(SearchDomain, route_only), 0                 },
+        { "routeOnly", SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool, offsetof(SearchDomain, route_only), SD_JSON_NULLABLE  },
         {},
 };
 
