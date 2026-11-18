@@ -515,12 +515,14 @@ static int vl_method_acquire_pty(sd_varlink *link, sd_json_variant *parameters, 
         if (p.tag && !pseudo_tty_tag_valid(p.tag))
                 return sd_varlink_error_invalid_parameter_name(link, "tag");
 
-        if (p.monitor) {
-                if (p.frontend_type == FRONTEND_TAKE)
-                        return sd_varlink_error_invalid_parameter_name(link, "monitor");
-                if (!FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE))
-                        return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_UPGRADE, /* parameters= */ NULL);
-        }
+        if (p.monitor && p.frontend_type == FRONTEND_TAKE)
+                return sd_varlink_error_invalid_parameter_name(link, "monitor");
+
+        if (p.monitor && !FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_UPGRADE, /* parameters= */ NULL);
+
+        if (!p.monitor && FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_OPERATION_NOT_SUPPORTED, /* parameters= */ NULL);
 
         if (p.osc2811 && !p.monitor)
                 return sd_varlink_error_invalid_parameter_name(link, "osc2811");
@@ -992,6 +994,9 @@ static int vl_method_enroll_pty(sd_varlink *link, sd_json_variant *parameters, s
 
         if (p.monitor && !FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_UPGRADE, /* parameters= */ NULL);
+
+        if (!p.monitor && FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_OPERATION_NOT_SUPPORTED, /* parameters= */ NULL);
 
         if (p.name && !pseudo_tty_name_valid(p.name))
                 return sd_varlink_error_invalid_parameter_name(link, "name");
