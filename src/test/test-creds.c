@@ -350,14 +350,13 @@ static void test_encrypt_decrypt_with(sd_id128_t mode, uid_t uid) {
                         &plaintext,
                         CREDENTIAL_ALLOW_NULL,
                         &encrypted);
-        if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r)) {
-                log_notice_errno(r, "Skipping test encryption mode " SD_ID128_FORMAT_STR ", because /etc/machine-id is not initialized.", SD_ID128_FORMAT_VAL(mode));
-                return;
-        }
-        if (ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
-                log_notice_errno(r, "Skipping test encryption mode " SD_ID128_FORMAT_STR ", because encrypted credentials are not supported.", SD_ID128_FORMAT_VAL(mode));
-                return;
-        }
+        if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r))
+                return (void) log_notice_errno(r, "Skipping test encryption mode " SD_ID128_FORMAT_STR ", because /etc/machine-id is not initialized.",
+                                               SD_ID128_FORMAT_VAL(mode));
+
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return (void) log_notice_errno(r, "Skipping test encryption mode " SD_ID128_FORMAT_STR ", because encrypted credentials are not supported.",
+                                               SD_ID128_FORMAT_VAL(mode));
 
         ASSERT_OK(r);
 

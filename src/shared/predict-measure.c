@@ -200,10 +200,9 @@ static void pcr_state_debug(PcrState *pcr_state, unsigned index, const char *msg
         assert(msg);
 
         _cleanup_free_ char *h = hexmem(pcr_state->value, pcr_state->value_size);
-        if (!h) {
-                log_oom_debug();
-                return;
-        }
+        if (!h)
+                return (void) log_oom_debug();
+
         log_debug("PCR %u:%s=%s (%s)", index, pcr_state->bank, strna(h), msg);
 }
 

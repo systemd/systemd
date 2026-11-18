@@ -356,11 +356,10 @@ static void manager_release_userns_by_info(Manager *m, UserNamespaceInfo *info) 
          * clobber the new namespace's BPF allowlist, fdstore fd and registry entry. */
         if (info->userns_id != 0) {
                 _cleanup_close_ int probe_fd = namespace_open_by_id(info->userns_id);
-                if (probe_fd >= 0) {
-                        log_warning("Refusing to release user namespace %" PRIu64 " (id %" PRIu64 "): the namespace is still alive.",
-                                    info->userns_inode, info->userns_id);
-                        return;
-                }
+                if (probe_fd >= 0)
+                        return (void) log_warning("Refusing to release user namespace %" PRIu64 " (id %" PRIu64 "): the namespace is still alive.",
+                                                  info->userns_inode, info->userns_id);
+
                 if (probe_fd != -ESTALE &&
                     !ERRNO_IS_NEG_PRIVILEGE(probe_fd) &&
                     !ERRNO_IS_NEG_NOT_SUPPORTED(probe_fd))

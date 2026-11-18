@@ -585,10 +585,9 @@ TEST(memory_deny_write_execute_mmap) {
         CHECK_SECCOMP(/* skip_container= */ false);
 
 #if HAVE_VALGRIND_VALGRIND_H
-        if (RUNNING_ON_VALGRIND) {
-                log_notice("Running on valgrind, skipping %s", __func__);
-                return;
-        }
+        if (RUNNING_ON_VALGRIND)
+                return (void) log_notice("Running on valgrind, skipping %s", __func__);
+
 #endif
 #if HAS_FEATURE_ADDRESS_SANITIZER
         log_notice("Running on address sanitizer, skipping %s", __func__);
@@ -645,10 +644,9 @@ TEST(memory_deny_write_execute_shmat) {
         CHECK_SECCOMP(/* skip_container= */ false);
 
 #if HAVE_VALGRIND_VALGRIND_H
-        if (RUNNING_ON_VALGRIND) {
-                log_notice("Running on valgrind, skipping %s", __func__);
-                return;
-        }
+        if (RUNNING_ON_VALGRIND)
+                return (void) log_notice("Running on valgrind, skipping %s", __func__);
+
 #endif
 #if HAS_FEATURE_ADDRESS_SANITIZER
         log_notice("Running on address sanitizer, skipping %s", __func__);

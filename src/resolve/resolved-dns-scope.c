@@ -1118,10 +1118,8 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         }
 
         r = dns_packet_extract(p);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to extract resource records from incoming packet: %m");
-                return;
-        }
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to extract resource records from incoming packet: %m");
 
         if (DNS_PACKET_LLMNR_C(p)) {
                 /* Somebody notified us about a possible conflict */
@@ -1135,10 +1133,9 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         key = dns_question_first_key(p->question);
 
         r = dns_zone_lookup(&s->zone, key, /* ifindex= */ 0, &answer, &soa, &tentative);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to look up key: %m");
-                return;
-        }
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to look up key: %m");
+
         if (r == 0)
                 return;
 
@@ -1146,17 +1143,13 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                 dns_answer_order_by_scope(answer, in_addr_is_link_local(p->family, &p->sender) > 0);
 
         r = dns_scope_make_reply_packet(s, DNS_PACKET_ID(p), DNS_RCODE_SUCCESS, p->question, answer, soa, tentative, &reply);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to build reply packet: %m");
-                return;
-        }
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to build reply packet: %m");
 
         if (stream) {
                 r = dns_stream_write_packet(stream, reply);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to enqueue reply packet: %m");
-                        return;
-                }
+                if (r < 0)
+                        return (void) log_debug_errno(r, "Failed to enqueue reply packet: %m");
 
                 /* Let's take an extra reference on this stream, so that it stays around after returning. The reference
                  * will be dangling until the stream is disconnected, and the default completion handler of the stream
@@ -1173,14 +1166,11 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                         fd = manager_llmnr_ipv4_udp_fd(s->manager);
                 else if (p->family == AF_INET6)
                         fd = manager_llmnr_ipv6_udp_fd(s->manager);
-                else {
-                        log_debug("Unknown protocol");
-                        return;
-                }
-                if (fd < 0) {
-                        log_debug_errno(fd, "Failed to get reply socket: %m");
-                        return;
-                }
+                else
+                        return (void) log_debug("Unknown protocol");
+
+                if (fd < 0)
+                        return (void) log_debug_errno(fd, "Failed to get reply socket: %m");
 
                 /* Note that we always immediately reply to all LLMNR
                  * requests, and do not wait any time, since we
@@ -1188,10 +1178,8 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                  * 4795, Section 2.7 */
 
                 r = manager_send(s->manager, fd, p->ifindex, p->family, &p->sender, p->sender_port, /* source= */ NULL, reply);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to send reply packet: %m");
-                        return;
-                }
+                if (r < 0)
+                        return (void) log_debug_errno(r, "Failed to send reply packet: %m");
         }
 }
 
@@ -1381,10 +1369,8 @@ void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p) {
                 return;
 
         r = dns_packet_extract(p);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to extract packet: %m");
-                return;
-        }
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to extract packet: %m");
 
         log_debug("Checking for conflicts...");
 

@@ -345,10 +345,8 @@ static void service_start_watchdog(Service *s) {
 
         if (s->watchdog_event_source) {
                 r = sd_event_source_set_time(s->watchdog_event_source, usec_add(s->watchdog_timestamp.monotonic, watchdog_usec));
-                if (r < 0) {
-                        log_unit_warning_errno(UNIT(s), r, "Failed to reset watchdog timer: %m");
-                        return;
-                }
+                if (r < 0)
+                        return (void) log_unit_warning_errno(UNIT(s), r, "Failed to reset watchdog timer: %m");
 
                 r = sd_event_source_set_enabled(s->watchdog_event_source, SD_EVENT_ONESHOT);
         } else {
@@ -358,10 +356,8 @@ static void service_start_watchdog(Service *s) {
                                 CLOCK_MONOTONIC,
                                 usec_add(s->watchdog_timestamp.monotonic, watchdog_usec), /* accuracy= */ 0,
                                 service_dispatch_watchdog, s);
-                if (r < 0) {
-                        log_unit_warning_errno(UNIT(s), r, "Failed to add watchdog timer: %m");
-                        return;
-                }
+                if (r < 0)
+                        return (void) log_unit_warning_errno(UNIT(s), r, "Failed to add watchdog timer: %m");
 
                 (void) sd_event_source_set_description(s->watchdog_event_source, "service-watchdog");
 
@@ -474,11 +470,9 @@ static void service_extend_timeout(Service *s, usec_t extend_timeout_usec) {
 static void service_reset_watchdog(Service *s) {
         assert(s);
 
-        if (freezer_state_objective(UNIT(s)->freezer_state) != FREEZER_RUNNING) {
-                log_unit_debug(UNIT(s), "Service is currently %s, skipping resetting watchdog.",
-                               freezer_state_to_string(UNIT(s)->freezer_state));
-                return;
-        }
+        if (freezer_state_objective(UNIT(s)->freezer_state) != FREEZER_RUNNING)
+                return (void) log_unit_debug(UNIT(s), "Service is currently %s, skipping resetting watchdog.",
+                                             freezer_state_to_string(UNIT(s)->freezer_state));
 
         dual_timestamp_now(&s->watchdog_timestamp);
         service_start_watchdog(s);
@@ -5548,11 +5542,9 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
         }
 
         if (strv_contains(tags, "READY=1")) {
-                if (s->notify_state == NOTIFY_STOPPING) {
-                        log_unit_error(UNIT(s),
-                                       "Service must stop after STOPPING=1 notification, refusing attempted transition to READY.");
-                        return;
-                }
+                if (s->notify_state == NOTIFY_STOPPING)
+                        return (void) log_unit_error(UNIT(s),
+                                                     "Service must stop after STOPPING=1 notification, refusing attempted transition to READY.");
 
                 if (s->type == SERVICE_NOTIFY_RELOAD && s->state == SERVICE_START) {
                         r = service_check_reload_signal_handler(s, ", refusing service startup", ", ignoring");
@@ -5598,11 +5590,9 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
                         service_enter_reload_post(s);
 
         } else if (strv_contains(tags, "RELOADING=1")) {
-                if (s->notify_state == NOTIFY_STOPPING) {
-                        log_unit_error(UNIT(s),
-                                       "Service must stop after STOPPING=1 notification, refusing attempted transition to RELOADING.");
-                        return;
-                }
+                if (s->notify_state == NOTIFY_STOPPING)
+                        return (void) log_unit_error(UNIT(s),
+                                                     "Service must stop after STOPPING=1 notification, refusing attempted transition to RELOADING.");
 
                 s->notify_state = NOTIFY_RELOADING;
 
