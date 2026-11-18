@@ -12,6 +12,7 @@
 #include "resolve-util.h"
 #include "resolved-dns-cache.h"
 #include "resolved-dns-scope.h"
+#include "resolved-dns-transaction.h"
 #include "resolved-manager.h"
 #include "resolved-mdns.h"
 #include "tests.h"
@@ -178,6 +179,84 @@ TEST(mdns_goodbye_after_the_deadline_rearms) {
         ASSERT_NULL(scope->mdns_goodbye_event_source);
 }
 
+/* A failure to arm the timer is only logged: returning it from the packet handler made sd-event switch
+ * off mDNS reception. A finished event loop refuses to arm timers. */
+TEST(mdns_goodbye_arm_failure_is_not_returned) {
+        Manager manager = {};
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *bye = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+
+        scope = test_scope_new(&manager, &event);
+        receive_a(scope, "goodbye.local", 120);
+
+        ASSERT_OK(sd_event_exit(event, /* code= */ 0));
+        ASSERT_OK(sd_event_run(event, /* timeout= */ 0));
+        ASSERT_EQ(sd_event_get_state(event), SD_EVENT_FINISHED);
+
+        bye = new_a("goodbye.local", /* ttl= */ 0);
+        p = make_reply(&bye, 1, /* flags= */ 0);
+        ASSERT_RETURN_EXPECTED(ASSERT_OK(mdns_scope_process_packet(scope, p)));
+
+        /* The packet was handled all the same: the goodbye reached the cache. */
+        ASSERT_EQ(cached_ttl(scope, "goodbye.local"), 1u);
+        ASSERT_NULL(scope->mdns_goodbye_event_source);
+}
+
+/* Nor does it cut the rest of the reply's handling short: a transaction waiting for the record still
+ * takes the reply. The scope is an mDNS one without a link, built by hand: a transaction on a DNS scope
+ * would treat the reply as one from a unicast DNS server. */
+TEST(mdns_goodbye_arm_failure_still_answers_transactions) {
+        Manager manager = {
+                .enable_cache = DNS_CACHE_MODE_YES,
+        };
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *bye = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        DnsTransaction *t;
+
+        ASSERT_OK(sd_event_new(&event));
+        manager.event = event;
+        DnsScope scope = {
+                .manager = &manager,
+                .protocol = DNS_PROTOCOL_MDNS,
+                .family = AF_INET,
+                .cache.cache_max = DEFAULT_CACHE_MAX,
+        };
+
+        ASSERT_OK(sd_event_exit(event, /* code= */ 0));
+        ASSERT_OK(sd_event_run(event, /* timeout= */ 0));
+        ASSERT_EQ(sd_event_get_state(event), SD_EVENT_FINISHED);
+
+        /* Sent, and waiting for an answer. Kept around for inspection once it completes. */
+        ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "goodbye.local"));
+        ASSERT_OK(dns_transaction_new(&t, &scope, key, /* bypass= */ NULL, /* flags= */ 0));
+        t->block_gc++;
+        t->state = DNS_TRANSACTION_PENDING;
+        t->n_attempts = 1;
+        t->wait_for_answer = true;
+
+        /* Without a link, the reply comes in on no interface either. */
+        bye = new_a("goodbye.local", /* ttl= */ 0);
+        p = make_reply(&bye, 1, /* flags= */ 0);
+        p->ifindex = 0;
+        ASSERT_RETURN_EXPECTED(ASSERT_OK(mdns_scope_process_packet(&scope, p)));
+
+        ASSERT_NULL(scope.mdns_goodbye_event_source);
+        ASSERT_EQ(t->state, DNS_TRANSACTION_SUCCESS);
+        ASSERT_EQ(dns_answer_size(t->answer), 1u);
+
+        t->block_gc--;
+        ASSERT_NULL(dns_transaction_gc(t));
+        ASSERT_NULL(scope.transactions);
+
+        hashmap_free(scope.transactions_by_key);
+        hashmap_free(manager.dns_transactions);
+        dns_cache_flush(&scope.cache);
+}
+
 /* RFC 6762 section 10.1: each goodbye record of a reply is cached with TTL 1, not dropped at once, and
  * a live record between them keeps its TTL. */
 TEST(mdns_goodbye_records_are_cached_with_ttl_1) {
@@ -278,6 +357,47 @@ TEST(mdns_reply_for_the_reverse_zones_is_cached) {
         receive(scope, &v4, 1);
         receive(scope, &v6, 1);
         ASSERT_EQ(dns_cache_size(&scope->cache), 2u);
+}
+
+/* A reply that fails to parse is dropped, not returned as a failure: that would make sd-event switch off
+ * mDNS reception. */
+TEST(mdns_malformed_reply_is_dropped) {
+        Manager manager = {};
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *bye = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+
+        scope = test_scope_new(&manager, &event);
+
+        /* It announces a second record it does not carry. */
+        bye = new_a("goodbye.local", /* ttl= */ 0);
+        p = make_reply(&bye, 1, /* flags= */ 0);
+        DNS_PACKET_HEADER(p)->ancount = htobe16(2);
+        ASSERT_OK(mdns_scope_process_packet(scope, p));
+
+        ASSERT_TRUE(dns_cache_is_empty(&scope->cache));
+        ASSERT_NULL(scope->mdns_goodbye_event_source);
+}
+
+/* So is a query that fails to parse. */
+TEST(mdns_malformed_query_is_dropped) {
+        Manager manager = {};
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(dns_scope_freep) DnsScope *scope = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+
+        scope = test_scope_new(&manager, &event);
+
+        /* It announces a question it does not carry. */
+        ASSERT_OK(dns_packet_new_query(&p, DNS_PROTOCOL_MDNS, /* min_alloc_dsize= */ 0,
+                                       /* dnssec_checking_disabled= */ false));
+        DNS_PACKET_HEADER(p)->qdcount = htobe16(1);
+        p->family = AF_INET;
+        p->sender.in.s_addr = htobe32(0x0a000001);
+        p->sender_port = MDNS_PORT;
+        p->ifindex = 1;
+        ASSERT_OK(mdns_scope_process_packet(scope, p));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

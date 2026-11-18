@@ -494,7 +494,7 @@ int mdns_scope_process_packet(DnsScope *scope, DnsPacket *p) {
                                         mdns_goodbye_callback,
                                         scope);
                         if (r < 0)
-                                return r;
+                                log_warning_errno(r, "mDNS: Failed to arm goodbye timer, ignoring: %m");
                 }
 
                 dns_cache_put(
